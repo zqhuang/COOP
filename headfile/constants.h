@@ -1,3 +1,4 @@
+#define COOP_INT integer(coop_integer_length)
 #define COOP_REAL  real(coop_real_length)
 #define COOP_STRING character(len=coop_string_length)
 #define COOP_SHORT_STRING character(len=coop_short_string_length)
