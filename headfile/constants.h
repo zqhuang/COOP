@@ -1,0 +1,5 @@
+#define COOP_REAL  real(coop_real_length)
+#define COOP_STRING character(len=coop_string_length)
+#define COOP_SHORT_STRING character(len=coop_short_string_length)
+#define COOP_LONG_STRING character(len=coop_long_string_length)
+#define COOP_UNKNOWN_STRING character(len=*)
