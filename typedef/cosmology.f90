@@ -41,9 +41,6 @@ module coop_type_cosmology
 contains
 
 
-  
-
-
   subroutine coop_cosmology_free(this)
     class(coop_cosmology):: this
     integer i
