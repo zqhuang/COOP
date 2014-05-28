@@ -32,7 +32,8 @@ contains
   function coop_function_constructor(f, xmin, xmax, xlog, ylog, arg) result(cf)
     external f
     COOP_REAL f, xmin, xmax, dx, lnxmin, lnxmax
-    logical,optional::xlog, ylog
+    logical,optional::xlog
+    logical,optional::ylog
     type(coop_arguments),optional::arg
     COOP_REAL_ARRAY::y
     COOP_INT i
@@ -53,7 +54,7 @@ contains
        dx = (lnxmax - lnxmin)/(coop_default_array_size - 1)
        if(present(arg))then
           y(1) = f(xmin, arg)
-          y(2) = f(xmax, arg)
+          y(coop_default_array_size) = f(xmax, arg)
           !$omp parallel do
           do i=2, coop_default_array_size-1
              y(i) = f(exp(lnxmin + dx*(i-1)), arg)
@@ -61,7 +62,7 @@ contains
           !$omp end parallel do
        else
           y(1) = f(xmin)
-          y(2) = f(xmax)
+          y(coop_default_array_size) = f(xmax)
           !$omp parallel do
           do i=2, coop_default_array_size-1
              y(i) = f(exp(lnxmin + dx*(i-1)))
@@ -72,7 +73,7 @@ contains
        dx = (xmax - xmin)/(coop_default_array_size - 1)
        if(present(arg))then
           y(1) = f(xmin, arg)
-          y(2) = f(xmax, arg)
+          y(coop_default_array_size) = f(xmax, arg)
           !$omp parallel do
           do i=2, coop_default_array_size-1
              y(i) = f(xmin + dx*(i-1), arg)
@@ -80,7 +81,7 @@ contains
           !$omp end parallel do
        else
           y(1) = f(xmin)
-          y(2) = f(xmax)
+          y(coop_default_array_size) = f(xmax)
           !$omp parallel do
           do i=2, coop_default_array_size-1
              y(i) = f(xmin + dx*(i-1))

@@ -78,20 +78,22 @@ contains
     else
        this%cs2_dynamic = .false.
     endif
-    amin = 1.d-8
-    amax = 1.
-    lnamin = log(amin)
-    lnamax = log(amax)
-    dlna = (lnamax - lnamin)/(coop_default_array_size  - 1)
-    w1 = this%wofa(amax)
-    lnrat(coop_default_array_size) = 0.
-    do i= coop_default_array_size - 1, 1, -1
-       w2 = this%wofa(exp(-(lnamin + dlna*(i-1))))
-       lnrat(i) = lnrat(i+1) - (6.+w2 + w1 + 4.*this%wofa(this%wofa(exp(-(lnamin + dlna*(i-0.5))))))
-       w1 = w2
-    enddo
-    lnrat = lnrat*(dlna/2.)
-    call this%frho%init(coop_default_array_size, amin, amax, exp(lnrat), method = COOP_INTERPOLATE_SPLINE, xlog = .true., ylog = .true.)
+    if(this%w_dynamic)then
+       amin = COOP_min_scale_factor
+       amax = 1.
+       lnamin = log(amin)
+       lnamax = log(amax)
+       dlna = (lnamax - lnamin)/(coop_default_array_size  - 1)
+       w1 = this%wofa(amax)
+       lnrat(coop_default_array_size) = 0.
+       do i= coop_default_array_size - 1, 1, -1
+          w2 = this%wofa(exp((lnamin + dlna*(i-1))))
+          lnrat(i) = lnrat(i+1) - (6.+w2 + w1 + 4.*this%wofa(this%wofa(exp((lnamin + dlna*(i-0.5))))))
+          w1 = w2
+       enddo
+       lnrat = lnrat*(-dlna/2.)
+       call this%frho%init(coop_default_array_size, amin, amax, exp(lnrat), method = COOP_INTERPOLATE_SPLINE, xlog = .true., ylog = .true.)
+    endif
   end subroutine coop_species_initialize
 
 
@@ -123,22 +125,28 @@ contains
     write(*,"(A, I8)") "Species ID: ", this%id
     write(*,"(A, G15.6)") "Species Omega: ", this%Omega
     if(this%w_dynamic)then
-       write(*,"(A)") "Species w(a=0.00001) = ", this%wofa(COOP_REAL_OF(0.00001))
-       write(*,"(A)") "Species w(a=0.01) = ", this%wofa(COOP_REAL_OF(0.01))
-       write(*,"(A)") "Species w(a=0.1) = ", this%wofa(COOP_REAL_OF(0.1))
-       write(*,"(A)") "Species w(a=0.5) = ", this%wofa(COOP_REAL_OF(0.5))
-       write(*,"(A)") "Species w(a=1) = ", this%wofa(COOP_REAL_OF(1.))
+       write(*,"(A, G14.5)") "Species w(a=0.00001) = ", this%wofa(COOP_REAL_OF(0.00001))
+       write(*,"(A, G14.5)") "Species w(a=0.01) = ", this%wofa(COOP_REAL_OF(0.01))
+       write(*,"(A, G14.5)") "Species w(a=0.1) = ", this%wofa(COOP_REAL_OF(0.1))
+       write(*,"(A, G14.5)") "Species w(a=0.5) = ", this%wofa(COOP_REAL_OF(0.5))
+       write(*,"(A, G14.5)") "Species w(a=1) = ", this%wofa(COOP_REAL_OF(1.))
+       write(*,"(A, G14.5)") "Species rho_de(a=0.00001) = ", this%density_ratio(COOP_REAL_OF(0.00001))
+       write(*,"(A, G14.5)") "Species rho_de(a=0.01) = ", this%density_ratio(COOP_REAL_OF(0.01))
+       write(*,"(A, G14.5)") "Species rho_de(a=0.1) = ", this%density_ratio(COOP_REAL_OF(0.1))
+       write(*,"(A, G14.5)") "Species rho_de(a=0.5) = ", this%density_ratio(COOP_REAL_OF(0.5))
+       write(*,"(A, G14.5)") "Species rho_de(a=1) = ", this%density_ratio(COOP_REAL_OF(1.))
+       
     else
-       write(*,"(A, G15.6)") "Species w: ", this%w
+       write(*,"(A, G14.5)") "Species w: ", this%w
     endif
     if(this%cs2_dynamic)then
-       write(*,"(A)") "Species cs^2(a=0.00001) = ", this%cs2ofa(COOP_REAL_OF(0.00001))
-       write(*,"(A)") "Species cs^2(a=0.01) = ", this%cs2ofa(COOP_REAL_OF(0.01))
-       write(*,"(A)") "Species cs^2(a=0.1) = ", this%cs2ofa(COOP_REAL_OF(0.1))
-       write(*,"(A)") "Species cs^2(a=0.5) = ", this%cs2ofa(COOP_REAL_OF(0.5))
-       write(*,"(A)") "Species cs^2(a=1) = ", this%cs2ofa(COOP_REAL_OF(1.))
+       write(*,"(A, G14.5)") "Species cs^2(a=0.00001) = ", this%cs2ofa(COOP_REAL_OF(0.00001))
+       write(*,"(A, G14.5)") "Species cs^2(a=0.01) = ", this%cs2ofa(COOP_REAL_OF(0.01))
+       write(*,"(A, G14.5)") "Species cs^2(a=0.1) = ", this%cs2ofa(COOP_REAL_OF(0.1))
+       write(*,"(A, G14.5)") "Species cs^2(a=0.5) = ", this%cs2ofa(COOP_REAL_OF(0.5))
+       write(*,"(A, G14.5)") "Species cs^2(a=1) = ", this%cs2ofa(COOP_REAL_OF(1.))
     else
-       write(*,"(A, G15.6)") "Species cs^2: ", this%cs2
+       write(*,"(A, G14.5)") "Species cs^2: ", this%cs2
     endif
   end subroutine coop_species_print
 
