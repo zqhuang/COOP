@@ -2,7 +2,7 @@ SHELL = /bin/sh
 include ../configure.in
 include ../compile_rules.in
 TYPEDEFLIB = libcooptypedef.a
-TYPEDEFOBJ = constants.o svd.o basicutils.o arguments.o function.o  species.o cosmology.o wrapper.o
+TYPEDEFOBJ = constants.o svd.o basicutils.o string.o arguments.o function.o  species.o cosmology.o wrapper.o
 
 default: $(TYPEDEFLIB)
 

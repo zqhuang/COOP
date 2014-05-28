@@ -1,6 +1,7 @@
 module coop_type_species
   use coop_constants
   use coop_basicutils
+  use coop_string
   use coop_type_function
   implicit none
 #include "constants.h"
@@ -26,7 +27,80 @@ module coop_type_species
   end type coop_species
 
 
+  interface coop_species
+     procedure coop_species_constructor
+  end interface coop_species
+
+
 contains
+
+  function coop_species_constructor(name, id, Omega, w, cs2, fw, fcs2) result(this)
+    type(coop_species) :: this
+    COOP_UNKNOWN_STRING, optional::name
+    COOP_INT, optional:: id
+    COOP_REAL, optional::Omega
+    COOP_REAL, optional::w
+    COOP_REAL, optional::cs2
+    type(coop_function),optional::fw
+    type(coop_function),optional::fcs2
+    COOP_INT i
+    COOP_REAL_ARRAY::lnrat
+    COOP_REAL amin, amax, lnamin, lnamax, w1, w2, dlna
+
+    if(present(name))then
+       this%name = name
+    else
+       this%name = ""
+    endif
+    if(present(id))then
+       this%id = id
+    else
+       this%id = 0
+    endif
+    if(present(Omega))then
+       this%Omega = Omega
+    else
+       this%Omega = 1
+    endif
+    if(present(w))then
+       this%w = w
+    else
+       this%w = 0
+    endif
+    if(present(cs2))then
+       this%cs2 = cs2
+    else
+       this%cs2 = 0.
+    endif
+    if(present(fw))then
+       this%w_dynamic = .true.
+       allocate(this%fw, source = fw)
+    else
+       this%w_dynamic = .false.
+    endif
+    if(present(fcs2))then
+       this%cs2_dynamic = .true.
+       allocate(this%fcs2, source = fcs2)
+    else
+       this%cs2_dynamic = .false.
+    endif
+    if(this%w_dynamic)then
+       amin = COOP_min_scale_factor
+       amax = 1.
+       lnamin = log(amin)
+       lnamax = log(amax)
+       dlna = (lnamax - lnamin)/(coop_default_array_size  - 1)
+       w1 = this%wofa(amax)
+       lnrat(coop_default_array_size) = 0.
+       do i= coop_default_array_size - 1, 1, -1
+          w2 = this%wofa(exp((lnamin + dlna*(i-1))))
+          lnrat(i) = lnrat(i+1) - (6.+w2 + w1 + 4.*this%wofa(this%wofa(exp((lnamin + dlna*(i-0.5))))))
+          w1 = w2
+       enddo
+       lnrat = lnrat*(-dlna/2.)
+       call this%frho%init(coop_default_array_size, amin, amax, exp(lnrat), method = COOP_INTERPOLATE_SPLINE, xlog = .true., ylog = .true.)
+    endif
+  end function coop_species_constructor
 
   subroutine coop_species_initialize(this, name, id, Omega, w, cs2, fw, fcs2)
     class(coop_species) :: this
@@ -122,7 +196,7 @@ contains
   subroutine coop_species_print(this)
     class(coop_species):: this
     write(*,"(A)") "Species Name: "//trim(this%name)
-    write(*,"(A, I8)") "Species ID: ", this%id
+    write(*,"(A)") "Species ID: "//trim(coop_num2str(this%id))
     write(*,"(A, G15.6)") "Species Omega: ", this%Omega
     if(this%w_dynamic)then
        write(*,"(A, G14.5)") "Species w(a=0.00001) = ", this%wofa(COOP_REAL_OF(0.00001))
