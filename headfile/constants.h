@@ -7,3 +7,10 @@
 #define COOP_LONG_STRING character(len=coop_long_string_length)
 #define COOP_UNKNOWN_STRING character(len=*)
 #define COOP_REAL_OF(x) real(x, coop_real_length)
+#define COOP_INT_OF(x) int(x, coop_int_length)
+
+#define COOP_INTERPOLATE_LINEAR 1
+#define COOP_INTERPOLATE_QUDRATIC 2
+#define COOP_INTERPOLATE_SPLINE 3
+#define COOP_INTERPOLATE_CHEBYSHEV 4
+

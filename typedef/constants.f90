@@ -8,6 +8,8 @@ module coop_constants
   integer,parameter::coop_short_string_length = 32
   integer,parameter::coop_long_string_length = 8192
   integer,parameter::coop_default_array_size = 1024  ! default array size for interpolation
+  integer,parameter::coop_default_chebyshev_fit_order  = 15 !!for chebyshev fit
+
 
   COOP_REAL, parameter:: coop_pi = asin(1.d0)*2.d0
   COOP_STRING, parameter:: coop_version = "0.0"
@@ -21,7 +23,6 @@ module coop_constants
 !!for primordial power spectra firstorder/primordialpower.f90
   COOP_INT, parameter:: coop_max_num_PP_params = 32
 
- 
 
 
 end module coop_constants
