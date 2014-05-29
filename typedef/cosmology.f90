@@ -24,6 +24,7 @@ module coop_type_cosmology
   end type coop_cosmology
 
   type, extends(coop_cosmology):: coop_cosmology_background
+     COOP_REAL Omega_k
      COOP_INT num_species
      type(coop_species), dimension(coop_max_num_species)::species
    contains
@@ -50,6 +51,7 @@ contains
           call this%species(i)%free
        enddo
        this%num_species = 0
+       this%Omega_k = 1.
     end select
   end subroutine coop_cosmology_free
 
@@ -67,6 +69,7 @@ contains
           this%name = "COOP_COSMOLOGY"
        type is(coop_cosmology_background)
           this%name = "COOP_COSMOLOGY_BACKGROUND"
+          this%Omega_k = 1.
        class default
           this%name = "COOP_COSMOLOGY_UNKNOWN"
        end select
@@ -101,6 +104,7 @@ contains
     COOP_UNKNOWN_STRING, optional::name
     COOP_INT, optional::id
     this%num_species = 0
+    this%Omega_k = 1.
     if(present(name))then
        this%name = name
     else
@@ -119,6 +123,7 @@ contains
     if(this%num_species .ge. coop_max_num_species) stop "coop_cosmology_background_add_species: too many species"
     this%num_species = this%num_species+1
     this%species(this%num_species:this%num_species) = species
+    this%Omega_k = this%Omega_k - species%Omega
   end subroutine coop_cosmology_background_add_species
 
 

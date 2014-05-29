@@ -1,0 +1,190 @@
+    COOP_INT, optional::gengre
+    COOP_UNKNOWN_STRING, optional::name
+    COOP_INT, optional:: id
+    COOP_REAL, optional::Omega
+    COOP_REAL, optional::w
+    COOP_REAL, optional::cs2
+    COOP_REAL, optional::Omega_massless
+    type(coop_function),optional::fw
+    type(coop_function),optional::fcs2
+    COOP_INT i
+    COOP_REAL_ARRAY::lnrat, warr, cs2arr
+    COOP_REAL amin, amax, lnamin, lnamax, w1, w2, dlna, lnma, lnm, left, right, mid, lnrho, lnp, dlnrho, dlnp
+    if(present(name))then
+       this%name = name
+    else
+       this%name = "COOP_SPECIES"
+    endif
+    if(present(id))then
+       this%id = id
+    else
+       this%id = 0
+    endif
+
+    if(present(Omega))then
+       this%Omega = Omega
+    else
+       this%Omega = 1
+    endif
+
+    if(present(Omega_massless))then
+       this%Omega_massless = max(min(Omega_massless, this%Omega), COOP_REAL_OF(0.))
+    else
+       this%Omega_massless = this%Omega
+    endif
+
+    if(present(gengre))then
+       this%gengre =gengre
+       if(this%gengre .eq. COOP_SPECIES_MASSIVE_FERMION .or. this%gengre .eq. COOP_SPECIES_MASSIVE_BOSON)then
+          if(this%Omega_massless .ge. this%Omega * 0.9999)then
+             this%gengre = COOP_SPECIES_MASSLESS
+          endif
+       endif
+    else
+       if(present(Omega_massless))then
+          if(Omega_massless .le. 0.)then
+             this%gengre = COOP_SPECIES_CDM
+          elseif(Omega_massless/this%Omega .le. 0.9999)then
+             this%gengre = COOP_SPECIES_MASSIVE_FERMION
+          else
+             this%gengre = COOP_SPECIES_MASSLESS
+          endif
+       else
+          this%gengre = COOP_SPECIES_FLUID
+       endif
+    endif
+    
+    select case(this%gengre)
+    case(COOP_SPECIES_MASSLESS)
+       this%w = 1.d0/3.
+       this%cs2 = this%w
+    case(COOP_SPECIES_CDM)
+       this%w = 0.
+       this%cs2 = this%w
+    case(COOP_SPECIES_COSMOLOGICAL_CONSTANT)
+       this%w = -1.d0
+       this%cs2 = 1.
+    case default
+       if(present(w))then
+          this%w = w
+       else
+          this%w = 0.
+       endif
+       if(present(cs2))then
+          this%cs2 = cs2
+       else
+          this%cs2 = 0.
+       endif
+    end select
+    select case(this%gengre)
+    case(COOP_SPECIES_MASSLESS, COOP_SPECIES_COSMOLOGICAL_CONSTANT, COOP_SPECIES_CDM)
+       this%w_dynamic = .false.
+       this%cs2_dynamic = .false.
+       return
+    case(COOP_SPECIES_MASSIVE_BOSON)
+       this%w_dynamic = .true.
+       this%cs2_dynamic = .true.
+       amin = coop_min_scale_factor
+       amax = 1.
+       lnamin = log(amin)
+       lnamax = log(amax)
+       dlna = (lnamax - lnamin)/(coop_default_array_size  - 1)
+       allocate(this%fw)
+       allocate(this%fcs2)
+       left = log((this%Omega/this%Omega_massless - 1.)*(4.*coop_pi**2/5.))/2.
+       right = log(this%Omega/this%Omega_massless)- log(coop_Riemannzeta3 * 30.d0/coop_pi**4)
+       w1 = log(this%Omega/this%Omega_massless)
+       do while(right - left .gt. 1.e-6)
+          lnm = (left + right)/2.
+          call coop_boson_get_lnrho(lnm, w2)
+          if(w2.gt.w1)then
+             right = lnm
+          else
+             left = lnm
+          endif
+       enddo
+       this%mbyT = exp(lnm)
+       !$omp parallel do private(lnma, lnrho, lnp, dlnrho, dlnp)
+       do i=1, coop_default_array_size
+          lnma = lnm + lnamin+(i-1)*dlna
+          call coop_boson_get_lnrho(lnma, lnrho)
+          call coop_boson_get_lnp(lnma, lnp)
+          call coop_boson_get_dlnrho(lnma, dlnrho)
+          call coop_boson_get_dlnp(lnma, dlnp)
+          warr(i) = exp(lnp-lnrho)
+          cs2arr(i) = exp(dlnp-dlnrho)*warr(i)
+          lnrat(i) = lnrho- 4.*(lnamin+(i-1)*dlna) - w1
+       enddo
+       !$omp end parallel do
+       call this%fw%init(coop_default_array_size, amin, amax, warr, method = COOP_INTERPOLATE_LINEAR, xlog = .true.)
+       call this%fcs2%init(coop_default_array_size, amin, amax, cs2arr, method = COOP_INTERPOLATE_LINEAR, xlog = .true.)
+       call this%frho%init(coop_default_array_size, amin, amax, exp(lnrat), method = COOP_INTERPOLATE_LINEAR, xlog = .true., ylog = .true.)
+    case(COOP_SPECIES_MASSIVE_FERMION)
+
+       this%w_dynamic = .true.
+       this%cs2_dynamic = .true.
+       amin = coop_min_scale_factor
+       amax = 1.
+       lnamin = log(amin)
+       lnamax = log(amax)
+       dlna = (lnamax - lnamin)/(coop_default_array_size  - 1)
+       allocate(this%fw)
+       allocate(this%fcs2)
+       left = log((this%Omega/this%Omega_massless - 1.)*(7.*coop_pi**2/5.))/2.
+       right = log(this%Omega/this%Omega_massless)- log(coop_Riemannzeta3 * 180.d0/7.d0/coop_pi**4)
+       w1 = log(this%Omega/this%Omega_massless)
+       do while(right - left .gt. 1.e-6)
+          lnm = (left + right)/2.
+          call coop_fermion_get_lnrho(lnm, w2)
+          if(w2.gt.w1)then
+             right = lnm
+          else
+             left = lnm
+          endif
+       enddo
+       this%mbyT = exp(lnm)
+       !$omp parallel do private(lnma, lnrho, lnp, dlnrho, dlnp)
+       do i=1, coop_default_array_size
+          lnma = lnm + lnamin+(i-1)*dlna
+          call coop_fermion_get_lnrho(lnma, lnrho)
+          call coop_fermion_get_lnp(lnma, lnp)
+          call coop_fermion_get_dlnrho(lnma, dlnrho)
+          call coop_fermion_get_dlnp(lnma, dlnp)
+          warr(i) = exp(lnp-lnrho)
+          cs2arr(i) = exp(dlnp-dlnrho)*warr(i)
+          lnrat(i) = lnrho- 4.*(lnamin+(i-1)*dlna) - w1
+       enddo
+       !$omp end parallel do
+       call this%fw%init(coop_default_array_size, amin, amax, warr, method = COOP_INTERPOLATE_LINEAR, xlog = .true.)
+       call this%fcs2%init(coop_default_array_size, amin, amax, cs2arr, method = COOP_INTERPOLATE_LINEAR, xlog = .true.)
+       call this%frho%init(coop_default_array_size, amin, amax, exp(lnrat), method = COOP_INTERPOLATE_LINEAR, xlog = .true., ylog = .true.)
+    case default
+       if(present(fw))then
+          this%w_dynamic = .true.
+          allocate(this%fw, source = fw)
+       else
+          this%w_dynamic = .false.
+       endif
+       if(present(fcs2))then
+          this%cs2_dynamic = .true.
+          allocate(this%fcs2, source = fcs2)
+       else
+          this%cs2_dynamic = .false.
+       endif
+       if(this%w_dynamic)then
+          amin = COOP_min_scale_factor
+          amax = 1.
+          lnamin = log(amin)
+          lnamax = log(amax)
+          dlna = (lnamax - lnamin)/(coop_default_array_size  - 1)
+          w1 = this%wofa(amax)
+          lnrat(coop_default_array_size) = 0.
+          do i= coop_default_array_size - 1, 1, -1
+             w2 = this%wofa(exp((lnamin + dlna*(i-1))))
+             lnrat(i) = lnrat(i+1) - (6.+w2 + w1 + 4.*this%wofa(this%wofa(exp((lnamin + dlna*(i-0.5))))))
+             w1 = w2
+          enddo
+          lnrat = lnrat*(-dlna/2.)
+          call this%frho%init(coop_default_array_size, amin, amax, exp(lnrat), method = COOP_INTERPOLATE_LINEAR, xlog = .true., ylog = .true.)
+       endif
+    end select

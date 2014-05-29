@@ -1,6 +1,7 @@
 module coop_type_species
   use coop_constants
   use coop_basicutils
+  use coop_particle
   use coop_string
   use coop_type_function
   implicit none
@@ -11,10 +12,12 @@ module coop_type_species
   public:: coop_species
 
   type coop_species
+     COOP_INT gengre
      logical w_dynamic, cs2_dynamic
      COOP_SHORT_STRING name
      COOP_INT id
      COOP_REAL Omega, w, cs2
+     COOP_REAL Omega_massless, mbyT
      type(coop_function),pointer:: fw, fcs2
      type(coop_function)::frho
    contains
@@ -34,142 +37,15 @@ module coop_type_species
 
 contains
 
-  function coop_species_constructor(name, id, Omega, w, cs2, fw, fcs2) result(this)
+  function coop_species_constructor(gengre, name, id, Omega, w, cs2, Omega_massless, fw, fcs2) result(this)
     type(coop_species) :: this
-    COOP_UNKNOWN_STRING, optional::name
-    COOP_INT, optional:: id
-    COOP_REAL, optional::Omega
-    COOP_REAL, optional::w
-    COOP_REAL, optional::cs2
-    type(coop_function),optional::fw
-    type(coop_function),optional::fcs2
-    COOP_INT i
-    COOP_REAL_ARRAY::lnrat
-    COOP_REAL amin, amax, lnamin, lnamax, w1, w2, dlna
-
-    if(present(name))then
-       this%name = name
-    else
-       this%name = ""
-    endif
-    if(present(id))then
-       this%id = id
-    else
-       this%id = 0
-    endif
-    if(present(Omega))then
-       this%Omega = Omega
-    else
-       this%Omega = 1
-    endif
-    if(present(w))then
-       this%w = w
-    else
-       this%w = 0
-    endif
-    if(present(cs2))then
-       this%cs2 = cs2
-    else
-       this%cs2 = 0.
-    endif
-    if(present(fw))then
-       this%w_dynamic = .true.
-       allocate(this%fw, source = fw)
-    else
-       this%w_dynamic = .false.
-    endif
-    if(present(fcs2))then
-       this%cs2_dynamic = .true.
-       allocate(this%fcs2, source = fcs2)
-    else
-       this%cs2_dynamic = .false.
-    endif
-    if(this%w_dynamic)then
-       amin = COOP_min_scale_factor
-       amax = 1.
-       lnamin = log(amin)
-       lnamax = log(amax)
-       dlna = (lnamax - lnamin)/(coop_default_array_size  - 1)
-       w1 = this%wofa(amax)
-       lnrat(coop_default_array_size) = 0.
-       do i= coop_default_array_size - 1, 1, -1
-          w2 = this%wofa(exp((lnamin + dlna*(i-1))))
-          lnrat(i) = lnrat(i+1) - (6.+w2 + w1 + 4.*this%wofa(this%wofa(exp((lnamin + dlna*(i-0.5))))))
-          w1 = w2
-       enddo
-       lnrat = lnrat*(-dlna/2.)
-       call this%frho%init(coop_default_array_size, amin, amax, exp(lnrat), method = COOP_INTERPOLATE_SPLINE, xlog = .true., ylog = .true.)
-    endif
+#include "species_init.h"
   end function coop_species_constructor
 
-  subroutine coop_species_initialize(this, name, id, Omega, w, cs2, fw, fcs2)
+  subroutine coop_species_initialize(this, gengre, name, id, Omega, w, cs2, Omega_massless, fw, fcs2)
     class(coop_species) :: this
-    COOP_UNKNOWN_STRING, optional::name
-    COOP_INT, optional:: id
-    COOP_REAL, optional::Omega
-    COOP_REAL, optional::w
-    COOP_REAL, optional::cs2
-    type(coop_function),optional::fw
-    type(coop_function),optional::fcs2
-    COOP_INT i
-    COOP_REAL_ARRAY::lnrat
-    COOP_REAL amin, amax, lnamin, lnamax, w1, w2, dlna
-
-    if(present(name))then
-       this%name = name
-    else
-       this%name = ""
-    endif
-    if(present(id))then
-       this%id = id
-    else
-       this%id = 0
-    endif
-    if(present(Omega))then
-       this%Omega = Omega
-    else
-       this%Omega = 1
-    endif
-    if(present(w))then
-       this%w = w
-    else
-       this%w = 0
-    endif
-    if(present(cs2))then
-       this%cs2 = cs2
-    else
-       this%cs2 = 0.
-    endif
-    if(present(fw))then
-       this%w_dynamic = .true.
-       allocate(this%fw, source = fw)
-    else
-       this%w_dynamic = .false.
-    endif
-    if(present(fcs2))then
-       this%cs2_dynamic = .true.
-       allocate(this%fcs2, source = fcs2)
-    else
-       this%cs2_dynamic = .false.
-    endif
-    if(this%w_dynamic)then
-       amin = COOP_min_scale_factor
-       amax = 1.
-       lnamin = log(amin)
-       lnamax = log(amax)
-       dlna = (lnamax - lnamin)/(coop_default_array_size  - 1)
-       w1 = this%wofa(amax)
-       lnrat(coop_default_array_size) = 0.
-       do i= coop_default_array_size - 1, 1, -1
-          w2 = this%wofa(exp((lnamin + dlna*(i-1))))
-          lnrat(i) = lnrat(i+1) - (6.+w2 + w1 + 4.*this%wofa(this%wofa(exp((lnamin + dlna*(i-0.5))))))
-          w1 = w2
-       enddo
-       lnrat = lnrat*(-dlna/2.)
-       call this%frho%init(coop_default_array_size, amin, amax, exp(lnrat), method = COOP_INTERPOLATE_SPLINE, xlog = .true., ylog = .true.)
-    endif
+#include "species_init.h"
   end subroutine coop_species_initialize
-
 
   function coop_species_wofa(this, a) result(w)
     class(coop_species)::this
@@ -197,6 +73,24 @@ contains
     class(coop_species):: this
     write(*,"(A)") "Species Name: "//trim(this%name)
     write(*,"(A)") "Species ID: "//trim(coop_num2str(this%id))
+    select case(this%gengre)
+    case(COOP_SPECIES_MASSLESS)
+       write(*,"(A)") "Species gengre: massless"
+    case(COOP_SPECIES_MASSIVE_FERMION)
+       write(*,"(A)") "Species gengre: massive fermion"
+       write(*,"(A, G15.6)") "Species Omega_massless: ", this%Omega_massless
+    case(COOP_SPECIES_MASSIVE_BOSON)
+       write(*,"(A)") "Species gengre: massive boson"
+       write(*,"(A, G15.6)") "Species Omega_massless: ", this%Omega_massless
+    case(COOP_SPECIES_COSMOLOGICAL_CONSTANT)
+       write(*,"(A)") "Species gengre: cosmological constant"
+    case(COOP_SPECIES_FLUID)
+       write(*,"(A)") "Species gengre: fluid"
+    case(COOP_SPECIES_SCALAR_FIELD)
+       write(*,"(A)") "Species gengre: scalar field"
+    case default
+       write(*,"(A)") "Species gengre: unknown"
+    end select
     write(*,"(A, G15.6)") "Species Omega: ", this%Omega
     if(this%w_dynamic)then
        write(*,"(A, G14.5)") "Species w(a=0.00001) = ", this%wofa(COOP_REAL_OF(0.00001))
@@ -204,11 +98,11 @@ contains
        write(*,"(A, G14.5)") "Species w(a=0.1) = ", this%wofa(COOP_REAL_OF(0.1))
        write(*,"(A, G14.5)") "Species w(a=0.5) = ", this%wofa(COOP_REAL_OF(0.5))
        write(*,"(A, G14.5)") "Species w(a=1) = ", this%wofa(COOP_REAL_OF(1.))
-       write(*,"(A, G14.5)") "Species rho_de(a=0.00001) = ", this%density_ratio(COOP_REAL_OF(0.00001))
-       write(*,"(A, G14.5)") "Species rho_de(a=0.01) = ", this%density_ratio(COOP_REAL_OF(0.01))
-       write(*,"(A, G14.5)") "Species rho_de(a=0.1) = ", this%density_ratio(COOP_REAL_OF(0.1))
-       write(*,"(A, G14.5)") "Species rho_de(a=0.5) = ", this%density_ratio(COOP_REAL_OF(0.5))
-       write(*,"(A, G14.5)") "Species rho_de(a=1) = ", this%density_ratio(COOP_REAL_OF(1.))
+       write(*,"(A, G14.5)") "Species rho_ratio(a=0.00001) = ", this%density_ratio(COOP_REAL_OF(0.00001))
+       write(*,"(A, G14.5)") "Species rho_ratio(a=0.01) = ", this%density_ratio(COOP_REAL_OF(0.01))
+       write(*,"(A, G14.5)") "Species rho_ratio(a=0.1) = ", this%density_ratio(COOP_REAL_OF(0.1))
+       write(*,"(A, G14.5)") "Species rho_ratio(a=0.5) = ", this%density_ratio(COOP_REAL_OF(0.5))
+       write(*,"(A, G14.5)") "Species rho_ratio(a=1) = ", this%density_ratio(COOP_REAL_OF(1.))
        
     else
        write(*,"(A, G14.5)") "Species w: ", this%w

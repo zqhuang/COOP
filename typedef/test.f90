@@ -2,7 +2,7 @@ program test
   use coop_wrapper_typedef
   implicit none
 #include "constants.h"
-  type(coop_species):: baryon, cdm, radiation, de
+  type(coop_species):: baryon, cdm, radiation, de, neutrinos
   type(coop_cosmology_background) bg
   type(coop_function) wofa
   type(coop_arguments) w0wa
@@ -10,13 +10,15 @@ program test
   wofa = coop_function(my_w_function, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.), xlog = .true., arg = w0wa)
   baryon = coop_species(name = "Baryon", id = 1, Omega = COOP_REAL_OF(0.046), w = COOP_REAL_OF(0.), cs2= COOP_REAL_OF(0.))
   cdm = coop_species (name = "CDM", id = 2, Omega = COOP_REAL_OF(0.26), w = COOP_REAL_OF(0.), cs2= COOP_REAL_OF(0.))
-  radiation = coop_species(name = "Radiation", id = 3, Omega = COOP_REAL_OF(0.00008), w = COOP_REAL_OF(1./3.), cs2= COOP_REAL_OF(1./3.))
+  radiation = coop_species(name = "Radiation", gengre = COOP_SPECIES_MASSLESS, id = 3, Omega = COOP_REAL_OF(0.00008))
   de = coop_species(name = "DE", id = 4, Omega = COOP_REAL_OF(0.693), w = my_w_function(COOP_REAL_OF(1.), w0wa), cs2 = COOP_REAL_OF(1.), fw = wofa )
+  neutrinos = coop_species(name = "Neutrinos", id = 5, Omega =COOP_REAL_OF(0.002), gengre = COOP_SPECIES_MASSIVE_FERMION, Omega_massless = COOP_REAL_OF(0.00006))
   bg = coop_cosmology_background()
   call bg%add_species(baryon)
   call bg%add_species(cdm)
   call bg%add_species(radiation)
   call bg%add_species(de)
+  call bg%add_species(neutrinos)
   call bg%print
 contains
 
