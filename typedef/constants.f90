@@ -9,7 +9,7 @@ module coop_constants
   integer,parameter::coop_long_string_length = 8192
   integer,parameter::coop_default_array_size = 4096  ! default array size for interpolation
   integer,parameter::coop_default_chebyshev_fit_order  = 15 !!for chebyshev fit
-  COOP_REAL, parameter:: coop_infinity = 1.e30
+  COOP_REAL, parameter:: coop_infinity = 1.e30_coop_integer_length
 
   !!math constants
   COOP_REAL, parameter:: coop_pi = asin(1.d0)*2.d0

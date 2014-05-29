@@ -24,7 +24,7 @@ module coop_type_cosmology
   end type coop_cosmology
 
   type, extends(coop_cosmology):: coop_cosmology_background
-     COOP_REAL Omega_k
+     COOP_REAL Omega_k, h, Tcmb, YHe
      COOP_INT num_species
      type(coop_species), dimension(coop_max_num_species)::species
    contains
@@ -99,10 +99,13 @@ contains
   end function coop_cosmology_constructor
 
 
-  function coop_cosmology_background_constructor(name, id) result(this)
+  function coop_cosmology_background_constructor(name, id, h, Tcmb, YHe) result(this)
     type(coop_cosmology_background)::this
     COOP_UNKNOWN_STRING, optional::name
     COOP_INT, optional::id
+    COOP_REAL, optional:: h 
+    COOP_REAL, optional:: Tcmb
+    COOP_REAL, optional:: YHe
     this%num_species = 0
     this%Omega_k = 1.
     if(present(name))then
@@ -114,6 +117,21 @@ contains
        this%id =  id
     else
        this%id = 1
+    endif
+    if(present(h))then
+       this%h = h
+    else
+       this%h = COOP_DEFAULT_HUBBLE
+    endif
+    if(present(Tcmb))Then
+       this%Tcmb = Tcmb
+    else
+       this%Tcmb = COOP_DEFAULT_TCMB
+    endif
+    if(present(YHe))Then
+       this%YHe = YHe
+    else
+       this%YHe = COOP_DEFAULT_YHE
     endif
   end function coop_cosmology_background_constructor
 
@@ -143,6 +161,9 @@ contains
     write(*,"(A)") "Cosmology id = "//trim(coop_num2str(this%id))
     select type(this)
     class is (coop_cosmology_background)
+       write(*,"(A)") "Hubble (100 km/s/Mpc) =  "//trim(coop_num2str(this%h))
+       write(*,"(A)") "CMB temperature (K) =  "//trim(coop_num2str(this%Tcmb))
+       write(*,"(A)") "Helium mass fraction =  "//trim(coop_num2str(this%YHe))
        do i=1, this%num_species
           write(*,"(A)") "---------------------------------"
           write(*,"(A)") "Species #: "//trim(coop_num2str(i))
@@ -151,7 +172,5 @@ contains
        write(*,"(A)") "================================="
     end select
   end subroutine coop_cosmology_print
-
-
 
 end module coop_type_cosmology

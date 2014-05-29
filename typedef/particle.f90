@@ -11,14 +11,14 @@ module coop_particle
 
   integer,parameter::dl = coop_real_length
 
-  COOP_REAL,dimension(3),parameter::coop_fermion_int_q3 = (/ 0.91320071623_dl, 3.37517484785_dl, 7.7918364724d0 /)
-  COOP_REAL,dimension(3),parameter::coop_fermion_int_kernel3 =  (/ 0.0120967050642_dl, 0.583286120914_dl, 0.404617174022d0 /) 
+  COOP_REAL,dimension(3),parameter::coop_fermion_int_q3 = (/ 0.91320071623_dl, 3.37517484785_dl, 7.7918364724_dl /)
+  COOP_REAL,dimension(3),parameter::coop_fermion_int_kernel3 =  (/ 0.0120967050642_dl, 0.583286120914_dl, 0.404617174022_dl /) 
 
-  COOP_REAL,dimension(4),parameter::coop_fermion_int_q4  = (/ 0.4287005867_dl, 2.003741162_dl, 4.783292692_dl,  9.618201254d0 /) 
-  COOP_REAL,dimension(4),parameter::coop_fermion_int_kernel4 = (/ 3.720048156e-4_dl, 0.1557779154_dl, 0.6817434900_dl, 0.1621065897d0 /) 
+  COOP_REAL,dimension(4),parameter::coop_fermion_int_q4  = (/ 0.4287005867_dl, 2.003741162_dl, 4.783292692_dl,  9.618201254_dl /) 
+  COOP_REAL,dimension(4),parameter::coop_fermion_int_kernel4 = (/ 3.720048156e-4_dl, 0.1557779154_dl, 0.6817434900_dl, 0.1621065897_dl /) 
 
-  COOP_REAL,dimension(5),parameter::coop_fermion_int_q5 = (/ 0.3330276475_dl, 1.596709278_dl, 3.756440955_dl, 7.189819223_dl, 12.71011434d0 /) 
-  COOP_REAL,dimension(5),parameter::coop_fermion_int_kernel5 =  (/ 1.087668423e-4_dl,  0.06730171005_dl, 0.5294908730_dl, 0.3781574532_dl,  0.02494119690d0 /) 
+  COOP_REAL,dimension(5),parameter::coop_fermion_int_q5 = (/ 0.3330276475_dl, 1.596709278_dl, 3.756440955_dl, 7.189819223_dl, 12.71011434_dl /) 
+  COOP_REAL,dimension(5),parameter::coop_fermion_int_kernel5 =  (/ 1.087668423e-4_dl,  0.06730171005_dl, 0.5294908730_dl, 0.3781574532_dl,  0.02494119690_dl /) 
 
 
 contains
@@ -30,34 +30,34 @@ contains
   subroutine coop_fermion_get_lnrho(lnam, lnrho)
     COOP_REAL invam2, corr, lnam, lnrho
     COOP_REAL,dimension(20),parameter::crho = (/ 0.89293935180142925_dl, 1.3851588735560008_dl, 0.59201638940401391_dl, 5.52167768753157942e-2_dl, -6.84994561924834600e-2_dl, -1.78898251764955940e-2_dl, 1.31790803821667645e-2_dl, 5.84725640687740623e-3_dl, -2.65218714293024649e-3_dl, -1.84616659288402659e-3_dl, 4.82404659741137831e-4_dl, 5.58642583176972569e-4_dl, -6.26401384210129567e-5_dl, -1.61520019162570550e-4_dl, -3.30934261743216566e-6_dl, 4.47917623670222794e-5_dl, 6.15434233659787645e-6_dl, -1.15506405054980366e-5_dl, -3.87591649596476188e-6_dl, 3.18654185509784438e-6_dl /)
-    if(lnam .le. -2.49d0)then
+    if(lnam .le. -2.49_dl)then
        corr = (5_dl/7_dl/coop_pi**2)*exp(2_dl*lnam)
        lnrho = log(1_dl + corr)
        return
     endif
-    if(lnam .ge. 3.99d0)then
+    if(lnam .ge. 3.99_dl)then
        invam2 = exp(-2_dl*lnam)
        lnrho = lnam + log((coop_Riemannzeta3 * 180_dl/7_dl/coop_pi**4) +( (1350_dl/7_dl*coop_Riemannzeta5/coop_pi**4) + (-6075_dl/4_dl/coop_pi**4 * coop_Riemannzeta7+(172125_dl* coop_Riemannzeta9/8_dl/ coop_pi**4)*invam2)*invam2)*invam2)
        return
     endif
-    call coop_get_cheb_value(20, crho, (lnam - 0.75d0)/(3.25d0), lnrho)
+    call coop_get_cheb_value(20, crho, (lnam - 0.75_dl)/(3.25_dl), lnrho)
   end subroutine coop_fermion_get_lnrho
 
 
   subroutine coop_fermion_get_lnp(lnam, lnp)
     COOP_REAL invam2, lnam, lnp, corr
     COOP_REAL,dimension(20),parameter::cp = (/  -1.8856808011378832_dl, -1.2325642746845389_dl, -0.55304532292355002_dl, -8.04535652389012507e-2_dl, 4.86160741219811912e-2_dl, 2.10996354221542545e-2_dl, -5.31380099138448365e-3_dl, -5.02522420384828548e-3_dl, 1.30786399004496982e-4_dl, 1.00515162172776272e-3_dl, 1.70018903096916962e-4_dl, -1.53071349645732708e-4_dl, -6.33387811490677483e-5_dl, 1.22421763460544607e-5_dl, 1.36045554994012240e-5_dl, 1.73976481843332439e-6_dl, -1.66578804580377724e-6_dl, -8.83571732180485515e-7_dl, -1.15092657356077256e-7_dl, 1.54021206255242797e-7_dl /)
-    if(lnam .le. -2.49d0)then
+    if(lnam .le. -2.49_dl)then
        corr = (5_dl/7_dl/coop_pi**2)*exp(2_dl*lnam)
        lnp = log((1_dl - corr)/3_dl)
        return
     endif
-    if(lnam .ge. 3.99d0)then
+    if(lnam .ge. 3.99_dl)then
        invam2 = exp(-2_dl*lnam)
        lnp = log(((900_dl/7_dl/coop_pi**4*coop_Riemannzeta5) + ((-2025_dl*coop_Riemannzeta7/coop_pi**4) +(172125_dl*coop_RiemannZeta9/2_dl/coop_pi**4)*invam2)*invam2)) - lnam
        return
     endif
-    call coop_get_cheb_value(20, cp, (lnam - 0.75d0)/(3.25d0), lnp)
+    call coop_get_cheb_value(20, cp, (lnam - 0.75_dl)/(3.25_dl), lnp)
   end subroutine coop_fermion_get_lnp
 
   !!compute d ln rho / d ln am
@@ -69,13 +69,13 @@ contains
        dlnrho = 2_dl*corr/(1_dl + corr)
        return
     endif
-    if(lnam .gt. 3.99d0)then
+    if(lnam .gt. 3.99_dl)then
        invam2 = exp(-2_dl*lnam)
        dlnrho = 1_dl + ( (-15_dl*coop_Riemannzeta5/coop_Riemannzeta3) &
             + (45_dl*(10_dl*coop_Riemannzeta5**2 + 21_dl*coop_Riemannzeta3*coop_Riemannzeta7)/4_dl/coop_Riemannzeta3**2)*invam2)*invam2
        return
     endif
-    call coop_get_cheb_value(20, cdrho, (lnam-0.75d0)/3.25_dl, dlnrho)
+    call coop_get_cheb_value(20, cdrho, (lnam-0.75_dl)/3.25_dl, dlnrho)
   end subroutine coop_fermion_get_dlnrho
 
 
@@ -83,20 +83,20 @@ contains
     !!compute d ln rho / d ln am
   subroutine coop_fermion_get_dlnp(lnam, dlnp)
     COOP_REAL lnam, dlnp, corr, invam2
-    COOP_REAL, dimension(20),parameter::cdrho = (/ -0.42955931767638317d0, -0.57929706031950723d+00, -0.10061753508327952d+00, 0.10137410858790824d+00, 0.47912127913089325d-1 , -0.18296247083641887d-1 , -0.17009826170227303d-1 , 0.13239071953237954d-2 , 0.46372977504751667d-2 , 0.67998892886111039d-3 , -0.92969391416750698d-3 , -0.36634500130460678d-3 , 0.10647905926389047d-3 , 0.10129351444516322d-3 , 0.85424263264848575d-5 , -0.16063650866938333d-4 , -0.75048662407985448d-5 , 0.98439667538101790d-7 , 0.17632977601903781d-5 , 0.97383174483000743d-6  /)
+    COOP_REAL, dimension(20),parameter::cdrho = (/ -0.42955931767638317_dl, -0.57929706031950723d+00, -0.10061753508327952d+00, 0.10137410858790824d+00, 0.47912127913089325d-1 , -0.18296247083641887d-1 , -0.17009826170227303d-1 , 0.13239071953237954d-2 , 0.46372977504751667d-2 , 0.67998892886111039d-3 , -0.92969391416750698d-3 , -0.36634500130460678d-3 , 0.10647905926389047d-3 , 0.10129351444516322d-3 , 0.85424263264848575d-5 , -0.16063650866938333d-4 , -0.75048662407985448d-5 , 0.98439667538101790d-7 , 0.17632977601903781d-5 , 0.97383174483000743d-6  /)
     if(lnam .le. -2.49_dl)then
        corr = (5_dl/7_dl/coop_pi**2)*exp(2_dl*lnam)
        dlnp = -2.* corr/(1.-corr)
        return
     endif
-    if(lnam .gt. 3.99d0)then
+    if(lnam .gt. 3.99_dl)then
        invam2 = exp(-2_dl*lnam)
        dlnp = - ((-2.*2025_dl*coop_Riemannzeta7/coop_pi**4) +(4.*172125_dl*coop_RiemannZeta9/2_dl/coop_pi**4)*invam2) *invam2 &
             / (((900_dl/7_dl/coop_pi**4*coop_Riemannzeta5) + ((-2025_dl*coop_Riemannzeta7/coop_pi**4) +(172125_dl*coop_RiemannZeta9/2_dl/coop_pi**4)*invam2)*invam2)) &
             - 1._dl
        return
     endif
-    call coop_get_cheb_value(20,cdrho, (lnam-0.75d0)/3.25_dl, dlnp)
+    call coop_get_cheb_value(20,cdrho, (lnam-0.75_dl)/3.25_dl, dlnp)
   end subroutine coop_fermion_get_dlnp
 !!------------------------ Coop_boson -----------------------------------------
 
@@ -107,12 +107,12 @@ contains
   subroutine coop_boson_get_lnrho(lnam, lnrho)
     COOP_REAL invam2, corr, lnam, lnrho
     COOP_REAL,dimension(20),parameter::crho = (/ 0.85920499059112343_dl, 1.3962721264359432_dl, 0.70432294674814611_dl, 0.14297095706190513_dl, -6.55811511010368081e-2_dl, -4.63591428381798787e-2_dl, 5.01875599077331383e-3_dl, 1.41690006104390458e-2_dl, 2.21177480941542586e-3_dl, -3.70703629807588638e-3_dl, -1.66893509068491972e-3_dl, 7.15614414586352820e-4_dl, 7.23143566964830971e-4_dl, -3.35664246204683407e-5_dl, -2.42009019038368436e-4_dl, -5.66482185018125605e-5_dl, 6.35841417332966958e-5_dl, 3.44090360869310461e-5_dl, -1.09428321341706716e-5_dl, -1.68472313639487885e-5_dl /)
-    if(lnam .le. -3.99d0)then
+    if(lnam .le. -3.99_dl)then
        corr = (5_dl/4_dl/coop_pi**2)*exp(2_dl*lnam)
        lnrho = log(1_dl + corr)
        return
     endif
-    if(lnam .ge. 3.99d0)then
+    if(lnam .ge. 3.99_dl)then
        invam2 = exp(-2_dl*lnam)
        lnrho = lnam + log((coop_Riemannzeta3 * 30_dl/coop_pi**4) +( (180_dl*coop_Riemannzeta5/coop_pi**4) + (-1350_dl/coop_pi**4 * coop_Riemannzeta7 + (37800_dl * coop_Riemannzeta9/ coop_pi**4)*invam2)*invam2)*invam2)
        return
@@ -123,12 +123,12 @@ contains
   subroutine coop_boson_get_lnp(lnam, lnp)
     COOP_REAL invam2, corr, lnam, lnp
     COOP_REAL,dimension(20),parameter::cp = (/ -1.8285425606893564_dl, -1.1995994663208203_dl, -0.63579323906066232_dl, -0.16456435145041079_dl, 3.22461274266371070e-2_dl, 4.02357879959531692e-2_dl, 5.56128174481804183e-3_dl, -7.42808998219154047e-3_dl, -3.68630245376660396e-3_dl, 5.37511637030240472e-4_dl, 1.03818428724796819e-3_dl, 2.31230717643599081e-4_dl, -1.53291700135450192e-4_dl, -1.07074751727548019e-4_dl, -6.96618941049786799e-6_dl, 2.02895088393592875e-5_dl, 1.00029976391815033e-5_dl, -7.29511466983895998e-8_dl, -2.23609786187199272e-6_dl, -1.23155707342790243e-6_dl /)
-    if(lnam .le. -3.99d0)then
+    if(lnam .le. -3.99_dl)then
        corr = (5_dl/4_dl/coop_pi**2)*exp(2_dl*lnam)
        lnp = log((1_dl - corr)/3_dl)
        return
     endif
-    if(lnam .ge. 3.99d0)then
+    if(lnam .ge. 3.99_dl)then
        invam2 = exp(-2_dl*lnam)
        lnp = log(((120_dl/coop_pi**4*coop_Riemannzeta5) + ((-1800_dl*coop_Riemannzeta7/coop_pi**4) +(75600_dl*coop_RiemannZeta9/coop_pi**4)*invam2)*invam2)) - lnam       
        return
@@ -146,7 +146,7 @@ contains
        dlnrho = 2_dl*corr/(1_dl + corr)
        return
     endif
-    if(lnam .gt. 3.99d0)then
+    if(lnam .gt. 3.99_dl)then
        invam2 = exp(-2_dl*lnam)
        dlnrho = 1_dl + ( (-12_dl*coop_Riemannzeta5/coop_Riemannzeta3) &
             + ((72_dl*coop_Riemannzeta5**2 + 180_dl*coop_Riemannzeta3*coop_Riemannzeta7)/coop_Riemannzeta3**2)*invam2)*invam2
@@ -163,7 +163,7 @@ contains
        dlnp = -2.* corr/(1.-corr)
        return
     endif
-    if(lnam .gt. 3.99d0)then
+    if(lnam .gt. 3.99_dl)then
        invam2 = exp(-2_dl*lnam)
        dlnp = -  (((-2.*1800_dl*coop_Riemannzeta7/coop_pi**4) +(4.*75600_dl*coop_RiemannZeta9/coop_pi**4)*invam2)*invam2)  &
             / ((120_dl/coop_pi**4*coop_Riemannzeta5) + ((-1800_dl*coop_Riemannzeta7/coop_pi**4) +(75600_dl*coop_RiemannZeta9/coop_pi**4)*invam2)*invam2) &

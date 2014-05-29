@@ -1,3 +1,5 @@
+#include "default_cosmology_parameters.h"
+
 #define COOP_INT integer(coop_integer_length)
 #define COOP_INT_ARRAY integer(coop_integer_length),dimension(coop_default_array_size)
 #define COOP_REAL  real(coop_real_length)
@@ -22,5 +24,4 @@
 #define COOP_SPECIES_MASSLESS 4
 #define COOP_SPECIES_SCALAR_FIELD 5
 #define COOP_SPECIES_COSMOLOGICAL_CONSTANT 6
-
 
