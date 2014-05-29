@@ -161,6 +161,7 @@ contains
     write(*,"(A)") "Cosmology id = "//trim(coop_num2str(this%id))
     select type(this)
     class is (coop_cosmology_background)
+       write(*,"(A)") "Omega_k =  "//trim(coop_num2str(this%Omega_k))
        write(*,"(A)") "Hubble (100 km/s/Mpc) =  "//trim(coop_num2str(this%h))
        write(*,"(A)") "CMB temperature (K) =  "//trim(coop_num2str(this%Tcmb))
        write(*,"(A)") "Helium mass fraction =  "//trim(coop_num2str(this%YHe))

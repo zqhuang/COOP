@@ -63,17 +63,17 @@
        this%cs2 = this%w
     case(COOP_SPECIES_COSMOLOGICAL_CONSTANT)
        this%w = -1.d0
-       this%cs2 = 1.
+       this%cs2 = 1.d0
     case default
        if(present(w))then
           this%w = w
        else
-          this%w = 0.
+          this%w = 0.d0
        endif
        if(present(cs2))then
           this%cs2 = cs2
        else
-          this%cs2 = 0.
+          this%cs2 = 0.d0
        endif
     end select
     select case(this%gengre)
@@ -85,7 +85,7 @@
        this%w_dynamic = .true.
        this%cs2_dynamic = .true.
        amin = coop_min_scale_factor
-       amax = 1.
+       amax = 1.d0
        lnamin = log(amin)
        lnamax = log(amax)
        dlna = (lnamax - lnamin)/(coop_default_array_size  - 1)
@@ -95,7 +95,7 @@
        right = log(this%Omega/this%Omega_massless)- log(coop_Riemannzeta3 * 30.d0/coop_pi**4)
        w1 = log(this%Omega/this%Omega_massless)
        do while(right - left .gt. 1.e-6)
-          lnm = (left + right)/2.
+          lnm = (left + right)/2.d0
           call coop_boson_get_lnrho(lnm, w2)
           if(w2.gt.w1)then
              right = lnm
@@ -113,7 +113,7 @@
           call coop_boson_get_dlnp(lnma, dlnp)
           warr(i) = exp(lnp-lnrho)
           cs2arr(i) = exp(dlnp-dlnrho)*warr(i)
-          lnrat(i) = lnrho- 4.*(lnamin+(i-1)*dlna) - w1
+          lnrat(i) = lnrho- 4.d0*(lnamin+(i-1)*dlna) - w1
        enddo
        !$omp end parallel do
        call this%fw%init(coop_default_array_size, amin, amax, warr, method = COOP_INTERPOLATE_LINEAR, xlog = .true.)
@@ -130,11 +130,11 @@
        dlna = (lnamax - lnamin)/(coop_default_array_size  - 1)
        allocate(this%fw)
        allocate(this%fcs2)
-       left = log((this%Omega/this%Omega_massless - 1.)*(7.*coop_pi**2/5.))/2.
+       left = log((this%Omega/this%Omega_massless - 1.d0)*(7.d0*coop_pi**2/5.d0))/2.d0
        right = log(this%Omega/this%Omega_massless)- log(coop_Riemannzeta3 * 180.d0/7.d0/coop_pi**4)
        w1 = log(this%Omega/this%Omega_massless)
        do while(right - left .gt. 1.e-6)
-          lnm = (left + right)/2.
+          lnm = (left + right)/2.d0
           call coop_fermion_get_lnrho(lnm, w2)
           if(w2.gt.w1)then
              right = lnm
@@ -152,7 +152,7 @@
           call coop_fermion_get_dlnp(lnma, dlnp)
           warr(i) = exp(lnp-lnrho)
           cs2arr(i) = exp(dlnp-dlnrho)*warr(i)
-          lnrat(i) = lnrho- 4.*(lnamin+(i-1)*dlna) - w1
+          lnrat(i) = lnrho- 4.d0*(lnamin+(i-1)*dlna) - w1
        enddo
        !$omp end parallel do
        call this%fw%init(coop_default_array_size, amin, amax, warr, method = COOP_INTERPOLATE_LINEAR, xlog = .true.)
@@ -173,18 +173,20 @@
        endif
        if(this%w_dynamic)then
           amin = COOP_min_scale_factor
-          amax = 1.
+          amax = 1.d0
           lnamin = log(amin)
           lnamax = log(amax)
           dlna = (lnamax - lnamin)/(coop_default_array_size  - 1)
           w1 = this%wofa(amax)
-          lnrat(coop_default_array_size) = 0.
+          lnrat(coop_default_array_size) = 0.d0
           do i= coop_default_array_size - 1, 1, -1
              w2 = this%wofa(exp((lnamin + dlna*(i-1))))
-             lnrat(i) = lnrat(i+1) - (6.+w2 + w1 + 4.*this%wofa(this%wofa(exp((lnamin + dlna*(i-0.5))))))
+             lnrat(i) = lnrat(i+1) - (6.+w2 + w1 + 4.*this%wofa(exp((lnamin + dlna*(i-0.5)))))
              w1 = w2
           enddo
           lnrat = lnrat*(-dlna/2.)
           call this%frho%init(coop_default_array_size, amin, amax, exp(lnrat), method = COOP_INTERPOLATE_LINEAR, xlog = .true., ylog = .true.)
        endif
     end select
+    if(this%w_dynamic) this%w = this%wofa(COOP_REAL_OF(1.d0))
+    if(this%cs2_dynamic) this%cs2 = this%cs2ofa(COOP_REAL_OF(1.d0))

@@ -75,7 +75,7 @@ contains
     write(*,"(A)") "Species ID: "//trim(coop_num2str(this%id))
     select case(this%gengre)
     case(COOP_SPECIES_MASSLESS)
-       write(*,"(A)") "Species gengre: massless"
+       write(*,"(A)") "Species gengre: massless particles"
     case(COOP_SPECIES_MASSIVE_FERMION)
        write(*,"(A)") "Species gengre: massive fermion"
        write(*,"(A, G15.6)") "Species Omega_massless: ", this%Omega_massless
@@ -88,31 +88,36 @@ contains
        write(*,"(A)") "Species gengre: fluid"
     case(COOP_SPECIES_SCALAR_FIELD)
        write(*,"(A)") "Species gengre: scalar field"
+    case(COOP_SPECIES_CDM)
+       write(*,"(A)") "Species gengre: cold dark matter"
     case default
        write(*,"(A)") "Species gengre: unknown"
     end select
     write(*,"(A, G15.6)") "Species Omega: ", this%Omega
     if(this%w_dynamic)then
-       write(*,"(A, G14.5)") "Species w(a=0.00001) = ", this%wofa(COOP_REAL_OF(0.00001))
-       write(*,"(A, G14.5)") "Species w(a=0.01) = ", this%wofa(COOP_REAL_OF(0.01))
-       write(*,"(A, G14.5)") "Species w(a=0.1) = ", this%wofa(COOP_REAL_OF(0.1))
-       write(*,"(A, G14.5)") "Species w(a=0.5) = ", this%wofa(COOP_REAL_OF(0.5))
-       write(*,"(A, G14.5)") "Species w(a=1) = ", this%wofa(COOP_REAL_OF(1.))
-       write(*,"(A, G14.5)") "Species rho_ratio(a=0.00001) = ", this%density_ratio(COOP_REAL_OF(0.00001))
-       write(*,"(A, G14.5)") "Species rho_ratio(a=0.01) = ", this%density_ratio(COOP_REAL_OF(0.01))
-       write(*,"(A, G14.5)") "Species rho_ratio(a=0.1) = ", this%density_ratio(COOP_REAL_OF(0.1))
-       write(*,"(A, G14.5)") "Species rho_ratio(a=0.5) = ", this%density_ratio(COOP_REAL_OF(0.5))
-       write(*,"(A, G14.5)") "Species rho_ratio(a=1) = ", this%density_ratio(COOP_REAL_OF(1.))
+       write(*,"(A, G14.5)") "Species w(z=10000) = ", this%wofa(COOP_REAL_OF(1.d0/10001.d0))
+       write(*,"(A, G14.5)") "Species w(z=1000) = ", this%wofa(COOP_REAL_OF(1.d0/1001.d0))
+       write(*,"(A, G14.5)") "Species w(z=10) = ", this%wofa(COOP_REAL_OF(1.d0/11.d0))
+       write(*,"(A, G14.5)") "Species w(z=1) = ", this%wofa(COOP_REAL_OF(0.5d0))
+       write(*,"(A, G14.5)") "Species w(z=0.5) = ", this%wofa(COOP_REAL_OF(2.d0/3.d0))
+       write(*,"(A, G14.5)") "Species w(z=0) = ", this%wofa(COOP_REAL_OF(1.))
+       write(*,"(A, G14.5)") "Species rho_ratio(z=10000) = ", this%density_ratio(COOP_REAL_OF(1.d0/10001.d0))
+       write(*,"(A, G14.5)") "Species rho_ratio(z=1000) = ", this%density_ratio(COOP_REAL_OF(1.d0/1001.d0))
+       write(*,"(A, G14.5)") "Species rho_ratio(z=10) = ", this%density_ratio(COOP_REAL_OF(1.d0/11.d0))
+       write(*,"(A, G14.5)") "Species rho_ratio(z=1) = ", this%density_ratio(COOP_REAL_OF(0.5d0))
+       write(*,"(A, G14.5)") "Species rho_ratio(z=0.5) = ", this%density_ratio(COOP_REAL_OF(2.d0/3.d0))
+       write(*,"(A, G14.5)") "Species rho_ratio(z=0) = ", this%density_ratio(COOP_REAL_OF(1.d0))
        
     else
        write(*,"(A, G14.5)") "Species w: ", this%w
     endif
     if(this%cs2_dynamic)then
-       write(*,"(A, G14.5)") "Species cs^2(a=0.00001) = ", this%cs2ofa(COOP_REAL_OF(0.00001))
-       write(*,"(A, G14.5)") "Species cs^2(a=0.01) = ", this%cs2ofa(COOP_REAL_OF(0.01))
-       write(*,"(A, G14.5)") "Species cs^2(a=0.1) = ", this%cs2ofa(COOP_REAL_OF(0.1))
-       write(*,"(A, G14.5)") "Species cs^2(a=0.5) = ", this%cs2ofa(COOP_REAL_OF(0.5))
-       write(*,"(A, G14.5)") "Species cs^2(a=1) = ", this%cs2ofa(COOP_REAL_OF(1.))
+       write(*,"(A, G14.5)") "Species cs^2(z=10000) = ", this%cs2ofa(COOP_REAL_OF(1.d0/10001.d0))
+       write(*,"(A, G14.5)") "Species cs^2(z=1000) = ", this%cs2ofa(COOP_REAL_OF(1.d0/1001.d0))
+       write(*,"(A, G14.5)") "Species cs^2(z=10) = ", this%cs2ofa(COOP_REAL_OF(1.d0/11.d0))
+       write(*,"(A, G14.5)") "Species cs^2(z=1) = ", this%cs2ofa(COOP_REAL_OF(0.5d0))
+       write(*,"(A, G14.5)") "Species cs^2(z=0.5) = ", this%cs2ofa(COOP_REAL_OF(2.d0/3.d0))
+       write(*,"(A, G14.5)") "Species cs^2(z=0) = ", this%cs2ofa(COOP_REAL_OF(1.))
     else
        write(*,"(A, G14.5)") "Species cs^2: ", this%cs2
     endif
