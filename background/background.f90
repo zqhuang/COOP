@@ -9,6 +9,7 @@ module coop_background
 
 contains
 
+
   function coop_baryon(Omega_b) result(this)
     type(coop_species) this
     COOP_REAL Omega_b
@@ -94,8 +95,8 @@ contains
        qpsign = -1.d0
     endif
     Omega_m  = 1.d0 - OMEGA_LAMBDA
-    if(Omega_m .gt. 0.5d0)then
-       w = 0.d0
+    if(Omega_m .gt. 0.6d0)then
+       w = 1.d0 !!set w to be a crazy value to rule out the model
        return
     endif
     aux1 = sqrt(EPSILON_INFTY/3.d0)
@@ -106,7 +107,7 @@ contains
     if(delta .lt. 0.9d0)then
        a_eq = (Omega_m/OMEGA_LAMBDA)**((1.d0/3.d0)/(1.d0 - sign(delta,EPSILON_S)))
     else
-       w = 0.d0
+       w = 1.d0  !!set w to be a crazy value to rule out the model
        return
     endif
     mu=a/a_eq

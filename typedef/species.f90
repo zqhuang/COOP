@@ -8,7 +8,6 @@ module coop_type_species
 #include "constants.h"
 
   private
-
   public:: coop_species
 
   type coop_species
@@ -19,7 +18,7 @@ module coop_type_species
      COOP_REAL Omega, w, cs2
      COOP_REAL Omega_massless, mbyT
      type(coop_function),pointer:: fw, fcs2
-     type(coop_function)::frho
+     type(coop_function)::flnrho
    contains
      procedure :: init => coop_species_initialize
      procedure :: print => coop_species_print
@@ -27,13 +26,13 @@ module coop_type_species
      procedure :: wofa => coop_species_wofa
      procedure :: cs2ofa => coop_species_cs2ofa
      procedure :: density_ratio => coop_species_density_ratio
+     procedure :: rhoa4_ratio => coop_species_rhoa4_ratio
   end type coop_species
 
 
   interface coop_species
      procedure coop_species_constructor
   end interface coop_species
-
 
 contains
 
@@ -48,7 +47,7 @@ contains
   end subroutine coop_species_initialize
 
   function coop_species_wofa(this, a) result(w)
-    class(coop_species)::this
+    class(coop_species) :: this
     COOP_REAL w, a
     if(this%w_dynamic)then
        w = this%fw%eval(a)
@@ -59,7 +58,7 @@ contains
 
 
   function coop_species_cs2ofa(this, a) result(cs2)
-    class(coop_species)::this
+    class(coop_species) :: this
     COOP_REAL cs2, a
     if(this%cs2_dynamic)then
        cs2 = this%fcs2%eval(a)
@@ -70,7 +69,7 @@ contains
 
 
   subroutine coop_species_print(this)
-    class(coop_species):: this
+    class(coop_species) :: this
     write(*,"(A)") "Species Name: "//trim(this%name)
     write(*,"(A)") "Species ID: "//trim(coop_num2str(this%id))
     select case(this%gengre)
@@ -123,12 +122,24 @@ contains
     endif
   end subroutine coop_species_print
 
+  function coop_species_rhoa4_ratio(this, a) result(rhoa4)
+    class(coop_species)::this
+    COOP_REAL a, an
+    COOP_REAL rhoa4
+    an = max(a, coop_min_scale_factor/1.e3)
+    if(this%w_dynamic)then
+       rhoa4 = exp(this%flnrho%eval(an)+4.d0*log(an))
+    else
+       rhoa4 = an**(1.d0-3.d0*this%w)
+    endif
+  end function coop_species_rhoa4_ratio
+
   function coop_species_density_ratio(this, a) result(density)
     class(coop_species)::this
     COOP_REAL a
     COOP_REAL density
     if(this%w_dynamic)then
-       density = this%frho%eval(a)
+       density = exp(this%flnrho%eval(a))
     else
        density = a**(-3.*(1.+this%w))
     endif
@@ -138,7 +149,11 @@ contains
     class(coop_species)::this
     call this%fw%free()
     call this%fcs2%free()
-    call this%frho%free()
+    call this%flnrho%free()
+    deallocate(this%fw)
+    deallocate(this%fcs2)
   end subroutine coop_species_free
+
+
 
 end module coop_type_species

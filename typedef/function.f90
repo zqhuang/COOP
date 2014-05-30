@@ -10,12 +10,14 @@ module coop_type_function
   public:: coop_function
 
   type coop_function
+     private
      COOP_INT method
      logical xlog, ylog
      COOP_INT n
-     COOP_REAL xmin, xmax, dx, fleft, fright
+     COOP_REAL xmin, xmax, dx, fleft, fright, slopeleft, sloperight
      COOP_REAL, dimension(:), allocatable::f, f2
    contains
+     procedure::set_boundary => coop_function_set_boundary
      procedure::init => coop_function_initialize
      procedure::eval => coop_function_evaluate
      procedure::free => coop_function_free
@@ -28,6 +30,14 @@ module coop_type_function
 
 contains
 
+  subroutine coop_function_set_boundary(this, fleft, fright, slopeleft, sloperight)
+    class(coop_function)::this
+    COOP_REAL,optional::fleft, fright, slopeleft, sloperight
+    if(present(fleft))this%fleft = fleft
+    if(present(fright))this%fright = fright
+    if(present(slopeleft))this%slopeleft = slopeleft
+    if(present(sloperight))this%sloperight = sloperight
+  end subroutine coop_function_set_boundary
 
   function coop_function_constructor(f, xmin, xmax, xlog, ylog, arg) result(cf)
     external f
@@ -89,7 +99,7 @@ contains
           !$omp end parallel do
        endif
     endif
-    call cf%init(coop_default_array_size, xmin, xmax, y, method = COOP_INTERPOLATE_SPLINE, xlog = xlog, ylog = ylog)
+    call cf%init(coop_default_array_size, xmin, xmax, y, method = COOP_INTERPOLATE_SPLINE, xlog = cf%xlog, ylog = cf%ylog)
   end function coop_function_constructor
 
   subroutine coop_function_free(this)
@@ -98,12 +108,12 @@ contains
     if(allocated(this%f2))deallocate(this%f2)
   end subroutine coop_function_free
 
-  subroutine coop_function_initialize(this, n, xmin, xmax, f, method, fleft, fright, chebyshev_order, xlog, ylog)
+  subroutine coop_function_initialize(this, n, xmin, xmax, f, method, fleft, fright, slopeleft, sloperight, chebyshev_order, xlog, ylog)
     class(coop_function):: this
     logical, optional::xlog, ylog
     COOP_INT,intent(IN):: n
     COOP_REAL,intent(IN):: xmin, xmax, f(n)
-    COOP_REAL, optional::fleft, fright
+    COOP_REAL, optional::fleft, fright, slopeleft, sloperight
     COOP_INT, optional::method
     COOP_INT, optional::chebyshev_order
     call this%free()
@@ -161,6 +171,20 @@ contains
     else
        this%fright = f(n)
     endif
+    if(this%ylog)then
+       this%fleft = log(this%fleft)
+       this%fright = log(this%fright)
+    endif
+    if(present(slopeleft))then
+       this%slopeleft = slopeleft
+    else
+       this%slopeleft= 0.d0
+    endif
+    if(present(sloperight))then
+       this%sloperight = sloperight
+    else
+       this%sloperight = 0.d0
+    endif
     select case(this%method)
     case(COOP_INTERPOLATE_LINEAR)
        this%f2 = 0.
@@ -178,35 +202,38 @@ contains
 
   function coop_function_evaluate(this, x) result(f)
     class(coop_function):: this
-    COOP_REAL x, f, a, b
+    COOP_REAL x, f, a, b, xdiff
     COOP_INT l, r
     if(this%xlog)then
-       b = (log(x) - this%xmin)/this%dx + 1.
+       xdiff =  log(x) - this%xmin
     else
-       b = (x - this%xmin)/this%dx + 1.
+       xdiff = x - this%xmin
     endif
+    b = xdiff/this%dx + 1.d0
     l = floor(b)
     if(l .lt. 1)then
-       f = this%fleft
-       return
-    endif
-    if(l.ge. this%n)then
-       f = this%fright
-       return
-    endif
-    select case(this%method)
-    case(COOP_INTERPOLATE_LINEAR, COOP_INTERPOLATE_QUDRATIC, COOP_INTERPOLATE_SPLINE)
-       b = b - l
-       r = l + 1
-       a = 1. - b
-       f = this%f(l) * a + this%f(r) * b + this%f2(l) * (a**2-1.)*a + this%f2(r)*(b**2-1.)*b
-    case(COOP_INTERPOLATE_CHEBYSHEV)
+       f = this%fleft + this%slopeleft*xdiff
+    elseif(l.ge. this%n)then
        if(this%xlog)then
-          call coop_chebeval(this%n, this%xmin, this%xmax, this%f, log(x), f)
+          xdiff =  log(x) - this%xmax
        else
-          call coop_chebeval(this%n, this%xmin, this%xmax, this%f, x, f)
+          xdiff = x - this%xmax
        endif
-    end select
+       f = this%fright + this%sloperight*xdiff
+    else
+       select case(this%method)
+       case(COOP_INTERPOLATE_LINEAR)
+          b = b - l
+          f = this%f(l) * (1.d0-b) + this%f(l+1) * b 
+       case(COOP_INTERPOLATE_QUDRATIC, COOP_INTERPOLATE_SPLINE)
+          b = b - l
+          r = l + 1
+          a = 1. - b
+          f = this%f(l) * a + this%f(r) * b + this%f2(l) * (a**2-1.)*a + this%f2(r)*(b**2-1.)*b
+       case(COOP_INTERPOLATE_CHEBYSHEV)
+          call coop_chebeval(this%n, this%xmin, this%xmax, this%f, xdiff+this%xmin, f)
+       end select
+    endif
     if(this%ylog)then
        f = exp(f)
     endif
