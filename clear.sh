@@ -2,7 +2,10 @@
 make clean
 cd typedef 
 make clean
-cd ..
-cd background
+cd ../background
 make clean
+cd ../lib
+make clean
+cd ../include
+rm -f *.*
 cd ..

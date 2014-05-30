@@ -6,7 +6,7 @@ include ../configure.in
 include ../compile_rules.in
 
 BGLIB = libcoopbackground.a
-BGOBJ = background.o
+BGOBJ = background.o wrapper.o
 
 default: $(BGLIB)
 
