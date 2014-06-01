@@ -1,5 +1,4 @@
 module coop_wrapper
-  use coop_wrapper_typedef
-  use coop_wrapper_background
+  use coop_wrapper_firstorder
   implicit none
 end module coop_wrapper

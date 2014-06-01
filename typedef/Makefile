@@ -20,10 +20,10 @@ test.o		:wrapper.o
 wrapper.o 	:cosmology.o
 cosmology.o	:species.o
 species.o	:particle.o
-particle.o	:function.o ../headfile/species_init.h
+particle.o	:function.o ../include/species_init.h
 function.o	:arguments.o
 arguments.o	:string.o
 string.o	:basicutils.o
 basicutils.o	:svd.o
 svd.o		:constants.o
-constants.o	: ../headfile/constants.h
+constants.o	: ../include/constants.h

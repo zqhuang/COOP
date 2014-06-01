@@ -1,6 +1,7 @@
 SHELL = /bin/sh
-TYPEDEF = ../typedef
-BACKGROUND = ../background
+
+FIRSTORDER=../firstorder
+
 include ../configure.in
 include ../compile_rules.in
 LIB = libcoop.a

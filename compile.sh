@@ -1,8 +1,9 @@
-echo "#define MAINPATH \""`pwd`"\"" > headfiles/paths.h
+echo "#define MAINPATH \""`pwd`"\"" > include/paths.h
 cd typedef
 make -w
-cd ../
-cd background
+cd ../background
+make -w
+cd ../firstorder
 make -w
 cd ../lib
 make -w
