@@ -44,6 +44,7 @@ module coop_type_cosmology
      procedure::Omega_massless_neutrinos => coop_cosmology_background_Omega_massless_neutrinos
      procedure::Omega_nu_from_mnu_eV => coop_cosmology_background_Omega_nu_from_mnu_eV
      procedure::mnu_eV_from_Omega_nu => coop_cosmology_background_mnu_eV_from_Omega_nu
+     procedure::Omega_nu_per_species_from_mnu_eV => coop_cosmology_background_Omega_nu_per_species_from_mnu_eV
      procedure::set_h => coop_cosmology_background_set_hubble
      procedure::set_Tcmb => coop_cosmology_background_set_Tcmb
      procedure::set_YHe => coop_cosmology_background_set_YHe
@@ -390,14 +391,14 @@ contains
     if(present(a))Tnu = Tnu/a
   end function coop_cosmology_background_Tnu
 
-  function coop_cosmology_background_Omega_nu_from_mnu_eV(this, mnu_eV) result(Omega_nu)
+  function coop_cosmology_background_Omega_nu_from_mnu_eV(this, mnu_eV) result(Omega_nu)  !!assuming equal mass for each species
     class(coop_cosmology_background)::this
     COOP_REAL:: mnu_eV, Omega_nu, lnrho
     call coop_fermion_get_lnrho(log(mnu_eV/this%Tnu() * (coop_SI_eV/coop_SI_kB)), lnrho)
     Omega_nu = this%Omega_massless_neutrinos() * exp(lnrho)
   end function coop_cosmology_background_Omega_nu_from_mnu_eV
 
-  function coop_cosmology_background_mnu_eV_from_Omega_nu(this, Omega_nu) result(mnu_eV)
+  function coop_cosmology_background_mnu_eV_from_Omega_nu(this, Omega_nu) result(mnu_eV)  !!assuming equal mass for each species
     class(coop_cosmology_background)::this
     COOP_REAL:: mnu_eV, Omega_nu, lnam
     call coop_fermion_get_lnam(log(Omega_nu/this%Omega_massless_neutrinos()), lnam)
@@ -405,6 +406,15 @@ contains
 
   end function coop_cosmology_background_mnu_eV_from_Omega_nu
 
+
+  function coop_cosmology_background_Omega_nu_per_species_from_mnu_eV(this, mnu_eV) result(Omega_nu)  
+    class(coop_cosmology_background)::this
+    COOP_REAL:: mnu_eV, Omega_nu, lnrho
+    call coop_fermion_get_lnrho(log(mnu_eV/this%Tnu() * (coop_SI_eV/coop_SI_kB)), lnrho)
+    Omega_nu = this%Omega_massless_neutrinos_per_species() * exp(lnrho)
+  end function coop_cosmology_background_Omega_nu_per_species_from_mnu_eV
+
+  
 
 
 end module coop_type_cosmology
