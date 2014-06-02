@@ -2,6 +2,7 @@ module coop_type_cosmology
   use coop_constants
   use coop_basicutils
   use coop_string
+  use coop_particle
   use coop_type_arguments
   use coop_type_function
   use coop_type_species
@@ -24,7 +25,7 @@ module coop_type_cosmology
 
   type, extends(coop_cosmology):: coop_cosmology_background
      private
-     COOP_REAL Omega_k_value, h_value, Tcmb_value, YHe_value
+     COOP_REAL Omega_k_value, h_value, Tcmb_value, YHe_value, Nnu_value
      COOP_INT num_species
      type(coop_species), dimension(coop_max_num_species)::species
      logical::need_setup_background
@@ -32,13 +33,21 @@ module coop_type_cosmology
    contains
      procedure::h => coop_cosmology_background_hubble  !!H_0  = 100 h km/s/Mpc
      procedure::Tcmb => coop_cosmology_background_Tcmb !!CMB temprature in Kelvin
+     procedure::Tnu => coop_cosmology_background_Tnu !!CMB temprature in Kelvin
      procedure::YHe => coop_cosmology_background_YHe  !!Helium mass fraction
+     procedure::Nnu => coop_cosmology_background_Nnu  !!Helium mass fraction
+
      procedure::Omega_k => coop_cosmology_background_Omega_k 
      procedure::AgeGyr => coop_cosmology_background_AgeGyr !!return age in Gyr
-
+     procedure::Omega_radiation => coop_cosmology_background_Omega_radiation
+     procedure::Omega_massless_neutrinos_per_species => coop_cosmology_background_Omega_massless_neutrinos_per_species
+     procedure::Omega_massless_neutrinos => coop_cosmology_background_Omega_massless_neutrinos
+     procedure::Omega_nu_from_mnu_eV => coop_cosmology_background_Omega_nu_from_mnu_eV
+     procedure::mnu_eV_from_Omega_nu => coop_cosmology_background_mnu_eV_from_Omega_nu
      procedure::set_h => coop_cosmology_background_set_hubble
      procedure::set_Tcmb => coop_cosmology_background_set_Tcmb
      procedure::set_YHe => coop_cosmology_background_set_YHe
+     procedure::set_Nnu => coop_cosmology_background_set_Nnu
 
      procedure::setup_background => coop_cosmology_background_setup_background
      procedure::H0Mpc => coop_cosmology_background_H0Mpc  !!H_0 * Mpc
@@ -86,10 +95,18 @@ contains
     YHe = this%YHe_value
   end function coop_cosmology_background_YHe
 
-  function coop_cosmology_background_Tcmb(this) result(Tcmb)
+  function coop_cosmology_background_Nnu(this) result(Nnu)
     class(coop_cosmology_background)::this
+    COOP_REAL Nnu
+    Nnu = this%Nnu_value
+  end function coop_cosmology_background_Nnu
+
+  function coop_cosmology_background_Tcmb(this, a) result(Tcmb)
+    class(coop_cosmology_background)::this
+    COOP_REAL, optional::a
     COOP_REAL Tcmb
     Tcmb = this%Tcmb_value
+    if(present(a))Tcmb = Tcmb/a
   end function coop_cosmology_background_Tcmb
 
   subroutine coop_cosmology_background_set_hubble(this, h)
@@ -111,13 +128,21 @@ contains
     this%YHe_value = YHe
   end subroutine coop_cosmology_background_set_YHe
 
-  subroutine coop_cosmology_initialize(this, name, id, h, Tcmb, YHe)
+
+  subroutine coop_cosmology_background_set_NNu(this, Nnu)
+    class(coop_cosmology_background)::this
+    COOP_REAL Nnu
+    this%Nnu_value = Nnu
+  end subroutine coop_cosmology_background_set_Nnu
+
+  subroutine coop_cosmology_initialize(this, name, id, h, Tcmb, YHe, Nnu)
     class(coop_cosmology)::this
     COOP_UNKNOWN_STRING, optional::name
     COOP_INT, optional::id
     COOP_REAL, optional:: h 
     COOP_REAL, optional:: Tcmb
     COOP_REAL, optional:: YHe
+    COOP_REAL, optional:: Nnu
     select type(this)
     type is (coop_cosmology)
 #include "cosmology_init.h"
@@ -164,6 +189,7 @@ contains
        write(*,"(A)") "Hubble (100 km/s/Mpc) =  "//trim(coop_num2str(this%h_value))
        write(*,"(A)") "CMB temperature (K) =  "//trim(coop_num2str(this%Tcmb_value))
        write(*,"(A)") "Helium mass fraction =  "//trim(coop_num2str(this%YHe_value))
+       write(*,"(A)") "number of neutrino species=  "//trim(coop_num2str(this%Nnu_value))
        do i=1, this%num_species
           write(*,"(A)") "---------------------------------"
           write(*,"(A)") "Species #: "//trim(coop_num2str(i))
@@ -183,13 +209,14 @@ contains
   end function coop_cosmology_constructor
 
 
-  function coop_cosmology_background_constructor(name, id, h, Tcmb, YHe) result(this)
+  function coop_cosmology_background_constructor(name, id, h, Tcmb, YHe, Nnu) result(this)
     type(coop_cosmology_background)::this
     COOP_UNKNOWN_STRING, optional::name
     COOP_INT, optional::id
     COOP_REAL, optional:: h 
     COOP_REAL, optional:: Tcmb
     COOP_REAL, optional:: YHe
+    COOP_REAL, optional:: Nnu
 #include "cosmology_background_init.h"
   end function coop_cosmology_background_constructor
 
@@ -331,6 +358,53 @@ contains
     COOP_REAL a, dlum
     dlum = coop_r_of_chi(abs(this%fdis%eval(coop_scale_factor_today)  - this%fdis%eval(a)), this%Omega_k_value)/a
   end function coop_cosmology_background_luminosity_distance
+
+  function coop_cosmology_background_Omega_radiation(this) result(Omega_r)
+    class(coop_cosmology_background)::this
+    COOP_REAL, parameter:: c =  coop_SI_blackbody_alpha*2.d0/coop_SI_rhocritbyh2
+    COOP_REAL Omega_r
+    Omega_r = c * (this%Tcmb_value **2 / this%h_value)**2
+  end function coop_cosmology_background_Omega_radiation
+
+  function coop_cosmology_background_Omega_massless_neutrinos_per_species(this) result(Omega_nu_massless)
+    class(coop_cosmology_background)::this
+    COOP_REAL, parameter:: c =  coop_SI_blackbody_alpha*2.d0/coop_SI_rhocritbyh2 * (7./8.) * (4.d0/11.)**(4.d0/3.d0)*coop_neutrinos_temperature_correction**4
+    COOP_REAL Omega_nu_massless
+    Omega_nu_massless =  c * (this%Tcmb_value **2 / this%h_value)**2
+  end function coop_cosmology_background_Omega_massless_neutrinos_per_species
+
+
+  function coop_cosmology_background_Omega_massless_neutrinos(this) result(Omega_nu_massless)
+    class(coop_cosmology_background)::this
+    COOP_REAL, parameter:: c =  coop_SI_blackbody_alpha*2.d0/coop_SI_rhocritbyh2 * (7./8.) * (4.d0/11.)**(4.d0/3.d0)*coop_neutrinos_temperature_correction**4
+    COOP_REAL Omega_nu_massless
+    Omega_nu_massless =  c * (this%Tcmb_value **2 / this%h_value)**2 * this%Nnu_value
+  end function coop_cosmology_background_Omega_massless_neutrinos
+
+  function coop_cosmology_background_Tnu(this, a) result(Tnu)
+    class(coop_cosmology_background)::this
+    COOP_REAL, parameter::c = (4.d0/11.)**(1.d0/3.d0)*coop_neutrinos_temperature_correction
+    COOP_REAL, optional::a
+    COOP_REAL Tnu
+    Tnu = this%Tcmb_value * c
+    if(present(a))Tnu = Tnu/a
+  end function coop_cosmology_background_Tnu
+
+  function coop_cosmology_background_Omega_nu_from_mnu_eV(this, mnu_eV) result(Omega_nu)
+    class(coop_cosmology_background)::this
+    COOP_REAL:: mnu_eV, Omega_nu, lnrho
+    call coop_fermion_get_lnrho(log(mnu_eV/this%Tnu() * (coop_SI_eV/coop_SI_kB)), lnrho)
+    Omega_nu = this%Omega_massless_neutrinos() * exp(lnrho)
+  end function coop_cosmology_background_Omega_nu_from_mnu_eV
+
+  function coop_cosmology_background_mnu_eV_from_Omega_nu(this, Omega_nu) result(mnu_eV)
+    class(coop_cosmology_background)::this
+    COOP_REAL:: mnu_eV, Omega_nu, lnam
+    call coop_fermion_get_lnam(log(Omega_nu/this%Omega_massless_neutrinos()), lnam)
+    mnu_eV = this%Tnu()* (coop_SI_kB/coop_SI_eV)*exp(lnam)
+
+  end function coop_cosmology_background_mnu_eV_from_Omega_nu
+
 
 
 end module coop_type_cosmology

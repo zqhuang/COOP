@@ -9,6 +9,6 @@ make clean
 cd ../lib
 make clean
 cd ../include
-rm -f *.mod
+rm -f *.mod \#*\# *.*~
 cd ..
 make clean

@@ -7,7 +7,7 @@ module coop_particle
 
   private 
 
-  public:: coop_fermion_get_lnrho, coop_fermion_get_lnp,coop_fermion_get_dlnrho, coop_fermion_get_dlnp, coop_boson_get_lnrho, coop_boson_get_lnp,coop_boson_get_dlnrho, coop_boson_get_dlnp
+  public:: coop_fermion_get_lnrho, coop_fermion_get_lnp,coop_fermion_get_dlnrho, coop_fermion_get_dlnp, coop_boson_get_lnrho, coop_boson_get_lnp,coop_boson_get_dlnrho, coop_boson_get_dlnp, coop_fermion_get_lnam, coop_boson_get_lnam
 
   integer,parameter::dl = coop_real_length
 
@@ -22,6 +22,22 @@ module coop_particle
 
 
 contains
+
+
+  subroutine coop_fermion_get_lnam(lnrho, lnam)
+    COOP_REAL lnam, lnrho, lower, upper, lr
+    lower = log((exp(lnrho)-1_dl)*(7_dl*coop_pi**2/5_dl))/2_dl - 1.d-8
+    upper = lnrho - log(coop_Riemannzeta3 * 180_dl/7_dl/coop_pi**4) + 1.d-8
+    do while(upper - lower .gt. 1.d-7)
+       lnam = (lower + upper)/2.d0
+       call coop_fermion_get_lnrho(lnam, lr)
+       if(lr .gt. lnrho)then
+          upper = lnam
+       else
+          lower = lnam
+       endif
+    enddo
+  end subroutine coop_fermion_get_lnam
 
 !!coop_fermion energy density and pressure, the unit is the energy density of a massless coop_fermion with the same termperature (rho_massless = 7 pi^4/120 T^4)
 !!input lnam is ln(mc^2/(kT))
@@ -99,6 +115,24 @@ contains
     call coop_get_cheb_value(20,cdrho, (lnam-0.75_dl)/3.25_dl, dlnp)
   end subroutine coop_fermion_get_dlnp
 !!------------------------ Coop_boson -----------------------------------------
+
+  subroutine coop_boson_get_lnam(lnrho, lnam)
+    COOP_REAL lnam, lnrho, lower, upper, lr
+    lower = log((exp(lnrho)-1_dl)*(4_dl*coop_pi**2/5_dl))/2_dl - 1.d-8
+    upper = lnrho - log(coop_Riemannzeta3 * 30_dl/coop_pi**4) + 1.d-8
+    do while(upper - lower .gt. 1.d-7)
+       lnam = (lower + upper)/2.d0
+       call coop_boson_get_lnrho(lnam, lr)
+       if(lr .gt. lnrho)then
+          upper = lnam
+       else
+          lower = lnam
+       endif
+    enddo
+  end subroutine coop_boson_get_lnam
+
+
+
 
 !!coop_boson energy density and pressure, the unit is the energy density of a massless bonson with the same termperature rho_massless = pi^4/15 T^4
 !!input lnam is ln(mc^2/(kT))

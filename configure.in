@@ -44,8 +44,7 @@ GSL =
 
 
 ##cfitsio lib, mandatory if you include WMAP
-CFITSIO = 
-#$(HOME)/includes/cfitsio
+CFITSIO = $(HOME)/work/scilibs/cfitsio
 
 ####################### the rest ##########################################
 #should automatically work if you are using $(IFORT_NAME) or $(GFORTRAN_NAME); 
@@ -138,7 +137,13 @@ LINK += -L$(UTILS) -lcooputils
 INCLUDE += -I$(UTILS)
 endif
 
-
+###set cfitsio flags here
+ifneq ($(CFITSIO),)
+LINK += -L$(CFITSIO)/lib -lcfitsio
+FFLAGS += -DHAS_CFITSIO=1
+CFLAGS += -DHAS_CFITSIO=1
+INCLUDE += -I$(CFITSIO)/include
+endif
 
 
 ###set fftw flags here

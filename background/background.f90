@@ -10,10 +10,15 @@ module coop_background
 contains
 
 
-  function coop_baryon(Omega_b) result(this)
+  function coop_baryon(Omega_b, fcs2b) result(this)
     type(coop_species) this
+    type(coop_function),optional::fcs2b
     COOP_REAL Omega_b
-    call this%init(gengre = COOP_SPECIES_FLUID, name = "Baryon", id = 1, Omega=Omega_b, w = COOP_REAL_OF(0.), cs2 = COOP_REAL_OF(0.))  !!you might want to replace the cs^2(baryon)
+    if(present(fcs2b))then
+       call this%init(gengre = COOP_SPECIES_FLUID, name = "Baryon", id = 1, Omega=Omega_b, w = COOP_REAL_OF(0.), fcs2 = fcs2b)  !!you might want to replace the cs^2(baryon)
+    else
+       call this%init(gengre = COOP_SPECIES_FLUID, name = "Baryon", id = 1, Omega=Omega_b, w = COOP_REAL_OF(0.), cs2 = COOP_REAL_OF(0.))  !!you might want to replace the cs^2(baryon)
+    endif
   end function coop_baryon
 
   function coop_cdm(Omega_c) result(this)
@@ -36,8 +41,9 @@ contains
 
   function coop_neutrinos_massive(Omega_nu, Omega_massless) result(this)
     type(coop_species) this
-    COOP_REAL:: Omega_nu, Omega_massless
-    call this%init(gengre = COOP_SPECIES_MASSIVE_FERMION, name = "Massive Neutrinos", id = 4, Omega=Omega_nu, Omega_massless = Omega_massless) 
+    COOP_REAL:: Omega_nu
+    COOP_REAL:: Omega_massless
+    call this%init(gengre = COOP_SPECIES_MASSIVE_FERMION, name = "Massive Neutrinos", id = 4, Omega=Omega_nu, Omega_massless = Omega_massless)
   end function coop_neutrinos_massive
   
   function coop_de_lambda(Omega_Lambda) result(this)
@@ -126,5 +132,7 @@ contains
 #undef EPSILON_INF
 #undef ZETA_S
   end function coop_de_w_quintessence
+
+
 
 end module coop_background

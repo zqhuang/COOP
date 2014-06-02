@@ -9,7 +9,7 @@
   type(coop_function),optional::fcs2
   COOP_INT i
   COOP_REAL_ARRAY::lnrat, warr, cs2arr
-  COOP_REAL amin, amax, lnamin, lnamax, w1, w2, dlna, lnma, lnm, left, right, mid, lnrho, lnp, dlnrho, dlnp
+  COOP_REAL amin, amax, lnamin, lnamax, w1, w2, dlna, lnma, lnm, lnrho, lnp, dlnrho, dlnp
   if(present(name))then
      this%name = name
   else
@@ -91,18 +91,8 @@
      dlna = (lnamax - lnamin)/(coop_default_array_size  - 1)
      allocate(this%fw)
      allocate(this%fcs2)
-     left = log((this%Omega/this%Omega_massless - 1.)*(4.*coop_pi**2/5.))/2.
-     right = log(this%Omega/this%Omega_massless)- log(coop_Riemannzeta3 * 30.d0/coop_pi**4)
      w1 = log(this%Omega/this%Omega_massless)
-     do while(right - left .gt. 1.e-6)
-        lnm = (left + right)/2.d0
-        call coop_boson_get_lnrho(lnm, w2)
-        if(w2.gt.w1)then
-           right = lnm
-        else
-           left = lnm
-        endif
-     enddo
+     call coop_boson_get_lnam(w1, lnm)
      this%mbyT = exp(lnm)
      !$omp parallel do private(lnma, lnrho, lnp, dlnrho, dlnp)
      do i=1, coop_default_array_size
@@ -129,18 +119,8 @@
      dlna = (lnamax - lnamin)/(coop_default_array_size  - 1)
      allocate(this%fw)
      allocate(this%fcs2)
-     left = log((this%Omega/this%Omega_massless - 1.d0)*(7.d0*coop_pi**2/5.d0))/2.d0
-     right = log(this%Omega/this%Omega_massless)- log(coop_Riemannzeta3 * 180.d0/7.d0/coop_pi**4)
      w1 = log(this%Omega/this%Omega_massless)
-     do while(right - left .gt. 1.e-6)
-        lnm = (left + right)/2.d0
-        call coop_fermion_get_lnrho(lnm, w2)
-        if(w2.gt.w1)then
-           right = lnm
-        else
-           left = lnm
-        endif
-     enddo
+     call coop_fermion_get_lnam( w1 , lnm)
      this%mbyT = exp(lnm)
      !$omp parallel do private(lnma, lnrho, lnp, dlnrho, dlnp)
      do i=1, coop_default_array_size

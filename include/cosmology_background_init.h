@@ -26,3 +26,8 @@
     else
        this%YHe_value = COOP_DEFAULT_YHE
     endif
+    if(present(Nnu))then
+       this%Nnu_value = Nnu
+    else
+       this%Nnu_value = COOP_DEFAULT_NUM_NEUTRINO_SPECIES
+    endif
