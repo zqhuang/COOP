@@ -1,6 +1,6 @@
 !!this module does svd decomposition and least square fit
-module coop_svd
-  use coop_constants
+module coop_svd_mod
+  use coop_constants_mod
   implicit none
 #include "constants.h"
 
@@ -254,4 +254,4 @@ contains
     call coop_svd_sol_multiple(m, n, nd, A, w, v, b, x)
   end subroutine coop_svd_least_square_all
 
-end module coop_svd
+end module coop_svd_mod

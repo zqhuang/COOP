@@ -1,11 +1,11 @@
-module coop_string
-  use coop_constants
-  use coop_basicutils
+module coop_string_mod
+  use coop_constants_mod
+  use coop_basicutils_mod
   implicit none
 #include "constants.h"
 
   private
-  public::coop_num2str,  coop_ndigits, coop_str2int, coop_str2real, coop_str2logical, coop_substr, coop_str_replace
+  public::coop_num2str,  coop_ndigits, coop_str2int, coop_str2real, coop_str2logical, coop_substr, coop_str_replace, coop_str_numalpha, coop_str2lower, coop_str2upper, coop_case_insensitive_eq, coop_file_path_of, coop_file_name_of, coop_file_add_postfix
 
   Interface coop_num2str
      procedure coop_int2str, coop_real2str, coop_logical2str
@@ -211,4 +211,118 @@ contains
     repl(k:k+lens - istart) = str(istart:lens)
   end function coop_str_replace
 
-end module coop_string
+
+  function coop_str_numalpha(str) result(s)
+    COOP_UNKNOWN_STRING str
+    COOP_STRING s
+    COOP_INT i, lens, j, k
+    lens = len_trim(str)
+    s = ""
+    k = 1
+    do i=1, lens
+       j = ichar(str(i:i))
+       if(j.ge.48 .and.j.le.57 .or. j.ge.65 .and. j.le.90 .or. j.ge.97 .and. j.le. 122 )then
+          s(k:k) = str(i:i)
+          k  = k  + 1
+       end if
+    enddo
+  end function coop_str_numalpha
+
+  subroutine coop_Str2Lower(Str)
+    COOP_UNKNOWN_STRING  Str
+    COOP_INT i, n, k
+    n = len_trim(Str)
+    do i=1, n
+       k = ichar(str(i:i))
+       if(k.ge.65 .and. k .le. 90)then
+          str(i:i) = char(k+32)
+       endif
+    enddo
+  End subroutine Coop_Str2Lower
+
+  subroutine coop_Str2Upper(Str)
+    COOP_UNKNOWN_STRING  Str
+    COOP_INT n, i, k
+    n = len_trim(Str)
+    do i = 1, n
+       k = ichar(str(i:i))
+       if(k.ge.97 .and. k.le. 122)then
+          str(i:i) = char(k-32)
+       end if
+    enddo
+  End subroutine Coop_Str2Upper
+
+  function Coop_case_insensitive_eq(Str1, Str2)
+    COOP_UNKNOWN_STRING Str1,Str2
+    logical Coop_case_insensitive_eq
+    COOP_INT n1, n2, i, i1, i2
+    n1=len_trim(Str1)
+    n2=len_trim(Str2)
+    if(n1 .ne. n2)then
+       Coop_case_insensitive_eq=.false.
+       return
+    end if
+    do i = 1, n1
+       If(Str1(i:i) .ne. Str2(i:i))then
+          i1 = ichar(str1(i:i))
+          i2 = ichar(str2(i:i))
+          if(i1 .lt. 65 .or. i1 .gt.122 .or. (i1 .gt. 90 .and. i1 .lt. 97) .or. &
+               i2 .lt. 65 .or. i2 .gt.122 .or. (i2 .gt. 90 .and. i2 .lt. 97))then
+             
+             Coop_case_insensitive_eq=.false.
+             return
+          else
+             if(i1 .ne. i2 .and. abs(i1-i2) .ne. 32)then
+                coop_case_insensitive_eq = .false.
+                return
+             endif
+          endif
+       endif
+    enddo
+    Coop_case_insensitive_eq=.true.
+  End function Coop_case_insensitive_eq
+
+
+  function coop_file_path_of(fstr) result(path)
+    COOP_UNKNOWN_STRING  fstr
+    COOP_LONG_STRING path
+    COOP_INT n
+    n = scan(fstr, '\/', .true.)
+    if(n.eq.0)then
+       path = ""
+    else
+       path = fstr(1:n)
+    endif
+    path = trim(adjustl(path))
+  end function coop_file_path_of
+
+  function coop_file_name_of(fstr) result(fname)
+    COOP_UNKNOWN_STRING  fstr
+    COOP_LONG_STRING fname
+    COOP_INT n
+    n = scan(fstr, '\/', .true.)
+    if(n.eq.0)then
+       fname = trim(fstr)
+    else
+       fname = trim(fstr(n+1:))
+    endif
+    fname = trim(adjustl(fname))
+  end function coop_file_name_of
+
+  function coop_file_add_postfix(fstr, postfix) result(fname)
+    COOP_UNKNOWN_STRING fstr, postfix
+    COOP_LONG_STRING fname
+    COOP_INT n
+    n = scan(fstr, ".", .true.)
+    if(n.eq.0)then
+       fname = trim(fstr)//trim(postfix)
+    else
+       fname = fstr(1:n-1)//trim(postfix)//trim(fstr(n:))
+    endif
+    fname = trim(adjustl(fname))
+  end function coop_file_add_postfix
+
+
+
+
+end module coop_string_mod

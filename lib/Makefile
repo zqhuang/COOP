@@ -10,7 +10,7 @@ OBJ = wrapper.o
 
 default: $(LIB)
 
-$(LIB):	$(OBJ)
+$(LIB):	$(OBJ) $(FIRSTORDER)/libcoopfirstorder.a
 	ar -r $@ $?
 
 clean:

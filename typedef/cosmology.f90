@@ -1,11 +1,11 @@
-module coop_type_cosmology
-  use coop_constants
-  use coop_basicutils
-  use coop_string
-  use coop_particle
-  use coop_type_arguments
-  use coop_type_function
-  use coop_type_species
+module coop_cosmology_mod
+  use coop_constants_mod
+  use coop_basicutils_mod
+  use coop_string_mod
+  use coop_particle_mod
+  use coop_arguments_mod
+  use coop_function_mod
+  use coop_species_mod
   implicit none
 #include "constants.h"
 
@@ -415,6 +415,4 @@ contains
   end function coop_cosmology_background_Omega_nu_per_species_from_mnu_eV
 
   
-
-
-end module coop_type_cosmology
+end module coop_cosmology_mod

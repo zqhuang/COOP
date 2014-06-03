@@ -1,5 +1,7 @@
 SHELL = /bin/sh
 
+TYPEDEF=../typedef
+UTILS=../utils
 BACKGROUND=../background
 
 include ../configure.in
@@ -10,10 +12,10 @@ BGOBJ = firstorder.o wrapper.o
 
 default: $(BGLIB)
 
-$(BGLIB): $(BGOBJ) 
+$(BGLIB): $(BGOBJ) $(BACKGROUND)/libcoopbackground.a
 	ar -r $@ $?
 
-Test: $(BGOBJ) test.o ../background/libcoopbackground.a
+Test: $(BGOBJ) test.o $(BACKGROUND)/libcoopbackground.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(BGOBJ) test.o $(LINK)
 
 clean:

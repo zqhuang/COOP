@@ -1,6 +1,6 @@
-module coop_type_arguments
-  use coop_constants
-  use coop_basicutils
+module coop_arguments_mod
+  use coop_constants_mod
+  use coop_basicutils_mod
   implicit none
 #include "constants.h"
 
@@ -81,4 +81,4 @@ contains
     this%n_logical = 0
   end subroutine coop_arguments_free
 
-end module coop_type_arguments
+end module coop_arguments_mod

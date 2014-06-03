@@ -1,9 +1,9 @@
-module coop_type_species
-  use coop_constants
-  use coop_basicutils
-  use coop_particle
-  use coop_string
-  use coop_type_function
+module coop_species_mod
+  use coop_constants_mod
+  use coop_basicutils_mod
+  use coop_particle_mod
+  use coop_string_mod
+  use coop_function_mod
   implicit none
 #include "constants.h"
 
@@ -156,4 +156,4 @@ contains
 
 
 
-end module coop_type_species
+end module coop_species_mod

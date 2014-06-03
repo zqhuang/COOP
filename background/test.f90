@@ -1,6 +1,6 @@
 program test
   use coop_wrapper_typedef
-  use coop_background
+  use coop_background_mod
   implicit none
 #include "constants.h"
   type(coop_cosmology_background) bg

@@ -4,6 +4,8 @@
 #define COOP_INT_ARRAY integer(coop_integer_length),dimension(coop_default_array_size)
 #define COOP_REAL  real(coop_real_length)
 #define COOP_REAL_ARRAY  real(coop_real_length),dimension(coop_default_array_size)
+#define COOP_COMPLEX complex(coop_complex_length)
+#define COOP_COMPLEX_ARRAY  complex(coop_complex_length),dimension(coop_default_array_size)
 #define COOP_STRING character(len=coop_string_length)
 #define COOP_SHORT_STRING character(len=coop_short_string_length)
 #define COOP_LONG_STRING character(len=coop_long_string_length)

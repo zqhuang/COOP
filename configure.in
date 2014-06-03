@@ -112,6 +112,27 @@ LINK += -L$(TYPEDEF) -lcooptypedef
 INCLUDE += -I$(TYPEDEF)
 endif
 
+ifneq ($(UTILS),)
+LINK += -L$(UTILS) -lcooputils
+INCLUDE += -I$(UTILS)
+endif
+
+ifneq ($(BACKGROUND),)
+LINK += -L$(BACKGROUND) -lcoopbackground
+INCLUDE += -I$(BACKGROUND)
+endif
+
+ifneq ($(FIRSTORDER),)
+LINK += -L$(FIRSTORDER) -lcoopfirstorder
+INCLUDE += -I$(FIRSTORDER)
+endif
+
+ifneq ($(COOPLIB),)
+LINK += -L$(COOPLIB) -lcoop
+INCLUDE += -I$(COOPLIB)
+endif
+
+
 ifneq ($(NONLINEAR),)
 LINK += -L$(NONLINEAR) -lcoopnonlinear
 INCLUDE += -I$(NONLINEAR)
@@ -122,20 +143,7 @@ LINK += -L$(SECONDORDER) -lcoopsecondorder
 INCLUDE += -I$(SECONDORDER)
 endif
 
-ifneq ($(FIRSTORDER),)
-LINK += -L$(FIRSTORDER) -lcoopfirstorder
-INCLUDE += -I$(FIRSTORDER)
-endif
 
-ifneq ($(BACKGROUND),)
-LINK += -L$(BACKGROUND) -lcoopbackground
-INCLUDE += -I$(BACKGROUND)
-endif
-
-ifneq ($(UTILS),)
-LINK += -L$(UTILS) -lcooputils
-INCLUDE += -I$(UTILS)
-endif
 
 ###set cfitsio flags here
 ifneq ($(CFITSIO),)

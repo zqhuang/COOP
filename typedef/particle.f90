@@ -1,6 +1,6 @@
-module coop_particle
-  use coop_constants
-  use coop_basicutils
+module coop_particle_mod
+  use coop_constants_mod
+  use coop_basicutils_mod
   implicit none
 
 #include "constants.h"
@@ -207,6 +207,6 @@ contains
     call coop_get_cheb_value(20, cdrho, lnam/4._dl, dlnp)
   end subroutine coop_boson_get_dlnp
 
-end module coop_particle
+end module coop_particle_mod
 
 

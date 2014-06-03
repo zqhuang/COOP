@@ -1,4 +1,4 @@
-module coop_background
+module coop_background_mod
   use coop_wrapper_typedef
   implicit none
 #include "constants.h"
@@ -135,4 +135,4 @@ contains
 
 
 
-end module coop_background
+end module coop_background_mod

@@ -1,5 +1,5 @@
 program test
-  use coop_wrapper
+  use coop_wrapper_background
   implicit none
 #include "constants.h"
   type(coop_cosmology_background) bg

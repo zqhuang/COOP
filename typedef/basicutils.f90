@@ -1,10 +1,184 @@
-module coop_basicutils
-  use coop_constants
-  use coop_svd
+module coop_basicutils_mod
+  use coop_constants_mod
+  use coop_svd_mod
   implicit none
 #include "constants.h"
 
+  interface coop_swap
+     module procedure::coop_swap_real, coop_swap_int, coop_swap_real_array, coop_swap_int_array
+  end interface coop_swap
+
 contains
+
+  Function coop_OuterProd(a, b) result(outerprod)
+    COOP_REAL, DIMENSION(:), INTENT(IN) :: a,b
+    COOP_REAL, DIMENSION(size(a),size(b)) :: outerprod
+    Outerprod = spread(a,dim=2,ncopies=size(b)) * &
+         spread(b,dim=1,ncopies=size(a))
+  end function Coop_OuterProd
+
+  function coop_maxloc(arr) result(imaxloc)
+    COOP_REAL, DIMENSION(:), INTENT(IN) :: arr
+    COOP_INT imaxloc
+    COOP_INT,DIMENSION(1)::imax
+    imax=maxloc(arr(:))
+    imaxloc=imax(1)
+  end function coop_maxloc
+
+  function coop_minloc(arr) result(iminloc)
+    COOP_REAL, DIMENSION(:), INTENT(IN) :: arr
+    COOP_INT iminloc
+    COOP_INT,DIMENSION(1)::imin
+    imin=minloc(arr(:))
+    iminloc=imin(1)
+  end function coop_minloc
+
+  subroutine coop_swap_real(x,y)
+    COOP_REAL x,y,tmp
+    tmp=x
+    x=y
+    y=tmp
+  end subroutine coop_swap_real
+
+  subroutine coop_swap_int(x,y)
+    COOP_INT x,y,tmp
+    tmp=x
+    x=y
+    y=tmp
+  end subroutine coop_swap_int
+
+  subroutine coop_swap_real_array(x,y)
+    COOP_REAL,dimension(:),intent(INOUT):: x,y
+    COOP_REAL tmp(size(x))
+    tmp=x
+    x=y
+    y=tmp
+  end subroutine coop_swap_real_array
+
+  subroutine coop_swap_int_array(x,y)
+    COOP_INT,dimension(:),intent(INOUT):: x,y
+    COOP_INT tmp(size(x))
+    tmp=x
+    x=y
+    y=tmp
+  end subroutine coop_swap_int_array
+
+  
+
+  function coop_systime_sec(reset) result(sec)
+    COOP_REAL sec
+    logical,optional::Reset
+    COOP_REAL,save::pretime=0.d0 
+    COOP_INT nowtime, countrate
+    call system_clock(nowtime, countrate)
+    if(present(Reset))then
+       if(Reset)then
+          Pretime = NowTime/dble(CountRate)
+          sec = 0.d0
+          return
+       end if
+    end if
+    sec = NowTime/dble(CountRate)-PreTime
+    return 
+  end function coop_systime_sec
+
+  subroutine coop_PrtSysTime(Reset)
+    logical,optional::Reset
+    COOP_REAL,save::pretime=0.d0
+    COOP_INT Nowtime,Countrate
+    call system_clock(NOWTIME,COUNTRATE)
+    If(Present(Reset))then
+       Pretime=Nowtime/Real(Countrate)
+       If(Reset)Then
+          print*,"===== time label reset to zero. ===="
+       endif
+    else
+       Write(*,'(A18,F14.4,A10)') "===== time label: ",Nowtime/Real(Countrate)-pretime," sec ====="
+    endif
+  end subroutine Coop_PrtSysTime
+
+  subroutine coop_init_random()
+    COOP_INT nowtime, countrate, s(3), si
+    call System_clock(NOWTIME,COUNTRATE)
+    s(1) = nowtime
+    s(2) = countrate
+    s(3) = mod(nowtime, 17)+1
+    call random_seed(SIZE = si)
+    call random_seed(PUT = s(1:si))
+  end subroutine coop_init_random
+
+
+  Subroutine Coop_return_error(name, message, action)
+    CHARACTER(LEN=*),optional::name
+    Character(Len=*),optional::Message
+    Character(Len=*),optional::action
+    Character::ans
+    if(present(name)) WRITE(*,*) "Error/Warning in "//TRIM(name)
+    if(present(Message)) write(*,*) "** "//Trim(Message)//" **"
+    if(present(ACTION))THEN
+       select case(action)
+       case("stop","STOP","Stop", "abort", "Abort", "ABORT")
+          stop "program terminated"
+       case("return","RETURN","Return", "pass", "Pass", "PASS")
+          return
+       case("wait","Wait","WAIT", "ask", "ASK", "Ask")
+100       write(*,*) "Ignore this error and continue? (Y/N)"
+          read(*,*) ans
+          if(ans == "y" .or. ans == "Y")then
+             return
+          else
+             goto 100
+          endif
+       end select
+    else
+       stop
+    endif
+  end subroutine Coop_return_error
+
+
+
+  function coop_getdim(name, N1,N2,N3,N4,N5,N6) result(getdim)
+    COOP_UNKNOWN_STRING name
+    COOP_INT,INTENT(IN)::N1,N2
+    COOP_INT,OPTIONAL::N3,N4,N5,N6
+    COOP_INT getdim
+    getdim=N1
+    if(N1.NE.N2)THEN
+       write(*,"(A,2I8)") "Dimension Error:",N1,N2
+       CALL Coop_return_error(name)
+       return
+    ELSE
+       if(present(N3))THEN
+          if(N1.NE.N3)THEN
+             write(*,"(A,3I8)") "Dimension Error:",N1,N2, N3
+             CALL Coop_return_error(name)
+             return
+          Endif
+          if(present(N4))THEN
+             if(N1.NE.N4)then
+                write(*,"(A,4I8)") "Dimension Error:",N1,N2, N3, N4
+                call Coop_return_error(Name)
+                return
+             endif
+             if(Present(N5))then
+                if(N5.ne.N1)then
+                   write(*,"(A,5I8)") "Dimension Error:",N1,N2, N3, N4, N5
+                   call Coop_return_error(Name)
+                   return
+                endif
+                if(present(N6))then
+                   if(N1.ne.N6)then
+                      write(*,"(A,6I8)") "Dimension Error:",N1,N2, N3, N4, N5, N6
+                      call Coop_return_error(Name)
+                      return
+                   endif
+                endif
+             endif
+          endif
+       endif
+    endif
+  end function coop_getdim
+
   
   subroutine coop_set_uniform(n, x, lower, upper, logscale)
     COOP_INT n, i
@@ -99,7 +273,7 @@ contains
     COOP_REAL, optional::ypl,ypr
     COOP_REAL yil, yir, bet, dxr, dxl
     COOP_REAL gam(n-1)
-    if(n.le.1)then
+    if(n.le.2)then
        y2 = 0.
        return
     endif
@@ -151,55 +325,93 @@ contains
        return
     endif
     r = l + 1
-    a =  1. - b
+    a =  1.d0 - b
     ys=y(l)*a+y(r)*b+  &
          (y2(l)*(a*a-1.)*a+y2(r)*(b*b-1.)*b)/6.*(x(r)-x(l))**2
   end subroutine coop_splint
 
+  subroutine coop_splint_derv(n, x, y, y2, xs, ys)
+    COOP_REAL,DIMENSION(:),INTENT(IN)::x, y, y2
+    COOP_REAL xs, ys
+    COOP_INT n, j, l, r
+    COOP_REAL::a, b
+    call coop_locate(n, x, xs, l, b)
+    If(l.lt.1)then
+       ys = (y(2)-y(1))/(x(2)-x(1)) 
+    endif
+    if(l.ge. n)Then
+       ys = (y(n)-y(n-1))/(x(n)-x(n-1))
+       return
+    endif
+    r = l + 1
+    a = 1.d0 - b
+    a=(x(r)-xs)/(X(r)-X(r-1))
+    b=1.D0-a
+    ys=(y(r)-y(l))/(x(r)-x(l)) + &
+         (-y2(l)*(0.5d0*a*a-1.d0/6.d0) + y2(r)*(0.5d0*b*b-1.d0/6.d0))*(x(r)-x(r-1))
+  end subroutine Coop_splint_derv
 
-  subroutine coop_spline_uniform(n, y, y2, ypl, ypr)
+
+
+  subroutine coop_spline_uniform(n, y, y2)
     COOP_INT n, i
     COOP_REAL  y(n), y2(n)
-    COOP_REAL, optional::ypl,ypr
-    COOP_REAL yil, yir, bet, dxl, dxr
+    COOP_REAL yil, yir, bet, ypl, ypr
     COOP_REAL gam(n-1)
-    if(n.le.1)then
+    if(n.le.2)then
        y2 = 0.
        return
     endif
-    dxr = 1.
-    yir=y(2)-y(1)
-    if(present(ypl))then
-       y2(1)=(yir-ypl)*3.
-       gam(1)= 0.5
-    else
-       y2(1)=0.
-       gam(1)=0.
-    endif
-    dxr = dxr/6.
+    yir=(y(2)-y(1))
+    ypl=(2.d0*y(2)-1.5d0*y(1)-0.5d0*y(3))
+    ypr = -(2.d0*y(n-1)-1.5d0*y(n)-0.5d0*y(n-2))
+    y2(1)=(yir-ypl)*3.
+    gam(1)= 0.5
     do i=2, n-1
-       dxl = dxr
-       dxr=1.
-       bet=1.d0/3.-dxl*gam(i-1)
-       if(abs(bet) .lt. 1.d-30) stop 'Error in SPLinE.'
+       bet=2.d0/3.d0-gam(i-1)/6.d0
+       if(abs(bet) .lt. 1.d-30) stop 'Error in spline.'
        yil=yir
-       yir=(y(i+1)-y(i))/dxr
-       y2(i)=(yir-yil-dxl*y2(i-1))/bet
-       dxr=dxr/6.
-       gam(i)=dxr/bet
+       yir=(y(i+1)-y(i))
+       y2(i)=(yir-yil-y2(i-1)/6.d0)/bet
+       gam(i)=(1.d0/6.d0)/bet
     enddo
-    if(present(ypr))then
-       bet=1.d0/3.-dxr*gam(n-1)
-       if(abs(bet) .lt. 1.d-30) stop 'Error in SPLinE.'
-       y2(n)=(ypr-yir-dxr*y2(n-1))/bet
-    else
-       y2(n)=0.
-    endif
+    bet=1.d0/3.-gam(n-1)/6.d0
+    if(abs(bet) .lt. 1.d-30) stop 'Error in spline.'
+    y2(n)=(ypr-yir-y2(n-1)/6.d0)/bet
     do i=n-1, 1 , -1
        y2(i)=y2(i)-gam(i)*y2(i+1)
     enddo
     y2 =  y2/6.
   end subroutine coop_spline_uniform
+
+
+  subroutine coop_naturalspline_uniform(n, y, y2)
+    COOP_INT n, i
+    COOP_REAL  y(n), y2(n)
+    COOP_REAL yil, yir, bet
+    COOP_REAL gam(n-1)
+    if(n.le.2)then
+       y2 = 0.
+       return
+    endif
+    yir=(y(2)-y(1))
+    y2(1)=0.
+    gam(1)=0.
+    do i=2, n-1
+       bet = 2.d0/3.-gam(i-1)/6.d0
+       if(abs(bet) .lt. 1.d-30) stop 'Error in SPLinE.'
+       yil=yir
+       yir=(y(i+1)-y(i))
+       y2(i)=(yir-yil-y2(i-1)/6.d0)/bet
+       gam(i)=(1.d0/6.d0)/bet
+    enddo
+    y2(n)=0.
+    do i=n-1, 1 , -1
+       y2(i)=y2(i)-gam(i)*y2(i+1)
+    enddo
+    y2 = y2/6.d0
+  end subroutine coop_naturalspline_uniform
+
 
   subroutine coop_splint_uniform(n, xmin, dx, y, y2, xs, ys)
     COOP_INT n, l, r
@@ -220,6 +432,52 @@ contains
     ys=y(l)*a+y(r)*b+  &
          (y2(l)*(a*a-1.)*a+y2(r)*(b*b-1.)*b)
   end subroutine coop_splint_uniform
+
+
+
+
+  subroutine coop_splint_derv_uniform(n, xmin, dx, y, y2, xs, ys)
+    COOP_INT n, l, r
+    COOP_REAL xmin, dx, y(n), y2(n), xs, ys, a, b
+    b = (xs - xmin)/dx + 1.d0
+    l = floor(b)
+    if(l.lt.1)then
+       ys = (2.d0*y(2)-1.5d0*y(1)+0.5d0*y(3))/dx
+       return
+    endif
+    if(l.ge.n)then
+       ys = (1.5d0*y(n)-2.d0*y(n-1)+0.5d0*y(n-2))/dx
+       return
+    endif
+    b=b-l
+    r = l+1
+    a=1.-b
+    ys=(y(r)-y(l))/dx + &
+         (-y2(l)*(3.d0*a*a-1.d0) + y2(r)*(3.d0*b*b-1.d0))/dx
+  end subroutine coop_splint_derv_uniform
+
+
+
+  subroutine coop_naturalsplint_derv_uniform(n, xmin, dx, y, y2, xs, ys)
+    COOP_INT n, l, r
+    COOP_REAL xmin, dx, y(n), y2(n), xs, ys, a, b
+    b = (xs - xmin)/dx + 1.d0
+    l = floor(b)
+    if(l.lt.1)then
+       ys = (y(2)-y(1))/dx
+       return
+    endif
+    if(l.ge.n)then
+       ys = (y(n)-y(n-1))/dx
+       return
+    endif
+    b=b-l
+    r = l+1
+    a=1.-b
+    ys=(y(r)-y(l))/dx + &
+         (-y2(l)*(3.d0*a*a-1.d0) + y2(r)*(3.d0*b*b-1.d0))/dx
+  end subroutine coop_naturalsplint_derv_uniform
+  
 
   subroutine coop_cheb_eval_all(n, x, y)
     COOP_INT,intent(IN):: n
@@ -261,6 +519,15 @@ contains
     COOP_REAL,intent(OUT):: c(m)
     call coop_svd_least_square_one(n, m, tpls, y, c)
   end subroutine coop_fit_template
+
+
+  subroutine coop_fit_templates(n, m, nd, y, tpls, c)
+    COOP_INT,intent(IN):: n, m, nd
+    COOP_REAL,intent(IN)::y(n, nd)
+    COOP_REAL,intent(INOUT)::tpls(n, m)
+    COOP_REAL,intent(OUT):: c(m, nd)
+    call coop_svd_least_square_all(n, m, nd, tpls, y, c)
+  end subroutine coop_fit_templates
 
 
   subroutine coop_chebfit(n, x,y, m, a,b,c)
@@ -309,4 +576,11 @@ contains
     call  coop_get_cheb_value(n, c, t, y)
   end subroutine coop_chebeval
 
-end module coop_basicutils
+  function coop_isnan(x)
+    COOP_REAL x
+    logical coop_isnan
+    coop_isnan = .not. (x.gt.0.d0 .or. x.le.0.d0)
+  end function coop_isnan
+
+
+end module coop_basicutils_mod

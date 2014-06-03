@@ -1,7 +1,7 @@
-module coop_type_function
-  use coop_constants
-  use coop_basicutils
-  use coop_type_arguments
+module coop_function_mod
+  use coop_constants_mod
+  use coop_basicutils_mod
+  use coop_arguments_mod
   implicit none
 #include "constants.h"
 
@@ -240,4 +240,4 @@ contains
   end function coop_function_evaluate
 
 
-end module coop_type_function
+end module coop_function_mod
