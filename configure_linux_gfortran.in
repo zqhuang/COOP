@@ -1,6 +1,6 @@
-PLATFORM = MacOS
+#PLATFORM = MacOS
 #PLATFORM = Windows
-#PLATFORM = LINUX
+PLATFORM = LINUX
 
 ifeq ($(PLATFORM),MacOS)
 GFORTRAN_NAME = gfortran-mp-4.7

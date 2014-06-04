@@ -1,6 +1,6 @@
-PLATFORM = MacOS
+#PLATFORM = MacOS
 #PLATFORM = Windows
-#PLATFORM = LINUX
+PLATFORM = LINUX
 
 ifeq ($(PLATFORM),MacOS)
 GFORTRAN_NAME = gfortran-mp-4.7
@@ -21,8 +21,8 @@ MPI_COMPILER_ALIAS = mpif90
 USE_OPENMP = YES
 ##### compilers
 #free compiler $(GCC_NAME) and $(GFORTRAN_NAME); you also need preprocessor that comes with $(GCC_NAME)
-FORTRAN_COMPILER = $(GFORTRAN_NAME)
-C_COMPILER = $(GCC_NAME)
+FORTRAN_COMPILER = $(IFORT_NAME)
+C_COMPILER = $(ICC_NAME)
 #if you have intel compilers
 #FORTRAN_COMPILER = $(IFORT_NAME)
 #C_COMPILER = $(ICC_NAME)

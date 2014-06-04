@@ -1,0 +1,18 @@
+1. replace the proper configure file, for example, if you are using gfortran in linux system:
+   cp configure_linux_gfortran.in configure.in
+
+2. (optional) you can edit configure.in to adjust the configurations
+
+3. make sure the appropriate compiler is loaded. (gfortran 4.7.3 + , ifort 14+), for example, if you are using gfortran you might want to load:
+module load gcc/4.7.3
+add this to ~/.bashrc so that you don't need to load the module every time.
+
+4. run the shell script 
+./compile.sh
+
+
+
+If you want to recompile, do
+./clear.sh
+./compile.sh
+
