@@ -11,7 +11,7 @@ BGOBJ = background.o wrapper.o
 
 default: $(BGLIB)
 
-$(BGLIB): $(BGOBJ) $(UTILS)/libcooputils.a
+$(BGLIB): $(BGOBJ) 
 	ar -r $@ $?
 
 Test: $(BGOBJ) test.o ../include/background.h $(UTILS)/libcooputils.a

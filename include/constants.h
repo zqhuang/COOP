@@ -1,4 +1,6 @@
 #include "default_cosmology_parameters.h"
+#define COOP_YES 1
+#define COOP_NO 0
 
 #define COOP_INT integer(coop_integer_length)
 #define COOP_INT_ARRAY integer(coop_integer_length),dimension(coop_default_array_size)
@@ -17,6 +19,14 @@
 #define COOP_INTERPOLATE_QUDRATIC 2
 #define COOP_INTERPOLATE_SPLINE 3
 #define COOP_INTERPOLATE_CHEBYSHEV 4
+
+#define COOP_ODE_DVERK 1
+#define COOP_ODE_RK4 2
+#define COOP_ODE_RK6 3
+#define COOP_ODE_RK8 4
+#define COOP_ODE_GL4 5
+#define COOP_ODE_GL6 6
+#define COOP_ODE_GL8 7
 
 
 #define COOP_SPECIES_FLUID 0

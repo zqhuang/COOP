@@ -8,6 +8,10 @@ module coop_basicutils_mod
      module procedure::coop_swap_real, coop_swap_int, coop_swap_real_array, coop_swap_int_array
   end interface coop_swap
 
+  interface coop_isnan
+     module procedure::coop_isnan_real, coop_isnan_real_array
+  end interface coop_isnan
+
 contains
 
   Function coop_OuterProd(a, b) result(outerprod)
@@ -569,6 +573,22 @@ contains
     call coop_fit_template(n, m, y, fx, c)
   end subroutine coop_chebfit_uniform
 
+
+  !!suppose f(x) is expanded with chebyshev polynomial c (with boundaries a, b mapped to -1, 1)
+  !!this subroutine expand f'(x) with chebyshev polynomials (same boundaries)
+  subroutine coop_chebfit_derv(n, a, b, c, cder)
+    COOP_INT n, j
+    COOP_REAL c(n), cder(n), a, b
+    cder(n) = 0.d0
+    cder(n-1) = 2*(n-1)*c(n)
+    do j = n-2,1,-1
+       cder(j)=cder(j+2)+2*j*c(j+1)
+    enddo
+    cder(1) = cder(1)/2.d0
+    cder = cder*(2.d0/(b-a))
+    return
+  end subroutine coop_chebfit_derv
+
   subroutine coop_chebeval(n, a, b, c, x, y)
     COOP_INT n
     COOP_REAL a, b, c(n), x, y, t
@@ -576,11 +596,18 @@ contains
     call  coop_get_cheb_value(n, c, t, y)
   end subroutine coop_chebeval
 
-  function coop_isnan(x)
+  function coop_isnan_real(x) 
     COOP_REAL x
-    logical coop_isnan
-    coop_isnan = .not. (x.gt.0.d0 .or. x.le.0.d0)
-  end function coop_isnan
+    logical coop_isnan_real
+    coop_isnan_real = .not. (x.gt.0.d0 .or. x.le.0.d0)
+  end function coop_isnan_real
+
+  function coop_isnan_real_array(x)
+    COOP_REAL,dimension(:):: x
+    logical coop_isnan_real_array
+    coop_isnan_real_array = .not. (all(x.gt.0.d0 .or. x.le.0.d0))
+  end function coop_isnan_real_array
+
 
 
 end module coop_basicutils_mod

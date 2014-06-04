@@ -16,6 +16,7 @@ public::coop_arguments
    contains
      procedure::init => coop_arguments_initialize
      procedure::free => coop_arguments_free
+     procedure::clone => coop_arguments_clone
   end type coop_arguments
 
   interface coop_arguments
@@ -80,5 +81,26 @@ contains
     this%n_real = 0
     this%n_logical = 0
   end subroutine coop_arguments_free
+
+  subroutine coop_arguments_clone(this, args)
+    class(coop_arguments) this
+    type(coop_arguments) args
+    call this%free()
+    if(allocated(args%r))then
+       allocate(this%r(args%n_real))
+       this%r = args%r
+       this%n_real = args%n_real
+    endif
+    if(allocated(args%i))then
+       allocate(this%i(args%n_int))
+       this%i = args%i
+       this%n_int = args%n_int
+    endif
+    if(allocated(args%l))then
+       allocate(this%l(args%n_logical))
+       this%l = args%l
+       this%n_logical = args%n_logical
+    endif
+  end subroutine coop_arguments_clone
 
 end module coop_arguments_mod

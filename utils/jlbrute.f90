@@ -1,8 +1,11 @@
-module jlb_utils
-  use specfunc_utils
-  use general_utils
+module coop_sbj_mod
+  use coop_wrapper_typedef
+  use coop_special_function_mod
   implicit none
 
+#include "constants.h"
+
+  private
   integer,parameter::jlb_lmax = 5101
   integer,parameter::jlb_lmin = 10
 
@@ -15,11 +18,9 @@ module jlb_utils
   logical::jlb_tabulated(jlb_lmin:jlb_lmax) = .false.
   type(jlb_saved_data)::jlb_table(jlb_lmin:jlb_lmax)
 
-#include "utils.h"
-
 !!yes -> 1.3 GB mem
 !!no ->  0.4 GB mem
-#define  JLB_SUPER_PRECISION NO 
+#define  JLB_SUPER_PRECISION COOP_NO 
 
 contains
 
@@ -949,6 +950,6 @@ contains
 
 
 
-end module jlb_utils
+end module coop_sbj_mod
 
 

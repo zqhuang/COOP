@@ -4,13 +4,13 @@ FIRSTORDER=../firstorder
 
 include ../configure.in
 include ../compile_rules.in
-LIB = libcoop.a
+LIB = libcoopwrapper.a
 OBJ = wrapper.o 
 
 
 default: $(LIB)
 
-$(LIB):	$(OBJ) $(FIRSTORDER)/libcoopfirstorder.a
+$(LIB):	$(OBJ) 
 	ar -r $@ $?
 
 clean:

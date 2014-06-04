@@ -12,7 +12,7 @@ BGOBJ = firstorder.o wrapper.o
 
 default: $(BGLIB)
 
-$(BGLIB): $(BGOBJ) $(BACKGROUND)/libcoopbackground.a
+$(BGLIB): $(BGOBJ)
 	ar -r $@ $?
 
 Test: $(BGOBJ) test.o $(BACKGROUND)/libcoopbackground.a

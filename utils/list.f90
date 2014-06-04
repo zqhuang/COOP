@@ -1,7 +1,14 @@
 module coop_list_mod
   use coop_wrapper_typedef
   implicit none
+
 #include "constants.h"
+  private
+
+  COOP_INT,parameter::sp = kind(1.)
+  COOP_INT,parameter::dl = kind(1.d0)
+
+  public::coop_list_integer, coop_list_real, coop_list_realarr, coop_list_double, coop_list_logical, coop_list_string, coop_list_character, coop_string_to_list, coop_dictionary, coop_dictionary_lookup
 
   interface coop_list_initialize
      module procedure coop_list_integer_initialize, coop_list_real_initialize, coop_list_double_initialize, coop_list_logical_initialize, coop_list_string_initialize, coop_list_character_initialize, coop_list_realarr_initialize
@@ -30,90 +37,139 @@ module coop_list_mod
   end interface coop_list_get_element
 
 
-  interface string_to_coop_list
-     module procedure string_to_coop_list_string, string_to_coop_list_real, string_to_coop_list_double, string_to_coop_list_integer, string_to_coop_list_logical
-  end interface string_to_coop_list
+  interface coop_string_to_list
+     module procedure coop_string_to_list_string, coop_string_to_list_real, coop_string_to_list_double, coop_string_to_list_integer, coop_string_to_list_logical
+  end interface coop_string_to_list
 
   interface coop_dictionary_lookup
      module procedure coop_dictionary_lookup_string, coop_dictionary_lookup_int, coop_dictionary_lookup_real, coop_dictionary_lookup_double, coop_dictionary_lookup_logical, coop_dictionary_lookup_int_array, coop_dictionary_lookup_real_array, coop_dictionary_lookup_double_array, coop_dictionary_lookup_logical_array
   end interface coop_dictionary_lookup
 
 
-  integer,parameter:: coop_list_i1_max_length = 2**12
-  integer,parameter:: coop_list_i2_max_length = coop_list_i1_max_length * 4
-  integer,parameter:: coop_list_i3_max_length = coop_list_i2_max_length * 4
-  integer,parameter:: coop_list_i4_max_length = coop_list_i3_max_length * 4
+  COOP_INT,parameter:: coop_list_i1_max_length = 2**12
+  COOP_INT,parameter:: coop_list_i2_max_length = coop_list_i1_max_length * 4
+  COOP_INT,parameter:: coop_list_i3_max_length = coop_list_i2_max_length * 4
+  COOP_INT,parameter:: coop_list_i4_max_length = coop_list_i3_max_length * 4
 
 
-  integer,parameter:: coop_list_s1_max_length =  coop_list_i1_max_length/coop_string_length
-  integer,parameter:: coop_list_s2_max_length = coop_list_s1_max_length * 4
-  integer,parameter:: coop_list_s3_max_length = coop_list_s2_max_length * 4
-  integer,parameter:: coop_list_s4_max_length = coop_list_s3_max_length * 4
+  COOP_INT,parameter:: coop_list_s1_max_length =  coop_list_i1_max_length/coop_string_length
+  COOP_INT,parameter:: coop_list_s2_max_length = coop_list_s1_max_length * 4
+  COOP_INT,parameter:: coop_list_s3_max_length = coop_list_s2_max_length * 4
+  COOP_INT,parameter:: coop_list_s4_max_length = coop_list_s3_max_length * 4
 
-  integer,parameter::coop_list_unit_len = 8192
+  COOP_INT,parameter::coop_list_unit_len = 8192
 
   type coop_list_integer
-     integer n, stack, loc
-     integer,dimension(:),allocatable::i1
-     integer,dimension(:),allocatable::i2
-     integer,dimension(:),allocatable::i3
-     integer,dimension(:),allocatable::i4
+     COOP_INT n, stack, loc
+     COOP_INT,dimension(:),allocatable::i1
+     COOP_INT,dimension(:),allocatable::i2
+     COOP_INT,dimension(:),allocatable::i3
+     COOP_INT,dimension(:),allocatable::i4
+   contains
+     procedure::init => coop_list_integer_initialize
+     procedure::isinit => coop_list_integer_is_initialized
+     procedure::push => coop_list_integer_push
+     procedure::pop => coop_list_integer_pop
+     procedure::element => coop_list_integer_element
+     procedure::get_element => coop_list_integer_get_element
   end type coop_list_integer
 
   type coop_list_real
-     integer n, stack, loc
-     real,dimension(:),allocatable::i1
-     real,dimension(:),allocatable::i2
-     real,dimension(:),allocatable::i3
-     real,dimension(:),allocatable::i4
+     COOP_INT n, stack, loc
+     real(sp),dimension(:),allocatable::i1
+     real(sp),dimension(:),allocatable::i2
+     real(sp),dimension(:),allocatable::i3
+     real(sp),dimension(:),allocatable::i4
+   contains
+     procedure::init => coop_list_real_initialize
+     procedure::isinit => coop_list_real_is_initialized
+     procedure::push => coop_list_real_push
+     procedure::pop => coop_list_real_pop
+     procedure::element => coop_list_real_element
+     procedure::get_element => coop_list_real_get_element
   end type coop_list_real
 
   type coop_list_realarr
-     integer dim
-     integer n, stack, loc
-     real,dimension(:,:),allocatable::i1
-     real,dimension(:,:),allocatable::i2
-     real,dimension(:,:),allocatable::i3
-     real,dimension(:,:),allocatable::i4
+     COOP_INT dim
+     COOP_INT n, stack, loc
+     real(sp),dimension(:,:),allocatable::i1
+     real(sp),dimension(:,:),allocatable::i2
+     real(sp),dimension(:,:),allocatable::i3
+     real(sp),dimension(:,:),allocatable::i4
+   contains
+     procedure::init => coop_list_realarr_initialize
+     procedure::isinit => coop_list_realarr_is_initialized
+     procedure::push => coop_list_realarr_push
+     procedure::pop => coop_list_realarr_pop
+     procedure::element => coop_list_realarr_element
+     procedure::get_element => coop_list_realarr_get_element
   end type coop_list_realarr
 
   type coop_list_double
-     integer n, stack, loc
-     COOP_REAL,dimension(:),allocatable::i1
-     COOP_REAL,dimension(:),allocatable::i2
-     COOP_REAL,dimension(:),allocatable::i3
-     COOP_REAL,dimension(:),allocatable::i4
+     COOP_INT n, stack, loc
+     real(dl),dimension(:),allocatable::i1
+     real(dl),dimension(:),allocatable::i2
+     real(dl),dimension(:),allocatable::i3
+     real(dl),dimension(:),allocatable::i4
+   contains
+     procedure::isinit => coop_list_double_is_initialized
+     procedure::init => coop_list_double_initialize
+     procedure::push => coop_list_double_push
+     procedure::pop => coop_list_double_pop
+     procedure::element => coop_list_double_element
+     procedure::get_element => coop_list_double_get_element
   end type coop_list_double
 
   type coop_list_logical
-     integer n, stack, loc
+     COOP_INT n, stack, loc
      logical,dimension(:),allocatable::i1
      logical,dimension(:),allocatable::i2
      logical,dimension(:),allocatable::i3
      logical,dimension(:),allocatable::i4
+   contains
+     procedure::isinit => coop_list_logical_is_initialized
+     procedure::init => coop_list_logical_initialize
+     procedure::push => coop_list_logical_push
+     procedure::pop => coop_list_logical_pop
+     procedure::element => coop_list_logical_element
+     procedure::get_element => coop_list_logical_get_element
   end type coop_list_logical
 
   type coop_list_character
-     integer n, stack, loc
+     COOP_INT n, stack, loc
      character,dimension(:),allocatable::i1
      character,dimension(:),allocatable::i2
      character,dimension(:),allocatable::i3
      character,dimension(:),allocatable::i4
+   contains
+     procedure::isinit => coop_list_character_is_initialized
+     procedure::init => coop_list_character_initialize
+     procedure::push => coop_list_character_push
+     procedure::pop => coop_list_character_pop
+     procedure::element => coop_list_character_element
+     procedure::get_element => coop_list_character_get_element
   end type coop_list_character
 
   type coop_list_string
-     integer n, stack, loc
+     COOP_INT n, stack, loc
      COOP_STRING,dimension(:),allocatable::i1
      COOP_STRING,dimension(:),allocatable::i2
      COOP_STRING,dimension(:),allocatable::i3
      COOP_STRING,dimension(:),allocatable::i4
+   contains
+     procedure::isinit => coop_list_string_is_initialized
+     procedure::init => coop_list_string_initialize
+     procedure::push => coop_list_string_push
+     procedure::pop => coop_list_string_pop
+     procedure::element => coop_list_string_element
+     procedure::get_element => coop_list_string_get_element
   end type coop_list_string
 
   type coop_dictionary
-     integer n, capacity
+     COOP_INT n, capacity
      COOP_SHORT_STRING,dimension(:),allocatable::key
      COOP_STRING,dimension(:),allocatable::val
-     integer, dimension(:),allocatable::id
+     COOP_INT, dimension(:),allocatable::id
    contains
      procedure::print => coop_dictionary_print
      procedure::insert => coop_dictionary_insert
@@ -122,109 +178,14 @@ module coop_list_mod
      procedure::free => coop_dictionary_free
   end type coop_dictionary
 
-  type coop_point_3dfield
-     real f
-     integer x, y, z 
-  end type coop_point_3dfield
-
-  type coop_list_3dfield
-     integer n
-     integer capacity
-     type(coop_point_3dfield),dimension(:),allocatable::p
-  end type coop_list_3dfield
-
-
 
 contains
-
-
-!!3d filed
-  subroutine init_coop_list_3dfield(l3d)
-    type(coop_list_3dfield) l3d
-    if(allocated(l3d%p))deallocate(l3d%p)
-    allocate(l3d%p(coop_list_unit_len))
-    l3d%n = 0
-    l3d%capacity = coop_list_unit_len
-  end subroutine init_coop_list_3dfield
-
-  subroutine print_coop_list_3dfield(l3d)
-    type(coop_list_3dfield) l3d
-    integer i
-    do i=1,l3d%n
-       write(*,"(A,I5,A,I5,A,I5,A,E14.5)") "(",l3d%p(i)%x,",",l3d%p(i)%y,",",l3d%p(i)%z," ): ",l3d%p(i)%f
-    enddo
-  end subroutine print_coop_list_3dfield
-
-  subroutine insert_coop_list_3dfield(l3d, f, x,y,z)
-    type(coop_list_3dfield) l3d
-    real f
-    integer x, y, z
-    type(coop_point_3dfield),dimension(:),allocatable:: ptmp
-    if(l3d%n .ge. l3d%capacity)then
-       allocate(ptmp(l3d%capacity))
-       ptmp(1:l3d%capacity)=l3d%p(1:l3d%capacity)
-       deallocate(l3d%p)
-       allocate(l3d%p(l3d%capacity + coop_list_unit_len))
-       l3d%p(1:l3d%capacity) = ptmp(1:l3d%capacity)
-       l3d%capacity = l3d%capacity + coop_list_unit_len
-       deallocate(ptmp)
-    endif
-    l3d%n=l3d%n+1
-    l3d%p(l3d%n)%f = f
-    l3d%p(l3d%n)%x = x
-    l3d%p(l3d%n)%y = y
-    l3d%p(l3d%n)%z = z
-  end subroutine insert_coop_list_3dfield
-
-  subroutine sort_coop_list_3dfield(l3d) !!f descending
-    type(coop_list_3dfield)l3d
-    integer,dimension(:,:),Allocatable::stack  !!StACK
-    type(coop_point_3dfield) x
-    integer l1,l2,lpoint,i,j
-    Allocate(stack(2,l3d%n))
-    l1=1
-    l2=l3d%n
-    lpoint=0
-    do
-       do While(l1.lt.l2)
-          i=l1
-          j=l2
-          x=l3d%p(l1)
-          do while(i.lt.j)
-             do While(i.lt.j .and. x%f.ge. l3d%p(j)%f)
-                j=j-1
-             enddo
-             if(i.lt.j)then
-                l3d%p(i)=l3d%p(j)
-                i=i+1
-                do While(i.lt.j .And. l3d%p(i)%f .gt. X%f)
-                   i=i+1
-                enddo
-                if(i.lt.j)then
-                   l3d%p(j)=l3d%p(i)
-                   j=j-1
-                endif
-             endif
-          enddo
-          l3d%p(i)=x
-          lpoint=lpoint+1
-          stack(1,lpoint)=i+1
-          stack(2,lpoint)=l2
-          l2=i-1
-       enddo
-       if(lpoint.eq.0)eXit
-       l1=stack(1,lpoint)
-       l2=stack(2,lpoint)
-       lpoint=lpoint-1
-    enddo
-    deallocate(stack)
-  end subroutine sort_coop_list_3dfield
 
 !! initialize
 
 
   subroutine coop_list_string_initialize(l)
-    type(coop_list_string) l
+    class(coop_list_string) l
     l%n = 0
     l%stack = 1
     l%loc = 0
@@ -237,7 +198,7 @@ contains
 
 
   subroutine coop_list_real_initialize(l)
-    type(coop_list_real) l
+    class(coop_list_real) l
     l%n = 0
     l%stack = 1
     l%loc = 0
@@ -250,7 +211,7 @@ contains
 
 
   subroutine coop_list_realarr_initialize(l)
-    type(coop_list_realarr) l
+    class(coop_list_realarr) l
     l%n = 0
     l%stack = 1
     l%loc = 0
@@ -262,7 +223,7 @@ contains
 
 
   subroutine coop_list_double_initialize(l)
-    type(coop_list_double) l
+    class(coop_list_double) l
     l%n = 0
     l%stack = 1
     l%loc = 0
@@ -274,7 +235,7 @@ contains
 
 
   subroutine coop_list_integer_initialize(l)
-    type(coop_list_integer) l
+    class(coop_list_integer) l
     l%n = 0
     l%stack = 1
     l%loc = 0
@@ -286,7 +247,7 @@ contains
 
 
   subroutine coop_list_logical_initialize(l)
-    type(coop_list_logical) l
+    class(coop_list_logical) l
     l%n = 0
     l%stack = 1
     l%loc = 0
@@ -298,7 +259,7 @@ contains
 
 
   subroutine coop_list_character_initialize(l)
-    type(coop_list_character) l
+    class(coop_list_character) l
     l%n = 0
     l%stack = 1
     l%loc = 0
@@ -310,46 +271,46 @@ contains
 
 
   function coop_list_integer_is_initialized(l) result(ini)
-    type(coop_list_integer) l
+    class(coop_list_integer) l
     logical ini
     ini = allocated(l%i1)
   end function coop_list_integer_is_initialized
 
 
   function coop_list_real_is_initialized(l) result(ini)
-    type(coop_list_real) l
+    class(coop_list_real) l
     logical ini
     ini = allocated(l%i1)
   end function coop_list_real_is_initialized
 
 
   function coop_list_double_is_initialized(l) result(ini)
-    type(coop_list_double) l
+    class(coop_list_double) l
     logical ini
     ini = allocated(l%i1)
   end function coop_list_double_is_initialized
 
 
   function coop_list_character_is_initialized(l) result(ini)
-    type(coop_list_character) l
+    class(coop_list_character) l
     logical ini
     ini = allocated(l%i1)
   end function coop_list_character_is_initialized
 
   function coop_list_logical_is_initialized(l) result(ini)
-    type(coop_list_logical) l
+    class(coop_list_logical) l
     logical ini
     ini = allocated(l%i1)
   end function coop_list_logical_is_initialized
 
   function coop_list_string_is_initialized(l) result(ini)
-    type(coop_list_string) l
+    class(coop_list_string) l
     logical ini
     ini = allocated(l%i1)
   end function coop_list_string_is_initialized
 
   function coop_list_realarr_is_initialized(l) result(ini)
-    type(coop_list_realarr) l
+    class(coop_list_realarr) l
     logical ini
     ini = allocated(l%i1)
   end function coop_list_realarr_is_initialized
@@ -357,8 +318,8 @@ contains
 
 !!push and pop
   subroutine coop_list_integer_push(l, i)
-    type(coop_list_integer) l
-    integer i
+    class(coop_list_integer) l
+    COOP_INT i
     if(allocated(l%i1))then
        l%n = l%n+1
        select case(l%stack)
@@ -418,7 +379,7 @@ contains
   end subroutine coop_list_integer_push
 
   subroutine coop_list_integer_pop(l)
-    type(coop_list_integer) l
+    class(coop_list_integer) l
     if(allocated(l%i1))then
        l%n = l%n-1
        if(l%loc.gt.1)then
@@ -447,8 +408,8 @@ contains
 
 
   subroutine coop_list_real_push(l, i)
-    type(coop_list_real) l
-    real i
+    class(coop_list_real) l
+    real(sp) i
     if(allocated(l%i1))then
        l%n = l%n+1
        select case(l%stack)
@@ -508,7 +469,7 @@ contains
   end subroutine coop_list_real_push
 
   subroutine coop_list_real_pop(l)
-    type(coop_list_real) l
+    class(coop_list_real) l
     if(allocated(l%i1))then
        l%n = l%n-1
        if(l%loc.gt.1)then
@@ -537,8 +498,8 @@ contains
 
 
   subroutine coop_list_realarr_push(l, i)
-    type(coop_list_realarr) l
-    real,dimension(:),intent(IN)::i
+    class(coop_list_realarr) l
+    real(sp),dimension(:),intent(IN)::i
     if(allocated(l%i1))then
        if(size(i).ne. l%dim) stop "coop_list_realarr_push: wrong size of input array"
        l%n = l%n+1
@@ -600,7 +561,7 @@ contains
   end subroutine coop_list_realarr_push
 
   subroutine coop_list_realarr_pop(l)
-    type(coop_list_realarr) l
+    class(coop_list_realarr) l
     if(allocated(l%i1))then
        l%n = l%n-1
        if(l%loc.gt.1)then
@@ -628,8 +589,8 @@ contains
 
 
   subroutine coop_list_double_push(l, i)
-    type(coop_list_double) l
-    COOP_REAL i
+    class(coop_list_double) l
+    real(dl) i
     if(allocated(l%i1))then
        l%n = l%n+1
        select case(l%stack)
@@ -689,7 +650,7 @@ contains
   end subroutine coop_list_double_push
 
   subroutine coop_list_double_pop(l)
-    type(coop_list_double) l
+    class(coop_list_double) l
     if(allocated(l%i1))then
        l%n = l%n-1
        if(l%loc.gt.1)then
@@ -716,7 +677,7 @@ contains
   end subroutine coop_list_double_pop
 
   subroutine coop_list_logical_push(l, i)
-    type(coop_list_logical) l
+    class(coop_list_logical) l
     logical i
     if(allocated(l%i1))then
        l%n = l%n+1
@@ -777,7 +738,7 @@ contains
   end subroutine coop_list_logical_push
 
   subroutine coop_list_logical_pop(l)
-    type(coop_list_logical) l
+    class(coop_list_logical) l
     if(allocated(l%i1))then
        l%n = l%n-1
        if(l%loc.gt.1)then
@@ -805,9 +766,9 @@ contains
 
 
   recursive subroutine coop_list_character_push(l, i)
-    type(coop_list_character) l
+    class(coop_list_character) l
     COOP_UNKNOWN_STRING i
-    integer slen, cut
+    COOP_INT slen, cut
     slen = len(i)
     if(slen .eq. 0) return
     if(allocated(l%i1))then
@@ -876,7 +837,7 @@ contains
 
 
   subroutine coop_list_character_pop(l)
-    type(coop_list_character) l
+    class(coop_list_character) l
     if(allocated(l%i1))then
        l%n = l%n-1
        if(l%loc.gt.1)then
@@ -903,7 +864,7 @@ contains
   end subroutine coop_list_character_pop
 
   subroutine coop_list_string_push(l, i)
-    type(coop_list_string) l
+    class(coop_list_string) l
     COOP_UNKNOWN_STRING i
     if(allocated(l%i1))then
        l%n = l%n+1
@@ -964,7 +925,7 @@ contains
   end subroutine coop_list_string_push
 
   subroutine coop_list_string_pop(l)
-    type(coop_list_string) l
+    class(coop_list_string) l
     if(allocated(l%i1))then
        l%n = l%n-1
        if(l%loc.gt.1)then
@@ -991,12 +952,12 @@ contains
   end subroutine coop_list_string_pop
 
 !!dynamic string operations  
-  subroutine string_to_coop_list_string(str, l, deliminator, ignore_repeat)
+  subroutine coop_string_to_list_string(str, l, deliminator, ignore_repeat)
     COOP_UNKNOWN_STRING str
     COOP_UNKNOWN_STRING,optional::deliminator
     logical,optional::ignore_repeat
-    type(coop_list_string) l
-    integer istart, idel, slen
+    class(coop_list_string) l
+    COOP_INT istart, idel, slen
     call coop_list_initialize(l)
     slen = len(str)
     if(slen .eq. 0)then
@@ -1028,133 +989,133 @@ contains
        if(istart .gt. slen) return
        goto 100
     end select
-  end subroutine string_to_coop_list_string
+  end subroutine coop_string_to_list_string
 
-  subroutine string_to_coop_list_real(str, l)
-    type(coop_list_real) l
+  subroutine coop_string_to_list_real(str, l)
+    class(coop_list_real) l
     COOP_UNKNOWN_STRING str
     type(coop_list_string) lstr
     COOP_STRING tmp
-    integer i
-    real x
+    COOP_INT i
+    real(sp) x
     call coop_list_initialize(l)
-    call string_to_coop_list_string(str, lstr, " ,;"//coop_newline//coop_tab//coop_backspace//coop_carriage_return)
+    call coop_string_to_list_string(str, lstr, " ,;"//coop_newline//coop_tab//coop_backspace//coop_carriage_return)
     do i=1, lstr%n
        call coop_list_get_element(lstr, i, tmp)
        read(tmp, *) x
        call coop_list_push(l, x)
     enddo
     call coop_list_initialize(lstr)
-  end subroutine string_to_coop_list_real
+  end subroutine coop_string_to_list_real
 
 
 
-  subroutine string_to_coop_list_double(str, l)
-    type(coop_list_double) l
+  subroutine coop_string_to_list_double(str, l)
+    class(coop_list_double) l
     COOP_UNKNOWN_STRING str
     type(coop_list_string) lstr
     COOP_STRING tmp
-    integer i
-    COOP_REAL x
+    COOP_INT i
+    real(dl) x
     call coop_list_initialize(l)
-    call string_to_coop_list_string(str, lstr, " ,;"//coop_newline//coop_tab//coop_backspace//coop_carriage_return)
+    call coop_string_to_list_string(str, lstr, " ,;"//coop_newline//coop_tab//coop_backspace//coop_carriage_return)
     do i=1, lstr%n
        call coop_list_get_element(lstr, i, tmp)
        read(tmp, *) x
        call coop_list_push(l, x)
     enddo
     call coop_list_initialize(lstr)
-  end subroutine string_to_coop_list_double
+  end subroutine coop_string_to_list_double
 
 
 
-  subroutine string_to_coop_list_logical(str, l)
-    type(coop_list_logical) l
+  subroutine coop_string_to_list_logical(str, l)
+    class(coop_list_logical) l
     COOP_UNKNOWN_STRING str
     type(coop_list_string) lstr
     COOP_STRING tmp
-    integer i
+    COOP_INT i
     logical x
     call coop_list_initialize(l)
-    call string_to_coop_list_string(str, lstr, " ,;"//coop_newline//coop_tab//coop_backspace//coop_carriage_return)
+    call coop_string_to_list_string(str, lstr, " ,;"//coop_newline//coop_tab//coop_backspace//coop_carriage_return)
     do i=1, lstr%n
        call coop_list_get_element(lstr, i, tmp)
        read(tmp, *) x
        call coop_list_push(l, x)
     enddo
     call coop_list_initialize(lstr)
-  end subroutine string_to_coop_list_logical
+  end subroutine coop_string_to_list_logical
 
 
 
-  subroutine string_to_coop_list_integer(str, l)
-    type(coop_list_integer) l
+  subroutine coop_string_to_list_integer(str, l)
+    class(coop_list_integer) l
     COOP_UNKNOWN_STRING str
     type(coop_list_string) lstr
     COOP_STRING tmp
-    integer i
-    integer x
+    COOP_INT i
+    COOP_INT x
     call coop_list_initialize(l)
-    call string_to_coop_list_string(str, lstr, " ,;"//coop_newline//coop_tab//coop_backspace//coop_carriage_return)
+    call coop_string_to_list_string(str, lstr, " ,;"//coop_newline//coop_tab//coop_backspace//coop_carriage_return)
     do i=1, lstr%n
        call coop_list_get_element(lstr, i, tmp)
        read(tmp, *) x
        call coop_list_push(l, x)
     enddo
     call coop_list_initialize(lstr)
-  end subroutine string_to_coop_list_integer
+  end subroutine coop_string_to_list_integer
 
 !! element
   function coop_list_integer_element(l, i) result(elem)
-    type(coop_list_integer) l
-    integer i, j
-    integer elem
+    class(coop_list_integer) l
+    COOP_INT i, j
+    COOP_INT elem
     call coop_list_integer_get_element(l, i, elem)
   end function coop_list_integer_element
 
   function coop_list_real_element(l, i) result(elem)
-    type(coop_list_real) l
-    integer i, j
-    real elem
+    class(coop_list_real) l
+    COOP_INT i, j
+    real(sp) elem
     call coop_list_real_get_element(l, i, elem)
   end function coop_list_real_element
 
 
   function coop_list_double_element(l, i) result(elem)
-    type(coop_list_double) l
-    integer i, j
-    COOP_REAL elem
+    class(coop_list_double) l
+    COOP_INT i, j
+    real(dl) elem
     call coop_list_double_get_element(l, i, elem)
   end function coop_list_double_element
 
 
   function coop_list_logical_element(l, i) result(elem)
-    type(coop_list_logical) l
-    integer i, j
+    class(coop_list_logical) l
+    COOP_INT i, j
     logical elem
     call coop_list_logical_get_element(l, i, elem)
   end function coop_list_logical_element
 
 
   function coop_list_character_element(l, i) result(elem)
-    type(coop_list_character) l
-    integer i, j
+    class(coop_list_character) l
+    COOP_INT i, j
     character elem
     call coop_list_character_get_element(l, i, elem)
   end function coop_list_character_element
 
 
   function coop_list_string_element(l, i) result(elem)
-    type(coop_list_string) l
-    integer i, j
+    class(coop_list_string) l
+    COOP_INT i, j
     COOP_STRING elem
     call coop_list_string_get_element(l, i, elem)
   end function coop_list_string_element
 
   function coop_list_realarr_element(l, i) result(elem)
-    type(coop_list_realarr) l
-    integer i, j
-    real elem(l%dim)
+    class(coop_list_realarr) l
+    COOP_INT i, j
+    real(sp) elem(l%dim)
     call coop_list_realarr_get_element(l, i, elem)
   end function coop_list_realarr_element
 
@@ -1162,9 +1123,9 @@ contains
 
 !! get_element
   subroutine coop_list_integer_get_element(l, i, elem)
-    type(coop_list_integer) l
-    integer i, j
-    integer elem
+    class(coop_list_integer) l
+    COOP_INT i, j
+    COOP_INT elem
     if(i.le. coop_list_i1_max_length)then
        elem = l%i1(i)
        return
@@ -1184,9 +1145,9 @@ contains
   end subroutine coop_list_integer_get_element
 
   subroutine coop_list_real_get_element(l, i, elem)
-    type(coop_list_real) l
-    integer i, j
-    real elem
+    class(coop_list_real) l
+    COOP_INT i, j
+    real(sp) elem
     if(i.le. coop_list_i1_max_length)then
        elem = l%i1(i)
        return
@@ -1207,9 +1168,9 @@ contains
 
 
   subroutine coop_list_double_get_element(l, i, elem)
-    type(coop_list_double) l
-    integer i, j
-    COOP_REAL elem
+    class(coop_list_double) l
+    COOP_INT i, j
+    real(dl) elem
     if(i.le. coop_list_i1_max_length)then
        elem = l%i1(i)
        return
@@ -1230,8 +1191,8 @@ contains
 
 
   subroutine coop_list_logical_get_element(l, i, elem)
-    type(coop_list_logical) l
-    integer i, j
+    class(coop_list_logical) l
+    COOP_INT i, j
     logical elem
     if(i.le. coop_list_i1_max_length)then
        elem = l%i1(i)
@@ -1253,8 +1214,8 @@ contains
 
 
   subroutine coop_list_character_get_element(l, i, elem)
-    type(coop_list_character) l
-    integer i, j
+    class(coop_list_character) l
+    COOP_INT i, j
     character elem
     if(i.le. coop_list_i1_max_length)then
        elem = l%i1(i)
@@ -1276,8 +1237,8 @@ contains
 
 
   subroutine coop_list_string_get_element(l, i, elem)
-    type(coop_list_string) l
-    integer i, j
+    class(coop_list_string) l
+    COOP_INT i, j
     COOP_STRING elem
     if(i.le. coop_list_s1_max_length)then
        elem = l%i1(i)
@@ -1298,9 +1259,9 @@ contains
   end subroutine coop_list_string_get_element
 
   subroutine coop_list_realarr_get_element(l, i, elem)
-    type(coop_list_realarr) l
-    integer i, j
-    real elem(:)
+    class(coop_list_realarr) l
+    COOP_INT i, j
+    real(sp) elem(:)
     if(i.le. coop_list_i1_max_length)then
        elem = l%i1(:,i)
        return
@@ -1323,8 +1284,8 @@ contains
     class(coop_dictionary):: dict
     COOP_SHORT_STRING,dimension(:),allocatable::tmpkey
     COOP_STRING,dimension(:),allocatable::tmpval
-    integer,dimension(:),allocatable::tmpid
-    integer iup, ilow, imid
+    COOP_INT,dimension(:),allocatable::tmpid
+    COOP_INT iup, ilow, imid
     COOP_UNKNOWN_STRING key, val
     if(trim(adjustl(key)).eq."") return
     if(.not.allocated(dict%key))then
@@ -1383,13 +1344,12 @@ contains
     endif
   end subroutine coop_dictionary_insert
 
-
   function coop_dictionary_key_index(dict, key) result(ind)
     class(coop_dictionary):: dict
     COOP_UNKNOWN_STRING, intent(IN)::key
     COOP_SHORT_STRING thekey
-    integer ind
-    integer iup, ilow, imid
+    COOP_INT ind
+    COOP_INT iup, ilow, imid
     if(.not. allocated(dict%key))then
        ind = 0
        return
@@ -1430,7 +1390,7 @@ contains
     class(coop_dictionary):: dict
     COOP_UNKNOWN_STRING, intent(IN):: key
     COOP_UNKNOWN_STRING, intent(OUT)::val
-    integer ind
+    COOP_INT ind
     ind = coop_dictionary_key_index(dict, key)
     if(ind .eq. 0)then
        val = ""
@@ -1443,9 +1403,9 @@ contains
   subroutine coop_dictionary_lookup_int(dict, key, val, default_val)
     class(coop_dictionary):: dict
     COOP_UNKNOWN_STRING key
-    integer ind
-    integer val
-    integer,optional::default_val
+    COOP_INT ind
+    COOP_INT val
+    COOP_INT,optional::default_val
     ind = coop_dictionary_key_index(dict, key)
     if(ind .eq. 0)then
        if(present(default_val))then
@@ -1462,9 +1422,9 @@ contains
   subroutine coop_dictionary_lookup_real(dict, key, val, default_val)
     class(coop_dictionary):: dict
     COOP_UNKNOWN_STRING key
-    integer ind
-    real val
-    real,optional::default_val
+    COOP_INT ind
+    real(sp) val
+    real(sp),optional::default_val
     ind = coop_dictionary_key_index(dict, key)
     if(ind .eq. 0)then
        if(present(default_val))then
@@ -1481,9 +1441,9 @@ contains
   subroutine coop_dictionary_lookup_double(dict, key, val, default_val)
     class(coop_dictionary):: dict
     COOP_UNKNOWN_STRING key
-    integer ind
-    COOP_REAL val
-    COOP_REAL,optional::default_val
+    COOP_INT ind
+    real(dl) val
+    real(dl),optional::default_val
     ind = coop_dictionary_key_index(dict, key)
     if(ind .eq. 0)then
        if(present(default_val))then
@@ -1502,7 +1462,7 @@ contains
   subroutine coop_dictionary_lookup_logical(dict, key, val, default_val)
     class(coop_dictionary):: dict
     COOP_UNKNOWN_STRING key
-    integer ind
+    COOP_INT ind
     logical val
     logical,optional::default_val
     ind = coop_dictionary_key_index(dict, key)
@@ -1522,9 +1482,9 @@ contains
   subroutine coop_dictionary_lookup_int_array(dict, key, val, default_val)
     class(coop_dictionary):: dict
     COOP_UNKNOWN_STRING key
-    integer ind
-    integer,dimension(:),intent(OUT):: val
-    integer,dimension(:),optional::default_val
+    COOP_INT ind
+    COOP_INT,dimension(:),intent(OUT):: val
+    COOP_INT,dimension(:),optional::default_val
     ind = coop_dictionary_key_index(dict, key)
     if(ind .eq. 0)then
        if(present(default_val))then
@@ -1541,9 +1501,9 @@ contains
   subroutine coop_dictionary_lookup_real_array(dict, key, val, default_val)
     class(coop_dictionary):: dict
     COOP_UNKNOWN_STRING key
-    integer ind
-    real,dimension(:),intent(OUT)::  val
-    real,dimension(:),optional::default_val
+    COOP_INT ind
+    real(sp),dimension(:),intent(OUT)::  val
+    real(sp),dimension(:),optional::default_val
     ind = coop_dictionary_key_index(dict, key)
     if(ind .eq. 0)then
        if(present(default_val))then
@@ -1560,9 +1520,9 @@ contains
   subroutine coop_dictionary_lookup_double_array(dict, key, val, default_val)
     class(coop_dictionary):: dict
     COOP_UNKNOWN_STRING key
-    integer ind
-    COOP_REAL,dimension(:),intent(OUT)::  val
-    COOP_REAL,dimension(:),optional::default_val
+    COOP_INT ind
+    real(dl),dimension(:),intent(OUT)::  val
+    real(dl),dimension(:),optional::default_val
     ind = coop_dictionary_key_index(dict, key)
     if(ind .eq. 0)then
        if(present(default_val))then
@@ -1578,7 +1538,7 @@ contains
   subroutine coop_dictionary_lookup_logical_array(dict, key, val, default_val)
     class(coop_dictionary):: dict
     COOP_UNKNOWN_STRING key
-    integer ind
+    COOP_INT ind
     logical,dimension(:),intent(OUT)::  val
     logical,dimension(:),optional::default_val
     ind = coop_dictionary_key_index(dict, key)
@@ -1611,7 +1571,7 @@ contains
 
   subroutine coop_dictionary_print(dict)
     class(coop_dictionary):: dict
-    integer i
+    COOP_INT i
     if(allocated(dict%key))then
        do i=1, dict%n
           write(*,"(3A)")  trim(dict%key(dict%id(i))), " = ", trim(dict%val(dict%id(i)))

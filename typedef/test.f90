@@ -2,21 +2,19 @@ program test
   use coop_wrapper_typedef
   implicit none
 #include "constants.h"
-  COOP_INT,parameter::n=301
-  COOP_INT i
-  COOP_REAL, parameter::xmax = 6.d0
-  COOP_REAL,dimension(n)::x, nx, y, y2, yp, fp
-  COOP_REAL dx
-  call coop_set_uniform(n, x, 0.d0, xmax)
-  y = cos(x)
-  yp = -sin(x)
-  dx = x(2)-x(1)
-  nx = x/dx
-  call coop_spline_uniform(n, y, y2)
-  do i=1, n
-     call coop_splint_derv_uniform(n, x(1), dx, y, y2, x(i), fp(i))
-  enddo
-  do i=1, n
-     write(*,*) x(i), fp(i), yp(i)
-  enddo
+
+  type(coop_function) cf
+  type(coop_arguments) args
+  args  = coop_arguments( r = (/ 1.d0/2.d0 /) )
+  cf = coop_function(func, 0.1d0, 10.d0, xlog=.false., ylog=.false., args = args)
+  print*, cf%derivative(2.d0)
+contains
+    
+  function func(x, arg)
+    COOP_REAL x, func
+    type(coop_arguments) arg
+    func = x**2
+    func = func*arg%r(1)
+  end function func
+  
 end program test

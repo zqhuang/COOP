@@ -5,10 +5,14 @@ module coop_string_mod
 #include "constants.h"
 
   private
+
+  integer,parameter::sp = kind(1.)
+  integer,parameter::dl = kind(1.d0)
+
   public::coop_num2str,  coop_ndigits, coop_str2int, coop_str2real, coop_str2logical, coop_substr, coop_str_replace, coop_str_numalpha, coop_str2lower, coop_str2upper, coop_case_insensitive_eq, coop_file_path_of, coop_file_name_of, coop_file_add_postfix
 
   Interface coop_num2str
-     procedure coop_int2str, coop_real2str, coop_logical2str
+     procedure coop_int2str, coop_real2str, coop_logical2str, coop_double2str
   end Interface coop_num2str
 
 
@@ -54,9 +58,20 @@ contains
     endif
   End function coop_int2str
 
+  function coop_double2str(x, fmt) result(str)
+    real(dl) x
+    COOP_STRING str
+    COOP_UNKNOWN_STRING ,optional::fmt
+    if(present(fmt))then
+       str = coop_real2str(real(x, sp), fmt)
+    else
+       str = coop_real2str(real(x, sp))
+    endif
+  end function coop_double2str
+
   Function Coop_real2str(x,fmt) !!This is a smater algorithm that convert number to string
     COOP_STRING Coop_real2str, str
-    COOP_REAL x, ax
+    real(sp) x, ax
     COOP_INT ind,  n
     COOP_UNKNOWN_STRING ,optional::fmt
     if(present(fmt))then
@@ -143,6 +158,7 @@ contains
     endif
     if(x.lt.0.d0) Coop_real2str='-'//trim(Coop_real2str)
   End Function coop_real2str
+  
 
 
   function Coop_logical2str(x)

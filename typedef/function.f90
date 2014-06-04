@@ -20,6 +20,8 @@ module coop_function_mod
      procedure::set_boundary => coop_function_set_boundary
      procedure::init => coop_function_initialize
      procedure::eval => coop_function_evaluate
+     procedure::integrate => coop_function_integrate
+     procedure::derivative => coop_function_derivative
      procedure::free => coop_function_free
   end type coop_function
 
@@ -39,12 +41,12 @@ contains
     if(present(sloperight))this%sloperight = sloperight
   end subroutine coop_function_set_boundary
 
-  function coop_function_constructor(f, xmin, xmax, xlog, ylog, arg) result(cf)
+  function coop_function_constructor(f, xmin, xmax, xlog, ylog, args) result(cf)
     external f
     COOP_REAL f, xmin, xmax, dx, lnxmin, lnxmax
     logical,optional::xlog
     logical,optional::ylog
-    type(coop_arguments),optional::arg
+    type(coop_arguments),optional::args
     COOP_REAL_ARRAY::y
     COOP_INT i
     type(coop_function) :: cf
@@ -62,12 +64,12 @@ contains
        lnxmin = log(xmin)
        lnxmax = log(xmax)
        dx = (lnxmax - lnxmin)/(coop_default_array_size - 1)
-       if(present(arg))then
-          y(1) = f(xmin, arg)
-          y(coop_default_array_size) = f(xmax, arg)
+       if(present(args))then
+          y(1) = f(xmin, args)
+          y(coop_default_array_size) = f(xmax, args)
           !$omp parallel do
           do i=2, coop_default_array_size-1
-             y(i) = f(exp(lnxmin + dx*(i-1)), arg)
+             y(i) = f(exp(lnxmin + dx*(i-1)), args)
           enddo
           !$omp end parallel do
        else
@@ -81,12 +83,12 @@ contains
        endif
     else
        dx = (xmax - xmin)/(coop_default_array_size - 1)
-       if(present(arg))then
-          y(1) = f(xmin, arg)
-          y(coop_default_array_size) = f(xmax, arg)
+       if(present(args))then
+          y(1) = f(xmin, args)
+          y(coop_default_array_size) = f(xmax, args)
           !$omp parallel do
           do i=2, coop_default_array_size-1
-             y(i) = f(xmin + dx*(i-1), arg)
+             y(i) = f(xmin + dx*(i-1), args)
           enddo
           !$omp end parallel do
        else
@@ -197,6 +199,7 @@ contains
        call coop_spline_uniform(this%n, this%f, this%f2)
     case(COOP_INTERPOLATE_CHEBYSHEV)
        call coop_chebfit_uniform(n, f, this%n, this%f)
+       call coop_chebfit_derv(n, this%xmin, this%xmax, this%f, this%f2)
     end select
   end subroutine coop_function_initialize
 
@@ -232,12 +235,101 @@ contains
           f = this%f(l) * a + this%f(r) * b + this%f2(l) * (a**2-1.)*a + this%f2(r)*(b**2-1.)*b
        case(COOP_INTERPOLATE_CHEBYSHEV)
           call coop_chebeval(this%n, this%xmin, this%xmax, this%f, xdiff+this%xmin, f)
+       case default
+          stop "UNKNOWN interpolation method"
        end select
     endif
     if(this%ylog)then
        f = exp(f)
     endif
   end function coop_function_evaluate
+
+  
+  !!simple integration 
+  !!to be optimized
+  function coop_function_integrate(this, a, b) result(integral)
+    class(coop_function)::this
+    integer,parameter::nsteps = 8192
+    COOP_REAL a, b, integral, dx, y1, y2, ym, x1, x2, xm, lna, lnb, dxby2
+    integer i
+    if(this%xlog)then
+       lna = log(a)
+       lnb = log(b)
+       dx = (lnb - lna)/nsteps
+       dxby2 = dx/2.d0
+       x1 = lna
+       y1 = this%eval(exp(x1))*exp(x1)
+       integral = y1
+       do i=1, nsteps-1
+          xm = x1 + dxby2
+          x2 = x1 + dx
+          ym = this%eval(exp(xm))*exp(xm)
+          y2 = this%eval(exp(x2))*exp(x2)
+          integral = integral + (2.d0*y2+ym*4.d0)
+          x1 = x2
+          y2 = y1
+       enddo
+       xm = x1 + dxby2
+       x2 = x1 + dx
+       ym = this%eval(exp(xm))*exp(xm)
+       y2 = this%eval(exp(x2))*exp(x2)
+       integral = (integral + (y2+ym*4.d0))*(dx/6.d0)
+    else
+       dx = (b - a)/nsteps
+       dxby2 = dx/2.d0
+       x1 = a
+       y1 = this%eval(x1)
+       integral = y1
+       do i=1, nsteps-1
+          xm = x1 + dxby2
+          x2 = x1 + dx
+          ym = this%eval(xm)
+          y2 = this%eval(x2)
+          integral = integral + (2.d0*y2+ym*4.d0)
+          x1 = x2
+          y2 = y1
+       enddo
+       xm = x1 + dxby2
+       x2 = x1 + dx
+       ym = this%eval(xm)
+       y2 = this%eval(x2)
+       integral = (integral + (y2+ym*4.d0))*(dx/6.d0)
+    endif
+  end function coop_function_integrate
+
+
+!!to be optimized
+  function coop_function_derivative(this, x) result(fp)
+    class(coop_function)::this
+    COOP_REAL x, fp, f, dx
+    select case(this%method)
+    case(COOP_INTERPOLATE_CHEBYSHEV)
+       if(this%xlog)then
+          call coop_chebeval(this%n, this%xmin, this%xmax, this%f2, log(x), fp)
+          fp = fp/x
+       else
+          call coop_chebeval(this%n, this%xmin, this%xmax, this%f2, x, fp)
+       endif
+    case default
+       dx = this%dx/4.d0
+       if(this%xlog)then
+          if(this%ylog)then
+             fp =(log(this%eval(x*exp(dx)))-log(this%eval(x*exp(-dx))))/(2.d0*dx*x)
+          else
+             fp = (this%eval(x*exp(dx))-this%eval(x*exp(-dx)))/(2.d0*dx*x)
+          endif
+       else
+          if(this%ylog)then
+             fp =(log(this%eval(x+dx))-log(this%eval(x-dx)))/(2.d0*dx)
+          else
+             fp =(this%eval(x+dx)-this%eval(x-dx))/(2.d0*dx)
+          endif
+       endif
+    end select
+    if(this%ylog)then
+       fp = fp * this%eval(x)
+    endif
+  end function coop_function_derivative
 
 
 end module coop_function_mod

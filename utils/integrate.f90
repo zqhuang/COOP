@@ -149,7 +149,7 @@ contains
              return
           endif
           call d_polint(h(j-KM),s(j-KM),K,0.d0,integral,dss)
-          if (coop_isnan(integral).or.ABS(dss).LE.EPS*ABS(integral).or.ABS(dss).LT.1.d-31) return
+          if (coop_isnan(integral) .or. ABS(dss) .lt. eps*abs(integral).or.ABS(dss).LT.1.d-31) return
        endif
        s(j+1)=s(j)
        h(j+1)=0.25D0*h(j)
