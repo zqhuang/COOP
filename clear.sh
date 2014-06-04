@@ -2,7 +2,7 @@
 make clean
 cd typedef 
 make clean
-cd utils
+cd ../utils
 make clean
 cd ../background
 make clean

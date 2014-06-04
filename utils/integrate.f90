@@ -121,15 +121,9 @@ contains
     COOP_INT  :: JMAX,JMAXP,K,KM
     COOP_REAL  :: a,b,integral, eps
     COOP_REAL, optional::precision
-    interface 
-       function func(x, arg)
-         use coop_wrapper_typedef
-         COOP_REAL func
-         COOP_REAL x
-         type(coop_arguments) arg
-       end function func
-    end interface
     type(coop_arguments) args
+    external func
+    COOP_REAL func
     parameter (JMAX=25, JMAXP=JMAX+1, K=5, KM=K-1)
     !USES polint,trapzd
     COOP_INT  :: j
@@ -161,14 +155,7 @@ contains
     COOP_INT  :: n
     COOP_REAL  :: a,b,s
     external func
-    interface 
-       function func(x, arg)
-         use coop_wrapper_typedef
-         COOP_REAL func
-         COOP_REAL x
-         type(coop_arguments) arg
-       end function func
-    end interface
+    COOP_REAL func
     COOP_INT  :: j,it
     COOP_REAL  :: del,sum,tnm,x
     if (n.eq.1) then
