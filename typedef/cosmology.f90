@@ -69,11 +69,11 @@ module coop_cosmology_mod
   end type coop_cosmology_background
 
   interface coop_cosmology
-     procedure coop_cosmology_constructor
+     module procedure coop_cosmology_constructor
   end interface coop_cosmology
 
   interface coop_cosmology_background
-     procedure coop_cosmology_background_constructor
+     module procedure coop_cosmology_background_constructor
   end interface coop_cosmology_background
 
 contains

@@ -31,7 +31,7 @@ module coop_species_mod
 
 
   interface coop_species
-     procedure coop_species_constructor
+     module procedure coop_species_constructor
   end interface coop_species
 
 contains

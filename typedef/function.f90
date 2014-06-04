@@ -27,7 +27,7 @@ module coop_function_mod
 
 
   interface coop_function
-     procedure coop_function_constructor
+     module procedure coop_function_constructor
   end interface coop_function
 
 contains
