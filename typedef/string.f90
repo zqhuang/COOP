@@ -70,9 +70,11 @@ contains
   end function coop_double2str
 
   Function Coop_real2str(x,fmt) !!This is a smater algorithm that convert number to string
+    COOP_INT, parameter::ndigits = 5
     COOP_STRING Coop_real2str, str
     real(sp) x, ax
-    COOP_INT ind,  n
+    COOP_INT ind,  n, i
+    COOP_INT ix
     COOP_UNKNOWN_STRING ,optional::fmt
     if(present(fmt))then
        if(fmt .eq. "none")then
@@ -129,8 +131,8 @@ contains
        ind = ind + 1
        ax = ax/10.d0
     enddo
-    if(ind.gt.5 .or. ind.lt.-5)then
-       write(Str,*) nint(ax*1.d5)
+    if(ind .gt. ndigits .or. ind .lt. -ndigits)then
+       write(Str,*) nint(ax * 10.d0**ndigits)
        Str=trim(adjustl(Str))
        n=verify(trim(str), "0", .true.)
        if(n.gt.1)then
@@ -139,22 +141,23 @@ contains
           Coop_real2str=Str(1:1)
        endif
        write(str,*) ind
-       Coop_real2str=Trim(Coop_real2str)//"e"//Trim(adjustl(Str))
+       coop_real2str=Trim(Coop_real2str)//"e"//Trim(adjustl(Str))
     else
        ax=abs(x)
-       write(Str,'(F16.8)') ax
+       write(Str,'(F16.'//trim(coop_int2str(ndigits-ind+1))//')') ax
        str=trim(adjustl(str))
        n=scan(str,".")
+       i  = verify(trim(str),"0",.true.)
        if(n>0)then
-          n=max(n-1,verify(trim(str),"0",.true.))
+          if(n.eq.i)then
+             n = n -1
+          else
+             n = i
+          endif
        else
           n=Len_Trim(str)
        endif
-       if(Str(n:n).eq.'.')then
-          Coop_real2str =  Str(1:n-1)
-       else
-          Coop_real2str = Str(1:n)
-       endif
+       coop_real2str = str(1:n)
     endif
     if(x.lt.0.d0) Coop_real2str='-'//trim(Coop_real2str)
   End Function coop_real2str
