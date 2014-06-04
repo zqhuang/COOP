@@ -13,6 +13,9 @@ program test
 #define C_FLAT args%r(3)
 #define N_POWER args%i(1)
 
+!!example for coupled quintessence model 
+!!V(phi) = c0 / phi^n + c1
+
   COOP_INT, parameter::nvars = 3  !!number of variables to evolve
   COOP_INT, parameter::nsteps = 1000  !!number of steps for output
   COOP_REAL, parameter:: MPl = 1.d0 !!define mass unit
@@ -31,15 +34,23 @@ program test
   type(coop_arguments)::args
   COOP_INT i
   COOP_REAL::phieq_dot_ini, hubble_ini
-  COOP_REAL:: phi(nsteps), lna(nsteps), dotphi(nsteps), w(nsteps), Ev, Ek
+  COOP_REAL:: phi(nsteps), lna(nsteps), dotphi(nsteps), w(nsteps), Ev, Ek, Vpp, deltaphi
   type(coop_asy)::fp
 
   args = coop_arguments( i = (/ npower /),  r = (/ Q, c_run, c_flat /) )
   hubble_ini = sqrt((potential(phieq_ini, args) + rhom_ini)/(3.d0*Mpl**2))
   phieq_dot_ini = 3.d0*hubble_ini/(npower+1.d0)*phieq_ini
+  deltaphi = phieq_ini/100.d0
+  Vpp = (dVdphi(phieq_ini+deltaphi, args)- dVdphi(phieq_ini-deltaphi, args))/(2.d0*deltaphi)
+  deltaphi = -3.d0*hubble_ini*phieq_dot_ini/Vpp
+  if(abs(deltaphi/phieq_ini).gt. 0.1d0)then
+     write(*,*) "V''=", Vpp
+     write(*,*) deltaphi/Mpl, phieq_ini/Mpl
+     stop "deltaphi too big"
+  endif
   call co%init(n = nvars, method = COOP_ODE_DVERK)  !!initialize the ode solver
   call co%set_arguments(args = args)
-  call co%set_initial_conditions( xini = lna_start, yini = (/ phieq_ini, phieq_dot_ini, rhom_ini /) )
+  call co%set_initial_conditions( xini = lna_start, yini = (/ phieq_ini+deltaphi, phieq_dot_ini, rhom_ini /) )
   call coop_set_uniform(nsteps, lna, lna_start, lna_end)
   do  i = 1, nsteps
      if(i.gt.1)call co%evolve(get_yprime, lna(i))
