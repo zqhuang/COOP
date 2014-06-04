@@ -118,7 +118,6 @@ contains
 
 
   function coop_qromb_with_arguments(func, a, b, args, precision) result(integral)
-    external func
     COOP_INT  :: JMAX,JMAXP,K,KM
     COOP_REAL  :: a,b,integral, eps
     COOP_REAL, optional::precision
