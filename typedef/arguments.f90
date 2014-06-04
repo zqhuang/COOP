@@ -20,7 +20,7 @@ public::coop_arguments
   end type coop_arguments
 
   interface coop_arguments
-     procedure coop_arguments_constructor
+     module procedure coop_arguments_constructor
   end interface coop_arguments
 
 contains
