@@ -5,11 +5,11 @@ module coop_basicutils_mod
 #include "constants.h"
 
   interface coop_swap
-     module procedure::coop_swap_real, coop_swap_int, coop_swap_real_array, coop_swap_int_array
+     module procedure coop_swap_real, coop_swap_int, coop_swap_real_array, coop_swap_int_array
   end interface coop_swap
 
   interface coop_isnan
-     module procedure::coop_isnan_real, coop_isnan_real_array
+     module procedure coop_isnan_real, coop_isnan_real_array
   end interface coop_isnan
 
 contains
