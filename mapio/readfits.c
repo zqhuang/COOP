@@ -1,8 +1,12 @@
 #include <string.h>
 #include <stdio.h>
+
+#ifdef HAS_CFITSIO
 #include "fitsio.h"
+#endif
 
 void coop_fits_print_header_(char* filename, char* cards, int* nkeys){
+#ifdef HAS_CFITSIO
   fitsfile *fptr;         
   char card[FLEN_CARD]; 
   int status, ii; 
@@ -21,11 +25,15 @@ void coop_fits_print_header_(char* filename, char* cards, int* nkeys){
     
   if (status)          /* print any error messages */
     fits_report_error(stderr, status);
+#else
+  printf("CFITSIO library is missing. Please change your configure file.");
+#endif
 }
 
 
 
 void coop_fits_get_dimension_(char* filename, int* nx,int* ny, int* bytes){
+#ifdef HAS_CFITSIO
   fitsfile *fptr;         
   int status, idim;
   long naxes[2];
@@ -48,10 +56,15 @@ void coop_fits_get_dimension_(char* filename, int* nx,int* ny, int* bytes){
   if (status)          /* print any error messages */
     fits_report_error(stderr, status);
 
+#else
+  printf("CFITSIO library is missing. Please change your configure file.");
+#endif
+
 }
 
 
 void coop_fits_get_double_data_(char * filename, double* data, long * n){
+#ifdef HAS_CFITSIO
   fitsfile *fptr;         
   int status;
   long fpixel[2];
@@ -65,10 +78,14 @@ void coop_fits_get_double_data_(char * filename, double* data, long * n){
    fits_close_file(fptr, &status);
    if (status)          /* print any error messages */
      fits_report_error(stderr, status);
+#else
+  printf("CFITSIO library is missing. Please change your configure file.");
+#endif
 }
 
 
 void coop_fits_get_float_data_(char * filename, float* data, long * n){
+#ifdef HAS_CFITSIO
   fitsfile *fptr;         
   int status;
   long fpixel[2];
@@ -82,15 +99,8 @@ void coop_fits_get_float_data_(char * filename, float* data, long * n){
    fits_close_file(fptr, &status);
    if (status)          /* print any error messages */
      fits_report_error(stderr, status);
+#else
+  printf("CFITSIO library is missing. Please change your configure file.");
+#endif
 }
 
-
-
-
-/*int main(int argc, char *argv[])
-{
-  int nx, ny;
-  fits_get_dimension_(argv[1], &nx, &ny);
-  return nx;
- }
-*/

@@ -12,6 +12,6 @@ program test
 
   call cf%open(fitsfile)
   call cf%header%print()
-  print*, cf%bitpix
+  print*, cf%n
   call cf%get_data()
 end program test

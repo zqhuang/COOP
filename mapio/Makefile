@@ -5,7 +5,7 @@ include ../configure.in
 include ../compile_rules.in
 
 LIB = libfits.a
-OBJ = readfits.o fitswrap.o
+OBJ = sphere.o readfits.o fitswrap.o
 
 default: $(LIB)
 

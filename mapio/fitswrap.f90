@@ -1,5 +1,6 @@
 module coop_fitswrap_mod
   use coop_wrapper_utils
+  use coop_sphere_mod
   implicit none
 
 #include "constants.h"
@@ -38,11 +39,12 @@ module coop_fitswrap_mod
   type, extends(coop_fits_image)::coop_fits_image_cea
      contains
        procedure::get_coordinates => coop_fits_image_cea_get_coordinates
+       procedure::convert_to_flatsky => coop_fits_image_cea_convert_to_flatsky
   end type coop_fits_image_cea
 
 
 contains
-  
+
   subroutine coop_fits_open(this, filename)
     class(coop_fits)::this
     COOP_UNKNOWN_STRING::filename
@@ -126,6 +128,16 @@ contains
     coor(2) = asin(coor(2))
   end subroutine coop_fits_image_cea_get_coordinates
 
+
+  subroutine coop_fits_image_cea_convert_to_flatsky(this, coor, disc)
+    class(coop_fits_image_cea)::this
+    COOP_REAL,dimension(COOP_FITS_IMAGE_DIM):: coor
+    type(coop_sphere_disc)::disc
+    COOP_REAL  r, phi
+    
+  end subroutine coop_fits_image_cea_convert_to_flatsky
+
+
   subroutine coop_fits_image_get_data(this)
     class(coop_fits_image)::this
     integer(8) nelements
@@ -179,6 +191,8 @@ contains
     end select
 
   end subroutine coop_fits_image_get_data
+
+
 
 
 end module coop_fitswrap_mod

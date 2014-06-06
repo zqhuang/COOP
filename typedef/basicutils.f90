@@ -609,5 +609,22 @@ contains
   end function coop_isnan_real_array
 
 
+  subroutine coop_vector_cross_product(v1, v2, v3)
+    COOP_REAL,dimension(3)::v1,v2,v3
+    v3 = (/ v1(2)*v2(3) - v1(3)*v2(2),  v1(3)*v2(1)-v1(1)*v2(3), v1(1)*v2(2)-v1(2)*v2(1) /)
+  end subroutine coop_vector_cross_product
+
+  !!this is a simple version assuming that n is not too big
+  function coop_polyvalue(n, p, x) result(y)
+    COOP_INT n, j
+    COOP_REAL p(n)
+    COOP_REAL x, y
+    y = p(n)
+    do j= n-1,1,-1
+       y= y*x + p(j)
+    enddo    
+  end function coop_polyvalue
+
+
 
 end module coop_basicutils_mod
