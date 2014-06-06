@@ -9,4 +9,12 @@ module coop_wrapper_typedef
   use coop_cosmology_mod
   implicit none
 
+contains
+
+  subroutine coop_wrapper_typedef_print()
+    write(*,*) "This is COOP VERSION "//trim(coop_version)
+    write(*,*) "Wrapper for typedef."
+  end subroutine coop_wrapper_typedef_print
+
+
 end module coop_wrapper_typedef

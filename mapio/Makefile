@@ -1,11 +1,11 @@
 SHELL = /bin/sh
-
-COOPLIB=../lib
+TYPEDEF=../typedef
+UTILS=../utils
 include ../configure.in
 include ../compile_rules.in
 
 LIB = libfits.a
-OBJ = read_head.o
+OBJ = readfits.o fitswrap.o
 
 default: $(LIB)
 

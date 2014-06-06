@@ -2,24 +2,27 @@
 #include <stdio.h>
 #include "fitsio.h"
 
-void coop_fits_print_header_(char* filename){
+void coop_fits_print_header_(char* filename, char* cards, int* nkeys){
   fitsfile *fptr;         
   char card[FLEN_CARD]; 
-  int status,  nkeys, ii;  
+  int status, ii; 
   status = 0; /* MUST initialize status */
   fits_open_file(&fptr, filename, READONLY, &status);
-  fits_get_hdrspace(fptr, &nkeys, NULL, &status);
-  
-  for (ii = 1; ii <= nkeys; ii++)  { 
+  fits_get_hdrspace(fptr, nkeys, NULL, &status);
+  for (ii = 1; ii <= *nkeys; ii++)  { 
     fits_read_record(fptr, ii, card, &status); /* read keyword */
-    printf("%s\n", card);
+    if(ii == 1)
+      strcpy(cards, card);
+    else
+      strcat(cards, card);//    printf("%s\n", card);
+    strcat(cards, "\n");//    printf("%s\n", card);
   }
-  printf("END\n\n");  /* terminate listing with END */
   fits_close_file(fptr, &status);
-  
+    
   if (status)          /* print any error messages */
     fits_report_error(stderr, status);
 }
+
 
 
 void coop_fits_get_dimension_(char* filename, int* nx,int* ny, int* bytes){
@@ -47,39 +50,35 @@ void coop_fits_get_dimension_(char* filename, int* nx,int* ny, int* bytes){
 
 }
 
-void coop_fits_get_float_data_(char * filename, float * data, int * nx, int* ny){
-  fitsfile *fptr;         
-  int status, idim;
-  long fpixel[2];
-  long nelements;
-  float nval;
-  int * anynul;
-  fpixel[0] = 0;
-  fpixel[1] = 0;
-  status = 0; /* MUST initialize status */
-  nval = 0.;
-  nelements = (*nx)*(*ny);
-  fits_open_file(&fptr, filename, READONLY, &status);
-  fits_read_pix(fptr, TFLOAT, fpixel,nelements, &nval, data, anynul, &status);  
-  fits_close_file(fptr, &status);
-  if (status)          /* print any error messages */
-    fits_report_error(stderr, status);
-}
 
-void coop_fits_get_double_data_(char * filename, double* data, int * nx, int* ny){
+void coop_fits_get_double_data_(char * filename, double* data, long * n){
   fitsfile *fptr;         
   int status;
   long fpixel[2];
-  long nelements;
-  double nval;
-  int* anynul;
+  LONGLONG nelements;
    fpixel[0] = 1;
    fpixel[1] = 1;
    status = 0; /* MUST initialize status */
-    nval = 0.;
-   nelements = (*nx)*(*ny);
+   nelements = *n;
    fits_open_file(&fptr, filename, READONLY, &status);
-     fits_read_pix(fptr, TDOUBLE, fpixel, nelements, &nval, data, anynul, &status);  
+   fits_read_pix(fptr, TDOUBLE, fpixel, nelements, NULL, data, NULL, &status);  
+   fits_close_file(fptr, &status);
+   if (status)          /* print any error messages */
+     fits_report_error(stderr, status);
+}
+
+
+void coop_fits_get_float_data_(char * filename, float* data, long * n){
+  fitsfile *fptr;         
+  int status;
+  long fpixel[2];
+  LONGLONG nelements;
+   fpixel[0] = 1;
+   fpixel[1] = 1;
+   status = 0; /* MUST initialize status */
+   nelements = *n;
+   fits_open_file(&fptr, filename, READONLY, &status);
+   fits_read_pix(fptr, TDOUBLE, fpixel, nelements, NULL, data, NULL, &status);  
    fits_close_file(fptr, &status);
    if (status)          /* print any error messages */
      fits_report_error(stderr, status);

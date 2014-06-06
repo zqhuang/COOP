@@ -2,17 +2,26 @@ echo "#define MAINPATH \""`pwd`"\"" > include/paths.h
 cd typedef
 make -w
 cp *.mod ../include/
+
 cd ../utils
 make -w
 cp *.mod ../include/
+
 cd ../background
 make -w
 cp *.mod ../include/
+
 cd ../firstorder
 make -w
 cp *.mod ../include/
+
+cd ../mapio
+make -w
+cp *.mod ../include/
+
 cd ../lib
 make -w
 cp *.mod ../include/
+
 cd ..
 make -w

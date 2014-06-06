@@ -22,16 +22,14 @@ def load_wcs_from_file(filename):
     #w.wcs.print_contents()
 
     # Some pixel coordinates of interest.
-    pixcrd = numpy.array([[10, 808+100], [1200, 808+1000], [830, 808+5000]], numpy.float_)
+    pixcrd = numpy.array([[0., 0.], [1., 1.]])
     
     # Convert pixel coordinates to world coordinates
     # The second argument is "origin" -- in this case we're declaring we
     # have 1-based (Fortran-like) coordinates.
     world = w.wcs_pix2world(pixcrd, 1)
     print(convert(pixcrd))
-    print(world)
-
-
+    print(world )
     # Convert the same coordinates back to pixel coordinates.
 #    pixcrd2 = w.wcs_world2pix(world, 1)
 #    print(pixcrd2)
@@ -41,13 +39,12 @@ def load_wcs_from_file(filename):
   #  assert numpy.max(numpy.abs(pixcrd - pixcrd2)) < 1e-6
 
 def convert(list):
-    pi = 3.1415926535897932
     for x in list:
-        x[0] = (x[0]-1030)*(-0.008333333333333333333)
+        x[0] = (x[0]-1030.)*(-0.008333333333333333333)
         if(x[0] < 0):
             x[0] = x[0] + 360
-        x[1] = (x[1]-808)*(0.00833333333333333333333)
-        x[1] = math.asin(x[1]*(pi/180.))*180./pi
+        x[1] = (x[1]-808.)*(0.00833333333333333333333)
+        x[1] = math.asin(x[1]*(math.pi/180.))*180./math.pi
     return list
 
 hdu=fits.PrimaryHDU()
