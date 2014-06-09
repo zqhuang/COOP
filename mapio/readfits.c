@@ -5,7 +5,7 @@
 #include "fitsio.h"
 #endif
 
-void coop_fits_print_header_(char* filename, char* cards, int* nkeys){
+void coop_fits_read_header_to_string_(char* filename, char* cards, int* nkeys){
 #ifdef HAS_CFITSIO
   fitsfile *fptr;         
   char card[FLEN_CARD]; 

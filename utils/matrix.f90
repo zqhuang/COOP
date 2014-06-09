@@ -577,7 +577,7 @@ contains
     enddo
     A = matmul(A, trans)
 #else
-    call svd_decompose(n,n,a,e,trans)
+    call coop_svd_decompose(n,n,a,e,trans)
     do i=1,n
        trans(:,i) = trans(:,i)*sqrt(e(i))
     enddo
@@ -633,7 +633,7 @@ contains
     enddo
     A = matmul(A, trans)
 #else
-    call svd_decompose(n,n,a,e,trans)
+    call coop_svd_decompose(n,n,a,e,trans)
     if(any(E.lt. -1.d-30))then
        call Coop_return_error("Coop_matsym_Sqrt", "the matrix is not positive definite", "stop")
     endif
@@ -662,7 +662,7 @@ contains
     enddo
     A = matmul(A, trans)
 #else
-    call svd_decompose(n,n,a,e,trans)
+    call coop_svd_decompose(n,n,a,e,trans)
     do i=1,n
        trans(:,i) = trans(:,i)*f(e(i))
     enddo

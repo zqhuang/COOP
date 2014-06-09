@@ -7,8 +7,9 @@
 #ifdef MPI
 #include "mpi.h"
 #endif
-#include "stdlib.h"
-#include "math.h"
+#include <stdio.h>
+#include <stdlib.h>
+#include <math.h>
 #ifdef HAS_GSL
 #include "gsl_interp.h"
 #include "gsl_spline.h"
@@ -336,6 +337,129 @@ void float_array_get_threshold_(float* x, int* n, float* perc, float* threshold)
 }
 
 
+ 
+ 
+void cwrapper_q_sort_int(int numbers[], int left, int right)
+{
+  int pivot, l_hold, r_hold;
+  l_hold = left;
+  r_hold = right;
+  pivot = numbers[left];
+  while (left < right)
+  {
+    while ((numbers[right] >= pivot) && (left < right))
+      right--;
+    if (left != right)
+    {
+      numbers[left] = numbers[right];
+      left++;
+    }
+    while ((numbers[left] <= pivot) && (left < right))
+      left++;
+    if (left != right)
+    {
+      numbers[right] = numbers[left];
+      right--;
+    }
+  }
+  numbers[left] = pivot;
+  pivot = left;
+  left = l_hold;
+  right = r_hold;
+  if (left < pivot)
+    cwrapper_q_sort_int(numbers, left, pivot-1);
+  if (right > pivot)
+    cwrapper_q_sort_int(numbers, pivot+1, right);
+}
+
+void quicksort_int_(int numbers[], int *array_size)
+{
+  cwrapper_q_sort_int(numbers, 0, (*array_size) - 1);
+}
 
 
+ 
+ 
+void cwrapper_q_sort_float(float numbers[], int left, int right)
+{
+  float pivot;
+  int l_hold, r_hold;
+ 
+  l_hold = left;
+  r_hold = right;
+  pivot = numbers[left];
+  while (left < right)
+  {
+    while ((numbers[right] >= pivot) && (left < right))
+      right--;
+    if (left != right)
+    {
+      numbers[left] = numbers[right];
+      left++;
+    }
+    while ((numbers[left] <= pivot) && (left < right))
+      left++;
+    if (left != right)
+    {
+      numbers[right] = numbers[left];
+      right--;
+    }
+  }
+  numbers[left] = pivot;
+  right = r_hold;
+  r_hold = left;
+  left = l_hold;
+  if (left < r_hold)
+    cwrapper_q_sort_float(numbers, left, r_hold-1);
+  if (right > r_hold)
+    cwrapper_q_sort_float(numbers, r_hold+1, right);
+}
 
+
+void quicksort_float_(float numbers[], int *array_size)
+{
+  cwrapper_q_sort_float(numbers, 0, (*array_size) - 1);
+}
+
+ 
+ 
+void cwrapper_q_sort_double(double numbers[], int left, int right)
+{
+  double pivot;
+  int l_hold, r_hold;
+ 
+  l_hold = left;
+  r_hold = right;
+  pivot = numbers[left];
+  while (left < right)
+  {
+    while ((numbers[right] >= pivot) && (left < right))
+      right--;
+    if (left != right)
+    {
+      numbers[left] = numbers[right];
+      left++;
+    }
+    while ((numbers[left] <= pivot) && (left < right))
+      left++;
+    if (left != right)
+    {
+      numbers[right] = numbers[left];
+      right--;
+    }
+  }
+  numbers[left] = pivot;
+  right = r_hold;
+  r_hold = left;
+  left = l_hold;
+  if (left < r_hold)
+    cwrapper_q_sort_double(numbers, left, r_hold-1);
+  if (right > r_hold)
+    cwrapper_q_sort_double(numbers, r_hold+1, right);
+}
+
+
+void quicksort_double_(double numbers[], int* array_size)
+{
+  cwrapper_q_sort_double(numbers, 0, (*array_size) - 1);
+}

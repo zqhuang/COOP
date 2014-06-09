@@ -5,7 +5,6 @@ module coop_fitswrap_mod
 
 #include "constants.h"
 
-#define COOP_FITS_IMAGE_DIM 2
   private
 
   public::coop_fits, coop_fits_image, coop_fits_image_cea
@@ -13,34 +12,36 @@ module coop_fitswrap_mod
   integer,parameter::sp = kind(1.)
   integer,parameter::dl = kind(1.d0)
 
+
   type coop_fits
      COOP_STRING::filename
      type(coop_dictionary):: header
    contains
      procedure::open => coop_fits_open
-     procedure::get_header => coop_fits_get_header
      procedure::key_value=>coop_fits_key_value
   end type coop_fits
 
   type, extends(coop_fits)::coop_fits_image
      COOP_INT::bitpix
-     COOP_INT n(COOP_FITS_IMAGE_DIM)
-#if COOP_FITS_IMAGE_DIM == 2
-     real(sp),dimension(:,:),allocatable::image
-#elif COOP_FITS_IMAGE_DIM == 3
-     real(sp),dimension(:,:,:),allocatable::image
-#endif
-     COOP_REAL::transform(COOP_FITS_IMAGE_DIM, COOP_FITS_IMAGE_DIM), center(COOP_FITS_IMAGE_DIM)
+     COOP_INT::dim
+     COOP_INT,dimension(:),allocatable::nside
+     COOP_LONG_INT::npix
+     real(sp),dimension(:),allocatable::image
+     COOP_REAL,allocatable::transform(:, :), center(:)
    contains
+     procedure::free => coop_fits_image_free
      procedure::get_linear_coordinates => coop_fits_image_get_linear_coordinates
      procedure::get_data => coop_fits_image_get_data
   end type coop_fits_image
 
+
+
   type, extends(coop_fits_image)::coop_fits_image_cea
      contains
-       procedure::get_coordinates => coop_fits_image_cea_get_coordinates
-       procedure::convert_to_flatsky => coop_fits_image_cea_convert_to_flatsky
+       procedure::pix2ang => coop_fits_image_cea_pix2ang
+       procedure::pix2flat => coop_fits_image_cea_pix2flat
   end type coop_fits_image_cea
+
 
 
 contains
@@ -49,15 +50,23 @@ contains
     class(coop_fits)::this
     COOP_UNKNOWN_STRING::filename
     this%filename = trim(filename)
-    call this%get_header()
+    call coop_fits_get_header(this)
   end subroutine coop_fits_open
+
+  subroutine coop_fits_image_free(this)
+    class(coop_fits_image) :: this
+    if(allocated(this%image)) deallocate(this%image)
+    if(allocated(this%transform))deallocate(this%transform)
+    if(allocated(this%center))deallocate(this%center)
+    if(allocated(this%nside))deallocate(this%nside)
+  end subroutine coop_fits_image_free
 
   subroutine coop_fits_get_header(this)
     class(coop_fits)::this
     COOP_LONG_STRING::header
     integer nkeys, i, j, istart, iend
-    COOP_REAL delta(COOP_FITS_IMAGE_DIM)
-    call coop_fits_print_header(trim(this%filename), header, nkeys)
+    COOP_REAL,dimension(:),allocatable::delta
+    call coop_fits_read_header_to_string(trim(this%filename), header, nkeys)
     istart = 1
     do i=1, nkeys
        j = scan(header(istart:), "=")
@@ -68,35 +77,49 @@ contains
        istart = iend + 2
     enddo
     select type(this)
+    type is (coop_fits)
+       return
+    class is(coop_fits_image)
+       this%bitpix = nint(this%key_value("BITPIX"))
+       this%dim = nint(this%key_value("NAXIS"))
+       if(this%dim .eq. 0 )then
+          call this%header%print()
+          write(*,*) "Error: cannot find NAXIS key word in fits file "//trim(this%filename)
+          stop
+       endif
+       call this%free()
+       allocate(this%nside(this%dim))
+       allocate(this%transform(this%dim, this%dim), this%center(this%dim))
+       this%npix = 1
+       do i=1, this%dim
+          this%nside(i) = nint(this%key_value("NAXIS"//trim(coop_num2str(i))))
+          this%npix = this%npix * this%nside(i)
+       enddo
+       if(any(this%nside .eq. 0))then
+          write(*,*) trim(this%filename)//": cannot read the dimensions"
+          call this%header%print()
+          stop
+       endif
+       allocate(this%image(0:this%npix-1))
+    end select
+    !!get transform, center 
+    select type(this)
     class is(coop_fits_image_cea)
-       do i=1, COOP_FITS_IMAGE_DIM
-          do j=1, COOP_FITS_IMAGE_DIM
+       if(this%dim .ne. 2) stop "For CEA map the dimension must be 2"
+       allocate(delta(this%dim))
+       do i=1, this%dim
+          do j=1, this%dim
              this%transform(i, j) = this%key_value("PC"//trim(coop_num2str(i))//"_"//trim(coop_num2str(j)))
           enddo
           delta(i) = this%key_value("CDELT"//trim(coop_num2str(i))) * coop_SI_degree
           this%center(i) = this%key_value("CRPIX"//trim(coop_num2str(i)))
        enddo
-       do i=1, COOP_FITS_IMAGE_DIM
+       do i=1, this%dim
           this%transform(:, i) =  this%transform(:, i) * delta(i)
        enddo
+       deallocate(delta)
     end select
-    select type(this)
-    class is(coop_fits_image)
-       this%bitpix = nint(this%key_value("BITPIX"))
-       if(nint(this%key_value("NAXIS")) .ne. COOP_FITS_IMAGE_DIM)then
-          write(*,*) trim(this%filename)//": this is not an "//trim(coop_num2str(COOP_FITS_IMAGE_DIM))//"D image"
-          call this%header%print()
-          stop
-       endif
-       do i=1, COOP_FITS_IMAGE_DIM
-          this%n(i) = nint(this%key_value("NAXIS"//trim(coop_num2str(i))))
-       enddo
-       if(any(this%n .eq. 0))then
-          write(*,*) trim(this%filename)//": cannot read the dimensions"
-          call this%header%print()
-          stop
-       endif
-    end select
+
   end subroutine coop_fits_get_header
 
   function coop_fits_key_value(this, key) result(val)
@@ -112,77 +135,23 @@ contains
     endif
   end function coop_fits_key_value
 
-
   subroutine coop_fits_image_get_linear_coordinates(this, pix, coor)
     class(coop_fits_image)::this
-    COOP_INT pix(COOP_FITS_IMAGE_DIM)
-    COOP_REAL coor(COOP_FITS_IMAGE_DIM)
+    COOP_INT pix(this%dim)
+    COOP_REAL coor(this%dim)
     coor = matmul(this%transform, pix - this%center)
   end subroutine coop_fits_image_get_linear_coordinates
-  
-  subroutine coop_fits_image_cea_get_coordinates(this, pix, coor)
-    class(coop_fits_image_cea)::this
-    COOP_INT pix(COOP_FITS_IMAGE_DIM)
-    COOP_REAL coor(COOP_FITS_IMAGE_DIM)
-    call this%get_linear_coordinates(pix, coor)
-    coor(2) = asin(coor(2))
-  end subroutine coop_fits_image_cea_get_coordinates
-
-
-  subroutine coop_fits_image_cea_convert_to_flatsky(this, coor, disc)
-    class(coop_fits_image_cea)::this
-    COOP_REAL,dimension(COOP_FITS_IMAGE_DIM):: coor
-    type(coop_sphere_disc)::disc
-    COOP_REAL  r, phi
-    
-  end subroutine coop_fits_image_cea_convert_to_flatsky
 
 
   subroutine coop_fits_image_get_data(this)
     class(coop_fits_image)::this
-    integer(8) nelements
-    integer n, i
-#if  COOP_FITS_IMAGE_DIM == 2
-    real(dl),dimension(:,:),allocatable::tmp
-#elif COOP_FITS_IMAGE_DIM == 3
-    real(dl),dimension(:,:,:),allocatable::tmp
-#endif
-    nelements = this%n(1)
-    do i=2, COOP_FITS_IMAGE_DIM
-       nelements = nelements*this%n(i)
-    enddo
-    if(allocated(this%image))then
-       if(size(this%image).ne. nelements)then
-          deallocate(this%image)
-#if COOP_FITS_IMAGE_DIM == 2
-          allocate(this%image(this%n(1), this%n(2)))
-#elif COOP_FITS_IMAGE_DIM == 3
-          allocate(this%image(this%n(1), this%n(2), this%n(3)))
-#else
-          stop "COOP only support dimension = 2 or 3"
-#endif
-       endif
-    else
-#if COOP_FITS_IMAGE_DIM == 2
-       allocate(this%image(this%n(1), this%n(2)))
-#elif COOP_FITS_IMAGE_DIM == 3
-       allocate(this%image(this%n(1), this%n(2), this%n(3)))
-#else
-       stop "COOP only support dimension = 2 or 3"
-#endif
-    endif
+    real(dl),dimension(:),allocatable::tmp
     select case(this%bitpix)
     case(-32)
-       call coop_fits_get_float_data(trim(this%filename), this%image, nelements)
+       call coop_fits_get_float_data(trim(this%filename), this%image, this%npix)
     case(-64)
-#if COOP_FITS_IMAGE_DIM == 2
-       allocate(tmp(this%n(1), this%n(2)))
-#elif COOP_FITS_IMAGE_DIM == 3
-       allocate(tmp(this%n(1), this%n(2), this%n(3)))
-#else
-       stop "COOP only support dimension = 2 or 3"
-#endif
-       call coop_fits_get_double_data(trim(this%filename), tmp, nelements)
+       allocate(tmp(0:this%npix-1))
+       call coop_fits_get_double_data(trim(this%filename), tmp, this%npix)
        this%image = real(tmp, sp)
        deallocate(tmp)
     case default
@@ -192,6 +161,32 @@ contains
 
   end subroutine coop_fits_image_get_data
 
+
+!!=======   CEA ============
+
+
+
+  subroutine coop_fits_image_cea_pix2ang(this, pix, theta, phi)
+    class(coop_fits_image_cea)::this
+    COOP_LONG_INT pix
+    COOP_REAL theta, phi
+    COOP_INT ix, iy
+    iy = pix/this%nside(1) 
+    ix = pix  - iy*this%nside(1) + 1 - this%center(1)
+    iy = iy + 1 - this%center(2)
+    phi = this%transform(1,1)* ix + this%transform(1,2)*iy
+    theta = coop_pio2 - asin(this%transform(2, 1)*ix + this%transform(2,2)*iy)
+  end subroutine coop_fits_image_cea_pix2ang
+
+
+  subroutine coop_fits_image_cea_pix2flat(this, disc, pix, coor)
+    class(coop_fits_image_cea)::this
+    COOP_LONG_INT:: pix
+    COOP_REAL ::coor(2)
+    type(coop_sphere_disc)::disc
+    call this%pix2ang(pix, coor(1), coor(2))
+    call disc%ang2flat(coor)
+  end subroutine coop_fits_image_cea_pix2flat
 
 
 

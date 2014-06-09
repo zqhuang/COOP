@@ -19,7 +19,7 @@ module coop_sphere_mod
   end type coop_sphere_disc
 
   interface coop_sphere_disc
-     module procedure::coop_sphere_disc_constructor
+     module procedure coop_sphere_disc_constructor
   end interface coop_sphere_disc
 
 contains
@@ -75,13 +75,18 @@ contains
     call coop_vector_cross_product(this%nz, this%nx, this%ny)
   end function coop_sphere_disc_constructor
 
-  subroutine coop_spere_disc_ang2flat(this, theta, phi, x, y) 
+  !!input coor = ( theta, phi), output coor = (x, y)
+  subroutine coop_spere_disc_ang2flat(this, coor) 
     class(coop_sphere_disc)::this
-    COOP_REAL r, theta, phi, vec(3)
-    COOP_REAL x, y
-    call coop_sphere_ang2vec(theta, phi, vec)
-    r = sqrt(2.d0*max(1.d0 - dot_product(this%nz , vec), 0.d0))
-
+    COOP_REAL s, coor(2), vec(3)
+    call coop_sphere_ang2vec(coor(1), coor(2), vec)
+    coor(1) = dot_product(this%nx, vec)
+    coor(2) = dot_product(this%ny, vec)
+    s = sum(coor**2)
+    if(s.lt. coop_tiny)return
+    s = sqrt(2.d0*(1.d0 - dot_product(this%nz , vec))/s)
+    coor(1) = s*coor(1)
+    coor(2) = s*coor(2)
   end subroutine coop_spere_disc_ang2flat
   
 
