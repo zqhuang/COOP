@@ -463,3 +463,235 @@ void quicksort_double_(double numbers[], int* array_size)
 {
   cwrapper_q_sort_double(numbers, 0, (*array_size) - 1);
 }
+
+
+
+void cwrapper_q_sort_double_with_indices(double numbers[], int indices[], int left, int right)
+{
+  double pivot;
+  int ipivot;
+  int l_hold, r_hold;
+  l_hold = left;
+  r_hold = right;
+  pivot = numbers[left];
+  ipivot = indices[left];
+  while (left < right)
+  {
+    while ((numbers[right] >= pivot) && (left < right))
+      right--;
+    if (left != right)
+    {
+      numbers[left] = numbers[right];
+      indices[left] = indices[right];
+      left++;
+    }
+    while ((numbers[left] <= pivot) && (left < right))
+      left++;
+    if (left != right)
+    {
+      numbers[right] = numbers[left];
+      indices[right] = indices[left];
+      right--;
+    }
+  }
+  numbers[left] = pivot;
+  indices[left] = ipivot;
+  right = r_hold;
+  r_hold = left;
+  left = l_hold;
+  if (left < r_hold)
+    cwrapper_q_sort_double_with_indices(numbers, indices, left, r_hold-1);
+  if (right > r_hold)
+    cwrapper_q_sort_double_with_indices(numbers, indices, r_hold+1, right);
+}
+
+
+void quicksort_double_with_indices_(double numbers[], int indices[], int* array_size)
+{
+  cwrapper_q_sort_double_with_indices(numbers, indices, 0, (*array_size) - 1);
+}
+
+
+void cwrapper_q_sort_float_with_indices(float numbers[], int indices[], int left, int right)
+{
+  float pivot;
+  int ipivot;
+  int l_hold, r_hold;
+  l_hold = left;
+  r_hold = right;
+  pivot = numbers[left];
+  ipivot = indices[left];
+  while (left < right)
+  {
+    while ((numbers[right] >= pivot) && (left < right))
+      right--;
+    if (left != right)
+    {
+      numbers[left] = numbers[right];
+      indices[left] = indices[right];
+      left++;
+    }
+    while ((numbers[left] <= pivot) && (left < right))
+      left++;
+    if (left != right)
+    {
+      numbers[right] = numbers[left];
+      indices[right] = indices[left];
+      right--;
+    }
+  }
+  numbers[left] = pivot;
+  indices[left] = ipivot;
+  right = r_hold;
+  r_hold = left;
+  left = l_hold;
+  if (left < r_hold)
+    cwrapper_q_sort_float_with_indices(numbers, indices, left, r_hold-1);
+  if (right > r_hold)
+    cwrapper_q_sort_float_with_indices(numbers, indices, r_hold+1, right);
+}
+
+
+void quicksort_float_with_indices_(float numbers[], int indices[], int* array_size)
+{
+  cwrapper_q_sort_float_with_indices(numbers, indices, 0, (*array_size) - 1);
+}
+
+
+void cwrapper_q_sort_int_with_indices(int numbers[], int indices[], int left, int right)
+{
+  int pivot, ipivot;
+  int l_hold, r_hold;
+  l_hold = left;
+  r_hold = right;
+  pivot = numbers[left];
+  ipivot = indices[left];
+  while (left < right)
+  {
+    while ((numbers[right] >= pivot) && (left < right))
+      right--;
+    if (left != right)
+    {
+      numbers[left] = numbers[right];
+      indices[left] = indices[right];
+      left++;
+    }
+    while ((numbers[left] <= pivot) && (left < right))
+      left++;
+    if (left != right)
+    {
+      numbers[right] = numbers[left];
+      indices[right] = indices[left];
+      right--;
+    }
+  }
+  numbers[left] = pivot;
+  indices[left] = ipivot;
+  right = r_hold;
+  r_hold = left;
+  left = l_hold;
+  if (left < r_hold)
+    cwrapper_q_sort_int_with_indices(numbers, indices, left, r_hold-1);
+  if (right > r_hold)
+    cwrapper_q_sort_int_with_indices(numbers, indices, r_hold+1, right);
+}
+
+
+void quicksort_int_with_indices_(int numbers[], int indices[], int* array_size)
+{
+  cwrapper_q_sort_int_with_indices(numbers, indices, 0, (*array_size) - 1);
+}
+
+
+
+
+void cwrapper_q_sort_double_with_double(double numbers[], double indices[], int left, int right)
+{
+  double pivot;
+  double ipivot;
+  int l_hold, r_hold;
+  l_hold = left;
+  r_hold = right;
+  pivot = numbers[left];
+  ipivot = indices[left];
+  while (left < right)
+  {
+    while ((numbers[right] >= pivot) && (left < right))
+      right--;
+    if (left != right)
+    {
+      numbers[left] = numbers[right];
+      indices[left] = indices[right];
+      left++;
+    }
+    while ((numbers[left] <= pivot) && (left < right))
+      left++;
+    if (left != right)
+    {
+      numbers[right] = numbers[left];
+      indices[right] = indices[left];
+      right--;
+    }
+  }
+  numbers[left] = pivot;
+  indices[left] = ipivot;
+  right = r_hold;
+  r_hold = left;
+  left = l_hold;
+  if (left < r_hold)
+    cwrapper_q_sort_double_with_double(numbers, indices, left, r_hold-1);
+  if (right > r_hold)
+    cwrapper_q_sort_double_with_double(numbers, indices, r_hold+1, right);
+}
+
+
+void quicksort_double_with_double_(double numbers[], double indices[], int* array_size)
+{
+  cwrapper_q_sort_double_with_double(numbers, indices, 0, (*array_size) - 1);
+}
+
+
+void cwrapper_q_sort_float_with_float(float numbers[], float indices[], int left, int right)
+{
+  float pivot;
+  float ipivot;
+  int l_hold, r_hold;
+  l_hold = left;
+  r_hold = right;
+  pivot = numbers[left];
+  ipivot = indices[left];
+  while (left < right)
+  {
+    while ((numbers[right] >= pivot) && (left < right))
+      right--;
+    if (left != right)
+    {
+      numbers[left] = numbers[right];
+      indices[left] = indices[right];
+      left++;
+    }
+    while ((numbers[left] <= pivot) && (left < right))
+      left++;
+    if (left != right)
+    {
+      numbers[right] = numbers[left];
+      indices[right] = indices[left];
+      right--;
+    }
+  }
+  numbers[left] = pivot;
+  indices[left] = ipivot;
+  right = r_hold;
+  r_hold = left;
+  left = l_hold;
+  if (left < r_hold)
+    cwrapper_q_sort_float_with_float(numbers, indices, left, r_hold-1);
+  if (right > r_hold)
+    cwrapper_q_sort_float_with_float(numbers, indices, r_hold+1, right);
+}
+
+
+void quicksort_float_with_float_(float numbers[], float indices[], int* array_size)
+{
+  cwrapper_q_sort_float_with_float(numbers, indices, 0, (*array_size) - 1);
+}

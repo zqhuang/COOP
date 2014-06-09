@@ -1,16 +1,22 @@
 program plot
   use coop_wrapper_utils
   use coop_ode_mod
+  use coop_random_mod
   implicit none
 #include "constants.h"
   integer, parameter::n=5
-  doubleprecision x(n, n)
+  real x(n)
+  real indices(n)
   integer i, j
+  call coop_random_init()
   call random_number(x)
-  call quicksort_double(x, n**2)
+  indices = (/ (i, i=1,n) /)
   do i=1, n
-     do j=1, n
-        print*, i, j,  x(j, i)
-     enddo
+     print*, i, indices(i), x(i)
+  enddo
+  print*
+  call coop_quicksortacc(x, indices)
+  do i=1, n
+     print*, i, indices(i), x(i)
   enddo
 end program plot

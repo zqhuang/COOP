@@ -491,19 +491,19 @@ contains
     COOP_REAL  psi(size(e),size(e))
     COOP_INT Indx(size(E))
     COOP_INT i, n
+    n = Coop_getdim("Coop_matsym_diagonalize",SIZE(H,1),SIZE(H,2),SIZE(E))
 #ifdef HAS_LAPACK
     call coop_matrix_diagonalize(h, e)
     if(present(sort))then
        if(sort)then
           psi = H
-          call Coop_quicksortacc(e,indx)
+          call coop_quicksortacc(e,indx)
           do i=1,n
              h(:,I)=psi(:,indx(I))
           enddo
        endif
     endif
 #else
-    n = Coop_getdim("Coop_matsym_diagonalize",SIZE(H,1),SIZE(H,2),SIZE(E))
     call Coop_matsymDIAG(h,psi,1.d-8)
     do i = 1,N
        e(i) = h(i,i)
@@ -730,7 +730,7 @@ contains
     COOP_REAL ,dimension(:,:),INTENT(INOUT)::A
     COOP_REAL ,dimension(:,:),INTENT(INOUT)::b
     COOP_INT n, m, i
-    N=COOP_GETDIM("Coop_matsym_Solve",SIZE(A,1),SIZE(A,2),SIZE(b,1))
+    n=COOP_GETDIM("Coop_matsym_Solve",SIZE(A,1),SIZE(A,2),SIZE(b,1))
     m = size(b, 2)
 #ifdef HAS_LAPACK
     call dposv('L', n, m, a, n, b, n, i)
