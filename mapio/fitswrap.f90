@@ -49,8 +49,12 @@ contains
   subroutine coop_fits_open(this, filename)
     class(coop_fits)::this
     COOP_UNKNOWN_STRING::filename
-    this%filename = trim(filename)
-    call coop_fits_get_header(this)
+    if(coop_file_exists(filename))then
+       this%filename = trim(filename)
+       call coop_fits_get_header(this)
+    else
+       write(*,*) "The file "//trim(filename)//" does not exist."
+    endif
   end subroutine coop_fits_open
 
   subroutine coop_fits_image_free(this)

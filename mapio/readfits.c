@@ -11,6 +11,7 @@ void coop_fits_read_header_to_string_(char* filename, char* cards, int* nkeys){
   char card[FLEN_CARD]; 
   int status, ii; 
   status = 0; /* MUST initialize status */
+  printf("%s", filename);
   fits_open_file(&fptr, filename, READONLY, &status);
   fits_get_hdrspace(fptr, nkeys, NULL, &status);
   for (ii = 1; ii <= *nkeys; ii++)  { 
