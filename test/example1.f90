@@ -12,7 +12,7 @@ program derivative
 #define LAMBDA args%r(2)
 
   args = coop_arguments( r = (/ 1.e-5*Mpl, 3.*Mpl**2*H0**2*0.7 /) )
-  V = coop_function( f = potential, xmin = MASS/10., xmax =Mpl*10.d0, xlog = .true., ylog = .true., args = args, method = COOP_INTERPOLATE_SPLINE)
+  V = coop_function( f = potential, xmin = MASS/10., xmax =Mpl*10.d0, xlog = .true., ylog = .true., args = args)
 
   phi = 0.2*MASS
   print*, V%eval(phi), potential(phi, args)
