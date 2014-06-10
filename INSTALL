@@ -1,3 +1,5 @@
+*****  First Time Compile ********
+
 1. replace the proper configure file, for example, if you are using gfortran in linux system:
    cp configure_linux_gfortran.in configure.in
 
@@ -12,7 +14,11 @@ add this to ~/.bashrc so that you don't need to load the module every time.
 
 
 
-If you want to recompile, do
+********  ReCompile ********
 ./clear.sh
 ./compile.sh
+
+
+********* Update from GitHub*************
+./autoupdate.sh
 
