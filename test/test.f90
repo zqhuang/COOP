@@ -1,4 +1,4 @@
-program test
+program combined2
   use coop_wrapper
   implicit none
 #include "constants.h"
@@ -13,147 +13,137 @@ program test
 #define C_FLAT args%r(3)
 #define N_POWER args%r(4)
 
-!!example for coupled quintessence model 
-!!V(phi) = c0 / phi^n + c1
-!!I am not doing perfect initial conditions, you might get some initial small oscillations
+  !!example for coupled quintessence model 
+  !!V(phi) = c0 / phi^n + c1
 
   COOP_INT, parameter::nvars = 3  !!number of variables to evolve
-  COOP_INT, parameter::nsteps = 1000  !!number of steps for output
+  COOP_INT, parameter::nsteps = 10000  !!number of steps for output
+  COOP_INT, parameter::nminimize = 10000 !!number of elements in input const_integration arrays for minimization procedure
   COOP_REAL, parameter:: MPl = 1.d0 !!define mass unit
   COOP_REAL, parameter:: H0 = 1.d0  !!define time unit
-  COOP_REAL,parameter::rho_total_today = 3.d0*Mpl**2*H0**2
-  COOP_REAL,parameter::rhom_today = 0.3*rho_total_today
-  COOP_REAL:: Q, c_run
-  COOP_REAL, parameter::npower = 1.
+  COOP_REAL, parameter:: rho_total_today = 3.d0*Mpl**2*H0**2
+  COOP_REAL, parameter:: rhom_today = 0.3*rho_total_today
+
+  COOP_REAL, parameter::npower = 0.8d0
+  COOP_REAL:: Q , c_run
   COOP_REAL,parameter:: rhom_ini = 1.e9 * rhom_today
-  COOP_REAL,parameter:: phieq_ini = 0.0001 * Mpl  
-  COOP_REAL, parameter::c_flat = 0.7* rho_total_today
+  COOP_REAL,parameter:: phieq_ini = 1.d-4 * Mpl  
+  COOP_REAL, parameter::c_flat = 0.7 * rho_total_today
+
   COOP_REAL, parameter::lna_start = 0.
-  COOP_REAL, parameter::lna_end = log(rhom_ini/rhom_today)/3.d0 + 2.d0  !!add  3 more efolds to make sure rho_m < rho_phi happens
-  COOP_INT:: itoday, iplotto
+  COOP_REAL, parameter::lna_end = log(rhom_ini/c_flat)/3.d0 + 3.d0  !!add  3 more efolds to make sure rho_m < rho_phi happens
+  COOP_INT iQ, itoday, ieq, iplot, imiddle 
+  COOP_REAL::plot_a_power = 1.
+  COOP_REAL eps_inf
 
-  COOP_INT:: iQ
-
+  integer,parameter::iQ_steps = 3
   type(coop_ode)::co
   type(coop_arguments)::args
-  COOP_INT i
-  COOP_REAL::phieq_dot_ini, hubble_ini
-  COOP_REAL:: phi(nsteps), lna(nsteps), phidot(nsteps), w(nsteps), phieq(nsteps), phieq_dot(nsteps), hubble(nsteps), Ev, Ek, Vpp, deltaphi, deltaphi_dot
-  type(coop_asy)::plot_w, plot_phi, plot_phidot
+  COOP_INT i, j, it
+  COOP_REAL::phieq_dot_ini, phieq_dot_dot_ini, hubble_ini, hubble_dot_ini, discriminant, deltaphi
+  COOP_REAL:: phi(nsteps), phieq(nsteps), lna(nsteps), dotphi(nsteps), w(nsteps), e_s(nsteps), dotphieq(nsteps), dotdotphi(nsteps), dotdotphieq(nsteps), Ev, Ek, Vpp, F(nsteps)
+  COOP_REAL:: e_s_eq, beta
+  COOP_REAL  w_slow(nsteps), delta_w(nsteps), delta_w_ana(nsteps), w_ana(nsteps), a(nsteps)
 
-  call plot_w%open("w.txt")
-  call plot_phi%open("phi.txt")
-  call plot_phidot%open("phidot.txt")
-  
-  call plot_w%init(xlabel = "$\ln a$", ylabel = "$1+w_\phi$", caption = "$\phi_{\rm ini} = "//trim(coop_num2str(phieq_ini/Mpl))//"M_p$")  
-  call plot_phi%init(xlabel = "$\ln a$", ylabel = "$\phi/M_p$", caption = "$\phi_{\rm ini} = "//trim(coop_num2str(phieq_ini/Mpl))//"M_p$") 
-  call plot_phidot%init(xlabel = "$\ln a$", ylabel = "$\dot\phi/(H_0M_p)$", caption = "$\phi_{\rm ini} = "//trim(coop_num2str(phieq_ini/Mpl))//"M_p$" )
-     
+  type(coop_asy):: phiplot, dot, dotdot, es, wplot, dwplot
 
-  do iQ = 1, 3
-     Q = iQ * 0.15
-     c_run = Q * rhom_ini * phieq_ini ** (npower + 1)/npower
+  call wplot%open("w.txt")
+  call dwplot%open("dw.txt")
+  call wplot%init(xlabel = "$a$", ylabel = "$w_\phi$", caption = "$V=C_0+C_1\phi^{-"//trim(coop_num2str(npower))//"}$",width=8., height=6., ymin  = -1., ymax = 0.)
+  call dwplot%init(xlabel = "$F(a/a_{\rm eq})$", ylabel = "$\delta w_\phi$", caption = "$V=C_0+C_1\phi^{-"//trim(coop_num2str(npower))//"}$",width=8., height=6.)
+
+  do iQ=1,iQ_steps
+     Q= 0.15d0*iQ
+     c_run = Q * rhom_ini * phieq_ini ** (npower + 1.d0)/npower
+     beta = 3.d0/(npower + 1.d0)
+
      args = coop_arguments( r = (/ Q, c_run, c_flat, npower /) )
      hubble_ini = sqrt((potential(phieq_ini, args) + rhom_ini)/(3.d0*Mpl**2))
-     call get_equil(hubble_ini, phieq_ini, phieq_dot_ini, deltaphi, args)
+     phieq_dot_ini = 3.d0*hubble_ini/(npower+1.d0)*phieq_ini
+
+     hubble_dot_ini = -phieq_dot_ini**2.d0/2.d0 - rhom_ini/2.d0
+     phieq_dot_dot_ini = 3.d0/(npower+1.d0)*(hubble_ini*phieq_dot_ini+hubble_dot_ini*phieq_ini)
+
+     discriminant = d2Vdphi2(phieq_ini, args)**2.d0-2.d0*d3Vdphi3(phieq_ini, args)*(phieq_dot_dot_ini+3.d0*hubble_ini*phieq_dot_ini)
+     if (discriminant .lt. 0) then
+        stop "Discriminant is negative."
+
+     else
+        print *, "Discriminant is not negative."
+        deltaphi = (-d2Vdphi2(phieq_ini, args)+sqrt(discriminant))/(d3Vdphi3(phieq_ini, args))
+        print *, "phi_0= ", phieq_ini+deltaphi
+     endif
+
+     Ek = phieq_dot_ini**2.d0/2.d0
+     Ev = potential(phieq_ini+deltaphi, args)
+     print *, "Initially, Ek/Ev = ", Ek/Ev
+
+
      if(abs(deltaphi/phieq_ini).gt. 0.1d0)then
         write(*,*) "V''=", Vpp
         write(*,*) deltaphi/Mpl, phieq_ini/Mpl
         stop "deltaphi too big"
-     else 
-        write(*,*) "Correction: ", deltaphi/phieq_ini
-        phieq_dot_ini = phieq_dot_ini * (1.d0 + deltaphi/phieq_ini)  !!assuming the ratio is varying slowly
      endif
-     call co%init(n = nvars, method = COOP_ODE_DVERK)  !!initialize the ode solver
+     call co%init(n = nvars, method = COOP_ODE_DVERK, tol = 1.d-8)  !!initialize the ode solver
      call co%set_arguments(args = args)
      call co%set_initial_conditions( xini = lna_start, yini = (/ phieq_ini+deltaphi, phieq_dot_ini, rhom_ini /) )
      call coop_set_uniform(nsteps, lna, lna_start, lna_end)
      itoday = 0
+     ieq = 0
      do  i = 1, nsteps
         if(i.gt.1)call co%evolve(get_yprime, lna(i))
         phi(i) = co%PHI / Mpl
-        phidot(i) = co%PHIDOT
-        Ek = phidot(i)**2/2.d0
+        dotphi(i) = co%PHIDOT
+        Ek = dotphi(i)**2.d0/2.d0
         Ev = potential(phi(i), args)
         w(i) = (Ek -Ev)/(Ek+Ev)
-        hubble(i) = sqrt((Ek+Ev+co%RHOM)/(3.d0*Mpl**2))
-        phieq(i) = (co%C_RUN * co%N_POWER / co%Q_COUPLING/co%RHOM)**(1.d0/(CO%N_POWER + 1.d0))
-        phieq_dot(i) = phieq(i)*(3.*hubble(i)/(co%N_POWER+1.d0))
-        if((Ek+Ev)/co%RHOM .ge. (0.7/0.3) .and. itoday.eq.0)then
+        phieq(i) = get_phi_eq(co%y, args)
+        dotphieq(i) = get_phi_eq_dot(co%y, args)
+        dotdotphieq(i) = get_phi_eq_dot_dot(co%y, args)
+        dotdotphi(i) = get_phi_dot_dot(co%y, args)
+
+        !! Early time solution
+        e_s(i) = 0.5d0/potential(phi(i), args)**2.d0*(dVdphi(phi(i), args)+Q*co%RHOM)**2.d0
+        if((Ek+Ev)/co%RHOM .gt. (0.7/0.3) .and. itoday .eq. 0)then
            itoday = i
-           exit !!you don't really need later solutions
+        endif
+        if((Ek+Ev)/co%RHOM .gt. (0.5/0.5) .and. ieq .eq. 0) then
+           ieq = i
+           e_s_eq = e_s(i)
+           print *, "epsilon_s_tilde = ", e_s_eq
         endif
      enddo
-     if(itoday .eq. 0)then
-        write(*,*) "you might want to increase lna_end"
-        stop
-     endif
-     lna = lna - lna(itoday)  !!renormalize a=1 today
-     iplotto = itoday
-     select case(iQ)
-     case(1)
-        call coop_asy_curve(plot_w, x=lna(1:iplotto), y=(1.d0+w(1:iplotto)), &
-             color = "black", linewidth = 1.5, linetype="solid", &
-             legend = "$Q = "//trim(coop_num2str(co%Q_COUPLING))//"$" )
-        call coop_asy_curve(plot_phi, x=lna(1:iplotto), y=phi(1:iplotto)/Mpl, &
-             color = "black", linewidth = 1.5, linetype="solid", &
-             legend = "$\phi, Q = "//trim(coop_num2str(co%Q_COUPLING))//"$" )
-        call coop_asy_curve(plot_phi, x=lna(1:iplotto), y=phieq(1:iplotto)/Mpl, &
-             color = "black", linewidth = 0.5, linetype="solid", &
-             legend = "$\phi_{\rm eq}, Q = "//trim(coop_num2str(co%Q_COUPLING)) //"$")
-        call coop_asy_curve(plot_phidot, x=lna(1:iplotto), y=phidot(1:iplotto)/Mpl/H0, &
-             color = "black", linewidth = 1.5, linetype="solid", &
-             legend = "$\dot\phi, Q = "//trim(coop_num2str(co%Q_COUPLING))//"$" )
-        call coop_asy_curve(plot_phidot, x=lna(1:iplotto), y=phieq_dot(1:iplotto)/Mpl/H0, &
-             color = "black", linewidth = 0.5, linetype="solid", &
-             legend = "$\dot\phi_{\rm eq}, Q = "//trim(coop_num2str(co%Q_COUPLING))//"$" )
-     case(2)
-        call coop_asy_curve(plot_w, x=lna(1:iplotto), y=(1.d0+w(1:iplotto)), &
-             color = "red", linewidth = 1.5, linetype="dotted", &
-             legend = "$Q = "//trim(coop_num2str(co%Q_COUPLING))//"$" )
-        call coop_asy_curve(plot_phi, x=lna(1:iplotto), y=phi(1:iplotto)/Mpl, &
-             color = "red", linewidth = 1.5, linetype="dotted", &
-             legend = "$\phi, Q = "//trim(coop_num2str(co%Q_COUPLING))//"$" )
-        call coop_asy_curve(plot_phi, x=lna(1:iplotto), y=phieq(1:iplotto)/Mpl, &
-             color = "red", linewidth = 0.5, linetype="dotted", &
-             legend = "$\phi_{\rm eq}, Q = "//trim(coop_num2str(co%Q_COUPLING))//"$" )
-        call coop_asy_curve(plot_phidot, x=lna(1:iplotto), y=phidot(1:iplotto)/Mpl, &
-             color = "red", linewidth = 1.5, linetype="dotted", &
-             legend = "$\dot\phi, Q = "//trim(coop_num2str(co%Q_COUPLING))//"$" )
-        call coop_asy_curve(plot_phidot, x=lna(1:iplotto), y=phieq_dot(1:iplotto)/Mpl, &
-             color = "red", linewidth = 0.5, linetype="dotted", &
-             legend = "$\dot\phi_{\rm eq}, Q = "//trim(coop_num2str(co%Q_COUPLING))//"$" )
+     lna  = lna - lna(itoday)  !!renormalize a=1 today
+     a = exp(lna)
+     F = exp(lna - lna(ieq))
+     F = sqrt(1.d0+F**3)/F**1.5d0 - log(F**1.5d0+sqrt(1.d0+F**3))/F**3
+     !! Compute w_slow(a) and delta_w(a)
+     w_slow = 2./3.*e_s_eq*F**2.-1.
+     delta_w = sqrt(1.+w) - sqrt(1.+w_slow)
+     it = 1
+     do while(a(it)*2.5 .lt. a(ieq))
+        it = it + 1
+     enddo
+     eps_inf = (coop_sqrt3/coop_sqrt2 * delta_w(ieq)/(1.d0-coop_sqrt2 * F(ieq)))**2
+     delta_w_ana = coop_sqrt2/coop_sqrt3 * sqrt(eps_inf)*(1.d0- coop_sqrt2 * F) 
+     print*, "epsilon_s  = ", e_s_eq
+     call coop_asy_interpolate_curve(wplot, xraw=exp(lna(1:itoday)), yraw=w(1:itoday),interpolate="LinearLinear", color = wplot%color(iQ), linewidth = 1.2, linetype="solid", legend = "$Q="//trim(coop_num2str(Q))//"$ numerical")  
 
-     case(3)
-        call coop_asy_curve(plot_w, x=lna(1:iplotto), y=(1.d0+w(1:iplotto)), &
-             color = "blue", linewidth = 1.5, linetype="dashed", &
-             legend = "$Q = "//trim(coop_num2str(co%Q_COUPLING))//"$" )
-        call coop_asy_curve(plot_phi, x=lna(1:iplotto), y=phi(1:iplotto), &
-             color = "blue", linewidth = 1.5, linetype="dashed", &
-             legend = "$\phi, Q = "//trim(coop_num2str(co%Q_COUPLING))//"$" )
-        call coop_asy_curve(plot_phi, x=lna(1:iplotto), y=phieq(1:iplotto), &
-             color = "blue", linewidth = 0.5, linetype="dashed", &
-             legend = "$\phi_{\rm eq}, Q = "//trim(coop_num2str(co%Q_COUPLING))//"$" )
-        call coop_asy_curve(plot_phidot, x=lna(1:iplotto), y=phidot(1:iplotto), &
-             color = "blue", linewidth = 1.5, linetype="dashed", &
-             legend = "$\dot\phi, Q = "//trim(coop_num2str(co%Q_COUPLING))//"$" )
-        call coop_asy_curve(plot_phidot, x=lna(1:iplotto), y=phieq_dot(1:iplotto), &
-             color = "blue", linewidth = 0.5, linetype="dashed", &
-             legend = "$\dot\phi_{\rm eq}, Q = "//trim(coop_num2str(co%Q_COUPLING))//"$" )
+     w_ana = -1 + 2./3.*(F*(sqrt(e_s_eq)-sqrt(eps_inf*2.))+sqrt(eps_inf))**2 &
+          * (1. - exp(-a/a(it)))
 
+     call coop_asy_interpolate_curve(wplot, xraw=exp(lna(1:itoday)), yraw=w_ana(1:itoday),interpolate="LinearLinear", color = wplot%color(iQ), linewidth = 0.8, linetype="dotted", legend = "$Q="//trim(coop_num2str(Q))//"$ analytical")  
 
-     end select
+     call coop_asy_interpolate_curve(dwplot, xraw=F(1:itoday), yraw=delta_w(1:itoday),interpolate="LinearLinear", color = dwplot%color(iQ), linewidth = dwplot%linewidth(iQ), linetype=dwplot%linetype(iQ), legend = "$Q="//trim(coop_num2str(Q))//"$ numerical")  
+     call coop_asy_interpolate_curve(dwplot, xraw=F(1:itoday), yraw=delta_w_ana(1:itoday),interpolate="LinearLinear", color = dwplot%color(iQ+iQ_steps), linewidth = dwplot%linewidth(iQ+iQ_steps), linetype=dwplot%linetype(iQ+iQ_steps), legend = "$Q="//trim(coop_num2str(Q))//"$ analytical")  
 
   enddo
-  call coop_asy_legend(plot_w, x = plot_w%xmin*0.6+plot_w%xmax*0.4, y = plot_w%ymin*0.8 + plot_w%ymax*0.2)
-  call coop_asy_legend(plot_phi, x = plot_phi%xmin*0.8+plot_phi%xmax*0.2, y =plot_phi%ymin*0.2 + plot_phi%ymax*0.8 )
-  call coop_asy_legend(plot_phidot, x = plot_phidot%xmin*0.8+plot_phidot%xmax*0.2, y = plot_phidot%ymin*0.1 +  plot_phidot%ymax*0.9 )
 
-  call coop_asy_label(plot_w, label = "$V(\phi) = C_0 + C_1 \phi^{-"//trim(coop_num2str(co%N_POWER))//"}$", x = plot_w%xmin*0.8+plot_w%xmax*0.2, y = plot_w%ymax*0.9 + plot_w%ymin*0.1)
+  call coop_asy_legend(dwplot) !, x = (0.9*dwplot%xmin + 0.1*dwplot%xmax), y = dwplot%ymin*0.8+dwplot%ymax*0.2, cols=2)
+  call coop_asy_legend(wplot) !, x = (0.9*wplot%xmin + 0.1*wplot%xmax), y = wplot%ymin*0.8+wplot%ymax*0.2, cols=2)
 
-  call plot_w%close()
-  call plot_phi%close()
-  call plot_phidot%close()
+  call dwplot%close()
+  call wplot%close()
 
 contains
 
@@ -167,23 +157,35 @@ contains
   function dVdphi(phi, args) 
     COOP_REAL phi, dVdphi
     type(coop_arguments) args
-    dVdphi = - C_RUN * N_POWER/phi**(N_POWER +1)
+    dVdphi = - C_RUN * N_POWER/phi**(N_POWER +1.d0)
   end function dVdphi
 
   function d2Vdphi2(phi, args)
-    COOP_REAL phi, d2Vdphi2, dphi
+    COOP_REAL phi, d2Vdphi2
     type(coop_arguments) args
-    dphi = phi/100.d0
-    d2Vdphi2 = (dVdphi(phi+dphi, args) - dVdphi(phi-dphi, args))/(2.d0*dphi)
+    d2Vdphi2 = C_RUN * N_POWER * (N_POWER + 1.d0)/phi**(N_POWER+2.d0)
   end function d2Vdphi2
 
-  subroutine get_equil(H, phieq, phieq_dot, deltaphi, args)
-    COOP_REAL phieq, phieq_dot, deltaphi, deltaphi_dot, H, Vpp
+  function d3Vdphi3(phi, args)
+    COOP_REAL phi, d3Vdphi3
     type(coop_arguments) args
-    phieq_dot = 3.d0*H/(N_POWER + 1.d0)*phieq
-    Vpp = d2Vdphi2(phieq, args)
-    deltaphi = -3.d0*H*phieq_dot/Vpp
-  end subroutine get_equil
+    d3Vdphi3 = - C_RUN * N_POWER * (N_POWER + 1.d0) * (N_POWER + 2.d0)/phi**(N_POWER+3.d0)
+  end function d3Vdphi3
+
+  function get_H(y, args)
+    COOP_REAL y(nvars), Ek, Ep, get_H
+    type(coop_arguments) args
+    Ek = PHIDOT ** 2 /2.d0
+    Ep = potential(PHI, args)
+    get_H = sqrt((Ek + Ep + RHOM)/(3.d0*MPl**2))
+  end function get_H
+
+  function get_H_dot(y, args)
+    COOP_REAL y(nvars), Ek, get_H_dot
+    type(coop_arguments) args
+    Ek = PHIDOT ** 2/2.d0
+    get_H_dot = -Ek - RHOM/2.d0
+  end function get_H_dot
 
   subroutine get_yprime(n, x, y, yp, args)
     COOP_INT n
@@ -198,4 +200,28 @@ contains
     DRHOM_DLNA = (-3.d0 +  Q_COUPLING/Mpl * PHIDOT / hubble)*RHOM
   end subroutine get_yprime
 
-end program test
+  function get_phi_eq(y, args)
+    COOP_REAL y(nvars), get_phi_eq
+    type(coop_arguments) args
+    get_phi_eq = (N_POWER * C_RUN/ (Q_COUPLING*RHOM))**(1.d0/(N_POWER+1))
+  end function get_phi_eq
+
+  function get_phi_eq_dot(y, args)
+    COOP_REAL y(nvars), get_phi_eq_dot
+    type(coop_arguments) args
+    get_phi_eq_dot = 3.d0/(N_POWER+1.d0)*get_H(y, args)*get_phi_eq(y, args)
+  end function get_phi_eq_dot
+
+  function get_phi_dot_dot(y, args)
+    COOP_REAL y(nvars), get_phi_dot_dot
+    type(coop_arguments) args
+    get_phi_dot_dot = -3.d0*get_H(y, args)*PHIDOT-dVdphi(PHI, args)-Q_COUPLING*RHOM
+  end function get_phi_dot_dot
+
+  function get_phi_eq_dot_dot(y, args)
+    COOP_REAL y(nvars), get_phi_eq_dot_dot
+    type(coop_arguments) args
+    get_phi_eq_dot_dot = 3.d0/(N_POWER+1.d0)*(get_H(y, args)*get_phi_eq_dot(y, args)+get_H_dot(y, args)*get_phi_eq(y, args))
+  end function get_phi_eq_dot_dot
+
+end program combined2

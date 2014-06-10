@@ -8,7 +8,7 @@ module coop_sort_mod
   COOP_INT ,parameter::sp = kind(1.)
   COOP_INT ,parameter::dl = kind(1.d0)
 
-  public::coop_quicksort, coop_quicksortAcc, coop_quicksort_index
+  public::coop_quicksort, coop_quicksortAcc, coop_quicksort_index, coop_bin_data, coop_array_get_threshold
 
   !!coop_quicksort(array x) will sort x such that x(1)<=x(2)<...<=x(n)
   interface Coop_quicksort
@@ -24,6 +24,14 @@ module coop_sort_mod
   interface coop_quicksort_index
      module procedure coop_quicksort_index_d, coop_quicksort_index_s
   end interface coop_quicksort_index
+
+  interface coop_bin_data
+     module procedure coop_bin_data_d, coop_bin_data_s, coop_bin_data2d_d, coop_bin_data2d_s
+  end interface coop_bin_data
+
+  interface coop_array_get_threshold
+     module procedure coop_array_get_threshold_d, coop_array_get_threshold_s, coop_array_get_threshold2d_d, coop_array_get_threshold2d_s
+  end interface coop_array_get_threshold
 
 contains
 
@@ -114,7 +122,6 @@ contains
   subroutine Coop_quicksort2d_s(r)
     real(sp),dimension(:,:),intent(inout)::r
     COOP_INT  n
-    n=size(r)
     call quicksort_float(r, n)
   end subroutine Coop_quicksort2d_s
 
@@ -156,7 +163,7 @@ contains
   subroutine Coop_quicksortacc_dd(r, indices)
     real(dl),dimension(:),intent(inOUT)::r
     real(dl),dimension(:),intent(OUT)::indices
-    integer n
+    COOP_INT  n
     n =  Coop_getdim("Coop_quicksortAcc",SiZE(r),Size(indices))
     call quicksort_double_with_double(r, indices, n)
   end subroutine Coop_quicksortacc_dd
@@ -165,7 +172,7 @@ contains
   subroutine Coop_quicksortacc_ss(r, indices)
     real(sp),dimension(:),intent(inOUT)::r
     real(sp),dimension(:),intent(OUT)::indices
-    integer n
+    COOP_INT  n
     n =  Coop_getdim("Coop_quicksortAcc",SiZE(r),Size(indices))
     call quicksort_float_with_float(r, indices, n)
   end subroutine Coop_quicksortacc_ss
@@ -195,6 +202,72 @@ contains
     deallocate(x)
   End Subroutine Coop_quicksort_index_s
 
+  subroutine coop_bin_data_d(x, nbins, center, density)
+    real(dl) x(:), center(:), density(:)
+    COOP_INT  nbins, n, nb
+    n = size(x)
+    nb = min(size(center), size(density))
+    call get_binned_data_double(x, n, nb, nbins, center, density)
+  end subroutine coop_bin_data_d
+
+  subroutine coop_bin_data_s(x, nbins, center, density)
+    real(sp) x(:), center(:), density(:)
+    COOP_INT  nbins, n, nb
+    n = size(x)
+    nb = min(size(center), size(density))
+    call get_binned_data_float(x, n, nb, nbins, center, density)
+  end subroutine coop_bin_data_s
+  
+  subroutine coop_bin_data2d_d(x, nbins, center, density)
+    real(dl) x(:,:), center(:), density(:)
+    COOP_INT  nbins, n, nb
+    n = size(x)
+    nb = min(size(center), size(density))
+    call get_binned_data_double(x, n, nb, nbins, center, density)
+  end subroutine coop_bin_data2d_d
+
+  subroutine coop_bin_data2d_s(x, nbins, center, density)
+    real(sp) x(:,:), center(:), density(:)
+    COOP_INT  nbins, n, nb
+    n = size(x)
+    nb = min(size(center), size(density))
+    call get_binned_data_float(x, n, nb, nbins, center, density)
+  end subroutine coop_bin_data2d_s
+
+
+  subroutine coop_array_get_threshold_d(x, perc, threshold)
+    real(dl) x(:)
+    real(dl) perc,threshold
+    COOP_INT n
+    n = size(x)
+    call array_get_threshold_double(x, n, perc, threshold)
+  end subroutine coop_array_get_threshold_d
+
+
+  subroutine coop_array_get_threshold_s(x, perc, threshold)
+    real(sp) x(:)
+    real(sp) perc,threshold
+    COOP_INT n
+    n = size(x)
+    call array_get_threshold_float(x, n, perc, threshold)
+  end subroutine coop_array_get_threshold_s
+
+  subroutine coop_array_get_threshold2d_d(x, perc, threshold)
+    real(dl) x(:,:)
+    real(dl) perc,threshold
+    COOP_INT n
+    n = size(x)
+    call array_get_threshold_double(x, n, perc, threshold)
+  end subroutine coop_array_get_threshold2d_d
+
+
+  subroutine coop_array_get_threshold2d_s(x, perc, threshold)
+    real(sp) x(:,:)
+    real(sp) perc,threshold
+    COOP_INT n
+    n = size(x)
+    call array_get_threshold_float(x, n, perc, threshold)
+  end subroutine coop_array_get_threshold2d_s
 
 
 end module coop_sort_mod

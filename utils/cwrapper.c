@@ -10,6 +10,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
+#include <time.h>
 #ifdef HAS_GSL
 #include "gsl_interp.h"
 #include "gsl_spline.h"
@@ -268,108 +269,15 @@ void float_array_get_minval_(float* x, int* n, float *xmin){
 }
 
 
-//find threshold such that P(x>threashold) is perc
-void array_get_threshold_(double* x, int* n, double* perc, double* threshold){
-  const int m = 562144;
-  int i, ncut, nacc;
-  double xmin, xmax, step;
-  int a[m];
-  array_get_maxval_(x, n, &xmax);
-  array_get_minval_(x, n, &xmin);
-  if(*perc > 1. || xmax==xmin){
-    *threshold = xmin;
-    return;
-  }
-  if(*perc < 0.){
-    *threshold = xmax;
-    return;
-  }
-  step = (xmax-xmin)/(m-1); 
-  for(i=0; i<m; i++)
-    a[i] = 0;
-  for(i=0; i< *n; i++)
-    (a[(int)((x[i] - xmin)/step+0.5)])++; 
-  ncut = (int) ((*n)*(*perc)+0.5);
-  i = m-1;
-  nacc = a[i]; 
-  while( nacc < ncut)
-    nacc += a[--i];
-  if(i == 0)
-    *threshold = xmin + 0.25*step;
-  else if(i==m-1)
-    *threshold = xmax - 0.25*step;
-  else
-    *threshold = i*step+xmin;
-}
-
-
-void float_array_get_threshold_(float* x, int* n, float* perc, float* threshold){
-  const int m = 262144;
-  int i, ncut, nacc;
-  float xmin, xmax, step;
-  int a[m];
-  float_array_get_maxval_(x, n, &xmax);
-  float_array_get_minval_(x, n, &xmin);
-  if(*perc > 1. || xmax==xmin){
-    *threshold = xmin;
-    return;
-  }
-  if(*perc < 0.){
-    *threshold = xmax;
-    return;
-  }
-  step = (xmax-xmin)/(m-1); 
-  for(i=0; i<m; i++)
-    a[i] = 0;
-  for(i=0; i< *n; i++)
-    (a[(int)((x[i] - xmin)/step+0.5)])++; 
-  ncut = (int) ((*n)*(*perc)+0.5);
-  i = m-1;
-  nacc = a[i]; 
-  while( nacc < ncut)
-    nacc += a[--i];
-  if(i == 0)
-    *threshold = xmin + 0.25*step;
-  else if(i==m-1)
-    *threshold = xmax - 0.25*step;
-  else
-    *threshold = i*step+xmin;
-}
-
-
- 
  
 void cwrapper_q_sort_int(int numbers[], int left, int right)
 {
   int pivot, l_hold, r_hold;
-  l_hold = left;
-  r_hold = right;
-  pivot = numbers[left];
-  while (left < right)
-  {
-    while ((numbers[right] >= pivot) && (left < right))
-      right--;
-    if (left != right)
-    {
-      numbers[left] = numbers[right];
-      left++;
-    }
-    while ((numbers[left] <= pivot) && (left < right))
-      left++;
-    if (left != right)
-    {
-      numbers[right] = numbers[left];
-      right--;
-    }
-  }
-  numbers[left] = pivot;
-  pivot = left;
-  left = l_hold;
-  right = r_hold;
-  if (left < pivot)
-    cwrapper_q_sort_int(numbers, left, pivot-1);
-  if (right > pivot)
-    cwrapper_q_sort_int(numbers, pivot+1, right);
+#include "sort.h"
+  if (l_hold < left)
+    cwrapper_q_sort_int(numbers, l_hold, left-1);
+  if (left < r_hold)
+    cwrapper_q_sort_int(numbers, left+1, r_hold);
 }
 
 void quicksort_int_(int numbers[], int *array_size)
@@ -384,35 +292,11 @@ void cwrapper_q_sort_float(float numbers[], int left, int right)
 {
   float pivot;
   int l_hold, r_hold;
- 
-  l_hold = left;
-  r_hold = right;
-  pivot = numbers[left];
-  while (left < right)
-  {
-    while ((numbers[right] >= pivot) && (left < right))
-      right--;
-    if (left != right)
-    {
-      numbers[left] = numbers[right];
-      left++;
-    }
-    while ((numbers[left] <= pivot) && (left < right))
-      left++;
-    if (left != right)
-    {
-      numbers[right] = numbers[left];
-      right--;
-    }
-  }
-  numbers[left] = pivot;
-  right = r_hold;
-  r_hold = left;
-  left = l_hold;
+#include "sort.h"
+  if (l_hold < left)
+    cwrapper_q_sort_float(numbers, l_hold, left-1);
   if (left < r_hold)
-    cwrapper_q_sort_float(numbers, left, r_hold-1);
-  if (right > r_hold)
-    cwrapper_q_sort_float(numbers, r_hold+1, right);
+    cwrapper_q_sort_float(numbers, left+1, r_hold);
 }
 
 
@@ -427,35 +311,11 @@ void cwrapper_q_sort_double(double numbers[], int left, int right)
 {
   double pivot;
   int l_hold, r_hold;
- 
-  l_hold = left;
-  r_hold = right;
-  pivot = numbers[left];
-  while (left < right)
-  {
-    while ((numbers[right] >= pivot) && (left < right))
-      right--;
-    if (left != right)
-    {
-      numbers[left] = numbers[right];
-      left++;
-    }
-    while ((numbers[left] <= pivot) && (left < right))
-      left++;
-    if (left != right)
-    {
-      numbers[right] = numbers[left];
-      right--;
-    }
-  }
-  numbers[left] = pivot;
-  right = r_hold;
-  r_hold = left;
-  left = l_hold;
+#include "sort.h"
+  if (l_hold < left)
+    cwrapper_q_sort_double(numbers, l_hold, left-1);
   if (left < r_hold)
-    cwrapper_q_sort_double(numbers, left, r_hold-1);
-  if (right > r_hold)
-    cwrapper_q_sort_double(numbers, r_hold+1, right);
+    cwrapper_q_sort_double(numbers, left+1, r_hold);
 }
 
 
@@ -471,38 +331,11 @@ void cwrapper_q_sort_double_with_indices(double numbers[], int indices[], int le
   double pivot;
   int ipivot;
   int l_hold, r_hold;
-  l_hold = left;
-  r_hold = right;
-  pivot = numbers[left];
-  ipivot = indices[left];
-  while (left < right)
-  {
-    while ((numbers[right] >= pivot) && (left < right))
-      right--;
-    if (left != right)
-    {
-      numbers[left] = numbers[right];
-      indices[left] = indices[right];
-      left++;
-    }
-    while ((numbers[left] <= pivot) && (left < right))
-      left++;
-    if (left != right)
-    {
-      numbers[right] = numbers[left];
-      indices[right] = indices[left];
-      right--;
-    }
-  }
-  numbers[left] = pivot;
-  indices[left] = ipivot;
-  right = r_hold;
-  r_hold = left;
-  left = l_hold;
+#include "sort_acc.h"
+  if (l_hold < left)
+    cwrapper_q_sort_double_with_indices(numbers, indices, l_hold, left-1);
   if (left < r_hold)
-    cwrapper_q_sort_double_with_indices(numbers, indices, left, r_hold-1);
-  if (right > r_hold)
-    cwrapper_q_sort_double_with_indices(numbers, indices, r_hold+1, right);
+    cwrapper_q_sort_double_with_indices(numbers, indices, left+1, r_hold);
 }
 
 
@@ -517,38 +350,11 @@ void cwrapper_q_sort_float_with_indices(float numbers[], int indices[], int left
   float pivot;
   int ipivot;
   int l_hold, r_hold;
-  l_hold = left;
-  r_hold = right;
-  pivot = numbers[left];
-  ipivot = indices[left];
-  while (left < right)
-  {
-    while ((numbers[right] >= pivot) && (left < right))
-      right--;
-    if (left != right)
-    {
-      numbers[left] = numbers[right];
-      indices[left] = indices[right];
-      left++;
-    }
-    while ((numbers[left] <= pivot) && (left < right))
-      left++;
-    if (left != right)
-    {
-      numbers[right] = numbers[left];
-      indices[right] = indices[left];
-      right--;
-    }
-  }
-  numbers[left] = pivot;
-  indices[left] = ipivot;
-  right = r_hold;
-  r_hold = left;
-  left = l_hold;
+#include "sort_acc.h"
+  if (l_hold < left)
+    cwrapper_q_sort_float_with_indices(numbers, indices, l_hold, left-1);
   if (left < r_hold)
-    cwrapper_q_sort_float_with_indices(numbers, indices, left, r_hold-1);
-  if (right > r_hold)
-    cwrapper_q_sort_float_with_indices(numbers, indices, r_hold+1, right);
+    cwrapper_q_sort_float_with_indices(numbers, indices, left+1, r_hold);
 }
 
 
@@ -562,38 +368,11 @@ void cwrapper_q_sort_int_with_indices(int numbers[], int indices[], int left, in
 {
   int pivot, ipivot;
   int l_hold, r_hold;
-  l_hold = left;
-  r_hold = right;
-  pivot = numbers[left];
-  ipivot = indices[left];
-  while (left < right)
-  {
-    while ((numbers[right] >= pivot) && (left < right))
-      right--;
-    if (left != right)
-    {
-      numbers[left] = numbers[right];
-      indices[left] = indices[right];
-      left++;
-    }
-    while ((numbers[left] <= pivot) && (left < right))
-      left++;
-    if (left != right)
-    {
-      numbers[right] = numbers[left];
-      indices[right] = indices[left];
-      right--;
-    }
-  }
-  numbers[left] = pivot;
-  indices[left] = ipivot;
-  right = r_hold;
-  r_hold = left;
-  left = l_hold;
+#include "sort_acc.h"
+  if (l_hold < left)
+    cwrapper_q_sort_int_with_indices(numbers, indices, l_hold, left-1);
   if (left < r_hold)
-    cwrapper_q_sort_int_with_indices(numbers, indices, left, r_hold-1);
-  if (right > r_hold)
-    cwrapper_q_sort_int_with_indices(numbers, indices, r_hold+1, right);
+    cwrapper_q_sort_int_with_indices(numbers, indices, left+1, r_hold);
 }
 
 
@@ -610,38 +389,11 @@ void cwrapper_q_sort_double_with_double(double numbers[], double indices[], int 
   double pivot;
   double ipivot;
   int l_hold, r_hold;
-  l_hold = left;
-  r_hold = right;
-  pivot = numbers[left];
-  ipivot = indices[left];
-  while (left < right)
-  {
-    while ((numbers[right] >= pivot) && (left < right))
-      right--;
-    if (left != right)
-    {
-      numbers[left] = numbers[right];
-      indices[left] = indices[right];
-      left++;
-    }
-    while ((numbers[left] <= pivot) && (left < right))
-      left++;
-    if (left != right)
-    {
-      numbers[right] = numbers[left];
-      indices[right] = indices[left];
-      right--;
-    }
-  }
-  numbers[left] = pivot;
-  indices[left] = ipivot;
-  right = r_hold;
-  r_hold = left;
-  left = l_hold;
+#include "sort_acc.h"
+  if (l_hold < left)
+    cwrapper_q_sort_double_with_double(numbers, indices, l_hold, left-1);
   if (left < r_hold)
-    cwrapper_q_sort_double_with_double(numbers, indices, left, r_hold-1);
-  if (right > r_hold)
-    cwrapper_q_sort_double_with_double(numbers, indices, r_hold+1, right);
+    cwrapper_q_sort_double_with_double(numbers, indices, left+1, r_hold);
 }
 
 
@@ -656,38 +408,11 @@ void cwrapper_q_sort_float_with_float(float numbers[], float indices[], int left
   float pivot;
   float ipivot;
   int l_hold, r_hold;
-  l_hold = left;
-  r_hold = right;
-  pivot = numbers[left];
-  ipivot = indices[left];
-  while (left < right)
-  {
-    while ((numbers[right] >= pivot) && (left < right))
-      right--;
-    if (left != right)
-    {
-      numbers[left] = numbers[right];
-      indices[left] = indices[right];
-      left++;
-    }
-    while ((numbers[left] <= pivot) && (left < right))
-      left++;
-    if (left != right)
-    {
-      numbers[right] = numbers[left];
-      indices[right] = indices[left];
-      right--;
-    }
-  }
-  numbers[left] = pivot;
-  indices[left] = ipivot;
-  right = r_hold;
-  r_hold = left;
-  left = l_hold;
+#include "sort_acc.h"
+  if (l_hold < left)
+    cwrapper_q_sort_float_with_float(numbers, indices, l_hold, left-1);
   if (left < r_hold)
-    cwrapper_q_sort_float_with_float(numbers, indices, left, r_hold-1);
-  if (right > r_hold)
-    cwrapper_q_sort_float_with_float(numbers, indices, r_hold+1, right);
+    cwrapper_q_sort_float_with_float(numbers, indices, left+1, r_hold);
 }
 
 
@@ -695,3 +420,140 @@ void quicksort_float_with_float_(float numbers[], float indices[], int* array_si
 {
   cwrapper_q_sort_float_with_float(numbers, indices, 0, (*array_size) - 1);
 }
+
+void get_binned_data_double_(double x[], int* n, int* nbins, int* bins_used, double center[], double density[]){
+  double* buffer;
+  double lower, upper, dx;
+  int i, m, j, i1;
+  if(*n < 2){
+    center[0]= x[0];
+    *bins_used = 1;
+    density[0] = 1.;
+    return;}
+  buffer = (double*) malloc((*n)*sizeof(double));
+  for (i=0; i<*n; i++)
+    buffer[i] = x[i];
+  quicksort_double_(buffer, n);
+  m = (*n - 1)/(*nbins) + 1;
+  lower = buffer[0]-1.e-30;
+  upper = lower;
+  dx = (buffer[*n-1] - buffer[0])/(*nbins)/2.;
+  i = 0;
+  j = -1;
+  i1 = i;
+  while(i < *n){
+    j++;
+    center[j] = 0;
+    while(upper < lower+dx  || i1-i <m){
+      center[j]= center[j]+ buffer[i1];
+      if(i1 == (*n) - 1){
+	upper = buffer[i1]+1.e-30;
+	i1++ ;
+	break;}
+      else{
+	upper = (buffer[i1]+buffer[i1+1])/2.;
+	i1++;}
+    }
+    center[j] = center[j]/(i1 - i);
+    density[j] = (i1-i)/(upper - lower);
+    lower = upper;
+    i = i1;
+  }
+  free(buffer);
+  *bins_used = j+1;
+  if(density[0] > density[1])
+    density[0] = density[1];
+  if(density[j] > density[j-1])
+    density[j] = density[j-1];
+}
+
+
+void get_binned_data_float_(float x[], int* n, int* nbins, int* bins_used, float center[], float density[]){
+  float* buffer;
+  float lower, upper, dx;
+  int i, m, j, i1;
+  if(*n < 2){
+    center[0]= x[0];
+    *bins_used = 1;
+    density[0] = 1.;
+    return;}
+  buffer = (float*) malloc((*n)*sizeof(float));
+  for (i=0; i<*n; i++)
+    buffer[i] = x[i];
+  quicksort_float_(buffer, n);
+  m = (*n - 1)/(*nbins) + 1;
+  lower = buffer[0]-1.e-30;
+  upper = lower;
+  dx = (buffer[*n-1] - buffer[0])/(*nbins)/2.;
+  i = 0;
+  j = -1;
+  i1 = i;
+  while(i < *n){
+    j++;
+    center[j] = 0;
+    while(upper < lower+dx  || i1-i <m){
+      center[j]= center[j]+ buffer[i1];
+      if(i1 == (*n) - 1){
+	upper = buffer[i1]+1.e-30;
+	i1++ ;
+	break;}
+      else{
+	upper = (buffer[i1]+buffer[i1+1])/2.;
+	i1++;}
+    }
+    center[j] = center[j]/(i1 - i);
+    density[j] = (i1-i)/(upper - lower);
+    lower = upper;
+    i = i1;
+  }
+  free(buffer);
+  *bins_used = j+1;
+  if(density[0] > density[1])
+    density[0] = density[1];
+  if(density[j] > density[j-1])
+    density[j] = density[j-1];
+}
+
+
+//find threshold such that P(x>threashold) is perc
+void array_get_threshold_double_(double* x, int* n, double* perc, double* threshold){
+  double *buffer;
+  double r;
+  int i;
+  buffer = (double*) malloc( (*n)*sizeof(double));
+  for (i=0; i<*n; i++)
+    buffer[i] = x[i];
+  quicksort_double_(buffer, n);
+  i = (int) ((1. - (*perc))*(*n)+0.5);
+  if(i >= *n)i = *n-1;
+  if(buffer[i+1] > buffer[i]){
+    r =  (*perc) + (1.*i)/(*n);
+    *threshold = buffer[i-1]+(buffer[i]-buffer[i-1])*(1.-r);}
+  else
+    *threshold = buffer[i-1];
+  free(buffer);
+}
+
+//find threshold such that P(x>threashold) is perc
+void array_get_threshold_float_(float* x, int* n, float* perc, float* threshold){
+  float *buffer;
+  float r;
+  int i;
+  buffer = (float*) malloc( (*n)*sizeof(float));
+  for (i=0; i<*n; i++)
+    buffer[i] = x[i];
+  quicksort_float_(buffer, n);
+  i = (int) ((1. - (*perc))*(*n)+0.5);
+  if(i >= *n)i = *n-1;
+  if(buffer[i+1] > buffer[i]){
+    r =  (*perc) + (1.*i)/(*n);
+    *threshold = buffer[i-1]+(buffer[i]-buffer[i-1])*(1.-r);}
+  else
+    *threshold = buffer[i-1];
+  free(buffer);
+}
+
+
+
+
+ 

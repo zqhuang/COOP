@@ -164,8 +164,6 @@ contains
 
 !!=======   CEA ============
 
-
-
   subroutine coop_fits_image_cea_pix2ang(this, pix, theta, phi)
     class(coop_fits_image_cea)::this
     COOP_LONG_INT pix

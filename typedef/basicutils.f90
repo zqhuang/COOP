@@ -4,12 +4,19 @@ module coop_basicutils_mod
   implicit none
 #include "constants.h"
 
+  public
+
+  integer,parameter::sp = kind(1.)
+  integer,parameter::dl = kind(1.d0)
+
+  private::sp, dl
+
   interface coop_swap
      module procedure coop_swap_real, coop_swap_int, coop_swap_real_array, coop_swap_int_array
   end interface coop_swap
 
   interface coop_isnan
-     module procedure coop_isnan_real, coop_isnan_real_array
+     module procedure coop_isnan_d, coop_isnan_arrd, coop_isnan_arr2d, coop_isnan_s, coop_isnan_arrs, coop_isnan_arr2s
   end interface coop_isnan
 
 contains
@@ -596,17 +603,42 @@ contains
     call  coop_get_cheb_value(n, c, t, y)
   end subroutine coop_chebeval
 
-  function coop_isnan_real(x) 
-    COOP_REAL x
-    logical coop_isnan_real
-    coop_isnan_real = .not. (x.gt.0.d0 .or. x.le.0.d0)
-  end function coop_isnan_real
+  function coop_isnan_d(x)  result(isnan)
+    real(dl) x
+    logical isnan
+    isnan = .not. (x.gt.0.d0 .or. x.le.0.d0)
+  end function coop_isnan_d
 
-  function coop_isnan_real_array(x)
-    COOP_REAL,dimension(:):: x
-    logical coop_isnan_real_array
-    coop_isnan_real_array = .not. (all(x.gt.0.d0 .or. x.le.0.d0))
-  end function coop_isnan_real_array
+  function coop_isnan_arrd(x) result(isnan)
+    real(dl),dimension(:):: x
+    logical isnan
+    isnan = .not. (all(x.gt.0.d0 .or. x.le.0.d0))
+  end function coop_isnan_arrd
+
+  function coop_isnan_arr2d(x) result(isnan)
+    real(dl),dimension(:,:):: x
+    logical isnan
+    isnan = .not. (all(x.gt.0.d0 .or. x.le.0.d0))
+  end function coop_isnan_arr2d
+
+
+  function coop_isnan_s(x)  result(isnan)
+    real(sp) x
+    logical isnan
+    isnan = .not. (x.gt.0.d0 .or. x.le.0.d0)
+  end function coop_isnan_s
+
+  function coop_isnan_arrs(x) result(isnan)
+    real(sp),dimension(:):: x
+    logical isnan
+    isnan = .not. (all(x.gt.0.d0 .or. x.le.0.d0))
+  end function coop_isnan_arrs
+
+  function coop_isnan_arr2s(x) result(isnan)
+    real(sp),dimension(:,:):: x
+    logical isnan
+    isnan = .not. (all(x.gt.0.d0 .or. x.le.0.d0))
+  end function coop_isnan_arr2s
 
 
   subroutine coop_vector_cross_product(v1, v2, v3)

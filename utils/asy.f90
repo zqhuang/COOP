@@ -3,6 +3,7 @@ module coop_asy_mod
   use coop_interpolation_mod
   use coop_file_mod
   use coop_list_mod
+  use coop_sort_mod
   implicit none
   private
 
@@ -15,9 +16,13 @@ module coop_asy_mod
   integer,parameter::sp = kind(1.)
   real(sp),parameter::coop_asy_default_width = 6.6
   real(sp),parameter::coop_asy_default_height = 5.5
+  integer, parameter::coop_asy_num_line_types = 12
 
   type, extends(coop_file) :: coop_asy
      real(sp) xmin, xmax, ymin, ymax, width, height
+     COOP_SHORT_STRING, dimension(coop_asy_num_line_types)::color
+     COOP_SHORT_STRING, dimension(coop_asy_num_line_types)::linetype
+     real(sp), dimension(coop_asy_num_line_types)::linewidth
    contains
      procedure::init => coop_asy_init
      procedure::write_coor => coop_asy_write_coor
@@ -222,6 +227,28 @@ contains
     else
        write(fp%unit,"(I5)") 0   !!0 means any number of blocks
     endif
+    fp%color(1) = "black"
+    fp%color(2) = "red"
+    fp%color(3) = "blue"
+    fp%color(4) = "green"
+    fp%color(5) = "violet"
+    fp%color(6) = "cyan"
+    fp%color(7) = "skyblue"
+    fp%color(8) = "orange"
+    fp%color(9) = "brown"
+    fp%color(10) = "gray"
+    fp%color(11) = "pink"
+    fp%color(12) = "yellow"
+    fp%linewidth(1:3) = 1.2
+    fp%linewidth(4:6) = 0.9
+    fp%linewidth(7:12) = 0.6
+    fp%linetype(1) = "solid"
+    fp%linetype(2) = "dotted"
+    fp%linetype(3) = "dashed"
+    fp%linetype(4) = "dashdotted"
+    fp%linetype(5) = "longdashed"
+    fp%linetype(6) = "longdashdotted"
+    fp%linetype(7:12) = "solid"
   end subroutine coop_asy_init
 
   subroutine coop_asy_write_limits(fp, xmin, xmax, ymin, ymax)
@@ -1679,12 +1706,12 @@ contains
     if(present(zmin))then
        minz = zmin
     else
-       call array_get_threshold(z, nx*ny, 0.99d0, minz)
+       call coop_array_get_threshold(z, 0.99d0, minz)
     endif
     if(present(zmax))then
        maxz = zmax
     else
-       call array_get_threshold(z, nx*ny, 0.01d0, maxz)
+       call coop_array_get_threshold(z, 0.01d0, maxz)
     endif
 
     write(fp%unit, "(2G14.5)") minz, maxz
@@ -1719,12 +1746,12 @@ contains
     if(present(zmin))then
        minz = zmin
     else
-       call float_array_get_threshold(z, nx*ny, 0.99, minz)
+       call coop_array_get_threshold(z, 0.99, minz)
     endif
     if(present(zmax))then
        maxz = zmax
     else
-       call float_array_get_threshold(z, nx*ny, 0.01, maxz)
+       call coop_array_get_threshold(z, 0.01, maxz)
     endif
     write(fp%unit, "(2G14.5)") minz, maxz
     write(fp%unit, "(A)") "0"
@@ -1746,32 +1773,32 @@ contains
     if(present(xmin))then
        minx = xmin
     else
-       call array_get_threshold(x, n, 0.99d0, minx)
+       call coop_array_get_threshold(x, 0.99d0, minx)
     endif
     if(present(xmax))then
        maxx = xmax
     else
-       call array_get_threshold(x, n, 0.01d0, maxx)
+       call coop_array_get_threshold(x, 0.01d0, maxx)
     endif
     if(present(ymin))then
        miny = ymin
     else
-       call array_get_threshold(y, n, 0.99d0, miny)
+       call coop_array_get_threshold(y, 0.99d0, miny)
     endif
     if(present(ymax))then
        maxy = ymax
     else
-       call array_get_threshold(y, n, 0.01d0, maxy)
+       call coop_array_get_threshold(y, 0.01d0, maxy)
     endif
     if(present(zmin))then
        minz = zmin
     else
-       call array_get_threshold(z, n, 0.99d0, minz)
+       call coop_array_get_threshold(z, 0.99d0, minz)
     endif
     if(present(zmax))then
        maxz = zmax
     else
-       call array_get_threshold(z, n, 0.01d0, maxz)
+       call coop_array_get_threshold(z, 0.01d0, maxz)
     endif
     write(fp%unit,"(A)") "DENSITY"
     if(present(label))then
@@ -1803,32 +1830,32 @@ contains
     if(present(xmin))then
        minx = xmin
     else
-       call float_array_get_threshold(x, n, 0.99, minx)
+       call coop_array_get_threshold(x, 0.99, minx)
     endif
     if(present(xmax))then
        maxx = xmax
     else
-       call float_array_get_threshold(x, n, 0.01, maxx)
+       call coop_array_get_threshold(x, 0.01, maxx)
     endif
     if(present(ymin))then
        miny = ymin
     else
-       call float_array_get_threshold(y, n, 0.99, miny)
+       call coop_array_get_threshold(y,  0.99, miny)
     endif
     if(present(ymax))then
        maxy = ymax
     else
-       call float_array_get_threshold(y, n, 0.01, maxy)
+       call coop_array_get_threshold(y, 0.01, maxy)
     endif
     if(present(zmin))then
        minz = zmin
     else
-       call float_array_get_threshold(z, n, 0.99, minz)
+       call coop_array_get_threshold(z, 0.99, minz)
     endif
     if(present(zmax))then
        maxz = zmax
     else
-       call float_array_get_threshold(z, n, 0.01, maxz)
+       call coop_array_get_threshold(z, 0.01, maxz)
     endif
     write(fp%unit,"(A)") "DENSITY"
     if(present(label))then
