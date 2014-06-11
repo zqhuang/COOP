@@ -1,30 +1,16 @@
 program plot
   use coop_wrapper_utils
-  use coop_ode_mod
-  use coop_random_mod
-  use coop_sort_mod
   implicit none
 #include "constants.h"
-  integer, parameter::n= 31
-  integer, parameter::nbins=50
-  integer,allocatable:: ind(:)
-  real*8,allocatable::x(:)
-  real center(nbins), density(nbins)
-  integer bins_used, i
-  call coop_random_init()
-  allocate(x(n), ind(n))
-  call random_number(x)
-  x(100) = -2.
-  x(1001) = 2.
-
-  call coop_quicksort(x)
-  do i=1, n, max(n/100,1)
-     print*, i, x(i)
+  integer, parameter::ny = 20, nx=30
+  COOP_REAL fx(ny* nx)
+  integer i, j
+  COOP_COMPLEX fk(ny/2+1, nx)
+  do i=1, nx*ny
+     fx(i) = sin(i*0.1+0.2/i)+i/100.
   enddo
-  
-  call coop_quicksort(x)
-  do i=1, n, max(n/100,1)
-     print*, i, x(i)
-  enddo
-
+  print*, fx(1:10:2)
+  call coop_fft_forward(nx, ny, fx, fk)
+  call coop_fft_backward(nx, ny, fk, fx)
+  print*, fx(1:10:2)
 end program plot

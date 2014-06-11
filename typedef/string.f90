@@ -9,7 +9,7 @@ module coop_string_mod
   integer,parameter::sp = kind(1.)
   integer,parameter::dl = kind(1.d0)
 
-  public::coop_num2str,  coop_ndigits, coop_str2int, coop_str2real, coop_str2logical, coop_substr, coop_str_replace, coop_str_numalpha, coop_str2lower, coop_str2upper, coop_case_insensitive_eq, coop_file_path_of, coop_file_name_of, coop_file_add_postfix
+  public::coop_num2str,  coop_ndigits, coop_str2int, coop_str2real, coop_str2logical, coop_substr, coop_str_replace, coop_str_numalpha, coop_str2lower, coop_str2upper, coop_case_insensitive_eq, coop_file_path_of, coop_file_name_of, coop_file_add_postfix, coop_convert_to_C_string
 
   Interface coop_num2str
      module procedure coop_int2str, coop_real2str, coop_logical2str, coop_double2str
@@ -341,7 +341,13 @@ contains
     fname = trim(adjustl(fname))
   end function coop_file_add_postfix
 
-
+  subroutine coop_convert_to_C_string(str)
+    COOP_UNKNOWN_STRING str
+    COOP_INT i
+    do i = len_trim(str)+1, len(str)
+       str(i:i) = char(0)
+    enddo
+  end subroutine coop_convert_to_C_string
 
 
 end module coop_string_mod

@@ -11,7 +11,7 @@ module coop_fitswrap_mod
 
   integer,parameter::sp = kind(1.)
   integer,parameter::dl = kind(1.d0)
-
+  integer,parameter::dlc = kind( (1.d0,1.d0) )
 
   type coop_fits
      COOP_STRING::filename
@@ -26,9 +26,10 @@ module coop_fitswrap_mod
      COOP_INT::dim
      COOP_INT,dimension(:),allocatable::nside
      COOP_LONG_INT::npix
-     real(sp),dimension(:),allocatable::image
+     real(dl),dimension(:),allocatable::image
      COOP_REAL,allocatable::transform(:, :), center(:)
    contains
+     procedure::regularize => coop_fits_image_regularize
      procedure::free => coop_fits_image_free
      procedure::get_linear_coordinates => coop_fits_image_get_linear_coordinates
      procedure::get_data => coop_fits_image_get_data
@@ -37,9 +38,17 @@ module coop_fitswrap_mod
 
 
   type, extends(coop_fits_image)::coop_fits_image_cea
+     COOP_REAL smooth_pixsize, pixsize
+     real(dl) xmin, xmax, ymin, ymax
+     COOP_INT:: smooth_nx, smooth_ny, smooth_npix
+     type(coop_sphere_disc)::disc
+     real(dl),dimension(:,:),allocatable:: smooth_image
      contains
        procedure::pix2ang => coop_fits_image_cea_pix2ang
+       procedure::get_flatmap => coop_fits_image_cea_get_flatmap
        procedure::pix2flat => coop_fits_image_cea_pix2flat
+       procedure::cut => coop_fits_image_cea_cut
+       procedure::filter => coop_fits_image_cea_filter
   end type coop_fits_image_cea
 
 
@@ -49,8 +58,10 @@ contains
   subroutine coop_fits_open(this, filename)
     class(coop_fits)::this
     COOP_UNKNOWN_STRING::filename
+    COOP_INT i
     if(coop_file_exists(filename))then
        this%filename = trim(filename)
+       call coop_convert_to_C_string(this%filename)
        call coop_fits_get_header(this)
     else
        write(*,*) "The file "//trim(filename)//" does not exist."
@@ -63,6 +74,10 @@ contains
     if(allocated(this%transform))deallocate(this%transform)
     if(allocated(this%center))deallocate(this%center)
     if(allocated(this%nside))deallocate(this%nside)
+    select type(this)
+    class is(coop_fits_image_cea)
+       if(allocated(this%smooth_image))deallocate(this%smooth_image)
+    end select
   end subroutine coop_fits_image_free
 
   subroutine coop_fits_get_header(this)
@@ -70,7 +85,7 @@ contains
     COOP_LONG_STRING::header
     integer nkeys, i, j, istart, iend
     COOP_REAL,dimension(:),allocatable::delta
-    call coop_fits_read_header_to_string(trim(this%filename), header, nkeys)
+    call coop_fits_read_header_to_string(this%filename, header, nkeys)
     istart = 1
     do i=1, nkeys
        j = scan(header(istart:), "=")
@@ -118,6 +133,12 @@ contains
           delta(i) = this%key_value("CDELT"//trim(coop_num2str(i))) * coop_SI_degree
           this%center(i) = this%key_value("CRPIX"//trim(coop_num2str(i)))
        enddo
+       if(abs(abs(delta(1)/delta(2)) - 1.d0) .gt. 1.d-3)then
+          print*, delta(1), delta(2)
+          stop "pixel size is not the same in x and y directions"
+       else
+          this%pixsize = (abs(delta(1))+abs(delta(2)))/2.d0
+       endif
        do i=1, this%dim
           this%transform(:, i) =  this%transform(:, i) * delta(i)
        enddo
@@ -149,14 +170,14 @@ contains
 
   subroutine coop_fits_image_get_data(this)
     class(coop_fits_image)::this
-    real(dl),dimension(:),allocatable::tmp
+    real(sp),dimension(:),allocatable::tmp
     select case(this%bitpix)
-    case(-32)
-       call coop_fits_get_float_data(trim(this%filename), this%image, this%npix)
     case(-64)
+       call coop_fits_get_float_data(this%filename, this%image, this%npix)
+    case(-32)
        allocate(tmp(0:this%npix-1))
-       call coop_fits_get_double_data(trim(this%filename), tmp, this%npix)
-       this%image = real(tmp, sp)
+       call coop_fits_get_double_data(this%filename, tmp, this%npix)
+       this%image = real(tmp, dl)
        deallocate(tmp)
     case default
        write(*,*) "Cannot load data for bitpix = "//trim(coop_num2str(this%bitpix))
@@ -164,6 +185,19 @@ contains
     end select
 
   end subroutine coop_fits_image_get_data
+
+  subroutine coop_fits_image_regularize(this, tail)
+    class(coop_fits_image) this
+    real(dl) upper, lower, tail
+    call array_get_threshold_double(this%image, this%npix, 1.-tail, lower)
+    call array_get_threshold_double(this%image, this%npix, tail, upper)
+    where(this%image .lt. lower)
+       this%image = lower
+    end where
+    where(this%image .gt. upper)
+       this%image = upper
+    end where
+  end subroutine coop_fits_image_regularize
 
 
 !!=======   CEA ============
@@ -177,19 +211,136 @@ contains
     ix = pix  - iy*this%nside(1) + 1 - this%center(1)
     iy = iy + 1 - this%center(2)
     phi = this%transform(1,1)* ix + this%transform(1,2)*iy
-    theta = coop_pio2 - asin(this%transform(2, 1)*ix + this%transform(2,2)*iy)
+    theta = coop_pio2 + asin(this%transform(2, 1)*ix + this%transform(2,2)*iy)
   end subroutine coop_fits_image_cea_pix2ang
 
 
-  subroutine coop_fits_image_cea_pix2flat(this, disc, pix, coor)
+  subroutine coop_fits_image_cea_pix2flat(this, pix, coor, disc)
     class(coop_fits_image_cea)::this
     COOP_LONG_INT:: pix
     COOP_REAL ::coor(2)
-    type(coop_sphere_disc)::disc
+    type(coop_sphere_disc), optional::disc
     call this%pix2ang(pix, coor(1), coor(2))
-    call disc%ang2flat(coor)
+    if(present(disc))then
+       call disc%ang2flat(coor)
+    else
+       call this%disc%ang2flat(coor)
+    endif
   end subroutine coop_fits_image_cea_pix2flat
 
+  subroutine coop_fits_image_cea_cut(this, ix, iy, map)
+    class(coop_fits_image_cea)::this
+    real(dl) map(:,:)
+    COOP_INT i, j, ix, iy
+    do j= 1, size(map, 2) 
+       do i= 1, size(map, 1)
+          map(i, j) = this%image(ix + i-1 + (iy + j-1) * this%nside(1))
+       enddo
+    enddo
+  end subroutine coop_fits_image_cea_cut
 
+  subroutine coop_fits_image_cea_get_flatmap(this, smooth_pixsize)
+    class(coop_fits_image_cea)::this
+    COOP_REAL vec(3), vecmean(3), theta, phi, coor(2), coormin(2), coormax(2)
+    COOP_REAL smooth_pixsize, weight
+    real(dl),dimension(:,:),allocatable::w
+    COOP_INT i, j, icoor(2), k
+    COOP_LONG_INT pix
+    this%smooth_pixsize = smooth_pixsize
+    vecmean = 0.
+    do pix = 0, this%npix - 1
+       call this%pix2ang(pix, theta, phi)
+       call coop_sphere_ang2vec(theta, phi, vec)
+       vecmean = vecmean + vec
+    enddo
+    vecmean = vecmean/this%npix
+    call coop_sphere_vec2ang(vecmean, theta, phi)
+    call this%disc%init(theta, phi)
+    coormin = 0.
+    coormax = 0.
+    do i = 0, this%nside(1)-1, this%nside(1)-1
+       do j=0, this%nside(2)-1
+          pix = i + j*this%nside(1)
+          call this%pix2flat(pix, coor)
+          coormin = min(coor, coormin)
+          coormax = max(coor, coormax)
+       enddo
+    enddo
+    do i = 0, this%nside(1)-1
+       do j=0, this%nside(2)-1, this%nside(2)-1
+          pix = i + j*this%nside(1)
+          call this%pix2flat(pix, coor)
+          coormin = min(coor, coormin)
+          coormax = max(coor, coormax)
+       enddo
+    enddo
+    this%smooth_nx = nint(max(abs(coormin(1)), abs(coormax(1)))/smooth_pixsize)+2
+    this%smooth_ny = nint(max(abs(coormin(2)), abs(coormax(2)))/smooth_pixsize)+2
+    if(allocated(this%smooth_image))deallocate(this%smooth_image)
+    allocate(this%smooth_image(-this%smooth_nx:this%smooth_nx, -this%smooth_ny:this%smooth_ny))
+    allocate(w(-this%smooth_nx:this%smooth_nx, -this%smooth_ny:this%smooth_ny))
+    w = 0.
+    this%smooth_image = 0.
+    do pix=0, this%npix - 1
+       call this%pix2flat(pix, coor)
+       coor = coor/this%smooth_pixsize
+       icoor = nint(coor)
+       do k = -2, 2
+          j = icoor(2) + k
+          do i=icoor(1)-2 + abs(k), icoor(1) + 2 - abs(k)
+             weight = exp(-(coor(1)-i)**2 - (coor(2)-j)**2)
+             w(i,j) = w(i,j) + weight
+             this%smooth_image(i,j) = this%smooth_image(i, j) + weight * this%image(pix)
+          enddo
+       enddo
+    enddo
+    where(w .gt. 0.)
+       w = this%smooth_image /w
+    end where
+    this%smooth_nx = this%smooth_nx - 2
+    this%smooth_ny = this%smooth_ny - 2
+    deallocate(this%smooth_image)
+    allocate(this%smooth_image(-this%smooth_nx:this%smooth_nx, -this%smooth_ny:this%smooth_ny))
+    this%smooth_image = w(-this%smooth_nx:this%smooth_nx, -this%smooth_ny:this%smooth_ny)
+    deallocate(w)
+    this%smooth_npix = ( this%smooth_nx * 2 + 1 ) * ( this%smooth_ny * 2 + 1)
+    this%xmax = this%smooth_nx * this%smooth_pixsize
+    this%ymax = this%smooth_ny * this%smooth_pixsize
+    this%xmin = -this%xmax
+    this%ymin = -this%ymax
+  end subroutine coop_fits_image_cea_get_flatmap
+
+  subroutine coop_fits_image_cea_filter(this, lmin, lmax)
+    class(coop_fits_image_cea) this
+    COOP_INT lmin, lmax, i, j
+    COOP_REAL k2min, k2max, k2, rn1, rn2, kmin, kmax, omega, j2
+    complex(dlc),dimension(:,:),allocatable::fk
+    allocate( fk(0:this%nside(1)/2, 0:this%nside(2)-1))
+    call coop_fft_forward(this%nside(2), this%nside(1), this%image, fk)
+    rn1 = real(this%nside(1), dl)
+    rn2  = real(this%nside(2), dl)/rn1
+    k2min = (this%pixsize * lmin/coop_2pi*rn1)**2
+    k2max = (this%pixsize * lmax/coop_2pi*rn1)**2
+    kmin = sqrt(k2min)
+    kmax = sqrt(k2max)
+    omega = coop_pi/(kmax - kmin)
+    do j=0, this%nside(2)-1
+       j2 = (min(j, this%nside(2)-j)/ rn2)**2
+       if( j2 .gt. k2max)then
+          fk(:, j) = ( 0.d0, 0.d0 )
+          cycle
+       endif
+       do i = 0, this%nside(1)/2
+          k2 = j2 + real(i)**2
+          if(k2 .lt. k2min .or. k2.gt. k2max)then
+             fk(i, j) = ( 0.d0, 0.d0 )
+          else
+             fk(i, j) = fk(i, j)*sin((sqrt(k2)- kmin)*omega)**2
+          endif
+       enddo
+    enddo
+    call coop_fft_backward(this%nside(2), this%nside(1), fk, this%image)
+    deallocate(fk)
+  end subroutine coop_fits_image_cea_filter
 
 end module coop_fitswrap_mod

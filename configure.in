@@ -35,8 +35,7 @@ C_COMPILER = $(GCC_NAME)
 LAPACK = $(HOME)/includes/lapack-3.4.2
 
 ##FFTW lib (v3.2 up)
-FFTW3=
-#$(HOME)/includes/fftw3
+FFTW3=$(HOME)/includes/fftw3
 
 ## gsl lib 
 GSL =

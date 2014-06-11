@@ -193,11 +193,13 @@ import graph;
 import palette;
 import contour;
 //=============== global variables;
-real cxmin, cxmax, cymin, cymax, czmin, czmax, ccxmin, ccxmax, ccymin, ccymax;
+real cxmin, cxmax, cymin, cymax, czmin, czmax, aymin, aymax, axmin, axmax, azmin, azmax;
+real infty = 0.99e30;
 int  topaxis = 0;
 int  rightaxis = 0;
 real topaxis_xmin, topaxis_xmax, rightaxis_ymin, rightaxis_ymax;
 bool xlog, ylog, zlog, topaxis_xlog, rightaxis_ylog, doclip;
+bool xmin_adjust, xmax_adjust, ymin_adjust, ymax_adjust, zmin_adjust, zmax_adjust;
 string xlabel, ylabel, caption, topaxis_label, rightaxis_label, textfile;
 
 //=================== axis functions ===========
@@ -432,53 +434,45 @@ real ycoor(real y){
 
 real[] read_xminxmax(file fin){
    real t[] = fin.dimension(2);
-   if(ccxmin >= ccxmax){
-    if(t[0]<cxmin) cxmin = t[0];
-    if(t[1]>cxmax) cxmax = t[1];}
+   if(t[0]<axmin) axmin = t[0];
+   if(t[1]>axmax) axmax = t[1];
    return t;}
 
 real[] read_yminymax(file fin){
    real t[] = fin.dimension(2);
-   if(ccymin >= ccymax){
-     if(t[0]<cymin) cymin = t[0];
-     if(t[1]>cymax) cymax = t[1];}
+   if(t[0]<aymin) aymin = t[0];	
+   if(t[1]>aymax) aymax = t[1];
    return t;}
 	 
 
 real[] read_xy(file fin){
    real t[] = fin.dimension(2);
-   if(ccxmin  >= ccxmax){
-     if(t[0]<cxmin) cxmin = t[0];
-     if(t[0]>cxmax) cxmax = t[0];}
-   if(ccymin >= ccymax){
-     if(t[1]<cymin) cymin = t[1];
-     if(t[1]>cymax) cymax = t[1];}
+   if(t[0]<axmin) axmin = t[0];
+   if(t[0]>axmax) axmax = t[0];
+   if(t[1]<aymin) aymin = t[1];
+   if(t[1]>aymax) aymax = t[1];
    return t;}
 
 real[] read_xyxy(file fin){
    real t[] = fin.dimension(4);
-   if(ccxmin >= ccxmax){
-    if(t[0]<cxmin) cxmin = t[0];
-    if(t[0]>cxmax) cxmax = t[0];
-    if(t[2]<cxmin) cxmin = t[2];
-    if(t[2]>cxmax) cxmax = t[2];}
-   if(ccymin >= ccymax){
-     if(t[1]<cymin) cymin = t[1];
-     if(t[1]>cymax) cymax = t[1];
-     if(t[3]<cymin) cymin = t[3];
-     if(t[3]>cymax) cymax = t[3];}
+    if(t[0]<axmin) axmin = t[0];
+    if(t[0]>axmax) axmax = t[0];
+    if(t[2]<axmin) axmin = t[2];
+    if(t[2]>axmax) axmax = t[2];
+    if(t[1]<aymin) aymin = t[1];
+    if(t[1]>aymax) aymax = t[1];
+    if(t[3]<aymin) aymin = t[3];
+    if(t[3]>aymax) aymax = t[3];
    return t;}
 
 real[] read_xyz(file fin){
   real t[] = fin.dimension(3);
-  if(ccxmin >= ccxmax){
-   if(t[0]<cxmin) cxmin = t[0];
-   if(t[0]>cxmax) cxmax = t[0];}
-  if(ccymin >= ccymax){
-   if(t[1]<cymin) cymin = t[1];
-   if(t[1]>cymax) cymax = t[1];}
-  if(t[2]<czmin) czmin = t[2];
-  if(t[2]>czmax) czmax = t[2];
+  if(t[0]<axmin) axmin = t[0];
+  if(t[0]>axmax) axmax = t[0];
+  if(t[1]<aymin) aymin = t[1];
+  if(t[1]>aymax) aymax = t[1];
+  if(t[2]<azmin) azmin = t[2];
+  if(t[2]>azmax) azmax = t[2];
   return t;}
 
 
@@ -813,10 +807,13 @@ int plot_density(file fin){
        x[i] = f[i][0];
        y[i] = f[i][1];
        z[i] = f[i][2];
-      if(x[i] < cxmin) cxmin = x[i]; 
-      if(x[i] > cxmax) cxmax = x[i]; 
-      if(y[i] < cymin) cymin = y[i]; 
-      if(y[i] > cymax) cymax = y[i]; 
+      if(x[i] < axmin) axmin = x[i]; 
+      if(x[i] > axmax) axmax = x[i]; 
+      if(y[i] < aymin) aymin = y[i]; 
+      if(y[i] > aymax) aymax = y[i]; 
+      if(z[i] < azmin) azmin = z[i]; 
+      if(z[i] > azmax) azmax = z[i]; 
+
     }
     if(xlog){
        for(int i=0; i<ndata; ++i){
@@ -896,11 +893,15 @@ bool plot_block(file fin){
 void plot_axes(){
 //==================== set up the coordinates ============
   real xmincoor, xmaxcoor, ymincoor, ymaxcoor;
+  if(xmin_adjust && cxmin > axmin) cxmin = axmin;
+  if(xmax_adjust && cxmax < axmax) cxmax = axmax;
+  if(ymin_adjust && cymin > aymin) cymin = aymin;
+  if(ymax_adjust && cymax < aymax) cymax = aymax;
   xmincoor = xcoor(cxmin);
   xmaxcoor = xcoor(cxmax);
   ymincoor = ycoor(cymin);
   ymaxcoor = ycoor(cymax);
-  if(ccxmin < ccxmax && ccymin < ccymax && doclip) 
+  if(!xmin_adjust && !xmax_adjust && !ymin_adjust && !ymax_adjust && doclip) 
      clip( (xmincoor, ymincoor) -- (xmaxcoor, ymincoor) -- (xmaxcoor, ymaxcoor) -- (xmincoor, ymaxcoor) -- cycle );
   if(caption !=  '')
    label( caption, ( xmincoor*0.5+xmaxcoor*0.5, ymaxcoor+(ymaxcoor-ymincoor)*0.06 ) );
@@ -974,25 +975,27 @@ doclip = (i != 0);
 real[] t;
 t = new real [2];
 t = fin.dimension(2); //xmin, xmax
-ccxmin = t[0];
-ccxmax = t[1];
-if(ccxmin < ccxmax){
- cxmin = t[0];
- cxmax = t[1];}
-else{
- cxmin = 1.e30;
- cxmax = -1.e30;}
+cxmin = t[0];
+cxmax = t[1];
+xmin_adjust = (cxmin >= infty);
+xmax_adjust = (cxmax <= -infty);
 t = fin.dimension(2); // ymin, ymax
-ccymin = t[0];
-ccymax = t[1];
-if(ccymin < ccymax){
-  cymin = ccymin;
-  cymax = ccymax;}
-else{
- cymin = 1.e30;
- cymax = -1.e30;}
-czmin = 1.e30;
-czmax = -1.e30;
+cymin = t[0];
+cymax = t[1];
+ymin_adjust = (cymin >= infty);
+ymax_adjust = (cymax <= -infty);
+//here you might want to upgrade?
+czmin = infty;
+czmax = -infty;
+zmin_adjust = (czmin >= infty);
+zmax_adjust = (czmax <= infty);
+
+axmin = infty;
+axmax = -infty;
+aymin = infty;
+aymax = -infty;
+azmin = infty;
+azmax = -infty;
 
 //=================================================================
 //plot the blocks 

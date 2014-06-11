@@ -7,7 +7,7 @@ module coop_sphere_mod
 
   private
 
-  public::coop_sphere_disc, coop_sphere_ang2vec
+  public::coop_sphere_disc, coop_sphere_ang2vec, coop_sphere_vec2ang
 
 
   type coop_sphere_disc
@@ -29,6 +29,22 @@ contains
     vec(1:2) = sin(theta)*  (/ cos(phi), sin(phi) /)
     vec(3) = cos(theta)
   end subroutine coop_sphere_ang2vec
+
+  subroutine coop_sphere_vec2ang(vec, theta, phi)
+    COOP_REAL vec(3), theta, phi, norm
+    if(vec(1) .eq. 0.d0 .and. vec(2).eq.0.d0)then
+       if(vec(3).ge.0.d0)then
+          theta = 0.d0
+       else
+          theta = coop_pi
+       endif
+       phi = 0.d0
+    else
+       norm = sqrt(sum(vec**2))
+       theta = acos(vec(3)/norm)
+       phi = atan2(vec(2), vec(1))
+    endif
+  end subroutine coop_sphere_vec2ang
 
   subroutine coop_sphere_disc_initialize(this, theta, phi, theta_x, phi_x)
     class(coop_sphere_disc)::this

@@ -26,7 +26,7 @@ program combined2
 
   COOP_REAL, parameter::npower = 0.8d0
   COOP_REAL:: Q , c_run
-  COOP_REAL,parameter:: rhom_ini = 1.e9 * rhom_today
+  COOP_REAL,parameter:: rhom_ini = 1.e8 * rhom_today
   COOP_REAL,parameter:: phieq_ini = 1.d-4 * Mpl  
   COOP_REAL, parameter::c_flat = 0.7 * rho_total_today
 
@@ -49,7 +49,7 @@ program combined2
 
   call wplot%open("w.txt")
   call dwplot%open("dw.txt")
-  call wplot%init(xlabel = "$a$", ylabel = "$w_\phi$", caption = "$V=C_0+C_1\phi^{-"//trim(coop_num2str(npower))//"}$",width=8., height=6., ymin  = -1., ymax = 0.)
+  call wplot%init(xlabel = "$a$", ylabel = "$w_\phi$", caption = "$V=C_0+C_1\phi^{-"//trim(coop_num2str(npower))//"}$",width=8., height=6., ymin  = -1., ymax = -0.5)
   call dwplot%init(xlabel = "$F(a/a_{\rm eq})$", ylabel = "$\delta w_\phi$", caption = "$V=C_0+C_1\phi^{-"//trim(coop_num2str(npower))//"}$",width=8., height=6.)
 
   do iQ=1,iQ_steps
@@ -106,6 +106,7 @@ program combined2
         e_s(i) = 0.5d0/potential(phi(i), args)**2.d0*(dVdphi(phi(i), args)+Q*co%RHOM)**2.d0
         if((Ek+Ev)/co%RHOM .gt. (0.7/0.3) .and. itoday .eq. 0)then
            itoday = i
+           print*, lna(itoday)
         endif
         if((Ek+Ev)/co%RHOM .gt. (0.5/0.5) .and. ieq .eq. 0) then
            ieq = i
@@ -130,7 +131,7 @@ program combined2
      call coop_asy_interpolate_curve(wplot, xraw=exp(lna(1:itoday)), yraw=w(1:itoday),interpolate="LinearLinear", color = wplot%color(iQ), linewidth = 1.2, linetype="solid", legend = "$Q="//trim(coop_num2str(Q))//"$ numerical")  
 
      w_ana = -1 + 2./3.*(F*(sqrt(e_s_eq)-sqrt(eps_inf*2.))+sqrt(eps_inf))**2 &
-          * (1. - exp(-a/a(it)))
+          * tanh(a/a(it))
 
      call coop_asy_interpolate_curve(wplot, xraw=exp(lna(1:itoday)), yraw=w_ana(1:itoday),interpolate="LinearLinear", color = wplot%color(iQ), linewidth = 0.8, linetype="dotted", legend = "$Q="//trim(coop_num2str(Q))//"$ analytical")  
 

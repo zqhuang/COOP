@@ -8,9 +8,13 @@ program derivative
   type(coop_arguments)::args
   COOP_REAL phi
   integer i
+  complex(8)::c
 #define MASS args%r(1) 
 #define LAMBDA args%r(2)
-
+  print*, kind( (1.d0, 1.d0 ))
+  c = cmplx(1.d0, 1.d0)
+  print*, c
+  stop
   args = coop_arguments( r = (/ 1.e-2*Mpl, 3.*Mpl**2*H0**2*0.7 /) )
   V = coop_function( f = potential, xmin = 0.d0, xmax =20.d0, xlog = .false., ylog = .true., args = args, method = COOP_INTERPOLATE_CHEBYSHEV)
   do i=1, 1000
