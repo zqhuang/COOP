@@ -4,6 +4,12 @@ module coop_wrapper
 #include "constants.h"
 
   type(coop_cosmology_background):: coop_global_cosmology
+  type(coop_species):: coop_global_baryon
+  type(coop_species):: coop_global_cdm
+  type(coop_species):: coop_global_radiation
+  type(coop_species):: coop_global_massless_neutrinos
+  type(coop_species):: coop_global_massive_neutrinos
+  type(coop_species):: coop_global_de
   type(coop_arguments)::coop_global_cosmological_parameters
 
   
@@ -18,51 +24,58 @@ contains
     COOP_REAL h
     call COOP_COSMO%init(name = "COOP_GLOBAL_COSMOLOGY",  id = 0, h = h)
     if(h.le.0.d0)return  !!return for bad h
-    call COOP_COSMO%add_species(coop_baryon(COOP_OMEGABH2/h**2))
-    call COOP_COSMO%add_species(coop_cdm(COOP_OMEGACH2/h**2))
-    call COOP_COSMO%add_species(coop_radiation(COOP_COSMO%Omega_radiation()))
+    coop_global_baryon = coop_baryon(COOP_OMEGABH2/h**2)
+    call COOP_COSMO%add_species(coop_global_baryon)
+    coop_global_cdm = coop_cdm(COOP_OMEGACH2/h**2)
+    call COOP_COSMO%add_species(coop_global_cdm)
+    coop_global_radiation = coop_radiation(COOP_COSMO%Omega_radiation())
+    call COOP_COSMO%add_species(coop_global_radiation)
     if(COOP_MNU .eq. 0.d0)then
-       call COOP_COSMO%add_species(coop_neutrinos_massless(COOP_COSMO%Omega_massless_neutrinos()))
+       coop_global_massless_neutrinos = coop_neutrinos_massless(COOP_COSMO%Omega_massless_neutrinos())
+       call COOP_COSMO%add_species(coop_global_massless_neutrinos)
     else
-       call COOP_COSMO%add_species(coop_neutrinos_massless(COOP_COSMO%Omega_massless_neutrinos_per_species()*(COOP_COSMO%NNu()-1)))
-       call COOP_COSMO%add_species(coop_neutrinos_massive( &
+       coop_global_massless_neutrinos = coop_neutrinos_massless(COOP_COSMO%Omega_massless_neutrinos_per_species()*(COOP_COSMO%NNu()-1))
+       call COOP_COSMO%add_species(coop_global_massless_neutrinos)  !!assuming one species
+       coop_global_massive_neutrinos = coop_neutrinos_massive( &
             COOP_COSMO%Omega_nu_per_species_from_mnu_eV(COOP_MNU) ,&
-            COOP_COSMO%Omega_massless_neutrinos_per_species()))
+            COOP_COSMO%Omega_massless_neutrinos_per_species())
+       call COOP_COSMO%add_species(coop_global_massive_neutrinos)
     endif
     select case(COOP_DE_MODEL)
     case(COOP_DE_COSMOLOGICAL_CONSTANT)
-       call COOP_COSMO%add_species(coop_de_lambda( &
+       coop_global_de = coop_de_lambda( &
             COOP_COSMO%Omega_k()-COOP_OMEGAK &
-            ))
+            )
     case(COOP_DE_W0)
-       call COOP_COSMO%add_species(coop_de_w0( &
+       coop_global_de = coop_de_w0( &
             COOP_COSMO%Omega_k()-COOP_OMEGAK, &
             COOP_COSMO_PARAMS%r(COOP_INDEX_DE) &
-            ))
+            )
     case(COOP_DE_W0WA)
-       call COOP_COSMO%add_species(coop_de_w0wa( &
+       coop_global_de = coop_de_w0wa( &
             COOP_COSMO%Omega_k()-COOP_OMEGAK, &
             COOP_COSMO_PARAMS%r(COOP_INDEX_DE), &
             COOP_COSMO_PARAMS%r(COOP_INDEX_DE+1) &
-            ))
+            )
     case(COOP_DE_QUINTESSENCE)
-       call COOP_COSMO%add_species(coop_de_quintessence( &
+      coop_global_de = coop_de_quintessence( &
             COOP_COSMO%Omega_k()-COOP_OMEGAK, &
             COOP_COSMO_PARAMS%r(COOP_INDEX_DE), &
             COOP_COSMO_PARAMS%r(COOP_INDEX_DE+1), &
             COOP_COSMO_PARAMS%r(COOP_INDEX_DE+2) &
-            ))
+            )
     case(COOP_DE_COUPLED_QUINTESSENCE)
-       call COOP_COSMO%add_species(coop_de_coupled_quintessence( &
+       coop_global_de = coop_de_coupled_quintessence( &
             COOP_COSMO%Omega_k() - COOP_OMEGAK, &
             COOP_COSMO_PARAMS%r(COOP_INDEX_DE), &
             COOP_COSMO_PARAMS%r(COOP_INDEX_DE+1), &
             COOP_COSMO_PARAMS%r(COOP_INDEX_DE+2), &
             COOP_COSMO_PARAMS%r(COOP_INDEX_DE+3) &
-            ))
+            )
     case default
        stop "UNKNOWN DARK ENERGY MODEL"
     end select
+    call COOP_COSMO%add_species(coop_global_de)
   end subroutine coop_setup_global_cosmology_with_h
 
   subroutine coop_setup_global_cosmology()

@@ -57,6 +57,10 @@ contains
     COOP_REAL Omega_Lambda, w0, wa
     type(coop_function) fw0wa
     type(coop_arguments) w0wa
+    if(w0 .eq. -1.d0 .and. wa.eq.0.d0)then
+       this = coop_de_lambda(Omega_Lambda)
+       return
+    endif
     w0wa = coop_arguments(r =  (/ w0, wa /))
     fw0wa = coop_function(coop_de_w_w0wa, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.), xlog = .true., args = w0wa)
     call this%init(gengre = COOP_SPECIES_FLUID, name = "w0wa Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fw = fw0wa )
@@ -66,6 +70,10 @@ contains
   function coop_de_w0(Omega_Lambda, w0) result(this)
     type(coop_species) this
     COOP_REAL w0, Omega_Lambda
+    if(w0.eq.-1.d0)then
+       this = coop_de_lambda(Omega_Lambda)
+       return
+    endif
     call this%init(gengre = COOP_SPECIES_FLUID, name = "constant w Dark Energy", id = 5, Omega = Omega_Lambda, w = w0, cs2 = COOP_REAL_OF(1.))
   end function coop_de_w0
 
@@ -80,6 +88,10 @@ contains
     COOP_REAL Omega_Lambda, epsilon_s, epsilon_inf, zeta_s
     type(coop_function) fq
     type(coop_arguments) arg
+    if(epsilon_s .eq. 0.d0 .and. epsilon_inf .eq. 0.d0 .and. zeta_s .eq. 0.d0)then
+       this = coop_de_lambda(Omega_Lambda)
+       return
+    endif
     arg = coop_arguments(r =  (/ Omega_Lambda, epsilon_s, epsilon_inf, zeta_s /))
     fq = coop_function(coop_de_w_quintessence, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.d0), xlog = .true., args = arg)
     call this%init(gengre = COOP_SPECIES_FLUID, name = "quintessence Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fw = fq )
@@ -101,7 +113,7 @@ contains
        qpsign = -1.d0
     endif
     Omega_m  = 1.d0 - OMEGA_LAMBDA
-    if(Omega_m .gt. 0.6d0)then
+    if(Omega_m .gt. 0.65d0 .or. Omega_m .lt. 0.05d0)then
        w = 1.d0 !!set w to be a crazy value to rule out the model
        return
     endif
@@ -113,7 +125,7 @@ contains
     if(delta .lt. 0.9d0)then
        a_eq = (Omega_m/OMEGA_LAMBDA)**((1.d0/3.d0)/(1.d0 - sign(delta,EPSILON_S)))
     else
-       w = 1.d0  !!set w to be a crazy value to rule out the model
+       w = -100.d0  !!set w to be a crazy value to rule out the model
        return
     endif
     mu=a/a_eq
@@ -140,6 +152,10 @@ contains
     COOP_REAL Omega_Lambda, epsilon_s, epsilon_inf, zeta_s, at_by_aeq
     type(coop_function) fq
     type(coop_arguments) arg
+    if(epsilon_s .eq. 0.d0 .and. epsilon_inf .eq. 0.d0 .and. zeta_s .eq. 0.d0)then
+       this = coop_de_lambda(Omega_Lambda)
+       return
+    endif
     arg = coop_arguments(r =  (/ Omega_Lambda, epsilon_s, epsilon_inf, zeta_s , at_by_aeq /))
     fq = coop_function(coop_de_w_coupled_quintessence, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.d0), xlog = .true., args = arg)
     call this%init(gengre = COOP_SPECIES_FLUID, name = "coupled quintessence Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fw = fq )
@@ -162,8 +178,8 @@ contains
        qpsign = -1.d0
     endif
     Omega_m  = 1.d0 - OMEGA_LAMBDA
-    if(Omega_m .gt. 0.6d0)then
-       w = 1.d0 !!set w to be a crazy value to rule out the model
+    if(Omega_m .gt. 0.65d0 .or. Omega_m .lt. 0.05d0)then
+       w = -100.d0 !!set w to be a crazy value to rule out the model
        return
     endif
     aux1 = sqrt(EPSILON_INFTY/3.d0)
