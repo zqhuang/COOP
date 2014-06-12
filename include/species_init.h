@@ -89,8 +89,6 @@
      lnamin = log(amin)
      lnamax = log(amax)
      dlna = (lnamax - lnamin)/(coop_default_array_size  - 1)
-     allocate(this%fw)
-     allocate(this%fcs2)
      w1 = log(this%Omega/this%Omega_massless)
      call coop_boson_get_lnam(w1, lnm)
      this%mbyT = exp(lnm)
@@ -117,8 +115,6 @@
      lnamin = log(amin)
      lnamax = log(amax)
      dlna = (lnamax - lnamin)/(coop_default_array_size  - 1)
-     allocate(this%fw)
-     allocate(this%fcs2)
      w1 = log(this%Omega/this%Omega_massless)
      call coop_fermion_get_lnam( w1 , lnm)
      this%mbyT = exp(lnm)
@@ -140,13 +136,13 @@
   case default
      if(present(fw))then
         this%w_dynamic = .true.
-        allocate(this%fw, source = fw)
+        this%fw = fw
      else
         this%w_dynamic = .false.
      endif
      if(present(fcs2))then
         this%cs2_dynamic = .true.
-        allocate(this%fcs2, source = fcs2)
+        this%fcs2 = fcs2       
      else
         this%cs2_dynamic = .false.
      endif

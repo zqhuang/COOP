@@ -17,7 +17,7 @@ module coop_species_mod
      COOP_INT id
      COOP_REAL Omega, w, cs2
      COOP_REAL Omega_massless, mbyT
-     type(coop_function),pointer:: fw, fcs2
+     type(coop_function):: fw, fcs2
      type(coop_function)::flnrho
    contains
      procedure :: init => coop_species_initialize
@@ -147,11 +147,9 @@ contains
 
   subroutine coop_species_free(this)
     class(coop_species)::this
+    call this%flnrho%free()
     call this%fw%free()
     call this%fcs2%free()
-    call this%flnrho%free()
-    deallocate(this%fw)
-    deallocate(this%fcs2)
   end subroutine coop_species_free
 
 

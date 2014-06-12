@@ -1,6 +1,4 @@
-    this%num_species = 0
-    this%Omega_k_value = 1.
-    this%need_setup_background = .true.
+    call this%free()
     if(present(name))then
        this%name = name
     else

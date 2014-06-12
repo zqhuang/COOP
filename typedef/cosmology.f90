@@ -12,7 +12,7 @@ module coop_cosmology_mod
 
   private
 
-  public:: coop_cosmology, coop_cosmology_background
+  public:: coop_cosmology, coop_cosmology_background, coop_r_of_chi
 
   type coop_cosmology
      COOP_SHORT_STRING  name
