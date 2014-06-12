@@ -2,6 +2,7 @@ module coop_function_mod
   use coop_constants_mod
   use coop_basicutils_mod
   use coop_arguments_mod
+  use coop_sort_mod
   implicit none
 #include "constants.h"
 
@@ -10,7 +11,6 @@ module coop_function_mod
   public:: coop_function
 
   type coop_function
-     private
      COOP_INT method
      logical xlog, ylog
      COOP_INT n
@@ -19,6 +19,7 @@ module coop_function_mod
    contains
      procedure::set_boundary => coop_function_set_boundary
      procedure::init => coop_function_initialize
+     procedure::init_NonUniform => coop_function_initialize_NonUniform
      procedure::eval => coop_function_evaluate  
      procedure::eval_bare => coop_function_evaluate_bare !!without log scaling
      procedure::integrate => coop_function_integrate
@@ -106,9 +107,9 @@ contains
        endif
     endif
     if(present(method))then
-       call cf%init(coop_default_array_size, xmin, xmax, y, method = method, xlog = cf%xlog, ylog = cf%ylog)
+       call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = method, xlog = cf%xlog, ylog = cf%ylog)
     else
-       call cf%init(coop_default_array_size, xmin, xmax, y, method = COOP_INTERPOLATE_SPLINE, xlog = cf%xlog, ylog = cf%ylog)
+       call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = COOP_INTERPOLATE_SPLINE, xlog = cf%xlog, ylog = cf%ylog)
     endif
   end function coop_function_constructor
 
@@ -119,11 +120,66 @@ contains
     if(allocated(this%f2))deallocate(this%f2)
   end subroutine coop_function_free
 
+
+  subroutine coop_function_initialize_NonUniform(this, x, f, xlog, ylog)
+    class(coop_function):: this
+    logical, optional::xlog, ylog
+    COOP_REAL,dimension(:),intent(IN):: x, f
+    COOP_INT i
+    COOP_INT m, n
+    COOP_REAL_ARRAY::xx, ff
+    COOP_REAL :: xc(size(x)), fc(size(f)), fc2(size(f))
+    call this%free()
+    if(present(xlog))then
+       this%xlog = xlog
+    else
+       this%xlog = .false.
+    endif
+    if(present(ylog))then
+       this%ylog = ylog
+    else
+       this%ylog = .false.
+    endif
+    m  = coop_getdim("coop_function%init_NonUniform", size(x), size(f))
+    this%method = COOP_INTERPOLATE_SPLINE
+    this%n = coop_default_array_size
+    allocate(this%f(this%n), this%f2(this%n))
+    if(this%xlog)then
+       xc = log(x)
+    else
+       xc  = x
+    endif
+    if(this%ylog)then
+       fc = log(f)
+    else
+       fc = f  
+    endif
+    call coop_quicksortacc(xc, fc)
+    this%xmin = xc(1)
+    this%xmax = xc(m)
+    this%dx = (this%xmax - this%xmin)/(this%n-1)
+    if(this%dx  .eq. 0.) stop "All x's are equal. Cannot generate function for a single point."
+    this%fleft = fc(1)    
+    this%fright = fc(m)
+    this%f(1) = fc(1)
+    this%f(this%n) = fc(m)
+    this%slopeleft= 0.d0
+    this%sloperight = 0.d0
+    call coop_spline(m, xc, fc, fc2)
+    !$omp parallel do
+    do i=2, coop_default_array_size-1
+       call coop_splint(m, xc, fc, fc2, this%xmin + (i-1)*this%dx, this%f(i))
+    enddo
+    !$omp end parallel do
+    call coop_spline_uniform(this%n, this%f, this%f2)
+  end subroutine coop_function_initialize_NonUniform
+
   subroutine coop_function_initialize(this, n, xmin, xmax, f, method, fleft, fright, slopeleft, sloperight, chebyshev_order, xlog, ylog)
     class(coop_function):: this
     logical, optional::xlog, ylog
     COOP_INT,intent(IN):: n
-    COOP_REAL,intent(IN):: xmin, xmax, f(n)
+    COOP_REAL,intent(IN):: xmin, xmax
+    COOP_REAL,intent(IN)::f(n)
     COOP_REAL, optional::fleft, fright, slopeleft, sloperight
     COOP_INT, optional::method
     COOP_INT, optional::chebyshev_order

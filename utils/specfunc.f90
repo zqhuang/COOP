@@ -7,15 +7,16 @@ module coop_special_function_mod
 
   integer,parameter::dl  = coop_real_length
   COOP_INT,parameter::special_function_maxl = 5000
-  COOP_INT,parameter::lngamma_maxl = special_function_maxl*3+2
+  COOP_INT,parameter::log_gamma_maxl = special_function_maxl*3+2
   COOP_REAL,parameter::special_function_mineps = 1.d-50
 
 
-  public:: coop_special_function, log2, sinc, sinhc, lngamma, asinh, acosh, atanh
+  public:: coop_special_function, log2, sinc, sinhc
 
   type coop_special_function
-     COOP_REAL,dimension(:),allocatable::lngamma_int_table, lngamma_hi_table, sqrt_table
+     COOP_REAL,dimension(:),allocatable::log_gamma_int_table, log_gamma_hi_table, sqrt_table
    contains
+     procedure::free => coop_special_function_free
      procedure::init => coop_special_function_initialize
      procedure::bessj => coop_special_function_bessj
      procedure::ln_factorial => coop_special_function_ln_factorial
@@ -37,25 +38,6 @@ module coop_special_function_mod
   interface sinhc
      module procedure sinhc_s, sinhc_v
   end interface sinhc
-
-
-  interface asinh
-     module procedure asinh_s, asinh_v
-  end interface asinh
-
-  interface acosh
-     module procedure acosh_s, acosh_v
-  end interface acosh
-
-
-  interface atanh
-     module procedure atanh_s, atanh_v
-  end interface atanh
-
-  interface LnGamma
-     module procedure lnGamma_s, LnGamma_v
-  end interface LnGamma
-
 
 
 contains
@@ -119,24 +101,30 @@ contains
     call this%init()
   end function coop_special_function_constructor
 
+  subroutine coop_special_function_free(this)
+    class(coop_special_function)::this
+    if(allocated(this%sqrt_table))deallocate(this%sqrt_table)
+    if(allocated(this%log_gamma_int_table))deallocate(this%log_gamma_int_table)
+    if(allocated(this%log_gamma_hi_table))deallocate(this%log_gamma_hi_table)
+  end subroutine coop_special_function_free
 
   subroutine coop_special_function_initialize(this)
     class(coop_special_function):: this
     COOP_INT l
     if(.not. allocated(this%sqrt_table))then
-       allocate(this%lngamma_int_table(0:lngamma_maxl))
-       allocate(this%lngamma_hi_table(0:lngamma_maxl))
-       allocate(this%sqrt_table(0:lngamma_maxl))
-       this%lngamma_hi_table(0) = 1.e30_dl
-       this%lngamma_int_table(0) = 0._dl
-       this%lngamma_hi_table(1) = coop_lnpi/2.d0
-       this%lngamma_int_table(1) = 0._dl
-       do l=2, lngamma_maxl
-          this%lngamma_hi_table(l) = this%lngamma_hi_table(l-1) + dlog(l-1.5_dl)
-          this%lngamma_int_table(l) = this%lngamma_int_table(l-1) + dlog(l-1._dl)
+       allocate(this%log_gamma_int_table(0:log_gamma_maxl))
+       allocate(this%log_gamma_hi_table(0:log_gamma_maxl))
+       allocate(this%sqrt_table(0:log_gamma_maxl))
+       this%log_gamma_hi_table(0) = 1.e30_dl
+       this%log_gamma_int_table(0) = 0._dl
+       this%log_gamma_hi_table(1) = coop_lnpi/2.d0
+       this%log_gamma_int_table(1) = 0._dl
+       do l=2, log_gamma_maxl
+          this%log_gamma_hi_table(l) = this%log_gamma_hi_table(l-1) + dlog(l-1.5_dl)
+          this%log_gamma_int_table(l) = this%log_gamma_int_table(l-1) + dlog(l-1._dl)
        enddo
        !$omp parallel do
-       do l=0, lngamma_maxl
+       do l=0, log_gamma_maxl
           this%sqrt_table(l) = dsqrt(dble(l))
        enddo
        !$omp end parallel do
@@ -155,7 +143,7 @@ contains
     class(coop_special_function) this
     COOP_INT i
     COOP_REAL frac
-    frac = this%lnGamma_int_table(i+1)
+    frac = this%log_gamma_int_table(i+1)
   end function coop_special_function_ln_factorial
 
 !!input COOP_INT i
@@ -164,7 +152,7 @@ contains
     class(coop_special_function)::this
     COOP_INT i
     COOP_REAL frac
-    frac = this%lnGamma_hi_table(i+1) + coop_ln2 * i - 0.5*coop_lnpi
+    frac = this%log_gamma_hi_table(i+1) + coop_ln2 * i - 0.5*coop_lnpi
   end function coop_special_function_ln_factorial_odd
 
   Function sinc_s(x) 
@@ -209,8 +197,8 @@ contains
   end function sinhc_v
 
 
-  function LnGamma_s(X) !!ln (\Gamma(x))  
-    COOP_REAL LnGamma_s,X
+  function Log_gamma_s(X) !!ln (\Gamma(x))  
+    COOP_REAL Log_gamma_s,X
     COOP_INT I
     COOP_REAL C(6),S,R,Y,TEMP
     data C,S/76.18009172947146d0,-86.50532032941677d0, &
@@ -224,20 +212,20 @@ contains
        Y=Y+1.D0
        R=R+C(I)/Y
     endDO
-    LnGamma_s = temp + dlog(S*R/X)
-  end function LnGamma_s
+    Log_gamma_s = temp + dlog(S*R/X)
+  end function Log_gamma_s
 
 
-  function LnGamma_v(x)
+  function Log_gamma_v(x)
     COOP_REAL,dimension(:),intent(in)::x
-    COOP_REAL LnGamma_v(size(x))
+    COOP_REAL Log_gamma_v(size(x))
     COOP_INT i
     !$omp parallel do
     do i=1, size(x)
-       LnGamma_v(i) = LnGamma_s(x(i))
+       Log_gamma_v(i) = Log_gamma_s(x(i))
     end do
     !$omp end parallel do
-  end function LnGamma_v
+  end function Log_gamma_v
 
   function digamma(x) result(psi)
     COOP_REAL x, psi, y
@@ -272,7 +260,7 @@ contains
     lnf = 0
     do i=1,n
        if(x(i).gt.0.d0)then
-          lnf = lnf + lngamma(x(i))*p(i)
+          lnf = lnf + log_gamma(x(i))*p(i)
        else
           m = nint(x(i))
           if(mod(m,2).eq.0)then
@@ -288,7 +276,7 @@ contains
              endif
           endif
           pifac = dsin(coop_pi*eps)/coop_pi
-          lnf  = lnf + (lngamma(1.d0-x(i)) + dlog(abs(pifac)))*(-p(i))
+          lnf  = lnf + (log_gamma(1.d0-x(i)) + dlog(abs(pifac)))*(-p(i))
           if(pifac.lt.0.d0 .and. mod(p(i),2) .ne. 0) sgn = -sgn
        endif
     enddo
@@ -321,7 +309,7 @@ contains
     COOP_REAL InCompleteGamma
     COOP_REAL A,X
     if(X.LT.(A+1.D0))then
-       InCompleteGamma=exp(LNGamma(A))
+       InCompleteGamma=exp(Log_gamma(A))
        if(X.ne.0.d0)InCompleteGamma=InCompleteGamma-D_Gamma1(A,X)
     ELSE
        InCompleteGamma=D_Gamma2(A,X)
@@ -766,7 +754,7 @@ contains
        return
     endif
     if( x**2 .lt. n/2.)then
-       bessj = (x/2.d0)**n*exp(-this%lngamma_int_table(n+1))*(1.d0-x**2/(4.d0*(n+1))*(1.d0-x**2/(8.d0*(n+2))*(1.d0-x**2/(12.d0*(n+3))*(1.d0-x**2/(16.d0*(n+4))))))
+       bessj = (x/2.d0)**n*exp(-this%log_gamma_int_table(n+1))*(1.d0-x**2/(4.d0*(n+1))*(1.d0-x**2/(8.d0*(n+2))*(1.d0-x**2/(12.d0*(n+3))*(1.d0-x**2/(16.d0*(n+4))))))
        return
     endif
     tox = 2/X
@@ -1587,7 +1575,7 @@ contains
        Plm = 0.d0
        return
     endif
-    Plm_prev = (4.d0*(1.d0-x**2))**(m/2.d0)*dexp(lnGamma(m+0.5d0)-lnGamma(2*m+1.d0)/2.d0)/coop_sqrtpi
+    Plm_prev = (4.d0*(1.d0-x**2))**(m/2.d0)*dexp(log_gamma(m+0.5d0)-log_gamma(2*m+1.d0)/2.d0)/coop_sqrtpi
     if(mod(m,2).ne.0) Plm_prev = - Plm_prev
     if(m .eq. l)then
        Plm = Plm_prev
@@ -1654,7 +1642,7 @@ contains
     case(5)
        f = sqrt((l-4)*(l-3.d0)*(l-2.d0)*(l-1.d0)*l*(l+1.d0)*(l+2.d0)*(l+3.d0)*(l+4.d0)*(l+5.d0))       
     case default
-       f = exp((lngamma(l+m+1.d0)-lngamma(l-m+1.d0))/2.d0)
+       f = exp((log_gamma(l+m+1.d0)-log_gamma(l-m+1.d0))/2.d0)
     end select
   end function factor_lm_pm
 
@@ -1759,7 +1747,7 @@ contains
        endif
     case default
        if(2*l.gt.m-2)then
-          Nlm = coop_pio2*dexp(lnGamma(l-m/2.d0+1.d0)-lnGamma(l+m/2.d0+1.d0))
+          Nlm = coop_pio2*dexp(log_gamma(l-m/2.d0+1.d0)-log_gamma(l+m/2.d0+1.d0))
        else
           Nlm = bad_value
        endif
@@ -1987,9 +1975,9 @@ contains
        l2 = ell1
     endif
     if(4+l1-l2-ns.gt.0.d0)then
-       cr = 2.d0**(-4+ns)*coop_pi* (2.d0*R/(r1+r2))**(1-ns)*Hypergeometric2F1((-2-l1+l2+ns)/2.d0,(-1+l1+l2+ns)/2.d0,1.5d0+l2,ratio**2)* dexp(l2*dlog(ratio)+lnGamma((-1+l1+l2+ns)/2.d0) -lnGamma(l2+1.5d0) -lnGamma((4+l1-l2-ns)/2.d0))
+       cr = 2.d0**(-4+ns)*coop_pi* (2.d0*R/(r1+r2))**(1-ns)*Hypergeometric2F1((-2-l1+l2+ns)/2.d0,(-1+l1+l2+ns)/2.d0,1.5d0+l2,ratio**2)* dexp(l2*dlog(ratio)+log_gamma((-1+l1+l2+ns)/2.d0) -log_gamma(l2+1.5d0) -log_gamma((4+l1-l2-ns)/2.d0))
     else
-       cr = 2.d0**(-4+ns)*dsin(coop_pio2*(4+l1-l2-ns)) * (2.d0*R/(r1+r2))**(1-ns)*Hypergeometric2F1((-2-l1+l2+ns)/2.d0,(-1+l1+l2+ns)/2.d0,1.5d0+l2,ratio**2)* dexp(l2*dlog(ratio)+lnGamma((-1+l1+l2+ns)/2.d0) -lnGamma(l2+1.5d0) + lnGamma(1.d0 - (4+l1-l2-ns)/2.d0))
+       cr = 2.d0**(-4+ns)*dsin(coop_pio2*(4+l1-l2-ns)) * (2.d0*R/(r1+r2))**(1-ns)*Hypergeometric2F1((-2-l1+l2+ns)/2.d0,(-1+l1+l2+ns)/2.d0,1.5d0+l2,ratio**2)* dexp(l2*dlog(ratio)+log_gamma((-1+l1+l2+ns)/2.d0) -log_gamma(l2+1.5d0) + log_gamma(1.d0 - (4+l1-l2-ns)/2.d0))
     endif
   end function sphericalBesselCross
 

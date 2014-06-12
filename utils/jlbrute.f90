@@ -1,6 +1,5 @@
 module coop_sbj_mod
   use coop_wrapper_typedef
-  use coop_special_function_mod
   implicit none
 
 #include "constants.h"
@@ -8,6 +7,7 @@ module coop_sbj_mod
   private
   integer,parameter::jlb_lmax = 5101
   integer,parameter::jlb_lmin = 10
+  integer,parameter::dl = kind(1.d0)
 
   type jlb_saved_data
      real(dl) dx, xmax, xmin
@@ -30,7 +30,7 @@ contains
     real(dl) phase
     real(dl) x,  nu2, nu, chb, ch2b, sh2b, shb, sx, sat, rat
     if(l.eq.0)then
-       phase  = x - const_pio2
+       phase  = x - coop_pio2
        return
     endif
     nu2 = l*(l+1.d0)
@@ -46,7 +46,7 @@ contains
     sx = shb * nu
     sat = 1.d0/shb/sh2b/nu
     rat = sat*sat
-    phase = (-const_pio4 &
+    phase = (-coop_pio4 &
          + sx &
          -((-1.d0/128/nu2 + 0.125)/nu +nu)*acos(nu/x) &
          + sat*( &
@@ -62,7 +62,7 @@ contains
     real(dl),parameter::c1(12) =   (/ -0.245127043d+01, 0.112632772d+02, -0.207925322d+02, 0.198543806d+02, -0.110527677d+02, 0.406769876d+01, -0.109067653d+01, 0.206080657d+00, -0.260196064d-1 , 0.212880935d-2 , -0.101897908d-3 , 0.216576354d-5  /)
     real(dl), parameter::c2(12) =  (/ 0.579779690d+01, -0.280853646d+02, 0.625315957d+02, -0.805135267d+02, 0.629961403d+02, -0.307235514d+02, 0.973806423d+01, -0.206907154d+01, 0.293355044d+00, -0.265358216d-1 , 0.138530622d-2 , -0.317522214d-4  /)
     if(l.eq.0)then
-       z = const_pi*k
+       z = coop_pi*k
        return
     endif
     select case(k)
@@ -75,11 +75,11 @@ contains
     case default
        t = (l+0.5d0)**0.25d0
        zmin = l + 0.5d0 + 3.51d0*(l+5.d0)**0.323d0 + polyvalue(c2, t)/(l+0.5d0)
-       phase = const_pi * (k-0.5_dl) 
-       zmax = max(sphericalbesselj_zero_asym(l, k), zmin+const_pi)
+       phase = coop_pi * (k-0.5_dl) 
+       zmax = max(sphericalbesselj_zero_asym(l, k), zmin+coop_pi)
        phasemax = jlb_phase(l, zmax)
        do while(phasemax .lt. phase)
-          zmax = zmax + max(phase - phasemax, const_pi)
+          zmax = zmax + max(phase - phasemax, coop_pi)
           phasemax = jlb_phase(l, zmax)
        enddo
        do while(zmax - zmin .gt. 1.d-6)
@@ -100,7 +100,7 @@ contains
   function sphericalbesselj_zero_asym(l, k) result(z)
     real(dl) z, nusq, zsq
     integer l, k
-    z = const_pi * (l/2.d0+k)
+    z = coop_pi * (l/2.d0+k)
     nusq = (l +0.5d0)**2
     zsq = z**2
     z = z - l*(l+1.d0)/(2.d0*z)*(1.d0+ ((-31.d0+28.d0*nusq) + &
@@ -108,306 +108,6 @@ contains
   end function sphericalbesselj_zero_asym
 
 
-
-  !!given a function weight(r), return the integral q = \int_0^rmax weight(r) j_l(kr) dr
-  !!this subroutine does not require any stored value of j_l
-    !!====================================
-    !!************************************
-    !! f(1) = R
-    !! f(2) = j_l(kR)
-    !! f(3) = j_l'(kR)
-    !! f(4) = \int _0^R s(r) j_l(kr) dr
-    !!  what we want is f(4) at R = rmax
-    !! f is computed with initial conditions at r = 0 and
-    !! f'(1) = 1
-    !! f'(2) = k * f(3)
-    !! f'(3) = k * ( - (1 - l*(l+1)/f(1)**2)*f(2) - 2/f(1) * f(3))
-    !! f'(4) = weight(f(1))*f(2)
-    !!*************************************
-    !!=====================================
-  subroutine sphericalbessel_convolution(l, k,weight, q, rmax)
-    real(dl),parameter::stepsize = 2.d-2
-    external weight
-    real(dl) weight, k, q, rmax, dr, kr, r, drmax, r1, r2, lsq
-    integer l
-    real(dl) f(4)
-   integer, parameter :: s = 3
-    real(dl), parameter ::   b(s) = (/ 5.d0/18.d0, 4.d0/9.d0, 5.d0/18.d0/)
-    ! Butcher tableau for 6th order Gauss-Legendre method
-    real(dl), parameter :: a(s,s) =  reshape( (/ &
-         5.d0/36.d0, 2.d0/9.d0 - 1.d0/sqrt(15.d0), 5.d0/36.d0 - 0.5d0/sqrt(15.d0), &
-         5.d0/36.d0 + sqrt(15.d0)/24.d0, 2.d0/9.d0, 5.d0/36.d0 - sqrt(15.d0)/24.d0, &
-         5.d0/36.d0 + 0.5d0/sqrt(15.d0), 2.d0/9.d0 + 1.d0/sqrt(15.d0), 5.d0/36.d0 /), (/ s, s /) )
-
-    real(dl) g(4,s)
-    logical notdone
-    if(rmax .le. 0.d0)then
-       q = 0
-       return
-    endif
-    
-    lsq = l*(l+1.d0)
-    
-    call jlb_startpoint(l, kr)
-    r = kr/k
-    if(r.ge.rmax)then
-       kr = k*rmax
-       call jlb_small(l, kr, f(2), f(3))
-       q = f(2)*rmax/(l+1)*weight(rmax)
-       return
-    endif
-
-
-
-
-    drmax = stepsize/k
-
-    !!the exponential case
-    r1 = min(drmax*10.d0, rmax)
-    notdone = (r .lt. r1)
-    do while(notdone)
-       dr = r/10.d0
-       if(r+dr .ge. r1)then
-          notdone = .false.
-          dr = r1 - r
-       endif
-       call evolve_step()
-    enddo
-
-    r2 = rmax - drmax
-    dr = drmax
-    do while(r .lt. r2)
-       call evolve_step()
-    enddo
-
-    dr = (rmax - r)*0.99999999999 !!to avoid evaluating weight(r) at rmax, which may not be properly defined in some cases
-    call evolve_step()
-
-
-    q = f(4)
-  contains 
-    
-    subroutine fcn(yy, yyp)
-      real(dl) yy(4), yyp(4)
-      yyp(1) = k
-      yyp(2) = k*yy(3)
-      yyp(3) =  -k * ((yy(1) - lsq/yy(1))*yy(2) + 2 * yy(3))/yy(1)
-      yyp(4) = weight(yy(1)/k)*yy(2)
-    end subroutine fcn
-    
-    subroutine evolve_step()
-      integer i, j
-      call fcn(f, g(:,1))
-      do i = 2, s
-         g(:,i) = g(:,1)
-      enddo
-      do j = 2,16
-         g = matmul(g,a)
-         do i = 1,s
-            call fcn(f + g(:,i)*dr, g(:,i))
-         end do
-      end do
-      r = r + dr
-      f = f + matmul(g,b)*dr
-    end subroutine evolve_step
-    
-  end subroutine sphericalbessel_convolution
-
-
-
-  subroutine sphericalbessel_convolution_with_params(params, l, k,weight, q, rmax)
-    type(params_pass) params
-    real(dl),parameter::stepsize = 2.d-2
-    external weight
-    real(dl) weight, k, q, rmax, dr, kr, r, drmax, r1, r2, lsq
-    integer l
-    real(dl) f(4)
-   integer, parameter :: s = 3
-    real(dl), parameter ::   b(s) = (/ 5.d0/18.d0, 4.d0/9.d0, 5.d0/18.d0/)
-    ! Butcher tableau for 6th order Gauss-Legendre method
-    real(dl), parameter :: a(s,s) =  reshape( (/ &
-         5.d0/36.d0, 2.d0/9.d0 - 1.d0/sqrt(15.d0), 5.d0/36.d0 - 0.5d0/sqrt(15.d0), &
-         5.d0/36.d0 + sqrt(15.d0)/24.d0, 2.d0/9.d0, 5.d0/36.d0 - sqrt(15.d0)/24.d0, &
-         5.d0/36.d0 + 0.5d0/sqrt(15.d0), 2.d0/9.d0 + 1.d0/sqrt(15.d0), 5.d0/36.d0 /), (/ s, s /) )
-
-    real(dl) g(4,s)
-    logical notdone
-    if(rmax .le. 0.d0)then
-       q = 0
-       return
-    endif
-    
-    lsq = l*(l+1.d0)
-    
-    call jlb_startpoint(l, kr)
-    r = kr/k
-    if(r.ge.rmax)then
-       kr = k*rmax
-       call jlb_small(l, kr, f(2), f(3))
-       q = f(2)*rmax/(l+1)*weight(params,rmax)
-       return
-    endif
-
-
-
-
-    drmax = stepsize/k
-
-    !!the exponential case
-    r1 = min(drmax*10.d0, rmax)
-    notdone = (r .lt. r1)
-    do while(notdone)
-       dr = r/10.d0
-       if(r+dr .ge. r1)then
-          notdone = .false.
-          dr = r1 - r
-       endif
-       call evolve_step()
-    enddo
-
-    r2 = rmax - drmax
-    dr = drmax
-    do while(r .lt. r2)
-       call evolve_step()
-    enddo
-
-    dr = (rmax - r)*0.99999999999 !!to avoid evaluating weight(r) at rmax, which may not be properly defined in some cases
-    call evolve_step()
-
-
-    q = f(4)
-  contains 
-    
-    subroutine fcn(yy, yyp)
-      real(dl) yy(4), yyp(4)
-      yyp(1) = k
-      yyp(2) = k*yy(3)
-      yyp(3) =  -k * ((yy(1) - lsq/yy(1))*yy(2) + 2 * yy(3))/yy(1)
-      yyp(4) = weight(params, yy(1)/k)*yy(2)
-    end subroutine fcn
-    
-    subroutine evolve_step()
-      integer i, j
-      call fcn(f, g(:,1))
-      do i = 2, s
-         g(:,i) = g(:,1)
-      enddo
-      do j = 2,16
-         g = matmul(g,a)
-         do i = 1,s
-            call fcn(f + g(:,i)*dr, g(:,i))
-         end do
-      end do
-      r = r + dr
-      f = f + matmul(g,b)*dr
-    end subroutine evolve_step
-    
-  end subroutine sphericalbessel_convolution_with_params
-
-
-
-  subroutine sphericalbessel_convolution_all(l, k, w, wp, wpp, q, rmax)
-    real(dl),parameter::stepsize = 2.d-2
-    external w, wp, wpp
-    real(dl) w, wp, wpp, k, q, rmax, dr, kr, r, drmax, r1, r2, lsq
-    integer l
-    real(dl) f(4)
-   integer, parameter :: s = 3
-    real(dl), parameter ::   b(s) = (/ 5.d0/18.d0, 4.d0/9.d0, 5.d0/18.d0/)
-    ! Butcher tableau for 6th order Gauss-Legendre method
-    real(dl), parameter :: a(s,s) =  reshape( (/ &
-         5.d0/36.d0, 2.d0/9.d0 - 1.d0/sqrt(15.d0), 5.d0/36.d0 - 0.5d0/sqrt(15.d0), &
-         5.d0/36.d0 + sqrt(15.d0)/24.d0, 2.d0/9.d0, 5.d0/36.d0 - sqrt(15.d0)/24.d0, &
-         5.d0/36.d0 + 0.5d0/sqrt(15.d0), 2.d0/9.d0 + 1.d0/sqrt(15.d0), 5.d0/36.d0 /), (/ s, s /) )
-
-    real(dl) g(4,s)
-    logical notdone
-    if(rmax .le.0.d0) then
-       q = 0
-       return
-    endif
-    lsq = l * (l+1.d0)
-    call jlb_startpoint(l, kr)
-    r = kr/k
-    if(r.ge.rmax)then
-       kr = k*rmax
-       call jlb_small(l, kr, f(2), f(3))
-       select case(l)
-       case(0)
-          q = rmax*(f(2)/(l+1)*w(rmax))
-       case(1)
-          q = rmax*(f(2)/(l+1)*w(rmax) + f(3)/l * wp(rmax) )
-       case default
-          q = rmax*(f(2)/(l+1)*w(rmax) + f(3)/l * wp(rmax) - ((1.d0-lsq/kr**2)*f(2)+2/kr*f(3))/(l-1)*wpp(rmax))
-       end select
-       return
-    endif
-
-    f(1) = kr
-    call jlb_small(l, kr, f(2), f(3))
-    select case(l)
-    case(0)
-       f(4) = r*(f(2)/(l+1)*w(r))
-    case(1)
-       f(4) = r*(f(2)/(l+1)*w(r) + f(3)/l * wp(r) )
-    case default
-       f(4) = r*(f(2)/(l+1)*w(r) + f(3)/l * wp(r) - ((1.d0-lsq/kr**2)*f(2)+2/kr*f(3))/(l-1)*wpp(r))
-    end select
-
-
-    drmax = stepsize/k
-
-    !!the exponential case
-    r1 = min(drmax*10.d0, rmax)
-    notdone = (r .lt. r1)
-    do while(notdone)
-       dr = r/10.d0
-       if(r+dr .ge. r1)then
-          notdone = .false.
-          dr = r1 - r
-       endif
-       call evolve_step()
-    enddo
-
-    r2 = rmax - drmax
-    dr = drmax
-    do while(r .lt. r2)
-       call evolve_step()
-    enddo
-
-    dr = (rmax - r)*0.99999999999 
-    call evolve_step()
-
-
-    q = f(4)
-  contains 
-    
-    subroutine fcn(yy, yyp)
-      real(dl) yy(4), yyp(4)
-      yyp(1) = k
-      yyp(2) = k*yy(3)
-      yyp(3) =  -((yy(1) - lsq/yy(1))*yy(2) + 2 * yy(3))/yy(1)
-      yyp(4) = w(yy(1)/k)*yy(2) + wp(yy(1)/k)*yy(3) + wpp(yy(1)/k)*yyp(3)
-      yyp(3) = k*yyp(3)
-    end subroutine fcn
-    
-    subroutine evolve_step()
-      integer i, j
-      call fcn(f, g(:,1))
-      do i = 2, s
-         g(:,i) = g(:,1)
-      enddo
-      do j = 2,16
-         g = matmul(g,a)
-         do i = 1,s
-            call fcn(f + g(:,i)*dr, g(:,i))
-         end do
-      end do
-      r = r + dr
-      f = f + matmul(g,b)*dr
-    end subroutine evolve_step
-    
-  end subroutine sphericalbessel_convolution_all
 
 !!start where j_l is ~ 10^{-8}
   subroutine jlb_startpoint(l, xstart, eps)
@@ -454,7 +154,7 @@ contains
           return
        endif
        cosb = x2/4.d0
-       expterm = dexp(-lngamma_hi_table(l+2)+l*(dlog(x)-const_ln2)-const_ln2)*const_sqrtpi 
+       expterm = dexp(-lngamma_hi_table(l+2)+l*(dlog(x)-coop_ln2)-coop_ln2)*coop_sqrtpi 
        jl =  expterm * (1.d0  - cosb /(l+1.5d0)*(1.d0 - cosb/(l+2.5d0)/2.d0*(1.d0 - cosb/(l+3.5d0)/3.d0*(1.d0-cosb/(l+4.5d0)/4.d0*(1.d0 - cosb/(l+5.5d0)/5.d0 * (1.d0 - cosb/(l+6.5d0)/6.d0*(1.d0-cosb/(l+7.5d0)/7.d0*(1.d0-cosb/(l+8.5d0)/8.d0*(1.d0-cosb/(l+9.5d0)/9.d0*(1.d0-cosb/(l+10.5d0)/10.d0*(1.d0-cosb/(l+11.5d0)/11.d0*(1.d0-cosb/(l+12.5d0)/12.d0))))))))))))
        if(present(jlp))then
           jlp = l/x * jl + expterm * (-x/ 4.d0 /(l+1.5d0)*(2.d0 - cosb/(l+2.5d0)/2.d0*(4.d0 - cosb/(l+3.5d0)/3.d0*(6.d0-cosb/(l+4.5d0)/4.d0*(8.d0 - cosb/(l+5.5d0)/5.d0 * (10.d0 - cosb/(l+6.5d0)/6.d0*(12.d0-cosb/(l+7.5d0)/7.d0*(14.d0-cosb/(l+8.5d0)/8.d0*(16.d0-cosb/(l+9.5d0)/9.d0*(18.d0-cosb/(l+10.5d0)/10.d0*(20.d0-cosb/(l+11.5d0)/11.d0*(22.d0-cosb/(l+12.5d0)*2.d0))))))))))))
@@ -472,7 +172,7 @@ contains
     nusin3b = nu * sin3b
     invnu3b = 1.d0/nusin3b
     jl = dexp( &
-         nu*sinb - const_ln2 &
+         nu*sinb - coop_ln2 &
          + invnu3b * ( -1.d0/12.d0 - 1.d0/8.d0 * cos2b &
          + invnu3b * ( -1.d0/16.d0 + 3.d0/8.d0 *cos2b &
          + invnu3b * (31.d0/5760 + cos2b*(-1062.d0/5760 + cos2b*( -4644.d0/5760 + cos2b*(195.d0/5760+ cos2b*(-45.d0/5760))))  &
@@ -532,7 +232,7 @@ contains
             - (2523.d0/32.d0 + ch2b*(1521.d0/16.d0 + ch2b * (315.d0/16.d0)))*ch2b**3 * rat)*rat)*rat &
             -0.5d0*dlog(x*sx) &
             )
-       alpha = -const_pio4 &
+       alpha = -coop_pio4 &
             + sx &
             -((-1.d0/128/nu2 + 0.125)/nu +nu)*acos(nu/x) &
             + sat*( &
@@ -591,13 +291,13 @@ contains
           return
        endif
        x2 = x2/4.d0
-       jl = dexp(-lngamma_hi_table(l+2)+l*(dlog(x)-const_ln2)-const_ln2)*const_sqrtpi  * (1.d0  - x2 /(l+1.5d0)*(1.d0 - x2/(l+2.5d0)/2.d0*(1.d0 - x2/(l+3.5d0)/3.d0*(1.d0-x2/(l+4.5d0)/4.d0*(1.d0 - x2/(l+5.5d0)/5.d0 * (1.d0 - x2/(l+6.5d0)/6.d0*(1.d0-x2/(l+7.5d0)/7.d0*(1.d0-x2/(l+8.5d0)/8.d0))))))))
+       jl = dexp(-lngamma_hi_table(l+2)+l*(dlog(x)-coop_ln2)-coop_ln2)*coop_sqrtpi  * (1.d0  - x2 /(l+1.5d0)*(1.d0 - x2/(l+2.5d0)/2.d0*(1.d0 - x2/(l+3.5d0)/3.d0*(1.d0-x2/(l+4.5d0)/4.d0*(1.d0 - x2/(l+5.5d0)/5.d0 * (1.d0 - x2/(l+6.5d0)/6.d0*(1.d0-x2/(l+7.5d0)/7.d0*(1.d0-x2/(l+8.5d0)/8.d0))))))))
        return
     endif
     nu = l+0.5d0 - 0.125d0/(l+0.5d0)
     nu2 = nu*nu    
     sx = dsqrt(nu2-x2)
-    jl =  dexp(-(l+0.5d0)*dlog((nu +sx)/x) + sx  - (1.d0/12.d0*nu2+1.d0/8.d0*x2)/sx**3 - const_ln2 - dlog(sx*x)/2.d0)
+    jl =  dexp(-(l+0.5d0)*dlog((nu +sx)/x) + sx  - (1.d0/12.d0*nu2+1.d0/8.d0*x2)/sx**3 - coop_ln2 - dlog(sx*x)/2.d0)
   end subroutine jlb_extra_small
 
   subroutine jlb_extra_large(l, x, jl)
@@ -611,7 +311,7 @@ contains
     sat = 1.d0 - rat * ( 0.25d0 + rat * ( 3.d0/32.d0 + rat * ( 7.d0/128.d0 + rat * ( 77.d0/2048.d0 + rat * ( 231.d0/8192.d0 + rat * ( 1463.d0/65536.d0 + rat * ( 4807.d0/262144.d0 + rat * (129789.d0/8388608.d0 + rat * (447051.d0/33554432.d0 + rat*(3129357.d0/268435456.d0)))))))))) 
     sx = x * sat**2
     jl = ( 1.d0 - ( 0.25d0*nu2 + x**2/16. ) / sat**2/sx**4 ) * dcos( &
-         sx - nu * ( const_pio2 - nubyx * ( 1.d0 + rat * (1.d0/6.d0 + rat * (3.d0/40.d0 + rat * (5.d0/112.d0 + rat * (35.d0/1152.d0 + rat * (63.d0/2816.d0 + rat * (231.d0/13312.d0 + rat * (143.d0/10240.d0+rat*(6435.d0/557056.d0) ) ) ) ) ) ) ) ) ) - const_pio4 &
+         sx - nu * ( coop_pio2 - nubyx * ( 1.d0 + rat * (1.d0/6.d0 + rat * (3.d0/40.d0 + rat * (5.d0/112.d0 + rat * (35.d0/1152.d0 + rat * (63.d0/2816.d0 + rat * (231.d0/13312.d0 + rat * (143.d0/10240.d0+rat*(6435.d0/557056.d0) ) ) ) ) ) ) ) ) ) - coop_pio4 &
          - ((1.d0/8.d0)/rat+1.d0/12.d0)*nu2/sx**3 &
          ) / x / sat
   end subroutine jlb_extra_large
@@ -914,7 +614,7 @@ contains
     z1 = sphericalbesselj_zero(l, 1)
     if(x .le. z1)then
        amp = 0
-       phase = const_pio2
+       phase = coop_pio2
        return
     endif
     z2 = sphericalbesselj_zero(l, 2)
@@ -938,7 +638,7 @@ contains
        fac = ( 1.d0 + tanh((z2-z1)*(exp(params(1))/(z1-x) + exp(params(2))/(z2-x)) + params(3) + params(5)/sqrtnu + params(7)/nu + params(10)/nu2) )/2.d0
        amp = amp * fac**exp(params(4)+params(6)/sqrtnu + params(8)/nu + params(9)/nu2)
     endif
-    phase = (-const_pio4 &
+    phase = (-coop_pio4 &
          + sx &
          -((-1.d0/128/nu2 + 0.125)/nu +nu)*acos(nu/x) &
          + sat*( &

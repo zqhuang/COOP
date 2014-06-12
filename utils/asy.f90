@@ -3,11 +3,10 @@ module coop_asy_mod
   use coop_interpolation_mod
   use coop_file_mod
   use coop_list_mod
-  use coop_sort_mod
   implicit none
   private
 
-  public::coop_asy, coop_asy_error_bar, coop_asy_interpolate_curve, coop_asy_gray_color, coop_asy_rgb_color, coop_asy_label, coop_asy_legend, coop_asy_dot, coop_asy_line, coop_asy_labels, coop_asy_dots, coop_asy_lines, coop_asy_contour, coop_asy_curve, coop_asy_density,  coop_asy_topaxis, coop_asy_rightaxis, coop_asy_clip
+  public::coop_asy, coop_asy_error_bar, coop_asy_interpolate_curve, coop_asy_gray_color, coop_asy_rgb_color, coop_asy_label, coop_asy_legend, coop_asy_dot, coop_asy_line, coop_asy_labels, coop_asy_dots, coop_asy_lines, coop_asy_contour, coop_asy_curve, coop_asy_density,  coop_asy_topaxis, coop_asy_rightaxis, coop_asy_clip, coop_asy_plot_function
 
 
 #include "constants.h"
@@ -2433,5 +2432,37 @@ contains
     COOP_SHORT_STRING color
     color = coop_asy_gray_color_s(real(gray))
   end function coop_asy_gray_color_d
+
+  subroutine coop_asy_plot_function(func, filename, xlabel, ylabel)
+    type(coop_function)func
+    COOP_UNKNOWN_STRING::filename
+    COOP_UNKNOWN_STRING,optional::xlabel, ylabel
+    type(coop_asy)::asy
+    COOP_INT, parameter::n = 512
+    COOP_REAL:: x(n), y(n)
+    integer i
+    call asy%open(trim(filename))
+    if(present(xlabel))then
+       if(present(ylabel))then
+          call asy%init(xlabel = xlabel, ylabel = ylabel, xlog = func%xlog, ylog = func%ylog)
+       else
+          call asy%init(xlabel = xlabel, ylabel = "$f(x)$", xlog = func%xlog, ylog = func%ylog)
+       endif
+    else
+       if(present(ylabel))then
+          call asy%init(xlabel = "$x$", ylabel = ylabel, xlog = func%xlog, ylog = func%ylog)
+       else
+          call asy%init(xlabel = "$x$", ylabel = "$f(x)$", xlog = func%xlog, ylog = func%ylog)
+       endif
+    endif
+    call coop_set_uniform(n, x,func%xmin, func%xmax)
+    if(func%xlog) x = exp(x)
+    do i=1, n
+       y(i) = func%eval(x(i))
+    enddo
+    call coop_asy_curve(asy, x, y)
+    call asy%close()
+  end subroutine coop_asy_plot_function
+
 
 end module coop_asy_mod

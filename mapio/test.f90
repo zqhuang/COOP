@@ -6,9 +6,9 @@ program test
 #include "constants.h"
 
   character(LEN=*),parameter::mapdir = "act/"
-  character(LEN=*),parameter::fitsfile = mapdir//"I50.fits"
+  character(LEN=*),parameter::fitsfile = mapdir//"Q50.fits"
   character(LEN=*),parameter::sourcefile = mapdir//"beam50.fits"
-  character(LEN=*),parameter::maskfile = mapdir//"W_I50.fits"
+  character(LEN=*),parameter::maskfile = mapdir//"W_Q50.fits"
   type(coop_fits_image_cea)::cf, mask, src
   type(coop_asy)::asy
   integer, parameter::n=300

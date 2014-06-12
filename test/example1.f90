@@ -2,48 +2,38 @@ program derivative
   use coop_wrapper
   implicit none
 #include "constants.h"
-  COOP_REAL, parameter::Mpl = 1.d0
-  COOP_REAL, parameter::H0 = 1.d0
-  type(coop_function)::V
-  type(coop_arguments)::args
-  COOP_REAL phi
-
-#define MASS args%r(1) 
-#define LAMBDA args%r(2)
-
-  args = coop_arguments( r = (/ 1.e-5*Mpl, 3.*Mpl**2*H0**2*0.7 /) )
-  V = coop_function( f = potential, xmin = MASS/10., xmax =Mpl*10.d0, xlog = .true., ylog = .true., args = args)
-
-  phi = 0.2*MASS
-  print*, V%eval(phi), potential(phi, args)
-  print*, V%derivative(phi), dVdphi(phi, args)
-  print*, V%derivative2(phi), d2Vdphi2(phi, args)
-
-  print*
-  phi = Mpl
-  print*, V%eval(phi), potential(phi, args)
-  print*, V%derivative(phi), dVdphi(phi, args)
-  print*, V%derivative2(phi), d2Vdphi2(phi, args)
+  COOP_INT, parameter::n  = 2000
+  type(coop_function)::func_V
+  COOP_REAL phi(n), V(n)
+  COOP_REAL, parameter::phi_min  = 1.d-1, phi_max = 100.d0
+  COOP_INT i
+  call random_number(phi) !!generate random phi between 0 and 1
+  phi = exp( log(phi_min) + phi * log(phi_max/phi_min) )
+  do i=1, n
+     V(i) = potential(phi(i))
+  enddo
+  call func_V%init_NonUniform(phi, V, xlog=.true., ylog=.true.)
+  print*, potential(1.5d0), func_V%eval(1.5d0)
+  print*,dVdphi(99.d0), func_V%derivative(99.d0)
+  print*,d2Vdphi2(0.12d0), func_V%derivative2(0.12d0)
 
 contains
 
-  function potential(phi, args) result(V)
-    type(coop_arguments) args
-    COOP_REAL V, phi
-    V = exp(-(MASS/phi)**2)*(MASS/phi)**2 * LAMBDA
+  function potential(phi)
+    COOP_REAL phi, potential
+    potential = phi ** 2 * exp(1./phi**2)
   end function potential
 
-  function dVdphi(phi, args) result(Vp)
-    type(coop_arguments) args
-    COOP_REAL Vp, phi
-    Vp = (2.d0*MASS**2/phi**3 - 2.d0/phi)*potential(phi, args)
+
+  function dVdphi(phi)
+    COOP_REAL phi,dVdphi
+    dVdphi = (2.d0/phi-2.d0/phi**3)*potential(phi)
   end function dVdphi
 
-  function d2Vdphi2(phi,args) result(Vpp)
-    COOP_REAL Vpp, phi
-    type(coop_arguments) args
-    Vpp = ((2.d0*MASS**2/phi**3 - 2.d0/phi)**2 - 6.d0*MASS**2/phi**4 + 2.d0/phi**2)* potential(phi, args)
-
+  function d2Vdphi2(phi)
+    COOP_REAL phi,d2Vdphi2
+    d2Vdphi2 = ((2.d0/phi-2.d0/phi**3)**2-2.d0/phi**2+6.d0/phi**4)*potential(phi)
   end function d2Vdphi2
+
 
 end program derivative
