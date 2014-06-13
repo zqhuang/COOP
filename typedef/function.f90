@@ -12,7 +12,7 @@ module coop_function_mod
 
   type coop_function
      COOP_INT method
-     logical xlog, ylog
+     logical xlog, ylog, check_boundary
      COOP_INT n
      COOP_REAL xmin, xmax, dx, fleft, fright, slopeleft, sloperight
      COOP_REAL, dimension(:), allocatable::f, f2, f1
@@ -45,13 +45,14 @@ contains
   end subroutine coop_function_set_boundary
 
 
-  function coop_function_constructor(f, xmin, xmax, xlog, ylog, args, method) result(cf)
+  function coop_function_constructor(f, xmin, xmax, xlog, ylog, args, method, check_boundary) result(cf)
     external f
     COOP_REAL f, xmin, xmax, dx, lnxmin, lnxmax
     logical,optional::xlog
     logical,optional::ylog
     type(coop_arguments),optional::args
     COOP_INT, optional::method
+    logical,optional::check_boundary
     COOP_REAL_ARRAY::y
     COOP_INT i
     type(coop_function) :: cf
@@ -66,6 +67,7 @@ contains
        cf%ylog = .false.
     endif
     if(cf%xlog)then
+       if(xmin .le. 0.d0 .or. xmax .le. 0.d0) stop "when xmin or xmax is negative you cannot set xlog = .true."
        lnxmin = log(xmin)
        lnxmax = log(xmax)
        dx = (lnxmax - lnxmin)/(coop_default_array_size - 1)
@@ -106,10 +108,22 @@ contains
           !$omp end parallel do
        endif
     endif
-    if(present(method))then
-       call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = method, xlog = cf%xlog, ylog = cf%ylog)
+    if(coop_isnan(y))then
+       write(*,*) "Cannot construct the function type: found f = NAN within the specified range."
+       stop
+    endif
+    if(present(check_boundary))then
+       if(present(method))then
+          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = method, xlog = cf%xlog, ylog = cf%ylog, check_boundary = check_boundary)
+       else
+          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = COOP_INTERPOLATE_SPLINE, xlog = cf%xlog, ylog = cf%ylog, check_boundary = check_boundary)
+       endif
     else
-       call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = COOP_INTERPOLATE_SPLINE, xlog = cf%xlog, ylog = cf%ylog)
+       if(present(method))then
+          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = method, xlog = cf%xlog, ylog = cf%ylog)
+       else
+          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = COOP_INTERPOLATE_SPLINE, xlog = cf%xlog, ylog = cf%ylog)
+       endif
     endif
   end function coop_function_constructor
 
@@ -126,9 +140,14 @@ contains
     logical, optional::xlog, ylog
     COOP_REAL,dimension(:),intent(IN):: x, f
     COOP_INT i
-    COOP_INT m, n
+    COOP_INT m, n, loc
     COOP_REAL_ARRAY::xx, ff
-    COOP_REAL :: xc(size(x)), fc(size(f)), fc2(size(f))
+    COOP_REAL :: xc(size(x)), fc(size(f)), fc2(size(f)), res
+    logical do_spline
+    if(coop_isnan(f))then
+       write(*,*) "Cannot construct the function type: found f = NAN within the specified range."
+       stop
+    endif
     call this%free()
     if(present(xlog))then
        this%xlog = xlog
@@ -145,6 +164,7 @@ contains
     this%n = coop_default_array_size
     allocate(this%f(this%n), this%f2(this%n))
     if(this%xlog)then
+       if(any(x.le.0.d0))stop "Error: cannot set xlog = .true. for x<0"
        xc = log(x)
     else
        xc  = x
@@ -165,16 +185,35 @@ contains
     this%f(this%n) = fc(m)
     this%slopeleft= 0.d0
     this%sloperight = 0.d0
-    call coop_spline(m, xc, fc, fc2)
-    !$omp parallel do
-    do i=2, coop_default_array_size-1
-       call coop_splint(m, xc, fc, fc2, this%xmin + (i-1)*this%dx, this%f(i))
-    enddo
-    !$omp end parallel do
+    if(m .lt. 16384)then
+       if( minval(xc(2:m) - xc(1:m-1)) .gt. 1.d-2 * maxval(xc(2:m)-xc(1:m-1)))then
+          do_spline = .true.
+       else
+          do_spline = .false.
+       endif
+    else
+       do_spline = .false.
+    endif
+    if(do_spline)then
+       call coop_spline(m, xc, fc, fc2)
+       !$omp parallel do
+       do i=2, coop_default_array_size-1
+          call coop_splint(m, xc, fc, fc2, this%xmin + (i-1)*this%dx, this%f(i))
+       enddo
+       !$omp end parallel do
+    else
+       !$omp parallel do private(loc, res)
+       do i = 2, coop_default_array_size - 1
+          call coop_locate(m, xc, this%xmin + (i-1)*this%dx, loc, res)
+          this%f(i) = fc(loc)*(1.d0-res) + fc(loc+1)*res
+       enddo
+       !$omp end parallel do
+    endif
     call coop_spline_uniform(this%n, this%f, this%f2)
+    this%check_boundary = .true.
   end subroutine coop_function_initialize_NonUniform
 
-  subroutine coop_function_initialize(this, n, xmin, xmax, f, method, fleft, fright, slopeleft, sloperight, chebyshev_order, xlog, ylog)
+  subroutine coop_function_initialize(this, n, xmin, xmax, f, method, fleft, fright, slopeleft, sloperight, chebyshev_order, xlog, ylog, check_boundary)
     class(coop_function):: this
     logical, optional::xlog, ylog
     COOP_INT,intent(IN):: n
@@ -183,6 +222,11 @@ contains
     COOP_REAL, optional::fleft, fright, slopeleft, sloperight
     COOP_INT, optional::method
     COOP_INT, optional::chebyshev_order
+    logical,optional::check_boundary
+    if(coop_isnan(f))then
+       write(*,*) "Cannot construct the function type: found f = NAN within the specified range."
+       stop
+    endif
     call this%free()
     if(present(xlog))then
        this%xlog = xlog
@@ -223,6 +267,7 @@ contains
        allocate(this%f1(this%n))
     endif
     if(this%xlog)then
+       if(xmin .le. 0.d0 .or. xmax .le. 0.d0) stop "Error: cannot set xlog = .true. for xmin<0 or xmax<0"
        this%xmin = log(xmin)
        this%xmax = log(xmax)
     else
@@ -273,6 +318,11 @@ contains
        call coop_chebfit_derv(this%n, this%xmin, this%xmax, this%f, this%f1)
        call coop_chebfit_derv(this%n, this%xmin, this%xmax, this%f1, this%f2)
     end select
+    if(present(check_boundary))then
+       this%check_boundary = check_boundary
+    else
+       this%check_boundary = .true.
+    endif
   end subroutine coop_function_initialize
 
   function coop_function_evaluate(this, x) result(f)
@@ -296,8 +346,16 @@ contains
     b = xdiff/this%dx + 1.d0
     l = floor(b)
     if(l .lt. 1)then
+       if(this%check_boundary)then
+          write(*,*) "coop_function cannot be evaluated out of its boundary"
+          stop
+       endif
        f = this%fleft + this%slopeleft*xdiff
     elseif(l.ge. this%n)then
+       if(this%check_boundary)then
+          write(*,*) "coop_function cannot be evaluated out of its boundary"
+          stop
+       endif
        xdiff = x - this%xmax
        f = this%fright + this%sloperight*xdiff
     else
