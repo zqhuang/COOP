@@ -657,6 +657,4 @@ contains
     enddo    
   end function coop_polyvalue
 
-
-
 end module coop_basicutils_mod

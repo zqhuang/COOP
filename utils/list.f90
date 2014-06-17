@@ -8,7 +8,7 @@ module coop_list_mod
   COOP_INT,parameter::sp = kind(1.)
   COOP_INT,parameter::dl = kind(1.d0)
 
-  public::coop_list_integer, coop_list_real, coop_list_realarr, coop_list_double, coop_list_logical, coop_list_string, coop_list_character, coop_string_to_list, coop_dictionary, coop_dictionary_lookup
+  public::coop_list_integer, coop_list_real, coop_list_realarr, coop_list_double, coop_list_logical, coop_list_string, coop_list_character, coop_string_to_list, coop_dictionary, coop_dictionary_lookup, coop_get_prime_numbers
 
   interface coop_list_initialize
      module procedure coop_list_integer_initialize, coop_list_real_initialize, coop_list_double_initialize, coop_list_logical_initialize, coop_list_string_initialize, coop_list_character_initialize, coop_list_realarr_initialize
@@ -1580,6 +1580,39 @@ contains
        write(*,*) "Empty coop_dictionary"
     endif
   end subroutine coop_dictionary_print
+
+
+  !!return the at most m largest prime number that is <= n; p(1)<=p(2)<=...
+  subroutine coop_get_prime_numbers(n, pl)
+    COOP_INT n
+    type(coop_list_integer)::pl
+    COOP_INT,dimension(:),allocatable::plist
+    COOP_INT i, j, np, top, npmax
+    logical isp
+    npmax = min(n-1, ceiling((n+1.d0)/log(n+1.d0)*1.2) + 10000)
+    allocate(plist(npmax))
+    np = 0
+    do i=2, n
+       top = floor(sqrt(i+1.d-10))
+       isp = .true.
+       do j=1, np
+          if(plist(j) .gt. top) exit
+          if(mod(i, plist(j)).eq.0)then
+             isp = .false.
+             exit
+          endif
+       enddo
+       if(isp)then
+          np = np+1
+          if(np.gt. npmax) stop "Prime numbers overflow"
+          plist(np) = i
+          call pl%push(i)
+       endif
+    enddo
+    deallocate(plist)
+  end subroutine coop_get_prime_numbers
+
+
 
 End module coop_list_mod
 

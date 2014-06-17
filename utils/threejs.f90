@@ -1,23 +1,37 @@
-module threej_utils
-  use basic_utils
-  use specfunc_utils
-  use file_io_utils
-  use SphericalBessel_utils!,only:SphericalBesselJ, lngamma_int_table, lngamma_hi_table, sqrt_table
+module coop_threej_mod
+  use coop_wrapper_typedef
+  use coop_jl_mod
+  use coop_special_function_mod
   implicit none
+  private
+
+#include "constants.h"
+
+  public::coop_threej000, coop_threej_fixed_m1, coop_threej_table, coop_threej_generate_table
 
 
-  type syy3j_table
-     integer ntheta
-     real(dl) dtheta
-     real(dl),dimension(:),allocatable::mu
+  COOP_INT ,parameter::dl = kind(1.d0)
+  COOP_INT ,parameter::sp = kind(1.)
+
+  type coop_threej_table
+     COOP_INT  ntheta
+     COOP_REAL  dtheta
+     COOP_REAL ,dimension(:),allocatable::mu
      real(sp),dimension(:,:,:),allocatable::s
-  end type syy3j_table
+   contains
+     procedure::free => coop_threej_table_free
+  end type coop_threej_table
+
+
+  interface is_triangle
+     module procedure is_triangle_real, is_triangle_int
+  end interface is_triangle
 
 contains
 
-  function Threej000(l1,l2,l3) result(w3j)
-    real(dl) w3j
-    integer l1,l2,l3, J, g
+  function Coop_threej000(l1,l2,l3) result(w3j)
+    COOP_REAL  w3j
+    COOP_INT  l1,l2,l3, J, g
     J = (l1+l2+l3)
     if(l1+l2.lt.l3 .or. l2+l3.lt.l1 .or. l3+l1.lt.l2 .or. mod(J,2).ne.0)then
        w3j = 0._dl
@@ -25,15 +39,15 @@ contains
     endif
     g = J/2
     w3j = dexp(&
-         lngamma_int_table(g+1)-lngamma_int_table(g-l1+1) &
-         -lngamma_int_table(g-l2+1) - lngamma_int_table(g-l3+1) &
+         log_gamma(g+1.d0)-log_gamma(g-l1+1.d0) &
+         -log_gamma(g-l2+1.d0) - log_gamma(g-l3+1.d0) &
          +( &
-         lngamma_int_table(J-2*l1+1) + lngamma_int_table(J-2*l2+1) &
-         + lngamma_int_table(J-2*l3+1) - lngamma_int_table(J+2) &
+         log_gamma(J-2*l1+1.d0) + log_gamma(J-2*l2+1.d0) &
+         + log_gamma(J-2*l3+1.d0) - log_gamma(J+2.d0) &
          )/2.d0 &
          )
     if(mod(g,2).ne.0) w3j = -w3j
-  end function Threej000
+  end function Coop_threej000
 
   
 
@@ -41,15 +55,11 @@ contains
 !!$for large l' you need to use limber approximation
   function limapp_int(l,func)
     !!return limber approximation: \int_0^\infty func(x) j_l(x) dx
-    interface
-       function func(x)
-         use basic_utils
-         real(dl) func,x
-       end function func
-    end interface
-    integer l
-    real(dl) limapp_int
-    limapp_int = sqrt(const_pio2/(l+0.5_dl))*func(l+0.5_dl)
+    external func
+    COOP_REAL func
+    COOP_INT  l
+    COOP_REAL  limapp_int
+    limapp_int = sqrt(coop_pio2/(l+0.5_dl))*func(l+0.5_dl)
   end function limapp_int
 
 
@@ -57,23 +67,23 @@ contains
   !!this works for arbitrary l,m
   !!but it is too slow if you want a lot of P_l^m s
   function Normalized_Plm_recur(l,m,x) result(Plm)
-    real(dl) x, Plm_prev, Plm, Plm_next, sca
-    integer l,m, i
+    COOP_REAL  x, Plm_prev, Plm, Plm_next, sca
+    COOP_INT  l,m, i
     logical need_norm
     if(m.lt.0 .or. m.gt.l .or. dabs(x).gt.1.d0)then
        stop "Invalid argument in Normalized_Plm_recur"
        return
     endif
     if(m.eq.0 .or. l.le.10)then
-       Plm = Normalized_Associated_Legendre(l,m,x)
+       Plm = coop_Normalized_Associated_Legendre(l,m,x)
        return
     endif
     if(m.eq.l)then
-       Plm = dexp(lngamma_hi_table(m+1)-lngamma_hi_table(1)-lngamma_int_table(2*m+1)/2.d0 + m*(const_ln2+lnabs(1.d0-x**2)/2.d0))
+       Plm = dexp(lngamma_hi_table(m+1)-lngamma_hi_table(1)-log_gamma(2*m+1.d0)/2.d0 + m*(coop_ln2+lnabs(1.d0-x**2)/2.d0))
        if(mod(l,2).ne.0) Plm = -Plm
        return
     endif
-    sca = lngamma_hi_table(m+1)-lngamma_hi_table(1)-lngamma_int_table(2*m+1)/2.d0 + m*(const_ln2+lnabs(1.d0-x**2)/2.d0)
+    sca = lngamma_hi_table(m+1)-lngamma_hi_table(1)-log_gamma(2*m+1.d0)/2.d0 + m*(coop_ln2+lnabs(1.d0-x**2)/2.d0)
     if(sca .lt. -1.e4_dl)then
        Plm = 0.d0
        return
@@ -84,9 +94,9 @@ contains
        else
           Plm_prev = -dexp(sca)
        endif
-       Plm =  sqrt_table(2*m+1)*x*Plm_prev
+       Plm =  sqrt(2*m+1.d0)*x*Plm_prev
        do i=m+2,l
-          Plm_next = ((2*i-1)*x*Plm-sqrt_table(i-m-1)*sqrt_table(i+m-1)*Plm_prev)/(sqrt_table(i-m)*sqrt_table(i+m))
+          Plm_next = ((2*i-1)*x*Plm-sqrt((i-m-1.d0)*(i+m-1.d0))*Plm_prev)/(sqrt(dble(i-m)*(i+m)))
           Plm_prev = Plm
           Plm = Plm_next
        enddo
@@ -97,9 +107,9 @@ contains
           Plm_prev = -1.d0
        endif
        need_norm = .true.
-       Plm =  sqrt_table(2*m+1)*x*Plm_prev
+       Plm =  sqrt(2*m+1.d0)*x*Plm_prev
        do i=m+2,l
-          Plm_next = ((2*i-1)*x*Plm-sqrt_table(i-m-1)*sqrt_table(i+m-1)*Plm_prev)/(sqrt_table(i-m)*sqrt_table(i+m))
+          Plm_next = ((2*i-1)*x*Plm-sqrt((i-m-1.d0)*(i+m-1.d0))*Plm_prev)/(sqrt(dble(i-m)*(i+m)))
           Plm_prev = Plm
           Plm = Plm_next
           if(need_norm)then
@@ -122,10 +132,10 @@ contains
 
   !!this only works for small l, m
   subroutine get_all_Normalized_Plms(lmax, mmax, x, Plms)
-    real(dl) x, lnsx
-    integer lmax, mmax
-    real(dl) Plms(0:lmax, 0:mmax)
-    integer l,m
+    COOP_REAL  x, lnsx
+    COOP_INT  lmax, mmax
+    COOP_REAL  Plms(0:lmax, 0:mmax)
+    COOP_INT  l,m
     if(dabs(x).gt.1.d0 .or. m .gt. 100 .or. lmax .gt. 1000) stop "wrong argument in get_all_normalized_Plms"
     Plms = 0.d0
     if(dabs(x).eq.1.d0)then
@@ -136,14 +146,14 @@ contains
     !$omp parallel do private(m, l)
     do m=0, min(lmax,mmax)
        if(mod(m,2).eq.0)then
-          Plms(m,m)= dexp(lngamma_hi_table(m+1)-lngamma_hi_table(1)-lngamma_int_table(2*m+1)/2.d0+m*(const_ln2+lnsx))
+          Plms(m,m)= dexp(lngamma_hi_table(m+1)-lngamma_hi_table(1)-log_gamma(2*m+1)/2.d0+m*(coop_ln2+lnsx))
        else
-          Plms(m,m) = - dexp(lngamma_hi_table(m+1)-lngamma_hi_table(1)-lngamma_int_table(2*m+1)/2.d0+m*(const_ln2+lnsx))
+          Plms(m,m) = - dexp(lngamma_hi_table(m+1)-lngamma_hi_table(1)-log_gamma(2*m+1)/2.d0+m*(coop_ln2+lnsx))
        endif
        if(m .lt. lmax)then
-          Plms(m+1,m) = sqrt_table(2*m+1)*x*Plms(m,m)
+          Plms(m+1,m) = sqrt(2*m+1.d0)*x*Plms(m,m)
           do l=m+2,lmax
-             Plms(l, m) = ((2*l-1)*x*Plms(l-1,m)-sqrt_table(l-m-1)*sqrt_table(l+m-1)*Plms(l-2,m))/(sqrt_table(l-m)*sqrt_table(l+m))
+             Plms(l, m) = ((2*l-1)*x*Plms(l-1,m)-sqrt((l-m-1.d0)*(l+m-1.d0))*Plms(l-2,m))/(sqrt(dble(l-m)*(l+m)))
           enddo
        endif
     enddo
@@ -155,11 +165,11 @@ contains
   !!for a given l, obtain all P_l^m(x) for -l<=m<=l;
   !!output: Plms(-l:l)
   subroutine get_all_normalized_Plms_l(l, x, Plms, mmax)
-    real(dl) x, A, B, sqrtA, nu, Bmax, xsqrtA, sqrtB, sqrtBmB, Aplus, Aminus
-    integer l,m, m0, dm0, mstart
-    integer,optional::mmax
-    integer mend
-    real(dl) Plms(-l:l)
+    COOP_REAL  x, A, B, sqrtA, nu, Bmax, xsqrtA, sqrtB, sqrtBmB, Aplus, Aminus
+    COOP_INT  l,m, m0, dm0, mstart
+    COOP_INT ,optional::mmax
+    COOP_INT  mend
+    COOP_REAL  Plms(-l:l)
     if(dabs(x).gt.1.d0 .or. l.lt.0) Stop "Invalid arguments in get_all_normalized_Plms_l"
     if(present(mmax))then
        mend = min(mmax, l)
@@ -221,11 +231,11 @@ contains
              sqrtBmB = dsqrt(Bmax-B)
              nu = sqrtB*sqrtBmB
              Plms(m) =  dsin(sqrtA * datan(xsqrtA/sqrtBmB) &
-                  + sqrtB/2.d0*(datan((Aplus-B)/nu) - datan((Aminus-B)/nu))+(l+m+1)*const_pio2)/(1.d0-x**2/(1.d0-B/A))**0.25d0
+                  + sqrtB/2.d0*(datan((Aplus-B)/nu) - datan((Aminus-B)/nu))+(l+m+1)*coop_pio2)/(1.d0-x**2/(1.d0-B/A))**0.25d0
              if(mod(l+m,2).eq.0)then
-                Plms(m) = Plms(m)*dexp((lngamma_int_table(l-m+1)+lngamma_int_table(l+m+1))/2.d0-l*const_ln2 - lngamma_int_table((l-m)/2+1)-lngamma_int_table((l+m)/2+1))
+                Plms(m) = Plms(m)*dexp((log_gamma(l-m+1)+log_gamma(l+m+1))/2.d0-l*coop_ln2 - log_gamma((l-m)/2+1)-log_gamma((l+m)/2+1))
              else
-                Plms(m) = Plms(m)*dexp((lngamma_int_table(l-m+1)+lngamma_int_table(l+m+1))/2.d0-l*const_ln2 - lngamma_hi_table((l-m)/2+2)-lngamma_hi_table((l+m)/2+2))
+                Plms(m) = Plms(m)*dexp((log_gamma(l-m+1)+log_gamma(l+m+1))/2.d0-l*coop_ln2 - lngamma_hi_table((l-m)/2+2)-lngamma_hi_table((l+m)/2+2))
              endif
           enddo
           !$omp end parallel do
@@ -238,8 +248,8 @@ contains
   !!for given m calculate all P_l^m(x), with l running from m to lmax
   !!outpu Plms(m:lmax)
   subroutine get_all_normalized_Plms_m(lmax, m, x, Plms)
-    integer lmax, m, l
-    real(dl) x, Plms(m:lmax), sca
+    COOP_INT  lmax, m, l
+    COOP_REAL  x, Plms(m:lmax), sca
     logical need_norm
     if(dabs(x).gt.1.d0 .or. m.lt.0)stop "Invalid argument in get_all_normalized_Plms,m"
     if(dabs(x).eq.1.d0)then
@@ -251,7 +261,7 @@ contains
        endif
        return
     endif
-    sca = lngamma_hi_table(m+1)-lngamma_hi_table(1)-lngamma_int_table(2*m+1)/2.d0+m*(const_ln2+dlog(1.d0-x**2)/2.d0)
+    sca = lngamma_hi_table(m+1)-lngamma_hi_table(1)-log_gamma(2*m+1)/2.d0+m*(coop_ln2+dlog(1.d0-x**2)/2.d0)
     if(sca.lt.-1.e4_dl) then
        Plms = 0.d0
        return
@@ -263,9 +273,9 @@ contains
           Plms(m) = -dexp(sca)
        endif
        if(m .lt. lmax)then
-          Plms(m+1) = sqrt_table(2*m+1)*x*Plms(m)
+          Plms(m+1) = sqrt(2*m+1)*x*Plms(m)
           do l=m+2,lmax
-             Plms(l) = ((2*l-1)*x*Plms(l-1)-sqrt_table(l-m-1)*sqrt_table(l+m-1)*Plms(l-2))/(sqrt_table(l-m)*sqrt_table(l+m))
+             Plms(l) = ((2*l-1)*x*Plms(l-1)-sqrt(l-m-1)*sqrt(l+m-1)*Plms(l-2))/(sqrt(l-m)*sqrt(l+m))
           enddo
        endif
     else
@@ -275,9 +285,9 @@ contains
           Plms(m) = -1.d0
        endif
        need_norm = .true.
-       Plms(m+1) = sqrt_table(2*m+1)*x*Plms(m)
+       Plms(m+1) = sqrt(2*m+1)*x*Plms(m)
        do l=m+2,lmax
-          Plms(l) = ((2*l-1)*x*Plms(l-1)-sqrt_table(l-m-1)*sqrt_table(l+m-1)*Plms(l-2))/(sqrt_table(l-m)*sqrt_table(l+m))
+          Plms(l) = ((2*l-1)*x*Plms(l-1)-sqrt(l-m-1)*sqrt(l+m-1)*Plms(l-2))/(sqrt(l-m)*sqrt(l+m))
           if(need_norm)then
              call multiply_exp(Plms(l-2), sca)
              if(dabs(Plms(l)).gt.1.e20_dl)then
@@ -301,10 +311,10 @@ contains
   end subroutine get_all_normalized_Plms_m
 
   subroutine Accurate_normalized_Plms(lmax, x, Plms, phiisPi)
-    integer lmax
-    real(dl) x
-    real(dl) Plms(0:lmax, -lmax:lmax)
-    integer m
+    COOP_INT  lmax
+    COOP_REAL  x
+    COOP_REAL  Plms(0:lmax, -lmax:lmax)
+    COOP_INT  m
     logical,optional::phiIsPi
     !$omp parallel do
     do m=0,lmax
@@ -327,22 +337,21 @@ contains
 
   !!return ThreeJSymbol[{j1,m1},{j2,m},{j3,-m1-m}]
   !!m running from -j2 to j2;
-  !!The input: integer j1>=0,j2>=0,j3 >=0 and j2<=j3; integer m1>=0
+  !!The input: COOP_INT  j1>=0,j2>=0,j3 >=0 and j2<=j3; COOP_INT  m1>=0
   !!           j1+j2>=j3 and j2+j3>=j1 and j3+j1>=j2
-  subroutine get_3js_m1(j1,j2, j3, m1, threej)
-    integer j1,j2,j3,m1,m, totjsq
-    real(dl) threej(-j2:j2)
-    integer mmax, mmid
-    real(dl) sca
+  subroutine coop_threej_fixed_m1(j1,j2, j3, m1, threej)
+    COOP_INT  j1,j2,j3,m1,m, totjsq
+    COOP_REAL  threej(-j2:j2)
+    COOP_INT  mmax, mmid
+    COOP_REAL  sca
     logical need_norm
     if(j1+j2.lt.j3 .or. j2+j3.lt.j1 .or. j1+j3.lt.j2 .or. m1.gt.j1 .or. m1.lt.0 .or. j2.gt.j3) then
-       if(global_feedback)write(*,*) j1, j2, j3, m1
-       stop "invalid arguments in get_3js_m1"
+       stop "invalid arguments in coop_threej_fixed_m1"
     endif
     mmax = min(j2, j3-m1)
     threej(mmax+1:j2) = 0._dl
     mmid = min(0, mmax)
-    sca = (lngamma_int_table(2*j2+1)+lngamma_int_table(j1+j3-j2+1)+lngamma_int_table(j2+j3-m1+1)+lngamma_int_table(j1+m1+1)-lngamma_int_table(j1+j2-j3+1)-lngamma_int_table(j2+j3-j1+1)-lngamma_int_table(j1-m1+1)-lngamma_int_table(j3+m1-j2+1)-lngamma_int_table(j1+j2+j3+2))/2.d0
+    sca = (log_gamma(2*j2+1)+log_gamma(j1+j3-j2+1)+log_gamma(j2+j3-m1+1)+log_gamma(j1+m1+1)-log_gamma(j1+j2-j3+1)-log_gamma(j2+j3-j1+1)-log_gamma(j1-m1+1)-log_gamma(j3+m1-j2+1)-log_gamma(j1+j2+j3+2))/2.d0
     totjsq = j2*(j2+1)+j3*(j3+1)-j1*(j1+1)
     if(mod(j1+m1,2).eq.0)then
        threej(-j2) = 1.d0
@@ -381,9 +390,9 @@ contains
     endif
     if(mmid.eq.mmax)  return
     if(mmax.eq.j2)then
-       sca = (lngamma_int_table(2*j2+1)+lngamma_int_table(j1+j3-j2+1)+lngamma_int_table(j1-m1+1)+lngamma_int_table(j2+j3+m1+1)-lngamma_int_table(j1+j2-j3+1)-lngamma_int_table(j2+j3-j1+1)-lngamma_int_table(j3-j2-m1+1)-lngamma_int_table(j1+m1+1)-lngamma_int_table(j1+j2+j3+2))/2.d0
+       sca = (log_gamma(2*j2+1)+log_gamma(j1+j3-j2+1)+log_gamma(j1-m1+1)+log_gamma(j2+j3+m1+1)-log_gamma(j1+j2-j3+1)-log_gamma(j2+j3-j1+1)-log_gamma(j3-j2-m1+1)-log_gamma(j1+m1+1)-log_gamma(j1+j2+j3+2))/2.d0
     else !!mmax = j3-m1
-       sca = (lngamma_int_table(j1+j2-j3+1)+lngamma_int_table(2*j3+1)+lngamma_int_table(j2+j3-m1+1) + lngamma_int_table(j1+m1+1)-lngamma_int_table(j1+j3-j2+1) - lngamma_int_table(j2+j3-j1+1)-lngamma_int_table(j2+j3-j1+1)-lngamma_int_table(j1-m1+1)-lngamma_int_table(j2+m1-j3+1)-lngamma_int_table(j1+j2+j3+2))/2.d0
+       sca = (log_gamma(j1+j2-j3+1)+log_gamma(2*j3+1)+log_gamma(j2+j3-m1+1) + log_gamma(j1+m1+1)-log_gamma(j1+j3-j2+1) - log_gamma(j2+j3-j1+1)-log_gamma(j2+j3-j1+1)-log_gamma(j1-m1+1)-log_gamma(j2+m1-j3+1)-log_gamma(j1+j2+j3+2))/2.d0
     endif
     if(mod(j2+j3+m1,2).eq.0)then
        threej(mmax) = 1.d0
@@ -421,32 +430,32 @@ contains
   contains
     
     function coef_C(m)
-      real(dl) coef_C
-      integer m
-      coef_C = sqrt_table(j2-m+1)*sqrt_table(j2+m)*sqrt_table(j3-m-m1+1)*sqrt_table(j3+m+m1)
+      COOP_REAL  coef_C
+      COOP_INT  m
+      coef_C = sqrt((j2-m+1.d0)*(j2+m)*(j3-m-m1+1.d0)*(j3+m+m1))
     end function coef_C
 
 
     function coef_D(m)
-      real(dl) coef_D
-      integer m
+      COOP_REAL  coef_D
+      COOP_INT  m
       coef_D = totjsq - 2*m*(m+m1)
     end function coef_D
 
-  end subroutine get_3js_m1
+  end subroutine coop_threej_fixed_m1
 
 
   !!this returns ThreeJSymbol[{j1,m},{j2,-m-m3},{j3,m3}] (m=-j1,-j1+1,...,j1) in an array  threej(-j1:j1)
   !!mmin and mmax are returned such that the 3-j symbol can be nonzero only when mmin<=m<=mmax;
   subroutine get_3js_m3_general(j1,j2, j3, m3, threej, mmin,mmax)
-    integer j1,j2,j3,m3,mmin,mmax
-    real(dl) threej(-j1:j1)
+    COOP_INT  j1,j2,j3,m3,mmin,mmax
+    COOP_REAL  threej(-j1:j1)
     mmin = max(-j1,-j2-m3)
     mmax = min(j1, j2-m3)
     if(j1.le.j2)then
-       call get_3js_m1(j3, j1, j2, m3, threej(-j1:j1))
+       call coop_threej_fixed_m1(j3, j1, j2, m3, threej(-j1:j1))
     else
-       call get_3js_m1(j3, j2, j1, m3, threej(-j2:j2))
+       call coop_threej_fixed_m1(j3, j2, j1, m3, threej(-j2:j2))
        if(mod(j1+j2+j3,2).eq.0)then
           threej(mmin:mmax) = threej(min(j2,j1-m3):-j2:-1)
        else
@@ -458,10 +467,10 @@ contains
   end subroutine get_3js_m3_general
 
 
-  function syy3j_approx(l1, l2, l3, m3, mu1, mu2) result(f)
+  function coop_threej_approx(l1, l2, l3, m3, mu1, mu2) result(f)
     !!sum_{m1, m2} 4 pi/Sqrt[(2 l1 +1)(2 l2+1)] Y_{l1, m1}(theta1, 0) Y_{l2, m2}(theta, pi) ThreeJSymbol({l1, m1}, {l2, m2}, {l3, m3})
-    real(dl) f, mu1, mu2, threej(-l1:l1), Pl1ms(-l1:l1), Pl2ms(-l2:l2)
-    integer l1, l2, l3, m3, mmin, mmax
+    COOP_REAL  f, mu1, mu2, threej(-l1:l1), Pl1ms(-l1:l1), Pl2ms(-l2:l2)
+    COOP_INT  l1, l2, l3, m3, mmin, mmax
     if(is_triangle(l1,l2,l3) .and. m3 .le. l3)then
        call get_3js_m3_general(l1, l2, l3, m3, threej, mmin,mmax)
        call get_all_normalized_Plms_l(l1, mu1, Pl1ms)
@@ -473,64 +482,33 @@ contains
     else
        f = 0._dl
     endif
-  end function syy3j_approx
+  end function coop_threej_approx
 
-  subroutine syy3j_quick(l1, l2, l3, m3max, Pl1ms, Pl2ms, threej, m1min, m1max, m2min, m2max, f)
+  subroutine coop_threej_quick(l1, l2, l3, m3max, Pl1ms, Pl2ms, threej, m1min, m1max, m2min, m2max, f)
     !!sum_{m1, m2} 4 pi/Sqrt[(2 l1 +1)(2 l2+1)] Y_{l1, m1}(theta1, 0) Y_{l2, m2}(theta, pi) ThreeJSymbol({l1, m1}, {l2, m2}, {l3, m3})
-    integer l1, l2, l3, m3max
-    real(dl) threej(-l1:l1, 0:m3max), Pl1ms(-l1:l1),  Pl2ms(-l2:l2)
+    COOP_INT  l1, l2, l3, m3max
+    COOP_REAL  threej(-l1:l1, 0:m3max), Pl1ms(-l1:l1),  Pl2ms(-l2:l2)
     real(sp) f(0:m3max)
-    integer m1min(0:m3max), m1max(0:m3max), m2min(0:m3max), m2max(0:m3max)
-    integer m3
+    COOP_INT  m1min(0:m3max), m1max(0:m3max), m2min(0:m3max), m2max(0:m3max)
+    COOP_INT  m3
     do m3 = 0, min(m3max, l3)
        f(m3) = real(sum(threej(m1min(m3):m1max(m3), m3)*Pl1ms(m1min(m3):m1max(m3))*Pl2ms(m2min(m3):m2max(m3))))
     enddo
     if(l3.lt.m3max)f(l3+1:m3max) = 0.
-  end subroutine syy3j_quick
+  end subroutine coop_threej_quick
 
-  subroutine syy3j_load(prefix, l1, l2, l3, m3max, st)
-    character(LEN=*) prefix
-    type(file_pointer) fp
-    character(LEN=1024) fname
-    integer l1, l2, l3, m3max
-    type(syy3j_table) st
-    fname = trim(prefix)//trim(num2str(l1))//"_"//trim(num2str(l2))//"_"//trim(num2str(l3))//".dat"
-    if(.not. file_exists(fname))then
-       call feedback_print( "computing syy3j data")
-       call syy3j_generate_table(l1, l2, l3, m3max, st)
-       call feedback_print( "now writing the file")
-       fp = open_file(trim(fname),"u")
-       write(fp%unit) st%ntheta
-       write(fp%unit) st%s(0:m3max, 1:st%ntheta, 1:st%ntheta)
-       call close_file(fp)
-       call feedback_print( "syy3j data computed and saved")
-       return
-    endif
-    fp = open_file(trim(fname),"ru")
-    read(fp%unit, err=100) st%ntheta
-    st%dtheta = const_pi/(st%ntheta-1)
-    if(allocated(st%s))deallocate(st%s)
-    if(allocated(st%mu))deallocate(st%mu)
-    allocate(st%s(0:m3max, st%ntheta, st%ntheta), st%mu(st%ntheta))
-    call set_uniform(st%ntheta, st%mu, 0.d0, const_pi)
-    st%mu = cos(st%mu)
-    read(fp%unit, err=100) st%s(0:m3max, 1:st%ntheta, 1:st%ntheta)
-    call close_file(fp)
-    return
-100 stop "syy3j data file is broken"
-  end subroutine syy3j_load
 
-  subroutine syy3j_generate_table(l1, l2, l3, m3max, st)
-    integer l1, l2, l3, m3max
-    real(dl),dimension(:,:),allocatable::threej, Pl1ms, Pl2ms
-    type(syy3j_table) st
-    integer i, im1, im2, m3, m1min(0:m3max),m1max(0:m3max), m2min(0:m3max), m2max(0:m3max)
+  subroutine coop_threej_generate_table(l1, l2, l3, m3max, st)
+    COOP_INT  l1, l2, l3, m3max
+    COOP_REAL ,dimension(:,:),allocatable::threej, Pl1ms, Pl2ms
+    type(coop_threej_table) st
+    COOP_INT  i, im1, im2, m3, m1min(0:m3max),m1max(0:m3max), m2min(0:m3max), m2max(0:m3max)
     st%ntheta = min(max(l1, l2, l3)*4 + 400, 16384) !!make sure this is an even number, since we will use the parity Plm(x) = (-1)^{l+m} Plm(-x)
-    st%dtheta = const_pi/(st%ntheta-1)
+    st%dtheta = coop_pi/(st%ntheta-1)
     if(allocated(st%s))deallocate(st%s)
     if(allocated(st%mu))deallocate(st%mu)
     allocate(st%s(0:m3max, st%ntheta, st%ntheta), st%mu(st%ntheta))
-    call set_uniform(st%ntheta, st%mu, 0.d0, const_pi)
+    call set_uniform(st%ntheta, st%mu, 0.d0, coop_pi)
     st%mu = cos(st%mu)
     allocate(threej(-l1:l1, 0:m3max), Pl1ms(-l1:l1, st%ntheta), Pl2ms(-l2:l2, st%ntheta))
 
@@ -556,12 +534,12 @@ contains
     !$omp parallel do private(im1, im2)
     do im2 = 1, st%ntheta
        do im1 = 1, st%ntheta
-          call syy3j_quick(l1, l2, l3, m3max, Pl1ms(-l1:l1, im1), Pl2ms(-l2:l2, im2), threej(-l1:l1,0:m3max), m1min(0:m3max), m1max(0:m3max), m2min(0:m3max), m2max(0:m3max), st%s(0:m3max, im1, im2))
+          call coop_threej_quick(l1, l2, l3, m3max, Pl1ms(-l1:l1, im1), Pl2ms(-l2:l2, im2), threej(-l1:l1,0:m3max), m1min(0:m3max), m1max(0:m3max), m2min(0:m3max), m2max(0:m3max), st%s(0:m3max, im1, im2))
        enddo
     enddo
     !$omp end parallel do
     deallocate(Pl1ms, Pl2ms, threej)
-  end subroutine syy3j_generate_table
+  end subroutine coop_threej_generate_table
 
   !!compute (-1)^mP_{l1}^m(mu) (m=-l1, -l1+1, ..., l1) 
   !! save in Pl1ms
@@ -569,10 +547,10 @@ contains
   !! P_{l2}^{-m}(mu) (m=-l2, -l2+1, ..., l2)
   !! => save in Pl2ms
   subroutine get_Plms_l1l2(l1, l2, mu, Pl1ms, Pl2ms)
-    integer l1, l2, lmax, m
-    real(dl) Pl1ms(-l1:l1), Pl2ms(-l2:l2)
-    real(dl) mu
-    real(dl), dimension(:),allocatable::Plms
+    COOP_INT  l1, l2, lmax, m
+    COOP_REAL  Pl1ms(-l1:l1), Pl2ms(-l2:l2)
+    COOP_REAL  mu
+    COOP_REAL , dimension(:),allocatable::Plms
     !!this will be a bit faster but less accurate
     if(max(l1,l2) .gt. 1000)then
        call get_all_normalized_Plms_l(l1, mu, Pl1ms)
@@ -609,12 +587,12 @@ contains
     deallocate(Plms)
   end subroutine get_Plms_l1l2
 
-  subroutine syy3j_interp(st, m3max, mu1, mu2, ss)
-    integer m3max
-    type(syy3j_table) st
-    real(dl) ss(0:m3max)
-    real(dl) mu1, mu2, r1, r2
-    integer i1, i2
+  subroutine coop_threej_interp(st, m3max, mu1, mu2, ss)
+    COOP_INT  m3max
+    type(coop_threej_table) st
+    COOP_REAL  ss(0:m3max)
+    COOP_REAL  mu1, mu2, r1, r2
+    COOP_INT  i1, i2
     r1 = acos(mu1)/st%dtheta + 1
     i1 = min(floor(r1), st%ntheta-1)
     r1 = r1 - i1
@@ -627,17 +605,35 @@ contains
     else
        call bicubic_interp(m3max+1, st%s(0:m3max, i1-1:i1+2, i2-1:i2+2), r1, r2, ss)
     endif
-  end subroutine syy3j_interp
-
-  subroutine syy3j_destroy(st)
-    type(syy3j_table) st
-    if(allocated(st%s))deallocate(st%s)
-    if(allocated(st%mu))deallocate(st%mu)
-  end subroutine syy3j_destroy
+  end subroutine coop_threej_interp
 
 
-
+  subroutine coop_threej_table_free(this)
+    class(coop_threej_table) this
+    if(allocated(this%s))deallocate(this%s)
+    if(allocated(this%mu))deallocate(this%mu)
+  end subroutine coop_threej_table_free
 
 
 
-end module Threej_utils
+  subroutine multiply_exp(a, x) !!replace A with A*exp(x), A can be negative
+    COOP_REAL  a, x
+    if(a .eq. 0.d0)  return
+    a = sign(exp(x + log(abs(a))), a)
+  end subroutine multiply_exp
+
+  function is_triangle_real(k1, k2, k3)
+    COOP_REAL  k1, k2, k3
+    logical is_triangle_real
+    is_triangle_real = (k1+k2 .gt. k3 .and. k2+k3 .gt. k1 .and. k1+k3 .gt. k2)
+  end function is_triangle_real
+
+  function is_triangle_int(l1, l2, l3)
+    COOP_INT  l1, l2, l3
+    logical is_triangle_int
+    is_triangle_int = (l1+l2 .ge. l3 .and. l2+l3.ge.l1 .and. l1+l3.ge.l2)
+  end function is_triangle_int
+
+
+
+end module Coop_threej_mod

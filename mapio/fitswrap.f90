@@ -38,7 +38,7 @@ module coop_fitswrap_mod
 
 
   type, extends(coop_fits_image)::coop_fits_image_cea
-     COOP_REAL smooth_pixsize, pixsize
+     COOP_REAL smooth_pixsize, pixsize, smooth_dkx, smooth_dky
      real(dl) xmin, xmax, ymin, ymax
      COOP_INT:: smooth_nx, smooth_ny, smooth_npix
      type(coop_sphere_disc)::disc
@@ -49,6 +49,11 @@ module coop_fitswrap_mod
        procedure::pix2flat => coop_fits_image_cea_pix2flat
        procedure::cut => coop_fits_image_cea_cut
        procedure::filter => coop_fits_image_cea_filter
+       procedure::smooth_flat => coop_fits_image_cea_smooth_flat
+       procedure::find_extrema => coop_fits_image_cea_find_extrema
+       procedure::stack => coop_fits_image_cea_stack
+       procedure::stack2fig => coop_fits_image_cea_stack2fig
+       procedure::simulate => coop_fits_image_cea_simulate
   end type coop_fits_image_cea
 
 
@@ -299,6 +304,8 @@ contains
     end where
     this%smooth_nx = this%smooth_nx - 2
     this%smooth_ny = this%smooth_ny - 2
+    this%smooth_dkx = coop_2pi/(this%smooth_pixsize*(this%smooth_nx*2+1))
+    this%smooth_dky = coop_2pi/(this%smooth_pixsize*(this%smooth_ny*2+1))
     deallocate(this%smooth_image)
     allocate(this%smooth_image(-this%smooth_nx:this%smooth_nx, -this%smooth_ny:this%smooth_ny))
     this%smooth_image = w(-this%smooth_nx:this%smooth_nx, -this%smooth_ny:this%smooth_ny)
@@ -310,13 +317,14 @@ contains
     this%ymin = -this%ymax
   end subroutine coop_fits_image_cea_get_flatmap
 
+
   subroutine coop_fits_image_cea_filter(this, lmin, lmax)
-    class(coop_fits_image_cea) this
+    class(coop_fits_image_cea)::this
     COOP_INT lmin, lmax, i, j
     COOP_REAL k2min, k2max, k2, rn1, rn2, kmin, kmax, omega, j2
     complex(dlc),dimension(:,:),allocatable::fk
     allocate( fk(0:this%nside(1)/2, 0:this%nside(2)-1))
-    call coop_fft_forward(this%nside(2), this%nside(1), this%image, fk)
+    call coop_fft_forward(this%nside(1), this%nside(2), this%image, fk)
     rn1 = real(this%nside(1), dl)
     rn2  = real(this%nside(2), dl)/rn1
     k2min = (this%pixsize * lmin/coop_2pi*rn1)**2
@@ -339,8 +347,174 @@ contains
           endif
        enddo
     enddo
-    call coop_fft_backward(this%nside(2), this%nside(1), fk, this%image)
+    call coop_fft_backward(this%nside(1), this%nside(2), fk, this%image)
     deallocate(fk)
   end subroutine coop_fits_image_cea_filter
+
+
+  subroutine coop_fits_image_cea_smooth_flat(this, lmin, lmax, fk_file)
+    class(coop_fits_image_cea)::this
+    COOP_UNKNOWN_STRING, optional:: fk_file
+    COOP_INT lmin, lmax, i, j, ik
+    COOP_REAL k2min, k2max, k2, rn1, rn2, kmin, kmax, omega, j2, kstep, rk
+    complex(dlc),dimension(:,:),allocatable::fk
+    type(coop_file)::fkf
+    COOP_INT nk
+    COOP_REAL,dimension(:),allocatable::karr, Pkarr, warr
+    allocate( fk(0:this%smooth_nx, 0:this%smooth_ny*2))
+    call coop_fft_forward(this%smooth_nx*2+1, this%smooth_ny*2+1, this%smooth_image, fk)
+    rn1 = this%smooth_nx*2+1.d0
+    rn2  =this%smooth_ny*2+1.d0
+    kmin = (this%smooth_pixsize * lmin/coop_2pi)
+    kmax = (this%smooth_pixsize * lmax/coop_2pi)
+    omega = coop_pi/(kmax - kmin)
+    kmax = min(kmax, coop_sqrt2/2.d0)
+    k2min = kmin**2
+    k2max = kmax**2
+    if(present(fk_file))then
+       nk = (kmax-kmin)/this%smooth_pixsize
+       kstep = (kmax - kmin)/nk
+       allocate(karr(0:nk+1), Pkarr(0:nk+1), warr(0:nk+1))
+       call coop_set_uniform(nk+2, karr, kmin-kstep/2.d0, kmax+kstep/2.d0)
+       pkarr = 0.d0
+    endif
+    do j=0, this%smooth_ny*2
+       j2 = (min(j, this%smooth_ny*2+1-j)/rn2)**2
+       if( j2 .gt. k2max)then
+          fk(0:this%smooth_nx, j) = ( 0.d0, 0.d0 )
+          cycle
+       endif
+       do i = 0, this%smooth_nx
+          k2 = j2 + (i/rn1)**2
+          if(k2 .lt. k2min .or. k2.gt. k2max)then
+             fk(i, j) = ( 0.d0, 0.d0 )
+          else
+             fk(i, j) = fk(i, j)*sin((sqrt(k2)- kmin)*omega)**2
+             if(present(fk_file))then
+                rk = (sqrt(k2)-kmin)/kstep+0.5d0
+                ik = floor(rk)
+                rk = rk - ik
+                pkarr(ik) = pkarr(ik) + (aimag(fk(i, j))**2 + real(fk(i,j))**2)*(1.-rk)
+                warr(ik) = warr(ik) + 1.-rk
+                pkarr(ik+1) = pkarr(ik+1) + ( aimag(fk(i, j))**2 + real(fk(i,j))**2 ) * rk
+                warr(ik+1) = warr(ik+1) + rk
+
+             endif
+          endif
+       enddo
+    enddo
+    where(warr .ne. 0.d0)
+       pkarr = pkarr/warr
+    end where
+    if(present(fk_file))then
+       call fkf%open(trim(fk_file))
+       do i=1, nk
+          write(fkf%unit, "(2E16.7)")  karr(i)*coop_2pi/this%smooth_pixsize, pkarr(i)*this%smooth_pixsize**2/(this%smooth_nx*2+1.d0)/(this%smooth_ny*2+1.d0)
+       enddo
+       call fkf%close()
+    endif
+    call coop_fft_backward(this%smooth_nx*2+1, this%smooth_ny*2+1, fk, this%smooth_image)
+    deallocate(fk)
+    if(present(fk_file))deallocate(karr, Pkarr, warr)
+  end subroutine coop_fits_image_cea_smooth_flat
+
+  subroutine coop_fits_image_cea_find_extrema(this, spotfile, spottype, radius)
+    class(coop_fits_image_cea)::this
+    COOP_UNKNOWN_STRING::spotfile, spottype
+    type(coop_file)::cf
+    COOP_REAL,optional:: radius
+    COOP_INT i, j, irad
+    if(present(radius))then
+       irad = ceiling(radius/this%smooth_pixsize)
+    else
+       irad = 1
+    endif
+    call cf%open(trim(spotfile), "w")
+    select case(trim(spottype))
+    case("hot", "Hot", "HOT", "h", "H")
+       do i=-this%smooth_nx+irad, this%smooth_nx - irad
+          do j = -this%smooth_ny+irad, this%smooth_ny - irad
+             if(all(this%smooth_image(i, j) .ge. this%smooth_image(i-1:i+1, j-1:j+1)))then
+                write(cf%unit, "(2I6, E16.7, I6 )") i, j, coop_2pi*coop_random_unit(), min(this%smooth_nx - i, this%smooth_nx + i, this%smooth_ny - j, this%smooth_ny + j)
+             endif
+          enddo
+       enddo
+    end select
+    call cf%close()
+  end subroutine coop_fits_image_cea_find_extrema
+
+  subroutine coop_fits_image_cea_simulate(this, lmin, lmax, Cls)
+    class(coop_fits_image_cea)::this
+    COOP_INT lmin, lmax, i, j, ik
+    COOP_REAL Cls(lmin:lmax)
+    complex(dlc),dimension(:,:),allocatable::fk
+    COOP_REAL amp(lmin:lmax), dkx, dky, rk
+    amp = sqrt(Cls*(2.d0*this%smooth_nx+1)*(2.d0*this%smooth_ny+1)/this%smooth_pixsize**2)
+    dkx = sqrt((i*coop_2pi/this%smooth_pixsize/(2.d0*this%smooth_nx+1.d0))**2+(j*coop_2pi/this%smooth_pixsize/(2.d0*this%smooth_ny+1.d0))**2)
+    allocate(fk(0:this%smooth_nx,0:this%smooth_ny*2))
+    do i=0, this%smooth_nx
+       do j=0, this%smooth_ny
+          rk  = sqrt((this%smooth_dkx*i)**2 + (this%smooth_dky*j)**2) + 0.5d0
+          ik = floor(rk)
+          if(ik.ge.lmin .and. ik .lt. lmax)then
+             rk = rk - ik
+             fk(i,j) = coop_random_complex_gaussian() * (amp(ik)*(1.d0-rk) + amp(ik+1)*rk)
+          endif
+       enddo
+       do j=0, this%smooth_ny
+          rk  = sqrt((this%smooth_dkx*i)**2 + (this%smooth_dky*(2*this%smooth_ny+1-j))**2) + 0.5d0
+          ik = floor(rk)
+          if(ik.ge.lmin .and. ik .lt. lmax)then
+             rk = rk - ik
+             fk(i,j) = coop_random_complex_gaussian() * (amp(ik)*(1.d0-rk) + amp(ik+1)*rk)
+          endif
+       enddo
+    enddo
+    deallocate(fk)
+
+  end subroutine coop_fits_image_cea_simulate
+
+  subroutine coop_fits_image_cea_stack(this, spotfile, nrad, stacked_image)
+    class(coop_fits_image_cea)::this
+    COOP_UNKNOWN_STRING::spotfile
+    type(coop_file)::fp
+    COOP_INT i, j, nrad, ii, jj, dis2b, irot, jrot
+    COOP_REAL theta, radius, stacked_image(-nrad:nrad,-nrad:nrad)
+    stacked_image = 0.d0
+    call fp%open(trim(spotfile))
+    do 
+       read(fp%unit, *, ERR=100, END=100) i, j, theta, dis2b
+       if(dis2b .lt. nrad) cycle
+       do ii= -nrad, nrad
+          do jj= -nrad, nrad 
+             irot = nint(ii*cos(theta) + jj*sin(theta))
+             jrot = nint(-ii*sin(theta) + jj*cos(theta))
+             if(abs(irot).le.nrad .and. abs(jrot).le.nrad) &
+                  stacked_image(irot, jrot) = stacked_image(irot, jrot) + this%smooth_image(i+ii, j+jj)  
+          enddo
+       enddo
+    enddo
+100 call fp%close()
+  end subroutine coop_fits_image_cea_stack
+
+
+  subroutine coop_fits_image_cea_stack2fig(this, spotfile, radius, fig)
+    class(coop_fits_image_cea)::this
+    COOP_REAL radius
+    COOP_UNKNOWN_STRING::spotfile, fig
+    COOP_REAL,dimension(:,:),allocatable::image
+    type(coop_asy)::asy
+    COOP_INT nrad
+    nrad = max(1, floor(radius/this%smooth_pixsize))
+    allocate(image(-nrad:nrad, -nrad:nrad))
+    call this%stack(spotfile, nrad, image)
+    call asy%open(trim(fig))
+    call asy%init(xlabel = "$2\sin{\frac{\theta}{2}} \cos\varphi$", ylabel = "$2\sin{\frac{\theta}{2}} \sin\varphi$", width=7., height=5.5)
+    call coop_asy_density(asy, image, -this%smooth_pixsize*nrad, this%smooth_pixsize*nrad, -this%smooth_pixsize*nrad, this%smooth_pixsize*nrad, label = "$I(\mu K)$")
+    call asy%close()
+    deallocate(image)
+  end subroutine coop_fits_image_cea_stack2fig
+
+
 
 end module coop_fitswrap_mod

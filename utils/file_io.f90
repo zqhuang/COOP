@@ -7,7 +7,7 @@ module coop_file_mod
 
 private
 
-public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_create_directory, coop_delete_directory, coop_file_numcolumns, coop_file_numlines, coop_load_dictionary, coop_free_file_unit, coop_file_exists
+public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_create_directory, coop_delete_directory, coop_file_numcolumns, coop_file_numlines, coop_load_dictionary, coop_free_file_unit, coop_file_exists, coop_file_encrypt, coop_file_decrypt, coop_string_encrypt, coop_string_decrypt
 
   character,parameter::text_comment_symbol = "#"
 
@@ -292,6 +292,99 @@ contains
     enddo
     call fp%close()
   end subroutine coop_load_dictionary
+
+  subroutine coop_file_encrypt(input, output)
+    COOP_UNKNOWN_STRING input, output
+    COOP_LONG_STRING line
+    COOP_INT il
+    type(coop_file)::fin, fout
+    call fin%open(input)
+    call fout%open(output)
+    il = 0
+    do
+       il = il + 1
+       read(fin%unit, "(A)", END=100, ERR=100) line
+       line = trim(adjustl(line))
+       if(trim(line).ne."") &
+            call coop_string_encrypt(line, il**2+2017)
+       write(fout%unit, "(A)") trim(line)
+    enddo
+100 call fin%close()
+    call fout%close()
+  end subroutine coop_file_encrypt
+
+
+  subroutine coop_file_decrypt(input, output)
+    COOP_UNKNOWN_STRING input, output
+    COOP_LONG_STRING line
+    COOP_INT il
+    type(coop_file)::fin, fout
+    call fin%open(input)
+    call fout%open(output)
+    il = 0
+    do
+       il = il + 1
+       read(fin%unit, "(A)", END=100, ERR=100) line
+       if(trim(line).ne."") call coop_string_decrypt(line, il**2+2017)
+       write(fout%unit, "(A)") trim(line)
+    enddo
+100 call fin%close()
+    call fout%close()
+  end subroutine coop_file_decrypt
+
+
+
+  subroutine coop_string_encrypt(str, seed)
+    COOP_UNKNOWN_STRING str
+    COOP_INT seed, p1, p2, ic, i
+    type(coop_list_integer)::pl
+    call coop_get_prime_numbers( mod(seed, 999983) + 128, pl)
+    p1 = pl%element(pl%n)
+    p2 = pl%element(pl%n-1)
+    call pl%init()
+    do i=1, len(str)
+       ic = ichar(str(i:i))
+       if(ic .ge. 39 .and. ic .le. 126)then
+          ic = mod((ic-38)*p1, 89) + 38
+          str(i:i) = char(ic)
+       elseif(ic .ge. 33 .and. ic .le. 38)then
+          ic = mod((ic-32)*p2, 7) + 32
+          str(i:i) = char(ic)
+       endif
+    enddo
+  end subroutine coop_string_encrypt
+
+  subroutine coop_string_decrypt(str, seed)
+    COOP_UNKNOWN_STRING str
+    COOP_INT seed, p1, p2, q1, q2, ic, i
+    type(coop_list_integer)::pl
+    call coop_get_prime_numbers( mod(seed, 999983) + 128, pl)
+    p1 = pl%element(pl%n)
+    p2 = pl%element(pl%n-1)
+    q1 = 1
+    q2 = 1
+    do while(q1.le.88)
+       if(mod(q1*p1, 89).eq.1)exit
+       q1 = q1 + 1
+    enddo
+    do while(q2.le.6)
+       if(mod(q2*p2, 7) .eq. 1) exit
+       q2 = q2 + 1
+    enddo
+    call pl%init()
+    do i=1, len(str)
+       ic = ichar(str(i:i))
+       if(ic .ge. 39 .and. ic .le. 126)then
+          ic = mod((ic-38)*q1, 89) + 38
+          str(i:i) = char(ic)
+       elseif(ic .ge. 33 .and. ic .le. 38)then
+          ic = mod((ic-32)*q2, 7) + 32
+          str(i:i) = char(ic)
+       endif
+    enddo
+  end subroutine coop_string_decrypt
+
+
 
 
 end module coop_file_mod

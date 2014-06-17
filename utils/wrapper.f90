@@ -11,6 +11,7 @@ module coop_wrapper_utils
   use coop_file_mod
   use coop_asy_mod
   use coop_fft_mod
+  use coop_jl_mod
   implicit none
 
 contains

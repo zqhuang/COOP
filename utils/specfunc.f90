@@ -5,39 +5,26 @@ module coop_special_function_mod
 
   private
 
-  integer,parameter::dl  = coop_real_length
-  COOP_INT,parameter::special_function_maxl = 5000
-  COOP_INT,parameter::log_gamma_maxl = special_function_maxl*3+2
-  COOP_REAL,parameter::special_function_mineps = 1.d-50
+  public:: coop_log2, coop_sinc, coop_sinhc, coop_is_integer, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_incompleteGamma, coop_rec3j
 
 
-  public:: coop_special_function, log2, sinc, sinhc
 
-  type coop_special_function
-     COOP_REAL,dimension(:),allocatable::log_gamma_int_table, log_gamma_hi_table, sqrt_table
-   contains
-     procedure::free => coop_special_function_free
-     procedure::init => coop_special_function_initialize
-     procedure::bessj => coop_special_function_bessj
-     procedure::ln_factorial => coop_special_function_ln_factorial
-     procedure::ln_factorial_odd => coop_special_function_ln_factorial_odd
-  end type coop_special_function
+  interface coop_log2
+     module procedure coop_log2_s, coop_log2_v
+  end interface coop_log2
 
-  interface coop_special_function
-     procedure coop_special_function_constructor
-  end interface coop_special_function
+  interface coop_sinc
+     module procedure coop_sinc_s, coop_sinc_v
+  end interface coop_sinc
 
-  interface log2
-     module procedure log2_s, log2_v
-  end interface log2
+  interface coop_sinhc
+     module procedure coop_sinhc_s, coop_sinhc_v
+  end interface coop_sinhc
 
-  interface sinc
-     module procedure sinc_s, sinc_v
-  end interface sinc
 
-  interface sinhc
-     module procedure sinhc_s, sinhc_v
-  end interface sinhc
+  interface coop_sphericalbesselJ
+     module procedure coop_sphericalBesselJ_s, coop_sphericalBesselJ_v
+  end interface coop_sphericalbesselJ
 
 
 contains
@@ -96,141 +83,56 @@ contains
     atanh_v = 0.5d0*log((1.d0+x)/(1.d0-x))
   end function atanh_v  
 
-  function coop_special_function_constructor() result(this)
-    type(coop_special_function):: this
-    call this%init()
-  end function coop_special_function_constructor
-
-  subroutine coop_special_function_free(this)
-    class(coop_special_function)::this
-    if(allocated(this%sqrt_table))deallocate(this%sqrt_table)
-    if(allocated(this%log_gamma_int_table))deallocate(this%log_gamma_int_table)
-    if(allocated(this%log_gamma_hi_table))deallocate(this%log_gamma_hi_table)
-  end subroutine coop_special_function_free
-
-  subroutine coop_special_function_initialize(this)
-    class(coop_special_function):: this
-    COOP_INT l
-    if(.not. allocated(this%sqrt_table))then
-       allocate(this%log_gamma_int_table(0:log_gamma_maxl))
-       allocate(this%log_gamma_hi_table(0:log_gamma_maxl))
-       allocate(this%sqrt_table(0:log_gamma_maxl))
-       this%log_gamma_hi_table(0) = 1.e30_dl
-       this%log_gamma_int_table(0) = 0._dl
-       this%log_gamma_hi_table(1) = coop_lnpi/2.d0
-       this%log_gamma_int_table(1) = 0._dl
-       do l=2, log_gamma_maxl
-          this%log_gamma_hi_table(l) = this%log_gamma_hi_table(l-1) + dlog(l-1.5_dl)
-          this%log_gamma_int_table(l) = this%log_gamma_int_table(l-1) + dlog(l-1._dl)
-       enddo
-       !$omp parallel do
-       do l=0, log_gamma_maxl
-          this%sqrt_table(l) = dsqrt(dble(l))
-       enddo
-       !$omp end parallel do
-    endif
-  end subroutine coop_special_function_initialize
-
-
   subroutine continued_fraction_recurrence(an, bn, s)
     COOP_REAL an, bn, s(4)
     s = (/ s(3), s(4), bn*s(3)+an*s(1), bn*s(4)+an*s(2) /)
   end subroutine continued_fraction_recurrence
 
-!!input COOP_INT i
-!!return i*(i-1)*(i-2)*...*2*1
-  function coop_special_function_ln_factorial(this, i) result(frac)
-    class(coop_special_function) this
-    COOP_INT i
-    COOP_REAL frac
-    frac = this%log_gamma_int_table(i+1)
-  end function coop_special_function_ln_factorial
-
-!!input COOP_INT i
-!!return (2*i-1)*(2*i-3)*...*3*1
-  function coop_special_function_ln_factorial_odd(this, i) result(frac)
-    class(coop_special_function)::this
-    COOP_INT i
-    COOP_REAL frac
-    frac = this%log_gamma_hi_table(i+1) + coop_ln2 * i - 0.5*coop_lnpi
-  end function coop_special_function_ln_factorial_odd
-
-  Function sinc_s(x) 
-    COOP_REAL x,sinc_s
+  Function coop_sinc_s(x) 
+    COOP_REAL x,coop_sinc_s
     if(abs(x).lt.0.001)then
-       sinc_s=1._dl - x*x/6._dl
+       coop_sinc_s=1.d0 - x*x/6.d0
     else
-       sinc_s=dsin(x)/x
+       coop_sinc_s=dsin(x)/x
     endif
-  End Function sinc_s
+  End Function coop_sinc_s
 
-  function sinc_v(x)
+  function coop_sinc_v(x)
     COOP_REAL,dimension(:),intent(in)::x
-    COOP_REAL sinc_v(size(x))
+    COOP_REAL coop_sinc_v(size(x))
     COOP_INT i
     !$omp parallel do
     do i=1, size(x)
-       sinc_v(i) = sinc_s(x(i))
+       coop_sinc_v(i) = coop_sinc_s(x(i))
     end do
     !$omp end parallel do
-  end function sinc_v
+  end function coop_sinc_v
 
-  Function Sinhc_s(x)
-    COOP_REAL x,sinhc_s
+  Function Coop_sinhc_s(x)
+    COOP_REAL x,coop_sinhc_s
     if(abs(x).lt.0.001)then
-       sinhc_s=1._dl + x*x/6._dl
+       coop_sinhc_s=1.d0 + x*x/6.d0
     else
-       sinhc_s=dsinh(x)/x
+       coop_sinhc_s=dsinh(x)/x
     end if
-  End Function Sinhc_s
+  End Function Coop_sinhc_s
 
 
-  function sinhc_v(x)
+  function coop_sinhc_v(x)
     COOP_REAL,dimension(:),intent(in)::x
-    COOP_REAL sinhc_v(size(x))
+    COOP_REAL coop_sinhc_v(size(x))
     COOP_INT i
     !$omp parallel do
     do i=1, size(x)
-       sinhc_v(i) = sinhc_s(x(i))
+       coop_sinhc_v(i) = coop_sinhc_s(x(i))
     end do
     !$omp end parallel do
-  end function sinhc_v
+  end function coop_sinhc_v
 
-
-  function Log_gamma_s(X) !!ln (\Gamma(x))  
-    COOP_REAL Log_gamma_s,X
-    COOP_INT I
-    COOP_REAL C(6),S,R,Y,TEMP
-    data C,S/76.18009172947146d0,-86.50532032941677d0, &
-         24.01409824083091d0,-1.231739572450155d0,.1208650973866179d-2, &
-         -.5395239384953d-5,2.5066282746310005d0/
-    Y=X
-    TEMP=X+5.5D0
-    TEMP=(X+0.5D0)*dlog(TEMP)-TEMP
-    R=1.000000000190015D0
-    DO I=1,6
-       Y=Y+1.D0
-       R=R+C(I)/Y
-    endDO
-    Log_gamma_s = temp + dlog(S*R/X)
-  end function Log_gamma_s
-
-
-  function Log_gamma_v(x)
-    COOP_REAL,dimension(:),intent(in)::x
-    COOP_REAL Log_gamma_v(size(x))
-    COOP_INT i
-    !$omp parallel do
-    do i=1, size(x)
-       Log_gamma_v(i) = Log_gamma_s(x(i))
-    end do
-    !$omp end parallel do
-  end function Log_gamma_v
-
-  function digamma(x) result(psi)
+  function coop_digamma(x) result(psi)
     COOP_REAL x, psi, y
-    if(abs(x-nint(x)).lt. special_function_mineps .and. nint(x).le.0)then
-       psi = gamma_product( (/ x, 1-x /), (/ 1, 1 /) )
+    if(abs(x-nint(x)).lt. coop_tiny .and. nint(x).le.0)then
+       psi = coop_gamma_product( (/ x, 1-x /), (/ 1, 1 /) )
        if(mod(nint(x),2).eq.0) psi = -psi
        return
     endif
@@ -244,10 +146,10 @@ contains
     psi = psi + dlog(y) 
     y = 1.d0/y**2
     psi = psi + y*((1.d0/24.d0) + y*(-(7.d0/960.d0) + y*((31.d0/8064.d0) + y*(-(127.d0/30720.d0) + y*((511.d0/67584.d0)+y*(-1414477.d0/67092480.d0)) ))))
-  end function digamma
+  end function coop_digamma
 
 
-  function gamma_product(x, p, lnnorm) result(f)
+  function coop_gamma_product(x, p, lnnorm) result(f)
     COOP_REAL f
     COOP_REAL,dimension(:)::x
     COOP_INT,dimension(:)::p
@@ -255,7 +157,7 @@ contains
     COOP_REAL eps, lnf, pifac
     COOP_REAL,optional::lnnorm
     n = size(x)
-    if(n.ne. size(p)) stop "invalid input in gamma_product"
+    if(n.ne. size(p)) stop "invalid input in coop_gamma_product"
     sgn = 1
     lnf = 0
     do i=1,n
@@ -268,11 +170,11 @@ contains
           else
              eps = m - x(i)
           endif
-          if(abs(eps).lt.special_function_mineps)then
+          if(abs(eps).lt. coop_tiny)then
              if(mod(m,2).eq.0)then
-                eps = special_function_mineps
+                eps = coop_tiny
              else
-                eps = -special_function_mineps
+                eps = -coop_tiny
              endif
           endif
           pifac = dsin(coop_pi*eps)/coop_pi
@@ -285,87 +187,71 @@ contains
     else
        f = dexp(lnf)*sgn
     endif
-  end function gamma_product
+  end function coop_gamma_product
 
-  function special_function_erfc(x)
-    COOP_REAL x,special_function_erfc
-    COOP_REAL Z,T
-    z=dabs(x)
-    t=1./(1.+0.5*z)
-    special_function_erfc=T*dexp(-Z*Z-1.26551223+T*(1.00002368+T*(0.37409196+ &
-         T*(0.09678418+T*(-0.18628806+T*(0.27886807+T*(-1.13520398+ &
-         T*(1.48851587+T*(-0.82215223+T*0.17087277)))))))))
-    if(X.LT.0)special_function_erfc=2.d0-special_function_erfc
-  end function special_function_erfc
-
-  function special_function_erf(x) 
-    COOP_REAL x, special_function_erf
-    special_function_erf = 1.d0 - special_function_erfc(x)
-  end function special_function_erf
 
   !! InCompleteGamma(a,x)=\int_x^\infty t^{a-1}e^{-t}dt, for X>=0, A>0 
   !! Numerical Recipies
-  function InCompleteGamma(A,X)
+  function coop_InCompleteGamma(A,X) result(incompletegamma)
     COOP_REAL InCompleteGamma
     COOP_REAL A,X
     if(X.LT.(A+1.D0))then
        InCompleteGamma=exp(Log_gamma(A))
        if(X.ne.0.d0)InCompleteGamma=InCompleteGamma-D_Gamma1(A,X)
-    ELSE
+    else
        InCompleteGamma=D_Gamma2(A,X)
     endif
-  end function InCompleteGamma
+  contains
+    function D_Gamma1(A,X)
+      COOP_REAL D_Gamma1,A,X
+      COOP_REAL TEMP,ssum,TEMPA
+      COOP_REAL,PARAMETER::PREC=1.D-9
+      if(X.eq.0.D0)THEN
+         D_Gamma1=0.D0
+         return
+      endif
+      TEMP=1.D0/A
+      ssum=TEMP
+      TEMPA=A
+      DO WHILE(TEMP.gt.ssum*PREC)
+         TEMPA=TEMPA+1
+         TEMP=TEMP*X/TEMPA
+         ssum=ssum+TEMP
+      endDO
+      D_Gamma1=ssum*dexp(-X+A*dlog(X))
+    end function D_Gamma1
 
-  function D_Gamma1(A,X)
-    COOP_REAL D_Gamma1,A,X
-    COOP_REAL TEMP,ssum,TEMPA
-    COOP_REAL,PARAMETER::PREC=1.D-9
-    if(X.eq.0.D0)THEN
-       D_Gamma1=0.D0
-       return
-    endif
-    TEMP=1.D0/A
-    ssum=TEMP
-    TEMPA=A
-    DO WHILE(TEMP.gt.ssum*PREC)
-       TEMPA=TEMPA+1
-       TEMP=TEMP*X/TEMPA
-       ssum=ssum+TEMP
-    endDO
-    D_Gamma1=ssum*dexp(-X+A*dlog(X))
-  end function D_Gamma1
-
-  function D_Gamma2(A,X)
-    COOP_REAL D_Gamma2,A,X
-    COOP_REAL AN,B,C,D,H,DEL
-    COOP_REAL,PARAMETER::PREC=1.D-9
-    COOP_REAL,PARAMETER::FPMIN=1.D-50
-    COOP_INT i
-    B=X+1.D0-A 
-    C=1./FPMIN
-    D=1./B
-    H=D
-    I=1
-    DEL=0.D0
-    DO WHILE(Dabs(DEL-1.D0).gt.PREC)
-       AN=-I*(I-A)
-       B=B+2.D0
-       D=AN*D+B
-       if(Dabs(D).LT.FPMIN)D=FPMIN
-       C=B+AN/C
-       if(Dabs(C).LT.FPMIN)C=FPMIN
-       D=1.D0/D
-       DEL=D*C
-       H=H*DEL
-       I=I+1
-    endDO
-    D_Gamma2=dexp(-X+A*dlog(X))*H
-  end function D_Gamma2
-
-
+    function D_Gamma2(A,X)
+      COOP_REAL D_Gamma2,A,X
+      COOP_REAL AN,B,C,D,H,DEL
+      COOP_REAL,PARAMETER::PREC=1.D-9
+      COOP_REAL,PARAMETER::FPMIN=1.D-50
+      COOP_INT i
+      B=X+1.D0-A 
+      C=1./FPMIN
+      D=1./B
+      H=D
+      I=1
+      DEL=0.D0
+      DO WHILE(Dabs(DEL-1.D0).gt.PREC)
+         AN=-I*(I-A)
+         B=B+2.D0
+         D=AN*D+B
+         if(Dabs(D).LT.FPMIN)D=FPMIN
+         C=B+AN/C
+         if(Dabs(C).LT.FPMIN)C=FPMIN
+         D=1.D0/D
+         DEL=D*C
+         H=H*DEL
+         I=I+1
+      endDO
+      D_Gamma2=dexp(-X+A*dlog(X))*H
+    end function D_Gamma2
+  end function Coop_InCompleteGamma
 
 
-  subroutine sf_CISIA(X,CI,SI)
+
+  subroutine coop_cisia(X,CI,SI)
     implicit COOP_REAL (A-H,O-Z)
     implicit COOP_INT (I-N)
     !
@@ -385,7 +271,7 @@ contains
     if (X.eq.0.0D0) THEN
        CI=-1.0D+300
        SI=0.0D0
-    ELSE if (X.LE.16.0D0) THEN
+    else if (X.LE.16.0D0) THEN
        XR=-.25D0*X2
        CI=EL+dlog(X)+XR
        DO  K=2,40
@@ -400,7 +286,7 @@ contains
           SI=SI+XR
           if (Dabs(XR).LT.Dabs(SI)*EPS) return
        endDO
-    ELSE if (X.LE.32.0D0) THEN
+    else if (X.LE.32.0D0) THEN
        M=int(47.2+.82*X)
        XA1=0.0D0
        XA0=1.0D-100
@@ -434,7 +320,7 @@ contains
        XSS=DSIN(X/2.0D0)
        CI=EL+dlog(X)-X*XSS*XG1+2*XCS*XG2-2*XCS*XCS
        SI=X*XCS*XG1+2*XSS*XG2-DSIN(X)
-    ELSE
+    else
        XR=1.0D0
        XF=1.0D0
        DO  K=1,9
@@ -451,7 +337,7 @@ contains
        SI=P2-XF*DCOS(X)/X-XG*DSIN(X)/X
     endif
     return
-  end subroutine sf_CISIA
+  end subroutine coop_cisia
 
 
   !!for x>0 
@@ -502,7 +388,7 @@ contains
   end function sphericalbesselj4
 
 
-  subroutine SphericalBessJ(L,X,JL)
+  subroutine coop_SphericalBesselJ_s(l, x, jl)
     !!== MODifIED subroutine FOR SPHERICAL bessEL functionS.                       ==!!
     !!== CORRECTED THE SMALL BUGS IN PACKAGE CMBFAST&CAMB(for l=4,5, x~0.001-0.002)==!! 
     !!== CORRECTED THE SIGN OF J_L(X) FOR X<0 CASE                                 ==!!
@@ -532,62 +418,62 @@ contains
        case(0)
           if(AX.LT.1.D-1)THEN
              JL=1.D0-AX2/6.D0*(1.D0-AX2/20.D0)
-          ELSE
+          else
              JL=DSIN(AX)/AX
           endif
 
        case(1)
           if(AX.LT.2.D-1)THEN
              JL=AX/3.D0*(1.D0-AX2/10.D0*(1.D0-AX2/28.D0))
-          ELSE
+          else
              JL=(DSIN(AX)/AX-DCOS(AX))/AX
           endif
        case(2)
           if(AX.LT.3.D-1)THEN
              JL=AX2/15.D0*(1.D0-AX2/14.D0*(1.D0-AX2/36.D0))
-          ELSE
+          else
              JL=(-3.0D0*DCOS(AX)/AX-DSIN(AX)*(1.D0-3.D0/AX2))/AX
           endif
        case(3)
           if(AX.LT.4.D-1)THEN
              JL=AX*AX2/105.D0*(1.D0-AX2/18.D0*(1.D0-AX2/44.D0))
-          ELSE
+          else
              JL=(DCOS(AX)*(1.D0-15.D0/AX2)-DSIN(AX)*(6.D0-15.D0/AX2)/AX)/AX
           endif
        case(4)
           if(AX.LT.6.D-1)THEN
              JL=AX2**2/945.D0*(1.D0-AX2/22.D0*(1.D0-AX2/52.D0))
-          ELSE
+          else
              JL=(DSIN(AX)*(1.D0-(45.D0-105.D0/AX2)/AX2)+DCOS(AX)*(10.D0-105.D0/AX2)/AX)/AX
           endif
        case(5)
           if(AX.LT.1.D0)THEN
              JL=AX2**2*AX/10395.D0*(1.D0-AX2/26.D0*(1.D0-AX2/60.D0))
-          ELSE
+          else
              JL=(DSIN(AX)*(15.D0-(420.D0-945.D0/AX2)/AX2)/AX-DCOS(AX)*(1.D0-(105.D0-945.0d0/AX2)/AX2))/AX
           endif
        case(6)
           if(AX.LT.1.D0)THEN
              JL=AX2**3/135135.D0*(1.D0-AX2/30.D0*(1.D0-AX2/68.D0))
-          ELSE
+          else
              JL=(DSIN(AX)*(-1.D0+(210.D0-(4725.D0-10395.D0/AX2)/AX2)/AX2)+ &
                   DCOS(AX)*(-21.D0+(1260.D0-10395.D0/AX2)/AX2)/AX)/AX
           endif
        end select
-    ELSE
+    else
        NU=0.5D0+L
        NU2=NU**2
        if(AX.LT.1.D-40)THEN
           JL=0.D0
-       ELSEif((AX2/L).LT.5.D-1)THEN
+       elseif((AX2/L).LT.5.D-1)THEN
           JL=dexp(L*dlog(AX/NU)-LN2+NU*ONEMLN2-(1.D0-(1.D0-3.5D0/NU2)/NU2/30.D0)/12.D0/NU) &
                /NU*(1.D0-AX2/(4.D0*NU+4.D0)*(1.D0-AX2/(8.D0*NU+16.D0)*(1.D0-AX2/(12.D0*NU+36.D0))))
-       ELSEif((real(l,dl)**2/AX).LT.5.D-1)THEN
+       elseif((dble(l)**2/AX).LT.5.D-1)THEN
           BETA = AX- coop_pio2 * (L+1)
           JL=(DCOS(BETA)*(1.D0-(NU2-0.25D0)*(NU2-2.25D0)/8.D0/AX2*(1.D0-(NU2-6.25)*(NU2-12.25D0)/48.D0/AX2)) &
                -DSIN(BETA)*(NU2-0.25D0)/2.D0/AX* (1.D0-(NU2-2.25D0)*(NU2-6.25D0)/24.D0/AX2*(1.D0-(NU2-12.25)* &
                (NU2-20.25)/80.D0/AX2)) )/AX   
-       ELSE
+       else
           L3=nu**0.325
           if(AX .LT. NU-(1.31 + 5./nu2)*L3) then
              COSB=NU/AX
@@ -607,7 +493,7 @@ contains
 
              !          /**************** Region 2: x >> l ****************/
 
-          ELSEif (AX .gt. NU+(1.48+ 10./nu2)*L3) then
+          elseif (AX .gt. NU+(1.48+ 10./nu2)*L3) then
              COSB=NU/AX
              SX=Dsqrt(AX2-NU2)
              COTB=NU/SX
@@ -625,7 +511,7 @@ contains
 
              !          /***************** Region 3: x near l ****************/
 
-          ELSE
+          else
              BETA=AX-NU
              BETA2=BETA**2
              SX=6.D0/AX
@@ -643,26 +529,26 @@ contains
        endif
     endif
     if(X.LT.0.AND.MOD(L,2).ne.0)JL=-JL
-  end subroutine SphericalBessJ
+  end subroutine Coop_SphericalBesselJ_s
 
-  function spherical_bessel_j_vec(l, xarr) result(jl)
+  subroutine coop_sphericalbesselJ_v(l, xarr, jl)
     COOP_REAL,dimension(:)::xarr
-    COOP_REAL jl(size(xarr))
+    COOP_REAL jl(:)
     COOP_INT i, l
     !$omp parallel do
     do i=1,size(xarr)
-       call SphericalBessJ(l, xarr(i), jl(i))
+       call coop_SphericalBesselJ_s(l, xarr(i), jl(i))
     end do
     !$omp end parallel do
-  end function spherical_bessel_j_vec
+  end subroutine coop_sphericalbesselJ_v
 
   function FT_spherical_tophat(kR) 
     !!Fourier transformation of a tophat function in a sphere with radius R
     COOP_REAL kR, FT_spherical_tophat
     if(kR .gt. 0.02)then
-       FT_spherical_tophat = (dsin(kR)/kR -  dcos(kR))/ kR**2 * 3._dl
+       FT_spherical_tophat = (dsin(kR)/kR -  dcos(kR))/ kR**2 * 3.d0
     else
-       FT_spherical_tophat = (10._dl - kR**2*(1._dl - kR**2/28._dl))/10._dl 
+       FT_spherical_tophat = (10.d0 - kR**2*(1.d0 - kR**2/28.d0))/10.d0 
     endif
   end function FT_spherical_tophat
 
@@ -727,15 +613,14 @@ contains
        XX=AX-2.356194491d0
        bessJ1=sqrt(.636619772d0/AX)*(COS(XX)*(P1+Y*(P2+Y*(P3+Y*(P4+Y &
             *P5))))-Z*SIN(XX)*(Q1+Y*(Q2+Y*(Q3+Y*(Q4+Y*Q5))))) &
-            *SIGN(1._dl,x)
+            *SIGN(1.d0,x)
     endif
   end function bessJ1
 
 
 
 !!J_n
-  function coop_special_function_bessj(this, n, x) result(bessj)
-    class(coop_special_function)::this
+  function coop_bessj(n, x) result(bessj)
     COOP_REAL bessj
     COOP_REAL, intent(in) :: x
     COOP_INT, intent(in) :: n
@@ -754,7 +639,7 @@ contains
        return
     endif
     if( x**2 .lt. n/2.)then
-       bessj = (x/2.d0)**n*exp(-this%log_gamma_int_table(n+1))*(1.d0-x**2/(4.d0*(n+1))*(1.d0-x**2/(8.d0*(n+2))*(1.d0-x**2/(12.d0*(n+3))*(1.d0-x**2/(16.d0*(n+4))))))
+       bessj = (x/2.d0)**n*exp(-log_gamma(n+1.d0))*(1.d0-x**2/(4.d0*(n+1))*(1.d0-x**2/(8.d0*(n+2))*(1.d0-x**2/(12.d0*(n+3))*(1.d0-x**2/(16.d0*(n+4))))))
        return
     endif
     tox = 2/X
@@ -767,13 +652,13 @@ contains
           BJ=BJP
        end DO
        bessJ=BJ
-    ELSE
+    else
        M=2*((N+int(sqrt(real(iacc*N))))/2)
        bessJ=0.0d0
        jsum=0
-       ssum=0._dl
-       BJP=0._dl
-       BJ=1._dl
+       ssum=0.d0
+       BJP=0.d0
+       BJ=1.d0
        DO J=M,1,-1
           BJM=J*tox*BJ-BJP
           BJP=BJ
@@ -791,10 +676,10 @@ contains
        ssum=2.* ssum-BJ
        bessJ=bessJ/ssum
     endif
-  end function Coop_special_function_bessj
+  end function Coop_bessj
 
 
-  subroutine rec3jj(thrcof,l2,l3,m2,m3)
+  subroutine coop_rec3j(thrcof,l2,l3,m2,m3)
     !Recursive evaluation of 3j symbols. Does minimal error checking on input parameters.
     implicit none
     COOP_INT, intent(in) :: l2,l3, m2,m3
@@ -802,14 +687,13 @@ contains
     COOP_REAL newfac,lmatch
     COOP_REAL, dimension(*) :: thrcof
     COOP_INT ier
-    COOP_REAL, parameter :: zero=0._dl, eps=0.01_dl, one=1._dl
+    COOP_REAL, parameter :: zero=0.d0, eps=0.01d0, one=1.d0
     COOP_REAL :: srtiny, sum1, tiny, oldfac, a1, a2, c1, dv, denom, c1old, &
          x, sumuni, c2, sumfor, srhuge, huge, x1, x2, x3, sum2, &
          a1s, a2s, y, sumbac, y1, y2, y3, ratio, cnorm, sign1, &
          sign2, thresh
     COOP_INT :: l1cmin, l1cmax, nfin, lstep, i, nstep2, nfinp1, nfinp2, &
          nfinp3, index, nlim, n
-
 
     ! routine to generate set of 3j-coeffs (l1,l2,l3\\ m1,m2,m3)
 
@@ -1073,13 +957,13 @@ contains
     end do
     return 
 
-  end subroutine rec3jj
+  end subroutine coop_rec3j
 
 
   ! ----------------------------------------------------------------------
   ! Auxiliary Bessel functions for N=0, N=1
-  function bessI0(X)
-    double precision X,bessI0,Y,P1,P2,P3,P4,P5,P6,P7,  &
+  function coop_bessI0(X)
+    double precision X,coop_bessI0,Y,P1,P2,P3,P4,P5,P6,P7,  &
          Q1,Q2,Q3,Q4,Q5,Q6,Q7,Q8,Q9,AX,BX
     DATA P1,P2,P3,P4,P5,P6,P7/1.D0,3.5156229D0,3.0899424D0,1.2067429D0,  &
          0.2659732D0,0.360768D-1,0.45813D-2/
@@ -1088,19 +972,19 @@ contains
          0.2635537D-1,-0.1647633D-1,0.392377D-2/
     if(abs(X).LT.3.75D0) THEN
        Y=(X/3.75D0)**2
-       bessI0=P1+Y*(P2+Y*(P3+Y*(P4+Y*(P5+Y*(P6+Y*P7)))))
-    ELSE
+       coop_bessI0=P1+Y*(P2+Y*(P3+Y*(P4+Y*(P5+Y*(P6+Y*P7)))))
+    else
        AX=abs(X)
        Y=3.75D0/AX
        BX=EXP(AX)/sqrt(AX)
        AX=Q1+Y*(Q2+Y*(Q3+Y*(Q4+Y*(Q5+Y*(Q6+Y*(Q7+Y*(Q8+Y*Q9)))))))
-       bessI0=AX*BX
+       coop_bessI0=AX*BX
     endif
     return
-  end function bessI0
+  end function coop_bessI0
   ! ----------------------------------------------------------------------
-  function bessI1(X)
-    double precision X,bessI1,Y,P1,P2,P3,P4,P5,P6,P7,  &
+  function coop_bessI1(X)
+    double precision X,coop_bessI1,Y,P1,P2,P3,P4,P5,P6,P7,  &
          Q1,Q2,Q3,Q4,Q5,Q6,Q7,Q8,Q9,AX,BX
     DATA P1,P2,P3,P4,P5,P6,P7/0.5D0,0.87890594D0,0.51498869D0,  &
          0.15084934D0,0.2658733D-1,0.301532D-2,0.32411D-3/
@@ -1109,19 +993,19 @@ contains
          -0.2895312D-1,0.1787654D-1,-0.420059D-2/
     if(abs(X).LT.3.75D0) THEN
        Y=(X/3.75D0)**2
-       bessI1=X*(P1+Y*(P2+Y*(P3+Y*(P4+Y*(P5+Y*(P6+Y*P7))))))
-    ELSE
+       coop_bessI1=X*(P1+Y*(P2+Y*(P3+Y*(P4+Y*(P5+Y*(P6+Y*P7))))))
+    else
        AX=abs(X)
        Y=3.75D0/AX
        BX=EXP(AX)/sqrt(AX)
        AX=Q1+Y*(Q2+Y*(Q3+Y*(Q4+Y*(Q5+Y*(Q6+Y*(Q7+Y*(Q8+Y*Q9)))))))
-       bessI1=AX*BX
+       coop_bessI1=AX*BX
     endif
     return
-  end function bessI1
+  end function coop_bessI1
 
 
-  function bessI(N,X)
+  function coop_bessI(N,X)
     !from http://perso.orange.fr/jean-pierre.moreau/Fortran/tbessi_f90.txt
     !
     !     This subroutine calculates the first kind modified Bessel function
@@ -1135,25 +1019,25 @@ contains
     COOP_INT, PARAMETER :: iacc = 40
     COOP_INT m,j
     double precision, parameter ::  bigno = 1.D10, bigni = 1.D-10
-    double precision X,bessI,tox,biM,bi,biP
+    double precision X,coop_bessI,tox,biM,bi,biP
     if(n.lt.2)then
        if (N.eq.0) then
-          bessI = bessI0(X)
+          coop_bessI = coop_bessI0(X)
           return
        endif
        if (N.eq.1) then
-          bessI = bessI1(X)
+          coop_bessI = coop_bessI1(X)
           return
        endif
     endif
     if(abs(x) .lt. 1.d-20) then
-       bessI=0.d0
+       coop_bessI=0.d0
        return
     endif
     tox = 2.D0/X
     bip = 0.D0
     bi = 1.D0
-    bessI = 0.D0
+    coop_bessI = 0.D0
     M = 2*((N+int(sqrt(real(iacc*N)))))
     DO J = M,1,-1
        bim = bip+ J*tox*bi
@@ -1162,90 +1046,90 @@ contains
        if (abs(bi).gt.bigno) then
           bi  = bi*bigni
           biP = biP*bigni
-          bessI = bessI*bigni
+          coop_bessI = coop_bessI*bigni
        endif
-       if (J.eq.N) bessI = bip
+       if (J.eq.N) coop_bessI = bip
     end DO
-    bessI = bessI*bessI0(X)/bi
+    coop_bessI = coop_bessI*coop_bessI0(X)/bi
     return
-  end function bessI
+  end function coop_bessI
 
 
   !!return Legendre polynomial P_l(x)
-  function Legendre_P(l, x) result(Pl)
+  function coop_legendreP(l, x) result(Pl)
     COOP_INT l, ell
     COOP_REAL x, Pl, x2, Plm1, Plm2
     select case(l)
     case(0)
-       Pl = 1._dl
+       Pl = 1.d0
        return
     case(1)
        Pl = x
        return
     case(2)
-       Pl = 1.5_dl*x*x - 0.5_dl
+       Pl = 1.5d0*x*x - 0.5d0
        return
     case(3)
-       Pl = (2.5_dl * x * x - 1.5_dl) * x
+       Pl = (2.5d0 * x * x - 1.5d0) * x
        return
     case(4)
        x2 = x*x
-       Pl = 3._dl/8. + x2 * ( -15._dl/4._dl + x2 * (35._dl/8._dl)  )
+       Pl = 3.d0/8. + x2 * ( -15.d0/4.d0 + x2 * (35.d0/8.d0)  )
        return
     case(5)
        x2 = x*x
-       Pl = x * ( 15._dl/8. + x2 * ( -35._dl/4._dl + x2 * (63._dl/8.)))
+       Pl = x * ( 15.d0/8. + x2 * ( -35.d0/4.d0 + x2 * (63.d0/8.)))
        return
     case(6)
        x2 = x*x
-       Pl = -5._dl/16. + x2*( 105._dl/16. + x2*( -315._dl/16.+ x2*(231._dl/16.)))
+       Pl = -5.d0/16. + x2*( 105.d0/16. + x2*( -315.d0/16.+ x2*(231.d0/16.)))
        return
     case(7)
        x2 = x*x
-       Pl = x * ( -35._dl/16. + x2 * ( 315._dl/16._dl + x2 *( -693._dl/16. +  x2 *(429._dl/16.))))
+       Pl = x * ( -35.d0/16. + x2 * ( 315.d0/16.d0 + x2 *( -693.d0/16. +  x2 *(429.d0/16.))))
        return
     case(8)
        x2 = x*x
-       Pl = 35._dl/128. + x2 * ( -315._dl/32._dl + x2 * (3465._dl/64._dl + x2 *(-3003._dl/32. + x2 * (6435._dl/128.))))
+       Pl = 35.d0/128. + x2 * ( -315.d0/32.d0 + x2 * (3465.d0/64.d0 + x2 *(-3003.d0/32. + x2 * (6435.d0/128.))))
        return
     case(9)
        x2 = x*x
-       Pl = x * (315._dl/128. + x2 * ( -1155._dl/32. + x2 * ( 9009._dl/64. + x2 * ( -6435._dl/32. +  x2* (12155._dl/128.)))))
+       Pl = x * (315.d0/128. + x2 * ( -1155.d0/32. + x2 * ( 9009.d0/64. + x2 * ( -6435.d0/32. +  x2* (12155.d0/128.)))))
        return
     case(10)
        x2 = x * x
-       Pl = -63._dl/256. + x2 * (3465._dl/256. + x2 * (-15015._dl/128. + x2 * (45045._dl/128. + x2 * ( -109395._dl/256.  + x2 * (46189._dl/256.)))))
+       Pl = -63.d0/256. + x2 * (3465.d0/256. + x2 * (-15015.d0/128. + x2 * (45045.d0/128. + x2 * ( -109395.d0/256.  + x2 * (46189.d0/256.)))))
        return
     case(11)
        x2 = x*x
-       Pl = x * (-693._dl/256. +  x2 * ( 15015._dl/256. + x2 * (-45045._dl/128.+ x2 * ( 109395._dl/128. + x2 * (-230945._dl/256. + x2 * (88179._dl/256.))))))
+       Pl = x * (-693.d0/256. +  x2 * ( 15015.d0/256. + x2 * (-45045.d0/128.+ x2 * ( 109395.d0/128. + x2 * (-230945.d0/256. + x2 * (88179.d0/256.))))))
        return
     case(12)
        x2 = x*x
-       Pl = 231._dl/1024. + x2 * ( -9009._dl/512.+ x2 * (225225._dl/1024.+ x2 * (-255255._dl/256 + x2 * (2078505._dl/1024 + x2 * (-969969._dl/512. + x2 * (676039._dl/1024.))))))
+       Pl = 231.d0/1024. + x2 * ( -9009.d0/512.+ x2 * (225225.d0/1024.+ x2 * (-255255.d0/256 + x2 * (2078505.d0/1024 + x2 * (-969969.d0/512. + x2 * (676039.d0/1024.))))))
        return
     case(13)
        x2 = x*x
-       Pl = x*(3003._dl /1024 + x2*(- 45045._dl/512. + x2*(765765._dl/1024 + x2*(-692835._dl/256. + x2*(4849845._dl/1024 + x2*(-2028117._dl/512 + x2*(1300075._dl/1024.)))))))
+       Pl = x*(3003.d0 /1024 + x2*(- 45045.d0/512. + x2*(765765.d0/1024 + x2*(-692835.d0/256. + x2*(4849845.d0/1024 + x2*(-2028117.d0/512 + x2*(1300075.d0/1024.)))))))
        return
     case(14)
        x2 = x*x
-       Pl = -429._dl/2048 + x2*(45045._dl/2048 + x2*(-765765._dl/2048 + x2* (4849845._dl/2048 + x2*(-14549535._dl/2048. + x2*(22309287._dl/2048. + x2*(-16900975._dl/2048. + x2*(5014575._dl/2048.)))))))
+       Pl = -429.d0/2048 + x2*(45045.d0/2048 + x2*(-765765.d0/2048 + x2* (4849845.d0/2048 + x2*(-14549535.d0/2048. + x2*(22309287.d0/2048. + x2*(-16900975.d0/2048. + x2*(5014575.d0/2048.)))))))
        return
     case(15)
        x2 = x*x
-       Pl=x*(-6435._dl/2048. + x2*(255255._dl/2048 + x2*(-2909907._dl/2048. + x2*(14549535._dl/2048. + x2*(-37182145._dl/2048. + x2*(50702925._dl/2048 + x2*(-35102025._dl/2048. + x2*(9694845._dl/2048.))))))))
+       Pl=x*(-6435.d0/2048. + x2*(255255.d0/2048 + x2*(-2909907.d0/2048. + x2*(14549535.d0/2048. + x2*(-37182145.d0/2048. + x2*(50702925.d0/2048 + x2*(-35102025.d0/2048. + x2*(9694845.d0/2048.))))))))
     case(16)
        x2 = x*x
-       Pl = 6435._dl/32768. + x2*(-109395._dl/4096. + x2*(4849845._dl/8192. +x2*(-20369349._dl/4096. + x2*(334639305._dl/16384. + x2*(-185910725._dl/4096. + x2*(456326325._dl/8192. + x2*(-145422675._dl/4096. + x2*(300540195._dl/32768.))))))))
+       Pl = 6435.d0/32768. + x2*(-109395.d0/4096. + x2*(4849845.d0/8192. +x2*(-20369349.d0/4096. + x2*(334639305.d0/16384. + x2*(-185910725.d0/4096. + x2*(456326325.d0/8192. + x2*(-145422675.d0/4096. + x2*(300540195.d0/32768.))))))))
     case(17)
        x2=x*x
-       Pl = x*(109395._dl/32768. + x2*(-692835._dl/4096. + x2*(20369349._dl/8192. + x2*(-66927861._dl/4096. + x2*(929553625._dl/16384. + x2*(-456326325._dl/4096. + x2*(1017958725._dl/8192. + x2*(-300540195._dl/4096. + x2*(583401555._dl/32768.)))))))))
+       Pl = x*(109395.d0/32768. + x2*(-692835.d0/4096. + x2*(20369349.d0/8192. + x2*(-66927861.d0/4096. + x2*(929553625.d0/16384. + x2*(-456326325.d0/4096. + x2*(1017958725.d0/8192. + x2*(-300540195.d0/4096. + x2*(583401555.d0/32768.)))))))))
     case(18)
       x2=x*x
-      Pl = -12155._dl/65536. + x2*(2078505._dl/65536. + x2*(-14549535._dl/16384. + x2*(156165009._dl/16384.+ x2*( -1673196525._dl/32768 + x2*(5019589575._dl/32768. + x2*(-4411154475._dl/16384. + x2*(4508102925._dl/16384. + x2*(-9917826435._dl/65536. + x2*(2268783825._dl/65536.)))))))))
+      Pl = -12155.d0/65536. + x2*(2078505.d0/65536. + x2*(-14549535.d0/16384. + x2*(156165009.d0/16384.+ x2*( -1673196525.d0/32768 + x2*(5019589575.d0/32768. + x2*(-4411154475.d0/16384. + x2*(4508102925.d0/16384. + x2*(-9917826435.d0/65536. + x2*(2268783825.d0/65536.)))))))))
     case default
-       Plm1 = 1._dl
+       Plm1 = 1.d0
        Pl = x
        do ell = 2, l
           Plm2 = Plm1
@@ -1254,7 +1138,7 @@ contains
        enddo
        return
     end select
-  end function Legendre_P
+  end function coop_legendreP
 
   subroutine sphere_correlation_init(lmax, als, bls)
     COOP_INT lmax, l
@@ -1283,17 +1167,17 @@ contains
   end function Sphere_Correlation
 
   !! return sqrt(4 pi / (2l + 1) ) * Y_l^m (arccos x, 0)
-  recursive function Normalized_Associated_Legendre(l, m, x) result(Plm)
+  recursive function Coop_normalized_plm(l, m, x) result(Plm)
     COOP_INT l, m
     COOP_REAL x, x2, Plm
     select case(m)
     case(0)
-       Plm = Legendre_P(l, x)
+       Plm = coop_legendreP(l, x)
        return
     case(1)
        select case(l)
        case(0)
-          Plm = 0._dl
+          Plm = 0.d0
        case(1)
           Plm = - sqrt((1.-x**2)/2.)
        case(2)
@@ -1304,46 +1188,46 @@ contains
           Plm = sqrt(5.*(1.- x**2)) * x * (0.75 - 1.75 * x**2)
        case(5)
           x2 = x**2
-          Plm = sqrt(7.5*(1.-x2))*(-1._dl/8. + x2 * (14._dl/8._dl  + x2 * (-21._dl/8.)))
+          Plm = sqrt(7.5*(1.-x2))*(-1.d0/8. + x2 * (14.d0/8.d0  + x2 * (-21.d0/8.)))
        case(6)
           x2 = x*x
-          Plm = sqrt(10.5*(1.-x2)) * x * ( -5._dl/8._dl + x2 * (30._dl/8._dl + x2 * (-33._dl/8._dl)))
+          Plm = sqrt(10.5*(1.-x2)) * x * ( -5.d0/8.d0 + x2 * (30.d0/8.d0 + x2 * (-33.d0/8.d0)))
        case(7)
           x2 = x*x
-          Plm = sqrt(3.5*(1.-x2)) * (5./32._dl + x2*(-135._dl/32. + x2*(495./32._dl + x2 * (-429./32._dl))))
+          Plm = sqrt(3.5*(1.-x2)) * (5./32.d0 + x2*(-135.d0/32. + x2*(495./32.d0 + x2 * (-429./32.d0))))
        case(8)
           x2 = x*x
-          Plm = sqrt(2.*(1.-x2))*x*(105._dl/64. + x2 * (-1155._dl/64. + x2 * (3003._dl/64.+ x2* (-2145._dl/64.))))
+          Plm = sqrt(2.*(1.-x2))*x*(105.d0/64. + x2 * (-1155.d0/64. + x2 * (3003.d0/64.+ x2* (-2145.d0/64.))))
        case(9)
           x2 = x*x
-          Plm = sqrt(2.5*(1.-x2))*(-21./128._dl + x2 * (231._dl/32. + x2 * (-3003._dl/64. + x2 * (3003._dl/32. + x2 * (-7293._dl/128.)))))
+          Plm = sqrt(2.5*(1.-x2))*(-21./128.d0 + x2 * (231.d0/32. + x2 * (-3003.d0/64. + x2 * (3003.d0/32. + x2 * (-7293.d0/128.)))))
        case(10)
           x2 = x*x
-          Plm = sqrt(27.5*(1.-x2)) * x * (-63./128._dl + x2 *(273._dl/32. + x2 * (-2457._dl/64. + x2 *(1989._dl/32. + x2 * (-4199._dl/128.)))))
+          Plm = sqrt(27.5*(1.-x2)) * x * (-63./128.d0 + x2 *(273.d0/32. + x2 * (-2457.d0/64. + x2 *(1989.d0/32. + x2 * (-4199.d0/128.)))))
        case(11)
           x2 = x*x
-          Plm = sqrt(33._dl*(1.-x2))*(21./512._dl + x2*(-1365._dl/512. + x2*(6825._dl/256. + x2 *(-23205._dl/256. + x2 * (62985._dl/512. + x2 * (-29393._dl/512.))))))
+          Plm = sqrt(33.d0*(1.-x2))*(21./512.d0 + x2*(-1365.d0/512. + x2*(6825.d0/256. + x2 *(-23205.d0/256. + x2 * (62985.d0/512. + x2 * (-29393.d0/512.))))))
        case(12)
           x2 = x*x
-          Plm = sqrt(39._dl * (1.-x2))*x*(231./512._dl + x2 *(-5775./512._dl + x2 * ( 19635._dl/256.+ x2 * (-53295._dl/256. + x2 * (124355._dl/512. + x2 * (-52003._dl/512.))))))
+          Plm = sqrt(39.d0 * (1.-x2))*x*(231./512.d0 + x2 *(-5775./512.d0 + x2 * ( 19635.d0/256.+ x2 * (-53295.d0/256. + x2 * (124355.d0/512. + x2 * (-52003.d0/512.))))))
        case(13)
           x2 = x*x
-          Plm = sqrt(45.5*(1.-x2)) * ( -33._dl/1024. + x2 * (1485._dl/512. + x2 * (-42075._dl/1024. + x2 * (53295._dl/256. + x2 * (-479655._dl/1024. + x2*(245157._dl/512. + x2 * (-185725._dl/1024.)))))))
+          Plm = sqrt(45.5*(1.-x2)) * ( -33.d0/1024. + x2 * (1485.d0/512. + x2 * (-42075.d0/1024. + x2 * (53295.d0/256. + x2 * (-479655.d0/1024. + x2*(245157.d0/512. + x2 * (-185725.d0/1024.)))))))
        case(14)
           x2 = x*x
-          Plm = sqrt(52.5*(1.-x2)) * x * (-429._dl/1024. + x2 * (7293._dl/512. + x2 * (-138567._dl/1024. + x2 * (138567._dl/256. + x2 * (-1062347._dl/1024. + x2 * (482885._dl/512. + x2 * (-334305._dl/1024.)))))))
+          Plm = sqrt(52.5*(1.-x2)) * x * (-429.d0/1024. + x2 * (7293.d0/512. + x2 * (-138567.d0/1024. + x2 * (138567.d0/256. + x2 * (-1062347.d0/1024. + x2 * (482885.d0/512. + x2 * (-334305.d0/1024.)))))))
        case(15)
           x2 = x*x
-          Plm = sqrt(15.*(1.-x2))*(429._dl/8192.+x2*(-51051._dl/8192. + x2*(969969._dl/8192. + x2*(-6789783._dl/8192 + x2*(22309287._dl/8192. + x2*(-37182145._dl/8192. + x2*(30421755._dl/8192. + x2*(-9694845._dl/8192))))))))
+          Plm = sqrt(15.*(1.-x2))*(429.d0/8192.+x2*(-51051.d0/8192. + x2*(969969.d0/8192. + x2*(-6789783.d0/8192 + x2*(22309287.d0/8192. + x2*(-37182145.d0/8192. + x2*(30421755.d0/8192. + x2*(-9694845.d0/8192))))))))
        case(16)
           x2 = x*x
-          Plm = sqrt(17.*(1.-x2))*x*(6435._dl/8192.+x2*(-285285._dl/8192. + x2*(3594591._dl/8192.+x2*( -19684665._dl/8192. + x2*(54679625._dl/8192. + x2*(-80528175._dl/8192. + x2*(59879925._dl/8192. +x2*(-17678835._dl/8192.))))))))
+          Plm = sqrt(17.*(1.-x2))*x*(6435.d0/8192.+x2*(-285285.d0/8192. + x2*(3594591.d0/8192.+x2*( -19684665.d0/8192. + x2*(54679625.d0/8192. + x2*(-80528175.d0/8192. + x2*(59879925.d0/8192. +x2*(-17678835.d0/8192.))))))))
        case(17)
           x2 = x*x
-          Plm = sqrt(8.5_dl*(1.-x2))*(-2145._dl/32768._dl + x2*(40755._dl/4096._dl +x2*(-1996995._dl/8192._dl + x2*(9186177._dl/4096. +x2*(-164038875._dl/16384._dl + x2*(98423325._dl/4096.+x2*( -259479675._dl/8192. + x2*(88394175._dl/4096.+x2*( -194467185._dl/32768.)))))))))
+          Plm = sqrt(8.5d0*(1.-x2))*(-2145.d0/32768.d0 + x2*(40755.d0/4096.d0 +x2*(-1996995.d0/8192.d0 + x2*(9186177.d0/4096. +x2*(-164038875.d0/16384.d0 + x2*(98423325.d0/4096.+x2*( -259479675.d0/8192. + x2*(88394175.d0/4096.+x2*( -194467185.d0/32768.)))))))))
        case(18)
           x2 = x*x
-          Plm  = sqrt(9.5*(1.-x2))*x*(-36465._dl/32768. + x2*(255255._dl/4096.+x2*(-8219211._dl/8192. + x2*(29354325._dl/4096. + x2*(-440314875._dl/16384. + x2*(232166025._dl/4096. +x2*(- 553626675._dl/8192. + x2* (173996955._dl/4096. + x2*(-358229025._dl/32768.)))))))))
+          Plm  = sqrt(9.5*(1.-x2))*x*(-36465.d0/32768. + x2*(255255.d0/4096.+x2*(-8219211.d0/8192. + x2*(29354325.d0/4096. + x2*(-440314875.d0/16384. + x2*(232166025.d0/4096. +x2*(- 553626675.d0/8192. + x2* (173996955.d0/4096. + x2*(-358229025.d0/32768.)))))))))
        case default
           goto 100
        end select
@@ -1351,55 +1235,55 @@ contains
     case(2)
        select case(l)
        case(0:1)
-          Plm = 0._dl
+          Plm = 0.d0
           return
        case(2)
-          Plm = (0.5_dl*sqrt(3./2._dl))* ( 1._dl-x*x)
+          Plm = (0.5d0*sqrt(3./2.d0))* ( 1.d0-x*x)
        case(3)
-          Plm = (0.5_dl * sqrt(15./2._dl))*x*(1._dl -x *x)
+          Plm = (0.5d0 * sqrt(15./2.d0))*x*(1.d0 -x *x)
        case(4)
-          Plm = (-0.25_dl * sqrt(2.5_dl))*(1.-x**2)*(1.- 7.*x**2)
+          Plm = (-0.25d0 * sqrt(2.5d0))*(1.-x**2)*(1.- 7.*x**2)
        case(5)
-          Plm = (-0.25_dl * sqrt(105._dl/2._dl)) * x * (1.- x**2) * (1. - 3.*x**2)
+          Plm = (-0.25d0 * sqrt(105.d0/2.d0)) * x * (1.- x**2) * (1. - 3.*x**2)
        case(6)
           x2 = x*x
-          Plm = (sqrt(105._dl) /32._dl)*(1.-x2) * (1. + x2 *(-18._dl + x2 * 33._dl))
+          Plm = (sqrt(105.d0) /32.d0)*(1.-x2) * (1. + x2 *(-18.d0 + x2 * 33.d0))
        case(7)
           x2 = x * x
-          Plm = (sqrt(21._dl)/32.)*x*(1. - x2)*(15. + x2*(-110. + x2 * 143.))
+          Plm = (sqrt(21.d0)/32.)*x*(1. - x2)*(15. + x2*(-110. + x2 * 143.))
        case(8)
           x2 = x*x
-          Plm = (3._dl/64.*sqrt(35._dl))*(1.-x2)*(-1.+ x2*(33. + x2 *143.* (-1.+ x2)))
+          Plm = (3.d0/64.*sqrt(35.d0))*(1.-x2)*(-1.+ x2*(33. + x2 *143.* (-1.+ x2)))
        case(9)
           x2 = x*x
-          Plm = (3._dl/64. * sqrt(55._dl))*x*(1.-x2)*(-7.+x2*(91.+x2*(-273.+x2*221.)))
+          Plm = (3.d0/64. * sqrt(55.d0))*x*(1.-x2)*(-7.+x2*(91.+x2*(-273.+x2*221.)))
        case(10)
           x2 = x*x
-          Plm = (sqrt(165._dl/2.)/256.)*(1-x2)*(7. + x2 * 13. * (-28. + x2*(210. + x2 * (-476. + x2*323.))))
+          Plm = (sqrt(165.d0/2.)/256.)*(1-x2)*(7. + x2 * 13. * (-28. + x2*(210. + x2 * (-476. + x2*323.))))
        case(11)
           x2 = x*x
-          Plm = (sqrt(2145._dl/2.)/256.)* x*(1.-x2)*(21. + x2 * (-420. + x2 * (2142. + x2 * (-3876. + x2 * 2261.))))
+          Plm = (sqrt(2145.d0/2.)/256.)* x*(1.-x2)*(21. + x2 * (-420. + x2 * (2142. + x2 * (-3876. + x2 * 2261.))))
        case(12)
           x2 = x*x
-          Plm = (sqrt(3003._dl/2.)/512.)*(1.-x2)*(-3.+x2*(225. + 17.*x2 * (-150.+ x2*(570. + x2*(-855. + x2 * 437.)))))
+          Plm = (sqrt(3003.d0/2.)/512.)*(1.-x2)*(-3.+x2*(225. + 17.*x2 * (-150.+ x2*(570. + x2*(-855. + x2 * 437.)))))
        case(13)
           x2 = x*x
-          Plm = (sqrt(455._dl/2.)/512.) * x * (1.- x2)*(-99.+x2*17.*(165. + x2*19.*(-66. + x2*(198. + x2*(-253. + x2*115.)))))
+          Plm = (sqrt(455.d0/2.)/512.) * x * (1.- x2)*(-99.+x2*17.*(165. + x2*19.*(-66. + x2*(198. + x2*(-253. + x2*115.)))))
        case(14)   
           x2 = x*x
-          Plm = (sqrt(1365._dl/2.)/4096._dl) * (1.-x2)*(33. + x2 * 17.*(-198.+ x2*19.*(165.+x2*(-924.+x2*23.*(99. + x2*(-110.+x2*45.))))))
+          Plm = (sqrt(1365.d0/2.)/4096.d0) * (1.-x2)*(33. + x2 * 17.*(-198.+ x2*19.*(165.+x2*(-924.+x2*23.*(99. + x2*(-110.+x2*45.))))))
        case(15)
           x2 = x*x
-          Plm = (sqrt(1785._dl/2.)/4096._dl)*x*(1.-x2)*(429._dl + x2*(-16302._dl + x2*(171171._dl + x2*(-749892._dl + x2*(1562275._dl + x2*(-1533870._dl + 570285._dl*x2))))))
+          Plm = (sqrt(1785.d0/2.)/4096.d0)*x*(1.-x2)*(429.d0 + x2*(-16302.d0 + x2*(171171.d0 + x2*(-749892.d0 + x2*(1562275.d0 + x2*(-1533870.d0 + 570285.d0*x2))))))
        case(16)
           x2 = x*x
-          Plm = (sqrt(255._dl/2.))*(1.-x2)*(-143/8192._dl + x2*(19019._dl/8192._dl + x2*( -399399._dl/8192._dl + x2*(3062059._dl/8192._dl + x2*(-10935925._dl/8192._dl + x2*(19684665._dl/8192._dl+ x2*(-17298645._dl/8192._dl + x2*(5892945._dl/8192._dl))))))))
+          Plm = (sqrt(255.d0/2.))*(1.-x2)*(-143/8192.d0 + x2*(19019.d0/8192.d0 + x2*( -399399.d0/8192.d0 + x2*(3062059.d0/8192.d0 + x2*(-10935925.d0/8192.d0 + x2*(19684665.d0/8192.d0+ x2*(-17298645.d0/8192.d0 + x2*(5892945.d0/8192.d0))))))))
        case(17)
           x2 = x*x
-          Plm = (sqrt(323._dl/2.))*(1.-x2)*x*(-2145._dl/8192 + x2*(105105._dl/8192. + x2*( -1450449._dl/8192. + x2*(8633625._dl/8192. + x2*(-25900875._dl/8192. + x2*(40970475._dl/8192. + x2*(-32566275._dl/8192. + x2*(10235115._dl/8192.))))))))
+          Plm = (sqrt(323.d0/2.))*(1.-x2)*x*(-2145.d0/8192 + x2*(105105.d0/8192. + x2*( -1450449.d0/8192. + x2*(8633625.d0/8192. + x2*(-25900875.d0/8192. + x2*(40970475.d0/8192. + x2*(-32566275.d0/8192. + x2*(10235115.d0/8192.))))))))
        case(18)
           x2 = x*x
-          Plm = (sqrt(1615._dl/2.))*(1.-x2)*(429._dl/65536._dl + x2*(-9009._dl/8192._dl + x2*(483483._dl/16384._dl + x2*(-2417415._dl/8192. + x2*(46621575._dl/32768._dl + x2*(-30045015._dl/8192. + x2*(84672315._dl/16384 + x2*( -30705345._dl/8192. + x2*(71645805._dl/65536._dl)))))))))
+          Plm = (sqrt(1615.d0/2.))*(1.-x2)*(429.d0/65536.d0 + x2*(-9009.d0/8192.d0 + x2*(483483.d0/16384.d0 + x2*(-2417415.d0/8192. + x2*(46621575.d0/32768.d0 + x2*(-30045015.d0/8192. + x2*(84672315.d0/16384 + x2*( -30705345.d0/8192. + x2*(71645805.d0/65536.d0)))))))))
        case default
           goto 100
        end select
@@ -1555,20 +1439,20 @@ contains
        if(l.ge. m)then
           goto 100
        else
-          Plm = 0._dl
+          Plm = 0.d0
        endif
        return
     case(:-1)
-       Plm = Normalized_Associated_Legendre(l, -m, x)
+       Plm = Coop_normalized_plm(l, -m, x)
        if(mod(m,2).ne.0)Plm = -Plm
        return
     end select
     return
-100 call get_normalized_Plm(l,m,x,Plm)    
-  End function Normalized_Associated_Legendre
+100 call get_coop_normalized_plm(l,m,x,Plm)    
+  End function Coop_normalized_plm
 
 
-  subroutine get_normalized_Plm(l,m,x,Plm)
+  subroutine get_coop_normalized_plm(l,m,x,Plm)
     COOP_REAL x, Plm_prev, Plm, Plm_next
     COOP_INT l,m, i
     if(m.gt.l)then
@@ -1587,7 +1471,7 @@ contains
        Plm_prev = Plm
        Plm = Plm_next
     enddo    
-  end subroutine get_normalized_Plm
+  end subroutine get_coop_normalized_plm
 
 !! return sqrt((l-m)!/(l+m)!) P_l^m(x)
 !!no check
@@ -1596,14 +1480,14 @@ contains
 
 !!return Y_l^m(\theta, \phi) 
 !!input l>=m>=0, theta, phi
-  Function SphericalHarmonicY(l,m,theta, phi) result(Ylm)
+  Function coop_Ylm(l,m,theta, phi) result(Ylm)
     COOP_REAL theta,phi
     COOP_COMPLEX Ylm
     COOP_INT l, m
-    Ylm = dsqrt((2*l+1)/coop_4pi) * Normalized_Associated_Legendre(l, m, dcos(theta))*cmplx(dcos(m*phi), dsin(m*phi))
-  End Function SphericalHarmonicY
+    Ylm = dsqrt((2*l+1)/coop_4pi) * Coop_normalized_plm(l, m, dcos(theta))*cmplx(dcos(m*phi), dsin(m*phi))
+  End Function Coop_Ylm
 
-  function Legendre_P_Approx(l, x) result(Pl)
+  function coop_legendreP_Approx(l, x) result(Pl)
     COOP_INT l
     COOP_REAL x, Pl, theta, phi, sx
     theta = dacos(x)
@@ -1613,18 +1497,18 @@ contains
          (1.d0 - 0.25d0/l)*dcos(phi) &
          + 0.125d0*x/sx/l * dsin(phi) &
          )
-  end function Legendre_P_Approx
+  end function coop_legendreP_Approx
 
-  subroutine get_Cn_array(n, Cn)
+  subroutine coop_get_Cn_array(n, Cn)
     COOP_INT n, i
     COOP_REAL Cn(0:n)
     Cn(0) = 1.d0
     do i = 1, n
        Cn(i) = (n-i+1.d0) * Cn(i-1)/i
     enddo
-  end subroutine get_Cn_array
+  end subroutine coop_get_Cn_array
 
-  function factor_lm_pm(l, m)  result (f)
+  function coop_factor_lm_pm(l, m)  result (f)
     !! sqrt((l+m)!/(l-m)!)
     COOP_INT l, m
     COOP_REAL f
@@ -1644,25 +1528,25 @@ contains
     case default
        f = exp((log_gamma(l+m+1.d0)-log_gamma(l-m+1.d0))/2.d0)
     end select
-  end function factor_lm_pm
+  end function coop_factor_lm_pm
 
-  function sqrtfloor(n) result(intsqrt)
+  function coop_sqrtfloor(n) result(intsqrt)
     COOP_INT n, intsqrt
-    intsqrt = floor(sqrt(dble(n)+1.e-3_dl))
+    intsqrt = floor(sqrt(dble(n)+coop_tiny))
     do while(intsqrt*intsqrt.gt.n)
        intsqrt = intsqrt - 1 !!just to avoid roundoff errors
     enddo
-  end function sqrtfloor
+  end function coop_sqrtfloor
 
-  function sqrtceiling(n) result(intsqrt)
+  function coop_sqrtceiling(n) result(intsqrt)
     COOP_INT n, intsqrt
-    intsqrt = ceiling(sqrt(dble(n)-1.e-3_dl))
+    intsqrt = ceiling(sqrt(dble(n)-coop_tiny))
     do while(intsqrt*intsqrt.lt.n)
        intsqrt = intsqrt + 1 !!just to avoid roundoff errors
     enddo
-  end function sqrtceiling
+  end function coop_sqrtceiling
 
-  function numbits(m) !!number of bits in binary representation
+  function coop_numbits(m) result(numbits) !!number of bits in binary representation
     COOP_INT n, m, numbits
     numbits = 0
     n = m
@@ -1670,190 +1554,15 @@ contains
        n=n/2
        numbits = numbits+1
     enddo
-  end function numbits
+  end function coop_numbits
 
-  function ellPower(l, x, r)
-    COOP_INT l
-    COOP_REAL x, r, ellPower
-    if(x .le. r)then
-       ellPower = (x/r)**l
-    else
-       ellPower = (r/x)**(l+1)
-    endif
-  end function ellPower
-
-
-  !!the integral \int j_l(kD) j_l(kx) k^{-m} k^2 dk (m>=0)
-  !!can be approximated with (when m=0 it is exactly equal to) 
-  !!   N(l, m) delta(x-D) D^(m-2)
-  function jljlintN(l, m) result(Nlm)
-    !!if Limber approximation works, returns N(l,m)
-    !!if Limber approximation fails, return -1.1e30
-    COOP_INT l, m
-    COOP_REAL Nlm
-    COOP_REAL,parameter::bad_value = -1.1e30_dl
-    select case(m)
-    case(0)
-       Nlm = coop_pio2
-    case(1)
-       select case(l)
-       case(0)
-          Nlm = bad_value
-       case(1)
-          Nlm =  coop_pi2/8.d0
-       case(2)
-          Nlm = 2.d0/3.d0
-       case(3)
-          Nlm = coop_pi2*(3.d0/64.d0)
-       case(4)
-          Nlm = 16.d0/45.d0
-       case(5)
-          Nlm = coop_pi2*15.d0/512.d0
-       case(6)
-          Nlm = 128.d0/525.d0
-       case default
-          Nlm = coop_pio2/(l+0.5d0)/(1.+ 0.375d0/(l+0.5d0)**2)
-       end select
-    case(2)
-       if(l.gt.0)then
-          Nlm = coop_pio2/l/(l+1.d0)
-       else
-          Nlm =bad_value
-       endif
-    case(3)
-       select case(l)
-       case(0)
-          Nlm = bad_value
-       case(1)
-          Nlm = (coop_pi2/16.d0)
-       case(2)
-          Nlm = (1.d0/9.d0)
-       case(3)
-          Nlm = coop_pi2/256.d0
-       case(4)
-          Nlm = 4.d0/225.d0
-       case(5)
-          Nlm = coop_pi2/1024.d0
-       case(6)
-          Nlm = 64.d0/11025.d0
-       case default
-          Nlm = coop_pio2/(l-0.5d0)/(l+0.5d0)/(l+1.5d0)*(1.+ 0.37d0/l/l)
-       end select
-    case(4)
-       if(l.gt.1)then
-          Nlm = coop_pio2/l/(l+1.d0)/(l+2.d0)/(l-1.d0)
-       else
-          Nlm=bad_value
-       endif
-    case default
-       if(2*l.gt.m-2)then
-          Nlm = coop_pio2*dexp(log_gamma(l-m/2.d0+1.d0)-log_gamma(l+m/2.d0+1.d0))
-       else
-          Nlm = bad_value
-       endif
-    end select
-  end function jljlintN
-
-
-  subroutine jljlint_setw(l, m, d, x, w, n)
-    COOP_INT l,m,n, nmid, i
-    COOP_REAL d, x(n), w(n), lnxbydmin, lnxbydmax,x1,x2, fact1, fact2
-    select case(m)
-    case(0)
-       x(1) = d
-       w(1) = coop_pio2/d**2
-       n = 1
-    case(2)
-       if(mod(n,2).eq.0) n = n - 1
-       if(n.eq.1)then
-          x(1) = d
-          w(1) = coop_pio2/l/(l+1.d0)
-          return
-       endif
-       nmid = (n+1)/2 
-       lnxbydmin = - 8.d0/l
-       lnxbydmax =  8.d0/(l+1)
-       call coop_set_uniform(nmid, w(1:nmid), exp(lnxbydmin*(l+1)), 1.d0)
-       call coop_set_uniform(nmid, w(nmid:n), 1.d0, exp(-lnxbydmax*l))
-       x(1:nmid) = log(w(1:nmid))/(l+1) 
-       x(nmid+1:n) = - log(w(nmid+1:n))/l
-       x(1:n) = exp(x(1:n))*d
-       w(1:nmid-1) = coop_pio4/((l+0.5d0)*(l+1))/(nmid-0.5d0)
-       w(nmid+1:n) = coop_pio4/((l+0.5d0)*l)/(nmid-0.5d0)
-       w(nmid) = (w(1)+w(n))/2.d0
-    case(4)
-       if(mod(n,2).eq.0) n = n - 1
-       if(n.eq.1)then
-          if(l.le.2) stop "divergent integral"
-          x(1) = d
-          w(1) = d**2*coop_pio2/((l-2.d0)*l*(l+1.d0)*(l+3.d0))
-          return
-       endif
-       nmid = (n+1)/2
-       lnxbydmin = -8.d0/l
-       lnxbydmax = 8.d0/(l-1)
-       call coop_set_uniform(nmid, w(1:nmid), exp(lnxbydmin*(l+1)), 1.d0)
-       call coop_set_uniform(nmid, w(nmid:n), 1.d0, exp(-lnxbydmax*(l-1)))
-       x(1:nmid) = log(w(1:nmid))/(l+1.d0)
-       x(nmid+1:n) = -log(w(nmid+1:n))/(l-1.d0)
-       x2 = (x(1)+x(2))/2.d0 
-       fact1 =1.d0/(l+1.d0)
-       fact2 = (0.5d0-l)/(1.5d0+l)/(l+3.d0)
-       w(1) = exp(x2*(l+1))*(fact1+fact2*exp(x2*2))
-       do i=2, nmid-1
-          x1 = x2
-          x2 = (x(i+1)+x(i))/2.d0
-          w(i) = exp(x2*(l+1))*((fact1+fact2*exp(x2*2))-exp((x1-x2)*(l+1))*(fact1+fact2*exp(x1*2)))
-       enddo
-       x1 = x2
-       w(nmid) = fact1+fact2 - exp(x1*(l+1))*(fact1+fact2*exp(x1*2))
-       x2 = (x(nmid)+x(nmid+1))/2.d0
-       x1 = 0.d0
-       if(l.eq.2)then  
-          !!in this case the integral actually diverges
-          !!the hope is that it is not a global divergence and can be fixed by ignoring large x
-          fact2 = -(0.5d0-l)/(1.5d0+l)/l
-          w(nmid) = w(nmid) + x2 + fact2*(exp(-2.d0*x2)  - 1.d0)
-          do i = nmid+1, n-1
-             x1 = x2
-             x2 = (x(i+1)+x(i))/2.d0
-             w(i) = x2 - x1 + fact2 * exp(-2.d0*x2)*(1.d0-exp(-2.d0*(x1-x2)))
-          enddo
-          x1 = x2
-          x2 = x(n)
-          w(n) = x2 - x1 + fact2 * exp(-2.d0*x2)*(1.d0-exp(-2.d0*(x1-x2)))
-       else
-          fact1 = -1.d0/(l-2.d0)
-          fact2 = -(0.5d0-l)/(1.5d0+l)/l
-          w(nmid) = w(nmid) + fact1*( exp((2-l)*x2)-1.d0) &
-               + fact2*(exp(-l*x2) - 1.d0)
-          do i = nmid+1, n-1
-             x1 = x2
-             x2 = (x(i+1)+x(i))/2.d0
-             w(i) = fact1*(exp((2-l)*x2)*(1.d0-exp((2-l)*(x1-x2)))) &
-                  + fact2*(exp(-l*x2)*(1.d0-exp(-l*(x1-x2))))
-          enddo
-          x1 = x2
-          x2 = x(n)
-          w(n) = fact1*(exp((2-l)*x2)*(1.d0-exp((2-l)*(x1-x2)))) &
-                  + fact2*(exp(-l*x2)*(1.d0-exp(-l*(x1-x2))))
-       endif
-       w(1:n) = w(1:n) * ( coop_pi/16.d0 * d**2 / (l-0.5d0) / (l+0.5d0) )
-       x(1:n) = exp(x(1:n)) * d
-
-    case default
-       write(*,*) "m = ", m
-       stop "jljlint_setw input : wrong argument"
-    end select
-  end subroutine jljlint_setw
-
-  function smoothstep(x, width) result(s)
+  function coop_smoothstep(x, width) result(s)
     COOP_REAL x, width, s
     s = (tanh(x/width)+1.d0)/2.d0
-  end function smoothstep
+  end function coop_smoothstep
 
   
-  recursive function Hypergeometric2F1(a, b, c, x) result(f)
+  recursive function coop_Hypergeometric2F1(a, b, c, x) result(f)
     !!input 0<=x<=1
     COOP_REAL,parameter::xbound = 0.95d0
     COOP_REAL,parameter::eps = 1.d-3
@@ -1868,7 +1577,7 @@ contains
     endif
     !!********  x = 1 ***********************
     if(x .gt. 1.d0-tol)then
-       f = gamma_product( (/ c, c-a-b, c-a, c-b /), (/ 1, 1, -1, -1 /) ) 
+       f = coop_gamma_product( (/ c, c-a-b, c-a, c-b /), (/ 1, 1, -1, -1 /) ) 
        return
     endif
     !!*********** x <= xbound ******************
@@ -1908,13 +1617,13 @@ contains
           term = term*(cma+i-1)*(cmb+i-1)/(cmab+i)/i*y
           i = i + 1
        enddo
-       f = gamma_product( (/ c, cmab, cma, cmb /), (/ 1, 1, -1, -1 /) ) * (f + gamma_product( (/ cma, cmb, -cmab, a, b, cmab /), (/ 1, 1, 1, -1, -1, -1 /), cmab*dlog(y) )*s)
+       f = coop_gamma_product( (/ c, cmab, cma, cmb /), (/ 1, 1, -1, -1 /) ) * (f + coop_gamma_product( (/ cma, cmb, -cmab, a, b, cmab /), (/ 1, 1, 1, -1, -1, -1 /), cmab*dlog(y) )*s)
        return
     endif
     if(n.eq.0)then
        psi1 = -coop_eulerC
-       psia = digamma(a)
-       psib = digamma(b)
+       psia = coop_digamma(a)
+       psib = coop_digamma(b)
        lny = dlog(y)
        term = 1.d0
        s = 0.d0
@@ -1928,12 +1637,12 @@ contains
           psib = psib + 1.d0/(i-1+b)
           i = i + 1
        enddo
-       f = gamma_product( (/ c, a, b /), (/ 1, -1, -1 /) ) * s
+       f = coop_gamma_product( (/ c, a, b /), (/ 1, -1, -1 /) ) * s
        return
     endif
     !!---------- if c-a-b is almost a positive COOP_INT and x > xbound, we do interpolation ---------
-    r1 = gamma_product( (/ n+eps, b+eps, a+eps, cmab, cma, cmb /), (/ 1, -1, -1, -1, 1, 1 /) )
-    r2 = gamma_product( (/ n-eps, b-eps, a-eps, cmab, cma, cmb /), (/ 1, -1, -1, -1, 1, 1 /) )
+    r1 = coop_gamma_product( (/ n+eps, b+eps, a+eps, cmab, cma, cmb /), (/ 1, -1, -1, -1, 1, 1 /) )
+    r2 = coop_gamma_product( (/ n-eps, b-eps, a-eps, cmab, cma, cmb /), (/ 1, -1, -1, -1, 1, 1 /) )
     if(r1-r2.ne.0)then
        w1 = (cmab - n + eps)/(2.d0*eps)
        w2 = (n+eps-cmab)/(2.d0*eps)
@@ -1945,11 +1654,11 @@ contains
           w2 = (n+eps-cmab)/(2.d0*eps)
        endif
     endif
-    f = Hypergeometric2F1(a, b, a + b + n + eps, x )*w1 +  Hypergeometric2F1(a, b, a + b + n - eps, x )*w2
+    f = coop_Hypergeometric2F1(a, b, a + b + n + eps, x )*w1 +  coop_Hypergeometric2F1(a, b, a + b + n - eps, x )*w2
     return
-  end function Hypergeometric2F1
+  end function Coop_Hypergeometric2F1
 
-  function sphericalBesselCross(ell1, ell2, r1, r2, ns) result(cr)
+  function coop_sphericalBesselCross(ell1, ell2, r1, r2, ns) result(cr)
     !!this function returns the integral
     !!\int_0^infinity j_{ell1}(k r1) j_{ell2}(k r2) (k(r1+r2)/2)^(ns-1) dk/k 
     COOP_INT l1, l2, ell1, ell2
@@ -1975,35 +1684,35 @@ contains
        l2 = ell1
     endif
     if(4+l1-l2-ns.gt.0.d0)then
-       cr = 2.d0**(-4+ns)*coop_pi* (2.d0*R/(r1+r2))**(1-ns)*Hypergeometric2F1((-2-l1+l2+ns)/2.d0,(-1+l1+l2+ns)/2.d0,1.5d0+l2,ratio**2)* dexp(l2*dlog(ratio)+log_gamma((-1+l1+l2+ns)/2.d0) -log_gamma(l2+1.5d0) -log_gamma((4+l1-l2-ns)/2.d0))
+       cr = 2.d0**(-4+ns)*coop_pi* (2.d0*R/(r1+r2))**(1-ns)*coop_Hypergeometric2F1((-2-l1+l2+ns)/2.d0,(-1+l1+l2+ns)/2.d0,1.5d0+l2,ratio**2)* dexp(l2*dlog(ratio)+log_gamma((-1+l1+l2+ns)/2.d0) -log_gamma(l2+1.5d0) -log_gamma((4+l1-l2-ns)/2.d0))
     else
-       cr = 2.d0**(-4+ns)*dsin(coop_pio2*(4+l1-l2-ns)) * (2.d0*R/(r1+r2))**(1-ns)*Hypergeometric2F1((-2-l1+l2+ns)/2.d0,(-1+l1+l2+ns)/2.d0,1.5d0+l2,ratio**2)* dexp(l2*dlog(ratio)+log_gamma((-1+l1+l2+ns)/2.d0) -log_gamma(l2+1.5d0) + log_gamma(1.d0 - (4+l1-l2-ns)/2.d0))
+       cr = 2.d0**(-4+ns)*dsin(coop_pio2*(4+l1-l2-ns)) * (2.d0*R/(r1+r2))**(1-ns)*coop_Hypergeometric2F1((-2-l1+l2+ns)/2.d0,(-1+l1+l2+ns)/2.d0,1.5d0+l2,ratio**2)* dexp(l2*dlog(ratio)+log_gamma((-1+l1+l2+ns)/2.d0) -log_gamma(l2+1.5d0) + log_gamma(1.d0 - (4+l1-l2-ns)/2.d0))
     endif
-  end function sphericalBesselCross
+  end function coop_sphericalBesselCross
 
 
-  Function log2_s(x) 
-    COOP_REAL x,log2_s
-    log2_s= log(x)/coop_ln2
-  End Function log2_s
+  Function coop_log2_s(x) 
+    COOP_REAL x,coop_log2_s
+    coop_log2_s= log(x)/coop_ln2
+  End Function coop_log2_s
 
-  function log2_v(x)
+  function coop_log2_v(x)
     COOP_REAL,dimension(:),intent(in)::x
-    COOP_REAL log2_v(size(x))
+    COOP_REAL coop_log2_v(size(x))
     COOP_INT i
     !$omp parallel do
     do i=1, size(x)
-       log2_v(i) = log2_s(x(i))
+       coop_log2_v(i) = coop_log2_s(x(i))
     end do
     !$omp end parallel do
-  end function log2_v
+  end function coop_log2_v
 
 
-  function is_integer(x) result(is)
+  function coop_is_integer(x) result(is)
     logical is
     COOP_REAL x
     is = (x - nint(x)) .lt. 1.d-6
-  end function is_integer
+  end function coop_is_integer
 
 
 end module coop_special_function_mod

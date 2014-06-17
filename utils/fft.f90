@@ -42,7 +42,7 @@ contains
   end subroutine coop_fft_backward_1d
 
 
-  subroutine coop_fft_forward_2d(nx, ny, fx, fk)
+  subroutine coop_fft_forward_2d(ny, nx, fx, fk)
     COOP_INT nx, ny
     real(dl) fx(ny,nx)
     complex(dlc) fk(ny/2+1,nx)
@@ -53,7 +53,7 @@ contains
 #endif    
   end subroutine coop_fft_forward_2d
 
-  subroutine coop_fft_backward_2d(nx, ny, fk, fx)
+  subroutine coop_fft_backward_2d(ny, nx, fk, fx)
     COOP_INT nx, ny
     real(dl) fx(ny, nx)
     complex(dlc) fk(ny/2+1, nx)
@@ -66,7 +66,7 @@ contains
   end subroutine coop_fft_backward_2d
 
 
-  subroutine coop_fft_forward_2d_ss(nx, ny, fx, fk)
+  subroutine coop_fft_forward_2d_ss(ny, nx, fx, fk)
     COOP_INT nx, ny
     real(dl) fx(ny*nx)
     complex(dlc) fk(ny/2+1, nx)
@@ -77,7 +77,7 @@ contains
 #endif    
   end subroutine coop_fft_forward_2d_ss
 
-  subroutine coop_fft_backward_2d_ss(nx, ny, fk, fx)
+  subroutine coop_fft_backward_2d_ss(ny, nx, fk, fx)
     COOP_INT nx, ny
     real(dl) fx(ny*nx)
     complex(dlc) fk(ny/2+1, nx)
@@ -90,9 +90,8 @@ contains
   end subroutine coop_fft_backward_2d_ss
 
 
-
-  subroutine coop_fft_forward_3d(nx, ny, nz, fx, fk)
-    COOP_INT nx, ny, nz
+  subroutine coop_fft_forward_3d(nz, ny, nx, fx, fk)
+    COOP_INT nz, ny, nx
     real(dl) fx(nz, ny, nx)
     complex(dlc) fk(nz/2+1, ny, nx)
 #ifdef HAS_FFTW
@@ -102,8 +101,8 @@ contains
 #endif    
   end subroutine coop_fft_forward_3d
 
-  subroutine coop_fft_backward_3d(nx, ny,  nz, fk, fx)
-    COOP_INT nx, ny, nz
+  subroutine coop_fft_backward_3d(nz, ny, nx, fk, fx)
+    COOP_INT nz, ny, nx
     real(dl) fx(nz, ny, nx)
     complex(dlc) fk(nz/2+1, ny, nx)
 #ifdef HAS_FFTW
@@ -116,8 +115,8 @@ contains
 
 
 
-  subroutine coop_fft_forward_3d_ss(nx, ny, nz, fx, fk)
-    COOP_INT nx, ny, nz
+  subroutine coop_fft_forward_3d_ss(nz, ny, nx, fx, fk)
+    COOP_INT nz, ny, nx
     real(dl) fx(nz* ny*nx)
     complex(dlc) fk(nz/2+1, ny, nx)
 #ifdef HAS_FFTW
@@ -127,8 +126,8 @@ contains
 #endif    
   end subroutine coop_fft_forward_3d_ss
 
-  subroutine coop_fft_backward_3d_ss(nx, ny,  nz, fk, fx)
-    COOP_INT nx, ny, nz
+  subroutine coop_fft_backward_3d_ss(nz, ny, nx, fk, fx)
+    COOP_INT nz, ny, nx
     real(dl) fx(nz*ny*nx)
     complex(dlc) fk(nz/2+1, ny, nx)
 #ifdef HAS_FFTW
