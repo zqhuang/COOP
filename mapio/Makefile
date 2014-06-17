@@ -5,7 +5,7 @@ include ../configure.in
 include ../compile_rules.in
 
 LIB = libfits.a
-OBJ = sphere.o readfits.o fitswrap.o
+OBJ = sphere.o readfits.o fitswrap.o healgeo.o
 
 default: $(LIB)
 
@@ -19,3 +19,4 @@ clean:
 	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test
 
 
+test.o: $(LIB)

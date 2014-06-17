@@ -11,6 +11,7 @@ COOP_REAL, parameter::coop_SI_degree = coop_pi/180.d0
 COOP_REAL, parameter::coop_SI_arcmin = coop_SI_degree/60.d0
 COOP_REAL, parameter::coop_SI_arcsec = coop_SI_arcmin / 60.d0
 COOP_REAL, parameter::coop_fullsky_degrees = 4.d0*coop_pi / coop_SI_degree**2
+COOP_REAL, parameter::coop_sigma_by_fwhm = 1.d0/sqrt(8.d0*coop_ln2)
 !!time
 doubleprecision, parameter::coop_SI_PlanckTime = 5.39124d-44
 COOP_REAL, parameter::coop_SI_day = 3600.d0*24.d0

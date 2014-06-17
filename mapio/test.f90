@@ -7,9 +7,9 @@ program test
   integer,parameter::lmin = 200
   integer,parameter::lmax = 2500
   character(LEN=*),parameter::mapdir = "act/"
-  character(LEN=*),parameter::fitsfile = mapdir//"I50.fits"
-  character(LEN=*),parameter::sourcefile = mapdir//"beam50.fits"
-  character(LEN=*),parameter::maskfile = mapdir//"W_I50.fits"
+  character(LEN=*),parameter::fitsfile = mapdir//"I60.fits"
+  character(LEN=*),parameter::sourcefile = mapdir//"beam60.fits"
+  character(LEN=*),parameter::maskfile = mapdir//"W_I60.fits"
   type(coop_fits_image_cea)::cf, mask, src
   type(coop_asy)::asy
   integer, parameter::n=300
@@ -25,7 +25,7 @@ program test
   call src%get_data
   cf%image = (cf%image)*mask%image/maxval(mask%image)
   print*, maxval(cf%image), minval(cf%image)
-  call cf%regularize(0.001d0)
+  call cf%regularize(0.003d0)
 !  call cf%filter(lmin = 200, lmax  = 3000)
 !  print*, maxval(cf%image), minval(cf%image)
 
@@ -69,7 +69,9 @@ program test
   enddo
 
   call cf%simulate(lmin, lmax, Cls)
-  call cf%smooth_flat(lmin = lmin, lmax = lmax)
+  cf%image = (cf%image)*mask%image/maxval(mask%image)
+  call cf%get_flatmap(smooth_scale)
+  call cf%smooth_flat(lmin = lmin, lmax = lmax, fk_file="sim_power.txt")
   call asy%open("sim_smoothmap.txt")
   call asy%init(xlabel = "$x$", ylabel  ="$y$", width = 8., height=5.5)
   call coop_asy_density(asy, cf%smooth_image, cf%xmin, cf%xmax, cf%ymin, cf%ymax, label = "$I(\mu K)$")

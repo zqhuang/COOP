@@ -62,3 +62,12 @@
 #define COOP_DE_W0WA 3
 #define COOP_DE_QUINTESSENCE 4
 #define COOP_DE_COUPLED_QUINTESSENCE 5
+
+#define COOP_RING 1
+#define COOP_NESTED 2
+
+
+#define COOP_MODULAS_SQUARE(z)  (real(z)**2 + aimag(z)**2)
+#define COOP_MULT_REAL(z1, z2)  (real(z1)*real(z2) + aimag(z1)*aimag(z2))
+#define COOP_POLAR_ANGLE(x, y)  (atan2(y, x+sign(tiny(x), x)))
+
