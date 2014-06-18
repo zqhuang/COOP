@@ -15,6 +15,14 @@ $(LIB): $(OBJ)
 Test: $(OBJ) test.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
 
+GetSpots: $(OBJ) exportspots.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) exportspots.o $(LINK)
+
+
+Stack: $(OBJ) dostack.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) dostack.o $(LINK)
+
+
 clean:
 	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test
 

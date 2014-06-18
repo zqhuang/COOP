@@ -315,10 +315,11 @@ contains
     path = trim(adjustl(path))
   end function coop_file_path_of
 
-  function coop_file_name_of(fstr) result(fname)
+  function coop_file_name_of(fstr, want_ext) result(fname)
     COOP_UNKNOWN_STRING  fstr
-    COOP_LONG_STRING fname
+    COOP_STRING fname
     COOP_INT n
+    logical,optional:: want_ext
     n = scan(fstr, '\/', .true.)
     if(n.eq.0)then
        fname = trim(fstr)
@@ -326,6 +327,14 @@ contains
        fname = trim(fstr(n+1:))
     endif
     fname = trim(adjustl(fname))
+    if(present(want_ext))then
+       if(.not. want_ext)then
+          n = scan(fname, ".")
+          if(n.ne.0)then
+             fname = trim(fname(1:n-1))
+          endif
+       endif
+    endif
   end function coop_file_name_of
 
   function coop_file_add_postfix(fstr, postfix) result(fname)
