@@ -864,6 +864,7 @@ contains
        image = image + tmpu
        if(present(uimage)) stop "coop_healpix_stack: for U stacking this should not happen"
     end select
+    
   end subroutine coop_healpix_stack
 
 
@@ -874,7 +875,7 @@ contains
     COOP_UNKNOWN_STRING, optional::caption
     COOP_STRING the_caption, the_title
     integer,optional::m_filter(:)
-    integer,parameter::n_threads = 8  !!must be >=2
+    integer,parameter::n_threads = 4  !!must be >=2
     integer::mhs 
     real,dimension(:,:,:),allocatable:: image, uimage
     real(dl),dimension(:),allocatable::theta, phi, angle_rotate

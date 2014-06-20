@@ -5,6 +5,8 @@
 #include "fitsio.h"
 #endif
 
+#include "constants.h"
+
 void coop_fits_read_header_to_string_(char* filename, char* cards, int* nkeys){
 #ifdef HAS_CFITSIO
   fitsfile *fptr;         
@@ -84,7 +86,7 @@ void coop_fits_get_double_data_(char * filename, double* data, long * n){
 }
 
 
-void coop_fits_get_float_data_(char * filename, float* data, long * n){
+void coop_fits_get_float_data_(char * filename, float * data, long * n){
 #ifdef HAS_CFITSIO
   fitsfile *fptr;         
   int status;
@@ -104,3 +106,63 @@ void coop_fits_get_float_data_(char * filename, float* data, long * n){
 #endif
 }
 
+
+void coop_fits_write_image_(char * filename, int *nkeys, char *keys, char *values, int dtypes[], double * data, int * nx, int * ny) {
+#ifdef HAS_CFITSIO
+  fitsfile *fptr;       /* pointer to the FITS file; defined in fitsio.h */
+  int status, i, keylen, vallen;
+  long  fpixel, naxis, nelements;
+  long naxes[2];   /* image is 300 pixels wide by 200 rows */
+  int  ivalue;
+  float  fvalue;
+  char thekey[80];
+  char theval[80];
+  char * keyloc;
+  char * valloc;
+  int true=1, false=0;
+  fpixel = 1;
+  naxis = 2;
+  naxes[0] = *nx;
+  naxes[1] = *ny;
+  status = 0;    
+  fits_create_file(&fptr, filename,  &status); 
+  fits_create_img(fptr, SHORT_IMG, naxis, naxes, &status);
+  keyloc = keys;
+  valloc = values;
+  keylen = strchr(keyloc, '\n') - keyloc;
+  vallen = strchr(valloc, '\n') - valloc;
+
+  for( i = 0; i< *nkeys; i++){
+    strncpy(thekey, keyloc, keylen);
+    strncpy(theval, valloc, vallen);
+    thekey[keylen] = '\0';
+    theval[vallen] = '\0';
+    if(dtypes[i] == COOP_FORMAT_STRING)
+      fits_update_key(fptr, TSTRING, thekey, theval, NULL,  &status);
+    else if(dtypes[i] == COOP_FORMAT_LOGICAL){
+      if(theval[0] == 'T'){
+	fits_update_key(fptr, TLOGICAL, thekey, &true, NULL,  &status);
+      }
+      else
+	fits_update_key(fptr, TLOGICAL, thekey, &false, NULL,  &status);
+    }
+    else if(dtypes[i] == COOP_FORMAT_INTEGER){
+      ivalue = atoi(theval); 
+      fits_update_key(fptr, TINT, thekey, &ivalue, NULL,  &status);}
+    else if(dtypes[i] == COOP_FORMAT_FLOAT ){
+      fvalue = atof(theval);
+      fits_update_key(fptr, TFLOAT, thekey, &fvalue, NULL,  &status);}
+    keyloc = keyloc + keylen+1;
+    valloc = valloc + vallen+1;
+    keylen = strchr(keyloc, '\n') - keyloc;
+    vallen = strchr(valloc, '\n') - valloc;
+  }
+  nelements = naxes[0] * naxes[1];      
+  fits_write_img(fptr, TDOUBLE, fpixel, nelements, data, &status);
+  fits_close_file(fptr, &status);       
+  if(status){
+    fits_report_error(stderr, status); }
+#else
+  printf("Cannot find CFITSIO library.");
+#endif
+ }

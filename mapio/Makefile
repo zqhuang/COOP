@@ -22,9 +22,29 @@ GetSpots: $(OBJ) exportspots.o
 Stack: $(OBJ) dostack.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) dostack.o $(LINK)
 
+FSpots:  $(OBJ) flat_exportspots.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_exportspots.o $(LINK)
+
+FStack:	 $(OBJ) flat_stack.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_stack.o $(LINK)
+
+FStack:	 $(OBJ) flat_sim.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_sim.o $(LINK)
+
+FMerge:	 $(OBJ) flat_merge.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_merge.o $(LINK)	
 
 clean:
 	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test
 
 
-test.o: $(LIB)
+test.o: 	$(LIB)
+
+exportspots.o: $(LIB)
+
+dostack.o :	$(LIB)
+
+flat_exportspots.o: $(LIB)
+
+flat_stack.o: $(LIB)
+

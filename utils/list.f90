@@ -175,6 +175,7 @@ module coop_list_mod
      procedure::insert => coop_dictionary_insert
      procedure::index => coop_dictionary_key_index
      procedure::value => coop_dictionary_value
+     procedure::update => coop_dictionary_update
      procedure::free => coop_dictionary_free
   end type coop_dictionary
 
@@ -1280,13 +1281,14 @@ contains
     return
   end subroutine coop_list_realarr_get_element
 
-  subroutine coop_dictionary_insert(dict, key, val)
+  subroutine coop_dictionary_insert(dict, key, val, overwrite)
     class(coop_dictionary):: dict
+    COOP_UNKNOWN_STRING key, val
+    logical,optional::overwrite
     COOP_SHORT_STRING,dimension(:),allocatable::tmpkey
     COOP_STRING,dimension(:),allocatable::tmpval
     COOP_INT,dimension(:),allocatable::tmpid
     COOP_INT iup, ilow, imid
-    COOP_UNKNOWN_STRING key, val
     if(trim(adjustl(key)).eq."") return
     if(.not.allocated(dict%key))then
        dict%capacity = coop_list_unit_len
@@ -1333,9 +1335,21 @@ contains
        endif
     end do
     if(dict%key(dict%id(ilow)) .eq. dict%key(dict%n))then
+       if(present(overwrite))then
+          if(.not. overwrite)then
+             write(*,*) "key conflict, cannot insert into the dictionary."
+             return
+          endif
+       endif
        dict%val(dict%id(ilow)) = dict%val(dict%n)
        dict%n = dict%n - 1
     elseif(dict%key(dict%id(iup)) .eq. dict%key(dict%n))then
+       if(present(overwrite))then
+          if(.not. overwrite)then
+             write(*,*) "key conflict, cannot insert into the dictionary."
+             return
+          endif
+       endif
        dict%val(dict%id(iup)) = dict%val(dict%n)
        dict%n = dict%n - 1
     else
@@ -1343,6 +1357,8 @@ contains
        dict%id(iup) = dict%n
     endif
   end subroutine coop_dictionary_insert
+
+
 
   function coop_dictionary_key_index(dict, key) result(ind)
     class(coop_dictionary):: dict
@@ -1384,6 +1400,14 @@ contains
     ind = 0
     return
   end function coop_dictionary_key_index
+
+
+  subroutine coop_dictionary_update(dict, key, val)
+    class(coop_dictionary)::dict
+    COOP_UNKNOWN_STRING,intent(IN)::key
+    COOP_UNKNOWN_STRING,intent(IN)::val
+    call dict%insert(key, val, overwrite = .true.)
+  end subroutine coop_dictionary_update
 
 
   subroutine coop_dictionary_lookup_string(dict, key, val)

@@ -5,9 +5,9 @@ program test
 #include "constants.h"
 
   integer,parameter::fwhm_arcmin = 15
-  COOP_UNKNOWN_STRING, parameter::spot_type = "PTmax"
-  COOP_UNKNOWN_STRING, parameter::input_file ="planck/smica_inp_cmb.fits" 
-  COOP_UNKNOWN_STRING, parameter::mask_file  = "planck/smica_valmask.fits"  
+  COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
+  COOP_UNKNOWN_STRING, parameter::input_file ="simu/simulate_T.fits" 
+  COOP_UNKNOWN_STRING, parameter::mask_file  = ""
 
   COOP_REAL, parameter:: threshold = 1.e31
   COOP_STRING output_file

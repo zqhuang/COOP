@@ -71,3 +71,7 @@
 #define COOP_MULT_REAL(z1, z2)  (real(z1)*real(z2) + aimag(z1)*aimag(z2))
 #define COOP_POLAR_ANGLE(x, y)  (atan2(y, x+sign(tiny(x), x)))
 
+#define COOP_FORMAT_STRING 0
+#define COOP_FORMAT_INTEGER 1
+#define COOP_FORMAT_FLOAT 2
+#define COOP_FORMAT_LOGICAL -1
