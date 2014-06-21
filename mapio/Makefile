@@ -4,7 +4,7 @@ UTILS=../utils
 include ../configure.in
 include ../compile_rules.in
 
-LIB = libfits.a
+LIB = libcoopmapio.a
 OBJ = sphere.o readfits.o fitswrap.o healgeo.o
 
 default: $(LIB)
@@ -28,7 +28,7 @@ FSpots:  $(OBJ) flat_exportspots.o
 FStack:	 $(OBJ) flat_stack.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_stack.o $(LINK)
 
-FStack:	 $(OBJ) flat_sim.o
+FSim:	 $(OBJ) flat_sim.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_sim.o $(LINK)
 
 FMerge:	 $(OBJ) flat_merge.o

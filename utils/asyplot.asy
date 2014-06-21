@@ -782,9 +782,20 @@ void plot_topaxis(){
 // =============================================================================
 //plot density
 int plot_density(file fin){
-  pen[] p=Rainbow();
   real xmin, xmax, ymin, ymax, zmin, zmax, xmincoor, xmaxcoor, ymincoor, ymaxcoor;
   real[] t;
+  pen [] p;
+  p = new pen[256];
+  string ctbl = fetch_string(fin);
+  if(ctbl == "BWRainbow")
+    p = BWRainbow(256);
+  else if(ctbl == "Grayscale")
+    p = Grayscale(256);
+  else if(ctbl == "MyColorTable")
+    p = Gradient(256, purple, lightblue, mediumblue,  blue, cyan, green, yellow, orange, red, mediumred, lightred);       
+  else
+    p = Rainbow(256);
+
   string zlabel = fetch_string(fin);
   t = new real[2];
   t = read_xminxmax(fin); //xmin, xmax

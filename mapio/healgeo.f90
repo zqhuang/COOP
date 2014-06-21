@@ -61,6 +61,7 @@ module coop_healpix_mod
      procedure :: simulate_TQUmaps => coop_healpix_maps_simulate_TQUmaps
      procedure :: iqu2TEB => coop_healpix_maps_iqu2TEB
      procedure :: iqu2TQTUT => coop_healpix_maps_iqu2TQTUT
+     procedure :: smooth => coop_healpix_smooth_map
      procedure :: smooth_mask => coop_healpix_smooth_mask
      procedure :: convert2nested => coop_healpix_convert_to_nested
      procedure :: convert2ring => coop_healpix_convert_to_ring
@@ -186,6 +187,8 @@ contains
     call coop_healpix_maps_map2alm(this)
     this%alm(:,:,2) = this%alm(:,:,1)
     this%alm(:,:,3) = 0
+    this%spin(2:3) = 2
+    this%spin(1) = 0
     call coop_healpix_maps_alm2map(this)
   end subroutine coop_healpix_maps_iqu2TQTUT
 
@@ -322,24 +325,24 @@ contains
           endif
        endif
     else
-       if( (index(filename, "iqu") .ne. 0 .or. index(filename, "IQU") .ne. 0 .or.  index(filename, "tqu") .ne. 0  .or.  index(filename, "TQU") .ne. 0  .or.  index(filename, "TQTUT") .ne. 0   .or.  index(filename, "IQTUT") .ne. 0) .and. this%nmaps .ge. 3 )then
+       select case(this%nmaps)
+       case(3)
           this%spin = 0
           this%spin(2:3) = 2
           this%iq = 2
           this%iu = 3
-          write(*,*) this%nmaps, " for nmaps >= 3 I assume it is an IQU map"
-       elseif(((index(filename, "qu") .ne. 0 .or. index(filename, "QU") .ne. 0) .or.  index(filename, "QTUT") .ne. 0) .and. this%nmaps .ge. 2 )then
-          this%spin = 0
+          write(*,*) this%nmaps, " for nmaps = 3 I assume it is an IQU map, specify spins otherwise"
+       case(2)  
           this%spin(1:2) = 2
           this%iq = 1
           this%iu = 2
-          write(*,*) this%nmaps, " for nmaps >= 2 I assume it is an QU map"
-       else
+          write(*,*) this%nmaps, " for nmaps = 2 I assume it is an QU map, specify spins otherwise"
+       case default
           this%iq = 0
           this%iu = 0
           this%spin = 0
-          if(this%nmaps .gt. 1) write(*,*) "coop_healpix_maps_read: I am assuming the maps are all scalar"
-       endif
+          write(*,*) this%nmaps, " for nmaps !=2,3  I assume all maps are scalar, specify spins otherwise"
+       end select
     endif
     if(allocated(this%map))then
        if(size(this%map, 1).ne. this%npix .or. size(this%map, 2).ne.this%nmaps)then
@@ -868,7 +871,7 @@ contains
   end subroutine coop_healpix_stack
 
 
-  subroutine coop_healpix_stack_io(map_file, mean_image_file, spots_file, rmax, r_resolution, stack_option, title, headless_vector, m_filter, caption, mask_file, smooth_fwhm)
+  subroutine coop_healpix_stack_io(map_file, mean_image_file, spots_file, rmax, r_resolution, stack_option, title, headless_vector, m_filter, caption, mask_file, pre_smooth_fwhm, post_smooth_fwhm)
     COOP_UNKNOWN_STRING, optional::mask_file
     COOP_UNKNOWN_STRING::stack_option, title, map_file, mean_image_file, spots_file
     logical,optional::headless_vector
@@ -890,13 +893,17 @@ contains
     real,dimension(:),allocatable::xstart, ystart, xend, yend
     type(coop_healpix_maps) mask, map
     logical do_mask
-    real,optional::smooth_fwhm
+    real(dl),optional::pre_smooth_fwhm
+    real(dl),optional::post_smooth_fwhm
     real sigma
     integer nw
     real,dimension(:,:),allocatable::wrap_image, window
     COOP_STRING mpost
 
     call map%read(map_file)
+    if(present(pre_smooth_fwhm))then
+       call map%smooth(pre_smooth_fwhm)
+    endif
     call coop_healpix_convert_to_ring(map)
     do_mask = .false.
     if(present(mask_file))then
@@ -997,8 +1004,8 @@ contains
        stop
     endif
 
-    if(present(smooth_fwhm))then
-       sigma = smooth_fwhm * coop_sigma_by_fwhm
+    if(present(post_smooth_fwhm))then
+       sigma = post_smooth_fwhm * coop_sigma_by_fwhm
        nw = ceiling((sigma*3.)/r_resolution)
        if(nw.gt.1)then
           allocate(window(-nw:nw, -nw:nw), wrap_image(-n-nw:n+nw, -n-nw:n+nw))
@@ -1120,7 +1127,7 @@ contains
   end subroutine coop_healpix_smooth_mapfile
 
   subroutine coop_healpix_smooth_map(map, filter_fwhm)
-    type(coop_healpix_maps) map
+    class(coop_healpix_maps) map
     real(dl) filter_fwhm
     integer lmax
     lmax = min(ceiling(3./max(abs(filter_fwhm)*coop_sigma_by_fwhm, 1.d-6)), map%nside*3)
@@ -1168,7 +1175,7 @@ contains
     case default
        call map%read(trim(map_file))
     end select
-    if(present(filter_fwhm)) call coop_healpix_smooth_map(map, filter_fwhm)
+    if(present(filter_fwhm)) call map%smooth(filter_fwhm)
     do_mask = .false.
     if(present(mask_file))then
        if(trim(mask_file).ne."")then

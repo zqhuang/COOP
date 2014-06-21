@@ -7,7 +7,7 @@ module coop_fitswrap_mod
 
   private
 
-  public::coop_fits, coop_fits_image, coop_fits_image_cea, coop_fits_image_cea_QU2EB, coop_fits_image_cea_EB2QU
+  public::coop_fits, coop_fits_image, coop_fits_image_cea, coop_fits_QU2EB, coop_fits_EB2QU
 
   integer,parameter::sp = kind(1.)
   integer,parameter::dl = kind(1.d0)
@@ -41,8 +41,7 @@ module coop_fitswrap_mod
      COOP_INT:: smooth_nx, smooth_ny, smooth_npix
      type(coop_sphere_disc)::disc
      real(dl),dimension(:,:),allocatable:: smooth_image
-     real(dl),dimension(:,:),allocatable:: smooth_Q
-     real(dl),dimension(:,:),allocatable:: smooth_U
+     real(dl),dimension(:,:),allocatable:: smooth_Q, smooth_U
    contains
      procedure::write => coop_fits_image_cea_write
      procedure::pix2ang => coop_fits_image_cea_pix2ang
@@ -58,6 +57,9 @@ module coop_fitswrap_mod
      procedure::stack2fig => coop_fits_image_cea_stack2fig
      procedure::simulate => coop_fits_image_cea_simulate
      procedure::simulate_flat => coop_fits_image_cea_simulate_flat
+     procedure::plot => coop_fits_image_cea_plot
+     procedure::EB2QU => coop_fits_image_cea_EB2QU
+     procedure::QU2EB => coop_fits_image_cea_QU2EB
   end type coop_fits_image_cea
 
   
@@ -371,12 +373,24 @@ contains
     COOP_UNKNOWN_STRING, optional:: fk_file
     COOP_INT lmin, lmax, i, j, ik
     COOP_REAL k2min, k2max, k2, rn1, rn2, kmin, kmax, omega, j2, kstep, rk, rms, cl, ell
-    complex(dlc),dimension(:,:),allocatable::fk
+    logical do_qu
+    complex(dlc),dimension(:,:),allocatable::fk, fke, fkb
     type(coop_file)::fkf
     COOP_INT nk
     COOP_REAL,dimension(:),allocatable::karr, Pkarr, warr
+    if(allocated(this%smooth_Q) .and. allocated(this%smooth_U))then
+       call this%QU2EB()
+       do_qu = .true.
+    else
+       do_qu = .false.
+    endif
     allocate( fk(0:this%smooth_nx, 0:this%smooth_ny*2))
+    if(do_qu)allocate( fke(0:this%smooth_nx, 0:this%smooth_ny*2), fkb(0:this%smooth_nx, 0:this%smooth_ny*2))
     call coop_fft_forward(this%smooth_nx*2+1, this%smooth_ny*2+1, this%smooth_image, fk)
+    if(do_qu)then
+       call coop_fft_forward(this%smooth_nx*2+1, this%smooth_ny*2+1, this%smooth_Q, fke)
+       call coop_fft_forward(this%smooth_nx*2+1, this%smooth_ny*2+1, this%smooth_U, fkb)
+    endif
     rn1 = this%smooth_nx*2+1.d0
     rn2  =this%smooth_ny*2+1.d0
     kmin = (this%smooth_pixsize * lmin/coop_2pi)
@@ -404,7 +418,11 @@ contains
           if(k2 .lt. k2min .or. k2.gt. k2max)then
              fk(i, j) = ( 0.d0, 0.d0 )
           else
-             fk(i, j) = fk(i, j)*sin((sqrt(k2)- kmin)*omega)**2
+             fk(i, j) = fk(i, j)*sin((sqrt(k2)- kmin)*omega)
+             if(do_qu)then
+                fke(i,j) = fke(i,j)*sin((sqrt(k2)- kmin)*omega)
+                fkb(i,j) = fke(i,j)*sin((sqrt(k2)- kmin)*omega)
+             endif
              if(present(fk_file))then
                 rk = (sqrt(k2)-kmin)/kstep+0.5d0
                 ik = floor(rk)
@@ -434,12 +452,18 @@ contains
 
     endif
     call coop_fft_backward(this%smooth_nx*2+1, this%smooth_ny*2+1, fk, this%smooth_image)
+    if(do_qu)then
+       call coop_fft_backward(this%smooth_nx*2+1, this%smooth_ny*2+1, fke, this%smooth_Q)
+       call coop_fft_backward(this%smooth_nx*2+1, this%smooth_ny*2+1, fkb, this%smooth_U)
+       call this%EB2QU()
+       deallocate(fke,fkb)
+    endif
     deallocate(fk)
     if(present(fk_file))deallocate(karr, Pkarr, warr)
   end subroutine coop_fits_image_cea_smooth_flat
 
-  subroutine coop_fits_image_cea_find_extrema(this, spot_file, spot_type, radius)
-    class(coop_fits_image_cea)::this
+  subroutine coop_fits_image_cea_find_extrema(this, mask, spot_file, spot_type, radius)
+    class(coop_fits_image_cea)::this, mask
     COOP_UNKNOWN_STRING::spot_file, spot_type
     type(coop_file)::cf
     COOP_REAL,optional:: radius
@@ -455,7 +479,7 @@ contains
     case("Tmax", "Emax", "Bmax")
        do i=-this%smooth_nx+irad, this%smooth_nx - irad
           do j = -this%smooth_ny+irad, this%smooth_ny - irad
-             if(all(this%smooth_image(i, j) .ge. this%smooth_image(i-1:i+1, j-1:j+1)))then
+             if(all(this%smooth_image(i, j) .ge. this%smooth_image(i-1:i+1, j-1:j+1)) .and. mask%smooth_image(i,j).gt.0.5)then
                 write(cf%unit, "(2I6, E16.7, I6 )") i, j, coop_2pi*coop_random_unit(), min(this%smooth_nx - i, this%smooth_nx + i, this%smooth_ny - j, this%smooth_ny + j)
              endif
           enddo
@@ -463,7 +487,7 @@ contains
     case("Tmin", "Emin", "Bmin")
        do i=-this%smooth_nx+irad, this%smooth_nx - irad
           do j = -this%smooth_ny+irad, this%smooth_ny - irad
-             if(all(this%smooth_image(i, j) .le. this%smooth_image(i-1:i+1, j-1:j+1)))then
+             if(all(this%smooth_image(i, j) .le. this%smooth_image(i-1:i+1, j-1:j+1)) .and. mask%smooth_image(i,j).gt.0.5)then
                 write(cf%unit, "(2I6, E16.7, I6 )") i, j, coop_2pi*coop_random_unit(), min(this%smooth_nx - i, this%smooth_nx + i, this%smooth_ny - j, this%smooth_ny + j)
              endif
           enddo
@@ -473,7 +497,7 @@ contains
             call this%get_QTUT()
        do i=-this%smooth_nx+irad, this%smooth_nx - irad
           do j = -this%smooth_ny+irad, this%smooth_ny - irad
-             if(all(this%smooth_image(i, j) .ge. this%smooth_image(i-1:i+1, j-1:j+1)))then
+             if(all(this%smooth_image(i, j) .ge. this%smooth_image(i-1:i+1, j-1:j+1)) .and. mask%smooth_image(i,j).gt.0.5)then
                 angle = 0.5d0 * COOP_POLAR_ANGLE(this%smooth_Q(i, j), this%smooth_U(i, j))
                 write(cf%unit, "(2I6, E16.7, I6 )") i, j, angle, min(this%smooth_nx - i, this%smooth_nx + i, this%smooth_ny - j, this%smooth_ny + j)
              endif
@@ -484,7 +508,7 @@ contains
             call this%get_QTUT()
        do i=-this%smooth_nx+irad, this%smooth_nx - irad
           do j = -this%smooth_ny+irad, this%smooth_ny - irad
-             if(all(this%smooth_image(i, j) .le. this%smooth_image(i-1:i+1, j-1:j+1)))then
+             if(all(this%smooth_image(i, j) .le. this%smooth_image(i-1:i+1, j-1:j+1)) .and. mask%smooth_image(i,j).gt.0.5 )then
                 angle = 0.5d0 * COOP_POLAR_ANGLE(this%smooth_Q(i, j), this%smooth_U(i, j))
                 write(cf%unit, "(2I6, E16.7, I6 )") i, j, angle, min(this%smooth_nx - i, this%smooth_nx + i, this%smooth_ny - j, this%smooth_ny + j)
              endif
@@ -495,7 +519,7 @@ contains
             call this%get_QTUT()
        do i=-this%smooth_nx+irad, this%smooth_nx - irad
           do j = -this%smooth_ny+irad, this%smooth_ny - irad
-             if(all(this%smooth_Q(i, j)**2 + this%smooth_U(i,j)**2 .ge. this%smooth_Q(i-1:i+1, j-1:j+1)**2 + this%smooth_U(i-1:i+1, j-1:j+1)**2 ))then
+             if(all(this%smooth_Q(i, j)**2 + this%smooth_U(i,j)**2 .ge. this%smooth_Q(i-1:i+1, j-1:j+1)**2 + this%smooth_U(i-1:i+1, j-1:j+1)**2 )  .and. mask%smooth_image(i,j).gt.0.5 )then
                 angle = 0.5d0 * COOP_POLAR_ANGLE(this%smooth_Q(i, j), this%smooth_U(i, j))
                 write(cf%unit, "(2I6, E16.7, I6 )") i, j, angle, min(this%smooth_nx - i, this%smooth_nx + i, this%smooth_ny - j, this%smooth_ny + j)
              endif
@@ -506,7 +530,7 @@ contains
             call this%get_QTUT()
        do i=-this%smooth_nx+irad, this%smooth_nx - irad
           do j = -this%smooth_ny+irad, this%smooth_ny - irad
-             if(all(this%smooth_Q(i, j)**2 + this%smooth_U(i,j)**2 .le. this%smooth_Q(i-1:i+1, j-1:j+1)**2 + this%smooth_U(i-1:i+1, j-1:j+1)**2 ))then
+             if(all(this%smooth_Q(i, j)**2 + this%smooth_U(i,j)**2 .le. this%smooth_Q(i-1:i+1, j-1:j+1)**2 + this%smooth_U(i-1:i+1, j-1:j+1)**2 ) .and. mask%smooth_image(i,j).gt.0.5)then
                 angle = 0.5d0 * COOP_POLAR_ANGLE(this%smooth_Q(i, j), this%smooth_U(i, j))
                 write(cf%unit, "(2I6, E16.7, I6 )") i, j, angle, min(this%smooth_nx - i, this%smooth_nx + i, this%smooth_ny - j, this%smooth_ny + j)
              endif
@@ -524,13 +548,20 @@ contains
     COOP_UNKNOWN_STRING::Cls_file
     type(coop_file)::fp
     COOP_INT lmin, lmax, i, j, ik, l, ii
-    COOP_REAL Cls(3, 3, lmin:lmax), sqrteig(3, lmin:lmax), rot(3,3, lmin:lmax), rin(3)
+    COOP_REAL Cls(3, 3, lmin:lmax), sqrteig(3, lmin:lmax), rot(3,3, lmin:lmax), rin(4)
     complex(dlc),dimension(:,:,:),allocatable::fk
     COOP_REAL amp, rk
+    call coop_random_init()
     if(.not. coop_file_exists(Cls_file))then
        write(*,*) trim(Cls_file)//" does not exist"
        stop
     endif
+    if(.not. allocated(this%smooth_image))then
+       write(*,*) "call get_flatmap before you do simulate_flat"
+       stop
+    endif
+    if( .not. allocated(this%smooth_Q))allocate(this%smooth_Q(-this%smooth_nx:this%smooth_nx, -this%smooth_ny:this%smooth_ny))
+    if( .not. allocated(this%smooth_U))allocate(this%smooth_U(-this%smooth_nx:this%smooth_nx, -this%smooth_ny:this%smooth_ny))
     Cls = 0.d0
     call fp%open(Cls_file, "r")
     do
@@ -549,36 +580,34 @@ contains
        endif
        if(l .ge. lmax) exit
     enddo
-    
+
     amp = sqrt(1.d0/(this%smooth_pixsize**2/this%smooth_npix))
+    sqrteig = sqrteig*amp
+    do l=lmin, lmax
+       sqrteig(:, l) = sqrteig(:, l) * sin(coop_pi*dble(l- lmin)/dble(lmax-lmin))
+    enddo
     allocate(fk(0:this%smooth_nx,0:this%smooth_ny*2, 3))
     do i=0, this%smooth_nx
-       do j=0, this%smooth_ny
-          rk  = sqrt((this%smooth_dkx*i)**2 + (this%smooth_dky*j)**2) + 0.5d0
+       do j=0, this%smooth_ny*2
+          rk  = sqrt((this%smooth_dkx*i)**2 + (this%smooth_dky* min(j, 2*this%smooth_ny - j + 1))**2) + 0.5d0
           ik = floor(rk)
           if(ik.ge.lmin .and. ik .lt. lmax)then
              rk = rk - ik
              do ii=1,3
                 fk(i,j,ii) = coop_random_complex_gaussian() * (sqrteig(ii, ik)*(1.d0-rk) + sqrteig(ii, ik+1)*rk)
              enddo
+             fk(i, j, :) = matmul((rot(:,:,ik)*(1.d0-rk) + rot(:,:, ik+1)*rk),  fk(i, j, :))
           else
              fk(i, j, :) = 0
           endif
        enddo
-       do j=this%smooth_ny+1, 2*this%smooth_ny
-          rk  = sqrt((this%smooth_dkx*i)**2 + (this%smooth_dky*(2*this%smooth_ny+1-j))**2) + 0.5d0
-          ik = floor(rk)
-          if(ik.ge.lmin .and. ik .lt. lmax)then
-             rk = rk - ik
-             fk(i,j) = coop_random_complex_gaussian() * (amp(ik)*(1.d0-rk) + amp(ik+1)*rk)
-          else
-             fk(i, j) = 0
-          endif
-       enddo
     enddo
-    call coop_fft_backward(this%smooth_nx*2+1, this%smooth_ny*2+1, fk, this%smooth_image)
+    call coop_fft_backward(this%smooth_nx*2+1, this%smooth_ny*2+1, fk(:,:,1), this%smooth_image)
+    call coop_fft_backward(this%smooth_nx*2+1, this%smooth_ny*2+1, fk(:,:,2), this%smooth_Q)
+    call coop_fft_backward(this%smooth_nx*2+1, this%smooth_ny*2+1, fk(:,:,3), this%smooth_U)
     deallocate(fk)
     call fp%close()
+    call this%EB2QU()
     return
 100  stop "Cl file does not contain valid data"
   end subroutine coop_fits_image_cea_simulate_flat
@@ -593,7 +622,7 @@ contains
     nstack = 0
     call fp%open(trim(spot_file))
     select case(stack_option)
-    case("T", "E", "B")
+    case("T")
        do 
           read(fp%unit, *, ERR=100, END=100) i, j, theta, dis2b
           if(dis2b .lt. nrad) cycle
@@ -603,6 +632,36 @@ contains
                 jrot = nint(-ii*sin(theta) + jj*cos(theta))
                 if(abs(irot).le.nrad .and. abs(jrot).le.nrad)then
                    stacked_image(irot, jrot) = stacked_image(irot, jrot) + this%smooth_image(i+ii, j+jj)  
+                endif
+             enddo
+          enddo
+          nstack = nstack + 1
+       enddo
+    case("E")
+       do 
+          read(fp%unit, *, ERR=100, END=100) i, j, theta, dis2b
+          if(dis2b .lt. nrad) cycle
+          do ii= -nrad, nrad
+             do jj= -nrad, nrad 
+                irot = nint(ii*cos(theta) + jj*sin(theta))
+                jrot = nint(-ii*sin(theta) + jj*cos(theta))
+                if(abs(irot).le.nrad .and. abs(jrot).le.nrad)then
+                   stacked_image(irot, jrot) = stacked_image(irot, jrot) + this%smooth_Q(i+ii, j+jj)  
+                endif
+             enddo
+          enddo
+          nstack = nstack + 1
+       enddo
+    case("B")
+       do 
+          read(fp%unit, *, ERR=100, END=100) i, j, theta, dis2b
+          if(dis2b .lt. nrad) cycle
+          do ii= -nrad, nrad
+             do jj= -nrad, nrad 
+                irot = nint(ii*cos(theta) + jj*sin(theta))
+                jrot = nint(-ii*sin(theta) + jj*cos(theta))
+                if(abs(irot).le.nrad .and. abs(jrot).le.nrad)then
+                   stacked_image(irot, jrot) = stacked_image(irot, jrot) + this%smooth_U(i+ii, j+jj)  
                 endif
              enddo
           enddo
@@ -618,8 +677,7 @@ contains
                 irot = nint(ii*cos(theta) + jj*sin(theta))
                 jrot = nint(-ii*sin(theta) + jj*cos(theta))
                 if(abs(irot).le.nrad .and. abs(jrot).le.nrad)then
-                   theta = theta - theta_r
-                   stacked_image(irot, jrot) = stacked_image(irot, jrot) + (this%smooth_Q(i+ii, j+jj) * cos(2.*theta) + this%smooth_U(i+ii, j+jj)*sin(2.*theta)) 
+                   stacked_image(irot, jrot) = stacked_image(irot, jrot) + (this%smooth_Q(i+ii, j+jj) * cos(2.*theta_r) + this%smooth_U(i+ii, j+jj)*sin(2.*theta_r)) 
                 endif
              enddo
           enddo
@@ -689,26 +747,23 @@ contains
 
   subroutine coop_fits_image_cea_get_QTUT(this)
     class(coop_fits_image_cea)::this
-    if(.not. allocated(this%smooth_image)) stop "you have to call smooth_flat before doing T2QTUT"
+    if(.not. allocated(this%smooth_image)) stop "you have to call get_flatmap before doing T2QTUT"
     if(allocated(this%smooth_Q))deallocate(this%smooth_Q)
     if(allocated(this%smooth_U))deallocate(this%smooth_U)
     allocate( &
          this%smooth_Q(-this%smooth_nx:this%smooth_nx, -this%smooth_ny:this%smooth_ny), &
          this%smooth_U(-this%smooth_nx:this%smooth_nx, -this%smooth_ny:this%smooth_ny) )
-    call coop_fits_image_cea_EB2QU(nx = this%smooth_nx*2+1, ny = this%smooth_ny*2+1, Emap = this%smooth_image,  Qmap = this%smooth_Q, Umap = this%smooth_U)
+    this%smooth_Q = this%smooth_image
+    this%smooth_U = 0.d0
+    call coop_fits_EB2QU(nx = this%smooth_nx*2+1, ny = this%smooth_ny*2+1, Emap = this%smooth_Q, Bmap = this%smooth_U)
   end subroutine coop_fits_image_cea_get_QTUT
 
-  subroutine coop_fits_image_cea_EB2QU(nx, ny, Emap, Bmap, Qmap, Umap)
+  subroutine coop_fits_EB2QU(nx, ny, Emap, Bmap)
     COOP_INT nx, ny, i, j
-    real(dl) Qmap(nx,ny), Umap(nx,ny), Emap(nx,ny), kx, ky, k2
-    real(dl), optional :: Bmap(nx,ny)
+    real(dl) Emap(nx,ny), Bmap(nx,ny),  kx, ky, k2
     complex(dlc) Qk(0:nx/2, 0:ny-1), Uk(0:nx/2, 0:ny-1), Ek(0:nx/2, 0:ny-1), Bk(0:nx/2, 0:ny-1)
     call coop_fft_forward(nx, ny, Emap, Ek)
-    if(present(Bmap))then
-       call coop_fft_forward(nx, ny, Bmap, Bk)
-    else
-       Bk = ( 0.d0,  0.d0 )
-    endif
+    call coop_fft_forward(nx, ny, Bmap, Bk)
     do i=0, nx/2
        do j=0, ny-1
           kx = real(i, dl)/nx
@@ -727,15 +782,14 @@ contains
           endif
        enddo
     enddo
-    call coop_fft_backward(nx, ny, Qk, Qmap)
-    call coop_fft_backward(nx, ny, Uk, Umap)
-  end subroutine coop_fits_image_cea_EB2QU
+    call coop_fft_backward(nx, ny, Qk, Emap)
+    call coop_fft_backward(nx, ny, Uk, Bmap)
+  end subroutine coop_fits_EB2QU
 
 
-  subroutine coop_fits_image_cea_QU2EB(nx, ny, Qmap, Umap, Emap, Bmap)
+  subroutine coop_fits_QU2EB(nx, ny, Qmap, Umap)
     COOP_INT nx, ny, i, j
-    real(dl) Qmap(nx,ny), Umap(nx,ny), Emap(nx,ny), kx, ky, k2
-    real(dl), optional :: Bmap(nx,ny)
+    real(dl) Qmap(nx,ny), Umap(nx,ny), kx, ky, k2
     complex(dlc) Qk(0:nx/2, 0:ny-1), Uk(0:nx/2, 0:ny-1), Ek(0:nx/2, 0:ny-1), Bk(0:nx/2, 0:ny-1)
     call coop_fft_forward(nx, ny, Qmap, Qk)
     call coop_fft_forward(nx, ny, Umap, Uk)
@@ -757,10 +811,24 @@ contains
           endif
        enddo
     enddo
-    call coop_fft_backward(nx, ny, Ek, Emap)
-    if(present(Bmap)) &
-         call coop_fft_backward(nx, ny, Bk, Bmap)
+    call coop_fft_backward(nx, ny, Ek, Qmap)
+    call coop_fft_backward(nx, ny, Bk, Umap)
+  end subroutine coop_fits_QU2EB
+
+
+  subroutine coop_fits_image_cea_EB2QU(this)
+    class(coop_fits_image_cea)::this
+    if(.not. allocated(this%smooth_Q).or. .not. allocated(this%smooth_U)) stop "EB2QU cannot be done: E, B not allocated yet."
+    call coop_fits_EB2QU(this%smooth_nx*2+1, this%smooth_ny*2+1, this%smooth_Q, this%smooth_U)
+  end subroutine coop_fits_image_cea_EB2QU
+
+
+  subroutine coop_fits_image_cea_QU2EB(this)
+    class(coop_fits_image_cea)::this
+    if(.not. allocated(this%smooth_Q).or. .not. allocated(this%smooth_U)) stop "QU2EB cannot be done: Q, U not allocated yet."
+    call coop_fits_QU2EB(this%smooth_nx*2+1, this%smooth_ny*2+1, this%smooth_Q, this%smooth_U)
   end subroutine coop_fits_image_cea_QU2EB
+
 
 
 
@@ -837,5 +905,29 @@ contains
     deallocate(dtypes)
   end subroutine coop_fits_image_cea_write
 
+  subroutine coop_fits_image_cea_plot(this, figname)
+    class(coop_fits_image_cea)::this
+    COOP_UNKNOWN_STRING::figname
+    type(coop_asy)::asy
+    if(.not. allocated(this%smooth_image)) stop "call get_flatmap beore plot"
+    call asy%open(figname)
+    call asy%init(xlabel = "$2\sin{\frac{\theta}{2}}\cos\varphi$", ylabel = "$2\sin{\frac{\theta}{2}}\sin\varphi$", caption = "noise-free simulation", width=7., height=5.5)
+    call coop_asy_density(asy, this%smooth_image, this%xmin, this%xmax, this%ymin, this%ymax, "$I (\mu K)$")
+    call asy%close()
+    if(allocated(this%smooth_Q))then
+       call asy%open(coop_file_add_postfix(figname, "_Q"))
+       call asy%init(xlabel = "$2\sin{\frac{\theta}{2}}\cos\varphi$", ylabel = "$2\sin{\frac{\theta}{2}}\sin\varphi$", caption = "noise-free simulation", width=7., height=5.5)
+       call coop_asy_density(asy, this%smooth_Q, this%xmin, this%xmax, this%ymin, this%ymax, "$Q (\mu K)$")
+       call asy%close()
+    endif
+
+    if(allocated(this%smooth_U))then
+       call asy%open(coop_file_add_postfix(figname, "_U"))
+       call asy%init(xlabel = "$2\sin{\frac{\theta}{2}}\cos\varphi$", ylabel = "$2\sin{\frac{\theta}{2}}\sin\varphi$", caption = "noise-free simulation", width=7., height=5.5)
+       call coop_asy_density(asy, this%smooth_U, this%xmin, this%xmax, this%ymin, this%ymax, "$U (\mu K)$")
+       call asy%close()
+    endif
+
+  end subroutine coop_fits_image_cea_plot
 
 end module coop_fitswrap_mod

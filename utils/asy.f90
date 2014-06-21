@@ -1681,7 +1681,7 @@ contains
 
 
 
-  subroutine coop_asy_density_d(fp, z, xmin, xmax, ymin, ymax, label, zmin, zmax)
+  subroutine coop_asy_density_d(fp, z, xmin, xmax, ymin, ymax, label, zmin, zmax, color_table)
     class(coop_asy) fp
     real(dl),dimension(:,:)::z
     real(dl) xmin, xmax, ymin, ymax
@@ -1689,9 +1689,16 @@ contains
     COOP_UNKNOWN_STRING, optional::label
     real(dl) minz, maxz
     COOP_INT  nx, ny, i
+    COOP_UNKNOWN_STRING, optional::color_table
     nx = size(z, 1)
     ny = size(z, 2)
     write(fp%unit, "(A)") "DENSITY"
+    if(present(color_table))then
+       write(fp%unit, "(A)") trim(color_table)
+    else
+       write(fp%unit, "(A)") "Rainbow"
+    endif
+
     if(present(label))then
        if(trim(label).ne."")then
           write(fp%unit,"(A)") trim(label)
@@ -1721,17 +1728,22 @@ contains
     enddo
   end subroutine coop_asy_density_d
 
-  subroutine coop_asy_density_s(fp, z, xmin, xmax, ymin, ymax, label, zmin, zmax)
+  subroutine coop_asy_density_s(fp, z, xmin, xmax, ymin, ymax, label, zmin, zmax, color_table)
     class(coop_asy) fp
     real(sp),dimension(:,:)::z
     real(sp) xmin, xmax, ymin, ymax
     real(sp),optional::zmin, zmax
     real(sp) minz, maxz
     COOP_INT  nx, ny, i
-    COOP_UNKNOWN_STRING, optional::label
+    COOP_UNKNOWN_STRING, optional::label, color_table
     nx = size(z, 1)
     ny = size(z, 2)
     write(fp%unit, "(A)") "DENSITY"
+    if(present(color_table))then
+       write(fp%unit,"(A)") trim(color_table)
+    else
+       write(fp%unit,"(A)") "Rainbow"
+    endif
     if(present(label))then
        if(trim(label).ne."")then
           write(fp%unit,"(A)") trim(label)
@@ -1761,10 +1773,10 @@ contains
   end subroutine coop_asy_density_s
 
 
- subroutine coop_asy_irregular_density_d(fp, x, y, z, label, xmin, xmax, ymin, ymax, zmin, zmax)
+ subroutine coop_asy_irregular_density_d(fp, x, y, z, label, xmin, xmax, ymin, ymax, zmin, zmax, color_table)
     class(coop_asy) fp
     real(dl),dimension(:)::x, y, z
-    COOP_UNKNOWN_STRING, optional::label
+    COOP_UNKNOWN_STRING, optional::label, color_table
     real(dl),optional::xmin, xmax, ymin, ymax, zmin, zmax
     COOP_INT  i, n
     real(dl) minx, miny, minz, maxx, maxy, maxz
@@ -1800,6 +1812,11 @@ contains
        call coop_array_get_threshold(z, 0.01d0, maxz)
     endif
     write(fp%unit,"(A)") "DENSITY"
+    if(present(color_table))then
+       write(fp%unit,"(A)") trim(color_table)
+    else
+       write(fp%unit,"(A)") "Rainbow"
+    endif
     if(present(label))then
        if(trim(label).ne."")then
           write(fp%unit,"(A)") trim(label)
@@ -1818,10 +1835,10 @@ contains
     enddo
   end subroutine coop_asy_irregular_density_d
 
-  subroutine coop_asy_irregular_density_s(fp, x, y, z, label, xmin, xmax, ymin, ymax, zmin, zmax)
+  subroutine coop_asy_irregular_density_s(fp, x, y, z, label, xmin, xmax, ymin, ymax, zmin, zmax, color_table)
     class(coop_asy) fp
     real(sp),dimension(:)::x, y, z
-    COOP_UNKNOWN_STRING, optional::label
+    COOP_UNKNOWN_STRING, optional::label, color_table
     real(sp),optional::xmin, xmax, ymin, ymax, zmin, zmax
     COOP_INT  i, n
     real(sp) minx, miny, minz, maxx, maxy, maxz
@@ -1857,6 +1874,13 @@ contains
        call coop_array_get_threshold(z, 0.01, maxz)
     endif
     write(fp%unit,"(A)") "DENSITY"
+
+    if(present(color_table))then
+       write(fp%unit,"(A)") trim(color_table)
+    else
+       write(fp%unit,"(A)") "Rainbow"
+    endif
+
     if(present(label))then
        if(trim(label).ne."")then
           write(fp%unit,"(A)") trim(label)

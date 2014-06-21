@@ -4,9 +4,9 @@ program test
   implicit none
 #include "constants.h"
 
-  integer,parameter::fwhm_arcmin = 15
-  COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
-  COOP_UNKNOWN_STRING, parameter::input_file ="simu/simulate_T.fits" 
+  integer,parameter::fwhm_arcmin = 10
+  COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax_QTUTOrient"
+  COOP_UNKNOWN_STRING, parameter::input_file ="simu/sim3_T.fits" 
   COOP_UNKNOWN_STRING, parameter::mask_file  = ""
 
   COOP_REAL, parameter:: threshold = 1.e31
