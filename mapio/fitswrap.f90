@@ -708,10 +708,11 @@ contains
   end subroutine coop_fits_image_cea_stack
 
 
-  subroutine coop_fits_image_cea_stack2fig(this, spot_file, stack_option, radius, fig)
+  subroutine coop_fits_image_cea_stack2fig(this, spot_file, stack_option, radius, fig, caption, label, color_table)
     class(coop_fits_image_cea)::this
     COOP_REAL radius
     COOP_UNKNOWN_STRING::spot_file, fig, stack_option
+    COOP_UNKNOWN_STRING,optional::caption, label, color_table
     COOP_REAL,dimension(:,:),allocatable::image
     type(coop_asy)::asy
     COOP_INT nstack
@@ -724,8 +725,24 @@ contains
     allocate(image(-nrad:nrad, -nrad:nrad))
     call this%stack(spot_file, stack_option, nrad, image, nstack)
     call asy%open(trim(fig))
-    call asy%init(xlabel = "$2\sin{\frac{\theta}{2}} \cos\varphi$", ylabel = "$2\sin{\frac{\theta}{2}} \sin\varphi$", width=7., height=5.5, caption="stacked "//trim(coop_num2str(nstack))//" patches")
-    call coop_asy_density(asy, image, -this%smooth_pixsize*nrad, this%smooth_pixsize*nrad, -this%smooth_pixsize*nrad, this%smooth_pixsize*nrad, label = "$I(\mu K)$")
+    if(present(caption))then
+       call asy%init(xlabel = "$2\sin{\frac{\theta}{2}} \cos\varphi$", ylabel = "$2\sin{\frac{\theta}{2}} \sin\varphi$", width=7., height=5.5, caption=trim(caption)//"; stacked "//trim(coop_num2str(nstack))//" patches")
+    else
+       call asy%init(xlabel = "$2\sin{\frac{\theta}{2}} \cos\varphi$", ylabel = "$2\sin{\frac{\theta}{2}} \sin\varphi$", width=7., height=5.5, caption="stacked "//trim(coop_num2str(nstack))//" patches")
+    endif
+    if(present(color_table))then
+       if(present(label))then
+          call coop_asy_density(asy, image, -this%smooth_pixsize*nrad, this%smooth_pixsize*nrad, -this%smooth_pixsize*nrad, this%smooth_pixsize*nrad, label = trim(label), color_table=trim(color_table))
+       else
+          call coop_asy_density(asy, image, -this%smooth_pixsize*nrad, this%smooth_pixsize*nrad, -this%smooth_pixsize*nrad, this%smooth_pixsize*nrad, color_table = trim(color_table))
+       endif
+    else
+       if(present(label))then
+          call coop_asy_density(asy, image, -this%smooth_pixsize*nrad, this%smooth_pixsize*nrad, -this%smooth_pixsize*nrad, this%smooth_pixsize*nrad, label = trim(label))
+       else
+          call coop_asy_density(asy, image, -this%smooth_pixsize*nrad, this%smooth_pixsize*nrad, -this%smooth_pixsize*nrad, this%smooth_pixsize*nrad)
+       endif
+    endif
     call asy%close()
     deallocate(image)
   end subroutine coop_fits_image_cea_stack2fig
@@ -767,7 +784,7 @@ contains
     do i=0, nx/2
        do j=0, ny-1
           kx = real(i, dl)/nx
-          if(ny - j .gt. j)then
+          if(ny - j .lt. j)then
              ky = real(j - ny, dl)/ny
           else
              ky = real(j, dl)/ny
@@ -796,7 +813,7 @@ contains
     do i=0, nx/2
        do j=0, ny-1
           kx = real(i, dl)/nx
-          if(ny - j .gt. j)then
+          if(ny - j .lt. j)then
              ky = real(j - ny, dl)/ny
           else
              ky = real(j, dl)/ny

@@ -4,9 +4,9 @@ program test
   implicit none
 #include "constants.h"
 
-  integer,parameter::fwhm_arcmin = 10
+  integer,parameter::fwhm_arcmin = 30
   COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax_QTUTOrient"
-  COOP_UNKNOWN_STRING, parameter::input_file ="simu/sim3_T.fits" 
+  COOP_UNKNOWN_STRING, parameter::input_file ="planck/smica_inp_cmb_256.fits" 
   COOP_UNKNOWN_STRING, parameter::mask_file  = ""
 
   COOP_REAL, parameter:: threshold = 1.e31
@@ -24,4 +24,5 @@ program test
      output_file = trim(prefix)//trim(spot_type)//"_NoThreshold_fwhm"//trim(coop_num2str(fwhm_arcmin))//".txt"
      call coop_healpix_export_spots(input_file, trim(output_file), spot_type, mask_file = mask_file, filter_fwhm = fwhm)
   endif
+  write(*,*) "The output file is: "//trim(output_file)
 end program test

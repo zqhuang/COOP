@@ -3,17 +3,17 @@ program test
   use coop_wrapper_utils
   implicit none
 
-#define USE_SIMU 1
+#define USE_PLANCK 1
 
 #include "constants.h"
 
   
-  COOP_REAL, parameter::pre_smooth_fwhm = 10.*coop_SI_arcmin
+  COOP_REAL, parameter::pre_smooth_fwhm = 30.*coop_SI_arcmin
 
 #ifdef USE_PLANCK
-  COOP_UNKNOWN_STRING, parameter :: map_file = "planck/smica_inp_cmb.fits"
-  COOP_UNKNOWN_STRING, parameter :: spot_file = "spots/smica_inp_cmb_Tmax_QTUTOrient_NoThreshold_fwhm15.txt"
-  COOP_UNKNOWN_STRING, parameter :: imask_file = "planck/smica_valmask.fits" 
+  COOP_UNKNOWN_STRING, parameter :: map_file = "../../../CosmoLib/zeta/maps/zeta_realization_fwhm30arcmin_step1000.fits" ! "planck/smica_inp_cmb.fits"
+  COOP_UNKNOWN_STRING, parameter :: spot_file = "spots/smica_inp_cmb_256_Tmax_QTUTOrient_NoThreshold_fwhm30.txt" !"spots/smica_inp_cmb_Tmax_QTUTOrient_NoThreshold_fwhm15.txt"
+  COOP_UNKNOWN_STRING, parameter :: imask_file = "planck/smica_valmask_256.fits" 
   COOP_UNKNOWN_STRING, parameter :: polmask_file = ""
 #endif
 
