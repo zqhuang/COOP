@@ -12,7 +12,7 @@ module coop_healpix_mod
 
   private
 
-  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_get_disc, coop_healpix_stack_io, coop_healpix_export_spots
+  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_get_disc, coop_healpix_stack_io, coop_healpix_export_spots, coop_healpix_smooth_mapfile
 
 
   integer,parameter::sp = kind(1.)
