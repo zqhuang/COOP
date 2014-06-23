@@ -657,4 +657,16 @@ contains
     enddo    
   end function coop_polyvalue
 
+  function coop_InputArgs(i) result(args)
+    COOP_STRING args
+    COOP_INT, intent(in) :: i
+    if (iargc() < i) then
+       args = ''
+    else
+       call getarg(i, args)
+    end if
+  end function Coop_InputArgs
+
+
+
 end module coop_basicutils_mod

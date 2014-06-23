@@ -12,7 +12,7 @@ module coop_healpix_mod
 
   private
 
-  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_copy_map, coop_healpix_get_disc, coop_healpix_stack_io, coop_healpix_export_spots
+  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_get_disc, coop_healpix_stack_io, coop_healpix_export_spots
 
 
   integer,parameter::sp = kind(1.)
@@ -48,7 +48,7 @@ module coop_healpix_mod
      complex, dimension(:,:,:),allocatable::alm
      real, dimension(:,:),allocatable::Cl
      integer,dimension(:),allocatable::mask_listpix, maskpol_listpix
-     real chisq, mcmc_temperature
+     real(dl) chisq, mcmc_temperature
    contains
      procedure :: init => coop_healpix_maps_init
      procedure :: free => coop_healpix_maps_free
@@ -358,84 +358,6 @@ contains
     call write_minimal_header(this%header,dtype = 'MAP', nside=this%nside, order = this%ordering, creator='Zhiqi Huang', version = 'CosmoLib', units='muK', polar=any(this%spin.eq.2) )
 
   end subroutine coop_healpix_maps_read
-
-  subroutine coop_healpix_copy_map(this1, this2)
-    type(coop_healpix_maps)::this1, this2
-    this2%nside = this1%nside
-    this2%npix = this1%npix
-    this2%ordering = this1%ordering
-    this2%nmaps = this1%nmaps
-    this2%lmax = this1%lmax
-    this2%chisq = this1%chisq
-    this2%mcmc_temperature = this1%mcmc_temperature
-    this2%iq = this1%iq
-    this2%iu = this1%iu
-    if(allocated(this2%map))then
-       if(size(this2%map, 1) .ne. this2%npix .or. size(this2%map, 2).ne. this2%nmaps)then
-          deallocate(this2%map)
-          allocate(this2%map(0:this2%npix-1, this2%nmaps))
-       endif
-    else
-       allocate(this2%map(0:this2%npix-1, this2%nmaps))
-    endif
-    this2%map = this1%map
-    if(allocated(this2%spin))then
-       if(size(this2%spin).ne. this2%nmaps)then
-          deallocate(this2%spin)
-          allocate(this2%spin(this2%nmaps))
-       endif
-    else
-       allocate(this2%spin(this2%nmaps))
-    endif
-    this2%spin = this1%spin
-    if(allocated(this1%alm) .and. allocated(this1%cl))then
-       if(allocated(this2%alm))then
-          if(size(this2%alm, 1) .ne. this2%lmax+1 .or. size(this2%alm, 2) .ne. this2%lmax+1 .or. size(this2%alm, 3) .ne. this2%nmaps)then
-             deallocate(this2%alm)
-             allocate(this2%alm(0:this2%lmax,0:this2%lmax, this2%nmaps))
-          endif
-       else
-          allocate(this2%alm(0:this2%lmax,0:this2%lmax, this2%nmaps))
-       endif
-       if(allocated(this2%cl))then
-          if(size(this2%cl, 1) .ne. this2%lmax+1 .or. size(this2%cl, 2) .ne. this2%nmaps*(this2%nmaps+1)/2)then
-             deallocate(this2%cl)
-             allocate(this2%cl(0:this2%lmax, this2%nmaps*(this2%nmaps+1)/2))
-          endif
-       else
-          allocate(this2%cl(0:this2%lmax, this2%nmaps*(this2%nmaps+1)/2))
-       endif
-       this2%alm = this1%alm
-       this2%cl = this1%cl
-    endif
-    if(allocated(this1%mask_listpix))then
-       if(allocated(this2%mask_listpix))then
-          if(this2%mask_npix .ne. this1%mask_npix)then
-             this2%mask_npix = this1%mask_npix
-             deallocate(this2%mask_listpix)
-             allocate(this2%mask_listpix(this2%mask_npix))
-          endif
-       else
-          this2%mask_npix = this1%mask_npix
-          allocate(this2%mask_listpix(this2%mask_npix))
-       endif
-       this2%mask_listpix = this1%mask_listpix
-    endif
-    if(allocated(this1%maskpol_listpix))then
-       if(allocated(this2%maskpol_listpix))then
-          if(this2%maskpol_npix .ne. this1%maskpol_npix)then
-             this2%maskpol_npix = this1%maskpol_npix
-             deallocate(this2%maskpol_listpix)
-             allocate(this2%maskpol_listpix(this2%maskpol_npix))
-          endif
-       else
-          this2%maskpol_npix = this1%maskpol_npix
-          allocate(this2%maskpol_listpix(this2%maskpol_npix))
-       endif
-       this2%maskpol_listpix = this1%maskpol_listpix
-    endif
-
-  end subroutine coop_healpix_copy_map
 
   subroutine coop_healpix_maps_write(this, filename, index_list)
     class(coop_healpix_maps)this
@@ -1456,7 +1378,12 @@ contains
           this%mask_listpix(j) = i
        endif
     enddo
-    call coop_healpix_copy_map(this, hgs)
+    select type(this)
+    type is (coop_healpix_maps)
+       hgs = this
+    class default
+       stop "the mask must be basic coop_healpix_maps type"
+    end select
     do i=1, nsteps
        call coop_healpix_iterate_mask(this, hgs, decay)
        call coop_healpix_iterate_mask(hgs, this, decay)
@@ -1480,19 +1407,33 @@ contains
   end subroutine coop_healpix_smooth_mask
 
 
-  subroutine coop_healpix_inpainting(mode, map_file, mask_file, maskpol_file)
+  subroutine coop_healpix_inpainting(mode, map_file, mask_file, maskpol_file, output_freq, output_types)
     COOP_UNKNOWN_STRING map_file, mask_file, mode
-    COOP_UNKNOWN_STRING,optional:: maskpol_file
-    integer,parameter:: output_steps = 50, total_steps = 1000, burnin = 20
+    integer, optional::output_freq 
+    COOP_UNKNOWN_STRING,optional:: maskpol_file, output_types
+    integer,parameter:: total_steps = 2000, burnin = 20
+    integer output_steps 
     integer step, naccept, weight
     logical accept
-    type(coop_healpix_maps) map, simumap, mask, maskpol, mapmean
+    type(coop_healpix_maps) map, simumap, mask, maskpol, mapmean, tebmap
+    COOP_SHORT_STRING::ot
+    real(dl) prev_chisq
+    if(present(output_freq))then
+       output_steps = output_freq
+    else
+       output_steps = 50
+    endif
+    if(present(output_types))then
+       ot = trim(output_types)
+    else
+       ot = "IQU"
+    end if
     if(trim(mode) .eq. "I")then
        call map%read(map_file, nmaps_wanted = 1)
     else
        call map%read(map_file, nmaps_wanted = 3)
     endif
-    call coop_healpix_copy_map(map, mapmean)
+    mapmean = map   
     mapmean%map = 0
     call mask%read(mask_file, nmaps_wanted = 1)
     if(all( mask%map .eq. 1. .or. mask%map .eq. 0.))then
@@ -1511,10 +1452,12 @@ contains
        map%maskpol_npix = 0
     endif
     call coop_healpix_inpainting_init(map, simumap)
+    prev_chisq = map%chisq
     naccept = 0
     weight = 0
-    step = 1
+    step = 0
     do while(step .lt. total_steps)
+       step = step + 1
        if(present(maskpol_file))then
           call coop_healpix_inpainting_step(accept, map, simumap, mask, maskpol)
        else
@@ -1527,18 +1470,30 @@ contains
        if(naccept .ge. burnin)then
           mapmean%map = mapmean%map + map%map
           if(weight.eq.0)then
-             write(*,*) "initial trials done: resetting step # = 1"
-             step = 1
+             write(*,*) "initial trials done: now start sampling"
+             step = 0
           endif
           weight = weight + 1
        endif
-       write(*,*) step, accept, "temperature = ", map%mcmc_temperature, "chisq = ", map%chisq, simumap%chisq
-       if(mod(step, output_steps).eq.0 )then
-          call map%write(trim(coop_file_add_postfix(trim(map_file), "_inp"//trim(coop_ndigits(step, 4)))))
-          if(weight .gt. 0)then
-             simumap%map =  mapmean%map/weight
-             call simumap%write(trim(coop_file_add_postfix(trim(map_file), "_mean"//trim(coop_ndigits(step, 4)))))
-          endif
+       write(*, "(I6, A)") step, " accept = "//trim(coop_num2str(accept))//" temperature = "//trim(coop_num2str(map%mcmc_temperature,"(F10.2)"))//" chisq = "//trim(coop_num2str(prev_chisq, "(G14.3)"))//" --> "//trim(coop_num2str(map%chisq, "(G14.3)"))
+       prev_chisq = map%chisq
+       
+       if(mod(step, output_steps) .eq.0 )then
+          select case(ot)
+          case("")
+             call map%write(trim(coop_file_add_postfix(trim(map_file), "_inp"//trim(coop_ndigits(step, 4)))))         
+          case("TEB")
+             tebmap = map
+             call tebmap%iqu2TEB()
+             call tebmap%write(trim(coop_file_add_postfix(trim(map_file), "_inp_teb"//trim(coop_ndigits(step, 4))))) 
+          case default
+             write(*,*) trim(ot)
+             stop "Unknown output types"
+          end select
+       endif
+       if(mod(step, output_steps*10) .eq. 0)then !!less mean maps to save disk space
+          simumap%map =  mapmean%map/weight
+          call simumap%write(trim(coop_file_add_postfix(trim(map_file), "_mean"//trim(coop_ndigits(step, 4)))))
        endif
     enddo
     call map%free()
@@ -1562,7 +1517,7 @@ contains
     map%Cl(0:1,:) = 0.
     map%mcmc_temperature = 20.     !!start with a high temperature
     coop_healpix_inpainting_lowl = 5
-    call coop_healpix_copy_map(map, simumap)
+    simumap = map
     call coop_healpix_inpainting_get_chisq(map, simumap)
     map%chisq = simumap%chisq
   end subroutine coop_healpix_inpainting_init

@@ -12,15 +12,24 @@ default: $(LIB)
 $(LIB): $(OBJ) 
 	ar -r $@ $?
 
+UDG: $(OBJ) udgrade.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) udgrade.o $(LINK)
+
+
 Test: $(OBJ) test.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
 
 GetSpots: $(OBJ) exportspots.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) exportspots.o $(LINK)
 
-
 Stack: $(OBJ) dostack.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) dostack.o $(LINK)
+
+MSMAP: $(OBJ) map_merge_split.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) map_merge_split.o $(LINK)
+
+InpEB: $(OBJ) simeb.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) simeb.o $(LINK)
 
 FSpots:  $(OBJ) flat_exportspots.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_exportspots.o $(LINK)
@@ -35,7 +44,7 @@ FMerge:	 $(OBJ) flat_merge.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_merge.o $(LINK)	
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots
 
 
 test.o: 	$(LIB)
