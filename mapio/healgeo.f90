@@ -18,8 +18,11 @@ module coop_healpix_mod
   integer,parameter::sp = kind(1.)
   integer,parameter::dl = kind(1.d0)
   integer,parameter::dlc = kind( (1.d0,1.d0) )
+  integer,parameter::coop_inpainting_lowl_max = 20
+  integer,parameter::coop_inpainting_lowl_min = 5
+  real(dl),parameter::coop_healpix_inpaiting_lowpass_fwhm = 10.d0*coop_SI_degree
 
-  integer, parameter::coop_healpix_default_lmax=3500
+  integer, parameter::coop_healpix_default_lmax=2500
   integer, parameter::coop_healpix_mask_tol = 0.75
   integer::coop_healpix_inpainting_lowl=5
 
@@ -354,7 +357,7 @@ contains
     endif
 
     call input_map(trim(filename), this%map, this%npix, nmaps_actual, fmissval = 0.)
-    call coop_healpix_convert_to_ring(this)
+    call this%convert2ring
     call write_minimal_header(this%header,dtype = 'MAP', nside=this%nside, order = this%ordering, creator='Zhiqi Huang', version = 'CosmoLib', units='muK', polar=any(this%spin.eq.2) )
 
   end subroutine coop_healpix_maps_read
@@ -412,7 +415,7 @@ contains
     integer,optional::lmax
     integer i, l
     complex, dimension(:,:,:),allocatable::alm
-    call coop_healpix_convert_to_ring(this)
+    call this%convert2ring()
     if(present(lmax))then
        if(lmax .gt. this%nside*3)then
           write(*,*) "lmax > nside x 3 is not recommended"
@@ -826,12 +829,12 @@ contains
     if(present(pre_smooth_fwhm))then
        call map%smooth(pre_smooth_fwhm)
     endif
-    call coop_healpix_convert_to_ring(map)
+    call map%convert2ring()
     do_mask = .false.
     if(present(mask_file))then
        if(trim(mask_file).ne."")then
           call mask%read(mask_file, nmaps_wanted = 1)
-          call coop_healpix_convert_to_ring(mask)
+          call mask%convert2ring()
           if(map%nside .ne. mask%nside) stop "coop_healpix_stack_io: mask must have the same resolution"
           do_mask = .true.
        endif
@@ -1114,8 +1117,8 @@ contains
     else
        total_weight = map%npix
     endif
-    call coop_healpix_convert_to_nested(map)
-    if(do_mask)call coop_healpix_convert_to_nested(mask)
+    call map%convert2nested
+    if(do_mask)call mask%convert2nested
 
     call fp%open(trim(spots_file),"w")
     select case(trim(spot_type))
@@ -1315,9 +1318,9 @@ contains
     call map%read(mapfile)
     call mask%read(maskfile,  nmaps_wanted = 1)
     if(mask%ordering .eq. COOP_RING)then
-       call coop_healpix_convert_to_ring(map)
+       call map%convert2ring()
     elseif(mask%ordering .eq. COOP_NESTED)then
-       call coop_healpix_convert_to_nested(map)
+       call map%convert2nested()
     else
        write(*,*) "coop_healpix_mask_map: mask file has unknown ordering."
        stop
@@ -1368,7 +1371,7 @@ contains
     nsteps = ceiling(smoothscale*this%nside*nefolds/2.)
     if(nsteps .le. 0 .or. nsteps .gt. 200)stop "coop_healpix_smooth_mask: invalid input of smoothscale"
     decay = exp(-nefolds/nsteps/2.)
-    call coop_healpix_convert_to_nested(this)
+    call this%convert2nested()
     this%mask_npix = count(this%map(:,1) .lt. 1.)
     allocate(this%mask_listpix(this%mask_npix))
     j = 0
@@ -1389,9 +1392,8 @@ contains
        call coop_healpix_iterate_mask(hgs, this, decay)
     enddo
     call hgs%free
-
+    call this%convert2ring()
   contains 
-
     subroutine coop_healpix_iterate_mask(this_from, this_to, decay)  
       type(coop_healpix_maps) this_from, this_to
       integer list(8), nneigh
@@ -1406,18 +1408,62 @@ contains
     end subroutine coop_healpix_iterate_mask
   end subroutine coop_healpix_smooth_mask
 
+  subroutine coop_healpix_lowpass_mask(map, mask, polmask, fwhm)
+    real(dl) fwhm, sigma, s2
+    integer lmax, l
+    type(coop_healpix_maps)::map, mask, tmp
+    type(coop_healpix_maps),optional::polmask
+    sigma = fwhm * coop_sigma_by_fwhm
+    lmax = min(map%nside*2, floor(3.d0/sigma))
+    tmp = map
+    where(mask%map(:,1).eq.0.)
+       tmp%map(:,1) = 0.
+    end where
+    if(present(polmask))then
+       if(map%nmaps .lt. 3) stop "Error in lowpass_mask: for nmaps<3 you cannot use polmask"
+       where(polmask%map(:,1).eq.0.)
+          tmp%map(:,2) = 0.
+          tmp%map(:,3) = 0.
+       end where
+    endif
+    call tmp%map2alm(lmax)
+    s2 = sigma**2/2.d0
+    do l=0, lmax
+       tmp%alm(l,:,:) = tmp%alm(l,:,:)*exp(-l*(l+1.d0)*s2)
+    enddo
+    call tmp%alm2map()
+    where(mask%map(:,1).eq.0.)
+       map%map(:,1) = tmp%map(:,1)
+    end where
+    if(present(polmask))then
+       where(polmask%map(:,1).eq.0.)
+          map%map(:,2) = tmp%map(:,2)
+          map%map(:,3) = tmp%map(:,3)
+       end where
+    endif
+    call tmp%free()
+  end subroutine coop_healpix_lowpass_mask
 
-  subroutine coop_healpix_inpainting(mode, map_file, mask_file, maskpol_file, output_freq, output_types)
+
+
+  subroutine coop_healpix_inpainting(mode, map_file, mask_file, maskpol_file, output_freq, output_types, mask_smooth_scale)
     COOP_UNKNOWN_STRING map_file, mask_file, mode
     integer, optional::output_freq 
     COOP_UNKNOWN_STRING,optional:: maskpol_file, output_types
-    integer,parameter:: total_steps = 2000, burnin = 20
+    integer,parameter:: total_steps = 1000, burnin = 20
     integer output_steps 
     integer step, naccept, weight
     logical accept
     type(coop_healpix_maps) map, simumap, mask, maskpol, mapmean, tebmap
     COOP_SHORT_STRING::ot
     real(dl) prev_chisq
+    real(dl), optional:: mask_smooth_scale
+    real(sp)::mss
+    if(present(mask_smooth_scale))then
+       mss = mask_smooth_scale
+    else
+       mss = 2.*coop_SI_degree
+    endif
     if(present(output_freq))then
        output_steps = output_freq
     else
@@ -1436,21 +1482,17 @@ contains
     mapmean = map   
     mapmean%map = 0
     call mask%read(mask_file, nmaps_wanted = 1)
-    if(all( mask%map .eq. 1. .or. mask%map .eq. 0.))then
-          write(*,*) "smoothing the temperature mask "//trim(mask_file)
-       call coop_healpix_smooth_mask(mask, 2.*real(coop_SI_degree))
-    endif
-    map%mask_npix = floor(map%npix - sum(mask%map(:,1)))
     if(present(maskpol_file)) then
        call maskpol%read(maskpol_file, nmaps_wanted = 1)
-       if(all(maskpol%map .eq. 1. .or. maskpol%map .eq. 0.))then
-          write(*,*) "smoothing the polarization mask "//trim(maskpol_file)
-          call coop_healpix_smooth_mask(maskpol, 2.*real(coop_SI_degree))
-       endif
+       call coop_healpix_LowPass_mask(map, mask, maskpol, fwhm = coop_healpix_inpaiting_lowpass_fwhm)
+       call coop_healpix_smooth_mask(maskpol, mss)
        map%maskpol_npix = floor(map%npix - sum(maskpol%map(:,1)))
     else
        map%maskpol_npix = 0
+       call coop_healpix_LowPass_mask(map, mask, fwhm =coop_healpix_inpaiting_lowpass_fwhm)
     endif
+    call coop_healpix_smooth_mask(mask, mss)
+    map%mask_npix = floor(map%npix - sum(mask%map(:,1)))
     call coop_healpix_inpainting_init(map, simumap)
     prev_chisq = map%chisq
     naccept = 0
@@ -1480,7 +1522,7 @@ contains
        
        if(mod(step, output_steps) .eq.0 )then
           select case(ot)
-          case("")
+          case("", "IQU")
              call map%write(trim(coop_file_add_postfix(trim(map_file), "_inp"//trim(coop_ndigits(step, 4)))))         
           case("TEB")
              tebmap = map
@@ -1493,7 +1535,7 @@ contains
        endif
        if(mod(step, output_steps*10) .eq. 0)then !!less mean maps to save disk space
           simumap%map =  mapmean%map/weight
-          call simumap%write(trim(coop_file_add_postfix(trim(map_file), "_mean"//trim(coop_ndigits(step, 4)))))
+          call simumap%write(trim(coop_file_add_postfix(trim(map_file), "_inp_mean"//trim(coop_ndigits(step, 4)))))
        endif
     enddo
     call map%free()
@@ -1501,24 +1543,28 @@ contains
     call simumap%free()
     call mask%free()
     call maskpol%free()
+    call tebmap%free()
   end subroutine coop_healpix_inpainting
 
   subroutine coop_healpix_inpainting_init(map, simumap)
-    type(coop_healpix_maps) map, simumap
-    call coop_healpix_maps_map2alm(map)
+    type(coop_healpix_maps) map, simumap,tmpmap
+    call map%map2alm()
     map%cl(0:1, :) = 0.
     map%cl(:, coop_healpix_index_TT) = max(map%cl(:, coop_healpix_index_TT), 1.e-8)*(map%npix/real(map%npix - map%mask_npix))
-    map%cl(:, coop_healpix_index_EE) = max(map%cl(:, coop_healpix_index_EE), 1.e-10)*(map%npix/real(map%npix-map%maskpol_npix))
-    map%cl(:, coop_healpix_index_TE) = map%cl(:, coop_healpix_index_TE)*sqrt((map%npix/real(map%npix-map%maskpol_npix))*(map%npix/real(map%npix-map%mask_npix))*0.9999) !!0.9999 is to avoid 0 determinant
-    map%cl(:, coop_healpix_index_BB) = max(map%cl(:, coop_healpix_index_BB), 1.e-12)*(map%npix/real(map%npix-map%maskpol_npix))
-    
-    map%cl(:, coop_healpix_index_EB) = 0. 
-    map%Cl(:, coop_healpix_index_TB) = 0.
+    if(map%nmaps.ge.3)then
+       map%cl(:, coop_healpix_index_EE) = max(map%cl(:, coop_healpix_index_EE), 1.e-10)*(map%npix/real(map%npix-map%maskpol_npix))
+       map%cl(:, coop_healpix_index_TE) = map%cl(:, coop_healpix_index_TE)*sqrt((map%npix/real(map%npix-map%maskpol_npix))*(map%npix/real(map%npix-map%mask_npix))*0.999999) !!0.999999 is to avoid 0 determinant
+       map%cl(:, coop_healpix_index_BB) = max(map%cl(:, coop_healpix_index_BB), 1.e-12)*(map%npix/real(map%npix-map%maskpol_npix))
+
+       map%cl(:, coop_healpix_index_EB) = 0. 
+       map%Cl(:, coop_healpix_index_TB) = 0.
+    endif
     map%Cl(0:1,:) = 0.
     map%mcmc_temperature = 20.     !!start with a high temperature
     coop_healpix_inpainting_lowl = 5
     simumap = map
     call coop_healpix_inpainting_get_chisq(map, simumap)
+
     map%chisq = simumap%chisq
   end subroutine coop_healpix_inpainting_init
   
@@ -1529,7 +1575,9 @@ contains
     integer i
     simumap%Cl = map%Cl
     call simumap%simulate()
+    call simumap%write("simulated_w_map.fits")
     simumap%map(:,1) =  map%map(:,1) * mask%map(:,1) + simumap%map(:,1) * sqrt(1.-mask%map(:,1)**2)
+    call simumap%write("simulated_w_map.fits")
     if(map%nmaps.eq.3)then
        if(present(maskpol))then
           simumap%map(:,2) =  map%map(:,2) * maskpol%map(:,1) + simumap%map(:,2) * sqrt(1.-maskpol%map(:,1)**2)
@@ -1546,7 +1594,7 @@ contains
     type(coop_healpix_maps) map, simumap
     integer l
     real chisq
-    call coop_healpix_maps_map2alm(simumap)
+    call simumap%map2alm()
     if(map%nmaps .eq. 1)then
        chisq = 0.
        !$omp parallel do reduction(+:chisq)
@@ -1575,13 +1623,14 @@ contains
        accept = .true.
        map%chisq = simumap%chisq
        map%map = simumap%map
+
        map%alm = simumap%alm
        map%mcmc_temperature = max(1., map%mcmc_temperature*0.95)
-       coop_healpix_inpainting_lowl = min(20, coop_healpix_inpainting_lowl + 1)
+       coop_healpix_inpainting_lowl = min(coop_inpainting_lowl_max, coop_healpix_inpainting_lowl + 1)
     else
        accept = .false.
        map%mcmc_temperature = map%mcmc_temperature*1.01
-       coop_healpix_inpainting_lowl = max(5, coop_healpix_inpainting_lowl - 1)
+       coop_healpix_inpainting_lowl = max(coop_inpainting_lowl_min, coop_healpix_inpainting_lowl - 1)
     endif
   end subroutine coop_healpix_inpainting_accept_reject
 

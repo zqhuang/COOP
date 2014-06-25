@@ -31,6 +31,10 @@ MSMAP: $(OBJ) map_merge_split.o
 InpEB: $(OBJ) simeb.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) simeb.o $(LINK)
 
+InpT: $(OBJ) simt.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) simt.o $(LINK)
+
+
 FSpots:  $(OBJ) flat_exportspots.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_exportspots.o $(LINK)
 

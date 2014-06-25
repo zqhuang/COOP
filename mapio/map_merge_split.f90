@@ -81,7 +81,7 @@ program map
         do i=1, nin
            call hgm%read(trim(fin(i)))
            call hgm%iqu2TQTUT()
-           call hgm%write(trim(coop_file_add_postfix(fin(i), "converted_to_TQTUT")))
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_TQTUT")))
         enddo
         print*, "maps are all converted to TQTUT"
         goto 500
@@ -90,7 +90,7 @@ program map
         do i=1, nin
            call hgm%read(trim(fin(i)))
            call hgm%iqu2TEB()
-           call hgm%write(trim(coop_file_add_postfix(fin(i), "converted_to_TEB")))
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_TEB")))
         enddo
         print*, "maps are all converted to TEB"
         goto 500
