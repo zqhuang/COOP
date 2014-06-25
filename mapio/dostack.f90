@@ -9,11 +9,14 @@ program test
 
   
   COOP_REAL, parameter::pre_smooth_fwhm = 30.*coop_SI_arcmin
+  COOP_UNKNOWN_STRING,parameter:: color_table = "Planck"
+  COOP_UNKNOWN_STRING, parameter :: spot_type = "E"
+  COOP_REAL ,parameter::r=2.*coop_SI_degree, dr = max(coop_SI_arcmin/2., r/40.)
 
 #ifdef USE_PLANCK
-  COOP_UNKNOWN_STRING, parameter :: map_file = "../../../CosmoLib/zeta/maps/zeta_realization_fwhm30arcmin_step1000.fits" ! "planck/smica_inp_cmb.fits"
-  COOP_UNKNOWN_STRING, parameter :: spot_file = "spots/smica_inp_cmb_256_Tmax_QTUTOrient_NoThreshold_fwhm30.txt" !"spots/smica_inp_cmb_Tmax_QTUTOrient_NoThreshold_fwhm15.txt"
-  COOP_UNKNOWN_STRING, parameter :: imask_file = "planck/smica_valmask_256.fits" 
+  COOP_UNKNOWN_STRING, parameter :: map_file = "inps/predx11_iqu_nside256_inp_teb1000.fits"
+  COOP_UNKNOWN_STRING, parameter :: spot_file = "spots/predx11_iqu_nside256_Tmax_NoThreshold_fwhm30.txt" 
+  COOP_UNKNOWN_STRING, parameter :: imask_file = "inps/predx11_polmask_nside256.fits" 
   COOP_UNKNOWN_STRING, parameter :: polmask_file = ""
 #endif
 
@@ -46,10 +49,8 @@ program test
 #endif
 
   COOP_UNKNOWN_STRING, parameter :: output_prefix = "stacked/stack_"
-  COOP_UNKNOWN_STRING, parameter :: spot_type = "T"
   COOP_STRING spotname
   COOP_STRING mask_file
-  COOP_REAL ,parameter::r=2.*coop_SI_degree, dr = max(coop_SI_arcmin/2., r/40.)
   COOP_STRING fout, caption
 
   select case(trim(spot_type))
@@ -98,40 +99,40 @@ program test
   case("Qr")
      if(index(map_file, "_QTUT").gt.0)then
         fout = trim(output_prefix)//"QTr_"//trim(spotname)
-        call coop_healpix_stack_io(map_file, trim(fout),  spot_file, r, dr, "Qr", "$Q^T_{r}(\mu K)$", headless_vector=.true., caption = trim(caption), mask_file = trim(mask_file), pre_smooth_fwhm= pre_smooth_fwhm)
+        call coop_healpix_stack_io(map_file, trim(fout),  spot_file, r, dr, "Qr", "$Q^T_{r}(\mu K)$", headless_vector=.true., caption = trim(caption), mask_file = trim(mask_file), pre_smooth_fwhm = pre_smooth_fwhm, color_table = color_table)
      else
         fout = trim(output_prefix)//"Qr_"//trim(spotname)
-        call coop_healpix_stack_io(map_file, trim(fout), spot_file, r, dr, "Qr", "$Q_r(\mu K)$",  headless_vector=.true., caption = trim(caption), mask_file = trim(mask_file), pre_smooth_fwhm=pre_smooth_fwhm ) 
+        call coop_healpix_stack_io(map_file, trim(fout), spot_file, r, dr, "Qr", "$Q_r(\mu K)$",  headless_vector=.true., caption = trim(caption), mask_file = trim(mask_file), pre_smooth_fwhm = pre_smooth_fwhm, color_table = color_table ) 
      endif
   case("Ur")
      if(index(map_file, "_QTUT").gt.0)then
         fout = trim(output_prefix)//"UTr_"//trim(spotname)
-        call coop_healpix_stack_io(map_file, trim(fout),  spot_file, r, dr, "Ur", "$U^T_r(\mu K)$", headless_vector=.true., caption = trim(caption), mask_file = trim(mask_file), pre_smooth_fwhm=pre_smooth_fwhm ) 
+        call coop_healpix_stack_io(map_file, trim(fout),  spot_file, r, dr, "Ur", "$U^T_r(\mu K)$", headless_vector=.true., caption = trim(caption), mask_file = trim(mask_file), pre_smooth_fwhm = pre_smooth_fwhm, color_table = color_table ) 
 
      else
         fout = trim(output_prefix)//"Ur_"//trim(spotname)
-        call coop_healpix_stack_io(map_file, trim(fout),  spot_file, r, dr, "Ur", "$U_r(\mu K)$", headless_vector=.true., caption = trim(caption), mask_file = trim(mask_file), pre_smooth_fwhm=pre_smooth_fwhm ) 
+        call coop_healpix_stack_io(map_file, trim(fout),  spot_file, r, dr, "Ur", "$U_r(\mu K)$", headless_vector=.true., caption = trim(caption), mask_file = trim(mask_file), pre_smooth_fwhm = pre_smooth_fwhm, color_table = color_table ) 
      endif
   case("Q") 
      if(index(map_file, "_QTUT").gt.0)then
         fout = trim(output_prefix)//"QT_"//trim(spotname)
-        call coop_healpix_stack_io(map_file, trim(fout), spot_file, r, dr, "Q", "$Q^T(\mu K)$", headless_vector=.true. , m_filter=(/ 0, 2, 4 /), caption = trim(caption), mask_file = trim(mask_file), pre_smooth_fwhm=pre_smooth_fwhm )
+        call coop_healpix_stack_io(map_file, trim(fout), spot_file, r, dr, "Q", "$Q^T(\mu K)$", headless_vector=.true. , m_filter=(/ 0, 2, 4 /), caption = trim(caption), mask_file = trim(mask_file), pre_smooth_fwhm = pre_smooth_fwhm, color_table = color_table )
      else    
         fout = trim(output_prefix)//"Q_"//trim(spotname)
-        call coop_healpix_stack_io(map_file, trim(fout), spot_file, r, dr, "Q", "$Q(\mu K)$", headless_vector=.true. , m_filter=(/ 0, 2, 4 /), caption = trim(caption), mask_file = trim(mask_file), pre_smooth_fwhm=pre_smooth_fwhm )
+        call coop_healpix_stack_io(map_file, trim(fout), spot_file, r, dr, "Q", "$Q(\mu K)$", headless_vector=.true. , m_filter=(/ 0, 2, 4 /), caption = trim(caption), mask_file = trim(mask_file), pre_smooth_fwhm = pre_smooth_fwhm, color_table = color_table )
      endif
   case("U")
      if(index(map_file, "_QTUT").gt.0)then
         fout = trim(output_prefix)//"UT_"//trim(spotname)
-        call coop_healpix_stack_io(map_file, trim(fout), spot_file, r, dr, trim(spot_type), "$U^T(\mu K)$", headless_vector=.true. , caption = trim(caption), mask_file = trim(mask_file), pre_smooth_fwhm=pre_smooth_fwhm)
+        call coop_healpix_stack_io(map_file, trim(fout), spot_file, r, dr, trim(spot_type), "$U^T(\mu K)$", headless_vector=.true. , caption = trim(caption), mask_file = trim(mask_file), pre_smooth_fwhm = pre_smooth_fwhm, color_table = color_table)
 
      else
         fout = trim(output_prefix)//"U_"//trim(spotname)
-        call coop_healpix_stack_io(map_file, trim(fout), spot_file, r, dr, trim(spot_type), "$U(\mu K)$", headless_vector=.true. , caption = trim(caption), mask_file = trim(mask_file), pre_smooth_fwhm=pre_smooth_fwhm)
+        call coop_healpix_stack_io(map_file, trim(fout), spot_file, r, dr, trim(spot_type), "$U(\mu K)$", headless_vector=.true. , caption = trim(caption), mask_file = trim(mask_file), pre_smooth_fwhm = pre_smooth_fwhm, color_table = color_table)
      endif
   case("T","E","B")
      fout = trim(output_prefix)//trim(spot_type)//"_"//trim(spotname)
-     call coop_healpix_stack_io(map_file, trim(fout), spot_file, r, dr, trim(spot_type), "$"//trim(spot_type)//"(\mu K)$", headless_vector=.true. , caption = trim(caption), mask_file = trim(mask_file), pre_smooth_fwhm=pre_smooth_fwhm)
+     call coop_healpix_stack_io(map_file, trim(fout), spot_file, r, dr, trim(spot_type), "$"//trim(spot_type)//"(\mu K)$", headless_vector=.true. , caption = trim(caption), mask_file = trim(mask_file), pre_smooth_fwhm = pre_smooth_fwhm, color_table = color_table)
   case default
      stop "Unknown spot_type"
   end select

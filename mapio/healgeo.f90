@@ -109,7 +109,7 @@ contains
     class(coop_healpix_maps) this
     integer nside
     integer lmax
-    real sqrtCls(0:lmax)
+    real(sp) sqrtCls(0:lmax)
     integer l,m
     call this%init( nside = nside, nmaps = 1, spin = (/ 0 /), lmax = lmax)
     !$omp parallel do private(l, m)
@@ -501,7 +501,7 @@ contains
     real,optional::fwhm
     real,optional::lpower
     integer l
-    real c, w(0:this%lmax)
+    real(sp) c, w(0:this%lmax)
     w = 1.
     if(present(fwhm))then
        c = sign((coop_sigma_by_fwhm * fwhm)**2/2., dble(fwhm))
@@ -536,8 +536,8 @@ contains
 
   subroutine split_angular_mode(n, qmap, umap, m, nr, fr)
     integer n, m, nr
-    real qmap(-n:n,-n:n), umap(-n:n,-n:n)
-    real fr(0:nr), w(0:nr), q, u, r, phi, fpoint
+    real(sp) qmap(-n:n,-n:n), umap(-n:n,-n:n)
+    real(sp) fr(0:nr), w(0:nr), q, u, r, phi, fpoint
     integer i, j, ir
     fr = 0
     w = 0
@@ -573,9 +573,9 @@ contains
   subroutine map_filter_modes(n, qmap, umap, ms)
     integer n, nm
     integer ms(:)
-    real qmap(-n:n, -n:n), umap(-n:n, -n:n)
+    real(sp) qmap(-n:n, -n:n), umap(-n:n, -n:n)
     real,dimension(:,:),allocatable::fr
-    real r, phi, s1, s2
+    real(sp) r, phi, s1, s2
     integer i, j, ir, nr, im
     nm = size(ms)
     nr = ceiling(coop_sqrt2*n)+1
@@ -678,7 +678,7 @@ contains
   end subroutine coop_healpix_disc_xy2pix
 
   subroutine coop_healpix_rotate_qu(qu, phi)
-    real qu(2)
+    real(sp) qu(2)
     real(dl) phi, cosp, sinp
     cosp = cos(2.d0*phi)
     sinp = sin(2.d0*phi)
@@ -689,16 +689,16 @@ contains
     class(coop_healpix_maps) this
     character(LEN=*) stack_option
     type(coop_healpix_disc) disc
-    real qu(2)
+    real(sp) qu(2)
     integer n
-    real image(-n:n, -n:n), tmpq(-n:n, -n:n), tmpu(-n:n, -n:n)
+    real(sp) image(-n:n, -n:n), tmpq(-n:n, -n:n), tmpu(-n:n, -n:n)
     real,optional::uimage(-n:n, -n:n)
     real(dl) rpix, angle
     integer i, j, pix
     real(dl) r, phi,  x, y
     type(coop_healpix_maps),optional::mask
-    real mask_count
-    real counter
+    real(sp) mask_count
+    real(sp) counter
     tmpq = 0
     tmpu = 0
     mask_count = 0
@@ -796,9 +796,11 @@ contains
   end subroutine coop_healpix_stack
 
 
-  subroutine coop_healpix_stack_io(map_file, mean_image_file, spots_file, rmax, r_resolution, stack_option, title, headless_vector, m_filter, caption, mask_file, pre_smooth_fwhm, post_smooth_fwhm)
-    COOP_UNKNOWN_STRING, optional::mask_file
+  subroutine coop_healpix_stack_io(map_file, mean_image_file, spots_file, rmax, r_resolution, stack_option, title, headless_vector, m_filter, caption, mask_file, pre_smooth_fwhm, post_smooth_fwhm, color_table, symmetric)
+    COOP_UNKNOWN_STRING, optional::mask_file, color_table
     COOP_UNKNOWN_STRING::stack_option, title, map_file, mean_image_file, spots_file
+    COOP_SHORT_STRING:: ctbl
+    logical,optional::symmetric
     logical,optional::headless_vector
     COOP_UNKNOWN_STRING, optional::caption
     COOP_STRING the_caption, the_title
@@ -808,9 +810,9 @@ contains
     real,dimension(:,:,:),allocatable:: image, uimage
     real(dl),dimension(:),allocatable::theta, phi, angle_rotate
     real(dl) norm, thislen, x, y, xshift, yshift
-    real  rot
+    real(sp)  rot
     integer n, nblocks, pix, i,   j, k, space, ithread,  nspots, imf
-    real nstack(n_threads)
+    real(sp) nstack(n_threads)
     real(dl) rmax, r_resolution
     type(coop_healpix_disc) disc(n_threads)
     type(coop_asy) fp
@@ -820,11 +822,21 @@ contains
     logical do_mask
     real(dl),optional::pre_smooth_fwhm
     real(dl),optional::post_smooth_fwhm
-    real sigma
+    real(sp) sigma
     integer nw
     real,dimension(:,:),allocatable::wrap_image, window
+    logical sym
     COOP_STRING mpost
-
+    if(present(symmetric))then
+       sym = symmetric
+    else
+       sym = .true.
+    endif
+    if(present(color_table))then
+       ctbl = color_table
+    else
+       ctbl = "Rainbow"
+    endif
     call map%read(map_file)
     if(present(pre_smooth_fwhm))then
        call map%smooth(pre_smooth_fwhm)
@@ -1012,9 +1024,16 @@ contains
 
     subroutine do_write_file(fname)
       COOP_UNKNOWN_STRING fname
+      real(sp) zmin, zmax
+      call coop_array_get_threshold(image(-n:n,-n:n,1), 0.99_sp, zmin)
+      call coop_array_get_threshold(image(-n:n,-n:n,1), 0.01_sp, zmax)
+      if(sym)then
+         zmax = max(abs(zmax), abs(zmin))
+         zmin = -zmax
+      endif
       call fp%open(trim(fname),"w")
       call fp%init( caption = trim(the_caption),  xlabel = "$2\sin(\theta/2)\cos\phi$", ylabel = "$2\sin(\theta/2)\sin\phi$", nblocks = nblocks) 
-      call coop_asy_density(fp, image(-n:n,-n:n,1), real(-r_resolution*n), real(r_resolution*n), real(-r_resolution*n), real(r_resolution*n), trim(title))
+      call coop_asy_density(fp, image(-n:n,-n:n,1), real(-r_resolution*n), real(r_resolution*n), real(-r_resolution*n), real(r_resolution*n), trim(title), zmax = zmax, zmin = zmin, color_table = ctbl)
       if(nblocks .ne. 1)then !!headless vectors
          norm = r_resolution*space/sqrt(maxval(image(:,:,1)**2+uimage(:,:,1)**2))/2. * 0.975  !!*0.95 to avoid overlap
          k = 1
@@ -1348,7 +1367,7 @@ contains
 
   subroutine coop_healpix_smooth_maskfile(mask_file, smoothscale, output)
     COOP_UNKNOWN_STRING mask_file
-    real smoothscale
+    real(sp) smoothscale
     COOP_UNKNOWN_STRING, optional::output
     type(coop_healpix_maps) this
     call this%read(mask_file, nmaps_wanted = 1)
@@ -1367,7 +1386,7 @@ contains
     type(coop_healpix_maps) hgs
     integer,dimension(:),allocatable::listpix
     integer i, j, nsteps
-    real smoothscale, decay
+    real(sp) smoothscale, decay
     nsteps = ceiling(smoothscale*this%nside*nefolds/2.)
     if(nsteps .le. 0 .or. nsteps .gt. 200)stop "coop_healpix_smooth_mask: invalid input of smoothscale"
     decay = exp(-nefolds/nsteps/2.)
@@ -1398,7 +1417,7 @@ contains
       type(coop_healpix_maps) this_from, this_to
       integer list(8), nneigh
       integer i
-      real decay
+      real(sp) decay
       !$omp parallel do private(list, nneigh, i)
       do i = 1, this%mask_npix
          call neighbours_nest(this_from%nside, this%mask_listpix(i), list, nneigh)
@@ -1593,7 +1612,7 @@ contains
   subroutine coop_healpix_inpainting_get_chisq(map, simumap)
     type(coop_healpix_maps) map, simumap
     integer l
-    real chisq
+    real(sp) chisq
     call simumap%map2alm()
     if(map%nmaps .eq. 1)then
        chisq = 0.

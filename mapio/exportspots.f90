@@ -5,8 +5,8 @@ program test
 #include "constants.h"
 
   integer,parameter::fwhm_arcmin = 30
-  COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax_QTUTOrient"
-  COOP_UNKNOWN_STRING, parameter::input_file ="planck/smica_inp_cmb_256.fits" 
+  COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
+  COOP_UNKNOWN_STRING, parameter::input_file ="predx11/predx11_iqu_nside256.fits"
   COOP_UNKNOWN_STRING, parameter::mask_file  = ""
 
   COOP_REAL, parameter:: threshold = 1.e31
