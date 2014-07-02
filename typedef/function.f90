@@ -357,7 +357,7 @@ contains
        f = this%fleft + this%slopeleft*xdiff
     elseif(l.ge. this%n)then
        if(this%check_boundary)then
-          if(b.le.n+1.e-8)then
+          if(b.le.this%n+1.e-8)then
              f = this%fright
              return
           endif
