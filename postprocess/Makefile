@@ -16,7 +16,7 @@ $(LIB): $(OBJ)
 Test: $(OBJ) test.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
 
-GetDist: $(OBJ) getdist.o
+GD: $(OBJ) getdist.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) getdist.o $(LINK)
 
 
