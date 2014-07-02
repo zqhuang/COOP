@@ -9,7 +9,11 @@ module coop_interpolation_mod
   integer,parameter::sp = kind(1.)
 
 
-  public::coop_bilinear_interp, coop_bicubic_interp
+  public::coop_bilinear_interp, coop_bicubic_interp, coop_linear_interp
+
+  Interface coop_linear_interp
+     module procedure linear_interp_s, linear_interp_d
+  end Interface coop_linear_interp
 
   Interface coop_bilinear_interp
      module procedure bilinear_interp_s, bilinear_interp_v, bilinear_interp_s_sp, bilinear_interp_v_sp
@@ -23,6 +27,104 @@ module coop_interpolation_mod
 
 
 contains
+
+  subroutine linear_interp_s(n, x, y, xs, ys)
+    real(sp) xs, ys
+    integer n, j ,l , r
+    real(sp) a
+    real(sp) x(n), y(n)
+    if(x(n).gt.x(1))then
+       if(xs .lt. x(1))then
+          ys = y(1)
+          return
+       elseif(xs .gt. x(n))then
+          ys = y(n)
+          return
+       end if
+       l = 1
+       r = n
+       do while(r - l .gt. 1)
+          j = (r + l) /2
+          if(x(j) .gt. xs)then
+             r = j
+          else
+             l = j
+          end if
+       end do
+       a=(xs-x(r-1))/(x(r)-x(r-1))
+       ys=y(r)*a+y(r-1)*(1.d0-a)
+    else
+       if(xs .ge. x(1))then
+          ys = y(1)
+          return
+       elseif(xs .le. x(n))then
+          ys = y(n)
+          return
+       end if
+       l = 1
+       r = n
+       do while(r- l .gt.1)
+          j=(r+l)/2
+          if(x(j).lt.xs)then
+             r= j
+          else
+             l = j
+          endif
+       enddo
+       a=(xs-x(r-1))/(x(r)-x(r-1))
+       ys=y(r)*a + y(r-1)*(1.d0-a)
+    endif
+  end subroutine linear_interp_s
+
+  subroutine linear_interp_d(n, x, y, xs, ys)
+    real(dl) xs, ys
+    integer n, j ,l , r
+    real(dl) a
+    real(dl) x(n), y(n)
+    n = coop_GetDim("LinearInterplolate", size(x), size(y))
+    if(x(n).gt.x(1))then
+       if(xs .lt. x(1))then
+          ys = y(1)
+          return
+       elseif(xs .gt. x(n))then
+          ys = y(n)
+          return
+       end if
+       l = 1
+       r = n
+       do while(r - l .gt. 1)
+          j = (r + l) /2
+          if(x(j) .gt. xs)then
+             r = j
+          else
+             l = j
+          end if
+       end do
+       a=(xs-x(r-1))/(x(r)-x(r-1))
+       ys=y(r)*a+y(r-1)*(1.d0-a)
+    else
+       if(xs .ge. x(1))then
+          ys = y(1)
+          return
+       elseif(xs .le. x(n))then
+          ys = y(n)
+          return
+       end if
+       l = 1
+       r = n
+       do while(r- l .gt.1)
+          j=(r+l)/2
+          if(x(j).lt.xs)then
+             r= j
+          else
+             l = j
+          endif
+       enddo
+       a=(xs-x(r-1))/(x(r)-x(r-1))
+       ys=y(r)*a + y(r-1)*(1.d0-a)
+    endif
+  end subroutine linear_interp_d
+
 
   subroutine bilinear_interp_s(f, rx, ry, z)
     real(dl) ,intent(IN)::f(2,2)

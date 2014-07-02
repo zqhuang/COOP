@@ -1,21 +1,24 @@
-module solvep
-  use ode_utils
+module coop_solvepower_mod
+  use coop_wrapper_typedef
+  use coop_ode_mod
   implicit none
+
+#include "constants.h"
 
   private
 
-  real(dl),parameter::Mpl = 1024.d0
-  real(dl):: spw_mphi = 5.8d-6 * Mpl
-  real(dl):: spw_phi0 = 16. * Mpl
-  real(dl):: spw_deltaphi = 0.15 * Mpl
-  real(dl):: spw_amp = 0.1d0
+  COOP_REAL,parameter::Mpl = 1024.d0
+  COOP_REAL:: spw_mphi = 5.8d-6 * Mpl
+  COOP_REAL:: spw_phi0 = 16. * Mpl
+  COOP_REAL:: spw_deltaphi = 0.15 * Mpl
+  COOP_REAL:: spw_amp = 0.1d0
   integer,parameter::ntbl = 2048+1
   integer,parameter::ipivot = (ntbl+1)/2
-  real(dl),dimension(ntbl)::lna_tbl, fric_tbl, fric2_tbl, h_tbl, h2_tbl, intfric_tbl, intfric2_tbl, tenfric_tbl, tenfric2_tbl, tenintfric_tbl, tenintfric2_tbl
-  real(dl),parameter::lna_start = 0.d0
-  real(dl),parameter::lna_end = 30.d0
-  real(dl),parameter::lna_pivot = (lna_start+lna_end)/2.d0
-  real(dl)::bgy(3, ntbl), bgyp(3, ntbl)
+  COOP_REAL,dimension(ntbl)::lna_tbl, fric_tbl, fric2_tbl, h_tbl, h2_tbl, intfric_tbl, intfric2_tbl, tenfric_tbl, tenfric2_tbl, tenintfric_tbl, tenintfric2_tbl
+  COOP_REAL,parameter::lna_start = 0.d0
+  COOP_REAL,parameter::lna_end = 30.d0
+  COOP_REAL,parameter::lna_pivot = (lna_start+lna_end)/2.d0
+  COOP_REAL::bgy(3, ntbl), bgyp(3, ntbl)
 
 
   public spw_obtain_power
@@ -28,10 +31,11 @@ contains
 
   subroutine spw_obtain_power(m, ps, pt, lnkmin, lnkmax, mphi, nefolds, bump_dn, bump_amp, bump_width )
     integer m
-    real(dl) mphi, nefolds, bump_dn, bump_amp, bump_width
-    real(dl)   ps(m), pt(m), lnk(m), phi_start, lnkmin, lnkmax
+    COOP_REAL mphi, nefolds, bump_dn, bump_amp, bump_width
+    COOP_REAL   ps(m), pt(m), lnk(m), phi_start, lnkmin, lnkmax
     integer i
-    call set_uniform(ntbl, lna_tbl, lna_start, lna_end)
+    type(coop_ode) ode
+    call coop_set_uniform(ntbl, lna_tbl, lna_start, lna_end)
     !!get the background  
     phi_start  = sqrt(4.d0*(nefolds + lna_pivot))*Mpl
     spw_mphi = mphi*Mpl
@@ -44,7 +48,12 @@ contains
        bgy(3,1) = -dVdphi(phi_start)/3.d0/bgy(1,1)
        bgy(1, 1) = sqrt((potential(phi_start)+bgy(3,1)**2/2.d0 )/3.d0/Mpl**2)    
     enddo
-    call genericdverk(bg_eq, lna_tbl, bgy, 1.d-10)
+    call ode%init(n=3)
+    call ode%set_initial_conditions(xini = lna_tbl(1), yini = bgy(:, 1))
+    do i=2, ntbl
+       call ode%evolve(bg_eq, lna_tbl(i))
+       bgy(:, i) = ode%y
+    enddo
     do i=1, ntbl
        call bg_eq(3, lna_tbl(i), bgy(:, i), bgyp(:, i))
        h_tbl(i) = bgy(1, i)
@@ -54,14 +63,14 @@ contains
        tenfric_tbl(i) = 3.d0*h_tbl(i)
        tenintfric_tbl(i) = 6.d0*lna_tbl(i)
     enddo
-    call splines(lna_tbl, intfric_tbl, intfric2_tbl)
-    call splines(lna_tbl, fric_tbl, fric2_tbl)
-    call splines(lna_tbl, tenintfric_tbl, tenintfric2_tbl)
-    call splines(lna_tbl, tenfric_tbl, tenfric2_tbl)
-    call splines(lna_tbl, h_tbl, h2_tbl)
+    call coop_spline(ntbl, lna_tbl, intfric_tbl, intfric2_tbl)
+    call coop_spline(ntbl, lna_tbl, fric_tbl, fric2_tbl)
+    call coop_spline(ntbl, lna_tbl, tenintfric_tbl, tenintfric2_tbl)
+    call coop_spline(ntbl, lna_tbl, tenfric_tbl, tenfric2_tbl)
+    call coop_spline(ntbl, lna_tbl, h_tbl, h2_tbl)
 
   !!solve the perturbations
-    call set_uniform(m, lnk, lnkmin+log(h_tbl(ipivot))+lna_tbl(ipivot), lnkmax+log(h_tbl(ipivot))+lna_tbl(ipivot))
+    call coop_set_uniform(m, lnk, lnkmin+log(h_tbl(ipivot))+lna_tbl(ipivot), lnkmax+log(h_tbl(ipivot))+lna_tbl(ipivot))
     !$omp parallel do
     do i=1, m
        call get_scal_power(exp(lnk(i)), ps(i))
@@ -72,10 +81,10 @@ contains
 
 
   subroutine get_scal_power(k, pk)
-    type(params_pass) params
+    type(coop_arguments) args
     integer istart, iend
-    real(dl) k, pk,  y(2), lna, lna_end, c(24), w(2, 9)
-    integer ind
+    COOP_REAL k, pk,  y(2)
+    type(coop_ode) ode
     istart = 1
     do while(k/exp(lna_tbl(istart))/h_tbl(istart) .gt. 80.d0)
        istart = istart  + 1
@@ -86,24 +95,22 @@ contains
        iend = iend + 1
        if(iend .ge. ntbl) stop "k too big"
     enddo
-    y(1) = (k/const_2pi) * h_tbl(istart)/bgy(3, istart)/exp(lna_tbl(istart))
+    y(1) = (k/coop_2pi) * h_tbl(istart)/bgy(3, istart)/exp(lna_tbl(istart))
     y(2) = y(1) * ( bgyp(1,istart)/bgy(1, istart) - bgyp(3, istart)/bgy(3, istart) - h_tbl(istart) )
-    params%fp(1) = k**2
-    params%fp(2) = 2.d0* (log((k/exp(lna_tbl(istart)))*y(1)**2)) + intfric_tbl(istart)
-    lna = lna_tbl(istart)
-    ind = 1
-    c = 0
-    w = 0
-    call dverk_with_params(params, scal_eq, lna, y, lna_tbl(iend), ind, c, w, 1.d-9)
-    pk = y(1)**2 
+    args = coop_arguments( r= (/ k**2,  2.d0* (log((k/exp(lna_tbl(istart)))*y(1)**2)) + intfric_tbl(istart) /) )
+    call ode%init(n=2)
+    call ode%set_arguments(args)
+    call ode%set_initial_conditions( xini = lna_tbl(istart), yini = y)
+    call ode%evolve(scal_eq, lna_tbl(iend))
+    pk = ode%y(1)**2 
   end subroutine get_scal_power
 
 
   subroutine get_tens_power(k, pk)
-    type(params_pass) params
+    type(coop_arguments) args
     integer istart, iend
-    real(dl) k, pk,  y(2), lna, lna_end, c(24), w(2, 9)
-    integer ind
+    type(coop_ode) ode
+    COOP_REAL k, pk,  y(2)
     istart = 1
     do while(k/exp(lna_tbl(istart))/h_tbl(istart) .gt. 60.d0)
        istart = istart  + 1
@@ -114,15 +121,14 @@ contains
        iend = iend + 1
        if(iend .ge. ntbl) stop "k too big"
     enddo
-    y(1) = (k*const_sqrt2/const_pi)/exp(lna_tbl(istart))/Mpl
+    y(1) = (k*coop_sqrt2/coop_pi)/exp(lna_tbl(istart))/Mpl
     y(2) = -y(1) * h_tbl(istart)
-    params%fp(1) = k**2
-    params%fp(2) = 2.d0* (log((k/exp(lna_tbl(istart)))*y(1)**2)) + tenintfric_tbl(istart)
-    lna = lna_tbl(istart)
-    ind = 1
-    c = 0
-    w = 0
-    call dverk_with_params(params, tens_eq, lna, y, lna_tbl(iend), ind, c, w, 1.d-7)
+    args = coop_arguments( r = (/ k**2, &
+         2.d0* (log((k/exp(lna_tbl(istart)))*y(1)**2)) + tenintfric_tbl(istart) /) )
+    call ode%init(n=2)
+    call ode%set_arguments(args)
+    call ode%set_initial_conditions(xini = lna_tbl(istart), yini = y)
+    call ode%evolve(tens_eq, lna_tbl(iend))
     pk = y(1)**2 
   end subroutine get_tens_power
 
@@ -132,9 +138,8 @@ contains
 !!y(2)  phi
 !!y(3)  dot phi
 !!y(4) \int f_1(t) dt, where f_1(t) =  3 H - 2 \dot H/H + 2 \ddot \phi /\dot\phi
-    type(params_pass) params
     integer n
-    real(dl) lna, y(n), yprime(n), V, K
+    COOP_REAL lna, y(n), yprime(n), V, K
     V = potential(y(2))
     K = y(3)**2/2.d0
     yprime(1) = (-(4.d0*K - 2.d0*V)/6.d0/Mpl**2 - y(1)**2)/y(1)
@@ -144,9 +149,9 @@ contains
 
 
   subroutine scal_eq(params, n, lna, y, yprime)
-    type(params_pass) params
+    type(coop_arguments) params
     integer n
-    real(dl) lna, y(n), yprime(n), h
+    COOP_REAL lna, y(n), yprime(n), h
 !!params%fp(1) k^2
 !!params%fp(2) initial dot theta ^2 A^4 
 !!params%fp(3) initial intfric
@@ -154,22 +159,21 @@ contains
 !!y(2) dot A
     h = hubble(lna)
     yprime(1) = y(2)/h
-    yprime(2) = (-fric(lna)*y(2) - (params%fp(1)/exp(2.d0*lna))*y(1) + exp(params%fp(2) - intfric(lna))/y(1)**3)/h
+    yprime(2) = (-fric(lna)*y(2) - (params%r(1)/exp(2.d0*lna))*y(1) + exp(params%r(2) - intfric(lna))/y(1)**3)/h
   end subroutine scal_eq
 
 
   subroutine tens_eq(params, n, lna, y, yprime)
-    type(params_pass) params
+    type(coop_arguments) params
     integer n
-    real(dl) lna, y(n), yprime(n), h
+    COOP_REAL lna, y(n), yprime(n), h
 !!params%fp(1) k^2
 !!params%fp(2) initial dot theta ^2 A^4 
-!!params%fp(3) initial intfric
 !!y(1) A
 !!y(2) dot A
     h = hubble(lna)
     yprime(1) = y(2)/h
-    yprime(2) = (-tenfric(lna)*y(2) - (params%fp(1)/exp(2.d0*lna))*y(1) + exp(params%fp(2) - tenintfric(lna))/y(1)**3)/h
+    yprime(2) = (-tenfric(lna)*y(2) - (params%r(1)/exp(2.d0*lna))*y(1) + exp(params%r(2) - tenintfric(lna))/y(1)**3)/h
   end subroutine tens_eq
 
 
@@ -177,39 +181,39 @@ contains
 
 
   function potential(phi) result(V)
-    real(dl) phi, V
+    COOP_REAL phi, V
     V = (spw_mphi**2/2.d0)*phi**2 *( 1.d0 + spw_amp*(1.d0+tanh((phi-spw_phi0)/spw_deltaphi))/2.d0)
   end function potential
   
   function dVdphi(phi) 
-    real(dl) phi, dVdphi
+    COOP_REAL phi, dVdphi
     dVdphi = (spw_mphi**2*phi) *( 1.d0 + spw_amp*(1.d0+tanh((phi-spw_phi0)/spw_deltaphi))/2.d0 + phi/4.d0/spw_deltaphi * spw_amp/cosh((phi-spw_phi0)/spw_deltaphi)**2)
   end function dVdphi
 
   function fric(lna)
-    real(dl) lna, fric
-    call splints(lna_tbl, fric_tbl, fric2_tbl, lna, fric)
+    COOP_REAL lna, fric
+    call coop_splint(ntbl, lna_tbl, fric_tbl, fric2_tbl, lna, fric)
   end function fric
 
   function intfric(lna)
-    real(dl) lna, intfric
-    call splints(lna_tbl, intfric_tbl, intfric2_tbl, lna, intfric)
+    COOP_REAL lna, intfric
+    call coop_splint(ntbl, lna_tbl, intfric_tbl, intfric2_tbl, lna, intfric)
   end function intfric
 
   function tenfric(lna)
-    real(dl) lna, tenfric
-    call splints(lna_tbl, tenfric_tbl, tenfric2_tbl, lna, tenfric)
+    COOP_REAL lna, tenfric
+    call coop_splint(ntbl, lna_tbl, tenfric_tbl, tenfric2_tbl, lna, tenfric)
   end function tenfric
 
   function tenintfric(lna)
-    real(dl) lna, tenintfric
-    call splints(lna_tbl, tenintfric_tbl, tenintfric2_tbl, lna, tenintfric)
+    COOP_REAL lna, tenintfric
+    call coop_splint(ntbl, lna_tbl, tenintfric_tbl, tenintfric2_tbl, lna, tenintfric)
   end function tenintfric
 
 
   function hubble(lna) 
-    real(dl) lna, hubble
-    call splints(lna_tbl, h_tbl, h2_tbl, lna, hubble)
+    COOP_REAL lna, hubble
+    call coop_splint(ntbl, lna_tbl, h_tbl, h2_tbl, lna, hubble)
   end function hubble
 
-end module solvep
+end module coop_solvepower_mod

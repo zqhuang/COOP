@@ -12,8 +12,7 @@ module coop_healpix_mod
 
   private
 
-  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_get_disc, coop_healpix_stack_io, coop_healpix_export_spots, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0
-
+  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_get_disc, coop_healpix_stack_io, coop_healpix_export_spots, coop_healpix_smooth_mapfile
 
 
   integer,parameter::sp = kind(1.)
@@ -24,7 +23,7 @@ module coop_healpix_mod
   real(dl),parameter::coop_healpix_inpaiting_lowpass_fwhm = 10.d0*coop_SI_degree
 
   integer, parameter::coop_healpix_default_lmax=2500
-  COOP_REAL, parameter::coop_healpix_mask_tol = 0.8
+  integer, parameter::coop_healpix_mask_tol = 0.75
   integer::coop_healpix_inpainting_lowl=5
 
   integer,parameter::coop_healpix_index_TT = 1
@@ -44,13 +43,24 @@ module coop_healpix_mod
      procedure :: xy2pix => coop_healpix_disc_xy2pix
   end type coop_healpix_disc
 
+  type coop_healpix_stacked_map
+     integer n, n_threads
+     real(sp) dr
+     real(sp) zmax, zmin
+     logical want_qu
+     real(sp), dimension(:), allocatable::nstack
+     real(sp), dimension(:,:,:), allocatable::image
+     real(sp), dimension(:,:,:), allocatable::uimage
+
+  end type coop_healpix_stacked_map
+
   type coop_healpix_maps
      integer npix, nside, nmaps, ordering, lmax, iq, iu, mask_npix, maskpol_npix
      character(LEN=80),dimension(64)::header
      integer,dimension(:),allocatable::spin
-     real, dimension(:,:),allocatable::map
+     real(sp), dimension(:,:),allocatable::map
      complex, dimension(:,:,:),allocatable::alm
-     real, dimension(:,:),allocatable::Cl
+     real(sp), dimension(:,:),allocatable::Cl
      integer,dimension(:),allocatable::mask_listpix, maskpol_listpix
      real(dl) chisq, mcmc_temperature
    contains
@@ -70,29 +80,9 @@ module coop_healpix_mod
      procedure :: convert2nested => coop_healpix_convert_to_nested
      procedure :: convert2ring => coop_healpix_convert_to_ring
      procedure :: filter_alm =>  coop_healpix_filter_alm
-     procedure :: stack =>     coop_healpix_maps_stack
-     procedure :: stack_with_covariance => coop_healpix_maps_stack_with_covariance
+     procedure :: stack =>     coop_healpix_stack
   end type coop_healpix_maps
 
-  type coop_healpix_patch
-     COOP_SHORT_STRING:: genre
-     COOP_INT::n, mmax, nmaps, npix, nstack_raw
-     COOP_REAL::dr
-     COOP_REAL,dimension(:,:,:),allocatable::image
-     COOP_REAL,dimension(:),allocatable::r
-     COOP_REAL,dimension(:,:,:),allocatable::fr
-     COOP_REAL,dimension(:,:,:),allocatable::wcm
-     COOP_REAL,dimension(:,:,:),allocatable::wsm
-     COOP_INT, dimension(:,:,:),allocatable::icm
-     COOP_REAL,dimension(:,:),allocatable::nstack
-   contains
-     procedure::free => coop_healpix_patch_free
-     procedure::init => coop_healpix_patch_init
-     procedure::get_radial_profile => coop_healpix_patch_get_radial_profile
-     procedure::get_all_radial_profiles => coop_healpix_patch_get_all_radial_profiles
-     procedure::plot => coop_healpix_patch_plot
-  end type coop_healpix_patch
-  
 
 
 #define COS2RADIUS(cosx) (sqrt(2.d0*(1.d0 - (cosx))))
@@ -100,267 +90,11 @@ module coop_healpix_mod
 
 contains
 
-  subroutine coop_healpix_patch_plot(this, imap, output, label, caption, color_table, zmin, zmax, headless_vectors)
-    COOP_INT, parameter::bgrids = 4
-    class(coop_healpix_patch)::this
-    COOP_INT imap
-    COOP_UNKNOWN_STRING::output
-    COOP_UNKNOWN_STRING,optional::caption, label, color_table
-    COOP_STRING::the_color_table
-    COOP_REAL,optional::zmin, zmax
-    type(coop_asy)::fig
-    logical,optional::headless_vectors
-    COOP_INT nb, i, j, k, ns
-    COOP_REAL  xc, yc,  norm, r, theta, minz, maxz
-    COOP_REAL,dimension(:),allocatable::xstart, xend, ystart, yend
-    call fig%open(output)
-    if(present(caption))then
-       call fig%init(caption = caption, xlabel = "$2\sin{\frac{\theta}{2}}\cos\varphi$", ylabel =  "$2\sin{\frac{\theta}{2}}\sin\varphi$")
-    else
-       call fig%init(xlabel = "$2\sin{\frac{\theta}{2}}\cos\varphi$", ylabel =  "$2\sin{\frac{\theta}{2}}\sin\varphi$")
-    endif
-    if(imap .le. 0 .or. imap .gt. this%nmaps) stop "coop_healpix_patch_plot: imap overflow"
-    if(present(zmin))then
-       minz = zmin
-    else
-       call coop_array_get_threshold(this%image(:,:,imap), COOP_REAL_OF(0.99), minz)
-    endif
-    if(present(zmax))then
-       maxz = zmax
-    else
-       call coop_array_get_threshold(this%image(:,:,imap), COOP_REAL_OF(0.01), maxz)
-    endif
-    if(present(color_table))then
-       the_color_table = color_table
-    else
-       the_color_table = "Rainbow"
-    endif
-    if(present(label))then
-       call coop_asy_density(fig, this%image(:,:,imap), -this%r(this%n), this%r(this%n), -this%r(this%n), this%r(this%n), label = trim(label), zmax = maxz, zmin = minz, color_table = trim(the_color_table))
-    else    
-       call coop_asy_density(fig, this%image(:,:,imap), -this%r(this%n), this%r(this%n), -this%r(this%n), this%r(this%n), label = "", zmax = maxz, zmin = minz, color_table = trim(the_color_table))
-    endif
-    if(present(headless_vectors))then
-       if(headless_vectors .and. this%nmaps .eq. 2)then
-          norm = maxval(this%image(:,:,1)**2+this%image(:,:,2)**2)
-          if(norm .gt. 0.d0)then
-             norm = bgrids*this%dr/2./sqrt(norm)*0.96
-          else
-             goto 100
-          endif
-          ns = floor((this%n-0.5d0*bgrids)/bgrids)
-          nb = (2*ns+1)**2
-          allocate(xstart(nb),  ystart(nb), xend(nb), yend(nb))
-          k = 0
-          ns = ns*bgrids
-          select case(this%genre)
-          case("QU")
-             do j = -ns, ns, bgrids
-                do i = -ns, ns, bgrids
-                   xc = i*this%dr
-                   yc = j*this%dr
-                   r = sqrt(this%image(i,j,1)**2+this%image(i,j,2)**2)*norm
-                   theta = 0.5d0*COOP_POLAR_ANGLE(this%image(i,j,1), this%image(i,j,2))
-                   k = k + 1
-                   xstart(k) = xc - r*cos(theta)
-                   ystart(k) = yc - r*sin(theta)
-                   xend(k) = 2*xc - xstart(k)
-                   yend(k) = 2*yc - ystart(k)
-                enddo
-             enddo
-          case("QrUr")
-             do j = -ns, ns, bgrids
-                do i = -ns, ns, bgrids
-                   xc = i*this%dr
-                   yc = j*this%dr
-                   r = sqrt(this%image(i,j,1)**2+this%image(i,j,2)**2)*norm
-                   theta = 0.5d0*COOP_POLAR_ANGLE(this%image(i,j,1), this%image(i,j,2)) + COOP_POLAR_ANGLE(xc, yc)
-                   k = k + 1
-                   xstart(k) = xc - r*cos(theta)
-                   ystart(k) = yc - r*sin(theta)
-                   xend(k) = 2*xc - xstart(k)
-                   yend(k) = 2*yc - ystart(k)
-                enddo
-             enddo
-          case default
-             write(*,"(A)") trim(this%genre)
-             stop "Unknown genre"
-          end select
-          call coop_asy_lines(fig, xstart, ystart, xend, yend, "black", "solid", 2.)
-       
-          deallocate(xstart, xend, ystart, yend)
-       endif
-    endif
-100 call fig%close()
-  end subroutine coop_healpix_patch_plot
-
-
-  subroutine coop_healpix_patch_free(this)
-    class(coop_healpix_patch) this
-    if(allocated(this%image))deallocate(this%image)
-    if(allocated(this%r))deallocate(this%r)
-    if(allocated(this%fr))deallocate(this%fr)
-    if(allocated(this%wcm))deallocate(this%wcm)
-    if(allocated(this%wsm))deallocate(this%wsm)
-    if(allocated(this%icm))deallocate(this%icm)
-    if(allocated(this%nstack))deallocate(this%nstack)
-    this%n = -1
-    this%mmax = -1
-  end subroutine coop_healpix_patch_free
-
-  subroutine coop_healpix_patch_init(this, genre, n, dr, mmax)
-    class(coop_healpix_patch) this
-    COOP_UNKNOWN_STRING::genre
-    COOP_INT n
-    COOP_REAL dr, cosmt, sinmt, theta
-    COOP_INT i,j,m
-    COOP_INT, optional::mmax
-    COOP_REAL sumr(0:n+1)
-    call this%free()
-    this%genre = trim(adjustl(genre))
-    this%n = n
-    this%npix = (2*this%n+1)**2
-    this%dr = dr
-    if(present(mmax))then
-       this%mmax = mmax
-    else
-       this%mmax = 4
-    endif
-    if(this%n .lt. 0) return
-    select case(trim(this%genre))
-    case("QU", "QrUr")
-       this%nmaps = 2
-    case("T","E","B", "I")
-       this%nmaps = 1
-    case default
-       write(*,*) "Unknown stacking genre: "//trim(this%genre)
-       write(*,*) "Only supports: QU, QrUr, T, E, B"
-       stop
-    end select
-    allocate(this%image(-this%n:this%n, -this%n:this%n, this%nmaps))
-    allocate(this%nstack(-this%n:this%n, -this%n:this%n))
-    allocate(this%r(0:this%n))
-    allocate(this%fr(0:this%n, 0:this%mmax/2, this%nmaps))
-    allocate(this%wcm(-this%n:this%n, -this%n:this%n, 0:this%mmax+1))
-    allocate(this%wsm(-this%n:this%n, -this%n:this%n, 2:this%mmax+1))
-    allocate(this%icm(-this%n:this%n, -this%n:this%n, 0:1))
-    this%image = 0.
-    this%wcm = 0.
-    this%wsm = 0.
-    this%fr = 0.
-    !$omp parallel do
-    do i=0, this%n
-       this%r(i) = this%dr * i
-    enddo
-    !$omp end parallel do
-    !$omp parallel do private(i, j)
-    do j=-this%n, this%n
-       do i=-this%n, this%n
-          this%wcm(i, j, 0) = sqrt(dble(i)**2+dble(j)**2)
-          this%icm(i, j, 0) = floor(this%wcm(i, j, 0))
-          this%icm(i, j, 1) = this%icm(i, j, 0) + 1
-          this%wcm(i, j, 1) = this%wcm(i, j, 0) - this%icm(i, j, 0)
-          this%wcm(i, j, 0) = 1.d0 - this%wcm(i, j, 1)
-       enddo
-    enddo
-    !$omp end parallel do
-    sumr = 0.
-    do j=-this%n, this%n
-       do i=-this%n, this%n
-          if(this%icm(i,j,0).le. this%n)then
-             sumr(this%icm(i,j,0)) = sumr(this%icm(i,j,0)) + this%wcm(i,j,0)
-             sumr(this%icm(i,j,1)) = sumr(this%icm(i,j,1)) + this%wcm(i,j,1)
-          endif
-       enddo
-    enddo
-    !$omp parallel do private(i, j)
-    do j=-this%n, this%n
-       do i=-this%n, this%n
-          if(this%icm(i, j, 0) .le. this%n)then
-             this%wcm(i, j, 0) = this%wcm(i, j, 0)/sumr(this%icm(i, j, 0))
-          else
-             this%icm(i, j, 0) = 0
-             this%wcm(i, j, 0) = 0.d0
-          endif
-          if(this%icm(i, j, 1) .le. this%n)then
-             this%wcm(i, j, 1) = this%wcm(i, j, 1)/sumr(this%icm(i, j, 1))
-          else
-             this%icm(i, j, 1) = 0
-             this%wcm(i, j, 1) = 0.d0
-          endif
-       enddo
-    enddo
-    !$omp end parallel do
-
-    !$omp parallel do private(m, i, j, cosmt, sinmt, theta)
-    do m = 2, this%mmax, 2
-       do j=-this%n, this%n
-          do i = -this%n, this%n
-             if(this%icm(i,j,0).ne.0)then
-                theta = atan2(dble(j), dble(i))
-                cosmt = cos(m*theta)*2.d0
-                sinmt = sin(m*theta)*2.d0
-                this%wcm(i, j, m) = this%wcm(i, j, 0)*cosmt
-                this%wcm(i, j, m+1) = this%wcm(i, j, 1)*cosmt
-                this%wsm(i, j, m) = this%wcm(i, j, 0)*sinmt
-                this%wsm(i, j, m+1) = this%wcm(i, j, 1)*sinmt
-             else
-                this%wcm(i, j, m) = 0.d0
-                this%wcm(i, j, m+1) = 0.d0
-                this%wsm(i, j, m) = 0.d0
-                this%wsm(i, j, m+1) = 0.d0
-             endif
-          enddo
-       enddo
-    enddo
-    !$omp end parallel do
-  end subroutine coop_healpix_patch_init
-
-
-  subroutine coop_healpix_patch_get_all_radial_profiles(this)
-    class(coop_healpix_patch)::this
-    integer i, j, imap, m
-    if(this%mmax .lt. 0) return
-    do imap = 1, this%nmaps
-       do m = 0, this%mmax, 2
-          call this%get_radial_profile(imap, m)
-       enddo
-    enddo
-  end subroutine coop_healpix_patch_get_all_radial_profiles
-
-  subroutine coop_healpix_patch_get_radial_profile(this, imap, m)
-    class(coop_healpix_patch)::this
-    COOP_INT m, imap, halfm
-    COOP_INT i,j
-    if(m.gt. this%mmax .or. mod(m,2).ne.0 .or. imap.gt.this%nmaps .or. imap.le.0) stop "coop_healpix_patch_get_radial_profile: wrong input arguments"
-    halfm = m/2
-    this%fr(:, halfm, imap) = 0.d0
-    select case(imap)
-    case(1)
-       do i=-this%n, this%n
-          do j=-this%n, this%n
-             this%fr(this%icm(i, j, 0), halfm, imap) =  this%fr(this%icm(i, j, 0), halfm, imap) + this%image(i, j, imap) * this%wcm(i, j, m)
-             this%fr(this%icm(i, j, 1), halfm, imap) =  this%fr(this%icm(i, j, 1), halfm, imap) + this%image(i, j, imap)* this%wcm(i, j, m+1) 
-          enddo
-       enddo
-    case(2)
-       do i=-this%n, this%n
-          do j=-this%n, this%n
-             this%fr(this%icm(i, j, 0), halfm, imap) =  this%fr(this%icm(i, j, 0), halfm, imap) + this%image(i, j, imap) * this%wsm(i, j, m)
-             this%fr(this%icm(i, j, 1), halfm, imap) =  this%fr(this%icm(i, j, 1), halfm, imap) + this%image(i, j, imap)* this%wsm(i, j, m+1) 
-          enddo
-       enddo
-    case default
-       stop "Cannot get radial profile for more than 2 maps."
-    end select
-  end subroutine coop_healpix_patch_get_radial_profile
-
-
   subroutine coop_healpix_maps_simulate(this)
     class(coop_healpix_maps) this
-    real,dimension(:),allocatable::sqrtCls
-    real,dimension(:, :),allocatable::Cls_sqrteig
-    real,dimension(:,:,:),allocatable::Cls_rot
+    real(sp),dimension(:),allocatable::sqrtCls
+    real(sp),dimension(:, :),allocatable::Cls_sqrteig
+    real(sp),dimension(:,:,:),allocatable::Cls_rot
     integer l
     if(this%nmaps.eq.1 .and. this%spin(1).eq.0)then
        allocate(sqrtCls(0:this%lmax))
@@ -419,9 +153,9 @@ contains
 
   subroutine coop_healpix_Cls2Rot(lmax, Cls, Cls_sqrteig, Cls_rot)
     integer lmax
-    real,dimension(0:lmax, 6),intent(IN)::Cls !!ordering is TT, EE, BB, TE, EB, TB
-    real, dimension(3, 0:lmax),intent(OUT)::Cls_sqrteig
-    real, dimension(3, 3, 0:lmax),intent(OUT)::Cls_rot
+    real(sp),dimension(0:lmax, 6),intent(IN)::Cls !!ordering is TT, EE, BB, TE, EB, TB
+    real(sp), dimension(3, 0:lmax),intent(OUT)::Cls_sqrteig
+    real(sp), dimension(3, 3, 0:lmax),intent(OUT)::Cls_rot
     integer l
     real(dl) a2(2,2), a3(3,3)
     real(dl) psi2(2,2), psi3(3,3)
@@ -485,8 +219,8 @@ contains
   subroutine coop_healpix_maps_simulate_TQUmaps(this, nside, lmax, Cls_sqrteig, Cls_rot)
     class(coop_healpix_maps) this
     integer lmax, nside
-    real,dimension(3, 0:lmax)::Cls_sqrteig
-    real,dimension(3, 3, 0:lmax)::Cls_rot
+    real(sp),dimension(3, 0:lmax)::Cls_sqrteig
+    real(sp),dimension(3, 3, 0:lmax)::Cls_rot
     integer l, m
     call this%init(nside = nside, nmaps = 3, spin = (/ 0, 2, 2 /), lmax = lmax)    
     !$omp parallel do private(l, m)
@@ -774,9 +508,9 @@ contains
 
   subroutine coop_healpix_filter_alm(this, fwhm, lpower, window)
     class(coop_healpix_maps) this
-    real,optional::window(0:this%lmax)
-    real,optional::fwhm
-    real,optional::lpower
+    real(sp),optional::window(0:this%lmax)
+    real(sp),optional::fwhm
+    real(sp),optional::lpower
     integer l
     real(sp) c, w(0:this%lmax)
     w = 1.
@@ -851,7 +585,7 @@ contains
     integer n, nm
     integer ms(:)
     real(sp) qmap(-n:n, -n:n), umap(-n:n, -n:n)
-    real,dimension(:,:),allocatable::fr
+    real(sp),dimension(:,:),allocatable::fr
     real(sp) r, phi, s1, s2
     integer i, j, ir, nr, im
     nm = size(ms)
@@ -969,7 +703,7 @@ contains
     real(sp) qu(2)
     integer n
     real(sp) image(-n:n, -n:n), tmpq(-n:n, -n:n), tmpu(-n:n, -n:n)
-    real,optional::uimage(-n:n, -n:n)
+    real(sp),optional::uimage(-n:n, -n:n)
     real(dl) rpix, angle
     integer i, j, pix
     real(dl) r, phi,  x, y
@@ -1051,10 +785,8 @@ contains
        write(*,*) "coop_healpix_stack: Unknown stack_option"//trim(stack_option)
        stop
     end select
-    if(present(mask))then
-       if(mask_count .lt. (2*n+1.)**2*coop_healpix_mask_tol)then
-          return
-       endif
+    if(present(mask) .and. mask_count .lt. (2*n+1.)**2*coop_healpix_mask_tol)then
+       return
     endif
     if(present(mask))then
        counter = counter + mask_count/(2*n+1.)**2
@@ -1074,276 +806,111 @@ contains
     
   end subroutine coop_healpix_stack
 
-  subroutine coop_healpix_patch_get_fr0(patch, nvar, var)
-    COOP_INT nvar
-    type(coop_healpix_patch)::patch
-    COOP_REAL var(nvar)
-    call patch%get_radial_profile(1, 0)
-    var = patch%fr(0:patch%n, 0, 1)
-  end subroutine coop_healpix_patch_get_fr0
 
-
-  subroutine coop_healpix_maps_stack(this, patch, spots_file, mask)
-    COOP_UNKNOWN_STRING::spots_file
-    COOP_INT,parameter::n_threads = 4
-    class(coop_healpix_maps)::this
-    type(coop_healpix_disc),dimension(n_threads)::disc
-    type(coop_healpix_patch)::patch
-    type(coop_healpix_patch),dimension(n_threads)::p, tmp
-    type(coop_healpix_maps),optional::mask
-    COOP_INT::ns
-    COOP_REAL,dimension(:),allocatable::theta, phi, angle
-    type(coop_file)::fp
-    COOP_INT imap, ithread, i, pix
+  subroutine coop_healpix_stack_image(map_file, mask_file, spots_file, smooth_fwhm, stack_option, stm)
+    COOP_UNKNOWN_STRING::map_file, mask_file, spots_file, stack_option
+    real(dl) smooth_fwhm
+    type(coop_healpix_maps) map, mask
+    type(coop_healpix_stacked_map):: stm
+    logical::do_mask
+    integer nspots
+    type(coop_file) sfp
+    integer i, ithread, pix
+    real(dl),dimension(:),allocatable::theta, phi, angle_rotate
+    type(coop_healpix_disc),dimension(:),allocatable::disc
     if(.not. coop_file_exists(spots_file))then
-       write(*,*) "Spots file not found: "//trim(spots_file)
+       write(*,*) trim(spots_file)//" does not exist"
        stop
     endif
-    ns = coop_file_numlines(spots_file)
-    if(ns .eq. 0)then
-       write(*,*) "Spots file empty"
+    if(.not. coop_file_exists(map_file))then
+       write(*,*) trim(map_file)//" does not exist"
        stop
     endif
-    allocate(theta(ns), phi(ns), angle(ns))
-    call fp%open(spots_file)
-    do i=1, ns
-       read(fp%unit, *) theta(i), phi(i), angle(i)
+    if(.not. coop_file_exists(mask_file))then
+       write(*,*) trim(mask_file)//" does not exist"
+       stop
+    endif 
+    if(trim(stack_option).eq. "T" .or. trim(stack_option).eq. "E" .or. trim(stack_option).eq. "B")then
+       call map%read(map_file, nmaps_wanted = 1)
+       stm%want_qu  = .false.
+    else
+       call map%read(map_file)
+       stm%want_qu = .true.
+       if(map%nmaps .lt. 2) stop "For Q, U stacking you need at least two maps"
+    endif
+    call map%smooth(smooth_fwhm)
+    if(trim(mask_file).eq."")then
+       do_mask = .false.
+    else
+       call mask%read(mask_file, nmaps_wanted = 1)
+       do_mask = .true.
+    endif
+    nspots = coop_file_numlines(spots_file)
+    allocate(theta(nspots), phi(nspots), angle_rotate(nspots))
+    call sfp%open(trim(spots_file), "r")
+    do i=1, nspots
+       read(sfp%unit, *) theta(i), phi(i), angle_rotate(i)       
     enddo
-    call fp%close()
-    patch%image = 0.d0
-    patch%nstack = 0.d0
-    patch%nstack_raw = 0
-    do ithread=1, n_threads
-       p(ithread) = patch
-       tmp(ithread) = patch
-    enddo
-    !$omp parallel do private(i, pix)
-    do ithread = 1, n_threads
-       do i=ithread, ns, n_threads
-          call ang2pix_ring(this%nside, theta(i), phi(i), pix)
-          call coop_healpix_get_disc(this%nside, pix, disc(ithread))
-          if(present(mask))then
-             call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread), tmp(ithread), mask)    
-          else
-             call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread), tmp(ithread) )
-          endif
-       enddo
-    enddo
-    !$omp end parallel do
-    do ithread = 1, n_threads
-       patch%image = patch%image + p(ithread)%image
-       patch%nstack = patch%nstack + p(ithread)%nstack
-       call p(ithread)%free()
-       call tmp(ithread)%free()
-    enddo
-    do imap = 1, patch%nmaps
-       where(patch%nstack .gt. 0.d0)
-          patch%image(:,:,imap) = patch%image(:,:,imap)/patch%nstack
-       end where
-    enddo
-    deallocate(theta, phi, angle)
-  end subroutine coop_healpix_maps_stack
-
-  subroutine coop_healpix_maps_stack_with_covariance(this, patch, spots_file, getvar, nvar, mean, cov, mask)
-    COOP_UNKNOWN_STRING::spots_file
-    COOP_INT,parameter::n_threads = 4
-    class(coop_healpix_maps)::this
-    type(coop_healpix_disc),dimension(n_threads)::disc
-    type(coop_healpix_patch)::patch
-    type(coop_healpix_patch),dimension(n_threads)::p, tmp
-    COOP_INT nvar
-    external getvar
-    COOP_REAL cov(nvar, nvar), mean(nvar),  covtmp(nvar, nvar, n_threads), meantmp(nvar, n_threads)
-    type(coop_healpix_maps), optional::mask
-    COOP_INT::ns
-    COOP_REAL,dimension(:),allocatable::theta, phi, angle
-    type(coop_file)::fp
-    COOP_INT imap, ithread, i, pix, j
-
-
-    ns = coop_file_numlines(spots_file)
-    allocate(theta(ns), phi(ns), angle(ns))
-    call fp%open(spots_file)
-    do i=1, ns
-       read(fp%unit, *) theta(i), phi(i), angle(i)
-    enddo
-    call fp%close()
-    patch%image = 0.d0
-    patch%nstack = 0.d0
-    patch%nstack_raw = 0
-    do ithread=1, n_threads
-       p(ithread) = patch
-       tmp(ithread) = patch
-    enddo
-    covtmp = 0.d0
-    meantmp = 0.d0
-    cov = 0.d0
-    mean = 0.d0
-    !$omp parallel do private(i, pix)
-    do ithread = 1, n_threads
-       do i=ithread, ns, n_threads
-          call ang2pix_ring(this%nside, theta(i), phi(i), pix)
-          call coop_healpix_get_disc(this%nside, pix, disc(ithread))
-          if(present(mask))then
-             call coop_healpix_stack_on_patch_with_covariance(this, disc(ithread), angle(i), p(ithread), tmp(ithread), getvar, nvar, meantmp(:, ithread), covtmp(:,:,ithread), mask)  
-          else
-             call coop_healpix_stack_on_patch_with_covariance(this, disc(ithread), angle(i), p(ithread), tmp(ithread), getvar, nvar, meantmp(:, ithread), covtmp(:,:,ithread))
-          endif
-       enddo
-    enddo
-    !$omp end parallel do
-    do ithread = 1, n_threads
-       patch%image = patch%image + p(ithread)%image
-       patch%nstack = patch%nstack + p(ithread)%nstack
-       patch%nstack_raw = patch%nstack_raw + p(ithread)%nstack_raw
-       cov = cov+covtmp(:,:,ithread)
-       mean = mean + meantmp(:, ithread)
-       call p(ithread)%free()
-       call tmp(ithread)%free()
-    enddo
-    mean = mean/patch%nstack_raw
-    do imap = 1, patch%nmaps
-       patch%image(:,:,imap) = patch%image(:,:,imap)/patch%nstack
-    enddo
-    do j=1, nvar
-       do i=1, j
-          cov(i,j) = cov(i,j)/patch%nstack_raw - mean(i)*mean(j)
-       enddo
-    enddo
-    do j=1, nvar
-       do i=j+1, nvar
-          cov(i,j) =cov(j, i)
-       enddo
-    enddo
-    deallocate(theta, phi, angle)
-  end subroutine coop_healpix_maps_stack_with_covariance
-  
-
-  subroutine coop_healpix_stack_on_patch_with_covariance(this, disc, angle, patch, tmp_patch, getvar, nvar, mean, cov, mask)
-    class(coop_healpix_maps)::this
-    type(coop_healpix_disc)::disc
-    COOP_REAL angle
-    type(coop_healpix_patch)::patch, tmp_patch
-    type(coop_healpix_maps),optional::mask
-    COOP_INT i, j
-    COOP_INT::nvar
-    COOP_REAL::cov(nvar, nvar), mean(nvar)
-    external::getvar
-    COOP_REAL var(nvar)
-    if(present(mask))then
-       call coop_healpix_fetch_patch(this, disc, angle, tmp_patch, mask)
-       if(present(mask) .and. sum(tmp_patch%nstack) .lt. coop_healpix_mask_tol*patch%npix)then
-          return
+    call sfp%close()
+    allocate(disc(stm%n_threads))
+    if(allocated(stm%image))deallocate(stm%image)
+    allocate(stm%image(-stm%n:stm%n, -stm%n:stm%n, stm%n_threads)
+    if(stm%want_qu)then
+       if(allocated(stm%uimage))deallocate(stm%uimage)
+       allocate(stm%uimage(-stm%n:stm%n, -stm%n:stm%n, stm%n_threads)
+    endif
+    if(stm%want_sq)then
+       if(allocated(stm%sq))deallocate(stm%sq)
+       allocate(stm%image(-stm%n:stm%n, -stm%n:stm%n, stm%n_threads)
+       if(stm%want_qu)then
+          if(allocated(stm%uimage))deallocate(stm%uimage)
+          allocate(stm%uimage(-stm%n:stm%n, -stm%n:stm%n, stm%n_threads)
        endif
-    else
-       call coop_healpix_fetch_patch(this, disc, angle, tmp_patch)
+
     endif
-    patch%image = patch%image + tmp_patch%image
-    patch%nstack = patch%nstack + tmp_patch%nstack
-    patch%nstack_raw = patch%nstack_raw + tmp_patch%nstack_raw
-    call getvar(tmp_patch, nvar, var)
-    mean = mean + var
-    do j=1, nvar
-       do i=1, j
-          cov(i, j) = cov(i, j) + var(i)*var(j)
+    if(stm%want_qu)then
+       !$omp parallel do private(i, ithread, pix)
+       do ithread = 1, n_threads
+          do i = ithread, nspots, n_threads
+             call ang2pix_ring(map%nside, theta(i), phi(i), pix)
+             call coop_healpix_get_disc(map%nside, pix, disc(ithread))
+             if(do_mask)then
+                call coop_healpix_stack( map, disc(ithread), n, r_resolution, angle_rotate(i), stack_option, image(:,:,ithread), uimage(:,:, ithread), mask = mask, counter =  nstack(ithread))
+             else
+                call coop_healpix_stack( map, disc(ithread), n, r_resolution, angle_rotate(i), stack_option, stm%image(:,:,ithread), stm%uimage(:,:, ithread), counter = stm%nstack(ithread))
+             endif
+          enddo
        enddo
-    enddo
-  end subroutine coop_healpix_stack_on_patch_with_covariance
-
-
-  subroutine coop_healpix_stack_on_patch(this, disc, angle, patch, tmp_patch, mask)
-    class(coop_healpix_maps) this
-    type(coop_healpix_disc) disc
-    type(coop_healpix_maps),optional::mask
-    COOP_REAL angle
-    type(coop_healpix_patch) patch, tmp_patch
-    if(present(mask))then
-       call coop_healpix_fetch_patch(this, disc, angle, tmp_patch, mask)
-       if(present(mask) .and. sum(tmp_patch%nstack) .lt. coop_healpix_mask_tol*patch%npix) return
+       !$omp end parallel do
     else
-       call coop_healpix_fetch_patch(this, disc, angle, tmp_patch)
+       !$omp parallel do private(i, ithread, pix) 
+       do ithread = 1, stm%n_threads
+          do i = ithread, nspots, stm%n_threads
+             call ang2pix_ring(map%nside, theta(i), phi(i), pix)
+             call coop_healpix_get_disc(map%nside, pix, disc(ithread))
+             if(do_mask)then
+                call coop_healpix_stack(map, disc(ithread), stm%n, stm%dr, angle_rotate(i), stack_option, stm%image(:,:,ithread), mask = mask, counter =  nstack(ithread))
+             else
+                call coop_healpix_stack(map, disc(ithread), n, r_resolution, angle_rotate(i), stack_option, image(:,:,ithread), counter = nstack(ithread))
+             endif
+          enddo
+       enddo
+       !$omp end parallel do
     endif
-    patch%image = patch%image + tmp_patch%image
-    patch%nstack = patch%nstack + tmp_patch%nstack
-    patch%nstack_raw = patch%nstack_raw + tmp_patch%nstack_raw
-  end subroutine coop_healpix_stack_on_patch
+
+    deallocate(theta, phi, angle_rotate)
+    deallocate(disc)
+  end subroutine coop_healpix_stack_image
 
 
-  subroutine coop_healpix_fetch_patch(this, disc, angle, patch, mask)
-    class(coop_healpix_maps)::this
-    type(coop_healpix_disc) disc
-    type(coop_healpix_maps),optional::mask
-    COOP_REAL angle
-    type(coop_healpix_patch) patch
-    COOP_INT i, j, pix
-    COOP_REAL x, y, r, phi
-    real(sp) qu(2)
-    if(.not. present(mask))patch%nstack = 1.d0
-    patch%nstack_raw  = 1
-    select case(trim(patch%genre))
-    case("T", "E", "B", "I")
-       do j = -patch%n, patch%n
-          do i = -patch%n, patch%n
-             x = patch%dr * i
-             y = patch%dr * j
-             r = sqrt(x**2+y**2)
-             phi = COOP_POLAR_ANGLE(x, y) + angle
-             call coop_healpix_disc_ang2pix(disc, r, phi, pix)
-             if(present(mask))then
-                patch%nstack(i, j) = mask%map(pix, 1)
-                patch%image(i, j, 1) = this%map(pix,1)*mask%map(pix,1)
-             else 
-                patch%image(i, j, 1) = this%map(pix,1)
-             endif
-          enddo
-       enddo
-    case("QU")
-       do j = -patch%n, patch%n
-          do i = -patch%n, patch%n
-             x = patch%dr * i
-             y = patch%dr * j
-             r = sqrt(x**2+y**2)
-             phi = COOP_POLAR_ANGLE(x, y) + angle
-             call coop_healpix_disc_ang2pix(disc, r, phi, pix)
-             qu = this%map(pix, this%iq:this%iu)
-             call coop_healpix_rotate_qu(qu, angle)
-             if(present(mask))then
-                patch%nstack(i, j) = mask%map(pix, 1)
-                patch%image(i, j, 1:2) = qu * mask%map(pix,1)
-             else 
-                patch%image(i, j, 1:2) = qu
-             endif
-          enddo
-       enddo
-    case("QrUr")
-       do j = -patch%n, patch%n
-          do i = -patch%n, patch%n
-             x = patch%dr * i
-             y = patch%dr * j
-             r = sqrt(x**2+y**2)
-             phi = COOP_POLAR_ANGLE(x, y) + angle
-             call coop_healpix_disc_ang2pix(disc, r, phi, pix)
-             qu = this%map(pix, this%iq:this%iu)
-             call coop_healpix_rotate_qu(qu, phi)
-             if(present(mask))then
-                patch%nstack(i, j) = mask%map(pix, 1)
-                patch%image(i, j, 1:2) = qu * mask%map(pix,1)
-             else 
-                patch%image(i, j, 1:2) = qu
-             endif
-          enddo
-       enddo
-    case default
-       write(*,*) "coop_healpix_fetch_patch: Unknown stack_option"//trim(patch%genre)
-       stop
-    end select
-  end subroutine coop_healpix_fetch_patch
-
-
-  subroutine coop_healpix_stack_io(map_file, mean_image_file, spots_file, rmax, r_resolution, stack_option, title, headless_vector, m_filter, caption, mask_file, pre_smooth_fwhm, post_smooth_fwhm, color_table, symmetric)
+  subroutine coop_healpix_stack_io(map_file, mean_image_file, spots_file, rmax, r_resolution, stack_option, title, headless_vector, m_filter, caption, mask_file, pre_smooth_fwhm, post_smooth_fwhm, color_table, symmetric, min_val, max_val, output)
+    type(coop_healpix_stacked_map):: stm
+    type(coop_healpix_stacked_map),optional:: output
     COOP_UNKNOWN_STRING, optional::mask_file, color_table
     COOP_UNKNOWN_STRING::stack_option, title, map_file, mean_image_file, spots_file
+    real(sp),optional::min_val, max_val
     COOP_SHORT_STRING:: ctbl
+    type(coop_file)::fdata
     logical,optional::symmetric
     logical,optional::headless_vector
     COOP_UNKNOWN_STRING, optional::caption
@@ -1351,62 +918,47 @@ contains
     integer,optional::m_filter(:)
     integer,parameter::n_threads = 4  !!must be >=2
     integer::mhs 
-    real,dimension(:,:,:),allocatable:: image, uimage
     real(dl),dimension(:),allocatable::theta, phi, angle_rotate
     real(dl) norm, thislen, x, y, xshift, yshift
     real(sp)  rot
     integer n, nblocks, pix, i,   j, k, space, ithread,  nspots, imf
-    real(sp) nstack(n_threads)
     real(dl) rmax, r_resolution
     type(coop_healpix_disc) disc(n_threads)
     type(coop_asy) fp
     type(coop_file) sfp
-    real,dimension(:),allocatable::xstart, ystart, xend, yend
+    real(sp),dimension(:),allocatable::xstart, ystart, xend, yend
     type(coop_healpix_maps) mask, map
     logical do_mask
     real(dl),optional::pre_smooth_fwhm
     real(dl),optional::post_smooth_fwhm
     real(sp) sigma
     integer nw
-    real,dimension(:,:),allocatable::wrap_image, window
+    real(sp),dimension(:,:),allocatable::wrap_image, window
     logical sym
     COOP_STRING mpost
+    real(sp) zmin, zmax
+
     if(present(symmetric))then
        sym = symmetric
     else
        sym = .true.
     endif
+
     if(present(color_table))then
        ctbl = color_table
     else
        ctbl = "Rainbow"
     endif
-    call map%read(map_file)
-    if(present(pre_smooth_fwhm))then
-       if(pre_smooth_fwhm .ne. 0.d0) call map%smooth(pre_smooth_fwhm)
-    endif
-    call map%convert2ring()
     do_mask = .false.
     if(present(mask_file))then
        if(trim(mask_file).ne."")then
           call mask%read(mask_file, nmaps_wanted = 1)
-          call mask%convert2ring()
           if(map%nside .ne. mask%nside) stop "coop_healpix_stack_io: mask must have the same resolution"
           do_mask = .true.
        endif
     endif
     disc%nside = map%nside
     
-
-    if(trim(stack_option).ne. "T" .and. trim(stack_option).ne. "E" .and. trim(stack_option).ne. "B" .and. map%iq.eq. 0)then
-       if(map%nmaps .lt. 2)then
-          write(*,*) "coop_healpix_stack_io: the input map for stacking does not contain Q, U component"
-       else
-          write(*,*) "coop_healpix_stack_io: you have to specify the Q, U components in the input map by naming the file as *IQU*.fits (the 2nd, 3rd maps are Q, U maps) or *QU*.fits (the first two maps are Q, U maps)"
-       endif
-       stop
-    endif
-
     if((trim(stack_option).eq."Qr" .or. trim(stack_option).eq."QR" .or. trim(stack_option).eq."Q").and. present(headless_vector))then
        if(headless_vector)then
           nblocks = 2  !!want headless vectors, too
@@ -1417,53 +969,16 @@ contains
        nblocks = 1
     endif
     n = max(nint(rmax/r_resolution), 5)
-    allocate(image(-n:n, -n:n, n_threads))
-    nstack = 0
-    image = 0.
+    allocate(stm%image(-n:n, -n:n, n_threads))
+    allocate(stm%sq(-n:n, -n:n, n_threads))
+    allocate(stm%nstack(n_threads))
+    stm%nstack = 0
+    stm%image = 0.
+    stm%sq = 0.
     if(nblocks.ne.1)then
-       allocate(uimage(-n:n,-n:n,n_threads))
-       uimage = 0.
-    endif
-    if(.not. coop_file_exists(spots_file))then
-       write(*,*) trim(spots_file)
-       write(*,*) "File does not exist"
-       stop
-    endif
-    nspots = coop_file_numlines(spots_file)
-    allocate(theta(nspots), phi(nspots), angle_rotate(nspots))
-    call sfp%open(trim(spots_file), "r")
-    do i=1, nspots
-       read(sfp%unit, *) theta(i), phi(i), angle_rotate(i)       
-    enddo
-    call sfp%close()
-    if(nblocks.eq.1)then
-       !$omp parallel do private(i, ithread, pix) 
-       do ithread = 1, n_threads
-          do i = ithread, nspots, n_threads
-             call ang2pix_ring(map%nside, theta(i), phi(i), pix)
-             call coop_healpix_get_disc(map%nside, pix, disc(ithread))
-             if(do_mask)then
-                call coop_healpix_stack(map, disc(ithread), n, r_resolution, angle_rotate(i), stack_option, image(:,:,ithread), mask = mask, counter =  nstack(ithread))
-             else
-                call coop_healpix_stack(map, disc(ithread), n, r_resolution, angle_rotate(i), stack_option, image(:,:,ithread), counter = nstack(ithread))
-             endif
-          enddo
-       enddo
-       !$omp end parallel do
-    else
-       !$omp parallel do private(i, ithread, pix)
-       do ithread = 1, n_threads
-          do i = ithread, nspots, n_threads
-             call ang2pix_ring(map%nside, theta(i), phi(i), pix)
-             call coop_healpix_get_disc(map%nside, pix, disc(ithread))
-             if(do_mask)then
-                call coop_healpix_stack( map, disc(ithread), n, r_resolution, angle_rotate(i), stack_option, image(:,:,ithread), uimage(:,:, ithread), mask = mask, counter =  nstack(ithread))
-             else
-                call coop_healpix_stack( map, disc(ithread), n, r_resolution, angle_rotate(i), stack_option, image(:,:,ithread), uimage(:,:, ithread), counter = nstack(ithread))
-             endif
-          enddo
-       enddo
-       !$omp end parallel do
+       allocate(stm%uimage(-n:n, -n:n, n_threads))
+       allocate(stm%usq(-n:n, -n:n, n_threads))
+       stm%uimage = 0.
     endif
     deallocate(theta, phi, angle_rotate)    
 
@@ -1537,8 +1052,22 @@ contains
        mhs = floor(real(n)/space - 0.5)
        allocate(xstart((2*mhs+1)**2), ystart((2*mhs+1)**2), xend((2*mhs+1)**2), yend((2*mhs+1)**2))
     endif
-
+    if(.not. present(min_val) .or. .not. present(max_val))then
+       call coop_array_get_threshold(image(-n:n,-n:n,1), 0.99_sp, zmin)
+       call coop_array_get_threshold(image(-n:n,-n:n,1), 0.01_sp, zmax)
+       if(sym)then
+          zmax = max(abs(zmax), abs(zmin))
+          zmin = -zmax
+       endif
+    endif
+    if(present(min_val))zmin = min_val
+    if(present(max_val))zmax = max_val
     call do_write_file(trim(mean_image_file))
+    if(present(output))then
+       output%n = n
+       output%dr = r_resolution
+    endif
+
     if(stack_option.eq."Q" .and. present(m_filter) .and. nblocks.ne.1)then
        image(:,:,2) = image(:,:,1)
        uimage(:,:,2) = uimage(:,:,1)
@@ -1563,18 +1092,15 @@ contains
     deallocate(image) 
     call map%free()
     call mask%free()
-
+    if(present(output))output = stm
+    if(allocated(stm%image))deallocate(stm%image)
+    if(allocated(stm%uimage))deallocate(stm%uimage)
+    if(allocated(stm%usq))deallocate(stm%usq)
+    if(allocated(stm%sq))deallocate(stm%sq)
   contains 
 
     subroutine do_write_file(fname)
       COOP_UNKNOWN_STRING fname
-      real(sp) zmin, zmax
-      call coop_array_get_threshold(image(-n:n,-n:n,1), 0.99_sp, zmin)
-      call coop_array_get_threshold(image(-n:n,-n:n,1), 0.01_sp, zmax)
-      if(sym)then
-         zmax = max(abs(zmax), abs(zmin))
-         zmin = -zmax
-      endif
       call fp%open(trim(fname),"w")
       call fp%init( caption = trim(the_caption),  xlabel = "$2\sin(\theta/2)\cos\phi$", ylabel = "$2\sin(\theta/2)\sin\phi$", nblocks = nblocks) 
       call coop_asy_density(fp, image(-n:n,-n:n,1), real(-r_resolution*n), real(r_resolution*n), real(-r_resolution*n), real(r_resolution*n), trim(title), zmax = zmax, zmin = zmin, color_table = ctbl)
@@ -1866,7 +1392,7 @@ contains
 
 
   subroutine coop_healpix_output_map(map, header, fname)
-    real, dimension(:,:):: map
+    real(sp), dimension(:,:):: map
     character(LEN=80),dimension(:):: header
     COOP_UNKNOWN_STRING fname
     call coop_delete_file(trim(fname))
@@ -1925,7 +1451,7 @@ contains
   end subroutine coop_healpix_smooth_maskfile
 
   subroutine coop_healpix_smooth_mask(this, smoothscale)
-    real,parameter::nefolds = 4
+    real(sp),parameter::nefolds = 4
     class(coop_healpix_maps) this
     type(coop_healpix_maps) hgs
     integer,dimension(:),allocatable::listpix

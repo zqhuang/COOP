@@ -138,5 +138,4 @@ contains
 #endif    
   end subroutine coop_fft_backward_3d_ss
 
-
 end module coop_fft_mod

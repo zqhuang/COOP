@@ -62,7 +62,7 @@ contains
   subroutine coop_ode_set_arguments(this, args)
     class(coop_ode)::this
     type(coop_arguments)::args
-    call this%args%clone(args)
+    this%args = args
     this%has_args = .true.
   end subroutine coop_ode_set_arguments
 

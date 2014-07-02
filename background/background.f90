@@ -15,41 +15,41 @@ contains
     type(coop_function),optional::fcs2b
     COOP_REAL Omega_b
     if(present(fcs2b))then
-       call this%init(gengre = COOP_SPECIES_FLUID, name = "Baryon", id = 1, Omega=Omega_b, w = COOP_REAL_OF(0.), fcs2 = fcs2b)  !!you might want to replace the cs^2(baryon)
+       call this%init(genre = COOP_SPECIES_FLUID, name = "Baryon", id = 1, Omega=Omega_b, w = COOP_REAL_OF(0.), fcs2 = fcs2b)  !!you might want to replace the cs^2(baryon)
     else
-       call this%init(gengre = COOP_SPECIES_FLUID, name = "Baryon", id = 1, Omega=Omega_b, w = COOP_REAL_OF(0.), cs2 = COOP_REAL_OF(0.))  !!you might want to replace the cs^2(baryon)
+       call this%init(genre = COOP_SPECIES_FLUID, name = "Baryon", id = 1, Omega=Omega_b, w = COOP_REAL_OF(0.), cs2 = COOP_REAL_OF(0.))  !!you might want to replace the cs^2(baryon)
     endif
   end function coop_baryon
 
   function coop_cdm(Omega_c) result(this)
     type(coop_species) this
     COOP_REAL Omega_c
-    call this%init(gengre = COOP_SPECIES_CDM, name = "CDM", id = 2, Omega=Omega_c, w = COOP_REAL_OF(0.), cs2 = COOP_REAL_OF(0.))
+    call this%init(genre = COOP_SPECIES_CDM, name = "CDM", id = 2, Omega=Omega_c, w = COOP_REAL_OF(0.), cs2 = COOP_REAL_OF(0.))
   end function coop_cdm
 
   function coop_radiation(Omega_r) result(this)
     type(coop_species) this
     COOP_REAL:: Omega_r
-    call this%init(gengre = COOP_SPECIES_MASSLESS, name = "Radiation", id = 3, Omega=Omega_r) 
+    call this%init(genre = COOP_SPECIES_MASSLESS, name = "Radiation", id = 3, Omega=Omega_r) 
   end function coop_radiation
 
   function coop_neutrinos_massless(Omega_nu) result(this)
     type(coop_species) this
     COOP_REAL:: Omega_nu
-    call this%init(gengre = COOP_SPECIES_MASSLESS, name = "Massless Neutrinos", id = 4, Omega=Omega_nu)
+    call this%init(genre = COOP_SPECIES_MASSLESS, name = "Massless Neutrinos", id = 4, Omega=Omega_nu)
   end function coop_neutrinos_massless
 
   function coop_neutrinos_massive(Omega_nu, Omega_massless) result(this)
     type(coop_species) this
     COOP_REAL:: Omega_nu
     COOP_REAL:: Omega_massless
-    call this%init(gengre = COOP_SPECIES_MASSIVE_FERMION, name = "Massive Neutrinos", id = 4, Omega=Omega_nu, Omega_massless = Omega_massless)
+    call this%init(genre = COOP_SPECIES_MASSIVE_FERMION, name = "Massive Neutrinos", id = 4, Omega=Omega_nu, Omega_massless = Omega_massless)
   end function coop_neutrinos_massive
   
   function coop_de_lambda(Omega_Lambda) result(this)
     type(coop_species) this
     COOP_REAL Omega_Lambda
-    call this%init(gengre = COOP_SPECIES_LAMBDA, name = "Cosmological Constant",id=5, Omega = Omega_Lambda, w = COOP_REAL_OF(-1.), cs2 = COOP_REAL_OF(1.))
+    call this%init(genre = COOP_SPECIES_LAMBDA, name = "Cosmological Constant",id=5, Omega = Omega_Lambda, w = COOP_REAL_OF(-1.), cs2 = COOP_REAL_OF(1.))
   end function coop_de_lambda
   
   function coop_de_w0wa(Omega_Lambda, w0, wa) result(this)
@@ -63,7 +63,7 @@ contains
     endif
     w0wa = coop_arguments(r =  (/ w0, wa /))
     fw0wa = coop_function(coop_de_w_w0wa, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.), xlog = .true., args = w0wa)
-    call this%init(gengre = COOP_SPECIES_FLUID, name = "w0wa Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fw = fw0wa )
+    call this%init(genre = COOP_SPECIES_FLUID, name = "w0wa Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fw = fw0wa )
     call w0wa%free
   end function coop_de_w0wa
 
@@ -74,7 +74,7 @@ contains
        this = coop_de_lambda(Omega_Lambda)
        return
     endif
-    call this%init(gengre = COOP_SPECIES_FLUID, name = "constant w Dark Energy", id = 5, Omega = Omega_Lambda, w = w0, cs2 = COOP_REAL_OF(1.))
+    call this%init(genre = COOP_SPECIES_FLUID, name = "constant w Dark Energy", id = 5, Omega = Omega_Lambda, w = w0, cs2 = COOP_REAL_OF(1.))
   end function coop_de_w0
 
   function coop_de_w_w0wa(a, w0wa) result(w)
@@ -94,7 +94,7 @@ contains
     endif
     arg = coop_arguments(r =  (/ Omega_Lambda, epsilon_s, epsilon_inf, zeta_s /))
     fq = coop_function(coop_de_w_quintessence, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.d0), xlog = .true., args = arg)
-    call this%init(gengre = COOP_SPECIES_FLUID, name = "quintessence Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fw = fq )
+    call this%init(genre = COOP_SPECIES_FLUID, name = "quintessence Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fw = fq )
     call arg%free
   end function coop_de_quintessence
 
@@ -158,7 +158,7 @@ contains
     endif
     arg = coop_arguments(r =  (/ Omega_Lambda, epsilon_s, epsilon_inf, zeta_s , at_by_aeq /))
     fq = coop_function(coop_de_w_coupled_quintessence, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.d0), xlog = .true., args = arg)
-    call this%init(gengre = COOP_SPECIES_FLUID, name = "coupled quintessence Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fw = fq )
+    call this%init(genre = COOP_SPECIES_FLUID, name = "coupled quintessence Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fw = fq )
     call arg%free
   end function coop_de_coupled_quintessence
 

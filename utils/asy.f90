@@ -6,7 +6,7 @@ module coop_asy_mod
   implicit none
   private
 
-  public::coop_asy, coop_asy_error_bar, coop_asy_interpolate_curve, coop_asy_gray_color, coop_asy_rgb_color, coop_asy_label, coop_asy_legend, coop_asy_dot, coop_asy_line, coop_asy_labels, coop_asy_dots, coop_asy_lines, coop_asy_contour, coop_asy_curve, coop_asy_density,  coop_asy_topaxis, coop_asy_rightaxis, coop_asy_clip, coop_asy_plot_function
+  public::coop_asy, coop_asy_path, coop_asy_error_bar, coop_asy_interpolate_curve, coop_asy_gray_color, coop_asy_rgb_color, coop_asy_label, coop_asy_legend, coop_asy_dot, coop_asy_line, coop_asy_labels, coop_asy_dots, coop_asy_lines, coop_asy_contour, coop_asy_curve, coop_asy_density,  coop_asy_topaxis, coop_asy_rightaxis, coop_asy_clip, coop_asy_plot_function, coop_asy_plot_likelihood, coop_asy_curve_from_file
 
 
 #include "constants.h"
@@ -88,6 +88,11 @@ module coop_asy_mod
   interface coop_asy_curve
      module procedure coop_asy_curve_s, coop_asy_curve_d
   end interface coop_asy_curve
+
+  interface coop_asy_plot_likelihood
+     module procedure coop_asy_plot_likelihood_s, coop_asy_plot_likelihood_d
+  end interface coop_asy_plot_likelihood
+
 
   interface coop_asy_density
      module procedure coop_asy_density_s, coop_asy_density_d, coop_asy_irregular_density_s, coop_asy_irregular_density_d
@@ -688,6 +693,57 @@ contains
     endif
   end subroutine coop_asy_interpolate_curve_d
 
+  subroutine coop_asy_plot_likelihood_d(fp, xraw, yraw, color, linetype, linewidth, legend)
+    class(coop_asy) fp
+    real(dl),dimension(:),intent(IN)::xraw, yraw
+    COOP_UNKNOWN_STRING,optional:: color, linetype
+    real(sp),optional::linewidth
+    COOP_UNKNOWN_STRING, optional::legend
+    COOP_INT  i, j, m, nn, npt, imax
+    COOP_STRING lineproperty
+    logical do_raw
+    m = Coop_getdim("coop_asy_fit_likliehood", size(xraw), size(yraw))
+    imax = coop_maxloc(COOP_REAL_OF(yraw))
+    npt = m + 2
+100 write(fp%unit, "(A)") "CURVE"
+    write(fp%unit, "(I8)") npt
+    if(present(legend))then
+       if(trim(legend).ne."")then
+          write(fp%unit, "(A)") trim(legend)
+       else
+          write(fp%unit, "(A)") "NULL"
+       endif
+    else
+       write(fp%unit, "(A)") "NULL"
+    endif
+    if(present(color))then
+       lineproperty=trim(color)
+    else
+       lineproperty = "black"
+    endif
+    if(present(linetype))then
+       lineproperty = trim(lineproperty)//"_"//trim(linetype)
+    else
+       lineproperty = trim(lineproperty)//"_solid"
+    endif
+    if(present(linewidth))then
+       lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
+    endif
+    write(fp%unit, "(A)") trim(lineproperty)
+    write(fp%unit, "(A)") "0"
+    do i=1,imax-1
+       call fp%write_coor( real(xraw(i), sp), real(yraw(i), sp) )
+    enddo
+    if(imax.gt.1) &
+         call fp%write_coor( real((xraw(i)+xraw(i-1))/2., sp), real(yraw(i)*0.75+yraw(i-1)*0.25, sp) )
+    call fp%write_coor( real(xraw(imax), sp), real(yraw(imax), sp) )
+    if(imax .lt. m) &
+         call fp%write_coor( real((xraw(i)+xraw(i+1))/2., sp), real(yraw(i)*0.75+yraw(i+1)*0.25, sp) )
+    do i=imax+1, m
+       call fp%write_coor( real(xraw(i), sp), real(yraw(i), sp) )
+    enddo
+  end subroutine coop_asy_plot_likelihood_d
+
   subroutine coop_asy_interpolate_curve_s(fp, xraw, yraw, interpolate, color, linetype, linewidth, legend)
     COOP_INT ,parameter::n = 256
     real(dl) x(n), y(n),  minx, maxx, dx
@@ -890,6 +946,60 @@ contains
        enddo
     endif
   end subroutine coop_asy_interpolate_curve_s
+
+
+
+  subroutine coop_asy_plot_likelihood_s(fp, xraw, yraw, color, linetype, linewidth, legend)
+    class(coop_asy) fp
+    real(sp),dimension(:),intent(IN)::xraw, yraw
+    COOP_UNKNOWN_STRING,optional:: color, linetype
+    real(sp),optional::linewidth
+    COOP_UNKNOWN_STRING, optional::legend
+    COOP_INT  i, j, m, nn, npt, imax
+    COOP_STRING lineproperty
+    logical do_raw
+    m = Coop_getdim("coop_asy_fit_likliehood", size(xraw), size(yraw))
+    imax = coop_maxloc(COOP_REAL_OF(yraw))
+    npt = m + 2
+100 write(fp%unit, "(A)") "CURVE"
+    write(fp%unit, "(I8)") npt
+    if(present(legend))then
+       if(trim(legend).ne."")then
+          write(fp%unit, "(A)") trim(legend)
+       else
+          write(fp%unit, "(A)") "NULL"
+       endif
+    else
+       write(fp%unit, "(A)") "NULL"
+    endif
+    if(present(color))then
+       lineproperty=trim(color)
+    else
+       lineproperty = "black"
+    endif
+    if(present(linetype))then
+       lineproperty = trim(lineproperty)//"_"//trim(linetype)
+    else
+       lineproperty = trim(lineproperty)//"_solid"
+    endif
+    if(present(linewidth))then
+       lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
+    endif
+    write(fp%unit, "(A)") trim(lineproperty)
+    write(fp%unit, "(A)") "0"
+    do i=1,imax-1
+       call fp%write_coor( real(xraw(i), sp), real(yraw(i), sp) )
+    enddo
+    if(imax.gt.1) &
+         call fp%write_coor( real((xraw(i)+xraw(i-1))/2., sp), real(yraw(i)*0.75+yraw(i-1)*0.25, sp) )
+    call fp%write_coor( real(xraw(imax), sp), real(yraw(imax), sp) )
+    if(imax .lt. m) &
+         call fp%write_coor( real((xraw(i)+xraw(i+1))/2., sp), real(yraw(i)*0.75+yraw(i+1)*0.25, sp) )
+    do i=imax+1, m
+       call fp%write_coor( real(xraw(i), sp), real(yraw(i), sp) )
+    enddo
+  end subroutine coop_asy_plot_likelihood_s
+
 
 
   subroutine coop_asy_curve_from_file(fp, fname, interpolate, xcol, ycol, color, linetype, linewidth, legend)

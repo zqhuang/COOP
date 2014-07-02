@@ -1,20 +1,23 @@
 module cosmolibwrap
-  use wrap_utils
-  use solvep
+  use coop_wrapper_typedef
+  use coop_solvepower_mod
+  use coop_ode_mod
+  use coop_interpolation_mod
   implicit none
 
-#include "utils.h"
+#include "constants.h"
 
-  real(dl)::pp_lnk_min = 1.e30
-  real(dl)::pp_lnk_max = -1.e30
+
+  COOP_REAL::pp_lnk_min = 1.e30
+  COOP_REAL::pp_lnk_max = -1.e30
   integer,parameter::pp_n = 2048+1
   integer::pp_ipivot
   integer::pp_dip_lmin = 20
   integer::pp_dip_lmax = 30
-  real(dl)::pp_dip_Amp = 0.
-  real(dl)::pp_As, pp_At, pp_nsm1, pp_nrunby2, pp_nt, pp_dlnk
-  real(dl),dimension(pp_n)::pp_lnk, pp_lnps, pp_lnpt, pp_lnps2, pp_lnpt2, pp_lnV, pp_phi, pp_epsilon
-  SHORT_STRING :: pp_mode = "standard"
+  COOP_REAL::pp_dip_Amp = 0.
+  COOP_REAL::pp_As, pp_At, pp_nsm1, pp_nrunby2, pp_nt, pp_dlnk
+  COOP_REAL,dimension(pp_n)::pp_lnk, pp_lnps, pp_lnpt, pp_lnps2, pp_lnpt2, pp_lnV, pp_phi, pp_epsilon
+  COOP_SHORT_STRING :: pp_mode = "standard"
   logical::pp_scan_tensor = .false.
   logical::pp_scan_scalar = .false.
   
@@ -41,18 +44,18 @@ contains
 
   subroutine pp_cosmomc_init(initpower, inflation_consistency, k_pivot)
     real,optional::k_pivot
-    real(dl) kpiv, lnkmin, lnkmax
+    COOP_REAL kpiv, lnkmin, lnkmax
     integer num_init_power
-    real(dl),dimension(:),intent(IN)::initpower
-    real(dl) As, ns, nrun, r, nt, Aphiphi
+    COOP_REAL,dimension(:),intent(IN)::initpower
+    COOP_REAL As, ns, nrun, r, nt, Aphiphi
     logical,optional::inflation_consistency
-    real(dl),dimension(:),allocatable::lnps
+    COOP_REAL,dimension(:),allocatable::lnps
 
     num_init_power = size(initpower)
     ns = initpower(1)
     nt = initpower(2)
     nrun = initpower(3)
-    As = exp(initpower(4))*1.e-10_dl
+    As = exp(initpower(4))*1.d-10
     r = initpower(5)
     if(present(inflation_consistency))then
        if(inflation_consistency)nt = -r/8.d0
@@ -61,7 +64,7 @@ contains
     if(present(k_pivot))then
        kpiv = k_pivot
     else
-       kpiv = 0.05_dl
+       kpiv = 0.05d0
     endif
     select case(pp_mode)
     case("standard", "elldip")
@@ -215,14 +218,14 @@ contains
 
 
   subroutine pp_init_d(As, ns, nrun, r, nt, lnkmin, lnkmax, psparams, ptparams, tmp_mode)
-    real(dl),parameter::q(0:5) = (/ 1.d0, 1.062970488d0, 0.2092751679d0, 0.1004277031d0, -0.02231133892d0, 0.01064541727d0 /)
-    real(dl),dimension(:),intent(IN),optional::psparams, ptparams
-    real(dl) As, ns, nrun, r, nt, eps, eta, xi, alpha, m, phi, V, lambda, xiphi2
-    real(dl)::lnkmin, lnkmax
-    real(dl),dimension(:),allocatable::lnk, lnp2
+    COOP_REAL,parameter::q(0:5) = (/ 1.d0, 1.062970488d0, 0.2092751679d0, 0.1004277031d0, -0.02231133892d0, 0.01064541727d0 /)
+    COOP_REAL,dimension(:),intent(IN),optional::psparams, ptparams
+    COOP_REAL As, ns, nrun, r, nt, eps, eta, xi, alpha, m, phi, V, lambda, xiphi2
+    COOP_REAL::lnkmin, lnkmax
+    COOP_REAL,dimension(:),allocatable::lnk, lnp2
     integer np, i
-    UNKNOWN_STRING,optional::tmp_mode
-    SHORT_STRING::pp_mode_save
+    COOP_UNKNOWN_STRING,optional::tmp_mode
+    COOP_SHORT_STRING::pp_mode_save
     if(present(tmp_mode))then
        pp_mode_save = pp_mode
        pp_mode = tmp_mode
@@ -230,7 +233,7 @@ contains
     if(abs(pp_lnk_min - lnkmin).gt. 1.d-5 .or. abs(pp_lnk_max - lnkmax).gt. 1.d-5)then
        pp_lnk_min = lnkmin
        pp_lnk_max = lnkmax
-       call set_uniform(pp_n, pp_lnk, pp_lnk_min, pp_lnk_max)
+       call coop_set_uniform(pp_n, pp_lnk, pp_lnk_min, pp_lnk_max)
        pp_dlnk = pp_lnk(2) - pp_lnk(1)
     endif
     pp_ipivot = nint(-lnkmin/pp_dlnk + 1.)
@@ -254,10 +257,10 @@ contains
           eps = 2./phi**2
           eta = eps
           xi = 0.
-          pp_As = V/eps/(24*const_pi2)*(1. + (6.*q(1) - 7./3.)*eps - 2.*q(1)*eta- 2.*q(2)*xi) 
+          pp_As = V/eps/(24*coop_pi2)*(1. + (6.*q(1) - 7./3.)*eps - 2.*q(1)*eta- 2.*q(2)*xi) 
           pp_nsm1 = 2.*eta - 6.*eps + 2.*q(1)*xi
           pp_nrunby2 = - xi - 12.*eps**2 + 8.*eps*eta
-          pp_At = (2./3./const_pi2)*V*(1.+eps/3.)
+          pp_At = (2./3./coop_pi2)*V*(1.+eps/3.)
           pp_nt = - 2.*eps
        endif
     case("lambdaphi4")  
@@ -270,10 +273,10 @@ contains
           eps = 8./phi**2
           eta = 12./phi**2
           xi = 96/phi**4
-          pp_As = V/eps/(24*const_pi2)*(1. + (6.*q(1) - 7./3.)*eps - 2.*q(1)*eta- 2.*q(2)*xi) 
+          pp_As = V/eps/(24*coop_pi2)*(1. + (6.*q(1) - 7./3.)*eps - 2.*q(1)*eta- 2.*q(2)*xi) 
           pp_nsm1 = 2.*eta - 6.*eps + 2.*q(1)*xi
           pp_nrunby2 =  - xi - 12.*eps**2 + 8.*eps*eta
-          pp_At = (2./3./const_pi2)*V*(1.+eps/3.)
+          pp_At = (2./3./coop_pi2)*V*(1.+eps/3.)
           pp_nt = - 2.*eps
        endif
     case("higgs")  !!
@@ -286,10 +289,10 @@ contains
           eps = pp_higgs_epsilon(phi = phi,xi = psparams(3), alpha = psparams(4))
           eta = pp_higgs_eta(phi = phi,xi = psparams(3), alpha = psparams(4))
           xi = pp_higgs_xiv(phi = phi,xi = psparams(3), alpha = psparams(4))
-          pp_As = V/eps/(24*const_pi2)*(1. + (6.*q(1) - 7./3.)*eps - 2.*q(1)*eta- 2.*q(2)*xi) 
+          pp_As = V/eps/(24*coop_pi2)*(1. + (6.*q(1) - 7./3.)*eps - 2.*q(1)*eta- 2.*q(2)*xi) 
           pp_nsm1 = 2.*eta - 6.*eps + 2.*q(1)*xi
           pp_nrunby2 = - xi - 12.*eps**2 + 8.*eps*eta
-          pp_At = (2./3./const_pi2)*V*(1.+eps/3.)
+          pp_At = (2./3./coop_pi2)*V*(1.+eps/3.)
           pp_nt = - 2.*eps
        endif
     case("bump")
@@ -315,21 +318,21 @@ contains
           pp_scan_scalar = .true.
           np = size(psparams)
           allocate(lnk(np))
-          call set_uniform(np, lnk, lnkmin, lnkmax)
+          call coop_set_uniform(np, lnk, lnkmin, lnkmax)
           select case(trim(pp_Mode))
           case("spline0", "spline1", "spline2")
              allocate(lnp2(np))
-             call splines(lnk, psparams, lnp2)
+             call coop_spline(np, lnk, psparams, lnp2)
              !$omp parallel do
              do i=1, pp_n
-                call splints(lnk, psparams, lnp2, pp_lnk(i), pp_lnps(i))
+                call coop_splint(np, lnk, psparams, lnp2, pp_lnk(i), pp_lnps(i))
              enddo
              !$omp end parallel do
              deallocate(lnp2)
           case default
              !$omp parallel do
              do i=1, pp_n
-                call linearinterpolate(lnk, psparams, pp_lnk(i), pp_lnps(i))
+                call coop_linear_interp(np, lnk, psparams, pp_lnk(i), pp_lnps(i))
              enddo
              !$omp end parallel do
           end select
@@ -341,10 +344,10 @@ contains
           pp_scan_tensor = .true.
           np = size(ptparams)
           allocate(lnk(np), lnp2(np))
-          call set_uniform(np, lnk, lnkmin, lnkmax)
-          call splines(lnk, ptparams, lnp2)
+          call coop_set_uniform(np, lnk, lnkmin, lnkmax)
+          call coop_spline(np, lnk, ptparams, lnp2)
           do i=1, pp_n
-             call splints(lnk, ptparams, lnp2, pp_lnk(i), pp_lnpt(i))
+             call coop_splint(np, lnk, ptparams, lnp2, pp_lnk(i), pp_lnpt(i))
           enddo
           deallocate(lnk, lnp2)
        else
@@ -355,9 +358,9 @@ contains
        stop "UNknown parametrization of primordial power spectrum"
     end select
     if(pp_scan_scalar) &
-         call splines(pp_lnk, pp_lnps, pp_lnps2)
+         call coop_spline(pp_n, pp_lnk, pp_lnps, pp_lnps2)
     if(pp_scan_tensor) &
-         call splines(pp_lnk, pp_lnpt, pp_lnpt2)
+         call coop_spline(pp_n, pp_lnk, pp_lnpt, pp_lnpt2)
     if(present(tmp_mode))then
        pp_mode = pp_mode_save
     endif
@@ -381,9 +384,9 @@ contains
   end subroutine pp_init_s
 
   function pp_scalar_power_s(lnk) result(pw)
-    real(dl) lnk, pw
+    COOP_REAL lnk, pw
     if(pp_scan_scalar)then
-       call splints(pp_lnk_min, pp_dlnk, pp_n, pp_lnps, pp_lnps2, lnk, pw)
+       call coop_splint_uniform(pp_n, pp_lnk_min, pp_dlnk, pp_lnps, pp_lnps2, lnk, pw)
        pw = pp_As*exp(pw+(pp_nsm1 + pp_nrunby2 *lnk)*lnk)
     else
        pw = pp_As*exp((pp_nsm1 + pp_nrunby2 *lnk)*lnk)
@@ -392,8 +395,8 @@ contains
 
 
   function pp_scalar_power_v(lnk) result(pw)
-    real(dl),dimension(:),intent(IN):: lnk
-    real(dl) pw(size(lnk))
+    COOP_REAL,dimension(:),intent(IN):: lnk
+    COOP_REAL pw(size(lnk))
     integer i
     !$omp parallel do
     do i=1, size(lnk)
@@ -405,9 +408,9 @@ contains
 
 
   function pp_tensor_power_s(lnk) result(pw)
-    real(dl) lnk, pw
+    COOP_REAL lnk, pw
     if(pp_scan_tensor)then
-       call splints(pp_lnk_min, pp_dlnk, pp_n, pp_lnpt, pp_lnpt2, lnk, pw)
+       call coop_splint_uniform(pp_n, pp_lnk_min, pp_dlnk, pp_lnpt, pp_lnpt2, lnk, pw)
        pw = pp_At * exp(pw + pp_nt*lnk)
     else
        pw = pp_At * exp(pp_nt*lnk)
@@ -416,8 +419,8 @@ contains
 
 
   function pp_tensor_power_v(lnk) result(pw)
-    real(dl),dimension(:),intent(IN):: lnk
-    real(dl) pw(size(lnk))
+    COOP_REAL,dimension(:),intent(IN):: lnk
+    COOP_REAL pw(size(lnk))
     integer i
     !$omp parallel do
     do i=1, size(lnk)
@@ -439,7 +442,7 @@ contains
     do i=2, pp_n
        pp_phi(i) = pp_phi(i-1) + (sqrt(pp_epsilon(i))+sqrt(pp_epsilon(i-1)))
     enddo
-    pp_phi = (pp_phi - pp_phi(pp_ipivot))*pp_dlnk/const_sqrt2 
+    pp_phi = (pp_phi - pp_phi(pp_ipivot))*pp_dlnk/coop_sqrt2 
     pp_lnV(1) = 0
     do i=2, pp_n
        pp_lnV(i) = pp_lnV(i-1) - (pp_epsilon(i)+pp_epsilon(i-1))
@@ -451,9 +454,9 @@ contains
 !!=============================== models ==========
 
   function pp_higgs_phi(nefolds, xi, alpha) result(phi_n)
-    real(dl),parameter::step = 2.d-3
-    real(dl) nefolds, xi, alpha, phi_n
-    real(dl) nn, dn1, dn2, dnm, rat, nnp, phip
+    COOP_REAL,parameter::step = 2.d-3
+    COOP_REAL nefolds, xi, alpha, phi_n
+    COOP_REAL nn, dn1, dn2, dnm, rat, nnp, phip
     nn = 0.d0
     nnp = 0.d0
     phi_n = 0.d0
@@ -478,8 +481,8 @@ contains
   contains
 
     function dndphi(phi)
-      real(dl) phi, dndphi
-      real(dl) xiphi2, logterm
+      COOP_REAL phi, dndphi
+      COOP_REAL xiphi2, logterm
       xiphi2 = xi * phi ** 2
       logterm = alpha*log(1.d0+xiphi2)
       dndphi = phi/2.d0 * ( 1.d0 + 6.d0*xi*xiphi2/(1.d0+xiphi2))*(1.d0+logterm)/(2.d0+alpha*xiphi2 + 2.d0*logterm)
@@ -488,25 +491,25 @@ contains
   end function pp_higgs_phi
 
   function pp_higgs_chi(phi, xi) result(chi)
-    real(dl) phi , chi, xi, t
+    COOP_REAL phi , chi, xi, t
     t = sqrt(xi*(1.d0+6.d0*xi))
-    chi = (t * asinh( t*phi) - const_sqrt6*xi*atanh(const_sqrt6*phi*xi/sqrt(1.d0+(t*phi)**2)))/xi
+    chi = (t * asinh( t*phi) - coop_sqrt6*xi*atanh(coop_sqrt6*phi*xi/sqrt(1.d0+(t*phi)**2)))/xi
   end function pp_higgs_chi
 
   function pp_higgs_potential(phi, lambda, xi, alpha) result(V)
-    real(dl) V, phi, lambda, xi, alpha
+    COOP_REAL V, phi, lambda, xi, alpha
     V = (lambda/4.d0) * phi**4 /(1.d0 + xi*phi**2)**2 *(1.d0+alpha*log(1.d0+xi*phi**2))
   end function pp_higgs_potential
 
   function pp_higgs_epsilon(phi, xi, alpha) result(eps)
-    real(dl) phi, xi, alpha, eps, xiphi2, logterm
+    COOP_REAL phi, xi, alpha, eps, xiphi2, logterm
     xiphi2  = xi*phi**2
     logterm = log(1.d0+xiphi2)*alpha
     eps = 2.d0*(2.d0+alpha*xiphi2 + 2.d0*logterm)**2/phi**2/(1.d0+xiphi2+6.d0*(xi*phi)**2)/(1.d0+logterm)**2
   end function pp_higgs_epsilon
 
   function pp_higgs_eta(phi, xi, alpha) result(eta)
-    real(dl) phi, xi, alpha, eta, xiphi2, logterm
+    COOP_REAL phi, xi, alpha, eta, xiphi2, logterm
     xiphi2  = xi*phi**2
     logterm = log(1.d0+xiphi2)*alpha
     eta = 2 *xi * (1.d0 +6.d0*xi * xiphi2 + xi* (-6+phi**2))*(2+ alpha*xiphi2 + 2 * logterm )/((1+ xiphi2 + 6*(xi*phi)**2)**2 * (1+logterm)) - (2*(-6+3*(2 -3*alpha) *xiphi2  + alpha * xiphi2**2 + 6 * (-1 + xiphi2) *logterm ))/(phi**2*(1+xiphi2 +6 *xi *xiphi2 )*(1+ logterm))
@@ -514,7 +517,7 @@ contains
   
 
   function pp_higgs_xiv(phi, xi, alpha) result(xiv)
-    real(dl) phi, xi, alpha, xiv, xiphi2, logterm
+    COOP_REAL phi, xi, alpha, xiv, xiphi2, logterm
     xiphi2  = xi*phi**2
     logterm = log(1.d0+xiphi2)*alpha
     xiv = (8*(2 + alpha*xiphi2 + 2 * logterm)*(6 + 8 * (-1 + 3 * alpha)*xiphi2 -144*(-1 + 3* alpha)*xi**6* phi**8 - 6*xi**5* phi**6* (72 - 72*alpha - 8* phi**2 + 25*alpha *phi**2) + xi**2*phi**2*(12 + 5*(-6 + 7*alpha)*phi**2) + xi**4*phi**6*(alpha*(54 - 13*phi**2) + 4*(-36 + phi**2)) - 2*xi**3*phi**4*(alpha*(-102 + phi**2) + 6*(15 + phi**2)) + 2*alpha*(3 - 4*xi*phi**2 + 72*xi**6*phi**8 + 2*xi**4*phi**6*(-36 + phi**2) + 24*xi**5*phi**6*(-9 + phi**2) - 6*xi**3*phi**4*(15 + phi**2) + xi**2*(6*phi**2 - 15*phi**4))* log(1 + xiphi2)))/((phi + xi*(1 + 6*xi)*phi**3)**4*(1 + logterm)**2)

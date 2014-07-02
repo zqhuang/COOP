@@ -800,6 +800,8 @@ int plot_density(file fin){
     p = BWRainbow(256);
   else if(ctbl == "Grayscale")
     p = Grayscale(256);
+  else if(ctbl == "MyRainbow")
+    p = Gradient(256, purple, lightblue, mediumblue,  blue, cyan, green, yellow, orange, red, mediumred, lightred); 
   else if(ctbl == "MyColorTable")
     p = Gradient(256, purple, lightblue, mediumblue,  blue, cyan, green, yellow, orange, red, mediumred, lightred); 
   else if(ctbl == "Planck")

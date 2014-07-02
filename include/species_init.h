@@ -1,4 +1,4 @@
-  COOP_INT, optional::gengre
+  COOP_INT, optional::genre
   COOP_UNKNOWN_STRING, optional::name
   COOP_INT, optional:: id
   COOP_REAL, optional::Omega
@@ -33,28 +33,28 @@
      this%Omega_massless = this%Omega
   endif
 
-  if(present(gengre))then
-     this%gengre =gengre
-     if(this%gengre .eq. COOP_SPECIES_MASSIVE_FERMION .or. this%gengre .eq. COOP_SPECIES_MASSIVE_BOSON)then
+  if(present(genre))then
+     this%genre =genre
+     if(this%genre .eq. COOP_SPECIES_MASSIVE_FERMION .or. this%genre .eq. COOP_SPECIES_MASSIVE_BOSON)then
         if(this%Omega_massless .ge. this%Omega * 0.9999)then
-           this%gengre = COOP_SPECIES_MASSLESS
+           this%genre = COOP_SPECIES_MASSLESS
         endif
      endif
   else
      if(present(Omega_massless))then
         if(Omega_massless .le. 0.)then
-           this%gengre = COOP_SPECIES_CDM
+           this%genre = COOP_SPECIES_CDM
         elseif(Omega_massless/this%Omega .le. 0.9999)then
-           this%gengre = COOP_SPECIES_MASSIVE_FERMION
+           this%genre = COOP_SPECIES_MASSIVE_FERMION
         else
-           this%gengre = COOP_SPECIES_MASSLESS
+           this%genre = COOP_SPECIES_MASSLESS
         endif
      else
-        this%gengre = COOP_SPECIES_FLUID
+        this%genre = COOP_SPECIES_FLUID
      endif
   endif
 
-  select case(this%gengre)
+  select case(this%genre)
   case(COOP_SPECIES_MASSLESS)
      this%w = 1.d0/3.
      this%cs2 = this%w
@@ -76,7 +76,7 @@
         this%cs2 = 0.d0
      endif
   end select
-  select case(this%gengre)
+  select case(this%genre)
   case(COOP_SPECIES_MASSLESS, COOP_SPECIES_COSMOLOGICAL_CONSTANT, COOP_SPECIES_CDM)
      this%w_dynamic = .false.
      this%cs2_dynamic = .false.

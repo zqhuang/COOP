@@ -11,7 +11,7 @@ module coop_species_mod
   public:: coop_species
 
   type coop_species
-     COOP_INT gengre
+     COOP_INT genre
      logical w_dynamic, cs2_dynamic
      COOP_SHORT_STRING name
      COOP_INT id
@@ -36,12 +36,12 @@ module coop_species_mod
 
 contains
 
-  function coop_species_constructor(gengre, name, id, Omega, w, cs2, Omega_massless, fw, fcs2) result(this)
+  function coop_species_constructor(genre, name, id, Omega, w, cs2, Omega_massless, fw, fcs2) result(this)
     type(coop_species) :: this
 #include "species_init.h"
   end function coop_species_constructor
 
-  subroutine coop_species_initialize(this, gengre, name, id, Omega, w, cs2, Omega_massless, fw, fcs2)
+  subroutine coop_species_initialize(this, genre, name, id, Omega, w, cs2, Omega_massless, fw, fcs2)
     class(coop_species) :: this
 #include "species_init.h"
   end subroutine coop_species_initialize
@@ -72,25 +72,25 @@ contains
     class(coop_species) :: this
     write(*,"(A)") "Species Name: "//trim(this%name)
     write(*,"(A)") "Species ID: "//trim(coop_num2str(this%id))
-    select case(this%gengre)
+    select case(this%genre)
     case(COOP_SPECIES_MASSLESS)
-       write(*,"(A)") "Species gengre: massless particles"
+       write(*,"(A)") "Species genre: massless particles"
     case(COOP_SPECIES_MASSIVE_FERMION)
-       write(*,"(A)") "Species gengre: massive fermion"
+       write(*,"(A)") "Species genre: massive fermion"
        write(*,"(A, G15.6)") "Species Omega_massless: ", this%Omega_massless
     case(COOP_SPECIES_MASSIVE_BOSON)
-       write(*,"(A)") "Species gengre: massive boson"
+       write(*,"(A)") "Species genre: massive boson"
        write(*,"(A, G15.6)") "Species Omega_massless: ", this%Omega_massless
     case(COOP_SPECIES_COSMOLOGICAL_CONSTANT)
-       write(*,"(A)") "Species gengre: cosmological constant"
+       write(*,"(A)") "Species genre: cosmological constant"
     case(COOP_SPECIES_FLUID)
-       write(*,"(A)") "Species gengre: fluid"
+       write(*,"(A)") "Species genre: fluid"
     case(COOP_SPECIES_SCALAR_FIELD)
-       write(*,"(A)") "Species gengre: scalar field"
+       write(*,"(A)") "Species genre: scalar field"
     case(COOP_SPECIES_CDM)
-       write(*,"(A)") "Species gengre: cold dark matter"
+       write(*,"(A)") "Species genre: cold dark matter"
     case default
-       write(*,"(A)") "Species gengre: unknown"
+       write(*,"(A)") "Species genre: unknown"
     end select
     write(*,"(A, G15.6)") "Species Omega: ", this%Omega
     if(this%w_dynamic)then

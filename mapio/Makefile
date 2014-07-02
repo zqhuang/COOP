@@ -16,6 +16,10 @@ UDG: $(OBJ) udgrade.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) udgrade.o $(LINK)
 
 
+HSM: $(OBJ) half_sphere_mask.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) half_sphere_mask.o $(LINK)
+
+
 Test: $(OBJ) test.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
 
@@ -24,6 +28,9 @@ GetSpots: $(OBJ) exportspots.o
 
 Stack: $(OBJ) dostack.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) dostack.o $(LINK)
+
+Asym: $(OBJ) asymmetry.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) asymmetry.o $(LINK)
 
 MSMAP: $(OBJ) map_merge_split.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) map_merge_split.o $(LINK)
@@ -48,10 +55,10 @@ FMerge:	 $(OBJ) flat_merge.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_merge.o $(LINK)	
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP HSM
 
 
-test.o: 	$(LIB)
+test.o: $(LIB)
 
 exportspots.o: $(LIB)
 

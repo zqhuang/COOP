@@ -8,16 +8,16 @@ program test
 #include "constants.h"
 
   
-  COOP_REAL, parameter::pre_smooth_fwhm = 30.*coop_SI_arcmin
+  COOP_REAL, parameter::pre_smooth_fwhm = 15.*coop_SI_arcmin
   COOP_UNKNOWN_STRING,parameter:: color_table = "Planck"
-  COOP_UNKNOWN_STRING, parameter :: spot_type = "E"
-  COOP_REAL ,parameter::r=2.*coop_SI_degree, dr = max(coop_SI_arcmin/2., r/40.)
+  COOP_UNKNOWN_STRING, parameter :: spot_type = "Qr"
+  COOP_REAL ,parameter::r=2.*coop_SI_degree, dr = max(coop_SI_arcmin/2., r/30.)
 
 #ifdef USE_PLANCK
-  COOP_UNKNOWN_STRING, parameter :: map_file = "inps/predx11_iqu_nside256_inp_teb1000.fits"
-  COOP_UNKNOWN_STRING, parameter :: spot_file = "spots/predx11_iqu_nside256_Tmax_NoThreshold_fwhm30.txt" 
-  COOP_UNKNOWN_STRING, parameter :: imask_file = "inps/predx11_polmask_nside256.fits" 
-  COOP_UNKNOWN_STRING, parameter :: polmask_file = ""
+  COOP_UNKNOWN_STRING, parameter :: map_file = "predx11/predx11_iqu.fits"
+  COOP_UNKNOWN_STRING, parameter :: spot_file = "spots/predx11_iqu_Tmax_threshold0_fwhm15.txt" 
+  COOP_UNKNOWN_STRING, parameter :: imask_file = "predx11/predx11_sk.fits" 
+  COOP_UNKNOWN_STRING, parameter :: polmask_file = "predx11/predx11_polmask.fits"
 #endif
 
 #ifdef USE_WMAP
