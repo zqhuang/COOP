@@ -508,6 +508,7 @@ contains
     integer:: nside, nmaps
     integer:: spin(nmaps)
     integer, optional::lmax
+#ifdef HAS_HEALPIX
     if(allocated(this%map))then
        if(this%nside .eq. nside .and. this%nmaps.eq.nmaps)then
           goto 100
@@ -548,12 +549,11 @@ contains
        allocate(this%cl(0:this%lmax, this%nmaps*(this%nmaps+1)/2))
     endif
 200 this%ordering = COOP_RING !!default ordering
-#ifdef HAS_HEALPIX
     call write_minimal_header(this%header,dtype = 'MAP', nside=this%nside, order = this%ordering, creator='Zhiqi Huang', version = 'CosmoLib', units='muK', polar=any(this%spin.eq.2) )
+    this%maskpol_npix = 0
 #else
     stop "DID not find healpix"
 #endif
-    this%maskpol_npix = 0
   end subroutine coop_healpix_maps_init
 
   subroutine coop_healpix_maps_free(this)
@@ -572,6 +572,7 @@ contains
     integer,dimension(:),optional::spin
     integer(8) npixtot
     integer nmaps_actual
+#ifdef HAS_HEALPIX
     if(.not. coop_file_exists(filename))then
        write(*,*) trim(filename)
        stop "cannot find the file"
@@ -638,14 +639,11 @@ contains
     else
        allocate(this%map(0:this%npix-1, this%nmaps))
     endif
-#ifdef HAS_HEALPIX
     call input_map(trim(filename), this%map, this%npix, nmaps_actual, fmissval = 0.)
+    call this%convert2ring
+    call write_minimal_header(this%header,dtype = 'MAP', nside=this%nside, order = this%ordering, creator='Zhiqi Huang', version = 'CosmoLib', units='muK', polar=any(this%spin.eq.2) )
 #else
     stop "DID NOT FIND HEALPIX"
-#endif
-    call this%convert2ring
-#ifdef HAS_HEALPIX
-    call write_minimal_header(this%header,dtype = 'MAP', nside=this%nside, order = this%ordering, creator='Zhiqi Huang', version = 'CosmoLib', units='muK', polar=any(this%spin.eq.2) )
 #endif
   end subroutine coop_healpix_maps_read
 
