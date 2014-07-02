@@ -32,10 +32,12 @@ C_COMPILER = $(GCC_NAME)
 ##############################################################################
 ##LAPACK lib, mandatory if you use any data (WMAP, ACT, SPT, SNLS3yr)
 
-LAPACK = $(HOME)/includes/lapack-3.4.2
+LAPACK = 
+#$(HOME)/includes/lapack-3.4.2
 
 ##FFTW lib (v3.2 up)
-FFTW3=$(HOME)/includes/fftw3
+FFTW3=
+# $(HOME)/includes/fftw3
 
 ## gsl lib 
 GSL =
@@ -43,10 +45,12 @@ GSL =
 
 
 ##cfitsio lib, mandatory if you do mapio
-CFITSIO = $(HOME)/work/scilibs/cfitsio
+CFITSIO = 
+#$(HOME)/work/scilibs/cfitsio
 
 ##Healpix lib, mandatory if you do mapio
-HEALPIX = $(HOME)/work/scilibs/Healpix
+HEALPIX = 
+#$(HOME)/work/scilibs/Healpix
 
 ####################### the rest ##########################################
 #should automatically work if you are using $(IFORT_NAME) or $(GFORTRAN_NAME); 
