@@ -21,4 +21,4 @@ GD: $(OBJ) getdist.o
 
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test GetDist
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test GD
