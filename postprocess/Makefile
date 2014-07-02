@@ -5,7 +5,7 @@ include ../configure.in
 include ../compile_rules.in
 
 LIB = libcooppostprocess.a
-OBJ = latex.o statchains.o postprocess.o 
+OBJ = latex.o statchains.o 
 
 default: $(LIB)
 
