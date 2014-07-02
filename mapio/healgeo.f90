@@ -2,10 +2,12 @@ module coop_healpix_mod
 !!I always assume ring order
   use coop_wrapper_utils
   use coop_sphere_mod
+#ifdef HAS_HEALPIX
   use head_fits
   use fitstools
   use pix_tools
   use alm_tools
+#endif
   implicit none
 
 #include "constants.h"
@@ -546,7 +548,11 @@ contains
        allocate(this%cl(0:this%lmax, this%nmaps*(this%nmaps+1)/2))
     endif
 200 this%ordering = COOP_RING !!default ordering
+#ifdef HAS_HEALPIX
     call write_minimal_header(this%header,dtype = 'MAP', nside=this%nside, order = this%ordering, creator='Zhiqi Huang', version = 'CosmoLib', units='muK', polar=any(this%spin.eq.2) )
+#else
+    stop "DID not find healpix"
+#endif
     this%maskpol_npix = 0
   end subroutine coop_healpix_maps_init
 
@@ -632,11 +638,15 @@ contains
     else
        allocate(this%map(0:this%npix-1, this%nmaps))
     endif
-
+#ifdef HAS_HEALPIX
     call input_map(trim(filename), this%map, this%npix, nmaps_actual, fmissval = 0.)
+#else
+    stop "DID NOT FIND HEALPIX"
+#endif
     call this%convert2ring
+#ifdef HAS_HEALPIX
     call write_minimal_header(this%header,dtype = 'MAP', nside=this%nside, order = this%ordering, creator='Zhiqi Huang', version = 'CosmoLib', units='muK', polar=any(this%spin.eq.2) )
-
+#endif
   end subroutine coop_healpix_maps_read
 
   subroutine coop_healpix_maps_write(this, filename, index_list)
@@ -652,22 +662,36 @@ contains
     endif
     call coop_delete_file(trim(filename))
     if(allocated(this%alm))then
+#ifdef HAS_HEALPIX
        call write_minimal_header(this%header,dtype = 'MAP', nside=this%nside, order = this%ordering, creator='Zhiqi Huang', version = 'CosmoLib', units='muK', nlmax = this%lmax, nmmax = this%lmax, polar= pol)
+#else
+       stop "DID NOT FIND HEALPIX"
+#endif
     else
+#ifdef HAS_HEALPIX
        call write_minimal_header(this%header,dtype = 'MAP', nside=this%nside, order = this%ordering, creator='Zhiqi Huang', version = 'CosmoLib', units='muK', polar= pol )
+#else
+       stop "DID NOT FIND HEALPIX"
+#endif
     endif
+#ifdef HAS_HEALPIX
     if(present(index_list))then
        call output_map(this%map(:, index_list), this%header, trim(filename))
     else
        call output_map(this%map, this%header, trim(filename))
     endif
+#endif
   end subroutine coop_healpix_maps_write
 
   subroutine coop_healpix_convert_to_nested(this)
     class(coop_healpix_maps) this
     if(.not. allocated(this%map)) stop "coop_healpix_convert_to_nested: map is not allocated yet"
     if(this%ordering .eq. COOP_RING) then
+#ifdef HAS_HEALPIX
        call convert_ring2nest(this%nside, this%map)
+#else
+       stop "CANNOT FIND HEALPIX"
+#endif
        this%ordering = COOP_NESTED
     elseif(this%ordering .ne. COOP_NESTED)then
        write(*,*) "ordering = ", this%ordering
@@ -679,7 +703,11 @@ contains
     class(coop_healpix_maps) this
     if(.not. allocated(this%map)) stop "coop_healpix_convert_to_ring: map is not allocated yet"
     if(this%ordering .eq. COOP_NESTED)then
+#ifdef HAS_HEALPIX
        call convert_nest2ring(this%nside, this%map)
+#else
+       stop "CANNOT FIND HEALPIX"
+#endif
        this%ordering = COOP_RING
     elseif(this%ordering .ne. COOP_RING)then
        write(*,*) "ordering = ", this%ordering
@@ -722,6 +750,7 @@ contains
     endif
 
     i = 1
+#ifdef HAS_HEALPIX
     do while(i.le. this%nmaps)
        if(this%spin(i).eq.0)then
           call map2alm(this%nside, this%lmax, this%lmax, this%map(:,i), this%alm(:,:,i:i))
@@ -741,6 +770,9 @@ contains
           stop "coop_healpix_maps_map2alm: nonzero spin maps must appear in pairs"
        endif
     enddo
+#else
+    stop "CANNOT FIND HEALPIX"
+#endif
     if(allocated(alm))deallocate(alm)
     call coop_healpix_get_Cls(this)
   end subroutine coop_healpix_maps_map2alm
@@ -751,6 +783,7 @@ contains
     integer i
     complex,dimension(:,:,:),allocatable::alm
     i = 1
+#ifdef HAS_HEALPIX
     do while(i.le. this%nmaps)
        if(this%spin(i).eq.0)then
           call alm2map(this%nside, this%lmax, this%lmax, this%alm(:,:,i:i), this%map(:,i))
@@ -769,6 +802,9 @@ contains
           stop "coop_healpix_maps_alm2map: nonzero spin maps must appear in pairs"
        endif
     enddo
+#else
+    stop "CANNOT FIND HEALPIX"
+#endif
     if(allocated(alm))deallocate(alm)
   end subroutine coop_healpix_maps_alm2map
 
@@ -885,10 +921,15 @@ contains
     real(dl) r
     disc%nside  = nside
     disc%center = pix
+#ifdef HAS_HEALPIX
     call pix2ang_ring(nside, pix, disc%theta, disc%phi)
     call ang2vec(disc%theta, disc%phi, disc%nz)
+#else
+    stop "CANNOT FIND HEALPIX"
+#endif
     disc%nx = (/  sin(disc%phi) , - cos(disc%phi) , 0.d0 /)
     call coop_vector_cross_product(disc%nz, disc%nx, disc%ny)
+
   end subroutine coop_healpix_get_disc
 
   subroutine coop_healpix_disc_pix2ang(disc, pix, r, phi)
@@ -900,7 +941,11 @@ contains
        phi = 0
        return
     endif
+#ifdef HAS_HEALPIX
     call pix2vec_ring(disc%nside, pix, vec)
+#else
+    stop "CANNOT FIND HEALPIX"
+#endif
     r = COS2RADIUS( dot_product(vec, disc%nz) )
     x = dot_product(vec, disc%nx)
     y = dot_product(vec, disc%ny)
@@ -915,7 +960,11 @@ contains
     cost = RADIUS2COS(r)
     sint = sqrt(1.d0 - cost**2)
     vec = sint*cos(phi)* disc%nx + sint*sin(phi)*disc%ny + cost*disc%nz
+#ifdef HAS_HEALPIX
     call vec2pix_ring(disc%nside, vec, pix)
+#else
+    stop "CANNOT FIND HEALPIX"
+#endif
   end subroutine coop_healpix_disc_ang2pix
 
 
@@ -928,7 +977,11 @@ contains
        y = 0
        return
     endif
+#ifdef HAS_HEALPIX
     call pix2vec_ring(disc%nside, pix, vec)
+#else
+    stop "CANNOT FIND HEALPIX"
+#endif
     r = COS2RADIUS( dot_product(vec, disc%nz) )
     x = dot_product(vec, disc%nx)
     y = dot_product(vec, disc%ny)
@@ -951,7 +1004,11 @@ contains
     cost = RADIUS2COS(r)
     sint = sqrt(1.d0 - cost**2)
     vec = sint*(x/r)* disc%nx + sint*(y/r)*disc%ny + cost*disc%nz
+#ifdef HAS_HEALPIX
     call vec2pix_ring(disc%nside, vec, pix)
+#else
+    stop "CANNOT FIND HEALPIX"
+#endif
   end subroutine coop_healpix_disc_xy2pix
 
   subroutine coop_healpix_rotate_qu(qu, phi)
@@ -1117,6 +1174,7 @@ contains
        p(ithread) = patch
        tmp(ithread) = patch
     enddo
+#ifdef HAS_HEALPIX
     !$omp parallel do private(i, pix)
     do ithread = 1, n_threads
        do i=ithread, ns, n_threads
@@ -1130,6 +1188,9 @@ contains
        enddo
     enddo
     !$omp end parallel do
+#else
+    stop "CANNOT FIND HEALPIX"
+#endif
     do ithread = 1, n_threads
        patch%image = patch%image + p(ithread)%image
        patch%nstack = patch%nstack + p(ithread)%nstack
@@ -1179,6 +1240,7 @@ contains
     meantmp = 0.d0
     cov = 0.d0
     mean = 0.d0
+#ifdef HAS_HEALPIX
     !$omp parallel do private(i, pix)
     do ithread = 1, n_threads
        do i=ithread, ns, n_threads
@@ -1192,6 +1254,9 @@ contains
        enddo
     enddo
     !$omp end parallel do
+#else
+    stop "CANNOT FIND HEALPIX"
+#endif
     do ithread = 1, n_threads
        patch%image = patch%image + p(ithread)%image
        patch%nstack = patch%nstack + p(ithread)%nstack
@@ -1436,6 +1501,7 @@ contains
        read(sfp%unit, *) theta(i), phi(i), angle_rotate(i)       
     enddo
     call sfp%close()
+#ifdef HAS_HEALPIX
     if(nblocks.eq.1)then
        !$omp parallel do private(i, ithread, pix) 
        do ithread = 1, n_threads
@@ -1563,6 +1629,9 @@ contains
     deallocate(image) 
     call map%free()
     call mask%free()
+#else
+    stop "CANNOT FIND HEALPIX"
+#endif
 
   contains 
 
@@ -1656,6 +1725,7 @@ contains
     integer i, iq, iu, j
     integer nneigh, list(8)
     logical do_mask
+#ifdef HAS_HEALPIX
     select case(trim(spot_type))
     case("Tmax_QTUTOrient", "PTmax", "PTmin")
        call map%read(trim(map_file), nmaps_wanted = 3)
@@ -1862,6 +1932,9 @@ contains
     call map%free
     call mask%free
     call fp%close()
+#else
+    stop "CANNOT FIND HEALPIX"
+#endif
   end subroutine coop_healpix_export_spots
 
 
@@ -1869,8 +1942,12 @@ contains
     real, dimension(:,:):: map
     character(LEN=80),dimension(:):: header
     COOP_UNKNOWN_STRING fname
+#ifdef HAS_HEALPIX
     call coop_delete_file(trim(fname))
     call output_map(map, header, fname)
+#else
+    stop "CANNOT FIND HEALPIX"
+#endif
   end subroutine coop_healpix_output_map
   
   subroutine coop_healpix_mask_map(mapfile, maskfile, output, index_list)
@@ -1962,12 +2039,16 @@ contains
       integer list(8), nneigh
       integer i
       real(sp) decay
+#ifdef HAS_HEALPIX
       !$omp parallel do private(list, nneigh, i)
       do i = 1, this%mask_npix
          call neighbours_nest(this_from%nside, this%mask_listpix(i), list, nneigh)
          this_to%map(this_from%mask_listpix(i), 1) = max(maxval(this_from%map(list(1:nneigh), 1)) * decay , this_from%map(this_from%mask_listpix(i), 1))
       enddo
       !$omp end parallel do
+#else
+      stop "CANNOT FIND HEALPIX"
+#endif
     end subroutine coop_healpix_iterate_mask
   end subroutine coop_healpix_smooth_mask
 
@@ -2215,6 +2296,7 @@ contains
     real(dl) theta, phi, angle_rotate
     integer pix
     type(coop_healpix_maps) this
+#ifdef HAS_HEALPIX
     call this%init(64, 1, (/ 0 /) )
     this%map = 0
     call fp%open(trim(spotsfile), "r")
@@ -2226,6 +2308,9 @@ contains
 100 call fp%close()
     call this%write(trim(mapfile))
     call this%free
+#else
+    stop "CANNOT FIND HEALPIX"
+#endif
   end subroutine coop_healpix_plot_spots
 
 end module coop_healpix_mod
