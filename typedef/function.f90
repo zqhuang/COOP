@@ -347,12 +347,20 @@ contains
     l = floor(b)
     if(l .lt. 1)then
        if(this%check_boundary)then
+          if(b.gt. 0.99999999)then
+             f = this%fleft
+             return
+          endif
           write(*,*) "coop_function cannot be evaluated out of its boundary"
           stop
        endif
        f = this%fleft + this%slopeleft*xdiff
     elseif(l.ge. this%n)then
        if(this%check_boundary)then
+          if(b.le.n+1.e-8)then
+             f = this%fright
+             return
+          endif
           write(*,*) "coop_function cannot be evaluated out of its boundary"
           stop
        endif
