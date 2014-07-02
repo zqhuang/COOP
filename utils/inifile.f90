@@ -4,8 +4,8 @@
 !!by Antony Lewis (http://cosmologist.info/). Released to the public domain.
 !!This version March 2005.
 !!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-MODULE InIFile_utils
-  use general_utils
+MODULE coop_InIFile_mod
+  use coop_wrapper_typedef
   IMPLICIT NONE
   INTEGER, PARAMETER :: Ini_max_name_len = 128
   INTEGER, PARAMETER :: Ini_max_string_len = 1024
@@ -62,7 +62,7 @@ CONTAINS
     CHARACTER(LEN=*) :: AValue
     INTEGER i
     DO i=1, L%Count
-       IF (NOCASE_EQ(L%Items(i)%P%Name,AName)) THEN
+       IF (trim(L%Items(i)%P%Name) .eq. trim(AName)) THEN
           AValue = L%Items(i)%P%Value 
           RETURN
        ENDIF
@@ -479,4 +479,4 @@ CONTAINS
     ENDIF
   END FUNCTION GetIniParams
 
-END MODULE InIFile_utils
+END MODULE Coop_InIFile_mod

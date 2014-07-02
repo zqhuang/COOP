@@ -1,6 +1,7 @@
-module statchains
+module coop_statchains_mod
   use coop_wrapper_utils
   use cosmolibwrap
+  use coop_latex_mod
 
   implicit none
 
@@ -96,7 +97,7 @@ contains
     if(coop_file_exists(fname))then
        call fp%open(fname, "r")
        do i =1, mc%np
-          if(Coop_file_readOneLine(fp, inline))then
+          if(fp%read_string(inline))then
              inline = trim(adjustl(inline))
              lens = len_trim(inline)
              if(lens .eq. 0)then
@@ -120,7 +121,7 @@ contains
           endif
 
        enddo
-       call close_file(fp)
+       call fp%close()
     else
        do i = 1, mc%np
           mc%label(i) = "param"//trim(coop_num2str(i))
@@ -149,12 +150,12 @@ contains
        if(nlines(i)-nskip(i) .gt. 0)then
           fname = trim(prefix)//"_"//trim(coop_num2str(i))//".txt"
           call fp%open(fname, "r")
-          call coop_file_skiplines(fp, nskip(i))
+          call fp%skip_lines(nskip(i))
           do j=nskip(i)+1, nlines(i)
              k = k + 1
              read(fp%unit, *) mc%mult(k), mc%like(k), mc%params(k,1:mc%np)
           enddo
-          call close_file(fp)
+          call fp%close()
        endif
     enddo
     if( k .eq. mc%n)then
@@ -395,7 +396,7 @@ contains
           do i=1, mc%nb
              c2dlist((i-1)*mc%nb+1:i*mc%nb) = mc%c2d(:,i,k)
           enddo
-          call quicksort(c2dlist)
+          call coop_quicksort(c2dlist)
           i = mc%nb*mc%nb
           acc = c2dlist(i)
           do icl = 1, mcmc_stat_num_cls
@@ -461,7 +462,7 @@ contains
     do j = 1, mcmc_stat_num_cls
        write(fp%unit, "(A, F14.3, A, G14.5)") "prob = ", mcmc_stat_cls(j)," truncation like = ", mc%likecut(j)
     enddo
-    call close_file(fp)
+    call fp%close()
     do_pp  = (trim(pp_mode) .ne. "")
     !! =================================================================!!
     call coop_dictionary_lookup(mc%inputparams, "num_init_power", num_initpower, 6)
@@ -491,7 +492,7 @@ contains
              do l=2, dcl_lmax
                 read(fpbest%unit, *) ltmp, bestCls(:, l)
              enddo
-             call close_file(fpbest)
+             call fpbest%close()
           else
              bestCls = 0.d0
           endif
@@ -660,7 +661,7 @@ contains
           endif
        endif
     enddo
-    call close_file(fp)
+    call fp%close()
 
     !!now plot the mean
     if(do_pp)then
@@ -705,7 +706,7 @@ contains
           if(trim(measured_cltt_file).ne."")then
              call fp%open(measured_cltt_file, "r")
              do 
-                if( coop_file_readoneline_string(fp, inline) )then
+                if(fp%read_string(inline) )then
                    read(inline, *) l, junk, junk, cltt, errup, errdown
                 else
                    exit
@@ -719,12 +720,12 @@ contains
                 endif
                 call coop_asy_error_bar(fpclTT, dble(l), cltt, dy_plus = errup, dy_minus = errdown)
              enddo
-             call close_file(fp)
+             call fp%close()
           endif
           if(trim(measured_clte_file).ne."")then
              call fp%open(measured_clte_file, "r")
              do 
-                if( coop_file_readoneline_string(fp, inline) )then
+                if(fp%read_string(inline) )then
                    read(inline, *) l, junk, junk, cltt, errup, errdown
                 else
                    exit
@@ -739,12 +740,12 @@ contains
                 mincls(index_TE) = min(mincls(index_TE), cltt-errdown)
                 call coop_asy_error_bar(fpclTE, dble(l), cltt, dy_plus = errup, dy_minus = errdown)
              enddo
-             call close_file(fp)
+             call fp%close()
           endif
           if(trim(measured_clEE_file).ne."")then
              call fp%open(measured_clEE_file, "r")
              do 
-                if( coop_file_readoneline_string(fp, inline) )then
+                if( fp%read_string(inline) )then
                    read(inline, *) l, junk, junk, cltt, errup, errdown
                 else
                    exit
@@ -759,12 +760,12 @@ contains
                 mincls(index_EE) = min(mincls(index_EE), cltt-errdown)
                 call coop_asy_error_bar(fpclEE, dble(l), cltt, dy_plus = errup, dy_minus = errdown)
              enddo
-             call close_file(fp)
+             call fp%close()
           endif
           if(trim(measured_clBB_file).ne."")then
              call fp%open(measured_clBB_file, "r")
              do 
-                if( coop_file_readoneline_string(fp, inline) )then
+                if( fp%read_string( inline) )then
                    read(inline, *) l, junk, junk, cltt, errup, errdown
                 else
                    exit
@@ -779,7 +780,7 @@ contains
                 mincls(index_BB) = min(mincls(index_BB), cltt-errdown)
                 call coop_asy_error_bar(fpclBB, dble(l), cltt, dy_plus = errup, dy_minus = errdown)
              enddo
-             call close_file(fp)
+             call fp%close()
           endif
        endif
 
@@ -820,9 +821,9 @@ contains
        call coop_asy_legend(fp2, kpiv*exp(lnkmin + 1.), 116., 2)
        call coop_asy_legend(fpv, -0.2, 0.35, 1)
        call coop_asy_legend(fpeps, kpiv*exp(lnkmin+4.), 0.12, 1)
-       call close_file(fp2)
-       call close_file(fpv)
-       call close_file(fpeps)
+       call fp2%close()
+       call fpv%close()
+       call fpeps%close()
        if(do_cl)then
           if(any(bestcls(:, 2:dcl_lmax) .ne. 0.d0))then
              call coop_asy_line(fpdclTT, 1.8, 0., dcl_lmax+1., 0., linewidth = 0.5)
@@ -844,14 +845,14 @@ contains
           call coop_asy_legend(fpclEE, min(3.5, lmax/2.), real((maxcls(index_EE) - mincls(index_EE))*0.92 + mincls(index_EE)), 1)
           call coop_asy_legend(fpclBB, min(3.5, lmax/2.), real((maxcls(index_BB) - mincls(index_BB))*0.92 + mincls(index_BB)), 1)
           call coop_asy_legend(fpclTE, min(3.5, lmax/2.), real((maxcls(index_TE) - mincls(index_TE))*0.92 + mincls(index_TE)), 1)
-          call close_file(fpdclTT)
-          call close_file(fpdclEE)
-          call close_file(fpdclBB)
-          call close_file(fpdclTE)
-          call close_file(fpclTT)
-          call close_file(fpclEE)
-          call close_file(fpclBB)
-          call close_file(fpclTE)
+          call fpdclTT%close()
+          call fpdclEE%close()
+          call fpdclBB%close()
+          call fpdclTE%close()
+          call fpclTT%close()
+          call fpclEE%close()
+          call fpclBB%close()
+          call fpclTE%close()
        endif
        if(do_traj_cov)then
           lnps_shift = sum(lnpscov**2)/nk/nk*1.d-18
@@ -860,7 +861,7 @@ contains
           enddo
           call fp%open(trim(mc%output)//"_pwtraj_eig.txt","w")
           call fp%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$\delta \ln \Delta_S^2$", xlog = .true. , xmin = exp(lnkmin - 0.01)*kpiv, xmax = kpiv*exp(lnkmax + 0.01), width = 7.2, height = 6.)
-          call matsym_diagonalize(lnpscov, lnps, sort = .true.)
+          call coop_matsym_diagonalize(lnpscov, lnps, sort = .true.)
           mineig = max(lnps(1), 1.d-5)
           ytop = 0.
           j = 1
@@ -956,7 +957,7 @@ contains
 
 
           call coop_asy_legend(fp, 0.0001, ytop*0.9)
-          call close_file(fp)
+          call fp%close()
        endif
     endif
     
@@ -985,7 +986,7 @@ contains
           write(fp%unit, "(2A16, 3G16.7)") trim(mc%name(i)), trim(mc%label(i)), mc%params(mc%ibest, i), mc%mean(i), mc%std(i)
        enddo
     end select
-    call close_file(fp)
+    call fp%close()
     call fp%open(trim(mc%output)//".tex", "w")
     Write(fp%unit,"(A)")"\documentclass[12pt]{article}"
     Write(fp%unit,"(a)")"\usepackage[left=2cm, top=2cm, right=2cm,bottom=3cm,nohead]{geometry}"
@@ -1008,22 +1009,22 @@ contains
     Write(fp%unit,"(a)")"\end{center}"
     Write(fp%unit,"(a)")"\end{table}"
     Write(fp%unit,"(a)")"\end{document}"
-    call close_file(fp)
+    call fp%close()
 
     call fp%open(trim(mc%output)//".covmat", "w")
-    call write_matrix(fp%unit, mc%covmat, mc%np, mc%np)
-    call close_file(fp)
+    call coop_write_matrix(fp%unit, mc%covmat, mc%np, mc%np)
+    call fp%close()
     call fp%open(trim(mc%output)//".corr", "w")
-    call write_matrix(fp%unit, mc%corrmat, mc%np_used, mc%np_used)
-    call close_file(fp)
+    call coop_write_matrix(fp%unit, mc%corrmat, mc%np_used, mc%np_used)
+    call fp%close()
     call fp%open(trim(mc%output)//".covused", "w")
-    call write_matrix(fp%unit, mc%cov_used, mc%np_used, mc%np_used)
-    call close_file(fp)
+    call coop_write_matrix(fp%unit, mc%cov_used, mc%np_used, mc%np_used)
+    call fp%close()
     if(mc%np_pca .gt. 0)then
        allocate(pcamat(mc%np_pca, mc%np_pca),eig(mc%np_pca), ipca(mc%np_pca))
        pcamat = mc%covmat(mc%pca, mc%pca)
        call coop_set_uniform(mc%np_pca, ipca, 1.d0, 1.d0*mc%np_pca)
-       call matsym_diagonalize(pcamat, eig, sort=.true.) !!sort eigen values
+       call coop_matsym_diagonalize(pcamat, eig, sort=.true.) !!sort eigen values
        eig = sqrt(eig)
        call fp%open(trim(mc%output)//".pcamat", "w")
        write(fp%unit, "(A)") "# format is  i, sigma_i (newline) eigen vector (i = 2, 3, ...)"
@@ -1031,7 +1032,7 @@ contains
           write(fp%unit, "(I8, G14.5)") i, eig(i)
           write(fp%unit, "("//trim(coop_num2str(mc%np_pca))//"G14.5)") pcamat(:, i)
        enddo
-       call close_file(fp)
+       call fp%close()
        call fp%open(trim(mc%output)//"_pcafig.txt", "w")
        call fp%init( xlabel="PCA index", ylabel="eigen modes")
        call coop_asy_curve(fp, ipca, pcamat(:,1), smooth = .false., color = "red", linetype = "solid", linewidth = 2., legend="$\sigma_1="//trim(coop_num2str(eig(1),"(G11.2)"))//"$")
@@ -1048,7 +1049,7 @@ contains
           call coop_asy_curve(fp, ipca, pcamat(:,5), smooth = .false., color = "gray", linetype = "longdashdotted", linewidth = 0.8, legend =  "$\sigma_5="//trim(coop_num2str(eig(5), "(G11.2)"))//"$")
        endif
        call coop_asy_legend(fp)
-       call close_file(fp)
+       call fp%close()
        deallocate(pcamat , eig , ipca)
     endif
     do ip = 1, mc%np_used
@@ -1058,7 +1059,7 @@ contains
        enddo
        call fp%init( xlabel = trim(mc%label(mc%used(ip))), ylabel = "P")
        call coop_asy_curve(fp, x, mc%c1d(:, ip)/maxval(mc%c1d(:, ip)))
-       call close_file(fp)
+       call fp%close()
     enddo
 
     do j = 1, mc%np_used
@@ -1068,19 +1069,19 @@ contains
              call fp%open(trim(mc%output)//"_"//trim(mc%simplename(mc%used(j)))//"_"//trim(mc%simplename(mc%used(j2)))//"_2D.txt", "w")
              call fp%init( xlabel = trim(mc%label(mc%used(j))), ylabel = trim(mc%label(mc%used(j2))), xmin=mc%plotlower(mc%used(j)), xmax = mc%plotupper(mc%used(j)), ymin=mc%plotlower(mc%used(j2)), ymax = mc%plotupper(mc%used(j2)) )
              call coop_asy_path_from_array(path, mc%c2d(:, :, k), mc%plotlower(mc%used(j)), mc%plotupper(mc%used(j)), mc%plotlower(mc%used(j2)), mc%plotupper(mc%used(j2)), mc%cut2d(2, k))
-             call coop_asy_contour_path(fp, path, colorfill = trim(mc%color2d_light), smooth = .false., linecolor = "black", linetype = "solid")
+             call coop_asy_contour(fp, path, colorfill = trim(mc%color2d_light), smooth = .false., linecolor = "black", linetype = "solid")
              call coop_asy_path_from_array(path, mc%c2d(:, :, k), mc%plotlower(mc%used(j)), mc%plotupper(mc%used(j)), mc%plotlower(mc%used(j2)), mc%plotupper(mc%used(j2)), mc%cut2d(1, k))
-             call coop_asy_contour_path(fp, path, colorfill = trim(mc%color2d_dark), smooth = .false., linecolor = "black", linetype = "solid")
-             call close_file(fp)
+             call coop_asy_contour(fp, path, colorfill = trim(mc%color2d_dark), smooth = .false., linecolor = "black", linetype = "solid")
+             call fp%close()
           endif
           if(j2 .ne. j .and. mc%want_2d_output(j2, j))then
              call fp%open(trim(mc%output)//"_"//trim(mc%simplename(mc%used(j2)))//"_"//trim(mc%simplename(mc%used(j)))//"_2D.txt", "w")
              call fp%init( xlabel = trim(mc%label(mc%used(j2))), ylabel = trim(mc%label(mc%used(j))), xmin=mc%plotlower(mc%used(j2)), xmax = mc%plotupper(mc%used(j2)), ymin=mc%plotlower(mc%used(j)), ymax = mc%plotupper(mc%used(j)) )
              call coop_asy_path_from_array(path, transpose(mc%c2d(:, :, k)),  mc%plotlower(mc%used(j2)), mc%plotupper(mc%used(j2)), mc%plotlower(mc%used(j)), mc%plotupper(mc%used(j)), mc%cut2d(2, k))
-             call coop_asy_contour_path(fp, path, colorfill = trim(mc%color2d_light), smooth = .false., linecolor = "black", linetype = "solid")
+             call coop_asy_contour(fp, path, colorfill = trim(mc%color2d_light), smooth = .false., linecolor = "black", linetype = "solid")
              call coop_asy_path_from_array(path, transpose(mc%c2d(:, :, k)), mc%plotlower(mc%used(j2)), mc%plotupper(mc%used(j2)),  mc%plotlower(mc%used(j)), mc%plotupper(mc%used(j)), mc%cut2d(1, k))
-             call coop_asy_contour_path(fp, path, colorfill = trim(mc%color2d_dark), smooth = .false., linecolor = "black", linetype = "solid")
-             call close_file(fp)
+             call coop_asy_contour(fp, path, colorfill = trim(mc%color2d_dark), smooth = .false., linecolor = "black", linetype = "solid")
+             call fp%close()
 
           endif
        enddo
@@ -1243,20 +1244,20 @@ contains
     write(fp%unit, "(A)") "accuracy_boost          = 1"
     write(fp%unit, "(A)") "l_accuracy_boost        = 1"
     write(fp%unit, "(A)") "l_sample_boost          = 1"
-    call close_file(fp)
+    call fp%close()
     call system(camb_path//"camb tmp.ini")
     call fp%open("tmp_lensedtotCls.dat", "r")
     do l=2, lmax
        read(fp%unit, *) il, Cls(:, l)
        if(il.ne.l) stop "camb output broken"
     enddo
-    call close_file(fp)
+    call fp%close()
     call clean_camb_output()
   end subroutine get_camb_cls
 
   subroutine clean_camb_output()
-    call delete_file("tmp.ini")
-    call delete_file("tmp_*Cls.dat")
+    call coop_delete_file("tmp.ini")
+    call coop_delete_file("tmp_*Cls.dat")
   end subroutine clean_camb_output
 
   function name2value(mc, isample, name) result(val)
@@ -1279,4 +1280,4 @@ contains
 
 
 
-End Module Statchains
+End Module Coop_statchains_mod
