@@ -351,6 +351,7 @@ contains
              f = this%fleft
              return
           endif
+          write(*,*) x, ":", this%xmin, " -- ", this%xmax, " ---", this%dx
           write(*,*) "coop_function cannot be evaluated out of its boundary"
           stop
        endif

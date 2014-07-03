@@ -8,10 +8,10 @@ program test
   type(coop_file) fp
   type(coop_asy) fig
   real, parameter::ymax = 0.12, ymin = -0.1
-  COOP_REAL,parameter::step = 0.25
+  COOP_REAL,parameter::step = 0.05
   COOP_LONG_STRING line
   COOP_SHORT_STRING name
-  COOP_REAL epsilon_s
+  COOP_REAL w
   COOP_REAL a(n), zcmb(n), zhel(n), mb(n), dmb(n), dz, mu_theory(n, -nw:nw), Mabs, junk
   COOP_REAL, parameter::alpha = 0.141, beta = 3.10, intr_dm = 0.13
   integer i, iw, ind(n), set(n), nlabel
@@ -30,14 +30,15 @@ program test
   dmb = dmb(ind)
   a = 1.d0/(1.d0+zcmb)
   do iw=-nw, nw
-     epsilon_s = step*iw
+     w =-1+ step*iw
      call bg%init(h=COOP_REAL_OF(0.682d0))
      call bg%add_species(coop_baryon(COOP_REAL_OF(0.047d0)))
      call bg%add_species(coop_cdm(COOP_REAL_OF(0.253d0)))
      call bg%add_species(coop_radiation(bg%Omega_radiation()))
      call bg%add_species(coop_neutrinos_massive( bg%Omega_nu_from_mnu_eV(0.06d0),bg%Omega_massless_neutrinos_per_species()))
      call bg%add_species(coop_neutrinos_massless(bg%Omega_massless_neutrinos_per_species()*2.))
-     call bg%add_species(coop_de_quintessence(bg%Omega_k(), epsilon_s, 0.d0, 0.d0))
+     call bg%add_species(coop_de_w0(bg%Omega_k(), w))
+   !  call bg%add_species(coop_de_quintessence(bg%Omega_k(), epsilon_s, 0.d0, 0.d0))
      call bg%setup_background()
      do i=1, n
         mu_theory(i, iw) = 5.d0*log10(bg%luminosity_distance(a(i))/bg%H0Mpc())+25.
@@ -69,12 +70,12 @@ program test
           mu_theory(:, iw) = mu_theory(:, iw) - mu_theory(:, 0)
   enddo
   mu_theory(:, 0) = 0.
-  call fig%open("JLAsupernova_eps.txt")
+  call fig%open("JLAsupernova_w.txt")
   call fig%init(xlabel = "$z$", ylabel = "$\Delta\mu$", xmin = 0., xmax = 1.35, ymin = ymin, ymax = ymax, doclip = .true.)
   nlabel = n-38
   do iw = -nw, nw
      call coop_asy_interpolate_curve(fig, xraw = zcmb, yraw = mu_theory(:, iw), interpolate = "LinearLinear", color=fig%color(iw+nw+1), linetype = fig%linetype(iw+nw+1))
-     call coop_asy_label(fig, x = real(zcmb(nlabel)), y = real(mu_theory(nlabel, iw))+0.005, label = "$\epsilon_s="//trim(coop_num2str(step*iw))//"$")
+     call coop_asy_label(fig, x = real(zcmb(nlabel)), y = real(mu_theory(nlabel, iw))+0.005, label = "$w="//trim(coop_num2str(-1.d0+step*iw))//"$")
   enddo
   do i=1, nbins
      call coop_asy_error_bar(fig, x = binned_z(i), y = binned_mu(i), dy_plus = binned_dmu(i), dy_minus = binned_dmu(i))

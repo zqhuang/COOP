@@ -282,8 +282,8 @@ contains
        enddo
        dis = dis * (da/6.d0)
        t = t * (da/6.d0)
-       call this%fdis%init(n, amin, amax, dis, COOP_INTERPOLATE_LINEAR)
-       call this%ftime%init(n, amin, amax, t, COOP_INTERPOLATE_LINEAR)
+       call this%fdis%init(n, amin, amax, dis, COOP_INTERPOLATE_LINEAR, check_boundary = .false.)
+       call this%ftime%init(n, amin, amax, t, COOP_INTERPOLATE_LINEAR, check_boundary = .false.)
        this%need_setup_background = .false. 
     endif
   end subroutine coop_cosmology_background_setup_background

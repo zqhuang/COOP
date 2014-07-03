@@ -8,7 +8,9 @@ module coop_statchains_mod
 #include "constants.h"
 
   integer,parameter::mcmc_stat_num_cls = 3
+
   real,dimension(mcmc_stat_num_cls)::mcmc_stat_cls = (/ 0.683, 0.954, 0.997 /)
+
   COOP_STRING :: measured_cltt_file = ""
   COOP_STRING :: measured_clee_file = ""
   COOP_STRING :: measured_clbb_file = ""
@@ -242,7 +244,7 @@ contains
           enddo
           i = 1
           acc = c(i)
-          multcut = mc%totalmult*max(min(sqrt(0.03/mc%n), 0.005), 0.001)
+          multcut = mc%totalmult*max(min(sqrt(0.01/mc%n), 0.002), 0.0005)
           do while(acc.lt.multcut)
              i = i + 1
              acc = acc + c(i)
@@ -362,7 +364,7 @@ contains
        mc%corrmat(i, i) =  1.
        mc%covmat(mc%used(i), mc%used(i)) =  mc%cov_used(i, i) 
     enddo
-    mc%nb = min(max(13, ceiling(sqrt(mc%n/100.))), 30)
+    mc%nb = min(max(12, ceiling(sqrt(mc%n/100.))), 30)
     if(allocated(mc%c1d))deallocate(mc%c1d, mc%c2d, mc%cut2d, mc%want_2d_output)
     allocate(mc%c1d(mc%nb, mc%np_used), mc%c2d(mc%nb, mc%nb, mc%np_used*(mc%np_used+1)/2), mc%cut2d(mcmc_stat_num_cls, mc%np_used*(mc%np_used+1)/2), mc%want_2d_output(mc%np_used, mc%np_used) )
     allocate(c2dlist(mc%nb*mc%nb))
@@ -474,6 +476,7 @@ contains
     call fp%open(trim(mc%output)//"_1sig.samples", "w")
     write(fp%unit, "("//trim(coop_num2str(mc%np))//"G14.5)") mc%params(mc%ibest, :)
     do_cl = (trim(measured_cltt_file).ne."" .or.trim(measured_clee_file).ne."" .or. trim(measured_clbb_file).ne."" .or. trim(measured_clte_file).ne."")
+    num_1sigma_trajs = 50
     if(do_pp)then
        write(*,*) "Generating primordial power spectra trajectories"
        select case(trim(pp_mode))
@@ -1021,6 +1024,7 @@ contains
     call coop_write_matrix(fp%unit, mc%cov_used, mc%np_used, mc%np_used)
     call fp%close()
     if(mc%np_pca .gt. 0)then
+       write(*,*) "Doing PCA"
        allocate(pcamat(mc%np_pca, mc%np_pca),eig(mc%np_pca), ipca(mc%np_pca))
        pcamat = mc%covmat(mc%pca, mc%pca)
        call coop_set_uniform(mc%np_pca, ipca, 1.d0, 1.d0*mc%np_pca)
@@ -1057,8 +1061,8 @@ contains
        do i = 1, mc%nb
           x(i) = mc%plotlower(mc%used(ip)) + mc%dx(mc%used(ip))*(i-1)
        enddo
-       call fp%init( xlabel = trim(mc%label(mc%used(ip))), ylabel = "P")
-       call coop_asy_curve(fp, x, mc%c1d(:, ip)/maxval(mc%c1d(:, ip)))
+       call fp%init( xlabel = trim(mc%label(mc%used(ip))), ylabel = "P", width=3., height=2.5)
+       call coop_asy_plot_likelihood(fp, x, mc%c1d(:, ip)/maxval(mc%c1d(:, ip)), left_tail = .true., right_tail = .true., linewidth=1.5)
        call fp%close()
     enddo
 
@@ -1067,7 +1071,7 @@ contains
           k = j*(j-1)/2 + j2
           if(mc%want_2d_output(j, j2))then
              call fp%open(trim(mc%output)//"_"//trim(mc%simplename(mc%used(j)))//"_"//trim(mc%simplename(mc%used(j2)))//"_2D.txt", "w")
-             call fp%init( xlabel = trim(mc%label(mc%used(j))), ylabel = trim(mc%label(mc%used(j2))), xmin=mc%plotlower(mc%used(j)), xmax = mc%plotupper(mc%used(j)), ymin=mc%plotlower(mc%used(j2)), ymax = mc%plotupper(mc%used(j2)) )
+             call fp%init( xlabel = trim(mc%label(mc%used(j))), ylabel = trim(mc%label(mc%used(j2))), xmin=mc%plotlower(mc%used(j)), xmax = mc%plotupper(mc%used(j)), ymin=mc%plotlower(mc%used(j2)), ymax = mc%plotupper(mc%used(j2)), width=3., height=2.5 )
              call coop_asy_path_from_array(path, mc%c2d(:, :, k), mc%plotlower(mc%used(j)), mc%plotupper(mc%used(j)), mc%plotlower(mc%used(j2)), mc%plotupper(mc%used(j2)), mc%cut2d(2, k))
              call coop_asy_contour(fp, path, colorfill = trim(mc%color2d_light), smooth = .false., linecolor = "black", linetype = "solid")
              call coop_asy_path_from_array(path, mc%c2d(:, :, k), mc%plotlower(mc%used(j)), mc%plotupper(mc%used(j)), mc%plotlower(mc%used(j2)), mc%plotupper(mc%used(j2)), mc%cut2d(1, k))

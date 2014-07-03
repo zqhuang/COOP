@@ -104,9 +104,9 @@
         lnrat(i) = lnrho- 4.d0*(lnamin+(i-1)*dlna) - w1
      enddo
      !$omp end parallel do
-     call this%fw%init(coop_default_array_size, amin, amax, warr, method = COOP_INTERPOLATE_LINEAR, xlog = .true.)
-     call this%fcs2%init(coop_default_array_size, amin, amax, cs2arr, method = COOP_INTERPOLATE_LINEAR, xlog = .true.)
-     call this%flnrho%init(coop_default_array_size, amin, amax, lnrat, method = COOP_INTERPOLATE_LINEAR, xlog = .true.)
+     call this%fw%init(coop_default_array_size, amin, amax, warr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
+     call this%fcs2%init(coop_default_array_size, amin, amax, cs2arr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
+     call this%flnrho%init(coop_default_array_size, amin, amax, lnrat, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
   case(COOP_SPECIES_MASSIVE_FERMION)
      this%w_dynamic = .true.
      this%cs2_dynamic = .true.
@@ -130,9 +130,9 @@
         lnrat(i) = lnrho- 4.d0*(lnamin+(i-1)*dlna) - w1
      enddo
      !$omp end parallel do
-     call this%fw%init(coop_default_array_size, amin, amax, warr, method = COOP_INTERPOLATE_LINEAR, xlog = .true.)
-     call this%fcs2%init(coop_default_array_size, amin, amax, cs2arr, method = COOP_INTERPOLATE_LINEAR, xlog = .true.)
-     call this%flnrho%init(coop_default_array_size, amin, amax, lnrat, method = COOP_INTERPOLATE_LINEAR, xlog = .true.)
+     call this%fw%init(coop_default_array_size, amin, amax, warr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
+     call this%fcs2%init(coop_default_array_size, amin, amax, cs2arr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
+     call this%flnrho%init(coop_default_array_size, amin, amax, lnrat, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
   case default
      if(present(fw))then
         this%w_dynamic = .true.
@@ -160,7 +160,7 @@
            w1 = w2
         enddo
         lnrat = lnrat*(-dlna/2.)
-        call this%flnrho%init(coop_default_array_size, amin, amax, lnrat, method = COOP_INTERPOLATE_LINEAR, xlog = .true.)
+        call this%flnrho%init(coop_default_array_size, amin, amax, lnrat, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
      endif
   end select
   if(this%w_dynamic)then

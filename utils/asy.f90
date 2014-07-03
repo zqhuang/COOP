@@ -693,7 +693,7 @@ contains
     endif
   end subroutine coop_asy_interpolate_curve_d
 
-  subroutine coop_asy_plot_likelihood_d(fp, xraw, yraw, color, linetype, linewidth, legend)
+  subroutine coop_asy_plot_likelihood_d(fp, xraw, yraw, color, linetype, linewidth, legend, left_tail, right_tail)
     class(coop_asy) fp
     real(dl),dimension(:),intent(IN)::xraw, yraw
     COOP_UNKNOWN_STRING,optional:: color, linetype
@@ -701,10 +701,27 @@ contains
     COOP_UNKNOWN_STRING, optional::legend
     COOP_INT  i, j, m, nn, npt, imax
     COOP_STRING lineproperty
-    logical do_raw
+    logical, optional::left_tail, right_tail
+    logical do_left_tail, do_right_tail
+    real(dl) ymax
     m = Coop_getdim("coop_asy_fit_likliehood", size(xraw), size(yraw))
     imax = coop_maxloc(COOP_REAL_OF(yraw))
+    ymax = yraw(imax)
     npt = m + 2
+    do_left_tail = .false.
+    do_right_tail = .false.
+    if(present(left_tail))then
+       if(left_tail .and. yraw(1) .gt. ymax/100.d0 .and. yraw(1).lt. ymax/10.d0)then
+          do_left_tail = .true.
+          npt = npt + 1
+       endif
+    endif
+    if(present(right_tail))then
+       if(right_tail .and. yraw(m) .gt. ymax/100.d0 .and. yraw(m).lt. ymax/10.d0)then
+          do_right_tail = .true.
+          npt = npt+1
+       endif
+    endif
 100 write(fp%unit, "(A)") "CURVE"
     write(fp%unit, "(I8)") npt
     if(present(legend))then
@@ -731,6 +748,9 @@ contains
     endif
     write(fp%unit, "(A)") trim(lineproperty)
     write(fp%unit, "(A)") "0"
+    if(do_left_tail)then
+       call fp%write_coor(real(xraw(1)*2.-xraw(2), sp), 0._sp)
+    endif
     do i=1,imax-1
        call fp%write_coor( real(xraw(i), sp), real(yraw(i), sp) )
     enddo
@@ -742,6 +762,9 @@ contains
     do i=imax+1, m
        call fp%write_coor( real(xraw(i), sp), real(yraw(i), sp) )
     enddo
+    if(do_right_tail)then
+       call fp%write_coor(real(xraw(m)*2.-xraw(m-1), sp), 0._sp)
+    endif
   end subroutine coop_asy_plot_likelihood_d
 
   subroutine coop_asy_interpolate_curve_s(fp, xraw, yraw, interpolate, color, linetype, linewidth, legend)
@@ -949,7 +972,7 @@ contains
 
 
 
-  subroutine coop_asy_plot_likelihood_s(fp, xraw, yraw, color, linetype, linewidth, legend)
+  subroutine coop_asy_plot_likelihood_s(fp, xraw, yraw, color, linetype, linewidth, legend, left_tail, right_tail)
     class(coop_asy) fp
     real(sp),dimension(:),intent(IN)::xraw, yraw
     COOP_UNKNOWN_STRING,optional:: color, linetype
@@ -957,10 +980,27 @@ contains
     COOP_UNKNOWN_STRING, optional::legend
     COOP_INT  i, j, m, nn, npt, imax
     COOP_STRING lineproperty
-    logical do_raw
-    m = Coop_getdim("coop_asy_fit_likliehood", size(xraw), size(yraw))
+    logical  do_left_tail, do_right_tail
+    logical, optional::left_tail, right_tail
+    real ymax
+    m = Coop_getdim("coop_asy_plot_likliehood", size(xraw), size(yraw))
     imax = coop_maxloc(COOP_REAL_OF(yraw))
+    ymax = yraw(imax)
     npt = m + 2
+    do_left_tail = .false.
+    do_right_tail = .false.
+    if(present(left_tail))then
+       if(left_tail .and. yraw(1) .gt. ymax/100.d0 .and. yraw(1).lt. ymax/10.d0)then
+          do_left_tail = .true.
+          npt = npt + 1
+       endif
+    endif
+    if(present(right_tail))then
+       if(right_tail .and. yraw(m) .gt. ymax/100.d0 .and. yraw(m).lt. ymax/10.d0)then
+          do_right_tail = .true.
+          npt = npt+1
+       endif
+    endif
 100 write(fp%unit, "(A)") "CURVE"
     write(fp%unit, "(I8)") npt
     if(present(legend))then
@@ -987,17 +1027,19 @@ contains
     endif
     write(fp%unit, "(A)") trim(lineproperty)
     write(fp%unit, "(A)") "0"
+    if(do_left_tail) call fp%write_coor(xraw(1)*2.-xraw(2), 0.)
     do i=1,imax-1
-       call fp%write_coor( real(xraw(i), sp), real(yraw(i), sp) )
+       call fp%write_coor( xraw(i), yraw(i) )
     enddo
     if(imax.gt.1) &
-         call fp%write_coor( real((xraw(i)+xraw(i-1))/2., sp), real(yraw(i)*0.75+yraw(i-1)*0.25, sp) )
-    call fp%write_coor( real(xraw(imax), sp), real(yraw(imax), sp) )
+         call fp%write_coor( (xraw(i)+xraw(i-1))/2.,  yraw(i)*0.75+yraw(i-1)*0.25 )
+    call fp%write_coor(xraw(imax), yraw(imax))
     if(imax .lt. m) &
-         call fp%write_coor( real((xraw(i)+xraw(i+1))/2., sp), real(yraw(i)*0.75+yraw(i+1)*0.25, sp) )
+         call fp%write_coor( (xraw(i)+xraw(i+1))/2., yraw(i)*0.75+yraw(i+1)*0.25 )
     do i=imax+1, m
-       call fp%write_coor( real(xraw(i), sp), real(yraw(i), sp) )
+       call fp%write_coor( xraw(i), yraw(i) )
     enddo
+    if(do_right_tail) call fp%write_coor(xraw(m)*2.-xraw(m-1), 0.)
   end subroutine coop_asy_plot_likelihood_s
 
 
