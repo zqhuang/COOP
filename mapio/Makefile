@@ -68,3 +68,4 @@ flat_exportspots.o: $(LIB)
 
 flat_stack.o: $(LIB)
 
+asymmetry.o: $(LIB)

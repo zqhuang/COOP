@@ -26,7 +26,7 @@ module coop_healpix_mod
   real(dl),parameter::coop_healpix_inpaiting_lowpass_fwhm = 10.d0*coop_SI_degree
 
   integer, parameter::coop_healpix_default_lmax=2500
-  COOP_REAL, parameter::coop_healpix_mask_tol = 0.98
+  COOP_REAL, parameter::coop_healpix_mask_tol = 0.95
   integer::coop_healpix_inpainting_lowl=5
 
   integer,parameter::coop_healpix_index_TT = 1
