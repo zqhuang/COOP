@@ -14,7 +14,7 @@ module coop_healpix_mod
 
   private
 
-  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_get_disc, coop_healpix_stack_io, coop_healpix_export_spots, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0
+  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_get_disc, coop_healpix_stack_io, coop_healpix_export_spots, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_lb2ang, coop_healpix_fetch_patch, coop_healpix_mask_tol
 
 
 
@@ -26,7 +26,7 @@ module coop_healpix_mod
   real(dl),parameter::coop_healpix_inpaiting_lowpass_fwhm = 10.d0*coop_SI_degree
 
   integer, parameter::coop_healpix_default_lmax=2500
-  COOP_REAL, parameter::coop_healpix_mask_tol = 0.8
+  COOP_REAL, parameter::coop_healpix_mask_tol = 0.98
   integer::coop_healpix_inpainting_lowl=5
 
   integer,parameter::coop_healpix_index_TT = 1
@@ -1138,7 +1138,7 @@ contains
   end subroutine coop_healpix_patch_get_fr0
 
 
-  subroutine coop_healpix_maps_stack(this, patch, spots_file, mask)
+  subroutine coop_healpix_maps_stack(this, patch, spots_file, mask, hemisphere_direction)
     COOP_UNKNOWN_STRING::spots_file
     COOP_INT,parameter::n_threads = 4
     class(coop_healpix_maps)::this
@@ -1149,7 +1149,10 @@ contains
     COOP_INT::ns
     COOP_REAL,dimension(:),allocatable::theta, phi, angle
     type(coop_file)::fp
-    COOP_INT imap, ithread, i, pix
+    COOP_INT imap, ithread, i, pix, iaccept, ireject
+    COOP_REAL,optional:: hemisphere_direction(2)
+    COOP_REAL hcos, hsin
+#ifdef HAS_HEALPIX
     if(.not. coop_file_exists(spots_file))then
        write(*,*) "Spots file not found: "//trim(spots_file)
        stop
@@ -1172,38 +1175,59 @@ contains
        p(ithread) = patch
        tmp(ithread) = patch
     enddo
-#ifdef HAS_HEALPIX
-    !$omp parallel do private(i, pix)
-    do ithread = 1, n_threads
-       do i=ithread, ns, n_threads
-          call ang2pix_ring(this%nside, theta(i), phi(i), pix)
-          call coop_healpix_get_disc(this%nside, pix, disc(ithread))
-          if(present(mask))then
-             call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread), tmp(ithread), mask)    
-          else
-             call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread), tmp(ithread) )
-          endif
+    if(present(hemisphere_direction))then
+       hcos = cos(hemisphere_direction(1))
+       hsin = sin(hemisphere_direction(1))
+       !$omp parallel do private(i, pix) 
+       do ithread = 1, n_threads
+          do i=ithread, ns, n_threads
+             if(hcos * cos(theta(i)) + hsin * sin(theta(i)) * cos(phi(i) - hemisphere_direction(2)) .gt. 0.d0)then
+                call ang2pix_ring(this%nside, theta(i), phi(i), pix)
+                call coop_healpix_get_disc(this%nside, pix, disc(ithread))
+                if(present(mask))then
+                   call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread), tmp(ithread), mask)    
+                else
+                   call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread), tmp(ithread) )
+                endif
+             endif
+          enddo
        enddo
-    enddo
-    !$omp end parallel do
-#else
-    stop "CANNOT FIND HEALPIX"
-#endif
+       !$omp end parallel do   
+    else
+       !$omp parallel do private(i, pix)
+       do ithread = 1, n_threads
+          do i=ithread, ns, n_threads
+             call ang2pix_ring(this%nside, theta(i), phi(i), pix)
+             call coop_healpix_get_disc(this%nside, pix, disc(ithread))
+             if(present(mask))then
+                call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread), tmp(ithread), mask)    
+             else
+                call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread), tmp(ithread) )
+             endif
+          enddo
+       enddo
+       !$omp end parallel do
+    endif
     do ithread = 1, n_threads
        patch%image = patch%image + p(ithread)%image
        patch%nstack = patch%nstack + p(ithread)%nstack
+       patch%nstack_raw = patch%nstack_raw + p(ithread)%nstack_raw
        call p(ithread)%free()
        call tmp(ithread)%free()
     enddo
-    do imap = 1, patch%nmaps
-       where(patch%nstack .gt. 0.d0)
-          patch%image(:,:,imap) = patch%image(:,:,imap)/patch%nstack
-       end where
-    enddo
+    !    do imap = 1, patch%nmaps
+    !       where(patch%nstack .gt. 0.d0)
+    !          patch%image(:,:,imap) = patch%image(:,:,imap)/patch%nstack
+    !       end where
+    !    enddo
+    patch%image = patch%image/patch%nstack_raw
     deallocate(theta, phi, angle)
+#else
+    stop "CANNOT FIND HEALPIX"
+#endif
   end subroutine coop_healpix_maps_stack
 
-  subroutine coop_healpix_maps_stack_with_covariance(this, patch, spots_file, getvar, nvar, mean, cov, mask)
+  subroutine coop_healpix_maps_stack_with_covariance(this, patch, spots_file, getvar, nvar, mean, cov, mask, hemisphere_direction)
     COOP_UNKNOWN_STRING::spots_file
     COOP_INT,parameter::n_threads = 4
     class(coop_healpix_maps)::this
@@ -1218,8 +1242,9 @@ contains
     COOP_REAL,dimension(:),allocatable::theta, phi, angle
     type(coop_file)::fp
     COOP_INT imap, ithread, i, pix, j
-
-
+    COOP_REAL, optional::hemisphere_direction(2)
+    COOP_REAL hcos, hsin
+#ifdef HAS_HEALPIX
     ns = coop_file_numlines(spots_file)
     allocate(theta(ns), phi(ns), angle(ns))
     call fp%open(spots_file)
@@ -1238,23 +1263,39 @@ contains
     meantmp = 0.d0
     cov = 0.d0
     mean = 0.d0
-#ifdef HAS_HEALPIX
-    !$omp parallel do private(i, pix)
-    do ithread = 1, n_threads
-       do i=ithread, ns, n_threads
-          call ang2pix_ring(this%nside, theta(i), phi(i), pix)
-          call coop_healpix_get_disc(this%nside, pix, disc(ithread))
-          if(present(mask))then
-             call coop_healpix_stack_on_patch_with_covariance(this, disc(ithread), angle(i), p(ithread), tmp(ithread), getvar, nvar, meantmp(:, ithread), covtmp(:,:,ithread), mask)  
-          else
-             call coop_healpix_stack_on_patch_with_covariance(this, disc(ithread), angle(i), p(ithread), tmp(ithread), getvar, nvar, meantmp(:, ithread), covtmp(:,:,ithread))
-          endif
+    if(present(hemisphere_direction))then
+       hcos = cos(hemisphere_direction(1))
+       hsin = sin(hemisphere_direction(1))
+       !$omp parallel do private(i, pix)
+       do ithread = 1, n_threads
+          do i=ithread, ns, n_threads
+             if(hcos*cos(theta(i)) + hsin*sin(theta(i))*cos(phi(i)-hemisphere_direction(2)) .gt. 0.d0)then
+                call ang2pix_ring(this%nside, theta(i), phi(i), pix)
+                call coop_healpix_get_disc(this%nside, pix, disc(ithread))
+                if(present(mask))then
+                   call coop_healpix_stack_on_patch_with_covariance(this, disc(ithread), angle(i), p(ithread), tmp(ithread), getvar, nvar, meantmp(:, ithread), covtmp(:,:,ithread), mask)  
+                else
+                   call coop_healpix_stack_on_patch_with_covariance(this, disc(ithread), angle(i), p(ithread), tmp(ithread), getvar, nvar, meantmp(:, ithread), covtmp(:,:,ithread))
+                endif
+             endif
+          enddo
        enddo
-    enddo
-    !$omp end parallel do
-#else
-    stop "CANNOT FIND HEALPIX"
-#endif
+       !$omp end parallel do
+    else
+       !$omp parallel do private(i, pix)
+       do ithread = 1, n_threads
+          do i=ithread, ns, n_threads
+             call ang2pix_ring(this%nside, theta(i), phi(i), pix)
+             call coop_healpix_get_disc(this%nside, pix, disc(ithread))
+             if(present(mask))then
+                call coop_healpix_stack_on_patch_with_covariance(this, disc(ithread), angle(i), p(ithread), tmp(ithread), getvar, nvar, meantmp(:, ithread), covtmp(:,:,ithread), mask)  
+             else
+                call coop_healpix_stack_on_patch_with_covariance(this, disc(ithread), angle(i), p(ithread), tmp(ithread), getvar, nvar, meantmp(:, ithread), covtmp(:,:,ithread))
+             endif
+          enddo
+       enddo
+       !$omp end parallel do
+    endif
     do ithread = 1, n_threads
        patch%image = patch%image + p(ithread)%image
        patch%nstack = patch%nstack + p(ithread)%nstack
@@ -1264,10 +1305,14 @@ contains
        call p(ithread)%free()
        call tmp(ithread)%free()
     enddo
+    if(patch%nstack_raw .eq. 0) stop "Nothing stacked"
     mean = mean/patch%nstack_raw
-    do imap = 1, patch%nmaps
-       patch%image(:,:,imap) = patch%image(:,:,imap)/patch%nstack
-    enddo
+!!$    do imap = 1, patch%nmaps
+!!$       where(patch%nstack .gt. 0.d0)
+!!$          patch%image(:,:,imap) = patch%image(:,:,imap)/patch%nstack
+!!$       end where
+!!$    enddo
+    patch%image = patch%image/patch%nstack_raw
     do j=1, nvar
        do i=1, j
           cov(i,j) = cov(i,j)/patch%nstack_raw - mean(i)*mean(j)
@@ -1279,6 +1324,9 @@ contains
        enddo
     enddo
     deallocate(theta, phi, angle)
+#else
+    stop "CANNOT FIND HEALPIX"
+#endif
   end subroutine coop_healpix_maps_stack_with_covariance
   
 
@@ -2310,5 +2358,13 @@ contains
     stop "CANNOT FIND HEALPIX"
 #endif
   end subroutine coop_healpix_plot_spots
+
+  subroutine coop_healpix_lb2ang(l_deg, b_deg, theta, phi)
+    COOP_REAL l_deg, b_deg
+    COOP_REAL theta, phi
+    theta = coop_pio2 - b_deg*coop_SI_degree
+    phi = l_deg * coop_SI_degree
+  end subroutine coop_healpix_lb2ang
+
 
 end module coop_healpix_mod

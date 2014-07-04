@@ -12,7 +12,7 @@ else
     epsfile=${1}\.eps
   fi
 fi
-asy ${HOME}/work/CosmoLib/utils/asyplot.asy -o tmp.eps
+asy ${HOME}/work/GitHub/COOP/utils/asyplot.asy -o tmp.eps
 eps2eps tmp.eps $epsfile
 epstopdf $epsfile
 rm -f $epsfile tmp.eps

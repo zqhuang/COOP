@@ -403,6 +403,8 @@ void array_get_threshold_float_(float* x, int* n, float* perc, float* threshold)
   free(buffer);
 }
 
-
+void cprint_(char *c){
+  printf("%s", c);
+}
 
 
