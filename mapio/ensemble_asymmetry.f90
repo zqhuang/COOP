@@ -21,10 +21,11 @@ program test
   integer,parameter::n_sim = 350
   COOP_STRING::fmt, fmtscreen
   COOP_UNKNOWN_STRING, parameter::resol = "1024" ! ""
-  COOP_UNKNOWN_STRING, parameter::map_file = prefix//"/"//prefix//"_iqu"//resol//"_smoothed_fwhm15arcmin.fits"
+  COOP_UNKNOWN_STRING, parameter::inp = "_inp"
+  COOP_UNKNOWN_STRING, parameter::map_file = prefix//"/"//prefix//inp//"_i"//resol//"_smoothed_fwhm15arcmin.fits"
   COOP_UNKNOWN_STRING, parameter::imask_file  = prefix//"/"//prefix//"_imask"//resol//".fits"
   COOP_UNKNOWN_STRING, parameter::polmask_file  = prefix//"/"//prefix//"_polmask"//resol//".fits"
-  COOP_UNKNOWN_STRING, parameter::fr_file = prefix//resol//"_fofr_"//stack_type//".dat"
+  COOP_UNKNOWN_STRING, parameter::fr_file = prefix//resol//inp//"_fofr_"//stack_type//".dat"
   type(coop_healpix_patch)::patch_s, patch_n
   type(coop_healpix_maps)::map, sim, tmp
   type(coop_healpix_maps)::imask, polmask
@@ -61,32 +62,35 @@ program test
   end select
 
   call map%read(map_file, nmaps_wanted = nmaps_wanted)
-  where(imask%map(:,1).lt.0.5)
-     map%map(:,1) = 0.
-  end where
-  if(map%nmaps.eq.3)then
-     where(polmask%map(:,1) .lt. 0.5)
-        map%map(:,2) = 0.
-        map%map(:,3) = 0.
-     end where
-  endif
-  call patch_n%init(stack_type, n, dr, mmax = mmax)
-  patch_s = patch_n
 
-  
+  if(index(map_file, "inp") .eq. 0)then  !!not an inpainting map, remove things in the mask
+     where(imask%map(:,1).lt.0.5)
+        map%map(:,1) = 0.
+     end where
+     if(map%nmaps.eq.3)then
+        where(polmask%map(:,1) .lt. 0.5)
+           map%map(:,2) = 0.
+           map%map(:,3) = 0.
+        end where
+     endif
+  endif
 
   !!compute Cls
   call map%map2alm(lmax=1600)
+
   ifsky = count(imask%map(:,1).ge.0.5)/dble(imask%npix)
   polfsky = count(polmask%map(:,1).ge.0.5)/dble(polmask%npix)
   ipolfsky = count(imask%map(:,1).ge.0.5 .and. polmask%map(:,1).ge.0.5)/dble(imask%npix)
-  map%cl(:, coop_healpix_index_TT) =  map%cl(:, coop_healpix_index_TT)/ifsky
-  if(map%nmaps.eq.3)then
-     map%cl(:, coop_healpix_index_EE) = map%cl(:, coop_healpix_index_EE)/polfsky
-     map%cl(:, coop_healpix_index_BB) = map%cl(:, coop_healpix_index_BB)/polfsky
-     map%cl(:, coop_healpix_index_TE) = map%cl(:, coop_healpix_index_TE)/ipolfsky
-  endif
 
+  if(index(map_file, "inp") .eq. 0)then
+     map%cl(:, coop_healpix_index_TT) =  map%cl(:, coop_healpix_index_TT)/ifsky
+     if(map%nmaps.eq.3)then
+        map%cl(:, coop_healpix_index_EE) = map%cl(:, coop_healpix_index_EE)/polfsky
+        map%cl(:, coop_healpix_index_BB) = map%cl(:, coop_healpix_index_BB)/polfsky
+        map%cl(:, coop_healpix_index_TE) = map%cl(:, coop_healpix_index_TE)/ipolfsky
+     endif
+  endif
+     
   call coop_healpix_lb2ang(l_deg = 226.d0, b_deg = -17.d0, theta = hdir(1), phi = hdir(2))
 
   sim = map
@@ -117,6 +121,10 @@ program test
         call fpsim%close()
      endif
   endif
+
+  call patch_n%init(stack_type, n, dr, mmax = mmax)
+  patch_s = patch_n
+
   call fpsim%open(fr_file, "a")
   do while(weight .lt. n_sim)
      call sim%simulate()
@@ -136,6 +144,7 @@ program test
         enddo
      enddo
      write(fpsim%unit, trim(fmt)) diff
+     flush(fpsim%unit)
      write(*, trim(fmtscreen)) diff
   enddo
   call fpsim%close()

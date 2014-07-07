@@ -2210,7 +2210,7 @@ contains
     COOP_UNKNOWN_STRING map_file, mask_file, mode
     integer, optional::output_freq 
     COOP_UNKNOWN_STRING,optional:: maskpol_file, output_types
-    integer,parameter:: total_steps = 1000, burnin = 50
+    integer,parameter:: total_steps = 1000, burnin = 30
     integer output_steps 
     integer step, naccept, weight
     logical accept
@@ -2252,8 +2252,11 @@ contains
        call coop_healpix_LowPass_mask(map, mask, fwhm =coop_healpix_inpaiting_lowpass_fwhm)
     endif
     call coop_healpix_smooth_mask(mask, mss)
+    write(*,*) "mask smoothed"
+    call mask%write("smoothed_mask.fits")
     map%mask_npix = count(mask%map(:,1).lt. 0.5)
     call coop_healpix_inpainting_init(map, simumap)
+    write(*,*) "Inpaining workspace initialized."
     prev_chisq = map%chisq
     naccept = 0
     weight = 0
@@ -2265,8 +2268,13 @@ contains
        else
           call coop_healpix_inpainting_step(accept, map, simumap, mask)
        endif
+       if(naccept .le. burnin)then
+          write(*,*) "Trial #"//trim(coop_num2str(step))//" before burn-in. Estimated progress: "//trim(coop_num2str(100.*naccept/real(burnin), "(F10.1)"))//"%"
+       else
+          write(*,*) "Inpainting step #"//trim(coop_num2str(step))
+       endif
        if(accept) naccept = naccept + 1
-       if(naccept .gt. burnin/2 .and. accept)then
+       if(naccept .gt. burnin/2 .and. naccept .le. burnin .and. accept)then
           map%Cl = simumap%Cl
        endif
        if(naccept .ge. burnin)then

@@ -6,9 +6,9 @@ program simt
   !!working directory, put all maps there
   character(LEN=*),parameter::dir = "inps/"
   !!the input IQU maps
-  character(LEN=*),parameter::map_file = "predx11_iqu_nside256_submap001.fits"
+  character(LEN=*),parameter::map_file = "predx11_iqu_nside1024.fits"
   !!temperature mask
-  character(LEN=*),parameter::imask_file = "predx11_imask_nside256.fits"
+  character(LEN=*),parameter::imask_file = "predx11_imask1024.fits"
   !!Polarization mask
   !!mask smoothing scale
   real*8, parameter:: mask_smooth_scale = 2. * coop_SI_degree
