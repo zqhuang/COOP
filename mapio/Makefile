@@ -12,6 +12,8 @@ default: $(LIB)
 $(LIB): $(OBJ) 
 	ar -r $@ $?
 
+all: UDG HSM GetSpots Stack MSMAP InpEB InpT Ena Asym FStack FSim FSpots FMerge
+
 UDG: $(OBJ) udgrade.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) udgrade.o $(LINK)
 
@@ -31,6 +33,9 @@ Stack: $(OBJ) dostack.o
 
 Asym: $(OBJ) asymmetry.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) asymmetry.o $(LINK)
+
+Ena: $(OBJ) ensemble_asymmetry.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) ensemble_asymmetry.o $(LINK)
 
 MSMAP: $(OBJ) map_merge_split.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) map_merge_split.o $(LINK)
@@ -55,7 +60,7 @@ FMerge:	 $(OBJ) flat_merge.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_merge.o $(LINK)	
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP HSM
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP HSM InpEB InpT Ena Asym
 
 
 test.o: $(LIB)
@@ -69,3 +74,7 @@ flat_exportspots.o: $(LIB)
 flat_stack.o: $(LIB)
 
 asymmetry.o: $(LIB)
+
+ensemble_asymmetry.o: $(LIB)
+
+flat_merge.o: $(LIB)

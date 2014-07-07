@@ -11,7 +11,7 @@ program test
   implicit none
 #include "constants.h"
 
-  COOP_UNKNOWN_STRING, parameter::prefix = "simu"
+  COOP_UNKNOWN_STRING, parameter::prefix = "predx11"
   COOP_UNKNOWN_STRING, parameter::color_table = "Planck"
   COOP_UNKNOWN_STRING, parameter::spots_file = "spots/"//prefix//"_iqu_Tmax_threshold0_fwhm15.txt"
   COOP_REAL, parameter::zmin = 2.
@@ -21,7 +21,7 @@ program test
   COOP_INT, parameter::n = 30
   COOP_REAL, parameter::dr = 10.*coop_SI_arcmin
   COOP_INT, parameter:: imap = 1
-  type(coop_healpix_maps)::map, mask
+  type(coop_healpix_maps)::map, mask, sim
   COOP_REAL frmean(0:n), cov(0:n,0: n), diff(0:n), hfr(0:n), theta, phi, angle, chisq, err(0:n)
   COOP_REAL,dimension(:,:),allocatable::frs
   COOP_REAL,dimension(:),allocatable::theta_spots, phi_spots
@@ -33,10 +33,10 @@ program test
   type(coop_healpix_disc)::disc
 
   !!read mask and map, initialize patch
-  call map%read(prefix//"/"//prefix//"_iqu_smoothed_fwhm15arcmin.fits", nmaps_wanted = 3)
+  call map%read(prefix//"/"//prefix//"_iqu_smoothed_fwhm15arcmin.fits", nmaps_wanted = 1)
   call mask%read(prefix//"/"//prefix//"_imask.fits", nmaps_wanted = 1)
-  call patch%init("QrUr", n, dr, mmax = mmax)
-
+  call patch%init("T", n, dr, mmax = mmax)
+  sim = map
 
   patch_s = patch
   patch_n = patch
@@ -73,6 +73,10 @@ program test
 
   enddo
   call fp%close()
+
+  call sim%map2alm(lmax=2500)
+  call sim%simulate()
+
   nspots = i
   write(*,*) nspots, " patches"
   
