@@ -12,17 +12,17 @@ program test
   COOP_UNKNOWN_STRING, parameter::prefix = "predx11"
   COOP_UNKNOWN_STRING, parameter::color_table = "Planck"
   COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
-  COOP_UNKNOWN_STRING, parameter::stack_type = "T"
+  COOP_UNKNOWN_STRING, parameter::stack_type = "QrUr"
   COOP_REAL, parameter::threshold = 0
   COOP_INT, parameter::mmax = 0
   COOP_INT, parameter::n = 30
   COOP_REAL, parameter::dr = 10.*coop_SI_arcmin
   COOP_INT, parameter:: imap = 1
-  integer,parameter::n_sim = 350
+  integer,parameter::n_sim = 1000
   COOP_STRING::fmt, fmtscreen
-  COOP_UNKNOWN_STRING, parameter::resol = "1024" ! ""
+  COOP_UNKNOWN_STRING, parameter::resol = "512" ! ""
   COOP_UNKNOWN_STRING, parameter::inp = "_inp"
-  COOP_UNKNOWN_STRING, parameter::map_file = prefix//"/"//prefix//inp//"_i"//resol//"_smoothed_fwhm15arcmin.fits"
+  COOP_UNKNOWN_STRING, parameter::map_file = prefix//"/"//prefix//inp//"_iqu"//resol//"_smoothed_fwhm15arcmin.fits"
   COOP_UNKNOWN_STRING, parameter::imask_file  = prefix//"/"//prefix//"_imask"//resol//".fits"
   COOP_UNKNOWN_STRING, parameter::polmask_file  = prefix//"/"//prefix//"_polmask"//resol//".fits"
   COOP_UNKNOWN_STRING, parameter::fr_file = prefix//resol//inp//"_fofr_"//stack_type//".dat"
@@ -38,7 +38,7 @@ program test
   type(coop_list_integer)::listpix
   type(coop_list_real)::listangle
   type(coop_file) fpsim
-  integer,parameter::ncols_used = 8
+  integer,parameter::ncols_used = 15
   COOP_INT nmaps_wanted
 
   !!read mask and map
@@ -189,15 +189,13 @@ program test
   call map%stack_north_south(patch_n, patch_s, listpix, listangle, hdir, stack_mask )
   call patch_s%get_radial_profile(imap = imap, m = 0)
   call patch_n%get_radial_profile(imap = imap, m = 0)
-  
-
-  diff = (patch_n%fr(:, 0, imap) - patch_s%fr(:,0, imap))/coop_sqrt2
+  diff = (patch_n%fr(:, 0, imap) - patch_s%fr(:,0, imap))
 
   do i=n, n - ncols_used +  1,-1
      print*, sqrt(eig(i)), dot_product(diff, psi(:, i))/sqrt(eig(i))
   enddo
-!  print*, "chi^2 total = ", dot_product(diff, matmul(cov, diff))
-!  print*, "probability of seeing chi^2 > chi^2(data) = ", coop_IncompleteGamma((n+1.d0)/2.d0, chisq/2.d0)/gamma((n+1.d0)/2.d0)
+  print*, "chi^2 total = ", dot_product(diff, matmul(cov, diff))
+  print*, "probability of seeing chi^2 > chi^2(data) = ", coop_IncompleteGamma((n+1.d0)/2.d0, chisq/2.d0)/gamma((n+1.d0)/2.d0)
 
   call fig%open(prefix//"_radial_profile.txt")
   call fig%init(xlabel = "$r$", ylabel = "$T(\mu K)$")

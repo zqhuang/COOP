@@ -21,7 +21,7 @@ module coop_healpix_mod
   integer,parameter::dlc = kind( (1.d0,1.d0) )
   integer,parameter::coop_inpainting_lowl_max = 20
   integer,parameter::coop_inpainting_lowl_min = 5
-  real(dl),parameter::coop_healpix_inpaiting_lowpass_fwhm = 10.d0*coop_SI_degree
+  real(dl),parameter::coop_healpix_inpainting_lowpass_fwhm = 10.d0*coop_SI_degree
 
   integer, parameter::coop_healpix_default_lmax=2500
   COOP_REAL, parameter::coop_healpix_mask_tol = 0.95
@@ -64,6 +64,7 @@ module coop_healpix_mod
      procedure :: simulate_Tmaps => coop_healpix_maps_simulate_Tmaps
      procedure :: simulate_TQUmaps => coop_healpix_maps_simulate_TQUmaps
      procedure :: iqu2TEB => coop_healpix_maps_iqu2TEB
+     procedure :: teb2iqu => coop_healpix_maps_teb2iqu
      procedure :: iqu2TQTUT => coop_healpix_maps_iqu2TQTUT
      procedure :: smooth => coop_healpix_smooth_map
      procedure :: smooth_mask => coop_healpix_smooth_mask
@@ -485,6 +486,15 @@ contains
     this%iu = 0
     call coop_healpix_maps_alm2map(this)
   end subroutine coop_healpix_maps_iqu2TEB
+
+  subroutine coop_healpix_maps_teb2iqu(this)
+    class(coop_healpix_maps) this
+    call coop_healpix_maps_map2alm(this)
+    this%spin = (/ 0, 2, 2 /)
+    this%iq = 2
+    this%iu = 3
+    call coop_healpix_maps_alm2map(this)
+  end subroutine coop_healpix_maps_teb2iqu
 
 
   subroutine coop_healpix_maps_simulate_TQUmaps(this, nside, lmax, Cls_sqrteig, Cls_rot)
@@ -2088,6 +2098,70 @@ contains
   end subroutine coop_healpix_mask_map
 
 
+  subroutine coop_healpix_trim_maskfile(mask_file, smoothscale, output)
+    COOP_UNKNOWN_STRING mask_file
+    real(sp) smoothscale
+    COOP_UNKNOWN_STRING, optional::output
+    type(coop_healpix_maps) this
+    call this%read(mask_file, nmaps_wanted = 1)
+    call this%trim_mask( smoothscale)
+    if(present(output))then
+       call this%write(trim(output))
+    else
+       call this%write(trim(coop_file_add_postfix(trim(mask_file), "_smoothed")))
+    endif
+    call this%free
+  end subroutine coop_healpix_trim_maskfile
+
+  subroutine coop_healpix_trim_mask(this, smoothscale)
+    real,parameter::nefolds = 4
+    class(coop_healpix_maps) this
+    type(coop_healpix_maps) hgs
+    integer,dimension(:),allocatable::listpix
+    integer i, j, nsteps
+    real(sp) smoothscale
+    nsteps = ceiling(smoothscale/sqrt(4.*coop_pi/this%npix))/2
+    if(nsteps .le. 0 .or. nsteps .gt. 200)stop "coop_healpix_smooth_mask: invalid input of smoothscale"
+    call this%convert2nested()
+    this%mask_npix = count(this%map(:,1) .gt. 0.)
+    allocate(this%mask_listpix(this%mask_npix))
+    j = 0
+    do i = 0, this%npix - 1
+       if(this%map(i,1).gt. 0.)then
+          j = j + 1
+          this%mask_listpix(j) = i
+       endif
+    enddo
+    select type(this)
+    type is (coop_healpix_maps)
+       hgs = this
+    class default
+       stop "the mask must be basic coop_healpix_maps type"
+    end select
+    do i=1, nsteps
+       call coop_healpix_iterate_mask(this, hgs, decay)
+       call coop_healpix_iterate_mask(hgs, this, decay)
+    enddo
+    call hgs%free
+    call this%convert2ring()
+  contains 
+    subroutine coop_healpix_iterate_mask(this_from, this_to, decay)  
+      type(coop_healpix_maps) this_from, this_to
+      integer list(8), nneigh
+      integer i
+      real(sp) decay
+#ifdef HAS_HEALPIX
+      !$omp parallel do private(list, nneigh, i)
+      do i = 1, this%mask_npix
+         call neighbours_nest(this_from%nside, this%mask_listpix(i), list, nneigh)
+         this_to%map(this_from%mask_listpix(i), 1) = min(minval(this_from%map(list(1:nneigh), 1)) , this_from%map(this_from%mask_listpix(i), 1))
+      enddo
+      !$omp end parallel do
+#else
+      stop "CANNOT FIND HEALPIX"
+#endif
+    end subroutine coop_healpix_iterate_mask
+  end subroutine coop_healpix_trim_mask
 
 
   subroutine coop_healpix_smooth_maskfile(mask_file, smoothscale, output)
@@ -2192,11 +2266,11 @@ contains
        tmp%alm(l,:,:) = tmp%alm(l,:,:)*exp(-l*(l+1.d0)*s2)
     enddo
     call tmp%alm2map()
-    where(mask%map(:,1).eq.0.)
+    where(mask%map(:,1) .eq. 0.)
        map%map(:,1) = tmp%map(:,1)
     end where
     if(present(polmask))then
-       where(polmask%map(:,1).eq.0.)
+       where(polmask%map(:,1) .eq. 0.)
           map%map(:,2) = tmp%map(:,2)
           map%map(:,3) = tmp%map(:,3)
        end where
@@ -2244,16 +2318,17 @@ contains
     call mask%read(mask_file, nmaps_wanted = 1)
     if(present(maskpol_file)) then
        call maskpol%read(maskpol_file, nmaps_wanted = 1)
-       call coop_healpix_LowPass_mask(map, mask, maskpol, fwhm = coop_healpix_inpaiting_lowpass_fwhm)
+       call coop_healpix_LowPass_mask(map, mask, maskpol, fwhm = coop_healpix_inpainting_lowpass_fwhm)
        call coop_healpix_smooth_mask(maskpol, mss)
        map%maskpol_npix = count(maskpol%map(:,1).lt. 0.5)
+       call maskpol%write(trim(coop_file_add_postfix(maskpol_file, "_smoothed")))
     else
        map%maskpol_npix = 0
-       call coop_healpix_LowPass_mask(map, mask, fwhm =coop_healpix_inpaiting_lowpass_fwhm)
+       call coop_healpix_LowPass_mask(map, mask, fwhm =coop_healpix_inpainting_lowpass_fwhm)
     endif
     call coop_healpix_smooth_mask(mask, mss)
     write(*,*) "mask smoothed"
-    call mask%write("smoothed_mask.fits")
+    call mask%write(trim(coop_file_add_postfix(mask_file, "_smoothed")))
     map%mask_npix = count(mask%map(:,1).lt. 0.5)
     call coop_healpix_inpainting_init(map, simumap)
     write(*,*) "Inpaining workspace initialized."
@@ -2343,9 +2418,8 @@ contains
     integer i
     simumap%Cl = map%Cl
     call simumap%simulate()
-    call simumap%write("simulated_w_map.fits")
+!    call simumap%write("simulated_w_map_before.fits")
     simumap%map(:,1) =  map%map(:,1) * mask%map(:,1) + simumap%map(:,1) * sqrt(1.-mask%map(:,1)**2)
-    call simumap%write("simulated_w_map.fits")
     if(map%nmaps.eq.3)then
        if(present(maskpol))then
           simumap%map(:,2) =  map%map(:,2) * maskpol%map(:,1) + simumap%map(:,2) * sqrt(1.-maskpol%map(:,1)**2)
@@ -2354,6 +2428,9 @@ contains
           stop "coop_healpix_inpainting_step: need polarization mask"
        endif
     endif
+ !   call simumap%write("simulated_w_map_after.fits")
+ !   stop
+
     call coop_healpix_inpainting_accept_reject(accept, map, simumap)
   end subroutine coop_healpix_inpainting_step
 

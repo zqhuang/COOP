@@ -6,11 +6,11 @@ program simeb
   !!working directory, put all maps there
   character(LEN=*),parameter::dir = "inps/"
   !!the input IQU maps
-  character(LEN=*),parameter::map_file = "predx11_iqu_nside256.fits"
+  character(LEN=*),parameter::map_file = "simu_iqu_nside512.fits"
   !!temperature mask
-  character(LEN=*),parameter::imask_file = "predx11_imask_nside256.fits"
+  character(LEN=*),parameter::imask_file = "predx11_imask_nside512.fits"
   !!Polarization mask
-  character(LEN=*),parameter::polmask_file = "predx11_polmask_nside256.fits"
+  character(LEN=*),parameter::polmask_file = "predx11_polmask_nside512.fits"
 
   !!mask smoothing scale
   real*8, parameter:: mask_smooth_scale = 2. * coop_SI_degree

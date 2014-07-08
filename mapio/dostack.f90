@@ -10,15 +10,15 @@ program test
   
   COOP_REAL, parameter::smooth_fwhm = 15.*coop_SI_arcmin
   COOP_UNKNOWN_STRING,parameter:: color_table = "Rainbow"
-  COOP_UNKNOWN_STRING, parameter :: spot_type = "QrUr"
+  COOP_UNKNOWN_STRING, parameter :: spot_type = "B"
   COOP_REAL,parameter::r=2.*coop_SI_degree, dr = max(smooth_fwhm/3., r/50.)
   COOP_INT, parameter::n = ceiling(r/dr)
 
 #ifdef USE_PLANCK
-  COOP_UNKNOWN_STRING, parameter :: map_file = "predx11/predx11_iqu.fits"
-  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/predx11_iqu_Tmax_threshold0_fwhm15.txt" 
-  COOP_UNKNOWN_STRING, parameter :: imask_file = "predx11/predx11_imask.fits" 
-  COOP_UNKNOWN_STRING, parameter :: polmask_file = "predx11/predx11_polmask.fits"
+  COOP_UNKNOWN_STRING, parameter :: map_file = "inps/predx11_iqu_nside512_inp_teb0200_submap003.fits"
+  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/predx11_iqu_nside512_inp_teb0200_submap003_Bmax_threshold0_fwhm15.txt" 
+  COOP_UNKNOWN_STRING, parameter :: imask_file = "inps/predx11_imask_nside512.fits" 
+  COOP_UNKNOWN_STRING, parameter :: polmask_file = "inps/predx11_polmask_nside512.fits"
 #endif
 
 #ifdef USE_WMAP
@@ -79,6 +79,10 @@ program test
      caption = "$T$ maxima, oriented"
   elseif(index(spots_file, "_Tmax_").gt.0)then
      caption = "$T$ maxima, random orientation"
+  elseif(index(spots_file, "_Emax_").gt.0)then
+     caption = "$E$ maxima, random orientation"
+  elseif(index(spots_file, "_Bmax_").gt.0)then
+     caption = "$B$ maxima, random orientation"
   elseif(index(spots_file, "_PTmax_").gt.0)then
      caption = "$P_T$ maxima, oriented"
   elseif(index(spots_file, "_Pmax_").gt.0)then
