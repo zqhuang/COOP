@@ -21,6 +21,10 @@ UDG: $(OBJ) udgrade.o
 HSM: $(OBJ) half_sphere_mask.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) half_sphere_mask.o $(LINK)
 
+TrimC: $(OBJ) trimcmp.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) trimcmp.o $(LINK)
+
+
 
 Test: $(OBJ) test.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
@@ -64,7 +68,7 @@ FMerge:	 $(OBJ) flat_merge.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_merge.o $(LINK)	
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP HSM InpEB InpT Ena Asym
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP HSM InpEB InpT Ena Asym TrimC
 
 
 test.o: $(LIB)
@@ -82,3 +86,5 @@ asymmetry.o: $(LIB)
 ensemble_asymmetry.o: $(LIB)
 
 flat_merge.o: $(LIB)
+
+trimcmp.o: $(LIB)

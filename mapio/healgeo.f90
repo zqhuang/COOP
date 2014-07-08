@@ -68,6 +68,7 @@ module coop_healpix_mod
      procedure :: iqu2TQTUT => coop_healpix_maps_iqu2TQTUT
      procedure :: smooth => coop_healpix_smooth_map
      procedure :: smooth_mask => coop_healpix_smooth_mask
+     procedure :: trim_mask => coop_healpix_trim_mask
      procedure :: convert2nested => coop_healpix_convert_to_nested
      procedure :: convert2ring => coop_healpix_convert_to_ring
      procedure :: filter_alm =>  coop_healpix_filter_alm
@@ -2139,17 +2140,16 @@ contains
        stop "the mask must be basic coop_healpix_maps type"
     end select
     do i=1, nsteps
-       call coop_healpix_iterate_mask(this, hgs, decay)
-       call coop_healpix_iterate_mask(hgs, this, decay)
+       call coop_healpix_iterate_mask(this, hgs)
+       call coop_healpix_iterate_mask(hgs, this)
     enddo
     call hgs%free
     call this%convert2ring()
   contains 
-    subroutine coop_healpix_iterate_mask(this_from, this_to, decay)  
+    subroutine coop_healpix_iterate_mask(this_from, this_to)  
       type(coop_healpix_maps) this_from, this_to
       integer list(8), nneigh
       integer i
-      real(sp) decay
 #ifdef HAS_HEALPIX
       !$omp parallel do private(list, nneigh, i)
       do i = 1, this%mask_npix

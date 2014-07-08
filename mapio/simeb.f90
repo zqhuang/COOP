@@ -6,7 +6,7 @@ program simeb
   !!working directory, put all maps there
   character(LEN=*),parameter::dir = "inps/"
   !!the input IQU maps
-  character(LEN=*),parameter::map_file = "simu_iqu_nside512.fits"
+  character(LEN=*),parameter::map_file = "sim2_iqu_nside512.fits"
   !!temperature mask
   character(LEN=*),parameter::imask_file = "predx11_imask_nside512.fits"
   !!Polarization mask

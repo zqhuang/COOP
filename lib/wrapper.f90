@@ -79,7 +79,7 @@ contains
   end subroutine coop_setup_global_cosmology_with_h
 
   subroutine coop_setup_global_cosmology()
-    COOP_REAL,parameter::hmin = 0.55, hmax = 0.85
+    COOP_REAL,parameter::hmin = 0.5, hmax = 0.9
     COOP_REAL hl, hr, hm, tl, tr, tm
     hl = hmin
     call coop_setup_global_cosmology_with_h(hl)
