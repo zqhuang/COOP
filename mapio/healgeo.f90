@@ -64,6 +64,7 @@ module coop_healpix_mod
      procedure :: simulate_Tmaps => coop_healpix_maps_simulate_Tmaps
      procedure :: simulate_TQUmaps => coop_healpix_maps_simulate_TQUmaps
      procedure :: iqu2TEB => coop_healpix_maps_iqu2TEB
+     procedure :: iqu2LapTEB => coop_healpix_maps_iqu2LapTEB
      procedure :: teb2iqu => coop_healpix_maps_teb2iqu
      procedure :: iqu2TQTUT => coop_healpix_maps_iqu2TQTUT
      procedure :: smooth => coop_healpix_smooth_map
@@ -487,6 +488,21 @@ contains
     this%iu = 0
     call coop_healpix_maps_alm2map(this)
   end subroutine coop_healpix_maps_iqu2TEB
+
+
+  subroutine coop_healpix_maps_iqu2LapTEB(this)
+    class(coop_healpix_maps) this
+    COOP_INT l
+    call coop_healpix_maps_map2alm(this)
+    this%spin = 0
+    this%iq = 0
+    this%iu = 0
+    do l=0, this%lmax
+       this%alm(l, :, :) = this%alm(l, :, :)*l*(l+1.d0)
+    enddo
+    call coop_healpix_maps_alm2map(this)
+  end subroutine coop_healpix_maps_iqu2LapTEB
+
 
   subroutine coop_healpix_maps_teb2iqu(this)
     class(coop_healpix_maps) this
@@ -1503,6 +1519,7 @@ contains
     call map%read(mapfile)
     call coop_healpix_smooth_map(map, filter_fwhm)
     call map%write(trim(coop_file_add_postfix(trim(mapfile),"_smoothed_fwhm"//trim(coop_num2str(nint(filter_fwhm/coop_SI_arcmin)))//"arcmin")))
+    write(*,*) "output: "//trim(coop_file_add_postfix(trim(mapfile),"_smoothed_fwhm"//trim(coop_num2str(nint(filter_fwhm/coop_SI_arcmin)))//"arcmin"))
     call map%free()
   end subroutine coop_healpix_smooth_mapfile
 
@@ -1511,7 +1528,8 @@ contains
     real(dl) filter_fwhm
     integer lmax
     lmax = min(ceiling(3./max(abs(filter_fwhm)*coop_sigma_by_fwhm, 1.d-6)), map%nside*3)
-    if((lmax*filter_fwhm*coop_sigma_by_fwhm).lt. 0.02) return
+    if(lmax .lt. 2) return
+    if(lmax*abs(filter_fwhm).lt.0.01)return
     write(*,*) "Smoothing with lmax = ", lmax
     call coop_healpix_maps_map2alm(map, lmax)
     call coop_healpix_filter_alm(map, fwhm = real(filter_fwhm))
@@ -2288,7 +2306,7 @@ contains
     integer output_steps 
     integer step, naccept, weight
     logical accept
-    type(coop_healpix_maps) map, simumap, mask, maskpol, mapmean, tebmap
+    type(coop_healpix_maps) map, simumap, mask, maskpol, mapmean, map_origin, mask_origin, maskpol_origin
     COOP_SHORT_STRING::ot
     real(dl) prev_chisq
     real(dl), optional:: mask_smooth_scale
@@ -2315,9 +2333,12 @@ contains
     endif
     mapmean = map   
     mapmean%map = 0
+    map_origin = map
     call mask%read(mask_file, nmaps_wanted = 1)
+    mask_origin = mask
     if(present(maskpol_file)) then
        call maskpol%read(maskpol_file, nmaps_wanted = 1)
+       maskpol_origin = maskpol
        call coop_healpix_LowPass_mask(map, mask, maskpol, fwhm = coop_healpix_inpainting_lowpass_fwhm)
        call coop_healpix_smooth_mask(maskpol, mss)
        map%maskpol_npix = count(maskpol%map(:,1).lt. 0.5)
@@ -2361,22 +2382,19 @@ contains
           weight = weight + 1
        endif
        write(*, "(I6, A)") step, " accept = "//trim(coop_num2str(accept))//" temperature = "//trim(coop_num2str(map%mcmc_temperature,"(F10.2)"))//" chisq = "//trim(coop_num2str(prev_chisq, "(G14.3)"))//" --> "//trim(coop_num2str(map%chisq, "(G14.3)"))
-       prev_chisq = map%chisq
-       
-       if(mod(step, output_steps) .eq.0 )then
-          select case(ot)
-          case("", "IQU")
-             call map%write(trim(coop_file_add_postfix(trim(map_file), "_inp"//trim(coop_ndigits(step, 4)))))         
-          case("TEB")
-             tebmap = map
-             call tebmap%iqu2TEB()
-             call tebmap%write(trim(coop_file_add_postfix(trim(map_file), "_inp_teb"//trim(coop_ndigits(step, 4))))) 
-          case default
-             write(*,*) trim(ot)
-             stop "Unknown output types"
-          end select
+       print*, maxval(abs(map%map(:,1)-map_origin%map(:,1))*mask_origin%map(:,1))
+       if(map%nmaps.eq.3)then
+          print*, maxval(abs(map%map(:,2)-map_origin%map(:,2))*maskpol_origin%map(:,1))
+          print*, maxval(abs(map%map(:,3)-map_origin%map(:,3))*maskpol_origin%map(:,1))
        endif
-       if(mod(step, output_steps*10) .eq. 0)then !!less mean maps to save disk space
+
+       prev_chisq = map%chisq
+
+       
+       if(mod(step, output_steps) .eq.0 .and. naccept.gt.burnin)then
+          call map%write(trim(coop_file_add_postfix(trim(map_file), "_inp"//trim(coop_ndigits(step, 4)))))         
+       endif
+       if(mod(step, output_steps*10) .eq. 0 .and. naccept.gt.burnin)then !!less mean maps to save disk space
           simumap%map =  mapmean%map/weight
           call simumap%write(trim(coop_file_add_postfix(trim(map_file), "_inp_mean"//trim(coop_ndigits(step, 4)))))
        endif
@@ -2386,7 +2404,6 @@ contains
     call simumap%free()
     call mask%free()
     call maskpol%free()
-    call tebmap%free()
   end subroutine coop_healpix_inpainting
 
   subroutine coop_healpix_inpainting_init(map, simumap)

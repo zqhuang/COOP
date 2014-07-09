@@ -18,8 +18,9 @@ program test
   call map%read("inps/simu_iqu_nside512_inp_mean0400.fits", spin = (/ 0, 2 ,2 /) )
   call imask%read("inps/predx11_imask_nside512.fits")
   call polmask%read("inps/predx11_polmask_nside512.fits")
-  call polmask%trim_mask(60.*real(coop_SI_arcmin))
+!  call polmask%trim_mask(coop_SI_degree)
   call map%iqu2teb()
+  
   map%map(:, 1) = map%map(:, 1) * imask%map(:, 1)
   map%map(:, 2) = map%map(:, 2) * polmask%map(:, 1)
   map%map(:, 3) = map%map(:, 3) * polmask%map(:, 1)
@@ -34,8 +35,8 @@ program test
   call mapo%write("teb_origin.fits")
   erms = sqrt(sum(mapo%map(:,2)**2)/sum(polmask%map))
   map%map = map%map - mapo%map
-  call map%write("diff.fits")
+  call map%write("diff2.fits")
   map%map = map%map/erms
-  call map%write("reldiff.fits")
+  call map%write("reldiff2.fits")
 
 end program test
