@@ -10,33 +10,81 @@ program test
 
   implicit none
 #include "constants.h"
-  type(coop_healpix_maps)::map, imask, polmask, mapo
-  integer l, m, il, i
+  type(coop_healpix_maps)::map, imask, polmask, mapo, poltrim
+  integer l, m, il, i, itest
   integer, parameter::lmax = 1000
   type(coop_file)::fp
   COOP_REAL erms
-  call map%read("inps/simu_iqu_nside512_inp_mean0400.fits", spin = (/ 0, 2 ,2 /) )
+  call map%read("inps/sim2_iqu_nside512.fits", spin = (/ 0, 2 ,2 /) )
   call imask%read("inps/predx11_imask_nside512.fits")
   call polmask%read("inps/predx11_polmask_nside512.fits")
-!  call polmask%trim_mask(coop_SI_degree)
+  poltrim = polmask
+  call poltrim%trim_mask(real(coop_SI_degree/2.))
   call map%iqu2teb()
-  
-  map%map(:, 1) = map%map(:, 1) * imask%map(:, 1)
-  map%map(:, 2) = map%map(:, 2) * polmask%map(:, 1)
-  map%map(:, 3) = map%map(:, 3) * polmask%map(:, 1)
-  call map%write("teb_inp.fits")
 
-  call mapo%read("inps/simu_iqu_nside512.fits", spin = (/ 0, 2 , 2/) )
-  call mapo%map2alm()
-  call mapo%iqu2teb()
+  map%map(:, 1) = map%map(:, 1) * imask%map(:, 1)
+  map%map(:, 2) = map%map(:, 2) * poltrim%map(:, 1)
+  map%map(:, 3) = map%map(:, 3) * poltrim%map(:, 1)
+  call map%write("teb_origin.fits")
+
+  call mapo%read("inps/sim2_iqu_nside512.fits", spin = (/ 0, 2 , 2/) )
   mapo%map(:, 1) = mapo%map(:, 1) * imask%map(:, 1)
   mapo%map(:, 2) = mapo%map(:, 2) * polmask%map(:, 1)
   mapo%map(:, 3) = mapo%map(:, 3) * polmask%map(:, 1)
-  call mapo%write("teb_origin.fits")
-  erms = sqrt(sum(mapo%map(:,2)**2)/sum(polmask%map))
-  map%map = map%map - mapo%map
-  call map%write("diff2.fits")
-  map%map = map%map/erms
-  call map%write("reldiff2.fits")
+  call mapo%iqu2teb()
+  mapo%map(:, 1) = mapo%map(:, 1) * imask%map(:, 1)
+  mapo%map(:, 2) = mapo%map(:, 2) * poltrim%map(:, 1)
+  mapo%map(:, 3) = mapo%map(:, 3) * poltrim%map(:, 1)
+  call mapo%write("teb_pseudo.fits")
+  mapo%map = mapo%map - map%map
+  call mapo%write("diff_pseudo.fits")
+  print*,"pesudo: ", sqrt(sum(mapo%map(:,2)**2)/mapo%npix), sqrt(sum(mapo%map(:,3)**2)/mapo%npix)
+
+  call mapo%read("inps/sim2_iqu_nside512.fits", spin = (/ 0, 2 , 2/) )
+  call coop_healpix_diffuse_into_mask(mapo, imask, 3.d0*coop_SI_arcmin)
+  call coop_healpix_diffuse_into_mask(mapo, polmask, 3.d0*coop_SI_arcmin, .true.)
+  call mapo%iqu2teb()
+  mapo%map(:, 1) = mapo%map(:, 1) * imask%map(:, 1)
+  mapo%map(:, 2) = mapo%map(:, 2) * poltrim%map(:, 1)
+  mapo%map(:, 3) = mapo%map(:, 3) * poltrim%map(:, 1)
+  call mapo%write("teb_diffuse.fits")
+  mapo%map = mapo%map - map%map
+  call mapo%write("diff_diffuse.fits")
+  print*,"diffuse: ", sqrt(sum(mapo%map(:,2)**2)/mapo%npix), sqrt(sum(mapo%map(:,3)**2)/mapo%npix)
+
+
+  call mapo%read("inps/sim2_iqu_nside512.fits", spin = (/ 0, 2 , 2/) )
+  mapo%map(:, 1) = mapo%map(:, 1) * imask%map(:, 1)
+  mapo%map(:, 2) = mapo%map(:, 2) * polmask%map(:, 1)
+  mapo%map(:, 3) = mapo%map(:, 3) * polmask%map(:, 1)
+  call mapo%iqu2teb()
+  mapo%map(:, 1) = mapo%map(:, 1) * imask%map(:, 1)
+  mapo%map(:, 2) = mapo%map(:, 2) * poltrim%map(:, 1)
+  mapo%map(:, 3) = mapo%map(:, 3) * poltrim%map(:, 1)
+  call mapo%write("teb_pseudo.fits")
+  mapo%map = mapo%map - map%map
+  call mapo%write("diff_pseudo.fits")
+  print*,"pesudo: ", sqrt(sum(mapo%map(:,2)**2)/mapo%npix), sqrt(sum(mapo%map(:,3)**2)/mapo%npix)
+
+  call mapo%read("inps/sim2_iqu_nside512_inp0400.fits", spin = (/ 0, 2 , 2/) )
+  call mapo%iqu2teb()
+  mapo%map(:, 1) = mapo%map(:, 1) * imask%map(:, 1)
+  mapo%map(:, 2) = mapo%map(:, 2) * poltrim%map(:, 1)
+  mapo%map(:, 3) = mapo%map(:, 3) * poltrim%map(:, 1)
+  call mapo%write("teb_inp.fits")
+  mapo%map = mapo%map - map%map
+  call mapo%write("diff.fits")
+  print*,"realization: ", sqrt(sum(mapo%map(:,2)**2)/mapo%npix), sqrt(sum(mapo%map(:,3)**2)/mapo%npix)
+
+
+  call mapo%read("inps/sim2_iqu_nside512_inp_mean0400.fits", spin = (/ 0, 2 , 2/) )
+  call mapo%iqu2teb()
+  mapo%map(:, 1) = mapo%map(:, 1) * imask%map(:, 1)
+  mapo%map(:, 2) = mapo%map(:, 2) * poltrim%map(:, 1)
+  mapo%map(:, 3) = mapo%map(:, 3) * poltrim%map(:, 1)
+  call mapo%write("teb_mean.fits")
+  mapo%map = mapo%map - map%map
+  call mapo%write("meandiff.fits")
+  print*,"mean", sqrt(sum(mapo%map(:,2)**2)/mapo%npix), sqrt(sum(mapo%map(:,3)**2)/mapo%npix)
 
 end program test
