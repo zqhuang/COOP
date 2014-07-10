@@ -25,7 +25,7 @@ module coop_healpix_mod
   integer, parameter::coop_healpix_default_lmax=2500
   COOP_REAL, parameter::coop_healpix_mask_tol = 0.95
   integer::coop_healpix_inpainting_lowl=5
-  real(dl),parameter::coop_healpix_diffuse_scale = 3.d0*coop_SI_arcmin
+  real(dl),parameter::coop_healpix_diffuse_scale = 10.d0*coop_SI_arcmin
   integer,parameter::coop_healpix_index_TT = 1
   integer,parameter::coop_healpix_index_EE = 2
   integer,parameter::coop_healpix_index_BB = 3
@@ -107,15 +107,15 @@ module coop_healpix_mod
 contains
 
   subroutine coop_healpix_diffuse_into_mask(this, mask, smoothscale, pol)  !!lambda<1
-    real,parameter::nefolds = 2
+    real,parameter::nefolds = 2.
     type(coop_healpix_maps) mask, this
     type(coop_healpix_maps) masknew, hgs, maskcopy
     integer i, j, nsteps, nmaps, istart, iend
     real(dl) smoothscale, decay
     logical, optional::pol
-    nsteps = ceiling(smoothscale/sqrt(coop_pi*4./this%npix)*2.)
+    nsteps = ceiling(smoothscale/sqrt(coop_pi*4./this%npix))
     if(nsteps .le. 0 .or. nsteps .gt. 200)stop "coop_healpix_smooth_mask: invalid input of smoothscale"
-    decay = exp(-nefolds/nsteps/2.)
+    decay = 1.d0 !exp(-nefolds/nsteps/2.)
     maskcopy = mask
     call maskcopy%convert2nested()
     call this%convert2nested()
@@ -138,10 +138,9 @@ contains
           iend = this%iu
        endif
     endif
-          
     do i=1, nsteps
        call coop_healpix_iterate_mask(this, hgs, maskcopy, masknew, decay)
-       call coop_healpix_iterate_mask(hgs, this, masknew, mask, decay)
+       call coop_healpix_iterate_mask(hgs, this, maskcopy, maskcopy, decay)
     enddo
     call hgs%free
     call masknew%free
@@ -1640,7 +1639,11 @@ contains
     end select
     do_mask = .false.
     if(present(mask))then
-       if(mask%nside .ne. map%nside) stop "coop_healpix_export_spots: mask and map must have the same nside"
+       if(mask%nside .ne. map%nside)then
+          write(*,*) "map nside = ", map%nside
+          write(*,*) "mask nside = ", mask%nside
+          stop "coop_healpix_export_spots: mask and map must have the same nside"
+       endif
        total_weight = count(mask%map(:,1).gt.0.5)
        do_mask = .true.
     else
@@ -1805,6 +1808,43 @@ contains
                 rotate_angle = COOP_POLAR_ANGLE(map%map(i, iq), map%map(i, iu))/2.
                 call pix2ang_nest(map%nside, i, theta, phi)
                 call spots%push( real( (/ theta, phi, rotate_angle /) ) )
+             endif
+          endif
+       enddo
+
+    case("PmaxSortT", "PTmaxSortT")
+       select case(map%nmaps)
+       case(2:3)
+          iq = map%nmaps - 1
+          iu = iq + 1
+       case default
+          stop "For polarization you need to specify Q, U maps in the input file."
+       end select
+       if(present(threshold))then
+          if(do_mask)then
+             fcut = threshold**2*(sum(dble(map%map(:,iq))**2 + dble(map%map(:,iu))**2, mask%map(:,1).gt.0.5)/total_weight)
+          else
+             fcut = threshold**2*(sum(dble(map%map(:,iq))**2 + dble(map%map(:,iu))**2)/total_weight)
+          endif
+       else
+          fcut = -1.e30
+       endif
+       do i=0, map%npix-1
+          if(do_mask)then
+             if( map%map(i,iq)**2 + map%map(i,iu)**2 .lt. fcut  .or.  mask%map(i, 1) .le. 0.5 ) cycle
+             call neighbours_nest(map%nside, i, list, nneigh)  
+             if( all( map%map(list(1:nneigh),iq)**2 + map%map(list(1:nneigh),iu)**2 .lt. map%map(i,iq)**2 + map%map(i, iu)**2 ) .and. all(mask%map(list(1:nneigh), 1) .gt. 0.5) ) then
+                rotate_angle = COOP_POLAR_ANGLE(map%map(i, iq), map%map(i, iu))/2.
+                call pix2ang_nest(map%nside, i, theta, phi)
+                call spots%push(  (/ real(theta), real(phi), real(rotate_angle), map%map(i, 1) /) ) 
+             endif
+          else
+             if( map%map(i, iq)**2 + map%map(i, iu)**2 .lt. fcut) cycle
+             call neighbours_nest(map%nside, i, list, nneigh)  
+             if( all( map%map(list(1:nneigh), iq)**2 + map%map(list(1:nneigh), iu)**2 .lt. map%map(i, iq)**2 + map%map(i, iu)**2 ) )then
+                rotate_angle = COOP_POLAR_ANGLE(map%map(i, iq), map%map(i, iu))/2.
+                call pix2ang_nest(map%nside, i, theta, phi)
+                call spots%push( (/ real(theta), real(phi), real(rotate_angle), map%map(i, 1) /) ) )
              endif
           endif
        enddo
@@ -2388,7 +2428,7 @@ contains
        call coop_healpix_diffuse_into_mask(map_diffused, maskpol, coop_healpix_diffuse_scale, pol=.true.)
        call coop_healpix_smooth_mask(maskpol, mss)
     endif
-    map = map_diffused
+    map%map = map_diffused%map
     write(*,*) "mask smoothed"
     !call mask%write(trim(coop_file_add_postfix(mask_file, "_smoothed")))
     map%mask_npix = count(mask%map(:,1).lt. 0.5)
@@ -2405,11 +2445,6 @@ contains
        else
           call coop_healpix_inpainting_step(accept, map, map_diffused, simumap, mask)
        endif
-       if(naccept .le. burnin)then
-          write(*,*) "Trial #"//trim(coop_num2str(step))//" before burn-in. Estimated progress: "//trim(coop_num2str(100.*naccept/real(burnin), "(F10.1)"))//"%"
-       else
-          write(*,*) "Inpainting step #"//trim(coop_num2str(step))
-       endif
        if(accept) naccept = naccept + 1
        if(naccept .gt. burnin/2 .and. naccept .le. burnin .and. accept)then
           map%Cl = simumap%Cl
@@ -2422,12 +2457,15 @@ contains
           endif
           weight = weight + 1
        endif
+       if(naccept .lt. burnin)then
+          write(*,*) "Trial #"//trim(coop_num2str(step))//" before burn-in. Estimated progress: "//trim(coop_num2str(100.*naccept/real(burnin), "(F10.1)"))//"%"
+       endif
        write(*, "(I6, A)") step, " accept = "//trim(coop_num2str(accept))//" temperature = "//trim(coop_num2str(map%mcmc_temperature,"(F10.2)"))//" chisq = "//trim(coop_num2str(prev_chisq, "(G14.3)"))//" --> "//trim(coop_num2str(map%chisq, "(G14.3)"))
 
        prev_chisq = map%chisq
 
        
-       if(mod(step, output_steps) .eq.0 .and. naccept.gt.burnin)then
+       if(mod(step, output_steps) .eq.0 .and. naccept.ge.burnin)then
           call map%write(trim(coop_file_add_postfix(trim(map_file), "_inp"//trim(coop_ndigits(step, 4)))))         
        endif
        if(mod(step, output_steps*10) .eq. 0 .and. naccept.gt.burnin)then !!less mean maps to save disk space

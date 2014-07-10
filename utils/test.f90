@@ -2,15 +2,22 @@ program Test
   use coop_wrapper_utils
   implicit none
 #include "constants.h"
-  integer, parameter::n = 31, m = 1000
-  COOP_REAL r(n), chisq(m)
-  integer i, j
-  call coop_random_init()
-  do j=1, m
-     do i=1,n
-        r(i) = coop_random_Gaussian()
-     enddo
-     chisq(j) = sum(r**2)
+  type(coop_list_realarr) rl
+  integer,parameter::m  = 3, n = 10
+  integer i
+  real  x(m)
+  do i= 1, n
+     call random_number(x)
+     call rl%push(x)
   enddo
-  print*, maxval(chisq)
+  do i = 1, rl%n
+     print*, rl%element(i)
+  enddo
+  call rl%sort(3)
+  print*
+  do i = 1, rl%n
+     print*, rl%element(i)
+  enddo
+
+
 end program Test

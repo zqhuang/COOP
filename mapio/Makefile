@@ -29,6 +29,8 @@ GetCl: $(OBJ) getcls.o
 TrimC: $(OBJ) trimcmp.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) trimcmp.o $(LINK)
 
+QEB: $(OBJ) quickeb.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) quickeb.o $(LINK)
 
 
 Test: $(OBJ) test.o
@@ -73,7 +75,7 @@ FMerge:	 $(OBJ) flat_merge.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_merge.o $(LINK)	
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP HSM InpEB InpT Ena Asym TrimC GetCl
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP HSM InpEB InpT Ena Asym TrimC GetCl QEB
 
 
 test.o: $(LIB)

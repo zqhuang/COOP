@@ -10,15 +10,15 @@ program test
   
   COOP_REAL, parameter::smooth_fwhm = 15.*coop_SI_arcmin
   COOP_UNKNOWN_STRING,parameter:: color_table = "Rainbow"
-  COOP_UNKNOWN_STRING, parameter :: spot_type = "B"
-  COOP_REAL,parameter::r=2.*coop_SI_degree, dr = max(smooth_fwhm/3., r/50.)
+  COOP_UNKNOWN_STRING, parameter :: spot_type = "QU"
+  COOP_REAL,parameter::r=10.*coop_SI_degree, dr = max(smooth_fwhm/3., r/50.)
   COOP_INT, parameter::n = ceiling(r/dr)
 
 #ifdef USE_PLANCK
-  COOP_UNKNOWN_STRING, parameter :: map_file = "inps/predx11_iqu_nside512_inp_teb0200_submap003.fits"
-  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/predx11_iqu_nside512_inp_teb0200_submap003_Bmax_threshold0_fwhm15.txt" 
-  COOP_UNKNOWN_STRING, parameter :: imask_file = "inps/predx11_imask_nside512.fits" 
-  COOP_UNKNOWN_STRING, parameter :: polmask_file = "inps/predx11_polmask_nside512.fits"
+  COOP_UNKNOWN_STRING, parameter :: map_file = "pl353/pl353_iqu.fits"
+  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/pl353_iqu_Pmax_threshold0_fwhm15.txt" !"spots/predx11_iqu_Tmax_QTUTOrient_threshold0_fwhm15.txt" 
+  COOP_UNKNOWN_STRING, parameter :: imask_file = "predx11/predx11_imask.fits" 
+  COOP_UNKNOWN_STRING, parameter :: polmask_file = "predx11/predx11_polmask.fits" !"ffp7/ffp7_union_polmask_2048.fits"
 #endif
 
 #ifdef USE_WMAP

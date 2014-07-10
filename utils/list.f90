@@ -103,6 +103,7 @@ module coop_list_mod
      procedure::pop => coop_list_realarr_pop
      procedure::element => coop_list_realarr_element
      procedure::get_element => coop_list_realarr_get_element
+     procedure::sort => coop_list_realarr_sort
   end type coop_list_realarr
 
   type coop_list_double
@@ -1636,6 +1637,31 @@ contains
     deallocate(plist)
   end subroutine coop_get_prime_numbers
 
+
+
+  subroutine coop_list_realarr_sort(this, key_index)
+    COOP_INT key_index
+    class(coop_list_realarr) this
+    real(sp), dimension(:),allocatable::key, tmp
+    type(coop_list_realarr) copy
+    COOP_INT, dimension(:),allocatable::index
+    COOP_INT i, j
+    allocate(key(this%n), index(this%n), tmp(this%dim))
+    do i=1, this%n
+       call this%get_element(i, tmp)
+       key(i) = tmp(key_index)
+    enddo
+    call coop_quicksort_index(key, index)
+    select type(this)
+    type is(coop_list_realarr)
+       copy = this
+       call this%init()
+       do i = 1, copy%n
+          call this%push(copy%element(index(i)))
+       enddo
+    end select
+    deallocate(key, index, tmp)
+  end subroutine coop_list_realarr_sort
 
 
 End module coop_list_mod

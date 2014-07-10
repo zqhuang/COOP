@@ -5,9 +5,9 @@ program test
 #include "constants.h"
 
   integer,parameter::fwhm_arcmin = 15
-  COOP_UNKNOWN_STRING, parameter::spot_type = "Bmax"
-  COOP_UNKNOWN_STRING, parameter::input_file ="inps/predx11_iqu_nside512_inp_teb0200_submap003.fits"
-  COOP_UNKNOWN_STRING, parameter::mask_file  = "inps/predx11_polmask_nside512.fits"
+  COOP_UNKNOWN_STRING, parameter::spot_type = "Pmax"
+  COOP_UNKNOWN_STRING, parameter::input_file ="pl353/pl353_iqu.fits"
+  COOP_UNKNOWN_STRING, parameter::mask_file  = "ffp7/ffp7_union_polmask_2048.fits"
 
   COOP_REAL, parameter:: threshold = 0
   COOP_STRING output_file

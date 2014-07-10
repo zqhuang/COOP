@@ -28,19 +28,6 @@ program test
   call map%write("teb_origin.fits")
 
   call mapo%read("inps/sim2_iqu_nside512.fits", spin = (/ 0, 2 , 2/) )
-  mapo%map(:, 1) = mapo%map(:, 1) * imask%map(:, 1)
-  mapo%map(:, 2) = mapo%map(:, 2) * polmask%map(:, 1)
-  mapo%map(:, 3) = mapo%map(:, 3) * polmask%map(:, 1)
-  call mapo%iqu2teb()
-  mapo%map(:, 1) = mapo%map(:, 1) * imask%map(:, 1)
-  mapo%map(:, 2) = mapo%map(:, 2) * poltrim%map(:, 1)
-  mapo%map(:, 3) = mapo%map(:, 3) * poltrim%map(:, 1)
-  call mapo%write("teb_pseudo.fits")
-  mapo%map = mapo%map - map%map
-  call mapo%write("diff_pseudo.fits")
-  print*,"pesudo: ", sqrt(sum(mapo%map(:,2)**2)/mapo%npix), sqrt(sum(mapo%map(:,3)**2)/mapo%npix)
-
-  call mapo%read("inps/sim2_iqu_nside512.fits", spin = (/ 0, 2 , 2/) )
   call coop_healpix_diffuse_into_mask(mapo, imask, 3.d0*coop_SI_arcmin)
   call coop_healpix_diffuse_into_mask(mapo, polmask, 3.d0*coop_SI_arcmin, .true.)
   call mapo%iqu2teb()
@@ -48,6 +35,7 @@ program test
   mapo%map(:, 2) = mapo%map(:, 2) * poltrim%map(:, 1)
   mapo%map(:, 3) = mapo%map(:, 3) * poltrim%map(:, 1)
   call mapo%write("teb_diffuse.fits")
+!  call mapo%write("EB_reconstructed.fits", (/2, 3/))
   mapo%map = mapo%map - map%map
   call mapo%write("diff_diffuse.fits")
   print*,"diffuse: ", sqrt(sum(mapo%map(:,2)**2)/mapo%npix), sqrt(sum(mapo%map(:,3)**2)/mapo%npix)
@@ -77,7 +65,7 @@ program test
   print*,"realization: ", sqrt(sum(mapo%map(:,2)**2)/mapo%npix), sqrt(sum(mapo%map(:,3)**2)/mapo%npix)
 
 
-  call mapo%read("inps/sim2_iqu_nside512_inp_mean0400.fits", spin = (/ 0, 2 , 2/) )
+  call mapo%read("inps/sim2_iqu_nside512_inp_mean1000.fits", spin = (/ 0, 2 , 2/) )
   call mapo%iqu2teb()
   mapo%map(:, 1) = mapo%map(:, 1) * imask%map(:, 1)
   mapo%map(:, 2) = mapo%map(:, 2) * poltrim%map(:, 1)
