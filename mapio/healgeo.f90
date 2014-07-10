@@ -1153,7 +1153,7 @@ contains
        stop
     endif
     allocate(theta(ns), phi(ns), angle(ns))
-    call fp%open(spots_file)
+    call fp%open(spots_file)    
     do i=1, ns
        read(fp%unit, *) theta(i), phi(i), angle(i)
     enddo
@@ -1211,6 +1211,86 @@ contains
     stop "CANNOT FIND HEALPIX"
 #endif
   end subroutine coop_healpix_maps_stack
+
+
+
+  subroutine coop_healpix_maps_stacks(this, patch, spots_file, mask)
+    COOP_UNKNOWN_STRING::spots_file
+    COOP_INT,parameter::n_threads = 4
+    class(coop_healpix_maps)::this
+    type(coop_healpix_disc),dimension(n_threads)::disc
+    COOP_INT npatches
+    type(coop_healpix_patch)::patch(npatches)
+    type(coop_healpix_patch)::p(n_threads, npatches), tmp(n_threads)
+    type(coop_healpix_maps),optional::mask
+    COOP_INT::ns
+    COOP_REAL,dimension(:),allocatable::theta, phi, angle, col4
+    type(coop_file)::fp
+    COOP_INT imap, ithread, i, pix, iaccept, ireject, ip
+    COOP_REAL hcos, hsin, maxcol4, mincol4, dcol4
+#ifdef HAS_HEALPIX
+    if(.not. coop_file_exists(spots_file))then
+       write(*,*) "Spots file not found: "//trim(spots_file)
+       stop
+    endif
+    ns = coop_file_numlines(spots_file)
+    if(ns .eq. 0)then
+       write(*,*) "Spots file empty"
+       stop
+    endif
+    allocate(theta(ns), phi(ns), angle(ns), col4(ns))
+    call fp%open(spots_file)    
+    do i=1, ns
+       read(fp%unit, *) theta(i), phi(i), angle(i), col4(i)
+    enddo
+    call fp%close()
+    maxcol4 = maxval(col4)
+    mincol4 = minval(col4)
+    mincol4  = mincol4 - (maxcol4-mincol4)/npatches*1.d-5  !!pad to avoid index overflow
+    maxcol4  = maxcol4 +  (maxcol4-mincol4)/npatches*1.d-5
+    dcol4 = (maxcol4 - mincol4)/npatches
+    do ip = 1, npatches
+       patch(ip)%image = 0.d0
+       patch(ip)%nstack = 0.d0
+       patch(ip)%nstack_raw = 0
+       do ithread=1, n_threads
+          p(ithread, ip) = patch(ip)
+       enddo
+    enddo
+    do ithread = 1, n_threads
+       tmp(ithread) = patch(1)
+    enddo
+    !$omp parallel do private(i, pix, ip)
+    do ithread = 1, n_threads
+       do i=ithread, ns, n_threads
+          ip = floor((col4(i) - mincol4)/dcol4 + 1)
+          call ang2pix_ring(this%nside, theta(i), phi(i), pix)
+          call coop_healpix_get_disc(this%nside, pix, disc(ithread))
+          if(present(mask))then
+             call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread, ip), tmp(ithread), mask)    
+          else
+             call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread, ip), tmp(ithread) )
+          endif
+       enddo
+    enddo
+    !$omp end parallel do
+    do ithread=1, n_threads
+       call tmp(ithread)%free()
+    enddo
+    do ip=1, npatches
+       do ithread = 1, n_threads
+          patch(ip)%image = patch(ip)%image + p(ithread, ip)%image
+          patch(ip)%nstack = patch(ip)%nstack + p(ithread, ip)%nstack
+          patch(ip)%nstack_raw = patch(ip)%nstack_raw + p(ithread, ip)%nstack_raw
+          call p(ithread, ip)%free()
+       enddo
+       patch(ip)%image = patch(ip)%image/patch(ip)%nstack_raw
+    enddo
+    deallocate(theta, phi, angle, col4)
+#else
+    stop "CANNOT FIND HEALPIX"
+#endif
+  end subroutine coop_healpix_maps_stacks
 
 
   subroutine coop_healpix_maps_stack_with_listpix(this, patch, listpix, listangle, mask, hemisphere_direction)
@@ -1844,10 +1924,11 @@ contains
              if( all( map%map(list(1:nneigh), iq)**2 + map%map(list(1:nneigh), iu)**2 .lt. map%map(i, iq)**2 + map%map(i, iu)**2 ) )then
                 rotate_angle = COOP_POLAR_ANGLE(map%map(i, iq), map%map(i, iu))/2.
                 call pix2ang_nest(map%nside, i, theta, phi)
-                call spots%push( (/ real(theta), real(phi), real(rotate_angle), map%map(i, 1) /) ) )
+                call spots%push( (/ real(theta), real(phi), real(rotate_angle), map%map(i, 1) /) )
              endif
           endif
        enddo
+       call spots%sort(4)
     case("Pmin", "PTmin")
        select case(map%nmaps)
        case(2:3)
@@ -2149,6 +2230,7 @@ contains
     real(dl),optional::filter_fwhm
     integer i
     type(coop_list_realarr) spots
+    real(sp) arr(10)
     select case(trim(spot_type))
     case("Tmax_QTUTOrient", "PTmax", "PTmin")
        call map%read(trim(map_file), nmaps_wanted = 3)
@@ -2172,7 +2254,8 @@ contains
     endif
     call fp%open(trim(spots_file),"w")
     do i=1, spots%n
-       write(fp%unit, "(3G16.7)") spots%element(i)
+       call spots%get_element(i, arr)
+       write(fp%unit, "(10G16.7)") arr(1:spots%dim)
     enddo
     call fp%close()
     call map%free

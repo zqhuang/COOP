@@ -5,7 +5,7 @@ program test
 #include "constants.h"
 
   integer,parameter::fwhm_arcmin = 15
-  COOP_UNKNOWN_STRING, parameter::spot_type = "Pmax"
+  COOP_UNKNOWN_STRING, parameter::spot_type = "PmaxSortT"
   COOP_UNKNOWN_STRING, parameter::input_file ="pl353/pl353_iqu.fits"
   COOP_UNKNOWN_STRING, parameter::mask_file  = "ffp7/ffp7_union_polmask_2048.fits"
 

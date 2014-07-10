@@ -1265,20 +1265,20 @@ contains
     COOP_INT i, j
     real(sp) elem(:)
     if(i.le. coop_list_i1_max_length)then
-       elem = l%i1(:,i)
+       elem(1:l%dim) = l%i1(:,i)
        return
     endif
     j = i - coop_list_i1_max_length
     if(j .le. coop_list_i2_max_length)then
-       elem = l%i2(:,j)
+       elem(1:l%dim) = l%i2(:,j)
        return
     endif
     j = j - coop_list_i2_max_length
     if(j.le. coop_list_i3_max_length)then
-       elem = l%i3(:,j)
+       elem(1:l%dim) = l%i3(:,j)
        return
     endif
-    elem = l%i4(:,j - coop_list_i3_max_length)
+    elem(1:l%dim) = l%i4(:,j - coop_list_i3_max_length)
     return
   end subroutine coop_list_realarr_get_element
 
