@@ -707,7 +707,9 @@ contains
     m = Coop_getdim("coop_asy_fit_likliehood", size(xraw), size(yraw))
     imax = coop_maxloc(COOP_REAL_OF(yraw))
     ymax = yraw(imax)
-    npt = m + 2
+    npt = m 
+    if(imax.gt.1)  npt = npt + 1
+    if(imax .lt. m) npt = npt + 1
     do_left_tail = .false.
     do_right_tail = .false.
     if(present(left_tail))then
@@ -983,10 +985,12 @@ contains
     logical  do_left_tail, do_right_tail
     logical, optional::left_tail, right_tail
     real ymax
-    m = Coop_getdim("coop_asy_plot_likliehood", size(xraw), size(yraw))
+    m = Coop_getdim("coop_asy_plot_likelihood", size(xraw), size(yraw))
     imax = coop_maxloc(COOP_REAL_OF(yraw))
     ymax = yraw(imax)
-    npt = m + 2
+    npt = m
+    if(imax .gt. 1) npt = npt + 1
+    if(imax .lt. m) npt = npt + 1
     do_left_tail = .false.
     do_right_tail = .false.
     if(present(left_tail))then

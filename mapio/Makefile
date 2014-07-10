@@ -46,6 +46,10 @@ GetSpots: $(OBJ) exportspots.o
 Stack: $(OBJ) dostack.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) dostack.o $(LINK)
 
+
+MultStack: $(OBJ) multstack.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) multstack.o $(LINK)
+
 Asym: $(OBJ) asymmetry.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) asymmetry.o $(LINK)
 
@@ -75,7 +79,7 @@ FMerge:	 $(OBJ) flat_merge.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_merge.o $(LINK)	
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP HSM InpEB InpT Ena Asym TrimC GetCl QEB
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP HSM InpEB InpT Ena Asym TrimC GetCl QEB MultStack
 
 
 test.o: $(LIB)
@@ -95,3 +99,5 @@ ensemble_asymmetry.o: $(LIB)
 flat_merge.o: $(LIB)
 
 trimcmp.o: $(LIB)
+
+multstack.o: $(LIB)

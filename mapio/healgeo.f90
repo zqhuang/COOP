@@ -75,6 +75,7 @@ module coop_healpix_mod
      procedure :: get_spots => coop_healpix_maps_get_spots
      procedure :: get_listpix => coop_healpix_maps_get_listpix
      procedure :: stack =>     coop_healpix_maps_stack
+     procedure :: multstack =>     coop_healpix_maps_multstack
      procedure :: stack_with_covariance => coop_healpix_maps_stack_with_covariance
      procedure :: stack_with_listpix => coop_healpix_maps_stack_with_listpix
      procedure :: stack_north_south => coop_healpix_maps_stack_north_south
@@ -1158,6 +1159,7 @@ contains
        read(fp%unit, *) theta(i), phi(i), angle(i)
     enddo
     call fp%close()
+    write(*, *) "stacking "//trim(coop_num2str(ns))//" patchs"
     patch%image = 0.d0
     patch%nstack = 0.d0
     patch%nstack_raw = 0
@@ -1214,7 +1216,7 @@ contains
 
 
 
-  subroutine coop_healpix_maps_stacks(this, patch, spots_file, mask)
+  subroutine coop_healpix_maps_multstack(this, npatches, patch, lowercut, uppercut, spots_file, mask)
     COOP_UNKNOWN_STRING::spots_file
     COOP_INT,parameter::n_threads = 4
     class(coop_healpix_maps)::this
@@ -1228,6 +1230,7 @@ contains
     type(coop_file)::fp
     COOP_INT imap, ithread, i, pix, iaccept, ireject, ip
     COOP_REAL hcos, hsin, maxcol4, mincol4, dcol4
+    real(sp) uppercut, lowercut
 #ifdef HAS_HEALPIX
     if(.not. coop_file_exists(spots_file))then
        write(*,*) "Spots file not found: "//trim(spots_file)
@@ -1244,10 +1247,9 @@ contains
        read(fp%unit, *) theta(i), phi(i), angle(i), col4(i)
     enddo
     call fp%close()
-    maxcol4 = maxval(col4)
-    mincol4 = minval(col4)
-    mincol4  = mincol4 - (maxcol4-mincol4)/npatches*1.d-5  !!pad to avoid index overflow
-    maxcol4  = maxcol4 +  (maxcol4-mincol4)/npatches*1.d-5
+    write(*, *) "stacking "//trim(coop_num2str(ns))//" patchs"
+    maxcol4 = min(maxval(col4), uppercut)
+    mincol4 = max(minval(col4), lowercut)
     dcol4 = (maxcol4 - mincol4)/npatches
     do ip = 1, npatches
        patch(ip)%image = 0.d0
@@ -1264,12 +1266,14 @@ contains
     do ithread = 1, n_threads
        do i=ithread, ns, n_threads
           ip = floor((col4(i) - mincol4)/dcol4 + 1)
-          call ang2pix_ring(this%nside, theta(i), phi(i), pix)
-          call coop_healpix_get_disc(this%nside, pix, disc(ithread))
-          if(present(mask))then
-             call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread, ip), tmp(ithread), mask)    
-          else
-             call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread, ip), tmp(ithread) )
+          if(ip .ge. 1 .and. ip .le. npatches)then
+             call ang2pix_ring(this%nside, theta(i), phi(i), pix)
+             call coop_healpix_get_disc(this%nside, pix, disc(ithread))
+             if(present(mask))then
+                call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread, ip), tmp(ithread), mask)    
+             else
+                call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread, ip), tmp(ithread) )
+             endif
           endif
        enddo
     enddo
@@ -1284,13 +1288,15 @@ contains
           patch(ip)%nstack_raw = patch(ip)%nstack_raw + p(ithread, ip)%nstack_raw
           call p(ithread, ip)%free()
        enddo
-       patch(ip)%image = patch(ip)%image/patch(ip)%nstack_raw
+       if(patch(ip)%nstack_raw .gt. 0) &
+            patch(ip)%image = patch(ip)%image/patch(ip)%nstack_raw
+       write(*,*) trim(coop_num2str(ip))//": "//trim(coop_num2str(patch(ip)%nstack_raw))//" patches -> 4th column range: "//trim(coop_num2str(mincol4 + (ip-1)*dcol4))//" ---- "//trim(coop_num2str(mincol4 + ip*dcol4))
     enddo
     deallocate(theta, phi, angle, col4)
 #else
     stop "CANNOT FIND HEALPIX"
 #endif
-  end subroutine coop_healpix_maps_stacks
+  end subroutine coop_healpix_maps_multstack
 
 
   subroutine coop_healpix_maps_stack_with_listpix(this, patch, listpix, listangle, mask, hemisphere_direction)
@@ -2516,6 +2522,7 @@ contains
     !call mask%write(trim(coop_file_add_postfix(mask_file, "_smoothed")))
     map%mask_npix = count(mask%map(:,1).lt. 0.5)
     call coop_healpix_inpainting_init(map, simumap)
+
     write(*,*) "Inpaining workspace initialized."
     prev_chisq = map%chisq
     naccept = 0

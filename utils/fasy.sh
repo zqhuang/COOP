@@ -15,5 +15,5 @@ fi
 asy ${HOME}/work/GitHub/COOP/utils/asyplot.asy -o tmp.eps
 eps2eps tmp.eps $epsfile
 epstopdf $epsfile
-rm -f $epsfile tmp.eps
+rm -f tmp.eps
 rm -f asyplot.config
