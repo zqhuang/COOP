@@ -2451,11 +2451,15 @@ contains
     integer nlist
     type(coop_healpix_maps)::mask
     integer,dimension(:),allocatable::listpix
+#ifdef HAS_HEALPIX
     allocate(listpix(0:mask%npix-1))
     call ang2vec(theta, phi, vec)
     call query_disc(mask%nside, vec, coop_pio2, listpix, nlist, nest = 0, inclusive = 0)
     mask%map(listpix(0:nlist-1),:) = 0.
     deallocate(listpix)
+#else
+    stop "CANNOT FIND HEALPIX"
+#endif
   end subroutine coop_healpix_mask_hemisphere
 
 

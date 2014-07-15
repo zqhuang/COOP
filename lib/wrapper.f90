@@ -11,6 +11,8 @@ module coop_wrapper
   type(coop_species):: coop_global_massive_neutrinos
   type(coop_species):: coop_global_de
   type(coop_arguments)::coop_global_cosmological_parameters
+  COOP_REAL::coop_scalar_pivot_k = 0.05d0
+  COOP_REAL::coop_tensor_pivot_k = 0.002d0
 
   
 contains
@@ -83,18 +85,18 @@ contains
     COOP_REAL hl, hr, hm, tl, tr, tm
     hl = hmin
     call coop_setup_global_cosmology_with_h(hl)
-    tl = coop_global_cosmology_cosmomc_theta()
+    tl = 100.d0*coop_global_cosmology_cosmomc_theta()
     hr = hmax
     call coop_setup_global_cosmology_with_h(hr)
-    tr = coop_global_cosmology_cosmomc_theta()
-    if(tl .lt. COOP_THETA-1.d-8 .and. tr .gt. COOP_THETA+1.d-8)then
+    tr = 100.d0*coop_global_cosmology_cosmomc_theta()
+    if(tl .lt. COOP_100THETA-1.d-8 .and. tr .gt. COOP_100THETA+1.d-8)then
        do while(hr - hl .gt. 0.0001)
           hm = (hl + hr)/2.
           call coop_setup_global_cosmology_with_h(hm)
-          tm = coop_global_cosmology_cosmomc_theta()
-          if(tm .gt. COOP_THETA+1.d-8)then
+          tm = 100.d0*coop_global_cosmology_cosmomc_theta()
+          if(tm .gt. COOP_100THETA+1.d-8)then
              hr  = hm
-          elseif(tm .lt. COOP_THETA - 1.d-8)then
+          elseif(tm .lt. COOP_100THETA - 1.d-8)then
              hl = hm
           else
              return
@@ -139,7 +141,27 @@ contains
   end function coop_zrecomb_fitting
 
 
+  function coop_primordial_ps(k)  result(ps)
+    COOP_REAL k, ps, lnk
+    select case(COOP_PP_MODEL)
+    case(COOP_PP_STANDARD)
+       lnk = log(k/coop_scalar_pivot_k)
+       ps = exp(COOP_LN10TO10AS + (COOP_NS - 1.d0)*lnk + (COOP_NRUN/2.d0)*lnk**2)
+    case(COOP_PP_SPLINE)
+       ps = 
+    case(COOP_PP_LINEAR)
 
+    case default
+
+    end select
+  end function coop_primordial_ps
+
+
+  function coop_primordial_pt(k)  result(pt)
+    COOP_REAL k, pt
+    select case(COOP_PP_MODEL)
+    end select    
+  end function coop_primordial_pt
 
 
 end module coop_wrapper

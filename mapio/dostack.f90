@@ -8,7 +8,7 @@ program test
 #include "constants.h"
 
   
-  COOP_REAL, parameter::smooth_fwhm = 15.*coop_SI_arcmin
+  COOP_REAL, parameter::smooth_fwhm = 60.*coop_SI_arcmin
   COOP_UNKNOWN_STRING,parameter:: color_table = "Rainbow"
   COOP_UNKNOWN_STRING, parameter :: spot_type = "QU"
   COOP_REAL,parameter::r=10.*coop_SI_degree, dr = max(smooth_fwhm/3., r/50.)
@@ -16,9 +16,9 @@ program test
 
 #ifdef USE_PLANCK
   COOP_UNKNOWN_STRING, parameter :: map_file = "pl353/pl353_iqu.fits"
-  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/pl353_iqu_Pmax_threshold0_fwhm15.txt" !"spots/predx11_iqu_Tmax_QTUTOrient_threshold0_fwhm15.txt" 
+  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/pl353_iqu_PTmax_threshold0_fwhm120.txt" ! "spots/pl353_iqu_Pmax_threshold0_fwhm15.txt" !"spots/predx11_iqu_Tmax_QTUTOrient_threshold0_fwhm15.txt" 
   COOP_UNKNOWN_STRING, parameter :: imask_file = "predx11/predx11_imask.fits" 
-  COOP_UNKNOWN_STRING, parameter :: polmask_file = "predx11/predx11_polmask.fits" !"ffp7/ffp7_union_polmask_2048.fits"
+  COOP_UNKNOWN_STRING, parameter :: polmask_file = "ffp7/ffp7_union_polmask_2048.fits"
 #endif
 
 #ifdef USE_WMAP
