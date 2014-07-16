@@ -1850,7 +1850,11 @@ contains
     ny = size(z, 2)
     write(fp%unit, "(A)") "DENSITY"
     if(present(color_table))then
-       write(fp%unit, "(A)") trim(color_table)
+       if(trim(color_table).ne."")then
+          write(fp%unit, "(A)") trim(color_table)
+       else
+          write(fp%unit, "(A)") "Rainbow"
+       endif
     else
        write(fp%unit, "(A)") "Rainbow"
     endif
@@ -1896,7 +1900,11 @@ contains
     ny = size(z, 2)
     write(fp%unit, "(A)") "DENSITY"
     if(present(color_table))then
-       write(fp%unit,"(A)") trim(color_table)
+       if(trim(color_table).ne."")then
+          write(fp%unit,"(A)") trim(color_table)
+       else
+          write(fp%unit,"(A)") "Rainbow"
+       endif
     else
        write(fp%unit,"(A)") "Rainbow"
     endif
@@ -1969,7 +1977,11 @@ contains
     endif
     write(fp%unit,"(A)") "DENSITY"
     if(present(color_table))then
-       write(fp%unit,"(A)") trim(color_table)
+       if(trim(color_table).ne."")then
+          write(fp%unit,"(A)") trim(color_table)
+       else
+          write(fp%unit,"(A)") "Rainbow"
+       endif
     else
        write(fp%unit,"(A)") "Rainbow"
     endif
@@ -2032,7 +2044,11 @@ contains
     write(fp%unit,"(A)") "DENSITY"
 
     if(present(color_table))then
-       write(fp%unit,"(A)") trim(color_table)
+       if(trim(color_table).ne."")then
+          write(fp%unit,"(A)") trim(color_table)
+       else
+          write(fp%unit,"(A)") "Rainbow"
+       endif
     else
        write(fp%unit,"(A)") "Rainbow"
     endif

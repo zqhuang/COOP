@@ -8,7 +8,7 @@ program test
 #include "constants.h"
 
   
-  COOP_REAL, parameter::smooth_fwhm = 60.*coop_SI_arcmin
+  COOP_REAL, parameter::smooth_fwhm = 15.*coop_SI_arcmin
   COOP_UNKNOWN_STRING,parameter:: color_table = "Rainbow"
   COOP_UNKNOWN_STRING, parameter :: spot_type = "QU"
   COOP_REAL,parameter::r=10.*coop_SI_degree, dr = max(smooth_fwhm/3., r/50.)
@@ -16,7 +16,7 @@ program test
 
 #ifdef USE_PLANCK
   COOP_UNKNOWN_STRING, parameter :: map_file = "pl353/pl353_iqu.fits"
-  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/pl353_iqu_PTmax_threshold0_fwhm120.txt" ! "spots/pl353_iqu_Pmax_threshold0_fwhm15.txt" !"spots/predx11_iqu_Tmax_QTUTOrient_threshold0_fwhm15.txt" 
+  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/pl353_iqu_PmaxSortT_threshold0_fwhm15.txt"  !"spots/pl353_iqu_PTmax_threshold0_fwhm120.txt" ! "spots/pl353_iqu_Pmax_threshold0_fwhm15.txt" !"spots/predx11_iqu_Tmax_QTUTOrient_threshold0_fwhm15.txt" 
   COOP_UNKNOWN_STRING, parameter :: imask_file = "predx11/predx11_imask.fits" 
   COOP_UNKNOWN_STRING, parameter :: polmask_file = "ffp7/ffp7_union_polmask_2048.fits"
 #endif
@@ -119,20 +119,22 @@ program test
   else
      call map%stack(patch, spots_file)
   endif
-  caption = trim(coop_num2str(patch%nstack_raw))//" patches on "//trim(caption)
+  patch%caption = trim(coop_num2str(patch%nstack_raw))//" patches on "//trim(caption)
+  patch%color_table = color_table
   fname = coop_file_name_of(spots_file)
+  
   select case(spot_type)
   case("QrUr")
      fout = prefix//"Qr_on_"//trim(fname)
-     call patch%plot(imap = 1, output =trim(fout), label = "$Q_r(\mu K)$", caption = caption, color_table = color_table, headless_vectors = .true.)
-     call patch%plot(imap = 2, output = prefix//"Ur_on_"//trim(fname), label = "$U_r(\mu K)$", caption = caption, color_table = color_table, headless_vectors = .true.)
+     call patch%plot(imap = 1, output =trim(fout))
+     call patch%plot(imap = 2, output = prefix//"Ur_on_"//trim(fname))
   case("QU")
      fout = prefix//"Q_on_"//trim(fname)
-     call patch%plot(imap = 1, output = trim(fout), label = "$Q(\mu K)$", caption = caption, color_table = color_table, headless_vectors = .true.)
-     call patch%plot(imap = 2, output = prefix//"U_on_"//trim(fname), label = "$U(\mu K)$", caption = caption, color_table = color_table, headless_vectors = .true.)
+     call patch%plot(imap = 1, output = trim(fout))
+     call patch%plot(imap = 2, output = prefix//"U_on_"//trim(fname))
   case("T", "E", "B", "I") 
      fout = prefix//spot_type//"_on_"//trim(fname)
-     call patch%plot(imap = 1, output =trim(fout), label = "$"//spot_type//"(\mu K)$", caption = caption, color_table = color_table, headless_vectors = .true.)
+     call patch%plot(imap = 1, output =trim(fout))
   end select
   write(*,*) "the output file is: "//trim(fout)
 end program test

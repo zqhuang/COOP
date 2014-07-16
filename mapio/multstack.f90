@@ -7,21 +7,22 @@ program test
 #include "constants.h"
 
   
-  COOP_REAL, parameter::smooth_fwhm = 30.*coop_SI_arcmin
+  COOP_REAL, parameter::smooth_fwhm = 15.*coop_SI_arcmin
   COOP_UNKNOWN_STRING,parameter:: color_table = "Rainbow"
   COOP_UNKNOWN_STRING, parameter :: spot_type = "QU"
-  COOP_REAL,parameter::r=10.*coop_SI_degree, dr = max(smooth_fwhm/3., r/50.)
+  COOP_REAL,parameter::r=10.*coop_SI_degree, dr = max(smooth_fwhm/2., r/50.)
   COOP_INT, parameter::n = ceiling(r/dr)
 
   COOP_UNKNOWN_STRING, parameter :: map_file = "pl353/pl353_iqu.fits"
-  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/pl353_iqu_PmaxSortT_threshold0_fwhm30.txt" 
+  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/pl353_iqu_ipresmoothed_PmaxSortT_threshold0.5_fwhm15.txt" !"spots/pl353_iqu_ipresmoothed_PmaxSortT_threshold1_fwhm15.txt" 
   COOP_UNKNOWN_STRING, parameter :: imask_file = "predx11/predx11_imask.fits" 
   COOP_UNKNOWN_STRING, parameter :: polmask_file =  "ffp7/ffp7_union_polmask_2048.fits"
   COOP_UNKNOWN_STRING, parameter :: prefix = "multstacked/mult"
-  COOP_STRING fout, caption, fname, caption_raw
+  COOP_STRING fout, fname, caption_raw
   COOP_INT,parameter::mmax = 4
-  COOP_INT, parameter::npatches = 15
-  real, parameter::uppercut  = 3000.
+  COOP_INT, parameter::npatches = 30
+  real, parameter::uppercut  = 0.
+  real, parameter::lowercut  = 0.
   type(coop_healpix_maps) map, mask
   type(coop_healpix_patch) patch(npatches)
   logical::do_mask
@@ -71,28 +72,35 @@ program test
      stop "Unknown spots_file class"
   endif
 
-  if(index(spots_file, "threshold0").gt.0)then
-     caption_raw = trim(caption_raw)//", threshold $\nu$=0"
+  if(index(spots_file, "threshold0.5").gt.0)then
+     caption_raw = trim(caption_raw)//", threshold $\nu=0.5$"
+  elseif(index(spots_file, "threshold1.5").gt.0)then
+     caption_raw = trim(caption_raw)//", threshold $\nu=1.5$"
+  elseif(index(spots_file, "threshold2.5").gt.0)then
+     caption_raw = trim(caption_raw)//", threshold $\nu=2.5$"
+  elseif(index(spots_file, "threshold0").gt.0)then
+     if(index(spots_file, "_Pmax") .ne. 0 .and. index(spots_file, "_PTmax") .ne. 0)then
+        caption_raw = trim(caption_raw)//", threshold $\nu=0$"
+     endif
   elseif(index(spots_file, "threshold1").gt.0)then
-     caption_raw = trim(caption_raw)//", threshold $\nu$=1"
+     caption_raw = trim(caption_raw)//", threshold $\nu=1$"
   elseif(index(spots_file, "threshold2").gt.0)then
-     caption_raw = trim(caption_raw)//", threshold $\nu$=2"
+     caption_raw = trim(caption_raw)//", threshold $\nu=2$"
   elseif(index(spots_file, "threshold3").gt.0)then
-     caption_raw = trim(caption_raw)//", threshold $\nu$=3"
-  elseif(index(spots_file, "threshold4").gt.0)then
-     caption_raw = trim(caption_raw)//", threshold $\nu$=4"
-  elseif(index(spots_file, "threshold5").gt.0)then
-     caption_raw = trim(caption_raw)//", threshold $\nu$=5"
+     caption_raw = trim(caption_raw)//", threshold $\nu=3$"
   endif
 
   call patch(1)%init(spot_type, n, dr, mmax = mmax)
+  patch(1)%color_table = trim(color_table)
+  patch(1)%zmin = -1.
+  patch(1)%zmax = 50.
   do i=2, npatches
      patch(i) = patch(1)
   enddo
   if(do_mask)then
-     call map%multstack(npatches, patch, -1.e30, uppercut, spots_file, mask)
+     call map%multstack(npatches, patch, lowercut, uppercut, spots_file, mask)
   else
-     call map%multstack(npatches, patch, -1.e30, uppercut, spots_file)
+     call map%multstack(npatches, patch, lowercut, uppercut, spots_file)
   endif
 
 
@@ -102,20 +110,21 @@ program test
         patch(i)%image = (patch(i-1)%image*patch(i-1)%nstack_raw + patch(i)%image*patch(i)%nstack_raw)/(patch(i-1)%nstack_raw + patch(i)%nstack_raw)
         patch(i)%nstack_raw = patch(i-1)%nstack_raw + patch(i)%nstack_raw
      endif
-     caption = trim(coop_num2str(patch(i)%nstack_raw))//" patches on "//trim(caption_raw)
+     patch(i)%caption = trim(coop_num2str(patch(i)%nstack_raw))//" patches on "//trim(caption_raw)//", "//trim(patch(i)%caption)
+     
      fname = coop_file_name_of(spots_file)
      select case(spot_type)
      case("QrUr")
         fout = prefix//trim(coop_num2str(i))//"_Qr_on_"//trim(fname)
-        call patch(i)%plot(imap = 1, output =trim(fout), label = "$Q_r(\mu K)$", caption = caption, color_table = color_table, headless_vectors = .true.)
-        call patch(i)%plot(imap = 2, output = prefix//trim(coop_num2str(i))//"_Ur_on_"//trim(fname), label = "$U_r(\mu K)$", caption = caption, color_table = color_table, headless_vectors = .true.)
+        call patch(i)%plot(imap = 1, output =trim(fout))
+        call patch(i)%plot(imap = 2, output = prefix//trim(coop_num2str(i))//"_Ur_on_"//trim(fname))
      case("QU")
         fout = prefix//trim(coop_num2str(i))//"_Q_on_"//trim(fname)
-        call patch(i)%plot(imap = 1, output = trim(fout), label = "$Q(\mu K)$", caption = caption, color_table = color_table, headless_vectors = .true.)
-        call patch(i)%plot(imap = 2, output = prefix//trim(coop_num2str(i))//"_U_on_"//trim(fname), label = "$U(\mu K)$", caption = caption, color_table = color_table, headless_vectors = .true.)
+        call patch(i)%plot(imap = 1, output = trim(fout))
+        call patch(i)%plot(imap = 2, output = prefix//trim(coop_num2str(i))//"_U_on_"//trim(fname))
      case("T", "E", "B", "I") 
         fout = prefix//trim(coop_num2str(i))//"_"//spot_type//"_on_"//trim(fname)
-        call patch(i)%plot(imap = 1, output =trim(fout), label = "$"//spot_type//"(\mu K)$", caption = caption, color_table = color_table, headless_vectors = .true.)
+        call patch(i)%plot(imap = 1, output =trim(fout))
      end select
      write(*,*) "the output file is: "//trim(fout)
   enddo

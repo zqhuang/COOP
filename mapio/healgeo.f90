@@ -82,9 +82,13 @@ module coop_healpix_mod
   end type coop_healpix_maps
 
   type coop_healpix_patch
+     COOP_STRING::caption
+     COOP_SHORT_STRING,dimension(:),allocatable::label
+     COOP_SHORT_STRING::color_table
      COOP_SHORT_STRING:: genre
      COOP_INT::n, mmax, nmaps, npix, nstack_raw
-     COOP_REAL::dr
+     COOP_REAL::dr, zmin, zmax
+     logical::headless_vectors
      COOP_REAL,dimension(:,:,:),allocatable::image
      COOP_REAL,dimension(:),allocatable::r
      COOP_REAL,dimension(:,:,:),allocatable::fr
@@ -176,97 +180,77 @@ contains
 
   end subroutine coop_healpix_diffuse_into_mask
 
-  subroutine coop_healpix_patch_plot(this, imap, output, label, caption, color_table, zmin, zmax, headless_vectors)
+  subroutine coop_healpix_patch_plot(this, imap, output)
     COOP_INT::bgrids
     class(coop_healpix_patch)::this
     COOP_INT imap
     COOP_UNKNOWN_STRING::output
-    COOP_UNKNOWN_STRING,optional::caption, label, color_table
-    COOP_STRING::the_color_table
-    COOP_REAL,optional::zmin, zmax
     type(coop_asy)::fig
-    logical,optional::headless_vectors
     COOP_INT nb, i, j, k, ns
     COOP_REAL  xc, yc,  norm, r, theta, minz, maxz
     COOP_REAL,dimension(:),allocatable::xstart, xend, ystart, yend
     call fig%open(output)
-    if(present(caption))then
-       call fig%init(caption = caption, xlabel = "$2\sin{\frac{\theta}{2}}\cos\varphi$", ylabel =  "$2\sin{\frac{\theta}{2}}\sin\varphi$")
-    else
-       call fig%init(xlabel = "$2\sin{\frac{\theta}{2}}\cos\varphi$", ylabel =  "$2\sin{\frac{\theta}{2}}\sin\varphi$")
-    endif
+    call fig%init(caption = trim(this%caption), xlabel = "$2\sin{\frac{\theta}{2}}\cos\varphi$", ylabel =  "$2\sin{\frac{\theta}{2}}\sin\varphi$")
     if(imap .le. 0 .or. imap .gt. this%nmaps) stop "coop_healpix_patch_plot: imap overflow"
-    if(present(zmin))then
-       minz = zmin
+    if(this%zmin .lt.0.99e30)then
+       minz = this%zmin
     else
        call coop_array_get_threshold(this%image(:,:,imap), COOP_REAL_OF(0.99), minz)
     endif
-    if(present(zmax))then
-       maxz = zmax
+    if(this%zmax .gt. -0.99e30)then
+       maxz = this%zmax
     else
        call coop_array_get_threshold(this%image(:,:,imap), COOP_REAL_OF(0.01), maxz)
     endif
-    if(present(color_table))then
-       the_color_table = color_table
-    else
-       the_color_table = "Rainbow"
-    endif
-    if(present(label))then
-       call coop_asy_density(fig, this%image(:,:,imap), -this%r(this%n), this%r(this%n), -this%r(this%n), this%r(this%n), label = trim(label), zmax = maxz, zmin = minz, color_table = trim(the_color_table))
-    else    
-       call coop_asy_density(fig, this%image(:,:,imap), -this%r(this%n), this%r(this%n), -this%r(this%n), this%r(this%n), label = "", zmax = maxz, zmin = minz, color_table = trim(the_color_table))
-    endif
-    if(present(headless_vectors))then
+    call coop_asy_density(fig, this%image(:,:,imap), -this%r(this%n), this%r(this%n), -this%r(this%n), this%r(this%n), label = trim(this%label(imap)), zmax = maxz, zmin = minz, color_table = trim(this%color_table))
+    if(this%headless_vectors .and. this%nmaps .eq. 2)then
        bgrids = max(this%n/7, 2)
-       if(headless_vectors .and. this%nmaps .eq. 2)then
-          norm = maxval(this%image(:,:,1)**2+this%image(:,:,2)**2)
-          if(norm .gt. 0.d0)then
-             norm = bgrids*this%dr/2./sqrt(norm)*0.96
-          else
-             goto 100
-          endif
-          ns = floor((this%n-0.5d0*bgrids)/bgrids)
-          nb = (2*ns+1)**2
-          allocate(xstart(nb),  ystart(nb), xend(nb), yend(nb))
-          k = 0
-          ns = ns*bgrids
-          select case(this%genre)
-          case("QU")
-             do j = -ns, ns, bgrids
-                do i = -ns, ns, bgrids
-                   xc = i*this%dr
-                   yc = j*this%dr
-                   r = sqrt(this%image(i,j,1)**2+this%image(i,j,2)**2)*norm
-                   theta = 0.5d0*COOP_POLAR_ANGLE(this%image(i,j,1), this%image(i,j,2))
-                   k = k + 1
-                   xstart(k) = xc - r*cos(theta)
-                   ystart(k) = yc - r*sin(theta)
-                   xend(k) = 2*xc - xstart(k)
-                   yend(k) = 2*yc - ystart(k)
-                enddo
-             enddo
-          case("QrUr")
-             do j = -ns, ns, bgrids
-                do i = -ns, ns, bgrids
-                   xc = i*this%dr
-                   yc = j*this%dr
-                   r = sqrt(this%image(i,j,1)**2+this%image(i,j,2)**2)*norm
-                   theta = 0.5d0*COOP_POLAR_ANGLE(this%image(i,j,1), this%image(i,j,2)) + COOP_POLAR_ANGLE(xc, yc)
-                   k = k + 1
-                   xstart(k) = xc - r*cos(theta)
-                   ystart(k) = yc - r*sin(theta)
-                   xend(k) = 2*xc - xstart(k)
-                   yend(k) = 2*yc - ystart(k)
-                enddo
-             enddo
-          case default
-             write(*,"(A)") trim(this%genre)
-             stop "Unknown genre"
-          end select
-          call coop_asy_lines(fig, xstart, ystart, xend, yend, "black", "solid", 2.)
-       
-          deallocate(xstart, xend, ystart, yend)
+       norm = maxval(this%image(:,:,1)**2+this%image(:,:,2)**2)
+       if(norm .gt. 0.d0)then
+          norm = bgrids*this%dr/2./sqrt(norm)*0.96
+       else
+          goto 100
        endif
+       ns = floor((this%n-0.5d0*bgrids)/bgrids)
+       nb = (2*ns+1)**2
+       allocate(xstart(nb),  ystart(nb), xend(nb), yend(nb))
+       k = 0
+       ns = ns*bgrids
+       select case(this%genre)
+       case("QU")
+          do j = -ns, ns, bgrids
+             do i = -ns, ns, bgrids
+                xc = i*this%dr
+                yc = j*this%dr
+                r = sqrt(this%image(i,j,1)**2+this%image(i,j,2)**2)*norm
+                theta = 0.5d0*COOP_POLAR_ANGLE(this%image(i,j,1), this%image(i,j,2))
+                k = k + 1
+                xstart(k) = xc - r*cos(theta)
+                ystart(k) = yc - r*sin(theta)
+                xend(k) = 2*xc - xstart(k)
+                yend(k) = 2*yc - ystart(k)
+             enddo
+          enddo
+       case("QrUr")
+          do j = -ns, ns, bgrids
+             do i = -ns, ns, bgrids
+                xc = i*this%dr
+                yc = j*this%dr
+                r = sqrt(this%image(i,j,1)**2+this%image(i,j,2)**2)*norm
+                theta = 0.5d0*COOP_POLAR_ANGLE(this%image(i,j,1), this%image(i,j,2)) + COOP_POLAR_ANGLE(xc, yc)
+                k = k + 1
+                xstart(k) = xc - r*cos(theta)
+                ystart(k) = yc - r*sin(theta)
+                xend(k) = 2*xc - xstart(k)
+                yend(k) = 2*yc - ystart(k)
+             enddo
+          enddo
+       case default
+          write(*,"(A)") trim(this%genre)
+          stop "Unknown genre for headless vectors"
+       end select
+       call coop_asy_lines(fig, xstart, ystart, xend, yend, "black", "solid", 2.)
+       deallocate(xstart, xend, ystart, yend)
     endif
 100 call fig%close()
   end subroutine coop_healpix_patch_plot
@@ -275,6 +259,7 @@ contains
   subroutine coop_healpix_patch_free(this)
     class(coop_healpix_patch) this
     if(allocated(this%image))deallocate(this%image)
+    if(allocated(this%label))deallocate(this%label)
     if(allocated(this%r))deallocate(this%r)
     if(allocated(this%fr))deallocate(this%fr)
     if(allocated(this%wcm))deallocate(this%wcm)
@@ -294,6 +279,11 @@ contains
     COOP_INT, optional::mmax
     COOP_REAL sumr(0:n+1)
     call this%free()
+    this%caption = ""
+    this%headless_vectors = .true.
+    this%color_table = "Rainbow"
+    this%zmin = 1.e30
+    this%zmax = -1.e30
     this%genre = trim(adjustl(genre))
     this%n = n
     this%npix = (2*this%n+1)**2
@@ -314,6 +304,25 @@ contains
        write(*,*) "Only supports: QU, QrUr, T, E, B"
        stop
     end select
+    allocate(this%label(this%nmaps))
+    do i=1, this%nmaps
+       this%label(i) = ""
+    enddo
+    select case(trim(this%genre))
+    case("QU")
+       this%label(1) = "$Q(\mu K)$"
+       this%label(2) = "$U(\mu K)$"
+    case("QrUr")
+       this%label(1) = "$Q_r(\mu K)$"
+       this%label(2) = "$U_r(\mu K)$"
+    case("T","E","B", "I")
+       this%label(1) = "$"//trim(this%genre)//"(\mu K)$"
+    case default
+       write(*,*) "Unknown stacking genre: "//trim(this%genre)
+       write(*,*) "Only supports: QU, QrUr, T, E, B"
+       stop
+    end select
+
     allocate(this%image(-this%n:this%n, -this%n:this%n, this%nmaps))
     allocate(this%nstack(-this%n:this%n, -this%n:this%n))
     allocate(this%r(0:this%n))
@@ -1262,22 +1271,51 @@ contains
     do ithread = 1, n_threads
        tmp(ithread) = patch(1)
     enddo
-    !$omp parallel do private(i, pix, ip)
-    do ithread = 1, n_threads
-       do i=ithread, ns, n_threads
-          ip = floor((col4(i) - mincol4)/dcol4 + 1)
-          if(ip .ge. 1 .and. ip .le. npatches)then
-             call ang2pix_ring(this%nside, theta(i), phi(i), pix)
-             call coop_healpix_get_disc(this%nside, pix, disc(ithread))
-             if(present(mask))then
-                call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread, ip), tmp(ithread), mask)    
-             else
-                call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread, ip), tmp(ithread) )
+    if(dcol4 .gt. 0.d0)then
+       !$omp parallel do private(i, pix, ip)
+       do ithread = 1, n_threads
+          do i=ithread, ns, n_threads
+             ip = floor((col4(i) - mincol4)/dcol4 + 1)
+             if(ip .ge. 1 .and. ip .le. npatches)then
+                call ang2pix_ring(this%nside, theta(i), phi(i), pix)
+                call coop_healpix_get_disc(this%nside, pix, disc(ithread))
+                if(present(mask))then
+                   call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread, ip), tmp(ithread), mask)    
+                else
+                   call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread, ip), tmp(ithread) )
+                endif
              endif
-          endif
+          enddo
        enddo
-    enddo
-    !$omp end parallel do
+       !$omp end parallel do
+       do ip=1, npatches
+          patch(ip)%caption =  "$I \le "//trim(coop_num2str(nint(mincol4 + ip*dcol4)))//" \mu K$"
+          write(*,*) trim(coop_num2str(ip))//": I < "//trim(coop_num2str(mincol4 + ip*dcol4))
+       enddo
+    else
+       dcol4 = (ns + 0.1d0)/npatches
+       !$omp parallel do private(i, pix, ip)
+       do ithread = 1, n_threads
+          do i=ithread, ns, n_threads
+             ip = ceiling(i/dcol4)
+             if(ip .ge. 1 .and. ip .le. npatches)then
+                call ang2pix_ring(this%nside, theta(i), phi(i), pix)
+                call coop_healpix_get_disc(this%nside, pix, disc(ithread))
+                if(present(mask))then
+                   call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread, ip), tmp(ithread), mask)    
+                else
+                   call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread, ip), tmp(ithread) )
+                endif
+             endif
+          enddo
+       enddo
+       !$omp end parallel do
+       do ip=1, npatches
+          i  = floor(dcol4*ip)
+          patch(ip)%caption =  "$I \le "//trim(coop_num2str(nint(col4(i))))//" \mu K$"
+          write(*,*) trim(coop_num2str(ip))//": I < "//trim(coop_num2str(nint(col4(i))))//" \mu K$"
+       enddo
+    endif
     do ithread=1, n_threads
        call tmp(ithread)%free()
     enddo
@@ -1290,7 +1328,6 @@ contains
        enddo
        if(patch(ip)%nstack_raw .gt. 0) &
             patch(ip)%image = patch(ip)%image/patch(ip)%nstack_raw
-       write(*,*) trim(coop_num2str(ip))//": "//trim(coop_num2str(patch(ip)%nstack_raw))//" patches -> 4th column range: "//trim(coop_num2str(mincol4 + (ip-1)*dcol4))//" ---- "//trim(coop_num2str(mincol4 + ip*dcol4))
     enddo
     deallocate(theta, phi, angle, col4)
 #else
