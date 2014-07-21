@@ -5,7 +5,7 @@ module coop_special_function_mod
 
   private
 
-  public:: coop_log2, coop_sinc, coop_sinhc, coop_is_integer, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_incompleteGamma, coop_rec3j, coop_threej000, coop_pseudoCl_matrix
+  public:: coop_log2, coop_sinc, coop_sinhc, coop_is_integer, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_incompleteGamma, coop_rec3j, coop_threej000
 
 
 
