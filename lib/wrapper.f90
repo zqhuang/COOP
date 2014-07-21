@@ -1,4 +1,4 @@
-module coop_wrapper
+>module coop_wrapper
   use coop_wrapper_firstorder
   implicit none
 #include "constants.h"
@@ -147,9 +147,9 @@ contains
     case(COOP_PP_STANDARD)
        lnk = log(k/coop_scalar_pivot_k)
        ps = exp(COOP_LN10TO10AS + (COOP_NS - 1.d0)*lnk + (COOP_NRUN/2.d0)*lnk**2)
-    case(COOP_PP_SPLINE)
+    case(COOP_PP_SCAN_SPLINE)
 
-    case(COOP_PP_LINEAR)
+    case(COOP_PP_SCAN_LINEAR)
 
     case default
 
