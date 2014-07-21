@@ -7,18 +7,19 @@ program test
 
 #include "constants.h"
 
+  integer i
   
-  COOP_REAL, parameter::smooth_fwhm = 15.*coop_SI_arcmin
-  COOP_UNKNOWN_STRING,parameter:: color_table = "Rainbow"
-  COOP_UNKNOWN_STRING, parameter :: spot_type = "QU"
-  COOP_REAL,parameter::r=10.*coop_SI_degree, dr = max(smooth_fwhm/3., r/50.)
+  COOP_REAL, parameter::smooth_fwhm = 0.*coop_SI_arcmin
+  COOP_UNKNOWN_STRING,parameter:: color_table = "Planck"
+  COOP_UNKNOWN_STRING, parameter :: spot_type = "QrUr"
+  COOP_REAL,parameter::r=4.5*coop_SI_degree, dr = max(smooth_fwhm/3., r/50.)
   COOP_INT, parameter::n = ceiling(r/dr)
 
 #ifdef USE_PLANCK
-  COOP_UNKNOWN_STRING, parameter :: map_file = "pl353/pl353_iqu.fits"
-  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/pl353_iqu_PmaxSortT_threshold0_fwhm15.txt"  !"spots/pl353_iqu_PTmax_threshold0_fwhm120.txt" ! "spots/pl353_iqu_Pmax_threshold0_fwhm15.txt" !"spots/predx11_iqu_Tmax_QTUTOrient_threshold0_fwhm15.txt" 
-  COOP_UNKNOWN_STRING, parameter :: imask_file = "predx11/predx11_imask.fits" 
-  COOP_UNKNOWN_STRING, parameter :: polmask_file = "ffp7/ffp7_union_polmask_2048.fits"
+  COOP_UNKNOWN_STRING, parameter :: map_file = "comparison/iqu.fits"
+  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/comparison_Tmax_threshold0.txt" !"spots/iqu_Tmax_threshold0_fwhm0.txt"
+  COOP_UNKNOWN_STRING, parameter :: imask_file = "comparison/ffp7_nobpm_smica_mask_05a_d1024_IP.fits" 
+  COOP_UNKNOWN_STRING, parameter :: polmask_file = "comparison/ffp7_nobpm_smica_mask_05a_d1024_IP.fits" 
 #endif
 
 #ifdef USE_WMAP
@@ -115,9 +116,9 @@ program test
 
   call patch%init(spot_type, n, dr, mmax = mmax)
   if(do_mask)then
-     call map%stack(patch, spots_file, mask)
+     call map%stack(patch, spots_file, mask, do_weight = .true.)
   else
-     call map%stack(patch, spots_file)
+     call map%stack(patch, spots_file, do_weight = .true.)
   endif
   patch%caption = trim(coop_num2str(patch%nstack_raw))//" patches on "//trim(caption)
   patch%color_table = color_table
@@ -137,4 +138,10 @@ program test
      call patch%plot(imap = 1, output =trim(fout))
   end select
   write(*,*) "the output file is: "//trim(fout)
+  call patch%get_all_radial_profiles()
+  open(7, file=spot_type//"_radial_profile.txt")
+  do i=0, patch%n
+     write(7,*) patch%r(i), patch%fr(i, 0, :)
+  enddo
+  close(7)
 end program test

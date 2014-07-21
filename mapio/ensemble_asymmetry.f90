@@ -18,19 +18,19 @@ program test
   COOP_INT, parameter::n = 30
   COOP_REAL, parameter::dr = 10.*coop_SI_arcmin
   COOP_INT, parameter:: imap = 1
-  integer,parameter::n_sim = 1000
+  integer,parameter::n_sim = 300
   COOP_STRING::fmt, fmtscreen
   COOP_UNKNOWN_STRING, parameter::resol = "1024"
   COOP_UNKNOWN_STRING, parameter::inp = "_inp"
   COOP_UNKNOWN_STRING, parameter::map_file = prefix//"/"//prefix//inp//"_i"//resol//"_smoothed_fwhm15arcmin.fits"
   COOP_UNKNOWN_STRING, parameter::imask_file  = prefix//"/"//prefix//"_imask"//resol//".fits"
   COOP_UNKNOWN_STRING, parameter::polmask_file  = prefix//"/"//prefix//"_polmask"//resol//".fits"
-  COOP_UNKNOWN_STRING, parameter::fr_file = prefix//resol//inp//"_fofr_"//stack_type//".dat"
+  COOP_UNKNOWN_STRING, parameter::fr_file = prefix//resol//inp//"_fofr_sim_"//stack_type//".dat"
   type(coop_healpix_patch)::patch_s, patch_n
   type(coop_healpix_maps)::map, sim, tmp
   type(coop_healpix_maps)::imask, polmask
   type(coop_healpix_maps)::stack_mask, spots_mask
-  COOP_REAL frmean(0:n), cov(0:n,0: n), diff(0:n), chisq, err(0:n), ifsky, polfsky, ipolfsky, hdir(2)
+  COOP_REAL frmean(0:n), cov(0:n,0: n), diff(0:n), chisq, err(0:n),  hdir(2)
   COOP_REAL psi(0:n, 0:n), eig(0:n)
   COOP_INT :: nspots, nlines, il, i, j, step, weight
   type(coop_asy)::fig
@@ -46,7 +46,6 @@ program test
   call imask%read(imask_file, nmaps_wanted = 1)
   call polmask%read(polmask_file, nmaps_wanted = 1)
   nmaps_wanted = 1
-
   select case(trim(stack_type))
   case("I","T")
      stack_mask = imask
@@ -78,20 +77,11 @@ program test
 
   !!compute Cls
   call map%map2alm(lmax=1600)
-
-  ifsky = count(imask%map(:,1).ge.0.5)/dble(imask%npix)
-  polfsky = count(polmask%map(:,1).ge.0.5)/dble(polmask%npix)
-  ipolfsky = count(imask%map(:,1).ge.0.5 .and. polmask%map(:,1).ge.0.5)/dble(imask%npix)
-
-  if(index(map_file, "inp") .eq. 0)then
-     map%cl(:, coop_healpix_index_TT) =  map%cl(:, coop_healpix_index_TT)/ifsky
-     if(map%nmaps.eq.3)then
-        map%cl(:, coop_healpix_index_EE) = map%cl(:, coop_healpix_index_EE)/polfsky
-        map%cl(:, coop_healpix_index_BB) = map%cl(:, coop_healpix_index_BB)/polfsky
-        map%cl(:, coop_healpix_index_TE) = map%cl(:, coop_healpix_index_TE)/ipolfsky
-     endif
+  if(nmaps_wanted .eq. 3)then
+     call map%get_fullCls(imask, polmask)
+  else
+     call map%get_fullCls(imask)
   endif
-     
   call coop_healpix_lb2ang(l_deg = 226.d0, b_deg = -17.d0, theta = hdir(1), phi = hdir(2))
 
   sim = map
@@ -194,8 +184,7 @@ program test
   call patch_s%get_radial_profile(imap = imap, m = 0)
   call patch_n%get_radial_profile(imap = imap, m = 0)
   diff = patch_n%fr(:, 0, imap) - patch_s%fr(:, 0, imap)
-  chisq = sum(diff(11:30))/sum(diff(0:10)) ! dot_product(diff, matmul(cov, diff))
-!  print*, "chi^2 total = ", chisq
+  chisq =  dot_product(diff, matmul(cov, diff))
 
   nlines = coop_file_numlines(fr_file) 
   ismall = 0
@@ -203,7 +192,7 @@ program test
   call fpsim%open(fr_file, "r")
   do il=1, nlines
      read(fpsim%unit, trim(fmt)) diff
-     if( sum(diff(11:30))/sum(diff(0:10)) .ge. chisq) then ! dot_product(diff, matmul(cov, diff)) .ge. chisq)then
+     if (dot_product(diff, matmul(cov, diff)) .ge. chisq)then
         ilarge = ilarge + 1
      else
         ismall = ismall + 1

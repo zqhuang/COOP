@@ -23,5 +23,9 @@ cd ../lib
 make -w
 cp *.mod ../include/
 
+cd ../postprocess
+make -w
+cp *.mod ../include/
+
 cd ..
 make -w

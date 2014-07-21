@@ -7,7 +7,7 @@ module coop_threej_mod
 
 #include "constants.h"
 
-  public::coop_threej000, coop_threej_fixed_m1, coop_threej_table, coop_threej_generate_table
+  public::coop_threej000, coop_threej_fixed_m1, coop_threej_table, coop_threej_generate_table, coop_pseudoCl_matrix
 
 
   COOP_INT ,parameter::dl = kind(1.d0)
@@ -633,6 +633,17 @@ contains
     logical is_triangle_int
     is_triangle_int = (l1+l2 .ge. l3 .and. l2+l3.ge.l1 .and. l1+l3.ge.l2)
   end function is_triangle_int
+
+
+  function coop_pseudoCl_matrix(l_pseudo, l, lmax, Cl_mask) result(m)
+    COOP_INT l, l_pseudo, l2, lmax
+    COOP_REAL m, Cl_mask(0:lmax)
+    m = 0.d0
+    do l2 = max(0, abs(l-l_pseudo)), min(lmax, abs(l+l_pseudo))
+       m = m + cl_mask(l2)*(2.d0*l2+1.d0)*coop_threej000(l_pseudo, l, l2)
+    enddo
+    m = m*(2.d0*l_pesudo + 1.d0)/coop_4pi
+  end function coop_pseudoCl_matrix
 
 
 

@@ -3,6 +3,7 @@ module coop_wrapper_typedef
   use coop_svd_mod
   use coop_basicutils_mod
   use coop_sort_mod
+  use coop_sortrev_mod
   use coop_string_mod
   use coop_arguments_mod
   use coop_function_mod

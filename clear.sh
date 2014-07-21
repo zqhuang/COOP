@@ -14,6 +14,8 @@ cd ../test
 make clean
 cd ../mapio
 make clean
+cd ../postprocess
+make clean
 cd ../include
 rm -f *.mod \#*\# *.*~
 cd ..

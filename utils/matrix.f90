@@ -3,13 +3,14 @@
 module coop_matrix_mod
   use coop_wrapper_typedef
   use coop_sort_mod
+  use coop_sortrev_mod
   implicit none
 
 #include "constants.h"
 
   private
 
-  public::coop_write_matrix, coop_print_matrix, coop_read_matrix, coop_set_identity_matrix, coop_identity_matrix, coop_diagonal_matrix, coop_matrix_add_diagonal, coop_matrix_sum_columns,  coop_matrix_solve_small,  Coop_matrix_Solve, Coop_matrix_Inverse, coop_matsym_xCx, coop_matrix_det_small,coop_matsym_mat2vec, coop_matsym_vec2mat, coop_matsym_inverse_small, Coop_matsym_Inverse, Coop_matsym_Diagonalize, coop_matsymdiag_small,  Coop_matsym_Sqrt,  coop_matsym_sqrt_small,  coop_matsym_power_small,  Coop_matsym_power,  coop_matsym_function, Coop_matsym_LnDet, Coop_matsym_Solve, coop_matsym_index
+  public::coop_write_matrix, coop_print_matrix, coop_read_matrix, coop_set_identity_matrix, coop_identity_matrix, coop_diagonal_matrix, coop_matrix_add_diagonal, coop_matrix_sum_columns,  coop_matrix_solve_small,  Coop_matrix_Solve, Coop_matrix_Inverse, coop_matsym_xCx, coop_matrix_det_small,coop_matsym_mat2vec, coop_matsym_vec2mat, coop_matsym_inverse_small, Coop_matsym_Inverse, Coop_matsym_Diagonalize, coop_matsymdiag_small,  Coop_matsym_Sqrt,  coop_matsym_sqrt_small,  coop_matsym_power_small,  Coop_matsym_power,  coop_matsym_function, Coop_matsym_LnDet, Coop_matsym_Solve, coop_matsym_index, coop_matrix_sorted_svd
 
   COOP_INT,parameter::dl = kind(1.d0)
   COOP_INT,parameter::sp = kind(1.)
@@ -1108,5 +1109,26 @@ contains
     j = ind - (2*n+1-imj)*imj/2
     i = j + imj
   end subroutine coop_matsym_get_indices
+
+  subroutine coop_matrix_sorted_svd(n, a, w, v)
+    COOP_INT n, i
+    COOP_INT ind(n)
+    COOP_REAL a(n, n), w(n), v(n, n), tmp(n, n)
+    call coop_svd_decompose(n, n, a, w, v)
+    call coop_quicksortrevacc(w, ind)
+    tmp = a
+    !$omp parallel do
+    do i=1, n
+       a(:, i) = tmp(:, ind(i))
+    enddo
+    !$omp end parallel do
+    tmp = v
+    !$omp parallel do
+    do i=1, n
+       v(:, i) = tmp(:, ind(i))
+    enddo
+    !$omp end parallel do
+  end subroutine coop_matrix_sorted_svd
+
 
 end module Coop_matrix_mod

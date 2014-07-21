@@ -35,7 +35,7 @@ module coop_sort_mod
 
 contains
 
-  function left_location_of(n, arr, x) result(l)
+  function coop_left_location_of(n, arr, x) result(l)
     COOP_INT,intent(in):: n
     COOP_REAL,intent(in):: arr(n), x
     COOP_INT::l
@@ -61,9 +61,9 @@ contains
           endif
        enddo
     endif
-  end function left_location_of
+  end function coop_left_location_of
 
-  function right_location_of(n, arr, x) result(r)
+  function coop_right_location_of(n, arr, x) result(r)
     COOP_INT,intent(in):: n
     COOP_REAL,intent(in):: arr(n), x
     COOP_INT::r
@@ -89,7 +89,7 @@ contains
           endif
        enddo
     endif
-  end function right_location_of
+  end function coop_right_location_of
 
 
   !!%%%%%%%%%%%%%%%%%%%%%%%%%%%%%5

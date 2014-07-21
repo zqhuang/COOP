@@ -2,22 +2,18 @@ program Test
   use coop_wrapper_utils
   implicit none
 #include "constants.h"
-  type(coop_list_realarr) rl
-  integer,parameter::m  = 3, n = 10
+  integer,parameter::n = 20
+  COOP_REAL a(n, n), w(n), v(n, n), acopy(n, n)
   integer i
-  real  x(m)
-  do i= 1, n
-     call random_number(x)
-     call rl%push(x)
-  enddo
-  do i = 1, rl%n
-     print*, rl%element(i)
-  enddo
-  call rl%sort(3)
-  print*
-  do i = 1, rl%n
-     print*, rl%element(i)
+  call random_number(a)
+  acopy = a
+  call coop_matrix_sorted_svd(n, a, w, v)
+  do i=1, n
+     a(:,i)=a(:, i)*w(i)
   enddo
 
+  a = acopy - matmul(a, transpose(v))
+  print*, maxval(a), minval(a)
 
+  print*, w
 end program Test

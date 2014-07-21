@@ -5,7 +5,7 @@ module coop_special_function_mod
 
   private
 
-  public:: coop_log2, coop_sinc, coop_sinhc, coop_is_integer, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_incompleteGamma, coop_rec3j
+  public:: coop_log2, coop_sinc, coop_sinhc, coop_is_integer, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_incompleteGamma, coop_rec3j, coop_threej000, coop_pseudoCl_matrix
 
 
 
@@ -1713,6 +1713,41 @@ contains
     COOP_REAL x
     is = (x - nint(x)) .lt. 1.d-6
   end function coop_is_integer
+
+
+  function Coop_threej000(l1,l2,l3) result(w3j)
+    COOP_REAL  w3j
+    COOP_INT  l1,l2,l3, J, g
+    J = (l1+l2+l3)
+    if(l1+l2.lt.l3 .or. l2+l3.lt.l1 .or. l3+l1.lt.l2 .or. mod(J,2).ne.0)then
+       w3j = 0.d0
+       return
+    endif
+    g = J/2
+    w3j = dexp(&
+         log_gamma(g+1.d0)-log_gamma(g-l1+1.d0) &
+         -log_gamma(g-l2+1.d0) - log_gamma(g-l3+1.d0) &
+         +( &
+         log_gamma(J-2*l1+1.d0) + log_gamma(J-2*l2+1.d0) &
+         + log_gamma(J-2*l3+1.d0) - log_gamma(J+2.d0) &
+         )/2.d0 &
+         )
+    if(mod(g,2).ne.0) w3j = -w3j
+  end function Coop_threej000
+
+
+
+!!$  function coop_pseudoCl_matrix(l_pseudo, l, lmax, Cl_mask) result(m)
+!!$    COOP_INT l, l_pseudo, l2, lmax
+!!$    COOP_REAL m, Cl_mask(0:lmax)
+!!$    m = 0.d0
+!!$    do l2 = max(0, abs(l-l_pseudo)), min(lmax, abs(l+l_pseudo))
+!!$       m = m + cl_mask(l2)*(2.d0*l2+1.d0)*coop_threej000(l_pseudo, l, l2)**2
+!!$    enddo
+!!$    m = m*(2.d0*l_pseudo + 1.d0)/coop_4pi
+!!$  end function coop_pseudoCl_matrix
+!!$
+
 
 
 end module coop_special_function_mod

@@ -17,7 +17,7 @@ contains
          spread(b,dim=1,ncopies=size(a))
   end function Coop_outerprod
   
-  FUNCTION coop_pythag(a,b)
+  Function coop_pythag(a,b)
     COOP_REAL, INTENT(IN) :: a,b
     COOP_REAL :: coop_pythag
     COOP_REAL :: absa,absb
@@ -32,10 +32,10 @@ contains
           coop_pythag=absb*sqrt(1.0+(absa/absb)**2)
        end if
     end if
-  END FUNCTION coop_pythag
+  End function coop_pythag
 
 
-
+  !! SVD decomposition a = U diag(w) V^T, the output is w and V, a is replaced with U
   subroutine coop_svd_decompose(m, n, a, w, v)
     COOP_INT,parameter::maxits = 30
     COOP_INT m, n
@@ -199,7 +199,8 @@ contains
   end subroutine coop_svd_decompose
 
 
-  subroutine coop_svd_decompose_invw(m, n, a, w, v)
+  !!SVD decomposition a = U diag(1/w) V^T, the output is w and V, a is replaced with U
+  Subroutine coop_svd_decompose_invw(m, n, a, w, v)
     COOP_REAL,parameter::wtol = 1.d-7
     COOP_INT m, n
     COOP_REAL, INTENT(INOUT) :: a(m, n)
@@ -213,16 +214,14 @@ contains
     elsewhere
        w = 1.d0/w
     end where
-  end subroutine coop_svd_decompose_invw
+  End Subroutine coop_svd_decompose_invw
 
-
-
-  subroutine coop_svd_sol_single(m, n, u, w, v, b, x)
+  Subroutine coop_svd_sol_single(m, n, u, w, v, b, x)
     COOP_INT m, n
     COOP_REAL, INTENT(IN) :: u(m, n), w(n), v(n, n), b(m)
     COOP_REAL, INTENT(OUT) :: x(n)
     x=matmul(v,matmul(b,u)*w)
-  end subroutine coop_svd_sol_single
+  End Subroutine coop_svd_sol_single
 
   subroutine coop_svd_sol_multiple(m, n, nd, u, w, v, b, x)
     COOP_INT m, n, nd

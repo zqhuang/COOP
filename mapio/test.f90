@@ -10,22 +10,43 @@ program test
 
   implicit none
 #include "constants.h"
-  type(coop_healpix_maps)::map, imask, polmask !imap, polmap, inoise, polnoise, iqumap
-  call map%read("pl353/353GHz_ful.fits")
-  call imask%read("predx11/predx11_imask.fits")
-!  call polmask%read("ffp7/ffp7_union_polmask_2048.fits")
-  call polmask%read("predx11/predx11_polmask.fits")
-  map%map(:,1) = map%map(:,1)*imask%map(:,1)
-  map%map(:,2) = map%map(:,2)*polmask%map(:,1)
-  map%map(:,3) = map%map(:,3)*polmask%map(:,1)
-  map%map = map%map*1.d6
-  call map%write("pl353/pl353_iqu.fits")
-!!$  call iqumap%init(nside=1024, nmaps = 3, spin = (/ 0, 2, 2 /) )
-!!$  call imap%read("pl353/353GHz_ful.fits")
-!!$  call inoise%read("ffp7/ffp7_smica_noise_1024_I_smoothed_fwhm15arcmin.fits")
-!!$  iqumap%map(:,1:1) = imap%map + inoise%map
-!!$  call polmap%read("ffp7/ffp7_nobpm_smica_cmb_mc_0001_15a_1024_QU.fits")
-!!$  call polnoise%read("ffp7/ffp7_nobpm_smica_noise_mc_0001_15a_1024_QU.fits")
-!!$  iqumap%map(:,2:3) = polmap%map + polnoise%map
-!!$  call iqumap%write("ffp7/ffp7_cmb_plus_noise_0001_15a_1024.fits")
+  type(coop_healpix_maps)::map, imask, polmask, cutmap
+  type(coop_file)::fp
+  integer l, il, i
+  COOP_REAL::beam_fwhm = 5.*coop_SI_arcmin
+  COOP_REAL sigma
+  COOP_INT, parameter::nside = 256
+  call coop_random_init()
+  call map%init(nside = nside, nmaps=1, spin = (/ 0 /) ) ! 2, 2 /))
+
+  map%map = 0.
+  call map%map2alm()
+
+  map%cl(0:1,:) = 0.d0
+  sigma = coop_sigma_by_fwhm * beam_fwhm
+  call fp%open("cls.dat", "r")
+  do l=2, map%lmax
+     read(fp%unit, *) il, map%cl(l, coop_healpix_index_TT) !, map%cl(l, coop_healpix_index_EE), map%cl(l, coop_healpix_index_BB), map%cl(l, coop_healpix_index_TE)
+     map%cl(l, :) = map%cl(l, :)*exp(-l*(l+1.d0)*sigma**2)
+     if(il.ne.l) stop "Cls file wrong"
+  enddo
+  call fp%close()
+
+  cutmap = map
+
+  call imask%open("predx11/predx11_imask_nside"//trim(coop_num2str(nside))//".fits")
+  call polmask%open("predx11/predx11_polmask_nside"//trim(coop_num2str(nside))//".fits")
+
+  call map%simulate()
+  call map%get_cls()
+  cutmap = map
+  call cutmap%mask(imask, polmask)
+  call cutmap%map2alm()
+  call cutmap%get_fullcls(imask, polmask)
+  call fp%open("test.txt")
+  do l = 2, map%lmax
+     write(fp%unit, "(I5, 2E16.7)") l, cutmap%cl(l, :), map%cl(l, :)
+  enddo
+  call fp%close
+     
 end program test

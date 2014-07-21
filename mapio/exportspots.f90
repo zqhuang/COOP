@@ -4,12 +4,12 @@ program test
   implicit none
 #include "constants.h"
 
-  integer,parameter::fwhm_arcmin = 15
-  COOP_UNKNOWN_STRING, parameter::spot_type = "PmaxSortT"
-  COOP_UNKNOWN_STRING, parameter::input_file ="pl353/pl353_iqu_ipresmoothed.fits"
-  COOP_UNKNOWN_STRING, parameter::mask_file  = "ffp7/ffp7_union_polmask_2048.fits"
+  integer,parameter::fwhm_arcmin = 0
+  COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
+  COOP_UNKNOWN_STRING, parameter::input_file ="comparison/iqu.fits"
+  COOP_UNKNOWN_STRING, parameter::mask_file  = "comparison/ffp7_nobpm_smica_mask_05a_d1024_IP.fits" 
 
-  COOP_REAL, parameter:: threshold = 0.5d0
+  COOP_REAL, parameter:: threshold = 0.
   COOP_STRING output_file
   COOP_REAL,parameter::fwhm = fwhm_arcmin*coop_SI_arcmin
   COOP_INT l

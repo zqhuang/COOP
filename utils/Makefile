@@ -6,8 +6,8 @@ include ../configure.in
 include ../compile_rules.in
 
 LIB = libcooputils.a
-OBJ = MPIutils.o specfunc.o list.o random.o matrix.o interpolation.o integrate.o ode.o file_io.o asy.o  fft.o jlbrute.o  solvepower.o zqwrap.o inifile.o wrapper.o 
-#threejs.o jllpm.o  
+OBJ = MPIutils.o specfunc.o list.o random.o matrix.o interpolation.o integrate.o ode.o file_io.o asy.o  fft.o jlbrute.o  solvepower.o zqwrap.o inifile.o  wrapper.o 
+#jllpm.o  threejs.o
 
 default: $(LIB)
 
@@ -19,3 +19,6 @@ Test: $(OBJ) test.o $(TYPEDEF)/libcooptypedef.a
 
 clean:
 	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test
+
+
+test.o: $(LIB)

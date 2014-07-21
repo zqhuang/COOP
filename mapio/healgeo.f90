@@ -22,8 +22,8 @@ module coop_healpix_mod
   integer,parameter::coop_inpainting_lowl_max = 20
   integer,parameter::coop_inpainting_lowl_min = 5
 
-  integer, parameter::coop_healpix_default_lmax=2500
-  COOP_REAL, parameter::coop_healpix_mask_tol = 0.95
+  integer, parameter::coop_healpix_default_lmax=3000
+  COOP_REAL, parameter::coop_healpix_mask_tol = 0.96
   integer::coop_healpix_inpainting_lowl=5
   real(dl),parameter::coop_healpix_diffuse_scale = 10.d0*coop_SI_arcmin
   integer,parameter::coop_healpix_index_TT = 1
@@ -52,11 +52,16 @@ module coop_healpix_mod
      real, dimension(:,:),allocatable::Cl
      integer,dimension(:),allocatable::mask_listpix, maskpol_listpix
      real(dl) chisq, mcmc_temperature
-   contains
+   contains     
+
      procedure :: init => coop_healpix_maps_init
      procedure :: free => coop_healpix_maps_free
      procedure :: write => coop_healpix_maps_write
      procedure :: read => coop_healpix_maps_read
+     procedure :: open => coop_healpix_maps_read
+     procedure :: mask => coop_healpix_maps_mask
+     procedure :: get_cls =>   coop_healpix_maps_get_cls
+     procedure :: get_fullcls => coop_healpix_maps_get_fullcls
      procedure :: map2alm => coop_healpix_maps_map2alm
      procedure :: alm2map => coop_healpix_maps_alm2map
      procedure :: simulate => coop_healpix_maps_simulate
@@ -483,14 +488,14 @@ contains
        enddo
     enddo
     !$omp end parallel do
-    call coop_healpix_maps_alm2map(this)
+    call this%alm2map
   end subroutine coop_healpix_maps_simulate_Tmaps
 
 
-  subroutine coop_healpix_get_Cls(this) !!I assume you have already called    this_map2alm(this)
-    type(coop_healpix_maps)this
+  subroutine coop_healpix_maps_get_cls(this) !!I assume you have already called    this_map2alm(this)
+    class(coop_healpix_maps)this
     integer l, m, i, j, k
-    if(.not.allocated(this%alm)) stop "coop_healpix_get_Cls: you have to call coop_healpix_maps_map2alm before calling this subroutine"
+    if(.not.allocated(this%alm)) stop "coop_healpix_maps_get_cls: you have to call coop_healpix_maps_map2alm before calling this subroutine"
     !$omp parallel do private(i,j,k,l)
     do i=1, this%nmaps
        do j=1, i
@@ -501,7 +506,7 @@ contains
        enddo
     enddo
     !$omp end parallel do
-  end subroutine coop_healpix_get_Cls
+  end subroutine coop_healpix_maps_get_cls
 
   subroutine coop_healpix_Cls2Rot(lmax, Cls, Cls_sqrteig, Cls_rot)
     integer lmax
@@ -607,7 +612,7 @@ contains
        enddo
     enddo
     !$omp end parallel do
-    call coop_healpix_maps_alm2map(this)
+    call this%alm2map()
   end subroutine coop_healpix_maps_simulate_TQUmaps
 
 
@@ -880,7 +885,7 @@ contains
     stop "CANNOT FIND HEALPIX"
 #endif
     if(allocated(alm))deallocate(alm)
-    call coop_healpix_get_Cls(this)
+    call coop_healpix_maps_get_cls(this)
   end subroutine coop_healpix_maps_map2alm
 
 
@@ -1138,7 +1143,7 @@ contains
 
 
 
-  subroutine coop_healpix_maps_stack(this, patch, spots_file, mask, hemisphere_direction)
+  subroutine coop_healpix_maps_stack(this, patch, spots_file, mask, hemisphere_direction, do_weight)
     COOP_UNKNOWN_STRING::spots_file
     COOP_INT,parameter::n_threads = 4
     class(coop_healpix_maps)::this
@@ -1151,6 +1156,7 @@ contains
     type(coop_file)::fp
     COOP_INT imap, ithread, i, pix, iaccept, ireject
     COOP_REAL,optional:: hemisphere_direction(2)
+    logical,optional::do_weight
     COOP_REAL hcos, hsin
 #ifdef HAS_HEALPIX
     if(.not. coop_file_exists(spots_file))then
@@ -1216,7 +1222,17 @@ contains
        call p(ithread)%free()
        call tmp(ithread)%free()
     enddo
-    patch%image = patch%image/patch%nstack_raw
+    if(present(do_weight))then
+       if(do_weight)then
+          do i=1, patch%nmaps
+             patch%image(:, :, i) = patch%image(:, :, i)/patch%nstack
+          enddo
+       else
+          patch%image = patch%image/patch%nstack_raw
+       endif
+    else
+       patch%image = patch%image/patch%nstack_raw
+    endif
     deallocate(theta, phi, angle)
 #else
     stop "CANNOT FIND HEALPIX"
@@ -2540,6 +2556,7 @@ contains
     where(mask%map(:,1) .lt. 0.5)
        map%map(:,1) = 0.
     end where
+
     
     if(present(maskpol_file)) then
        call maskpol%read(maskpol_file, nmaps_wanted = 1)
@@ -2615,12 +2632,11 @@ contains
     type(coop_healpix_maps) map, simumap,tmpmap
     call map%map2alm()
     map%cl(0:1, :) = 0.
-    map%cl(:, coop_healpix_index_TT) = max(map%cl(:, coop_healpix_index_TT), 1.e-8)*(map%npix/real(map%npix - map%mask_npix))
+    map%cl(:, coop_healpix_index_TT) = max(map%cl(:, coop_healpix_index_TT), 1.e-20)*(map%npix/real(map%npix - map%mask_npix))
     if(map%nmaps.ge.3)then
-       map%cl(:, coop_healpix_index_EE) = max(map%cl(:, coop_healpix_index_EE), 1.e-10)*(map%npix/real(map%npix-map%maskpol_npix))
-       map%cl(:, coop_healpix_index_TE) = map%cl(:, coop_healpix_index_TE)*sqrt((map%npix/real(map%npix-map%maskpol_npix))*(map%npix/real(map%npix-map%mask_npix))*0.999999) !!0.999999 is to avoid 0 determinant
+       map%cl(:, coop_healpix_index_EE) = max(map%cl(:, coop_healpix_index_EE), 1.e-20)*(map%npix/real(map%npix-map%maskpol_npix))
+       map%cl(:, coop_healpix_index_TE) = map%cl(:, coop_healpix_index_TE)* sqrt( (map%npix/real(map%npix - map%mask_npix)) * (map%npix/real(map%npix-map%maskpol_npix)) ) * (1.d0 - 1.d-6)  !!make sure TE^2 < TT * EE
        map%cl(:, coop_healpix_index_BB) = max(map%cl(:, coop_healpix_index_BB), 1.e-12)*(map%npix/real(map%npix-map%maskpol_npix))
-
        map%cl(:, coop_healpix_index_EB) = 0. 
        map%Cl(:, coop_healpix_index_TB) = 0.
     endif
@@ -2767,6 +2783,113 @@ contains
     stop "CANNOT FIND HEALPIX"
 #endif
   end subroutine coop_healpix_flip_mask
+
+  subroutine coop_healpix_maps_mask(map, mask, polmask)
+    class(coop_healpix_maps) map
+    type(coop_healpix_maps) mask
+    type(coop_healpix_maps),optional::polmask
+    if(map%nside  .ne. mask%nside) stop "mask: nside must be the same as the map"
+    map%map(:,1) = map%map(:,1)*mask%map(:,1)
+    if(map%nmaps.ge.3 .and. present(polmask))then
+       if(map%nside  .ne. polmask%nside) stop "pol mask: nside must be the same as the map"
+       map%map(:,2) = map%map(:,2)*polmask%map(:,1)
+       map%map(:,3) = map%map(:,3)*polmask%map(:,1)
+    endif
+  end subroutine coop_healpix_maps_mask
+
+  subroutine coop_healpix_maps_get_fullCls(map, mask, polmask)
+    integer,parameter::lrange = 20
+    class(coop_healpix_maps) map
+    type(coop_healpix_maps) mask, mapcopy
+    type(coop_healpix_maps),optional::polmask
+    COOP_REAL, dimension(:),allocatable::ifsky, polfsky
+    COOP_REAL:: w(-lrange:lrange)
+    integer i, j, ncls, l, isim
+
+    if(mask%nside .ne. map%nside) stop "nside must agree for get_fullCl"
+    if(present(polmask) .and. map%nmaps .eq. 3 .and. map%iq .eq. 2)then
+       if(polmask%nside .ne. map%nside) stop "nside must agree for get_fullCl"
+       call map%mask(mask, polmask)
+       ncls = 6
+    else
+       call map%mask(mask)
+       ncls = 1
+    endif
+    call map%map2alm()
+    allocate(ifsky(0:map%lmax))
+    ifsky = count(mask%map(:,1).gt.0.)/dble(mask%npix)
+    if(ncls .eq. 6)then
+       allocate(polfsky(0:map%lmax))
+       polfsky = count(polmask%map(:, 1).gt.0.)/dble(polmask%npix)
+    endif
+
+    select type(map)
+    type is (coop_healpix_maps)
+       mapcopy = map
+    class default
+       stop "get_fullCls: can only process healpix_maps structure"
+    end select
+    do l=-lrange, lrange
+       w(l) = exp(-(l*2.d0/lrange)**2)
+    enddo
+    w = w/sum(w)
+    call do_cl_map()
+    do isim = 1, 3
+       call mapcopy%simulate()
+       if(present(polmask) .and. map%nmaps .eq. 3 .and. map%iq .eq. 2)then
+          call mapcopy%mask(mask, polmask)
+       else
+          call mapcopy%mask(mask)
+       endif
+       call mapcopy%map2alm()
+       do l= lrange, map%lmax - lrange
+          ifsky(l) = ifsky(l)/sum(map%cl(l-lrange:l+lrange, coop_healpix_index_TT)*w)*sum(mapcopy%cl(l-lrange:l+lrange, coop_healpix_index_TT)*w)
+       enddo
+       do l=0, lrange-1
+          ifsky(l) = ifsky(l)/sum(map%cl(0:l+lrange, coop_healpix_index_TT)*w(-l:lrange))*sum(mapcopy%cl(0:l+lrange, coop_healpix_index_TT)*w(-l:lrange))
+       enddo
+       do l = map%lmax - lrange + 1, map%lmax
+          ifsky(l) = ifsky(l)/sum(map%cl(l-lrange:map%lmax, coop_healpix_index_TT)*w(-lrange:map%lmax-l))*sum(mapcopy%cl(l-lrange:map%lmax, coop_healpix_index_TT)*w(-lrange:map%lmax-l))
+       enddo
+       if(ncls.eq.6)then
+          do l= lrange, map%lmax - lrange
+             polfsky(l) = polfsky(l)/sum(map%cl(l-lrange:l+lrange, coop_healpix_index_EE)*w)*sum(mapcopy%cl(l-lrange:l+lrange, coop_healpix_index_EE)*w)
+          enddo
+          do l=0, lrange-1
+             polfsky(l) = polfsky(l)/sum(map%cl(0:l+lrange, coop_healpix_index_EE)*w(-l:lrange))*sum(mapcopy%cl(0:l+lrange, coop_healpix_index_EE)*w(-l:lrange))
+          enddo
+          do l = map%lmax - lrange + 1, map%lmax
+             polfsky(l) = polfsky(l)/sum(map%cl(l-lrange:map%lmax, coop_healpix_index_EE)*w(-lrange:map%lmax-l))*sum(mapcopy%cl(l-lrange:map%lmax, coop_healpix_index_EE)*w(-lrange:map%lmax-l))
+          enddo
+       endif
+       call do_cl_map()
+    enddo
+    map%cl = mapcopy%cl 
+    call mapcopy%free()
+    deallocate(ifsky)
+    if(ncls.eq.6)deallocate(polfsky)
+
+    contains
+
+      subroutine do_cl_map()
+       mapcopy%cl(:,coop_healpix_index_TT) = map%cl(:,coop_healpix_index_TT)/ifsky
+       select case(mapcopy%nmaps)
+       case(1)  !!I
+       case(3)  !!I, Q, U
+          if(.not. present(polmask))stop "for IQU mapcopys you need to specify polarization mask"
+          if( map%iq .ne. 2) stop "get_fullcls only supports IQU map"
+          mapcopy%cl(:,coop_healpix_index_EE) = map%cl(:,coop_healpix_index_EE)/polfsky
+          mapcopy%cl(:,coop_healpix_index_BB) = map%cl(:,coop_healpix_index_BB)/polfsky
+          mapcopy%cl(:,coop_healpix_index_TE) = map%cl(:,coop_healpix_index_TE)/sqrt(ifsky*polfsky)*(1.d0-1.d-6)
+          mapcopy%cl(:,coop_healpix_index_TB) = map%cl(:,coop_healpix_index_TB)/sqrt(ifsky*polfsky) * (1.d0 - 1.d-6)
+          mapcopy%cl(:,coop_healpix_index_EB) = map%cl(:,coop_healpix_index_EB)/polfsky
+       case default
+          stop "get_fullCl only supports I or IQU maps"
+       end select
+     end subroutine do_cl_map
+  end subroutine coop_healpix_maps_get_fullCls
+
+
 
 
 end module coop_healpix_mod

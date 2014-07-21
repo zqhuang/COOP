@@ -385,6 +385,4 @@ contains
   end subroutine coop_string_decrypt
 
 
-
-
 end module coop_file_mod

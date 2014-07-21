@@ -77,7 +77,6 @@
 #define COOP_PP_SCAN_LINEAR 3
 #define COOP_PP_GENERAL_SINGLE_FIELD 4
 
-!!for healpix
 #define COOP_RING 1
 #define COOP_NESTED 2
 

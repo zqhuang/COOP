@@ -16,7 +16,7 @@ program test
   COOP_REAL::beam_fwhm = 5.*coop_SI_arcmin
   COOP_REAL sigma
   call coop_random_init()
-  call map%init(nside = 512, nmaps=3, spin = (/ 0, 2, 2 /))
+  call map%init(nside = 1024, nmaps=3, spin = (/ 0, 2, 2 /))
   call map%map2alm()
   sigma = coop_sigma_by_fwhm * beam_fwhm
   call fp%open("cls.dat", "r")
@@ -29,6 +29,6 @@ program test
   call map%simulate()
   call map%map2alm()
   print*, map%cl(2:10, 1)
-  call map%write("sim2/sim2_iqu_nside512.fits")
+  call map%write("sim2/sim2_iqu_nside1024.fits")
 
 end program test

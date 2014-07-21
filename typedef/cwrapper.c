@@ -408,3 +408,156 @@ void cprint_(char *c){
 }
 
 
+
+
+
+void cwrapper_q_sortrev_int(int numbers[], int left, int right)
+{
+  int pivot, l_hold, r_hold;
+#include "sortrev.h"
+  if (l_hold < left)
+    cwrapper_q_sortrev_int(numbers, l_hold, left-1);
+  if (left < r_hold)
+    cwrapper_q_sortrev_int(numbers, left+1, r_hold);
+}
+
+void quicksortrev_int_(int numbers[], int *array_size)
+{
+  cwrapper_q_sortrev_int(numbers, 0, (*array_size) - 1);
+}
+
+
+ 
+ 
+void cwrapper_q_sortrev_float(float numbers[], int left, int right)
+{
+  float pivot;
+  int l_hold, r_hold;
+#include "sortrev.h"
+  if (l_hold < left)
+    cwrapper_q_sortrev_float(numbers, l_hold, left-1);
+  if (left < r_hold)
+    cwrapper_q_sortrev_float(numbers, left+1, r_hold);
+}
+
+
+void quicksortrev_float_(float numbers[], int *array_size)
+{
+  cwrapper_q_sortrev_float(numbers, 0, (*array_size) - 1);
+}
+
+ 
+ 
+void cwrapper_q_sortrev_double(double numbers[], int left, int right)
+{
+  double pivot;
+  int l_hold, r_hold;
+#include "sortrev.h"
+  if (l_hold < left)
+    cwrapper_q_sortrev_double(numbers, l_hold, left-1);
+  if (left < r_hold)
+    cwrapper_q_sortrev_double(numbers, left+1, r_hold);
+}
+
+
+void quicksortrev_double_(double numbers[], int* array_size)
+{
+  cwrapper_q_sortrev_double(numbers, 0, (*array_size) - 1);
+}
+
+
+
+void cwrapper_q_sortrev_double_with_indices(double numbers[], int indices[], int left, int right)
+{
+  double pivot;
+  int ipivot;
+  int l_hold, r_hold;
+#include "sortrev_acc.h"
+  if (l_hold < left)
+    cwrapper_q_sortrev_double_with_indices(numbers, indices, l_hold, left-1);
+  if (left < r_hold)
+    cwrapper_q_sortrev_double_with_indices(numbers, indices, left+1, r_hold);
+}
+
+
+void quicksortrev_double_with_indices_(double numbers[], int indices[], int* array_size)
+{
+  cwrapper_q_sortrev_double_with_indices(numbers, indices, 0, (*array_size) - 1);
+}
+
+
+void cwrapper_q_sortrev_float_with_indices(float numbers[], int indices[], int left, int right)
+{
+  float pivot;
+  int ipivot;
+  int l_hold, r_hold;
+#include "sortrev_acc.h"
+  if (l_hold < left)
+    cwrapper_q_sortrev_float_with_indices(numbers, indices, l_hold, left-1);
+  if (left < r_hold)
+    cwrapper_q_sortrev_float_with_indices(numbers, indices, left+1, r_hold);
+}
+
+
+void quicksortrev_float_with_indices_(float numbers[], int indices[], int* array_size)
+{
+  cwrapper_q_sortrev_float_with_indices(numbers, indices, 0, (*array_size) - 1);
+}
+
+
+void cwrapper_q_sortrev_int_with_indices(int numbers[], int indices[], int left, int right)
+{
+  int pivot, ipivot;
+  int l_hold, r_hold;
+#include "sortrev_acc.h"
+  if (l_hold < left)
+    cwrapper_q_sortrev_int_with_indices(numbers, indices, l_hold, left-1);
+  if (left < r_hold)
+    cwrapper_q_sortrev_int_with_indices(numbers, indices, left+1, r_hold);
+}
+
+
+void quicksortrev_int_with_indices_(int numbers[], int indices[], int* array_size)
+{
+  cwrapper_q_sortrev_int_with_indices(numbers, indices, 0, (*array_size) - 1);
+}
+
+
+
+
+void cwrapper_q_sortrev_double_with_double(double numbers[], double indices[], int left, int right)
+{
+  double pivot;
+  double ipivot;
+  int l_hold, r_hold;
+#include "sortrev_acc.h"
+  if (l_hold < left)
+    cwrapper_q_sortrev_double_with_double(numbers, indices, l_hold, left-1);
+  if (left < r_hold)
+    cwrapper_q_sortrev_double_with_double(numbers, indices, left+1, r_hold);
+}
+
+
+void quicksortrev_double_with_double_(double numbers[], double indices[], int* array_size)
+{
+  cwrapper_q_sortrev_double_with_double(numbers, indices, 0, (*array_size) - 1);
+}
+
+
+void cwrapper_q_sortrev_float_with_float(float numbers[], float indices[], int left, int right)
+{
+  float pivot;
+  float ipivot;
+  int l_hold, r_hold;
+#include "sortrev_acc.h"
+  if (l_hold < left)
+    cwrapper_q_sortrev_float_with_float(numbers, indices, l_hold, left-1);
+  if (left < r_hold)
+    cwrapper_q_sortrev_float_with_float(numbers, indices, left+1, r_hold);
+}
+
+
+void quicksortrev_float_with_float_(float numbers[], float indices[], int* array_size)
+{
+  cwrapper_q_sortrev_float_with_float(numbers, indices, 0, (*array_size) - 1);
+}
