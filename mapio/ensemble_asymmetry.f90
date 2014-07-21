@@ -18,7 +18,7 @@ program test
   COOP_INT, parameter::n = 30
   COOP_REAL, parameter::dr = 10.*coop_SI_arcmin
   COOP_INT, parameter:: imap = 1
-  integer,parameter::n_sim = 300
+  integer,parameter::n_sim = 600
   COOP_STRING::fmt, fmtscreen
   COOP_UNKNOWN_STRING, parameter::resol = "1024"
   COOP_UNKNOWN_STRING, parameter::inp = "_inp"
