@@ -18,14 +18,13 @@ program test
   COOP_INT, parameter::n = 30
   COOP_REAL, parameter::dr = 10.*coop_SI_arcmin
   COOP_INT, parameter:: imap = 1
-  integer,parameter::n_sim = 600
+  integer,parameter::n_sim = 1000
   COOP_STRING::fmt, fmtscreen
-  COOP_UNKNOWN_STRING, parameter::resol = "1024"
-  COOP_UNKNOWN_STRING, parameter::inp = "_inp"
-  COOP_UNKNOWN_STRING, parameter::map_file = prefix//"/"//prefix//inp//"_i"//resol//"_smoothed_fwhm15arcmin.fits"
+  COOP_UNKNOWN_STRING, parameter::resol = "512"
+  COOP_UNKNOWN_STRING, parameter::map_file = prefix//"/"//prefix//"_iqu"//resol//".fits"
   COOP_UNKNOWN_STRING, parameter::imask_file  = prefix//"/"//prefix//"_imask"//resol//".fits"
   COOP_UNKNOWN_STRING, parameter::polmask_file  = prefix//"/"//prefix//"_polmask"//resol//".fits"
-  COOP_UNKNOWN_STRING, parameter::fr_file = prefix//resol//inp//"_fofr_sim_"//stack_type//".dat"
+  COOP_UNKNOWN_STRING, parameter::fr_file = prefix//"_"//stack_type//"_sim_Fr"//resol//".dat"
   type(coop_healpix_patch)::patch_s, patch_n
   type(coop_healpix_maps)::map, sim, tmp
   type(coop_healpix_maps)::imask, polmask
@@ -38,8 +37,8 @@ program test
   type(coop_list_integer)::listpix
   type(coop_list_real)::listangle
   type(coop_file) fpsim
-  integer,parameter::ncols_used = 15
-  COOP_REAL, parameter::epsilon = 1.d-6
+  integer,parameter::ncols_used = 5
+  COOP_REAL, parameter::epsilon = 1.d-8
   COOP_INT nmaps_wanted, ismall, ilarge
 
   !!read mask and map
@@ -63,20 +62,6 @@ program test
 
   call map%read(map_file, nmaps_wanted = nmaps_wanted)
 
-  if(index(map_file, "inp") .eq. 0)then  !!not an inpainting map, remove things in the mask
-     where(imask%map(:,1).lt.0.5)
-        map%map(:,1) = 0.
-     end where
-     if(map%nmaps.eq.3)then
-        where(polmask%map(:,1) .lt. 0.5)
-           map%map(:,2) = 0.
-           map%map(:,3) = 0.
-        end where
-     endif
-  endif
-
-  !!compute Cls
-  call map%map2alm(lmax=1600)
   if(nmaps_wanted .eq. 3)then
      call map%get_fullCls(imask, polmask)
   else
@@ -110,6 +95,7 @@ program test
            if(weight .ge. n_sim) exit
         enddo
         call fpsim%close()
+        write(*,*) "Loaded "//trim(coop_num2str(weight))//" lines from checkpoint"
      endif
   endif
 
@@ -118,13 +104,21 @@ program test
 
   call fpsim%open(fr_file, "a")
   do while(weight .lt. n_sim)
+     if(mod(weight, 20) .eq. 0)then
+        if(nmaps_wanted .eq. 3)then
+           call map%get_fullCls(imask, polmask)
+        else
+           call map%get_fullCls(imask)
+        endif
+        sim%cl = map%cl
+     endif
      call sim%simulate()
      tmp%map = sim%map
      tmp%ordering = sim%ordering
      weight = weight + 1
-     write(*,*) "simulation #"//trim(coop_num2str(weight))
      call tmp%get_listpix(listpix, listangle, spot_type, threshold, spots_mask)
      call sim%stack_north_south(patch_n, patch_s, listpix, listangle, hdir, stack_mask)
+     write(*,"(A)") "sim #"//trim(coop_num2str(weight))//", num_N = "//trim(coop_num2str(patch_n%nstack_raw))//", num_S = "//trim(coop_num2str(patch_s%nstack_raw))
      call patch_n%get_radial_profile(imap = imap, m = 0)
      call patch_s%get_radial_profile(imap = imap, m = 0)
      diff = patch_n%fr(:, 0, imap) - patch_s%fr(:, 0, imap)
@@ -154,9 +148,6 @@ program test
      err(j) = sqrt(cov(j,j))
   enddo
 
-  call fp%open(prefix//"_covmat.dat", "w")
-  call coop_write_matrix(fp%unit,cov, n+1, n+1)
-  call fp%close()
   psi = cov
   call coop_matsym_diagonalize(psi, eig, sort = .true.)
   do i=0,n
@@ -200,12 +191,10 @@ program test
   end do
   write(*,*) "probability of seeing chi^2 >= chi^2(data) is ", real(ilarge)/real(nlines)
 
-
-!!$  do i=n, n - ncols_used +  1,-1
+!!$  do i=n, 1,-1
 !!$     print*, sqrt(eig(i)), dot_product(diff, psi(:, i))/sqrt(eig(i))
 !!$  enddo
-
-
+!!$
 
   call fig%open(prefix//"_radial_profile.txt")
   call fig%init(xlabel = "$r$", ylabel = "$T(\mu K)$")

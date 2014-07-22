@@ -23,7 +23,7 @@ module coop_healpix_mod
   integer,parameter::coop_inpainting_lowl_min = 5
 
   integer, parameter::coop_healpix_default_lmax=3000
-  COOP_REAL, parameter::coop_healpix_mask_tol = 0.96
+  COOP_REAL, parameter::coop_healpix_mask_tol = 0.98
   integer::coop_healpix_inpainting_lowl=5
   real(dl),parameter::coop_healpix_diffuse_scale = 10.d0*coop_SI_arcmin
   integer,parameter::coop_healpix_index_TT = 1
@@ -100,7 +100,8 @@ module coop_healpix_mod
      COOP_REAL,dimension(:,:,:),allocatable::wcm
      COOP_REAL,dimension(:,:,:),allocatable::wsm
      COOP_INT, dimension(:,:,:),allocatable::icm
-     COOP_REAL,dimension(:,:),allocatable::nstack
+     COOP_REAL,dimension(:,:),allocatable::nstack, indisk
+     COOP_REAL::num_indisk_tol
    contains
      procedure::free => coop_healpix_patch_free
      procedure::init => coop_healpix_patch_init
@@ -271,6 +272,7 @@ contains
     if(allocated(this%wsm))deallocate(this%wsm)
     if(allocated(this%icm))deallocate(this%icm)
     if(allocated(this%nstack))deallocate(this%nstack)
+    if(allocated(this%indisk))deallocate(this%indisk)
     this%n = -1
     this%mmax = -1
   end subroutine coop_healpix_patch_free
@@ -330,6 +332,7 @@ contains
 
     allocate(this%image(-this%n:this%n, -this%n:this%n, this%nmaps))
     allocate(this%nstack(-this%n:this%n, -this%n:this%n))
+    allocate(this%indisk(-this%n:this%n, -this%n:this%n))
     allocate(this%r(0:this%n))
     allocate(this%fr(0:this%n, 0:this%mmax/2, this%nmaps))
     allocate(this%wcm(-this%n:this%n, -this%n:this%n, 0:this%mmax+1))
@@ -339,6 +342,18 @@ contains
     this%wcm = 0.
     this%wsm = 0.
     this%fr = 0.
+
+    this%indisk = 1.d0
+    do j=1, this%n
+       i = ceiling(sqrt((this%n-j)*dble(this%n+j)+1.d-20))
+       this%indisk(i:this%n, j) = 0.d0
+       this%indisk(-this%n:-i, j) = 0.d0
+       this%indisk(i:this%n, -j) = 0.d0
+       this%indisk(-this%n:-i, -j) = 0.d0
+    enddo
+    this%num_indisk_tol = count(this%indisk .ne. 0.d0)*coop_healpix_mask_tol
+
+
     !$omp parallel do
     do i=0, this%n
        this%r(i) = this%dr * i
@@ -1612,7 +1627,7 @@ contains
     COOP_REAL var(nvar)
     if(present(mask))then
        call coop_healpix_fetch_patch(this, disc, angle, tmp_patch, mask)
-       if(present(mask) .and. sum(tmp_patch%nstack) .lt. coop_healpix_mask_tol*patch%npix)then
+       if(present(mask) .and. sum(tmp_patch%nstack*tmp_patch%indisk) .lt. patch%num_indisk_tol)then
           return
        endif
     else
@@ -2805,7 +2820,6 @@ contains
     COOP_REAL, dimension(:),allocatable::ifsky, polfsky
     COOP_REAL:: w(-lrange:lrange)
     integer i, j, ncls, l, isim
-
     if(mask%nside .ne. map%nside) stop "nside must agree for get_fullCl"
     if(present(polmask) .and. map%nmaps .eq. 3 .and. map%iq .eq. 2)then
        if(polmask%nside .ne. map%nside) stop "nside must agree for get_fullCl"
@@ -2816,6 +2830,7 @@ contains
        ncls = 1
     endif
     call map%map2alm()
+
     allocate(ifsky(0:map%lmax))
     ifsky = count(mask%map(:,1).gt.0.)/dble(mask%npix)
     if(ncls .eq. 6)then

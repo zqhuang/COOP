@@ -11,7 +11,7 @@ Example2: example2.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ example2.o $(LINK)
 
 
-Test: test.o 
+Test:	test.o 
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ test.o $(LINK)
 
 clean:
