@@ -56,6 +56,11 @@ Asym: $(OBJ) asymmetry.o
 Ena: $(OBJ) ensemble_asymmetry.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) ensemble_asymmetry.o $(LINK)
 
+
+HSL: $(OBJ) hemisphere_stack_linearfit.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) hemisphere_stack_linearfit.o $(LINK)
+
+
 MSMAP: $(OBJ) map_merge_split.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) map_merge_split.o $(LINK)
 
@@ -79,7 +84,7 @@ FMerge:	 $(OBJ) flat_merge.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_merge.o $(LINK)	
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP HSM InpEB InpT Ena Asym TrimC GetCl QEB MultStack
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP HSM InpEB InpT Ena Asym TrimC GetCl QEB MultStack HSL
 
 
 test.o: $(LIB)

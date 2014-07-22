@@ -9,7 +9,11 @@ module coop_interpolation_mod
   integer,parameter::sp = kind(1.)
 
 
-  public::coop_bilinear_interp, coop_bicubic_interp, coop_linear_interp
+  public::coop_bilinear_interp, coop_bicubic_interp, coop_linear_interp, coop_linear_least_square_fit
+
+  Interface coop_linear_least_square_fit
+     module procedure coop_linear_least_square_fit_s, coop_linear_least_square_fit_d
+  end Interface coop_linear_least_square_fit
 
   Interface coop_linear_interp
      module procedure linear_interp_s, linear_interp_d
@@ -27,6 +31,55 @@ module coop_interpolation_mod
 
 
 contains
+
+  subroutine coop_linear_least_square_fit_d(n, x, y, k, b, r)
+    integer n
+    real(dl) x(n), y(n), k, b, xbar, ybar, sxx, syy, sxy
+    real(dl), optional::r
+    xbar  = sum(x)/n
+    ybar = sum(y)/n
+    sxx = sum((x-xbar)**2)
+    syy = sum((y-ybar)**2)
+    sxy = sum((x-xbar)*(y-ybar))
+    if(sxx .le. 0.d0)then
+       k = coop_infinity
+    else
+       k = sxy/sxx
+    endif
+    b = ybar - k*xbar
+    if(present(r))then
+       if(sxx .eq. 0.d0 .or. syy .eq. 0.d0)then
+          r = 1.d0
+       else
+          r = sxy**2/sxx/syy
+       endif
+    endif
+  end subroutine coop_linear_least_square_fit_d
+
+
+  subroutine coop_linear_least_square_fit_s(n, x, y, k, b, r)
+    integer n
+    real(sp) x(n), y(n), k, b, xbar, ybar, sxx, syy, sxy
+    real(sp), optional::r
+    xbar  = sum(x)/n
+    ybar = sum(y)/n
+    sxx = sum((x-xbar)**2)
+    syy = sum((y-ybar)**2)
+    sxy = sum((x-xbar)*(y-ybar))
+    if(sxx .le. 0.)then
+       k = coop_infinity
+    else
+       k = sxy/sxx
+    endif
+    b = ybar - k*xbar
+    if(present(r))then
+       if(sxx .le. 0. .or. syy .le. 0.)then
+          r = 1.
+       else
+          r = sxy**2/sxx/syy
+       endif
+    endif
+  end subroutine coop_linear_least_square_fit_s
 
   subroutine linear_interp_s(n, x, y, xs, ys)
     real(sp) xs, ys
@@ -51,8 +104,6 @@ contains
              l = j
           end if
        end do
-       a=(xs-x(r-1))/(x(r)-x(r-1))
-       ys=y(r)*a+y(r-1)*(1.d0-a)
     else
        if(xs .ge. x(1))then
           ys = y(1)
@@ -71,8 +122,12 @@ contains
              l = j
           endif
        enddo
+    endif
+    if(x(r).ne.x(r-1))then
        a=(xs-x(r-1))/(x(r)-x(r-1))
        ys=y(r)*a + y(r-1)*(1.d0-a)
+    else
+       ys = y(r)
     endif
   end subroutine linear_interp_s
 
@@ -81,7 +136,6 @@ contains
     integer n, j ,l , r
     real(dl) a
     real(dl) x(n), y(n)
-    n = coop_GetDim("LinearInterplolate", size(x), size(y))
     if(x(n).gt.x(1))then
        if(xs .lt. x(1))then
           ys = y(1)
@@ -100,8 +154,6 @@ contains
              l = j
           end if
        end do
-       a=(xs-x(r-1))/(x(r)-x(r-1))
-       ys=y(r)*a+y(r-1)*(1.d0-a)
     else
        if(xs .ge. x(1))then
           ys = y(1)
@@ -120,8 +172,12 @@ contains
              l = j
           endif
        enddo
+    endif
+    if(x(r).ne.x(r-1))then
        a=(xs-x(r-1))/(x(r)-x(r-1))
        ys=y(r)*a + y(r-1)*(1.d0-a)
+    else
+       ys = y(r)
     endif
   end subroutine linear_interp_d
 

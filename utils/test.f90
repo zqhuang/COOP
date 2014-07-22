@@ -2,18 +2,14 @@ program Test
   use coop_wrapper_utils
   implicit none
 #include "constants.h"
-  integer,parameter::n = 20
-  COOP_REAL a(n, n), w(n), v(n, n), acopy(n, n)
+  integer,parameter::n = 200
+  COOP_REAL x(n), y(n), k, b, r
   integer i
-  call random_number(a)
-  acopy = a
-  call coop_matrix_sorted_svd(n, a, w, v)
-  do i=1, n
-     a(:,i)=a(:, i)*w(i)
-  enddo
-
-  a = acopy - matmul(a, transpose(v))
-  print*, maxval(a), minval(a)
-
-  print*, w
+  call coop_set_uniform(n, x, 10.d0, coop_pi)
+  call random_number(y)
+  y = (2.*y-1.)
+  y = x*2.+5.+y
+  call coop_linear_least_square_fit(n, x, y, k, b, r)
+  print*, k, b, r
+  
 end program Test

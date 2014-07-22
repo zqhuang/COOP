@@ -185,7 +185,7 @@ contains
        lnps(nleft+1) = 0.d0
        lnps(nleft+2:nknots) = COOP_COSMO_PARAMS%r(COOP_INDEX_PP+coop_pp_cosmomc_num+nleft:COOP_INDEX_PP+COOP_NUM_PP-1)
        do i=1, coop_pp_n
-          !!$ linear interpolation
+          call coop_linear_interp(nknots, lnk, lnps, coop_pp_lnkMpc(i) - coop_pp_scalar_lnkpivot, coop_pp_lnps(i))
        enddo
        coop_pp_lnps = coop_pp_lnps + COOP_LN10TO10AS - 10.d0*coop_ln10
        deallocate(lnk, lnps)
@@ -198,6 +198,7 @@ contains
        case(COOP_PP_STANDARD)
           coop_pp_lnpt = log(COOP_AMP_RATIO * coop_primordial_ps(exp(coop_pp_tensor_lnkpivot)))+(COOP_NT)*(coop_pp_lnkMpc - coop_pp_tensor_lnkpivot) + COOP_NTRUN*(coop_pp_lnkMpc - coop_pp_tensor_lnkpivot)**2
        case(COOP_PP_SCAN_SPLINE)
+
        case(COOP_PP_SCAN_LINEAR)
        case(COOP_PP_GENERAL_SINGLE_FIELD)
        end select
