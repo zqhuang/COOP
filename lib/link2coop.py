@@ -167,7 +167,7 @@ replace_first("source/driver.F90", [line_pattern(r'program cosmomc'), line_patte
 print "************************************"
 print "Generating params files"
 
-batch_dir = search_value("test.ini", r'^DEFAULT\((\w+)\/common\.ini\)\s*$')
+batch_dir = search_value("test.ini", r'^DEFAULT\((\w+)\/[\w_]*common[\w_]*\.ini\)\s*$')
 common_file = search_value("test.ini", r'^DEFAULT\((\w+\/[\w_]*common[\w\_]*\.ini)\)\s*')
 common_pattern = r'^(DEFAULT\(\w+\/[\w_]*common[\w\_]*\.ini\))\s*$'
 
