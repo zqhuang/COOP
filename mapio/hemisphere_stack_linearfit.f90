@@ -10,7 +10,7 @@ program test
   implicit none
 #include "constants.h"
   COOP_REAL, parameter::pre_smooth = 15*coop_SI_arcmin
-  COOP_UNKNOWN_STRING, parameter::prefix = "ffp7"
+  COOP_UNKNOWN_STRING, parameter::prefix = "predx11"
   COOP_UNKNOWN_STRING, parameter::color_table = "Planck"
   COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
   COOP_UNKNOWN_STRING, parameter::stack_type = "T"
@@ -25,7 +25,7 @@ program test
   COOP_UNKNOWN_STRING, parameter::map_file = prefix//"/"//prefix//"_iqu"//resol//".fits"
   COOP_UNKNOWN_STRING, parameter::imask_file  = prefix//"/"//prefix//"_imask"//resol//".fits"
   COOP_UNKNOWN_STRING, parameter::polmask_file  = prefix//"/"//prefix//"_polmask"//resol//".fits"
-  COOP_UNKNOWN_STRING, parameter::fr_file = prefix//"_"//stack_type//"_sim_Fr"//resol//".dat"
+  COOP_UNKNOWN_STRING, parameter::fr_file = "ffr/"//prefix//"_"//stack_type//"_sim_Fr"//resol//".dat"
   type(coop_healpix_patch)::patch_s, patch_n
   type(coop_healpix_maps)::map, sim, tmp
   type(coop_healpix_maps)::imask, polmask
@@ -74,7 +74,8 @@ program test
   else
      call map%get_fullCls(imask)
   endif
-  call coop_healpix_lb2ang(l_deg = 226.d0, b_deg = -17.d0, theta = hdir(1), phi = hdir(2))
+!  call coop_healpix_lb2ang(l_deg = 226.d0, b_deg = -17.d0, theta = hdir(1), phi = hdir(2))
+  call coop_healpix_lb2ang(l_deg = 0.d0, b_deg = 0.d0, theta = hdir(1), phi = hdir(2))
 
   sim = map
   tmp = sim
