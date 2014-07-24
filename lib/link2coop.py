@@ -149,7 +149,7 @@ print "Modifying files:"
 
 replace_all("camb/Makefile", [r"^\s*(FFLAGS\s*=.*)$", r"^\s*(F90CRLINK\s*=.*)$"], [ coop_include_append, coop_link_append ]) 
 
-replace_all("source/Makefile", [r"^\s*(INCLUDE\s*=.*)$", r"^\s*(LINKFLAGS\s*=.*)$" ], [ coop_include_append, coop_link_append ])
+replace_all("source/Makefile", [r"^\s*(FFLAGS\s*=.*)$", r"^\s*(F90CRLINK\s*=.*)$", r"^\s*(INCLUDE\s*=.*)$", r"^\s*(LINKFLAGS\s*=.*)$" ], [ coop_include_append, coop_link_append, coop_include_append, coop_link_append ])
 
 
 replace_first("camb/equations_ppf.f90", [line_pattern(r"module lambdageneral"), r'is_cosmological_constant\s*=.+', function_pattern('w_de','a'), function_pattern('grho_de', 'a') ], [r'#include "constants.h"\nmodule LambdaGeneral \nuse coop_wrapper', r'is_cosmological_constant = .false.', r'function w_de(a)\n real(dl) w_de, a\n w_de = coop_global_de%wofa(COOP_REAL_OF(a)) \n end function w_de', 'function grho_de(a)\n real(dl) grho_de, a\n grho_de = grhov*coop_global_de%rhoa4_ratio(COOP_REAL_OF(a)) \n end function grho_de'] )
