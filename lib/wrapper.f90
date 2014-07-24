@@ -11,13 +11,46 @@ module coop_wrapper
   type(coop_species):: coop_global_massive_neutrinos
   type(coop_species):: coop_global_de
   type(coop_arguments)::coop_global_cosmological_parameters
-  
-  COOP_REAL::coop_pp_scalar_lnkpivot = log(0.05d0)
-  COOP_REAL::coop_pp_tensor_lnkpivot = log(0.002d0)
-  COOP_INT,parameter::coop_pp_n = 1024, coop_pp_cosmomc_num = 8  !!8 primordial power spctra 
+
+  COOP_STRING:: cosmomc_paramnames = "params_CMB.paramnames"
+  COOP_INT:: cosmomc_de_index = 8
+  COOP_INT:: cosmomc_de2pp_num_params = 7
+
+  COOP_INT:: cosmomc_de_model = COOP_DE_COSMOLOGICAL_CONSTANT
+  COOP_INT:: cosmomc_pp_model = COOP_PP_STANDARD
+  COOP_INT:: cosmomc_de_num_params = 2
+  COOP_INT:: cosmomc_pp_num_params = 8
+  COOP_INT:: coop_pp_cosmomc_num = 8
+  COOP_REAL:: coop_pp_scalar_lnkpivot = log(0.05d0)
+  COOP_REAL:: coop_pp_tensor_lnkpivot =  log(0.05d0)
+
+  COOP_INT,parameter::coop_pp_n = 1024  !!8 primordial power spctra 
   COOP_REAL,dimension(coop_pp_n)::coop_pp_lnkMpc, coop_pp_lnps, coop_pp_lnpt, coop_pp_lnps2, coop_pp_lnpt2
  
+  interface coop_setup_cosmology_from_cosmomc
+     module procedure coop_setup_cosmology_from_cosmomc_s, coop_setup_cosmology_from_cosmomc_d
+  end interface coop_setup_cosmology_from_cosmomc
+
 contains
+
+  subroutine coop_setup_cosmology_from_cosmomc_s(params, h)
+    real params(:)
+    double precision, optional::h
+    call COOP_COSMO_PARAMS%init(r = COOP_REAL_OF(params), i = (/ cosmomc_de_model, cosmomc_de_index, cosmomc_de_num_params, cosmomc_pp_model, cosmomc_de_index + cosmomc_de_num_params + cosmomc_de2pp_num_params, cosmomc_pp_num_params /) )
+    if(present(h))then
+       call coop_setup_global_cosmology_with_h(COOP_REAL_OF(h))
+    endif
+  end subroutine coop_setup_cosmology_from_cosmomc_s
+
+  subroutine coop_setup_cosmology_from_cosmomc_d(params, h)
+    doubleprecision params(:)
+    double precision, optional::h
+    call COOP_COSMO_PARAMS%init(r = COOP_REAL_OF(params), i = (/ cosmomc_de_model, cosmomc_de_index, cosmomc_de_num_params, cosmomc_pp_model, cosmomc_de_index + cosmomc_de_num_params + cosmomc_de2pp_num_params, cosmomc_pp_num_params /) )
+    if(present(h))then
+       call coop_setup_global_cosmology_with_h(COOP_REAL_OF(h))
+    endif
+  end subroutine coop_setup_cosmology_from_cosmomc_d
+
 
   subroutine coop_print_info()
     write(*,*) "This COOP Version "//trim(coop_version)
@@ -190,17 +223,16 @@ contains
        coop_pp_lnps = coop_pp_lnps + COOP_LN10TO10AS - 10.d0*coop_ln10
        deallocate(lnk, lnps)
     case(COOP_PP_GENERAL_SINGLE_FIELD)
+       stop "not applied yet"
     end select
     call coop_spline(coop_pp_n, coop_pp_lnkMpc, coop_pp_lnps, coop_pp_lnps2)
 
     if(COOP_AMP_RATIO .gt. 0.d0)then
        select case(COOP_PP_MODEL)
-       case(COOP_PP_STANDARD)
+       case(COOP_PP_STANDARD, COOP_PP_SCAN_SPLINE, COOP_PP_SCAN_LINEAR)
           coop_pp_lnpt = log(COOP_AMP_RATIO * coop_primordial_ps(exp(coop_pp_tensor_lnkpivot)))+(COOP_NT)*(coop_pp_lnkMpc - coop_pp_tensor_lnkpivot) + COOP_NTRUN*(coop_pp_lnkMpc - coop_pp_tensor_lnkpivot)**2
-       case(COOP_PP_SCAN_SPLINE)
-
-       case(COOP_PP_SCAN_LINEAR)
        case(COOP_PP_GENERAL_SINGLE_FIELD)
+          stop "not applied yet"
        end select
        call coop_spline(coop_pp_n, coop_pp_lnkMpc, coop_pp_lnpt, coop_pp_lnpt2)
     else
