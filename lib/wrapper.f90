@@ -175,7 +175,7 @@ contains
   end function coop_zrecomb_fitting
 
 
-  subroutine coop_pp_setup()
+  subroutine coop_setup_pp()
     logical,save::init = .true.
     COOP_REAL,dimension(:),allocatable::lnk, lnps, lnps2
     COOP_REAL  dlnk
@@ -239,7 +239,7 @@ contains
        coop_pp_lnpt = -50.d0
        coop_pp_lnpt2 = 0.d0
     endif
-  end subroutine coop_pp_setup
+  end subroutine coop_setup_pp
 
 
   function coop_primordial_lnps(kMpc)  result(lnps)
