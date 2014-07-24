@@ -166,8 +166,12 @@ replace_first("source/driver.F90", [line_pattern(r'program cosmomc'), line_patte
 
 print "************************************"
 print "Generating params files"
-batch_dir = search_value("test.ini", r'^DEFAULT\((\w+)\/common\.ini\)')
-if batch_dir == '':
+
+batch_dir = search_value("test.ini", r'^DEFAULT\((\w+)\/common\.ini\)\s*$')
+common_file = search_value("test.ini", r'^DEFAULT\((\w+\/[\w_]*common[\w\_]*\.ini)\)\s*')
+common_pattern = r'^(DEFAULT\(\w+\/[\w_]*common[\w\_]*\.ini\))\s*$'
+
+if batch_dir == '' or common_file == '':
     print "Cannot find batch directory."
     sys.exit()
 
@@ -177,28 +181,28 @@ copy_replace_first("params_CMB.paramnames", "paramnames/params_qcdm.paramnames",
 
 
 ##lcdm
-copy_replace_first("test.ini", 'lcdm.ini', [r'^(DEFAULT\(\w+\/common\.ini\)\s*)$', r'^file_root\s*=.+$', r'^action\s*=.+$'], [r'\1 \nde_model = 2 \nde_num_params='+str(index_nnu-index_w)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'file_root = lcdm', r'action = 0'] )
+copy_replace_first("test.ini", 'lcdm.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$'], [r'\1 \nde_model = 2 \nde_num_params='+str(index_nnu-index_w)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'file_root = lcdm', r'action = 0'] )
 
 
 ### w0
-copy_replace_first("test.ini", 'w0.ini', [r'^(DEFAULT\(\w+\/common\.ini\)\s*)$',  r'^file_root\s*=.+$', r'^action\s*=.+$'], [r'DEFAULT(' + batch_dir + r'/common_w0.ini) \nde_model = 2 \nde_num_params='+str(index_nnu-index_w)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'file_root = w0', r'action = 0'] )
-copy_replace_first(batch_dir + r'/common.ini', batch_dir + r'/common_w0.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_w0.ini)'] )
+copy_replace_first("test.ini", 'w0.ini', [common_pattern,  r'^file_root\s*=.+$', r'^action\s*=.+$'], [r'DEFAULT(' + batch_dir + r'/common_w0.ini) \nde_model = 2 \nde_num_params='+str(index_nnu-index_w)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'file_root = w0', r'action = 0'] )
+copy_replace_first(common_file, batch_dir + r'/common_w0.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_w0.ini)'] )
 copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_w0.ini', [r'^param\[w\]\s*=.+$', r'^param\[wa\]\s*=.+$'], [ r'param[w] = -1 -3 1 0.05 0.05', r'param[wa] = 0 0 0 0 0' ] ) 
 
-copy_replace_first("test.ini", 'w0wa.ini', [r'^(DEFAULT\(\w+\/common\.ini\)\s*)$', r'^file_root\s*=.+$', r'^action\s*=.+$'], [r'DEFAULT(' + batch_dir + r'/common_w0wa.ini) \nde_model = 2 \nde_num_params='+str(index_nnu-index_w)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'file_root = w0wa', r'action = 0'] )
-copy_replace_first(batch_dir + r'/common.ini', batch_dir + r'/common_w0wa.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_w0wa.ini)'] )
+copy_replace_first("test.ini", 'w0wa.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$'], [r'DEFAULT(' + batch_dir + r'/common_w0wa.ini) \nde_model = 2 \nde_num_params='+str(index_nnu-index_w)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'file_root = w0wa', r'action = 0'] )
+copy_replace_first(common_file, batch_dir + r'/common_w0wa.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_w0wa.ini)'] )
 copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_w0wa.ini', [r'^param\[w\]\s*=.+$', r'^param\[wa\]\s*=.+$'], [ r'param[w] = -1 -3 1 0.05 0.05', r'param[wa] = 0. -3 3 0.2 0.2' ] ) 
 
 
 #qcdm 1 parameter: epss
-copy_replace_first('test.ini', 'epss.ini', [r'^DEFAULT\((\w+)\/common\.ini\)\s*$', r'^file_root\s*=.+$', r'^action\s*=.+$'], [r'DEFAULT(\1/common_epss.ini) \nde_model = 3\nde_num_params=3\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = epss', r'action = 0'] )
-copy_replace_first(batch_dir + r'/common.ini', batch_dir + r'/common_epss.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_epss.ini)'] )
+copy_replace_first('test.ini', 'epss.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$'], [r'DEFAULT(' + batch_dir + r'/common_epss.ini) \nde_model = 3\nde_num_params=3\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = epss', r'action = 0'] )
+copy_replace_first(common_file, batch_dir + r'/common_epss.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_epss.ini)'] )
 copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_epss.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 -1.5 1.5 0.1 0.1 \nparam[epsinf] = 0 0 0 0 0  \nparam[zetas] = 0 0 0 0 0' ] ) 
 
 
 ##qcdm
-copy_replace_first('test.ini', 'qcdm.ini', [r'^DEFAULT\((\w+)\/common\.ini\)\s*$', r'^file_root\s*=.+$', r'^action\s*=.+$'], [r'DEFAULT(\1/common_qcdm.ini) \nde_model = 3\nde_num_params=3\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = qcdm', r'action = 0'] )
-copy_replace_first(batch_dir + r'/common.ini', batch_dir + r'/common_qcdm.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_qcdm.ini)'] )
+copy_replace_first('test.ini', 'qcdm.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$'], [r'DEFAULT('  + batch_dir + r'/common_qcdm.ini) \nde_model = 3\nde_num_params=3\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = qcdm', r'action = 0'] )
+copy_replace_first(common_file, batch_dir + r'/common_qcdm.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_qcdm.ini)'] )
 copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_qcdm.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 -1.5 1.5 0.1 0.1 \nparam[epsinf] = 0.05 0 1. 0.05 0.05 \nparam[zetas] = 0 -1 1 0.1 0.1' ] ) 
  
 ppnum = index_H0 - index_logA
@@ -208,10 +212,10 @@ for i in range(7, 16, 2):
         ppstr += (r'pp'+ str(j+1) + r'    p_{' + str(j+1) + r'}\n')
     ppstr += r'H0*        H_0'
     copy_replace_first(r'params_CMB.paramnames', r'paramnames/params_scanp' + str(i)+ r'.paramnames',  [ r'^H0\*\s+.+$' ], [ ppstr ])
-    copy_replace_first('test.ini', 'scanp'+str(i)+'.ini', [r'^DEFAULT\((\w+)\/common\.ini\)\s*$', r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$'], [r'DEFAULT(\1/common_pp.ini) \npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = pp'+str(i) , r'action = 0', r'compute_tensors = T'])
+    copy_replace_first('test.ini', 'scanp'+str(i)+'.ini', [common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$'], [r'DEFAULT(' + batch_dir + '/common_pp.ini) \npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = pp'+str(i) , r'action = 0', r'compute_tensors = T'])
 
 
-copy_replace_first(batch_dir + r'/common.ini', batch_dir + r'/common_pp.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_pp.ini)'] )
+copy_replace_first(common_file, batch_dir + r'/common_pp.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_pp.ini)'] )
 ppstr = r'param[ns] =  0.96 0.96 0.96 0 0 \n'
 for i in range(1, 16):
     ppstr += r'param[pp'+ str(i) + r'] = 0. -1. 1. 0.02 0.02 \n'
