@@ -208,14 +208,14 @@ for i in range(7, 16, 2):
         ppstr += (r'pp'+ str(j+1) + r'    p_{' + str(j+1) + r'}\n')
     ppstr += r'H0*        H_0'
     copy_replace_first(r'params_CMB.paramnames', r'paramnames/params_scanp' + str(i)+ r'.paramnames',  [ r'^H0\*\s+.+$' ], [ ppstr ])
-    copy_replace_first('test.ini', 'scanp'+str(i)+'.ini', [r'^DEFAULT\((\w+)\/common\.ini\)\s*$', r'^file_root\s*=.+$' , r'^action\s*=.+$'], [r'DEFAULT(\1/common_pp.ini) \npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = pp'+str(i) , r'action = 0'])
+    copy_replace_first('test.ini', 'scanp'+str(i)+'.ini', [r'^DEFAULT\((\w+)\/common\.ini\)\s*$', r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=\s*F\s*'], [r'DEFAULT(\1/common_pp.ini) \npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = pp'+str(i) , r'action = 0', r'compute_tensors = T'])
 
 
 copy_replace_first(batch_dir + r'/common.ini', batch_dir + r'/common_pp.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_pp.ini)'] )
 ppstr = r'param[ns] =  0.96 0.96 0.96 0 0 \n'
 for i in range(1, 16):
     ppstr += r'param[pp'+ str(i) + r'] = 0. -1. 1. 0.02 0.02 \n'
-copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_pp.ini', [r'^param\[ns\]\s*=.+$'], [ ppstr ] ) 
+copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_pp.ini', [r'^param\[ns\]\s*=.+$', '^param\[r\]\s*=.+$', '^compute_tensors\s*=.+$'], [ ppstr, r'param[r] = 0.12 0. 1. 0.05 0.05', r'compute_tensors = T' ] ) 
 
 
 

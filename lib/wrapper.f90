@@ -186,7 +186,7 @@ contains
     endif
     select case(COOP_PP_MODEL)
     case(COOP_PP_STANDARD)
-       coop_pp_lnps = exp(COOP_LN10TO10AS - 10.d0*coop_ln10 + ( COOP_NS - 1.d0 ) * (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) + (COOP_NRUN/2.d0) *   (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) ** 2 + (COOP_NRUNRUN/6.d0) *  (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) ** 6 )
+       coop_pp_lnps = COOP_LN10TO10AS - 10.d0*coop_ln10 + ( COOP_NS - 1.d0 ) * (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) + (COOP_NRUN/2.d0) *   (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) ** 2 + (COOP_NRUNRUN/6.d0) *  (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) ** 6
     case(COOP_PP_SCAN_SPLINE)
        nknots =  COOP_NUM_PP - coop_pp_cosmomc_num + 1
        if(nknots .lt. 4) stop "You need at least 4 knots for scan_spline mode"

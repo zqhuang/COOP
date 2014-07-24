@@ -10,7 +10,7 @@ program test
   implicit none
 #include "constants.h"
   COOP_REAL, parameter::pre_smooth = 15*coop_SI_arcmin
-  COOP_UNKNOWN_STRING, parameter::prefix = "predx11"
+  COOP_UNKNOWN_STRING, parameter::prefix = "ffp7"
   COOP_UNKNOWN_STRING, parameter::color_table = "Planck"
   COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
   COOP_UNKNOWN_STRING, parameter::stack_type = "T"
@@ -142,5 +142,13 @@ program test
   bsig = sqrt( sum((bdiff - bmean)**2)/n_sim )
   print*, (kdata - kmean)/ksig, count(kdiff .gt. kdata)/real(n_sim)
   print*, (bdata-bmean)/bsig, count(bdiff .gt. bdata)/real(n_sim)
+
+  call fig%open(prefix//resol//"_radial_profile.txt")
+  call fig%init(xlabel = "$r$", ylabel = "$T(\mu K)$")
+  call coop_asy_curve(fig, patch_n%r, diff, legend = "NS diff: "//prefix, color="red", linetype = "solid")
+  call coop_asy_curve(fig, patch_n%r, kdata*patch_n%r + bdata, legend = "linear fit", color = "black", linetype = "dashed")
+  call coop_asy_legend(fig)
+  call fig%close()
+
 
 end program test
