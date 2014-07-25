@@ -10,7 +10,9 @@ program test
   implicit none
 #include "constants.h"
   COOP_REAL, parameter::pre_smooth = 15*coop_SI_arcmin
-  COOP_UNKNOWN_STRING, parameter::prefix = "predx11"
+  COOP_INT, parameter::dir_l = 226
+  COOP_INT, parameter::dir_b = -17
+  COOP_UNKNOWN_STRING, parameter::prefix="predx11"
   COOP_UNKNOWN_STRING, parameter::color_table = "Planck"
   COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
   COOP_UNKNOWN_STRING, parameter::stack_type = "T"
@@ -19,19 +21,19 @@ program test
   COOP_INT, parameter::n = 30
   COOP_REAL, parameter::dr = 10.*coop_SI_arcmin
   COOP_INT, parameter:: imap = 1
-  integer,parameter::n_sim = 1000
+  integer,parameter::n_sim = 1020
   COOP_STRING::fmt, fmtscreen
   COOP_UNKNOWN_STRING, parameter::resol = "1024"
   COOP_UNKNOWN_STRING, parameter::map_file = prefix//"/"//prefix//"_iqu"//resol//".fits"
   COOP_UNKNOWN_STRING, parameter::imask_file  = prefix//"/"//prefix//"_imask"//resol//".fits"
   COOP_UNKNOWN_STRING, parameter::polmask_file  = prefix//"/"//prefix//"_polmask"//resol//".fits"
-  COOP_UNKNOWN_STRING, parameter::fr_file = "ffr/"//prefix//"_"//stack_type//"_sim_Fr"//resol//".dat"
+  COOP_UNKNOWN_STRING, parameter::fr_file = prefix//"_"//stack_type//"_sim_Fr"//resol//".dat"
   type(coop_healpix_patch)::patch_s, patch_n
   type(coop_healpix_maps)::map, sim, tmp
   type(coop_healpix_maps)::imask, polmask
   type(coop_healpix_maps)::stack_mask, spots_mask
   COOP_REAL diff(0:n), chisq,  hdir(2), kdata, bdata, kmean, bmean, ksig, bsig
-  COOP_REAL,dimension(n_sim)::kdiff, bdiff
+  COOP_REAL,dimension(n_sim)::ksim, bsim
   COOP_INT :: nspots, nlines, il, i, j, step, weight
   type(coop_asy)::fig
   type(coop_file)::fp
@@ -74,8 +76,7 @@ program test
   else
      call map%get_fullCls(imask)
   endif
-!  call coop_healpix_lb2ang(l_deg = 226.d0, b_deg = -17.d0, theta = hdir(1), phi = hdir(2))
-  call coop_healpix_lb2ang(l_deg = 0.d0, b_deg = 0.d0, theta = hdir(1), phi = hdir(2))
+  call coop_healpix_lb2ang(l_deg = dble(dir_l), b_deg = dble(dir_b), theta = hdir(1), phi = hdir(2))
 
   sim = map
   tmp = sim
@@ -94,7 +95,7 @@ program test
         do il=1, nlines
            read(fpsim%unit, trim(fmt)) diff
            weight = weight + 1
-           call coop_linear_least_square_fit(n+1, patch_s%r, diff, kdiff(weight), bdiff(weight))
+           call coop_linear_least_square_fit(n+1, patch_s%r, diff, ksim(weight), bsim(weight))
            if(weight .ge. n_sim) exit
         enddo
         call fpsim%close()
@@ -123,7 +124,7 @@ program test
      call patch_n%get_radial_profile(imap = imap, m = 0)
      call patch_s%get_radial_profile(imap = imap, m = 0)
      diff = patch_n%fr(:, 0, imap) - patch_s%fr(:, 0, imap)
-     call coop_linear_least_square_fit(n+1, patch_s%r, diff, kdiff(weight), bdiff(weight))
+     call coop_linear_least_square_fit(n+1, patch_s%r, diff, ksim(weight), bsim(weight))
      write(fpsim%unit, trim(fmt)) diff
      flush(fpsim%unit)
      write(*, trim(fmtscreen)) diff
@@ -137,19 +138,28 @@ program test
   call patch_n%get_radial_profile(imap = imap, m = 0)
   diff = patch_n%fr(:, 0, imap) - patch_s%fr(:, 0, imap)
   call coop_linear_least_square_fit(n+1, patch_s%r, diff, kdata, bdata)
-  kmean = sum(kdiff)/n_sim
-  bmean  = sum(bdiff)/n_sim
-  ksig = sqrt( sum((kdiff - kmean)**2)/n_sim )
-  bsig = sqrt( sum((bdiff - bmean)**2)/n_sim )
-  print*, (kdata - kmean)/ksig, count(kdiff .gt. kdata)/real(n_sim)
-  print*, (bdata-bmean)/bsig, count(bdiff .gt. bdata)/real(n_sim)
+  kmean = sum(ksim)/n_sim
+  bmean  = sum(bsim)/n_sim
+  ksig = sqrt( sum((ksim - kmean)**2)/n_sim )
+  bsig = sqrt( sum((bsim - bmean)**2)/n_sim )
+  print*, (kdata - kmean)/ksig, count(ksim .gt. kdata)/real(n_sim)
+  print*, (bdata-bmean)/bsig, count(bsim .gt. bdata)/real(n_sim)
 
-  call fig%open(prefix//resol//"_radial_profile.txt")
-  call fig%init(xlabel = "$r$", ylabel = "$T(\mu K)$")
-  call coop_asy_curve(fig, patch_n%r, diff, legend = "NS diff: "//prefix, color="red", linetype = "solid")
-  call coop_asy_curve(fig, patch_n%r, kdata*patch_n%r + bdata, legend = "linear fit", color = "black", linetype = "dashed")
-  call coop_asy_legend(fig)
+  call fig%open(prefix//resol//"_"//trim(coop_num2str(dir_l))//"_"//trim(coop_num2str(dir_b))//".txt")
+  call fig%init(ylabel = "$\delta T (\mu K) $", xlabel = "$dT /dr (\mu K/{\rm rad})$", caption = "black dots are simulations, red x is data")
+  call coop_asy_dots(fig, ksim, bsim, "black")
+  call coop_asy_dot(fig, kdata, bdata, "red", "x")
+  call coop_asy_label(fig, "Map: "//prefix,  fig%xmin+(fig%xmax - fig%xmin)*0.12, fig%ymin + 0.9*(fig%ymax - fig%ymin))
+  call coop_asy_label(fig, "x :  data",  fig%xmin+(fig%xmax - fig%xmin)*0.08, fig%ymin + 0.86*(fig%ymax - fig%ymin), color = "red")
+  call coop_asy_label(fig, "$\bullet$ :  simulations",  fig%xmin+(fig%xmax - fig%xmin)*0.12, fig%ymin + 0.82*(fig%ymax - fig%ymin), color = "black")
+  call coop_asy_label(fig, "direction: $l ="//trim(coop_num2str(dir_l))//"^{\circ},  b="//trim(coop_num2str(dir_b))//"^{\circ}$",  fig%xmin+(fig%xmax - fig%xmin)*0.2, fig%ymin + 0.78*(fig%ymax - fig%ymin), color = "black")
   call fig%close()
 
+  call fig%open(prefix//"_radial_profile.txt")
+  call fig%init(xlabel = "$r$", ylabel = "$\delta T (\mu K)$")
+  call coop_asy_curve(fig, patch_s%r, diff, legend="data", color = "red")
+  call coop_asy_curve(fig, patch_s%r, kdata*patch_s%r + bdata, legend="linear fit", color="blue", linetype = "dashed")
+  call coop_asy_legend(fig)
+  call fig%close()
 
 end program test

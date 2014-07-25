@@ -1,6 +1,5 @@
-SHELL = /bin/sh
-TYPEDEF=../typedef
-UTILS=../utils
+SHELL=/bin/sh
+COOPLIB=../lib
 include ../configure.in
 include ../compile_rules.in
 

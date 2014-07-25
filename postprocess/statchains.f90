@@ -1,6 +1,5 @@
 module coop_statchains_mod
-  use coop_wrapper_utils
-  use cosmolibwrap
+  use coop_wrapper
   use coop_latex_mod
 
   implicit none
@@ -48,6 +47,7 @@ module coop_statchains_mod
      logical,dimension(:,:),allocatable::want_2d_output
      COOP_SHORT_STRING Color2D_light, color2d_dark
      type(coop_dictionary) inputparams
+     type(coop_dictionary) allparams
   end type MCMC_chain
 
 contains
@@ -59,8 +59,8 @@ contains
     integer nfiles, i, j, lens, k
     integer,dimension(:),allocatable::nskip, nlines
     COOP_LONG_STRING fname
-    COOP_STRING inline
-    integer ispace
+    COOP_STRING inline, tmp
+    integer ispace, ind
     type(coop_file) fp
     mc%prefix = trim(prefix)
     nfiles = 0
@@ -86,14 +86,21 @@ contains
     fname = trim(prefix)//".inputparams"
     if(coop_file_exists(fname))then
        call coop_load_dictionary(trim(fname), mc%inputparams)
-       pp_mode = mc%inputparams%value("primordial_power_mode")
-       if(trim(pp_mode).eq."elldip")then
-          call coop_dictionary_lookup(mc%inputparams, "pp_dip_lmin", pp_dip_lmin, 20)
-          call coop_dictionary_lookup(mc%inputparams, "pp_dip_lmax", pp_dip_lmax, 30)
+       call coop_dictionary_lookup(mc%inputparams, "pp_model", cosmomc_pp_model, COOP_PP_STANDARD)
+       call coop_dictionary_lookup(mc%inputparams, "de_model", cosmomc_de_model, COOP_DE_COSMOLOGICAL_CONSTANT)
+       call coop_dictionary_lookup(mc%inputparams, "de_num_params", cosmomc_de_num_params, 2)
+       call coop_dictionary_lookup(mc%inputparams, "pp_num_params", cosmomc_pp_num_params, 8)
+       fname = trim(prefix)//".ranges"
+       if(coop_file_exists(fname))then
+          call coop_load_dictionary(trim(fname), mc%allparams)
+       else
+          write(*,*) "ranges file not found;"
+          if(cosmomc_pp_model .ne. COOP_PP_STANDARD .or. cosmomc_de_model .ne. COOP_DE_COSMOLOGICAL_CONSTANT) stop
        endif
     else
-       write(*,*) "Warning: inputparams file not found; cannot set default values"
-       pp_mode = "standard"
+       write(*,*) "Warning: inputparams file not found;"
+       cosmomc_pp_model = COOP_PP_STANDARD
+       cosmomc_de_model = COOP_DE_COSMOLOGICAL_CONSTANT
     endif
     fname = trim(prefix)//".paramnames"
     if(coop_file_exists(fname))then
@@ -133,6 +140,18 @@ contains
     do i = 1, mc%np
        mc%simplename(i) = trim(coop_str_numalpha(mc%name(i)))
     enddo
+
+    cosmomc_de_index = max(all_index_of_name(mc, "meffsterile"), all_index_of_name(mc, "mnu"), all_index_of_name(mc, "omegak")) + 1
+    ind = min(all_index_of_name(mc, "logA"), all_index_of_name(mc, "ns"))
+    cosmomc_de2pp_num_params = ind - cosmomc_de_index - cosmomc_de_num_params
+    coop_pp_cosmomc_num = all_index_of_name(mc, "Aphiphi") - ind + 1
+
+    write(*,*) ind-1 , " hard parameters "
+    write(*,*) " dark energy index from ", cosmomc_de_index
+    write(*,*) cosmomc_de_num_params  , " dark energy parameters "
+    write(*,*) coop_pp_cosmomc_num  , " cosmomc default primordial power parameters "
+    write(*,*) "totally ", cosmomc_pp_num_params  , " primordial power parameters "
+
     allocate(nskip(nfiles),nlines(nfiles))
     do i = 1, nfiles
        fname = trim(prefix)//"_"//trim(coop_num2str(i))//".txt"
@@ -432,31 +451,27 @@ contains
     real, parameter::dcl_legend_loc = sqrt(dcl_lmax*2.)
     COOP_REAL  Cls(4, 2:lmax), rl(2:lmax), cls_mean(4, 2:lmax),  maxcls(4), mincls(4), bestCls(4, 2:dcl_lmax), maxdcls(4), mindcls(4)
     
-    COOP_REAL  lnk(nk), ps(nk), pt(nk), lnpsmean(nk), lnptmean(nk), lnpscov(nk, nk), lnps(nk), lnpt(nk), lnps_shift, lnpt_shift, kmpc(nk),  mineig !, lnptcov(nk, nk)
+    COOP_REAL  lnk(nk), kMpc(nk), ps(nk), pt(nk), lnpsmean(nk), lnptmean(nk), lnpscov(nk, nk), lnps(nk), lnpt(nk), lnps_shift, lnpt_shift,  mineig !, lnptcov(nk, nk)
     type(mcmc_chain) mc
     COOP_UNKNOWN_STRING output
-    type(coop_asy) fp, fp2, fpv, fpeps
-    type(coop_asy) fpclTT, fpclEE, fpclBB, fpclTE
-    type(coop_asy) fpdclTT, fpbest, fpdclEE, fpdclBB, fpdclTE
+    type(coop_asy) fp, fp2
     integer i , ip, j,  j2, k, ik, numpiv, ltmp, ik2, ndof
     real mult
-    real x(mc%nb), lnkmin, lnkmax
-    logical do_pp, do_cl
+    real x(mc%nb)
+    COOP_REAL lnkmin, lnkmax
+    logical do_pp
     type(coop_asy_path) path
     logical first_1sigma
     COOP_REAL ,dimension(:,:),allocatable::pcamat
-    COOP_REAL ,dimension(:),allocatable::eig, ipca, initpower
-    integer num_initpower, numpp
+    COOP_REAL ,dimension(:),allocatable::eig, ipca, cosmomcParams
+    integer numpp
     logical inflation_consistency
-    real kpiv, ytop
+    real ytop
     COOP_REAL  :: cltt, errup, errdown
-    integer junk, l
+    integer junk, l, num_params, index_pp, pp_location
     real cltraj_weight
     COOP_STRING inline
 
-    do i = 2, lmax
-       rl(i) = i
-    enddo
     mc%output = trim(adjustl(output))//trim(coop_file_name_of(mc%prefix))
     call fp%open(trim(mc%output)//".likes", "w")
     write(fp%unit, "(A, G14.5)") "Best -lnlike = ", mc%bestlike
@@ -465,93 +480,47 @@ contains
        write(fp%unit, "(A, F14.3, A, G14.5)") "prob = ", mcmc_stat_cls(j)," truncation like = ", mc%likecut(j)
     enddo
     call fp%close()
-    do_pp  = (trim(pp_mode) .ne. "")
+    do_pp  = (cosmomc_pp_model .ne. 0)
     !! =================================================================!!
-    call coop_dictionary_lookup(mc%inputparams, "num_init_power", num_initpower, 6)
-    call coop_dictionary_lookup(mc%inputparams, "inflation_consistency", inflation_consistency, .true.)
-    call coop_dictionary_lookup(mc%inputparams, "pivot_k", kpiv, 0.05)
-
-    allocate(initpower(num_initpower))
+    index_pp = cosmomc_de_index + cosmomc_de_num_params + cosmomc_de2pp_num_params
+    num_params = index_pp + cosmomc_pp_num_params - 1
+    allocate(cosmomcParams(num_params))
     !!------------------------------------------------------------------!!
     call fp%open(trim(mc%output)//"_1sig.samples", "w")
     write(fp%unit, "("//trim(coop_num2str(mc%np))//"G14.5)") mc%params(mc%ibest, :)
-    do_cl = (trim(measured_cltt_file).ne."" .or.trim(measured_clee_file).ne."" .or. trim(measured_clbb_file).ne."" .or. trim(measured_clte_file).ne."")
+
     num_1sigma_trajs = 50
     if(do_pp)then
        write(*,*) "Generating primordial power spectra trajectories"
-       select case(trim(pp_mode))
-       case("bump")
+       select case(cosmomc_pp_model)
+       case(COOP_PP_GENERAL_SINGLE_FIELD)
           num_1sigma_trajs  = 70
           num_samples_to_get_mean = 5
        case default
           num_1sigma_trajs  = 80
-          num_samples_to_get_mean = 5000
+          num_samples_to_get_mean = 2000
        end select
-       if(do_cl) num_1sigma_trajs = num_1sigma_trajs  * 4/5
-
-       if(do_cl)then
-          if(trim(bestfit_cl_file) .ne. "")then
-             call fpbest%open(trim(bestfit_cl_file), "r")
-             do l=2, dcl_lmax
-                read(fpbest%unit, *) ltmp, bestCls(:, l)
-             enddo
-             call fpbest%close()
-          else
-             bestCls = 0.d0
-          endif
-          write(*,*) "Generating Cl trajectories"
-          call fpdclTT%open(trim(mc%output)//"_dclTT_trajs.txt", "w")
-          call fpdclEE%open(trim(mc%output)//"_dclEE_trajs.txt", "w")
-          call fpdclBB%open(trim(mc%output)//"_dclBB_trajs.txt", "w")
-          call fpdclTE%open(trim(mc%output)//"_dclTE_trajs.txt", "w")
-          call fpclTT%open(trim(mc%output)//"_clTT_trajs.txt", "w")
-          call fpclEE%open(trim(mc%output)//"_clEE_trajs.txt", "w")
-          call fpclBB%open(trim(mc%output)//"_clBB_trajs.txt", "w")
-          call fpclTE%open(trim(mc%output)//"_clTE_trajs.txt", "w")
-       endif
        call fp2%open(trim(mc%output)//"_power_trajs.txt", "w")
-       call fpv%open(trim(mc%output)//"_potential_trajs.txt", "w")
-       call fpeps%open(trim(mc%output)//"_epsilon_trajs.txt", "w")
-       call get_initpower(mc, mc%ibest, initpower, num_initpower)
-       call  pp_cosmomc_init(initpower, inflation_consistency = inflation_consistency, k_pivot = kpiv)
-       lnkmin = pp_lnk_min
-       lnkmax = pp_lnk_max
-       call coop_set_uniform(nk, lnk, dble(lnkmin), dble(lnkmax))
-       kmpc = exp(lnk)*kpiv
-       if(do_cl)then
-          call fpdclTT%init( xlabel="$\ell$", ylabel = "$\frac{\ell (\ell + 1)}{2\pi}\Delta C_\ell^{TT}$", xlog=.true., xmin = 1.8, xmax = real(dcl_lmax+1))
-          call fpdclEE%init(xlabel="$\ell$", ylabel = "$\frac{\ell (\ell + 1)}{2\pi}\Delta C_\ell^{EE}$", xlog=.true., xmin = 1.8, xmax = real(dcl_lmax+1))
-          call fpdclTE%init( xlabel="$\ell$", ylabel = "$\frac{\ell (\ell + 1)}{2\pi}\Delta C_\ell^{TE}$", xlog=.true., xmin = 1.8, xmax = real(dcl_lmax+1))
-          call fpdclBB%init( xlabel="$\ell$", ylabel = "$\frac{\ell (\ell + 1)}{2\pi}\Delta C_\ell^{BB}$", xlog=.true., xmin = 1.8, xmax = real(dcl_lmax+1))
-          call fpclTT%init( xlabel="$\ell$", ylabel = "$\frac{\ell (\ell + 1)}{2\pi}C_\ell^{TT}$", xlog=.true., xmin = 1.9, xmax = real(lmax))
-          call fpclEE%init( xlabel="$\ell$", ylabel = "$\frac{\ell (\ell + 1)}{2\pi}C_\ell^{EE}$", xlog=.true., xmin = 1.9, xmax = real(lmax))
-          call fpclBB%init( xlabel="$\ell$", ylabel = "$\frac{\ell (\ell + 1)}{2\pi}C_\ell^{BB}$", xlog=.true., xmin = 1.9, xmax = real(lmax))
-          call fpclTE%init( xlabel="$\ell$", ylabel = "$\frac{\ell (\ell + 1)}{2\pi}C_\ell^{TE}$", xlog=.true., xmin = 1.9, xmax = real(lmax))
-       endif
-
-       call fp2%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$10^{10}\Delta_{S,T}^2$", xlog=.true., ylog = .true., xmin = exp(lnkmin - 0.01)*kpiv, xmax = kpiv*exp(lnkmax + 0.01), ymin = 1., ymax = 200., doclip = .true.)
-       call coop_asy_topaxis(fp2, xmin =  exp(lnkmin - 0.01)*kpiv*distlss, xmax = kpiv*exp(lnkmax + 0.01)*distlss, islog = .true., label = "$\ell\equiv  k D_{\rm rec}$")
-       call fpv%init(xlabel = "$ (\phi - \phi_{\rm pivot})/M_p$", ylabel = "$ \ln(V/V_{\rm pivot})$", xmin = -1.5, xmax = 0.5, ymin = -0.2, ymax=0.6, doclip = .true.)
-       call fpeps%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$\epsilon$", xlog = .true. , xmin = exp(lnkmin - 0.01)*kpiv, xmax = kpiv*exp(lnkmax + 0.01), ymin = 0., ymax = 0.15, doclip = .true.)
-       call coop_asy_topaxis(fpeps, xmin =  exp(lnkmin - 0.01)*kpiv*distlss, xmax = kpiv*exp(lnkmax + 0.01)*distlss, islog = .true., label = "$\ell\equiv  k D_{\rm rec}$")
-
-
+       call fp2%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$10^{10}\Delta_{S,T}^2$", xlog=.true., ylog = .true., xmin = real(exp(coop_pp_lnkmin-0.05)), xmax = real(exp(coop_pp_lnkmax + 0.05)), ymin = 1., ymax = 200., doclip = .true.)
 
        lnpsmean = 0
        lnptmean = 0
        if(do_traj_cov)then
           lnpscov = 0
-!          lnptcov = 0
        endif
        mult = 0
-      
+       lnkmin = coop_pp_lnkmin
+       lnkmax = coop_pp_lnkmax
+       call coop_set_uniform(nk, lnk, lnkmin, lnkmax)
+       kMpc = exp(lnk)
        do j = 1, mc%n, max(mc%n/num_samples_to_get_mean, 1)
-          call get_initpower(mc, j, initpower, num_initpower)
-          call  pp_cosmomc_init(initpower, inflation_consistency = inflation_consistency, k_pivot = kpiv)
+          call getCosmomcParams(mc, j, CosmomcParams)
+          call coop_setup_cosmlogy_from_cosmomc(Cosmomcparams)
+          call coop_setup_pp()
           !$omp parallel do 
           do ik = 1, nk
-             lnps(ik) = log(pp_scalar_power(lnk(ik))) 
-             lnpt(ik) = log(pp_tensor_power(lnk(ik))) 
+             lnps(ik) = coop_primordial_lnps(kMpc(ik))
+             lnpt(ik) = coop_primordial_lnpt(kMpc(ik))
           enddo
           !$omp end parallel do
           if(j.eq.1)then
@@ -566,31 +535,23 @@ contains
              do ik=1, nk
                 do ik2 = ik, nk
                    lnpscov(ik, ik2) = lnpscov(ik, ik2) + lnps(ik) * lnps(ik2) * mc%mult(j)
-!                   lnptcov(ik, ik2) = lnptcov(ik, ik2) + lnpt(ik) * lnpt(ik2) * mc%mult(j)
                 enddo
              enddo
           endif
           mult = mult + mc%mult(j)
        enddo
     endif
-    if(do_cl)then
-       maxcls = -1.e30
-       maxdcls = -1.e30
-       mincls = 1.e30
-       mindcls = 1.e30
-       cls_mean = 0.
-       cltraj_weight = 0.
-    endif
     first_1sigma = .true.
     do i = 1, num_1sigma_trajs 
        j = coop_random_index(mc%n)
        if(do_pp)then
-          call get_initpower(mc, j, initpower, num_initpower)
-          call  pp_cosmomc_init(initpower, inflation_consistency = inflation_consistency, k_pivot = kpiv)
+          call getCosmomcParams(mc, j, CosmomcParams)
+          call coop_setup_cosmlogy_from_cosmomc(CosmomcParams)
+          call coop_setup_pp()
           !$omp parallel do 
           do ik = 1, nk
-             lnps(ik) = log(pp_scalar_power(lnk(ik))) * mc%mult(j)
-             lnpt(ik) = log(pp_tensor_power(lnk(ik))) * mc%mult(j)
+             lnps(ik) = coop_primordial_lnps(kMpc(ik))
+             lnpt(ik) = coop_primordial_lnpt(kMpc(ik))
           enddo
           !$omp end parallel do
           lnps = lnps + lnps_shift
@@ -601,65 +562,23 @@ contains
              do ik=1, nk
                 do ik2 = ik, nk
                    lnpscov(ik, ik2) = lnpscov(ik, ik2) + lnps(ik) * lnps(ik2) * mc%mult(j)
-!                   lnptcov(ik, ik2) = lnptcov(ik, ik2) + lnpt(ik) * lnpt(ik2) * mc%mult(j)
                 enddo
              enddo
           endif
           mult = mult + mc%mult(j)
-          if(do_cl)then
-             call get_camb_cls(mc, j, lmax, cls)
-             cls_mean = cls_mean + cls*mc%mult(j)
-             cltraj_weight = cltraj_weight + mc%mult(j)
-          endif
-          if(trim(pp_mode).eq."bump" .and. mod(i, 5).eq. 0) write(*,*) i, " trajs tried"
        endif
        if(mc%like(j) .lt. mc%likecut(1))then
           write(fp%unit, "("//trim(coop_num2str(mc%np))//"G14.5)") mc%params(j, :)
           if(do_pp)then
-             if(do_cl)then
-                do k=1,4
-                   maxcls(k) = max(maxval(cls(k,:)), maxcls(k))
-                   maxdcls(k) = max(maxval(cls(k,2:dcl_lmax) - bestcls(k, 2:dcl_lmax)), maxdcls(k))
-                   mincls(k) = min(minval(cls(k,:)), mincls(k))
-                   mindcls(k) = min(minval(cls(k,2:dcl_lmax)-bestcls(k, 2:dcl_lmax)), mindcls(k))
-                enddo
-             endif
              do ik = 1, nk
-                ps(ik) = 1.e10*pp_scalar_power(lnk(ik))
-                pt(ik) = 1.e10*pp_tensor_power(lnk(ik))
+                ps(ik) = 1.e10*coop_primordial_ps(kMpc(ik))
+                pt(ik) = 1.e10*coop_primordial_pt(kMpc(ik))
              enddo
-             call pp_get_potential()
              if(first_1sigma)then
                 first_1sigma = .false.
-                if(do_cl)then
-                   call coop_asy_interpolate_curve(fpdclTT, rl(2:dcl_lmax), cls(index_TT, 2:dcl_lmax)-bestCls(index_TT, 2:dcl_lmax), interpolate="LogLinear", color = "blue", linetype = "dotted", legend="1-$\sigma$ trajs.")
-                   call coop_asy_interpolate_curve(fpdclEE, rl(2:dcl_lmax), cls(index_EE, 2:dcl_lmax)-bestCls(index_EE, 2:dcl_lmax), interpolate="LogLinear", color = "blue", linetype = "dotted", legend="1-$\sigma$ trajs.")
-                   call coop_asy_interpolate_curve(fpdclBB, rl(2:dcl_lmax), cls(index_BB, 2:dcl_lmax)-bestCls(index_BB, 2:dcl_lmax), interpolate="LogLinear", color = "blue", linetype = "dotted", legend="1-$\sigma$ trajs.")
-                   call coop_asy_interpolate_curve(fpdclTE, rl(2:dcl_lmax), cls(index_TE, 2:dcl_lmax)-bestCls(index_TE, 2:dcl_lmax), interpolate="LogLinear", color = "blue", linetype = "dotted", legend="1-$\sigma$ trajs.")
-                   call coop_asy_interpolate_curve(fpclTT, rl, cls(index_TT, :), interpolate="LogLinear", color = "blue", linetype = "dotted", legend="1-$\sigma$ trajs.")
-                   call coop_asy_interpolate_curve(fpclEE, rl, cls(index_EE, :), interpolate="LogLinear", color = "blue", linetype = "dotted", legend="1-$\sigma$ trajs.")
-                   call coop_asy_interpolate_curve(fpclBB, rl, cls(index_BB, :), interpolate="LogLinear", color = "blue", linetype = "dotted", legend="1-$\sigma$ trajs.")
-                   call coop_asy_interpolate_curve(fpclTE, rl, cls(index_TE, :), interpolate="LogLinear", color = "blue", linetype = "dotted", legend="1-$\sigma$ trajs.")
-                endif
                 call coop_asy_curve(fp2, kmpc, ps, smooth = .false., color = "blue", linetype = "dashed", legend="1-$\sigma$ trajs.")
-                call coop_asy_curve(fp2, kmpc, pt, smooth = .false., color = "skyblue", linetype = "dotted")
-                call coop_asy_interpolate_curve(fpv, pp_phi, pp_lnV, interpolate = "LinearLinear", color = "blue", linetype = "dashed", legend="1-$\sigma$ trajs.")
-                call coop_asy_interpolate_curve(fpeps, kpiv*exp(pp_lnk), pp_epsilon, interpolate="LogLinear", color = "blue", linetype = "dashed", legend="1-$\sigma$ trajs.")
              else
-                if(do_cl)then
-                   call coop_asy_interpolate_curve(fpdclTT, rl(2:dcl_lmax), cls(index_TT, 2:dcl_lmax)-bestCls(index_TT, 2:dcl_lmax), interpolate="LogLinear", color = "blue", linetype = "dotted")
-                   call coop_asy_interpolate_curve(fpdclEE, rl(2:dcl_lmax), cls(index_EE, 2:dcl_lmax)-bestCls(index_EE, 2:dcl_lmax), interpolate="LogLinear", color = "blue", linetype = "dotted")
-                   call coop_asy_interpolate_curve(fpdclBB, rl(2:dcl_lmax), cls(index_BB, 2:dcl_lmax)-bestCls(index_BB, 2:dcl_lmax), interpolate="LogLinear", color = "blue", linetype = "dotted")
-                   call coop_asy_interpolate_curve(fpdclTE, rl(2:dcl_lmax), cls(index_TE, 2:dcl_lmax)-bestCls(index_TE, 2:dcl_lmax), interpolate="LogLinear", color = "blue", linetype = "dotted")
-                   call coop_asy_interpolate_curve(fpclTT, rl, cls(index_TT, :), interpolate="LogLinear", color = "blue", linetype = "dotted")
-                   call coop_asy_interpolate_curve(fpclEE, rl, cls(index_EE, :), interpolate="LogLinear", color = "blue", linetype = "dotted")
-                   call coop_asy_interpolate_curve(fpclBB, rl, cls(index_BB, :), interpolate="LogLinear", color = "blue", linetype = "dotted")
-                   call coop_asy_interpolate_curve(fpclTE, rl, cls(index_TE, :), interpolate="LogLinear", color = "blue", linetype = "dotted")
-                endif
                 call coop_asy_curve(fp2, kmpc, ps, smooth = .false., color = "blue", linetype = "dashed")
-                call coop_asy_curve(fp2, kmpc, pt, smooth = .false., color = "skyblue", linetype = "dotted")
-                call coop_asy_interpolate_curve(fpv, pp_phi, pp_lnV, interpolate = "LinearLinear", color = "blue", linetype = "dashed")
-                call coop_asy_interpolate_curve(fpeps, kpiv*exp(pp_lnk), pp_epsilon, interpolate="LogLinear", color = "blue", linetype = "dashed")
              endif
           endif
        endif
@@ -670,200 +589,44 @@ contains
     if(do_pp)then
        lnpsmean = lnpsmean / mult 
        lnptmean = lnptmean / mult
-       lnpscov = lnpscov/mult
-!       lnptcov = lnptcov/mult
        if(do_traj_cov)then
+          lnpscov = lnpscov/mult
           do ik=1, nk
              do ik2 = ik, nk
                 lnpscov(ik, ik2) = lnpscov(ik, ik2) - lnpsmean(ik)*lnpsmean(ik2)
-!                lnptcov(ik, ik2) = lnptcov(ik, ik2) - lnptmean(ik)*lnptmean(ik2)
              enddo
           enddo
           do ik=1,nk
              do ik2 = 1, ik-1
                 lnpscov(ik, ik2) = lnpscov(ik2, ik) 
-!                lnptcov(ik, ik2) = lnptcov(ik2, ik)
              enddo
           enddo
        endif
        lnpsmean = lnpsmean - lnps_shift
        lnptmean = lnptmean - lnpt_shift
-       if(do_cl)then
-          cls_mean = cls_mean / cltraj_weight   
-          call coop_asy_interpolate_curve(fpdclTT, rl(2:dcl_lmax), cls_mean(index_TT, 2:dcl_lmax)-bestCls(index_TT, 2:dcl_lmax), interpolate="LogLinear", color = "red", linetype = "solid", linewidth=1.2, legend="mean traj")
-          call coop_asy_interpolate_curve(fpdclEE, rl(2:dcl_lmax), cls_mean(index_EE, 2:dcl_lmax)-bestCls(index_EE, 2:dcl_lmax), interpolate="LogLinear", color = "red", linetype = "solid", linewidth=1.2, legend="mean traj")
-          call coop_asy_interpolate_curve(fpdclBB, rl(2:dcl_lmax), cls_mean(index_BB, 2:dcl_lmax)-bestCls(index_BB, 2:dcl_lmax), interpolate="LogLinear", color = "red", linetype = "solid", linewidth=1.2, legend="mean traj")
-          call coop_asy_interpolate_curve(fpdclTE, rl(2:dcl_lmax), cls_mean(index_TE, 2:dcl_lmax)-bestCls(index_TE, 2:dcl_lmax), interpolate="LogLinear", color = "red", linetype = "solid", linewidth=1.2, legend="mean traj")
 
-          call coop_asy_interpolate_curve(fpclTT, rl, cls_mean(index_TT, :), interpolate="LogLinear", color = "red", linetype = "solid", linewidth=1.2, legend="mean traj")
-          call coop_asy_interpolate_curve(fpclEE, rl, cls_mean(index_EE, :), interpolate="LogLinear", color = "red", linetype = "solid", linewidth=1.2, legend="mean traj")
-          call coop_asy_interpolate_curve(fpclBB, rl, cls_mean(index_BB, :), interpolate="LogLinear", color = "red", linetype = "solid", linewidth=1.2, legend="mean traj")
-          call coop_asy_interpolate_curve(fpclTE, rl, cls_mean(index_TE, :), interpolate="LogLinear", color = "red", linetype = "solid", linewidth=1.2, legend="mean traj")
-
-          if(trim(bestfit_cl_file) .ne. "")then
-             call coop_asy_curve_from_file(fpclTT, bestfit_cl_file, xcol = 1, ycol = index_TT + 1, interpolate = "LogLinear", color = "green", linewidth= 0.5, legend = "$\Lambda$CDM best-fit")
-             call coop_asy_curve_from_file(fpclTE, bestfit_cl_file, xcol = 1, ycol = index_TE + 1, interpolate = "LogLinear", color = "green", linewidth= 0.5, legend = "$\Lambda$CDM best-fit")
-             call coop_asy_curve_from_file(fpclEE, bestfit_cl_file, xcol = 1, ycol = index_EE + 1, interpolate = "LogLinear", color = "green", linewidth= 0.5, legend = "$\Lambda$CDM best-fit")
-             call coop_asy_curve_from_file(fpclBB, bestfit_cl_file, xcol = 1, ycol = index_BB + 1, interpolate = "LogLinear", color = "green", linewidth= 0.5, legend = "$\Lambda$CDM best-fit")
-          endif
-          if(trim(measured_cltt_file).ne."")then
-             call fp%open(measured_cltt_file, "r")
-             do 
-                if(fp%read_string(inline) )then
-                   read(inline, *) l, junk, junk, cltt, errup, errdown
-                else
-                   exit
-                endif
-                maxcls(index_TT) = max(maxcls(index_TT), cltt+errup)
-                mincls(index_TT) = min(mincls(index_TT), cltt-errdown)
-                if(l.le. dcl_lmax)then
-                   maxdcls(index_TT) = max(maxdcls(index_TT), cltt+errup-bestcls(index_TT, l))
-                   mindcls(index_TT) = min(mindcls(index_TT), cltt-errdown-bestcls(index_TT, l))
-                   call coop_asy_error_bar(fpdclTT, dble(l), cltt-bestcls(index_TT,l), dy_plus = errup, dy_minus = errdown)
-                endif
-                call coop_asy_error_bar(fpclTT, dble(l), cltt, dy_plus = errup, dy_minus = errdown)
-             enddo
-             call fp%close()
-          endif
-          if(trim(measured_clte_file).ne."")then
-             call fp%open(measured_clte_file, "r")
-             do 
-                if(fp%read_string(inline) )then
-                   read(inline, *) l, junk, junk, cltt, errup, errdown
-                else
-                   exit
-                endif
-                if(l.le. dcl_lmax)then
-                   maxdcls(index_TE) = max(maxdcls(index_TE), cltt+errup-bestcls(index_TE, l))
-                   mindcls(index_TE) = min(mindcls(index_TE), cltt-errdown-bestcls(index_TE, l))
-                   call coop_asy_error_bar(fpdclTE, dble(l), cltt-bestcls(index_TE,l), dy_plus = errup, dy_minus = errdown)
-                endif
-
-                maxcls(index_TE) = max(maxcls(index_TE), cltt+errup)
-                mincls(index_TE) = min(mincls(index_TE), cltt-errdown)
-                call coop_asy_error_bar(fpclTE, dble(l), cltt, dy_plus = errup, dy_minus = errdown)
-             enddo
-             call fp%close()
-          endif
-          if(trim(measured_clEE_file).ne."")then
-             call fp%open(measured_clEE_file, "r")
-             do 
-                if( fp%read_string(inline) )then
-                   read(inline, *) l, junk, junk, cltt, errup, errdown
-                else
-                   exit
-                endif
-                if(l.le. dcl_lmax)then
-                   maxdcls(index_EE) = max(maxdcls(index_EE), cltt+errup-bestcls(index_EE, l))
-                   mindcls(index_EE) = min(mindcls(index_EE), cltt-errdown-bestcls(index_EE, l))
-                   call coop_asy_error_bar(fpdclEE, dble(l), cltt-bestcls(index_EE,l), dy_plus = errup, dy_minus = errdown)
-                endif
-
-                maxcls(index_EE) = max(maxcls(index_EE), cltt+errup)
-                mincls(index_EE) = min(mincls(index_EE), cltt-errdown)
-                call coop_asy_error_bar(fpclEE, dble(l), cltt, dy_plus = errup, dy_minus = errdown)
-             enddo
-             call fp%close()
-          endif
-          if(trim(measured_clBB_file).ne."")then
-             call fp%open(measured_clBB_file, "r")
-             do 
-                if( fp%read_string( inline) )then
-                   read(inline, *) l, junk, junk, cltt, errup, errdown
-                else
-                   exit
-                endif
-                if(l.le. dcl_lmax)then
-                   maxdcls(index_BB) = max(maxdcls(index_BB), cltt+errup-bestcls(index_BB, l))
-                   mindcls(index_BB) = min(mindcls(index_BB), cltt-errdown-bestcls(index_BB, l))
-                   call coop_asy_error_bar(fpdclBB, dble(l), cltt-bestcls(index_BB,l), dy_plus = errup, dy_minus = errdown)
-                endif
-
-                maxcls(index_BB) = max(maxcls(index_BB), cltt+errup)
-                mincls(index_BB) = min(mincls(index_BB), cltt-errdown)
-                call coop_asy_error_bar(fpclBB, dble(l), cltt, dy_plus = errup, dy_minus = errdown)
-             enddo
-             call fp%close()
-          endif
-       endif
-
-       call pp_init(As = 1.d0, ns = 0.d0, nrun = 0.d0, r = 1.d0, nt = 0.d0, lnkmin = dble(lnkmin),  lnkmax = dble(lnkmax), psparams = lnpsmean, ptparams = lnptmean, tmp_mode = "spline0")
-       call pp_get_potential()
        ps = 1.e10 * exp(lnpsmean)
        pt = 1.e10 * exp(lnptmean)
 
-       call coop_asy_curve(fp2, kmpc, ps, smooth = .false., color = "red", linetype = "solid", linewidth = 2., legend="mean scalar")
-       call coop_asy_curve(fp2, kmpc, pt, smooth = .false., color = "violet", linetype = "solid", linewidth = 1.2, legend="mean tensor")
-       call coop_asy_curve(fp2, (/ kpiv*exp(lnkmin), kpiv*exp(lnkmax) /), (/ exp(3.091+(0.967-1.)*lnkmin),  exp(3.091+(0.967-1.)*lnkmax) /), smooth = .false., color = "black", linewidth=2., legend="$m^2\phi^2$ scalar")
-       call coop_asy_curve(fp2, (/ kpiv*exp(lnkmin), kpiv*exp(lnkmax) /), (/ exp(3.091 - 0.01625*lnkmin)*0.13,  exp(3.091-0.01625*lnkmax)*0.13 /), smooth = .false., color = "cyan", linewidth=1.2, legend="$m^2\phi^2$ tensor")
-       if(index(mc%prefix, "nobicep").ne.0)then
-          ps = exp(3.114+(0.96-1. + (-0.013)/2.*lnk)*lnk)
-       else
-          ps = exp(3.114+(0.9593-1. + (-0.0285)/2.*lnk)*lnk)
-       endif
-       call coop_asy_curve(fp2, kmpc, ps, smooth = .false., color = "green", linetype = "solid", linewidth = 1.2, legend="$n_{\rm run}$ best-fit")
-       select case(trim(pp_mode))
-       case("spline0", "linear0")
-          numpp = num_initpower - 5
-       case("spline1", "linear1")
-          numpp = num_initpower - 4
-       case("spline2", "linear2")
-          numpp = num_initpower - 3
-       case default
-          numpp = 0
-       end select
+       call coop_asy_curve(fp2, kmpc, ps, color = "red", linetype = "solid", linewidth = 2., legend="mean scalar")
+       call coop_asy_curve(fp2, kmpc, pt, color = "violet", linetype = "solid", linewidth = 1.2, legend="mean tensor")
+       call coop_asy_curve(fp2, kMpc, exp(3.091+(0.967-1.)*lnk), color = "black", linewidth=2., legend="$m^2\phi^2$ scalar")
+       call coop_asy_curve(fp2, kMpc, exp(3.091 - 0.01625*lnk)*0.13, color = "cyan", linewidth=1.2, legend="$m^2\phi^2$ tensor")
+       numpp = cosmomc_pp_num_params - coop_pp_cosmomc_num + 1
        if(numpp .gt. 1)then
-          call coop_set_uniform(numpp, lnk(1:numpp), dble(lnkmin), dble(lnkmax))
+          call coop_set_uniform(numpp, lnk(1:numpp), coop_pp_lnkmin, coop_pp_lnkmax)
           ps(1:numpp) = 1.3
-          call coop_asy_dots(fp2, kpiv*exp(lnk(1:numpp)), ps(1:numpp), "black", "$\Delta$")
+          call coop_asy_dots(fp2, exp(lnk(1:numpp)), ps(1:numpp), "black", "$\Delta$")
        endif
-
-       call coop_asy_interpolate_curve(fpv, pp_phi, pp_lnV, interpolate="LinearLinear", color = "red", linetype = "solid", linewidth = 2., legend = "mean traj.")
-       call coop_asy_interpolate_curve(fpeps, kpiv*exp(pp_lnk), pp_epsilon, interpolate="LogLinear", color = "red", linetype = "solid", linewidth=2., legend="mean traj.")
-
-       call coop_asy_legend(fp2, kpiv*exp(lnkmin + 1.), 116., 2)
-       call coop_asy_legend(fpv, -0.2, 0.35, 1)
-       call coop_asy_legend(fpeps, kpiv*exp(lnkmin+4.), 0.12, 1)
+       call coop_asy_legend(fp2, real(exp(lnkmin + 1.)), 116., 2)
        call fp2%close()
-       call fpv%close()
-       call fpeps%close()
-       if(do_cl)then
-          if(any(bestcls(:, 2:dcl_lmax) .ne. 0.d0))then
-             call coop_asy_line(fpdclTT, 1.8, 0., dcl_lmax+1., 0., linewidth = 0.5)
-             call coop_asy_label(fpdclTT, "{\small ref: $\Lambda$CDM best-fit}", dcl_legend_loc,  real((maxdcls(index_TT) - mindcls(index_TT))*0.12 + mindcls(index_TT)))
-             call coop_asy_line(fpdclEE, 1.8, 0., dcl_lmax+1., 0., linewidth = 0.5)
-             call coop_asy_label(fpdclEE, "{\small ref: $\Lambda$CDM best-fit}", dcl_legend_loc,  real((maxdcls(index_EE) - mindcls(index_EE))*0.12 + mindcls(index_EE)))
-             call coop_asy_line(fpdclBB, 1.8, 0., dcl_lmax+1., 0., linewidth = 0.5)
-             call coop_asy_label(fpdclBB, "{\small ref: $\Lambda$CDM best-fit}", dcl_legend_loc,  real((maxdcls(index_BB) - mindcls(index_BB))*0.15 + mindcls(index_BB)))
-
-             call coop_asy_line(fpdclTE, 1.8, 0., dcl_lmax+1., 0., linewidth = 0.5)
-             call coop_asy_label(fpdclTE, "{\small ref: $\Lambda$CDM best-fit}", dcl_legend_loc,  real((maxdcls(index_TE) - mindcls(index_TE))*0.12 + mindcls(index_TE)))
-          endif
-          call coop_asy_legend(fpdclTT, dcl_legend_loc, real((maxdcls(index_TT) - mindcls(index_TT))*0.92 + mindcls(index_TT)), 1)
-          call coop_asy_legend(fpdclEE, dcl_legend_loc, real((maxdcls(index_EE) - mindcls(index_EE))*0.92 + mindcls(index_EE)), 1)
-          call coop_asy_legend(fpdclBB, dcl_legend_loc, real((maxdcls(index_BB) - mindcls(index_BB))*0.92 + mindcls(index_BB)), 1)
-          call coop_asy_legend(fpdclTE, dcl_legend_loc, real((maxdcls(index_TE) - mindcls(index_TE))*0.92 + mindcls(index_TE)), 1)
-
-          call coop_asy_legend(fpclTT, min(3.5, lmax/2.), real((maxcls(index_TT) - mincls(index_TT))*0.92 + mincls(index_TT)), 1)
-          call coop_asy_legend(fpclEE, min(3.5, lmax/2.), real((maxcls(index_EE) - mincls(index_EE))*0.92 + mincls(index_EE)), 1)
-          call coop_asy_legend(fpclBB, min(3.5, lmax/2.), real((maxcls(index_BB) - mincls(index_BB))*0.92 + mincls(index_BB)), 1)
-          call coop_asy_legend(fpclTE, min(3.5, lmax/2.), real((maxcls(index_TE) - mincls(index_TE))*0.92 + mincls(index_TE)), 1)
-          call fpdclTT%close()
-          call fpdclEE%close()
-          call fpdclBB%close()
-          call fpdclTE%close()
-          call fpclTT%close()
-          call fpclEE%close()
-          call fpclBB%close()
-          call fpclTE%close()
-       endif
        if(do_traj_cov)then
           lnps_shift = sum(lnpscov**2)/nk/nk*1.d-18
           do ik=1, nk
              lnpscov(ik,ik) = lnpscov(ik,ik) + lnps_shift
           enddo
           call fp%open(trim(mc%output)//"_pwtraj_eig.txt","w")
-          call fp%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$\delta \ln \Delta_S^2$", xlog = .true. , xmin = exp(lnkmin - 0.01)*kpiv, xmax = kpiv*exp(lnkmax + 0.01), width = 7.2, height = 6.)
+          call fp%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$\delta \ln \Delta_S^2$", xlog = .true. , xmin = real(exp(lnkmin - 0.01)), xmax = real(exp(lnkmax + 0.01)), width = 7.2, height = 6.)
           call coop_matsym_diagonalize(lnpscov, lnps, sort = .true.)
           mineig = max(lnps(1), 1.d-5)
           ytop = 0.
@@ -957,14 +720,12 @@ contains
                 ytop = max(ytop, maxval(lnpscov(:,j)*norm))
              endif
           endif
-
-
           call coop_asy_legend(fp, 0.0001, ytop*0.9)
           call fp%close()
        endif
     endif
     
-    deallocate(initpower)
+    deallocate(CosmoMcParams)
 
     call fp%open(trim(mc%output)//".margstats", "w")
     select case(mcmc_stat_num_cls)
@@ -1093,47 +854,24 @@ contains
   end subroutine export_stats
 
 
-  subroutine get_initpower(mc, ind, initp, np)
-    integer np, ind, i
+  subroutine getCosmoMCParams(mc, ind, Params)
+    integer nparams
     type(mcmc_chain) mc
-    COOP_REAL  initp(np)
-    initp(1) = name2value(mc, ind, "ns")
-    initp(2) = name2value(mc, ind, "nt")
-    initp(3) = name2value(mc, ind, "nrun")
-    initp(4) = name2value(mc, ind, "logA")
-    initp(5) = name2value(mc, ind, "r")
-    initp(6) = name2value(mc, ind, "Aphiphi")
-    select case(trim(pp_mode))
-    case("standard")
-       return
-    case("elldip")
-       pp_dip_Amp = name2value(mc, ind, "dipamp")
-       return
-    case("bump")
-       initp(7) = name2value(mc, ind, "mphi")
-       initp(8) = name2value(mc, ind, "nefolds")
-       initp(9) = name2value(mc, ind, "bumpdn")
-       initp(10) = name2value(mc, ind, "bumpamp")
-       initp(11) = name2value(mc, ind, "bumpwidth")
-    case("spline0", "spline1", "spline2", "linear0", "linear1", "linear2")
-       do i = 1, np - 6
-          initp(i+6) = name2value(mc, ind, "pp"//trim(coop_num2str(i)))
-       enddo
-    case("m2phi2")
-       initp(7) = name2value(mc, ind, "invm2")
-       initp(8) = name2value(mc, ind, "nefolds")
-    case("lambdaphi4")
-       initp(7) = name2value(mc, ind, "lambda")
-       initp(8) = name2value(mc, ind, "nefolds")
-    case("higgs")
-       initp(7) = name2value(mc, ind, "lambda")
-       initp(8) = name2value(mc, ind, "nefolds")
-       initp(9) = name2value(mc, ind, "xih")
-       initp(10) = name2value(mc, ind, "alphah")
-    case default
-       stop "Unknown pp_mode"
-    end select
-  end subroutine get_initpower
+    COOP_REAL  Params(:)
+    integer i, ind
+    nparams = size(Params)
+    do i = 1, nparams
+       params(i) = name2value(mc, ind,  trim(mc%allparams%key(i)))
+    enddo
+  end subroutine getCosmoMCParams
+
+
+  function all_index_of_name(mc, name) result(ind)
+    type(mcmc_chain) mc
+    integer ind
+    COOP_UNKNOWN_STRING name
+    ind = mc%allparams%index(trim(name))
+  end function all_index_of_name
 
 
   function chain_index_of_name(mc, name) result(ind)
@@ -1195,9 +933,6 @@ contains
     write(fp%unit, "(A)") "temp_cmb = 2.7255"
     write(fp%unit, "(A)") "helium_fraction = "//trim(coop_num2str(name2value(mc, isample, "yheused")))
 
-    write(fp%unit, "(A)") "primordial_power_mode = "//trim(pp_mode)
-    call coop_dictionary_lookup(mc%inputparams, "num_init_power", num_initpower , 6)
-    write(fp%unit, "(A)")  "num_initpower = "//trim(coop_num2str(num_initpower))
     allocate(initpower(num_initpower))
     call get_initpower(mc, isample, initpower, num_initpower)
     write(fp%unit, "(A, "//trim(coop_num2str(num_initpower))//"G15.6)") "initpower =", initpower

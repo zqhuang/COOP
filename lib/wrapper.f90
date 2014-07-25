@@ -12,6 +12,9 @@ module coop_wrapper
   type(coop_species):: coop_global_de
   type(coop_arguments)::coop_global_cosmological_parameters
 
+  COOP_REAL, parameter::coop_pp_lnkmin = -9.22d0
+  COOP_REAL, parameter::coop_pp_lnkmax = 0.01d0
+
   COOP_STRING:: cosmomc_paramnames = "params_CMB.paramnames"
   COOP_INT:: cosmomc_de_index = 8
   COOP_INT:: cosmomc_de2pp_num_params = 7
@@ -181,7 +184,7 @@ contains
     COOP_REAL  dlnk
     COOP_INT  nleft, nright, nknots, i
     if(init)then
-       call coop_set_uniform(coop_pp_n, coop_pp_lnkMpc, -9.22d0, 0.01d0)
+       call coop_set_uniform(coop_pp_n, coop_pp_lnkMpc, coop_pp_lnkmin, coop_pp_lnkmax)
        init = .false.
     endif
     select case(COOP_PP_MODEL)
