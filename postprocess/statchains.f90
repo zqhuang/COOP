@@ -515,7 +515,7 @@ contains
        kMpc = exp(lnk)
        do j = 1, mc%n, max(mc%n/num_samples_to_get_mean, 1)
           call getCosmomcParams(mc, j, CosmomcParams)
-          call coop_setup_cosmlogy_from_cosmomc(Cosmomcparams)
+          call coop_setup_cosmology_from_cosmomc(Cosmomcparams)
           call coop_setup_pp()
           !$omp parallel do 
           do ik = 1, nk
@@ -546,7 +546,7 @@ contains
        j = coop_random_index(mc%n)
        if(do_pp)then
           call getCosmomcParams(mc, j, CosmomcParams)
-          call coop_setup_cosmlogy_from_cosmomc(CosmomcParams)
+          call coop_setup_cosmology_from_cosmomc(CosmomcParams)
           call coop_setup_pp()
           !$omp parallel do 
           do ik = 1, nk
@@ -933,10 +933,6 @@ contains
     write(fp%unit, "(A)") "temp_cmb = 2.7255"
     write(fp%unit, "(A)") "helium_fraction = "//trim(coop_num2str(name2value(mc, isample, "yheused")))
 
-    allocate(initpower(num_initpower))
-    call get_initpower(mc, isample, initpower, num_initpower)
-    write(fp%unit, "(A, "//trim(coop_num2str(num_initpower))//"G15.6)") "initpower =", initpower
-    deallocate(initpower)
     write(fp%unit, "(A)") "inflation_consistency = "//trim(mc%inputparams%value("inflation_consistency"))
     write(fp%unit, "(A)") "k_pivot = "//trim(mc%inputparams%value( "pivot_k"))
     write(fp%unit, "(A)") "massless_neutrinos = 2.046"
