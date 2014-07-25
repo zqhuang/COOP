@@ -277,20 +277,45 @@ contains
   end Subroutine Coop_File_SkipLines
 
 
-  subroutine coop_load_dictionary(fname, dict)
+  subroutine coop_load_dictionary(fname, dict, delimitor, col_key, col_value)
     COOP_UNKNOWN_STRING fname
     type(coop_dictionary) dict
     COOP_STRING line
     type(coop_file) fp
     COOP_INT eqloc
-    call fp%open(trim(fname), "r")
-    do while(fp%read_string(line))
-       eqloc = scan(line, "=")
-       if(eqloc .gt. 1 .and. eqloc .lt. len_trim(line))then
-          call dict%insert(line(1:eqloc-1), line(eqloc+1:))
+    COOP_UNKNOWN_STRING, optional::delimitor
+    COOP_INT, optional:: col_key, col_value
+    COOP_SHORT_STRING:: delim
+    if(present(col_key) .and. present(col_value))then
+       if(present(delimitor))then
+          delim = delimitor
+       else
+          delim = " ,;"//coop_tab
        endif
-    enddo
-    call fp%close()
+       call fp%open(trim(fname), "r")
+       do while(fp%read_string(line))
+          line = trim(adjustl(line))
+          eqloc = scan(line, trim(delim))
+          if(eqloc .gt. 1 .and. eqloc .lt. len_trim(line))then
+             call dict%insert(line(1:eqloc-1), line(eqloc+1:))
+          endif
+       enddo
+       call fp%close()
+    else
+       if(present(delimitor))then
+          delim = delimitor
+       else
+          delim = "="
+       endif
+       call fp%open(trim(fname), "r")
+       do while(fp%read_string(line))
+          eqloc = scan(line, trim(delim))
+          if(eqloc .gt. 1 .and. eqloc .lt. len_trim(line))then
+             call dict%insert(line(1:eqloc-1), line(eqloc+1:))
+          endif
+       enddo
+       call fp%close()
+    endif
   end subroutine coop_load_dictionary
 
   subroutine coop_file_encrypt(input, output)
