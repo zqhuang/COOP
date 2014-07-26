@@ -281,10 +281,13 @@ contains
     COOP_UNKNOWN_STRING fname
     type(coop_dictionary) dict
     COOP_STRING line
+    integer i
     type(coop_file) fp
+    type(coop_list_string) l
     COOP_INT eqloc
     COOP_UNKNOWN_STRING, optional::delimitor
     COOP_INT, optional:: col_key, col_value
+    COOP_INT colm
     COOP_SHORT_STRING:: delim
     if(present(col_key) .and. present(col_value))then
        if(present(delimitor))then
@@ -292,15 +295,34 @@ contains
        else
           delim = " ,;"//coop_tab
        endif
+       colm = max(col_key, col_value)
        call fp%open(trim(fname), "r")
        do while(fp%read_string(line))
-          line = trim(adjustl(line))
-          eqloc = scan(line, trim(delim))
-          if(eqloc .gt. 1 .and. eqloc .lt. len_trim(line))then
-             call dict%insert(line(1:eqloc-1), line(eqloc+1:))
+          call coop_string_to_list(line, l, delim)
+          if(l%n .ge. colm)then
+             call dict%insert(l%element(col_key), l%element(col_value))
           endif
        enddo
        call fp%close()
+       call l%init()
+    elseif(present(col_value))then
+       if(present(delimitor))then
+          delim = delimitor
+       else
+          delim = " ,;"//coop_tab
+       endif
+       colm = max(col_key, col_value)
+       call fp%open(trim(fname), "r")
+       i = 0
+       do while(fp%read_string(line))
+          call coop_string_to_list(line, l, delim)
+          if(l%n .ge. colm)then
+             i = i + 1
+             call dict%insert(coop_num2str(i), l%element(col_value))
+          endif
+       enddo
+       call fp%close()
+       call l%init()
     else
        if(present(delimitor))then
           delim = delimitor

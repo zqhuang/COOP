@@ -14,6 +14,8 @@ module coop_wrapper
 
   COOP_REAL, parameter::coop_pp_lnkmin = -9.22d0
   COOP_REAL, parameter::coop_pp_lnkmax = 0.01d0
+  COOP_REAL::coop_pp_lnk_knots_min = coop_pp_lnkmin
+  COOP_REAL::coop_pp_lnk_knots_max = coop_pp_lnkmax
 
   COOP_STRING:: cosmomc_paramnames = "params_CMB.paramnames"
   COOP_INT:: cosmomc_de_index = 8
@@ -193,10 +195,12 @@ contains
     case(COOP_PP_SCAN_SPLINE)
        nknots =  COOP_NUM_PP - coop_pp_cosmomc_num + 1
        if(nknots .lt. 4) stop "You need at least 4 knots for scan_spline mode"
-       dlnk = 9.5d0/(nknots-1)
-       nleft = min(max(nint((coop_pp_scalar_lnkpivot - 9.21d0)/dlnk), 2), COOP_NUM_PP - coop_pp_cosmomc_num - 1)
+       dlnk = (coop_pp_lnkmax-coop_pp_lnkmin)/(nknots-1)
+       nleft = min(max(nint((coop_pp_scalar_lnkpivot - coop_pp_lnkmin)/dlnk), 2), COOP_NUM_PP - coop_pp_cosmomc_num - 1)
        nright = nknots - 1 - nleft
-       dlnk = max(dlnk, (log(0.6d0)-coop_pp_scalar_lnkpivot)/nright, (coop_pp_scalar_lnkpivot - log(1.d-4))/nleft)
+       dlnk = max(dlnk, (coop_pp_lnkmax-coop_pp_scalar_lnkpivot)/nright, (coop_pp_scalar_lnkpivot - coop_pp_lnkmin)/nleft)
+       coop_pp_lnk_knots_min = coop_pp_scalar_lnkpivot- nleft*dlnk
+       coop_pp_lnk_knots_max = nright*dlnk + coop_pp_scalar_lnkpivot
        allocate(lnk(nknots), lnps(nknots), lnps2(nknots))
        call coop_set_uniform(nknots, lnk, -dlnk*nleft, dlnk*nright)
        lnps(1:nleft) = COOP_COSMO_PARAMS%r(COOP_INDEX_PP+coop_pp_cosmomc_num:COOP_INDEX_PP+coop_pp_cosmomc_num+nleft -1)

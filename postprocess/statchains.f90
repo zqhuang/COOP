@@ -92,7 +92,7 @@ contains
        call coop_dictionary_lookup(mc%inputparams, "pp_num_params", cosmomc_pp_num_params, 8)
        fname = trim(prefix)//".ranges"
        if(coop_file_exists(fname))then
-          call coop_load_dictionary(trim(fname), mc%allparams)
+          call coop_load_dictionary(trim(fname), mc%allparams, col_key = 1, col_value = 2)
        else
           write(*,*) "ranges file not found;"
           if(cosmomc_pp_model .ne. COOP_PP_STANDARD .or. cosmomc_de_model .ne. COOP_DE_COSMOLOGICAL_CONSTANT) stop
@@ -501,7 +501,7 @@ contains
           num_samples_to_get_mean = 2000
        end select
        call fp2%open(trim(mc%output)//"_power_trajs.txt", "w")
-       call fp2%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$10^{10}\Delta_{S,T}^2$", xlog=.true., ylog = .true., xmin = real(exp(coop_pp_lnkmin-0.05)), xmax = real(exp(coop_pp_lnkmax + 0.05)), ymin = 1., ymax = 200., doclip = .true.)
+       call fp2%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$10^{10}\mathcal{P}_{S,T}$", xlog=.true., ylog = .true., xmin = real(exp(coop_pp_lnkmin-0.05)), xmax = real(exp(coop_pp_lnkmax + 0.05)), ymin = 1., ymax = 200., doclip = .true.)
 
        lnpsmean = 0
        lnptmean = 0
@@ -614,7 +614,7 @@ contains
        call coop_asy_curve(fp2, kMpc, exp(3.091 - 0.01625*lnk)*0.13, color = "cyan", linewidth=1.2, legend="$m^2\phi^2$ tensor")
        numpp = cosmomc_pp_num_params - coop_pp_cosmomc_num + 1
        if(numpp .gt. 1)then
-          call coop_set_uniform(numpp, lnk(1:numpp), coop_pp_lnkmin, coop_pp_lnkmax)
+          call coop_set_uniform(numpp, lnk(1:numpp), coop_pp_lnk_knots_min, coop_pp_lnk_knots_max)
           ps(1:numpp) = 1.3
           call coop_asy_dots(fp2, exp(lnk(1:numpp)), ps(1:numpp), "black", "$\Delta$")
        endif
