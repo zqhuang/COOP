@@ -10,6 +10,9 @@ coop_link = r"-L" + coop_path + r"/lib" + " -lcoop"
 coop_include_append = r"\1 " + coop_include
 coop_link_append = r"\1 " + coop_link
 
+def backup_file(fname):
+    os.system('cp ' + fname + ' ' + fname+'__.bak')
+
 def replace_first(fname, patterns, repls):
     print "modifying " + fname 
     fp = open(fname, 'r')
@@ -20,7 +23,7 @@ def replace_first(fname, patterns, repls):
             file_content = re.sub(patterns[i], repls[i], file_content, count = 1,  flags = re.M + re.I)
         else:
             file_content = re.sub(patterns[i], repls[i], file_content, count = 1, flags = re.I)
-    os.system('cp ' + fname + ' ' + fname+'__.bak')
+    backup_file(fname)
     fp = open(fname, 'w')
     fp.write(file_content)
     fp.close()
@@ -35,7 +38,7 @@ def replace_all(fname, patterns, repls):
             file_content = re.sub(patterns[i], repls[i], file_content, flags = re.M + re.I)
         else:
             file_content = re.sub(patterns[i], repls[i], file_content, flags = re.I)
-    os.system('cp ' + fname + ' ' + fname+'__.bak')
+    backup_file(fname)
     fp = open(fname, 'w')
     fp.write(file_content)
     fp.close()
