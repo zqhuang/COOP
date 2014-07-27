@@ -149,9 +149,9 @@ print str(index_nnu-index_w) + " dark energy parameters"
 print "*****************************************"
 print "Modifying files:"
 
-replace_all("source/Makefile", [r"^\s*RECOMBINATION\s*\??\=.*$" ], [r'RECOMBINATION=cosmorec'])
+replace_all("source/Makefile", [r"^\s*(RECOMBINATION\s*\?\s*\=).*$" ], [r'\1cosmorec'])
 
-replace_all("camb/Makefile_main", [r"^\s*RECOMBINATION\s*\??\=.*$", r"^\s*COSMOREC_PATH\s*\??\=.*$" ], [r'RECOMBINATION=cosmorec', r'COSMOREC_PATH=../'+cosmorec_path])
+replace_all("camb/Makefile_main", [r"^\s*(RECOMBINATION\s*\?\s*\=).*$", r"^\s*COSMOREC_PATH\s*\??\=.*$" ], [r'\1cosmorec', r'COSMOREC_PATH=../'+cosmorec_path])
 
 backup_file(r'camb/cosmorec.F90')
 os.system(r'cp ' + patch_path + r'/cosmorec.F90 camb/cosmorec.F90')
