@@ -117,8 +117,6 @@ if(nstr == ""):
 numhard = int( nstr )
 
 
-
-
 print "Modifying files:"
 
 replace_all(r"source/Makefile", [r"^\s*(RECOMBINATION\s*\?\s*\=).*$", r"^\s*(COSMOREC_PATH\s*\??\=).*$" ], [r'\1cosmorec', r'\1../'+cosmorec_path])
@@ -133,11 +131,11 @@ replace_all(r"source/Calculator_CAMB.f90", [r'\#ifdef\s+COSMOREC[^\#]*\#else'], 
 
 replace_all(r"source/CosmologyTypes.f90", [r'^(\s*Type\s*\,\s*extends.*\:\:\s*CMBParams)\s*$'], [r'\1\n       real(mcp) A2s1s'])
 
-replace_all(r'source/CosmologyParameterizations.f90', [r'^\s*CMB%fdm\s*=\s*Params\((\d+)\)\s*$'], [r'CMB%fdm = Params(\1) \n CMB%A2s1s = Params(\1 + 1)'])
+replace_all(r"source/CosmologyParameterizations.f90",  [r'(call\s+this\%SetTheoryParameterNumbers\(\s*\d+\s*\,\s*last\_power\_index\))', r'params\_CMB\.paramnames', r'^\s*CMB%fdm\s*=\s*Params\((\d+)\)\s*$'], [r'call this%SetTheoryParameterNumbers(' + str(numhard + 1) + r', last_power_index)', r'params_cosmorec.paramnames', r'CMB%fdm = Params(\1) \n CMB%A2s1s = Params(\1 + 1)'])
 
 copy_replace_all(r'params_CMB.paramnames', r'params_cosmorec.paramnames', [r'^(fdm\s+.*)$'], [r'\1 \nA2s1s        A_{2s\\rightarrow 1s}   #CosmoRec A2s1s parameter'] )
 
-replace_all(r"source/CosmologyParameterizations.f90",  [r'(call\s+this\%SetTheoryParameterNumbers\(\s*\d+\s*\,\s*last\_power\_index\))', r'params\_CMB\.paramnames'], [r'call this%SetTheoryParameterNumbers(' + str(numhard + 1) + r', last_power_index)', r'params_cosmorec.paramnames'])
+
 
 
 batch_dir = search_value("test.ini", r'^DEFAULT\((\w+)\/[\w_]*common[\w_]*\.ini\)\s*$')
