@@ -118,45 +118,38 @@ numhard = int( nstr )
 
 
 
-index_w = which_line("params_CMB.paramnames", r'^w\s+.+')
-if index_w == 0:
-    print "cannot determine the index of dark energy parameter"
-    sys.exit()
 
-index_nnu = which_line("params_CMB.paramnames", r'^nnu\s+.+')
-if index_nnu == 0:
-    print "cannot determine the index of neutrino numbers"
-    sys.exit()
-
-index_H0 = which_line("params_CMB.paramnames", r'^H0\*\s+.+')
-if index_H0 == 0:
-    print "cannot determine the index of H0*"
-    sys.exit()
-
-
-index_logA = min(which_line("params_CMB.paramnames", r'^logA\s+.+'), which_line("params_CMB.paramnames", r'^ns\s+.+'))
-
-if numhard + 1 != index_logA:
-    print "Cannot determine the total number of hard parameters"
-    sys.exit()
-
-
-print "This version of cosmomc contains:"
-print str(index_H0-1) + "theory parameters"
-print str(numhard) + " slow parameters"
-print str(index_H0-index_logA) + " fast parameters"
-print str(index_nnu-index_w) + " dark energy parameters"
-print "*****************************************"
 print "Modifying files:"
 
-replace_all("source/Makefile", [r"^\s*(RECOMBINATION\s*\?\s*\=).*$", r"^\s*(COSMOREC_PATH\s*\??\=).*$" ], [r'\1cosmorec', r'\1../'+cosmorec_path])
+replace_all(r"source/Makefile", [r"^\s*(RECOMBINATION\s*\?\s*\=).*$", r"^\s*(COSMOREC_PATH\s*\??\=).*$" ], [r'\1cosmorec', r'\1../'+cosmorec_path])
 
-replace_all("camb/Makefile_main", [r"^\s*(RECOMBINATION\s*\?\s*\=).*$", r"^\s*(COSMOREC_PATH\s*\??\=).*$" ], [r'\1cosmorec', r'\1../'+cosmorec_path])
+replace_all(r"camb/Makefile_main", [r"^\s*(RECOMBINATION\s*\?\s*\=).*$", r"^\s*(COSMOREC_PATH\s*\??\=).*$" ], [r'\1cosmorec', r'\1../'+cosmorec_path])
 
 backup_file(r'camb/cosmorec.F90')
+
 os.system(r'cp ' + patch_path + r'/cosmorec.F90 camb/cosmorec.F90')
 
+replace_all(r"source/Calculator_CAMB.f90", [r'\#ifdef\s+COSMOREC[^\#]*\#else'], [r'#ifdef COSMOREC\n P%Recomb%fdm = CMB%fdm*1.d-23 \n P%Recomb%A2s1s = CMB%A2s1s \n if(P%Recomb%fdm .gt. 0.) P%Recomb%runmode = 3 \n#else'] )
+
+replace_all(r"source/CosmologyTypes.f90", [r'^(\s*Type\s*\,\s*extends.*\:\:\s*CMBParams)\s*$'], [r'\1\n       real(mcp) A2s1s'])
+
+replace_all(r'source/CosmologyParameterizations.f90', [r'^\s*CMB%fdm\s*=\s*Params\((\d+)\)\s*$'], [r'CMB%fdm = Params(\1) \n CMB%A2s1s = Params(\1 + 1)'])
+
+copy_replace_all(r'params_CMB.paramnames', r'params_cosmorec.paramnames', [r'^(fdm\s+.*)$'], [r'\1 \nA2s1s        A_{2s\\rightarrow 1s}   #CosmoRec A2s1s parameter'] )
+
+replace_all(r"source/CosmologyParameterizations.f90",  [r'(call\s+this\%SetTheoryParameterNumbers\(\s*\d+\s*\,\s*last\_power\_index\))', r'params\_CMB\.paramnames'], [r'call this%SetTheoryParameterNumbers(' + str(numhard + 1) + r', last_power_index)', r'params_cosmorec.paramnames'])
 
 
+batch_dir = search_value("test.ini", r'^DEFAULT\((\w+)\/[\w_]*common[\w_]*\.ini\)\s*$')
 
+common_file = search_value("test.ini", r'^DEFAULT\((\w+\/[\w_]*common[\w\_]*\.ini)\)\s*')
+
+common_pattern = r'^(DEFAULT\(\w+\/[\w_]*common[\w\_]*\.ini\))\s*$'
+
+copy_replace_all(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_cosmorec_defaults.ini', [r'^param\[fdm\]\s*=.*$'], [r'param[fdm] = 0 0 0 0 0 \nparam[A2s1s] = 8.224 7 10 0.01 0.01' ] )
+
+copy_replace_all(common_file, batch_dir + r'/common_cosmorec.ini', [r'params\_CMB\_defaults\.ini'],  [r'params_cosmorec_defaults.ini'])
+
+
+copy_replace_first("test.ini", 'a2s1s.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$'], [r'DEFAULT(' + batch_dir + r'/common_cosmorec.ini) \nparamnames = params_cosmorec.paramnames', r'file_root = a2s1s', r'action = 0'] )
 
