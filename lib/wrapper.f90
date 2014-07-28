@@ -17,7 +17,6 @@ module coop_wrapper
   COOP_REAL::coop_pp_lnk_knots_min = coop_pp_lnkmin
   COOP_REAL::coop_pp_lnk_knots_max = coop_pp_lnkmax
 
-  COOP_STRING:: cosmomc_paramnames = "params_CMB.paramnames"
   COOP_INT:: cosmomc_de_index = 8
   COOP_INT:: cosmomc_de2pp_num_params = 7
 
