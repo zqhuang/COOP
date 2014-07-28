@@ -2,10 +2,21 @@
 import re
 import os
 import sys
+########by Zhiqi Huang (zqhuang@cita.utoronto.ca) ########
+######## This python script hacks cosmomc (any late version > 2013 Oct), linking it to CosmoRec and adding two parameters A2s1s and tcmb 
+#############################################################################
+
+########Before running the script, you need to copy the CosmoRec.v2.0b folder and the patch folder into cosmomc/ directory. Compile CosmoRec first. 
+########The script tries to "understand" the cosmomc version you are using. Even if it is slightly modified by you, the script would probably still work. It hacks the source code in both camb/ and source/ directories, then generates two ini files: a2s1s.ini and tcmb.ini. The two ini files are for 6 param + A2s1s and 6 param + T_cmb, respectively. 
+####### Re-make cosmomc and submit the ini files. You are done!
+###############################################################################
+
+
+######## If you want to undo the modifications to cosmomc, run the bash script "restore.sh".
+
 patch_path = r'cambcr_patch.CR_v2.0.CAMB_Apr_2014'
 #cosmorec_path = r'../CosmoRec.v1.5b'
 cosmorec_path = r'CosmoRec.v2.0b'
-
 #######################################################
 
 def backup_file(fname):
@@ -153,7 +164,7 @@ replace_first("source/settings.f90", [line_pattern(r'integer,parameter::max_theo
 
 replace_first("source/driver.F90", [ line_pattern(r'call ini%open(inputfile)')], [ r'call Ini%Open(InputFile)\n cosmomc_paramnames = Ini%Read_String("paramnames", .false.) \n cosmomc_num_hard = Ini%Read_Int("num_hard", ' + str(numhard) + r') \n cosmomc_cosmorec_runmode = Ini%Read_Int("cosmorec_runmode", 2)'])
 
-replace_all(r"source/Calculator_CAMB.f90", [r'\#ifdef\s+COSMOREC[^\#]*\#else'], [r'#ifdef COSMOREC\n P%Recomb%fdm = CMB%fdm*1.d-23 \n P%Recomb%A2s1s = CMB%A2s1s \n  P%Recomb%runmode = cosmomc_cosmorec_runmode \n#else'] )
+replace_all(r"source/Calculator_CAMB.f90", [r'\#ifdef\s+COSMOREC[^\#]*\#else'], [r'#ifdef COSMOREC\n P%Recomb%fdm = CMB%fdm*1.d-23 \n P%Recomb%A2s1s = CMB%A2s1s \n P%Tcmb = cosmomc_t_cmb \n P%Recomb%runmode = cosmomc_cosmorec_runmode \n#else'] )
 
 replace_all(r"source/CosmologyTypes.f90", [r'^(\s*Type\s*\,\s*extends.*\:\:\s*CMBParams)\s*$'], [r'\1\n       real(mcp) A2s1s'])
 
@@ -169,13 +180,13 @@ common_pattern = r'^(DEFAULT\(\w+\/[\w_]*common[\w\_]*\.ini\))\s*$'
 
 copy_replace_all(r'params_CMB.paramnames', r'params_cosmorec.paramnames', [ powerpattern ], [r'A2s1s        A_{2s\\rightarrow 1s}   #CosmoRec A2s1s parameter \ntcmb        T_{\\rm CMB}   #CosmoRec T_CMB parameter \n\1'] )
 
-copy_replace_first("test.ini", 'a2s1s.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$'], [r'DEFAULT(' + batch_dir + r'/common_a2s1s.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = ' + str(numhard+2) + r'\n cosmorec_runmode = 0 ', r'file_root = a2s1s', r'action = 0'] )
+copy_replace_first("test.ini", 'a2s1s.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$'], [r'DEFAULT(' + batch_dir + r'/common_a2s1s.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = ' + str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = a2s1s', r'action = 0'] )
 
 copy_replace_all(common_file, batch_dir + r'/common_a2s1s.ini', [r'params\_CMB\_defaults\.ini'],  [r'params_a2s1s.ini'])
 
 copy_replace_all(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_a2s1s.ini', [r'^param\[fdm\]\s*=.*$'], [r'param[fdm] = 0 0 0 0 0 \nparam[A2s1s] = 8.224 7 10 0.01 0.01 \nparam[tcmb] = 2.7255 2.7255 2.7255 0. 0. ' ] )
 
-copy_replace_first("test.ini", 'tcmb.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$'], [r'DEFAULT(' + batch_dir + r'/common_tcmb.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = '+str(numhard+2) + r'\n cosmorec_runmode = 0 ', r'file_root = tcmb', r'action = 0'] )
+copy_replace_first("test.ini", 'tcmb.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$'], [r'DEFAULT(' + batch_dir + r'/common_tcmb.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = '+str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = tcmb', r'action = 0'] )
 
 copy_replace_all(common_file, batch_dir + r'/common_tcmb.ini', [r'params\_CMB\_defaults\.ini'],  [r'params_tcmb.ini'])
 
