@@ -105,6 +105,26 @@ def which_line(fname, pattern):
     fp.close()
     return i
 
+def last_line(fname, patterns):
+    fp = open(fname, 'r')
+    pat = r''
+    for line in fp:
+        for p in patterns:
+            m = re.search(p, line)
+            if m:
+                pat = p
+    return pat
+
+def first_line(fname, patterns):
+    fp = open(fname, 'r')
+    for line in fp:
+        for p in patterns:
+            m = re.search(p, line)
+            if m:
+                return p
+
+                
+
 #######################################################
 #first restore to original version
 print "*****************************************"
@@ -117,8 +137,6 @@ if(nstr == ""):
     print "cannot find the number of hard parameters"
     sys.exit()
 numhard = int( nstr )
-
-
 
 index_w = which_line("params_CMB.paramnames", r'^w\s+.+')
 if index_w == 0:
@@ -161,7 +179,7 @@ replace_first("camb/power_tilt.f90", [line_pattern(r'module initialpower'), func
 
 replace_first("source/CosmologyTypes.f90", [line_pattern(r'integer,parameter::max_inipower_params=\d+')], [r'integer, parameter:: max_inipower_params = 30'])
 
-replace_first("source/settings.f90", [line_pattern(r'integer,parameter::max_theory_params=\d+')], [r'integer, parameter:: max_theory_params = 50'])
+replace_first("source/settings.f90", [line_pattern(r'integer,parameter::max_theory_params=\d+')], [r'integer, parameter:: max_theory_params = 50 \n character(LEN=256)::cosmomc_paramnames = "params_CMB.paramnames" '])
 
 replace_all("source/CosmologyParameterizations.f90", [line_pattern(r'module cosmologyparameterizations'), r'H0\_min\s*=\s*\d+', r'H0\_max\s*=\s*\d+', r"call\s+ini\%read\(\s*\'H0\_min\'\s*\,\s*this\%H0\_min\s*\)", r"call\s+ini\%read\(\s*\'H0\_max\'\s*\,\s*this\%H0\_max\s*\)", r'call\s+this\%SetTheoryParameterNumbers\s*\(\s*\d+\,\s*last_power_index\s*\)', r'end\s+subroutine\s+setforH', r'^\s*CMB\%nnu\s*=\s*params\(\d+\)\s*$', r'^\s*CMB\%YHe\s*=\s*params\(\d+\)\s*$', r'^\s*CMB\%iso\_cdm\_correlated\s*=\s*params\(\d+\)\s*$', r'^\s*CMB\%zre\_delta\s*=\s*params\(\d+\)\s*$', r'^\s*CMB\%Alens\s*=\s*params\(\d+\)\s*$',  r'^\s*CMB\%Alensf\s*=\s*params\(\d+\)\s*$',  r'^\s*CMB\%fdm\s*=\s*params\(\d+\)\s*$', r'^\s*call\s+setfast\s*\(\s*Params\s*\,\s*CMB\s*\)\s*$', r"'params_CMB.paramnames'"], [r'#include "constants.h"\nmodule CosmologyParameterizations\n use coop_wrapper', r'H0_min = 55.', r'H0_max = 85.', r'this%H0_min = 55.', r'this%H0_max = 85.', r'call this%SetTheoryParameterNumbers(cosmomc_de_index + cosmomc_de_num_params+cosmomc_de2pp_num_params-1, cosmomc_pp_num_params)', r'call coop_setup_cosmology_from_cosmomc(params, H0/100.d0)\nend subroutine setForH', r'CMB%nnu = Params(cosmomc_de_index + cosmomc_de_num_params)', r'CMB%YHe = Params(cosmomc_de_index + cosmomc_de_num_params+1)',  r'CMB%iso_cdm_correlated = Params(cosmomc_de_index + cosmomc_de_num_params+2)', r'CMB%zre_delta = Params(cosmomc_de_index + cosmomc_de_num_params+3)', r'CMB%Alens = Params(cosmomc_de_index + cosmomc_de_num_params+4)', r'CMB%Alensf = Params(cosmomc_de_index + cosmomc_de_num_params+5)', r'CMB%fdm = Params(cosmomc_de_index + cosmomc_de_num_params+6)', r"call setfast(params, CMB)\n call coop_setup_cosmology_from_cosmomc(params)\n call coop_setup_pp()", r"adjustl(trim(cosmomc_paramnames))" ])
 

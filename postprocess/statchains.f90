@@ -576,9 +576,11 @@ contains
              enddo
              if(first_1sigma)then
                 first_1sigma = .false.
-                call coop_asy_curve(fp2, kmpc, ps, smooth = .false., color = "blue", linetype = "dashed", legend="1-$\sigma$ trajs.")
+                call coop_asy_curve(fp2, kmpc, ps, smooth = .false., color = "blue", linetype = "dashed", legend="1-$\sigma$ scalar")
+                call coop_asy_curve(fp2, kmpc, pt, smooth = .false., color = "skyblue", linetype = "dotted", legend="1-$\sigma$ tensor")
              else
                 call coop_asy_curve(fp2, kmpc, ps, smooth = .false., color = "blue", linetype = "dashed")
+                call coop_asy_curve(fp2, kmpc, pt, smooth = .false., color = "skyblue", linetype = "dotted")
              endif
           endif
        endif
@@ -610,7 +612,7 @@ contains
 
        call coop_asy_curve(fp2, kmpc, ps, color = "red", linetype = "solid", linewidth = 2., legend="mean scalar")
        call coop_asy_curve(fp2, kmpc, pt, color = "violet", linetype = "solid", linewidth = 1.2, legend="mean tensor")
-       call coop_asy_curve(fp2, kMpc, exp(3.091+(0.967-1.)*lnk), color = "black", linewidth=2., legend="$m^2\phi^2$ scalar")
+       call coop_asy_curve(fp2, kMpc, exp(3.091+(0.967-1.)*(lnk-coop_pp_scalar_lnkpivot)), color = "black", linewidth=2., legend="$m^2\phi^2$ scalar")
        call coop_asy_curve(fp2, kMpc, exp(3.091 - 0.01625*lnk)*0.13, color = "cyan", linewidth=1.2, legend="$m^2\phi^2$ tensor")
        numpp = cosmomc_pp_num_params - coop_pp_cosmomc_num + 1
        if(numpp .gt. 1)then
