@@ -4,87 +4,15 @@ program test
   implicit none
 #include "constants.h"
   type(coop_cosmology_background) bg
-  integer,parameter::n=740, nw=2, nbins = 7
-  type(coop_file) fp
-  type(coop_asy) fig
-  real, parameter::ymax = 0.12, ymin = -0.1
-  COOP_REAL,parameter::step = 0.25
-  COOP_LONG_STRING line
-  COOP_SHORT_STRING name
-  COOP_REAL epsilon_s
-  COOP_REAL a(n), zcmb(n), zhel(n), mb(n), dmb(n), dz, mu_theory(n, -nw:nw), Mabs, junk, zarr(n), muarr(n, -nw:nw)
-  COOP_REAL, parameter::alpha = 0.141, beta = 3.10, intr_dm = 0.13, z_max = 4.
-  integer i, iw, ind(n), set(n), nlabel
-  COOP_REAL binned_z(nbins), binned_mu(nbins), binned_dmu(nbins), weight(nbins), strech, color, dstrech, dcolor, cov_ms, cov_mc, cov_sc, thirdvar, dthirdvar
-  
-  call fp%open("../data/jla_lcparams.txt","r")
-  read(fp%unit, "(A)") line
-  do i=1, n
-     read(fp%unit, *) name, zcmb(i), zhel(i), dz, mb(i), dmb(i), strech, dstrech, color, dcolor, thirdvar, dthirdvar, cov_ms, cov_mc, cov_sc, set(i)
-     mb(i) = mb(i) - 5.d0*log10((1.+zhel(i))/(1.+zcmb(i))) + alpha*(strech-1.d0) - beta*color
-     dmb(i) = sqrt(dmb(i)**2 + (5.d0*log10(1.d0+0.001/zcmb(i)))**2 + intr_dm**2 + alpha**2*dstrech**2 + beta**2*dcolor**2 + 2.d0*alpha*cov_ms - 2.d0*beta*cov_mc - 2.d0*alpha*beta*cov_sc)
-  enddo
-  call fp%close()
-  call coop_quicksortacc(zcmb, ind)
-  mb = mb(ind)
-  dmb = dmb(ind)
-  a = 1.d0/(1.d0+zcmb)
-  call coop_set_uniform(n, zarr, 0.01d0, z_max)
-  do iw=-nw, nw
-     epsilon_s = step*iw
-     call bg%init(h=COOP_REAL_OF(0.682d0))
-     call bg%add_species(coop_baryon(COOP_REAL_OF(0.047d0)))
-     call bg%add_species(coop_cdm(COOP_REAL_OF(0.253d0)))
-     call bg%add_species(coop_radiation(bg%Omega_radiation()))
-     call bg%add_species(coop_neutrinos_massive( bg%Omega_nu_from_mnu_eV(0.06d0),bg%Omega_massless_neutrinos_per_species()))
-     call bg%add_species(coop_neutrinos_massless(bg%Omega_massless_neutrinos_per_species()*2.))
-     call bg%add_species(coop_de_quintessence(bg%Omega_k(), epsilon_s, 0.d0, 0.d0))
-     call bg%setup_background()
-     do i=1, n
-        muarr(i, iw) = 5.d0*log10(bg%luminosity_distance(1.d0/(1.d0+zarr(i)))/bg%H0Mpc())+25.
-        mu_theory(i, iw) = 5.d0*log10(bg%luminosity_distance(a(i))/bg%H0Mpc())+25.
-     enddo
-     call bg%free()
-  enddo
-  Mabs = sum((mu_theory(:,0)-mb)/dmb**2)/sum(1.d0/dmb**2)
-  print*, "M = ", Mabs
-
-  mb = mb + Mabs - mu_theory(:, 0)
-  binned_z = 0.d0
-  binned_mu = 0.d0
-  weight = 0.d0
-  binned_dmu = 0.d0
-  do i=1, n
-     iw = ceiling((zcmb(i) + 0.1d0)/0.2d0)
-     if(iw .lt. 1 .or. iw.gt. nbins)stop "bin range overflow"
-     weight(iw) = weight(iw) + 1.d0/dmb(i)**2
-     binned_z(iw) = binned_z(iw) + zcmb(i)/dmb(i)**2
-     binned_mu(iw) = binned_mu(iw) + mb(i)/dmb(i)**2
-     binned_dmu(iw) = binned_dmu(iw) + 1.d0/dmb(i)**2
-  enddo
-  if(any(weight .le. 0.d0)) stop "empty bin"
-  binned_mu = binned_mu/weight
-  binned_z = binned_z/weight
-  binned_dmu = 1.d0/sqrt(binned_dmu)
-  do iw=-nw, nw
-     if(iw.ne.0) then
-        mu_theory(:, iw) = mu_theory(:, iw) - mu_theory(:, 0)
-        muarr(:, iw) = muarr(:, iw) - muarr(:, 0)
-     endif
-  enddo
-  muarr(:, 0) = 0.
-  call fig%open("distance_data_eps.txt")
-  call fig%init(xlabel = "$\log_{10}(1+z)$", ylabel = "$5 \log_{10} (d/d_{\Lambda \rm CDM})$", xmin = 0., xmax = log10(1.+real(z_max)), ymin = ymin, ymax = ymax, doclip = .false.)
-  nlabel = n/2
-  do iw = -nw, nw
-     call coop_asy_interpolate_curve(fig, xraw = log10(1.d0+zarr), yraw = muarr(:, iw), interpolate = "LinearLinear", color=fig%color(iw+nw+1), linetype = fig%linetype(iw+nw+1))
-     call coop_asy_label(fig, x = log10(real(1+zarr(nlabel))), y = real(muarr(nlabel, iw))+0.005, label = "$\epsilon_s="//trim(coop_num2str(step*iw))//"$")
-  enddo
-  do i=1, nbins
-     call coop_asy_error_bar(fig, x = log10(1.+binned_z(i)), y = binned_mu(i), dy_plus = binned_dmu(i), dy_minus = binned_dmu(i))
-  enddo
-  call coop_asy_label(fig, x = log10(1.+0.15), y = ymin+0.03, label = "$\Omega_m = 0.3$")
-  call coop_asy_rightaxis(fp  = fig, ymin = real(68.2*10.**(ymax/5.)), ymax = real(68.2*10.**(ymin/5.)), islog = .false., label = "$H_0$")
-!!  call coop_asy_label(fig, x = 0.5, y = ymax-0.008, label = "JLA SN data, $\Lambda$CDM model subtracted")
-  call fig%close()
+  type(coop_species) de
+  call bg%init(h=COOP_REAL_OF(0.682d0))
+  call bg%add_species(coop_baryon(COOP_REAL_OF(0.047d0)))
+  call bg%add_species(coop_cdm(COOP_REAL_OF(0.253d0)))
+  call bg%add_species(coop_radiation(bg%Omega_radiation()))
+  call bg%add_species(coop_neutrinos_massive( bg%Omega_nu_from_mnu_eV(0.06d0),bg%Omega_massless_neutrinos_per_species()))
+  call bg%add_species(coop_neutrinos_massless(bg%Omega_massless_neutrinos_per_species()*2.))
+  de = coop_de_quintessence(bg%Omega_k(), 0.2d0, 0.d0, 0.d0)
+  call bg%add_species(de)
+  call bg%setup_background()
+  print*, de%wofa(0.d0), de%wofa(1.d0)
 end program test

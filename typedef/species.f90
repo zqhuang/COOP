@@ -49,6 +49,10 @@ contains
   function coop_species_wofa(this, a) result(w)
     class(coop_species) :: this
     COOP_REAL w, a
+    if(a.le.coop_min_scale_factor)then
+       w = -1.d0
+       return
+    endif
     if(this%w_dynamic)then
        w = this%fw%eval(a)
     else
@@ -60,6 +64,11 @@ contains
   function coop_species_cs2ofa(this, a) result(cs2)
     class(coop_species) :: this
     COOP_REAL cs2, a
+    if(a.le.coop_min_scale_factor)then
+       cs2 = 1.d0
+       return
+    endif
+
     if(this%cs2_dynamic)then
        cs2 = this%fcs2%eval(a)
     else
@@ -138,6 +147,11 @@ contains
     class(coop_species)::this
     COOP_REAL a
     COOP_REAL density
+    if(a.le.coop_min_scale_factor)then
+       density = 0.d0
+       return
+    endif
+    
     if(this%w_dynamic)then
        density = exp(this%flnrho%eval(a))
     else
