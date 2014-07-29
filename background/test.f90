@@ -11,7 +11,7 @@ program test
   call bg%add_species(coop_radiation(bg%Omega_radiation()))
   call bg%add_species(coop_neutrinos_massive( bg%Omega_nu_from_mnu_eV(0.06d0),bg%Omega_massless_neutrinos_per_species()))
   call bg%add_species(coop_neutrinos_massless(bg%Omega_massless_neutrinos_per_species()*2.))
-  de = coop_de_quintessence(bg%Omega_k(), 0.2d0, 0.d0, 0.d0)
+  de = coop_de_quintessence(bg%Omega_k(), 0.d0, 0.d0, 0.d0)
   call bg%add_species(de)
   call bg%setup_background()
   print*, de%wofa(0.d0), de%wofa(1.d0)
