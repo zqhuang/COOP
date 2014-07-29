@@ -171,9 +171,9 @@ replace_first("source/driver.F90", [ line_pattern(r'call ini%open(inputfile)')],
 
 replace_all(r"source/Calculator_CAMB.f90", [r'\#ifdef\s+COSMOREC[^\#]*\#else'], [r'#ifdef COSMOREC\n P%Recomb%fdm = CMB%fdm*1.d-23 \n P%Recomb%A2s1s = CMB%A2s1s \n P%Tcmb = cosmomc_t_cmb \n P%Recomb%runmode = cosmomc_cosmorec_runmode \n#else'] )
 
-replace_all(r"source/CosmologyTypes.f90", [r'^(\s*Type\s*\,\s*extends.*\:\:\s*CMBParams)\s*$'], [r'\1\n       real(mcp) A2s1s'])
+replace_all(r"source/CosmologyTypes.f90", [r'^(\s*Type\s*\,\s*extends.*\:\:\s*CMBParams)\s*(\!.*)?$'], [r'\1\n       real(mcp) A2s1s'])
 
-replace_all(r"source/CosmologyParameterizations.f90",  [r'(call\s+this\%SetTheoryParameterNumbers\(\s*\d+\s*\,\s*last\_power\_index\))', r'(\"|\')params\_CMB\.paramnames(\"|\')', r'^\s*CMB%fdm\s*=\s*Params\((\d+)\)\s*$'], [r'call this%SetTheoryParameterNumbers(cosmomc_num_hard, last_power_index)', r'trim(cosmomc_paramnames)', r'CMB%fdm = Params(\1) \n CMB%A2s1s = Params(' + str(numhard+1) + r') \n cosmomc_t_cmb = Params(' + str(numhard + 2) + ')'])
+replace_all(r"source/CosmologyParameterizations.f90",  [r'(call\s+this\%SetTheoryParameterNumbers\(\s*\d+\s*\,\s*last\_power\_index\))', r'(\"|\')params\_CMB\.paramnames(\"|\')', r'^\s*CMB%fdm\s*=\s*Params\((\d+)\)\s*(\!.*)?$'], [r'call this%SetTheoryParameterNumbers(cosmomc_num_hard, last_power_index)', r'trim(cosmomc_paramnames)', r'CMB%fdm = Params(\1) \n CMB%A2s1s = Params(' + str(numhard+1) + r') \n cosmomc_t_cmb = Params(' + str(numhard + 2) + ')'])
 
 
 batch_dir = search_value("test.ini", r'^DEFAULT\((\w+)\/[\w_]*common[\w_]*\.ini\)\s*$')
