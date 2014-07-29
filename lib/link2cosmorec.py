@@ -195,7 +195,7 @@ copy_replace_first("test.ini", 'tcmb.ini', [common_pattern, r'^file_root\s*=.+$'
 
 copy_replace_all(common_file, batch_dir + r'/common_tcmb.ini', [r'params\_CMB\_defaults\.ini'],  [r'params_tcmb.ini'])
 
-copy_replace_all(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_tcmb.ini', [r'^param\[fdm\]\s*=.*$'], [r'param[fdm] = 0 0 0 0 0 \nparam[A2s1s] = 0 0 0 0 0 \nparam[tcmb] = 2.7255 2. 3.5 0.03 0.03' ] )
+copy_replace_all(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_tcmb.ini', [r'^param\[fdm\]\s*=.*$'], [r'param[fdm] = 0 0 0 0 0 \nparam[A2s1s] = 0 0 0 0 0 \nparam[tcmb] = 2.7255 2. 3.5 0.002 0.002' ] )
 
 
 
