@@ -351,6 +351,7 @@ contains
              f = this%fleft
              return
           endif
+          write(*,*) this%xlog, this%ylog, this%n, b
           write(*,*) x, ":", this%xmin, " -- ", this%xmax, " ---", this%dx
           write(*,*) "coop_function cannot be evaluated out of its boundary"
           stop
@@ -362,6 +363,7 @@ contains
              f = this%fright
              return
           endif
+          write(*,*) this%xlog, this%ylog, this%n, b
           write(*,*) x, ":", this%xmin, " -- ", this%xmax, " ---", this%dx
           write(*,*) "coop_function cannot be evaluated out of its boundary"
           stop
