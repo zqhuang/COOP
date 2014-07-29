@@ -62,7 +62,7 @@ contains
        return
     endif
     w0wa = coop_arguments(r =  (/ w0, wa /))
-    fw0wa = coop_function(coop_de_w_w0wa, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.), xlog = .true., args = w0wa, check_boundary = .false.)
+    fw0wa = coop_function(coop_de_w_w0wa, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.), xlog = .true., args = w0wa)
     call this%init(genre = COOP_SPECIES_FLUID, name = "w0wa Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fw = fw0wa )
     call w0wa%free
   end function coop_de_w0wa
@@ -93,7 +93,7 @@ contains
        return
     endif
     arg = coop_arguments(r =  (/ Omega_Lambda, epsilon_s, epsilon_inf, zeta_s /))
-    fq = coop_function(coop_de_w_quintessence, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.d0), xlog = .true., args = arg, check_boundary = .false.)
+    fq = coop_function(coop_de_w_quintessence, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.d0), xlog = .true., args = arg)
     call this%init(genre = COOP_SPECIES_FLUID, name = "quintessence Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fw = fq )
     call arg%free
   end function coop_de_quintessence
@@ -157,7 +157,7 @@ contains
        return
     endif
     arg = coop_arguments(r =  (/ Omega_Lambda, epsilon_s, epsilon_inf, zeta_s , at_by_aeq /))
-    fq = coop_function(coop_de_w_coupled_quintessence, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.d0), xlog = .true., args = arg, check_boundary = .false.)
+    fq = coop_function(coop_de_w_coupled_quintessence, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.d0), xlog = .true., args = arg)
     call this%init(genre = COOP_SPECIES_FLUID, name = "coupled quintessence Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fw = fq )
     call arg%free
   end function coop_de_coupled_quintessence
