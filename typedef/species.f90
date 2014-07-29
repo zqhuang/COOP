@@ -135,7 +135,7 @@ contains
     class(coop_species)::this
     COOP_REAL a, an
     COOP_REAL rhoa4
-    an = max(a, coop_min_scale_factor/1.e3)
+    an = max(a, coop_min_scale_factor)
     if(this%w_dynamic)then
        rhoa4 = exp(this%flnrho%eval(an)+4.d0*log(an))
     else
