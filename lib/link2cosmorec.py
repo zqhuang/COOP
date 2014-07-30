@@ -164,7 +164,7 @@ backup_file(r'camb/cosmorec.F90')
 
 os.system(r'cp ' + patch_path + r'/cosmorec.F90 camb/cosmorec.F90')
 
-replace_first("source/settings.f90", [r'^\s*module\s+settings\s*(\!.*)?$', line_pattern(r'integer,parameter::max_theory_params=\d+')], [r'module settings\n use constants', r'integer, parameter:: max_theory_params = 35 \n character(LEN=256)::cosmomc_paramnames = "params_CMB.paramnames" \n integer::cosmomc_num_hard = ' + str(numhard) + r'\n integer::cosmomc_cosmorec_runmode = 0 '] )
+replace_first("source/settings.f90", [r'^\s*module\s+settings\s*(\!.*)?$', line_pattern(r'integer,parameter::max_theory_params=\d+')], [r'module settings\n use constants, only:COBE_CMBTemp', r'integer, parameter:: max_theory_params = 35 \n character(LEN=256)::cosmomc_paramnames = "params_CMB.paramnames" \n integer::cosmomc_num_hard = ' + str(numhard) + r'\n integer::cosmomc_cosmorec_runmode = 0 '] )
 
 
 replace_first("camb/constants.f90", [r'\,\s*parameter\s*(\:\:\s*COBE_CMBTemp)'], [r'\1'])
