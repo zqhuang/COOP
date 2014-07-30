@@ -16,7 +16,7 @@ program test
   integer, parameter::lmax = 1000
   type(coop_file)::fp
   call map%read("ffp7/ffp7_cmb_plus_noise_0001_15a_1024.fits", spin = (/ 0, 2 ,2 /) )
-  map%map = map%map*1.d6
+  map%map = map%map
   mapo = map
   fullmap = map
 
@@ -35,6 +35,7 @@ program test
   call mapo%mask(imask, polmask)
   call coop_healpix_diffuse_into_mask(mapo, polmask, coop_SI_arcmin*30, .true.)
   call mapo%iqu2teb()
+  call mapo%write("ffp7_nobpm_smica_cmbPlusnoise_0001_15a_1024_EB.fits", (/2, 3/) )
   call mapo%mask(imask, poltrim)
   call mapo%map2alm()
   tmp = mapo

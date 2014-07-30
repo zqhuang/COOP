@@ -826,7 +826,7 @@ contains
        do i = 1, mc%nb
           x(i) = mc%plotlower(mc%used(ip)) + mc%dx(mc%used(ip))*(i-1)
        enddo
-       call fp%init( xlabel = trim(mc%label(mc%used(ip))), ylabel = "P", width=3., height=2.5)
+       call fp%init( xlabel = trim(mc%label(mc%used(ip))), ylabel = "P", width=3., height=2.5, ymin=0., ymax=1.05)
        call coop_asy_plot_likelihood(fp, x, mc%c1d(:, ip)/maxval(mc%c1d(:, ip)), left_tail = .true., right_tail = .true., linewidth=1.5)
        call fp%close()
     enddo
