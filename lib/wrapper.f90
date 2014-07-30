@@ -10,12 +10,14 @@ module coop_wrapper
   type(coop_species):: coop_global_massless_neutrinos
   type(coop_species):: coop_global_massive_neutrinos
   type(coop_species):: coop_global_de
-  type(coop_arguments)::coop_global_cosmological_parameters
+
+  type(coop_arguments)::coop_global_cosmological_parameters, coop_global_param_index
 
   COOP_REAL, parameter::coop_pp_lnkmin = -9.22d0
   COOP_REAL, parameter::coop_pp_lnkmax = 0.01d0
   COOP_REAL::coop_pp_lnk_knots_min = coop_pp_lnkmin
   COOP_REAL::coop_pp_lnk_knots_max = coop_pp_lnkmax
+
 
   COOP_INT:: cosmomc_de_index = 8
   COOP_INT:: cosmomc_de2pp_num_params = 7
@@ -24,9 +26,11 @@ module coop_wrapper
   COOP_INT:: cosmomc_pp_model = COOP_PP_STANDARD
   COOP_INT:: cosmomc_de_num_params = 2
   COOP_INT:: cosmomc_pp_num_params = 8
-  COOP_INT:: coop_pp_cosmomc_num = 8
+  COOP_INT:: cosmomc_pp_num_origin = 8
   COOP_REAL:: coop_pp_scalar_lnkpivot = log(0.05d0)
   COOP_REAL:: coop_pp_tensor_lnkpivot =  log(0.05d0)
+  logical ::cosmomc_pp_inflation_consistency = .true.
+
 
   COOP_INT,parameter::coop_pp_n = 1024  !!8 primordial power spctra 
   COOP_REAL,dimension(coop_pp_n)::coop_pp_lnkMpc, coop_pp_lnps, coop_pp_lnpt, coop_pp_lnps2, coop_pp_lnpt2
@@ -40,7 +44,12 @@ contains
   subroutine coop_setup_cosmology_from_cosmomc_s(params, h)
     real params(:)
     double precision, optional::h
-    call COOP_COSMO_PARAMS%init(r = COOP_REAL_OF(params), i = (/ cosmomc_de_model, cosmomc_de_index, cosmomc_de_num_params, cosmomc_pp_model, cosmomc_de_index + cosmomc_de_num_params + cosmomc_de2pp_num_params, cosmomc_pp_num_params /) )
+    call COOP_COSMO_PARAMS%init(r = COOP_REAL_OF(params), i = (/ cosmomc_de_model, cosmomc_de_index, cosmomc_de_num_params, cosmomc_pp_model, cosmomc_de_index + cosmomc_de_num_params + cosmomc_de2pp_num_params, cosmomc_pp_num_params /), l = (/ cosmomc_pp_inflation_consistency /)  )
+
+    if(COOP_INFLATION_CONSISTENCY)then
+       COOP_NT = - COOP_AMP_RATIO / 8.d0
+    endif
+
     if(present(h))then
        call coop_setup_global_cosmology_with_h(COOP_REAL_OF(h))
     endif
@@ -49,7 +58,10 @@ contains
   subroutine coop_setup_cosmology_from_cosmomc_d(params, h)
     doubleprecision params(:)
     double precision, optional::h
-    call COOP_COSMO_PARAMS%init(r = COOP_REAL_OF(params), i = (/ cosmomc_de_model, cosmomc_de_index, cosmomc_de_num_params, cosmomc_pp_model, cosmomc_de_index + cosmomc_de_num_params + cosmomc_de2pp_num_params, cosmomc_pp_num_params /) )
+    call COOP_COSMO_PARAMS%init(r = COOP_REAL_OF(params), i = (/ cosmomc_de_model, cosmomc_de_index, cosmomc_de_num_params, cosmomc_pp_model, cosmomc_de_index + cosmomc_de_num_params + cosmomc_de2pp_num_params, cosmomc_pp_num_params /), l = (/ cosmomc_pp_inflation_consistency /) )
+    if(COOP_INFLATION_CONSISTENCY)then
+       COOP_NT = - COOP_AMP_RATIO / 8.d0
+    endif
     if(present(h))then
        call coop_setup_global_cosmology_with_h(COOP_REAL_OF(h))
     endif
@@ -192,19 +204,19 @@ contains
     case(COOP_PP_STANDARD)
        coop_pp_lnps = COOP_LN10TO10AS - 10.d0*coop_ln10 + ( COOP_NS - 1.d0 ) * (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) + (COOP_NRUN/2.d0) *   (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) ** 2 + (COOP_NRUNRUN/6.d0) *  (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) ** 6
     case(COOP_PP_SCAN_SPLINE)
-       nknots =  COOP_NUM_PP - coop_pp_cosmomc_num + 1
+       nknots =  COOP_NUM_PP - cosmomc_pp_num_origin + 1
        if(nknots .lt. 4) stop "You need at least 4 knots for scan_spline mode"
        dlnk = (coop_pp_lnkmax-coop_pp_lnkmin)/(nknots-1)
-       nleft = min(max(nint((coop_pp_scalar_lnkpivot - coop_pp_lnkmin)/dlnk), 2), COOP_NUM_PP - coop_pp_cosmomc_num - 1)
+       nleft = min(max(nint((coop_pp_scalar_lnkpivot - coop_pp_lnkmin)/dlnk), 2), COOP_NUM_PP - cosmomc_pp_num_origin - 1)
        nright = nknots - 1 - nleft
        dlnk = max(dlnk, (coop_pp_lnkmax-coop_pp_scalar_lnkpivot)/nright, (coop_pp_scalar_lnkpivot - coop_pp_lnkmin)/nleft)
        coop_pp_lnk_knots_min = coop_pp_scalar_lnkpivot- nleft*dlnk
        coop_pp_lnk_knots_max = nright*dlnk + coop_pp_scalar_lnkpivot
        allocate(lnk(nknots), lnps(nknots), lnps2(nknots))
        call coop_set_uniform(nknots, lnk, -dlnk*nleft, dlnk*nright)
-       lnps(1:nleft) = COOP_COSMO_PARAMS%r(COOP_INDEX_PP+coop_pp_cosmomc_num:COOP_INDEX_PP+coop_pp_cosmomc_num+nleft -1)
+       lnps(1:nleft) = COOP_COSMO_PARAMS%r(COOP_INDEX_PP+cosmomc_pp_num_origin:COOP_INDEX_PP+cosmomc_pp_num_origin+nleft -1)
        lnps(nleft+1) = 0.d0
-       lnps(nleft+2:nknots) = COOP_COSMO_PARAMS%r(COOP_INDEX_PP+coop_pp_cosmomc_num+nleft:COOP_INDEX_PP+COOP_NUM_PP-1)
+       lnps(nleft+2:nknots) = COOP_COSMO_PARAMS%r(COOP_INDEX_PP+cosmomc_pp_num_origin+nleft:COOP_INDEX_PP+COOP_NUM_PP-1)
        call coop_spline(nknots, lnk, lnps, lnps2)
        do i=1, coop_pp_n
           call coop_splint(nknots, lnk, lnps, lnps2, coop_pp_lnkMpc(i) - coop_pp_scalar_lnkpivot, coop_pp_lnps(i))
@@ -212,17 +224,17 @@ contains
        coop_pp_lnps = coop_pp_lnps + COOP_LN10TO10AS - 10.d0*coop_ln10
        deallocate(lnk, lnps,  lnps2)
     case(COOP_PP_SCAN_LINEAR)
-       nknots =  COOP_NUM_PP - coop_pp_cosmomc_num + 1
+       nknots =  COOP_NUM_PP - cosmomc_pp_num_origin + 1
        if(nknots .lt. 4) stop "You need at least 4 knots for scan_linear mode"
        dlnk = 9.5d0/(nknots-1)
-       nleft = min(max(nint((coop_pp_scalar_lnkpivot - 9.21d0)/dlnk), 2), COOP_NUM_PP - coop_pp_cosmomc_num - 1)
+       nleft = min(max(nint((coop_pp_scalar_lnkpivot - 9.21d0)/dlnk), 2), COOP_NUM_PP - cosmomc_pp_num_origin - 1)
        nright = nknots - 1 - nleft
        dlnk = max(dlnk, (log(0.6d0)-coop_pp_scalar_lnkpivot)/nright, (coop_pp_scalar_lnkpivot - log(1.d-4))/nleft)
        allocate(lnk(nknots), lnps(nknots))
        call coop_set_uniform(nknots, lnk, -dlnk*nleft, dlnk*nright)
-       lnps(1:nleft) = COOP_COSMO_PARAMS%r(COOP_INDEX_PP+coop_pp_cosmomc_num:COOP_INDEX_PP+coop_pp_cosmomc_num+nleft -1)
+       lnps(1:nleft) = COOP_COSMO_PARAMS%r(COOP_INDEX_PP+cosmomc_pp_num_origin:COOP_INDEX_PP+cosmomc_pp_num_origin+nleft -1)
        lnps(nleft+1) = 0.d0
-       lnps(nleft+2:nknots) = COOP_COSMO_PARAMS%r(COOP_INDEX_PP+coop_pp_cosmomc_num+nleft:COOP_INDEX_PP+COOP_NUM_PP-1)
+       lnps(nleft+2:nknots) = COOP_COSMO_PARAMS%r(COOP_INDEX_PP+cosmomc_pp_num_origin+nleft:COOP_INDEX_PP+COOP_NUM_PP-1)
        do i=1, coop_pp_n
           call coop_linear_interp(nknots, lnk, lnps, coop_pp_lnkMpc(i) - coop_pp_scalar_lnkpivot, coop_pp_lnps(i))
        enddo

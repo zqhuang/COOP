@@ -144,12 +144,14 @@ contains
     cosmomc_de_index = max(all_index_of_name(mc, "meffsterile"), all_index_of_name(mc, "mnu"), all_index_of_name(mc, "omegak")) + 1
     ind = min(all_index_of_name(mc, "logA"), all_index_of_name(mc, "ns"))
     cosmomc_de2pp_num_params = ind - cosmomc_de_index - cosmomc_de_num_params
-    coop_pp_cosmomc_num = all_index_of_name(mc, "Aphiphi") - ind + 1
-
+    cosmomc_pp_num_origin = all_index_of_name(mc, "Aphiphi") - ind + 1
+     
+    call coop_dictionary_lookup(mc%inputparams, "inflation_consistency", cosmomc_pp_inflation_consistency, .true.)
+       
     write(*,*) ind-1 , " hard parameters "
     write(*,*) " dark energy index from ", cosmomc_de_index
     write(*,*) cosmomc_de_num_params  , " dark energy parameters "
-    write(*,*) coop_pp_cosmomc_num  , " cosmomc default primordial power parameters "
+    write(*,*) cosmomc_pp_num_origin  , " cosmomc default primordial power parameters "
     write(*,*) "totally ", cosmomc_pp_num_params  , " primordial power parameters "
 
     allocate(nskip(nfiles),nlines(nfiles))
@@ -614,7 +616,7 @@ contains
        call coop_asy_curve(fp2, kmpc, pt, color = "violet", linetype = "solid", linewidth = 1.2, legend="mean tensor")
        call coop_asy_curve(fp2, kMpc, exp(3.091+(0.967-1.)*(lnk-coop_pp_scalar_lnkpivot)), color = "black", linewidth=2., legend="$m^2\phi^2$ scalar")
        call coop_asy_curve(fp2, kMpc, exp(3.091 - 0.01625*lnk)*0.13, color = "cyan", linewidth=1.2, legend="$m^2\phi^2$ tensor")
-       numpp = cosmomc_pp_num_params - coop_pp_cosmomc_num + 1
+       numpp = cosmomc_pp_num_params - cosmomc_pp_num_origin + 1
        if(numpp .gt. 1)then
           call coop_set_uniform(numpp, lnk(1:numpp), coop_pp_lnk_knots_min, coop_pp_lnk_knots_max)
           ps(1:numpp) = 1.3
