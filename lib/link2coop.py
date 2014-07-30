@@ -237,10 +237,10 @@ for i in range(7, 16):
         ppstr += (r'pp'+ str(j+1) + r'    p_{' + str(j+1) + r'}\n')
     ppstr += r'H0*        H_0'
     copy_replace_first(r'params_CMB.paramnames', r'paramnames/params_scanp' + str(i)+ r'.paramnames',  [ r'^H0\*\s+.+$' ], [ ppstr ])
-    copy_replace_first('test.ini', 'scanp'+str(i)+'_wb.ini', [common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^\#(cmb\_dataset\[BICEP2\].*)$',  propose_pattern], [r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = pp'+str(i)+r'_wb' , r'action = 0', r'compute_tensors = T', r'\1', str_propose])
+    copy_replace_first('test.ini', 'scanp'+str(i)+'_wb.ini', [common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^\#(cmb\_dataset\[BICEP2\].*)$',  propose_pattern], [r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pp'+str(i)+r'_wb' , r'action = 0', r'compute_tensors = T', r'\1', str_propose])
 
 
-    copy_replace_first('test.ini', 'scanp'+str(i)+'.ini', [common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = pp'+str(i) , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose])
+    copy_replace_first('test.ini', 'scanp'+str(i)+'.ini', [common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pp'+str(i) , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose])
 
 
 copy_replace_first(common_file, batch_dir + r'/common_pp.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_pp.ini)'] )
