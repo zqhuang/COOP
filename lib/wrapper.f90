@@ -32,8 +32,9 @@ module coop_wrapper
   logical ::cosmomc_pp_inflation_consistency = .true.
 
 
-  COOP_INT,parameter::coop_pp_n = 1024  !!8 primordial power spctra 
-  COOP_REAL,dimension(coop_pp_n)::coop_pp_lnkMpc, coop_pp_lnps, coop_pp_lnpt, coop_pp_lnps2, coop_pp_lnpt2
+  COOP_INT,parameter::coop_pp_n = 1024  
+  COOP_REAL,dimension(coop_pp_n)::coop_pp_lnkMpc, coop_pp_lnps, coop_pp_lnpt, coop_pp_lnps2, coop_pp_lnpt2, coop_pp_lneps, coop_pp_lnV, coop_pp_phi, coop_pp_lnH
+  COOP_INT::coop_pp_ipivot
  
   interface coop_setup_cosmology_from_cosmomc
      module procedure coop_setup_cosmology_from_cosmomc_s, coop_setup_cosmology_from_cosmomc_d
@@ -288,6 +289,36 @@ contains
        pt = exp(coop_primordial_lnpt(kMpc))
     endif
   end function coop_primordial_pt
+
+  subroutine coop_pp_get_potential()
+    integer i
+    COOP_REAL, parameter::max_delta = 0.4
+    COOP_REAL, parameter::max_lneps = log(0.4)
+    COOP_REAL dlnk, fourdlnk, dphiby2(coop_pp_n), eps(coop_pp_n), delta(coop_pp_n)
+    coop_pp_ipivot = coop_minloc(abs(coop_pp_lnkMpc - coop_pp_scalar_lnkpivot))
+    dlnk = coop_pp_lnkMpc(2)-coop_pp_lnkMpc(1)
+    fourdlnk = dlnk*4.d0
+    do i=2, coop_pp_n - 1
+       delta(i) = (coop_pp_lnps(i-1)-coop_pp_lnps(i+1))/fourdlnk
+       if(abs(delta(i)) .gt. max_delta)then
+          delta(i) = sign(max_delta, delta(i))
+       endif
+    enddo
+    delta(1) = delta(2)
+    delta(coop_pp_n) = delta(coop_pp_n  - 1)
+    coop_pp_lneps = min(coop_pp_lnpt - coop_pp_lnps - log(16.d0), max_lneps) 
+    eps = exp(coop_pp_lneps)
+    coop_pp_lneps = min(max_lneps,  coop_pp_lneps - log( (1.d0 - (2.d0*(coop_ln2+coop_EulerC-1.d0))*eps ) /(1.d0-2.d0*eps+(2.d0*(2.d0-coop_EulerC-coop_ln2))*delta))) !!slow-roll correction
+    eps = exp(coop_pp_lneps)
+    coop_pp_lnH = log(coop_pi2/2.d0*exp(coop_pp_lnpt)/( 1.d0 - (2.d0*(coop_ln2+coop_EulerC-1.d0))*eps ))/2.d0
+    coop_pp_lnV = 2.d0*coop_pp_lnH + log(3.d0*(1.d0-eps/3.d0))
+    coop_pp_phi(1) = 0.d0
+    dphiby2 = sqrt(2.d0*eps)/(1.d0-eps)*dlnk/2.d0
+    do i=2, coop_pp_n 
+       coop_pp_phi(i) = coop_pp_phi(i-1) + (dphiby2(i-1)+dphiby2(i))
+    enddo
+    coop_pp_phi = coop_pp_phi - coop_pp_phi(coop_pp_ipivot)
+  end subroutine coop_pp_get_potential
 
 
 end module coop_wrapper

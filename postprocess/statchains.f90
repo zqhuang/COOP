@@ -442,7 +442,6 @@ contains
   subroutine export_stats(mc, output)
     integer::num_1sigma_trajs
     integer::num_samples_to_get_mean
-
     integer,parameter::nk = 71
     COOP_REAL  norm
     logical,parameter::do_traj_cov = .true.
@@ -453,10 +452,10 @@ contains
     real, parameter::dcl_legend_loc = sqrt(dcl_lmax*2.)
     COOP_REAL  Cls(4, 2:lmax), rl(2:lmax), cls_mean(4, 2:lmax),  maxcls(4), mincls(4), bestCls(4, 2:dcl_lmax), maxdcls(4), mindcls(4)
     
-    COOP_REAL  lnk(nk), kMpc(nk), ps(nk), pt(nk), lnpsmean(nk), lnptmean(nk), lnpscov(nk, nk), lnps(nk), lnpt(nk), lnps_shift, lnpt_shift,  mineig !, lnptcov(nk, nk)
+    COOP_REAL  lnk(nk), kMpc(nk), ps(nk), pt(nk), lnpsmean(nk), lnptmean(nk), lnpscov(nk, nk), lnps(nk), lnpt(nk), lnps_shift, lnpt_shift,  mineig, clnps(coop_pp_n), clnpt(coop_pp_n)
     type(mcmc_chain) mc
     COOP_UNKNOWN_STRING output
-    type(coop_asy) fp, fp2
+    type(coop_asy) fp, fig_spec, fig_pot, fig_eps
     integer i , ip, j,  j2, k, ik, numpiv, ltmp, ik2, ndof
     real mult
     real x(mc%nb)
@@ -497,16 +496,24 @@ contains
        select case(cosmomc_pp_model)
        case(COOP_PP_GENERAL_SINGLE_FIELD)
           num_1sigma_trajs  = 70
-          num_samples_to_get_mean = 5
+          num_samples_to_get_mean = 20
        case default
           num_1sigma_trajs  = 80
-          num_samples_to_get_mean = 2000
+          num_samples_to_get_mean = 2200
        end select
-       call fp2%open(trim(mc%output)//"_power_trajs.txt", "w")
-       call fp2%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$10^{10}\mathcal{P}_{S,T}$", xlog=.true., ylog = .true., xmin = real(exp(coop_pp_lnkmin-0.05)), xmax = real(exp(coop_pp_lnkmax + 0.05)), ymin = 1., ymax = 200., doclip = .true.)
+       call fig_spec%open(trim(mc%output)//"_power_trajs.txt", "w")
+       call fig_pot%open(trim(mc%output)//"_potential_trajs.txt", "w")
+       call fig_eps%open(trim(mc%output)//"_eps_trajs.txt", "w")
+       call fig_spec%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$10^{10}\mathcal{P}_{S,T}$", xlog=.true., ylog = .true., xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = 1., ymax = 200., doclip = .true.)
+       call coop_asy_topaxis(fig_spec, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell\equiv  k D_{\rm rec}$")
+       call fig_pot%init(xlabel="$(\phi - \phi_{\rm pivot})/M_p$", ylabel = "$\ln (V/V_{\rm pivot})$", xmin = -1.5, xmax = 0.5, ymin = -0.2, ymax = 0.6, doclip = .true.)
+       call fig_eps%init(xlabel = "$ k ({\rm Mpc}^{-1})$", ylabel = "$\epsilon$", xlog = .true. ,  xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = 0., ymax = 0.145, doclip = .true.)
+       call coop_asy_topaxis(fig_eps, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell\equiv  k D_{\rm rec}$")
 
        lnpsmean = 0
        lnptmean = 0
+       clnps = 0
+       clnpt = 0
        if(do_traj_cov)then
           lnpscov = 0
        endif
@@ -533,6 +540,8 @@ contains
           lnpt = lnpt + lnpt_shift
           lnpsmean = lnpsmean + lnps * mc%mult(j)
           lnptmean = lnptmean + lnpt * mc%mult(j)
+          clnps = clnps + coop_pp_lnps*mc%mult(j)
+          clnpt = clnpt + coop_pp_lnpt*mc%mult(j)
           if(do_traj_cov)then
              do ik=1, nk
                 do ik2 = ik, nk
@@ -550,6 +559,7 @@ contains
           call getCosmomcParams(mc, j, CosmomcParams)
           call coop_setup_cosmology_from_cosmomc(CosmomcParams)
           call coop_setup_pp()
+          call coop_pp_get_potential()
           !$omp parallel do 
           do ik = 1, nk
              lnps(ik) = coop_primordial_lnps(kMpc(ik))
@@ -560,6 +570,9 @@ contains
           lnpt = lnpt + lnpt_shift
           lnpsmean = lnpsmean + lnps * mc%mult(j)
           lnptmean = lnptmean + lnpt * mc%mult(j)
+          clnps = clnps + coop_pp_lnps*mc%mult(j)
+          clnpt = clnpt + coop_pp_lnpt*mc%mult(j)
+          mult = mult + mc%mult(j)
           if(do_traj_cov)then
              do ik=1, nk
                 do ik2 = ik, nk
@@ -567,7 +580,6 @@ contains
                 enddo
              enddo
           endif
-          mult = mult + mc%mult(j)
        endif
        if(mc%like(j) .lt. mc%likecut(1))then
           write(fp%unit, "("//trim(coop_num2str(mc%np))//"G14.5)") mc%params(j, :)
@@ -578,11 +590,15 @@ contains
              enddo
              if(first_1sigma)then
                 first_1sigma = .false.
-                call coop_asy_curve(fp2, kmpc, ps, smooth = .false., color = "blue", linetype = "dashed", legend="1-$\sigma$ scalar")
-                call coop_asy_curve(fp2, kmpc, pt, smooth = .false., color = "skyblue", linetype = "dotted", legend="1-$\sigma$ tensor")
+                call coop_asy_curve(fig_spec, kmpc, ps, smooth = .false., color = "blue", linetype = "dashed", legend="1-$\sigma$ scalar")
+                call coop_asy_curve(fig_spec, kmpc, pt, smooth = .false., color = "skyblue", linetype = "dotted", legend="1-$\sigma$ tensor")
+                call coop_asy_interpolate_curve(fig_pot, xraw = coop_pp_phi, yraw = coop_pp_lnV-coop_pp_lnV(coop_pp_ipivot), interpolate="LinearLinear", color = "blue", linetype = "dotted", legend="1-$\sigma$ trajs")
+                call coop_asy_interpolate_curve(fig_eps, xraw = exp(coop_pp_lnkMpc), yraw = exp(coop_pp_lneps), interpolate = "LogLinear", color = "blue", linetype = "dotted", legend="1-$\sigma$ trajs")
              else
-                call coop_asy_curve(fp2, kmpc, ps, smooth = .false., color = "blue", linetype = "dashed")
-                call coop_asy_curve(fp2, kmpc, pt, smooth = .false., color = "skyblue", linetype = "dotted")
+                call coop_asy_curve(fig_spec, kmpc, ps, smooth = .false., color = "blue", linetype = "dashed")
+                call coop_asy_curve(fig_spec, kmpc, pt, smooth = .false., color = "skyblue", linetype = "dotted")
+                call coop_asy_interpolate_curve(fig_pot, xraw = coop_pp_phi, yraw = coop_pp_lnV-coop_pp_lnV(coop_pp_ipivot), interpolate="LinearLinear", color = "blue", linetype = "dotted")
+                call coop_asy_interpolate_curve(fig_eps, xraw = exp(coop_pp_lnkMpc), yraw = exp(coop_pp_lneps), interpolate = "LogLinear", color = "blue", linetype = "dotted")
              endif
           endif
        endif
@@ -593,6 +609,8 @@ contains
     if(do_pp)then
        lnpsmean = lnpsmean / mult 
        lnptmean = lnptmean / mult
+       clnps = clnps/mult
+       clnpt = clnpt/mult
        if(do_traj_cov)then
           lnpscov = lnpscov/mult
           do ik=1, nk
@@ -608,22 +626,36 @@ contains
        endif
        lnpsmean = lnpsmean - lnps_shift
        lnptmean = lnptmean - lnpt_shift
-
+       coop_pp_lnps = clnps
+       coop_pp_lnpt = clnpt
+       call coop_pp_get_potential()
        ps = 1.e10 * exp(lnpsmean)
        pt = 1.e10 * exp(lnptmean)
 
-       call coop_asy_curve(fp2, kmpc, ps, color = "red", linetype = "solid", linewidth = 2., legend="mean scalar")
-       call coop_asy_curve(fp2, kmpc, pt, color = "violet", linetype = "solid", linewidth = 1.2, legend="mean tensor")
-       call coop_asy_curve(fp2, kMpc, exp(3.091+(0.967-1.)*(lnk-coop_pp_scalar_lnkpivot)), color = "black", linewidth=2., legend="$m^2\phi^2$ scalar")
-       call coop_asy_curve(fp2, kMpc, exp(3.091 - 0.01625*lnk)*0.13, color = "cyan", linewidth=1.2, legend="$m^2\phi^2$ tensor")
+       call coop_asy_curve(fig_spec, kmpc, ps, color = "red", linetype = "solid", linewidth = 2., legend="mean scalar")
+       call coop_asy_curve(fig_spec, kmpc, pt, color = "violet", linetype = "solid", linewidth = 1.2, legend="mean tensor")
+
+       call coop_asy_interpolate_curve(fig_pot, xraw = coop_pp_phi, yraw = coop_pp_lnV-coop_pp_lnV(coop_pp_ipivot), interpolate="LinearLinear", color = "red", linetype = "solid", linewidth = 1.5, legend="mean traj")
+       call coop_asy_interpolate_curve(fig_eps, xraw = exp(coop_pp_lnkMpc), yraw = exp(coop_pp_lneps), interpolate = "LogLinear", color = "red", linetype = "solid", linewidth = 1.5, legend="mean traj")
+
+
+
+       call coop_asy_curve(fig_spec, kMpc, exp(3.091+(0.967-1.)*(lnk-coop_pp_scalar_lnkpivot)), color = "black", linewidth=2., legend="$m^2\phi^2$ scalar")
+       call coop_asy_curve(fig_spec, kMpc, exp(3.091 - 0.01625*lnk)*0.13, color = "cyan", linewidth=1.2, legend="$m^2\phi^2$ tensor")
        numpp = cosmomc_pp_num_params - cosmomc_pp_num_origin + 1
        if(numpp .gt. 1)then
           call coop_set_uniform(numpp, lnk(1:numpp), coop_pp_lnk_knots_min, coop_pp_lnk_knots_max)
           ps(1:numpp) = 1.3
-          call coop_asy_dots(fp2, exp(lnk(1:numpp)), ps(1:numpp), "black", "$\Delta$")
+          call coop_asy_dots(fig_spec, exp(lnk(1:numpp)), ps(1:numpp), "black", "$\Delta$")
+          ps(1:numpp) = 0.005
+          call coop_asy_dots(fig_eps, exp(lnk(1:numpp)), ps(1:numpp), "black", "$\Delta$")
        endif
-       call coop_asy_legend(fp2, real(exp(lnkmin + 1.)), 116., 2)
-       call fp2%close()
+       call coop_asy_legend(fig_spec, real(exp(lnkmin + 1.)), 120., 2)
+       call coop_asy_legend(fig_eps, real(exp(coop_pp_lnkmin +4.)), 0.115, 1)
+       call coop_asy_legend(fig_pot, -0.2, 0.35, 1)
+       call fig_spec%close()
+       call fig_eps%close()
+       call fig_pot%close()
        if(do_traj_cov)then
           lnps_shift = sum(lnpscov**2)/nk/nk*1.d-18
           do ik=1, nk
