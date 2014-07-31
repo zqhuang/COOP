@@ -151,20 +151,21 @@ INCLUDE += -I$(TYPEDEF)
 endif
 
 
-###set cfitsio flags here
-ifneq ($(CFITSIO),)
-LINK += -L$(CFITSIO)/lib -lcfitsio
-FFLAGS += -DHAS_CFITSIO=1
-CFLAGS += -DHAS_CFITSIO=1
-INCLUDE += -I$(CFITSIO)/include
-endif
-
 ### set Healpix flags here
 ifneq ($(HEALPIX),)
 LINK += -L$(HEALPIX)/lib -lhealpix 
 FFLAGS += -DHAS_HEALPIX=1
 CFLAGS += -DHAS_HEALPIX=1
 INCLUDE += -I$(HEALPIX)/include
+endif
+
+
+###set cfitsio flags here
+ifneq ($(CFITSIO),)
+LINK += -L$(CFITSIO)/lib -lcfitsio
+FFLAGS += -DHAS_CFITSIO=1
+CFLAGS += -DHAS_CFITSIO=1
+INCLUDE += -I$(CFITSIO)/include
 endif
 
 
