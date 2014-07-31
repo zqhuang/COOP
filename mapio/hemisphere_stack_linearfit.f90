@@ -27,7 +27,7 @@ program test
   COOP_UNKNOWN_STRING, parameter::map_file = prefix//"/"//prefix//"_iqu"//resol//".fits"
   COOP_UNKNOWN_STRING, parameter::imask_file  = prefix//"/"//prefix//"_imask"//resol//".fits"
   COOP_UNKNOWN_STRING, parameter::polmask_file  = prefix//"/"//prefix//"_polmask"//resol//".fits"
-  COOP_UNKNOWN_STRING, parameter::fr_file = prefix//"_"//stack_type//"_sim_Fr"//resol//".dat"
+  COOP_STRING::fr_file, log_file
   type(coop_healpix_patch)::patch_s, patch_n
   type(coop_healpix_maps)::map, sim, tmp
   type(coop_healpix_maps)::imask, polmask
@@ -41,8 +41,33 @@ program test
   type(coop_list_real)::listangle
   type(coop_file) fpsim
   integer,parameter::ncols_used = 30
+  integer, parameter::nside_list = 2
+  integer, parameter::npix_list = 12*nside_list**2
   COOP_REAL, parameter::epsilon = 1.d-6
   COOP_INT nmaps_wanted, ismall, ilarge
+  COOP_SHORT_STRING:: input
+  integer run_id
+  input = trim(coop_inputArgs(1))
+  if(trim(input) .eq. "") then
+     call coop_healpix_lb2ang(l_deg = dble(dir_l), b_deg = dble(dir_b), theta = hdir(1), phi = hdir(2))
+     fr_file = prefix//"/"//prefix//resol//"_"//stack_type//"_l"//trim(coop_num2str(dir_l))//"_b"//trim(coop_num2str(dir_b))//".txt"
+     log_file = prefix//"/"//prefix//resol//"_"//stack_type//"_l"//trim(coop_num2str(dir_l))//"_b"//trim(coop_num2str(dir_b))//".log"
+  else
+     read(input,*) run_id
+     write(*,*) "run id = ", run_id
+     if(run_id .ge. npix_list)then
+        write(*,*) "run id must not exceed ", npix_list - 1
+        stop
+     endif
+     call pix2ang_ring(nside_list, run_id, hdir(1), hdir(2))
+     fr_file = prefix//"/"//prefix//resol//"_"//stack_type//"_id"//trim(coop_num2str(run_id))//".txt"
+     log_file = prefix//"/"//prefix//resol//"_"//stack_type//"_id"//trim(coop_num2str(run_id))//".log"
+  endif
+  call fp%open(trim(log_file), "w")
+  write(fp%unit, "(2E16.7)") hdir
+  write(*, "(A,2E14.3)") "theta, phi = ", hdir
+  call fp%close()
+     
 
   !!read mask and map
   call imask%read(imask_file, nmaps_wanted = 1)
@@ -76,7 +101,8 @@ program test
   else
      call map%get_fullCls(imask)
   endif
-  call coop_healpix_lb2ang(l_deg = dble(dir_l), b_deg = dble(dir_b), theta = hdir(1), phi = hdir(2))
+  
+
 
   sim = map
   tmp = sim
@@ -88,10 +114,10 @@ program test
   fmt = "("//trim(coop_num2str(n+1))//"G16.7)"
   fmtscreen = "("//trim(coop_num2str(n+1))//"F7.2)"
   weight = 0
-  if(coop_file_exists(fr_file))then
-     nlines = coop_file_numlines(fr_file) 
+  if(coop_file_exists(trim(fr_file)))then
+     nlines = coop_file_numlines(trim(fr_file))
      if(nlines .gt. 0)then
-        call fpsim%open(fr_file, "r")
+        call fpsim%open(trim(fr_file), "r")
         do il=1, nlines
            read(fpsim%unit, trim(fmt)) diff
            weight = weight + 1
@@ -104,7 +130,7 @@ program test
   endif
 
 
-  call fpsim%open(fr_file, "a")
+  call fpsim%open(trim(fr_file), "a")
   do while(weight .lt. n_sim)
      if(mod(weight, 20) .eq. 0)then
         if(nmaps_wanted .eq. 3)then
