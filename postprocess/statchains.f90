@@ -15,7 +15,7 @@ module coop_statchains_mod
   COOP_STRING :: measured_clbb_file = ""
   COOP_STRING :: measured_clte_file = ""
   COOP_STRING :: bestfit_cl_file = ""
-
+  integer::coop_postprocess_nbins = 0
 
   type MCMC_chain
      COOP_STRING prefix, output
@@ -385,7 +385,11 @@ contains
        mc%corrmat(i, i) =  1.
        mc%covmat(mc%used(i), mc%used(i)) =  mc%cov_used(i, i) 
     enddo
-    mc%nb = min(max(12, ceiling(sqrt(mc%n/100.))), 30)
+    if(coop_postprocess_nbins .gt. 0)then
+       mc%nb = coop_postprocess_nbins 
+    else
+       mc%nb = min(max(11, ceiling(sqrt(mc%n/100.))), 22)
+    endif
     if(allocated(mc%c1d))deallocate(mc%c1d, mc%c2d, mc%cut2d, mc%want_2d_output)
     allocate(mc%c1d(mc%nb, mc%np_used), mc%c2d(mc%nb, mc%nb, mc%np_used*(mc%np_used+1)/2), mc%cut2d(mcmc_stat_num_cls, mc%np_used*(mc%np_used+1)/2), mc%want_2d_output(mc%np_used, mc%np_used) )
     allocate(c2dlist(mc%nb*mc%nb))

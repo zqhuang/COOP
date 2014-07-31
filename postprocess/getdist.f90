@@ -27,6 +27,7 @@ program getdist
      prefix = trim(adjustl(coop_file_path_of(prefix)))//trim(adjustl(coop_inputArgs(2)))
   endif
   outdir = ini_read_string("output", .false.)
+  coop_postprocess_nbins = ini_read_int("num_bins", 0)
   if(trim(outdir) .eq. "") stop "You need to specify the key 'output' in ini file"
   discard_percent = ini_read_int("discard_percent", 30)
   write(*,*) "discarding "//trim(coop_num2str(discard_percent))//"% samples at the beginning of chains"
