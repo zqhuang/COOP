@@ -27,12 +27,12 @@ program test
   COOP_UNKNOWN_STRING, parameter::map_file = prefix//"/"//prefix//"_iqu"//resol//".fits"
   COOP_UNKNOWN_STRING, parameter::imask_file  = prefix//"/"//prefix//"_imask"//resol//".fits"
   COOP_UNKNOWN_STRING, parameter::polmask_file  = prefix//"/"//prefix//"_polmask"//resol//".fits"
-  COOP_STRING::fr_file, log_file
+  COOP_STRING::fr_file, log_file, fig_file
   type(coop_healpix_patch)::patch_s, patch_n
   type(coop_healpix_maps)::map, sim, tmp
   type(coop_healpix_maps)::imask, polmask
   type(coop_healpix_maps)::stack_mask, spots_mask
-  COOP_REAL diff(0:n), chisq,  hdir(2), kdata, bdata, kmean, bmean, ksig, bsig
+  COOP_REAL diff(0:n), chisq,  hdir(2), kdata, bdata, kmean, bmean, ksig, bsig, cov(2,2)
   COOP_REAL,dimension(n_sim)::ksim, bsim
   COOP_INT :: nspots, nlines, il, i, j, step, weight
   type(coop_asy)::fig
@@ -52,6 +52,7 @@ program test
      call coop_healpix_lb2ang(l_deg = dble(dir_l), b_deg = dble(dir_b), theta = hdir(1), phi = hdir(2))
      fr_file = prefix//"/"//prefix//resol//"_"//stack_type//"_l"//trim(coop_num2str(dir_l))//"_b"//trim(coop_num2str(dir_b))//".txt"
      log_file = prefix//"/"//prefix//resol//"_"//stack_type//"_l"//trim(coop_num2str(dir_l))//"_b"//trim(coop_num2str(dir_b))//".log"
+     fig_file = prefix//"/figure_"//prefix//resol//"_"//stack_type//"_l"//trim(coop_num2str(dir_l))//"_b"//trim(coop_num2str(dir_b))//".txt"
   else
      read(input,*) run_id
      write(*,*) "run id = ", run_id
@@ -62,6 +63,7 @@ program test
      call pix2ang_ring(nside_list, run_id, hdir(1), hdir(2))
      fr_file = prefix//"/"//prefix//resol//"_"//stack_type//"_id"//trim(coop_num2str(run_id))//".txt"
      log_file = prefix//"/"//prefix//resol//"_"//stack_type//"_id"//trim(coop_num2str(run_id))//".log"
+     fig_file = prefix//"/figure_"//prefix//resol//"_"//stack_type//"_id"//trim(coop_num2str(run_id))//".txt"
   endif
   call fp%open(trim(log_file), "w")
   write(fp%unit, "(2E16.7)") hdir
@@ -166,12 +168,13 @@ program test
   call coop_linear_least_square_fit(n+1, patch_s%r, diff, kdata, bdata)
   kmean = sum(ksim)/n_sim
   bmean  = sum(bsim)/n_sim
-  ksig = sqrt( sum((ksim - kmean)**2)/n_sim )
-  bsig = sqrt( sum((bsim - bmean)**2)/n_sim )
-  print*, (kdata - kmean)/ksig, count(ksim .gt. kdata)/real(n_sim)
-  print*, (bdata-bmean)/bsig, count(bsim .gt. bdata)/real(n_sim)
-
-  call fig%open(prefix//resol//"_"//trim(coop_num2str(dir_l))//"_"//trim(coop_num2str(dir_b))//".txt")
+  cov(1,1) = sum((ksim-kmean)**2)/n_sim
+  cov(2,2) = sum((bsim-bmean)**2)/n_sim
+  cov(1,2) = sum((ksim-kmean)*(bsim-bmean))/nsim
+  cov(2,1) = cov(1,2)
+  call coop_matsym_inverse_small(2, cov)
+  write(*,*) "chi^2 = ", (kdata - kmean)**2*cov(1,1) + (bdata - bmean)**2*cov(2,2) + (kdata -kmean)*(bdata-bmean)*2.d0*cov(1,2)
+  call fig%open(trim(fig_file))
   call fig%init(ylabel = "$\delta T (\mu K) $", xlabel = "$dT /dr (\mu K/{\rm rad})$", caption = "black dots are simulations, red x is data")
   call coop_asy_dots(fig, ksim, bsim, "black")
   call coop_asy_dot(fig, kdata, bdata, "red", "x")
@@ -179,13 +182,6 @@ program test
   call coop_asy_label(fig, "x :  data",  fig%xmin+(fig%xmax - fig%xmin)*0.08, fig%ymin + 0.86*(fig%ymax - fig%ymin), color = "red")
   call coop_asy_label(fig, "$\bullet$ :  simulations",  fig%xmin+(fig%xmax - fig%xmin)*0.12, fig%ymin + 0.82*(fig%ymax - fig%ymin), color = "black")
   call coop_asy_label(fig, "direction: $l ="//trim(coop_num2str(dir_l))//"^{\circ},  b="//trim(coop_num2str(dir_b))//"^{\circ}$",  fig%xmin+(fig%xmax - fig%xmin)*0.2, fig%ymin + 0.78*(fig%ymax - fig%ymin), color = "black")
-  call fig%close()
-
-  call fig%open(prefix//"_radial_profile.txt")
-  call fig%init(xlabel = "$r$", ylabel = "$\delta T (\mu K)$")
-  call coop_asy_curve(fig, patch_s%r, diff, legend="data", color = "red")
-  call coop_asy_curve(fig, patch_s%r, kdata*patch_s%r + bdata, legend="linear fit", color="blue", linetype = "dashed")
-  call coop_asy_legend(fig)
   call fig%close()
 
 end program test
