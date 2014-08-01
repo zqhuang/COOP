@@ -170,7 +170,7 @@ program test
   bmean  = sum(bsim)/n_sim
   cov(1,1) = sum((ksim-kmean)**2)/n_sim
   cov(2,2) = sum((bsim-bmean)**2)/n_sim
-  cov(1,2) = sum((ksim-kmean)*(bsim-bmean))/nsim
+  cov(1,2) = sum((ksim-kmean)*(bsim-bmean))/n_sim
   cov(2,1) = cov(1,2)
   call coop_matsym_inverse_small(2, cov)
   write(*,*) "chi^2 = ", (kdata - kmean)**2*cov(1,1) + (bdata - bmean)**2*cov(2,2) + (kdata -kmean)*(bdata-bmean)*2.d0*cov(1,2)
