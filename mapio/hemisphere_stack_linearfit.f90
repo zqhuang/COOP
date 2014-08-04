@@ -21,7 +21,7 @@ program test
   COOP_INT, parameter::n = 30
   COOP_REAL, parameter::dr = 10.*coop_SI_arcmin
   COOP_INT, parameter:: imap = 1
-  integer,parameter::n_sim = 1020
+  integer,parameter::n_sim = 1000
   COOP_STRING::fmt, fmtscreen
   COOP_UNKNOWN_STRING, parameter::resol = "1024"
   COOP_UNKNOWN_STRING, parameter::map_file = prefix//"/"//prefix//"_iqu"//resol//".fits"
@@ -32,44 +32,45 @@ program test
   type(coop_healpix_maps)::map, sim, tmp
   type(coop_healpix_maps)::imask, polmask
   type(coop_healpix_maps)::stack_mask, spots_mask
-  COOP_REAL diff(0:n), chisq,  hdir(2), kdata, bdata, kmean, bmean, ksig, bsig, cov(2,2)
+  COOP_REAL diff(0:n), chisq, prob, hdir(2), kdata, bdata, kmean, bmean, cov(2,2)
   COOP_REAL,dimension(n_sim)::ksim, bsim
-  COOP_INT :: nspots, nlines, il, i, j, step, weight
+  COOP_INT :: nspots, nlines, il, i, j, weight, n_larger_chisq
   type(coop_asy)::fig
   type(coop_file)::fp
   type(coop_list_integer)::listpix
   type(coop_list_real)::listangle
   type(coop_file) fpsim
-  integer,parameter::ncols_used = 30
-  integer, parameter::nside_list = 2
-  integer, parameter::npix_list = 12*nside_list**2
-  COOP_REAL, parameter::epsilon = 1.d-6
-  COOP_INT nmaps_wanted, ismall, ilarge
-  COOP_SHORT_STRING:: input
+  integer::scan_nside
+  COOP_INT nmaps_wanted
+  COOP_SHORT_STRING:: input, input2
   integer run_id
   input = trim(coop_inputArgs(1))
   if(trim(input) .eq. "") then
+     scan_nside = 0
+     run_id = 0
      call coop_healpix_lb2ang(l_deg = dble(dir_l), b_deg = dble(dir_b), theta = hdir(1), phi = hdir(2))
      fr_file = prefix//"/"//prefix//resol//"_"//stack_type//"_l"//trim(coop_num2str(dir_l))//"_b"//trim(coop_num2str(dir_b))//".txt"
      log_file = prefix//"/"//prefix//resol//"_"//stack_type//"_l"//trim(coop_num2str(dir_l))//"_b"//trim(coop_num2str(dir_b))//".log"
      fig_file = prefix//"/figure_"//prefix//resol//"_"//stack_type//"_l"//trim(coop_num2str(dir_l))//"_b"//trim(coop_num2str(dir_b))//".txt"
   else
+     input2=trim(coop_inputArgs(2))
+     if(trim(input2).eq."")then
+        scan_nside = 2
+     else
+        read(input2, *) scan_nside
+     endif
      read(input,*) run_id
-     write(*,*) "run id = ", run_id
-     if(run_id .ge. npix_list)then
-        write(*,*) "run id must not exceed ", npix_list - 1
+     write(*,*) "nside, id = ", scan_nside, run_id
+     if(run_id .ge.  scan_nside**2*12)then
+        write(*,*) "run id must not exceed ", scan_nside**2*12 - 1
         stop
      endif
-     call pix2ang_ring(nside_list, run_id, hdir(1), hdir(2))
-     fr_file = prefix//"/"//prefix//resol//"_"//stack_type//"_id"//trim(coop_num2str(run_id))//".txt"
-     log_file = prefix//"/"//prefix//resol//"_"//stack_type//"_id"//trim(coop_num2str(run_id))//".log"
-     fig_file = prefix//"/figure_"//prefix//resol//"_"//stack_type//"_id"//trim(coop_num2str(run_id))//".txt"
+     call pix2ang_ring(scan_nside, run_id, hdir(1), hdir(2))
+     fr_file = prefix//"/"//prefix//resol//"_"//stack_type//"_"//trim(input2)//"id"//trim(input)//".txt"
+     log_file = prefix//"/"//prefix//resol//"_"//stack_type//"_"//trim(input2)//"id"//trim(input)//".log"
+     fig_file = prefix//"/figure_"//prefix//resol//"_"//stack_type//"_"//trim(input2)//"id"//trim(input)//".txt"
   endif
-  call fp%open(trim(log_file), "w")
-  write(fp%unit, "(2E16.7)") hdir
   write(*, "(A,2E14.3)") "theta, phi = ", hdir
-  call fp%close()
-     
 
   !!read mask and map
   call imask%read(imask_file, nmaps_wanted = 1)
@@ -173,7 +174,22 @@ program test
   cov(1,2) = sum((ksim-kmean)*(bsim-bmean))/n_sim
   cov(2,1) = cov(1,2)
   call coop_matsym_inverse_small(2, cov)
-  write(*,*) "chi^2 = ", (kdata - kmean)**2*cov(1,1) + (bdata - bmean)**2*cov(2,2) + (kdata -kmean)*(bdata-bmean)*2.d0*cov(1,2)
+  chisq = (kdata - kmean)**2*cov(1,1) + (bdata - bmean)**2*cov(2,2) + (kdata -kmean)*(bdata-bmean)*2.d0*cov(1,2)
+  n_larger_chisq = 0
+  do i=1, n_sim
+     if((kdata - kmean)**2*cov(1,1) + (bdata - bmean)**2*cov(2,2) + (kdata -kmean)*(bdata-bmean)*2.d0*cov(1,2) .gt. chisq) then
+        n_larger_chisq = n_larger_chisq + 1
+     endif
+  enddo
+  write(*,"(A)") "chi^2 = "//trim(coop_num2str(chisq, "(F11.3)"))
+  prob = dble(n_larger_chisq)/n_sim
+  write(*,"(A)") "The probability of seeing a larger chi^2 in simulations is: "//trim(coop_num2str(100.*prob,"(F10.2)"))//"%"
+  
+
+  call fp%open(trim(log_file), "w")
+  write(fp%unit, "(2I6, 4E16.7)") scan_nside, run_id, hdir, chisq, prob
+  call fp%close()
+     
   call fig%open(trim(fig_file))
   call fig%init(ylabel = "$\delta T (\mu K) $", xlabel = "$dT /dr (\mu K/{\rm rad})$", caption = "black dots are simulations, red x is data")
   call coop_asy_dots(fig, ksim, bsim, "black")
@@ -181,7 +197,7 @@ program test
   call coop_asy_label(fig, "Map: "//prefix,  fig%xmin+(fig%xmax - fig%xmin)*0.12, fig%ymin + 0.9*(fig%ymax - fig%ymin))
   call coop_asy_label(fig, "x :  data",  fig%xmin+(fig%xmax - fig%xmin)*0.08, fig%ymin + 0.86*(fig%ymax - fig%ymin), color = "red")
   call coop_asy_label(fig, "$\bullet$ :  simulations",  fig%xmin+(fig%xmax - fig%xmin)*0.12, fig%ymin + 0.82*(fig%ymax - fig%ymin), color = "black")
-  call coop_asy_label(fig, "direction: $l ="//trim(coop_num2str(dir_l))//"^{\circ},  b="//trim(coop_num2str(dir_b))//"^{\circ}$",  fig%xmin+(fig%xmax - fig%xmin)*0.2, fig%ymin + 0.78*(fig%ymax - fig%ymin), color = "black")
+  call coop_asy_label(fig, "direction: $l ="//trim(coop_num2str(nint(hdir(2)/coop_SI_degree)))//"^{\circ},  b="//trim(coop_num2str(nint((coop_pio2-hdir(2))/coop_SI_degree)))//"^{\circ}$",  fig%xmin+(fig%xmax - fig%xmin)*0.2, fig%ymin + 0.78*(fig%ymax - fig%ymin), color = "black")
   call fig%close()
 
 end program test
