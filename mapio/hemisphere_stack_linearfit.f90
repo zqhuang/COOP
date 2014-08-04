@@ -177,7 +177,7 @@ program test
   chisq = (kdata - kmean)**2*cov(1,1) + (bdata - bmean)**2*cov(2,2) + (kdata -kmean)*(bdata-bmean)*2.d0*cov(1,2)
   n_larger_chisq = 0
   do i=1, n_sim
-     if((kdata - kmean)**2*cov(1,1) + (bdata - bmean)**2*cov(2,2) + (kdata -kmean)*(bdata-bmean)*2.d0*cov(1,2) .gt. chisq) then
+     if((ksim(i) - kmean)**2*cov(1,1) + (bsim(i) - bmean)**2*cov(2,2) + (ksim(i) -kmean)*(bsim(i)-bmean)*2.d0*cov(1,2) .gt. chisq) then
         n_larger_chisq = n_larger_chisq + 1
      endif
   enddo
