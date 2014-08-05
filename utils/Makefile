@@ -17,6 +17,13 @@ $(LIB): $(OBJ)
 Test: $(OBJ) test.o $(TYPEDEF)/libcooptypedef.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
 
+Enc: $(OBJ) encrypt.o $(TYPEDEF)/libcooptypedef.a
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) encrypt.o $(LINK)
+
+Dec: $(OBJ) decrypt.o $(TYPEDEF)/libcooptypedef.a
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) decrypt.o $(LINK)
+
+
 clean:
 	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test
 
