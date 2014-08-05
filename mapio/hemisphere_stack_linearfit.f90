@@ -12,7 +12,7 @@ program test
   COOP_REAL, parameter::pre_smooth = 15*coop_SI_arcmin
   COOP_INT, parameter::dir_l = 226
   COOP_INT, parameter::dir_b = -17
-  COOP_UNKNOWN_STRING, parameter::prefix="ffp7"
+  COOP_UNKNOWN_STRING, parameter::prefix="planck"
   COOP_UNKNOWN_STRING, parameter::color_table = "Planck"
   COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
   COOP_UNKNOWN_STRING, parameter::stack_type = "T"
@@ -74,14 +74,14 @@ program test
 
   !!read mask and map
   call imask%read(imask_file, nmaps_wanted = 1)
-  call polmask%read(polmask_file, nmaps_wanted = 1)
   nmaps_wanted = 1
   select case(trim(stack_type))
   case("I","T")
      stack_mask = imask
   case default
-     stack_mask = polmask
      nmaps_wanted = 3
+     call polmask%read(polmask_file, nmaps_wanted = 1)
+     stack_mask = polmask
   end select
   select case(trim(spot_type))
   case("Tmax", "Tmin", "Tmax_QTUTOrient", "Tmin_QTUTOrient")
