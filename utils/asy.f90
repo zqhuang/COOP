@@ -2638,15 +2638,16 @@ contains
     call coop_array_get_threshold(x, 0.997d0, xmin)
     call coop_array_get_threshold(x, 0.003d0, xmax)
     dx = (xmax-xmin)/nbins
+    if(dx .eq. 0.d0) stop "data with single point cannot be histogrammed"
     call coop_set_uniform(nbins, xb, xmin + dx/2.d0, xmax-dx/2.d0)
     c = 0.
     call fig%open(trim(filename))
     call fig%init(xlabel = "x", ylabel = "P")
     do i=1, size(x)
        iloc = nint((x(i) - xmin)/dx+0.5)
-       if(iloc.gt.0 .and. iloc .le.nbins) c(iloc) = c(iloc+1)
-       call coop_asy_curve(fig, xb, c)
+       if(iloc.gt.0 .and. iloc .le.nbins) c(iloc) = c(iloc)+1
     enddo
+    call coop_asy_curve(fig, xb, c)
     call fig%close()
   end subroutine coop_asy_histogram
 
