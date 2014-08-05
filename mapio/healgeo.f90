@@ -15,7 +15,7 @@ module coop_healpix_mod
 
   private
 
-  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_get_disc, coop_healpix_export_spots, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_lb2ang, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask
+  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_get_disc, coop_healpix_export_spots, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_lb2ang, coop_healpix_ang2lb, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask
   
   integer,parameter::sp = kind(1.)
   integer,parameter::dl = kind(1.d0)
@@ -2770,6 +2770,27 @@ contains
     theta = coop_pio2 - b_deg*coop_SI_degree
     phi = l_deg * coop_SI_degree
   end subroutine coop_healpix_lb2ang
+
+
+  subroutine coop_healpix_ang2lb(theta, phi, l_deg, b_deg)
+    COOP_REAL l_deg, b_deg
+    COOP_REAL theta, phi
+    b_deg = (coop_pio2 - theta)/coop_SI_degree
+    l_deg = phi/coop_SI_degree
+    do while(b_deg .gt. 90.d0)
+       b_deg = b_deg - 90.d0
+    enddo
+    do while(b_deg .lt. -90.d0)
+       b_deg = b_deg + 90.d0
+    enddo
+    do while(l_deg .gt. 360.d0)
+       l_deg = l_deg - 360.d0
+    enddo
+    do while(l_deg .lt. 0.d0)
+       l_deg = l_deg + 360.d0
+    enddo
+  end subroutine coop_healpix_ang2lb
+
 
   subroutine coop_healpix_flip_mask(mask, flip)
     type(coop_healpix_maps)mask, flip
