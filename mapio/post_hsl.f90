@@ -12,17 +12,17 @@ program test
   type(coop_file)::fp
   integer i, nside, id, pix, iminprob
   type(coop_healpix_maps)::map
-  COOP_REAL theta, phi, chisq, prob, minprob, l, b
+  COOP_REAL theta, phi, chisq(0:95), prob(0:95), minprob, l, b
   call map%init(nside = 4, nmaps=1, spin = (/ 0 /))
   map%map = 0.
   minprob = 10.
   iminprob = 0
   do i=0, 95
      call fp%open("predx11/predx111024_T_4id"//trim(coop_num2str(i))//".log", "r")
-     read(fp%unit, *) nside, id, theta, phi, chisq, prob
-     map%map(i, 1) = log10(prob+1.d-4)
-     if(minprob .gt. prob)then
-        minprob = prob
+     read(fp%unit, *) nside, id, theta, phi, chisq(i), prob(i)
+     map%map(i, 1) = log10(max(prob(i),1.d-4))
+     if(minprob .gt. prob(i))then
+        minprob = prob(i)
         iminprob = i
      endif
      theta = coop_pi - theta
@@ -35,4 +35,6 @@ program test
   call coop_healpix_ang2lb(theta, phi, l, b)
   write(*,*) "min prob = ", minprob
   write(*,*) "direction l = ", nint(l), " b = ", nint(b)
+  call coop_asy_histogram(chisq, 10, "chisq_hist.txt")
+  call coop_asy_histogram(log(max(prob, 1.d-4)), 10, "prob_hist.txt")
 end program test

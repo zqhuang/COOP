@@ -6,7 +6,7 @@ module coop_asy_mod
   implicit none
   private
 
-  public::coop_asy, coop_asy_path, coop_asy_error_bar, coop_asy_interpolate_curve, coop_asy_gray_color, coop_asy_rgb_color, coop_asy_label, coop_asy_legend, coop_asy_dot, coop_asy_line, coop_asy_labels, coop_asy_dots, coop_asy_lines, coop_asy_contour, coop_asy_curve, coop_asy_density,  coop_asy_topaxis, coop_asy_rightaxis, coop_asy_clip, coop_asy_plot_function, coop_asy_plot_likelihood, coop_asy_curve_from_file, coop_asy_path_from_array
+  public::coop_asy, coop_asy_path, coop_asy_error_bar, coop_asy_interpolate_curve, coop_asy_gray_color, coop_asy_rgb_color, coop_asy_label, coop_asy_legend, coop_asy_dot, coop_asy_line, coop_asy_labels, coop_asy_dots, coop_asy_lines, coop_asy_contour, coop_asy_curve, coop_asy_density,  coop_asy_topaxis, coop_asy_rightaxis, coop_asy_clip, coop_asy_plot_function, coop_asy_plot_likelihood, coop_asy_curve_from_file, coop_asy_path_from_array, coop_asy_histogram
 
 
 #include "constants.h"
@@ -2628,6 +2628,27 @@ contains
     COOP_SHORT_STRING color
     color = coop_asy_gray_color_s(real(gray))
   end function coop_asy_gray_color_d
+
+  subroutine coop_asy_histogram(x, nbins, filename)
+    COOP_UNKNOWN_STRING::filename
+    COOP_REAL x(:), dx
+    COOP_INT nbins, iloc, i
+    COOP_REAL xmin, xmax, c(nbins), xb(nbins)
+    type(coop_asy)::fig
+    call coop_array_get_threshold(x, 0.997d0, xmin)
+    call coop_array_get_threshold(x, 0.003d0, xmax)
+    dx = (xmax-xmin)/nbins
+    call coop_set_uniform(nbins, xb, xmin + dx/2.d0, xmax-dx/2.d0)
+    c = 0.
+    call fig%open(trim(filename))
+    call fig%init(xlabel = "x", ylabel = "P")
+    do i=1, size(x)
+       iloc = nint((x(i) - xmin)/dx+0.5)
+       if(iloc.gt.0 .and. iloc .le.nbins) c(iloc) = c(iloc+1)
+       call coop_asy_curve(fig, xb, c)
+    enddo
+    call fig%close()
+  end subroutine coop_asy_histogram
 
   subroutine coop_asy_plot_function(func, filename, xlabel, ylabel)
     type(coop_function)func
