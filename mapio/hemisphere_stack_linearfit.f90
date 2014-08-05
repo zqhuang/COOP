@@ -12,7 +12,7 @@ program test
   COOP_REAL, parameter::pre_smooth = 15*coop_SI_arcmin
   COOP_INT, parameter::dir_l = 226
   COOP_INT, parameter::dir_b = -17
-  COOP_UNKNOWN_STRING, parameter::prefix="predx11"
+  COOP_UNKNOWN_STRING, parameter::prefix="ffp7"
   COOP_UNKNOWN_STRING, parameter::color_table = "Planck"
   COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
   COOP_UNKNOWN_STRING, parameter::stack_type = "T"

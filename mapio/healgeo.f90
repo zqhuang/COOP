@@ -7,6 +7,7 @@ module coop_healpix_mod
   use fitstools
   use pix_tools
   use alm_tools
+  use udgrade_nr
 #endif
   implicit none
 
@@ -53,7 +54,6 @@ module coop_healpix_mod
      integer,dimension(:),allocatable::mask_listpix, maskpol_listpix
      real(dl) chisq, mcmc_temperature
    contains     
-
      procedure :: init => coop_healpix_maps_init
      procedure :: free => coop_healpix_maps_free
      procedure :: write => coop_healpix_maps_write
@@ -64,6 +64,7 @@ module coop_healpix_mod
      procedure :: get_fullcls => coop_healpix_maps_get_fullcls
      procedure :: map2alm => coop_healpix_maps_map2alm
      procedure :: alm2map => coop_healpix_maps_alm2map
+     procedure :: udgrade => coop_healpix_maps_udgrade
      procedure :: simulate => coop_healpix_maps_simulate
      procedure :: simulate_Tmaps => coop_healpix_maps_simulate_Tmaps
      procedure :: simulate_TQUmaps => coop_healpix_maps_simulate_TQUmaps
@@ -677,7 +678,7 @@ contains
        allocate(this%cl(0:this%lmax, this%nmaps*(this%nmaps+1)/2))
     endif
 200 this%ordering = COOP_RING !!default ordering
-    call write_minimal_header(this%header,dtype = 'MAP', nside=this%nside, order = this%ordering, creator='Zhiqi Huang', version = 'CosmoLib', units='muK', polar=any(this%spin.eq.2) )
+    call write_minimal_header(this%header,dtype = 'MAP', nside=this%nside, order = this%ordering, creator='Zhiqi Huang', version = 'COOP', units='muK', polar=any(this%spin.eq.2) )
     this%maskpol_npix = 0
 #else
     stop "DID not find healpix"
@@ -2904,7 +2905,31 @@ contains
      end subroutine do_cl_map
   end subroutine coop_healpix_maps_get_fullCls
 
-
+  subroutine coop_healpix_maps_udgrade(map, nside)
+    class(coop_healpix_maps)::map
+    real, dimension(:,:),allocatable::newmap
+    integer nside, npix
+#ifdef HAS_HEALPIX
+    npix = nside2npix(nside)
+    allocate(newmap(0:npix-1, map%nmaps))
+    if(map%ordering .eq. COOP_NESTED)then
+       call udgrade_nest(map%map, map%nside, newmap, nside, 0., .true.)
+    else
+       call udgrade_ring(map%map, map%nside, newmap, nside, 0., .true.)
+    endif
+    deallocate(map%map)
+    map%nside = nside
+    map%npix = npix
+    allocate(map%map(0:npix-1, map%nmaps))
+    map%map = newmap
+    map%header  = ""
+    call write_minimal_header(map%header,dtype = 'MAP', nside=nside, order = map%ordering, creator='Zhiqi Huang', version = 'COOP', units='muK', polar=any(map%spin.eq.2) )
+    
+    deallocate(newmap)
+#else
+    stop "HEALPIX library is missing."
+#endif    
+  end subroutine coop_healpix_maps_udgrade
 
 
 end module coop_healpix_mod
