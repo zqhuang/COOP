@@ -16,11 +16,12 @@ program test
   call map%init(nside = 4, nmaps=1, spin = (/ 0 /))
   map%map = 0.
   minprob = 10.
+  iminprob = 0
   do i=0, 95
      call fp%open("predx11/predx111024_T_4id"//trim(coop_num2str(i))//".log", "r")
      read(fp%unit, *) nside, id, theta, phi, chisq, prob
      map%map(i, 1) = log10(prob+1.d-4)
-     if(minprob .lt. prob)then
+     if(minprob .gt. prob)then
         minprob = prob
         iminprob = i
      endif
