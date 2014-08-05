@@ -12,7 +12,7 @@ program test
   type(coop_file)::fp
   integer i, nside, id, pix, iminprob
   type(coop_healpix_maps)::map
-  COOP_REAL theta, phi, chisq, prob, minprob
+  COOP_REAL theta, phi, chisq, prob, minprob, l, b
   call map%init(nside = 4, nmaps=1, spin = (/ 0 /))
   map%map = 0.
   minprob = 10.
@@ -31,5 +31,7 @@ program test
   enddo
   call map%write("assym.fits")
   call pix2ang_ring(map%nside, iminprob, theta, phi)
- 
+  call coop_healpix_ang2lb(theta, phi, l, b)
+  write(*,*) "min prob = ", minprob
+  write(*,*) "direction l = ", nint(l), " b = ", nint(b)
 end program test
