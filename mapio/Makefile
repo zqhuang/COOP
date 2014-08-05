@@ -60,6 +60,9 @@ Ena: $(OBJ) ensemble_asymmetry.o
 HSL: $(OBJ) hemisphere_stack_linearfit.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) hemisphere_stack_linearfit.o $(LINK)
 
+POSTHSL: $(OBJ) post_hsl.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) post_hsl.o $(LINK)
+
 
 MSMAP: $(OBJ) map_merge_split.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) map_merge_split.o $(LINK)
