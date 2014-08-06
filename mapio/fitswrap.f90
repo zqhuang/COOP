@@ -462,17 +462,24 @@ contains
     if(present(fk_file))deallocate(karr, Pkarr, warr)
   end subroutine coop_fits_image_cea_smooth_flat
 
-  subroutine coop_fits_image_cea_find_extrema(this, mask, spot_file, spot_type, radius)
+  subroutine coop_fits_image_cea_find_extrema(this, mask, spot_file, spot_type, radius, repeat)
     class(coop_fits_image_cea)::this, mask
     COOP_UNKNOWN_STRING::spot_file, spot_type
     type(coop_file)::cf
     COOP_REAL,optional:: radius
     COOP_REAL angle
     COOP_INT i, j, irad
+    integer, optional::repeat
+    integer::irepeat
     if(present(radius))then
        irad = ceiling(radius/this%smooth_pixsize)
     else
        irad = 1
+    endif
+    if(present(repeat))then
+       irepeat = max(1, repeat)
+    else
+       irepeat = 1
     endif
     call cf%open(trim(spot_file), "w")
     select case(trim(spot_type))
@@ -480,6 +487,7 @@ contains
        do i=-this%smooth_nx+irad, this%smooth_nx - irad
           do j = -this%smooth_ny+irad, this%smooth_ny - irad
              if(all(this%smooth_image(i, j) .ge. this%smooth_image(i-1:i+1, j-1:j+1)) .and. mask%smooth_image(i,j).gt.0.5)then
+                do
                 write(cf%unit, "(2I6, E16.7, I6 )") i, j, coop_2pi*coop_random_unit(), min(this%smooth_nx - i, this%smooth_nx + i, this%smooth_ny - j, this%smooth_ny + j)
              endif
           enddo
