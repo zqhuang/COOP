@@ -32,6 +32,6 @@ program test
      mask%smooth_image = 1.
   end where
   call cf%smooth_flat(lmin = lmin, lmax = lmax)
-  call cf%find_extrema(mask, "spots/I6_Tmax_QTUTOrient.txt", "Tmax_QTUTOrient", 30.d0*coop_SI_arcmin, 20)
+  call cf%find_extrema(mask, "spots/I6_Tmax.txt", "Tmax", 30.d0*coop_SI_arcmin, 20)
   
 end program test
