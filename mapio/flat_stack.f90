@@ -4,12 +4,12 @@ program test
   use coop_sphere_mod
   implicit none
 #include "constants.h"
-  integer,parameter::lmin = 100
-  integer,parameter::lmax = 2500
-  integer,parameter::irepeat = 50
-  COOP_REAL, parameter::reg_limit = 0.005
+  integer,parameter::lmin = 200
+  integer,parameter::lmax = 2000
+  integer,parameter::irepeat = 300
+  COOP_REAL, parameter::reg_limit = 0.0005
   character(LEN=*),parameter::mapdir = "act/"
-  character(LEN=*),parameter::mapid = "5"
+  character(LEN=*),parameter::mapid = "6"
   character(LEN=*),parameter::Ifile = mapdir//"I"//mapid//".fits"
   character(LEN=*),parameter::Qfile = mapdir//"Q"//mapid//".fits"
   character(LEN=*),parameter::Ufile = mapdir//"U"//mapid//".fits"
@@ -19,23 +19,25 @@ program test
   integer, parameter::n=300
   integer ix, iy, i, l
   type(coop_file) fp
-  COOP_REAL, parameter::patchsize = 22.d0*coop_SI_arcmin
+  COOP_REAL, parameter::patchsize = 30.d0*coop_SI_arcmin
   COOP_UNKNOWN_STRING,parameter::output_dir = "ACTstacking/"
 
   COOP_REAL map(n, n), Cls(lmin:lmax)
-  COOP_REAL, parameter::smooth_scale = coop_SI_arcmin * 1.
+  COOP_REAL, parameter::smooth_scale = coop_SI_arcmin * 1.5
   call imap%open(Ifile)
   call imask%open(Imaskfile)
   call qmap%open(Qfile)
   call umap%open(Ufile)
 
-  where(imap%image .gt. 500.)
+  where(imap%image .gt. 1000.)
      qmap%image = 0.
      umap%image = 0.
   end where
 
   where (imask%image .lt. 5000.)
      imap%image = imap%image * (imask%image/5000.)**8
+     qmap%image = qmap%image * (imask%image/5000.)**8
+     umap%image = umap%image * (imask%image/5000.)**8
   end where
   print*, maxval(imap%image), minval(imap%image)
   call imap%regularize(reg_limit)
@@ -43,21 +45,13 @@ program test
   call imap%get_flatmap(smooth_scale)
 
 
-
-  where (imask%image .lt. 5000.)
-     qmap%image = qmap%image * (imask%image/5000.)**8
+  where(qmap%image**2+umap%image**2 .gt. 2.e5)
+     qmap%image = 0.
+     umap%image = 0.
   end where
-  print*, maxval(qmap%image), minval(qmap%image)
-  call qmap%regularize(reg_limit)
-  print*, maxval(qmap%image), minval(qmap%image)
+
   call qmap%get_flatmap(smooth_scale)
-
-  where (imask%image .lt. 5000.)
-     umap%image = umap%image * (imask%image/5000.)**8
-  end where
-  call umap%regularize(reg_limit)
   call umap%get_flatmap(smooth_scale)
-
   call imap%get_QU(qmap, umap)
   call imap%smooth_flat(lmin = lmin, lmax = lmax)
 
