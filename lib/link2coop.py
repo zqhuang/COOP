@@ -202,7 +202,7 @@ if batch_dir == '' or common_file == '':
 
 os.system('mkdir paramnames')
 os.system('cp params_CMB.paramnames paramnames/')
-copy_replace_first("params_CMB.paramnames", "paramnames/params_qcdm.paramnames", [r'^w\s+.+$', r'^wa\s+.+$'], [r"epss          \epsilon_s", r"epsinf           \epsilon_{\infty}\nzetas           \zeta_s" ] )
+copy_replace_first("params_CMB.paramnames", "paramnames/params_qcdm.paramnames", [r'^w\s+.+$', r'^wa\s+.+$'], [r"epss          \epsilon_s", r"epsinf           \epsilon_{\infty}\nzetas           \zeta_s\natbyaeq              a_t/a_{\\rm eq}\ncouplQ                  Q" ] )
 
 
 ##lcdm
@@ -220,15 +220,33 @@ copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/param
 
 
 #qcdm 1 parameter: epss
-copy_replace_first('test.ini', 'epss.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_epss.ini) \nde_model = 3\nde_num_params=3\npp_model=0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = epss', r'action = 0', str_propose] )
-copy_replace_first(common_file, batch_dir + r'/common_epss.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_epss.ini)'] )
-copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_epss.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 -1.5 1.5 0.1 0.1 \nparam[epsinf] = 0 0 0 0 0  \nparam[zetas] = 0 0 0 0 0' ] ) 
+copy_replace_first('test.ini', 'qcdm_1param.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_qcdm_1param.ini) \nde_model = 3\nde_num_params=3\npp_model=0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = qcdm_1param', r'action = 0', str_propose] )
+
+copy_replace_first(common_file, batch_dir + r'/common_qcdm_1param.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_qcdm_1param.ini)'] )
+
+copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_qcdm_1param.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 -1.5 1.5 0.1 0.1 \nparam[epsinf] = 0 0 0 0 0  \nparam[zetas] = 0 0 0 0 0 \nparam[atbyaeq] = 0 0 0 0 0 \nparam[couplQ] = 0 0 0 0 0' ] ) 
 
 
-##qcdm
-copy_replace_first('test.ini', 'qcdm.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [r'DEFAULT('  + batch_dir + r'/common_qcdm.ini) \nde_model = 3\nde_num_params=3\npp_model = 0 \npp_num_params = '  + str(index_H0 - index_logA) + r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = qcdm', r'action = 0', str_propose] )
-copy_replace_first(common_file, batch_dir + r'/common_qcdm.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_qcdm.ini)'] )
-copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_qcdm.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 -1.5 1.5 0.1 0.1 \nparam[epsinf] = 0.05 0 1. 0.05 0.05 \nparam[zetas] = 0 -1 1 0.1 0.1' ] ) 
+##qcdm 3 parameter: epss, epsinf, zetas
+copy_replace_first('test.ini', 'qcdm_3param.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [r'DEFAULT('  + batch_dir + r'/common_qcdm_3param.ini) \nde_model = 3\nde_num_params=3\npp_model = 0 \npp_num_params = '  + str(index_H0 - index_logA) + r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = qcdm_3param', r'action = 0', str_propose] )
+
+copy_replace_first(common_file, batch_dir + r'/common_qcdm_3param.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_qcdm_3param.ini)'] )
+copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_qcdm_3param.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 -1.5 1.5 0.1 0.1 \nparam[epsinf] = 0.05 0 1. 0.05 0.05 \nparam[zetas] = 0 -1 1 0.1 0.1 \nparam[atbyaeq] = 0 0 0 0 0 \nparam[couplQ] = 0 0 0 0 0' ] ) 
+
+## coupled qcdm, eps and Q
+copy_replace_first('test.ini', 'qcdm_c1param.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_qcdm_c1param.ini) \nde_model = 3\nde_num_params=3\npp_model=0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = qcdm_c1param', r'action = 0', str_propose] )
+
+copy_replace_first(common_file, batch_dir + r'/common_qcdm_c1param.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_qcdm_c1param.ini)'] )
+
+copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_qcdm_c1param.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 -1.5 1.5 0.05 0.05 \nparam[epsinf] = 0 0 0 0 0  \nparam[zetas] = 0 0 0 0 0 \nparam[atbyaeq] = 0 0 0 0 0 \nparam[couplQ] = 0.02 0. 1. 0.02 0.02' ] ) 
+
+
+##coupled qcdm 3 parameter: epss, epsinf, zetas + atbyaeq and Q (actually 5param)
+copy_replace_first('test.ini', 'qcdm_full.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [r'DEFAULT('  + batch_dir + r'/common_qcdm_full.ini) \nde_model = 3\nde_num_params=3\npp_model = 0 \npp_num_params = '  + str(index_H0 - index_logA) + r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = qcdm_full', r'action = 0', str_propose] )
+
+copy_replace_first(common_file, batch_dir + r'/common_qcdm_full.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_qcdm_full.ini)'] )
+copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_qcdm_full.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 -1.5 1.5 0.03 0.03 \nparam[epsinf] = 0.01 0 1. 0.02 0.02 \nparam[zetas] = 0 -1 1 0.1 0.1 \nparam[atbyaeq] = 0.6 0.1 1. 0.05 0.05 \nparam[couplQ] = 0.02 0. 1. 0.02 0.02' ] ) 
+
  
 ppnum = index_H0 - index_logA
 for i in range(7, 16):

@@ -22,7 +22,8 @@ module coop_statchains_mod
      real bestlike, worstlike, totalmult, likecut(mcmc_stat_num_cls)
      integer ibest, iworst
      integer np
-     COOP_SHORT_STRING,dimension(:),allocatable::label, name, simplename
+     COOP_SHORT_STRING,dimension(:),allocatable::name, simplename
+     COOP_STRING,dimension(:),allocatable::label
      real,dimension(:),allocatable::lower, upper, mean, std, plotlower, plotupper, dx, base !!plotlower and plotupper are used to make plots, with ~0 long tail truncated
      real,dimension(:,:),allocatable::lowsig, upsig
      logical,dimension(:),allocatable::vary, left_is_tail, right_is_tail
