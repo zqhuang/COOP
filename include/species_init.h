@@ -5,7 +5,7 @@
   COOP_REAL, optional::w
   COOP_REAL, optional::cs2
   COOP_REAL, optional::Omega_massless
-  type(coop_function),optional::fw
+  type(coop_function),optional::fwp1
   type(coop_function),optional::fcs2
   COOP_INT i
   COOP_REAL_ARRAY::lnrat, warr, cs2arr
@@ -56,19 +56,19 @@
 
   select case(this%genre)
   case(COOP_SPECIES_MASSLESS)
-     this%w = 1.d0/3.
-     this%cs2 = this%w
+     this%wp1 = 1.d0+1.d0/3.
+     this%cs2 = 1.d0/3.d0
   case(COOP_SPECIES_CDM)
-     this%w = 0.
-     this%cs2 = this%w
+     this%wp1 = 1.d0
+     this%cs2 = 0.d0
   case(COOP_SPECIES_COSMOLOGICAL_CONSTANT)
-     this%w = -1.d0
+     this%wp1 = 0.d0
      this%cs2 = 1.d0
   case default
      if(present(w))then
-        this%w = w
+        this%wp1 = w+1.d0
      else
-        this%w = 0.d0
+        this%wp1 = 1.d0
      endif
      if(present(cs2))then
         this%cs2 = cs2
@@ -104,7 +104,7 @@
         lnrat(i) = lnrho- 4.d0*(lnamin+(i-1)*dlna) - w1
      enddo
      !$omp end parallel do
-     call this%fw%init(coop_default_array_size, amin, amax, warr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
+     call this%fwp1%init(coop_default_array_size, amin, amax, 1.d0+warr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
      call this%fcs2%init(coop_default_array_size, amin, amax, cs2arr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
      call this%flnrho%init(coop_default_array_size, amin, amax, lnrat, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
   case(COOP_SPECIES_MASSIVE_FERMION)
@@ -130,13 +130,13 @@
         lnrat(i) = lnrho- 4.d0*(lnamin+(i-1)*dlna) - w1
      enddo
      !$omp end parallel do
-     call this%fw%init(coop_default_array_size, amin, amax, warr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
+     call this%fwp1%init(coop_default_array_size, amin, amax, 1.d0+warr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
      call this%fcs2%init(coop_default_array_size, amin, amax, cs2arr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
      call this%flnrho%init(coop_default_array_size, amin, amax, lnrat, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
   case default
-     if(present(fw))then
+     if(present(fwp1))then
         this%w_dynamic = .true.
-        this%fw = fw
+        this%fwp1 = fwp1
      else
         this%w_dynamic = .false.
      endif
@@ -164,7 +164,7 @@
      endif
   end select
   if(this%w_dynamic)then
-     this%w = this%wofa(COOP_REAL_OF(1.d0))
-     call this%flnrho%set_boundary(slopeleft = -3.*(1. + this%wofa(amin)), sloperight = -3.*(1. + this%w))
+     this%wp1 = this%wp1ofa(COOP_REAL_OF(1.d0))
+     call this%flnrho%set_boundary(slopeleft = -3.*this%wp1ofa(amin), sloperight = -3.*this%wp1)
   endif
-  if(this%cs2_dynamic) this%cs2 = this%cs2ofa(COOP_REAL_OF(1.d0))
+  if(this%cs2_dynamic) this%cs2 = this%cs2ofa(coop_scale_factor_today)

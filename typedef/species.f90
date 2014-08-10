@@ -15,15 +15,16 @@ module coop_species_mod
      logical w_dynamic, cs2_dynamic
      COOP_SHORT_STRING name
      COOP_INT id
-     COOP_REAL Omega, w, cs2
+     COOP_REAL Omega, wp1, cs2
      COOP_REAL Omega_massless, mbyT
-     type(coop_function):: fw, fcs2
+     type(coop_function):: fwp1, fcs2
      type(coop_function)::flnrho
    contains
      procedure :: init => coop_species_initialize
      procedure :: print => coop_species_print
      procedure :: free  => coop_species_free
      procedure :: wofa => coop_species_wofa
+     procedure :: wp1ofa => coop_species_wp1ofa
      procedure :: cs2ofa => coop_species_cs2ofa
      procedure :: density_ratio => coop_species_density_ratio
      procedure :: rhoa4_ratio => coop_species_rhoa4_ratio
@@ -36,12 +37,12 @@ module coop_species_mod
 
 contains
 
-  function coop_species_constructor(genre, name, id, Omega, w, cs2, Omega_massless, fw, fcs2) result(this)
+  function coop_species_constructor(genre, name, id, Omega, w, cs2, Omega_massless, fwp1, fcs2) result(this)
     type(coop_species) :: this
 #include "species_init.h"
   end function coop_species_constructor
 
-  subroutine coop_species_initialize(this, genre, name, id, Omega, w, cs2, Omega_massless, fw, fcs2)
+  subroutine coop_species_initialize(this, genre, name, id, Omega, w, cs2, Omega_massless, fwp1, fcs2)
     class(coop_species) :: this
 #include "species_init.h"
   end subroutine coop_species_initialize
@@ -49,16 +50,23 @@ contains
   function coop_species_wofa(this, a) result(w)
     class(coop_species) :: this
     COOP_REAL w, a
-    if(a.le.coop_min_scale_factor)then
-       w = -1.d0
+    w = this%wp1ofa(a) - 1.d0
+  end function coop_species_wofa
+
+  function coop_species_wp1ofa(this, a) result(wp1)
+    class(coop_species) :: this
+    COOP_REAL wp1, a
+    if(a.le.coop_min_scale_factor .or. a.ge.  coop_scale_factor_today)then
+       wp1 = 0.d0
        return
     endif
     if(this%w_dynamic)then
-       w = this%fw%eval(a)
+       wp1 = this%fwp1%eval(a)
     else
-       w = this%w
+       wp1 = this%wp1
     endif
-  end function coop_species_wofa
+  end function coop_species_wp1ofa
+
 
 
   function coop_species_cs2ofa(this, a) result(cs2)
@@ -117,7 +125,7 @@ contains
        write(*,"(A, G14.5)") "Species rho_ratio(z=0) = ", this%density_ratio(COOP_REAL_OF(1.d0))
        
     else
-       write(*,"(A, G14.5)") "Species w: ", this%w
+       write(*,"(A, G14.5)") "Species w: ", this%wp1-1.d0
     endif
     if(this%cs2_dynamic)then
        write(*,"(A, G14.5)") "Species cs^2(z=10000) = ", this%cs2ofa(COOP_REAL_OF(1.d0/10001.d0))
@@ -139,7 +147,7 @@ contains
     if(this%w_dynamic)then
        rhoa4 = exp(this%flnrho%eval(an)+4.d0*log(an))
     else
-       rhoa4 = an**(1.d0-3.d0*this%w)
+       rhoa4 = an**(4.d0-3.d0*this%wp1)
     endif
   end function coop_species_rhoa4_ratio
 
@@ -155,14 +163,14 @@ contains
     if(this%w_dynamic)then
        density = exp(this%flnrho%eval(a))
     else
-       density = a**(-3.*(1.+this%w))
+       density = a**(-3.*this%wp1)
     endif
   end function coop_species_density_ratio
 
   subroutine coop_species_free(this)
     class(coop_species)::this
     call this%flnrho%free()
-    call this%fw%free()
+    call this%fwp1%free()
     call this%fcs2%free()
   end subroutine coop_species_free
 

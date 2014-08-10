@@ -5,7 +5,7 @@ module coop_background_mod
 
   private
 
-  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_de_coupled_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_coupled_quintessence, coop_de_w_quintessence
+  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_de_coupled_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_coupled_quintessence, coop_de_w_quintessence, coop_de_iterate_coupling_equations
 
 contains
 
@@ -49,7 +49,7 @@ contains
   function coop_de_lambda(Omega_Lambda) result(this)
     type(coop_species) this
     COOP_REAL Omega_Lambda
-    call this%init(genre = COOP_SPECIES_LAMBDA, name = "Cosmological Constant",id=5, Omega = Omega_Lambda, w = COOP_REAL_OF(-1.), cs2 = COOP_REAL_OF(1.))
+    call this%init(genre = COOP_SPECIES_LAMBDA, name = "Cosmological Constant",id=5, Omega = Omega_Lambda, w = COOP_REAL_OF(-1.d0), cs2 = COOP_REAL_OF(1.d0))
   end function coop_de_lambda
   
   function coop_de_w0wa(Omega_Lambda, w0, wa) result(this)
@@ -62,8 +62,8 @@ contains
        return
     endif
     w0wa = coop_arguments(r =  (/ w0, wa /))
-    fw0wa = coop_function(coop_de_w_w0wa, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.), xlog = .true., args = w0wa)
-    call this%init(genre = COOP_SPECIES_FLUID, name = "w0wa Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fw = fw0wa )
+    fw0wa = coop_function(coop_de_wp1_w0wa, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.), xlog = .true., args = w0wa)
+    call this%init(genre = COOP_SPECIES_FLUID, name = "w0wa Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fwp1 = fw0wa )
     call w0wa%free
   end function coop_de_w0wa
 
@@ -77,11 +77,11 @@ contains
     call this%init(genre = COOP_SPECIES_FLUID, name = "constant w Dark Energy", id = 5, Omega = Omega_Lambda, w = w0, cs2 = COOP_REAL_OF(1.))
   end function coop_de_w0
 
-  function coop_de_w_w0wa(a, w0wa) result(w)
+  function coop_de_wp1_w0wa(a, w0wa) result(w)
     COOP_REAL a, w
     type(coop_arguments) w0wa
-    w = w0wa%r(1) + w0wa%r(2)*(1.d0 - a)
-  end function coop_de_w_w0wa
+    w = 1.d0 + w0wa%r(1) + w0wa%r(2)*(1.d0 - a)
+  end function coop_de_wp1_w0wa
 
   function coop_de_quintessence(Omega_Lambda, epsilon_s, epsilon_inf, zeta_s) result(this)
     type(coop_species) this
@@ -93,13 +93,19 @@ contains
        return
     endif
     arg = coop_arguments(r =  (/ Omega_Lambda, epsilon_s, epsilon_inf, zeta_s /))
-    fq = coop_function(coop_de_w_quintessence, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.d0), xlog = .true., args = arg)
-    call this%init(genre = COOP_SPECIES_FLUID, name = "quintessence Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fw = fq )
+    fq = coop_function(coop_de_wp1_quintessence, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.d0), xlog = .true., args = arg)
+    call this%init(genre = COOP_SPECIES_FLUID, name = "quintessence Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fwp1 = fq )
     call arg%free
   end function coop_de_quintessence
 
   function coop_de_w_quintessence(a, arg) result(w)
     COOP_REAL a, w
+    type(coop_arguments) arg
+    w = coop_de_wp1_quintessence(a, arg) - 1.d0
+  end function coop_de_w_quintessence
+
+  function coop_de_wp1_quintessence(a, arg) result(wp1)
+    COOP_REAL a, wp1
     type(coop_arguments) arg
     COOP_REAL Omega_m, a_eq
     COOP_REAL mu, mu3, s0, s1, qpsign, aux1, aux2, aux3, delta
@@ -114,7 +120,7 @@ contains
     endif
     Omega_m  = 1.d0 - OMEGA_LAMBDA
     if(Omega_m .gt. 0.65d0 .or. Omega_m .lt. 0.05d0)then
-       w = 1.d0 !!set w to be a crazy value to rule out the model
+       wp1 = qpsign * 3.d0 !!set w to be a crazy value to rule out the model
        return
     endif
     aux1 = sqrt(EPSILON_INFTY/3.d0)
@@ -125,7 +131,7 @@ contains
     if(delta .lt. 0.9d0)then
        a_eq = (Omega_m/OMEGA_LAMBDA)**((1.d0/3.d0)/(1.d0 - sign(delta,EPSILON_S)))
     else
-       w = -100.d0  !!set w to be a crazy value to rule out the model
+       wp1 = qpsign * 3.d0  !!set w to be a crazy value to rule out the model
        return
     endif
     mu=a/a_eq
@@ -133,17 +139,16 @@ contains
     s0=sqrt(mu3)
     s1=sqrt(1.+mu3)
     if(s0.lt.2.d-4)then  
-       w = qpsign * EPSILON_INFTY/1.5 
+       wp1 = qpsign * EPSILON_INFTY/1.5 
     elseif(s0.lt. 1.d-2)then
-       w = 2.d0 * qpsign * ( aux1* sqrt(1.+ a_eq/3./(a_eq +  a)) + aux2 * (2.d0/3.d0) * s0 )**2
+       wp1 = 2.d0 * qpsign * ( aux1* sqrt(1.+ a_eq/3./(a_eq +  a)) + aux2 * (2.d0/3.d0) * s0 )**2
     else
-       w = 2.d0 * qpsign * (aux1*(1. + a_eq/6./(a + a_eq)) + aux2*(s1/s0-log(s0+s1)/mu3) + aux3*(1.-log(1.+mu3)/mu3))**2
+       wp1 = 2.d0 * qpsign * (aux1*(1. + a_eq/6./(a + a_eq)) + aux2*(s1/s0-log(s0+s1)/mu3) + aux3*(1.-log(1.+mu3)/mu3))**2
     endif
-    w = w - 1.d0
 #undef EPSILON_S
 #undef EPSILON_INF
 #undef ZETA_S
-  end function coop_de_w_quintessence
+  end function coop_de_wp1_quintessence
 
 
 
@@ -157,13 +162,19 @@ contains
        return
     endif
     arg = coop_arguments(r =  (/ Omega_Lambda, epsilon_s, epsilon_inf, zeta_s , at_by_aeq /))
-    fq = coop_function(coop_de_w_coupled_quintessence, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.d0), xlog = .true., args = arg)
-    call this%init(genre = COOP_SPECIES_FLUID, name = "coupled quintessence Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fw = fq )
+    fq = coop_function(coop_de_wp1_coupled_quintessence, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.d0), xlog = .true., args = arg)
+    call this%init(genre = COOP_SPECIES_FLUID, name = "coupled quintessence Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fwp1 = fq )
     call arg%free
   end function coop_de_coupled_quintessence
 
   function coop_de_w_coupled_quintessence(a, arg) result(w)
     COOP_REAL a, w
+    type(coop_arguments) arg
+    w = coop_de_wp1_coupled_quintessence(a, arg) - 1.d0
+  end function coop_de_w_coupled_quintessence
+
+  function coop_de_wp1_coupled_quintessence(a, arg) result(wp1)
+    COOP_REAL a, wp1
     type(coop_arguments) arg
     COOP_REAL Omega_m, a_eq
     COOP_REAL mu, mu3, s0, s1, qpsign, aux1, aux2, aux3, delta
@@ -179,7 +190,7 @@ contains
     endif
     Omega_m  = 1.d0 - OMEGA_LAMBDA
     if(Omega_m .gt. 0.65d0 .or. Omega_m .lt. 0.05d0)then
-       w = -100.d0 !!set w to be a crazy value to rule out the model
+       wp1 = qpsign * 3.d0 !!set w to be a crazy value to rule out the model
        return
     endif
     aux1 = sqrt(EPSILON_INFTY/3.d0)
@@ -190,7 +201,7 @@ contains
     if(delta .lt. 0.9d0)then
        a_eq = (Omega_m/OMEGA_LAMBDA)**((1.d0/3.d0)/(1.d0 - sign(delta,EPSILON_S)))
     else
-       w = 1.d0  !!set w to be a crazy value to rule out the model
+       wp1 = qpsign * 3.d0 !!set w to be a crazy value to rule out the model
        return
     endif
     mu=a/a_eq
@@ -198,19 +209,88 @@ contains
     s0=sqrt(mu3)
     s1=sqrt(1.+mu3)
     if(s0.lt.2.d-4)then  
-       w = qpsign * EPSILON_INFTY/1.5 
+       wp1 = qpsign * EPSILON_INFTY/1.5 
     elseif(s0.lt. 1.d-2)then
-       w = 2.d0 * qpsign * ( aux1* sqrt(1.+ a_eq/3./(a_eq +  a)) + aux2 * (2.d0/3.d0) * s0 )**2
+       wp1 = 2.d0 * qpsign * ( aux1* sqrt(1.+ a_eq/3./(a_eq +  a)) + aux2 * (2.d0/3.d0) * s0 )**2
     else
-       w = 2.d0 * qpsign * (aux1*(1. + a_eq/6./(a + a_eq)) + aux2*(s1/s0-log(s0+s1)/mu3) + aux3*(1.-log(1.+mu3)/mu3))**2
+       wp1 = 2.d0 * qpsign * (aux1*(1. + a_eq/6./(a + a_eq)) + aux2*(s1/s0-log(s0+s1)/mu3) + aux3*(1.-log(1.+mu3)/mu3))**2
     endif
-    if(AT_BY_AEQ .gt. 0.d0) w = w * tanh(a/(AT_BY_AEQ * a_eq))
-    w = w - 1.d0
+    if(AT_BY_AEQ .gt. 0.d0) wp1 = wp1 * (a/(AT_BY_AEQ * a_eq))**3
 #undef EPSILON_S
 #undef EPSILON_INF
 #undef ZETA_S
 #undef AT_BY_AEQ
-  end function coop_de_w_coupled_quintessence
+  end function coop_de_wp1_coupled_quintessence
+
+  subroutine coop_de_iterate_coupling_equations(Q, omega_radiation, de, baryon, cdm, mnu)
+    COOP_INT, parameter:: num_iterate = 3
+    COOP_REAL,intent(IN)::Q, omega_radiation
+    type(coop_species)::de, baryon, cdm
+    type(coop_species),optional::mnu
+    type(coop_species) mod_de, mod_baryon, mod_cdm, mod_mnu
+    type(coop_function)::fw
+    integer,parameter::n=4096
+    COOP_REAL::a(n), wp1de(n), wp1m(n), wp1nu(n), wp1de_origin(n), wnu_origin(n), pnu, lna(n), coupl, rhode, rhob, rhoc, rhonu,  H2
+    integer i, it
+    !!first iteration, modify rho_de
+    call coop_set_uniform(n, lna, log(coop_min_scale_factor), log(coop_scale_factor_today))
+    a = exp(lna)
+    !$omp parallel do 
+    do i=1, n
+       wp1de_origin(i) = abs(de%wp1ofa(a(i)))
+       if(present(mnu))then
+          wnu_origin(i) = mnu%wofa(a(i))
+       endif
+    enddo
+    !$omp end parallel do
+    do it = 1, num_iterate
+       if(present(mnu))then
+          !$omp parallel do private(coupl, rhode, rhob, rhoc, rhonu, pnu, H2)
+          do i=1, n
+             rhode =3.d0* de%Omega*de%density_ratio(a(i))
+             rhob = 3.d0*baryon%Omega*baryon%density_ratio(a(i))
+             rhoc = 3.d0* cdm%Omega * cdm%density_ratio(a(i)) 
+             rhonu = 3.d0*mnu%Omega * mnu%density_ratio(a(i))
+             pnu = rhonu * wnu_origin(i)
+             H2 = (rhode +  rhob + rhoc + rhonu + 3.d0*omega_radiation/a(i)**4)/3.d0
+             coupl = min(Q*sqrt(wp1de_origin(i)*rhode/H2)/3.d0, 0.99d0) !!avoid NAN error for huge Q models
+             wp1de(i) = wp1de_origin(i) + coupl*(rhob+rhoc+rhonu-3.d0*pnu)/rhode
+             wp1m(i) = 1.d0 - coupl
+             wp1nu(i) = 1.d0 + wnu_origin(i) - coupl*(1.d0-3.d0*pnu/rhonu)
+          enddo
+          !$omp end parallel do
+       else
+          !$omp parallel do private(coupl, rhode, rhob, rhoc,  H2)
+          do i = 1, n
+             rhode = 3.d0* de%Omega*de%density_ratio(a(i))
+             rhob = 3.d0*baryon%Omega*baryon%density_ratio(a(i))
+             rhoc = 3.d0* cdm%Omega * cdm%density_ratio(a(i)) 
+             H2 = (rhode +  rhob + rhoc  + 3.d0*omega_radiation/a(i)**4)/3.d0
+             coupl = min(Q*sqrt(wp1de_origin(i)*rhode/H2)/3.d0, 0.99d0) !!avoid NAN error for huge Q models
+             wp1de(i) = wp1de_origin(i) + coupl*(rhob+rhoc)/rhode
+             wp1m(i) = 1.d0 - coupl
+          enddo
+          !$omp end parallel do
+       endif
+       call fw%init(n, coop_min_scale_factor, 1.d0, wp1de, xlog = .true., ylog = .false., check_boundary = .false.)
+       call mod_de%init(genre = COOP_SPECIES_FLUID, name = "coupled quintessence Dark Energy", id=5, Omega = de%omega, cs2 = COOP_REAL_OF(1.d0), fwp1 = fw )
+       call fw%init(n, coop_min_scale_factor, 1.d0, wp1m, xlog = .true., ylog = .false., check_boundary = .false.)    
+       call mod_baryon%init(genre = COOP_SPECIES_FLUID, name = "coupled baryon", id=5, Omega = baryon%omega, cs2 = baryon%cs2, fwp1 = fw )
+       call mod_cdm%init(genre = COOP_SPECIES_FLUID, name = "coupled cdm", id=5, Omega = cdm%omega, cs2 = cdm%cs2, fwp1 = fw )
+       if(present(mnu))then
+          call fw%init(n, coop_min_scale_factor, 1.d0, wp1nu, xlog = .true., ylog = .false., check_boundary = .false.)       
+          call mod_mnu%init(genre = COOP_SPECIES_FLUID, name = "coupled massive neutrinos", id=5, Omega = mnu%omega, fwp1 = fw, fcs2 = mnu%fcs2 )
+          mnu = mod_mnu
+          call mod_mnu%free()
+       endif
+       de = mod_de
+       call mod_de%free()
+       baryon = mod_baryon
+       call mod_baryon%free()
+       cdm = mod_cdm
+       call mod_cdm%free()
+    enddo
+  end subroutine coop_de_iterate_coupling_equations
 
 
   function coop_zrecomb_fitting(ombh2, omch2) result(zstar)
