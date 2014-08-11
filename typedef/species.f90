@@ -17,7 +17,7 @@ module coop_species_mod
      COOP_INT id
      COOP_REAL Omega, wp1, cs2
      COOP_REAL Omega_massless, mbyT
-     type(coop_function):: fwp1, fcs2
+     type(coop_function):: fwp1, fcs2, fwp1eff
      type(coop_function)::flnrho
    contains
      procedure :: init => coop_species_initialize
@@ -25,6 +25,8 @@ module coop_species_mod
      procedure :: free  => coop_species_free
      procedure :: wofa => coop_species_wofa
      procedure :: wp1ofa => coop_species_wp1ofa
+     procedure :: weffofa => coop_species_weffofa
+     procedure :: wp1effofa => coop_species_wp1effofa
      procedure :: cs2ofa => coop_species_cs2ofa
      procedure :: density_ratio => coop_species_density_ratio
      procedure :: rhoa4_ratio => coop_species_rhoa4_ratio
@@ -37,12 +39,12 @@ module coop_species_mod
 
 contains
 
-  function coop_species_constructor(genre, name, id, Omega, w, cs2, Omega_massless, fwp1, fcs2) result(this)
+  function coop_species_constructor(genre, name, id, Omega, w, cs2, Omega_massless, fwp1, fcs2, fwp1eff) result(this)
     type(coop_species) :: this
 #include "species_init.h"
   end function coop_species_constructor
 
-  subroutine coop_species_initialize(this, genre, name, id, Omega, w, cs2, Omega_massless, fwp1, fcs2)
+  subroutine coop_species_initialize(this, genre, name, id, Omega, w, cs2, Omega_massless, fwp1, fcs2, fwp1eff)
     class(coop_species) :: this
 #include "species_init.h"
   end subroutine coop_species_initialize
@@ -50,35 +52,42 @@ contains
   function coop_species_wofa(this, a) result(w)
     class(coop_species) :: this
     COOP_REAL w, a
-    w = this%wp1ofa(a) - 1.d0
+    w = coop_species_wp1ofa(this, a) - 1.d0
   end function coop_species_wofa
 
   function coop_species_wp1ofa(this, a) result(wp1)
     class(coop_species) :: this
     COOP_REAL wp1, a
-    if(a.le.coop_min_scale_factor .or. a.ge.  coop_scale_factor_today)then
-       wp1 = 0.d0
-       return
-    endif
     if(this%w_dynamic)then
-       wp1 = this%fwp1%eval(a)
+       wp1 = this%fwp1%eval(COOP_PROPER_SCALE_FACTOR(a))
     else
        wp1 = this%wp1
     endif
   end function coop_species_wp1ofa
 
 
+  function coop_species_weffofa(this, a) result(w)
+    class(coop_species) :: this
+    COOP_REAL w, a
+    w = coop_species_wp1effofa(this, a) - 1.d0
+  end function coop_species_weffofa
+
+  function coop_species_wp1effofa(this, a) result(wp1)
+    class(coop_species) :: this
+    COOP_REAL wp1, a
+    if(this%w_dynamic)then
+       wp1 = this%fwp1eff%eval(COOP_PROPER_SCALE_FACTOR(a))
+    else
+       wp1 = this%wp1
+    endif
+  end function coop_species_wp1effofa
+
 
   function coop_species_cs2ofa(this, a) result(cs2)
     class(coop_species) :: this
     COOP_REAL cs2, a
-    if(a.le.coop_min_scale_factor)then
-       cs2 = 1.d0
-       return
-    endif
-
     if(this%cs2_dynamic)then
-       cs2 = this%fcs2%eval(a)
+       cs2 = this%fcs2%eval(COOP_PROPER_SCALE_FACTOR(a))
     else
        cs2 = this%cs2
     endif
@@ -143,7 +152,7 @@ contains
     class(coop_species)::this
     COOP_REAL a, an
     COOP_REAL rhoa4
-    an = max(a, coop_min_scale_factor)
+    an = COOP_PROPER_SCALE_FACTOR(a)
     if(this%w_dynamic)then
        rhoa4 = exp(this%flnrho%eval(an)+4.d0*log(an))
     else
@@ -155,13 +164,8 @@ contains
     class(coop_species)::this
     COOP_REAL a
     COOP_REAL density
-    if(a.le.coop_min_scale_factor)then
-       density = 0.d0
-       return
-    endif
-    
     if(this%w_dynamic)then
-       density = exp(this%flnrho%eval(a))
+       density = exp(this%flnrho%eval(COOP_PROPER_SCALE_FACTOR(a)))
     else
        density = a**(-3.*this%wp1)
     endif
@@ -172,6 +176,7 @@ contains
     call this%flnrho%free()
     call this%fwp1%free()
     call this%fcs2%free()
+    call this%fwp1eff%free()
   end subroutine coop_species_free
 
 

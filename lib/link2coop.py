@@ -80,6 +80,10 @@ def copy_replace_all(fname1, fname2, patterns, repls):
 def function_pattern(func, var):
     return r'function\s+' + func + r'\s*\(\s*' + re.sub(r'\,', r'\s*\,\s*', var) + r'\s*\)\s*(\!.*)?\n(.*\n)+\s*end\s+function\s+' + func
 
+def subroutine_pattern(func, var):
+    return r'subroutine\s+' + func + r'\s*\(\s*' + re.sub(r'\,', r'\s*\,\s*', var) + r'\s*\)\s*(\!.*)?\n(.*\n)+\s*end\s+subroutine\s+' + func
+
+
 def line_pattern(line):
     line = re.sub(r' ', r'\s*', line)
     line = re.sub(r'(\.|\_|\%)', r'\\\1', line)
@@ -176,8 +180,9 @@ replace_all("camb/Makefile", [r"^\s*(FFLAGS\s*=.*)$", r"^\s*(F90CRLINK\s*=.*)$"]
 
 replace_all("source/Makefile", [r"^\s*(FFLAGS\s*=.*)$", r"^\s*(F90CRLINK\s*=.*)$", r"^\s*(INCLUDE\s*=.*)$", r"^\s*(LINKFLAGS\s*=.*)$" ], [ coop_include_append, coop_link_append, coop_include_append, coop_link_append ])
 
+replace_all("camb/modules.f90", [r'call\s+Recombination\_Init\s*\(\s*CP\%Recomb\s*\,\s*CP\%omegac\s*\,\s*CP\%omegab'], ['call Recombination_Init(CP%Recomb, CP%Omegac*coop_global_cdm%density_ratio(1.d0/1090.d0)/1090.d0**3, CP%Omegab*coop_global_cdm%density_ratio(1.d0/1090.d0)/1090.d0**3'])
 
-replace_first("camb/equations_ppf.f90", [line_pattern(r"module lambdageneral"), r'is_cosmological_constant\s*=.+', function_pattern('w_de','a'), function_pattern('grho_de', 'a') ], [r'#include "constants.h"\nmodule LambdaGeneral \nuse coop_wrapper', r'is_cosmological_constant = .false.', r'function w_de(a)\n real(dl) w_de, a\n w_de = coop_global_de%wofa(COOP_REAL_OF(a)) \n end function w_de', 'function grho_de(a)\n real(dl) grho_de, a\n grho_de = grhov*coop_global_de%rhoa4_ratio(COOP_REAL_OF(a)) \n end function grho_de'] )
+replace_all("camb/equations_ppf.f90", [line_pattern(r"module lambdageneral"), r'is_cosmological_constant\s*=.+', function_pattern('w_de','a'), function_pattern('grho_de', 'a'), line_pattern(r"module GaugeInterface"), r'\=\s*grhoc\s*\/\s*a\s*\n', r'\=\s*grhob\s*\/\s*a\s*\n' , r'\(\s*grhoc\s*\+\s*grhob\s*\)\s*\*\s*a\s*\+', r'\(\s*grhoc\s*\+\s*grhob\s*\)\s*\/\s*a\s*\n', r'\(\s*clxc\s*\*\s*grhoc\s*\+\s*clxb\s*\*\s*grhob\s*\)\s*\/\s*a\s*\n', r'\(\s*grhob\s*\+\s*grhoc\)\/sqrt', r'^\s*call\s+Nu_rho\s*\(\s*a\s*\*\s*nu\_masses\s*\(\s*nu\_i\s*\)\s*\,\s*rhonu\)\s*(\!.*)?$' , r'^\s*rhonudot\s*\=\s*Nu_drho\s*\(\s*a\s*\*\s*nu\_masses\s*\(\s*nu\_i\s*\)\s*\,\s*adotoa\s*\,\s*rhonu\)\s*(\!.*)?$', r'^\s*call\s+Nu\_background\s*\(\s*a\s*\*\s*nu\_masses\s*\(\s*nu\_i\s*\)\s*\,\s*rhonu\s*\,\s*pnu\s*\)\s*(\!.*)?$'], [r'#include "constants.h"\nmodule LambdaGeneral \nuse coop_wrapper', r'is_cosmological_constant = .false.', r'function w_de(a)\n real(dl) w_de, a\n w_de = coop_global_de%wofa(COOP_REAL_OF(a)) \n end function w_de', 'function grho_de(a)\n real(dl) grho_de, a\n grho_de = grhov*coop_global_de%rhoa4_ratio(COOP_REAL_OF(a)) \n end function grho_de', r'module GaugeInterface \n use coop_wrapper', r'   = grhoc * coop_global_cdm%density_ratio(a)*a**2 \n ', r'   = grhob * coop_global_baryon%density_ratio(a)*a**2 \n ', r'(grhoc*coop_global_cdm%rhoa4_ratio(a)+grhob*coop_global_baryon%rhoa4_ratio(a)) + ', r'(grhoc*coop_global_cdm%density_ratio(a)+grhob*coop_global_baryon%density_ratio(a))*a**2 \n', r'(clxc*grhoc*coop_global_cdm%density_ratio(a) + clxb * coop_global_baryon%density_ratio(a))*a**2 \n', r'(grhob + grhoc)*(coop_global_cdm%density_ratio(coop_min_scale_factor)*coop_min_scale_factor**3)/sqrt', r'rhonu = coop_global_massive_neutrinos%Omega/coop_global_massive_neutrinos%Omega_massless * coop_global_massive_neutrinos%rhoa4_ratio(a)', r'rhonudot = -3.d0*coop_global_massive_neutrinos%wp1effofa(a) * rhonu * adotoa', r'    rhonu = coop_global_massive_neutrinos%Omega/coop_global_massive_neutrinos%Omega_massless * coop_global_massive_neutrinos%rhoa4_ratio(a) \n    pnu = rhonu*coop_global_massive_neutrinos%wofa(a)'] )
 
 replace_first("camb/power_tilt.f90", [line_pattern(r'module initialpower'), function_pattern('ScalarPower', r'k,ix'), function_pattern('TensorPower', r'k,ix')], [r'module InitialPower\n use coop_wrapper', r'function scalarPower(k, ix)\n real(dl) scalarpower, k\n integer ix\n scalarpower = coop_primordial_ps(k)\n end function scalarpower', r'function tensorPower(k, ix)\n real(dl) tensorPower, k\n integer ix \n tensorPower = coop_primordial_pt(k) \n end function tensorPower'])
 
@@ -220,7 +225,7 @@ copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/param
 
 
 #qcdm 1 parameter: epss
-copy_replace_first('test.ini', 'qcdm_1param.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_qcdm_1param.ini) \nde_model = 3\nde_num_params=3\npp_model=0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = qcdm_1param', r'action = 0', str_propose] )
+copy_replace_first('test.ini', 'qcdm_1param.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_qcdm_1param.ini) \nde_model = 3\nde_num_params=5\npp_model=0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = qcdm_1param', r'action = 0', str_propose] )
 
 copy_replace_first(common_file, batch_dir + r'/common_qcdm_1param.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_qcdm_1param.ini)'] )
 
@@ -228,13 +233,13 @@ copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/param
 
 
 ##qcdm 3 parameter: epss, epsinf, zetas
-copy_replace_first('test.ini', 'qcdm_3param.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [r'DEFAULT('  + batch_dir + r'/common_qcdm_3param.ini) \nde_model = 3\nde_num_params=3\npp_model = 0 \npp_num_params = '  + str(index_H0 - index_logA) + r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = qcdm_3param', r'action = 0', str_propose] )
+copy_replace_first('test.ini', 'qcdm_3param.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [r'DEFAULT('  + batch_dir + r'/common_qcdm_3param.ini) \nde_model = 3\nde_num_params=5\npp_model = 0 \npp_num_params = '  + str(index_H0 - index_logA) + r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = qcdm_3param', r'action = 0', str_propose] )
 
 copy_replace_first(common_file, batch_dir + r'/common_qcdm_3param.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_qcdm_3param.ini)'] )
 copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_qcdm_3param.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 -1.5 1.5 0.1 0.1 \nparam[epsinf] = 0.05 0 1. 0.05 0.05 \nparam[zetas] = 0 -1 1 0.1 0.1 \nparam[atbyaeq] = 0 0 0 0 0 \nparam[couplQ] = 0 0 0 0 0' ] ) 
 
 ## coupled qcdm, eps and Q
-copy_replace_first('test.ini', 'qcdm_c1param.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_qcdm_c1param.ini) \nde_model = 3\nde_num_params=3\npp_model=0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = qcdm_c1param', r'action = 0', str_propose] )
+copy_replace_first('test.ini', 'qcdm_c1param.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_qcdm_c1param.ini) \nde_model = 4\nde_num_params=5\npp_model=0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = qcdm_c1param', r'action = 0', str_propose] )
 
 copy_replace_first(common_file, batch_dir + r'/common_qcdm_c1param.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_qcdm_c1param.ini)'] )
 
@@ -242,7 +247,7 @@ copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/param
 
 
 ##coupled qcdm 3 parameter: epss, epsinf, zetas + atbyaeq and Q (actually 5param)
-copy_replace_first('test.ini', 'qcdm_full.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [r'DEFAULT('  + batch_dir + r'/common_qcdm_full.ini) \nde_model = 3\nde_num_params=3\npp_model = 0 \npp_num_params = '  + str(index_H0 - index_logA) + r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = qcdm_full', r'action = 0', str_propose] )
+copy_replace_first('test.ini', 'qcdm_full.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [r'DEFAULT('  + batch_dir + r'/common_qcdm_full.ini) \nde_model = 4\nde_num_params=5\npp_model = 0 \npp_num_params = '  + str(index_H0 - index_logA) + r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = qcdm_full', r'action = 0', str_propose] )
 
 copy_replace_first(common_file, batch_dir + r'/common_qcdm_full.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_qcdm_full.ini)'] )
 copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_qcdm_full.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 -1.5 1.5 0.03 0.03 \nparam[epsinf] = 0.01 0 1. 0.02 0.02 \nparam[zetas] = 0 -1 1 0.1 0.1 \nparam[atbyaeq] = 0.6 0.1 1. 0.05 0.05 \nparam[couplQ] = 0.02 0. 1. 0.02 0.02' ] ) 

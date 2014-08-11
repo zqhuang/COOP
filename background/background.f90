@@ -4,8 +4,9 @@ module coop_background_mod
 #include "constants.h"
 
   private
+  COOP_INT:: coop_coupled_de_num_iterate = 8
 
-  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_de_coupled_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_coupled_quintessence, coop_de_w_quintessence, coop_de_iterate_coupling_equations
+  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_de_coupled_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_coupled_quintessence, coop_de_w_quintessence, coop_de_iterate_coupling_equations, coop_coupled_de_num_iterate
 
 contains
 
@@ -93,7 +94,7 @@ contains
        return
     endif
     arg = coop_arguments(r =  (/ Omega_Lambda, epsilon_s, epsilon_inf, zeta_s /))
-    fq = coop_function(coop_de_wp1_quintessence, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.d0), xlog = .true., args = arg)
+    fq = coop_function(coop_de_wp1_quintessence, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args = arg)
     call this%init(genre = COOP_SPECIES_FLUID, name = "quintessence Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fwp1 = fq )
     call arg%free
   end function coop_de_quintessence
@@ -162,7 +163,7 @@ contains
        return
     endif
     arg = coop_arguments(r =  (/ Omega_Lambda, epsilon_s, epsilon_inf, zeta_s , at_by_aeq /))
-    fq = coop_function(coop_de_wp1_coupled_quintessence, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.d0), xlog = .true., args = arg)
+    fq = coop_function(coop_de_wp1_coupled_quintessence, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args = arg)
     call this%init(genre = COOP_SPECIES_FLUID, name = "coupled quintessence Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fwp1 = fq )
     call arg%free
   end function coop_de_coupled_quintessence
@@ -215,7 +216,7 @@ contains
     else
        wp1 = 2.d0 * qpsign * (aux1*(1. + a_eq/6./(a + a_eq)) + aux2*(s1/s0-log(s0+s1)/mu3) + aux3*(1.-log(1.+mu3)/mu3))**2
     endif
-    if(AT_BY_AEQ .gt. 0.d0) wp1 = wp1 * (a/(AT_BY_AEQ * a_eq))**3
+    if(AT_BY_AEQ .gt. 0.d0) wp1 = wp1 * tanh(a/(AT_BY_AEQ * a_eq))**3
 #undef EPSILON_S
 #undef EPSILON_INF
 #undef ZETA_S
@@ -223,7 +224,6 @@ contains
   end function coop_de_wp1_coupled_quintessence
 
   subroutine coop_de_iterate_coupling_equations(Q, omega_radiation, de, baryon, cdm, mnu)
-    COOP_INT, parameter:: num_iterate = 3
     COOP_REAL,intent(IN)::Q, omega_radiation
     type(coop_species)::de, baryon, cdm
     type(coop_species),optional::mnu
@@ -243,7 +243,7 @@ contains
        endif
     enddo
     !$omp end parallel do
-    do it = 1, num_iterate
+    do it = 1, coop_coupled_de_num_iterate
        if(present(mnu))then
           !$omp parallel do private(coupl, rhode, rhob, rhoc, rhonu, pnu, H2)
           do i=1, n
@@ -272,14 +272,14 @@ contains
           enddo
           !$omp end parallel do
        endif
-       call fw%init(n, coop_min_scale_factor, 1.d0, wp1de, xlog = .true., ylog = .false., check_boundary = .false.)
-       call mod_de%init(genre = COOP_SPECIES_FLUID, name = "coupled quintessence Dark Energy", id=5, Omega = de%omega, cs2 = COOP_REAL_OF(1.d0), fwp1 = fw )
-       call fw%init(n, coop_min_scale_factor, 1.d0, wp1m, xlog = .true., ylog = .false., check_boundary = .false.)    
-       call mod_baryon%init(genre = COOP_SPECIES_FLUID, name = "coupled baryon", id=5, Omega = baryon%omega, cs2 = baryon%cs2, fwp1 = fw )
-       call mod_cdm%init(genre = COOP_SPECIES_FLUID, name = "coupled cdm", id=5, Omega = cdm%omega, cs2 = cdm%cs2, fwp1 = fw )
+       call fw%init(n, coop_min_scale_factor, coop_scale_factor_today, wp1de, xlog = .true., ylog = .false., check_boundary = .false.)
+       call mod_de%init(genre = COOP_SPECIES_FLUID, name= "coupled quintessence Dark Energy", id=5, Omega = de%omega, cs2 = de%cs2, fwp1 = de%fwp1, fwp1eff = fw )
+       call fw%init(n, coop_min_scale_factor, coop_scale_factor_today, wp1m, xlog = .true., ylog = .false., check_boundary = .false.)    
+       call mod_baryon%init(genre = COOP_SPECIES_FLUID, name = "coupled baryon", id=5, Omega = baryon%omega, cs2 = baryon%cs2, w = baryon%wp1 - COOP_REAL_OF(1.d0), fwp1eff = fw )
+       call mod_cdm%init(genre = COOP_SPECIES_FLUID, name = "coupled cdm", id=5, Omega = cdm%omega, cs2 = cdm%cs2, w = cdm%wp1 - COOP_REAL_OF(1.d0), fwp1 = fw )
        if(present(mnu))then
-          call fw%init(n, coop_min_scale_factor, 1.d0, wp1nu, xlog = .true., ylog = .false., check_boundary = .false.)       
-          call mod_mnu%init(genre = COOP_SPECIES_FLUID, name = "coupled massive neutrinos", id=5, Omega = mnu%omega, fwp1 = fw, fcs2 = mnu%fcs2 )
+          call fw%init(n, coop_min_scale_factor,coop_scale_factor_today, wp1nu, xlog = .true., ylog = .false., check_boundary = .false.)       
+          call mod_mnu%init(genre = COOP_SPECIES_FLUID, name = "coupled massive neutrinos", id=5, Omega = mnu%omega, fwp1 = mnu%fwp1 , fcs2 = mnu%fcs2, fwp1eff = fw )
           mnu = mod_mnu
           call mod_mnu%free()
        endif

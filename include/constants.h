@@ -30,6 +30,7 @@
 #define COOP_ODE_GL6 6
 #define COOP_ODE_GL8 7
 
+#define COOP_PROPER_SCALE_FACTOR(a) max(min(a,coop_scale_factor_today),coop_min_scale_factor)
 
 #define COOP_SPECIES_FLUID 0
 #define COOP_SPECIES_CDM 1

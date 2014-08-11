@@ -5,8 +5,7 @@
   COOP_REAL, optional::w
   COOP_REAL, optional::cs2
   COOP_REAL, optional::Omega_massless
-  type(coop_function),optional::fwp1
-  type(coop_function),optional::fcs2
+  type(coop_function),optional::fwp1, fcs2, fwp1eff
   COOP_INT i
   COOP_REAL_ARRAY::lnrat, warr, cs2arr
   COOP_REAL amin, amax, lnamin, lnamax, w1, w2, dlna, lnma, lnm, lnrho, lnp, dlnrho, dlnp
@@ -107,6 +106,7 @@
      call this%fwp1%init(coop_default_array_size, amin, amax, 1.d0+warr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
      call this%fcs2%init(coop_default_array_size, amin, amax, cs2arr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
      call this%flnrho%init(coop_default_array_size, amin, amax, lnrat, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
+     this%fwp1eff = this%fwp1
   case(COOP_SPECIES_MASSIVE_FERMION)
      this%w_dynamic = .true.
      this%cs2_dynamic = .true.
@@ -133,10 +133,25 @@
      call this%fwp1%init(coop_default_array_size, amin, amax, 1.d0+warr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
      call this%fcs2%init(coop_default_array_size, amin, amax, cs2arr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
      call this%flnrho%init(coop_default_array_size, amin, amax, lnrat, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
+     this%fwp1eff = this%fwp1
   case default
-     if(present(fwp1))then
+     if(present(fwp1) .or. present(fwp1eff))then
         this%w_dynamic = .true.
-        this%fwp1 = fwp1
+        if(present(fwp1))then
+           this%fwp1 = fwp1
+        else
+           if(present(w))then              
+              warr =  w
+              call this%fwp1%init(coop_default_array_size, coop_min_scale_factor, coop_scale_factor_today, 1.d0+warr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
+           else
+              stop "For dynamic w you have to pass either w or fwp1 to species_init"
+           endif
+        endif
+        if(present(fwp1eff))then
+           this%fwp1eff = fwp1eff
+        else
+           this%fwp1eff = fwp1
+        endif
      else
         this%w_dynamic = .false.
      endif
@@ -152,11 +167,11 @@
         lnamin = log(amin)
         lnamax = log(amax)
         dlna = (lnamax - lnamin)/(coop_default_array_size  - 1)
-        w1 = this%wofa(amax)
+        w1 = this%wp1effofa(amax)
         lnrat(coop_default_array_size) = 0.d0
         do i= coop_default_array_size - 1, 1, -1
-           w2 = this%wofa(exp((lnamin + dlna*(i-1))))
-           lnrat(i) = lnrat(i+1) - (6.+w2 + w1 + 4.*this%wofa(exp((lnamin + dlna*(i-0.5)))))
+           w2 = this%wp1effofa(exp((lnamin + dlna*(i-1))))
+           lnrat(i) = lnrat(i+1) - (w2 + w1 + 4.*this%wp1effofa(exp((lnamin + dlna*(i-0.5)))))
            w1 = w2
         enddo
         lnrat = lnrat*(-dlna/2.)
@@ -164,7 +179,7 @@
      endif
   end select
   if(this%w_dynamic)then
-     this%wp1 = this%wp1ofa(COOP_REAL_OF(1.d0))
-     call this%flnrho%set_boundary(slopeleft = -3.*this%wp1ofa(amin), sloperight = -3.*this%wp1)
+     this%wp1 = this%wp1ofa(coop_scale_factor_today)
+     call this%flnrho%set_boundary(slopeleft = -3.*this%wp1effofa(amin), sloperight = -3.*this%wp1effofa(amax))
   endif
   if(this%cs2_dynamic) this%cs2 = this%cs2ofa(coop_scale_factor_today)
