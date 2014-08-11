@@ -152,11 +152,11 @@ contains
     class(coop_species)::this
     COOP_REAL a, an
     COOP_REAL rhoa4
-    an = COOP_PROPER_SCALE_FACTOR(a)
     if(this%w_dynamic)then
+       an = COOP_PROPER_SCALE_FACTOR(a)
        rhoa4 = exp(this%flnrho%eval(an)+4.d0*log(an))
     else
-       rhoa4 = an**(4.d0-3.d0*this%wp1)
+       rhoa4 = a**(4.d0-3.d0*this%wp1)
     endif
   end function coop_species_rhoa4_ratio
 

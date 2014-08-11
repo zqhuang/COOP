@@ -6,7 +6,7 @@
   COOP_REAL, parameter:: coop_logTiny = - coop_logInfinity
 
   !!minimal a
-  COOP_REAL, parameter:: coop_min_scale_factor = 1.d-9
+  COOP_REAL, parameter:: coop_min_scale_factor = 1.d-11
 
   !!this should not be changed
   COOP_REAL, parameter:: coop_scale_factor_today = 1.d0
