@@ -223,18 +223,31 @@ contains
 #undef AT_BY_AEQ
   end function coop_de_wp1_coupled_quintessence
 
-  subroutine coop_de_iterate_coupling_equations(Q, omega_radiation, de, baryon, cdm, mnu)
-    COOP_REAL,intent(IN)::Q, omega_radiation
+  subroutine coop_de_iterate_coupling_equations(Q, dlnQdphi, omega_radiation, de, baryon, cdm, mnu)
+    COOP_REAL,intent(IN)::Q, omega_radiation, dlnQdphi
     type(coop_species)::de, baryon, cdm
     type(coop_species),optional::mnu
     type(coop_species) mod_de, mod_baryon, mod_cdm, mod_mnu
     type(coop_function)::fw
     integer,parameter::n=4096
-    COOP_REAL::a(n), wp1de(n), wp1m(n), wp1nu(n), wp1de_origin(n), wnu_origin(n), pnu, lna(n), coupl, rhode, rhob, rhoc, rhonu,  H2
-    integer i, it
+    COOP_REAL::a(n), wp1de(n), wp1m(n), wp1nu(n), wp1de_origin(n), wnu_origin(n), pnu, lna(n), coupl, Qphi(n), dphi(n), rhode, rhob, rhoc, rhonu,  H2, dlna
+    integer i, it, ieq
+    mod_de = de
+    mod_baryon = baryon
+    mod_cdm = cdm
+    if(present(mnu))mod_mnu = mnu
     !!first iteration, modify rho_de
     call coop_set_uniform(n, lna, log(coop_min_scale_factor), log(coop_scale_factor_today))
     a = exp(lna)
+    dlna = lna(2) - lna(1)
+    ieq = n
+    do i = n-1, 1, -1
+       if(de%density_ratio(a(i))*de%Omega .lt.  (cdm%Omega + baryon%Omega)/a(i)**3)then
+          ieq = i
+          exit
+       endif
+    enddo
+
     !$omp parallel do 
     do i=1, n
        wp1de_origin(i) = abs(de%wp1ofa(a(i)))
@@ -242,7 +255,7 @@ contains
           wnu_origin(i) = mnu%wofa(a(i))
        endif
     enddo
-    !$omp end parallel do
+    Qphi = Q
     do it = 1, coop_coupled_de_num_iterate
        if(present(mnu))then
           !$omp parallel do private(coupl, rhode, rhob, rhoc, rhonu, pnu, H2)
@@ -253,7 +266,8 @@ contains
              rhonu = 3.d0*mnu%Omega * mnu%density_ratio(a(i))
              pnu = rhonu * wnu_origin(i)
              H2 = (rhode +  rhob + rhoc + rhonu + 3.d0*omega_radiation/a(i)**4)/3.d0
-             coupl = min(Q*sqrt(wp1de_origin(i)*rhode/H2)/3.d0, 0.99d0) !!avoid NAN error for huge Q models
+             dphi(i) = sqrt(wp1de_origin(i)*rhode/H2)
+             coupl = min(Qphi(i)*dphi(i)/3.d0, 0.99d0) !!avoid NAN error for huge Q models
              wp1de(i) = wp1de_origin(i) + coupl*(rhob+rhoc+rhonu-3.d0*pnu)/rhode
              wp1m(i) = 1.d0 - coupl
              wp1nu(i) = 1.d0 + wnu_origin(i) - coupl*(1.d0-3.d0*pnu/rhonu)
@@ -266,12 +280,21 @@ contains
              rhob = 3.d0*baryon%Omega*baryon%density_ratio(a(i))
              rhoc = 3.d0* cdm%Omega * cdm%density_ratio(a(i)) 
              H2 = (rhode +  rhob + rhoc  + 3.d0*omega_radiation/a(i)**4)/3.d0
-             coupl = min(Q*sqrt(wp1de_origin(i)*rhode/H2)/3.d0, 0.99d0) !!avoid NAN error for huge Q models
+             dphi(i) = sqrt(wp1de_origin(i)*rhode/H2)
+             coupl = min(Qphi(i)*dphi(i)/3.d0, 0.99d0) !!avoid NAN error for huge Q models
              wp1de(i) = wp1de_origin(i) + coupl*(rhob+rhoc)/rhode
              wp1m(i) = 1.d0 - coupl
           enddo
           !$omp end parallel do
        endif
+       Qphi(ieq) = 0
+       do i=ieq+1, n
+          Qphi(i) = Qphi(i-1) + dlnQdphi*(dphi(i)+dphi(i-1))/2.d0
+       enddo
+       do i=ieq-1, 1, -1
+          Qphi(i) = Qphi(i+1) - dlnQdphi*(dphi(i)+dphi(i+1))/2.d0
+       enddo
+       Qphi = Q * exp(Qphi*dlna)
        call fw%init(n, coop_min_scale_factor, coop_scale_factor_today, wp1de, xlog = .true., ylog = .false., check_boundary = .false.)
        call mod_de%init(genre = COOP_SPECIES_FLUID, name= "coupled quintessence Dark Energy", id=5, Omega = de%omega, cs2 = de%cs2, fwp1 = de%fwp1, fwp1eff = fw )
        call fw%init(n, coop_min_scale_factor, coop_scale_factor_today, wp1m, xlog = .true., ylog = .false., check_boundary = .false.)    
@@ -279,7 +302,7 @@ contains
        call mod_cdm%init(genre = COOP_SPECIES_FLUID, name = "coupled cdm", id=5, Omega = cdm%omega, cs2 = cdm%cs2, w = cdm%wp1 - COOP_REAL_OF(1.d0), fwp1 = fw )
        if(present(mnu))then
           call fw%init(n, coop_min_scale_factor,coop_scale_factor_today, wp1nu, xlog = .true., ylog = .false., check_boundary = .false.)       
-          call mod_mnu%init(genre = COOP_SPECIES_FLUID, name = "coupled massive neutrinos", id=5, Omega = mnu%omega, fwp1 = mnu%fwp1 , fcs2 = mnu%fcs2, fwp1eff = fw )
+          call mod_mnu%init(genre = COOP_SPECIES_FLUID, name = "coupled massive neutrinos", id=5, Omega = mnu%omega, Omega_massless = mnu%Omega_massless, fwp1 = mnu%fwp1 , fcs2 = mnu%fcs2, fwp1eff = fw )
           mnu = mod_mnu
           call mod_mnu%free()
        endif

@@ -129,9 +129,9 @@ contains
        if( COOP_COSMO_PARAMS%r(COOP_INDEX_DE+4) .gt. 0.d0)then
           !!iterate Q coupling equations
           if(COOP_MNU .gt. 0.d0)then
-             call coop_de_iterate_coupling_equations( COOP_COSMO_PARAMS%r(COOP_INDEX_DE+4), coop_global_radiation%Omega + coop_global_massless_neutrinos%Omega, coop_global_de, coop_global_baryon, coop_global_cdm, coop_global_massive_neutrinos)
+             call coop_de_iterate_coupling_equations( COOP_COSMO_PARAMS%r(COOP_INDEX_DE+4), COOP_COSMO_PARAMS%r(COOP_INDEX_DE+5), coop_global_radiation%Omega + coop_global_massless_neutrinos%Omega, coop_global_de, coop_global_baryon, coop_global_cdm, coop_global_massive_neutrinos)
           else
-             call coop_de_iterate_coupling_equations( COOP_COSMO_PARAMS%r(COOP_INDEX_DE+4) , coop_global_radiation%Omega + coop_global_massless_neutrinos%Omega, coop_global_de, coop_global_baryon, coop_global_cdm)
+             call coop_de_iterate_coupling_equations( COOP_COSMO_PARAMS%r(COOP_INDEX_DE+4) , COOP_COSMO_PARAMS%r(COOP_INDEX_DE+5), coop_global_radiation%Omega + coop_global_massless_neutrinos%Omega, coop_global_de, coop_global_baryon, coop_global_cdm)
           endif
        endif
     case default

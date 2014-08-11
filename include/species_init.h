@@ -28,8 +28,6 @@
 
   if(present(Omega_massless))then
      this%Omega_massless = max(min(Omega_massless, this%Omega), COOP_REAL_OF(0.))
-  else
-     this%Omega_massless = this%Omega
   endif
 
   if(present(genre))then
