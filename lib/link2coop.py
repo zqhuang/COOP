@@ -243,14 +243,14 @@ copy_replace_first('test.ini', 'qcdm_c1param.ini', [common_pattern, r'^file_root
 
 copy_replace_first(common_file, batch_dir + r'/common_qcdm_c1param.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_qcdm_c1param.ini)'] )
 
-copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_qcdm_c1param.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 -1.5 1.5 0.05 0.05 \nparam[epsinf] = 0 0 0 0 0  \nparam[zetas] = 0 0 0 0 0 \nparam[atbyaeq] = 0 0 0 0 0 \nparam[Qeq] = 0.02 0. 1. 0.02 0.02 \nparam[dlnQdphi] = 0 0 0 0 0' ] ) 
+copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_qcdm_c1param.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 -1.5 1.5 0.03 0.03 \nparam[epsinf] = 0 0 0 0 0  \nparam[zetas] = 0 0 0 0 0 \nparam[atbyaeq] = 0 0 0 0 0 \nparam[Qeq] = 0.02 0. 1. 0.02 0.02 \nparam[dlnQdphi] = 0 0 0 0 0' ] ) 
 
 
 ##coupled qcdm 3 parameter: epss, epsinf, zetas + atbyaeq and Q (actually 5param)
 copy_replace_first('test.ini', 'qcdm_full.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [r'DEFAULT('  + batch_dir + r'/common_qcdm_full.ini) \nde_model = 4\nde_num_params=6\npp_model = 0 \npp_num_params = '  + str(index_H0 - index_logA) + r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = qcdm_full', r'action = 0', str_propose] )
 
 copy_replace_first(common_file, batch_dir + r'/common_qcdm_full.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_qcdm_full.ini)'] )
-copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_qcdm_full.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 -1.5 1.5 0.03 0.03 \nparam[epsinf] = 0.01 0 1. 0.02 0.02 \nparam[zetas] = 0 -1 1 0.1 0.1 \nparam[atbyaeq] = 0.6 0.1 1. 0.05 0.05 \nparam[Qeq] = 0.02 0. 1. 0.02 0.02 \nparam[dlnQdphi] = 0 -1. 1. 0.2 0.2' ] ) 
+copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_qcdm_full.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 -1.5 1.5 0.03 0.03 \nparam[epsinf] = 0.01 0 1. 0.01 0.01 \nparam[zetas] = 0 -1 1 0.1 0.1 \nparam[atbyaeq] = 0.6 0.1 1. 0.05 0.05 \nparam[Qeq] = 0.01 0. 1. 0.01 0.01 \nparam[dlnQdphi] = 0 -1. 1. 0.2 0.2' ] ) 
  
 ppnum = index_H0 - index_logA
 for i in range(7, 16):
