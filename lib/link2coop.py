@@ -204,7 +204,7 @@ replace_all("camb/equations_ppf.f90", \
               r'   = grhob * coop_global_baryon%density_ratio(a)*a**2 \n ', \
               r'(grhoc*coop_global_cdm%rhoa4_ratio(a)+grhob*coop_global_baryon%rhoa4_ratio(a)) + ', \
               r'(grhoc*coop_global_cdm%density_ratio(a)+grhob*coop_global_baryon%density_ratio(a))*a**2 \n', \
-              r'(clxc*grhoc*coop_global_cdm%density_ratio(a) + clxb * coop_global_baryon%density_ratio(a))*a**2 \n', \
+              r'(clxc*grhoc*coop_global_cdm%density_ratio(a) + clxb*grhob*coop_global_baryon%density_ratio(a))*a**2 \n', \
               r'(grhob + grhoc)*(coop_global_cdm%density_ratio(coop_min_scale_factor)*coop_min_scale_factor**3)/sqrt', \
               r'rhonu = coop_global_massive_neutrinos%Omega/coop_global_massive_neutrinos%Omega_massless * coop_global_massive_neutrinos%rhoa4_ratio(a)', \
               r'rhonudot = -3.d0*coop_global_massive_neutrinos%wp1effofa(a) * rhonu * adotoa', \
