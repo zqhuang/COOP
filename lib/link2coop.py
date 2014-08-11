@@ -182,7 +182,33 @@ replace_all("source/Makefile", [r"^\s*(FFLAGS\s*=.*)$", r"^\s*(F90CRLINK\s*=.*)$
 
 replace_all("camb/modules.f90", [r'^(\s*subroutine\s+inithermo\s*\(\s*taumin\s*\,\s*taumax\s*\)\s*(\!.*)?)$', r'call\s+Recombination\_Init\s*\(\s*CP\%Recomb\s*\,\s*CP\%omegac\s*\,\s*CP\%omegab'], [r'\1\n use coop_wrapper', 'call Recombination_Init(CP%Recomb, CP%Omegac*coop_global_cdm%density_ratio(1.d0/1090.d0)/1090.d0**3, CP%Omegab*coop_global_cdm%density_ratio(1.d0/1090.d0)/1090.d0**3'])
 
-replace_all("camb/equations_ppf.f90", [line_pattern(r"module lambdageneral"), r'is_cosmological_constant\s*=.+', function_pattern('w_de','a'), function_pattern('grho_de', 'a'), line_pattern(r"module GaugeInterface"), r'\=\s*grhoc\s*\/\s*a\s*\n', r'\=\s*grhob\s*\/\s*a\s*\n' , r'\(\s*grhoc\s*\+\s*grhob\s*\)\s*\*\s*a\s*\+', r'\(\s*grhoc\s*\+\s*grhob\s*\)\s*\/\s*a\s*\n', r'\(\s*clxc\s*\*\s*grhoc\s*\+\s*clxb\s*\*\s*grhob\s*\)\s*\/\s*a\s*\n', r'\(\s*grhob\s*\+\s*grhoc\)\/sqrt', r'^\s*call\s+Nu_rho\s*\(\s*a\s*\*\s*nu\_masses\s*\(\s*nu\_i\s*\)\s*\,\s*rhonu\)\s*(\!.*)?$' , r'^\s*rhonudot\s*\=\s*Nu_drho\s*\(\s*a\s*\*\s*nu\_masses\s*\(\s*nu\_i\s*\)\s*\,\s*adotoa\s*\,\s*rhonu\)\s*(\!.*)?$', r'^\s*call\s+Nu\_background\s*\(\s*a\s*\*\s*nu\_masses\s*\(\s*nu\_i\s*\)\s*\,\s*rhonu\s*\,\s*pnu\s*\)\s*(\!.*)?$'], [r'#include "constants.h"\nmodule LambdaGeneral \nuse coop_wrapper', r'is_cosmological_constant = .false.', r'function w_de(a)\n real(dl) w_de, a\n w_de = coop_global_de%wofa(COOP_REAL_OF(a)) \n end function w_de', 'function grho_de(a)\n real(dl) grho_de, a\n grho_de = grhov*coop_global_de%rhoa4_ratio(COOP_REAL_OF(a)) \n end function grho_de', r'module GaugeInterface \n use coop_wrapper', r'   = grhoc * coop_global_cdm%density_ratio(a)*a**2 \n ', r'   = grhob * coop_global_baryon%density_ratio(a)*a**2 \n ', r'(grhoc*coop_global_cdm%rhoa4_ratio(a)+grhob*coop_global_baryon%rhoa4_ratio(a)) + ', r'(grhoc*coop_global_cdm%density_ratio(a)+grhob*coop_global_baryon%density_ratio(a))*a**2 \n', r'(clxc*grhoc*coop_global_cdm%density_ratio(a) + clxb * coop_global_baryon%density_ratio(a))*a**2 \n', r'(grhob + grhoc)*(coop_global_cdm%density_ratio(coop_min_scale_factor)*coop_min_scale_factor**3)/sqrt', r'rhonu = coop_global_massive_neutrinos%Omega/coop_global_massive_neutrinos%Omega_massless * coop_global_massive_neutrinos%rhoa4_ratio(a)', r'rhonudot = -3.d0*coop_global_massive_neutrinos%wp1effofa(a) * rhonu * adotoa', r'    rhonu = coop_global_massive_neutrinos%Omega/coop_global_massive_neutrinos%Omega_massless * coop_global_massive_neutrinos%rhoa4_ratio(a) \n    pnu = rhonu*coop_global_massive_neutrinos%wofa(a)'] )
+replace_all("camb/equations_ppf.f90", \
+            [ line_pattern(r"module lambdageneral"),  \
+              r'is_cosmological_constant\s*=.+', function_pattern('w_de','a'), \
+              function_pattern('grho_de', 'a'), line_pattern(r"module GaugeInterface"), \
+              r'\=\s*grhoc\s*\/\s*a\s*\n', \
+              r'\=\s*grhob\s*\/\s*a\s*\n' , \
+              r'\(\s*grhoc\s*\+\s*grhob\s*\)\s*\*\s*a\s*\+', \
+              r'\(\s*grhoc\s*\+\s*grhob\s*\)\s*\/\s*a\s*\n', \
+              r'\(\s*clxc\s*\*\s*grhoc\s*\+\s*clxb\s*\*\s*grhob\s*\)\s*\/\s*a\s*\n', \
+              r'\(\s*grhob\s*\+\s*grhoc\)\/sqrt', \
+              r'^\s*call\s+Nu_rho\s*\(\s*a\s*\*\s*nu\_masses\s*\(\s*nu\_i\s*\)\s*\,\s*rhonu\)\s*(\!.*)?$' , \
+              r'^\s*rhonudot\s*\=\s*Nu_drho\s*\(\s*a\s*\*\s*nu\_masses\s*\(\s*nu\_i\s*\)\s*\,\s*adotoa\s*\,\s*rhonu\)\s*(\!.*)?$', \
+              r'^\s*call\s+Nu\_background\s*\(\s*a\s*\*\s*nu\_masses\s*\(\s*nu\_i\s*\)\s*\,\s*rhonu\s*\,\s*pnu\s*\)\s*(\!.*)?$'], \
+            [ r'#include "constants.h"\nmodule LambdaGeneral \nuse coop_wrapper', \
+              r'is_cosmological_constant = .false.', \
+              r'function w_de(a)\n real(dl) w_de, a\n w_de = coop_global_de%wofa(COOP_REAL_OF(a)) \n end function w_de', \
+              r'function grho_de(a)\n real(dl) grho_de, a\n grho_de = grhov*coop_global_de%rhoa4_ratio(COOP_REAL_OF(a)) \n end function grho_de', \
+              r'module GaugeInterface \n use coop_wrapper', \
+              r'   = grhoc * coop_global_cdm%density_ratio(a)*a**2 \n ', \
+              r'   = grhob * coop_global_baryon%density_ratio(a)*a**2 \n ', \
+              r'(grhoc*coop_global_cdm%rhoa4_ratio(a)+grhob*coop_global_baryon%rhoa4_ratio(a)) + ', \
+              r'(grhoc*coop_global_cdm%density_ratio(a)+grhob*coop_global_baryon%density_ratio(a))*a**2 \n', \
+              r'(clxc*grhoc*coop_global_cdm%density_ratio(a) + clxb * coop_global_baryon%density_ratio(a))*a**2 \n', \
+              r'(grhob + grhoc)*(coop_global_cdm%density_ratio(coop_min_scale_factor)*coop_min_scale_factor**3)/sqrt', \
+              r'rhonu = coop_global_massive_neutrinos%Omega/coop_global_massive_neutrinos%Omega_massless * coop_global_massive_neutrinos%rhoa4_ratio(a)', \
+              r'rhonudot = -3.d0*coop_global_massive_neutrinos%wp1effofa(a) * rhonu * adotoa', \
+              r'    rhonu = coop_global_massive_neutrinos%Omega/coop_global_massive_neutrinos%Omega_massless * coop_global_massive_neutrinos%rhoa4_ratio(a) \n    pnu = rhonu*coop_global_massive_neutrinos%wofa(a)'] )
 
 replace_first("camb/power_tilt.f90", [line_pattern(r'module initialpower'), function_pattern('ScalarPower', r'k,ix'), function_pattern('TensorPower', r'k,ix')], [r'module InitialPower\n use coop_wrapper', r'function scalarPower(k, ix)\n real(dl) scalarpower, k\n integer ix\n scalarpower = coop_primordial_ps(k)\n end function scalarpower', r'function tensorPower(k, ix)\n real(dl) tensorPower, k\n integer ix \n tensorPower = coop_primordial_pt(k) \n end function tensorPower'])
 
