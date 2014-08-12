@@ -14,8 +14,8 @@ program potential
   COOP_REAL plot_phi(npt), plot_Vp(npt)
   COOP_REAL R_val(length), der_f_val(length),  myR(length),  myV(length), myphi(length), myVp(length)
 
-  COOP_REAL, parameter:: mu=0.1d0
-  COOP_REAL, parameter:: R_upper = 40.d0*mu
+  COOP_REAL, parameter:: mu=1.d0
+  COOP_REAL, parameter:: R_upper = 1000.d0*mu
   COOP_REAL c1,c2, f_R0, R_lower 
   COOP_REAL npower
   type(coop_function)::f, minusVofminusphi
@@ -27,7 +27,7 @@ program potential
   c2 = -18.*npower/(41.**(npower+1.)*f_R0)
   c1 = 18.*c2
   args = coop_arguments( r = (/ c1, c2, npower /) ) 
-  R_lower = 10.*mu
+  R_lower = 35.*mu
   f = coop_function(f = broken, xmin = R_lower, xmax = R_upper*1.01, xlog=.true., ylog=.false., args=args)
 
   
@@ -36,7 +36,7 @@ program potential
   do i = 1, length
      myR(i) = exp(log(R_lower_used) + dble(i-1)*log(R_upper*0.99/R_lower_used)/dble(length-1))
      myV(i) = V(myR(i))
-     myphi(i) = sqrt(1.5d0)*(f%derivative(myR(i)) - f%derivative(myR(i))**2/2)
+     myphi(i) = sqrt(1.5d0)*(f%derivative(myR(i)) - f%derivative(myR(i))**2/2.d0 + f%derivative(myR(i))**3/3.d0)
 !     print*, myR(i)/mu, myphi(i), myV(i)/mu
   end do
   
@@ -52,7 +52,7 @@ program potential
   call plotV%open("plotVprime.txt")
   call plotV%init(xlabel = "$\phi$", ylabel = "$V'(\phi)$",caption = "$f(R) = R -\mu \frac{c_1 (R/\mu)^n}{c_2 (R/\mu)^n+1}$" , height=6., ylog=.true., xlog=.true.)
   
-  call coop_asy_curve(plotV, x=plot_phi, y=plot_Vp,  color = "brown", linewidth = 1.2, linetype="solid", legend="$dV/d\phi$")
+  call coop_asy_curve(plotV, x=plot_phi, y=abs(plot_Vp),  color = "brown", linewidth = 1.2, linetype="solid", legend="$dV/d\phi$")
   plot_Vp = 3.d0*mu/coop_sqrt6
   call coop_asy_curve(plotV, x =plot_phi, y= plot_Vp,  color = "blue", linewidth = 1.2, linetype="dotted", legend = "$Q\rho_m$")
   call coop_asy_legend(plotV, plotV%xmin**0.8*plotV%xmax**0.2, plotV%ymin**0.8*plotV%ymax**0.2, 1)
@@ -65,7 +65,7 @@ contains
     implicit none
     COOP_REAL R, V
 
-    V = (f%derivative(R)*R-f%eval(R) + C_1/C_2*mu*(f%derivative(R))**2)/(2.d0*(1.d0+f%derivative(R))**2)  !! C_1/C_2*mu/2 removed
+    V = (f%derivative(R)*R-f%eval(R) - C_1/C_2*mu*f%derivative(R)*(f%derivative(R)+2.d0))/(2.d0*(1.d0+f%derivative(R))**2)  !! C_1/C_2*mu/2 removed
     
   end function V
 
