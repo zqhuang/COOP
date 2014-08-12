@@ -277,6 +277,12 @@ copy_replace_first('test.ini', 'qcdm_full.ini', [common_pattern, r'^file_root\s*
 
 copy_replace_first(common_file, batch_dir + r'/common_qcdm_full.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_qcdm_full.ini)'] )
 copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_qcdm_full.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 -1.5 1.5 0.03 0.03 \nparam[epsinf] = 0.01 0 1. 0.01 0.01 \nparam[zetas] = 0 -1 1 0.1 0.1 \nparam[atbyaeq] = 0.6 0.1 1. 0.05 0.05 \nparam[Qeq] = 0.01 0. 1. 0.01 0.01 \nparam[dlnQdphi] = 0 -1. 1. 0.2 0.2' ] ) 
+
+
+######################   
+
+
+
  
 ppnum = index_H0 - index_logA
 for i in range(7, 16):
@@ -301,3 +307,29 @@ copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/param
 
 
 
+copy_replace_first('test.ini', 'scalcdm_1param.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_scalcdm_1param.ini) \nde_model = 3\nde_num_params=6\npp_model=0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = scalcdm_1param', r'action = 0', str_propose] )
+
+copy_replace_first(common_file, batch_dir + r'/common_scalcdm_1param.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_scalcdm_1param.ini)'] )
+
+copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_scalcdm_1param.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0.1 0. 1.5 0.1 0.1 \nparam[epsinf] = 0 0 0 0 0  \nparam[zetas] = 0 0 0 0 0 \nparam[atbyaeq] = 0 0 0 0 0 \nparam[Qeq] = 0 0 0 0 0 \nparam[dlnQdphi] = 0 0 0 0 0' ] ) 
+
+
+##scalcdm 3 parameter: epss, epsinf, zetas
+copy_replace_first('test.ini', 'scalcdm_3param.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [r'DEFAULT('  + batch_dir + r'/common_scalcdm_3param.ini) \nde_model = 3\nde_num_params=6\npp_model = 0 \npp_num_params = '  + str(index_H0 - index_logA) + r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = scalcdm_3param', r'action = 0', str_propose] )
+
+copy_replace_first(common_file, batch_dir + r'/common_scalcdm_3param.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_scalcdm_3param.ini)'] )
+copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_scalcdm_3param.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0.1 0. 1.5 0.1 0.1 \nparam[epsinf] = 0.05 0 1. 0.05 0.05 \nparam[zetas] = 0 -1 1 0.1 0.1 \nparam[atbyaeq] = 0 0 0 0 0 \nparam[Qeq] = 0 0 0 0 0 \nparam[dlnQdphi] = 0 0 0 0 0' ] ) 
+
+## coupled scalcdm, eps and Q
+copy_replace_first('test.ini', 'scalcdm_c1param.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_scalcdm_c1param.ini) \nde_model = 4\nde_num_params=6\npp_model=0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = scalcdm_c1param', r'action = 0', str_propose] )
+
+copy_replace_first(common_file, batch_dir + r'/common_scalcdm_c1param.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_scalcdm_c1param.ini)'] )
+
+copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_scalcdm_c1param.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 0. 1.5 0.03 0.03 \nparam[epsinf] = 0 0 0 0 0  \nparam[zetas] = 0 0 0 0 0 \nparam[atbyaeq] = 0 0 0 0 0 \nparam[Qeq] = 0.02 0. 1. 0.02 0.02 \nparam[dlnQdphi] = 0 0 0 0 0' ] ) 
+
+
+##coupled scalcdm 3 parameter: epss, epsinf, zetas + atbyaeq and Q (actually 5param)
+copy_replace_first('test.ini', 'scalcdm_full.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [r'DEFAULT('  + batch_dir + r'/common_scalcdm_full.ini) \nde_model = 4\nde_num_params=6\npp_model = 0 \npp_num_params = '  + str(index_H0 - index_logA) + r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = scalcdm_full', r'action = 0', str_propose] )
+
+copy_replace_first(common_file, batch_dir + r'/common_scalcdm_full.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_scalcdm_full.ini)'] )
+copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_scalcdm_full.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0.03 0. 1.5 0.03 0.03 \nparam[epsinf] = 0.01 0 1. 0.01 0.01 \nparam[zetas] = 0 -1 1 0.1 0.1 \nparam[atbyaeq] = 0.6 0.1 1. 0.05 0.05 \nparam[Qeq] = 0.01 0. 1. 0.01 0.01 \nparam[dlnQdphi] = 0 -1. 1. 0.2 0.2' ] ) 
