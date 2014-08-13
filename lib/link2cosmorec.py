@@ -25,7 +25,8 @@ propose_new_pattern = r'^\s*MPI\_Max\_R\_ProposeUpdateNew\s*=.*$'
 str_propose = r'MPI_Max_R_ProposeUpdate = '+ str(coop_propose_updae) + r' \nMPI_Max_R_ProposeUpdateNew = '+ str(coop_propose_updae + 200)
 
 def backup_file(fname):
-    os.system('cp ' + fname + ' ' + fname+'__.bak')
+    if(not os.path.isfile(fname + '__.bak')):
+        os.system('cp ' + fname + ' ' + fname+'__.bak')
 
 def replace_first(fname, patterns, repls):
     print "modifying " + fname 
@@ -52,7 +53,7 @@ def replace_all(fname, patterns, repls):
             file_content = re.sub(patterns[i], repls[i], file_content, flags = re.M + re.I)
         else:
             file_content = re.sub(patterns[i], repls[i], file_content, flags = re.I)
-    os.system('cp ' + fname + ' ' + fname+'__.bak')
+    backup_file(fname)
     fp = open(fname, 'w')
     fp.write(file_content)
     fp.close()
@@ -139,11 +140,26 @@ def first_line(fname, patterns):
             if m:
                 return p
 
+
+def restore(path):
+    os.system(r'for i in `ls ' + path + r'/*__.bak`; do cp ${i} ${i/__.bak/}; done')
+
+def abort_quit():
+    restore("camb")
+    restore("source")
+    sys.exit()
+
 #######################################################
 #first restore to original version
 print "*****************************************"
 print "Restoring to original version:"
-os.system("./restore.sh")  
+restore("camb")
+restore("source")
+if(len(sys.argv) > 1):
+    if(sys.argv[1] == "restore"):
+        os.system('rm -f camb/*__.bak')
+        os.system('rm -f source/*__.bak')
+        sys.exit()
 print "****************************************"
 print "Analyzing the default setups of cosmomc:"
 nstr = search_value("source/CosmologyParameterizations.f90",  r'call\s+this\%SetTheoryParameterNumbers\(\s*(\d+)\s*\,\s*last\_power\_index\)') 

@@ -3,8 +3,12 @@ import re
 import os
 import sys
 ########by Zhiqi Huang (zqhuang@cita.utoronto.ca) ########
-######## This python script hacks cosmomc (any late version > 2013 Oct), adding two parameters A2s1s and tcmb. A2s1s is used in Recfast, and tcmb is used globally (including C_l normalization).
+######## This python script hacks cosmomc (any late version >= 2014 April), adding RSD module
 #############################################################################
+
+
+######## If you want to undo the modifications to cosmomc, run the bash script "restore.sh".
+#######################################################
 
 coop_propose_updae = 1200
 propose_pattern = r'^\s*MPI\_Max\_R\_ProposeUpdate\s*=.*$'
@@ -14,6 +18,14 @@ str_propose = r'MPI_Max_R_ProposeUpdate = '+ str(coop_propose_updae) + r' \nMPI_
 def backup_file(fname):
     if(not os.path.isfile(fname + '__.bak')):
         os.system('cp ' + fname + ' ' + fname+'__.bak')
+
+
+def overwrite_file(fname_from, fname_to):
+    if(os.path.isfile(fname_to + '__.bak')):
+        os.system('rm -f ' + fname_to)
+    else:
+        os.system('mv ' + fname_to + ' ' + fname_to + '__.bak')
+    os.system('cp ' + fname_from + ' ' + fname_to)
 
 def replace_first(fname, patterns, repls):
     print "modifying " + fname 
@@ -127,7 +139,6 @@ def first_line(fname, patterns):
             if m:
                 return p
 
-
 def restore(path):
     os.system(r'for i in `ls ' + path + r'/*__.bak`; do cp ${i} ${i/__.bak/}; done')
 
@@ -137,66 +148,43 @@ def abort_quit():
     sys.exit()
 
 #######################################################
-#first restore to original version
-#first restore to original version
-print "*****************************************"
-print "Restoring to original version:"
-restore("camb")
-restore("source")
-if(len(sys.argv) > 1):
+if(len(sys.argv)>1):
     if(sys.argv[1] == "restore"):
-        os.system('rm -f camb/*__.bak')
-        os.system('rm -f source/*__.bak')
+        replace_all("source/Makefile", [r'bao\_RSD\.o\s+'], [r'bao.o '])
+        os.system('rm -f source/bao_RSD.f90')
+        os.system('rm -f test_rsd.ini')
+        os.system('rm -f batch2/BAO_RSD.ini')
         sys.exit()
-print "****************************************"
-print "Analyzing the default setups of cosmomc:"
-nstr = search_value("source/CosmologyParameterizations.f90",  r'call\s+this\%SetTheoryParameterNumbers\(\s*(\d+)\s*\,\s*last\_power\_index\)') 
-if(nstr == ""):
-    print "cannot find the number of hard parameters"
-    sys.exit()
-numhard = int( nstr )
 
-powerpattern = first_line(r"params_CMB.paramnames", [r'^(logA\s+.*)$', r'^(ns\s+.*)$'])
+if( not os.path.isfile("source/bao_RSD.f90")):
+    print "adding RSD likelihood code"
+    if(os.path.isfile("bao_RSD.f90")):
+        os.system('cp bao_RSD.f90 source/')
+    else:
+        print "Cannot find bao_RSD.f90 in the current path"
+        print "Aborted."
+        sys.exit()
+else:
+    print "RSD likelihood code already exists"
 
-print "Modifying files:"
-
-
-replace_first("source/settings.f90", [r'^\s*module\s+settings\s*(\!.*)?$', line_pattern(r'integer,parameter::max_theory_params=\d+')], [r'module settings\n use constants, only:COBE_CMBTemp', r'integer, parameter:: max_theory_params = 35 \n character(LEN=256)::cosmomc_paramnames = "params_CMB.paramnames" \n integer::cosmomc_num_hard = ' + str(numhard+2) ] )
-
-
-replace_first("camb/constants.f90", [r'\,\s*parameter\s*(\:\:\s*COBE_CMBTemp)'], [r'\1'])
-
-
-replace_first("source/driver.F90", [ line_pattern(r'call ini%open(inputfile)')], [ r'call Ini%Open(InputFile)\n cosmomc_paramnames = Ini%Read_String("paramnames", .false.) \n cosmomc_num_hard = Ini%Read_Int("num_hard", ' + str(numhard+2) + r') '])
-
-replace_all(r"source/Calculator_CAMB.f90", [r'^(\s*subroutine\s+CAMBCalc_CMBToCAMB\s*\(.+\).*)$', r'^(\s*P\%YHe\s*\=\s*CMB\%YHe.*)$', r'^.*parameter\s*\:\:\s*cons\s*=\s*\(COBE_CMBTemp.*$', r'^(\s*lens\_recon\_scale\s*=\s*CMB\%InitPower.*)$'], [r'\1 \n use recdata, only:Lambda', r'\1 \n Lambda = CMB%A2s1s \n P%Tcmb = COBE_CMBTemp', r'real(dl) cons',r'\1 \ncons = (COBE_CMBTemp*1e6)**2'] )
-
-replace_all(r"source/CosmologyTypes.f90", [r'^(\s*Type\s*\,\s*extends.*\:\:\s*CMBParams)\s*(\!.*)?$'], [r'\1\n       real(mcp) A2s1s'])
-
-replace_all(r"source/CosmologyParameterizations.f90",  [r'(call\s+this\%SetTheoryParameterNumbers\(\s*\d+\s*\,\s*last\_power\_index\))', r'(\"|\')params\_CMB\.paramnames(\"|\')', r'^\s*CMB%fdm\s*=\s*Params\((\d+)\)\s*(\!.*)?$'], [r'call this%SetTheoryParameterNumbers(cosmomc_num_hard, last_power_index)', r'trim(cosmomc_paramnames)', r'CMB%fdm = Params(\1) \n CMB%A2s1s = Params(' + str(numhard+1) + r') \n COBE_CMBTemp = Params(' + str(numhard + 2) + ')'])
-
+replace_all("source/Makefile", [r'bao\.o\s+', r'bao_RSD.o '])
 
 batch_dir = search_value("test.ini", r'^DEFAULT\((\w+)\/[\w_]*common[\w_]*\.ini\)\s*$')
 
-common_file = search_value("test.ini", r'^DEFAULT\((\w+\/[\w_]*common[\w\_]*\.ini)\)\s*')
+if batch_dir == '':
+    print "Cannot find batch directory."
+    print "Aborted"
+    sys.exit()
 
-common_pattern = r'^(DEFAULT\(\w+\/[\w_]*common[\w\_]*\.ini\))\s*$'
 
+if(os.path.isfile("BAO_RSD.ini")):
+    os.system("cp BAO_RSD.ini "+ batch_dir + "/")
+else:
+    print "Cannot find BAO_RSD.ini"
+    print "Aborted"
+    sys.exit()
 
-copy_replace_all(r'params_CMB.paramnames', r'params_cosmorec.paramnames', [ powerpattern ], [r'A2s1s        A_{2s\\rightarrow 1s}   #CosmoRec A2s1s parameter \ntcmb        T_{\\rm CMB}   #CosmoRec T_CMB parameter \n\1'] )
-
-copy_replace_first("test.ini", 'a2s1s.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_a2s1s.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = ' + str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = recfast_a2s1s', r'action = 0', str_propose] )
-
-copy_replace_all(common_file, batch_dir + r'/common_a2s1s.ini', [r'params\_CMB\_defaults\.ini'],  [r'params_a2s1s.ini'])
-
-copy_replace_all(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_a2s1s.ini', [r'^param\[fdm\]\s*=.*$'], [r'param[fdm] = 0 0 0 0 0 \nparam[A2s1s] = 8.224 6.1 10.4 0.45 0.45 \nparam[tcmb] = 2.7255 2.7255 2.7255 0. 0. ' ] )
-
-copy_replace_first("test.ini", 'tcmb.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_tcmb.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = '+str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = recfast_tcmb', r'action = 0', str_propose] )
-
-copy_replace_all(common_file, batch_dir + r'/common_tcmb.ini', [r'params\_CMB\_defaults\.ini'],  [r'params_tcmb.ini'])
-
-copy_replace_all(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_tcmb.ini', [r'^param\[fdm\]\s*=.*$'], [r'param[fdm] = 0 0 0 0 0 \nparam[A2s1s] = 0 0 0 0 0 \nparam[tcmb] = 2.7255 2. 3.5 0.005 0.005' ] )
-
+copy_replace_first("test.ini", "test_rsd.ini", [r'^(\#?DEFAULT\(.*BAO.*\))\s*$'], [r'DEFAULT(' + batch_dir + '/BAO_RSD.ini)'])
 
 
 

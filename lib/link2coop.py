@@ -15,7 +15,8 @@ propose_new_pattern = r'^\s*MPI\_Max\_R\_ProposeUpdateNew\s*=.*$'
 str_propose = r'MPI_Max_R_ProposeUpdate = '+ str(coop_propose_updae) + r' \nMPI_Max_R_ProposeUpdateNew = '+ str(coop_propose_updae + 200)
 
 def backup_file(fname):
-    os.system('cp ' + fname + ' ' + fname+'__.bak')
+    if(not os.path.isfile(fname + '__.bak')):
+        os.system('cp ' + fname + ' ' + fname+'__.bak')
 
 def replace_first(fname, patterns, repls):
     print "modifying " + fname 
@@ -131,13 +132,26 @@ def first_line(fname, patterns):
             if m:
                 return p
 
-                
+
+def restore(path):
+    os.system(r'for i in `ls ' + path + r'/*__.bak`; do cp ${i} ${i/__.bak/}; done')
+
+def abort_quit():
+    restore("camb")
+    restore("source")
+    sys.exit()
 
 #######################################################
 #first restore to original version
 print "*****************************************"
 print "Restoring to original version:"
-os.system("./restore.sh")  
+restore("camb")
+restore("source")
+if(len(sys.argv) > 1):
+    if(sys.argv[1] == "restore"):
+        os.system('rm -f camb/*__.bak')
+        os.system('rm -f source/*__.bak')
+        sys.exit()
 print "****************************************"
 print "Analyzing the default setups of cosmomc:"
 nstr = search_value("source/CosmologyParameterizations.f90",  r'call\s+this\%SetTheoryParameterNumbers\(\s*(\d+)\s*\,\s*last\_power\_index\)') 
@@ -165,6 +179,15 @@ if index_H0 == 0:
 index_logA = which_line("params_CMB.paramnames", r'^logA\s+.+')
 if numhard + 1 != index_logA:
     print "Cannot determine the total number of hard parameters"
+    sys.exit()
+
+
+batch_dir = search_value("test.ini", r'^DEFAULT\((\w+)\/[\w_]*common[\w_]*\.ini\)\s*$')
+common_file = search_value("test.ini", r'^DEFAULT\((\w+\/[\w_]*common[\w\_]*\.ini)\)\s*')
+common_pattern = r'^(DEFAULT\(\w+\/[\w_]*common[\w\_]*\.ini\))\s*$'
+
+if batch_dir == '' or common_file == '':
+    print "Cannot find batch directory."
     sys.exit()
 
 
@@ -223,13 +246,6 @@ replace_first("source/driver.F90", [line_pattern(r'program cosmomc'), line_patte
 print "************************************"
 print "Generating params files"
 
-batch_dir = search_value("test.ini", r'^DEFAULT\((\w+)\/[\w_]*common[\w_]*\.ini\)\s*$')
-common_file = search_value("test.ini", r'^DEFAULT\((\w+\/[\w_]*common[\w\_]*\.ini)\)\s*')
-common_pattern = r'^(DEFAULT\(\w+\/[\w_]*common[\w\_]*\.ini\))\s*$'
-
-if batch_dir == '' or common_file == '':
-    print "Cannot find batch directory."
-    sys.exit()
 
 os.system('mkdir paramnames')
 os.system('cp params_CMB.paramnames paramnames/')

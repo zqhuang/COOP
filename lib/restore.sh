@@ -9,5 +9,7 @@ do
     cp ${i} ${i/__.bak/}
     echo "${i/__.bak/} restored"
 done
+rm -f camb/*__.bak
+rm -f source/*__.bak
 
 
