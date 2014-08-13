@@ -143,6 +143,7 @@ def abort_quit():
 if(len(sys.argv)>1):
     if(sys.argv[1] == "restore"):
         replace_all("source/Makefile", [r'\$\(OUTPUT\_DIR\)\/HST\.o\s+\$\(OUTPUT\_DIR\)\/wl\.o'], [r'$(OUTPUT_DIR)/HST.o '])
+        replace_all("source/Calculator_CAMB.f90", [r'\ \!\!Zhiqi\ added\[\[[^\]\[]*\!\!\]\]'], [r''])
         os.system('rm -f source/wl.f90')
         os.system('rm -f test_wl.ini')
         os.system('rm -f batch2/WL.ini')
@@ -179,6 +180,6 @@ else:
 
 copy_replace_first("test.ini", "test_wl.ini", [r'^(\#?DEFAULT\(.*\))\s*$'], [r'\1\nDEFAULT(' + batch_dir + '/WL.ini)'])
 
-
+replace_first("source/Calculator_CAMB.f90", [r'^(\s*procedure\s*\:\:\s*AngularDiameterDistance\s*\=\>.*)$', r'^(\s*end\s+function\s+CAMBCalc\_AngularDiameterDistance\s*(\!.*)?)$'],[r'\1 !!Zhiqi added[[\n procedure::ComovingRadialDistance => CAMBCalc_ComovingRadialDistance  !!]]', r'\1 !!Zhiqi added[[\n   real(mcp) function CAMBCalc_ComovingRadialDistance(this, z) \n     use CAMB, only: ComovingRadialDistance\n     class(CAMB_Calculator) :: this \n     real(mcp),intent(IN):: z \n      CAMBCalc_ComovingRadialDistance = ComovingRadialDistance(z) \n   end function CAMBCalc_ComovingRadialDistance\n\n!!]]'])
 
 
