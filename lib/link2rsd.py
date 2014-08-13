@@ -167,7 +167,7 @@ if( not os.path.isfile("source/bao_RSD.f90")):
 else:
     print "RSD likelihood code already exists"
 
-replace_all("source/Makefile", [r'bao\.o\s+', r'bao_RSD.o '])
+replace_all("source/Makefile", [r'bao\.o\s+'], [r'bao_RSD.o '])
 
 batch_dir = search_value("test.ini", r'^DEFAULT\((\w+)\/[\w_]*common[\w_]*\.ini\)\s*$')
 
