@@ -188,7 +188,7 @@ else:
 copy_replace_first("test.ini", "test_rsd.ini", [r'^(\#?DEFAULT\(.*BAO.*\))\s*$'], [r'DEFAULT(' + batch_dir + '/BAO_RSD.ini)'])
 
 if(os.path.isfile("BAO_all.ini")):
-    os.system("cp BAO_all.ini" + batch_dir + "/")
+    os.system("cp BAO_all.ini " + batch_dir + "/")
     copy_replace_first("test.ini", "test_baoall.ini", [r'^(\#?DEFAULT\(.*BAO.*\))\s*$'], [r'DEFAULT(' + batch_dir + '/BAO_all.ini)'])
 
 
