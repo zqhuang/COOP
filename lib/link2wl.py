@@ -145,6 +145,7 @@ if(len(sys.argv)>1):
         replace_all("source/Makefile", [r'\$\(OUTPUT\_DIR\)\/HST\.o\s+\$\(OUTPUT\_DIR\)\/wl\.o'], [r'$(OUTPUT_DIR)/HST.o '])
         replace_all("source/Calculator_CAMB.f90", [r'\ \!\!Zhiqi\ added\[\[[^\]\[]*\!\!\]\]'], [r''])
         replace_all("source/Calculator_Cosmology.f90", [r'\ \!\!Zhiqi\ added\[\[[^\]\[]*\!\!\]\]'], [r''])
+        replace_all("source/DataLikelihoods.f90", [r'\ \!\!Zhiqi\ added\[\[[^\]\[]*\!\!\]\]'], [r''])
         os.system('rm -f source/wl.f90')
         os.system('rm -f test_wl.ini')
         os.system('rm -f batch2/WL.ini')
@@ -186,4 +187,5 @@ replace_first("source/Calculator_CAMB.f90", [r'^(\s*procedure\s*\:\:\s*AngularDi
 
 replace_first("source/Calculator_Cosmology.f90", [r'^(\s*procedure\s*\:\:\s*AngularDiameterDistance\s*(\=\>.*)?)$', r'^(\s*end\s+function\s+AngularDiameterDistance\s*(\!.*)?)$'],[r'\1 !!Zhiqi added[[\n procedure::ComovingRadialDistance  !!]]', r'\1 !!Zhiqi added[[\n\n  real(mcp) function ComovingRadialDistance(this, z) \n    class(TCosmologyCalculator) :: this \n     real(mcp),intent(IN):: z \n     call this%ErrorNotImplemented("ComovingRadialDistance")\n        ComovingRadialDistance = 0 \n   end function ComovingRadialDistance\n!!]]'])
 
+replace_first("source/DataLikelihoods.f90", [r'^(\s*call\s+BAOLikelihood\_Add\s*\(\s*DataLikelihoods\s*\,\s*Ini\s*\)\s*(!.*)?)$'], [r'\1 !!Zhiqi added[[\n   Call WLLikelihood_Add(DataLikelihoods, Ini) !!]]'])
 
