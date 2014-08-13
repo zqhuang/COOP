@@ -187,5 +187,5 @@ replace_first("source/Calculator_CAMB.f90", [r'^(\s*procedure\s*\:\:\s*AngularDi
 
 replace_first("source/Calculator_Cosmology.f90", [r'^(\s*procedure\s*\:\:\s*AngularDiameterDistance\s*(\=\>.*)?)$', r'^(\s*end\s+function\s+AngularDiameterDistance\s*(\!.*)?)$'],[r'\1 !!Zhiqi added[[\n procedure::ComovingRadialDistance  !!]]', r'\1 !!Zhiqi added[[\n\n  real(mcp) function ComovingRadialDistance(this, z) \n    class(TCosmologyCalculator) :: this \n     real(mcp),intent(IN):: z \n     call this%ErrorNotImplemented("ComovingRadialDistance")\n        ComovingRadialDistance = 0 \n   end function ComovingRadialDistance\n!!]]'])
 
-replace_first("source/DataLikelihoods.f90", [r'^(\s*call\s+BAOLikelihood\_Add\s*\(\s*DataLikelihoods\s*\,\s*Ini\s*\)\s*(!.*)?)$'], [r'\1 !!Zhiqi added[[\n   Call WLLikelihood_Add(DataLikelihoods, Ini) !!]]'])
+replace_first("source/DataLikelihoods.f90", [r'^(\s*subroutine\s+SetDataLikelihoods\s*\(\s*Ini\s*\)\s*(\!.*)?)$', r'^(\s*call\s+BAOLikelihood\_Add\s*\(\s*DataLikelihoods\s*\,\s*Ini\s*\)\s*(!.*)?)$'], [r'\1 !!Zhiqi added[[\n   use wl !!]]', r'\1 !!Zhiqi added[[\n   Call WLLikelihood_Add(DataLikelihoods, Ini) !!]]'])
 
