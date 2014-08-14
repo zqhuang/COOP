@@ -2,7 +2,7 @@
 import re
 import os
 import sys
-coop_path = r"../../COOP"
+coop_path = r"/mnt/raid-cita/zqhuang/raid-zqhuang/zqhuang/scilibs/COOP"
 
 #######################################################
 coop_include = r"-I" + coop_path + r"/include"
