@@ -7,13 +7,19 @@ import sys
 #############################################################################
 
 
-######## If you want to undo the modifications to cosmomc, run the bash script "restore.sh".
-#######################################################
+def file_is_matched(pattern, fname):
+    fp = open(fname, 'r')
+    file_content = fp.read()
+    fp.close()
+    if re.match(r'\^.+\$', pattern) :
+        flag = re.I + re.M
+    else:
+        flag = re.I 
+    if re.search(pattern, file_content, flags = flag):
+        return True
+    else:
+        return False
 
-coop_propose_updae = 1200
-propose_pattern = r'^\s*MPI\_Max\_R\_ProposeUpdate\s*=.*$'
-propose_new_pattern = r'^\s*MPI\_Max\_R\_ProposeUpdateNew\s*=.*$'
-str_propose = r'MPI_Max_R_ProposeUpdate = '+ str(coop_propose_updae) + r' \nMPI_Max_R_ProposeUpdateNew = '+ str(coop_propose_updae + 200)
 
 def backup_file(fname):
     if(not os.path.isfile(fname + '__.bak')):
@@ -149,11 +155,21 @@ def abort_quit():
 
 #######################################################
 if(len(sys.argv)>1):
-    if(sys.argv[1] == "restore"):
+    if(sys.argv[1] == "restore" or sys.argv[1] == "remove" or sys.argv[1] == "undo" ):
         replace_all("source/Makefile", [r'bao\_RSD\.o\s+'], [r'bao.o '])
         os.system('rm -f source/bao_RSD.f90')
         os.system('rm -f test_rsd.ini')
         os.system('rm -f batch2/BAO_RSD.ini')
+        sys.exit()
+    else:
+        print sys.argv[1]
+        print "Unknown option"
+        sys.exit()
+        
+else:
+    if(os.path.isfile("source/bao_RSD.f90") and file_is_matched(r'bao\_RSD\.o', r'source/Makefile')):
+        print "rsd module is already included"
+        print "if you want to remove it, run python link2rsd.py restore"
         sys.exit()
 
 if( not os.path.isfile("source/bao_RSD.f90")):
