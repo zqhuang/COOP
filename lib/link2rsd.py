@@ -160,6 +160,8 @@ if(len(sys.argv)>1):
         os.system('rm -f source/bao_RSD.f90')
         os.system('rm -f test_rsd.ini')
         os.system('rm -f batch2/BAO_RSD.ini')
+        replace_all("source/Calculator_CAMB.f90", [r'\ \!\!ZhiqiAddRSD\[\[[^\]\[]*\!\!\]\]\n'], [r''])
+        replace_all("source/CosmoTheory.f90", [r'\ \!\!ZhiqiAddRSD\[\[[^\]\[]*\!\!\]\]\n'], [r''])
         sys.exit()
     else:
         print sys.argv[1]
@@ -207,7 +209,17 @@ if(os.path.isfile("BAO_all.ini")):
     os.system("cp BAO_all.ini " + batch_dir + "/")
     copy_replace_first("test.ini", "test_baoall.ini", [r'^(\#?DEFAULT\(.*BAO.*\))\s*$'], [r'DEFAULT(' + batch_dir + '/BAO_all.ini)'])
 
+replace_first("source/Calculator_CAMB.f90", \
+              [ r'(\s*subroutine\s+CAMBCalc_SetPkFromCAMB\s*\([^\n]*\n(\s*((use|class|integer|type|real|logical|\!)[^\n]*)?\n)*)', \
+                r'^(\s*nz\s*=\s*CP\%Transfer\%PK\_num\_redshifts\s*(\!.*)?)$', \
+                r'^(\s*z\s*\(\s*zix\s*\)\s*\=\s*CP\%Transfer\%PK\_redshifts\s*\(\s*nz\s*\-\s*zix\s*\+\s*1\s*\)\s*(\!.*)?)$'  , \
+                r'^(\s*end\s+subroutine\s+CAMBCalc_SetPkFromCAMB\s*(\!.*)?)$'], \
+              [ r'\1  !!ZhiqiAddRSD[[ \n real(mcp),allocatable::sigma_8_z(:) !!]]\n' , \
+                r'\1 !!ZhiqiAddRSD[[\nallocate(sigma_8_z(nz)) !!]]\n', \
+                r'\1 !!ZhiqiAddRSD[[\nsigma_8_z(zix)  = M%sigma_8(nz-zix+1,1)  !!]]\n' , \
+                r' !!ZhiqiAddRSD[[\n if(allocated(Theory%sigma_8_z)) deallocate(Theory%sigma_8_z) \n allocate(Theory%Sigma_8_z) \n call theory%sigma_8_z%Init(z, sigma_8_z, n = nz) !!]]\n\1' ])
 
+replace_first("source/CosmoTheory.f90", [r'^(\s*type\(TCosmoTheoryPK\)\s*\,\s*allocatable\s*\:\:\s*NL\_MPK\s*(\!.*)?)$'], [r'\1 !!ZhiqiAddRSD[[\n  type(TCubicSpline), allocatable::sigma_8_z !!]]\n'])
 
 
 
