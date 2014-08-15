@@ -251,7 +251,7 @@ contains
     integer i
     H2a4 =  this%Omega_k_value*a**2
     do i=1, this%num_species
-       H2a4 = Hasq + this%species(i)%Omega * this%species(i)%rhoa4_ratio(a)
+       H2a4 = H2a4 + this%species(i)%Omega * this%species(i)%rhoa4_ratio(a)
     enddo
   end function coop_cosmology_background_H2a4
 
