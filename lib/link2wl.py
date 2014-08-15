@@ -150,6 +150,8 @@ if(len(sys.argv)>1):
         replace_all("source/Calculator_CAMB.f90", [r'\ \!\!Zhiqi\ added\[\[[^\]\[]*\!\!\]\]'], [r''])
         replace_all("source/Calculator_Cosmology.f90", [r'\ \!\!Zhiqi\ added\[\[[^\]\[]*\!\!\]\]'], [r''])
         replace_all("source/DataLikelihoods.f90", [r'\ \!\!Zhiqi\ added\[\[[^\]\[]*\!\!\]\]'], [r''])
+        replace_first("camb/modules.f90", [r'(integer\s*\,\s*parameter\s*\:\:\s*max\_transfer\_redshifts\s*\=\s*\d+) \+ 100'], [r'\1'])
+
         os.system('rm -f source/wl.f90')
         os.system('rm -f test_wl.ini')
         os.system('rm -f batch2/WL.ini')
@@ -202,3 +204,5 @@ replace_first("source/Calculator_Cosmology.f90", [r'^(\s*procedure\s*\:\:\s*Angu
 
 replace_first("source/DataLikelihoods.f90", [r'^(\s*subroutine\s+SetDataLikelihoods\s*\(\s*Ini\s*\)\s*(\!.*)?)$', r'^(\s*call\s+BAOLikelihood\_Add\s*\(\s*DataLikelihoods\s*\,\s*Ini\s*\)\s*(!.*)?)$', r'^(\s*CosmoSettings\%use\_LSS\s*\=.*)$'], [r'\1 !!Zhiqi added[[\n   use wl !!]]', r'\1 !!Zhiqi added[[\n   Call WLLikelihood_Add(DataLikelihoods, Ini) !!]]', r'\1 !!Zhiqi added[[\n   CosmoSettings%use_LSS = CosmoSettings%use_LSS .or. use_wl_lss !!]]'])
 
+
+replace_first("camb/modules.f90", [r'^(\s*integer\s*\,\s*parameter\s*\:\:\s*max\_transfer\_redshifts\s*\=\s*\d+)\s*(\!.*)?$'], [r'\1 + 100'])
