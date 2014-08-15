@@ -53,6 +53,7 @@ module coop_cosmology_mod
      procedure::setup_background => coop_cosmology_background_setup_background
      procedure::H0Mpc => coop_cosmology_background_H0Mpc  !!H_0 * Mpc
      procedure::H0Gyr => coop_cosmology_background_H0Gyr  !!H_0 * Gyr
+     procedure::H2a4 => coop_cosmology_background_H2a4   !! input a , return H a^2 / H_0
      procedure::Hasq => coop_cosmology_background_Hasq   !! input a , return H a^2 / H_0
      procedure::dadtau => coop_cosmology_background_Hasq   !! input a , return da/d tau /H_0
      procedure::Hratio => coop_cosmology_background_Hratio !! input a, return H/H_0
@@ -243,15 +244,23 @@ contains
     H0Gyr = this%h_value * (1.d5*coop_SI_Gyr/coop_SI_Mpc)
   end function coop_cosmology_background_H0Gyr
 
+
+  function coop_cosmology_background_H2a4(this, a)result(H2a4)
+    class(coop_cosmology_background)::this
+    COOP_REAL H2a4, a
+    integer i
+    H2a4 =  this%Omega_k_value*a**2
+    do i=1, this%num_species
+       H2a4 = Hasq + this%species(i)%Omega * this%species(i)%rhoa4_ratio(a)
+    enddo
+  end function coop_cosmology_background_H2a4
+
+
   function coop_cosmology_background_Hasq(this, a)result(Hasq)
     class(coop_cosmology_background)::this
     COOP_REAL Hasq, a
     integer i
-    Hasq =  this%Omega_k_value*a**2
-    do i=1, this%num_species
-       Hasq = Hasq + this%species(i)%Omega * this%species(i)%rhoa4_ratio(a)
-    enddo
-    Hasq = sqrt(Hasq)
+    Hasq =  sqrt(this%H2a4(a))
   end function coop_cosmology_background_Hasq
 
   function coop_cosmology_background_Hratio(this, a)result(Hratio)
