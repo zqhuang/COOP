@@ -222,5 +222,5 @@ replace_first("source/Calculator_CAMB.f90", \
 
 replace_first("source/CosmoTheory.f90", [r'^(\s*type\(TCosmoTheoryPK\)\s*\,\s*allocatable\s*\:\:\s*NL\_MPK\s*(\!.*)?)$'], [r'\1 !!ZhiqiAddRSD[[\n  type(TCubicSpline), allocatable::sigma_8_z !!]]\n'])
 
-replace_first("source/DataLikelihoods.f90", [r'^(\s*end\s+module\s+DataLikelihoodList\s*(\!.*)?)$'], [ r' !!ZhiqiAddRSD[[\n   CosmoSettings%use_LSS = CosmoSettings%use_LSS .or. use_bao_lss !!]]\n\1'])
+replace_first("source/DataLikelihoods.f90", [r'^(\s*end\s+subroutine\s+SetDataLikelihoods\s*(\!.*)?)$'], [ r' !!ZhiqiAddRSD[[\n   CosmoSettings%use_LSS = CosmoSettings%use_LSS .or. use_bao_lss !!]]\n\1'])
 

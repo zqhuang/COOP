@@ -216,7 +216,7 @@ contains
     else
        wp1 = 2.d0 * qpsign * (aux1*(1. + a_eq/6./(a + a_eq)) + aux2*(s1/s0-log(s0+s1)/mu3) + aux3*(1.-log(1.+mu3)/mu3))**2
     endif
-    if(AT_BY_AEQ .gt. 0.d0) wp1 = wp1 * tanh(a/(AT_BY_AEQ * a_eq))**3
+    if(AT_BY_AEQ .gt. 0.d0) wp1 = wp1 * tanh(a/(AT_BY_AEQ * a_eq))**(3.d0*(1.d0-a))
 #undef EPSILON_S
 #undef EPSILON_INF
 #undef ZETA_S
