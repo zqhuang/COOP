@@ -160,8 +160,9 @@ if(len(sys.argv)>1):
         os.system('rm -f source/bao_RSD.f90')
         os.system('rm -f test_rsd.ini')
         os.system('rm -f batch2/BAO_RSD.ini')
-        replace_all("source/Calculator_CAMB.f90", [r'\ \!\!ZhiqiAddRSD\[\[[^\]\[]*\!\!\]\]\n'], [r''])
+        replace_all("source/Calculator_CAMB.f90", [r'\ \!\!ZhiqiAddRSD\[\[[^\]\[]*\!\!\]\]\n'], [''])
         replace_all("source/CosmoTheory.f90", [r'\ \!\!ZhiqiAddRSD\[\[[^\]\[]*\!\!\]\]\n'], [r''])
+        replace_all("source/DataLikelihoods.f90", [r'\ \!\!ZhiqiAddRSD\[\[[^\]\[]*\!\!\]\]\n'], [r''])
         sys.exit()
     else:
         print sys.argv[1]
@@ -221,5 +222,5 @@ replace_first("source/Calculator_CAMB.f90", \
 
 replace_first("source/CosmoTheory.f90", [r'^(\s*type\(TCosmoTheoryPK\)\s*\,\s*allocatable\s*\:\:\s*NL\_MPK\s*(\!.*)?)$'], [r'\1 !!ZhiqiAddRSD[[\n  type(TCubicSpline), allocatable::sigma_8_z !!]]\n'])
 
-
+replace_first("source/DataLikelihoods.f90", [r'^(\s*end\s+module\s+DataLikelihoodList\s*(\!.*)?)$'], [ r' !!ZhiqiAddRSD[[\n   CosmoSettings%use_LSS = CosmoSettings%use_LSS .or. use_bao_lss !!]]\n\1'])
 
