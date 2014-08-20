@@ -40,9 +40,9 @@ program getdist
 
   do i=1, mcmc_stat_num_cls
      mcmc_stat_cls(i) = ini_read_real("confidence_level_"//trim(coop_num2str(i))//"sigma", mcmc_stat_cls(i))
-     mc%color2d = ini_read_string("color2d_"//trim(coop_num2str(i))//"sigma", .false.)
+     mc%color2d(i) = ini_read_string("color2d_"//trim(coop_num2str(i))//"sigma", .false.)
      if(trim(mc%color2d(i)).eq."") mc%color2d(i) = trim(adjustl(coop_asy_rgb_color(0.8*(i-1)/mcmc_stat_num_cls, min(1.2*(i-1)/mcmc_stat_num_cls, 1.), 1.)))
-     print*, "color_"//trim(coop_num2str(i))//"sigma: "//trim(mc%color2d(i))
+     print*, "color2d_"//trim(coop_num2str(i))//"sigma: "//trim(mc%color2d(i))
   enddo
   measured_cltt_file = ini_read_string("measured_cltt_file", .false.)
   measured_clee_file = ini_read_string("measured_clee_file", .false.)

@@ -877,7 +877,7 @@ contains
                 call fp%init( xlabel = trim(mc%label(mc%used(j))), ylabel = trim(mc%label(mc%used(j2))), xmin=mc%plotlower(mc%used(j)), xmax = mc%plotupper(mc%used(j)), ymin=mc%plotlower(mc%used(j2)), ymax = mc%plotupper(mc%used(j2)), width=3., height=2.5 )
                 do icontour = coop_postprocess_num_contours, 1, -1
                    call coop_asy_path_from_array(path, mc%c2d(:, :, k), mc%plotlower(mc%used(j)), mc%plotupper(mc%used(j)), mc%plotlower(mc%used(j2)), mc%plotupper(mc%used(j2)), mc%cut2d(icontour, k))
-                   print*, icontour, trim(mc%color2d(icontour))
+
                    call coop_asy_contour(fp, path, colorfill = trim(mc%color2d(icontour)), smooth = .false., linecolor = "black", linetype = "solid")
                 enddo
                 call fp%close()
@@ -887,7 +887,7 @@ contains
                 call fp%init( xlabel = trim(mc%label(mc%used(j2))), ylabel = trim(mc%label(mc%used(j))), xmin=mc%plotlower(mc%used(j2)), xmax = mc%plotupper(mc%used(j2)), ymin=mc%plotlower(mc%used(j)), ymax = mc%plotupper(mc%used(j)) )
                 do icontour = coop_postprocess_num_contours, 1, -1
                    call coop_asy_path_from_array(path, transpose(mc%c2d(:, :, k)), mc%plotlower(mc%used(j2)), mc%plotupper(mc%used(j2)),  mc%plotlower(mc%used(j)), mc%plotupper(mc%used(j)), mc%cut2d(icontour, k))
-                   print*, icontour, trim(mc%color2d(icontour))
+
                    call coop_asy_contour(fp, path, colorfill = trim(mc%color2d(icontour)), smooth = .false., linecolor = "black", linetype = "solid")
                 enddo
                 call fp%close()
