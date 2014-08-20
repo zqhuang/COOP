@@ -1,5 +1,6 @@
 module coop_firstorder_mod
   use coop_wrapper_background
+  use coop_recfast_mod
   implicit none
 #include "constants.h"
   
@@ -16,12 +17,14 @@ contains
   subroutine coop_cosmology_firstorder_setpower(this, fps, fpt)
     class(coop_cosmology_firstorder)::this
     type(coop_function)::fps, fpt
-    
+    this%ps = fps
+    this%pt = fpt
   end subroutine coop_cosmology_firstorder_setpower
 
   subroutine coop_cosmology_firstorder_setxe(this, fxe)
     class(coop_cosmology_firstorder)::this
     type(coop_function)::fxe
+    this%xe = fxe
 
   end subroutine coop_cosmology_firstorder_setxe
 

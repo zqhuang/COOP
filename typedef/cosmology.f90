@@ -6,9 +6,10 @@ module coop_cosmology_mod
   use coop_arguments_mod
   use coop_function_mod
   use coop_species_mod
-  implicit none
-#include "constants.h"
 
+  implicit none
+
+#include "constants.h"
 
   private
 
@@ -24,12 +25,11 @@ module coop_cosmology_mod
   end type coop_cosmology
 
   type, extends(coop_cosmology):: coop_cosmology_background
-     private
      COOP_REAL Omega_k_value, h_value, Tcmb_value, YHe_value, Nnu_value
-     COOP_INT num_species
-     type(coop_species), dimension(coop_max_num_species)::species
      logical::need_setup_background
      type(coop_function):: fdis, ftime
+     COOP_INT :: num_species = 0
+     type(coop_species), dimension(coop_max_num_species)::species
    contains
      procedure::h => coop_cosmology_background_hubble  !!H_0  = 100 h km/s/Mpc
      procedure::Tcmb => coop_cosmology_background_Tcmb !!CMB temprature in Kelvin
@@ -57,6 +57,7 @@ module coop_cosmology_mod
      procedure::Hasq => coop_cosmology_background_Hasq   !! input a , return H a^2 / H_0
      procedure::dadtau => coop_cosmology_background_Hasq   !! input a , return da/d tau /H_0
      procedure::Hratio => coop_cosmology_background_Hratio !! input a, return H/H_0
+     procedure::HdotbyHsq => coop_cosmology_background_HdotbyHsq !! input a, return \dot H/H^2 = - epsilon
      procedure::time => coop_cosmology_background_time !!input a, return H_0 * time
      procedure::conformal_time => coop_cosmology_background_conformal_time !!input a, return H_0 * conformal time
      !!input  a1, a2 (optional, default = 1)
@@ -67,6 +68,7 @@ module coop_cosmology_mod
      procedure::luminosity_distance => coop_cosmology_background_luminosity_distance   
      procedure::angular_diameter_distance => coop_cosmology_background_angular_diameter_distance 
      procedure::add_species=>coop_cosmology_background_add_species
+     procedure::index_of => coop_cosmology_background_index_of
   end type coop_cosmology_background
 
   interface coop_cosmology
@@ -248,7 +250,7 @@ contains
   function coop_cosmology_background_H2a4(this, a)result(H2a4)
     class(coop_cosmology_background)::this
     COOP_REAL H2a4, a
-    integer i
+    COOP_INT i
     H2a4 =  this%Omega_k_value*a**2
     do i=1, this%num_species
        H2a4 = H2a4 + this%species(i)%Omega * this%species(i)%rhoa4_ratio(a)
@@ -259,7 +261,6 @@ contains
   function coop_cosmology_background_Hasq(this, a)result(Hasq)
     class(coop_cosmology_background)::this
     COOP_REAL Hasq, a
-    integer i
     Hasq =  sqrt(this%H2a4(a))
   end function coop_cosmology_background_Hasq
 
@@ -268,6 +269,22 @@ contains
     COOP_REAL Hratio, a
     Hratio = this%Hasq(a)/a**2
   end function coop_cosmology_background_Hratio
+
+  function coop_cosmology_background_HdotbyHsq(this, a)result(HdotbyHsq)
+    class(coop_cosmology_background)::this
+    COOP_INT i
+    COOP_REAL HdotbyHsq, a, pa4, rhoa4,  rhoa4_total, pa4_total
+    rhoa4_total = 0.d0
+    pa4_total = 0.d0
+    do i=1, this%num_species
+       rhoa4 = this%species(i)%Omega * this%species(i)%rhoa4_ratio(a)
+       pa4 = this%species(i)%wofa(a)*rhoa4
+       rhoa4_total = rhoa4_total + rhoa4
+       pa4_total = pa4_total + pa4
+    enddo
+    HdotbyHsq = -(rhoa4_total + 3.d0*pa4_total)/2.d0/(rhoa4_total + this%Omega_k_value*a**2) - 1.d0
+  end function coop_cosmology_background_HdotbyHsq
+
 
   subroutine coop_cosmology_background_setup_background(this)
     class(coop_cosmology_background)::this
@@ -422,6 +439,20 @@ contains
     call coop_fermion_get_lnrho(log(mnu_eV/this%Tnu() * (coop_SI_eV/coop_SI_kB)), lnrho)
     Omega_nu = this%Omega_massless_neutrinos_per_species() * exp(lnrho)
   end function coop_cosmology_background_Omega_nu_per_species_from_mnu_eV
+
+
+  function coop_cosmology_background_index_of(this, name) result(ind)
+    class(coop_cosmology_background)::this
+    COOP_UNKNOWN_STRING::name
+    COOP_INT ind, i
+    ind = 0
+    do i = 1, this%num_species
+       if(trim(this%species(i)%name).eq.trim(name))then
+          ind = i
+          return
+       endif
+    enddo
+  end function coop_cosmology_background_index_of
 
   
 end module coop_cosmology_mod

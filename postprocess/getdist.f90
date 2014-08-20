@@ -28,19 +28,21 @@ program getdist
   endif
   outdir = ini_read_string("output", .false.)
   coop_postprocess_nbins = ini_read_int("num_bins", 0)
+  coop_postprocess_num_contours = ini_read_int("num_contours", 2)
+  coop_postprocess_num_contours  = min(coop_postprocess_num_contours, mcmc_stat_num_cls)
   if(trim(outdir) .eq. "") stop "You need to specify the key 'output' in ini file"
   discard_percent = ini_read_int("discard_percent", 30)
   write(*,*) "discarding "//trim(coop_num2str(discard_percent))//"% samples at the beginning of chains"
-  mcmc_stat_cls(1) = ini_read_real("1sigma_threshold", mcmc_stat_cls(1))
-  mcmc_stat_cls(2) = ini_read_real("2sigma_threshold", max(mcmc_stat_cls(2), mcmc_stat_cls(1)+0.001))
-  mcmc_stat_cls(3) = ini_read_real("3sigma_threshold", max(mcmc_stat_cls(3), mcmc_stat_cls(2)+0.001))
-  if(mcmc_stat_cls(3).gt.1.) stop "your sigma_threshold is too high"
-  
-  mc%color2d_light = ini_read_string("color2d_light", .false.)
-  mc%color2d_dark = ini_read_string("color2d_dark", .false.)
-  if(trim(mc%color2d_light).eq."") mc%color2d_light = "skyblue"
-  if(trim(mc%color2d_dark).eq."") mc%color2d_dark = "blue"
 
+  if(mcmc_stat_num_cls .ge.6)then
+     stop "too many contour levels, please adjust mcmc_stat_num_cls in statchains.f90"
+  endif
+
+  do i=1, mcmc_stat_num_cls
+     mcmc_stat_cls(i) = ini_read_real("confidence_level_"//trim(coop_num2str(i))//"sigma", mcmc_stat_cls(i))
+     mc%color2d = ini_read_string("color2d_"//trim(coop_num2str(i))//"sigma", .false.)
+     if(trim(mc%color2d(i)).eq."") mc%color2d(i) = trim(coop_asy_rgb_color(0.8*(i-1)/mcmc_stat_num_cls, min(1.2*(i-1)/mcmc_stat_num_cls, 1.), 1.))
+  enddo
   measured_cltt_file = ini_read_string("measured_cltt_file", .false.)
   measured_clee_file = ini_read_string("measured_clee_file", .false.)
   measured_clbb_file = ini_read_string("measured_clbb_file", .false.)

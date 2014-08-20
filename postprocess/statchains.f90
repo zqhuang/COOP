@@ -6,7 +6,7 @@ module coop_statchains_mod
 
 #include "constants.h"
 
-  integer,parameter::mcmc_stat_num_cls = 3
+  integer,parameter::mcmc_stat_num_cls = 3  !!minimum 3
 
   real,dimension(mcmc_stat_num_cls)::mcmc_stat_cls = (/ 0.683, 0.954, 0.997 /)
 
@@ -16,6 +16,7 @@ module coop_statchains_mod
   COOP_STRING :: measured_clte_file = ""
   COOP_STRING :: bestfit_cl_file = ""
   integer::coop_postprocess_nbins = 0
+  integer::coop_postprocess_num_contours = 2
 
   type MCMC_chain
      COOP_STRING prefix, output
@@ -46,7 +47,7 @@ module coop_statchains_mod
      real,dimension(:,:,:),allocatable::c2d !!2d counts: nb, nb, np_used*(np_used+1)/2
      real,dimension(:,:),allocatable::cut2d
      logical,dimension(:,:),allocatable::want_2d_output
-     COOP_SHORT_STRING Color2D_light, color2d_dark
+     COOP_SHORT_STRING, dimension(mcmc_stat_num_cls)::color2d
      type(coop_dictionary) inputparams
      type(coop_dictionary) allparams
   end type MCMC_chain
@@ -474,7 +475,7 @@ contains
     logical inflation_consistency
     real ytop
     COOP_REAL  :: cltt, errup, errdown
-    integer junk, l, num_params, index_pp, pp_location
+    integer junk, l, num_params, index_pp, pp_location, icontour
     real cltraj_weight
     COOP_STRING inline
 
@@ -867,31 +868,32 @@ contains
        call coop_asy_plot_likelihood(fp, x, mc%c1d(:, ip)/maxval(mc%c1d(:, ip)), left_tail = .true., right_tail = .true., linewidth=1.5)
        call fp%close()
     enddo
+    if(coop_postprocess_num_contours .gt. 0)then
+       do j = 1, mc%np_used
+          do j2 = 1, j
+             k = j*(j-1)/2 + j2
+             if(mc%want_2d_output(j, j2))then
+                call fp%open(trim(mc%output)//"_"//trim(mc%simplename(mc%used(j)))//"_"//trim(mc%simplename(mc%used(j2)))//"_2D.txt", "w")
+                call fp%init( xlabel = trim(mc%label(mc%used(j))), ylabel = trim(mc%label(mc%used(j2))), xmin=mc%plotlower(mc%used(j)), xmax = mc%plotupper(mc%used(j)), ymin=mc%plotlower(mc%used(j2)), ymax = mc%plotupper(mc%used(j2)), width=3., height=2.5 )
+                do icontour = coop_postprocess_num_contours, 1, -1
+                   call coop_asy_path_from_array(path, mc%c2d(:, :, k), mc%plotlower(mc%used(j)), mc%plotupper(mc%used(j)), mc%plotlower(mc%used(j2)), mc%plotupper(mc%used(j2)), mc%cut2d(icontour, k))
+                   call coop_asy_contour(fp, path, colorfill = trim(mc%color2d(icontour)), smooth = .false., linecolor = "black", linetype = "solid")
+                enddo
+                call fp%close()
+             endif
+             if(j2 .ne. j .and. mc%want_2d_output(j2, j))then
+                call fp%open(trim(mc%output)//"_"//trim(mc%simplename(mc%used(j2)))//"_"//trim(mc%simplename(mc%used(j)))//"_2D.txt", "w")
+                call fp%init( xlabel = trim(mc%label(mc%used(j2))), ylabel = trim(mc%label(mc%used(j))), xmin=mc%plotlower(mc%used(j2)), xmax = mc%plotupper(mc%used(j2)), ymin=mc%plotlower(mc%used(j)), ymax = mc%plotupper(mc%used(j)) )
+                do icontour = coop_postprocess_num_contours, 1, -1
+                   call coop_asy_path_from_array(path, transpose(mc%c2d(:, :, k)), mc%plotlower(mc%used(j2)), mc%plotupper(mc%used(j2)),  mc%plotlower(mc%used(j)), mc%plotupper(mc%used(j)), mc%cut2d(icontour, k))
+                   call coop_asy_contour(fp, path, colorfill = trim(mc%color2d(icontour)), smooth = .false., linecolor = "black", linetype = "solid")
+                enddo
+                call fp%close()
 
-    do j = 1, mc%np_used
-       do j2 = 1, j
-          k = j*(j-1)/2 + j2
-          if(mc%want_2d_output(j, j2))then
-             call fp%open(trim(mc%output)//"_"//trim(mc%simplename(mc%used(j)))//"_"//trim(mc%simplename(mc%used(j2)))//"_2D.txt", "w")
-             call fp%init( xlabel = trim(mc%label(mc%used(j))), ylabel = trim(mc%label(mc%used(j2))), xmin=mc%plotlower(mc%used(j)), xmax = mc%plotupper(mc%used(j)), ymin=mc%plotlower(mc%used(j2)), ymax = mc%plotupper(mc%used(j2)), width=3., height=2.5 )
-             call coop_asy_path_from_array(path, mc%c2d(:, :, k), mc%plotlower(mc%used(j)), mc%plotupper(mc%used(j)), mc%plotlower(mc%used(j2)), mc%plotupper(mc%used(j2)), mc%cut2d(2, k))
-             call coop_asy_contour(fp, path, colorfill = trim(mc%color2d_light), smooth = .false., linecolor = "black", linetype = "solid")
-             call coop_asy_path_from_array(path, mc%c2d(:, :, k), mc%plotlower(mc%used(j)), mc%plotupper(mc%used(j)), mc%plotlower(mc%used(j2)), mc%plotupper(mc%used(j2)), mc%cut2d(1, k))
-             call coop_asy_contour(fp, path, colorfill = trim(mc%color2d_dark), smooth = .false., linecolor = "black", linetype = "solid")
-             call fp%close()
-          endif
-          if(j2 .ne. j .and. mc%want_2d_output(j2, j))then
-             call fp%open(trim(mc%output)//"_"//trim(mc%simplename(mc%used(j2)))//"_"//trim(mc%simplename(mc%used(j)))//"_2D.txt", "w")
-             call fp%init( xlabel = trim(mc%label(mc%used(j2))), ylabel = trim(mc%label(mc%used(j))), xmin=mc%plotlower(mc%used(j2)), xmax = mc%plotupper(mc%used(j2)), ymin=mc%plotlower(mc%used(j)), ymax = mc%plotupper(mc%used(j)) )
-             call coop_asy_path_from_array(path, transpose(mc%c2d(:, :, k)),  mc%plotlower(mc%used(j2)), mc%plotupper(mc%used(j2)), mc%plotlower(mc%used(j)), mc%plotupper(mc%used(j)), mc%cut2d(2, k))
-             call coop_asy_contour(fp, path, colorfill = trim(mc%color2d_light), smooth = .false., linecolor = "black", linetype = "solid")
-             call coop_asy_path_from_array(path, transpose(mc%c2d(:, :, k)), mc%plotlower(mc%used(j2)), mc%plotupper(mc%used(j2)),  mc%plotlower(mc%used(j)), mc%plotupper(mc%used(j)), mc%cut2d(1, k))
-             call coop_asy_contour(fp, path, colorfill = trim(mc%color2d_dark), smooth = .false., linecolor = "black", linetype = "solid")
-             call fp%close()
-
-          endif
+             endif
+          enddo
        enddo
-    enddo    
+    endif
   end subroutine export_stats
 
 

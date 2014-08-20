@@ -60,6 +60,7 @@ module coop_healpix_mod
      procedure :: read => coop_healpix_maps_read
      procedure :: open => coop_healpix_maps_read
      procedure :: mask => coop_healpix_maps_mask
+     procedure :: allocate_alms => coop_healpix_maps_allocate_alms
      procedure :: get_cls =>   coop_healpix_maps_get_cls
      procedure :: get_fullcls => coop_healpix_maps_get_fullcls
      procedure :: map2alm => coop_healpix_maps_map2alm
@@ -665,18 +666,7 @@ contains
           this%iu = 0
        endif
     endif
-    if(present(lmax))then
-       if(allocated(this%alm))then
-          if(this%lmax  .eq. lmax)then
-             goto 200
-          endif
-          deallocate(this%alm)
-       endif
-       if(allocated(this%cl))deallocate(this%cl)
-       this%lmax = lmax
-       allocate(this%alm(0:this%lmax, 0:this%lmax, this%nmaps))
-       allocate(this%cl(0:this%lmax, this%nmaps*(this%nmaps+1)/2))
-    endif
+    if(present(lmax)) call this%allocate_alms(lmax)
 200 this%ordering = COOP_RING !!default ordering
     call write_minimal_header(this%header,dtype = 'MAP', nside=this%nside, order = this%ordering, creator='Zhiqi Huang', version = 'COOP', units='muK', polar=any(this%spin.eq.2) )
     this%maskpol_npix = 0
@@ -684,6 +674,21 @@ contains
     stop "DID not find healpix"
 #endif
   end subroutine coop_healpix_maps_init
+
+  subroutine coop_healpix_maps_allocate_alms(this, lmax)
+    class(coop_healpix_maps) this
+    integer lmax
+    if(allocated(this%alm))then
+       if(this%lmax  .eq. lmax)then
+          return
+       endif
+       deallocate(this%alm)
+    endif
+    if(allocated(this%cl))deallocate(this%cl)
+    this%lmax = lmax
+    allocate(this%alm(0:this%lmax, 0:this%lmax, this%nmaps))
+    allocate(this%cl(0:this%lmax, this%nmaps*(this%nmaps+1)/2))
+  end subroutine coop_healpix_maps_allocate_alms
 
   subroutine coop_healpix_maps_free(this)
     class(coop_healpix_maps) this

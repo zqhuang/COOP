@@ -7,16 +7,16 @@ BACKGROUND=../background
 include ../configure.in
 include ../compile_rules.in
 
-BGLIB = libcoopfirstorder.a
-BGOBJ = firstorder.o wrapper.o
+OFLIB = libcoopfirstorder.a
+OFOBJ = recfast.o firstorder.o wrapper.o
 
-default: $(BGLIB)
+default: $(OFLIB)
 
-$(BGLIB): $(BGOBJ)
+$(OFLIB): $(OFOBJ)
 	ar -r $@ $?
 
-Test: $(BGOBJ) test.o $(BACKGROUND)/libcoopbackground.a
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(BGOBJ) test.o $(LINK)
+Test: $(OFOBJ) test.o $(BACKGROUND)/libcoopbackground.a
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OFOBJ) test.o $(LINK)
 
 clean:
 	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test

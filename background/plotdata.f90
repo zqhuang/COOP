@@ -64,6 +64,13 @@ program test
   binned_mu = binned_mu/weight
   binned_z = binned_z/weight
   binned_dmu = 1.d0/sqrt(binned_dmu)
+
+  call fp%open("JLASupernova_binned_data.txt", "w")
+  do i=1, nbins
+     write(fp%unit, "(3E16.7)") binned_z(i), binned_mu(i), binned_dmu(i)
+  enddo
+  call fp%close()
+
   do iw=-nw, nw
      if(iw.ne.0) &
           mu_theory(:, iw) = mu_theory(:, iw) - mu_theory(:, 0)
