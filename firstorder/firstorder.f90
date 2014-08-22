@@ -5,11 +5,21 @@ module coop_firstorder_mod
 #include "constants.h"
 
 
-  COOP_REAL, parameter :: coop_power_lnk_min = log(3.d-5) 
-  COOP_REAL, parameter :: coop_power_lnk_max = log(1.2d0) 
+
+  COOP_REAL, parameter :: coop_power_lnk_min = log(0.1d0) 
+  COOP_REAL, parameter :: coop_power_lnk_max = log(5.d3) 
   COOP_REAL, parameter :: coop_visibility_amin = 3.d-4
-  COOP_REAL, dimension(0:2), parameter::coop_source_times_weight = (/ 0.3d0, 0.2d0, 0.1d0 /)
-  COOP_INT, dimension(0:2), parameter::coop_source_times_n = (/ 1000, 850, 800 /)
+
+  COOP_REAL, dimension(0:2), parameter::coop_source_tau_weight = (/ 0.3d0, 0.2d0, 0.1d0 /)
+  COOP_INT, dimension(0:2), parameter::coop_source_tau_n = (/ 1000, 850, 800 /)
+
+  COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.1d0, 0.2d0, 0.1d0 /)
+  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 160, 120, 80 /)
+
+  COOP_INT, dimension(0:2), parameter::coop_source_types = (/ 4,  2,  2 /)
+
+  COOP_REAL, parameter::coop_source_k_index = 0.55d0
+
 
   type coop_cosmology_firstorder_source
      logical::used = .false.
@@ -28,11 +38,13 @@ module coop_firstorder_mod
      COOP_REAL::optre = 0.07d0
      COOP_REAL::zre = 8.d0
      COOP_REAL::deltaz = 0.5d0
+     COOP_REAL::kMpc_pivot = 0.05d0
+     COOP_REAL::k_pivot
      COOP_REAL dkappadtau_coef, ReionFrac
      type(coop_function)::Ps, Pt, Xe, ekappa, vis
      type(coop_cosmology_firstorder_source),dimension(0:2)::perturbation
    contains
-     procedure:: set_source_times => coop_cosmology_firstorder_set_source_times
+     procedure:: set_source_tau => coop_cosmology_firstorder_set_source_tau
      procedure:: set_source_k => coop_cosmology_firstorder_set_source_k
      procedure:: set_power => coop_cosmology_firstorder_set_power
      procedure:: set_xe => coop_cosmology_firstorder_set_xe
@@ -85,7 +97,7 @@ contains
 
   subroutine coop_cosmology_firstorder_set_power(this, power, args)
 !!the format of primordial power
-!!subroutine power(kMpc, ps, pt, cosmology, args)
+!!subroutine power(k/k_pivot, ps, pt, cosmology, args)
 !!input kMpc and args, output ps and pt    
     integer,parameter::n = 4096
     class(coop_cosmology_firstorder)::this
@@ -93,10 +105,11 @@ contains
     type(coop_arguments) args
     COOP_REAL k(n), ps(n), pt(n)
     COOP_INT i
+    this%k_pivot = this%kMpc_pivot/this%H0Mpc()
     call coop_set_uniform(n, k, coop_power_lnk_min, coop_power_lnk_max)
     k = exp(k)
     do i=1, n
-       call power(k(i), ps(i), pt(i), this, args)
+       call power(k(i)/this%k_pivot, ps(i), pt(i), this, args)
     end do
     call this%ps%init(n = n, xmin = k(1), xmax = k(n), f = ps, xlog = .true., ylog = .true., fleft = ps(1), fright = ps(n), check_boundary = .false.)
     call this%pt%init(n = n, xmin = k(1), xmax = k(n), f = pt, xlog = .true., ylog = .true., fleft = pt(1), fright = pt(n), check_boundary = .false.)
@@ -142,7 +155,16 @@ contains
     this%tau0 = this%conformal_time(coop_scale_factor_today)
     do m=0, 2
        this%perturbation(m)%m = m
-       call this%set_source_times(this%perturbation(m), coop_source_times_n(m), coop_source_times_weight(m))
+       call this%set_source_tau(this%perturbation(m), coop_source_tau_n(m), coop_source_tau_weight(m))
+       call this%set_source_k(this%perturbation(m), coop_source_k_n(m), coop_source_k_weight(m))
+       if(allocated(this%perturbation(m)%source))then
+          if(size(this%perturbation(m)%source, 1) .ne. this%perturbation(m)%ntau .or. size(this%perturbation(m)%source, 2) .ne. this%perturbation(m)%nk)then
+             deallocate(this%perturbation(m)%source)
+             allocate(this%perturbation(m)%source(this%perturbation(m)%ntau, this%perturbation(m)%nk, coop_source_types(m)))
+          endif
+       else
+          allocate(this%perturbation(m)%source(this%perturbation(m)%ntau, this%perturbation(m)%nk, coop_source_types(m)))
+       endif
     enddo
   end subroutine coop_cosmology_firstorder_set_xe
 
@@ -190,13 +212,13 @@ contains
   end function coop_cosmology_firstorder_dkappada
 
 
-  subroutine coop_cosmology_firstorder_set_source_times(this, source, n, weight)
+  subroutine coop_cosmology_firstorder_set_source_tau(this, source, n, weight)
     COOP_REAL, parameter::incr = 1.05d0
     COOP_INT n, i, j
     COOP_REAL  top(n), dtop, amax, amin, amid, topmax, topmin, topmid, weight
     class(coop_cosmology_firstorder_source)::source
     class(coop_cosmology_firstorder)::this
-    if(n.lt. 10) stop "n is too small for set_source_times"
+    if(n.lt. 10) stop "n is too small for set_source_tau"
     source%ntau = n
     if(allocated(source%a))then
        if(size(source%a).ne.n)then
@@ -244,13 +266,14 @@ contains
        source%dtau(i) = dtop/((weight*this%dkappadtau(source%a(i))*source%tau(i)+1.d0)*this%ekappaofa(source%a(i))**weight)
     enddo
     source%chi = this%tau0 - source%tau
-  end subroutine coop_cosmology_firstorder_set_source_times
+  end subroutine coop_cosmology_firstorder_set_source_tau
   
   subroutine coop_cosmology_firstorder_set_source_k(this, source, n, weight)
     class(coop_cosmology_firstorder)::this
     class(coop_cosmology_firstorder_source)::source
-    COOP_INT n
-    COOP_REAL weight
+    COOP_INT n, i
+    COOP_REAL weight, kop(n), dkop, kopmin, kopmax, kmin, kmax, kalpha
+    this%k_pivot = this%kMpc_pivot/this%H0Mpc()
     source%nk = n
     if(allocated(source%k))then
        if(size(source%k).ne.n)then
@@ -260,8 +283,52 @@ contains
     else
        allocate(source%k(n), source%dk(n))
     endif
+    kmin = 0.3d0/this%distlss
+    select case(source%m)
+    case(0)
+       kmax = 6.2d3/this%distlss
+    case(1)
+       kmax = 4.2d3/this%distlss
+    case(2)
+       kmax = 2.2d3/this%distlss
+    case default
+       write(*,*) "Error: m = ", source%m
+       stop "source spin must be 0, 1, 2"
+    end select
+    kopmin = kmin**coop_source_k_index*weight + log(kmin)
+    kopmax = kmax**coop_source_k_index*weight + log(kmax)
+    dkop = (kopmax-kopmin)/(n-1)
+    call coop_set_uniform(n, kop, kopmin, kopmax)
+    !$omp parallel do private(kalpha)
+    do i=1, n
+       call coop_source_kop2k_noindex(kop(i)*coop_source_k_index, weight*coop_source_k_index, kalpha)
+       source%k(i) = kalpha**(1.d0/coop_source_k_index)
+       source%dk(i) = dkop * source%k(i) / (1.d0 + weight * coop_source_k_index * kalpha )
+    enddo
+    !$omp end parallel do
   end subroutine coop_cosmology_firstorder_set_source_k
 
+
+  subroutine coop_source_kop2k_noindex(kop, weight, k)
+    !!solve the equation k * weight + log(k) = kop
+    COOP_REAL kop, weight, k, kmin, kmax, kmid
+    if(kop .gt. weight)then
+       kmax = kop/weight
+       kmin = (kop+1.d0)/(weight+1.d0)
+    else
+       kmax = exp(kop)
+       kmin = max(kop/weight, 1.d-3)
+    endif
+    do while((kmax-kmin)/kmin .gt. 1.d-8)
+       kmid = (kmax+kmin)/2.d0
+       if(kmid*weight + log(kmid) .gt. kop)then
+          kmax = kmid
+       else
+          kmin = kmid
+       endif
+    enddo
+    k = (kmax+kmin)/2.d0
+  end subroutine coop_source_kop2k_noindex
   
 
 
@@ -277,10 +344,6 @@ contains
     class(coop_cosmology_firstorder)::this
     pt = this%ps%eval(k)
   end function coop_cosmology_firstorder_ptofk
-
-
-
-
 
 
   subroutine coop_cosmology_firstorder_set_zre_from_optre(this)
