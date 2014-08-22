@@ -53,5 +53,6 @@ COOP_REAL, parameter::coop_SI_sigma_thomson = 6.6524616d-29 !!Thomson scattering
 !!cosmology
 COOP_REAL, parameter::coop_SI_rhocritbyh2 = 1.8783467654345834d-26*coop_SI_c**2
 COOP_REAL, parameter::coop_neutrinos_temperature_correction = (3.046d0/3.d0)**(1.d0/4.d0)
+COOP_REAL, parameter::coop_SI_hbyH0 = coop_SI_Mpc /1.d5
 
 

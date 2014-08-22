@@ -9,7 +9,9 @@ private
 public::coop_arguments
 
   type coop_arguments
-     COOP_INT n_int, n_real, n_logical
+     COOP_INT::n_int =0
+     COOP_INT::n_real = 0
+     COOP_INT::n_logical = 0
      COOP_INT,dimension(:),allocatable::i
      COOP_REAL,dimension(:),allocatable::r
      logical,dimension(:),allocatable::l

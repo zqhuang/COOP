@@ -25,6 +25,8 @@ module coop_function_mod
      procedure::integrate => coop_function_integrate
      procedure::derivative => coop_function_derivative
      procedure::derivative2 => coop_function_derivative2
+     procedure::maxloc => coop_function_maxloc
+     procedure::minloc => coop_function_minloc
      procedure::free => coop_function_free
   end type coop_function
 
@@ -347,7 +349,7 @@ contains
     l = floor(b)
     if(l .lt. 1)then
        if(this%check_boundary)then
-          if(b.gt. 0.99999d0)then
+          if(b.gt. 0.9999d0)then
              f = this%fleft
              return
           endif
@@ -359,7 +361,7 @@ contains
        f = this%fleft + this%slopeleft*xdiff
     elseif(l.ge. this%n)then
        if(this%check_boundary)then
-          if(b .le. dble(this%n)+1.d-5)then
+          if(b .le. dble(this%n)+1.d-4)then
              f = this%fright
              return
           endif
@@ -388,6 +390,78 @@ contains
     endif
   end function coop_function_evaluate_bare
 
+
+  function coop_function_maxloc(this) result(xm)
+    class(coop_function)::this
+    COOP_REAL xm
+    integer iloc, n, iloop
+    COOP_REAL xmin, xmax, x, fm, dx, f
+    select case(this%method)
+    case(COOP_INTERPOLATE_CHEBYSHEV)
+       xmin = this%xmin
+       xmax = this%xmax
+       n = 512
+    case default
+       iloc = coop_maxloc(this%f)
+       xmin = this%xmin + this%dx*max(iloc-2, 0)
+       xmax = this%xmin + this%dx*min(iloc, this%n-1)
+       n = 16
+    end select
+    do iloop = 1, 3
+       dx = (xmax-xmin)/n
+       xm = xmin+dx 
+       fm = this%eval_bare(xm)
+       do iloc = 2, n-1
+          x = xmin + iloc*dx
+          f= this%eval_bare(x)
+          if(f .gt. fm)then
+             fm = f
+             xm = x
+          endif
+       enddo
+       xmin = xm - dx
+       xmax = xm + dx
+       n = 8
+    enddo
+    if(this%xlog) xm = exp(xm)
+  end function coop_function_maxloc
+
+
+  function coop_function_minloc(this) result(xm)
+    class(coop_function)::this
+    COOP_REAL xm
+    integer iloc, n, iloop
+    COOP_REAL xmin, xmax, x, fm, dx, f
+    select case(this%method)
+    case(COOP_INTERPOLATE_CHEBYSHEV)
+       xmin = this%xmin
+       xmax = this%xmax
+       n = 512
+    case default
+       iloc = coop_minloc(this%f)
+       xmin = this%xmin + this%dx*max(iloc-2, 0)
+       xmax = this%xmin + this%dx*min(iloc, this%n-1)
+       n = 16
+    end select
+    do iloop = 1, 3
+       dx = (xmax-xmin)/n
+       xm = xmin+dx 
+       fm = this%eval_bare(xm)
+       do iloc = 2, n-1
+          x = xmin + iloc*dx
+          f= this%eval_bare(x)
+          if(f .lt. fm)then
+             fm = f
+             xm = x
+          endif
+
+       enddo
+       xmin = xm - dx
+       xmax = xm + dx
+       n = 8
+    enddo
+    if(this%xlog) xm = exp(xm)
+  end function coop_function_minloc
   
   !!simple integration 
   !!to be optimized
@@ -446,18 +520,34 @@ contains
   function coop_function_derivative(this, x) result(fp)
     class(coop_function)::this
     COOP_REAL x, fp, dx, xbare
+    COOP_REAL iloc
     if(this%xlog)then
        xbare  = log(x)
     else
        xbare = x
     endif
+    iloc = (xbare - this%xmin)/this%dx + 1.d0
+    if(iloc .lt. 1.25d0)then
+       if(iloc .lt. 0.999d0)then
+          fp = 0.d0
+          return
+       endif
+       xbare = this%xmin + this%dx/4.d0
+    elseif(iloc .gt. this%n - 0.25d0)then
+       if(iloc .gt. this%n + 0.001d0)then
+          fp = 0.d0
+          return
+       endif
+       xbare = this%xmax - this%dx/4.d0
+    endif
     select case(this%method)
     case(COOP_INTERPOLATE_CHEBYSHEV)
        call coop_chebeval(this%n, this%xmin, this%xmax, this%f1, xbare, fp)
     case default
-       dx = this%dx/4.d0
+       dx = this%dx*0.24999d0
        fp = (this%eval_bare(xbare+dx) - this%eval_bare(xbare - dx))/(2.d0*dx)
     end select
+
     if(this%xlog) fp = fp/x
     if(this%ylog) fp = fp * this%eval(x)
   end function coop_function_derivative
@@ -465,19 +555,34 @@ contains
 
   function coop_function_derivative2(this, x) result(fpp)
     class(coop_function)::this
-    COOP_REAL x, fpp, f, dx, fp, fplus, fminus, xbare
+    COOP_REAL x, fpp, f, dx, fp, fplus, fminus, xbare, iloc
     if(this%xlog)then
        xbare = log(x)
     else
        xbare = x
     endif
+    iloc = (xbare - this%xmin)/this%dx + 1.d0
+    if(iloc .lt. 1.9d0)then
+       if(iloc .lt. 0.999d0)then
+          fp = 0.d0
+          return
+       endif
+       xbare = this%xmin + this%dx*0.9d0
+    elseif(iloc .gt. this%n - 0.9d0)then
+       if(iloc .gt. this%n + 0.001d0)then
+          fp = 0.d0
+          return
+       endif
+       xbare = this%xmax - this%dx*0.9d0
+    endif
+
     select case(this%method)
     case(COOP_INTERPOLATE_CHEBYSHEV)
        if(this%ylog)call coop_chebeval(this%n, this%xmin, this%xmax, this%f, xbare, f)
        if(this%ylog .or. this%xlog) call coop_chebeval(this%n, this%xmin, this%xmax, this%f1, xbare, fp)
        call coop_chebeval(this%n, this%xmin, this%xmax, this%f2, xbare, fpp)
     case default
-       dx = this%dx*0.9d0
+       dx = this%dx*0.899d0
        fplus = this%eval_bare(xbare+dx)
        fminus = this%eval_bare(xbare-dx)
        f = this%eval_bare(xbare)

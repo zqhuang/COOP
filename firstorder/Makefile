@@ -20,3 +20,8 @@ Test: $(OFOBJ) test.o $(BACKGROUND)/libcoopbackground.a
 
 clean:
 	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test
+
+
+firstorder.o:	recfast.o
+wrapper.o: 	firstorder.o
+test.o:	wrapper.o

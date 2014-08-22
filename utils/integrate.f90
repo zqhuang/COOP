@@ -11,7 +11,7 @@ module coop_integrate_mod
   public::coop_integrate
 
   interface coop_integrate
-     module procedure coop_qrombc, coop_qromb_with_arguments
+     module procedure coop_qrombc, coop_qromb_with_arguments, coop_qromb_with_cosmology
   end interface coop_integrate
 
 
@@ -174,6 +174,69 @@ contains
     endif
     return
   end subroutine Trapzd_with_args
+
+
+
+
+  function coop_qromb_with_cosmology(func, a, b, cosmology, args, precision) result(integral)
+    class(coop_cosmology)::cosmology
+    COOP_INT  :: JMAX,JMAXP,K,KM
+    COOP_REAL  :: a,b,integral, eps
+    COOP_REAL, optional::precision
+    type(coop_arguments) args
+    external func
+    COOP_REAL func
+    parameter (JMAX=25, JMAXP=JMAX+1, K=5, KM=K-1)
+    !USES polint,trapzd
+    COOP_INT  :: j
+    COOP_REAL  :: dss,h(JMAXP),s(JMAXP)
+    if(present(precision))then
+       eps = precision
+    else
+       eps = 1.d-6
+    endif
+    h(1)=1.d0
+    do j=1,JMAX
+       call trapzd_with_cosmology(cosmology, args,func,a,b,s(j),j)
+       if (j.ge.K) then
+          if(maxval(s(j-km:j))-minval(s(j-km:j)).le.eps*maxval(abs(s(j-km:j))) .or. maxval(abs(s(km:j))).lt.1.d-30)then
+             integral=sum(s(j-km:j))/k
+             return
+          endif
+          call d_polint(h(j-KM),s(j-KM),K,0.d0,integral,dss)
+          if (coop_isnan(integral) .or. ABS(dss) .lt. eps*abs(integral).or.ABS(dss).LT.1.d-31) return
+       endif
+       s(j+1)=s(j)
+       h(j+1)=0.25D0*h(j)
+    enddo
+  end function coop_qromb_with_cosmology
+
+
+  subroutine trapzd_with_cosmology(cosmology,args,func,a,b,s,n)
+    class(coop_cosmology)::cosmology
+    type(coop_arguments) args
+    COOP_INT  :: n
+    COOP_REAL  :: a,b,s
+    external func
+    COOP_REAL func
+    COOP_INT  :: j,it
+    COOP_REAL  :: del,sum,tnm,x
+    if (n.eq.1) then
+       s=0.5*(b-a)*(func(a, cosmology, args)+func(b, cosmology, args))
+    ELSE
+       it=ishft(1,n-2)
+       tnm=it
+       del=(b-a)/tnm
+       x=a+0.5*del
+       sum=0.
+       do j=1,it
+          sum=sum+func(x, cosmology, args)
+          x=x+del
+       enddo
+       s=0.5D0*(s+(b-a)*sum/tnm)
+    endif
+    return
+  end subroutine Trapzd_with_cosmology
 
 
   

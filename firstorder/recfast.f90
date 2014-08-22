@@ -235,7 +235,7 @@ module coop_recfast_mod
   private
 
 
-  public:: coop_recfast_get_xe
+  public:: coop_recfast_get_xe, coop_reionization_xe
 
   integer,parameter::  Hswitch = 1, Heswitch=6
 
@@ -306,14 +306,22 @@ module coop_recfast_mod
 
 
 contains
+
+
+  Function coop_reionization_xe(z, reionFrac, zre, deltaz)
+    COOP_REAL z, coop_reionization_xe, zre, reionFrac, deltaz
+    coop_reionization_xe = ReionFrac * (1.+ tanh(((1.+ zre)**1.5 - (1.+z)**1.5)/(1.5*deltaz*sqrt(1.+zre))))/2.d0
+  End Function coop_reionization_xe
+
   
-  subroutine coop_recfast_get_xe(bg, xeofa)  
+  subroutine coop_recfast_get_xe(bg, xeofa, reionFrac, zre, deltaz)  
     class(coop_cosmology_background)::bg
     type(coop_arguments)::args
     type(coop_function)::xeofa
     integer ndim , nw, ind, i
-    integer, parameter::nz=1000
+    integer, parameter::nz = 2048
     COOP_REAL,dimension(nz)::alist,xelist
+    COOP_REAL reionFrac, zre, deltaz
     !!arguments
     integer index_baryon, index_cdm
     real*8 zend, zstart
@@ -391,6 +399,7 @@ contains
 
           xelist(i)  = y(1) + fHe*y(2)
        end if
+       xelist(i) = max(xelist(i), coop_reionization_xe(zend, reionFrac, zre, deltaz))
     end do
     call xeofa%init(n = nz, xmin=alist(1), xmax = alist(nz), f = xelist, xlog = .true., ylog = .false., fleft = xelist(1), fright = xelist(nz), slopeleft= 0.d0, sloperight = 0.d0, check_boundary = .false.)
 

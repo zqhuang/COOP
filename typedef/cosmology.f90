@@ -25,8 +25,12 @@ module coop_cosmology_mod
   end type coop_cosmology
 
   type, extends(coop_cosmology):: coop_cosmology_background
-     COOP_REAL Omega_k_value, h_value, Tcmb_value, YHe_value, Nnu_value
-     logical::need_setup_background
+     COOP_REAL::Omega_k_value = 1.
+     COOP_REAL::h_value =  COOP_DEFAULT_HUBBLE
+     COOP_REAL::Tcmb_value = COOP_DEFAULT_TCMB
+     COOP_REAL::YHe_value= COOP_DEFAULT_YHE
+     COOP_REAL:: Nnu_value = COOP_DEFAULT_NUM_NEUTRINO_SPECIES
+     logical::need_setup_background = .true.
      type(coop_function):: fdis, ftime
      COOP_INT :: num_species = 0
      type(coop_species), dimension(coop_max_num_species)::species
@@ -150,7 +154,7 @@ contains
     select type(this)
     type is (coop_cosmology)
 #include "cosmology_init.h"
-    type is (coop_cosmology_background)
+    class is (coop_cosmology_background)
 #include "cosmology_background_init.h"
     class default
        Stop "coop_cosmology_initialize: Unknown class of cosmology."
