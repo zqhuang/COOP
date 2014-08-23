@@ -5,11 +5,13 @@ import sys
 ########by Zhiqi Huang (zqhuang@cita.utoronto.ca) ########
 ######## This python script hacks cosmomc (any late version > 2013 Oct), adding two parameters A2s1s and tcmb. A2s1s is used in Recfast, and tcmb is used globally (including C_l normalization).
 #############################################################################
+do_cl_norm = False
 
 coop_propose_updae = 1200
 propose_pattern = r'^\s*MPI\_Max\_R\_ProposeUpdate\s*=.*$'
 propose_new_pattern = r'^\s*MPI\_Max\_R\_ProposeUpdateNew\s*=.*$'
 str_propose = r'MPI_Max_R_ProposeUpdate = '+ str(coop_propose_updae) + r' \nMPI_Max_R_ProposeUpdateNew = '+ str(coop_propose_updae + 200)
+
 
 def backup_file(fname):
     if(not os.path.isfile(fname + '__.bak')):
@@ -169,7 +171,10 @@ replace_first("camb/constants.f90", [r'\,\s*parameter\s*(\:\:\s*COBE_CMBTemp)'],
 
 replace_first("source/driver.F90", [ line_pattern(r'call ini%open(inputfile)')], [ r'call Ini%Open(InputFile)\n cosmomc_paramnames = Ini%Read_String("paramnames", .false.) \n cosmomc_num_hard = Ini%Read_Int("num_hard", ' + str(numhard+2) + r') '])
 
-replace_all(r"source/Calculator_CAMB.f90", [r'^(\s*subroutine\s+CAMBCalc_CMBToCAMB\s*\(.+\).*)$', r'^(\s*P\%YHe\s*\=\s*CMB\%YHe.*)$', r'^.*parameter\s*\:\:\s*cons\s*=\s*\(COBE_CMBTemp.*$', r'^(\s*lens\_recon\_scale\s*=\s*CMB\%InitPower.*)$'], [r'\1 \n use recdata, only:Lambda', r'\1 \n Lambda = CMB%A2s1s \n P%Tcmb = COBE_CMBTemp', r'real(dl) cons',r'\1 \ncons = (COBE_CMBTemp*1e6)**2'] )
+if(do_cl_norm):
+    replace_all(r"source/Calculator_CAMB.f90", [r'^(\s*subroutine\s+CAMBCalc_CMBToCAMB\s*\(.+\).*)$', r'^(\s*P\%YHe\s*\=\s*CMB\%YHe.*)$', r'^.*parameter\s*\:\:\s*cons\s*=\s*\(COBE_CMBTemp.*$', r'^(\s*lens\_recon\_scale\s*=\s*CMB\%InitPower.*)$'], [r'\1 \n use recdata, only:Lambda', r'\1 \n Lambda = CMB%A2s1s \n P%Tcmb = COBE_CMBTemp', r'real(dl) cons',r'\1 \ncons = (COBE_CMBTemp*1e6)**2'] )
+else:
+    replace_all(r"source/Calculator_CAMB.f90", [r'^(\s*subroutine\s+CAMBCalc_CMBToCAMB\s*\(.+\).*)$', r'^(\s*P\%YHe\s*\=\s*CMB\%YHe.*)$', r'^(.*parameter\s*\:\:\s*cons\s*=\s*)\(COBE_CMBTemp.*$'], [r'\1 \n use recdata, only:Lambda', r'\1 \n Lambda = CMB%A2s1s \n P%Tcmb = COBE_CMBTemp', r'\1 (2.72558d6)**2'] )
 
 replace_all(r"source/CosmologyTypes.f90", [r'^(\s*Type\s*\,\s*extends.*\:\:\s*CMBParams)\s*(\!.*)?$'], [r'\1\n       real(mcp) A2s1s'])
 

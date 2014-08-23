@@ -190,9 +190,9 @@ replace_first("camb/constants.f90", [r'\,\s*parameter\s*(\:\:\s*COBE_CMBTemp)'],
 replace_first("source/driver.F90", [ line_pattern(r'call ini%open(inputfile)')], [ r'call Ini%Open(InputFile)\n cosmomc_paramnames = Ini%Read_String("paramnames", .false.) \n cosmomc_num_hard = Ini%Read_Int("num_hard", ' + str(numhard) + r') \n cosmomc_cosmorec_runmode = Ini%Read_Int("cosmorec_runmode", 2)'])
 
 if(do_cl_norm):
-    replace_all(r"source/Calculator_CAMB.f90", [r'\#ifdef\s+COSMOREC[^\#]*\#else', r'^.*parameter\s*\:\:\s*cons\s*=\s*\(COBE_CMBTemp.*$', r'^(\s*lens\_recon\_scale\s*=\s*CMB\%InitPower.*)$'], [r'#ifdef COSMOREC\n P%Recomb%fdm = CMB%fdm*1.d-23 \n P%Recomb%A2s1s = CMB%A2s1s \n P%Tcmb = COBE_CMBTemp \n P%Recomb%runmode = cosmomc_cosmorec_runmode \n#else', r'real(dl) cons',r'\1 \ncons = (COBE_CMBTemp*1e6)**2'] )
+    replace_all(r"source/Calculator_CAMB.f90", [r'\#ifdef\s+COSMOREC[^\#]*\#else', r'^(.*parameter\s*\:\:\s*cons\s*=\s*)\(COBE_CMBTemp.*$', r'^(\s*lens\_recon\_scale\s*=\s*CMB\%InitPower.*)$'], [r'#ifdef COSMOREC\n P%Recomb%fdm = CMB%fdm*1.d-23 \n P%Recomb%A2s1s = CMB%A2s1s \n P%Tcmb = COBE_CMBTemp \n P%Recomb%runmode = cosmomc_cosmorec_runmode \n#else', r'real(dl) cons',r'\1 \ncons = (COBE_CMBTemp*1e6)**2'] )
 else:
-    replace_all(r"source/Calculator_CAMB.f90", [r'\#ifdef\s+COSMOREC[^\#]*\#else'], [r'#ifdef COSMOREC\n P%Recomb%fdm = CMB%fdm*1.d-23 \n P%Recomb%A2s1s = CMB%A2s1s \n P%Tcmb = COBE_CMBTemp \n P%Recomb%runmode = cosmomc_cosmorec_runmode \n#else'] )
+    replace_all(r"source/Calculator_CAMB.f90", [r'\#ifdef\s+COSMOREC[^\#]*\#else', r'^(.*parameter\s*\:\:\s*cons\s*=\s*)\(COBE_CMBTemp.*$'], [r'#ifdef COSMOREC\n P%Recomb%fdm = CMB%fdm*1.d-23 \n P%Recomb%A2s1s = CMB%A2s1s \n P%Tcmb = COBE_CMBTemp \n P%Recomb%runmode = cosmomc_cosmorec_runmode \n#else', r'\1 (2.72558d6)**2'] )
 
 replace_all(r"source/CosmologyTypes.f90", [r'^(\s*Type\s*\,\s*extends.*\:\:\s*CMBParams)\s*(\!.*)?$'], [r'\1\n       real(mcp) A2s1s'])
 
@@ -212,13 +212,13 @@ copy_replace_first("test.ini", 'a2s1s.ini', [common_pattern, r'^file_root\s*=.+$
 
 copy_replace_all(common_file, batch_dir + r'/common_a2s1s.ini', [r'params\_CMB\_defaults\.ini'],  [r'params_a2s1s.ini'])
 
-copy_replace_all(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_a2s1s.ini', [r'^param\[fdm\]\s*=.*$'], [r'param[fdm] = 0 0 0 0 0 \nparam[A2s1s] = 8.224 5. 11. 0.8 0.8 \nparam[tcmb] = 2.7255 2.7255 2.7255 0. 0. ' ] )
+copy_replace_all(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_a2s1s.ini', [r'^param\[fdm\]\s*=.*$'], [r'param[fdm] = 0 0 0 0 0 \nparam[A2s1s] = 8.224 5. 11. 0.8 0.8 \nparam[tcmb] = 2.72558 2.72558 2.72558 0. 0. ' ] )
 
 copy_replace_first("test.ini", 'tcmb.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_tcmb.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = '+str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = tcmb', r'action = 0', str_propose] )
 
 copy_replace_all(common_file, batch_dir + r'/common_tcmb.ini', [r'params\_CMB\_defaults\.ini'],  [r'params_tcmb.ini'])
 
-copy_replace_all(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_tcmb.ini', [r'^param\[fdm\]\s*=.*$'], [r'param[fdm] = 0 0 0 0 0 \nparam[A2s1s] = 0 0 0 0 0 \nparam[tcmb] = 2.7255 2. 3.5 0.005 0.005' ] )
+copy_replace_all(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_tcmb.ini', [r'^param\[fdm\]\s*=.*$'], [r'param[fdm] = 0 0 0 0 0 \nparam[A2s1s] = 0 0 0 0 0 \nparam[tcmb] = 2.72558 2. 3.5 0.005 0.005' ] )
 
 
 
