@@ -2,6 +2,8 @@ program plot
   use coop_wrapper_utils
   implicit none
 #include "constants.h"
-!  call coop_file_decrypt("../../../doc/info/usr/usr.txt", "deusr.txt")
-  call coop_file_encrypt("deusr.txt", "../../../doc/info/usr/usr.txt")
+!!  call coop_file_decrypt("../../../doc/info/usr/usr.txt", "deusr.txt")
+  call coop_file_encrypt("deusr.txt", "usr.txt")
+  call system("cp usr.txt ../../../doc/info/usr/usr.txt")
+  call system("rm -f deusr.txt")
 end program plot

@@ -17,6 +17,7 @@ import sys
 patch_path = r'cambcr_patch.CR_v2.0.CAMB_Apr_2014'
 #cosmorec_path = r'../CosmoRec.v1.5b'
 cosmorec_path = r'CosmoRec.v2.0.1b'
+do_cl_norm = False
 #######################################################
 
 coop_propose_updae = 1200
@@ -188,7 +189,10 @@ replace_first("camb/constants.f90", [r'\,\s*parameter\s*(\:\:\s*COBE_CMBTemp)'],
 
 replace_first("source/driver.F90", [ line_pattern(r'call ini%open(inputfile)')], [ r'call Ini%Open(InputFile)\n cosmomc_paramnames = Ini%Read_String("paramnames", .false.) \n cosmomc_num_hard = Ini%Read_Int("num_hard", ' + str(numhard) + r') \n cosmomc_cosmorec_runmode = Ini%Read_Int("cosmorec_runmode", 2)'])
 
-replace_all(r"source/Calculator_CAMB.f90", [r'\#ifdef\s+COSMOREC[^\#]*\#else', r'^.*parameter\s*\:\:\s*cons\s*=\s*\(COBE_CMBTemp.*$', r'^(\s*lens\_recon\_scale\s*=\s*CMB\%InitPower.*)$'], [r'#ifdef COSMOREC\n P%Recomb%fdm = CMB%fdm*1.d-23 \n P%Recomb%A2s1s = CMB%A2s1s \n P%Tcmb = COBE_CMBTemp \n P%Recomb%runmode = cosmomc_cosmorec_runmode \n#else', r'real(dl) cons',r'\1 \ncons = (COBE_CMBTemp*1e6)**2'] )
+if(do_cl_norm):
+    replace_all(r"source/Calculator_CAMB.f90", [r'\#ifdef\s+COSMOREC[^\#]*\#else', r'^.*parameter\s*\:\:\s*cons\s*=\s*\(COBE_CMBTemp.*$', r'^(\s*lens\_recon\_scale\s*=\s*CMB\%InitPower.*)$'], [r'#ifdef COSMOREC\n P%Recomb%fdm = CMB%fdm*1.d-23 \n P%Recomb%A2s1s = CMB%A2s1s \n P%Tcmb = COBE_CMBTemp \n P%Recomb%runmode = cosmomc_cosmorec_runmode \n#else', r'real(dl) cons',r'\1 \ncons = (COBE_CMBTemp*1e6)**2'] )
+else:
+    replace_all(r"source/Calculator_CAMB.f90", [r'\#ifdef\s+COSMOREC[^\#]*\#else'], [r'#ifdef COSMOREC\n P%Recomb%fdm = CMB%fdm*1.d-23 \n P%Recomb%A2s1s = CMB%A2s1s \n P%Tcmb = COBE_CMBTemp \n P%Recomb%runmode = cosmomc_cosmorec_runmode \n#else'] )
 
 replace_all(r"source/CosmologyTypes.f90", [r'^(\s*Type\s*\,\s*extends.*\:\:\s*CMBParams)\s*(\!.*)?$'], [r'\1\n       real(mcp) A2s1s'])
 

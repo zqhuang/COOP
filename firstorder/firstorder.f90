@@ -1,10 +1,13 @@
 module coop_firstorder_mod
   use coop_wrapper_background
   use coop_recfast_mod
+  use coop_pertobj_mod
   implicit none
 #include "constants.h"
 
+private
 
+public:: coop_cosmology_firstorder, coop_cosmology_firstorder_source
 
   COOP_REAL, parameter :: coop_power_lnk_min = log(0.1d0) 
   COOP_REAL, parameter :: coop_power_lnk_max = log(5.d3) 
@@ -13,12 +16,14 @@ module coop_firstorder_mod
   COOP_REAL, dimension(0:2), parameter::coop_source_tau_weight = (/ 0.3d0, 0.2d0, 0.1d0 /)
   COOP_INT, dimension(0:2), parameter::coop_source_tau_n = (/ 1000, 850, 800 /)
 
-  COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.1d0, 0.2d0, 0.1d0 /)
+  COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.2d0, 0.15d0, 0.1d0 /)
+
   COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 160, 120, 80 /)
 
-  COOP_INT, dimension(0:2), parameter::coop_source_types = (/ 4,  2,  2 /)
+  COOP_INT, dimension(0:2), parameter::coop_num_sources = (/ 4,  2,  2 /)
 
   COOP_REAL, parameter::coop_source_k_index = 0.55d0
+
 
 
   type coop_cosmology_firstorder_source
@@ -160,10 +165,10 @@ contains
        if(allocated(this%perturbation(m)%source))then
           if(size(this%perturbation(m)%source, 1) .ne. this%perturbation(m)%ntau .or. size(this%perturbation(m)%source, 2) .ne. this%perturbation(m)%nk)then
              deallocate(this%perturbation(m)%source)
-             allocate(this%perturbation(m)%source(this%perturbation(m)%ntau, this%perturbation(m)%nk, coop_source_types(m)))
+             allocate(this%perturbation(m)%source(this%perturbation(m)%ntau, this%perturbation(m)%nk, coop_num_sources(m)))
           endif
        else
-          allocate(this%perturbation(m)%source(this%perturbation(m)%ntau, this%perturbation(m)%nk, coop_source_types(m)))
+          allocate(this%perturbation(m)%source(this%perturbation(m)%ntau, this%perturbation(m)%nk, coop_num_sources(m)))
        endif
     enddo
   end subroutine coop_cosmology_firstorder_set_xe
