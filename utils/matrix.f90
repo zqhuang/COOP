@@ -115,7 +115,7 @@ contains
     COOP_INT i
     COOP_LONG_STRING line
     if(ny.gt. 1000)then
-       write(*,*) "warning: reading a huge matrix: will not check comment lines"
+       call coop_feedback("warning: reading a huge matrix: will not check comment lines")
        do i=1,nx
           read(funit,*) mat(i,1:ny)
        enddo
@@ -185,7 +185,7 @@ contains
     COOP_INT i
     COOP_LONG_STRING line
     if(ny.gt. 1000)then
-       write(*,*) "warning: reading a huge matrix: will not check comment lines"
+       call coop_feedback( "warning: reading a huge matrix: will not check comment lines")
        do i=1,nx
           read(funit,*) mat(i,1:ny)
        enddo
@@ -295,8 +295,7 @@ contains
     n = Coop_getdim("Coop_matrix_Inverse", size(a,1), size(a,2))
     call dgetrf(n, n, a, n, indx, i)
     if(i.ne.0)then
-       write(*,*) "Coop_matrix_Inverse: singular matrix cannot be inverted"
-       stop
+       call coop_return_error( "Coop_matrix_Inverse", "singular matrix cannot be inverted", "stop")
     endif
     call dgetri(n, a, n, indx, work, 4*n, i)
 #else
@@ -768,10 +767,7 @@ contains
     endif
     deallocate(work)
     if(info .ne. 0) then
-       write(*,*) "Warning: linear least square problem failed"
-       write(*,*) "Error info = ", info
-       x = 0
-       return
+       call coop_return_error("coop_matrix_least_square_all", "Error info = "//trim(coop_num2str(info)), "stop")
     endif
   end subroutine coop_matrix_least_square_all
 
@@ -796,10 +792,7 @@ contains
     endif
     deallocate(work)
     if(info .ne. 0) then
-       write(*,*) "Warning: linear least square problem failed"
-       write(*,*) "Error info = ", info
-       x = 0
-       return
+       call coop_return_error("coop_matrix_least_square_one", "Error info = "//trim(coop_num2str(info)), "stop")
     endif
   end subroutine coop_matrix_least_square_one
 
@@ -920,9 +913,7 @@ contains
     do i=1,n
        summ=a(i,i)-dot_product(a(i,1:i-1),a(i,1:i-1))
        if (summ <= 0.0)then
-          write(*,*) 'coop_matsym_choldc failed;', i,  summ
-          write(*,*) 'try using LAPACK library'
-          stop 
+          call coop_return_error('coop_matsym_choldc', 'negative summ', 'stop')
        endif
        p(i)=sqrt(summ)
        a(i+1:n,i)=(a(i,i+1:n)-matmul(a(i+1:n,1:i-1),a(i,1:i-1)))/p(i)

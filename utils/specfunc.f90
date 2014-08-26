@@ -408,8 +408,7 @@ contains
     COOP_REAL trigarg,expterm,L3
 
     if(L.LT.0)THEN
-       write(*,*) 'Can not evaluate Spherical Bessel Function with index l<0'
-       STOP
+       call coop_return_error('coop_sphericalbesselJ', 'Can not evaluate Spherical Bessel Function with index l<0', 'stop')
     endif
     AX=Dabs(X)
     AX2=AX**2

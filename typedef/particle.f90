@@ -7,7 +7,7 @@ module coop_particle_mod
 
   private 
 
-  public:: coop_fermion_get_lnrho, coop_fermion_get_lnp,coop_fermion_get_dlnrho, coop_fermion_get_dlnp, coop_boson_get_lnrho, coop_boson_get_lnp,coop_boson_get_dlnrho, coop_boson_get_dlnp, coop_fermion_get_lnam, coop_boson_get_lnam
+  public:: coop_fermion_get_lnrho, coop_fermion_get_lnp,coop_fermion_get_dlnrho, coop_fermion_get_dlnp, coop_boson_get_lnrho, coop_boson_get_lnp,coop_boson_get_dlnrho, coop_boson_get_dlnp, coop_fermion_get_lnam, coop_boson_get_lnam, coop_fermion_int_q5, coop_fermion_int_q4, coop_fermion_int_q3, coop_fermion_int_kernel5, coop_fermion_int_kernel4, coop_fermion_int_kernel3
 
   integer,parameter::dl = coop_real_length
 

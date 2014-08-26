@@ -399,9 +399,9 @@ contains
 
           xelist(i)  = y(1) + fHe*y(2)
        end if
-       xelist(i) = max(xelist(i), coop_reionization_xe(zend, reionFrac, zre, deltaz))
+       xelist(i) = max(xelist(i), coop_reionization_xe(zend, reionFrac, zre, deltaz), 1.d-30)
     end do
-    call xeofa%init(n = nz, xmin=alist(1), xmax = alist(nz), f = xelist, xlog = .true., ylog = .false., fleft = xelist(1), fright = xelist(nz), slopeleft= 0.d0, sloperight = 0.d0, check_boundary = .false.)
+    call xeofa%init(n = nz, xmin=alist(1), xmax = alist(nz), f = xelist, xlog = .true., ylog = .true., fleft = xelist(1), fright = xelist(nz), slopeleft= 0.d0, sloperight = 0.d0, check_boundary = .false.)
 
   end subroutine coop_recfast_get_xe
 

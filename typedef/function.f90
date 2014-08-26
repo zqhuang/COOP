@@ -22,6 +22,8 @@ module coop_function_mod
      procedure::init_NonUniform => coop_function_initialize_NonUniform
      procedure::eval => coop_function_evaluate  
      procedure::eval_bare => coop_function_evaluate_bare !!without log scaling
+     procedure::derivative_bare => coop_function_derivative_bare !!without log scaling
+     procedure::derivative2_bare => coop_function_derivative2_bare !!without log scaling
      procedure::integrate => coop_function_integrate
      procedure::derivative => coop_function_derivative
      procedure::derivative2 => coop_function_derivative2
@@ -225,6 +227,8 @@ contains
     COOP_INT, optional::method
     COOP_INT, optional::chebyshev_order
     logical,optional::check_boundary
+    COOP_INT i, count_tiny, count_small
+    COOP_REAL::fmean, ftiny, curv, flarge, fsmall
     if(coop_isnan(f))then
        write(*,*) "Cannot construct the function type: found f = NAN within the specified range."
        stop
@@ -240,6 +244,10 @@ contains
     else
        this%ylog = .false.
     endif
+    if(this%xlog .and. (xmin .le. 0.d0 .or. xmax .le. 0.d0)) call coop_return_error("function:init", "cannot do xlog for x<=0", "stop")
+    if(this%ylog)then
+       if(any(f.le.0.d0)) call coop_return_error("function:init", "cannot do ylog for y<=0", "stop")
+    endif
     if(n .le. 1 .or. xmin .eq. xmax)then
        write(*,*) "coop function cannot be initialized for xmin = xmax"
        stop 
@@ -247,8 +255,44 @@ contains
     if(present(method))then
        this%method = method
     else
-       this%method = COOP_INTERPOLATE_LINEAR
+       !!automatically choose the best method
+       allocate(this%f(n))
+       if(this%ylog)then
+          this%f = log(f)
+       else
+          this%f = f
+       endif
+       fmean = sum(this%f)/n
+       flarge = sqrt(sum((this%f-fmean)**2)/n)/n
+       ftiny = flarge*1.d-7
+       fsmall = flarge*1.d-4
+
+       count_small = 0
+       count_tiny = 0
+       do i=1, n - 3
+          curv = abs(this%f(i) - 2.d0*this%f(i+1) + this%f(i+2))+ abs( this%f(i+1) -2.d0 * this%f(i+2) + this%f(i+3))
+          if(curv .gt. flarge)then
+             this%method = COOP_INTERPOLATE_LINEAR
+             goto 100
+          endif
+          if(curv .lt. fsmall)then
+             count_small = count_small + 1
+             if(curv .lt.ftiny)then
+                count_tiny = count_tiny + 1
+                if(count_tiny .gt. 5)then
+                   this%method = COOP_INTERPOLATE_QUADRATIC
+                   goto 100
+                endif
+             endif
+             if(count_small .gt. 20)then
+                this%method = COOP_INTERPOLATE_QUADRATIC
+                goto 100
+             endif
+          endif
+       enddo
+       this%method = COOP_INTERPOLATE_SPLINE
     endif
+100 continue
     if(this%method .eq. COOP_INTERPOLATE_CHEBYSHEV)then
        if(present(chebyshev_order))then
           this%n = chebyshev_order + 1
@@ -258,16 +302,19 @@ contains
     else
        this%n = n
     endif
-    allocate(this%f(this%n), this%f2(this%n))
-    if(this%method .ne. COOP_INTERPOLATE_CHEBYSHEV)then
-       if(this%ylog)then
-          this%f = log(f)
-       else
-          this%f = f
+    if(.not. allocated(this%f))then
+       allocate(this%f(this%n))
+       if(this%method .ne. COOP_INTERPOLATE_CHEBYSHEV)then
+          if(this%ylog)then
+             this%f = log(f)
+          else
+             this%f = f
+          endif
        endif
-    else
-       allocate(this%f1(this%n))
     endif
+    allocate(this%f2(this%n))
+    if(this%method .eq. COOP_INTERPOLATE_CHEBYSHEV) allocate(this%f1(this%n))
+
     if(this%xlog)then
        if(xmin .le. 0.d0 .or. xmax .le. 0.d0) stop "Error: cannot set xlog = .true. for xmin<0 or xmax<0"
        this%xmin = log(xmin)
@@ -304,7 +351,7 @@ contains
     select case(this%method)
     case(COOP_INTERPOLATE_LINEAR)
        this%f2 = 0.
-    case(COOP_INTERPOLATE_QUDRATIC)
+    case(COOP_INTERPOLATE_QUADRATIC)
        this%f2(2:n-1) = this%f(3:n) + this%f(1:n-2) - 2.*this%f(2:n-1)
        this%f2(1) = this%f2(2)
        this%f2(n) = this%f2(n-1)
@@ -377,7 +424,7 @@ contains
        case(COOP_INTERPOLATE_LINEAR)
           b = b - l
           f = this%f(l) * (1.d0-b) + this%f(l+1) * b 
-       case(COOP_INTERPOLATE_QUDRATIC, COOP_INTERPOLATE_SPLINE)
+       case(COOP_INTERPOLATE_QUADRATIC, COOP_INTERPOLATE_SPLINE)
           b = b - l
           r = l + 1
           a = 1. - b
@@ -389,6 +436,132 @@ contains
        end select
     endif
   end function coop_function_evaluate_bare
+
+
+
+  function coop_function_derivative_bare(this, x) result(f)
+    class(coop_function):: this
+    COOP_REAL x, f, a, b, xdiff
+    COOP_INT l, r
+    xdiff = x - this%xmin
+    b = xdiff/this%dx + 1.d0
+    l = floor(b)
+    if(l .lt. 1)then
+       if(this%check_boundary)then
+          if(b .gt. 0.9999d0)then
+             b = 1.d0
+             l = 1
+          else
+             write(*,*) this%xlog, this%ylog, this%n, b
+             write(*,*) x, ":", this%xmin, " -- ", this%xmax, " ---", this%dx
+             write(*,*) "coop_function cannot be evaluated out of its boundary"
+             stop
+          endif
+       else
+          f = this%slopeleft
+          return
+       endif
+    elseif(l.ge. this%n)then
+       if(this%check_boundary)then
+          if(b .le. dble(this%n)+1.d-4)then
+             b = this%n
+             l = this%n-1
+          else
+             write(*,*) this%xlog, this%ylog, this%n, b
+             write(*,*) x, ":", this%xmin, " -- ", this%xmax, " ---", this%dx
+             write(*,*) "coop_function cannot be evaluated out of its boundary"
+             stop
+          endif
+       else
+          f = this%sloperight
+          return
+       endif
+    endif
+    
+    select case(this%method)
+    case(COOP_INTERPOLATE_LINEAR)
+       if(l.eq.1.or.l.eq.this%n-1)then
+          f = (this%f(l+1)-this%f(l))/this%dx
+       else
+          f = (this%eval_bare(x+0.5*this%dx)-this%eval_bare(x-0.5*this%dx))/this%dx
+       endif
+    case(COOP_INTERPOLATE_QUADRATIC, COOP_INTERPOLATE_SPLINE)
+       b = b - l
+       r = l + 1
+       a = 1. - b
+       f =  ((this%f(r) - this%f(l)) + ( this%f2(r)*(3.d0*b**2-1.) - this%f2(l) * (3.d0*a**2-1.) ))/this%dx
+    case(COOP_INTERPOLATE_CHEBYSHEV)
+       call coop_chebeval(this%n, this%xmin, this%xmax, this%f1, x, f)
+    case default
+       call coop_return_error("coop_functiion_derivative_bare", "UNKNOWN interpolation method", "stop")
+    end select
+
+  end function coop_function_derivative_bare
+
+
+  function coop_function_derivative2_bare(this, x) result(f)
+    class(coop_function):: this
+    COOP_REAL x, f, a, b, xdiff
+    COOP_INT l, r
+    xdiff = x - this%xmin
+    b = xdiff/this%dx + 1.d0
+    l = floor(b)
+    if(l .lt. 1)then
+       if(this%check_boundary)then
+          if(b .gt. 0.9999d0)then
+             b = 1.d0
+             l = 1
+          else
+             write(*,*) this%xlog, this%ylog, this%n, b
+             write(*,*) x, ":", this%xmin, " -- ", this%xmax, " ---", this%dx
+             write(*,*) "coop_function cannot be evaluated out of its boundary"
+             stop
+          endif
+       else
+          f = 0.d0
+          return
+       endif
+    elseif(l.ge. this%n)then
+       if(this%check_boundary)then
+          if(b .le. dble(this%n)+1.d-4)then
+             b = this%n
+             l = this%n-1
+          else
+             write(*,*) this%xlog, this%ylog, this%n, b
+             write(*,*) x, ":", this%xmin, " -- ", this%xmax, " ---", this%dx
+             write(*,*) "coop_function cannot be evaluated out of its boundary"
+             stop
+          endif
+       else
+          f = 0.d0
+          return
+       endif
+    endif
+    
+    select case(this%method)
+    case(COOP_INTERPOLATE_LINEAR)
+       if(l .eq. 1)then
+          f = (this%f(3)+this%f(1) - 2.d0*this%f(2))/this%dx**2
+          return
+       elseif(l.eq.this%n-1)then
+          f = (this%f(this%n)+this%f(this%n-2) - 2.d0*this%f(this%n-1))/this%dx**2
+          return
+       else
+          f = (this%eval_bare(x+this%dx)+this%eval_bare(x-this%dx)-2.d0*this%eval_bare(x))/this%dx**2
+       endif
+
+    case(COOP_INTERPOLATE_QUADRATIC, COOP_INTERPOLATE_SPLINE)
+       b = b - l
+       r = l + 1
+       a = 1. - b
+       f =  ( this%f2(r)*b + this%f2(l) * a )*6.d0/this%dx**2
+    case(COOP_INTERPOLATE_CHEBYSHEV)
+       call coop_chebeval(this%n, this%xmin, this%xmax, this%f2, x, f)
+    case default
+       call coop_return_error("coop_functiion_derivative2_bare", "UNKNOWN interpolation method", "stop")
+    end select
+
+  end function coop_function_derivative2_bare
 
 
   function coop_function_maxloc(this) result(xm)
@@ -519,76 +692,27 @@ contains
 !!to be optimized
   function coop_function_derivative(this, x) result(fp)
     class(coop_function)::this
-    COOP_REAL x, fp, dx, xbare
-    COOP_REAL iloc
+    COOP_REAL x, fp
     if(this%xlog)then
-       xbare  = log(x)
+       fp  = this%derivative_bare(log(x))/x
     else
-       xbare = x
+       fp = this%derivative_bare(x)
     endif
-    iloc = (xbare - this%xmin)/this%dx + 1.d0
-    if(iloc .lt. 1.25d0)then
-       if(iloc .lt. 0.999d0)then
-          fp = 0.d0
-          return
-       endif
-       xbare = this%xmin + this%dx/4.d0
-    elseif(iloc .gt. this%n - 0.25d0)then
-       if(iloc .gt. this%n + 0.001d0)then
-          fp = 0.d0
-          return
-       endif
-       xbare = this%xmax - this%dx/4.d0
-    endif
-    select case(this%method)
-    case(COOP_INTERPOLATE_CHEBYSHEV)
-       call coop_chebeval(this%n, this%xmin, this%xmax, this%f1, xbare, fp)
-    case default
-       dx = this%dx*0.24999d0
-       fp = (this%eval_bare(xbare+dx) - this%eval_bare(xbare - dx))/(2.d0*dx)
-    end select
-
-    if(this%xlog) fp = fp/x
     if(this%ylog) fp = fp * this%eval(x)
   end function coop_function_derivative
 
 
   function coop_function_derivative2(this, x) result(fpp)
     class(coop_function)::this
-    COOP_REAL x, fpp, f, dx, fp, fplus, fminus, xbare, iloc
+    COOP_REAL x, fpp, xbare, fp, f
     if(this%xlog)then
        xbare = log(x)
     else
        xbare = x
     endif
-    iloc = (xbare - this%xmin)/this%dx + 1.d0
-    if(iloc .lt. 1.9d0)then
-       if(iloc .lt. 0.999d0)then
-          fp = 0.d0
-          return
-       endif
-       xbare = this%xmin + this%dx*0.9d0
-    elseif(iloc .gt. this%n - 0.9d0)then
-       if(iloc .gt. this%n + 0.001d0)then
-          fp = 0.d0
-          return
-       endif
-       xbare = this%xmax - this%dx*0.9d0
-    endif
-
-    select case(this%method)
-    case(COOP_INTERPOLATE_CHEBYSHEV)
-       if(this%ylog)call coop_chebeval(this%n, this%xmin, this%xmax, this%f, xbare, f)
-       if(this%ylog .or. this%xlog) call coop_chebeval(this%n, this%xmin, this%xmax, this%f1, xbare, fp)
-       call coop_chebeval(this%n, this%xmin, this%xmax, this%f2, xbare, fpp)
-    case default
-       dx = this%dx*0.899d0
-       fplus = this%eval_bare(xbare+dx)
-       fminus = this%eval_bare(xbare-dx)
-       f = this%eval_bare(xbare)
-       if(this%xlog .or. this%ylog) fp = (fplus - fminus)/(2.d0*dx)
-       fpp = (fplus + fminus - 2.d0*f)/(dx**2)
-    end select
+    fpp = this%derivative2_bare(xbare)
+    if(this%ylog)f = this%eval_bare(xbare)
+    if(this%ylog .or. this%xlog) fp = this%derivative_bare(xbare)
     if(this%xlog)then
        fpp = (fpp  - fp)/x**2
        fp = fp/x

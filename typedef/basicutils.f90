@@ -155,7 +155,7 @@ contains
     COOP_INT getdim
     getdim=N1
     if(N1.NE.N2)THEN
-       write(*,"(A,2I8)") "Dimension Error:",N1,N2
+       write(*,"(A,2I8)") "Dimension Error:",N1, N2
        CALL Coop_return_error(name)
        return
     ELSE
@@ -549,8 +549,7 @@ contains
     COOP_REAL fx(n, m ),t(n)
     COOP_INT i
     if(m.gt.n)then
-       write(*,*) "coop_chebfit: Not enough data for chebyshev polynomial fit."
-       stop
+       call coop_return_error("coop_chebfit", "Not enough data.", "stop")
     endif
     t=2.d0*(x-a)/(b-a)-1.d0
     !$omp parallel do
@@ -568,8 +567,7 @@ contains
     COOP_REAL fx(n, m ),dt
     COOP_INT i
     if(m.gt.n)then
-       write(*,*) "coop_chebfit_uniform: Not enough data for chebyshev polynomial fit."
-       stop
+       call coop_return_error("coop_chebfit_uniform", "Not enough data", "stop")
     endif
     dt = 2.d0/(n-1)
     !$omp parallel do

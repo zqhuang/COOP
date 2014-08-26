@@ -25,7 +25,7 @@ contains
 #ifdef HAS_FFTW
     call fft_1d_forward(n, fx, fk)
 #else
-    write(*,*) "coop_fft: Cannot find FFTW library. Please change the configura.in file."
+    call coop_return_error("coop_fft_forward_1d", "coop_fft: Cannot find FFTW library. Please change the configura.in file.", "stop")
 #endif    
   end subroutine coop_fft_forward_1d
 
@@ -37,7 +37,7 @@ contains
     call fft_1d_backward(n, fk, fx)
     fx = fx/n
 #else
-    write(*,*) "coop_fft: Cannot find FFTW library. Please change the configura.in file."
+    call coop_return_error("coop_fft", "Cannot find FFTW library. Please change the configura.in file.", "stop")
 #endif    
   end subroutine coop_fft_backward_1d
 
@@ -49,7 +49,7 @@ contains
 #ifdef HAS_FFTW
     call fft_2d_forward(nx, ny, fx, fk)
 #else
-    write(*,*) "coop_fft: Cannot find FFTW library. Please change the configura.in file."
+    call coop_return_error("coop_fft", "Cannot find FFTW library. Please change the configura.in file.", "stop")
 #endif    
   end subroutine coop_fft_forward_2d
 
@@ -61,7 +61,7 @@ contains
     call fft_2d_backward(nx, ny, fk, fx)
     fx = fx/(dble(nx)*dble(ny))
 #else
-    write(*,*) "coop_fft: Cannot find FFTW library. Please change the configura.in file."
+    call coop_return_error("coop_fft", "Cannot find FFTW library. Please change the configura.in file.", "stop")
 #endif    
   end subroutine coop_fft_backward_2d
 
@@ -73,7 +73,7 @@ contains
 #ifdef HAS_FFTW
     call fft_2d_forward(nx, ny, fx, fk)
 #else
-    write(*,*) "coop_fft: Cannot find FFTW library. Please change the configura.in file."
+    call coop_return_error("coop_fft", "Cannot find FFTW library. Please change the configura.in file.", "stop")
 #endif    
   end subroutine coop_fft_forward_2d_ss
 
@@ -85,7 +85,7 @@ contains
     call fft_2d_backward(nx, ny, fk, fx)
     fx = fx/(dble(nx)*dble(ny))
 #else
-    write(*,*) "coop_fft: Cannot find FFTW library. Please change the configura.in file."
+    call coop_return_error("coop_fft", "Cannot find FFTW library. Please change the configura.in file.", "stop")
 #endif    
   end subroutine coop_fft_backward_2d_ss
 
@@ -97,7 +97,7 @@ contains
 #ifdef HAS_FFTW
     call fft_3d_forward(nx, ny, nz, fx, fk)
 #else
-    write(*,*) "coop_fft: Cannot find FFTW library. Please change the configura.in file."
+    call coop_return_error("coop_fft", "Cannot find FFTW library. Please change the configura.in file.", "stop")
 #endif    
   end subroutine coop_fft_forward_3d
 
@@ -109,7 +109,7 @@ contains
     call fft_3d_backward(nx, ny, nz, fk, fx)
     fx = fx/(dble(nx)*dble(ny)*dble(nz))
 #else
-    write(*,*) "coop_fft: Cannot find FFTW library. Please change the configura.in file."
+    call coop_return_error("coop_fft", "Cannot find FFTW library. Please change the configura.in file.", "stop")
 #endif    
   end subroutine coop_fft_backward_3d
 
@@ -122,7 +122,7 @@ contains
 #ifdef HAS_FFTW
     call fft_3d_forward(nx, ny, nz, fx, fk)
 #else
-    write(*,*) "coop_fft: Cannot find FFTW library. Please change the configura.in file."
+    call coop_return_error("coop_fft", "Cannot find FFTW library. Please change the configura.in file.", "stop")
 #endif    
   end subroutine coop_fft_forward_3d_ss
 
@@ -134,7 +134,7 @@ contains
     call fft_3d_backward(nx, ny, nz, fk, fx)
     fx = fx/(dble(nx)*dble(ny)*dble(nz))
 #else
-    write(*,*) "coop_fft: Cannot find FFTW library. Please change the configura.in file."
+    call coop_return_error("coop_fft", "Cannot find FFTW library. Please change the configura.in file.", "stop")
 #endif    
   end subroutine coop_fft_backward_3d_ss
 

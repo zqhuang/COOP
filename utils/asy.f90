@@ -1065,14 +1065,12 @@ contains
     COOP_STRING lineproperty
     logical do_raw
     if(.not. coop_file_exists(fname))then
-       write(*,*) "coop_asy_curve_from_file: the data file "//trim(fname)//" does not exist"
-       stop 
+       call coop_return_error("coop_asy_curve_from_file", "The data file "//trim(fname)//" does not exist", "stop")
     endif
     m = coop_file_numlines(fname)
     ncols = coop_file_numColumns(fname)
     if(ncols .eq. 0)then
-       write(*,*) "coop_asy_curve_from_file: the data file "//trim(fname)//" is empty"
-       stop 
+       call coop_return_error("coop_asy_curve_from_file", "The data file "//trim(fname)//" is empty", "stop")
     endif
     if(present(xcol))then
        if(xcol .gt. ncols) stop "coop_asy_curve_from_file: xcol > ncol"
@@ -1095,8 +1093,7 @@ contains
           xraw(i) = line(xl)
           yraw(i) = line(yl)
        else
-          write(*,*) trim(fname)//" has a wrong format"
-          stop
+          call coop_return_error("coop_asy_curve_from_file", trim(fname)//" has a wrong format", "stop")
        endif
     enddo
     call fp2%close()

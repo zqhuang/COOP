@@ -29,7 +29,7 @@ contains
     call mpi_init(ierror)
     if (ierror .ne. MPI_SUCCESS) stop 'MPI fail: cannot initialize'
 #else
-    write(*,*) "MPI not used...ignoring the MPI related operations..."
+    call coop_feedback("MPI not used...ignoring the MPI related operations...", 2)
 #endif
   end subroutine coop_MPI_init
 

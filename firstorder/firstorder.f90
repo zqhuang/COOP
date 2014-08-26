@@ -5,13 +5,15 @@ module coop_firstorder_mod
   implicit none
 #include "constants.h"
 
-private
+!private
 
 public:: coop_cosmology_firstorder, coop_cosmology_firstorder_source
 
   COOP_REAL, parameter :: coop_power_lnk_min = log(0.1d0) 
   COOP_REAL, parameter :: coop_power_lnk_max = log(5.d3) 
   COOP_REAL, parameter :: coop_visibility_amin = 3.d-4
+  COOP_REAL, parameter :: coop_initial_condition_epsilon = 1.d-5
+  COOP_REAL, parameter :: coop_cosmology_firstorder_ode_accuracy = 1.d-7
 
   COOP_REAL, dimension(0:2), parameter::coop_source_tau_weight = (/ 0.3d0, 0.2d0, 0.1d0 /)
   COOP_INT, dimension(0:2), parameter::coop_source_tau_n = (/ 1000, 850, 800 /)
@@ -25,9 +27,7 @@ public:: coop_cosmology_firstorder, coop_cosmology_firstorder_source
   COOP_REAL, parameter::coop_source_k_index = 0.55d0
 
 
-
   type coop_cosmology_firstorder_source
-     logical::used = .false.
      COOP_INT::m = 0
      COOP_INT::ntau = 0
      COOP_INT::nk = 0
@@ -45,9 +45,10 @@ public:: coop_cosmology_firstorder, coop_cosmology_firstorder_source
      COOP_REAL::deltaz = 0.5d0
      COOP_REAL::kMpc_pivot = 0.05d0
      COOP_REAL::k_pivot
-     COOP_REAL dkappadtau_coef, ReionFrac
+     COOP_REAL::dkappadtau_coef, ReionFrac, Omega_m, Omega_r, a_eq, tau_eq
      type(coop_function)::Ps, Pt, Xe, ekappa, vis
-     type(coop_cosmology_firstorder_source),dimension(0:2)::perturbation
+     type(coop_cosmology_firstorder_source),dimension(0:2)::saved_source
+     COOP_INT::index_baryon, index_cdm, index_radiation, index_nu, index_massiveNu, index_de
    contains
      procedure:: set_source_tau => coop_cosmology_firstorder_set_source_tau
      procedure:: set_source_k => coop_cosmology_firstorder_set_source_k
@@ -55,9 +56,15 @@ public:: coop_cosmology_firstorder, coop_cosmology_firstorder_source
      procedure:: set_xe => coop_cosmology_firstorder_set_xe
      procedure:: set_zre_from_optre => coop_cosmology_firstorder_set_zre_from_optre
      procedure:: set_optre_from_zre => coop_cosmology_firstorder_set_optre_from_zre
+     procedure::set_tight_coupling => coop_cosmology_firstorder_set_tight_coupling
+     procedure::set_late_approx => coop_cosmology_firstorder_set_late_approx
+     procedure::set_initial_conditions => coop_cosmology_firstorder_set_initial_conditions
      procedure:: xeofa => coop_cosmology_firstorder_xeofa
+     procedure:: dxeda => coop_cosmology_firstorder_dxeda
      procedure:: dkappada => coop_cosmology_firstorder_dkappada
      procedure:: dkappadtau => coop_cosmology_firstorder_dkappadtau
+     procedure:: tauc => coop_cosmology_firstorder_tauc
+     procedure:: dot_tauc => coop_cosmology_firstorder_dot_tauc
      procedure:: visofa => coop_cosmology_firstorder_visofa
      procedure:: ekappaofa => coop_cosmology_firstorder_ekappaofa
      procedure:: psofk => coop_cosmology_firstorder_psofk
@@ -75,14 +82,13 @@ contains
     if(allocated(this%tau))deallocate(this%tau, this%chi, this%dtau, this%a)
     this%ntau = 0
     if(allocated(this%source))deallocate(this%source)
-    this%used = .false.
   end subroutine coop_cosmology_firstorder_source_free
 
   subroutine coop_cosmology_firstorder_free(this)
     class(coop_cosmology_firstorder)::this
     COOP_INT m, i
     do m=0,2
-       call this%perturbation(m)%free()
+       call this%saved_source(m)%free()
     enddo
     call this%Ps%free()
     call this%Pt%free()
@@ -123,14 +129,43 @@ contains
 
   subroutine coop_cosmology_firstorder_set_xe(this)
     class(coop_cosmology_firstorder)::this
-    integer index_baryon, i, m
+    integer i, m
     integer, parameter::n = 4096
     COOP_REAL ekappa(n), a(n), dkappadinva(n), dkappadtau(n), vis(n)
-    index_baryon = this%index_of("Baryon")
-    if(index_baryon .eq. 0)then
+    this%index_baryon = this%index_of("Baryon")
+    this%index_radiation = this%index_of("Radiation")
+    if(this%index_baryon .eq. 0 .or. this%index_radiation .eq. 0)then
        stop "Set_Xe: for a model without baryon, you cannot set up Xe"
     endif
-    this%dkappadtau_coef = this%species(index_baryon)%Omega * this%h() * coop_SI_sigma_thomson * (coop_SI_rhocritbyh2/coop_SI_c**2) * coop_SI_hbyH0 * coop_SI_c/ coop_SI_m_H * (1.d0 - this%YHe())
+    this%Omega_m = this%species(this%index_baryon)%Omega
+    this%Omega_r = this%species(this%index_radiation)%Omega
+    this%index_cdm = this%index_of("CDM")
+    if(this%index_cdm.eq.0)then
+       call coop_feedback("set_xe: warning: no CDM")
+    else
+       this%Omega_m  = this%Omega_m  + this%species(this%index_cdm)%Omega
+    endif
+    this%index_Nu = this%index_of("Massless Neutrinos")
+    if(this%index_Nu.eq.0)then
+       call coop_feedback("set_xe: warning: no massless Neutrinos")
+    else
+       this%Omega_r = this%Omega_r + this%species(this%index_Nu)%Omega
+    endif
+    this%index_massiveNu = this%index_of("Massive Neutrinos")
+    if(this%index_massiveNu.eq.0)then
+       call coop_feedback("set_xe: warning: no massive Neutrinos", 2)
+    else
+       this%Omega_r = this%Omega_r + this%species(this%index_massiveNu)%Omega_massless
+    endif
+    this%index_de = this%index_of("Dark Energy")
+    if(this%index_de.eq.0)then
+       call coop_feedback("set_xe: warning: no dark energy")
+    endif
+
+    this%a_eq = this%Omega_r / this%Omega_m
+    this%tau_eq = this%conformal_time(this%a_eq)
+
+    this%dkappadtau_coef = this%species(this%index_baryon)%Omega * this%h() * coop_SI_sigma_thomson * (coop_SI_rhocritbyh2/coop_SI_c**2) * coop_SI_hbyH0 * coop_SI_c/ coop_SI_m_H * (1.d0 - this%YHe())
     if(this%do_reionization)then
        this%reionFrac = 1.d0 + this%YHe()/(coop_m_He_by_m_H * (1.d0-  this%YHe()))
     else
@@ -158,19 +193,7 @@ contains
     this%zrecomb = 1.d0/this%vis%maxloc() - 1.d0
     this%distlss = this%comoving_distance(1.d0/(1.d0+this%zrecomb))
     this%tau0 = this%conformal_time(coop_scale_factor_today)
-    do m=0, 2
-       this%perturbation(m)%m = m
-       call this%set_source_tau(this%perturbation(m), coop_source_tau_n(m), coop_source_tau_weight(m))
-       call this%set_source_k(this%perturbation(m), coop_source_k_n(m), coop_source_k_weight(m))
-       if(allocated(this%perturbation(m)%source))then
-          if(size(this%perturbation(m)%source, 1) .ne. this%perturbation(m)%ntau .or. size(this%perturbation(m)%source, 2) .ne. this%perturbation(m)%nk)then
-             deallocate(this%perturbation(m)%source)
-             allocate(this%perturbation(m)%source(this%perturbation(m)%ntau, this%perturbation(m)%nk, coop_num_sources(m)))
-          endif
-       else
-          allocate(this%perturbation(m)%source(this%perturbation(m)%ntau, this%perturbation(m)%nk, coop_num_sources(m)))
-       endif
-    enddo
+    
   end subroutine coop_cosmology_firstorder_set_xe
 
   function coop_cosmology_firstorder_xeofa(this, a) result(xe)
@@ -182,6 +205,17 @@ contains
        xe = this%xe%eval(a)
     endif
   end function coop_cosmology_firstorder_xeofa
+
+  function coop_cosmology_firstorder_dxeda(this, a) result(dxeda)
+    COOP_REAL a, dxeda
+    class(coop_cosmology_firstorder)::this
+    if(a .lt. 1.1d-4)then
+       dxeda = 0.d0 
+    else
+       dxeda = this%xe%derivative(a)
+    endif
+  end function coop_cosmology_firstorder_dxeda
+
 
   function coop_cosmology_firstorder_ekappaofa(this, a) result(ekappa)
     COOP_REAL a, ekappa
@@ -210,10 +244,26 @@ contains
     dkappadtau =  this%dkappadtau_coef * this%xeofa(a)/a**2
   end function coop_cosmology_firstorder_dkappadtau
 
+
+  function coop_cosmology_firstorder_tauc(this, a) result(tauc)
+    class(coop_cosmology_firstorder)::this    
+    COOP_REAL a, tauc
+    tauc =   a**2/(this%dkappadtau_coef * this%xeofa(a))
+  end function coop_cosmology_firstorder_tauc
+
+
+  function coop_cosmology_firstorder_dot_tauc(this, a) result(dtauc)
+    class(coop_cosmology_firstorder)::this    
+    COOP_REAL a, dtauc
+    dtauc =  a*(2.d0 - a*this%dxeda(a)/this%xeofa(a))/this%xeofa(a)
+  end function coop_cosmology_firstorder_dot_tauc
+
+
+
   function coop_cosmology_firstorder_dkappada(this, a) result(dkappada)
     class(coop_cosmology_firstorder)::this    
     COOP_REAL a, dkappada
-    dkappada = this%dkappadtau(a) / this%Hasq(a)
+    dkappada = this%dkappadtau(a) / this%dadtau(a)
   end function coop_cosmology_firstorder_dkappada
 
 
@@ -414,6 +464,100 @@ contains
     type(coop_arguments)::args
     dkappadz = cosmology%dkappadtau_coef * coop_reionization_xe(z, cosmology%reionFrac, cosmology%zre, cosmology%deltaz) / cosmology%Hasq(1.d0/(1.d0+z)) 
   end function coop_optre_int
+
+
+  subroutine coop_cosmology_firstorder_equations(n, a, var, varp, cosmology, pert )
+    COOP_INT n
+    class(coop_cosmology_firstorder)::cosmology
+    class(coop_standard_o1pert)::pert
+    COOP_REAL a, var(n), varp(n)
+    call pert%read_var(var)
+    if(pert%tight_coupling) call cosmology%set_tight_coupling(pert)
+    if(pert%late_approx) call cosmology%set_late_approx(pert)
+    varp = 0.d0  
+  end subroutine coop_cosmology_firstorder_equations
+
+  subroutine coop_cosmology_firstorder_set_tight_coupling(this, pert)
+    class(coop_cosmology_firstorder)::this
+    class(coop_standard_o1pert)::pert
+
+  end subroutine coop_cosmology_firstorder_set_tight_coupling
+
+
+  subroutine coop_cosmology_firstorder_set_late_approx(this, pert)
+    class(coop_cosmology_firstorder)::this
+    class(coop_standard_o1pert)::pert
+
+  end subroutine coop_cosmology_firstorder_set_late_approx
+
+
+  subroutine coop_cosmology_firstorder_set_initial_conditions(this, pert, k, tau)
+    class(coop_cosmology_firstorder)::this
+    class(coop_standard_o1pert)::pert
+    COOP_REAL tau, k
+    pert%k = k
+    select case(trim(pert%initial_conditions))
+    case("adiabatic")
+    case default
+       stop "unknown initial conditions"
+    end select
+  end subroutine coop_cosmology_firstorder_set_initial_conditions
+
+
+  subroutine coop_cosmology_firstorder_compute_source(this, m)
+    class(coop_cosmology_firstorder)::this
+    COOP_INT, parameter::n_threads = 8
+    type(coop_standard_o1pert),dimension(n_threads):: pert
+    COOP_INT m, ik, itau, ithread
+    COOP_REAL tau
+    this%saved_source(m)%m = m
+    call this%set_source_tau(this%saved_source(m), coop_source_tau_n(m), coop_source_tau_weight(m))
+    call this%set_source_k(this%saved_source(m), coop_source_k_n(m), coop_source_k_weight(m))
+    if(allocated(this%saved_source(m)%source))then
+       if(size(this%saved_source(m)%source, 1) .ne. this%saved_source(m)%ntau .or. size(this%saved_source(m)%source, 2) .ne. this%saved_source(m)%nk)then
+          deallocate(this%saved_source(m)%source)
+          allocate(this%saved_source(m)%source(this%saved_source(m)%ntau, this%saved_source(m)%nk, coop_num_sources(m)))
+       endif
+    else
+       allocate(this%saved_source(m)%source(this%saved_source(m)%ntau, this%saved_source(m)%nk, coop_num_sources(m)))
+    endif
+    pert%tight_coupling = .true.
+    pert%late_approx = .false.
+    pert%has_massiveNu = (this%index_massiveNu .ne. 0)
+    if(this%index_de .ne. 0)then
+       pert%has_de = (this%species(this%index_de)%genre .ne. COOP_SPECIES_LAMBDA)
+    else
+       pert%has_de = .false.
+    endif
+    do ithread = 1, n_threads
+       call pert(ithread)%init(m)
+       call pert(ithread)%set_ode_index()
+    enddo
+    !$omp parallel do private(ik, itau, ithread, tau)
+    do ithread = 1, n_threads
+       do ik = ithread, this%saved_source(m)%nk, n_threads
+          tau = min(coop_initial_condition_epsilon/this%saved_source(m)%k(ik), this%tau_eq*coop_initial_condition_epsilon)
+          call this%set_initial_conditions( pert(ithread), this%saved_source(m)%k(ik), tau)
+          call pert(ithread)%read_var()
+          do itau = 1, this%saved_source(m)%ntau
+             call coop_dverk_firstorder(pert(ithread)%ode_nvars, coop_cosmology_firstorder_equations, this, pert(ithread), tau, pert(ithread)%y, this%saved_source(m)%tau(itau), coop_cosmology_firstorder_ode_accuracy, pert(ithread)%ode_ind, pert(ithread)%ode_c, pert(ithread)%ode_nvars, pert(ithread)%ode_w)
+          enddo
+       enddo
+    enddo
+    !$omp end parallel do
+    
+  end subroutine coop_cosmology_firstorder_compute_source
+
+
+  subroutine coop_dverk_firstorder(n, fcn, cosmology, pert, x, y, xend, tol, ind, c, nw, w)
+    implicit COOP_REAL (a-h,o-z)
+    implicit COOP_INT (i-n)
+    class(coop_cosmology) cosmology
+    class(coop_standard_o1pert) pert
+#define DVERK_ARGUMENTS ,cosmology,pert
+#include "dverk.h"    
+#undef DVERK_ARGUMENTS
+  end subroutine coop_dverk_firstorder
 
 
 
