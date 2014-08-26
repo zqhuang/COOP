@@ -44,6 +44,7 @@ COOP_REAL, parameter::coop_SI_m_p = 1.00727646681290d0*coop_SI_atomic_mass_unit
 COOP_REAL, parameter::coop_SI_m_n = 1.0086649160043*coop_SI_atomic_mass_unit
 COOP_REAL, parameter::coop_SI_m_H =  coop_SI_m_e + coop_SI_m_p - coop_SI_H_bind/coop_SI_c**2
 COOP_REAL, parameter::coop_m_He_by_m_H = 3.9715d0
+COOP_REAL, parameter::coop_SI_barssc0 = coop_SI_kB /coop_SI_m_p/coop_SI_c**2
 !!temperature
 doubleprecision, parameter::coop_SI_PlanckTemperature = coop_SI_PlanckEnergy / coop_SI_kB
 !!blackbody

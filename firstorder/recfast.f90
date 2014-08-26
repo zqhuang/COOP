@@ -235,73 +235,73 @@ module coop_recfast_mod
   private
 
 
-  public:: coop_recfast_get_xe, coop_reionization_xe
+  public:: coop_recfast_get_xe, coop_reionization_xe, coop_recfast_a_initial
 
+  COOP_REAL, parameter::coop_recfast_a_initial = 1.d-4
+  COOP_REAL,parameter::zinitial = 1.d0/coop_recfast_a_initial + 1.d0
   integer,parameter::  Hswitch = 1, Heswitch=6
-
-  real*8,parameter::zinitial = 10000.d0
-  real*8,parameter::zfinal = 0.d0
+  COOP_REAL,parameter::zfinal = 0.d0
   !!C	--- Parameter statements
-  real*8, parameter::bigH=100.0D3/(1.0D6*3.0856775807D16)	!Ho in s-1
-  real*8, parameter::tol=1.D-5				!Tolerance for R-K
+  COOP_REAL, parameter::bigH=100.0D3/(1.0D6*3.0856775807D16)	!Ho in s-1
+  COOP_REAL, parameter::tol=1.D-5				!Tolerance for R-K
 
 
   !!C	--- Data
-  real*8, parameter:: C = 2.99792458D8, k_B = 1.380658D-23, h_P = 6.6260755D-34
-  real*8, parameter:: m_e = 9.1093897D-31, m_H = 1.673575D-27	!av. H atom
+  COOP_REAL, parameter:: C = 2.99792458D8, k_B = 1.380658D-23, h_P = 6.6260755D-34
+  COOP_REAL, parameter:: m_e = 9.1093897D-31, m_H = 1.673575D-27	!av. H atom
   !!c	note: neglecting deuterium, making an O(e-5) effect
-  real*8, parameter:: not4 = 3.9715D0
-  real*8, parameter:: sigma = 6.6524616D-29, a = 7.565914D-16
-  real*8, parameter:: Pi = 3.141592653589d0
-  real*8, parameter:: G = 6.6742D-11
-  real*8, parameter:: Lambda  = 8.2245809d0
-  real*8, parameter:: Lambda_He	= 51.3d0	!new value from Dalgarno
-  real*8, parameter:: L_H_ion = 1.096787737D7 	!level for H ion. (in m^-1)
-  real*8, parameter:: L_H_alpha	 = 8.225916453D6 !averaged over 2 levels
-  real*8, parameter:: Lalpha = 1.d0/L_H_alpha
-  real*8, parameter:: L_He1_ion	= 1.98310772D7	!from Drake (1993)
-  real*8, parameter:: L_He2_ion	= 4.389088863D7	!from JPhysChemRefData (1987)
-  real*8, parameter:: L_He_2s = 1.66277434D7	!from Drake (1993)
-  real*8, parameter:: L_He_2p = 1.71134891D7	!from Drake (1993)
+  COOP_REAL, parameter:: not4 = 3.9715D0
+  COOP_REAL, parameter:: sigma = 6.6524616D-29, a = 7.565914D-16
+  COOP_REAL, parameter:: Pi = 3.141592653589d0
+  COOP_REAL, parameter:: G = 6.6742D-11
+  COOP_REAL, parameter:: Lambda  = 8.2245809d0
+  COOP_REAL, parameter:: Lambda_He	= 51.3d0	!new value from Dalgarno
+  COOP_REAL, parameter:: L_H_ion = 1.096787737D7 	!level for H ion. (in m^-1)
+  COOP_REAL, parameter:: L_H_alpha	 = 8.225916453D6 !averaged over 2 levels
+  COOP_REAL, parameter:: Lalpha = 1.d0/L_H_alpha
+  COOP_REAL, parameter:: L_He1_ion	= 1.98310772D7	!from Drake (1993)
+  COOP_REAL, parameter:: L_He2_ion	= 4.389088863D7	!from JPhysChemRefData (1987)
+  COOP_REAL, parameter:: L_He_2s = 1.66277434D7	!from Drake (1993)
+  COOP_REAL, parameter:: L_He_2p = 1.71134891D7	!from Drake (1993)
   !!C	2 photon rates and atomic levels in SI units
 
-  real*8, parameter:: A2P_s = 1.798287D9    !Morton, Wu & Drake (2006)
-  real*8, parameter:: A2P_t = 177.58D0      !Lach & Pachuski (2001)
-  real*8, parameter:: L_He_2Pt	= 1.690871466D7 !Drake & Morton (2007)
-  real*8, parameter:: L_He_2St = 1.5985597526D7 !Drake & Morton (2007)
-  real*8, parameter:: L_He2St_ion = 3.8454693845D6 !Drake & Morton (2007)
-  real*8, parameter:: sigma_He_2Ps = 1.436289D-22  !Hummer & Storey (1998)
-  real*8, parameter:: sigma_He_2Pt = 1.484872D-22  !Hummer & Storey (1998)
+  COOP_REAL, parameter:: A2P_s = 1.798287D9    !Morton, Wu & Drake (2006)
+  COOP_REAL, parameter:: A2P_t = 177.58D0      !Lach & Pachuski (2001)
+  COOP_REAL, parameter:: L_He_2Pt	= 1.690871466D7 !Drake & Morton (2007)
+  COOP_REAL, parameter:: L_He_2St = 1.5985597526D7 !Drake & Morton (2007)
+  COOP_REAL, parameter:: L_He2St_ion = 3.8454693845D6 !Drake & Morton (2007)
+  COOP_REAL, parameter:: sigma_He_2Ps = 1.436289D-22  !Hummer & Storey (1998)
+  COOP_REAL, parameter:: sigma_He_2Pt = 1.484872D-22  !Hummer & Storey (1998)
   !!C	Atomic data for HeI 
 
-  real*8, parameter:: AGauss1 = -0.14D0	!Amplitude of 1st Gaussian
-  real*8, parameter:: AGauss2 = 0.079D0	!Amplitude of 2nd Gaussian
-  real*8, parameter:: zGauss1 = 7.28D0	!ln(1+z) of 1st Gaussian
-  real*8, parameter:: zGauss2 = 6.73D0	!ln(1+z) of 2nd Gaussian
-  real*8, parameter:: wGauss1 = 0.18D0	!Width of 1st Gaussian
-  real*8, parameter:: wGauss2 = 0.33D0	!Width of 2nd Gaussian
+  COOP_REAL, parameter:: AGauss1 = -0.14D0	!Amplitude of 1st Gaussian
+  COOP_REAL, parameter:: AGauss2 = 0.079D0	!Amplitude of 2nd Gaussian
+  COOP_REAL, parameter:: zGauss1 = 7.28D0	!ln(1+z) of 1st Gaussian
+  COOP_REAL, parameter:: zGauss2 = 6.73D0	!ln(1+z) of 2nd Gaussian
+  COOP_REAL, parameter:: wGauss1 = 0.18D0	!Width of 1st Gaussian
+  COOP_REAL, parameter:: wGauss2 = 0.33D0	!Width of 2nd Gaussian
   !!C	Gaussian fits for extra H physics (fit by Adam Moss, modified by
   !!C	Antony Lewis)
 
-  real*8, parameter:: Lalpha_He = 1.d0/L_He_2p
-  real*8, parameter:: DeltaB = h_P*C*(L_H_ion-L_H_alpha)
-  real*8, parameter:: CDB = DeltaB/k_B
-  real*8, parameter:: DeltaB_He = h_P*C*(L_He1_ion-L_He_2s)	!2s, not 2p
-  real*8, parameter:: CDB_He = DeltaB_He/k_B
-  real*8, parameter:: CB1 = h_P*C*L_H_ion/k_B
-  real*8, parameter:: CB1_He1 = h_P*C*L_He1_ion/k_B	!ionization for HeI
-  real*8, parameter:: CB1_He2 = h_P*C*L_He2_ion/k_B	!ionization for HeII
-  real*8, parameter:: CR = 2.d0*Pi*(m_e/h_P)*(k_B/h_P)
-  real*8, parameter:: CK = Lalpha**3/(8.d0*Pi)
-  real*8, parameter:: CK_He = Lalpha_He**3/(8.d0*Pi)
-  real*8, parameter:: CL = C*h_P/(k_B*Lalpha)
-  real*8, parameter:: CL_He = C*h_P/(k_B/L_He_2s)	!comes from det.bal. of 2s-1s
-  real*8, parameter:: CT = (8.d0/3.d0)*(sigma/(m_e*C))*a
-  real*8, parameter:: Bfact = h_P*C*(L_He_2p-L_He_2s)/k_B
+  COOP_REAL, parameter:: Lalpha_He = 1.d0/L_He_2p
+  COOP_REAL, parameter:: DeltaB = h_P*C*(L_H_ion-L_H_alpha)
+  COOP_REAL, parameter:: CDB = DeltaB/k_B
+  COOP_REAL, parameter:: DeltaB_He = h_P*C*(L_He1_ion-L_He_2s)	!2s, not 2p
+  COOP_REAL, parameter:: CDB_He = DeltaB_He/k_B
+  COOP_REAL, parameter:: CB1 = h_P*C*L_H_ion/k_B
+  COOP_REAL, parameter:: CB1_He1 = h_P*C*L_He1_ion/k_B	!ionization for HeI
+  COOP_REAL, parameter:: CB1_He2 = h_P*C*L_He2_ion/k_B	!ionization for HeII
+  COOP_REAL, parameter:: CR = 2.d0*Pi*(m_e/h_P)*(k_B/h_P)
+  COOP_REAL, parameter:: CK = Lalpha**3/(8.d0*Pi)
+  COOP_REAL, parameter:: CK_He = Lalpha_He**3/(8.d0*Pi)
+  COOP_REAL, parameter:: CL = C*h_P/(k_B*Lalpha)
+  COOP_REAL, parameter:: CL_He = C*h_P/(k_B/L_He_2s)	!comes from det.bal. of 2s-1s
+  COOP_REAL, parameter:: CT = (8.d0/3.d0)*(sigma/(m_e*C))*a
+  COOP_REAL, parameter:: Bfact = h_P*C*(L_He_2p-L_He_2s)/k_B
   !!C	Matter departs from radiation when t(Th) > H_frac * t(H)
   !!C	choose some safely small number
-  real*8, parameter::  H_frac = 1.D-3
-  real*8, parameter::    b_He = 0.86
+  COOP_REAL, parameter::  H_frac = 1.D-3
+  COOP_REAL, parameter::    b_He = 0.86
 
 
 
@@ -314,19 +314,19 @@ contains
   End Function coop_reionization_xe
 
   
-  subroutine coop_recfast_get_xe(bg, xeofa, reionFrac, zre, deltaz)  
+  subroutine coop_recfast_get_xe(bg, xeofa, Tbofa, cs2bofa, reionFrac, zre, deltaz)  
     class(coop_cosmology_background)::bg
     type(coop_arguments)::args
-    type(coop_function)::xeofa
+    type(coop_function)::xeofa, Tbofa, cs2bofa
     integer ndim , nw, ind, i
-    integer, parameter::nz = 2048
-    COOP_REAL,dimension(nz)::alist,xelist
+    integer, parameter::nz = 4096
+    COOP_REAL,dimension(nz)::alist,xelist, Tblist, cs2blist
     COOP_REAL reionFrac, zre, deltaz
     !!arguments
     integer index_baryon, index_cdm
-    real*8 zend, zstart
-    real*8 mu_H, fHe, nnow, HO, fu
-    real*8 y(3), rhs, cw(24), w(3, 9), yp(3)
+    COOP_REAL zend, zstart
+    COOP_REAL mu_H, fHe, nnow, HO, fu
+    COOP_REAL y(3), rhs, cw(24), w(3, 9), yp(3)
     ndim = 3
     index_baryon = bg%index_of("Baryon")
     index_cdm = bg%index_of("CDM")
@@ -346,7 +346,7 @@ contains
        fu=1.125d0
     end if
 
-    call args%init( i = (/ index_baryon, index_cdm /), r = (/ fHe, Nnow, HO, fu /))
+    call args%init( i = (/ index_baryon, index_cdm /), r = (/ fHe, Nnow, HO, fu , reionFrac, zre, deltaz /), l = (/ .false. /) )
 
 
     call coop_set_uniform(nz, alist, -log(zinitial), -log(1.d0+zfinal))
@@ -363,19 +363,25 @@ contains
 !!$       zend =  zinitial + i*(zfinal - zinitial)/nz
        zstart = zend
        zend   = 1.d0/alist(i) - 1.d0
-       if (zend.gt.8000.d0) then
+       if(args%l(1))then
+          call coop_dverk_with_cosmology(ndim, coop_recfast_ion, bg, args, zstart,y, zend, tol, ind, cw, nw, w)
+          xelist(i)  = coop_reionization_xe(zend, reionFrac, zre, deltaz)
+          Tblist(i) = y(3)
+       elseif (zend.gt.8000.d0) then
           xelist(i) = 1.d0+2.d0*fHe
+          Tblist(i) = bg%Tcmb()*(1.d0+zend)
        else if(zend.gt.5000.d0)then
           rhs = dexp( 1.5d0 * dLog(CR*bg%Tcmb()/(1.d0+zend)) & 
                - CB1_He2/(bg%Tcmb()*(1.d0+zend)) ) / Nnow
           xelist(i) = 0.5d0 * ( dsqrt( (rhs-1.d0-fHe)**2 & 
                + 4.d0*(1.d0+2.d0*fHe)*rhs) - (rhs-1.d0-fHe) )
+          Tblist(i) = bg%Tcmb()*(1.d0+zend)
        else if(zend.gt.3500.d0)then
           xelist(i) = 1.d0 + fHe
           y(1) = 1.d0
           y(2) = 1.d0
           y(3) = bg%Tcmb()*(1.d0+zend)
-
+          Tblist(i) = y(3)
        else if(y(2).gt.0.99)then
 
           rhs = dexp( 1.5d0 * dLog(CR*bg%Tcmb()/(1.d0+zend)) & 
@@ -386,23 +392,39 @@ contains
           y(1) = 1.d0
           y(2) = (xelist(i) - 1.d0)/fHe
           y(3) = bg%Tcmb()*(1.d0+zend)
-
+          Tblist(i) = y(3)
        else if (y(1).gt.0.99d0) then
           call coop_dverk_with_cosmology(ndim, coop_recfast_ion, bg, args, zstart,  y, zend, tol, ind, cw, nw, w)
           rhs = dexp( 1.5d0 * dLog(CR*bg%Tcmb()/(1.d0+zend)) & 
                - CB1/(bg%Tcmb()*(1.d0+zend)) ) / Nnow
           y(1) = 0.5d0 * (dsqrt( rhs**2+4.d0*rhs ) - rhs )
-
           xelist(i) = y(1) + fHe*y(2)
+          Tblist(i) = y(3)
        else
           call coop_dverk_with_cosmology(ndim, coop_recfast_ion, bg, args, zstart,y, zend, tol, ind, cw, nw, w)
-
           xelist(i)  = y(1) + fHe*y(2)
+          Tblist(i) = y(3)
+          if(zend .gt. zre - deltaz*10.d0)then
+             if(xelist(i) .lt.  coop_reionization_xe(zend, reionFrac, zre, deltaz))then
+                xelist(i) = coop_reionization_xe(zend, reionFrac, zre, deltaz)
+                args%l(1) = .true.
+                ind = 1
+                cw = 0
+                w = 0
+             endif
+          endif
        end if
-       xelist(i) = max(xelist(i), coop_reionization_xe(zend, reionFrac, zre, deltaz), 1.d-30)
     end do
     call xeofa%init(n = nz, xmin=alist(1), xmax = alist(nz), f = xelist, xlog = .true., ylog = .true., fleft = xelist(1), fright = xelist(nz), slopeleft= 0.d0, sloperight = 0.d0, check_boundary = .false.)
-
+    call Tbofa%init(n = nz, xmin=alist(1), xmax = alist(nz), f = Tblist, xlog = .true., ylog = .true., fleft = Tblist(1), fright = Tblist(nz), slopeleft= -1.d0, sloperight = 0.d0, check_boundary = .false.)
+    do i=1, nz
+       cs2blist(i) =coop_SI_barssc0*(1.d0-0.75d0*bg%Yhe()+(1.d0-bg%YHe())*xelist(i))  &
+            *tblist(i)*(1.d0 - Tbofa%derivative_bare(log(alist(i)))/3.d0)
+    enddo
+    call cs2bofa%init(n = nz, xmin=alist(1), xmax = alist(nz), f = cs2blist, xlog = .true., ylog = .false., fleft = cs2blist(1), fright = cs2blist(nz), slopeleft= 0.d0, sloperight = 0.d0, check_boundary = .false.)
+    do i = 2900, 3100
+       print*, i,  1.d0/alist(i)-1.d0, cs2blist(i), Tblist(i)
+    enddo
   end subroutine coop_recfast_get_xe
 
   subroutine coop_recfast_ion(Ndim, z, y, f, bg, args)
@@ -410,28 +432,43 @@ contains
     class(coop_cosmology_background)::bg
     type(coop_arguments)::args
     integer Ndim,Heflag
-    real*8, parameter:: a_PPB = 4.309d0, b_PPB = -0.6166d0,     c_PPB = 0.6703d0,   d_PPB = 0.5300d0,  a_VF = 10.d0**(-16.744d0),    b_VF = 0.711d0,    T_0 = 10.d0**(0.477121d0)	,   T_1 = 10.d0**(5.114d0),     a_trip = 10.d0**(-16.306d0),    b_trip = 0.761D0
-    real*8 x_H, x_He, x, Tmat, n, n_He, Trad, Hz, dHdz, Rdown, Rup, sq_0, sq_1, Rdown_He, Rup_He, He_Boltz, K, Rdown_trip, Rup_trip, K_He,  tauHe_s, pHe_s, Doppler, AHcon, gamma_2Ps,  CfHe_t,CL_PSt, epsilon, factor, qb, pb, timeTh, timeH,  gamma_2Pt ,  pHe_t , tauHe_t
-    real*8 z, y(3), f(3), scal
+    COOP_REAL, parameter:: a_PPB = 4.309d0, b_PPB = -0.6166d0,     c_PPB = 0.6703d0,   d_PPB = 0.5300d0,  a_VF = 10.d0**(-16.744d0),    b_VF = 0.711d0,    T_0 = 10.d0**(0.477121d0)	,   T_1 = 10.d0**(5.114d0),     a_trip = 10.d0**(-16.306d0),    b_trip = 0.761D0
+    COOP_REAL x_H, x_He, x, Tmat, n, n_He, Trad, Hz, dHdz, Rdown, Rup, sq_0, sq_1, Rdown_He, Rup_He, He_Boltz, K, Rdown_trip, Rup_trip, K_He,  tauHe_s, pHe_s, Doppler, AHcon, gamma_2Ps,  CfHe_t,CL_PSt, epsilon, factor, qb, pb, timeTh, timeH,  gamma_2Pt ,  pHe_t , tauHe_t
+    COOP_REAL z, y(3), f(3), scal
     
 
 #define ARGS_FHE args%r(1)
 #define ARGS_NNOW args%r(2)
 #define ARGS_H0  args%r(3)
 #define ARGS_FUDGE args%r(4)
+#define ARGS_REION_FRAC args%r(5)
+#define ARGS_REION_ZRE args%r(6)
+#define ARGS_REION_DELTAZ args%r(7)
+#define ARGS_REION_SWITCH args%l(1)
 
+
+
+    scal = 1.d0/(1.d0+z)
+    Hz = ARGS_H0 * bg%Hratio(scal)
+    !!c	Also calculate derivative for use later
+    dHdz = -bg%HdotbyHsq(scal)*Hz*scal
+    Trad = bg%Tcmb() * (1.d0+z)
+    Tmat = y(3)
+    if(ARGS_REION_SWITCH)then
+       f(1) = 0
+       f(2) = 0
+       x =  coop_reionization_xe(z, ARGS_REION_FRAC, ARGS_REION_ZRE, ARGS_REION_DELTAZ) 
+       f(3)= CT * (Trad**4) * x / (1.d0+x+ARGS_FHE) & 
+            * (Tmat-Trad) / (Hz*(1.d0+z)) + 2.d0*Tmat/(1.d0+z)
+       return
+    endif
 
     x_H = y(1)
     x_He = y(2)
     x = x_H + ARGS_FHE * x_He
-    Tmat = y(3)
     n = ARGS_NNOW * (1.d0+z)**3
     n_He = ARGS_FHE * ARGS_NNOW * (1.d0+z)**3
-    Trad = bg%Tcmb() * (1.d0+z)
-    scal = 1.d0/(1.d0+z)
-    Hz = ARGS_H0 * bg%Hratio(scal)
-    !!c	Also calculate derivative for use later
-    dHdz = -bg%HdotbyHsq(scal)*Hz/(1.d0+z)
+
     !!c	Get the radiative rates using PPQ fit (identical to Hummer's table)
     Rdown=1.d-19*a_PPB*(Tmat/1.d4)**b_PPB & 
          /(1.d0+c_PPB*(Tmat/1.d4)**d_PPB)
