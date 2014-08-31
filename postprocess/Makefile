@@ -12,10 +12,10 @@ $(LIB): $(OBJ)
 	ar -r $@ $?
 
 
-Test: $(OBJ) test.o
+Test: 	$(OBJ) test.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
 
-GD: $(OBJ) getdist.o
+GD: 	$(OBJ) getdist.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) getdist.o $(LINK)
 
 
