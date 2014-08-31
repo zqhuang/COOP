@@ -4,10 +4,10 @@ program test
   implicit none
 #include "constants.h"
 
-  integer,parameter::fwhm_arcmin = 0
-  COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
-  COOP_UNKNOWN_STRING, parameter::input_file ="comparison/iqu.fits"
-  COOP_UNKNOWN_STRING, parameter::mask_file  = "comparison/ffp7_nobpm_smica_mask_05a_d1024_IP.fits" 
+  integer,parameter::fwhm_arcmin = 15
+  COOP_UNKNOWN_STRING, parameter::spot_type = "PTmax"
+  COOP_UNKNOWN_STRING, parameter::input_file ="simu/simulate_T.fits"
+  COOP_UNKNOWN_STRING, parameter::mask_file  ="planck/smica_valmask.fits"
 
   COOP_REAL, parameter:: threshold = 0.
   COOP_STRING output_file

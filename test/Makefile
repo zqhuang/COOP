@@ -10,7 +10,8 @@ Example1: example1.o
 Example2: example2.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ example2.o $(LINK)
 
-
+Quint: quintessence.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ quintessence.o $(LINK)
 Test:	test.o 
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ test.o $(LINK)
 

@@ -12,8 +12,8 @@ program test
   COOP_REAL, parameter::pre_smooth = 15*coop_SI_arcmin
   COOP_INT, parameter::dir_l = 226
   COOP_INT, parameter::dir_b = -17
-  COOP_UNKNOWN_STRING, parameter::prefix="planck"
-  COOP_UNKNOWN_STRING, parameter::color_table = "Planck"
+  COOP_UNKNOWN_STRING, parameter::prefix="simu"
+  COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
   COOP_UNKNOWN_STRING, parameter::stack_type = "T"
   COOP_REAL, parameter::threshold = 0
@@ -21,9 +21,9 @@ program test
   COOP_INT, parameter::n = 30
   COOP_REAL, parameter::dr = 10.*coop_SI_arcmin
   COOP_INT, parameter:: imap = 1
-  integer,parameter::n_sim = 1000
+  integer,parameter::n_sim = 420
   COOP_STRING::fmt, fmtscreen
-  COOP_UNKNOWN_STRING, parameter::resol = "1024"
+  COOP_UNKNOWN_STRING, parameter::resol = "256"
   COOP_UNKNOWN_STRING, parameter::map_file = prefix//"/"//prefix//"_iqu"//resol//".fits"
   COOP_UNKNOWN_STRING, parameter::imask_file  = prefix//"/"//prefix//"_imask"//resol//".fits"
   COOP_UNKNOWN_STRING, parameter::polmask_file  = prefix//"/"//prefix//"_polmask"//resol//".fits"
@@ -194,10 +194,10 @@ program test
   call fig%init(ylabel = "$\delta T (\mu K) $", xlabel = "$dT /dr (\mu K/{\rm rad})$", caption = "black dots are simulations, red x is data")
   call coop_asy_dots(fig, ksim, bsim, "black")
   call coop_asy_dot(fig, kdata, bdata, "red", "x")
-  call coop_asy_label(fig, "Map: "//prefix,  fig%xmin+(fig%xmax - fig%xmin)*0.12, fig%ymin + 0.9*(fig%ymax - fig%ymin))
-  call coop_asy_label(fig, "x :  data",  fig%xmin+(fig%xmax - fig%xmin)*0.08, fig%ymin + 0.86*(fig%ymax - fig%ymin), color = "red")
-  call coop_asy_label(fig, "$\bullet$ :  simulations",  fig%xmin+(fig%xmax - fig%xmin)*0.12, fig%ymin + 0.82*(fig%ymax - fig%ymin), color = "black")
-  call coop_asy_label(fig, "direction: $l ="//trim(coop_num2str(nint(hdir(2)/coop_SI_degree)))//"^{\circ},  b="//trim(coop_num2str(nint((coop_pio2-hdir(2))/coop_SI_degree)))//"^{\circ}$",  fig%xmin+(fig%xmax - fig%xmin)*0.2, fig%ymin + 0.78*(fig%ymax - fig%ymin), color = "black")
+!!  call coop_asy_label(fig, "Map: "//prefix,  fig%xmin+(fig%xmax - fig%xmin)*0.12, fig%ymin + 0.9*(fig%ymax - fig%ymin))
+  call coop_asy_label(fig, "x : mock data",  fig%xmin+(fig%xmax - fig%xmin)*0.12, fig%ymin + 0.86*(fig%ymax - fig%ymin), color = "red")
+  call coop_asy_label(fig, "$\bullet$ :  isotropized sims",  fig%xmin+(fig%xmax - fig%xmin)*0.15, fig%ymin + 0.82*(fig%ymax - fig%ymin), color = "black")
+  call coop_asy_label(fig, "direction: $l ="//trim(coop_num2str(nint(hdir(2)/coop_SI_degree)))//"^{\circ},  b="//trim(coop_num2str(nint((coop_pio2-hdir(1))/coop_SI_degree)))//"^{\circ}$",  fig%xmin+(fig%xmax - fig%xmin)*0.2, fig%ymin + 0.78*(fig%ymax - fig%ymin), color = "black")
   call fig%close()
 
 end program test

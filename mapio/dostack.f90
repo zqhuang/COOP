@@ -10,16 +10,16 @@ program test
   integer i
   
   COOP_REAL, parameter::smooth_fwhm = 0.*coop_SI_arcmin
-  COOP_UNKNOWN_STRING,parameter:: color_table = "Planck"
-  COOP_UNKNOWN_STRING, parameter :: spot_type = "QrUr"
-  COOP_REAL,parameter::r=4.5*coop_SI_degree, dr = max(smooth_fwhm/3., r/50.)
+  COOP_UNKNOWN_STRING,parameter:: color_table = "Rainbow"
+  COOP_UNKNOWN_STRING, parameter :: spot_type = "QU"
+  COOP_REAL,parameter::r=2.*coop_SI_degree, dr = max(smooth_fwhm/3., r/50.)
   COOP_INT, parameter::n = ceiling(r/dr)
 
 #ifdef USE_PLANCK
-  COOP_UNKNOWN_STRING, parameter :: map_file = "comparison/iqu.fits"
-  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/comparison_Tmax_threshold0.txt" !"spots/iqu_Tmax_threshold0_fwhm0.txt"
-  COOP_UNKNOWN_STRING, parameter :: imask_file = "comparison/ffp7_nobpm_smica_mask_05a_d1024_IP.fits" 
-  COOP_UNKNOWN_STRING, parameter :: polmask_file = "comparison/ffp7_nobpm_smica_mask_05a_d1024_IP.fits" 
+  COOP_UNKNOWN_STRING, parameter :: map_file = "simu/simulate_QU.fits"
+  COOP_UNKNOWN_STRING, parameter :: spots_file ="spots/simulate_T_PTmax_threshold0_fwhm15.txt"
+  COOP_UNKNOWN_STRING, parameter :: imask_file = "planck/smica_valmask.fits"
+  COOP_UNKNOWN_STRING, parameter :: polmask_file ="planck/smica_valmask.fits"
 #endif
 
 #ifdef USE_WMAP

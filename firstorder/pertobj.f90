@@ -4,19 +4,22 @@ module coop_pertobj_mod
 #include "constants.h"
 
   COOP_INT, parameter:: coop_pert_default_lmax = 32  
+  COOP_INT, parameter:: coop_pert_default_mmax = 2
+  COOP_INT, parameter:: coop_pert_default_smax = 2
   COOP_INT, parameter:: coop_pert_default_nq = 5
   COOP_REAL, dimension(coop_pert_default_nq),parameter:: coop_pert_default_q = coop_fermion_int_q5
   COOP_REAL, dimension(coop_pert_default_nq),parameter:: coop_pert_default_q_kernel = coop_fermion_int_kernel5 
 
 
-  COOP_INT, parameter::coop_pert_ibaryon = 1
-  COOP_INT, parameter::coop_pert_icdm = 2
-  COOP_INT, parameter::coop_pert_iT = 3
-  COOP_INT, parameter::coop_pert_iE = 4
-  COOP_INT, parameter::coop_pert_iB = 5
-  COOP_INT, parameter::coop_pert_iNu = 6
-  COOP_INT, parameter::coop_pert_imassiveNu = 7
-  COOP_INT, parameter::coop_pert_ide = 8
+  COOP_INT, parameter::coop_pert_imetric = 1
+  COOP_INT, parameter::coop_pert_ibaryon = 2
+  COOP_INT, parameter::coop_pert_icdm = 3
+  COOP_INT, parameter::coop_pert_iT = 4
+  COOP_INT, parameter::coop_pert_iE = 5
+  COOP_INT, parameter::coop_pert_iB = 6
+  COOP_INT, parameter::coop_pert_iNu = 7
+  COOP_INT, parameter::coop_pert_imassiveNu = 8
+  COOP_INT, parameter::coop_pert_ide = 9
   COOP_INT, parameter::coop_pert_nspecies = coop_pert_ide
 
 
@@ -48,7 +51,7 @@ module coop_pertobj_mod
      logical:: has_de = .false.
      logical:: late_approx = .false.
      COOP_INT :: m = 0
-     COOP_REAL,dimension(:),allocatable::y,yp
+     COOP_REAL,dimension(:),allocatable::y
      COOP_REAL,dimension(:, :),allocatable::ode_w
      COOP_REAL::ode_c(24)
      COOP_INT::ode_ind, ode_nvars
@@ -72,6 +75,8 @@ contains
     this%species(coop_pert_iB)%s = 2
     do i=1, coop_pert_nspecies
        select case(i)
+       case(coop_pert_imetric)
+          call this%species(i)%init(lmax = 4)          
        case(coop_pert_ibaryon, coop_pert_icdm)
           call this%species(i)%init(lmax = 2)
        case(coop_pert_imassiveNu)
@@ -106,6 +111,15 @@ contains
   subroutine coop_standard_o1pert_set_ode_index(this)
     class(coop_standard_o1pert)::this
     COOP_INT i
+    select case(this%m)
+    case(0,1)
+       this%species(coop_pert_imetric)%lmax_used = 1
+    case(2)
+       this%species(coop_pert_imetric)%lmax_used = 3
+    case default
+       call coop_return_error("set_ode_index", "invalid m: "//trim(coop_num2str(this%m)), "stop")
+    end select
+       
     this%species(coop_pert_icdm)%lmax_used = 1
     this%species(coop_pert_iNu)%lmax_used = 12
     this%species(coop_pert_ibaryon)%lmax_used = 1
@@ -147,8 +161,7 @@ contains
     this%ode_nvars = this%iend(coop_pert_nspecies)
     if(allocated(this%ode_w))deallocate(this%ode_w)
     if(allocated(this%y))deallocate(this%y)
-    if(allocated(this%yp))deallocate(this%yp)
-    allocate(this%ode_w(this%ode_nvars, 9), this%y(this%ode_nvars), this%yp(this%ode_nvars))
+    allocate(this%ode_w(this%ode_nvars, 9), this%y(this%ode_nvars))
     this%ode_ind = 1
     this%ode_c = 0.
     this%ode_w = 0
@@ -213,7 +226,7 @@ contains
        call this%free()
        this%nq = nq
        this%lmax = lmax
-       if(lmax .ge. 0)   allocate(this%var(0:lmax, nq))
+       if(lmax .ge. 0)   allocate(this%var(-1:lmax, nq))
        if(nq.ge.1)then
           allocate(this%q(nq))
           this%q = q
@@ -222,23 +235,27 @@ contains
        this%lmax_used = this%lmax - 1
        this%lmin_used = max(this%m, this%s)
        return
+    else
+       this%nq = 1
+       if(.not. allocated(this%q)) allocate(this%q(1))
+       this%q = 1.d0
     endif
     if(allocated(this%var))then
        if(this%lmax .eq. lmax)return
-       allocate(tmp(0:this%lmax, this%nq))
+       allocate(tmp(-1:this%lmax, this%nq))
        tmp = this%var
        deallocate(this%var)
        if(lmax .ge. 0)then
-          allocate(this%var(0:lmax, this%nq))
+          allocate(this%var(-1:lmax, this%nq))
           this%var = 0.d0
-          this%var(0: min(lmax, this%lmax),:) = tmp(0: min(lmax, this%lmax),:) 
+          this%var(-1: min(lmax, this%lmax),:) = tmp(-1: min(lmax, this%lmax),:) 
        endif
        this%lmax = lmax
        deallocate(tmp)
     else
        this%lmax = lmax
        if(lmax .ge. 0)then
-          allocate(this%var(0:lmax, this%nq))
+          allocate(this%var(-1:lmax, this%nq))
           this%var = 0.d0
        endif
     endif

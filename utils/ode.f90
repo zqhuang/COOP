@@ -13,8 +13,9 @@ module coop_ode_mod
   type coop_ode
      COOP_INT  method
      type(coop_arguments)::args
-     integer n, ind
-     logical has_args
+     integer::n = 0
+     integer::ind = 1
+     logical::has_args = .false.
      COOP_REAL c(24)
      COOP_REAL,dimension(:),allocatable:: y, yp
      COOP_REAL,dimension(:,:),allocatable:: w
@@ -51,7 +52,6 @@ contains
        allocate(this%w(n, 9), this%y(n), this%yp(n))
     endif
     this%w = 0
-    this%has_args = .false.
     if(present(tol))then
        this%tol = tol
     else

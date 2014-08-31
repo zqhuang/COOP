@@ -93,3 +93,9 @@
 #define COOP_FORMAT_INTEGER 1
 #define COOP_FORMAT_FLOAT 2
 #define COOP_FORMAT_LOGICAL -1
+
+#define O1PERT_PHI species(coop_pert_imetric)%var(0, 1)
+#define O1PERT_PHIDOT species(coop_pert_imetric)%var(1, 1)
+#define O1PERT_V species(coop_pert_imetric)%var(1, 1)
+#define O1PERT_H species(coop_pert_imetric)%var(2, 1)
+#define O1PERT_HDOT species(coop_pert_imetric)%var(3, 1)

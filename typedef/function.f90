@@ -30,6 +30,7 @@ module coop_function_mod
      procedure::maxloc => coop_function_maxloc
      procedure::minloc => coop_function_minloc
      procedure::free => coop_function_free
+     procedure::monotonic_solution => coop_function_monotonic_solution
   end type coop_function
 
 
@@ -721,6 +722,121 @@ contains
        fpp = (fpp + fp**2) * exp(f)
     endif
   end function coop_function_derivative2
+
+  subroutine coop_function_monotonic_solution(this, f, x)
+    class(coop_function)::this
+    COOP_REAL,intent(in)::f
+    COOP_REAL, intent(out)::x
+    COOP_REAL xmin, xmax, fmin, fmax, xmid, fs, dx
+    COOP_INT imin, imax, imid
+    if(this%ylog)then
+       if(f.le.0.d0)return
+       fs = log(f)
+    else
+       fs = f
+    endif
+    select case(this%method)
+    case(COOP_INTERPOLATE_CHEBYSHEV)
+       xmin = this%xmin
+       xmax = this%xmax
+       fmin = this%eval_bare(xmin)
+       fmax = this%eval_bare(xmax)
+       if((fmin .lt. fs .and. fmax .lt. fs) .or. (fmin .gt. fs .and. fmax .gt. fs))then
+          call coop_return_error("coop_function_monotonic_solution", "solution does not exist or the function is not monotonic", "stop")
+       endif
+       dx = abs(xmax - xmin)*1.d-12
+       if(fmax .ge. fmin)then
+          do while(abs(xmax - xmin) .gt. dx)
+             xmid = (xmax+xmin)/2.d0
+             if(this%eval_bare(xmid) .gt. fs)then
+                xmax = xmid
+             else
+                xmin = xmid
+             endif
+          enddo
+       else
+          do while(abs(xmax - xmin) .gt. dx)
+             xmid = (xmax+xmin)/2.d0
+             if(this%eval_bare(xmid) .lt. fs)then
+                xmax = xmid
+             else
+                xmin = xmid
+             endif
+          enddo
+       endif
+       x = (xmin + xmax)/2.d0
+    case(COOP_INTERPOLATE_LINEAR, COOP_INTERPOLATE_QUADRATIC, COOP_INTERPOLATE_SPLINE)
+       imin = 1
+       imax = this%n
+       if((this%f(imin) .lt. fs .and. this%f(imax) .lt. fs) .or. (this%f(imin) .gt. fs .and. this%f(imax) .gt. fs))then
+          call coop_return_error("coop_function_monotonic_solution", "solution does not exist or the function is not monotonic", "stop")
+       endif
+       if(this%f(imin) .lt. this%f(imax))then
+          do while(imax - imin .gt. 1)
+             imid = (imax+imin)/2
+             if(this%f(imid) .gt. fs)then
+                imax = imid
+             else
+                imin = imid
+             endif
+          enddo
+          if(this%method .eq. COOP_INTERPOLATE_LINEAR)then
+             dx = (this%f(imax)- this%f(imin))
+             if(dx .ne. 0.d0)then
+                x = this%xmin + (imin-1 + (fs - this%f(imin))/dx)*this%dx
+             else
+                x = this%xmin + (imin-0.5d0)*this%dx
+             endif
+          else
+             xmax = this%xmin + (imax-1)*this%dx
+             xmin = this%xmin + (imin-1)*this%dx
+             dx = abs(this%dx) * 1.d-8
+             do while(abs(xmax - xmin) .gt. dx)
+                xmid = (xmax+xmin)/2.d0
+                if(this%eval_bare(xmid) .gt. fs)then
+                   xmax = xmid
+                else
+                   xmin = xmid
+                endif
+             enddo
+             x = (xmin + xmax)/2.d0
+          endif
+       else
+          do while(imax - imin .gt. 1)
+             imid = (imax+imin)/2
+             if(this%f(imid) .gt. fs)then
+                imin = imid
+             else
+                imax = imid
+             endif
+          enddo
+          if(this%method .eq. COOP_INTERPOLATE_LINEAR)then
+             dx = (this%f(imax)- this%f(imin))
+             if(dx .ne. 0.d0)then
+                x = this%xmin + (imin-1 + (fs - this%f(imin))/dx)*this%dx
+             else
+                x = this%xmin + (imin-0.5d0)*this%dx
+             endif
+          else
+             xmax = this%xmin + (imax-1)*this%dx
+             xmin = this%xmin + (imin-1)*this%dx
+             dx = abs(this%dx) * 1.d-8
+             do while(abs(xmax - xmin) .gt. dx)
+                xmid = (xmax+xmin)/2.d0
+                if(this%eval_bare(xmid) .lt. fs)then
+                   xmax = xmid
+                else
+                   xmin = xmid
+                endif
+             enddo
+             x = (xmin + xmax)/2.d0
+          endif
+       endif
+    case default
+       call coop_return_error("coop_function_find_solution", "Unknown interpolation method", "stop")
+    end select
+    if(this%xlog) x = exp(x)
+  end subroutine coop_function_monotonic_solution
 
 
 end module coop_function_mod

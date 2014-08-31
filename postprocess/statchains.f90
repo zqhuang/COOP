@@ -823,6 +823,17 @@ contains
     call fp%open(trim(mc%output)//".corr", "w")
     call coop_write_matrix(fp%unit, mc%corrmat, mc%np_used, mc%np_used)
     call fp%close()
+
+    call fp%open(trim(mc%output)//".mcorr", "w")
+    do i = 1, mc%np_used
+       do j=1, mc%np_used
+          if(j.ne. i .and. mc%corrmat(i, j) .gt. 0.8)then
+             write(fp%unit, "(A, F10.3)") trim(mc%name(mc%used(i)))//"  "// trim(mc%name(mc%used(j))), mc%corrmat(i, j)
+          endif
+       enddo
+    enddo
+    call fp%close()
+
     call fp%open(trim(mc%output)//".covused", "w")
     call coop_write_matrix(fp%unit, mc%cov_used, mc%np_used, mc%np_used)
     call fp%close()
