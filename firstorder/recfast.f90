@@ -314,14 +314,15 @@ contains
   End Function coop_reionization_xe
 
   
-  subroutine coop_recfast_get_xe(bg, xeofa, Tbofa, cs2bofa, reionFrac, zre, deltaz)  
+  subroutine coop_recfast_get_xe(bg, xeofa, Tbofa, reionFrac, zre, deltaz)  
     class(coop_cosmology_background)::bg
     type(coop_arguments)::args
-    type(coop_function)::xeofa, Tbofa, cs2bofa
+    type(coop_function)::xeofa, Tbofa
     integer ndim , nw, ind, i
     integer, parameter::nz = 4096
     COOP_REAL,dimension(nz)::alist,xelist, Tblist, cs2blist
     COOP_REAL reionFrac, zre, deltaz
+    COOP_REAL,parameter::acal = 1.d0/1090.d0
     !!arguments
     integer index_baryon, index_cdm
     COOP_REAL zend, zstart
@@ -336,7 +337,7 @@ contains
     mu_H = 1.d0/(1.d0-bg%YHe())			!Mass per H atom
     fHe = bg%YHe()/(not4*(1.d0-bg%YHe()))		!n_He_tot / n_H_tot
     HO = bg%h()*bigH
-    Nnow = 3.d0*(HO)**2*bg%species(index_baryon)%Omega/(8.d0*Pi*G*mu_H*m_H)
+    Nnow = 3.d0*(HO)**2*bg%species(index_baryon)%Omega * bg%species(index_baryon)%rhoa4_ratio(acal)/acal/(8.d0*Pi*G*mu_H*m_H)
 
 
     !!C	Fudge factor to approximate the low z out of equilibrium effect
@@ -421,7 +422,7 @@ contains
        cs2blist(i) =max(coop_SI_barssc0*(1.d0-0.75d0*bg%Yhe()+(1.d0-bg%YHe())*xelist(i))  &
             *tblist(i)*(1.d0 - Tbofa%derivative_bare(log(alist(i)))/3.d0), 1.d-20)
     enddo
-    call cs2bofa%init(n = nz, xmin=alist(1), xmax = alist(nz), f = cs2blist, xlog = .true., ylog = .true., fleft = cs2blist(1), fright = cs2blist(nz), slopeleft= -1.d0, sloperight = 0.d0, check_boundary = .false., method = COOP_INTERPOLATE_LINEAR)
+    call bg%species(index_baryon)%fcs2%init(n = nz, xmin=alist(1), xmax = alist(nz), f = cs2blist, xlog = .true., ylog = .true., fleft = cs2blist(1), fright = cs2blist(nz), slopeleft= -1.d0, sloperight = 0.d0, check_boundary = .false., method = COOP_INTERPOLATE_LINEAR)
   end subroutine coop_recfast_get_xe
 
   subroutine coop_recfast_ion(Ndim, z, y, f, bg, args)

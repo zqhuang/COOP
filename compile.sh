@@ -25,6 +25,7 @@ cp *.mod ../include/
 
 cd ../postprocess
 make -w
+make -w GD
 cp *.mod ../include/
 
 cd ..

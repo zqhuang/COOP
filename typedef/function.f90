@@ -47,6 +47,7 @@ contains
     if(present(fright))this%fright = fright
     if(present(slopeleft))this%slopeleft = slopeleft
     if(present(sloperight))this%sloperight = sloperight
+    this%check_boundary = .false.
   end subroutine coop_function_set_boundary
 
 

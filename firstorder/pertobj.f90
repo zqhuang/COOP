@@ -45,10 +45,10 @@ module coop_pertobj_mod
      COOP_SHORT_STRING::initial_conditions = "adiabatic"
      type(coop_pert_hierarchy),dimension(coop_pert_nspecies)::species
      COOP_INT, dimension(coop_pert_nspecies)::istart, iend
-     COOP_REAL::k
+     COOP_REAL::k, phi, pi, phidot, pidot, vdot
      logical:: tight_coupling = .true.
      logical:: has_massiveNu = .false.
-     logical:: has_de = .false.
+     COOP_INT :: de_pert_model = 0
      logical:: late_approx = .false.
      COOP_INT :: m = 0
      COOP_REAL,dimension(:),allocatable::y
@@ -80,18 +80,9 @@ contains
        case(coop_pert_ibaryon, coop_pert_icdm)
           call this%species(i)%init(lmax = 2)
        case(coop_pert_imassiveNu)
-          if(this%has_massiveNu)then
-             call this%species(i)%init(lmax = coop_pert_default_lmax, nq =  coop_pert_default_nq, q = coop_pert_default_q )
-          else
-             call this%species(i)%init(lmax = -1)
-          endif
+          call this%species(i)%init(lmax = coop_pert_default_lmax, nq =  coop_pert_default_nq, q = coop_pert_default_q )
        case(coop_pert_ide)
-          if(this%has_de)then
-             call this%species(i)%init(lmax = 2)  
-             !!We do not use ppf that explicitly assumes smoothness of DE on large scales
-          else
-             call this%species(i)%init(lmax = -1)
-          endif
+          call this%species(i)%init(lmax = 4)
        case default
           call this%species(i)%init(lmax = coop_pert_default_lmax)
        end select
@@ -147,11 +138,16 @@ contains
     else
        this%species(coop_pert_imassiveNu)%lmax_used = -1
     endif
-    if(this%has_de)then
-       this%species(coop_pert_ide)%lmax_used = 1
-    else
+    select case(this%de_pert_model)
+    case(COOP_DE_PERT_NONE)
        this%species(coop_pert_ide)%lmax_used = -1
-    endif
+    case(COOP_DE_PERT_FLUID)
+       this%species(coop_pert_ide)%lmax_used = 1
+    case(COOP_DE_PERT_PPF)
+       this%species(coop_pert_ide)%lmax_used = 0
+    case default
+       call coop_return_error("set_ode_index", "unknown de_pet_model: "//trim(coop_num2str(this%de_pert_model)), "stop")
+    end select
     this%istart(1) = 1
     this%iend(1) = this%istart(1) + this%species(1)%nvars() - 1
     do i=2, coop_pert_nspecies

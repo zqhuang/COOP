@@ -29,7 +29,13 @@ module coop_species_mod
      procedure :: wp1effofa => coop_species_wp1effofa
      procedure :: cs2ofa => coop_species_cs2ofa
      procedure :: density_ratio => coop_species_density_ratio
+     procedure :: rhoa2_ratio => coop_species_rhoa2_ratio
+     procedure :: rhoa3_ratio => coop_species_rhoa3_ratio
      procedure :: rhoa4_ratio => coop_species_rhoa4_ratio
+     procedure :: density => coop_species_density
+     procedure :: pressure => coop_species_pressure
+     procedure :: rhoa2 => coop_species_rhoa2
+     procedure :: pa2 => coop_species_pa2
   end type coop_species
 
 
@@ -156,9 +162,66 @@ contains
        an = COOP_PROPER_SCALE_FACTOR(a)
        rhoa4 = exp(this%flnrho%eval(an)+4.d0*log(an))
     else
-       rhoa4 = a**(4.d0-3.d0*this%wp1)
+       rhoa4 = max(a, 1.d-99)**(4.d0-3.d0*this%wp1)
     endif
   end function coop_species_rhoa4_ratio
+
+  function coop_species_rhoa3_ratio(this, a) result(rhoa3)
+    class(coop_species)::this
+    COOP_REAL a, an
+    COOP_REAL rhoa3
+    if(this%w_dynamic)then
+       an = COOP_PROPER_SCALE_FACTOR(a)
+       rhoa3 = exp(this%flnrho%eval(an)+3.d0*log(an))
+    else
+       rhoa3 = max(a, 1.d-99)**(3.d0-3.d0*this%wp1)
+    endif
+  end function coop_species_rhoa3_ratio
+
+  function coop_species_rhoa2_ratio(this, a) result(rhoa2)
+    class(coop_species)::this
+    COOP_REAL a, an
+    COOP_REAL rhoa2
+    if(this%w_dynamic)then
+       an = COOP_PROPER_SCALE_FACTOR(a)
+       rhoa2 = exp(this%flnrho%eval(an)+2.d0*log(an))
+    else
+       rhoa2 = max(a, 1.d-99)**(2.d0-3.d0*this%wp1)
+    endif
+  end function coop_species_rhoa2_ratio
+
+
+
+  function coop_species_density(this, a) result(density)  !!unit H_0^2M_p^2
+    class(coop_species)::this
+    COOP_REAL a
+    COOP_REAL density
+    density = 3.d0*this%Omega * this%density_ratio(a)
+  end function coop_species_density
+
+
+  function coop_species_rhoa2(this, a) result(density)  !!unit H_0^2M_p^2
+    class(coop_species)::this
+    COOP_REAL a
+    COOP_REAL density
+    density = 3.d0*this%Omega * this%rhoa2_ratio(a)
+  end function coop_species_rhoa2
+
+
+  function coop_species_pressure(this, a) result(p)  !!unit H_0^2M_p^2
+    class(coop_species)::this
+    COOP_REAL a
+    COOP_REAL p
+    p = this%wofa(a) * this%density(a)
+  end function coop_species_pressure
+
+
+  function coop_species_pa2(this, a) result(p)  !!unit H_0^2M_p^2
+    class(coop_species)::this
+    COOP_REAL a
+    COOP_REAL p
+    p = this%wofa(a) * this%rhoa2(a)
+  end function coop_species_pa2
 
   function coop_species_density_ratio(this, a) result(density)
     class(coop_species)::this

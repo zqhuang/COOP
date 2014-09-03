@@ -31,7 +31,7 @@ module coop_cosmology_mod
      COOP_REAL::YHe_value= COOP_DEFAULT_YHE
      COOP_REAL:: Nnu_value = COOP_DEFAULT_NUM_NEUTRINO_SPECIES
      logical::need_setup_background = .true.
-     type(coop_function):: fdis, ftime
+     type(coop_function):: fdis, ftime, faoftau
      COOP_INT :: num_species = 0
      type(coop_species), dimension(coop_max_num_species)::species
    contains
@@ -64,6 +64,11 @@ module coop_cosmology_mod
      procedure::HdotbyHsq => coop_cosmology_background_HdotbyHsq !! input a, return \dot H/H^2 = - epsilon
      procedure::time => coop_cosmology_background_time !!input a, return H_0 * time
      procedure::conformal_time => coop_cosmology_background_conformal_time !!input a, return H_0 * conformal time
+
+     procedure::tauofa => coop_cosmology_background_conformal_time !!input a, return H_0 * conformal time
+
+     procedure::aoftau => coop_cosmology_background_aoftau !!input  H_0 * conformal time, return a
+
      !!input  a1, a2 (optional, default = 1)
      !!output H_0 * distance(a1, a2)  
      !!you need to divide the output by this%H0Mpc() to get the distance in unit of Mpc
@@ -168,6 +173,7 @@ contains
     class is(coop_cosmology_background)
        call this%fdis%free
        call this%ftime%free
+       call this%faoftau%free
        do i= 1, this%num_species
           call this%species(i)%free
        enddo
@@ -295,7 +301,7 @@ contains
     integer,parameter::n = 16384
     COOP_REAL, parameter::amin = 0.d0, amax = coop_scale_factor_today
     COOP_REAL,dimension(n):: dis, a, t
-    COOP_REAL  hasq1, hasq2, da, daby2
+    COOP_REAL  hasq1, hasq2, da, daby2, Hasqmin, Hasqmax
     integer i
     if(this%need_setup_background)then
        call coop_set_uniform(n, a, amin, amax)
@@ -303,7 +309,9 @@ contains
        t(1) = 0.d0
        da = (amax-amin)/(n-1.d0)
        daby2 = da/2.d0
-       hasq1 = this%Hasq(amin)
+       Hasqmin = this%Hasq(amin)
+       Hasqmax = this%Hasq(amax)
+       hasq1 = Hasqmin
        do i=2, n
           hasq2 = this%Hasq(a(i))
           dis(i) = dis(i-1) + (1.d0/Hasq1 + 1.d0/hasq2 + 4.d0/this%hasq(a(i)-daby2))
@@ -312,7 +320,9 @@ contains
        enddo
        dis = dis * (da/6.d0)
        t = t * (da/6.d0)
-       call this%fdis%init(n, amin, amax, dis, COOP_INTERPOLATE_LINEAR, check_boundary = .false.)
+       call this%fdis%init(n, amin, amax, dis, COOP_INTERPOLATE_LINEAR, check_boundary = .false., slopeleft = 1.d0/Hasqmin, sloperight = 1.d0/Hasqmax)
+       call this%faoftau%init_NonUniform(dis, a)
+       call this%faoftau%set_boundary(fleft = amin, fright=amax, slopeleft = Hasqmin, sloperight = Hasqmax)
        call this%ftime%init(n, amin, amax, t, COOP_INTERPOLATE_LINEAR, check_boundary = .false.)
        this%need_setup_background = .false. 
     endif
@@ -324,6 +334,13 @@ contains
     if(this%need_setup_background) call this%setup_background()
     tau = this%fdis%eval(a)
   end function coop_cosmology_background_conformal_time
+
+  function coop_cosmology_background_aoftau(this, tau) result(a)
+    class(coop_cosmology_background)::this
+    COOP_REAL a, tau
+    if(this%need_setup_background) call this%setup_background()
+    a = this%faoftau%eval(tau)
+  end function coop_cosmology_background_aoftau
 
   function coop_cosmology_background_time(this, a) result(t)
     class(coop_cosmology_background)::this
@@ -445,9 +462,10 @@ contains
   end function coop_cosmology_background_Omega_nu_per_species_from_mnu_eV
 
 
-  function coop_cosmology_background_index_of(this, name) result(ind)
+  function coop_cosmology_background_index_of(this, name, error_not_found) result(ind)
     class(coop_cosmology_background)::this
     COOP_UNKNOWN_STRING::name
+    logical,optional::error_not_found
     COOP_INT ind, i
     ind = 0
     do i = 1, this%num_species
@@ -456,6 +474,9 @@ contains
           return
        endif
     enddo
+    if(present(error_not_found))then
+       if(error_not_found)call coop_return_error("index_of", trim(name)//" not found", "stop")
+    endif
   end function coop_cosmology_background_index_of
 
   

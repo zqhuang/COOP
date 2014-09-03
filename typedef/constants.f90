@@ -41,5 +41,10 @@ contains
     endif
   end subroutine coop_feedback
 
+  subroutine coop_tbw(landmark)
+    COOP_UNKNOWN_STRING::landmark
+    call coop_feedback("Code need to be written here. Landmark = "//trim(landmark))
+  end subroutine coop_tbw
+
 
 end module coop_constants_mod

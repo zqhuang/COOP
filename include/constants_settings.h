@@ -5,6 +5,9 @@
   COOP_REAL, parameter:: coop_logInfinity = log(coop_Infinity)
   COOP_REAL, parameter:: coop_logTiny = - coop_logInfinity
 
+
+  COOP_REAL, parameter:: coop_primordial_zeta_norm = 1.d0
+
   !!minimal a
   COOP_REAL, parameter:: coop_min_scale_factor = 1.d-11
 

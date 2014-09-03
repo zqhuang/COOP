@@ -16,7 +16,7 @@ import sys
 
 patch_path = r'cambcr_patch.CR_v2.0.CAMB_Apr_2014'
 #cosmorec_path = r'../CosmoRec.v1.5b'
-cosmorec_path = r'CosmoRec.v2.0.1b'
+cosmorec_path = r'CosmoRec.v2.0b'
 do_cl_norm = False
 #######################################################
 
