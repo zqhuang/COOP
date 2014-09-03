@@ -23,10 +23,11 @@ cd ../lib
 make -w
 cp *.mod ../include/
 
-cd ../postprocess
+cd ..
+make -w
+
+cd postprocess
 make -w
 make -w GD
 cp *.mod ../include/
-
 cd ..
-make -w
