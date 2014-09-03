@@ -613,9 +613,10 @@ contains
     call pertp%write_var(varp)
   end subroutine coop_cosmology_firstorder_equations
 
-  subroutine coop_cosmology_firstorder_set_tight_coupling(this, pert, pertp)
+  subroutine coop_cosmology_firstorder_set_tight_coupling(this, pert, pertp, a)
     class(coop_cosmology_firstorder)::this
     class(coop_standard_o1pert)::pert, pertp
+    COOP_REAL a
   end subroutine coop_cosmology_firstorder_set_tight_coupling
 
 
@@ -625,21 +626,6 @@ contains
     class(coop_standard_o1pert)::pert, pertp
     COOP_REAL a
     call coop_tbw("set_metric")
-    select case(pert%m)
-    case(0)
-       if(this%index_massiveNu .gt. 0)then
-          pert%PI = (12.d0/5.d0)* ( &
-               pert%O1T(2) * O0_RADIATION(this)%pa2(a) &
-               + pert%O1NU(2) * O0_NU(this)%pa2(a) &
-               + pert%O1MASSIVENU(2, :))
-       else
-          pert%PI = (12.d0/5.d0)* ( &
-               pert%O1T(2) * O0_RADIATION(this)%pa2(a) &
-               + pert%O1NU(2) * O0_NU(this)%pa2(a) )
-       endif
-    case(1)
-    case(2)
-    end select
   end subroutine coop_cosmology_firstorder_set_metric
 
 
