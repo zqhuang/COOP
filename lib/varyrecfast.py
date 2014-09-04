@@ -220,7 +220,7 @@ copy_replace_all(common_file, batch_dir + r'/common_nnu.ini', [r'params\_CMB\_de
 copy_replace_all(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_nnu.ini', [r'^param\[fdm\]\s*=.*$', r'^param\[nnu\]\s*=.*$'], [r'param[fdm] = 0  \nparam[A2s1s] = 8.2245809 \nparam[tcmb] = 2.72558', r'param[nnu] = 3.046 1.1 5.1 0.3 0.3'] )
 
 if(os.path.isfile("plots/recfast_yhe.covmat")):
-    copy_replace_first("test.ini", 'yhe.ini', [r'^propose\_matrix\s*\=.*$', c common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'propose_matrix = plots/recfast_yhe.covmat', r'DEFAULT(' + batch_dir + r'/common_yhe.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = '+str(numhard+2) + r'\nrecfast_runmode = 0 ', r'file_root = recfast_yhe', r'action = 0', str_propose] )
+    copy_replace_first("test.ini", 'yhe.ini', [r'^propose\_matrix\s*\=.*$', common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'propose_matrix = plots/recfast_yhe.covmat', r'DEFAULT(' + batch_dir + r'/common_yhe.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = '+str(numhard+2) + r'\nrecfast_runmode = 0 ', r'file_root = recfast_yhe', r'action = 0', str_propose] )
 else:
     copy_replace_first("test.ini", 'yhe.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_yhe.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = '+str(numhard+2) + r'\nrecfast_runmode = 0 ', r'file_root = recfast_yhe', r'action = 0', str_propose] )
 
