@@ -24,6 +24,8 @@ module coop_species_mod
      procedure :: print => coop_species_print
      procedure :: free  => coop_species_free
      procedure :: wofa => coop_species_wofa
+     procedure :: dwda => coop_species_dwda
+     procedure :: dlnrhodlna => coop_species_dlnrhodlna
      procedure :: wp1ofa => coop_species_wp1ofa
      procedure :: weffofa => coop_species_weffofa
      procedure :: wp1effofa => coop_species_wp1effofa
@@ -60,6 +62,18 @@ contains
     COOP_REAL w, a
     w = coop_species_wp1ofa(this, a) - 1.d0
   end function coop_species_wofa
+
+
+  function coop_species_dwda(this, a) result(dwda)
+    class(coop_species) :: this
+    COOP_REAL dwda, a
+    if(this%w_dynamic)then
+       dwda = this%fwp1%derivative(COOP_PROPER_SCALE_FACTOR(a))
+    else
+       dwda = 0.d0
+    endif
+  end function coop_species_dwda
+
 
   function coop_species_wp1ofa(this, a) result(wp1)
     class(coop_species) :: this
@@ -208,6 +222,24 @@ contains
   end function coop_species_rhoa2
 
 
+  function coop_species_dlnrhodlna(this, a) result(dlnrhodlna)  
+    class(coop_species)::this
+    COOP_REAL a
+    COOP_REAL dlnrhodlna
+    if(this%w_dynamic)then
+       dlnrhodlna = this%flnrho%derivative_bare(log(a))
+    else
+       dlnrhodlna = -3.*this%wp1
+    endif
+  end function coop_species_dlnrhodlna
+
+  function coop_species_drhoa2da(this, a) result(drhoa2da)
+    class(coop_species)::this
+    COOP_REAL a, drhoa2da
+    drhoa2da = (this%dlnrhodlna(a) + 2.d0)/a*this%rhoa2(a)
+  end function coop_species_drhoa2da
+
+
   function coop_species_pressure(this, a) result(p)  !!unit H_0^2M_p^2
     class(coop_species)::this
     COOP_REAL a
@@ -222,6 +254,12 @@ contains
     COOP_REAL p
     p = this%wofa(a) * this%rhoa2(a)
   end function coop_species_pa2
+
+  function coop_species_dpa2da(this, a) result(dpa2da)
+    class(coop_species)::this
+    COOP_REAL a, dpa2da
+    dpa2da = ((this%dlnrhodlna(a) + 2.d0)/a*this%wofa(a) + this%dwda(a))*this%rhoa2(a)
+  end function coop_species_dpa2da
 
   function coop_species_density_ratio(this, a) result(density)
     class(coop_species)::this

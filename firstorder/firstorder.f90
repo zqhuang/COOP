@@ -53,7 +53,7 @@ public:: coop_cosmology_firstorder, coop_cosmology_firstorder_source
      type(coop_function)::Ps, Pt, Xe, ekappa, vis, Tb
      type(coop_cosmology_firstorder_source),dimension(0:2)::saved_source
      COOP_INT::index_baryon, index_cdm, index_radiation, index_nu, index_massiveNu, index_de
-     COOP_REAL, dimension(0:coop_pert_default_lmax, 0:coop_pert_default_mmax, 0:coop_pert_default_smax)::klms
+     COOP_REAL, dimension(0:coop_pert_default_lmax, 0:coop_pert_default_mmax, 0:coop_pert_default_smax)::klms, klms_by_2lm1, klms_by_2lp1
      logical::klms_done = .false.
    contains
      procedure:: setup_all => coop_cosmology_firstorder_setup_all
@@ -107,10 +107,12 @@ contains
              else
                 this%klms(l, m, s) = sqrt(dble(l**2-m**2)*dble(l**2-s**2))/l
              endif
+             this%klms_by_2lp1(l, m, s) = this%klms(l, m, s)/(2*l+1.d0)
+             this%klms_by_2lm1(l, m, s) = this%klms(l, m, s)/(2*l-1.d0)
           enddo
        enddo
     enddo
-    this%klms_done = .false.
+    this%klms_done = .true.
   end subroutine coop_cosmology_firstorder_set_klms
 
 
@@ -566,49 +568,35 @@ contains
     class(coop_standard_o1pert)::pert, pertp
     COOP_INT i, l, iq
     COOP_REAL tau, var(n), varp(n), a
-    COOP_REAL source(0:2), psi, pi
+    COOP_REAL source(0:coop_pert_default_lmax), psi, pi
 
     a = cosmology%aoftau(tau)
     call pert%read_var(var)
+    
     if(pert%tight_coupling)call cosmology%set_tight_coupling(pert, pertp, a)
+
     if(pert%late_approx) call cosmology%set_late_approx(pert, pertp, a)
+
     call cosmology%set_metric(pert, pertp, a)
-    select case(pert%m) !!TBW
+
+    source = 0.d0
+    select case(pert%m) 
     case(0)
        source(0) = pert%O1_PSIDOT
        source(1) = pert%k * pert%O1_PHI
-       source(2) =  0.d0
     case(1) 
-       source = 0.d0
        source(1) = pert%O1_VDOT
     case(2)
-       source = 0.d0
        source(2) = -pert%O1_HDOT
     end select
+
     do i=1, coop_pert_nspecies
-       select case(i)
-       case(coop_pert_imetric)
-          select case(pert%m)
-          case(0)
-             pertp%O1_PSI = pert%O1_PSIDOT
-!             pertp%O1_PSIDOT =  ( &
-             call coop_tbw("1st_eqs")
-          case(1)
-             call coop_tbw("1st_eqs")
-          case(2)
-             call coop_tbw("1st_eqs")
-          end select
-       case default
-          if(pert%species(i)%lmax_used .gt.2)then
-             pert%species(i)%var(pert%species(i)%lmax_used+1, 1) = (2.d0*pert%species(i)%lmax_used+3.d0) *(  pert%species(i)%var(pert%species(i)%lmax_used, 1) /(pert%k * tau) - pert%species(i)%var(pert%species(i)%lmax_used, 1)/ (2.d0*pert%species(i)%lmax_used-1.d0) )
-          endif
-          do l=pert%species(i)%lmin_used,  pert%species(i)%lmax_used 
-             pertp%species(i)%var(l, 1) = pert%k*(cosmology%klms(l, pert%species(i)%m, pert%species(i)%s)/(2.d0*l-1.d0)*pert%species(i)%var(l-1, 1) - cosmology%klms(l+1, pert%species(i)%m, pert%species(i)%s)/(2.d0*l+3)*pert%species(i)%var(l+1, 1)) 
-             if(l.le.2)then
-                pertp%species(i)%var(l, 1) = pertp%species(i)%var(l, 1) + source(l)
-             endif
-          enddo
-       end select
+       if(pert%species(i)%lmax_used .gt.2)then
+          pert%species(i)%var(pert%species(i)%lmax_used+1, 1) = (2.d0*pert%species(i)%lmax_used+3.d0) *(  pert%species(i)%var(pert%species(i)%lmax_used, 1) /(pert%k * tau) - pert%species(i)%var(pert%species(i)%lmax_used, 1)/ (2.d0*pert%species(i)%lmax_used-1.d0) )
+       endif
+       do l=pert%species(i)%lmin_used,  pert%species(i)%lmax_used 
+          pertp%species(i)%var(l, 1) = pert%k*(cosmology%klms_by_2lm1(l, pert%species(i)%m, pert%species(i)%s)*pert%species(i)%var(l-1, 1) - cosmology%klms_by_2lp1(l+1, pert%species(i)%m, pert%species(i)%s)*pert%species(i)%var(l+1, 1)) + source(l)
+       enddo
     enddo
     call pertp%write_var(varp)
   end subroutine coop_cosmology_firstorder_equations
@@ -625,7 +613,23 @@ contains
     class(coop_cosmology_firstorder)::this
     class(coop_standard_o1pert)::pert, pertp
     COOP_REAL a
-    call coop_tbw("set_metric")
+    select case(pert%m)
+    case(0)
+       if(this%index_massivenu .ne. 0)then
+          if(pert%has_massivenu)then
+             pert%O1_PI =  (12.d0/5.d0) *  (O0_RADIATION(this)%pa2(a) * pert%O1T(2) + O0_NU(this)%pa2(a) * pert%O1NU(2))
+          else
+             pert%O1_PI =  (12.d0/5.d0) *  (O0_RADIATION(this)%pa2(a) * pert%O1T(2) + (O0_NU(this)%pa2(a) + O0_MASSIVENU(this)%pa2(a)) * pert%O1NU(2))
+          endif
+       else
+          pert%O1_PI =  (12.d0/5.d0) *  (O0_RADIATION(this)%pa2(a) * pert%O1T(2) + O0_NU(this)%pa2(a) * pert%O1NU(2))
+       endif
+       pert%O1_PHI = pert%O1_PSI - pert%O1_PI/pert%k**2
+    case(1)
+       call coop_tbw("set_metric")
+    case(2)
+       call coop_tbw("set_metric")
+    end select
   end subroutine coop_cosmology_firstorder_set_metric
 
 

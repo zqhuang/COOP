@@ -12,56 +12,34 @@ module coop_pertobj_mod
 
 
   COOP_INT, parameter::coop_pert_imetric = 1
-  COOP_INT, parameter::coop_pert_ibaryon = 2
-  COOP_INT, parameter::coop_pert_icdm = 3
-  COOP_INT, parameter::coop_pert_iT = 4
-  COOP_INT, parameter::coop_pert_iE = 5
-  COOP_INT, parameter::coop_pert_iB = 6
-  COOP_INT, parameter::coop_pert_iNu = 7
+  COOP_INT, parameter::coop_pert_icdm = 2
+  COOP_INT, parameter::coop_pert_iNu = 3
+  COOP_INT, parameter::coop_pert_ibaryon = 4
+  COOP_INT, parameter::coop_pert_iT = 5
+  COOP_INT, parameter::coop_pert_iE = 6
+  COOP_INT, parameter::coop_pert_iB = 7
   COOP_INT, parameter::coop_pert_imassiveNu = 8
   COOP_INT, parameter::coop_pert_ide = 9
   COOP_INT, parameter::coop_pert_nspecies = coop_pert_ide
 
 
+  type coop_pert_pf
+     COOP_REAL::delta
+     COOP_REAL::v = 0.
+     COOP_REAL::pi = 0.
+     COOP_REAL::cs2 = 0.
+     COOP_REAL::w = 0.
+  end type coop_pert_pf
+
   type coop_pert_hierarchy
-     COOP_INT:: nq = 1
-     COOP_INT::m = 0
+     COOP_INT::m=0
      COOP_INT::s=0
-     COOP_INT::lmax = -1
-     COOP_INT::lmin_used = -1
-     COOP_INT::lmax_used = -1
-     COOP_INT::nvars_used = 0
-     COOP_INT::nvars_used_per_q = 0
-     COOP_REAL,dimension(:,:),allocatable::var
-     COOP_REAL,dimension(:),allocatable::q
-   contains
-     procedure::init => coop_pert_hierarchy_initialize
-     procedure::nvars => coop_pert_hierarchy_nvars
-     procedure::free => coop_pert_hierarchy_free
+     COOP_INT::lmin=0
+     COOP_INT::lmax=-1
+     COOP_INT,dimension(0:coop_pert_default_lmax)::ind
   end type coop_pert_hierarchy
 
 
-  type coop_standard_o1pert
-     COOP_SHORT_STRING::initial_conditions = "adiabatic"
-     type(coop_pert_hierarchy),dimension(coop_pert_nspecies)::species
-     COOP_INT, dimension(coop_pert_nspecies)::istart, iend
-     COOP_REAL::k, phi, pi, phidot, pidot, vdot
-     logical:: tight_coupling = .true.
-     logical:: has_massiveNu = .false.
-     COOP_INT :: de_pert_model = 0
-     logical:: late_approx = .false.
-     COOP_INT :: m = 0
-     COOP_REAL,dimension(:),allocatable::y
-     COOP_REAL,dimension(:, :),allocatable::ode_w
-     COOP_REAL::ode_c(24)
-     COOP_INT::ode_ind, ode_nvars
-   contains
-     procedure::init => coop_standard_o1pert_initialize
-     procedure::set_ode_index => coop_standard_o1pert_set_ode_index
-     procedure::read_var => coop_standard_o1pert_read_var
-     procedure::write_var => coop_standard_o1pert_write_var
-     procedure::free => coop_standard_o1pert_free
-  end type coop_standard_o1pert
 
 contains
 
