@@ -6,246 +6,206 @@ module coop_pertobj_mod
   COOP_INT, parameter:: coop_pert_default_lmax = 32  
   COOP_INT, parameter:: coop_pert_default_mmax = 2
   COOP_INT, parameter:: coop_pert_default_smax = 2
+
+
   COOP_INT, parameter:: coop_pert_default_nq = 5
   COOP_REAL, dimension(coop_pert_default_nq),parameter:: coop_pert_default_q = coop_fermion_int_q5
   COOP_REAL, dimension(coop_pert_default_nq),parameter:: coop_pert_default_q_kernel = coop_fermion_int_kernel5 
 
 
-  COOP_INT, parameter::coop_pert_imetric = 1
-  COOP_INT, parameter::coop_pert_icdm = 2
-  COOP_INT, parameter::coop_pert_iNu = 3
-  COOP_INT, parameter::coop_pert_ibaryon = 4
-  COOP_INT, parameter::coop_pert_iT = 5
-  COOP_INT, parameter::coop_pert_iE = 6
-  COOP_INT, parameter::coop_pert_iB = 7
-  COOP_INT, parameter::coop_pert_imassiveNu = 8
-  COOP_INT, parameter::coop_pert_ide = 9
-  COOP_INT, parameter::coop_pert_nspecies = coop_pert_ide
+  type coop_pert_species
+     COOP_INT::genre = COOP_PERT_NONE  !!NONE = no perturbations, other options are PERFECT_FLUID, HIERARCHY
+     COOP_INT::m = 0
+     COOP_INT::s = 0
+     COOP_INT::index = -1  !!index of this variable in the ODE array
+     COOP_INT::lmin = 0
+     COOP_INT::lmax = -1
+     COOP_REAL,dimension(0:coop_pert_default_lmax)::F = 0.d0
+     COOP_REAL::q, mass
+  end type coop_pert_species
 
+  type coop_pert_object
+     logical::tight_coupling = .true.
+     logical::has_massivenu = .false.
+     logical::has_de = .false.
+     COOP_INT::m = 0
+     COOP_INT::ny = 0
+     type(coop_pert_species)::baryon, cdm, T, E, B, nu, de
+     type(coop_pert_species),dimension(coop_pert_default_nq)::massivenu !!massive neutrinos
 
-  type coop_pert_pf
-     COOP_REAL::delta
-     COOP_REAL::v = 0.
-     COOP_REAL::pi = 0.
-     COOP_REAL::cs2 = 0.
-     COOP_REAL::w = 0.
-  end type coop_pert_pf
-
-  type coop_pert_hierarchy
-     COOP_INT::m=0
-     COOP_INT::s=0
-     COOP_INT::lmin=0
-     COOP_INT::lmax=-1
-     COOP_INT,dimension(0:coop_pert_default_lmax)::ind
-  end type coop_pert_hierarchy
-
+     COOP_REAL,dimension(:),allocatable::y
+   contains
+     procedure::init =>  coop_pert_object_initialize
+     procedure::free =>  coop_pert_object_free
+  end type coop_pert_object
 
 
 contains
 
-  subroutine coop_standard_o1pert_initialize(this, m)
-    class(coop_standard_o1pert)::this
-    COOP_INT::m, i
-    logical::tight_coupling
+  subroutine coop_pert_object_initialize(this, m,  nu_mass, de_genre)
+    !!nu_mass = neutrino mass to temprature ratio
+    class(coop_pert_object)::this
+    COOP_REAL,optional::nu_mass
+    COOP_INT, optional::de_genre
+    COOP_INT::m, i, iq
     this%m = m
-    this%species%m = m
-    this%species(coop_pert_iE)%s = 2  !!override the default spin 0
-    this%species(coop_pert_iB)%s = 2
-    do i=1, coop_pert_nspecies
-       select case(i)
-       case(coop_pert_imetric)
-          call this%species(i)%init(lmax = 4)          
-       case(coop_pert_ibaryon, coop_pert_icdm)
-          call this%species(i)%init(lmax = 2)
-       case(coop_pert_imassiveNu)
-          call this%species(i)%init(lmax = coop_pert_default_lmax, nq =  coop_pert_default_nq, q = coop_pert_default_q )
-       case(coop_pert_ide)
-          call this%species(i)%init(lmax = 4)
-       case default
-          call this%species(i)%init(lmax = coop_pert_default_lmax)
-       end select
-    enddo
-  end subroutine coop_standard_o1pert_initialize
 
+    !!Cold Dark Matter
+    this%cdm%genre = COOP_PERT_PERFECT_FLUID
+    this%cdm%m = m
+    this%cdm%s = 0
+    this%cdm%index = 1
+    this%cdm%lmin = max(this%cdm%m, this%cdm%s)
+    this%cdm%lmax = max(this%cdm%lmin - 1, 1)
+    this%cdm%F = 0.d0
+    this%cdm%q = 1.d-30
+    this%cdm%mass = 1.d30
+    if(this%cdm%lmax .lt. this%cdm%lmin) this%cdm%genre = COOP_PERT_NONE
 
-  subroutine coop_standard_o1pert_free(this)
-    class(coop_standard_o1pert)::this
-    COOP_INT i
-    do i = 1, coop_pert_nspecies
-       call this%species(i)%free()
-    enddo
-  end subroutine coop_standard_o1pert_free
+    !!baryon
+    this%baryon%genre = COOP_PERT_PERFECT_FLUID
+    this%baryon%m = m
+    this%baryon%s = 0
+    this%baryon%index = this%cdm%index + this%cdm%lmax - this%cdm%lmin + 1
+    this%baryon%lmin = max(this%baryon%m, this%baryon%s)
+    this%baryon%lmax = max(this%baryon%lmin - 1, 1)
+    this%baryon%F = 0.d0
+    this%baryon%q = 1.d-30
+    this%baryon%mass = 1.d30
+    if(this%baryon%lmax .lt. this%baryon%lmin) this%baryon%genre = COOP_PERT_NONE
 
+    !!T
+    this%T%genre = COOP_PERT_HIERARCHY
+    this%T%m = m
+    this%T%s = 0
+    this%T%index = this%baryon%index + this%baryon%lmax - this%baryon%lmin + 1
+    this%T%lmin = max(this%T%m, this%T%s)
+    this%T%lmax = max(this%T%lmin - 1, 16)
+    this%T%F = 0.d0
+    this%T%q = 1.d0
+    this%T%mass = 0.d0
 
-  subroutine coop_standard_o1pert_set_ode_index(this)
-    class(coop_standard_o1pert)::this
-    COOP_INT i
-    select case(this%m)
-    case(0,1)
-       this%species(coop_pert_imetric)%lmax_used = 1
-    case(2)
-       this%species(coop_pert_imetric)%lmax_used = 3
-    case default
-       call coop_return_error("set_ode_index", "invalid m: "//trim(coop_num2str(this%m)), "stop")
-    end select
-       
-    this%species(coop_pert_icdm)%lmax_used = 1
-    this%species(coop_pert_iNu)%lmax_used = 12
-    this%species(coop_pert_ibaryon)%lmax_used = 1
-    if(this%tight_coupling)then
-       this%species(coop_pert_iT)%lmax_used = 0
-       this%species(coop_pert_iE)%lmax_used = 0
-       this%species(coop_pert_iB)%lmax_used = 0
+    !!E
+    this%E%genre = COOP_PERT_HIERARCHY
+    this%E%m = m
+    this%E%s = 2
+    this%E%index = this%T%index + this%T%lmax - this%T%lmin + 1
+    this%E%lmin = max(this%E%m, this%E%s)
+    this%E%lmax = max(this%E%lmin - 1, 12)
+    this%E%F = 0.d0
+    this%E%q = 1.d0
+    this%E%mass = 0.d0
+    
+    !!B
+    this%B%index = this%E%index + this%E%lmax - this%E%lmin + 1
+    if(m.eq.0)then
+       this%B%genre = COOP_PERT_NONE   
+       this%B%lmin = 0
+       this%B%lmax = -1
     else
-       if(this%late_approx)then
-          this%species(coop_pert_iT)%lmax_used = -1
-          this%species(coop_pert_iE)%lmax_used = -1
-          this%species(coop_pert_iB)%lmax_used = -1
-       else
-          this%species(coop_pert_iT)%lmax_used = 16
-          this%species(coop_pert_iE)%lmax_used = 12
-          if(this%m .gt. 0)then
-             this%species(coop_pert_iB)%lmax_used =  this%species(coop_pert_iE)%lmax_used
+       this%B%genre = COOP_PERT_HIERARCHY
+       this%B%m = m
+       this%B%s = 2
+       this%B%lmin = max(this%B%m, this%B%s)
+       this%B%lmax = max(this%B%lmin - 1, 12)
+       this%B%F = 0.d0
+       this%B%q = 1.d0
+       this%B%mass = 0.d0
+    endif
+
+    !!Neutrinos
+    this%nu%genre = COOP_PERT_HIERARCHY
+    this%nu%m = m
+    this%nu%s = 0
+    this%nu%index = this%B%index + this%B%lmax - this%B%lmin + 1
+    this%nu%lmin = max(this%nu%m, this%nu%s)
+    this%nu%lmax = max(this%nu%lmin - 1, 12)
+    this%nu%F = 0.d0
+    this%nu%q = 1.d0
+    this%nu%mass = 0.d0
+
+    if(present(nu_mass))then
+       this%has_massivenu = (nu_mass .ne. 0)
+    else
+       this%has_massivenu = .false.
+    endif
+    if(this%has_massivenu)then
+       this%massivenu%genre = COOP_PERT_HIERARCHY
+       this%massivenu%m = m
+       this%massivenu%s = 0
+       this%massivenu%lmin = max(this%nu%m, this%nu%s)
+       this%massivenu%lmax = max(this%nu%lmin - 1, 12)
+       this%massivenu%mass = nu_mass
+       do iq = 1, coop_pert_default_nq
+          this%massivenu(iq)%F = 0.d0
+          this%massivenu(iq)%q = coop_pert_default_q(iq)
+          if(iq .eq. 1)then
+             this%massivenu(iq)%index = this%nu%index + this%nu%lmax - this%nu%lmin + 1
           else
-             this%species(coop_pert_iB)%lmax_used = -1
+             this%massivenu(iq)%index = this%massivenu(iq-1)%index + this%massivenu(iq-1)%lmax - this%massivenu(iq-1)%lmin + 1
           endif
-       endif
-    endif
-    if(this%has_massiveNu)then
-       this%species(coop_pert_imassiveNu)%lmax_used = 10
+       enddo
     else
-       this%species(coop_pert_imassiveNu)%lmax_used = -1
+       this%massivenu%genre = COOP_PERT_NONE
+       this%massivenu%lmin = 0
+       this%massivenu%lmax = -1
+       this%massivenu%index = this%nu%index + this%nu%lmax - this%nu%lmin + 1
     endif
-    select case(this%de_pert_model)
-    case(COOP_DE_PERT_NONE)
-       this%species(coop_pert_ide)%lmax_used = -1
-    case(COOP_DE_PERT_FLUID)
-       this%species(coop_pert_ide)%lmax_used = 1
-    case(COOP_DE_PERT_PPF)
-       this%species(coop_pert_ide)%lmax_used = 0
-    case default
-       call coop_return_error("set_ode_index", "unknown de_pet_model: "//trim(coop_num2str(this%de_pert_model)), "stop")
-    end select
-    this%istart(1) = 1
-    this%iend(1) = this%istart(1) + this%species(1)%nvars() - 1
-    do i=2, coop_pert_nspecies
-       this%istart(i) = this%iend(i-1)+1
-       this%iend(i) = this%istart(i) - 1 + this%species(i)%nvars()
-    enddo
-    this%ode_nvars = this%iend(coop_pert_nspecies)
-    if(allocated(this%ode_w))deallocate(this%ode_w)
+
+    !!massive neutrinos
+
+
+    !!dark energy
+    if(present(de_genre))then
+       this%de%genre = de_genre
+       this%de%m = m
+       this%de%s = 0
+       this%de%index = this%massivenu(coop_pert_default_nq)%index + this%massivenu(coop_pert_default_nq)%lmax - this%massivenu(coop_pert_default_nq)%lmin + 1
+       this%de%lmin = max(this%de%m, this%de%s)
+       select case(this%de%genre)
+       case(COOP_PERT_NONE)
+          this%de%lmax = max(this%de%lmin - 1, -1)
+       case(COOP_PERT_PERFECT_FLUID)
+          this%de%lmax = max(this%de%lmin - 1, 1)
+       case(COOP_PERT_SCALAR_FIELD) 
+          if(m.eq.0)then
+             this%de%lmax = 1
+          else
+             this%de%lmax = this%de%lmin - 1
+          endif
+       case default
+          call coop_return_error("pert_initialize", "unknown genre "//trim(coop_num2str(this%de%genre)), "stop")
+       end select
+       if(this%de%lmax .lt. this%de%lmin) this%de%genre = COOP_PERT_NONE
+    endif
+   
+  end subroutine coop_pert_object_initialize
+
+
+  subroutine coop_pert_object_free(this)
+    class(coop_pert_object)::this
     if(allocated(this%y))deallocate(this%y)
-    allocate(this%ode_w(this%ode_nvars, 9), this%y(this%ode_nvars))
-    this%ode_ind = 1
-    this%ode_c = 0.
-    this%ode_w = 0
-  end subroutine coop_standard_o1pert_set_ode_index
+    this%ny = 0
+  end subroutine coop_pert_object_free
 
-  subroutine coop_standard_o1pert_read_var(this, var)
+
+  subroutine coop_pert_object_set_ode_index(this)
+    class(coop_pert_object)::this
+    
+  end subroutine coop_pert_object_set_ode_index
+  
+  subroutine coop_pert_object_read_var(this, var)
+    class(coop_pert_object)::this
     COOP_REAL,dimension(:),optional::var
-    class(coop_standard_o1pert)::this
-    COOP_INT i
-    if(present(var))then
-       do i=1, coop_pert_nspecies
-          if(this%species(i)%nvars_used .gt. 0)then
-             this%species(i)%var(this%species(i)%lmin_used:this%species(i)%lmax_used, :) = reshape(var(this%istart(i):this%iend(i)), (/ this%species(i)%nvars_used_per_q, this%species(i)%nq /))
-          endif
-       enddo
-    else
-       do i=1, coop_pert_nspecies
-          if(this%species(i)%nvars_used .gt. 0)then
-             this%species(i)%var(this%species(i)%lmin_used:this%species(i)%lmax_used, :) = reshape(this%y(this%istart(i):this%iend(i)), (/ this%species(i)%nvars_used_per_q, this%species(i)%nq /))
-          endif
-       enddo
-    endif
-  end subroutine coop_standard_o1pert_read_var
 
-  subroutine coop_standard_o1pert_write_var(this, var)
-    class(coop_standard_o1pert)::this
-    COOP_REAL,dimension(:), optional::var
-    COOP_INT i
-    if(present(var))then
-       do i=1, coop_pert_nspecies
-          if(this%species(i)%nvars_used .gt. 0)then
-             var(this%istart(i):this%iend(i)) = reshape(this%species(i)%var(this%species(i)%lmin_used:this%species(i)%lmax_used, :), (/ this%species(i)%nvars_used /) )
-          endif
-       enddo
-    else
-       do i=1, coop_pert_nspecies
-          if(this%species(i)%nvars_used .gt. 0)then
-             this%y(this%istart(i):this%iend(i)) = reshape(this%species(i)%var(this%species(i)%lmin_used:this%species(i)%lmax_used, :), (/ this%species(i)%nvars_used /) )
-          endif
-       enddo
-    endif
-  end subroutine coop_standard_o1pert_write_var
+  end subroutine coop_pert_object_read_var
 
-  subroutine coop_pert_hierarchy_free(this)
-    class(coop_pert_hierarchy)::this
-    if(allocated(this%var))deallocate(this%var)
-    if(allocated(this%q))deallocate(this%q)
-    this%lmax = -1
-    this%lmax_used = -1
-    this%lmin_used = -1
-  end subroutine coop_pert_hierarchy_free
+  subroutine coop_pert_object_write_var(this, var)
+    class(coop_pert_object)::this
+    COOP_REAL,dimension(:),optional::var
 
-  subroutine coop_pert_hierarchy_initialize(this, lmax, nq, q)
-    !!truncate or extend the hierarchy
-    COOP_INT, optional::nq
-    COOP_REAL,dimension(:), optional::q
-    class(coop_pert_hierarchy)::this
-    COOP_INT lmax
-    COOP_REAL,dimension(:,:),allocatable::tmp
-    if(present(nq) )then
-       if(.not. present(q)) stop "pert_hierarchy_init: need q for nq parameter"
-       call this%free()
-       this%nq = nq
-       this%lmax = lmax
-       if(lmax .ge. 0)   allocate(this%var(-1:lmax, nq))
-       if(nq.ge.1)then
-          allocate(this%q(nq))
-          this%q = q
-          this%var = 0.d0
-       endif
-       this%lmax_used = this%lmax - 1
-       this%lmin_used = max(this%m, this%s)
-       return
-    else
-       this%nq = 1
-       if(.not. allocated(this%q)) allocate(this%q(1))
-       this%q = 1.d0
-    endif
-    if(allocated(this%var))then
-       if(this%lmax .eq. lmax)return
-       allocate(tmp(-1:this%lmax, this%nq))
-       tmp = this%var
-       deallocate(this%var)
-       if(lmax .ge. 0)then
-          allocate(this%var(-1:lmax, this%nq))
-          this%var = 0.d0
-          this%var(-1: min(lmax, this%lmax),:) = tmp(-1: min(lmax, this%lmax),:) 
-       endif
-       this%lmax = lmax
-       deallocate(tmp)
-    else
-       this%lmax = lmax
-       if(lmax .ge. 0)then
-          allocate(this%var(-1:lmax, this%nq))
-          this%var = 0.d0
-       endif
-    endif
-    this%lmax_used = this%lmax - 1
-    this%lmin_used = max(this%m, this%s)
-  end subroutine coop_pert_hierarchy_initialize
-
-  function coop_pert_hierarchy_nvars(this) result(n)
-    COOP_INT n
-    class(coop_pert_hierarchy)::this
-    this%lmin_used = max(this%m, this%s, this%lmin_used)
-    this%lmax_used = max(min(this%lmax_used, this%lmax-1), this%lmin_used - 1)
-    this%nvars_used_per_q = (this%lmax_used- this%lmin_used+1)
-    this%nvars_used = this%nvars_used_per_q * this%nq
-    n = this%nvars_used 
-  end function coop_pert_hierarchy_nvars
+  end subroutine coop_pert_object_write_var
+  
 
 
 end module coop_pertobj_mod

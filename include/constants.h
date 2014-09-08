@@ -94,37 +94,6 @@
 #define COOP_FORMAT_FLOAT 2
 #define COOP_FORMAT_LOGICAL -1
 
-#define O1_METRIC species(coop_pert_imetric)
-#define O1_BARYON species(coop_pert_ibaryon)
-#define O1_CDM species(coop_pert_icdm)
-#define O1_T species(coop_pert_iT)
-#define O1_E species(coop_pert_iE)
-#define O1_B species(coop_pert_iB)
-#define O1_NU species(coop_pert_iNu)
-#define O1_MASSIVENU species(coop_pert_imassiveNu)
-#define O1_DE species(coop_pert_ide)
-
-#define O1METRIC(l) species(coop_pert_imetric)%var(l,1)
-
-#define O1_PHI phi
-#define O1_PHIDOT phidot
-#define O1_PI pi
-#define O1_PIDOT pidot
-#define O1_PSI species(coop_pert_imetric)%var(0, 1)
-#define O1_PSIDOT species(coop_pert_imetric)%var(1, 1)
-#define O1_V species(coop_pert_imetric)%var(1, 1)
-#define O1_VDOT vdot
-#define O1_H species(coop_pert_imetric)%var(2, 1)
-#define O1_HDOT species(coop_pert_imetric)%var(3, 1)
-
-#define O1BARYON(l) species(coop_pert_ibaryon)%var(l,1)
-#define O1CDM(l) species(coop_pert_icdm)%var(l,1)
-#define O1T(l) species(coop_pert_iT)%var(l,1)
-#define O1E(l) species(coop_pert_iE)%var(l,1)
-#define O1B(l) species(coop_pert_iB)%var(l,1)
-#define O1NU(l) species(coop_pert_iNu)%var(l,1)
-#define O1MASSIVENU(l,iq) species(coop_pert_imassiveNu)%var(l, iq)
-#define O1DE(l) species(coop_pert_ide)%var(l,1)
 
 #define O0_BARYON(x) x%species(x%index_baryon)
 #define O0_CDM(x) x%species(x%index_cdm)
@@ -134,8 +103,7 @@
 #define O0_DE(x)  x%species(x%index_de)
 
 
-#define COOP_DE_PERT_NONE 0
-#define COOP_DE_PERT_FLUID 1
-#define COOP_DE_PERT_PPF 2
-#define COOP_DE_PERT_QUINTESSENCE 3
-#define COOP_DE_PERT_COUPLED_QUINTESSENCE 4
+#define COOP_PERT_NONE 0
+#define COOP_PERT_PERFECT_FLUID 1
+#define COOP_PERT_HIERARCHY 2
+#define COOP_PERT_SCALAR_FIELD 3
