@@ -9,7 +9,7 @@ module coop_string_mod
   integer,parameter::sp = kind(1.)
   integer,parameter::dl = kind(1.d0)
 
-  public::coop_num2str,  coop_ndigits, coop_str2int, coop_str2real, coop_str2logical, coop_substr, coop_str_replace, coop_str_numalpha, coop_str2lower, coop_str2upper, coop_case_insensitive_eq, coop_file_path_of, coop_file_name_of, coop_file_add_postfix, coop_convert_to_C_string, coop_data_type
+  public::coop_num2str,  coop_ndigits, coop_str2int, coop_str2real, coop_str2logical, coop_substr, coop_str_replace, coop_str_numalpha, coop_str2lower, coop_str2upper, coop_case_insensitive_eq, coop_file_path_of, coop_file_name_of, coop_file_add_postfix, coop_convert_to_C_string, coop_data_type, coop_string_contain_numbers
 
   Interface coop_num2str
      module procedure coop_int2str, coop_real2str, coop_logical2str, coop_double2str
@@ -359,6 +359,26 @@ contains
   end subroutine coop_convert_to_C_string
 
 
+  function coop_string_contain_numbers(str) result(nums)
+    COOP_UNKNOWN_STRING::str
+    COOP_INT nums
+    COOP_INT length, i, j
+    nums = 0
+    Length=scan(Str,"1234567890+-.eE",BACK=.true.)
+    if(length .eq. 0) return
+    i = scan(str(i:Length), "1234567890-+.eE")
+    do while(i.ne. 0)
+       nums = nums + 1
+       j = verify(Str(i:Length), "1234567890-+.eE")
+       if(j.eq.0)return
+       i = i + j
+       if(i .ge. length)return
+       j=scan(Str(i:Length),"1234567890-+.eE")
+       if(j.eq.0)return
+       i = i + j - 1
+    enddo
+  end function coop_string_contain_numbers
+
   !! 0 string; 1 integer; 2 float
   function coop_data_type(str) result(dtype)
     COOP_UNKNOWN_STRING str
@@ -417,5 +437,7 @@ contains
     dtype = COOP_FORMAT_FLOAT
     return
   end function coop_data_type
+
+
 
 end module coop_string_mod

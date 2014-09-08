@@ -154,17 +154,7 @@ contains
     if(.not. coop_File_Exists(filename)) return
     call fp%open(trim(filename), "r")
     if( coop_file_readline_string(fp, firstline) )then
-       Length=scan(FirstLine,"1234567890+-.eE",BACK=.true.)+1
-       FirstLine(Length:Length) = " "
-       i = 1
-       do while(i.lt. length)
-          NumColumns=NumColumns+1
-          J=verify(FirstLine(i:Length),"1234567890-+.eE")
-          I = I + J
-          J=scan(FirstLine(I:Length),"1234567890-+.eE")
-          if(J.eq.0) goto 100
-          I = I + J - 1
-       enddo
+       numcolumns = coop_string_contain_numbers(firstline)
     endif
 100 call fp%close()
   End Function Coop_File_NumColumns
@@ -268,10 +258,12 @@ contains
 
   Subroutine coop_File_SkipLines(fp, numlines)
     class(coop_file) fp
-    COOP_INT numlines, i
-    COOP_LONG_STRING line
-    do i = 1, numlines
-       read(fp%unit, '(A)', End=200, Err=200) line
+    COOP_INT numlines, lines
+    COOP_LONG_STRING inline
+    Lines = 0
+    do while(coop_file_readline_string(fp, inline))
+       lines = lines + 1
+       if(lines .ge. numlines) exit
     enddo
 200 return
   end Subroutine Coop_File_SkipLines

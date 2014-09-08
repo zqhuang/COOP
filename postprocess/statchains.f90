@@ -61,7 +61,7 @@ contains
     integer nfiles, i, j, lens, k
     integer,dimension(:),allocatable::nskip, nlines
     COOP_LONG_STRING fname
-    COOP_STRING inline, tmp
+    COOP_LONG_STRING inline, tmp
     integer ispace, ind
     type(coop_file) fp
     mc%prefix = trim(prefix)
@@ -72,6 +72,7 @@ contains
           nfiles = nfiles+1
           if(nfiles.eq.1)then
              mc%np = coop_file_numcolumns(fname) -2 
+             call coop_feedback(trim(coop_num2str(mc%np))//" parameters")
              if(allocated(mc%label))deallocate(mc%name, mc%simplename, mc%label, mc%std, mc%mean, mc%lower, mc%upper, mc%vary, mc%covmat,  mc%plotlower, mc%plotupper, mc%dx, mc%map2used, mc%lowsig, mc%upsig, mc%left_is_tail, mc%right_is_tail, mc%base)
              allocate(mc%label(mc%np), mc%simplename(mc%np), mc%std(mc%np), mc%mean(mc%np), mc%lower(mc%np), mc%upper(mc%np),  mc%plotlower(mc%np), mc%plotupper(mc%np), mc%vary(mc%np), mc%covmat(mc%np, mc%np), mc%dx(mc%np), mc%map2used(mc%np), mc%name(mc%np), mc%lowsig(mcmc_stat_num_cls, mc%np), mc%upsig(mcmc_stat_num_cls, mc%np), mc%left_is_tail(mc%np), mc%right_is_tail(mc%np), mc%base(mc%np))
           endif
@@ -177,15 +178,17 @@ contains
           call fp%skip_lines(nskip(i))
           do j=nskip(i)+1, nlines(i)
              k = k + 1
-             read(fp%unit, *, ERR = 120, END = 300) mc%mult(k), mc%like(k), mc%params(k,1:mc%np)
+             read(fp%unit, "(A)", ERR = 120, END = 300) inline
+             read(inline,  *, ERR = 50, END = 50)  mc%mult(k), mc%like(k), mc%params(k,1:mc%np)
           enddo
-          call fp%close()
+50        call fp%close()
        endif
     enddo
     if( k .eq. mc%n)then
        call coop_feedback( "Totally "//trim(coop_num2str(k))//" samples are used." )
     else
-       stop "Error: counting failed in load_chain"
+       mc%n = k
+       call coop_feedback(" Warning: some lines seem to be broken. This could be caused by inconsistent ini files with checkpoint. Check your MCMC chains.")
     endif
     deallocate(nskip, nlines)
     call coop_feedback( "Analysing the chain ... ")
