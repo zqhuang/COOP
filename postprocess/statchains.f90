@@ -193,7 +193,7 @@ contains
     call coop_feedback( "Chain analysed.")
     return
 120 call coop_feedback("bad line #"//trim(coop_num2str(k))//" in file #"//trim(coop_num2str(i)))
-300 call coop_feedback("End of file during read. This should not happen unless you have manually added comment lines in to the chain file")
+300 call coop_feedback("End of file during read. Line #"//trim(coop_num2str(k))//" in file #//"//trim(coop_num2str(i))//". This should not happen unless you have manually added comment lines in to the chain file")
   end subroutine load_chain
 
   subroutine analyze_chain(mc)
