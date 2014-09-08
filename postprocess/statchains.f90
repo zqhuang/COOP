@@ -80,10 +80,9 @@ contains
        endif
     enddo
     if(nfiles.eq.0)then
-       write(*,*) trim(prefix)//"_1.txt is not found on the disk"
-       stop
+       call coop_return_error("load_chain", trim(prefix)//"_1.txt is not found on the disk", "stop")
     else
-       write(*,*) "found "//trim(coop_num2str(nfiles))//" chain files on the disck"
+       call coop_feedback( "found "//trim(coop_num2str(nfiles))//" chain files on the disck")
     endif
     fname = trim(prefix)//".inputparams"
     if(coop_file_exists(fname))then
@@ -96,11 +95,11 @@ contains
        if(coop_file_exists(fname))then
           call coop_load_dictionary(trim(fname), mc%allparams, col_key = 1, col_value = 2)
        else
-          write(*,*) "ranges file not found;"
+          call coop_feedback("ranges file not found;")
           if(cosmomc_pp_model .ne. COOP_PP_STANDARD .or. cosmomc_de_model .ne. COOP_DE_COSMOLOGICAL_CONSTANT) stop
        endif
     else
-       write(*,*) "Warning: inputparams file not found;"
+       call coop_feedback( "Warning: inputparams file not found;" )
        cosmomc_pp_model = COOP_PP_STANDARD
        cosmomc_de_model = COOP_DE_COSMOLOGICAL_CONSTANT
     endif
@@ -150,17 +149,17 @@ contains
      
     call coop_dictionary_lookup(mc%inputparams, "inflation_consistency", cosmomc_pp_inflation_consistency, .true.)
        
-    write(*,*) ind-1 , " hard parameters "
-    write(*,*) " dark energy index from ", cosmomc_de_index
-    write(*,*) cosmomc_de_num_params  , " dark energy parameters "
-    write(*,*) cosmomc_pp_num_origin  , " cosmomc default primordial power parameters "
-    write(*,*) "totally ", cosmomc_pp_num_params  , " primordial power parameters "
+    call coop_feedback( trim(coop_num2str(ind-1))//" hard parameters ")
+    call coop_feedback(" dark energy index from "//trim(coop_num2str(cosmomc_de_index)))
+    call coop_feedback(trim(coop_num2str(cosmomc_de_num_params))//" dark energy parameters ")
+    call coop_feedback(trim(coop_num2str(cosmomc_pp_num_origin))//" cosmomc default primordial power parameters ")
+    call coop_feedback("totally "//trim(coop_num2str(cosmomc_pp_num_params))//" primordial power parameters ")
 
     allocate(nskip(nfiles),nlines(nfiles))
     do i = 1, nfiles
        fname = trim(prefix)//"_"//trim(coop_num2str(i))//".txt"
        nlines(i)= coop_file_numlines(fname)          
-       write(*,*) "found "//trim(coop_num2str(nlines(i)))//" lines in "//trim(fname)
+       call coop_feedback( "found "//trim(coop_num2str(nlines(i)))//" lines in "//trim(fname))
     enddo
     if(present(ignore_percent))then
        nskip = nlines * ignore_percent/100
@@ -178,20 +177,23 @@ contains
           call fp%skip_lines(nskip(i))
           do j=nskip(i)+1, nlines(i)
              k = k + 1
-             read(fp%unit, *) mc%mult(k), mc%like(k), mc%params(k,1:mc%np)
+             read(fp%unit, *, ERR = 120, END = 300) mc%mult(k), mc%like(k), mc%params(k,1:mc%np)
           enddo
           call fp%close()
        endif
     enddo
     if( k .eq. mc%n)then
-       write(*,*) "Totally "//trim(coop_num2str(k))//" samples are used."
+       call coop_feedback( "Totally "//trim(coop_num2str(k))//" samples are used." )
     else
        stop "Error: counting failed in load_chain"
     endif
     deallocate(nskip, nlines)
-    write(*, *) "Analysing the chain ... "
+    call coop_feedback( "Analysing the chain ... ")
     call analyze_chain(mc)
-    write(*, *) "Chain analysed."
+    call coop_feedback( "Chain analysed.")
+    return
+120 call coop_feedback("bad line #"//trim(coop_num2str(k))//" in file #"//trim(coop_num2str(i)))
+300 call coop_feedback("End of file during read. This should not happen unless you have manually added comment lines in to the chain file")
   end subroutine load_chain
 
   subroutine analyze_chain(mc)
@@ -498,7 +500,7 @@ contains
 
     num_1sigma_trajs = 50
     if(do_pp)then
-       write(*,*) "Generating primordial power spectra trajectories"
+       call coop_feedback("Generating primordial power spectra trajectories")
        select case(cosmomc_pp_model)
        case(COOP_PP_GENERAL_SINGLE_FIELD)
           num_1sigma_trajs  = 70
@@ -681,7 +683,7 @@ contains
           endif
           ndof = nk-j+1
           norm = sqrt(dble(nk)/(lnkmax-lnkmin))
-          write(*,*) "found "//trim(coop_num2str(ndof))//" degrees of freedom in scalar power spectrum"
+          call coop_feedback( "found "//trim(coop_num2str(ndof))//" degrees of freedom in scalar power spectrum")
           print*, "power traj eigen values: ", sqrt(lnps(j:nk))/norm
           if(ndof .ge. 1)then
              if(maxval(lnpscov(:,j)).gt. - minval(lnpscov(:, j)))then
@@ -838,7 +840,7 @@ contains
     call coop_write_matrix(fp%unit, mc%cov_used, mc%np_used, mc%np_used)
     call fp%close()
     if(mc%np_pca .gt. 0)then
-       write(*,*) "Doing PCA"
+       call coop_feedback( "Doing PCA")
        allocate(pcamat(mc%np_pca, mc%np_pca),eig(mc%np_pca), ipca(mc%np_pca))
        pcamat = mc%covmat(mc%pca, mc%pca)
        call coop_set_uniform(mc%np_pca, ipca, 1.d0, 1.d0*mc%np_pca)
