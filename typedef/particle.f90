@@ -25,7 +25,17 @@ contains
 
 
   subroutine coop_fermion_get_lnam(lnrho, lnam)
-    COOP_REAL lnam, lnrho, lower, upper, lr
+    COOP_REAL lnam, lnrho, lower, upper, lr, invam2
+    if(lnrho .le. 1.e-2_dl)then
+       lnam =  log(lnrho*(1.d0+lnrho/2.d0)/(5_dl/7_dl/coop_pi**2))/2.d0
+       return
+    endif
+    if(lnrho .gt. 1.e2_dl)then
+       lnam =  lnrho -  log(coop_Riemannzeta3 * 180_dl/7_dl/coop_pi**4)
+       invam2 = exp(-2_dl*lnam)
+       lnam = lnrho -  log((coop_Riemannzeta3 * 180_dl/7_dl/coop_pi**4) +( (1350_dl/7_dl*coop_Riemannzeta5/coop_pi**4) + (-6075_dl/4_dl/coop_pi**4 * coop_Riemannzeta7+(172125_dl* coop_Riemannzeta9/8_dl/ coop_pi**4)*invam2)*invam2)*invam2)
+       return
+    endif
     lower = log((exp(lnrho)-1_dl)*(7_dl*coop_pi**2/5_dl))/2_dl - 1.d-8
     upper = lnrho - log(coop_Riemannzeta3 * 180_dl/7_dl/coop_pi**4) + 1.d-8
     do while(upper - lower .gt. 1.d-7)
@@ -47,8 +57,7 @@ contains
     COOP_REAL invam2, corr, lnam, lnrho
     COOP_REAL,dimension(20),parameter::crho = (/ 0.89293935180142925_dl, 1.3851588735560008_dl, 0.59201638940401391_dl, 5.52167768753157942e-2_dl, -6.84994561924834600e-2_dl, -1.78898251764955940e-2_dl, 1.31790803821667645e-2_dl, 5.84725640687740623e-3_dl, -2.65218714293024649e-3_dl, -1.84616659288402659e-3_dl, 4.82404659741137831e-4_dl, 5.58642583176972569e-4_dl, -6.26401384210129567e-5_dl, -1.61520019162570550e-4_dl, -3.30934261743216566e-6_dl, 4.47917623670222794e-5_dl, 6.15434233659787645e-6_dl, -1.15506405054980366e-5_dl, -3.87591649596476188e-6_dl, 3.18654185509784438e-6_dl /)
     if(lnam .le. -2.49_dl)then
-       corr = (5_dl/7_dl/coop_pi**2)*exp(2_dl*lnam)
-       lnrho = log(1_dl + corr)
+       lnrho = log(1_dl + (5_dl/7_dl/coop_pi**2)*exp(2_dl*lnam) )
        return
     endif
     if(lnam .ge. 3.99_dl)then
@@ -117,7 +126,17 @@ contains
 !!------------------------ Coop_boson -----------------------------------------
 
   subroutine coop_boson_get_lnam(lnrho, lnam)
-    COOP_REAL lnam, lnrho, lower, upper, lr
+    COOP_REAL lnam, lnrho, lower, upper, lr, invam2
+    if(lnrho .le. 1.d-2)then
+       lnam = log (lnrho * (1.d0 + lnrho/2.d0) /  (5_dl/4_dl/coop_pi**2))/2.d0
+       return
+    endif
+    if(lnrho .ge. 1.d2)then
+       lnam = lnrho - log((coop_Riemannzeta3 * 30_dl/coop_pi**4))
+       invam2 = exp(-2_dl*lnam)
+       lnam = lnrho - log((coop_Riemannzeta3 * 30_dl/coop_pi**4) +( (180_dl*coop_Riemannzeta5/coop_pi**4) + (-1350_dl/coop_pi**4 * coop_Riemannzeta7 + (37800_dl * coop_Riemannzeta9/ coop_pi**4)*invam2)*invam2)*invam2)
+       return
+    endif
     lower = log((exp(lnrho)-1_dl)*(4_dl*coop_pi**2/5_dl))/2_dl - 1.d-8
     upper = lnrho - log(coop_Riemannzeta3 * 30_dl/coop_pi**4) + 1.d-8
     do while(upper - lower .gt. 1.d-7)

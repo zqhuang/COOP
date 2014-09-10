@@ -102,8 +102,49 @@
 #define O0_MASSIVENU(x) x%species(x%index_massivenu)
 #define O0_DE(x)  x%species(x%index_de)
 
+#define O1_PSI y(pert%metric%i(0))
+#define O1_PSIDOT y(pert%metric%i(1))
+#define O1_VEC_V y(pert%metric%i(1))
+#define O1_TEN_H y(pert%metric%i(2))
+#define O1_TEN_HDOT y(pert%metric%i(3))
+#define O1_DELTA_B y(pert%baryon%i(0))
+#define O1_V_B y(pert%baryon%i(1)) 
+#define O1_DELTA_C y(pert%cdm%i(0))
+#define O1_V_C y(pert%cdm%i(1))
+#define O1_T(l)  y(pert%T%i(l))
+#define O1_E(l)  y(pert%E%i(l))
+#define O1_B(l)  y(pert%E%i(l))
+#define O1_NU(l) y(pert%nu%i(l))
+#define O1_MASSIVENU(l, iq) y(pert%massivenu(iq)%i(l))
+#define O1_DE(l) y(pert%de%i(l))
+#define O1_DELTA_DE O1_DE(0)
+#define O1_V_DE  O1_DE(1)
+#define O1_DELTA_PHI O1_DE(0)
+#define O1_DELTA_PHIDOT O1_DE(1)
+
+#define O1_PSI_PRIME yp(pert%metric%i(0))
+#define O1_PSIDOT_PRIME yp(pert%metric%i(1))
+#define O1_VEC_V_PRIME yp(pert%metric%i(1))
+#define O1_TEN_H_PRIME yp(pert%metric%i(2))
+#define O1_TEN_HDOT_PRIME yp(pert%metric%i(3))
+#define O1_DELTA_B_PRIME yp(pert%baryon%i(0))
+#define O1_V_B_PRIME yp(pert%baryon%i(1)) 
+#define O1_DELTA_C_PRIME yp(pert%cdm%i(0))
+#define O1_V_C_PRIME yp(pert%cdm%i(1))
+#define O1_T_PRIME(l)  yp(pert%T%i(l))
+#define O1_E_PRIME(l)  yp(pert%E%i(l))
+#define O1_B_PRIME(l)  yp(pert%E%i(l))
+#define O1_NU_PRIME(l) yp(pert%nu%i(l))
+#define O1_MASSIVENU_PRIME(l, iq) yp(pert%massivenu(iq)%i(l))
+#define O1_DE_PRIME(l) yp(pert%de%i(l))
+#define O1_DELTA_DE_PRIME O1_DE_PRIME(0)
+#define O1_V_DE_PRIME  O1_DE_PRIME(1)
+#define O1_DELTA_PHI_PRIME O1_DE_PRIME(0)
+#define O1_DELTA_PHIDOT_PRIME O1_DE_PRIME(1)
+
 
 #define COOP_PERT_NONE 0
-#define COOP_PERT_PERFECT_FLUID 1
-#define COOP_PERT_HIERARCHY 2
-#define COOP_PERT_SCALAR_FIELD 3
+#define COOP_PERT_METRIC 1
+#define COOP_PERT_PERFECT_FLUID 2
+#define COOP_PERT_HIERARCHY 3
+#define COOP_PERT_SCALAR_FIELD 4

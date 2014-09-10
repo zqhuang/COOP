@@ -11,174 +11,222 @@ module coop_pertobj_mod
   COOP_INT, parameter:: coop_pert_default_nq = 5
   COOP_REAL, dimension(coop_pert_default_nq),parameter:: coop_pert_default_q = coop_fermion_int_q5
   COOP_REAL, dimension(coop_pert_default_nq),parameter:: coop_pert_default_q_kernel = coop_fermion_int_kernel5 
-
+  COOP_REAL, dimension(coop_pert_default_nq), parameter::coop_pert_massivenu_threshold = 0.2d0 * coop_pert_default_q  !!ma > threshold considered to be massive
 
   type coop_pert_species
      COOP_INT::genre = COOP_PERT_NONE  !!NONE = no perturbations, other options are PERFECT_FLUID, HIERARCHY
      COOP_INT::m = 0
      COOP_INT::s = 0
-     COOP_INT::index = -1  !!index of this variable in the ODE array
      COOP_INT::lmin = 0
      COOP_INT::lmax = -1
+     COOP_INT::nvars = 0
+     COOP_INT::index = -1
+     COOP_INT::last_index = -1
      COOP_REAL,dimension(0:coop_pert_default_lmax)::F = 0.d0
+     COOP_INT,dimension(-1:coop_pert_default_lmax+1)::i = 0
      COOP_REAL::q, mass
+   contains
+     procedure::set_defaults => coop_pert_species_set_defaults     
   end type coop_pert_species
 
   type coop_pert_object
+     COOP_REAL::k, tau, a
+     COOP_STRING::initial_conditions = "adiabatic"
      logical::tight_coupling = .true.
-     logical::has_massivenu = .false.
-     logical::has_de = .false.
+     COOP_INT::massivenu_iq_used
      COOP_INT::m = 0
      COOP_INT::ny = 0
-     type(coop_pert_species)::baryon, cdm, T, E, B, nu, de
+     COOP_REAL::O1_phi, O1_phidot, O1_aniso, O1_anisodot
+     type(coop_pert_species)::metric, baryon, cdm, T, E, B, nu, de
      type(coop_pert_species),dimension(coop_pert_default_nq)::massivenu !!massive neutrinos
 
      COOP_REAL,dimension(:),allocatable::y
    contains
      procedure::init =>  coop_pert_object_initialize
+     procedure::save_ode => coop_pert_object_save_ode
+     procedure::restore_ode => coop_pert_object_restore_ode
      procedure::free =>  coop_pert_object_free
+     procedure::set_zero => coop_pert_object_set_zero
   end type coop_pert_object
 
 
 contains
 
-  subroutine coop_pert_object_initialize(this, m,  nu_mass, de_genre)
+  subroutine coop_pert_object_set_zero(this)
+    class(coop_pert_object)::this
+    COOP_INT iq
+    this%metric%F = 0.d0
+    this%baryon%F = 0.d0
+    this%cdm%F = 0.d0
+    this%T%F = 0.d0
+    this%E%F = 0.d0
+    this%B%F = 0.d0
+    this%nu%F = 0.d0
+    this%de%F = 0.d0
+    do iq = 1, coop_pert_default_nq
+       this%massivenu(iq)%F = 0.d0
+    enddo
+  end subroutine coop_pert_object_set_zero
+
+  subroutine coop_pert_species_set_defaults(this, genre, m, s, lmax, index, q, mass)
+    class(coop_pert_species)::this
+    COOP_INT::genre, m, s, lmax, index, l
+    COOP_REAL::q, mass
+    this%genre = genre       
+    this%m = m
+    this%s = s
+    this%lmin = max(m, s, 0)
+    if(genre .eq. COOP_PERT_NONE)then
+       this%lmax = this%lmin - 1
+    else
+       this%lmax = max(this%lmin - 1, lmax)
+    endif
+    this%nvars = this%lmax - this%lmin + 1
+    this%index = index
+    this%last_index = this%index + this%nvars - 1
+    this%i = 0
+    do l = this%lmin, this%lmax
+       this%i(l) = this%index + l - this%lmin
+    enddo
+    this%q = q
+    this%mass = mass
+    if(this%nvars .le. 0)then
+       this%genre = COOP_PERT_NONE
+    endif
+  end subroutine coop_pert_species_set_defaults
+
+  subroutine coop_pert_object_initialize(this, m, nu_mass, de_genre, a)
     !!nu_mass = neutrino mass to temprature ratio
     class(coop_pert_object)::this
-    COOP_REAL,optional::nu_mass
+    COOP_REAL,optional::nu_mass, a
     COOP_INT, optional::de_genre
-    COOP_INT::m, i, iq
+    COOP_INT::m, i, iq, l
     this%m = m
+    call this%free()
+    call this%metric%set_defaults( genre = COOP_PERT_METRIC,  &
+         m = m, s = 0, index = 1,  &
+         lmax = m + 1 - mod(m, 2), q=1.d0, mass = 0.d0 )
 
-    !!Cold Dark Matter
-    this%cdm%genre = COOP_PERT_PERFECT_FLUID
-    this%cdm%m = m
-    this%cdm%s = 0
-    this%cdm%index = 1
-    this%cdm%lmin = max(this%cdm%m, this%cdm%s)
-    this%cdm%lmax = max(this%cdm%lmin - 1, 1)
-    this%cdm%F = 0.d0
-    this%cdm%q = 1.d-30
-    this%cdm%mass = 1.d30
-    if(this%cdm%lmax .lt. this%cdm%lmin) this%cdm%genre = COOP_PERT_NONE
+    call this%cdm%set_defaults( genre = COOP_PERT_PERFECT_FLUID, &
+         m = m, s = 0, index = this%metric%last_index + 1, &
+         lmax = 1,  q = 1.d-30, mass = 1.d30 )
 
-    !!baryon
-    this%baryon%genre = COOP_PERT_PERFECT_FLUID
-    this%baryon%m = m
-    this%baryon%s = 0
-    this%baryon%index = this%cdm%index + this%cdm%lmax - this%cdm%lmin + 1
-    this%baryon%lmin = max(this%baryon%m, this%baryon%s)
-    this%baryon%lmax = max(this%baryon%lmin - 1, 1)
-    this%baryon%F = 0.d0
-    this%baryon%q = 1.d-30
-    this%baryon%mass = 1.d30
-    if(this%baryon%lmax .lt. this%baryon%lmin) this%baryon%genre = COOP_PERT_NONE
 
-    !!T
-    this%T%genre = COOP_PERT_HIERARCHY
-    this%T%m = m
-    this%T%s = 0
-    this%T%index = this%baryon%index + this%baryon%lmax - this%baryon%lmin + 1
-    this%T%lmin = max(this%T%m, this%T%s)
-    this%T%lmax = max(this%T%lmin - 1, 16)
-    this%T%F = 0.d0
-    this%T%q = 1.d0
-    this%T%mass = 0.d0
+    call this%baryon%set_defaults( genre = COOP_PERT_PERFECT_FLUID, &
+         m = m, s = 0, index = this%cdm%last_index + 1, &
+         lmax = 1, q = 1.d-30, mass = 1.d30 )
 
-    !!E
-    this%E%genre = COOP_PERT_HIERARCHY
-    this%E%m = m
-    this%E%s = 2
-    this%E%index = this%T%index + this%T%lmax - this%T%lmin + 1
-    this%E%lmin = max(this%E%m, this%E%s)
-    this%E%lmax = max(this%E%lmin - 1, 12)
-    this%E%F = 0.d0
-    this%E%q = 1.d0
-    this%E%mass = 0.d0
-    
-    !!B
-    this%B%index = this%E%index + this%E%lmax - this%E%lmin + 1
-    if(m.eq.0)then
-       this%B%genre = COOP_PERT_NONE   
-       this%B%lmin = 0
-       this%B%lmax = -1
+    if(this%tight_coupling)then
+       call this%T%set_defaults( genre = COOP_PERT_HIERARCHY, &
+            m = m, s = 0, index = this%baryon%last_index + 1, &
+            lmax = 1, q = 1.d0, mass = 0.d0 )
+       call this%E%set_defaults( genre = COOP_PERT_NONE, &
+            m = m, s = 2, index = this%T%last_index + 1, &
+            lmax = 1, q = 1.d0, mass = 0.d0 )
+       
+       call this%B%set_defaults( genre = COOP_PERT_NONE, &
+            m = m, s = 2, index = this%E%last_index + 1, &
+            lmax = 1, q = 1.d0, mass = 0.d0 )
+
     else
-       this%B%genre = COOP_PERT_HIERARCHY
-       this%B%m = m
-       this%B%s = 2
-       this%B%lmin = max(this%B%m, this%B%s)
-       this%B%lmax = max(this%B%lmin - 1, 12)
-       this%B%F = 0.d0
-       this%B%q = 1.d0
-       this%B%mass = 0.d0
+       call this%T%set_defaults( genre = COOP_PERT_HIERARCHY, &
+            m = m, s = 0, index = this%baryon%last_index + 1, &
+            lmax = 16, q = 1.d0, mass = 0.d0 )
+
+       call this%E%set_defaults( genre = COOP_PERT_HIERARCHY, &
+            m = m, s = 2, index = this%T%last_index + 1, &
+            lmax = 12, q = 1.d0, mass = 0.d0 )
+       
+       if(m.eq.0)then
+          call this%B%set_defaults( genre = COOP_PERT_NONE, &
+               m = m, s = 2, index = this%E%last_index + 1, &
+               lmax = 1, q = 1.d0, mass = 0.d0 )
+       else
+          call this%B%set_defaults( genre = COOP_PERT_HIERARCHY, &
+               m = m, s = 2, index = this%E%last_index + 1, &
+               lmax = 12, q = 1.d0, mass = 0.d0 )
+       endif
     endif
 
-    !!Neutrinos
-    this%nu%genre = COOP_PERT_HIERARCHY
-    this%nu%m = m
-    this%nu%s = 0
-    this%nu%index = this%B%index + this%B%lmax - this%B%lmin + 1
-    this%nu%lmin = max(this%nu%m, this%nu%s)
-    this%nu%lmax = max(this%nu%lmin - 1, 12)
-    this%nu%F = 0.d0
-    this%nu%q = 1.d0
-    this%nu%mass = 0.d0
+
+    call this%nu%set_defaults( genre = COOP_PERT_HIERARCHY, &
+         m = m, s = 0, index = this%B%last_index + 1, &
+         lmax = 12, q = 1.d0, mass = 0.d0 )
+
 
     if(present(nu_mass))then
-       this%has_massivenu = (nu_mass .ne. 0)
+       if( present(a) .and. nu_mass .gt. 0.d0)then
+          iq = 1
+          do while(iq .le. coop_pert_default_nq)          
+             if(nu_mass * a .lt.  coop_pert_massivenu_threshold(iq))then
+                exit
+             else
+                iq = iq + 1
+             endif
+          enddo
+          this%massivenu_iq_used = iq - 1
+       else
+          this%massivenu_iq_used = 0
+       endif
     else
-       this%has_massivenu = .false.
+       this%massivenu_iq_used = 0
     endif
-    if(this%has_massivenu)then
-       this%massivenu%genre = COOP_PERT_HIERARCHY
-       this%massivenu%m = m
-       this%massivenu%s = 0
-       this%massivenu%lmin = max(this%nu%m, this%nu%s)
-       this%massivenu%lmax = max(this%nu%lmin - 1, 12)
-       this%massivenu%mass = nu_mass
-       do iq = 1, coop_pert_default_nq
-          this%massivenu(iq)%F = 0.d0
-          this%massivenu(iq)%q = coop_pert_default_q(iq)
-          if(iq .eq. 1)then
-             this%massivenu(iq)%index = this%nu%index + this%nu%lmax - this%nu%lmin + 1
-          else
-             this%massivenu(iq)%index = this%massivenu(iq-1)%index + this%massivenu(iq-1)%lmax - this%massivenu(iq-1)%lmin + 1
-          endif
-       enddo
-    else
-       this%massivenu%genre = COOP_PERT_NONE
-       this%massivenu%lmin = 0
-       this%massivenu%lmax = -1
-       this%massivenu%index = this%nu%index + this%nu%lmax - this%nu%lmin + 1
-    endif
+    do iq = 1,  this%massivenu_iq_used
+       if(iq .eq. 1)then
+          call this%massivenu(1)%set_defaults( genre = COOP_PERT_HIERARCHY, &
+               m = m, s = 0, index = this%nu%last_index + 1, &
+               lmax = 10, q = coop_pert_default_q(1), mass = nu_mass )
+       else
+          call this%massivenu(iq)%set_defaults(genre = COOP_PERT_HIERARCHY, &
+               m = m, s = 0, index = this%massivenu(iq-1)%last_index + 1, &
+               lmax = 10, q = coop_pert_default_q(iq), mass = nu_mass )
+       endif
+    enddo
 
-    !!massive neutrinos
-
-
+    do iq =  this%massivenu_iq_used + 1, coop_pert_default_nq 
+       if(this%massivenu_iq_used .ge. 1)then
+          call this%massivenu(iq)%set_defaults(genre = COOP_PERT_NONE, &
+               m = m, s = 0, index = this%massivenu(iq-1)%last_index + 1, &
+               lmax = 10, q = coop_pert_default_q(iq), mass = nu_mass )
+       else
+          call this%massivenu(iq)%set_defaults(genre = COOP_PERT_NONE, &
+               m = m, s = 0, index = this%nu%last_index + 1, &
+               lmax = 10, q = coop_pert_default_q(iq), mass = nu_mass )
+       endif
+    enddo
+     
     !!dark energy
     if(present(de_genre))then
-       this%de%genre = de_genre
-       this%de%m = m
-       this%de%s = 0
-       this%de%index = this%massivenu(coop_pert_default_nq)%index + this%massivenu(coop_pert_default_nq)%lmax - this%massivenu(coop_pert_default_nq)%lmin + 1
-       this%de%lmin = max(this%de%m, this%de%s)
-       select case(this%de%genre)
+       select case(de_genre)
        case(COOP_PERT_NONE)
-          this%de%lmax = max(this%de%lmin - 1, -1)
+          call this%de%set_defaults(genre = de_genre, m = m, s = 0, &
+               index = this%massivenu(coop_pert_default_nq)%last_index + 1, &
+               lmax = -1, q = 1.d0, mass = 0.d0)
        case(COOP_PERT_PERFECT_FLUID)
-          this%de%lmax = max(this%de%lmin - 1, 1)
+          call this%de%set_defaults(genre = de_genre, m = m, s = 0, &
+               index = this%massivenu(coop_pert_default_nq)%last_index + 1, &
+               lmax = 1, q = 1.d0, mass = 0.d0)
        case(COOP_PERT_SCALAR_FIELD) 
           if(m.eq.0)then
-             this%de%lmax = 1
+             call this%de%set_defaults(genre = de_genre, m = m, s = 0, &
+                  index = this%massivenu(coop_pert_default_nq)%last_index + 1, &
+                  lmax = 1, q = 1.d0, mass = 0.d0)
           else
-             this%de%lmax = this%de%lmin - 1
+             call this%de%set_defaults(genre = COOP_PERT_NONE, m = m, s = 0, &
+                  index = this%massivenu(coop_pert_default_nq)%last_index + 1, &
+                  lmax = 1, q = 1.d0, mass = 0.d0)
           endif
        case default
           call coop_return_error("pert_initialize", "unknown genre "//trim(coop_num2str(this%de%genre)), "stop")
        end select
-       if(this%de%lmax .lt. this%de%lmin) this%de%genre = COOP_PERT_NONE
+    else
+       call this%de%set_defaults(genre = COOP_PERT_NONE, m = m, s = 0, &
+            index = this%massivenu(coop_pert_default_nq)%last_index + 1, &
+            lmax = 1, q = 1.d0, mass = 0.d0)
     endif
-   
+    this%ny = this%de%last_index
+    allocate(this%y(0:this%ny))
+    this%y = 0.d0
   end subroutine coop_pert_object_initialize
 
 
@@ -187,25 +235,67 @@ contains
     if(allocated(this%y))deallocate(this%y)
     this%ny = 0
   end subroutine coop_pert_object_free
-
-
-  subroutine coop_pert_object_set_ode_index(this)
+  
+  subroutine coop_pert_object_save_ode(this)
     class(coop_pert_object)::this
+    COOP_INT iq
+
+    this%metric%F = 0.d0
+    if(this%metric%nvars .gt. 0)  this%metric%F(this%metric%lmin:this%metric%lmax) = this%y(this%metric%index:this%metric%last_index)
+
+
+    this%baryon%F = 0.d0
+    if(this%baryon%nvars .gt. 0)  this%baryon%F(this%baryon%lmin:this%baryon%lmax) = this%y(this%baryon%index:this%baryon%last_index)
+
+    this%cdm%F = 0.d0
+    if(this%cdm%nvars .gt. 0)  this%cdm%F(this%cdm%lmin:this%cdm%lmax) = this%y(this%cdm%index:this%cdm%last_index)
+
+    this%T%F = 0.d0
+    if(this%T%nvars .gt. 0)  this%T%F(this%T%lmin:this%T%lmax) = this%y(this%T%index:this%T%last_index)
+
+
+    this%E%F = 0.d0
+    if(this%E%nvars .gt. 0)  this%E%F(this%E%lmin:this%E%lmax) = this%y(this%E%index:this%E%last_index)
     
-  end subroutine coop_pert_object_set_ode_index
-  
-  subroutine coop_pert_object_read_var(this, var)
+    this%B%F = 0.d0
+    if(this%B%nvars .gt. 0)  this%B%F(this%B%lmin:this%B%lmax) = this%y(this%B%index:this%B%last_index)
+
+    this%nu%F = 0.d0
+    if(this%nu%nvars .gt. 0)  this%nu%F(this%nu%lmin:this%nu%lmax) = this%y(this%nu%index:this%nu%last_index)
+
+    do iq = 1, coop_pert_default_nq
+       if(this%massivenu(iq)%nvars .gt. 0)then
+          this%massivenu(iq)%F = 0.d0
+          this%massivenu(iq)%F(this%massivenu(iq)%lmin:this%massivenu(iq)%lmax) = this%y(this%massivenu(iq)%index:this%massivenu(iq)%last_index)
+       else
+          this%massivenu(iq)%F = this%nu%F
+       endif
+    enddo
+
+    this%de%F = 0.d0
+    if(this%de%nvars .gt. 0)  this%de%F(this%de%lmin:this%de%lmax) = this%y(this%de%index:this%de%last_index)
+
+
+  end subroutine coop_pert_object_save_ode
+
+  subroutine coop_pert_object_restore_ode(this)
     class(coop_pert_object)::this
-    COOP_REAL,dimension(:),optional::var
-
-  end subroutine coop_pert_object_read_var
-
-  subroutine coop_pert_object_write_var(this, var)
-    class(coop_pert_object)::this
-    COOP_REAL,dimension(:),optional::var
-
-  end subroutine coop_pert_object_write_var
+    COOP_INT iq
+    this%y = 0.d0
+    if(this%metric%nvars .gt. 0)   this%y(this%metric%index:this%metric%last_index) = this%metric%F(this%metric%lmin:this%metric%lmax)
+    if(this%baryon%nvars .gt. 0)   this%y(this%baryon%index:this%baryon%last_index) = this%baryon%F(this%baryon%lmin:this%baryon%lmax)
+    if(this%cdm%nvars .gt. 0)   this%y(this%cdm%index:this%cdm%last_index) = this%cdm%F(this%cdm%lmin:this%cdm%lmax)
+    if(this%T%nvars .gt. 0)   this%y(this%T%index:this%T%last_index) = this%T%F(this%T%lmin:this%T%lmax)
+    if(this%E%nvars .gt. 0)   this%y(this%E%index:this%E%last_index) = this%E%F(this%E%lmin:this%E%lmax)
+    if(this%B%nvars .gt. 0)   this%y(this%B%index:this%B%last_index) = this%B%F(this%B%lmin:this%B%lmax)
+    if(this%nu%nvars .gt. 0)   this%y(this%nu%index:this%nu%last_index) = this%nu%F(this%nu%lmin:this%nu%lmax)
+    do iq = 1, coop_pert_default_nq
+       if(this%massivenu(iq)%nvars .gt. 0)   this%y(this%massivenu(iq)%index:this%massivenu(iq)%last_index) = this%massivenu(iq)%F(this%massivenu(iq)%lmin:this%massivenu(iq)%lmax)
+    enddo
+    if(this%de%nvars .gt. 0)   this%y(this%de%index:this%de%last_index) = this%de%F(this%de%lmin:this%de%lmax)    
+  end subroutine coop_pert_object_restore_ode
   
-
-
 end module coop_pertobj_mod
+
+
+

@@ -449,7 +449,7 @@ contains
     class(coop_cosmology_background)::this
     COOP_REAL:: mnu_eV, Omega_nu, lnam
     call coop_fermion_get_lnam(log(Omega_nu/this%Omega_massless_neutrinos()), lnam)
-    mnu_eV = this%Tnu()* (coop_SI_kB/coop_SI_eV)*exp(lnam)
+    mnu_eV = this%Tnu()* (coop_SI_kB/coop_SI_eV)*(exp(lnam) - 1.d0)
 
   end function coop_cosmology_background_mnu_eV_from_Omega_nu
 
