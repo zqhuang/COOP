@@ -32,6 +32,7 @@ module coop_cosmology_mod
      COOP_REAL:: Nnu_value = COOP_DEFAULT_NUM_NEUTRINO_SPECIES
      logical::need_setup_background = .true.
      type(coop_function):: fdis, ftime, faoftau
+     COOP_REAL::dis_const, time_const, a_eq, Omega_r, Omega_m, a_switch, dis_switch
      COOP_INT :: num_species = 0
      type(coop_species), dimension(coop_max_num_species)::species
    contains
@@ -299,14 +300,23 @@ contains
   subroutine coop_cosmology_background_setup_background(this)
     class(coop_cosmology_background)::this
     integer,parameter::n = 16384
-    COOP_REAL, parameter::amin = 0.d0, amax = coop_scale_factor_today
+    COOP_REAL, parameter::amin = 3.d-4, amax = coop_scale_factor_today
     COOP_REAL,dimension(n):: dis, a, t
     COOP_REAL  hasq1, hasq2, da, daby2, Hasqmin, Hasqmax
     integer i
     if(this%need_setup_background)then
        call coop_set_uniform(n, a, amin, amax)
-       dis(1) = 0.d0
-       t(1) = 0.d0
+       this%a_switch = amin
+       this%Omega_r = this%H2a4(coop_min_scale_factor)
+       this%Omega_m = ( this%H2a4(amin) - this%Omega_r ) / amin
+       this%Omega_r = this%H2a4(coop_min_scale_factor) - this%Omega_m * coop_min_scale_factor
+       this%Omega_m = ( this%H2a4(amin) - this%Omega_r ) / amin
+       this%a_eq = this%Omega_r / this%Omega_m
+       this%dis_const = 2.d0*this%a_eq/sqrt(this%Omega_r)
+       this%time_const = 4.d0/3.d0*this%a_eq**2/sqrt(this%Omega_r)
+       this%dis_switch = this%dis_const * (sqrt(1.d0+a(1)/this%a_eq) - 1.d0)
+       dis(1) = this%dis_switch
+       t(1) = this%time_const *(1.d0 -  (1.d0- a(1)/2.d0/this%a_eq)*sqrt(1.d0+a(1)/this%a_eq)) 
        da = (amax-amin)/(n-1.d0)
        daby2 = da/2.d0
        Hasqmin = this%Hasq(amin)
@@ -320,33 +330,56 @@ contains
        enddo
        dis = dis * (da/6.d0)
        t = t * (da/6.d0)
-       call this%fdis%init(n, amin, amax, dis, COOP_INTERPOLATE_LINEAR, check_boundary = .false., slopeleft = 1.d0/Hasqmin, sloperight = 1.d0/Hasqmax)
+       call this%fdis%init(n, amin, amax, dis, COOP_INTERPOLATE_QUADRATIC, check_boundary = .false., slopeleft = 1.d0/Hasqmin, sloperight = 1.d0/Hasqmax)
        call this%faoftau%init_NonUniform(dis, a)
        call this%faoftau%set_boundary(fleft = amin, fright=amax, slopeleft = Hasqmin, sloperight = Hasqmax)
-       call this%ftime%init(n, amin, amax, t, COOP_INTERPOLATE_LINEAR, check_boundary = .false.)
+       call this%ftime%init(n, amin, amax, t, COOP_INTERPOLATE_QUADRATIC, check_boundary = .false.)
        this%need_setup_background = .false. 
     endif
   end subroutine coop_cosmology_background_setup_background
 
   function coop_cosmology_background_conformal_time(this, a) result(tau)
     class(coop_cosmology_background)::this
-    COOP_REAL a, tau
+    COOP_REAL a, tau, eps
     if(this%need_setup_background) call this%setup_background()
-    tau = this%fdis%eval(a)
+    if(a .gt. this%a_switch)then
+       tau = this%fdis%eval(a)
+    else
+       eps = a/this%a_eq
+       if(eps .lt. 1.d-4)then
+          tau = this%dis_const * (0.5d0 - eps/8.d0)*eps
+       else
+          tau = this%dis_const * ( sqrt(1.d0 + eps) - 1.d0)
+       endif
+    endif
   end function coop_cosmology_background_conformal_time
 
   function coop_cosmology_background_aoftau(this, tau) result(a)
     class(coop_cosmology_background)::this
-    COOP_REAL a, tau
+    COOP_REAL a, tau, eps
     if(this%need_setup_background) call this%setup_background()
-    a = this%faoftau%eval(tau)
+    if(tau .gt. this%dis_switch)then
+       a = this%faoftau%eval(tau)
+    else
+       eps = tau/this%dis_const
+       a = this%a_eq * (2.d0+eps)*eps
+    endif
   end function coop_cosmology_background_aoftau
 
   function coop_cosmology_background_time(this, a) result(t)
     class(coop_cosmology_background)::this
-    COOP_REAL a, t
+    COOP_REAL a, t, eps
     if(this%need_setup_background) call this%setup_background()
-    t = this%ftime%eval(a)
+    if(a .gt. this%a_switch)then
+       t = this%ftime%eval(a)
+    else
+       eps = a/this%a_eq
+       if(eps .lt. 1.d-3)then
+          t = this%time_const * (3.d0/8.d0 - eps/8.d0)*eps**2
+       else
+          t = this%time_const * ( 1.d0 - (1.d0 - eps/2.d0)*sqrt(1.d0+eps))
+       endif
+    endif
   end function coop_cosmology_background_time
 
   function coop_cosmology_background_AgeGyr(this) result(AgeGyr)

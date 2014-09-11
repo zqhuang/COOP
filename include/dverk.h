@@ -438,6 +438,11 @@
 !c
     write(*,*) 'dverk crashes with ind =',  ind
     write(*,*) 'x = ', x
+    call fcn(n, x, y, w(1, 1) DVERK_ARGUMENTS)
+    write(*, "(2A16)") "  y  ",  " dy/dx  "
+    do i=1, min(n, 100)
+       write(*, "(2E16.7)"), y(i), w(i, 1)
+    enddo
     stop
 !c
 !c  end abort action
