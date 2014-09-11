@@ -14,10 +14,10 @@ module coop_firstorder_mod
   COOP_REAL, parameter :: coop_visibility_amin = 1.8d-4
   COOP_REAL, parameter :: coop_initial_condition_epsilon = 1.d-6
   COOP_REAL, parameter :: coop_cosmology_firstorder_ode_accuracy = 1.d-8
-  COOP_REAL, parameter :: coop_cosmology_firstorder_tc_cutoff = 0.06d0
+  COOP_REAL, parameter :: coop_cosmology_firstorder_tc_cutoff = 0.01d0
 
   COOP_REAL, dimension(0:2), parameter::coop_source_tau_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
-  COOP_INT, dimension(0:2), parameter::coop_source_tau_n = (/ 3000, 850, 800 /)
+  COOP_INT, dimension(0:2), parameter::coop_source_tau_n = (/ 1200, 850, 800 /)
 
   COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.2d0, 0.15d0, 0.1d0 /)
 
@@ -35,7 +35,7 @@ module coop_firstorder_mod
      COOP_INT::index_tc_max = 1
      COOP_INT, dimension(:),allocatable::index_tc_off
      COOP_INT, dimension(coop_pert_default_nq)::index_massivenu_on
-     COOP_REAL, dimension(:),allocatable::k, tau, a, tauc, dk, dtau, chi  !!tau is conformal time, chi is comoving distance; in flat case, chi + tau = tau_0
+     COOP_REAL, dimension(:),allocatable::k, tau, a, tauc, lna,  dk, dtau, chi  !!tau is conformal time, chi is comoving distance; in flat case, chi + tau = tau_0
      COOP_REAL, dimension(:,:,:),allocatable::s
    contains
      procedure::free => coop_cosmology_firstorder_source_free
@@ -91,20 +91,22 @@ contains
 
 
 
-  subroutine coop_cosmology_firstorder_equations(n, tau, y, yp, cosmology, pert)
+  subroutine coop_cosmology_firstorder_equations(n, lna, y, yp, cosmology, pert)
     COOP_INT n
     type(coop_cosmology_firstorder)::cosmology
     type(coop_pert_object)::pert
-    COOP_REAL tau, y(0:n-1), yp(0:n-1)
+    COOP_REAL lna, y(0:n-1), yp(0:n-1)
     COOP_INT i, l, iq
-    COOP_REAL a, aH, R, tauc, taucdot, aniso, ksq, ktauc, ktaucdot,  slip, P, aniso_dot, aHdot
-    COOP_REAL rhoa2_g, pa2_g, rhoa2_b,  cs2b, rhoa2_c, rhoa2_nu, pa2_nu, rhoa2_mnu, pa2_mnu, rhoa2_sum, pa2_sum, Fmnu0(coop_pert_default_nq), Fmnu2(coop_pert_default_nq), Fmnu2_prime(coop_pert_default_nq), wmnu(coop_pert_default_nq), qbye(coop_pert_default_nq), pa2dot_g, pa2dot_nu, pa2dot_mnu, sumwmnu
+    COOP_REAL a, aH, R, tauc, taucdot, aniso, kbyaHsq, ktauc, ktaucdot,  slip, P, aniso_prime, daHdtau, kbyaH, aHtauc, aHtau, ksq, aHsq, uterm, vterm
+    COOP_REAL rhoa2_de, pa2_de, rhoa2_g, pa2_g, rhoa2_b,  cs2b, rhoa2_c, rhoa2_nu, pa2_nu, rhoa2_mnu, pa2_mnu, rhoa2_sum, pa2_sum, Fmnu0(coop_pert_default_nq), Fmnu2(coop_pert_default_nq), Fmnu2_prime(coop_pert_default_nq), wmnu(coop_pert_default_nq), qbye(coop_pert_default_nq), pa2pr_g, pa2pr_nu, pa2pr_mnu, sumwmnu
     !!My PHI = Psi in Hu & White = Psi in Ma et al;
     !!My PSI = - Phi in Hu & White = Phi in Ma et al;
     !!My multipoles  = 4 * multipoles in Hu & White = (2l + 1) * multipoles in Ma et al
     !!My neutrino multipoles = (2l + 1) / (d ln f_0/d ln q) * Psi_l(q) in Ma et al
+    !!finally, my time variable is log(a)
     yp(0) = 0
-    a = cosmology%aoftau(tau)
+    ksq = pert%k**2
+    a = exp(lna)
     rhoa2_g = O0_RADIATION(cosmology)%rhoa2(a)
     pa2_g = O0_RADIATION(cosmology)%wofa(a) * rhoa2_g
     rhoa2_b = O0_BARYON(cosmology)%rhoa2(a)
@@ -112,6 +114,8 @@ contains
     rhoa2_c = O0_CDM(cosmology)%rhoa2(a)
     rhoa2_nu = O0_NU(cosmology)%rhoa2(a)
     pa2_nu = rhoa2_nu *  O0_NU(cosmology)%wofa(a)
+    rhoa2_de = O0_DE(cosmology)%rhoa2(a)
+    pa2_de = O0_DE(cosmology)%wofa(a)* rhoa2_de
     if(cosmology%index_massivenu .ne. 0)then
        rhoa2_mnu = O0_MASSIVENU(cosmology)%rhoa2(a)
        pa2_mnu = rhoa2_mnu *  O0_MASSIVENU(cosmology)%wofa(a)
@@ -123,39 +127,47 @@ contains
     endif
     wmnu =qbye*coop_pert_default_q_kernel
     sumwmnu = sum(wmnu)
-    rhoa2_sum = rhoa2_g + rhoa2_b + rhoa2_c + rhoa2_nu +rhoa2_mnu
-    pa2_sum = pa2_g + pa2_nu + pa2_mnu
-    aH = sqrt(rhoa2_sum/3.d0)
+    rhoa2_sum = rhoa2_g + rhoa2_b + rhoa2_c + rhoa2_nu +rhoa2_mnu+rhoa2_de 
+    pa2_sum = pa2_g + pa2_nu + pa2_mnu + pa2_de
+    aHsq = (rhoa2_sum + cosmology%Omega_k())/3.d0
+    aH = sqrt(aHsq)
+    daHdtau = -(rhoa2_sum+3.d0*pa2_sum)/6.d0
 
-    aHdot = -(rhoa2_sum+3.d0*pa2_sum)/6.d0
-
-    pa2dot_nu = O0_NU(cosmology)%dpa2da(a)*aH*a
-    pa2dot_g = O0_RADIATION(cosmology)%dpa2da(a)*aH*a
+    pa2pr_nu = O0_NU(cosmology)%dpa2da(a)*a
+    pa2pr_g = O0_RADIATION(cosmology)%dpa2da(a)*a
     if(pa2_mnu .eq. 0.d0)then
-       pa2dot_mnu = 0.d0 
+       pa2pr_mnu = 0.d0 
     else
-       pa2dot_mnu = O0_MASSIVENU(cosmology)%dpa2da(a)*aH*a
+       pa2pr_mnu = O0_MASSIVENU(cosmology)%dpa2da(a)*a
     endif
     R = 0.75d0 * rhoa2_b/rhoa2_g
-    ksq = pert%k ** 2
     tauc = cosmology%taucofa(a)
     taucdot = cosmology%dot_tauc(a)
     ktauc = pert%k * tauc
     ktaucdot = pert%k * taucdot
+    kbyaH  = pert%k/aH
+    kbyaHsq = kbyaH**2
+    aHtauc = aH * tauc
+    aHtau = aH* cosmology%tauofa(a)
     select case(pert%m)
     case(0)
 
-       O1_PSI_PRIME = O1_PSIDOT
+       O1_PSI_PRIME = O1_PSIPR
 
-       O1_DELTA_C_PRIME = - O1_V_C * pert%k + 3.d0 * O1_PSIDOT
-       O1_DELTA_B_PRIME = - O1_V_B * pert%k + 3.d0 * O1_PSIDOT
-       O1_T_PRIME(0) = - O1_T(1) * pert%k/3.d0 + 4.d0 * O1_PSIDOT 
-       O1_NU_PRIME(0) = - O1_NU(1)*pert%k/3.d0 + 4.d0 * O1_PSIDOT 
+       O1_DELTA_C_PRIME = - O1_V_C * kbyaH + 3.d0 * O1_PSI_PRIME
+       O1_DELTA_B_PRIME = - O1_V_B * kbyaH + 3.d0 * O1_PSI_PRIME
+       O1_T_PRIME(0) = - O1_T(1) * kbyaH/3.d0 + 4.d0 * O1_PSI_PRIME 
+       O1_NU_PRIME(0) = - O1_NU(1) * kbyaH/3.d0 + 4.d0 * O1_PSI_PRIME
 
        if(pert%tight_coupling)then
           pert%T%F(2) = (8.d0/9.d0)*ktauc * O1_T(1)
+          Uterm = - aH * O1_V_B + (cs2b * O1_DELTA_B - O1_T(0)/4.d0 +  pert%T%F(2)/10.d0)*pert%k
+          vterm = pert%k * (R+1.d0)/R + ktaucdot 
+          slip = ktauc &
+               * (Uterm + Uterm*(-aH*pert%k/R + daHdtau/aH*ktaucdot)/vterm**2)/vterm   !!v_b - v_g accurate to (k tau_c)^2 
        else
           pert%T%F(2) = O1_T(2)
+          slip = O1_V_B - O1_T(1)/4.d0
        endif
        aniso = pa2_g * pert%T%F(2) + pa2_nu * O1_NU(2)
 
@@ -164,7 +176,7 @@ contains
              do iq = 1, pert%massivenu_iq_used
                 Fmnu2(iq) = O1_MASSIVENU(2, iq)
                 Fmnu0(iq) = O1_MASSIVENU(0, iq)
-                O1_MASSIVENU_PRIME(0, iq) = - O1_NU(1)*pert%k/3.d0 * qbye(iq) + 4.d0 * O1_PSIDOT 
+                O1_MASSIVENU_PRIME(0, iq) = - O1_NU(1)*kbyaH/3.d0 * qbye(iq) + 4.d0 * O1_PSI_PRIME 
              enddo
              do iq = pert%massivenu_iq_used + 1, coop_pert_default_nq
                 Fmnu2(iq) = O1_NU(2)
@@ -175,71 +187,63 @@ contains
              aniso = aniso + pa2_mnu * O1_NU(2)
           endif
        endif
-
        aniso = 0.6d0/ksq * aniso
        O1_PHI = O1_PSI - aniso
 
        !!velocities
-       O1_V_C_PRIME = - aH * O1_V_C + pert%k * O1_PHI
-       O1_NU_PRIME(1) = (O1_NU(0) + 4.d0*O1_PHI - 0.4d0 * O1_NU(2))*pert%k
+       O1_V_C_PRIME = - O1_V_C + kbyaH * O1_PHI
+       O1_NU_PRIME(1) = (O1_NU(0) + 4.d0*O1_PHI - 0.4d0 * O1_NU(2))*kbyaH
        do iq=1, pert%massivenu_iq_used
-          O1_MASSIVENU_PRIME(1, iq) = (O1_MASSIVENU(0, iq)*qbye(iq) + 4.d0*O1_PHI/qbye(iq) - 0.4d0 * O1_MASSIVENU(2, iq)*qbye(iq)) * pert%k
+          O1_MASSIVENU_PRIME(1, iq) = (O1_MASSIVENU(0, iq)*qbye(iq) + 4.d0*O1_PHI/qbye(iq) - 0.4d0 * O1_MASSIVENU(2, iq)*qbye(iq)) * kbyaH
        enddo
-       if(pert%tight_coupling)then
-          slip = ktauc &
-               * (- aH * O1_V_B + (cs2b * O1_DELTA_B - O1_T(0)/4.d0 +  pert%T%F(2)/10.d0)*pert%k ) &
-               / ( pert%k * (R+1.d0)/R + ktaucdot )
-          
-       else
-          slip = O1_V_B - O1_T(1)/4.d0
-       endif
-       O1_V_B_PRIME = -aH * O1_V_B + pert%k * (O1_PHI + cs2b * O1_DELTA_B) - slip/(R*tauc)
-       O1_T_PRIME(1) = (O1_T(0) + 4.d0*O1_PHI - 0.4d0*pert%T%F(2))*pert%k + 4.d0*slip/tauc
+       O1_V_B_PRIME = - O1_V_B + kbyaH * (O1_PHI + cs2b * O1_DELTA_B) - slip/(R*aHtauc)
+       O1_T_PRIME(1) = (O1_T(0) + 4.d0*O1_PHI - 0.4d0*pert%T%F(2))*kbyaH + 4.d0*slip/aHtauc
 
 
        !!higher moments
        !!massless neutrinos
        do l = 2, pert%nu%lmax - 1
-          O1_NU_PRIME(l) =  pert%k * (cosmology%klms_by_2lm1(l, 0, 0) *   O1_NU( l-1 ) - cosmology%klms_by_2lp1(l+1, 0, 0) *  O1_NU( l+1 ) )
+          O1_NU_PRIME(l) =  kbyaH * (cosmology%klms_by_2lm1(l, 0, 0) *   O1_NU( l-1 ) - cosmology%klms_by_2lp1(l+1, 0, 0) *  O1_NU( l+1 ) )
        enddo
-       O1_NU_PRIME(pert%nu%lmax) = pert%k *(pert%nu%lmax+0.5d0)/(pert%nu%lmax-0.5d0)*  O1_NU(pert%nu%lmax-1) &
-            -  (pert%nu%lmax+1)* O1_NU(pert%nu%lmax)/tau
+
+       O1_NU_PRIME(pert%nu%lmax) = kbyaH *(pert%nu%lmax+0.5d0)/(pert%nu%lmax-0.5d0)*  O1_NU(pert%nu%lmax-1) &
+            -  (pert%nu%lmax+1)* O1_NU(pert%nu%lmax)/(aHtau)
 
        if(cosmology%index_massivenu .ne. 0)then
           !!massive neutrinos
           do iq = 1, pert%massivenu_iq_used
              do l = 2, pert%massivenu(iq)%lmax - 1
-                O1_MASSIVENU_PRIME(l, iq) = pert%k * qbye(iq) * (cosmology%klms_by_2lm1(l, 0, 0) * O1_MASSIVENU(l-1, iq) - cosmology%klms_by_2lp1(l+1, 0, 0) * O1_MASSIVENU(l+1,iq))
+                O1_MASSIVENU_PRIME(l, iq) = kbyaH * qbye(iq) * (cosmology%klms_by_2lm1(l, 0, 0) * O1_MASSIVENU(l-1, iq) - cosmology%klms_by_2lp1(l+1, 0, 0) * O1_MASSIVENU(l+1,iq))
              enddo
-             O1_MASSIVENU_PRIME(pert%massivenu(iq)%lmax, iq) = pert%k*pert%k * qbye(iq) * (pert%massivenu(iq)%lmax+0.5d0)/(pert%massivenu(iq)%lmax-0.5d0) *  O1_MASSIVENU(pert%nu%lmax-1, iq) &
-                  -  (pert%nu%lmax+1)* O1_MASSIVENU(pert%nu%lmax, iq)/tau          
+             O1_MASSIVENU_PRIME(pert%massivenu(iq)%lmax, iq) =  kbyaH * qbye(iq) * (pert%massivenu(iq)%lmax+0.5d0)/(pert%massivenu(iq)%lmax-0.5d0) *  O1_MASSIVENU(pert%nu%lmax-1, iq) &
+                  -  (pert%nu%lmax+1)* O1_MASSIVENU(pert%nu%lmax, iq)/aHtau 
           enddo
        endif
        
        if(pert%tight_coupling)then
           pert%E%F(2) = -coop_sqrt6/4.d0 * pert%T%F(2)
-          aniso_dot =  pa2_nu * O1_NU_PRIME(2) + pa2dot_nu*O1_NU(2) +  pa2_g * (8.d0/9.d0)*(ktauc*O1_T_PRIME(1)+ktaucdot*O1_T(1)) + pa2dot_g * pert%T%F(2)
+          aniso_prime =  pa2_nu * O1_NU_PRIME(2) + pa2pr_nu*O1_NU(2) +  pa2_g * (8.d0/9.d0)*(ktauc*O1_T_PRIME(1)+ kbyaH*taucdot*O1_T(1)) + pa2pr_g * pert%T%F(2)
        else
           !!T
           P = (O1_T(2) - coop_sqrt6 * O1_E(2))/10.d0
-          O1_T_PRIME(2) =  pert%k * (cosmology%klms_by_2lm1(2, 0, 0)*O1_T(1) - cosmology%klms_by_2lp1(3, 0, 0)*O1_T(3))  - (O1_T(2) - P)/tauc
+          O1_T_PRIME(2) =  kbyaH * (cosmology%klms_by_2lm1(2, 0, 0)*O1_T(1) - cosmology%klms_by_2lp1(3, 0, 0)*O1_T(3))  - (O1_T(2) - P)/aHtauc
           do l = 3, pert%T%lmax -1
-             O1_T_PRIME(l) = pert%k * (cosmology%klms_by_2lm1(l, 0, 0)*O1_T(l-1) -cosmology%klms_by_2lp1(l+1, 0, 0)*O1_T(l+1))  - O1_T(l)/tauc
+             O1_T_PRIME(l) = kbyaH * (cosmology%klms_by_2lm1(l, 0, 0)*O1_T(l-1) -cosmology%klms_by_2lp1(l+1, 0, 0)*O1_T(l+1))  - O1_T(l)/aHtauc
           enddo
-          O1_T_PRIME(pert%T%lmax) =  pert%k *((pert%T%lmax+0.5d0)/(pert%T%lmax-0.5d0))*  O1_T(pert%T%lmax-1) &
-            -  ((pert%T%lmax+1)/tau + 1.d0/tauc) * O1_T(pert%T%lmax)
+          O1_T_PRIME(pert%T%lmax) =  kbyaH *((pert%T%lmax+0.5d0)/(pert%T%lmax-0.5d0))*  O1_T(pert%T%lmax-1) &
+            -  ((pert%T%lmax+1)/aHtau + 1.d0/aHtauc) * O1_T(pert%T%lmax)
           !!E
-          O1_E_PRIME(2) = pert%k * ( - cosmology%klms_by_2lp1(3, 0, 0)*O1_E(3))  - (O1_E(2) + coop_sqrt6 * P)/tauc
+          O1_E_PRIME(2) = kbyaH * ( - cosmology%klms_by_2lp1(3, 0, 0)*O1_E(3))  - (O1_E(2) + coop_sqrt6 * P)/aHtauc
           do l = 3, pert%E%lmax - 1
-             O1_E_PRIME(l) = pert%k * (cosmology%klms_by_2lm1(l, 0, 2)*O1_E(l-1) - cosmology%klms_by_2lp1(l+1, 0, 2)*O1_E(l+1))  - O1_E(l)/tauc
+             O1_E_PRIME(l) = kbyaH * (cosmology%klms_by_2lm1(l, 0, 2)*O1_E(l-1) - cosmology%klms_by_2lp1(l+1, 0, 2)*O1_E(l+1))  - O1_E(l)/aHtauc
           enddo
-          O1_E_PRIME(pert%E%lmax) =  pert%k *( (pert%E%lmax+0.5d0)/(pert%E%lmax-0.5d0)) *  O1_E(pert%E%lmax-1) &
-               -  ((pert%E%lmax+1)/tau + 1.d0/tauc) * O1_E(pert%E%lmax)
-          aniso_dot = pa2_g * O1_T_PRIME(2) + pa2dot_g * O1_T(2) + pa2_nu * O1_NU_PRIME(2) + pa2dot_nu*O1_NU(2)
+          O1_E_PRIME(pert%E%lmax) =  kbyaH *( (pert%E%lmax+0.5d0)/(pert%E%lmax-0.5d0)) *  O1_E(pert%E%lmax-1) &
+               -  ((pert%E%lmax+1)/aHtau + 1.d0/aHtauc) * O1_E(pert%E%lmax)
+          aniso_prime = pa2_g * O1_T_PRIME(2) + pa2pr_g * O1_T(2) + pa2_nu * O1_NU_PRIME(2) + pa2pr_nu*O1_NU(2)
        endif
        if(cosmology%index_massivenu .ne. 0)then
           if(pert%massivenu_iq_used .le. 0)then
-             aniso_dot = aniso_dot + pa2dot_mnu * O1_NU(2) + pa2_mnu + O1_NU_PRIME(2)
+             aniso_prime = aniso_prime + pa2pr_mnu * O1_NU(2) + pa2_mnu + O1_NU_PRIME(2)
           else
              do iq = 1, pert%massivenu_iq_used
                 Fmnu2_prime(iq) = O1_MASSIVENU_PRIME(2, iq)
@@ -247,18 +251,19 @@ contains
              do iq = pert%massivenu_iq_used + 1, coop_pert_default_nq
                 Fmnu2_prime(iq) = O1_NU_PRIME(2)
              enddo
-             aniso = aniso + pa2dot_mnu * sum(Fmnu2*wmnu)/sumwmnu + pa2_mnu * sum(Fmnu2_prime*wmnu)/sumwmnu 
+             aniso_prime = aniso_prime + pa2pr_mnu * sum(Fmnu2*wmnu)/sumwmnu + pa2_mnu * sum(Fmnu2_prime*wmnu)/sumwmnu 
           endif
        endif
-       aniso_dot =  0.6d0/ksq * aniso_dot
-       O1_PHI_PRIME = O1_PSI_PRIME - aniso_dot
-       O1_PSIDOT_PRIME = - aH*(O1_PHI_PRIME + 3.d0*O1_PSI_PRIME) &
-            - 2.d0*(aHdot + aH**2)*O1_PHI &
-            - ksq/3.d0*(O1_PSI+aniso) &
-            + (rhoa2_b * O1_DELTA_B * (cs2b - 1.d0/3.d0) + rhoa2_c*O1_DELTA_C*(-1.d0/3.d0))/2.d0
+       aniso_prime =  0.6d0/ksq * aniso_prime
+       O1_PHI_PRIME = O1_PSI_PRIME - aniso_prime
+       O1_PSIPR_PRIME = - O1_PHI_PRIME - (3.d0 + daHdtau/aHsq)*O1_PSI_PRIME &
+            - 2.d0*(daHdtau/aHsq + 1.d0)*O1_PHI &
+            - kbyaHsq/3.d0*(O1_PSI+aniso) &
+            + (rhoa2_b/aHsq * O1_DELTA_B * (cs2b - 1.d0/3.d0) + rhoa2_c/aHsq*O1_DELTA_C*(-1.d0/3.d0))/2.d0
+
        if(cosmology%index_massivenu .ne. 0)then
           if(pert%massivenu_iq_used .gt. 0)then
-             O1_PSIDOT_PRIME =  O1_PSIDOT_PRIME + (pa2_mnu*sum(Fmnu0*wmnu)/sumwmnu - rhoa2_mnu/3.d0  * sum(Fmnu0*coop_pert_default_q_kernel/qbye)/sum(coop_pert_default_q_kernel/qbye) )/2.d0
+             O1_PSIPR_PRIME =  O1_PSIPR_PRIME + (pa2_mnu*sum(Fmnu0*wmnu)/sumwmnu - rhoa2_mnu/3.d0  * sum(Fmnu0*coop_pert_default_q_kernel/qbye)/sum(coop_pert_default_q_kernel/qbye) )/2.d0
           endif
         endif
         select case(pert%de%genre)
@@ -286,8 +291,8 @@ contains
     select case(source%m)
     case(0)
        source%s(itau,  ik, 1) = pert%O1_PSI
-       source%s(itau,  ik, 2) = pert%O1_PSIDOT
-       source%s(itau,  ik, 3) = pert%O1_T(0)
+       source%s(itau,  ik, 2) = pert%O1_Phi
+       source%s(itau,  ik, 3) = pert%O1_T(2)
     case(1)
        call coop_tbw("vector source to be done")
     case(2)
@@ -311,14 +316,14 @@ contains
        case(0)
           Rnu = this%Omega_nu / this%Omega_r
           pert%O1_Phi = coop_primordial_zeta_norm/(1.5d0 + 0.4d0*Rnu)
-          pert%O1_Phidot = 0.d0
+          pert%O1_PhiPr = 0.d0
           pert%O1_PSI =  (1.+0.4*Rnu)*pert%O1_Phi
-          pert%O1_PSIDOT = 0.d0
+          pert%O1_PSIPR = 0.d0
 
           pert%O1_DELTA_B = -1.5d0*pert%O1_Phi
           pert%O1_DELTA_C = pert%O1_DELTA_B
           pert%O1_T(0) =  -2.d0*pert%O1_Phi
-          pert%O1_NU(0) = -2.d0*pert%O1_T(0)
+          pert%O1_NU(0) =  pert%O1_T(0)
           
 
           pert%O1_V_B = pert%O1_Phi/2.d0*k*tau
@@ -379,7 +384,7 @@ contains
     class(coop_cosmology_firstorder_source)::this
     if(allocated(this%k))deallocate(this%k, this%dk, this%index_tc_off)
     this%nk = 0
-    if(allocated(this%tau))deallocate(this%tau, this%chi, this%dtau, this%a, this%tauc)
+    if(allocated(this%tau))deallocate(this%tau, this%chi, this%dtau, this%a, this%tauc, this%lna)
     this%ntau = 0
     if(allocated(this%s))deallocate(this%s)
   end subroutine coop_cosmology_firstorder_source_free
@@ -586,7 +591,7 @@ contains
 
   subroutine coop_cosmology_firstorder_set_source_tau(this, source, n, weight)
     COOP_REAL, parameter::incr = 1.05d0
-    COOP_INT::nbuffer = 10
+    COOP_INT::nbuffer = 30
     COOP_INT n, i, j
     COOP_REAL  top(n), dtop, amax, amin, amid, topmax, topmin, topmid, weight, taucut, acut
     class(coop_cosmology_firstorder_source)::source
@@ -595,22 +600,19 @@ contains
     source%ntau = n
     if(allocated(source%a))then
        if(size(source%a).ne.n)then
-          deallocate(source%a, source%tau, source%chi, source%dtau, source%tauc)
-          allocate(source%a(n), source%tau(n), source%dtau(n), source%chi(n), source%tauc(n))
+          deallocate(source%a, source%tau, source%chi, source%dtau, source%tauc, source%lna)
+          allocate(source%a(n), source%tau(n), source%dtau(n), source%chi(n), source%tauc(n), source%lna(n))
        endif
     else
-       allocate(source%a(n), source%tau(n), source%dtau(n), source%chi(n),  source%tauc(n))
+       allocate(source%a(n), source%tau(n), source%dtau(n), source%chi(n),  source%tauc(n), source%lna(n))
     endif
     dtop = this%tau0 / (n - nbuffer)
     do i= nbuffer+1, n
        top(i) = dtop*(i-nbuffer-0.5d0)
     enddo
-    do i=nbuffer, 1, -1
-       top(i) = top(i+1)*0.001d0
-    enddo
     amin = coop_visibility_amin
     topmin = this%ekappaofa(amin)**weight*this%conformal_time(amin)
-    do i=1, n
+    do i=nbuffer+1, n
        amax = amin*incr
        topmax = this%ekappaofa(amax)**weight*this%conformal_time(amax)
        do while( topmax .lt. top(i))
@@ -640,13 +642,19 @@ contains
        if(i.gt.nbuffer+1)source%dtau(i) = dtop/((weight*this%dkappadtau(source%a(i))*source%tau(i)+1.d0)*this%ekappaofa(source%a(i))**weight)
        source%tauc(i) = this%taucofa(source%a(i))
     enddo
+    do i=nbuffer, 1, -1
+       source%a(i) = source%a(i+1)*0.9d0
+       source%tau(i) = this%conformal_time(source%a(i))
+       source%tauc(i) = this%taucofa(source%a(i))
+    enddo
     source%dtau(1) = (source%tau(1)+source%tau(2))/2.d0
     do i=2, nbuffer+1
        source%dtau(i) = (source%tau(i+1) - source%tau(i-1))/2.d0
     enddo
     source%chi = this%tau0 - source%tau
+    source%lna = log(source%a)
     source%index_tc_max = 1
-    do while( source%index_tc_max .lt. source%ntau - 1 .and. source%tauc(source%index_tc_max+1) .le. 0.03 * source%tau(source%index_tc_max+1) )
+    do while( source%index_tc_max .lt. source%ntau - 1 .and. source%tauc(source%index_tc_max+1) .le. coop_cosmology_firstorder_tc_cutoff * source%tau(source%index_tc_max+1) )
        source%index_tc_max = source%index_tc_max+1
     enddo
   end subroutine coop_cosmology_firstorder_set_source_tau
@@ -851,13 +859,12 @@ contains
     class(coop_cosmology_firstorder)::this
     COOP_INT m, ik
     call this%init_source(m)
-   ! !$omp parallel do
-    !do ik = 1, this%source(m)%nk
-    ik = 100
+!!$    !$omp parallel do
+!!$    do ik = 1, this%source(m)%nk
+    ik = 1
        call this%compute_source_k(this%source(m), ik)
-       stop
-    !enddo
-  ! !$omp end parallel do
+!!$    enddo
+!!$    !$omp end parallel do
   end subroutine coop_cosmology_firstorder_compute_source
 
 
@@ -869,12 +876,14 @@ contains
     COOP_REAL, dimension(:,:),allocatable::w
     COOP_REAL c(24)
     COOP_INT ind, i
-    COOP_REAL tau_ini
-    tau_ini = min(coop_initial_condition_epsilon/source%k(ik), this%conformal_time(this%a_eq*coop_initial_condition_epsilon))
-    call this%set_initial_conditions(pert, m = source%m, k = source%k(ik), tau = this%aoftau(tau_ini)/this%Hasq(this%aoftau(tau_ini)))
-
-    call coop_cosmology_firstorder_equations(pert%ny+1, tau_ini, pert%y, pert%yp, this, pert)
-
+    COOP_REAL tau_ini, lna
+    tau_ini = min(coop_initial_condition_epsilon/source%k(ik), this%conformal_time(this%a_eq*coop_initial_condition_epsilon), source%tau(1)*0.999d0)
+    call this%set_initial_conditions(pert, m = source%m, k = source%k(ik), tau = tau_ini)
+    lna = log(this%aoftau(tau_ini))
+!!$    call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)
+!!$    do i=1, pert%ny
+!!$       print*, i, pert%y(i), pert%yp(i)
+!!$    enddo
     ind = 1
     c = 0.d0
     nvars = pert%ny + 1
@@ -883,20 +892,11 @@ contains
     w = 0.d0
     pert%tau = tau_ini
     iq = 1
-    tau_ini = tau_ini * 1.2d0
-    do while(tau_ini .lt. source%tau(1))
-       print*, pert%tau , " => " ,tau_ini, ind
-       call coop_dverk_firstorder(nvars, coop_cosmology_firstorder_equations, this, pert, pert%tau,   pert%y(0:pert%ny), tau_ini,  coop_cosmology_firstorder_ode_accuracy, ind, c, nw, w)
-       tau_ini = tau_ini * 1.2d0
-
-    enddo
-
     do itau = 1, source%ntau
-       call coop_dverk_firstorder(nvars, coop_cosmology_firstorder_equations, this, pert, pert%tau,   pert%y(0:pert%ny), source%tau(itau),  coop_cosmology_firstorder_ode_accuracy, ind, c, nw, w)
-
+       call coop_dverk_firstorder(nvars, coop_cosmology_firstorder_equations, this, pert, lna,   pert%y, source%lna(itau),  coop_cosmology_firstorder_ode_accuracy, ind, c, nw, w)
+       call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)
        call this%pert2source(pert, source, itau, ik)
        if(itau .eq. source%index_tc_off(ik))then
-          call coop_feedback("turning off tc")
           call pert%save_ode()
           if(pert%m .eq. 0)then  !!set tight coupling approximations
              pert%T%F(2) = (8.d0/9.d0) * pert%k * this%taucofa(source%a(itau)) * pert%T%F(1)
@@ -914,7 +914,6 @@ contains
        endif
        if(iq.le.coop_pert_default_nq)then
           do while(itau .eq. source%index_massivenu_on(iq))
-             call coop_feedback("turning on massivenu:")
              call pert%save_ode()
              call pert%init(m = source%m, nu_mass = this%mnu_by_Tnu, de_genre = this%de_genre, a = source%a(itau))             
              call pert%restore_ode()

@@ -103,10 +103,10 @@
 #define O0_DE(x)  x%species(x%index_de)
 
 #define O1_PSI y(pert%metric%i(0))
-#define O1_PSIDOT y(pert%metric%i(1))
+#define O1_PSIPR y(pert%metric%i(1))
 #define O1_VEC_V y(pert%metric%i(1))
 #define O1_TEN_H y(pert%metric%i(2))
-#define O1_TEN_HDOT y(pert%metric%i(3))
+#define O1_TEN_HPR y(pert%metric%i(3))
 #define O1_DELTA_B y(pert%baryon%i(0))
 #define O1_V_B y(pert%baryon%i(1)) 
 #define O1_DELTA_C y(pert%cdm%i(0))
@@ -120,15 +120,15 @@
 #define O1_DELTA_DE O1_DE(0)
 #define O1_V_DE  O1_DE(1)
 #define O1_DELTA_PHI O1_DE(0)
-#define O1_DELTA_PHIDOT O1_DE(1)
+#define O1_DELTA_PHIPR O1_DE(1)
 
 #define O1_PHI  pert%O1_Phi
-#define O1_PHI_PRIME  pert%O1_phidot
+#define O1_PHI_PRIME  pert%O1_phipr
 #define O1_PSI_PRIME yp(pert%metric%i(0))
-#define O1_PSIDOT_PRIME yp(pert%metric%i(1))
+#define O1_PSIPR_PRIME yp(pert%metric%i(1))
 #define O1_VEC_V_PRIME yp(pert%metric%i(1))
 #define O1_TEN_H_PRIME yp(pert%metric%i(2))
-#define O1_TEN_HDOT_PRIME yp(pert%metric%i(3))
+#define O1_TEN_HPR_PRIME yp(pert%metric%i(3))
 #define O1_DELTA_B_PRIME yp(pert%baryon%i(0))
 #define O1_V_B_PRIME yp(pert%baryon%i(1)) 
 #define O1_DELTA_C_PRIME yp(pert%cdm%i(0))
@@ -142,7 +142,7 @@
 #define O1_DELTA_DE_PRIME O1_DE_PRIME(0)
 #define O1_V_DE_PRIME  O1_DE_PRIME(1)
 #define O1_DELTA_PHI_PRIME O1_DE_PRIME(0)
-#define O1_DELTA_PHIDOT_PRIME O1_DE_PRIME(1)
+#define O1_DELTA_PHIPR_PRIME O1_DE_PRIME(1)
 
 
 #define COOP_PERT_NONE 0

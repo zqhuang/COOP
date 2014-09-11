@@ -36,7 +36,7 @@ module coop_pertobj_mod
      COOP_INT::massivenu_iq_used
      COOP_INT::m = 0
      COOP_INT::ny = 0
-     COOP_REAL::O1_phi, O1_phidot
+     COOP_REAL::O1_phi, O1_phipr
      type(coop_pert_species)::metric, baryon, cdm, T, E, B, nu, de
      type(coop_pert_species),dimension(coop_pert_default_nq)::massivenu !!massive neutrinos
 
