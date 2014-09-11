@@ -38,6 +38,8 @@ module coop_species_mod
      procedure :: pressure => coop_species_pressure
      procedure :: rhoa2 => coop_species_rhoa2
      procedure :: pa2 => coop_species_pa2
+     procedure :: dpa2da => coop_species_dpa2da
+     procedure :: drhoa2da => coop_species_drhoa2da
   end type coop_species
 
 
@@ -255,10 +257,12 @@ contains
     p = this%wofa(a) * this%rhoa2(a)
   end function coop_species_pa2
 
-  function coop_species_dpa2da(this, a) result(dpa2da)
+
+  function coop_species_dpa2da(this, a) result(p)  !!unit H_0^2M_p^2
     class(coop_species)::this
-    COOP_REAL a, dpa2da
-    dpa2da = ((this%dlnrhodlna(a) + 2.d0)/a*this%wofa(a) + this%dwda(a))*this%rhoa2(a)
+    COOP_REAL a
+    COOP_REAL p
+    p = (this%dwda(a) + this%wofa(a)*(this%dlnrhodlna(a) + 2.d0)/a) * this%rhoa2(a)
   end function coop_species_dpa2da
 
   function coop_species_density_ratio(this, a) result(density)

@@ -122,6 +122,8 @@
 #define O1_DELTA_PHI O1_DE(0)
 #define O1_DELTA_PHIDOT O1_DE(1)
 
+#define O1_PHI  pert%O1_Phi
+#define O1_PHI_PRIME  pert%O1_phidot
 #define O1_PSI_PRIME yp(pert%metric%i(0))
 #define O1_PSIDOT_PRIME yp(pert%metric%i(1))
 #define O1_VEC_V_PRIME yp(pert%metric%i(1))

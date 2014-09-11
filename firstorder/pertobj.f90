@@ -36,11 +36,11 @@ module coop_pertobj_mod
      COOP_INT::massivenu_iq_used
      COOP_INT::m = 0
      COOP_INT::ny = 0
-     COOP_REAL::O1_phi, O1_phidot, O1_aniso, O1_anisodot
+     COOP_REAL::O1_phi, O1_phidot
      type(coop_pert_species)::metric, baryon, cdm, T, E, B, nu, de
      type(coop_pert_species),dimension(coop_pert_default_nq)::massivenu !!massive neutrinos
 
-     COOP_REAL,dimension(:),allocatable::y
+     COOP_REAL,dimension(:),allocatable::y, yp
    contains
      procedure::init =>  coop_pert_object_initialize
      procedure::save_ode => coop_pert_object_save_ode
@@ -226,13 +226,15 @@ contains
     endif
     this%ny = this%de%last_index
     allocate(this%y(0:this%ny))
+    allocate(this%yp(0:this%ny))
     this%y = 0.d0
+    this%yp = 0.d0
   end subroutine coop_pert_object_initialize
 
 
   subroutine coop_pert_object_free(this)
     class(coop_pert_object)::this
-    if(allocated(this%y))deallocate(this%y)
+    if(allocated(this%y))deallocate(this%y, this%yp)
     this%ny = 0
   end subroutine coop_pert_object_free
   
