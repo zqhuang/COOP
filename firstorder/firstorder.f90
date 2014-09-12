@@ -129,6 +129,12 @@ contains
     pert%tight_coupling = .true.
     call pert%init(m = m, nu_mass = this%mnu_by_Tnu, de_genre = this%de_genre)
     call pert%set_zero()
+    if(this%index_massivenu .ne. 0)then
+       pert%num_mnu_ratio = O0_MASSIVENU(this)%Omega_massless/O0_NU(this)%Omega
+    else
+       pert%num_mnu_ratio = 0.d0
+    endif
+
     select case(trim(pert%initial_conditions))
     case("adiabatic")
        select case(pert%m)

@@ -30,9 +30,10 @@ module coop_pertobj_mod
   end type coop_pert_species
 
   type coop_pert_object
-     COOP_REAL::k, a, aH, daHdtau, tau, tauc, taucdot, R, rhoa2_b, rhoa2_c, rhoa2_nu, rhoa2_de, rhoa2_g, rhoa2_mnu, pa2_mnu, pa2_g, pa2_nu, pa2_de, rhoa2_sum, pa2_sum, cs2b, RhoPlusPa2_eff_mnu  !!these are background qualitities
+     COOP_REAL::k, a, aH, daHdtau, tau, tauc, taucdot, R, rhoa2_b, rhoa2_c, rhoa2_nu, rhoa2_de, rhoa2_g, rhoa2_mnu, pa2_mnu, pa2_g, pa2_nu, pa2_de, rhoa2_sum, pa2_sum, cs2b
      COOP_STRING::initial_conditions = "adiabatic"
      logical::tight_coupling = .true.
+     COOP_REAL::num_mnu_ratio = 0.d0
      COOP_INT::massivenu_iq_used
      COOP_INT::m = 0
      COOP_INT::ny = 0
@@ -65,8 +66,9 @@ contains
     T00 =  - pert%rhoa2_b*pert%O1_DELTA_B &
           - pert%rhoa2_c*pert%O1_DELTA_C &
           - pert%rhoa2_g*pert%O1_T(0) &
-          - pert%rhoa2_nu*pert%O1_NU(0) &
-          - pert%rhoa2_mnu*pert%delta_mnu
+          - pert%rhoa2_nu*(pert%O1_NU(0))
+    if(pert%num_mnu_ratio .ne. 0.d0) &
+         T00 = T00 - pert%rhoa2_nu * pert%delta_mnu
     select case(pert%de%genre)
     case (COOP_PERT_NONE)
        !!do nothing
@@ -90,14 +92,14 @@ contains
          + (pert%rhoa2_b)*(1.d0+pert%cs2b)*pert%O1_V_B &
          + (pert%rhoa2_nu + pert%pa2_nu)*pert%O1_NU(1)/4.d0 &
          + (pert%rhoa2_g + pert%pa2_g)* pert%O1_T(1)/4.d0 
-    if(pert%rhoa2_mnu .gt. 0.d0)then
+    if(pert%num_mnu_ratio .gt. 0.d0)then
        do iq = 1, pert%massivenu_iq_used
           Fmnu1(iq) = pert%O1_MASSIVENU(1, iq)
        enddo
        do iq = pert%massivenu_iq_used+1, coop_pert_default_nq
           Fmnu1(iq) = pert%O1_NU(1)
        enddo
-       T0i = T0i + pert%RhoPlusPa2_eff_mnu * sum(Fmnu1*coop_pert_default_q_kernel)/sum(coop_pert_default_q_kernel)/4.d0 
+       T0i = T0i + (pert%rhoa2_nu + pert%pa2_nu) * sum(Fmnu1*coop_pert_default_q_kernel)*pert%num_mnu_ratio/4.d0 
     endif
     select case(pert%de%genre)
     case (COOP_PERT_NONE)
