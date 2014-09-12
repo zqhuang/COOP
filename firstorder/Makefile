@@ -15,13 +15,13 @@ default: $(OFLIB)
 $(OFLIB): $(OFOBJ)
 	ar -r $@ $?
 
-Test: $(OFOBJ) test.o $(BACKGROUND)/libcoopbackground.a
+Test: $(OFOBJ) test.o $(BACKGROUND)/libcoopbackground.a 
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OFOBJ) test.o $(LINK)
 
 clean:
 	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test
 
 
-firstorder.o:	pertobj.o recfast.o
+firstorder.o:	pertobj.o recfast.o ../include/firstorder_equations.h
 wrapper.o: 	firstorder.o
 test.o:	wrapper.o

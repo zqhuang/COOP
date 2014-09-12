@@ -30,13 +30,15 @@ module coop_pertobj_mod
   end type coop_pert_species
 
   type coop_pert_object
-     COOP_REAL::k, tau, a
+     COOP_REAL::k, a, aH, daHdtau, tau, tauc, taucdot, R, rhoa2_b, rhoa2_c, rhoa2_nu, rhoa2_de, rhoa2_g, rhoa2_mnu, pa2_mnu, pa2_g, pa2_nu, pa2_de, rhoa2_sum, pa2_sum, cs2b, RhoPlusPa2_eff_mnu  !!these are background qualitities
      COOP_STRING::initial_conditions = "adiabatic"
      logical::tight_coupling = .true.
      COOP_INT::massivenu_iq_used
      COOP_INT::m = 0
      COOP_INT::ny = 0
-     COOP_REAL::O1_phi, O1_phipr
+     COOP_REAL::delta_mnu = 0.d0
+     COOP_REAL::deltap_mnu = 0.d0
+     COOP_REAL::O1_phi, O1_phipr, slip, T2prime, E2prime
      type(coop_pert_species)::metric, baryon, cdm, T, E, B, nu, de
      type(coop_pert_species),dimension(coop_pert_default_nq)::massivenu !!massive neutrinos
 
@@ -47,10 +49,72 @@ module coop_pertobj_mod
      procedure::restore_ode => coop_pert_object_restore_ode
      procedure::free =>  coop_pert_object_free
      procedure::set_zero => coop_pert_object_set_zero
+     procedure::delta_T00a2 => coop_pert_object_delta_T00a2
+     procedure::delta_G00a2 => coop_pert_object_delta_G00a2
+     procedure::delta_T0ia2 => coop_pert_object_delta_T0ia2
+     procedure::delta_G0ia2 => coop_pert_object_delta_G0ia2
+
   end type coop_pert_object
 
 
 contains
+
+  function coop_pert_object_delta_T00a2(pert) result(T00)
+    class(coop_pert_object)::pert
+    COOP_REAL::T00
+    T00 =  - pert%rhoa2_b*pert%O1_DELTA_B &
+          - pert%rhoa2_c*pert%O1_DELTA_C &
+          - pert%rhoa2_g*pert%O1_T(0) &
+          - pert%rhoa2_nu*pert%O1_NU(0) &
+          - pert%rhoa2_mnu*pert%delta_mnu
+    select case(pert%de%genre)
+    case (COOP_PERT_NONE)
+       !!do nothing
+    case default
+       call coop_tbw("T00: de perturbations not written")
+    end select
+
+  end function coop_pert_object_delta_T00a2
+
+  function coop_pert_object_delta_G00a2(pert) result(G00)
+    class(coop_pert_object)::pert
+    COOP_REAL::G00
+    G00 = 2.d0*(pert%k**2 * pert%O1_PSI + 3.d0*pert%aH**2*(pert%O1_PSIPR + pert%O1_Phi))
+  end function coop_pert_object_delta_G00a2
+
+  function coop_pert_object_delta_T0ia2(pert) result(T0i)
+    class(coop_pert_object)::pert
+    integer iq
+    COOP_REAL::T0i, Fmnu1(coop_pert_default_nq)
+    T0i = (pert%rhoa2_c)*pert%O1_V_C &
+         + (pert%rhoa2_b)*(1.d0+pert%cs2b)*pert%O1_V_B &
+         + (pert%rhoa2_nu + pert%pa2_nu)*pert%O1_NU(1)/4.d0 &
+         + (pert%rhoa2_g + pert%pa2_g)* pert%O1_T(1)/4.d0 
+    if(pert%rhoa2_mnu .gt. 0.d0)then
+       do iq = 1, pert%massivenu_iq_used
+          Fmnu1(iq) = pert%O1_MASSIVENU(1, iq)
+       enddo
+       do iq = pert%massivenu_iq_used+1, coop_pert_default_nq
+          Fmnu1(iq) = pert%O1_NU(1)
+       enddo
+       T0i = T0i + pert%RhoPlusPa2_eff_mnu * sum(Fmnu1*coop_pert_default_q_kernel)/sum(coop_pert_default_q_kernel)/4.d0 
+    endif
+    select case(pert%de%genre)
+    case (COOP_PERT_NONE)
+       !!do nothing
+    case default
+       call coop_tbw("T0i: de perturbations not written")
+    end select
+
+  end function coop_pert_object_delta_T0ia2
+
+  function coop_pert_object_delta_G0ia2(pert) result(G0i)
+    class(coop_pert_object)::pert
+    COOP_REAL::G0i
+    G0i = 2.d0*pert%k*pert%aH*(pert%O1_PSIPR + pert%O1_Phi)
+  end function coop_pert_object_delta_G0ia2
+
+
 
   subroutine coop_pert_object_set_zero(this)
     class(coop_pert_object)::this

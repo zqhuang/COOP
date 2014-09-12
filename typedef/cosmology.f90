@@ -315,10 +315,10 @@ contains
        this%dis_const = 2.d0*this%a_eq/sqrt(this%Omega_r)
        this%time_const = 4.d0/3.d0*this%a_eq**2/sqrt(this%Omega_r)
        this%dis_switch = this%dis_const * (sqrt(1.d0+a(1)/this%a_eq) - 1.d0)
-       dis(1) = this%dis_switch
-       t(1) = this%time_const *(1.d0 -  (1.d0- a(1)/2.d0/this%a_eq)*sqrt(1.d0+a(1)/this%a_eq)) 
        da = (amax-amin)/(n-1.d0)
        daby2 = da/2.d0
+       dis(1) = this%dis_switch*(6.d0/da)
+       t(1) = this%time_const *(1.d0 -  (1.d0- a(1)/2.d0/this%a_eq)*sqrt(1.d0+a(1)/this%a_eq)) *(6.d0/da)
        Hasqmin = this%Hasq(amin)
        Hasqmax = this%Hasq(amax)
        hasq1 = Hasqmin
