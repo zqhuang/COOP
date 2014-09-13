@@ -4,9 +4,9 @@
     type(coop_pert_object)::pert
     COOP_REAL lna, y(0:n-1), yp(0:n-1)
     COOP_INT i, l, iq
-    COOP_REAL a, aniso, kbyaHsq, ktauc, ktaucdot, P, aniso_prime, kbyaH, aHtauc, aHtau, ksq, aHsq, uterm, vterm
+    COOP_REAL a, aniso, kbyaHsq, ktauc, ktaucdot, P, aniso_prime, kbyaH, aHtauc, aHtau, ksq, aHsq, uterm, vterm, ma
     COOP_REAL :: pa2pr_g, pa2pr_nu
-    COOP_REAL, dimension(coop_pert_default_nq)::Fmnu2_prime, Fmnu2, Fmnu0, qbye, wrho, wp, wrho_prime, wp_prime
+    COOP_REAL, dimension(coop_pert_default_nq)::Fmnu2_prime, Fmnu2, Fmnu0, qbye, wp, wp_prime, wrho_minus_wp
     !!My PHI = Psi in Hu & White = Psi in Ma et al;
     !!My PSI = - Phi in Hu & White = Phi in Ma et al;
     !!My multipoles  = 4 * multipoles in Hu & White = (2l + 1) * multipoles in Ma et al
@@ -23,18 +23,23 @@
     pert%rhoa2_c = O0_CDM(cosmology)%rhoa2(a)
     pert%rhoa2_nu = O0_NU(cosmology)%rhoa2(a)
     pert%pa2_nu = pert%rhoa2_nu *  O0_NU(cosmology)%wofa(a)
+
     pert%rhoa2_de = O0_DE(cosmology)%rhoa2(a)
     pert%pa2_de = O0_DE(cosmology)%wofa(a)* pert%rhoa2_de
     if(cosmology%index_massivenu .ne. 0)then
        pert%rhoa2_mnu = O0_MASSIVENU(cosmology)%rhoa2(a)
        pert%pa2_mnu = pert%rhoa2_mnu *  O0_MASSIVENU(cosmology)%wofa(a)
-       qbye =  coop_pert_default_q/sqrt(coop_pert_default_q**2 + (cosmology%mnu_by_Tnu * a)**2)
-       wrho = coop_pert_default_q_kernel/qbye *  pert%num_mnu_ratio
-       wrho_prime =   (cosmology%mnu_by_Tnu * a)**2/(coop_pert_default_q**2 + (cosmology%mnu_by_Tnu * a)**2) * wrho
-
+       ma = cosmology%mnu_by_Tnu * a
+       if(ma  .lt. 1.d-4)then
+          wrho_minus_wp = (cosmology%mnu_by_Tnu * a)**2/coop_pert_default_q**2
+          qbye = 1.d0 - wrho_minus_wp/2.d0
+          wrho_minus_wp = wrho_minus_wp * coop_pert_default_q_kernel *  pert%num_mnu_ratio
+       else
+          qbye =  coop_pert_default_q/sqrt(coop_pert_default_q**2 + (cosmology%mnu_by_Tnu * a)**2)
+          wrho_minus_wp = coop_pert_default_q_kernel *  pert%num_mnu_ratio * (1.d0/qbye - qbye)
+       endif
        wp = qbye * coop_pert_default_q_kernel * pert%num_mnu_ratio
-       wp_prime = -(cosmology%mnu_by_Tnu * a)**2/(coop_pert_default_q**2 + (cosmology%mnu_by_Tnu * a)**2) * wp
-
+       wp_prime = -(cosmology%mnu_by_Tnu*a)**2/(coop_pert_default_q**2 + (cosmology%mnu_by_Tnu * a)**2) * wp
     else
        pert%rhoa2_mnu = 0.d0
        pert%pa2_mnu = 0.d0
@@ -137,8 +142,6 @@
 
           pert%E%F(2) = -coop_sqrt6/4.d0 * pert%T%F(2)
           pert%E2prime = -coop_sqrt6/4.d0 * pert%T2prime 
-
-          aniso_prime =  pert%pa2_nu * O1_NU_PRIME(2) + pa2pr_nu*O1_NU(2) +  pert%pa2_g * pert%T2prime + pa2pr_g * pert%T%F(2)
        else
           !!T
           P = (O1_T(2) - coop_sqrt6 * O1_E(2))/10.d0
@@ -158,8 +161,8 @@
           enddo
           O1_E_PRIME(pert%E%lmax) =  kbyaH *( (pert%E%lmax+0.5d0)/(pert%E%lmax-0.5d0)) *  O1_E(pert%E%lmax-1) &
                -  ((pert%E%lmax+1)/aHtau + 1.d0/aHtauc) * O1_E(pert%E%lmax)
-          aniso_prime = pert%pa2_g * O1_T_PRIME(2) + pa2pr_g * O1_T(2) + pert%pa2_nu * O1_NU_PRIME(2) + pa2pr_nu*O1_NU(2)
        endif
+       aniso_prime =  pert%pa2_nu * O1_NU_PRIME(2) + pa2pr_nu*O1_NU(2) +  pert%pa2_g * pert%T2prime + pa2pr_g * pert%T%F(2)
        if(cosmology%index_massivenu .ne. 0)then
           do iq = 1, pert%massivenu_iq_used
              Fmnu2_prime(iq) = O1_MASSIVENU_PRIME(2, iq)
@@ -170,18 +173,20 @@
           aniso_prime = aniso_prime + pa2pr_nu * sum(Fmnu2*wp) + pert%pa2_nu*sum(Fmnu2_prime*wp + Fmnu2*wp_prime) 
        endif
        aniso_prime =  0.6d0/ksq * aniso_prime
+
        O1_PHI_PRIME = O1_PSI_PRIME - aniso_prime
-       O1_PSIPR_PRIME = - O1_PHI_PRIME - (3.d0 + pert%daHdtau/aHsq)*O1_PSI_PRIME &
+       O1_PSIPR_PRIME = - O1_PHI_PRIME &
+            - (3.d0 + pert%daHdtau/aHsq)*O1_PSI_PRIME &
             - 2.d0*(pert%daHdtau/aHsq + 1.d0)*O1_PHI &
             - kbyaHsq/3.d0*(O1_PSI+aniso) &
             + (pert%rhoa2_b/aHsq * O1_DELTA_B * (pert%cs2b - 1.d0/3.d0) + pert%rhoa2_c/aHsq*O1_DELTA_C*(-1.d0/3.d0))/2.d0
 
        if(cosmology%index_massivenu .ne. 0)then
-          pert%delta_mnu = sum(Fmnu0*wrho)
+          pert%deltatr_mnu = sum(Fmnu0*wrho_minus_wp)
           pert%deltap_mnu = sum(Fmnu0*wp)
-          O1_PSIPR_PRIME =  O1_PSIPR_PRIME + (pert%pa2_nu * pert%deltap_mnu - pert%rhoa2_nu/ 3.d0  * pert%delta_mnu )/2.d0
+          O1_PSIPR_PRIME =  O1_PSIPR_PRIME - (pert%pa2_nu/aHsq * pert%deltatr_mnu)/2.d0
        else
-          pert%delta_mnu = 0.d0
+          pert%deltatr_mnu = 0.d0
           pert%deltap_mnu = 0.d0
         endif
         select case(pert%de%genre)

@@ -407,7 +407,7 @@ contains
 
   subroutine coop_cosmology_firstorder_set_source_tau(this, source, n, weight)
     COOP_REAL, parameter::incr = 1.05d0
-    COOP_INT::nbuffer = 50
+    COOP_INT::nbuffer = 200
     COOP_INT n, i, j
     COOP_REAL  top(n), dtop, amax, amin, amid, topmax, topmin, topmid, weight, taucut, acut
     class(coop_cosmology_firstorder_source)::source
@@ -695,6 +695,7 @@ contains
     call this%set_initial_conditions(pert, m = source%m, k = source%k(ik), tau = tau_ini)
     lna = log(this%aoftau(tau_ini))
     call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)
+
     ind = 1
     c = 0.d0
     nvars = pert%ny + 1

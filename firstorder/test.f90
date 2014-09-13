@@ -12,8 +12,8 @@ program test
   call fod%add_species(coop_baryon(COOP_REAL_OF(0.045d0)))
   call fod%add_species(coop_cdm(COOP_REAL_OF(0.255d0)))
   call fod%add_species(coop_radiation(fod%Omega_radiation()))
-  call fod%add_species(coop_neutrinos_massless(fod%Omega_massless_neutrinos_per_species()*3))
- ! call fod%add_species(coop_neutrinos_massive(fod%Omega_nu_per_species_from_mnu_eV(1.d-6)*1,fod%Omega_massless_neutrinos_per_species()*1))
+  call fod%add_species(coop_neutrinos_massless(fod%Omega_massless_neutrinos_per_species()*2))
+  call fod%add_species(coop_neutrinos_massive(fod%Omega_nu_per_species_from_mnu_eV(0.06d0)*1,fod%Omega_massless_neutrinos_per_species()*1))
   call fod%add_species(coop_de_lambda(fod%Omega_k()))
   call fod%setup_background()
   fod%optre = 0.07
@@ -28,7 +28,7 @@ program test
 
 
   call fod%compute_source(0)
-  ik = 50
+  ik = fod%source(0)%nk
   call fp%open('solution.txt', 'w')
   do i=1, fod%source(0)%ntau
      write(fp%unit, "(20E16.7)") fod%source(0)%lna(i), fod%source(0)%s(i, ik, :)

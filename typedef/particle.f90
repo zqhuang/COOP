@@ -27,6 +27,10 @@ contains
 
   subroutine coop_fermion_get_lnam(lnrho, lnam)
     COOP_REAL lnam, lnrho, lower, upper, lr, invam2
+    if(lnrho .le. 0.d0)then
+       lnam = -300.d0
+       return
+    endif
     if(lnrho .le. 1.e-2_dl)then
        lnam =  log(lnrho*(1.d0+lnrho/2.d0)/(5_dl/7_dl/coop_pi**2))/2.d0
        return

@@ -11,7 +11,7 @@ module coop_pertobj_mod
   COOP_INT, parameter:: coop_pert_default_nq = 5
   COOP_REAL, dimension(coop_pert_default_nq),parameter:: coop_pert_default_q = coop_fermion_int_q5
   COOP_REAL, dimension(coop_pert_default_nq),parameter:: coop_pert_default_q_kernel = coop_fermion_int_kernel5 
-  COOP_REAL, dimension(coop_pert_default_nq), parameter::coop_pert_massivenu_threshold = 0.2d0 * coop_pert_default_q  !!ma > threshold considered to be massive
+  COOP_REAL, dimension(coop_pert_default_nq), parameter::coop_pert_massivenu_threshold = 0.1d0 * coop_pert_default_q  !!ma > threshold considered to be massive
 
   type coop_pert_species
      COOP_INT::genre = COOP_PERT_NONE  !!NONE = no perturbations, other options are PERFECT_FLUID, HIERARCHY
@@ -37,7 +37,7 @@ module coop_pertobj_mod
      COOP_INT::massivenu_iq_used
      COOP_INT::m = 0
      COOP_INT::ny = 0
-     COOP_REAL::delta_mnu = 0.d0
+     COOP_REAL::deltatr_mnu = 0.d0
      COOP_REAL::deltap_mnu = 0.d0
      COOP_REAL::O1_phi, O1_phipr, slip, T2prime, E2prime
      type(coop_pert_species)::metric, baryon, cdm, T, E, B, nu, de
@@ -68,7 +68,7 @@ contains
           - pert%rhoa2_g*pert%O1_T(0) &
           - pert%rhoa2_nu*(pert%O1_NU(0))
     if(pert%num_mnu_ratio .ne. 0.d0) &
-         T00 = T00 - pert%rhoa2_nu * pert%delta_mnu
+         T00 = T00 - pert%rhoa2_nu * (pert%deltatr_mnu + pert%deltap_mnu)
     select case(pert%de%genre)
     case (COOP_PERT_NONE)
        !!do nothing
