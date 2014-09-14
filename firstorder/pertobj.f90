@@ -33,6 +33,7 @@ module coop_pertobj_mod
      COOP_REAL::k, a, aH, daHdtau, tau, tauc, taucdot, R, rhoa2_b, rhoa2_c, rhoa2_nu, rhoa2_de, rhoa2_g, rhoa2_mnu, pa2_mnu, pa2_g, pa2_nu, pa2_de, rhoa2_sum, pa2_sum, cs2b
      COOP_STRING::initial_conditions = "adiabatic"
      logical::tight_coupling = .true.
+     logical::late_approx = .false.
      COOP_REAL::num_mnu_ratio = 0.d0
      COOP_INT::massivenu_iq_used
      COOP_INT::m = 0
@@ -54,7 +55,7 @@ module coop_pertobj_mod
      procedure::delta_G00a2 => coop_pert_object_delta_G00a2
      procedure::delta_T0ia2 => coop_pert_object_delta_T0ia2
      procedure::delta_G0ia2 => coop_pert_object_delta_G0ia2
-
+     procedure::zeta => coop_pert_object_zeta  !!covmoving curvature fluctuations
   end type coop_pert_object
 
 
@@ -115,6 +116,12 @@ contains
     COOP_REAL::G0i
     G0i = 2.d0*pert%k*pert%aH*(pert%O1_PSIPR + pert%O1_Phi)
   end function coop_pert_object_delta_G0ia2
+
+  function coop_pert_object_zeta(pert) result(zeta)
+    class(coop_pert_object)::pert
+    COOP_REAL zeta
+    zeta =  - (pert%O1_PSI + (2.d0/3.d0)/(1.d0+pert%pa2_sum/pert%rhoa2_sum)*(pert%O1_Phi + Pert%O1_PSIPR))
+  end function coop_pert_object_zeta
 
 
 

@@ -8,27 +8,11 @@ program test
   integer i, m, iq, ik
   COOP_REAL ktauc
   COOP_REAL z
-  call fod%init(h=COOP_REAL_OF(0.68d0))
-  call fod%add_species(coop_baryon(COOP_REAL_OF(0.045d0)))
-  call fod%add_species(coop_cdm(COOP_REAL_OF(0.255d0)))
-  call fod%add_species(coop_radiation(fod%Omega_radiation()))
-  call fod%add_species(coop_neutrinos_massless(fod%Omega_massless_neutrinos_per_species()*2))
-  call fod%add_species(coop_neutrinos_massive(fod%Omega_nu_per_species_from_mnu_eV(0.06d0)*1,fod%Omega_massless_neutrinos_per_species()*1))
-  call fod%add_species(coop_de_lambda(fod%Omega_k()))
-  call fod%setup_background()
-  fod%optre = 0.07
-  call fod%set_xe()
-  print*, "Omega_b = ", fod%Omega_b
-  print*, "Omega_c = ", fod%Omega_c
-  print*, "Omega_m = ", fod%Omega_m
-  print*, "Omega_g = ", fod%Omega_g
-  print*, "Omega_nu = ", fod%Omega_nu
-  print*, "Omega_r = ", fod%Omega_r
-  print*, "Omega_de = ", O0_DE(fod)%Omega
-
-
-  call fod%compute_source(0)
-  ik = fod%source(0)%nk
+  call fod%set_standard_cosmology(h = 0.7d0, Omega_b = 0.045d0, Omega_c = 0.255d0, tau_re = 0.07d0, nu_mass_eV = 0.06d0)
+  call coop_prtsystime(.true.)
+  call fod%compute_source(m=0)
+  call coop_prtsystime()
+  ik = 30
   call fp%open('solution.txt', 'w')
   do i=1, fod%source(0)%ntau
      write(fp%unit, "(20E16.7)") fod%source(0)%lna(i), fod%source(0)%s(i, ik, :)
