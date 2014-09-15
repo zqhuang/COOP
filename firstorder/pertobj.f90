@@ -30,7 +30,7 @@ module coop_pertobj_mod
   end type coop_pert_species
 
   type coop_pert_object
-     COOP_REAL::k, a, aH, daHdtau, tau, tauc, taucdot, R, rhoa2_b, rhoa2_c, rhoa2_nu, rhoa2_de, rhoa2_g, rhoa2_mnu, pa2_mnu, pa2_g, pa2_nu, pa2_de, rhoa2_sum, pa2_sum, cs2b
+     COOP_REAL::k, a, aH, daHdtau, tau, tauc, taucdot, R, rhoa2_b, rhoa2_c, rhoa2_nu, rhoa2_de, rhoa2_g, rhoa2_mnu, pa2_mnu, pa2_g, pa2_nu, pa2_de, rhoa2_sum, pa2_sum, cs2b, capP, kbyaH, ksq, kbyaHsq
      COOP_STRING::initial_conditions = "adiabatic"
      logical::tight_coupling = .true.
      logical::late_approx = .false.
