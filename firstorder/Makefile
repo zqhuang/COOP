@@ -22,6 +22,6 @@ clean:
 	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test
 
 
-firstorder.o:	pertobj.o recfast.o ../include/firstorder_equations.h
+firstorder.o:	pertobj.o recfast.o ../include/firstorder_equations.h ../include/firstorder_source.h
 wrapper.o: 	firstorder.o
 test.o:	wrapper.o

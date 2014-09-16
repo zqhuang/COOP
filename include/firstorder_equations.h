@@ -153,7 +153,7 @@
           O1_T_PRIME(pert%T%lmax) =  pert%kbyaH *((pert%T%lmax+0.5d0)/(pert%T%lmax-0.5d0))*  O1_T(pert%T%lmax-1) &
             -  ((pert%T%lmax+1)/aHtau + 1.d0/aHtauc) * O1_T(pert%T%lmax)
           !!E
-          O1_E_PRIME(2) = pert%kbyaH * ( - cosmology%klms_by_2lp1(3, 0, 0)*O1_E(3))  - (O1_E(2) + coop_sqrt6 * pert%capP)/aHtauc
+          O1_E_PRIME(2) = pert%kbyaH * ( - cosmology%klms_by_2lp1(3, 0, 2)*O1_E(3))  - (O1_E(2) + coop_sqrt6 * pert%capP)/aHtauc
           pert%E2prime = O1_E_PRIME(2)
 
           do l = 3, pert%E%lmax - 1

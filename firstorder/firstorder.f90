@@ -17,12 +17,12 @@ module coop_firstorder_mod
   COOP_REAL, parameter :: coop_cosmology_firstorder_tc_cutoff = 0.005d0
 
 
-  COOP_REAL, dimension(0:2), parameter::coop_source_tau_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
-  COOP_INT, dimension(0:2), parameter::coop_source_tau_n = (/ 1200, 850, 800 /)
-  COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.2d0, 0.15d0, 0.1d0 /)
-  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 160, 120, 80 /)
-  COOP_REAL, parameter::coop_source_k_index = 0.55d0
-  COOP_INT, parameter:: coop_source_k_dense_factor = 50
+  COOP_REAL, dimension(0:2), parameter::coop_source_tau_weight = (/ 0.5d0, 0.2d0, 0.1d0 /)
+  COOP_INT, dimension(0:2), parameter::coop_source_tau_n = (/ 1000, 850, 800 /)
+  COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
+  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 200, 120, 80 /)
+  COOP_REAL, parameter::coop_source_k_index = 0.45d0
+  COOP_INT, parameter:: coop_source_k_dense_factor = 90
 
   COOP_INT, parameter::coop_num_Cls =  6
   COOP_INT, parameter::coop_index_ClTT = 1
@@ -34,7 +34,7 @@ module coop_firstorder_mod
 
 
 !!how many source terms you want to extract & save
-  COOP_INT, dimension(0:2), parameter::coop_num_sources = (/ 5,  3,  3 /)
+  COOP_INT, dimension(0:2), parameter::coop_num_sources = (/ 2,  3,  3 /)
 
 
   type coop_cosmology_firstorder_source
@@ -46,8 +46,8 @@ module coop_firstorder_mod
      COOP_INT, dimension(coop_pert_default_nq)::index_massivenu_on
      COOP_REAL::dkop, kopmin, kopmax, kmin, kmax
      COOP_REAL,dimension(coop_source_k_dense_factor)::a_dense, b_dense, a2_dense, b2_dense
-     COOP_REAL, dimension(:),allocatable::k, kop, tau, a, tauc, lna,  dk, dtau, chi  !!tau is conformal time, chi is comoving distance; in flat case, chi + tau = tau_0
-     COOP_REAL, dimension(:,:),allocatable::k_dense, dk_dense
+     COOP_REAL, dimension(:),allocatable::k, kop, tau, a, tauc, lna,  dk, dtau, chi !!tau is conformal time, chi is comoving distance; in flat case, chi + tau = tau_0
+     COOP_REAL, dimension(:,:),allocatable::k_dense, ws_dense, wt_dense
      COOP_REAL, dimension(:,:,:),allocatable::s, s2
    contains
      procedure::free => coop_cosmology_firstorder_source_free
@@ -63,7 +63,7 @@ module coop_firstorder_mod
      COOP_REAL::deltaz = 0.5d0
      COOP_REAL::kMpc_pivot = 0.05d0
      COOP_INT::de_genre = COOP_PERT_NONE
-     COOP_REAL::k_pivot
+     COOP_REAL::k_pivot 
      COOP_REAL::dkappadtau_coef, ReionFrac, Omega_b, Omega_c, Omega_nu, Omega_g, tau_eq, mnu_by_Tnu
      type(coop_function)::Ps, Pt, Xe, ekappa, vis, Tb
      type(coop_cosmology_firstorder_source),dimension(0:2)::source
@@ -72,6 +72,8 @@ module coop_firstorder_mod
      logical::klms_done = .false.
    contains
      procedure:: set_standard_cosmology =>  coop_cosmology_firstorder_set_standard_cosmology
+     procedure:: set_standard_power => coop_cosmology_firstorder_set_standard_power
+     procedure:: set_Planck_bestfit =>coop_cosmology_firstorder_set_Planck_bestfit
      procedure:: set_klms => coop_cosmology_firstorder_set_klms
      procedure:: set_source_tau => coop_cosmology_firstorder_set_source_tau
      procedure:: set_source_k => coop_cosmology_firstorder_set_source_k
@@ -113,7 +115,11 @@ contains
 !!this head file sets the initial conditions
 #include "firstorder_ic.h"
 
-
+  subroutine coop_cosmology_firstorder_set_Planck_Bestfit(this)
+    class(coop_cosmology_firstorder)::this
+    call this%set_standard_cosmology(Omega_b=0.04801228639964265020d0, Omega_c=0.26099082900159878590d0, h = 0.67779d0, tau_re = 0.092d0)
+    call this%set_standard_power(As = 2.210168d-9, ns = 0.9608933d0, nrun = 0.d0, r = 0.d0, nt = 0.d0)
+  end subroutine coop_cosmology_firstorder_set_Planck_Bestfit
 
   subroutine coop_cosmology_firstorder_set_standard_cosmology(this, h, omega_b, omega_c, tau_re, nu_mass_eV)
     class(coop_cosmology_firstorder)::this
@@ -139,18 +145,78 @@ contains
     call this%set_xe()
   end subroutine coop_cosmology_firstorder_set_standard_cosmology
 
-  function coop_cosmology_firstorder_source_get_Cls(source, Cls)
+
+  subroutine coop_cosmology_firstorder_set_standard_power(this, As, ns, nrun, r, nt, inflation_consistency)
+    class(coop_cosmology_firstorder)::this
+    COOP_REAL kpivot, As, ns, nrun, r, nt
+    type(coop_arguments):: args
+    logical,optional::inflation_consistency
+    if(present(inflation_consistency))then
+       if(inflation_consistency)then
+          call args%init( r = (/ As, ns, nrun, r, -r/8.d0 /) )
+       else
+          call args%init( r = (/ As, ns, nrun, r, nt /) )
+       endif
+    else
+       call args%init( r = (/ As, ns, nrun, r, nt /) )
+    endif
+    call this%set_power(coop_cosmology_firstorder_standard_power, args)
+  end subroutine coop_cosmology_firstorder_set_standard_power
+
+  subroutine coop_cosmology_firstorder_standard_power(kbykpiv, ps, pt, cosmology, args)
+    type(coop_cosmology_firstorder)::cosmology
+    COOP_REAL kbykpiv, ps, pt, lnkbykpiv
+    type(coop_arguments) args
+    lnkbykpiv = log(kbykpiv)
+    ps = args%r(1) * exp((args%r(2)-1.d0 + args%r(3)/2.d0*lnkbykpiv)*lnkbykpiv)
+    pt = args%r(4)*args%r(1)*exp(lnkbykpiv*(args%r(5)))
+  end subroutine coop_cosmology_firstorder_standard_power
+  
+
+  subroutine coop_cosmology_firstorder_source_get_transfer(source, l, trans)
     class(coop_cosmology_firstorder_source)::source
-    COOP_REAL,dimension(coop_num_cls)::Cls
-    COOP_REAL,dimension(:,:),allocatable::jls
-    COOP_REAL,dimension(:),allocatable::trans
-    COOP_INT:: ik, itau
-    select case(source(m))
-    case(0)
-       allocate(trans(source%nk), jls(source%ntau, source%nk))
-       do ik = 1, source%nk
-          
+    COOP_INT::l
+    COOP_REAL,dimension(:,:,:)::trans
+    COOP_INT::n, ik, idense, is, i, itau
+    COOP_REAL::jl, xmin
+    if(size(trans,2).ne. coop_source_k_dense_factor .or. size(trans, 3).ne. source%nk .or. size(trans, 1) .ne. coop_num_sources(source%m)) call coop_return_error("get_transfer", "wrong size", "stop")
+    trans = 0
+    xmin = dble(l)
+    do while(coop_jl(l, xmin).gt. 1.d-7)
+       xmin = xmin*0.96
+    enddo
+    !$omp parallel do private(ik, itau, idense, jl)
+    do ik=2, source%nk
+       do itau = 1, source%ntau
+          if(source%k(ik)*source%chi(itau) .lt. xmin) exit
+          do idense = 1, coop_source_k_dense_factor
+             jl = coop_jl(l, source%k_dense(idense, ik)*source%chi(itau))
+             if(abs(jl) .gt. 1.d-9)then
+                trans(:,idense, ik) = trans(:,idense, ik) + jl*source%dtau(itau)*(source%s(:, ik, itau)*source%a_dense(idense) + source%s(:, ik-1, itau)*source%b_dense(idense) + source%s2(:, ik, itau)*source%a2_dense(idense) + source%s2(:, ik-1, itau)*source%b2_dense(idense))
+             endif
+          enddo
        enddo
+    enddo
+    !$omp end parallel do
+  end subroutine coop_cosmology_firstorder_source_get_transfer
+
+  subroutine coop_cosmology_firstorder_source_get_Cls(source, l, Cls)
+    class(coop_cosmology_firstorder_source)::source
+    COOP_INT l
+    COOP_REAL,dimension(coop_num_cls),intent(OUT)::Cls
+    COOP_REAL,dimension(:,:,:),allocatable::trans
+    COOP_INT:: i
+    COOP_REAL::tmp
+    select case(source%m)
+    case(0)
+       allocate(trans(coop_num_sources(source%m), coop_source_k_dense_factor, source%nk))
+       call source%get_transfer(l, trans)
+       Cls(coop_index_ClTT) = sum(source%ws_dense * trans(1, :, :)**2)*coop_4pi
+       Cls(coop_index_ClTE) = sqrt((l+2.d0)*(l+1.d0)*l*(l-1.d0))*sum(source%ws_dense * trans(1, :, :)*trans(2,:,:))*coop_4pi
+       Cls(coop_index_ClEE) = (l+2.d0)*(l+1.d0)*l*(l-1.d0)*sum(source%ws_dense * trans(2,:,:)**2)*coop_4pi
+       Cls(coop_index_ClEB) =  0.d0
+       Cls(coop_index_ClTB) =  0.d0
+       Cls(coop_index_ClBB) =  0.d0
        deallocate(trans)
     case(1)
        call coop_tbw("get_Cls: vector")
@@ -159,7 +225,7 @@ contains
     case default
        call coop_return_error("get_Cls", "unknown m = "//trim(coop_num2str(source%m)), "stop")
     end select
-  end function coop_cosmology_firstorder_source_get_Cls
+  end subroutine coop_cosmology_firstorder_source_get_Cls
 
 
   subroutine coop_cosmology_firstorder_compute_source(this, m)
@@ -177,7 +243,7 @@ contains
     !$omp parallel do private(is)
     do itau = 1, this%source(m)%ntau
        do is = 1, coop_num_sources(m)
-          call coop_naturalspline_uniform(this%source(m)%nk, this%source(m)%s(itau, :, is), this%source(m)%s2(itau, :, is))
+          call coop_naturalspline_uniform(this%source(m)%nk, this%source(m)%s(is, :, itau), this%source(m)%s2(is, :, itau))
        enddo
     enddo
     !$omp end parallel do
@@ -338,8 +404,12 @@ contains
     do i=1, n
        call power(k(i)/this%k_pivot, ps(i), pt(i), this, args)
     end do
-    call this%ps%init(n = n, xmin = k(1), xmax = k(n), f = ps, xlog = .true., ylog = .true., fleft = ps(1), fright = ps(n), check_boundary = .false.)
-    call this%pt%init(n = n, xmin = k(1), xmax = k(n), f = pt, xlog = .true., ylog = .true., fleft = pt(1), fright = pt(n), check_boundary = .false.)
+    call this%ps%init(n = n, xmin = k(1), xmax = k(n), f = ps, xlog = .true., ylog = .true., fleft = ps(1), fright = ps(n), check_boundary = .false., method = COOP_INTERPOLATE_LINEAR)
+    if(any(pt.eq.0.d0))then
+       call this%pt%init(n = n, xmin = k(1), xmax = k(n), f = pt, xlog = .true., ylog = .false., fleft = pt(1), fright = pt(n), check_boundary = .false.)
+    else
+       call this%pt%init(n = n, xmin = k(1), xmax = k(n), f = pt, xlog = .true., ylog = .true., fleft = pt(1), fright = pt(n), check_boundary = .false.)
+    endif
 
   end subroutine coop_cosmology_firstorder_set_power
 
@@ -494,12 +564,12 @@ contains
 
   subroutine coop_cosmology_firstorder_set_source_tau(this, source, n, weight)
     COOP_REAL, parameter::incr = 1.05d0
-    COOP_INT::nbuffer = 50
+    COOP_INT::nbuffer = 70
     COOP_INT n, i, j
     COOP_REAL  top(n), dtop, amax, amin, amid, topmax, topmin, topmid, weight, taucut, acut
     class(coop_cosmology_firstorder_source)::source
     class(coop_cosmology_firstorder)::this
-    if(n.lt. 30) stop "n is too small for set_source_tau"
+    if(n.lt. nbuffer+10) stop "n is too small for set_source_tau"
     source%ntau = n
     if(allocated(source%a))then
        if(size(source%a).ne.n)then
@@ -509,15 +579,18 @@ contains
     else
        allocate(source%a(n), source%tau(n), source%dtau(n), source%chi(n),  source%tauc(n), source%lna(n))
     endif
-    dtop = this%tau0 / (n - nbuffer)
-    do i= nbuffer+1, n
-       top(i) = dtop*(i-nbuffer-0.5d0)
+    amin = 1.d0/(1.d0+this%zrecomb)
+    do while(this%visofa(amin).gt. 1.)
+       amin = amin*0.99d0
     enddo
-    amin = coop_visibility_amin
-    topmin = this%ekappaofa(amin)**weight*this%conformal_time(amin)
+    topmin = this%tau0*(1.d0-weight)*this%ekappaofa(amin)+weight*this%tauofa(amin)
+    dtop = (this%tau0 -topmin) / (n - nbuffer)
+    do i= nbuffer+1, n
+       top(i) = topmin + dtop*(i-nbuffer-0.5d0)
+    enddo
     do i=nbuffer+1, n
        amax = amin*incr
-       topmax = this%ekappaofa(amax)**weight*this%conformal_time(amax)
+       topmax = this%ekappaofa(amax)*(1.d0-weight)*this%tau0 + weight*this%tauofa(amax)
        do while( topmax .lt. top(i))
           amin = amax
           topmin = topmax
@@ -527,11 +600,11 @@ contains
              topmax = this%tau0
              exit
           endif
-          topmax = this%ekappaofa(amax)**weight*this%conformal_time(amax)       
+          topmax = this%ekappaofa(amax)*(1.d0-weight)*this%tau0 + weight*this%tauofa(amax)
        enddo
        do while((amax-amin)/amin .gt. 1.d-7)
           amid = (amin+amax)/2.d0
-          topmid = this%ekappaofa(amid)**weight*this%conformal_time(amid)       
+          topmid = this%ekappaofa(amid)*(1.d0-weight)*this%tau0 + weight*this%tauofa(amid)
           if(topmid .gt. top(i))then
              amax = amid
              topmax = topmid
@@ -539,18 +612,18 @@ contains
              amin = amid
              topmin = topmid
           endif
-       enddo
-       source%a(i) = (amin+amax)/2.d0
-       source%tau(i) = this%conformal_time(source%a(i))
-       if(i.gt.nbuffer+1)source%dtau(i) = dtop/((weight*this%dkappadtau(source%a(i))*source%tau(i)+1.d0)*this%ekappaofa(source%a(i))**weight)
+       enddo      
+       source%a(i) = amid + (top(i)-topmid)/((weight+(1.d0-weight)*this%tau0*this%visofa(amid))/this%dadtau(amid))
+       source%tau(i) = this%tauofa(source%a(i))
+       source%dtau(i) = dtop/(weight+(1.d0-weight)*this%tau0*this%visofa(source%a(i)))
        source%tauc(i) = this%taucofa(source%a(i))
     enddo
     do i=nbuffer, 1, -1
-       source%a(i) = source%a(i+1)*0.98d0
+       source%a(i) = source%a(i+1)*0.965d0
        source%tau(i) = this%conformal_time(source%a(i))
        source%tauc(i) = this%taucofa(source%a(i))
     enddo
-    source%dtau(1) = (source%tau(1)+source%tau(2))/2.d0
+    source%dtau(1) = source%tau(2)/2.d0
     do i=2, nbuffer+1
        source%dtau(i) = (source%tau(i+1) - source%tau(i-1))/2.d0
     enddo
@@ -567,7 +640,7 @@ contains
     class(coop_cosmology_firstorder)::this
     class(coop_cosmology_firstorder_source)::source
     COOP_INT n, i, iq, j
-    COOP_REAL weight, dkop_dense
+    COOP_REAL weight, dkop_dense, dk_dense
     this%k_pivot = this%kMpc_pivot/this%H0Mpc()
     source%nk = n
     if(allocated(source%k))then
@@ -576,11 +649,12 @@ contains
           allocate(source%k(n), source%dk(n), source%index_tc_off(n), source%kop(n))
        endif
        if(size(source%k_dense, 2).ne.n .or. size(source%k_dense, 1).ne. coop_source_k_dense_factor )then
-          deallocate(source%k_dense, source%dk_dense)
-          allocate(source%k_dense(coop_source_k_dense_factor, n), source%dk_dense(coop_source_k_dense_factor, n))
+          deallocate(source%k_dense, source%ws_dense, source%wt_dense)
+          allocate(source%k_dense(coop_source_k_dense_factor, n), source%ws_dense(coop_source_k_dense_factor, n), source%wt_dense(coop_source_k_dense_factor, n))
        endif
     else
-       allocate(source%k(n), source%dk(n), source%index_tc_off(n), source%kop(n),source%k_dense(coop_source_k_dense_factor, n), source%dk_dense(coop_source_k_dense_factor, n))
+       allocate(source%k(n), source%dk(n), source%index_tc_off(n), source%kop(n))
+       allocate(source%k_dense(coop_source_k_dense_factor, n), source%ws_dense(coop_source_k_dense_factor, n), source%wt_dense(coop_source_k_dense_factor, n))
     endif
     do i=1, coop_source_k_dense_factor
        source%a_dense(i) = dble(i)/coop_source_k_dense_factor
@@ -588,6 +662,8 @@ contains
        source%a2_dense(i) = source%a_dense(i)*(source%a_dense(i)**2-1.d0)
        source%b2_dense(i) = source%b_dense(i)*(source%b_dense(i)**2-1.d0)
     enddo
+
+
     source%kmin = 0.3d0/this%distlss
     select case(source%m)
     case(0)
@@ -606,12 +682,15 @@ contains
     source%dkop = (source%kopmax-source%kopmin)/(n-1)
     call coop_set_uniform(n, source%kop, source%kopmin, source%kopmax)
     dkop_dense = source%dkop/coop_source_k_dense_factor
-    !$omp parallel do private(i, j)
+
+
+    !$omp parallel do private(i, j, dk_dense)
     do i=1, n
        call coop_source_kop2k(weight, coop_source_k_index, source%kop(i), source%k(i), source%dkop,  source%dk(i))
-       source%k_dense(coop_source_k_dense_factor, i) = source%k(i)
-       do j=1, coop_source_k_dense_factor-1
-          call coop_source_kop2k(weight, coop_source_k_index, source%kop(i)+(j-coop_source_k_dense_factor)*dkop_dense, source%k_dense(j,i), dkop_dense,  source%dk_dense(j,i))
+       do j=1, coop_source_k_dense_factor
+          call coop_source_kop2k(weight, coop_source_k_index, source%kop(i)+(j-coop_source_k_dense_factor)*dkop_dense, source%k_dense(j,i), dkop_dense,  dk_dense)
+          source%ws_dense(j, i) = dk_dense*this%psofk(source%k_dense(j, i))/source%k_dense(j, i)
+          source%wt_dense(j, i) = dk_dense*this%ptofk(source%k_dense(j, i))/source%k_dense(j, i)
        enddo
     enddo
     !$omp end parallel do
@@ -691,7 +770,7 @@ contains
   function coop_cosmology_firstorder_ptofk(this, k) result(pt)
     COOP_REAL k, pt
     class(coop_cosmology_firstorder)::this
-    pt = this%ps%eval(k)
+    pt = this%pt%eval(k)
   end function coop_cosmology_firstorder_ptofk
 
 
@@ -764,15 +843,19 @@ contains
     class(coop_cosmology_firstorder)::this
     COOP_INT :: m
     this%source(m)%m = m
+   
     call this%set_source_tau(this%source(m), coop_source_tau_n(m), coop_source_tau_weight(m))
+
     call this%set_source_k(this%source(m), coop_source_k_n(m), coop_source_k_weight(m))
+
     if(allocated(this%source(m)%s))then
        if(size(this%source(m)%s, 1) .ne. this%source(m)%ntau .or. size(this%source(m)%s, 2) .ne. this%source(m)%nk)then
           deallocate(this%source(m)%s, this%source(m)%s2)
-          allocate(this%source(m)%s(this%source(m)%ntau, this%source(m)%nk, coop_num_sources(m)), this%source(m)%s2(this%source(m)%ntau, this%source(m)%nk, coop_num_sources(m)) )
+          allocate(this%source(m)%s(coop_num_sources(m), this%source(m)%nk , this%source(m)%ntau), this%source(m)%s2(coop_num_sources(m), this%source(m)%nk, this%source(m)%ntau) )
        endif
     else
-       allocate(this%source(m)%s(this%source(m)%ntau, this%source(m)%nk, coop_num_sources(m)), this%source(m)%s2(this%source(m)%ntau, this%source(m)%nk, coop_num_sources(m)) )
+       allocate(this%source(m)%s(coop_num_sources(m), this%source(m)%nk , this%source(m)%ntau), this%source(m)%s2(coop_num_sources(m), this%source(m)%nk, this%source(m)%ntau) )
+
     endif
   end subroutine coop_cosmology_firstorder_init_source
 
@@ -787,7 +870,7 @@ contains
 #undef DVERK_ARGUMENTS
   end subroutine coop_dverk_firstorder
 
-
+  
 
 end module coop_firstorder_mod
 
