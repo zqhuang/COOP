@@ -5,19 +5,16 @@ program test
   type(coop_cosmology_firstorder)::fod
   type(coop_pert_object)::pert
   type(coop_file)fp
-  integer i, m, iq, ik,j, l
+  integer i, m, iq, ik,j, l, sterm
   COOP_REAL, dimension(coop_num_Cls)::Cls
   COOP_REAL norm
-  COOP_REAL z
+  COOP_REAL z, a, s, stau
   call fod%Set_Planck_bestfit()
   call coop_prtsystime(.true.)
   call fod%compute_source(m=0)
   call coop_prtsystime()
-
-  print*, fod%source(0)%k(1), fod%source(0)%k(10)
-
-  norm = 2.726**2*1.d12
   call fp%open('solution.txt', 'w')
+  norm = 2.726**2*1.d12
   do l=2, 5
      call write_l(l)
   enddo
@@ -27,7 +24,7 @@ program test
   do l= 120, 500, 20
      call write_l(l)
   enddo
-  do l = 525, 1250, 25
+  do l = 525, 2500, 25
      call write_l(l)
   enddo
   call fp%close()

@@ -17,12 +17,12 @@ module coop_firstorder_mod
   COOP_REAL, parameter :: coop_cosmology_firstorder_tc_cutoff = 0.005d0
 
 
-  COOP_REAL, dimension(0:2), parameter::coop_source_tau_weight = (/ 0.5d0, 0.2d0, 0.1d0 /)
-  COOP_INT, dimension(0:2), parameter::coop_source_tau_n = (/ 1000, 850, 800 /)
+  COOP_REAL, dimension(0:2), parameter::coop_source_tau_weight = (/ 0.2d0, 0.2d0, 0.1d0 /)
+  COOP_INT, dimension(0:2), parameter::coop_source_tau_n = (/ 1200, 850, 800 /)
   COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
-  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 200, 120, 80 /)
+  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 150, 120, 80 /)
   COOP_REAL, parameter::coop_source_k_index = 0.45d0
-  COOP_INT, parameter:: coop_source_k_dense_factor = 90
+  COOP_INT, parameter:: coop_source_k_dense_factor = 30
 
   COOP_INT, parameter::coop_num_Cls =  6
   COOP_INT, parameter::coop_index_ClTT = 1
@@ -182,22 +182,23 @@ contains
     if(size(trans,2).ne. coop_source_k_dense_factor .or. size(trans, 3).ne. source%nk .or. size(trans, 1) .ne. coop_num_sources(source%m)) call coop_return_error("get_transfer", "wrong size", "stop")
     trans = 0
     xmin = dble(l)
-    do while(coop_jl(l, xmin).gt. 1.d-7)
+    do while(coop_jl(l, xmin).gt. 1.d-8)
        xmin = xmin*0.96
     enddo
+
     !$omp parallel do private(ik, itau, idense, jl)
     do ik=2, source%nk
        do itau = 1, source%ntau
           if(source%k(ik)*source%chi(itau) .lt. xmin) exit
           do idense = 1, coop_source_k_dense_factor
              jl = coop_jl(l, source%k_dense(idense, ik)*source%chi(itau))
-             if(abs(jl) .gt. 1.d-9)then
-                trans(:,idense, ik) = trans(:,idense, ik) + jl*source%dtau(itau)*(source%s(:, ik, itau)*source%a_dense(idense) + source%s(:, ik-1, itau)*source%b_dense(idense) + source%s2(:, ik, itau)*source%a2_dense(idense) + source%s2(:, ik-1, itau)*source%b2_dense(idense))
-             endif
+             trans(:,idense, ik) = trans(:,idense, ik) + jl* source%dtau(itau)*(source%s(:, ik, itau)*source%a_dense(idense) + source%s(:, ik-1, itau)*source%b_dense(idense) + source%s2(:, ik, itau)*source%a2_dense(idense) + source%s2(:, ik-1, itau)*source%b2_dense(idense))
           enddo
        enddo
     enddo
     !$omp end parallel do
+
+
   end subroutine coop_cosmology_firstorder_source_get_transfer
 
   subroutine coop_cosmology_firstorder_source_get_Cls(source, l, Cls)
@@ -564,7 +565,7 @@ contains
 
   subroutine coop_cosmology_firstorder_set_source_tau(this, source, n, weight)
     COOP_REAL, parameter::incr = 1.05d0
-    COOP_INT::nbuffer = 70
+    COOP_INT::nbuffer = 40
     COOP_INT n, i, j
     COOP_REAL  top(n), dtop, amax, amin, amid, topmax, topmin, topmid, weight, taucut, acut
     class(coop_cosmology_firstorder_source)::source
@@ -581,7 +582,7 @@ contains
     endif
     amin = 1.d0/(1.d0+this%zrecomb)
     do while(this%visofa(amin).gt. 1.)
-       amin = amin*0.99d0
+       amin = amin/1.02d0
     enddo
     topmin = this%tau0*(1.d0-weight)*this%ekappaofa(amin)+weight*this%tauofa(amin)
     dtop = (this%tau0 -topmin) / (n - nbuffer)
@@ -618,21 +619,35 @@ contains
        source%dtau(i) = dtop/(weight+(1.d0-weight)*this%tau0*this%visofa(source%a(i)))
        source%tauc(i) = this%taucofa(source%a(i))
     enddo
+
     do i=nbuffer, 1, -1
-       source%a(i) = source%a(i+1)*0.965d0
+       source%a(i) = source%a(i+1)*0.98d0
        source%tau(i) = this%conformal_time(source%a(i))
        source%tauc(i) = this%taucofa(source%a(i))
     enddo
     source%dtau(1) = source%tau(2)/2.d0
+
     do i=2, nbuffer+1
        source%dtau(i) = (source%tau(i+1) - source%tau(i-1))/2.d0
     enddo
+
+!!$    call coop_set_uniform(n, source%tau, log(1.d-2), log(this%tau0))
+!!$    source%dtau = source%tau(2) - source%tau(1)
+!!$    source%tau = exp(source%tau)
+!!$    source%dtau = source%dtau * source%tau
+!!$    do i=1, n
+!!$       source%a(i) = this%aoftau(source%tau(i))
+!!$       print*, i, source%tau(i), source%a(i), this%tauofa(source%a(i))
+!!$    enddo
+
+
     source%chi = this%tau0 - source%tau
     source%lna = log(source%a)
     source%index_tc_max = 1
     do while( source%index_tc_max .lt. source%ntau - 1 .and. source%tauc(source%index_tc_max+1) .le. coop_cosmology_firstorder_tc_cutoff * source%tau(source%index_tc_max+1) )
        source%index_tc_max = source%index_tc_max+1
     enddo
+   
   end subroutine coop_cosmology_firstorder_set_source_tau
 
 
@@ -664,7 +679,7 @@ contains
     enddo
 
 
-    source%kmin = 0.3d0/this%distlss
+    source%kmin = 0.25d0/this%distlss
     select case(source%m)
     case(0)
        source%kmax = 6.2d3/this%distlss
