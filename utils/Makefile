@@ -29,3 +29,7 @@ clean:
 
 
 test.o: $(LIB)
+
+ode.o:	../include/dverk.h
+
+integrate.o:	../include/qromb.h

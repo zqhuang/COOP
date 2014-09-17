@@ -8,7 +8,7 @@ module coop_ode_mod
   integer,parameter::dl = coop_real_length
   COOP_REAL,parameter::coop_ode_default_precision = 3.d-7
   
-  public::coop_ode, coop_symplectic_2nd, coop_symplectic_4th, coop_symplectic_6th, coop_dverk, coop_dverk_with_arguments, coop_dverk_with_cosmology
+  public::coop_ode, coop_symplectic_2nd, coop_symplectic_4th, coop_symplectic_6th, coop_dverk, coop_dverk_with_arguments
 
   type coop_ode
      COOP_INT  method
@@ -826,19 +826,6 @@ contains
 #include "dverk.h"    
 #undef DVERK_ARGUMENTS
   end subroutine coop_dverk_with_arguments
-
-!!fcn(n, x, y, yprime, args)
-  subroutine coop_dverk_with_cosmology(n, fcn, cosmology, args, x, y, xend, tol, ind, c, nw, w)
-    implicit COOP_REAL (a-h,o-z)
-    implicit COOP_INT (i-n)
-    class(coop_cosmology) cosmology
-    type(coop_arguments)::args
-#define DVERK_ARGUMENTS ,cosmology,args
-#include "dverk.h"    
-#undef DVERK_ARGUMENTS
-
-  end subroutine coop_dverk_with_cosmology
-
 
 
 end module coop_ode_mod

@@ -925,11 +925,10 @@ contains
   subroutine coop_cosmology_firstorder_set_optre_from_zre(this)
     class(coop_cosmology_firstorder)::this
     COOP_REAL :: optre, ReionFrac, zre, delta
-    type(coop_arguments):: args
     if(this%ReionFrac .le. 0.d0)then
        this%optre = 0.d0
     else
-       this%optre = coop_integrate(coop_optre_int, 0.d0, this%zre + this%deltaz * 10.d0, this, args, COOP_REAL_OF(1.e-7))
+       this%optre = coop_integrate_firstorder(coop_optre_int, 0.d0, this%zre + this%deltaz * 10.d0, this, COOP_REAL_OF(1.e-7))
     endif
   end subroutine coop_cosmology_firstorder_set_optre_from_zre
 
@@ -971,6 +970,14 @@ contains
 #include "dverk.h"    
 #undef DVERK_ARGUMENTS
   end subroutine coop_dverk_firstorder
+
+
+  function coop_integrate_firstorder(func, a, b, cosmology, precision) result(integral)
+    type(coop_cosmology_firstorder) cosmology
+#define QROMB_ARGUMENTS ,cosmology
+#include "qromb.h"
+#undef QROMB_ARGUMENTS
+  end function coop_integrate_firstorder
 
   
 

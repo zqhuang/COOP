@@ -3,10 +3,15 @@ program Test
   implicit none
 #include "constants.h"
   type(coop_ode)::ode
+  type(coop_arguments)::args
   call ode%init(n = 3)
   call ode%set_initial_conditions( xini = 0.d0, yini = (/ 0.d0, 1.d0, 0.d0 /) )
   call ode%evolve(get_yprime, coop_pi*4.d0)
   print*, ode%y
+  
+  call args%init(r = (/ 2.d0 /))
+  print*, coop_integrate(func, 0.d0, 20.d0, args, 1.d-8)
+
 contains
 
   subroutine get_yprime(n, x, y, yp)
@@ -19,5 +24,11 @@ contains
        call coop_return_error("get_yprime", "nonzero y(0)", "stop")
     endif
   end subroutine get_yprime
+
+  function func(x, args)
+    type(coop_arguments) args
+    COOP_REAL x, func
+    func = exp(-x*args%r(1))
+  end function func
 
 end program Test
