@@ -265,6 +265,7 @@ contains
     COOP_REAL, dimension(:),allocatable::ls_computed
     COOP_REAL, dimension(:,:),allocatable::Cls_computed, Cls2_computed
     COOP_REAL::Cls_tmp(coop_num_cls)
+    COOP_REAL, parameter::norm = 1.d10
     l = lmin 
     nc = 1
     do
@@ -292,13 +293,14 @@ contains
 
     do i=1, nc
        call source%Get_Cls(nint(ls_computed(i)), Cls_tmp)
-       Cls_Computed(i, :) = Cls_tmp
+       Cls_Computed(i, :) = Cls_tmp*(ls_computed(i)*(ls_computed(i) + 1)*norm)
     enddo
-    !$omp parallel do
+    !$omp parallel do private(i, l)
     do i=1, coop_num_Cls
        call coop_spline(nc, ls_computed, Cls_Computed(:, i), Cls2_computed(:, i))
        do l = lmin, lmax
           call coop_splint(nc, ls_computed, Cls_Computed(:, i), Cls2_computed(:, i), dble(l), Cls(i, l))
+          Cls(i, l) = Cls(i, l)/(l*(l+1.d0)*norm)
        enddo
     enddo
     !$omp end parallel do
