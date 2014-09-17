@@ -13,7 +13,7 @@ module coop_jl_mod
   !!coop_jl is much much more accurate than coop_SphericalBesselJ
   !!after first call of coop_jl (which requires initialization), coop_jl is also about 3 times faster than coop_sphericalbesselJ
   !! jl = coop_jl(l, x) ,   x can be real/double, or an array of real/double
-  public::coop_jl
+  public::coop_jl, coop_jl_zero
 
   integer,parameter::dl = kind(1.d0)
   integer,parameter::sp = kind(1.)
