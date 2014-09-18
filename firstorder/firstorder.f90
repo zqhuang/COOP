@@ -155,7 +155,7 @@ contains
           call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu())))
        endif
     elseif(present(Omega_nu))then
-       if(Omega_nu .gt. 1.d-5)then
+       if(Omega_nu .gt. this%Omega_massless_neutrinos_per_species()*1.01d0)then
           call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu()-1)))
           call this%add_species(coop_neutrinos_massive(Omega_nu, this%Omega_massless_neutrinos_per_species()))
        else
