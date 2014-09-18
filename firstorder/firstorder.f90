@@ -37,6 +37,7 @@ private
 !!how many source terms you want to extract & save
   COOP_INT, dimension(0:2), parameter::coop_num_sources = (/ 3,  3,  3 /)
 
+!!recfast head file
 #include "recfast_head.h"
 
 
@@ -111,6 +112,7 @@ private
 
 contains
 
+!!recfast code
 #include "recfast_source.h"
 
 !!this head file contains the evolution equations of the firstorder ODE system
@@ -122,28 +124,39 @@ contains
 !!this head file sets the initial conditions
 #include "firstorder_ic.h"
 
-  subroutine coop_cosmology_firstorder_set_Planck_Bestfit(this)
+  subroutine coop_cosmology_firstorder_set_Planck_Bestfit(this, Omega_nu)
     class(coop_cosmology_firstorder)::this
-    call this%set_standard_cosmology(Omega_b=0.04801228639964265020d0, Omega_c=0.26099082900159878590d0, h = 0.67779d0, tau_re = 0.092d0, nu_mass_eV = 0.d0)
+    COOP_REAL, optional::Omega_nu
+    if(present(Omega_nu))then
+       call this%set_standard_cosmology(Omega_b=0.04801228639964265020d0, Omega_c=0.26099082900159878590d0, h = 0.67779d0, tau_re = 0.092d0, Omega_nu = Omega_nu)
+    else
+       call this%set_standard_cosmology(Omega_b=0.04801228639964265020d0, Omega_c=0.26099082900159878590d0, h = 0.67779d0, tau_re = 0.092d0)
+    endif
     call this%set_standard_power(As = 2.210168d-9, ns = 0.9608933d0, nrun = 0.d0, r = 0.d0, nt = 0.d0)
   end subroutine coop_cosmology_firstorder_set_Planck_Bestfit
 
 
-  subroutine coop_cosmology_firstorder_set_standard_cosmology(this, h, omega_b, omega_c, tau_re, nu_mass_eV)
+  subroutine coop_cosmology_firstorder_set_standard_cosmology(this, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu)
     class(coop_cosmology_firstorder)::this
     COOP_REAL:: h, Omega_b, Omega_c,  tau_re
-    COOP_REAL, optional::nu_mass_eV
+    COOP_REAL, optional::nu_mass_eV, Omega_nu
     call this%init(h=h)
     call this%add_species(coop_baryon(COOP_REAL_OF(Omega_b)))
     call this%add_species(coop_cdm(COOP_REAL_OF(Omega_c)))
     call this%add_species(coop_radiation(this%Omega_radiation()))
     if(present(nu_mass_eV))then
+       if(present(Omega_nu))then
+          call coop_return_error("set_standard_cosmology", "you cannot have both Omega_nu and nu_mass_eV in the arguments", "stop")
+       endif
        if(nu_mass_eV .gt. 0.d0)then
           call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu()-1)))
           call this%add_species(coop_neutrinos_massive(this%Omega_nu_per_species_from_mnu_eV(nu_mass_eV), this%Omega_massless_neutrinos_per_species()))
        else
           call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu())))
        endif
+    elseif(present(Omega_nu))then
+          call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu()-1)))
+          call this%add_species(coop_neutrinos_massive(Omega_nu, this%Omega_massless_neutrinos_per_species()))
     else
        call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu())))
     endif
