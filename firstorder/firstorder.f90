@@ -21,9 +21,9 @@ private
   COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
   COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 150, 120, 80 /)
   COOP_REAL, parameter::coop_source_k_index = 0.48d0
-  COOP_INT, parameter:: coop_source_k_dense_factor = 28
+  COOP_INT, parameter:: coop_source_k_dense_factor = 30
 
-  COOP_INT, parameter::coop_num_Cls =  7
+
   COOP_INT, parameter::coop_index_ClTT = 1
   COOP_INT, parameter::coop_index_ClEE = 2
   COOP_INT, parameter::coop_index_ClBB = 3
@@ -31,7 +31,8 @@ private
   COOP_INT, parameter::coop_index_ClEB = 5
   COOP_INT, parameter::coop_index_ClTB = 6
   COOP_INT, parameter::coop_index_ClLenLen = 7
-
+  COOP_INT, parameter::coop_index_ClTLen = 8
+  COOP_INT, parameter::coop_num_Cls =  coop_index_ClTLen
 
 !!how many source terms you want to extract & save
   COOP_INT, dimension(0:2), parameter::coop_num_sources = (/ 3,  3,  3 /)
@@ -194,7 +195,7 @@ contains
     do while(coop_jl(l, xmin).gt. 1.d-8)
        xmin = xmin*0.96
     enddo
-    xmax = coop_jl_zero(l, 5)
+    xmax = coop_jl_zero(l, 7)
     allocate(kmin(source%ntau), kmax(source%ntau), kfine(source%ntau))
     do itau = 1, source%ntau
        kmin(itau) = xmin/source%chi(itau)
@@ -249,6 +250,8 @@ contains
        Cls(coop_index_ClEB) =  0.d0
        Cls(coop_index_ClTB) =  0.d0
        Cls(coop_index_ClBB) =  0.d0
+       Cls(coop_index_ClLenLen) = sum(source%ws_dense * trans(3, :, :)**2)*coop_4pi
+       Cls(coop_index_ClTLen) = sum(source%ws_dense * trans(1, :, :) * trans(3,:,:))*coop_4pi
        deallocate(trans)
     case(1)
        call coop_tbw("get_Cls: vector")
@@ -299,11 +302,15 @@ contains
     enddo
     !$omp parallel do private(i, l)
     do i=1, coop_num_Cls
-       call coop_spline(nc, ls_computed, Cls_Computed(:, i), Cls2_computed(:, i))
-       do l = lmin, lmax
-          call coop_splint(nc, ls_computed, Cls_Computed(:, i), Cls2_computed(:, i), dble(l), Cls(i, l))
-          Cls(i, l) = Cls(i, l)/(l*(l+1.d0)*norm)
-       enddo
+       if(all(Cls_Computed(:,i).eq.0.d0))then
+          Cls(i, lmin:lmax) = 0.d0
+       else
+          call coop_spline(nc, ls_computed, Cls_Computed(:, i), Cls2_computed(:, i))
+          do l = lmin, lmax
+             call coop_splint(nc, ls_computed, Cls_Computed(:, i), Cls2_computed(:, i), dble(l), Cls(i, l))
+             Cls(i, l) = Cls(i, l)/(l*(l+1.d0)*norm)
+          enddo
+       endif
     enddo
     !$omp end parallel do
     deallocate(ls_computed, Cls_computed,Cls2_computed)
