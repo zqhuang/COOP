@@ -8,7 +8,7 @@ include ../configure.in
 include ../compile_rules.in
 
 OFLIB = libcoopfirstorder.a
-OFOBJ = recfast.o pertobj.o firstorder.o wrapper.o
+OFOBJ = pertobj.o firstorder.o wrapper.o
 
 default: $(OFLIB)
 
@@ -22,6 +22,6 @@ clean:
 	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test
 
 
-firstorder.o:	pertobj.o recfast.o ../include/firstorder_equations.h ../include/firstorder_source.h
+firstorder.o:	pertobj.o  ../include/firstorder_equations.h ../include/firstorder_source.h ../include/recfast_source.h ../include/recfast_head.h
 wrapper.o: 	firstorder.o
 test.o:	wrapper.o

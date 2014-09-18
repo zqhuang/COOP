@@ -1,13 +1,12 @@
 module coop_firstorder_mod
   use coop_wrapper_background
-  use coop_recfast_mod
   use coop_pertobj_mod
   implicit none
 #include "constants.h"
 
-!private
+private
 
-  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source, coop_num_Cls, coop_index_ClTT, coop_index_ClEE, coop_index_ClBB, coop_index_ClTE, coop_index_ClEB, coop_index_ClTB
+  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source, coop_num_Cls, coop_index_ClTT, coop_index_ClEE, coop_index_ClBB, coop_index_ClTE, coop_index_ClEB, coop_index_ClTB,  coop_recfast_get_xe
 
   COOP_REAL, parameter :: coop_power_lnk_min = log(0.1d0) 
   COOP_REAL, parameter :: coop_power_lnk_max = log(5.d3) 
@@ -36,6 +35,8 @@ module coop_firstorder_mod
 
 !!how many source terms you want to extract & save
   COOP_INT, dimension(0:2), parameter::coop_num_sources = (/ 3,  3,  3 /)
+
+#include "recfast_head.h"
 
 
   type coop_cosmology_firstorder_source
@@ -109,6 +110,7 @@ module coop_firstorder_mod
 
 contains
 
+#include "recfast_source.h"
 
 !!this head file contains the evolution equations of the firstorder ODE system
 #include "firstorder_equations.h"
@@ -269,7 +271,7 @@ contains
     l = lmin 
     nc = 1
     do
-       l = l + min(32, 12 + l/100, max(1, l/8))
+       call next_l()
        nc = nc + 1
        if(l.ge.lmax)then
           l = lmax
@@ -281,7 +283,7 @@ contains
     ls_computed(i) = lmin
     l = lmin
     do
-       l = l + min(32, 9 + l/80, max(1, l/7))
+       call next_l()
        i = i + 1
        if(l.ge.lmax)then
           ls_computed(i) = dble(lmax)
@@ -305,6 +307,13 @@ contains
     enddo
     !$omp end parallel do
     deallocate(ls_computed, Cls_computed,Cls2_computed)
+
+  contains
+
+    subroutine next_l()
+      l = l + min(32, 9 + l/80, max(1, l/7))
+    end subroutine next_l
+
   end subroutine coop_cosmology_firstorder_source_get_All_Cls
 
 
@@ -536,10 +545,11 @@ contains
     else
        this%reionFrac = 0.d0
     endif
-    call this%set_zre_from_optre()
 
+    call this%set_zre_from_optre()
     call coop_recfast_get_xe(this, this%xe, this%Tb, this%reionFrac, this%zre, this%deltaz)
     call coop_set_uniform(n, a, log(coop_visibility_amin), log(coop_scale_factor_today))
+
     a = exp(a)
     !$omp parallel do
     do i=1, n
@@ -710,17 +720,6 @@ contains
     do i=2, nbuffer+1
        source%dtau(i) = (source%tau(i+1) - source%tau(i-1))/2.d0
     enddo
-
-!!$    call coop_set_uniform(n, source%tau, log(1.d-2), log(this%tau0))
-!!$    source%dtau = source%tau(2) - source%tau(1)
-!!$    source%tau = exp(source%tau)
-!!$    source%dtau = source%dtau * source%tau
-!!$    do i=1, n
-!!$       source%a(i) = this%aoftau(source%tau(i))
-!!$       print*, i, source%tau(i), source%a(i), this%tauofa(source%a(i))
-!!$    enddo
-
-
     source%chi = this%tau0 - source%tau
     source%lna = log(source%a)
     source%index_tc_max = 1
@@ -876,69 +875,6 @@ contains
   end function coop_cosmology_firstorder_ptofk
 
 
-  subroutine coop_cosmology_firstorder_set_zre_from_optre(this)
-    class(coop_cosmology_firstorder)::this
-    COOP_REAL zremin, zremax, zremid
-    COOP_REAL optremin, optremax, optremid, optre_wanted
-    integer iloop
-    if(this%ReionFrac .le. 0.d0)then
-       this%zre = -1.d0
-    endif
-    optre_wanted = this%optre
-
-    zremin = 0.d0
-    this%zre = zremin
-    call this%set_optre_from_zre()
-    optremin = this%optre
-
-    zremax = 20.d0
-    this%zre = zremax
-    call this%set_optre_from_zre()    
-    optremax = this%optre
-
-    do while(optre_wanted .gt. optremax)
-       zremin = zremax
-       optremin = optremax
-       zremax = zremax * 1.3d0
-       this%zre = zremax
-       call this%set_optre_from_zre()    
-       optremax = this%optre
-    enddo
-    iloop = 0
-    do while((optremax - optremin) .gt. 1.d-5 .and. iloop .lt. 25)
-       zremid = (zremin + zremax)/2.d0
-       this%zre = zremid
-       call this%set_optre_from_zre()
-       optremid = this%optre
-       if(optremid .gt. optre_wanted)then
-          zremax = zremid
-          optremax = optremid
-       else
-          zremin = zremid
-          optremin = optremid
-       endif
-       iloop = iloop + 1
-    enddo
-    this%optre = optre_wanted
-  end subroutine coop_cosmology_firstorder_set_zre_from_optre
-
-  subroutine coop_cosmology_firstorder_set_optre_from_zre(this)
-    class(coop_cosmology_firstorder)::this
-    COOP_REAL :: optre, ReionFrac, zre, delta
-    if(this%ReionFrac .le. 0.d0)then
-       this%optre = 0.d0
-    else
-       this%optre = coop_integrate_firstorder(coop_optre_int, 0.d0, this%zre + this%deltaz * 10.d0, this, COOP_REAL_OF(1.e-7))
-    endif
-  end subroutine coop_cosmology_firstorder_set_optre_from_zre
-
-  function coop_optre_int(z, cosmology, args) result(dkappadz)
-    COOP_REAL z, dkappadz
-    class(coop_cosmology_firstorder) cosmology
-    type(coop_arguments)::args
-    dkappadz = cosmology%dkappadtau_coef * coop_reionization_xe(z, cosmology%reionFrac, cosmology%zre, cosmology%deltaz) / cosmology%Hasq(1.d0/(1.d0+z)) 
-  end function coop_optre_int
-
 
   subroutine coop_cosmology_firstorder_init_source(this, m)
     class(coop_cosmology_firstorder)::this
@@ -959,25 +895,6 @@ contains
 
     endif
   end subroutine coop_cosmology_firstorder_init_source
-
-
-  subroutine coop_dverk_firstorder(n, fcn, cosmology, pert, x, y, xend, tol, ind, c, nw, w)
-    implicit COOP_REAL (a-h,o-z)
-    implicit COOP_INT (i-n)
-    type(coop_cosmology_firstorder) cosmology
-    type(coop_pert_object) pert
-#define DVERK_ARGUMENTS ,cosmology,pert
-#include "dverk.h"    
-#undef DVERK_ARGUMENTS
-  end subroutine coop_dverk_firstorder
-
-
-  function coop_integrate_firstorder(func, a, b, cosmology, precision) result(integral)
-    type(coop_cosmology_firstorder) cosmology
-#define QROMB_ARGUMENTS ,cosmology
-#include "qromb.h"
-#undef QROMB_ARGUMENTS
-  end function coop_integrate_firstorder
 
   
 

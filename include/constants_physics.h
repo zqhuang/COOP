@@ -1,7 +1,7 @@
 !!physical constants
 COOP_REAL, parameter::coop_SI_c = 299792458.d0
 COOP_REAL, parameter::coop_SI_kB =  1.3806504d-23
-COOP_REAL, parameter::coop_SI_h = 6.626068d-34
+COOP_REAL, parameter::coop_SI_h = 6.62606957d-34
 COOP_REAL, parameter::coop_SI_hbar = coop_SI_h / (2.d0*coop_pi)
 COOP_REAL, parameter::coop_SI_G = 6.67428d-11
 COOP_REAL, parameter::coop_SI_alpha = 1.d0/137.035d0

@@ -810,8 +810,6 @@ contains
 
 !C===============================================================================
   subroutine coop_Dverk(n, fcn, x, y, xend, tol, ind, c, nw, w)
-    implicit COOP_REAL (a-h,o-z)
-    implicit COOP_INT (i-n)
 #define DVERK_ARGUMENTS 
 #include "dverk.h"
 #undef DVERK_ARGUMENTS  
@@ -819,8 +817,6 @@ contains
 
 !!fcn(n, x, y, yprime, args)
   subroutine coop_dverk_with_arguments(n, fcn, args, x, y, xend, tol, ind, c, nw, w)
-    implicit COOP_REAL (a-h,o-z)
-    implicit COOP_INT (i-n)
     type(coop_arguments) args
 #define DVERK_ARGUMENTS ,args
 #include "dverk.h"    
