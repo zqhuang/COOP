@@ -67,7 +67,7 @@ private
      COOP_REAL::zrecomb, distlss, tau0
      COOP_REAL::optre = 0.07d0
      COOP_REAL::zre = 8.d0
-     COOP_REAL::deltaz = 0.5d0
+     COOP_REAL::deltaz = 1.5d0
      COOP_REAL::kMpc_pivot = 0.05d0
      COOP_INT ::de_genre = COOP_PERT_NONE
      COOP_REAL::k_pivot 
