@@ -336,7 +336,7 @@
     enddo
 
     call bg%species(bg%index_baryon)%fcs2%init(n = nz, xmin=alist(1), xmax = alist(nz), f = cs2blist, xlog = .true., ylog = .true., fleft = cs2blist(1), fright = cs2blist(nz), slopeleft= -1.d0, sloperight = 0.d0, check_boundary = .false., method = COOP_INTERPOLATE_LINEAR)
-
+    call args%free()
   end subroutine coop_recfast_get_xe
 
   subroutine coop_recfast_ion(Ndim, z, y, f, bg, args)

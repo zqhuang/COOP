@@ -8,7 +8,7 @@ include ../configure.in
 include ../compile_rules.in
 
 OFLIB = libcoopfirstorder.a
-OFOBJ = pertobj.o firstorder.o wrapper.o
+OFOBJ = pertobj.o firstorder.o Cls_post_process.o wrapper.o
 
 default: $(OFLIB)
 
@@ -18,6 +18,11 @@ $(OFLIB): $(OFOBJ)
 Test: $(OFOBJ) test.o $(BACKGROUND)/libcoopbackground.a 
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OFOBJ) test.o $(LINK)
 
+Z3D: $(OFOBJ) zeta.o $(BACKGROUND)/libcoopbackground.a 
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OFOBJ) zeta.o $(LINK)
+
+
+
 clean:
 	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test
 
@@ -25,3 +30,4 @@ clean:
 firstorder.o:	pertobj.o  ../include/firstorder_equations.h ../include/firstorder_source.h ../include/recfast_source.h ../include/recfast_head.h
 wrapper.o: 	firstorder.o
 test.o:	wrapper.o
+Cls_post_process.o: firstorder.o

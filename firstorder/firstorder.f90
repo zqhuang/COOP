@@ -51,7 +51,7 @@ private
      COOP_REAL::dkop, kopmin, kopmax, kmin, kmax, kweight, tauweight
      COOP_REAL,dimension(coop_source_k_dense_factor)::a_dense, b_dense, a2_dense, b2_dense
      COOP_REAL, dimension(:),allocatable::k, kop, tau, a, tauc, lna,  dk, dtau, chi !!tau is conformal time, chi is comoving distance; in flat case, chi + tau = tau_0
-     COOP_REAL, dimension(:,:),allocatable::k_dense, ws_dense, wt_dense
+     COOP_REAL, dimension(:,:),allocatable::k_dense, ws_dense, wt_dense, dk_dense
      COOP_REAL, dimension(:,:,:),allocatable::s, s2
    contains
      procedure::free => coop_cosmology_firstorder_source_free
@@ -71,7 +71,8 @@ private
      COOP_REAL::kMpc_pivot = 0.05d0
      COOP_INT ::de_genre = COOP_PERT_NONE
      COOP_REAL::k_pivot 
-     COOP_REAL::dkappadtau_coef, ReionFrac, Omega_b, Omega_c, Omega_nu, Omega_g, tau_eq, mnu_by_Tnu
+     COOP_REAL::dkappadtau_coef, ReionFrac, Omega_b, Omega_c, Omega_nu, Omega_g, tau_eq, mnu_by_Tnu, As, ns, nrun, r, nt
+     logical::inflation_consistency
      type(coop_function)::Ps, Pt, Xe, ekappa, vis, Tb
      type(coop_cosmology_firstorder_source),dimension(0:2)::source
      COOP_INT::index_baryon, index_cdm, index_radiation, index_nu, index_massiveNu, index_de
@@ -102,6 +103,8 @@ private
      procedure:: ekappaofa => coop_cosmology_firstorder_ekappaofa
      procedure:: psofk => coop_cosmology_firstorder_psofk
      procedure:: ptofk => coop_cosmology_firstorder_ptofk
+     procedure:: Clzetazeta => coop_cosmology_firstorder_Clzetazeta
+     procedure:: Clzetazeta_at_r => coop_cosmology_firstorder_Clzetazeta_at_r
      procedure:: free => coop_cosmology_firstorder_free
      procedure::pert2source => coop_cosmology_firstorder_pert2source
      procedure::init_source => coop_cosmology_firstorder_init_source
@@ -128,19 +131,32 @@ contains
     class(coop_cosmology_firstorder)::this
     COOP_REAL, optional::Omega_nu
     if(present(Omega_nu))then
-       call this%set_standard_cosmology(Omega_b=0.04801228639964265020d0, Omega_c=0.26099082900159878590d0, h = 0.67779d0, tau_re = 0.092d0, Omega_nu = Omega_nu)
+       call this%set_standard_cosmology(Omega_b=0.04801228639964265020d0, Omega_c=0.26099082900159878590d0, h = 0.67779d0, tau_re = 0.092d0, Omega_nu = Omega_nu, As = 2.210168d-9, ns = 0.9608933d0)
     else
-       call this%set_standard_cosmology(Omega_b=0.04801228639964265020d0, Omega_c=0.26099082900159878590d0, h = 0.67779d0, tau_re = 0.092d0)
+       call this%set_standard_cosmology(Omega_b=0.04801228639964265020d0, Omega_c=0.26099082900159878590d0, h = 0.67779d0, tau_re = 0.092d0, As = 2.210168d-9, ns = 0.9608933d0)
     endif
-    call this%set_standard_power(As = 2.210168d-9, ns = 0.9608933d0, nrun = 0.d0, r = 0.d0, nt = 0.d0)
   end subroutine coop_cosmology_firstorder_set_Planck_Bestfit
 
 
-  subroutine coop_cosmology_firstorder_set_standard_cosmology(this, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu)
+
+  subroutine coop_cosmology_firstorder_set_standard_cosmology(this, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe)
     class(coop_cosmology_firstorder)::this
     COOP_REAL:: h, Omega_b, Omega_c,  tau_re
-    COOP_REAL, optional::nu_mass_eV, Omega_nu
-    call this%init(h=h)
+    COOP_REAL, optional::nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, Nnu, YHe
+    logical,optional::inflation_consistency
+    if(present(YHe))then
+       if(present(Nnu))then
+          call this%init(h=h, YHe = YHe, Nnu = NNu)
+       else
+          call this%init(h=h, YHe = YHe)
+       endif
+    else
+       if(present(Nnu))then
+          call this%init(h=h, Nnu = NNu)
+       else
+          call this%init(h=h)
+       endif
+    endif
     call this%add_species(coop_baryon(COOP_REAL_OF(Omega_b)))
     call this%add_species(coop_cdm(COOP_REAL_OF(Omega_c)))
     call this%add_species(coop_radiation(this%Omega_radiation()))
@@ -168,6 +184,39 @@ contains
     call this%setup_background()
     this%optre = tau_re
     call this%set_xe()
+    if(present(As).or.present(ns) .or. present(nrun) .or. present(r) .or. present(nt) .or. present(inflation_consistency))then
+       if(present(As))then
+          this%As = As
+       else
+          this%As = 1.d0
+       endif
+       if(present(ns))then
+          this%ns = ns
+       else
+          this%ns = 1.d0
+       endif
+       if(present(nrun))then
+          this%nrun = nrun
+       else
+          this%nrun = 0.d0
+       endif
+       if(present(r))then
+          this%r = r
+       else
+          this%r = 0.d0
+       endif
+       if(present(nt))then
+          this%nt = nt
+       else
+          this%nt = 0.d0
+       endif
+       if(present(inflation_consistency))then
+          this%inflation_consistency = inflation_consistency 
+       else
+          this%inflation_consistency = .true.
+       endif
+       call this%set_standard_power(this%As, this%ns, this%nrun, this%r, this%nt, this%inflation_consistency)
+    endif
   end subroutine coop_cosmology_firstorder_set_standard_cosmology
 
 
@@ -186,6 +235,7 @@ contains
        call args%init( r = (/ As, ns, nrun, r, nt /) )
     endif
     call this%set_power(coop_cosmology_firstorder_standard_power, args)
+    call args%free()
   end subroutine coop_cosmology_firstorder_set_standard_power
 
   subroutine coop_cosmology_firstorder_standard_power(kbykpiv, ps, pt, cosmology, args)
@@ -524,7 +574,15 @@ contains
     else
        call this%pt%init(n = n, xmin = k(1), xmax = k(n), f = pt, xlog = .true., ylog = .true., fleft = pt(1), fright = pt(n), check_boundary = .false.)
     endif
-
+    this%As = this%psofk(this%k_pivot)
+    this%ns = this%ps%derivative_bare(log(this%k_pivot)) + 1.d0
+    this%nrun = this%ps%derivative2_bare(log(this%k_pivot))
+    this%r =  this%ptofk(this%k_pivot)/this%As
+    if(this%r .eq. 0.d0)then
+       this%nt = 0.d0
+    else
+       this%nt = this%pt%derivative(this%k_pivot)*this%k_pivot/(this%r*this%As)
+    endif
   end subroutine coop_cosmology_firstorder_set_power
 
   subroutine coop_cosmology_firstorder_set_xe(this)
@@ -757,7 +815,7 @@ contains
     class(coop_cosmology_firstorder)::this
     class(coop_cosmology_firstorder_source)::source
     COOP_INT n, i, iq, j
-    COOP_REAL weight, dkop_dense, dk_dense
+    COOP_REAL weight, dkop_dense
     this%k_pivot = this%kMpc_pivot/this%H0Mpc()
     source%kweight = weight
     source%nk = n
@@ -767,12 +825,12 @@ contains
           allocate(source%k(n), source%dk(n), source%index_tc_off(n), source%kop(n))
        endif
        if(size(source%k_dense, 2).ne.n .or. size(source%k_dense, 1).ne. coop_source_k_dense_factor )then
-          deallocate(source%k_dense, source%ws_dense, source%wt_dense)
-          allocate(source%k_dense(coop_source_k_dense_factor, n), source%ws_dense(coop_source_k_dense_factor, n), source%wt_dense(coop_source_k_dense_factor, n))
+          deallocate(source%k_dense, source%ws_dense, source%wt_dense, source%dk_dense)
+          allocate(source%k_dense(coop_source_k_dense_factor, n), source%ws_dense(coop_source_k_dense_factor, n), source%wt_dense(coop_source_k_dense_factor, n), source%dk_dense(coop_source_k_dense_factor, n) )
        endif
     else
        allocate(source%k(n), source%dk(n), source%index_tc_off(n), source%kop(n))
-       allocate(source%k_dense(coop_source_k_dense_factor, n), source%ws_dense(coop_source_k_dense_factor, n), source%wt_dense(coop_source_k_dense_factor, n))
+       allocate(source%k_dense(coop_source_k_dense_factor, n), source%ws_dense(coop_source_k_dense_factor, n), source%wt_dense(coop_source_k_dense_factor, n), source%dk_dense(coop_source_k_dense_factor, n) )
     endif
     do i=1, coop_source_k_dense_factor
        source%a_dense(i) = dble(i)/coop_source_k_dense_factor
@@ -802,13 +860,13 @@ contains
     dkop_dense = source%dkop/coop_source_k_dense_factor
 
 
-    !$omp parallel do private(i, j, dk_dense)
+    !$omp parallel do private(i, j)
     do i=1, n
        call source%kop2k(source%kop(i), source%k(i), source%dkop,  source%dk(i))
        do j=1, coop_source_k_dense_factor
-          call source%kop2k(source%kop(i)+(j-coop_source_k_dense_factor)*dkop_dense, source%k_dense(j,i), dkop_dense,  dk_dense)
-          source%ws_dense(j, i) = dk_dense*this%psofk(source%k_dense(j, i))/source%k_dense(j, i)
-          source%wt_dense(j, i) = dk_dense*this%ptofk(source%k_dense(j, i))/source%k_dense(j, i)
+          call source%kop2k(source%kop(i)+(j-coop_source_k_dense_factor)*dkop_dense, source%k_dense(j,i), dkop_dense,  source%dk_dense(j, i))
+          source%ws_dense(j, i) = source%dk_dense(j, i)*this%psofk(source%k_dense(j, i))/source%k_dense(j, i)
+          source%wt_dense(j, i) = source%dk_dense(j, i)*this%ptofk(source%k_dense(j, i))/source%k_dense(j, i)
        enddo
     enddo
     !$omp end parallel do
@@ -920,7 +978,34 @@ contains
     endif
   end subroutine coop_cosmology_firstorder_init_source
 
-  
+
+
+
+  function coop_cosmology_firstorder_Clzetazeta_at_R(this, l, r) result(Cl)
+    class(coop_cosmology_firstorder)::this
+    !!this computes 4 \pi \int_0^\infty |j_l(kr)|^2 (k^3P(k)/(2\pi^2)) d\ln k
+    COOP_REAL::Cl, r
+    COOP_INT l
+    Cl = (coop_pi**2/2.d0)* this%psofk(1.d0/r) * 2.d0 ** ( this%ns - 1.d0) * exp(log_gamma(3.d0 - this%ns )+log_gamma(l + (this%ns - 1.d0)/2.d0)-log_gamma(l+(5.d0-this%ns)/2.d0)-2.d0*log_gamma((4.d0-this%ns)/2.d0))
+  end function Coop_cosmology_firstorder_Clzetazeta_at_R
+
+  function coop_cosmology_firstorder_Clzetazeta(this, l, r1, r2) result(Cl)
+    !!this computes 4 \pi \int_0^\infty j_l(kr_1) j_l(kr_2) (k^3P(k)/(2\pi^2)) d\ln k
+    class(coop_cosmology_firstorder)::this
+    COOP_REAL Cl, r1
+    COOP_REAL, optional::r2
+    COOP_INT l
+    if(.not. present(r2))then
+       Cl = this%Clzetazeta_at_R(l, r1)
+    else
+       if(r1.eq.r2)then
+          Cl = this%Clzetazeta_at_R(l, r1)
+       else
+          cl = this%psofk(2.d0/(r1+r2))*coop_4pi*coop_sphericalBesselCross(l,l,r1,r2,this%ns)
+       endif
+    endif
+  end function Coop_cosmology_firstorder_Clzetazeta
+
 
 end module coop_firstorder_mod
 
