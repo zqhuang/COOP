@@ -201,7 +201,7 @@ contains
 
   subroutine analyze_chain(mc)
     integer,parameter::n_fine_bins = 2048
-    real c(n_fine_bins), dx,  multcut, acc
+    real c(n_fine_bins), dx,  multcut, acc, maxc
     real,dimension(:),allocatable::c2dlist
     type(mcmc_chain) mc
     integer ip, i, loc, j, j2, ip2, k, loc2, icl
@@ -273,15 +273,13 @@ contains
           i = 1
           acc = c(i)
           multcut = mc%totalmult*max(min(sqrt(0.01/mc%n), 0.002), 0.0005)
-          do while(acc.lt.multcut)
+          do while(acc + c(i+1).lt.multcut)
              i = i + 1
              acc = acc + c(i)
+             if(i.gt. 1000) exit
           enddo
-          if(i.gt.1)then
-             acc = acc - c(i)
-             i = i - 1
-          endif
-          if( acc/i  .ge. mc%totalmult/n_fine_bins )then  
+          maxc = maxval(c)
+          if( acc/i  .ge. max(mc%totalmult/n_fine_bins, maxc*0.2d0) )then  
              mc%left_is_tail(ip) = .false.
              mc%plotlower(ip) = mc%lower(ip)
           else
@@ -298,7 +296,7 @@ contains
              acc = acc-c(i)
              i = i + 1
           endif
-          if(acc/(n_fine_bins-i+1) .ge. mc%totalmult/n_fine_bins)then
+          if(acc/(n_fine_bins-i+1) .ge. max(mc%totalmult/n_fine_bins, maxc*0.2d0))then
              mc%right_is_tail(ip) = .false.
              mc%plotupper(ip) = mc%upper(ip)
           else
