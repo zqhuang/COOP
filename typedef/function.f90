@@ -11,9 +11,11 @@ module coop_function_mod
   public:: coop_function
 
   type coop_function
-     COOP_INT method
-     logical xlog, ylog, check_boundary
-     COOP_INT n
+     COOP_INT::method = COOP_INTERPOLATE_LINEAR
+     logical::xlog =.false.
+     logical::ylog = .false.
+     logical::check_boundary = .false.
+     COOP_INT::n = 0
      COOP_REAL xmin, xmax, dx, fleft, fright, slopeleft, sloperight
      COOP_REAL, dimension(:), allocatable::f, f2, f1
    contains
@@ -254,7 +256,9 @@ contains
        write(*,*) "coop function cannot be initialized for xmin = xmax"
        stop 
     endif
-    if(present(method))then
+    if(n.eq.2)then
+       this%method = COOP_INTERPOLATE_LINEAR
+    elseif(present(method))then
        this%method = method
     else
        !!automatically choose the best method

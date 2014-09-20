@@ -121,11 +121,52 @@ contains
 !!where \Delta_l(k) = \int S(k, \chi) j_l(k \chi) d\chi is the transfer function computed in get_transfer function (see firstorder.f90)
 
 
-  subroutine coop_get_zeta_trans_l(source, l, trans, ind)
+  subroutine coop_get_zeta_trans_l(source, ind, l, trans)
     type(coop_cosmology_firstorder_source)::source
     COOP_REAL::trans(:)
-    COOP_INT l, ind
+    COOP_INT l, ind, ik, ir, ichi, idense
+    COOP_REAL, dimension(:,:),allocatable::trans_chi_r
+    COOP_REAL, dimension(:,:,:),allocatable::jls
+    allocate(trans_chi_r(source%ntau, source%ntau), jls(coop_k_dense_fac, source%nk, source%ntau))
+    jls(:, 1, :) = 0.d0
+    call coop_jl_check_init(l=l, save_memory = .true.)
+    !$omp parallel do private(ir, ik ,idense)
+    do ir = 1, source%ntau
+       do ik = 2, source%nk
+          do idense = 1, coop_k_dense_fac
+             jls(idense, ik, ir) = coop_jl(l, source%k_dense(idense, ik)*source%chi(ir))
+          enddo
+       enddo
+    enddo
+    !$omp end parallel do
+
+    !$omp parallel do private(ir, ichi)
+    do ir = 1, source%ntau
+       do ichi = 1, source%ntau
+          call coop_get_zeta_trans_l_r1r2(source, ind, l, ichi, ir, trans_chi_r(ichi, ir))
+       enddo
+    enddo
+    !$omp end parallel do
+
+    !$omp parallel do
+    do ir = 1, source%ntau
+       trans(ir) = sum(trans_chi_r(:, ir)*source%dtau)*source%chi(ir)**2
+    enddo
+    !$omp end parallel do
+
+    deallocate(trans_chi_r, jls)
+
   end subroutine coop_get_zeta_trans_l
+
+
+  subroutine coop_get_zeta_trans_l_r1r2(source, ind, l, ichi, ir, trans)
+    type(coop_cosmology_firstorder_source)::source
+    COOP_INT::l, ind, ichi, ir
+    COOP_REAL::trans
+    trans = 0.d0
+    
+  end subroutine coop_get_zeta_trans_l_r1r2
+
 !!$    real(dl),parameter::buffer = 80._dl
 !!$    real(dl),parameter::buffer2 = 80._dl
 !!$    integer l

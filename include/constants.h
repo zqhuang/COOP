@@ -6,6 +6,7 @@
 #define COOP_INT_ARRAY integer(coop_integer_length),dimension(coop_default_array_size)
 #define COOP_LONG_INT integer(coop_long_integer_length)
 #define COOP_REAL  real(coop_real_length)
+#define COOP_SINGLE  real(coop_single_real_length)
 #define COOP_REAL_ARRAY  real(coop_real_length),dimension(coop_default_array_size)
 #define COOP_COMPLEX complex(coop_complex_length)
 #define COOP_COMPLEX_ARRAY  complex(coop_complex_length),dimension(coop_default_array_size)
@@ -151,3 +152,5 @@
 #define COOP_PERT_PERFECT_FLUID 2
 #define COOP_PERT_HIERARCHY 3
 #define COOP_PERT_SCALAR_FIELD 4
+
+#define COOP_INTERP_SOURCE(source, ind, idense, ik, itau) (source%s(ind, ik, itau)*source%a_dense(idense) + source%s(ind, ik-1, itau)*source%b_dense(idense) + source%s2(ind, ik, itau)*source%a2_dense(idense) + source%s2(ind, ik-1, itau)*source%b2_dense(idense))

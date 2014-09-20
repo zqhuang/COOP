@@ -19,9 +19,12 @@ program test
   call fod%compute_source(m=0)
 
   !!compute the Cl's
-  print*, fod%Clzetazeta(100, 1.5d0), fod%Clzetazeta(100, 1.5d0, 1.500001d0)
+  call coop_prtSystime(.true.)
   call fod%source(0)%get_All_Cls(2, 2500, Cls)
+  call coop_prtSystime()
 
+
+  stop
   call fp%open('Cls.txt', 'w')
   norm = 2.726**2*1.d12
   do l=2, 2500

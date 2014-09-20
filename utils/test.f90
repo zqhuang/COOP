@@ -2,33 +2,55 @@ program Test
   use coop_wrapper_utils
   implicit none
 #include "constants.h"
-  type(coop_ode)::ode
-  type(coop_arguments)::args
-  call ode%init(n = 3)
-  call ode%set_initial_conditions( xini = 0.d0, yini = (/ 0.d0, 1.d0, 0.d0 /) )
-  call ode%evolve(get_yprime, coop_pi*4.d0)
-  print*, ode%y
-  
-  call args%init(r = (/ 2.d0 /))
-  print*, coop_integrate(func, 0.d0, 20.d0, args, 1.d-8)
+  COOP_INT :: l, i
+  COOP_INT, parameter::n=2000
+  COOP_REAL x(n), jl(n), amp(n), phase(n)
+  type(coop_asy)::fig
+  call coop_prtsystime(.true.)
+  !$omp parallel do
+  do l = 1, 5000
+     call coop_jl_setup_amp_phase(l)
+  enddo
+  !$omp end parallel do
+  call coop_prtsystime()
+  write(*,*) "enter l = "
+  read(*,*) l
+  call coop_set_uniform(n, x, 1.d-5, max(l*2.5d0, 100.d0))
+  jl = coop_jl(l, x)
+  do i=1, n
+     call coop_jl_get_amp_phase(l, x(i), amp(i), phase(i))
+  enddo
+  print*, maxval(abs(jl - amp*cos(phase)))/maxval(jl)
+  call fig%open("jl.txt")
+  call fig%init(xlabel = "$x$", ylabel = "$j_l(x)$")
+  call coop_asy_curve(fig, x, jl, color="red")
+  call coop_asy_curve(fig, x, amp*cos(phase), color="blue", linetype = "dotted")
+  call fig%close()
 
-contains
 
-  subroutine get_yprime(n, x, y, yp)
-    COOP_INT n
-    COOP_REAL x, y(0:n-1), yp(0:n-1)
-    yp(0) = 0.d0
-    yp(1) = y(2) + y(0)*100.d0
-    yp(2) = - y(1) 
-    if(y(0).ne.0.d0)then
-       call coop_return_error("get_yprime", "nonzero y(0)", "stop")
-    endif
-  end subroutine get_yprime
 
-  function func(x, args)
-    type(coop_arguments) args
-    COOP_REAL x, func
-    func = exp(-x*args%r(1))
-  end function func
+
+!!$  subroutine get_max(l, x, jl)
+!!$    COOP_INT l
+!!$    COOP_REAL x, jl, jltry, dx
+!!$    x = l + 0.5d0
+!!$    jl = x*coop_jl(l, x)
+!!$    dx = 0.1d0
+!!$    do while(dx .gt. 1.d-8)
+!!$       jltry = (x+dx)*coop_jl(l, x+dx)
+!!$       do while(jltry .gt. jl)
+!!$          jl = jltry
+!!$          x = x + dx
+!!$          jltry = (x+dx)*coop_jl(l, x+dx)
+!!$       enddo
+!!$       jltry = (x-dx)*coop_jl(l, x-dx)
+!!$       do while(jltry .gt. jl)
+!!$          jl = jltry
+!!$          x = x - dx
+!!$          jltry = (x-dx)*coop_jl(l, x-dx)
+!!$       enddo
+!!$       dx = dx/2.d0
+!!$    enddo
+!!$  end subroutine get_max
 
 end program Test

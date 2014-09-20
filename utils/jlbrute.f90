@@ -7,30 +7,30 @@ module coop_jl_mod
   private
 
 
-  integer,parameter::coop_jl_lmax = 5101
-  integer,parameter::coop_jl_lmin = 10
+  COOP_INT,parameter::coop_jl_lmax = 5101
+  COOP_INT,parameter::coop_jl_lmin = 10
 
   !!coop_jl is much much more accurate than coop_SphericalBesselJ
   !!after first call of coop_jl (which requires initialization), coop_jl is also about 3 times faster than coop_sphericalbesselJ
   !! jl = coop_jl(l, x) ,   x can be real/double, or an array of real/double
-  public::coop_jl, coop_jl_zero
-
-  integer,parameter::dl = kind(1.d0)
-  integer,parameter::sp = kind(1.)
+  public::coop_jl, coop_jl_zero, coop_jljl_slow, coop_jl_startpoint, coop_jl_get_jl_and_jlp, coop_jl_check_init, coop_jl_get_jl, coop_jl_get_amp_phase, coop_jl_setup_amp_phase
 
   type coop_jl_table
      logical::tabulated = .false.
-     real(dl)::xmax, xmin, dx
-     integer::n
-     integer::l
-     integer::count = 0
-     real(dl),dimension(:,:),allocatable::data
+     COOP_REAL::xmax, xmin, dx
+     COOP_INT::n
+     COOP_INT::l
+     COOP_INT::count = 0
+     COOP_REAL,dimension(:,:),allocatable::data
    contains
      procedure::init => coop_jl_table_initialize
      procedure::free => coop_jl_table_free
   end type coop_jl_table
   
   type(coop_jl_table) :: coop_jl_global_table(coop_jl_lmin:coop_jl_lmax)
+
+  type(coop_function),dimension(coop_jl_lmax)::coop_jl_amp, coop_jl_phase
+
 !!yes -> 1.3 GB mem
 !!no ->  0.4 GB mem
 #define  COOP_JL_SUPER_PRECISION COOP_NO 
@@ -42,11 +42,109 @@ module coop_jl_mod
 
 contains
 
+  subroutine coop_jl_get_amp_phase(l, x, amp, phase)  !!assuming x>0
+    COOP_INT l
+    COOP_REAL x, amp, phase, lnxbynu
+    if(l.eq.0)then
+       amp = 1.d0/x
+       phase = x - coop_pio2
+    else
+       lnxbynu = log(x/(l+0.5d0))
+       amp = coop_jl_amp(l)%eval(lnxbynu)/x
+       phase = coop_jl_phase(l)%eval(lnxbynu)
+    endif
+  end subroutine coop_jl_get_amp_phase
 
-  function coop_jl_phase(l, x) result(phase)
-    integer l
-    real(dl) phase
-    real(dl) x,  nu2, nu, chb, ch2b, sh2b, shb, sx, sat, rat
+  subroutine coop_jl_setup_amp_phase(l)
+    COOP_INT::l, n, i
+    COOP_REAL,dimension(:),allocatable::x, amp, phase
+    COOP_REAL::jl, dx, jltry, xmin, z2, xp1, xp2, z1, peak1, peak2, ampz2, nu, lnxbynumin, lnxbynumax
+    if(l.le.0)return
+    if(coop_jl_amp(l)%n .gt. 0)return  !!already initialized
+    call coop_jl_check_init(l)
+    xp1 = (l + 0.5d0)*(1.d0+0.80992d0/(l+0.5d0)**(2.d0/3.d0))
+    jl = xp1*coop_jl(l, xp1)
+    dx = 0.1d0/(l+0.5d0)
+    do while(dx .gt. 1.d-7)
+       jltry = (xp1+ dx)*coop_jl(l, xp1 + dx)
+       do while(jltry .gt. jl)
+          xp1 = xp1 + dx
+          jl = jltry
+          jltry = (xp1+ dx)*coop_jl(l, xp1 + dx)
+       enddo
+       dx = dx/2.d0
+    enddo
+    peak1 = jl
+    nu = l + 0.5d0
+    xp2 = (coop_jl_zero(l, 1) + coop_jl_zero(l, 2))/2.d0
+    dx = 0.1d0/nu
+    do while(dx .gt. 1.d-7)
+       jltry = (xp2+ dx)*coop_jl(l, xp2 + dx)
+       if(jltry .lt. jl)then
+          do while(jltry .lt. jl)
+             xp2 = xp2 + dx
+             jl = jltry
+             jltry = (xp2+ dx)*coop_jl(l, xp2 + dx)
+          enddo
+       else
+          jltry = (xp2 - dx)*coop_jl(l, xp2-dx)
+          do while(jltry .lt. jl)
+             xp2 = xp2 - dx
+             jl = jltry
+             jltry = (xp2- dx)*coop_jl(l, xp2 - dx)
+          enddo          
+       endif
+       dx = dx/2.d0
+    enddo
+    peak2 = -jl
+
+    z2 = coop_jl_zero(l, 2)
+    call coop_jl_get_amp_phase_asymptotic(l, z2, ampz2, jltry)
+    ampz2 = ampz2*z2
+    z1 = coop_jl_zero(l, 1)
+
+    call coop_jl_startpoint(l, xmin)
+    lnxbynumin = log(xmin/nu)
+    lnxbynumax = log(max(3.d0, 5.d2/nu))
+
+    n = ceiling((lnxbynumax-lnxbynumin)*max(l,100))
+
+    allocate(x(n), amp(n), phase(n))
+
+    call coop_set_uniform(n, x, lnxbynumin, lnxbynumax)
+    x = exp(x)*nu
+
+    do i = 1, n
+       if(x(i) .le. z2)then
+          if(x(i) .le. xp1)then
+             amp(i) = peak1
+             jl = coop_jl(l, x(i))*x(i)
+             phase(i) = - acos(min(jl/peak1, 1.d0))
+          elseif(x(i) .ge. xp2)then
+             amp(i) = (peak2*(z2 - x(i)) + ampz2*(x(i)-xp2))/(z2-xp2)
+             jl = coop_jl(l, x(i))*x(i)
+             phase(i)  = coop_2pi - acos(max(jl/amp(i), -1.d0))
+          else
+             amp(i) = (peak1*(xp2-x(i))+peak2*(x(i) - xp1))/(xp2-xp1)
+             jl = coop_jl(l, x(i))*x(i)
+             phase(i) = acos(max(min(jl/amp(i), 1.d0), -1.d0))
+          endif
+       else
+          call coop_jl_get_amp_phase_asymptotic(l, x(i), amp(i), phase(i))
+          amp(i) = amp(i)*x(i)
+       endif
+    enddo
+    call coop_jl_amp(l)%init(n = n, xmin = lnxbynumin, xmax = lnxbynumax, f = amp, check_boundary = .false., fleft = peak1, fright = 1.d0, slopeleft = 0.d0, sloperight = 0.d0)
+    call coop_jl_phase(l)%init(n = n, xmin = lnxbynumin, xmax =  lnxbynumax, f = phase, check_boundary = .false., fleft = -coop_pio2, fright = phase(n), slopeleft = 0.d0, sloperight = 1.d0)
+    deallocate(x, amp, phase)
+    if(l.ge.coop_jl_lmin)call coop_jl_global_table(l)%free()
+  end subroutine coop_jl_setup_amp_phase
+
+
+  function coop_jl_phase_analytic(l, x) result(phase)
+    COOP_INT l
+    COOP_REAL phase
+    COOP_REAL x,  nu2, nu, chb, ch2b, sh2b, shb, sx, sat, rat
     if(l.eq.0)then
        phase  = x - coop_pio2
        return
@@ -72,13 +170,13 @@ contains
          + rat * (-31/5760.d0 + ch2b *( 1062/5760.d0 + ch2b * (4644/5760.d0+ ch2b * ( -195/5760.d0 + 45/5760.d0 * ch2b))) &
          - rat * ch2b**2* (174126/32256.d0 + ch2b*(511445/32256.d0+ ch2b*(180144/32256.d0)) &
          ))))
-  end function coop_jl_phase
+  end function coop_jl_phase_analytic
 
   function coop_jl_zero(l, k) result(z)
-    integer k, l
-    real(dl) z, t, zmin, zmax, phasemax, phase, phasemid
-    real(dl),parameter::c1(12) =   (/ -0.245127043d+01, 0.112632772d+02, -0.207925322d+02, 0.198543806d+02, -0.110527677d+02, 0.406769876d+01, -0.109067653d+01, 0.206080657d+00, -0.260196064d-1 , 0.212880935d-2 , -0.101897908d-3 , 0.216576354d-5  /)
-    real(dl), parameter::c2(12) =  (/ 0.579779690d+01, -0.280853646d+02, 0.625315957d+02, -0.805135267d+02, 0.629961403d+02, -0.307235514d+02, 0.973806423d+01, -0.206907154d+01, 0.293355044d+00, -0.265358216d-1 , 0.138530622d-2 , -0.317522214d-4  /)
+    COOP_INT k, l
+    COOP_REAL z, t, zmin, zmax, phasemax, phase, phasemid
+    COOP_REAL,parameter::c1(12) =   (/ -0.245127043d+01, 0.112632772d+02, -0.207925322d+02, 0.198543806d+02, -0.110527677d+02, 0.406769876d+01, -0.109067653d+01, 0.206080657d+00, -0.260196064d-1 , 0.212880935d-2 , -0.101897908d-3 , 0.216576354d-5  /)
+    COOP_REAL, parameter::c2(12) =  (/ 0.579779690d+01, -0.280853646d+02, 0.625315957d+02, -0.805135267d+02, 0.629961403d+02, -0.307235514d+02, 0.973806423d+01, -0.206907154d+01, 0.293355044d+00, -0.265358216d-1 , 0.138530622d-2 , -0.317522214d-4  /)
     if(l.eq.0)then
        z = coop_pi*k
        return
@@ -93,16 +191,16 @@ contains
     case default
        t = (l+0.5d0)**0.25d0
        zmin = l + 0.5d0 + 3.51d0*(l+5.d0)**0.323d0 + coop_polyvalue(12,c2, t)/(l+0.5d0)
-       phase = coop_pi * (k-0.5_dl) 
+       phase = coop_pi * (k-0.5d0) 
        zmax = max(coop_jl_zero_asym(l, k), zmin+coop_pi)
-       phasemax = coop_jl_phase(l, zmax)
+       phasemax = coop_jl_phase_analytic(l, zmax)
        do while(phasemax .lt. phase)
           zmax = zmax + max(phase - phasemax, coop_pi)
-          phasemax = coop_jl_phase(l, zmax)
+          phasemax = coop_jl_phase_analytic(l, zmax)
        enddo
        do while(zmax - zmin .gt. 1.d-6)
           z = (zmax+zmin)/2.d0
-          phasemid = coop_jl_phase(l, z)
+          phasemid = coop_jl_phase_analytic(l, z)
           if(phasemid .ge. phase)then
              zmax = z
           else
@@ -116,8 +214,8 @@ contains
 
 !!the k-th zero of spherical Bessel function j_l
   function coop_jl_zero_asym(l, k) result(z)
-    real(dl) z, nusq, zsq
-    integer l, k
+    COOP_REAL z, nusq, zsq
+    COOP_INT l, k
     z = coop_pi * (l/2.d0+k)
     nusq = (l +0.5d0)**2
     zsq = z**2
@@ -129,9 +227,9 @@ contains
 
 !!start where j_l is ~ 10^{-8}
   subroutine coop_jl_startpoint(l, xstart, eps)
-    real(dl) xstart, lnnu, nu
-    real(dl),optional::eps
-    integer l
+    COOP_REAL xstart, lnnu, nu
+    COOP_REAL,optional::eps
+    COOP_INT l
     nu = l+ 0.5d0
     lnnu = log(nu)
     select case(l)
@@ -143,7 +241,7 @@ contains
        xstart = nu - exp(1.52077 -2.28973/nu+ lnnu*(0.41562 -0.00916079 * lnnu))
     end select
     if(present(eps) .and. l .gt. 0)then
-       xstart = xstart*(eps/1.e-8_dl)**(1.d0/l)
+       xstart = xstart*(eps/1.d-8)**(1.d0/l)
     endif
   end subroutine coop_jl_startpoint
 
@@ -151,11 +249,11 @@ contains
 
 !!very accurate for x < l - (a few) * l^{1/3}
  subroutine coop_jl_small(l, x, jl, jlp)
-    integer l
-    real(dl),intent(IN)::x
-    real(dl)nu, nu2, x2, cosb, cos2b, sinb, sin2b, sin3b,  nusin3b, invnu3b, expterm
-    real(dl),intent(OUT):: jl
-    real(dl),intent(OUT),optional:: jlp
+    COOP_INT l
+    COOP_REAL,intent(IN)::x
+    COOP_REAL nu, nu2, x2, cosb, cos2b, sinb, sin2b, sin3b,  nusin3b, invnu3b, expterm
+    COOP_REAL,intent(OUT):: jl
+    COOP_REAL,intent(OUT),optional:: jlp
     if(l.lt.coop_jl_lmin)then
        if(present(jlp))then
           call coop_jl_exact_lowl(l, x, jl, jlp)
@@ -226,11 +324,11 @@ contains
 
 
   subroutine coop_jl_large(l, x, jl, jlp)
-    integer l
-    real(dl),intent(IN)::x
-    real(dl),intent(OUT)::jl
-    real(dl),intent(OUT),optional::jlp
-    real(dl) sx, expterm, alpha, x2, nu, nu2, sh2b, shb, ch2b, chb, sat, rat, expderv, alphaderv, cschb, csch2b, invnu2, invnu
+    COOP_INT l
+    COOP_REAL,intent(IN)::x
+    COOP_REAL,intent(OUT)::jl
+    COOP_REAL,intent(OUT),optional::jlp
+    COOP_REAL sx, expterm, alpha, x2, nu, nu2, sh2b, shb, ch2b, chb, sat, rat, expderv, alphaderv, cschb, csch2b, invnu2, invnu
     if(l.lt.coop_jl_lmin)then
        call coop_jl_exact_lowl(l, x, jl, jlp)
     else
@@ -300,9 +398,9 @@ contains
   end subroutine coop_jl_large
 
   subroutine coop_jl_exact_lowl(l, x, jl, jlp)
-    integer l
-    real(dl) x, jl, v2, x2
-    real(dl),optional::jlp
+    COOP_INT l
+    COOP_REAL x, jl, v2, x2
+    COOP_REAL,optional::jlp
     if(x .lt. l/7.d0+0.1d0)then
        x2 = x**2
        select case(l)
@@ -431,29 +529,40 @@ contains
     end select
   end subroutine coop_jl_exact_lowl
 
+  subroutine coop_jl_check_init(l, save_memory)
+    COOP_INT l, ell
+    logical,optional::save_memory
+    if(l.lt.coop_jl_lmin) return
+    if(present(save_memory))then
+       if(save_memory)then
+          if(.not. coop_jl_global_table(l)%tabulated)then
+             do ell=coop_jl_lmin, coop_jl_lmax
+                if(coop_jl_global_table(ell)%tabulated)then
+                   if(coop_jl_global_table(ell)%count .lt. -10000)then
+                      call coop_jl_global_table(ell)%free()
+                   else
+                      coop_jl_global_table(ell)%count = coop_jl_global_table(ell)%count - 50
+                   endif
+                endif
+             enddo
+             call coop_jl_global_table(l)%init(l=l)
+          endif
+          return
+       endif
+    endif
+    if(.not. coop_jl_global_table(l)%tabulated)call coop_jl_global_table(l)%init(l=l)
+  end subroutine coop_jl_check_init
 
   subroutine coop_jl_get_jl(l, x, jl)
     COOP_INT, intent(IN)::l
-    real(dl),intent(IN)::x
-    real(dl),intent(OUT)::jl
-    integer i, ell
-    real(dl) t
+    COOP_REAL,intent(IN)::x
+    COOP_REAL,intent(OUT)::jl
+    COOP_INT i, ell
+    COOP_REAL t
     if(l.lt. coop_jl_lmin)then
        call coop_jl_exact_lowl(l, x, jl)
     else
-       if(.not. coop_jl_global_table(l)%tabulated)then
-          do ell=coop_jl_lmin, coop_jl_lmax
-             if(coop_jl_global_table(ell)%tabulated)then
-                if(coop_jl_global_table(ell)%count .lt. -10000)then
-                   call coop_jl_global_table(ell)%free()
-                else
-                   coop_jl_global_table(ell)%count = coop_jl_global_table(ell)%count - 50
-                endif
-             endif
-          enddo
-          call coop_jl_global_table(l)%init(l=l)
-       endif
-       if( coop_jl_global_table(l)%count .lt. 10000) coop_jl_global_table(l)%count = coop_jl_global_table(l)%count  + 1
+       call coop_jl_check_init(l)
        t = (x-coop_jl_global_table(l)%xmin)/coop_jl_global_table(l)%dx
        i = floor(t)
        if(i.lt.0)then
@@ -475,11 +584,12 @@ contains
   end subroutine coop_jl_get_jl
 
   subroutine coop_jl_get_jl_and_jlp(l, x, jl, jlp)
-    integer l, i
-    real(dl) x, jl, jlp, t
+    COOP_INT l, i
+    COOP_REAL x, jl, jlp, t
     if(l.lt. coop_jl_lmin)then
        call coop_jl_exact_lowl(l, x, jl, jlp)
     else
+       call coop_jl_check_init(l)
        t = (x-coop_jl_global_table(l)%xmin)/coop_jl_global_table(l)%dx
        i = floor(t)
        if(i.lt.0)then
@@ -505,18 +615,10 @@ contains
   end subroutine coop_jl_get_jl_and_jlp
 
 
-  subroutine coop_jl_get_amp_phase(l, x, amp, phase)
-    real(dl),parameter::  params(10) = (/ 0.230490766, -0.059341062, -0.008725434, 0.008935870, 0.277038862, -0.721654426, 1.311876363, 0.585017752, 2.675037879, -0.162880886 /)
-    integer l
-    real(dl) amp, phase
-    real(dl) x,  nu2, nu, chb, ch2b, sh2b, shb, sx, sat, rat, z1, z2, fac, sqrtnu
-    z1 = coop_jl_zero(l, 1)
-    if(x .le. z1)then
-       amp = 0
-       phase = coop_pio2
-       return
-    endif
-    z2 = coop_jl_zero(l, 2)
+  subroutine coop_jl_get_amp_phase_asymptotic(l, x, amp, phase) !!assuming x>l+0.5
+    COOP_INT l
+    COOP_REAL amp, phase
+    COOP_REAL x,  nu2, nu, chb, ch2b, sh2b, shb, sx, sat, rat, fac, sqrtnu
     nu2 = l*(l+1.d0)
     nu = sqrt(nu2)
     chb = x/nu
@@ -532,11 +634,6 @@ contains
          - (2523.d0/32.d0 + ch2b*(1521.d0/16.d0 + ch2b * (315.d0/16.d0)))*ch2b**3 * rat)*rat)*rat &
          -0.5d0*dlog(x*sx) &
          )
-    if(x.lt. z2)then
-       sqrtnu = sqrt(nu)
-       fac = ( 1.d0 + tanh((z2-z1)*(exp(params(1))/(z1-x) + exp(params(2))/(z2-x)) + params(3) + params(5)/sqrtnu + params(7)/nu + params(10)/nu2) )/2.d0
-       amp = amp * fac**exp(params(4)+params(6)/sqrtnu + params(8)/nu + params(9)/nu2)
-    endif
     phase = (-coop_pio4 &
          + sx &
          -((-1.d0/128/nu2 + 0.125)/nu +nu)*acos(nu/x) &
@@ -545,19 +642,19 @@ contains
          + rat * (-31/5760.d0 + ch2b *( 1062/5760.d0 + ch2b * (4644/5760.d0+ ch2b * ( -195/5760.d0 + 45/5760.d0 * ch2b))) &
          - rat * ch2b**2* (174126/32256.d0 + ch2b*(511445/32256.d0+ ch2b*(180144/32256.d0)) &
          ))))
-  end subroutine coop_jl_get_amp_phase
+  end subroutine coop_jl_get_amp_phase_asymptotic
 
   function coop_jl_s(l, x) result(jl)
-    real(dl) jl
-    integer l
-    real(dl) x
+    COOP_REAL jl
+    COOP_INT l
+    COOP_REAL x
     call coop_jl_get_jl(l, x, jl)
   end function coop_jl_s
 
   function coop_jl_v(l, x) result(jl)
-    integer l, i
-    real(dl) x(:)
-    real(dl) jl(size(x))
+    COOP_INT l, i
+    COOP_REAL x(:)
+    COOP_REAL jl(size(x))
     call coop_jl_get_jl(l, x(1), jl(1))
     !$omp parallel do
     do i=2, size(x)
@@ -569,36 +666,36 @@ contains
 
 
   function coop_jl_ss(l, x) result(jl)
-    real(sp) jl
-    integer l
-    real(sp) x
-    jl = real( coop_jl_s(l, dble(x)), sp)
+    COOP_SINGLE jl
+    COOP_INT l
+    COOP_SINGLE x
+    jl = coop_jl_s(l, dble(x))
   end function coop_jl_ss
 
   function coop_jl_vs(l, x) result(jl)
-    integer l, i
-    real(sp) x(:)
-    real(sp) jl(size(x))
-    jl = real(coop_jl_v(l, dble(x)), sp)
+    COOP_INT l, i
+    COOP_SINGLE x(:)
+    COOP_SINGLE jl(size(x))
+    jl =coop_jl_v(l, dble(x))
   end function coop_jl_vs
 
 
 
   subroutine coop_jl_table_initialize(this, l, max_x) 
     class(coop_jl_table)::this
-    real(dl),optional::max_x
-    integer l, nsteps, ii , jj, i, j
-    real(dl) step, y(3), lsq, scale1, scale2, rl
-    integer, parameter :: s = 3
-    real(dl)::step_max 
-    integer recur_steps 
-    real(dl), parameter ::   b(s) = (/ 5.d0/18.d0, 4.d0/9.d0, 5.d0/18.d0/)
+    COOP_REAL,optional::max_x
+    COOP_INT l, nsteps, ii , jj, i, j
+    COOP_REAL step, y(3), lsq, scale1, scale2, rl
+    COOP_INT, parameter :: s = 3
+    COOP_REAL::step_max 
+    COOP_INT recur_steps 
+    COOP_REAL, parameter ::   b(s) = (/ 5.d0/18.d0, 4.d0/9.d0, 5.d0/18.d0/)
     ! Butcher tableau for 6th order Gauss-Legendre method
-    real(dl), parameter :: a(s,s) =  reshape( (/ &
+    COOP_REAL, parameter :: a(s,s) =  reshape( (/ &
          5.d0/36.d0, 2.d0/9.d0 - 1.d0/sqrt(15.d0), 5.d0/36.d0 - 0.5d0/sqrt(15.d0), &
          5.d0/36.d0 + sqrt(15.d0)/24.d0, 2.d0/9.d0, 5.d0/36.d0 - sqrt(15.d0)/24.d0, &
          5.d0/36.d0 + 0.5d0/sqrt(15.d0), 2.d0/9.d0 + 1.d0/sqrt(15.d0), 5.d0/36.d0 /), (/ s, s /) )
-    real(dl) g(3,s)
+    COOP_REAL g(3,s)
     if(present(max_x))then
        if(this%tabulated .and. this%xmax .ge. max_x) return
     else
@@ -650,7 +747,7 @@ contains
   contains
 
     subroutine fcn(yy, yyp)
-      real(dl) yy(3), yyp(3)
+      COOP_REAL yy(3), yyp(3)
       yyp(1) = 1.d0
       yyp(2) = yy(3)
       yyp(3) =  - ((yy(1) - lsq/yy(1))*yy(2) + 2 * yy(3))/yy(1)
@@ -684,6 +781,17 @@ contains
     this%tabulated = .false.
     this%count = 0
   end subroutine coop_jl_table_free
+
+
+
+  function coop_jljl_slow(l, x1, x2) result(jljl)
+    COOP_INT l
+    COOP_REAL x1, x2, jljl
+    COOP_REAL ph1, ph2, a1, a2
+    call coop_jl_get_amp_phase_asymptotic(l, x1, a1, ph1)
+    call coop_jl_get_amp_phase_asymptotic(l, x2, a2, ph2)
+    jljl = a1*a2*cos(ph1-ph2)/2.d0
+  end function coop_jljl_slow
 
 
 end module coop_jl_mod
