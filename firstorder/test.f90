@@ -19,9 +19,9 @@ program test
   call fod%compute_source(m=0)
 
   !!compute the Cl's
-  call coop_prtSystime(.true.)
-  call fod%source(0)%get_All_Cls(2, 2500, Cls)
-  call coop_prtSystime()
+!!$  call coop_prtSystime(.true.)
+!!$  call fod%source(0)%get_All_Cls(2, 2500, Cls)
+!!$  call coop_prtSystime()
 
 
   stop

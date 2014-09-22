@@ -6,8 +6,11 @@ module coop_firstorder_mod
 
 private
 
-  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe, coop_power_lnk_min, coop_power_lnk_max,  coop_k_dense_fac, coop_index_ClTT, coop_index_ClTE, coop_index_ClEE, coop_index_ClBB, coop_index_ClEB, coop_index_ClTB, coop_index_ClLenLen, coop_index_ClTLen, coop_num_Cls
+  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe, coop_power_lnk_min, coop_power_lnk_max,  coop_k_dense_fac, coop_index_ClTT, coop_index_ClTE, coop_index_ClEE, coop_index_ClBB, coop_index_ClEB, coop_index_ClTB, coop_index_ClLenLen, coop_index_ClTLen, coop_num_Cls, coop_scalar_lmax, coop_vector_lmax, coop_tensor_lmax
 
+  COOP_INT::coop_scalar_lmax = 2500
+  COOP_INT::coop_vector_lmax = 1500
+  COOP_INT::coop_tensor_lmax = 1000
   COOP_REAL, parameter :: coop_power_lnk_min = log(0.1d0) 
   COOP_REAL, parameter :: coop_power_lnk_max = log(5.d3) 
   COOP_REAL, parameter :: coop_visibility_amin = 1.8d-4
@@ -16,11 +19,11 @@ private
   COOP_REAL, parameter :: coop_cosmology_firstorder_tc_cutoff = 0.005d0
 
 
-  COOP_REAL, dimension(0:2), parameter::coop_source_tau_weight = (/ 0.2d0, 0.2d0, 0.1d0 /)
-  COOP_INT, dimension(0:2), parameter::coop_source_tau_n = (/ 850, 800, 750 /)
+  COOP_REAL, dimension(0:2), parameter::coop_source_tau_weight = (/ 0.3d0, 0.4d0, 0.3d0 /)
+  COOP_INT, dimension(0:2), parameter::coop_source_tau_n = (/ 1200, 800, 750 /)
   COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
   COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 150, 120, 80 /)
-  COOP_REAL, parameter::coop_source_k_index = 0.48d0
+  COOP_REAL, parameter::coop_source_k_index = 0.4d0
   COOP_INT, parameter:: coop_k_dense_fac = 30
 
 
@@ -35,7 +38,7 @@ private
   COOP_INT, parameter::coop_num_Cls =  coop_index_ClTLen
 
 !!how many source terms you want to extract & save
-  COOP_INT, dimension(0:2), parameter::coop_num_sources = (/ 3,  3,  3 /)
+  COOP_INT, dimension(0:2), parameter::coop_num_sources = (/ 2,  3,  3 /)
 
 !!recfast head file
 #include "recfast_head.h"
@@ -309,18 +312,20 @@ contains
     COOP_REAL,dimension(:,:,:),allocatable::trans
     COOP_INT:: i
     COOP_REAL::tmp
+    Cls = 0.d0
     select case(source%m)
     case(0)
        allocate(trans(source%nsrc, coop_k_dense_fac, source%nk))
        call source%get_transfer(l, trans)
        Cls(coop_index_ClTT) = sum(source%ws_dense * trans(1, :, :)**2)*coop_4pi
-       Cls(coop_index_ClTE) = sqrt((l+2.d0)*(l+1.d0)*l*(l-1.d0))*sum(source%ws_dense * trans(1, :, :)*trans(2,:,:))*coop_4pi
-       Cls(coop_index_ClEE) = (l+2.d0)*(l+1.d0)*l*(l-1.d0)*sum(source%ws_dense * trans(2,:,:)**2)*coop_4pi
-       Cls(coop_index_ClEB) =  0.d0
-       Cls(coop_index_ClTB) =  0.d0
-       Cls(coop_index_ClBB) =  0.d0
-       Cls(coop_index_ClLenLen) = sum(source%ws_dense * trans(3, :, :)**2)*coop_4pi
-       Cls(coop_index_ClTLen) = sum(source%ws_dense * trans(1, :, :) * trans(3,:,:))*coop_4pi
+       if(source%nsrc .ge. 2)then
+          Cls(coop_index_ClTE) = sqrt((l+2.d0)*(l+1.d0)*l*(l-1.d0))*sum(source%ws_dense * trans(1, :, :)*trans(2,:,:))*coop_4pi
+          Cls(coop_index_ClEE) = (l+2.d0)*(l+1.d0)*l*(l-1.d0)*sum(source%ws_dense * trans(2,:,:)**2)*coop_4pi
+       endif
+       if(source%nsrc.ge.3)then
+          Cls(coop_index_ClLenLen) = sum(source%ws_dense * trans(3, :, :)**2)*coop_4pi
+          Cls(coop_index_ClTLen) = sum(source%ws_dense * trans(1, :, :) * trans(3,:,:))*coop_4pi
+       endif
        deallocate(trans)
     case(1)
        call coop_tbw("get_Cls: vector")
@@ -845,11 +850,11 @@ contains
     source%kmin = 0.25d0/this%distlss
     select case(source%m)
     case(0)
-       source%kmax = 6.2d3/this%distlss
+       source%kmax = (coop_scalar_lmax*2.d0)/this%distlss
     case(1)
-       source%kmax = 4.2d3/this%distlss
+       source%kmax = (coop_vector_lmax*2.d0)/this%distlss
     case(2)
-       source%kmax = 2.2d3/this%distlss
+       source%kmax = (coop_tensor_lmax*2.d0)/this%distlss
     case default
        write(*,*) "Error: m = ", source%m
        stop "source spin must be 0, 1, 2"

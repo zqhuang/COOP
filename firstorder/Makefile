@@ -21,6 +21,8 @@ Test: $(OFOBJ) test.o $(BACKGROUND)/libcoopbackground.a
 Z3D: $(OFOBJ) zeta.o $(BACKGROUND)/libcoopbackground.a 
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OFOBJ) zeta.o $(LINK)
 
+testZ: $(OFOBJ) testzeta.o $(BACKGROUND)/libcoopbackground.a 
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OFOBJ) testzeta.o $(LINK)
 
 
 clean:
@@ -29,5 +31,7 @@ clean:
 
 firstorder.o:	pertobj.o  ../include/firstorder_equations.h ../include/firstorder_source.h ../include/recfast_source.h ../include/recfast_head.h
 wrapper.o: 	firstorder.o
-test.o:	wrapper.o
+test.o:		wrapper.o
 Cls_post_process.o: firstorder.o
+zeta.o:	wrapper.o
+testzeta.o:	wrapper.o

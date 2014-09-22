@@ -13,7 +13,7 @@ module coop_jl_mod
   !!coop_jl is much much more accurate than coop_SphericalBesselJ
   !!after first call of coop_jl (which requires initialization), coop_jl is also about 3 times faster than coop_sphericalbesselJ
   !! jl = coop_jl(l, x) ,   x can be real/double, or an array of real/double
-  public::coop_jl, coop_jl_zero, coop_jljl_slow, coop_jl_startpoint, coop_jl_get_jl_and_jlp, coop_jl_check_init, coop_jl_get_jl, coop_jl_get_amp_phase, coop_jl_setup_amp_phase
+  public::coop_jl, coop_jl_zero, coop_jl_startpoint, coop_jl_get_jl_and_jlp, coop_jl_check_init, coop_jl_get_jl, coop_jl_get_amp_phase, coop_jl_setup_amp_phase, coop_jl_destroy_amp_phase
 
   type coop_jl_table
      logical::tabulated = .false.
@@ -50,10 +50,28 @@ contains
        phase = x - coop_pio2
     else
        lnxbynu = log(x/(l+0.5d0))
-       amp = coop_jl_amp(l)%eval(lnxbynu)/x
-       phase = coop_jl_phase(l)%eval(lnxbynu)
+       if(lnxbynu .gt. coop_jl_amp(l)%xmax)then
+          call coop_jl_get_amp_phase_asymptotic(l, x, amp, phase)
+       else
+          amp = coop_jl_amp(l)%eval(lnxbynu)/x
+          phase = coop_jl_phase(l)%eval(lnxbynu)
+       endif
     endif
   end subroutine coop_jl_get_amp_phase
+
+  subroutine coop_jl_destroy_amp_phase(l)
+    COOP_INT, optional::l
+    COOP_INT :: ell
+    if(present(l))then
+       call coop_jl_amp(l)%free()
+       call coop_jl_phase(l)%free()
+    else
+       do ell = 1, coop_jl_lmax
+          call coop_jl_amp(ell)%free()
+          call coop_jl_phase(ell)%free()
+       enddo
+    endif
+  end subroutine coop_jl_destroy_amp_phase
 
   subroutine coop_jl_setup_amp_phase(l)
     COOP_INT::l, n, i
@@ -781,17 +799,6 @@ contains
     this%tabulated = .false.
     this%count = 0
   end subroutine coop_jl_table_free
-
-
-
-  function coop_jljl_slow(l, x1, x2) result(jljl)
-    COOP_INT l
-    COOP_REAL x1, x2, jljl
-    COOP_REAL ph1, ph2, a1, a2
-    call coop_jl_get_amp_phase_asymptotic(l, x1, a1, ph1)
-    call coop_jl_get_amp_phase_asymptotic(l, x2, a2, ph2)
-    jljl = a1*a2*cos(ph1-ph2)/2.d0
-  end function coop_jljl_slow
 
 
 end module coop_jl_mod

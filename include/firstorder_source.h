@@ -27,14 +27,12 @@
 	       + vis * (pert%O1_T(0)/4.d0 + pert%O1_Phi + pert%O1_V_B_PRIME/pert%kbyaH + pert%capP/8.0 + (3.d0/8.d0/pert%ksq)*Pddot)  &
 	       + visdot * (pert%O1_V_B/pert%k + (3.d0/4.d0/pert%k**2)*Pdot) &
 	       + visddot * (3.d0/8.d0/pert%ksq)*pert%capP
-          source%s(2, ik, itau) =vis * pert%capP * (3.d0/8.d0)/max( (this%tau0 - pert%tau)*pert%k, 1.d-3)**2
-          source%s(3, ik, itau) = -(pert%O1_Phi+pert%O1_PSI)*max(1.d0-source%chi(itau)/this%distlss, 0.d0)/max(source%chi(itau), 1.d-3)
-!!$          source%s(1,  ik, itau) =  pert%delta_G00a2()
-!!$	     source%s(2, ik, itau) = pert%delta_T00a2()
-!!$          source%s(3, ik, itau) = pert%zeta()
-!!$          source%s(1, ik, itau) = pert%capP
-!!$          source%s(5, ik, itau) = Pdot
-!!$          source%s(6, ik, itau) = Pddot
+          if(source%nsrc.ge.2)then
+             source%s(2, ik, itau) =vis * pert%capP * (3.d0/8.d0)/max( (this%tau0 - pert%tau)*pert%k, 1.d-3)**2
+             if(source%nsrc.ge.3)then
+                source%s(3, ik, itau) = -(pert%O1_Phi+pert%O1_PSI)*max(1.d0-source%chi(itau)/this%distlss, 0.d0)/max(source%chi(itau), 1.d-3)
+             endif
+          endif
        endif
     case(1) !!vector
        call coop_tbw("vector source to be done")
