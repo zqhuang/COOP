@@ -211,7 +211,7 @@ contains
     COOP_INT::l, ichi, ir, nr
     COOP_REAL::r(nr)
     COOP_REAL::trans(source%nsrc)
-    COOP_REAL,parameter::width = coop_pi*8.d0
+    COOP_REAL::widthm, widthp
     COOP_REAL::ampchi(coop_k_dense_fac, source%nk, source%ntau), phasechi(coop_k_dense_fac, source%nk, source%ntau), ampr(coop_k_dense_fac, source%nk, nr), phaser(coop_k_dense_fac, source%nk, nr)
     COOP_INT ik, idense
     COOP_REAL chidiff,  dk_diff, kmin, xmin, kmax
@@ -220,17 +220,18 @@ contains
     trans = 0.d0
     call coop_jl_startpoint(l, xmin)
     kmin = xmin/ max(source%chi(ichi), r(ir))
-    kmax = max((l+0.5d0)/max(min(source%chi(ichi), r(ir)), 0.1d0)*6.d0, 1.d3)
+    kmax = max((l+0.5d0)/max(min(source%chi(ichi), r(ir)), 0.1d0)*6.d0, 1000.d0)
+    widthp = coop_pi*8.d0
+    widthm =max(coop_pi*1000.d0/(l+0.5d0), widthp)
     do ik = 2, source%nk
-          if(source%k(ik) .le. kmin )cycle
-          if(source%k_dense(1,ik) .gt. kmax)exit
-          if(abs(phasechi(idense, ik, ichi)-phaser(idense, ik, ir)).gt. (18.d0*width))exit
-          if(source%dk_dense(1, ik) .gt. dk_diff) exit
-          do idense = 1, coop_k_dense_fac
-             trans = trans + COOP_INTERP_SOURCE(source, :, idense, ik, ichi) * ampchi(idense, ik, ichi) * ampr(idense, ik, ir)*( cos(phasechi(idense, ik, ichi) -phaser(idense, ik, ir))*(1.d0+ tanh(10.d0-abs(phasechi(idense, ik, ichi)-phaser(idense, ik, ir))/width)) + cos(phasechi(idense, ik, ichi)+phaser(idense, ik, ir))*(1.d0+ tanh(10.d0-(phasechi(idense, ik, ichi)+phaser(idense, ik, ir))/width)) )*source%k_dense(idense, ik)**2*source%dk_dense(idense, ik)*(1.d0+tanh(20.d0*(0.5d0-source%k_dense(idense, ik)/kmax)))/8.d0
-          enddo
+       if(source%k(ik) .le. kmin )cycle
+       if(source%k_dense(1,ik) .gt. kmax)exit
+       if(abs(phasechi(idense, ik, ichi)-phaser(idense, ik, ir)).gt. (18.d0*widthm))exit
+       if(source%dk_dense(1, ik) .gt. dk_diff) exit
+       do idense = 1, coop_k_dense_fac
+          trans = trans + COOP_INTERP_SOURCE(source, :, idense, ik, ichi) * ampchi(idense, ik, ichi) * ampr(idense, ik, ir)*( cos(phasechi(idense, ik, ichi) -phaser(idense, ik, ir))*(1.d0+ tanh(10.d0-abs(phasechi(idense, ik, ichi)-phaser(idense, ik, ir))/widthm)) + cos(phasechi(idense, ik, ichi)+phaser(idense, ik, ir))*(1.d0+ tanh(10.d0-(phasechi(idense, ik, ichi)+phaser(idense, ik, ir))/widthp)) )*source%k_dense(idense, ik)**2*source%dk_dense(idense, ik)*(1.d0+tanh(20.d0*(0.5d0-source%k_dense(idense, ik)/kmax)))/8.d0
        enddo
- !!$   endif
+    enddo
   end subroutine coop_get_zeta_trans_l_step
 
 end module coop_cls_postprocess_mod

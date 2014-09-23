@@ -8,7 +8,7 @@ program test
   COOP_INT::l, isrc, i
   COOP_REAL,dimension(:,:),allocatable::cov, trans, testcov
   type(coop_file)::fp
-!#define DO_OUTPUT
+#define DO_OUTPUT
   !!set cosmology
   call fod%Set_Planck_bestfit()
 !  coop_scalar_lmax = lmax

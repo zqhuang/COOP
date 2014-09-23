@@ -3,13 +3,11 @@ module coop_interpolation_mod
   use coop_matrix_mod
   implicit none
 
+#include "constants.h"
   private
 
-  integer,parameter::dl = kind(1.d0)
-  integer,parameter::sp = kind(1.)
 
-
-  public::coop_bilinear_interp, coop_bicubic_interp, coop_linear_interp, coop_linear_least_square_fit
+  public::coop_bilinear_interp, coop_bicubic_interp, coop_linear_interp, coop_linear_least_square_fit, coop_spline_fill
 
   Interface coop_linear_least_square_fit
      module procedure coop_linear_least_square_fit_s, coop_linear_least_square_fit_d
@@ -27,6 +25,10 @@ module coop_interpolation_mod
   Interface coop_bicubic_interp
      module procedure bicubic_interp_s, bicubic_interp_v, bicubic_interp_s_sp, bicubic_interp_v_sp, bicubic_interp_v_sp2sp
   end Interface coop_bicubic_interp
+  
+  Interface coop_spline_fill
+     module procedure coop_spline_fill_d, coop_spline_fill_s
+  end Interface coop_spline_fill
 
 
 
@@ -34,8 +36,8 @@ contains
 
   subroutine coop_linear_least_square_fit_d(n, x, y, k, b, r)
     integer n
-    real(dl) x(n), y(n), k, b, xbar, ybar, sxx, syy, sxy
-    real(dl), optional::r
+    COOP_REAL x(n), y(n), k, b, xbar, ybar, sxx, syy, sxy
+    COOP_REAL, optional::r
     xbar  = sum(x)/n
     ybar = sum(y)/n
     sxx = sum((x-xbar)**2)
@@ -59,8 +61,8 @@ contains
 
   subroutine coop_linear_least_square_fit_s(n, x, y, k, b, r)
     integer n
-    real(sp) x(n), y(n), k, b, xbar, ybar, sxx, syy, sxy
-    real(sp), optional::r
+    COOP_SINGLE x(n), y(n), k, b, xbar, ybar, sxx, syy, sxy
+    COOP_SINGLE, optional::r
     xbar  = sum(x)/n
     ybar = sum(y)/n
     sxx = sum((x-xbar)**2)
@@ -82,10 +84,10 @@ contains
   end subroutine coop_linear_least_square_fit_s
 
   subroutine linear_interp_s(n, x, y, xs, ys)
-    real(sp) xs, ys
+    COOP_SINGLE xs, ys
     integer n, j ,l , r
-    real(sp) a
-    real(sp) x(n), y(n)
+    COOP_SINGLE a
+    COOP_SINGLE x(n), y(n)
     if(x(n).gt.x(1))then
        if(xs .lt. x(1))then
           ys = y(1)
@@ -132,10 +134,10 @@ contains
   end subroutine linear_interp_s
 
   subroutine linear_interp_d(n, x, y, xs, ys)
-    real(dl) xs, ys
+    COOP_REAL xs, ys
     integer n, j ,l , r
-    real(dl) a
-    real(dl) x(n), y(n)
+    COOP_REAL a
+    COOP_REAL x(n), y(n)
     if(x(n).gt.x(1))then
        if(xs .lt. x(1))then
           ys = y(1)
@@ -183,28 +185,28 @@ contains
 
 
   subroutine bilinear_interp_s(f, rx, ry, z)
-    real(dl) ,intent(IN)::f(2,2)
-    real(dl) rx, ry
-    real(dl) z
+    COOP_REAL ,intent(IN)::f(2,2)
+    COOP_REAL rx, ry
+    COOP_REAL z
     z = (f(1,1)*(1.d0-rx)+f(2,1)*rx)*(1.d0-ry) + (f(1,2)*(1.d0-rx)+f(2,2)*rx)*ry
   end subroutine bilinear_interp_s
 
 
   subroutine bilinear_interp_v(n, f, rx, ry, z)
     integer n
-    real(dl) ,intent(IN)::f(n, 2,2)
-    real(dl) rx, ry
-    real(dl) z(n)
+    COOP_REAL ,intent(IN)::f(n, 2,2)
+    COOP_REAL rx, ry
+    COOP_REAL z(n)
     z = (f(:,1,1)*(1.d0-rx)+f(:,2,1)*rx)*(1.d0-ry) + (f(:,1,2)*(1.d0-rx)+f(:,2,2)*rx)*ry
   end subroutine bilinear_interp_v
 
 
   subroutine bicubic_interp_s(f, rx, ry, z)
-    real(dl),intent(IN)::f(4,4)
-    real(dl) rx, ry
-    REAL(dl) :: x(16)
-    REAL(dl), INTENT(OUT) :: z
-    real(dl), DIMENSION(16,16),parameter:: wt = reshape( (/ &
+    COOP_REAL,intent(IN)::f(4,4)
+    COOP_REAL rx, ry
+    COOP_REAL :: x(16)
+    COOP_REAL, INTENT(OUT) :: z
+    COOP_REAL, DIMENSION(16,16),parameter:: wt = reshape( (/ &
          0,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0, &
          0,-2,0,0,0,0,0,0,0,2,0,0,0,0,0,0, &
          0,4,0,0,0,-10,0,0,0,8,0,0,0,-2,0,0, &
@@ -231,11 +233,11 @@ contains
 
   Subroutine bicubic_interp_v(n, f, rx, ry, z)
     integer n
-    real(dl),intent(IN)::f(n,4,4)
-    real(dl) rx, ry
-    REAL(dl) :: x(n, 16)
-    REAL(dl), INTENT(OUT) :: z(n)
-    real(dl), DIMENSION(16,16),parameter:: wt = reshape( (/ &
+    COOP_REAL,intent(IN)::f(n,4,4)
+    COOP_REAL rx, ry
+    COOP_REAL :: x(n, 16)
+    COOP_REAL, INTENT(OUT) :: z(n)
+    COOP_REAL, DIMENSION(16,16),parameter:: wt = reshape( (/ &
          0,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0, &
          0,-2,0,0,0,0,0,0,0,2,0,0,0,0,0,0, &
          0,4,0,0,0,-10,0,0,0,8,0,0,0,-2,0,0, &
@@ -261,28 +263,28 @@ contains
   End subroutine bicubic_interp_v
 
   subroutine bilinear_interp_s_sp(f, rx, ry, z)
-    real(sp) ,intent(IN)::f(2,2)
-    real(dl) rx, ry
-    real(dl) z
+    COOP_SINGLE ,intent(IN)::f(2,2)
+    COOP_REAL rx, ry
+    COOP_REAL z
     z = (f(1,1)*(1.d0-rx)+f(2,1)*rx)*(1.d0-ry) + (f(1,2)*(1.d0-rx)+f(2,2)*rx)*ry
   end subroutine bilinear_interp_s_sp
 
 
   subroutine bilinear_interp_v_sp(n, f, rx, ry, z)
     integer n
-    real(sp) ,intent(IN)::f(n, 2,2)
-    real(dl) rx, ry
-    real(dl) z(n)
+    COOP_SINGLE ,intent(IN)::f(n, 2,2)
+    COOP_REAL rx, ry
+    COOP_REAL z(n)
     z = (f(:,1,1)*(1.d0-rx)+f(:,2,1)*rx)*(1.d0-ry) + (f(:,1,2)*(1.d0-rx)+f(:,2,2)*rx)*ry
   end subroutine bilinear_interp_v_sp
 
 
   subroutine bicubic_interp_s_sp(f, rx, ry, z)
-    real(sp),intent(IN)::f(4,4)
-    real(dl) rx, ry
-    real(dl) :: x(16)
-    real(dl), INTENT(OUT) :: z
-    real(dl), DIMENSION(16,16),parameter:: wt = reshape( (/ &
+    COOP_SINGLE,intent(IN)::f(4,4)
+    COOP_REAL rx, ry
+    COOP_REAL :: x(16)
+    COOP_REAL, INTENT(OUT) :: z
+    COOP_REAL, DIMENSION(16,16),parameter:: wt = reshape( (/ &
          0,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0, &
          0,-2,0,0,0,0,0,0,0,2,0,0,0,0,0,0, &
          0,4,0,0,0,-10,0,0,0,8,0,0,0,-2,0,0, &
@@ -309,11 +311,11 @@ contains
 
   Subroutine bicubic_interp_v_sp(n, f, rx, ry, z)
     integer n
-    real(sp),intent(IN)::f(n,4,4)
-    real(dl) rx, ry
-    real(dl) :: x(n, 16)
-    real(dl), INTENT(OUT) :: z(n)
-    real(dl), DIMENSION(16,16),parameter:: wt = reshape( (/ &
+    COOP_SINGLE,intent(IN)::f(n,4,4)
+    COOP_REAL rx, ry
+    COOP_REAL :: x(n, 16)
+    COOP_REAL, INTENT(OUT) :: z(n)
+    COOP_REAL, DIMENSION(16,16),parameter:: wt = reshape( (/ &
          0,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0, &
          0,-2,0,0,0,0,0,0,0,2,0,0,0,0,0,0, &
          0,4,0,0,0,-10,0,0,0,8,0,0,0,-2,0,0, &
@@ -341,11 +343,11 @@ contains
 
   Subroutine bicubic_interp_v_sp2sp(n, f, rx, ry, z)
     integer n
-    real(sp),intent(IN)::f(n,4,4)
-    real(dl) rx, ry
-    real(dl) :: x(n, 16)
-    real(sp), INTENT(OUT) :: z(n)
-    real(dl), DIMENSION(16,16),parameter:: wt = reshape( (/ &
+    COOP_SINGLE,intent(IN)::f(n,4,4)
+    COOP_REAL rx, ry
+    COOP_REAL :: x(n, 16)
+    COOP_SINGLE, INTENT(OUT) :: z(n)
+    COOP_REAL, DIMENSION(16,16),parameter:: wt = reshape( (/ &
          0,0,0,0,0,4,0,0,0,0,0,0,0,0,0,0, &
          0,-2,0,0,0,0,0,0,0,2,0,0,0,0,0,0, &
          0,4,0,0,0,-10,0,0,0,8,0,0,0,-2,0,0, &
@@ -369,6 +371,118 @@ contains
     z=real(rx*z+((x(:,8)*ry+x(:,7))*ry+x(:,6))*ry+x(:,5))
     z=real(rx*z+((x(:,4)*ry+x(:,3))*ry+x(:,2))*ry+x(:,1))
   End subroutine bicubic_interp_v_sp2sp
+
+
+  subroutine coop_spline_fill_d(n, x, y, computed, logx, logy)
+    COOP_INT n
+    COOP_REAL x(n), y(n)
+    logical computed(n), logx, logy
+    COOP_INT nc, i, j
+    COOP_REAL,dimension(:),allocatable::xc, yc, yc2
+    nc = count(computed)
+    allocate(xc(nc), yc(nc), yc2(nc))
+    j = 1
+    do i = 1, n
+       if(computed(i))then
+          xc(j) = x(i)
+          yc(j) = y(i)
+          j = j + 1
+       endif
+    enddo
+    if(logx) xc = log(xc)
+    if(logy) yc = log(yc)
+    call coop_spline(nc, xc, yc, yc2)
+    if(logx)then
+       if(logy)then
+          !$omp parallel do
+          do i = 1, n
+             if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, log(COOP_REAL_OF(x(i))), y(i))
+             y(i) = exp(y(i))
+          enddo
+          !$omp end parallel do
+       else
+          !$omp parallel do
+          do i = 1, n
+             if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, log(COOP_REAL_OF(x(i))), y(i))
+          enddo
+          !$omp end parallel do
+       endif
+    else
+       if(logy)then
+          !$omp parallel do
+          do i = 1, n
+             if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, COOP_REAL_OF(x(i)), y(i))
+             y(i) = exp(y(i))
+          enddo
+          !$omp end parallel do
+       else
+          !$omp parallel do
+          do i = 1, n
+             if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, COOP_REAL_OF(x(i)), y(i))
+          enddo
+          !$omp end parallel do
+       endif
+    endif
+    deallocate(xc, yc, yc2)
+  end subroutine coop_spline_fill_d
+
+
+
+  subroutine coop_spline_fill_s(n, x, y, computed, logx, logy)
+    COOP_INT n
+    COOP_SINGLE x(n), y(n)
+    logical computed(n), logx, logy
+    COOP_INT nc, i, j
+    COOP_REAL,dimension(:),allocatable::xc, yc, yc2
+    COOP_REAL ytmp
+    nc = count(computed)
+    allocate(xc(nc), yc(nc), yc2(nc))
+    j = 1
+    do i = 1, n
+       if(computed(i))then
+          xc(j) = COOP_REAL_OF(x(i))
+          yc(j) = y(i)
+          j = j + 1
+       endif
+    enddo
+    if(logx) xc = log(xc)
+    if(logy) yc = log(yc)
+    call coop_spline(nc, xc, yc, yc2)
+    if(logx)then
+       if(logy)then
+          !$omp parallel do private(ytmp)
+          do i = 1, n
+             if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, log(COOP_REAL_OF(x(i))), ytmp)
+             y(i) = exp(ytmp)
+          enddo
+          !$omp end parallel do
+       else
+          !$omp parallel do private(ytmp)
+          do i = 1, n
+             if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, log(COOP_REAL_OF(x(i))), ytmp)
+             y(i) = ytmp
+          enddo
+          !$omp end parallel do 
+       endif
+    else
+       if(logy)then
+          !$omp parallel do private(ytmp)
+          do i = 1, n
+             if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, COOP_REAL_OF(x(i)), ytmp)
+             y(i) = exp(ytmp)
+          enddo
+          !$omp end parallel do
+       else
+          !$omp parallel do private(ytmp)
+          do i = 1, n
+             if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, COOP_REAL_OF(x(i)), ytmp)
+             y(i) = ytmp
+          enddo
+          !$omp end parallel do
+       endif
+    endif
+    deallocate(xc, yc, yc2)
+  end subroutine coop_spline_fill_s
 
 end module coop_interpolation_mod
 

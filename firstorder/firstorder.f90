@@ -19,11 +19,11 @@ private
   COOP_REAL, parameter :: coop_cosmology_firstorder_tc_cutoff = 0.005d0
 
 
-  COOP_REAL, dimension(0:2), parameter::coop_source_tau_weight = (/ 0.3d0, 0.4d0, 0.3d0 /)
-  COOP_INT, dimension(0:2), parameter::coop_source_tau_n = (/ 1200, 800, 750 /)
+  COOP_REAL, dimension(0:2), parameter::coop_source_tau_weight = (/ 0.45d0, 0.4d0, 0.3d0 /)
+  COOP_INT, dimension(0:2), parameter::coop_source_tau_n = (/ 850, 800, 750 /)
   COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
   COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 150, 120, 80 /)
-  COOP_REAL, parameter::coop_source_k_index = 0.4d0
+  COOP_REAL, parameter::coop_source_k_index = 0.48d0
   COOP_INT, parameter:: coop_k_dense_fac = 30
 
 
