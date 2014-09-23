@@ -27,7 +27,7 @@ module coop_interpolation_mod
   end Interface coop_bicubic_interp
   
   Interface coop_spline_fill
-     module procedure coop_spline_fill_d, coop_spline_fill_s
+     module procedure coop_spline_fill_d, coop_spline_fill_s, coop_spline_fill_vd, coop_spline_fill_vs
   end Interface coop_spline_fill
 
 
@@ -373,6 +373,7 @@ contains
   End subroutine bicubic_interp_v_sp2sp
 
 
+
   subroutine coop_spline_fill_d(n, x, y, computed, logx, logy)
     COOP_INT n
     COOP_REAL x(n), y(n)
@@ -396,14 +397,14 @@ contains
        if(logy)then
           !$omp parallel do
           do i = 1, n
-             if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, log(COOP_REAL_OF(x(i))), y(i))
+             if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, log(x(i)), y(i))
              y(i) = exp(y(i))
           enddo
           !$omp end parallel do
        else
           !$omp parallel do
           do i = 1, n
-             if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, log(COOP_REAL_OF(x(i))), y(i))
+             if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, log(x(i)), y(i))
           enddo
           !$omp end parallel do
        endif
@@ -411,14 +412,14 @@ contains
        if(logy)then
           !$omp parallel do
           do i = 1, n
-             if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, COOP_REAL_OF(x(i)), y(i))
+             if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, x(i), y(i))
              y(i) = exp(y(i))
           enddo
           !$omp end parallel do
        else
           !$omp parallel do
           do i = 1, n
-             if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, COOP_REAL_OF(x(i)), y(i))
+             if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, x(i), y(i))
           enddo
           !$omp end parallel do
        endif
@@ -484,5 +485,139 @@ contains
     deallocate(xc, yc, yc2)
   end subroutine coop_spline_fill_s
 
+
+
+  subroutine coop_spline_fill_vd(m, n, x, y, computed, logx, logy)
+    COOP_INT m, n
+    COOP_REAL x(n), y(m,n)
+    logical computed(n), logx, logy
+    COOP_INT nc, i, j, im
+    COOP_REAL,dimension(:),allocatable::xc, yc, yc2
+    nc = count(computed)
+    allocate(xc(nc), yc(nc), yc2(nc))
+    j = 1
+    do i = 1, n
+       if(computed(i))then
+          xc(j) = x(i)
+          j = j + 1
+       endif
+    enddo
+    if(logx) xc = log(xc)
+
+    do im = 1, m
+       j = 1
+       do i = 1, n
+          if(computed(i))then
+             yc(j) = y(im, i)
+             j = j + 1
+          endif
+       enddo
+       if(logy) yc = log(yc)
+       call coop_spline(nc, xc, yc, yc2)
+       if(logx)then
+          if(logy)then
+             !$omp parallel do
+             do i = 1, n
+                if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, log(x(i)), y(im, i))
+                y(im, i) = exp(y(im,i))
+             enddo
+             !$omp end parallel do
+          else
+             !$omp parallel do
+             do i = 1, n
+                if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, log(x(i)), y(im, i))
+             enddo
+             !$omp end parallel do
+          endif
+       else
+          if(logy)then
+             !$omp parallel do
+             do i = 1, n
+                if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, x(i), y(im, i))
+                y(im, i) = exp(y(im, i))
+             enddo
+             !$omp end parallel do
+          else
+             !$omp parallel do
+             do i = 1, n
+                if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, x(i), y(im, i))
+             enddo
+             !$omp end parallel do
+          endif
+       endif
+    enddo
+    deallocate(xc, yc, yc2)
+  end subroutine coop_spline_fill_vd
+
+
+
+  subroutine coop_spline_fill_vs(m, n, x, y, computed, logx, logy)
+    COOP_INT m,n
+    COOP_SINGLE x(n), y(m,n)
+    logical computed(n), logx, logy
+    COOP_INT nc, i, j
+    COOP_REAL,dimension(:),allocatable::xc, yc, yc2
+    COOP_REAL ytmp
+    COOP_INT im
+    nc = count(computed)
+    allocate(xc(nc), yc(nc), yc2(nc))
+    j = 1
+    do i = 1, n
+       if(computed(i))then
+          xc(j) = x(i)
+          j = j + 1
+       endif
+    enddo
+    if(logx) xc = log(xc)
+
+    do im = 1, m
+       j = 1
+       do i = 1, n
+          if(computed(i))then
+             yc(j) = y(im, i)
+             j = j + 1
+          endif
+       enddo
+       if(logy) yc = log(yc)
+       call coop_spline(nc, xc, yc, yc2)
+       if(logx)then
+          if(logy)then
+             !$omp parallel do private(ytmp)
+             do i = 1, n
+                if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, log(COOP_REAL_OF(x(i))), ytmp)
+                y(im, i) = exp(ytmp)
+             enddo
+             !$omp end parallel do
+          else
+             !$omp parallel do private(ytmp)
+             do i = 1, n
+                if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, log(COOP_REAL_OF(x(i))), ytmp)
+                y(im, i) = ytmp
+             enddo
+             !$omp end parallel do 
+          endif
+       else
+          if(logy)then
+             !$omp parallel do private(ytmp)
+             do i = 1, n
+                if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, COOP_REAL_OF(x(i)), ytmp)
+                y(im, i) = exp(ytmp)
+             enddo
+             !$omp end parallel do
+          else
+             !$omp parallel do private(ytmp)
+             do i = 1, n
+                if(.not. computed(i)) call coop_splint(nc, xc, yc, yc2, COOP_REAL_OF(x(i)), ytmp)
+                y(im, i) = ytmp
+             enddo
+             !$omp end parallel do
+          endif
+       endif
+    enddo
+    deallocate(xc, yc, yc2)
+  end subroutine coop_spline_fill_vs
+
 end module coop_interpolation_mod
+
+
 

@@ -162,7 +162,33 @@ contains
     COOP_REAL::r(nr), trans(nr, source%nsrc)
     COOP_REAL, dimension(:,:,:),allocatable::trans_chi_r
     COOP_REAL, dimension(:,:,:),allocatable::ampchi, phasechi, ampr, phaser
+    COOP_REAL chi1
+    logical:: chi_r_overlap
+    COOP_INT::nbuffer
+   
     allocate(trans_chi_r(source%nsrc, source%ntau, nr), ampchi(coop_k_dense_fac, source%nk, source%ntau), phasechi(coop_k_dense_fac, source%nk, source%ntau), ampr(coop_k_dense_fac, source%nk, nr), phaser(coop_k_dense_fac, source%nk, nr))
+
+    ir = 1
+    chi1 = source%chi(1)+1.d-8
+    chi_r_overlap = .true.
+    do while(r(ir).gt. chi1 )
+       ir = ir + 1
+       if(ir.eq.nr)then
+          chi_r_overlap = .false.
+          exit
+       endif
+    enddo
+    if(chi_r_overlap)then
+       nbuffer = ir-1
+       if( source%ntau  .ne. nr-ir+1)then
+          chi_r_overlap = .false.
+       else
+          if(any(abs(source%chi - r(ir:nr)).gt. 1.d-8))then
+             chi_r_overlap = .false.
+          endif
+       endif
+    endif
+          
     call coop_jl_setup_amp_phase(l)
     !$omp parallel do private(ichi, ik ,idense)
     do ichi = 1, source%ntau
@@ -173,16 +199,29 @@ contains
        enddo
     enddo
     !$omp end parallel do
-
-    !$omp parallel do private(ir, ik ,idense)
-    do ir = 1, nr
-       do ik = 2, source%nk
-          do idense = 1, coop_k_dense_fac
-             call coop_jl_get_amp_phase(l, source%k_dense(idense, ik)*r(ir), ampr(idense, ik, ir), phaser(idense, ik, ir))
+    if(chi_r_overlap)then
+       !$omp parallel do private(ir, ik ,idense)
+       do ir = 1, nbuffer
+          do ik = 2, source%nk
+             do idense = 1, coop_k_dense_fac
+                call coop_jl_get_amp_phase(l, source%k_dense(idense, ik)*r(ir), ampr(idense, ik, ir), phaser(idense, ik, ir))
+             enddo
           enddo
        enddo
-    enddo
-    !$omp end parallel do
+       !$omp end parallel do
+       ampr(:,:,nbuffer+1:nr) = ampchi
+       phaser(:,:,nbuffer+1:nr) = phasechi
+    else
+       !$omp parallel do private(ir, ik ,idense)
+       do ir = 1, nr
+          do ik = 2, source%nk
+             do idense = 1, coop_k_dense_fac
+                call coop_jl_get_amp_phase(l, source%k_dense(idense, ik)*r(ir), ampr(idense, ik, ir), phaser(idense, ik, ir))
+             enddo
+          enddo
+       enddo
+       !$omp end parallel do
+    endif
 
     !$omp parallel do private(ir, ichi)
     do ir = 1, nr
@@ -201,7 +240,7 @@ contains
     !$omp end parallel do
 
     deallocate(trans_chi_r,ampchi, phasechi, ampr, phaser)
-
+    call coop_jl_destroy_amp_phase(l)
   end subroutine coop_get_zeta_trans_l
 
 
