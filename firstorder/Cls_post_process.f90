@@ -69,7 +69,7 @@ contains
        call fnl(map(i))
     enddo
     call map2alm(nside, shell%lmax, shell%lmax, map, alms)
-    do l=0, shell%lmax
+    do l=2, shell%lmax
        alm_total(0:l, l) =   alm_total(0:l, l) + alms(0:l, l, 1)*weight(l)
     enddo
 

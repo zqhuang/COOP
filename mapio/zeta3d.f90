@@ -83,6 +83,7 @@ contains
     endif
     call hm%alm2map()
     call hm%write(trim(prefix)//"_fnl_EB.fits")
+    call hm%free()
     deallocate(trans, shells)
   end subroutine coop_3d_generate_cmb
   
