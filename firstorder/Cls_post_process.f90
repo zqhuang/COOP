@@ -123,25 +123,6 @@ contains
    
   end subroutine coop_set_default_zeta_r
 
-  subroutine coop_generate_3dzeta_l(cosmology, l, lmax, nr, r, zetalm)
-    class(coop_cosmology_firstorder)::cosmology
-    COOP_INT::l, nr, i, j, nm, lmax
-    COOP_REAL::r(nr)
-    COOP_REAL::zetalm(-lmax:lmax, nr)
-    COOP_REAL::cov(nr, nr)
-    if(l.le.1 .or. l.gt.lmax)then
-       zetalm(-l:l,:) = 0.d0
-       return
-    endif
-    call coop_get_zeta_shells_cov(cosmology, l, nr, r, cov)
-    call coop_matsym_sqrt(Cov)
-    nm = 2*l+1
-    do i=1, nr
-       call coop_random_get_Gaussian_vector(nm, zetalm(-l:l, i))
-    end do
-    zetalm(-l:l,:) = matmul(zetalm(-l:l,:), Cov)
-  end subroutine coop_generate_3dzeta_l
-
 
   subroutine coop_generate_3dzeta_partial(cosmology, lmax, nr, r, alm_real, l, ir_start, ir_end)
     class(coop_cosmology_firstorder)::cosmology
@@ -184,7 +165,11 @@ contains
     COOP_INT:: ns
     type(coop_zeta_shell)::shells(ns)
     COOP_REAL,dimension(:,:),allocatable::zlms
+    COOP_REAL,dimension(:),allocatable::r
     COOP_INT i, iend, lmm, istart, l
+    do i=1, ns
+       r(i) = shells(i)%r
+    enddo
     lmm = shells(1)%lmax
     do i = 2, ns
        if(shells(i)%lmax .gt. shells(i-1)%lmax)then
@@ -198,93 +183,18 @@ contains
        do while(shells(iend)%lmax .lt. l)
           iend = iend - 1
        enddo
-       call coop_generate_3Dzeta_partial(cosmology, lmm, ns, shells%r, zlms, l, istart, iend)
+       call coop_generate_3Dzeta_partial(cosmology, lmm, ns, r, zlms, l, istart, iend)
        do i = istart, iend
           shells(i)%alm_real(l**2+1:(l+1)**2) = zlms(-l:l, i)
        enddo
     enddo
+    deallocate(r, zlms)
   end subroutine coop_generate_3Dzeta
-
-
-
-  subroutine coop_generate_3Dzeta_file(cosmology, fname, lmax, nr, r, nprocs, proc_id)
-    class(coop_cosmology_firstorder)::cosmology
-    COOP_INT lmax, nr
-    COOP_REAL zlms(-lmax:lmax,nr), r(nr)
-    COOP_UNKNOWN_STRING fname
-    type(coop_file) fp
-    COOP_INT l, blocksize, i, m, start, step, base
-    COOP_INT,optional::nprocs, proc_id
-    blocksize = (lmax+1)*(lmax+1)
-    call coop_feedback("Generating 3D zeta map "//trim(fname)//" (size = "//trim(coop_num2str(blocksize*4*nr))//"Bytes)")
-    if(present(nprocs) .and. present(proc_id))then
-       if(coop_MPI_Rank().eq.0)then
-          if(coop_file_exists(trim(fname))) then
-             call coop_return_error("zeta3D", "file already exists", "stop")
-          else
-             !!create the file if it does not exist
-             call system("touch "//trim(fname))
-             call fp%open(trim(coop_file_add_postfix(fname,"__info")), "w")
-             write(fp%unit, "(2I5)") lmax, nr
-             write(fp%unit, "("//trim(coop_num2str(nr))//"E16.7)") r
-             call fp%close()
-          endif
-       endif
-       call coop_MPI_Barrier()
-       start = mod(proc_id, nprocs)
-       step = nprocs
-    else
-       start = 0
-       step = 1
-    endif
-    call fp%open(trim(fname), "b", recl = 4)  !!open with binary mode
-    do l=start, lmax, step
-       call coop_generate_3Dzeta_l(cosmology, l, lmax, nr, r , zlms)
-       do i=1, nr
-          base = blocksize*(i-1)+l*l
-          write(fp%unit, ERR=100, REC=base+1) real(zlms(0,i), 4)
-          do m = 1, l
-             write(fp%unit, ERR=100, REC=base+2*m) real(zlms(-m,i)/coop_sqrt2, 4)
-             write(fp%unit, ERR=100, REC=base+2*m+1) real(zlms(m,i)/coop_sqrt2, 4)
-          enddo
-       enddo
-    enddo
-    call fp%close()
-    return
-100  call coop_MPI_Abort( "IO error in coop_generate_3Dzeta")
-  end subroutine coop_generate_3Dzeta_file
-
-
-  subroutine coop_load_2Dzeta(fname, lmax, nr, ishell, alms)
-    COOP_INT lmax, nr, ishell
-    real(4) zlms((lmax+1)**2)
-    complex alms(0:lmax, 0:lmax)
-    COOP_UNKNOWN_STRING::fname
-    COOP_INT blocksize
-    type(coop_file) fp
-    COOP_INT:: l, m
-    alms = 0.
-    if(ishell .gt. nr .or. ishell .le. 0) call coop_MPI_Abort( "coop_load_2Dmap wrong layer number")
-    blocksize = (lmax+1)**2
-    call fp%open(trim(fname), 'br', recl = blocksize*4)
-    read(fp%unit, ERR=100, REC = ishell) zlms
-    call fp%close()
-    do l=0, lmax
-       alms(l, 0) = zlms(l*l+1)
-       do m=1, l
-          alms(l,m) = cmplx(zlms(l*l+m*2), zlms(l*l+m*2+1))
-       enddo
-    enddo
-    return
-100 call coop_MPI_Abort("coop_load_2Dmap: io error")
-  end subroutine coop_load_2Dzeta
 
 !!$mapping 3D zeta to CMB alms
 !!The formula is
 !!a_{lm} = 2/\pi  \int_0^\infty  j_l(kr) \zeta_{lm}(r)  \Delta_l(k) k^2 dk r^2 dr
 !!where \Delta_l(k) = \int S(k, \chi) j_l(k \chi) d\chi is the transfer function computed in get_transfer function (see firstorder.f90)
-
-
   subroutine coop_get_zeta_trans_l(source, l, nr, r, trans)
     COOP_INT,parameter::n_threads = 16
     type(coop_cosmology_firstorder_source)::source
