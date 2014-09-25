@@ -19,7 +19,8 @@ contains
     type(coop_healpix_maps)::hm
     call cosmology%compute_source(0)
     call coop_set_default_zeta_r(cosmology, cosmology%source(0))
-    allocate(trans(cosmology%source(0)%nsrc, coop_zeta_nr, 2:lmax))
+    allocate(trans(coop_zeta_nr, cosmology%source(0)%nsrc, 0:lmax))
+    trans = 0.d0
     if(coop_file_exists(trim(prefix)//"_trans_"//COOP_STR_OF(lmax)//".dat"))then
        call coop_feedback("Reading transfer data file.")
        call fp%open(trim(prefix)//"_trans_"//COOP_STR_OF(lmax)//".dat", "u")
@@ -62,8 +63,8 @@ contains
        call coop_feedback("Reading 3D file.")
        call fp%open(trim(prefix)//"_3D_"//COOP_STR_OF(lmax)//".dat", "u")
        do i=1, coop_zeta_nr
-          call shells(i)%map_project(fnl, lmax, hm%alm(0:lmax, 0:lmax, 1), trans(1, i, 0:lmax)*coop_zeta_dr(i))
-          call shells(i)%map_project(fnl, lmax, hm%alm(0:lmax, 0:lmax, 2), trans(2, i, 0:lmax)*coop_zeta_dr(i))
+          call shells(i)%map_project(fnl, lmax, hm%alm(0:lmax, 0:lmax, 1), trans(i, 1, 0:lmax)*coop_zeta_dr(i))
+          call shells(i)%map_project(fnl, lmax, hm%alm(0:lmax, 0:lmax, 2), trans(i, 2, 0:lmax)*coop_zeta_dr(i))
           call shells(i)%free()
        enddo
        call fp%close()
@@ -74,8 +75,8 @@ contains
        call fp%open(trim(prefix)//"_3D_"//COOP_STR_OF(lmax)//".dat", "u")
        do i=1, coop_zeta_nr
           write(fp%unit) shells(i)%alm_real
-          call shells(i)%map_project(fnl, lmax, hm%alm(0:lmax, 0:lmax, 1), trans(1, i, 0:lmax)*coop_zeta_dr(i))
-          call shells(i)%map_project(fnl, lmax, hm%alm(0:lmax, 0:lmax, 2), trans(2, i, 0:lmax)*coop_zeta_dr(i))
+          call shells(i)%map_project(fnl, lmax, hm%alm(0:lmax, 0:lmax, 1), trans(i, 1, 0:lmax)*coop_zeta_dr(i))
+          call shells(i)%map_project(fnl, lmax, hm%alm(0:lmax, 0:lmax, 2), trans(i, 2, 0:lmax)*coop_zeta_dr(i))
           call shells(i)%free()
        enddo
        call fp%close()
