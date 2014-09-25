@@ -165,7 +165,7 @@ contains
     COOP_INT:: ns
     type(coop_zeta_shell)::shells(ns)
     COOP_REAL,dimension(:,:),allocatable::zlms
-    COOP_REAL,dimension(:),allocatable::r
+    COOP_REAL::r(ns)
     COOP_INT i, iend, lmm, istart, l
     do i=1, ns
        r(i) = shells(i)%r
@@ -188,7 +188,7 @@ contains
           shells(i)%alm_real(l**2+1:(l+1)**2) = zlms(-l:l, i)
        enddo
     enddo
-    deallocate(r, zlms)
+    deallocate(zlms)
   end subroutine coop_generate_3Dzeta
 
 !!$mapping 3D zeta to CMB alms
