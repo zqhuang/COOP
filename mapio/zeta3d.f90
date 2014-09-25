@@ -20,9 +20,9 @@ contains
     call cosmology%compute_source(0)
     call coop_set_default_zeta_r(cosmology, cosmology%source(0))
     allocate(trans(cosmology%source(0)%nsrc, coop_zeta_nr, 2:lmax))
-    if(coop_file_exists(trim(prefix)//"_trans.dat"))then
+    if(coop_file_exists(trim(prefix)//"_trans_"//COOP_STR_OF(lmax)//".dat"))then
        call coop_feedback("Reading transfer data file.")
-       call fp%open(trim(prefix)//"_trans.dat", "u")
+       call fp%open(trim(prefix)//"_trans_"//COOP_STR_OF(lmax)//".dat", "u")
        read(fp%unit) m1, m2, m3
        if(m1 .eq. cosmology%source(0)%nsrc .and. m2.eq.coop_zeta_nr .and. m3.eq.lmax)then
           read(fp%unit) trans
@@ -41,7 +41,7 @@ contains
           call coop_get_zeta_trans_l(cosmology%source(0),  l, coop_zeta_nr, coop_zeta_r, trans(:,:,l))
        enddo
        !$omp end parallel do
-       call fp%open(trim(prefix)//"_trans.dat", "u")
+       call fp%open(trim(prefix)//"_trans_"//COOP_STR_OF(lmax)//".dat", "u")
        write(fp%unit)  cosmology%source(0)%nsrc, coop_zeta_nr, lmax
        write(fp%unit) trans
        call fp%close()
@@ -60,7 +60,7 @@ contains
 
     if(coop_file_exists(trim(prefix)//"_3D_"//COOP_STR_OF(lmax)//".dat"))then
        call coop_feedback("Reading 3D file.")
-       call fp%open(trim(prefix)//"_3D.dat", "u")
+       call fp%open(trim(prefix)//"_3D_"//COOP_STR_OF(lmax)//".dat", "u")
        do i=1, coop_zeta_nr
           call shells(i)%map_project(fnl, lmax, hm%alm(0:lmax, 0:lmax, 1), trans(1, i, 0:lmax)*coop_zeta_dr(i))
           call shells(i)%map_project(fnl, lmax, hm%alm(0:lmax, 0:lmax, 2), trans(2, i, 0:lmax)*coop_zeta_dr(i))
