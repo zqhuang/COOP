@@ -66,7 +66,7 @@ contains
        end do
        s(i:i+1) =  v * dsqrt(-2.d0*dlog(r)/r)
     enddo
-    if(i+1.lt.n)then
+    if(mod(n,2).ne.0)then
        call random_number(v)
        v = 2.d0*v - 1.d0
        r=v(1)**2 + v(2)**2
