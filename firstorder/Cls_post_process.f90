@@ -31,7 +31,7 @@ module coop_cls_postprocess_mod
 
      
 
-  public::coop_generate_3dzeta_file, coop_generate_3dzeta, coop_load_2Dzeta, coop_get_zeta_shells_cov,  coop_get_zeta_trans_l, coop_zeta_r, coop_zeta_nr,  coop_set_default_zeta_r, coop_zeta_dr, coop_zeta_shell
+  public::coop_generate_3dzeta, coop_get_zeta_shells_cov,  coop_get_zeta_trans_l, coop_zeta_r, coop_zeta_nr,  coop_set_default_zeta_r, coop_zeta_dr, coop_zeta_shell
 
 contains
 
@@ -172,7 +172,7 @@ contains
           cov(i, j) = cosmology%Clzetazeta(l, r(i), r(j))
           cov(j, i) = cov(i, j)
        enddo
-       cov(i, i) = cosmology%Clzetazeta(l, r(i))
+       cov(i, i) = cosmology%Clzetazeta(l, r(i))+1.d-20  !!add small tiny number for stability
     enddo
     !$omp end parallel do
 
