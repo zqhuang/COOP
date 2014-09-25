@@ -82,13 +82,15 @@ contains
        enddo
        call fp%close()
     endif
+    hm%alm = hm%alm * 1.e6  !!switch to muK
     call hm%get_Cls()
     call fp%open(trim(prefix)//"_"//COOP_STR_OF(lmax)//"_Cls.txt")
     do l = 2, hm%lmax
-       write(fp%unit, "(I5, 10E16.7)") l, hm%Cl(l, :)
+       write(fp%unit, "(I5, 10E16.7)") l, hm%Cl(l, :)*(l+1.)*l/coop_2pi * (2.726)**2
     enddo
     call fp%close()
     call hm%alm2map()
+
     call hm%write(trim(prefix)//"_"//COOP_STR_OF(lmax)//"_EB.fits")
     call hm%free()
     deallocate(trans, shells)
