@@ -17,15 +17,16 @@ program test
 
   !!compute the scalar source
   call fod%compute_source(m=0)
-
+  
+  print*, "n_chi = ", fod%source(0)%ntau
   !!compute the Cl's
-!!$  call coop_prtSystime(.true.)
-!!$  call fod%source(0)%get_All_Cls(2, 2500, Cls)
-!!$  call coop_prtSystime()
+  call coop_prtSystime(.true.)
+  call fod%source(0)%get_All_Cls(2, 2500, Cls)
+  call coop_prtSystime()
 
 
-  stop
-  call fp%open('Cls.txt', 'w')
+
+  call fp%open('Cls2.txt', 'w')
   norm = 2.726**2*1.d12
   do l=2, 2500
      write(fp%unit, "(I5, 20E16.7)") l, Cls(:, l)*(l*(l+1.d0)/coop_2pi*norm)

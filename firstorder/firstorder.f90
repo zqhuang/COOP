@@ -19,11 +19,10 @@ private
   COOP_REAL, parameter :: coop_cosmology_firstorder_tc_cutoff = 0.005d0
 
 
-  COOP_REAL, dimension(0:2), parameter::coop_source_tau_weight = (/ 0.45d0, 0.4d0, 0.3d0 /)
-  COOP_INT, dimension(0:2), parameter::coop_source_tau_n = (/ 850, 800, 750 /)
+  COOP_REAL, dimension(0:2), parameter::coop_source_tau_step_factor = (/ 1.d0, 1.d0, 1.d0 /)
   COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
-  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 150, 120, 80 /)
-  COOP_REAL, parameter::coop_source_k_index = 0.48d0
+  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 130, 120, 80 /)
+  COOP_REAL, parameter::coop_source_k_index = 0.45d0
   COOP_INT, parameter:: coop_k_dense_fac = 30
 
 
@@ -68,7 +67,7 @@ private
   
   type, extends(coop_cosmology_background) :: coop_cosmology_firstorder
      logical::do_reionization = .true.
-     COOP_REAL::zrecomb, distlss, tau0
+     COOP_REAL::zrecomb, distlss, tau0, zrecomb_start, maxvis, taurecomb, arecomb, zrecomb_end
      COOP_REAL::optre = 0.07d0
      COOP_REAL::zre = 8.d0
      COOP_REAL::deltaz = 1.5d0
@@ -658,7 +657,20 @@ contains
     vis = dkappadtau*ekappa
     call this%ekappa%init(n = n, xmin = a(1), xmax = a(n), f = ekappa, xlog = .true., ylog = .true., fleft = ekappa(1), fright = ekappa(n), check_boundary = .false.)
     call this%vis%init(n = n, xmin = a(1), xmax = a(n), f = vis, xlog = .true., ylog = .true., fleft = vis(1), fright = vis(n), check_boundary = .false.)
-    this%zrecomb = 1.d0/this%vis%maxloc() - 1.d0
+    this%arecomb =this%vis%maxloc()
+    this%zrecomb = 1.d0/this%arecomb - 1.d0
+    this%taurecomb = this%tauofa(this%arecomb)
+    this%maxvis = this%vis%eval(1.d0/(1.d0+this%zrecomb))
+    this%zrecomb_start = this%zrecomb+30.d0
+    do while(this%vis%eval(1.d0/(this%zrecomb_start+1.d0))/this%maxvis .gt. 1.d-4 .and. this%zrecomb_start .lt. 2.d4)
+       this%zrecomb_start = this%zrecomb_start + 30.d0
+    enddo
+
+    this%zrecomb_end = this%zrecomb - 10.d0
+    do while(this%vis%eval(1.d0/(this%zrecomb_end+1.d0))/this%maxvis .gt. 1.d-3 .and. this%zrecomb_end .gt. 100.d0)
+       this%zrecomb_end = this%zrecomb_end  - 10.d0      
+    enddo
+
     this%distlss = this%comoving_distance(1.d0/(1.d0+this%zrecomb))
     this%tau0 = this%conformal_time(coop_scale_factor_today)
     
@@ -742,14 +754,154 @@ contains
   end function coop_cosmology_firstorder_dkappada
 
 
-  subroutine coop_cosmology_firstorder_set_source_tau(this, source, n, weight)
-    COOP_REAL, parameter::incr = 1.05d0
-    COOP_INT::nbuffer = 35
-    COOP_INT n, i, j
-    COOP_REAL  top(n), dtop, amax, amin, amid, topmax, topmin, topmid, weight, taucut, acut
+  subroutine coop_cosmology_firstorder_set_source_tau(this, source, step_factor)
     class(coop_cosmology_firstorder_source)::source
     class(coop_cosmology_firstorder)::this
-    if(n.lt. nbuffer+10) stop "n is too small for set_source_tau"
+    COOP_REAL step_factor
+    !!basic stepsize
+    COOP_REAL,parameter::step_ini = 8.2d-4
+    COOP_REAL,parameter::step_min = 6.3d-4
+    COOP_REAL,parameter::step_recend = 9.6d-4
+    COOP_REAL,parameter::step_reion = 1.3d-3
+    COOP_REAL,parameter::step_early = 1.5d-3
+    COOP_REAL,parameter::step_late = 2.1d-2
+    COOP_REAL,parameter::step_isw = 1.4d-2
+    COOP_INT,parameter::nmax = 16384
+    COOP_REAL, parameter::a_factor = 1.05d0
+    COOP_REAL, parameter::vary = 1.05d0
+    COOP_REAL, parameter::slowvary = 1.02d0
+    COOP_REAL step
+    COOP_REAL a(nmax), tau(nmax), aend, tautmp
+    COOP_INT i, n
+
+
+
+    n = 1
+    aend = 1.d0/(1.d0+this%zrecomb_start)
+    a(n) = aend/2.5d0
+    tau(n) = this%tauofa(a(n))
+    step = step_ini
+
+    do while(a(n).lt. aend)
+       n =n+1
+       if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
+       a(n) = a(n-1) * a_factor
+       tau(n) = tau(n-1) + step*step_factor
+       tautmp = this%tauofa(a(n))
+       if(tautmp .lt. tau(n))then
+          tau(n) = tautmp
+       else
+          a(n) = this%aoftau(tau(n))
+       endif
+    enddo
+
+    aend = 1.d0/(1.d0+this%zrecomb)
+    do while(a(n).lt. aend)
+       n =n+1
+       if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
+       a(n) = a(n-1) * a_factor
+       tau(n) = tau(n-1) + step*step_factor
+       tautmp = this%tauofa(a(n))
+       if(tautmp .lt. tau(n))then
+          tau(n) = tautmp
+       else
+          a(n) = this%aoftau(tau(n))
+       endif
+       step = max(step_min, step/slowvary)
+    enddo
+
+    aend = 1.d0/(1.d0+this%zrecomb_end - 100.d0)
+    do while(a(n) .lt. aend)
+       n =n+1
+       if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
+       a(n) = a(n-1) * a_factor
+       tau(n) = tau(n-1) + step*step_factor
+       tautmp = this%tauofa(a(n))
+       if(tautmp .lt. tau(n))then
+          tau(n) = tautmp
+       else
+          a(n) = this%aoftau(tau(n))
+       endif
+       step = min(step_recend, step*slowvary)
+    enddo
+    
+
+    if(this%optre.gt.0.01d0)then
+       aend = min(1.d0/(1.d0 + this%zre + this%deltaz), 0.5d0)
+       do while(a(n) .lt. aend)
+          n =n+1
+          if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
+          a(n) = a(n-1) * a_factor
+          tau(n) = tau(n-1) + step*step_factor
+          tautmp = this%tauofa(a(n))
+          if(tautmp .lt. tau(n))then
+             tau(n) = tautmp
+          else
+             a(n) = this%aoftau(tau(n))
+          endif
+          step = min(step_early, step*slowvary)
+       enddo
+
+       aend = min(1.d0/(1.d0 + this%zre), 0.5d0)
+       do while(a(n) .lt. aend)
+          n =n+1
+          if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
+          a(n) = a(n-1) * a_factor
+          tau(n) = tau(n-1) + step*step_factor
+          tautmp = this%tauofa(a(n))
+          if(tautmp .lt. tau(n))then
+             tau(n) = tautmp
+          else
+             a(n) = this%aoftau(tau(n))
+          endif
+          step = max(step_reion, step/vary)
+       enddo
+
+       aend = min(1.d0/(1.d0 + this%zre-this%deltaz), 0.5d0)
+       do while(a(n) .lt. aend)
+          n =n+1
+          if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
+          a(n) = a(n-1) * a_factor
+          tau(n) = tau(n-1) + step*step_factor
+          tautmp = this%tauofa(a(n))
+          if(tautmp .lt. tau(n))then
+             tau(n) = tautmp
+          else
+             a(n) = this%aoftau(tau(n))
+          endif
+          step = min(step_early, step*vary)
+       enddo
+    endif
+
+
+    do while((1.d0-this%Omega_m) * a(n)**3 .lt. 0.1d0) 
+       n =n+1
+       if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
+       tau(n) = tau(n-1) + step*step_factor
+       if(tau(n) .lt. 0.989*this%tau0)then
+          a(n) = this%aoftau(tau(n))
+          step = min(step_late, step*vary)
+       else
+          tau(n) = 0.99d0*this%tau0
+          a(n) = this%aoftau(tau(n))
+          exit
+       endif
+    enddo
+
+    do 
+       n =n+1
+       if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
+       tau(n) = tau(n-1) + step*step_factor
+       if(tau(n) .lt. 0.989*this%tau0)then
+          a(n) = this%aoftau(tau(n))
+          step = max(step_isw, step/vary)
+       else
+          tau(n) = 0.99d0*this%tau0
+          a(n) = this%aoftau(tau(n))
+          exit
+       endif
+    enddo
+
     source%ntau = n
     if(allocated(source%a))then
        if(size(source%a).ne.n)then
@@ -759,62 +911,21 @@ contains
     else
        allocate(source%a(n), source%tau(n), source%dtau(n), source%chi(n),  source%tauc(n), source%lna(n))
     endif
-    amin = 1.d0/(1.d0+this%zrecomb)
-    do while(this%visofa(amin).gt. 1.)
-       amin = amin/1.02d0
-    enddo
-    topmin = this%tau0*(1.d0-weight)*this%ekappaofa(amin)+weight*this%tauofa(amin)
-    dtop = (this%tau0 -topmin) / (n - nbuffer)
-    do i= nbuffer+1, n
-       top(i) = topmin + dtop*(i-nbuffer-0.5d0)
-    enddo
-    do i=nbuffer+1, n
-       amax = amin*incr
-       topmax = this%ekappaofa(amax)*(1.d0-weight)*this%tau0 + weight*this%tauofa(amax)
-       do while( topmax .lt. top(i))
-          amin = amax
-          topmin = topmax
-          amax = amax*incr
-          if(amax .ge. coop_scale_factor_today)then
-             amax = coop_scale_factor_today
-             topmax = this%tau0
-             exit
-          endif
-          topmax = this%ekappaofa(amax)*(1.d0-weight)*this%tau0 + weight*this%tauofa(amax)
-       enddo
-       do while((amax-amin)/amin .gt. 1.d-7)
-          amid = (amin+amax)/2.d0
-          topmid = this%ekappaofa(amid)*(1.d0-weight)*this%tau0 + weight*this%tauofa(amid)
-          if(topmid .gt. top(i))then
-             amax = amid
-             topmax = topmid
-          else
-             amin = amid
-             topmin = topmid
-          endif
-       enddo      
-       source%a(i) = amid + (top(i)-topmid)/((weight+(1.d0-weight)*this%tau0*this%visofa(amid))/this%dadtau(amid))
-       source%tau(i) = this%tauofa(source%a(i))
-       source%dtau(i) = dtop/(weight+(1.d0-weight)*this%tau0*this%visofa(source%a(i)))
-       source%tauc(i) = this%taucofa(source%a(i))
-    enddo
-
-    do i=nbuffer, 1, -1
-       source%a(i) = source%a(i+1)*0.976d0
-       source%tau(i) = this%conformal_time(source%a(i))
-       source%tauc(i) = this%taucofa(source%a(i))
-    enddo
-    source%dtau(1) = source%tau(2)/2.d0
-
-    do i=2, nbuffer+1
+    source%a = a(1:n)
+    source%tau = tau(1:n)
+    source%dtau(1) = source%tau(2) - source%tau(1)
+    do i = 2, n-1
        source%dtau(i) = (source%tau(i+1) - source%tau(i-1))/2.d0
     enddo
+    source%dtau(n) = source%tau(n) - source%tau(n-1)
     source%chi = this%tau0 - source%tau
     source%lna = log(source%a)
-    source%index_tc_max = 1
-    do while( source%index_tc_max .lt. source%ntau - 1 .and. source%tauc(source%index_tc_max+1) .le. coop_cosmology_firstorder_tc_cutoff * source%tau(source%index_tc_max+1) )
-       source%index_tc_max = source%index_tc_max+1
+    !$omp parallel do
+    do i=1, n
+       source%tauc(i) = this%taucofa(source%a(i))
     enddo
+    !$omp end parallel do
+
   end subroutine coop_cosmology_firstorder_set_source_tau
 
 
@@ -970,7 +1081,7 @@ contains
     COOP_INT :: m
     this%source(m)%m = m
     this%source(m)%nsrc = coop_num_sources(m)
-    call this%set_source_tau(this%source(m), coop_source_tau_n(m), coop_source_tau_weight(m))
+    call this%set_source_tau(this%source(m), coop_source_tau_step_factor(m))
 
     call this%set_source_k(this%source(m), coop_source_k_n(m), coop_source_k_weight(m))
 

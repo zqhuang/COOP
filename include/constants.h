@@ -9,6 +9,7 @@
 #define COOP_SINGLE  real(coop_single_real_length)
 #define COOP_REAL_ARRAY  real(coop_real_length),dimension(coop_default_array_size)
 #define COOP_COMPLEX complex(coop_complex_length)
+#define COOP_SINGLE_COMPLEX complex(coop_single_complex_length)
 #define COOP_COMPLEX_ARRAY  complex(coop_complex_length),dimension(coop_default_array_size)
 #define COOP_STRING character(len=coop_string_length)
 #define COOP_SHORT_STRING character(len=coop_short_string_length)

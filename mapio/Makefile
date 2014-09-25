@@ -5,7 +5,7 @@ include ../configure.in
 include ../compile_rules.in
 
 LIB = libcoopmapio.a
-OBJ = sphere.o readfits.o fitswrap.o healgeo.o
+OBJ = sphere.o readfits.o fitswrap.o healgeo.o zeta3d.o
 
 default: $(LIB)
 
@@ -84,7 +84,10 @@ FSim:	 $(OBJ) flat_sim.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_sim.o $(LINK)
 
 FMerge:	 $(OBJ) flat_merge.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_merge.o $(LINK)	
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_merge.o $(LINK)
+
+Shells: $(OBJ) shells.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) shells.o $(LINK)	
 
 clean:
 	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP HSM InpEB InpT Ena Asym TrimC GetCl QEB MultStack HSL
