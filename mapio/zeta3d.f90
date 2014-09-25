@@ -40,6 +40,7 @@ contains
        !$omp parallel do
        do l=2, lmax
           call coop_get_zeta_trans_l(cosmology%source(0),  l, coop_zeta_nr, coop_zeta_r, trans(:,:,l))
+          trans(:,2,l) = trans(:,2,l)*sqrt((l+2.)*(l+1.)*l*(l-1.))
        enddo
        !$omp end parallel do
        call fp%open(trim(prefix)//"_trans_"//COOP_STR_OF(lmax)//".dat", "u")
