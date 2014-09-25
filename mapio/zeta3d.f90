@@ -63,6 +63,7 @@ contains
        call coop_feedback("Reading 3D file.")
        call fp%open(trim(prefix)//"_3D_"//COOP_STR_OF(lmax)//".dat", "u")
        do i=1, coop_zeta_nr
+          read(fp%unit) shells(i)%alm_real
           call shells(i)%map_project(fnl, lmax, hm%alm(0:lmax, 0:lmax, 1), trans(i, 1, 0:lmax)*coop_zeta_dr(i))
           call shells(i)%map_project(fnl, lmax, hm%alm(0:lmax, 0:lmax, 2), trans(i, 2, 0:lmax)*coop_zeta_dr(i))
           call shells(i)%free()
