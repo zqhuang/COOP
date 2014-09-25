@@ -1,6 +1,9 @@
 SHELL = /bin/sh
 TYPEDEF=../typedef
 UTILS=../utils
+BACKGROUND=../background
+FIRSTORDER=../firstorder
+
 include ../configure.in
 include ../compile_rules.in
 
@@ -90,7 +93,7 @@ Shells: $(OBJ) shells.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) shells.o $(LINK)	
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP HSM InpEB InpT Ena Asym TrimC GetCl QEB MultStack HSL
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP HSM InpEB InpT Ena Asym TrimC GetCl QEB MultStack HSL Shells
 
 
 test.o: $(LIB)

@@ -24,6 +24,7 @@ module coop_cls_postprocess_mod
      COOP_REAL::r
      COOP_SINGLE,dimension(:),allocatable::alm_real
    contains
+     procedure::free=>coop_zeta_shell_free
      procedure::map_project => coop_zeta_shell_map_project
      procedure::set_lmax => coop_zeta_shell_set_lmax
   end type coop_zeta_shell
@@ -34,12 +35,18 @@ module coop_cls_postprocess_mod
 
 contains
 
+  subroutine coop_zeta_shell_free(shell)
+    class(coop_zeta_shell)::shell
+    if(allocated(shell%alm_real))deallocate(shell%alm_real)
+    shell%lmax = -1
+  end subroutine coop_zeta_shell_free
+
   subroutine coop_zeta_shell_map_project(shell, fnl, lmax, alm_total, weight)
     class(coop_zeta_shell)::shell
     external fnl
     COOP_INT lmax, l, m
-    COOP_REAL weight
-    real alm_total(0:lmax, 0:lmax)
+    COOP_REAL weight(0:lmax)
+    complex alm_total(0:lmax, 0:lmax)
 #ifdef HAS_HEALPIX
     real, dimension(:),allocatable::map
     integer npix, nside, i
@@ -50,7 +57,8 @@ contains
     enddo
     npix = 12*nside**2
     allocate(alms(0:shell%lmax, 0:shell%lmax, 1), map(0:npix-1))
-    do l=0, shell%lmax
+    alms = 0.
+    do l=2, shell%lmax
        alms(l, 0, 1) = cmplx(shell%alm_real(l*l+1), 0.)
        do m=1, l
           alms(l, m, 1) = cmplx(shell%alm_real(l*l+m*2)/coop_sqrt2, shell%alm_real(l*l+m*2+1)/coop_sqrt2 )
@@ -61,7 +69,10 @@ contains
        call fnl(map(i))
     enddo
     call map2alm(nside, shell%lmax, shell%lmax, map, alms)
-    alm_total(0:shell%lmax, 0:shell%lmax) =  alm_total(0:shell%lmax, 0:shell%lmax) +  alms(:, :, 1)*weight
+    do l=0, shell%lmax
+       alm_total(0:l, l) =   alm_total(0:l, l) + alms(0:l, l, 1)*weight(l)
+    enddo
+
     deallocate(alms, map)
 #else
     call coop_return_error("zeta_shell_map_project", "Cannot find Healpix", "stop")
@@ -73,6 +84,7 @@ contains
   subroutine coop_zeta_shell_set_lmax(shell, lmax)
     class(coop_zeta_shell)::shell
     COOP_INT lmax
+    shell%lmax = lmax
     if(allocated(shell%alm_real))then
        if(  size(shell%alm_real) .ne. (lmax+1)**2 )then
           deallocate(shell%alm_real)
@@ -174,6 +186,11 @@ contains
     COOP_REAL,dimension(:,:),allocatable::zlms
     COOP_INT i, iend, lmm, istart, l
     lmm = shells(1)%lmax
+    do i = 2, ns
+       if(shells(i)%lmax .gt. shells(i-1)%lmax)then
+          stop "lmax must be decreasing order"
+       endif
+    enddo
     allocate(zlms(-lmm:lmm, ns))
     istart = 1
     iend = ns
