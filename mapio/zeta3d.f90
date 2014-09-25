@@ -82,8 +82,14 @@ contains
        enddo
        call fp%close()
     endif
+    call hm%get_Cls()
+    call fp%open(trim(prefix)//"_"//COOP_STR_OF(lmax)//"_Cls.txt")
+    do l = 2, hm%lmax
+       write(fp%unit, "(I5, 10E16.7)") l, hm%Cl(l, :)
+    enddo
+    call fp%close()
     call hm%alm2map()
-    call hm%write(trim(prefix)//"_fnl_EB.fits")
+    call hm%write(trim(prefix)//"_"//COOP_STR_OF(lmax)//"_EB.fits")
     call hm%free()
     deallocate(trans, shells)
   end subroutine coop_3d_generate_cmb
