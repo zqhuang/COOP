@@ -286,7 +286,7 @@ contains
 
 
   subroutine coop_get_zeta_trans_l(source, l, nr, r, trans)
-    COOP_INT,parameter::n_threads = 8
+    COOP_INT,parameter::n_threads = 16
     type(coop_cosmology_firstorder_source)::source
     COOP_INT l, ik, ir, ichi, idense, isrc, i, nr, lasti, ithread
     COOP_REAL::r(nr), trans(nr, source%nsrc)
