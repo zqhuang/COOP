@@ -748,21 +748,35 @@ contains
     else
        select case(this%nmaps)
        case(3)
-          this%spin = 0
-          this%spin(2:3) = 2
-          this%iq = 2
-          this%iu = 3
-          write(*,*) this%nmaps, " for nmaps = 3 I assume it is an IQU map, specify spins otherwise"
+          if(index(filename, "TEB") .eq. 0 .and. index(filename, "teb") .eq. 0)then
+             this%spin(1) = 0
+             this%spin(2:3) = 2
+             this%iq = 2
+             this%iu = 3
+             write(*,*) "I assume it is an IQU map, specify spins otherwise"
+          else
+             this%spin = 0
+             this%iq = 0
+             this%iu = 0
+             write(*,*) "I assume all maps are scalar, specify spins otherwise"
+          endif
        case(2)  
-          this%spin(1:2) = 2
-          this%iq = 1
-          this%iu = 2
-          write(*,*) this%nmaps, " for nmaps = 2 I assume it is an QU map, specify spins otherwise"
+          if(index(filename, "TE") .eq. 0 .and. index(filename, "EB").eq.0)then
+             this%spin(1:2) = 2
+             this%iq = 1
+             this%iu = 2
+             write(*,*) "I assume it is an QU map, specify spins otherwise"
+          else
+             this%iq = 0
+             this%iu = 0
+             this%spin = 0
+             write(*,*) "I assume all maps are scalar, specify spins otherwise"
+          endif
        case default
           this%iq = 0
           this%iu = 0
           this%spin = 0
-          write(*,*) this%nmaps, " for nmaps !=2,3  I assume all maps are scalar, specify spins otherwise"
+          write(*,*) "I assume all maps are scalar, specify spins otherwise"
        end select
     endif
     if(allocated(this%map))then
