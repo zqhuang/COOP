@@ -2331,7 +2331,10 @@ contains
     case default
        call map%read(trim(map_file))
     end select
-    if(present(filter_fwhm)) call map%smooth(filter_fwhm)
+    if(present(filter_fwhm))then
+       if(abs(filter_fwhm) .gt. 1.d-3) &
+            call map%smooth(filter_fwhm)
+    endif
     if(present(mask_file)) call mask%read(mask_file, nmaps_wanted = 1)
     if(present(threshold))then
        if(present(mask_file))then

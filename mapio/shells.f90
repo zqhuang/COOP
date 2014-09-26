@@ -17,7 +17,7 @@ program shells
   COOP_REAL::mean_chi = 5.9d-6
   COOP_REAL::gp_width = 3.
   COOP_REAL::gp_A = 5.e-5
-  COOP_REAL::gp_mean = 10.
+  COOP_REAL::gp_mean = 12.
   COOP_INT:: i, j
 
   call coop_file_load_function("deltaN-LUT-1.875", 1, 2, deltaN, .false.)
@@ -31,9 +31,10 @@ program shells
      call coop_zeta3d_generate_cmb( cosmology, fnl, 300, 256, "zetaproj/testmap", "zetaproj/gp_meanchi"//COOP_STR_OF(nint(mean_chi*1.e7))//"_sigmachi"//COOP_STR_OF(nint(sigma_chi*1.e7)) )
   enddo
 #else
-  do i=0, 12, 2
+  do i=1, 6
      print*, i
-     gp_mean = i
+     if(i.eq.3)cycle
+     gp_width = i
      call coop_zeta3d_generate_cmb( cosmology, fnl, 300, 256, "zetaproj/testmap", "zetaproj/gs_amp"//COOP_STR_OF(nint(1.e6*gp_A))//"_mean"//COOP_STR_OF(nint(gp_mean))//"_width"//COOP_STR_OF(nint(gp_width)) )
   enddo
 #endif
