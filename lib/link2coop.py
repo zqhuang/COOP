@@ -201,12 +201,12 @@ if index_H0 == 0:
 
 baseini = 'my_base.ini'
 
-if(not os.path.isfile(baseini):
-   if(os.path.isfile("test.ini"):
-      os.system('cp test.ini '+baseini)
+if(not os.path.isfile(baseini)):
+    if(os.path.isfile("test.ini")):
+        os.system('cp test.ini '+baseini)
     else:
-      print "test.ini file does not exist."
-      sys.exit()
+        print "test.ini file does not exist."
+        sys.exit()
 
 
 batch_dir = search_value(baseini, r'^DEFAULT\((\w+)\/[\w_]*common[\w_]*\.ini\)\s*$')
