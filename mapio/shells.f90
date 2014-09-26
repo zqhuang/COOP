@@ -21,7 +21,7 @@ program shells
   call cosmology%Set_Planck_bestfit()
   call cosmology%compute_source(0)
   call coop_feedback("source done")
-  do i=0, 60
+  do i= 0 , 60, 5
      mean_chi = i*1.d-7
      write(*,*) "<chi> = ", mean_chi
      call coop_zeta3d_generate_cmb( cosmology, fnl, 300, 256, "zetaproj/testmap", "zetaproj/gp_meanchi"//COOP_STR_OF(nint(mean_chi*1.e7))//"_sigmachi"//COOP_STR_OF(nint(sigma_chi*1.e7)) )
@@ -29,9 +29,11 @@ program shells
 
 contains
 
+  !!define the fnl function of zeta; my convention of \zeta is:  \zeta = - \delta N (this determines the relative sign between \zeta and \Phi when I set up initial conditions in the Boltzmann code).
+
   subroutine fnl(x)
     real x
-    x = deltaN%eval(abs(mean_chi+x/sigma_zeta*sigma_chi))
+    x = - deltaN%eval(abs(mean_chi+x/sigma_zeta*sigma_chi))  
     return
   end subroutine fnl
 
