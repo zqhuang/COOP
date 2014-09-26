@@ -7,7 +7,7 @@ module coop_file_mod
 
 private
 
-public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_create_directory, coop_delete_directory, coop_file_numcolumns, coop_file_numlines, coop_load_dictionary, coop_free_file_unit, coop_file_exists, coop_file_encrypt, coop_file_decrypt, coop_string_encrypt, coop_string_decrypt
+public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_create_directory, coop_delete_directory, coop_file_numcolumns, coop_file_numlines, coop_load_dictionary, coop_free_file_unit, coop_file_exists, coop_file_encrypt, coop_file_decrypt, coop_string_encrypt, coop_string_decrypt, coop_file_load_function
 
   character,parameter::text_comment_symbol = "#"
 
@@ -36,6 +36,63 @@ public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_crea
   end interface coop_file
 
 contains
+
+  subroutine coop_file_load_function(fname, col1, col2, func, check_boundary)
+    COOP_UNKNOWN_STRING fname
+    type(coop_file)fp
+    logical check_boundary, xlog, ylog
+    COOP_INT col1, col2, nrows, ncols, i
+    type(coop_function)::func
+    COOP_REAL,dimension(:),allocatable::x, f, line
+    COOP_REAL::meanx, meanf
+    if(.not.coop_file_exists(fname))call coop_return_error("file_load_function","file "//trim(fname)//" does not exists", "stop")
+    ncols = coop_file_NumColumns(fname)
+    if(ncols .lt. col1 .or. ncols .lt. col2) call coop_return_error("file_load_function","Missing column", "stop")
+    nrows = coop_file_NumLines(fname)
+    if(nrows.le.1) call coop_return_error("file_load_function","Missing column", "stop")
+    allocate(x(nrows), f(nrows), line(ncols))
+    call fp%open(fname, "r")
+    do i=1, nrows
+       read(fp%unit, *, ERR=100) line
+       x(i) = line(col1)
+       f(i) = line(col2)
+    enddo
+    call fp%close()
+    meanx= sum(x)/nrows
+    meanf = sum(f)/nrows
+    xlog = all(x.gt.0.d0) .and. (count(x.lt.meanx) .gt. (nrows*4/5))
+    ylog = all(f.gt.0.d0) .and. (count(f.lt.meanf).gt. (nrows*4/5))
+    if(xlog)then
+       if(is_uniform(nrows, log(x)))then
+          call func%init(n=nrows, xmin=x(1), xmax=x(nrows),f=f, check_boundary = check_boundary, xlog=xlog, ylog=ylog)
+          return
+       endif
+    else
+       if(is_uniform(nrows, x))then
+          call func%init(n=nrows, xmin=x(1), xmax=x(nrows),f=f, check_boundary = check_boundary, xlog=xlog, ylog=ylog)
+          return
+       endif
+    endif
+    call func%init_NonUniform(x = x, f=f,  xlog=xlog, ylog=ylog, check_boundary = check_boundary)
+    return
+100 call coop_return_error("file_load_function","Missing row", "stop")
+
+  contains
+    function is_uniform(n, a)
+      COOP_INT n, i
+      logical is_uniform
+      COOP_REAL a(n), da
+      da = a(2)-a(1)
+      do i=3, n
+         if(abs((a(i)-a(i-1))/da-1.d0).gt. 1.d-4)then
+            is_uniform=.false.
+            return
+         endif
+      enddo
+      is_uniform  = .true.
+      return
+    end function is_uniform
+  end subroutine coop_file_load_function
   
   function coop_free_file_unit() result(lun)
     COOP_INT lun

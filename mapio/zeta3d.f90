@@ -7,10 +7,11 @@ module coop_zeta3d_mod
 
 contains
 
-  subroutine coop_3d_generate_cmb(cosmology, fnl, lmax, nside, prefix)
+  subroutine coop_3d_generate_cmb(cosmology, fnl, lmax, nside, prefix, mapprefix)
     class(coop_cosmology_firstorder)::cosmology
     external fnl
     COOP_UNKNOWN_STRING::prefix
+    COOP_UNKNOWN_STRING::mapprefix
     COOP_REAL,dimension(:,:, :),allocatable::trans
     COOP_INT::l, lmax, nside, m1, m2, m3, i
     logical::need_compute
@@ -91,8 +92,7 @@ contains
     enddo
     call fp%close()
     call hm%alm2map()
-
-    call hm%write(trim(prefix)//"_"//COOP_STR_OF(lmax)//"_EB.fits")
+    call hm%write(trim(mapprefix)//"_"//COOP_STR_OF(lmax)//"_TE.fits")
     call hm%free()
     deallocate(trans, shells)
   end subroutine coop_3d_generate_cmb

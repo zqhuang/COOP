@@ -20,8 +20,8 @@ module coop_function_mod
      COOP_REAL, dimension(:), allocatable::f, f2, f1
    contains
      procedure::set_boundary => coop_function_set_boundary
-     procedure::init => coop_function_initialize
-     procedure::init_NonUniform => coop_function_initialize_NonUniform
+     procedure::init => coop_function_init
+     procedure::init_NonUniform => coop_function_init_NonUniform
      procedure::eval => coop_function_evaluate  
      procedure::eval_bare => coop_function_evaluate_bare !!without log scaling
      procedure::derivative_bare => coop_function_derivative_bare !!without log scaling
@@ -143,7 +143,7 @@ contains
   end subroutine coop_function_free
 
 
-  subroutine coop_function_initialize_NonUniform(this, x, f, xlog, ylog)
+  subroutine coop_function_init_NonUniform(this, x, f, xlog, ylog, check_boundary)
     class(coop_function):: this
     logical, optional::xlog, ylog
     COOP_REAL,dimension(:),intent(IN):: x, f
@@ -152,6 +152,7 @@ contains
     COOP_REAL_ARRAY::xx, ff
     COOP_REAL :: xc(size(x)), fc(size(f)), fc2(size(f)), res
     logical do_spline
+    logical,optional::check_boundary
     if(coop_isnan(f))then
        write(*,*) "Cannot construct the function type: found f = NAN within the specified range."
        stop
@@ -218,10 +219,14 @@ contains
        !$omp end parallel do
     endif
     call coop_spline_uniform(this%n, this%f, this%f2)
-    this%check_boundary = .true.
-  end subroutine coop_function_initialize_NonUniform
+    if(present(check_boundary))then
+       this%check_boundary = check_boundary
+    else
+       this%check_boundary = .true.
+    endif
+  end subroutine coop_function_init_NonUniform
 
-  subroutine coop_function_initialize(this, n, xmin, xmax, f, method, fleft, fright, slopeleft, sloperight, chebyshev_order, xlog, ylog, check_boundary)
+  subroutine coop_function_init(this, n, xmin, xmax, f, method, fleft, fright, slopeleft, sloperight, chebyshev_order, xlog, ylog, check_boundary)
     class(coop_function):: this
     logical, optional::xlog, ylog
     COOP_INT,intent(IN):: n
@@ -378,7 +383,11 @@ contains
     else
        this%check_boundary = .true.
     endif
-  end subroutine coop_function_initialize
+  end subroutine coop_function_init
+
+
+
+
 
   function coop_function_evaluate(this, x) result(f)
     class(coop_function):: this
