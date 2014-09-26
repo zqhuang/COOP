@@ -1,4 +1,4 @@
-module coop_zeta3d_mod
+Module coop_zeta3d_mod
   use coop_wrapper_firstorder
   use coop_healpix_mod
   implicit none
@@ -48,9 +48,9 @@ contains
        call coop_set_default_zeta_r(cosmology, cosmology%source(0))
        allocate(coop_zeta3d_trans(coop_zeta_nr, cosmology%source(0)%nsrc, 0:lmax))
        coop_zeta3d_trans = 0.d0
-       if(coop_file_exists(trim(prefix)//"_coop_zeta3d_trans_"//COOP_STR_OF(lmax)//".dat"))then
-          call coop_feedback("Reading coop_zeta3d_transfer data file.")
-          call fp%open(trim(prefix)//"_coop_zeta3d_trans_"//COOP_STR_OF(lmax)//".dat", "u")
+       if(coop_file_exists(trim(prefix)//"_trans_"//COOP_STR_OF(lmax)//".dat"))then
+          call coop_feedback("Reading transfer data file.")
+          call fp%open(trim(prefix)//"_trans_"//COOP_STR_OF(lmax)//".dat", "u")
           read(fp%unit) m1, m2, m3
           if(m1 .eq. cosmology%source(0)%nsrc .and. m2.eq.coop_zeta_nr .and. m3.eq.lmax)then
              read(fp%unit) coop_zeta3d_trans
@@ -63,14 +63,14 @@ contains
           need_compute = .true.
        endif
        if(need_compute)then
-          call coop_feedback("Computing coop_zeta3d_transfer function.")
+          call coop_feedback("Computing transfer function.")
           !$omp parallel do
           do l=2, lmax
-             call coop_get_zeta_coop_zeta3d_trans_l(cosmology%source(0),  l, coop_zeta_nr, coop_zeta_r, coop_zeta3d_trans(:,:,l))
+             call coop_get_zeta_trans_l(cosmology%source(0),  l, coop_zeta_nr, coop_zeta_r, coop_zeta3d_trans(:,:,l))
              coop_zeta3d_trans(:,2,l) = coop_zeta3d_trans(:,2,l)*sqrt((l+2.)*(l+1.)*l*(l-1.))
           enddo
           !$omp end parallel do
-          call fp%open(trim(prefix)//"_coop_zeta3d_trans_"//COOP_STR_OF(lmax)//".dat", "u")
+          call fp%open(trim(prefix)//"_trans_"//COOP_STR_OF(lmax)//".dat", "u")
           write(fp%unit)  cosmology%source(0)%nsrc, coop_zeta_nr, lmax
           write(fp%unit) coop_zeta3d_trans
           call fp%close()
@@ -96,7 +96,7 @@ contains
        else
           call coop_feedback("Generating 3D maps now")
           call coop_generate_3Dzeta(cosmology, coop_zeta_nr, coop_zeta3d_shells)
-          call coop_feedback("Projecting into a CMB map")
+!          call coop_feedback("Projecting into a CMB map")
           call fp%open(trim(prefix)//"_3D_"//COOP_STR_OF(lmax)//".dat", "u")
           do i=1, coop_zeta_nr
              write(fp%unit) coop_zeta3d_shells(i)%alm_real
