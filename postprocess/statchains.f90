@@ -253,8 +253,8 @@ contains
           mc%plotupper(ip) = mc%upper(ip)
           mc%plotlower(ip) = mc%lower(ip)
           mc%dx(ip) = 0.
-          mc%lowsig(:, ip) = mc%upper(ip)
-          mc%upsig(:, ip) = mc%upper(ip)
+          mc%lowsig(:, ip) = 0. !mc%upper(ip)
+          mc%upsig(:, ip) = 0. ! mc%upper(ip)
           mc%left_is_tail(ip) = .false.
           mc%right_is_tail(ip) = .false.
        else

@@ -235,11 +235,13 @@ contains
     case(COOP_PP_SCAN_LINEAR)
        nknots =  COOP_NUM_PP - cosmomc_pp_num_origin + 1
        if(nknots .lt. 4) stop "You need at least 4 knots for scan_linear mode"
-       dlnk = 9.5d0/(nknots-1)
-       nleft = min(max(nint((coop_pp_scalar_lnkpivot - 9.21d0)/dlnk), 2), COOP_NUM_PP - cosmomc_pp_num_origin - 1)
+       dlnk = (coop_pp_lnkmax-coop_pp_lnkmin)/(nknots-1)
+       nleft = min(max(nint((coop_pp_scalar_lnkpivot - coop_pp_lnkmin)/dlnk), 2), COOP_NUM_PP - cosmomc_pp_num_origin - 1)
        nright = nknots - 1 - nleft
-       dlnk = max(dlnk, (log(0.6d0)-coop_pp_scalar_lnkpivot)/nright, (coop_pp_scalar_lnkpivot - log(1.d-4))/nleft)
-       allocate(lnk(nknots), lnps(nknots))
+       dlnk = max(dlnk, (coop_pp_lnkmax-coop_pp_scalar_lnkpivot)/nright, (coop_pp_scalar_lnkpivot - coop_pp_lnkmin)/nleft)
+       coop_pp_lnk_knots_min = coop_pp_scalar_lnkpivot- nleft*dlnk
+       coop_pp_lnk_knots_max = nright*dlnk + coop_pp_scalar_lnkpivot
+       allocate(lnk(nknots), lnps(nknots), lnps2(nknots))
        call coop_set_uniform(nknots, lnk, -dlnk*nleft, dlnk*nright)
        lnps(1:nleft) = COOP_COSMO_PARAMS%r(COOP_INDEX_PP+cosmomc_pp_num_origin:COOP_INDEX_PP+cosmomc_pp_num_origin+nleft -1)
        lnps(nleft+1) = 0.d0
