@@ -217,8 +217,10 @@ common_pattern = r'^(DEFAULT\(\w+\/[\w_]*common[\w\_]*\.ini\))\s*$'
 
 copy_replace_all(r'params_CMB.paramnames', r'params_cosmorec.paramnames', [ powerpattern ], [r'A2s1s        A_{2s\\rightarrow 1s}   #CosmoRec A2s1s parameter \ntcmb        T_{\\rm CMB}   #CosmoRec T_CMB parameter \n\1'] )
 
-
-copy_replace_first(baseini, 'lcdm.ini', [ common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [ r'DEFAULT(' + batch_dir + r'/common_lcdm.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = ' + str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = cosmorec_lcdm', r'action = 0', str_propose] )
+if(os.path.isfile("plots/cosmorec_lcdm.covmat")):
+    copy_replace_first(baseini, 'lcdm.ini', [r'^propose\_matrix\s*\=.*$', common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'propose_matrix = plots/cosmorec_lcdm.covmat', r'DEFAULT(' + batch_dir + r'/common_lcdm.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = ' + str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = cosmorec_lcdm', r'action = 0', str_propose] )
+else:
+    copy_replace_first(baseini, 'lcdm.ini', [ common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [ r'DEFAULT(' + batch_dir + r'/common_lcdm.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = ' + str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = cosmorec_lcdm', r'action = 0', str_propose] )
 
 copy_replace_all(common_file, batch_dir + r'/common_lcdm.ini', [r'params\_CMB\_defaults\.ini'],  [r'params_lcdm.ini'])
 
@@ -260,7 +262,7 @@ else:
 
 copy_replace_all(common_file, batch_dir + r'/common_yhe.ini', [r'params\_CMB\_defaults\.ini'],  [r'params_yhe.ini'])
 
-copy_replace_all(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_yhe.ini', [r'^param\[fdm\]\s*=.*$', r'^param\[yhe\]\s*=.*$', r'^bbn_consistency\s*\=.*$'], [r'param[fdm] = 0  \nparam[A2s1s] = 8.2245809 \nparam[tcmb] = 2.72558', r'param[yhe] =  0.25 0.2 0.3 0.01 0.01', r'bbn_consistency = F'] )
+copy_replace_all(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_yhe.ini', [r'^param\[fdm\]\s*=.*$', r'^param\[yhe\]\s*=.*$', r'^bbn_consistency\s*\=.*$'], [r'param[fdm] = 0  \nparam[A2s1s] = 8.2245809 \nparam[tcmb] = 2.72558', r'param[yhe] =  0.25 0.2 0.35 0.013 0.013', r'bbn_consistency = F'] )
 
 
 if(os.path.isfile("plots/cosmorec_fdm.covmat")):
