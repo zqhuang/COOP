@@ -649,7 +649,7 @@ contains
 
 
 
-       call coop_asy_curve(fig_spec, kMpc, exp(3.091+(0.967-1.)*(lnk-coop_pp_scalar_lnkpivot)), color = "black", linewidth=2., legend="$m^2\phi^2$ scalar")
+       call coop_asy_curve(fig_spec, kMpc, exp(3.088+(0.967-1.)*(lnk-coop_pp_scalar_lnkpivot)), color = "black", linewidth=2., legend="$m^2\phi^2$ scalar")
        call coop_asy_curve(fig_spec, kMpc, exp(3.091 - 0.01625*lnk)*0.13, color = "cyan", linewidth=1.2, legend="$m^2\phi^2$ tensor")
        numpp = cosmomc_pp_num_params - cosmomc_pp_num_origin + 1
        if(numpp .gt. 1)then
