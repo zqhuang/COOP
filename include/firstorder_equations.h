@@ -4,7 +4,7 @@
     type(coop_pert_object)::pert
     COOP_REAL lna, y(0:n-1), yp(0:n-1)
     COOP_INT i, l, iq
-    COOP_REAL a, aniso,  ktauc, ktaucdot,  aniso_prime, aHtauc, aHtau, aHsq, uterm, vterm, ma
+    COOP_REAL a, aniso,  ktauc, ktaucdot,  aniso_prime, aHtauc, aHtau, aHsq, uterm, vterm, ma, doptdlna
     COOP_REAL :: pa2pr_g, pa2pr_nu
     COOP_REAL, dimension(coop_pert_default_nq)::Fmnu2_prime, Fmnu2, Fmnu0, qbye, wp, wp_prime, wrho_minus_wp
     !!My PHI = Psi in Hu & White = Psi in Ma et al;
@@ -65,7 +65,7 @@
     pert%kbyaH  = pert%k/pert%aH
     pert%kbyaHsq = pert%kbyaH**2
     aHtauc = pert%aH * pert%tauc
-
+    doptdlna = 1.d0/aHtauc
     pert%tau = cosmology%tauofa(a)
     aHtau = pert%aH*pert%tau
  
@@ -95,7 +95,7 @@
           do iq = 1, pert%massivenu_iq_used
              Fmnu2(iq) = O1_MASSIVENU(2, iq)
              Fmnu0(iq) = O1_MASSIVENU(0, iq)
-             O1_MASSIVENU_PRIME(0, iq) = - O1_NU(1)*pert%kbyaH/3.d0 * qbye(iq) + 4.d0 * O1_PSI_PRIME 
+             O1_MASSIVENU_PRIME(0, iq) = - O1_MASSIVENU(1, iq)*pert%kbyaH/3.d0 * qbye(iq) + 4.d0 * O1_PSI_PRIME 
           enddo
           do iq = pert%massivenu_iq_used + 1, coop_pert_default_nq
              Fmnu2(iq) = O1_NU(2)
@@ -122,8 +122,8 @@
           O1_NU_PRIME(l) =  pert%kbyaH * (cosmology%klms_by_2lm1(l, 0, 0) *   O1_NU( l-1 ) - cosmology%klms_by_2lp1(l+1, 0, 0) *  O1_NU( l+1 ) )
        enddo
 
-       O1_NU_PRIME(pert%nu%lmax) = pert%kbyaH *(pert%nu%lmax+0.5d0)/(pert%nu%lmax-0.5d0)*  O1_NU(pert%nu%lmax-1) &
-            -  (pert%nu%lmax+1)* O1_NU(pert%nu%lmax)/(aHtau)
+       O1_NU_PRIME(pert%nu%lmax) = pert%kbyaH * (pert%nu%lmax +0.5d0)/(pert%nu%lmax-0.5d0)*  O1_NU(pert%nu%lmax-1) -  (pert%nu%lmax+1)* O1_NU(pert%nu%lmax)/(aHtau)
+
 
        if(cosmology%index_massivenu .ne. 0)then
           !!massive neutrinos
@@ -142,6 +142,7 @@
 
           pert%E%F(2) = -coop_sqrt6/4.d0 * pert%T%F(2)
           pert%E2prime = -coop_sqrt6/4.d0 * pert%T2prime 
+          pert%capP = (pert%T%F(2) - coop_sqrt6 * pert%E%F(2))/10.d0
        else
           !!T
           pert%capP = (O1_T(2) - coop_sqrt6 * O1_E(2))/10.d0
@@ -151,16 +152,16 @@
              O1_T_PRIME(l) = pert%kbyaH * (cosmology%klms_by_2lm1(l, 0, 0)*O1_T(l-1) -cosmology%klms_by_2lp1(l+1, 0, 0)*O1_T(l+1))  - O1_T(l)/aHtauc
           enddo
           O1_T_PRIME(pert%T%lmax) =  pert%kbyaH *((pert%T%lmax+0.5d0)/(pert%T%lmax-0.5d0))*  O1_T(pert%T%lmax-1) &
-            -  ((pert%T%lmax+1)/aHtau + 1.d0/aHtauc) * O1_T(pert%T%lmax)
+            -  ((pert%T%lmax+1)/aHtau + doptdlna) * O1_T(pert%T%lmax)
           !!E
           O1_E_PRIME(2) = pert%kbyaH * ( - cosmology%klms_by_2lp1(3, 0, 2)*O1_E(3))  - (O1_E(2) + coop_sqrt6 * pert%capP)/aHtauc
           pert%E2prime = O1_E_PRIME(2)
 
           do l = 3, pert%E%lmax - 1
-             O1_E_PRIME(l) = pert%kbyaH * (cosmology%klms_by_2lm1(l, 0, 2)*O1_E(l-1) - cosmology%klms_by_2lp1(l+1, 0, 2)*O1_E(l+1))  - O1_E(l)/aHtauc
+             O1_E_PRIME(l) = pert%kbyaH * (cosmology%klms_by_2lm1(l, 0, 2)*O1_E(l-1) - cosmology%klms_by_2lp1(l+1, 0, 2)*O1_E(l+1)) - O1_E(l)/aHtauc
           enddo
-          O1_E_PRIME(pert%E%lmax) =  pert%kbyaH *( (pert%E%lmax+0.5d0)/(pert%E%lmax-0.5d0)) *  O1_E(pert%E%lmax-1) &
-               -  ((pert%E%lmax+1)/aHtau + 1.d0/aHtauc) * O1_E(pert%E%lmax)
+          O1_E_PRIME(pert%E%lmax) =  pert%kbyaH *( (pert%E%lmax-2.d0/pert%E%lmax+0.5d0)/(pert%E%lmax-2.d0/pert%E%lmax-0.5d0)) *  O1_E(pert%E%lmax-1) &
+               -  ((pert%E%lmax-2.d0/pert%E%lmax+1)/aHtau + doptdlna) * O1_E(pert%E%lmax)
        endif
        aniso_prime =  pert%pa2_nu * O1_NU_PRIME(2) + pa2pr_nu*O1_NU(2) +  pert%pa2_g * pert%T2prime + pa2pr_g * pert%T%F(2)
        if(cosmology%index_massivenu .ne. 0)then
@@ -198,7 +199,79 @@
     case(1)
        call coop_tbw("vector equations not written")
     case(2)
-       call coop_tbw("tensor equations not written")
+       O1_TEN_H_PRIME = O1_TEN_HPR
+       if(pert%tight_coupling)then
+          pert%T%F(2) = (-16.d0/3.d0 + (8.d0*19.d0/63.d0)*(pert%kbyaH**2*aHtauc + (231.D0/19.D0))*aHtauc  )*O1_TEN_HPR*aHtauc
+          pert%E%F(2) =  (-coop_sqrt6/4.d0)*pert%T%F(2)-(110.d0/63.d0*coop_sqrt6)*(pert%kbyaH**2*aHtauc +(63.d0/11.d0))*O1_TEN_HPR*aHtauc**2
+       else
+          pert%T%F(2) =O1_T(2)
+          pert%E%F(2) = O1_E(2)
+       endif
+       pert%capP = (pert%T%F(2) - coop_sqrt6 * pert%E%F(2))/10.d0
+       aniso = pert%pa2_g * pert%T%F(2) + pert%pa2_nu * O1_NU(2)
+       if(cosmology%index_massivenu .ne. 0)then
+          do iq = 1, pert%massivenu_iq_used
+             Fmnu2(iq) = O1_MASSIVENU(2, iq)
+          enddo
+          do iq = pert%massivenu_iq_used + 1, coop_pert_default_nq
+             Fmnu2(iq) = O1_NU(2)
+          enddo
+          aniso = aniso +  pert%pa2_nu * sum(Fmnu2*wp)
+       endif
+       O1_TEN_HPR_PRIME = -(2.d0+pert%daHdtau/aHsq)*O1_TEN_HPR &
+            - pert%kbyaH**2 * O1_TEN_H &
+            + 0.4d0/aHsq * aniso
+
+
+       O1_NU_PRIME(2) =  pert%kbyaH * ( - cosmology%klms_by_2lp1(3, 2, 0) *  O1_NU( 3 ) )
+       do l = 3, pert%nu%lmax - 1
+          O1_NU_PRIME(l) =  pert%kbyaH * (cosmology%klms_by_2lm1(l, 2, 0) *   O1_NU( l-1 ) - cosmology%klms_by_2lp1(l+1, 2, 0) *  O1_NU( l+1 ) )
+       enddo
+
+       O1_NU_PRIME(pert%nu%lmax) = pert%kbyaH * (pert%nu%lmax-2.d0/pert%nu%lmax+0.5d0)/(pert%nu%lmax-2.d0/pert%nu%lmax-0.5d0)*  O1_NU(pert%nu%lmax-1) &
+            -  (pert%nu%lmax-2.d0/pert%nu%lmax+1)* O1_NU(pert%nu%lmax)/(aHtau)
+
+
+       if(cosmology%index_massivenu .ne. 0)then
+          !!massive neutrinos
+          do iq = 1, pert%massivenu_iq_used
+             O1_MASSIVENU_PRIME(2, iq) = pert%kbyaH * qbye(iq) * (- cosmology%klms_by_2lp1(3, 2, 0) * O1_MASSIVENU(3, iq))
+             do l = 3, pert%massivenu(iq)%lmax - 1
+                O1_MASSIVENU_PRIME(l, iq) = pert%kbyaH * qbye(iq) * (cosmology%klms_by_2lm1(l, 2, 0) * O1_MASSIVENU(l-1, iq) - cosmology%klms_by_2lp1(l+1, 2, 0) * O1_MASSIVENU(l+1,iq))
+             enddo
+             O1_MASSIVENU_PRIME(pert%massivenu(iq)%lmax, iq) =  pert%kbyaH * qbye(iq) * (pert%massivenu(iq)%lmax-2.d0/pert%massivenu(iq)%lmax+0.5d0)/(pert%massivenu(iq)%lmax-2.d0/pert%massivenu(iq)%lmax-0.5d0) *  O1_MASSIVENU(pert%nu%lmax-1, iq) &
+                  -  (pert%nu%lmax-2.d0/pert%massivenu(iq)%lmax+1)* O1_MASSIVENU(pert%nu%lmax, iq) / aHtau 
+          enddo
+       endif
+
+       if(pert%tight_coupling)then
+          pert%T2prime = -16.d0/3.d0*(O1_TEN_HPR_PRIME - O1_TEN_HPR*(2.d0+pert%daHdtau/aHsq))*aHtauc
+          pert%E2prime = (-coop_sqrt6/4.d0)*pert%T2prime
+       else
+
+          O1_T_PRIME(2) =  pert%kbyah * ( -  cosmology%klms_by_2lm1(3, 2, 0) * O1_T(3))  -  ( O1_T(2) - pert%capP)/aHtauc &
+               - O1_TEN_HPR*4.d0
+          pert%T2prime = O1_T_PRIME(2)
+          O1_E_PRIME(2) = pert%kbyah * ( - cosmology%fourbyllp1(2)*O1_B(2)- cosmology%klms_by_2lm1(3, 2, 2) * O1_E(3)) - (O1_E(2) + coop_sqrt6 * pert%capP)/aHtauc
+          pert%E2prime = O1_T_PRIME(2)
+          O1_B_PRIME(2) = pert%kbyah * ( cosmology%fourbyllp1(2)*O1_E(2)- cosmology%klms_by_2lm1(3, 2, 2) * O1_B(3)) - O1_B(2)/aHtauc
+          do l = 3, pert%T%lmax -1 
+             O1_T_PRIME(l) = pert%kbyah * (cosmology%klms_by_2lp1(l, 2, 0) * O1_T(l-1) -  cosmology%klms_by_2lm1(l+1, 2, 0) * O1_T(l+1)) -  O1_T(l)/aHtauc
+          enddo
+          O1_T_PRIME(pert%T%lmax) = pert%kbyah  *((pert%T%lmax-2.d0/pert%T%lmax+0.5d0)/(pert%T%lmax-2.d0/pert%T%lmax-0.5d0)) * O1_T(pert%T%lmax-1) &
+               - (doptdlna + (pert%T%lmax-2.d0/pert%T%lmax+1)/aHtau)* O1_T(pert%T%lmax)
+          if(pert%E%lmax .ne. pert%B%lmax) stop "lmax(E) must be the same as lmax(B)"
+          do l=3, pert%E%lmax -1
+             O1_E_PRIME(l) = pert%kbyah * (cosmology%klms_by_2lp1(l, 2, 2) * O1_E(l-1) - cosmology%fourbyllp1(l)*O1_B(l)- cosmology%klms_by_2lm1(l+1, 2, 2) * O1_E(l+1)) - O1_E(l)/aHtauc
+             O1_B_PRIME(l) = pert%kbyah * (cosmology%klms_by_2lp1(l, 2, 2) * O1_B(l-1) + cosmology%fourbyllp1(l)*O1_E(l)- cosmology%klms_by_2lm1(l+1, 2, 2) * O1_B(l+1)) -  O1_B(l)/aHtauc
+          enddo
+          O1_E_PRIME(pert%E%lmax) = pert%kbyah  *((pert%E%lmax-4.d0/pert%E%lmax+0.5d0)/(pert%E%lmax-4.d0/pert%E%lmax-0.5d0)) * O1_E(pert%E%lmax-1) - cosmology%fourbyllp1(pert%E%lmax)*O1_B(pert%E%lmax) &
+               - (doptdlna + (pert%E%lmax-4.d0/pert%E%lmax+1)/aHtau)* O1_E(pert%E%lmax)
+          O1_B_PRIME(pert%E%lmax) = pert%kbyah  *((pert%E%lmax-4.d0/pert%E%lmax+0.5d0)/(pert%E%lmax-4.d0/pert%E%lmax-0.5d0)) * O1_B(pert%E%lmax-1)  + cosmology%fourbyllp1(pert%E%lmax)*O1_E(pert%E%lmax) &
+               - (doptdlna + (pert%E%lmax-4.d0/pert%E%lmax+1)/aHtau)* O1_B(pert%E%lmax)
+
+          
+       endif
     case default
        call coop_return_error("firstorder_equations", "Unknown m = "//trim(coop_num2str(pert%m)), "stop")
     end select

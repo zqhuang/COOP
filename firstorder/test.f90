@@ -6,7 +6,7 @@ program test
   type(coop_pert_object)::pert
   type(coop_file)fp
   integer i, m, iq, ik,j, l, sterm
-  COOP_REAL, dimension(coop_num_Cls, 2:2500)::Cls
+  COOP_REAL, dimension(coop_num_Cls, 2:2500)::Cls_scalar, Cls_tensor
   COOP_REAL norm
   COOP_REAL z, a, s, stau
 
@@ -17,19 +17,29 @@ program test
 
   !!compute the scalar source
   call fod%compute_source(m=0)
-  
-  print*, "n_chi = ", fod%source(0)%ntau
-  !!compute the Cl's
+!  call fod%compute_source(m=2)
+  norm = 2.726**2*1.d12
+
+  !!compute the scalar Cl's
   call coop_prtSystime(.true.)
-  call fod%source(0)%get_All_Cls(2, 2500, Cls)
+  call fod%source(0)%get_All_Cls(2, 2500, Cls_scalar)
   call coop_prtSystime()
 
-
-
-  call fp%open('Cls2.txt', 'w')
-  norm = 2.726**2*1.d12
+  call fp%open('Cls_scalar.txt', 'w')
   do l=2, 2500
-     write(fp%unit, "(I5, 20E16.7)") l, Cls(:, l)*(l*(l+1.d0)/coop_2pi*norm)
+     write(fp%unit, "(I5, 20E16.7)") l, Cls_scalar(:, l)*(l*(l+1.d0)/coop_2pi*norm)
+  enddo
+  call fp%close()
+stop
+
+  !!compute the tensor Cl's
+  call coop_prtSystime(.true.)
+  call fod%source(2)%get_All_Cls(2, 2500, Cls_tensor)
+  call coop_prtSystime()
+
+  call fp%open('Cls_tensor.txt', 'w')
+  do l=2, 2500
+     write(fp%unit, "(I5, 20E16.7)") l, Cls_tensor(:, l)*(l*(l+1.d0)/coop_2pi*norm)
   enddo
   call fp%close()
 

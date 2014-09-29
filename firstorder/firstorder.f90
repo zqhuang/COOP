@@ -67,7 +67,7 @@ private
   
   type, extends(coop_cosmology_background) :: coop_cosmology_firstorder
      logical::do_reionization = .true.
-     COOP_REAL::zrecomb, distlss, tau0, zrecomb_start, maxvis, taurecomb, arecomb, zrecomb_end
+     COOP_REAL::zrecomb, distlss, tau0, zrecomb_start, maxvis, taurecomb, arecomb, zrecomb_end, arecomb_start
      COOP_REAL::optre = 0.07d0
      COOP_REAL::zre = 8.d0
      COOP_REAL::deltaz = 1.5d0
@@ -80,6 +80,7 @@ private
      type(coop_cosmology_firstorder_source),dimension(0:2)::source
      COOP_INT::index_baryon, index_cdm, index_radiation, index_nu, index_massiveNu, index_de
      COOP_REAL, dimension(0:coop_pert_default_lmax, 0:coop_pert_default_mmax, 0:coop_pert_default_smax)::klms, klms_by_2lm1, klms_by_2lp1
+     COOP_REAL,dimension(coop_pert_default_lmax)::fourbyllp1
      logical::klms_done = .false.
    contains
      procedure:: set_standard_cosmology =>  coop_cosmology_firstorder_set_standard_cosmology
@@ -312,10 +313,10 @@ contains
     COOP_INT:: i
     COOP_REAL::tmp
     Cls = 0.d0
+    allocate(trans(source%nsrc, coop_k_dense_fac, source%nk))
+    call source%get_transfer(l, trans)
     select case(source%m)
     case(0)
-       allocate(trans(source%nsrc, coop_k_dense_fac, source%nk))
-       call source%get_transfer(l, trans)
        Cls(coop_index_ClTT) = sum(source%ws_dense * trans(1, :, :)**2)*coop_4pi
        if(source%nsrc .ge. 2)then
           Cls(coop_index_ClTE) = sqrt((l+2.d0)*(l+1.d0)*l*(l-1.d0))*sum(source%ws_dense * trans(1, :, :)*trans(2,:,:))*coop_4pi
@@ -325,14 +326,21 @@ contains
           Cls(coop_index_ClLenLen) = sum(source%ws_dense * trans(3, :, :)**2)*coop_4pi
           Cls(coop_index_ClTLen) = sum(source%ws_dense * trans(1, :, :) * trans(3,:,:))*coop_4pi
        endif
-       deallocate(trans)
     case(1)
        call coop_tbw("get_Cls: vector")
     case(2)
-       call coop_tbw("get_Cls: tensor")
+       Cls(coop_index_ClTT) =(l+2.d0)*(l+1.d0)*l*(l-1.d0)*sum(source%wt_dense * trans(1, :, :)**2)*coop_4pi
+       if(source%nsrc .ge. 2)then
+          Cls(coop_index_ClTE) = sqrt((l+2.d0)*(l+1.d0)*l*(l-1.d0))*sum(source%wt_dense * trans(1, :, :)*trans(2,:,:))*coop_4pi
+          Cls(coop_index_ClEE) = sum(source%wt_dense * trans(2,:,:)**2)*coop_4pi
+          if(source%nsrc .ge. 3)then
+             Cls(coop_index_ClBB) = sum(source%wt_dense * trans(3, :, :))*coop_4pi
+          end if
+       endif       
     case default
        call coop_return_error("get_Cls", "unknown m = "//trim(coop_num2str(source%m)), "stop")
     end select
+    deallocate(trans)
   end subroutine coop_cosmology_firstorder_source_get_Cls
 
 
@@ -508,6 +516,9 @@ contains
           enddo
        enddo
     enddo
+    do l=1, coop_pert_default_lmax
+       this%fourbyllp1(l) = 4.d0/l/(l+1.d0)
+    enddo
     this%klms_done = .true.
   end subroutine coop_cosmology_firstorder_set_klms
 
@@ -662,6 +673,7 @@ contains
     this%taurecomb = this%tauofa(this%arecomb)
     this%maxvis = this%vis%eval(1.d0/(1.d0+this%zrecomb))
     this%zrecomb_start = this%zrecomb+30.d0
+    this%arecomb_start = 1.d0/(1.d0+this%zrecomb_start)
     do while(this%vis%eval(1.d0/(this%zrecomb_start+1.d0))/this%maxvis .gt. 1.d-4 .and. this%zrecomb_start .lt. 2.d4)
        this%zrecomb_start = this%zrecomb_start + 30.d0
     enddo
