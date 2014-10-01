@@ -15,7 +15,6 @@
 
     select case(source%m) 
     case(0) !!scalar
-
        if(pert%tight_coupling)then
           Pddot = Pdot/pert%tau
        else
@@ -35,11 +34,10 @@
     case(1) !!vector
        call coop_tbw("vector source to be done")
     case(2) !!tensor
-
-       source%s(1, ik, itau) = pert%O1_TEN_H
-       source%s(2, ik, itau) = pert%O1_TEN_HPR
-       source%s(3, ik, itau) = pert%T%F(2)
-       return
+!!$       source%s(1, ik, itau) = pert%O1_TEN_H
+!!$       source%s(2, ik, itau) = pert%O1_TEN_HPR
+!!$       source%s(3, ik, itau) = pert%T%F(2)
+!!$       return
        if(pert%tight_coupling)then
           Pddot = Pdot/pert%tau
        else

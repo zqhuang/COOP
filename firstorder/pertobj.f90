@@ -217,7 +217,7 @@ contains
        else
           call this%B%set_defaults( genre = COOP_PERT_HIERARCHY, &
                m = m, s = 2, index = this%E%last_index + 1, &
-               lmax = 12, q = 1.d0, mass = 0.d0 )
+               lmax = this%E%lmax, q = 1.d0, mass = 0.d0 )
        endif
     endif
 

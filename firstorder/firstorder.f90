@@ -439,8 +439,6 @@ contains
     COOP_REAL tau_ini, lna
     tau_ini = min(coop_initial_condition_epsilon/source%k(ik), this%conformal_time(this%a_eq*coop_initial_condition_epsilon), source%tau(1)*0.999d0)
     call this%set_initial_conditions(pert, m = source%m, k = source%k(ik), tau = tau_ini)
-
-
     lna = log(this%aoftau(tau_ini))
     call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)
 
