@@ -439,6 +439,8 @@ contains
     COOP_REAL tau_ini, lna
     tau_ini = min(coop_initial_condition_epsilon/source%k(ik), this%conformal_time(this%a_eq*coop_initial_condition_epsilon), source%tau(1)*0.999d0)
     call this%set_initial_conditions(pert, m = source%m, k = source%k(ik), tau = tau_ini)
+
+
     lna = log(this%aoftau(tau_ini))
     call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)
 
@@ -452,16 +454,18 @@ contains
     do itau = 1, source%ntau
        call coop_dverk_firstorder(nvars, coop_cosmology_firstorder_equations, this, pert, lna,   pert%y, source%lna(itau),  coop_cosmology_firstorder_ode_accuracy, ind, c, nw, w)
        call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)
-
        !!------------------------------------------------------------
        !!forcing v_b - v_g to tight coupling approximations
        !!you can remove this, no big impact
-       if(pert%tight_coupling)then
-          pert%O1_V_B = (pert%O1_V_B * pert%rhoa2_b + (pert%O1_T(1)/4.d0+pert%slip)* pert%rhoa2_g)/(pert%rhoa2_b+pert%rhoa2_g) 
-          pert%O1_T(1) = (pert%O1_V_B - pert%slip)*4.d0
+       if(source%m .eq. 0)then
+          if(pert%tight_coupling)then
+             pert%O1_V_B = (pert%O1_V_B * pert%rhoa2_b + (pert%O1_T(1)/4.d0+pert%slip)* pert%rhoa2_g)/(pert%rhoa2_b+pert%rhoa2_g) 
+             pert%O1_T(1) = (pert%O1_V_B - pert%slip)*4.d0
+          endif
        endif
        !!------------------------------------------------------------
        call this%pert2source(pert, source, itau, ik)
+
        if(itau .eq. source%index_tc_off(ik))then
           call pert%save_ode()
           call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)   !!set tight coupling apprixmations
