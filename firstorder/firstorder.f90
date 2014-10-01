@@ -21,7 +21,7 @@ private
 
   COOP_REAL, dimension(0:2), parameter::coop_source_tau_step_factor = (/ 1.d0, 1.d0, 1.d0 /)
   COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
-  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 130, 120, 80 /)
+  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 130, 100, 70 /)
   COOP_REAL, parameter::coop_source_k_index = 0.45d0
   COOP_INT, parameter:: coop_k_dense_fac = 30
 
@@ -86,6 +86,7 @@ private
      procedure:: set_standard_cosmology =>  coop_cosmology_firstorder_set_standard_cosmology
      procedure:: set_standard_power => coop_cosmology_firstorder_set_standard_power
      procedure:: set_Planck_bestfit =>coop_cosmology_firstorder_set_Planck_bestfit
+     procedure:: set_Planck_bestfit_with_r =>coop_cosmology_firstorder_set_Planck_bestfit_with_r
      procedure:: set_klms => coop_cosmology_firstorder_set_klms
      procedure:: set_source_tau => coop_cosmology_firstorder_set_source_tau
      procedure:: set_source_k => coop_cosmology_firstorder_set_source_k
@@ -140,6 +141,18 @@ contains
        call this%set_standard_cosmology(Omega_b=0.04801228639964265020d0, Omega_c=0.26099082900159878590d0, h = 0.67779d0, tau_re = 0.092d0, As = 2.210168d-9, ns = 0.9608933d0)
     endif
   end subroutine coop_cosmology_firstorder_set_Planck_Bestfit
+
+
+  subroutine coop_cosmology_firstorder_set_Planck_Bestfit_with_r(this, r, Omega_nu)
+    class(coop_cosmology_firstorder)::this
+    COOP_REAL r
+    COOP_REAL, optional::Omega_nu
+    if(present(Omega_nu))then
+       call this%set_standard_cosmology(Omega_b=0.04801228639964265020d0, Omega_c=0.26099082900159878590d0, h = 0.67779d0, tau_re = 0.092d0, Omega_nu = Omega_nu, As = 2.210168d-9, ns = 0.9608933d0, r = r)
+    else
+       call this%set_standard_cosmology(Omega_b=0.04801228639964265020d0, Omega_c=0.26099082900159878590d0, h = 0.67779d0, tau_re = 0.092d0, As = 2.210168d-9, ns = 0.9608933d0, r = r)
+    endif
+  end subroutine coop_cosmology_firstorder_set_Planck_Bestfit_with_r
 
 
 
