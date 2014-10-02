@@ -23,9 +23,9 @@ program test
   call fod%compute_source(2)
   call coop_prtSystime()
 
-!!$  call coop_prtSystime(.true.)
-!!$  call fod%compute_source(0)
-!!$  call coop_prtSystime()
+  call coop_prtSystime(.true.)
+  call fod%compute_source(0)
+  call coop_prtSystime()
 
 
 !!$  ik = fod%source(2)%nk
@@ -36,16 +36,16 @@ program test
 !!$  call fp%close()
 !!$  stop
 
-!!$  !!compute the scalar Cl's
-!!$  call coop_prtSystime(.true.)
-!!$  call fod%source(0)%get_All_Cls(2, 2500, Cls_scalar)
-!!$  call coop_prtSystime()
-!!$
-!!$  call fp%open('Cls_scalar.txt', 'w')
-!!$  do l=2, 2500
-!!$     write(fp%unit, "(I5, 20E16.7)") l, Cls_scalar(:, l)*(l*(l+1.d0)/coop_2pi*norm)
-!!$  enddo
-!!$  call fp%close()
+  !!compute the scalar Cl's
+  call coop_prtSystime(.true.)
+  call fod%source(0)%get_All_Cls(2, 2500, Cls_scalar)
+  call coop_prtSystime()
+
+  call fp%open('Cls_scalar.txt', 'w')
+  do l=2, 2500
+     write(fp%unit, "(I5, 20E16.7)") l, Cls_scalar(:, l)*(l*(l+1.d0)/coop_2pi*norm)
+  enddo
+  call fp%close()
 !!$
   !!compute the tensor Cl's
   call coop_prtSystime(.true.)

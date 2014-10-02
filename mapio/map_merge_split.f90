@@ -29,6 +29,21 @@ program map
      write(*,*) "Enter input file and press Enter (or just press Enter key to finish):"
      read(*,'(A)') fin(nin)
      select case(trim(fin(nin)))
+     case("INFO")
+        do i=1, nin
+           npixtot = getsize_fits(trim(fin(i)), nmaps = hgm%nmaps, nside = hgm%nside, ordering = hgm%ordering)
+           write(*,"(A)")"**********************************"
+           write(*,"(A)") trim(fin(i))//":"
+           write(*, "(A,I5)") "nmaps = "//COOP_STR_OF(hgm%nmaps)
+           write(*, "(A,I5)") "nside = "//COOP_STR_OF(hgm%nside)
+           if(hgm%ordering .eq. COOP_RING)then
+              write(*, "(A)") "ordering: ring"
+           else(hgm%ordering .eq. COOP_NESTED)then
+              write(*, "(A)") "ordering: nested"
+           else
+              write(*, "(A)") "ordering: unknown"
+           endif
+        enddo
      case("SPLIT")
         nin = nin -1
         do i=1, nin

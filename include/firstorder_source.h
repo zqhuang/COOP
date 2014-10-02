@@ -44,7 +44,7 @@
           Pddot = (pert%k * pert%aH*(- (coop_sqrt5/7.d0)*pert%O1_T_PRIME(3) + coop_sqrt6*5.d0/7.d0 * pert%O1_E_PRIME(3))  - ( 3.d0*Pdot)/(pert%tauc) + (3.d0*pert%capP)/(pert%tauc)**2*(pert%taucdot))/10.d0
        endif
 
-       source%s(1, ik, itau) = (vis*pert%capP/4.d0 - pert%aH*ekappa*pert%O1_TEN_HPR)*(coop_sqrt6/4.d0)/((this%tau0 - pert%tau)*pert%k)**2  !!tensor T
+       source%s(1, ik, itau) = (vis*pert%capP/4.d0 - pert%aH*ekappa*pert%O1_TEN_HPR)*(coop_sqrt6/4.d0)/kchi**2  !!tensor T
        if(source%nsrc.ge.2)then
           source%s(2, ik, itau) = vis * pert%capP * ((coop_sqrt6*3.d0/8.d0)/kchi**2 - (coop_sqrt6/16.d0)) +(coop_sqrt6/4.d0)*(vis*Pdot+visdot*pert%capP)/(pert%k * kchi) + (coop_sqrt6/16.d0)*(vis*Pddot+visddot*pert%capP + 2.d0*visdot*Pdot)/pert%ksq
           if(source%nsrc.ge.3)then

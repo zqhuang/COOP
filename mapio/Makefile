@@ -17,6 +17,10 @@ $(LIB): $(OBJ)
 
 all: UDG HSM GetSpots Stack MSMAP InpEB InpT Ena Asym FStack FSim FSpots FMerge
 
+
+GetInfo: $(OBJ) getinfo.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) getinfo.o $(LINK)
+
 UDG: $(OBJ) udgrade.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) udgrade.o $(LINK)
 
