@@ -9,8 +9,8 @@ private
   public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe, coop_power_lnk_min, coop_power_lnk_max,  coop_k_dense_fac, coop_index_ClTT, coop_index_ClTE, coop_index_ClEE, coop_index_ClBB, coop_index_ClEB, coop_index_ClTB, coop_index_ClLenLen, coop_index_ClTLen, coop_num_Cls, coop_scalar_lmax, coop_vector_lmax, coop_tensor_lmax
 
   COOP_INT::coop_scalar_lmax = 2500
-  COOP_INT::coop_vector_lmax = 1500
-  COOP_INT::coop_tensor_lmax = 1000
+  COOP_INT::coop_vector_lmax = 2000
+  COOP_INT::coop_tensor_lmax = 1500
   COOP_REAL, parameter :: coop_power_lnk_min = log(0.1d0) 
   COOP_REAL, parameter :: coop_power_lnk_max = log(5.d3) 
   COOP_REAL, parameter :: coop_visibility_amin = 1.8d-4
@@ -21,7 +21,7 @@ private
 
   COOP_REAL, dimension(0:2), parameter::coop_source_tau_step_factor = (/ 1.d0, 1.d0, 1.d0 /)
   COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
-  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 130, 100, 70 /)
+  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 130, 100, 150 /)
   COOP_REAL, parameter::coop_source_k_index = 0.45d0
   COOP_INT, parameter:: coop_k_dense_fac = 30
 
@@ -38,6 +38,7 @@ private
 
 !!how many source terms you want to extract & save
   COOP_INT, dimension(0:2), parameter::coop_num_sources = (/ 2,  3,  3 /)
+  COOP_INT, dimension(0:2), parameter::coop_num_saux = (/ 1,  1,  1 /)
 
 !!recfast head file
 #include "recfast_head.h"
@@ -48,6 +49,7 @@ private
      COOP_INT::ntau = 0
      COOP_INT::nk = 0
      COOP_INT::nsrc = 0
+     COOP_INT::nsaux = 0
      COOP_INT::index_tc_max = 1
      COOP_INT, dimension(:),allocatable::index_tc_off
      COOP_INT, dimension(coop_pert_default_nq)::index_massivenu_on
@@ -55,7 +57,7 @@ private
      COOP_REAL,dimension(coop_k_dense_fac)::a_dense, b_dense, a2_dense, b2_dense
      COOP_REAL, dimension(:),allocatable::k, kop, tau, a, tauc, lna,  dk, dtau, chi !!tau is conformal time, chi is comoving distance; in flat case, chi + tau = tau_0
      COOP_REAL, dimension(:,:),allocatable::k_dense, ws_dense, wt_dense, dk_dense
-     COOP_REAL, dimension(:,:,:),allocatable::s, s2
+     COOP_REAL, dimension(:,:,:),allocatable::s, s2, saux
    contains
      procedure::free => coop_cosmology_firstorder_source_free
      procedure::get_transfer => coop_cosmology_firstorder_source_get_transfer
@@ -63,6 +65,9 @@ private
      procedure::get_All_Cls => coop_cosmology_firstorder_source_get_All_Cls
      procedure::kop2k => coop_cosmology_firstorder_source_kop2k
      procedure::k2kop => coop_cosmology_firstorder_source_k2kop
+     procedure::interpolate => coop_cosmology_firstorder_source_interpolate
+     procedure::intbypart => coop_cosmology_firstorder_source_intbypart
+     procedure::interpolate_one => coop_cosmology_firstorder_source_interpolate_one
   end type coop_cosmology_firstorder_source
   
   type, extends(coop_cosmology_background) :: coop_cosmology_firstorder
@@ -323,11 +328,20 @@ contains
     COOP_INT l
     COOP_REAL,dimension(coop_num_cls),intent(OUT)::Cls
     COOP_REAL,dimension(:,:,:),allocatable::trans
-    COOP_INT:: i
+    COOP_INT:: i, ik, idense
     COOP_REAL::tmp
     Cls = 0.d0
     allocate(trans(source%nsrc, coop_k_dense_fac, source%nk))
     call source%get_transfer(l, trans)
+
+!!$    open(20, file = "trans.txt")
+!!$    do ik = 2, source%nk
+!!$       do idense = 1, coop_k_dense_fac
+!!$          write(20, "(20E16.7)") source%k_dense(idense, ik), trans(:, idense, ik)
+!!$       enddo
+!!$    enddo
+!!$    close(20)
+!!$    stop
     select case(source%m)
     case(0)
        Cls(coop_index_ClTT) = sum(source%ws_dense * trans(1, :, :)**2)*coop_4pi
@@ -347,7 +361,7 @@ contains
           Cls(coop_index_ClTE) = sqrt((l+2.d0)*(l+1.d0)*l*(l-1.d0))*sum(source%wt_dense * trans(1, :, :)*trans(2,:,:))*coop_4pi
           Cls(coop_index_ClEE) = sum(source%wt_dense * trans(2,:,:)**2)*coop_4pi
           if(source%nsrc .ge. 3)then
-             Cls(coop_index_ClBB) = sum(source%wt_dense * trans(3, :, :))*coop_4pi
+             Cls(coop_index_ClBB) = sum(source%wt_dense * trans(3, :, :)**2)*coop_4pi
           end if
        endif       
     case default
@@ -508,7 +522,34 @@ contains
     enddo
     deallocate(w)
     call pert%free()
+    call source%intbypart(ik)
   end subroutine coop_cosmology_firstorder_compute_source_k
+
+
+  subroutine coop_cosmology_firstorder_source_intbypart(source, ik)
+    class(coop_cosmology_firstorder_source)::source
+    COOP_REAL s2(source%ntau), sum1
+    COOP_INT ik, i
+    source%saux(:, ik, 1) = 0.d0
+    source%saux(:, ik, source%ntau) = 0.d0
+    s2(1) = ((source%saux(1, ik, 1) -  source%saux(1, ik, 2))/(source%dtau(1)+source%dtau(2)) +  (source%saux(1, ik, 1) )/(source%dtau(1)*2.d0))*(2.d0/source%dtau(1))
+    s2(source%ntau) = (source%saux(1, ik, source%ntau)/(source%dtau(source%ntau)*2.d0) +  (source%saux(1, ik, source%ntau) -  source%saux(1, ik, source%ntau-1))/(source%dtau(source%ntau)+source%dtau(source%ntau-1)))*(2.d0/source%dtau(source%ntau))
+    do i = 2, source%ntau-1
+       s2(i) = ((source%saux(1, ik, i) -  source%saux(1, ik, i+1))/(source%dtau(i)+source%dtau(i+1)) +  (source%saux(1, ik, i) -  source%saux(1, ik, i-1))/(source%dtau(i)+source%dtau(i-1)))*(2.d0/source%dtau(i))
+    enddo
+    source%saux(1, ik, :) = -s2/source%k(ik)**2
+    select case(source%m)
+    case(0)
+       source%s(1, ik, :) = source%s(1, ik, :) +  source%saux(1, ik, :)
+    case(1)
+       call coop_tbw("vector intbypart")
+    case(2)
+       source%s(2, ik, :) = source%s(2, ik, :) +  source%saux(1, ik, :)
+       
+    case default
+       call coop_return_error("source_intbypart", "unknown m", "stop")
+    end select
+  end subroutine coop_cosmology_firstorder_source_intbypart
 
 
 
@@ -620,7 +661,7 @@ contains
   subroutine coop_cosmology_firstorder_set_xe(this)
     class(coop_cosmology_firstorder)::this
     integer i, m
-    integer, parameter::n = 4096
+    integer, parameter::n = 8192
     COOP_REAL ekappa(n), a(n), dkappadinva(n), dkappadtau(n), vis(n)
     call this%setup_background()
     call this%set_klms()
@@ -682,7 +723,7 @@ contains
     ekappa = exp(ekappa)
     vis = dkappadtau*ekappa
     call this%ekappa%init(n = n, xmin = a(1), xmax = a(n), f = ekappa, xlog = .true., ylog = .true., fleft = ekappa(1), fright = ekappa(n), check_boundary = .false.)
-    call this%vis%init(n = n, xmin = a(1), xmax = a(n), f = vis, xlog = .true., ylog = .true., fleft = vis(1), fright = vis(n), check_boundary = .false.)
+    call this%vis%init(n = n, xmin = a(1), xmax = a(n), f = vis, xlog = .true., ylog = .true., fleft = vis(1), fright = vis(n), method = COOP_INTERPOLATE_QUADRATIC, check_boundary = .false.)
     this%arecomb =this%vis%maxloc()
     this%zrecomb = 1.d0/this%arecomb - 1.d0
     this%taurecomb = this%tauofa(this%arecomb)
@@ -1108,18 +1149,18 @@ contains
     COOP_INT :: m
     this%source(m)%m = m
     this%source(m)%nsrc = coop_num_sources(m)
+    this%source(m)%nsaux = coop_num_saux(m)
     call this%set_source_tau(this%source(m), coop_source_tau_step_factor(m))
 
     call this%set_source_k(this%source(m), coop_source_k_n(m), coop_source_k_weight(m))
 
     if(allocated(this%source(m)%s))then
        if(size(this%source(m)%s, 1) .ne. this%source(m)%ntau .or. size(this%source(m)%s, 2) .ne. this%source(m)%nk)then
-          deallocate(this%source(m)%s, this%source(m)%s2)
-          allocate(this%source(m)%s(this%source(m)%nsrc, this%source(m)%nk , this%source(m)%ntau), this%source(m)%s2(this%source(m)%nsrc, this%source(m)%nk, this%source(m)%ntau) )
+          deallocate(this%source(m)%s, this%source(m)%s2, this%source(m)%saux)
+          allocate(this%source(m)%s(this%source(m)%nsrc, this%source(m)%nk , this%source(m)%ntau), this%source(m)%s2(this%source(m)%nsrc, this%source(m)%nk, this%source(m)%ntau), this%source(m)%saux(this%source(m)%nsaux, this%source(m)%nk, this%source(m)%ntau) )
        endif
     else
-       allocate(this%source(m)%s(this%source(m)%nsrc, this%source(m)%nk , this%source(m)%ntau), this%source(m)%s2(this%source(m)%nsrc, this%source(m)%nk, this%source(m)%ntau) )
-
+       allocate(this%source(m)%s(this%source(m)%nsrc, this%source(m)%nk , this%source(m)%ntau), this%source(m)%s2(this%source(m)%nsrc, this%source(m)%nk, this%source(m)%ntau), this%source(m)%saux(this%source(m)%nsaux, this%source(m)%nk, this%source(m)%ntau) )
     endif
   end subroutine coop_cosmology_firstorder_init_source
 
@@ -1150,6 +1191,76 @@ contains
        endif
     endif
   end function Coop_cosmology_firstorder_Clzetazeta
+
+
+  function coop_cosmology_firstorder_source_interpolate(source, k, chi) result(s)
+    COOP_INT ik, ichi
+    COOP_INT ilow, iup
+    class(coop_cosmology_firstorder_source)::source
+    COOP_REAL k, chi, kop, rk, a, b, rchi
+    COOP_REAL s(source%nsrc)
+    if(chi .le. source%chi(source%ntau) .or. chi .ge. source%chi(1))then
+       s = 0.d0
+       return
+    endif
+    call source%k2kop(k, kop)
+    rk = (kop - source%kopmin)/source%dkop + 1.d0
+    ik = floor(rk)
+    if(ik.le. 0 .or. ik.ge.source%nk)then
+       s = 0.d0
+       return
+    endif
+    a = rk - ik
+    b = 1.d0 - a
+    ilow = 1
+    iup = source%ntau
+    do while(iup - ilow .gt. 1)
+       ichi = (iup + ilow)/2
+       if(source%chi(ichi) .gt. chi)then
+          ilow = ichi
+       else
+          iup = ichi
+       endif
+    enddo
+    rchi = source%chi(ilow) - chi
+    s = ((source%s(:, ik, ilow)+source%s2(:, ik, ilow)*(b**2-1.d0))*b + (source%s(:, ik+1, ilow) + source%s2(:, ik+1, ilow)*(a**2-1.d0))*a)*(1.d0-rchi) &
+         +  ((source%s(:, ik, iup)+source%s2(:, ik, iup)*(b**2-1.d0))*b + (source%s(:, ik+1, iup) + source%s2(:, ik+1, iup)*(a**2-1.d0))*a)*rchi
+  end function coop_cosmology_firstorder_source_interpolate
+
+
+  function coop_cosmology_firstorder_source_interpolate_one(source, k, chi, isrc) result(s)
+    COOP_INT ik, ichi, isrc
+    COOP_INT ilow, iup
+    class(coop_cosmology_firstorder_source)::source
+    COOP_REAL k, chi, kop, rk, a, b, rchi
+    COOP_REAL s
+    if(chi .le. source%chi(source%ntau) .or. chi .ge. source%chi(1))then
+       s = 0.d0
+       return
+    endif
+    call source%k2kop(k, kop)
+    rk = (kop - source%kopmin)/source%dkop + 1.d0
+    ik = floor(rk)
+    if(ik.le. 0 .or. ik.ge.source%nk)then
+       s = 0.d0
+       return
+    endif
+    a = rk - ik
+    b = 1.d0 - a
+    ilow = 1
+    iup = source%ntau
+    do while(iup - ilow .gt. 1)
+       ichi = (iup + ilow)/2
+       if(source%chi(ichi) .gt. chi)then
+          ilow = ichi
+       else
+          iup = ichi
+       endif
+    enddo
+    rchi = source%chi(ilow) - chi
+    s = ((source%s(isrc, ik, ilow)+source%s2(isrc, ik, ilow)*(b**2-1.d0))*b + (source%s(isrc, ik+1, ilow) + source%s2(isrc, ik+1, ilow)*(a**2-1.d0))*a)*(1.d0-rchi) &
+         +  ((source%s(isrc, ik, iup)+source%s2(isrc, ik, iup)*(b**2-1.d0))*b + (source%s(isrc, ik+1, iup) + source%s2(isrc, ik+1, iup)*(a**2-1.d0))*a)*rchi
+  end function coop_cosmology_firstorder_source_interpolate_one
 
 
 end module coop_firstorder_mod

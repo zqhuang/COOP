@@ -204,7 +204,7 @@ contains
     else
        call this%T%set_defaults( genre = COOP_PERT_HIERARCHY, &
             m = m, s = 0, index = this%baryon%last_index + 1, &
-            lmax = 16, q = 1.d0, mass = 0.d0 )
+            lmax = 14, q = 1.d0, mass = 0.d0 )
 
        call this%E%set_defaults( genre = COOP_PERT_HIERARCHY, &
             m = m, s = 2, index = this%T%last_index + 1, &
@@ -327,7 +327,6 @@ contains
 
     this%T%F = 0.d0
     if(this%T%nvars .gt. 0)  this%T%F(this%T%lmin:this%T%lmax) = this%y(this%T%index:this%T%last_index)
-
 
     this%E%F = 0.d0
     if(this%E%nvars .gt. 0)  this%E%F(this%E%lmin:this%E%lmax) = this%y(this%E%index:this%E%last_index)

@@ -201,7 +201,7 @@
     case(2)
        O1_TEN_H_PRIME = O1_TEN_HPR
        if(pert%tight_coupling)then
-          pert%T%F(2) = (-16.d0/3.d0 + (8.d0*19.d0/63.d0)*(pert%kbyaH**2*aHtauc + (231.D0/19.D0))*aHtauc  )*O1_TEN_HPR*aHtauc
+          pert%T%F(2) =  (-16.d0/3.d0 + (8.d0*19.d0/63.d0)*(pert%kbyaH**2*aHtauc + (231.D0/19.D0))*aHtauc  )*O1_TEN_HPR*aHtauc
           pert%E%F(2) =  (-coop_sqrt6/4.d0)*pert%T%F(2)-(110.d0/63.d0*coop_sqrt6)*(pert%kbyaH**2*aHtauc +(63.d0/11.d0))*O1_TEN_HPR*aHtauc**2
        else
           pert%T%F(2) =O1_T(2)
@@ -223,7 +223,7 @@
             + 0.4d0/aHsq * aniso
 
 
-       O1_NU_PRIME(2) =  pert%kbyaH * ( - cosmology%klms_by_2lp1(3, 2, 0) *  O1_NU( 3 ) )
+       O1_NU_PRIME(2) =  pert%kbyaH * ( - cosmology%klms_by_2lp1(3, 2, 0) *  O1_NU( 3 ) ) - 4.d0*O1_TEN_HPR
        do l = 3, pert%nu%lmax - 1
           O1_NU_PRIME(l) =  pert%kbyaH * (cosmology%klms_by_2lm1(l, 2, 0) *   O1_NU( l-1 ) - cosmology%klms_by_2lp1(l+1, 2, 0) *  O1_NU( l+1 ) )
        enddo
@@ -234,7 +234,7 @@
        if(cosmology%index_massivenu .ne. 0)then
           !!massive neutrinos
           do iq = 1, pert%massivenu_iq_used
-             O1_MASSIVENU_PRIME(2, iq) = pert%kbyaH * qbye(iq) * (- cosmology%klms_by_2lp1(3, 2, 0) * O1_MASSIVENU(3, iq))
+             O1_MASSIVENU_PRIME(2, iq) = pert%kbyaH * qbye(iq) * (- cosmology%klms_by_2lp1(3, 2, 0) * O1_MASSIVENU(3, iq))-4.d0*O1_TEN_HPR
              do l = 3, pert%massivenu(iq)%lmax - 1
                 O1_MASSIVENU_PRIME(l, iq) = pert%kbyaH * qbye(iq) * (cosmology%klms_by_2lm1(l, 2, 0) * O1_MASSIVENU(l-1, iq) - cosmology%klms_by_2lp1(l+1, 2, 0) * O1_MASSIVENU(l+1,iq))
              enddo
@@ -244,14 +244,14 @@
        endif
 
        if(pert%tight_coupling)then
-          pert%T2prime = -16.d0/3.d0*(O1_TEN_HPR_PRIME - O1_TEN_HPR*(2.d0+pert%daHdtau/aHsq))*aHtauc
+          pert%T2prime = -16.d0/3.d0*(O1_TEN_HPR_PRIME*aHtauc - O1_TEN_HPR * (pert%taucdot  + pert%tauc*pert%daHdtau/pert%aH)/aHtauc**2)
           pert%E2prime = (-coop_sqrt6/4.d0)*pert%T2prime
        else
           O1_T_PRIME(2) =  pert%kbyah * ( -  cosmology%klms_by_2lp1(3, 2, 0) * O1_T(3))  -  ( O1_T(2) - pert%capP)/aHtauc &
                - O1_TEN_HPR*4.d0
           pert%T2prime = O1_T_PRIME(2)
           O1_E_PRIME(2) = pert%kbyah * ( - cosmology%fourbyllp1(2)*O1_B(2)- cosmology%klms_by_2lp1(3, 2, 2) * O1_E(3)) - (O1_E(2) + coop_sqrt6 * pert%capP)/aHtauc
-          pert%E2prime = O1_T_PRIME(2)
+          pert%E2prime = O1_E_PRIME(2)
           O1_B_PRIME(2) = pert%kbyah * ( cosmology%fourbyllp1(2)*O1_E(2)- cosmology%klms_by_2lp1(3, 2, 2) * O1_B(3)) - O1_B(2)/aHtauc
           do l = 3, pert%T%lmax -1 
              O1_T_PRIME(l) = pert%kbyah * (cosmology%klms_by_2lm1(l, 2, 0) * O1_T(l-1) -  cosmology%klms_by_2lp1(l+1, 2, 0) * O1_T(l+1)) -  O1_T(l)/aHtauc
