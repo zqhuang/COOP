@@ -11,19 +11,19 @@ program map
   
   integer,parameter::nmax = 8
   character(len=80), dimension(64) :: header
-  character(LEN=1024),dimension(nmax)::fin
-  character(LEN=1024)::fout
+  COOP_STRING,dimension(nmax)::fin
+  COOP_STRING::fout
   integer,dimension(:),allocatable::nmaps_in, ordering_in, nside_in
   integer nin, i, j
   real,dimension(:,:),allocatable:: map_in  
   real,dimension(:,:),allocatable:: map_out, map_tmp
   integer(8) npixtot
   type(coop_list_integer),dimension(nmax)::indices_wanted
-  character(LEN=1024)::inline
+  COOP_STRING::inline
   integer num_maps_wanted, npix, k
   type(coop_healpix_maps) hgm, hgm2
-  real*8 fwhm, scal
-  write(*,*) "options are: SPLIT; SMOOTH; MULTIPLY;IQU2TQTUT;IQU2TEB;SCALE"
+  COOP_REAL fwhm, scal, threshold
+  write(*,*) "options are: SPLIT; SMOOTH; MULTIPLY;IQU2TQTUT;IQU2TEB;SCALE;INFO;ADD;SUBTRACT;MAKEMASK"
   nin = 1
   do while(nin .le. nmax)
      write(*,*) "Enter input file and press Enter (or just press Enter key to finish):"
@@ -38,12 +38,33 @@ program map
            write(*, "(A,I5)") "nside = "//COOP_STR_OF(hgm%nside)
            if(hgm%ordering .eq. COOP_RING)then
               write(*, "(A)") "ordering: ring"
-           else(hgm%ordering .eq. COOP_NESTED)then
+           elseif(hgm%ordering .eq. COOP_NESTED)then
               write(*, "(A)") "ordering: nested"
            else
               write(*, "(A)") "ordering: unknown"
            endif
         enddo
+     case("MAKEMASK")
+        if(nin.ge.3) stop "MAKEMASK option can only be applied to 1 map"
+        call hgm%read(fin(1), nmaps_wanted = 1)
+        write(*,*) "map min:", minval(hgm%map(:,1))
+        write(*,*) "map max:", maxval(hgm%map(:,1))
+        write(*,*) "Enter the threshold:"
+        read(*,*) threshold
+        write(*,*) "Enter the output file name:"
+        read(*,'(A)') fout
+        !$omp parallel do
+        do i=0, hgm%npix-1
+           if(hgm%map(i, 1).gt. threshold)then
+              hgm%map(i, 1) = 0.
+           else
+              hgm%map(i, 1) = 1.
+           endif
+        enddo
+        !$omp end parallel do
+        call hgm%write(trim(fout))
+        call hgm%free()
+        goto 500
      case("SPLIT")
         nin = nin -1
         do i=1, nin
@@ -80,14 +101,71 @@ program map
            write(*,*) "Enter the output file name: "
            read(*,'(A)') fout
         enddo
-        call hgm%read(trim(fin(1)), nmaps_wanted = 1)
-        do i=2, nin
-           call hgm2%read(trim(fin(i)), nmaps_wanted = 1)
-           if(hgm2%nside .ne. hgm%nside) stop "map with different resolution cannot be multiplied"
-           
-           hgm%map(:, 1) = hgm%map(:, 1) * hgm2%map(:,1)
+        call hgm%read(trim(fin(1)))
+        call hgm2%read(trim(fin(2)))
+        if(hgm2%nside .ne. hgm%nside) stop "map with different resolution cannot be multiplied"
+        if(hgm2%nmaps .eq. 1)then
+           do i=1, hgm%nmaps
+              hgm%map(:, i) = hgm%map(:, i) * hgm2%map(:,1)
+           enddo
+           call hgm%write(trim(fout))
+        elseif(hgm2%nmaps.eq.1)then
+           do i=1, hgm2%nmaps
+              hgm2%map(:, i) = hgm2%map(:, i) * hgm%map(:,1)
+           enddo
+           call hgm2%write(trim(fout))
+        elseif(hgm%nmaps.eq.hgm2%nmaps)then
+           do i=1, hgm%nmaps
+              hgm%map(:, i) = hgm%map(:, i) * hgm2%map(:,i)
+           enddo
+           call hgm%write(trim(fout))
+        else
+           stop "different number of maps can not be matched"
+        endif
+        call hgm%free()
+        call hgm2%free()
+        goto 500
+     case("ADD")
+        nin  = nin - 1
+        if(nin.lt.2) stop "nmaps<2, cannot multiply"
+        fout = ""
+        do while(trim(fout).eq."")
+           write(*,*) "Enter the output file name: "
+           read(*,'(A)') fout
         enddo
-        call hgm%write(trim(fout))
+        call hgm%read(trim(fin(1)))
+        call hgm2%read(trim(fin(2)))
+        if(hgm2%nside .ne. hgm%nside) stop "map with different resolution cannot be added"
+        if(hgm%nmaps.eq.hgm2%nmaps)then
+           do i=1, hgm%nmaps
+              hgm%map(:, i) = hgm%map(:, i) + hgm2%map(:,i)
+           enddo
+           call hgm%write(trim(fout))
+        else
+           stop "different number of maps can not be matched"
+        endif
+        call hgm%free()
+        call hgm2%free()
+        goto 500
+     case("SUBTRACT")
+        nin  = nin - 1
+        if(nin.lt.2) stop "nmaps<2, cannot multiply"
+        fout = ""
+        do while(trim(fout).eq."")
+           write(*,*) "Enter the output file name: "
+           read(*,'(A)') fout
+        enddo
+        call hgm%read(trim(fin(1)))
+        call hgm2%read(trim(fin(2)))
+        if(hgm2%nside .ne. hgm%nside) stop "map with different resolution cannot be subtracted"
+        if(hgm%nmaps.eq.hgm2%nmaps)then
+           do i=1, hgm%nmaps
+              hgm%map(:, i) = hgm%map(:, i) - hgm2%map(:,i)
+           enddo
+           call hgm%write(trim(fout))
+        else
+           stop "different number of maps can not be matched"
+        endif
         call hgm%free()
         call hgm2%free()
         goto 500

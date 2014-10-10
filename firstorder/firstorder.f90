@@ -6,11 +6,10 @@ module coop_firstorder_mod
 
 private
 
-  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe, coop_power_lnk_min, coop_power_lnk_max,  coop_k_dense_fac, coop_index_ClTT, coop_index_ClTE, coop_index_ClEE, coop_index_ClBB, coop_index_ClEB, coop_index_ClTB, coop_index_ClLenLen, coop_index_ClTLen, coop_num_Cls, coop_scalar_lmax, coop_vector_lmax, coop_tensor_lmax
+  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe, coop_power_lnk_min, coop_power_lnk_max,  coop_k_dense_fac, coop_index_ClTT, coop_index_ClTE, coop_index_ClEE, coop_index_ClBB, coop_index_ClEB, coop_index_ClTB, coop_index_ClLenLen, coop_index_ClTLen, coop_num_Cls, coop_Cls_lmax
 
-  COOP_INT::coop_scalar_lmax = 2500
-  COOP_INT::coop_vector_lmax = 2000
-  COOP_INT::coop_tensor_lmax = 1500
+  COOP_INT::coop_Cls_lmax(0:2) = (/ 2800, 2000, 1500 /)
+
   COOP_REAL, parameter :: coop_power_lnk_min = log(0.1d0) 
   COOP_REAL, parameter :: coop_power_lnk_max = log(5.d3) 
   COOP_REAL, parameter :: coop_visibility_amin = 1.8d-4
@@ -21,7 +20,7 @@ private
 
   COOP_REAL, dimension(0:2), parameter::coop_source_tau_step_factor = (/ 1.d0, 1.d0, 1.d0 /)
   COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
-  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 130, 100, 150 /)
+  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 130, 100, 160 /)
   COOP_REAL, parameter::coop_source_k_index = 0.45d0
   COOP_INT, parameter:: coop_k_dense_fac = 30
 
@@ -373,18 +372,19 @@ contains
 
   subroutine coop_cosmology_firstorder_source_get_All_Cls(source, lmin, lmax, Cls)
     class(coop_cosmology_firstorder_source)::source
-    COOP_INT lmin, lmax, l, nc, i
+    COOP_INT lmin, lmax, lmax_compute, l, nc, i
     COOP_REAL,dimension(coop_num_cls, lmin:lmax),intent(OUT)::Cls
     COOP_REAL, dimension(:),allocatable::ls_computed
     COOP_REAL, dimension(:,:),allocatable::Cls_computed, Cls2_computed
     COOP_REAL::Cls_tmp(coop_num_cls)
     COOP_REAL, parameter::norm = 1.d10
+    lmax_compute = min(coop_Cls_lmax(source%m), lmax)
     l = lmin 
     nc = 1
     do
        call next_l()
        nc = nc + 1
-       if(l.ge.lmax)then
+       if(l.ge.lmax_compute)then
           l = lmax
           exit
        endif
@@ -396,8 +396,8 @@ contains
     do
        call next_l()
        i = i + 1
-       if(l.ge.lmax)then
-          ls_computed(i) = dble(lmax)
+       if(l.ge.lmax_compute)then
+          ls_computed(i) = dble(lmax_compute)
           exit
        else
           ls_computed(i) = dble(l)
@@ -414,9 +414,12 @@ contains
           Cls(i, lmin:lmax) = 0.d0
        else
           call coop_spline(nc, ls_computed, Cls_Computed(:, i), Cls2_computed(:, i))
-          do l = lmin, lmax
+          do l = lmin, lmax_compute
              call coop_splint(nc, ls_computed, Cls_Computed(:, i), Cls2_computed(:, i), dble(l), Cls(i, l))
              Cls(i, l) = Cls(i, l)/(l*(l+1.d0)*norm)
+          enddo
+          do l = lmax_compute+1, lmax
+             Cls(i, l) = Cls(i, lmax_compute)*exp(-(dble(l)**2-dble(lmax_compute)**2)/1.2d6)
           enddo
        endif
     enddo
@@ -1026,18 +1029,8 @@ contains
     enddo
 
 
-    source%kmin = 0.25d0/this%distlss
-    select case(source%m)
-    case(0)
-       source%kmax = (coop_scalar_lmax*2.d0)/this%distlss
-    case(1)
-       source%kmax = (coop_vector_lmax*2.d0)/this%distlss
-    case(2)
-       source%kmax = (coop_tensor_lmax*2.d0)/this%distlss
-    case default
-       write(*,*) "Error: m = ", source%m
-       stop "source spin must be 0, 1, 2"
-    end select
+    source%kmin = 0.1d0/this%distlss
+    source%kmax = (min(max(1500, coop_Cls_lmax(source%m)), 3000)*1.5d0)/this%distlss
 
     call source%k2kop(source%kmin, source%kopmin)
     call source%k2kop(source%kmax, source%kopmax)

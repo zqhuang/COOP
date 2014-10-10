@@ -334,18 +334,18 @@
  fileout = "xe.txt"
 !!$	write(*,*)'Enter Omega_B, Omega_DM, Omega_vac (e.g. 0.04 0.20 0.76)'
 !!$	read(*,*)OmegaB,OmegaC,OmegaL
- OmegaB = 0.045
- omegaC = 0.255
- OmegaL = 0.7
+ OmegaB = 0.0480122864
+ omegaC = 0.2609908
+ OmegaL = 1.d0 - OmegaB - OmegaC
 	OmegaT=OmegaC+OmegaB            !total dark matter + baryons
 	OmegaK=1.d0-OmegaT-OmegaL	!curvature
 !!$	write(*,'(1x,"Omega_K = ",f4.2)')OmegaK
 !!$	write(*,*)
 !!$	write(*,*)'Enter H_0 (in km/s/Mpc), T_0, Y_p (e.g. 70 2.725 0.25)'
 !!$	read(*,*)HOinp,Tnow,Yp
- HOinp = 68.d0
+ HOinp = 67.779d0
  Tnow = 2.72558d0
- Yp = 0.24d0
+ Yp = 0.248d0
 
 !!c	convert the Hubble constant units
 	H = HOinp/100.d0
@@ -357,8 +357,10 @@
 	fHe = Yp/(not4*(1.d0-Yp))		!n_He_tot / n_H_tot
 
 	Nnow = 3.d0*HO*HO*OmegaB/(8.d0*Pi*G*mu_H*m_H)
+
 	n = Nnow * (1.d0+z)**3
-	fnu = (21.d0/8.d0)*(4.d0/11.d0)**(4.d0/3.d0)
+!!Zhiqi modify add 3.046/3
+	fnu = (21.d0/8.d0)*(4.d0/11.d0)**(4.d0/3.d0)*(3.046/3.d0)
 !!c	(this is explictly for 3 massless neutrinos - change if N_nu.ne.3)
 	z_eq = (3.d0*(HO*C)**2/(8.d0*Pi*G*a*(1.d0+fnu)*Tnow**4))*OmegaT
 	z_eq = z_eq - 1.d0
@@ -435,13 +437,13 @@ Hswitch  = 1
 !!c	OK that's the initial conditions, now start writing output file
 
 	open(unit=7,status='unknown',form='formatted',file=fileout)
-	write(7,'(1x,"  z    ",1x,"     x_e   ")')
+!	write(7,'(1x,"  z    ",1x,"     x_e   ")')
 
 	w0=1.d0/ dsqrt(1.d0 + zinitial)	!like a conformal time
 	w1=1.d0/ dsqrt(1.d0 + zfinal)
 	Lw0 = dLog(w0)
 	Lw1 = dLog(w1)
-	Nz=1000
+	Nz= 8192
 	hW=(Lw1-Lw0)/dfloat(Nz)		!interval in log of conf time
 
 !!c	Set up work-space stuff for DVERK
@@ -454,8 +456,8 @@ Hswitch  = 1
 	do i = 1,Nz
 !!C       calculate the start and end redshift for the interval at each z
 !!C	or just at each z
-	  zstart = zinitial + dfloat(i-1)*(zfinal-zinitial)/dfloat(Nz)
-	  zend   = zinitial + dfloat(i)*(zfinal-zinitial)/dfloat(Nz)
+	  zstart = exp(log(1.d0+zinitial) + dfloat(i-1)*(log(1.d0+zfinal)-log(1.d0+zinitial))/dfloat(Nz))
+	  zend   =  exp(log(1.d0+zinitial) + dfloat(i)*(log(1.d0+zfinal)-log(1.d0+zinitial))/dfloat(Nz))
 
 !!C Use Saha to get x_e, using the equation for x_e for ionized helium
 !!C and for neutral helium.
@@ -496,7 +498,7 @@ Hswitch  = 1
 	    y(2) = x_He0
 	    y(3) = Tnow*(1.d0+z)
 
-          else if(y(2).gt.0.99)then
+          else if(y(2).gt.0.995)then
 
 	    x_H0 = 1.d0
 	    rhs = dexp( 1.5d0 * dLog(CR*Tnow/(1.d0+z)) & 
@@ -666,9 +668,11 @@ Hswitch  = 1
 	Hz = HO * dsqrt((1.d0+z)**4/(1.d0+z_eq)*OmegaT + OmegaT*(1.d0+z)**3 & 
 		+ OmegaK*(1.d0+z)**2 + OmegaL)
 
+ 
 !!c	Also calculate derivative for use later
 	dHdz = (HO**2/2.d0/Hz)*(4.d0*(1.d0+z)**3/(1.d0+z_eq)*OmegaT  & 
 		+ 3.d0*OmegaT*(1.d0+z)**2 + 2.d0*OmegaK*(1.d0+z) )
+
 
 !!c	Get the radiative rates using PPQ fit (identical to Hummer's table)
 	Rdown=1.d-19*a_PPB*(Tmat/1.d4)**b_PPB & 

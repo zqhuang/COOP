@@ -15,6 +15,9 @@ default: $(OFLIB)
 $(OFLIB): $(OFOBJ)
 	ar -r $@ $?
 
+DOCLS: $(OFOBJ) testcls.o $(BACKGROUND)/libcoopbackground.a 
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OFOBJ) testcls.o $(LINK)
+
 Test: $(OFOBJ) test.o $(BACKGROUND)/libcoopbackground.a 
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OFOBJ) test.o $(LINK)
 

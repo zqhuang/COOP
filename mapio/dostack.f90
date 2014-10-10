@@ -3,78 +3,71 @@ program test
   use coop_wrapper_utils
   implicit none
 
-#define USE_PLANCK 1
-
 #include "constants.h"
 
-  integer i
-  
+  COOP_STRING :: spot_type = "T"
+  COOP_STRING :: map_file = "ffp7/ffp7_iqu.fits"
+  COOP_STRING:: spots_file ="spots/ffp7_iqu_Tmax_threshold0_fwhm15.txt"
+  COOP_STRING :: imask_file = "ffp7/ffp7_imask.fits"
+  COOP_STRING:: polmask_file ="ffp7/ffp7_polmask1024.fits"
+
+
   COOP_REAL, parameter::smooth_fwhm = 0.*coop_SI_arcmin
   COOP_UNKNOWN_STRING,parameter:: color_table = "Rainbow"
-  COOP_UNKNOWN_STRING, parameter :: spot_type = "QU"
   COOP_REAL,parameter::r=2.*coop_SI_degree, dr = max(smooth_fwhm/3., r/50.)
   COOP_INT, parameter::n = ceiling(r/dr)
-
-#ifdef USE_PLANCK
-  COOP_UNKNOWN_STRING, parameter :: map_file = "simu/simulate_QU.fits"
-  COOP_UNKNOWN_STRING, parameter :: spots_file ="spots/simulate_T_PTmax_threshold0_fwhm15.txt"
-  COOP_UNKNOWN_STRING, parameter :: imask_file = "planck/smica_valmask.fits"
-  COOP_UNKNOWN_STRING, parameter :: polmask_file ="planck/smica_valmask.fits"
-#endif
-
-#ifdef USE_WMAP
-  COOP_UNKNOWN_STRING, parameter :: map_file = "wmap/wmap_iqu.fits"
-  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/wmap_iqu_Tmax_NoThreshold_fwhm30.txt"
-  COOP_UNKNOWN_STRING, parameter :: imask_file = "wmap/wmap_temperature_kq75_analysis_mask_r9_9yr_v5.fits" 
-  COOP_UNKNOWN_STRING, parameter :: polmask_file = "wmap/wmap_polarization_analysis_mask_r9_9yr_v5.fits"
-#endif
-
-#ifdef USE_SIMU
-  COOP_UNKNOWN_STRING, parameter :: map_file = "simu/sim3_T.fits" 
-  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/sim3_T_Tmax_QTUTOrient_NoThreshold_fwhm10.txt"
-  COOP_UNKNOWN_STRING, parameter :: imask_file = ""
-  COOP_UNKNOWN_STRING, parameter :: polmask_file = ""
-#endif
-
-#ifdef USE_FFP7
-  COOP_UNKNOWN_STRING, parameter :: map_file = "ffp7/ffp7_iqu_smoothed_fwhm15arcmin.fits" 
-  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/ffp7_TQTUT_TQUmax_NoThreshold_fwhm15.txt" 
-  COOP_UNKNOWN_STRING, parameter :: imask_file = "ffp7/ffp7_smica_harmonic_mask_I.fits"
-  COOP_UNKNOWN_STRING, parameter :: polmask_file = "ffp7/ffp7_smica_harmonic_mask_QU.fits"
-#endif
-
-#ifdef USE_PREDX11
-  COOP_UNKNOWN_STRING, parameter :: map_file = "predx11/predx11_iqu_smoothed_fwhm15arcmin.fits" 
-  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/predx11_TQTUT_TQUmax_NoThreshold_fwhm15.txt" 
-  COOP_UNKNOWN_STRING, parameter :: imask_file = "predx11/predx11_imask.fits"
-  COOP_UNKNOWN_STRING, parameter :: polmask_file = "predx11/predx11_polmask.fits"
-#endif
-
   COOP_UNKNOWN_STRING, parameter :: prefix = "stacked/"
-  COOP_STRING fout, caption, fname
+  COOP_STRING fout,fout2, caption, fname
   COOP_INT,parameter::mmax = 4
+  integer i, m
   type(coop_healpix_maps) map, mask
   type(coop_healpix_patch) patch
   logical::do_mask
+  type(coop_asy)::fp
+  if(iargc() .ge. 5)then
+     map_file = trim(adjustl(coop_InputArgs(1)))
+     spots_file = trim(adjustl(coop_InputArgs(2)))
+     spot_type = trim(adjustl(coop_InputArgs(3)))     
+     imask_file = trim(adjustl(coop_InputArgs(4)))
+     polmask_file = trim(adjustl(coop_InputArgs(5)))
+  endif
+
+
   select case(trim(spot_type))
   case("T", "I")
      if(trim(imask_file) .ne. "")then
         do_mask = .true.
-        call mask%read( imask_file, nmaps_wanted = 1 )
+        call mask%read(trim(imask_file), nmaps_wanted = 1 )
      else
         do_mask = .false.
      endif
-  case("E","B","Q", "QrUr","QU")
+  case("E","B")
      if(trim(polmask_file) .ne. "")then
-        call mask%read( polmask_file, nmaps_wanted = 1)
+        call mask%read(trim(polmask_file), nmaps_wanted = 1)
         do_mask = .true.
      else
         do_mask = .false.
      endif
+  case( "QrUr", "QU")
+     if(index(map_file, "QTUT").eq.0)then
+        if(trim(polmask_file) .ne. "")then
+           call mask%read(trim(polmask_file), nmaps_wanted = 1)
+           do_mask = .true.
+        else
+           do_mask = .false.
+        endif
+     else
+        if(trim(imask_file) .ne. "")then
+           do_mask = .true.
+           call mask%read(trim(imask_file), nmaps_wanted = 1 )
+        else
+           do_mask = .false.
+        endif
+     endif
   case default
      stop "Unknown spot_type"
   end select
-  call map%read(map_file)
+  call map%read(trim(map_file))
 
   if(index(spots_file, "_Tmax_QTUTOrient_") .gt. 0 .or. index(spots_file, "TQUmax").gt. 0)then
      caption = "$T$ maxima, oriented"
@@ -114,34 +107,48 @@ program test
      caption = trim(caption)//", threshold $\nu$=5"
   endif
 
-  call patch%init(spot_type, n, dr, mmax = mmax)
+  call patch%init(trim(spot_type), n, dr, mmax = mmax)
   if(do_mask)then
-     call map%stack(patch, spots_file, mask, do_weight = .true.)
+     call map%stack(patch, trim(spots_file), mask, do_weight = .true.)
   else
-     call map%stack(patch, spots_file, do_weight = .true.)
+     call map%stack(patch, trim(spots_file), do_weight = .true.)
   endif
   patch%caption = trim(coop_num2str(patch%nstack_raw))//" patches on "//trim(caption)
   patch%color_table = color_table
-  fname = coop_file_name_of(spots_file)
-  
-  select case(spot_type)
+  fname = coop_file_name_of(trim(spots_file))
+  fout2 = ""
+  select case(trim(spot_type))
   case("QrUr")
-     fout = prefix//"Qr_on_"//trim(fname)
-     call patch%plot(imap = 1, output =trim(fout))
-     call patch%plot(imap = 2, output = prefix//"Ur_on_"//trim(fname))
+     if(index(map_file, "QTUT") .eq. 0)then
+        fout = prefix//"Qr_on_"//trim(fname)
+        fout2 = prefix//"Ur_on_"//trim(fname)
+     else
+        patch%label(1) = "$Q_{T,r}(\mu K)$"
+        patch%label(2) = "$U_{T,r}(\mu K)$"
+        fout = prefix//"QTr_on_"//trim(fname)
+        fout2 = prefix//"UTr_on_"//trim(fname)
+     endif
   case("QU")
-     fout = prefix//"Q_on_"//trim(fname)
-     call patch%plot(imap = 1, output = trim(fout))
-     call patch%plot(imap = 2, output = prefix//"U_on_"//trim(fname))
+     if(index(map_file, "QTUT") .eq. 0)then
+        fout = prefix//"Q_on_"//trim(fname)
+        fout2 = prefix//"U_on_"//trim(fname)
+     else
+        fout = prefix//"QT_on_"//trim(fname)
+        fout2 = prefix//"UT_on_"//trim(fname)
+        patch%label(1) = "$Q_T(\mu K)$"
+        patch%label(2) = "$U_T(\mu K)$"
+     endif
   case("T", "E", "B", "I") 
-     fout = prefix//spot_type//"_on_"//trim(fname)
-     call patch%plot(imap = 1, output =trim(fout))
+     fout = prefix//trim(spot_type)//"_on_"//trim(fname)
   end select
+  call patch%plot(imap = 1, output =trim(fout))
+  if(trim(fout2).ne."")call patch%plot(imap = 2, output =trim(fout2))
   write(*,*) "the output file is: "//trim(fout)
   call patch%get_all_radial_profiles()
-  open(7, file=spot_type//"_radial_profile.txt")
-  do i=0, patch%n
-     write(7,*) patch%r(i), patch%fr(i, 0, :)
+  do m = 0, 4, 2
+     call fp%open(trim(coop_file_add_postfix(fout, "_m"//COOP_STR_OF(m))))
+     call fp%init(xlabel="$r$", ylabel="radial profile")
+     call coop_asy_curve(fp, patch%r, patch%fr(:, m/2, 1))
+     call fp%close()
   enddo
-  close(7)
 end program test

@@ -10,8 +10,10 @@ program map
 #include "constants.h"
   
   integer(8) npixtot
-  COOP_STRING::fin
+  COOP_STRING::fin, gif
+  COOP_REAL mean
   integer nside, nmaps, ordering, i, imap
+  type(coop_healpix_maps)::hgm
   i = 1
   fin = trim(coop_InputArgs(i))
   do while(trim(fin).ne."")
@@ -28,9 +30,17 @@ program map
         else
            write(*, "(A)") "ordering: unknown"
         endif
+        call hgm%read(trim(fin))
         do imap = 1, nmaps
-           call system("map2gif -inp "//trim(fin)//" -out "//trim(coop_file_name_of(fin, .false.))//"_"//COOP_STR_OF(imap)//".gif -bar T -sig "//COOP_STR_OF(imap))
+           mean = sum(hgm%map(:, imap))/hgm%npix
+           write(*, "(A)") "--- map #"//COOP_STR_OF(imap)//" --- "
+           write(*, "(A)") "    mean = "//COOP_STR_OF(mean)
+           write(*, "(A)") "    rms = "//COOP_STR_OF(sqrt(sum((hgm%map(:, imap)-mean)**2)/hgm%npix))
+           gif = "tempgifs/"//trim(coop_file_name_of(fin, .false.))//"_"//COOP_STR_OF(imap)//".gif"
+           if(.not. coop_file_exists(gif)) &
+                call system("map2gif -inp "//trim(fin)//" -out "//trim(gif)//" -bar T -sig "//COOP_STR_OF(imap))
         enddo
+        call hgm%free()
      else
         write(*,"(A)") trim(fin)//" does not exist"
      endif

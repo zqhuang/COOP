@@ -202,7 +202,7 @@
        O1_TEN_H_PRIME = O1_TEN_HPR
        if(pert%tight_coupling)then
           pert%T%F(2) =  (-16.d0/3.d0 + (8.d0*19.d0/63.d0)*(pert%kbyaH**2*aHtauc + (231.D0/19.D0))*aHtauc  )*O1_TEN_HPR*aHtauc
-          pert%E%F(2) =  (-coop_sqrt6/4.d0)*pert%T%F(2)-(110.d0/63.d0*coop_sqrt6)*(pert%kbyaH**2*aHtauc +(63.d0/11.d0))*O1_TEN_HPR*aHtauc**2
+          pert%E%F(2) =  (-coop_sqrt6/4.d0)*pert%T%F(2) -(110.d0/63.d0*coop_sqrt6)*(pert%kbyaH**2*aHtauc +(63.d0/11.d0))*O1_TEN_HPR*aHtauc**2
        else
           pert%T%F(2) =O1_T(2)
           pert%E%F(2) = O1_E(2)

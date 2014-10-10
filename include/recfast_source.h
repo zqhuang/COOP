@@ -111,27 +111,27 @@
 !!CA	A2s1s_He: 2s-1s two photon rate for Helium
 !!CA	DeltaB: energy of first excited state from continuum = 3.4eV
 !!CA	DeltaB_He: energy of first excited state from cont. for He = 3.4eV
-!!CA	L_H_ion: level for H ionization in m^-1
-!!CA	L_H_alpha: level for H Ly alpha in m^-1
-!!CA	L_He1_ion: level for HeI ionization
-!!CA	L_He2_ion: level for HeII ionization
-!!CA	L_He_2s: level for HeI 2s
-!!CA	L_He_2p: level for He 2p (21P1-11S0) in m^-1
-!!CA	Lalpha: Ly alpha wavelength in SI
-!!CA	Lalpha_He: Helium I 2p-1s wavelength in SI
+!!CA	recfast_L_H_ion: level for H ionization in m^-1
+!!CA	recfast_L_H_alpha: level for H Ly alpha in m^-1
+!!CA	recfast_L_He1_ion: level for HeI ionization
+!!CA	recfast_L_He2_ion: level for HeII ionization
+!!CA	recfast_L_He_2s: level for HeI 2s
+!!CA	recfast_L_He_2p: level for He 2p (21P1-11S0) in m^-1
+!!CA	recfast_Lalpha: Ly alpha wavelength in SI
+!!CA	recfast_Lalpha_He: Helium I 2p-1s wavelength in SI
 !!CA	mu_H,mu_T: mass per H atom and mass per particle
 !!CA	H_frac: follow Tmat when t_Compton / t_Hubble > H_frac
 !!CA	dHdz is the derivative of H at the specific z (in coop_recfast_ion)
-!!CA	CDB=DeltaB/coop_SI_kb			Constants derived from B1,B2,R
-!!CA	CDB_He=DeltaB_He/coop_SI_kb		n=2-infinity for He in Kelvin
-!!CA	CB1=CDB*4.			Lalpha and sigma_Th, calculated
-!!CA	CB1_He1: CB1 for HeI ionization potential
-!!CA	CB1_He2: CB1 for HeII ionization potential
+!!CA	recfast_CDB=DeltaB/coop_SI_kb			Constants derived from B1,B2,R
+!!CA	recfast_CDB_He=DeltaB_He/coop_SI_kb		n=2-infinity for He in Kelvin
+!!CA	recfast_CB1=recfast_CDB*4.			recfast_Lalpha and sigma_Th, calculated
+!!CA	recfast_CB1_He1: recfast_CB1 for HeI ionization potential
+!!CA	recfast_CB1_He2: recfast_CB1 for HeII ionization potential
 !!CA	CR=2*coop_pi*(coop_SI_m_e/coop_SI_h)*(coop_SI_kb/coop_SI_h)	once and passed in a common block
-!!CA	recfast_CK=Lalpha**3/(8.*coop_pi)
-!!CA	recfast_CK_He=Lalpha_He**3/(8.*coop_pi)
-!!CA	recfast_CL=C*coop_SI_h/(coop_SI_kb*Lalpha)
-!!CA	recfast_CL_He=C*coop_SI_h/(coop_SI_kb*Lalpha_He)
+!!CA	recfast_CK=recfast_Lalpha**3/(8.*coop_pi)
+!!CA	recfast_CK_He=recfast_Lalpha_He**3/(8.*coop_pi)
+!!CA	recfast_CL=C*coop_SI_h/(coop_SI_kb*recfast_Lalpha)
+!!CA	recfast_Crecfast_L_He=C*coop_SI_h/(coop_SI_kb*recfast_Lalpha_He)
 !!CA	recfast_CT=(8./3.)*(sigma/(coop_SI_m_e*C))*a
 !!CA	Bfact=exp((E_2p-E_2s)/kT)	Extra Boltzmann factor
 !!CA	fu is a "fudge factor" for H, to approximate low z behaviour
@@ -142,22 +142,22 @@
 !!CA	 suggested by KIV, astro-ph/0703438
 !!CA	a_trip: used to fit HeI triplet recombination rate
 !!CA	b_trip: used to fit HeI triplet recombination rate
-!!CA	L_He_2Pt: level for 23P012-11S0 in m^-1
-!!CA	L_He_2St: level for 23S1-11S0 in m^-1
-!!CA	L_He2St_ion: level for 23S1-continuum in m^-1
-!!CA	A2P_s: Einstein A coefficient for He 21P1-11S0
-!!CA	A2P_t: Einstein A coefficient for He 23P1-11S0    
+!!CA	recfast_L_He_2Pt: level for 23P012-11S0 in m^-1
+!!CA	recfast_L_He_2St: level for 23S1-11S0 in m^-1
+!!CA	recfast_L_He2St_ion: level for 23S1-continuum in m^-1
+!!CA	recfast_A2P_s: Einstein A coefficient for He 21P1-11S0
+!!CA	recfast_A2P_t: Einstein A coefficient for He 23P1-11S0    
 !!CA	sigma_He_2Ps: H ionization x-section at HeI 21P1-11S0 freq. in m^2
 !!CA	sigma_He_2Pt: H ionization x-section at HeI 23P1-11S0 freq. in m^2
-!!CA	recfast_CL_PSt = coop_SI_h*coop_SI_c*(L_He_2Pt - L_He_2st)/coop_SI_kb
+!!CA	recfast_CL_PSt = coop_SI_h*coop_SI_c*(recfast_L_He_2Pt - recfast_L_He_2st)/coop_SI_kb
 !!CA	CfHe_t: triplet statistical correction
 !!CA	recfast_Hswitch is an integer for modifying the H recombination
-!!CA	AGauss1 is the amplitude of the 1st Gaussian for the H fudging
-!!CA	AGauss2 is the amplitude of the 2nd Gaussian for the H fudging
-!!CA	zGauss1 is the ln(1+z) central value of the 1st Gaussian
-!!CA	zGauss2 is the ln(1+z) central value of the 2nd Gaussian
-!!CA	wGauss1 is the width of the 1st Gaussian
-!!CA	wGauss2 is the width of the 2nd Gaussian
+!!CA	recfast_AGauss1 is the amplitude of the 1st Gaussian for the H fudging
+!!CA	recfast_AGauss2 is the amplitude of the 2nd Gaussian for the H fudging
+!!CA	recfast_zGauss1 is the ln(1+z) central value of the 1st Gaussian
+!!CA	recfast_zGauss2 is the ln(1+z) central value of the 2nd Gaussian
+!!CA	recfast_wGauss1 is the width of the 1st Gaussian
+!!CA	recfast_wGauss2 is the width of the 2nd Gaussian
 !!CA	recfast_tol: recfast_tolerance for the integrator
 !!CA	cw(24),w(3,9): work space for DVERK
 !!CA	Ndim: number of d.e.'s to solve (integer)
@@ -168,12 +168,12 @@
 !!CG	Global data (common blocks) referenced:
 !!CG	/zLIST/recfast_z_initial,recfast_z_final,Nz
 !!CG	/Cfund/C,coop_SI_kb,coop_SI_h,coop_SI_m_e,coop_SI_m_H,recfast_not4,sigma,a,coop_pi
-!!CG	/data/A2s1s,H_frac,CB1,CDB,CR,recfast_CK,recfast_CL,recfast_CT,
-!!CG		fHe,CB1_He1,CB1_He2,CDB_He,A2s1s_He,Bfact,recfast_CK_He,recfast_CL_He
+!!CG	/data/A2s1s,H_frac,recfast_CB1,recfast_CDB,CR,recfast_CK,recfast_CL,recfast_CT,
+!!CG		fHe,recfast_CB1_He1,recfast_CB1_He2,recfast_CDB_He,A2s1s_He,Bfact,recfast_CK_He,recfast_Crecfast_L_He
 !!CG      /Cosmo/Tnow,HO,Nnow,z_eq,OmegaT,OmegaL,OmegaK
-!!CG	/Hemod/b_He,A2P_s,A2P_t,sigma_He_2Ps,sigma_He_2Pt,
-!!CG		L_He_2p,L_He_2Pt,L_He_2St,L_He2St_ion
-!!CG	/Hmod/AGauss1,AGauss2,zGauss1,zGauss2,wGauss1,wGauss2
+!!CG	/Hemod/b_He,recfast_A2P_s,recfast_A2P_t,sigma_He_2Ps,sigma_He_2Pt,
+!!CG		recfast_L_He_2p,recfast_L_He_2Pt,recfast_L_He_2St,recfast_L_He2St_ion
+!!CG	/Hmod/recfast_AGauss1,recfast_AGauss2,recfast_zGauss1,recfast_zGauss2,recfast_wGauss1,recfast_wGauss2
 !!CG	/Switch/recfast_Heswitch,recfast_Hswitch
 !!C
 !!CF	File & device access:
@@ -238,19 +238,22 @@
     type(coop_arguments)::args
     type(coop_function)::xeofa, Tbofa
     integer ndim , nw, ind, i
-    integer, parameter::nz = 4096
+    logical::reset_space
+    integer, parameter::nz = 8192
     COOP_REAL,dimension(nz)::alist,xelist, Tblist, cs2blist
     COOP_REAL reionFrac, zre, deltaz
     !!arguments
     COOP_REAL zend, zstart
     COOP_REAL mu_H, fHe, nnow, HO, fu
     COOP_REAL y(3), rhs, cw(24), w(3, 9), yp(3)
+
+    reset_space = .true.
     ndim = 3
     mu_H = 1.d0/(1.d0-bg%YHe())			!Mass per H atom
     fHe = bg%YHe()/(recfast_not4*(1.d0-bg%YHe()))		!n_He_tot / n_H_tot
     HO = bg%h()*recfast_bigH
-    Nnow = 3.d0*(HO)**2*bg%Omega_b/(8.d0*coop_pi*coop_SI_G*mu_H*coop_SI_m_H)
 
+    Nnow = 3.d0*(HO)**2*bg%Omega_b/(8.d0*coop_pi*coop_SI_G*mu_H*coop_SI_m_H)
 
     !!C	Fudge factor to approximate the low z out of equilibrium effect
     if (recfast_Hswitch .eq. 0) then
@@ -283,7 +286,7 @@
           Tblist(i) = bg%Tcmb()*(1.d0+zend)
        else if(zend.gt.5000.d0)then
           rhs = dexp( 1.5d0 * dLog(recfast_CR*bg%Tcmb()/(1.d0+zend)) & 
-               - CB1_He2/(bg%Tcmb()*(1.d0+zend)) ) / Nnow
+               - recfast_CB1_He2/(bg%Tcmb()*(1.d0+zend)) ) / Nnow
           xelist(i) = 0.5d0 * ( dsqrt( (rhs-1.d0-fHe)**2 & 
                + 4.d0*(1.d0+2.d0*fHe)*rhs) - (rhs-1.d0-fHe) )
           Tblist(i) = bg%Tcmb()*(1.d0+zend)
@@ -293,10 +296,10 @@
           y(2) = 1.d0
           y(3) = bg%Tcmb()*(1.d0+zend)
           Tblist(i) = y(3)
-       else if(y(2).gt.0.99)then
+       else if(y(2).gt. recfast_He_truncate)then
 
           rhs = dexp( 1.5d0 * dLog(recfast_CR*bg%Tcmb()/(1.d0+zend)) & 
-               - CB1_He1/(bg%Tcmb()*(1.d0+zend)) ) / Nnow
+               - recfast_CB1_He1/(bg%Tcmb()*(1.d0+zend)) ) / Nnow
           rhs = rhs*4.d0		!ratio of g's is 4 for He+ <-> He0
           xelist(i) = 0.5d0 * ( dsqrt( (rhs-1.d0)**2 + 4.d0*(1.d0+fHe)*rhs ) & 
                - (rhs-1.d0))
@@ -304,14 +307,20 @@
           y(2) = (xelist(i) - 1.d0)/fHe
           y(3) = bg%Tcmb()*(1.d0+zend)
           Tblist(i) = y(3)
-       else if (y(1).gt.0.99d0) then
+       else if (y(1).gt. recfast_H_truncate) then
           call coop_dverk_firstorder_with_args(ndim, coop_recfast_ion, bg, args, zstart,  y, zend, recfast_tol, ind, cw, nw, w)
           rhs = dexp( 1.5d0 * dLog(recfast_CR*bg%Tcmb()/(1.d0+zend)) & 
-               - CB1/(bg%Tcmb()*(1.d0+zend)) ) / Nnow
+               - recfast_CB1/(bg%Tcmb()*(1.d0+zend)) ) / Nnow
           y(1) = 0.5d0 * (dsqrt( rhs**2+4.d0*rhs ) - rhs )
           xelist(i) = y(1) + fHe*y(2)
           Tblist(i) = y(3)
        else
+          if(reset_space)then
+             ind = 1
+             w = 0
+             cw = 0
+             reset_space = .false.
+          endif
           call coop_dverk_firstorder_with_args(ndim, coop_recfast_ion, bg, args, zstart,y, zend, recfast_tol, ind, cw, nw, w)
           xelist(i)  = y(1) + fHe*y(2)
           Tblist(i) = y(3)
@@ -327,9 +336,9 @@
        end if
     end do
 
-    call xeofa%init(n = nz, xmin=alist(1), xmax = alist(nz), f = xelist, xlog = .true., ylog = .true., fleft = xelist(1), fright = xelist(nz), slopeleft= 0.d0, sloperight = 0.d0, check_boundary = .false.)
+    call xeofa%init(n = nz, xmin=alist(1), xmax = alist(nz), f = xelist, xlog = .true., ylog = .true., fleft = xelist(1), fright = xelist(nz), slopeleft= 0.d0, sloperight = 0.d0, check_boundary = .false., method = COOP_INTERPOLATE_QUADRATIC)
 
-    call Tbofa%init(n = nz, xmin=alist(1), xmax = alist(nz), f = Tblist, xlog = .true., ylog = .true., fleft = Tblist(1), fright = Tblist(nz), slopeleft= -1.d0, sloperight = 0.d0, check_boundary = .false.)
+    call Tbofa%init(n = nz, xmin=alist(1), xmax = alist(nz), f = Tblist, xlog = .true., ylog = .true., fleft = Tblist(1), fright = Tblist(nz), slopeleft= -1.d0, sloperight = 0.d0, check_boundary = .false., method = COOP_INTERPOLATE_QUADRATIC)
     do i=1, nz
        cs2blist(i) =max(coop_SI_barssc0*(1.d0-0.75d0*bg%Yhe()+(1.d0-bg%YHe())*xelist(i))  &
             *tblist(i)*(1.d0 - Tbofa%derivative_bare(log(alist(i)))/3.d0), 1.d-20)
@@ -357,12 +366,13 @@
 #define ARGS_REION_DELTAZ args%r(7)
 #define ARGS_REION_SWITCH args%l(1)
 
-
-
     scal = 1.d0/(1.d0+z)
     Hz = ARGS_H0 * bg%Hratio(scal)
     !!c	Also calculate derivative for use later
     dHdz = -bg%HdotbyHsq(scal)*Hz*scal
+
+
+
     Trad = bg%Tcmb() * (1.d0+z)
     Tmat = y(3)
     if(ARGS_REION_SWITCH)then
@@ -383,7 +393,7 @@
     !!c	Get the radiative rates using PPQ fit (identical to Hummer's table)
     Rdown=1.d-19*a_PPB*(Tmat/1.d4)**b_PPB & 
          /(1.d0+c_PPB*(Tmat/1.d4)**d_PPB)
-    Rup = Rdown * (recfast_CR*Tmat)**(1.5d0)*dexp(-CDB/Tmat)
+    Rup = Rdown * (recfast_CR*Tmat)**(1.5d0)*dexp(-recfast_CDB/Tmat)
 
     !!c	calculate He using a fit to a Verner & Ferland type formula
     sq_0 = dsqrt(Tmat/T_0)
@@ -391,10 +401,10 @@
     !!c	typo here corrected by Wayne Hu and Savita Gahlaut
     Rdown_He = a_VF/(sq_0*(1.d0+sq_0)**(1.d0-b_VF))
     Rdown_He = Rdown_He/(1.d0+sq_1)**(1.d0+b_VF)
-    Rup_He = Rdown_He*(recfast_CR*Tmat)**(1.5d0)*dexp(-CDB_He/Tmat)
+    Rup_He = Rdown_He*(recfast_CR*Tmat)**(1.5d0)*dexp(-recfast_CDB_He/Tmat)
     Rup_He = 4.d0*Rup_He	!statistical weights factor for HeI
     !!c	Avoid overflow (pointed out by Jacques Roland)
-    He_Boltz = dexp(min(Bfact/Tmat, 680.d0))
+    He_Boltz = dexp(min(recfast_Bfact/Tmat, 680.d0))
 
     !!c	now deal with H and its fudges
     if (recfast_Hswitch.eq.0) then 
@@ -402,14 +412,14 @@
     else
        !!c	fit a double Gaussian correction function
        K = recfast_CK/Hz*(1.0d0 & 
-            +AGauss1*dexp(-((log(1.0d0+z)-zGauss1)/wGauss1)**2.d0) & 
-            +AGauss2*dexp(-((log(1.0d0+z)-zGauss2)/wGauss2)**2.d0))
+            +recfast_AGauss1*dexp(-((log(1.0d0+z)-recfast_zGauss1)/recfast_wGauss1)**2.d0) & 
+            +recfast_AGauss2*dexp(-((log(1.0d0+z)-recfast_zGauss2)/recfast_wGauss2)**2.d0))
     end if
 
     !!c	add the HeI part, using same T_0 and T_1 values
     Rdown_trip = a_trip / (sq_0*(1.d0+sq_0)**(1.0-b_trip))
     Rdown_trip = Rdown_trip / ((1.d0+sq_1)**(1.d0+b_trip))
-    Rup_trip = Rdown_trip * exp(- coop_SI_h * coop_SI_c*L_He2St_ion/(coop_SI_kb*Tmat))
+    Rup_trip = Rdown_trip * exp(- coop_SI_h * coop_SI_c*recfast_L_He2St_ion/(coop_SI_kb*Tmat))
     Rup_trip = Rup_trip*((recfast_CR*Tmat)**(1.5d0))*(4.d0/3.d0)
     !!c	last factor here is the statistical weight
 
@@ -422,45 +432,45 @@
     if (Heflag.eq.0)then		!use Peebles coeff. for He
        K_He = recfast_CK_He/Hz
     else	!for Heflag>0 		!use Sobolev escape probability
-       tauHe_s = A2P_s*recfast_CK_He*3.d0*n_He*(1.d0-x_He)/Hz
+       tauHe_s = recfast_A2P_s*recfast_CK_He*3.d0*n_He*(1.d0-x_He)/Hz
        pHe_s = (1.d0 - dexp(-tauHe_s))/tauHe_s
-       K_He = 1.d0/(A2P_s*pHe_s*3.d0*n_He*(1.d0-x_He))
+       K_He = 1.d0/(recfast_A2P_s*pHe_s*3.d0*n_He*(1.d0-x_He))
        !!c	smoother criterion here from Antony Lewis & Chad Fendt
        if (((Heflag.eq.2).or.(Heflag.ge.5)).and.(x_H.lt.0.9999999d0))then
           !!c	use fitting formula for continuum opacity of H
           !!c	first get the Doppler width parameter
           Doppler = 2.D0*coop_SI_kb*Tmat/(coop_SI_m_H*recfast_not4*coop_SI_c*coop_SI_c)
-          Doppler = coop_SI_c*L_He_2p*dsqrt(Doppler)
-          gamma_2Ps = 3.d0*A2P_s*ARGS_FHE*(1.d0-x_He)*coop_SI_c*coop_SI_c & 
+          Doppler = coop_SI_c*recfast_L_He_2p*dsqrt(Doppler)
+          gamma_2Ps = 3.d0*recfast_A2P_s*ARGS_FHE*(1.d0-x_He)*coop_SI_c*coop_SI_c & 
                /(dsqrt(coop_pi)*sigma_He_2Ps*8.d0*coop_pi*Doppler*(1.d0-x_H)) & 
-               /((coop_SI_c*L_He_2p)**2.d0)
+               /((coop_SI_c*recfast_L_He_2p)**2.d0)
           pb = 0.36d0  !value from KIV (2007)
-          qb = b_He
+          qb = recfast_b_He
 
           !!c	calculate AHcon, the value of A*p_(con,H) for H continuum opacity
-          AHcon = A2P_s/(1.d0+pb*(gamma_2Ps**qb))
-          K_He=1.d0/((A2P_s*pHe_s+AHcon)*3.d0*n_He*(1.d0-x_He))
+          AHcon = recfast_A2P_s/(1.d0+pb*(gamma_2Ps**qb))
+          K_He=1.d0/((recfast_A2P_s*pHe_s+AHcon)*3.d0*n_He*(1.d0-x_He))
        end if
        if (Heflag.ge.3) then		!include triplet effects
-          tauHe_t = A2P_t*n_He*(1.d0-x_He)*3.d0
-          tauHe_t = tauHe_t /(8.d0*coop_pi*Hz*L_He_2Pt**(3.d0))
+          tauHe_t = recfast_A2P_t*n_He*(1.d0-x_He)*3.d0
+          tauHe_t = tauHe_t /(8.d0*coop_pi*Hz*recfast_L_He_2Pt**(3.d0))
           pHe_t = (1.d0 - dexp(-tauHe_t))/tauHe_t
-          recfast_CL_PSt = coop_SI_h*coop_SI_c*(L_He_2Pt - L_He_2st)/coop_SI_kb
+          recfast_CL_PSt = coop_SI_h*coop_SI_c*(recfast_L_He_2Pt - recfast_L_He_2st)/coop_SI_kb
 	  if ((Heflag.eq.3) .or. (Heflag.eq.5).or.(x_H.gt.0.99999d0)) then
       !!c	no H cont. effect
-             CfHe_t = A2P_t*pHe_t*dexp(-recfast_CL_PSt/Tmat)
+             CfHe_t = recfast_A2P_t*pHe_t*dexp(-recfast_CL_PSt/Tmat)
              CfHe_t = CfHe_t/(Rup_trip+CfHe_t)	!"C" factor for triplets
 	  else					!include H cont. effect
              Doppler = 2.d0*coop_SI_kb*Tmat/(coop_SI_m_H*recfast_not4*coop_SI_c*coop_SI_c)
-             Doppler = coop_SI_c*L_He_2Pt*dsqrt(Doppler)
-             gamma_2Pt = 3.d0*A2P_t*ARGS_FHE*(1.d0-x_He)*coop_SI_c*coop_SI_c & 
+             Doppler = coop_SI_c*recfast_L_He_2Pt*dsqrt(Doppler)
+             gamma_2Pt = 3.d0*recfast_A2P_t*ARGS_FHE*(1.d0-x_He)*coop_SI_c*coop_SI_c & 
                   /(dsqrt(coop_pi)*sigma_He_2Pt*8.d0*coop_pi*Doppler*(1.d0-x_H)) & 
-                  /((coop_SI_c*L_He_2Pt)**2.d0)
+                  /((coop_SI_c*recfast_L_He_2Pt)**2.d0)
              !!c	use the fitting parameters from KIV (2007) in this case
              pb = 0.66d0
              qb = 0.9d0
-             AHcon = A2P_t/(1.d0+pb*gamma_2Pt**qb)/3.d0
-             CfHe_t = (A2P_t*pHe_t+AHcon)*dexp(-recfast_CL_PSt/Tmat)
+             AHcon = recfast_A2P_t/(1.d0+pb*gamma_2Pt**qb)/3.d0
+             CfHe_t = (recfast_A2P_t*pHe_t+AHcon)*dexp(-recfast_CL_PSt/Tmat)
              CfHe_t = CfHe_t/(Rup_trip+CfHe_t)	!"C" factor for triplets
 	  end if
        end if
@@ -473,7 +483,7 @@
     !!c	calculate the derivatives
     !!c	turn on H only for x_H<0.99, and use Saha derivative for 0.98<x_H<0.99
     !!c	(clunky, but seems to work)
-    if (x_H.gt.0.99d0) then			!don't change at all
+    if (x_H.gt. recfast_H_truncate) then			!don't change at all
        f(1) = 0.d0
        !!cc	else if ((x_H.gt.0.98d0).and.(Heflag.eq.0)) then	!don't modify
     else if (x_H.gt.0.985d0) then		!use Saha rate for Hydrogen
@@ -481,13 +491,13 @@
             /(Hz*(1.d0+z))
        !!c	for interest, calculate the correction factor compared to Saha
        !!c	(without the fudge)
-       factor=(1.d0 + K*A2s1s*n*(1.d0-x_H)) & 
-            /(Hz*(1.d0+z)*(1.d0+K*A2s1s*n*(1.d0-x) & 
+       factor=(1.d0 + K*Recfast_A2s1s*n*(1.d0-x_H)) & 
+            /(Hz*(1.d0+z)*(1.d0+K*Recfast_A2s1s*n*(1.d0-x) & 
             +K*Rup*n*(1.d0-x)))
     else					!use full rate for H
        f(1) = ((x*x_H*n*Rdown - Rup*(1.d0-x_H)*dexp(-recfast_CL/Tmat)) & 
-            *(1.d0 + K*A2s1s*n*(1.d0-x_H))) & 
-            /(Hz*(1.d0+z)*(1.d0/ARGS_FUDGE+K*A2s1s*n*(1.d0-x_H)/ARGS_FUDGE & 
+            *(1.d0 + K*Recfast_A2s1s*n*(1.d0-x_H))) & 
+            /(Hz*(1.d0+z)*(1.d0/ARGS_FUDGE+K*Recfast_A2s1s*n*(1.d0-x_H)/ARGS_FUDGE & 
             +K*Rup*n*(1.d0-x_H)))
     end if
     !!c	turn off the He once it is small
@@ -495,21 +505,21 @@
        f(2)=0.d0
     else
        f(2) = ((x*x_He*n*Rdown_He  & 
-            - Rup_He*(1.d0-x_He)*dexp(-recfast_CL_He/Tmat)) & 
-            *(1.d0+ K_He*A2s1s_He*n_He*(1.d0-x_He)*He_Boltz)) & 
+            - Rup_He*(1.d0-x_He)*dexp(-recfast_Crecfast_L_He/Tmat)) & 
+            *(1.d0+ K_He*Recfast_A2s1s_He*n_He*(1.d0-x_He)*He_Boltz)) & 
             /(Hz*(1.d0+z) & 
-            * (1.d0 + K_He*(A2s1s_He+Rup_He)*n_He*(1.d0-x_He)*He_Boltz))
+            * (1.d0 + K_He*(Recfast_A2s1s_He+Rup_He)*n_He*(1.d0-x_He)*He_Boltz))
        !!c	Modification to HeI recombination including channel via triplets
        if (Heflag.ge.3) then
           f(2) = f(2)+ (x*x_He*n*Rdown_trip & 
-               - (1.d0-x_He)*3.d0*Rup_trip*dexp(-coop_SI_h*coop_SI_c*L_He_2st/(coop_SI_kb*Tmat))) & 
+               - (1.d0-x_He)*3.d0*Rup_trip*dexp(-coop_SI_h*coop_SI_c*recfast_L_He_2st/(coop_SI_kb*Tmat))) & 
                *CfHe_t/(Hz*(1.d0+z))
        end if
     end if
 
     !!c	follow the matter temperature once it has a chance of diverging
 
-    if (timeTh.lt.H_frac*timeH) then
+    if (timeTh .lt. recfast_H_frac*timeH) then
        !!c		f(3)=Tmat/(1.d0+z)	!Tmat follows Trad
        !!c	additional term to smooth transition to Tmat evolution,
        !!c	(suggested by Adam Moss)

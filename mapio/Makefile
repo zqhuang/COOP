@@ -47,6 +47,7 @@ SimuMaps: $(OBJ) simulate_maps.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) simulate_maps.o $(LINK)
 
 
+
 GetSpots: $(OBJ) exportspots.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) exportspots.o $(LINK)
 

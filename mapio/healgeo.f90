@@ -23,8 +23,8 @@ module coop_healpix_mod
   integer,parameter::coop_inpainting_lowl_max = 20
   integer,parameter::coop_inpainting_lowl_min = 5
 
-  integer, parameter::coop_healpix_default_lmax=3000
-  COOP_REAL, parameter::coop_healpix_mask_tol = 0.98
+  integer, parameter::coop_healpix_default_lmax=2500
+  COOP_REAL,parameter::coop_healpix_mask_tol = 0.97  !!default mask tolerance
   integer::coop_healpix_inpainting_lowl=5
   real(dl),parameter::coop_healpix_diffuse_scale = 10.d0*coop_SI_arcmin
   integer,parameter::coop_healpix_index_TT = 1
@@ -353,14 +353,15 @@ contains
        this%indisk(i:this%n, -j) = 0.d0
        this%indisk(-this%n:-i, -j) = 0.d0
     enddo
-    this%num_indisk_tol = count(this%indisk .ne. 0.d0)*coop_healpix_mask_tol
-
-
     !$omp parallel do
     do i=0, this%n
        this%r(i) = this%dr * i
     enddo
     !$omp end parallel do
+
+
+    this%num_indisk_tol = count(this%indisk .ne. 0.d0)*min(coop_healpix_mask_tol,(1.-this%r(this%n)))
+
     !$omp parallel do private(i, j)
     do j=-this%n, this%n
        do i=-this%n, this%n
@@ -1674,7 +1675,7 @@ contains
     type(coop_healpix_patch) patch, tmp_patch
     if(present(mask))then
        call coop_healpix_fetch_patch(this, disc, angle, tmp_patch, mask)
-       if(present(mask) .and. sum(tmp_patch%nstack) .lt. coop_healpix_mask_tol*patch%npix) return
+       if(present(mask) .and. sum(tmp_patch%nstack) .lt. min(1.d0-patch%r(patch%n), coop_healpix_mask_tol)*patch%npix) return
     else
        call coop_healpix_fetch_patch(this, disc, angle, tmp_patch)
     endif
@@ -2009,6 +2010,7 @@ contains
              call neighbours_nest(map%nside, i, list, nneigh)  
              if( all( map%map(list(1:nneigh),iq)**2 + map%map(list(1:nneigh),iu)**2 .lt. map%map(i,iq)**2 + map%map(i, iu)**2 ) .and. all(mask%map(list(1:nneigh), 1) .gt. 0.5) ) then
                 rotate_angle = COOP_POLAR_ANGLE(map%map(i, iq), map%map(i, iu))/2.
+                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi
                 call pix2ang_nest(map%nside, i, theta, phi)
                 call spots%push(  (/ real(theta), real(phi), real(rotate_angle), map%map(i, 1) /) ) 
              endif
@@ -2017,6 +2019,7 @@ contains
              call neighbours_nest(map%nside, i, list, nneigh)  
              if( all( map%map(list(1:nneigh), iq)**2 + map%map(list(1:nneigh), iu)**2 .lt. map%map(i, iq)**2 + map%map(i, iu)**2 ) )then
                 rotate_angle = COOP_POLAR_ANGLE(map%map(i, iq), map%map(i, iu))/2.
+                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi
                 call pix2ang_nest(map%nside, i, theta, phi)
                 call spots%push( (/ real(theta), real(phi), real(rotate_angle), map%map(i, 1) /) )
              endif
@@ -2325,6 +2328,7 @@ contains
     integer i
     type(coop_list_realarr) spots
     real(sp) arr(10)
+    logical domask
     select case(trim(spot_type))
     case("Tmax_QTUTOrient", "PTmax", "PTmin")
        call map%read(trim(map_file), nmaps_wanted = 3)
@@ -2335,15 +2339,20 @@ contains
        if(abs(filter_fwhm) .gt. 1.d-3) &
             call map%smooth(filter_fwhm)
     endif
-    if(present(mask_file)) call mask%read(mask_file, nmaps_wanted = 1)
+    if(present(mask_file))then
+       domask = (trim(mask_file).ne."")
+    else
+       domask = .false.
+    endif
+    if(domask) call mask%read(mask_file, nmaps_wanted = 1)
     if(present(threshold))then
-       if(present(mask_file))then
+       if(domask)then
           call map%get_spots(spots = spots,  spot_type = spot_type, threshold=threshold, mask = mask)
        else
           call map%get_spots(spots = spots,  spot_type = spot_type, threshold=threshold)
        endif
     else
-       if(present(mask_file))then
+       if(domask)then
           call map%get_spots(spots = spots,  spot_type = spot_type, mask = mask)
        else
           call map%get_spots(spots = spots,  spot_type = spot_type)
