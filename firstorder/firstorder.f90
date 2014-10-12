@@ -8,21 +8,21 @@ private
 
   public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe, coop_power_lnk_min, coop_power_lnk_max,  coop_k_dense_fac, coop_index_ClTT, coop_index_ClTE, coop_index_ClEE, coop_index_ClBB, coop_index_ClEB, coop_index_ClTB, coop_index_ClLenLen, coop_index_ClTLen, coop_num_Cls, coop_Cls_lmax
 
-  COOP_INT::coop_Cls_lmax(0:2) = (/ 2800, 2000, 1500 /)
+  COOP_INT::coop_Cls_lmax(0:2) = (/ 2700, 2000, 1500 /)
 
   COOP_REAL, parameter :: coop_power_lnk_min = log(0.1d0) 
   COOP_REAL, parameter :: coop_power_lnk_max = log(5.d3) 
   COOP_REAL, parameter :: coop_visibility_amin = 1.8d-4
   COOP_REAL, parameter :: coop_initial_condition_epsilon = 1.d-6
   COOP_REAL, parameter :: coop_cosmology_firstorder_ode_accuracy = 1.d-8
-  COOP_REAL, parameter :: coop_cosmology_firstorder_tc_cutoff = 0.005d0
+  COOP_REAL, parameter :: coop_cosmology_firstorder_tc_cutoff = 0.003d0
 
 
   COOP_REAL, dimension(0:2), parameter::coop_source_tau_step_factor = (/ 1.d0, 1.d0, 1.d0 /)
   COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
-  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 130, 100, 160 /)
+  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 130, 120, 110 /)
   COOP_REAL, parameter::coop_source_k_index = 0.45d0
-  COOP_INT, parameter:: coop_k_dense_fac = 30
+  COOP_INT, parameter:: coop_k_dense_fac = 35
 
 
   COOP_INT, parameter::coop_index_ClTT = 1
@@ -52,6 +52,7 @@ private
      COOP_INT::index_tc_max = 1
      COOP_INT, dimension(:),allocatable::index_tc_off
      COOP_INT, dimension(coop_pert_default_nq)::index_massivenu_on
+     COOP_INT::index_massivenu_cold
      COOP_REAL::dkop, kopmin, kopmax, kmin, kmax, kweight, tauweight
      COOP_REAL,dimension(coop_k_dense_fac)::a_dense, b_dense, a2_dense, b2_dense
      COOP_REAL, dimension(:),allocatable::k, kop, tau, a, tauc, lna,  dk, dtau, chi !!tau is conformal time, chi is comoving distance; in flat case, chi + tau = tau_0
@@ -273,7 +274,7 @@ contains
     class(coop_cosmology_firstorder_source)::source
     COOP_INT::l
     COOP_REAL,dimension(:,:,:)::trans
-    COOP_INT::n, ik, idense, itau, ii, nchis
+    COOP_INT::n, ik, idense, itau, ii, nchis, ikcut, kchicut
     COOP_REAL::jl, xmin, xmax, dchi
     COOP_REAL,dimension(:),allocatable::kmin, kmax, kfine
 
@@ -281,27 +282,31 @@ contains
     trans = 0
     call coop_jl_startpoint(l, xmin)
     call coop_jl_check_init(l)
-    xmax = coop_jl_zero(l, 7)
+    xmax = (coop_jl_zero(l, 7)+coop_jl_zero(l, 8))/2.d0
     allocate(kmin(source%ntau), kmax(source%ntau), kfine(source%ntau))
     do itau = 1, source%ntau
        kmin(itau) = xmin/source%chi(itau)
        kmax(itau) = xmax/source%chi(itau)
-       kfine(itau) = 1.d0/source%dtau(itau) !!k > kfine use fine grid
+       kfine(itau) = 0.8d0/source%dtau(itau) !!k > kfine use fine grid
     enddo
-
+    ikcut = source%nk
+    kchicut = max(l*2.5d0, 3000.d0)
+    do while(source%k(ikcut) * source%chi(1) .gt. kchicut .and. ikcut .gt. 2)
+       ikcut = ikcut - 1
+    enddo
     !$omp parallel do private(ik, itau, idense, jl, ii, dchi, nchis)
-    do ik=2, source%nk
+    do ik=2, ikcut
        do itau = 1, source%ntau
           if(source%k(ik)*source%chi(itau) .lt. xmin) exit
           if(source%k(ik) .lt. kfine(itau))then
              do idense = 1, coop_k_dense_fac
                 jl = coop_jl(l, source%k_dense(idense, ik)*source%chi(itau))
-                trans(:,idense, ik) = trans(:,idense, ik) + jl* source%dtau(itau)* COOP_INTERP_SOURCE(source, :, idense, ik, itau)
+                trans(:,idense, ik) = trans(:,idense, ik) + jl* source%dtau(itau)* COOP_INTERP_SOURCE(source, :, idense, ik, itau) !*exp(-2.d0*(source%k_dense(idense, ik)/kfine(itau))**4)
              enddo
           else
              if(source%k(ik) .gt. kmin(itau) .and. source%k_dense(1,ik) .lt. kmax(itau))then            
                 do idense = 1, coop_k_dense_fac
-                   nchis = ceiling(source%k_dense(idense, ik)*source%dtau(itau))
+                   nchis = 1+ceiling(source%k_dense(idense, ik)*source%dtau(itau))
                    dchi = source%dtau(itau)/(nchis*2+1)
                    jl = 0.d0
                    do ii = -nchis, nchis
@@ -429,7 +434,7 @@ contains
   contains
 
     subroutine next_l()
-      l = l + min(32, 12 + l/70, max(1, l/4))
+      l = l + min(35, 12 + l/70, max(1, l/4))
     end subroutine next_l
 
   end subroutine coop_cosmology_firstorder_source_get_All_Cls
@@ -466,7 +471,7 @@ contains
     COOP_REAL, dimension(:,:),allocatable::w
     COOP_REAL c(24)
     COOP_INT ind, i
-    COOP_REAL tau_ini, lna
+    COOP_REAL tau_ini, lna, mnu_deltarho, mnu_deltav, T0i, T00
     tau_ini = min(coop_initial_condition_epsilon/source%k(ik), this%conformal_time(this%a_eq*coop_initial_condition_epsilon), source%tau(1)*0.999d0)
     call this%set_initial_conditions(pert, m = source%m, k = source%k(ik), tau = tau_ini)
     lna = log(this%aoftau(tau_ini))
@@ -479,6 +484,7 @@ contains
     allocate(w(nw, 9))
     w = 0.d0
     iq = 1
+
     do itau = 1, source%ntau
        call coop_dverk_firstorder(nvars, coop_cosmology_firstorder_equations, this, pert, lna,   pert%y, source%lna(itau),  coop_cosmology_firstorder_ode_accuracy, ind, c, nw, w)
        call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)
@@ -522,6 +528,29 @@ contains
              if(iq .gt.coop_pert_default_nq) exit
           enddo
        endif
+       if(itau .eq. source%index_massivenu_cold)then
+          call pert%save_ode()
+          if(source%m .le. 0)then
+             mnu_deltarho = pert%rhoa2_nu * (pert%deltatr_mnu + pert%deltap_mnu)/pert%rhoa2_mnu
+          endif
+          if(source%m .le. 1)then
+             mnu_deltav = 0.d0
+             do iq = 1, coop_pert_default_nq
+                mnu_deltav = mnu_deltav + pert%O1_MASSIVENU(1, iq)*coop_pert_default_q_kernel(iq)
+             enddo
+             mnu_deltav =(pert%rhoa2_nu + pert%pa2_nu) * pert%num_mnu_ratio/4.d0 *  mnu_deltav/(pert%rhoa2_mnu + pert%pa2_mnu)
+          endif
+          call pert%init(m = source%m, nu_mass  = this%mnu_by_Tnu, de_genre = this%de_genre, a = source%a(itau))
+          if(source%m .le. 0) pert%massivenu(1)%F(0) = mnu_deltarho
+          if(source%m .le. 1) pert%massivenu(1)%F(1) = mnu_deltav
+          call pert%restore_ode()
+          ind = 1
+          c = 0.d0
+          deallocate(w)
+          nvars = pert%ny + 1
+          nw = nvars
+          allocate(w(nw, 9))          
+       endif
     enddo
     deallocate(w)
     call pert%free()
@@ -548,7 +577,6 @@ contains
        call coop_tbw("vector intbypart")
     case(2)
        source%s(2, ik, :) = source%s(2, ik, :) +  source%saux(1, ik, :)
-       
     case default
        call coop_return_error("source_intbypart", "unknown m", "stop")
     end select
@@ -1029,7 +1057,7 @@ contains
     enddo
 
 
-    source%kmin = 0.1d0/this%distlss
+    source%kmin = 0.2d0/this%distlss
     source%kmax = (min(max(1500, coop_Cls_lmax(source%m)), 3000)*1.5d0)/this%distlss
 
     call source%k2kop(source%kmin, source%kopmin)
@@ -1067,16 +1095,26 @@ contains
     !!set index_massivenu_on
     if(this%mnu_by_Tnu*source%a(source%ntau) .lt. coop_pert_massivenu_threshold(1))then
        source%index_massivenu_on = source%ntau + 1
+       source%index_massivenu_cold = source%ntau + 1
        return
     endif
-    source%index_massivenu_on(coop_pert_default_nq) = source%ntau + 1
-    iq = coop_pert_default_nq
-    do while(this%mnu_by_Tnu*source%a(source%index_massivenu_on(iq)-1) .gt. coop_pert_massivenu_threshold(iq))
-       source%index_massivenu_on(iq) = source%index_massivenu_on(iq)-1
-       if(source%index_massivenu_on(iq) .le. 1)exit
+    source%index_massivenu_cold = source%ntau + 1
+    do while(this%mnu_by_Tnu*source%a(source%index_massivenu_cold-1) .gt. coop_pert_massivenu_cold_threshold)
+       source%index_massivenu_cold = source%index_massivenu_cold - 1
+       if(source%index_massivenu_cold .le. 1) exit
     enddo
+
+    source%index_massivenu_on(coop_pert_default_nq) = source%index_massivenu_cold
+    iq = coop_pert_default_nq
+    if(source%index_massivenu_on(iq) .gt. 1)then
+       do while(this%mnu_by_Tnu*source%a(source%index_massivenu_on(iq)-1) .gt. coop_pert_massivenu_threshold(iq))
+          source%index_massivenu_on(iq) = source%index_massivenu_on(iq)-1
+          if(source%index_massivenu_on(iq) .le. 1)exit
+       enddo
+    endif
     do iq = coop_pert_default_nq - 1, 1, -1
        source%index_massivenu_on(iq) =  source%index_massivenu_on(iq+1)
+       if(source%index_massivenu_on(iq) .le. 1)cycle
        do while(this%mnu_by_Tnu*source%a(source%index_massivenu_on(iq)-1) .gt. coop_pert_massivenu_threshold(iq))
           source%index_massivenu_on(iq) = source%index_massivenu_on(iq)-1
           if(source%index_massivenu_on(iq) .le. 1)exit

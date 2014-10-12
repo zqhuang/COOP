@@ -12,7 +12,7 @@ module coop_pertobj_mod
   COOP_REAL, dimension(coop_pert_default_nq),parameter:: coop_pert_default_q = coop_fermion_int_q5
   COOP_REAL, dimension(coop_pert_default_nq),parameter:: coop_pert_default_q_kernel = coop_fermion_int_kernel5 
   COOP_REAL, dimension(coop_pert_default_nq), parameter::coop_pert_massivenu_threshold = 0.1d0 * coop_pert_default_q  !!ma > threshold considered to be massive
-
+  COOP_REAL, parameter::coop_pert_massivenu_cold_threshold = 10.d0 !!ma > threshold considered to be cold 
   type coop_pert_species
      COOP_INT::genre = COOP_PERT_NONE  !!NONE = no perturbations, other options are PERFECT_FLUID, HIERARCHY
      COOP_INT::m = 0
@@ -33,9 +33,9 @@ module coop_pertobj_mod
      COOP_REAL::k, a, aH, daHdtau, tau, tauc, taucdot, R, rhoa2_b, rhoa2_c, rhoa2_nu, rhoa2_de, rhoa2_g, rhoa2_mnu, pa2_mnu, pa2_g, pa2_nu, pa2_de, rhoa2_sum, pa2_sum, cs2b, capP, kbyaH, ksq, kbyaHsq
      COOP_STRING::initial_conditions = "adiabatic"
      logical::tight_coupling = .true.
-     logical::late_approx = .false.
+     logical::massivenu_cold = .false.
      COOP_REAL::num_mnu_ratio = 0.d0
-     COOP_INT::massivenu_iq_used
+     COOP_INT::massivenu_iq_used = 0
      COOP_INT::m = 0
      COOP_INT::ny = 0
      COOP_REAL::deltatr_mnu = 0.d0
@@ -68,8 +68,13 @@ contains
           - pert%rhoa2_c*pert%O1_DELTA_C &
           - pert%rhoa2_g*pert%O1_T(0) &
           - pert%rhoa2_nu*(pert%O1_NU(0))
-    if(pert%num_mnu_ratio .ne. 0.d0) &
+    if(pert%num_mnu_ratio .ne. 0.d0)then
+       if(pert%massivenu_cold)then
+          T00 = T00 - pert%rhoa2_mnu * pert%O1_MASSIVENU(0, 1)
+       else
          T00 = T00 - pert%rhoa2_nu * (pert%deltatr_mnu + pert%deltap_mnu)
+      endif
+      endif
     select case(pert%de%genre)
     case (COOP_PERT_NONE)
        !!do nothing
@@ -94,13 +99,17 @@ contains
          + (pert%rhoa2_nu + pert%pa2_nu)*pert%O1_NU(1)/4.d0 &
          + (pert%rhoa2_g + pert%pa2_g)* pert%O1_T(1)/4.d0 
     if(pert%num_mnu_ratio .gt. 0.d0)then
-       do iq = 1, pert%massivenu_iq_used
-          Fmnu1(iq) = pert%O1_MASSIVENU(1, iq)
-       enddo
-       do iq = pert%massivenu_iq_used+1, coop_pert_default_nq
-          Fmnu1(iq) = pert%O1_NU(1)
-       enddo
-       T0i = T0i + (pert%rhoa2_nu + pert%pa2_nu) * sum(Fmnu1*coop_pert_default_q_kernel)*pert%num_mnu_ratio/4.d0 
+       if(pert%massivenu_cold)then
+          T0i = T0i + (pert%rhoa2_mnu + pert%pa2_mnu)*pert%O1_MASSIVENU(1, 1)
+       else
+          do iq = 1, pert%massivenu_iq_used
+             Fmnu1(iq) = pert%O1_MASSIVENU(1, iq)
+          enddo
+          do iq = pert%massivenu_iq_used+1, coop_pert_default_nq
+             Fmnu1(iq) = pert%O1_NU(1)
+          enddo
+          T0i = T0i + (pert%rhoa2_nu + pert%pa2_nu) * sum(Fmnu1*coop_pert_default_q_kernel)*pert%num_mnu_ratio/4.d0 
+       endif
     endif
     select case(pert%de%genre)
     case (COOP_PERT_NONE)
@@ -173,7 +182,7 @@ contains
     class(coop_pert_object)::this
     COOP_REAL,optional::nu_mass, a
     COOP_INT, optional::de_genre
-    COOP_INT::m, i, iq, l
+    COOP_INT::m, i, iq, l, lmax_massivenu
     this%m = m
     call this%free()
     call this%metric%set_defaults( genre = COOP_PERT_METRIC,  &
@@ -229,30 +238,41 @@ contains
 
     if(present(nu_mass))then
        if( present(a) .and. nu_mass .gt. 0.d0)then
-          iq = 1
-          do while(iq .le. coop_pert_default_nq)          
-             if(nu_mass * a .lt.  coop_pert_massivenu_threshold(iq))then
-                exit
-             else
-                iq = iq + 1
-             endif
-          enddo
-          this%massivenu_iq_used = iq - 1
+          if(nu_mass*a .ge. coop_pert_massivenu_cold_threshold)then
+             this%massivenu_cold = .true.
+             this%massivenu_iq_used  = 1
+          else
+             this%massivenu_cold = .false.
+             iq = 1
+             do while(iq .le. coop_pert_default_nq)          
+                if(nu_mass * a .lt.  coop_pert_massivenu_threshold(iq))then
+                   exit
+                else
+                   iq = iq + 1
+                endif
+             enddo
+             this%massivenu_iq_used = iq - 1
+          endif
        else
           this%massivenu_iq_used = 0
        endif
     else
        this%massivenu_iq_used = 0
     endif
+    if(this%massivenu_cold)then
+       lmax_massivenu = 1
+    else
+       lmax_massivenu = 10
+    endif
     do iq = 1,  this%massivenu_iq_used
        if(iq .eq. 1)then
-          call this%massivenu(1)%set_defaults( genre = COOP_PERT_HIERARCHY, &
+          call this%massivenu(1)%set_defaults( genre =  COOP_PERT_HIERARCHY, &
                m = m, s = 0, index = this%nu%last_index + 1, &
-               lmax = 10, q = coop_pert_default_q(1), mass = nu_mass )
+               lmax = lmax_massivenu, q = coop_pert_default_q(1), mass = nu_mass )
        else
           call this%massivenu(iq)%set_defaults(genre = COOP_PERT_HIERARCHY, &
                m = m, s = 0, index = this%massivenu(iq-1)%last_index + 1, &
-               lmax = 10, q = coop_pert_default_q(iq), mass = nu_mass )
+               lmax = lmax_massivenu, q = coop_pert_default_q(iq), mass = nu_mass )
        endif
     enddo
 
@@ -260,11 +280,11 @@ contains
        if(this%massivenu_iq_used .ge. 1)then
           call this%massivenu(iq)%set_defaults(genre = COOP_PERT_NONE, &
                m = m, s = 0, index = this%massivenu(iq-1)%last_index + 1, &
-               lmax = 10, q = coop_pert_default_q(iq), mass = nu_mass )
+               lmax = lmax_massivenu, q = coop_pert_default_q(iq), mass = nu_mass )
        else
           call this%massivenu(iq)%set_defaults(genre = COOP_PERT_NONE, &
                m = m, s = 0, index = this%nu%last_index + 1, &
-               lmax = 10, q = coop_pert_default_q(iq), mass = nu_mass )
+               lmax = lmax_massivenu, q = coop_pert_default_q(iq), mass = nu_mass )
        endif
     enddo
      
