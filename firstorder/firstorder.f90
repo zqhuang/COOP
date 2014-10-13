@@ -715,13 +715,13 @@ contains
        this%mnu_by_Tnu = 0.d0
     endif
 
-    if(abs(this%Omega_m/( this%Omega_b + this%Omega_c ) - 1.d0) .gt. 1.d-3)then
-       call coop_feedback("warning: nonstandard matter component.", 1)
+    if(abs(this%Omega_m/( this%Omega_b + this%Omega_c ) - 1.d0) .gt. 2.d-3)then
+       call coop_feedback("warning: nonstandard matter component.", 2)
     endif
 
 
-    if(abs(this%Omega_r/( this%Omega_g + this%Omega_nu ) - 1.d0) .gt. 1.d-3)then
-       call coop_feedback("warning: cannot accurately determine early-time radiation fraction.", 1)
+    if(abs(this%Omega_r/( this%Omega_g + this%Omega_nu ) - 1.d0) .gt. 2.d-3)then
+       call coop_feedback("warning: cannot accurately determine early-time radiation fraction.", 2)
     endif
     this%tau_eq = this%conformal_time(this%a_eq)
 
@@ -1120,6 +1120,8 @@ contains
           if(source%index_massivenu_on(iq) .le. 1)exit
        enddo
     enddo
+   ! print*, source%ntau, source%index_massivenu_cold, source%index_massivenu_on
+
   end subroutine coop_cosmology_firstorder_set_source_k
 
   subroutine coop_cosmology_firstorder_source_k2kop(source, k, kop)

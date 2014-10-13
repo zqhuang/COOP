@@ -11,21 +11,21 @@ module coop_constants_mod
   
   COOP_STRING, parameter:: coop_version = "0.0"
 
-  COOP_INT::coop_global_feedback = 1  !!0 no feedback, 1 key info,  2 verbose, 3 debug 
+  COOP_INT::coop_feedback_level = 1  !!0 no feedback, 1 key info,  2 verbose, 3 debug 
 
 contains
 
-  subroutine coop_feedback(info, feedback_level, action)
+  subroutine coop_feedback(info, level, action)
     COOP_UNKNOWN_STRING info
-    COOP_INT, optional:: feedback_level
+    COOP_INT, optional:: level
     COOP_UNKNOWN_STRING,optional::action
     character ans
-    if(present(feedback_level))then
-       if(coop_global_feedback .ge. feedback_level)then
+    if(present(level))then
+       if(coop_feedback_level .ge. level)then
           write(*,*) trim(info)
        endif
     else
-       if(coop_global_feedback .ge. 0)then
+       if(coop_feedback_level .ge. 1)then
           write(*,*) trim(info)
        endif
     endif
