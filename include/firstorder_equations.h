@@ -189,11 +189,11 @@
 
        if(cosmology%index_massivenu .ne. 0)then
           if(pert%massivenu_cold)then
+             O1_PSIPR_PRIME = O1_PSIPR_PRIME - O1_MASSIVENU(0, 1)*pert%rhoa2_mnu/6.0/aHsq
+          else
              pert%deltatr_mnu = sum(Fmnu0*wrho_minus_wp)
              pert%deltap_mnu = 0.d0
              O1_PSIPR_PRIME =  O1_PSIPR_PRIME - (pert%pa2_nu/aHsq * pert%deltatr_mnu)/2.d0
-          else
-             O1_PSIPR_PRIME = O1_PSIPR_PRIME - O1_MASSIVENU(0, 1)*pert%rhoa2_mnu/6.0/aHsq
           endif
        else
           pert%deltatr_mnu = 0.d0

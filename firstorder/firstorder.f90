@@ -6,7 +6,7 @@ module coop_firstorder_mod
 
 private
 
-  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe, coop_power_lnk_min, coop_power_lnk_max,  coop_k_dense_fac, coop_index_ClTT, coop_index_ClTE, coop_index_ClEE, coop_index_ClBB, coop_index_ClEB, coop_index_ClTB, coop_index_ClLenLen, coop_index_ClTLen, coop_num_Cls, coop_Cls_lmax
+  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe, coop_power_lnk_min, coop_power_lnk_max,  coop_k_dense_fac, coop_index_ClTT, coop_index_ClTE, coop_index_ClEE, coop_index_ClBB, coop_index_ClLenLen, coop_index_ClTLen, coop_num_Cls, coop_Cls_lmax
 
   COOP_INT::coop_Cls_lmax(0:2) = (/ 2700, 2000, 1500 /)
 
@@ -29,14 +29,14 @@ private
   COOP_INT, parameter::coop_index_ClEE = 2
   COOP_INT, parameter::coop_index_ClBB = 3
   COOP_INT, parameter::coop_index_ClTE = 4
-  COOP_INT, parameter::coop_index_ClEB = 5
-  COOP_INT, parameter::coop_index_ClTB = 6
-  COOP_INT, parameter::coop_index_ClLenLen = 7
-  COOP_INT, parameter::coop_index_ClTLen = 8
+!  COOP_INT, parameter::coop_index_ClEB = 5
+!  COOP_INT, parameter::coop_index_ClTB = 6
+  COOP_INT, parameter::coop_index_ClLenLen = 5
+  COOP_INT, parameter::coop_index_ClTLen = 6
   COOP_INT, parameter::coop_num_Cls =  coop_index_ClTLen
 
 !!how many source terms you want to extract & save
-  COOP_INT, dimension(0:2), parameter::coop_num_sources = (/ 2,  3,  3 /)
+  COOP_INT, dimension(0:2), parameter::coop_num_sources = (/ 3,  3,  3 /)
   COOP_INT, dimension(0:2), parameter::coop_num_saux = (/ 1,  1,  1 /)
 
 !!recfast head file
