@@ -8,7 +8,7 @@ include ../configure.in
 include ../compile_rules.in
 
 OFLIB = libcoopfirstorder.a
-OFOBJ = pertobj.o firstorder.o Cls_post_process.o wrapper.o
+OFOBJ = pertobj.o firstorder.o lensing.o Cls_post_process.o wrapper.o
 
 default: $(OFLIB)
 
@@ -33,8 +33,8 @@ clean:
 
 
 firstorder.o:	pertobj.o  ../include/firstorder_equations.h ../include/firstorder_source.h ../include/recfast_source.h ../include/recfast_head.h
-wrapper.o: 	firstorder.o
+wrapper.o: 	firstorder.o lensing.o Cls_post_process.o
 test.o:		wrapper.o
-Cls_post_process.o: firstorder.o
+Cls_post_process.o: firstorder.o lensing.o
 zeta.o:	wrapper.o
 testzeta.o:	wrapper.o

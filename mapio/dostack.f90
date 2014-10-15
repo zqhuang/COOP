@@ -5,11 +5,11 @@ program test
 
 #include "constants.h"
 
-  COOP_STRING :: spot_type = "T"
-  COOP_STRING :: map_file = "ffp7/ffp7_iqu.fits"
-  COOP_STRING:: spots_file ="spots/ffp7_iqu_Tmax_threshold0_fwhm15.txt"
+  COOP_STRING :: spot_type = "B"
+  COOP_STRING :: map_file = "simu/simurp2_iqu_10arc_n1024_converted_to_TEB_submap003.fits"
+  COOP_STRING:: spots_file ="spots/simurp2_iqu_10arc_n1024_converted_to_TEB_submap003_Bmax_threshold0_fwhm15.txt"
   COOP_STRING :: imask_file = "ffp7/ffp7_imask.fits"
-  COOP_STRING:: polmask_file ="ffp7/ffp7_polmask1024.fits"
+  COOP_STRING:: polmask_file ="commander/commander_polmask.fits"
 
 
   COOP_REAL, parameter::smooth_fwhm = 0.*coop_SI_arcmin

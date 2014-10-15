@@ -10,6 +10,10 @@ cd ../firstorder
 make clean
 cd ../lib
 make clean
+cd ../forecast
+make clean
+cd ../nonlinear
+make clean
 cd ../test
 make clean
 cd ../mapio

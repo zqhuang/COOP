@@ -5,11 +5,11 @@ program test
 #include "constants.h"
 
   COOP_INT::fwhm_arcmin = 15
-  COOP_STRING::spot_type = "PmaxSortT"
-  COOP_STRING::input_file ="dust/dust_siqu.fits"
-  COOP_STRING::imask_file  ="ffp7/ffp7_union_polmask_1024.fits"
+  COOP_STRING::spot_type = "Bmax"
+  COOP_STRING::input_file ="simu/simurp2_iqu_10arc_n1024_converted_to_TEB_submap003.fits"
+  COOP_STRING::imask_file  ="commander/commander_imask.fits"
   COOP_STRING::polmask_file  ="commander/commander_polmask.fits"
-  COOP_REAL:: threshold = 1.
+  COOP_REAL:: threshold = 0.
 
   COOP_STRING::mask_file
   COOP_STRING output_file

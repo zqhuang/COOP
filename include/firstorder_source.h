@@ -13,6 +13,8 @@
     select case(source%m) 
     case(0) !!scalar
        source%saux(1, ik, itau) = (3.d0/8.d0)*vis*pert%capP
+       source%saux(2, ik, itau) = pert%O1_Phi+pert%O1_PSI
+       source%saux(3, ik, itau) = pert%O1_PSI
        source%s(1,  ik, itau) =  (pert%O1_Phipr + pert%O1_PSIPR)*pert%aH*ekappa    & !!ISW
             + vis * (pert%O1_T(0)/4.d0 + pert%O1_Phi + pert%O1_V_B_PRIME/pert%kbyaH + pert%capP/8.0)  &
             + visdot * (pert%O1_V_B/pert%k) 

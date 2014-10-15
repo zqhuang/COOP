@@ -8,7 +8,7 @@ module coop_function_mod
 
   private
 
-  public:: coop_function
+  public:: coop_function, coop_function_multeval, coop_function_multeval_bare
 
   type coop_function
      COOP_INT::method = COOP_INTERPOLATE_LINEAR
@@ -453,6 +453,86 @@ contains
   end function coop_function_evaluate_bare
 
 
+  function coop_function_multeval(nf, funcs, x) result(f)
+    COOP_INT nf
+    type(coop_function)::funcs(nf)
+    COOP_REAL x, f(nf)
+    if(funcs(1)%xlog)then
+       f = coop_function_multeval_bare(nf, funcs, log(x))
+    else
+       f = coop_function_multeval_bare(nf, funcs, x)
+    endif
+    if(funcs(1)%ylog)then
+       f = exp(f)
+    endif
+  end function coop_function_multeval
+
+
+  function coop_function_multeval_bare(nf, funcs, x) result(f)
+    COOP_INT nf
+    type(coop_function)::funcs(nf)
+    COOP_REAL x, f(nf), a, b, xdiff
+    COOP_INT l, r, i
+    xdiff = x - funcs(1)%xmin
+    b = xdiff/funcs(1)%dx + 1.d0
+    l = floor(b)
+    if(l .lt. 1)then
+       if(funcs(1)%check_boundary)then
+          if(b.gt. 0.9999d0)then
+             do i=1, nf
+                f(i) = funcs(i)%fleft
+             enddo
+             return
+          endif
+          write(*,*) funcs(1)%xlog, funcs(1)%ylog, funcs(1)%n, b
+          write(*,*) x, ":", funcs(1)%xmin, " -- ", funcs(1)%xmax, " ---", funcs(1)%dx
+          write(*,*) "coop_function cannot be evaluated out of its boundary"
+          stop
+       endif
+       do i=1, nf
+          f(i) = funcs(i)%fleft + funcs(i)%slopeleft*xdiff
+       enddo
+       return
+    elseif(l.ge. funcs(1)%n)then
+       if(funcs(1)%check_boundary)then
+          if(b .le. dble(funcs(1)%n)+1.d-4)then
+             do i=1, nf
+                f(i) = funcs(i)%fright
+             enddo
+             return
+          endif
+          write(*,*) funcs(1)%xlog, funcs(1)%ylog, funcs(1)%n, b
+          write(*,*) x, ":", funcs(1)%xmin, " -- ", funcs(1)%xmax, " ---", funcs(1)%dx
+          write(*,*) "coop_function cannot be evaluated out of its boundary"
+          stop
+       endif
+       xdiff = x - funcs(1)%xmax
+       do i = 1, nf
+          f(i) = funcs(i)%fright + funcs(1)%sloperight*xdiff
+       enddo
+    else
+       select case(funcs(1)%method)
+       case(COOP_INTERPOLATE_LINEAR)
+          b = b - l
+          do i=1, nf
+             f(i) = funcs(i)%f(l) * (1.d0-b) + funcs(i)%f(l+1) * b 
+          enddo
+       case(COOP_INTERPOLATE_QUADRATIC, COOP_INTERPOLATE_SPLINE)
+          b = b - l
+          r = l + 1
+          a = 1. - b
+          do i=1, nf
+             f(i) = funcs(i)%f(l) * a + funcs(i)%f(r) * b + funcs(i)%f2(l) * (a**2-1.)*a + funcs(i)%f2(r)*(b**2-1.)*b
+          enddo
+       case(COOP_INTERPOLATE_CHEBYSHEV)
+          do i=1, nf
+             call coop_chebeval(funcs(i)%n, funcs(i)%xmin, funcs(i)%xmax, funcs(i)%f, x, f(i))
+          enddo
+       case default
+          stop "UNKNOWN interpolation method"
+       end select
+    endif
+  end function coop_function_multeval_bare
 
   function coop_function_derivative_bare(this, x) result(f)
     class(coop_function):: this
@@ -854,3 +934,5 @@ contains
 
 
 end module coop_function_mod
+
+

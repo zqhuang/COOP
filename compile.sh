@@ -15,6 +15,14 @@ cd ../firstorder
 make -w
 cp *.mod ../include/
 
+cd ../nonlinear
+make -w
+cp *.mod ../include/
+
+cd ../forecast
+make -w
+cp *.mod ../include/
+
 cd ../mapio
 make -w
 cp *.mod ../include/

@@ -300,7 +300,7 @@ contains
   subroutine coop_cosmology_background_setup_background(this)
     class(coop_cosmology_background)::this
     integer,parameter::n = 16384
-    COOP_REAL, parameter::amin = 3.d-4, amax = coop_scale_factor_today
+    COOP_REAL, parameter::amin = 2.d-2, amax = coop_scale_factor_today
     COOP_REAL,dimension(n):: dis, a, t
     COOP_REAL  hasq1, hasq2, da, daby2, Hasqmin, Hasqmax
     integer i

@@ -5,7 +5,7 @@ module coop_special_function_mod
 
   private
 
-  public:: coop_log2, coop_sinc, coop_sinhc, coop_is_integer, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_incompleteGamma, coop_rec3j, coop_threej000
+  public:: coop_log2, coop_sinc, coop_sinhc, coop_is_integer, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_incompleteGamma, coop_rec3j, coop_threej000, coop_bessI0, coop_bessi1, coop_bessJ0, coop_bessJ1
 
 
 
@@ -558,8 +558,8 @@ contains
   end function FT_Gaussian3D_Window
 
 !!J_0(x)
-  function bessj0(x)
-    COOP_REAL bessj0,x
+  function coop_bessj0(x)
+    COOP_REAL coop_bessj0,x
     COOP_REAL ax,xx,z
     COOP_REAL p1,p2,p3,p4,p5,q1,q2,q3,q4,q5,r1,r2,r3,r4,r5,r6, &
          s1,s2,s3,s4,s5,s6,y
@@ -575,23 +575,23 @@ contains
 
     if(abs(x).lt.8.d0)then
        y=x**2
-       bessj0=(r1+y*(r2+y*(r3+y*(r4+y*(r5+y*r6)))))/(s1+y*(s2+y*(s3+y* &
+       coop_bessj0=(r1+y*(r2+y*(r3+y*(r4+y*(r5+y*r6)))))/(s1+y*(s2+y*(s3+y* &
             (s4+y*(s5+y*s6)))))
     else
        ax=abs(x)
        z=8.d0/ax
        y=z**2
        xx=ax-.785398164d0
-       bessj0=sqrt(.636619772d0/ax)*(cos(xx)*(p1+y*(p2+y*(p3+y*(p4+y* &
+       coop_bessj0=sqrt(.636619772d0/ax)*(cos(xx)*(p1+y*(p2+y*(p3+y*(p4+y* &
             p5))))-z*sin(xx)*(q1+y*(q2+y*(q3+y*(q4+y*q5)))))
     endif
-  end function bessj0
+  end function coop_bessj0
 
 
 !!J_1(x)
-  function bessJ1(X)
+  function coop_bessj1(X)
     COOP_REAL, intent(in) :: x
-    COOP_REAL bessj1,ax,z,xx
+    COOP_REAL coop_bessj1,ax,z,xx
     COOP_REAL Y,P1,P2,P3,P4,P5,Q1,Q2,Q3,Q4,Q5,R1,R2,R3,R4,R5, &
          R6,S1,S2,S3,S4,S5,S6
     DATA R1,R2,R3,R4,R5,R6/72362614232.D0,-7895059235.D0,242396853.1D0,&
@@ -603,18 +603,18 @@ contains
          .8449199096D-5,-.88228987D-6,.105787412D-6/
     if(abs(X).LT.8.)then
        Y=X**2
-       bessJ1=X*(R1+Y*(R2+Y*(R3+Y*(R4+Y*(R5+Y*R6))))) &
+       coop_bessj1=X*(R1+Y*(R2+Y*(R3+Y*(R4+Y*(R5+Y*R6))))) &
             /(S1+Y*(S2+Y*(S3+Y*(S4+Y*(S5+Y*S6)))))
     else
        ax=abs(x)
        Z=8.0d0/ax
        Y=Z**2
        XX=AX-2.356194491d0
-       bessJ1=sqrt(.636619772d0/AX)*(COS(XX)*(P1+Y*(P2+Y*(P3+Y*(P4+Y &
+       coop_bessj1=sqrt(.636619772d0/AX)*(COS(XX)*(P1+Y*(P2+Y*(P3+Y*(P4+Y &
             *P5))))-Z*SIN(XX)*(Q1+Y*(Q2+Y*(Q3+Y*(Q4+Y*Q5))))) &
             *SIGN(1.d0,x)
     endif
-  end function bessJ1
+  end function coop_bessj1
 
 
 
@@ -629,9 +629,9 @@ contains
     COOP_REAL bj, bjm, bjp, tox, ssum
     if(n .lt. 2)then
        if(n.eq.1)then
-          bessj = bessj1(x)
+          bessj = coop_bessj1(x)
        elseif(n.eq.0)then
-          bessj = bessj0(x)
+          bessj = coop_bessj0(x)
        else
           stop "wrong argument n in bessj"
        endif
@@ -643,8 +643,8 @@ contains
     endif
     tox = 2/X
     if(x .gt. real(n))then
-       BJM=bessJ0(X)
-       BJ=bessJ1(X)
+       BJM=coop_bessj0(X)
+       BJ=coop_bessj1(X)
        DO J=1,N-1
           BJP=J*tox*BJ-BJM
           BJM=BJ
@@ -961,8 +961,8 @@ contains
 
   ! ----------------------------------------------------------------------
   ! Auxiliary Bessel functions for N=0, N=1
-  function coop_bessI0(X)
-    double precision X,coop_bessI0,Y,P1,P2,P3,P4,P5,P6,P7,  &
+  function coop_bessi0(X)
+    double precision X,coop_bessi0,Y,P1,P2,P3,P4,P5,P6,P7,  &
          Q1,Q2,Q3,Q4,Q5,Q6,Q7,Q8,Q9,AX,BX
     DATA P1,P2,P3,P4,P5,P6,P7/1.D0,3.5156229D0,3.0899424D0,1.2067429D0,  &
          0.2659732D0,0.360768D-1,0.45813D-2/
@@ -971,19 +971,19 @@ contains
          0.2635537D-1,-0.1647633D-1,0.392377D-2/
     if(abs(X).LT.3.75D0) THEN
        Y=(X/3.75D0)**2
-       coop_bessI0=P1+Y*(P2+Y*(P3+Y*(P4+Y*(P5+Y*(P6+Y*P7)))))
+       coop_bessi0=P1+Y*(P2+Y*(P3+Y*(P4+Y*(P5+Y*(P6+Y*P7)))))
     else
        AX=abs(X)
        Y=3.75D0/AX
        BX=EXP(AX)/sqrt(AX)
        AX=Q1+Y*(Q2+Y*(Q3+Y*(Q4+Y*(Q5+Y*(Q6+Y*(Q7+Y*(Q8+Y*Q9)))))))
-       coop_bessI0=AX*BX
+       coop_bessi0=AX*BX
     endif
     return
-  end function coop_bessI0
+  end function coop_bessi0
   ! ----------------------------------------------------------------------
-  function coop_bessI1(X)
-    double precision X,coop_bessI1,Y,P1,P2,P3,P4,P5,P6,P7,  &
+  function coop_bessi1(X)
+    double precision X,coop_bessi1,Y,P1,P2,P3,P4,P5,P6,P7,  &
          Q1,Q2,Q3,Q4,Q5,Q6,Q7,Q8,Q9,AX,BX
     DATA P1,P2,P3,P4,P5,P6,P7/0.5D0,0.87890594D0,0.51498869D0,  &
          0.15084934D0,0.2658733D-1,0.301532D-2,0.32411D-3/
@@ -992,16 +992,16 @@ contains
          -0.2895312D-1,0.1787654D-1,-0.420059D-2/
     if(abs(X).LT.3.75D0) THEN
        Y=(X/3.75D0)**2
-       coop_bessI1=X*(P1+Y*(P2+Y*(P3+Y*(P4+Y*(P5+Y*(P6+Y*P7))))))
+       coop_bessi1=X*(P1+Y*(P2+Y*(P3+Y*(P4+Y*(P5+Y*(P6+Y*P7))))))
     else
        AX=abs(X)
        Y=3.75D0/AX
        BX=EXP(AX)/sqrt(AX)
        AX=Q1+Y*(Q2+Y*(Q3+Y*(Q4+Y*(Q5+Y*(Q6+Y*(Q7+Y*(Q8+Y*Q9)))))))
-       coop_bessI1=AX*BX
+       coop_bessi1=AX*BX
     endif
     return
-  end function coop_bessI1
+  end function coop_bessi1
 
 
   function coop_bessI(N,X)
@@ -1021,11 +1021,11 @@ contains
     double precision X,coop_bessI,tox,biM,bi,biP
     if(n.lt.2)then
        if (N.eq.0) then
-          coop_bessI = coop_bessI0(X)
+          coop_bessI = coop_bessi0(X)
           return
        endif
        if (N.eq.1) then
-          coop_bessI = coop_bessI1(X)
+          coop_bessI = coop_bessi1(X)
           return
        endif
     endif
@@ -1049,7 +1049,7 @@ contains
        endif
        if (J.eq.N) coop_bessI = bip
     end DO
-    coop_bessI = coop_bessI*coop_bessI0(X)/bi
+    coop_bessI = coop_bessI*coop_bessi0(X)/bi
     return
   end function coop_bessI
 

@@ -6,7 +6,7 @@ module coop_firstorder_mod
 
 private
 
-  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe, coop_power_lnk_min, coop_power_lnk_max,  coop_k_dense_fac, coop_index_ClTT, coop_index_ClTE, coop_index_ClEE, coop_index_ClBB, coop_index_ClLenLen, coop_index_ClTLen, coop_num_Cls, coop_Cls_lmax
+  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe, coop_power_lnk_min, coop_power_lnk_max,  coop_k_dense_fac, coop_index_ClTT, coop_index_ClTE, coop_index_ClEE, coop_index_ClBB, coop_index_ClLenLen, coop_index_ClTLen, coop_num_Cls, coop_Cls_lmax, coop_bbks_trans
 
   COOP_INT::coop_Cls_lmax(0:2) = (/ 2700, 2000, 1500 /)
 
@@ -35,9 +35,10 @@ private
   COOP_INT, parameter::coop_index_ClTLen = 6
   COOP_INT, parameter::coop_num_Cls =  coop_index_ClTLen
 
+
 !!how many source terms you want to extract & save
   COOP_INT, dimension(0:2), parameter::coop_num_sources = (/ 3,  3,  3 /)
-  COOP_INT, dimension(0:2), parameter::coop_num_saux = (/ 1,  1,  1 /)
+  COOP_INT, dimension(0:2), parameter::coop_num_saux = (/ 5,  1,  1 /)
 
 !!recfast head file
 #include "recfast_head.h"
@@ -53,7 +54,7 @@ private
      COOP_INT, dimension(:),allocatable::index_tc_off
      COOP_INT, dimension(coop_pert_default_nq)::index_massivenu_on
      COOP_INT::index_massivenu_cold
-     COOP_REAL::dkop, kopmin, kopmax, kmin, kmax, kweight, tauweight
+     COOP_REAL::dkop, kopmin, kopmax, kmin, kmax, kweight, tauweight, bbks_keq, bbks_trans_kmax
      COOP_REAL,dimension(coop_k_dense_fac)::a_dense, b_dense, a2_dense, b2_dense
      COOP_REAL, dimension(:),allocatable::k, kop, tau, a, tauc, lna,  dk, dtau, chi !!tau is conformal time, chi is comoving distance; in flat case, chi + tau = tau_0
      COOP_REAL, dimension(:,:),allocatable::k_dense, ws_dense, wt_dense, dk_dense
@@ -68,6 +69,8 @@ private
      procedure::interpolate => coop_cosmology_firstorder_source_interpolate
      procedure::intbypart => coop_cosmology_firstorder_source_intbypart
      procedure::interpolate_one => coop_cosmology_firstorder_source_interpolate_one
+     procedure::get_Psi_trans => coop_cosmology_firstorder_source_get_psi_trans
+     procedure::get_PhiPlusPsi_trans => coop_cosmology_firstorder_source_get_PhiPlusPsi_trans
   end type coop_cosmology_firstorder_source
   
   type, extends(coop_cosmology_background) :: coop_cosmology_firstorder
@@ -79,7 +82,7 @@ private
      COOP_REAL::kMpc_pivot = 0.05d0
      COOP_INT ::de_genre = COOP_PERT_NONE
      COOP_REAL::k_pivot 
-     COOP_REAL::dkappadtau_coef, ReionFrac, Omega_b, Omega_c, Omega_nu, Omega_g, tau_eq, mnu_by_Tnu, As, ns, nrun, r, nt
+     COOP_REAL::dkappadtau_coef, ReionFrac, Omega_b, Omega_c, Omega_nu, Omega_g, tau_eq, mnu_by_Tnu, As, ns, nrun, r, nt, Omega_massivenu, bbks_keq
      logical::inflation_consistency
      type(coop_function)::Ps, Pt, Xe, ekappa, vis, Tb
      type(coop_cosmology_firstorder_source),dimension(0:2)::source
@@ -100,6 +103,7 @@ private
      procedure:: set_zre_from_optre => coop_cosmology_firstorder_set_zre_from_optre
      procedure:: set_optre_from_zre => coop_cosmology_firstorder_set_optre_from_zre
      procedure::set_initial_conditions => coop_cosmology_firstorder_set_initial_conditions
+
      procedure:: xeofa => coop_cosmology_firstorder_xeofa
      procedure:: cs2bofa => coop_cosmology_firstorder_cs2bofa
      procedure:: Tbofa => coop_cosmology_firstorder_Tbofa
@@ -120,6 +124,8 @@ private
      procedure::init_source => coop_cosmology_firstorder_init_source
      procedure::compute_source =>  coop_cosmology_firstorder_compute_source
      procedure::compute_source_k =>  coop_cosmology_firstorder_compute_source_k
+     procedure::get_matter_power => coop_cosmology_firstorder_get_matter_power
+     procedure::sigma_R => coop_cosmology_firstorder_sigma_R
   end type coop_cosmology_firstorder
 
 
@@ -446,7 +452,8 @@ contains
     COOP_INT m, ik, itau, is
 
     call this%init_source(m)
-
+    this%source(m)%bbks_keq = this%bbks_keq
+    this%source(m)%bbks_trans_kmax = coop_bbks_trans(this%source(m)%kmax/this%bbks_keq)
     !$omp parallel do
     do ik = 1, this%source(m)%nk
        call this%compute_source_k(this%source(m), ik)
@@ -460,7 +467,10 @@ contains
        enddo
     enddo
     !$omp end parallel do
-
+    if(m.eq.0)then !!interpolate Phi, Psi
+       call coop_naturalspline_uniform(this%source(m)%nk, this%source(m)%saux(2, :, itau), this%source(m)%saux(4, :, itau))
+       call coop_naturalspline_uniform(this%source(m)%nk, this%source(m)%saux(3, :, itau), this%source(m)%saux(5, :, itau))
+    endif
   end subroutine coop_cosmology_firstorder_compute_source
 
   subroutine coop_cosmology_firstorder_compute_source_k(this, source, ik)
@@ -562,8 +572,8 @@ contains
     class(coop_cosmology_firstorder_source)::source
     COOP_REAL s2(source%ntau), sum1
     COOP_INT ik, i
-    source%saux(:, ik, 1) = 0.d0
-    source%saux(:, ik, source%ntau) = 0.d0
+    source%saux(1, ik, 1) = 0.d0
+    source%saux(1, ik, source%ntau) = 0.d0
     s2(1) = ((source%saux(1, ik, 1) -  source%saux(1, ik, 2))/(source%dtau(1)+source%dtau(2)) +  (source%saux(1, ik, 1) )/(source%dtau(1)*2.d0))*(2.d0/source%dtau(1))
     s2(source%ntau) = (source%saux(1, ik, source%ntau)/(source%dtau(source%ntau)*2.d0) +  (source%saux(1, ik, source%ntau) -  source%saux(1, ik, source%ntau-1))/(source%dtau(source%ntau)+source%dtau(source%ntau-1)))*(2.d0/source%dtau(source%ntau))
     do i = 2, source%ntau-1
@@ -710,19 +720,17 @@ contains
        call coop_fermion_get_lnam(log(O0_MASSIVENU(this)%Omega/O0_MASSIVENU(this)%Omega_massless), this%mnu_by_Tnu)
        this%mnu_by_Tnu = exp(this%mnu_by_Tnu)
        this%Omega_nu = O0_NU(this)%Omega + O0_MASSIVENU(this)%Omega_massless
+       this%Omega_massivenu = O0_MASSIVENU(this)%Omega - O0_MASSIVENU(this)%Omega_massless
     else
        this%Omega_nu = O0_NU(this)%Omega 
        this%mnu_by_Tnu = 0.d0
+       this%Omega_massivenu = 0.d0
     endif
 
-    if(abs(this%Omega_m/( this%Omega_b + this%Omega_c ) - 1.d0) .gt. 2.d-3)then
-       call coop_feedback("warning: nonstandard matter component.", 2)
-    endif
+    this%Omega_m = this%Omega_b + this%Omega_c + this%Omega_massivenu 
+    this%Omega_r =  this%Omega_g + this%Omega_nu 
+    this%bbks_keq =  (0.073*coop_SI_c/1.d5) * this%h_value * this%omega_m * exp(- this%omega_b - sqrt(2.*this%h_value)*this%omega_b/this%omega_m)
 
-
-    if(abs(this%Omega_r/( this%Omega_g + this%Omega_nu ) - 1.d0) .gt. 2.d-3)then
-       call coop_feedback("warning: cannot accurately determine early-time radiation fraction.", 2)
-    endif
     this%tau_eq = this%conformal_time(this%a_eq)
 
     this%dkappadtau_coef = this%species(this%index_baryon)%Omega * this%h() * coop_SI_sigma_thomson * (coop_SI_rhocritbyh2/coop_SI_c**2) * coop_SI_hbyH0 * coop_SI_c/ coop_SI_m_H * (1.d0 - this%YHe())
@@ -991,11 +999,11 @@ contains
        n =n+1
        if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
        tau(n) = tau(n-1) + step*step_factor
-       if(tau(n) .lt. 0.989*this%tau0)then
+       if(tau(n) .lt. 0.99*this%tau0)then
           a(n) = this%aoftau(tau(n))
           step = max(step_isw, step/vary)
        else
-          tau(n) = 0.99d0*this%tau0
+          tau(n) = 0.9995d0*this%tau0
           a(n) = this%aoftau(tau(n))
           exit
        endif
@@ -1295,6 +1303,150 @@ contains
          +  ((source%s(isrc, ik, iup)+source%s2(isrc, ik, iup)*(b**2-1.d0))*b + (source%s(isrc, ik+1, iup) + source%s2(isrc, ik+1, iup)*(a**2-1.d0))*a)*rchi
   end function coop_cosmology_firstorder_source_interpolate_one
 
+  subroutine coop_cosmology_firstorder_source_get_Psi_trans(source, tau, nk, k, psi)
+    class(coop_cosmology_firstorder_source) source
+    COOP_INT nk
+    COOP_REAL k(nk), tau, psi(nk)
+    COOP_REAL kop, a, b, atau, btau
+    COOP_INT ik, itau, im, it, ikop
+    if(tau .le. source%tau(1))then
+       itau = 1
+       atau = 0.d0
+    elseif(tau .ge. source%tau(source%ntau))then
+       itau = source%ntau - 1
+       atau = (tau - source%tau(itau))/(source%tau(itau+1)-source%tau(itau))
+    else
+       itau = 1
+       it = source%ntau
+       do while(it - itau .gt. 1)
+          im = (itau+it)/2
+          if(source%tau(im) .gt. tau)then
+             it = im
+          else
+             itau = im
+          endif
+       enddo
+       atau = (tau - source%tau(itau))/(source%tau(itau+1)-source%tau(itau))
+    endif
+    btau = 1.d0-atau
+    !$omp parallel do private(ikop, kop, a, b)
+    do ik=1, nk
+       call source%k2kop(k(ik), kop)
+       a = (kop - source%kopmin)/source%dkop + 1.d0
+       ikop = floor(a)
+       if(ikop .lt. 1)then
+          psi(ik) = source%saux(3, 1, itau)*btau +  source%saux(3, 1, itau+1)*atau
+       elseif(ikop .ge. source%nk)then
+          psi(ik) = (source%saux(3, source%nk, itau)*btau +  source%saux(3, source%nk, itau+1)*atau) * coop_bbks_trans(k(ik)/source%bbks_keq)/source%bbks_trans_kmax
+
+       else
+          a = a - ikop
+          b = 1.d0 - a
+          psi(ik) = ((source%saux(3, ikop, itau)+source%saux(5, ikop, itau)*(1.d0-b**2))*b + (source%saux(3, ikop+1, itau) + source%saux(5, ikop+1, itau)*(1.d0-a**2) ) * a ) * btau +  ((source%saux(3, ikop, itau+1)+source%saux(5, ikop, itau+1)*(1.d0-b**2))*b + (source%saux(3, ikop+1, itau+1) + source%saux(5, ikop+1, itau+1)*(1.d0-a**2) ) * a ) * atau
+       endif
+    enddo
+    !$omp end parallel do
+    
+  end subroutine coop_cosmology_firstorder_source_get_Psi_trans
+
+  function coop_bbks_trans(x) result(bbkstrans)
+    !!BBKS fitting formula of adiabatic CDM transfer function, x = k/k_eq
+    COOP_REAL::c1 = 0.284d0
+    COOP_REAL::c2 = 1.18d0**2
+    COOP_REAL::c3 = 0.399d0**3
+    COOP_REAL::c4 = 0.490d0**4
+    COOP_REAL BBKSTrans, x
+    BBKSTrans = log(1.+0.171*x)/(0.171*x)/ &
+         ( 1.d0+ x*(c1+x*(c2+x*(c3+x*c4)))) ** 0.25d0
+  end function coop_bbks_trans
+
+ subroutine coop_cosmology_firstorder_source_get_PhiPlusPsi_trans(source, tau, nk, k, PhiPlusPsi)
+    class(coop_cosmology_firstorder_source) source
+    COOP_INT nk
+    COOP_REAL k(nk), tau, PhiPlusPsi(nk)
+    COOP_REAL kop, a, b, atau, btau
+    COOP_INT ik, itau, im, it, ikop
+    if(tau .le. source%tau(1))then
+       itau = 1
+       atau = 0.d0
+    elseif(tau .ge. source%tau(source%ntau))then
+       itau = source%ntau - 1
+       atau = (tau - source%tau(itau))/(source%tau(itau+1)-source%tau(itau))
+    else
+       itau = 1
+       it = source%ntau
+       do while(it - itau .gt. 1)
+          im = (itau+it)/2
+          if(source%tau(im) .gt. tau)then
+             it = im
+          else
+             itau = im
+          endif
+       enddo
+       atau = (tau - source%tau(itau))/(source%tau(itau+1)-source%tau(itau))
+    endif
+    btau = 1.d0-atau
+    !$omp parallel do private(ikop, kop, a, b, ik)
+    do ik=1, nk
+       call source%k2kop(k(ik), kop)
+       a = (kop - source%kopmin)/source%dkop + 1.d0
+       ikop = floor(a)
+       if(ikop .lt. 1)then
+          PhiPlusPsi(ik) = source%saux(2, 1, itau)*btau +  source%saux(2, 1, itau+1)*atau
+       elseif(ikop .ge. source%nk)then
+          PhiPlusPsi(ik) = (source%saux(2, source%nk, itau)*btau +  source%saux(2, source%nk, itau+1)*atau) * coop_bbks_trans(k(ik)/source%bbks_keq)/source%bbks_trans_kmax
+       else
+          a = a - ikop
+          b = 1.d0 - a
+          PhiPlusPsi(ik) = ((source%saux(2, ikop, itau)+source%saux(4, ikop, itau)*(1.d0-b**2))*b + (source%saux(2, ikop+1, itau) + source%saux(4, ikop+1, itau)*(1.d0-a**2) ) * a ) * btau +  ((source%saux(2, ikop, itau+1)+source%saux(4, ikop, itau+1)*(1.d0-b**2))*b + (source%saux(2, ikop+1, itau+1) + source%saux(4, ikop+1, itau+1)*(1.d0-a**2) ) * a ) * atau
+       endif
+    enddo
+    !$omp end parallel do
+  end subroutine coop_cosmology_firstorder_source_get_PhiPlusPsi_trans
+
+  subroutine coop_cosmology_firstorder_get_matter_power(this, z, nk, k, Pk)
+    class(coop_cosmology_firstorder)::this
+    COOP_INT nk, ik
+    COOP_REAL z, k(nk), Pk(nk), tau, Psi(nk), Ps(nk)
+    tau = this%tauofa(1.d0/(1.d0+z))
+    call this%source(0)%get_Psi_trans(tau, nk, k, Psi)
+    !$omp parallel do
+    do ik = 1, nk
+       ps(ik) = this%psofk(k(ik))
+    enddo
+    !$omp end parallel do
+    pk = Psi**2 * k * ps * ((2.d0*coop_pi2/2.25d0)/(this%Omega_m*(1.d0+z)**3)**2)
+  end subroutine coop_cosmology_firstorder_get_matter_power
+
+  function coop_cosmology_firstorder_sigma_R(this, z, R) result(sigma)
+    class(coop_cosmology_firstorder)::this    
+    COOP_INT, parameter::nk = 3000
+    COOP_INT ik
+    COOP_REAL lnk(nk), k(nk), Pk(nk), dlnk
+    COOP_REAL z, R, sigma
+    call coop_set_uniform(nk, lnk, min(log(1.d-1), -log(R)-3.d0), -log(R)+2.d0)
+    k = exp(lnk)
+    dlnk = lnk(2)-lnk(1)
+    call this%get_matter_power(z, nk, k, pk)
+    !$omp parallel do
+    do ik = 1, nk
+       pk(ik) = pk(ik)*k(ik)**3*FT_tophat(k(ik)*R)**2
+    enddo
+    !$omp end parallel do
+    sigma = sqrt(sum(pk)*dlnk*(9.d0/2.d0/coop_pi2))
+  contains
+
+    function FT_tophat(kR) 
+      !!1/3 * Fourier transformation of a tophat function in a sphere with radius R
+      COOP_REAL kR, FT_tophat
+      if(kR .gt. 0.02d0)then
+         FT_tophat = (dsin(kR)/kR -  dcos(kR))/ kR**2 
+      else
+         FT_tophat = (10.d0 - kR**2*(1.d0 - kR**2/28.d0))/30.d0
+      endif
+    end function FT_tophat
+    
+  end function coop_cosmology_firstorder_sigma_R
 
 end module coop_firstorder_mod
 

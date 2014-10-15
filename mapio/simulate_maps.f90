@@ -16,10 +16,10 @@ program test
   COOP_REAL::beam_fwhm = 5.*coop_SI_arcmin
   COOP_REAL sigma
   call coop_random_init()
-  call map%init(nside = 2048, nmaps=3, spin = (/ 0, 2, 2 /))
+  call map%init(nside = 1024, nmaps=3, spin = (/ 0, 2, 2 /))
   call map%map2alm()
   sigma = coop_sigma_by_fwhm * beam_fwhm
-  call fp%open("cls.dat", "r")
+  call fp%open("rp2Cls.dat", "r")
   print*, "lmax = ",map%lmax
   do l=2, map%lmax
      read(fp%unit, *) il, map%cl(l, coop_healpix_index_TT), map%cl(l, coop_healpix_index_EE), map%cl(l, coop_healpix_index_BB), map%cl(l, coop_healpix_index_TE)
@@ -27,6 +27,6 @@ program test
   enddo
   call map%simulate()
   call map%map2alm()
-  call map%write("simu/simulate_iqu_n2048.fits")
+  call map%write("simu/simurp2_iqu_n2048.fits")
 
 end program test
