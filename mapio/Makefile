@@ -65,8 +65,8 @@ Ena: $(OBJ) ensemble_asymmetry.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) ensemble_asymmetry.o $(LINK)
 
 
-HSL: $(OBJ) hemisphere_stack_linearfit.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) hemisphere_stack_linearfit.o $(LINK)
+HSL: $(OBJ) hemisphere.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) hemisphere.o $(LINK)
 
 POSTHSL: $(OBJ) post_hsl.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) post_hsl.o $(LINK)
