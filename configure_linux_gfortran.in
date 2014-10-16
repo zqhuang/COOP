@@ -117,15 +117,21 @@ LINK += -L$(COOPLIB) -lcoop
 INCLUDE += -I$(COOPLIB)
 endif
 
+ifneq ($(SECONDORDER),)
+LINK += -L$(SECONDORDER) -lcoopsecondorder
+INCLUDE += -I$(SECONDORDER)
+endif
+
+ifneq ($(FORECAST),)
+LINK += -L$(FORECAST) -lcoopforecast
+INCLUDE += -I$(FORECAST)
+endif
+
 ifneq ($(NONLINEAR),)
 LINK += -L$(NONLINEAR) -lcoopnonlinear
 INCLUDE += -I$(NONLINEAR)
 endif
 
-ifneq ($(SECONDORDER),)
-LINK += -L$(SECONDORDER) -lcoopsecondorder
-INCLUDE += -I$(SECONDORDER)
-endif
 
 
 ifneq ($(FIRSTORDER),)

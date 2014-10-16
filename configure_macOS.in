@@ -37,7 +37,7 @@ LAPACK =
 
 ##FFTW lib (v3.2 up)
 FFTW3=
-# $(HOME)/includes/fftw3
+#$(HOME)/includes/fftw3
 
 ## gsl lib 
 GSL =
@@ -117,16 +117,20 @@ LINK += -L$(COOPLIB) -lcoop
 INCLUDE += -I$(COOPLIB)
 endif
 
-ifneq ($(NONLINEAR),)
-LINK += -L$(NONLINEAR) -lcoopnonlinear
-INCLUDE += -I$(NONLINEAR)
-endif
-
 ifneq ($(SECONDORDER),)
 LINK += -L$(SECONDORDER) -lcoopsecondorder
 INCLUDE += -I$(SECONDORDER)
 endif
 
+ifneq ($(FORECAST),)
+LINK += -L$(FORECAST) -lcoopforecast
+INCLUDE += -I$(FORECAST)
+endif
+
+ifneq ($(NONLINEAR),)
+LINK += -L$(NONLINEAR) -lcoopnonlinear
+INCLUDE += -I$(NONLINEAR)
+endif
 
 ifneq ($(FIRSTORDER),)
 LINK += -L$(FIRSTORDER) -lcoopfirstorder
@@ -150,15 +154,6 @@ LINK += -L$(TYPEDEF) -lcooptypedef
 INCLUDE += -I$(TYPEDEF)
 endif
 
-
-###set cfitsio flags here
-ifneq ($(CFITSIO),)
-LINK += -L$(CFITSIO)/lib -lcfitsio
-FFLAGS += -DHAS_CFITSIO=1
-CFLAGS += -DHAS_CFITSIO=1
-INCLUDE += -I$(CFITSIO)/include
-endif
-
 ### set Healpix flags here
 ifneq ($(HEALPIX),)
 LINK += -L$(HEALPIX)/lib -lhealpix 
@@ -167,6 +162,14 @@ CFLAGS += -DHAS_HEALPIX=1
 INCLUDE += -I$(HEALPIX)/include
 endif
 
+
+###set cfitsio flags here
+ifneq ($(CFITSIO),)
+LINK += -L$(CFITSIO)/lib -lcfitsio
+FFLAGS += -DHAS_CFITSIO=1
+CFLAGS += -DHAS_CFITSIO=1
+INCLUDE += -I$(CFITSIO)/include
+endif
 
 ###set fftw flags here
 ifneq ($(FFTW3),)

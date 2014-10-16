@@ -4,19 +4,20 @@ TYPEDEF=../typedef
 UTILS=../utils
 BACKGROUND=../background
 FIRSTORDER=../firstorder
-NONLINEAR=../nonlinear
-FORECAST=../forecast
 
 include ../configure.in
 include ../compile_rules.in
-LIB = libcoopwrapper.a
-OBJ = wrapper.o 
 
+LIB = libcoopnonlinear.a
+OBJ = nonlinear.o 
 
 default: $(LIB)
 
 $(LIB):	$(OBJ) 
 	ar -r $@ $?
+
+Test: $(LIB) test.o $(FIRSTORDER)/libcoopfirstorder.a
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(LIB) test.o $(LINK)
 
 clean:
 	rm -f *.o *.*~ *.mod \#* *.a Makefile~ 

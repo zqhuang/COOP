@@ -5,12 +5,12 @@ UTILS=../utils
 BACKGROUND=../background
 FIRSTORDER=../firstorder
 NONLINEAR=../nonlinear
-FORECAST=../forecast
 
 include ../configure.in
 include ../compile_rules.in
-LIB = libcoopwrapper.a
-OBJ = wrapper.o 
+
+LIB = libcoopforecast.a
+OBJ = forecast.o 
 
 
 default: $(LIB)

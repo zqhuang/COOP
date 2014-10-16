@@ -82,7 +82,7 @@ private
      COOP_REAL::kMpc_pivot = 0.05d0
      COOP_INT ::de_genre = COOP_PERT_NONE
      COOP_REAL::k_pivot 
-     COOP_REAL::dkappadtau_coef, ReionFrac, Omega_b, Omega_c, Omega_nu, Omega_g, tau_eq, mnu_by_Tnu, As, ns, nrun, r, nt, Omega_massivenu, bbks_keq
+     COOP_REAL::dkappadtau_coef, ReionFrac, Omega_b, Omega_c, Omega_nu, Omega_g, tau_eq, mnu_by_Tnu, As, ns, nrun, r, nt, Omega_massivenu, bbks_keq, sigma_8
      logical::inflation_consistency
      type(coop_function)::Ps, Pt, Xe, ekappa, vis, Tb
      type(coop_cosmology_firstorder_source),dimension(0:2)::source
@@ -125,7 +125,10 @@ private
      procedure::compute_source =>  coop_cosmology_firstorder_compute_source
      procedure::compute_source_k =>  coop_cosmology_firstorder_compute_source_k
      procedure::get_matter_power => coop_cosmology_firstorder_get_matter_power
-     procedure::sigma_R => coop_cosmology_firstorder_sigma_R
+     procedure::sigma_Tophat_R => coop_cosmology_firstorder_sigma_Tophat_R
+     procedure::sigma_Gaussian_R => coop_cosmology_firstorder_sigma_Gaussian_R
+     procedure::sigma_Gaussian_R_quick => coop_cosmology_firstorder_sigma_Gaussian_R_quick
+     procedure::sigma_Gaussian_R_with_dervs => coop_cosmology_firstorder_sigma_Gaussian_R_with_dervs
   end type coop_cosmology_firstorder
 
 
@@ -470,6 +473,7 @@ contains
     if(m.eq.0)then !!interpolate Phi, Psi
        call coop_naturalspline_uniform(this%source(m)%nk, this%source(m)%saux(2, :, itau), this%source(m)%saux(4, :, itau))
        call coop_naturalspline_uniform(this%source(m)%nk, this%source(m)%saux(3, :, itau), this%source(m)%saux(5, :, itau))
+       this%sigma_8 = this%sigma_Tophat_R(z = 0.d0, r = 8.d0/this%h()*this%H0Mpc())
     endif
   end subroutine coop_cosmology_firstorder_compute_source
 
@@ -1404,6 +1408,8 @@ contains
     !$omp end parallel do
   end subroutine coop_cosmology_firstorder_source_get_PhiPlusPsi_trans
 
+
+!!return the dimensionless k^3P(k)/(2pi^2)
   subroutine coop_cosmology_firstorder_get_matter_power(this, z, nk, k, Pk)
     class(coop_cosmology_firstorder)::this
     COOP_INT nk, ik
@@ -1415,25 +1421,25 @@ contains
        ps(ik) = this%psofk(k(ik))
     enddo
     !$omp end parallel do
-    pk = Psi**2 * k * ps * ((2.d0*coop_pi2/2.25d0)/(this%Omega_m*(1.d0+z)**3)**2)
+    pk = Psi**2 * k**4 * ps * (4.d0/9.d0/(this%Omega_m*(1.d0+z)**3)**2)
   end subroutine coop_cosmology_firstorder_get_matter_power
 
-  function coop_cosmology_firstorder_sigma_R(this, z, R) result(sigma)
+  function coop_cosmology_firstorder_sigma_TopHat_R(this, z, R) result(sigma)
     class(coop_cosmology_firstorder)::this    
-    COOP_INT, parameter::nk = 3000
+    COOP_INT, parameter::nk = 800
     COOP_INT ik
     COOP_REAL lnk(nk), k(nk), Pk(nk), dlnk
     COOP_REAL z, R, sigma
-    call coop_set_uniform(nk, lnk, min(log(1.d-1), -log(R)-3.d0), -log(R)+2.d0)
+    call coop_set_uniform(nk, lnk, min(1.d0, -log(R)-2.d0), -log(R) + 3.25d0)
     k = exp(lnk)
     dlnk = lnk(2)-lnk(1)
     call this%get_matter_power(z, nk, k, pk)
     !$omp parallel do
     do ik = 1, nk
-       pk(ik) = pk(ik)*k(ik)**3*FT_tophat(k(ik)*R)**2
+       pk(ik) = pk(ik)*FT_tophat(k(ik)*R)**2
     enddo
     !$omp end parallel do
-    sigma = sqrt(sum(pk)*dlnk*(9.d0/2.d0/coop_pi2))
+    sigma = sqrt((sum(pk)*dlnk + (1.d0/3.d0-dlnk/2.d0)*pk(1)))*3.d0
   contains
 
     function FT_tophat(kR) 
@@ -1446,7 +1452,76 @@ contains
       endif
     end function FT_tophat
     
-  end function coop_cosmology_firstorder_sigma_R
+  end function coop_cosmology_firstorder_sigma_TopHat_R
+
+
+  !!d1 = d ln (sigma^2) / d ln R
+  !!d2 = d^2 ln (sigma^2) /d (ln R)^2
+  subroutine coop_cosmology_firstorder_sigma_Gaussian_R_with_dervs(this, z, R, sigma, d1, d2)
+    class(coop_cosmology_firstorder)::this    
+    COOP_INT, parameter::nk = 1500
+    COOP_INT ik
+    COOP_REAL lnk(nk), k(nk), Pk(nk), Pk1(nk), Pk2(nk), dlnk, x2
+    COOP_REAL z, R, sigma, d1, d2, sum1, sum2, sum3
+    call coop_set_uniform(nk, lnk, min(0.5d0, -log(R)-1.5d0), -log(R)+1.5d0)
+    k = exp(lnk)
+    dlnk = lnk(2)-lnk(1)
+    call this%get_matter_power(z, nk, k, pk)
+    !$omp parallel do private(x2)
+    do ik = 1, nk
+       x2 = (k(ik)*R)**2
+       pk(ik) = pk(ik)*exp(-x2)
+       Pk1(ik) = pk(ik)*x2
+       Pk2(ik) = pk(ik)*x2*(1.d0-x2)
+    enddo
+    !$omp end parallel do
+    sum1 = (sum(pk)*dlnk + pk(1)*(1.d0/3.d0 - dlnk/2.d0))
+    sum2 = (sum(pk1)*dlnk + pk1(1)*(1.d0/5.d0 - dlnk/2.d0))*2.d0
+    sum3 = (sum(pk2)*dlnk + pk2(1)*(1.d0/5.d0 - dlnk/2.d0))*4.d0
+    sigma = sqrt(sum1)
+    d1 = -sum2/sum1
+    d2 = -(sum2/sum1)**2 - sum3/sum1
+  end subroutine coop_cosmology_firstorder_sigma_Gaussian_R_with_dervs
+
+
+  function coop_cosmology_firstorder_sigma_Gaussian_R(this, z, R) result(sigma)
+    class(coop_cosmology_firstorder)::this    
+    COOP_INT, parameter::nk = 1500
+    COOP_INT ik
+    COOP_REAL lnk(nk), k(nk), Pk(nk), dlnk
+    COOP_REAL z, R, sigma
+    call coop_set_uniform(nk, lnk, min(0.5d0, -log(R)-1.5d0), -log(R)+1.5d0)
+    k = exp(lnk)
+    dlnk = lnk(2)-lnk(1)
+    call this%get_matter_power(z, nk, k, pk)
+    !$omp parallel do
+    do ik = 1, nk
+       pk(ik) = pk(ik)*exp(-(k(ik)*R)**2)
+    enddo
+    !$omp end parallel do
+    sigma = sqrt(sum(pk)*dlnk + pk(1)*(1.d0/3.d0 - dlnk/2.d0))
+  end function coop_cosmology_firstorder_sigma_Gaussian_R
+
+
+  !!quick estimate
+  function coop_cosmology_firstorder_sigma_Gaussian_R_quick(this, z, R) result(sigma)
+    class(coop_cosmology_firstorder)::this    
+    COOP_INT, parameter::nk = 300
+    COOP_INT ik
+    COOP_REAL lnk(nk), k(nk), Pk(nk), dlnk
+    COOP_REAL z, R, sigma
+    call coop_set_uniform(nk, lnk, min(1.5d0, -log(R)-1.d0), -log(R)+1.25d0)
+    k = exp(lnk)
+    dlnk = lnk(2)-lnk(1)
+    call this%get_matter_power(z, nk, k, pk)
+    !$omp parallel do
+    do ik = 1, nk
+       pk(ik) = pk(ik)*exp(-(k(ik)*R)**2)
+    enddo
+    !$omp end parallel do
+    sigma = sqrt((sum(pk)*dlnk + pk(1)*(1.d0/3.d0 - dlnk/2.d0)))
+  end function coop_cosmology_firstorder_sigma_Gaussian_R_quick
+
 
 end module coop_firstorder_mod
 
