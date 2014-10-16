@@ -16,8 +16,8 @@ default: $(LIB)
 $(LIB):	$(OBJ) 
 	ar -r $@ $?
 
-Test: $(LIB) test.o $(FIRSTORDER)/libcoopfirstorder.a
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(LIB) test.o $(LINK)
+Test: $(OBJ) test.o $(FIRSTORDER)/libcoopfirstorder.a
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
 
 clean:
 	rm -f *.o *.*~ *.mod \#* *.a Makefile~ 
