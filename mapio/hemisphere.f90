@@ -11,7 +11,7 @@ program test
 #include "constants.h"
 
 
-  COOP_REAL, parameter::pre_smooth = 30*coop_SI_arcmin
+  COOP_REAL, parameter::pre_smooth = 0.d0*coop_SI_arcmin
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
   COOP_UNKNOWN_STRING, parameter::stack_type = "T"
@@ -19,14 +19,14 @@ program test
   COOP_INT, parameter::mmax = 0
   COOP_INT, parameter::n = 20
   COOP_REAL, parameter::dr = 15.*coop_SI_arcmin
-  COOP_UNKNOWN_STRING, parameter::map_file = "commander/commander_dx11d2_temp_n2048_fullres_hybrid_v3_full_cmb.fits"
-  COOP_UNKNOWN_STRING, parameter::spots_mask_file  = "commander/commander_dx11d2_mask_temp_n2048_fullres_v3.fits"
-  COOP_UNKNOWN_STRING, parameter::stack_mask_file  = "commander/commander_dx11d2_mask_temp_n2048_fullres_v3.fits"
+  COOP_UNKNOWN_STRING, parameter::map_file = "../../dx11r2/dx11_v2_smica_int_cmb_020a_0512.fits"
+  COOP_UNKNOWN_STRING, parameter::spots_mask_file  = "dx11_v2_common_int_mask_020a_0512.fits"
+  COOP_UNKNOWN_STRING, parameter::stack_mask_file  = "dx11_v2_common_int_mask_020a_0512.fits"
   COOP_UNKNOWN_STRING, parameter::prefix = "hsloutput/"
   type(coop_healpix_patch)::patch_s, patch_n
-  integer,parameter::scan_nside = 4, n_sim = 3, imap = 1,  nmaps_wanted = 1
+  integer,parameter::scan_nside = 4, n_sim = 10,  imap = 1,  nmaps_wanted = 1
   integer run_id, i, nlines, n_larger_chisq, weight
-  type(coop_healpix_maps)::map, spots_mask, stack_mask
+  type(coop_healpix_maps)::map, spots_mask, stack_mask, map_noise
   COOP_REAL diff(0:n), chisq, prob, hdir(2), kdata, bdata, kmean, bmean, cov(2,2)
   COOP_STRING::fmt, fr_file, log_file, fig_file
   type(coop_list_integer)::listpix
@@ -72,11 +72,12 @@ program test
   call fp%open(trim(fr_file), "a")
   do while(weight .lt. n_sim)
      weight = weight + 1
-     call map%read(trim(sim_file_name(weight)), nmaps_wanted = nmaps_wanted)
-     call map%mask(spots_mask)
-     call map%smooth(pre_smooth)
-     call map%get_listpix(listpix, listangle, spot_type, threshold, spots_mask)
-     call map%convert2ring()
+     call map%read(trim(sim_file_name_cmb(weight)), nmaps_wanted = nmaps_wanted)
+     call map_noise%read(trim(sim_file_name_noise(weight)), nmaps_wanted = nmaps_wanted)
+     map%map = map%map + map_noise%map
+     if(pre_smooth .gt. 0.d0) call map%smooth(pre_smooth)
+     map_noise%map = map%map
+     call map_noise%get_listpix(listpix, listangle, spot_type, threshold, spots_mask)   !!this alters map_noise -> nested ordering
      call map%stack_north_south(patch_n, patch_s, listpix, listangle, hdir, stack_mask)
      call patch_n%get_radial_profile(imap = imap, m = 0)
      call patch_s%get_radial_profile(imap = imap, m = 0)
@@ -131,17 +132,17 @@ program test
 
 contains
 
-  function sim_file_name(i)
+  function sim_file_name_cmb(i)
     COOP_INT i
-    COOP_STRING sim_file_name
-    select case(i)
-    case(1)
-       sim_file_name = "ffp7/ffp7_smica_cmb_0001_2048_debeam.fits"
-    case(2)
-       sim_file_name = "planck/smica_inp_cmb.fits"
-    case(3)
-       sim_file_name = "simu/simulate_iqu_n2048.fits"
-    end select
-  end function sim_file_name
+    COOP_STRING sim_file_name_cmb
+    sim_file_name_cmb = "../../dx11r2/mc_cmb/int/dx11_v2_smica_int_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//"_020a_512.fits"
+  end function sim_file_name_cmb
+
+
+  function sim_file_name_noise(i)
+    COOP_INT i
+    COOP_STRING sim_file_name_noise
+    sim_file_name_noise = "../../dx11r2/mc_cmb/int/dx11_v2_smica_int_noise_mc_"//trim(coop_Ndigits(i-1, 5))//"_020a_512.fits"
+  end function sim_file_name_noise
 
 end program test

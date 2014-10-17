@@ -30,12 +30,16 @@ module coop_ode_mod
 
 contains
 
+  !!method = COOP_ODE_DVERK for stable odes
+  !!if the steps are small, you can use method = COOP_ODE_RK4[6,8], or COOP_ODE_GL4[6,8]
+
   subroutine coop_ode_init(this, n, method, tol)
     class(coop_ode)::this
     COOP_INT n
     COOP_INT,optional::method
     COOP_REAL,optional::tol
     this%n = n
+
     if(present(method))then
        this%method = method
     else
@@ -82,7 +86,8 @@ contains
   subroutine coop_ode_evolve(this, fcn, xend)
     class(coop_ode)::this
     external fcn
-    COOP_REAL xend
+    COOP_REAL xend, step
+    COOP_INT i, n
     select case(this%method)
     case(COOP_ODE_DVERK)
        if(this%has_args)then
@@ -150,6 +155,25 @@ contains
     call fcn(n, t, y+k3*h, k4)
     y = y+(k1+2.*(k2+k3)+k4)*(h/6._dl)
   end subroutine coop_RungeKutta4th
+
+
+  !!fixed step Runge-Kutta ODE integrator
+  subroutine coop_RungeKutta4th_newy(n, fcn, t, y, ynew, h)
+    external fcn
+    !! fcn(n, x, y(1:n), yp(1:n))
+
+    COOP_INT  n
+    COOP_REAL y(n), ynew(n)
+    COOP_REAL t, h
+    COOP_REAL k1(n), k2(n), k3(n), k4(n)
+    call fcn(n, t, y, k1)
+    call fcn(n, t+h/2._dl, y+k1*(h/2._dl), k2)
+    call fcn(n, t+h/2._dl, y+k2*(h/2._dl), k3)
+    t = t + h
+    call fcn(n, t, y+k3*h, k4)
+    ynew = y+(k1+2.*(k2+k3)+k4)*(h/6._dl)
+  end subroutine coop_RungeKutta4th_newy
+
 
   !!fixed step Runge-Kutta ODE integrator
   subroutine coop_RungeKutta6th(n, fcn, t, y, h)
