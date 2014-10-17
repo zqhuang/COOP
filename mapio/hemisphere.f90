@@ -34,8 +34,11 @@ program test
   type(coop_file) fp
   type(coop_asy) fig
   COOP_REAL,dimension(n_sim)::ksim, bsim
-
-  run_id = coop_str2int(coop_InputArgs(1))
+  if(iargc() .ge. 1)then
+     run_id = coop_str2int(coop_InputArgs(1))
+  else
+     run_id = coop_MPI_Rank()
+  endif
   if(run_id .ge.  scan_nside**2*12)then
      write(*,*) "run id must not exceed ", scan_nside**2*12 - 1
      stop
