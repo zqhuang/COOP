@@ -135,14 +135,14 @@ contains
   function sim_file_name_cmb(i)
     COOP_INT i
     COOP_STRING sim_file_name_cmb
-    sim_file_name_cmb = "../../dx11r2/mc_cmb/int/dx11_v2_smica_int_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//"_020a_512.fits"
+    sim_file_name_cmb = "../../dx11r2/mc_cmb/int/dx11_v2_smica_int_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//"_020a_0512.fits"
   end function sim_file_name_cmb
 
 
   function sim_file_name_noise(i)
     COOP_INT i
     COOP_STRING sim_file_name_noise
-    sim_file_name_noise = "../../dx11r2/mc_cmb/int/dx11_v2_smica_int_noise_mc_"//trim(coop_Ndigits(i-1, 5))//"_020a_512.fits"
+    sim_file_name_noise = "../../dx11r2/mc_cmb/int/dx11_v2_smica_int_noise_mc_"//trim(coop_Ndigits(i-1, 5))//"_020a_0512.fits"
   end function sim_file_name_noise
 
 end program test
