@@ -590,6 +590,19 @@ contains
     call this%alm2map
   end subroutine coop_healpix_maps_iqu2TEB
 
+  subroutine coop_healpix_maps_qu2EB(this)
+    class(coop_healpix_maps) this
+    this%spin = 2
+    this%iq = 1
+    this%iu = 2
+    call this%map2alm
+    this%spin = 0
+    this%iq = 0
+    this%iu = 0
+    call this%alm2map
+  end subroutine coop_healpix_maps_qu2EB
+
+
 
   subroutine coop_healpix_maps_iqu2LapTEB(this)
     class(coop_healpix_maps) this
@@ -700,10 +713,10 @@ contains
     if(allocated(this%mask_listpix))deallocate(this%mask_listpix)
   end subroutine coop_healpix_maps_free
 
-  subroutine coop_healpix_maps_read(this, filename, nmaps_wanted, spin)
+  subroutine coop_healpix_maps_read(this, filename, nmaps_wanted, spin, nmaps_to_read)
     class(coop_healpix_maps) this
     COOP_UNKNOWN_STRING filename
-    integer,optional::nmaps_wanted
+    integer,optional::nmaps_wanted, nmaps_to_read
     integer,dimension(:),optional::spin
     integer(8) npixtot
     integer nmaps_actual
@@ -788,7 +801,11 @@ contains
     else
        allocate(this%map(0:this%npix-1, this%nmaps))
     endif
-    call input_map(trim(filename), this%map, this%npix, nmaps_actual, fmissval = 0.)
+    if(present(nmaps_to_read))then
+       call input_map(trim(filename), this%map, this%npix, min(nmaps_actual, nmaps_to_read), fmissval = 0.)
+    else
+       call input_map(trim(filename), this%map, this%npix, nmaps_actual, fmissval = 0.)
+    endif
     call this%convert2ring
     call write_minimal_header(this%header,dtype = 'MAP', nside=this%nside, order = this%ordering, creator='Zhiqi Huang', version = 'CosmoLib', units='muK', polar=any(this%spin.eq.2) )
 #else
@@ -2982,6 +2999,7 @@ contains
     stop "HEALPIX library is missing."
 #endif    
   end subroutine coop_healpix_maps_udgrade
+
 
 
 end module coop_healpix_mod

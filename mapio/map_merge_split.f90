@@ -23,7 +23,7 @@ program map
   integer num_maps_wanted, npix, k
   type(coop_healpix_maps) hgm, hgm2
   COOP_REAL fwhm, scal, threshold
-  write(*,*) "options are: SPLIT; SMOOTH; MULTIPLY;IQU2TQTUT;IQU2TEB;SCALE;INFO;ADD;SUBTRACT;MAKEMASK"
+  write(*,*) "options are: SPLIT; SMOOTH; MULTIPLY;I2TQTUT;IQU2TEB;SCALE;INFO;ADD;SUBTRACT;MAKEMASK"
   nin = 1
   do while(nin .le. nmax)
      write(*,*) "Enter input file and press Enter (or just press Enter key to finish):"
@@ -169,10 +169,10 @@ program map
         call hgm%free()
         call hgm2%free()
         goto 500
-     case("IQU2TQTUT")
+     case("I2TQTUT")
         nin = nin -1
         do i=1, nin
-           call hgm%read(trim(fin(i)))
+           call hgm%read(trim(fin(i)), nmaps_wanted = 3, spin=(/ 0, 2, 2 /), nmaps_to_read = 1 )
            call hgm%iqu2TQTUT()
            call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_TQTUT")))
         enddo
