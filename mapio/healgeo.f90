@@ -70,6 +70,7 @@ module coop_healpix_mod
      procedure :: simulate_Tmaps => coop_healpix_maps_simulate_Tmaps
      procedure :: simulate_TQUmaps => coop_healpix_maps_simulate_TQUmaps
      procedure :: iqu2TEB => coop_healpix_maps_iqu2TEB
+     procedure :: qu2EB => coop_healpix_maps_qu2EB
      procedure :: iqu2LapTEB => coop_healpix_maps_iqu2LapTEB
      procedure :: teb2iqu => coop_healpix_maps_teb2iqu
      procedure :: iqu2TQTUT => coop_healpix_maps_iqu2TQTUT

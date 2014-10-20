@@ -20,6 +20,7 @@
             + visdot * (pert%O1_V_B/pert%k) 
        source%s(2, ik, itau) =vis * pert%capP * (3.d0/8.d0)/ kchi **2
        if(source%nsrc .ge.3)source%s(3, ik, itau) = -(pert%O1_Phi+pert%O1_PSI)*max(1.d0-source%chi(itau)/this%distlss, 0.d0)/max(source%chi(itau), 1.d-3)
+       if(source%nsrc.ge.4) source%s(4, ik, itau) = -vis 
     case(1) !!vector
        call coop_tbw("vector source to be done")
     case(2) !!tensor

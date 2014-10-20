@@ -13,6 +13,14 @@ program map
   type(coop_healpix_maps) hgm
   imap = trim(coop_inputArgs(1))
   qumap = trim(coop_inputArgs(2))
+  if(trim(imap).eq."" .or. trim(qumap).eq."")then
+     print*, "ByProd imap qumap"
+     stop 
+  endif
+  if(.not. (coop_file_exists(trim(imap)) .and. coop_file_exists(trim(qumap))))then
+     print*, "imap or qumap does not exist"
+     stop
+  endif
   iqtut = trim(coop_file_add_postfix(trim(imap), "_converted_to_TQTUT"))
 
   if(.not. coop_file_exists(trim(iqtut)))then
@@ -20,12 +28,12 @@ program map
      call hgm%iqu2TQTUT()
      call hgm%write(trim(iqtut))
   endif
-  emap = trim(coop_file_add_postfix(fin(i), "_converted_to_EB_E"))
-  bmap = trim(coop_file_add_postfix(fin(i), "_converted_to_EB_B"))
-  if(.not.coop_file_exists(trim(emap)) .or. not. coop_file_exists(trim(bmap)))then
+  emap = trim(coop_file_add_postfix(qumap, "_converted_to_EB_E"))
+  bmap = trim(coop_file_add_postfix(qumap, "_converted_to_EB_B"))
+  if(.not.coop_file_exists(trim(emap)) .or. .not. coop_file_exists(trim(bmap)))then
      call hgm%read(trim(qumap), nmaps_wanted = 2, spin = (/ 2, 2 /))
      call hgm%qu2EB()
-     call hgm%write(trim(emap), index_list = (/ 1 / ))
-     call hgm%write(trim(bmap), index_list = (/ 2 / ))
+     if(.not.coop_file_exists(trim(emap)))call hgm%write(trim(emap), index_list = (/ 1 /) )
+     if(.not. coop_file_exists(trim(bmap)))call hgm%write(trim(bmap), index_list = (/ 2 /) )
   endif
 end program map

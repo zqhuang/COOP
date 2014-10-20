@@ -6,6 +6,8 @@ module coop_firstorder_mod
 
 private
 
+#define DO_ZETA_TRANS 1
+
   public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe, coop_power_lnk_min, coop_power_lnk_max,  coop_k_dense_fac, coop_index_ClTT, coop_index_ClTE, coop_index_ClEE, coop_index_ClBB, coop_index_ClLenLen, coop_index_ClTLen, coop_num_Cls, coop_Cls_lmax, coop_bbks_trans
 
   COOP_INT::coop_Cls_lmax(0:2) = (/ 2700, 2000, 1500 /)
@@ -20,7 +22,7 @@ private
 
   COOP_REAL, dimension(0:2), parameter::coop_source_tau_step_factor = (/ 1.d0, 1.d0, 1.d0 /)
   COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
-  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 130, 120, 110 /)
+  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 150, 120, 110 /)
   COOP_REAL, parameter::coop_source_k_index = 0.45d0
   COOP_INT, parameter:: coop_k_dense_fac = 35
 
@@ -33,11 +35,18 @@ private
 !  COOP_INT, parameter::coop_index_ClTB = 6
   COOP_INT, parameter::coop_index_ClLenLen = 5
   COOP_INT, parameter::coop_index_ClTLen = 6
-  COOP_INT, parameter::coop_num_Cls =  coop_index_ClTLen
 
 
 !!how many source terms you want to extract & save
+#if DO_ZETA_TRANS
+  COOP_INT, parameter::coop_index_ClTzeta = 7
+  COOP_INT, parameter::coop_index_ClEzeta = 8
+  COOP_INT, parameter::coop_num_Cls =  coop_index_ClEzeta
+  COOP_INT, dimension(0:2), parameter::coop_num_sources = (/ 4,  3,  3 /)
+#else
+  COOP_INT, parameter::coop_num_Cls =  coop_index_ClTLen
   COOP_INT, dimension(0:2), parameter::coop_num_sources = (/ 3,  3,  3 /)
+#endif
   COOP_INT, dimension(0:2), parameter::coop_num_saux = (/ 5,  1,  1 /)
 
 !!recfast head file
@@ -299,7 +308,7 @@ contains
        kfine(itau) = 0.8d0/source%dtau(itau) !!k > kfine use fine grid
     enddo
     ikcut = source%nk
-    kchicut = max(l*2.5d0, 3000.d0)
+    kchicut = min(max(l*2.5d0, 3000.d0), l*100.d0)
     do while(source%k(ikcut) * source%chi(1) .gt. kchicut .and. ikcut .gt. 2)
        ikcut = ikcut - 1
     enddo
@@ -346,15 +355,6 @@ contains
     Cls = 0.d0
     allocate(trans(source%nsrc, coop_k_dense_fac, source%nk))
     call source%get_transfer(l, trans)
-
-!!$    open(20, file = "trans.txt")
-!!$    do ik = 2, source%nk
-!!$       do idense = 1, coop_k_dense_fac
-!!$          write(20, "(20E16.7)") source%k_dense(idense, ik), trans(:, idense, ik)
-!!$       enddo
-!!$    enddo
-!!$    close(20)
-!!$    stop
     select case(source%m)
     case(0)
        Cls(coop_index_ClTT) = sum(source%ws_dense * trans(1, :, :)**2)*coop_4pi
@@ -365,6 +365,10 @@ contains
        if(source%nsrc.ge.3)then
           Cls(coop_index_ClLenLen) = sum(source%ws_dense * trans(3, :, :)**2)*coop_4pi
           Cls(coop_index_ClTLen) = sum(source%ws_dense * trans(1, :, :) * trans(3,:,:))*coop_4pi
+       endif
+       if(source%nsrc.ge.4)then
+          Cls(coop_index_ClTzeta) = sum(source%ws_dense * trans(1, :, :)*trans(4,:,:))*coop_4pi
+          Cls(coop_index_ClEzeta) = sum(source%ws_dense * trans(2, :, :) * trans(4,:,:))*coop_4pi
        endif
     case(1)
        call coop_tbw("get_Cls: vector")
@@ -1209,9 +1213,6 @@ contains
     endif
   end subroutine coop_cosmology_firstorder_init_source
 
-
-
-
   function coop_cosmology_firstorder_Clzetazeta_at_R(this, l, r) result(Cl)
     class(coop_cosmology_firstorder)::this
     !!this computes 4 \pi \int_0^\infty |j_l(kr)|^2 (k^3P(k)/(2\pi^2)) d\ln k
@@ -1219,6 +1220,7 @@ contains
     COOP_INT l
     Cl = (coop_pi**2/2.d0)* this%psofk(1.d0/r) * 2.d0 ** ( this%ns - 1.d0) * exp(log_gamma(3.d0 - this%ns )+log_gamma(l + (this%ns - 1.d0)/2.d0)-log_gamma(l+(5.d0-this%ns)/2.d0)-2.d0*log_gamma((4.d0-this%ns)/2.d0))
   end function Coop_cosmology_firstorder_Clzetazeta_at_R
+
 
   function coop_cosmology_firstorder_Clzetazeta(this, l, r1, r2) result(Cl)
     !!this computes 4 \pi \int_0^\infty j_l(kr_1) j_l(kr_2) (k^3P(k)/(2\pi^2)) d\ln k

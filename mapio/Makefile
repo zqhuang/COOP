@@ -71,8 +71,8 @@ HSL: $(OBJ) hemisphere.o
 POSTHSL: $(OBJ) post_hsl.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) post_hsl.o $(LINK)
 
-ByProd: $(OBJ) map_by_prodcuts.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) map_by_prodcuts.o $(LINK)
+ByProd: $(OBJ) map_by_products.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) map_by_products.o $(LINK)
 
 
 MSMAP: $(OBJ) map_merge_split.o
