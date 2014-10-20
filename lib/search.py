@@ -38,14 +38,18 @@ if len(sys.argv) <= 3 :
     spath = r"./"
 else:
     spath = sys.argv[3] + r'/'
-    
+
+if(os.path.isfile(spath+postfix)):
+    prefix=''
+else:
+    prefix=r'*.'
 
 print 'pattern:'
 print pattern
 nummatch = 0
 notmatch = 0
 print "********************* match list *******************************"
-for fname in glob.glob(spath + r'*.' + postfix):
+for fname in glob.glob(spath + prefix  + postfix):
     if os.path.isfile(fname):
         res =  file_match(pattern, fname)
         if len(res) == 0:
@@ -56,7 +60,7 @@ for fname in glob.glob(spath + r'*.' + postfix):
             for x in res:
                 print "\t" + x
 if(postfix !=  postfix.upper()):
-    for fname in glob.glob(spath + r'*.' + postfix.upper()):
+    for fname in glob.glob(spath + prefix + postfix.upper()):
         if os.path.isfile(fname):
             res =  file_match(pattern, fname)
             if len(res) == 0:
