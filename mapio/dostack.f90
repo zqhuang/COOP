@@ -13,7 +13,7 @@ program test
   COOP_STRING::unit = "muK"
 
 
-  COOP_UNKNOWN_STRING,parameter:: color_table = "Planck"
+  COOP_UNKNOWN_STRING,parameter:: color_table = "Rainbow"
   COOP_REAL, parameter::smooth_fwhm = 0.*coop_SI_arcmin
   COOP_REAL,parameter::r=2.*coop_SI_degree, dr = max(smooth_fwhm/3., r/50.)
   COOP_INT, parameter::n = ceiling(r/dr)
