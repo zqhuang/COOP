@@ -10,10 +10,11 @@ program test
   COOP_STRING:: spots_file ="spots/simurp2_iqu_10arc_n1024_converted_to_TEB_submap003_Bmax_threshold0_fwhm15.txt"
   COOP_STRING :: imask_file = "ffp7/ffp7_imask.fits"
   COOP_STRING:: polmask_file ="commander/commander_polmask.fits"
+  COOP_STRING::unit = "muK"
 
 
+  COOP_UNKNOWN_STRING,parameter:: color_table = "Planck"
   COOP_REAL, parameter::smooth_fwhm = 0.*coop_SI_arcmin
-  COOP_UNKNOWN_STRING,parameter:: color_table = "Rainbow"
   COOP_REAL,parameter::r=2.*coop_SI_degree, dr = max(smooth_fwhm/3., r/50.)
   COOP_INT, parameter::n = ceiling(r/dr)
   COOP_UNKNOWN_STRING, parameter :: prefix = "stacked/"
@@ -30,11 +31,12 @@ program test
      spot_type = trim(adjustl(coop_InputArgs(3)))     
      imask_file = trim(adjustl(coop_InputArgs(4)))
      polmask_file = trim(adjustl(coop_InputArgs(5)))
+     unit = trim(adjustl(coop_InputArgs(6)))
   endif
 
 
   select case(trim(spot_type))
-  case("T", "I")
+  case("T", "I", "zeta")
      if(trim(imask_file) .ne. "")then
         do_mask = .true.
         call mask%read(trim(imask_file), nmaps_wanted = 1 )
@@ -68,11 +70,21 @@ program test
      stop "Unknown spot_type"
   end select
   call map%read(trim(map_file))
+  if(do_mask)then
+     do i=1, min(map%nmaps, 3)
+        map%map(:, i) = map%map(:, i)*mask%map(:, 1)
+     enddo
+  endif
+  if(trim(unit).eq."K")then
+     map%map = map%map*1.e6
+  endif
 
   if(index(spots_file, "_Tmax_QTUTOrient_") .gt. 0 .or. index(spots_file, "TQUmax").gt. 0)then
      caption = "$T$ maxima, oriented"
   elseif(index(spots_file, "_Tmax_").gt.0)then
      caption = "$T$ maxima, random orientation"
+  elseif(index(spots_file, "_zetamax_").gt.0)then
+     caption = "$\zeta$ maxima, random orientation"
   elseif(index(spots_file, "_Emax_").gt.0)then
      caption = "$E$ maxima, random orientation"
   elseif(index(spots_file, "_Bmax_").gt.0)then
@@ -138,7 +150,7 @@ program test
         patch%label(1) = "$Q_T(\mu K)$"
         patch%label(2) = "$U_T(\mu K)$"
      endif
-  case("T", "E", "B", "I") 
+  case("T", "E", "B", "I", "zeta") 
      fout = prefix//trim(spot_type)//"_on_"//trim(fname)
   end select
   call patch%plot(imap = 1, output =trim(fout))

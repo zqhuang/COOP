@@ -11,7 +11,7 @@ program test
   COOP_REAL norm
   COOP_REAL z, a, s, stau, k
   !!set cosmology
-  call fod%Set_Planck_bestfit_with_R(r=0.2d0)
+  call fod%Set_Planck_bestfit() !_with_R(r=0.2d0)
   !!print*, fod%zre
   !!if you want extended models
   !!call fod%set_standard_cosmology(Omega_b=0.047d0, Omega_c=0.952d0, h = 0.68d0, tau_re = 0.08d0, nu_mass_eV = 0.06d0, As = 2.15d-9, ns = 0.962d0, nrun = -0.01d0, r = 0.2d0, nt = -0.01d0, YHe = 0.25d0, Nnu = 3.d0)
@@ -44,7 +44,7 @@ program test
      call fp%open('lcdm_lensedCls.txt', 'w')
   endif
   do l=lmin, min(lmax, 2600)
-     write(fp%unit, "(I5, 20E16.7)") l, Cls_lensed(1:4, l)*(l*(l+1.d0)/coop_2pi*norm)
+     write(fp%unit, "(I5, 20E16.7)") l, Cls_lensed(1:4, l)*norm, Cls_scalar(coop_index_ClTzeta, l)*norm, Cls_scalar(coop_index_ClEzeta, l)*norm  !(l*(l+1.d0)/coop_2pi*norm)
   enddo
   call fp%close()
 

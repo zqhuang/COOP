@@ -5,6 +5,7 @@ program test
 #include "constants.h"
 
   COOP_INT::fwhm_arcmin = 15
+  COOP_INT::fwhm_in = 0.
   COOP_STRING::spot_type = "Bmax"
   COOP_STRING::input_file ="simu/simurp2_iqu_10arc_n1024_converted_to_TEB_submap003.fits"
   COOP_STRING::imask_file  ="commander/commander_imask.fits"
@@ -25,12 +26,13 @@ program test
      force_outfile = trim(adjustl(coop_inputargs(5)))
      threshold = coop_str2int(coop_InputArgs(6))
      fwhm_arcmin = coop_str2int(coop_InputArgs(7))
+     fwhm_in = coop_str2int(coop_InputArgs(8))
   else
      force_outfile = ""
   endif
-  fwhm = fwhm_arcmin*coop_SI_arcmin
+  fwhm = sqrt(dble(fwhm_arcmin)**2 - dble(fwhm_in)**2)*coop_SI_arcmin
   select case(trim(spot_type))
-  case("Tmax", "Tmax_QTUTOrient", "PTmax", "Tmin", "Tmin_QTUTOrient", "PTmin", "PTmaxSortT")
+  case("Tmax", "Tmax_QTUTOrient", "PTmax", "Tmin", "Tmin_QTUTOrient", "PTmin", "PTmaxSortT", "zetamax")
      mask_file = trim(adjustl(imask_file))
   case("Pmax", "Pmin", "Emax", "Emin", "Bmax", "Bmin","PmaxSortT")
      mask_file = trim(adjustl(polmask_file))

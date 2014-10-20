@@ -1,6 +1,6 @@
 module coop_healpix_mod
 !!I always assume ring order
-  use coop_wrapper_utils
+  use coop_wrapper_firstorder
   use coop_sphere_mod
 #ifdef HAS_HEALPIX
   use head_fits
@@ -15,8 +15,11 @@ module coop_healpix_mod
 
   private
 
-  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_get_disc, coop_healpix_export_spots, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_lb2ang, coop_healpix_ang2lb, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask
+  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_get_disc, coop_healpix_export_spots, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_lb2ang, coop_healpix_ang2lb, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls
   
+  logical::coop_healpix_alm_check_done = .false.
+  logical::coop_healpix_want_cls = .true.
+
   integer,parameter::sp = kind(1.)
   integer,parameter::dl = kind(1.d0)
   integer,parameter::dlc = kind( (1.d0,1.d0) )
@@ -53,6 +56,8 @@ module coop_healpix_mod
      real, dimension(:,:),allocatable::Cl
      integer,dimension(:),allocatable::mask_listpix, maskpol_listpix
      real(dl) chisq, mcmc_temperature
+     logical,dimension(:),allocatable::alm_done
+     real,dimension(:,:),allocatable::checksum
    contains     
      procedure :: init => coop_healpix_maps_init
      procedure :: free => coop_healpix_maps_free
@@ -76,6 +81,7 @@ module coop_healpix_mod
      procedure :: iqu2TQTUT => coop_healpix_maps_iqu2TQTUT
      procedure :: smooth => coop_healpix_smooth_map
      procedure :: smooth_mask => coop_healpix_smooth_mask
+     procedure :: t2zeta => coop_healpix_maps_t2zeta
      procedure :: trim_mask => coop_healpix_trim_mask
      procedure :: convert2nested => coop_healpix_convert_to_nested
      procedure :: convert2ring => coop_healpix_convert_to_ring
@@ -307,7 +313,7 @@ contains
     select case(trim(this%genre))
     case("QU", "QrUr")
        this%nmaps = 2
-    case("T","E","B", "I")
+    case("T","E","B", "I", "zeta")
        this%nmaps = 1
     case default
        write(*,*) "Unknown stacking genre: "//trim(this%genre)
@@ -327,6 +333,8 @@ contains
        this%label(2) = "$U_r(\mu K)$"
     case("T","E","B", "I")
        this%label(1) = "$"//trim(this%genre)//"(\mu K)$"
+    case("zeta")
+       this%label(1) = "$\zeta (10^{-5})$"
     case default
        write(*,*) "Unknown stacking genre: "//trim(this%genre)
        write(*,*) "Only supports: QU, QrUr, T, E, B"
@@ -574,21 +582,21 @@ contains
 
   subroutine coop_healpix_maps_iqu2TQTUT(this)
     class(coop_healpix_maps) this
-    call coop_healpix_maps_map2alm(this)
+    call this%map2alm(index_list = (/ 1 /) )
     this%alm(:,:,2) = this%alm(:,:,1)
     this%alm(:,:,3) = 0
     this%spin(2:3) = 2
     this%spin(1) = 0
-    call coop_healpix_maps_alm2map(this)
+    call this%alm2map()
   end subroutine coop_healpix_maps_iqu2TQTUT
 
   subroutine coop_healpix_maps_iqu2TEB(this)
     class(coop_healpix_maps) this
-    call this%map2alm
+    call this%map2alm( index_list = (/ 2 ,3 /) )
     this%spin = 0
     this%iq = 0
     this%iu = 0
-    call this%alm2map
+    call this%alm2map(index_list = (/ 2, 3 /) )
   end subroutine coop_healpix_maps_iqu2TEB
 
   subroutine coop_healpix_maps_qu2EB(this)
@@ -596,11 +604,11 @@ contains
     this%spin = 2
     this%iq = 1
     this%iu = 2
-    call this%map2alm
+    call this%map2alm(index_list = (/ 1, 2 /) )
     this%spin = 0
     this%iq = 0
     this%iu = 0
-    call this%alm2map
+    call this%alm2map(index_list = (/ 1, 2 /) )
   end subroutine coop_healpix_maps_qu2EB
 
 
@@ -608,24 +616,24 @@ contains
   subroutine coop_healpix_maps_iqu2LapTEB(this)
     class(coop_healpix_maps) this
     COOP_INT l
-    call coop_healpix_maps_map2alm(this)
+    call this%map2alm( index_list = (/ 1, 2, 3 /) )
     this%spin = 0
     this%iq = 0
     this%iu = 0
     do l=0, this%lmax
        this%alm(l, :, :) = this%alm(l, :, :)*l*(l+1.d0)
     enddo
-    call coop_healpix_maps_alm2map(this)
+    call this%alm2map( index_list = (/ 1, 2, 3 /) )
   end subroutine coop_healpix_maps_iqu2LapTEB
 
 
   subroutine coop_healpix_maps_teb2iqu(this)
     class(coop_healpix_maps) this
-    call coop_healpix_maps_map2alm(this)
+    call this%map2alm( index_list = (/ 2, 3 /) )
     this%spin = (/ 0, 2, 2 /)
     this%iq = 2
     this%iu = 3
-    call coop_healpix_maps_alm2map(this)
+    call this%alm2map( index_list = (/ 2, 3 /) )
   end subroutine coop_healpix_maps_teb2iqu
 
 
@@ -694,15 +702,19 @@ contains
     class(coop_healpix_maps) this
     integer lmax
     if(allocated(this%alm))then
-       if(this%lmax  .eq. lmax)then
+       if(this%lmax  .eq. lmax )then
           return
        endif
-       deallocate(this%alm)
+       deallocate(this%alm, this%alm_done, this%checksum)
     endif
     if(allocated(this%cl))deallocate(this%cl)
     this%lmax = lmax
     allocate(this%alm(0:this%lmax, 0:this%lmax, this%nmaps))
     allocate(this%cl(0:this%lmax, this%nmaps*(this%nmaps+1)/2))
+    allocate(this%alm_done(this%nmaps), this%checksum(4, this%nmaps))
+    this%alm_done = .false.
+    this%checksum = 1.e30
+    this%alm = 0.
   end subroutine coop_healpix_maps_allocate_alms
 
   subroutine coop_healpix_maps_free(this)
@@ -712,6 +724,9 @@ contains
     if(allocated(this%cl))deallocate(this%cl)
     if(allocated(this%spin))deallocate(this%spin)
     if(allocated(this%mask_listpix))deallocate(this%mask_listpix)
+    if(allocated(this%maskpol_listpix))deallocate(this%maskpol_listpix)
+    if(allocated(this%alm_done))deallocate(this%alm_done)
+    if(allocated(this%checksum))deallocate(this%checksum)
   end subroutine coop_healpix_maps_free
 
   subroutine coop_healpix_maps_read(this, filename, nmaps_wanted, spin, nmaps_to_read)
@@ -880,104 +895,161 @@ contains
 #endif
   end subroutine coop_healpix_convert_to_ring
 
-  subroutine coop_healpix_maps_map2alm(this, lmax)
+  subroutine coop_healpix_maps_map2alm(this, lmax, index_list)
     class(coop_healpix_maps) this
     integer,optional::lmax
-    integer i, l
+    integer i, l, j, lm, n
+    integer,dimension(:),optional::index_list
     complex, dimension(:,:,:),allocatable::alm
+#ifdef HAS_HEALPIX
     call this%convert2ring()
     if(present(lmax))then
        if(lmax .gt. this%nside*3)then
           write(*,*) "lmax > nside x 3 is not recommended"
           stop
        else
-          this%lmax = lmax          
+          lm = lmax          
        endif
     else
-       this%lmax =  min(coop_healpix_default_lmax, this%nside*2)
+       lm =  min(coop_healpix_default_lmax, this%nside*2)
     endif
-    if(allocated(this%alm))then
-       if(size(this%alm, 1) .ne. this%lmax+1 .or. size(this%alm, 2) .ne. this%lmax+1 .or. size(this%alm, 3) .ne. this%nmaps)then
-          deallocate(this%alm)
-          allocate(this%alm(0:this%lmax, 0:this%lmax, this%nmaps))
-       endif
-    else
-       allocate(this%alm(0:this%lmax, 0:this%lmax, this%nmaps))
-    endif
-    this%alm = 0.
-    if(allocated(this%cl))then
-       if(size(this%cl, 1) .ne. this%lmax+1 .or. size(this%cl, 2) .ne. this%nmaps*(this%nmaps+1)/2)then
-          deallocate(this%cl)
-          allocate(this%cl(0:this%lmax, this%nmaps*(this%nmaps+1)/2))
-       endif
-    else
-       allocate(this%cl(0:this%lmax, this%nmaps*(this%nmaps+1)/2))
-    endif
-
-    i = 1
-#ifdef HAS_HEALPIX
-    do while(i.le. this%nmaps)
-       if(this%spin(i).eq.0)then
-          call map2alm(this%nside, this%lmax, this%lmax, this%map(:,i), this%alm(:,:,i:i))
-          i = i + 1
-       else
-          if(.not. allocated(alm))allocate(alm(2, 0:this%lmax, 0:this%lmax))
-          if(i.lt. this%nmaps)then
-             if(this%spin(i+1) .eq. this%spin(i))then
-                call map2alm_spin(this%nside, this%lmax, this%lmax, this%spin(i), this%map(:,i:i+1), alm)
-                this%alm(:,:,i) = alm(1, :, :)
-                this%alm(:,:,i+1) = alm(2, :, :)
-                i = i + 2
-                cycle
-             endif
+    call this%allocate_alms(lm)
+    if(present(index_list))then
+       j = 1
+       n = size(index_list)
+       do while(j.le.n)
+          i = index_list(j)
+          if(i.gt.this%nmaps)then
+             j  = j + 1
+             cycle
           endif
-          write(*,*) this%spin
-          stop "coop_healpix_maps_map2alm: nonzero spin maps must appear in pairs"
-       endif
-    enddo
+          if(coop_healpix_alm_check_done)then
+             if(this%alm_done(i))then
+                if( this%checksum(1, i).eq. this%map(0, i) .and. this%checksum(2, i).eq. this%map(this%npix/2, i) .and. this%checksum(3, i) .eq. this%map(this%npix-1, i) .and. nint(this%checksum(4, i)) .eq. this%spin(i)  )then
+                   j  = j + 1
+                   cycle
+                endif
+             endif
+             this%alm_done(i) = .true.
+             this%checksum(1, i) = this%map(0, i)
+             this%checksum(2, i) = this%map(this%npix/2, i)
+             this%checksum(3, i) = this%map(this%npix-1, i)
+             this%checksum(4, i) = this%spin(i)
+          endif
+          if(this%spin(i).eq.0)then
+             call map2alm(this%nside, this%lmax, this%lmax, this%map(:,i), this%alm(:,:,i:i))
+             j = j + 1
+          else
+             if(i.lt. this%nmaps .and. j.lt. n)then
+                if(index_list(j+1).eq.i+1 .and. this%spin(i+1) .eq. this%spin(i))then
+                   if(.not. allocated(alm))allocate(alm(2, 0:this%lmax, 0:this%lmax))
+                   call map2alm_spin(this%nside, this%lmax, this%lmax, this%spin(i), this%map(:,i:i+1), alm)
+                   this%alm(:,:,i) = alm(1, :, :)
+                   this%alm(:,:,i+1) = alm(2, :, :)
+                   j = j + 2
+                   cycle
+                endif
+             endif
+             write(*,*) this%spin
+             stop "coop_healpix_maps_map2alm: nonzero spin maps must appear in pairs"
+          endif
+       enddo
+    else
+       i = 1
+       do while(i.le. this%nmaps)
+          if(this%spin(i).eq.0)then
+             call map2alm(this%nside, this%lmax, this%lmax, this%map(:,i), this%alm(:,:,i:i))
+             i = i + 1
+          else
+             if(.not. allocated(alm))allocate(alm(2, 0:this%lmax, 0:this%lmax))
+             if(i.lt. this%nmaps)then
+                if(this%spin(i+1) .eq. this%spin(i))then
+                   call map2alm_spin(this%nside, this%lmax, this%lmax, this%spin(i), this%map(:,i:i+1), alm)
+                   this%alm(:,:,i) = alm(1, :, :)
+                   this%alm(:,:,i+1) = alm(2, :, :)
+                   i = i + 2
+                   cycle
+                endif
+             endif
+             write(*,*) this%spin
+             stop "coop_healpix_maps_map2alm: nonzero spin maps must appear in pairs"
+          endif
+       enddo
+    endif
+    if(allocated(alm))deallocate(alm)
+    if(coop_healpix_want_cls)call this%get_cls
 #else
     stop "CANNOT FIND HEALPIX"
 #endif
-    if(allocated(alm))deallocate(alm)
-    call coop_healpix_maps_get_cls(this)
   end subroutine coop_healpix_maps_map2alm
 
 
-  subroutine coop_healpix_maps_alm2map(this)
+  subroutine coop_healpix_maps_alm2map(this, index_list)
     class(coop_healpix_maps) this
-    integer i
+    integer i, j, n
+    integer,dimension(:),optional::index_list
     complex,dimension(:,:,:),allocatable::alm
-    i = 1
 #ifdef HAS_HEALPIX
-    do while(i.le. this%nmaps)
-       if(this%spin(i).eq.0)then
-          call alm2map(this%nside, this%lmax, this%lmax, this%alm(:,:,i:i), this%map(:,i))
-          i = i + 1
-       else
-          if(.not.allocated(alm))allocate(alm(2,0:this%lmax, 0:this%lmax))
-          if(i.lt. this%nmaps)then
-             alm(1,:,:) = this%alm(:,:,i)
-             alm(2,:,:) = this%alm(:,:,i+1)
-             if(this%spin(i+1) .eq. this%spin(i))then
+    if(present(index_list))then
+       j = 1
+       n = size(index_list)
+       do while(j.le.n)
+          i = index_list(j)
+          if(i.gt. this%nmaps)then
+             j = j + 1
+             cycle
+          endif
+          if(this%spin(i).eq.0)then
+             call alm2map(this%nside, this%lmax, this%lmax, this%alm(:,:,i:i), this%map(:,i))
+             j = j + 1
+             cycle
+          endif
+          if(j .lt. n .and. i .lt. this%nmaps)then
+             if(index_list(j+1).eq.i+1 .and. this%spin(i+1) .eq. this%spin(i))then
+                if(.not.allocated(alm))allocate(alm(2,0:this%lmax, 0:this%lmax))
+                alm(1,:,:) = this%alm(:,:,i)
+                alm(2,:,:) = this%alm(:,:,i+1)
                 call alm2map_spin(this%nside, this%lmax, this%lmax, this%spin(i), alm, this%map(:,i:i+1))
-                i = i + 2
+                j = j + 2
                 cycle
              endif
           endif
           stop "coop_healpix_maps_alm2map: nonzero spin maps must appear in pairs"
-       endif
-    enddo
+       enddo
+    else
+       i = 1
+       do while(i.le. this%nmaps)
+          if(this%spin(i).eq.0)then
+             call alm2map(this%nside, this%lmax, this%lmax, this%alm(:,:,i:i), this%map(:,i))
+             i = i + 1
+          else
+             if(i.lt. this%nmaps)then
+                if(this%spin(i+1) .eq. this%spin(i))then
+                   if(.not.allocated(alm))allocate(alm(2,0:this%lmax, 0:this%lmax))
+                   alm(1,:,:) = this%alm(:,:,i)
+                   alm(2,:,:) = this%alm(:,:,i+1)
+                
+                   call alm2map_spin(this%nside, this%lmax, this%lmax, this%spin(i), alm, this%map(:,i:i+1))
+                   i = i + 2
+                   cycle
+                endif
+             endif
+             stop "coop_healpix_maps_alm2map: nonzero spin maps must appear in pairs"
+          endif
+       enddo
+    endif
+    if(allocated(alm))deallocate(alm)
 #else
     stop "CANNOT FIND HEALPIX"
 #endif
-    if(allocated(alm))deallocate(alm)
   end subroutine coop_healpix_maps_alm2map
 
-  subroutine coop_healpix_filter_alm(this, fwhm, lpower, window)
+  subroutine coop_healpix_filter_alm(this, fwhm, lpower, window, index_list)
     class(coop_healpix_maps) this
     real,optional::window(0:this%lmax)
     real,optional::fwhm
     real,optional::lpower
+    integer,dimension(:), optional::index_list
     integer l
     real(sp) c, w(0:this%lmax)
     w = 1.
@@ -1003,12 +1075,19 @@ contains
        enddo
        !$omp end parallel do       
     endif
-    !$omp parallel do
-    do l = 0, this%lmax
-       this%alm(l,:,:) = this%alm(l,:,:)*w(l)
-       this%Cl(l,:) = this%Cl(l,:)*w(l)**2
-    enddo
-    !$omp end parallel do
+    if(present(index_list))then
+       !$omp parallel do
+       do l = 0, this%lmax
+          this%alm(l,:,index_list) = this%alm(l,:,index_list)*w(l)
+       enddo
+       !$omp end parallel do
+    else
+       !$omp parallel do
+       do l = 0, this%lmax
+          this%alm(l,:,:) = this%alm(l,:,:)*w(l)
+       enddo
+       !$omp end parallel do
+    endif
   end subroutine coop_healpix_filter_alm
 
 
@@ -1715,7 +1794,7 @@ contains
     if(.not. present(mask))patch%nstack = 1.d0
     patch%nstack_raw  = 1
     select case(trim(patch%genre))
-    case("T", "E", "B", "I")
+    case("T", "E", "B", "I", "zeta")
        do j = -patch%n, patch%n
           do i = -patch%n, patch%n
              x = patch%dr * i
@@ -1784,28 +1863,36 @@ contains
     call map%free()
   end subroutine coop_healpix_smooth_mapfile
 
-  subroutine coop_healpix_smooth_map(map, filter_fwhm)
+  subroutine coop_healpix_smooth_map(map, filter_fwhm, index_list)
     class(coop_healpix_maps) map
     real(dl) filter_fwhm
     integer lmax
+    integer,dimension(:),optional::index_list
     lmax = min(ceiling(3./max(abs(filter_fwhm)*coop_sigma_by_fwhm, 1.d-6)), map%nside*3)
     if(lmax .lt. 2) return
     if(lmax*abs(filter_fwhm).lt.0.01)return
     write(*,*) "Smoothing with lmax = ", lmax
-    call coop_healpix_maps_map2alm(map, lmax)
-    call coop_healpix_filter_alm(map, fwhm = real(filter_fwhm))
-    call coop_healpix_maps_alm2map(map)
+    if(present(index_list))then
+       if(any(index_list .gt. map%nmaps)) stop "smooth_map: index_list overflow"
+       call map%map2alm(lmax, index_list)
+       call map%filter_alm(fwhm = real(filter_fwhm), index_list = index_list)
+       call map%alm2map(index_list)
+    else
+       call map%map2alm(lmax)
+       call map%filter_alm(fwhm = real(filter_fwhm))
+       call map%alm2map()
+    endif
   end subroutine coop_healpix_smooth_map
 
   subroutine coop_healpix_getQU(Emap_file, QUmap_file)
     COOP_UNKNOWN_STRING Emap_file, QUmap_file
     type(coop_healpix_maps) hge, hgqu
     call hge%read(Emap_file,  nmaps_wanted = 1)
-    call coop_healpix_maps_map2alm(hge)
+    call hge%map2alm()
     call hgqu%init(nside = hge%nside, nmaps = 2, spin =  (/ 2, 2 /), lmax=hge%lmax)
     hgqu%alm(:, :, 1) = hge%alm(:, :, 1)
     hgqu%alm(:, :, 2) = 0
-    call coop_healpix_maps_alm2map(hgqu)
+    call hgqu%alm2map()
     call hgqu%write(QUmap_file)
     call hgqu%free()
     call hge%free()
@@ -1826,10 +1913,10 @@ contains
     logical do_mask
 #ifdef HAS_HEALPIX
     call spots%init()
-    select case(trim(spot_type))
-    case("Tmax_QTUTOrient", "PTmax", "PTmin")
-       call map%iqu2TQTUT()
-    end select
+!!$    select case(trim(spot_type))
+!!$    case("Tmax_QTUTOrient", "PTmax", "PTmin")
+!!$       call map%iqu2TQTUT()
+!!$    end select
     do_mask = .false.
     if(present(mask))then
        if(mask%nside .ne. map%nside)then
@@ -1846,7 +1933,7 @@ contains
     if(do_mask) call mask%convert2nested
 
     select case(trim(spot_type))
-    case("Tmax", "Emax", "Bmax")  !!random orientation
+    case("Tmax", "Emax", "Bmax", "zetamax")  !!random orientation
        if(present(threshold))then
           if(do_mask)then
              fcut = threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
@@ -2105,10 +2192,10 @@ contains
 #ifdef HAS_HEALPIX
     call listpix%init()
     call listangle%init()
-    select case(trim(spot_type))
-    case("Tmax_QTUTOrient", "PTmax", "PTmin")
-       call map%iqu2TQTUT()
-    end select
+!!$    select case(trim(spot_type))
+!!$    case("Tmax_QTUTOrient", "PTmax", "PTmin")
+!!$       call map%iqu2TQTUT()
+!!$    end select
     do_mask = .false.
     if(present(mask))then
        if(mask%nside .ne. map%nside) stop "coop_healpix_export_spots: mask and map must have the same nside"
@@ -2121,7 +2208,7 @@ contains
     if(do_mask)call mask%convert2nested
 
     select case(trim(spot_type))
-    case("Tmax", "Emax", "Bmax")  !!random orientation
+    case("Tmax", "Emax", "Bmax", "zetamax")  !!random orientation
        if(present(threshold))then
           if(do_mask)then
              fcut = threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
@@ -3000,6 +3087,62 @@ contains
     stop "HEALPIX library is missing."
 #endif    
   end subroutine coop_healpix_maps_udgrade
+
+
+
+  subroutine coop_healpix_maps_t2zeta(this, fwhm_arcmin)
+    class(coop_healpix_maps)::this
+    COOP_INT::l
+    type(coop_cosmology_firstorder)::fod
+    COOP_REAL,dimension(:,:),allocatable::Cls, Cls_lensed
+    COOP_REAL::fwhm_arcmin, norm
+#if DO_ZETA_TRANS
+    call this%map2alm(index_list = (/ 1 /) )
+    
+    call fod%Set_Planck_bestfit() 
+    call fod%compute_source(0)
+    allocate(Cls(coop_num_cls, 2:this%lmax), Cls_lensed(coop_num_cls, 2:this%lmax))
+    call fod%source(0)%get_All_Cls(2, this%lmax, Cls)
+    call coop_get_lensing_Cls(2, this%lmax, Cls, Cls_lensed)
+    norm = 1.d5 / 2.726d6
+    this%alm(0:1, :, 1) = 0.
+    !$omp parallel do
+    do l = 2, this%lmax
+       this%alm(l, :, 1) = this%alm(l,:,1)*(Cls(coop_index_ClTzeta,l)/(Cls(coop_index_ClTT, l) + abs(Cls_lensed(coop_index_ClTT,l))+ Noise(l))/sqrt(beam(l)) * norm )
+    enddo
+    !$omp end parallel do
+
+    call this%alm2map( index_list = (/ 1 /) )
+    this%alm_done(1) = .false.
+    deallocate(Cls, Cls_lensed)
+  contains
+
+    function beam(l) result(bl)
+      integer l
+      real(dl) bl
+      bl = 1./(1.+l*(l+1)*(fwhm_arcmin*coop_SI_arcmin*coop_sigma_by_fwhm)**2)
+    end function beam
+
+    function Noise(l) result(Nl)
+      COOP_REAL,parameter::C(6) = (/ 0.000209589 , &
+           -2.60632e-6, &
+           0.000102449 , & 
+           -3.45531e-5, &
+           -1.90758e-5, &
+           8.00965e-6 /)
+      COOP_REAL, parameter:: alpha = 0.75, &
+           lmax = 4000
+      integer l
+      real(dl) Nl, x, fx, t
+      x =( (l*(l+1.0))/(lmax*(lmax+1.0)) )**0.25
+      t = 2.d0*x - 1.d0
+      call coop_get_cheb_value(6, c, t, fx)
+      Nl = fx / x ** alpha / (2.726e6)**2 / beam(l)
+    end function Noise
+#else
+    stop "To use t2zeta you have to turn on DO_ZETA_TRANS in include/constants.h"
+#endif
+  end subroutine coop_healpix_maps_t2zeta
 
 
 
