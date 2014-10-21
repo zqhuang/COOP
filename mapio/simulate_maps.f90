@@ -13,7 +13,7 @@ program test
   type(coop_healpix_maps)::map, imask, polmask
   integer l, m, il
   type(coop_file)::fp
-  COOP_REAL::beam_fwhm = 5.*coop_SI_arcmin
+  COOP_REAL::beam_fwhm = 10.*coop_SI_arcmin
   COOP_REAL sigma
   call coop_random_init()
   call map%init(nside = 1024, nmaps=3, spin = (/ 0, 2, 2 /))
@@ -27,6 +27,6 @@ program test
   enddo
   call map%simulate()
   call map%map2alm()
-  call map%write("simu/simurp2_iqu_n2048.fits")
+  call map%write("simu/simurp2_iqu_010a_n1024.fits")
 
 end program test

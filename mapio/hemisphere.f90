@@ -10,16 +10,15 @@ program test
   implicit none
 #include "constants.h"
 
-
+  COOP_UNKNOWN_STRING, parameter::mapdir = "/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
   COOP_REAL, parameter::pre_smooth = 0.d0*coop_SI_arcmin
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
   COOP_UNKNOWN_STRING, parameter::stack_type = "T"
   COOP_REAL, parameter::threshold = 0
   COOP_INT, parameter::mmax = 0
-  COOP_INT, parameter::n = 20
+  COOP_INT, parameter::n = 40
   COOP_REAL, parameter::dr = 15.*coop_SI_arcmin
-  COOP_UNKNOWN_STRING, parameter::map_file = "../../dx11r2/dx11_v2_smica_int_cmb_020a_0512.fits"
   COOP_UNKNOWN_STRING, parameter::spots_mask_file  = "dx11_v2_common_int_mask_020a_0512.fits"
   COOP_UNKNOWN_STRING, parameter::stack_mask_file  = "dx11_v2_common_int_mask_020a_0512.fits"
   COOP_UNKNOWN_STRING, parameter::prefix = "hsloutput/"
@@ -47,7 +46,11 @@ program test
 
   !!read mask and map
   call spots_mask%read(spots_mask_file, nmaps_wanted = 1)
-  call stack_mask%read(stack_mask_file, nmaps_wanted = 1)
+  if(trim(spots_mask_file) .eq. trim(stack_mask_file))then
+     call stack_mask%read(stack_mask_file, nmaps_wanted = 1)
+  else
+     stack_mask = spots_mask
+  endif
 
   call patch_n%init(stack_type, n, dr, mmax = mmax)
   patch_s = patch_n
@@ -138,14 +141,14 @@ contains
   function sim_file_name_cmb(i)
     COOP_INT i
     COOP_STRING sim_file_name_cmb
-    sim_file_name_cmb = "../../dx11r2/mc_cmb/int/dx11_v2_smica_int_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//"_020a_0512.fits"
+    sim_file_name_cmb = mapdir//"cmb/int/dx11_v2_smica_int_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//"_010a_1024.fits"
   end function sim_file_name_cmb
 
 
   function sim_file_name_noise(i)
     COOP_INT i
     COOP_STRING sim_file_name_noise
-    sim_file_name_noise = "../../dx11r2/mc_noise/int/dx11_v2_smica_int_noise_mc_"//trim(coop_Ndigits(i-1, 5))//"_020a_0512.fits"
+    sim_file_name_noise = mapdir//"noise/int/dx11_v2_smica_int_noise_mc_"//trim(coop_Ndigits(i-1, 5))//"_010a_1024.fits"
   end function sim_file_name_noise
 
 end program test
