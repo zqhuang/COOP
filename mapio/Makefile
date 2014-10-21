@@ -15,7 +15,7 @@ default: $(LIB)
 $(LIB): $(OBJ) 
 	ar -r $@ $?
 
-all: UDG HSM GetSpots Stack MSMAP InpEB InpT Ena Asym FStack FSim FSpots FMerge
+all: UDG GetSpots MSMAP Stack ByProd GetInfo
 
 
 GetInfo: $(OBJ) getinfo.o
@@ -23,11 +23,6 @@ GetInfo: $(OBJ) getinfo.o
 
 UDG: $(OBJ) udgrade.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) udgrade.o $(LINK)
-
-
-HSM: $(OBJ) half_sphere_mask.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) half_sphere_mask.o $(LINK)
-
 
 
 GetCl: $(OBJ) getcls.o
@@ -58,15 +53,11 @@ Stack: $(OBJ) dostack.o
 MultStack: $(OBJ) multstack.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) multstack.o $(LINK)
 
-Asym: $(OBJ) asymmetry.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) asymmetry.o $(LINK)
+HSLTT: $(OBJ) hsl_t_tmax.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) hsl_t_tmax.o $(LINK)
 
-Ena: $(OBJ) ensemble_asymmetry.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) ensemble_asymmetry.o $(LINK)
-
-
-HSL: $(OBJ) hemisphere.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) hemisphere.o $(LINK)
+HSLQT: $(OBJ) hsl_q_tmax.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) hsl_q_tmax.o $(LINK)
 
 POSTHSL: $(OBJ) post_hsl.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) post_hsl.o $(LINK)
@@ -101,7 +92,7 @@ Shells: $(OBJ) shells.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) shells.o $(LINK)	
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP HSM InpEB InpT Ena Asym TrimC GetCl QEB MultStack HSL Shells
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP InpEB InpT TrimC GetCl QEB MultStack Shells POSTHSL HSLQT HSLTT ByProd GetInfo
 
 
 test.o: $(LIB)
