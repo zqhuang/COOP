@@ -9,23 +9,26 @@ program test
   use alm_tools
   implicit none
 #include "constants.h"
-
   COOP_UNKNOWN_STRING, parameter::mapdir = "/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
-  COOP_REAL, parameter::pre_smooth = 0.d0*coop_SI_arcmin
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
   COOP_UNKNOWN_STRING, parameter::stack_type = "T"
+
   COOP_REAL, parameter::threshold = 0
   COOP_INT, parameter::mmax = 0
-  COOP_INT, parameter::n = 40
-  COOP_REAL, parameter::dr = 15.*coop_SI_arcmin
-  COOP_UNKNOWN_STRING, parameter::spots_mask_file  = "dx11_v2_common_int_mask_020a_0512.fits"
-  COOP_UNKNOWN_STRING, parameter::stack_mask_file  = "dx11_v2_common_int_mask_020a_0512.fits"
+  COOP_INT, parameter::n = 50
+  COOP_REAL, parameter::dr = 10.*coop_SI_arcmin
+
+  COOP_UNKNOWN_STRING, parameter::imap_file  = "planck14/dx11_v2_smica_int_cmb_010a_1024.fits"
+  COOP_UNKNOWN_STRING, parameter::polmap_file  = "planck14/dx11_v2_smica_pol_case3_cmb_010a_1024.fits"
+  COOP_UNKNOWN_STRING, parameter::imask_file  = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
+  COOP_UNKNOWN_STRING, parameter::polmask_file  ="planck14/dx11_v2_common_pol_mask_010a_1024.fits"
+
   COOP_UNKNOWN_STRING, parameter::prefix = "hsloutput/"
+  type(coop_healpix_maps)::polmask, imask, noise, imap, polmap, tmpmap
   type(coop_healpix_patch)::patch_s, patch_n
-  integer,parameter::scan_nside = 4, n_sim = 10,  imap = 1,  nmaps_wanted = 1
-  integer run_id, i, nlines, n_larger_chisq, weight
-  type(coop_healpix_maps)::map, spots_mask, stack_mask, map_noise
+  integer,parameter::scan_nside = 4, n_sim = 1000
+  integer run_id, i, nlines, n_larger_chisq, ind
   COOP_REAL diff(0:n), chisq, prob, hdir(2), kdata, bdata, kmean, bmean, cov(2,2)
   COOP_STRING::fmt, fr_file, log_file, fig_file
   type(coop_list_integer)::listpix
@@ -33,11 +36,13 @@ program test
   type(coop_file) fp
   type(coop_asy) fig
   COOP_REAL,dimension(n_sim)::ksim, bsim
+  call coop_MPI_init()
   if(iargc() .ge. 1)then
      run_id = coop_str2int(coop_InputArgs(1))
   else
      run_id = coop_MPI_Rank()
   endif
+
   if(run_id .ge.  scan_nside**2*12)then
      write(*,*) "run id must not exceed ", scan_nside**2*12 - 1
      stop
@@ -45,64 +50,59 @@ program test
   call pix2ang_ring(scan_nside, run_id, hdir(1), hdir(2))
 
   !!read mask and map
-  call spots_mask%read(spots_mask_file, nmaps_wanted = 1)
-  if(trim(spots_mask_file) .eq. trim(stack_mask_file))then
-     call stack_mask%read(stack_mask_file, nmaps_wanted = 1)
-  else
-     stack_mask = spots_mask
-  endif
+  call imask%read(imask_file, nmaps_wanted = 1)
+!  call polmask%read(polmask_file, nmaps_wanted = 1)
 
   call patch_n%init(stack_type, n, dr, mmax = mmax)
   patch_s = patch_n
-  fr_file = prefix//"fr_"//COOP_STR_OF(scan_nside)//"_"//COOP_STR_OF(run_id)//".txt"
-  fig_file = prefix//"fig_"//COOP_STR_OF(scan_nside)//"_"//COOP_STR_OF(run_id)//".txt"
-  log_file = prefix//"log_"//COOP_STR_OF(scan_nside)//"_"//COOP_STR_OF(run_id)//".txt"
+
+  fr_file = prefix//stack_type//"_on_"//spot_type//"_fr_"//COOP_STR_OF(scan_nside)//"_"//COOP_STR_OF(run_id)//".txt"
+  fig_file = prefix//stack_type//"_on_"//spot_type//"_fig_"//COOP_STR_OF(scan_nside)//"_"//COOP_STR_OF(run_id)//".txt"
+  log_file = prefix//stack_type//"_on_"//spot_type//"_log_"//COOP_STR_OF(scan_nside)//"_"//COOP_STR_OF(run_id)//".txt"
+
   fmt = "("//trim(coop_num2str(n+1))//"G16.7)"
-  weight = 0
+  ind = 0
   if(coop_file_exists(trim(fr_file)))then
      nlines = coop_file_numlines(trim(fr_file))
      if(nlines .gt. 0)then
         call fp%open(trim(fr_file), "r")
         do i = 1, nlines
            read(fp%unit, trim(fmt)) diff
-           weight = weight + 1
-           call coop_linear_least_square_fit(n+1, patch_s%r, diff, ksim(weight), bsim(weight))
-           if(weight .ge. n_sim) exit
+           ind = ind + 1
+           call coop_linear_least_square_fit(n+1, patch_s%r, diff, ksim(ind), bsim(ind))
+           if(ind .ge. n_sim) exit
         enddo
         call fp%close()
-        write(*,*) "Loaded "//trim(coop_num2str(weight))//" lines from checkpoint"
+        write(*,*) "Loaded "//trim(coop_num2str(ind))//" lines from checkpoint"
      endif
   endif
 
 
   call fp%open(trim(fr_file), "a")
-  do while(weight .lt. n_sim)
-     weight = weight + 1
-     call map%read(trim(sim_file_name_cmb(weight)), nmaps_wanted = nmaps_wanted)
-     call map_noise%read(trim(sim_file_name_noise(weight)), nmaps_wanted = nmaps_wanted)
-     map%map = map%map + map_noise%map
-     if(pre_smooth .gt. 0.d0) call map%smooth(pre_smooth)
-     map_noise%map = map%map
-     call map_noise%get_listpix(listpix, listangle, spot_type, threshold, spots_mask)   !!this alters map_noise -> nested ordering
-     call map%stack_north_south(patch_n, patch_s, listpix, listangle, hdir, stack_mask)
-     call patch_n%get_radial_profile(imap = imap, m = 0)
-     call patch_s%get_radial_profile(imap = imap, m = 0)
-     diff = patch_n%fr(:, 0, imap) - patch_s%fr(:, 0, imap)
-     call coop_linear_least_square_fit(n+1, patch_s%r, diff, ksim(weight), bsim(weight))
+  do while(ind .lt. n_sim)
+     ind = ind + 1
+     call load_imap(ind)
+     noise%map = imap%map
+     call noise%get_listpix(listpix, listangle, spot_type, threshold, imask)
+
+     call imap%stack_north_south(patch_n, patch_s, listpix, listangle, hdir, imask)
+     call patch_n%get_radial_profile(imap = 1, m = 0)
+     call patch_s%get_radial_profile(imap = 1, m = 0)
+     diff = patch_n%fr(:, 0, 1) - patch_s%fr(:, 0, 1)
+     call coop_linear_least_square_fit(n+1, patch_s%r, diff, ksim(ind), bsim(ind))
      write(fp%unit, trim(fmt)) diff
      flush(fp%unit)
   enddo
   call fp%close()
 
-  call map%read(map_file)
-  call map%mask(spots_mask)
-  call map%smooth(pre_smooth)
-  call map%get_listpix(listpix, listangle, spot_type, threshold, spots_mask)
-  call map%convert2ring()
-  call map%stack_north_south(patch_n, patch_s, listpix, listangle, hdir, stack_mask )
-  call patch_s%get_radial_profile(imap = imap, m = 0)
-  call patch_n%get_radial_profile(imap = imap, m = 0)
-  diff = patch_n%fr(:, 0, imap) - patch_s%fr(:, 0, imap)
+  call imap%read(imap_file)
+  imap%map(:,1) = imap%map(:,1)*imask%map(:,1)
+  call imap%get_listpix(listpix, listangle, spot_type, threshold, imask)
+  call imap%convert2ring()
+  call imap%stack_north_south(patch_n, patch_s, listpix, listangle, hdir, imask )
+  call patch_s%get_radial_profile(imap = 1, m = 0)
+  call patch_n%get_radial_profile(imap = 1, m = 0)
+  diff = patch_n%fr(:, 0, 1) - patch_s%fr(:, 0, 1)
   call coop_linear_least_square_fit(n+1, patch_s%r, diff, kdata, bdata)
   kmean = sum(ksim)/n_sim
   bmean  = sum(bsim)/n_sim
@@ -135,20 +135,51 @@ program test
   call coop_asy_label(fig, "$\bullet$ : sims",  fig%xmin+(fig%xmax - fig%xmin)*0.15, fig%ymin + 0.82*(fig%ymax - fig%ymin), color = "black")
   call coop_asy_label(fig, "direction: $l ="//trim(coop_num2str(nint(hdir(2)/coop_SI_degree)))//"^{\circ},  b="//trim(coop_num2str(nint((coop_pio2-hdir(1))/coop_SI_degree)))//"^{\circ}$",  fig%xmin+(fig%xmax - fig%xmin)*0.2, fig%ymin + 0.78*(fig%ymax - fig%ymin), color = "black")
   call fig%close()
-
+  call coop_MPI_Finalize()
 contains
 
-  function sim_file_name_cmb(i)
+  subroutine load_imap(i)
     COOP_INT i
-    COOP_STRING sim_file_name_cmb
-    sim_file_name_cmb = mapdir//"cmb/int/dx11_v2_smica_int_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//"_010a_1024.fits"
-  end function sim_file_name_cmb
+    call imap%read(trim(sim_file_name_cmb_imap(i)))
+    call noise%read(trim(sim_file_name_noise_imap(i)))
+    imap%map(:, 1) = (imap%map(:, 1) + noise%map(:, 1))*imask%map(:, 1)
+  end subroutine load_imap
 
 
-  function sim_file_name_noise(i)
+  subroutine load_polmap(i)
     COOP_INT i
-    COOP_STRING sim_file_name_noise
-    sim_file_name_noise = mapdir//"noise/int/dx11_v2_smica_int_noise_mc_"//trim(coop_Ndigits(i-1, 5))//"_010a_1024.fits"
-  end function sim_file_name_noise
+    call polmap%read(trim(sim_file_name_cmb_polmap(i)))
+    call noise%read(trim(sim_file_name_noise_polmap(i)))
+    polmap%map(:, 1) = (polmap%map(:, 1) + noise%map(:, 1))*polmask%map(:, 1)
+    polmap%map(:, 2) = (polmap%map(:, 2) + noise%map(:, 2))*polmask%map(:, 1)
+  end subroutine load_polmap
+
+
+  function sim_file_name_cmb_imap(i)
+    COOP_INT i
+    COOP_STRING sim_file_name_cmb_imap
+    sim_file_name_cmb_imap = mapdir//"cmb/int/dx11_v2_smica_int_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//"_010a_1024.fits"
+  end function sim_file_name_cmb_imap
+
+  function sim_file_name_noise_imap(i)
+    COOP_INT i
+    COOP_STRING sim_file_name_noise_imap
+    sim_file_name_noise_imap = mapdir//"noise/int/dx11_v2_smica_int_noise_mc_"//trim(coop_Ndigits(i-1, 5))//"_010a_1024.fits"
+  end function sim_file_name_noise_imap
+
+
+
+  function sim_file_name_cmb_polmap(i)
+    COOP_INT i
+    COOP_STRING sim_file_name_cmb_polmap
+    sim_file_name_cmb_polmap = mapdir//"cmb/pol/dx11_v2_smica_pol_case3_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//"_010a_1024.fits"
+  end function sim_file_name_cmb_polmap
+
+  function sim_file_name_noise_polmap(i)
+    COOP_INT i
+    COOP_STRING sim_file_name_noise_polmap
+    sim_file_name_noise_polmap = mapdir//"noise/pol/dx11_v2_smica_pol_case3_noise_mc_"//trim(coop_Ndigits(i-1, 5))//"_010a_1024.fits"
+  end function sim_file_name_noise_polmap
+
 
 end program test
