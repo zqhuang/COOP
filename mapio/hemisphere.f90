@@ -45,7 +45,7 @@ program test
 
   if(run_id .ge.  scan_nside**2*12)then
      write(*,*) "run id must not exceed ", scan_nside**2*12 - 1
-     stop
+     call coop_MPI_Abort()
   endif
   call pix2ang_ring(scan_nside, run_id, hdir(1), hdir(2))
 
