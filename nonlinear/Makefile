@@ -16,6 +16,9 @@ default: $(LIB)
 $(LIB):	$(OBJ) 
 	ar -r $@ $?
 
+FNL: $(OBJ) testfnl.o $(FIRSTORDER)/libcoopfirstorder.a
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testfnl.o $(LINK)
+
 Test: $(OBJ) test.o $(FIRSTORDER)/libcoopfirstorder.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
 

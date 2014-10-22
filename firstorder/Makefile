@@ -7,25 +7,29 @@ BACKGROUND=../background
 include ../configure.in
 include ../compile_rules.in
 
-OFLIB = libcoopfirstorder.a
-OFOBJ = pertobj.o firstorder.o lensing.o Cls_post_process.o wrapper.o
+LIB = libcoopfirstorder.a
+OBJ = pertobj.o firstorder.o lensing.o Cls_post_process.o wrapper.o
 
-default: $(OFLIB)
+default: $(LIB)
 
-$(OFLIB): $(OFOBJ)
+$(LIB): $(OBJ)
 	ar -r $@ $?
 
-DOCLS: $(OFOBJ) testcls.o $(BACKGROUND)/libcoopbackground.a 
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OFOBJ) testcls.o $(LINK)
+FNL: 	$(OBJ) testfnl.o $(BACKGROUND)/libcoopbackground.a 
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testfnl.o $(LINK)
 
-Test: $(OFOBJ) test.o $(BACKGROUND)/libcoopbackground.a 
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OFOBJ) test.o $(LINK)
 
-Z3D: $(OFOBJ) zeta.o $(BACKGROUND)/libcoopbackground.a 
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OFOBJ) zeta.o $(LINK)
+DOCLS: $(OBJ) testcls.o $(BACKGROUND)/libcoopbackground.a 
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testcls.o $(LINK)
 
-testZ: $(OFOBJ) testzeta.o $(BACKGROUND)/libcoopbackground.a 
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OFOBJ) testzeta.o $(LINK)
+Test: $(OBJ) test.o $(BACKGROUND)/libcoopbackground.a 
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
+
+Z3D: $(OBJ) zeta.o $(BACKGROUND)/libcoopbackground.a 
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) zeta.o $(LINK)
+
+testZ: $(OBJ) testzeta.o $(BACKGROUND)/libcoopbackground.a 
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testzeta.o $(LINK)
 
 
 clean:

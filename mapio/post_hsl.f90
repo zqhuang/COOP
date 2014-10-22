@@ -18,7 +18,7 @@ program test
   minprob = 10.
   iminprob = 0
   do i=0, 95
-     call fp%open("predx11/predx111024_T_4id"//trim(coop_num2str(i))//".log", "r")
+     call fp%open("hsloutput/T_on_Tmax_log_4_"//trim(coop_num2str(i))//".txt", "r")
      read(fp%unit, *) nside, id, theta, phi, chisq(i), prob(i)
      map%map(i, 1) = log10(max(prob(i),1.d-4))
      if(minprob .gt. prob(i))then
@@ -30,7 +30,7 @@ program test
      call ang2pix_ring(map%nside, theta, phi, pix)
      map%map(pix, 1) = map%map(i, 1)
   enddo
-  call map%write("stack_asym.fits")
+  call map%write("hsl_T_on_Tmax.fits")
   call pix2ang_ring(map%nside, iminprob, theta, phi)
   call coop_healpix_ang2lb(theta, phi, l, b)
   write(*,*) "min prob = ", minprob

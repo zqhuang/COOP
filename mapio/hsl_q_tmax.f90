@@ -126,7 +126,10 @@ program test
   call fp%open(trim(log_file), "w")
   write(fp%unit, "(2I6, 4E16.7)") scan_nside, run_id, hdir, chisq, prob
   call fp%close()
-     
+  ksim = ksim*1.e6
+  bsim = bsim*1.e6
+  kdata = kdata*1.e6
+  bdata = bdata*1.e6
   call fig%open(trim(fig_file))
   call fig%init(ylabel = "$Q_{\rm diff} (\mu K) $", xlabel = "$dQ_{\rm diff} /dr (\mu K/{\rm rad})$")
   call coop_asy_dots(fig, ksim, bsim, "black")
