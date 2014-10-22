@@ -16,7 +16,7 @@ program test
 
   COOP_REAL, parameter::threshold = 0
   COOP_INT, parameter::mmax = 0
-  COOP_INT, parameter::n = 50
+  COOP_INT, parameter::n = 30
   COOP_REAL, parameter::dr = 10.*coop_SI_arcmin
 
   COOP_UNKNOWN_STRING, parameter::imap_file  = "planck14/dx11_v2_smica_int_cmb_010a_1024.fits"
@@ -24,7 +24,7 @@ program test
   COOP_UNKNOWN_STRING, parameter::imask_file  = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
   COOP_UNKNOWN_STRING, parameter::polmask_file  ="planck14/dx11_v2_common_pol_mask_010a_1024.fits"
 
-  COOP_UNKNOWN_STRING, parameter::prefix = "hsloutput/"
+  COOP_UNKNOWN_STRING, parameter::prefix = "hsl5deg/"
   type(coop_healpix_maps)::polmask, imask, noise, imap, polmap, tmpmap
   type(coop_healpix_patch)::patch_s, patch_n
   integer,parameter::scan_nside = 4, n_sim = 1000
@@ -56,7 +56,7 @@ program test
   call patch_n%init(stack_type, n, dr, mmax = mmax)
   patch_s = patch_n
 
-  fr_file = prefix//stack_type//"_on_"//spot_type//"_Qr_"//COOP_STR_OF(scan_nside)//"_"//COOP_STR_OF(run_id)//".txt"
+  fr_file = prefix//stack_type//"_on_"//spot_type//"_fr_"//COOP_STR_OF(scan_nside)//"_"//COOP_STR_OF(run_id)//".txt"
   fig_file = prefix//stack_type//"_on_"//spot_type//"_fig_"//COOP_STR_OF(scan_nside)//"_"//COOP_STR_OF(run_id)//".txt"
   log_file = prefix//stack_type//"_on_"//spot_type//"_log_"//COOP_STR_OF(scan_nside)//"_"//COOP_STR_OF(run_id)//".txt"
 
