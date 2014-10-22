@@ -36,6 +36,7 @@ program test
   type(coop_file) fp
   type(coop_asy) fig
   COOP_REAL,dimension(n_sim)::ksim, bsim
+  COOP_REAL junk(6)
   call coop_MPI_init()
   if(iargc() .ge. 1)then
      run_id = coop_str2int(coop_InputArgs(1))
@@ -95,15 +96,23 @@ program test
   enddo
   call fp%close()
 
-  call imap%read(imap_file)
-  imap%map(:,1) = imap%map(:,1)*imask%map(:,1)
-  call imap%get_listpix(listpix, listangle, spot_type, threshold, imask)
-  call imap%convert2ring()
-  call imap%stack_north_south(patch_n, patch_s, listpix, listangle, hdir, imask )
-  call patch_s%get_radial_profile(imap = 1, m = 0)
-  call patch_n%get_radial_profile(imap = 1, m = 0)
-  diff = patch_n%fr(:, 0, 1) - patch_s%fr(:, 0, 1)
-  call coop_linear_least_square_fit(n+1, patch_s%r, diff, kdata, bdata)
+  if(coop_file_exists)then
+     call fp%open(trim(log_file), "r")
+     read(fp%unit, *) junk
+     read(fp%unit, *) kdata, bdata
+     read(fp%unit, *) diff
+     call fp%close()
+  else
+     call imap%read(imap_file)
+     imap%map(:,1) = imap%map(:,1)*imask%map(:,1)
+     call imap%get_listpix(listpix, listangle, spot_type, threshold, imask)
+     call imap%convert2ring()
+     call imap%stack_north_south(patch_n, patch_s, listpix, listangle, hdir, imask )
+     call patch_s%get_radial_profile(imap = 1, m = 0)
+     call patch_n%get_radial_profile(imap = 1, m = 0)
+     diff = patch_n%fr(:, 0, 1) - patch_s%fr(:, 0, 1)
+     call coop_linear_least_square_fit(n+1, patch_s%r, diff, kdata, bdata)
+  endif
   kmean = sum(ksim)/n_sim
   bmean  = sum(bsim)/n_sim
   cov(1,1) = sum((ksim-kmean)**2)/n_sim
@@ -125,6 +134,8 @@ program test
 
   call fp%open(trim(log_file), "w")
   write(fp%unit, "(2I6, 4E16.7)") scan_nside, run_id, hdir, chisq, prob
+  write(fp%unit, "(2E16.7)") kdata, bdata
+  write(fp%unit, fmt) diff
   call fp%close()
      
 
