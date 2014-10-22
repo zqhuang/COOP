@@ -6,7 +6,7 @@ module coop_asy_mod
   implicit none
   private
 
-  public::coop_asy, coop_asy_path, coop_asy_error_bar, coop_asy_interpolate_curve, coop_asy_gray_color, coop_asy_rgb_color, coop_asy_label, coop_asy_legend, coop_asy_dot, coop_asy_line, coop_asy_labels, coop_asy_dots, coop_asy_lines, coop_asy_contour, coop_asy_curve, coop_asy_density,  coop_asy_topaxis, coop_asy_rightaxis, coop_asy_clip, coop_asy_plot_function, coop_asy_plot_likelihood, coop_asy_curve_from_file, coop_asy_path_from_array, coop_asy_histogram
+  public::coop_asy, coop_asy_path, coop_asy_error_bar, coop_asy_interpolate_curve, coop_asy_gray_color, coop_asy_rgb_color, coop_asy_label, coop_asy_legend, coop_asy_dot, coop_asy_line, coop_asy_labels, coop_asy_dots, coop_asy_lines, coop_asy_contour, coop_asy_curve, coop_asy_density,  coop_asy_topaxis, coop_asy_rightaxis, coop_asy_clip, coop_asy_plot_function, coop_asy_plot_likelihood, coop_asy_curve_from_file, coop_asy_path_from_array, coop_asy_histogram, coop_asy_band
 
 
 #include "constants.h"
@@ -31,6 +31,10 @@ module coop_asy_mod
 
 
   COOP_INT , parameter::coop_asy_path_max_nclosed = 4096
+  
+  interface coop_asy_band
+     module procedure coop_asy_band_s, coop_asy_band_d
+  end interface coop_asy_band
 
   interface coop_asy_error_bar
      module procedure coop_asy_error_bar_s, coop_asy_error_bar_d
@@ -119,6 +123,7 @@ module coop_asy_mod
 
 
 contains
+
 
 
   subroutine coop_asy_init(fp,  xmin, xmax, ymin, ymax, width, height, caption, xlabel, ylabel, xlog, ylog, zlog, doclip, nblocks)
@@ -2678,6 +2683,134 @@ contains
     call coop_asy_curve(asy, x, y)
     call asy%close()
   end subroutine coop_asy_plot_function
+
+
+
+  subroutine coop_asy_band_d(fp, x, ylower, yupper, colorfill, smooth, linecolor, linetype, linewidth)
+    class(coop_asy) fp
+    logical,optional::smooth
+    real(dl),dimension(:),intent(IN)::x,ylower, yupper
+    COOP_UNKNOWN_STRING,optional::colorfill
+    COOP_UNKNOWN_STRING,optional:: linecolor, linetype
+    real(sp),optional::linewidth
+    COOP_INT  i,n
+    COOP_STRING lineproperty
+    n = coop_getdim("coop_asy_contour", size(x), size(ylower), size(yupper))
+    write(fp%unit, "(A)") "CONTOUR"
+    write(fp%unit, "(A)") "1" !!type 1 contour
+    if(present(colorfill))then
+       write(fp%unit, "(A)") trim(colorfill)
+    else
+       write(fp%unit, "(A)") "lightgray"
+    endif
+    if(present(linecolor).or. present(linetype).or.present(linewidth))then
+       if(present(linecolor))then
+          lineproperty=trim(linecolor)
+       else
+          lineproperty = "black"
+       endif
+       if(present(linetype))then
+          lineproperty = trim(lineproperty)//"_"//trim(linetype)
+       else
+          lineproperty = trim(lineproperty)//"_solid"
+       endif
+       if(present(linewidth))then
+          lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
+       endif
+       write(fp%unit, "(A)") trim(lineproperty)
+    else
+       write(fp%unit, "(A)") "NULL"
+    endif
+    if(present(smooth))then
+       if(smooth)then
+          write(fp%unit, "(A)") "1"
+       else
+          write(fp%unit, "(A)") "0"
+       endif
+    else
+       write(fp%unit, "(A)") "0"  !!no smoothing by default
+    endif
+    write(fp%unit, "(A)") "1"  !!1 path 
+    write(fp%unit, "(I8)") n*2
+    if(x(2).gt. x(1))then
+       do i = 1, n
+          call fp%write_coor(real(x(i), sp), real(ylower(i), sp))
+       enddo
+       do i = n, 1, -1
+          call fp%write_coor(real(x(i), sp), real(yupper(i), sp))
+       enddo
+    else
+       do i = n, 1, -1
+          call fp%write_coor(real(x(i), sp), real(ylower(i), sp))
+       enddo
+       do i = 1, n
+          call fp%write_coor(real(x(i), sp), real(yupper(i), sp))
+       enddo
+    endif
+  end subroutine coop_asy_band_d
+
+  subroutine coop_asy_band_s(fp, x, ylower, yupper, colorfill, smooth, linecolor, linetype, linewidth)
+    class(coop_asy) fp
+    logical,optional::smooth
+    real(sp),dimension(:),intent(IN)::x,ylower, yupper
+    COOP_UNKNOWN_STRING,optional::colorfill
+    COOP_UNKNOWN_STRING,optional:: linecolor, linetype
+    real(sp),optional::linewidth
+    COOP_INT  i,n
+    COOP_STRING lineproperty
+    n = coop_getdim("coop_asy_contour", size(x), size(ylower), size(yupper))
+    write(fp%unit, "(A)") "CONTOUR"
+    write(fp%unit, "(A)") "1" !!type 1 contour
+    if(present(colorfill))then
+       write(fp%unit, "(A)") trim(colorfill)
+    else
+       write(fp%unit, "(A)") "lightgray"
+    endif
+    if(present(linecolor).or. present(linetype).or.present(linewidth))then
+       if(present(linecolor))then
+          lineproperty=trim(linecolor)
+       else
+          lineproperty = "black"
+       endif
+       if(present(linetype))then
+          lineproperty = trim(lineproperty)//"_"//trim(linetype)
+       else
+          lineproperty = trim(lineproperty)//"_solid"
+       endif
+       if(present(linewidth))then
+          lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
+       endif
+       write(fp%unit, "(A)") trim(lineproperty)
+    else
+       write(fp%unit, "(A)") "NULL"
+    endif
+    if(present(smooth))then
+       if(smooth)then
+          write(fp%unit, "(A)") "1"
+       else
+          write(fp%unit, "(A)") "0"
+       endif
+    else
+       write(fp%unit, "(A)") "0"  !!no smoothing by default
+    endif
+    write(fp%unit, "(A)") "1"  !!1 path 
+    write(fp%unit, "(I8)") n*2
+    if(x(2).gt. x(1))then
+       do i = 1, n
+          call fp%write_coor(real(x(i), sp), real(ylower(i), sp))
+       enddo
+       do i = n, 1, -1
+          call fp%write_coor(real(x(i), sp), real(yupper(i), sp))
+       enddo
+    else
+       do i = n, 1, -1
+          call fp%write_coor(real(x(i), sp), real(ylower(i), sp))
+       enddo
+       do i = 1, n
+          call fp%write_coor(real(x(i), sp), real(yupper(i), sp))
+       enddo
+    endif
+  end subroutine coop_asy_band_s
 
 
 end module coop_asy_mod
