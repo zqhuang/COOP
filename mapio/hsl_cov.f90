@@ -19,7 +19,7 @@ program test
   COOP_INT, parameter::npix = nbins*npix_per_bin
   COOP_INT i, j, k1, k2, cnt, pix
   type(coop_healpix_maps)::map
-  COOP_REAL::diff(nbins, nsims), cov(nbins, nbins), ddf(nbins), mean(nbins), junk(2), line(0:npix), chi2data,  prob(0:nfiles-1), theta, phi
+  COOP_REAL::diff(nbins, nsims), cov(nbins, nbins), ddf(nbins), mean(nbins), junk(2), line(0:npix), chi2data,  prob(0:nfiles-1), theta, phi, rms(nbins)
   type(coop_file)::fp
   call map%init(nside = nside, nmaps=1, spin = (/ 0 /))
   do i=0, nfiles-1
@@ -43,6 +43,7 @@ program test
            cov(k1, k2) = sum((diff(k1, :)-mean(k1))*(diff(k2, :) - mean(k2)))/nsims
            if(k1.ne.k2) cov(k2, k1) = cov(k1, k2)
         enddo
+        rms(k1) = sqrt(cov(k1, k1))
      enddo
      call coop_matsym_inverse(cov)
      chi2data = chisq(ddf)
@@ -53,7 +54,7 @@ program test
         endif
      enddo
      prob(i) = dble(cnt)/nsims
-     write(*, "(I5, F10.1)") i, prob(i)*100.
+     write(*, "(I5, 20F8.1)") i, prob(i)*100., ddf/rms
      map%map(i, 1) = prob(i)
      theta = coop_pi - theta
      phi = coop_pi + phi
