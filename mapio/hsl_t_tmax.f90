@@ -9,22 +9,29 @@ program test
   use alm_tools
   implicit none
 #include "constants.h"
-  COOP_UNKNOWN_STRING, parameter::mapdir = "/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
+
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
   COOP_UNKNOWN_STRING, parameter::stack_type = "T"
 
+  COOP_REAL, parameter::fwhm_arcmin = 20.d0
+  COOP_REAL, parameter::fwhm_in = 20.d0
+  COOP_UNKNOWN_STRING, parameter::prefix = "hsl5deg20arcmin/"
+  COOP_UNKNOWN_STRING, parameter::postfix =   "_020a_0512.fits"
+
+  COOP_UNKNOWN_STRING, parameter::mapdir = "/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
+  COOP_REAL,parameter::fwhm = coop_SI_arcmin * sqrt(fwhm_arcmin**2-fwhm_in**2)
   COOP_REAL, parameter::threshold = 0
   COOP_INT, parameter::mmax = 0
-  COOP_INT, parameter::n = 30
-  COOP_REAL, parameter::dr = 10.*coop_SI_arcmin
+  COOP_REAL, parameter::dr = fwhm_arcmin*coop_SI_arcmin / 2.d0
+  COOP_INT, parameter::n = nint(5.d0*coop_SI_degree/dr)
 
   COOP_UNKNOWN_STRING, parameter::imap_file  = "planck14/dx11_v2_smica_int_cmb_010a_1024.fits"
   COOP_UNKNOWN_STRING, parameter::polmap_file  = "planck14/dx11_v2_smica_pol_case3_cmb_010a_1024.fits"
   COOP_UNKNOWN_STRING, parameter::imask_file  = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
   COOP_UNKNOWN_STRING, parameter::polmask_file  ="planck14/dx11_v2_common_pol_mask_010a_1024.fits"
 
-  COOP_UNKNOWN_STRING, parameter::prefix = "hsl5deg/"
+
   type(coop_healpix_maps)::polmask, imask, noise, imap, polmap, tmpmap
   type(coop_healpix_patch)::patch_s, patch_n
   integer,parameter::scan_nside = 4, n_sim = 1000
@@ -157,45 +164,46 @@ contains
 
   subroutine load_imap(i)
     COOP_INT i
-    call imap%read(trim(sim_file_name_cmb_imap(i)))
-    call noise%read(trim(sim_file_name_noise_imap(i)))
+    call imap%read(trim(sim_file_name_cmb_imap(i)), spin = (/ 0 /), nmaps_wanted = 1  )
+    call noise%read(trim(sim_file_name_noise_imap(i)), spin = (/ 0 /) , nmaps_wanted = 1 )
     imap%map(:, 1) = (imap%map(:, 1) + noise%map(:, 1))*imask%map(:, 1)
+    if(fwhm.ge.coop_SI_arcmin)    call imap%smooth(fwhm)
   end subroutine load_imap
 
 
   subroutine load_polmap(i)
     COOP_INT i
-    call polmap%read(trim(sim_file_name_cmb_polmap(i)))
-    call noise%read(trim(sim_file_name_noise_polmap(i)))
+    call polmap%read(trim(sim_file_name_cmb_polmap(i)), spin = (/2 , 2 /) , nmaps_wanted = 2  )
+    call noise%read(trim(sim_file_name_noise_polmap(i)), spin = (/2 , 2 /) , nmaps_wanted = 2 )
     polmap%map(:, 1) = (polmap%map(:, 1) + noise%map(:, 1))*polmask%map(:, 1)
     polmap%map(:, 2) = (polmap%map(:, 2) + noise%map(:, 2))*polmask%map(:, 1)
+    if(fwhm.ge.coop_SI_arcmin)call polmap%smooth(fwhm)
   end subroutine load_polmap
 
 
   function sim_file_name_cmb_imap(i)
     COOP_INT i
     COOP_STRING sim_file_name_cmb_imap
-    sim_file_name_cmb_imap = mapdir//"cmb/int/dx11_v2_smica_int_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//"_010a_1024.fits"
+    sim_file_name_cmb_imap = mapdir//"cmb/int/dx11_v2_smica_int_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//postfix
   end function sim_file_name_cmb_imap
 
   function sim_file_name_noise_imap(i)
     COOP_INT i
     COOP_STRING sim_file_name_noise_imap
-    sim_file_name_noise_imap = mapdir//"noise/int/dx11_v2_smica_int_noise_mc_"//trim(coop_Ndigits(i-1, 5))//"_010a_1024.fits"
+    sim_file_name_noise_imap = mapdir//"noise/int/dx11_v2_smica_int_noise_mc_"//trim(coop_Ndigits(i-1, 5))//postfix
   end function sim_file_name_noise_imap
-
 
 
   function sim_file_name_cmb_polmap(i)
     COOP_INT i
     COOP_STRING sim_file_name_cmb_polmap
-    sim_file_name_cmb_polmap = mapdir//"cmb/pol/dx11_v2_smica_pol_case3_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//"_010a_1024.fits"
+    sim_file_name_cmb_polmap = mapdir//"cmb/pol/dx11_v2_smica_pol_case3_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//postfix
   end function sim_file_name_cmb_polmap
 
   function sim_file_name_noise_polmap(i)
     COOP_INT i
     COOP_STRING sim_file_name_noise_polmap
-    sim_file_name_noise_polmap = mapdir//"noise/pol/dx11_v2_smica_pol_case3_noise_mc_"//trim(coop_Ndigits(i-1, 5))//"_010a_1024.fits"
+    sim_file_name_noise_polmap = mapdir//"noise/pol/dx11_v2_smica_pol_case3_noise_mc_"//trim(coop_Ndigits(i-1, 5))//postfix
   end function sim_file_name_noise_polmap
 
 
