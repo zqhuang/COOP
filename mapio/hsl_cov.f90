@@ -10,7 +10,7 @@ program test
   implicit none
 #include "constants.h"
 
-  COOP_UNKNOWN_STRING, parameter::prefix="T_on_Tmax_"
+  COOP_UNKNOWN_STRING, parameter::prefix="hsl5deg/T_on_Tmax_"
   COOP_INT, parameter::nside = 4
   COOP_INT, parameter::nfiles = nside**2*6
   COOP_INT, parameter::nsims = 1000
