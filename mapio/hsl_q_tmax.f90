@@ -25,7 +25,7 @@ program test
   COOP_REAL, parameter::threshold = 0
   COOP_INT, parameter::mmax = 0
   COOP_INT, parameter::n = 30
-  COOP_REAL, parameter::dr = coop_SI_arcmin*fwhm_arcmin / 2.d0
+  COOP_REAL, parameter::dr = coop_SI_arcmin*max(fwhm_arcmin / 2.d0, 10.d0)
   COOP_INT, parameter::n = nint(5.d0*coop_SI_degree/dr)
 
   COOP_UNKNOWN_STRING, parameter::imap_file  = "planck14/dx11_v2_smica_int_cmb"//postfix
