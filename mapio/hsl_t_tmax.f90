@@ -16,7 +16,7 @@ program test
 
   COOP_REAL, parameter::fwhm_arcmin = 20.d0
   COOP_REAL, parameter::fwhm_in = 20.d0
-  COOP_UNKNOWN_STRING, parameter::prefix = "hsl6deg20a"
+  COOP_UNKNOWN_STRING, parameter::prefix = "hsl6deg20a/"
   COOP_UNKNOWN_STRING, parameter::postfix =   "_020a_0512.fits"
 
   COOP_UNKNOWN_STRING, parameter::mapdir = "/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
