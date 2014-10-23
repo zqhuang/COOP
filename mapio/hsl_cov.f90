@@ -19,7 +19,7 @@ program test
   COOP_INT, parameter::npix = nbins*npix_per_bin
   COOP_INT i, j, k1, k2, cnt, pix
   type(coop_healpix_maps)::map
-  COOP_REAL::diff(nbins, nsims), cov(nbins, nbins), ddf(nbins), mean(nbins), junk(2), line(npix), chi2data,  prob(0:nfiles-1), theta, phi
+  COOP_REAL::diff(nbins, nsims), cov(nbins, nbins), ddf(nbins), mean(nbins), junk(2), line(0:npix), chi2data,  prob(0:nfiles-1), theta, phi
   type(coop_file)::fp
   call map%init(nside = nside, nmaps=1, spin = (/ 0 /))
   do i=0, nfiles-1
@@ -74,7 +74,7 @@ contains
     COOP_REAL fraw(npix), fb(nbins)
     COOP_INT i
     do i=1, nbins
-       fb(i) = sum(fraw( (i-1)*npix_per_bin + 1 : i*npix_per_bin))/npix_per_bin
+       fb(i) = sum(fraw( (i-1)*npix_per_bin  : i*npix_per_bin-1))/npix_per_bin
     enddo
   end subroutine do_bins
 

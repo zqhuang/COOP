@@ -103,7 +103,7 @@ program test
   enddo
   call fp%close()
 
-  if(coop_file_exists)then
+  if(coop_file_exists(trim(log_file)))then
      call fp%open(trim(log_file), "r")
      read(fp%unit, *) junk
      read(fp%unit, *) diff
