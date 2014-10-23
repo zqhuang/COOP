@@ -468,13 +468,13 @@ contains
     enddo
     !$omp end parallel do
 
-    !$omp parallel do private(is, itau)
+
     do itau = 1, this%source(m)%ntau
        do is = 1, this%source(m)%nsrc
           call coop_naturalspline_uniform(this%source(m)%nk, this%source(m)%s(is, :, itau), this%source(m)%s2(is, :, itau))
        enddo
     enddo
-    !$omp end parallel do
+
     if(m.eq.0)then !!interpolate Phi, Psi
        call coop_naturalspline_uniform(this%source(m)%nk, this%source(m)%saux(2, :, itau), this%source(m)%saux(4, :, itau))
        call coop_naturalspline_uniform(this%source(m)%nk, this%source(m)%saux(3, :, itau), this%source(m)%saux(5, :, itau))
