@@ -369,7 +369,7 @@ contains
     !$omp end parallel do
 
 
-    this%num_indisk_tol = count(this%indisk .ne. 0.d0)*min(coop_healpix_mask_tol,(1.-this%r(this%n)))
+    this%num_indisk_tol = count(this%indisk .ne. 0.d0)*coop_healpix_mask_tol
 
     !$omp parallel do private(i, j)
     do j=-this%n, this%n
@@ -1772,7 +1772,7 @@ contains
     type(coop_healpix_patch) patch, tmp_patch
     if(present(mask))then
        call coop_healpix_fetch_patch(this, disc, angle, tmp_patch, mask)
-       if(present(mask) .and. sum(tmp_patch%nstack) .lt. min(1.d0-patch%r(patch%n), coop_healpix_mask_tol)*patch%npix) return
+       if(present(mask) .and. sum(tmp_patch%nstack) .lt. coop_healpix_mask_tol*patch%npix) return
     else
        call coop_healpix_fetch_patch(this, disc, angle, tmp_patch)
     endif
