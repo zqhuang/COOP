@@ -14,17 +14,17 @@ program test
   COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
   COOP_UNKNOWN_STRING, parameter::stack_type = "T"
 
-  COOP_REAL, parameter::fwhm_arcmin = 10.d0
-  COOP_REAL, parameter::fwhm_in = 10.d0
-  COOP_UNKNOWN_STRING, parameter::prefix = "hsl5deg/"
-  COOP_UNKNOWN_STRING, parameter::postfix =   "_010a_1024.fits"
+  COOP_REAL, parameter::fwhm_arcmin = 20.d0
+  COOP_REAL, parameter::fwhm_in = 20.d0
+  COOP_UNKNOWN_STRING, parameter::prefix = "hsl6deg20a"
+  COOP_UNKNOWN_STRING, parameter::postfix =   "_020a_512.fits"
 
   COOP_UNKNOWN_STRING, parameter::mapdir = "/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
   COOP_REAL,parameter::fwhm = coop_SI_arcmin * sqrt(fwhm_arcmin**2-fwhm_in**2)
   COOP_REAL, parameter::threshold = 0
   COOP_INT, parameter::mmax = 0
-  COOP_REAL, parameter::dr = coop_SI_arcmin * max(fwhm_arcmin/ 2.d0, 10.d0)
-  COOP_INT, parameter::n = nint(5.d0*coop_SI_degree/dr)
+  COOP_REAL, parameter::dr = coop_SI_arcmin * max(fwhm_arcmin/2.d0, 10.d0)
+  COOP_INT, parameter::n = nint(6.d0*coop_SI_degree/dr)
 
   COOP_UNKNOWN_STRING, parameter::imap_file  = "planck14/dx11_v2_smica_int_cmb"//postfix
   COOP_UNKNOWN_STRING, parameter::polmap_file  = "planck14/dx11_v2_smica_pol_case3_cmb"//postfix
