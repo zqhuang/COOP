@@ -10,10 +10,10 @@ program test
   implicit none
 #include "constants.h"
 
-  COOP_UNKNOWN_STRING, parameter::prefix="hsl5deg/T_on_Tmax_"
+  COOP_UNKNOWN_STRING, parameter::prefix="hsl6deg20a/T_on_Tmax_"
   COOP_INT, parameter::nside = 4
   COOP_INT, parameter::nfiles = nside**2*6
-  COOP_INT, parameter::nsims = 1000
+  COOP_INT, parameter::nsims = 100
   COOP_INT, parameter::nbins = 5
   COOP_INT, parameter::npix_per_bin = 6
   COOP_INT, parameter::npix = nbins*npix_per_bin
@@ -54,7 +54,7 @@ program test
         endif
      enddo
      prob(i) = dble(cnt)/nsims
-     write(*, "(I5, 20F8.1)") i, prob(i)*100., ddf/rms
+     write(*, "(I5, 20F9.1)") i, chidata, prob(i)*100., (ddf-mean)/rms
      map%map(i, 1) = prob(i)
      theta = coop_pi - theta
      phi = coop_pi + phi
@@ -68,11 +68,11 @@ contains
 
   function chisq(fb)
     COOP_REAL fb(nbins), chisq
-    chisq = dot_product(fb, matmul(cov, fb))
+    chisq = dot_product(fb-mean, matmul(cov, fb-mean))
   end function chisq
 
   subroutine do_bins(fraw, fb)
-    COOP_REAL fraw(npix), fb(nbins)
+    COOP_REAL fraw(0:npix), fb(nbins)
     COOP_INT i
     do i=1, nbins
        fb(i) = sum(fraw( (i-1)*npix_per_bin  : i*npix_per_bin-1))/npix_per_bin
