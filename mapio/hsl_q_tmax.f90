@@ -28,10 +28,10 @@ program test
   COOP_REAL, parameter::dr = coop_SI_arcmin*fwhm_arcmin / 2.d0
   COOP_INT, parameter::n = nint(5.d0*coop_SI_degree/dr)
 
-  COOP_UNKNOWN_STRING, parameter::imap_file  = "planck14/dx11_v2_smica_int_cmb_010a_1024.fits"
-  COOP_UNKNOWN_STRING, parameter::polmap_file  = "planck14/dx11_v2_smica_pol_case3_cmb_010a_1024.fits"
-  COOP_UNKNOWN_STRING, parameter::imask_file  = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
-  COOP_UNKNOWN_STRING, parameter::polmask_file  ="planck14/dx11_v2_common_pol_mask_010a_1024.fits"
+  COOP_UNKNOWN_STRING, parameter::imap_file  = "planck14/dx11_v2_smica_int_cmb"//postfix
+  COOP_UNKNOWN_STRING, parameter::polmap_file  = "planck14/dx11_v2_smica_pol_case3_cmb"//postfix
+  COOP_UNKNOWN_STRING, parameter::imask_file  = "planck14/dx11_v2_common_int_mask"//postfix
+  COOP_UNKNOWN_STRING, parameter::polmask_file  ="planck14/dx11_v2_common_pol_mask"//postfix
 
 
   type(coop_healpix_maps)::polmask, imask, noise, imap, polmap, tmpmap
@@ -59,8 +59,8 @@ program test
   call pix2ang_ring(scan_nside, run_id, hdir(1), hdir(2))
 
   !!read mask and map
-  call imask%read(imask_file, nmaps_wanted = 1)
-  call polmask%read(polmask_file, nmaps_wanted = 1)
+  call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 1 /) )
+  call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 1 /) )
 
   call patch_n%init(stack_type, n, dr, mmax = mmax)
   patch_s = patch_n
@@ -104,10 +104,10 @@ program test
   enddo
   call fp%close()
 
-  call imap%read(imap_file)
+  call imap%read(imap_file, spin = (/ 1 /) , nmaps_wanted = 1)
   imap%map(:,1) = imap%map(:,1)*imask%map(:,1)
   call imap%get_listpix(listpix, listangle, spot_type, threshold, imask)
-  call polmap%read(polmap_file)
+  call polmap%read(polmap_file, spin = (/ 2, 2 /) , nmaps_wanted = 2 )
   call polmap%stack_north_south(patch_n, patch_s, listpix, listangle, hdir, polmask )
   call patch_s%get_radial_profile(imap = 1, m = 0)
   call patch_n%get_radial_profile(imap = 1, m = 0)
