@@ -54,7 +54,7 @@ program test
         endif
      enddo
      prob(i) = dble(cnt)/nsims
-     write(*, "(I5, 20F9.1)") i, chidata, prob(i)*100., (ddf-mean)/rms
+     write(*, "(I5, 20F9.1)") i, chi2data, prob(i)*100., (ddf-mean)/rms
      map%map(i, 1) = prob(i)
      theta = coop_pi - theta
      phi = coop_pi + phi
