@@ -106,8 +106,8 @@ program test
   if(coop_file_exists)then
      call fp%open(trim(log_file), "r")
      read(fp%unit, *) junk
-     read(fp%unit, *) kdata, bdata
      read(fp%unit, *) diff
+     read(fp%unit, *) kdata, bdata
      call fp%close()
   else
      call imap%read(imap_file)
@@ -141,8 +141,8 @@ program test
 
   call fp%open(trim(log_file), "w")
   write(fp%unit, "(2I6, 4E16.7)") scan_nside, run_id, hdir, chisq, prob
-  write(fp%unit, "(2E16.7)") kdata, bdata
   write(fp%unit, fmt) diff
+  write(fp%unit, "(2E16.7)") kdata, bdata
   call fp%close()
      
 

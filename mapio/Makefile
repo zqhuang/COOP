@@ -53,6 +53,9 @@ Stack: $(OBJ) dostack.o
 MultStack: $(OBJ) multstack.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) multstack.o $(LINK)
 
+HSLCOV: $(OBJ) hsl_cov.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) hsl_cov.o $(LINK)
+
 HSLTT: $(OBJ) hsl_t_tmax.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) hsl_t_tmax.o $(LINK)
 
@@ -92,7 +95,7 @@ Shells: $(OBJ) shells.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) shells.o $(LINK)	
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP InpEB InpT TrimC GetCl QEB MultStack Shells POSTHSL HSLQT HSLTT ByProd GetInfo
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP InpEB InpT TrimC GetCl QEB MultStack Shells POSTHSL HSLQT HSLTT HSLCOV ByProd GetInfo
 
 
 test.o: $(LIB)
