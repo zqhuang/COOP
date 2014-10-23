@@ -9,7 +9,7 @@ program test
   use alm_tools
   implicit none
 #include "constants.h"
-
+  COOP_INT, parameter::n_sim = 100
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
   COOP_UNKNOWN_STRING, parameter::stack_type = "T"
@@ -34,7 +34,7 @@ program test
 
   type(coop_healpix_maps)::polmask, imask, noise, imap, polmap, tmpmap
   type(coop_healpix_patch)::patch_s, patch_n
-  integer,parameter::scan_nside = 4, n_sim = 1000
+  integer,parameter::scan_nside = 4
   integer run_id, i, nlines, n_larger_chisq, ind
   COOP_REAL diff(0:n), chisq, prob, hdir(2), kdata, bdata, kmean, bmean, cov(2,2)
   COOP_STRING::fmt, fr_file, log_file, fig_file
