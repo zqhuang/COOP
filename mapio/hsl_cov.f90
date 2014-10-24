@@ -13,8 +13,8 @@ program test
   COOP_UNKNOWN_STRING, parameter::prefix="hsl6deg20a/T_on_Tmax_"
   COOP_INT, parameter::nside = 4
   COOP_INT, parameter::nfiles = nside**2*6
-  COOP_INT, parameter::nsims = 100
-  COOP_INT, parameter::nbins = 5
+  COOP_INT, parameter::nsims = 1000
+  COOP_INT, parameter::nbins = 6
   COOP_INT, parameter::npix_per_bin = 6
   COOP_INT, parameter::npix = nbins*npix_per_bin
   COOP_INT i, j, k1, k2, cnt, pix
@@ -55,7 +55,7 @@ program test
      enddo
      prob(i) = dble(cnt)/nsims
      write(*, "(I5, 20F9.1)") i, chi2data, prob(i)*100., (ddf-mean)/rms
-     map%map(i, 1) = prob(i)
+     map%map(i, 1) = log10(prob(i))
      theta = coop_pi - theta
      phi = coop_pi + phi
      call ang2pix_ring(map%nside, theta, phi, pix)
