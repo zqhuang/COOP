@@ -74,6 +74,7 @@ contains
   subroutine do_bins(fraw, fb)
     COOP_REAL fraw(0:npix), fb(nbins)
     COOP_INT i
+    fraw = fraw - fraw(0)
     do i=1, nbins
        fb(i) = sum(fraw( (i-1)*npix_per_bin  : i*npix_per_bin-1))/npix_per_bin
     enddo
