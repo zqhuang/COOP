@@ -112,6 +112,7 @@ program test
   else
      call imap%read(imap_file, nmaps_wanted = 1, spin = (/ 0 /) )
      imap%map(:,1) = imap%map(:,1)*imask%map(:,1)
+    if(fwhm.ge.coop_SI_arcmin)    call imap%smooth(fwhm)
      call imap%get_listpix(listpix, listangle, spot_type, threshold, imask)
      call imap%convert2ring()
      call imap%stack_north_south(patch_n, patch_s, listpix, listangle, hdir, imask )

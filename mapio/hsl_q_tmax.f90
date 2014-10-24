@@ -106,9 +106,11 @@ program test
 
   call imap%read(imap_file, spin = (/ 1 /) , nmaps_wanted = 1)
   imap%map(:,1) = imap%map(:,1)*imask%map(:,1)
+  if(fwhm.ge.coop_SI_arcmin)    call imap%smooth(fwhm)
   call imap%get_listpix(listpix, listangle, spot_type, threshold, imask)
   call polmap%read(polmap_file, spin = (/ 2, 2 /) , nmaps_wanted = 2 )
   call polmap%stack_north_south(patch_n, patch_s, listpix, listangle, hdir, polmask )
+  if(fwhm.ge.coop_SI_arcmin)    call polmap%smooth(fwhm)
   call patch_s%get_radial_profile(imap = 1, m = 0)
   call patch_n%get_radial_profile(imap = 1, m = 0)
   diff = patch_n%fr(:, 0, 1) - patch_s%fr(:, 0, 1)
