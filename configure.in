@@ -3,7 +3,7 @@ PLATFORM = MacOS
 #PLATFORM = LINUX
 
 ifeq ($(PLATFORM),MacOS)
-GFORTRAN_NAME = gfortran-mp-4.7
+GFORTRAN_NAME = gfortran-mp-4.8
 else
 GFORTRAN_NAME = gfortran
 endif
@@ -35,7 +35,7 @@ C_COMPILER = $(GCC_NAME)
 LAPACK = $(HOME)/includes/lapack-3.4.2
 
 ##FFTW lib (v3.2 up)
-FFTW3=$(HOME)/includes/fftw3
+FFTW3 = $(HOME)/includes/fftw3
 
 ## gsl lib 
 GSL =
@@ -172,7 +172,7 @@ ifneq ($(FFTW3),)
 LINK += -L$(FFTW3)/lib -lfftw3 -lfftw3_mpi
 FFLAGS += -DHAS_FFTW=1
 CFLAGS += -DHAS_FFTW=1
-INCLUDE += -I$(FFTW3)/include -I$(FFTW)/include/fftw3
+INCLUDE += -I$(FFTW3)/include 
 endif
 
 ###set gsl flags here
@@ -189,9 +189,9 @@ ifeq ($(PLATFORM),MacOS)
 LINK += -framework Accelerate
 else
 LINK += -L$(LAPACK) -llapack -lblas
+INCLUDE += -I$(LAPACK)
 endif
 FFLAGS += -DHAS_LAPACK=1
 CFLAGS += -DHAS_LAPACK=1
-INCLUDE += -I$(LAPACK)
 endif
 

@@ -29,6 +29,7 @@ program test
      phi = coop_pi + phi
      call ang2pix_ring(map%nside, theta, phi, pix)
      map%map(pix, 1) = map%map(i, 1)
+     print*, i, prob(i)
   enddo
   call map%write("hsl_T_on_Tmax.fits")
   call pix2ang_ring(map%nside, iminprob, theta, phi)
