@@ -27,7 +27,7 @@ module coop_healpix_mod
   integer,parameter::coop_inpainting_lowl_min = 5
 
   integer, parameter::coop_healpix_default_lmax=2500
-  COOP_REAL,parameter::coop_healpix_mask_tol = 0.98  !!default mask tolerance
+  COOP_REAL,parameter::coop_healpix_mask_tol = 0.96  !!default mask tolerance
   integer::coop_healpix_inpainting_lowl=5
   real(dl),parameter::coop_healpix_diffuse_scale = 10.d0*coop_SI_arcmin
   integer,parameter::coop_healpix_index_TT = 1
@@ -1355,16 +1355,21 @@ contains
        call p(ithread)%free()
        call tmp(ithread)%free()
     enddo
-    if(present(do_weight))then
-       if(do_weight)then
-          do i=1, patch%nmaps
-             patch%image(:, :, i) = patch%image(:, :, i)/patch%nstack
-          enddo
+    if(patch%nstack_raw .ne. 0)then
+       if(present(do_weight))then
+          if(do_weight)then
+             do i=1, patch%nmaps
+                patch%image(:, :, i) = patch%image(:, :, i)/patch%nstack
+             enddo
+          else
+             patch%image = patch%image/patch%nstack_raw
+          endif
        else
           patch%image = patch%image/patch%nstack_raw
        endif
     else
-       patch%image = patch%image/patch%nstack_raw
+       write(*,*) "warning: no patches has been found"
+       patch%image = 0.d0
     endif
     deallocate(theta, phi, angle)
 #else
@@ -1772,7 +1777,7 @@ contains
     type(coop_healpix_patch) patch, tmp_patch
     if(present(mask))then
        call coop_healpix_fetch_patch(this, disc, angle, tmp_patch, mask)
-       if(present(mask) .and. sum(tmp_patch%nstack) .lt. coop_healpix_mask_tol*patch%npix) return
+       if(present(mask) .and. sum(tmp_patch%nstack*tmp_patch%indisk) .lt. patch%num_indisk_tol)return
     else
        call coop_healpix_fetch_patch(this, disc, angle, tmp_patch)
     endif
