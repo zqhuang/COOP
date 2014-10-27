@@ -18,7 +18,7 @@ program test
   minprob = 10.
   iminprob = 0
   do i=0, 95
-     call fp%open("hsloutput/T_on_Tmax_log_4_"//trim(coop_num2str(i))//".txt", "r")
+     call fp%open("hslr5f30n1024/T_on_Tmax_log_4_"//trim(coop_num2str(i))//".txt", "r")
      read(fp%unit, *) nside, id, theta, phi, chisq(i), prob(i)
      map%map(i, 1) = log10(max(prob(i),1.d-4))
      if(minprob .gt. prob(i))then
