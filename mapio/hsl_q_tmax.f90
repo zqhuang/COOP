@@ -13,10 +13,10 @@ program test
 
   COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
   COOP_UNKNOWN_STRING, parameter::stack_type = "QrUr"
-  COOP_REAL, parameter::fwhm_arcmin = 20.d0
-  COOP_REAL, parameter::fwhm_in  = 20.d0
-  COOP_UNKNOWN_STRING, parameter::prefix = "hsl5deg20arcmin/"
-  COOP_UNKNOWN_STRING, parameter::postfix =   "_020a_0512.fits"
+  COOP_REAL, parameter::fwhm_arcmin = 30.d0
+  COOP_REAL, parameter::fwhm_in  = 10.d0
+  COOP_UNKNOWN_STRING, parameter::prefix = "hslr5f30n1024/"
+  COOP_UNKNOWN_STRING, parameter::postfix =   "_010a_1024.fits"
 
 
   COOP_UNKNOWN_STRING, parameter::mapdir = "/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
@@ -24,7 +24,6 @@ program test
 
   COOP_REAL, parameter::threshold = 0
   COOP_INT, parameter::mmax = 0
-  COOP_INT, parameter::n = 30
   COOP_REAL, parameter::dr = coop_SI_arcmin*max(fwhm_arcmin / 2.d0, 10.d0)
   COOP_INT, parameter::n = nint(5.d0*coop_SI_degree/dr)
 
@@ -45,6 +44,8 @@ program test
   type(coop_file) fp
   type(coop_asy) fig
   COOP_REAL,dimension(n_sim)::ksim, bsim
+  COOP_REAL junk(6)
+  
   call coop_MPI_init()
   if(iargc() .ge. 1)then
      run_id = coop_str2int(coop_InputArgs(1))
@@ -104,17 +105,26 @@ program test
   enddo
   call fp%close()
 
-  call imap%read(imap_file, spin = (/ 1 /) , nmaps_wanted = 1)
-  imap%map(:,1) = imap%map(:,1)*imask%map(:,1)
-  if(fwhm.ge.coop_SI_arcmin)    call imap%smooth(fwhm)
-  call imap%get_listpix(listpix, listangle, spot_type, threshold, imask)
-  call polmap%read(polmap_file, spin = (/ 2, 2 /) , nmaps_wanted = 2 )
-  call polmap%stack_north_south(patch_n, patch_s, listpix, listangle, hdir, polmask )
-  if(fwhm.ge.coop_SI_arcmin)    call polmap%smooth(fwhm)
-  call patch_s%get_radial_profile(imap = 1, m = 0)
-  call patch_n%get_radial_profile(imap = 1, m = 0)
-  diff = patch_n%fr(:, 0, 1) - patch_s%fr(:, 0, 1)
-  call coop_linear_least_square_fit(n+1, patch_s%r, diff, kdata, bdata)
+  if(coop_file_exists(trim(log_file)))then
+     call fp%open(trim(log_file), "r")
+     read(fp%unit, *) junk
+     read(fp%unit, *) diff
+     read(fp%unit, *) kdata, bdata
+     call fp%close()
+  else
+     call imap%read(imap_file, spin = (/ 1 /) , nmaps_wanted = 1)
+     imap%map(:,1) = imap%map(:,1)*imask%map(:,1)
+     if(fwhm.ge.coop_SI_arcmin)    call imap%smooth(fwhm)
+     call imap%get_listpix(listpix, listangle, spot_type, threshold, imask)
+     call polmap%read(polmap_file, spin = (/ 2, 2 /) , nmaps_wanted = 2 )
+     call polmap%stack_north_south(patch_n, patch_s, listpix, listangle, hdir, polmask )
+     if(fwhm.ge.coop_SI_arcmin)    call polmap%smooth(fwhm)
+     call patch_s%get_radial_profile(imap = 1, m = 0)
+     call patch_n%get_radial_profile(imap = 1, m = 0)
+     diff = patch_n%fr(:, 0, 1) - patch_s%fr(:, 0, 1)
+     call coop_linear_least_square_fit(n+1, patch_s%r, diff, kdata, bdata)
+
+  endif
   kmean = sum(ksim)/n_sim
   bmean  = sum(bsim)/n_sim
   cov(1,1) = sum((ksim-kmean)**2)/n_sim
@@ -133,9 +143,10 @@ program test
   prob = dble(n_larger_chisq)/n_sim
   write(*,"(A)") "The probability of seeing a larger chi^2 in simulations is: "//trim(coop_num2str(100.*prob,"(F10.2)"))//"%"
   
-
   call fp%open(trim(log_file), "w")
   write(fp%unit, "(2I6, 4E16.7)") scan_nside, run_id, hdir, chisq, prob
+  write(fp%unit, fmt) diff
+  write(fp%unit, "(2E16.7)") kdata, bdata
   call fp%close()
   ksim = ksim*1.e6
   bsim = bsim*1.e6

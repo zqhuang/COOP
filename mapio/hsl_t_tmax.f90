@@ -15,7 +15,7 @@ program test
   COOP_UNKNOWN_STRING, parameter::stack_type = "T"
 
   COOP_REAL, parameter::fwhm_arcmin = 30.d0
-  COOP_REAL, parameter::fwhm_in = 20.d0
+  COOP_REAL, parameter::fwhm_in = 10.d0
   COOP_UNKNOWN_STRING, parameter::prefix = "hslr5f30n1024/"
   COOP_UNKNOWN_STRING, parameter::postfix =   "_010a_1024.fits"
 
