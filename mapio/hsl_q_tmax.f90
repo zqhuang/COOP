@@ -79,7 +79,7 @@ program test
         do i = 1, nlines
            read(fp%unit, trim(fmt)) diff
            ind = ind + 1
-           call coop_linear_least_square_fit(n+1, patch_s%r, diff, ksim(ind), bsim(ind))
+           call coop_linear_least_square_fit(n+1, patch_s%r**2, diff, ksim(ind), bsim(ind))
            if(ind .ge. n_sim) exit
         enddo
         call fp%close()
@@ -99,7 +99,7 @@ program test
      call patch_n%get_radial_profile(imap = 1, m = 0)
      call patch_s%get_radial_profile(imap = 1, m = 0)
      diff = patch_n%fr(:, 0, 1) - patch_s%fr(:, 0, 1)
-     call coop_linear_least_square_fit(n+1, patch_s%r, diff, ksim(ind), bsim(ind))
+     call coop_linear_least_square_fit(n+1, patch_s%r**2, diff, ksim(ind), bsim(ind))
      write(fp%unit, trim(fmt)) diff
      flush(fp%unit)
   enddo
@@ -122,7 +122,7 @@ program test
      call patch_s%get_radial_profile(imap = 1, m = 0)
      call patch_n%get_radial_profile(imap = 1, m = 0)
      diff = patch_n%fr(:, 0, 1) - patch_s%fr(:, 0, 1)
-     call coop_linear_least_square_fit(n+1, patch_s%r, diff, kdata, bdata)
+     call coop_linear_least_square_fit(n+1, patch_s%r**2, diff, kdata, bdata)
 
   endif
   kmean = sum(ksim)/n_sim
