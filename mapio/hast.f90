@@ -69,7 +69,7 @@ program hastack_prog
   call patch_n%init(stack_type, n, dr, mmax = mmax)
   patch_s = patch_n
 
-  fr_file = prefix//stack_type//"_on_"//spot_type//"_fr_"//COOP_STR_OF(scan_nside)//"_"//COOP_STR_OF(run_id)//".txt"
+  fr_file = prefix//stack_type//"_on_"//spot_type//"_fr_"//COOP_STR_OF(scan_nside)//"_"//COOP_STR_OF(run_id)//".dat"
 
 
   ind = -1
@@ -83,10 +83,11 @@ program hastack_prog
         ind = i
         if(ind .ge. n_sim) exit
      enddo
+100  write(*,*) "Loaded "//trim(coop_num2str(ind+1))//" lines from checkpoint"
      call fp%close()
-     write(*,*) "Loaded "//trim(coop_num2str(ind+1))//" lines from checkpoint"
   endif
-100 call fp%open(trim(fr_file), "u")
+
+ call fp%open(trim(fr_file), "u")
   do i=0, ind
      read(fp%unit, ERR=100, END=100) j
      read(fp%unit, ERR=100, END=100) patch_n%fr
