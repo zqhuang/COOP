@@ -106,8 +106,10 @@ program test
   call fig%open(trim(prefix)//"powercut"//trim(coop_num2str(ncut))//"_profile.txt")
   call fig%init(xlabel = "$r$", ylabel  = "$\delta f (\mu K)$")
   call coop_asy_curve(fig, r, diffmin(:, 0), color = "red", linetype = "solid", linewidth = 2., legend = "data")
-  do i = 1, nsims, nsims/20
-     call coop_asy_curve(fig, r, diffmin(:, i), color = "gray", linetype = "dashed", linewidth = 0.5, legend = "simulations")
+  i = 1
+  call coop_asy_curve(fig, r, diffmin(:, i), color = "gray", linetype = "dashed", linewidth = 0.5, legend = "simulations")
+  do i = 2, nsims, nsims/15
+     call coop_asy_curve(fig, r, diffmin(:, i), color = "gray", linetype = "dashed", linewidth = 0.5)
   enddo
   do i = 0, n
      call coop_chebeval(ncut, 0.d0, rsq(n), vecmin(:, 0), rsq(i), fitdiff(i))
