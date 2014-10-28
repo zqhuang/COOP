@@ -70,7 +70,7 @@ program test
      chisq(i) = dot_product(vec(:, 0) - mean, matmul(cov, vec(:, 0) - mean))
      cgt = 0
      do isim = 1, nsims
-        if(dot_product(vec(:, i) - mean, matmul(cov, vec(:, i) - mean)).gt. chisq(i)) cgt = cgt + 1
+        if(dot_product(vec(:, isim) - mean, matmul(cov, vec(:, isim) - mean)).gt. chisq(i)) cgt = cgt + 1
      enddo
      prob(i) = dble(cgt) / nsims
      map%map(i, 1) = log10(max(prob(i), 1.d-4))
