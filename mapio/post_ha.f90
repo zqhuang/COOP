@@ -108,14 +108,14 @@ program test
   call coop_asy_curve(fig, r, diffmin(:, 0), color = "red", linetype = "solid", linewidth = 2., legend = "data")
   i = 1
   call coop_asy_curve(fig, r, diffmin(:, i), color = "gray", linetype = "dashed", linewidth = 0.5, legend = "simulations")
-  do i = 2, nsims, nsims/15
+  do i = 2, nsims, nsims/25
      call coop_asy_curve(fig, r, diffmin(:, i), color = "gray", linetype = "dashed", linewidth = 0.5)
   enddo
   do i = 0, n
      call coop_chebeval(ncut, 0.d0, rsq(n), vecmin(:, 0), rsq(i), fitdiff(i))
   enddo
   call fig%curve(r, fitdiff, color = "blue", linetype = "dotted", linewidth = 1.5, legend = "fit")
-  call fig%legend(0.1, 0.1, 1)
+  call fig%legend(0.1, 0.95, 1)
   call fig%close()
 contains
 
