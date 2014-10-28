@@ -53,17 +53,13 @@ Stack: $(OBJ) dostack.o
 MultStack: $(OBJ) multstack.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) multstack.o $(LINK)
 
-HSLCOV: $(OBJ) hsl_cov.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) hsl_cov.o $(LINK)
 
-HSLTT: $(OBJ) hsl_t_tmax.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) hsl_t_tmax.o $(LINK)
+HA: $(OBJ) hast.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) hast.o $(LINK)
 
-HSLQT: $(OBJ) hsl_q_tmax.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) hsl_q_tmax.o $(LINK)
 
-POSTHSL: $(OBJ) post_hsl.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) post_hsl.o $(LINK)
+POSTHA: $(OBJ) post_ha.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) post_ha.o $(LINK)
 
 ByProd: $(OBJ) map_by_products.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) map_by_products.o $(LINK)
@@ -95,7 +91,7 @@ Shells: $(OBJ) shells.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) shells.o $(LINK)	
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP InpEB InpT TrimC GetCl QEB MultStack Shells POSTHSL HSLQT HSLTT HSLCOV ByProd GetInfo
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP InpEB InpT TrimC GetCl QEB MultStack Shells POSTHA HA ByProd GetInfo
 
 
 test.o: $(LIB)
