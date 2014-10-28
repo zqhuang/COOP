@@ -12,7 +12,7 @@ program hastack_prog
   COOP_INT, parameter::n_sim = 1000
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
-  COOP_UNKNOWN_STRING, parameter::stack_type = "T"
+  COOP_UNKNOWN_STRING, parameter::stack_type = "QrUr"
   COOP_REAL, parameter::patch_size = 4.d0*coop_SI_degree
 
   
@@ -52,7 +52,7 @@ program hastack_prog
   else
      run_id = coop_MPI_Rank()
   endif
-
+  call sleep(run_id*5)  !!sleep for 5 seconds so that files are not read simultaneously
   if(run_id .ge.  scan_npix)then
      write(*,*) "run id must not exceed ", scan_nside**2*12 - 1
      call coop_MPI_Abort()
