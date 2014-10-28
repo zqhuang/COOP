@@ -34,8 +34,9 @@ program test
   call fp%open(trim(prefix)//"info.txt", "r")
   read(fp%unit,*) n, nmaps, dr
   call fp%close()
+  
   dr = dr*coop_SI_arcmin
-  allocate(frn(0:n, 0:mmax/2, nmaps), frs(0:n, 0:mmax/2, nmaps),diff(0:n, nsims),diffmin(0:n, nsims), r(0:n), rsq(0:n), vec(ncut, 0:nsims), vecmin(ncut, 0:nsims), cov(ncut, ncut), mean(ncut), fitdiff(0:n))
+  allocate(frn(0:n, 0:mmax/2, nmaps), frs(0:n, 0:mmax/2, nmaps),diff(0:n, 0:nsims),diffmin(0:n, 0:nsims), r(0:n), rsq(0:n), vec(ncut, 0:nsims), vecmin(ncut, 0:nsims), cov(ncut, ncut), mean(ncut), fitdiff(0:n))
   do i=0,n
      r(i) = (dr*i)
   enddo
@@ -116,10 +117,10 @@ program test
   call fig%close()
 contains
 
-  subroutine fr2vec(diff, v)
-    COOP_REAL diff(0:n)
+  subroutine fr2vec(d, v)
+    COOP_REAL d(0:n)
     COOP_REAL v(ncut)
-    call coop_chebfit(n+1, rsq, diff, ncut, 0.d0, rsq(n), v)
+    call coop_chebfit(n+1, rsq, d, ncut, 0.d0, rsq(n), v)
   end subroutine fr2vec
   
 end program test
