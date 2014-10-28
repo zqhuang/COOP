@@ -78,12 +78,12 @@ program test
         minprob = prob(i)
         iminprob = i
      endif
+     call pix2ang_ring(map%nside, i, theta, phi)
      theta = coop_pi - theta
      phi = coop_pi + phi
      call ang2pix_ring(map%nside, theta, phi, pix)
-     call coop_healpix_ang2lb(theta, phi, l, b)
      map%map(pix, 1) = map%map(i, 1)
-     print*, i, prob(i), nint(l), nint(b)
+     print*, i, prob(i), chisq(i)
   enddo
   call map%write(trim(prefix)//"_probs.fits")
   call pix2ang_ring(map%nside, iminprob, theta, phi)
