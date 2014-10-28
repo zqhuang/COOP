@@ -73,21 +73,19 @@ program hastack_prog
 
 
   ind = -1
-  if(coop_file_exists(trim(fr_file)))then
-     call fp%open(trim(fr_file), "ru")
-     do
-        read(fp%unit, ERR=100, END=100) i
-        read(fp%unit, ERR=100, END=100) patch_n%fr
-        read(fp%unit, ERR=100, END=100) patch_s%fr
-        if(i.ne.ind+1) call cooP_MPI_Abort("fr file broken")
-        ind = i
-        if(ind .ge. n_sim) exit
-     enddo
-100  write(*,*) "Loaded "//trim(coop_num2str(ind+1))//" lines from checkpoint"
-     call fp%close()
-  endif
-
- call fp%open(trim(fr_file), "u")
+  if(.not. coop_file_exists(trim(fr_file)))goto 200
+  call fp%open(trim(fr_file), "ru")
+  do
+     read(fp%unit, ERR=100, END=100) i
+     read(fp%unit, ERR=100, END=100) patch_n%fr
+     read(fp%unit, ERR=100, END=100) patch_s%fr
+     if(i.ne.ind+1) call cooP_MPI_Abort("fr file broken")
+     ind = i
+     if(ind .ge. n_sim) exit
+  enddo
+100 write(*,*) "Loaded "//trim(coop_num2str(ind+1))//" maps from checkpoint"
+  call fp%close()
+200 call fp%open(trim(fr_file), "u")
   do i=0, ind
      read(fp%unit, ERR=100, END=100) j
      read(fp%unit, ERR=100, END=100) patch_n%fr
