@@ -19,7 +19,9 @@ program test
   COOP_REAL theta, phi, chisq(0:95), prob(0:95), minprob, l, b, dr
   COOP_REAL,dimension(:,:),allocatable::cov, vec 
   COOP_REAL, dimension(:,:,:),allocatable::frn, frs
-  COOP_REAL, dimension(:),allocatable::diff, rsq, mean
+  COOP_REAL, dimension(:),allocatable::diff, rsq, r, mean, datadiff
+
+  type(coop_asy)::fig
   
   prefix = coop_InputArgs(1)
   if(trim(prefix).eq."")then
@@ -33,10 +35,11 @@ program test
   read(fp%unit,*) n, nmaps, dr
   call fp%close()
   dr = dr*coop_SI_arcmin
-  allocate(frn(0:n, 0:mmax/2, nmaps), frs(0:n, 0:mmax/2, nmaps),diff(0:n), rsq(0:n), vec(ncut, 0:nsims), cov(ncut, ncut), mean(ncut))
+  allocate(frn(0:n, 0:mmax/2, nmaps), frs(0:n, 0:mmax/2, nmaps),diff(0:n), datadiff(0:n), r(0:n), rsq(0:n), vec(ncut, 0:nsims), cov(ncut, ncut), mean(ncut))
   do i=0,n
-     rsq(i) = (dr*i)**2
+     r(i) = (dr*i)
   enddo
+  rsq = r**2
   
   call map%init(nside = 4, nmaps=1, spin = (/ 0 /))
   map%map = 0.
@@ -53,6 +56,7 @@ program test
         endif
         read(fp%unit) frn
         read(fp%unit) frs
+        if(isim.eq.0)   datadiff = frn(0:n, m_want/2, map_want)- frs(0:n, m_want/2, map_want)
         call fr2vec(vec(:, isim))
      enddo
      call fp%close()
@@ -96,7 +100,15 @@ program test
   write(*,*) "direction l = ", nint(l), " b = ", nint(b)
 !!$  call coop_asy_histogram(chisq, 10, "chisq_hist.txt")
 !!$  call coop_asy_histogram(log(max(prob, 1.d-4)), 10, "logprob_hist.txt")
-
+  call fig%open(trim(prefix)//"_profile_fit.txt")
+  call fig%init(xlabel = "$r$", ylabel  = "\delta T(\mu K)")
+  call coop_asy_curve(fig, r, datadiff, color = "red", linetype = "solid", linewidth = 1.5)
+  do i = 1, ncut
+     call coop_chebeval(ncut, 0.d0, rsq(n), vec(:, 0), rsq(i), diff(i))
+  enddo
+  call fig%curve(r, diff, color = "blue", linetype = "dotted", linewidth = 1.3)
+  call fig%legend(0.1, 0.1, 1)
+  call fig%close()
 contains
 
   subroutine fr2vec(v)

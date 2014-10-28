@@ -26,6 +26,13 @@ module coop_asy_mod
      procedure::init => coop_asy_init
      procedure::write_coor => coop_asy_write_coor
      procedure::write_limits => coop_asy_write_limits
+     procedure::curve => coop_asy_curve_d
+     procedure::legend => coop_asy_legend_relative
+     procedure::line => coop_asy_line_d
+     procedure::label => coop_asy_label_d
+     procedure::contour => coop_asy_contour_d
+     procedure::band => coop_asy_band_d
+     procedure::density => coop_asy_density_d
   end type coop_asy
 
 
@@ -2458,6 +2465,20 @@ contains
     endif
   end subroutine coop_asy_legend_s
 
+  subroutine coop_asy_legend_relative(fp, xratio, yratio, cols)
+    class(coop_asy) fp
+    real(sp) xratio, yratio
+    COOP_INT ,optional::cols
+    write(fp%unit, "(A)") "LEGEND"
+    write(fp%unit, "(A)") "NULL"
+    write(fp%unit, "(2G15.4)") fp%xmin*(1.d0-xratio)+ fp%xmax*xratio , fp%ymin*(1.d0-yratio) + fp%ymax*yratio
+    if(present(cols))then
+       write(fp%unit, "(I8)")  cols
+    else
+       write(fp%unit, "(I8)")  1
+    endif
+  end subroutine coop_asy_legend_relative
+  
 
   subroutine coop_asy_topaxis_s(fp, xmin, xmax, islog,label)
     real(sp) xmin, xmax
