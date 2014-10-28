@@ -18,11 +18,12 @@ program hastack_prog
   
 
   COOP_UNKNOWN_STRING, parameter::prefix = "ha_r4f30n1024/"
-    COOP_INT, parameter::mmax = 4
+  COOP_INT, parameter::mmax = 4
   COOP_REAL, parameter::fwhm_arcmin = 30.d0
   COOP_REAL, parameter::fwhm_in = 10.d0
   COOP_UNKNOWN_STRING, parameter::postfix =   "_010a_1024.fits"
 
+  COOP_STRING::allprefix
   COOP_UNKNOWN_STRING, parameter::mapdir = "/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
   COOP_REAL,parameter::fwhm = coop_SI_arcmin * sqrt(fwhm_arcmin**2-fwhm_in**2)
   COOP_REAL, parameter::threshold = 0
@@ -69,7 +70,14 @@ program hastack_prog
   call patch_n%init(stack_type, n, dr, mmax = mmax)
   patch_s = patch_n
 
-  fr_file = prefix//stack_type//"_on_"//spot_type//"_fr_"//COOP_STR_OF(scan_nside)//"_"//COOP_STR_OF(run_id)//".dat"
+  allprefix = prefix//stack_type//"_on_"//spot_type//"_fr_"//COOP_STR_OF(scan_nside)//"_"
+
+  if(run_id.eq.0)then
+     call fp%open(trim(allprefix)//"_info.txt", "w")
+     write(*,*) n, patch_n%nmaps, dr/coop_SI_arcmin
+     call fp%close()
+  endif
+  fr_file = trim(allprefix)//COOP_STR_OF(run_id)//".dat"
 
 
   ind = -1
