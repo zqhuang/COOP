@@ -101,7 +101,7 @@ contains
 
   subroutine fr2vec(v)
     COOP_REAL v(ncut)
-    diff = frn(0:n, m_want/2, map_want)*frn(0, m_want/2, map_want)- frs(0:n, m_want/2, map_want)*frs(0, m_want/2, map_want)
+    diff = frn(0:n, m_want/2, map_want)- frs(0:n, m_want/2, map_want)
     call coop_chebfit(n+1, rsq, diff, ncut, 0.d0, rsq(n), v)
   end subroutine fr2vec
   
