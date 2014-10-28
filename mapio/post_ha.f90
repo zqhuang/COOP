@@ -101,12 +101,12 @@ program test
 !!$  call coop_asy_histogram(chisq, 10, "chisq_hist.txt")
 !!$  call coop_asy_histogram(log(max(prob, 1.d-4)), 10, "logprob_hist.txt")
   call fig%open(trim(prefix)//"powercut"//trim(coop_num2str(ncut))//"_profile.txt")
-  call fig%init(xlabel = "$r$", ylabel  = "\delta T(\mu K)")
-  call coop_asy_curve(fig, r, datadiff, color = "red", linetype = "solid", linewidth = 1.5)
-  do i = 1, ncut
+  call fig%init(xlabel = "$r$", ylabel  = "$\delta f (\mu K)$")
+  call coop_asy_curve(fig, r, datadiff*1.e6, color = "red", linetype = "solid", linewidth = 1.5)
+  do i = 0, n
      call coop_chebeval(ncut, 0.d0, rsq(n), vec(:, 0), rsq(i), diff(i))
   enddo
-  call fig%curve(r, diff, color = "blue", linetype = "dotted", linewidth = 1.3)
+  call fig%curve(r, diff*1.e6, color = "blue", linetype = "dotted", linewidth = 1.3)
   call fig%legend(0.1, 0.1, 1)
   call fig%close()
 contains
