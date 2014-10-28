@@ -17,9 +17,9 @@ program test
   type(coop_healpix_maps)::map
   COOP_STRING::prefix
   COOP_REAL theta, phi, chisq(0:95), prob(0:95), minprob, l, b, dr
-  COOP_REAL,dimension(:,:),allocatable::cov, vec 
+  COOP_REAL,dimension(:,:),allocatable::cov, vec, diff, diffmin, vecmin
   COOP_REAL, dimension(:,:,:),allocatable::frn, frs
-  COOP_REAL, dimension(:),allocatable::diff, rsq, r, mean, datadiff
+  COOP_REAL, dimension(:),allocatable:: rsq, r, mean, fitdiff
 
   type(coop_asy)::fig
   
@@ -35,7 +35,7 @@ program test
   read(fp%unit,*) n, nmaps, dr
   call fp%close()
   dr = dr*coop_SI_arcmin
-  allocate(frn(0:n, 0:mmax/2, nmaps), frs(0:n, 0:mmax/2, nmaps),diff(0:n), datadiff(0:n), r(0:n), rsq(0:n), vec(ncut, 0:nsims), cov(ncut, ncut), mean(ncut))
+  allocate(frn(0:n, 0:mmax/2, nmaps), frs(0:n, 0:mmax/2, nmaps),diff(0:n, nsims),diffmin(0:n, nsims), r(0:n), rsq(0:n), vec(ncut, 0:nsims), vecmin(ncut, 0:nsims), cov(ncut, ncut), mean(ncut), fitdiff(0:n))
   do i=0,n
      r(i) = (dr*i)
   enddo
@@ -56,8 +56,8 @@ program test
         endif
         read(fp%unit) frn
         read(fp%unit) frs
-        if(isim.eq.0)   datadiff = frn(0:n, m_want/2, map_want)- frs(0:n, m_want/2, map_want)
-        call fr2vec(vec(:, isim))
+        diff(0:n, isim) = (frn(0:n, m_want/2, map_want)- frs(0:n, m_want/2, map_want))*1.e6
+        call fr2vec(diff(:, isim),vec(:, isim))
      enddo
      call fp%close()
      cov = 0.d0
@@ -81,6 +81,8 @@ program test
      if(minprob .gt. prob(i))then
         minprob = prob(i)
         iminprob = i
+        diffmin = diff
+        vecmin = vec
      endif
      call pix2ang_ring(map%nside, i, theta, phi)
      theta = coop_pi - theta
@@ -102,18 +104,21 @@ program test
 !!$  call coop_asy_histogram(log(max(prob, 1.d-4)), 10, "logprob_hist.txt")
   call fig%open(trim(prefix)//"powercut"//trim(coop_num2str(ncut))//"_profile.txt")
   call fig%init(xlabel = "$r$", ylabel  = "$\delta f (\mu K)$")
-  call coop_asy_curve(fig, r, datadiff*1.e6, color = "red", linetype = "solid", linewidth = 1.5)
-  do i = 0, n
-     call coop_chebeval(ncut, 0.d0, rsq(n), vec(:, 0), rsq(i), diff(i))
+  call coop_asy_curve(fig, r, diffmin(:, 0), color = "red", linetype = "solid", linewidth = 2., legend = "data")
+  do i = 1, nsims, nsims/20
+     call coop_asy_curve(fig, r, diffmin(:, i), color = "gray", linetype = "dashed", linewidth = 0.5, legend = "simulations")
   enddo
-  call fig%curve(r, diff*1.e6, color = "blue", linetype = "dotted", linewidth = 1.3)
+  do i = 0, n
+     call coop_chebeval(ncut, 0.d0, rsq(n), vecmin(:, 0), rsq(i), fitdiff(i))
+  enddo
+  call fig%curve(r, fitdiff, color = "blue", linetype = "dotted", linewidth = 1.5, legend = "fit")
   call fig%legend(0.1, 0.1, 1)
   call fig%close()
 contains
 
-  subroutine fr2vec(v)
+  subroutine fr2vec(diff, v)
+    COOP_REAL diff(0:n)
     COOP_REAL v(ncut)
-    diff = frn(0:n, m_want/2, map_want)- frs(0:n, m_want/2, map_want)
     call coop_chebfit(n+1, rsq, diff, ncut, 0.d0, rsq(n), v)
   end subroutine fr2vec
   
