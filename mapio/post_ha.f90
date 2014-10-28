@@ -89,7 +89,7 @@ program test
      map%map(pix, 1) = map%map(i, 1)
      print*, i, prob(i), chisq(i)
   enddo
-  call map%write(trim(prefix)//"_probs.fits")
+  call map%write(trim(prefix)//"powercut"//trim(coop_num2str(ncut))//"_probs.fits")
   call pix2ang_ring(map%nside, iminprob, theta, phi)
   call coop_healpix_ang2lb(theta, phi, l, b)
   write(*,*) "min prob = ", minprob
@@ -100,7 +100,7 @@ program test
   write(*,*) "direction l = ", nint(l), " b = ", nint(b)
 !!$  call coop_asy_histogram(chisq, 10, "chisq_hist.txt")
 !!$  call coop_asy_histogram(log(max(prob, 1.d-4)), 10, "logprob_hist.txt")
-  call fig%open(trim(prefix)//"_profile_fit.txt")
+  call fig%open(trim(prefix)//"powercut"//trim(coop_num2str(ncut))//"_profile.txt")
   call fig%init(xlabel = "$r$", ylabel  = "\delta T(\mu K)")
   call coop_asy_curve(fig, r, datadiff, color = "red", linetype = "solid", linewidth = 1.5)
   do i = 1, ncut
