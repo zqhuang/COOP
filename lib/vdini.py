@@ -78,8 +78,12 @@ def generate_ini(fname, datasets):
         postfix = postfix + "_" + data
         inc = inc + r'DEFAULT('  + datafile[data] + r')' + "\n"
     fout = fname.replace('.ini', postfix + '.ini')
-    patterns = [r'^\s*DEFAULT\([^\(\)]*\)\s*$', r'^\s*file_root\s*\=([\w\d\_\-\.]*)\s*$']
-    repls = [r'', r'file_root = \1'+postfix ]
+    patterns = [r'^\s*(DEFAULT\([^\(\)]*\))\s*$', \
+                r'^\#\#\_OUT(DEFAULT\(batch[^\(\)]*common[^\(\)]*\.ini\))$', \
+                r'^\s*file_root\s*\=([\w\d\_\-\.]*)\s*$']
+    repls = [r'##_OUT\1', \
+             r'\1', \
+             r'file_root = \1'+postfix ]
     copy_replace_all(fname, fout, patterns, repls, inc)
 
 fname = sys.argv[1]
