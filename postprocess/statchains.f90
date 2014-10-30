@@ -47,6 +47,7 @@ module coop_statchains_mod
      real,dimension(:,:,:),allocatable::c2d !!2d counts: nb, nb, np_used*(np_used+1)/2
      real,dimension(:,:),allocatable::cut2d
      logical,dimension(:,:),allocatable::want_2d_output
+     logical,dimension(:),allocatable::want_1d_output
      COOP_SHORT_STRING, dimension(mcmc_stat_num_cls)::color2d
      type(coop_dictionary) inputparams
      type(coop_dictionary) allparams
@@ -395,8 +396,8 @@ contains
     else
        mc%nb = min(max(11, ceiling(sqrt(mc%n/100.))), 22)
     endif
-    if(allocated(mc%c1d))deallocate(mc%c1d, mc%c2d, mc%cut2d, mc%want_2d_output)
-    allocate(mc%c1d(mc%nb, mc%np_used), mc%c2d(mc%nb, mc%nb, mc%np_used*(mc%np_used+1)/2), mc%cut2d(mcmc_stat_num_cls, mc%np_used*(mc%np_used+1)/2), mc%want_2d_output(mc%np_used, mc%np_used) )
+    if(allocated(mc%c1d))deallocate(mc%c1d, mc%c2d, mc%cut2d, mc%want_1d_output, mc%want_2d_output)
+    allocate(mc%c1d(mc%nb, mc%np_used), mc%c2d(mc%nb, mc%nb, mc%np_used*(mc%np_used+1)/2), mc%cut2d(mcmc_stat_num_cls, mc%np_used*(mc%np_used+1)/2), mc%want_2d_output(mc%np_used, mc%np_used), mc%want_1d_output(mc%np_used) )
     allocate(c2dlist(mc%nb*mc%nb))
     mc%c1d = 0.
     mc%c2d = 0.

@@ -63,13 +63,33 @@ program getdist
         ip1 = chain_index_of_name(mc, name1)
         ip2 = chain_index_of_name(mc, name2)
         if(ip1 .gt. 0.and. ip2.gt.0)then
-           if(mc%vary(ip1) .and. mc%vary(ip2))then
+           ip1 = mc%map2used(ip1)
+           ip2 = mc%map2used(ip2)
+           if(ip1.ne.0 .and. ip2 .ne.0)then
               write(*,*) " 2d contours for "//trim(name1)//" "//trim(name2)
               mc%want_2d_output(ip1, ip2) = .true.
            endif
         endif
      enddo
   endif
+
+  inline = trim(adjustl(ini_read_string("want1d", .false.)))
+  if(trim(inline).ne. "")then
+     mc%want_1d_output = .false.
+     call coop_string_to_list(inline, sl, ",")
+     do i=1, sl%n
+        call coop_list_get_element(sl, i, p)
+        name1 = trim(adjustl(p))
+        ip1 = chain_index_of_name(mc, name1)
+        if(ip1 .gt. 0)then
+           ip1 = mc%map2used(ip1)
+           if(ip1 .ne. 0) mc%want_1d_output(ip1) = .true.
+        endif
+     enddo
+  else
+     mc%want_1d_output = .true.  !!simply plot all
+  endif
+  
   inline = trim(adjustl(ini_read_string("wantpca", .false.)))
   if(trim(inline).ne."")then
      call coop_string_to_list(inline, sl, ",")
