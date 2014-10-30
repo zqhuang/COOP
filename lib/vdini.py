@@ -22,8 +22,6 @@ datafile['WL'] = r'batch2/WL.ini'
 datafile['RSD'] =  r'batch2/BAO_RSD.ini'
 
 
-
-
 ###  Edit the collection of data sets that you want to run
 want = [ ['lowTEB', 'plikTT'], \
          ['lowTEB', 'plikTT', 'BAO', 'JLA', 'HSTlow'], \
@@ -40,7 +38,8 @@ want = [ ['lowTEB', 'plikTT'], \
          ['lowTEB', 'plikTTTEEE'], \
          ['lowTEB', 'plikTTTEEE', 'BAO', 'JLA', 'HSTlow'] ]
 
-         
+
+################# No need to change anything below ####################
 
 def copy_replace_first(fname1,  fname2, patterns, repls):
     print "copying " + fname1 + " to " + fname2
@@ -86,6 +85,11 @@ def generate_ini(fname, datasets):
              r'file_root = \1'+postfix ]
     copy_replace_all(fname, fout, patterns, repls, inc)
 
+
+if(len(sys.argv) < 2):
+    print "syntax:"
+    print  "python vdini.py  YourIniFileName"
+    sys.exit()
 fname = sys.argv[1]
 if (not os.path.isfile(fname)):
     print fname + " does not exist"

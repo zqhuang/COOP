@@ -27,7 +27,7 @@ module coop_healpix_mod
   integer,parameter::coop_inpainting_lowl_min = 5
 
   integer, parameter::coop_healpix_default_lmax=2500
-  COOP_REAL,parameter::coop_healpix_mask_tol = 0.96  !!default mask tolerance
+  COOP_REAL,parameter::coop_healpix_mask_tol = 0.85  !!default mask tolerance
   integer::coop_healpix_inpainting_lowl=5
   real(dl),parameter::coop_healpix_diffuse_scale = 10.d0*coop_SI_arcmin
   integer,parameter::coop_healpix_index_TT = 1
@@ -1365,7 +1365,9 @@ contains
              patch%image = patch%image/patch%nstack_raw
           endif
        else
-          patch%image = patch%image/patch%nstack_raw
+          do i=1, patch%nmaps
+             patch%image(:, :, i) = patch%image(:, :, i)/patch%nstack
+          enddo
        endif
     else
        write(*,*) "warning: no patches has been found"
@@ -1555,7 +1557,9 @@ contains
        call p(ithread)%free()
        call tmp(ithread)%free()
     enddo
-    patch%image = patch%image/patch%nstack_raw
+    do imap = 1, patch%nmaps
+       patch%image(:, :, imap) = patch%image(:,:,imap)/max(patch%nstack, 1.d0)
+    enddo
 #else
     stop "CANNOT FIND HEALPIX"
 #endif
@@ -1625,8 +1629,10 @@ contains
        call p_south(ithread)%free()
        call tmp(ithread)%free()
     enddo
-    patch_north%image = patch_north%image/patch_north%nstack_raw
-    patch_south%image = patch_south%image/patch_south%nstack_raw
+    do imap = 1, patch_north%nmaps
+       patch_north%image(:,:,imap) = patch_north%image(:,:,imap)/max(patch_north%nstack, 1.d0)
+       patch_south%image(:,:,imap) = patch_south%image(:,:,imap)/max(patch_south%nstack, 1.d0)
+    enddo
 #else
     stop "CANNOT FIND HEALPIX"
 #endif
@@ -1714,12 +1720,10 @@ contains
     enddo
     if(patch%nstack_raw .eq. 0) stop "Nothing stacked"
     mean = mean/patch%nstack_raw
-!!$    do imap = 1, patch%nmaps
-!!$       where(patch%nstack .gt. 0.d0)
-!!$          patch%image(:,:,imap) = patch%image(:,:,imap)/patch%nstack
-!!$       end where
-!!$    enddo
-    patch%image = patch%image/patch%nstack_raw
+    do imap = 1, patch%nmaps
+       patch%image(:,:,imap) = patch%image(:,:,imap)/max(patch%nstack, 1.d0)
+    enddo
+!!$    patch%image = patch%image/patch%nstack_raw
     do j=1, nvar
        do i=1, j
           cov(i,j) = cov(i,j)/patch%nstack_raw - mean(i)*mean(j)
