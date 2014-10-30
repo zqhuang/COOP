@@ -809,9 +809,9 @@ contains
     Write(fp%unit,"(A)")"\begin{tabular}{cc}"
     Write(fp%unit,"(A)")"\hline"
     Write(fp%unit,"(a)")"\hline"
-    do ip = 1, mc%np
-       if(mc%vary(ip))then
-          write(fp%unit, "(A)") trim(mc%label(ip))//" & "//trim(latex_range(mc%base(ip), mc%lowsig(:, ip), mc%upsig(:, ip)))//" \\ "
+    do ip = 1, mc%np_used
+       if(mc%want_1d_output(ip))then
+          write(fp%unit, "(A)") trim(mc%label(mc%used(ip)))//" & "//trim(latex_range(mc%base(mc%used(ip)), mc%lowsig(:, mc%used(ip)), mc%upsig(:, mc%used(ip))))//" \\ "
           Write(fp%unit,"(a)")"\hline"
        endif
     end do
@@ -875,13 +875,15 @@ contains
        deallocate(pcamat , eig , ipca)
     endif
     do ip = 1, mc%np_used
-       call fp%open(trim(mc%output)//"_"//trim(mc%simplename(mc%used(ip)))//"_1D.txt", "w")
-       do i = 1, mc%nb
-          x(i) = mc%plotlower(mc%used(ip)) + mc%dx(mc%used(ip))*(i-1)
-       enddo
-       call fp%init( xlabel = trim(mc%label(mc%used(ip))), ylabel = "P", width=3., height=2.5, ymin=0., ymax=1.05)
-       call coop_asy_plot_likelihood(fp, x, mc%c1d(:, ip)/maxval(mc%c1d(:, ip)), left_tail = .true., right_tail = .true., linewidth=1.5)
-       call fp%close()
+       if(mc%want_1d_output(ip))then
+          call fp%open(trim(mc%output)//"_"//trim(mc%simplename(mc%used(ip)))//"_1D.txt", "w")
+          do i = 1, mc%nb
+             x(i) = mc%plotlower(mc%used(ip)) + mc%dx(mc%used(ip))*(i-1)
+          enddo
+          call fp%init( xlabel = trim(mc%label(mc%used(ip))), ylabel = "P", width=3., height=2.5, ymin=0., ymax=1.05)
+          call coop_asy_plot_likelihood(fp, x, mc%c1d(:, ip)/maxval(mc%c1d(:, ip)), left_tail = .true., right_tail = .true., linewidth=1.5)
+          call fp%close()
+       endif
     enddo
     if(coop_postprocess_num_contours .gt. 0)then
        do j = 1, mc%np_used
