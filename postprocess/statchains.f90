@@ -653,7 +653,7 @@ contains
        call coop_asy_curve(fig_spec, kMpc, exp(3.091 - 0.01625*lnk)*0.13, color = "cyan", linewidth=1.2, legend="$m^2\phi^2$ tensor")
        numpp = cosmomc_pp_num_params - cosmomc_pp_num_origin + 1
        if(numpp .gt. 1)then
-          call coop_set_uniform(numpp, lnk(1:numpp), coop_pp_lnk_min, coop_pp_lnk_max)
+          call coop_set_uniform(numpp, lnk(1:numpp), coop_pp_lnkmin, coop_pp_lnkmax)
           ps(1:numpp) = 1.3
           call coop_asy_dots(fig_spec, exp(lnk(1:numpp)), ps(1:numpp), "black", "$\Delta$")
           ps(1:numpp) = 0.005
