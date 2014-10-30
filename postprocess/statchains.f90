@@ -466,7 +466,7 @@ contains
     type(mcmc_chain) mc
     COOP_UNKNOWN_STRING output
     type(coop_asy) fp, fig_spec, fig_pot, fig_eps
-    integer i , ip, j,  j2, k, ik, numpiv, ltmp, ik2, ndof
+    integer i , ip, j,  j2, k, ik, numpiv, ltmp, ik2, ndof, jrand
     real mult
     real x(mc%nb)
     COOP_REAL lnkmin, lnkmax
@@ -523,10 +523,22 @@ contains
           lnpscov = 0
        endif
        mult = 0
+
+       call getCosmomcParams(mc, 1, CosmomcParams)
+       call coop_setup_cosmology_from_cosmomc(Cosmomcparams)
+       call coop_setup_pp()
+
        lnkmin = coop_pp_lnkmin
        lnkmax = coop_pp_lnkmax
        call coop_set_uniform(nk, lnk, lnkmin, lnkmax)
        kMpc = exp(lnk)
+       
+       call fig_spec%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$10^{10}\mathcal{P}_{S,T}$", xlog=.true., ylog = .true., xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = 1., ymax = 200., doclip = .true.)
+       call coop_asy_topaxis(fig_spec, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell\equiv  k D_{\rm rec}$")
+       call fig_pot%init(xlabel="$(\phi - \phi_{\rm pivot})/M_p$", ylabel = "$\ln (V/V_{\rm pivot})$", xmin = -1.5, xmax = 0.5, ymin = -0.2, ymax = 0.6, doclip = .true.)
+       call fig_eps%init(xlabel = "$ k ({\rm Mpc}^{-1})$", ylabel = "$\epsilon$", xlog = .true. ,  xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = 0., ymax = 0.145, doclip = .true.)
+       call coop_asy_topaxis(fig_eps, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell\equiv  k D_{\rm rec}$")             
+       
        do j = 1, mc%n, max(mc%n/num_samples_to_get_mean, 1)
           call getCosmomcParams(mc, j, CosmomcParams)
           call coop_setup_cosmology_from_cosmomc(Cosmomcparams)
@@ -556,11 +568,7 @@ contains
           endif
           mult = mult + mc%mult(j)
        enddo
-       call fig_spec%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$10^{10}\mathcal{P}_{S,T}$", xlog=.true., ylog = .true., xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = 1., ymax = 200., doclip = .true.)
-       call coop_asy_topaxis(fig_spec, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell\equiv  k D_{\rm rec}$")
-       call fig_pot%init(xlabel="$(\phi - \phi_{\rm pivot})/M_p$", ylabel = "$\ln (V/V_{\rm pivot})$", xmin = -1.5, xmax = 0.5, ymin = -0.2, ymax = 0.6, doclip = .true.)
-       call fig_eps%init(xlabel = "$ k ({\rm Mpc}^{-1})$", ylabel = "$\epsilon$", xlog = .true. ,  xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = 0., ymax = 0.145, doclip = .true.)
-       call coop_asy_topaxis(fig_eps, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell\equiv  k D_{\rm rec}$")             
+
     endif
     first_1sigma = .true.
     do i = 1, num_1sigma_trajs 
