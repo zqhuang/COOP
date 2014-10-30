@@ -513,11 +513,6 @@ contains
        call fig_spec%open(trim(mc%output)//"_power_trajs.txt", "w")
        call fig_pot%open(trim(mc%output)//"_potential_trajs.txt", "w")
        call fig_eps%open(trim(mc%output)//"_eps_trajs.txt", "w")
-       call fig_spec%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$10^{10}\mathcal{P}_{S,T}$", xlog=.true., ylog = .true., xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = 1., ymax = 200., doclip = .true.)
-       call coop_asy_topaxis(fig_spec, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell\equiv  k D_{\rm rec}$")
-       call fig_pot%init(xlabel="$(\phi - \phi_{\rm pivot})/M_p$", ylabel = "$\ln (V/V_{\rm pivot})$", xmin = -1.5, xmax = 0.5, ymin = -0.2, ymax = 0.6, doclip = .true.)
-       call fig_eps%init(xlabel = "$ k ({\rm Mpc}^{-1})$", ylabel = "$\epsilon$", xlog = .true. ,  xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = 0., ymax = 0.145, doclip = .true.)
-       call coop_asy_topaxis(fig_eps, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell\equiv  k D_{\rm rec}$")
 
        lnpsmean = 0
        lnptmean = 0
@@ -560,6 +555,11 @@ contains
           endif
           mult = mult + mc%mult(j)
        enddo
+       call fig_spec%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$10^{10}\mathcal{P}_{S,T}$", xlog=.true., ylog = .true., xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = 1., ymax = 200., doclip = .true.)
+       call coop_asy_topaxis(fig_spec, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell\equiv  k D_{\rm rec}$")
+       call fig_pot%init(xlabel="$(\phi - \phi_{\rm pivot})/M_p$", ylabel = "$\ln (V/V_{\rm pivot})$", xmin = -1.5, xmax = 0.5, ymin = -0.2, ymax = 0.6, doclip = .true.)
+       call fig_eps%init(xlabel = "$ k ({\rm Mpc}^{-1})$", ylabel = "$\epsilon$", xlog = .true. ,  xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = 0., ymax = 0.145, doclip = .true.)
+       call coop_asy_topaxis(fig_eps, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell\equiv  k D_{\rm rec}$")             
     endif
     first_1sigma = .true.
     do i = 1, num_1sigma_trajs 

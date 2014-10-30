@@ -205,8 +205,9 @@ contains
     COOP_INT  nleft, nright, nknots, i
     select case(COOP_PP_MODEL)
     case(COOP_PP_STANDARD)
-       coop_pp_lnps = COOP_LN10TO10AS - 10.d0*coop_ln10 + ( COOP_NS - 1.d0 ) * (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) + (COOP_NRUN/2.d0) *   (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) ** 2 + (COOP_NRUNRUN/6.d0) *  (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) ** 6
        call coop_set_uniform(coop_pp_n, coop_pp_lnkMpc, coop_pp_lnkmin, coop_pp_lnkmax)
+       coop_pp_lnps = COOP_LN10TO10AS - 10.d0*coop_ln10 + ( COOP_NS - 1.d0 ) * (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) + (COOP_NRUN/2.d0) *   (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) ** 2 + (COOP_NRUNRUN/6.d0) *  (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) ** 6
+
     case(COOP_PP_SCAN_SPLINE)
        nknots =  COOP_NUM_PP - cosmomc_pp_num_origin + 1
        if(nknots .lt. 5) stop "You need at least 5 knots for scan_spline mode"
