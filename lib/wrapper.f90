@@ -13,10 +13,9 @@ module coop_wrapper
 
   type(coop_arguments)::coop_global_cosmological_parameters, coop_global_param_index
 
-  COOP_REAL, parameter::coop_pp_lnkmin = -9.22d0
-  COOP_REAL, parameter::coop_pp_lnkmax = 0.01d0
-  COOP_REAL::coop_pp_lnk_knots_min = coop_pp_lnkmin
-  COOP_REAL::coop_pp_lnk_knots_max = coop_pp_lnkmax
+  COOP_REAL,parameter::coop_pp_lnkmin = -9.22d0
+  COOP_REAL::coop_pp_lnkmax = 0.02d0
+
 
 
   COOP_INT:: cosmomc_de_index = 8
@@ -201,26 +200,21 @@ contains
 
 
   subroutine coop_setup_pp()
-    logical,save::init = .true.
     COOP_REAL,dimension(:),allocatable::lnk, lnps, lnps2
     COOP_REAL  dlnk
     COOP_INT  nleft, nright, nknots, i
-    if(init)then
-       call coop_set_uniform(coop_pp_n, coop_pp_lnkMpc, coop_pp_lnkmin, coop_pp_lnkmax)
-       init = .false.
-    endif
     select case(COOP_PP_MODEL)
     case(COOP_PP_STANDARD)
        coop_pp_lnps = COOP_LN10TO10AS - 10.d0*coop_ln10 + ( COOP_NS - 1.d0 ) * (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) + (COOP_NRUN/2.d0) *   (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) ** 2 + (COOP_NRUNRUN/6.d0) *  (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) ** 6
+       call coop_set_uniform(coop_pp_n, coop_pp_lnkMpc, coop_pp_lnkmin, coop_pp_lnkmax)
     case(COOP_PP_SCAN_SPLINE)
        nknots =  COOP_NUM_PP - cosmomc_pp_num_origin + 1
-       if(nknots .lt. 4) stop "You need at least 4 knots for scan_spline mode"
-       dlnk = (coop_pp_lnkmax-coop_pp_lnkmin)/(nknots-1)
-       nleft = min(max(nint((coop_pp_scalar_lnkpivot - coop_pp_lnkmin)/dlnk), 2), COOP_NUM_PP - cosmomc_pp_num_origin - 1)
+       if(nknots .lt. 5) stop "You need at least 5 knots for scan_spline mode"
+       nleft = nint((nknots - 1)* (coop_pp_scalar_lnkpivot-coop_pp_lnkmin) / (-coop_pp_lnkmin))
        nright = nknots - 1 - nleft
-       dlnk = max(dlnk, (coop_pp_lnkmax-coop_pp_scalar_lnkpivot)/nright, (coop_pp_scalar_lnkpivot - coop_pp_lnkmin)/nleft)
-       coop_pp_lnk_knots_min = coop_pp_scalar_lnkpivot- nleft*dlnk
-       coop_pp_lnk_knots_max = nright*dlnk + coop_pp_scalar_lnkpivot
+       dlnk = (coop_pp_scalar_lnkpivot-coop_pp_lnkmin)/nleft
+       coop_pp_lnkmax = coop_pp_lnkmin + (nknots-1)*dlnk
+       call coop_set_uniform(coop_pp_n, coop_pp_lnkMpc, coop_pp_lnkmin, coop_pp_lnkmax)       
        allocate(lnk(nknots), lnps(nknots), lnps2(nknots))
        call coop_set_uniform(nknots, lnk, -dlnk*nleft, dlnk*nright)
        lnps(1:nleft) = COOP_COSMO_PARAMS%r(COOP_INDEX_PP+cosmomc_pp_num_origin:COOP_INDEX_PP+cosmomc_pp_num_origin+nleft -1)
@@ -234,13 +228,12 @@ contains
        deallocate(lnk, lnps,  lnps2)
     case(COOP_PP_SCAN_LINEAR)
        nknots =  COOP_NUM_PP - cosmomc_pp_num_origin + 1
-       if(nknots .lt. 4) stop "You need at least 4 knots for scan_linear mode"
-       dlnk = (coop_pp_lnkmax-coop_pp_lnkmin)/(nknots-1)
-       nleft = min(max(nint((coop_pp_scalar_lnkpivot - coop_pp_lnkmin)/dlnk), 2), COOP_NUM_PP - cosmomc_pp_num_origin - 1)
+       if(nknots .lt. 5) stop "You need at least 5 knots for scan_linear mode"
+       nleft = nint((nknots - 1)* (coop_pp_scalar_lnkpivot-coop_pp_lnkmin) / (-coop_pp_lnkmin))
        nright = nknots - 1 - nleft
-       dlnk = max(dlnk, (coop_pp_lnkmax-coop_pp_scalar_lnkpivot)/nright, (coop_pp_scalar_lnkpivot - coop_pp_lnkmin)/nleft)
-       coop_pp_lnk_knots_min = coop_pp_scalar_lnkpivot- nleft*dlnk
-       coop_pp_lnk_knots_max = nright*dlnk + coop_pp_scalar_lnkpivot
+       dlnk = (coop_pp_scalar_lnkpivot-coop_pp_lnkmin)/nleft
+       coop_pp_lnkmax = coop_pp_lnkmin + (nknots-1)*dlnk
+       call coop_set_uniform(coop_pp_n, coop_pp_lnkMpc, coop_pp_lnkmin, coop_pp_lnkmax)       
        allocate(lnk(nknots), lnps(nknots), lnps2(nknots))
        call coop_set_uniform(nknots, lnk, -dlnk*nleft, dlnk*nright)
        lnps(1:nleft) = COOP_COSMO_PARAMS%r(COOP_INDEX_PP+cosmomc_pp_num_origin:COOP_INDEX_PP+cosmomc_pp_num_origin+nleft -1)
