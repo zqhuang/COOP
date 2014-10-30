@@ -79,7 +79,7 @@ def generate_ini(fname, datasets):
     fout = fname.replace('.ini', postfix + '.ini')
     patterns = [r'^\s*(DEFAULT\([^\(\)]*\))\s*$', \
                 r'^\#\#\_OUT(DEFAULT\(batch[^\(\)]*common[^\(\)]*\.ini\))$', \
-                r'^\s*file_root\s*\=([\w\d\_\-\.]*)\s*$']
+                r'^\s*file_root\s*\=\s*([\w\d\_\-\.]*)\s*$']
     repls = [r'##_OUT\1', \
              r'\1', \
              r'file_root = \1'+postfix ]
