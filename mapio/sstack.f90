@@ -11,17 +11,15 @@ program hastack_prog
 #include "constants.h"
   COOP_INT, parameter::n_sim = 1000
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
-  COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
-  COOP_UNKNOWN_STRING, parameter::stack_type = "QrUr"
+  COOP_SHORT_STRING::spot_type, stack_type
   COOP_REAL, parameter::patch_size = 2.d0*coop_SI_degree
 
-  
-
-  COOP_UNKNOWN_STRING, parameter::prefix = "sst_r2f15n1024/"
+  COOP_UNKNOWN_STRING, parameter::prefix = "stackprofiles/"
   COOP_INT, parameter::mmax = 4
   COOP_REAL, parameter::fwhm_arcmin = 15.d0
   COOP_REAL, parameter::fwhm_in = 10.d0
-  COOP_UNKNOWN_STRING, parameter::postfix =   "_010a_1024.fits"
+  COOP_UNKNOWN_STRING, parameter::input_resolution =   "_010a_1024"
+  COOP_UNKNOWN_STRING, parameter::postfix =  input_resolution//".fits"
 
   COOP_STRING::allprefix
   COOP_UNKNOWN_STRING, parameter::mapdir = "/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
@@ -37,20 +35,30 @@ program hastack_prog
 
   type(coop_healpix_maps)::polmask, imask, noise, imap, polmap, tmpmap
   type(coop_healpix_patch)::patch
-  COOP_INT i, j, ind
+  COOP_INT i, j, ind, nmaps_temp
   COOP_STRING::fr_file
   type(coop_list_integer)::listpix
   type(coop_list_real)::listangle
   type(coop_file) fp
   call coop_MPI_init()
+  spot_type = trim(coop_InputArgs(1))
+  stack_type = trim(coop_InputArgs(2))
+  if(trim(spot_type) .eq. "" .or. trim(stack_type).eq."")then
+     print*, "Syntax:"
+     print*, "./SST Tmax  T"
+     print*, "./SST Tmax  QrUr"
+     print*, "./SST Tmax  QU"     
+     print*, "./SST Tmax_QTUTOrient QU"
+     print*, "./SST PTmax QU"
+  endif
   call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
-  if(stack_type .ne. "T")then
+  if(trim(stack_type) .ne. "T")then
      call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )
   endif
   
-  call patch%init(stack_type, n, dr, mmax = mmax)
+  call patch%init(trim(stack_type), n, dr, mmax = mmax)
 
-  allprefix = prefix//stack_type//"_on_"//spot_type//"_fr"
+  allprefix = prefix//trim(stack_type)//"_on_"//trim(spot_type)//"_fr_"//COOP_STR_OF(nint(patch_size/coop_SI_degree))//"deg"//input_resolution
 
   call fp%open(trim(allprefix)//"_info.txt", "w")
   write(*,*) n, patch%nmaps, dr/coop_SI_arcmin
@@ -78,13 +86,13 @@ program hastack_prog
   do while(ind .lt. n_sim)
      ind = ind + 1
      call load_imap(ind)
-     select case(stack_type)
+     select case(trim(stack_type))
      case("T")
         noise%map = imap%map
-        call noise%get_listpix(listpix, listangle, spot_type, threshold, imask)
+        call noise%get_listpix(listpix, listangle, trim(spot_type), threshold, imask)
         call imap%stack_with_listpix(patch, listpix, listangle, imask)
      case default
-        call imap%get_listpix(listpix, listangle, spot_type, threshold, imask)
+        call imap%get_listpix(listpix, listangle, trim(spot_type), threshold, imask)
         call load_polmap(ind)
         call polmap%stack_with_listpix(patch, listpix, listangle, polmask)
      end select
@@ -101,7 +109,7 @@ contains
   subroutine load_imap(i)
     COOP_INT i, nm
     COOP_INT,dimension(:),allocatable::spin
-    if(spot_type .eq. "PTmax" .or. spot_type .eq. "Tmax_QTUTOrient")then
+    if(trim(spot_type) .eq. "PTmax" .or. trim(spot_type) .eq. "Tmax_QTUTOrient")then
        nm = 3
     else
        nm = 1
