@@ -58,6 +58,9 @@ HA: $(OBJ) hast.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) hast.o $(LINK)
 
 
+SST: $(OBJ) sstack.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) sstack.o $(LINK)
+
 POSTHA: $(OBJ) post_ha.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) post_ha.o $(LINK)
 
