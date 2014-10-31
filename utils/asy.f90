@@ -29,10 +29,12 @@ module coop_asy_mod
      procedure::curve => coop_asy_curve_d
      procedure::legend => coop_asy_legend_relative
      procedure::line => coop_asy_line_d
-     procedure::label => coop_asy_label_d
+     procedure::label => coop_asy_label_relative
      procedure::contour => coop_asy_contour_d
      procedure::band => coop_asy_band_d
      procedure::density => coop_asy_density_d
+     procedure::xrel => coop_asy_xrel
+     procedure::yrel => coop_asy_yrel
   end type coop_asy
 
 
@@ -1466,7 +1468,27 @@ contains
     endif
   end subroutine coop_asy_label_d
 
+  subroutine coop_asy_label_relative(fp, label, xratio, yratio, color)
+    class(coop_asy) fp
+    COOP_UNKNOWN_STRING label
+    COOP_UNKNOWN_STRING,optional::color
+    real(sp) xratio, yratio
+    write(fp%unit, "(A)") "LABELS"
+    write(fp%unit, "(A)") "1"
+    if(present(color))then
+       write(fp%unit, "(A)") trim(color)
+    else
+       write(fp%unit, "(A)") "black"
+    endif
+    call fp%write_coor(fp%xrel(xratio), fp%yrel(yratio))
+    if(trim(label).eq."")then
+       write(fp%unit, "(A)") "NULL"
+    else
+       write(fp%unit, "(A)") trim(label)
+    endif
+  end subroutine coop_asy_label_relative
 
+  
   subroutine coop_asy_label_s(fp, label, x, y, color)
     class(coop_asy) fp
     COOP_UNKNOWN_STRING label
@@ -2833,5 +2855,19 @@ contains
     endif
   end subroutine coop_asy_band_s
 
+  function coop_asy_xrel(fp, xratio) result(xrel)
+    class(coop_asy)::fp
+    real(sp) xratio
+    real(sp) xrel
+    xrel = xratio*fp%xmax + (1.d0-xratio)*fp%xmin
+  end function coop_asy_xrel
+
+  function coop_asy_yrel(fp, yratio) result(yrel)
+    class(coop_asy)::fp
+    real(sp) yratio
+    real(sp) yrel
+    yrel = yratio*fp%ymax + (1.d0-yratio)*fp%ymin
+  end function coop_asy_yrel
+  
 
 end module coop_asy_mod
