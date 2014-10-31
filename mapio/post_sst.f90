@@ -20,8 +20,8 @@ program test
 
   type(coop_asy)::fig
   
-  if(iargc() .lt. 4)then
-     write(*,*) "./POSTSST prefix nsims"
+  if(iargc() .lt. 2)then
+     write(*,*) "./POSTSST prefix nsims label_map1, label_map2 ..."
      stop
   endif
   prefix = coop_InputArgs(1)
@@ -31,6 +31,11 @@ program test
   call fp%open(trim(prefix)//"_info.txt", "r")
   read(fp%unit,*) n, nmaps, dr
   call fp%close()
+  
+  if(iargc() .lt. 2 + nmaps)then
+     write(*,*) "./POSTSST prefix nsims label_map1, label_map2 ..."
+     stop
+  endif
   
   dr = dr*coop_SI_arcmin
   allocate(f(0:n, 0:mmax/2, nmaps, 0:nsims), r(0:n), mean(0:n), std(0:n))
