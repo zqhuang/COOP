@@ -61,7 +61,7 @@ program test
         call fig%curve(r, mean+std, color = trim(coop_asy_gray_color(0.75)), linewidth = 0.5, legend = "FFP8 2-$\sigma$")
         call fig%band(r, mean-std, mean+std, colorfill = "gray", linecolor = "invisible")
         call fig%curve(r, mean+std, color = "gray", linewidth = 0.5, legend = "FFP8 1-$\sigma$")
-        call fig%curve(r, f(:,0), color = "red", linetype = "solid", linewidth = 1.5, legend = "SMICA")
+        call fig%curve(r, f(:,m_want, map_want, 0), color = "red", linetype = "solid", linewidth = 1.5, legend = "SMICA")
         call fig%curve(r, mean, color = "blue", linetype = "dotted", linewidth = 1.5, legend = "FFP8 mean")
         call fig%label("$m = "//COOP_STR_OF(m_want)//"$ mode", 0.4, 0.6)
         call fig%legend(0.6, 0.92)
