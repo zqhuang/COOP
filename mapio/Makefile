@@ -64,6 +64,9 @@ SST: $(OBJ) sstack.o
 POSTHA: $(OBJ) post_ha.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) post_ha.o $(LINK)
 
+POSTSST: $(OBJ) post_sst.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) post_sst.o $(LINK)
+
 ByProd: $(OBJ) map_by_products.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) map_by_products.o $(LINK)
 
@@ -94,7 +97,7 @@ Shells: $(OBJ) shells.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) shells.o $(LINK)	
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP InpEB InpT TrimC GetCl QEB MultStack Shells POSTHA HA SST ByProd GetInfo
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP InpEB InpT TrimC GetCl QEB MultStack Shells POSTHA HA SST POSTSST ByProd GetInfo
 
 
 test.o: $(LIB)

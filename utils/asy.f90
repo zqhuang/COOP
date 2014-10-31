@@ -2728,7 +2728,7 @@ contains
        if(present(linecolor))then
           lineproperty=trim(linecolor)
        else
-          lineproperty = "black"
+          lineproperty = "invisible"
        endif
        if(present(linetype))then
           lineproperty = trim(lineproperty)//"_"//trim(linetype)
