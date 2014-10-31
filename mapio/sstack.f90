@@ -30,8 +30,8 @@ program hastack_prog
 
   COOP_UNKNOWN_STRING, parameter::imap_file  = "planck14/dx11_v2_smica_int_cmb"//postfix
   COOP_UNKNOWN_STRING, parameter::polmap_file  = "planck14/dx11_v2_smica_pol_case3_cmb"//postfix
-  COOP_UNKNOWN_STRING, parameter::imask_file  = "planck14/dx11_v2_smica_int_mask"//postfix
-  COOP_UNKNOWN_STRING, parameter::polmask_file  ="planck14/dx11_v2_smica_pol_mask"//postfix
+  COOP_UNKNOWN_STRING, parameter::imask_file  = "planck14/dx11_v2_common_int_mask"//postfix
+  COOP_UNKNOWN_STRING, parameter::polmask_file  ="planck14/dx11_v2_common_pol_mask"//postfix
 
   type(coop_healpix_maps)::polmask, imask, noise, imap, polmap, tmpmap
   type(coop_healpix_patch)::patch

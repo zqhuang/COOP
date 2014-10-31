@@ -27,7 +27,7 @@ module coop_healpix_mod
   integer,parameter::coop_inpainting_lowl_min = 5
 
   integer, parameter::coop_healpix_default_lmax=2500
-  COOP_REAL,parameter::coop_healpix_mask_tol = 0.85  !!default mask tolerance
+  COOP_REAL,parameter::coop_healpix_mask_tol = 0.95  !!default mask tolerance
   integer::coop_healpix_inpainting_lowl=5
   real(dl),parameter::coop_healpix_diffuse_scale = 10.d0*coop_SI_arcmin
   integer,parameter::coop_healpix_index_TT = 1
@@ -1359,14 +1359,14 @@ contains
        if(present(do_weight))then
           if(do_weight)then
              do i=1, patch%nmaps
-                patch%image(:, :, i) = patch%image(:, :, i)/patch%nstack
+                patch%image(:, :, i) = patch%image(:, :, i)/max(patch%nstack, 1.d0)
              enddo
           else
              patch%image = patch%image/patch%nstack_raw
           endif
        else
           do i=1, patch%nmaps
-             patch%image(:, :, i) = patch%image(:, :, i)/patch%nstack
+             patch%image(:, :, i) = patch%image(:, :, i)/max(patch%nstack, 1.d0)
           enddo
        endif
     else
@@ -1482,8 +1482,11 @@ contains
           patch(ip)%nstack_raw = patch(ip)%nstack_raw + p(ithread, ip)%nstack_raw
           call p(ithread, ip)%free()
        enddo
-       if(patch(ip)%nstack_raw .gt. 0) &
-            patch(ip)%image = patch(ip)%image/patch(ip)%nstack_raw
+       if(patch(ip)%nstack_raw .gt. 0)then
+          do imap = 1, patch(ip)%nmaps
+             patch(ip)%image(:,:, imap) = patch(ip)%image(:,:, imap)/max(patch(ip)%nstack, 1.d0)
+          enddo
+       endif
     enddo
     deallocate(theta, phi, angle, col4)
 #else
