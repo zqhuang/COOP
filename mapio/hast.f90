@@ -70,7 +70,7 @@ program hastack_prog
 
   if(run_id.eq.0)then
      call fp%open(trim(allprefix)//"_info.txt", "w")
-     write(*,*) n, patch_n%nmaps, dr/coop_SI_arcmin
+     write(fp%unit,*) n, patch_n%nmaps, dr/coop_SI_arcmin
      call fp%close()
   endif
   fr_file = trim(allprefix)//COOP_STR_OF(run_id)//".dat"

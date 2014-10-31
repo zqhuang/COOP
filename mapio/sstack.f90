@@ -61,7 +61,7 @@ program hastack_prog
   allprefix = prefix//trim(stack_type)//"_on_"//trim(spot_type)//"_fr_"//COOP_STR_OF(nint(patch_size/coop_SI_degree))//"deg"//input_resolution
 
   call fp%open(trim(allprefix)//"_info.txt", "w")
-  write(*,*) n, patch%nmaps, dr/coop_SI_arcmin
+  write(fp%unit,*) n, patch%nmaps, dr/coop_SI_arcmin
   call fp%close()
 
   fr_file = trim(allprefix)//".dat"

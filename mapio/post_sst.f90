@@ -41,7 +41,7 @@ program test
      r(i) = (dr*i)
   enddo
   
-  call fp%open(trim(prefix)//trim(coop_num2str(i))//".dat", "ru")
+  call fp%open(trim(prefix)//".dat", "ru")
   do isim = 0, nsims
      read(fp%unit) j
      if(j.ne.isim)then
@@ -49,7 +49,7 @@ program test
         stop "data file broken"
      endif
      read(fp%unit) fr
-     f(0:n, isim) = fr(0:n, m_want/2, map_want)
+     f(0:n, isim) = fr(0:n, m_want/2, map_want)*1.e6
   enddo
   call fp%close()
   do i = 0, n
@@ -58,13 +58,15 @@ program test
   enddo
   
   call fig%open(trim(prefix)//"_fig.txt")
-  call fig%init(xlabel = "$r$", ylabel  = "radial profile")
-  call fig%band(r, mean-std*2, mean+std*2, colorfill = "lightgray", linecolor = "invisible")
+  call fig%init(xlabel = "$r$", ylabel  = "$"//trim(coop_InputArgs(5))//" (\mu K)$")
+  call fig%band(r, mean-std*2, mean+std*2, colorfill = trim(coop_asy_gray_color(0.75)), linecolor = "invisible")
+  call fig%curve(r, mean+std, color = trim(coop_asy_gray_color(0.75)), linewidth = 0.5, legend = "FFP8 2-$\sigma$")
   call fig%band(r, mean-std, mean+std, colorfill = "gray", linecolor = "invisible")
-  call fig%curve(r, f(:,0), color = "red", linetype = "solid", linewidth = 1.5, legend = "data")
-  call fig%curve(r, mean, color = "blue", linetype = "dotted", linewidth = 1.5, legend = "sim. mean")
+  call fig%curve(r, mean+std, color = "gray", linewidth = 0.5, legend = "FFP8 1-$\sigma$")
+  call fig%curve(r, f(:,0), color = "red", linetype = "solid", linewidth = 1.5, legend = "SMICA")
+  call fig%curve(r, mean, color = "blue", linetype = "dotted", linewidth = 1.5, legend = "FFP8 mean")
   
-  call fig%legend(0.1, 0.95, 1)
+  call fig%legend(0.6, 0.92, 1)
   call fig%close()
   
 end program test
