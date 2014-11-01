@@ -14,7 +14,7 @@ program hastack_prog
   COOP_SHORT_STRING::spot_type, stack_type
   COOP_REAL, parameter::patch_size = 2.d0*coop_SI_degree
   COOP_UNKNOWN_STRING, parameter::cs_method = "commander"
-  COOP_UNKNOWN_STRING, parameter::pol_case = "case3"
+  COOP_UNKNOWN_STRING, parameter::pol_case = "case5"
   
   COOP_UNKNOWN_STRING, parameter::prefix = "sst_"//cs_method//"_"//pol_case//"/"
   COOP_INT, parameter::mmax = 4
@@ -52,6 +52,7 @@ program hastack_prog
      print*, "./SST Tmax  QU"     
      print*, "./SST Tmax_QTUTOrient QU"
      print*, "./SST PTmax QU"
+     stop
   endif
   call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
   if(trim(stack_type) .ne. "T")then
