@@ -50,10 +50,10 @@ program test
         write(*,*) isim, j
         stop "data file broken"
      endif
-     read(fp%unit) f(:,:,:, isim)
+     read(fp%unit) f(0:n, 0:mmax/2, 1:nmaps, isim)
   enddo
   call fp%close()
-  f = f * 1.e6
+  f = f*1.e6
   do map_want = 1, nmaps
      do m_want = 0, mmax, 2
         do i = 0, n
