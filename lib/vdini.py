@@ -41,32 +41,22 @@ want = [ ['lowTEB', 'plikTT'], \
 
 ################# No need to change anything below ####################
 
-def copy_replace_first(fname1,  fname2, patterns, repls):
-    print "copying " + fname1 + " to " + fname2
-    fp = open(fname1, 'r')
-    file_content = fp.read()
-    fp.close()
-    for i in range(len(patterns)):
-        if(re.match(r'\^.+\$', patterns[i])):
-            file_content = re.sub(patterns[i], repls[i], file_content, count = 1,  flags = re.M + re.I)
-        else:
-            file_content = re.sub(patterns[i], repls[i], file_content, count = 1, flags = re.I)
-    fp = open(fname2, 'w')
-    fp.write(file_content)
-    fp.close()
-
 def copy_replace_all(fname1, fname2, patterns, repls, headstr):
     print "copying " + fname1 + " to " + fname2
     fp = open(fname1, 'r')
     file_content = fp.read()
     fp.close()
+    hasdata = re.search(patterns[0],file_content, flags=re.I + re.M)       
     for i in range(len(patterns)):
         if(re.match(r'\^.+\$', patterns[i])):
             file_content = re.sub(patterns[i], repls[i], file_content, flags = re.M + re.I)
-        else:
+        else:     
             file_content = re.sub(patterns[i], repls[i], file_content, flags = re.I)
     fp = open(fname2, 'w')
-    fp.write(headstr + "\n" + file_content)
+    if(hasdata is None):
+        fp.write(file_content)
+    else:
+        fp.write(headstr + "\n" + file_content)
     fp.close()
 
 
@@ -77,9 +67,9 @@ def generate_ini(fname, datasets):
         postfix = postfix + "_" + data
         inc = inc + r'DEFAULT('  + datafile[data] + r')' + "\n"
     fout = fname.replace('.ini', postfix + '.ini')
-    patterns = [r'^\s*(DEFAULT\([^\(\)]*\))\s*$', \
+    patterns = [ r'^\s*(DEFAULT\([^\(\)]*\))\s*$', \
                 r'^\#\#\_OUT(DEFAULT\(batch[^\(\)]*common[^\(\)]*\.ini\))$', \
-                r'^\s*file_root\s*\=\s*([\w\d\_\-\.]*)\s*$']
+                r'^\s*file\_root\s*\=\s*([\w\d\_\-\.\/\\]*)\s*$']
     repls = [r'##_OUT\1', \
              r'\1', \
              r'file_root = \1'+postfix ]
