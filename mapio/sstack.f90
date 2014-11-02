@@ -37,24 +37,35 @@ program hastack_prog
 
   type(coop_healpix_maps)::polmask, imask, noise, imap, polmap, tmpmap
   type(coop_healpix_patch)::patch
-  COOP_INT i, j, ind, nmaps_temp
+  COOP_INT i, j, ind, nmaps_temp, l
   COOP_STRING::fr_file
   type(coop_list_integer)::listpix
   type(coop_list_real)::listangle
   type(coop_file) fp
+  COOP_SINGLE,dimension(:),allocatable::window
+  logical highpass
   call coop_MPI_init()
   spot_type = trim(coop_InputArgs(1))
   stack_type = trim(coop_InputArgs(2))
   if(trim(spot_type) .eq. "" .or. trim(stack_type).eq."")then
      print*, "Syntax:"
      print*, "./SST Tmax  T"
-     print*, "./SST Tmax  QrUr"
-     print*, "./SST Tmax  QU"     
-     print*, "./SST Tmax_QTUTOrient QU"
-     print*, "./SST PTmax QU"
+     print*, "./SST Tmax  QrUr [highpass]"
+     print*, "./SST Tmax  QU [highpass]"     
+     print*, "./SST Tmax_QTUTOrient QU [highpass]"
+     print*, "./SST PTmax QU [highpass]"
+     print*, "where [highpass] can be T or F or ignored (default F, pol only)"
      stop
   endif
+  highpass = (trim(coop_InputArgs(3)) .eq. "T")
   call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
+  if(highpass)then
+     allocate(window(0:coop_healpix_default_lmax))
+     do l= 0, coop_healpix_default_lmax
+        window(l) = high_pass_window(l, 20, 40) !!default 20, 40
+     enddo
+  endif
+  
   if(trim(stack_type) .ne. "T")then
      call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )
   endif
@@ -65,7 +76,9 @@ program hastack_prog
   else
      allprefix = prefix//trim(stack_type)//"_on_"//trim(spot_type)//"_fr_"//COOP_STR_OF(nint(patch_size/coop_SI_degree))//"deg"//input_resolution//"_nosmooth"
   endif
-
+  if(highpass)then
+     allprefix = trim(allprefix)//"_highpass"
+  endif
   call fp%open(trim(allprefix)//"_info.txt", "w")
   write(fp%unit,*) n, patch%nmaps, dr/coop_SI_arcmin
   call fp%close()
@@ -126,13 +139,13 @@ contains
     if(i.eq.0)then
        call imap%read(filename = trim(imap_file), nmaps_wanted = nm , spin = spin , nmaps_to_read = 1 )
        imap%map(:, 1) = imap%map(:, 1)*imask%map(:, 1)
-       if(fwhm.ge.coop_SI_arcmin)    call imap%smooth(fwhm)
+       call do_smooth_map(imap)
        noise = imap
     else
        call imap%read(trim(sim_file_name_cmb_imap(i)), nmaps_wanted = nm , spin = spin , nmaps_to_read = 1 )
        call noise%read(trim(sim_file_name_noise_imap(i)), nmaps_wanted = nm , spin = spin, nmaps_to_read = 1 )
        imap%map(:, 1) = (imap%map(:, 1) + noise%map(:, 1))*imask%map(:, 1)
-       if(fwhm.ge.coop_SI_arcmin)    call imap%smooth(fwhm)
+       call do_smooth_map(imap)
     endif
     deallocate(spin)
     if(nm.gt.1)call imap%iqu2TQTUT()
@@ -145,13 +158,13 @@ contains
        call polmap%read(trim(polmap_file), spin = (/2 , 2 /) , nmaps_wanted = 2  )
        polmap%map(:, 1) = polmap%map(:, 1)*polmask%map(:, 1)
        polmap%map(:, 2) = polmap%map(:, 2)*polmask%map(:, 1)
-       if(fwhm.ge.coop_SI_arcmin)call polmap%smooth(fwhm)
+       call do_smooth_map(polmap)
     else
        call polmap%read(trim(sim_file_name_cmb_polmap(i)), spin = (/2 , 2 /) , nmaps_wanted = 2  )
        call noise%read(trim(sim_file_name_noise_polmap(i)), spin = (/2 , 2 /) , nmaps_wanted = 2 )
        polmap%map(:, 1) = (polmap%map(:, 1) + noise%map(:, 1))*polmask%map(:, 1)
        polmap%map(:, 2) = (polmap%map(:, 2) + noise%map(:, 2))*polmask%map(:, 1)
-       if(fwhm.ge.coop_SI_arcmin)call polmap%smooth(fwhm)
+       call do_smooth_map(polmap)
     endif
   end subroutine load_polmap
 
@@ -180,5 +193,28 @@ contains
     COOP_STRING sim_file_name_noise_polmap
     sim_file_name_noise_polmap = mapdir//"noise/pol/dx11_v2_"//cs_method//"_pol_"//pol_case//"_noise_mc_"//trim(coop_Ndigits(i-1, 5))//postfix
   end function sim_file_name_noise_polmap
+
+  function high_pass_window(l, lstart, lend) result(w)
+    COOP_SINGLE w
+    COOP_INT l, lstart, lend
+    if(l.le.lstart)then
+       w = 0.
+       return
+    endif
+    if(l.ge.lend)then
+       w = 1.
+       return
+    endif
+    w = sin(coop_pio2*dble(l - lstart)/dble(lend-lstart))**2
+  end function high_pass_window
+
+  subroutine do_smooth_map(mymap)
+    type(coop_healpix_maps)mymap
+    if(highpass .and. mymap%nmaps.ge.2 .and. all(mymap%spin.eq.2))then
+       call mymap%smooth_with_window(fwhm = fwhm, window = window)          
+    else
+       if(fwhm .gt. coop_SI_arcmin) call mymap%smooth(fwhm = fwhm)
+    endif
+  end subroutine do_smooth_map
 
 end program hastack_prog

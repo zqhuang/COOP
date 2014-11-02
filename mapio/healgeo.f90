@@ -15,31 +15,29 @@ module coop_healpix_mod
 
   private
 
-  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_get_disc, coop_healpix_export_spots, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_lb2ang, coop_healpix_ang2lb, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls
+  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_get_disc, coop_healpix_export_spots, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_lb2ang, coop_healpix_ang2lb, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax
   
   logical::coop_healpix_alm_check_done = .false.
   logical::coop_healpix_want_cls = .true.
 
-  integer,parameter::sp = kind(1.)
-  integer,parameter::dl = kind(1.d0)
-  integer,parameter::dlc = kind( (1.d0,1.d0) )
-  integer,parameter::coop_inpainting_lowl_max = 20
-  integer,parameter::coop_inpainting_lowl_min = 5
+  COOP_INT,parameter::dlc = kind( (1.d0,1.d0) )
+  COOP_INT,parameter::coop_inpainting_lowl_max = 20
+  COOP_INT,parameter::coop_inpainting_lowl_min = 5
 
-  integer, parameter::coop_healpix_default_lmax=2500
+  COOP_INT, parameter::coop_healpix_default_lmax=2500
   COOP_REAL,parameter::coop_healpix_mask_tol = 0.95  !!default mask tolerance
-  integer::coop_healpix_inpainting_lowl=5
-  real(dl),parameter::coop_healpix_diffuse_scale = 10.d0*coop_SI_arcmin
-  integer,parameter::coop_healpix_index_TT = 1
-  integer,parameter::coop_healpix_index_EE = 2
-  integer,parameter::coop_healpix_index_BB = 3
-  integer,parameter::coop_healpix_index_TE = 4
-  integer,parameter::coop_healpix_index_EB = 5
-  integer,parameter::coop_healpix_index_TB = 6
+  COOP_INT::coop_healpix_inpainting_lowl=5
+  COOP_REAL,parameter::coop_healpix_diffuse_scale = 10.d0*coop_SI_arcmin
+  COOP_INT,parameter::coop_healpix_index_TT = 1
+  COOP_INT,parameter::coop_healpix_index_EE = 2
+  COOP_INT,parameter::coop_healpix_index_BB = 3
+  COOP_INT,parameter::coop_healpix_index_TE = 4
+  COOP_INT,parameter::coop_healpix_index_EB = 5
+  COOP_INT,parameter::coop_healpix_index_TB = 6
 
   type, extends(coop_sphere_disc):: coop_healpix_disc
-     integer nside
-     integer center
+     COOP_INT nside
+     COOP_INT center
    contains
      procedure :: pix2ang => coop_healpix_disc_pix2ang
      procedure :: ang2pix => coop_healpix_disc_ang2pix
@@ -48,14 +46,14 @@ module coop_healpix_mod
   end type coop_healpix_disc
 
   type coop_healpix_maps
-     integer npix, nside, nmaps, ordering, lmax, iq, iu, mask_npix, maskpol_npix
+     COOP_INT npix, nside, nmaps, ordering, lmax, iq, iu, mask_npix, maskpol_npix
      character(LEN=80),dimension(64)::header
-     integer,dimension(:),allocatable::spin
+     COOP_INT,dimension(:),allocatable::spin
      real, dimension(:,:),allocatable::map
      complex, dimension(:,:,:),allocatable::alm
      real, dimension(:,:),allocatable::Cl
-     integer,dimension(:),allocatable::mask_listpix, maskpol_listpix
-     real(dl) chisq, mcmc_temperature
+     COOP_INT,dimension(:),allocatable::mask_listpix, maskpol_listpix
+     COOP_REAL chisq, mcmc_temperature
      logical,dimension(:),allocatable::alm_done
      real,dimension(:,:),allocatable::checksum
    contains     
@@ -79,7 +77,8 @@ module coop_healpix_mod
      procedure :: iqu2LapTEB => coop_healpix_maps_iqu2LapTEB
      procedure :: teb2iqu => coop_healpix_maps_teb2iqu
      procedure :: iqu2TQTUT => coop_healpix_maps_iqu2TQTUT
-     procedure :: smooth => coop_healpix_smooth_map
+     procedure :: smooth => coop_healpix_maps_smooth
+     procedure :: smooth_with_window => coop_healpix_maps_smooth_with_window
      procedure :: smooth_mask => coop_healpix_smooth_mask
      procedure :: t2zeta => coop_healpix_maps_t2zeta
      procedure :: trim_mask => coop_healpix_trim_mask
@@ -130,8 +129,8 @@ contains
     real,parameter::nefolds = 2.
     type(coop_healpix_maps) mask, this
     type(coop_healpix_maps) masknew, hgs, maskcopy
-    integer i, j, nsteps, nmaps, istart, iend
-    real(dl) smoothscale, decay
+    COOP_INT i, j, nsteps, nmaps, istart, iend
+    COOP_REAL smoothscale, decay
     logical, optional::pol
     nsteps = ceiling(smoothscale/sqrt(coop_pi*4./this%npix))
     if(nsteps .le. 0 .or. nsteps .gt. 200)stop "coop_healpix_smooth_mask: invalid input of smoothscale"
@@ -172,9 +171,9 @@ contains
     subroutine coop_healpix_iterate_mask(this_from, this_to, mask_from, mask_to, decay)  
       type(coop_healpix_maps) this_from, this_to
       type(coop_healpix_maps)  mask_from , mask_to
-      integer list(8), nneigh
-      integer i, j
-      real(dl) decay, summask
+      COOP_INT list(8), nneigh
+      COOP_INT i, j
+      COOP_REAL decay, summask
 #ifdef HAS_HEALPIX
       !$omp parallel do private(list, nneigh, i, summask, j)
       do i = 1, mask_from%mask_npix
@@ -437,7 +436,7 @@ contains
 
   subroutine coop_healpix_patch_get_all_radial_profiles(this)
     class(coop_healpix_patch)::this
-    integer i, j, imap, m
+    COOP_INT i, j, imap, m
     if(this%mmax .lt. 0) return
     do imap = 1, this%nmaps
        do m = 0, this%mmax, 2
@@ -479,7 +478,7 @@ contains
     real,dimension(:),allocatable::sqrtCls
     real,dimension(:, :),allocatable::Cls_sqrteig
     real,dimension(:,:,:),allocatable::Cls_rot
-    integer l
+    COOP_INT l
     if(this%nmaps.eq.1 .and. this%spin(1).eq.0)then
        allocate(sqrtCls(0:this%lmax))
        !$omp parallel do
@@ -502,10 +501,10 @@ contains
 
   subroutine coop_healpix_maps_simulate_Tmaps(this, nside, lmax, sqrtCls)
     class(coop_healpix_maps) this
-    integer nside
-    integer lmax
-    real(sp) sqrtCls(0:lmax)
-    integer l,m
+    COOP_INT nside
+    COOP_INT lmax
+    COOP_SINGLE sqrtCls(0:lmax)
+    COOP_INT l,m
     call this%init( nside = nside, nmaps = 1, spin = (/ 0 /), lmax = lmax)
     !$omp parallel do private(l, m)
     do l=0, lmax
@@ -521,7 +520,7 @@ contains
 
   subroutine coop_healpix_maps_get_cls(this) !!I assume you have already called    this_map2alm(this)
     class(coop_healpix_maps)this
-    integer l, m, i, j, k
+    COOP_INT l, m, i, j, k
     if(.not.allocated(this%alm)) stop "coop_healpix_maps_get_cls: you have to call coop_healpix_maps_map2alm before calling this subroutine"
     !$omp parallel do private(i,j,k,l)
     do i=1, this%nmaps
@@ -536,13 +535,13 @@ contains
   end subroutine coop_healpix_maps_get_cls
 
   subroutine coop_healpix_Cls2Rot(lmax, Cls, Cls_sqrteig, Cls_rot)
-    integer lmax
+    COOP_INT lmax
     real,dimension(0:lmax, 6),intent(IN)::Cls !!ordering is TT, EE, BB, TE, EB, TB
     real, dimension(3, 0:lmax),intent(OUT)::Cls_sqrteig
     real, dimension(3, 3, 0:lmax),intent(OUT)::Cls_rot
-    integer l
-    real(dl) a2(2,2), a3(3,3)
-    real(dl) psi2(2,2), psi3(3,3)
+    COOP_INT l
+    COOP_REAL a2(2,2), a3(3,3)
+    COOP_REAL psi2(2,2), psi3(3,3)
     if(all(Cls(:,coop_healpix_index_EB).eq.0.d0) .and. all(Cls(:, coop_healpix_index_TB).eq.0.d0))then
        Cls_sqrteig(coop_healpix_index_BB,:) = sqrt(Cls(:, coop_healpix_index_BB))
        Cls_rot(coop_healpix_index_BB, coop_healpix_index_TT, :) = 0
@@ -639,10 +638,10 @@ contains
 
   subroutine coop_healpix_maps_simulate_TQUmaps(this, nside, lmax, Cls_sqrteig, Cls_rot)
     class(coop_healpix_maps) this
-    integer lmax, nside
+    COOP_INT lmax, nside
     real,dimension(3, 0:lmax)::Cls_sqrteig
     real,dimension(3, 3, 0:lmax)::Cls_rot
-    integer l, m
+    COOP_INT l, m
     call this%init(nside = nside, nmaps = 3, spin = (/ 0, 2, 2 /), lmax = lmax)    
     !$omp parallel do private(l, m)
     do l=0, lmax
@@ -658,9 +657,9 @@ contains
 
   subroutine coop_healpix_maps_init(this, nside, nmaps, spin, lmax)
     class(coop_healpix_maps) this
-    integer:: nside, nmaps
-    integer:: spin(nmaps)
-    integer, optional::lmax
+    COOP_INT:: nside, nmaps
+    COOP_INT:: spin(nmaps)
+    COOP_INT, optional::lmax
 #ifdef HAS_HEALPIX
     if(allocated(this%map))then
        if(this%nside .eq. nside .and. this%nmaps.eq.nmaps)then
@@ -700,7 +699,7 @@ contains
 
   subroutine coop_healpix_maps_allocate_alms(this, lmax)
     class(coop_healpix_maps) this
-    integer lmax
+    COOP_INT lmax
     if(allocated(this%alm))then
        if(this%lmax  .eq. lmax )then
           return
@@ -732,10 +731,10 @@ contains
   subroutine coop_healpix_maps_read(this, filename, nmaps_wanted, spin, nmaps_to_read)
     class(coop_healpix_maps) this
     COOP_UNKNOWN_STRING filename
-    integer,optional::nmaps_wanted, nmaps_to_read
-    integer,dimension(:),optional::spin
+    COOP_INT,optional::nmaps_wanted, nmaps_to_read
+    COOP_INT,dimension(:),optional::spin
     integer(8) npixtot
-    integer nmaps_actual
+    COOP_INT nmaps_actual
 #ifdef HAS_HEALPIX
     if(.not. coop_file_exists(filename))then
        write(*,*) trim(filename)
@@ -832,7 +831,7 @@ contains
   subroutine coop_healpix_maps_write(this, filename, index_list)
     class(coop_healpix_maps)this
     COOP_UNKNOWN_STRING filename
-    integer,dimension(:),optional::index_list
+    COOP_INT,dimension(:),optional::index_list
     logical pol
     if(present(index_list))then
        if(any(index_list .lt. 1 .or. index_list .gt. this%nmaps)) stop "coop_healpix_write_map: index out of range"
@@ -897,9 +896,9 @@ contains
 
   subroutine coop_healpix_maps_map2alm(this, lmax, index_list)
     class(coop_healpix_maps) this
-    integer,optional::lmax
-    integer i, l, j, lm, n
-    integer,dimension(:),optional::index_list
+    COOP_INT,optional::lmax
+    COOP_INT i, l, j, lm, n
+    COOP_INT,dimension(:),optional::index_list
     complex, dimension(:,:,:),allocatable::alm
 #ifdef HAS_HEALPIX
     call this%convert2ring()
@@ -986,8 +985,8 @@ contains
 
   subroutine coop_healpix_maps_alm2map(this, index_list)
     class(coop_healpix_maps) this
-    integer i, j, n
-    integer,dimension(:),optional::index_list
+    COOP_INT i, j, n
+    COOP_INT,dimension(:),optional::index_list
     complex,dimension(:,:,:),allocatable::alm
 #ifdef HAS_HEALPIX
     if(present(index_list))then
@@ -1049,9 +1048,9 @@ contains
     real,optional::window(0:this%lmax)
     real,optional::fwhm
     real,optional::lpower
-    integer,dimension(:), optional::index_list
-    integer l
-    real(sp) c, w(0:this%lmax)
+    COOP_INT,dimension(:), optional::index_list
+    COOP_INT l
+    COOP_SINGLE c, w(0:this%lmax)
     w = 1.
     if(present(fwhm))then
        c = sign((coop_sigma_by_fwhm * fwhm)**2/2., dble(fwhm))
@@ -1092,10 +1091,10 @@ contains
 
 
   subroutine split_angular_mode(n, qmap, umap, m, nr, fr)
-    integer n, m, nr
-    real(sp) qmap(-n:n,-n:n), umap(-n:n,-n:n)
-    real(sp) fr(0:nr), w(0:nr), q, u, r, phi, fpoint
-    integer i, j, ir
+    COOP_INT n, m, nr
+    COOP_SINGLE qmap(-n:n,-n:n), umap(-n:n,-n:n)
+    COOP_SINGLE fr(0:nr), w(0:nr), q, u, r, phi, fpoint
+    COOP_INT i, j, ir
     fr = 0
     w = 0
     do i = -n, n
@@ -1128,12 +1127,12 @@ contains
 
 
   subroutine map_filter_modes(n, qmap, umap, ms)
-    integer n, nm
-    integer ms(:)
-    real(sp) qmap(-n:n, -n:n), umap(-n:n, -n:n)
+    COOP_INT n, nm
+    COOP_INT ms(:)
+    COOP_SINGLE qmap(-n:n, -n:n), umap(-n:n, -n:n)
     real,dimension(:,:),allocatable::fr
-    real(sp) r, phi, s1, s2
-    integer i, j, ir, nr, im
+    COOP_SINGLE r, phi, s1, s2
+    COOP_INT i, j, ir, nr, im
     nm = size(ms)
     nr = ceiling(coop_sqrt2*n)+1
     allocate(fr(0:nr, nm))
@@ -1160,9 +1159,9 @@ contains
 
 
   subroutine coop_healpix_get_disc(nside, pix, disc)
-    integer pix, nside
+    COOP_INT pix, nside
     type(coop_healpix_disc) disc
-    real(dl) r
+    COOP_REAL r
     disc%nside  = nside
     disc%center = pix
 #ifdef HAS_HEALPIX
@@ -1178,8 +1177,8 @@ contains
 
   subroutine coop_healpix_disc_pix2ang(disc, pix, r, phi)
     class(coop_healpix_disc) disc
-    integer pix
-    real(dl) r, phi, vec(3), x, y
+    COOP_INT pix
+    COOP_REAL r, phi, vec(3), x, y
     if(pix .eq. disc%center)then
        r = 0
        phi = 0
@@ -1198,9 +1197,9 @@ contains
 
   subroutine coop_healpix_disc_ang2pix(disc, r, phi, pix)
     class(coop_healpix_disc) disc
-    real(dl) r !!in unit of radian
-    real(dl) phi, vec(3), cost, sint
-    integer pix
+    COOP_REAL r !!in unit of radian
+    COOP_REAL phi, vec(3), cost, sint
+    COOP_INT pix
     cost = RADIUS2COS(r)
     sint = sqrt(1.d0 - cost**2)
     vec = sint*cos(phi)* disc%nx + sint*sin(phi)*disc%ny + cost*disc%nz
@@ -1214,8 +1213,8 @@ contains
 
   subroutine coop_healpix_disc_pix2xy(disc, pix, x, y)
     class(coop_healpix_disc) disc
-    integer pix
-    real(dl) r, phi, vec(3), x, y
+    COOP_INT pix
+    COOP_REAL r, phi, vec(3), x, y
     if(pix .eq. disc%center)then
        x = 0
        y = 0
@@ -1237,9 +1236,9 @@ contains
 
   subroutine coop_healpix_disc_xy2pix(disc, x, y, pix)
     class(coop_healpix_disc) disc
-    real(dl) x, y !!in unit of radian
-    real(dl) vec(3), cost, sint, r
-    integer pix
+    COOP_REAL x, y !!in unit of radian
+    COOP_REAL vec(3), cost, sint, r
+    COOP_INT pix
     r = sqrt(x**2+y**2)
     if(r.lt.1.d-8)then
        pix = disc%center
@@ -1256,8 +1255,8 @@ contains
   end subroutine coop_healpix_disc_xy2pix
 
   subroutine coop_healpix_rotate_qu(qu, phi)
-    real(sp) qu(2)
-    real(dl) phi, cosp, sinp
+    COOP_SINGLE qu(2)
+    COOP_REAL phi, cosp, sinp
     cosp = cos(2.d0*phi)
     sinp = sin(2.d0*phi)
     qu = (/ qu(1)*cosp + qu(2)*sinp,  -qu(1)*sinp + qu(2)*cosp /)
@@ -1395,7 +1394,7 @@ contains
     type(coop_file)::fp
     COOP_INT imap, ithread, i, pix, iaccept, ireject, ip
     COOP_REAL hcos, hsin, maxcol4, mincol4, dcol4
-    real(sp) uppercut, lowercut
+    COOP_SINGLE uppercut, lowercut
 #ifdef HAS_HEALPIX
     if(.not. coop_file_exists(spots_file))then
        write(*,*) "Spots file not found: "//trim(spots_file)
@@ -1802,7 +1801,7 @@ contains
     type(coop_healpix_patch) patch
     COOP_INT i, j, pix
     COOP_REAL x, y, r, phi
-    real(sp) qu(2)
+    COOP_SINGLE qu(2)
     if(.not. present(mask))patch%nstack = 1.d0
     patch%nstack_raw  = 1
     select case(trim(patch%genre))
@@ -1864,37 +1863,67 @@ contains
     end select
   end subroutine coop_healpix_fetch_patch
 
-  subroutine coop_healpix_smooth_mapfile(mapfile, filter_fwhm)
+  subroutine coop_healpix_smooth_mapfile(mapfile, fwhm)
     COOP_UNKNOWN_STRING mapfile
     type(coop_healpix_maps) map
-    real(dl) filter_fwhm
+    COOP_REAL fwhm
     call map%read(mapfile)
-    call coop_healpix_smooth_map(map, filter_fwhm)
-    call map%write(trim(coop_file_add_postfix(trim(mapfile),"_smoothed_fwhm"//trim(coop_num2str(nint(filter_fwhm/coop_SI_arcmin)))//"arcmin")))
-    write(*,*) "output: "//trim(coop_file_add_postfix(trim(mapfile),"_smoothed_fwhm"//trim(coop_num2str(nint(filter_fwhm/coop_SI_arcmin)))//"arcmin"))
+    call coop_healpix_maps_smooth(map, fwhm)
+    call map%write(trim(coop_file_add_postfix(trim(mapfile),"_smoothed_fwhm"//trim(coop_num2str(nint(fwhm/coop_SI_arcmin)))//"arcmin")))
+    write(*,*) "output: "//trim(coop_file_add_postfix(trim(mapfile),"_smoothed_fwhm"//trim(coop_num2str(nint(fwhm/coop_SI_arcmin)))//"arcmin"))
     call map%free()
   end subroutine coop_healpix_smooth_mapfile
 
-  subroutine coop_healpix_smooth_map(map, filter_fwhm, index_list)
+  subroutine coop_healpix_maps_smooth(map, fwhm, index_list)
     class(coop_healpix_maps) map
-    real(dl) filter_fwhm
-    integer lmax
-    integer,dimension(:),optional::index_list
-    lmax = min(ceiling(3./max(abs(filter_fwhm)*coop_sigma_by_fwhm, 1.d-6)), map%nside*3)
+    COOP_REAL fwhm
+    COOP_INT lmax
+    COOP_INT,dimension(:),optional::index_list
+    if(fwhm .gt. 0.d0)then
+       lmax = min(ceiling(3./max(abs(fwhm)*coop_sigma_by_fwhm, 1.d-6)), map%nside*2, coop_healpix_default_lmax)
+    else
+       lmax = min(map%nside*2, coop_healpix_default_lmax)
+    endif
     if(lmax .lt. 2) return
-    if(lmax*abs(filter_fwhm).lt.0.01)return
+    if(lmax*abs(fwhm).lt.0.01)return
     write(*,*) "Smoothing with lmax = ", lmax
     if(present(index_list))then
-       if(any(index_list .gt. map%nmaps)) stop "smooth_map: index_list overflow"
+       if(any(index_list .gt. map%nmaps)) stop "smooth: index_list overflow"
        call map%map2alm(lmax, index_list)
-       call map%filter_alm(fwhm = real(filter_fwhm), index_list = index_list)
+       call map%filter_alm(fwhm = real(fwhm), index_list = index_list)
        call map%alm2map(index_list)
     else
        call map%map2alm(lmax)
-       call map%filter_alm(fwhm = real(filter_fwhm))
+       call map%filter_alm(fwhm = real(fwhm))
        call map%alm2map()
     endif
-  end subroutine coop_healpix_smooth_map
+  end subroutine coop_healpix_maps_smooth
+
+    subroutine coop_healpix_maps_smooth_with_window(map, fwhm, window, index_list)
+    class(coop_healpix_maps) map
+    COOP_REAL fwhm
+    COOP_INT lmax
+    COOP_INT,dimension(:),optional::index_list
+    COOP_SINGLE window(0:map%lmax)
+    if(fwhm .gt. 0.d0)then
+       lmax = min(ceiling(3./max(abs(fwhm)*coop_sigma_by_fwhm, 1.d-6)), map%nside*2, coop_healpix_default_lmax)
+    else
+       lmax = min(map%nside*2, coop_healpix_default_lmax)
+    endif
+    if(lmax .lt. 2) return
+    write(*,*) "Smoothing with lmax = ", lmax
+    if(present(index_list))then
+       if(any(index_list .gt. map%nmaps)) stop "smooth: index_list overflow"
+       call map%map2alm(lmax, index_list)
+       call map%filter_alm(fwhm = real(fwhm), window = window, index_list = index_list)
+       call map%alm2map(index_list)
+    else
+       call map%map2alm(lmax)
+       call map%filter_alm(fwhm = real(fwhm), window = window)
+       call map%alm2map()
+    endif
+  end subroutine coop_healpix_maps_smooth_with_window
+
 
   subroutine coop_healpix_getQU(Emap_file, QUmap_file)
     COOP_UNKNOWN_STRING Emap_file, QUmap_file
@@ -1915,13 +1944,13 @@ contains
   subroutine coop_healpix_maps_get_spots(map, spots,  spot_type, threshold, mask)
     COOP_UNKNOWN_STRING spot_type
     type(coop_list_realarr)::spots
-    real(dl),optional::threshold
-    real(dl) theta, phi, rotate_angle, fcut
+    COOP_REAL,optional::threshold
+    COOP_REAL theta, phi, rotate_angle, fcut
     class(coop_healpix_maps)map
     type(coop_healpix_maps),optional::mask
-    real(dl) total_weight
-    integer i, iq, iu, j
-    integer nneigh, list(8)
+    COOP_REAL total_weight
+    COOP_INT i, iq, iu, j
+    COOP_INT nneigh, list(8)
     logical do_mask
 #ifdef HAS_HEALPIX
     call spots%init()
@@ -2193,13 +2222,13 @@ contains
     COOP_UNKNOWN_STRING spot_type
     type(coop_list_integer)::listpix
     type(coop_list_real)::listangle
-    real(dl),optional::threshold
-    real(dl) theta, phi, rotate_angle, fcut
+    COOP_REAL,optional::threshold
+    COOP_REAL theta, phi, rotate_angle, fcut
     class(coop_healpix_maps)map
     type(coop_healpix_maps),optional::mask
-    real(dl) total_weight
-    integer i, iq, iu, j, ipix
-    integer nneigh, list(8)
+    COOP_REAL total_weight
+    COOP_INT i, iq, iu, j, ipix
+    COOP_INT nneigh, list(8)
     logical do_mask
 #ifdef HAS_HEALPIX
     call listpix%init()
@@ -2435,16 +2464,16 @@ contains
 #endif
   end subroutine coop_healpix_maps_get_listpix
 
-  subroutine coop_healpix_export_spots(map_file, spots_file, spot_type, threshold, mask_file, filter_fwhm)
+  subroutine coop_healpix_export_spots(map_file, spots_file, spot_type, threshold, mask_file, fwhm)
     COOP_UNKNOWN_STRING map_file, spots_file, spot_type
     COOP_UNKNOWN_STRING, optional::mask_file
-    real(dl),optional::threshold
+    COOP_REAL,optional::threshold
     type(coop_file) fp
     type(coop_healpix_maps) mask, map
-    real(dl),optional::filter_fwhm
-    integer i
+    COOP_REAL,optional::fwhm
+    COOP_INT i
     type(coop_list_realarr) spots
-    real(sp) arr(10)
+    COOP_SINGLE arr(10)
     logical domask
     select case(trim(spot_type))
     case("Tmax_QTUTOrient", "PTmax", "PTmin")
@@ -2452,9 +2481,9 @@ contains
     case default
        call map%read(trim(map_file))
     end select
-    if(present(filter_fwhm))then
-       if(abs(filter_fwhm) .gt. 1.d-3) &
-            call map%smooth(filter_fwhm)
+    if(present(fwhm))then
+       if(abs(fwhm) .gt. 1.d-3) &
+            call map%smooth(fwhm)
     endif
     if(present(mask_file))then
        domask = (trim(mask_file).ne."")
@@ -2500,9 +2529,9 @@ contains
   
   subroutine coop_healpix_mask_map(mapfile, maskfile, output, index_list)
     type(coop_healpix_maps) map, mask
-    integer i
+    COOP_INT i
     COOP_UNKNOWN_STRING mapfile, maskfile, output
-    integer,dimension(:),optional::index_list
+    COOP_INT,dimension(:),optional::index_list
     call map%read(mapfile)
     call mask%read(maskfile,  nmaps_wanted = 1)
     if(mask%ordering .eq. COOP_RING)then
@@ -2534,7 +2563,7 @@ contains
 
   subroutine coop_healpix_trim_maskfile(mask_file, smoothscale, output)
     COOP_UNKNOWN_STRING mask_file
-    real(sp) smoothscale
+    COOP_SINGLE smoothscale
     COOP_UNKNOWN_STRING, optional::output
     type(coop_healpix_maps) this
     call this%read(mask_file, nmaps_wanted = 1)
@@ -2551,9 +2580,9 @@ contains
     real,parameter::nefolds = 4
     class(coop_healpix_maps) this
     type(coop_healpix_maps) hgs
-    integer,dimension(:),allocatable::listpix
-    integer i, j, nsteps
-    real(sp) smoothscale
+    COOP_INT,dimension(:),allocatable::listpix
+    COOP_INT i, j, nsteps
+    COOP_SINGLE smoothscale
     nsteps = ceiling(smoothscale/sqrt(4.*coop_pi/this%npix))/2
     if(nsteps .le. 0 .or. nsteps .gt. 200)stop "coop_healpix_smooth_mask: invalid input of smoothscale"
     call this%convert2nested()
@@ -2581,8 +2610,8 @@ contains
   contains 
     subroutine coop_healpix_iterate_mask(this_from, this_to)  
       type(coop_healpix_maps) this_from, this_to
-      integer list(8), nneigh
-      integer i
+      COOP_INT list(8), nneigh
+      COOP_INT i
 #ifdef HAS_HEALPIX
       !$omp parallel do private(list, nneigh, i)
       do i = 1, this%mask_npix
@@ -2599,7 +2628,7 @@ contains
 
   subroutine coop_healpix_smooth_maskfile(mask_file, smoothscale, output)
     COOP_UNKNOWN_STRING mask_file
-    real(sp) smoothscale
+    COOP_SINGLE smoothscale
     COOP_UNKNOWN_STRING, optional::output
     type(coop_healpix_maps) this
     call this%read(mask_file, nmaps_wanted = 1)
@@ -2616,8 +2645,8 @@ contains
     real,parameter::nefolds = 4
     class(coop_healpix_maps) this
     type(coop_healpix_maps) hgs
-    integer i, j, nsteps
-    real(sp) smoothscale, decay
+    COOP_INT i, j, nsteps
+    COOP_SINGLE smoothscale, decay
     nsteps = ceiling(smoothscale*this%nside*nefolds/2.)
     if(nsteps .le. 0 .or. nsteps .gt. 200)stop "coop_healpix_smooth_mask: invalid input of smoothscale"
     decay = exp(-nefolds/nsteps/2.)
@@ -2647,9 +2676,9 @@ contains
   contains 
     subroutine coop_healpix_iterate_mask(this_from, this_to, decay)  
       type(coop_healpix_maps) this_from, this_to
-      integer list(8), nneigh
-      integer i
-      real(sp) decay
+      COOP_INT list(8), nneigh
+      COOP_INT i
+      COOP_SINGLE decay
 #ifdef HAS_HEALPIX
       !$omp parallel do private(list, nneigh, i)
       do i = 1, this%mask_npix
@@ -2664,10 +2693,10 @@ contains
   end subroutine coop_healpix_smooth_mask
 
   subroutine coop_healpix_mask_hemisphere(mask, theta, phi)
-    real(dl) vec(3), theta, phi
-    integer nlist
+    COOP_REAL vec(3), theta, phi
+    COOP_INT nlist
     type(coop_healpix_maps)::mask
-    integer,dimension(:),allocatable::listpix
+    COOP_INT,dimension(:),allocatable::listpix
 #ifdef HAS_HEALPIX
     allocate(listpix(0:mask%npix-1))
     call ang2vec(theta, phi, vec)
@@ -2683,17 +2712,17 @@ contains
 
   subroutine coop_healpix_inpainting(mode, map_file, mask_file, maskpol_file, output_freq, output_types, mask_smooth_scale)
     COOP_UNKNOWN_STRING map_file, mask_file, mode
-    integer, optional::output_freq 
+    COOP_INT, optional::output_freq 
     COOP_UNKNOWN_STRING,optional:: maskpol_file, output_types
-    integer,parameter:: total_steps = 1000, burnin = 30
-    integer output_steps 
-    integer step, naccept, weight
+    COOP_INT,parameter:: total_steps = 1000, burnin = 30
+    COOP_INT output_steps 
+    COOP_INT step, naccept, weight
     logical accept
     type(coop_healpix_maps) map, simumap, mask, maskpol, mapmean, map_diffused
     COOP_SHORT_STRING::ot
-    real(dl) prev_chisq
-    real(dl), optional:: mask_smooth_scale
-    real(sp)::mss
+    COOP_REAL prev_chisq
+    COOP_REAL, optional:: mask_smooth_scale
+    COOP_SINGLE::mss
     if(present(mask_smooth_scale))then
        mss = mask_smooth_scale
     else
@@ -2817,7 +2846,7 @@ contains
     type(coop_healpix_maps) map, simumap, mask, map_diffused
     type(coop_healpix_maps),optional::maskpol
     logical accept
-    integer i
+    COOP_INT i
     simumap%Cl = map%Cl
     call simumap%simulate()
     simumap%map(:,1) =  map%map(:,1) * mask%map(:,1) + simumap%map(:,1) * sqrt(1.-mask%map(:,1)**2) + map_diffused%map(:,1)*(1. - mask%map(:,1))
@@ -2835,8 +2864,8 @@ contains
 
   subroutine coop_healpix_inpainting_get_chisq(map, simumap)
     type(coop_healpix_maps) map, simumap
-    integer l
-    real(sp) chisq
+    COOP_INT l
+    COOP_SINGLE chisq
     call simumap%map2alm()
     if(map%nmaps .eq. 1)then
        chisq = 0.
@@ -2881,7 +2910,7 @@ contains
   subroutine coop_healpix_split(filename)
     COOP_UNKNOWN_STRING:: filename
     type(coop_healpix_maps) this
-    integer i
+    COOP_INT i
     call this%read(filename)
     do i=1, this%nmaps
        call this%write(trim(coop_file_add_postfix(filename, "_submap"//trim(coop_ndigits(i, 3)))), (/ i /) )
@@ -2892,8 +2921,8 @@ contains
   subroutine coop_healpix_plot_spots(spotsfile, mapfile)
     COOP_UNKNOWN_STRING spotsfile, mapfile
     type(coop_file) fp
-    real(dl) theta, phi, angle_rotate
-    integer pix
+    COOP_REAL theta, phi, angle_rotate
+    COOP_INT pix
     type(coop_healpix_maps) this
 #ifdef HAS_HEALPIX
     call this%init(64, 1, (/ 0 /) )
@@ -2942,8 +2971,8 @@ contains
 
   subroutine coop_healpix_flip_mask(mask, flip)
     type(coop_healpix_maps)mask, flip
-    integer pix, conjpix
-    real(dl) theta, phi
+    COOP_INT pix, conjpix
+    COOP_REAL theta, phi
 #ifdef HAS_HEALPIX
     if(allocated(flip%map))then
        if(flip%nside .ne. mask%nside)then
@@ -2983,13 +3012,13 @@ contains
   end subroutine coop_healpix_maps_mask
 
   subroutine coop_healpix_maps_get_fullCls(map, mask, polmask)
-    integer,parameter::lrange = 20
+    COOP_INT,parameter::lrange = 20
     class(coop_healpix_maps) map
     type(coop_healpix_maps) mask, mapcopy
     type(coop_healpix_maps),optional::polmask
     COOP_REAL, dimension(:),allocatable::ifsky, polfsky
     COOP_REAL:: w(-lrange:lrange)
-    integer i, j, ncls, l, isim
+    COOP_INT i, j, ncls, l, isim
     if(mask%nside .ne. map%nside) stop "nside must agree for get_fullCl"
     if(present(polmask) .and. map%nmaps .eq. 3 .and. map%iq .eq. 2)then
        if(polmask%nside .ne. map%nside) stop "nside must agree for get_fullCl"
@@ -3077,7 +3106,7 @@ contains
   subroutine coop_healpix_maps_udgrade(map, nside)
     class(coop_healpix_maps)::map
     real, dimension(:,:),allocatable::newmap
-    integer nside, npix
+    COOP_INT nside, npix
 #ifdef HAS_HEALPIX
     npix = nside2npix(nside)
     allocate(newmap(0:npix-1, map%nmaps))
@@ -3130,8 +3159,8 @@ contains
   contains
 
     function beam(l) result(bl)
-      integer l
-      real(dl) bl
+      COOP_INT l
+      COOP_REAL bl
       bl = 1./(1.+l*(l+1)*(fwhm_arcmin*coop_SI_arcmin*coop_sigma_by_fwhm)**2)
     end function beam
 
@@ -3144,8 +3173,8 @@ contains
            8.00965e-6 /)
       COOP_REAL, parameter:: alpha = 0.75, &
            lmax = 4000
-      integer l
-      real(dl) Nl, x, fx, t
+      COOP_INT l
+      COOP_REAL Nl, x, fx, t
       x =( (l*(l+1.0))/(lmax*(lmax+1.0)) )**0.25
       t = 2.d0*x - 1.d0
       call coop_get_cheb_value(6, c, t, fx)
