@@ -91,8 +91,9 @@ def generate_ini(fname, datasets, action):
     covf = search_value(fname, r'^\s*propose\_matrix\s*=\s*' + r'((\S*(\/|\\))?' + froot + r')\.covmat\s*$')
     if(covf != ''):
         covf = covf + postfix + r'.covmat'
-        patterns.append(r'^\s*propose\_matrix\s*=\s*\S*\s*$')
-        repls.append(r'propose_matrix = ' + covf)
+        if(os.path.isfile(covf)):
+            patterns.append(r'^\s*propose\_matrix\s*=\s*\S*\s*$')
+            repls.append(r'propose_matrix = ' + covf)
     copy_replace_all(fname, fout, patterns, repls, inc)
     if(action != ""):
         os.system(action +" " + fout)
