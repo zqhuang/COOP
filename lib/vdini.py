@@ -38,6 +38,7 @@ want = [ ['lowTEB', 'plikTT'], \
          ['lowTEB', 'plikTTTEEE'], \
          ['lowTEB', 'plikTTTEEE', 'BAO', 'JLA', 'HSTlow'] ]
 
+default_covmat = r'planck_covmats/base_planck_lowl_lowLike.covmat'  ##this covmat will be used by default
 
 ################# No need to change anything below ####################
 
@@ -90,10 +91,19 @@ def generate_ini(fname, datasets, action):
     froot = search_value(fname, r'^\s*file\_root\s*=\s*(\S*)\s*$')
     covf = search_value(fname, r'^\s*propose\_matrix\s*=\s*' + r'((\S*(\/|\\))?' + froot + r')\.covmat\s*$')
     if(covf != ''):
-        covf = covf + postfix + r'.covmat'
-        if(os.path.isfile(covf)):
+        newcovf = covf + postfix + r'.covmat'
+        if(os.path.isfile(newcovf)):
+            patterns.append(r'^\s*propose\_matrix\s*=\s*\S*\s*$')
+            repls.append(r'propose_matrix = ' + newcovf)
+        elif(os.path.isfile(covf)):
             patterns.append(r'^\s*propose\_matrix\s*=\s*\S*\s*$')
             repls.append(r'propose_matrix = ' + covf)
+        elif(os.path.isfile(default_covmat)):
+            patterns.append(r'^\s*propose\_matrix\s*=\s*\S*\s*$')
+            repls.append(r'propose_matrix = ' + default_covmat)
+        else:
+            patterns.append(r'^\s*propose\_matrix\s*=\s*\S*\s*$')
+            repls.append(r'propose_matrix = ')
     copy_replace_all(fname, fout, patterns, repls, inc)
     if(action != ""):
         os.system(action +" " + fout)
