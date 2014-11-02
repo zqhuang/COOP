@@ -63,8 +63,18 @@ def copy_replace_all(fname1, fname2, patterns, repls, headstr):
         fp.write(file_content)
     fp.close()
 
+def search_value(fname, pattern):
+    fp = open(fname, 'r')
+    file_content = fp.read()
+    fp.close()
+    m = re.search(pattern, file_content, flags = re.M + re.I)
+    if m:
+        return m.group(1)
+    else:
+        return ""
 
-def generate_ini(fname, datasets):
+
+def generate_ini(fname, datasets, action):
     postfix = ''
     inc = ''
     for data in datasets:
@@ -73,26 +83,40 @@ def generate_ini(fname, datasets):
     fout = fname.replace('.ini', postfix + '.ini')
     patterns = [ r'^\s*(DEFAULT\([^\(\)]*\))\s*$', \
                 r'^\#\#\_OUT(DEFAULT\(batch[^\(\)]*common[^\(\)]*\.ini\))$', \
-                r'^\s*file\_root\s*\=\s*([\w\d\_\-\.\/\\]*)\s*$']
+                 r'^\s*file\_root\s*\=\s*(\S*)\s*$']
     repls = [r'##_OUT\1', \
              r'\1', \
              r'file_root = \1'+postfix ]
+    froot = search_value(fname, r'^\s*file\_root\s*=\s*(\S*)\s*$')
+    covf = search_value(fname, r'^\s*propose\_matrix\s*=\s*' + r'((\S*(\/|\\))?' + froot + r')\.covmat\s*$')
+    if(covf != ''):
+        covf = covf + postfix + r'.covmat'
+        patterns.append(r'^\s*propose\_matrix\s*=\s*\S*\s*$')
+        repls.append(r'propose_matrix = ' + covf)
     copy_replace_all(fname, fout, patterns, repls, inc)
-
+    if(action != ""):
+        os.system(action +" " + fout)
 
 if(len(sys.argv) < 2):
     print "syntax:"
     print  "python vdini.py  YourIniFileName"
     sys.exit()
+
+    
 fname = sys.argv[1]
+
+if(len(sys.argv)>=3):
+    action = sys.argv[2]
+else:
+    action = ""
+
 if (not os.path.isfile(fname)):
     print fname + " does not exist"
     sys.exit()
 
     
 for datasets in want:
-    generate_ini(fname, datasets)
-
+    generate_ini(fname, datasets, action)
 
     
 
