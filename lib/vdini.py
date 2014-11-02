@@ -46,17 +46,21 @@ def copy_replace_all(fname1, fname2, patterns, repls, headstr):
     fp = open(fname1, 'r')
     file_content = fp.read()
     fp.close()
-    hasdata = re.search(patterns[0],file_content, flags=re.I + re.M)       
-    for i in range(len(patterns)):
+    isdist = re.search(r'plot\_data\_dir',file_content, flags=re.I + re.M)
+    if(isdist is None):
+        pstart = 0
+    else:
+        pstart = 2
+    for i in range(pstart, len(patterns)):
         if(re.match(r'\^.+\$', patterns[i])):
             file_content = re.sub(patterns[i], repls[i], file_content, flags = re.M + re.I)
         else:     
             file_content = re.sub(patterns[i], repls[i], file_content, flags = re.I)
     fp = open(fname2, 'w')
-    if(hasdata is None):
-        fp.write(file_content)
-    else:
+    if(pstart == 0 ):
         fp.write(headstr + "\n" + file_content)
+    else:
+        fp.write(file_content)
     fp.close()
 
 
