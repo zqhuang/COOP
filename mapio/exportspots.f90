@@ -42,14 +42,14 @@ program test
   end select
   prefix = "spots/"//trim(coop_file_name_of(input_file, want_ext =  .false.))//"_fwhm"//trim(coop_num2str(fwhm_arcmin))//"_"     
   if(abs(threshold) .lt. 6)then
-     if(trim(force_outfile).eq."")then
+     if(trim(force_outfile).ne."")then
         output_file = trim(adjustl(force_outfile))
      else
         output_file = trim(prefix)//trim(spot_type)//"_threshold"//trim(coop_num2str(nint(threshold)))//".txt"
      endif
      call coop_healpix_export_spots(trim(input_file), trim(output_file), trim(spot_type), threshold = threshold, mask_file = trim(mask_file), fwhm = fwhm)
   else
-     if(trim(force_outfile).eq."")then
+     if(trim(force_outfile).ne."")then
         output_file = trim(adjustl(force_outfile))
      else
         output_file = trim(prefix)//trim(spot_type)//"_NoThreshold.txt"

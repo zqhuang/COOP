@@ -5,16 +5,17 @@ spots_dir = "spots/"
 stack_dir = "stacked/"
 check_files = True
 
-prefix = "smica"
-
-imap_in = "planck14/dx11_v2_smica_int_cmb_010a_1024.fits"
+prefix = "simu"
+imap = "simu/simu_temp_010a_n1024.fits"
 imask = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
-polmap_in = "planck14/dx11_v2_smica_pol_case3_cmb_010a_1024.fits"
+polmap = "simu/simu_pol_010a_n1024.fits"
 polmask = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
+unit = "muK"   
+
 fwhm_in = 10
 threshold = 0
 fwhm_out = 15
-unit = "K"   # ffp8 use Kelvin
+
 
 postfix = "_fwhm" + str(fwhm_out) + ".fits"
 fullprefix = outdir + prefix
@@ -33,16 +34,17 @@ if(not (os.path.isfile(imap_in)  and os.path.isfile(polmap_in) and os.path.isfil
 if(not (os.path.isfile(zetamap) and os.path.isfile(qtutmap) and os.path.isfile(emap) and os.path.isfile(bmap) and os.path.isfile(imap) and os.path.isfile(polmap))):
     os.system("./ByProd  " + fullprefix + " " + imap_in + " " + polmap_in + " " + imask + " " + polmask + " " +  str(fwhm_in) + " " + str(fwhm_out))
 
+    
 def getspots(inputmap, st):
     if(threshold < 6):
-        output =  spots_dir + prefix  + "_fwhm" + str(fwhm_out) + "_" + st + "_threshold" + str(threshold)+".txt"
+        output =  prefix  + "_fwhm" + str(fwhm_out) + "_" + st + "_threshold" + str(threshold)+".txt"
     else:
-        output =  spots_dir + prefix  + "_fwhm" + str(fwhm_out) + "_" + st + "_NoThreshold.txt"    
+        output =  prefix  + "_fwhm" + str(fwhm_out) + "_" + st + "_NoThreshold.txt"    
     if(check_files):
         if( os.path.isfile(spots_dir + output)):
             print spots_dir + output + " already exists, skipping..."
             return output
-    os.system("./GetSpots " + inputmap + " " + st + " " + imask + " " + polmask + " " + output + " " + str(threshold) + " 0 0")
+    os.system("./GetSpots " + inputmap + " " + st + " " + imask + " " + polmask + " " + spots_dir + output + " " + str(threshold) + " 0 0")
     return output
 
 
@@ -63,7 +65,7 @@ def stack(inputmap, spots, st):
         if(os.path.isfile(stack_dir + output)):
             print stack_dir+output+ "  already exists, skipping..."
             return
-    os.system("./Stack " + inputmap + " " + spots + " " + st + " " + imask + " " + polmask + " " + unit)
+    os.system("./Stack " + inputmap + " " + spots_dir+spots + " " + st + " " + imask + " " + polmask + " " + unit)
     os.system("../utils/fasy.sh "+stack_dir+output)
 
 
