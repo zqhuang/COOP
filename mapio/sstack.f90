@@ -18,7 +18,7 @@ program hastack_prog
   
   COOP_UNKNOWN_STRING, parameter::prefix = "sst_"//cs_method//"_"//pol_case//"/"
   COOP_INT, parameter::mmax = 4
-  COOP_REAL, parameter::fwhm_arcmin = 30.d0
+  COOP_REAL, parameter::fwhm_arcmin = 15.d0
   COOP_REAL, parameter::fwhm_in = 10.d0
   COOP_UNKNOWN_STRING, parameter::input_resolution =   "_010a_1024"
   COOP_UNKNOWN_STRING, parameter::postfix =  input_resolution//".fits"
