@@ -9,7 +9,7 @@ program map
   implicit none
 #include "constants.h"
   
-  COOP_STRING::imap, qumap, qtut, emap, bmap, zeta, outi, outqu, imask, polmask, str_fwhm_in, str_fwhm_out, prefix
+  COOP_STRING::imap, qumap, tqtut, emap, bmap, zeta, outi, outqu, imask, polmask, str_fwhm_in, str_fwhm_out, prefix
   type(coop_healpix_maps) hgm, hgimask, hgpolmask
   COOP_INT fwhm_in_arcmin, fwhm_out_arcmin, lmax
   COOP_REAL fwhm_in, fwhm_out
@@ -37,22 +37,26 @@ program map
      print*, "imap or qumap does not exist"
      stop
   endif
-  qtut = trim(prefix)//"_QTUT_fwhm"//trim(str_fwhm_out)//".fits"
+  tqtut = trim(prefix)//"_TQTUT_fwhm"//trim(str_fwhm_out)//".fits"
   zeta = trim(prefix)//"_zeta_fwhm"//trim(str_fwhm_out)//".fits"
   outi = trim(prefix)//"_I_fwhm"//trim(str_fwhm_out)//".fits"
   outqu = trim(prefix)//"_QU_fwhm"//trim(str_fwhm_out)//".fits"
   emap =trim(prefix)//"_E_fwhm"//trim(str_fwhm_out)//".fits"
   bmap = trim(prefix)//"_B_fwhm"//trim(str_fwhm_out)//".fits"
-  if(.not. coop_file_exists(trim(outi)) .or. .not. coop_file_exists(trim(qtut)) .or. .not. coop_file_exists(trim(zeta)) )then
+  if(.not. coop_file_exists(trim(outi)) .or. .not. coop_file_exists(trim(tqtut)) .or. .not. coop_file_exists(trim(zeta)) )then
      call hgm%read(trim(imap), nmaps_wanted = 3, spin=(/ 0, 2, 2 /), nmaps_to_read = 1 )
      call hgimask%read(trim(imask), nmaps_wanted = 1, spin = (/ 0 /))
      hgm%map(:, 1) = hgm%map(:, 1)*hgimask%map(:, 1)
      call hgm%smooth(fwhm = sqrt(fwhm_out**2-fwhm_in**2), index_list = (/ 1 /), l_upper = lmax)
-     call hgm%write(trim(outi), index_list = (/ 1 /))
-     call hgm%iqu2TQTUT()
-     call hgm%write(trim(qtut), index_list = (/ 2, 3 /) )
-     call hgm%t2zeta(fwhm_arcmin = 7.d0)  !!assumes default planck noise level
-     call hgm%write(trim(zeta), index_list = (/ 1 /) )
+     if(.not. coop_file_exists(trim(outi)))call hgm%write(trim(outi), index_list = (/ 1 /))
+     if(.not. coop_file_exists(trim(tqtut)))then
+        call hgm%iqu2TQTUT()
+        call hgm%write(trim(tqtut) )
+     endif
+     if(.not. coop_file_exists(trim(zeta)))then
+        call hgm%t2zeta(fwhm_arcmin = 7.d0)  !!assumes default planck noise level
+        call hgm%write(trim(zeta), index_list = (/ 1 /) )
+     endif
   endif
 
   if(.not. coop_file_exists(trim(outqu)) .or. .not. coop_file_exists(trim(emap)) .or. .not. coop_file_exists(trim(bmap)))then
@@ -61,10 +65,12 @@ program map
      hgm%map(:, 1) = hgm%map(:, 1)*hgpolmask%map(:, 1)
      hgm%map(:, 2) = hgm%map(:, 2)*hgpolmask%map(:, 1)
      call hgm%smooth(fwhm = sqrt(fwhm_out**2-fwhm_in**2), l_upper = lmax)
-     call hgm%write(trim(outqu))
-     call hgm%qu2EB()
-     call hgm%write(trim(emap), index_list = (/ 1 /) )
-     call hgm%write(trim(bmap), index_list = (/ 2 /) )
+     if(.not. coop_file_exists(trim(outqu)))call hgm%write(trim(outqu))
+     if( .not. coop_file_exists(trim(emap)) .or.  .not. coop_file_exists(trim(bmap)))then
+        call hgm%qu2EB()
+        call hgm%write(trim(emap), index_list = (/ 1 /) )
+        call hgm%write(trim(bmap), index_list = (/ 2 /) )
+     endif
   endif
 
   

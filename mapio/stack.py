@@ -6,9 +6,9 @@ stack_dir = "stacked/"
 check_files = True
 
 prefix = "simu"
-imap = "simu/simu_temp_010a_n1024.fits"
+imap_in = "simu/simu_temp_010a_n1024.fits"
 imask = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
-polmap = "simu/simu_pol_010a_n1024.fits"
+polmap_in = "simu/simu_pol_010a_n1024.fits"
 polmask = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
 unit = "muK"   
 
@@ -22,7 +22,7 @@ fullprefix = outdir + prefix
 
 imap = fullprefix + "_I" + postfix
 polmap = fullprefix + "_QU" + postfix 
-qtutmap = fullprefix + "_QTUT" + postfix
+tqtutmap = fullprefix + "_TQTUT" + postfix
 zetamap = fullprefix + "_zeta" + postfix
 emap  = fullprefix + "_E" + postfix
 bmap = fullprefix + "_B" + postfix
@@ -31,7 +31,7 @@ if(not (os.path.isfile(imap_in)  and os.path.isfile(polmap_in) and os.path.isfil
     print "not all files exist; please check."
     sys.exit()
     
-if(not (os.path.isfile(zetamap) and os.path.isfile(qtutmap) and os.path.isfile(emap) and os.path.isfile(bmap) and os.path.isfile(imap) and os.path.isfile(polmap))):
+if(not (os.path.isfile(zetamap) and os.path.isfile(tqtutmap) and os.path.isfile(emap) and os.path.isfile(bmap) and os.path.isfile(imap) and os.path.isfile(polmap))):
     os.system("./ByProd  " + fullprefix + " " + imap_in + " " + polmap_in + " " + imask + " " + polmask + " " +  str(fwhm_in) + " " + str(fwhm_out))
 
     
@@ -73,8 +73,8 @@ spots_tmax = getspots(imap, "Tmax")
 spots_emax = getspots(emap, "Emax")
 spots_bmax = getspots(bmap, "Bmax")
 spots_zetamax = getspots(zetamap, "zetamax")
-spots_tmax_orient = getspots(qtutmap, "Tmax_QTUTOrient")
-spots_ptmax = getspots(qtutmap, "PTmax")
+spots_tmax_orient = getspots(tqtutmap, "Tmax_QTUTOrient")
+spots_ptmax = getspots(tqtutmap, "PTmax")
 spots_pmax = getspots(polmap, "Pmax")
 
 stack(imap, spots_tmax, "T")
@@ -83,8 +83,8 @@ stack(bmap, spots_tmax, "B")
 stack(zetamap, spots_tmax, "zeta")
 stack(polmap, spots_tmax, "QrUr")
 stack(polmap, spots_tmax, "QU")
-stack(qtutmap, spots_tmax, "QrUr")
-stack(qtutmap, spots_tmax, "QU")
+stack(tqtutmap, spots_tmax, "QrUr")
+stack(tqtutmap, spots_tmax, "QU")
 
 stack(emap, spots_emax, "E")
 stack(imap, spots_emax, "T")
@@ -103,14 +103,14 @@ stack(imap, spots_tmax_orient, "T")
 stack(emap, spots_tmax_orient, "E")
 stack(zetamap, spots_tmax_orient, "zeta")
 stack(polmap, spots_tmax_orient, "QU")
-stack(qtutmap, spots_tmax_orient, "QU")
+stack(tqtutmap, spots_tmax_orient, "QU")
 
 stack(polmap, spots_ptmax, "QU")
 stack(polmap, spots_pmax, "QU")
 stack(imap, spots_ptmax, "T")
 stack(zetamap, spots_ptmax, "zeta")
 stack(emap, spots_ptmax, "E")
-stack(qtutmap, spots_ptmax, "QU")
+stack(tqtutmap, spots_ptmax, "QU")
 
 
 
