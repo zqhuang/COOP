@@ -1,46 +1,54 @@
 import sys, os, string, math, re
 
-prefix = "ffp8"
-
-imap = "ffp8/ffp8_smica_int_00001_010a_1024.fits"
-imask = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
-polmap = "ffp8/ffp8_smica_pol_case3_00001_010a_1024.fits"
-polmask = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
-fwhm_in = 10
-unit = "K"   # ffp8 use Kelvin
-
-zetamap = imap.replace(".fits", "_converted_to_zeta.fits")
-qtutmap = imap.replace(".fits", "_converted_to_TQTUT.fits")
-emap = polmap.replace(".fits", "_converted_to_EB_E.fits")
-bmap = polmap.replace(".fits", "_converted_to_EB_B.fits")
-
-if(not os.path.isfile(zetamap) or not os.path.isfile(qtutmap) or not os.path.isfile(emap) or not os.path.isfile(bmap)):
-    os.system("./ByProd " + imap + " " + polmap + " " + str(fwhm_in) + " " + imask + " " + polmask )
-
-threshold = 0
-fwhm = 15
-
-check_files = True
-
+outdir = "tmpmaps/"
 spots_dir = "spots/"
 stack_dir = "stacked/"
+check_files = True
 
-def getspots(map, st):
+prefix = "smica"
+
+imap_in = "planck14/dx11_v2_smica_int_cmb_010a_1024.fits"
+imask = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
+polmap_in = "planck14/dx11_v2_smica_pol_case3_cmb_010a_1024.fits"
+polmask = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
+fwhm_in = 10
+threshold = 0
+fwhm_out = 15
+unit = "K"   # ffp8 use Kelvin
+
+postfix = "_fwhm" + str(fwhm_out) + ".fits"
+fullprefix = outdir + prefix
+
+imap = fullprefix + "_I" + postfix
+polmap = fullprefix + "_QU" + postfix 
+qtutmap = fullprefix + "_QTUT" + postfix
+zetamap = fullprefix + "_zeta" + postfix
+emap  = fullprefix + "_E" + postfix
+bmap = fullprefix + "_B" + postfix
+
+if(not (os.path.isfile(imap_in)  and os.path.isfile(polmap_in) and os.path.isfile(imask) and os.path.isfile(polmask))):
+    print "not all files exist; please check."
+    sys.exit()
+    
+if(not (os.path.isfile(zetamap) and os.path.isfile(qtutmap) and os.path.isfile(emap) and os.path.isfile(bmap) and os.path.isfile(imap) and os.path.isfile(polmap))):
+    os.system("./ByProd  " + fullprefix + " " + imap_in + " " + polmap_in + " " + imask + " " + polmask + " " +  str(fwhm_in) + " " + str(fwhm_out))
+
+def getspots(inputmap, st):
     if(threshold < 6):
-        output =  prefix + "_" + st + "_threshold" + str(threshold) + "_fwhm" + str(fwhm) + ".txt"
+        output =  spots_dir + prefix  + "_fwhm" + str(fwhm_out) + "_" + st + "_threshold" + str(threshold)+".txt"
     else:
-        output =  prefix + "_" + st + "_NoThreshold_fwhm" + str(fwhm) + ".txt"    
+        output =  spots_dir + prefix  + "_fwhm" + str(fwhm_out) + "_" + st + "_NoThreshold.txt"    
     if(check_files):
         if( os.path.isfile(spots_dir + output)):
             print spots_dir + output + " already exists, skipping..."
             return output
-    os.system("./GetSpots " + map + " " + st + " " + imask + " " + polmask + " " + prefix + " " + str(threshold) + " " + str(fwhm) + " " + str(fwhm_in))
+    os.system("./GetSpots " + inputmap + " " + st + " " + imask + " " + polmask + " " + output + " " + str(threshold) + " 0 0")
     return output
 
 
-def stack(map, spots, st):        
+def stack(inputmap, spots, st):        
     if(check_files):
-        if(string.find(map, "QTUT")!=-1 and (st == "QU" or st == "QrUr")):
+        if(string.find(inputmap, "QTUT")!=-1 and (st == "QU" or st == "QrUr")):
             if(st == "QrUr"):
                 output = "QTr_on_" + spots
             else:            
@@ -55,7 +63,7 @@ def stack(map, spots, st):
         if(os.path.isfile(stack_dir + output)):
             print stack_dir+output+ "  already exists, skipping..."
             return
-    os.system("./Stack " + map + " " + spots_dir + spots + " " + st + " " + imask + " " + polmask + " " + unit)
+    os.system("./Stack " + inputmap + " " + spots + " " + st + " " + imask + " " + polmask + " " + unit)
     os.system("../utils/fasy.sh "+stack_dir+output)
 
 
@@ -66,7 +74,6 @@ spots_zetamax = getspots(zetamap, "zetamax")
 spots_tmax_orient = getspots(qtutmap, "Tmax_QTUTOrient")
 spots_ptmax = getspots(qtutmap, "PTmax")
 spots_pmax = getspots(polmap, "Pmax")
-
 
 stack(imap, spots_tmax, "T")
 stack(emap, spots_tmax, "E")
@@ -80,13 +87,15 @@ stack(qtutmap, spots_tmax, "QU")
 stack(emap, spots_emax, "E")
 stack(imap, spots_emax, "T")
 stack(bmap, spots_emax, "B")
-
+   
 stack(imap, spots_bmax, "T")
 stack(emap, spots_bmax, "E")
 stack(bmap, spots_bmax, "B")
 
 stack(zetamap, spots_zetamax, "zeta")
 stack(imap, spots_zetamax, "T")
+stack(emap, spots_zetamax, "E")
+stack(bmap, spots_zetamax, "B")
 
 stack(imap, spots_tmax_orient, "T")
 stack(emap, spots_tmax_orient, "E")

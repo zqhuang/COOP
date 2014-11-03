@@ -9,69 +9,62 @@ program map
   implicit none
 #include "constants.h"
   
-  COOP_STRING::imap, qumap, iqtut, emap, bmap, zeta, imask, polmask
+  COOP_STRING::imap, qumap, qtut, emap, bmap, zeta, outi, outqu, imask, polmask, str_fwhm_in, str_fwhm_out, prefix
   type(coop_healpix_maps) hgm, hgimask, hgpolmask
-  COOP_REAL fwhm_arcmin
+  COOP_INT fwhm_in_arcmin, fwhm_out_arcmin, lmax
+  COOP_REAL fwhm_in, fwhm_out
   !!make code faster 
   coop_healpix_alm_check_done = .true.
   coop_healpix_want_cls = .false.
-
-  imap = trim(coop_inputArgs(1))
-  qumap = trim(coop_inputArgs(2))
-  zeta = trim(coop_inputArgs(3))
-  imask = trim(coop_inputArgs(4))
-  polmask = trim(coop_inputArgs(5))
-
-  if(trim(zeta).eq. "")then
-     fwhm_arcmin = 10.d0  !!default planck nside 1024
-  else
-     read(zeta, *) fwhm_arcmin
-     if(fwhm_arcmin .lt. 0.d0 .or. fwhm_arcmin .gt. 1000.d0)then
-        print*, "ByProd imap qumap fwhm_arcmin"
-        stop "fwhm_arcmin not in the right range (0 - 1000)"
-     endif
-  endif
-  if(trim(imap).eq."" .or. trim(qumap).eq."")then
-     print*, "ByProd imap qumap fwhm_arcmin"
+  if(iargc() < 7)then
+     write(*,*) "Syntax:"
+     write(*,*) "ByProd output_prefix imap polmap imask polmask fwhm_in_acrmin fwhm_out_arcmin"
      stop 
   endif
+  prefix = trim(coop_inputArgs(1))
+  imap = trim(coop_inputArgs(2))
+  qumap = trim(coop_inputArgs(3))
+  imask = trim(coop_inputArgs(4))
+  polmask = trim(coop_inputArgs(5))
+  str_fwhm_in = trim(coop_inputArgs(6))  
+  str_fwhm_out = trim(coop_inputArgs(7))
+  read(str_fwhm_in, *) fwhm_in_arcmin
+  read(str_fwhm_out, *) fwhm_out_arcmin
+  fwhm_in = fwhm_in_arcmin*coop_SI_arcmin
+  fwhm_out = fwhm_out_arcmin*coop_SI_arcmin
+  lmax = ceiling(3.d0/fwhm_out*coop_sigma_by_fwhm)
   if(.not. (coop_file_exists(trim(imap)) .and. coop_file_exists(trim(qumap))))then
      print*, "imap or qumap does not exist"
      stop
   endif
-  iqtut = trim(coop_file_add_postfix(trim(imap), "_converted_to_TQTUT"))
-  zeta = trim(coop_file_add_postfix(trim(imap), "_converted_to_zeta"))
-
-  if(.not. coop_file_exists(trim(iqtut)) .or. .not. coop_file_exists(trim(zeta)) )then
+  qtut = trim(prefix)//"_QTUT_fwhm"//trim(str_fwhm_out)//".fits"
+  zeta = trim(prefix)//"_zeta_fwhm"//trim(str_fwhm_out)//".fits"
+  outi = trim(prefix)//"_I_fwhm"//trim(str_fwhm_out)//".fits"
+  outqu = trim(prefix)//"_QU_fwhm"//trim(str_fwhm_out)//".fits"
+  emap =trim(prefix)//"_E_fwhm"//trim(str_fwhm_out)//".fits"
+  bmap = trim(prefix)//"_B_fwhm"//trim(str_fwhm_out)//".fits"
+  if(.not. coop_file_exists(trim(outi)) .or. .not. coop_file_exists(trim(qtut)) .or. .not. coop_file_exists(trim(zeta)) )then
      call hgm%read(trim(imap), nmaps_wanted = 3, spin=(/ 0, 2, 2 /), nmaps_to_read = 1 )
-     if(trim(imask).ne."")then
-        call hgimask%read(trim(imask), nmaps_wanted = 1)
-        hgm%map(:,1) = hgm%map(:,1)*hgimask%map(:, 1)
-     endif
-     if(.not. coop_file_exists(trim(iqtut)))then
-        call hgm%iqu2TQTUT()
-        call hgm%write(trim(iqtut))
-     endif
-     if(.not. coop_file_exists(trim(zeta)))then
-        call hgm%t2zeta( fwhm_arcmin)
-        call hgm%write(trim(zeta), index_list = (/ 1 /) )
-     endif
+     call hgimask%read(trim(imask), nmaps_wanted = 1, spin = (/ 0 /))
+     hgm%map(:, 1) = hgm%map(:, 1)*hgimask%map(:, 1)
+     call hgm%smooth(fwhm = sqrt(fwhm_out**2-fwhm_in**2), index_list = (/ 1 /), l_upper = lmax)
+     call hgm%write(trim(outi), index_list = (/ 1 /))
+     call hgm%iqu2TQTUT()
+     call hgm%write(trim(qtut), index_list = (/ 2, 3 /) )
+     call hgm%t2zeta(fwhm_arcmin = 7.d0)  !!assumes default planck noise level
+     call hgm%write(trim(zeta), index_list = (/ 1 /) )
   endif
 
-
-
-  emap = trim(coop_file_add_postfix(qumap, "_converted_to_EB_E"))
-  bmap = trim(coop_file_add_postfix(qumap, "_converted_to_EB_B"))
-  if( .not. coop_file_exists(trim(emap)) .or. .not. coop_file_exists(trim(bmap)))then
+  if(.not. coop_file_exists(trim(outqu)) .or. .not. coop_file_exists(trim(emap)) .or. .not. coop_file_exists(trim(bmap)))then
      call hgm%read(trim(qumap), nmaps_wanted = 2, spin = (/ 2, 2 /))
-     if(trim(polmask).ne."")then
-        call hgpolmask%read(trim(polmask),nmaps_wanted = 1)
-        hgm%map(:, 1) = hgm%map(:, 1)*hgpolmask%map(:, 1)
-        hgm%map(:, 2) = hgm%map(:, 2)*hgpolmask%map(:, 1)
-     endif
+     call hgpolmask%read(trim(polmask),nmaps_wanted = 1, spin = (/ 0 /) )
+     hgm%map(:, 1) = hgm%map(:, 1)*hgpolmask%map(:, 1)
+     hgm%map(:, 2) = hgm%map(:, 2)*hgpolmask%map(:, 1)
+     call hgm%smooth(fwhm = sqrt(fwhm_out**2-fwhm_in**2), l_upper = lmax)
+     call hgm%write(trim(outqu))
      call hgm%qu2EB()
-     if(.not.coop_file_exists(trim(emap)))call hgm%write(trim(emap), index_list = (/ 1 /) )
-     if(.not. coop_file_exists(trim(bmap)))call hgm%write(trim(bmap), index_list = (/ 2 /) )
+     call hgm%write(trim(emap), index_list = (/ 1 /) )
+     call hgm%write(trim(bmap), index_list = (/ 2 /) )
   endif
 
   

@@ -58,7 +58,7 @@ program hastack_prog
      stop
   endif
 
-  lmax  = ceiling(2.5d0/(fwhm_arcmin*coop_SI_arcmin * coop_sigma_by_fwhm))
+  lmax  = ceiling(3.d0/(fwhm_arcmin*coop_SI_arcmin * coop_sigma_by_fwhm))
   write(*,*) "Using lmax = "//COOP_STR_OF(lmax)
   highpass = (trim(coop_InputArgs(3)) .eq. "T")
   call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )

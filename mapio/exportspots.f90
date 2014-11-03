@@ -4,7 +4,7 @@ program test
   implicit none
 #include "constants.h"
 
-  COOP_INT::fwhm_arcmin = 15
+  COOP_INT::fwhm_arcmin = 0.
   COOP_INT::fwhm_in = 0.
   COOP_STRING::spot_type = "Bmax"
   COOP_STRING::input_file ="simu/simurp2_iqu_10arc_n1024_converted_to_TEB_submap003.fits"
@@ -40,17 +40,21 @@ program test
      write(*,*) trim(spot_type)
      stop "unknown spot type"
   end select
-  if(trim(force_outfile).eq."")then
-     prefix = "spots/"//trim(coop_file_name_of(input_file, want_ext =  .false.))//"_"
-  else
-     prefix = "spots/"//trim(force_outfile)//"_"
-  endif
+  prefix = "spots/"//trim(coop_file_name_of(input_file, want_ext =  .false.))//"_fwhm"//trim(coop_num2str(fwhm_arcmin))//"_"     
   if(abs(threshold) .lt. 6)then
-     output_file = trim(prefix)//trim(spot_type)//"_threshold"//trim(coop_num2str(nint(threshold)))//"_fwhm"//trim(coop_num2str(fwhm_arcmin))//".txt"
-     call coop_healpix_export_spots(trim(input_file), trim(output_file), trim(spot_type), threshold, mask_file = trim(mask_file), filter_fwhm = fwhm)
+     if(trim(force_outfile).eq."")then
+        output_file = trim(adjustl(force_outfile))
+     else
+        output_file = trim(prefix)//trim(spot_type)//"_threshold"//trim(coop_num2str(nint(threshold)))//".txt"
+     endif
+     call coop_healpix_export_spots(trim(input_file), trim(output_file), trim(spot_type), threshold = threshold, mask_file = trim(mask_file), fwhm = fwhm)
   else
-     output_file = trim(prefix)//trim(spot_type)//"_NoThreshold_fwhm"//trim(coop_num2str(fwhm_arcmin))//".txt"
-     call coop_healpix_export_spots(trim(input_file), trim(output_file), trim(spot_type), mask_file = trim(mask_file), filter_fwhm = fwhm)
+     if(trim(force_outfile).eq."")then
+        output_file = trim(adjustl(force_outfile))
+     else
+        output_file = trim(prefix)//trim(spot_type)//"_NoThreshold.txt"
+     endif
+     call coop_healpix_export_spots(trim(input_file), trim(output_file), trim(spot_type), mask_file = trim(mask_file), fwhm = fwhm)
   endif
   write(*,*) "The output file is: "//trim(output_file)
 end program test

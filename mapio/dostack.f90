@@ -15,7 +15,7 @@ program test
 
   COOP_UNKNOWN_STRING,parameter:: color_table = "Rainbow"
   COOP_REAL, parameter::smooth_fwhm = 0.*coop_SI_arcmin
-  COOP_REAL,parameter::r=2.*coop_SI_degree, dr = max(smooth_fwhm/3., r/50.)
+  COOP_REAL,parameter::r=2.*coop_SI_degree, dr = max(smooth_fwhm/3., r/45.)
   COOP_INT, parameter::n = ceiling(r/dr)
   COOP_UNKNOWN_STRING, parameter :: prefix = "stacked/"
   COOP_STRING fout,fout2, caption, fname
