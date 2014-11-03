@@ -13,8 +13,8 @@ program hastack_prog
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_SHORT_STRING::spot_type, stack_type
   COOP_REAL, parameter::patch_size = 2.d0*coop_SI_degree
-  COOP_UNKNOWN_STRING, parameter::cs_method = "commander"
-  COOP_UNKNOWN_STRING, parameter::pol_case = "case5"
+  COOP_UNKNOWN_STRING, parameter::cs_method = "smica"
+  COOP_UNKNOWN_STRING, parameter::pol_case = "case3"
   
   COOP_UNKNOWN_STRING, parameter::prefix = "sst_"//cs_method//"_"//pol_case//"/"
   COOP_INT, parameter::mmax = 4
@@ -27,7 +27,7 @@ program hastack_prog
   COOP_UNKNOWN_STRING, parameter::mapdir = "/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
   COOP_REAL,parameter::fwhm = coop_SI_arcmin * sqrt(fwhm_arcmin**2-fwhm_in**2)
   COOP_REAL, parameter::threshold = 0
-  COOP_REAL, parameter::dr = coop_SI_arcmin * max(fwhm_arcmin/4.d0, 5.d0)
+  COOP_REAL, parameter::dr = coop_SI_arcmin * max(fwhm_arcmin/5.d0, 3.d0)
   COOP_INT, parameter::n = nint(patch_size/dr)
 
   COOP_UNKNOWN_STRING, parameter::imap_file  = "planck14/dx11_v2_"//cs_method//"_int_cmb"//postfix
