@@ -1874,44 +1874,42 @@ contains
     call map%free()
   end subroutine coop_healpix_smooth_mapfile
 
-  subroutine coop_healpix_maps_smooth(map, fwhm, index_list)
+  subroutine coop_healpix_maps_smooth(map, fwhm, index_list, l_lower, l_upper)
     class(coop_healpix_maps) map
     COOP_REAL fwhm
-    COOP_INT lmax
+    COOP_INT, optional::l_lower, l_upper
     COOP_INT,dimension(:),optional::index_list
+    COOP_INT lmax
     if(fwhm .gt. 0.d0)then
        lmax = min(ceiling(3./max(abs(fwhm)*coop_sigma_by_fwhm, 1.d-6)), map%nside*2, coop_healpix_default_lmax)
     else
        lmax = min(map%nside*2, coop_healpix_default_lmax)
     endif
-    if(lmax .lt. 2) return
+    if(present(l_upper))then
+       lmax = min(lmax, l_upper)
+    endif
+    if(lmax .lt. 2) stop "Huge smoothing scale cannot be done!"    
     if(lmax*abs(fwhm).lt.0.01)return
-    write(*,*) "Smoothing with lmax = ", lmax
     if(present(index_list))then
        if(any(index_list .gt. map%nmaps)) stop "smooth: index_list overflow"
        call map%map2alm(lmax, index_list)
+       if(present(l_lower)) map%alm(0:l_lower-1, :, :) = 0.
        call map%filter_alm(fwhm = real(fwhm), index_list = index_list)
        call map%alm2map(index_list)
     else
        call map%map2alm(lmax)
+       if(present(l_lower)) map%alm(0:l_lower-1, :, :) = 0.       
        call map%filter_alm(fwhm = real(fwhm))
        call map%alm2map()
     endif
   end subroutine coop_healpix_maps_smooth
 
-    subroutine coop_healpix_maps_smooth_with_window(map, fwhm, window, index_list)
+    subroutine coop_healpix_maps_smooth_with_window(map, fwhm, lmax, window, index_list)
     class(coop_healpix_maps) map
     COOP_REAL fwhm
     COOP_INT lmax
     COOP_INT,dimension(:),optional::index_list
-    COOP_SINGLE window(0:map%lmax)
-    if(fwhm .gt. 0.d0)then
-       lmax = min(ceiling(3./max(abs(fwhm)*coop_sigma_by_fwhm, 1.d-6)), map%nside*2, coop_healpix_default_lmax)
-    else
-       lmax = min(map%nside*2, coop_healpix_default_lmax)
-    endif
-    if(lmax .lt. 2) return
-    write(*,*) "Smoothing with lmax = ", lmax
+    COOP_SINGLE window(0:lmax)
     if(present(index_list))then
        if(any(index_list .gt. map%nmaps)) stop "smooth: index_list overflow"
        call map%map2alm(lmax, index_list)

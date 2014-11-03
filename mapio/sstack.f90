@@ -37,7 +37,7 @@ program hastack_prog
 
   type(coop_healpix_maps)::polmask, imask, noise, imap, polmap, tmpmap
   type(coop_healpix_patch)::patch
-  COOP_INT i, j, ind, nmaps_temp, l
+  COOP_INT i, j, ind, nmaps_temp, l, lmax
   COOP_STRING::fr_file
   type(coop_list_integer)::listpix
   type(coop_list_real)::listangle
@@ -57,11 +57,14 @@ program hastack_prog
      print*, "where [highpass] can be T or F or ignored (default F, pol only)"
      stop
   endif
+
+  lmax  = ceiling(2.5d0/(fwhm_arcmin*coop_SI_arcmin * coop_sigma_by_fwhm))
+  write(*,*) "Using lmax = "//COOP_STR_OF(lmax)
   highpass = (trim(coop_InputArgs(3)) .eq. "T")
   call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
   if(highpass)then
-     allocate(window(0:coop_healpix_default_lmax))
-     do l= 0, coop_healpix_default_lmax
+     allocate(window(0:lmax))
+     do l= 0, lmax
         window(l) = high_pass_window(l, 20, 40) !!default 20, 40
      enddo
   endif
@@ -104,6 +107,7 @@ program hastack_prog
   enddo
   do while(ind .lt. n_sim)
      ind = ind + 1
+     write(*,*) "Stacking map #"//COOP_STR_OF(ind)
      call load_imap(ind)
      select case(trim(stack_type))
      case("T")
@@ -211,9 +215,9 @@ contains
   subroutine do_smooth_map(mymap)
     type(coop_healpix_maps)mymap
     if(highpass .and. mymap%nmaps.ge.2 .and. all(mymap%spin.eq.2))then
-       call mymap%smooth_with_window(fwhm = fwhm, window = window)          
+       call mymap%smooth_with_window(fwhm = fwhm, lmax = lmax, window = window)          
     else
-       if(fwhm .gt. coop_SI_arcmin) call mymap%smooth(fwhm = fwhm)
+       if(fwhm .gt. coop_SI_arcmin) call mymap%smooth(fwhm = fwhm, lmax = lmax)
     endif
   end subroutine do_smooth_map
 
