@@ -3138,11 +3138,12 @@ contains
 #if DO_ZETA_TRANS
     call this%map2alm(index_list = (/ 1 /) )
     
-    call fod%Set_Planck_bestfit() 
+    call fod%Set_Planck_bestfit()
     call fod%compute_source(0)
     allocate(Cls(coop_num_cls, 2:this%lmax), Cls_lensed(coop_num_cls, 2:this%lmax))
     call fod%source(0)%get_All_Cls(2, this%lmax, Cls)
     call coop_get_lensing_Cls(2, this%lmax, Cls, Cls_lensed)
+    
     norm = 1.d5 / 2.726d6
     this%alm(0:1, :, 1) = 0.
     !$omp parallel do
