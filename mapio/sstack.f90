@@ -217,7 +217,7 @@ contains
     if(highpass .and. mymap%nmaps.ge.2 .and. all(mymap%spin.eq.2))then
        call mymap%smooth_with_window(fwhm = fwhm, lmax = lmax, window = window)          
     else
-       if(fwhm .gt. coop_SI_arcmin) call mymap%smooth(fwhm = fwhm, lmax = lmax)
+       if(fwhm .gt. coop_SI_arcmin) call mymap%smooth(fwhm = fwhm, l_upper = lmax, l_lower = 2)
     endif
   end subroutine do_smooth_map
 
