@@ -48,7 +48,9 @@ program hastack_prog
   call coop_MPI_init()
   spot_type = trim(coop_InputArgs(1))
   stack_type = trim(coop_InputArgs(2))
+  lmax  = min(ceiling(3.d0/(fwhm_arcmin*coop_SI_arcmin * coop_sigma_by_fwhm)), 1200)
   if(trim(spot_type) .eq. "" .or. trim(stack_type).eq."")then
+     print*, lmax
      print*, "Syntax:"
      print*, "./SST Tmax  T"
      print*, "./SST Tmax  QrUr [highpass]"
@@ -59,7 +61,7 @@ program hastack_prog
      stop
   endif
 
-  lmax  = ceiling(3.d0/(fwhm_arcmin*coop_SI_arcmin * coop_sigma_by_fwhm))
+
   write(*,*) "Using lmax = "//COOP_STR_OF(lmax)
   highpass = (trim(coop_InputArgs(3)) .eq. "T")
   call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
