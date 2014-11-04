@@ -10,28 +10,48 @@ program test
 
   implicit none
 #include "constants.h"
-  COOP_UNKNOWN_STRING, parameter::map_file = "ffp7/ffp7_smica_cmb_0001_2048_debeam.fits"
-!  COOP_UNKNOWN_STRING, parameter::map_file = "ffp7/ffp7_nobpm_smica_cmb_mc_0001_05a_2048_I.fits"
-  COOP_UNKNOWN_STRING, parameter::imask_file = ""
-  COOP_UNKNOWN_STRING, parameter::polmask_file = ""
-  COOP_UNKNOWN_STRING, parameter::output_file = "ffp7_cls.dat"
+
+  COOP_STRING::map_file, output_file
+  COOP_UNKNOWN_STRING, parameter::imask_file = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
+  COOP_UNKNOWN_STRING, parameter::polmask_file = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
   type(coop_healpix_maps)::map, imask, polmask
   type(coop_file)::fp
   integer l
-  call map%read(map_file)
-  if(imask_file .ne. "")then
-     call imask%read(imask_file)
-     map%map(:, 1) = map%map(:, 1) * imask%map(:, 1)
+  map_file = trim(coop_InputArgs(1))
+  if(trim(map_file).eq."")then
+     write(*,*) "Syntax:"
+     write(*,*) "./GetCl map [output]"
+     stop 
   endif
-  if(map%nmaps .eq. 3)then
+  if(iargc() .ge. 2)then
+     output_file = trim(coop_InputArgs(2))
+  else
+     output_file = coop_str_replace(map_file, ".fits", "_cls.txt")
+  endif
+  call map%read(map_file)
+  select case(map%nmaps)
+  case(1)
+     if(imask_file .ne. "")then
+        call imask%read(imask_file, spin = (/ 0 /) )
+        map%map(:, 1) = map%map(:, 1) * imask%map(:, 1)
+     endif
+  case(2)
      if(polmask_file .ne. "")then
-        call polmask%read(polmask_file)
+        call polmask%read(polmask_file, spin = (/ 0 /) )
+        map%map(:, 1) = map%map(:, 1) * polmask%map(:, 1)
+        map%map(:, 2) = map%map(:, 2) * polmask%map(:, 1)
+     endif
+  case(3)
+     if(imask_file .ne. "")then
+        call imask%read(imask_file, spin = (/ 0 /))
+        map%map(:, 1) = map%map(:, 1) * imask%map(:, 1)
+     endif
+     if(polmask_file .ne. "")then
+        call polmask%read(polmask_file, spin = (/ 0 /))
         map%map(:, 2) = map%map(:, 2) * polmask%map(:, 1)
         map%map(:, 3) = map%map(:, 3) * polmask%map(:, 1)
-     endif
-  endif
-
-
+     endif     
+  end select
   call fp%open(output_file)
   call map%map2alm()
   do l = 0, map%lmax

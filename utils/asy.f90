@@ -27,6 +27,8 @@ module coop_asy_mod
      procedure::write_coor => coop_asy_write_coor
      procedure::write_limits => coop_asy_write_limits
      procedure::curve => coop_asy_curve_d
+     procedure::interpolate_curve => coop_asy_interpolate_curve_d
+     procedure::plot => coop_asy_curve_d
      procedure::legend => coop_asy_legend_relative
      procedure::line => coop_asy_line_d
      procedure::label => coop_asy_label_relative

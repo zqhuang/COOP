@@ -21,13 +21,21 @@ program map
   type(coop_list_integer),dimension(nmax)::indices_wanted
   COOP_STRING::inline
   integer num_maps_wanted, npix, k
+  logical::inline_mode = .false.
   type(coop_healpix_maps) hgm, hgm2
   COOP_REAL fwhm, scal, threshold
-  write(*,*) "options are: SPLIT; SMOOTH; MULTIPLY;I2TQTUT;IQU2TEB;SCALE;INFO;ADD;SUBTRACT;MAKEMASK"
+  write(*,*) "options are: SPLIT; SMOOTH; MULTIPLY;I2TQTUT;IQU2TEB;SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE"
   nin = 1
+  inline_mode =  (iargc() .gt. 0)
+
+
   do while(nin .le. nmax)
-     write(*,*) "Enter input file and press Enter (or just press Enter key to finish):"
-     read(*,'(A)') fin(nin)
+     if(inline_mode)then
+        fin(nin) = trim(coop_inputArgs(nin))
+     else
+        write(*,*) "Enter input file and press Enter (or just press Enter key to finish):"
+        read(*,'(A)') fin(nin)
+     endif
      select case(trim(fin(nin)))
      case("INFO")
         do i=1, nin
@@ -45,14 +53,20 @@ program map
            endif
         enddo
      case("MAKEMASK")
-        if(nin.ge.3) stop "MAKEMASK option can only be applied to 1 map"
-        call hgm%read(fin(1), nmaps_wanted = 1)
-        write(*,*) "map min:", minval(hgm%map(:,1))
-        write(*,*) "map max:", maxval(hgm%map(:,1))
-        write(*,*) "Enter the threshold:"
-        read(*,*) threshold
-        write(*,*) "Enter the output file name:"
-        read(*,'(A)') fout
+        if(inline_mode)then
+           inline = coop_inputArgs(nin+1)
+           read(inline, *) threshold
+           fout  = trim(coop_inputArgs(nin+2))
+        else           
+           if(nin.ge.3) stop "MAKEMASK option can only be applied to 1 map"
+           call hgm%read(fin(1), nmaps_wanted = 1)
+           write(*,*) "map min:", minval(hgm%map(:,1))
+           write(*,*) "map max:", maxval(hgm%map(:,1))
+           write(*,*) "Enter the threshold:"
+           read(*,*) threshold
+           write(*,*) "Enter the output file name:"
+           read(*,'(A)') fout
+        endif
         !$omp parallel do
         do i=0, hgm%npix-1
            if(hgm%map(i, 1).gt. threshold)then
@@ -73,8 +87,13 @@ program map
         print*, "maps are all split"
         goto 500
      case("SMOOTH")
-        write(*,*) "Enter the fwhm in arcmin:"
-        read(*,*) fwhm
+        if(inline_mode)then
+           inline = coop_inputArgs(nin+1)
+           read(inline, *) fwhm
+        else
+           write(*,*) "Enter the fwhm in arcmin:"
+           read(*,*) fwhm
+        endif
         fwhm = fwhm*coop_SI_arcmin
         nin = nin -1
         do i=1, nin
@@ -83,8 +102,13 @@ program map
         print*, "maps are all smoothed"
         goto 500
      case("SCALE")
-        write(*,*) "Enter the scale"
-        read(*,*) scal
+        if(inline_mode)then
+           inline = coop_inputArgs(nin+1)
+           read(inline, *) scal
+        else           
+           write(*,*) "Enter the scale"
+           read(*,*) scal
+        endif
         nin  = nin - 1
         do i=1, nin
            call hgm%read(trim(fin(i)))
@@ -94,13 +118,17 @@ program map
         call hgm%free
         goto 500
      case("MULTIPLY")
+        if(inline_mode)then
+           fout = trim(coop_inputArgs(nin+1))
+        else
+           fout = ""
+           do while(trim(fout).eq."")
+              write(*,*) "Enter the output file name: "
+              read(*,'(A)') fout
+           enddo           
+        endif
         nin  = nin - 1
         if(nin.lt.2) stop "nmaps<2, cannot multiply"
-        fout = ""
-        do while(trim(fout).eq."")
-           write(*,*) "Enter the output file name: "
-           read(*,'(A)') fout
-        enddo
         call hgm%read(trim(fin(1)))
         call hgm2%read(trim(fin(2)))
         if(hgm2%nside .ne. hgm%nside) stop "map with different resolution cannot be multiplied"
@@ -126,13 +154,17 @@ program map
         call hgm2%free()
         goto 500
      case("ADD")
+        if(inline_mode)then
+           fout = trim(coop_inputArgs(nin+1))           
+        else
+           fout = ""
+           do while(trim(fout).eq."")
+              write(*,*) "Enter the output file name: "
+              read(*,'(A)') fout
+           enddo
+        endif
         nin  = nin - 1
-        if(nin.lt.2) stop "nmaps<2, cannot multiply"
-        fout = ""
-        do while(trim(fout).eq."")
-           write(*,*) "Enter the output file name: "
-           read(*,'(A)') fout
-        enddo
+        if(nin.lt.2) stop "nmaps<2, cannot add"
         call hgm%read(trim(fin(1)))
         call hgm2%read(trim(fin(2)))
         if(hgm2%nside .ne. hgm%nside) stop "map with different resolution cannot be added"
@@ -148,13 +180,17 @@ program map
         call hgm2%free()
         goto 500
      case("SUBTRACT")
+        if(inline_mode)then
+           fout = trim(coop_inputArgs(nin+1))           
+        else
+           fout = ""
+           do while(trim(fout).eq."")
+              write(*,*) "Enter the output file name: "
+              read(*,'(A)') fout
+           enddo
+        endif
         nin  = nin - 1
-        if(nin.lt.2) stop "nmaps<2, cannot multiply"
-        fout = ""
-        do while(trim(fout).eq."")
-           write(*,*) "Enter the output file name: "
-           read(*,'(A)') fout
-        enddo
+        if(nin.lt.2) stop "nmaps<2, cannot subtract"        
         call hgm%read(trim(fin(1)))
         call hgm2%read(trim(fin(2)))
         if(hgm2%nside .ne. hgm%nside) stop "map with different resolution cannot be subtracted"
@@ -187,7 +223,7 @@ program map
         enddo
         print*, "maps are all converted to TEB"
         goto 500
-     case("")
+     case("", "SHUFFLE")
         nin = nin - 1
         exit
      end select
@@ -195,8 +231,10 @@ program map
         nin = nin+1
      else
         write(*,*) "The file "//trim(fin(nin))//" does not exist!"
+        if(inline_mode) stop
      endif
   enddo
+  if(inline_mode)stop "inline mode does not support shuffle"
 10 write(*,*) "Enter the output file name: "
   read(*,'(A)') fout
   if(trim(fout).eq."")goto 10
