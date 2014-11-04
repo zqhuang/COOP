@@ -48,9 +48,8 @@ program hastack_prog
   call coop_MPI_init()
   spot_type = trim(coop_InputArgs(1))
   stack_type = trim(coop_InputArgs(2))
-  lmax  = min(ceiling(3.d0/(fwhm_arcmin*coop_SI_arcmin * coop_sigma_by_fwhm)), 1200)
+  lmax  = min(ceiling(3.d0/(fwhm_arcmin*coop_SI_arcmin * coop_sigma_by_fwhm)), 2000)
   if(trim(spot_type) .eq. "" .or. trim(stack_type).eq."")then
-     print*, lmax
      print*, "Syntax:"
      print*, "./SST Tmax  T"
      print*, "./SST Tmax  QrUr [highpass]"
