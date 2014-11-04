@@ -9,6 +9,7 @@ program hastack_prog
   use alm_tools
   implicit none
 #include "constants.h"
+  COOP_RAEL,parameter::cmb_rescale = sqrt(1.021), noise_rescale = sqrt(1.079)
   COOP_INT, parameter::n_sim = 100
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_SHORT_STRING::spot_type, stack_type
@@ -166,8 +167,8 @@ contains
     else
        call polmap%read(trim(sim_file_name_cmb_polmap(i)), spin = (/2 , 2 /) , nmaps_wanted = 2  )
        call noise%read(trim(sim_file_name_noise_polmap(i)), spin = (/2 , 2 /) , nmaps_wanted = 2 )
-       polmap%map(:, 1) = (polmap%map(:, 1) + noise%map(:, 1))*polmask%map(:, 1)
-       polmap%map(:, 2) = (polmap%map(:, 2) + noise%map(:, 2))*polmask%map(:, 1)
+       polmap%map(:, 1) = (polmap%map(:, 1)*cmb_rescale + noise%map(:, 1)*noise_rescale)*polmask%map(:, 1)
+       polmap%map(:, 2) = (polmap%map(:, 2)*cmb_rescale + noise%map(:, 2)*noise_rescale)*polmask%map(:, 1)
        call do_smooth_map(polmap)
     endif
   end subroutine load_polmap

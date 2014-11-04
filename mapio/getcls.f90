@@ -28,35 +28,36 @@ program test
   else
      output_file = coop_str_replace(map_file, ".fits", "_cls.txt")
   endif
-  call map%read(map_file)
-  select case(map%nmaps)
-  case(1)
-     if(imask_file .ne. "")then
-        call imask%read(imask_file, spin = (/ 0 /) )
-        map%map(:, 1) = map%map(:, 1) * imask%map(:, 1)
-     endif
-  case(2)
-     if(polmask_file .ne. "")then
-        call polmask%read(polmask_file, spin = (/ 0 /) )
-        map%map(:, 1) = map%map(:, 1) * polmask%map(:, 1)
-        map%map(:, 2) = map%map(:, 2) * polmask%map(:, 1)
-     endif
-  case(3)
-     if(imask_file .ne. "")then
-        call imask%read(imask_file, spin = (/ 0 /))
-        map%map(:, 1) = map%map(:, 1) * imask%map(:, 1)
-     endif
-     if(polmask_file .ne. "")then
-        call polmask%read(polmask_file, spin = (/ 0 /))
-        map%map(:, 2) = map%map(:, 2) * polmask%map(:, 1)
-        map%map(:, 3) = map%map(:, 3) * polmask%map(:, 1)
-     endif     
-  end select
-  call fp%open(output_file)
-  call map%map2alm()
-  do l = 0, map%lmax
-     write(fp%unit, "(I5, 6E16.7)") l, map%cl(l, :)
-  enddo
-  call fp%close
-
+  if(.not. coop_file_exists(output_file))then
+     call map%read(map_file)
+     select case(map%nmaps)
+     case(1)
+        if(imask_file .ne. "")then
+           call imask%read(imask_file, spin = (/ 0 /) )
+           map%map(:, 1) = map%map(:, 1) * imask%map(:, 1)
+        endif
+     case(2)
+        if(polmask_file .ne. "")then
+           call polmask%read(polmask_file, spin = (/ 0 /) )
+           map%map(:, 1) = map%map(:, 1) * polmask%map(:, 1)
+           map%map(:, 2) = map%map(:, 2) * polmask%map(:, 1)
+        endif
+     case(3)
+        if(imask_file .ne. "")then
+           call imask%read(imask_file, spin = (/ 0 /))
+           map%map(:, 1) = map%map(:, 1) * imask%map(:, 1)
+        endif
+        if(polmask_file .ne. "")then
+           call polmask%read(polmask_file, spin = (/ 0 /))
+           map%map(:, 2) = map%map(:, 2) * polmask%map(:, 1)
+           map%map(:, 3) = map%map(:, 3) * polmask%map(:, 1)
+        endif
+     end select
+     call fp%open(output_file)
+     call map%map2alm()
+     do l = 0, map%lmax
+        write(fp%unit, "(I5, 6E16.7)") l, map%cl(l, :)
+     enddo
+     call fp%close
+  endif
 end program test

@@ -187,7 +187,7 @@ contains
   function coop_file_exists(FileName) result(file_exists)
     COOP_UNKNOWN_STRING, INTENT(IN) :: FileName
     LOGICAL File_Exists
-    INQUIRE(FILE=trim(FileName), EXIST = File_Exists)
+    INQUIRE(FILE=trim(adjustl(fileName)), EXIST = File_Exists)
   end function coop_file_exists
 
 
