@@ -9,19 +9,19 @@ program hastack_prog
   use alm_tools
   implicit none
 #include "constants.h"
-  COOP_REAL,parameter::cmb_rescale = sqrt(1.021), noise_rescale = sqrt(1.5)
+  COOP_REAL,parameter::cmb_rescale = sqrt(1.05), noise_rescale = 1.d0
   COOP_INT, parameter::n_sim = 100
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_SHORT_STRING::spot_type, stack_type
   COOP_REAL, parameter::patch_size = 2.d0*coop_SI_degree
   COOP_UNKNOWN_STRING, parameter::cs_method = "smica"
-  COOP_UNKNOWN_STRING, parameter::pol_case = "case3"
+  COOP_UNKNOWN_STRING, parameter::pol_case = "case1"
   
   COOP_UNKNOWN_STRING, parameter::prefix = "stack_radial/"//cs_method//"_"//pol_case//"_"
   COOP_INT, parameter::mmax = 4
   COOP_REAL, parameter::fwhm_arcmin = 15.d0
   COOP_REAL, parameter::fwhm_in = 10.d0
-  COOP_UNKNOWN_STRING, parameter::input_resolution =   "_010a_1024"
+  COOP_UNKNOWN_STRING, parameter::input_resolution =   "_hp_20_40_010a_1024"
   COOP_UNKNOWN_STRING, parameter::postfix =  input_resolution//".fits"
 
   COOP_STRING::allprefix

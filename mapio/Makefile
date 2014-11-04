@@ -34,6 +34,9 @@ TrimC: $(OBJ) trimcmp.o
 QEB: $(OBJ) quickeb.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) quickeb.o $(LINK)
 
+FAB: $(OBJ) fitalphabeta.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) fitalphabeta.o $(LINK)
+
 
 Test: $(OBJ) test.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
