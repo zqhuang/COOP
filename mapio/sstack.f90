@@ -9,7 +9,7 @@ program hastack_prog
   use alm_tools
   implicit none
 #include "constants.h"
-  COOP_REAL,parameter::cmb_rescale = sqrt(1.021), noise_rescale = sqrt(1.079)
+  COOP_REAL,parameter::cmb_rescale = sqrt(1.021), noise_rescale = sqrt(1.5)
   COOP_INT, parameter::n_sim = 100
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_SHORT_STRING::spot_type, stack_type
