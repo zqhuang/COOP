@@ -9,7 +9,7 @@ program hastack_prog
   use alm_tools
   implicit none
 #include "constants.h"
-  COOP_RAEL,parameter::cmb_rescale = sqrt(1.021), noise_rescale = sqrt(1.079)
+  COOP_REAL,parameter::cmb_rescale = sqrt(1.021), noise_rescale = sqrt(1.079)
   COOP_INT, parameter::n_sim = 100
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_SHORT_STRING::spot_type, stack_type
@@ -17,7 +17,7 @@ program hastack_prog
   COOP_UNKNOWN_STRING, parameter::cs_method = "smica"
   COOP_UNKNOWN_STRING, parameter::pol_case = "case3"
   
-  COOP_UNKNOWN_STRING, parameter::prefix = "sst_"//cs_method//"_"//pol_case//"/"
+  COOP_UNKNOWN_STRING, parameter::prefix = "stack_radial/"//cs_method//"_"//pol_case//"_"
   COOP_INT, parameter::mmax = 4
   COOP_REAL, parameter::fwhm_arcmin = 15.d0
   COOP_REAL, parameter::fwhm_in = 10.d0
