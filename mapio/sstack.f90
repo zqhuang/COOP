@@ -21,8 +21,9 @@ program hastack_prog
   COOP_INT, parameter::mmax = 4
   COOP_REAL, parameter::fwhm_arcmin = 15.d0
   COOP_REAL, parameter::fwhm_in = 10.d0
-  COOP_UNKNOWN_STRING, parameter::input_resolution =   "_hp_20_40_010a_1024"
+  COOP_UNKNOWN_STRING, parameter::input_resolution =   "_010a_1024"
   COOP_UNKNOWN_STRING, parameter::postfix =  input_resolution//".fits"
+  COOP_UNKNOWN_STRING, parameter::polpost = "_hp_20_40"//postfix
 
   COOP_STRING::allprefix
   COOP_UNKNOWN_STRING, parameter::mapdir = "/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
@@ -32,9 +33,9 @@ program hastack_prog
   COOP_INT, parameter::n = nint(patch_size/dr)
 
   COOP_UNKNOWN_STRING, parameter::imap_file  = "planck14/dx11_v2_"//cs_method//"_int_cmb"//postfix
-  COOP_UNKNOWN_STRING, parameter::polmap_file  = "planck14/dx11_v2_"//cs_method//"_pol_"//pol_case//"_cmb"//postfix
-  COOP_UNKNOWN_STRING, parameter::imask_file  = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
-  COOP_UNKNOWN_STRING, parameter::polmask_file  ="planck14/dx11_v2_common_pol_mask_010a_1024.fits"
+  COOP_UNKNOWN_STRING, parameter::polmap_file  = "planck14/dx11_v2_"//cs_method//"_pol_"//pol_case//"_cmb"//polpost
+  COOP_UNKNOWN_STRING, parameter::imask_file  = "planck14/dx11_v2_common_int_mask"//postfix
+  COOP_UNKNOWN_STRING, parameter::polmask_file  ="planck14/dx11_v2_common_pol_mask"//postfix
 
   type(coop_healpix_maps)::polmask, imask, noise, imap, polmap, tmpmap
   type(coop_healpix_patch)::patch
@@ -191,13 +192,13 @@ contains
   function sim_file_name_cmb_polmap(i)
     COOP_INT i
     COOP_STRING sim_file_name_cmb_polmap
-    sim_file_name_cmb_polmap = mapdir//"cmb/pol/dx11_v2_"//cs_method//"_pol_"//pol_case//"_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//postfix
+    sim_file_name_cmb_polmap = mapdir//"cmb/pol/dx11_v2_"//cs_method//"_pol_"//pol_case//"_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//polpost
   end function sim_file_name_cmb_polmap
 
   function sim_file_name_noise_polmap(i)
     COOP_INT i
     COOP_STRING sim_file_name_noise_polmap
-    sim_file_name_noise_polmap = mapdir//"noise/pol/dx11_v2_"//cs_method//"_pol_"//pol_case//"_noise_mc_"//trim(coop_Ndigits(i-1, 5))//postfix
+    sim_file_name_noise_polmap = mapdir//"noise/pol/dx11_v2_"//cs_method//"_pol_"//pol_case//"_noise_mc_"//trim(coop_Ndigits(i-1, 5))//polpost
   end function sim_file_name_noise_polmap
 
   function high_pass_window(l, lstart, lend) result(w)
