@@ -201,7 +201,7 @@ real topaxis_xmin, topaxis_xmax, rightaxis_ymin, rightaxis_ymax;
 bool xlog, ylog, zlog, topaxis_xlog, rightaxis_ylog, doclip;
 bool xmin_adjust, xmax_adjust, ymin_adjust, ymax_adjust, zmin_adjust, zmax_adjust;
 string xlabel, ylabel, caption, topaxis_label, rightaxis_label, textfile;
-pen coorpen = black + solid + 2.;
+pen coorpen = black + solid + 1.5;
 //=================== axis functions ===========
 
 string nostring(real x){
@@ -750,7 +750,7 @@ void plot_rightaxis(){
         else
              scale(pic,Linear,Log);
         ylimits(pic, rightaxis_ymin, rightaxis_ymax);
-        yaxis(pic, rightaxis_label, XEqualsRight(cxmax), black, LeftTicks("", begin=false,end=false, p = coorpen));
+        yaxis(pic, rightaxis_label, XEqualsRight(cxmax), coorpen, LeftTicks("", begin=false,end=false));
         });}
   else{
     q=secondaryY(new void(picture pic) {
@@ -759,7 +759,7 @@ void plot_rightaxis(){
          else
             scale(pic,Linear,Linear);
          ylimits(pic, rightaxis_ymin, rightaxis_ymax);
-         yaxis(pic, rightaxis_label, XEqualsRight(cxmax), black, LeftTicks("", begin=false,end=false, p = coorpen));
+         yaxis(pic, rightaxis_label, XEqualsRight(cxmax),coorpen, LeftTicks("", begin=false,end=false));
         });}
 
    add(q);
@@ -774,7 +774,7 @@ void plot_topaxis(){
     else
        scale(pic,Log,Linear);
     xlimits(pic, topaxis_xmin, topaxis_xmax);
-    xaxis(pic, topaxis_label, YEqualsTop(cymax), black, RightTicks("", begin=false,end=false, p = coorpen));
+    xaxis(pic, topaxis_label, YEqualsTop(cymax), coorpen, RightTicks("", begin=false,end=false));
         });}
  else{
    q=secondaryX(new void(picture pic) {
@@ -783,7 +783,7 @@ void plot_topaxis(){
    else
       scale(pic, Linear, Linear);
    xlimits(pic, topaxis_xmin, topaxis_xmax);
-   xaxis(pic, topaxis_label, YEqualsTop(cymax), black, RightTicks("", begin=false, end=false, p = coorpen));
+   xaxis(pic, topaxis_label, YEqualsTop(cymax), coorpen, RightTicks("", begin=false, end=false));
         });}
  add(q);}
 
@@ -930,17 +930,17 @@ void plot_axes(){
   if(caption !=  '')
    label( caption, ( xmincoor*0.5+xmaxcoor*0.5, ymaxcoor+(ymaxcoor-ymincoor)*0.06 ) );
  if(topaxis == 0){
-    xaxis(xlabel, axis=YEqualsCenter(cymin, false), xmin = cxmin, xmax = cxmax, ticks=LeftTicks, above=true, p=coorpen);
-    xaxis("", axis=YEqualsCenter(cymax, false), xmin = cxmin, xmax = cxmax, ticks=RightTicksNoLabel, above=true, p=coorpen);}
+    xaxis(xlabel, axis=YEqualsCenter(cymin, false), xmin = cxmin, xmax = cxmax, p=coorpen, ticks=LeftTicks, above=true);
+    xaxis("", axis=YEqualsCenter(cymax, false), xmin = cxmin, xmax = cxmax, p=coorpen, ticks=RightTicksNoLabel, above=true);}
 else{
-    xaxis(xlabel, axis=YEqualsCenter(cymin, false), xmin = cxmin, xmax = cxmax, ticks=LeftTicks, above=true, p=coorpen);
+    xaxis(xlabel, axis=YEqualsCenter(cymin, false), xmin = cxmin, xmax = cxmax,  p=coorpen, ticks=LeftTicks, above=true);
     plot_topaxis();}
 
 if(rightaxis == 0){
-   yaxis(ylabel,  axis=XEqualsCenter(cxmin, false), ymin = cymin, ymax = cymax, ticks=RightTicks, above=true, p = coorpen);
-   yaxis("",  axis=XEqualsCenter(cxmax, false), ymin = cymin, ymax = cymax, ticks=LeftTicksNoLabel, above=true, p=coorpen);}
+   yaxis(ylabel,  axis=XEqualsCenter(cxmin, false), ymin = cymin, ymax = cymax, p = coorpen, ticks=RightTicks, above=true);
+   yaxis("",  axis=XEqualsCenter(cxmax, false), ymin = cymin, ymax = cymax, p=coorpen, ticks=LeftTicksNoLabel, above=true);}
 else{ 
-   yaxis(ylabel,  axis=XEqualsCenter(cxmin, false), ymin = cymin, ymax = cymax, ticks=RightTicks, above=true, p=coorpen);
+   yaxis(ylabel,  axis=XEqualsCenter(cxmin, false), ymin = cymin, ymax = cymax, p=coorpen, ticks=RightTicks, above=true);
    plot_rightaxis();}
 
 }
