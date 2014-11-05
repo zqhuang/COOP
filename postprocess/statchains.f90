@@ -247,7 +247,7 @@ contains
        mc%lower(ip) = minval(mc%params(:, ip))
        mc%upper(ip) = maxval(mc%params(:, ip))
        dx = (mc%upper(ip) - mc%lower(ip))/n_fine_bins
-       if (dx .lt. 1.d-18 )then
+       if (dx .lt. 1.d-13 )then
           mc%mean(ip) = mc%upper(ip)
           mc%std(ip) = 0.
           mc%vary(ip) = .false.
