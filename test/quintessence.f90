@@ -4,11 +4,12 @@ program test
   use coop_wrapper
   implicit none
 #include "constants.h"
-  logical,parameter::do_tracking = .false.
+  logical,parameter::do_tracking = .true.
   type(coop_function)::V
   integer,parameter::n = 8192
   COOP_REAL, dimension(n)::phi_values, V_values
-  logical,parameter::xlog = .false., ylog = .false.
+  logical,parameter::xlog = .true., ylog = .true.
+  COOP_REAL,parameter::Omega_m = 0.3d0
   type(coop_arguments)::args
   type(coop_ode)::ode
   COOP_REAL::xend
@@ -17,17 +18,17 @@ program test
   type(coop_file)::fp
   COOP_REAL, parameter::Mpl = 1.d0
   COOP_INT i, j
-  call coop_set_uniform(n, phi_values, 0.d0, coop_pi, logscale = xlog)
-  call args%init( r = (/ 1.d0 , 0.21d0 /) )
+  call coop_set_uniform(n, phi_values, 1.d-2, 5.d0, logscale = xlog)
+  call args%init( r = (/ 1.d0 , 12.d0 /) )
   do i=1, n
      V_values(i) = potential(phi_values(i), args)
   enddo
   call V%init(n = n, xmin = phi_values(1), xmax = phi_values(n), f = V_values, xlog = xlog, ylog = ylog, check_boundary = .true.)
-  rhom_ini = 1.d10*Mpl**2
+  rhom_ini = 1.d11*Mpl**2
   H_ini = sqrt(rhom_ini/(3.d0*Mpl**2))
   if(do_tracking)then
      !!random guess
-     phi_ini = 0.001d0
+     phi_ini = 0.05d0
      do j=1,10
         Gam = V%derivative2(phi_ini)*V%eval(phi_ini)/V%derivative(phi_ini)**2
         if(Gam .le. 1.d0) stop "bad initial guess"
@@ -49,7 +50,7 @@ program test
   epss = -1.d5
   call fp%open("w.txt", "w")
   write(fp%unit, "(10E16.7)") ode%x, (-V%eval(ode%y(1))+ode%y(2)**2/2.d0)/(V%eval(ode%y(1))+ode%y(2)**2/2.d0), rhophi/(rhom+rhophi)
-  do while(rhom/rhophi .gt. 0.3d0/0.7d0)
+  do while(rhom/rhophi .gt. Omega_m/(1.d0-Omega_m))
      xend = ode%x + 0.002d0
      call ode%evolve(eqs, xend)
      rhom = rhom_ini*exp(-3.d0*ode%x)
@@ -66,14 +67,17 @@ program test
   call fp%close()
   print*, ode%y(1), V%eval(ode%y(1)), ode%y(2)**2/2.d0
   epsinf = 1.5d0/(1.d0+2.d0*(Gam-1.d0))
-  print*, epss, epsinf
+  print*, "epsilon_infinity = ", epsinf
+  print*, "epsilon_s = ", epss
+
 
 contains
 
   function potential(phi, args)
     COOP_REAL phi, potential
     type(coop_arguments)::args
-    potential = args%r(1) * (1.d0+cos(phi/(Mpl*args%r(2))))
+    potential = args%r(1)/(phi/Mpl)**args%r(2) * exp((phi/Mpl)**2/2.d0)
+!    potential = args%r(1) * (1.d0+cos(phi/(Mpl*args%r(2))))
   end function potential
 
   subroutine eqs(n, x, y, yp)

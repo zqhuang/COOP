@@ -129,12 +129,18 @@ if(len(sys.argv) < 2):
 fname = sys.argv[1]
 
 if(len(sys.argv) > 2):
-    if(sys.argv[2] == "PP"):
-        want = deruns
-    elif(sys.argv[2] == "REC"):
+    if(sys.argv[2] == "PP" or sys.argv[2] == "pp" or sys.argv[2] == "scan" or sys.argv[2] == "SCAN"):
+        want = ppruns
+    elif(sys.argv[2] == "REC" or sys.argv[2] == "rec"):
         want = recruns
-    else:
+    elif(sys.argv[2] == "DE" or sys.argv[2] == "de"):
         want = deruns
+    else:
+        print "Syntax:"
+        print "python vdini.py [REC|DE|PP] [program]"        
+        sys.exit()
+else:
+    want = deruns
 
 if(len(sys.argv)>3):
     action = sys.argv[3]
