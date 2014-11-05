@@ -61,6 +61,8 @@ module coop_healpix_mod
      procedure :: free => coop_healpix_maps_free
      procedure :: write => coop_healpix_maps_write
      procedure :: read => coop_healpix_maps_read
+     procedure :: extend => coop_healpix_maps_extend
+     procedure :: import => coop_healpix_maps_import
      procedure :: open => coop_healpix_maps_read
      procedure :: mask => coop_healpix_maps_mask
      procedure :: allocate_alms => coop_healpix_maps_allocate_alms
@@ -697,6 +699,33 @@ contains
 #endif
   end subroutine coop_healpix_maps_init
 
+
+  subroutine coop_healpix_maps_extend(this, nmaps)
+    class(coop_healpix_maps) this
+    COOP_INT nmaps
+    COOP_SINGLE,dimension(:,:),allocatable::map
+    COOP_INT, dimension(:), allocatable::spin
+#ifdef HAS_HEALPIX
+    if(nmaps .le. this%nmaps) return
+    allocate(map(0:this%npix-1, this%nmaps))
+    map = this%map
+    allocate(spin(this%nmaps))
+    spin  = this%spin
+    deallocate(this%map, this%spin)
+    allocate(this%map(0:this%npix-1, nmaps), this%spin(nmaps))
+    this%map(:, 1:this%nmaps) = map
+    this%spin(1:this%nmaps) = spin
+    if(allocated(this%alm))then
+       deallocate(this%alm)
+       call this%allocate_alms(this%lmax)
+    endif
+    deallocate(map, spin)
+#else
+    stop "DID not find healpix"
+#endif
+  end subroutine coop_healpix_maps_extend
+
+
   subroutine coop_healpix_maps_allocate_alms(this, lmax)
     class(coop_healpix_maps) this
     COOP_INT lmax
@@ -827,6 +856,29 @@ contains
     stop "DID NOT FIND HEALPIX"
 #endif
   end subroutine coop_healpix_maps_read
+
+
+
+    subroutine coop_healpix_maps_import(this, filename, index_start, index_end, spin)
+    class(coop_healpix_maps) this
+    COOP_UNKNOWN_STRING filename
+    type(coop_healpix_maps)::tmp
+    COOP_INT index_start, index_end, spin(index_end-index_start + 1)
+#ifdef HAS_HEALPIX
+    call tmp%read(filename = trim(filename), nmaps_wanted = index_end-index_start + 1, spin = spin )
+    call this%convert2ring()    
+    if(tmp%nside .ne. this%nside) stop "import: nside must be the same"
+    if(index_end .gt. this%nmaps)then
+       call this%extend(index_end)
+    endif
+    this%map(:, index_start:index_end) = tmp%map
+    this%spin(index_start:index_end) = spin
+    call tmp%free()
+#else
+    stop "DID NOT FIND HEALPIX"
+#endif
+  end subroutine coop_healpix_maps_import
+
 
   subroutine coop_healpix_maps_write(this, filename, index_list)
     class(coop_healpix_maps)this

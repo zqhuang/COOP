@@ -11,53 +11,35 @@ program test
   implicit none
 #include "constants.h"
 
-  COOP_STRING::map_file, output_file
+  COOP_STRING::imap_file, polmap_file, output_file
+  COOP_INT, parameter::lmin = 50
+  COOP_INT, parameter::lmax = 2000
+  COOP_INT, parameter::smooth_delta_ell = 10
+  
   COOP_UNKNOWN_STRING, parameter::imask_file = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
   COOP_UNKNOWN_STRING, parameter::polmask_file = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
   type(coop_healpix_maps)::map, imask, polmask
   type(coop_file)::fp
-  integer l
-  map_file = trim(coop_InputArgs(1))
-  if(trim(map_file).eq."")then
-     write(*,*) "Syntax:"
-     write(*,*) "./GetCl map [output]"
-     stop 
-  endif
-  if(iargc() .ge. 2)then
-     output_file = trim(coop_InputArgs(2))
+  integer l, i
+  imap_file = trim(coop_InputArgs(1))
+  polmap_file = trim(coop_InputArgs(2))
+  if(iargc() .ge. 3)then
+     output_file = trim(coop_InputArgs(3))
   else
-     output_file = coop_str_replace(map_file, ".fits", "_cls.txt")
+     output_file = coop_str_replace(imap_file, ".fits", "_cls.txt")
   endif
   if(.not. coop_file_exists(output_file))then
-     call map%read(map_file)
-     select case(map%nmaps)
-     case(1)
-        if(imask_file .ne. "")then
-           call imask%read(imask_file, spin = (/ 0 /) )
-           map%map(:, 1) = map%map(:, 1) * imask%map(:, 1)
-        endif
-     case(2)
-        if(polmask_file .ne. "")then
-           call polmask%read(polmask_file, spin = (/ 0 /) )
-           map%map(:, 1) = map%map(:, 1) * polmask%map(:, 1)
-           map%map(:, 2) = map%map(:, 2) * polmask%map(:, 1)
-        endif
-     case(3)
-        if(imask_file .ne. "")then
-           call imask%read(imask_file, spin = (/ 0 /))
-           map%map(:, 1) = map%map(:, 1) * imask%map(:, 1)
-        endif
-        if(polmask_file .ne. "")then
-           call polmask%read(polmask_file, spin = (/ 0 /))
-           map%map(:, 2) = map%map(:, 2) * polmask%map(:, 1)
-           map%map(:, 3) = map%map(:, 3) * polmask%map(:, 1)
-        endif
-     end select
-     call fp%open(output_file)
-     call map%map2alm()
+     call map%read(imap_file, nmaps_wanted = 3)
+     call map%import(polmap_file, index_start = 2, index_end = 3, spin = (/ 2, 2 /))
+     call map%map2alm(lmax = lmax)
+     call map%get_cls()
+     do i=1, 6
+        call coop_smooth_data(map%lmax+1, map%cl(0:map%lmax, i), smooth_delta_ell)
+     enddo
+     call fp%open(output_file, "w")
      do l = 0, map%lmax
         write(fp%unit, "(I5, 6E16.7)") l, map%cl(l, :)
      enddo
-     call fp%close
+     call fp%close()
   endif
 end program test

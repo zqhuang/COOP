@@ -19,6 +19,10 @@ module coop_basicutils_mod
      module procedure coop_isnan_d, coop_isnan_arrd, coop_isnan_arr2d, coop_isnan_s, coop_isnan_arrs, coop_isnan_arr2s
   end interface coop_isnan
 
+  interface coop_smooth_data
+     module procedure coop_smooth_data_d, coop_smooth_data_s
+  end interface coop_smooth_data
+
 contains
 
   Function coop_OuterProd(a, b) result(outerprod)
@@ -665,6 +669,57 @@ contains
     end if
   end function Coop_InputArgs
 
+
+  subroutine coop_smooth_data_d(n, y, sigma)
+    COOP_INT::n
+    COOP_REAL::y(n)
+    COOP_INT::sigma
+    COOP_REAL::w(-3*sigma:3*sigma), ycopy(1-3*sigma:n+3*sigma)
+    COOP_INT i, m
+    w(1) = 1.d0
+    m = 3*sigma
+    !$omp parallel do
+    do i = 1, m
+       w(i) = exp(-(dble(i)/sigma)**2/2.d0)
+       w(-i) = w(i)
+    enddo
+    !$omp end parallel do
+    w = w/sum(w)
+    ycopy(1:n) = y
+    ycopy(1-m:0) = y(1)    
+    ycopy(n+1:n+m) = y(n)
+    !$omp parallel do
+    do i=1, n
+       y(i) = sum(w*ycopy(i-m:i+m))
+    enddo
+    !$omp end parallel do
+  end subroutine coop_smooth_data_d
+
+  subroutine coop_smooth_data_s(n, y, sigma)
+    COOP_INT::n
+    COOP_SINGLE::y(n)
+    COOP_INT::sigma
+    COOP_SINGLE::w(-3*sigma:3*sigma), ycopy(1-3*sigma:n+3*sigma)
+    COOP_INT i, m
+    w(1) = 1.d0
+    m = 3*sigma
+    !$omp parallel do
+    do i = 1, m
+       w(i) = exp(-(dble(i)/sigma)**2/2.d0)
+       w(-i) = w(i)
+    enddo
+    !$omp end parallel do
+    w = w/sum(w)
+    ycopy(1:n) = y
+    ycopy(1-m:0) = y(1)    
+    ycopy(n+1:n+m) = y(n)
+    !$omp parallel do
+    do i=1, n
+       y(i) = sum(w*ycopy(i-m:i+m))
+    enddo
+    !$omp end parallel do
+  end subroutine coop_smooth_data_s
+  
 
 
 end module coop_basicutils_mod
