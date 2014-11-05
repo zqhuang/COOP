@@ -32,13 +32,11 @@ deruns = [ ['lowTEB', 'plikTT'], \
          ['lowTEB', 'plikTT', 'RSD'], \
          ['lowTEB', 'plikTT', 'WL'], \
          ['lowTEB', 'plikTT', 'RSD', 'WL'], \
-         ['lowTEB', 'plikTT', 'BAO', 'JLA', 'HSThigh'], \
          ['lowTEB', 'plikTT', 'lens'], \
          ['lowTEB', 'plikTT', 'lens', 'BAO', 'JLA', 'HSTlow'], \
          ['lowTEB', 'plikTT', 'lens', 'RSD'], \
          ['lowTEB', 'plikTT', 'lens', 'WL'], \
          ['lowTEB', 'plikTT', 'lens', 'RSD', 'WL'], \
-         ['lowTEB', 'plikTT', 'lens', 'BAO', 'JLA', 'HSThigh'], \
          ['lowTEB', 'plikTTTEEE'], \
          ['lowTEB', 'plikTTTEEE', 'BAO', 'JLA', 'HSTlow'] ]
 
