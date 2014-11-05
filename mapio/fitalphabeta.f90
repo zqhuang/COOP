@@ -9,8 +9,8 @@ program test
   use alm_tools
   implicit none
 #include "constants.h"
-  integer, parameter::lmin = 2
-  integer, parameter::lmax = 2000
+  integer, parameter::lmin = 50 
+  integer, parameter::lmax = 1500
   type(coop_asy)::fig
   type(coop_file)::fp
   integer l
@@ -46,10 +46,10 @@ program test
   enddo
   call fp%close()
 
-  y(lmin:lmax) = (cls_data(lmin:lmax,1)-cls_cmb(lmin:lmax,1))*factor(lmin:lmax)
-  tpls(lmin:lmax,1)=cls_noise(lmin:lmax, 1)*factor(lmin:lmax)
-  tpls(lmin:lmax,2)=cls_noise(lmin:lmax, 1)* factor(lmin:lmax)*lnl(lmin:lmax)
-  tpls(lmin:lmax,3)=cls_noise(lmin:lmax, 1)*factor(lmin:lmax)*ells(lmin:lmax)
+  y(lmin:lmax) = cls_data(lmin:lmax,1)*factor(lmin:lmax)
+  tpls(lmin:lmax,1)=cls_cmb(lmin:lmax, 1)*factor(lmin:lmax)
+  tpls(lmin:lmax,2)=cls_cmb(lmin:lmax, 1)*factor(lmin:lmax)*ells(lmin:lmax)
+  tpls(lmin:lmax,3)=cls_noise(lmin:lmax, 1)*factor(lmin:lmax)
   call coop_fit_template(lmax-lmin+1, m, y, tpls, scal)
   print *, scal
 

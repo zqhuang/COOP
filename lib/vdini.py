@@ -20,10 +20,14 @@ datafile['HSTlow'] = r'batch2/HST_GPE70p6.ini'
 datafile['HSThigh'] = r'batch2/HST_high.ini'
 datafile['WL'] = r'batch2/WL.ini'
 datafile['RSD'] =  r'batch2/BAO_RSD.ini'
-
+datafile['liteTT'] = r'batch2/plik_lite_TT.ini'
+datafile['liteTTTEEE'] = r'batch2/plik_lite_TTTEEE.ini'
+datafile['camTT'] = r'batch2/CAMspec_TT.ini'
+datafile['camTTTEEE'] = r'batch2/CAMspec_TTTEEE.ini'
+         
 
 ###  Edit the collection of data sets that you want to run
-want = [ ['lowTEB', 'plikTT'], \
+deruns = [ ['lowTEB', 'plikTT'], \
          ['lowTEB', 'plikTT', 'BAO', 'JLA', 'HSTlow'], \
          ['lowTEB', 'plikTT', 'RSD'], \
          ['lowTEB', 'plikTT', 'WL'], \
@@ -37,6 +41,16 @@ want = [ ['lowTEB', 'plikTT'], \
          ['lowTEB', 'plikTT', 'lens', 'BAO', 'JLA', 'HSThigh'], \
          ['lowTEB', 'plikTTTEEE'], \
          ['lowTEB', 'plikTTTEEE', 'BAO', 'JLA', 'HSTlow'] ]
+
+ppruns = [ ['lowTEB', 'plikTT'], \
+           ['lowTEB', 'liteTT'], \
+           ['lowTEB', 'liteTTTEEE', 'lens', 'BAO', 'JLA', 'HSTlow'] ]
+
+recruns = [ ['lowTEB', 'plikTT'], \
+            ['lowTEB', 'liteTT'], \
+            ['lowTEB', 'liteTTTEEE', 'lens', 'BAO', 'JLA', 'HSTlow'] ]
+
+
 
 default_covmat = r'planck_covmats/base_planck_lowl_lowLike.covmat'  ##this covmat will be used by default
 
@@ -116,8 +130,16 @@ if(len(sys.argv) < 2):
     
 fname = sys.argv[1]
 
-if(len(sys.argv)>=3):
-    action = sys.argv[2]
+if(len(sys.argv) > 2):
+    if(sys.argv[2] == "PP"):
+        want = deruns
+    elif(sys.argv[2] == "REC"):
+        want = recruns
+    else:
+        want = deruns
+
+if(len(sys.argv)>3):
+    action = sys.argv[3]
 else:
     action = ""
 
