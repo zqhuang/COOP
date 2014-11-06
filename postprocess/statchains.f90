@@ -481,6 +481,7 @@ contains
     COOP_REAL  :: cltt, errup, errdown
     integer junk, l, num_params, index_pp, pp_location, icontour
     real cltraj_weight
+    COOP_REAL:: mean_lnAs
     COOP_STRING inline
 
     mc%output = trim(adjustl(output))//trim(coop_file_name_of(mc%prefix))
@@ -502,6 +503,7 @@ contains
 
     num_1sigma_trajs = 50
     if(do_pp)then
+       mean_lnAs = mc%mean(chain_index_of_name(mc, "logA"))
        call coop_feedback("Generating primordial power spectra trajectories")
        select case(cosmomc_pp_model)
        case(COOP_PP_GENERAL_SINGLE_FIELD)
@@ -658,8 +660,8 @@ contains
 
 
 
-       call coop_asy_curve(fig_spec, kMpc, exp(3.086+(0.967-1.)*(lnk-coop_pp_scalar_lnkpivot)), color = "black", linewidth=2., legend="$m^2\phi^2$ scalar")
-       call coop_asy_curve(fig_spec, kMpc, exp(3.086 - 0.01625*lnk)*0.13, color = "cyan", linewidth=1.2, legend="$m^2\phi^2$ tensor")
+       call coop_asy_curve(fig_spec, kMpc, exp(mean_lnAs+(0.967-1.)*(lnk-coop_pp_scalar_lnkpivot)), color = "black", linewidth=2., legend="$m^2\phi^2$ scalar")
+       call coop_asy_curve(fig_spec, kMpc, exp(mean_lnAs - 0.01625*lnk)*0.13, color = "cyan", linewidth=1.2, legend="$m^2\phi^2$ tensor")
        numpp = cosmomc_pp_num_params - cosmomc_pp_num_origin + 1
        if(numpp .gt. 1)then
           call coop_set_uniform(numpp, lnk(1:numpp), coop_pp_lnkmin, coop_pp_lnkmax)
