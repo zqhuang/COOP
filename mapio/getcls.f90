@@ -12,7 +12,6 @@ program test
 #include "constants.h"
 
   COOP_STRING::imap_file, polmap_file, output_file
-  COOP_INT, parameter::lmin = 50
   COOP_INT, parameter::lmax = 2000
   COOP_INT, parameter::smooth_delta_ell = 20
   
