@@ -64,6 +64,23 @@ def copy_replace_first(fname1,  fname2, patterns, repls):
     fp.write(file_content)
     fp.close()
 
+def copy_replace_first_append(fname1,  fname2, patterns, repls, app):
+    print "copying " + fname1 + " to " + fname2
+    fp = open(fname1, 'r')
+    file_content = fp.read()
+    fp.close()
+    for i in range(len(patterns)):
+        if(re.match(r'\^.+\$', patterns[i])):
+            file_content = re.sub(patterns[i], repls[i], file_content, count = 1,  flags = re.M + re.I)
+        else:
+            file_content = re.sub(patterns[i], repls[i], file_content, count = 1, flags = re.I)
+    if(app != ''):
+        file_content = file_content + "\n" + app
+    fp = open(fname2, 'w')
+    fp.write(file_content)
+    fp.close()
+    
+
 def copy_replace_all(fname1, fname2, patterns, repls):
     print "copying " + fname1 + " to " + fname2
     fp = open(fname1, 'r')
@@ -369,46 +386,20 @@ else:
 
 
 ##lcdm
-copy_replace_first(baseini, 'lcdm.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [r'\1 \nde_model = 2 \nde_num_params='+str(num_w_params)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'file_root = lcdm', r'action = 0', str_propose] )
-
+copy_replace_first(baseini, 'lcdm.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [r'\1 \nde_model = 2 \nde_num_params='+str(num_w_params)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'file_root = lcdm', r'action = 0', str_propose])
 
 ### w0
-copy_replace_first(baseini, 'w0.ini', [common_pattern,  r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_w0.ini) \nde_model = 2 \nde_num_params='+str(num_w_params)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'file_root = w0', r'action = 0', str_propose] )
-copy_replace_first(common_file, batch_dir + r'/common_w0.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_w0.ini)'] )
-copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_w0.ini', [r'^param\[w\]\s*=.+$', r'^param\[wa\]\s*=.+$'], [ r'param[w] = -1 -3 1 0.05 0.05', r'param[wa] = 0 0 0 0 0' ] ) 
+copy_replace_first_append(baseini, 'w0.ini', [ r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [ r'file_root = w0 \nde_model = 2 \nde_num_params='+str(num_w_params)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'action = 0', str_propose], r'param[w] = -1 -3 1 0.05 0.05' )
 
-copy_replace_first(baseini, 'w0wa.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_w0wa.ini) \nde_model = 2 \nde_num_params='+str(num_w_params)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'file_root = w0wa', r'action = 0', str_propose] )
-copy_replace_first(common_file, batch_dir + r'/common_w0wa.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_w0wa.ini)'] )
-copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_w0wa.ini', [r'^param\[w\]\s*=.+$', r'^param\[wa\]\s*=.+$'], [ r'param[w] = -1 -3 1 0.05 0.05', r'param[wa] = 0. -3 3 0.2 0.2' ] ) 
-
+###w0wa
+copy_replace_first_append(baseini, 'w0wa.ini', [ r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [ r'file_root = w0wa \nde_model = 2 \nde_num_params='+str(num_w_params)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'action = 0', str_propose], r'param[w] = -1 -3 1 0.05 0.05 \nparam[wa] = 0 -3 3 0.1 0.1' )
 
 #qcdm 1 parameter: epss
-copy_replace_first(baseini, 'qcdm_1param.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_qcdm_1param.ini) \nde_model = 3\nde_num_params=6\npp_model=0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = qcdm_1param', r'action = 0', str_propose] )
-
-copy_replace_first(common_file, batch_dir + r'/common_qcdm_1param.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_qcdm_1param.ini)'] )
-
-copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_qcdm_1param.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 -1.5 1.5 0.1 0.1 \nparam[epsinf] = 0 0 0 0 0  \nparam[zetas] = 0 0 0 0 0 \nparam[atbyaeq] = 0 0 0 0 0 \nparam[Qeq] = 0 0 0 0 0 \nparam[dlnQdphi] = 0 0 0 0 0' ] ) 
+copy_replace_first_append(baseini, 'qcdm_1param.ini', [r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [ r'file_root = qcdm_1param \nde_model = 3\nde_num_params=6\npp_model=0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_qcdm.paramnames', r'action = 0', str_propose], r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 -1.5 1.5 0.1 0.1 \nparam[epsinf] = 0 0 0 0 0  \nparam[zetas] = 0 0 0 0 0 \nparam[atbyaeq] = 0 0 0 0 0 \nparam[Qeq] = 0 0 0 0 0 \nparam[dlnQdphi] = 0 0 0 0 0' )
 
 
 ##qcdm 3 parameter: epss, epsinf, zetas
-copy_replace_first(baseini, 'qcdm_3param.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [r'DEFAULT('  + batch_dir + r'/common_qcdm_3param.ini) \nde_model = 3\nde_num_params=6\npp_model = 0 \npp_num_params = '  + str(index_H0 - index_logA) + r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = qcdm_3param', r'action = 0', str_propose] )
-
-copy_replace_first(common_file, batch_dir + r'/common_qcdm_3param.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_qcdm_3param.ini)'] )
-copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_qcdm_3param.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 -1.5 1.5 0.1 0.1 \nparam[epsinf] = 0.05 0 1. 0.05 0.05 \nparam[zetas] = 0 -1 1 0.1 0.1 \nparam[atbyaeq] = 0 0 0 0 0 \nparam[Qeq] = 0 0 0 0 0 \nparam[dlnQdphi] = 0 0 0 0 0' ] ) 
-
-## coupled qcdm, eps and Q
-copy_replace_first(baseini, 'qcdm_c1param.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_qcdm_c1param.ini) \nde_model = 4\nde_num_params=6\npp_model=0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = qcdm_c1param', r'action = 0', str_propose] )
-
-copy_replace_first(common_file, batch_dir + r'/common_qcdm_c1param.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_qcdm_c1param.ini)'] )
-
-copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_qcdm_c1param.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 -1.5 1.5 0.03 0.03 \nparam[epsinf] = 0 0 0 0 0  \nparam[zetas] = 0 0 0 0 0 \nparam[atbyaeq] = 0 0 0 0 0 \nparam[Qeq] = 0.02 0. 1. 0.02 0.02 \nparam[dlnQdphi] = 0 0 0 0 0' ] ) 
-
-
-##coupled qcdm 3 parameter: epss, epsinf, zetas + atbyaeq and Q (actually 5param)
-copy_replace_first(baseini, 'qcdm_full.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [r'DEFAULT('  + batch_dir + r'/common_qcdm_full.ini) \nde_model = 4\nde_num_params=6\npp_model = 0 \npp_num_params = '  + str(index_H0 - index_logA) + r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = qcdm_full', r'action = 0', str_propose] )
-
-copy_replace_first(common_file, batch_dir + r'/common_qcdm_full.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_qcdm_full.ini)'] )
-copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_qcdm_full.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 -1.5 1.5 0.03 0.03 \nparam[epsinf] = 0.01 0 1. 0.01 0.01 \nparam[zetas] = 0 -1 1 0.1 0.1 \nparam[atbyaeq] = 0.6 0.1 1. 0.05 0.05 \nparam[Qeq] = 0.01 0. 1. 0.01 0.01 \nparam[dlnQdphi] = 0 -1. 1. 0.2 0.2' ] ) 
+copy_replace_first_append(baseini, 'qcdm_3param.ini', [r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [ r'file_root = qcdm_3param \nde_model = 3\nde_num_params=6\npp_model = 0 \npp_num_params = '  + str(index_H0 - index_logA) + r'\nparamnames = paramnames/params_qcdm.paramnames', r'action = 0', str_propose], r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 -1.5 1.5 0.1 0.1 \nparam[epsinf] = 0.05 0 1. 0.05 0.05 \nparam[zetas] = 0 -1 1 0.1 0.1 \nparam[atbyaeq] = 0 0 0 0 0 \nparam[Qeq] = 0 0 0 0 0 \nparam[dlnQdphi] = 0 0 0 0 0' )
 
 
 ######################   
@@ -416,17 +407,20 @@ copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/param
  
 ppnum = index_H0 - index_logA
 
-for i in range(7, 15):
+for i in range(5, 15):
     ppstr = ''
     for j in range(i):
         ppstr += (r'pp'+ str(j+1) + r'    p_{' + str(j+1) + r'}\n')
     ppstr += r'H0*        H_0'
     copy_replace_first(r'params_CMB.paramnames', r'paramnames/params_scanp' + str(i)+ r'.paramnames',  [ r'^H0\*\s+.+$' ], [ ppstr ])
-    copy_replace_first(baseini, 'scanp'+str(i)+'_wb.ini', [common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^\#(cmb\_dataset\[BICEP2\].*)$',  propose_pattern], [r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pp'+str(i)+r'_wb' , r'action = 0', r'compute_tensors = T', r'\1', str_propose])
-    copy_replace_first(baseini, 'scanp'+str(i)+'.ini', [common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pp'+str(i) , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose])
-    copy_replace_first(baseini, 'scanl'+str(i)+'_wb.ini', [common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^\#(cmb\_dataset\[BICEP2\].*)$',  propose_pattern], [r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 2 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pl'+str(i)+r'_wb' , r'action = 0', r'compute_tensors = T', r'\1', str_propose])
-    copy_replace_first(baseini, 'scanl'+str(i)+'.ini', [common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 2 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pl'+str(i) , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose])
-
+    copy_replace_first(baseini, 'scan_pp'+str(i)+'.ini', [common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pp'+str(i) , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose])
+    copy_replace_first_append(baseini, 'scan_pp'+str(i)+'_fixrp100.ini', [common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pp'+str(i)+r'_fixrp100' , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose], r'param[r] = 0.1')
+    copy_replace_first_append(baseini, 'scan_pp'+str(i)+'_fixrp050.ini', [common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pp'+str(i)+r'_fixrp050', r'action = 0', r'compute_tensors = T', r'\#\1',str_propose], r'param[r] = 0.05')
+    copy_replace_first_append(baseini, 'scan_pp'+str(i)+'_fixrp010.ini', [common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pp'+str(i)+r'_fixrp010' , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose], r'param[r] = 0.01')
+    copy_replace_first_append(baseini, 'scan_pp'+str(i)+'_fixrp001.ini', [common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pp'+str(i)+r'_fixrp001' , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose], r'param[r] = 0.001')            
+    copy_replace_first(baseini, 'scan_pl'+str(i)+'.ini', [common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 2 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pl'+str(i) , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose])
+    copy_replace_first_append(baseini, 'scan_pl'+str(i)+'_fixrp100.ini', [common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 2 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pl'+str(i)+r'fixrp100' , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose], r'param[r] = 0.1')
+    
 
 copy_replace_first(common_file, batch_dir + r'/common_pp.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_pp.ini)'] )
 ppstr = r'param[ns] =  0.96 0.96 0.96 0 0 \n'
@@ -434,30 +428,6 @@ for i in range(1, 16):
     ppstr += r'param[pp'+ str(i) + r'] = 0. -1. 1. 0.03 0.03 \n'
 copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_pp.ini', [r'^param\[ns\]\s*=.+$', '^param\[r\]\s*=.+$', '^compute_tensors\s*=.+$'], [ ppstr, r'param[r] = 0.12 0. 1. 0.05 0.05', r'compute_tensors = T' ] ) 
 
+copy_replace_first_append(baseini, 'scan_bump.ini', [r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [r'file_root = scan_bump \nde_model = 0 \nde_num_params = 2\npp_model = 4 \npp_num_params = ' + str(ppnum+3) + r'\nparamnames = paramnames/params_bump.paramnames' , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose], r'bumpamp = 0. -1. 1. 0.03 0.03 '+"\n"+r'bumploc = -6.3 -6.9 -4.6 0.2 0.2 ' + "\n" + 'bumpwidth = 0.5  0.25 0.75 0.1 0.1')
 
-copy_replace_first(baseini, 'scalcdm_1param.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_scalcdm_1param.ini) \nde_model = 3\nde_num_params=6\npp_model=0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = scalcdm_1param', r'action = 0', str_propose] )
-
-copy_replace_first(common_file, batch_dir + r'/common_scalcdm_1param.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_scalcdm_1param.ini)'] )
-
-copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_scalcdm_1param.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0.1 0. 1.5 0.1 0.1 \nparam[epsinf] = 0 0 0 0 0  \nparam[zetas] = 0 0 0 0 0 \nparam[atbyaeq] = 0 0 0 0 0 \nparam[Qeq] = 0 0 0 0 0 \nparam[dlnQdphi] = 0 0 0 0 0' ] ) 
-
-
-##scalcdm 3 parameter: epss, epsinf, zetas
-copy_replace_first(baseini, 'scalcdm_3param.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [r'DEFAULT('  + batch_dir + r'/common_scalcdm_3param.ini) \nde_model = 3\nde_num_params=6\npp_model = 0 \npp_num_params = '  + str(index_H0 - index_logA) + r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = scalcdm_3param', r'action = 0', str_propose] )
-
-copy_replace_first(common_file, batch_dir + r'/common_scalcdm_3param.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_scalcdm_3param.ini)'] )
-copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_scalcdm_3param.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0.1 0. 1.5 0.1 0.1 \nparam[epsinf] = 0.05 0 1. 0.05 0.05 \nparam[zetas] = 0 -1 1 0.1 0.1 \nparam[atbyaeq] = 0 0 0 0 0 \nparam[Qeq] = 0 0 0 0 0 \nparam[dlnQdphi] = 0 0 0 0 0' ] ) 
-
-## coupled scalcdm, eps and Q
-copy_replace_first(baseini, 'scalcdm_c1param.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_scalcdm_c1param.ini) \nde_model = 4\nde_num_params=6\npp_model=0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = scalcdm_c1param', r'action = 0', str_propose] )
-
-copy_replace_first(common_file, batch_dir + r'/common_scalcdm_c1param.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_scalcdm_c1param.ini)'] )
-
-copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_scalcdm_c1param.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 0. 1.5 0.03 0.03 \nparam[epsinf] = 0 0 0 0 0  \nparam[zetas] = 0 0 0 0 0 \nparam[atbyaeq] = 0 0 0 0 0 \nparam[Qeq] = 0.02 0. 1. 0.02 0.02 \nparam[dlnQdphi] = 0 0 0 0 0' ] ) 
-
-
-##coupled scalcdm 3 parameter: epss, epsinf, zetas + atbyaeq and Q (actually 5param)
-copy_replace_first(baseini, 'scalcdm_full.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [r'DEFAULT('  + batch_dir + r'/common_scalcdm_full.ini) \nde_model = 4\nde_num_params=6\npp_model = 0 \npp_num_params = '  + str(index_H0 - index_logA) + r'\nparamnames = paramnames/params_qcdm.paramnames', r'file_root = scalcdm_full', r'action = 0', str_propose] )
-
-copy_replace_first(common_file, batch_dir + r'/common_scalcdm_full.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_scalcdm_full.ini)'] )
-copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_scalcdm_full.ini', [r'^param\[w\]\s*=.+$'], [ r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0.03 0. 1.5 0.03 0.03 \nparam[epsinf] = 0.01 0 1. 0.01 0.01 \nparam[zetas] = 0 -1 1 0.1 0.1 \nparam[atbyaeq] = 0.6 0.1 1. 0.05 0.05 \nparam[Qeq] = 0.01 0. 1. 0.01 0.01 \nparam[dlnQdphi] = 0 -1. 1. 0.2 0.2' ] ) 
+copy_replace_first(r'params_CMB.paramnames', r'paramnames/params_bump.paramnames',  [ r'^H0\*\s+.+$' ], [r'bumpamp        A_{\\rm bump} \nbumploc       \\ln k_{\\rm bump} \nbumpwidth     w_{\\rm bump}   \nH0*           H_0'])

@@ -206,7 +206,10 @@ contains
     select case(COOP_PP_MODEL)
     case(COOP_PP_STANDARD)
        call coop_set_uniform(coop_pp_n, coop_pp_lnkMpc, coop_pp_lnkmin, coop_pp_lnkmax)
-       coop_pp_lnps = COOP_LN10TO10AS - 10.d0*coop_ln10 + ( COOP_NS - 1.d0 ) * (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) + (COOP_NRUN/2.d0) *   (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) ** 2 + (COOP_NRUNRUN/6.d0) *  (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) ** 6
+       coop_pp_lnps = COOP_LN10TO10AS - 10.d0*coop_ln10 + ( COOP_NS - 1.d0 ) * (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) + (COOP_NRUN/2.d0) *   (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) ** 2 + (COOP_NRUNRUN/6.d0) *  (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) ** 3
+    case(COOP_PP_BUMP)
+       call coop_set_uniform(coop_pp_n, coop_pp_lnkMpc, coop_pp_lnkmin, coop_pp_lnkmax)
+       coop_pp_lnps = COOP_LN10TO10AS - 10.d0*coop_ln10 + ( COOP_NS - 1.d0 ) * (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) + (COOP_NRUN/2.d0) *   (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) ** 2 + (COOP_NRUNRUN/6.d0) *  (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot) ** 3 + COOP_COSMO_PARAMS%r(COOP_INDEX_PP+cosmomc_pp_num_origin) * exp(-((coop_pp_lnkMpc - COOP_COSMO_PARAMS%r(COOP_INDEX_PP+cosmomc_pp_num_origin+1))/COOP_COSMO_PARAMS%r(COOP_INDEX_PP+cosmomc_pp_num_origin+2))**2/2)
 
     case(COOP_PP_SCAN_SPLINE)
        nknots =  COOP_NUM_PP - cosmomc_pp_num_origin + 1
@@ -252,10 +255,14 @@ contains
 
     if(COOP_AMP_RATIO .gt. 0.d0)then
        select case(COOP_PP_MODEL)
-       case(COOP_PP_STANDARD, COOP_PP_SCAN_SPLINE, COOP_PP_SCAN_LINEAR)
+       case(COOP_PP_STANDARD, COOP_PP_SCAN_SPLINE, COOP_PP_SCAN_LINEAR, COOP_PP_BUMP)
           coop_pp_lnpt = log(COOP_AMP_RATIO * coop_primordial_ps(exp(coop_pp_tensor_lnkpivot)))+(COOP_NT)*(coop_pp_lnkMpc - coop_pp_tensor_lnkpivot) + COOP_NTRUN*(coop_pp_lnkMpc - coop_pp_tensor_lnkpivot)**2
-       case(COOP_PP_GENERAL_SINGLE_FIELD)
-          stop "not applied yet"
+       case (COOP_PP_GENERAL_SINGLE_FIELD)
+          write "COOP_PP_GENERAL_SINGLE_FIELD not applied yet"
+          stop          
+       case default
+          write "COOP_PP_MODEL"//COOP_STR_OF(COOP_PP_MODEL)//"not applied yet"
+          stop
        end select
        call coop_spline(coop_pp_n, coop_pp_lnkMpc, coop_pp_lnpt, coop_pp_lnpt2)
     else
