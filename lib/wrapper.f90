@@ -258,10 +258,10 @@ contains
        case(COOP_PP_STANDARD, COOP_PP_SCAN_SPLINE, COOP_PP_SCAN_LINEAR, COOP_PP_BUMP)
           coop_pp_lnpt = log(COOP_AMP_RATIO * coop_primordial_ps(exp(coop_pp_tensor_lnkpivot)))+(COOP_NT)*(coop_pp_lnkMpc - coop_pp_tensor_lnkpivot) + COOP_NTRUN*(coop_pp_lnkMpc - coop_pp_tensor_lnkpivot)**2
        case (COOP_PP_GENERAL_SINGLE_FIELD)
-          write "COOP_PP_GENERAL_SINGLE_FIELD not applied yet"
+          write(*,*) "COOP_PP_GENERAL_SINGLE_FIELD not applied yet"
           stop          
        case default
-          write "COOP_PP_MODEL"//COOP_STR_OF(COOP_PP_MODEL)//"not applied yet"
+          write(*,*) "COOP_PP_MODEL"//COOP_STR_OF(COOP_PP_MODEL)//"not applied yet"
           stop
        end select
        call coop_spline(coop_pp_n, coop_pp_lnkMpc, coop_pp_lnpt, coop_pp_lnpt2)
