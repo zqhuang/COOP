@@ -392,14 +392,14 @@ copy_replace_first(baseini, 'lcdm.ini', [common_pattern, r'^file_root\s*=.+$', r
 copy_replace_first_append(baseini, 'w0.ini', [ r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [ r'file_root = w0 \nde_model = 2 \nde_num_params='+str(num_w_params)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'action = 0', str_propose], r'param[w] = -1 -3 1 0.05 0.05' )
 
 ###w0wa
-copy_replace_first_append(baseini, 'w0wa.ini', [ r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [ r'file_root = w0wa \nde_model = 2 \nde_num_params='+str(num_w_params)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'action = 0', str_propose], r'param[w] = -1 -3 1 0.05 0.05 \nparam[wa] = 0 -3 3 0.1 0.1' )
+copy_replace_first_append(baseini, 'w0wa.ini', [ r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [ r'file_root = w0wa \nde_model = 2 \nde_num_params='+str(num_w_params)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'action = 0', str_propose], r'param[w] = -1 -3 1 0.05 0.05 ' + "\n" + r'param[wa] = 0 -3 3 0.1 0.1' )
 
 #qcdm 1 parameter: epss
-copy_replace_first_append(baseini, 'qcdm_1param.ini', [r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [ r'file_root = qcdm_1param \nde_model = 3\nde_num_params=6\npp_model=0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_qcdm.paramnames', r'action = 0', str_propose], r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 -1.5 1.5 0.1 0.1 \nparam[epsinf] = 0 0 0 0 0  \nparam[zetas] = 0 0 0 0 0 \nparam[atbyaeq] = 0 0 0 0 0 \nparam[Qeq] = 0 0 0 0 0 \nparam[dlnQdphi] = 0 0 0 0 0' )
+copy_replace_first_append(baseini, 'qcdm_1param.ini', [r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [ r'file_root = qcdm_1param \nde_model = 3\nde_num_params=6\npp_model=0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_qcdm.paramnames', r'action = 0', str_propose], r'param[w] = -1 -1 -1 0 0 '+"\n" + r'param[epss] = 0 -1.5 1.5 0.1 0.1 '+"\n"+r'param[epsinf] = 0 0 0 0 0  '+"\n" + r'param[zetas] = 0 0 0 0 0 '+"\n" +'param[atbyaeq] = 0 0 0 0 0 '+"\n" +'param[Qeq] = 0 0 0 0 0 '+"\n"+'param[dlnQdphi] = 0 0 0 0 0' )
 
 
 ##qcdm 3 parameter: epss, epsinf, zetas
-copy_replace_first_append(baseini, 'qcdm_3param.ini', [r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [ r'file_root = qcdm_3param \nde_model = 3\nde_num_params=6\npp_model = 0 \npp_num_params = '  + str(index_H0 - index_logA) + r'\nparamnames = paramnames/params_qcdm.paramnames', r'action = 0', str_propose], r'param[w] = -1 -1 -1 0 0 \nparam[epss] = 0 -1.5 1.5 0.1 0.1 \nparam[epsinf] = 0.05 0 1. 0.05 0.05 \nparam[zetas] = 0 -1 1 0.1 0.1 \nparam[atbyaeq] = 0 0 0 0 0 \nparam[Qeq] = 0 0 0 0 0 \nparam[dlnQdphi] = 0 0 0 0 0' )
+copy_replace_first_append(baseini, 'qcdm_3param.ini', [r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [ r'file_root = qcdm_3param \nde_model = 3\nde_num_params=6\npp_model = 0 \npp_num_params = '  + str(index_H0 - index_logA) + r'\nparamnames = paramnames/params_qcdm.paramnames', r'action = 0', str_propose], r'param[w] = -1 -1 -1 0 0 '+"\n"+r'param[epss] = 0 -1.5 1.5 0.1 0.1 '+"\n"+r'param[epsinf] = 0.05 0 1. 0.05 0.05 '+"\n"+r'param[zetas] = 0 -1 1 0.1 0.1 '+"\n"+r'param[atbyaeq] = 0 0 0 0 0 '+"\n"+r'param[Qeq] = 0 0 0 0 0 '+"\n"+r'param[dlnQdphi] = 0 0 0 0 0' )
 
 
 ######################   
