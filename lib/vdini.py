@@ -24,7 +24,12 @@ datafile['liteTT'] = r'batch2/plik_lite_TT.ini'
 datafile['liteTTTEEE'] = r'batch2/plik_lite_TTTEEE.ini'
 datafile['camTT'] = r'batch2/CAMspec_TT.ini'
 datafile['camTTTEEE'] = r'batch2/CAMspec_TTTEEE.ini'
-         
+
+### default run
+default_data_sets1 = r'_lowTEB_plikTT'
+default_data_sets2 = r'_lowTEB_plikTT_BAO_JLA_HSTlow'
+default_data_sets3 = r'_lowTEB_liteTTTEEE_lens_BAO_JLA_HSTlow'
+default_data_sets4 = r'_lowTEB_liteTT'
 
 ###  Edit the collection of data sets that you want to run
 deruns = [ ['lowTEB', 'plikTT'], \
@@ -41,12 +46,11 @@ deruns = [ ['lowTEB', 'plikTT'], \
          ['lowTEB', 'plikTTTEEE', 'BAO', 'JLA', 'HSTlow'] ]
 
 ppruns = [ ['lowTEB', 'plikTT'], \
-           ['lowTEB', 'liteTT'], \
-           ['lowTEB', 'liteTTTEEE', 'lens', 'BAO', 'JLA', 'HSTlow'] ]
+           ['lowTEB', 'plikTTTEEE'], \
+           ['lowTEB', 'plikTT', 'lens'] ] 
 
 recruns = [ ['lowTEB', 'plikTT'], \
-            ['lowTEB', 'liteTT'], \
-            ['lowTEB', 'liteTTTEEE', 'lens', 'BAO', 'JLA', 'HSTlow'] ]
+            ['lowTEB', 'plikTTTEEE'] ]
 
 
 
@@ -107,6 +111,18 @@ def generate_ini(fname, datasets, action):
         if(os.path.isfile(newcovf)):
             patterns.append(r'^\s*propose\_matrix\s*=\s*\S*\s*$')
             repls.append(r'propose_matrix = ' + newcovf)
+        elif(os.path.isfile(covf + default_data_sets1 + r'.covmat')):
+            patterns.append(r'^\s*propose\_matrix\s*=\s*\S*\s*$')
+            repls.append(r'propose_matrix = ' + covf + default_data_sets1 + r'.covmat')
+        elif(os.path.isfile(covf + default_data_sets2 + r'.covmat')):
+            patterns.append(r'^\s*propose\_matrix\s*=\s*\S*\s*$')
+            repls.append(r'propose_matrix = ' + covf + default_data_sets2 + r'.covmat')
+        elif(os.path.isfile(covf + default_data_sets3 + r'.covmat')):
+            patterns.append(r'^\s*propose\_matrix\s*=\s*\S*\s*$')
+            repls.append(r'propose_matrix = ' + covf + default_data_sets3 + r'.covmat')
+        elif(os.path.isfile(covf + default_data_sets4 + r'.covmat')):
+            patterns.append(r'^\s*propose\_matrix\s*=\s*\S*\s*$')
+            repls.append(r'propose_matrix = ' + covf + default_data_sets4 + r'.covmat')                                
         elif(os.path.isfile(covf)):
             patterns.append(r'^\s*propose\_matrix\s*=\s*\S*\s*$')
             repls.append(r'propose_matrix = ' + covf)
