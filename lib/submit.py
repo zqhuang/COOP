@@ -16,7 +16,7 @@ for i in range(len(patterns)):
     jobname = re.sub(patterns[i], repls[i], jobname)
     
 fp = open(r'scripts/' + jobname + r'.jb', 'w')
-fp.write(r'#!/bin/csh -f' + "\n" + r'#PBS -N '+jobname + "\n" + r'#PBS -l nodes=8:ppn=8' + "\n" + r'#PBS -q workq' + "\n" + r'#PBS -l walltime=48:00:00' + "\n" + r'##PBS -r n' + "\n" + r'cd ' + current_path + "\n" + 'mpirun -pernode ./cosmomc ' + inifile + ' > ./scripts/'+jobname+r'.log')
+fp.write(r'#!/bin/csh -f' + "\n" + r'#PBS -N '+jobname + "\n" + r'#PBS -l nodes=8:ppn=8' + "\n" + r'#PBS -q workq' + "\n" + r'#PBS -l walltime=48:00:00' + "\n" + r'##PBS -r n' + "\n" + r'cd ' + current_path + "\n" + 'mpirun -pernode ./cosmomc ' + inifile + ' > ./scripts/'+jobname+r'.log' + "\n")
 
 fp.close()
 
