@@ -10,7 +10,7 @@ import string
 inifile = sys.argv[1]
 current_path = os.getcwd()
 patterns = [r'.*\/', r'scan\_', r'fixrp(\d\d)\d', r'qcdm\_1param', r'qcdm\_3param', 'lowTEB', 'plikTTTEEE', 'plikTT', 'BAO_JLA_HSTlow', 'lens', 'liteTTTEEE', 'liteTT', r'\.ini']
-repls = ['', '', 'r\1', 'w1p', 'w3p', 'P', 'E', 'T', 'pr', 'l', 'lE', 'lT', '']
+repls = ['', '', r'r\1', 'w1p', 'w3p', 'P', 'E', 'T', 'pr', 'l', 'lE', 'lT', '']
 jobname = inifile
 for i in range(len(patterns)):
     jobname = re.sub(patterns[i], repls[i], jobname)
