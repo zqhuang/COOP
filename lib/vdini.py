@@ -11,8 +11,8 @@ import string
 ###  define the short names for data files
 datafile = dict()
 datafile['lowTEB'] = r'batch2/lowTEB.ini'
-datafile['plikTT'] = r'batch2/plik_dx11dr2_HM_v16_TT.ini'
-datafile['plikTTTEEE'] = r'batch2/plik_dx11dr2_HM_v16_TTTEEE.ini'
+datafile['plikTT'] = r'batch2/plik_dx11dr2_HM_v17_TT.ini'
+datafile['plikTTTEEE'] = r'batch2/plik_dx11dr2_HM_v17_TTTEEE.ini'
 datafile['lens'] = r'batch2/lensing.ini'
 datafile['BAO'] = r'batch2/BAO.ini'
 datafile['JLA'] = r'batch2/JLA.ini'
