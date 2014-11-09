@@ -14,7 +14,7 @@ coop_propose_updae = 1200
 propose_pattern = r'^\s*MPI\_Max\_R\_ProposeUpdate\s*=.*$'
 propose_new_pattern = r'^\s*MPI\_Max\_R\_ProposeUpdateNew\s*=.*$'
 covmat_pattern = r'^\s*propose\_matrix\s*\=.*$'
-covmat_repl = r'propose_matrix = '
+covmat_repl = r'propose_matrix = plots/'
 str_propose = r'MPI_Max_R_ProposeUpdate = '+ str(coop_propose_updae) + r' \nMPI_Max_R_ProposeUpdateNew = '+ str(coop_propose_updae + 200)
 
 def backup_file(fname):
