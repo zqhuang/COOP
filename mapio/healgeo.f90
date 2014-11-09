@@ -49,13 +49,13 @@ module coop_healpix_mod
      COOP_INT npix, nside, nmaps, ordering, lmax, iq, iu, mask_npix, maskpol_npix
      character(LEN=80),dimension(64)::header
      COOP_INT,dimension(:),allocatable::spin
-     real, dimension(:,:),allocatable::map
+     COOP_SINGLE, dimension(:,:),allocatable::map
      complex, dimension(:,:,:),allocatable::alm
-     real, dimension(:,:),allocatable::Cl
+     COOP_SINGLE, dimension(:,:),allocatable::Cl
      COOP_INT,dimension(:),allocatable::mask_listpix, maskpol_listpix
      COOP_REAL chisq, mcmc_temperature
      logical,dimension(:),allocatable::alm_done
-     real,dimension(:,:),allocatable::checksum
+     COOP_SINGLE,dimension(:,:),allocatable::checksum
    contains     
      procedure :: init => coop_healpix_maps_init
      procedure :: free => coop_healpix_maps_free

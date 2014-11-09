@@ -9,56 +9,95 @@ program test
   use alm_tools
   implicit none
 #include "constants.h"
-  integer, parameter::lmin = 50 
-  integer, parameter::lmax = 1500
-  type(coop_asy)::fig
+  !!fit T_sim_CMB alpha,  QU_sim_CMB beta
+  COOP_INT, parameter::lmax = 2000
+  COOP_INT lmin, lmax_want
+  integer, parameter::nsims = 10
   type(coop_file)::fp
-  integer l
-  integer,parameter::m = 3
-  COOP_REAL::scal(m), y(lmin:lmax), tpls(lmin:lmax, m)
-  COOP_REAL ells(0:lmax), factor(0:lmax), lnl(0:lmax)
-  COOP_REAL,dimension(0:lmax, 1:3) ::Cls_noise, Cls_cmb, Cls_total, Cls_data
+  COOP_INT l, i, j
+  COOP_REAL alpha, beta, alpha_noise, beta_noise, chi2, r(4)
+  COOP_REAL alpha_new, beta_new, alpha_noise_new, beta_noise_new, chi2_new
+  COOP_REAL cl_cmb_sim(6, 0:lmax, nsims), cl_noise_sim(6, 0:lmax, nsims)
+  COOP_REAL cl_data(6, 0:lmax), tenorm(0:lmax)
+  lmin = coop_str2int(coop_inputArgs(1))
+  lmax_want = coop_str2int(coop_inputArgs(2))
   
-  call fp%open(coop_inputArgs(1), "r")
+  call fp%open("planck14/planck14_smica_cls.txt","r")
   do l=0, lmax
-     factor(l) = l*(l+1.d0)/coop_2pi*1.e12
-     lnl(l) = log(l+1.d-15)
-     read(fp%unit, *) ells(l), Cls_cmb(l, :)
+     read(fp%unit, *) i, cl_data(:, l)
+     if(i.ne.l) stop "error in cl file"
   enddo
   call fp%close()
+  do l=0, lmax
+     tenorm(l) = sqrt(cl_data(1, l)*cl_data(2, l))
+  enddo
+  do j = 1, nsims
+     call fp%open("ffp8/ffp8_smica_cmb_"//trim(coop_Ndigits(j-1, 5))//"_cls.txt", "r")
+     do l=0, lmax
+        read(fp%unit, *) i, cl_cmb_sim(:, l, j)
+        if(i.ne.l) stop "error in cl file"
+     enddo
+     call fp%close()
+     call fp%open("ffp8/ffp8_smica_noise_"//trim(coop_Ndigits(j-1, 5))//"_cls.txt", "r")
+     do l=0, lmax
+        read(fp%unit, *) i, cl_noise_sim(:, l, j)
+        if(i.ne.l) stop "error in cl file"
+     enddo
+     call fp%close()
+  enddo
+
+  alpha = 1.0d0
+  beta = 1.0d0
+  alpha_noise = 1.0d0
+  beta_noise = 1.0d0
   
-  call fp%open(coop_inputArgs(2), "r")
-  do l=0, lmax
-     read(fp%unit, *) ells(l), Cls_noise(l, :)
+  alpha_new = alpha
+  beta_new = beta
+  alpha_noise_new = alpha_noise
+  beta_noise_new = beta_noise
+  call coop_random_init()
+  
+  chi2= chisq_new()
+  do i=1, 10
+     do j=1, 1000
+        call random_number(r)
+        r = (r-0.5d0)/100.d0/i
+        alpha_new = alpha*exp(r(1))
+        beta_new = beta*exp(r(2))
+        alpha_noise_new = alpha_noise*exp(r(3))
+        beta_noise_new = beta_noise*exp(r(3))
+        chi2_new = chisq_new()
+        if(chi2_new .lt. chi2)then
+           alpha = alpha_new
+           beta = beta_new
+           alpha_noise = alpha_noise_new
+           beta_noise = beta_noise_new
+           chi2 = chi2_new
+        endif
+     enddo
   enddo
-  call fp%close()
+  print*, lmin, lmax_want, alpha, beta, alpha_noise, beta_noise
+contains
 
-  call fp%open(coop_inputArgs(3), "r")
-  do l=0, lmax
-     read(fp%unit, *) ells(l), Cls_total(l, :)
-     Cls_total(l, :) = Cls_total(l, :)
-  enddo
-  call fp%close()
+ 
 
-  call fp%open(coop_inputArgs(4), "r")
-  do l=0, lmax
-     read(fp%unit, *) ells(l), Cls_data(l, :)
-  enddo
-  call fp%close()
+    function chisq_new() result(chisq)
+    COOP_REAL chisq
+    COOP_INT l, imap
+    COOP_REAL clrat(3)
+    chisq = 0.d0
+    !$omp parallel do reduction(+:chisq) private(clrat, l)
+    do imap = 1, nsims
+       do l=lmin, lmax_want
+          clrat(1) = (alpha_new**2*cl_cmb_sim(1, l, imap) + alpha_noise_new**2*cl_noise_sim(1, l, imap))/cl_data(1, l)-1.d0
+          clrat(2) = (beta_new**2*cl_cmb_sim(2, l, imap) + beta_noise_new**2*cl_noise_sim(2, l, imap))/cl_data(2, l)-1.d0
+          clrat(3) = (alpha_new*beta_new*cl_cmb_sim(4, l, imap) + alpha_noise_new*beta_noise_new*cl_noise_sim(4, l,imap) - cl_data(4, l))/tenorm(l)
 
-  y(lmin:lmax) = cls_data(lmin:lmax,1)*factor(lmin:lmax)
-  tpls(lmin:lmax,1)=cls_cmb(lmin:lmax, 1)*factor(lmin:lmax)
-  tpls(lmin:lmax,2)=cls_cmb(lmin:lmax, 1)*factor(lmin:lmax)*ells(lmin:lmax)
-  tpls(lmin:lmax,3)=cls_noise(lmin:lmax, 1)*factor(lmin:lmax)
-  call coop_fit_template(lmax-lmin+1, m, y, tpls, scal)
-  print *, scal
-
-  call fig%open(coop_inputArgs(5))
-  call fig%init(xlabel = "$\ell$", ylabel = "$\frac{\ell (\ell + 1) }{2\pi} C_{\ell}^{TE}$")
-  call fig%curve(x = ells(lmin:lmax), y = Cls_data(lmin:lmax, 1)*factor(lmin:lmax), legend = "data", color = "red")
-  call fig%curve(x = ells(lmin:lmax), y = (Cls_cmb(lmin:lmax, 1)*scal(1)+Cls_noise(lmin:lmax, 1)*(scal(2)+scal(3)*lnl(lmin:lmax)))*factor(lmin:lmax), legend = "FFP8 (cmb + noise) $C_\ell$", color = "blue" , linetype="dotted")
-  call fig%legend(0.5, 0.9)
-  call fig%close()
+          chisq = chisq + sum(clrat**2)
+       enddo
+    enddo
+    !$omp end parallel do
+  end function chisq_new
 
   
 end program test

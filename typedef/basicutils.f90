@@ -23,6 +23,11 @@ module coop_basicutils_mod
      module procedure coop_smooth_data_d, coop_smooth_data_s
   end interface coop_smooth_data
 
+
+  interface coop_set_uniform
+     module procedure coop_set_uniform_d, coop_set_uniform_s
+  end interface coop_set_uniform
+
 contains
 
   Function coop_OuterProd(a, b) result(outerprod)
@@ -195,7 +200,7 @@ contains
   end function coop_getdim
 
   
-  subroutine coop_set_uniform(n, x, lower, upper, logscale)
+  subroutine coop_set_uniform_d(n, x, lower, upper, logscale)
     COOP_INT n, i
     COOP_REAL x(n), lower, upper, rlow, dx
     logical,optional::logscale
@@ -221,7 +226,37 @@ contains
     enddo
     !$omp end parallel do
 
-  end subroutine coop_set_uniform
+  end subroutine coop_set_uniform_d
+
+
+    subroutine coop_set_uniform_s(n, x, lower, upper, logscale)
+    COOP_INT n, i
+    COOP_SINGLE x(n), lower, upper, rlow, dx
+    logical,optional::logscale
+    x(1) = lower
+    x(n) = upper
+    if(present(logscale))then
+       if(logscale)then
+          dx = (log(upper) - log(lower))/(n-1)
+          rlow = log(lower) - dx
+          !$omp parallel do
+          do i = 2, n-1
+             x(i) = exp(rlow + dx*i)
+          enddo
+          !$omp end parallel do
+          return
+       endif
+    endif
+    dx = (upper-lower)/(n-1)
+    rlow = lower-dx
+    !$omp parallel do
+    do i = 2, n-1
+       x(i) =rlow + dx*i
+    enddo
+    !$omp end parallel do
+
+  end subroutine coop_set_uniform_s
+
 
   subroutine coop_locate(n, x, needle, loc, res)
     COOP_INT n, loc, imin, imax
@@ -676,14 +711,14 @@ contains
     COOP_INT::sigma
     COOP_REAL::w(-3*sigma:3*sigma), ycopy(1-3*sigma:n+3*sigma)
     COOP_INT i, m
-    w(1) = 1.d0
+    w(0) = 1.d0
     m = 3*sigma
     !$omp parallel do
     do i = 1, m
        w(i) = exp(-(dble(i)/sigma)**2/2.d0)
        w(-i) = w(i)
     enddo
-    !$omp end parallel do
+    !$omp end parallel do    
     w = w/sum(w)
     ycopy(1:n) = y
     ycopy(1-m:0) = y(1)    
@@ -701,7 +736,7 @@ contains
     COOP_INT::sigma
     COOP_SINGLE::w(-3*sigma:3*sigma), ycopy(1-3*sigma:n+3*sigma)
     COOP_INT i, m
-    w(1) = 1.d0
+    w(0) = 1.
     m = 3*sigma
     !$omp parallel do
     do i = 1, m

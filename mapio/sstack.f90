@@ -9,8 +9,9 @@ program hastack_prog
   use alm_tools
   implicit none
 #include "constants.h"
-  COOP_REAL,parameter::cmb_rescale = sqrt(1.05), noise_rescale = 1.d0
-  COOP_INT, parameter::n_sim = 100
+  COOP_REAL,parameter::T_cmb_rescale = sqrt(1.), pol_cmb_rescale = sqrt(1.03)  
+  COOP_REAL,parameter::T_noise_rescale = sqrt(1.11), pol_noise_rescale = sqrt(1.11)
+  COOP_INT, parameter::n_sim = 10
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_SHORT_STRING::spot_type, stack_type
   COOP_REAL, parameter::patch_size = 2.d0*coop_SI_degree
@@ -26,7 +27,7 @@ program hastack_prog
   COOP_UNKNOWN_STRING, parameter::polpost = "_hp_20_40"//postfix
 
   COOP_STRING::allprefix
-  COOP_UNKNOWN_STRING, parameter::mapdir = "/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
+  COOP_UNKNOWN_STRING, parameter::mapdir = "ffp8/" ! "/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
   COOP_REAL,parameter::fwhm = coop_SI_arcmin * sqrt(fwhm_arcmin**2-fwhm_in**2)
   COOP_REAL, parameter::threshold = 0
   COOP_REAL, parameter::dr = coop_SI_arcmin * max(fwhm_arcmin/5.d0, 5.d0)
@@ -151,7 +152,7 @@ contains
     else
        call imap%read(trim(sim_file_name_cmb_imap(i)), nmaps_wanted = nm , spin = spin , nmaps_to_read = 1 )
        call noise%read(trim(sim_file_name_noise_imap(i)), nmaps_wanted = nm , spin = spin, nmaps_to_read = 1 )
-       imap%map(:, 1) = (imap%map(:, 1) + noise%map(:, 1))*imask%map(:, 1)
+       imap%map(:, 1) = (imap%map(:, 1)*t_cmb_rescale + noise%map(:, 1)*t_noise_rescale)*imask%map(:, 1)
        call do_smooth_map(imap)
     endif
     deallocate(spin)
@@ -169,8 +170,8 @@ contains
     else
        call polmap%read(trim(sim_file_name_cmb_polmap(i)), spin = (/2 , 2 /) , nmaps_wanted = 2  )
        call noise%read(trim(sim_file_name_noise_polmap(i)), spin = (/2 , 2 /) , nmaps_wanted = 2 )
-       polmap%map(:, 1) = (polmap%map(:, 1)*cmb_rescale + noise%map(:, 1)*noise_rescale)*polmask%map(:, 1)
-       polmap%map(:, 2) = (polmap%map(:, 2)*cmb_rescale + noise%map(:, 2)*noise_rescale)*polmask%map(:, 1)
+       polmap%map(:, 1) = (polmap%map(:, 1)*pol_cmb_rescale + noise%map(:, 1)*pol_noise_rescale)*polmask%map(:, 1)
+       polmap%map(:, 2) = (polmap%map(:, 2)*pol_cmb_rescale + noise%map(:, 2)*pol_noise_rescale)*polmask%map(:, 1)
        call do_smooth_map(polmap)
     endif
   end subroutine load_polmap

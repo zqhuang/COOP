@@ -27,21 +27,19 @@ program test
   else
      output_file = coop_str_replace(imap_file, ".fits", "_cls.txt")
   endif
- ! if(.not. coop_file_exists(output_file))then
-     call map%read(imap_file, nmaps_wanted = 3)
-     call map%import(polmap_file, index_start = 2, index_end = 3, spin = (/ 2, 2 /))
-     call map%map2alm(lmax = lmax)
-     call map%get_cls()
-     do l=0, map%lmax
-        map%cl(l, :) = map%cl(l, :)*(l*(l+1)/coop_2pi*1.e12)
-     enddo
-     do i=1, 6
-        call coop_smooth_data(map%lmax+1, map%cl(0:map%lmax, i), smooth_delta_ell)
-     enddo
-     call fp%open(output_file, "w")
-     do l = 0, map%lmax
-        write(fp%unit, "(I5, 6E16.7)") l, map%cl(l,:)
-     enddo
-     call fp%close()
- ! endif
+  call map%read(imap_file, nmaps_wanted = 3, spin = (/ 0, 2, 2 /) )
+  call map%import(polmap_file, index_start = 2, index_end = 3, spin = (/ 2, 2 /))
+  call map%map2alm(lmax = lmax)
+  call map%get_cls()
+  do l=0, map%lmax
+     map%cl(l, :) = map%cl(l, :)*(l*(l+1)/coop_2pi*1.e12)
+  enddo
+  do i=1, 1
+     call coop_smooth_data(map%lmax+1, map%cl(0:map%lmax, i), smooth_delta_ell)
+  enddo
+  call fp%open(output_file, "w")
+  do l = 0, map%lmax
+     write(fp%unit, "(I5, 6E16.7)") l, map%cl(l,:)
+  enddo
+  call fp%close()
 end program test
