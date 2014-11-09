@@ -17,6 +17,14 @@ covmat_pattern = r'^\s*propose\_matrix\s*\=.*$'
 covmat_repl = r'propose_matrix = plots/'
 str_propose = r'MPI_Max_R_ProposeUpdate = '+ str(coop_propose_updae) + r' \nMPI_Max_R_ProposeUpdateNew = '+ str(coop_propose_updae + 200)
 
+inirootname = r'myinis'
+
+
+if(inirootname != ""):
+    iniroot = inirootname + r'/'
+else:
+    iniroot = ""
+
 def backup_file(fname):
     if(not os.path.isfile(fname + '__.bak')):
         os.system('cp ' + fname + ' ' + fname+'__.bak')
@@ -381,7 +389,11 @@ print "************************************"
 print "Generating params files"
 
 
-os.system('mkdir paramnames')
+if(not os.path.exists('paramnames')):
+    os.system('mkdir paramnames')
+if(iniroot != ""):    
+    if(not os.path.exists(inirootname)):    
+        os.system('mkdir '+ inirootname )
 os.system('cp params_CMB.paramnames paramnames/')
 if(num_w_params == 2):
     copy_replace_first("params_CMB.paramnames", "paramnames/params_qcdm.paramnames", [r'^w\s+.+$', r'^wa\s+.+$'], [r"epss          \epsilon_s", r"epsinf           \epsilon_{\infty}\nzetas           \zeta_s\natbyaeq              a_t/a_{\\rm eq}\nQeq                  Q_{\\rm eq} \ndlnQdphi           d\\ln Q/d\\phi" ] )
@@ -390,20 +402,20 @@ else:
 
 
 ##lcdm
-copy_replace_first(baseini, 'lcdm.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [r'\1 \nde_model = 2 \nde_num_params='+str(num_w_params)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'file_root = lcdm', r'action = 0', str_propose])
+copy_replace_first(baseini, iniroot+'lcdm.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [r'\1 \nde_model = 2 \nde_num_params='+str(num_w_params)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'file_root = lcdm', r'action = 0', str_propose])
 
 ### w0
-copy_replace_first_append(baseini, 'w0.ini', [ r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [ r'file_root = w0 \nde_model = 2 \nde_num_params='+str(num_w_params)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'action = 0', str_propose], r'param[w] = -1 -3 1 0.05 0.05' )
+copy_replace_first_append(baseini, iniroot+'w0.ini', [ r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [ r'file_root = w0 \nde_model = 2 \nde_num_params='+str(num_w_params)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'action = 0', str_propose], r'param[w] = -1 -3 1 0.05 0.05' )
 
 ###w0wa
-copy_replace_first_append(baseini, 'w0wa.ini', [ r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [ r'file_root = w0wa \nde_model = 2 \nde_num_params='+str(num_w_params)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'action = 0', str_propose], r'param[w] = -1 -3 1 0.05 0.05 ' + "\n" + r'param[wa] = 0 -3 3 0.1 0.1' )
+copy_replace_first_append(baseini, iniroot+'w0wa.ini', [ r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [ r'file_root = w0wa \nde_model = 2 \nde_num_params='+str(num_w_params)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'action = 0', str_propose], r'param[w] = -1 -3 1 0.05 0.05 ' + "\n" + r'param[wa] = 0 -3 3 0.1 0.1' )
 
 #qcdm 1 parameter: epss
-copy_replace_first_append(baseini, 'qcdm_1param.ini', [covmat_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [ covmat_repl+r'qcdm_1param.covmat', r'file_root = qcdm_1param \nde_model = 3\nde_num_params=6\npp_model=0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_qcdm.paramnames', r'action = 0', str_propose], r'param[w] = -1 -1 -1 0 0 '+"\n" + r'param[epss] = 0 -1.5 1.5 0.1 0.1 '+"\n"+r'param[epsinf] = 0 0 0 0 0  '+"\n" + r'param[zetas] = 0 0 0 0 0 '+"\n" +'param[atbyaeq] = 0 0 0 0 0 '+"\n" +'param[Qeq] = 0 0 0 0 0 '+"\n"+'param[dlnQdphi] = 0 0 0 0 0' )
+copy_replace_first_append(baseini, iniroot+'qcdm_1param.ini', [covmat_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [ covmat_repl+r'qcdm_1param.covmat', r'file_root = qcdm_1param \nde_model = 3\nde_num_params=6\npp_model=0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_qcdm.paramnames', r'action = 0', str_propose], r'param[w] = -1 -1 -1 0 0 '+"\n" + r'param[epss] = 0 -1.5 1.5 0.1 0.1 '+"\n"+r'param[epsinf] = 0 0 0 0 0  '+"\n" + r'param[zetas] = 0 0 0 0 0 '+"\n" +'param[atbyaeq] = 0 0 0 0 0 '+"\n" +'param[Qeq] = 0 0 0 0 0 '+"\n"+'param[dlnQdphi] = 0 0 0 0 0' )
 
 
 ##qcdm 3 parameter: epss, epsinf, zetas
-copy_replace_first_append(baseini, 'qcdm_3param.ini', [covmat_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [ covmat_repl + r'qcdm_3param.covmat', r'file_root = qcdm_3param \nde_model = 3\nde_num_params=6\npp_model = 0 \npp_num_params = '  + str(index_H0 - index_logA) + r'\nparamnames = paramnames/params_qcdm.paramnames', r'action = 0', str_propose], r'param[w] = -1 -1 -1 0 0 '+"\n"+r'param[epss] = 0 -1.5 1.5 0.1 0.1 '+"\n"+r'param[epsinf] = 0.05 0 1. 0.05 0.05 '+"\n"+r'param[zetas] = 0 -1 1 0.1 0.1 '+"\n"+r'param[atbyaeq] = 0 0 0 0 0 '+"\n"+r'param[Qeq] = 0 0 0 0 0 '+"\n"+r'param[dlnQdphi] = 0 0 0 0 0' )
+copy_replace_first_append(baseini, iniroot+'qcdm_3param.ini', [covmat_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [ covmat_repl + r'qcdm_3param.covmat', r'file_root = qcdm_3param \nde_model = 3\nde_num_params=6\npp_model = 0 \npp_num_params = '  + str(index_H0 - index_logA) + r'\nparamnames = paramnames/params_qcdm.paramnames', r'action = 0', str_propose], r'param[w] = -1 -1 -1 0 0 '+"\n"+r'param[epss] = 0 -1.5 1.5 0.1 0.1 '+"\n"+r'param[epsinf] = 0.05 0 1. 0.05 0.05 '+"\n"+r'param[zetas] = 0 -1 1 0.1 0.1 '+"\n"+r'param[atbyaeq] = 0 0 0 0 0 '+"\n"+r'param[Qeq] = 0 0 0 0 0 '+"\n"+r'param[dlnQdphi] = 0 0 0 0 0' )
 
 
 ######################   
@@ -417,13 +429,13 @@ for i in range(5, 15):
         ppstr += (r'pp'+ str(j+1) + r'    p_{' + str(j+1) + r'}\n')
     ppstr += r'H0*        H_0'
     copy_replace_first(r'params_CMB.paramnames', r'paramnames/params_scanp' + str(i)+ r'.paramnames',  [ r'^H0\*\s+.+$' ], [ ppstr ])
-    copy_replace_first(baseini, 'scan_pp'+str(i)+'.ini', [covmat_pattern, common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [covmat_repl + r'scan_pp' + str(i)+r'.covmat', r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pp'+str(i) , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose])
-    copy_replace_first_append(baseini, 'scan_pp'+str(i)+'_fixrp100.ini', [covmat_pattern, common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [covmat_repl + r'scan_pp' + str(i)+r'_fixrp100.covmat', r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pp'+str(i)+r'_fixrp100' , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose], r'param[r] = 0.1')
-    copy_replace_first_append(baseini, 'scan_pp'+str(i)+'_fixrp050.ini', [covmat_pattern, common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [covmat_repl + r'scan_pp' + str(i) + r'_fixrp050.covmat', r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pp'+str(i)+r'_fixrp050', r'action = 0', r'compute_tensors = T', r'\#\1',str_propose], r'param[r] = 0.05')
-    copy_replace_first_append(baseini, 'scan_pp'+str(i)+'_fixrp010.ini', [covmat_pattern, common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [covmat_repl + r'scan_pp'+str(i) + '_fixrp010.covmat', r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pp'+str(i)+r'_fixrp010' , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose], r'param[r] = 0.01')
-    copy_replace_first_append(baseini, 'scan_pp'+str(i)+'_fixrp001.ini', [covmat_pattern, common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [covmat_repl + r'scan_pp'+str(i) + '_fixrp001.covmat', r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pp'+str(i)+r'_fixrp001' , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose], r'param[r] = 0.001')            
-    copy_replace_first(baseini, 'scan_pl'+str(i)+'.ini', [covmat_pattern, common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [covmat_repl + r'scan_pl'+str(i) + '.covmat', r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 2 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pl'+str(i) , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose])
-    copy_replace_first_append(baseini, 'scan_pl'+str(i)+'_fixrp100.ini', [covmat_pattern, common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [covmat_repl + r'scan_pl'+str(i) + '_fixrp100.covmat', r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 2 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pl'+str(i)+r'fixrp100' , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose], r'param[r] = 0.1')
+    copy_replace_first(baseini, iniroot + r'scan_pp'+str(i)+'.ini', [covmat_pattern, common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [covmat_repl + r'scan_pp' + str(i)+r'.covmat', r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pp'+str(i) , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose])
+    copy_replace_first_append(baseini, iniroot + r'scan_pp'+str(i)+'_fixrp100.ini', [covmat_pattern, common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [covmat_repl + r'scan_pp' + str(i)+r'_fixrp100.covmat', r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pp'+str(i)+r'_fixrp100' , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose], r'param[r] = 0.1')
+    copy_replace_first_append(baseini, iniroot + r'scan_pp'+str(i)+'_fixrp050.ini', [covmat_pattern, common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [covmat_repl + r'scan_pp' + str(i) + r'_fixrp050.covmat', r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pp'+str(i)+r'_fixrp050', r'action = 0', r'compute_tensors = T', r'\#\1',str_propose], r'param[r] = 0.05')
+    copy_replace_first_append(baseini, iniroot + r'scan_pp'+str(i)+'_fixrp010.ini', [covmat_pattern, common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [covmat_repl + r'scan_pp'+str(i) + '_fixrp010.covmat', r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pp'+str(i)+r'_fixrp010' , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose], r'param[r] = 0.01')
+    copy_replace_first_append(baseini, iniroot + r'scan_pp'+str(i)+'_fixrp001.ini', [covmat_pattern, common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [covmat_repl + r'scan_pp'+str(i) + '_fixrp001.covmat', r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pp'+str(i)+r'_fixrp001' , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose], r'param[r] = 0.001')            
+    copy_replace_first(baseini, iniroot + r'scan_pl'+str(i)+'.ini', [covmat_pattern, common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [covmat_repl + r'scan_pl'+str(i) + '.covmat', r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 2 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pl'+str(i) , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose])
+    copy_replace_first_append(baseini, iniroot + r'scan_pl'+str(i)+'_fixrp100.ini', [covmat_pattern, common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [covmat_repl + r'scan_pl'+str(i) + '_fixrp100.covmat', r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 2 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = scan_pl'+str(i)+r'fixrp100' , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose], r'param[r] = 0.1')
     
 
 copy_replace_first(common_file, batch_dir + r'/common_pp.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_pp.ini)'] )

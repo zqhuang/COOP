@@ -25,6 +25,14 @@ propose_pattern = r'^\s*MPI\_Max\_R\_ProposeUpdate\s*=.*$'
 propose_new_pattern = r'^\s*MPI\_Max\_R\_ProposeUpdateNew\s*=.*$'
 str_propose = r'MPI_Max_R_ProposeUpdate = '+ str(coop_propose_updae) + r' \nMPI_Max_R_ProposeUpdateNew = '+ str(coop_propose_updae + 200)
 
+inirootname = r'myinis'
+
+
+if(inirootname != ""):
+    iniroot = inirootname + r'/'
+else:
+    iniroot = ""
+
 def backup_file(fname):
     if(not os.path.isfile(fname + '__.bak')):
         os.system('cp ' + fname + ' ' + fname+'__.bak')
@@ -169,6 +177,12 @@ if(nstr == ""):
     sys.exit()
 numhard = int( nstr )
 
+if(not os.path.exists('paramnames')):
+    os.system('mkdir paramnames')
+if(iniroot != ""):    
+    if(not os.path.exists(inirootname)):    
+        os.system('mkdir '+ inirootname )
+
 powerpattern = first_line(r"params_CMB.paramnames", [r'^(logA\s+.*)$', r'^(ns\s+.*)$'])
 
 print "Modifying files:"
@@ -219,58 +233,40 @@ common_pattern = r'^(DEFAULT\(\w+\/[\w_]*common[\w\_]*\.ini\))\s*$'
 
 copy_replace_all(r'params_CMB.paramnames', r'params_cosmorec.paramnames', [ powerpattern ], [r'A2s1s        A_{2s\\rightarrow 1s}   #CosmoRec A2s1s parameter \ntcmb        T_{\\rm CMB}   #CosmoRec T_CMB parameter \n\1'] )
 
-if(True):  #os.path.isfile("plots/cosmorec_lcdm.covmat")):
-    copy_replace_first(baseini, 'lcdm.ini', [r'^propose\_matrix\s*\=.*$', common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'propose_matrix = plots/cosmorec_lcdm.covmat', r'DEFAULT(' + batch_dir + r'/common_lcdm.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = ' + str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = cosmorec_lcdm', r'action = 0', str_propose] )
-else:
-    copy_replace_first(baseini, 'lcdm.ini', [ common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [ r'DEFAULT(' + batch_dir + r'/common_lcdm.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = ' + str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = cosmorec_lcdm', r'action = 0', str_propose] )
+copy_replace_first(baseini, iniroot + r'cosmorec_lcdm.ini', [r'^propose\_matrix\s*\=.*$', common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'propose_matrix = plots/cosmorec_lcdm.covmat', r'DEFAULT(' + batch_dir + r'/common_lcdm.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = ' + str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = cosmorec_lcdm', r'action = 0', str_propose] )
 
 copy_replace_all(common_file, batch_dir + r'/common_lcdm.ini', [r'params\_CMB\_defaults\.ini'],  [r'params_lcdm.ini'])
 
 copy_replace_all(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_lcdm.ini', [r'^param\[fdm\]\s*=.*$'], [r'param[fdm] = 0  \nparam[A2s1s] = 8.224  \nparam[tcmb] = 2.7255 ' ] )
 
 
-if(True): #os.path.isfile("plots/cosmorec_a2s1s.covmat")):
-    copy_replace_first(baseini, 'a2s1s.ini', [r'^propose\_matrix\s*\=.*$', common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'propose_matrix = plots/cosmorec_a2s1s.covmat', r'DEFAULT(' + batch_dir + r'/common_a2s1s.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = ' + str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = cosmorec_a2s1s', r'action = 0', str_propose] )
-else:
-    copy_replace_first(baseini, 'a2s1s.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_a2s1s.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = ' + str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = cosmorec_a2s1s', r'action = 0', str_propose] )
+copy_replace_first(baseini, iniroot + r'cosmorec_a2s1s.ini', [r'^propose\_matrix\s*\=.*$', common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'propose_matrix = plots/cosmorec_a2s1s.covmat', r'DEFAULT(' + batch_dir + r'/common_a2s1s.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = ' + str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = cosmorec_a2s1s', r'action = 0', str_propose] )
 
 copy_replace_all(common_file, batch_dir + r'/common_a2s1s.ini', [r'params\_CMB\_defaults\.ini'],  [r'params_a2s1s.ini'])
 
 copy_replace_all(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_a2s1s.ini', [r'^param\[fdm\]\s*=.*$'], [r'param[fdm] = 0  \nparam[A2s1s] = 8.224 4. 11. 0.6 0.6 \nparam[tcmb] = 2.7255 ' ] )
 
-if(True):  #(os.path.isfile("plots/cosmorec_tcmb.covmat")):
-    copy_replace_first(baseini, 'tcmb.ini', [r'^propose\_matrix\s*\=.*$', common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'propose_matrix = plots/cosmorec_tcmb.covmat', r'DEFAULT(' + batch_dir + r'/common_tcmb.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = '+str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = cosmorec_tcmb', r'action = 0', str_propose] )
-else:
-    copy_replace_first(baseini, 'tcmb.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_tcmb.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = '+str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = cosmorec_tcmb', r'action = 0', str_propose] )
+copy_replace_first(baseini, iniroot + r'cosmorec_tcmb.ini', [r'^propose\_matrix\s*\=.*$', common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'propose_matrix = plots/cosmorec_tcmb.covmat', r'DEFAULT(' + batch_dir + r'/common_tcmb.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = '+str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = cosmorec_tcmb', r'action = 0', str_propose] )
 
 copy_replace_all(common_file, batch_dir + r'/common_tcmb.ini', [r'params\_CMB\_defaults\.ini'],  [r'params_tcmb.ini'])
 
 copy_replace_all(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_tcmb.ini', [r'^param\[fdm\]\s*=.*$'], [r'param[fdm] = 0  \nparam[A2s1s] = 8.2245809 \nparam[tcmb] = 2.72558 2. 3.5 0.005 0.005' ] )
 
 
-if(True):  #(os.path.isfile("plots/cosmorec_nnu.covmat")):
-    copy_replace_first(baseini, 'nnu.ini', [r'^propose\_matrix\s*\=.*$', common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'propose_matrix = plots/cosmorec_nnu.covmat', r'DEFAULT(' + batch_dir + r'/common_nnu.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = '+str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = cosmorec_nnu', r'action = 0', str_propose] )
-else:
-    copy_replace_first(baseini, 'nnu.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_nnu.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = '+str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = cosmorec_nnu', r'action = 0', str_propose] )
+copy_replace_first(baseini, iniroot + r'cosmorec_nnu.ini', [r'^propose\_matrix\s*\=.*$', common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'propose_matrix = plots/cosmorec_nnu.covmat', r'DEFAULT(' + batch_dir + r'/common_nnu.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = '+str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = cosmorec_nnu', r'action = 0', str_propose] )
 
 copy_replace_all(common_file, batch_dir + r'/common_nnu.ini', [r'params\_CMB\_defaults\.ini'],  [r'params_nnu.ini'])
 
 copy_replace_all(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_nnu.ini', [r'^param\[fdm\]\s*=.*$', r'^param\[nnu\]\s*=.*$'], [r'param[fdm] = 0  \nparam[A2s1s] = 8.2245809 \nparam[tcmb] = 2.72558', r'param[nnu] = 3.046 1.1 5.1 0.3 0.3'] )
 
-if(True): #(os.path.isfile("plots/cosmorec_yhe.covmat")):
-    copy_replace_first(baseini, 'yhe.ini', [r'^propose\_matrix\s*\=.*$', common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'propose_matrix = plots/cosmorec_yhe.covmat', r'DEFAULT(' + batch_dir + r'/common_yhe.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = '+str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = cosmorec_yhe', r'action = 0', str_propose] )
-else:
-    copy_replace_first(baseini, 'yhe.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_yhe.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = '+str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = cosmorec_yhe', r'action = 0', str_propose] )
+copy_replace_first(baseini, iniroot + r'cosmorec_yhe.ini', [r'^propose\_matrix\s*\=.*$', common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'propose_matrix = plots/cosmorec_yhe.covmat', r'DEFAULT(' + batch_dir + r'/common_yhe.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = '+str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = cosmorec_yhe', r'action = 0', str_propose] )
 
 copy_replace_all(common_file, batch_dir + r'/common_yhe.ini', [r'params\_CMB\_defaults\.ini'],  [r'params_yhe.ini'])
 
 copy_replace_all(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_yhe.ini', [r'^param\[fdm\]\s*=.*$', r'^param\[yhe\]\s*=.*$', r'^bbn_consistency\s*\=.*$'], [r'param[fdm] = 0  \nparam[A2s1s] = 8.2245809 \nparam[tcmb] = 2.72558', r'param[yhe] =  0.25 0.2 0.35 0.013 0.013', r'bbn_consistency = F'] )
 
 
-if(True):  #(os.path.isfile("plots/cosmorec_fdm.covmat")):
-    copy_replace_first(baseini, 'fdm.ini', [r'^propose\_matrix\s*\=.*$', common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'propose_matrix = plots/cosmorec_fdm.covmat', r'DEFAULT(' + batch_dir + r'/common_fdm.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = '+str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = cosmorec_fdm', r'action = 0', str_propose] )
-else:
-    copy_replace_first(baseini, 'fdm.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'DEFAULT(' + batch_dir + r'/common_fdm.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = '+str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = cosmorec_fdm', r'action = 0', str_propose] )
+copy_replace_first(baseini, iniroot + r'cosmorec_fdm.ini', [r'^propose\_matrix\s*\=.*$', common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [r'propose_matrix = plots/cosmorec_fdm.covmat', r'DEFAULT(' + batch_dir + r'/common_fdm.ini) \nparamnames = params_cosmorec.paramnames \nnum_hard = '+str(numhard+2) + r'\ncosmorec_runmode = 0 ', r'file_root = cosmorec_fdm', r'action = 0', str_propose] )
 
 copy_replace_all(common_file, batch_dir + r'/common_fdm.ini', [r'params\_CMB\_defaults\.ini'],  [r'params_fdm.ini'])
 
