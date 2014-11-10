@@ -51,7 +51,7 @@ program hastack_prog
   else
      run_id = coop_MPI_Rank()
   endif
-  call sleep(run_id*5)  !!sleep for 5 seconds so that files are not read simultaneously
+!  call sleep(run_id*5)  !!sleep for 5 seconds so that files are not read simultaneously
   if(run_id .ge.  scan_npix)then
      write(*,*) "run id must not exceed ", scan_nside**2*12 - 1
      call coop_MPI_Abort()
@@ -71,7 +71,7 @@ program hastack_prog
   allprefix = prefix//stack_type//"_on_"//spot_type//"_fr_"//COOP_STR_OF(scan_nside)//"_"
 
   if(run_id.eq.0)then
-     call fp%open(trim(allprefix)//"_info.txt", "w")
+     call fp%open(trim(allprefix)//"info.txt", "w")
      write(fp%unit,*) n, patch_n%nmaps, dr/coop_SI_arcmin
      call fp%close()
   endif
@@ -100,6 +100,7 @@ program hastack_prog
   enddo
   do while(ind .lt. n_sim)
      ind = ind + 1
+     print*, "stacking map #"//COOP_STR_OF(ind)
      call load_imap(ind)
      call imap%get_listpix(listpix, listangle, spot_type, threshold, imask)     
      select case(stack_type)
