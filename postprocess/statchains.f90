@@ -516,6 +516,10 @@ contains
        endif
        mult = 0
 
+       call getCosmomcParams(mc, 1, CosmomcParams)
+       call coop_setup_cosmology_from_cosmomc(Cosmomcparams)
+       call coop_setup_pp()
+
        numpp = cosmomc_pp_num_params - cosmomc_pp_num_origin + 1
        if(numpp.gt.1)then
           allocate(lnk_knots(numpp), lnps_knots(numpp), cov_knots(numpp, numpp), k_knots(numpp), lnps_mean_knots(numpp), lnps_standard_knots(numpp))
@@ -526,9 +530,7 @@ contains
           lnps_standard_knots = mean_lnAs+(standard_ns-1.)*(lnk_knots-coop_pp_scalar_lnkpivot)-log(1.d10)          
        endif
 
-       call getCosmomcParams(mc, 1, CosmomcParams)
-       call coop_setup_cosmology_from_cosmomc(Cosmomcparams)
-       call coop_setup_pp()
+
 
        lnkmin = coop_pp_lnkmin
        lnkmax = coop_pp_lnkmax
