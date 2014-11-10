@@ -9,13 +9,14 @@ program hastack_prog
   use alm_tools
   implicit none
 #include "constants.h"
-  COOP_INT, parameter::n_sim = 1000
+  COOP_INT, parameter::n_sim = 100
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
-  COOP_UNKNOWN_STRING, parameter::stack_type = "QrUr"
+  COOP_UNKNOWN_STRING, parameter::stack_type = "T"
   COOP_REAL, parameter::patch_size = 2.d0*coop_SI_degree
-
-  COOP_UNKNOWN_STRING, parameter::prefix = "ha_r2f30n1024/"
+  COOP_UNKNOWN_STRING, parameter::output_dir = "ha_r2f30n1024"
+  
+  COOP_UNKNOWN_STRING, parameter::prefix = output_dir//"/"
   COOP_INT, parameter::mmax = 4
   COOP_REAL, parameter::fwhm_arcmin = 30.d0
   COOP_REAL, parameter::fwhm_in = 10.d0
@@ -25,11 +26,11 @@ program hastack_prog
   COOP_UNKNOWN_STRING, parameter::mapdir = "/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
   COOP_REAL,parameter::fwhm = coop_SI_arcmin * sqrt(fwhm_arcmin**2-fwhm_in**2)
   COOP_REAL, parameter::threshold = 0
-  COOP_REAL, parameter::dr = coop_SI_arcmin * max(fwhm_arcmin/4.d0, fwhm_in)
+  COOP_REAL, parameter::dr = coop_SI_arcmin * max(fwhm_arcmin/4.d0, fwhm_in/2.d0)
   COOP_INT, parameter::n = nint(patch_size/dr)
 
   COOP_UNKNOWN_STRING, parameter::imap_file  = "planck14/dx11_v2_smica_int_cmb"//postfix
-  COOP_UNKNOWN_STRING, parameter::polmap_file  = "planck14/dx11_v2_smica_pol_case3_cmb"//postfix
+  COOP_UNKNOWN_STRING, parameter::polmap_file  = "planck14/dx11_v2_smica_pol_case1_cmb_hp_20_40"//postfix
   COOP_UNKNOWN_STRING, parameter::imask_file  = "planck14/dx11_v2_smica_int_mask"//postfix
   COOP_UNKNOWN_STRING, parameter::polmask_file  ="planck14/dx11_v2_smica_pol_mask"//postfix
 
@@ -37,13 +38,14 @@ program hastack_prog
   type(coop_healpix_patch)::patch_s, patch_n
   integer,parameter::scan_nside = 4
     integer,parameter::scan_npix = scan_nside**2*6
-  integer run_id, i, ind, j
+  integer run_id, i, ind, j, lmax
   COOP_REAL   hdir(2)
   COOP_STRING::fr_file
   type(coop_list_integer)::listpix
   type(coop_list_real)::listangle
   type(coop_file) fp
   call coop_MPI_init()
+  lmax = min(ceiling(3.d0/(fwhm_arcmin*coop_SI_arcmin*coop_sigma_by_fwhm)), 2048, coop_healpix_default_lmax)
   if(iargc() .ge. 1)then
      run_id = coop_str2int(coop_InputArgs(1))
   else
@@ -134,13 +136,13 @@ contains
     if(i.eq.0)then
        call imap%read(filename = trim(imap_file), nmaps_wanted = nm , spin = spin , nmaps_to_read = 1 )
        imap%map(:, 1) = imap%map(:, 1)*imask%map(:, 1)
-       if(fwhm.ge.coop_SI_arcmin)    call imap%smooth(fwhm)
+       if(fwhm.ge.coop_SI_arcmin)    call imap%smooth(fwhm, l_upper = lmax)
        noise = imap
     else
        call imap%read(trim(sim_file_name_cmb_imap(i)), nmaps_wanted = nm , spin = spin , nmaps_to_read = 1 )
        call noise%read(trim(sim_file_name_noise_imap(i)), nmaps_wanted = nm , spin = spin, nmaps_to_read = 1 )
        imap%map(:, 1) = (imap%map(:, 1) + noise%map(:, 1))*imask%map(:, 1)
-       if(fwhm.ge.coop_SI_arcmin)    call imap%smooth(fwhm)
+       if(fwhm.ge.coop_SI_arcmin)    call imap%smooth(fwhm, l_upper = lmax)
     endif
     deallocate(spin)
     if(nm.gt.1)call imap%iqu2TQTUT()
@@ -153,13 +155,13 @@ contains
        call polmap%read(trim(polmap_file), spin = (/2 , 2 /) , nmaps_wanted = 2  )
        polmap%map(:, 1) = polmap%map(:, 1)*polmask%map(:, 1)
        polmap%map(:, 2) = polmap%map(:, 2)*polmask%map(:, 1)
-       if(fwhm.ge.coop_SI_arcmin)call polmap%smooth(fwhm)
+       if(fwhm.ge.coop_SI_arcmin)call polmap%smooth(fwhm, l_upper = lmax)
     else
        call polmap%read(trim(sim_file_name_cmb_polmap(i)), spin = (/2 , 2 /) , nmaps_wanted = 2  )
        call noise%read(trim(sim_file_name_noise_polmap(i)), spin = (/2 , 2 /) , nmaps_wanted = 2 )
        polmap%map(:, 1) = (polmap%map(:, 1) + noise%map(:, 1))*polmask%map(:, 1)
        polmap%map(:, 2) = (polmap%map(:, 2) + noise%map(:, 2))*polmask%map(:, 1)
-       if(fwhm.ge.coop_SI_arcmin)call polmap%smooth(fwhm)
+       if(fwhm.ge.coop_SI_arcmin)call polmap%smooth(fwhm, l_upper = lmax)
     endif
   end subroutine load_polmap
 
@@ -180,13 +182,13 @@ contains
   function sim_file_name_cmb_polmap(i)
     COOP_INT i
     COOP_STRING sim_file_name_cmb_polmap
-    sim_file_name_cmb_polmap = mapdir//"cmb/pol/dx11_v2_smica_pol_case3_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//postfix
+    sim_file_name_cmb_polmap = mapdir//"cmb/pol/dx11_v2_smica_pol_case1_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//"_hp_20_40"//postfix
   end function sim_file_name_cmb_polmap
 
   function sim_file_name_noise_polmap(i)
     COOP_INT i
     COOP_STRING sim_file_name_noise_polmap
-    sim_file_name_noise_polmap = mapdir//"noise/pol/dx11_v2_smica_pol_case3_noise_mc_"//trim(coop_Ndigits(i-1, 5))//postfix
+    sim_file_name_noise_polmap = mapdir//"noise/pol/dx11_v2_smica_pol_case1_noise_mc_"//trim(coop_Ndigits(i-1, 5))//"_hp_20_40"//postfix
   end function sim_file_name_noise_polmap
 
 end program hastack_prog
