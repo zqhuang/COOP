@@ -7,7 +7,7 @@ module coop_file_mod
 
 private
 
-public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_create_directory, coop_delete_directory, coop_file_numcolumns, coop_file_numlines, coop_load_dictionary, coop_free_file_unit, coop_file_exists, coop_file_encrypt, coop_file_decrypt, coop_string_encrypt, coop_string_decrypt, coop_file_load_function
+public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_create_directory, coop_delete_directory, coop_file_numcolumns, coop_file_numlines, coop_load_dictionary, coop_free_file_unit, coop_file_exists, coop_file_encrypt, coop_file_decrypt, coop_string_encrypt, coop_string_decrypt, coop_file_load_function, coop_dir_exists
 
   character,parameter::text_comment_symbol = "#"
 
@@ -193,7 +193,11 @@ contains
   function coop_dir_exists(dirName) result(dir_exists)
     COOP_UNKNOWN_STRING, INTENT(IN) :: dirName
     logical dir_exists
+#ifdef __GFORTRAN__
+    inquire(FILE=trim(adjustl(dirName)), EXIST = dir_exists)    
+#else
     inquire(DIRECTORY=trim(adjustl(dirName)), EXIST = dir_exists)
+#endif
   end function coop_dir_exists
   
 
