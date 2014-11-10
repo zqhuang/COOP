@@ -11,7 +11,7 @@ program hastack_prog
 #include "constants.h"
   COOP_REAL,parameter::T_cmb_rescale = sqrt(1.), pol_cmb_rescale = sqrt(1.)  
   COOP_REAL,parameter::T_noise_rescale = sqrt(0.), pol_noise_rescale = sqrt(0.)
-  COOP_INT, parameter::n_sim = 1
+  COOP_INT, parameter::n_sim = 10
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_SHORT_STRING::spot_type, stack_type
   COOP_REAL, parameter::patch_size = 2.d0*coop_SI_degree
@@ -27,14 +27,14 @@ program hastack_prog
   COOP_UNKNOWN_STRING, parameter::polpost = "_hp_20_40"//postfix
 
   COOP_STRING::allprefix
-  COOP_UNKNOWN_STRING, parameter::mapdir = "simu/" !"/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
+  COOP_UNKNOWN_STRING, parameter::mapdir = "/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
   COOP_REAL,parameter::fwhm = coop_SI_arcmin * sqrt(fwhm_arcmin**2-fwhm_in**2)
   COOP_REAL, parameter::threshold = 0
   COOP_REAL, parameter::dr = coop_SI_arcmin * max(fwhm_arcmin/5.d0, 5.d0)
   COOP_INT, parameter::n = nint(patch_size/dr)
 
-  COOP_UNKNOWN_STRING, parameter::imap_file  = "simu/cmb/int/dx11_v2_smica_int_cmb_mc_00000_010a_1024.fits"  !"planck14/dx11_v2_"//cs_method//"_int_cmb"//postfix
-  COOP_UNKNOWN_STRING, parameter::polmap_file  = "simu/cmb/pol/dx11_v2_smica_pol_case1_cmb_mc_00000_hp_20_40_010a_1024.fits" !"planck14/dx11_v2_"//cs_method//"_pol_"//pol_case//"_cmb"//polpost
+  COOP_UNKNOWN_STRING, parameter::imap_file  = "planck14/dx11_v2_"//cs_method//"_int_cmb"//postfix
+  COOP_UNKNOWN_STRING, parameter::polmap_file  = "planck14/dx11_v2_"//cs_method//"_pol_"//pol_case//"_cmb"//polpost
   COOP_UNKNOWN_STRING, parameter::imask_file  = "planck14/dx11_v2_common_int_mask"//postfix
   COOP_UNKNOWN_STRING, parameter::polmask_file  ="planck14/dx11_v2_common_pol_mask"//postfix
 

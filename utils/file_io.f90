@@ -116,7 +116,7 @@ contains
 
   subroutine coop_create_directory(directory)
     COOP_UNKNOWN_STRING directory
-    call system("mkdir "//trim(directory))
+    if(.not. coop_dir_exists(directory)) call system("mkdir "//trim(directory))
   end subroutine coop_create_directory
 
   subroutine coop_delete_directory(directory)
@@ -186,10 +186,16 @@ contains
 
   function coop_file_exists(FileName) result(file_exists)
     COOP_UNKNOWN_STRING, INTENT(IN) :: FileName
-    LOGICAL File_Exists
-    INQUIRE(FILE=trim(adjustl(fileName)), EXIST = File_Exists)
+    logical File_Exists
+    inquire(FILE=trim(adjustl(fileName)), EXIST= File_Exists)
   end function coop_file_exists
 
+  function coop_dir_exists(dirName) result(dir_exists)
+    COOP_UNKNOWN_STRING, INTENT(IN) :: dirName
+    logical dir_exists
+    inquire(DIRECTORY=trim(adjustl(dirName)), EXIST = dir_exists)
+  end function coop_dir_exists
+  
 
   subroutine coop_File_OverWrite_Query(FileName)
     COOP_UNKNOWN_STRING, INTENT(IN) :: FileName
