@@ -42,4 +42,7 @@ program test
      write(fp%unit, "(I5, 6E16.7)") l, map%cl(l,:)
   enddo
   call fp%close()
+  call map%alm2map()
+  call map%write(trim(coop_str_replace(output_file, ".txt", ""))//"_I.fits", index_list = (/ 1 /) )
+  call map%write(trim(coop_str_replace(output_file, ".txt", ""))//"_QU.fits", index_list = (/ 2, 3 /) )
 end program test

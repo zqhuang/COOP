@@ -9,16 +9,16 @@ program hastack_prog
   use alm_tools
   implicit none
 #include "constants.h"
-  COOP_REAL,parameter::T_cmb_rescale = sqrt(1.), pol_cmb_rescale = sqrt(1.03)  
-  COOP_REAL,parameter::T_noise_rescale = sqrt(1.11), pol_noise_rescale = sqrt(1.11)
-  COOP_INT, parameter::n_sim = 10
+  COOP_REAL,parameter::T_cmb_rescale = sqrt(1.), pol_cmb_rescale = sqrt(1.)  
+  COOP_REAL,parameter::T_noise_rescale = sqrt(0.), pol_noise_rescale = sqrt(0.)
+  COOP_INT, parameter::n_sim = 1
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_SHORT_STRING::spot_type, stack_type
   COOP_REAL, parameter::patch_size = 2.d0*coop_SI_degree
   COOP_UNKNOWN_STRING, parameter::cs_method = "smica"
   COOP_UNKNOWN_STRING, parameter::pol_case = "case1"
   
-  COOP_UNKNOWN_STRING, parameter::prefix = "stack_radial/"//cs_method//"_"//pol_case//"_"
+  COOP_UNKNOWN_STRING, parameter::prefix = "sr/"//cs_method//"_"//pol_case//"_"
   COOP_INT, parameter::mmax = 4
   COOP_REAL, parameter::fwhm_arcmin = 15.d0
   COOP_REAL, parameter::fwhm_in = 10.d0
@@ -27,14 +27,14 @@ program hastack_prog
   COOP_UNKNOWN_STRING, parameter::polpost = "_hp_20_40"//postfix
 
   COOP_STRING::allprefix
-  COOP_UNKNOWN_STRING, parameter::mapdir = "ffp8/" ! "/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
+  COOP_UNKNOWN_STRING, parameter::mapdir = "simu/" !"/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
   COOP_REAL,parameter::fwhm = coop_SI_arcmin * sqrt(fwhm_arcmin**2-fwhm_in**2)
   COOP_REAL, parameter::threshold = 0
   COOP_REAL, parameter::dr = coop_SI_arcmin * max(fwhm_arcmin/5.d0, 5.d0)
   COOP_INT, parameter::n = nint(patch_size/dr)
 
-  COOP_UNKNOWN_STRING, parameter::imap_file  = "planck14/dx11_v2_"//cs_method//"_int_cmb"//postfix
-  COOP_UNKNOWN_STRING, parameter::polmap_file  = "planck14/dx11_v2_"//cs_method//"_pol_"//pol_case//"_cmb"//polpost
+  COOP_UNKNOWN_STRING, parameter::imap_file  = "simu/cmb/int/dx11_v2_smica_int_cmb_mc_00000_010a_1024.fits"  !"planck14/dx11_v2_"//cs_method//"_int_cmb"//postfix
+  COOP_UNKNOWN_STRING, parameter::polmap_file  = "simu/cmb/pol/dx11_v2_smica_pol_case1_cmb_mc_00000_hp_20_40_010a_1024.fits" !"planck14/dx11_v2_"//cs_method//"_pol_"//pol_case//"_cmb"//polpost
   COOP_UNKNOWN_STRING, parameter::imask_file  = "planck14/dx11_v2_common_int_mask"//postfix
   COOP_UNKNOWN_STRING, parameter::polmask_file  ="planck14/dx11_v2_common_pol_mask"//postfix
 
@@ -46,7 +46,7 @@ program hastack_prog
   type(coop_list_real)::listangle
   type(coop_file) fp
   COOP_SINGLE,dimension(:),allocatable::window
-  logical highpass
+
   call coop_MPI_init()
   spot_type = trim(coop_InputArgs(1))
   stack_type = trim(coop_InputArgs(2))
@@ -54,24 +54,16 @@ program hastack_prog
   if(trim(spot_type) .eq. "" .or. trim(stack_type).eq."")then
      print*, "Syntax:"
      print*, "./SST Tmax  T"
-     print*, "./SST Tmax  QrUr [highpass]"
-     print*, "./SST Tmax  QU [highpass]"     
-     print*, "./SST Tmax_QTUTOrient QU [highpass]"
-     print*, "./SST PTmax QU [highpass]"
-     print*, "where [highpass] can be T or F or ignored (default F, pol only)"
+     print*, "./SST Tmax  QrUr"
+     print*, "./SST Tmax  QU"
+     print*, "./SST Tmax_QTUTOrient QU"
+     print*, "./SST PTmax QU"
      stop
   endif
 
 
   write(*,*) "Using lmax = "//COOP_STR_OF(lmax)
-  highpass = (trim(coop_InputArgs(3)) .eq. "T")
   call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
-  if(highpass)then
-     allocate(window(0:lmax))
-     do l= 0, lmax
-        window(l) = high_pass_window(l, 20, 40) !!default 20, 40
-     enddo
-  endif
   
   if(trim(stack_type) .ne. "T")then
      call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )
@@ -82,9 +74,6 @@ program hastack_prog
      allprefix = prefix//trim(stack_type)//"_on_"//trim(spot_type)//"_fr_"//COOP_STR_OF(nint(patch_size/coop_SI_degree))//"deg"//input_resolution//"_smooth"//COOP_STR_OF(nint(fwhm_arcmin))
   else
      allprefix = prefix//trim(stack_type)//"_on_"//trim(spot_type)//"_fr_"//COOP_STR_OF(nint(patch_size/coop_SI_degree))//"deg"//input_resolution//"_nosmooth"
-  endif
-  if(highpass)then
-     allprefix = trim(allprefix)//"_highpass"
   endif
   call fp%open(trim(allprefix)//"_info.txt", "w")
   write(fp%unit,*) n, patch%nmaps, dr/coop_SI_arcmin
@@ -113,13 +102,12 @@ program hastack_prog
      ind = ind + 1
      write(*,*) "Stacking map #"//COOP_STR_OF(ind)
      call load_imap(ind)
+     patch%fr = 0.d0
+     call imap%get_listpix(listpix, listangle, trim(spot_type), threshold, imask)     
      select case(trim(stack_type))
      case("T")
-        noise%map = imap%map
-        call noise%get_listpix(listpix, listangle, trim(spot_type), threshold, imask)
         call imap%stack_with_listpix(patch, listpix, listangle, imask)
      case default
-        call imap%get_listpix(listpix, listangle, trim(spot_type), threshold, imask)
         call load_polmap(ind)
         call polmap%stack_with_listpix(patch, listpix, listangle, polmask)
      end select
@@ -148,7 +136,6 @@ contains
        call imap%read(filename = trim(imap_file), nmaps_wanted = nm , spin = spin , nmaps_to_read = 1 )
        imap%map(:, 1) = imap%map(:, 1)*imask%map(:, 1)
        call do_smooth_map(imap)
-       noise = imap
     else
        call imap%read(trim(sim_file_name_cmb_imap(i)), nmaps_wanted = nm , spin = spin , nmaps_to_read = 1 )
        call noise%read(trim(sim_file_name_noise_imap(i)), nmaps_wanted = nm , spin = spin, nmaps_to_read = 1 )
@@ -218,11 +205,7 @@ contains
 
   subroutine do_smooth_map(mymap)
     type(coop_healpix_maps)mymap
-    if(highpass .and. mymap%nmaps.ge.2 .and. all(mymap%spin.eq.2))then
-       call mymap%smooth_with_window(fwhm = fwhm, lmax = lmax, window = window)          
-    else
-       if(fwhm .gt. coop_SI_arcmin) call mymap%smooth(fwhm = fwhm, l_upper = lmax, l_lower = 2)
-    endif
+    if(fwhm .gt. coop_SI_arcmin) call mymap%smooth(fwhm = fwhm, l_upper = lmax, l_lower = 2)
   end subroutine do_smooth_map
 
 end program hastack_prog

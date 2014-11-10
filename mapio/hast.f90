@@ -99,13 +99,11 @@ program hastack_prog
   do while(ind .lt. n_sim)
      ind = ind + 1
      call load_imap(ind)
+     call imap%get_listpix(listpix, listangle, spot_type, threshold, imask)     
      select case(stack_type)
      case("T")
-        noise%map = imap%map
-        call noise%get_listpix(listpix, listangle, spot_type, threshold, imask)
         call imap%stack_north_south(patch_n, patch_s, listpix, listangle, hdir, imask)
      case default
-        call imap%get_listpix(listpix, listangle, spot_type, threshold, imask)
         call load_polmap(ind)
         call polmap%stack_north_south(patch_n, patch_s, listpix, listangle, hdir, polmask)
      end select

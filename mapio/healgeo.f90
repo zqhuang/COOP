@@ -2283,10 +2283,6 @@ contains
 #ifdef HAS_HEALPIX
     call listpix%init()
     call listangle%init()
-!!$    select case(trim(spot_type))
-!!$    case("Tmax_QTUTOrient", "PTmax", "PTmin")
-!!$       call map%iqu2TQTUT()
-!!$    end select
     do_mask = .false.
     if(present(mask))then
        if(mask%nside .ne. map%nside) stop "coop_healpix_export_spots: mask and map must have the same nside"
@@ -2509,6 +2505,8 @@ contains
        write(*,*) trim(spot_type)
        stop "unknown spot type"
     end select
+    call map%convert2ring()
+    if(do_mask)    call mask%convert2ring()
 #else
     stop "CANNOT FIND HEALPIX"
 #endif
