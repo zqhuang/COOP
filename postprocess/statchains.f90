@@ -518,7 +518,7 @@ contains
 
        numpp = cosmomc_pp_num_params - cosmomc_pp_num_origin + 1
        if(numpp.gt.1)then
-          allocate(lnk_knots(numpp), lnps_knots(numpp), cov_knots(numpp, numpp), k_knots(numpp), lnps_mean_knots(numpp))
+          allocate(lnk_knots(numpp), lnps_knots(numpp), cov_knots(numpp, numpp), k_knots(numpp), lnps_mean_knots(numpp), lnps_standard_knots(numpp))
           call coop_set_uniform(numpp, lnk_knots(1:numpp), coop_pp_lnkmin, coop_pp_lnkmax)
           k_knots = exp(lnk_knots)
           cov_knots = 0.d0
