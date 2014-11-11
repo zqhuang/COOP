@@ -101,13 +101,11 @@ program test
      b =  - b
   endif
   write(*,*) "direction l = ", nint(l), " b = ", nint(b)
-!!$  call coop_asy_histogram(chisq, 10, "chisq_hist.txt")
-!!$  call coop_asy_histogram(log(max(prob, 1.d-4)), 10, "logprob_hist.txt")
   call fig%open(trim(prefix)//"powercut"//trim(coop_num2str(ncut))//"_profile.txt")
-  call fig%init(xlabel = "$r$", ylabel  = "$\delta f (\mu K)$")
-  call coop_asy_curve(fig, r, diffmin(:, 0), color = "red", linetype = "solid", linewidth = 2., legend = "data")
+  call fig%init(xlabel = "$\omega$", ylabel  = "$\delta f (\mu K)$")
+  call coop_asy_curve(fig, r, diffmin(:, 0), color = "red", linetype = "solid", linewidth = 2., legend = "Planck")
   i = 1
-  call coop_asy_curve(fig, r, diffmin(:, i), color = "gray", linetype = "dashed", linewidth = 0.5, legend = "simulations")
+  call coop_asy_curve(fig, r, diffmin(:, i), color = "gray", linetype = "dashed", linewidth = 0.5, legend = "FFP8")
   do i = 2, nsims, nsims/25
      call coop_asy_curve(fig, r, diffmin(:, i), color = "gray", linetype = "dashed", linewidth = 0.5)
   enddo
