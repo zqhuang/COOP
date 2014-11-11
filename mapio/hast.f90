@@ -9,12 +9,11 @@ program hastack_prog
   use alm_tools
   implicit none
 #include "constants.h"
-  COOP_INT, parameter::n_sim = 100
-  COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
+  COOP_INT, parameter::n_sim = 1000
   COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
   COOP_UNKNOWN_STRING, parameter::stack_type = "T"
-  COOP_REAL, parameter::patch_size = 2.d0*coop_SI_degree
-  COOP_UNKNOWN_STRING, parameter::output_dir = "ha_r2f30n1024"
+  COOP_REAL, parameter::patch_size = 5.d0*coop_SI_degree
+  COOP_UNKNOWN_STRING, parameter::output_dir = "ha_r5f30n1024"
   
   COOP_UNKNOWN_STRING, parameter::prefix = output_dir//"/"
   COOP_INT, parameter::mmax = 4
@@ -37,7 +36,7 @@ program hastack_prog
   type(coop_healpix_maps)::polmask, imask, noise, imap, polmap, tmpmap
   type(coop_healpix_patch)::patch_s, patch_n
   integer,parameter::scan_nside = 4
-    integer,parameter::scan_npix = scan_nside**2*6
+  integer,parameter::scan_npix = scan_nside**2*6
   integer run_id, i, ind, j, lmax
   COOP_REAL   hdir(2)
   COOP_STRING::fr_file
@@ -51,7 +50,7 @@ program hastack_prog
   else
      run_id = coop_MPI_Rank()
   endif
-!  call sleep(run_id*5)  !!sleep for 5 seconds so that files are not read simultaneously
+  call sleep(run_id*3)  !!sleep for 3 seconds so that files are not read simultaneously
   if(run_id .ge.  scan_npix)then
      write(*,*) "run id must not exceed ", scan_nside**2*12 - 1
      call coop_MPI_Abort()
