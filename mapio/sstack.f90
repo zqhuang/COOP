@@ -11,16 +11,16 @@ program hastack_prog
 #include "constants.h"
   COOP_REAL,parameter::T_cmb_rescale = sqrt(1.), pol_cmb_rescale = sqrt(1.)  
   COOP_REAL,parameter::T_noise_rescale = sqrt(0.), pol_noise_rescale = sqrt(0.)
-  COOP_INT, parameter::n_sim = 10
+  COOP_INT, parameter::n_sim = 100
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_SHORT_STRING::spot_type, stack_type
   COOP_REAL, parameter::patch_size = 2.d0*coop_SI_degree
   COOP_UNKNOWN_STRING, parameter::cs_method = "smica"
   COOP_UNKNOWN_STRING, parameter::pol_case = "case1"
   
-  COOP_UNKNOWN_STRING, parameter::prefix = "sr/"//cs_method//"_"//pol_case//"_"
+  COOP_UNKNOWN_STRING, parameter::prefix = "sr1/"//cs_method//"_"//pol_case//"_"
   COOP_INT, parameter::mmax = 4
-  COOP_REAL, parameter::fwhm_arcmin = 10.d0
+  COOP_REAL, parameter::fwhm_arcmin = 15.d0
   COOP_REAL, parameter::fwhm_in = 10.d0
   COOP_UNKNOWN_STRING, parameter::input_resolution =   "_010a_1024"
   COOP_UNKNOWN_STRING, parameter::postfix =  input_resolution//".fits"
@@ -29,7 +29,7 @@ program hastack_prog
   COOP_STRING::allprefix
   COOP_UNKNOWN_STRING, parameter::mapdir = "/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
   COOP_REAL,parameter::fwhm = coop_SI_arcmin * sqrt(fwhm_arcmin**2-fwhm_in**2)
-  COOP_REAL, parameter::threshold = 0
+  COOP_REAL, parameter::threshold = 1
   COOP_REAL, parameter::dr = coop_SI_arcmin * max(fwhm_arcmin/5.d0, 5.d0)
   COOP_INT, parameter::n = nint(patch_size/dr)
 
