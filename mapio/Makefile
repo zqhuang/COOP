@@ -10,7 +10,7 @@ include ../compile_rules.in
 LIB = libcoopmapio.a
 OBJ = sphere.o readfits.o fitswrap.o healgeo.o zeta3d.o
 
-default: $(LIB)
+default: $(LIB) HA SST
 
 $(LIB): $(OBJ) 
 	ar -r $@ $?

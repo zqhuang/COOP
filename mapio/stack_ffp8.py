@@ -8,7 +8,7 @@ check_files = True
 prefix = "ffp8"
 imap_in = "ffp8/ffp8_smica_int_00001_010a_1024.fits"
 imask = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
-polmap_in = "ffp8/ffp8_smica_pol_case3_00001_010a_1024.fits"
+polmap_in = "ffp8/ffp8_smica_pol_case1_00000_010a_1024.fits"
 polmask = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
 
 fwhm_in = 10
