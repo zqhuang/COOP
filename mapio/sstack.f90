@@ -18,7 +18,7 @@ program hastack_prog
   COOP_UNKNOWN_STRING, parameter::cs_method = "smica"
   COOP_UNKNOWN_STRING, parameter::pol_case = "case1"
   
-  COOP_UNKNOWN_STRING, parameter::prefix = "sr1/"//cs_method//"_"//pol_case//"_"
+  COOP_UNKNOWN_STRING, parameter::prefix = "sr2/"//cs_method//"_"//pol_case//"_"
   COOP_INT, parameter::mmax = 4
   COOP_REAL, parameter::fwhm_arcmin = 15.d0
   COOP_REAL, parameter::fwhm_in = 10.d0
@@ -29,7 +29,7 @@ program hastack_prog
   COOP_STRING::allprefix
   COOP_UNKNOWN_STRING, parameter::mapdir = "/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
   COOP_REAL,parameter::fwhm = coop_SI_arcmin * sqrt(fwhm_arcmin**2-fwhm_in**2)
-  COOP_REAL, parameter::threshold = 1
+  COOP_REAL, parameter::threshold = 2.
   COOP_REAL, parameter::dr = coop_SI_arcmin * max(fwhm_arcmin/5.d0, 5.d0)
   COOP_INT, parameter::n = nint(patch_size/dr)
 
