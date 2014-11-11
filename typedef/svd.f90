@@ -45,6 +45,24 @@ contains
     COOP_INT :: i,its,j,k,l,nm
     COOP_REAL :: anorm,c,f,g,h,s,scale,x,y,z
     COOP_REAL tempm(m), rv1(n),tempn(n)
+#ifdef HAS_LAPACK
+    COOP_REAL:: u(m, m)
+    COOP_INT :: info, lwork
+    COOP_INT, dimension(:),allocatable::iwork
+    COOP_REAL, dimension(:),allocatable::work
+    lwork = (min(M,N)*(6+4*min(M,N))+max(M,N))*2
+    allocate(work(lwork), iwork(8*min(m, n)))
+    call dgesdd("A", m, n, a,  m, w, u, m, v, n, work, lwork, iwork, info)
+    deallocate(work, iwork)
+    if(info .gt. 0) stop "svd decomposition failed to converge"
+    if(info .lt. 0)then
+       print*, "the ", -info, " th argument in svd decomposition is wrong"
+       stop
+    endif
+    a(1:m, 1:min(n,m)) = u(1:m, 1:min(m,n))
+    v = transpose(v)
+    return
+#endif
     g=0.0
     scale=0.0
     do i=1,n

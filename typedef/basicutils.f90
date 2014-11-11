@@ -591,11 +591,9 @@ contains
        call coop_return_error("coop_chebfit", "Not enough data.", "stop")
     endif
     t=2.d0*(x-a)/(b-a)-1.d0
-    !$omp parallel do
     do i=1,n
        call coop_cheb_eval_all(m-1,t(i), Fx(i,1:m))
     enddo
-    !$omp end parallel do
     call coop_fit_template(n, m, y, fx, c)
   end subroutine coop_chebfit
 
@@ -609,11 +607,9 @@ contains
        call coop_return_error("coop_chebfit_uniform", "Not enough data", "stop")
     endif
     dt = 2.d0/(n-1)
-    !$omp parallel do
     do i=1,n
        call coop_cheb_eval_all(m-1, -1.+ (i-1) * dt, Fx(i,1:m))
     enddo
-    !$omp end parallel do
     call coop_fit_template(n, m, y, fx, c)
   end subroutine coop_chebfit_uniform
 
