@@ -9,8 +9,6 @@ program hastack_prog
   use alm_tools
   implicit none
 #include "constants.h"
-  COOP_REAL,parameter::T_cmb_rescale = sqrt(1.), pol_cmb_rescale = sqrt(1.)  
-  COOP_REAL,parameter::T_noise_rescale = sqrt(0.), pol_noise_rescale = sqrt(0.)
   COOP_INT, parameter::n_sim = 100
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_SHORT_STRING::spot_type, stack_type
@@ -45,6 +43,8 @@ program hastack_prog
   type(coop_list_integer)::listpix
   type(coop_list_real)::listangle
   type(coop_file) fp
+  logical::iload = .false
+  logical::polload = .false
   COOP_SINGLE,dimension(:),allocatable::window
 
   call coop_MPI_init()
@@ -58,16 +58,14 @@ program hastack_prog
      print*, "./SST Tmax  QU"
      print*, "./SST Tmax_QTUTOrient QU"
      print*, "./SST PTmax QU"
+     print*, "./SST Pmax QU"
      stop
   endif
 
 
   write(*,*) "Using lmax = "//COOP_STR_OF(lmax)
-  call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
-  
-  if(trim(stack_type) .ne. "T")then
-     call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )
-  endif
+  call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )  
+  call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )
   
   call patch%init(trim(stack_type), n, dr, mmax = mmax)
   if(fwhm .gt. coop_SI_arcmin)then
@@ -99,17 +97,31 @@ program hastack_prog
      if(j.ne.i)call cooP_MPI_Abort("fr file broken")
   enddo
   do while(ind .lt. n_sim)
+     iload = .false.
+     polload = .false.
      ind = ind + 1
      write(*,*) "Stacking map #"//COOP_STR_OF(ind)
-     call load_imap(ind)
-     patch%fr = 0.d0
-     call imap%get_listpix(listpix, listangle, trim(spot_type), threshold, imask)     
+     select case(trim(spottype))
+     case("Tmax", "Tmax_QTUTOrient", "PTmax")
+        call load_imap(ind)
+        call imap%get_listpix(listpix, listangle, trim(spot_type), threshold, imask)
+     case("Pmax")
+        call load_polmap(ind)
+        call polmap%get_listpix(listpix, listangle, trim(spot_type), threshold, polmask)
+     case("default")
+        print*, trim(spot_type)
+        stop "Not supported"
+     end select
      select case(trim(stack_type))
      case("T")
+        call load_imap(ind)
         call imap%stack_with_listpix(patch, listpix, listangle, imask)
-     case default
+     case("QU", "QrUr")
         call load_polmap(ind)
         call polmap%stack_with_listpix(patch, listpix, listangle, polmask)
+     case default
+        print*, trim(stack_type)
+        stop "Not supported"
      end select
      call patch%get_all_radial_profiles()
      write(fp%unit) ind
@@ -124,6 +136,7 @@ contains
   subroutine load_imap(i)
     COOP_INT i, nm
     COOP_INT,dimension(:),allocatable::spin
+    if(iload)return
     if(trim(spot_type) .eq. "PTmax" .or. trim(spot_type) .eq. "Tmax_QTUTOrient")then
        nm = 3
     else
@@ -139,7 +152,7 @@ contains
     else
        call imap%read(trim(sim_file_name_cmb_imap(i)), nmaps_wanted = nm , spin = spin , nmaps_to_read = 1 )
        call noise%read(trim(sim_file_name_noise_imap(i)), nmaps_wanted = nm , spin = spin, nmaps_to_read = 1 )
-       imap%map(:, 1) = (imap%map(:, 1)*t_cmb_rescale + noise%map(:, 1)*t_noise_rescale)*imask%map(:, 1)
+       imap%map(:, 1) = (imap%map(:, 1) + noise%map(:, 1))*imask%map(:, 1)
        call do_smooth_map(imap)
     endif
     deallocate(spin)
@@ -149,6 +162,7 @@ contains
 
   subroutine load_polmap(i)
     COOP_INT i
+    if(polload)return
     if(i.eq.0)then
        call polmap%read(trim(polmap_file), spin = (/2 , 2 /) , nmaps_wanted = 2  )
        polmap%map(:, 1) = polmap%map(:, 1)*polmask%map(:, 1)
@@ -157,8 +171,8 @@ contains
     else
        call polmap%read(trim(sim_file_name_cmb_polmap(i)), spin = (/2 , 2 /) , nmaps_wanted = 2  )
        call noise%read(trim(sim_file_name_noise_polmap(i)), spin = (/2 , 2 /) , nmaps_wanted = 2 )
-       polmap%map(:, 1) = (polmap%map(:, 1)*pol_cmb_rescale + noise%map(:, 1)*pol_noise_rescale)*polmask%map(:, 1)
-       polmap%map(:, 2) = (polmap%map(:, 2)*pol_cmb_rescale + noise%map(:, 2)*pol_noise_rescale)*polmask%map(:, 1)
+       polmap%map(:, 1) = (polmap%map(:, 1) + noise%map(:, 1))*polmask%map(:, 1)
+       polmap%map(:, 2) = (polmap%map(:, 2) + noise%map(:, 2))*polmask%map(:, 1)
        call do_smooth_map(polmap)
     endif
   end subroutine load_polmap
