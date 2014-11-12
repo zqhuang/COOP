@@ -6,11 +6,11 @@ stack_dir = "stacked/"
 check_files = True
 
 prefix = "simu"
-imap_in = "simu/simu_temp_010a_n1024.fits"
+imap_in = "simu/simu_int_010a_n1024.fits"
 imask = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
-polmap_in = "simu/simu_pol_010a_n1024.fits"
+polmap_in = "simu/simu_pol_hp_20_40_010a_n1024.fits"
 polmask = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
-unit = "muK"   
+unit = "K"   
 
 fwhm_in = 10
 threshold = 0
@@ -70,6 +70,7 @@ def stack(inputmap, spots, st):
 
 
 spots_tmax = getspots(imap, "Tmax")
+sys.exit()
 spots_emax = getspots(emap, "Emax")
 spots_bmax = getspots(bmap, "Bmax")
 spots_zetamax = getspots(zetamap, "zetamax")
