@@ -442,7 +442,7 @@ for i in range(5, 15):
 copy_replace_first(common_file, batch_dir + r'/common_pp.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_pp.ini)'] )
 ppstr = r'param[ns] =  0.967  \n'
 for i in range(1, 16):
-    ppstr += r'param[pp'+ str(i) + r'] = 0. -1. 1. 0.03 0.03 \n'
+    ppstr += r'param[pp'+ str(i) + r'] = 0. -1.5 1.5 0.03 0.03 \n'
 copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_pp.ini', [r'^param\[ns\]\s*=.+$', '^param\[r\]\s*=.+$', '^compute_tensors\s*=.+$'], [ ppstr, r'param[r] = 0.1 0. 1. 0.05 0.05', r'compute_tensors = T' ] )
 
 copy_replace_first_append(baseini, iniroot+r'scan_bump_fixrp100.ini', [covmat_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [covmat_repl + r'scan_bump_fixrp100.covmat', r'file_root = scan_bump_fixrp100 \nde_model = 0 \nde_num_params = 2\npp_model = 4 \npp_num_params = ' + str(ppnum+3) + r'\nparamnames = paramnames/params_bump.paramnames' , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose], r'param[bumpamp] = 0. -1. 1. 0.03 0.03 '+"\n"+r'param[bumploc] = -6.8 -7.6 -4.6 0.2 0.2 ' + "\n" + r'param[bumpwidth] = 0.5  0.25 1. 0.1 0.1' + "\n" + r'param[r] = 0.1' + "\n")
