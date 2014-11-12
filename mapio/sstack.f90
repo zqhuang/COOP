@@ -43,8 +43,8 @@ program hastack_prog
   type(coop_list_integer)::listpix
   type(coop_list_real)::listangle
   type(coop_file) fp
-  logical::iload = .false
-  logical::polload = .false
+  logical::iload = .false.
+  logical::polload = .false.
   COOP_SINGLE,dimension(:),allocatable::window
 
   call coop_MPI_init()
@@ -101,7 +101,7 @@ program hastack_prog
      polload = .false.
      ind = ind + 1
      write(*,*) "Stacking map #"//COOP_STR_OF(ind)
-     select case(trim(spottype))
+     select case(trim(spot_type))
      case("Tmax", "Tmax_QTUTOrient", "PTmax")
         call load_imap(ind)
         call imap%get_listpix(listpix, listangle, trim(spot_type), threshold, imask)
