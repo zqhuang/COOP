@@ -11,7 +11,7 @@ program hastack_prog
 #include "constants.h"
   COOP_INT, parameter::n_sim = 100
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
-  COOP_SHORT_STRING::spot_type, stack_type
+  COOP_SHORT_STRING::spot_type, stack_type, threshold_input
   COOP_REAL, parameter::patch_size = 2.d0*coop_SI_degree
   COOP_UNKNOWN_STRING, parameter::cs_method = "smica"
   COOP_UNKNOWN_STRING, parameter::pol_case = "case1"
@@ -27,7 +27,7 @@ program hastack_prog
   COOP_STRING::allprefix
   COOP_UNKNOWN_STRING, parameter::mapdir = "/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
   COOP_REAL,parameter::fwhm = coop_SI_arcmin * sqrt(fwhm_arcmin**2-fwhm_in**2)
-  COOP_REAL, parameter::threshold = 0.
+  COOP_REAL::threshold = 0.
   COOP_REAL, parameter::dr = coop_SI_arcmin * max(fwhm_arcmin/5.d0, 5.d0)
   COOP_INT, parameter::n = nint(patch_size/dr)
 
@@ -50,15 +50,19 @@ program hastack_prog
   call coop_MPI_init()
   spot_type = trim(coop_InputArgs(1))
   stack_type = trim(coop_InputArgs(2))
+  threshold_input = trim(coop_InputArgs(3))
+  if(trim(threshold_input).ne."")then
+     read(threshold_input,*)threshold
+  endif
   lmax  = min(ceiling(3.d0/(fwhm_arcmin*coop_SI_arcmin * coop_sigma_by_fwhm)), 2000)
   if(trim(spot_type) .eq. "" .or. trim(stack_type).eq."")then
      print*, "Syntax:"
-     print*, "./SST Tmax  T"
-     print*, "./SST Tmax  QrUr"
-     print*, "./SST Tmax  QU"
-     print*, "./SST Tmax_QTUTOrient QU"
-     print*, "./SST PTmax QU"
-     print*, "./SST Pmax QU"
+     print*, "./SST Tmax  T [nu]"
+     print*, "./SST Tmax  QrUr [nu]"
+     print*, "./SST Tmax  QU [nu]"
+     print*, "./SST Tmax_QTUTOrient QU [nu]"
+     print*, "./SST PTmax QU [nu]"
+     print*, "./SST Pmax QU [nu]"
      stop
   endif
 
@@ -68,11 +72,12 @@ program hastack_prog
   call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )
   
   call patch%init(trim(stack_type), n, dr, mmax = mmax)
-  if(fwhm .gt. coop_SI_arcmin)then
-     allprefix = prefix//trim(stack_type)//"_on_"//trim(spot_type)//"_fr_"//COOP_STR_OF(nint(patch_size/coop_SI_degree))//"deg"//input_resolution//"_smooth"//COOP_STR_OF(nint(fwhm_arcmin))
+  if(threshold .gt. 0.1d0)then
+     allprefix = prefix//trim(stack_type)//"_on_"//trim(spot_type)//"_fr_"//COOP_STR_OF(nint(patch_size/coop_SI_degree))//"deg"//input_resolution//"_smooth"//COOP_STR_OF(nint(fwhm_arcmin))//"_nu"//COOP_STR_OF(nint(threshold))     
   else
-     allprefix = prefix//trim(stack_type)//"_on_"//trim(spot_type)//"_fr_"//COOP_STR_OF(nint(patch_size/coop_SI_degree))//"deg"//input_resolution//"_nosmooth"
+     allprefix = prefix//trim(stack_type)//"_on_"//trim(spot_type)//"_fr_"//COOP_STR_OF(nint(patch_size/coop_SI_degree))//"deg"//input_resolution//"_smooth"//COOP_STR_OF(nint(fwhm_arcmin))
   endif
+
   call fp%open(trim(allprefix)//"_info.txt", "w")
   write(fp%unit,*) n, patch%nmaps, dr/coop_SI_arcmin
   call fp%close()
