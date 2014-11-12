@@ -143,7 +143,7 @@ contains
   end subroutine coop_function_free
 
 
-  subroutine coop_function_init_NonUniform(this, x, f, xlog, ylog, check_boundary)
+  subroutine coop_function_init_NonUniform(this, x, f, xlog, ylog, check_boundary, smooth_boundary)
     class(coop_function):: this
     logical, optional::xlog, ylog
     COOP_REAL,dimension(:),intent(IN):: x, f
@@ -153,6 +153,7 @@ contains
     COOP_REAL :: xc(size(x)), fc(size(f)), fc2(size(f)), res
     logical do_spline
     logical,optional::check_boundary
+    logical,optional::smooth_boundary
     if(coop_isnan(f))then
        write(*,*) "Cannot construct the function type: found f = NAN within the specified range."
        stop
@@ -170,7 +171,7 @@ contains
     endif
     m  = coop_getdim("coop_function%init_NonUniform", size(x), size(f))
     this%method = COOP_INTERPOLATE_SPLINE
-    this%n = coop_default_array_size
+    this%n = min(coop_default_array_size, max(m, 256))
     allocate(this%f(this%n), this%f2(this%n))
     if(this%xlog)then
        if(any(x.le.0.d0))stop "Error: cannot set xlog = .true. for x<0"
@@ -206,19 +207,25 @@ contains
     if(do_spline)then
        call coop_spline(m, xc, fc, fc2)
        !$omp parallel do
-       do i=2, coop_default_array_size-1
+       do i=2, this%n - 1
           call coop_splint(m, xc, fc, fc2, this%xmin + (i-1)*this%dx, this%f(i))
        enddo
        !$omp end parallel do
     else
        !$omp parallel do private(loc, res)
-       do i = 2, coop_default_array_size - 1
+       do i = 2, this%n - 1
           call coop_locate(m, xc, this%xmin + (i-1)*this%dx, loc, res)
           this%f(i) = fc(loc)*(1.d0-res) + fc(loc+1)*res
        enddo
        !$omp end parallel do
     endif
     call coop_spline_uniform(this%n, this%f, this%f2)
+    if(present(smooth_boundary))then
+       if(smooth_boundary)then
+          this%f2(1) = this%f2(2)
+          this%f2(this%n) = this%f2(this%n-1)
+       endif
+    endif
     if(present(check_boundary))then
        this%check_boundary = check_boundary
     else

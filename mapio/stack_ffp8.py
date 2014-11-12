@@ -88,6 +88,8 @@ stack(tqtutmap, spots_tmax, "QU")
 stack(emap, spots_emax, "E")
 stack(imap, spots_emax, "T")
 stack(bmap, spots_emax, "B")
+stack(polmap, spots_emax, "QU")
+stack(polmap, spots_emax, "QrUr")
    
 stack(imap, spots_bmax, "T")
 stack(emap, spots_bmax, "E")
