@@ -229,7 +229,7 @@ contains
           call coop_splint(nknots, lnk, lnps, lnps2, coop_pp_lnkMpc(i) - coop_pp_scalar_lnkpivot, coop_pp_lnps(i))
        enddo
        !!modified to resolve the bump issue
-       coop_pp_lnps = coop_pp_lnps + COOP_LN10TO10AS &
+       coop_pp_lnps = coop_pp_lnps + COOP_LN10TO10AS -10.d0*coop_ln10&
             + ( COOP_NS - 1.d0 ) * (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot)
        deallocate(lnk, lnps,  lnps2)
     case(COOP_PP_SCAN_LINEAR)

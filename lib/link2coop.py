@@ -440,7 +440,7 @@ for i in range(5, 15):
     
 
 copy_replace_first(common_file, batch_dir + r'/common_pp.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_pp.ini)'] )
-ppstr = r'param[ns] =  0.967d0  \n'
+ppstr = r'param[ns] =  0.967  \n'
 for i in range(1, 16):
     ppstr += r'param[pp'+ str(i) + r'] = 0. -1. 1. 0.03 0.03 \n'
 copy_replace_first(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r'/params_CMB_pp.ini', [r'^param\[ns\]\s*=.+$', '^param\[r\]\s*=.+$', '^compute_tensors\s*=.+$'], [ ppstr, r'param[r] = 0.1 0. 1. 0.05 0.05', r'compute_tensors = T' ] )
