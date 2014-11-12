@@ -706,12 +706,12 @@ contains
           lnps_lower(ik) = lnpsmean(ik) - 2*sqrt(lnpscov(ik, ik))
           lnps_upper(ik) = lnpsmean(ik) + 2*sqrt(lnpscov(ik, ik))
        enddo
-       call fig_spec%band(kmpc, 1.d10*exp(lnps_lower), 1.d10*exp(lnps_upper), colorfill = "lightgray", linecolor="invisible")
+       call fig_spec%band(kmpc, 1.d10*exp(lnps_lower), 1.d10*exp(lnps_upper), colorfill = trim(coop_asy_gray_color(0.65)), linecolor="invisible")
        do ik=1, nk
           lnps_lower(ik) = lnpsmean(ik) - sqrt(lnpscov(ik, ik))
           lnps_upper(ik) = lnpsmean(ik) + sqrt(lnpscov(ik, ik))
        enddo       
-       call fig_spec%band(kmpc, 1.d10*exp(lnps_lower), 1.d10*exp(lnps_upper), colorfill = "gray", linecolor="invisible")
+       call fig_spec%band(kmpc, 1.d10*exp(lnps_lower), 1.d10*exp(lnps_upper), colorfill = trim(coop_asy_gray_color(0.4)), linecolor="invisible")
        call fig_spec%curve(kmpc, ps_trajs(:,1), color="HEX:006FED", linetype="dashed", linewidth=0.5,legend="scalar 1-$\sigma$")
        call fig_spec%curve(kmpc, pt_trajs(:, 1), color="HEX:8CD3F5", linetype="dotted", linewidth=0.5, legend="tensor 1-$\sigma$")       
        do j=2, num_trajs
