@@ -33,9 +33,11 @@ if(len(sys.argv) >=  3):
         print "R-1 threshold format is incorrect"
         sys.exit()
 fileroot = search_value(inifile, r'file_root\s*\=\s*(\S+)')
+rootdir = search_value(inifile, r'root_dir\s*\=\s*(\S+)')
 if(fileroot == ''):
     print "ini file does not contain key file_root"
     sys.exit()
+fileroot = rootdir+fileroot    
 print "file_root = " + fileroot
 if(os.path.isfile(fileroot + r'.converge_stat')):
     fp = open(fileroot + r'.converge_stat', 'r')

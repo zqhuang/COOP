@@ -70,7 +70,6 @@ def stack(inputmap, spots, st):
 
 
 spots_tmax = getspots(imap, "Tmax")
-sys.exit()
 spots_emax = getspots(emap, "Emax")
 spots_bmax = getspots(bmap, "Bmax")
 spots_zetamax = getspots(zetamap, "zetamax")
