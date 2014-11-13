@@ -6,11 +6,12 @@ program Test
   COOP_REAL x(n), y(n), xx(n*10), yy1(n*10), yy2(n*10)
   COOP_INT i
   type(coop_function)::f
-  call coop_set_uniform(n, x, 0.5d0, 3.d0)
-  call coop_set_uniform(n*10, xx, 0.5d0, 3.d0)
-  y = sin(x)/x
-  call f%init_NonUniform(x, y, smooth_boundary = .true.)
-  yy1 = -sin(xx)/xx - 2.*cos(xx)/xx**2 + 2*sin(xx)/xx**3
+  COOP_REAL, parameter::a=0.1d0, b = 2.d0
+  call coop_set_uniform(n, x, a, b)
+  call coop_set_uniform(n*10, xx, a, b)
+  y = exp(1/x)
+  call f%init_NonUniform(x, y, ylog=.true.)
+  yy1 = (1.d0/xx**4 + 2.d0/xx**3)*exp(1.d0/xx)
   do i=1, n*10
      yy2(i) = f%derivative2(xx(i))
      print*, xx(i), yy1(i), yy2(i)

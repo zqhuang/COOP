@@ -11,7 +11,7 @@ module coop_function_mod
   public:: coop_function, coop_function_multeval, coop_function_multeval_bare
 
   type coop_function
-     COOP_INT::method = COOP_INTERPOLATE_LINEAR
+     COOP_INT::method = COOP_INTERPOLATE_QUADRATIC
      logical::xlog =.false.
      logical::ylog = .false.
      logical::check_boundary = .false.
@@ -143,7 +143,7 @@ contains
   end subroutine coop_function_free
 
 
-  subroutine coop_function_init_NonUniform(this, x, f, xlog, ylog, check_boundary, smooth_boundary)
+  subroutine coop_function_init_NonUniform(this, x, f, xlog, ylog, check_boundary)
     class(coop_function):: this
     logical, optional::xlog, ylog
     COOP_REAL,dimension(:),intent(IN):: x, f
@@ -153,7 +153,6 @@ contains
     COOP_REAL :: xc(size(x)), fc(size(f)), fc2(size(f)), res
     logical do_spline
     logical,optional::check_boundary
-    logical,optional::smooth_boundary
     if(coop_isnan(f))then
        write(*,*) "Cannot construct the function type: found f = NAN within the specified range."
        stop
@@ -170,8 +169,7 @@ contains
        this%ylog = .false.
     endif
     m  = coop_getdim("coop_function%init_NonUniform", size(x), size(f))
-    this%method = COOP_INTERPOLATE_SPLINE
-    this%n = min(coop_default_array_size, max(m, 256))
+    this%n = min(coop_default_array_size, max(m, 128))
     allocate(this%f(this%n), this%f2(this%n))
     if(this%xlog)then
        if(any(x.le.0.d0))stop "Error: cannot set xlog = .true. for x<0"
@@ -219,13 +217,11 @@ contains
        enddo
        !$omp end parallel do
     endif
-    call coop_spline_uniform(this%n, this%f, this%f2)
-    if(present(smooth_boundary))then
-       if(smooth_boundary)then
-          this%f2(1) = this%f2(2)
-          this%f2(this%n) = this%f2(this%n-1)
-       endif
-    endif
+    this%method = COOP_INTERPOLATE_QUADRATIC
+    this%f2(2:this%n-1) = this%f(3:this%n) + this%f(1:this%n-2) - 2.*this%f(2:this%n-1)
+    this%f2(1) = this%f2(2)
+    this%f2(this%n) = this%f2(this%n-1)
+    this%f2 = this%f2/6.
     if(present(check_boundary))then
        this%check_boundary = check_boundary
     else
