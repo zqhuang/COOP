@@ -238,7 +238,7 @@ contains
     endif
   end subroutine coop_function_init_NonUniform
 
-  subroutine coop_function_init(this, n, xmin, xmax, f, method, fleft, fright, slopeleft, sloperight, chebyshev_order, xlog, ylog, check_boundary)
+  subroutine coop_function_init(this, n, xmin, xmax, f, method, fleft, fright, slopeleft, sloperight, chebyshev_order, xlog, ylog, check_boundary, smooth)
     class(coop_function):: this
     logical, optional::xlog, ylog
     COOP_INT,intent(IN):: n
@@ -248,6 +248,7 @@ contains
     COOP_INT, optional::method
     COOP_INT, optional::chebyshev_order
     logical,optional::check_boundary
+    logical,optional::smooth    
     COOP_INT i, count_tiny, count_small
     COOP_REAL::fmean, ftiny, curv, flarge, fsmall
     if(coop_isnan(f))then
@@ -379,8 +380,22 @@ contains
        this%f2(1) = this%f2(2)
        this%f2(n) = this%f2(n-1)
        this%f2 = this%f2/6.
+       if(present(smooth))then
+          if(smooth)then
+             if(this%n .ge. 200)then  !!check f2 is smooth
+                call coop_smooth_data(this%n, this%f2, min(this%n/200, 50))
+             endif
+          endif
+       endif
     case(COOP_INTERPOLATE_SPLINE)
        call coop_spline_uniform(this%n, this%f, this%f2)
+       if(present(smooth))then
+          if(smooth)then
+             if(this%n .ge. 200)then  !!check f2 is smooth
+                call coop_smooth_data(this%n, this%f2, min(this%n/200, 50))
+             endif
+          endif
+       endif
     case(COOP_INTERPOLATE_CHEBYSHEV)
        if(this%ylog)then
           call coop_chebfit_uniform(n, log(f), this%n, this%f)
