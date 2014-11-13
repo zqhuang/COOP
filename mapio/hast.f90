@@ -10,8 +10,8 @@ program hastack_prog
   implicit none
 #include "constants.h"
   COOP_INT, parameter::n_sim = 1000
-  COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
-  COOP_UNKNOWN_STRING, parameter::stack_type = "T"
+  COOP_UNKNOWN_STRING, parameter::spot_type = "Pmax"
+  COOP_UNKNOWN_STRING, parameter::stack_type = "QU"
   COOP_REAL, parameter::patch_size = 5.d0*coop_SI_degree
   COOP_UNKNOWN_STRING, parameter::output_dir = "ha_r5f30n1024"
   

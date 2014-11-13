@@ -1,5 +1,4 @@
 #! /bin/bash
-rm -f tmp.eps
 echo ${1} > asyplot.config
 if [[ -n ${2} ]]
 then
@@ -12,8 +11,9 @@ else
     epsfile=${1}\.eps
   fi
 fi
-asy ${HOME}/work/GitHub/COOP/utils/asyplot.asy -o tmp.eps
-eps2eps tmp.eps $epsfile
+rm -f tmp_${epsfile}
+asy ${HOME}/work/GitHub/COOP/utils/asyplot.asy -o tmp_${epsfile}
+eps2eps tmp_${epsfile} ${epsfile}
 epstopdf $epsfile
-rm -f tmp.eps
+rm -f tmp_${epsfile} ${epsfile}
 rm -f asyplot.config
