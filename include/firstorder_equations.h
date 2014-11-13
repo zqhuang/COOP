@@ -179,13 +179,16 @@
           aniso_prime = aniso_prime + pa2pr_nu * sum(Fmnu2*wp) + pert%pa2_nu*sum(Fmnu2_prime*wp + Fmnu2*wp_prime) 
        endif
        aniso_prime =  0.6d0/pert%ksq * aniso_prime
-
+       
        O1_PHI_PRIME = O1_PSI_PRIME - aniso_prime
        O1_PSIPR_PRIME = - O1_PHI_PRIME &
             - (3.d0 + pert%daHdtau/aHsq)*O1_PSI_PRIME &
             - 2.d0*(pert%daHdtau/aHsq + 1.d0)*O1_PHI &
             - pert%kbyaHsq/3.d0*(O1_PSI+aniso) &
-            + (pert%rhoa2_b/aHsq * O1_DELTA_B * (pert%cs2b - 1.d0/3.d0) + pert%rhoa2_c/aHsq*O1_DELTA_C*(-1.d0/3.d0))/2.d0
+            + ( &
+            pert%rhoa2_b/aHsq * O1_DELTA_B * (pert%cs2b - 1.d0/3.d0) &
+            + pert%rhoa2_c/aHsq*O1_DELTA_C*(-1.d0/3.d0) &
+            )/2.d0
 
        if(cosmology%index_massivenu .ne. 0)then
           if(pert%massivenu_cold)then
@@ -198,13 +201,15 @@
        else
           pert%deltatr_mnu = 0.d0
           pert%deltap_mnu = 0.d0
-        endif
-        select case(pert%de%genre)
-        case(COOP_PERT_NONE)
-           !!do nothing
-        case default
-           call coop_tbw("de perturbations not written")
-        end select
+       endif
+
+       select case(pert%de%genre)
+       case(COOP_PERT_NONE)
+          !!do nothing
+       case default
+          call coop_tbw("de perturbations not written")
+       end select
+       
     case(1)
        call coop_tbw("vector equations not written")
     case(2)

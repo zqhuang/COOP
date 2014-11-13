@@ -143,16 +143,17 @@ contains
   end subroutine coop_function_free
 
 
-  subroutine coop_function_init_NonUniform(this, x, f, xlog, ylog, check_boundary)
+  subroutine coop_function_init_NonUniform(this, x, f, xlog, ylog, check_boundary, smooth)
     class(coop_function):: this
     logical, optional::xlog, ylog
     COOP_REAL,dimension(:),intent(IN):: x, f
     COOP_INT i
     COOP_INT m, n, loc
-    COOP_REAL_ARRAY::xx, ff
+    COOP_REAL_ARRAY :: xx, ff
     COOP_REAL :: xc(size(x)), fc(size(f)), fc2(size(f)), res
     logical do_spline
     logical,optional::check_boundary
+    logical,optional::smooth
     if(coop_isnan(f))then
        write(*,*) "Cannot construct the function type: found f = NAN within the specified range."
        stop
@@ -168,6 +169,7 @@ contains
     else
        this%ylog = .false.
     endif
+    this%method = COOP_INTERPOLATE_QUADRATIC
     m  = coop_getdim("coop_function%init_NonUniform", size(x), size(f))
     this%n = min(coop_default_array_size, max(m, 128))
     allocate(this%f(this%n), this%f2(this%n))
@@ -178,6 +180,7 @@ contains
        xc  = x
     endif
     if(this%ylog)then
+       if(any(f .le. 0.d0)) stop "Error: cannot set ylog = .true. for f(x) < 0"
        fc = log(f)
     else
        fc = f  
@@ -193,8 +196,8 @@ contains
     this%f(this%n) = fc(m)
     this%slopeleft= 0.d0
     this%sloperight = 0.d0
-    if(m .lt. 16384)then
-       if( minval(xc(2:m) - xc(1:m-1)) .gt. 1.d-2 * maxval(xc(2:m)-xc(1:m-1)))then
+    if(m .lt. 8192)then
+       if( minval(xc(2:m) - xc(1:m-1)) .gt. 2.d-2 * maxval(xc(2:m)-xc(1:m-1)))then
           do_spline = .true.
        else
           do_spline = .false.
@@ -217,11 +220,17 @@ contains
        enddo
        !$omp end parallel do
     endif
-    this%method = COOP_INTERPOLATE_QUADRATIC
     this%f2(2:this%n-1) = this%f(3:this%n) + this%f(1:this%n-2) - 2.*this%f(2:this%n-1)
     this%f2(1) = this%f2(2)
     this%f2(this%n) = this%f2(this%n-1)
-    this%f2 = this%f2/6.
+    this%f2 = this%f2/6.d0
+    if(present(smooth))then
+       if(smooth)then
+          if(this%n .ge. 200)then  !!check f2 is smooth
+             call coop_smooth_data(this%n, this%f2, min(this%n/200, 50))
+          endif
+       endif
+    endif
     if(present(check_boundary))then
        this%check_boundary = check_boundary
     else
