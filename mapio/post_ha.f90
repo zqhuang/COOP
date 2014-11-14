@@ -24,12 +24,12 @@ program test
   
   prefix = coop_InputArgs(1)
   if(trim(prefix).eq."")then
-     write(*,*) "./POSTHA prefix nsims ncut"
+     write(*,*) "./POSTHA prefix nsims ncut m_want"
      stop
   endif
   nsims = coop_str2int(coop_InputArgs(2))
   ncut = coop_str2int(coop_InputArgs(3))
-
+  m_want = coop_str2int(coop_InputArgs(4))
   call fp%open(trim(prefix)//"info.txt", "r")
   read(fp%unit,*) n, nmaps, dr
   call fp%close()
@@ -120,7 +120,7 @@ program test
   call fig%curve(r, fitdiff, color = "blue", linetype = "dotted", linewidth = 1.5, legend = "fit")
   call fig%legend(0.1, 0.95, 1)
   call fig%close()
-  call fig%open(trim(prefix)//"powercut"//COOP_STR_OF(ncut)//"_m"//COOP_STR_OF(m_want)//".txt")
+  call fig%open(trim(prefix)//"powercut"//COOP_STR_OF(ncut)//"_distr_m"//COOP_STR_OF(m_want)//".txt")
   call fig%init(xlabel = "$c_0$", ylabel = "c_1")
   call coop_asy_dots(fig, vec(1, 1:nsims), vec(2, 1:nsims), "black")
   call coop_asy_dot(fig, vec(1, 0), vec(2, 0), "red")
