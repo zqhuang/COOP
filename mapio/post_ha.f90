@@ -11,8 +11,7 @@ program test
 #include "constants.h"
   type(coop_file)::fp
   COOP_INT,parameter::mmax = 4
-  COOP_INT,parameter::m_want = 0
-  COOP_INT,parameter::map_want = 1
+  COOP_INT::m_want = 0
   integer i, nside, id, pix, iminprob, n, nmaps, nsims, isim, j, ncut, i1, i2, cgt
   type(coop_healpix_maps)::map
   COOP_STRING::prefix
@@ -57,7 +56,13 @@ program test
         endif
         read(fp%unit) frn
         read(fp%unit) frs
-        diff(0:n, isim) = (frn(0:n, m_want/2, map_want)- frs(0:n, m_want/2, map_want))*1.e6
+        if(nmaps .eq. 1)then
+           diff(0:n, isim) = (frn(0:n, m_want/2, 1)- frs(0:n, m_want/2, 1))*1.d6
+        elseif(nmaps.eq.2)then
+           diff(0:n, isim) = (frn(0:n, m_want/2, 1) + frn(0:n, m_want/2, 2) - frs(0:n, m_want/2, 1) - frs(0:n, m_want/2, 2) )*0.5d6
+        else
+           stop "unknown nmaps"
+        endif
         call fr2vec(diff(:, isim),vec(:, isim))
      enddo
      call fp%close()
@@ -92,7 +97,7 @@ program test
      map%map(pix, 1) = map%map(i, 1)
      print*, i, prob(i), chisq(i)
   enddo
-  call map%write(trim(prefix)//"powercut"//trim(coop_num2str(ncut))//"_probs.fits")
+  call map%write(trim(prefix)//"powercut"//trim(coop_num2str(ncut))//"_probs_m"//COOP_STR_OF(m_want)//".fits")
   call pix2ang_ring(map%nside, iminprob, theta, phi)
   call coop_healpix_ang2lb(theta, phi, l, b)
   write(*,*) "min prob = ", minprob
@@ -101,19 +106,24 @@ program test
      b =  - b
   endif
   write(*,*) "direction l = ", nint(l), " b = ", nint(b)
-  call fig%open(trim(prefix)//"powercut"//trim(coop_num2str(ncut))//"_profile.txt")
+  call fig%open(trim(prefix)//"powercut"//trim(coop_num2str(ncut))//"_fr_m"//COOP_STR_OF(m_want)//".txt")
   call fig%init(xlabel = "$\omega$", ylabel  = "$\delta f (\mu K)$")
-  call coop_asy_curve(fig, r, diffmin(:, 0), color = "red", linetype = "solid", linewidth = 2., legend = "Planck")
+  call fig%curve(r, diffmin(:, 0), color = "red", linetype = "solid", linewidth = 2., legend = "Planck")
   i = 1
-  call coop_asy_curve(fig, r, diffmin(:, i), color = "gray", linetype = "dashed", linewidth = 0.5, legend = "FFP8")
+  call fig%curve(r, diffmin(:, i), color = "gray", linetype = "dashed", linewidth = 0.5, legend = "FFP8")
   do i = 2, nsims, nsims/25
-     call coop_asy_curve(fig, r, diffmin(:, i), color = "gray", linetype = "dashed", linewidth = 0.5)
+     call fig%curve(r, diffmin(:, i), color = "gray", linetype = "dashed", linewidth = 0.5)
   enddo
   do i = 0, n
      call coop_chebeval(ncut, 0.d0, rsq(n), vecmin(:, 0), rsq(i), fitdiff(i))
   enddo
   call fig%curve(r, fitdiff, color = "blue", linetype = "dotted", linewidth = 1.5, legend = "fit")
   call fig%legend(0.1, 0.95, 1)
+  call fig%close()
+  call fig%open(trim(prefix)//"powercut"//COOP_STR_OF(ncut)//"_m"//COOP_STR_OF(m_want)//".txt")
+  call fig%init(xlabel = "$c_0$", ylabel = "c_1")
+  call coop_asy_dots(fig, vec(1, 1:nsims), vec(2, 1:nsims), "black")
+  call coop_asy_dot(fig, vec(1, 0), vec(2, 0), "red")
   call fig%close()
 contains
 
