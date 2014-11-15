@@ -10,7 +10,7 @@ program hastack_prog
   implicit none
 #include "constants.h"
   COOP_INT, parameter::n_sim = 1000
-  COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
+  COOP_UNKNOWN_STRING, parameter::spot_type = "Pmax"
   COOP_UNKNOWN_STRING, parameter::stack_type = "QU"
   COOP_REAL, parameter::patch_size = 5.d0*coop_SI_degree
   COOP_UNKNOWN_STRING, parameter::output_dir = "ha_r5f30n1024"
@@ -43,6 +43,9 @@ program hastack_prog
   type(coop_list_integer)::listpix
   type(coop_list_real)::listangle
   type(coop_file) fp
+  logical::i_loaded = .false.
+  logical::pol_loaded = .false.
+  
   call coop_MPI_init()
   lmax = min(ceiling(3.d0/(fwhm_arcmin*coop_SI_arcmin*coop_sigma_by_fwhm)), 2048, coop_healpix_default_lmax)
   if(iargc() .ge. 1)then
@@ -59,10 +62,7 @@ program hastack_prog
 
   !!read masks
   call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
-  if(stack_type .ne. "T")then
-     call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )
-  endif
-
+  call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )
   
   call patch_n%init(stack_type, n, dr, mmax = mmax)
   patch_s = patch_n
@@ -98,16 +98,31 @@ program hastack_prog
      if(j.ne.i)call cooP_MPI_Abort("fr file broken")
   enddo
   do while(ind .lt. n_sim)
+     i_loaded = .false.
+     pol_loaded = .false.
      ind = ind + 1
      print*, "stacking map #"//COOP_STR_OF(ind)
-     call load_imap(ind)
-     call imap%get_listpix(listpix, listangle, spot_type, threshold, imask)     
+     select case(trim(spot_type))
+     case("Tmax", "PTmax", "Tmax_QTUTOrient", "Tmin", "PTmin", "Tmin_QTUTOrient")
+        call load_imap(ind)
+        call imap%get_listpix(listpix, listangle, spot_type, threshold, imask)
+     case("Pmax", "Pmin")
+        call load_polmap(ind)
+        call polmap%get_listpix(listpix, listangle, spot_type, threshold, polmask)
+     case default
+        print*, trim(spot_type)        
+        stop "Unknown spot type"
+     end select
      select case(stack_type)
      case("T")
+        call load_imap(ind)
         call imap%stack_north_south(patch_n, patch_s, listpix, listangle, hdir, imask)
-     case default
+     case("QU", "QrUr")
         call load_polmap(ind)
         call polmap%stack_north_south(patch_n, patch_s, listpix, listangle, hdir, polmask)
+     case default
+        print*, trim(stack_type)
+        stop "Unknown stack type"
      end select
 
      call patch_n%get_all_radial_profiles()
@@ -125,11 +140,13 @@ contains
   subroutine load_imap(i)
     COOP_INT i, nm
     COOP_INT,dimension(:),allocatable::spin
-    if(spot_type .eq. "PTmax" .or. spot_type .eq. "Tmax_QTUTOrient")then
+    if(i_loaded) return
+    select case(trim(spot_type))
+    case("Tmax_QTUTOrient", "Tmin_QTUTOrient", "PTmax", "PTmin")
        nm = 3
-    else
+    case default
        nm = 1
-    endif
+    end select
     allocate(spin(nm))
     spin(1) = 0
     if(nm.gt.1) spin(2:3) = 2
@@ -151,6 +168,7 @@ contains
 
   subroutine load_polmap(i)
     COOP_INT i
+    if(pol_loaded)return
     if(i.eq.0)then
        call polmap%read(trim(polmap_file), spin = (/2 , 2 /) , nmaps_wanted = 2  )
        polmap%map(:, 1) = polmap%map(:, 1)*polmask%map(:, 1)
