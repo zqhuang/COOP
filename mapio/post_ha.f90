@@ -21,24 +21,22 @@ program test
   COOP_REAL, dimension(:),allocatable:: rsq, r, mean, fitdiff
   type(coop_asy)::fig
   logical::single_pix = .false.
-  
+  call coop_random_init()
   if(iargc().lt.4)then
      write(*,*) "./POSTHA prefix nsims ncut m_want"
      write(*,*) " or "     
-     write(*,*) "./POSTHA prefix 0 pix_want ncut m_want"
+     write(*,*) "./POSTHA prefix nsims ncut m_want pix_want"
      stop
   endif
   prefix = coop_InputArgs(1)  
   nsims = coop_str2int(coop_InputArgs(2))
-  if(nsims .eq. 0)then
+  ncut = coop_str2int(coop_InputArgs(3))
+  m_want = coop_str2int(coop_InputArgs(4))
+  if(iargc() .ge. 5)then
      single_pix = .true.
-     pix_want = coop_str2int(coop_InputArgs(3))
-     ncut = coop_str2int(coop_InputArgs(4))
-     m_want = coop_str2int(coop_InputArgs(5))     
+     pix_want = coop_str2int(coop_InputArgs(5))
   else
      single_pix = .false.
-     ncut = coop_str2int(coop_InputArgs(3))
-     m_want = coop_str2int(coop_InputArgs(4))
   endif
   call fp%open(trim(prefix)//"info.txt", "r")
   read(fp%unit,*) n, nmaps, dr
@@ -98,11 +96,16 @@ program test
      diffmin = diff
      vecmin = vec
      call pix2ang_ring(map%nside, i, theta, phi)
+     call coop_healpix_ang2lb(theta, phi, l, b)
+     if(b.gt.0.d0)then
+        l = l + 180.d0
+        b =  - b
+     endif
      theta = coop_pi - theta
      phi = coop_pi + phi
      call ang2pix_ring(map%nside, theta, phi, pix)
      map%map(pix, 1) = map%map(i, 1)
-     print*, i, prob(i), chisq(i)
+     write(*, "(3I5, 2F10.4)")i, nint(l), nint(b), prob(i), chisq(i)
   else
      do i=0, 95
         call fp%open(trim(prefix)//trim(coop_num2str(i))//".dat", "ru")
@@ -168,7 +171,7 @@ program test
      l = l + 180.d0
      b =  - b
   endif
-  write(*,*) "min prob = ", minprob  
+  write(*,*) "prob = ", minprob  
   write(*,*) "direction l = ", nint(l), " b = ", nint(b), "ipix = ", iminprob
   call fig%open(trim(prefix)//"powercut"//trim(coop_num2str(ncut))//"_fr_m"//COOP_STR_OF(m_want)//".txt")
   call fig%init(xlabel = "$\omega$", ylabel  = "$\delta f (\mu K)$")
