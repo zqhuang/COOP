@@ -21,6 +21,7 @@ program test
   COOP_REAL, dimension(:),allocatable:: rsq, r, mean, fitdiff
   type(coop_asy)::fig
   logical::single_pix = .false.
+  call coop_MPI_init()
   call coop_random_init()
   if(iargc().lt.4)then
      write(*,*) "./POSTHA prefix nsims ncut m_want"
