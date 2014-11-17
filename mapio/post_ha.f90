@@ -177,7 +177,7 @@ program test
   i = 1
   call fig%curve(r, diffmin(:, i), color =trim(coop_asy_gray_color(0.2)), linetype = "dashed", linewidth = 0.5, legend = "FFP8")
   do j = 0, n
-     call coop_chebeval(ncut, 0.d0, rsq(n), vecmin(:, j), rsq(j), fitdiff(j))
+     call coop_chebeval(ncut, 0.d0, rsq(n), vecmin(:, i), rsq(j), fitdiff(j))
   enddo
   call fig%curve(r, fitdiff, color = trim(coop_asy_gray_color(0.65)), linetype = "dotdashed", linewidth = 1., legend = "FFP8 2-term fit")
 
