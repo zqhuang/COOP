@@ -105,7 +105,6 @@ program test
      print*, i, prob(i), chisq(i)
   else
      do i=0, 95
-        write(*,*) "reading "//trim(prefix)//trim(coop_num2str(i))//".dat"
         call fp%open(trim(prefix)//trim(coop_num2str(i))//".dat", "ru")
         do isim = 0, nsims
            read(fp%unit) j
