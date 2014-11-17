@@ -1404,13 +1404,25 @@ contains
     enddo
   end subroutine coop_asy_curve_s
 
-  subroutine coop_asy_labels_d(fp, labels, x, y, color)
+  subroutine coop_asy_labels_d(fp, labels, x, y, color, alignment)
     COOP_STRING, dimension(:),intent(IN)::labels
     real(dl),dimension(:),intent(IN)::x, y
     class(coop_asy) fp
     COOP_UNKNOWN_STRING,optional::color
+    COOP_UNKNOWN_STRING,optional::alignment
     COOP_INT  n, i
-    write(fp%unit, "(A)") "LABELS"
+    if(present(alignment))then
+       select case(trim(adjustl(alignment)))
+       case("left", "LEFT", "Left", "l", "L")
+          write(fp%unit, "(A)") "LEFTLABELS"
+       case("right", "RIGHT", "Right", "r", "R")
+          write(fp%unit, "(A)") "RIGHTLABELS"
+       case default
+          write(fp%unit, "(A)") "LABELS"          
+       end select
+    else
+       write(fp%unit, "(A)") "LABELS"
+    endif    
     n = coop_getdim("coop_asy_labels", size(x), size(y), size(labels))
     write(fp%unit,"(I8)") n
     if(present(color))then
@@ -1428,13 +1440,25 @@ contains
     enddo
   end subroutine coop_asy_labels_d
 
-  subroutine coop_asy_labels_s(fp, labels, x, y, color)
+  subroutine coop_asy_labels_s(fp, labels, x, y, color, alignment)
     COOP_STRING, dimension(:),intent(IN)::labels
     real(sp),dimension(:),intent(IN)::x, y
     class(coop_asy) fp
     COOP_UNKNOWN_STRING,optional::color
+    COOP_UNKNOWN_STRING,optional::alignment
     COOP_INT  n, i
-    write(fp%unit, "(A)") "LABELS"
+    if(present(alignment))then
+       select case(trim(alignment))
+       case("left","LEFT","Left","l","L")
+          write(fp%unit, "(A)") "LEFTLABELS"
+       case("right","RIGHT","Right","r","R")
+          write(fp%unit, "(A)") "RIGHTLABELS"
+       case default
+          write(fp%unit, "(A)") "LABELS"          
+       end select
+    else
+       write(fp%unit, "(A)") "LABELS"
+    endif
     n = coop_getdim("coop_asy_labels", size(x), size(y), size(labels))
     write(fp%unit,"(I8)") n
     if(present(color))then
@@ -1453,12 +1477,24 @@ contains
   end subroutine coop_asy_labels_s
 
 
-  subroutine coop_asy_label_d(fp, label, x, y, color)
+  subroutine coop_asy_label_d(fp, label, x, y, color, alignment)
     class(coop_asy) fp
     COOP_UNKNOWN_STRING label
     COOP_UNKNOWN_STRING,optional::color
+    COOP_UNKNOWN_STRING,optional::alignment
     real(dl) x, y
-    write(fp%unit, "(A)") "LABELS"
+    if(present(alignment))then
+       select case(trim(alignment))
+       case("left","LEFT","Left","l","L")
+          write(fp%unit, "(A)") "LEFTLABELS"
+       case("right","RIGHT","Right","r","R")
+          write(fp%unit, "(A)") "RIGHTLABELS"
+       case default
+          write(fp%unit, "(A)") "LABELS"          
+       end select
+    else
+       write(fp%unit, "(A)") "LABELS"
+    endif
     write(fp%unit, "(A)") "1"
     if(present(color))then
        write(fp%unit, "(A)") trim(color)
@@ -1473,12 +1509,24 @@ contains
     endif
   end subroutine coop_asy_label_d
 
-  subroutine coop_asy_label_relative(fp, label, xratio, yratio, color)
+  subroutine coop_asy_label_relative(fp, label, xratio, yratio, color, alignment)
     class(coop_asy) fp
     COOP_UNKNOWN_STRING label
     COOP_UNKNOWN_STRING,optional::color
+    COOP_UNKNOWN_STRING,optional::alignment
     real(sp) xratio, yratio
-    write(fp%unit, "(A)") "LABELS"
+    if(present(alignment))then
+       select case(trim(alignment))
+       case("left","LEFT","Left","l","L")
+          write(fp%unit, "(A)") "LEFTLABELS"
+       case("right","RIGHT","Right","r","R")
+          write(fp%unit, "(A)") "RIGHTLABELS"
+       case default
+          write(fp%unit, "(A)") "LABELS"          
+       end select
+    else
+       write(fp%unit, "(A)") "LABELS"
+    endif
     write(fp%unit, "(A)") "1"
     if(present(color))then
        write(fp%unit, "(A)") trim(color)
@@ -1494,12 +1542,24 @@ contains
   end subroutine coop_asy_label_relative
 
   
-  subroutine coop_asy_label_s(fp, label, x, y, color)
+  subroutine coop_asy_label_s(fp, label, x, y, color, alignment)
     class(coop_asy) fp
     COOP_UNKNOWN_STRING label
     COOP_UNKNOWN_STRING,optional::color
+    COOP_UNKNOWN_STRING,optional::alignment
     real(sp) x, y
-    write(fp%unit, "(A)") "LABELS"
+    if(present(alignment))then
+       select case(trim(alignment))
+       case("left","LEFT","Left","l","L")
+          write(fp%unit, "(A)") "LEFTLABELS"
+       case("right","RIGHT","Right","r","R")
+          write(fp%unit, "(A)") "RIGHTLABELS"
+       case default
+          write(fp%unit, "(A)") "LABELS"          
+       end select
+    else
+       write(fp%unit, "(A)") "LABELS"
+    endif    
     write(fp%unit, "(A)") "1"
     if(present(color))then
        write(fp%unit, "(A)") trim(color)

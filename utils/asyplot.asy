@@ -18,7 +18,7 @@ n = number of blocks (integer)
 =========================================================
 More about the blocks:
 ---------------------------------------------------------
-Each block can be either DOTS, LINES, CURVE, LABEL, CONTOUR, CLIP, LEGEND, EXTRA_AXIS, or DENSITY
+Each block can be either DOTS, LINES, CURVE, LABELS, CONTOUR, CLIP, LEGEND, EXTRA_AXIS, or DENSITY
 ---------------------------------------------------------
 Format of DOTS block
 ---------------------------------------------------------
@@ -115,13 +115,16 @@ Format of LABELS block
 LABELS  (string, specify that this is a LABELS block)
 n = number of labels to be written (integer)
 color and line type (string, color, linetype and linewidth connected with underscore, such as "white_solid_0.5", "darkgreen_longdashed_1", "magenta_longdashdotted_1.5", "orange_dashdotted_0.8", ...)
-coordinates of dot #1 (2 real numbers)
+coordinates of label #1 (2 real numbers)
 label #1  (string)
-coordinates of dot #2 (2 real numbers)
+coordinates of label #2 (2 real numbers)
 label #2  (string)
 ....
-coordinates of dot #n (2 real numbers)
+coordinates of label #n (2 real numbers)
 label #n  (string)
+
+##by default LABELS are aligned in the center
+##you can replace LABELS with LEFTLABESL or RIGHTLABELS to define the alignment
 ---------------------------------------------------------
 Format of LEGEND block
 ---------------------------------------------------------
@@ -694,6 +697,39 @@ int plot_labels(file fin){
    label( L = cstr, position = ( xcoor(t[0]), ycoor(t[1]) ), align = Center, p = colorpen);}
  return nlines;}
 
+int plot_labels_left(file fin){
+ int nlines = fin;
+ if(nlines <= 0 || nlines > 100000)  {
+    write(stdout, "Too many labels: " + ((string) nlines) + " lables");
+    return 0;}
+ string cstr;
+ cstr = fetch_string(fin);
+ pen colorpen = pen_from_string(cstr);
+ real [] t;
+ t = new real[2];
+ for (int i = 0; i< nlines; ++i){
+   t = read_xy(fin);
+   cstr = fetch_string(fin);
+   label( L = cstr, position = ( xcoor(t[0]), ycoor(t[1]) ), align = Left, p = colorpen);}
+ return nlines;}
+
+int plot_labels_right(file fin){
+ int nlines = fin;
+ if(nlines <= 0 || nlines > 100000)  {
+    write(stdout, "Too many labels: " + ((string) nlines) + " lables");
+    return 0;}
+ string cstr;
+ cstr = fetch_string(fin);
+ pen colorpen = pen_from_string(cstr);
+ real [] t;
+ t = new real[2];
+ for (int i = 0; i< nlines; ++i){
+   t = read_xy(fin);
+   cstr = fetch_string(fin);
+   label( L = cstr, position = ( xcoor(t[0]), ycoor(t[1]) ), align = Right, p = colorpen);}
+ return nlines;}
+
+
 // =============================================================================
 //plot labels
 int plot_legend(file fin){
@@ -892,6 +928,12 @@ bool plot_block(file fin){
     else if(block == "LABELS"){
        nlines = plot_labels(fin);
        write(stdout, (string) nlines + ' labels are plotted.\n');}
+    else if(block == "LEFTLABELS"){
+       nlines = plot_labels_left(fin);
+       write(stdout, (string) nlines + ' labels are plotted.\n');}
+    else if(block == "RIGHTLABELS"){
+       nlines = plot_labels_right(fin);
+       write(stdout, (string) nlines + ' labels are plotted.\n');}       
     else if(block == "CURVE"){
        nlines = plot_curve(fin);
        write(stdout, 'a curve is plotted from ' + ((string) nlines ) + ' points.\n');}
