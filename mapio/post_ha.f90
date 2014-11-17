@@ -190,7 +190,7 @@ program test
      call fig%curve(r, fitdiff, color = trim(coop_asy_gray_color(0.65)), linetype = "dotdashed", linewidth = 1.)
      
   enddo
-  call fig%legend(0.1, 0.95, 1)
+  call coop_asy_legend(fig, "N", 2)
   call fig%close()
   call fig%open(trim(prefix)//"powercut"//COOP_STR_OF(ncut)//"_distr_m"//COOP_STR_OF(m_want)//".txt")
   call fig%init(xlabel = "$c_0$", ylabel = "$c_1$")
