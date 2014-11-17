@@ -170,15 +170,25 @@ program test
   call fig%open(trim(prefix)//"powercut"//trim(coop_num2str(ncut))//"_fr_m"//COOP_STR_OF(m_want)//".txt")
   call fig%init(xlabel = "$\omega$", ylabel  = "$\delta f (\mu K)$")
   call fig%curve(r, diffmin(:, 0), color = "red", linetype = "solid", linewidth = 2., legend = "Planck")
-  i = 1
-  call fig%curve(r, diffmin(:, i), color = "gray", linetype = "dashed", linewidth = 0.5, legend = "FFP8")
-  do i = 2, nsims, nsims/25
-     call fig%curve(r, diffmin(:, i), color = "gray", linetype = "dashed", linewidth = 0.5)
-  enddo
   do i = 0, n
      call coop_chebeval(ncut, 0.d0, rsq(n), vecmin(:, 0), rsq(i), fitdiff(i))
   enddo
-  call fig%curve(r, fitdiff, color = "blue", linetype = "dotted", linewidth = 1.5, legend = "fit")
+  call fig%curve(r, fitdiff, color = "blue", linetype = "dotted", linewidth = 1.5, legend = "Planck 2-term fit")
+  i = 1
+  call fig%curve(r, diffmin(:, i), color =trim(coop_color_gray(0.35)), linetype = "dashed", linewidth = 0.5, legend = "FFP8")
+  do j = 0, n
+     call coop_chebeval(ncut, 0.d0, rsq(n), vecmin(:, j), rsq(j), fitdiff(j))
+  enddo
+  call fig%curve(r, fitdiff, color = trim(coop_color_gray(0.65)), linetype = "dotdashed", linewidth = 0.5, legend = "FFP8 2-term fit")
+
+  do i = 2, nsims, nsims/10
+     call fig%curve(r, diffmin(:, i), color = trim(coop_color_gray(0.35)), linetype = "dashed", linewidth = 0.5)
+     do j = 0, n
+        call coop_chebeval(ncut, 0.d0, rsq(n), vecmin(:, j), rsq(j), fitdiff(j))
+     enddo
+     call fig%curve(r, fitdiff, color = trim(coop_color_gray(0.65)), linetype = "dotdashed", linewidth = 0.5)
+     
+  enddo
   call fig%legend(0.1, 0.95, 1)
   call fig%close()
   call fig%open(trim(prefix)//"powercut"//COOP_STR_OF(ncut)//"_distr_m"//COOP_STR_OF(m_want)//".txt")
