@@ -166,7 +166,7 @@ program test
      l = l + 180.d0
      b =  - b
   endif
-  write(*,*) "direction l = ", nint(l), " b = ", nint(b)
+  write(*,*) "direction l = ", nint(l), " b = ", nint(b), "ipix = ", iminprob
   call fig%open(trim(prefix)//"powercut"//trim(coop_num2str(ncut))//"_fr_m"//COOP_STR_OF(m_want)//".txt")
   call fig%init(xlabel = "$\omega$", ylabel  = "$\delta f (\mu K)$")
   call fig%curve(r, diffmin(:, 0), color = "red", linetype = "solid", linewidth = 2., legend = "Planck")
