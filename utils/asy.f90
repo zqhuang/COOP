@@ -31,7 +31,10 @@ module coop_asy_mod
      procedure::plot => coop_asy_curve_d
      procedure::legend => coop_asy_legend_relative
      procedure::line => coop_asy_line_d
+     procedure::lines => coop_asy_lines_d
      procedure::label => coop_asy_label_relative
+     procedure::dot => coop_asy_dot_d
+     procedure::dots => coop_asy_dots_d
      procedure::contour => coop_asy_contour_d
      procedure::band => coop_asy_band_d
      procedure::density => coop_asy_density_d
