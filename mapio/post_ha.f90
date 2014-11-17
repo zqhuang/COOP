@@ -188,9 +188,9 @@ program test
   call fig%dot(vecmin(1, 0), vecmin(2, 0), "red", "x")
   ylab = maxval(vecmin(2, 0:nsims))
   xlab = maxval(vecmin(1, 0:nsims))
-  call fig%dot(xlab, ylab*1.09, "invisible", " ")
-  call coop_asy_label(fig, "x   Planck", xlab*0.8, ylab*1.08, "red")
-  call coop_asy_label(fig, "$\bullet$   FFP8", xlab*0.8, ylab*1.02, "black")
+  call fig%dot(xlab, ylab*1.1, "invisible", "x")
+  call coop_asy_label(fig, "x   Planck", xlab*0.2, ylab*1.08, "red")
+  call coop_asy_label(fig, "$\bullet$   FFP8", xlab*0.2, ylab*1.02, "black")
   call fig%close()
 contains
 
