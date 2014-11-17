@@ -710,7 +710,7 @@ int plot_labels_left(file fin){
  for (int i = 0; i< nlines; ++i){
    t = read_xy(fin);
    cstr = fetch_string(fin);
-   label( L = cstr, position = ( xcoor(t[0]), ycoor(t[1]) ), align = Left, p = colorpen);}
+   label( L = cstr, position = ( xcoor(t[0]), ycoor(t[1]) ), align = LeftSide, p = colorpen);}
  return nlines;}
 
 int plot_labels_right(file fin){
@@ -726,7 +726,7 @@ int plot_labels_right(file fin){
  for (int i = 0; i< nlines; ++i){
    t = read_xy(fin);
    cstr = fetch_string(fin);
-   label( L = cstr, position = ( xcoor(t[0]), ycoor(t[1]) ), align = Right, p = colorpen);}
+   label( L = cstr, position = ( xcoor(t[0]), ycoor(t[1]) ), align = RightSide, p = colorpen);}
  return nlines;}
 
 
