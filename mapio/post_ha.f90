@@ -189,8 +189,8 @@ program test
   ylab = maxval(vecmin(2, 0:nsims))
   xlab = maxval(vecmin(1, 0:nsims))
   call fig%dot(xlab, ylab*1.11, "invisible", "x")
-  call fig%label("x   Planck", 0.1, 0.95, "red")
-  call fig%label("$\bullet$   FFP8", 0.2, 0.9, "black")
+  call fig%label("x   Planck", 0.05, 0.95, "red", alignment="Left")
+  call fig%label("$\bullet$   FFP8", 0.05, 0.9, color="black", alignment="Left")
   call fig%close()
 contains
 
