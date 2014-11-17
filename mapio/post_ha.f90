@@ -19,7 +19,6 @@ program test
   COOP_REAL,dimension(:,:),allocatable::cov, vec, diff, diffmin, vecmin
   COOP_REAL, dimension(:,:,:),allocatable::frn, frs
   COOP_REAL, dimension(:),allocatable:: rsq, r, mean, fitdiff
-  COOP_REAL xlab, ylab
   type(coop_asy)::fig
   logical::single_pix = .false.
   
@@ -186,11 +185,10 @@ program test
   call fig%init(xlabel = "$c_0$", ylabel = "$c_1$")
   call fig%dots(vecmin(1, 1:nsims), vecmin(2, 1:nsims), "black")
   call fig%dot(vecmin(1, 0), vecmin(2, 0), "red", "x")
-  ylab = maxval(vecmin(2, 0:nsims))
-  xlab = maxval(vecmin(1, 0:nsims))
-  call fig%dot(xlab, ylab*1.11, "invisible", "x")
-  call fig%label("x   Planck", 0.05, 0.95, "red", alignment="Left")
-  call fig%label("$\bullet$   FFP8", 0.05, 0.9, color="black", alignment="Left")
+  call fig%dot(fig%xmax*1.01, fig%ymax*1.11, "invisible", "BLANK")
+  call fig%dot(fig%xmin*1.01, fig%ymin*1.01, "invisible", "BLANK")
+  call fig%label("x   Planck", 0.05, 0.95, "red", alignment="right")
+  call fig%label("$\bullet$   FFP8", 0.05, 0.9, color="black", alignment="right")
   call fig%close()
 contains
 
