@@ -175,18 +175,18 @@ program test
   enddo
   call fig%curve(r, fitdiff, color = "blue", linetype = "dotted", linewidth = 1.5, legend = "Planck 2-term fit")
   i = 1
-  call fig%curve(r, diffmin(:, i), color =trim(coop_asy_gray_color(0.35)), linetype = "dashed", linewidth = 0.5, legend = "FFP8")
+  call fig%curve(r, diffmin(:, i), color =trim(coop_asy_gray_color(0.2)), linetype = "dashed", linewidth = 0.5, legend = "FFP8")
   do j = 0, n
      call coop_chebeval(ncut, 0.d0, rsq(n), vecmin(:, j), rsq(j), fitdiff(j))
   enddo
-  call fig%curve(r, fitdiff, color = trim(coop_asy_gray_color(0.65)), linetype = "dotdashed", linewidth = 0.5, legend = "FFP8 2-term fit")
+  call fig%curve(r, fitdiff, color = trim(coop_asy_gray_color(0.65)), linetype = "dotdashed", linewidth = 1., legend = "FFP8 2-term fit")
 
   do i = 2, nsims, nsims/10
-     call fig%curve(r, diffmin(:, i), color = trim(coop_asy_gray_color(0.35)), linetype = "dashed", linewidth = 0.5)
+     call fig%curve(r, diffmin(:, i), color = trim(coop_asy_gray_color(0.2)), linetype = "dashed", linewidth = 0.5)
      do j = 0, n
-        call coop_chebeval(ncut, 0.d0, rsq(n), vecmin(:, j), rsq(j), fitdiff(j))
+        call coop_chebeval(ncut, 0.d0, rsq(n), vecmin(:, i), rsq(j), fitdiff(j))
      enddo
-     call fig%curve(r, fitdiff, color = trim(coop_asy_gray_color(0.65)), linetype = "dotdashed", linewidth = 0.5)
+     call fig%curve(r, fitdiff, color = trim(coop_asy_gray_color(0.65)), linetype = "dotdashed", linewidth = 1.)
      
   enddo
   call fig%legend(0.1, 0.95, 1)
