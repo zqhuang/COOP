@@ -56,7 +56,6 @@ program test
   iminprob = 0
   if(single_pix)then
      i = pix_want
-     write(*,*) "reading "//trim(prefix)//trim(coop_num2str(i))//".dat"
      call fp%open(trim(prefix)//trim(coop_num2str(i))//".dat", "ru")
      do isim = 0, nsims
         read(fp%unit) j
@@ -151,21 +150,26 @@ program test
            vecmin = vec
         endif
         call pix2ang_ring(map%nside, i, theta, phi)
+        call coop_healpix_ang2lb(theta, phi, l, b)
+        if(b.gt.0.d0)then
+           l = l + 180.d0
+           b =  - b
+        endif        
         theta = coop_pi - theta
         phi = coop_pi + phi
         call ang2pix_ring(map%nside, theta, phi, pix)
         map%map(pix, 1) = map%map(i, 1)
-        print*, i, prob(i), chisq(i)
+        write(*, "(3I5, 2F10.4)")i, nint(l), nint(b), prob(i), chisq(i)
      enddo
   endif
   call map%write(trim(prefix)//"powercut"//trim(coop_num2str(ncut))//"_probs_m"//COOP_STR_OF(m_want)//".fits")
   call pix2ang_ring(map%nside, iminprob, theta, phi)
   call coop_healpix_ang2lb(theta, phi, l, b)
-  write(*,*) "min prob = ", minprob
   if(b.gt.0.d0)then
      l = l + 180.d0
      b =  - b
   endif
+  write(*,*) "min prob = ", minprob  
   write(*,*) "direction l = ", nint(l), " b = ", nint(b), "ipix = ", iminprob
   call fig%open(trim(prefix)//"powercut"//trim(coop_num2str(ncut))//"_fr_m"//COOP_STR_OF(m_want)//".txt")
   call fig%init(xlabel = "$\omega$", ylabel  = "$\delta f (\mu K)$")
