@@ -64,7 +64,7 @@ program test
         enddo
         do i=0, n
            do j = 0, i
-              cov(i, j) = sum((f(i, m_want, map_want, 1:nsims)-mean(i))*(f(j, m_want, map_want, 1:nsims)-mean(j)))/nsims
+              cov(i, j) = sum((f(i, m_want/2, map_want, 1:nsims)-mean(i))*(f(j, m_want/2, map_want, 1:nsims)-mean(j)))/nsims
               cov(j, i) = cov(i, j)
            enddo
         enddo
@@ -107,7 +107,7 @@ program test
         enddo
         do i=0, n
            do j = 0, i
-              cov(i, j) = sum((f(i, m_want, map_want, 1:nsims)-mean(i))*(f(j, m_want, map_want, 1:nsims)-mean(j)))/nsims
+              cov(i, j) = sum((f(i, m_want/2, map_want, 1:nsims)-mean(i))*(f(j, m_want/2, map_want, 1:nsims)-mean(j)))/nsims
               cov(j, i) = cov(i, j)
            enddo
         enddo
