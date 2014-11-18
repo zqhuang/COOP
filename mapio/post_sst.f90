@@ -116,7 +116,7 @@ program test
               cov(i, j) = sum((f(i, m_want/2, map_want, 1:nsims)-mean(i))*(f(j, m_want/2, map_want, 1:nsims)-mean(j)))/nsims
               cov(j, i) = cov(i, j)
            enddo
-           cov(i, i) = cov(i, i) + 1.d-5
+           cov(i, i) = cov(i, i)*1.005 + 1.d-8
         enddo
         call coop_matsym_inverse(cov)
         do i=0, nsims
