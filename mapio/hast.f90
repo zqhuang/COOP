@@ -13,7 +13,7 @@ program hastack_prog
   COOP_UNKNOWN_STRING, parameter::spot_type = "Pmax"
   COOP_UNKNOWN_STRING, parameter::stack_type = "QU"
   COOP_REAL, parameter::patch_size = 5.d0*coop_SI_degree
-  COOP_UNKNOWN_STRING, parameter::output_dir = "ha_r5f30n1024"
+  COOP_UNKNOWN_STRING, parameter::output_dir = "hc_r5f30n1024"
   
   COOP_UNKNOWN_STRING, parameter::prefix = output_dir//"/"
   COOP_INT, parameter::mmax = 4
@@ -30,8 +30,8 @@ program hastack_prog
 
   COOP_UNKNOWN_STRING, parameter::imap_file  = "planck14/dx11_v2_smica_int_cmb"//postfix
   COOP_UNKNOWN_STRING, parameter::polmap_file  = "planck14/dx11_v2_smica_pol_case1_cmb_hp_20_40"//postfix
-  COOP_UNKNOWN_STRING, parameter::imask_file  = "planck14/dx11_v2_smica_int_mask"//postfix
-  COOP_UNKNOWN_STRING, parameter::polmask_file  ="planck14/dx11_v2_smica_pol_mask"//postfix
+  COOP_UNKNOWN_STRING, parameter::imask_file  = "planck14/dx11_v2_common_int_mask"//postfix
+  COOP_UNKNOWN_STRING, parameter::polmask_file  ="planck14/dx11_v2_common_pol_mask"//postfix
 
   type(coop_healpix_maps)::polmask, imask, noise, imap, polmap, tmpmap
   type(coop_healpix_patch)::patch_s, patch_n
