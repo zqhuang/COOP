@@ -16,7 +16,8 @@ program test
   type(coop_healpix_maps)::map
   COOP_STRING::prefix
   COOP_REAL, dimension(:,:,:,:),allocatable::f
-  COOP_REAL, dimension(:),allocatable::r, mean, std
+  COOP_REAL, dimension(:),allocatable::r, mean, std, chisq
+  COOP_REAL, dimension(:,:),allocatable::cov
 
   type(coop_asy)::fig
   
@@ -38,7 +39,7 @@ program test
   endif
   
   dr = dr*coop_SI_arcmin
-  allocate(f(0:n, 0:mmax/2, nmaps, 0:nsims), r(0:n), mean(0:n), std(0:n))
+  allocate(f(0:n, 0:mmax/2, nmaps, 0:nsims), r(0:n), mean(0:n), std(0:n), cov(0:n, 0:n), chisq(0:nsims))
   do i=0,n
      r(i) = (dr*i)
   enddo
@@ -61,6 +62,17 @@ program test
            mean(i) = sum(f(i, m_want/2, map_want, 1:nsims))/nsims
            std(i) = sqrt(sum((f(i, m_want/2, map_want, 1:nsims) - mean(i))**2)/nsims)
         enddo
+        do i=0, n
+           do j = 0, i
+              cov(i, j) = sum((f(i, m_want, map_want, 1:nsims)-mean(i))*(f(j, m_want, map_want, 1:nsims)-mean(j)))/nsims
+              cov(j, i) = cov(i, j)
+           enddo
+        enddo
+        call coop_matsym_inverse(cov)
+        do i=0, nsims
+           chisq(i) = dot_product(f(:, m_want, map_want, i)-mean,  matmul(cov, f(:, m_want, map_want, i)-mean))
+        enddo
+        write(*,"(A,I5, A, I5, A, F12.4)") "map#",map_want, "; m=", m_want, ", rareness = ", count(chisq(1:nsims).gt.chisq(0))/nsims
         
         call fig%open(trim(prefix)//"_fig"//COOP_STR_OF(map_want)//COOP_STR_OF(m_want)//".txt")
         call fig%init(xlabel = "$\omega$", ylabel  = "$"//trim(coop_InputArgs(2+map_want))//" (\mu K)$")
@@ -93,6 +105,17 @@ program test
            mean(i) = sum(f(i, m_want/2, map_want, 1:nsims))/nsims
            std(i) = sqrt(sum((f(i, m_want/2, map_want, 1:nsims) - mean(i))**2)/nsims)
         enddo
+        do i=0, n
+           do j = 0, i
+              cov(i, j) = sum((f(i, m_want, map_want, 1:nsims)-mean(i))*(f(j, m_want, map_want, 1:nsims)-mean(j)))/nsims
+              cov(j, i) = cov(i, j)
+           enddo
+        enddo
+        call coop_matsym_inverse(cov)
+        do i=0, nsims
+           chisq(i) = dot_product(f(:, m_want, map_want, i)-mean,  matmul(cov, f(:, m_want, map_want, i)-mean))
+        enddo
+        write(*,"(A, I5, A, F12.4)") "joint; m=", m_want, ", rareness = ", count(chisq(1:nsims).gt.chisq(0))/nsims
         call fig%open(trim(prefix)//"_figp"//COOP_STR_OF(m_want)//".txt")
         call fig%init(xlabel = "$\omega$", ylabel  = "$ P_"//trim(COOP_STR_OF(m_want))//" (\mu K)$")
         call fig%band(r, mean-std*2, mean+std*2, colorfill = trim(coop_asy_gray_color(0.65)), linecolor = "invisible")
