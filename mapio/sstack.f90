@@ -9,7 +9,7 @@ program hastack_prog
   use alm_tools
   implicit none
 #include "constants.h"
-  COOP_INT, parameter::n_sim = 100
+  COOP_INT, parameter::n_sim = 1000
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_SHORT_STRING::spot_type, stack_type, threshold_input
   COOP_REAL, parameter::patch_size = 2.d0*coop_SI_degree
