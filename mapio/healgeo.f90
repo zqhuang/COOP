@@ -757,23 +757,30 @@ contains
     if(allocated(this%checksum))deallocate(this%checksum)
   end subroutine coop_healpix_maps_free
 
-  subroutine coop_healpix_maps_read(this, filename, nmaps_wanted, spin, nmaps_to_read)
+  subroutine coop_healpix_maps_read(this, filename, nmaps_wanted, spin, nmaps_to_read, known_size)
     class(coop_healpix_maps) this
     COOP_UNKNOWN_STRING filename
     COOP_INT,optional::nmaps_wanted, nmaps_to_read
     COOP_INT,dimension(:),optional::spin
     integer(8) npixtot
     COOP_INT nmaps_actual
+    logical,optional::known_size
 #ifdef HAS_HEALPIX
     if(.not. coop_file_exists(filename))then
        write(*,*) trim(filename)
        stop "cannot find the file"
     endif
+    if(present(known_size))then
+       if(known_size)then
+          nmaps_actual = this%nmaps
+          goto 200
+       endif
+    endif
     npixtot = getsize_fits(trim(filename), nmaps = nmaps_actual, nside = this%nside, ordering = this%ordering)
     this%npix =nside2npix(this%nside)
     if(present(nmaps_wanted))then       
        this%nmaps = nmaps_wanted
-       if(nmaps_wanted .lt. nmaps_actual)then
+       if(nmaps_wanted .lt. nmaps_actual)then          
           nmaps_actual = nmaps_wanted
        endif
     else
@@ -845,7 +852,7 @@ contains
     else
        allocate(this%map(0:this%npix-1, this%nmaps))
     endif
-    if(present(nmaps_to_read))then
+200 if(present(nmaps_to_read))then
        call input_map(trim(filename), this%map, this%npix, min(nmaps_actual, nmaps_to_read), fmissval = 0.)
     else
        call input_map(trim(filename), this%map, this%npix, nmaps_actual, fmissval = 0.)

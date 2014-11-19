@@ -36,7 +36,7 @@ program hastack_prog
   COOP_UNKNOWN_STRING, parameter::imask_file  = "planck14/dx11_v2_common_int_mask"//postfix
   COOP_UNKNOWN_STRING, parameter::polmask_file  ="planck14/dx11_v2_common_pol_mask"//postfix
 
-  type(coop_healpix_maps)::polmask, imask, noise, imap, polmap, tmpmap
+  type(coop_healpix_maps)::polmask, imask, inoise, polnoise, imap, polmap, tmpmap
   type(coop_healpix_patch)::patch
   COOP_INT i, j, ind, nmaps_temp, l, lmax
   COOP_STRING::fr_file
@@ -46,6 +46,8 @@ program hastack_prog
   logical::iload = .false.
   logical::polload = .false.
   COOP_SINGLE,dimension(:),allocatable::window
+  logical::iload_first_call  = .true.
+  logical::polload_first_call = .true.
 
   call coop_MPI_init()
   spot_type = trim(coop_InputArgs(1))
@@ -105,7 +107,7 @@ program hastack_prog
      iload = .false.
      polload = .false.
      ind = ind + 1
-     write(*,*) "Stacking map #"//COOP_STR_OF(ind)
+     if(mod(ind, 5).eq.0)write(*,*) "Stacking map #"//COOP_STR_OF(ind)
      select case(trim(spot_type))
      case("Tmax", "Tmax_QTUTOrient", "PTmax")
         call load_imap(ind)
@@ -131,7 +133,7 @@ program hastack_prog
      call patch%get_all_radial_profiles()
      write(fp%unit) ind
      write(fp%unit) patch%fr
-     flush(fp%unit)
+     if(mod(ind, 30).eq. 0) flush(fp%unit)
   enddo
   call fp%close()
   call coop_MPI_Finalize()
@@ -153,14 +155,19 @@ contains
     if(i.eq.0)then
        call imap%read(filename = trim(imap_file), nmaps_wanted = nm , spin = spin , nmaps_to_read = 1 )
        imap%map(:, 1) = imap%map(:, 1)*imask%map(:, 1)
-       call do_smooth_map(imap)
     else
-       call imap%read(trim(sim_file_name_cmb_imap(i)), nmaps_wanted = nm , spin = spin , nmaps_to_read = 1 )
-       call noise%read(trim(sim_file_name_noise_imap(i)), nmaps_wanted = nm , spin = spin, nmaps_to_read = 1 )
-       imap%map(:, 1) = (imap%map(:, 1) + noise%map(:, 1))*imask%map(:, 1)
-       call do_smooth_map(imap)
+       if(iload_first_call)then
+          call imap%read(trim(sim_file_name_cmb_imap(i)), nmaps_wanted = nm , spin = spin , nmaps_to_read = 1 )
+          call inoise%read(trim(sim_file_name_noise_imap(i)), nmaps_wanted = nm , spin = spin, nmaps_to_read = 1 )
+          iload_first_call = .false.
+       else
+          call imap%read(trim(sim_file_name_cmb_imap(i)),  nmaps_to_read = 1, known_size = .true.)
+          call inoise%read(trim(sim_file_name_noise_imap(i)), nmaps_wanted = nm , spin = spin, nmaps_to_read = 1, known_size = .true.)          
+       endif
+       imap%map(:, 1) = (imap%map(:, 1) + inoise%map(:, 1))*imask%map(:, 1)
     endif
     deallocate(spin)
+    call do_smooth_map(imap)        
     if(nm.gt.1)call imap%iqu2TQTUT()
   end subroutine load_imap
 
@@ -172,14 +179,19 @@ contains
        call polmap%read(trim(polmap_file), spin = (/2 , 2 /) , nmaps_wanted = 2  )
        polmap%map(:, 1) = polmap%map(:, 1)*polmask%map(:, 1)
        polmap%map(:, 2) = polmap%map(:, 2)*polmask%map(:, 1)
-       call do_smooth_map(polmap)
     else
-       call polmap%read(trim(sim_file_name_cmb_polmap(i)), spin = (/2 , 2 /) , nmaps_wanted = 2  )
-       call noise%read(trim(sim_file_name_noise_polmap(i)), spin = (/2 , 2 /) , nmaps_wanted = 2 )
-       polmap%map(:, 1) = (polmap%map(:, 1) + noise%map(:, 1))*polmask%map(:, 1)
-       polmap%map(:, 2) = (polmap%map(:, 2) + noise%map(:, 2))*polmask%map(:, 1)
-       call do_smooth_map(polmap)
+       if(polload_first_call)then
+          call polmap%read(trim(sim_file_name_cmb_polmap(i)), spin = (/2 , 2 /) , nmaps_wanted = 2  )
+          call polnoise%read(trim(sim_file_name_noise_polmap(i)), spin = (/2 , 2 /) , nmaps_wanted = 2 )
+          polload_first_call = .false.
+       else
+          call polmap%read(trim(sim_file_name_cmb_polmap(i)), nmaps_to_read = 2 , known_size = .true.)
+          call polnoise%read(trim(sim_file_name_noise_polmap(i)), nmaps_to_read = 2, known_size = .true.)
+       endif       
+       polmap%map(:, 1) = (polmap%map(:, 1) + polnoise%map(:, 1))*polmask%map(:, 1)
+       polmap%map(:, 2) = (polmap%map(:, 2) + polnoise%map(:, 2))*polmask%map(:, 1)
     endif
+    call do_smooth_map(polmap)    
   end subroutine load_polmap
 
 

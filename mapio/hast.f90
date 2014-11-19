@@ -33,7 +33,7 @@ program hastack_prog
   COOP_UNKNOWN_STRING, parameter::imask_file  = "planck14/dx11_v2_common_int_mask"//postfix
   COOP_UNKNOWN_STRING, parameter::polmask_file  ="planck14/dx11_v2_common_pol_mask"//postfix
 
-  type(coop_healpix_maps)::polmask, imask, noise, imap, polmap, tmpmap
+  type(coop_healpix_maps)::polmask, imask, inoise, polnoise,imap, polmap
   type(coop_healpix_patch)::patch_s, patch_n
   integer,parameter::scan_nside = 4
   integer,parameter::scan_npix = scan_nside**2*6
@@ -45,6 +45,9 @@ program hastack_prog
   type(coop_file) fp
   logical::i_loaded = .false.
   logical::pol_loaded = .false.
+  logical::iload_first_call = .true.
+  logical::polload_first_call = .true.
+  
   
   call coop_MPI_init()
   lmax = min(ceiling(3.d0/(fwhm_arcmin*coop_SI_arcmin*coop_sigma_by_fwhm)), 2048, coop_healpix_default_lmax)
@@ -101,7 +104,7 @@ program hastack_prog
      i_loaded = .false.
      pol_loaded = .false.
      ind = ind + 1
-     print*, "stacking map #"//COOP_STR_OF(ind)
+     if(mod(ind, 5).eq.0)write(*,*) "Stacking map #"//COOP_STR_OF(ind)
      select case(trim(spot_type))
      case("Tmax", "PTmax", "Tmax_QTUTOrient", "Tmin", "PTmin", "Tmin_QTUTOrient")
         call load_imap(ind)
@@ -130,7 +133,7 @@ program hastack_prog
      write(fp%unit) ind
      write(fp%unit) patch_n%fr
      write(fp%unit) patch_s%fr
-     if(mod(i, 30).eq.0)flush(fp%unit)  !!do flush every 30 steps
+     if(mod(ind, 30).eq.0)flush(fp%unit)  !!do flush every 30 steps
   enddo
   call fp%close()
   call coop_MPI_Finalize()
@@ -153,15 +156,19 @@ contains
     if(i.eq.0)then
        call imap%read(filename = trim(imap_file), nmaps_wanted = nm , spin = spin , nmaps_to_read = 1 )
        imap%map(:, 1) = imap%map(:, 1)*imask%map(:, 1)
-       if(fwhm.ge.coop_SI_arcmin)    call imap%smooth(fwhm, l_upper = lmax)
-       noise = imap
     else
-       call imap%read(trim(sim_file_name_cmb_imap(i)), nmaps_wanted = nm , spin = spin , nmaps_to_read = 1 )
-       call noise%read(trim(sim_file_name_noise_imap(i)), nmaps_wanted = nm , spin = spin, nmaps_to_read = 1 )
-       imap%map(:, 1) = (imap%map(:, 1) + noise%map(:, 1))*imask%map(:, 1)
-       if(fwhm.ge.coop_SI_arcmin)    call imap%smooth(fwhm, l_upper = lmax)
+       if(iload_first_call)then
+          call imap%read(trim(sim_file_name_cmb_imap(i)), nmaps_wanted = nm , spin = spin , nmaps_to_read = 1 )
+          call inoise%read(trim(sim_file_name_noise_imap(i)), nmaps_wanted = nm , spin = spin, nmaps_to_read = 1 )
+          iload_first_call = .false.
+       else
+          call imap%read(trim(sim_file_name_cmb_imap(i)),  nmaps_to_read = 1, known_size = .true.)
+          call inoise%read(trim(sim_file_name_noise_imap(i)), nmaps_wanted = nm , spin = spin, nmaps_to_read = 1, known_size = .true.)          
+       endif
+       imap%map(:, 1) = (imap%map(:, 1) + inoise%map(:, 1))*imask%map(:, 1)
     endif
     deallocate(spin)
+    if(fwhm.ge.coop_SI_arcmin)    call imap%smooth(fwhm, l_upper = lmax)    
     if(nm.gt.1)call imap%iqu2TQTUT()
   end subroutine load_imap
 
@@ -173,14 +180,19 @@ contains
        call polmap%read(trim(polmap_file), spin = (/2 , 2 /) , nmaps_wanted = 2  )
        polmap%map(:, 1) = polmap%map(:, 1)*polmask%map(:, 1)
        polmap%map(:, 2) = polmap%map(:, 2)*polmask%map(:, 1)
-       if(fwhm.ge.coop_SI_arcmin)call polmap%smooth(fwhm, l_upper = lmax)
     else
-       call polmap%read(trim(sim_file_name_cmb_polmap(i)), spin = (/2 , 2 /) , nmaps_wanted = 2  )
-       call noise%read(trim(sim_file_name_noise_polmap(i)), spin = (/2 , 2 /) , nmaps_wanted = 2 )
-       polmap%map(:, 1) = (polmap%map(:, 1) + noise%map(:, 1))*polmask%map(:, 1)
-       polmap%map(:, 2) = (polmap%map(:, 2) + noise%map(:, 2))*polmask%map(:, 1)
-       if(fwhm.ge.coop_SI_arcmin)call polmap%smooth(fwhm, l_upper = lmax)
+       if(polload_first_call)then
+          call polmap%read(trim(sim_file_name_cmb_polmap(i)), spin = (/2 , 2 /) , nmaps_wanted = 2  )
+          call polnoise%read(trim(sim_file_name_noise_polmap(i)), spin = (/2 , 2 /) , nmaps_wanted = 2 )
+          polload_first_call = .false.
+       else
+          call polmap%read(trim(sim_file_name_cmb_polmap(i)), nmaps_to_read = 2 , known_size = .true.)
+          call polnoise%read(trim(sim_file_name_noise_polmap(i)), nmaps_to_read = 2, known_size = .true.)
+       endif
+       polmap%map(:, 1) = (polmap%map(:, 1) + polnoise%map(:, 1))*polmask%map(:, 1)
+       polmap%map(:, 2) = (polmap%map(:, 2) + polnoise%map(:, 2))*polmask%map(:, 1)
     endif
+    if(fwhm.ge.coop_SI_arcmin)call polmap%smooth(fwhm, l_upper = lmax)    
   end subroutine load_polmap
 
 
