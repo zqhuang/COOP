@@ -56,7 +56,7 @@ program hastack_prog
   if(trim(threshold_input).ne."")then
      read(threshold_input,*)threshold
   endif
-  lmax  = min(ceiling(3.d0/(fwhm_arcmin*coop_SI_arcmin * coop_sigma_by_fwhm)), 2000)
+  lmax  = min(ceiling(3.d0/(fwhm_arcmin*coop_SI_arcmin * coop_sigma_by_fwhm)), 2500)
   if(trim(spot_type) .eq. "" .or. trim(stack_type).eq."")then
      print*, "Syntax:"
      print*, "./SST Tmax  T [nu]"

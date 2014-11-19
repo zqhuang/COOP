@@ -32,7 +32,7 @@ program map
   read(str_fwhm_out, *) fwhm_out_arcmin
   fwhm_in = fwhm_in_arcmin*coop_SI_arcmin
   fwhm_out = fwhm_out_arcmin*coop_SI_arcmin
-  lmax = ceiling(3.d0/fwhm_out*coop_sigma_by_fwhm)
+  lmax = min(ceiling(3.d0/(fwhm_out*coop_sigma_by_fwhm)), 2500)
   if(.not. (coop_file_exists(trim(imap)) .and. coop_file_exists(trim(qumap))))then
      print*, "imap or qumap does not exist"
      stop
