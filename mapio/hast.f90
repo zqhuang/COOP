@@ -56,7 +56,7 @@ program hastack_prog
   else
      run_id = coop_MPI_Rank()
   endif
-  call sleep(run_id)  !!sleep for a second so that files are not read simultaneously
+!  call sleep(run_id)  !!sleep for a second so that files are not read simultaneously
   if(run_id .ge.  scan_npix)then
      write(*,*) "run id must not exceed ", scan_nside**2*12 - 1
      call coop_MPI_Abort()
