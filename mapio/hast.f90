@@ -10,8 +10,8 @@ program hastack_prog
   implicit none
 #include "constants.h"
   COOP_INT, parameter::n_sim = 1000
-  COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax"
-  COOP_UNKNOWN_STRING, parameter::stack_type = "T"
+  COOP_UNKNOWN_STRING, parameter::spot_type = "PTmax"
+  COOP_UNKNOWN_STRING, parameter::stack_type = "QU"
   COOP_REAL, parameter::patch_size = 5.d0*coop_SI_degree
   COOP_UNKNOWN_STRING, parameter::output_dir = "hc_r5f30n1024"
   
@@ -53,7 +53,7 @@ program hastack_prog
   else
      run_id = coop_MPI_Rank()
   endif
-  call sleep(run_id*3)  !!sleep for 3 seconds so that files are not read simultaneously
+  call sleep(run_id)  !!sleep for a second so that files are not read simultaneously
   if(run_id .ge.  scan_npix)then
      write(*,*) "run id must not exceed ", scan_nside**2*12 - 1
      call coop_MPI_Abort()
@@ -130,7 +130,7 @@ program hastack_prog
      write(fp%unit) ind
      write(fp%unit) patch_n%fr
      write(fp%unit) patch_s%fr
-     flush(fp%unit)
+!     flush(fp%unit)
   enddo
   call fp%close()
   call coop_MPI_Finalize()

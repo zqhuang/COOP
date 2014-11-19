@@ -34,7 +34,14 @@ program test
      unit = trim(adjustl(coop_InputArgs(6)))
   endif
 
-
+  if(.not. coop_file_exists(spots_file))then
+     write(*,*) "Cannot find the file "//trim(adjustl(spots_file))
+     stop
+  endif
+  if(.not. coop_file_exists(map_file))then
+     write(*,*) "Cannot find the file "//trim(adjustl(map_file))
+     stop
+  endif
   select case(trim(spot_type))
   case("T", "I", "zeta")
      if(trim(imask_file) .ne. "")then
@@ -51,7 +58,7 @@ program test
         do_mask = .false.
      endif
   case( "QrUr", "QU")
-     if(index(map_file, "QTUT").eq.0)then
+     if(index(map_file, "QTUT").eq.0 .and. index(map_file, "qzuz").eq.0)then
         if(trim(polmask_file) .ne. "")then
            call mask%read(trim(polmask_file), nmaps_wanted = 1)
            do_mask = .true.
@@ -79,26 +86,44 @@ program test
      map%map = map%map*1.e6
   endif
 
-  if(index(spots_file, "_Tmax_QTUTOrient_") .gt. 0 .or. index(spots_file, "TQUmax").gt. 0)then
+  if(index(spots_file, "_Tmax_QTUTOrient_") .gt. 0)then
      caption = "$T$ maxima, oriented"
   elseif(index(spots_file, "_Tmax_").gt.0)then
      caption = "$T$ maxima, random orientation"
+  elseif(index(spots_file, "_zetamax_qzuzOrient").gt.0)then
+     caption = "$\zeta$ maxima, oriented"     
   elseif(index(spots_file, "_zetamax_").gt.0)then
      caption = "$\zeta$ maxima, random orientation"
+  elseif(index(spots_file, "_zetamax_qzuzorient").gt.0)then
+     caption = "$\zeta$ maxima, random orientation"     
   elseif(index(spots_file, "_Emax_").gt.0)then
      caption = "$E$ maxima, random orientation"
   elseif(index(spots_file, "_Bmax_").gt.0)then
      caption = "$B$ maxima, random orientation"
   elseif(index(spots_file, "_PTmax_").gt.0)then
      caption = "$P_T$ maxima, oriented"
+  elseif(index(spots_file, "_PZmax_").gt.0)then
+     caption = "$P_\zeta$ maxima, oriented"     
   elseif(index(spots_file, "_Pmax_").gt.0)then
      caption = "$P$ maxima, oriented"
-  elseif(index(spots_file, "_Tmin_QTUTOrient_").gt.0)then
+  elseif(index(spots_file, "_Tmin_QTUTOrient_") .gt. 0)then
      caption = "$T$ minima, oriented"
-  elseif(index(spots_file, "_Tmin_") .gt. 0)then
+  elseif(index(spots_file, "_Tmin_").gt.0)then
      caption = "$T$ minima, random orientation"
+  elseif(index(spots_file, "_zetamin_qzuzOrient").gt.0)then
+     caption = "$\zeta$ minima, oriented"     
+  elseif(index(spots_file, "_zetamin_").gt.0)then
+     caption = "$\zeta$ minima, random orientation"
+  elseif(index(spots_file, "_zetamin_qzuzorient").gt.0)then
+     caption = "$\zeta$ minima, random orientation"     
+  elseif(index(spots_file, "_Emin_").gt.0)then
+     caption = "$E$ minima, random orientation"
+  elseif(index(spots_file, "_Bmin_").gt.0)then
+     caption = "$B$ minima, random orientation"
   elseif(index(spots_file, "_PTmin_").gt.0)then
      caption = "$P_T$ minima, oriented"
+  elseif(index(spots_file, "_PZmin_").gt.0)then
+     caption = "$P_\zeta$ minima, oriented"     
   elseif(index(spots_file, "_Pmin_").gt.0)then
      caption = "$P$ minima, oriented"
   else
@@ -164,3 +189,6 @@ program test
      call fp%close()
   enddo
 end program test
+
+
+

@@ -2004,10 +2004,6 @@ contains
     logical do_mask
 #ifdef HAS_HEALPIX
     call spots%init()
-!!$    select case(trim(spot_type))
-!!$    case("Tmax_QTUTOrient", "PTmax", "PTmin")
-!!$       call map%iqu2TQTUT()
-!!$    end select
     do_mask = .false.
     if(present(mask))then
        if(mask%nside .ne. map%nside)then
@@ -2055,7 +2051,7 @@ contains
              endif
           endif
        enddo
-    case("Tmin", "Emin", "Bmin")  !!random orientation
+    case("Tmin", "Emin", "Bmin", "zetamin")  !!random orientation
        if(present(threshold))then
           if(do_mask)then
              fcut = - threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
@@ -2086,7 +2082,7 @@ contains
              endif
           endif
        enddo
-    case("Tmax_QTUTOrient") !!oriented with QU, maxima of T
+    case("Tmax_QTUTOrient", "zetamax_qzuzOrient") !!oriented with QU, maxima of T
        if(map%nmaps .lt. 3) stop "For Tmax_QTUTOrient mode you need 3 maps"
        if(present(threshold))then
           if(do_mask)then
@@ -2116,7 +2112,7 @@ contains
              endif
           endif
        enddo
-    case("Tmin_QTUTOrient") !!oriented with QU, minima of T
+    case("Tmin_QTUTOrient", "zetamin_ztutOrient") !!oriented with QU, minima of T
        if(map%nmaps .lt. 3) stop "For Tmin_QTUTOrient mode you need 3 maps"
        if(present(threshold))then
           if(do_mask)then
@@ -2146,7 +2142,7 @@ contains
              endif
           endif
        enddo
-    case("Pmax", "PTmax")
+    case("Pmax", "PTmax", "PZmax")
        select case(map%nmaps)
        case(2:3)
           iq = map%nmaps - 1
@@ -2222,7 +2218,7 @@ contains
           endif
        enddo
        call spots%sort(4)
-    case("Pmin", "PTmin")
+    case("Pmin", "PTmin", "PZmin")
        select case(map%nmaps)
        case(2:3)
           iq = map%nmaps - 1
@@ -2361,7 +2357,7 @@ contains
              endif
           endif
        enddo
-    case("Tmax_QTUTOrient") !!oriented with QU, maxima of T
+    case("Tmax_QTUTOrient", "zetamax_qzuzOrient") !!oriented with QU, maxima of T
        if(map%nmaps .lt. 3) stop "For Tmax_QTUTOrient mode you need 3 maps"
        if(present(threshold))then
           if(do_mask)then
@@ -2393,7 +2389,7 @@ contains
              endif
           endif
        enddo
-    case("Tmin_QTUTOrient") !!oriented with QU, minima of T
+    case("Tmin_QTUTOrient", "zetamin_qzuzOrient") !!oriented with QU, minima of T
        if(map%nmaps .lt. 3) stop "For Tmin_QTUTOrient mode you need 3 maps"
        if(present(threshold))then
           if(do_mask)then
@@ -2425,7 +2421,7 @@ contains
              endif
           endif
        enddo
-    case("Pmax", "PTmax")
+    case("Pmax", "PTmax", "PZmax")
        select case(map%nmaps)
        case(2:3)
           iq = map%nmaps - 1
@@ -2463,7 +2459,7 @@ contains
              endif
           endif
        enddo
-    case("Pmin", "PTmin")
+    case("Pmin", "PTmin", "PZmin")
        select case(map%nmaps)
        case(2:3)
           iq = map%nmaps - 1
@@ -2524,7 +2520,7 @@ contains
     COOP_SINGLE arr(10)
     logical domask
     select case(trim(spot_type))
-    case("Tmax_QTUTOrient", "PTmax", "PTmin")
+    case("Tmax_QTUTOrient", "Tmin_QTUTOrient", "PTmax", "PTmin", "PZmin", "PZmax", "zetamax_qzuzOrient", "zetamin_qzuzOrient")
        call map%read(trim(map_file), nmaps_wanted = 3)
     case default
        call map%read(trim(map_file))

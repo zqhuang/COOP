@@ -11,9 +11,9 @@ else
     epsfile=${1}\.eps
   fi
 fi
-rm -f tmp_${epsfile}
-asy ${HOME}/work/GitHub/COOP/utils/asyplot.asy -o tmp_${epsfile}
-eps2eps tmp_${epsfile} ${epsfile}
+rm -f tmp.eps
+asy ${HOME}/work/GitHub/COOP/utils/asyplot.asy -o tmp.eps
+eps2eps tmp.eps ${epsfile}
 epstopdf $epsfile
-rm -f tmp_${epsfile} ${epsfile}
+rm -f ${epsfile}
 rm -f asyplot.config

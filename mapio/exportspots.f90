@@ -32,7 +32,7 @@ program test
   endif
   fwhm = sqrt(dble(fwhm_arcmin)**2 - dble(fwhm_in)**2)*coop_SI_arcmin
   select case(trim(spot_type))
-  case("Tmax", "Tmax_QTUTOrient", "PTmax", "Tmin", "Tmin_QTUTOrient", "PTmin", "PTmaxSortT", "zetamax")
+  case("Tmax", "Tmax_QTUTOrient", "PTmax", "Tmin", "Tmin_QTUTOrient", "PTmin", "PTmaxSortT", "zetamax", "zetamax_qzuzOrient", "zetamin", "zetamin_qzuzOrient", "PZmax", "PZmin")
      mask_file = trim(adjustl(imask_file))
   case("Pmax", "Pmin", "Emax", "Emin", "Bmax", "Bmin","PmaxSortT")
      mask_file = trim(adjustl(polmask_file))
