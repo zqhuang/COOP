@@ -130,7 +130,7 @@ program hastack_prog
      write(fp%unit) ind
      write(fp%unit) patch_n%fr
      write(fp%unit) patch_s%fr
-!     flush(fp%unit)
+     if(mod(i, 30).eq.0)flush(fp%unit)  !!do flush every 30 steps
   enddo
   call fp%close()
   call coop_MPI_Finalize()
