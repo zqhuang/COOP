@@ -47,7 +47,10 @@ deruns = [ ['lowTEB', 'plikTT'], \
 
 ppruns = [ ['lowTEB', 'plikTT'], \
            ['lowTEB', 'plikTTTEEE'], \
-           ['lowTEB', 'plikTT', 'lens'] ] 
+           ['lowTEB', 'plikTT', 'lens'], \
+           ['lowTEB', 'plikTT', 'BAO', 'JLA', 'HSTlow'], \
+           ['lowTEB', 'plikTTTEEE', 'BAO', 'JLA', 'HSTlow'], \
+           ['lowTEB', 'plikTT', 'lens', 'BAO', 'JLA', 'HSTlow'] ] 
 
 recruns = [['lowTEB', 'plikTT'], \
            ['lowTEB', 'plikTTTEEE'], \
