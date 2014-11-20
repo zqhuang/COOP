@@ -122,7 +122,7 @@ program test
         do i=0, nsims
            chisq(i) = dot_product(f(:, m_want/2, map_want, i)-mean,  matmul(cov, f(:, m_want/2, map_want, i)-mean))
         enddo
-        write(*,"(A, I5, A, F12.4)") "joint; m=", m_want, ", rareness = ", count(chisq(1:nsims).gt.chisq(0))/dble(nsims)
+        write(*,"(A, I5, A, F12.4)") "joint; m=", m_want, ", p-value = ", count(chisq(1:nsims).gt.chisq(0))/dble(nsims)
         call fig%open(trim(prefix)//"_figp"//COOP_STR_OF(m_want)//".txt")
         call fig%init(xlabel = "$\omega$", ylabel  = "$ P_"//trim(COOP_STR_OF(m_want))//" (\mu K)$")
         call fig%band(r, mean-std*2, mean+std*2, colorfill = trim(coop_asy_gray_color(0.65)), linecolor = "invisible")

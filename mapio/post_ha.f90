@@ -202,7 +202,7 @@ program test
   call coop_asy_legend(fig, "N", 2)
   call fig%close()
   call fig%open(trim(prefix)//"powercut"//COOP_STR_OF(ncut)//"_"//COOP_STR_OF(nsims)//"sims_distr_m"//COOP_STR_OF(m_want)//".txt")
-  call fig%init(xlabel = "$c_0 (\mu K)$", ylabel = "$c_1 (\mu K /\mathrm{arcmin}^2)$")
+  call fig%init(xlabel = "$c_0 (\mu K)$", ylabel = "$c_1 (\mu K /\mathrm{rad}^2)$")
   call fig%dots(vecmin(1, 1:nsims), vecmin(2, 1:nsims), "black")
   call fig%dot(vecmin(1, 0), vecmin(2, 0), "red", "$\Delta$")
   call fig%dot(fig%xmax*1.01d0, fig%ymax*1.11d0, "invisible", "BLANK")
