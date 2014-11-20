@@ -165,7 +165,7 @@ program test
         write(*, "(3I5, 2F10.4)")i, nint(l), nint(b), prob(i), chisq(i)
      enddo
   endif
-  call map%write(trim(prefix)//"powercut"//trim(coop_num2str(ncut))//"_probs_m"//COOP_STR_OF(m_want)//".fits")
+  call map%write(trim(prefix)//"powercut"//trim(coop_num2str(ncut))//"_"//COOP_STR_OF(nsims)//"sims_probs_m"//COOP_STR_OF(m_want)//".fits")
   call pix2ang_ring(map%nside, iminprob, theta, phi)
   call coop_healpix_ang2lb(theta, phi, l, b)
   if(b.gt.0.d0)then
@@ -174,7 +174,7 @@ program test
   endif
   write(*,*) "prob = ", minprob  
   write(*,*) "direction l = ", nint(l), " b = ", nint(b), "ipix = ", iminprob
-  call fig%open(trim(prefix)//"powercut"//trim(coop_num2str(ncut))//"_fr_m"//COOP_STR_OF(m_want)//".txt")
+  call fig%open(trim(prefix)//"powercut"//trim(coop_num2str(ncut))//"_"//COOP_STR_OF(nsims)//"sims_fr_m"//COOP_STR_OF(m_want)//".txt")
   call fig%init(xlabel = "$\omega$", ylabel  = "$\delta f (\mu K)$")
   call fig%curve(r, diffmin(:, 0), color = "red", linetype = "solid", linewidth = 2., legend = "Planck")
   do i = 0, n
@@ -199,7 +199,7 @@ program test
   enddo
   call coop_asy_legend(fig, "N", 2)
   call fig%close()
-  call fig%open(trim(prefix)//"powercut"//COOP_STR_OF(ncut)//"_distr_m"//COOP_STR_OF(m_want)//".txt")
+  call fig%open(trim(prefix)//"powercut"//COOP_STR_OF(ncut)//"_"//COOP_STR_OF(nsims)//"sims_distr_m"//COOP_STR_OF(m_want)//".txt")
   call fig%init(xlabel = "$c_0$", ylabel = "$c_1$")
   call fig%dots(vecmin(1, 1:nsims), vecmin(2, 1:nsims), "black")
   call fig%dot(vecmin(1, 0), vecmin(2, 0), "red", "x")
