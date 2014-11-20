@@ -12,7 +12,7 @@ program test
   type(coop_file)::fp
   COOP_INT,parameter::mmax = 4
   COOP_INT::m_want = 0
-  integer i, nside, id, pix, iminprob, n, nmaps, nsims, isim, j, ncut, i1, i2, cgt, pix_want
+  integer i, nside, id, pix, iminprob, n, nmaps, nsims, isim, j, ncut, i1, i2, cgt, pix_want, ind_data
   type(coop_healpix_maps)::map
   COOP_STRING::prefix
   COOP_REAL theta, phi, chisq(0:95), prob(0:95), minprob, l, b, dr
@@ -84,6 +84,7 @@ program test
            cov(i2,i1) = cov(i1,i2)
         enddo
      enddo
+     
      call coop_matsym_inverse(cov)     
      chisq(i) = dot_product(vec(:, 0) - mean, matmul(cov, vec(:, 0) - mean))
      cgt = 0
@@ -108,6 +109,7 @@ program test
      map%map(pix, 1) = map%map(i, 1)
      write(*, "(3I5, 2F10.4)")i, nint(l), nint(b), prob(i), chisq(i)
   else
+     ind_data = 0
      do i=0, 95
         call fp%open(trim(prefix)//trim(coop_num2str(i))//".dat", "ru")
         do isim = 0, nsims
@@ -200,12 +202,12 @@ program test
   call coop_asy_legend(fig, "N", 2)
   call fig%close()
   call fig%open(trim(prefix)//"powercut"//COOP_STR_OF(ncut)//"_"//COOP_STR_OF(nsims)//"sims_distr_m"//COOP_STR_OF(m_want)//".txt")
-  call fig%init(xlabel = "$c_0$", ylabel = "$c_1$")
+  call fig%init(xlabel = "$c_0 (\mu K)$", ylabel = "$c_1 (\mu K /\mathrm{arcmin}^2)$")
   call fig%dots(vecmin(1, 1:nsims), vecmin(2, 1:nsims), "black")
-  call fig%dot(vecmin(1, 0), vecmin(2, 0), "red", "x")
+  call fig%dot(vecmin(1, 0), vecmin(2, 0), "red", "$\Delta$")
   call fig%dot(fig%xmax*1.01d0, fig%ymax*1.11d0, "invisible", "BLANK")
   call fig%dot(fig%xmin*1.01d0, fig%ymin*1.01d0, "invisible", "BLANK")
-  call fig%label("x   Planck", 0.05, 0.95, "red", alignment="right")
+  call fig%label("$\Delta$   Planck", 0.05, 0.95, "red", alignment="right")
   call fig%label("$\bullet$   FFP8", 0.05, 0.9, color="black", alignment="right")
   call fig%close()
 contains

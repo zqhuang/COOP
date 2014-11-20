@@ -67,8 +67,8 @@ SST: $(OBJ) sstack.o
 POSTHA: $(OBJ) post_ha.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) post_ha.o $(LINK)
 
-POSTSST: $(OBJ) post_sst.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) post_sst.o $(LINK)
+POSTSST: $(OBJ) post_sst_modes.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) post_sst_modes.o $(LINK)
 
 ByProd: $(OBJ) map_by_products.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) map_by_products.o $(LINK)
