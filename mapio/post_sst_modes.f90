@@ -20,11 +20,11 @@ program test
   COOP_REAL, dimension(:,:),allocatable::cov
   COOP_INT::nproj
   COOP_REAL,dimension(:,:),allocatable::vec
-
+  COOP_SHORT_STRING::label
   type(coop_asy)::fig
   
   if(iargc() .lt. 7)then
-     write(*,*) "./PSST prefix start1 end1 start2 end2 nproj map_want"
+     write(*,*) "./POSTSST prefix start1 end1 start2 end2 nproj map_want [Label]"
      stop
   endif
   prefix = coop_InputArgs(1)
@@ -34,7 +34,8 @@ program test
   end2 = coop_str2int(coop_InputArgs(5))
   nproj = coop_str2int(coop_InputArgs(6))
   map_want = coop_str2int(coop_InputArgs(7))
-  
+  label = trim(coop_InputArgs(8))
+  if(trim(label).eq."") label = "P"
   nsims = max(end1, end2)
   n1 = end1- start1+1
   n2 = end2 - start2 + 1
@@ -84,7 +85,7 @@ program test
      
      do i=1, nproj
         do j=1, i
-           cov(i, j) = sum((vec(i, start1:end1)-vecmean(i))*(vec(j, start1:end1) - vecmean(j)))/n1
+           cov(i, j) = sum((vec(i, start1:end1)-mean(i))*(vec(j, start1:end1) - mean(j)))/n1
            cov(j, i) = cov(i, j)
         enddo
         cov(i, i) = cov(i, i)*1.0001+1.d-8
@@ -95,17 +96,18 @@ program test
         chisq(i) = dot_product(vec(:,i)-mean,  matmul(cov, vec(:, i)-mean))
      enddo
      write(*,"(A, I5, A, F12.4)") "joint; m=", m_want, ", p-value = ", count(chisq(start2:end2).gt.chisq(0))/dble(n2), " chi^2=", chisq(0)
-     
-     call fig%open(trim(prefix)//"_figp"//COOP_STR_OF(m_want)//".txt")
-     call fig%init(xlabel = "$\omega$", ylabel  = "$ P_"//trim(COOP_STR_OF(m_want))//" (\mu K)$")
-     call fig%band(r, mean-std*2, mean+std*2, colorfill = trim(coop_asy_gray_color(0.65)), linecolor = "invisible")
-     call fig%band(r, mean-std, mean+std, colorfill = trim(coop_asy_gray_color(0.4)), linecolor = "invisible")        
-     call fig%curve(r, f(0:n,m_want/2, map_want, 0), color = "red", linetype = "solid", linewidth = 1.5, legend = "Planck")
-     call fig%curve(r, mean, color = "blue", linetype = "dotted", linewidth = 1.5, legend = "FFP8 mean")
-     call fig%curve(r, mean+std, color = trim(coop_asy_gray_color(0.4)), linewidth = 0.25, legend = "FFP8 1-$\sigma$")
-     call fig%curve(r, mean+std, color = trim(coop_asy_gray_color(0.65)), linewidth = 0.25, legend = "FFP8 2-$\sigma$")        
-     call fig%legend(0.7, 0.92)
-     call fig%close()
+     if(nproj .eq. n + 1)then !!make the scattering plot
+        call fig%open(trim(prefix)//"_fig"//trim(label)//COOP_STR_OF(m_want)//".txt")
+        call fig%init(xlabel = "$\omega$", ylabel  = "$"//trim(label)//"_"//trim(COOP_STR_OF(m_want))//" (\mu K)$")
+        call fig%band(r, mean-std*2, mean+std*2, colorfill = trim(coop_asy_gray_color(0.65)), linecolor = "invisible")
+        call fig%band(r, mean-std, mean+std, colorfill = trim(coop_asy_gray_color(0.4)), linecolor = "invisible")        
+        call fig%curve(r, f(0:n,m_want/2, map_want, 0), color = "red", linetype = "solid", linewidth = 1.5, legend = "Planck")
+        call fig%curve(r, mean, color = "blue", linetype = "dotted", linewidth = 1.5, legend = "FFP8 mean")
+        call fig%curve(r, mean+std, color = trim(coop_asy_gray_color(0.4)), linewidth = 0.25, legend = "FFP8 1-$\sigma$")
+        call fig%curve(r, mean+std, color = trim(coop_asy_gray_color(0.65)), linewidth = 0.25, legend = "FFP8 2-$\sigma$")        
+        call fig%legend(0.7, 0.92)
+        call fig%close()
+     endif
   end do
 
 
