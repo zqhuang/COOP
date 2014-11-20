@@ -95,7 +95,7 @@ program test
      do i=0, nsims
         chisq(i) = dot_product(vec(:,i)-mean,  matmul(cov, vec(:, i)-mean))
      enddo
-     write(*,"(A, I5, A, F12.4)") "joint; m=", m_want, ", p-value = ", count(chisq(start2:end2).gt.chisq(0))/dble(n2), " chi^2=", chisq(0)
+     write(*,"(A, I5, A, F12.4, A, F12.4)") "joint; m=", m_want, ", p-value = ", count(chisq(start2:end2).gt.chisq(0))/dble(n2), " chi^2=", chisq(0)
      if(nproj .eq. n + 1)then !!make the scattering plot
         call fig%open(trim(prefix)//"_fig"//trim(label)//COOP_STR_OF(m_want)//".txt")
         call fig%init(xlabel = "$\omega$", ylabel  = "$"//trim(label)//"_"//trim(COOP_STR_OF(m_want))//" (\mu K)$")
