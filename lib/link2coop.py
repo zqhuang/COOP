@@ -424,7 +424,7 @@ copy_replace_first_append(baseini, iniroot+'qcdm_3param.ini', [covmat_pattern, r
 ppnum = index_H0 - index_logA
 listr = ['100', '050', '010', '001']
 
-for i in range(5, 14):
+for i in range(5, 14, 2):
     ppstr = ''
     for j in range(i):
         ppstr += (r'pp'+ str(j+1) + r'    p_{' + str(j+1) + r'}\n')
