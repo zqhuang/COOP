@@ -99,13 +99,14 @@ program test
      if(nproj .eq. n + 1)then !!make the scattering plot
         call fig%open(trim(prefix)//"_fig"//trim(label)//COOP_STR_OF(m_want)//".txt")
         call fig%init(xlabel = "$\omega$", ylabel  = "$"//trim(label)//"_"//trim(COOP_STR_OF(m_want))//" (\mu K)$")
-        call fig%band(r, mean-std*2, mean+std*2, colorfill = trim(coop_asy_gray_color(0.65)), linecolor = "invisible")
-        call fig%band(r, mean-std, mean+std, colorfill = trim(coop_asy_gray_color(0.4)), linecolor = "invisible")        
-        call fig%curve(r, f(0:n,m_want/2, map_want, 0), color = "red", linetype = "solid", linewidth = 1.5, legend = "Planck")
-        call fig%curve(r, mean, color = "blue", linetype = "dotted", linewidth = 1.5, legend = "FFP8 mean")
-        call fig%curve(r, mean+std, color = trim(coop_asy_gray_color(0.4)), linewidth = 0.25, legend = "FFP8 1-$\sigma$")
-        call fig%curve(r, mean+std, color = trim(coop_asy_gray_color(0.65)), linewidth = 0.25, legend = "FFP8 2-$\sigma$")        
-        call fig%legend(0.7, 0.92)
+        call fig%band(r, -std*2, std*2, colorfill = trim(coop_asy_gray_color(0.65)), linecolor = "invisible")
+        call fig%band(r, -std,std, colorfill = trim(coop_asy_gray_color(0.4)), linecolor = "invisible")        
+        call fig%curve(r, vec(:, 0), color = "red", linetype = "solid", linewidth = 1.5, legend = "Planck")
+!        call fig%curve(r, mean, color = "blue", linetype = "dotted", linewidth = 1.5, legend = "FFP8 mean")
+        call fig%curve(r, std, color = trim(coop_asy_gray_color(0.4)), linewidth = 0.25, legend = "FFP8 1-$\sigma$")
+        call fig%curve(r, 2*std, color = trim(coop_asy_gray_color(0.65)), linewidth = 0.25, legend = "FFP8 2-$\sigma$")
+        call fig%dot(r(n), fig%ymax*1.1d0, color="invisible")
+        call fig%legend(0.5, 0.95)
         call fig%close()
      endif
   end do
