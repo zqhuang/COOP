@@ -6,7 +6,7 @@ module coop_background_mod
   private
   COOP_INT:: coop_coupled_de_num_iterate = 8
 
-  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_de_coupled_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_coupled_quintessence, coop_de_w_quintessence, coop_de_iterate_coupling_equations, coop_coupled_de_num_iterate
+  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_de_coupled_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_coupled_quintessence, coop_de_w_quintessence, coop_de_iterate_coupling_equations, coop_coupled_de_num_iterate, coop_de_wp1_coupled_quintessence, coop_de_wp1_quintessence
 
 contains
 
@@ -139,9 +139,9 @@ contains
     mu3=mu**3
     s0=sqrt(mu3)
     s1=sqrt(1.+mu3)
-    if(s0.lt.2.d-4)then  
+    if(s0 .lt. 1.d-6)then  
        wp1 = qpsign * EPSILON_INFTY/1.5 
-    elseif(s0.lt. 1.d-2)then
+    elseif(s0.lt. 5.d-3)then
        wp1 = 2.d0 * qpsign * ( aux1* sqrt(1.+ a_eq/3./(a_eq +  a)) + aux2 * (2.d0/3.d0) * s0 )**2
     else
        wp1 = 2.d0 * qpsign * (aux1*(1. + a_eq/6./(a + a_eq)) + aux2*(s1/s0-log(s0+s1)/mu3) + aux3*(1.-log(1.+mu3)/mu3))**2
@@ -209,9 +209,9 @@ contains
     mu3=mu**3
     s0=sqrt(mu3)
     s1=sqrt(1.+mu3)
-    if(s0.lt.2.d-4)then  
+    if(s0.lt. 1.d-6)then  
        wp1 = qpsign * EPSILON_INFTY/1.5 
-    elseif(s0.lt. 1.d-2)then
+    elseif(s0.lt. 5.d-3)then
        wp1 = 2.d0 * qpsign * ( aux1* sqrt(1.+ a_eq/3./(a_eq +  a)) + aux2 * (2.d0/3.d0) * s0 )**2
     else
        wp1 = 2.d0 * qpsign * (aux1*(1. + a_eq/6./(a + a_eq)) + aux2*(s1/s0-log(s0+s1)/mu3) + aux3*(1.-log(1.+mu3)/mu3))**2

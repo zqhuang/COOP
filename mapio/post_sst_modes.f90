@@ -105,7 +105,7 @@ program test
         call fig%curve(r, std, color = trim(coop_asy_gray_color(0.4)), linewidth = 0.25, legend = "FFP8 1-$\sigma$")
         call fig%curve(r, 2*std, color = trim(coop_asy_gray_color(0.65)), linewidth = 0.25, legend = "FFP8 2-$\sigma$")
         call fig%dot(r(n), fig%ymax*1.15d0-fig%ymin*0.15, color="invisible")
-        call fig%legend(0.1, 0.95, 1)
+        call fig%legend(0.05, 0.95, 1)
         call fig%close()
      endif
   end do
