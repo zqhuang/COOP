@@ -101,7 +101,7 @@ program test
         call fig%init(xlabel = "$\omega$", ylabel  = "$"//trim(label)//"_"//trim(COOP_STR_OF(m_want))//" (\mu K)$")
         call fig%band(r, -std*2, std*2, colorfill = trim(coop_asy_gray_color(0.65)), linecolor = "invisible")
         call fig%band(r, -std,std, colorfill = trim(coop_asy_gray_color(0.4)), linecolor = "invisible")        
-        call fig%curve(r, vec(:, 0), color = "red", linetype = "solid", linewidth = 1.5, legend = "Planck")
+        call fig%curve(r, vec(:, 0)-mean, color = "red", linetype = "solid", linewidth = 1.5, legend = "Planck")
         call fig%curve(r, std, color = trim(coop_asy_gray_color(0.4)), linewidth = 0.25, legend = "FFP8 1-$\sigma$")
         call fig%curve(r, 2*std, color = trim(coop_asy_gray_color(0.65)), linewidth = 0.25, legend = "FFP8 2-$\sigma$")
         call fig%dot(r(n), fig%ymax*1.1d0, color="invisible")
