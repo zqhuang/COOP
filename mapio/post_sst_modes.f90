@@ -104,8 +104,8 @@ program test
         call fig%curve(r, vec(:, 0)-mean, color = "red", linetype = "solid", linewidth = 1.5, legend = "Planck")
         call fig%curve(r, std, color = trim(coop_asy_gray_color(0.4)), linewidth = 0.25, legend = "FFP8 1-$\sigma$")
         call fig%curve(r, 2*std, color = trim(coop_asy_gray_color(0.65)), linewidth = 0.25, legend = "FFP8 2-$\sigma$")
-        call fig%dot(r(n), fig%ymax*1.1d0, color="invisible")
-        call fig%legend(0.5, 0.93)
+        call fig%dot(r(n), fig%ymax*1.15d0-fig%ymin*0.15, color="invisible")
+        call fig%legend(0.1, 0.95, 1)
         call fig%close()
      endif
   end do
