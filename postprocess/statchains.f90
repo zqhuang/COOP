@@ -579,34 +579,16 @@ contains
     total_mult = sum(mult_samples)
     do ik = 1, nk
        lnpsmean(ik) = sum(lnps_samples(:, ik))/total_mult
-       lnptmean = sum(lnpt_samples(:, ik)) / total_mult
+       lnptmean(ik) = sum(lnpt_samples(:, ik)) / total_mult
     enddo
+    ps = 1.e10 * exp(lnpsmean)
+    pt = 1.e10 * exp(lnptmean)
+    print*, ps(1), pt(1)
+    call fig_spec%curve(kmpc, ps, color = "red", linetype = "solid", linewidth = 1.5, legend="mean scalar")
+    call fig_spec%curve(kmpc, pt, color = "violet", linetype = "solid", linewidth = 1.2, legend="mean tensor")
+    
     clnps = clnps/total_mult
     clnpt = clnpt/total_mult
-    if(numpp .gt. 4)then
-       lnps_mean_knots = lnps_mean_knots /total_mult
-       cov_knots = cov_knots/total_mult
-       do ik=1, numpp
-          do ik2 = ik, numpp
-             cov_knots(ik, ik2) = cov_knots(ik, ik2) - lnps_mean_knots(ik)*lnps_mean_knots(ik2)
-             cov_knots(ik2, ik) = cov_knots(ik, ik2)
-          enddo
-       enddo
-       ind_lowk = 1
-       do while(k_knots(ind_lowk+1).lt. low_k_cut)
-          ind_lowk = ind_lowk + 1
-          if(ind_lowk .ge. numpp) stop "low_k_cut not in proper range"
-       enddo
-       allocate(cov_lowk(ind_lowk, ind_lowk), cov_highk(numpp - ind_lowk, numpp - ind_lowk))
-       cov_lowk = cov_knots(1:ind_lowk, 1:ind_lowk)
-       cov_highk = cov_knots(ind_lowk+1:numpp, ind_lowk+1:numpp)
-       call coop_matsym_inverse(cov_lowk)
-       call coop_matsym_inverse(cov_highk)
-       lnps_standard_knots = lnps_standard_knots - lnps_mean_knots
-       write(*,*) "number of lowk knots =", ind_lowk
-       write(*,*) "chi_LCDM^2(low k) = ", dot_product(lnps_standard_knots(1:ind_lowk), matmul(cov_lowk, lnps_standard_knots(1:ind_lowk)))
-       write(*,*) "chi_LCDM^2(high k) = ", dot_product(lnps_standard_knots(ind_lowk+1:numpp), matmul(cov_highk, lnps_standard_knots(ind_lowk+1:numpp)))          
-    endif
     do ik1=1, nk
        do ik2 = ik, nk
           lnpscov(ik1, ik2) = sum((lnps_samples(:, ik1) - lnpsmean(ik1))*(lnps_samples(:, ik2) - lnpsmean(ik2)))/total_mult
@@ -616,8 +598,7 @@ contains
     coop_pp_lnps = clnps
     coop_pp_lnpt = clnpt
     call coop_pp_get_potential()
-    ps = 1.e10 * exp(lnpsmean)
-    pt = 1.e10 * exp(lnptmean)
+    
     do ik = 1, nk
        call coop_get_bounds(lnps_samples(:, ik), (/ 0.02d0, 0.1585d0, 0.5d0, 0.8415d0, 0.98d0 /), lnps_bounds(-2:2, ik), mult_samples)
     enddo
@@ -630,8 +611,6 @@ contains
        call fig_spec%curve(kmpc, ps_trajs(:,j), color="HEX:006FED", linetype="dashed", linewidth=0.5)
        call fig_spec%curve(kmpc, pt_trajs(:, j), color="HEX:8CD3F5", linetype="dotted", linewidth=0.5)
     enddo
-    call fig_spec%curve(kmpc, ps, color = "red", linetype = "solid", linewidth = 1.5, legend="mean scalar")
-    call fig_spec%curve(kmpc, pt, color = "violet", linetype = "solid", linewidth = 1.2, legend="mean tensor")
 
     call coop_asy_interpolate_curve(fig_pot, xraw = coop_pp_phi, yraw = coop_pp_lnV-coop_pp_lnV(coop_pp_ipivot), interpolate="LinearLinear", color = "red", linetype = "solid", linewidth = 1.5, legend="mean traj")
     call coop_asy_interpolate_curve(fig_eps, xraw = exp(coop_pp_lnkMpc), yraw = exp(coop_pp_lneps), interpolate = "LogLinear", color = "red", linetype = "solid", linewidth = 1.5, legend="mean traj")
@@ -653,6 +632,33 @@ contains
     call fig_eps%close()
     call fig_pot%close()
 
+
+    if(numpp .gt. 4)then
+       lnps_mean_knots = lnps_mean_knots /total_mult
+       cov_knots = cov_knots/total_mult
+       do ik=1, numpp
+          do ik2 = ik, numpp
+             cov_knots(ik, ik2) = cov_knots(ik, ik2) - lnps_mean_knots(ik)*lnps_mean_knots(ik2)
+             cov_knots(ik2, ik) = cov_knots(ik, ik2)
+          enddo
+       enddo
+       ind_lowk = 1
+       do while(k_knots(ind_lowk+1).lt. low_k_cut)
+          ind_lowk = ind_lowk + 1
+          if(ind_lowk .ge. numpp) stop "low_k_cut not in proper range"
+       enddo
+       allocate(cov_lowk(ind_lowk, ind_lowk), cov_highk(numpp - ind_lowk, numpp - ind_lowk))
+       cov_lowk = cov_knots(1:ind_lowk, 1:ind_lowk)
+       cov_highk = cov_knots(ind_lowk+1:numpp, ind_lowk+1:numpp)
+       call coop_matsym_inverse(cov_lowk)
+       call coop_matsym_inverse(cov_highk)
+       lnps_standard_knots = lnps_standard_knots - lnps_mean_knots
+       write(*,*) "number of lowk knots =", ind_lowk
+       write(*,*) "number of highk knots =", numpp - ind_lowk 
+       write(*,*) "chi_LCDM^2(low k) = ", dot_product(lnps_standard_knots(1:ind_lowk), matmul(cov_lowk, lnps_standard_knots(1:ind_lowk)))
+       write(*,*) "chi_LCDM^2(high k) = ", dot_product(lnps_standard_knots(ind_lowk+1:numpp), matmul(cov_highk, lnps_standard_knots(ind_lowk+1:numpp)))          
+    endif
+    
 !!now do eigen modes    
     do ik=1, nk
        lnpscov(ik,ik) = lnpscov(ik,ik) + 1.d-6
