@@ -464,7 +464,7 @@ contains
     COOP_UNKNOWN_STRING output    
     type(coop_asy) fp, fig_spec, fig_pot, fig_eps, fig_cls
     type(coop_asy_path) path    
-    COOP_INT i , ip, j,  j2, k, ik, ik1, numpiv, ltmp, ik2, ndof, jrand, junk, l, num_params, index_pp, pp_location, icontour, numpp, num_trajs, ind_lowk, isam
+    COOP_INT i , ip, j,  j2, k, ik, ik1,  ik2, ndof,  l, num_params, index_pp, pp_location, icontour, numpp, num_trajs, ind_lowk, isam, index_H
     COOP_SINGLE total_mult, cltraj_weight, x(mc%nb), ytop
     logical first_1sigma, inflation_consistency
     COOP_REAL  norm, lnkmin, lnkmax, errup, errdown, mean_lnAs, hubble    
@@ -534,13 +534,13 @@ contains
 
     num_trajs = 0
     first_1sigma = .true.
-       
+    index_H = mc%allparams%n + 1
     do isam = 1, num_samples_to_get_mean
        j = coop_random_index(mc%n)
        call getCosmomcParams(mc, j, CosmomcParams)
        if(isam .le. num_cls_samples .and. coop_postprocess_do_cls)then
           coop_global_cosmology_do_firstorder = .true.
-          hubble = mc%params(j, num_params+1)/100.
+          hubble = mc%params(j, index_H)/100.
           write(*,*) "Computing Cls #"//COOP_STR_OF(isam)//" / "//COOP_STR_OF(num_cls_samples)//":  h = "//COOP_STR_OF(hubble)
 
           call coop_setup_cosmology_from_cosmomc(Cosmomcparams, hubble)
