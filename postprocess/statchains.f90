@@ -624,8 +624,8 @@ contains
     call fig_spec%band(kmpc, 1.d10*exp(lnps_bounds(-2,:)), 1.d10*exp(lnps_bounds(2,:)), colorfill = trim(coop_asy_gray_color(0.65)), linecolor="invisible")
     call fig_spec%band(kmpc, 1.d10*exp(lnps_bounds(-1,:)), 1.d10*exp(lnps_bounds(1,:)), colorfill = trim(coop_asy_gray_color(0.4)), linecolor="invisible")
        
-    call fig_spec%curve(kmpc, ps_trajs(:,1), color="HEX:006FED", linetype="dashed", linewidth=0.5,legend="scalar 1-$\sigma$")
-    call fig_spec%curve(kmpc, pt_trajs(:, 1), color="HEX:8CD3F5", linetype="dotted", linewidth=0.5, legend="tensor 1-$\sigma$")       
+    call fig_spec%curve(kmpc, ps_trajs(:,1), color="HEX:006FED", linetype="dashed", linewidth=0.5,legend="1-$\sigma$ scalar")
+    call fig_spec%curve(kmpc, pt_trajs(:, 1), color="HEX:8CD3F5", linetype="dotted", linewidth=0.5, legend="1-$\sigma$ tensor")       
     do j=2, num_trajs
        call fig_spec%curve(kmpc, ps_trajs(:,j), color="HEX:006FED", linetype="dashed", linewidth=0.5)
        call fig_spec%curve(kmpc, pt_trajs(:, j), color="HEX:8CD3F5", linetype="dotted", linewidth=0.5)
@@ -646,7 +646,7 @@ contains
        ps(1:numpp) = 0.005
        call coop_asy_dots(fig_eps, k_knots, ps(1:numpp), "black", "$\Delta$")
     endif
-    call coop_asy_legend(fig_spec, real(exp(lnkmin + 1.)), 160., 3)
+    call coop_asy_legend(fig_spec, real(exp(lnkmin + 1.2)), 170., 2)
     call coop_asy_legend(fig_eps, real(exp(coop_pp_lnkmin +4.)), 0.115, 1)
     call coop_asy_legend(fig_pot, -0.2, 0.35, 1)
     call fig_spec%close()
