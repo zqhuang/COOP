@@ -652,7 +652,7 @@ contains
     if(allocated(this%tau))deallocate(this%tau, this%chi, this%dtau, this%a, this%tauc, this%lna)
     this%ntau = 0
     if(allocated(this%s))deallocate(this%s, this%s2, this%saux)
-    if(allocated(this%k_dense))deallocate(this%k_dense, ws_dense, wt_dense, dk_dense)
+    if(allocated(this%k_dense))deallocate(this%k_dense, this%ws_dense, this%wt_dense, this%dk_dense)
   end subroutine coop_cosmology_firstorder_source_free
 
   subroutine coop_cosmology_firstorder_free(this)
