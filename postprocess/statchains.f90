@@ -578,12 +578,11 @@ contains
     !!now plot the mean
     total_mult = sum(mult_samples)
     do ik = 1, nk
-       lnpsmean(ik) = sum(lnps_samples(:, ik))/total_mult
-       lnptmean(ik) = sum(lnpt_samples(:, ik)) / total_mult
+       lnpsmean(ik) = sum(lnps_samples(:, ik)*mult_samples)/total_mult
+       lnptmean(ik) = sum(lnpt_samples(:, ik)*mult_samples) / total_mult
     enddo
     ps = 1.e10 * exp(lnpsmean)
     pt = 1.e10 * exp(lnptmean)
-    print*, ps(1), pt(1)
     call fig_spec%curve(kmpc, ps, color = "red", linetype = "solid", linewidth = 1.5, legend="mean scalar")
     call fig_spec%curve(kmpc, pt, color = "violet", linetype = "solid", linewidth = 1.2, legend="mean tensor")
     
@@ -591,7 +590,7 @@ contains
     clnpt = clnpt/total_mult
     do ik1=1, nk
        do ik2 = ik, nk
-          lnpscov(ik1, ik2) = sum((lnps_samples(:, ik1) - lnpsmean(ik1))*(lnps_samples(:, ik2) - lnpsmean(ik2)))/total_mult
+          lnpscov(ik1, ik2) = sum((lnps_samples(:, ik1) - lnpsmean(ik1))*(lnps_samples(:, ik2) - lnpsmean(ik2))*mult_samples)/total_mult
           lnpscov(ik2, ik1) = lnpscov(ik1, ik2)           
        enddo
     enddo
