@@ -2972,7 +2972,7 @@ contains
     COOP_SINGLE xl, xr, yl, yr, dx, dy
     write(fp%unit, "(A)") "EXPAND"
     write(fp%unit, "(4G14.5)")  xl, xr, yl, yr
-    dx = fp%xmax - fig%xmin
+    dx = fp%xmax - fp%xmin
     dy = fp%ymax - fp%ymin
     fp%xmin = fp%xmin - dx*xl
     fp%xmax = fp%xmax + dx*xr
