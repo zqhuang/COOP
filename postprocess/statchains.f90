@@ -587,7 +587,7 @@ contains
     clnps = clnps/total_mult
     clnpt = clnpt/total_mult
     do ik1=1, nk
-       do ik2 = ik, nk
+       do ik2 = 1, ik1
           lnpscov(ik1, ik2) = sum((lnps_samples(:, ik1) - lnpsmean(ik1))*(lnps_samples(:, ik2) - lnpsmean(ik2))*mult_samples)/total_mult
           lnpscov(ik2, ik1) = lnpscov(ik1, ik2)           
        enddo
