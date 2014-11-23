@@ -112,13 +112,13 @@ program test
      if(nproj .eq. n + 1)then !!make the scattering plot
         call fig%open(trim(prefix)//"_fig"//trim(label)//COOP_STR_OF(m_want)//".txt")
         call fig%init(xlabel = "$\omega$", ylabel  = "$"//trim(label)//"_"//trim(COOP_STR_OF(m_want))//" (\mu K)$")
-        call fig%band(r, bounds(-2,:), bounds(2,:), colorfill = trim(coop_asy_gray_color(0.65)), linecolor = "invisible")
-        call fig%band(r, bounds(-1,:), bounds(1,:), colorfill = trim(coop_asy_gray_color(0.36)), linecolor = "invisible")        
+        call fig%band(r, bounds(-2,:)-bounds(0,:), bounds(2,:)-bounds(0,:), colorfill = trim(coop_asy_gray_color(0.65)), linecolor = "invisible")
+        call fig%band(r, bounds(-1,:)-bounds(0,:), bounds(1,:)-bounds(0,:), colorfill = trim(coop_asy_gray_color(0.36)), linecolor = "invisible")        
         call fig%curve(r, vec(:, 0) - bounds(0, :), color = "red", linetype = "solid", linewidth = 1.5, legend = "Planck")
         call fig%add_legend(legend = "FFP8 1-$\sigma$", color = trim(coop_asy_gray_color(0.36)))
         call fig%add_legend(legend = "FFP8 2-$\sigma$", color = trim(coop_asy_gray_color(0.65)))        
-        call fig%expand(0., 0., 0., 0.15)
-        call fig%legend(0.05, 0.95, 1)
+        call fig%expand(0., 0., -0.01, 0.2)
+        call fig%legend(0.05, 0.96, 1)
         call fig%close()
      endif
      if(trim(bounds_file).eq."")then
