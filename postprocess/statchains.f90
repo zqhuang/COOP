@@ -455,7 +455,7 @@ contains
     integer,parameter::distlss = 13893.
     integer, parameter::num_1sigma_trajs = 50
     integer, parameter::num_samples_to_get_mean = 2500
-    COOP_REAL,parameter::standard_ns = 0.967d0
+    COOP_REAL,parameter::standard_ns = 0.968d0
     COOP_REAL,parameter::low_ell_cut = 50
     COOP_REAL,parameter::low_k_cut = low_ell_cut/distlss
     type(mcmc_chain) mc
