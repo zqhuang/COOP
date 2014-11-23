@@ -579,7 +579,7 @@ contains
     total_mult = sum(mult_samples)
     do ik = 1, nk
        lnpsmean(ik) = sum(lnps_samples(:, ik))/total_mult
-       lnptmean = sum(lnps_samples(:, ik)) / total_mult
+       lnptmean = sum(lnpt_samples(:, ik)) / total_mult
     enddo
     clnps = clnps/total_mult
     clnpt = clnpt/total_mult
