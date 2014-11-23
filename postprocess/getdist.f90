@@ -12,6 +12,8 @@ program getdist
   type(coop_list_string) sl
   type(coop_list_integer) pcal
   integer i, j, ip1,ip2, if1, if2
+  call coop_MPI_init()
+  call coop_random_init()
   fini = coop_InputArgs(1)
   if(fini(len_trim(fini)-3:len_trim(fini)).ne.".ini")then
      fini=trim(fini)//".ini"
@@ -114,7 +116,7 @@ program getdist
      write(*,*) "Doing PCA for "//trim(inline)
   endif
   call export_stats(mc, outdir)
-
+  call coop_MPI_Finalize()
 end program getdist
 
 
