@@ -66,7 +66,8 @@ private
      COOP_INT::index_massivenu_cold
      COOP_REAL::dkop, kopmin, kopmax, kmin, kmax, kweight, tauweight, bbks_keq, bbks_trans_kmax
      COOP_REAL,dimension(coop_k_dense_fac)::a_dense, b_dense, a2_dense, b2_dense
-     COOP_REAL, dimension(:),allocatable::k, kop, tau, a, tauc, lna,  dk, dtau, chi !!tau is conformal time, chi is comoving distance; in flat case, chi + tau = tau_0
+     COOP_REAL, dimension(:),allocatable::k, kop,  dk !!tau is conformal time, chi is comoving distance; in flat case, chi + tau = tau_0
+     COOP_REAL, dimension(:),allocatable::tau, a, tauc, lna, dtau, chi !!tau is conformal time, chi is comoving distance; in flat case, chi + tau = tau_0     
      COOP_REAL, dimension(:,:),allocatable::k_dense, ws_dense, wt_dense, dk_dense
      COOP_REAL, dimension(:,:,:),allocatable::s, s2, saux
    contains
@@ -646,11 +647,12 @@ contains
 
   subroutine coop_cosmology_firstorder_source_free(this)
     class(coop_cosmology_firstorder_source)::this
-    if(allocated(this%k))deallocate(this%k, this%dk, this%index_tc_off)
+    if(allocated(this%k))deallocate(this%k, this%dk, this%index_tc_off, this%kop)
     this%nk = 0
     if(allocated(this%tau))deallocate(this%tau, this%chi, this%dtau, this%a, this%tauc, this%lna)
     this%ntau = 0
-    if(allocated(this%s))deallocate(this%s)
+    if(allocated(this%s))deallocate(this%s, this%s2, this%saux)
+    if(allocated(this%k_dense))deallocate(this%k_dense, ws_dense, wt_dense, dk_dense)
   end subroutine coop_cosmology_firstorder_source_free
 
   subroutine coop_cosmology_firstorder_free(this)
