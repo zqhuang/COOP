@@ -997,7 +997,7 @@ bool plot_block(file fin){
        nlines = plot_density(fin);
        write(stdout, (string) nlines + ' density points are plotted.\n');}
     else if(block == "EXPAND"){
-       nlines = plot_expand(fin);}
+       plot_expand(fin);}
     else if(block == "LEGEND"){
        nlines = plot_legend(fin);
        write(stdout, 'legends are added. \n');}
