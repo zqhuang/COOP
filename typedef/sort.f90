@@ -269,45 +269,69 @@ contains
     call array_get_threshold_float(x, n, perc, threshold)
   end subroutine coop_array_get_threshold2d_s
 
-  subroutine coop_get_bounds_d(x, cls, bounds)
+  subroutine coop_get_bounds_d(x, cls, bounds, mults)
     COOP_REAL x(:), cls(:), bounds(:)
+    COOP_REAL,dimension(:),optional::mults
     COOP_REAL,dimension(:),allocatable::xcopy
     COOP_INT n, i, j, m
-    COOP_REAL ir
+    COOP_REAL ir, total_mults, c
     n = size(x)
     m = coop_getdim("get_bounds", size(cls), size(bounds))
     allocate(xcopy(n))
     xcopy = x
     call coop_quicksort(xcopy)
-    do j=1, m
-       ir = cls(j)*(n-1.d0) + 1.d0
-       i = max(1, min(floor(ir), n-1))
-       ir = ir - i
-       bounds(j) = xcopy(i) * (1.d0 - ir) + xcopy(i+1)*ir
-    enddo
+    if(present(mults))then
+       total_mults = sum(mults)
+       do j=1, m
+          ir = total_mults * cls(j)
+          i=1
+          c = mults(1)
+          do while(i.lt.n .and. c .lt. ir)
+             i = i + 1
+             c = c + mults(i)
+          enddo
+          bounds(j) = xcopy(i)
+       enddo
+    else
+       do j=1, m
+          i = max(1, min(ceiling(n*cls(j)), n))
+          bounds(j) = xcopy(i) 
+       enddo
+    endif
     deallocate(xcopy)
   end subroutine coop_get_bounds_d
 
 
-subroutine coop_get_bounds_s(x, cls, bounds)
+  subroutine coop_get_bounds_s(x, cls, bounds, mults)
     COOP_SINGLE x(:), cls(:), bounds(:)
-    COOP_SINGLE,dimension(:),allocatable::xcopy
+    COOP_SINGLE, dimension(:), optional::mults
+    COOP_SINGLE, dimension(:), allocatable::xcopy
     COOP_INT n, i, j, m
-    COOP_REAL ir
+    COOP_REAL ir, total_mults, c
     n = size(x)
     m = coop_getdim("get_bounds", size(cls), size(bounds))
     allocate(xcopy(n))
     xcopy = x
     call coop_quicksort(xcopy)
-    do j=1, m
-       ir = cls(j)*(n-1.d0) + 1.d0
-       i = max(1, min(floor(ir), n-1))
-       ir = ir - i
-       bounds(j) = xcopy(i) * (1.d0 - ir) + xcopy(i+1)*ir
-    enddo
+    if(present(mults))then
+       total_mults = sum(mults)
+       do j=1, m
+          ir = total_mults * cls(j)
+          i=1
+          c = mults(1)
+          do while(i.lt.n .and. c .lt. ir)
+             i = i + 1
+             c = c + mults(i)
+          enddo
+          bounds(j) = xcopy(i)
+       enddo
+    else
+       do j=1, m
+          i = max(1, min(ceiling(n*cls(j)), n))
+          bounds(j) = xcopy(i) 
+       enddo
+    endif
     deallocate(xcopy)
   end subroutine coop_get_bounds_s
-  
-
 
 end module coop_sort_mod

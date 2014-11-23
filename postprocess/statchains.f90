@@ -453,6 +453,8 @@ contains
     integer,parameter::nk = 71    
     logical,parameter::do_traj_cov = .true.
     integer,parameter::distlss = 13893.
+    integer, parameter::num_1sigma_trajs = 50
+    integer, parameter::num_samples_to_get_mean = 2500
     COOP_REAL,parameter::standard_ns = 0.967d0
     COOP_REAL,parameter::low_ell_cut = 50
     COOP_REAL,parameter::low_k_cut = low_ell_cut/distlss
@@ -460,14 +462,14 @@ contains
     COOP_UNKNOWN_STRING output    
     type(coop_asy) fp, fig_spec, fig_pot, fig_eps
     type(coop_asy_path) path    
-    COOP_INT i , ip, j,  j2, k, ik, numpiv, ltmp, ik2, ndof, jrand, junk, l, num_params, index_pp, pp_location, icontour, numpp, num_trajs, num_samples_to_get_mean, num_1sigma_trajs, ind_lowk
-    COOP_SINGLE mult, cltraj_weight, x(mc%nb), ytop
-    logical do_pp, first_1sigma, inflation_consistency
+    COOP_INT i , ip, j,  j2, k, ik, ik1, numpiv, ltmp, ik2, ndof, jrand, junk, l, num_params, index_pp, pp_location, icontour, numpp, num_trajs, ind_lowk, isam
+    COOP_SINGLE total_mult, cltraj_weight, x(mc%nb), ytop
+    logical first_1sigma, inflation_consistency
     COOP_REAL  norm, lnkmin, lnkmax, errup, errdown, mean_lnAs    
-    COOP_REAL  lnk(nk), kMpc(nk), ps(nk), pt(nk), lnpsmean(nk), lnptmean(nk), lnpscov(nk, nk), lnps(nk), lnpt(nk), lnps_shift, lnpt_shift,  mineig, clnps(coop_pp_n), clnpt(coop_pp_n), lnps_lower(nk), lnps_upper(nk), standard_lnps(nk)
-    COOP_REAL ,dimension(:,:),allocatable::pcamat
-    COOP_REAL ,dimension(:),allocatable::eig, ipca, cosmomcParams
-    COOP_REAL,dimension(:,:),allocatable::ps_trajs, pt_trajs
+    COOP_REAL  lnk(nk), kMpc(nk), ps(nk), pt(nk), lnpsmean(nk), lnptmean(nk), lnpscov(nk, nk), lnps(nk), lnpt(nk),  mineig, clnps(coop_pp_n), clnpt(coop_pp_n), lnps_bounds(-2:2,nk), standard_lnps(nk), lnps_samples(num_samples_to_get_mean, nk), lnpt_samples(num_samples_to_get_mean, nk), mult_samples(num_samples_to_get_mean)
+    COOP_REAL, dimension(:,:),allocatable::pcamat
+    COOP_REAL, dimension(:),allocatable::eig, ipca, cosmomcParams
+    COOP_REAL:: ps_trajs(nk, num_1sigma_trajs), pt_trajs(nk, num_1sigma_trajs) 
 !!knots statistics    
     COOP_REAL,dimension(:),allocatable::lnk_knots, lnps_knots, k_knots, lnps_mean_knots, lnps_standard_knots
     COOP_REAL,dimension(:,:),allocatable::cov_knots, cov_lowk, cov_highk
@@ -481,7 +483,6 @@ contains
        write(fp%unit, "(A, F14.3, A, G14.5)") "prob = ", mcmc_stat_cls(j)," truncation like = ", mc%likecut(j)
     enddo
     call fp%close()
-    do_pp  = (cosmomc_pp_model .ne. 0)
     !! =================================================================!!
     index_pp = cosmomc_de_index + cosmomc_de_num_params + cosmomc_de2pp_num_params
     num_params = index_pp + cosmomc_pp_num_params - 1
@@ -490,123 +491,60 @@ contains
     call fp%open(trim(mc%output)//"_1sig.samples", "w")
     write(fp%unit, "("//trim(coop_num2str(mc%np))//"G14.5)") mc%params(mc%ibest, :)
 
-    num_1sigma_trajs = 50
-    if(do_pp)then
-       mean_lnAs = mc%mean(chain_index_of_name(mc, "logA"))
+
+    mean_lnAs = mc%mean(chain_index_of_name(mc, "logA"))       
+    call coop_feedback("Generating primordial power spectra trajectories")
+    call fig_spec%open(trim(mc%output)//"_power_trajs.txt", "w")
+    call fig_pot%open(trim(mc%output)//"_potential_trajs.txt", "w")
+    call fig_eps%open(trim(mc%output)//"_eps_trajs.txt", "w")
+    lnpsmean = 0
+    lnptmean = 0
+    clnps = 0
+    clnpt = 0
+    lnpscov = 0
+    call getCosmomcParams(mc, 1, CosmomcParams)
+    call coop_setup_cosmology_from_cosmomc(Cosmomcparams)
+    call coop_setup_pp()
+    numpp = cosmomc_pp_num_params - cosmomc_pp_num_origin + 1
+    if(numpp .gt. 4)then
+       allocate(lnk_knots(numpp), lnps_knots(numpp), cov_knots(numpp, numpp), k_knots(numpp), lnps_mean_knots(numpp), lnps_standard_knots(numpp))
+       call coop_set_uniform(numpp, lnk_knots(1:numpp), coop_pp_lnkmin, coop_pp_lnkmax)
+       k_knots = exp(lnk_knots)
+       cov_knots = 0.d0
+       lnps_mean_knots = 0.d0
+       lnps_standard_knots = mean_lnAs+(standard_ns-1.)*(lnk_knots-coop_pp_scalar_lnkpivot)-log(1.d10)          
+    endif
+    lnkmin = coop_pp_lnkmin
+    lnkmax = coop_pp_lnkmax
+    call coop_set_uniform(nk, lnk, lnkmin, lnkmax)
+    kMpc = exp(lnk)
+    standard_lnps = mean_lnAs+(standard_ns -1.)*(lnk-coop_pp_scalar_lnkpivot)
+    
+    call fig_spec%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$10^{10}\mathcal{P}_{S,T}$", xlog=.true., ylog = .true., xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = 1., ymax = 250., doclip = .true.)
+    call coop_asy_topaxis(fig_spec, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell\equiv  k D_{\rm rec}$")
+    call fig_pot%init(xlabel="$(\phi - \phi_{\rm pivot})/M_p$", ylabel = "$\ln (V/V_{\rm pivot})$", xmin = -1.5, xmax = 0.5, ymin = -0.2, ymax = 0.6, doclip = .true.)
+    call fig_eps%init(xlabel = "$ k ({\rm Mpc}^{-1})$", ylabel = "$\epsilon$", xlog = .true. ,  xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = 0., ymax = 0.145, doclip = .true.)
+    call coop_asy_topaxis(fig_eps, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell\equiv  k D_{\rm rec}$")             
+
+    num_trajs = 0
+    first_1sigma = .true.
        
-       call coop_feedback("Generating primordial power spectra trajectories")
-       select case(cosmomc_pp_model)
-       case(COOP_PP_GENERAL_SINGLE_FIELD)
-          num_1sigma_trajs  = 70
-          num_samples_to_get_mean = 20
-       case default
-          num_1sigma_trajs  = 80
-          num_samples_to_get_mean = 2200
-       end select
-       call fig_spec%open(trim(mc%output)//"_power_trajs.txt", "w")
-       call fig_pot%open(trim(mc%output)//"_potential_trajs.txt", "w")
-       call fig_eps%open(trim(mc%output)//"_eps_trajs.txt", "w")
-
-       lnpsmean = 0
-       lnptmean = 0
-       clnps = 0
-       clnpt = 0
-       if(do_traj_cov)then
-          lnpscov = 0
-       endif
-       mult = 0
-
-       call getCosmomcParams(mc, 1, CosmomcParams)
+    do isam = 1, num_samples_to_get_mean
+       j = coop_random_index(mc%n)
+       call getCosmomcParams(mc, j, CosmomcParams)
        call coop_setup_cosmology_from_cosmomc(Cosmomcparams)
        call coop_setup_pp()
-
-       numpp = cosmomc_pp_num_params - cosmomc_pp_num_origin + 1
-       if(numpp.gt.1)then
-          allocate(lnk_knots(numpp), lnps_knots(numpp), cov_knots(numpp, numpp), k_knots(numpp), lnps_mean_knots(numpp), lnps_standard_knots(numpp))
-          call coop_set_uniform(numpp, lnk_knots(1:numpp), coop_pp_lnkmin, coop_pp_lnkmax)
-          k_knots = exp(lnk_knots)
-          cov_knots = 0.d0
-          lnps_mean_knots = 0.d0
-          lnps_standard_knots = mean_lnAs+(standard_ns-1.)*(lnk_knots-coop_pp_scalar_lnkpivot)-log(1.d10)          
-       endif
-
-
-
-       lnkmin = coop_pp_lnkmin
-       lnkmax = coop_pp_lnkmax
-       call coop_set_uniform(nk, lnk, lnkmin, lnkmax)
-       kMpc = exp(lnk)
-       standard_lnps = mean_lnAs+(standard_ns -1.)*(lnk-coop_pp_scalar_lnkpivot)
-       
-       call fig_spec%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$10^{10}\mathcal{P}_{S,T}$", xlog=.true., ylog = .true., xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = 1., ymax = 250., doclip = .true.)
-       call coop_asy_topaxis(fig_spec, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell\equiv  k D_{\rm rec}$")
-       call fig_pot%init(xlabel="$(\phi - \phi_{\rm pivot})/M_p$", ylabel = "$\ln (V/V_{\rm pivot})$", xmin = -1.5, xmax = 0.5, ymin = -0.2, ymax = 0.6, doclip = .true.)
-       call fig_eps%init(xlabel = "$ k ({\rm Mpc}^{-1})$", ylabel = "$\epsilon$", xlog = .true. ,  xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = 0., ymax = 0.145, doclip = .true.)
-       call coop_asy_topaxis(fig_eps, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell\equiv  k D_{\rm rec}$")             
-
-       lnps_shift = log(1.d10)
-       lnpt_shift = log(1.d10)       
-       do j = 1, mc%n, max(mc%n/num_samples_to_get_mean, 1)
-          call getCosmomcParams(mc, j, CosmomcParams)
-          call coop_setup_cosmology_from_cosmomc(Cosmomcparams)
-          call coop_setup_pp()
-          !$omp parallel do 
-          do ik = 1, nk
-             lnps(ik) = coop_primordial_lnps(kMpc(ik))
-             lnpt(ik) = coop_primordial_lnpt(kMpc(ik))
-          enddo
-          !$omp end parallel do
           
-          do ik = 1, numpp
-             lnps_knots(ik) = coop_primordial_lnps(k_knots(ik))
-          enddo
-          lnps_mean_knots = lnps_mean_knots + lnps_knots*mc%mult(j)
-          do ik=1, numpp
-             do ik2 = ik, numpp
-                cov_knots(ik, ik2) = cov_knots(ik, ik2) + lnps_knots(ik) * lnps_knots(ik2) * mc%mult(j)
-             enddo
-          enddo
-          
-          lnps = lnps + lnps_shift
-          lnpt = lnpt + lnpt_shift
-          lnpsmean = lnpsmean + lnps * mc%mult(j)
-          lnptmean = lnptmean + lnpt * mc%mult(j)
-          clnps = clnps + coop_pp_lnps*mc%mult(j)
-          clnpt = clnpt + coop_pp_lnpt*mc%mult(j)
-          if(do_traj_cov)then
-             do ik=1, nk
-                do ik2 = ik, nk
-                   lnpscov(ik, ik2) = lnpscov(ik, ik2) + lnps(ik) * lnps(ik2) * mc%mult(j)
-                enddo
-             enddo
-          endif
-          mult = mult + mc%mult(j)
+       !$omp parallel do 
+       do ik = 1, nk
+          lnps_samples(isam, ik) = coop_primordial_lnps(kMpc(ik))
+          lnpt_samples(isam, ik) = coop_primordial_lnpt(kMpc(ik))
        enddo
-
-    endif
-    first_1sigma = .true.
-    num_trajs = 0
-    allocate(ps_trajs(nk, num_1sigma_trajs), pt_trajs(nk, num_1sigma_trajs) ) 
-    do i = 1, num_1sigma_trajs 
-       j = coop_random_index(mc%n)
-       if(do_pp)then
-          call getCosmomcParams(mc, j, CosmomcParams)
-          call coop_setup_cosmology_from_cosmomc(CosmomcParams)
-          call coop_setup_pp()
-          call coop_pp_get_potential()
-          !$omp parallel do 
-          do ik = 1, nk
-             lnps(ik) = coop_primordial_lnps(kMpc(ik))
-             lnpt(ik) = coop_primordial_lnpt(kMpc(ik))
-          enddo
-          !$omp end parallel do
-          lnps = lnps + lnps_shift
-          lnpt = lnpt + lnpt_shift
-          lnpsmean = lnpsmean + lnps * mc%mult(j)
-          lnptmean = lnptmean + lnpt * mc%mult(j)
-          clnps = clnps + coop_pp_lnps*mc%mult(j)
-          clnpt = clnpt + coop_pp_lnpt*mc%mult(j)
-          
+       !$omp end parallel do
+       mult_samples(isam) = mc%mult(j)
+       clnps = clnps + coop_pp_lnps*mc%mult(j)
+       clnpt = clnpt + coop_pp_lnpt*mc%mult(j)
+       if(numpp.gt.4)then
           do ik = 1, numpp
              lnps_knots(ik) = coop_primordial_lnps(k_knots(ik))
           enddo
@@ -616,239 +554,214 @@ contains
                 cov_knots(ik, ik2) = cov_knots(ik, ik2) + lnps_knots(ik) * lnps_knots(ik2) * mc%mult(j)
              enddo
           enddo
-
-          
-          mult = mult + mc%mult(j)
-          if(do_traj_cov)then
-             do ik=1, nk
-                do ik2 = ik, nk
-                   lnpscov(ik, ik2) = lnpscov(ik, ik2) + lnps(ik) * lnps(ik2) * mc%mult(j)
-                enddo
-             enddo
-          endif
        endif
-       if(mc%like(j) .lt. mc%likecut(1))then
+       if(num_trajs .lt. num_1sigma_trajs .and. mc%like(j) .lt. mc%likecut(1))then
+          call coop_pp_get_potential()          
           write(fp%unit, "("//trim(coop_num2str(mc%np))//"G14.5)") mc%params(j, :)
           num_trajs = num_trajs+1
-          if(do_pp)then
-             !$omp parallel do
-             do ik = 1, nk
-                ps(ik) = 1.e10*coop_primordial_ps(kMpc(ik))
-                pt(ik) = 1.e10*coop_primordial_pt(kMpc(ik))
-             enddo
-             !$Omp end parallel do
-             ps_trajs(:, num_trajs) = ps
-             pt_trajs(:, num_trajs) = pt
-             if(first_1sigma)then
-                first_1sigma = .false.
-                call coop_asy_interpolate_curve(fig_pot, xraw = coop_pp_phi, yraw = coop_pp_lnV-coop_pp_lnV(coop_pp_ipivot), interpolate="LinearLinear", color = "blue", linetype = "dotted", legend="1-$\sigma$ trajs")
-                call coop_asy_interpolate_curve(fig_eps, xraw = exp(coop_pp_lnkMpc), yraw = exp(coop_pp_lneps), interpolate = "LogLinear", color = "blue", linetype = "dotted", legend="1-$\sigma$ trajs")
-             else
-                call coop_asy_interpolate_curve(fig_pot, xraw = coop_pp_phi, yraw = coop_pp_lnV-coop_pp_lnV(coop_pp_ipivot), interpolate="LinearLinear", color = "blue", linetype = "dotted")
-                call coop_asy_interpolate_curve(fig_eps, xraw = exp(coop_pp_lnkMpc), yraw = exp(coop_pp_lneps), interpolate = "LogLinear", color = "blue", linetype = "dotted")
-             endif
+          ps = 1.e10*exp(lnps_samples(isam, :))
+          pt = 1.e10*exp(lnpt_samples(isam, :))
+          ps_trajs(:, num_trajs) = ps
+          pt_trajs(:, num_trajs) = pt
+          if(first_1sigma)then
+             first_1sigma = .false.
+             call coop_asy_interpolate_curve(fig_pot, xraw = coop_pp_phi, yraw = coop_pp_lnV-coop_pp_lnV(coop_pp_ipivot), interpolate="LinearLinear", color = "blue", linetype = "dotted", legend="1-$\sigma$ trajs")
+             call coop_asy_interpolate_curve(fig_eps, xraw = exp(coop_pp_lnkMpc), yraw = exp(coop_pp_lneps), interpolate = "LogLinear", color = "blue", linetype = "dotted", legend="1-$\sigma$ trajs")
+          else
+             call coop_asy_interpolate_curve(fig_pot, xraw = coop_pp_phi, yraw = coop_pp_lnV-coop_pp_lnV(coop_pp_ipivot), interpolate="LinearLinear", color = "blue", linetype = "dotted")
+             call coop_asy_interpolate_curve(fig_eps, xraw = exp(coop_pp_lnkMpc), yraw = exp(coop_pp_lneps), interpolate = "LogLinear", color = "blue", linetype = "dotted")
           endif
        endif
     enddo
     call fp%close()
 
     !!now plot the mean
-    if(do_pp)then
-       lnpsmean = lnpsmean / mult 
-       lnptmean = lnptmean / mult
-       clnps = clnps/mult
-       clnpt = clnpt/mult
-       if(numpp .gt. 1)then
-          lnps_mean_knots = lnps_mean_knots /mult
-          cov_knots = cov_knots/mult
-          do ik=1, numpp
-             do ik2 = ik, numpp
-                cov_knots(ik, ik2) = cov_knots(ik, ik2) - lnps_mean_knots(ik)*lnps_mean_knots(ik2)
-                cov_knots(ik2, ik) = cov_knots(ik, ik2)
-             enddo
+    total_mult = sum(mult_samples)
+    do ik = 1, nk
+       lnpsmean(ik) = sum(lnps_samples(:, ik))/total_mult
+       lnptmean = sum(lnps_samples(:, ik)) / total_mult
+    enddo
+    clnps = clnps/total_mult
+    clnpt = clnpt/total_mult
+    if(numpp .gt. 4)then
+       lnps_mean_knots = lnps_mean_knots /total_mult
+       cov_knots = cov_knots/total_mult
+       do ik=1, numpp
+          do ik2 = ik, numpp
+             cov_knots(ik, ik2) = cov_knots(ik, ik2) - lnps_mean_knots(ik)*lnps_mean_knots(ik2)
+             cov_knots(ik2, ik) = cov_knots(ik, ik2)
           enddo
-          ind_lowk = 1
-          do while(k_knots(ind_lowk+1).lt. low_k_cut)
-             ind_lowk = ind_lowk + 1
-             if(ind_lowk .ge. numpp) stop "low_k_cut not in proper range"
-          enddo
-          allocate(cov_lowk(ind_lowk, ind_lowk), cov_highk(numpp - ind_lowk, numpp - ind_lowk))
-          cov_lowk = cov_knots(1:ind_lowk, 1:ind_lowk)
-          cov_highk = cov_knots(ind_lowk+1:numpp, ind_lowk+1:numpp)
-          call coop_matsym_inverse(cov_lowk)
-          call coop_matsym_inverse(cov_highk)
-          lnps_standard_knots = lnps_standard_knots - lnps_mean_knots
-          write(*,*) "number of lowk knots =", ind_lowk
-          write(*,*) "chi_LCDM^2(low k) = ", dot_product(lnps_standard_knots(1:ind_lowk), matmul(cov_lowk, lnps_standard_knots(1:ind_lowk)))
-          write(*,*) "chi_LCDM^2(high k) = ", dot_product(lnps_standard_knots(ind_lowk+1:numpp), matmul(cov_highk, lnps_standard_knots(ind_lowk+1:numpp)))          
-       endif
-       if(do_traj_cov)then
-          lnpscov = lnpscov/mult
-          do ik=1, nk
-             do ik2 = ik, nk
-                lnpscov(ik, ik2) = lnpscov(ik, ik2) - lnpsmean(ik)*lnpsmean(ik2)
-             enddo
-          enddo
-          do ik=1,nk
-             do ik2 = 1, ik-1
-                lnpscov(ik, ik2) = lnpscov(ik2, ik) 
-             enddo
-          enddo
-       endif
-       lnpsmean = lnpsmean - lnps_shift
-       lnptmean = lnptmean - lnpt_shift
-       coop_pp_lnps = clnps
-       coop_pp_lnpt = clnpt
-       call coop_pp_get_potential()
-       ps = 1.e10 * exp(lnpsmean)
-       pt = 1.e10 * exp(lnptmean)
-       do ik=1, nk
-          lnps_lower(ik) = lnpsmean(ik) - 2*sqrt(lnpscov(ik, ik))
-          lnps_upper(ik) = lnpsmean(ik) + 2*sqrt(lnpscov(ik, ik))
        enddo
-       call fig_spec%band(kmpc, 1.d10*exp(lnps_lower), 1.d10*exp(lnps_upper), colorfill = trim(coop_asy_gray_color(0.65)), linecolor="invisible")
-       do ik=1, nk
-          lnps_lower(ik) = lnpsmean(ik) - sqrt(lnpscov(ik, ik))
-          lnps_upper(ik) = lnpsmean(ik) + sqrt(lnpscov(ik, ik))
-       enddo       
-       call fig_spec%band(kmpc, 1.d10*exp(lnps_lower), 1.d10*exp(lnps_upper), colorfill = trim(coop_asy_gray_color(0.4)), linecolor="invisible")
-       call fig_spec%curve(kmpc, ps_trajs(:,1), color="HEX:006FED", linetype="dashed", linewidth=0.5,legend="scalar 1-$\sigma$")
-       call fig_spec%curve(kmpc, pt_trajs(:, 1), color="HEX:8CD3F5", linetype="dotted", linewidth=0.5, legend="tensor 1-$\sigma$")       
-       do j=2, num_trajs
-          call fig_spec%curve(kmpc, ps_trajs(:,j), color="HEX:006FED", linetype="dashed", linewidth=0.5)
-          call fig_spec%curve(kmpc, pt_trajs(:, j), color="HEX:8CD3F5", linetype="dotted", linewidth=0.5)
+       ind_lowk = 1
+       do while(k_knots(ind_lowk+1).lt. low_k_cut)
+          ind_lowk = ind_lowk + 1
+          if(ind_lowk .ge. numpp) stop "low_k_cut not in proper range"
        enddo
-       call fig_spec%curve(kmpc, ps, color = "red", linetype = "solid", linewidth = 1.5, legend="mean scalar")
-       call fig_spec%curve(kmpc, pt, color = "violet", linetype = "solid", linewidth = 1.2, legend="mean tensor")
+       allocate(cov_lowk(ind_lowk, ind_lowk), cov_highk(numpp - ind_lowk, numpp - ind_lowk))
+       cov_lowk = cov_knots(1:ind_lowk, 1:ind_lowk)
+       cov_highk = cov_knots(ind_lowk+1:numpp, ind_lowk+1:numpp)
+       call coop_matsym_inverse(cov_lowk)
+       call coop_matsym_inverse(cov_highk)
+       lnps_standard_knots = lnps_standard_knots - lnps_mean_knots
+       write(*,*) "number of lowk knots =", ind_lowk
+       write(*,*) "chi_LCDM^2(low k) = ", dot_product(lnps_standard_knots(1:ind_lowk), matmul(cov_lowk, lnps_standard_knots(1:ind_lowk)))
+       write(*,*) "chi_LCDM^2(high k) = ", dot_product(lnps_standard_knots(ind_lowk+1:numpp), matmul(cov_highk, lnps_standard_knots(ind_lowk+1:numpp)))          
+    endif
+    do ik1=1, nk
+       do ik2 = ik, nk
+          lnpscov(ik1, ik2) = sum((lnps_samples(:, ik1) - lnpsmean(ik1))*(lnps_samples(:, ik2) - lnpsmean(ik2)))/total_mult
+          lnpscov(ik2, ik1) = lnpscov(ik1, ik2)           
+       enddo
+    enddo
+    coop_pp_lnps = clnps
+    coop_pp_lnpt = clnpt
+    call coop_pp_get_potential()
+    ps = 1.e10 * exp(lnpsmean)
+    pt = 1.e10 * exp(lnptmean)
+    do ik = 1, nk
+       call coop_get_bounds(lnps_samples(:, ik), (/ 0.023d0, 0.1585d0, 0.5d0, 0.8415d0, 0.977d0 /), lnps_bounds(-2:2, ik), mult_samples)
+    enddo
+    call fig_spec%band(kmpc, 1.d10*exp(lnps_bounds(-2,:)), 1.d10*exp(lnps_bounds(2,:)), colorfill = trim(coop_asy_gray_color(0.65)), linecolor="invisible")
+    call fig_spec%band(kmpc, 1.d10*exp(lnps_bounds(-1,:)), 1.d10*exp(lnps_bounds(1,:)), colorfill = trim(coop_asy_gray_color(0.4)), linecolor="invisible")
+       
+    call fig_spec%curve(kmpc, ps_trajs(:,1), color="HEX:006FED", linetype="dashed", linewidth=0.5,legend="scalar 1-$\sigma$")
+    call fig_spec%curve(kmpc, pt_trajs(:, 1), color="HEX:8CD3F5", linetype="dotted", linewidth=0.5, legend="tensor 1-$\sigma$")       
+    do j=2, num_trajs
+       call fig_spec%curve(kmpc, ps_trajs(:,j), color="HEX:006FED", linetype="dashed", linewidth=0.5)
+       call fig_spec%curve(kmpc, pt_trajs(:, j), color="HEX:8CD3F5", linetype="dotted", linewidth=0.5)
+    enddo
+    call fig_spec%curve(kmpc, ps, color = "red", linetype = "solid", linewidth = 1.5, legend="mean scalar")
+    call fig_spec%curve(kmpc, pt, color = "violet", linetype = "solid", linewidth = 1.2, legend="mean tensor")
 
-       call coop_asy_interpolate_curve(fig_pot, xraw = coop_pp_phi, yraw = coop_pp_lnV-coop_pp_lnV(coop_pp_ipivot), interpolate="LinearLinear", color = "red", linetype = "solid", linewidth = 1.5, legend="mean traj")
-       call coop_asy_interpolate_curve(fig_eps, xraw = exp(coop_pp_lnkMpc), yraw = exp(coop_pp_lneps), interpolate = "LogLinear", color = "red", linetype = "solid", linewidth = 1.5, legend="mean traj")
+    call coop_asy_interpolate_curve(fig_pot, xraw = coop_pp_phi, yraw = coop_pp_lnV-coop_pp_lnV(coop_pp_ipivot), interpolate="LinearLinear", color = "red", linetype = "solid", linewidth = 1.5, legend="mean traj")
+    call coop_asy_interpolate_curve(fig_eps, xraw = exp(coop_pp_lnkMpc), yraw = exp(coop_pp_lneps), interpolate = "LogLinear", color = "red", linetype = "solid", linewidth = 1.5, legend="mean traj")
 
 
 
-       call coop_asy_curve(fig_spec, kMpc, exp(standard_lnps), color = "black", linewidth=1.2, legend="$m^2\phi^2$ scalar")
-       call coop_asy_curve(fig_spec, kMpc, exp(mean_lnAs - 0.01625*lnk)*0.13, color = "cyan", linewidth=1.2, legend="$m^2\phi^2$ tensor")
-       if(numpp .gt. 1)then
-          ps(1:numpp) = 1.3
-          call coop_asy_dots(fig_spec, k_knots, ps(1:numpp), "black", "$\Delta$")
-          ps(1:numpp) = 0.005
-          call coop_asy_dots(fig_eps, k_knots, ps(1:numpp), "black", "$\Delta$")
-       endif
-       call coop_asy_legend(fig_spec, real(exp(lnkmin + 1.)), 150., 2)
-       call coop_asy_legend(fig_eps, real(exp(coop_pp_lnkmin +4.)), 0.115, 1)
-       call coop_asy_legend(fig_pot, -0.2, 0.35, 1)
-       call fig_spec%close()
-       call fig_eps%close()
-       call fig_pot%close()
-       if(do_traj_cov)then
-          lnps_shift = sum(lnpscov**2)/nk/nk*1.d-18
-          do ik=1, nk
-             lnpscov(ik,ik) = lnpscov(ik,ik) + lnps_shift
-          enddo
-          call fp%open(trim(mc%output)//"_pwtraj_eig.txt","w")
-          call fp%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$\delta \ln \Delta_S^2$", xlog = .true. , xmin = real(exp(lnkmin - 0.01)), xmax = real(exp(lnkmax + 0.01)), width = 7.2, height = 6.)
-          call coop_matsym_diagonalize(lnpscov, lnps, sort = .true.)
-          mineig = max(lnps(1), 1.d-5)
-          ytop = 0.
-          j = 1
-          if(lnps(2) .le. mineig*1.001)then
-             do while(lnps(j) .lt. 2.d0*mineig)
-                j = j + 1
-                if(j.gt. nk) exit
-             enddo
-          endif
-          ndof = nk-j+1
-          norm = sqrt(dble(nk)/(lnkmax-lnkmin))
-          call coop_feedback( "found "//trim(coop_num2str(ndof))//" degrees of freedom in scalar power spectrum")
-          print*, "power traj eigen values: ", sqrt(lnps(j:nk))/norm
-          if(ndof .ge. 1)then
-             if(maxval(lnpscov(:,j)).gt. - minval(lnpscov(:, j)))then
-                call coop_asy_curve(fp, kmpc, lnpscov(:,j)*norm, color = "red", linewidth = 1.8, legend = "$\sigma_1 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
-                ytop = max(ytop, maxval(lnpscov(:,j)*norm))
-             else
-                call coop_asy_curve(fp, kmpc, -lnpscov(:,j)*norm, color = "red", linewidth = 1.8, legend = "$\sigma_1 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
-                ytop = max(ytop, maxval(-lnpscov(:,j)*norm))
-             endif
-          endif
-          if(ndof .ge.2)then
-             j = j + 1
-             if(maxval(lnpscov(:,j)).gt. - minval(lnpscov(:, j)))then
-                call coop_asy_curve(fp, kmpc, -lnpscov(:, j)*norm, color = "blue",  linetype = "dotted", linewidth = 1.8, legend = "$\sigma_2 = "//trim(coop_num2str(sqrt(lnps(j))/norm,  "(F10.4)"))//"$")
-                ytop = max(ytop, maxval(-lnpscov(:,j)*norm))
-             else
-                call coop_asy_curve(fp, kmpc, lnpscov(:, j)*norm, color = "blue",  linetype = "dotted", linewidth = 1.8, legend = "$\sigma_2 = "//trim(coop_num2str(sqrt(lnps(j))/norm,  "(F10.4)"))//"$")
-                ytop = max(ytop, maxval(lnpscov(:,j)*norm))
-             endif
-          endif
-          if(ndof.ge.3)then
-             j = j + 1
-             if(maxval(lnpscov(:,j)).gt. - minval(lnpscov(:, j)))then
-                call coop_asy_curve(fp, kmpc, lnpscov(:, j)*norm, color = "black", linewidth=1.2, linetype="dashed", legend = "$\sigma_3 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
-                ytop = max(ytop, maxval(lnpscov(:,j)*norm))
-             else
-                call coop_asy_curve(fp, kmpc, -lnpscov(:, j)*norm, color = "black", linewidth=1.2, linetype="dashed", legend = "$\sigma_3 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
-                ytop = max(ytop, maxval(-lnpscov(:,j)*norm))
-             endif
-          endif
-          if(ndof.ge.4)then
-             j = j + 1
-             if(maxval(lnpscov(:,j)).gt. - minval(lnpscov(:, j)))then
-                call coop_asy_curve(fp, kmpc, -lnpscov(:, j)*norm, color = "violet", linewidth = 1., linetype="dashdotted", legend = "$\sigma_4 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
-                ytop = max(ytop, maxval(-lnpscov(:,j)*norm))
-             else
-                call coop_asy_curve(fp, kmpc, lnpscov(:, j)*norm, color = "violet", linewidth = 1., linetype="dashdotted", legend = "$\sigma_4 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
-                ytop = max(ytop, maxval(lnpscov(:,j)*norm))
-             endif
-          endif
-          if(ndof .ge.5)then
-             j = j + 1
-             if(maxval(lnpscov(:,j)).gt. - minval(lnpscov(:, j)))then
-                call coop_asy_curve(fp, kmpc, lnpscov(:, j)*norm, color = "green", linewidth=0.9, linetype = "longdashdotted", legend = "$\sigma_5 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
-                ytop = max(ytop, maxval(lnpscov(:,j)*norm))
-             else
-                call coop_asy_curve(fp, kmpc, -lnpscov(:, j)*norm, color = "green", linewidth=0.9, linetype = "longdashdotted", legend = "$\sigma_5 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
-                ytop = max(ytop, maxval(-lnpscov(:,j)*norm))
-             endif
-          endif
-          if(ndof .ge.6)then
-             j = j + 1
-             if(maxval(lnpscov(:,j)).gt. - minval(lnpscov(:, j)))then
-                call coop_asy_curve(fp, kmpc, -lnpscov(:, j)*norm, color = "gray", linewidth=0.8, linetype = "longdashed", legend = "$\sigma_6 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
-                ytop = max(ytop, maxval(-lnpscov(:,j)*norm))
-             else
-                call coop_asy_curve(fp, kmpc, lnpscov(:, j)*norm, color = "gray", linewidth=0.8, linetype = "longdashed", legend = "$\sigma_6 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
-                ytop = max(ytop, maxval(lnpscov(:,j)*norm))
-             endif
-          endif
-          if(ndof .ge.7)then
-             j = j + 1
-             if(maxval(lnpscov(:,j)).gt. - minval(lnpscov(:, j)))then
-                call coop_asy_curve(fp, kmpc, lnpscov(:, j)*norm, color = "cyan", linewidth=0.5, legend = "$\sigma_7 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
-                ytop = max(ytop, maxval(lnpscov(:,j)*norm))
-             else
-                call coop_asy_curve(fp, kmpc, -lnpscov(:, j)*norm, color = "cyan", linewidth=0.5, legend = "$\sigma_7 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
-                ytop = max(ytop, maxval(-lnpscov(:,j)*norm))
-             endif
-          endif
-          if(ndof .ge.8)then
-             j = j + 1
-             if(maxval(lnpscov(:,j)).gt. - minval(lnpscov(:, j)))then
-                call coop_asy_curve(fp, kmpc, -lnpscov(:, j)*norm, color = "skyblue", linewidth=0.5, legend = "$\sigma_8 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
-                ytop = max(ytop, maxval(-lnpscov(:,j)*norm))
-             else
-                call coop_asy_curve(fp, kmpc, lnpscov(:, j)*norm, color = "skyblue", linewidth=0.5, legend = "$\sigma_8 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
-                ytop = max(ytop, maxval(lnpscov(:,j)*norm))
-             endif
-          endif
-          call coop_asy_legend(fp, 0.0001, ytop*0.9)
-          call fp%close()
+    call coop_asy_curve(fig_spec, kMpc, exp(standard_lnps), color = "black", linewidth=1.2, legend="$m^2\phi^2$ scalar")
+    call coop_asy_curve(fig_spec, kMpc, exp(mean_lnAs - 0.01625*lnk)*0.13, color = "cyan", linewidth=1.2, legend="$m^2\phi^2$ tensor")
+    if(numpp .gt. 4)then
+       ps(1:numpp) = 1.3
+       call coop_asy_dots(fig_spec, k_knots, ps(1:numpp), "black", "$\Delta$")
+       ps(1:numpp) = 0.005
+       call coop_asy_dots(fig_eps, k_knots, ps(1:numpp), "black", "$\Delta$")
+    endif
+    call coop_asy_legend(fig_spec, real(exp(lnkmin + 1.)), 160., 3)
+    call coop_asy_legend(fig_eps, real(exp(coop_pp_lnkmin +4.)), 0.115, 1)
+    call coop_asy_legend(fig_pot, -0.2, 0.35, 1)
+    call fig_spec%close()
+    call fig_eps%close()
+    call fig_pot%close()
+
+!!now do eigen modes    
+    do ik=1, nk
+       lnpscov(ik,ik) = lnpscov(ik,ik) + 1.d-6
+    enddo
+    call fp%open(trim(mc%output)//"_pwtraj_eig.txt","w")
+    call fp%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$\delta \ln \Delta_S^2$", xlog = .true. , xmin = real(exp(lnkmin - 0.01)), xmax = real(exp(lnkmax + 0.01)), width = 7.2, height = 6.)
+    call coop_matsym_diagonalize(lnpscov, lnps, sort = .true.)
+    mineig = max(lnps(1), 1.d-5)
+    ytop = 0.
+    j = 1
+    if(lnps(2) .le. mineig*1.001)then
+       do while(lnps(j) .lt. 2.d0*mineig)
+          j = j + 1
+          if(j.gt. nk) exit
+       enddo
+    endif
+    ndof = nk-j+1
+    norm = sqrt(dble(nk)/(lnkmax-lnkmin))
+    call coop_feedback( "found "//trim(coop_num2str(ndof))//" degrees of freedom in scalar power spectrum")
+    print*, "power traj eigen values: ", sqrt(lnps(j:nk))/norm
+    if(ndof .ge. 1)then
+       if(maxval(lnpscov(:,j)).gt. - minval(lnpscov(:, j)))then
+          call coop_asy_curve(fp, kmpc, lnpscov(:,j)*norm, color = "red", linewidth = 1.8, legend = "$\sigma_1 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
+          ytop = max(ytop, maxval(lnpscov(:,j)*norm))
+       else
+          call coop_asy_curve(fp, kmpc, -lnpscov(:,j)*norm, color = "red", linewidth = 1.8, legend = "$\sigma_1 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
+          ytop = max(ytop, maxval(-lnpscov(:,j)*norm))
        endif
     endif
+    if(ndof .ge.2)then
+       j = j + 1
+       if(maxval(lnpscov(:,j)).gt. - minval(lnpscov(:, j)))then
+          call coop_asy_curve(fp, kmpc, -lnpscov(:, j)*norm, color = "blue",  linetype = "dotted", linewidth = 1.8, legend = "$\sigma_2 = "//trim(coop_num2str(sqrt(lnps(j))/norm,  "(F10.4)"))//"$")
+          ytop = max(ytop, maxval(-lnpscov(:,j)*norm))
+       else
+          call coop_asy_curve(fp, kmpc, lnpscov(:, j)*norm, color = "blue",  linetype = "dotted", linewidth = 1.8, legend = "$\sigma_2 = "//trim(coop_num2str(sqrt(lnps(j))/norm,  "(F10.4)"))//"$")
+          ytop = max(ytop, maxval(lnpscov(:,j)*norm))
+       endif
+    endif
+    if(ndof.ge.3)then
+       j = j + 1
+       if(maxval(lnpscov(:,j)).gt. - minval(lnpscov(:, j)))then
+          call coop_asy_curve(fp, kmpc, lnpscov(:, j)*norm, color = "black", linewidth=1.2, linetype="dashed", legend = "$\sigma_3 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
+          ytop = max(ytop, maxval(lnpscov(:,j)*norm))
+       else
+          call coop_asy_curve(fp, kmpc, -lnpscov(:, j)*norm, color = "black", linewidth=1.2, linetype="dashed", legend = "$\sigma_3 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
+          ytop = max(ytop, maxval(-lnpscov(:,j)*norm))
+       endif
+    endif
+    if(ndof.ge.4)then
+       j = j + 1
+       if(maxval(lnpscov(:,j)).gt. - minval(lnpscov(:, j)))then
+          call coop_asy_curve(fp, kmpc, -lnpscov(:, j)*norm, color = "violet", linewidth = 1., linetype="dashdotted", legend = "$\sigma_4 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
+          ytop = max(ytop, maxval(-lnpscov(:,j)*norm))
+       else
+          call coop_asy_curve(fp, kmpc, lnpscov(:, j)*norm, color = "violet", linewidth = 1., linetype="dashdotted", legend = "$\sigma_4 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
+          ytop = max(ytop, maxval(lnpscov(:,j)*norm))
+       endif
+    endif
+    if(ndof .ge.5)then
+       j = j + 1
+       if(maxval(lnpscov(:,j)).gt. - minval(lnpscov(:, j)))then
+          call coop_asy_curve(fp, kmpc, lnpscov(:, j)*norm, color = "green", linewidth=0.9, linetype = "longdashdotted", legend = "$\sigma_5 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
+          ytop = max(ytop, maxval(lnpscov(:,j)*norm))
+       else
+          call coop_asy_curve(fp, kmpc, -lnpscov(:, j)*norm, color = "green", linewidth=0.9, linetype = "longdashdotted", legend = "$\sigma_5 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
+          ytop = max(ytop, maxval(-lnpscov(:,j)*norm))
+       endif
+    endif
+    if(ndof .ge.6)then
+       j = j + 1
+       if(maxval(lnpscov(:,j)).gt. - minval(lnpscov(:, j)))then
+          call coop_asy_curve(fp, kmpc, -lnpscov(:, j)*norm, color = "gray", linewidth=0.8, linetype = "longdashed", legend = "$\sigma_6 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
+          ytop = max(ytop, maxval(-lnpscov(:,j)*norm))
+       else
+          call coop_asy_curve(fp, kmpc, lnpscov(:, j)*norm, color = "gray", linewidth=0.8, linetype = "longdashed", legend = "$\sigma_6 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
+          ytop = max(ytop, maxval(lnpscov(:,j)*norm))
+       endif
+    endif
+    if(ndof .ge.7)then
+       j = j + 1
+       if(maxval(lnpscov(:,j)).gt. - minval(lnpscov(:, j)))then
+          call coop_asy_curve(fp, kmpc, lnpscov(:, j)*norm, color = "cyan", linewidth=0.5, legend = "$\sigma_7 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
+          ytop = max(ytop, maxval(lnpscov(:,j)*norm))
+       else
+          call coop_asy_curve(fp, kmpc, -lnpscov(:, j)*norm, color = "cyan", linewidth=0.5, legend = "$\sigma_7 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
+          ytop = max(ytop, maxval(-lnpscov(:,j)*norm))
+       endif
+    endif
+    if(ndof .ge.8)then
+       j = j + 1
+       if(maxval(lnpscov(:,j)).gt. - minval(lnpscov(:, j)))then
+          call coop_asy_curve(fp, kmpc, -lnpscov(:, j)*norm, color = "skyblue", linewidth=0.5, legend = "$\sigma_8 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
+          ytop = max(ytop, maxval(-lnpscov(:,j)*norm))
+       else
+          call coop_asy_curve(fp, kmpc, lnpscov(:, j)*norm, color = "skyblue", linewidth=0.5, legend = "$\sigma_8 = "//trim(coop_num2str(sqrt(lnps(j))/norm, "(F10.4)"))//"$")
+          ytop = max(ytop, maxval(lnpscov(:,j)*norm))
+       endif
+    endif
+    call coop_asy_legend(fp, 0.0001, ytop*0.9)
+    call fp%close()
+ 
     
     deallocate(CosmoMcParams)
-    if(allocated(ps_trajs))deallocate(ps_trajs, pt_trajs)
     if(allocated(lnk_knots))deallocate(lnk_knots, k_knots, cov_knots, lnps_knots, lnps_mean_knots, lnps_standard_knots, cov_lowk, cov_highk)
-    call fp%open(trim(mc%output)//".margstats", "w")
+
+
+!!margestats    
+    call fp%open(trim(mc%output)//".margestats", "w")
     select case(mcmc_stat_num_cls)
     case(3:)
        write(fp%unit, "(2A32, 10A16)") "name", "label", "best", "mean", "std", "base", "-1sigma", "+1sigma", "-2sigma", "+2sigma", "-3sigma", "+3sigma"
@@ -872,6 +785,8 @@ contains
        enddo
     end select
     call fp%close()
+
+!!tex    
     call fp%open(trim(mc%output)//".tex", "w")
     Write(fp%unit,"(A)")"\documentclass[12pt]{article}"
     Write(fp%unit,"(a)")"\usepackage[left=2cm, top=2cm, right=2cm,bottom=3cm,nohead]{geometry}"
@@ -896,6 +811,7 @@ contains
     Write(fp%unit,"(a)")"\end{document}"
     call fp%close()
 
+!!covmat    
     call fp%open(trim(mc%output)//".covmat", "w")
     call coop_write_matrix(fp%unit, mc%covmat, mc%np, mc%np)
     call fp%close()
