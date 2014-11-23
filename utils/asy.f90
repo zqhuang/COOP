@@ -539,6 +539,7 @@ contains
        lineproperty = trim(lineproperty)//"_8"
     endif
     write(fp%unit, "(A)") trim(lineproperty)
+    fp%ymax = fp%ymax + (fp%ymax-fp%ymin)*0.01
   end subroutine coop_asy_add_legend
 
   subroutine coop_asy_interpolate_curve_d(fp, xraw, yraw, interpolate, color, linetype, linewidth, legend)
@@ -2968,9 +2969,15 @@ contains
   
   subroutine coop_asy_expand(fp, xl, xr, yl, yr)
     class(coop_asy) fp
-    COOP_SINGLE xl, xr, yl, yr
+    COOP_SINGLE xl, xr, yl, yr, dx, dy
     write(fp%unit, "(A)") "EXPAND"
     write(fp%unit, "(4G14.5)")  xl, xr, yl, yr
+    dx = fp%xmax - fig%xmin
+    dy = fp%ymax - fp%ymin
+    fp%xmin = fp%xmin - dx*xl
+    fp%xmax = fp%xmax + dx*xr
+    fp%ymin = fp%ymin - dy*yl
+    fp%ymax = fp%ymax + dy*yr
   end subroutine coop_asy_expand
   
 end module coop_asy_mod

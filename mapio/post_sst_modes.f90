@@ -117,7 +117,7 @@ program test
         call fig%curve(r, vec(:, 0) - bounds(0, :), color = "red", linetype = "solid", linewidth = 1.5, legend = "Planck")
         call fig%add_legend(legend = "FFP8 1-$\sigma$", color = trim(coop_asy_gray_color(0.36)))
         call fig%add_legend(legend = "FFP8 2-$\sigma$", color = trim(coop_asy_gray_color(0.65)))        
-        call fig%expand(0., 0., -0.01, 0.2)
+        call fig%expand(0., 0., 0.01, 0.1)
         call fig%legend(0.05, 0.96, 1)
         call fig%close()
      endif
