@@ -541,12 +541,11 @@ contains
        if(isam .le. num_cls_samples .and. coop_postprocess_do_cls)then
           coop_global_cosmology_do_firstorder = .true.
           hubble = mc%params(j, index_H)/100.
-          write(*,*) "Computing Cls #"//COOP_STR_OF(isam)//" / "//COOP_STR_OF(num_cls_samples)//":  h = "//COOP_STR_OF(hubble)
-
           call coop_setup_cosmology_from_cosmomc(Cosmomcparams, hubble)
           do l = lmin, lmax
              cls_samples(l, isam) = coop_pp_total_cls(coop_index_clTT, l)*(l*(l+1.d0)/coop_2pi * 2.72558e6**2)
           enddo
+          write(*,"(A)") "Computing Cls #"//COOP_STR_OF(isam)//" / "//COOP_STR_OF(num_cls_samples)//":  h = "//COOP_STR_OF(hubble)//", C_220 = "//COOP_STR_OF(cls_samples(220, isam))          
        else
           coop_global_cosmology_do_firstorder = .false.
           call coop_setup_cosmology_from_cosmomc(Cosmomcparams)
