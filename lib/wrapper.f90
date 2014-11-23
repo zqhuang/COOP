@@ -174,7 +174,7 @@ contains
           coop_pp_tensor_cls = 0.d0
        endif
        call coop_get_lensing_Cls(coop_pp_lmin, coop_pp_lmax, coop_pp_scalar_Cls, coop_pp_lensed_Cls)
-       coop_pp_total_cls = coop_pp_lensed_cls + coop_pp_tensor_cls
+       coop_pp_total_cls = coop_pp_scalar_cls + coop_pp_lensed_cls + coop_pp_tensor_cls
     endif
   end subroutine coop_setup_global_cosmology_with_h
 
