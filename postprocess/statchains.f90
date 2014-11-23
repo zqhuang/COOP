@@ -619,7 +619,7 @@ contains
     ps = 1.e10 * exp(lnpsmean)
     pt = 1.e10 * exp(lnptmean)
     do ik = 1, nk
-       call coop_get_bounds(lnps_samples(:, ik), (/ 0.023d0, 0.1585d0, 0.5d0, 0.8415d0, 0.977d0 /), lnps_bounds(-2:2, ik), mult_samples)
+       call coop_get_bounds(lnps_samples(:, ik), (/ 0.02d0, 0.1585d0, 0.5d0, 0.8415d0, 0.98d0 /), lnps_bounds(-2:2, ik), mult_samples)
     enddo
     call fig_spec%band(kmpc, 1.d10*exp(lnps_bounds(-2,:)), 1.d10*exp(lnps_bounds(2,:)), colorfill = trim(coop_asy_gray_color(0.65)), linecolor="invisible")
     call fig_spec%band(kmpc, 1.d10*exp(lnps_bounds(-1,:)), 1.d10*exp(lnps_bounds(1,:)), colorfill = trim(coop_asy_gray_color(0.4)), linecolor="invisible")
