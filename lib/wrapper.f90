@@ -3,7 +3,7 @@ module coop_wrapper
   implicit none
 #include "constants.h"
 
-  type(coop_cosmology_background):: coop_global_cosmology
+  type(coop_cosmology_firstorder):: coop_global_cosmology
   type(coop_species):: coop_global_baryon
   type(coop_species):: coop_global_cdm
   type(coop_species):: coop_global_radiation
@@ -29,8 +29,15 @@ module coop_wrapper
   COOP_REAL:: coop_pp_scalar_lnkpivot = log(0.05d0)
   COOP_REAL:: coop_pp_tensor_lnkpivot =  log(0.05d0)
   logical ::cosmomc_pp_inflation_consistency = .true.
-
-
+  logical ::coop_global_cosmology_do_firstorder = .false.
+  logical ::coop_global_cosmology_do_background = .false.
+  COOP_INT, parameter::coop_pp_lmin = 2
+  COOP_INT, parameter::coop_pp_lmax = 1500
+  COOP_REAL::coop_pp_ells(coop_pp_lmin:coop_pp_lmax)  
+  COOP_REAL::coop_pp_scalar_Cls(coop_num_cls, coop_pp_lmin:coop_pp_lmax)
+  COOP_REAL::coop_pp_lensed_Cls(coop_num_cls, coop_pp_lmin:coop_pp_lmax)
+  COOP_REAL::coop_pp_tensor_Cls(coop_num_cls, coop_pp_lmin:coop_pp_lmax)
+  COOP_REAL::coop_pp_total_Cls(coop_num_cls, coop_pp_lmin:coop_pp_lmax)
   COOP_INT,parameter::coop_pp_n = 1024  
   COOP_REAL,dimension(coop_pp_n)::coop_pp_lnkMpc, coop_pp_lnps, coop_pp_lnpt, coop_pp_lnps2, coop_pp_lnpt2, coop_pp_lneps, coop_pp_lnV, coop_pp_phi, coop_pp_lnH
   COOP_INT::coop_pp_ipivot
@@ -75,6 +82,8 @@ contains
 
   subroutine coop_setup_global_cosmology_with_h(h)
     COOP_REAL h
+    type(coop_arguments) args
+    COOP_INT l
     call COOP_COSMO%init(name = "COOP_GLOBAL_COSMOLOGY",  id = 0, h = h)
     if(h.le.0.d0)return  !!return for bad h
     coop_global_baryon = coop_baryon(COOP_OMEGABH2/h**2)
@@ -137,6 +146,34 @@ contains
        stop "UNKNOWN DARK ENERGY MODEL"
     end select
     call COOP_COSMO%add_species(coop_global_de)
+    if(coop_global_cosmology_do_firstorder .or. coop_global_cosmology_do_background)then
+       call COOP_COSMO%setup_background()
+    endif
+    if(coop_global_cosmology_do_firstorder)then
+       COOP_COSMO%optre = COOP_TAU
+       call COOP_COSMO%set_xe()
+       COOP_COSMO%As = 1.d-10 * exp(COOP_LN10TO10AS)
+       COOP_COSMO%ns = COOP_NS
+       COOP_COSMO%nrun = COOP_NRUN
+       COOP_COSMO%r =  COOP_AMP_RATIO
+       COOP_COSMO%nt = COOP_NT
+       COOP_COSMO%inflation_consistency = COOP_INFLATION_CONSISTENCY
+       call coop_setup_pp()
+       call COOP_COSMO%set_power(coop_pp_get_power, args)
+       call COOP_COSMO%compute_source(0)
+       do l = coop_pp_lmin, coop_pp_lmax
+          coop_pp_ells(l) = dble(l)
+       enddo
+       call COOP_COSMO%source(0)%get_all_Cls(coop_pp_lmin, coop_pp_lmax, coop_pp_scalar_Cls)       
+       if(COOP_COSMO%has_tensor)then
+          call COOP_COSMO%compute_source(2)
+          call COOP_COSMO%source(2)%get_all_Cls(coop_pp_lmin, coop_pp_lmax, coop_pp_tensor_Cls)
+       else
+          coop_pp_tensor_cls = 0.d0
+       endif
+       call coop_get_lensing_Cls(coop_pp_lmin, coop_pp_lmax, coop_pp_scalar_Cls, coop_pp_lensed_Cls)
+       coop_pp_total_cls = coop_pp_lensed_cls + coop_pp_tensor_cls
+    endif
   end subroutine coop_setup_global_cosmology_with_h
 
 
@@ -337,7 +374,14 @@ contains
   end subroutine coop_pp_get_potential
 
 
-  subroutine coop_
+  subroutine coop_pp_get_power(kbykpiv, ps, pt, cosmology, args)
+    COOP_REAL kbykpiv, ps, pt, kMpc
+    type(coop_cosmology_firstorder)::cosmology
+    type(coop_arguments)::args
+    kMpc = exp(coop_pp_scalar_lnkpivot)*kbykpiv
+    ps = coop_primordial_ps(kMpc)
+    pt = coop_primordial_pt(kMpc)
+  end subroutine coop_pp_get_power
   
 
 end module coop_wrapper

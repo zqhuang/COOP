@@ -32,6 +32,7 @@ program getdist
   coop_postprocess_nbins = ini_read_int("num_bins", 0)
   coop_postprocess_num_contours = ini_read_int("num_contours", 2)
   coop_postprocess_num_contours  = min(coop_postprocess_num_contours, mcmc_stat_num_cls)
+  coop_postprocess_do_cls = ini_read_logical("do_cls", .false.)  
   if(trim(outdir) .eq. "") stop "You need to specify the key 'output' in ini file"
   discard_percent = ini_read_int("discard_percent", 30)
   write(*,*) "discarding "//trim(coop_num2str(discard_percent))//"% samples at the beginning of chains"

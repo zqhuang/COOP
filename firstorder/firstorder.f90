@@ -100,6 +100,7 @@ private
      COOP_REAL, dimension(0:coop_pert_default_lmax, 0:coop_pert_default_mmax, 0:coop_pert_default_smax)::klms, klms_by_2lm1, klms_by_2lp1
      COOP_REAL,dimension(coop_pert_default_lmax)::fourbyllp1
      logical::klms_done = .false.
+     logical::has_tensor = .false.
    contains
      procedure:: set_standard_cosmology =>  coop_cosmology_firstorder_set_standard_cosmology
      procedure:: set_standard_power => coop_cosmology_firstorder_set_standard_power
@@ -458,7 +459,6 @@ contains
   subroutine coop_cosmology_firstorder_compute_source(this, m)
     class(coop_cosmology_firstorder)::this
     COOP_INT m, ik, itau, is
-
     call this%init_source(m)
     this%source(m)%bbks_keq = this%bbks_keq
     this%source(m)%bbks_trans_kmax = coop_bbks_trans(this%source(m)%kmax/this%bbks_keq)
@@ -703,6 +703,7 @@ contains
     this%ns = this%ps%derivative_bare(log(this%k_pivot)) + 1.d0
     this%nrun = this%ps%derivative2_bare(log(this%k_pivot))
     this%r =  this%ptofk(this%k_pivot)/this%As
+    this%has_tensor = any(pt .gt. 1.d-15)
     if(this%r .eq. 0.d0)then
        this%nt = 0.d0
     else
