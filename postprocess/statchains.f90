@@ -466,13 +466,14 @@ contains
     COOP_REAL,parameter::low_ell_cut = 50
     COOP_REAL,parameter::low_k_cut = low_ell_cut/distlss
     type(mcmc_chain) mc
-    COOP_UNKNOWN_STRING output    
+    COOP_UNKNOWN_STRING output
+    type(coop_file)::fcl
     type(coop_asy) fp, fig_spec, fig_pot, fig_eps, fig_cls
     type(coop_asy_path) path    
-    COOP_INT i , ip, j,  j2, k, ik, ik1,  ik2, ndof,  l, num_params, index_pp, pp_location, icontour, numpp, num_trajs, ind_lowk, isam, index_H
+    COOP_INT i , ip, j,  j2, k, ik, ik1,  ik2, ndof, l, junk, num_params, index_pp, pp_location, icontour, numpp, num_trajs, ind_lowk, isam, index_H
     COOP_SINGLE total_mult, cltraj_weight, x(mc%nb), ytop
     logical first_1sigma, inflation_consistency
-    COOP_REAL  norm, lnkmin, lnkmax, errup, errdown, mean_lnAs, hubble    
+    COOP_REAL  norm, lnkmin, lnkmax, cltt, errup, errdown, mean_lnAs, hubble    
     COOP_REAL  lnk(nk), kMpc(nk), ps(nk), pt(nk), lnpsmean(nk), lnptmean(nk), lnpscov(nk, nk), lnps(nk), lnpt(nk),  mineig, clnps(coop_pp_n), clnpt(coop_pp_n), lnps_bounds(-2:2,nk), standard_lnps(nk), lnps_samples(num_samples_to_get_mean, nk), lnpt_samples(num_samples_to_get_mean, nk), mult_samples(num_samples_to_get_mean), Cls_samples(lmin:lmax, num_cls_samples), cls_mean(lmin:lmax)
     COOP_REAL, dimension(:,:),allocatable::pcamat
     COOP_REAL, dimension(:),allocatable::eig, ipca, cosmomcParams
@@ -589,13 +590,13 @@ contains
           if(first_1sigma)then
              first_1sigma = .false.
              if(isam .le. num_cls_samples .and. coop_postprocess_do_cls)then
-                call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = Cls_samples(:, isam), interpolate = "LinearLinear", color = "blue", linetype = "dotted", legend = "1-$\sigma$ trajs.")
+                call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = Cls_samples(:, isam), interpolate = "LogLinear", color = "blue", linetype = "dotted", legend = "1-$\sigma$ trajs.")
              endif
              call fig_pot%interpolate_curve(xraw = coop_pp_phi, yraw = coop_pp_lnV-coop_pp_lnV(coop_pp_ipivot), interpolate="LinearLinear", color = "blue", linetype = "dotted", legend="1-$\sigma$ trajs.")
              call fig_eps%interpolate_curve(xraw = exp(coop_pp_lnkMpc), yraw = exp(coop_pp_lneps), interpolate = "LogLinear", color = "blue", linetype = "dotted", legend="1-$\sigma$ trajs.")
           else
              if(isam .le. num_cls_samples .and. coop_postprocess_do_cls)then
-                call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = Cls_samples(:, isam), interpolate = "LinearLinear", color = "blue", linetype = "dotted")
+                call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = Cls_samples(:, isam), interpolate = "LogLinear", color = "blue", linetype = "dotted")
              endif
              call fig_pot%interpolate_curve(xraw = coop_pp_phi, yraw = coop_pp_lnV-coop_pp_lnV(coop_pp_ipivot), interpolate="LinearLinear", color = "blue", linetype = "dotted")
              call fig_eps%interpolate_curve(xraw = exp(coop_pp_lnkMpc), yraw = exp(coop_pp_lneps), interpolate = "LogLinear", color = "blue", linetype = "dotted")
@@ -610,7 +611,31 @@ contains
        do l = lmin, lmax
           cls_mean(l) = sum(cls_samples(l, 1:num_cls_samples)*mult_samples(1:num_cls_samples))/total_mult
        enddo
-       call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean, interpolate = "LinearLinear", color="red", linewidth = 2.)
+       call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean, interpolate = "LogLinear", color="red", linewidth = 2., legend="mean")
+
+       if(trim(bestfit_cl_file).ne."")then
+          call fcl%open(trim(bestfit_cl_file), 'r')
+          do l = lmin, lmax
+             read(fcl%unit, *) ik, cls_mean(l)
+             if(ik.ne. l) stop "Error in bestfit cl file"
+          enddo
+          call fcl%close()
+          call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean, interpolate = "LogLinear", color="HEX:011010", linewidth = 1.2, legend="$\Lambda$CDM bestfit")
+       endif
+
+       if(trim(measured_cltt_file).ne."")then
+          call fcl%open(measured_cltt_file, "r")
+          do 
+             if( fcl%read_string(inline) )then
+                read(inline, *) l, junk, junk, cltt, errup, errdown
+                if(l.gt. lmax)exit
+             else
+                exit
+             endif
+             call coop_asy_error_bar(fig_cls, x = dble(l), y = cltt, dy_minus = errdown, dy_plus = errup)
+          enddo
+          call fcl%close()
+       endif
     endif
     total_mult = sum(mult_samples)
     do ik = 1, nk
