@@ -84,6 +84,7 @@ contains
     COOP_REAL h
     type(coop_arguments) args
     COOP_INT l
+    call COOP_COSMO%free()
     call COOP_COSMO%init(name = "COOP_GLOBAL_COSMOLOGY",  id = 0, h = h)
     if(h.le.0.d0)return  !!return for bad h
     coop_global_baryon = coop_baryon(COOP_OMEGABH2/h**2)
@@ -152,6 +153,7 @@ contains
     if(coop_global_cosmology_do_firstorder)then
        COOP_COSMO%optre = COOP_TAU
        call COOP_COSMO%set_xe()
+       print*,  COOP_COSMO%zre, COOP_COSMO%xeofa(1.d0), COOP_COSMO%xeofa(1.d-3)
        COOP_COSMO%As = 1.d-10 * exp(COOP_LN10TO10AS)
        COOP_COSMO%ns = COOP_NS
        COOP_COSMO%nrun = COOP_NRUN
@@ -160,10 +162,12 @@ contains
        COOP_COSMO%inflation_consistency = COOP_INFLATION_CONSISTENCY
        call coop_setup_pp()
        call COOP_COSMO%set_power(coop_pp_get_power, args)
+       print*, COOP_COSMO%k_pivot, COOP_COSMO%psofk(COOP_COSMO%k_pivot),  COOP_COSMO%ptofk(COOP_COSMO%k_pivot)       
        call COOP_COSMO%compute_source(0)
        do l = coop_pp_lmin, coop_pp_lmax
           coop_pp_ells(l) = dble(l)
        enddo
+
        call COOP_COSMO%source(0)%get_all_Cls(coop_pp_lmin, coop_pp_lmax, coop_pp_scalar_Cls)       
        if(COOP_COSMO%has_tensor)then
           call COOP_COSMO%compute_source(2)
