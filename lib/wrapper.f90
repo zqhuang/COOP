@@ -289,7 +289,7 @@ contains
        !!modified to resolve the bump issue
        coop_pp_lnps = coop_pp_lnps + COOP_LN10TO10AS - 10.d0*coop_ln10 &
             + ( COOP_NS - 1.d0 ) * (coop_pp_lnkMpc - coop_pp_scalar_lnkpivot)
-       deallocate(lnk, lnps)
+       deallocate(lnk, lnps, lnps2)
     case(COOP_PP_GENERAL_SINGLE_FIELD)
        stop "not applied yet"
     end select

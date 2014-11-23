@@ -52,6 +52,7 @@ module coop_statchains_mod
      COOP_SHORT_STRING, dimension(mcmc_stat_num_cls)::color2d
      type(coop_dictionary) inputparams
      type(coop_dictionary) allparams
+     type(coop_dictionary) usedparams
   end type MCMC_chain
 
 contains
@@ -93,19 +94,20 @@ contains
        call coop_dictionary_lookup(mc%inputparams, "pp_model", cosmomc_pp_model, COOP_PP_STANDARD)
        call coop_dictionary_lookup(mc%inputparams, "de_model", cosmomc_de_model, COOP_DE_COSMOLOGICAL_CONSTANT)
        call coop_dictionary_lookup(mc%inputparams, "de_num_params", cosmomc_de_num_params, 2)
-       call coop_dictionary_lookup(mc%inputparams, "pp_num_params", cosmomc_pp_num_params, 8)
-       fname = trim(prefix)//".ranges"
-       if(coop_file_exists(fname))then
-          call coop_load_dictionary(trim(fname), mc%allparams, col_key = 1, col_value = 2)
-       else
-          call coop_feedback("ranges file not found;")
-          if(cosmomc_pp_model .ne. COOP_PP_STANDARD .or. cosmomc_de_model .ne. COOP_DE_COSMOLOGICAL_CONSTANT) stop
-       endif
+       call coop_dictionary_lookup(mc%inputparams, "pp_num_params", cosmomc_pp_num_params, 8)       
     else
        call coop_feedback( "Warning: inputparams file not found;" )
        cosmomc_pp_model = COOP_PP_STANDARD
        cosmomc_de_model = COOP_DE_COSMOLOGICAL_CONSTANT
     endif
+    fname = trim(prefix)//".ranges"
+    if(coop_file_exists(fname))then
+       call coop_load_dictionary(trim(fname), mc%allparams, col_key = 1, col_value = 2)
+    else
+       call coop_feedback("ranges file not found;")
+       if(cosmomc_pp_model .ne. COOP_PP_STANDARD .or. cosmomc_de_model .ne. COOP_DE_COSMOLOGICAL_CONSTANT) stop
+    endif
+    
     fname = trim(prefix)//".paramnames"
     if(coop_file_exists(fname))then
        call fp%open(fname, "r")
@@ -135,11 +137,14 @@ contains
 
        enddo
        call fp%close()
+       call coop_load_dictionary(trim(fname), mc%usedparams, col_key = 1, col_value = 2)       
     else
-       do i = 1, mc%np
-          mc%label(i) = "param"//trim(coop_num2str(i))
-          mc%name(i) = mc%label(i)
-       enddo
+       write(*,*) "paramnames file not found"
+       stop
+!!$       do i = 1, mc%np
+!!$          mc%label(i) = "param"//trim(coop_num2str(i))
+!!$          mc%name(i) = mc%label(i)
+!!$       enddo
     endif
     do i = 1, mc%np
        mc%simplename(i) = trim(coop_str_numalpha(mc%name(i)))
@@ -534,7 +539,7 @@ contains
 
     num_trajs = 0
     first_1sigma = .true.
-    index_H = mc%allparams%n + 1
+    index_H = mc%usedparams%index("H0*")
     do isam = 1, num_samples_to_get_mean
        j = coop_random_index(mc%n)
        call getCosmomcParams(mc, j, CosmomcParams)
