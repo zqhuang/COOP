@@ -11,17 +11,17 @@ module coop_asy_mod
 
 #include "constants.h"
 
-  integer,parameter::dl = kind(1.d0)
-  integer,parameter::sp = kind(1.)
-  real(sp),parameter::coop_asy_default_width = 6.6
-  real(sp),parameter::coop_asy_default_height = 5.5
+  COOP_INT, parameter::sp = coop_single_real_length
+  COOP_INT, parameter::dl = coop_real_length
+  COOP_SINGLE ,parameter::coop_asy_default_width = 6.6
+  COOP_SINGLE ,parameter::coop_asy_default_height = 5.5
   integer, parameter::coop_asy_num_line_types = 12
 
   type, extends(coop_file) :: coop_asy
-     real(sp) xmin, xmax, ymin, ymax, width, height
+     COOP_SINGLE  xmin, xmax, ymin, ymax, width, height
      COOP_SHORT_STRING, dimension(coop_asy_num_line_types)::color
      COOP_SHORT_STRING, dimension(coop_asy_num_line_types)::linetype
-     real(sp), dimension(coop_asy_num_line_types)::linewidth
+     COOP_SINGLE , dimension(coop_asy_num_line_types)::linewidth
    contains
      procedure::init => coop_asy_init
      procedure::write_coor => coop_asy_write_coor
@@ -30,6 +30,7 @@ module coop_asy_mod
      procedure::interpolate_curve => coop_asy_interpolate_curve_d
      procedure::plot => coop_asy_curve_d
      procedure::legend => coop_asy_legend_relative
+     procedure::add_legend => coop_asy_add_legend
      procedure::line => coop_asy_line_d
      procedure::lines => coop_asy_lines_d
      procedure::label => coop_asy_label_relative
@@ -40,6 +41,7 @@ module coop_asy_mod
      procedure::density => coop_asy_density_d
      procedure::xrel => coop_asy_xrel
      procedure::yrel => coop_asy_yrel
+     procedure::expand => coop_asy_expand
   end type coop_asy
 
 
@@ -142,11 +144,11 @@ contains
 
   subroutine coop_asy_init(fp,  xmin, xmax, ymin, ymax, width, height, caption, xlabel, ylabel, xlog, ylog, zlog, doclip, nblocks)
     class(coop_asy) fp
-    real(sp),optional:: width, height
+    COOP_SINGLE ,optional:: width, height
     COOP_UNKNOWN_STRING,optional:: caption, xlabel, ylabel
     COOP_INT ,optional::nblocks
     logical,optional::xlog, ylog, zlog, doclip
-    real(sp),optional:: xmin, xmax, ymin, ymax
+    COOP_SINGLE ,optional:: xmin, xmax, ymin, ymax
     character(len = 5) tmp
     if(present(width))then
        fp%width = width
@@ -276,7 +278,7 @@ contains
 
   subroutine coop_asy_write_limits(fp, xmin, xmax, ymin, ymax)
     class(coop_asy) fp
-    real(sp) xmin, xmax, ymin, ymax
+    COOP_SINGLE  xmin, xmax, ymin, ymax
     write(fp%unit, "(2G14.5)") xmin, xmax
     write(fp%unit, "(2G14.5)") ymin, ymax
     fp%xmin = min(xmin, fp%xmin)
@@ -287,8 +289,8 @@ contains
 
   subroutine coop_asy_write_coor(fp, x, y, x2, y2)
     class(coop_asy) fp
-    real(sp) x, y
-    real(sp),optional:: x2, y2
+    COOP_SINGLE  x, y
+    COOP_SINGLE ,optional:: x2, y2
     if(present(x2) .and. present(y2))then
        write(fp%unit, "(4G14.5)") x, y, x2, y2
        fp%xmin = min(x2, fp%xmin)
@@ -307,7 +309,7 @@ contains
   subroutine coop_asy_dot_d(fp, x, y, color, symbol)
     class(coop_asy) fp
     COOP_INT  n
-    real(dl) x,y
+    COOP_REAL  x,y
     COOP_UNKNOWN_STRING,optional:: color
     COOP_UNKNOWN_STRING,optional::symbol
     write(fp%unit, "(A)") "DOTS"
@@ -329,7 +331,7 @@ contains
   subroutine coop_asy_dot_s(fp, x, y, color, symbol)
     class(coop_asy) fp
     COOP_INT  n
-    real(sp) x,y
+    COOP_SINGLE  x,y
     COOP_UNKNOWN_STRING,optional:: color
     COOP_UNKNOWN_STRING,optional::symbol
     write(fp%unit, "(A)") "DOTS"
@@ -352,7 +354,7 @@ contains
   subroutine coop_asy_dots_d(fp, x, y, color, symbol)
     class(coop_asy) fp
     COOP_INT  n,i
-    real(dl),dimension(:),intent(IN)::x,y
+    COOP_REAL ,dimension(:),intent(IN)::x,y
     COOP_UNKNOWN_STRING,optional:: color
     COOP_UNKNOWN_STRING,optional::symbol
     n = coop_getdim( "coop_asy_dot_block", size(x), size(y))
@@ -376,7 +378,7 @@ contains
   subroutine coop_asy_dots_s(fp, x, y, color, symbol)
     class(coop_asy) fp
     COOP_INT  n,i
-    real(sp),dimension(:),intent(IN)::x,y
+    COOP_SINGLE ,dimension(:),intent(IN)::x,y
     COOP_UNKNOWN_STRING,optional:: color
     COOP_UNKNOWN_STRING,optional::symbol
     n = coop_getdim( "coop_asy_dot_block", size(x), size(y))
@@ -400,9 +402,9 @@ contains
 
   subroutine coop_asy_line_d(fp, xstart, ystart, xend, yend, color, linetype, linewidth)
     class(coop_asy) fp
-    real(dl)::xstart, ystart, xend, yend
+    COOP_REAL ::xstart, ystart, xend, yend
     COOP_UNKNOWN_STRING, optional::color, linetype
-    real(sp),optional::linewidth
+    COOP_SINGLE ,optional::linewidth
     COOP_STRING lineproperty
     write(fp%unit, "(A)") "LINES"
     write(fp%unit, "(A)") "1"
@@ -428,7 +430,7 @@ contains
     class(coop_asy) fp
     real::xstart, ystart, xend, yend
     COOP_UNKNOWN_STRING, optional::color, linetype
-    real(sp),optional::linewidth
+    COOP_SINGLE ,optional::linewidth
     COOP_STRING lineproperty
     write(fp%unit, "(A)") "LINES"
     write(fp%unit, "(A)") "1"
@@ -451,9 +453,9 @@ contains
   
   subroutine coop_asy_lines_d(fp, xstart, ystart, xend, yend, color, linetype, linewidth)
     class(coop_asy) fp
-    real(dl),dimension(:),intent(IN)::xstart, ystart, xend, yend
+    COOP_REAL ,dimension(:),intent(IN)::xstart, ystart, xend, yend
     COOP_UNKNOWN_STRING, optional::color, linetype
-    real(sp),optional::linewidth
+    COOP_SINGLE ,optional::linewidth
     COOP_STRING lineproperty
     COOP_INT  n, i
     write(fp%unit, "(A)") "LINES"
@@ -481,9 +483,9 @@ contains
 
   subroutine coop_asy_lines_s(fp, xstart, ystart, xend, yend, color, linetype, linewidth)
     class(coop_asy) fp
-    real(sp),dimension(:),intent(IN)::xstart, ystart, xend, yend
+    COOP_SINGLE ,dimension(:),intent(IN)::xstart, ystart, xend, yend
     COOP_UNKNOWN_STRING, optional::color, linetype
-    real(sp),optional::linewidth
+    COOP_SINGLE ,optional::linewidth
     COOP_STRING lineproperty
     COOP_INT  n, i
     write(fp%unit, "(A)") "LINES"
@@ -508,17 +510,47 @@ contains
     enddo
   end subroutine coop_asy_lines_s
 
+  subroutine coop_asy_add_legend(fp,  legend,  color, linetype, linewidth)
+    class(coop_asy)::fp
+    COOP_UNKNOWN_STRING::legend
+    COOP_UNKNOWN_STRING, optional :: color, linetype
+    COOP_SINGLE, optional::linewidth
+    COOP_STRING lineproperty
+    write(fp%unit, "(A)") "LEGEND"
+    write(fp%unit, "(A)") "VIRTUAL"
+    if(trim(adjustl(legend)) .ne. "")then
+       write(fp%unit, "(A)") trim(adjustl(legend))
+    else
+       write(fp%unit, "(A)") "NULL"
+    endif
+    if(present(color))then
+       lineproperty=trim(color)
+    else
+       lineproperty = "black"
+    endif
+    if(present(linetype))then
+       lineproperty = trim(lineproperty)//"_"//trim(linetype)
+    else
+       lineproperty = trim(lineproperty)//"_solid"
+    endif
+    if(present(linewidth))then
+       lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
+    else
+       lineproperty = trim(lineproperty)//"_8"
+    endif
+    write(fp%unit, "(A)") trim(lineproperty)
+  end subroutine coop_asy_add_legend
 
   subroutine coop_asy_interpolate_curve_d(fp, xraw, yraw, interpolate, color, linetype, linewidth, legend)
     COOP_INT ,parameter::n = 256
-    real(dl) x(n), y(n),  minx, maxx, dx
+    COOP_REAL  x(n), y(n),  minx, maxx, dx
     COOP_INT  w(n)
-    real(dl),dimension(:),allocatable::xx, yy, yy2
+    COOP_REAL ,dimension(:),allocatable::xx, yy, yy2
     class(coop_asy) fp
-    real(dl),dimension(:),intent(IN)::xraw, yraw
+    COOP_REAL ,dimension(:),intent(IN)::xraw, yraw
     COOP_UNKNOWN_STRING interpolate
     COOP_UNKNOWN_STRING,optional:: color, linetype
-    real(sp),optional::linewidth
+    COOP_SINGLE ,optional::linewidth
     COOP_UNKNOWN_STRING, optional::legend
     COOP_INT  i, j, m, nn, npt
     COOP_STRING lineproperty
@@ -714,15 +746,15 @@ contains
 
   subroutine coop_asy_plot_likelihood_d(fp, xraw, yraw, color, linetype, linewidth, legend, left_tail, right_tail)
     class(coop_asy) fp
-    real(dl),dimension(:),intent(IN)::xraw, yraw
+    COOP_REAL ,dimension(:),intent(IN)::xraw, yraw
     COOP_UNKNOWN_STRING,optional:: color, linetype
-    real(sp),optional::linewidth
+    COOP_SINGLE ,optional::linewidth
     COOP_UNKNOWN_STRING, optional::legend
     COOP_INT  i, j, m, nn, npt, imax
     COOP_STRING lineproperty
     logical, optional::left_tail, right_tail
     logical do_left_tail, do_right_tail
-    real(dl) ymax
+    COOP_REAL  ymax
     m = Coop_getdim("coop_asy_fit_likliehood", size(xraw), size(yraw))
     imax = coop_maxloc(COOP_REAL_OF(yraw))
     ymax = yraw(imax)
@@ -790,14 +822,14 @@ contains
 
   subroutine coop_asy_interpolate_curve_s(fp, xraw, yraw, interpolate, color, linetype, linewidth, legend)
     COOP_INT ,parameter::n = 256
-    real(dl) x(n), y(n),  minx, maxx, dx
+    COOP_REAL  x(n), y(n),  minx, maxx, dx
     COOP_INT  w(n)
-    real(dl),dimension(:),allocatable::xx, yy, yy2
+    COOP_REAL ,dimension(:),allocatable::xx, yy, yy2
     class(coop_asy) fp
-    real(sp),dimension(:),intent(IN)::xraw, yraw
+    COOP_SINGLE ,dimension(:),intent(IN)::xraw, yraw
     COOP_UNKNOWN_STRING interpolate
     COOP_UNKNOWN_STRING,optional:: color, linetype
-    real(sp),optional::linewidth
+    COOP_SINGLE ,optional::linewidth
     COOP_UNKNOWN_STRING, optional::legend
     COOP_INT  i, j, m, nn, npt
     COOP_STRING lineproperty
@@ -995,9 +1027,9 @@ contains
 
   subroutine coop_asy_plot_likelihood_s(fp, xraw, yraw, color, linetype, linewidth, legend, left_tail, right_tail)
     class(coop_asy) fp
-    real(sp),dimension(:),intent(IN)::xraw, yraw
+    COOP_SINGLE ,dimension(:),intent(IN)::xraw, yraw
     COOP_UNKNOWN_STRING,optional:: color, linetype
-    real(sp),optional::linewidth
+    COOP_SINGLE ,optional::linewidth
     COOP_UNKNOWN_STRING, optional::legend
     COOP_INT  i, j, m, nn, npt, imax
     COOP_STRING lineproperty
@@ -1070,15 +1102,15 @@ contains
   subroutine coop_asy_curve_from_file(fp, fname, interpolate, xcol, ycol, color, linetype, linewidth, legend)
     COOP_INT ,parameter::n = 256
     COOP_INT , optional::xcol, ycol
-    real(dl) x(n), y(n),  minx, maxx, dx
+    COOP_REAL  x(n), y(n),  minx, maxx, dx
     COOP_INT  w(n)
-    real(dl),dimension(:),allocatable::xx, yy, yy2
+    COOP_REAL ,dimension(:),allocatable::xx, yy, yy2
     class(coop_asy) fp
     type(coop_file) fp2
-    real(dl),dimension(:),allocatable::xraw, yraw, line
+    COOP_REAL ,dimension(:),allocatable::xraw, yraw, line
     COOP_UNKNOWN_STRING interpolate, fname
     COOP_UNKNOWN_STRING,optional:: color, linetype
-    real(sp),optional::linewidth
+    COOP_SINGLE ,optional::linewidth
     COOP_UNKNOWN_STRING, optional::legend
     COOP_INT  i, j, m, nn, npt, ncols, xl, yl
     COOP_STRING lineproperty
@@ -1309,9 +1341,9 @@ contains
   subroutine coop_asy_curve_d(fp, x, y, smooth, color, linetype, linewidth, legend)
     class(coop_asy) fp
     logical,optional::smooth
-    real(dl),dimension(:),intent(IN)::x,y
+    COOP_REAL ,dimension(:),intent(IN)::x,y
     COOP_UNKNOWN_STRING,optional:: color, linetype
-    real(sp),optional::linewidth
+    COOP_SINGLE ,optional::linewidth
     COOP_UNKNOWN_STRING, optional::legend
     COOP_INT  i,n
     COOP_STRING lineproperty
@@ -1358,9 +1390,9 @@ contains
   subroutine coop_asy_curve_s(fp, x, y, smooth, color, linetype, linewidth, legend)
     class(coop_asy) fp
     logical,optional::smooth
-    real(sp),dimension(:),intent(IN)::x,y
+    COOP_SINGLE ,dimension(:),intent(IN)::x,y
     COOP_UNKNOWN_STRING,optional:: color, linetype
-    real(sp),optional::linewidth
+    COOP_SINGLE ,optional::linewidth
     COOP_INT  i,n
     COOP_UNKNOWN_STRING,optional::legend
     COOP_STRING lineproperty
@@ -1406,7 +1438,7 @@ contains
 
   subroutine coop_asy_labels_d(fp, labels, x, y, color, alignment)
     COOP_STRING, dimension(:),intent(IN)::labels
-    real(dl),dimension(:),intent(IN)::x, y
+    COOP_REAL ,dimension(:),intent(IN)::x, y
     class(coop_asy) fp
     COOP_UNKNOWN_STRING,optional::color
     COOP_UNKNOWN_STRING,optional::alignment
@@ -1442,7 +1474,7 @@ contains
 
   subroutine coop_asy_labels_s(fp, labels, x, y, color, alignment)
     COOP_STRING, dimension(:),intent(IN)::labels
-    real(sp),dimension(:),intent(IN)::x, y
+    COOP_SINGLE ,dimension(:),intent(IN)::x, y
     class(coop_asy) fp
     COOP_UNKNOWN_STRING,optional::color
     COOP_UNKNOWN_STRING,optional::alignment
@@ -1482,7 +1514,7 @@ contains
     COOP_UNKNOWN_STRING label
     COOP_UNKNOWN_STRING,optional::color
     COOP_UNKNOWN_STRING,optional::alignment
-    real(dl) x, y
+    COOP_REAL  x, y
     if(present(alignment))then
        select case(trim(alignment))
        case("left","LEFT","Left","l","L")
@@ -1514,7 +1546,7 @@ contains
     COOP_UNKNOWN_STRING label
     COOP_UNKNOWN_STRING,optional::color
     COOP_UNKNOWN_STRING,optional::alignment
-    real(sp) xratio, yratio
+    COOP_SINGLE  xratio, yratio
     if(present(alignment))then
        select case(trim(alignment))
        case("left","LEFT","Left","l","L")
@@ -1547,7 +1579,7 @@ contains
     COOP_UNKNOWN_STRING label
     COOP_UNKNOWN_STRING,optional::color
     COOP_UNKNOWN_STRING,optional::alignment
-    real(sp) x, y
+    COOP_SINGLE  x, y
     if(present(alignment))then
        select case(trim(alignment))
        case("left","LEFT","Left","l","L")
@@ -1579,10 +1611,10 @@ contains
   subroutine coop_asy_contour_d(fp, x, y, colorfill, smooth, linecolor, linetype, linewidth)
     class(coop_asy) fp
     logical,optional::smooth
-    real(dl),dimension(:),intent(IN)::x,y
+    COOP_REAL ,dimension(:),intent(IN)::x,y
     COOP_UNKNOWN_STRING,optional::colorfill
     COOP_UNKNOWN_STRING,optional:: linecolor, linetype
-    real(sp),optional::linewidth
+    COOP_SINGLE ,optional::linewidth
     COOP_INT  i,n
     COOP_STRING lineproperty
     n = coop_getdim("coop_asy_contour", size(x), size(y))
@@ -1630,10 +1662,10 @@ contains
   subroutine coop_asy_contour_s(fp, x, y, colorfill, smooth, linecolor, linetype, linewidth)
     class(coop_asy) fp
     logical,optional::smooth
-    real(sp),dimension(:),intent(IN)::x,y
+    COOP_SINGLE ,dimension(:),intent(IN)::x,y
     COOP_UNKNOWN_STRING,optional::colorfill
     COOP_UNKNOWN_STRING,optional:: linecolor, linetype
-    real(sp),optional::linewidth
+    COOP_SINGLE ,optional::linewidth
     COOP_INT  i,n
     COOP_STRING lineproperty
     n = coop_getdim("coop_asy_contour", size(x), size(y))
@@ -1683,10 +1715,10 @@ contains
     class(coop_asy) fp
     logical,optional::smooth
     type(coop_asy_path) path
-    real(sp) xy(2)
+    COOP_SINGLE  xy(2)
     COOP_UNKNOWN_STRING,optional::colorfill
     COOP_UNKNOWN_STRING,optional:: linecolor, linetype
-    real(sp),optional::linewidth
+    COOP_SINGLE ,optional::linewidth
     COOP_INT  i, ipath, pl
     COOP_STRING lineproperty
     if(path%nclosed.eq.0 .or. (.not. path%l%isinit()) .or. path%l%n .eq. 0)return
@@ -1740,10 +1772,10 @@ contains
   subroutine coop_asy_contour_mult_d(fp, x, y, colorfill, smooth, linecolor, linetype, linewidth)
     class(coop_asy) fp
     logical,optional::smooth
-    real(dl),dimension(:,:),intent(IN)::x,y
+    COOP_REAL ,dimension(:,:),intent(IN)::x,y
     COOP_UNKNOWN_STRING,optional::colorfill
     COOP_UNKNOWN_STRING,optional:: linecolor, linetype
-    real(sp),optional::linewidth
+    COOP_SINGLE ,optional::linewidth
     COOP_INT  i,n, m,ipath
     COOP_STRING lineproperty
     n = coop_getdim("coop_asy_contour", size(x,1), size(y,1))
@@ -1794,10 +1826,10 @@ contains
   subroutine coop_asy_contour_mult_s(fp, x, y, colorfill, smooth, linecolor, linetype, linewidth)
     class(coop_asy) fp
     logical,optional::smooth
-    real(sp),dimension(:,:),intent(IN)::x,y
+    COOP_SINGLE ,dimension(:,:),intent(IN)::x,y
     COOP_UNKNOWN_STRING,optional::colorfill
     COOP_UNKNOWN_STRING,optional:: linecolor, linetype
-    real(sp),optional::linewidth
+    COOP_SINGLE ,optional::linewidth
     COOP_INT  i,n, m,ipath
     COOP_STRING lineproperty
     n = coop_getdim("coop_asy_contour", size(x,1), size(y,1))
@@ -1848,13 +1880,13 @@ contains
 
   subroutine coop_asy_contour_arr_d(fp, z, xmin, xmax, ymin, ymax, cvals, colorfill, smooth, linecolor, linetype, linewidth)
     class(coop_asy) fp
-    real(dl),dimension(:,:)::z
-    real(dl) xmin, xmax, ymin, ymax
-    real(dl) cvals(:)
+    COOP_REAL ,dimension(:,:)::z
+    COOP_REAL  xmin, xmax, ymin, ymax
+    COOP_REAL  cvals(:)
     COOP_INT  nx, ny, i, nc
     COOP_STRING,dimension(:)::colorfill
     COOP_STRING,dimension(:)::linecolor, linetype
-    real(sp),dimension(:),optional::linewidth
+    COOP_SINGLE ,dimension(:),optional::linewidth
     logical smooth
     nx = size(z, 1)
     ny = size(z, 2)
@@ -1891,13 +1923,13 @@ contains
 
   subroutine coop_asy_contour_arr_s(fp, z, xmin, xmax, ymin, ymax, cvals, colorfill, smooth, linecolor, linetype, linewidth)
     class(coop_asy) fp
-    real(sp),dimension(:,:)::z
-    real(sp) xmin, xmax, ymin, ymax
-    real(sp) cvals(:)
+    COOP_SINGLE ,dimension(:,:)::z
+    COOP_SINGLE  xmin, xmax, ymin, ymax
+    COOP_SINGLE  cvals(:)
     COOP_INT  nx, ny, i, nc
     COOP_STRING,dimension(:)::colorfill
     COOP_STRING,dimension(:)::linecolor, linetype
-    real(sp),dimension(:),optional::linewidth
+    COOP_SINGLE ,dimension(:),optional::linewidth
     logical smooth
     nx = size(z, 1)
     ny = size(z, 2)
@@ -1935,11 +1967,11 @@ contains
 
   subroutine coop_asy_density_d(fp, z, xmin, xmax, ymin, ymax, label, zmin, zmax, color_table)
     class(coop_asy) fp
-    real(dl),dimension(:,:)::z
-    real(dl) xmin, xmax, ymin, ymax
-    real(dl),optional::zmin, zmax
+    COOP_REAL ,dimension(:,:)::z
+    COOP_REAL  xmin, xmax, ymin, ymax
+    COOP_REAL ,optional::zmin, zmax
     COOP_UNKNOWN_STRING, optional::label
-    real(dl) minz, maxz
+    COOP_REAL  minz, maxz
     COOP_INT  nx, ny, i
     COOP_UNKNOWN_STRING, optional::color_table
     nx = size(z, 1)
@@ -1986,10 +2018,10 @@ contains
 
   subroutine coop_asy_density_s(fp, z, xmin, xmax, ymin, ymax, label, zmin, zmax, color_table)
     class(coop_asy) fp
-    real(sp),dimension(:,:)::z
-    real(sp) xmin, xmax, ymin, ymax
-    real(sp),optional::zmin, zmax
-    real(sp) minz, maxz
+    COOP_SINGLE ,dimension(:,:)::z
+    COOP_SINGLE  xmin, xmax, ymin, ymax
+    COOP_SINGLE ,optional::zmin, zmax
+    COOP_SINGLE  minz, maxz
     COOP_INT  nx, ny, i
     COOP_UNKNOWN_STRING, optional::label, color_table
     nx = size(z, 1)
@@ -2035,11 +2067,11 @@ contains
 
  subroutine coop_asy_irregular_density_d(fp, x, y, z, label, xmin, xmax, ymin, ymax, zmin, zmax, color_table)
     class(coop_asy) fp
-    real(dl),dimension(:)::x, y, z
+    COOP_REAL ,dimension(:)::x, y, z
     COOP_UNKNOWN_STRING, optional::label, color_table
-    real(dl),optional::xmin, xmax, ymin, ymax, zmin, zmax
+    COOP_REAL ,optional::xmin, xmax, ymin, ymax, zmin, zmax
     COOP_INT  i, n
-    real(dl) minx, miny, minz, maxx, maxy, maxz
+    COOP_REAL  minx, miny, minz, maxx, maxy, maxz
     n = coop_getdim("coop_asy_irregular_density", size(x), size(y), size(z))
     if(present(xmin))then
        minx = xmin
@@ -2101,11 +2133,11 @@ contains
 
   subroutine coop_asy_irregular_density_s(fp, x, y, z, label, xmin, xmax, ymin, ymax, zmin, zmax, color_table)
     class(coop_asy) fp
-    real(sp),dimension(:)::x, y, z
+    COOP_SINGLE ,dimension(:)::x, y, z
     COOP_UNKNOWN_STRING, optional::label, color_table
-    real(sp),optional::xmin, xmax, ymin, ymax, zmin, zmax
+    COOP_SINGLE ,optional::xmin, xmax, ymin, ymax, zmin, zmax
     COOP_INT  i, n
-    real(sp) minx, miny, minz, maxx, maxy, maxz
+    COOP_SINGLE  minx, miny, minz, maxx, maxy, maxz
     n = coop_getdim("coop_asy_irregular_density", size(x), size(y), size(z))
     if(present(xmin))then
        minx = xmin
@@ -2170,7 +2202,7 @@ contains
   subroutine coop_asy_clip_d(fp, x, y, smooth)
     class(coop_asy) fp
     logical,optional::smooth
-    real(dl),dimension(:),intent(IN)::x,y
+    COOP_REAL ,dimension(:),intent(IN)::x,y
     COOP_INT  i,n
     n = coop_getdim("coop_asy_clip", size(x), size(y))
     write(fp%unit, "(A)") "CLIP"
@@ -2193,7 +2225,7 @@ contains
   subroutine coop_asy_clip_s(fp, x, y, smooth)
     class(coop_asy) fp
     logical,optional::smooth
-    real(sp),dimension(:),intent(IN)::x,y
+    COOP_SINGLE ,dimension(:),intent(IN)::x,y
     COOP_INT  i,n
     n = coop_getdim("coop_asy_clip", size(x), size(y))
     write(fp%unit, "(A)") "CLIP"
@@ -2215,7 +2247,7 @@ contains
   function coop_asy_linestyle(color, linetype, linewidth)
     COOP_UNKNOWN_STRING color
     COOP_UNKNOWN_STRING,optional::linetype
-    real(sp),optional::linewidth
+    COOP_SINGLE ,optional::linewidth
     COOP_STRING coop_asy_linestyle
     if(trim(color).eq."" .or. trim(color).eq."NULL")then
        coop_asy_linestyle = "NULL"
@@ -2232,13 +2264,13 @@ contains
   end function coop_asy_linestyle
 
   subroutine coop_asy_path_append_s(path, x, y)
-    real(sp) x, y
+    COOP_SINGLE  x, y
     type(coop_asy_path) path
     call path%l%push( (/ x, y /) )
   end subroutine coop_asy_path_append_s
 
   subroutine coop_asy_path_append_d(path, x, y)
-    real(dl) x, y
+    COOP_REAL  x, y
     type(coop_asy_path) path
     call coop_asy_path_append_s(path, real(x), real(y))
   end subroutine coop_asy_path_append_d
@@ -2268,8 +2300,8 @@ contains
     COOP_INT ,optional:: resolution
     type(coop_asy_path) path
     external f
-    real(sp) f
-    real(sp) xmin, xmax, ymin, ymax, threshold, dx, dy, dxby2, dyby2
+    COOP_SINGLE  f
+    COOP_SINGLE  xmin, xmax, ymin, ymax, threshold, dx, dy, dxby2, dyby2
     COOP_INT  n
     logical,dimension(:,:),allocatable::above
     COOP_INT ,dimension(:,:,:),allocatable::lines
@@ -2411,8 +2443,8 @@ contains
   contains
 
     subroutine insert_point()
-      real(sp) x, y
-      real(sp) fp(2), s
+      COOP_SINGLE  x, y
+      COOP_SINGLE  fp(2), s
       x =  xmin+i*dx
       y = ymin+j*dy
       if(i.eq.0 .or. i.eq.n)then
@@ -2439,8 +2471,8 @@ contains
 
   subroutine coop_asy_path_from_array_center(path, f, xmin, xmax, ymin, ymax, threshold)
     type(coop_asy_path) path
-    real(sp) f(:,:)
-    real(sp) xmin, xmax, ymin, ymax, threshold, dx, dy
+    COOP_SINGLE  f(:,:)
+    COOP_SINGLE  xmin, xmax, ymin, ymax, threshold, dx, dy
     COOP_INT  nx, ny, n
     nx = size(f, 1)
     ny = size(f, 2)
@@ -2451,9 +2483,9 @@ contains
   contains
     
     function  finterp(x, y)
-      real(sp) x, y, finterp
+      COOP_SINGLE  x, y, finterp
       COOP_INT  i, j, ip1, jp1
-      real(sp) ri, rj
+      COOP_SINGLE  ri, rj
       ri = (x-xmin)/dx + 0.5
       rj = (y-ymin)/dy + 0.5
       i = floor(ri)
@@ -2475,8 +2507,8 @@ contains
 
   subroutine coop_asy_path_from_array(path, f, xmin, xmax, ymin, ymax, threshold)
     type(coop_asy_path) path
-    real(sp) f(:,:)
-    real(sp) xmin, xmax, ymin, ymax, threshold, dx, dy
+    COOP_SINGLE  f(:,:)
+    COOP_SINGLE  xmin, xmax, ymin, ymax, threshold, dx, dy
     COOP_INT  nx, ny, n
     nx = size(f, 1)
     ny = size(f, 2)
@@ -2487,9 +2519,9 @@ contains
   contains
     
     function  finterp(x, y)
-      real(sp) x, y, finterp
+      COOP_SINGLE  x, y, finterp
       COOP_INT  i, j
-      real(sp) ri, rj
+      COOP_SINGLE  ri, rj
       ri = (x-xmin)/dx + 1.
       rj = (y-ymin)/dy + 1.
       i = min(max(floor(ri), 1), nx-1)
@@ -2526,7 +2558,7 @@ contains
 
   subroutine coop_asy_legend_d(fp, x, y, cols)
     class(coop_asy) fp
-    real(dl)x, y
+    COOP_REAL x, y
     COOP_INT ,optional::cols
     write(fp%unit, "(A)") "LEGEND"
     write(fp%unit, "(A)") "NULL"
@@ -2540,7 +2572,7 @@ contains
 
   subroutine coop_asy_legend_s(fp, x, y, cols)
     class(coop_asy) fp
-    real(sp) x, y
+    COOP_SINGLE  x, y
     COOP_INT ,optional::cols
     write(fp%unit, "(A)") "LEGEND"
     write(fp%unit, "(A)") "NULL"
@@ -2554,7 +2586,7 @@ contains
 
   subroutine coop_asy_legend_relative(fp, xratio, yratio, cols)
     class(coop_asy) fp
-    real(sp) xratio, yratio
+    COOP_SINGLE  xratio, yratio
     COOP_INT ,optional::cols
     write(fp%unit, "(A)") "LEGEND"
     write(fp%unit, "(A)") "NULL"
@@ -2568,7 +2600,7 @@ contains
   
 
   subroutine coop_asy_topaxis_s(fp, xmin, xmax, islog,label)
-    real(sp) xmin, xmax
+    COOP_SINGLE  xmin, xmax
     logical islog
     class(coop_asy) fp
     COOP_UNKNOWN_STRING label
@@ -2588,7 +2620,7 @@ contains
   end subroutine coop_asy_topaxis_s
 
   subroutine coop_asy_topaxis_d(fp, xmin, xmax, islog,label)
-    real(dl) xmin, xmax
+    COOP_REAL  xmin, xmax
     logical islog
     class(coop_asy) fp
     COOP_UNKNOWN_STRING label
@@ -2597,7 +2629,7 @@ contains
 
 
   subroutine coop_asy_rightaxis_s(fp, ymin, ymax, islog, label)
-    real(sp) ymin, ymax
+    COOP_SINGLE  ymin, ymax
     logical islog
     class(coop_asy) fp
     COOP_UNKNOWN_STRING label
@@ -2617,7 +2649,7 @@ contains
   end subroutine coop_asy_rightaxis_s
 
   subroutine coop_asy_rightaxis_d(fp, ymin, ymax, islog, label)
-    real(dl) ymin, ymax
+    COOP_REAL  ymin, ymax
     logical islog
     COOP_UNKNOWN_STRING label
     class(coop_asy) fp
@@ -2626,8 +2658,8 @@ contains
 
   subroutine coop_asy_error_bar_d(fp, x, y, dy_minus, dy_plus, dx_minus, dx_plus, color)
     class(coop_asy) fp
-    real(dl) x, y
-    real(dl),optional::dy_minus, dy_plus, dx_minus, dx_plus
+    COOP_REAL  x, y
+    COOP_REAL ,optional::dy_minus, dy_plus, dx_minus, dx_plus
     COOP_UNKNOWN_STRING, optional::color
     if(present(color))then
        call coop_asy_label(fp, "$\bullet$", x, y, color)
@@ -2670,8 +2702,8 @@ contains
 
   subroutine coop_asy_error_bar_s(fp, x, y, dy_minus, dy_plus, dx_minus, dx_plus, color)
     class(coop_asy) fp
-    real(sp) x, y
-    real(sp),optional::dy_minus, dy_plus, dx_minus, dx_plus
+    COOP_SINGLE  x, y
+    COOP_SINGLE ,optional::dy_minus, dy_plus, dx_minus, dx_plus
     COOP_UNKNOWN_STRING, optional::color
     if(present(color))then
        call coop_asy_label(fp, "$\bullet$", x, y, color)
@@ -2714,27 +2746,27 @@ contains
 
 
   function coop_asy_rgb_color_s(r, g, b) result(color)
-    real(sp) r, g, b
+    COOP_SINGLE  r, g, b
     COOP_SHORT_STRING color
     color = "RGB:"//trim(coop_num2str(nint(min(1., max(0., r))*255.*8.)/8.))//":"//trim(coop_num2str(nint(min(1., max(0., g))*255.*8.)/8.))//":"//trim(coop_num2str(nint(min(1., max(0., b))*255.*8.)/8.))
   end function coop_asy_rgb_color_s
 
   function coop_asy_rgb_color_d(r,g,b) result(color)
-    real(dl) r, g, b
+    COOP_REAL  r, g, b
     COOP_SHORT_STRING color
     color = coop_asy_rgb_color_s(real(r), real(g), real(b))
   end function coop_asy_rgb_color_d
 
 
   function coop_asy_gray_color_s(gray) result(color)
-    real(sp) gray
+    COOP_SINGLE  gray
     COOP_SHORT_STRING color
     color = "GRAY:"//trim(coop_num2str(nint(min(1., max(0., gray))*255.*8.)/8.))
   end function coop_asy_gray_color_s
 
 
   function coop_asy_gray_color_d(gray) result(color)
-    real(dl) gray
+    COOP_REAL  gray
     COOP_SHORT_STRING color
     color = coop_asy_gray_color_s(real(gray))
   end function coop_asy_gray_color_d
@@ -2797,10 +2829,10 @@ contains
   subroutine coop_asy_band_d(fp, x, ylower, yupper, colorfill, smooth, linecolor, linetype, linewidth)
     class(coop_asy) fp
     logical,optional::smooth
-    real(dl),dimension(:),intent(IN)::x,ylower, yupper
+    COOP_REAL ,dimension(:),intent(IN)::x,ylower, yupper
     COOP_UNKNOWN_STRING,optional::colorfill
     COOP_UNKNOWN_STRING,optional:: linecolor, linetype
-    real(sp),optional::linewidth
+    COOP_SINGLE ,optional::linewidth
     COOP_INT  i,n
     COOP_STRING lineproperty
     n = coop_getdim("coop_asy_contour", size(x), size(ylower), size(yupper))
@@ -2860,10 +2892,10 @@ contains
   subroutine coop_asy_band_s(fp, x, ylower, yupper, colorfill, smooth, linecolor, linetype, linewidth)
     class(coop_asy) fp
     logical,optional::smooth
-    real(sp),dimension(:),intent(IN)::x,ylower, yupper
+    COOP_SINGLE ,dimension(:),intent(IN)::x,ylower, yupper
     COOP_UNKNOWN_STRING,optional::colorfill
     COOP_UNKNOWN_STRING,optional:: linecolor, linetype
-    real(sp),optional::linewidth
+    COOP_SINGLE ,optional::linewidth
     COOP_INT  i,n
     COOP_STRING lineproperty
     n = coop_getdim("coop_asy_contour", size(x), size(ylower), size(yupper))
@@ -2922,17 +2954,23 @@ contains
 
   function coop_asy_xrel(fp, xratio) result(xrel)
     class(coop_asy)::fp
-    real(sp) xratio
-    real(sp) xrel
+    COOP_SINGLE  xratio
+    COOP_SINGLE  xrel
     xrel = xratio*fp%xmax + (1.d0-xratio)*fp%xmin
   end function coop_asy_xrel
 
   function coop_asy_yrel(fp, yratio) result(yrel)
     class(coop_asy)::fp
-    real(sp) yratio
-    real(sp) yrel
+    COOP_SINGLE  yratio
+    COOP_SINGLE  yrel
     yrel = yratio*fp%ymax + (1.d0-yratio)*fp%ymin
   end function coop_asy_yrel
   
-
+  subroutine coop_asy_expand(fp, xl, xr, yl, yr)
+    class(coop_asy) fp
+    COOP_SINGLE xl, xr, yl, yr
+    write(fp%unit, "(A)") "EXPAND"
+    write(fp%unit, "(4G14.5)")  xl, xr, yl, yr
+  end subroutine coop_asy_expand
+  
 end module coop_asy_mod

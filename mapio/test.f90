@@ -13,6 +13,8 @@ program test
   type(coop_file)::fp
   integer l
   COOP_REAL::scal(2, 10)
+  print*, size(scal)
+  stop
   call fp%open(coop_inputArgs(1), "r")
   do l=1, n
      read(fp%unit, *) scal(:, l)

@@ -16,16 +16,16 @@ program test
   type(coop_healpix_maps)::map
   COOP_STRING::prefix
   COOP_REAL, dimension(:,:,:,:),allocatable::f
-  COOP_REAL, dimension(:),allocatable::r, rsq, mean, std, chisq
-  COOP_REAL, dimension(:,:),allocatable::cov
+  COOP_REAL, dimension(:),allocatable::r, rsq, mean, chisq
+  COOP_REAL, dimension(:,:),allocatable::cov, bounds
   COOP_INT::nproj
   COOP_REAL,dimension(:,:),allocatable::vec
   COOP_SHORT_STRING::label
-  COOP_STRING::mean_file
+  COOP_STRING::bounds_file
   type(coop_asy)::fig
   
   if(iargc() .lt. 7)then
-     write(*,*) "./POSTSST prefix start1 end1 start2 end2 nproj map_want [Label][MeanFile]"
+     write(*,*) "./POSTSST prefix start1 end1 start2 end2 nproj map_want [Label] [Bounds_File]"
      stop
   endif
   prefix = coop_InputArgs(1)
@@ -36,7 +36,7 @@ program test
   nproj = coop_str2int(coop_InputArgs(6))
   map_want = coop_str2int(coop_InputArgs(7))
   label = trim(coop_InputArgs(8))
-  mean_file = trim(coop_InputArgs(9))
+  bounds_file = trim(coop_InputArgs(9))
   
   if(trim(label).eq."") label = "P"
 
@@ -49,7 +49,7 @@ program test
   nproj = min(n+1, nproj)
   
   dr = dr*coop_SI_arcmin
-  allocate(f(0:n, 0:mmax/2, nmaps, 0:nsims), r(0:n), rsq(0:n), mean(nproj), chisq(0:nsims), vec(nproj, 0:nsims), cov(nproj, nproj), std(nproj))
+  allocate(f(0:n, 0:mmax/2, nmaps, 0:nsims), r(0:n), rsq(0:n), mean(nproj), chisq(0:nsims), vec(nproj, 0:nsims), cov(nproj, nproj), bounds(-2:2, nproj) )
   do i=0,n
      r(i) = (dr*i)
   enddo
@@ -83,13 +83,17 @@ program test
      do i = 0, nsims
         call fr2vec(f(0:n, m_want/2, map_want, i), vec(:, i))
      enddo
-     if(trim(mean_file).ne."")then
-        call fp%open(trim(mean_file)//COOP_STR_OF(m_want)//".txt", "r")
-        read(fp%unit, *) mean
+     do i=1, nproj
+        mean(i) = sum(vec(i, start1:end1))/n1
+     enddo
+     
+     if(trim(bounds_file).ne."")then
+        call fp%open(trim(bounds_file)//COOP_STR_OF(m_want)//".txt", "r")
+        read(fp%unit, *) bounds
         call fp%close()
      else
         do i=1, nproj
-           mean(i) = sum(vec(i, start1:end1))/n1
+           call coop_get_bounds( vec(i, start1:end1), (/ 0.023d0, 0.1585d0, 0.5d0, 0.8415d0, 0.977d0 /), bounds(-2:2, i) )
         enddo
      endif
      
@@ -99,7 +103,6 @@ program test
            cov(j, i) = cov(i, j)
         enddo
         cov(i, i) = cov(i, i)*1.0001+1.d-8
-        std(i) = sqrt(cov(i,i))
      enddo
      call coop_matsym_inverse(cov)
      do i=0, nsims
@@ -109,18 +112,18 @@ program test
      if(nproj .eq. n + 1)then !!make the scattering plot
         call fig%open(trim(prefix)//"_fig"//trim(label)//COOP_STR_OF(m_want)//".txt")
         call fig%init(xlabel = "$\omega$", ylabel  = "$"//trim(label)//"_"//trim(COOP_STR_OF(m_want))//" (\mu K)$")
-        call fig%band(r, -std*2, std*2, colorfill = trim(coop_asy_gray_color(0.65)), linecolor = "invisible")
-        call fig%band(r, -std,std, colorfill = trim(coop_asy_gray_color(0.4)), linecolor = "invisible")        
-        call fig%curve(r, vec(:, 0)-mean, color = "red", linetype = "solid", linewidth = 1.5, legend = "Planck")
-        call fig%curve(r, std, color = trim(coop_asy_gray_color(0.4)), linewidth = 0.25, legend = "FFP8 1-$\sigma$")
-        call fig%curve(r, 2*std, color = trim(coop_asy_gray_color(0.65)), linewidth = 0.25, legend = "FFP8 2-$\sigma$")
-        call fig%dot(r(n), fig%ymax*1.15d0-fig%ymin*0.15, color="invisible")
+        call fig%band(r, bounds(-2,:), bounds(2,:), colorfill = trim(coop_asy_gray_color(0.65)), linecolor = "invisible")
+        call fig%band(r, bounds(-1,:), bounds(1,:), colorfill = trim(coop_asy_gray_color(0.36)), linecolor = "invisible")        
+        call fig%curve(r, vec(:, 0) - bounds(0, :), color = "red", linetype = "solid", linewidth = 1.5, legend = "Planck")
+        call fig%add_legend(legend = "FFP8 1-$\sigma$", color = trim(coop_asy_gray_color(0.36)))
+        call fig%add_legend(legend = "FFP8 2-$\sigma$", color = trim(coop_asy_gray_color(0.65)))        
+        call fig%expand(0., 0., 0., 0.15)
         call fig%legend(0.05, 0.95, 1)
         call fig%close()
      endif
-     if(trim(mean_file).eq."")then
-        call fp%open(trim(prefix)//"_mean"//trim(label)//COOP_STR_OF(m_want)//".txt", "w")
-        write(fp%unit, "("//COOP_STR_OF(nproj)//"E16.7)") mean
+     if(trim(bounds_file).eq."")then
+        call fp%open(trim(prefix)//"_median"//trim(label)//COOP_STR_OF(m_want)//".txt", "w")
+        write(fp%unit, "("//COOP_STR_OF(size(bounds))//"E16.7)") bounds
         call fp%close()
      endif
   end do

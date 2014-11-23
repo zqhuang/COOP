@@ -5,16 +5,16 @@ module coop_sort_mod
 
   private
 
-  COOP_INT ,parameter::sp = kind(1.)
-  COOP_INT ,parameter::dl = kind(1.d0)
-
-  public::coop_quicksort, coop_quicksortAcc, coop_quicksort_index, coop_bin_data, coop_array_get_threshold
+  public::coop_quicksort, coop_quicksortAcc, coop_quicksort_index, coop_bin_data, coop_array_get_threshold, coop_get_bounds
 
   !!coop_quicksort(array x) will sort x such that x(1)<=x(2)<...<=x(n)
   interface Coop_quicksort
      Module Procedure coop_quicksort_int,coop_quicksort_d, coop_quicksort_s,  coop_quicksort2d_int,coop_quicksort2d_d, coop_quicksort2d_s
   End interface
 
+    interface coop_get_bounds
+     module procedure coop_get_bounds_d, coop_get_bounds_s
+  end interface coop_get_bounds
 
 
   interface Coop_quicksortAcc
@@ -96,7 +96,7 @@ contains
   !!%%%%%%%%%%%%%%% Coop_quicksort %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
   !!non-recursive QUiCK SOrT r-->r(1)<r(2)<...
   subroutine Coop_quicksort_d(r)
-    real(dl),dimension(:),intent(inout)::r
+    COOP_REAL ,dimension(:),intent(inout)::r
     COOP_INT  n
     n=size(r)
     call quicksort_double(r, n)
@@ -104,7 +104,7 @@ contains
 
 
   subroutine Coop_quicksort2d_d(r)
-    real(dl),dimension(:,:),intent(inout)::r
+    COOP_REAL ,dimension(:,:),intent(inout)::r
     COOP_INT  n
     n=size(r)
     call quicksort_double(r, n)
@@ -113,14 +113,14 @@ contains
 
 
   subroutine Coop_quicksort_s(r)
-    real(sp),dimension(:),intent(inout)::r
+    COOP_SINGLE,dimension(:),intent(inout)::r
     COOP_INT  n
     n = size(r)
     call quicksort_float(r, n)
   end subroutine Coop_quicksort_s
 
   subroutine Coop_quicksort2d_s(r)
-    real(sp),dimension(:,:),intent(inout)::r
+    COOP_SINGLE,dimension(:,:),intent(inout)::r
     COOP_INT  n
     call quicksort_float(r, n)
   end subroutine Coop_quicksort2d_s
@@ -143,7 +143,7 @@ contains
 
 
   subroutine Coop_quicksortacc_d(r, indices)
-    real(dl),dimension(:),intent(inOUT)::r
+    COOP_REAL ,dimension(:),intent(inOUT)::r
     COOP_INT,dimension(:),intent(OUT)::indices
     COOP_INT n, i
     n = Coop_getdim("Coop_quicksortAcc",SiZE(r),Size(indices))
@@ -152,7 +152,7 @@ contains
   end subroutine Coop_quicksortacc_d
 
   subroutine Coop_quicksortacc_s(r, indices)
-    real(sp),dimension(:),intent(inOUT)::r
+    COOP_SINGLE,dimension(:),intent(inOUT)::r
     COOP_INT,dimension(:),intent(OUT)::indices
     COOP_INT n, i
     n = Coop_getdim("Coop_quicksortAcc",SiZE(r),Size(indices))
@@ -161,8 +161,8 @@ contains
   end subroutine Coop_quicksortacc_s
 
   subroutine Coop_quicksortacc_dd(r, indices)
-    real(dl),dimension(:),intent(inOUT)::r
-    real(dl),dimension(:),intent(OUT)::indices
+    COOP_REAL ,dimension(:),intent(inOUT)::r
+    COOP_REAL ,dimension(:),intent(OUT)::indices
     COOP_INT  n
     n =  Coop_getdim("Coop_quicksortAcc",SiZE(r),Size(indices))
     call quicksort_double_with_double(r, indices, n)
@@ -170,8 +170,8 @@ contains
 
 
   subroutine Coop_quicksortacc_ss(r, indices)
-    real(sp),dimension(:),intent(inOUT)::r
-    real(sp),dimension(:),intent(OUT)::indices
+    COOP_SINGLE,dimension(:),intent(inOUT)::r
+    COOP_SINGLE,dimension(:),intent(OUT)::indices
     COOP_INT  n
     n =  Coop_getdim("Coop_quicksortAcc",SiZE(r),Size(indices))
     call quicksort_float_with_float(r, indices, n)
@@ -179,10 +179,10 @@ contains
 
 
   Subroutine Coop_quicksort_index_d(r, ind)
-    real(dl),dimension(:),intent(in)::r
+    COOP_REAL ,dimension(:),intent(in)::r
     COOP_INT,dimension(:),intent(out)::ind
     COOP_INT n, i
-    real(dl),dimension(:),allocatable::x
+    COOP_REAL ,dimension(:),allocatable::x
     n = Coop_getdim("coop_quicksort_index", size(r), size(ind))
     allocate(x(n), source=r)
     ind = (/ (i , i=1,n) /)
@@ -191,10 +191,10 @@ contains
   End Subroutine Coop_quicksort_index_d
 
   Subroutine Coop_quicksort_index_s(r, ind)
-    real(sp),dimension(:),intent(in)::r
+    COOP_SINGLE,dimension(:),intent(in)::r
     COOP_INT,dimension(:),intent(out)::ind
     COOP_INT n, i
-    real(sp),dimension(:),allocatable::x
+    COOP_SINGLE,dimension(:),allocatable::x
     n = Coop_getdim("coop_quicksort_index", size(r), size(ind))
     allocate(x(n), source=r)
     ind = (/ (i , i=1,n) /)
@@ -203,7 +203,7 @@ contains
   End Subroutine Coop_quicksort_index_s
 
   subroutine coop_bin_data_d(x, nbins, center, density)
-    real(dl) x(:), center(:), density(:)
+    COOP_REAL  x(:), center(:), density(:)
     COOP_INT  nbins, n, nb
     n = size(x)
     nb = min(size(center), size(density))
@@ -211,7 +211,7 @@ contains
   end subroutine coop_bin_data_d
 
   subroutine coop_bin_data_s(x, nbins, center, density)
-    real(sp) x(:), center(:), density(:)
+    COOP_SINGLE x(:), center(:), density(:)
     COOP_INT  nbins, n, nb
     n = size(x)
     nb = min(size(center), size(density))
@@ -219,7 +219,7 @@ contains
   end subroutine coop_bin_data_s
   
   subroutine coop_bin_data2d_d(x, nbins, center, density)
-    real(dl) x(:,:), center(:), density(:)
+    COOP_REAL  x(:,:), center(:), density(:)
     COOP_INT  nbins, n, nb
     n = size(x)
     nb = min(size(center), size(density))
@@ -227,7 +227,7 @@ contains
   end subroutine coop_bin_data2d_d
 
   subroutine coop_bin_data2d_s(x, nbins, center, density)
-    real(sp) x(:,:), center(:), density(:)
+    COOP_SINGLE x(:,:), center(:), density(:)
     COOP_INT  nbins, n, nb
     n = size(x)
     nb = min(size(center), size(density))
@@ -236,8 +236,8 @@ contains
 
 
   subroutine coop_array_get_threshold_d(x, perc, threshold)
-    real(dl) x(:)
-    real(dl) perc,threshold
+    COOP_REAL  x(:)
+    COOP_REAL  perc,threshold
     COOP_INT n
     n = size(x)
     call array_get_threshold_double(x, n, perc, threshold)
@@ -245,16 +245,16 @@ contains
 
 
   subroutine coop_array_get_threshold_s(x, perc, threshold)
-    real(sp) x(:)
-    real(sp) perc,threshold
+    COOP_SINGLE x(:)
+    COOP_SINGLE perc,threshold
     COOP_INT n
     n = size(x)
     call array_get_threshold_float(x, n, perc, threshold)
   end subroutine coop_array_get_threshold_s
 
   subroutine coop_array_get_threshold2d_d(x, perc, threshold)
-    real(dl) x(:,:)
-    real(dl) perc,threshold
+    COOP_REAL  x(:,:)
+    COOP_REAL  perc,threshold
     COOP_INT n
     n = size(x)
     call array_get_threshold_double(x, n, perc, threshold)
@@ -262,12 +262,52 @@ contains
 
 
   subroutine coop_array_get_threshold2d_s(x, perc, threshold)
-    real(sp) x(:,:)
-    real(sp) perc,threshold
+    COOP_SINGLE x(:,:)
+    COOP_SINGLE perc,threshold
     COOP_INT n
     n = size(x)
     call array_get_threshold_float(x, n, perc, threshold)
   end subroutine coop_array_get_threshold2d_s
+
+  subroutine coop_get_bounds_d(x, cls, bounds)
+    COOP_REAL x(:), cls(:), bounds(:)
+    COOP_REAL,dimension(:),allocatable::xcopy
+    COOP_INT n, i, j, m
+    COOP_REAL ir
+    n = size(x)
+    m = coop_getdim("get_bounds", size(cls), size(bounds))
+    allocate(xcopy(n))
+    xcopy = x
+    call coop_quicksort(xcopy)
+    do j=1, m
+       ir = cls(j)*(n-1.d0) + 1.d0
+       i = max(1, min(floor(ir), n-1))
+       ir = ir - i
+       bounds(j) = xcopy(i) * (1.d0 - ir) + xcopy(i+1)*ir
+    enddo
+    deallocate(xcopy)
+  end subroutine coop_get_bounds_d
+
+
+subroutine coop_get_bounds_s(x, cls, bounds)
+    COOP_SINGLE x(:), cls(:), bounds(:)
+    COOP_SINGLE,dimension(:),allocatable::xcopy
+    COOP_INT n, i, j, m
+    COOP_REAL ir
+    n = size(x)
+    m = coop_getdim("get_bounds", size(cls), size(bounds))
+    allocate(xcopy(n))
+    xcopy = x
+    call coop_quicksort(xcopy)
+    do j=1, m
+       ir = cls(j)*(n-1.d0) + 1.d0
+       i = max(1, min(floor(ir), n-1))
+       ir = ir - i
+       bounds(j) = xcopy(i) * (1.d0 - ir) + xcopy(i+1)*ir
+    enddo
+    deallocate(xcopy)
+  end subroutine coop_get_bounds_s
+  
 
 
 end module coop_sort_mod

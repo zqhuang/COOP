@@ -18,7 +18,7 @@ n = number of blocks (integer)
 =========================================================
 More about the blocks:
 ---------------------------------------------------------
-Each block can be either DOTS, LINES, CURVE, LABELS, CONTOUR, CLIP, LEGEND, EXTRA_AXIS, or DENSITY
+Each block can be either DOTS, LINES, CURVE, LABELS, CONTOUR, CLIP, LEGEND, EXTRA_AXIS, or DENSITY, EXPAND
 ---------------------------------------------------------
 Format of DOTS block
 ---------------------------------------------------------
@@ -307,6 +307,32 @@ string fetch_string(file fin){
        if(nlines > 100) abort("Too many comment lines?");}
     if(getstr=="NULL") return "";
     return getstr;}
+
+
+pen whitepen_from_string(string fullstr){
+  string sbreak[] = split(fullstr, "_");
+  if(sbreak.length == 0) return currentpen;
+  string cstr;
+  pen colorpen;
+  colorpen = white;
+  if(sbreak.length == 1) return colorpen;
+  cstr = trim_string(sbreak[1]);
+  if(cstr == "dotted" || cstr=="dot")
+     colorpen = colorpen + dotted;
+  else if(cstr == "dashed" || cstr=="dash")
+      colorpen = colorpen + dashed;
+  else if(cstr == "longdashed" || cstr == "longdash")
+      colorpen = colorpen + longdashed;
+  else if(cstr == "dashdotted" || cstr == "dotdashed" || cstr == "dashdot" || cstr == "dotdash")
+      colorpen = colorpen + dashdotted;
+  else if(cstr == "longdashdotted" || cstr == "longdotdashed" || cstr == "longdotdash" || cstr == "longdashdot")
+      colorpen = colorpen + longdashdotted;
+  else
+      colorpen = colorpen + solid;
+ if(sbreak.length == 2) return colorpen;
+ real wid = (real) sbreak[2];
+ colorpen = colorpen + wid;
+ return colorpen;}
 
 pen pen_from_string(string fullstr){
   string sbreak[] = split(fullstr, "_");
@@ -736,15 +762,26 @@ int plot_legend(file fin){
   string cstr;
   cstr = fetch_string(fin);
   if(trim_string(cstr) !=""){
-     int cols = fin;
-     if(trim_string(cstr) == "N")
-        add(legend(cols), point(N), 20N, UnFill); 
-     else if(trim_string(cstr) == "S")
-        add(legend(cols), point(S), 20S, UnFill); 
-     else if(trim_string(cstr) == "W")
-        add(legend(cols), point(W), 20W, UnFill);
-     else
-        add(legend(cols), point(E), 20E, UnFill);}
+     if(trim_string(cstr) == "VIRTUAL"){
+        string l = fetch_string(fin);
+        cstr = fetch_string(fin);
+        pen colorpen = pen_from_string(cstr) + linecap(0);
+	aymax = aymax + (aymax-aymin)*0.01;
+	path  g = (axmax, aymax) .. cycle;
+        draw(g = g, p = colorpen, legend=l);
+        colorpen = whitepen_from_string(cstr) + linecap(0); 	
+	draw(g = g, p = colorpen);
+	return 1;  }
+     else{
+       int cols = fin;
+       if(trim_string(cstr) == "N")
+          add(legend(cols), point(N), 20N, UnFill); 
+       else if(trim_string(cstr) == "S")
+          add(legend(cols), point(S), 20S, UnFill); 
+       else if(trim_string(cstr) == "W")
+          add(legend(cols), point(W), 20W, UnFill);
+       else 
+          add(legend(cols), point(E), 20E, UnFill);}}
   else{
      real loc[] = fin.dimension(2);
      int cols = fin;
@@ -914,6 +951,19 @@ p = Gradient(256, rgb255(0.0, 0.00, 255.0), rgb255(0.8, 1.54, 255.0), rgb255(1.5
   }
   }
 
+//=======================================================================
+
+void plot_expand(file fin){
+   real[] t = fin.dimension(4);
+   real dx = axmax - axmin;
+   real dy = aymax - aymin;
+   axmin = axmin - dx*t[0];
+   axmax = axmax + dx*t[1];
+   aymin = aymin - dy*t[2];
+   aymax = aymax + dy*t[3]; }
+
+
+//=======================================================================
 
 bool plot_block(file fin){
     string block = fetch_string(fin);
@@ -946,6 +996,8 @@ bool plot_block(file fin){
     else if(block == "DENSITY"){
        nlines = plot_density(fin);
        write(stdout, (string) nlines + ' density points are plotted.\n');}
+    else if(block == "DENSITY"){
+       nlines = plot_expand(fin);}
     else if(block == "LEGEND"){
        nlines = plot_legend(fin);
        write(stdout, 'legends are added. \n');}
@@ -955,6 +1007,7 @@ bool plot_block(file fin){
     else
        plotted = false;
     return plotted;}
+
 
 void plot_axes(){
 //==================== set up the coordinates ============
@@ -986,6 +1039,7 @@ else{
    plot_rightaxis();}
 
 }
+
 
 void set_scales(){
 if(zlog){
