@@ -540,6 +540,7 @@ contains
        call getCosmomcParams(mc, j, CosmomcParams)
        if(isam .le. num_cls_samples .and. coop_postprocess_do_cls)then
           coop_global_cosmology_do_firstorder = .true.
+          write(*,*) "Computing Cls #"//COOP_STR_OF(isam)//" / "//COOP_STR_OF(num_cls_samples)
           call coop_setup_cosmology_from_cosmomc(Cosmomcparams)
           do l = lmin, lmax
              cls_samples(l, isam) = coop_pp_total_cls(coop_index_clTT, l)*(l*(l+1.d0)/coop_2pi * 2.72558e6**2)
