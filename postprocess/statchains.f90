@@ -467,7 +467,7 @@ contains
     COOP_INT i , ip, j,  j2, k, ik, ik1, numpiv, ltmp, ik2, ndof, jrand, junk, l, num_params, index_pp, pp_location, icontour, numpp, num_trajs, ind_lowk, isam
     COOP_SINGLE total_mult, cltraj_weight, x(mc%nb), ytop
     logical first_1sigma, inflation_consistency
-    COOP_REAL  norm, lnkmin, lnkmax, errup, errdown, mean_lnAs    
+    COOP_REAL  norm, lnkmin, lnkmax, errup, errdown, mean_lnAs, hubble    
     COOP_REAL  lnk(nk), kMpc(nk), ps(nk), pt(nk), lnpsmean(nk), lnptmean(nk), lnpscov(nk, nk), lnps(nk), lnpt(nk),  mineig, clnps(coop_pp_n), clnpt(coop_pp_n), lnps_bounds(-2:2,nk), standard_lnps(nk), lnps_samples(num_samples_to_get_mean, nk), lnpt_samples(num_samples_to_get_mean, nk), mult_samples(num_samples_to_get_mean), Cls_samples(lmin:lmax, num_cls_samples), cls_mean(lmin:lmax)
     COOP_REAL, dimension(:,:),allocatable::pcamat
     COOP_REAL, dimension(:),allocatable::eig, ipca, cosmomcParams
@@ -540,8 +540,10 @@ contains
        call getCosmomcParams(mc, j, CosmomcParams)
        if(isam .le. num_cls_samples .and. coop_postprocess_do_cls)then
           coop_global_cosmology_do_firstorder = .true.
-          write(*,*) "Computing Cls #"//COOP_STR_OF(isam)//" / "//COOP_STR_OF(num_cls_samples)
-          call coop_setup_cosmology_from_cosmomc(Cosmomcparams)
+          hubble = name2value(mc, j, "H")/100.          
+          write(*,*) "Computing Cls #"//COOP_STR_OF(isam)//" / "//COOP_STR_OF(num_cls_samples)//":  h = "//COOP_STR_OF(hubble)
+
+          call coop_setup_cosmology_from_cosmomc(Cosmomcparams, hubble)
           do l = lmin, lmax
              cls_samples(l, isam) = coop_pp_total_cls(coop_index_clTT, l)*(l*(l+1.d0)/coop_2pi * 2.72558e6**2)
           enddo
