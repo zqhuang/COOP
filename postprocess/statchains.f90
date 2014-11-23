@@ -541,7 +541,9 @@ contains
        if(isam .le. num_cls_samples .and. coop_postprocess_do_cls)then
           coop_global_cosmology_do_firstorder = .true.
           call coop_setup_cosmology_from_cosmomc(Cosmomcparams)
-          cls_samples(:, isam) = coop_pp_total_cls(coop_index_clTT, :)
+          do l = lmin, lmax
+             cls_samples(l, isam) = coop_pp_total_cls(coop_index_clTT, l)*(l*(l+1.d0)/coop_2pi * 2.72558e6**2)
+          enddo
        else
           coop_global_cosmology_do_firstorder = .false.
           call coop_setup_cosmology_from_cosmomc(Cosmomcparams)
