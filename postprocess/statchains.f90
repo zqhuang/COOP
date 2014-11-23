@@ -579,12 +579,10 @@ contains
     total_mult = sum(mult_samples)
     do ik = 1, nk
        lnpsmean(ik) = sum(lnps_samples(:, ik)*mult_samples)/total_mult
-       lnptmean(ik) = sum(lnpt_samples(:, ik)*mult_samples) / total_mult
+       lnptmean(ik) = sum(lnpt_samples(:, ik)*mult_samples)/total_mult
     enddo
     ps = 1.e10 * exp(lnpsmean)
     pt = 1.e10 * exp(lnptmean)
-    call fig_spec%curve(kmpc, ps, color = "red", linetype = "solid", linewidth = 1.5, legend="mean scalar")
-    call fig_spec%curve(kmpc, pt, color = "violet", linetype = "solid", linewidth = 1.2, legend="mean tensor")
     
     clnps = clnps/total_mult
     clnpt = clnpt/total_mult
@@ -603,7 +601,8 @@ contains
     enddo
     call fig_spec%band(kmpc, 1.d10*exp(lnps_bounds(-2,:)), 1.d10*exp(lnps_bounds(2,:)), colorfill = trim(coop_asy_gray_color(0.65)), linecolor="invisible")
     call fig_spec%band(kmpc, 1.d10*exp(lnps_bounds(-1,:)), 1.d10*exp(lnps_bounds(1,:)), colorfill = trim(coop_asy_gray_color(0.4)), linecolor="invisible")
-       
+    call fig_spec%curve(kmpc, ps, color = "red", linetype = "solid", linewidth = 1.5, legend="mean scalar")
+    call fig_spec%curve(kmpc, pt, color = "violet", linetype = "solid", linewidth = 1.2, legend="mean tensor")
     call fig_spec%curve(kmpc, ps_trajs(:,1), color="HEX:006FED", linetype="dashed", linewidth=0.5,legend="1-$\sigma$ scalar")
     call fig_spec%curve(kmpc, pt_trajs(:, 1), color="HEX:8CD3F5", linetype="dotted", linewidth=0.5, legend="1-$\sigma$ tensor")       
     do j=2, num_trajs
