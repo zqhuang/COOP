@@ -530,7 +530,7 @@ contains
     standard_lnps = mean_lnAs+(standard_ns -1.)*(lnk-coop_pp_scalar_lnkpivot)
     
     call fig_spec%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$10^{10}\mathcal{P}_{S,T}$", xlog=.true., ylog = .true., xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = 1., ymax = 250., doclip = .true.)
-    if(coop_postprocess_do_cls)call fig_cls%init(xlabel = "$\ell$", ylabel ="$\frac{\ell(\ell+1)}{2\pi} C_\ell$",  xlog = .true., ylog = .true., xmin = 1., xmax = 2000., ymin = 0., ymax = 7000., doclip = .true.)
+    if(coop_postprocess_do_cls)call fig_cls%init(xlabel = "$\ell$", ylabel ="$\frac{\ell(\ell+1)}{2\pi} C_\ell$",  xlog = .true., ylog = .false., xmin = 1., xmax = 2000., ymin = 0., ymax = 7000., doclip = .true.)
   
     call coop_asy_topaxis(fig_spec, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell\equiv  k D_{\rm rec}$")
     call fig_pot%init(xlabel="$(\phi - \phi_{\rm pivot})/M_p$", ylabel = "$\ln (V/V_{\rm pivot})$", xmin = -1.5, xmax = 0.5, ymin = -0.2, ymax = 0.6, doclip = .true.)
