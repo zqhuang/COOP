@@ -540,7 +540,7 @@ contains
        call getCosmomcParams(mc, j, CosmomcParams)
        if(isam .le. num_cls_samples .and. coop_postprocess_do_cls)then
           coop_global_cosmology_do_firstorder = .true.
-          hubble = name2value(mc, j, "H")/100.          
+          hubble = mc%params(j, num_params+1)/100.
           write(*,*) "Computing Cls #"//COOP_STR_OF(isam)//" / "//COOP_STR_OF(num_cls_samples)//":  h = "//COOP_STR_OF(hubble)
 
           call coop_setup_cosmology_from_cosmomc(Cosmomcparams, hubble)
