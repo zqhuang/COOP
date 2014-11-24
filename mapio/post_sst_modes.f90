@@ -114,7 +114,7 @@ program test
      write(*,"(A, I5, A, F12.4, A, F12.4)") "m=", m_want, ", p-value = ", count(chisq(start2:end2).gt.chisq(0))/dble(n2), ", chi^2=", chisq(0)
      if(nproj .eq. n + 1)then !!make the scattering plot
         call fig%open(trim(prefix)//"_fig"//trim(label)//COOP_STR_OF(m_want)//".txt")
-        call fig%init(xlabel = "$\omega$", ylabel  = "$"//trim(label)//"_"//trim(COOP_STR_OF(m_want))//" (\mu K)$")
+        call fig%init(xlabel = "$\omega$", ylabel  = "$\delta "//trim(label)//"_"//trim(COOP_STR_OF(m_want))//" (\mu K)$")
         call fig%band(r, bounds(-2,:)-bounds(0,:), bounds(2,:)-bounds(0,:), colorfill = trim(coop_asy_gray_color(0.65)), linecolor = "invisible")
         call fig%band(r, bounds(-1,:)-bounds(0,:), bounds(1,:)-bounds(0,:), colorfill = trim(coop_asy_gray_color(0.42)), linecolor = "invisible")        
         do i=1, 20
@@ -131,6 +131,19 @@ program test
         call fig%expand(0., 0., 0.01, 0.25)
         call fig%legend(0.05, 0.95, 2)
         call fig%close()
+
+        call fig%open(trim(prefix)//"_full"//trim(label)//COOP_STR_OF(m_want)//".txt")
+        call fig%init(xlabel = "$\omega$", ylabel  = "$ "//trim(label)//"_"//trim(COOP_STR_OF(m_want))//" (\mu K)$")
+        call fig%band(r, bounds(-2,:), bounds(2,:), colorfill = trim(coop_asy_gray_color(0.65)), linecolor = "invisible")
+        call fig%band(r, bounds(-1,:), bounds(1,:), colorfill = trim(coop_asy_gray_color(0.42)), linecolor = "invisible")        
+        call fig%curve(r, bounds(0,:), color = "HEX:21C0FC", linetype = "solid", linewidth = 1.5, legend = "mean")                
+        call fig%curve(r, vec(:, 0), color = "HEX:21C0FC", linetype = "solid", linewidth = 1.5, legend = "Planck")        
+        call fig%add_legend(legend = "1-$\sigma$ bound", color = trim(coop_asy_gray_color(0.42)))
+        call fig%add_legend(legend = "2-$\sigma$ bound", color = trim(coop_asy_gray_color(0.65)))        
+        call fig%expand(0., 0., 0.01, 0.25)
+        call fig%legend(0.05, 0.95, 2)
+        call fig%close()
+        
      endif
      if(trim(bounds_file).eq."")then
         call fp%open(trim(prefix)//"_median"//trim(label)//COOP_STR_OF(m_want)//".txt", "w")
