@@ -628,7 +628,7 @@ contains
           do 
              if( fcl%read_string(inline) )then
                 read(inline, *) l, junk, junk, cltt, errup, errdown
-                if(l.lt. 100)then  !!do correction
+                if(l.lt. 40)then  !!do correction
                    cltt = cltt*1.03
                 endif
                 if(l.gt. lmax)exit
