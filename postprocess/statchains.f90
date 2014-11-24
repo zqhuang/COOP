@@ -484,17 +484,6 @@ contains
     COOP_STRING:: inline
     
     mc%output = trim(adjustl(output))//trim(coop_file_name_of(mc%prefix))
-    call fp%open(trim(mc%output)//".likes", "w")
-    write(fp%unit, "(A, G14.5)") "Best -lnlike = ", mc%bestlike
-    write(fp%unit, "(A, G14.5)") "Worst -lnlike = ", mc%worstlike
-    do j = 1, mcmc_stat_num_cls
-       write(fp%unit, "(A, F14.3, A, G14.5)") "prob = ", mcmc_stat_cls(j)," truncation like = ", mc%likecut(j)
-    enddo
-    write(fp%unit,'(A)') "Best params:"    
-    do i=1, mc%np
-       write(fp%unit,'(A)') 'param['//trim(mc%name(i))//'] = '//COOP_STR_OF(mc%params(mc%ibest, i))
-    enddo
-    call fp%close()
     !! =================================================================!!
     index_pp = cosmomc_de_index + cosmomc_de_num_params + cosmomc_de2pp_num_params
     num_params = index_pp + cosmomc_pp_num_params - 1
@@ -548,7 +537,11 @@ contains
     isam = 0
     do while(isam .lt. num_samples_to_get_mean)
        isam = isam + 1
-       j = coop_random_index(mc%n)
+       if(isam .eq. 1)then
+          j = mc%ibest
+       else
+          j = coop_random_index(mc%n)
+       endif
        call getCosmomcParams(mc, j, CosmomcParams)
        if(isam .le. num_cls_samples .and. coop_postprocess_do_cls)then
           coop_global_cosmology_do_firstorder = .true.
@@ -833,8 +826,25 @@ contains
     deallocate(CosmoMcParams)
     if(allocated(lnk_knots))deallocate(lnk_knots, k_knots, cov_knots, lnps_knots, lnps_mean_knots, lnps_standard_knots, cov_lowk, cov_highk)
 
-
-!!margestats    
+    !!likes file
+    call fp%open(trim(mc%output)//".likes", "w")
+    write(fp%unit, "(A, G14.5)") "Best -lnlike = ", mc%bestlike
+    write(fp%unit, "(A, G14.5)") "Worst -lnlike = ", mc%worstlike
+    do j = 1, mcmc_stat_num_cls
+       write(fp%unit, "(A, F14.3, A, G14.5)") "prob = ", mcmc_stat_cls(j)," truncation like = ", mc%likecut(j)
+    enddo
+    write(fp%unit,'(A)') "Best params:"    
+    do i=1, mc%np
+       write(fp%unit,'(A)') 'param['//trim(mc%name(i))//'] = '//COOP_STR_OF(mc%params(mc%ibest, i))
+    enddo
+    if(coop_postprocess_do_cls)then
+       write(fp%unit,'(A)') "Best ClTT:"        
+       do l = 2, lmax
+          write(fp%unit, "(I5, E16.7)") l, cls_samples(l, 1)
+       enddo
+    endif
+    call fp%close()    
+    !!margestats    
     call fp%open(trim(mc%output)//".margestats", "w")
     select case(mcmc_stat_num_cls)
     case(3:)
