@@ -116,7 +116,7 @@ program test
         call fig%band(r, bounds(-2,:)-bounds(0,:), bounds(2,:)-bounds(0,:), colorfill = trim(coop_asy_gray_color(0.65)), linecolor = "invisible")
         call fig%band(r, bounds(-1,:)-bounds(0,:), bounds(1,:)-bounds(0,:), colorfill = trim(coop_asy_gray_color(0.36)), linecolor = "invisible")        
         call fig%curve(r, vec(:, 0) - bounds(0, :), color = "red", linetype = "solid", linewidth = 1.5, legend = "Planck")
-        do i=1, 6
+        do i=1, 20
            j = coop_random_index(nsims)
            if(i.eq.1)then
               call fig%curve(r, vec(:, j) - bounds(0, :), color = "skyblue", linetype = "dotted", linewidth = 1., legend = "FFP8 sims.")
