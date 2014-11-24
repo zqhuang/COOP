@@ -126,8 +126,8 @@ program test
         enddo
         call fig%add_legend(legend = "1-$\sigma$ bound", color = trim(coop_asy_gray_color(0.36)))
         call fig%add_legend(legend = "2-$\sigma$ bound", color = trim(coop_asy_gray_color(0.65)))        
-        call fig%expand(0., 0., 0.01, 0.1)
-        call fig%legend(0.05, 0.96, 1)
+        call fig%expand(0., 0., 0.01, 0.15)
+        call fig%legend(0.05, 0.95, 2)
         call fig%close()
      endif
      if(trim(bounds_file).eq."")then
