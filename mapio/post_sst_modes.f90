@@ -16,10 +16,10 @@ program test
   type(coop_healpix_maps)::map
   COOP_STRING::prefix
   COOP_REAL, dimension(:,:,:,:),allocatable::f
-  COOP_REAL, dimension(:),allocatable::r, rsq, mean, chisq
+  COOP_REAL, dimension(:),allocatable::r, rsq, mean, chisq, tmpf
   COOP_REAL, dimension(:,:),allocatable::cov, bounds
   COOP_INT::nproj
-  COOP_REAL,dimension(:,:),allocatable::vec, tmpf
+  COOP_REAL,dimension(:,:),allocatable::vec
   COOP_SHORT_STRING::label
   COOP_STRING::bounds_file
   type(coop_asy)::fig
