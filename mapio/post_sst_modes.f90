@@ -115,15 +115,15 @@ program test
         call fig%init(xlabel = "$\omega$", ylabel  = "$"//trim(label)//"_"//trim(COOP_STR_OF(m_want))//" (\mu K)$")
         call fig%band(r, bounds(-2,:)-bounds(0,:), bounds(2,:)-bounds(0,:), colorfill = trim(coop_asy_gray_color(0.65)), linecolor = "invisible")
         call fig%band(r, bounds(-1,:)-bounds(0,:), bounds(1,:)-bounds(0,:), colorfill = trim(coop_asy_gray_color(0.42)), linecolor = "invisible")        
-        call fig%curve(r, vec(:, 0) - bounds(0, :), color = "HEX:21C0FC", linetype = "solid", linewidth = 1.5, legend = "Planck")
         do i=1, 20
            j = coop_random_index(nsims)
            if(i.eq.1)then
-              call fig%curve(r, vec(:, j) - bounds(0, :), color = "skyblue", linetype = "dotted", linewidth = 1., legend = "FFP8 sims.")
+              call fig%curve(r, vec(:, j) - bounds(0, :), color = "HEX:1010EF", linetype = "dotted", linewidth = 1., legend = "FFP8 sims.")
            else
-              call fig%curve(r, vec(:, j) - bounds(0, :), color = "skyblue", linetype = "dotted", linewidth = 1.)
+              call fig%curve(r, vec(:, j) - bounds(0, :), color = "HEX:1010EF", linetype = "dotted", linewidth = 1.)
            endif
         enddo
+        call fig%curve(r, vec(:, 0) - bounds(0, :), color = "HEX:21C0FC", linetype = "solid", linewidth = 1.5, legend = "Planck")        
         call fig%add_legend(legend = "1-$\sigma$ bound", color = trim(coop_asy_gray_color(0.42)))
         call fig%add_legend(legend = "2-$\sigma$ bound", color = trim(coop_asy_gray_color(0.65)))        
         call fig%expand(0., 0., 0.01, 0.25)
