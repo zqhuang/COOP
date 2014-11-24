@@ -461,7 +461,7 @@ contains
     integer,parameter::distlss = 13893.
     integer, parameter::num_1sigma_trajs = 50
     integer, parameter::num_samples_to_get_mean = 2500
-    integer,parameter::lmin = coop_pp_lmin, lmax = coop_pp_lmax, num_cls_samples = 1
+    integer,parameter::lmin = coop_pp_lmin, lmax = coop_pp_lmax, num_cls_samples = 30
     COOP_REAL,parameter::standard_ns = 0.968d0
     COOP_REAL,parameter::low_ell_cut = 50
     COOP_REAL,parameter::low_k_cut = low_ell_cut/distlss
@@ -550,8 +550,6 @@ contains
           call coop_setup_cosmology_from_cosmomc(Cosmomcparams, hubble)
           if(isam.eq.1)then
              call fcl%open(trim(mc%output)//"_bestcls.txt", "w")
-             print*, "power at 10^-3 = ", COOP_COSMO%psofk(1.d-3/COOP_COSMO%H0Mpc())
-             print*, "power at 5x10^-4 = ", COOP_COSMO%psofk(5.d-4/COOP_COSMO%H0Mpc())             
              do l = 2, lmax
                 norm = (l*(l+1.d0)/coop_2pi * 2.72558e6**2)
                 write(fcl%unit, "(I5, 4E16.7)") l, coop_pp_total_cls(coop_index_clTT, l)*norm, coop_pp_total_cls(coop_index_clTE, l)*norm, coop_pp_total_cls(coop_index_clEE, l)*norm, coop_pp_total_cls(coop_index_clBB, l)*norm
@@ -637,9 +635,6 @@ contains
           do 
              if( fcl%read_string(inline) )then
                 read(inline, *) l, junk, junk, cltt, errup, errdown
-                if(l.lt. 40)then  !!do correction
-                   cltt = cltt*1.03
-                endif
                 if(l.gt. lmax)exit
              else
                 exit
