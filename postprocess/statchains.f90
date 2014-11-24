@@ -462,6 +462,7 @@ contains
     integer, parameter::num_1sigma_trajs = 50
     integer, parameter::num_samples_to_get_mean = 2500
     integer,parameter::lmin = coop_pp_lmin, lmax = coop_pp_lmax, num_cls_samples = 10
+    COOP_REAL::tau_lower_bound = 0.06
     COOP_REAL,parameter::standard_ns = 0.968d0
     COOP_REAL,parameter::low_ell_cut = 50
     COOP_REAL,parameter::low_k_cut = low_ell_cut/distlss
@@ -541,8 +542,13 @@ contains
     num_trajs = 0
     first_1sigma = .true.
     index_H = mc%usedparams%index("H0*")
-    do isam = 1, num_samples_to_get_mean
+    isam = 0
+    do while(isam .lt. num_samples_to_get_mean)
+       isam = isam + 1
        j = coop_random_index(mc%n)
+       do while(mc%params(j, 4).lt. tau_lower_bound)
+          j = coop_random_index(mc%n)
+       enddo
        call getCosmomcParams(mc, j, CosmomcParams)
        if(isam .le. num_cls_samples .and. coop_postprocess_do_cls)then
           coop_global_cosmology_do_firstorder = .true.
