@@ -10,9 +10,9 @@ private
 
   public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe, coop_power_lnk_min, coop_power_lnk_max,  coop_k_dense_fac, coop_index_ClTT, coop_index_ClTE, coop_index_ClEE, coop_index_ClBB, coop_index_ClLenLen, coop_index_ClTLen,  coop_num_Cls, coop_Cls_lmax, coop_bbks_trans
 
-  COOP_INT::coop_Cls_lmax(0:2) = (/ 2700, 2000, 1500 /)
+  COOP_INT::coop_Cls_lmax(0:2) = (/ 2000, 2000, 1500 /)
 
-  COOP_REAL, parameter :: coop_power_lnk_min = log(0.1d0) 
+  COOP_REAL, parameter :: coop_power_lnk_min = log(0.05d0) 
   COOP_REAL, parameter :: coop_power_lnk_max = log(5.d3) 
   COOP_REAL, parameter :: coop_visibility_amin = 1.8d-4
   COOP_REAL, parameter :: coop_initial_condition_epsilon = 1.d-6
@@ -22,7 +22,7 @@ private
 
   COOP_REAL, dimension(0:2), parameter::coop_source_tau_step_factor = (/ 1.d0, 1.d0, 1.d0 /)
   COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
-  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 130, 120, 100 /)
+  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 200, 120, 100 /)
   COOP_REAL, parameter::coop_source_k_index = 0.45d0
   COOP_INT, parameter:: coop_k_dense_fac = 32
 
