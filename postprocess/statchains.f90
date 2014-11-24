@@ -548,6 +548,10 @@ contains
           hubble = mc%params(j, index_H)/100.
           write(*,"(A)") "Computing Cls #"//COOP_STR_OF(isam)//" / "//COOP_STR_OF(num_cls_samples)                 
           call coop_setup_cosmology_from_cosmomc(Cosmomcparams, hubble)
+          if(isam.eq.1)then
+             print*, "power at 1.e-3 = ", coop_primordial_ps(1.d-3)
+             print*, "power at 5.e-4 = ", coop_primordial_ps(5.d-4)
+          endif
           write(*,"(A)")"        cosmology setup done"
           do l = lmin, lmax
              cls_samples(l, isam) = coop_pp_total_cls(coop_index_clTT, l)*(l*(l+1.d0)/coop_2pi * 2.72558e6**2)
