@@ -764,8 +764,8 @@ contains
        lnps_standard_knots = lnps_standard_knots - lnps_mean_knots
        write(*,*) "number of lowk knots =", ind_lowk
        write(*,*) "number of highk knots =", numpp - ind_lowk 
-       write(*,*) "chi_LCDM^2(low k) = ", dot_product(lnps_standard_knots(1:ind_lowk), matmul(cov_lowk, lnps_standard_knots(1:ind_lowk)))
-       write(*,*) "chi_LCDM^2(high k) = ", dot_product(lnps_standard_knots(ind_lowk+1:numpp), matmul(cov_highk, lnps_standard_knots(ind_lowk+1:numpp)))          
+       if(ind_lowk.gt.0)write(*,*) "chi_LCDM^2(low k) per dof = ", dot_product(lnps_standard_knots(1:ind_lowk), matmul(cov_lowk, lnps_standard_knots(1:ind_lowk)))/ind_lowk
+       if(numpp-ind_lowk.gt.0)write(*,*) "chi_LCDM^2(high k) per dof = ", dot_product(lnps_standard_knots(ind_lowk+1:numpp), matmul(cov_highk, lnps_standard_knots(ind_lowk+1:numpp))) /(numpp - ind_lowk)         
     endif
     
 !!now do eigen modes    
