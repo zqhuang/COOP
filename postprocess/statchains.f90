@@ -537,7 +537,7 @@ contains
     call fig_spec%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$10^{10}\mathcal{P}_{S,T}$", xlog=.true., ylog = .true., xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = 1., ymax = 250., doclip = .true.)
     if(coop_postprocess_do_cls)then
        call fig_cls%init(xlabel = "$\ell$", ylabel ="$\mathcal{D}_\ell (\mu K ^2)$",  xlog = .true., ylog = .false., xmin = 1., xmax = 2000., ymin = 0., ymax = 7000., doclip = .true.)
-       if(do_dcl) call fig_dcls%init(xlabel = "$\ell$", ylabel ="$\Delta \mathcal{D}_\ell (\mu K^2)$",  xlog = .true., ylog = .false., xmin = 1., xmax = 2000., ymin = -1000., ymax = 1000., doclip = .true.)       
+       if(do_dcl) call fig_dcls%init(xlabel = "$\ell$", ylabel ="$\Delta \mathcal{D}_\ell (\mu K^2)$",  xlog = .true., ylog = .false., xmin = 1., xmax = 2000., ymin = -500., ymax = 1500., doclip = .true.)       
     endif
     call coop_asy_topaxis(fig_spec, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell\equiv  k D_{\rm rec}$")
     call fig_pot%init(xlabel="$(\phi - \phi_{\rm pivot})/M_p$", ylabel = "$\ln (V/V_{\rm pivot})$", xmin = -1.5, xmax = 0.5, ymin = -0.2, ymax = 0.6, doclip = .true.)
@@ -611,7 +611,12 @@ contains
              first_1sigma = .false.
              if(isam .le. num_cls_samples .and. coop_postprocess_do_cls)then
                 call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = Cls_samples(:, isam), interpolate = "LogLinear", color = "blue", linetype = "dotted", legend = "1-$\sigma$ trajs.")
-                if(do_dcl) call fig_dcls%interpolate_curve(xraw = coop_pp_ells, yraw = Cls_samples(:, isam) - cls_best, interpolate = "LogLinear", color = "blue", linetype = "dotted", legend = "1-$\sigma$ trajs.")                
+                if(do_dcl)then
+                   cls_mean = 0.
+                   call fig_dcls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean, interpolate = "LogLinear", color="HEX:011010", linewidth = 0.5)
+                   
+                   call fig_dcls%interpolate_curve(xraw = coop_pp_ells, yraw = Cls_samples(:, isam) - cls_best, interpolate = "LogLinear", color = "blue", linetype = "dotted", legend = "1-$\sigma$ trajs.")
+                endif
              endif
              call fig_pot%interpolate_curve(xraw = coop_pp_phi, yraw = coop_pp_lnV-coop_pp_lnV(coop_pp_ipivot), interpolate="LinearLinear", color = "blue", linetype = "dotted", legend="1-$\sigma$ trajs.")
              call fig_eps%interpolate_curve(xraw = exp(coop_pp_lnkMpc), yraw = exp(coop_pp_lneps), interpolate = "LogLinear", color = "blue", linetype = "dotted", legend="1-$\sigma$ trajs.")
@@ -636,7 +641,9 @@ contains
        call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean, interpolate = "LogLinear", color="HEX:E01010", linewidth = 1.8, legend="mean")
        if(do_dcl) call fig_dcls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean - cls_best, interpolate = "LogLinear", color="HEX:E01010", linewidth = 1.8, legend="mean")      
 
-       if(do_dcl) call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_best, interpolate = "LogLinear", color="HEX:011010", linewidth = 1.4, legend="$\Lambda$CDM bestfit")
+       if(do_dcl)then
+          call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_best, interpolate = "LogLinear", color="HEX:011010", linewidth = 1.4, legend="$\Lambda$CDM bestfit")
+       endif
        if(trim(bestfit_run_file).ne."")then
           call fcl%open(trim(bestfit_run_file), 'r')
           do l = lmin, lmax
@@ -723,7 +730,7 @@ contains
     endif
     call coop_asy_legend(fig_cls, 4., 5000., 1)
     if(do_dcl)then
-       call coop_asy_legend(fig_dcls, 100., 950., 1)
+       call coop_asy_legend(fig_dcls, 100., 1250., 1)
        call fig_dcls%close()
     endif
     call coop_asy_legend(fig_spec, real(exp(lnkmin + 1.2)), 170., 2)
