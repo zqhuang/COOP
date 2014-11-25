@@ -77,7 +77,7 @@ program hastack_prog
 
   allprefix = prefix//trim(stack_type)//"_on_"//trim(spot_type)//"_fr_"//COOP_STR_OF(scan_nside)//"_"
 
-  if(run_id.eq.0)then
+  if(run_id.eq.0 .or. iargc().ge.3)then
      call fp%open(trim(allprefix)//"info.txt", "w")
      write(fp%unit,*) n, patch_n%nmaps, dr/coop_SI_arcmin
      call fp%close()

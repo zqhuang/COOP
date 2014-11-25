@@ -676,8 +676,8 @@ contains
              else
                 exit
              endif
-             call coop_asy_error_bar(fig_cls, x = dble(l), y = cltt, dy_minus = errdown, dy_plus = errup)
-             call coop_asy_error_bar(fig_dcls, x = dble(l), y = cltt - cls_best(l), dy_minus = errdown, dy_plus = errup)             
+             call coop_asy_error_bar(fig_cls, x = dble(l), y = cltt, dy_minus = errdown, dy_plus = errup, color="HEX:303030")
+             call coop_asy_error_bar(fig_dcls, x = dble(l), y = cltt - cls_best(l), dy_minus = errdown, dy_plus = errup, color="HEX:6F806F")             
           enddo
           call fcl%close()
        endif
