@@ -11,10 +11,9 @@ module coop_statchains_mod
   real,dimension(mcmc_stat_num_cls)::mcmc_stat_cls = (/ 0.683, 0.954, 0.997 /)
 
   COOP_STRING :: measured_cltt_file = ""
-  COOP_STRING :: measured_clee_file = ""
-  COOP_STRING :: measured_clbb_file = ""
-  COOP_STRING :: measured_clte_file = ""
   COOP_STRING :: bestfit_cl_file = ""
+  COOP_STRING :: bestfit_run_file = ""
+  COOP_STRING :: bestfit_varytau_file = ""
   logical::coop_postprocess_do_cls = .false.
   integer::coop_postprocess_nbins = 0
   integer::coop_postprocess_num_contours = 2
@@ -468,13 +467,13 @@ contains
     type(mcmc_chain) mc
     COOP_UNKNOWN_STRING output
     type(coop_file)::fcl
-    type(coop_asy) fp, fig_spec, fig_pot, fig_eps, fig_cls
+    type(coop_asy) fp, fig_spec, fig_pot, fig_eps, fig_cls, fig_dcls
     type(coop_asy_path) path    
     COOP_INT i , ip, j,  j2, k, ik, ik1,  ik2, ndof, l, junk, num_params, index_pp, pp_location, icontour, numpp, num_trajs, ind_lowk, isam, index_H
     COOP_SINGLE total_mult, cltraj_weight, x(mc%nb), ytop
-    logical first_1sigma, inflation_consistency
+    logical first_1sigma, inflation_consistency, do_dcl
     COOP_REAL  norm, lnkmin, lnkmax, cltt, errup, errdown, mean_lnAs, hubble    
-    COOP_REAL  lnk(nk), kMpc(nk), ps(nk), pt(nk), lnpsmean(nk), lnptmean(nk), lnpscov(nk, nk), lnps(nk), lnpt(nk),  mineig, clnps(coop_pp_n), clnpt(coop_pp_n), lnps_bounds(-2:2,nk), standard_lnps(nk), lnps_samples(num_samples_to_get_mean, nk), lnpt_samples(num_samples_to_get_mean, nk), mult_samples(num_samples_to_get_mean), Cls_samples(lmin:lmax, num_cls_samples), cls_mean(lmin:lmax)
+    COOP_REAL  lnk(nk), kMpc(nk), ps(nk), pt(nk), lnpsmean(nk), lnptmean(nk), lnpscov(nk, nk), lnps(nk), lnpt(nk),  mineig, clnps(coop_pp_n), clnpt(coop_pp_n), lnps_bounds(-2:2,nk), standard_lnps(nk), lnps_samples(num_samples_to_get_mean, nk), lnpt_samples(num_samples_to_get_mean, nk), mult_samples(num_samples_to_get_mean), Cls_samples(lmin:lmax, num_cls_samples), cls_mean(lmin:lmax), cls_best(lmin:lmax)
     COOP_REAL, dimension(:,:),allocatable::pcamat
     COOP_REAL, dimension(:),allocatable::eig, ipca, cosmomcParams
     COOP_REAL:: ps_trajs(nk, num_1sigma_trajs), pt_trajs(nk, num_1sigma_trajs) 
@@ -496,7 +495,19 @@ contains
     mean_lnAs = mc%mean(chain_index_of_name(mc, "logA"))       
     call coop_feedback("Generating primordial power spectra trajectories")
     call fig_spec%open(trim(mc%output)//"_power_trajs.txt", "w")
-     if(coop_postprocess_do_cls)call fig_cls%open(trim(mc%output)//"_cl_trajs.txt", "w")
+    if(coop_postprocess_do_cls)then
+       call fig_cls%open(trim(mc%output)//"_cl_trajs.txt", "w")
+       do_dcl  = (trim(bestfit_cl_file).ne."")
+       if(do_dcl)then
+          call fig_dcls%open(trim(mc%output)//"_dcl_trajs.txt", "w")          
+          call fcl%open(trim(bestfit_cl_file), 'r')
+          do l = lmin, lmax
+             read(fcl%unit, *) ik, cls_best(l)
+             if(ik.ne. l) stop "Error in bestfit cl file"
+          enddo
+          call fcl%close()
+       endif
+    endif
     call fig_pot%open(trim(mc%output)//"_potential_trajs.txt", "w")
     call fig_eps%open(trim(mc%output)//"_eps_trajs.txt", "w")
     lnpsmean = 0
@@ -524,8 +535,10 @@ contains
     standard_lnps = mean_lnAs+(standard_ns -1.)*(lnk-coop_pp_scalar_lnkpivot)
     
     call fig_spec%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$10^{10}\mathcal{P}_{S,T}$", xlog=.true., ylog = .true., xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = 1., ymax = 250., doclip = .true.)
-    if(coop_postprocess_do_cls)call fig_cls%init(xlabel = "$\ell$", ylabel ="$\frac{\ell(\ell+1)}{2\pi} C_\ell$",  xlog = .true., ylog = .false., xmin = 1., xmax = 2000., ymin = 0., ymax = 7000., doclip = .true.)
-  
+    if(coop_postprocess_do_cls)then
+       call fig_cls%init(xlabel = "$\ell$", ylabel ="$\mathcal{D}_\ell (\mu K ^2)$",  xlog = .true., ylog = .false., xmin = 1., xmax = 2000., ymin = 0., ymax = 7000., doclip = .true.)
+       call fig_dcls%init(xlabel = "$\ell$", ylabel ="$\Delta \mathcal{D}_\ell (\mu K^2)$",  xlog = .true., ylog = .false., xmin = 1., xmax = 2000., ymin = -1000., ymax = 1000., doclip = .true.)       
+    endif
     call coop_asy_topaxis(fig_spec, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell\equiv  k D_{\rm rec}$")
     call fig_pot%init(xlabel="$(\phi - \phi_{\rm pivot})/M_p$", ylabel = "$\ln (V/V_{\rm pivot})$", xmin = -1.5, xmax = 0.5, ymin = -0.2, ymax = 0.6, doclip = .true.)
     call fig_eps%init(xlabel = "$ k ({\rm Mpc}^{-1})$", ylabel = "$\epsilon$", xlog = .true. ,  xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = -0.005, ymax = 0.145, doclip = .true.)
@@ -598,12 +611,14 @@ contains
              first_1sigma = .false.
              if(isam .le. num_cls_samples .and. coop_postprocess_do_cls)then
                 call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = Cls_samples(:, isam), interpolate = "LogLinear", color = "blue", linetype = "dotted", legend = "1-$\sigma$ trajs.")
+                call fig_dcls%interpolate_curve(xraw = coop_pp_ells, yraw = Cls_samples(:, isam) - cls_best, interpolate = "LogLinear", color = "blue", linetype = "dotted", legend = "1-$\sigma$ trajs.")                
              endif
              call fig_pot%interpolate_curve(xraw = coop_pp_phi, yraw = coop_pp_lnV-coop_pp_lnV(coop_pp_ipivot), interpolate="LinearLinear", color = "blue", linetype = "dotted", legend="1-$\sigma$ trajs.")
              call fig_eps%interpolate_curve(xraw = exp(coop_pp_lnkMpc), yraw = exp(coop_pp_lneps), interpolate = "LogLinear", color = "blue", linetype = "dotted", legend="1-$\sigma$ trajs.")
           else
              if(isam .le. num_cls_samples .and. coop_postprocess_do_cls)then
                 call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = Cls_samples(:, isam), interpolate = "LogLinear", color = "blue", linetype = "dotted")
+                call fig_dcls%interpolate_curve(xraw = coop_pp_ells, yraw = Cls_samples(:, isam)-cls_best, interpolate = "LogLinear", color = "blue", linetype = "dotted")                
              endif
              call fig_pot%interpolate_curve(xraw = coop_pp_phi, yraw = coop_pp_lnV-coop_pp_lnV(coop_pp_ipivot), interpolate="LinearLinear", color = "blue", linetype = "dotted")
              call fig_eps%interpolate_curve(xraw = exp(coop_pp_lnkMpc), yraw = exp(coop_pp_lneps), interpolate = "LogLinear", color = "blue", linetype = "dotted")
@@ -618,17 +633,32 @@ contains
        do l = lmin, lmax
           cls_mean(l) = sum(cls_samples(l, 1:num_cls_samples)*mult_samples(1:num_cls_samples))/total_mult
        enddo
-       call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean, interpolate = "LogLinear", color="red", linewidth = 2., legend="mean")
+       call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean, interpolate = "LogLinear", color="HEX:E01010", linewidth = 1.8, legend="mean")
+       call fig_dcls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean - cls_best, interpolate = "LogLinear", color="HEX:E01010", linewidth = 1.8, legend="mean")      
 
-       if(trim(bestfit_cl_file).ne."")then
-          call fcl%open(trim(bestfit_cl_file), 'r')
+       if(do_dcl) call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_best, interpolate = "LogLinear", color="HEX:011010", linewidth = 1.4, legend="$\Lambda$CDM bestfit")
+       if(trim(bestfit_run_file).ne."")then
+          call fcl%open(trim(bestfit_run_file), 'r')
           do l = lmin, lmax
              read(fcl%unit, *) ik, cls_mean(l)
              if(ik.ne. l) stop "Error in bestfit cl file"
           enddo
           call fcl%close()
-          call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean, interpolate = "LogLinear", color="HEX:011010", linewidth = 1.2, legend="$\Lambda$CDM bestfit")
+          call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean, interpolate = "LogLinear", color="HEX:20DA30", linetype="dashed", linewidth = 1., legend="running bestfit")
+          call fig_dcls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean - cls_best, interpolate = "LogLinear", color="HEX:20DA30", linetype="dashed", linewidth = 1., legend="running bestfit")          
        endif
+
+       if(trim(bestfit_varytau_file).ne."")then
+          call fcl%open(trim(bestfit_varytau_file), 'r')
+          do l = lmin, lmax
+             read(fcl%unit, *) ik, cls_mean(l)
+             if(ik.ne. l) stop "Error in bestfit cl file"
+          enddo
+          call fcl%close()
+          call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean, interpolate = "LogLinear", color="orange", linetype="solid", linewidth = 1., legend="$tau = 0.04$")
+          call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean - cls_best, interpolate = "LogLinear", color="orange", linetype="solid", linewidth = 1., legend="$tau = 0.04$")          
+       endif
+
 
        if(trim(measured_cltt_file).ne."")then
           call fcl%open(measured_cltt_file, "r")

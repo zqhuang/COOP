@@ -48,10 +48,9 @@ program getdist
      print*, "color2d_"//trim(coop_num2str(i))//"sigma: "//trim(mc%color2d(i))
   enddo
   measured_cltt_file = ini_read_string("measured_cltt_file", .false.)
-  measured_clee_file = ini_read_string("measured_clee_file", .false.)
-  measured_clbb_file = ini_read_string("measured_clbb_file", .false.)
-  measured_clte_file = ini_read_string("measured_clte_file", .false.)
   bestfit_cl_file = ini_read_string("bestfit_cl_file", .false.)
+  bestfit_run_file = ini_read_string("bestfit_run_file", .false.)
+  bestfit_run_file = ini_read_string("bestfit_varytau_file", .false.)
   call load_chain(mc, prefix, discard_percent)
 
   inline = trim(adjustl(ini_read_string("want2d", .false.)))
