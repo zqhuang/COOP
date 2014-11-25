@@ -536,7 +536,7 @@ contains
     
     call fig_spec%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$10^{10}\mathcal{P}_{S,T}$", xlog=.true., ylog = .true., xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = 1., ymax = 250., doclip = .true.)
     if(coop_postprocess_do_cls)then
-       call fig_cls%init(xlabel = "$\ell$", ylabel ="$\mathcal{D}_\ell (\mu K ^2)$",  xlog = .true., ylog = .false., xmin = 1., xmax = 2000., ymin = 0., ymax = 7000., doclip = .true.)
+       call fig_cls%init(xlabel = "$\ell$", ylabel ="$\mathcal{D}_\ell (\mu K ^2)$",  xlog = .true., ylog = .false., xmin = 1., xmax = 2000., ymin = 0., ymax = 6100., doclip = .true.)
        if(do_dcl) call fig_dcls%init(xlabel = "$\ell$", ylabel ="$\Delta \mathcal{D}_\ell (\mu K^2)$",  xlog = .true., ylog = .false., xmin = 1., xmax = 2000., ymin = -500., ymax = 1500., doclip = .true.)       
     endif
     call coop_asy_topaxis(fig_spec, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell\equiv  k D_{\rm rec}$")
@@ -663,7 +663,7 @@ contains
           enddo
           call fcl%close()
           call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean, interpolate = "LogLinear", color="orange", linetype="solid", linewidth = 1., legend="$tau = 0.04$")
-          if(do_dcl)call fig_dcls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean - cls_best, interpolate = "LogLinear", color="orange", linetype="solid", linewidth = 1., legend="$tau = 0.04$")          
+          if(do_dcl)call fig_dcls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean - cls_best, interpolate = "LogLinear", color="orange", linetype="dotdashed", linewidth = 1., legend="$\tau = 0.04$")          
        endif
 
 
@@ -677,7 +677,7 @@ contains
                 exit
              endif
              call coop_asy_error_bar(fig_cls, x = dble(l), y = cltt, dy_minus = errdown, dy_plus = errup)
-             call coop_asy_error_bar(fig_cls, x = dble(l), y = cltt - cls_best(l), dy_minus = errdown, dy_plus = errup)             
+             call coop_asy_error_bar(fig_dcls, x = dble(l), y = cltt - cls_best(l), dy_minus = errdown, dy_plus = errup)             
           enddo
           call fcl%close()
        endif
