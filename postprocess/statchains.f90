@@ -537,7 +537,7 @@ contains
     call fig_spec%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$10^{10}\mathcal{P}_{S,T}$", xlog=.true., ylog = .true., xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = 1., ymax = 250., doclip = .true.)
     if(coop_postprocess_do_cls)then
        call fig_cls%init(xlabel = "$\ell$", ylabel ="$\mathcal{D}_\ell (\mu K ^2)$",  xlog = .true., ylog = .false., xmin = 1., xmax = 2000., ymin = 0., ymax = 6000., doclip = .true.)
-       if(do_dcl) call fig_dcls%init(xlabel = "$\ell$", ylabel ="$\Delta \mathcal{D}_\ell (\mu K^2)$",  xlog = .true., ylog = .false., xmin = 1., xmax = 300., ymin = -500., ymax = 500., doclip = .true.)       
+       if(do_dcl) call fig_dcls%init(xlabel = "$\ell$", ylabel ="$\Delta \mathcal{D}_\ell (\mu K^2)$",  xlog = .true., ylog = .false., xmin = 1.8, xmax = 300., ymin = -500., ymax = 500., doclip = .true.)       
     endif
     call coop_asy_topaxis(fig_spec, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell\equiv  k D_{\rm rec}$")
     call fig_pot%init(xlabel="$(\phi - \phi_{\rm pivot})/M_p$", ylabel = "$\ln (V/V_{\rm pivot})$", xmin = -1.5, xmax = 0.5, ymin = -0.2, ymax = 0.6, doclip = .true.)
@@ -730,7 +730,7 @@ contains
     endif
     if(coop_postprocess_do_cls) call coop_asy_legend(fig_cls, 4., 5000., 1)
     if(do_dcl)then
-       call coop_asy_legend(fig_dcls, 100., 850., 1)
+       call coop_asy_legend(fig_dcls, 45., 420., 1)
        call fig_dcls%close()
     endif
     call coop_asy_legend(fig_spec, real(exp(lnkmin + 1.2)), 170., 2)

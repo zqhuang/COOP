@@ -167,7 +167,7 @@ contains
           call coop_chebfit(n+1, rsq, d, nproj, 0.d0, rsq(n), v)
           return
        endif
-       tmpf = d(1:n)/rsq(1:n)**m
+       tmpf = d(1:n)/r(1:n)**m
        call coop_chebfit(n, rsq(1:n), tmpf, nproj, 0.d0, rsq(n), v)       
     endif
   end subroutine fr2vec
