@@ -59,7 +59,7 @@ program hastack_prog
   if(iargc() .ge. 3)then
      run_id = coop_str2int(coop_InputArgs(3))
   else
-     run_id = coop_MPI_Rank()
+     run_id = 74   !!the special choice
   endif
 !  call sleep(run_id)  !!sleep for a second so that files are not read simultaneously
   if(run_id .ge.  scan_npix)then
