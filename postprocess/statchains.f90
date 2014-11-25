@@ -656,7 +656,7 @@ contains
           enddo
           call fcl%close()
           call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean, interpolate = "LogLinear", color="orange", linetype="solid", linewidth = 1., legend="$tau = 0.04$")
-          call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean - cls_best, interpolate = "LogLinear", color="orange", linetype="solid", linewidth = 1., legend="$tau = 0.04$")          
+          if(do_dcl)call fig_dcls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean - cls_best, interpolate = "LogLinear", color="orange", linetype="solid", linewidth = 1., legend="$tau = 0.04$")          
        endif
 
 
@@ -670,6 +670,7 @@ contains
                 exit
              endif
              call coop_asy_error_bar(fig_cls, x = dble(l), y = cltt, dy_minus = errdown, dy_plus = errup)
+             call coop_asy_error_bar(fig_cls, x = dble(l), y = cltt - cls_best(l), dy_minus = errdown, dy_plus = errup)             
           enddo
           call fcl%close()
        endif
