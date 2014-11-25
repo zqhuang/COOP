@@ -16,6 +16,7 @@ program test
   type(coop_healpix_maps)::map
   COOP_STRING::prefix
   COOP_REAL theta, phi, chisq(0:95), prob(0:95), minprob, l, b, dr
+  COOP_INT::start1, end1, start2, end2, n1, n2
   COOP_REAL,dimension(:,:),allocatable::cov, vec, diff, diffmin, vecmin
   COOP_REAL, dimension(:,:,:),allocatable::frn, frs
   COOP_REAL, dimension(:),allocatable:: rsq, r, mean, fitdiff
@@ -23,19 +24,25 @@ program test
   logical::single_pix = .false.
   call coop_MPI_init()
   call coop_random_init()
-  if(iargc().lt.4)then
-     write(*,*) "./POSTHA prefix nsims ncut m_want"
+  if(iargc().lt.7)then
+     write(*,*) "./POSTHA prefix start end1 start2 end2 ncut m_want"
      write(*,*) " or "     
-     write(*,*) "./POSTHA prefix nsims ncut m_want pix_want"
+     write(*,*) "./POSTHA prefix start1, end1, start2, end2 ncut m_want pix_want"
      stop
   endif
   prefix = coop_InputArgs(1)  
-  nsims = coop_str2int(coop_InputArgs(2))
-  ncut = coop_str2int(coop_InputArgs(3))
-  m_want = coop_str2int(coop_InputArgs(4))
-  if(iargc() .ge. 5)then
+  start1 = coop_str2int(coop_InputArgs(2))
+  end1 =  coop_str2int(coop_InputArgs(3))
+  start2 = coop_str2int(coop_InputArgs(4))
+  end2 = coop_str2int(coop_InputArgs(5))
+  ncut = coop_str2int(coop_InputArgs(6))
+  m_want = coop_str2int(coop_InputArgs(7))
+  nsims = max(end1, end2)
+  n1 = end1 - start1 + 1 
+  n2 = end2 - start2 + 1
+  if(iargc() .ge. 8)then
      single_pix = .true.
-     pix_want = coop_str2int(coop_InputArgs(5))
+     pix_want = coop_str2int(coop_InputArgs(8))
   else
      single_pix = .false.
   endif
@@ -76,11 +83,11 @@ program test
      call fp%close()
      cov = 0.d0
      do i1 = 1, ncut
-        mean(i1) = sum(vec(i1, 1:nsims))/nsims
+        mean(i1) = sum(vec(i1, start1:end1))/n1
      enddo
      do i1 = 1, ncut     
         do i2 = 1, i1
-           cov(i1,i2) = sum((vec(i1, 1:nsims)-mean(i1))*(vec(i2, 1:nsims)-mean(i2)))/nsims
+           cov(i1,i2) = sum((vec(i1, start1:end1)-mean(i1))*(vec(i2, start1:end1)-mean(i2)))/n1
            cov(i2,i1) = cov(i1,i2)
         enddo
      enddo
@@ -88,10 +95,10 @@ program test
      call coop_matsym_inverse(cov)     
      chisq(i) = dot_product(vec(:, 0) - mean, matmul(cov, vec(:, 0) - mean))
      cgt = 0
-     do isim = 1, nsims
+     do isim = start2, end2
         if(dot_product(vec(:, isim) - mean, matmul(cov, vec(:, isim) - mean)).gt. chisq(i)) cgt = cgt + 1
      enddo
-     prob(i) = dble(cgt) / nsims
+     prob(i) = dble(cgt) / n2
      map%map(i, 1) = log10(max(prob(i), 1.d-4))
      minprob = prob(i)
      iminprob = i
@@ -132,21 +139,21 @@ program test
         call fp%close()
         cov = 0.d0
         do i1 = 1, ncut
-           mean(i1) = sum(vec(i1, 1:nsims))/nsims
+           mean(i1) = sum(vec(i1, start1:end1))/n1
         enddo
         do i1 = 1, ncut     
            do i2 = 1, i1
-              cov(i1,i2) = sum((vec(i1, 1:nsims)-mean(i1))*(vec(i2, 1:nsims)-mean(i2)))/nsims
+              cov(i1,i2) = sum((vec(i1, start1:end1)-mean(i1))*(vec(i2, start1:end1)-mean(i2)))/n1
               cov(i2,i1) = cov(i1,i2)
            enddo
         enddo
         call coop_matsym_inverse(cov)     
         chisq(i) = dot_product(vec(:, 0) - mean, matmul(cov, vec(:, 0) - mean))
         cgt = 0
-        do isim = 1, nsims
+        do isim = start2, end2
            if(dot_product(vec(:, isim) - mean, matmul(cov, vec(:, isim) - mean)).gt. chisq(i)) cgt = cgt + 1
         enddo
-        prob(i) = dble(cgt) / nsims
+        prob(i) = dble(cgt) / n2
         map%map(i, 1) = log10(max(prob(i), 1.d-4))
         if(minprob .gt. prob(i))then
            minprob = prob(i)
@@ -182,13 +189,15 @@ program test
   do i = 0, n
      call coop_chebeval(ncut, 0.d0, rsq(n), vecmin(:, 0), rsq(i), fitdiff(i))
   enddo
-  call fig%curve(r, fitdiff, color = "blue", linetype = "dotted", linewidth = 1.5, legend = "Planck 2-term fit")
+  if(m_want.gt.0) fitdiff = fitdiff*r**m_want
+  call fig%curve(r, fitdiff, color = "blue", linetype = "dotted", linewidth = 1.5, legend = "Planck fit")
   i = 1
   call fig%curve(r, diffmin(:, i), color =trim(coop_asy_gray_color(0.2)), linetype = "dashed", linewidth = 0.5, legend = "FFP8")
   do j = 0, n
      call coop_chebeval(ncut, 0.d0, rsq(n), vecmin(:, i), rsq(j), fitdiff(j))
   enddo
-  call fig%curve(r, fitdiff, color = trim(coop_asy_gray_color(0.65)), linetype = "dotdashed", linewidth = 1., legend = "FFP8 2-term fit")
+  if(m_want.gt.0) fitdiff = fitdiff*r**m_want  
+  call fig%curve(r, fitdiff, color = trim(coop_asy_gray_color(0.65)), linetype = "dotdashed", linewidth = 1., legend = "FFP8 fit")
 
   do isim = 2, 5
      i = coop_random_index(nsims)
@@ -205,8 +214,7 @@ program test
   call fig%init(xlabel = "$c_0 (\mu K)$", ylabel = "$c_1 (\mu K /\mathrm{rad}^2)$")
   call fig%dots(vecmin(1, 1:nsims), vecmin(2, 1:nsims), "black")
   call fig%dot(vecmin(1, 0), vecmin(2, 0), "red", "$\Delta$")
-  call fig%dot(fig%xmax*1.01d0, fig%ymax*1.11d0, "invisible", "BLANK")
-  call fig%dot(fig%xmin*1.01d0, fig%ymin*1.01d0, "invisible", "BLANK")
+  call fig%expand(0.01, 0.01, 0.01, 0.11)
   call fig%label("$\Delta$   Planck", 0.05, 0.95, "red", alignment="right")
   call fig%label("$\bullet$   FFP8", 0.05, 0.9, color="black", alignment="right")
   call fig%close()
@@ -215,7 +223,13 @@ contains
   subroutine fr2vec(d, v)
     COOP_REAL d(0:n)
     COOP_REAL v(ncut)
-    call coop_chebfit(n+1, rsq, d, ncut, 0.d0, rsq(n), v)
+    COOP_REAL tmpd(n)
+    if(m_want .eq. 0)then
+       call coop_chebfit(n+1, rsq, d, ncut, 0.d0, rsq(n), v)
+    else
+       tmpd = d(1:n)/r(1:n)**m_want
+       call coop_chebfit(n, rsq(1:n), tmpd, ncut, 0.d0, rsq(n), v)
+    endif
   end subroutine fr2vec
   
 end program test
