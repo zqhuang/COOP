@@ -662,7 +662,7 @@ contains
              if(ik.ne. l) stop "Error in bestfit cl file"
           enddo
           call fcl%close()
-          call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean, interpolate = "LogLinear", color="orange", linetype="solid", linewidth = 1., legend="$tau = 0.04$")
+          call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean, interpolate = "LogLinear", color="orange", linetype="solid", linewidth = 1., legend="$\tau = 0.04$")
           if(do_dcl)call fig_dcls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean - cls_best, interpolate = "LogLinear", color="orange", linetype="dotdashed", linewidth = 1., legend="$\tau = 0.04$")          
        endif
 
