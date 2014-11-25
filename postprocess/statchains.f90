@@ -639,7 +639,7 @@ contains
           cls_mean(l) = sum(cls_samples(l, 1:num_cls_samples)*mult_samples(1:num_cls_samples))/total_mult
        enddo
        call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean, interpolate = "LogLinear", color="HEX:E01010", linewidth = 1.8, legend="mean")
-       if(do_dcl) call fig_dcls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean - cls_best, interpolate = "LogLinear", color="HEX:E01010", linewidth = 1.8, legend="mean")      
+       if(do_dcl) call fig_dcls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean - cls_best, interpolate = "LogLinear", color="HEX:E01010", linewidth = 1.9, legend="mean")      
 
        if(do_dcl)then
           call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_best, interpolate = "LogLinear", color="HEX:011010", linewidth = 1.4, legend="$\Lambda$CDM bestfit")
@@ -652,7 +652,7 @@ contains
           enddo
           call fcl%close()
           call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean, interpolate = "LogLinear", color="HEX:20DA30", linetype="dashed", linewidth = 1., legend="running bestfit")
-          if(do_dcl) call fig_dcls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean - cls_best, interpolate = "LogLinear", color="HEX:20DA30", linetype="dashed", linewidth = 1., legend="running bestfit")          
+          if(do_dcl) call fig_dcls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean - cls_best, interpolate = "LogLinear", color="HEX:20DA30", linetype="dashed", linewidth = 1.8, legend="running bestfit")          
        endif
 
        if(trim(bestfit_varytau_file).ne."")then
@@ -662,7 +662,7 @@ contains
              if(ik.ne. l) stop "Error in bestfit cl file"
           enddo
           call fcl%close()
-          call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean, interpolate = "LogLinear", color="orange", linetype="solid", linewidth = 1., legend="$\tau = 0.04$")
+          call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean, interpolate = "LogLinear", color="orange", linetype="solid", linewidth = 1.8, legend="$\tau = 0.04$")
           if(do_dcl)call fig_dcls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean - cls_best, interpolate = "LogLinear", color="orange", linetype="dotdashed", linewidth = 1., legend="$\tau = 0.04$")          
        endif
 
