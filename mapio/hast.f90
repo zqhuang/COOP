@@ -10,8 +10,7 @@ program hastack_prog
   implicit none
 #include "constants.h"
   COOP_INT, parameter::n_sim = 1000
-  COOP_UNKNOWN_STRING, parameter::spot_type = "PTmax"
-  COOP_UNKNOWN_STRING, parameter::stack_type = "QU"
+  COOP_STRING::spot_type, stack_type
   COOP_REAL, parameter::patch_size = 5.d0*coop_SI_degree
   COOP_UNKNOWN_STRING, parameter::output_dir = "hc_r5f30n1024"
   
@@ -50,9 +49,15 @@ program hastack_prog
   
   
   call coop_MPI_init()
+  if(iargc() .lt. 2)then
+     print*, "./HA spot_type stack_type"
+     stop
+  endif
+  spot_type = trim(coop_InputArgs(1))
+  stack_type = trim(coop_InputArgs(2))
   lmax = min(ceiling(3.d0/(fwhm_arcmin*coop_SI_arcmin*coop_sigma_by_fwhm)), 2048, coop_healpix_default_lmax)
-  if(iargc() .ge. 1)then
-     run_id = coop_str2int(coop_InputArgs(1))
+  if(iargc() .ge. 3)then
+     run_id = coop_str2int(coop_InputArgs(3))
   else
      run_id = coop_MPI_Rank()
   endif
@@ -67,10 +72,10 @@ program hastack_prog
   call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
   call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )
   
-  call patch_n%init(stack_type, n, dr, mmax = mmax)
+  call patch_n%init(trim(stack_type), n, dr, mmax = mmax)
   patch_s = patch_n
 
-  allprefix = prefix//stack_type//"_on_"//spot_type//"_fr_"//COOP_STR_OF(scan_nside)//"_"
+  allprefix = prefix//trim(stack_type)//"_on_"//trim(spot_type)//"_fr_"//COOP_STR_OF(scan_nside)//"_"
 
   if(run_id.eq.0)then
      call fp%open(trim(allprefix)//"info.txt", "w")
@@ -108,15 +113,15 @@ program hastack_prog
      select case(trim(spot_type))
      case("Tmax", "PTmax", "Tmax_QTUTOrient", "Tmin", "PTmin", "Tmin_QTUTOrient")
         call load_imap(ind)
-        call imap%get_listpix(listpix, listangle, spot_type, threshold, imask)
+        call imap%get_listpix(listpix, listangle, trim(spot_type), threshold, imask)
      case("Pmax", "Pmin")
         call load_polmap(ind)
-        call polmap%get_listpix(listpix, listangle, spot_type, threshold, polmask)
+        call polmap%get_listpix(listpix, listangle, trim(spot_type), threshold, polmask)
      case default
         print*, trim(spot_type)        
         stop "Unknown spot type"
      end select
-     select case(stack_type)
+     select case(trim(stack_type))
      case("T")
         call load_imap(ind)
         call imap%stack_north_south(patch_n, patch_s, listpix, listangle, hdir, imask)
