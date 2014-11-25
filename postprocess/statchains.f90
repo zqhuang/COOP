@@ -728,7 +728,7 @@ contains
        ps(1:numpp) = 0.005
        call coop_asy_dots(fig_eps, k_knots, ps(1:numpp), "black", "$\Delta$")
     endif
-    if(coop_postprocesss_do_cls) call coop_asy_legend(fig_cls, 4., 5000., 1)
+    if(coop_postprocess_do_cls) call coop_asy_legend(fig_cls, 4., 5000., 1)
     if(do_dcl)then
        call coop_asy_legend(fig_dcls, 100., 1250., 1)
        call fig_dcls%close()
