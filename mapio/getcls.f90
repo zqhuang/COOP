@@ -50,6 +50,9 @@ program test
   call fp%close()
   write(*,*) "now producing the lmax filtered map"
   call map%alm2map()
+  write(*,*) "nmaps = map%nmaps", map%nmaps, size(map%map, 2)
+  write(*,*) "npix = ", map%npix, size(map%map, 1)
+  write(*,*) "isnan = ", coop_isnan(map%map)
   write(*,*) trim(coop_str_replace(output_file, ".txt", ""))//"_I.fits"
   call map%write(trim(coop_str_replace(output_file, ".txt", ""))//"_I.fits", index_list = (/ 1 /) )
   write(*,*) trim(coop_str_replace(output_file, ".txt", ""))//"_QU.fits"  
