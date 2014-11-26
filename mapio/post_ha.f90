@@ -185,7 +185,7 @@ program test
   write(*,*) "direction l = ", nint(l), " b = ", nint(b), "ipix = ", iminprob
   call fig%open(trim(prefix)//"powercut"//trim(coop_num2str(ncut))//"_"//COOP_STR_OF(nsims)//"sims_fr_m"//COOP_STR_OF(m_want)//".txt")
   call fig%init(xlabel = "$\varpi$", ylabel  = "$\delta f (\mu K)$")
-  call fig%curve(r, diffmin(:, 0), color = "red", linetype = "solid", linewidth = 2., legend = "Planck")
+  call fig%curve(r, diffmin(:, 0), color = "HEX:21C0FC", linetype = "solid", linewidth = 2., legend = "Planck")
   do i = 0, n
      call coop_chebeval(ncut, 0.d0, rsq(n), vecmin(:, 0), rsq(i), fitdiff(i))
   enddo
