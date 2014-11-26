@@ -81,7 +81,7 @@ program test
            write(*,*) "chi^2 comparison:", maxval(chisq(1:nsims)), chisq(0)
         endif
         call fig%open(trim(prefix)//"_fig"//COOP_STR_OF(map_want)//COOP_STR_OF(m_want)//".txt")
-        call fig%init(xlabel = "$\omega$", ylabel  = "$"//trim(coop_InputArgs(2+map_want))//" (\mu K)$")
+        call fig%init(xlabel = "$\varpi$", ylabel  = "$"//trim(coop_InputArgs(2+map_want))//" (\mu K)$")
         call fig%band(r, mean-std*2, mean+std*2, colorfill = trim(coop_asy_gray_color(0.65)), linecolor = "invisible")
         call fig%band(r, mean-std, mean+std, colorfill = trim(coop_asy_gray_color(0.4)), linecolor = "invisible")        
         call fig%curve(r, f(0:n,m_want/2, map_want, 0), color = "red", linetype = "solid", linewidth = 1.5, legend = "Planck")
@@ -124,7 +124,7 @@ program test
         enddo
         write(*,"(A, I5, A, F12.4)") "joint; m=", m_want, ", p-value = ", count(chisq(1:nsims).gt.chisq(0))/dble(nsims)
         call fig%open(trim(prefix)//"_figp"//COOP_STR_OF(m_want)//".txt")
-        call fig%init(xlabel = "$\omega$", ylabel  = "$ P_"//trim(COOP_STR_OF(m_want))//" (\mu K)$")
+        call fig%init(xlabel = "$\varpi$", ylabel  = "$ P_"//trim(COOP_STR_OF(m_want))//" (\mu K)$")
         call fig%band(r, mean-std*2, mean+std*2, colorfill = trim(coop_asy_gray_color(0.65)), linecolor = "invisible")
         call fig%band(r, mean-std, mean+std, colorfill = trim(coop_asy_gray_color(0.4)), linecolor = "invisible")        
         call fig%curve(r, f(0:n,m_want/2, map_want, 0), color = "red", linetype = "solid", linewidth = 1.5, legend = "Planck")

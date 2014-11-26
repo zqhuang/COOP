@@ -114,7 +114,7 @@ program test
      write(*,"(A, I5, A, F12.4, A, F12.4)") "m=", m_want, ", p-value = ", count(chisq(start2:end2).gt.chisq(0))/dble(n2), ", chi^2=", chisq(0)
      if(nproj .eq. n + 1)then !!make the scattering plot
         call fig%open(trim(prefix)//"_fig"//trim(label)//COOP_STR_OF(m_want)//".txt")
-        call fig%init(xlabel = "$\omega$", ylabel  = "$\delta "//trim(label)//"_"//trim(COOP_STR_OF(m_want))//" (\mu K)$")
+        call fig%init(xlabel = "$\varpi$", ylabel  = "$\delta "//trim(label)//"_"//trim(COOP_STR_OF(m_want))//" (\mu K)$")
         call fig%band(r, bounds(-2,:)-bounds(0,:), bounds(2,:)-bounds(0,:), colorfill = trim(coop_asy_gray_color(0.65)), linecolor = "invisible")
         call fig%band(r, bounds(-1,:)-bounds(0,:), bounds(1,:)-bounds(0,:), colorfill = trim(coop_asy_gray_color(0.42)), linecolor = "invisible")        
         do i=1, 20
@@ -133,7 +133,7 @@ program test
         call fig%close()
 
         call fig%open(trim(prefix)//"_full"//trim(label)//COOP_STR_OF(m_want)//".txt")
-        call fig%init(xlabel = "$\omega$", ylabel  = "$ "//trim(label)//"_"//trim(COOP_STR_OF(m_want))//" (\mu K)$")
+        call fig%init(xlabel = "$\varpi$", ylabel  = "$ "//trim(label)//"_"//trim(COOP_STR_OF(m_want))//" (\mu K)$")
         call fig%band(r, bounds(-2,:), bounds(2,:), colorfill = trim(coop_asy_gray_color(0.65)), linecolor = "invisible")
         call fig%band(r, bounds(-1,:), bounds(1,:), colorfill = trim(coop_asy_gray_color(0.42)), linecolor = "invisible")        
         call fig%curve(r, bounds(0,:), color = "red", linetype = "solid", linewidth = 1., legend = "mean")                
