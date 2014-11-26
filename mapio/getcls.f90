@@ -20,6 +20,12 @@ program test
   type(coop_healpix_maps)::map, imask, polmask
   type(coop_file)::fp
   integer l, i
+  if(iargc().lt.2)then
+     write(*,*) "./GetCl imap polmap"
+     write(*,*) " or"
+     write(*,*) "./GetCl imap polmap outputfile"
+     stop
+  endif
   imap_file = trim(coop_InputArgs(1))
   polmap_file = trim(coop_InputArgs(2))
   if(iargc() .ge. 3)then
