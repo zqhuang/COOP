@@ -779,8 +779,8 @@ contains
              do i=coop_pp_nleft + 1, numpp - 1
                 shift_knots(i) = coop_pp_lnk_per_knot * (i - coop_pp_nleft)
              enddo
-             do i = -6, 6
-                dns_trial = i*0.0005
+             do i = -10, 10
+                dns_trial = i*0.0002
                 write(*,"(A, F10.4)") "Assuming n_s = ", standard_ns + dns_trial
                 write(*,*) "Full chi^2(LCDM) per dof = ", dot_product(mc%mean(index_pp:index_pp+numpp-2) - shift_knots*dns_trial, matmul(cov_all, mc%mean(index_pp:index_pp+numpp-2)- shift_knots*dns_trial))/(numpp-1)
                 if(ind_lowk.gt.0)write(*,*) "chi_LCDM^2(low k) per dof = ", dot_product(mc%mean(index_pp:index_pp+ind_lowk-1) - shift_knots(1:ind_lowk)*dns_trial, matmul(cov_lowk, mc%mean(index_pp:index_pp+ind_lowk-1)- shift_knots(1:ind_lowk)*dns_trial))/ind_lowk
