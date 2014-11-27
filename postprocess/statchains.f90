@@ -763,7 +763,6 @@ contains
           cov_highk = mc%covmat(index_pp+cosmomc_pp_num_origin+ind_lowk:index_pp+cosmomc_pp_num_params-1, index_pp+cosmomc_pp_num_origin+ind_lowk:index_pp+cosmomc_pp_num_params-1)
           call coop_matsym_inverse(cov_lowk)
           call coop_matsym_inverse(cov_highk)
-          lnps_standard_knots = lnps_standard_knots - lnps_mean_knots
           write(*,*) "number of lowk knots =", ind_lowk
           write(*,*) "number of highk knots =", numpp - ind_lowk-1 
           if(ind_lowk.gt.0)write(*,*) "chi_LCDM^2(low k) per dof = ", dot_product(mc%mean(index_pp+cosmomc_pp_num_origin:index_pp+cosmomc_pp_num_origin+ind_lowk-1), matmul(cov_lowk, mc%mean(index_pp+cosmomc_pp_num_origin:index_pp+cosmomc_pp_num_origin+ind_lowk-1)))/ind_lowk
