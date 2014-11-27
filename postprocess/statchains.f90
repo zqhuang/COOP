@@ -455,7 +455,8 @@ contains
 
 
   subroutine export_stats(mc, output)
-    integer,parameter::nk = 71    
+    integer,parameter::nk = 71
+    logical, parameter::doAsMarg = .true.
     logical,parameter::do_traj_cov = .true.
     integer,parameter::distlss = 13893.
     integer, parameter::num_1sigma_trajs = 50
@@ -756,16 +757,29 @@ contains
           ind_lowk = ind_lowk + 1
           if(ind_lowk .ge. numpp) stop "low_k_cut not in proper range"
        enddo
-       allocate(cov_lowk(ind_lowk, ind_lowk), cov_highk(numpp - ind_lowk, numpp - ind_lowk))
-       cov_lowk = cov_knots(1:ind_lowk, 1:ind_lowk)
-       cov_highk = cov_knots(ind_lowk+1:numpp, ind_lowk+1:numpp)
-       call coop_matsym_inverse(cov_lowk)
-       call coop_matsym_inverse(cov_highk)
-       lnps_standard_knots = lnps_standard_knots - lnps_mean_knots
-       write(*,*) "number of lowk knots =", ind_lowk
-       write(*,*) "number of highk knots =", numpp - ind_lowk 
-       if(ind_lowk.gt.0)write(*,*) "chi_LCDM^2(low k) per dof = ", dot_product(lnps_standard_knots(1:ind_lowk), matmul(cov_lowk, lnps_standard_knots(1:ind_lowk)))/ind_lowk
-       if(numpp-ind_lowk.gt.0)write(*,*) "chi_LCDM^2(high k) per dof = ", dot_product(lnps_standard_knots(ind_lowk+1:numpp), matmul(cov_highk, lnps_standard_knots(ind_lowk+1:numpp))) /(numpp - ind_lowk)         
+       if(doAsMarg)then
+          allocate(cov_lowk(ind_lowk, ind_lowk), cov_highk(numpp - ind_lowk-1, numpp - ind_lowk-1))
+          cov_lowk = mc%covmat(index_pp+cosmomc_pp_num_origin:index_pp+cosmomc_pp_num_origin+ind_lowk-1, index_pp+cosmomc_pp_num_origin:index_pp+cosmomc_pp_num_origin+ind_lowk-1)
+          cov_highk = mc%covmat(index_pp+cosmomc_pp_num_origin+ind_lowk:index_pp+cosmomc_pp_num_params-1, index_pp+cosmomc_pp_num_origin+ind_lowk:index_pp+cosmomc_pp_num_params-1)
+          call coop_matsym_inverse(cov_lowk)
+          call coop_matsym_inverse(cov_highk)
+          lnps_standard_knots = lnps_standard_knots - lnps_mean_knots
+          write(*,*) "number of lowk knots =", ind_lowk
+          write(*,*) "number of highk knots =", numpp - ind_lowk-1 
+          if(ind_lowk.gt.0)write(*,*) "chi_LCDM^2(low k) per dof = ", dot_product(mc%mean(index_pp+cosmomc_pp_num_origin:index_pp+cosmomc_pp_num_origin+ind_lowk-1), matmul(cov_lowk, mc%mean(index_pp+cosmomc_pp_num_origin:index_pp+cosmomc_pp_num_origin+ind_lowk-1)))/ind_lowk
+          if(numpp-ind_lowk-1.gt.0)write(*,*) "chi_LCDM^2(high k) per dof = ", dot_product(mc%mean(index_pp+cosmomc_pp_num_origin+ind_lowk:index_pp+cosmomc_pp_num_params-1), matmul(cov_highk, mc%mean(index_pp+cosmomc_pp_num_origin+ind_lowk:index_pp+cosmomc_pp_num_params-1) )) /(numpp - ind_lowk-1)          
+       else
+          allocate(cov_lowk(ind_lowk, ind_lowk), cov_highk(numpp - ind_lowk, numpp - ind_lowk))
+          cov_lowk = cov_knots(1:ind_lowk, 1:ind_lowk)
+          cov_highk = cov_knots(ind_lowk+1:numpp, ind_lowk+1:numpp)
+          call coop_matsym_inverse(cov_lowk)
+          call coop_matsym_inverse(cov_highk)
+          lnps_standard_knots = lnps_standard_knots - lnps_mean_knots
+          write(*,*) "number of lowk knots =", ind_lowk
+          write(*,*) "number of highk knots =", numpp - ind_lowk 
+          if(ind_lowk.gt.0)write(*,*) "chi_LCDM^2(low k) per dof = ", dot_product(lnps_standard_knots(1:ind_lowk), matmul(cov_lowk, lnps_standard_knots(1:ind_lowk)))/ind_lowk
+          if(numpp-ind_lowk.gt.0)write(*,*) "chi_LCDM^2(high k) per dof = ", dot_product(lnps_standard_knots(ind_lowk+1:numpp), matmul(cov_highk, lnps_standard_knots(ind_lowk+1:numpp))) /(numpp - ind_lowk)
+       endif
     endif
     
 !!now do eigen modes    
