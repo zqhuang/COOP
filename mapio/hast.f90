@@ -12,12 +12,12 @@ program hastack_prog
   logical,parameter::do_calibration = .true.
   COOP_INT, parameter::n_sim = 1000
   COOP_STRING::spot_type, stack_type
-  COOP_REAL, parameter::patch_size = 5.d0*coop_SI_degree
-  COOP_UNKNOWN_STRING, parameter::output_dir = "hc_r5f30n1024"
+  COOP_REAL, parameter::patch_size = 2.d0*coop_SI_degree
+  COOP_UNKNOWN_STRING, parameter::output_dir = "ha_r2f15"
   
   COOP_UNKNOWN_STRING, parameter::prefix = output_dir//"/"
   COOP_INT, parameter::mmax = 4
-  COOP_REAL, parameter::fwhm_arcmin = 30.d0
+  COOP_REAL, parameter::fwhm_arcmin = 15.d0
   COOP_REAL, parameter::fwhm_in = 10.d0
   COOP_UNKNOWN_STRING, parameter::postfix =   "_010a_1024.fits"
 
