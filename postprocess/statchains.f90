@@ -762,14 +762,14 @@ contains
           index_pp = chain_index_of_name(mc, "pp1")
           print*, "pp1 index = ", index_pp
           if(index_pp .ne. 0)then
-             cov_lowk = mc%covmat(index_pp+cosmomc_pp_num_origin:index_pp+cosmomc_pp_num_origin+ind_lowk-1, index_pp+cosmomc_pp_num_origin:index_pp+cosmomc_pp_num_origin+ind_lowk-1)
-             cov_highk = mc%covmat(index_pp+cosmomc_pp_num_origin+ind_lowk:index_pp+cosmomc_pp_num_params-1, index_pp+cosmomc_pp_num_origin+ind_lowk:index_pp+cosmomc_pp_num_params-1)
+             cov_lowk = mc%covmat(index_pp:index_pp+ind_lowk-1,index_pp:index_pp+ind_lowk-1)
+             cov_highk = mc%covmat(index_pp+ind_lowk:index_pp+numpp-2, index_pp+ind_lowk:index_pp+numpp-2)
              call coop_matsym_inverse(cov_lowk)
              call coop_matsym_inverse(cov_highk)
              write(*,*) "number of lowk knots =", ind_lowk
              write(*,*) "number of highk knots =", numpp - ind_lowk-1 
-             if(ind_lowk.gt.0)write(*,*) "chi_LCDM^2(low k) per dof = ", dot_product(mc%mean(index_pp+cosmomc_pp_num_origin:index_pp+cosmomc_pp_num_origin+ind_lowk-1), matmul(cov_lowk, mc%mean(index_pp+cosmomc_pp_num_origin:index_pp+cosmomc_pp_num_origin+ind_lowk-1)))/ind_lowk
-             if(numpp-ind_lowk-1.gt.0)write(*,*) "chi_LCDM^2(high k) per dof = ", dot_product(mc%mean(index_pp+cosmomc_pp_num_origin+ind_lowk:index_pp+cosmomc_pp_num_params-1), matmul(cov_highk, mc%mean(index_pp+cosmomc_pp_num_origin+ind_lowk:index_pp+cosmomc_pp_num_params-1) )) /(numpp - ind_lowk-1)
+             if(ind_lowk.gt.0)write(*,*) "chi_LCDM^2(low k) per dof = ", dot_product(mc%mean(index_pp:index_pp+ind_lowk-1), matmul(cov_lowk, mc%mean(index_pp:index_pp+ind_lowk-1))/ind_lowk
+             if(numpp-ind_lowk-1.gt.0)write(*,*) "chi_LCDM^2(high k) per dof = ", dot_product(mc%mean(index_pp+ind_lowk:index_pp+numpp-2), matmul(cov_highk, mc%mean(index_pp+ind_lowk:index_pp+numpp-2) )) /(numpp - ind_lowk-1)
           else
              write(*,*) "cannot find pp1, skipping chi^2 calculation"
           endif
