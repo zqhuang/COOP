@@ -768,7 +768,7 @@ contains
              call coop_matsym_inverse(cov_highk)
              write(*,*) "number of lowk knots =", ind_lowk
              write(*,*) "number of highk knots =", numpp - ind_lowk-1 
-             if(ind_lowk.gt.0)write(*,*) "chi_LCDM^2(low k) per dof = ", dot_product(mc%mean(index_pp:index_pp+ind_lowk-1), matmul(cov_lowk, mc%mean(index_pp:index_pp+ind_lowk-1))/ind_lowk
+             if(ind_lowk.gt.0)write(*,*) "chi_LCDM^2(low k) per dof = ", dot_product(mc%mean(index_pp:index_pp+ind_lowk-1), matmul(cov_lowk, mc%mean(index_pp:index_pp+ind_lowk-1)))/ind_lowk
              if(numpp-ind_lowk-1.gt.0)write(*,*) "chi_LCDM^2(high k) per dof = ", dot_product(mc%mean(index_pp+ind_lowk:index_pp+numpp-2), matmul(cov_highk, mc%mean(index_pp+ind_lowk:index_pp+numpp-2) )) /(numpp - ind_lowk-1)
           else
              write(*,*) "cannot find pp1, skipping chi^2 calculation"
