@@ -759,7 +759,7 @@ contains
        enddo
        if(doAsMarg)then
           allocate(cov_lowk(ind_lowk, ind_lowk), cov_highk(numpp - ind_lowk-1, numpp - ind_lowk-1))
-          index_pp = chain_index_of_name("pp1")
+          index_pp = chain_index_of_name(mc, "pp1")
           print*, "pp1 index = ", index_pp
           if(index_pp .ne. 0)then
              cov_lowk = mc%covmat(index_pp+cosmomc_pp_num_origin:index_pp+cosmomc_pp_num_origin+ind_lowk-1, index_pp+cosmomc_pp_num_origin:index_pp+cosmomc_pp_num_origin+ind_lowk-1)
