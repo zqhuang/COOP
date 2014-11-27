@@ -462,7 +462,7 @@ contains
     integer, parameter::num_1sigma_trajs = 50
     integer, parameter::num_samples_to_get_mean = 2500
     integer,parameter::lmin = coop_pp_lmin, lmax = coop_pp_lmax, num_cls_samples = 50
-    COOP_REAL,parameter::standard_ns = 0.97d0
+    COOP_REAL,parameter::standard_ns = 0.967d0
     COOP_REAL,parameter::low_ell_cut = 50
     COOP_REAL,parameter::low_k_cut = low_ell_cut/distlss
     type(mcmc_chain) mc
@@ -470,17 +470,18 @@ contains
     type(coop_file)::fcl
     type(coop_asy) fp, fig_spec, fig_pot, fig_eps, fig_cls, fig_dcls
     type(coop_asy_path) path    
-    COOP_INT i , ip, j,  j2, k, ik, ik1,  ik2, ndof, l, junk, num_params, index_pp, pp_location, icontour, numpp, num_trajs, ind_lowk, isam, index_H
+    COOP_INT i , ip, j,  j2, k, ik, ik1,  ik2, ndof, l, junk, num_params, index_pp, pp_location, icontour, numpp, num_trajs, ind_lowk, isam, index_H, ind_highk
     COOP_SINGLE total_mult, cltraj_weight, x(mc%nb), ytop
     logical first_1sigma, inflation_consistency, do_dcl
-    COOP_REAL  norm, lnkmin, lnkmax, cltt, errup, errdown, mean_lnAs, hubble    
+    COOP_REAL  norm, lnkmin, lnkmax, cltt, errup, errdown, mean_lnAs, hubble, dns_trial
     COOP_REAL  lnk(nk), kMpc(nk), ps(nk), pt(nk), lnpsmean(nk), lnptmean(nk), lnpscov(nk, nk), lnps(nk), lnpt(nk),  mineig, clnps(coop_pp_n), clnpt(coop_pp_n), lnps_bounds(-2:2,nk), standard_lnps(nk), lnps_samples(num_samples_to_get_mean, nk), lnpt_samples(num_samples_to_get_mean, nk), mult_samples(num_samples_to_get_mean), Cls_samples(lmin:lmax, num_cls_samples), cls_mean(lmin:lmax), cls_best(lmin:lmax)
     COOP_REAL, dimension(:,:),allocatable::pcamat
     COOP_REAL, dimension(:),allocatable::eig, ipca, cosmomcParams
     COOP_REAL:: ps_trajs(nk, num_1sigma_trajs), pt_trajs(nk, num_1sigma_trajs) 
 !!knots statistics    
     COOP_REAL,dimension(:),allocatable::lnk_knots, lnps_knots, k_knots, lnps_mean_knots, lnps_standard_knots
-    COOP_REAL,dimension(:,:),allocatable::cov_knots, cov_lowk, cov_highk
+    COOP_REAL,dimension(:,:),allocatable::cov_knots, cov_lowk, cov_highk, cov_all
+    COOP_REAL,dimension(:),allocatable::shift_knots
     COOP_STRING:: inline
     
     mc%output = trim(adjustl(output))//trim(coop_file_name_of(mc%prefix))
@@ -758,21 +759,37 @@ contains
           if(ind_lowk .ge. numpp) stop "low_k_cut not in proper range"
        enddo
        if(doAsMarg)then
-          allocate(cov_lowk(ind_lowk, ind_lowk), cov_highk(numpp - ind_lowk-1, numpp - ind_lowk-1))
+          ind_highk = numpp - 1 - ind_lowk
+          allocate(cov_lowk(ind_lowk, ind_lowk), cov_highk(numpp - ind_lowk-1, numpp - ind_lowk-1), shift_knots(numpp-1), cov_all(numpp-1, numpp-1))
           index_pp = chain_index_of_name(mc, "pp1")
           print*, "pp1 index = ", index_pp
+          ind_highk = numpp-1-ind_lowk
           if(index_pp .ne. 0)then
              cov_lowk = mc%covmat(index_pp:index_pp+ind_lowk-1,index_pp:index_pp+ind_lowk-1)
              cov_highk = mc%covmat(index_pp+ind_lowk:index_pp+numpp-2, index_pp+ind_lowk:index_pp+numpp-2)
+             cov_all = mc%covmat(index_pp:index_pp+numpp-2, index_pp:index_pp+numpp-2)
              call coop_matsym_inverse(cov_lowk)
              call coop_matsym_inverse(cov_highk)
+             call coop_matsym_inverse(cov_all)
              write(*,*) "number of lowk knots =", ind_lowk
-             write(*,*) "number of highk knots =", numpp - ind_lowk-1 
-             if(ind_lowk.gt.0)write(*,*) "chi_LCDM^2(low k) per dof = ", dot_product(mc%mean(index_pp:index_pp+ind_lowk-1), matmul(cov_lowk, mc%mean(index_pp:index_pp+ind_lowk-1)))/ind_lowk
-             if(numpp-ind_lowk-1.gt.0)write(*,*) "chi_LCDM^2(high k) per dof = ", dot_product(mc%mean(index_pp+ind_lowk:index_pp+numpp-2), matmul(cov_highk, mc%mean(index_pp+ind_lowk:index_pp+numpp-2) )) /(numpp - ind_lowk-1)
+             write(*,*) "number of highk knots =", numpp - ind_lowk-1
+             do i = 1, coop_pp_nleft
+                shift_knots(i) = coop_pp_lnk_per_knot * (i-coop_pp_nleft-1)
+             enddo
+             do i=coop_pp_nleft + 1, numpp - 1
+                shift_knots(i) = coop_pp_lnk_per_knot * (i - coop_pp_nleft)
+             enddo
+             do i = -6, 6
+                dns_trial = i*0.0005
+                write(*,"(A, F10.4)") "Assuming n_s = ", standard_ns + dns_trial
+                write(*,*) "Full chi^2(LCDM) per dof = ", dot_product(mc%mean(index_pp:index_pp+numpp-2) - shift_knots*dns_trial, matmul(cov_all, mc%mean(index_pp:index_pp+numpp-2)- shift_knots*dns_trial))/(numpp-1)
+                if(ind_lowk.gt.0)write(*,*) "chi_LCDM^2(low k) per dof = ", dot_product(mc%mean(index_pp:index_pp+ind_lowk-1) - shift_knots(1:ind_lowk)*dns_trial, matmul(cov_lowk, mc%mean(index_pp:index_pp+ind_lowk-1)- shift_knots(1:ind_lowk)*dns_trial))/ind_lowk
+                if(numpp-ind_lowk-1.gt.0)write(*,*) "chi_LCDM^2(high k) per dof = ", dot_product(mc%mean(index_pp+ind_lowk:index_pp+numpp-2)- shift_knots(ind_lowk+1:numpp-1)*dns_trial, matmul(cov_highk, mc%mean(index_pp+ind_lowk:index_pp+numpp-2)- shift_knots(ind_lowk+1:numpp-1)*dns_trial )) /(numpp - ind_lowk-1)
+             enddo
           else
              write(*,*) "cannot find pp1, skipping chi^2 calculation"
           endif
+          deallocate(cov_lowk, cov_highk, cov_all, shift_knots)
        else
           allocate(cov_lowk(ind_lowk, ind_lowk), cov_highk(numpp - ind_lowk, numpp - ind_lowk))
           cov_lowk = cov_knots(1:ind_lowk, 1:ind_lowk)
@@ -784,6 +801,7 @@ contains
           write(*,*) "number of highk knots =", numpp - ind_lowk 
           if(ind_lowk.gt.0)write(*,*) "chi_LCDM^2(low k) per dof = ", dot_product(lnps_standard_knots(1:ind_lowk), matmul(cov_lowk, lnps_standard_knots(1:ind_lowk)))/ind_lowk
           if(numpp-ind_lowk.gt.0)write(*,*) "chi_LCDM^2(high k) per dof = ", dot_product(lnps_standard_knots(ind_lowk+1:numpp), matmul(cov_highk, lnps_standard_knots(ind_lowk+1:numpp))) /(numpp - ind_lowk)
+          deallocate(cov_lowk, cov_highk)
        endif
     endif
     
@@ -891,7 +909,7 @@ contains
  
     
     deallocate(CosmoMcParams)
-    if(allocated(lnk_knots))deallocate(lnk_knots, k_knots, cov_knots, lnps_knots, lnps_mean_knots, lnps_standard_knots, cov_lowk, cov_highk)
+    if(allocated(lnk_knots))deallocate(lnk_knots, k_knots, cov_knots, lnps_knots, lnps_mean_knots, lnps_standard_knots)
 
     !!likes file
     call fp%open(trim(mc%output)//".likes", "w")
