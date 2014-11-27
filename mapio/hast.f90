@@ -9,6 +9,7 @@ program hastack_prog
   use alm_tools
   implicit none
 #include "constants.h"
+  logical,parameter::do_calibration = .true.
   COOP_INT, parameter::n_sim = 1000
   COOP_STRING::spot_type, stack_type
   COOP_REAL, parameter::patch_size = 5.d0*coop_SI_degree
@@ -36,7 +37,7 @@ program hastack_prog
   type(coop_healpix_patch)::patch_s, patch_n
   integer,parameter::scan_nside = 4
   integer,parameter::scan_npix = scan_nside**2*6
-  integer run_id, i, ind, j, lmax
+  integer run_id, i, ind, j, lmax, l
   COOP_REAL   hdir(2)
   COOP_STRING::fr_file
   type(coop_list_integer)::listpix
@@ -46,7 +47,8 @@ program hastack_prog
   logical::pol_loaded = .false.
   logical::iload_first_call = .true.
   logical::polload_first_call = .true.
-  
+  COOP_REAL::cl13, cl14
+  COOP_SINGLE,dimension(:),allocatable::window
   
   call coop_MPI_init()
   if(iargc() .lt. 2)then
@@ -55,7 +57,6 @@ program hastack_prog
   endif
   spot_type = trim(coop_InputArgs(1))
   stack_type = trim(coop_InputArgs(2))
-  lmax = min(ceiling(3.d0/(fwhm_arcmin*coop_SI_arcmin*coop_sigma_by_fwhm)), 2048, coop_healpix_default_lmax)
   if(iargc() .ge. 3)then
      run_id = coop_str2int(coop_InputArgs(3))
   else
@@ -66,6 +67,21 @@ program hastack_prog
      write(*,*) "run id must not exceed ", scan_nside**2*12 - 1
      call coop_MPI_Abort()
   endif
+
+  lmax = min(ceiling(3.d0/(fwhm_arcmin*coop_SI_arcmin*coop_sigma_by_fwhm)), 2048, coop_healpix_default_lmax)
+  allocate(window(0:lmax))
+  if(do_calibration)then
+     call fp%open("calcls.txt", 'r')
+     do l = 2, lmax
+        read(fp%unit, *) i, cl13, cl14
+        if(i.ne.l) stop "calcls.txt file broken"
+        window(l) = sqrt(cl14/cl13)
+     enddo
+     call fp%close()
+  else
+     window(2:lmax) = 1.d0
+  endif  
+  
   call pix2ang_ring(scan_nside, run_id, hdir(1), hdir(2))
 
   !!read masks
@@ -173,7 +189,13 @@ contains
        imap%map(:, 1) = (imap%map(:, 1) + inoise%map(:, 1))*imask%map(:, 1)
     endif
     deallocate(spin)
-    if(fwhm.ge.coop_SI_arcmin)    call imap%smooth(fwhm, l_upper = lmax)    
+    if(do_calibration .or.  fwhm .ge.coop_SI_arcmin)then
+       if(do_calibration)then
+          call imap%smooth_with_window(fwhm = fwhm, lmax = lmax, window = window, index_list = (/ 1 /) )         
+       else
+          call imap%smooth(fwhm, l_upper = lmax, index_list = (/ 1 /) )
+       endif
+    endif
     if(nm.gt.1)call imap%iqu2TQTUT()
   end subroutine load_imap
 
@@ -197,7 +219,7 @@ contains
        polmap%map(:, 1) = (polmap%map(:, 1) + polnoise%map(:, 1))*polmask%map(:, 1)
        polmap%map(:, 2) = (polmap%map(:, 2) + polnoise%map(:, 2))*polmask%map(:, 1)
     endif
-    if(fwhm.ge.coop_SI_arcmin)call polmap%smooth(fwhm, l_upper = lmax)    
+    if(fwhm.ge.coop_SI_arcmin)call polmap%smooth(fwhm, l_upper = lmax, index_list=(/2 , 3/) )    
   end subroutine load_polmap
 
 

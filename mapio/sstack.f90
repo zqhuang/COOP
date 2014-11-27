@@ -9,6 +9,7 @@ program hastack_prog
   use alm_tools
   implicit none
 #include "constants.h"
+  logical,parameter::do_calibration = .true.
   COOP_INT, parameter::n_sim = 1000
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_SHORT_STRING::spot_type, stack_type, threshold_input
@@ -40,6 +41,7 @@ program hastack_prog
   type(coop_healpix_patch)::patch
   COOP_INT i, j, ind, nmaps_temp, l, lmax
   COOP_STRING::fr_file
+  COOP_REAL::cl13, cl14
   type(coop_list_integer)::listpix
   type(coop_list_real)::listangle
   type(coop_file) fp
@@ -56,7 +58,6 @@ program hastack_prog
   if(trim(threshold_input).ne."")then
      read(threshold_input,*)threshold
   endif
-  lmax  = min(ceiling(3.d0/(fwhm_arcmin*coop_SI_arcmin * coop_sigma_by_fwhm)), 2500)
   if(trim(spot_type) .eq. "" .or. trim(stack_type).eq."")then
      print*, "Syntax:"
      print*, "./SST Tmax  T [nu]"
@@ -68,8 +69,22 @@ program hastack_prog
      stop
   endif
 
-
+  lmax  = min(ceiling(3.d0/(fwhm_arcmin*coop_SI_arcmin * coop_sigma_by_fwhm)), 2048, coop_healpix_default_lmax)
   write(*,*) "Using lmax = "//COOP_STR_OF(lmax)
+  allocate(window(0:lmax))
+  window(0:1) = 0.d0  
+  if(do_calibration)then
+     call fp%open("calcls.txt", 'r')
+     do l = 2, lmax
+        read(fp%unit, *) i, cl13, cl14
+        if(i.ne.l) stop "calcls.txt file broken"
+        window(l) = sqrt(cl14/cl13)
+     enddo
+     call fp%close()
+  else
+     window(2:lmax) = 1.d0
+  endif
+  
   call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )  
   call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )
   
@@ -167,7 +182,7 @@ contains
        imap%map(:, 1) = (imap%map(:, 1) + inoise%map(:, 1))*imask%map(:, 1)
     endif
     deallocate(spin)
-    call do_smooth_map(imap)        
+    call do_smooth_imap(imap, i)        
     if(nm.gt.1)call imap%iqu2TQTUT()
   end subroutine load_imap
 
@@ -191,7 +206,7 @@ contains
        polmap%map(:, 1) = (polmap%map(:, 1) + polnoise%map(:, 1))*polmask%map(:, 1)
        polmap%map(:, 2) = (polmap%map(:, 2) + polnoise%map(:, 2))*polmask%map(:, 1)
     endif
-    call do_smooth_map(polmap)    
+    call do_smooth_polmap(polmap, i)    
   end subroutine load_polmap
 
 
@@ -220,23 +235,24 @@ contains
     sim_file_name_noise_polmap = mapdir//"noise/pol/dx11_v2_"//cs_method//"_pol_"//pol_case//"_noise_mc_"//trim(coop_Ndigits(i-1, 5))//polpost
   end function sim_file_name_noise_polmap
 
-  function high_pass_window(l, lstart, lend) result(w)
-    COOP_SINGLE w
-    COOP_INT l, lstart, lend
-    if(l.le.lstart)then
-       w = 0.
-       return
-    endif
-    if(l.ge.lend)then
-       w = 1.
-       return
-    endif
-    w = sin(coop_pio2*dble(l - lstart)/dble(lend-lstart))**2
-  end function high_pass_window
 
-  subroutine do_smooth_map(mymap)
+  subroutine do_smooth_imap(mymap, i)
     type(coop_healpix_maps)mymap
-    if(fwhm .gt. coop_SI_arcmin) call mymap%smooth(fwhm = fwhm, l_upper = lmax, l_lower = 2)
-  end subroutine do_smooth_map
+    integer i
+    if(fwhm .gt. coop_SI_arcmin .or. do_calibration)then
+       if(do_calibration .and. i.gt.0)then
+          call mymap%smooth_with_window(fwhm = fwhm, lmax = lmax, window = window, index_list = (/ 1 /) )          
+       else
+          call mymap%smooth(fwhm = fwhm, l_upper = lmax, l_lower = 2, index_list = (/ 1 /))
+       endif
+    endif
+  end subroutine do_smooth_imap
+  
+
+  subroutine do_smooth_polmap(mymap, i)
+    type(coop_healpix_maps)mymap
+    integer i
+    if(fwhm .gt. coop_SI_arcmin) call mymap%smooth(fwhm = fwhm, index_list = (/ 1 , 2 /) , l_upper = lmax, l_lower = 2)
+  end subroutine do_smooth_polmap
 
 end program hastack_prog

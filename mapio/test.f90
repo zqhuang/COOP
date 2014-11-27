@@ -9,18 +9,15 @@ program test
   use alm_tools
   implicit none
 #include "constants.h"
-  integer, parameter::n=10
+  integer, parameter::lmax=1500
   type(coop_file)::fp
-  integer l
-  COOP_REAL::scal(2, 10)
-  print*, size(scal)
-  stop
-  call fp%open(coop_inputArgs(1), "r")
-  do l=1, n
-     read(fp%unit, *) scal(:, l)
+  integer l, il
+  COOP_REAL::scal(2, lmax)
+  call fp%open("calcls.txt", "r")
+  do l=2, 1500
+     read(fp%unit, *) il, scal(:, l)
   enddo
   call fp%close()
-  print*, sum(scal(1, :))/n, sum(scal(2,:))/n
 
   
 end program test
