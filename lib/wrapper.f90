@@ -281,6 +281,7 @@ contains
        coop_pp_nleft = nint((nknots - 1)* (coop_pp_scalar_lnkpivot-coop_pp_lnkmin) / (-coop_pp_lnkmin))
        coop_pp_nright = nknots - 1 - coop_pp_nleft
        dlnk = (coop_pp_scalar_lnkpivot-coop_pp_lnkmin)/coop_pp_nleft
+       coop_pp_lnk_per_knot = dlnk       
        coop_pp_lnkmax = coop_pp_lnkmin + (nknots-1)*dlnk
        call coop_set_uniform(coop_pp_n, coop_pp_lnkMpc, coop_pp_lnkmin, coop_pp_lnkmax)       
        allocate(lnk(nknots), lnps(nknots), lnps2(nknots))
