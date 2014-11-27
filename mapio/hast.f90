@@ -219,7 +219,7 @@ contains
        polmap%map(:, 1) = (polmap%map(:, 1) + polnoise%map(:, 1))*polmask%map(:, 1)
        polmap%map(:, 2) = (polmap%map(:, 2) + polnoise%map(:, 2))*polmask%map(:, 1)
     endif
-    if(fwhm.ge.coop_SI_arcmin)call polmap%smooth(fwhm, l_upper = lmax, index_list=(/2 , 3/) )    
+    if(fwhm.ge.coop_SI_arcmin)call polmap%smooth(fwhm, l_upper = lmax, index_list=(/1, 2/) )    
   end subroutine load_polmap
 
 
