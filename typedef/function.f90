@@ -11,10 +11,11 @@ module coop_function_mod
   public:: coop_function, coop_function_multeval, coop_function_multeval_bare
 
   type coop_function
-     COOP_INT::method = COOP_INTERPOLATE_QUADRATIC
+     COOP_SHORT_STRING::name="NoName"
+     COOP_INT::method = COOP_INTERPOLATE_QUADRATIC  
      logical::xlog =.false.
      logical::ylog = .false.
-     logical::check_boundary = .false.
+     logical::check_boundary = .true.
      COOP_INT::n = 0
      COOP_REAL xmin, xmax, dx, fleft, fright, slopeleft, sloperight
      COOP_REAL, dimension(:), allocatable::f, f2, f1
@@ -25,7 +26,7 @@ module coop_function_mod
      procedure::eval => coop_function_evaluate  
      procedure::eval_bare => coop_function_evaluate_bare !!without log scaling
      procedure::derivative_bare => coop_function_derivative_bare !!without log scaling
-     procedure::derivative2_bare => coop_function_derivative2_bare !!without log scaling
+     procedure::derivative2_bare => coop_function_derivative2_bare !!without logc scaling
      procedure::integrate => coop_function_integrate
      procedure::derivative => coop_function_derivative
      procedure::derivative2 => coop_function_derivative2
@@ -40,6 +41,7 @@ module coop_function_mod
      module procedure coop_function_constructor
   end interface coop_function
 
+
 contains
 
   subroutine coop_function_set_boundary(this, fleft, fright, slopeleft, sloperight)
@@ -53,7 +55,7 @@ contains
   end subroutine coop_function_set_boundary
 
 
-  function coop_function_constructor(f, xmin, xmax, xlog, ylog, args, method, check_boundary) result(cf)
+  function coop_function_constructor(f, xmin, xmax, xlog, ylog, args, method, check_boundary, smooth, name) result(cf)
     external f
     COOP_REAL f, xmin, xmax, dx, lnxmin, lnxmax
     logical,optional::xlog
@@ -61,6 +63,8 @@ contains
     type(coop_arguments),optional::args
     COOP_INT, optional::method
     logical,optional::check_boundary
+    logical,optional::smooth
+    COOP_UNKNOWN_STRING,optional::name
     COOP_REAL_ARRAY::y
     COOP_INT i
     type(coop_function) :: cf
@@ -120,19 +124,21 @@ contains
        write(*,*) "Cannot construct the function type: found f = NAN within the specified range."
        stop
     endif
-    if(present(check_boundary))then
+    if(present(smooth))then
        if(present(method))then
-          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = method, xlog = cf%xlog, ylog = cf%ylog, check_boundary = check_boundary)
+          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = method, xlog = cf%xlog, ylog = cf%ylog, smooth = smooth)
        else
-          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = COOP_INTERPOLATE_SPLINE, xlog = cf%xlog, ylog = cf%ylog, check_boundary = check_boundary)
+          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, xlog = cf%xlog, ylog = cf%ylog, smooth = smooth)
        endif
     else
        if(present(method))then
           call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = method, xlog = cf%xlog, ylog = cf%ylog)
        else
-          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = COOP_INTERPOLATE_SPLINE, xlog = cf%xlog, ylog = cf%ylog)
+          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, xlog = cf%xlog, ylog = cf%ylog)
        endif
     endif
+    if(present(check_boundary)) cf%check_boundary = check_boundary
+    if(present(name)) cf%name = trim(adjustl(name))
   end function coop_function_constructor
 
   subroutine coop_function_free(this)
@@ -143,7 +149,7 @@ contains
   end subroutine coop_function_free
 
 
-  subroutine coop_function_init_NonUniform(this, x, f, xlog, ylog, check_boundary, smooth)
+  subroutine coop_function_init_NonUniform(this, x, f, xlog, ylog, check_boundary, smooth, name)
     class(coop_function):: this
     logical, optional::xlog, ylog
     COOP_REAL,dimension(:),intent(IN):: x, f
@@ -154,6 +160,7 @@ contains
     logical do_spline
     logical,optional::check_boundary
     logical,optional::smooth
+    COOP_UNKNOWN_STRING,optional::name
     if(coop_isnan(f))then
        write(*,*) "Cannot construct the function type: found f = NAN within the specified range."
        stop
@@ -233,12 +240,13 @@ contains
     endif
     if(present(check_boundary))then
        this%check_boundary = check_boundary
-    else
-       this%check_boundary = .true.
+    endif
+    if(present(name))then
+       this%name = trim(adjustl(name))
     endif
   end subroutine coop_function_init_NonUniform
 
-  subroutine coop_function_init(this, n, xmin, xmax, f, method, fleft, fright, slopeleft, sloperight, chebyshev_order, xlog, ylog, check_boundary, smooth)
+  subroutine coop_function_init(this, n, xmin, xmax, f, method, fleft, fright, slopeleft, sloperight, chebyshev_order, xlog, ylog, check_boundary, smooth, name)
     class(coop_function):: this
     logical, optional::xlog, ylog
     COOP_INT,intent(IN):: n
@@ -248,7 +256,8 @@ contains
     COOP_INT, optional::method
     COOP_INT, optional::chebyshev_order
     logical,optional::check_boundary
-    logical,optional::smooth    
+    logical,optional::smooth
+    COOP_UNKNOWN_STRING, optional::name
     COOP_INT i, count_tiny, count_small
     COOP_REAL::fmean, ftiny, curv, flarge, fsmall
     if(coop_isnan(f))then
@@ -410,6 +419,9 @@ contains
     else
        this%check_boundary = .true.
     endif
+    if(present(name))then
+       this%name = trim(adjustl(name))
+    endif
   end subroutine coop_function_init
 
 
@@ -454,9 +466,7 @@ contains
              f = this%fright
              return
           endif
-          write(*,*) this%xlog, this%ylog, this%n, b
-          write(*,*) x, ":", this%xmin, " -- ", this%xmax, " ---", this%dx
-          write(*,*) "coop_function cannot be evaluated out of its boundary"
+          write(*,*) "function "//trim(this%name)//": boundary overflow (from the left)"
           stop
        endif
        xdiff = x - this%xmax
