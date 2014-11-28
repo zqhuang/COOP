@@ -2,18 +2,16 @@
 echo ${1} > asyplot.config
 if [[ -n ${2} ]]
 then
-    epsfile=${2}.eps
+    output=${2}.pdf
 else
   if [[ $1 =~ \.txt$ ]]
   then
-    epsfile=${1/\.txt/\.eps}
+      output=${1/\.txt/\.pdf}
   else
-    epsfile=${1}\.eps
+      echo "$1 does not have a postfix .txt"
+      exit
   fi
 fi
-rm -f tmp.eps
-asy ${HOME}/work/GitHub/COOP/utils/asyplot.asy -o tmp.eps
-eps2eps tmp.eps ${epsfile}
-epstopdf $epsfile
-rm -f ${epsfile}
+asy ${HOME}/work/GitHub/COOP/utils/asyplot.asy -o $output
 rm -f asyplot.config
+

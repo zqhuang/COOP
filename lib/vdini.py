@@ -11,8 +11,8 @@ import string
 ###  define the short names for data files
 datafile = dict()
 datafile['lowTEB'] = r'batch2/lowTEB.ini'
-datafile['plikTT'] = r'batch2/plik_dx11dr2_HM_v17_TT.ini'
-datafile['plikTTTEEE'] = r'batch2/plik_dx11dr2_HM_v17_TTTEEE.ini'
+datafile['plikTT'] = r'batch2/plik_dx11dr2_HM_v18_TT.ini'
+datafile['plikTTTEEE'] = r'batch2/plik_dx11dr2_HM_v18_TTTEEE.ini'
 datafile['lens'] = r'batch2/lensing.ini'
 datafile['BAO'] = r'batch2/BAO.ini'
 datafile['JLA'] = r'batch2/JLA.ini'
@@ -28,8 +28,6 @@ datafile['camTTTEEE'] = r'batch2/CAMspec_TTTEEE.ini'
 ### default run
 default_data_sets1 = r'_lowTEB_plikTT'
 default_data_sets2 = r'_lowTEB_plikTT_BAO_JLA_HSTlow'
-default_data_sets3 = r'_lowTEB_liteTTTEEE_lens_BAO_JLA_HSTlow'
-default_data_sets4 = r'_lowTEB_liteTT'
 
 ###  Edit the collection of data sets that you want to run
 deruns = [ ['lowTEB', 'plikTT'], \
@@ -46,8 +44,6 @@ deruns = [ ['lowTEB', 'plikTT'], \
          ['lowTEB', 'plikTTTEEE', 'BAO', 'JLA', 'HSTlow'] ]
 
 ppruns = [ ['lowTEB', 'plikTT'], \
-           ['lowTEB', 'plikTTTEEE'], \
-           ['lowTEB', 'plikTT', 'lens'], \
            ['lowTEB', 'plikTT', 'BAO', 'JLA', 'HSTlow'], \
            ['lowTEB', 'plikTTTEEE', 'BAO', 'JLA', 'HSTlow'], \
            ['lowTEB', 'plikTT', 'lens', 'BAO', 'JLA', 'HSTlow'] ] 
@@ -55,6 +51,7 @@ ppruns = [ ['lowTEB', 'plikTT'], \
 recruns = [['lowTEB', 'plikTT'], \
            ['lowTEB', 'plikTTTEEE'], \
            ['lowTEB', 'plikTT', 'BAO', 'JLA', 'HSTlow'], \
+           ['lowTEB', 'plikTT', 'lens', 'BAO', 'JLA', 'HSTlow'], \
            ['lowTEB', 'plikTTTEEE', 'BAO', 'JLA', 'HSTlow'] ]
 
 

@@ -188,7 +188,6 @@ is not ignored and will be read in as a string "#comment #2"
 ---------------------------------------------------------
 End of Documentation
 */
-
 private import math;
 import graph_splinetype;
 import graph_settings;
@@ -196,6 +195,7 @@ import graph;
 import palette;
 import contour;
 //=============== global variables;
+settings.outformat="pdf";
 real cxmin, cxmax, cymin, cymax, czmin, czmax, aymin, aymax, axmin, axmax, azmin, azmax;
 real infty = 0.99e30;
 int  topaxis = 0;
@@ -203,7 +203,7 @@ int  rightaxis = 0;
 real topaxis_xmin, topaxis_xmax, rightaxis_ymin, rightaxis_ymax;
 bool xlog, ylog, zlog, topaxis_xlog, rightaxis_ylog, doclip;
 bool xmin_adjust, xmax_adjust, ymin_adjust, ymax_adjust, zmin_adjust, zmax_adjust;
-string xlabel, ylabel, caption, topaxis_label, rightaxis_label, textfile;
+string xlabel, ylabel, caption, topaxis_label, rightaxis_label;
 pen coorpen = black + solid + 1.5;
 //=================== axis functions ===========
 
@@ -1065,10 +1065,12 @@ else{
 }
 
 // =============================== Main Routine===============================
+string textfile;
 //load the file
 file fconf =input(name = "asyplot.config", check = false);
 textfile = fconf;
-if(textfile == "") textfile = getstring(prompt="Enter the 2d image text file: ");
+if(textfile == "")
+    textfile = getstring(prompt="Enter the 2d image text file: ");
 file fin=input(textfile);
 // =============================================================================
 //read in width and height of the figure, in unit inch

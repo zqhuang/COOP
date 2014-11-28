@@ -206,7 +206,7 @@ contains
     COOP_REAL  xc, yc,  norm, r, theta, minz, maxz
     COOP_REAL,dimension(:),allocatable::xstart, xend, ystart, yend
     call fig%open(output)
-    call fig%init(caption = trim(this%caption), xlabel = "$2\sin{\frac{\theta}{2}}\cos\varphi$", ylabel =  "$2\sin{\frac{\theta}{2}}\sin\varphi$")
+    call fig%init(caption = trim(this%caption), xlabel = "$\varpi\cos\phi$", ylabel =  "$\varpi\sin\phi$", width = 4.8, height = 4.)
     if(imap .le. 0 .or. imap .gt. this%nmaps) stop "coop_healpix_patch_plot: imap overflow"
     if(this%zmin .lt.0.99e30)then
        minz = this%zmin
