@@ -18,7 +18,7 @@ n = number of blocks (integer)
 =========================================================
 More about the blocks:
 ---------------------------------------------------------
-Each block can be either DOTS, LINES, CURVE, LABELS, CONTOUR, CLIP, LEGEND, EXTRA_AXIS, or DENSITY, EXPAND
+Each block can be either DOTS, LINES, CURVE, LABELS, ARROWS, CONTOUR, CLIP, LEGEND, EXTRA_AXIS, DENSITY, EXPAND
 ---------------------------------------------------------
 Format of DOTS block
 ---------------------------------------------------------
@@ -122,9 +122,16 @@ label #2  (string)
 ....
 coordinates of label #n (2 real numbers)
 label #n  (string)
-
-##by default LABELS are aligned in the center
-##you can replace LABELS with LEFTLABESL or RIGHTLABELS to define the alignment
+---------------------------------------------------------
+Format of ARROWS block
+---------------------------------------------------------
+ARROWS  (string, specify that this is a ARROWS block)
+n = number of arrows to be written (integer)
+color and line type (string, color, linetype and linewidth connected with underscore, such as "white_solid_0.5", "darkgreen_longdashed_1", "magenta_longdashdotted_1.5", "orange_dashdotted_0.8", ...)
+x1_start y1_start  x1_end y1_end
+x2_start y2_start  x2_end y2_end
+...
+xn_start yn_start  xn_end yn_end
 ---------------------------------------------------------
 Format of LEGEND block
 ---------------------------------------------------------
@@ -308,6 +315,29 @@ string fetch_string(file fin){
     if(getstr=="NULL") return "";
     return getstr;}
 
+
+// string__TRANSFORM__transformations
+Label fetch_label(file fin){
+    string fullstr = fetch_string(fin);
+    string sbreak[] = split(fullstr, "__TRANSFORM__");
+    if(sbreak.length == 0 || sbreak.length > 2) return Label("");
+    if(sbreak.length == 1) return Label(s = fullstr);
+    Label l = Label(sbreak[0]);
+    string ss[] = split(sbreak[1], ":");   
+    for ( int i = 0; i<ss.length; ++i){
+       if(substr(ss[i], 0, 1) == "R"){  //rotation
+          l = rotate( ((real) substr(ss[i],1)) ) * l; }
+       else if(substr(ss[i],0,1) == "X"){ //xscale
+           l = xscale( ((real) substr(ss[i],1)) ) * l;}
+       else if(substr(ss[i],0,1) == "Y"){ //yscale
+           l = yscale( ((real) substr(ss[i],1)) ) * l;}
+        else if(substr(ss[i],0,1) == "S"){ //x and y scale
+           l = scale( ((real) substr(ss[i],1)) ) * l;}	   
+        else if(substr(ss[i],0,1) == "T"){ //x and y scale
+           string xy[] = split(substr(ss[i],1), "|");
+           l = shift( ((real) xy[0]), ((real) xy[1]))*l;} }
+     return l;
+}
 
 pen whitepen_from_string(string fullstr){
   string sbreak[] = split(fullstr, "_");
@@ -717,10 +747,11 @@ int plot_labels(file fin){
  pen colorpen = pen_from_string(cstr);
  real [] t;
  t = new real[2];
+ Label l;
  for (int i = 0; i< nlines; ++i){
    t = read_xy(fin);
-   cstr = fetch_string(fin);
-   label( L = cstr, position = ( xcoor(t[0]), ycoor(t[1]) ), align = Center, p = colorpen);}
+   l = fetch_label(fin);
+   label( L = l, position = ( xcoor(t[0]), ycoor(t[1]) ), align = Center, p = colorpen);}
  return nlines;}
 
 int plot_labels_left(file fin){
@@ -729,14 +760,15 @@ int plot_labels_left(file fin){
     write(stdout, "Too many labels: " + ((string) nlines) + " lables");
     return 0;}
  string cstr;
+ Label l;
  cstr = fetch_string(fin);
  pen colorpen = pen_from_string(cstr);
  real [] t;
  t = new real[2];
  for (int i = 0; i< nlines; ++i){
    t = read_xy(fin);
-   cstr = fetch_string(fin);
-   label( L = cstr, position = ( xcoor(t[0]), ycoor(t[1]) ), align = LeftSide, p = colorpen);}
+   l = fetch_label(fin);
+   label( L = l, position = ( xcoor(t[0]), ycoor(t[1]) ), align = LeftSide, p = colorpen);}
  return nlines;}
 
 int plot_labels_right(file fin){
@@ -745,19 +777,35 @@ int plot_labels_right(file fin){
     write(stdout, "Too many labels: " + ((string) nlines) + " lables");
     return 0;}
  string cstr;
+ Label l;
  cstr = fetch_string(fin);
  pen colorpen = pen_from_string(cstr);
  real [] t;
  t = new real[2];
  for (int i = 0; i< nlines; ++i){
    t = read_xy(fin);
-   cstr = fetch_string(fin);
-   label( L = cstr, position = ( xcoor(t[0]), ycoor(t[1]) ), align = RightSide, p = colorpen);}
+   l = fetch_label(fin);
+   label( L = l, position = ( xcoor(t[0]), ycoor(t[1]) ), align = RightSide, p = colorpen);}
  return nlines;}
 
+int plot_arrows(file fin){
+  int nlines = fin;
+  if(nlines <= 0 || nlines > 100000)  {
+    write(stdout, "Too many arrows: " + ((string) nlines) + " lables");
+    return 0;}
+ string cstr;
+ cstr = fetch_string(fin);
+ pen colorpen = pen_from_string(cstr);
+ real [] t;
+ t = new real[4];
+ for (int i = 0; i< nlines; ++i){
+   t = read_xyxy(fin);
+   draw((t[0], t[1]) -- (t[2], t[3]), colorpen, Arrow);}
+ return nlines;
+}
 
 // =============================================================================
-//plot labels
+//plot legends
 int plot_legend(file fin){
   string cstr;
   cstr = fetch_string(fin);
@@ -983,7 +1031,10 @@ bool plot_block(file fin){
        write(stdout, (string) nlines + ' labels are plotted.\n');}
     else if(block == "RIGHTLABELS"){
        nlines = plot_labels_right(fin);
-       write(stdout, (string) nlines + ' labels are plotted.\n');}       
+       write(stdout, (string) nlines + ' labels are plotted.\n');}              
+    else if(block == "ARROWS"){
+       nlines = plot_arrows(fin);
+       write(stdout, (string) nlines + ' arrows are plotted.\n');}              
     else if(block == "CURVE"){
        nlines = plot_curve(fin);
        write(stdout, 'a curve is plotted from ' + ((string) nlines ) + ' points.\n');}

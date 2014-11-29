@@ -42,11 +42,22 @@ module coop_asy_mod
      procedure::xrel => coop_asy_xrel
      procedure::yrel => coop_asy_yrel
      procedure::expand => coop_asy_expand
+     procedure::arrow => coop_asy_arrow_d
+     procedure::arrows => coop_asy_arrows_d
   end type coop_asy
 
 
 
   COOP_INT , parameter::coop_asy_path_max_nclosed = 4096
+
+  interface coop_asy_arrow
+     module procedure coop_asy_arrow_d, coop_asy_arrow_s
+  end interface coop_asy_arrow
+
+  interface coop_asy_arrows
+     module procedure coop_asy_arrows_d, coop_asy_arrows_s
+  end interface coop_asy_arrows
+  
   
   interface coop_asy_band
      module procedure coop_asy_band_s, coop_asy_band_d
@@ -2979,5 +2990,119 @@ contains
     fp%ymin = fp%ymin - dy*yl
     fp%ymax = fp%ymax + dy*yr
   end subroutine coop_asy_expand
+
+  subroutine coop_asy_arrow_d(fp, xstart, ystart, xend, yend, color, linetype, linewidth)
+    class(coop_asy)::fp
+    COOP_REAL xstart, ystart, xend, yend
+    COOP_UNKNOWN_STRING,optional:: color, linetype
+    COOP_SINGLE ,optional::linewidth
+    COOP_STRING lineproperty
+    write(fp%unit, "(A)") "ARROWS"
+    write(fp%unit, "(A)") "1"
+    if(present(color))then
+       lineproperty=trim(color)
+    else
+       lineproperty = "black"
+    endif
+    if(present(linetype))then
+       lineproperty = trim(lineproperty)//"_"//trim(linetype)
+    else
+       lineproperty = trim(lineproperty)//"_solid"
+    endif
+    if(present(linewidth))then
+       lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
+    endif
+    write(fp%unit, "(A)") trim(lineproperty)
+    call fp%write_coor(real(xstart, sp), real(ystart, sp), real(xend, sp), real(yend, sp))    
+  end subroutine coop_asy_arrow_d
+
+  subroutine coop_asy_arrow_s(fp, xstart, ystart, xend, yend, color, linetype, linewidth)
+    class(coop_asy)::fp
+    COOP_SINGLE xstart, ystart, xend, yend
+    COOP_UNKNOWN_STRING,optional:: color, linetype
+    COOP_SINGLE ,optional::linewidth
+    COOP_STRING lineproperty
+    write(fp%unit, "(A)") "ARROWS"
+    write(fp%unit, "(A)") "1"
+    if(present(color))then
+       lineproperty=trim(color)
+    else
+       lineproperty = "black"
+    endif
+    if(present(linetype))then
+       lineproperty = trim(lineproperty)//"_"//trim(linetype)
+    else
+       lineproperty = trim(lineproperty)//"_solid"
+    endif
+    if(present(linewidth))then
+       lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
+    endif
+    write(fp%unit, "(A)") trim(lineproperty)
+    call fp%write_coor(xstart, ystart, xend, yend)
+  end subroutine coop_asy_arrow_s
+
+  subroutine coop_asy_arrows_d(fp, n, xstart, ystart, xend, yend, color, linetype, linewidth)
+    class(coop_asy)::fp
+    COOP_INT n, i
+    COOP_REAL xstart(n), ystart(n), xend(n), yend(n)
+    COOP_UNKNOWN_STRING,optional:: color, linetype
+    COOP_SINGLE ,optional::linewidth
+    COOP_STRING lineproperty
+    if(n.gt. 9999)then
+       write(*, '(A, I10)') "n = ", n
+       stop "cannot plot so many arrows"
+    endif
+    write(fp%unit, "(A)") "ARROWS"
+    write(fp%unit, "(I5)") n
+    if(present(color))then
+       lineproperty=trim(color)
+    else
+       lineproperty = "black"
+    endif
+    if(present(linetype))then
+       lineproperty = trim(lineproperty)//"_"//trim(linetype)
+    else
+       lineproperty = trim(lineproperty)//"_solid"
+    endif
+    if(present(linewidth))then
+       lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
+    endif
+    write(fp%unit, "(A)") trim(lineproperty)
+    do i=1, n
+       call fp%write_coor(real(xstart(i), sp), real(ystart(i), sp), real(xend(i), sp), real(yend(i), sp))
+    enddo
+  end subroutine coop_asy_arrows_d
+  
+  subroutine coop_asy_arrows_s(fp, n, xstart, ystart, xend, yend, color, linetype, linewidth)
+    class(coop_asy)::fp
+    COOP_INT n, i
+    COOP_SINGLE xstart(n), ystart(n), xend(n), yend(n)
+    COOP_UNKNOWN_STRING,optional:: color, linetype
+    COOP_SINGLE ,optional::linewidth
+    COOP_STRING lineproperty
+    if(n.gt. 9999)then
+       write(*, '(A, I10)') "n = ", n
+       stop "cannot plot so many arrows"
+    endif
+    write(fp%unit, "(A)") "ARROWS"
+    write(fp%unit, "(I5)") n
+    if(present(color))then
+       lineproperty=trim(color)
+    else
+       lineproperty = "black"
+    endif
+    if(present(linetype))then
+       lineproperty = trim(lineproperty)//"_"//trim(linetype)
+    else
+       lineproperty = trim(lineproperty)//"_solid"
+    endif
+    if(present(linewidth))then
+       lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
+    endif
+    write(fp%unit, "(A)") trim(lineproperty)
+    do i=1, n
+       call fp%write_coor(xstart(i), ystart(i), xend(i), yend(i))
+    enddo
+  end subroutine coop_asy_arrows_s
   
 end module coop_asy_mod
