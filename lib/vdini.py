@@ -49,10 +49,10 @@ ppruns = [ ['lowTEB', 'plikTT'], \
            ['lowTEB', 'plikTT', 'lens', 'BAO', 'JLA', 'HSTlow'] ] 
 
 recruns = [['lowTEB', 'plikTT'], \
-           ['lowTEB', 'plikTTTEEE'], \
+           ['lowTEB', 'plikTT', 'BAO',],  \
+           ['lowTEB', 'plikTTTEEE', 'BAO',],  \
+           ['lowTEB', 'plikTT', 'lens', 'BAO']           
            ['lowTEB', 'plikTT', 'BAO', 'JLA', 'HSTlow'], \
-           ['lowTEB', 'plikTT', 'lens', 'BAO', 'JLA', 'HSTlow'], \
-           ['lowTEB', 'plikTTTEEE', 'BAO', 'JLA', 'HSTlow'] ]
 
 
 

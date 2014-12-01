@@ -1,1 +1,1 @@
-#define MAINPATH "/Users/zqhuang/work/GitHub/COOP"
+#define MAINPATH "/Users/zqhuang/work/scilibs/COOP"
