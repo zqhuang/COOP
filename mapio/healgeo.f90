@@ -207,6 +207,7 @@ contains
     COOP_REAL,dimension(:),allocatable::xstart, xend, ystart, yend
     logical,optional::use_degree
     logical use_rad
+    COOP_SHORT_STRING::xlabel, ylabel
     call fig%open(output)
     if(present(use_degree))then
        if(use_degree)then
@@ -216,7 +217,14 @@ contains
     else
        use_rad = .true.
     endif
-    call fig%init(caption = trim(this%caption), xlabel = "$\varpi\cos\phi (\mathrm{deg})$", ylabel =  "$\varpi\sin\phi (\mathrm{deg})$", width = 5., height = 3.9, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)))              
+    if(use_rad)then
+       xlabel = "$\varpi\cos\phi$"
+       ylabel = "$\varpi\sin\phi$"       
+    else
+       xlabel = "$\varpi\cos\phi (\mathrm{deg})$"
+       ylabel = "$\varpi\sin\phi (\mathrm{deg})$"
+    endif
+    call fig%init(caption = trim(this%caption), xlabel =trim(xlabel), ylabel =trim(ylabel), width = 5., height = 3.9, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)))              
     if(imap .le. 0 .or. imap .gt. this%nmaps) stop "coop_healpix_patch_plot: imap overflow"
     if(this%zmin .lt.0.99e30)then
        minz = this%zmin
@@ -228,7 +236,7 @@ contains
     else
        call coop_array_get_threshold(this%image(:,:,imap), COOP_REAL_OF(0.01), maxz)
     endif
-    call coop_asy_density(fig, this%image(:,:,imap), -this%r(this%n)/coop_SI_degree, this%r(this%n)/coop_SI_degree, -this%r(this%n)/coop_SI_degree, this%r(this%n)/coop_SI_degree, label = trim(this%label(imap)), zmax = maxz, zmin = minz, color_table = trim(this%color_table))
+    call coop_asy_density(fig, this%image(:,:,imap), -this%r(this%n), this%r(this%n), -this%r(this%n), this%r(this%n), label = trim(this%label(imap)), zmax = maxz, zmin = minz, color_table = trim(this%color_table))
     if(use_rad)then
        theta = nint(2.d0*asin(this%r(this%n)/2.d0)/coop_SI_degree*10.d0)/10.d0
        call coop_asy_label(fig, "$\mathbf{-"//COOP_STR_OF(theta)//"}^\circ$", -this%r(this%n), -this%r(this%n)*1.15, color="blue")
