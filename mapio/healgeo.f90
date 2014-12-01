@@ -196,7 +196,7 @@ contains
 
   end subroutine coop_healpix_diffuse_into_mask
 
-  subroutine coop_healpix_patch_plot(this, imap, output)
+  subroutine coop_healpix_patch_plot(this, imap, output, use_degree)
     COOP_INT::bgrids
     class(coop_healpix_patch)::this
     COOP_INT imap
@@ -205,8 +205,18 @@ contains
     COOP_INT nb, i, j, k, ns
     COOP_REAL  xc, yc,  norm, r, theta, minz, maxz
     COOP_REAL,dimension(:),allocatable::xstart, xend, ystart, yend
+    logical,optional::use_degree
+    logical use_rad
     call fig%open(output)
-    call fig%init(caption = trim(this%caption), xlabel = "$\varpi\cos\phi$", ylabel =  "$\varpi\sin\phi$", width = 5., height = 3.9, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)))
+    if(present(use_degree))then
+       if(use_degree)then
+          this%r = this%r/coop_SI_degree
+       endif
+       use_rad = .not. use_degree
+    else
+       use_rad = .true.
+    endif
+    call fig%init(caption = trim(this%caption), xlabel = "$\varpi\cos\phi (\mathrm{deg})$", ylabel =  "$\varpi\sin\phi (\mathrm{deg})$", width = 5., height = 3.9, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)))              
     if(imap .le. 0 .or. imap .gt. this%nmaps) stop "coop_healpix_patch_plot: imap overflow"
     if(this%zmin .lt.0.99e30)then
        minz = this%zmin
@@ -218,12 +228,14 @@ contains
     else
        call coop_array_get_threshold(this%image(:,:,imap), COOP_REAL_OF(0.01), maxz)
     endif
-    call coop_asy_density(fig, this%image(:,:,imap), -this%r(this%n), this%r(this%n), -this%r(this%n), this%r(this%n), label = trim(this%label(imap)), zmax = maxz, zmin = minz, color_table = trim(this%color_table))
-    theta = nint(2.d0*asin(this%r(this%n)/2.d0)/coop_SI_degree*10.d0)/10.d0
-    call coop_asy_label(fig, "$\mathbf{-"//COOP_STR_OF(theta)//"}^\circ$", -this%r(this%n), -this%r(this%n)*1.15, color="blue")
-    call coop_asy_label(fig, "$\mathbf{"//COOP_STR_OF(theta)//"}^\circ$", this%r(this%n), -this%r(this%n)*1.15, color="blue")
-    call fig%arrow(this%r(this%n),  -this%r(this%n)*1.08, this%r(this%n),  -this%r(this%n)*1.01)
-    call fig%arrow(-this%r(this%n),  -this%r(this%n)*1.08, -this%r(this%n),  -this%r(this%n)*1.01)
+    call coop_asy_density(fig, this%image(:,:,imap), -this%r(this%n)/coop_SI_degree, this%r(this%n)/coop_SI_degree, -this%r(this%n)/coop_SI_degree, this%r(this%n)/coop_SI_degree, label = trim(this%label(imap)), zmax = maxz, zmin = minz, color_table = trim(this%color_table))
+    if(use_rad)then
+       theta = nint(2.d0*asin(this%r(this%n)/2.d0)/coop_SI_degree*10.d0)/10.d0
+       call coop_asy_label(fig, "$\mathbf{-"//COOP_STR_OF(theta)//"}^\circ$", -this%r(this%n), -this%r(this%n)*1.15, color="blue")
+       call coop_asy_label(fig, "$\mathbf{"//COOP_STR_OF(theta)//"}^\circ$", this%r(this%n), -this%r(this%n)*1.15, color="blue")
+       call fig%arrow(this%r(this%n),  -this%r(this%n)*1.08, this%r(this%n),  -this%r(this%n)*1.01)
+       call fig%arrow(-this%r(this%n),  -this%r(this%n)*1.08, -this%r(this%n),  -this%r(this%n)*1.01)
+    endif
     if(this%headless_vectors .and. this%nmaps .eq. 2)then
        bgrids = max(this%n/7, 2)
        norm = maxval(this%image(:,:,1)**2+this%image(:,:,2)**2)
@@ -274,6 +286,11 @@ contains
        deallocate(xstart, xend, ystart, yend)
     endif
 100 call fig%close()
+    if(present(use_degree))then
+       if(use_degree)then
+          this%r = this%r*coop_SI_degree
+       endif
+    endif    
   end subroutine coop_healpix_patch_plot
 
 
@@ -1913,6 +1930,7 @@ contains
              call coop_healpix_disc_ang2pix(disc, r, phi, pix)
              qu = this%map(pix, this%iq:this%iu)
              call coop_healpix_rotate_qu(qu, phi)
+             qu = -qu  !!the nonsense - sign from WMAP convention!
              if(present(mask))then
                 patch%nstack(i, j) = mask%map(pix, 1)
                 patch%image(i, j, 1:2) = qu * mask%map(pix,1)

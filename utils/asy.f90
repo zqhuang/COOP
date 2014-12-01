@@ -13,8 +13,8 @@ module coop_asy_mod
 
   COOP_INT, parameter::sp = coop_single_real_length
   COOP_INT, parameter::dl = coop_real_length
-  COOP_SINGLE ,parameter::coop_asy_default_width = 6.6
-  COOP_SINGLE ,parameter::coop_asy_default_height = 5.5
+  COOP_SINGLE ,parameter::coop_asy_default_width = 4.8
+  COOP_SINGLE ,parameter::coop_asy_default_height = 3.9
   integer, parameter::coop_asy_num_line_types = 12
 
   type, extends(coop_file) :: coop_asy

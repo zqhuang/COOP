@@ -53,19 +53,23 @@ def stack(inputmap, spots, st):
 
 
 spots_tmax = getspots(imap, "Tmax")
+spots_tmin = getspots(imap, "Tmin")
 spots_emax = getspots(emap, "Emax")
 spots_bmax = getspots(bmap, "Bmax")
 spots_zetamax = getspots(zetamap, "zetamax")
 spots_tmax_orient = getspots(tqtutmap, "Tmax_QTUTOrient")
+spots_tmin_orient = getspots(tqtutmap, "Tmin_QTUTOrient")
 spots_zetamax_orient = getspots(zetaqzuz, "zetamax_qzuzOrient")
 spots_ptmax = getspots(tqtutmap, "PTmax")
 spots_pmax = getspots(polmap, "Pmax")
 
 stack(imap, spots_tmax, "T")
+stack(imap, spots_tmin, "T")
 stack(emap, spots_tmax, "E")
 stack(bmap, spots_tmax, "B")
 stack(zetamap, spots_tmax, "zeta")
 stack(polmap, spots_tmax, "QrUr")
+stack(polmap, spots_tmin, "QrUr")
 stack(polmap, spots_tmax, "QU")
 stack(tqtutmap, spots_tmax, "QrUr")
 stack(tqtutmap, spots_tmax, "QU")
@@ -86,9 +90,11 @@ stack(emap, spots_zetamax, "E")
 stack(bmap, spots_zetamax, "B")
 
 stack(imap, spots_tmax_orient, "T")
+stack(imap, spots_tmin_orient, "T")
 stack(emap, spots_tmax_orient, "E")
 stack(zetamap, spots_tmax_orient, "zeta")
 stack(polmap, spots_tmax_orient, "QU")
+stack(polmap, spots_tmin_orient, "QU")
 stack(tqtutmap, spots_tmax_orient, "QU")
 
 

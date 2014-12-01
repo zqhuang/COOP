@@ -4,13 +4,13 @@ program test
   implicit none
 #include "constants.h"
 
-  COOP_INT::fwhm_arcmin = 0.
+  COOP_INT::fwhm_arcmin = 15.
   COOP_INT::fwhm_in = 0.
-  COOP_STRING::spot_type = "Bmax"
-  COOP_STRING::input_file ="simu/simurp2_iqu_10arc_n1024_converted_to_TEB_submap003.fits"
-  COOP_STRING::imask_file  ="commander/commander_imask.fits"
-  COOP_STRING::polmask_file  ="commander/commander_polmask.fits"
-  COOP_REAL:: threshold = 0.
+  COOP_STRING::spot_type = "PmaxSortT"
+  COOP_STRING::input_file ="planck14/commander_siqu.fits"
+  COOP_STRING::imask_file  = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
+  COOP_STRING::polmask_file  = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
+  COOP_REAL:: threshold = 1.
 
   COOP_STRING::mask_file
   COOP_STRING output_file

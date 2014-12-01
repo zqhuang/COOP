@@ -8,21 +8,21 @@ program test
 
   
   COOP_REAL, parameter::smooth_fwhm = 15.*coop_SI_arcmin
-  COOP_UNKNOWN_STRING,parameter:: color_table = "Planck"
+  COOP_UNKNOWN_STRING,parameter:: color_table = "Rainbow"
   COOP_UNKNOWN_STRING, parameter :: spot_type = "QU"
-  COOP_REAL,parameter::r=10.*coop_SI_degree, dr = max(smooth_fwhm/2., r/60.)
+  COOP_REAL,parameter::r=10.*coop_SI_degree, dr = max(smooth_fwhm/2., r/100.)
   COOP_INT, parameter::n = ceiling(r/dr)
 
-  COOP_UNKNOWN_STRING, parameter :: map_file = "dust/dust_siqu.fits"
-  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/dust_siqu_PmaxSortT_threshold1_fwhm15.txt" !spots/dust_siqu_PmaxSortT_NoThreshold_fwhm15.txt"
+  COOP_UNKNOWN_STRING, parameter :: map_file = "planck14/commander_siqu.fits"
+  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/commander_siqu_fwhm15_PmaxSortT_threshold1.txt"
   COOP_UNKNOWN_STRING, parameter :: imask_file = ""
-  COOP_UNKNOWN_STRING, parameter :: polmask_file = "ffp7/ffp7_union_polmask_1024.fits"
-  COOP_UNKNOWN_STRING, parameter :: prefix = "multstacked/dust"
+  COOP_UNKNOWN_STRING, parameter :: polmask_file = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
+  COOP_UNKNOWN_STRING, parameter :: prefix = "multstacked/cmb"
   COOP_STRING fout, fname, caption_raw
   COOP_INT,parameter::mmax = 4
-  COOP_INT, parameter::npatches = 30
+  COOP_INT, parameter::npatches = 28
   real, parameter::uppercut  = 300.
-  real, parameter::lowercut  = 0.
+  real, parameter::lowercut  = 30.
   type(coop_healpix_maps) map, mask
   type(coop_healpix_patch) patch(npatches)
   logical::do_mask
@@ -47,7 +47,7 @@ program test
      stop "Unknown spot_type"
   end select
   call map%read(map_file)
-
+  call map%smooth(smooth_fwhm)
   if(index(spots_file, "_Tmax_QTUTOrient_") .gt. 0 .or. index(spots_file, "TQUmax").gt. 0)then
      caption_raw = "$T$ maxima, oriented"
   elseif(index(spots_file, "_Tmax_").gt.0)then
@@ -92,8 +92,9 @@ program test
 
   call patch(1)%init(spot_type, n, dr, mmax = mmax)
   patch(1)%color_table = trim(color_table)
-  patch(1)%zmin = -1.
-  patch(1)%zmax = 8.
+  patch(1)%zmin = -4.
+  patch(1)%zmax = 4.
+  
   do i=2, npatches
      patch(i) = patch(1)
   enddo
