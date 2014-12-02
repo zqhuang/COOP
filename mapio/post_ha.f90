@@ -15,7 +15,7 @@ program test
   integer i, nside, id, pix, iminprob, n, nmaps, nsims, isim, j, ncut, i1, i2, cgt, pix_want, ind_data
   type(coop_healpix_maps)::map
   COOP_STRING::prefix
-  COOP_REAL theta, phi, chisq(0:95), prob(0:95), minprob, l, b, dr
+  COOP_REAL theta, phi, chisq(0:95), prob(0:95), minprob, l, b, dr, norm
   COOP_INT::start1, end1, start2, end2, n1, n2
   COOP_REAL,dimension(:,:),allocatable::cov, vec, diff, diffmin, vecmin
   COOP_REAL, dimension(:,:,:),allocatable::frn, frs
@@ -210,10 +210,12 @@ program test
   enddo
   call coop_asy_legend(fig, "N", 2)
   call fig%close()
+
+  norm = 2.d0/(rsq(n)/coop_SI_degree**2)
   call fig%open(trim(prefix)//"powercut"//COOP_STR_OF(ncut)//"_"//COOP_STR_OF(nsims)//"sims_distr_m"//COOP_STR_OF(m_want)//".txt")
-  call fig%init(xlabel = "$c_0 (\mu K)$", ylabel = "$c_1 (\mu K /\mathrm{rad}^2)$")
-  call fig%dots(vecmin(1, 1:nsims), vecmin(2, 1:nsims), "black")
-  call fig%dot(vecmin(1, 0), vecmin(2, 0), "red", "$\Delta$")
+  call fig%init(xlabel = "$c_0 (\mu K)$", ylabel = "$c_1 (\mu K /\mathrm{deg}^2)$")
+  call fig%dots(vecmin(1, 1:nsims)-vecmin(2, 1:nsims), vecmin(2, 1:nsims)*norm, "black")
+  call fig%dot(vecmin(1, 0)-vecmin(2, 0), vecmin(2, 0)*norm, "red", "$\Delta$")
   call fig%expand(0.01, 0.01, 0.01, 0.11)
   call fig%label("$\Delta$   Planck", 0.05, 0.95, "red", alignment="right")
   call fig%label("$\bullet$   FFP8", 0.05, 0.9, color="black", alignment="right")
