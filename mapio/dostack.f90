@@ -18,13 +18,18 @@ program test
   COOP_REAL,parameter::r=2.*coop_SI_degree, dr = max(smooth_fwhm/3., r/45.)
   COOP_INT, parameter::n = ceiling(r/dr)
   COOP_UNKNOWN_STRING, parameter :: prefix = "stacked/"
-  COOP_STRING fout,fout2, caption, fname
+  COOP_STRING fout,fout2, caption, fname, inline
   COOP_INT,parameter::mmax = 4
   integer i, m
   type(coop_healpix_maps) map, mask
   type(coop_healpix_patch) patch
   logical::do_mask
   type(coop_asy)::fp
+  COOP_REAL::zmin = 1.1e31
+  COOP_REAL::zmax  = -1.1e31
+  COOP_REAL::zmin2 = 1.1e31
+  COOP_REAL::zmax2  = -1.1e31
+  
   if(iargc() .ge. 5)then
      map_file = trim(adjustl(coop_InputArgs(1)))
      spots_file = trim(adjustl(coop_InputArgs(2)))
@@ -32,6 +37,18 @@ program test
      imask_file = trim(adjustl(coop_InputArgs(4)))
      polmask_file = trim(adjustl(coop_InputArgs(5)))
      unit = trim(adjustl(coop_InputArgs(6)))
+     if(iargc().ge. 8)then
+        inline = trim(adjustl(coop_InputArgs(7)))
+        read(inline, *) zmin
+        inline = trim(adjustl(coop_InputArgs(8)))
+        read(inline, *) zmax        
+     endif
+     if(iargc().ge.10)then
+        inline = trim(adjustl(coop_InputArgs(9)))
+        read(inline, *) zmin2
+        inline = trim(adjustl(coop_InputArgs(10)))
+        read(inline, *) zmax2               
+     endif
   endif
 
   if(.not. coop_file_exists(spots_file))then
@@ -178,8 +195,19 @@ program test
   case("T", "E", "B", "I", "zeta") 
      fout = prefix//trim(spot_type)//"_on_"//trim(fname)
   end select
+  if(zmin .lt. zmax)then
+     patch%zmin = zmin
+     patch%zmax = zmax
+  endif
   call patch%plot(imap = 1, output =trim(fout))
-  if(trim(fout2).ne."")call patch%plot(imap = 2, output =trim(fout2))
+  
+  if(trim(fout2).ne."")then
+     if(zmin2 .lt. zmax2)then
+        patch%zmin = zmin2
+        patch%zmax = zmax2
+     endif
+     call patch%plot(imap = 2, output =trim(fout2))
+  endif
   write(*,*) "the output file is: "//trim(fout)
   call patch%get_all_radial_profiles()
   do m = 0, 4, 2

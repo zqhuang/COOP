@@ -12,9 +12,9 @@ program map
   integer,parameter::nmax = 8
   character(len=80), dimension(64) :: header
   COOP_STRING,dimension(nmax)::fin
-  COOP_STRING::fout
+  COOP_STRING::fout, fbeam
   integer,dimension(:),allocatable::nmaps_in, ordering_in, nside_in
-  integer nin, i, j
+  integer nin, i, j, l, il
   real,dimension(:,:),allocatable:: map_in  
   real,dimension(:,:),allocatable:: map_out, map_tmp
   integer(8) npixtot
@@ -24,7 +24,9 @@ program map
   logical::inline_mode = .false.
   type(coop_healpix_maps) hgm, hgm2
   COOP_REAL fwhm, scal, threshold
-  write(*,*) "options are: SPLIT; SMOOTH; MULTIPLY;I2TQTUT;IQU2TEB;SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE"
+  type(coop_file)::fp
+  
+  write(*,*) "options are: SPLIT; SMOOTH; DOBEAM; MULTIPLY;I2TQTUT;IQU2TEB;SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE"
   nin = 1
   inline_mode =  (iargc() .gt. 0)
 
@@ -85,6 +87,37 @@ program map
            call coop_healpix_split(trim(fin(i)))
         enddo
         print*, "maps are all split"
+        goto 500
+     case("DOBEAM")
+        if(inline_mode)then
+           fbeam = trim(coop_inputArgs(nin+1))
+        else
+           write(*,*) "Enter the beam file:"
+           read(*, "(A)") fbeam
+        endif
+        fbeam = trim(adjustl(fbeam))
+        if( .not. coop_file_exists(fbeam))then
+           write(*,"(A)") "beam file "//trim(fbeam)//" does not exist"
+           if(inline_mode)stop
+           do while(.not. coop_file_exists(fbeam))
+              write(*,*) "Enter the beam file:"
+              read(*, "(A)") fbeam
+              fbeam = adjustl(fbeam)
+           enddo
+        endif
+        do i=1, nin-1
+           call hgm%read(trim(fin(i)))        
+           call fp%open(trim(fbeam), 'r')
+           call hgm%map2alm()
+           do l=2, hgm%lmax
+              read(fp%unit, *) il, scal
+              if(il.ne.l) stop "beam file broken"
+              hgm%alm(l, :, :) = hgm%alm(l, :, :)*scal
+           enddo
+           call fp%close()
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_beam")))
+        enddo
+        print*, "beam applied"
         goto 500
      case("SMOOTH")
         if(inline_mode)then
@@ -271,5 +304,7 @@ program map
   call write_minimal_header(header,dtype = 'MAP', nside=nside_in(1), order=COOP_RING, creator='Zhiqi Huang') !!ring order
   call coop_delete_file(trim(fout))
   call output_map(map_out, header, trim(fout))
+  goto 500
+450 stop "end of file"  
 500 continue
 end program map

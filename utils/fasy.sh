@@ -12,6 +12,6 @@ else
       exit
   fi
 fi
-asy ${HOME}/work/GitHub/COOP/utils/asyplot.asy -o $output
+asy ${HOME}/work/scilibs/COOP/utils/asyplot.asy -o $output
 rm -f asyplot.config
 

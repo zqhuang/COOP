@@ -8,21 +8,29 @@ program test
 
   
   COOP_REAL, parameter::smooth_fwhm = 15.*coop_SI_arcmin
-  COOP_UNKNOWN_STRING,parameter:: color_table = "Rainbow"
+  COOP_UNKNOWN_STRING,parameter:: color_table = "Planck"
   COOP_UNKNOWN_STRING, parameter :: spot_type = "QU"
-  COOP_REAL,parameter::r=10.*coop_SI_degree, dr = max(smooth_fwhm/2., r/100.)
+  COOP_REAL,parameter::r=7.*coop_SI_degree, dr = max(smooth_fwhm/2., r/100.)
   COOP_INT, parameter::n = ceiling(r/dr)
 
+  COOP_INT, parameter::npatches = 5
+  real, parameter::uppercut  = 300.
+  real, parameter::lowercut  = 20.  
+  COOP_REAL,parameter::zmin = -1.
+  COOP_REAL,parameter::zmax = 5.
   COOP_UNKNOWN_STRING, parameter :: map_file = "planck14/commander_siqu.fits"
   COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/commander_siqu_fwhm15_PmaxSortT_threshold1.txt"
-  COOP_UNKNOWN_STRING, parameter :: imask_file = ""
-  COOP_UNKNOWN_STRING, parameter :: polmask_file = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
   COOP_UNKNOWN_STRING, parameter :: prefix = "multstacked/cmb"
+!!$  
+!!$  COOP_UNKNOWN_STRING, parameter :: map_file = "dust/dust_siqu.fits"
+!!$  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/dust_siqu_fwhm15_PmaxSortT_threshold1.txt"
+!!$  COOP_UNKNOWN_STRING, parameter :: prefix = "multstacked/dust"
+  
+  COOP_UNKNOWN_STRING, parameter :: imask_file = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
+  COOP_UNKNOWN_STRING, parameter :: polmask_file = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
+
   COOP_STRING fout, fname, caption_raw
   COOP_INT,parameter::mmax = 4
-  COOP_INT, parameter::npatches = 28
-  real, parameter::uppercut  = 300.
-  real, parameter::lowercut  = 30.
   type(coop_healpix_maps) map, mask
   type(coop_healpix_patch) patch(npatches)
   logical::do_mask
@@ -92,8 +100,8 @@ program test
 
   call patch(1)%init(spot_type, n, dr, mmax = mmax)
   patch(1)%color_table = trim(color_table)
-  patch(1)%zmin = -4.
-  patch(1)%zmax = 4.
+  patch(1)%zmin = zmin
+  patch(1)%zmax = zmax
   
   do i=2, npatches
      patch(i) = patch(1)

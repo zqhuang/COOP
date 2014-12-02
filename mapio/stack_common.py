@@ -31,7 +31,7 @@ def getspots(inputmap, st):
     return output
 
 
-def stack(inputmap, spots, st):        
+def stack(inputmap, spots, st, zmin = 1.1e31, zmax = -1.1e31, zmin2=1.1e31, zmax2 = -1.1e31):        
     if(check_files):
         if(string.find(inputmap, "TQTUT")!=-1 and (st == "QU" or st == "QrUr")):
             if(st == "QrUr"):
@@ -48,9 +48,17 @@ def stack(inputmap, spots, st):
         if(os.path.isfile(stack_dir + output)):
             print stack_dir+output+ "  already exists, skipping..."
             return
-    os.system("./Stack " + inputmap + " " + spots_dir+spots + " " + st + " " + imask + " " + polmask + " " + unit)
+    if(zmin < zmax):
+        if(zmin2 < zmax2):
+            os.system("./Stack " + inputmap + " " + spots_dir+spots + " " + st + " " + imask + " " + polmask + " " + unit + " " + str(zmin) + " " + str(zmax)+ " " + str(zmin2) + " " + str(zmax2))                   
+        else:
+            os.system("./Stack " + inputmap + " " + spots_dir+spots + " " + st + " " + imask + " " + polmask + " " + unit + " " + str(zmin) + " " + str(zmax))        
+    else:
+        os.system("./Stack " + inputmap + " " + spots_dir+spots + " " + st + " " + imask + " " + polmask + " " + unit)
     os.system("../utils/fasy.sh "+stack_dir+output)
 
+
+    
 
 spots_tmax = getspots(imap, "Tmax")
 spots_tmin = getspots(imap, "Tmin")
@@ -63,8 +71,8 @@ spots_zetamax_orient = getspots(zetaqzuz, "zetamax_qzuzOrient")
 spots_ptmax = getspots(tqtutmap, "PTmax")
 spots_pmax = getspots(polmap, "Pmax")
 
-stack(imap, spots_tmax, "T")
-stack(imap, spots_tmin, "T")
+stack(imap, spots_tmax, "T", 0., 70.)
+stack(imap, spots_tmin, "T", -70., 0.)
 stack(emap, spots_tmax, "E")
 stack(bmap, spots_tmax, "B")
 stack(zetamap, spots_tmax, "zeta")
@@ -89,11 +97,11 @@ stack(imap, spots_zetamax, "T")
 stack(emap, spots_zetamax, "E")
 stack(bmap, spots_zetamax, "B")
 
-stack(imap, spots_tmax_orient, "T")
-stack(imap, spots_tmin_orient, "T")
+stack(imap, spots_tmax_orient, "T", -35., 70.)
+stack(imap, spots_tmin_orient, "T", -70., 35.)
 stack(emap, spots_tmax_orient, "E")
 stack(zetamap, spots_tmax_orient, "zeta")
-stack(polmap, spots_tmax_orient, "QU")
+stack(polmap, spots_tmax_orient, "QU", -0.4, 0.41, -0.31, 0.31)
 stack(polmap, spots_tmin_orient, "QU")
 stack(tqtutmap, spots_tmax_orient, "QU")
 

@@ -20,7 +20,7 @@ program test
   call map%allocate_alms(lmax=2000)
   map%Cl = 0.
   sigma = coop_sigma_by_fwhm * beam_fwhm
-  call fp%open("camb_cls.dat", "r")
+  call fp%open("planckbest_lensedtotCls.dat", "r")
   do l=2, map%lmax
      read(fp%unit, *) il, map%cl(l,coop_healpix_index_TT), map%cl(l, coop_healpix_index_EE), map%cl(l, coop_healpix_index_BB), map%cl(l, coop_healpix_index_TE)
      map%cl(l, :) = map%cl(l, :)/(1.+l*(l+1.d0)*sigma**2)
