@@ -13,18 +13,18 @@ program test
   COOP_REAL,parameter::r=7.*coop_SI_degree, dr = max(smooth_fwhm/2., r/100.)
   COOP_INT, parameter::n = ceiling(r/dr)
 
-  COOP_INT, parameter::npatches = 5
-  real, parameter::uppercut  = 300.
-  real, parameter::lowercut  = 20.  
+  COOP_INT, parameter::npatches = 10.
+  real, parameter::uppercut  = 115.
+  real, parameter::lowercut  = 15.  
   COOP_REAL,parameter::zmin = -1.
-  COOP_REAL,parameter::zmax = 5.
-  COOP_UNKNOWN_STRING, parameter :: map_file = "planck14/commander_siqu.fits"
-  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/commander_siqu_fwhm15_PmaxSortT_threshold1.txt"
-  COOP_UNKNOWN_STRING, parameter :: prefix = "multstacked/cmb"
-!!$  
-!!$  COOP_UNKNOWN_STRING, parameter :: map_file = "dust/dust_siqu.fits"
-!!$  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/dust_siqu_fwhm15_PmaxSortT_threshold1.txt"
-!!$  COOP_UNKNOWN_STRING, parameter :: prefix = "multstacked/dust"
+  COOP_REAL,parameter::zmax = 8.
+!!$  COOP_UNKNOWN_STRING, parameter :: map_file = "planck14/commander_siqu.fits"
+!!$  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/commander_siqu_fwhm15_PmaxSortT_threshold1.txt"
+!!$  COOP_UNKNOWN_STRING, parameter :: prefix = "multstacked/cmb"
+  
+  COOP_UNKNOWN_STRING, parameter :: map_file = "dust/dust_siqu.fits"
+  COOP_UNKNOWN_STRING, parameter :: spots_file = "spots/dust_siqu_fwhm15_PmaxSortT_threshold1.txt"
+  COOP_UNKNOWN_STRING, parameter :: prefix = "multstacked/dust"
   
   COOP_UNKNOWN_STRING, parameter :: imask_file = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
   COOP_UNKNOWN_STRING, parameter :: polmask_file = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
@@ -124,15 +124,15 @@ program test
      fname = coop_file_name_of(spots_file)
      select case(spot_type)
      case("QrUr")
-        fout = prefix//trim(coop_num2str(i))//"_Qr_on_"//trim(fname)
+        fout = prefix//trim(coop_ndigits(i,2))//"_Qr_on_"//trim(fname)
         call patch(i)%plot(imap = 1, output =trim(fout))
         call patch(i)%plot(imap = 2, output = prefix//trim(coop_num2str(i))//"_Ur_on_"//trim(fname))
      case("QU")
-        fout = prefix//trim(coop_num2str(i))//"_Q_on_"//trim(fname)
+        fout = prefix//trim(coop_ndigits(i,2))//"_Q_on_"//trim(fname)
         call patch(i)%plot(imap = 1, output = trim(fout))
         call patch(i)%plot(imap = 2, output = prefix//trim(coop_num2str(i))//"_U_on_"//trim(fname))
      case("T", "E", "B", "I") 
-        fout = prefix//trim(coop_num2str(i))//"_"//spot_type//"_on_"//trim(fname)
+        fout = prefix//trim(coop_ndigits(i,2))//"_"//spot_type//"_on_"//trim(fname)
         call patch(i)%plot(imap = 1, output =trim(fout))
      end select
      write(*,*) "the output file is: "//trim(fout)
