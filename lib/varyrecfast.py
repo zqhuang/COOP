@@ -169,7 +169,7 @@ if(not os.path.exists('paramnames')):
     os.system('mkdir paramnames')
 default_params = r'params_CMB.paramnames'
 if(not os.path.isfile(default_params)):
-    if(os.path.is_file(r'paramnames/params_CMB.paramnames')):
+    if(os.path.isfile(r'paramnames/params_CMB.paramnames')):
         default_params = r'paramnames/params_CMB.paramnames'
     else:
         print "cannot find the default paramnames file: params_CMB.paramnames"
