@@ -191,12 +191,16 @@ if(nstr == ""):
     sys.exit()
 numhard = int( nstr )
 
-if(os.path.isfile('params_CMB.paramnames')):
-    param_list = paramnames_list("params_CMB.paramnames")
-else:
-    print "cannot find the default paramnames file: params_CMB.paramnames"
-    sys.exit()
+default_params = r'params_CMB.paramnames'
+if(not os.path.isfile(default_params)):
+    if(os.path.is_file(r'paramnames/params_CMB.paramnames')):
+        default_params = r'paramnames/params_CMB.paramnames'
+    else:
+        print "cannot find the default paramnames file: params_CMB.paramnames"
+        sys.exit()
+        
 
+param_list = paramnames_list(default_params)
 index_w = which_line(param_list, r'w')
 if index_w == 0:
     print "cannot determine the index of dark energy parameter"
@@ -275,7 +279,7 @@ replace_first("camb/power_tilt.f90", [line_pattern(r'module initialpower'), func
 
 replace_first("source/CosmologyTypes.f90", [line_pattern(r'integer,parameter::max_inipower_params=\d+')], [r'integer, parameter:: max_inipower_params = 30'])
 
-replace_first("source/settings.f90", [line_pattern(r'integer,parameter::max_theory_params=\d+')], [r'integer, parameter:: max_theory_params = 50 \n character(LEN=256)::cosmomc_paramnames = "params_CMB.paramnames" '])
+replace_first("source/settings.f90", [line_pattern(r'integer,parameter::max_theory_params=\d+')], [r'integer, parameter:: max_theory_params = 50 \n character(LEN=256)::cosmomc_paramnames = "'+default_params+'" '])
 
 replace_all("camb/halofit_ppf.f90",  \
             [ r'^(\s*subroutine\s+NonLinear_GetNonLinRatios\s*\(\s*CAMB\_Pk\)\s*(\!.*)?)$',  \
@@ -294,7 +298,7 @@ list_param_pattern = [line_pattern(r'module cosmologyparameterizations'), \
                       r'call\s+this\%SetTheoryParameterNumbers\s*\(\s*\d+\,\s*last_power_index\s*\)', \
                       r'end\s+subroutine\s+setforH',  \
                       r'^\s*call\s+setfast\s*\(\s*Params\s*\,\s*CMB\s*\)\s*(\!.*)?$', \
-                      r"(\'|\")params_CMB.paramnames(\'|\")"]
+                      r"(\'|\")" + re.escape(default_params) + r"(\'|\")"]
 
 
 
@@ -314,18 +318,6 @@ if(this_index != 0):
     list_param_pattern.append(r'^\s*CMB\%nnu\s*=\s*Params\(\d+\)\s*(\!.*)?$')
     list_param_replace.append(r'CMB%nnu = Params(cosmomc_de_index + cosmomc_de_num_params + ' + str(this_index - index_post_w)  + r' )')
 
-
-
-this_index = which_line(param_list, "") 
-if(this_index != 0):
-    list_param_pattern.append(r'')
-    list_param_replace.append(r' = Params(cosmomc_de_index + cosmomc_de_num_params + ' + str(this_index - index_post_w)  + r' )')
-
-
-this_index = which_line(param_list, "") 
-if(this_index != 0):
-    list_param_pattern.append(r'')
-    list_param_replace.append(r' = Params(cosmomc_de_index + cosmomc_de_num_params + ' + str(this_index - index_post_w)  + r' )')
 
 this_index = which_line(param_list, "yhe") 
 if(this_index != 0):
@@ -362,7 +354,6 @@ if(this_index != 0):
     list_param_replace.append(r'CMB%fdm = Params(cosmomc_de_index + cosmomc_de_num_params + ' + str(this_index - index_post_w)  + r' )')
 
 
-
 replace_all("source/CosmologyParameterizations.f90", list_param_pattern, list_param_replace )
 
 replace_first("source/driver.F90", [line_pattern(r'program cosmomc'), line_pattern(r'call ini%open(inputfile)')], [r'program cosmomc \n  use coop_wrapper', r'call Ini%Open(InputFile)\n cosmomc_de_model = Ini%Read_Int("de_model", cosmomc_de_model) \n cosmomc_de_num_params = Ini%Read_Int("de_num_params", cosmomc_de_num_params)\n cosmomc_pp_model = Ini%Read_Int("pp_model", cosmomc_pp_model) \n cosmomc_pp_num_params = Ini%Read_Int("pp_num_params", cosmomc_pp_num_params) \n cosmomc_pp_inflation_consistency = Ini%Read_Logical("inflation_consistency", .true.) \n cosmomc_paramnames = Ini%Read_String("paramnames", .false.) \n if(trim(cosmomc_paramnames).eq."") stop "cannot find the paramnames entry in the ini file" \n cosmomc_de_index = ' + str(index_w) + r'\n cosmomc_de2pp_num_params = ' + str(numhard - 1) + r' - cosmomc_de_index \n cosmomc_pp_num_origin = last_power_index'])
@@ -376,21 +367,21 @@ if(not os.path.exists('paramnames')):
 if(iniroot != ""):    
     if(not os.path.exists(inirootname)):    
         os.system('mkdir '+ inirootname )
-os.system('cp params_CMB.paramnames paramnames/')
+
 if(num_w_params == 2):
-    copy_replace_first("params_CMB.paramnames", "paramnames/params_qcdm.paramnames", [r'^w\s+.+$', r'^wa\s+.+$'], [r"epss          \epsilon_s", r"epsinf           \epsilon_{\infty}\nzetas           \zeta_s\natbyaeq              a_t/a_{\\rm eq}\nQeq                  Q_{\\rm eq} \ndlnQdphi           d\\ln Q/d\\phi" ] )
+    copy_replace_first(default_params, "paramnames/params_qcdm.paramnames", [r'^w\s+.+$', r'^wa\s+.+$'], [r"epss          \epsilon_s", r"epsinf           \epsilon_{\infty}\nzetas           \zeta_s\natbyaeq              a_t/a_{\\rm eq}\nQeq                  Q_{\\rm eq} \ndlnQdphi           d\\ln Q/d\\phi" ] )
 else:
-    copy_replace_first("params_CMB.paramnames", "paramnames/params_qcdm.paramnames", [r'^w\s+.+$'], [r"epss          \epsilon_s\nepsinf           \epsilon_{\infty}\nzetas           \zeta_s\natbyaeq              a_t/a_{\\rm eq}\nQeq                  Q_{\\rm eq} \ndlnQdphi           d\\ln Q/d\\phi" ] )
+    copy_replace_first(default_params, "paramnames/params_qcdm.paramnames", [r'^w\s+.+$'], [r"epss          \epsilon_s\nepsinf           \epsilon_{\infty}\nzetas           \zeta_s\natbyaeq              a_t/a_{\\rm eq}\nQeq                  Q_{\\rm eq} \ndlnQdphi           d\\ln Q/d\\phi" ] )
 
 
 ##lcdm
-copy_replace_first(baseini, iniroot+'lcdm.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [r'\1 \nde_model = 2 \nde_num_params='+str(num_w_params)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'file_root = lcdm', r'action = 0', str_propose])
+copy_replace_first(baseini, iniroot+'lcdm.ini', [common_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [r'\1 \nde_model = 2 \nde_num_params='+str(num_w_params)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = '+default_params, r'file_root = lcdm', r'action = 0', str_propose])
 
 ### w0
-copy_replace_first_append(baseini, iniroot+'w0.ini', [ r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [ r'file_root = w0 \nde_model = 2 \nde_num_params='+str(num_w_params)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'action = 0', str_propose], r'param[w] = -1 -3 1 0.05 0.05' )
+copy_replace_first_append(baseini, iniroot+'w0.ini', [ r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [ r'file_root = w0 \nde_model = 2 \nde_num_params='+str(num_w_params)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = '+default_params, r'action = 0', str_propose], r'param[w] = -1 -3 1 0.05 0.05' )
 
 ###w0wa
-copy_replace_first_append(baseini, iniroot+'w0wa.ini', [ r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [ r'file_root = w0wa \nde_model = 2 \nde_num_params='+str(num_w_params)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_CMB.paramnames', r'action = 0', str_propose], r'param[w] = -1 -3 1 0.05 0.05 ' + "\n" + r'param[wa] = 0 -3 3 0.1 0.1' )
+copy_replace_first_append(baseini, iniroot+'w0wa.ini', [ r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [ r'file_root = w0wa \nde_model = 2 \nde_num_params='+str(num_w_params)+r'\npp_model = 0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = '+default_params, r'action = 0', str_propose], r'param[w] = -1 -3 1 0.05 0.05 ' + "\n" + r'param[wa] = 0 -3 3 0.1 0.1' )
 
 #qcdm 1 parameter: epss
 copy_replace_first_append(baseini, iniroot+'qcdm_1param.ini', [covmat_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$', propose_pattern], [ covmat_repl+r'qcdm_1param.covmat', r'file_root = qcdm_1param \nde_model = 3\nde_num_params=6\npp_model=0 \npp_num_params = ' + str(index_H0 - index_logA) +r'\nparamnames = paramnames/params_qcdm.paramnames', r'action = 0', str_propose], r'param[w] = -1 -1 -1 0 0 '+"\n" + r'param[epss] = 0 -1.5 1.5 0.1 0.1 '+"\n"+r'param[epsinf] = 0 0 0 0 0  '+"\n" + r'param[zetas] = 0 0 0 0 0 '+"\n" +'param[atbyaeq] = 0 0 0 0 0 '+"\n" +'param[Qeq] = 0 0 0 0 0 '+"\n"+'param[dlnQdphi] = 0 0 0 0 0' )
@@ -411,7 +402,7 @@ for i in range(5, 14, 2):
     for j in range(i):
         ppstr += (r'pp'+ str(j+1) + r'    p_{' + str(j+1) + r'}\n')
     ppstr += r'H0*        H_0'
-    copy_replace_first(r'params_CMB.paramnames', r'paramnames/params_scanp' + str(i)+ r'.paramnames',  [ r'^H0\*\s+.+$' ], [ ppstr ])
+    copy_replace_first(default_params, r'paramnames/params_scanp' + str(i)+ r'.paramnames',  [ r'^H0\*\s+.+$' ], [ ppstr ])
     copy_replace_first(baseini, iniroot + r'dpp'+str(i)+'.ini', [covmat_pattern, common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [covmat_repl + r'dpp' + str(i) + r'_minzre.covmat', r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = dpp'+str(i) + r'_minzre', r'action = 0', r'compute_tensors = T', r'\#\1',str_propose])
     for fidr in listr:
         copy_replace_first_append(baseini, iniroot + r'dpp'+str(i)+'_fixrp' + fidr + r'.ini', [covmat_pattern, common_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [covmat_repl + r'dpp' + str(i)+r'_minzre_fixrp' + fidr + r'.covmat', r'DEFAULT(' + batch_dir + '/common_pp.ini) \nde_model = 0 \nde_num_params = 2\npp_model = 1 \npp_num_params = ' + str(ppnum+i) + r'\nparamnames = paramnames/params_scanp' + str(i) + r'.paramnames', r'file_root = dpp'+str(i)+r'_minzre_fixrp' + fidr , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose], r'param[r] = 0.' + fidr  + "\n")
@@ -421,7 +412,7 @@ for i in range(5, 14, 2):
 
     
 
-copy_replace_first(common_file, batch_dir + r'/common_pp.ini', [r'^INCLUDE\(params_CMB_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_pp.ini)'] )
+copy_replace_first(common_file, batch_dir + r'/common_pp.ini', [r'^INCLUDE\(params\_CMB\.ini\)\s*$'], [r'INCLUDE(params_CMB_pp.ini)'] )
 ppstr = r'param[ns] =  0.967  \n'
 for i in range(1, 16):
     ppstr += r'param[pp'+ str(i) + r'] = 0. -1. 1. 0.03 0.03 \n'
@@ -431,4 +422,4 @@ copy_replace_first_append(batch_dir + r'/params_CMB_defaults.ini', batch_dir + r
 
 copy_replace_first_append(baseini, iniroot+r'bump_minzre_fixrp100.ini', [covmat_pattern, r'^file_root\s*=.+$' , r'^action\s*=.+$', r'^compute\_tensors\s*=.+$', r'^(cmb\_dataset\[BICEP2\].*)$', propose_pattern], [covmat_repl + r'bump_zremin_fixrp100.covmat', r'file_root = bump_zremin_fixrp100 \nde_model = 0 \nde_num_params = 2\npp_model = 4 \npp_num_params = ' + str(ppnum+3) + r'\nparamnames = paramnames/params_bump.paramnames' , r'action = 0', r'compute_tensors = T', r'\#\1',str_propose], r'param[bumpamp] = 0. -1.5 1.5 0.03 0.03 '+"\n"+r'param[bumploc] = -6.8 -7.6 -4.6 0.2 0.2 ' + "\n" + r'param[bumpwidth] = 0.5  0.25 1. 0.1 0.1' + "\n" + r'param[r] = 0.1' + "\n" + r'use_min_zre = 6.' + "\n")
 
-copy_replace_first(r'params_CMB.paramnames', r'paramnames/params_bump.paramnames',  [ r'^H0\*\s+.+$' ], [r'bumpamp        A_{\\rm bump} \nbumploc       \\ln k_{\\rm bump} \nbumpwidth     w_{\\rm bump}   \nH0*           H_0'])
+copy_replace_first(default_params, r'paramnames/params_bump.paramnames',  [ r'^H0\*\s+.+$' ], [r'bumpamp        A_{\\rm bump} \nbumploc       \\ln k_{\\rm bump} \nbumpwidth     w_{\\rm bump}   \nH0*           H_0'])
