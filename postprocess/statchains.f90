@@ -282,10 +282,10 @@ contains
           do while(acc + c(i+1).lt.multcut)
              i = i + 1
              acc = acc + c(i)
-             if(i.gt. 1000) exit
+             if(i.gt. n_fine_bins/4) exit
           enddo
-          maxc = maxval(c)
-          if( acc/i  .ge. max(mc%totalmult/n_fine_bins, maxc*0.2d0) )then  
+          call coop_array_get_threshold(c, 0.1d0, maxc)
+          if(sum(c(1:i+n_fine_bins/200))/(i+n_fine_bins/200) .ge. maxc )then  
              mc%left_is_tail(ip) = .false.
              mc%plotlower(ip) = mc%lower(ip)
           else
@@ -302,7 +302,7 @@ contains
              acc = acc-c(i)
              i = i + 1
           endif
-          if(acc/(n_fine_bins-i+1) .ge. max(mc%totalmult/n_fine_bins, maxc*0.2d0))then
+          if( sum(c(i-n_fine_bins/200:n_fine_bins)/(n_fine_bins+n_fine_bins/200+1-i) .ge. maxc))then
              mc%right_is_tail(ip) = .false.
              mc%plotupper(ip) = mc%upper(ip)
           else

@@ -10,9 +10,9 @@ contains
     select case(dim)
     case(1)
        if(present(nu))then
-          nex = sigma2/sigma1/const_pi * erfc(nu/const_sqrt2)/4.d0
+          nex = sigma2/sigma1/const_pi*erfc(nu/const_sqrt2)/4.d0
        else
-          nex = sigma2/sigma1/const_pi / 2.d0
+          nex = sigma2/sigma1/const_pi/2.d0
        endif
     case(2)
 
@@ -27,9 +27,9 @@ contains
     select case(dim)
     case(1)
        if(present(nu))then
-          nex = sigma2/sigma1/const_pi * erfc(nu/const_sqrt2)/4.d0
+          nex = sigma2/sigma1/const_pi*erfc(nu/const_sqrt2)/4.d0
        else
-          nex = sigma2/sigma1/const_pi / 2.d0
+          nex = sigma2/sigma1/const_pi/2.d0
        endif
     case(2)
 

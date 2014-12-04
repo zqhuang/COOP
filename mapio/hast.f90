@@ -12,12 +12,12 @@ program hastack_prog
   logical,parameter::do_calibration = .true.
   COOP_INT, parameter::n_sim = 1000
   COOP_STRING::spot_type, stack_type
-  COOP_REAL, parameter::patch_size = 2.d0*coop_SI_degree
-  COOP_UNKNOWN_STRING, parameter::output_dir = "ha_r2f15"
+  COOP_REAL, parameter::patch_size = 5.d0*coop_SI_degree
+  COOP_UNKNOWN_STRING, parameter::output_dir = "ha_r5f30"
   
   COOP_UNKNOWN_STRING, parameter::prefix = output_dir//"/"
   COOP_INT, parameter::mmax = 4
-  COOP_REAL, parameter::fwhm_arcmin = 15.d0
+  COOP_REAL, parameter::fwhm_arcmin = 30.d0
   COOP_REAL, parameter::fwhm_in = 10.d0
   COOP_UNKNOWN_STRING, parameter::postfix =   "_010a_1024.fits"
 
@@ -52,17 +52,18 @@ program hastack_prog
   
   call coop_MPI_init()
   if(iargc() .lt. 2)then
-     print*, "./HA spot_type stack_type"
+     print*, "./HA spot_type stack_type [id]"
      stop
   endif
   spot_type = trim(coop_InputArgs(1))
   stack_type = trim(coop_InputArgs(2))
   if(iargc() .ge. 3)then
      run_id = coop_str2int(coop_InputArgs(3))
+     call sleep(run_id*2)  !!sleep for a second so that files are not read simultaneously     
   else
      run_id = 74   !!the special choice
   endif
-!  call sleep(run_id)  !!sleep for a second so that files are not read simultaneously
+
   if(run_id .ge.  scan_npix)then
      write(*,*) "run id must not exceed ", scan_nside**2*12 - 1
      call coop_MPI_Abort()
