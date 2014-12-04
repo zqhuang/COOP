@@ -120,7 +120,7 @@ contains
        qpsign = -1.d0
     endif
     Omega_m  = 1.d0 - OMEGA_LAMBDA
-    if(Omega_m .gt. 0.45d0 .or. Omega_m .lt. 0.2d0)then
+    if(Omega_m .gt. 0.65d0 .or. Omega_m .lt. 0.05d0)then
        wp1 = 1.d0 !!set w to be a crazy value to rule out the model
        return
     endif
@@ -190,7 +190,7 @@ contains
        qpsign = -1.d0
     endif
     Omega_m  = 1.d0 - OMEGA_LAMBDA
-    if(Omega_m .gt. 0.45d0 .or. Omega_m .lt. 0.2d0)then
+    if(Omega_m .gt. 0.65d0 .or. Omega_m .lt. 0.05d0)then
        wp1 = 1.d0 !!set w to be a crazy value to rule out the model
        return
     endif
