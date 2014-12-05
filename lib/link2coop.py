@@ -304,9 +304,9 @@ list_param_pattern = [line_pattern(r'module cosmologyparameterizations'), \
 
 list_param_replace = [r'#include "constants.h"\nmodule CosmologyParameterizations\n use coop_wrapper', \
                       r'H0_min = 55.', \
-                      r'H0_max = 80.', \
+                      r'H0_max = 85.', \
                       r'this%H0_min = 55.', \
-                      r'this%H0_max = 80.', \
+                      r'this%H0_max = 85.', \
                       r'call this%SetTheoryParameterNumbers(cosmomc_de_index + cosmomc_de_num_params+cosmomc_de2pp_num_params-1, cosmomc_pp_num_params)', \
                       r'call coop_setup_cosmology_from_cosmomc(params, H0/100.d0)\nend subroutine setForH', \
                       r"call setfast(params, CMB)\n call coop_setup_cosmology_from_cosmomc(params)\n call coop_setup_pp()", \
