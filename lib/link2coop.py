@@ -412,7 +412,7 @@ for i in range(5, 14, 2):
 
     
 
-copy_replace_first(common_file, batch_dir + r'/common_pp.ini', [r'^INCLUDE\(params\_CMB\.ini\)\s*$'], [r'INCLUDE(params_CMB_pp.ini)'] )
+copy_replace_first(common_file, batch_dir + r'/common_pp.ini', [r'^INCLUDE\(params\_CMB\_defaults\.ini\)\s*$'], [r'INCLUDE(params_CMB_pp.ini)'] )
 ppstr = r'param[ns] =  0.967  \n'
 for i in range(1, 16):
     ppstr += r'param[pp'+ str(i) + r'] = 0. -1. 1. 0.03 0.03 \n'
