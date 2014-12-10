@@ -118,6 +118,7 @@ module coop_healpix_mod
      procedure::get_radial_profile => coop_healpix_patch_get_radial_profile
      procedure::get_all_radial_profiles => coop_healpix_patch_get_all_radial_profiles
      procedure::plot => coop_healpix_patch_plot
+     procedure::plot_fft => coop_healpix_patch_plot_fft
   end type coop_healpix_patch
   
 
@@ -196,7 +197,7 @@ contains
 
   end subroutine coop_healpix_diffuse_into_mask
 
-  subroutine coop_healpix_patch_plot(this, imap, output, use_degree)
+  subroutine coop_healpix_patch_plot(this, imap, output, use_degree, label)
     COOP_INT::bgrids
     class(coop_healpix_patch)::this
     COOP_INT imap
@@ -208,6 +209,13 @@ contains
     logical,optional::use_degree
     logical use_rad
     COOP_SHORT_STRING::xlabel, ylabel
+    COOP_UNKNOWN_STRING,optional::label    
+    COOP_STRING::zlabel
+    if(present(label))then
+       zlabel = trim(adjustl(label))
+    else
+       zlabel = trim(adjustl(this%label(imap)))
+    endif
     call fig%open(output)
     if(present(use_degree))then
        if(use_degree)then
@@ -236,7 +244,7 @@ contains
     else
        call coop_array_get_threshold(this%image(:,:,imap), COOP_REAL_OF(0.01), maxz)
     endif
-    call coop_asy_density(fig, this%image(:,:,imap), -this%r(this%n), this%r(this%n), -this%r(this%n), this%r(this%n), label = trim(this%label(imap)), zmax = maxz, zmin = minz, color_table = trim(this%color_table))
+    call coop_asy_density(fig, this%image(:,:,imap), -this%r(this%n), this%r(this%n), -this%r(this%n), this%r(this%n), label = trim(zlabel), zmax = maxz, zmin = minz, color_table = trim(this%color_table))
     if(use_rad)then
        theta = nint(2.d0*asin(this%r(this%n)/2.d0)/coop_SI_degree*10.d0)/10.d0
        call coop_asy_label(fig, "$\mathbf{-"//COOP_STR_OF(theta)//"}^\circ$", -this%r(this%n), -this%r(this%n)*1.15, color="blue")
@@ -301,6 +309,93 @@ contains
     endif    
   end subroutine coop_healpix_patch_plot
 
+
+
+  subroutine coop_healpix_patch_plot_fft(this, imap, output,label)
+    COOP_INT,parameter::lmax=100
+    COOP_INT::bgrids
+    class(coop_healpix_patch)::this
+    COOP_INT imap
+    COOP_UNKNOWN_STRING::output
+    type(coop_asy)::fig
+    COOP_INT i,j,ns
+    COOP_REAL   minz, maxz, dk
+    COOP_COMPLEX, dimension(:,:),allocatable:: fftmap
+    COOP_REAL,dimension(:,:),allocatable::remap,immap
+    COOP_SINGLE,parameter::width=6.5, height=5.
+    COOP_SHORT_STRING::xlabel, ylabel
+    COOP_UNKNOWN_STRING,optional::label    
+    
+    if(imap .le. 0 .or. imap .gt. this%nmaps) stop "coop_healpix_patch_plot: imap overflow"
+
+    allocate(fftmap(0:this%n, 0:this%n*2))
+    
+    call coop_fft_forward(this%n*2+1, this%n*2+1, this%image(:,:,imap), fftmap)
+    fftmap = fftmap/(2*this%n+1)**2
+
+    dk = coop_2pi/(this%dr*(2*this%n+1))
+    ns = min(nint(lmax/dk), nint(this%n/coop_sqrt2))
+
+    allocate(remap(-ns:ns,-ns:ns), immap(-ns:ns,-ns:ns))    
+    remap(0:ns, 0:ns) = real(fftmap(0:ns, 0:ns) )
+    remap(0:ns, -ns:-1) = real(fftmap(0:ns, this%n*2+1-ns:this%n*2))
+    
+    immap(0:ns, 0:ns) = aimag(fftmap(0:ns, 0:ns) )
+    immap(0:ns, -ns:-1) = aimag(fftmap(0:ns, this%n*2+1-ns:this%n*2))
+
+    remap(-ns:-1,-ns:ns)=remap(ns:1:-1,ns:-ns:-1)
+    immap(-ns:-1,-ns:ns)=-immap(ns:1:-1,ns:-ns:-1)
+
+    
+    call fig%open(coop_file_add_postfix(output, "_FFTRe"))
+    
+    xlabel = "$\ell_x$"
+    ylabel = "$\ell_y$"
+    call fig%init(caption = trim(this%caption)//", Re($f_\ell$)", xlabel =trim(xlabel), ylabel =trim(ylabel), width = width, height = height, xmin = -real(ns*dk), xmax = real(ns*dk), ymin = -real(ns*dk), ymax = real(ns*dk))
+    call coop_array_get_threshold(remap, COOP_REAL_OF(0.995), minz)
+    call coop_array_get_threshold(remap, COOP_REAL_OF(0.005), maxz)
+    if(present(label))then
+       call coop_asy_density(fig, remap, -ns*dk, ns*dk,-ns*dk, ns*dk, label = "$\mathrm{Re} "//trim(adjustl(label))//"_\ell$", zmax = maxz, zmin = minz, color_table = trim(this%color_table))
+    else
+       call coop_asy_density(fig, remap, -ns*dk, ns*dk,-ns*dk, ns*dk, label = trim(adjustl(this%label(imap))), zmax = maxz, zmin = minz, color_table = trim(this%color_table))       
+    endif
+    call fig%close()
+
+    call fig%open(coop_file_add_postfix(output, "_FFTIm"))    
+    xlabel = "$\ell_x$"
+    ylabel = "$\ell_y$"
+    call fig%init(caption = trim(this%caption)//", Im($f_\ell$)", xlabel =trim(xlabel), ylabel =trim(ylabel), width = width, height = height, xmin = -real(ns*dk), xmax = real(ns*dk), ymin = -real(ns*dk), ymax = real(ns*dk))
+    call coop_array_get_threshold(immap, COOP_REAL_OF(0.995), minz)
+    call coop_array_get_threshold(immap, COOP_REAL_OF(0.005), maxz)
+    if(present(label))then
+       call coop_asy_density(fig, immap, -ns*dk, ns*dk,-ns*dk, ns*dk, zmax = maxz, zmin = minz, label = "$\mathrm{Im}"//trim(adjustl(label))//"_\ell$", color_table = trim(this%color_table))
+    else
+       call coop_asy_density(fig, immap, -ns*dk, ns*dk,-ns*dk, ns*dk, zmax = maxz, zmin = minz, label =trim(adjustl(this%label(imap))), color_table = trim(this%color_table))       
+    endif
+    call fig%close()
+
+    call fig%open(coop_file_add_postfix(output, "_FFTl2Cl"))
+    immap = (remap**2+immap**2)*dk**2
+    do i=-ns,ns
+       do j=-ns,ns
+          immap(i,j)=immap(i,j)*dble(i**2+j**2)
+       enddo
+    enddo
+    xlabel = "$\ell_x$"
+    ylabel = "$\ell_y$"
+    call fig%init(caption = trim(this%caption)//", $\ell^2|f_\ell|^2$", xlabel =trim(xlabel), ylabel =trim(ylabel), width = width, height = height, xmin = -real(ns*dk), xmax = real(ns*dk), ymin = -real(ns*dk), ymax = real(ns*dk))
+    call coop_array_get_threshold(immap, COOP_REAL_OF(0.995), minz)
+    call coop_array_get_threshold(immap, COOP_REAL_OF(0.005), maxz)
+    if(present(label))then
+       call coop_asy_density(fig, immap, -ns*dk, ns*dk, -ns*dk, ns*dk, zmax = maxz, zmin = minz, label = "$\ell^2 |"//trim(adjustl(label))//"_\ell|^2 $", color_table = trim(this%color_table))       
+    else
+       call coop_asy_density(fig, immap, -ns*dk, ns*dk, -ns*dk, ns*dk, zmax = maxz, zmin = minz, label = trim(this%label(imap)), color_table = trim(this%color_table))
+    endif
+    call fig%close()    
+    
+    deallocate(fftmap,remap,immap)
+  end subroutine coop_healpix_patch_plot_fft
+ 
 
   subroutine coop_healpix_patch_free(this)
     class(coop_healpix_patch) this
