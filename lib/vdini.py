@@ -28,6 +28,8 @@ datafile['camTTTEEE'] = r'batch2/CAMspec_TTTEEE.ini'
 ### default run
 default_data_sets1 = r'_lowTEB_plikTT'
 default_data_sets2 = r'_lowTEB_plikTT_BAO_JLA_HSTlow'
+default_data_sets3 = r'_lowTEB_plikTTTEEE'
+default_data_sets4 = r'_lowTEB_plikTT_BAO'
 
 ###  Edit the collection of data sets that you want to run
 deruns = [ ['lowTEB', 'plikTT'], \

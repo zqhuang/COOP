@@ -32,13 +32,22 @@ if(len(sys.argv) >=  3):
     except:
         print "R-1 threshold format is incorrect"
         sys.exit()
-fileroot = search_value(inifile, r'file_root\s*\=\s*(\S+)')
-rootdir = search_value(inifile, r'root_dir\s*\=\s*(\S+)')
+fileroot = search_value(inifile, r'file\_root\s*\=\s*(\S+)')
+rootdir = search_value(inifile, r'root\_dir\s*\=\s*(\S+)')
+covmat = search_value(inifile, r'propose\_matrix\s*\=\s*(\S+)')
 if(fileroot == ''):
     print "ini file does not contain key file_root"
     sys.exit()
 fileroot = rootdir+fileroot    
 print "file_root = " + fileroot
+if(covmat != ''):
+    if(os.path.isfile(covmat)):
+        print "propose_matrix = " + covmat        
+    else:
+        print "propose_matrix " + covmat + " does not exist"
+        sys.exit()
+else:
+    print "no propose_matrix"
 if(os.path.isfile(fileroot + r'.converge_stat')):
     fp = open(fileroot + r'.converge_stat', 'r')
     conv = fp.read()
@@ -54,8 +63,8 @@ if(os.path.isfile(fileroot + r'.converge_stat')):
 print "submitting " + inifile
 
 current_path = os.getcwd()
-patterns = [r'.*\/', r'scan\_', r'fixrp(\d\d)\d', r'qcdm\_1param', r'qcdm\_3param', 'lowTEB', 'plikTTTEEE', 'plikTT', 'BAO_JLA_HSTlow', 'lens', 'liteTTTEEE', 'liteTT', r'\.ini']
-repls = ['', '', r'r\1', 'w1p', 'w3p', 'P', 'E', 'T', 'pr', 'l', 'lE', 'lT', '']
+patterns = [r'.*\/', r'scan\_', r'fixrp(\d\d)\d', r'dpp', r'dpl', r'qcdm\_1param', r'qcdm\_3param', 'lowTEB_', 'plikTTTEEE', 'plikTT', 'plikTEEE', 'plikEE', 'BAO_JLA_HSTlow', 'BAO', 'lens', 'RSD_WL', 'RSD', 'WL', r'\.ini']
+repls = ['', '', r'r\1', 'S', 'L', 'q1', 'q3', '', 'A', 'T', 'TE', 'E', 'pr', 'B', 'l', 'RW', 'R','W', '']
 jobname = inifile
 for i in range(len(patterns)):
     jobname = re.sub(patterns[i], repls[i], jobname)
