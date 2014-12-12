@@ -2263,6 +2263,7 @@ contains
              if(all(map%map(list(1:nneigh),1) .lt. map%map(i,1)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5)) then
                 call pix2ang_nest(map%nside, i, theta, phi)
                 rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
+                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
                 call spots%push( real( (/ theta, phi, rotate_angle /) ) )
              endif
           else
@@ -2271,6 +2272,7 @@ contains
              if(all(map%map(list(1:nneigh),1) .lt. map%map(i,1)))then
                 call pix2ang_nest(map%nside, i, theta, phi)
                 rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
+                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
                 call spots%push( real( (/ theta, phi, rotate_angle /) ) )
              endif
           endif
@@ -2297,6 +2299,7 @@ contains
              if( all( map%map(list(1:nneigh), 1) .gt. map%map(i,1) ) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5) ) then
                 call pix2ang_nest( map%nside, i, theta, phi )
                 rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
+                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
                 call spots%push( real( (/ theta, phi, rotate_angle /) ) )
              endif
           else
@@ -2305,6 +2308,7 @@ contains
              if(all(map%map(list(1:nneigh),1).gt. map%map(i,1)))then
                 call pix2ang_nest(map%nside, i, theta, phi)
                 rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
+                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
                 call spots%push( real( (/ theta, phi, rotate_angle /) ) )
              endif
           endif
@@ -2336,6 +2340,7 @@ contains
              call neighbours_nest(map%nside, i, list, nneigh)  
              if( all( map%map(list(1:nneigh),iq)**2 + map%map(list(1:nneigh),iu)**2 .lt. map%map(i,iq)**2 + map%map(i, iu)**2 ) .and. all(mask%map(list(1:nneigh), 1) .gt. 0.5) ) then
                 rotate_angle = COOP_POLAR_ANGLE(map%map(i, iq), map%map(i, iu))/2.
+                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
                 call pix2ang_nest(map%nside, i, theta, phi)
                 call spots%push( real( (/ theta, phi, rotate_angle /) ) )
              endif
@@ -2344,6 +2349,7 @@ contains
              call neighbours_nest(map%nside, i, list, nneigh)  
              if( all( map%map(list(1:nneigh), iq)**2 + map%map(list(1:nneigh), iu)**2 .lt. map%map(i, iq)**2 + map%map(i, iu)**2 ) )then
                 rotate_angle = COOP_POLAR_ANGLE(map%map(i, iq), map%map(i, iu))/2.
+                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
                 call pix2ang_nest(map%nside, i, theta, phi)
                 call spots%push( real( (/ theta, phi, rotate_angle /) ) )
              endif
@@ -2420,6 +2426,7 @@ contains
              call neighbours_nest(map%nside, i, list, nneigh)  
              if(all(map%map(list(1:nneigh), iq)**2 + map%map(list(1:nneigh), iu)**2 .gt. map%map(i, iq)**2 + map%map(i, iu)**2) .and. all(mask%map(list(1:nneigh), 1) .gt. 0.5) ) then
                 rotate_angle = COOP_POLAR_ANGLE(map%map(i,iq), map%map(i,iu))/2.
+                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                
                 call pix2ang_nest(map%nside, i, theta, phi)
                 call spots%push( real( (/ theta, phi, rotate_angle /) ) )
              endif
@@ -2428,6 +2435,7 @@ contains
              call neighbours_nest(map%nside, i, list, nneigh)  
              if(all(map%map(list(1:nneigh), iq)**2 + map%map(list(1:nneigh), iu)**2 .gt. map%map(i, iq)**2 + map%map(i, iu)**2))then
                 rotate_angle = COOP_POLAR_ANGLE(map%map(i, iq), map%map(i, iu))/2.
+                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi
                 call pix2ang_nest(map%nside, i, theta, phi)
                 call spots%push( real( (/ theta, phi, rotate_angle /) ) )
              endif
@@ -2565,6 +2573,7 @@ contains
              call neighbours_nest(map%nside, i, list, nneigh)  
              if(all(map%map(list(1:nneigh),1) .lt. map%map(i,1)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5)) then
                 rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
+                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                
                 call nest2ring(map%nside, i, ipix)
                 call listpix%push(ipix)
                 call listangle%push(real(rotate_angle))
@@ -2574,6 +2583,7 @@ contains
              call neighbours_nest(map%nside, i, list, nneigh)  
              if(all(map%map(list(1:nneigh),1) .lt. map%map(i,1)))then
                 rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
+                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                
                 call nest2ring(map%nside, i, ipix)
                 call listpix%push(ipix)
                 call listangle%push(real(rotate_angle))
@@ -2601,6 +2611,7 @@ contains
              call neighbours_nest(map%nside, i, list, nneigh)  
              if( all( map%map(list(1:nneigh), 1) .gt. map%map(i,1) ) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5) ) then
                 rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
+                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
                 call nest2ring(map%nside, i, ipix)
                 call listpix%push(ipix)
                 call listangle%push(real(rotate_angle))
@@ -2610,6 +2621,7 @@ contains
              call neighbours_nest(map%nside, i, list, nneigh)  
              if(all(map%map(list(1:nneigh),1).gt. map%map(i,1)))then
                 rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
+                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
                 call nest2ring(map%nside, i, ipix)
                 call listpix%push(ipix)
                 call listangle%push(real(rotate_angle))
@@ -2643,6 +2655,7 @@ contains
              call neighbours_nest(map%nside, i, list, nneigh)  
              if( all( map%map(list(1:nneigh),iq)**2 + map%map(list(1:nneigh),iu)**2 .lt. map%map(i,iq)**2 + map%map(i, iu)**2 ) .and. all(mask%map(list(1:nneigh), 1) .gt. 0.5) ) then
                 rotate_angle = COOP_POLAR_ANGLE(map%map(i, iq), map%map(i, iu))/2.
+                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
                 call nest2ring(map%nside, i, ipix)
                 call listpix%push(ipix)
                 call listangle%push(real(rotate_angle))
@@ -2652,6 +2665,7 @@ contains
              call neighbours_nest(map%nside, i, list, nneigh)  
              if( all( map%map(list(1:nneigh), iq)**2 + map%map(list(1:nneigh), iu)**2 .lt. map%map(i, iq)**2 + map%map(i, iu)**2 ) )then
                 rotate_angle = COOP_POLAR_ANGLE(map%map(i, iq), map%map(i, iu))/2.
+                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
                 call nest2ring(map%nside, i, ipix)
                 call listpix%push(ipix)
                 call listangle%push(real(rotate_angle))
@@ -2685,6 +2699,7 @@ contains
              call neighbours_nest(map%nside, i, list, nneigh)  
              if(all(map%map(list(1:nneigh), iq)**2 + map%map(list(1:nneigh), iu)**2 .gt. map%map(i, iq)**2 + map%map(i, iu)**2) .and. all(mask%map(list(1:nneigh), 1) .gt. 0.5) ) then
                 rotate_angle = COOP_POLAR_ANGLE(map%map(i,iq), map%map(i,iu))/2.
+                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
                 call nest2ring(map%nside, i, ipix)
                 call listpix%push(ipix)
                 call listangle%push(real(rotate_angle))
@@ -2694,6 +2709,7 @@ contains
              call neighbours_nest(map%nside, i, list, nneigh)  
              if(all(map%map(list(1:nneigh), iq)**2 + map%map(list(1:nneigh), iu)**2 .gt. map%map(i, iq)**2 + map%map(i, iu)**2))then
                 rotate_angle = COOP_POLAR_ANGLE(map%map(i, iq), map%map(i, iu))/2.
+                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
                 call nest2ring(map%nside, i, ipix)
                 call listpix%push(ipix)
                 call listangle%push(real(rotate_angle))

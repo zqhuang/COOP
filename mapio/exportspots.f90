@@ -4,14 +4,16 @@ program test
   implicit none
 #include "constants.h"
 
-  COOP_INT::fwhm_arcmin = 30.
-  COOP_INT::fwhm_in = 15.
+  COOP_INT::fwhm_arcmin = 60.
+  COOP_INT::fwhm_in = 30.
   COOP_STRING::spot_type = "Tmax_QTUTOrient"
-  COOP_STRING::input_file ="dust/dust_siqu.fits" 
-  COOP_STRING::imask_file  = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
-  COOP_STRING::polmask_file  = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
-  COOP_REAL:: threshold = 1.d0
-  COOP_REAL:: threshold_pol = 1.d0  
+  COOP_STRING::input_file ="dust/dust_iqu300_030a_beam.fits" !commander_dx11d2_temp_n2048_7.5arc_v1_full_dust.fits"
+  COOP_STRING::imask_file  = "dust/dust_mask.fits"
+  !"planck14/dx11_v2_common_int_mask_010a_1024.fits"
+  COOP_STRING::polmask_file  = "dust/dust_mask.fits"
+  ! "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
+  COOP_REAL:: threshold = 0.5d0
+  COOP_REAL:: threshold_pol = 1.5d0  
 
   COOP_STRING::mask_file
   COOP_STRING output_file
@@ -47,9 +49,9 @@ program test
   else
      output_file = trim(prefix)//trim(spot_type)
      if(threshold.lt.coop_healpix_max_threshold) &
-          output_file = trim(output_file)//"_threshold"//trim(coop_num2str2goodstr(coop_num2str(threshold)))
+          output_file = trim(output_file)//"_threshold"//trim(coop_numstr2goodstr(coop_num2str(threshold)))
      if(threshold_pol.lt.coop_healpix_max_threshold) &
-          output_file = trim(output_file)//"_2ndthreshold"//trim(coop_num2str2goodstr(coop_num2str(threshold_pol)))
+          output_file = trim(output_file)//"_2ndthreshold"//trim(coop_numstr2goodstr(coop_num2str(threshold_pol)))
      output_file = trim(output_file)//".txt"
   endif
   call coop_healpix_export_spots(trim(input_file), trim(output_file), trim(spot_type), threshold = threshold, threshold_pol = threshold_pol, mask_file = trim(mask_file), fwhm = fwhm)  

@@ -5,17 +5,17 @@ program test
 
 #include "constants.h"
 
-  COOP_STRING :: spot_type = "T"
-  COOP_STRING :: map_file = "simu/simu_int_030a_n1024.fits"
-  COOP_STRING:: spots_file ="spots/simu_int_030a_n1024_fwhm30_Tmax_NoThreshold.txt"
-  COOP_STRING :: imask_file = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
-  COOP_STRING:: polmask_file ="planck14/dx11_v2_common_pol_mask_010a_1024.fits"
-  COOP_STRING::unit = "K"
+  COOP_STRING :: spot_type = "QU"
+  COOP_STRING :: map_file = "dust/dust_iqu300_030a_beam.fits" 
+  COOP_STRING:: spots_file ="spots/dust_iqu300_030a_beam_fwhm60_Tmax_QTUTOrient_threshold0pt5_2ndthreshold1pt5.txt"
+  COOP_STRING :: imask_file = "dust/dust_mask.fits" !"planck14/dx11_v2_common_int_mask_010a_1024.fits"
+  COOP_STRING:: polmask_file =  "dust/dust_mask.fits" !"planck14/dx11_v2_common_pol_mask_010a_1024.fits"
+  COOP_STRING::unit = "muK"
 
 
-  COOP_UNKNOWN_STRING,parameter:: color_table = "Rainbow"
+  COOP_UNKNOWN_STRING,parameter:: color_table = "Planck"
   COOP_REAL, parameter::smooth_fwhm = 30.*coop_SI_arcmin
-  COOP_REAL,parameter::r=2.*coop_SI_degree, dr = max(smooth_fwhm/3., r/45.)
+  COOP_REAL,parameter::r=10.*coop_SI_degree, dr = max(smooth_fwhm/3., r/45.)
   COOP_INT, parameter::n = ceiling(r/dr)
   COOP_UNKNOWN_STRING, parameter :: prefix = "stacked/"
   COOP_STRING fout,fout2, caption, fname, inline
@@ -147,19 +147,44 @@ program test
      stop "Unknown spots_file class"
   endif
 
-  if(index(spots_file, "threshold0").gt.0)then
-     caption = trim(caption)//", threshold $\nu$=0"
-  elseif(index(spots_file, "threshold1").gt.0)then
-     caption = trim(caption)//", threshold $\nu$=1"
-  elseif(index(spots_file, "threshold2").gt.0)then
-     caption = trim(caption)//", threshold $\nu$=2"
-  elseif(index(spots_file, "threshold3").gt.0)then
-     caption = trim(caption)//", threshold $\nu$=3"
-  elseif(index(spots_file, "threshold4").gt.0)then
-     caption = trim(caption)//", threshold $\nu$=4"
-  elseif(index(spots_file, "threshold5").gt.0)then
-     caption = trim(caption)//", threshold $\nu$=5"
+  if(index(spots_file, "_threshold0pt5").gt.0)then
+     caption = trim(caption)//", $\nu=0.5$"
+  elseif(index(spots_file, "_threshold1pt5").gt.0)then
+     caption = trim(caption)//", $\nu=1.5$"
+  elseif(index(spots_file, "_threshold2pt5").gt.0)then
+     caption = trim(caption)//", $\nu=2.5$"     
+  elseif(index(spots_file, "_threshold3pt5").gt.0)then
+     caption = trim(caption)//", $\nu=3.5$"
+  elseif(index(spots_file, "_threshold0").gt.0)then
+     caption = trim(caption)//", $\nu=0$"     
+  elseif(index(spots_file, "_threshold1").gt.0)then
+     caption = trim(caption)//", $\nu=1$"
+  elseif(index(spots_file, "_threshold2").gt.0)then
+     caption = trim(caption)//", $\nu=2$"
+  elseif(index(spots_file, "_threshold3").gt.0)then
+     caption = trim(caption)//", $\nu=3$"
   endif
+  
+  
+  if(index(spots_file, "_2ndthreshold0pt5").gt.0)then
+     caption = trim(caption)//", $\nu'=0.5$"
+  elseif(index(spots_file, "_2ndthreshold1pt5").gt.0)then
+     caption = trim(caption)//", $\nu'=1.5$"
+  elseif(index(spots_file, "_2ndthreshold2pt5").gt.0)then
+     caption = trim(caption)//", $\nu'=2.5$"     
+  elseif(index(spots_file, "_2ndthreshold3pt5").gt.0)then
+     caption = trim(caption)//", $\nu'=3.5$"
+  elseif(index(spots_file, "_2ndthreshold0").gt.0)then
+     caption = trim(caption)//", $\nu'=0$"
+  elseif(index(spots_file, "_2ndthreshold1").gt.0)then
+     caption = trim(caption)//", $\nu'=1$"
+  elseif(index(spots_file, "_2ndthreshold2").gt.0)then
+     caption = trim(caption)//", $\nu'=2$"
+  elseif(index(spots_file, "_2ndthreshold3").gt.0)then
+     caption = trim(caption)//", $\nu'=3$"
+  endif
+
+
 
   call patch%init(trim(spot_type), n, dr, mmax = mmax)
   if(do_mask)then
@@ -199,6 +224,8 @@ program test
      patch%zmin = zmin
      patch%zmax = zmax
   endif
+  patch%zmin=-1.
+  patch%zmax=8.
   call patch%plot(imap = 1, output =trim(fout))
   
   if(trim(fout2).ne."")then
@@ -209,6 +236,7 @@ program test
      call patch%plot(imap = 2, output =trim(fout2))
   endif
   write(*,*) "the output file is: "//trim(fout)
+  call system("../utils/fasy.sh "//trim(fout))
   call patch%get_all_radial_profiles()
   do m = 0, 4, 2
      call fp%open(trim(coop_file_add_postfix(fout, "_m"//COOP_STR_OF(m))))
