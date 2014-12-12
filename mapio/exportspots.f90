@@ -5,13 +5,13 @@ program test
 #include "constants.h"
 
   COOP_INT::fwhm_arcmin = 30.
-  COOP_INT::fwhm_in = 30.
-  COOP_STRING::spot_type = "Tmax"
-  COOP_STRING::input_file ="simu/simu_int_030a_n1024.fits"
-  !!"planck14/commander_siqu.fits"
+  COOP_INT::fwhm_in = 15.
+  COOP_STRING::spot_type = "Tmax_QTUTOrient"
+  COOP_STRING::input_file ="dust/dust_siqu.fits" 
   COOP_STRING::imask_file  = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
   COOP_STRING::polmask_file  = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
-  COOP_REAL:: threshold = 1.e30
+  COOP_REAL:: threshold = 1.d0
+  COOP_REAL:: threshold_pol = 1.d0  
 
   COOP_STRING::mask_file
   COOP_STRING output_file
@@ -42,20 +42,16 @@ program test
      stop "unknown spot type"
   end select
   prefix = "spots/"//trim(coop_file_name_of(input_file, want_ext =  .false.))//"_fwhm"//trim(coop_num2str(fwhm_arcmin))//"_"     
-  if(abs(threshold) .lt. 6)then
-     if(trim(force_outfile).ne."")then
-        output_file = trim(adjustl(force_outfile))
-     else
-        output_file = trim(prefix)//trim(spot_type)//"_threshold"//trim(coop_num2str(nint(threshold)))//".txt"
-     endif
-     call coop_healpix_export_spots(trim(input_file), trim(output_file), trim(spot_type), threshold = threshold, mask_file = trim(mask_file), fwhm = fwhm)
+  if(trim(force_outfile).ne."")then
+     output_file = trim(adjustl(force_outfile))
   else
-     if(trim(force_outfile).ne."")then
-        output_file = trim(adjustl(force_outfile))
-     else
-        output_file = trim(prefix)//trim(spot_type)//"_NoThreshold.txt"
-     endif
-     call coop_healpix_export_spots(trim(input_file), trim(output_file), trim(spot_type), mask_file = trim(mask_file), fwhm = fwhm)
+     output_file = trim(prefix)//trim(spot_type)
+     if(threshold.lt.coop_healpix_max_threshold) &
+          output_file = trim(output_file)//"_threshold"//trim(coop_num2str2goodstr(coop_num2str(threshold)))
+     if(threshold_pol.lt.coop_healpix_max_threshold) &
+          output_file = trim(output_file)//"_2ndthreshold"//trim(coop_num2str2goodstr(coop_num2str(threshold_pol)))
+     output_file = trim(output_file)//".txt"
   endif
+  call coop_healpix_export_spots(trim(input_file), trim(output_file), trim(spot_type), threshold = threshold, threshold_pol = threshold_pol, mask_file = trim(mask_file), fwhm = fwhm)  
   write(*,*) "The output file is: "//trim(output_file)
 end program test

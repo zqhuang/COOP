@@ -11,14 +11,16 @@ module coop_healpix_mod
 #endif
   implicit none
 
+  
 #include "constants.h"
 
   private
 
-  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_get_disc, coop_healpix_export_spots, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_lb2ang, coop_healpix_ang2lb, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax
+  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_get_disc, coop_healpix_export_spots, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_lb2ang, coop_healpix_ang2lb, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_healpix_max_threshold
   
   logical::coop_healpix_alm_check_done = .false.
   logical::coop_healpix_want_cls = .true.
+  COOP_REAL,parameter::coop_healpix_max_threshold = 10.d0
 
   COOP_INT,parameter::dlc = kind( (1.d0,1.d0) )
   COOP_INT,parameter::coop_inpainting_lowl_max = 20
@@ -2124,11 +2126,11 @@ contains
 
 
   !!note that map and mask are converted to NESTED order after calling this
-  subroutine coop_healpix_maps_get_spots(map, spots,  spot_type, threshold, mask)
+  subroutine coop_healpix_maps_get_spots(map, spots,  spot_type, threshold, threshold_pol, mask)
     COOP_UNKNOWN_STRING spot_type
     type(coop_list_realarr)::spots
-    COOP_REAL,optional::threshold
-    COOP_REAL theta, phi, rotate_angle, fcut
+    COOP_REAL,optional::threshold, threshold_pol
+    COOP_REAL theta, phi, rotate_angle, fcut, fcut2
     class(coop_healpix_maps)map
     type(coop_healpix_maps),optional::mask
     COOP_REAL total_weight
@@ -2154,15 +2156,21 @@ contains
 
     select case(trim(spot_type))
     case("Tmax", "Emax", "Bmax", "zetamax")  !!random orientation
+
        if(present(threshold))then
-          if(do_mask)then
-             fcut = threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
+          if(threshold.lt.coop_healpix_max_threshold)then          
+             if(do_mask)then
+                fcut = threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
+             else
+                fcut = threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
+             endif
           else
-             fcut = threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
+             fcut = -1.e30
           endif
        else
           fcut = -1.e30
        endif
+
        do i=0, map%npix-1
           if(do_mask)then
              if( map%map(i,1) .lt. fcut .or. mask%map(i, 1) .le. 0.5 ) cycle
@@ -2186,10 +2194,14 @@ contains
        enddo
     case("Tmin", "Emin", "Bmin", "zetamin")  !!random orientation
        if(present(threshold))then
-          if(do_mask)then
-             fcut = - threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
+          if(threshold .lt. coop_healpix_max_threshold)then
+             if(do_mask)then
+                fcut = - threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
+             else
+                fcut = - threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
+             endif
           else
-             fcut = - threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
+             fcut = 1.e30
           endif
        else
           fcut = 1.e30
@@ -2218,17 +2230,35 @@ contains
     case("Tmax_QTUTOrient", "zetamax_qzuzOrient") !!oriented with QU, maxima of T
        if(map%nmaps .lt. 3) stop "For Tmax_QTUTOrient mode you need 3 maps"
        if(present(threshold))then
-          if(do_mask)then
-             fcut = threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
+          if(threshold.lt.coop_healpix_max_threshold)then
+             if(do_mask)then
+                fcut = threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
+             else
+                fcut = threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
+             endif
           else
-             fcut = threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
+             fcut=-1.e30
           endif
        else
           fcut = -1.e30
        endif
+       if(present(threshold_pol))then
+          if(threshold_pol.lt.coop_healpix_max_threshold)then
+             if(do_mask)then
+                fcut2 = threshold_pol**2*(sum(dble(map%map(:,2))**2+dble(map%map(:,3))**2, mask%map(:,1).gt.0.5)/total_weight)
+             else
+                fcut2 = threshold_pol**2*(sum(dble(map%map(:,2))**2+dble(map%map(:,3))**2)/total_weight)
+             endif
+          else
+             fcut2 = -1.e30
+          endif
+       else
+          fcut2 = -1.e30
+       endif
+       
        do i=0, map%npix-1
           if(do_mask)then
-             if( map%map(i,1) .lt. fcut .or. mask%map(i,1) .le. 0.5)cycle
+             if( map%map(i,1) .lt. fcut .or. map%map(i,2)**2+map%map(i,3)**2 .lt.fcut2 .or. mask%map(i,1) .le. 0.5)cycle
              call neighbours_nest(map%nside, i, list, nneigh)  
              if(all(map%map(list(1:nneigh),1) .lt. map%map(i,1)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5)) then
                 call pix2ang_nest(map%nside, i, theta, phi)
@@ -2236,7 +2266,7 @@ contains
                 call spots%push( real( (/ theta, phi, rotate_angle /) ) )
              endif
           else
-             if(map%map(i,1) .lt. fcut)cycle
+             if(map%map(i,1) .lt. fcut  .or. map%map(i,2)**2+map%map(i,3)**2 .lt.fcut2  )cycle
              call neighbours_nest(map%nside, i, list, nneigh)  
              if(all(map%map(list(1:nneigh),1) .lt. map%map(i,1)))then
                 call pix2ang_nest(map%nside, i, theta, phi)
@@ -2248,10 +2278,14 @@ contains
     case("Tmin_QTUTOrient", "zetamin_ztutOrient") !!oriented with QU, minima of T
        if(map%nmaps .lt. 3) stop "For Tmin_QTUTOrient mode you need 3 maps"
        if(present(threshold))then
-          if(do_mask)then
-             fcut = -threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
+          if(threshold.lt.coop_healpix_max_threshold)then
+             if(do_mask)then
+                fcut = -threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
+             else
+                fcut = -threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
+             endif
           else
-             fcut = -threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
+             fcut = 1.e30
           endif
        else
           fcut = 1.e30
@@ -2284,10 +2318,14 @@ contains
           stop "For polarization you need to specify Q, U maps in the input file."
        end select
        if(present(threshold))then
-          if(do_mask)then
-             fcut = threshold**2*(sum(dble(map%map(:,iq))**2 + dble(map%map(:,iu))**2, mask%map(:,1).gt.0.5)/total_weight)
+          if(threshold.lt.coop_healpix_max_threshold)then
+             if(do_mask)then
+                fcut = threshold**2*(sum(dble(map%map(:,iq))**2 + dble(map%map(:,iu))**2, mask%map(:,1).gt.0.5)/total_weight)
+             else
+                fcut = threshold**2*(sum(dble(map%map(:,iq))**2 + dble(map%map(:,iu))**2)/total_weight)
+             endif
           else
-             fcut = threshold**2*(sum(dble(map%map(:,iq))**2 + dble(map%map(:,iu))**2)/total_weight)
+             threshold = -1.e30
           endif
        else
           fcut = -1.e30
@@ -2321,10 +2359,14 @@ contains
           stop "For polarization you need to specify Q, U maps in the input file."
        end select
        if(present(threshold))then
-          if(do_mask)then
-             fcut = threshold**2*(sum(dble(map%map(:,iq))**2 + dble(map%map(:,iu))**2, mask%map(:,1).gt.0.5)/total_weight)
+          if(threshold.lt.coop_healpix_max_threshold)then
+             if(do_mask)then
+                fcut = threshold**2*(sum(dble(map%map(:,iq))**2 + dble(map%map(:,iu))**2, mask%map(:,1).gt.0.5)/total_weight)
+             else
+                fcut = threshold**2*(sum(dble(map%map(:,iq))**2 + dble(map%map(:,iu))**2)/total_weight)
+             endif
           else
-             fcut = threshold**2*(sum(dble(map%map(:,iq))**2 + dble(map%map(:,iu))**2)/total_weight)
+             fcut = -1.e30
           endif
        else
           fcut = -1.e30
@@ -2360,10 +2402,14 @@ contains
           stop "For polarization you need to specify Q, U maps in the input file."
        end select
        if(present(threshold))then
-          if(do_mask)then
-             fcut = threshold**2*(sum(dble(map%map(:, iq))**2+dble(map%map(:, iu))**2, mask%map(:,1).gt.0.5)/total_weight)
+          if(threshold .lt.coop_healpix_max_threshold)then
+             if(do_mask)then
+                fcut = threshold**2*(sum(dble(map%map(:, iq))**2+dble(map%map(:, iu))**2, mask%map(:,1).gt.0.5)/total_weight)
+             else
+                fcut = threshold**2*(sum(dble(map%map(:, iq))**2+dble(map%map(:, iu))**2)/total_weight)
+             endif
           else
-             fcut = threshold**2*(sum(dble(map%map(:, iq))**2+dble(map%map(:, iu))**2)/total_weight)
+             fcut = 1.d30
           endif
        else
           fcut = 1.d30
@@ -2396,7 +2442,7 @@ contains
 #endif
   end subroutine coop_healpix_maps_get_spots
 
-  !!note that map and mask are converted to NESTED order after calling this
+
   subroutine coop_healpix_maps_get_listpix(map, listpix, listangle,  spot_type, threshold, mask)
     COOP_UNKNOWN_STRING spot_type
     type(coop_list_integer)::listpix
@@ -2426,10 +2472,14 @@ contains
     select case(trim(spot_type))
     case("Tmax", "Emax", "Bmax", "zetamax")  !!random orientation
        if(present(threshold))then
-          if(do_mask)then
-             fcut = threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
+          if(threshold .lt. coop_healpix_max_threshold)then
+             if(do_mask)then
+                fcut = threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
+             else
+                fcut = threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
+             endif
           else
-             fcut = threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
+             fcut = -1.e30
           endif
        else
           fcut = -1.e30
@@ -2459,10 +2509,14 @@ contains
        enddo
     case("Tmin", "Emin", "Bmin")  !!random orientation
        if(present(threshold))then
-          if(do_mask)then
-             fcut = - threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
+          if(threshold.lt.coop_healpix_max_threshold)then
+             if(do_mask)then
+                fcut = - threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
+             else
+                fcut = - threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
+             endif
           else
-             fcut = - threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
+             fcut = 1.e30
           endif
        else
           fcut = 1.e30
@@ -2493,10 +2547,14 @@ contains
     case("Tmax_QTUTOrient", "zetamax_qzuzOrient") !!oriented with QU, maxima of T
        if(map%nmaps .lt. 3) stop "For Tmax_QTUTOrient mode you need 3 maps"
        if(present(threshold))then
-          if(do_mask)then
-             fcut = threshold*sqrt(sum(dble(map%map(:,1))**2,mask%map(:,1).gt.0.5)/total_weight)
+          if(threshold.lt.coop_healpix_max_threshold)then
+             if(do_mask)then
+                fcut = threshold*sqrt(sum(dble(map%map(:,1))**2,mask%map(:,1).gt.0.5)/total_weight)
+             else
+                fcut = threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
+             endif
           else
-             fcut = threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
+             fcut = -1.e30
           endif
        else
           fcut = -1.e30
@@ -2525,10 +2583,14 @@ contains
     case("Tmin_QTUTOrient", "zetamin_qzuzOrient") !!oriented with QU, minima of T
        if(map%nmaps .lt. 3) stop "For Tmin_QTUTOrient mode you need 3 maps"
        if(present(threshold))then
-          if(do_mask)then
-             fcut = -threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
+          if(threshold.lt.coop_healpix_max_threshold)then
+             if(do_mask)then
+                fcut = -threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
+             else
+                fcut = -threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
+             endif
           else
-             fcut = -threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
+             fcut = 1.e30
           endif
        else
           fcut = 1.e30
@@ -2563,10 +2625,14 @@ contains
           stop "For polarization you need to specify Q, U maps in the input file."
        end select
        if(present(threshold))then
-          if(do_mask)then
-             fcut = threshold**2*(sum(dble(map%map(:,iq))**2 + dble(map%map(:,iu))**2, mask%map(:,1).gt.0.5)/total_weight)
+          if(threshold.lt. coop_healpix_max_threshold)then
+             if(do_mask)then
+                fcut = threshold**2*(sum(dble(map%map(:,iq))**2 + dble(map%map(:,iu))**2, mask%map(:,1).gt.0.5)/total_weight)
+             else
+                fcut = threshold**2*(sum(dble(map%map(:,iq))**2 + dble(map%map(:,iu))**2)/total_weight)
+             endif
           else
-             fcut = threshold**2*(sum(dble(map%map(:,iq))**2 + dble(map%map(:,iu))**2)/total_weight)
+             fcut = -1.e30
           endif
        else
           fcut = -1.e30
@@ -2601,10 +2667,14 @@ contains
           stop "For polarization you need to specify Q, U maps in the input file."
        end select
        if(present(threshold))then
-          if(do_mask)then
-             fcut = threshold**2*(sum(dble(map%map(:, iq))**2+dble(map%map(:, iu))**2, mask%map(:,1).gt.0.5)/total_weight)
+          if(threshold.lt. coop_healpix_max_threshold)then          
+             if(do_mask)then
+                fcut = threshold**2*(sum(dble(map%map(:, iq))**2+dble(map%map(:, iu))**2, mask%map(:,1).gt.0.5)/total_weight)
+             else
+                fcut = threshold**2*(sum(dble(map%map(:, iq))**2+dble(map%map(:, iu))**2)/total_weight)
+             endif
           else
-             fcut = threshold**2*(sum(dble(map%map(:, iq))**2+dble(map%map(:, iu))**2)/total_weight)
+             fcut = 1.d30
           endif
        else
           fcut = 1.d30
@@ -2641,10 +2711,10 @@ contains
 #endif
   end subroutine coop_healpix_maps_get_listpix
 
-  subroutine coop_healpix_export_spots(map_file, spots_file, spot_type, threshold, mask_file, fwhm)
+  subroutine coop_healpix_export_spots(map_file, spots_file, spot_type, threshold, threshold_pol, mask_file, fwhm)
     COOP_UNKNOWN_STRING map_file, spots_file, spot_type
     COOP_UNKNOWN_STRING, optional::mask_file
-    COOP_REAL,optional::threshold
+    COOP_REAL,optional::threshold, threshold_pol
     type(coop_file) fp
     type(coop_healpix_maps) mask, map
     COOP_REAL,optional::fwhm
@@ -2668,17 +2738,33 @@ contains
        domask = .false.
     endif
     if(domask) call mask%read(mask_file, nmaps_wanted = 1)
-    if(present(threshold))then
-       if(domask)then
-          call map%get_spots(spots = spots,  spot_type = spot_type, threshold=threshold, mask = mask)
+    if(present(threshold_pol))then
+       if(present(threshold))then
+          if(domask)then
+             call map%get_spots(spots = spots,  spot_type = spot_type, threshold=threshold, threshold_pol=threshold_pol, mask = mask)
+          else
+             call map%get_spots(spots = spots,  spot_type = spot_type, threshold=threshold, threshold_pol=threshold_pol)
+          endif
        else
-          call map%get_spots(spots = spots,  spot_type = spot_type, threshold=threshold)
-       endif
+          if(domask)then
+             call map%get_spots(spots = spots,  spot_type = spot_type, threshold_pol=threshold_pol, mask = mask)
+          else
+             call map%get_spots(spots = spots,  spot_type = spot_type, threshold_pol=threshold_pol)
+          endif
+       endif       
     else
-       if(domask)then
-          call map%get_spots(spots = spots,  spot_type = spot_type, mask = mask)
+       if(present(threshold))then
+          if(domask)then
+             call map%get_spots(spots = spots,  spot_type = spot_type, threshold=threshold, mask = mask)
+          else
+             call map%get_spots(spots = spots,  spot_type = spot_type, threshold=threshold)
+          endif
        else
-          call map%get_spots(spots = spots,  spot_type = spot_type)
+          if(domask)then
+             call map%get_spots(spots = spots,  spot_type = spot_type, mask = mask)
+          else
+             call map%get_spots(spots = spots,  spot_type = spot_type)
+          endif
        endif
     endif
     call fp%open(trim(spots_file),"w")

@@ -18,6 +18,17 @@ module coop_string_mod
 
 contains
 
+  function coop_numstr2goodstr(str) result(str_out)
+    COOP_STRING str, str_out
+    COOP_INT idot, iminus
+    idot = index(str, ".")
+    if(idot.eq.0)then
+       str_out = adjustl(trim(str))
+    else
+       str_out = adjustl(trim(str(1:idot-1)//"pt"//str(idot+1:len_trim(str))))
+    endif
+  end function coop_numstr2goodstr
+
   function coop_Ndigits(i, ndigits, base) result(str_ndigits)
     COOP_INT, optional::base
     COOP_INT i, ndigits, j 
