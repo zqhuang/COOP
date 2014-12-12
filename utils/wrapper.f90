@@ -12,6 +12,7 @@ module coop_wrapper_utils
   use coop_asy_mod
   use coop_fft_mod
   use coop_jl_mod
+  use coop_gaussian_peak_stat_mod
   implicit none
 
 contains

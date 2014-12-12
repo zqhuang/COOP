@@ -2,20 +2,11 @@ program Test
   use coop_wrapper_utils
   implicit none
 #include "constants.h"
-  COOP_INT, parameter::n = 256, m = 5
-  COOP_INT i
-  COOP_REAL  r, g, b
-  COOP_LONG_STRING::str
-  type(coop_file)::fp, fpout
-  call fp%open("colors.txt",'r')
-  call fpout%open("planckcolor.txt", 'w')
-  str = 'p = Gradient(256'
-  do i=1, n
-     read(fp%unit, *) r, g, b
-     if(mod(i-1,m).eq.0)str = trim(str)//",rgbint("//COOP_STR_OF(nint(r))//","//COOP_STR_OF(nint(g))//","//COOP_STR_OF(nint(b))//")"
-  enddo
-  str = trim(str)//");"
-  call fp%close()
-  write(fpout%unit, "(A)") trim(str)
-  call fpout%close()
+  COOP_REAL:: fnu
+  type(coop_arguments)::args
+  COOP_REAL,parameter::sigma0 = 1.d0, sigma1 = 1.d0, sigma2 = 2.d0
+  COOP_INT,parameter::dim = 1
+  call coop_gaussian_npeak_set_args(args, dim, sigma0, sigma1, sigma2)
+  fnu = coop_integrate(coop_gaussian_npeak_differential, -6.d0, 6.d0, -6.d0, 0.d0, args, 1.d-5)
+  print*, fnu, sigma2/sigma1/coop_2pi ! (sigma2/sigma1)**2/coop_pi/8.d0/coop_sqrt3
 end program Test

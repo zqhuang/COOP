@@ -4,13 +4,14 @@ program test
   implicit none
 #include "constants.h"
 
-  COOP_INT::fwhm_arcmin = 15.
-  COOP_INT::fwhm_in = 0.
-  COOP_STRING::spot_type = "PmaxSortT"
-  COOP_STRING::input_file ="planck14/commander_siqu.fits"
+  COOP_INT::fwhm_arcmin = 30.
+  COOP_INT::fwhm_in = 30.
+  COOP_STRING::spot_type = "Tmax"
+  COOP_STRING::input_file ="simu/simu_int_030a_n1024.fits"
+  !!"planck14/commander_siqu.fits"
   COOP_STRING::imask_file  = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
   COOP_STRING::polmask_file  = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
-  COOP_REAL:: threshold = 1.
+  COOP_REAL:: threshold = 1.e30
 
   COOP_STRING::mask_file
   COOP_STRING output_file
@@ -30,7 +31,7 @@ program test
   else
      force_outfile = ""
   endif
-  fwhm = sqrt(dble(fwhm_arcmin)**2 - dble(fwhm_in)**2)*coop_SI_arcmin
+  fwhm = sqrt(max(dble(fwhm_arcmin)**2 - dble(fwhm_in)**2, 0.d0))*coop_SI_arcmin
   select case(trim(spot_type))
   case("Tmax", "Tmax_QTUTOrient", "PTmax", "Tmin", "Tmin_QTUTOrient", "PTmin", "PTmaxSortT", "zetamax", "zetamax_qzuzOrient", "zetamin", "zetamin_qzuzOrient", "PZmax", "PZmin")
      mask_file = trim(adjustl(imask_file))

@@ -5,16 +5,16 @@ program test
 
 #include "constants.h"
 
-  COOP_STRING :: spot_type = "B"
-  COOP_STRING :: map_file = "simu/simurp2_iqu_10arc_n1024_converted_to_TEB_submap003.fits"
-  COOP_STRING:: spots_file ="spots/simurp2_iqu_10arc_n1024_converted_to_TEB_submap003_Bmax_threshold0_fwhm15.txt"
-  COOP_STRING :: imask_file = "ffp7/ffp7_imask.fits"
-  COOP_STRING:: polmask_file ="commander/commander_polmask.fits"
-  COOP_STRING::unit = "muK"
+  COOP_STRING :: spot_type = "T"
+  COOP_STRING :: map_file = "simu/simu_int_030a_n1024.fits"
+  COOP_STRING:: spots_file ="spots/simu_int_030a_n1024_fwhm30_Tmax_NoThreshold.txt"
+  COOP_STRING :: imask_file = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
+  COOP_STRING:: polmask_file ="planck14/dx11_v2_common_pol_mask_010a_1024.fits"
+  COOP_STRING::unit = "K"
 
 
   COOP_UNKNOWN_STRING,parameter:: color_table = "Rainbow"
-  COOP_REAL, parameter::smooth_fwhm = 0.*coop_SI_arcmin
+  COOP_REAL, parameter::smooth_fwhm = 30.*coop_SI_arcmin
   COOP_REAL,parameter::r=2.*coop_SI_degree, dr = max(smooth_fwhm/3., r/45.)
   COOP_INT, parameter::n = ceiling(r/dr)
   COOP_UNKNOWN_STRING, parameter :: prefix = "stacked/"
