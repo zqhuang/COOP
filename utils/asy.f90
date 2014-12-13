@@ -2603,7 +2603,7 @@ contains
 
   subroutine coop_asy_legend_relative(fp, xratio, yratio, cols)
     class(coop_asy) fp
-    COOP_SINGLE  xratio, yratio, x, y
+    COOP_SINGLE  xratio, yratio
     COOP_INT ,optional::cols
     write(fp%unit, "(A)") "LEGEND"
     write(fp%unit, "(A)") "NULL"
