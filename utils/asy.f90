@@ -2605,19 +2605,9 @@ contains
     class(coop_asy) fp
     COOP_SINGLE  xratio, yratio, x, y
     COOP_INT ,optional::cols
-    if(fp%xlog)then
-       x = fp%xmin**(1.d0-xratio)*fp%xmax**xratio
-    else
-       x =  fp%xmin*(1.d0-xratio)+ fp%xmax*xratio  
-    endif
-    if(fp%ylog)then
-       y = fp%ymin**(1.d0-yratio)* fp%ymax**yratio
-    else
-       y = fp%ymin*(1.d0-yratio) + fp%ymax*yratio
-    endif
     write(fp%unit, "(A)") "LEGEND"
     write(fp%unit, "(A)") "NULL"
-    write(fp%unit, "(2G15.4)") x, y
+    write(fp%unit, "(2G15.4)") fp%xrel(xratio), fp%yrel(yratio)
     if(present(cols))then
        write(fp%unit, "(I8)")  cols
     else
@@ -2983,14 +2973,22 @@ contains
     class(coop_asy)::fp
     COOP_SINGLE  xratio
     COOP_SINGLE  xrel
-    xrel = xratio*fp%xmax + (1.d0-xratio)*fp%xmin
+    if(fp%xlog)then
+       xrel = fp%xmax**xratio*fp%xmin**(1.d0-xratio)
+    else
+       xrel = xratio*fp%xmax + (1.d0-xratio)*fp%xmin
+    endif
   end function coop_asy_xrel
 
   function coop_asy_yrel(fp, yratio) result(yrel)
     class(coop_asy)::fp
     COOP_SINGLE  yratio
     COOP_SINGLE  yrel
-    yrel = yratio*fp%ymax + (1.d0-yratio)*fp%ymin
+    if(fp%ylog)then
+       yrel = fp%ymax**yratio*fp%ymin**(1.d0-yratio)
+    else
+       yrel = yratio*fp%ymax + (1.d0-yratio)*fp%ymin
+    endif
   end function coop_asy_yrel
   
   subroutine coop_asy_expand(fp, xl, xr, yl, yr)
