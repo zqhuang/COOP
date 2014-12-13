@@ -29,6 +29,7 @@ contains
     endif
   end function coop_numstr2goodstr
 
+
   function coop_Ndigits(i, ndigits, base) result(str_ndigits)
     COOP_INT, optional::base
     COOP_INT i, ndigits, j 

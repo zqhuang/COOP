@@ -467,6 +467,7 @@ contains
     COOP_REAL,parameter::low_k_cut = low_ell_cut/distlss
     type(mcmc_chain) mc
     COOP_UNKNOWN_STRING output
+    COOP_SHORT_STRING::rval=""
     type(coop_file)::fcl
     type(coop_asy) fp, fig_spec, fig_pot, fig_eps, fig_cls, fig_dcls
     type(coop_asy_path) path    
@@ -734,6 +735,14 @@ contains
     if(do_dcl)then
        call coop_asy_legend(fig_dcls, 45., 420., 1)
        call fig_dcls%close()
+    endif
+    if(chain_index_of_name(mc, "r") .ne. 0)then
+       call coop_asy_label(fp_spec,  "free $r$", 0.01, 9., "black")
+    else
+       rval = trim(mc%inputparams%value("param[r]"))
+       if(trim(rval) .ne. "")then
+          call coop_asy_label(fp_spec, "fixed $r="//COOP_STR_OF(coop_str2real(rval))//"", 0.01, 9., "black")
+       endif
     endif
     call coop_asy_legend(fig_spec, real(exp(lnkmin + 1.2)), 170., 2)
     call coop_asy_legend(fig_eps, real(exp(coop_pp_lnkmin +4.)), 0.115, 1)
