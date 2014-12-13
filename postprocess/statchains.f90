@@ -737,11 +737,11 @@ contains
        call fig_dcls%close()
     endif
     if(chain_index_of_name(mc, "r") .ne. 0)then
-       call coop_asy_label(fig_spec,  "free $r$", 0.01, 9., "black")
+       call coop_asy_label(fig_spec,  "free $r$", 0.012, 8., "black")
     else
        rval = trim(mc%inputparams%value("param[r]"))
        if(trim(rval) .ne. "")then
-          call coop_asy_label(fig_spec, "fixed $r="//COOP_STR_OF(coop_str2real(rval))//"", 0.01, 9., "black")
+          call coop_asy_label(fig_spec, "fixed $r="//COOP_STR_OF(coop_str2real(rval))//"$", 0.012, 8., "black")
        endif
     endif
     call coop_asy_legend(fig_spec, real(exp(lnkmin + 1.2)), 170., 2)
