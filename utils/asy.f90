@@ -19,6 +19,7 @@ module coop_asy_mod
 
   type, extends(coop_file) :: coop_asy
      COOP_SINGLE  xmin, xmax, ymin, ymax, width, height
+     logical::xlog, ylog
      COOP_SHORT_STRING, dimension(coop_asy_num_line_types)::color
      COOP_SHORT_STRING, dimension(coop_asy_num_line_types)::linetype
      COOP_SINGLE , dimension(coop_asy_num_line_types)::linewidth
@@ -200,21 +201,25 @@ contains
        write(fp%unit, "(A)") "NULL"
     endif
     if(present(xlog))then
+       fp%xlog  =xlog
        if(xlog)then
           tmp(1:2) = "1 "
        else
           tmp(1:2) = "0 "
        endif
     else
+       fp%xlog = .false.
        tmp(1:2) = "0 "
     endif
     if(present(ylog))then
+       fp%ylog = ylog
        if(ylog)then
           tmp(3:4) = "1 "
        else
           tmp(3:4) = "0 "
        endif
     else
+       fp%ylog = .false.
        tmp(3:4) = "0 "
     endif
     if(present(zlog))then
@@ -2598,11 +2603,21 @@ contains
 
   subroutine coop_asy_legend_relative(fp, xratio, yratio, cols)
     class(coop_asy) fp
-    COOP_SINGLE  xratio, yratio
+    COOP_SINGLE  xratio, yratio, x, y
     COOP_INT ,optional::cols
+    if(fp%xlog)then
+       x = fp%xmin**(1.d0-xratio)*fp%xmax**xratio
+    else
+       x =  fp%xmin*(1.d0-xratio)+ fp%xmax*xratio  
+    endif
+    if(fp%ylog)then
+       y = fp%ymin**(1.d0-yratio)* fp%ymax**yratio
+    else
+       y = fp%ymin*(1.d0-yratio) + fp%ymax*yratio
+    endif
     write(fp%unit, "(A)") "LEGEND"
     write(fp%unit, "(A)") "NULL"
-    write(fp%unit, "(2G15.4)") fp%xmin*(1.d0-xratio)+ fp%xmax*xratio , fp%ymin*(1.d0-yratio) + fp%ymax*yratio
+    write(fp%unit, "(2G15.4)") x, y
     if(present(cols))then
        write(fp%unit, "(I8)")  cols
     else
