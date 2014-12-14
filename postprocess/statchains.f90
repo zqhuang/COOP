@@ -484,6 +484,7 @@ contains
     COOP_REAL,dimension(:,:),allocatable::cov_knots, cov_lowk, cov_highk, cov_all
     COOP_REAL,dimension(:),allocatable::shift_knots
     COOP_STRING:: inline
+    COOP_REAL::best_ns, best_ns_chisq, this_ns_chisq, best_ns_lowk_chisq, best_ns_highk_chisq
     
     mc%output = trim(adjustl(output))//trim(coop_file_name_of(mc%prefix))
     !! =================================================================!!
@@ -788,13 +789,23 @@ contains
              do i=coop_pp_nleft + 1, numpp - 1
                 shift_knots(i) = coop_pp_lnk_per_knot * (i - coop_pp_nleft)
              enddo
+             best_ns_chisq = 1.e30
+             best_ns = -1.d0
              do i = -10, 10
                 dns_trial = i*0.0002
-                write(*,"(A, F10.4)") "Assuming n_s = ", standard_ns + dns_trial
-                write(*,*) "Full chi^2(LCDM) per dof = ", dot_product(mc%mean(index_pp:index_pp+numpp-2) - shift_knots*dns_trial, matmul(cov_all, mc%mean(index_pp:index_pp+numpp-2)- shift_knots*dns_trial))/(numpp-1)
-                if(ind_lowk.gt.0)write(*,*) "chi_LCDM^2(low k) per dof = ", dot_product(mc%mean(index_pp:index_pp+ind_lowk-1) - shift_knots(1:ind_lowk)*dns_trial, matmul(cov_lowk, mc%mean(index_pp:index_pp+ind_lowk-1)- shift_knots(1:ind_lowk)*dns_trial))/ind_lowk
-                if(numpp-ind_lowk-1.gt.0)write(*,*) "chi_LCDM^2(high k) per dof = ", dot_product(mc%mean(index_pp+ind_lowk:index_pp+numpp-2)- shift_knots(ind_lowk+1:numpp-1)*dns_trial, matmul(cov_highk, mc%mean(index_pp+ind_lowk:index_pp+numpp-2)- shift_knots(ind_lowk+1:numpp-1)*dns_trial )) /(numpp - ind_lowk-1)
+                this_ns_chisq = dot_product(mc%mean(index_pp:index_pp+numpp-2) - shift_knots*dns_trial, matmul(cov_all, mc%mean(index_pp:index_pp+numpp-2)- shift_knots*dns_trial))/(numpp-1)
+                if(this_ns_chisq .lt. best_ns_chisq)then
+                   best_ns_chisq = this_ns_chisq
+                   best_ns = standard_ns + dns_trial
+                   if(ind_lowk.gt.0)best_ns_lowk_chisq = dot_product(mc%mean(index_pp:index_pp+ind_lowk-1) - shift_knots(1:ind_lowk)*dns_trial, matmul(cov_lowk, mc%mean(index_pp:index_pp+ind_lowk-1)- shift_knots(1:ind_lowk)*dns_trial))/ind_lowk
+                   if(numpp-ind_lowk-1.gt.0)best_ns_highk_chisq = dot_product(mc%mean(index_pp+ind_lowk:index_pp+numpp-2)- shift_knots(ind_lowk+1:numpp-1)*dns_trial, matmul(cov_highk, mc%mean(index_pp+ind_lowk:index_pp+numpp-2)- shift_knots(ind_lowk+1:numpp-1)*dns_trial )) /(numpp - ind_lowk-1)
+                endif
              enddo
+            write(*,"(A, F10.4)") "bestfit n_s = ", best_ns
+            write(*,*) "Full chi^2(LCDM) per dof = ", best_ns_chisq
+            if(ind_lowk.gt.0) write(*,*) "chi_LCDM^2(low k) per dof = ", best_ns_lowk_chisq, "p-value = ", coop_IncompleteGamma(ind_lowk/2.d0, best_ns_lowk_chisq*ind_lowk/2.d0)/gamma(ind_lowk/2.d0)
+            if(numpp-ind_lowk-1.gt.0) write(*,*) "chi_LCDM^2(high k) per dof = ", best_ns_highk_chisq, "p-value = ",  coop_IncompleteGamma((numpp-ind_lowk-1)/2.d0, best_ns_highk_chisq*(numpp-ind_lowk-1)/2.d0)/gamma((numpp-ind_lowk-1)/2.d0)
+             
           else
              write(*,*) "cannot find pp1, skipping chi^2 calculation"
           endif
