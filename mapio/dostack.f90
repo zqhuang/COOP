@@ -5,17 +5,17 @@ program test
 
 #include "constants.h"
 
-  COOP_STRING :: spot_type = "QU"
-  COOP_STRING :: map_file = "dust/dust_iqu300_030a_beam.fits" 
-  COOP_STRING:: spots_file ="spots/dust_iqu300_030a_beam_fwhm60_Tmax_QTUTOrient_threshold0pt5_2ndthreshold1pt5.txt"
-  COOP_STRING :: imask_file = "dust/dust_mask.fits" !"planck14/dx11_v2_common_int_mask_010a_1024.fits"
-  COOP_STRING:: polmask_file =  "dust/dust_mask.fits" !"planck14/dx11_v2_common_pol_mask_010a_1024.fits"
-  COOP_STRING::unit = "muK"
+  COOP_STRING :: spot_type = "T"
+  COOP_STRING :: map_file = "simu/simu_int_015a_n1024.fits"
+  COOP_STRING:: spots_file = "spots/simu_int_015a_n1024_fwhm15_Tmax.txt"
+  COOP_STRING :: imask_file = ""
+  COOP_STRING:: polmask_file =  "" 
+  COOP_STRING::unit = "K"
 
 
-  COOP_UNKNOWN_STRING,parameter:: color_table = "Planck"
+  COOP_UNKNOWN_STRING,parameter:: color_table = "Rainbow"
   COOP_REAL, parameter::smooth_fwhm = 30.*coop_SI_arcmin
-  COOP_REAL,parameter::r=10.*coop_SI_degree, dr = max(smooth_fwhm/3., r/45.)
+  COOP_REAL,parameter::r=2.*coop_SI_degree, dr = max(coop_SI_arcmin*3., r/45.)
   COOP_INT, parameter::n = ceiling(r/dr)
   COOP_UNKNOWN_STRING, parameter :: prefix = "stacked/"
   COOP_STRING fout,fout2, caption, fname, inline
@@ -103,45 +103,45 @@ program test
      map%map = map%map*1.e6
   endif
 
-  if(index(spots_file, "_Tmax_QTUTOrient_") .gt. 0)then
+  if(index(spots_file, "_Tmax_QTUTOrient") .gt. 0)then
      caption = "$T$ maxima, oriented"
-  elseif(index(spots_file, "_Tmax_").gt.0)then
+  elseif(index(spots_file, "_Tmax").gt.0)then
      caption = "$T$ maxima, random orientation"
   elseif(index(spots_file, "_zetamax_qzuzOrient").gt.0)then
      caption = "$\zeta$ maxima, oriented"     
-  elseif(index(spots_file, "_zetamax_").gt.0)then
+  elseif(index(spots_file, "_zetamax").gt.0)then
      caption = "$\zeta$ maxima, random orientation"
   elseif(index(spots_file, "_zetamax_qzuzorient").gt.0)then
      caption = "$\zeta$ maxima, random orientation"     
-  elseif(index(spots_file, "_Emax_").gt.0)then
+  elseif(index(spots_file, "_Emax").gt.0)then
      caption = "$E$ maxima, random orientation"
-  elseif(index(spots_file, "_Bmax_").gt.0)then
+  elseif(index(spots_file, "_Bmax").gt.0)then
      caption = "$B$ maxima, random orientation"
-  elseif(index(spots_file, "_PTmax_").gt.0)then
+  elseif(index(spots_file, "_PTmax").gt.0)then
      caption = "$P_T$ maxima, oriented"
-  elseif(index(spots_file, "_PZmax_").gt.0)then
+  elseif(index(spots_file, "_PZmax").gt.0)then
      caption = "$P_\zeta$ maxima, oriented"     
   elseif(index(spots_file, "_Pmax_").gt.0)then
      caption = "$P$ maxima, oriented"
-  elseif(index(spots_file, "_Tmin_QTUTOrient_") .gt. 0)then
+  elseif(index(spots_file, "_Tmin_QTUTOrient") .gt. 0)then
      caption = "$T$ minima, oriented"
-  elseif(index(spots_file, "_Tmin_").gt.0)then
+  elseif(index(spots_file, "_Tmin").gt.0)then
      caption = "$T$ minima, random orientation"
   elseif(index(spots_file, "_zetamin_qzuzOrient").gt.0)then
      caption = "$\zeta$ minima, oriented"     
-  elseif(index(spots_file, "_zetamin_").gt.0)then
+  elseif(index(spots_file, "_zetamin").gt.0)then
      caption = "$\zeta$ minima, random orientation"
   elseif(index(spots_file, "_zetamin_qzuzorient").gt.0)then
      caption = "$\zeta$ minima, random orientation"     
-  elseif(index(spots_file, "_Emin_").gt.0)then
+  elseif(index(spots_file, "_Emin").gt.0)then
      caption = "$E$ minima, random orientation"
-  elseif(index(spots_file, "_Bmin_").gt.0)then
+  elseif(index(spots_file, "_Bmin").gt.0)then
      caption = "$B$ minima, random orientation"
-  elseif(index(spots_file, "_PTmin_").gt.0)then
+  elseif(index(spots_file, "_PTmin").gt.0)then
      caption = "$P_T$ minima, oriented"
-  elseif(index(spots_file, "_PZmin_").gt.0)then
+  elseif(index(spots_file, "_PZmin").gt.0)then
      caption = "$P_\zeta$ minima, oriented"     
-  elseif(index(spots_file, "_Pmin_").gt.0)then
+  elseif(index(spots_file, "_Pmin").gt.0)then
      caption = "$P$ minima, oriented"
   else
      stop "Unknown spots_file class"

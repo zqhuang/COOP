@@ -66,7 +66,7 @@ private
      COOP_INT::index_massivenu_cold
      COOP_REAL::dkop, kopmin, kopmax, kmin, kmax, kweight, tauweight, bbks_keq, bbks_trans_kmax
      COOP_REAL,dimension(coop_k_dense_fac)::a_dense, b_dense, a2_dense, b2_dense
-     COOP_REAL, dimension(:),allocatable::k, kop,  dk !!tau is conformal time, chi is comoving distance; in flat case, chi + tau = tau_0
+     COOP_REAL, dimension(:),allocatable::k, kop, dk !!tau is conformal time, chi is comoving distance; in flat case, chi + tau = tau_0
      COOP_REAL, dimension(:),allocatable::tau, a, tauc, lna, dtau, chi !!tau is conformal time, chi is comoving distance; in flat case, chi + tau = tau_0     
      COOP_REAL, dimension(:,:),allocatable::k_dense, ws_dense, wt_dense, dk_dense
      COOP_REAL, dimension(:,:,:),allocatable::s, s2, saux

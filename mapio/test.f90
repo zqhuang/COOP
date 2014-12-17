@@ -10,12 +10,14 @@ program test
   implicit none
 #include "constants.h"
   integer, parameter::lmax=2000
+  COOP_REAL,parameter::fwhm = 15.d0
   type(coop_file)::fp
   integer l, il, i
-  COOP_REAL::cls(4, 0:lmax), dtheta, x, als(0:lmax), bls(0:lmax), corr, corr0, ell(0:lmax), sigma, l2cls(4,0:lmax), sigma2, sigma0, sigma1
-  t
+  COOP_REAL::cls(4, 0:lmax), dtheta, x, als(0:lmax), bls(0:lmax),  ell(0:lmax), sigma, l2cls(4,0:lmax), sigma2, sigma0, sigma1, mu2, mu0, cosbeta
+
   cls = 0.d0
-  sigma = 30.d0*coop_sigma_by_fwhm*coop_SI_arcmin
+  sigma = fwhm*coop_sigma_by_fwhm*coop_SI_arcmin
+  print*, 1.d0/sigma
   call fp%open("planckbest_lensedtotCls.dat", "r")
   do l=2, lmax
      read(fp%unit, *) il, cls(:, l)
@@ -25,14 +27,18 @@ program test
      if(il.ne.l) stop "cl file broken"
   enddo
   call fp%close()
-  dtheta = 0.7757d-3
-  corr0 = sum(Cls(1,0:lmax)*(ell+0.5d0))/coop_2pi
+  dtheta = 0.001
+  sigma0 = sqrt(sum(Cls(1,0:lmax)*(ell+0.5d0))/coop_2pi)
+  sigma1 = sqrt(sum(l2Cls(1,0:lmax)*(ell+0.5d0))/coop_2pi)
+  sigma2 = sqrt(sum(l2Cls(1,0:lmax)*(ell+0.5d0)*(ell*(ell+1.d0)))/coop_2pi)
+  cosbeta = sigma1**2/sigma0/sigma2
+  print*, cosbeta
   call sphere_correlation_init(lmax, als, bls)  
-  call fp%open("radial_profile.txt", "w")
-  do i = 0, 45
+  call fp%open("radial_profile_fwhm15.txt", "w")
+  do i = 0, 35
      x = cos(dtheta*i)
-     corr = sphere_correlation(lmax, cls(1, 0:lmax), als, bls, x)
-     write(fp%unit, "(2E16.7)") dtheta*i, corr/corr0*80.
+     mu2 = sphere_correlation(lmax, l2cls(1, 0:lmax), als, bls, x)/sigma1**2
+     write(fp%unit, "(2E16.7)") dtheta*i, sqrt(32.d0/3.d0/coop_pi)*sigma0*mu2*cosbeta
   enddo
   call fp%close()
 

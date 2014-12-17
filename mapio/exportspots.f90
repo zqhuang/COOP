@@ -4,16 +4,14 @@ program test
   implicit none
 #include "constants.h"
 
-  COOP_INT::fwhm_arcmin = 60.
-  COOP_INT::fwhm_in = 30.
-  COOP_STRING::spot_type = "Tmax_QTUTOrient"
-  COOP_STRING::input_file ="dust/dust_iqu300_030a_beam.fits" !commander_dx11d2_temp_n2048_7.5arc_v1_full_dust.fits"
-  COOP_STRING::imask_file  = "dust/dust_mask.fits"
-  !"planck14/dx11_v2_common_int_mask_010a_1024.fits"
-  COOP_STRING::polmask_file  = "dust/dust_mask.fits"
-  ! "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
-  COOP_REAL:: threshold = 0.5d0
-  COOP_REAL:: threshold_pol = 1.5d0  
+  COOP_INT::fwhm_arcmin = 15.
+  COOP_INT::fwhm_in = 15.
+  COOP_STRING::spot_type = "Tmax"
+  COOP_STRING::input_file ="simu/simu_int_015a_n1024.fits" 
+  COOP_STRING::imask_file  = "" 
+  COOP_STRING::polmask_file  = "" 
+  COOP_REAL:: threshold = 1.e31
+  COOP_REAL:: threshold_pol = 1.e31
 
   COOP_STRING::mask_file
   COOP_STRING output_file

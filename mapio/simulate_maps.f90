@@ -10,18 +10,19 @@ program test
 
   implicit none
 #include "constants.h"
+  COOP_INT,parameter::lmax = 2000
   type(coop_healpix_maps)::map, imask, polmask
   integer l, m, il
   type(coop_file)::fp
-  COOP_REAL::beam_fwhm = 30.*coop_SI_arcmin
+  COOP_REAL::beam_fwhm = 30.
   COOP_REAL sigma, w
   call coop_random_init()
 
   call map%init(nside = 1024, nmaps=3, spin = (/ 0, 2, 2 /))
 
-  call map%allocate_alms(lmax=2000)
+  call map%allocate_alms(lmax=lmax)
   map%Cl = 0.
-  sigma = coop_sigma_by_fwhm * beam_fwhm
+  sigma = coop_sigma_by_fwhm * beam_fwhm * coop_SI_arcmin
   
   call fp%open("planckbest_lensedtotCls.dat", "r")
   
@@ -47,7 +48,7 @@ program test
 !!$  enddo
 
   call map%simulate()
-  call map%write("simu/simu_int_030a_n1024.fits", index_list = (/ 1 /) )
-  call map%write("simu/simu_pol_030a_n1024.fits", index_list = (/2, 3/) )
+  call map%write("simu/simu_int_0"//COOP_STR_OF(nint(beam_fwhm))//"a_n1024.fits", index_list = (/ 1 /) )
+  call map%write("simu/simu_pol_0"//COOP_STR_OF(nint(beam_fwhm))//"a_n1024.fits", index_list = (/2, 3/) )
 
 end program test
