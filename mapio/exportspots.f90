@@ -10,7 +10,7 @@ program test
   COOP_STRING::input_file ="simu/simu_int_015a_n1024.fits" 
   COOP_STRING::imask_file  = "" 
   COOP_STRING::polmask_file  = "" 
-  COOP_REAL:: threshold = 1.e31
+  COOP_REAL:: threshold = 0.d0
   COOP_REAL:: threshold_pol = 1.e31
 
   COOP_STRING::mask_file

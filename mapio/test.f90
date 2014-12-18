@@ -9,15 +9,17 @@ program test
   use alm_tools
   implicit none
 #include "constants.h"
-  integer, parameter::lmax=2000
+  integer, parameter::lmax=2000, n=50
   COOP_REAL,parameter::fwhm = 15.d0
+  COOP_REAL,parameter::nu = 0
   type(coop_file)::fp
   integer l, il, i
-  COOP_REAL::cls(4, 0:lmax), dtheta, x, als(0:lmax), bls(0:lmax),  ell(0:lmax), sigma, l2cls(4,0:lmax), sigma2, sigma0, sigma1, mu2, mu0, cosbeta
+  type(coop_arguments)::args
+  
+  COOP_REAL::cls(4, 0:lmax), dtheta, x, als(0:lmax), bls(0:lmax),  ell(0:lmax), sigma, l2cls(4,0:lmax), sigma2, sigma0, sigma1, mu2, mu0, cosbeta, w0, w2
 
   cls = 0.d0
   sigma = fwhm*coop_sigma_by_fwhm*coop_SI_arcmin
-  print*, 1.d0/sigma
   call fp%open("planckbest_lensedtotCls.dat", "r")
   do l=2, lmax
      read(fp%unit, *) il, cls(:, l)
@@ -27,18 +29,24 @@ program test
      if(il.ne.l) stop "cl file broken"
   enddo
   call fp%close()
-  dtheta = 0.001
+  dtheta = 2.d0*coop_SI_degree/n
   sigma0 = sqrt(sum(Cls(1,0:lmax)*(ell+0.5d0))/coop_2pi)
   sigma1 = sqrt(sum(l2Cls(1,0:lmax)*(ell+0.5d0))/coop_2pi)
   sigma2 = sqrt(sum(l2Cls(1,0:lmax)*(ell+0.5d0)*(ell*(ell+1.d0)))/coop_2pi)
   cosbeta = sigma1**2/sigma0/sigma2
-  print*, cosbeta
+  print*, "gamma = ", cosbeta
+  print*, "sigma_0 = ", sigma0
+  print*, "sigma_2 = ", sigma2  
+  call coop_gaussian_npeak_set_args(args, 2, sigma0, sigma1, sigma2)  
+  call coop_gaussian_get_nonoriented_stacking_weights(nu, args, w0, w2)
+  print*, w0, w2
   call sphere_correlation_init(lmax, als, bls)  
-  call fp%open("radial_profile_fwhm15.txt", "w")
-  do i = 0, 35
+  call fp%open("radial_profile_fwhm"//COOP_STR_OF(nint(fwhm))//".txt", "w")
+  do i = 0, n
      x = cos(dtheta*i)
-     mu2 = sphere_correlation(lmax, l2cls(1, 0:lmax), als, bls, x)/sigma1**2
-     write(fp%unit, "(2E16.7)") dtheta*i, sqrt(32.d0/3.d0/coop_pi)*sigma0*mu2*cosbeta
+     mu2 = -sphere_correlation(lmax, l2cls(1, 0:lmax), als, bls, x)
+     mu0 = sphere_correlation(lmax, cls(1, 0:lmax), als, bls, x)
+     write(fp%unit, "(4E16.7)") dtheta*i, mu0*w0 + mu2*w2
   enddo
   call fp%close()
 

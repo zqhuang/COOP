@@ -7,7 +7,7 @@ program test
 
   COOP_STRING :: spot_type = "T"
   COOP_STRING :: map_file = "simu/simu_int_015a_n1024.fits"
-  COOP_STRING:: spots_file = "spots/simu_int_015a_n1024_fwhm15_Tmax.txt"
+  COOP_STRING:: spots_file = "spots/simu_int_015a_n1024_fwhm15_Tmax_threshold0.txt"
   COOP_STRING :: imask_file = ""
   COOP_STRING:: polmask_file =  "" 
   COOP_STRING::unit = "K"
@@ -224,8 +224,6 @@ program test
      patch%zmin = zmin
      patch%zmax = zmax
   endif
-  patch%zmin=-1.
-  patch%zmax=8.
   call patch%plot(imap = 1, output =trim(fout))
   
   if(trim(fout2).ne."")then
