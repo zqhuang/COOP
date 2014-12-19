@@ -12,12 +12,12 @@ program hastack_prog
   logical,parameter::do_calibration = .false.
   COOP_INT, parameter::n_sim = 1000
   COOP_STRING::spot_type, stack_type
-  COOP_REAL, parameter::patch_size = 5.d0*coop_SI_degree
-  COOP_UNKNOWN_STRING, parameter::output_dir = "ha_r5f30"
+  COOP_REAL, parameter::patch_size = 2.d0*coop_SI_degree
+  COOP_UNKNOWN_STRING, parameter::output_dir = "ha_r2f15"
   
   COOP_UNKNOWN_STRING, parameter::prefix = output_dir//"/"
   COOP_INT, parameter::mmax = 4
-  COOP_REAL, parameter::fwhm_arcmin = 30.d0
+  COOP_REAL, parameter::fwhm_arcmin = 15.d0
   COOP_REAL, parameter::fwhm_in = 10.d0
   COOP_UNKNOWN_STRING, parameter::postfix =   "_010a_1024.fits"
 
@@ -25,7 +25,7 @@ program hastack_prog
   COOP_UNKNOWN_STRING, parameter::mapdir = "/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
   COOP_REAL,parameter::fwhm = coop_SI_arcmin * sqrt(fwhm_arcmin**2-fwhm_in**2)
   COOP_REAL, parameter::threshold = 1
-  COOP_REAL, parameter::dr = coop_SI_arcmin * max(fwhm_arcmin/4.d0, fwhm_in/2.d0)
+  COOP_REAL, parameter::dr = coop_SI_arcmin * max(fwhm_arcmin/3.d0, fwhm_in/2.d0)
   COOP_INT, parameter::n = nint(patch_size/dr)
 
   COOP_UNKNOWN_STRING, parameter::imap_file  = "planck14/dx11_v2_smica_int_cmb"//postfix
