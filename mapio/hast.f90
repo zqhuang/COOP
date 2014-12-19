@@ -9,7 +9,7 @@ program hastack_prog
   use alm_tools
   implicit none
 #include "constants.h"
-  logical,parameter::do_calibration = .true.
+  logical,parameter::do_calibration = .false.
   COOP_INT, parameter::n_sim = 1000
   COOP_STRING::spot_type, stack_type
   COOP_REAL, parameter::patch_size = 5.d0*coop_SI_degree
@@ -24,7 +24,7 @@ program hastack_prog
   COOP_STRING::allprefix
   COOP_UNKNOWN_STRING, parameter::mapdir = "/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
   COOP_REAL,parameter::fwhm = coop_SI_arcmin * sqrt(fwhm_arcmin**2-fwhm_in**2)
-  COOP_REAL, parameter::threshold = 0
+  COOP_REAL, parameter::threshold = 1
   COOP_REAL, parameter::dr = coop_SI_arcmin * max(fwhm_arcmin/4.d0, fwhm_in/2.d0)
   COOP_INT, parameter::n = nint(patch_size/dr)
 
@@ -92,7 +92,7 @@ program hastack_prog
   call patch_n%init(trim(stack_type), n, dr, mmax = mmax)
   patch_s = patch_n
 
-  allprefix = prefix//trim(stack_type)//"_on_"//trim(spot_type)//"_fr_"//COOP_STR_OF(scan_nside)//"_"
+  allprefix = prefix//trim(stack_type)//"_on_"//trim(spot_type)//"_nu"//COOP_FILESTR_OF(threshold)//"_cal"//COOP_STR_OF(do_calibration)//"_"
 
   if(run_id.eq.0 .or. iargc().lt.3)then
      call fp%open(trim(allprefix)//"info.txt", "w")

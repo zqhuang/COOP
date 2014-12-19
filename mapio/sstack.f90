@@ -9,7 +9,7 @@ program hastack_prog
   use alm_tools
   implicit none
 #include "constants.h"
-  logical,parameter::do_calibration = .false.
+  logical,parameter::do_calibration = .true.
   COOP_INT, parameter::n_sim = 1000
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_SHORT_STRING::spot_type, stack_type, threshold_input

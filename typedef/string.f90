@@ -9,7 +9,7 @@ module coop_string_mod
   integer,parameter::sp = kind(1.)
   integer,parameter::dl = kind(1.d0)
 
-  public::coop_num2str,  coop_ndigits, coop_str2int, coop_str2real, coop_str2logical, coop_substr, coop_str_replace, coop_str_numalpha, coop_str2lower, coop_str2upper, coop_case_insensitive_eq, coop_file_path_of, coop_file_name_of, coop_file_add_postfix, coop_convert_to_C_string, coop_data_type, coop_string_contain_numbers, coop_numstr2goodstr
+  public::coop_num2str,  coop_ndigits, coop_str2int, coop_str2real, coop_str2logical, coop_substr, coop_str_replace, coop_str_numalpha, coop_str2lower, coop_str2upper, coop_case_insensitive_eq, coop_file_path_of, coop_file_name_of, coop_file_add_postfix, coop_convert_to_C_string, coop_data_type, coop_string_contain_numbers, coop_numstr2goodstr, coop_num2goodstr
 
   Interface coop_num2str
      module procedure coop_int2str, coop_real2str, coop_logical2str, coop_double2str
@@ -17,6 +17,54 @@ module coop_string_mod
 
 
 contains
+
+  function coop_num2goodstr(x, minus, point) result(str)
+    COOP_REAL x
+    COOP_UNKNOWN_STRING,optional::minus, point
+    COOP_SHORT_STRING str, str_int, str_float, str_zero, str_sign, str_point
+    COOP_REAL absx
+    COOP_INT  n
+    absx = abs(x)
+    if(absx .ge. 1.d5)then
+       write(str,*) x
+       str = trim(adjustl(str))
+       return
+    endif
+    if(x.lt.0.d0)then
+       if(present(minus))then
+          str_sign = trim(adjustl(minus))
+       else
+          str_sign = "-"
+       endif
+    else
+       str_sign = ""
+    endif
+    if(abs(absx - nint(absx)) .lt. max(1.d-5, absx*1.d-5))then
+       write(str_int, *) nint(absx)
+       str = trim(str_sign)//trim(adjustl(str_int))
+       return
+    endif
+    n = floor(absx)
+    write(str_int, *) n
+    if(present(point))then
+       str_point = trim(adjustl(point))
+    else
+       str_point = "."
+    endif
+    absx = absx - n
+    str_zero = ""
+    do while(absx .lt. 0.09999d0)
+       absx = absx*10.d0
+       str_zero = trim(str_zero)//"0"
+    enddo
+    absx = absx*10000.d0
+    n = nint(absx)
+    do while(mod(n, 10).eq.0)
+       n = n/10
+    enddo
+    write(str_float,*) n
+    str = trim(str_sign)//trim(adjustl(str_int))//trim(str_point)//trim(str_zero)//trim(adjustl(str_float))
+  end function coop_num2goodstr
 
   function coop_numstr2goodstr(str) result(str_out)
     COOP_STRING str, str_out

@@ -21,6 +21,8 @@
 #define COOP_REAL_OF(x) real(x, coop_real_length)
 #define COOP_INT_OF(x) int(x, coop_int_length)
 #define COOP_STR_OF(x) trim(coop_num2str(x))
+#define COOP_NICESTR_OF(x) trim(coop_num2goodstr(x))
+#define COOP_FILESTR_OF(x) trim(coop_num2goodstr(x, "m", "p"))
 
 #define COOP_INTERPOLATE_LINEAR 1
 #define COOP_INTERPOLATE_QUADRATIC 2
