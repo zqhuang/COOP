@@ -17,7 +17,7 @@ program test
   type(coop_arguments)::args
   
   COOP_REAL::cls(4, 0:lmax), dtheta, x, als(0:lmax), bls(0:lmax),  ell(0:lmax), sigma, l2cls(4,0:lmax), sigma2, sigma0, sigma1, cosbeta, w00, w10, w02,w12, c00, c10, c02, c12, j2, theta, omega
-
+  call coop_random_init()
   cls = 0.d0
   sigma = fwhm*coop_sigma_by_fwhm*coop_SI_arcmin
   call fp%open("planckbest_lensedtotCls.dat", "r")
@@ -39,7 +39,7 @@ program test
   print*, "sigma_2 = ", sigma2  
   call coop_gaussian_npeak_set_args(args, 2, sigma0, sigma1, sigma2)  
   call coop_gaussian_get_oriented_stacking_weights(nu, args, w00,w10,w02,w12)
-  print*, w00, w10,w02,w12
+  print*, w00*sigma0, w10*sigma2,w02*sigma0,w12*sigma2
   call sphere_correlation_init(lmax, als, bls)  
   call fp0%open("T0_fwhm"//COOP_STR_OF(nint(fwhm))//".txt", "w")
   call fp2%open("T2_fwhm"//COOP_STR_OF(nint(fwhm))//".txt", "w")  
