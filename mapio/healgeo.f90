@@ -421,7 +421,7 @@ contains
     COOP_REAL dr, cosmt, sinmt, theta
     COOP_INT i,j,m
     COOP_INT, optional::mmax
-    COOP_REAL sumr(0:n+1)
+    COOP_REAL sumrc(0:n+1), sumrs(0:n+1)
     call this%free()
     this%caption = ""
     this%headless_vectors = .true.
@@ -510,33 +510,6 @@ contains
        enddo
     enddo
     !$omp end parallel do
-    sumr = 0.
-    do j=-this%n, this%n
-       do i=-this%n, this%n
-          if(this%icm(i,j,0).le. this%n)then
-             sumr(this%icm(i,j,0)) = sumr(this%icm(i,j,0)) + this%wcm(i,j,0)
-             sumr(this%icm(i,j,1)) = sumr(this%icm(i,j,1)) + this%wcm(i,j,1)
-          endif
-       enddo
-    enddo
-    !$omp parallel do private(i, j)
-    do j=-this%n, this%n
-       do i=-this%n, this%n
-          if(this%icm(i, j, 0) .le. this%n)then
-             this%wcm(i, j, 0) = this%wcm(i, j, 0)/sumr(this%icm(i, j, 0))
-          else
-             this%icm(i, j, 0) = 0
-             this%wcm(i, j, 0) = 0.d0
-          endif
-          if(this%icm(i, j, 1) .le. this%n)then
-             this%wcm(i, j, 1) = this%wcm(i, j, 1)/sumr(this%icm(i, j, 1))
-          else
-             this%icm(i, j, 1) = 0
-             this%wcm(i, j, 1) = 0.d0
-          endif
-       enddo
-    enddo
-    !$omp end parallel do
 
     !$omp parallel do private(m, i, j, cosmt, sinmt, theta)
     do m = 2, this%mmax, 2
@@ -560,6 +533,51 @@ contains
        enddo
     enddo
     !$omp end parallel do
+
+    !!do renormalization
+    do m = 0, this%mmax, 2
+       sumrc = 0.d0
+       sumrs = 0.d0
+       do j=-this%n, this%n
+          do i=-this%n, this%n
+             if(this%icm(i,j,0).le. this%n)then
+                theta = atan2(dble(j), dble(i))
+                cosmt = cos(m*theta)
+                sumrc(this%icm(i,j,0)) = sumrc(this%icm(i,j,0)) + this%wcm(i,j,m)*cosmt
+                sumrc(this%icm(i,j,1)) = sumrc(this%icm(i,j,1)) + this%wcm(i,j,m+1)*cosmt
+                if(m.gt.0)then
+                   sinmt = sin(m*theta)                
+                   sumrs(this%icm(i,j,0)) = sumrs(this%icm(i,j,0)) + this%wsm(i,j,m)*sinmt                
+
+                   sumrs(this%icm(i,j,1)) = sumrs(this%icm(i,j,1)) + this%wsm(i,j,m+1)*sinmt
+                endif
+             endif
+          enddo
+       enddo
+       !$omp parallel do private(i, j)
+       do j=-this%n, this%n
+          do i=-this%n, this%n
+             if(this%icm(i, j, 0) .le. this%n .and. (m.eq.0 .or. this%icm(i, j, 0).ne.0) )then
+                this%wcm(i, j, m) = this%wcm(i, j, m)/sumrc(this%icm(i, j, 0))
+                if(m.gt.0) this%wsm(i, j, m) = this%wsm(i, j, m)/sumrs(this%icm(i, j, 0))                
+             else
+                this%icm(i, j, m) = 0
+                this%wcm(i, j, m) =0.d0
+                this%wsm(i, j, m) =0.d0                                
+             endif
+             if(this%icm(i, j, 1) .le. this%n  .and. (m.eq.0 .or. this%icm(i, j, 1).ne.0) )then
+                this%wcm(i, j, m+1) = this%wcm(i, j, m+1)/sumrc(this%icm(i, j, 1))
+                if(m.gt.0) this%wsm(i, j, m+1) = this%wsm(i, j, m+1)/sumrs(this%icm(i, j, 1))                
+             else
+                this%icm(i, j, m+1) = 0
+                this%wcm(i, j, m+1) =0.d0
+                this%wsm(i, j, m+1) =0.d0                                
+             endif
+          enddo          
+       enddo
+       !$omp end parallel do
+    enddo
+    
   end subroutine coop_healpix_patch_init
 
 

@@ -46,8 +46,10 @@ program map
   bmap = trim(prefix)//"_B_fwhm"//trim(str_fwhm_out)//".fits"
   if(.not. coop_file_exists(trim(outi)) .or. .not. coop_file_exists(trim(tqtut)) .or. .not. coop_file_exists(trim(zeta)) .or. .not. coop_file_exists(trim(zetaqzuz)) )then
      call hgm%read(trim(imap), nmaps_wanted = 3, spin=(/ 0, 2, 2 /), nmaps_to_read = 1 )
-     call hgimask%read(trim(imask), nmaps_wanted = 1, spin = (/ 0 /))
-     hgm%map(:, 1) = hgm%map(:, 1)*hgimask%map(:, 1)
+     if(trim(imask).ne."NONE")then
+        call hgimask%read(trim(imask), nmaps_wanted = 1, spin = (/ 0 /))
+        hgm%map(:, 1) = hgm%map(:, 1)*hgimask%map(:, 1)        
+     endif
      call hgm%smooth(fwhm = sqrt(fwhm_out**2-fwhm_in**2), index_list = (/ 1 /), l_upper = lmax)
      if(.not. coop_file_exists(trim(outi)))call hgm%write(trim(outi), index_list = (/ 1 /))
      if(.not. coop_file_exists(trim(tqtut)))then
@@ -66,9 +68,11 @@ program map
 
   if(.not. coop_file_exists(trim(outqu)) .or. .not. coop_file_exists(trim(emap)) .or. .not. coop_file_exists(trim(bmap)))then
      call hgm%read(trim(qumap), nmaps_wanted = 2, spin = (/ 2, 2 /))
-     call hgpolmask%read(trim(polmask),nmaps_wanted = 1, spin = (/ 0 /) )
-     hgm%map(:, 1) = hgm%map(:, 1)*hgpolmask%map(:, 1)
-     hgm%map(:, 2) = hgm%map(:, 2)*hgpolmask%map(:, 1)
+     if(trim(polmask).ne."NONE")then
+        call hgpolmask%read(trim(polmask),nmaps_wanted = 1, spin = (/ 0 /) )
+        hgm%map(:, 1) = hgm%map(:, 1)*hgpolmask%map(:, 1)
+        hgm%map(:, 2) = hgm%map(:, 2)*hgpolmask%map(:, 1)
+     endif
      call hgm%smooth(fwhm = sqrt(fwhm_out**2-fwhm_in**2), l_upper = lmax)
      if(.not. coop_file_exists(trim(outqu)))call hgm%write(trim(outqu))
      if( .not. coop_file_exists(trim(emap)) .or.  .not. coop_file_exists(trim(bmap)))then

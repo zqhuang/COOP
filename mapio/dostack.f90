@@ -6,16 +6,16 @@ program test
 #include "constants.h"
 
   COOP_STRING :: spot_type = "T"
-  COOP_STRING :: map_file = "simu/simu_int_015a_n1024.fits"
-  COOP_STRING:: spots_file = "spots/simu_int_015a_n1024_fwhm15_Tmax_threshold0.txt"
+  COOP_STRING :: map_file =  "simu/simu_fullsky_015a_TQTUT_fwhm15.fits"
+  COOP_STRING:: spots_file = "spots/simu_fullsky_015a_TQTUT_fwhm15_fwhm15_Tmax_QTUTOrient.txt"
   COOP_STRING :: imask_file = ""
   COOP_STRING:: polmask_file =  "" 
   COOP_STRING::unit = "K"
 
 
   COOP_UNKNOWN_STRING,parameter:: color_table = "Rainbow"
-  COOP_REAL, parameter::smooth_fwhm = 30.*coop_SI_arcmin
-  COOP_REAL,parameter::r=2.*coop_SI_degree, dr = max(coop_SI_arcmin*3., r/45.)
+  COOP_REAL, parameter::smooth_fwhm = 15.*coop_SI_arcmin
+  COOP_REAL,parameter::r=2.*coop_SI_degree, dr = max(coop_SI_arcmin*3., r/60.)
   COOP_INT, parameter::n = ceiling(r/dr)
   COOP_UNKNOWN_STRING, parameter :: prefix = "stacked/"
   COOP_STRING fout,fout2, caption, fname, inline
