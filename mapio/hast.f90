@@ -158,6 +158,7 @@ program hastack_prog
      if(mod(ind, 30).eq.0)flush(fp%unit)  !!do flush every 30 steps
   enddo
   call fp%close()
+  write(*,*) "Maps all done, now exiting the program"
   call coop_MPI_Finalize()
 
 contains
