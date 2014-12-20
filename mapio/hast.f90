@@ -166,12 +166,13 @@ program hastack_prog
   call imap%free()
   call polmap%free()
   print*, "maps free"
-  call patch_s%free()
-  call patch_n%free()
-  print*, "patches free"
   call listpix%init()
   call listangle%init()
   print*, "list free"
+  call patch_s%free()
+  print*, "patch_s free"
+  call patch_n%free()
+  print*, "patch_n free"
   call coop_MPI_Finalize()
 
 contains
