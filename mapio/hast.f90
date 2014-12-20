@@ -90,7 +90,8 @@ program hastack_prog
   call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )
   
   call patch_n%init(trim(stack_type), n, dr, mmax = mmax)
-  patch_s = patch_n
+  call patch_s%init(trim(stack_type), n, dr, mmax = mmax)
+!  patch_s = patch_n
 
   allprefix = prefix//trim(stack_type)//"_on_"//trim(spot_type)//"_nu"//COOP_FILESTR_OF(threshold)//"_cal"//COOP_STR_OF(do_calibration)//"_"
 
