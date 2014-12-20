@@ -536,8 +536,8 @@ contains
 
     !!do renormalization
     do m = 0, this%mmax, 2
-       sumrc = 0.d0
-       sumrs = 0.d0
+       sumrc = 1.d-31
+       sumrs = 1.d-31
        do j=-this%n, this%n
           do i=-this%n, this%n
              if(this%icm(i,j,0).le. this%n)then
