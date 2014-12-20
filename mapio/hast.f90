@@ -158,17 +158,20 @@ program hastack_prog
      if(mod(ind, 30).eq.0)flush(fp%unit)  !!do flush every 30 steps
   enddo
   call fp%close()
+  write(*,*) "Maps all done, now exiting the program"    
   call polmask%free()
   call imask%free()
   call inoise%free()
   call polnoise%free()
   call imap%free()
   call polmap%free()
+  print*, "maps free"
   call patch_s%free()
   call patch_n%free()
+  print*, "patches free"
   call listpix%init()
   call listangle%init()
-  write(*,*) "Maps all done, now exiting the program"  
+  print*, "list free"
   call coop_MPI_Finalize()
 
 contains
