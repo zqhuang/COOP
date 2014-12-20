@@ -160,20 +160,6 @@ program hastack_prog
   enddo
   call fp%close()
   write(*,*) "Maps all done, now exiting the program"    
-  call polmask%free()
-  call imask%free()
-  call inoise%free()
-  call polnoise%free()
-  call imap%free()
-  call polmap%free()
-  print*, "maps free"
-  call listpix%init()
-  call listangle%init()
-  print*, "list free"
-  call patch_s%free()
-  print*, "patch_s free"
-  call patch_n%free()
-  print*, "patch_n free"
   call coop_MPI_Finalize()
 
 contains
