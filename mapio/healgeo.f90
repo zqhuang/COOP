@@ -475,7 +475,7 @@ contains
     allocate(this%r(0:this%n))
     allocate(this%fr(0:this%n, 0:this%mmax/2, this%nmaps))
     allocate(this%wcm(-this%n:this%n, -this%n:this%n, 0:this%mmax+1))
-    allocate(this%wsm(-this%n:this%n, -this%n:this%n, 2:this%mmax+1))
+    allocate(this%wsm(-this%n:this%n, -this%n:this%n, 0:this%mmax+1))
     allocate(this%icm(-this%n:this%n, -this%n:this%n, 0:1))
     this%image = 0.
     this%wcm = 0.

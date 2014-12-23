@@ -59,7 +59,7 @@ program hastack_prog
   stack_type = trim(coop_InputArgs(2))
   if(iargc() .ge. 3)then
      run_id = coop_str2int(coop_InputArgs(3))
-     call sleep(run_id*2)  !!sleep for a second so that files are not read simultaneously     
+     call sleep(mod(run_id, 12)*3)  !!sleep for a second so that files are not read simultaneously     
   else
      run_id = 74   !!the special choice
   endif
