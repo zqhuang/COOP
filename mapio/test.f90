@@ -9,14 +9,15 @@ program test
   use alm_tools
   implicit none
 #include "constants.h"
-  integer, parameter::lmax=2000, n=50
+  integer, parameter::lmax=1500, n=50
+  integer, parameter::index_corr = 4 !! 1 for T, 4 for E
   COOP_REAL,parameter::fwhm = 15.d0
   COOP_REAL,parameter::nu = 1.d0
-  type(coop_file)::fp0, fp2, fp
-  integer l, il, i
+  type(coop_file)::fp, fpI(0:2), fpQU(0:2)
+  integer l, il, i, m
   type(coop_arguments)::args
   
-  COOP_REAL::cls(4, 0:lmax), dtheta, x, als(0:lmax), bls(0:lmax),  ell(0:lmax), sigma, l2cls(4,0:lmax), sigma2, sigma0, sigma1, cosbeta, w00, w10, w02,w12, c00, c10, c02, c12, j2, theta, omega
+  COOP_REAL::cls(4, 0:lmax), dtheta, x, als(0:lmax), bls(0:lmax),  ell(0:lmax), sigma, l2cls(4,0:lmax), sigma2, sigma0, sigma1, cosbeta, j2, j4, j0, theta, omega, weights(4), cr(0:1, 0:2), frI(0:2), frQU(0:2)
   call coop_random_init()
   cls = 0.d0
   sigma = fwhm*coop_sigma_by_fwhm*coop_SI_arcmin
@@ -38,31 +39,49 @@ program test
   print*, "sigma_0 = ", sigma0
   print*, "sigma_2 = ", sigma2  
   call coop_gaussian_npeak_set_args(args, 2, sigma0, sigma1, sigma2)  
-  call coop_gaussian_get_oriented_stacking_weights(nu, args, w00,w10,w02,w12)
-  print*, w00*sigma0, w10*sigma2,w02*sigma0,w12*sigma2
-  call sphere_correlation_init(lmax, als, bls)  
-  call fp0%open("T0_fwhm"//COOP_STR_OF(nint(fwhm))//".txt", "w")
-  call fp2%open("T2_fwhm"//COOP_STR_OF(nint(fwhm))//".txt", "w")  
+  call coop_gaussian_get_oriented_stacking_weights(nu, args, weights)
+  write(*,*) "Weights = ", weights
+  call sphere_correlation_init(lmax, als, bls)
+  do m=0,2
+     call fpI(m)%open("I_fwhm"//COOP_STR_OF(nint(fwhm))//"_m"//COOP_STR_OF(m*2)//".txt", "w")
+     call fpQU(m)%open("QU_fwhm"//COOP_STR_OF(nint(fwhm))//"_m"//COOP_STR_OF(m*2)//".txt", "w")
+     write(fpI(m)%unit, "(A)") "CURVE"
+     write(fpQU(m)%unit, "(A)") "CURVE"
+     write(fpI(m)%unit, "(A)") "51"
+     write(fpQU(m)%unit, "(A)") "51"
+     write(fpI(m)%unit, "(A)") "NULL"
+     write(fpQU(m)%unit, "(A)") "NULL"
+     write(fpI(m)%unit, "(A)") "red_dashed"
+     write(fpQU(m)%unit, "(A)") "red_dashed"
+     write(fpI(m)%unit, "(A)") "0"
+     write(fpQU(m)%unit, "(A)") "0"
+  enddo
   do i = 0, n
      theta = dtheta*i
      omega = 2.d0*sin(theta/2.d0)
      x = cos(theta)
-     c00 = sphere_correlation(lmax, cls(1, 0:lmax), als, bls, x)
-     c10 = -sphere_correlation(lmax, l2cls(1, 0:lmax), als, bls, x)
-     c02 = 0.d0
-     c12 = 0.d0     
-     do l = 0, lmax
-        j2 = coop_bessj(2, (l+0.5d0)*theta)
-        c02 = c02 + (l+0.5d0)*j2*cls(1,l)
-        c12 = c12 - (l+0.5d0)*j2*l2cls(1,l)        
-     enddo
-     c02 = c02/coop_2pi
-     c12 = c12/coop_2pi
-     write(fp0%unit, "(4E16.7)") omega, w00*c00+w10*c10
-     write(fp2%unit, "(4E16.7)") omega, w02*c02+w12*c12     
-  enddo
-  call fp0%close()
-  call fp2%close()
+     cr = 0.d0     
 
+     do l = 0, lmax
+        j0 = coop_bessj(0, (l+0.5d0)*omega)
+        j2 = coop_bessj(2, (l+0.5d0)*omega)
+        j4 = coop_bessj(4, (l+0.5d0)*omega)
+        cr(0, 0) = cr(0,0) + (l+0.5d0)*j0*cls(index_corr, l)
+        cr(1, 0) = cr(1,0) - (l+0.5d0)*j0*l2cls(index_corr, l)
+        cr(0, 1) = cr(0,1) + (l+0.5d0)*j2*cls(index_corr, l)
+        cr(1, 1) = cr(1,1) - (l+0.5d0)*j2*l2cls(index_corr, l)
+        cr(0, 2) = cr(0,2) + (l+0.5d0)*j4*cls(index_corr, l)
+        cr(1, 2) = cr(1,2) - (l+0.5d0)*j4*l2cls(index_corr, l)        
+     enddo
+     cr = cr/coop_2pi
+!!$     cr(0,0) = sphere_correlation(lmax, cls(index_corr, 0:lmax), als, bls, x)
+!!$     cr(1,0) = -sphere_correlation(lmax, l2cls(index_corr, 0:lmax), als, bls, x)
+     call coop_gaussian_radial_modes_I(weights, cr, frI)
+     call coop_gaussian_radial_modes_QU(weights, cr, frQU)
+     do m=0,2
+        write(fpI(m)%unit, "(2E16.7)") omega, frI(m)
+        write(fpQU(m)%unit, "(2E16.7)") omega, frQU(m)
+     enddo
+  enddo
   
 end program test

@@ -124,6 +124,22 @@ contains
   end function coop_random_Gaussian
 
 
+  subroutine coop_random_get_Gaussian_pair(g1, g2)
+    COOP_REAL r, v(2), g1, g2
+    call random_number(v)
+    v = 2.d0*v - 1.d0
+    r=v(1)**2 + v(2)**2
+    do while (R >= 1.d0)
+       call random_number(v)
+       v = 2.d0*v - 1.d0
+       r=v(1)**2 + v(2)**2
+    end do
+    g2 = dsqrt(-2.d0*dlog(r)/r)
+    g1 = g2*v(1)
+    g2 = g2*v(2)
+  end subroutine coop_random_get_Gaussian_pair
+
+
 
   function Coop_random_exp()
     !

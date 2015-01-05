@@ -5,9 +5,9 @@ program test
 
 #include "constants.h"
 
-  COOP_STRING :: spot_type = "T"
-  COOP_STRING :: map_file =  "simu/simu_fullsky_015a_TQTUT_fwhm15.fits"
-  COOP_STRING:: spots_file = "spots/simu_fullsky_015a_TQTUT_fwhm15_fwhm15_Tmax_QTUTOrient.txt"
+  COOP_STRING :: spot_type = "QU"
+  COOP_STRING :: map_file =  "simu/simu_TQTUT_015a_n1024.fits"
+  COOP_STRING:: spots_file = "spots/simu_TQTUT_015a_n1024_fwhm15_PTmax_threshold1.txt"
   COOP_STRING :: imask_file = ""
   COOP_STRING:: polmask_file =  "" 
   COOP_STRING::unit = "K"

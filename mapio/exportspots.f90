@@ -6,8 +6,8 @@ program test
 
   COOP_INT::fwhm_arcmin = 15.
   COOP_INT::fwhm_in = 15.
-  COOP_STRING::spot_type = "Tmax_QTUTOrient"
-  COOP_STRING::input_file ="simu/simu_fullsky_015a_TQTUT_fwhm15.fits"
+  COOP_STRING::spot_type = "PTmax"
+  COOP_STRING::input_file ="simu/simu_TQTUT_015a_n1024.fits"
   COOP_STRING::imask_file  = "" 
   COOP_STRING::polmask_file  = "" 
   COOP_REAL:: threshold = 1.

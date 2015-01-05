@@ -9,7 +9,5 @@ program bgtest
   call bg%add_species(coop_cdm(0.25d0))
   call bg%add_species(coop_de_lambda(bg%Omega_k()))
   call bg%setup_background()
-  print*, "at z=2, H0 * conformal time = ", bg%conformal_time(1.d0/(1.d0+2.d0))
-  print*, "        H(z)/H0 = ",  bg%Hratio(1.d0/(1.d0+2.d0))
-  print*, "CDM is the ", bg%index_of("CDM"), "th species"
+  print*, "at z=1089, aH = ", bg%Hratio(1.d0/1090.d0)/1090.d0 * bg%H0Mpc()
 end program bgtest

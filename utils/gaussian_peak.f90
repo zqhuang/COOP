@@ -3,6 +3,7 @@ module coop_gaussian_peak_stat_mod
   use coop_special_function_mod
   use coop_integrate_mod
   use coop_file_mod
+  use coop_random_mod
   implicit none
 #include  "constants.h"
 
@@ -199,40 +200,40 @@ contains
     endif
   end function coop_gaussian_peak_intv
   
-  subroutine coop_gaussian_get_nonoriented_stacking_weights(nu, args, w00, w10)
+  subroutine coop_gaussian_get_nonoriented_stacking_weights(nu, args, weights)
     type(coop_arguments)::args
     COOP_REAL nu
-    COOP_REAL:: A(2,2), nmax, vec(2), w00, w10
+    COOP_REAL:: A(2,2), nmax, weights(4)
     A(1,1) = 1.d0
     A(2,2) = 1.d0
     A(1,2) = GF_COS_BETA
     A(2,1) = GF_COS_BETA
     nmax = coop_gaussian_nmax(nu, args)
-    vec(1) = coop_gaussian_peak_intu(nu, args)/nmax
-    vec(2) = coop_gaussian_peak_intv(nu, args)/nmax
-    vec = matmul(A, vec)/GF_SIN_BETA**2
-    w00 = vec(1)/GF_SIGMA0
-    w10 = vec(2)/GF_SIGMA2
+    weights(1) = coop_gaussian_peak_intu(nu, args)/nmax
+    weights(2) = coop_gaussian_peak_intv(nu, args)/nmax
+    weights(1:2) = matmul(A, weights(1:2))/GF_SIN_BETA**2
+    weights(1) = weights(1)/GF_SIGMA0
+    weights(2) = weights(2)/GF_SIGMA2
+    weights(3:4) = 0.d0
   end subroutine coop_gaussian_get_nonoriented_stacking_weights
 
 
-  subroutine coop_gaussian_get_oriented_stacking_weights(nu, args, w00, w10, w02, w12)
+  subroutine coop_gaussian_get_oriented_stacking_weights(nu, args, weights)
     type(coop_arguments)::args
     COOP_REAL nu
-    COOP_REAL:: A(2,2), nmax, vec(4), w00, w10, w02, w12
+    COOP_REAL:: A(2,2), nmax, weights(4)
     A(1,1) = 1.d0
     A(2,2) = 1.d0
     A(1,2) = GF_COS_BETA
     A(2,1) = GF_COS_BETA
-    call coop_gaussian_peak_2Dmax_mean(4, vec, get_iq, args)
-    vec(1:2) = matmul(A, vec(1:2))/GF_SIN_BETA**2
-    vec(3:4) = matmul(A, vec(3:4))*(2.d0/GF_SIN_BETA**2)
-    w00 = vec(1)/GF_SIGMA0
-    w10 = vec(2)/GF_SIGMA2
-    w02 = vec(3)/GF_SIGMA0
-    w12 = vec(4)/GF_SIGMA2
+    call coop_gaussian_peak_2Dmax_mean(4, weights, get_iq, args)
+    weights(1:2) = matmul(A, weights(1:2))/GF_SIN_BETA**2
+    weights(1) = weights(1)/GF_SIGMA0
+    weights(2) = weights(2)/GF_SIGMA2
+    weights(3:4) = matmul(A, weights(3:4))*(coop_sqrt2/GF_SIN_BETA**2)
+    weights(3) = weights(3)/GF_SIGMA0
+    weights(4) = weights(4)/GF_SIGMA2
   contains
-    
     subroutine get_iq(i,q,u,args,s,want)
       COOP_REAL::i(0:1),q(0:1),u(0:1)
       type(coop_arguments)::args
@@ -246,10 +247,52 @@ contains
          s(4) = (q(1)*q(0)+u(1)*u(0))/s(3)
       endif
     end subroutine get_iq
-
   end subroutine coop_gaussian_get_oriented_stacking_weights
 
-  
+
+    subroutine coop_gaussian_get_pmax_stacking_weights(nu, args, weights)
+    type(coop_arguments)::args
+    COOP_REAL nu
+    COOP_REAL:: A(2,2), nmax, weights(4), twonu2
+    A(1,1) = 1.d0
+    A(2,2) = 1.d0
+    A(1,2) = GF_COS_BETA
+    A(2,1) = GF_COS_BETA
+    twonu2 = 2.d0*nu**2
+    call coop_gaussian_peak_pmax_mean(2, weights(3:4), getp, args)
+    weights(1:2) = 0.d0
+    weights(3:4) = matmul(A, weights(3:4))*(coop_sqrt2/GF_SIN_BETA**2)
+    weights(3) = weights(3)/GF_SIGMA0
+    weights(4) = weights(4)/GF_SIGMA2
+  contains
+    subroutine getp(q, u, qx, qy, qq, uu, qu, uq, args, s, want)
+      COOP_REAL:: q(0:1), u(0:1), qx, qy, qq, uu, qu, uq
+      type(coop_arguments)::args
+      COOP_REAL::s(2), psq
+      logical want
+      psq = q(0)**2+u(0)**2
+      want =  (psq .gt. twonu2)
+      if(want)then
+         s(1) = sqrt(psq)
+         s(2) = (q(1)*q(0)+u(1)*u(0))/s(1)
+      endif
+    end subroutine getp
+  end subroutine coop_gaussian_get_pmax_stacking_weights
+
+
+  subroutine coop_gaussian_radial_modes_I( weights, cr, frI )
+    COOP_REAL weights(4), cr(0:1, 0:2), frI(0:2)
+    frI(2) = 0.d0
+    frI(1) = weights(3)*cr(0,1) + weights(4)*cr(1,1)
+    frI(0) = weights(1)*cr(0,0) + weights(2)*cr(1,0)
+  end subroutine coop_gaussian_radial_modes_I
+
+  subroutine coop_gaussian_radial_modes_QU( weights, cr, frQU )
+    COOP_REAL weights(4), cr(0:1, 0:2), frQU(0:2)
+    frQU(0) = (weights(3)*cr(0,0)+weights(4)*cr(1,0))/2.d0
+    frQU(1) = weights(1)*cr(0,1) + weights(2)*cr(1,1)
+    frQU(2) = (weights(3)*cr(0,2) + weights(4)*cr(1,2))/2.d0
+  end subroutine coop_gaussian_radial_modes_QU
 
   !!compute the mean of some function of i,q,u,args
   !!==============================================  
@@ -288,16 +331,14 @@ contains
           endif
           exit
        endif
-       call coop_gaussian_get_peak_samples_i(i, args)
+       call coop_gaussian_get_peak_samples_i(i, args) !!only take i(1) negative
        call coop_gaussian_get_peak_samples_general(q, args)
        call coop_gaussian_get_peak_samples_general(u, args)
-       q = q/coop_sqrt2
-       u = u/coop_sqrt2
-       if(q(1)**2+u(1)**2 .lt. i(1)**2)then  !!maxima
+       dvol = i(1)**2-(q(1)**2+u(1)**2)/2.d0       
+       if(dvol .gt. 0.d0)then  !!maxima, accepted
           call f(i,q,u,args,s,want)
           if(want)then
              iaccept = iaccept + 1
-             dvol = (i(1)**2-q(1)**2-u(1)**2)
              vol = vol + dvol
              mean = mean + s*dvol
           endif
@@ -305,6 +346,72 @@ contains
     enddo
     mean = mean/vol
   end subroutine coop_gaussian_peak_2Dmax_mean
+
+
+
+  !!compute the mean of some function of i,q,u,args
+  !!==============================================  
+  !!subroutine f(i, q, u, args, s, want)
+  !!  COOP_REAL i(2),q(2),u(2), s(nf)
+  !!  type(coop_arguments)::args
+  !!  logical want
+  !!-------------------
+  !!  input i,qu,args
+  !!  return s, want
+  !!==============================================
+  subroutine coop_gaussian_peak_Pmax_mean(nf, mean, f, args)
+    COOP_INT,parameter::num_sims = 100000
+    COOP_INT,parameter::max_try = 100*num_sims
+    type(coop_arguments)::args
+    COOP_INT::nf
+    COOP_REAL:: mean(nf)
+    external f
+    COOP_REAL::q(0:1), u(0:1), Qx, Qy, qq, qu, uq, uu, s(nf), vol, dvol, delta1, delta2, scal, psq
+    logical want
+    type(coop_file)::fp
+    COOP_INT::iaccept, itry
+    iaccept = 0
+    itry = 0
+    vol = 0.d0
+    mean = 0.d0
+    do while(iaccept.lt.num_sims)
+       itry = itry+1
+       if(itry.gt.max_try)then
+          if(iaccept .eq. 0)then
+             stop "gaussian_peak_2Dmax_mean: cannot find constrained samples"
+          else
+             if(iaccept .lt. 100)then
+                write(*,*) "Warning: gaussian_peak_2Dmax_mean too few samples, the result might not accurate"
+             endif
+          endif
+          exit
+       endif
+       call coop_gaussian_get_peak_samples_general(q, args)
+       call coop_gaussian_get_peak_samples_general(u, args)
+       call coop_random_get_gaussian_pair(qq, uu)
+       call coop_random_get_gaussian_pair(qu, uq)
+       call coop_random_get_gaussian_pair(qx, qy)
+       psq = q(0)**2+u(0)**2
+       scal = u(0)/sqrt(psq)
+       qx = qx*scal
+       qy = qy*scal
+       dvol = abs(u(1)**2 - (qu**2+3.d0*uu**2)/4.d0)*scal**2
+       delta1 = qx**2*psq*GF_COS_BETA + u(0)**2*(q(0)*(q(1)+coop_sqrt3/2.d0*qq)+u(0)*(u(1)+qu/2.d0))
+       if(delta1 .lt. 0.d0)then  
+          delta2 = delta1*(qy**2*psq*GF_COS_BETA + u(0)**2*(q(0)*(q(1)-coop_sqrt3/2.d0*qq)+u(0)*(u(1)-qu/2.d0))) - (qx*qy*psq*GF_COS_BETA+u(0)**2/2.d0*(q(0)*uq+coop_sqrt3*u(0)*uu))**2
+          if(delta2 .gt. 0.d0)then
+             call f(q,u,qx, qy, qq, uu, qu, uq, args,s,want)
+             if(want)then
+                iaccept = iaccept + 1
+                vol = vol + dvol
+                mean = mean + s*dvol
+             endif
+          endif
+       endif
+    enddo
+    mean = mean/vol
+  end subroutine coop_gaussian_peak_Pmax_mean
+  
 
 
   subroutine coop_gaussian_get_peak_samples_general(v, args)
