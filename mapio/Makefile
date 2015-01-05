@@ -17,6 +17,10 @@ $(LIB): $(OBJ)
 
 all: UDG GetSpots MSMAP Stack ByProd GetInfo
 
+GetTheo:  $(OBJ) gettheo.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) gettheo.o $(LINK)
+
+
 
 GetInfo: $(OBJ) getinfo.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) getinfo.o $(LINK)
