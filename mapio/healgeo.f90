@@ -477,11 +477,11 @@ contains
     allocate(this%wcm(-this%n:this%n, -this%n:this%n, 0:this%mmax+1))
     allocate(this%wsm(-this%n:this%n, -this%n:this%n, 0:this%mmax+1))
     allocate(this%icm(-this%n:this%n, -this%n:this%n, 0:1))
-    this%image = 0.
-    this%wcm = 0.
-    this%wsm = 0.
-    this%fr = 0.
-
+    this%image = 0.d9
+    this%wcm = 0.d0
+    this%wsm = 0.d0
+    this%fr = 0.d0
+    
     this%indisk = 1.d0
     do j=1, this%n
        i = ceiling(sqrt((this%n-j)*dble(this%n+j)+1.d-20))
@@ -502,7 +502,7 @@ contains
     !$omp parallel do private(i, j)
     do j=-this%n, this%n
        do i=-this%n, this%n
-          this%wcm(i, j, 0) = sqrt(dble(i)**2+dble(j)**2)
+          this%wcm(i, j, 0) = sqrt(dble(i**2+j**2))
           this%icm(i, j, 0) = floor(this%wcm(i, j, 0))
           this%icm(i, j, 1) = this%icm(i, j, 0) + 1
           this%wcm(i, j, 1) = this%wcm(i, j, 0) - this%icm(i, j, 0)
@@ -510,7 +510,6 @@ contains
        enddo
     enddo
     !$omp end parallel do
-
     !$omp parallel do private(m, i, j, cosmt, sinmt, theta)
     do m = 2, this%mmax, 2
        do j=-this%n, this%n
@@ -540,17 +539,16 @@ contains
        sumrs = 1.d-31
        do j=-this%n, this%n
           do i=-this%n, this%n
-             if(this%icm(i,j,0).le. this%n)then
-                theta = atan2(dble(j), dble(i))
-                cosmt = cos(m*theta)
-                sumrc(this%icm(i,j,0)) = sumrc(this%icm(i,j,0)) + this%wcm(i,j,m)*cosmt
-                sumrc(this%icm(i,j,1)) = sumrc(this%icm(i,j,1)) + this%wcm(i,j,m+1)*cosmt
-                if(m.gt.0)then
-                   sinmt = sin(m*theta)                
-                   sumrs(this%icm(i,j,0)) = sumrs(this%icm(i,j,0)) + this%wsm(i,j,m)*sinmt                
+             if( this%icm(i, j, 0).eq.0  .or. this%icm(i,j,0) .gt. this%n)cycle
+             theta = atan2(dble(j), dble(i))
+             cosmt = cos(m*theta)
+             sumrc(this%icm(i,j,0)) = sumrc(this%icm(i,j,0)) + this%wcm(i,j,m)*cosmt
+             sumrc(this%icm(i,j,1)) = sumrc(this%icm(i,j,1)) + this%wcm(i,j,m+1)*cosmt
+             if(m.gt.0)then
+                sinmt = sin(m*theta)                
+                sumrs(this%icm(i,j,0)) = sumrs(this%icm(i,j,0)) + this%wsm(i,j,m)*sinmt                
 
-                   sumrs(this%icm(i,j,1)) = sumrs(this%icm(i,j,1)) + this%wsm(i,j,m+1)*sinmt
-                endif
+                sumrs(this%icm(i,j,1)) = sumrs(this%icm(i,j,1)) + this%wsm(i,j,m+1)*sinmt
              endif
           enddo
        enddo
@@ -561,7 +559,7 @@ contains
                 this%wcm(i, j, m) = this%wcm(i, j, m)/sumrc(this%icm(i, j, 0))
                 if(m.gt.0) this%wsm(i, j, m) = this%wsm(i, j, m)/sumrs(this%icm(i, j, 0))                
              else
-                this%icm(i, j, m) = 0
+                this%icm(i, j, 0) = 0
                 this%wcm(i, j, m) =0.d0
                 this%wsm(i, j, m) =0.d0                                
              endif
@@ -569,7 +567,7 @@ contains
                 this%wcm(i, j, m+1) = this%wcm(i, j, m+1)/sumrc(this%icm(i, j, 1))
                 if(m.gt.0) this%wsm(i, j, m+1) = this%wsm(i, j, m+1)/sumrs(this%icm(i, j, 1))                
              else
-                this%icm(i, j, m+1) = 0
+                this%icm(i, j, 1) = 0
                 this%wcm(i, j, m+1) =0.d0
                 this%wsm(i, j, m+1) =0.d0                                
              endif
@@ -577,7 +575,6 @@ contains
        enddo
        !$omp end parallel do
     enddo
-    
   end subroutine coop_healpix_patch_init
 
 
