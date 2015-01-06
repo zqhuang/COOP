@@ -15,7 +15,8 @@ program test
 
   COOP_UNKNOWN_STRING,parameter:: color_table = "Rainbow"
   COOP_REAL, parameter::smooth_fwhm = 15.*coop_SI_arcmin
-  COOP_REAL,parameter::r=2.*coop_SI_degree, dr = max(coop_SI_arcmin*3., r/60.)
+  COOP_REAL,parameter::r_degree = 2.d0
+  COOP_REAL,parameter::r=2.d0*sin(r_degree*coop_SI_degree/2.d0), dr = max(coop_SI_arcmin*3., r/60.)
   COOP_INT, parameter::n = ceiling(r/dr)
   COOP_UNKNOWN_STRING, parameter :: prefix = "stacked/"
   COOP_STRING fout,fout2, caption, fname, inline
@@ -235,6 +236,9 @@ program test
   endif
   write(*,*) "the output file is: "//trim(fout)
   call system("../utils/fasy.sh "//trim(fout))
+  if(trim(fout2).e."")then
+     call system("../utisl/fasy.sh "//trim(fout2))
+  endif
   call patch%get_all_radial_profiles()
   do m = 0, 4, 2
      call fp%open(trim(coop_file_add_postfix(fout, "_m"//COOP_STR_OF(m))))

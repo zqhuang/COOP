@@ -33,12 +33,13 @@ program test
      map%cl(l,:) = map%cl(l,:)*(coop_2pi/l/(l+1.d0)/1.e12)
   enddo
 
+  do il = 0, 99
+     call map%simulate()
+     call map%write("massive/simu_int_"//trim(coop_ndigits(il, 5))//"_0"//COOP_STR_OF(nint(beam_fwhm))//"a_n1024.fits", index_list = (/ 1 /) )
+     call map%write("massive/simu_pol_"//trim(coop_ndigits(il, 5))//"_0"//COOP_STR_OF(nint(beam_fwhm))//"a_n1024.fits", index_list = (/2, 3/) )
 
-  call map%simulate()
-  call map%write("simu/simu_int_0"//COOP_STR_OF(nint(beam_fwhm))//"a_n1024.fits", index_list = (/ 1 /) )
-  call map%write("simu/simu_pol_0"//COOP_STR_OF(nint(beam_fwhm))//"a_n1024.fits", index_list = (/2, 3/) )
-
-  call map%iqu2TQTUT()
-  call map%write("simu/simu_TQTUT_0"//COOP_STR_OF(nint(beam_fwhm))//"a_n1024.fits")
+     call map%iqu2TQTUT()
+     call map%write("massive/simu_TQTUT_"//trim(coop_ndigits(il, 5))//"_0"//COOP_STR_OF(nint(beam_fwhm))//"a_n1024.fits")
+  enddo
 
 end program test

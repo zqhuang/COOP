@@ -228,11 +228,11 @@ contains
        use_rad = .true.
     endif
     if(use_rad)then
-       xlabel = "$\varpi\cos\phi$"
-       ylabel = "$\varpi\sin\phi$"       
+       xlabel = "$\varpi\cos\varphi$"
+       ylabel = "$\varpi\sin\varphi$"       
     else
-       xlabel = "$\varpi\cos\phi (\mathrm{deg})$"
-       ylabel = "$\varpi\sin\phi (\mathrm{deg})$"
+       xlabel = "$\varpi\cos\varphi (\mathrm{deg})$"
+       ylabel = "$\varpi\sin\varphi (\mathrm{deg})$"
     endif
     call fig%init(caption = trim(this%caption), xlabel =trim(xlabel), ylabel =trim(ylabel), width = 5., height = 3.9, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)))              
     if(imap .le. 0 .or. imap .gt. this%nmaps) stop "coop_healpix_patch_plot: imap overflow"
@@ -575,6 +575,9 @@ contains
        enddo
        !$omp end parallel do
     enddo
+    this%wcm(0,0,0)=1.d0
+    this%wcm(0,0,1:)=0.d0
+    this%wsm(0,0,:) = 0.d0
   end subroutine coop_healpix_patch_init
 
 

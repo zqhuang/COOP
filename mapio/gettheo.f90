@@ -10,24 +10,25 @@ program stackth
   implicit none
 #include "constants.h"
   integer, parameter::lmax=2000, n=50, index_temp = 1, index_pol = 4
-  COOP_REAL, parameter:: r = 2.d0*coop_SI_degree
-  COOP_REAL, parameter:: dr = r/n
+  COOP_REAL, parameter:: r_degree = 2.d0
+  COOP_REAL, parameter:: width = 2.d0*sin(r_degree*coop_SI_degree/2.d0)
+  COOP_REAL, parameter:: dr = width/n
 
   !!settings
-  integer, parameter::index_corr = index_pol  !!index_temp
+  integer, parameter::index_corr = index_temp  !!index_temp
   COOP_UNKNOWN_STRING,parameter::clfile = "planckbest_lensedtotCls.dat"  
-  COOP_UNKNOWN_STRING, parameter::spot_type = "PTmax"  !!"Tmax_QTUTOrient"  
-  COOP_REAL, parameter::nu = 1.d0  !!threshold  
+  COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax_QTUTOrient"  
+  COOP_REAL, parameter::nu = 0.d0  !!threshold  
   COOP_REAL, parameter::fwhm = 15.d0
   
   
   type(coop_file)::fp, fpI(0:2), fpQU(0:2)
-  type(coop_asy)::figI, figQ, figU
+  type(coop_asy)::figCr
   integer l, il, i, j, iomega, m
   type(coop_arguments)::args
   type(coop_healpix_patch)::patchI, patchQU, patchQrUr
   
-  COOP_REAL::cls(4, 0:lmax), ell(0:lmax), sigma, l2cls(4,0:lmax), sigma2, sigma0, sigma1, cosbeta, j2, j4, j0, omega, weights(4), cr(0:1, 0:2), frI(0:2, 0:n*3/2), frQU(0:2, 0:n*3/2), pomega, phi,  romega
+  COOP_REAL::cls(4, 0:lmax), ell(0:lmax), sigma, l2cls(4,0:lmax), sigma2, sigma0, sigma1, cosbeta, j2, j4, j0, omega, weights(4), cr(0:1, 0:2, 0:n*3/2), frI(0:2, 0:n*3/2), frQU(0:2, 0:n*3/2), pomega, phi, romega, r(0:n*3/2)
   
   call coop_random_init()
   cls = 0.d0
@@ -74,24 +75,24 @@ program stackth
      write(fpI(m)%unit, "(A)") "0"
      write(fpQU(m)%unit, "(A)") "0"
   enddo
-  write(*,*) "now compute c(r)"
+  cr = 0.d0       
   do i = 0, n*3/2
      omega = dr*i
-     cr = 0.d0     
+     r(i) = omega
      do l = 0, lmax
         j0 = coop_bessj(0, (l+0.5d0)*omega)
         j2 = coop_bessj(2, (l+0.5d0)*omega)
         j4 = coop_bessj(4, (l+0.5d0)*omega)
-        cr(0, 0) = cr(0,0) + (l+0.5d0)*j0*cls(index_corr, l)
-        cr(1, 0) = cr(1,0) - (l+0.5d0)*j0*l2cls(index_corr, l)
-        cr(0, 1) = cr(0,1) + (l+0.5d0)*j2*cls(index_corr, l)
-        cr(1, 1) = cr(1,1) - (l+0.5d0)*j2*l2cls(index_corr, l)
-        cr(0, 2) = cr(0,2) + (l+0.5d0)*j4*cls(index_corr, l)
-        cr(1, 2) = cr(1,2) - (l+0.5d0)*j4*l2cls(index_corr, l)        
+        cr(0, 0, i) = cr(0, 0, i) + (l+0.5d0)*j0*cls(index_corr, l)
+        cr(1, 0, i) = cr(1, 0, i) - (l+0.5d0)*j0*l2cls(index_corr, l)
+        cr(0, 1, i) = cr(0, 1, i) + (l+0.5d0)*j2*cls(index_corr, l)
+        cr(1, 1, i) = cr(1, 1, i) - (l+0.5d0)*j2*l2cls(index_corr, l)
+        cr(0, 2, i) = cr(0, 2, i) + (l+0.5d0)*j4*cls(index_corr, l)
+        cr(1, 2, i) = cr(1, 2, i) - (l+0.5d0)*j4*l2cls(index_corr, l)        
      enddo
-     cr = cr/coop_2pi
-     call coop_gaussian_radial_modes_I(weights, cr, frI(:, i))
-     call coop_gaussian_radial_modes_QU(weights, cr, frQU(:, i))
+     cr(:,:,i) = cr(:,:,i)/coop_2pi
+     call coop_gaussian_radial_modes_I(weights, cr(:,:,i), frI(:, i))
+     call coop_gaussian_radial_modes_QU(weights, cr(:,:,i), frQU(:, i))
      if(i.le.n)then
         do m=0,2
            write(fpI(m)%unit, "(2E16.7)") omega, frI(m, i)
@@ -118,23 +119,36 @@ program stackth
            patchQrUr%image(i,j,2) = 0.d0
         else
            phi = atan2(dble(j), dble(i))
-           pomega = sqrt(dble(i)**2+dble(j)**2)
-           iomega = floor(pomega)
-           romega = pomega - iomega
+           omega = sqrt(dble(i)**2+dble(j)**2)
+           iomega = floor(omega)
+           romega = omega - iomega
            patchI%image(i,j,1) = (frI(0, iomega)+ frI(1, iomega)*cos(2*phi) + frI(2, iomega)*cos(4*phi) ) *(1.d0-romega)+(frI(0, iomega+1)+ frI(1, iomega+1)*cos(2*phi) + frI(2, iomega+1)*cos(4*phi) ) * romega
-           patchQU%image(i, j,1) = (frI(0, iomega)+ frI(1, iomega)*cos(2*phi) + frI(2, iomega)*cos(4*phi) ) *(1.d0-romega)+(frI(0, iomega+1)+ frI(1, iomega+1)*cos(2*phi) + frI(2, iomega+1)*cos(4*phi) ) * romega
-           patchQU%image(i, j, 2) = (frI(1, iomega)*sin(2*phi) + frI(2, iomega)*sin(4*phi) ) *(1.d0-romega)+(frI(0, iomega+1)+ frI(1, iomega+1)*sin(2*phi) + frI(2, iomega+1)*sin(4*phi) ) * romega
+           patchQU%image(i, j,1) = (frQU(0, iomega)+ frQU(1, iomega)*cos(2*phi) + frQU(2, iomega)*cos(4*phi) ) *(1.d0-romega)+(frQU(0, iomega+1)+ frQU(1, iomega+1)*cos(2*phi) + frQU(2, iomega+1)*cos(4*phi) ) * romega
+           patchQU%image(i, j, 2) = (frQU(1, iomega)*sin(2*phi) + frQU(2, iomega)*sin(4*phi) ) *(1.d0-romega)+(frQU(0, iomega+1)+ frQU(1, iomega+1)*sin(2*phi) + frQU(2, iomega+1)*sin(4*phi) ) * romega
            patchQrUr%image(i, j, 1) = -patchQU%image(i, j,1)*cos(2*phi) - patchQU%image(i, j, 2)*sin(2*phi)  !!urgh, the stupid minus sign...
            patchQrUr%image(i, j, 2) = patchQU%image(i, j,1)*sin(2*phi) - patchQU%image(i, j, 2)*cos(2*phi)
         endif
      enddo
   enddo
-  patchI%caption = "Best-fit $\Lambda$CDM theory"
-  patchQU%caption = "Best-fit $\Lambda$CDM theory"
-  patchQrUr%caption = "Best-fit $\Lambda$CDM theory"
+  patchI%caption = "best-fit $\Lambda$CDM theory, $\nu="//COOP_STR_OF(nint(nu))//"$"
+  patchQU%caption = "best-fit $\Lambda$CDM theory, $\nu="//COOP_STR_OF(nint(nu))//"$"
+  patchQrUr%caption = "best-fit $\Lambda$CDM theory, $\nu="//COOP_STR_OF(nint(nu))//"$"
   call patchI%plot(1, "I_stack.txt")
   call patchQU%plot(1, "Q_stack.txt")
   call patchQU%plot(2, "U_stack.txt")
   call patchQrUr%plot(1, "Qr_stack.txt")
-  call patchQrUr%plot(2, "Ur_stack.txt")    
+  call patchQrUr%plot(2, "Ur_stack.txt")
+  call figCr%open("cr.txt")
+  call figCr%init(xlabel="$\varpi$", ylabel="$c_{m,n}(\varpi)$")
+  call figCr%curve(x = r, y = cr(0,0,:)/sigma0, color="red", linewidth=1.8, linetype="solid", legend="$c_{0,0}(\varpi)/\sigma_0$")
+  call figCr%curve(x = r, y = cr(0,1,:)/sigma0, color="orange", linewidth=1.5, linetype="dotted", legend="$c_{0,1}(\varpi)/\sigma_0$")
+  call figCr%curve(x = r, y = cr(0,2,:)/sigma0, color="violet", linewidth=1.2, linetype="dashed", legend="$c_{0,2}(\varpi)/\sigma_0$")  
+  call figCr%curve(x = r, y = -cr(1,0,:)/sigma2, color="blue", linewidth=1.8, linetype="solid", legend="$-c_{1,0}(\varpi)/\sigma_2$")  
+  
+  call figCr%curve(x = r, y = -cr(1,1,:)/sigma2, color="black", linewidth=1.5, linetype="dotted", legend="$-c_{1,1}(\varpi)/\sigma_2$")  
+
+  call figCr%curve(x = r, y = -cr(1,2,:)/sigma2, color="skblue", linewidth=1.2, linetype="dashed", legend="$-c_{1,2}(\varpi)/\sigma_2$")  
+  
+  call figCr%legend(0.5, 0.9, 1)
+  call figCr%close()
 end program stackth

@@ -10,12 +10,12 @@ include ../compile_rules.in
 LIB = libcoopmapio.a
 OBJ = sphere.o readfits.o fitswrap.o healgeo.o zeta3d.o
 
-default: $(LIB) HA SST
+default: all
 
 $(LIB): $(OBJ) 
 	ar -r $@ $?
 
-all: UDG GetSpots MSMAP Stack ByProd GetInfo
+all: $(LIB) UDG GetSpots MSMAP Stack ByProd GetInfo GetTheo HA SST
 
 GetTheo:  $(OBJ) gettheo.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) gettheo.o $(LINK)
@@ -64,6 +64,9 @@ MultStack: $(OBJ) multstack.o
 HA: $(OBJ) hast.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) hast.o $(LINK)
 
+
+GetRad: $(OBJ) getrad.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) getrad.o $(LINK)
 
 SST: $(OBJ) sstack.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) sstack.o $(LINK)

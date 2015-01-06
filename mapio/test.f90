@@ -12,9 +12,9 @@ program stackth
   integer, parameter::lmax=2000, n=50, index_temp = 1, index_pol = 4
 
   !!settings
-  integer, parameter::index_corr = index_pol  !!index_temp
+  integer, parameter::index_corr = index_temp  !!index_temp
   COOP_UNKNOWN_STRING,parameter::clfile = "planckbest_lensedtotCls.dat"  
-  COOP_UNKNOWN_STRING, parameter::spot_type = "PTmax"  !!"Tmax_QTUTOrient"  
+  COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax_QTUTOrient"  
   COOP_REAL, parameter::nu = 1.d0  !!threshold  
   COOP_REAL, parameter::fwhm = 15.d0
   
