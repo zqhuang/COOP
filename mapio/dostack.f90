@@ -236,7 +236,7 @@ program test
   endif
   write(*,*) "the output file is: "//trim(fout)
   call system("../utils/fasy.sh "//trim(fout))
-  if(trim(fout2).e."")then
+  if(trim(fout2).ne."")then
      call system("../utisl/fasy.sh "//trim(fout2))
   endif
   call patch%get_all_radial_profiles()

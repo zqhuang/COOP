@@ -41,8 +41,9 @@ private
 #if DO_ZETA_TRANS
   COOP_INT, parameter::coop_index_ClTzeta = 7
   COOP_INT, parameter::coop_index_ClEzeta = 8
-  COOP_INT, parameter::coop_num_Cls =  coop_index_ClEzeta
-  public::  coop_index_ClTzeta,  coop_index_ClEzeta
+  COOP_INT, parameter::coop_index_Clzetazeta = 9
+  COOP_INT, parameter::coop_num_Cls =  coop_index_Clzetazeta
+  public::  coop_index_ClTzeta,  coop_index_ClEzeta, coop_index_clzetazeta
   COOP_INT, dimension(0:2), parameter::coop_num_sources = (/ 4,  3,  3 /)
 #else
   COOP_INT, parameter::coop_num_Cls =  coop_index_ClTLen
@@ -372,6 +373,7 @@ contains
        if(source%nsrc.ge.4)then
           Cls(coop_index_ClTzeta) = sum(source%ws_dense * trans(1, :, :)*trans(4,:,:))*coop_4pi
           Cls(coop_index_ClEzeta) = sum(source%ws_dense * trans(2, :, :) * trans(4,:,:))*coop_4pi
+          Cls(coop_index_Clzetazeta) = sum(source%ws_dense * trans(4, :, :)**2)*coop_4pi
        endif
     case(1)
        call coop_tbw("get_Cls: vector")
