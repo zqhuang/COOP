@@ -39,6 +39,7 @@ private
 
 !!how many source terms you want to extract & save
 #if DO_ZETA_TRANS
+  Logical:: coop_zeta_single_slice = .false.
   COOP_INT, parameter::coop_index_ClTzeta = 7
   COOP_INT, parameter::coop_index_ClEzeta = 8
   COOP_INT, parameter::coop_index_Clzetazeta = 9
@@ -65,7 +66,7 @@ private
      COOP_INT, dimension(:),allocatable::index_tc_off
      COOP_INT, dimension(coop_pert_default_nq)::index_massivenu_on
      COOP_INT::index_massivenu_cold
-     COOP_REAL::dkop, kopmin, kopmax, kmin, kmax, kweight, tauweight, bbks_keq, bbks_trans_kmax
+     COOP_REAL::dkop, kopmin, kopmax, kmin, kmax, kweight, tauweight, bbks_keq, bbks_trans_kmax, distlss
      COOP_REAL,dimension(coop_k_dense_fac)::a_dense, b_dense, a2_dense, b2_dense
      COOP_REAL, dimension(:),allocatable::k, kop, dk !!tau is conformal time, chi is comoving distance; in flat case, chi + tau = tau_0
      COOP_REAL, dimension(:),allocatable::tau, a, tauc, lna, dtau, chi !!tau is conformal time, chi is comoving distance; in flat case, chi + tau = tau_0     
@@ -115,7 +116,7 @@ private
      procedure:: set_xe => coop_cosmology_firstorder_set_xe
      procedure:: set_zre_from_optre => coop_cosmology_firstorder_set_zre_from_optre
      procedure:: set_optre_from_zre => coop_cosmology_firstorder_set_optre_from_zre
-     procedure::set_initial_conditions => coop_cosmology_firstorder_set_initial_conditions
+     procedure:: set_initial_conditions => coop_cosmology_firstorder_set_initial_conditions
 
      procedure:: xeofa => coop_cosmology_firstorder_xeofa
      procedure:: cs2bofa => coop_cosmology_firstorder_cs2bofa
@@ -133,14 +134,14 @@ private
      procedure:: Clzetazeta => coop_cosmology_firstorder_Clzetazeta
      procedure:: Clzetazeta_at_r => coop_cosmology_firstorder_Clzetazeta_at_r
      procedure:: free => coop_cosmology_firstorder_free
-     procedure::pert2source => coop_cosmology_firstorder_pert2source
-     procedure::init_source => coop_cosmology_firstorder_init_source
-     procedure::compute_source =>  coop_cosmology_firstorder_compute_source
-     procedure::compute_source_k =>  coop_cosmology_firstorder_compute_source_k
-     procedure::get_matter_power => coop_cosmology_firstorder_get_matter_power
-     procedure::sigma_Tophat_R => coop_cosmology_firstorder_sigma_Tophat_R
-     procedure::sigma_Gaussian_R => coop_cosmology_firstorder_sigma_Gaussian_R
-     procedure::sigma_Gaussian_R_quick => coop_cosmology_firstorder_sigma_Gaussian_R_quick
+     procedure:: pert2source => coop_cosmology_firstorder_pert2source
+     procedure:: init_source => coop_cosmology_firstorder_init_source
+     procedure:: compute_source =>  coop_cosmology_firstorder_compute_source
+     procedure:: compute_source_k =>  coop_cosmology_firstorder_compute_source_k
+     procedure:: get_matter_power => coop_cosmology_firstorder_get_matter_power
+     procedure:: sigma_Tophat_R => coop_cosmology_firstorder_sigma_Tophat_R
+     procedure:: sigma_Gaussian_R => coop_cosmology_firstorder_sigma_Gaussian_R
+     procedure:: sigma_Gaussian_R_quick => coop_cosmology_firstorder_sigma_Gaussian_R_quick
      procedure::sigma_Gaussian_R_with_dervs => coop_cosmology_firstorder_sigma_Gaussian_R_with_dervs
   end type coop_cosmology_firstorder
 
@@ -323,7 +324,7 @@ contains
           if(source%k(ik) .lt. kfine(itau))then
              do idense = 1, coop_k_dense_fac
                 jl = coop_jl(l, source%k_dense(idense, ik)*source%chi(itau))
-                trans(:,idense, ik) = trans(:,idense, ik) + jl* source%dtau(itau)* COOP_INTERP_SOURCE(source, :, idense, ik, itau) !*exp(-2.d0*(source%k_dense(idense, ik)/kfine(itau))**4)
+                trans(:, idense, ik) = trans(:, idense, ik) + jl* source%dtau(itau)* COOP_INTERP_SOURCE(source, :, idense, ik, itau) 
              enddo
           else
              if(source%k(ik) .gt. kmin(itau) .and. source%k_dense(1,ik) .lt. kmax(itau))then            
@@ -363,7 +364,7 @@ contains
     case(0)
        Cls(coop_index_ClTT) = sum(source%ws_dense * trans(1, :, :)**2)*coop_4pi
        if(source%nsrc .ge. 2)then
-          Cls(coop_index_ClTE) = sqrt((l+2.d0)*(l+1.d0)*l*(l-1.d0))*sum(source%ws_dense * trans(1, :, :)*trans(2,:,:))*coop_4pi
+          Cls(coop_index_ClTE) = sqrt((l+2.d0)*(l+1.d0)*l*(l-1.d0))*sum(source%ws_dense * trans(1, :, :)*trans(2, :, :))*coop_4pi
           Cls(coop_index_ClEE) = (l+2.d0)*(l+1.d0)*l*(l-1.d0)*sum(source%ws_dense * trans(2,:,:)**2)*coop_4pi
        endif
        if(source%nsrc.ge.3)then
@@ -371,8 +372,15 @@ contains
           Cls(coop_index_ClTLen) = sum(source%ws_dense * trans(1, :, :) * trans(3,:,:))*coop_4pi
        endif
        if(source%nsrc.ge.4)then
+          if(coop_zeta_single_slice)then
+             do ik=1, source%nk
+                do idense = 1, coop_k_dense_fac
+                   trans(4, idense, ik) = coop_jl(l, source%k_dense(idense, ik)*source%distlss)
+                enddo
+             enddo
+          endif
           Cls(coop_index_ClTzeta) = sum(source%ws_dense * trans(1, :, :)*trans(4,:,:))*coop_4pi
-          Cls(coop_index_ClEzeta) = sum(source%ws_dense * trans(2, :, :) * trans(4,:,:))*coop_4pi
+          Cls(coop_index_ClEzeta) = sqrt((l+2.d0)*(l+1.d0)*l*(l-1.d0))*sum(source%ws_dense * trans(2, :, :) * trans(4,:,:))*coop_4pi
           Cls(coop_index_Clzetazeta) = sum(source%ws_dense * trans(4, :, :)**2)*coop_4pi
        endif
     case(1)
@@ -1204,13 +1212,12 @@ contains
   subroutine coop_cosmology_firstorder_init_source(this, m)
     class(coop_cosmology_firstorder)::this
     COOP_INT :: m
+    this%distlss = this%distlss
     this%source(m)%m = m
     this%source(m)%nsrc = coop_num_sources(m)
     this%source(m)%nsaux = coop_num_saux(m)
     call this%set_source_tau(this%source(m), coop_source_tau_step_factor(m))
-
     call this%set_source_k(this%source(m), coop_source_k_n(m), coop_source_k_weight(m))
-
     if(allocated(this%source(m)%s))then
        if(size(this%source(m)%s, 1) .ne. this%source(m)%ntau .or. size(this%source(m)%s, 2) .ne. this%source(m)%nk)then
           deallocate(this%source(m)%s, this%source(m)%s2, this%source(m)%saux)
