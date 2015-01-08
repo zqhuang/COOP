@@ -3660,14 +3660,32 @@ contains
   function coop_Planck_TNoise(l) result(Nl)
     COOP_INT l
     COOP_REAL Nl
-    
+    COOP_INT, parameter::fit_n = 8
+    COOP_REAL, parameter,dimension(fit_n)::coef = 0.
+    COOP_REAL, parameter::rmin = coop_ln2, rmax = log(3000.d0)
+    call coop_chebeval(fit_n, rmin, rmax, coef, log(dble(l)), Nl)
+    Nl = exp(Nl)/2.726**2
   end function Coop_Planck_TNoise
 
   function coop_Planck_ENoise(l) result(Nl)
     COOP_INT l
     COOP_REAL Nl
-
+    COOP_INT, parameter::fit_n = 8
+    COOP_REAL, parameter,dimension(fit_n)::coef = 0.
+    COOP_REAL, parameter::rmin = coop_ln2, rmax = log(3000.d0)
+    call coop_chebeval(fit_n, rmin, rmax, coef, log(dble(l)), Nl)
+    Nl = exp(Nl)/2.726**2
   end function Coop_Planck_ENoise
+  
+  function coop_Planck_BNoise(l) result(Nl)
+    COOP_INT l
+    COOP_REAL Nl
+    COOP_INT, parameter::fit_n = 8
+    COOP_REAL, parameter,dimension(fit_n)::coef = 0.
+    COOP_REAL, parameter::rmin = coop_ln2, rmax = log(3000.d0)
+    call coop_chebeval(fit_n, rmin, rmax, coef, log(dble(l)), Nl)
+    Nl = exp(Nl)/2.726**2
+  end function Coop_Planck_BNoise
   
 
 end module coop_healpix_mod
