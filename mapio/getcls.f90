@@ -18,9 +18,10 @@ program test
   COOP_UNKNOWN_STRING, parameter::imask_file = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
   COOP_UNKNOWN_STRING, parameter::polmask_file = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
   COOP_REAL, parameter::rmin = coop_ln2, rmax = log(dble(lmax))
+  COOP_REAL lnl(2:lmax)
   type(coop_healpix_maps)::map, imask, polmask
   type(coop_file)::fp
-  integer l, i
+  integer l, i, j
   COOP_INT, parameter::fit_n = 8
   COOP_REAL::coef(fit_n, 3)
 
@@ -51,8 +52,16 @@ program test
   map%cl(:,1) = map%cl(:,1) * (imask%npix/sum(dble(imask%map(:,1))))
   map%cl(:,2) = map%cl(:,2) * (polmask%npix/sum(dble(polmask%map(:,1))))
   map%cl(:,3) = map%cl(:,3) * (polmask%npix/sum(dble(polmask%map(:,1))))
-
-  
+  do l=2, lmax
+     lnl = log(dble(l))
+  enddo
+  do i=1, 3
+     call coop_chebfit(lmax-1, lnl, log(dble(map%cl(2:lmax, 1))), fit_n, rmin, rmax, coef(:, i)) 
+  enddo
+  print*, coef(1, i), " &"
+  do j=2, fit_n
+     print*, ", ", coef(j,i) , " &"
+  enddo
   do l=0, map%lmax
      map%cl(l, :) = map%cl(l, :)*(l*(l+1)/coop_2pi*1.e12)
   enddo
@@ -64,13 +73,13 @@ program test
      write(fp%unit, "(I5, 6E16.7)") l, map%cl(l,:)
   enddo
   call fp%close()
-  write(*,*) "now producing the lmax filtered map"
-  call map%alm2map()
-  write(*,*) "nmaps = map%nmaps", map%nmaps, size(map%map, 2)
-  write(*,*) "npix = ", map%nside**2*12, map%npix, size(map%map, 1)
-  write(*,*) "spin = ", map%spin
-  write(*,*) trim(coop_str_replace(output_file, ".txt", ""))//"_I.fits"
-  call map%write(trim(coop_str_replace(output_file, ".txt", ""))//"_I.fits", index_list = (/ 1 /) )
-  write(*,*) trim(coop_str_replace(output_file, ".txt", ""))//"_QU.fits"  
-  call map%write(trim(coop_str_replace(output_file, ".txt", ""))//"_QU.fits", index_list = (/ 2, 3 /) )
+!!$  write(*,*) "now producing the lmax filtered map"
+!!$  call map%alm2map()
+!!$  write(*,*) "nmaps = map%nmaps", map%nmaps, size(map%map, 2)
+!!$  write(*,*) "npix = ", map%nside**2*12, map%npix, size(map%map, 1)
+!!$  write(*,*) "spin = ", map%spin
+!!$  write(*,*) trim(coop_str_replace(output_file, ".txt", ""))//"_I.fits"
+!!$  call map%write(trim(coop_str_replace(output_file, ".txt", ""))//"_I.fits", index_list = (/ 1 /) )
+!!$  write(*,*) trim(coop_str_replace(output_file, ".txt", ""))//"_QU.fits"  
+!!$  call map%write(trim(coop_str_replace(output_file, ".txt", ""))//"_QU.fits", index_list = (/ 2, 3 /) )
 end program test

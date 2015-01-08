@@ -84,8 +84,9 @@ module coop_healpix_mod
      procedure :: smooth => coop_healpix_maps_smooth
      procedure :: smooth_with_window => coop_healpix_maps_smooth_with_window
      procedure :: smooth_mask => coop_healpix_smooth_mask
-     procedure :: t2zeta => coop_healpix_maps_t2zeta
-     procedure :: te2zeta => coop_healpix_maps_te2zeta     
+     procedure :: T2zeta => coop_healpix_maps_t2zeta
+     procedure :: TE2zeta => coop_healpix_maps_te2zeta
+     procedure :: E2zeta => coop_healpix_maps_t2zeta
      procedure :: trim_mask => coop_healpix_trim_mask
      procedure :: convert2nested => coop_healpix_convert_to_nested
      procedure :: convert2ring => coop_healpix_convert_to_ring
@@ -3435,7 +3436,7 @@ contains
     logical,optional::want_unconstrained 
     type(coop_cosmology_firstorder)::fod
     COOP_REAL,dimension(:,:),allocatable::Cls, Cls_lensed
-    COOP_REAL::fwhm_arcmin, norm, ucnorm, czbyCTT, Knorm
+    COOP_REAL::fwhm_arcmin, norm, ucnorm, CTT, Knorm
     logical douc
 #if DO_ZETA_TRANS
     if(present(want_unconstrained))then
@@ -3460,13 +3461,14 @@ contains
     
     norm = 1.d5 / 2.726 / Knorm
     this%alm(0:1, :, 1) = 0.
-    !$omp parallel do private(i, ucnorm, czbyCTT)
+    !$omp parallel do private(i, ucnorm, CTT)
     do l = 2, this%lmax
-       czbyCTT = Cls(coop_index_ClTzeta,l)/( Cls(coop_index_ClTT, l) + abs(Cls_lensed(coop_index_ClTT,l)) +  coop_Planck_TNoise(l)/sqrt(coop_healpix_beam(l, fwhm_arcmin)) )       
-       this%alm(l, :, 1) = this%alm(l,:,1) *  (czbyCTT * norm)!!the lensing Cl is added as a "noise"
+       CTT = ( Cls(coop_index_ClTT, l) + abs(Cls_lensed(coop_index_ClTT,l)) +  coop_Planck_TNoise(l)/coop_healpix_beam(l, fwhm_arcmin) )
+       
+       this%alm(l, :, 1) = this%alm(l,:,1) *  (Cls(coop_index_ClTzeta,l)/CTT * norm)!!the lensing Cl is added as a "noise"
        if(douc)then
 
-          ucnorm = Cls(coop_index_Clzetazeta, l) - Cls(coop_index_ClTT, l)* CzbyCTT**2
+          ucnorm = Cls(coop_index_Clzetazeta, l) -  Cls(coop_index_ClTzeta,l)**2/CTT
           if(ucnorm .lt. 0.d0) stop "clzetazeta - cltzeta**2/cltt negative?"
           ucnorm = sqrt(ucnorm)*norm
           this%alm(l, 0, 2) = coop_random_complex_Gaussian(.true.)*ucnorm
@@ -3478,10 +3480,13 @@ contains
     !$omp end parallel do
     if(douc)then
        this%alm(:,:,3) = this%alm(:,:,2) + this%alm(:,:,1)
+       this%spin(1:3) = 0
+       this%alm(0:1,:,3) = 0.
        call this%alm2map( index_list = (/ 1, 2, 3 /) )
        this%alm_done(1:3) = .false.
-       this%spin(1:3) = 0
     else
+       this%spin(1) = 0
+       this%alm(0:1,:,1) = 0.
        call this%alm2map( index_list = (/ 1 /) )
        this%alm_done(1) = .false.
     endif
@@ -3493,6 +3498,80 @@ contains
     stop "To use t2zeta you have to turn on DO_ZETA_TRANS in include/constants.h"
 #endif
   end subroutine coop_healpix_maps_t2zeta
+
+
+   subroutine coop_healpix_maps_E2zeta(this, fwhm_arcmin, want_unconstrained)
+    class(coop_healpix_maps)::this
+    COOP_INT::l, i
+    logical,optional::want_unconstrained 
+    type(coop_cosmology_firstorder)::fod
+    COOP_REAL,dimension(:,:),allocatable::Cls, Cls_lensed
+    COOP_REAL::fwhm_arcmin, norm, ucnorm, CEE, Knorm
+    logical douc
+#if DO_ZETA_TRANS
+    if(present(want_unconstrained))then
+       douc = want_unconstrained
+       if(douc .and. this%nmaps .lt. 3) &
+            stop "maps_t2zeta for unconstrained map you need nmaps>=3"
+    else
+       douc = .false.
+    endif
+    if(maxval(this%map(:,1)) .gt. 1.)then !!unit is muK
+       Knorm  = 1.d6
+    else
+       Knorm = 1.d0
+    endif
+    if(this%spin(1).eq.0)then
+       call this%map2alm(index_list = (/ 1 /) )
+    else
+       call this%map2alm(index_list = (/ 1, 2 /) )
+    endif
+    call fod%Set_Planck_bestfit()
+    call fod%compute_source(0)
+    allocate(Cls(coop_num_cls, 2:this%lmax), Cls_lensed(coop_num_cls, 2:this%lmax))
+    call fod%source(0)%get_All_Cls(2, this%lmax, Cls)
+    call coop_get_lensing_Cls(2, this%lmax, Cls, Cls_lensed)
+    
+    norm = 1.d5 / 2.726 / Knorm
+    this%alm(0:1, :, 1) = 0.
+    !$omp parallel do private(i, ucnorm, CEE, l)
+    do l = 2, this%lmax
+       CEE = ( Cls(coop_index_ClEE, l) + abs(Cls_lensed(coop_index_ClEE,l)) +  coop_Planck_ENoise(l)/coop_healpix_beam(l, fwhm_arcmin) )
+       
+       this%alm(l, :, 1) = this%alm(l,:,1) *  (Cls(coop_index_ClEzeta,l)/CEE * norm)!!the lensing Cl is added as a "noise"
+       if(douc)then
+
+          ucnorm = Cls(coop_index_Clzetazeta, l) -  Cls(coop_index_ClTzeta,l)**2/CEE
+          if(ucnorm .lt. 0.d0) stop "clzetazeta - cltzeta**2/cltt negative?"
+          ucnorm = sqrt(ucnorm)*norm
+          this%alm(l, 0, 2) = coop_random_complex_Gaussian(.true.)*ucnorm
+          do i=1, l
+             this%alm(l, i, 2) = coop_random_complex_Gaussian()*ucnorm
+          enddo
+       endif
+    enddo
+    !$omp end parallel do
+    if(douc)then
+       this%alm(:,:,3) = this%alm(:,:,2) + this%alm(:,:,1)
+       this%spin(1:3) = 0
+       this%alm(0:1,:,3) = 0.
+       call this%alm2map( index_list = (/ 1, 2, 3 /) )
+       this%alm_done(1:3) = .false.
+    else
+       this%spin(1) = 0
+       this%alm(0:1,:,1) = 0.
+       call this%alm2map( index_list = (/ 1 /) )
+       this%alm_done(1) = .false.
+    endif
+    deallocate(Cls, Cls_lensed)
+
+  contains
+
+#else
+    stop "To use t2zeta you have to turn on DO_ZETA_TRANS in include/constants.h"
+#endif
+  end subroutine coop_healpix_maps_E2zeta
+
 
 
   subroutine coop_healpix_maps_te2zeta(this, fwhm_arcmin, want_unconstrained)
@@ -3542,7 +3621,7 @@ contains
        coef_E = (-Cls(coop_index_ClTzeta,l)*CTE + Cls(coop_index_ClEzeta,l) * CTT)/delta
        this%alm(l, :, 1) = (coef_T * norm) * this%alm(l,:,1) + (coef_E * norm) * this%alm(l,:,2)
        if(douc)then
-          ucnorm = Cls(coop_index_Clzetazeta, l) - (Cls(coop_index_ClTT, l)*coef_T**2 + Cls(coop_index_ClEE, l)*coef_E**2 +  2.d0*coef_E*coef_T*Cls(coop_index_ClTE, l))
+          ucnorm = Cls(coop_index_Clzetazeta, l) - (CTT*coef_T**2 +CEE*coef_E**2 +  2.d0*coef_E*coef_T*CTE)
           if(ucnorm .lt. 0.d0) stop "clzetazeta - cltzeta**2/cltt negative?"
           ucnorm = sqrt(ucnorm)*norm
           this%alm(l, 0, 2) = coop_random_complex_Gaussian(.true.)*ucnorm
@@ -3554,10 +3633,13 @@ contains
     !$omp end parallel do
     if(douc)then
        this%alm(:,:,3) = this%alm(:,:,2) + this%alm(:,:,1)
+       this%spin(1:3) = 0
+       this%alm(0:1,:,1:3) = 0
        call this%alm2map( index_list = (/ 1, 2, 3 /) )
        this%alm_done(1:3) = .false.
-       this%spin(1:3) = 0       
     else
+       this%spin(1) = 0
+       this%alm(0:1,:,1) = 0
        call this%alm2map( index_list = (/ 1 /) )
        this%alm_done(1) = .false.
     endif
@@ -3576,26 +3658,15 @@ contains
   end function coop_healpix_beam
 
   function coop_Planck_TNoise(l) result(Nl)
-    COOP_REAL,parameter::C(6) = (/ 0.000209589 , &
-         -2.60632e-6, &
-         0.000102449 , & 
-         -3.45531e-5, &
-         -1.90758e-5, &
-         8.00965e-6 /)
-    COOP_REAL, parameter:: alpha = 0.75, &
-         lmax = 4000
     COOP_INT l
-    COOP_REAL Nl, x, fx, t
-    x =( (l*(l+1.0))/(lmax*(lmax+1.0)) )**0.25
-    t = 2.d0*x - 1.d0
-    call coop_get_cheb_value(6, c, t, fx)
-    Nl = fx / x ** alpha / (2.726e6)**2
+    COOP_REAL Nl
+    
   end function Coop_Planck_TNoise
 
   function coop_Planck_ENoise(l) result(Nl)
     COOP_INT l
     COOP_REAL Nl
-    Nl = 0.d0/ (2.726e6)**2 
+
   end function Coop_Planck_ENoise
   
 
