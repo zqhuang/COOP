@@ -11,7 +11,8 @@ program test
   COOP_REAL norm
   COOP_REAL z, a, s, stau, k
   !!set cosmology
- call fod%Set_Planck_bestfit()
+  call fod%Set_Planck_bestfit()
+  coop_zeta_single_slice = .true.
   !!print*, fod%zre
   !!if you want extended models
  !! call fod%set_standard_cosmology(Omega_b=0.0485374d0, Omega_c=0.2585497252d0, h = 0.67766d0, tau_re = 0.08193d0, nu_mass_eV = 0.06d0, As = 2.2098d-9, ns = 0.968d0, nrun = 0.05d0, r = 0.d0, nt = -0.01d0, YHe = 0.248d0, Nnu = 3.d0)
@@ -33,14 +34,14 @@ program test
      call fp%open('lcdm_scalCls.txt', 'w')
   endif
   do l=lmin, min(lmax, 2600)
-     write(fp%unit, "(I5, 20E16.7)") l, Cls_scalar(:, l)*(l*(l+1.d0)/coop_2pi*norm)
+     write(fp%unit, "(I5, 20E16.7)") l, Cls_scalar(:, l)*(l*(l+1.d0)/coop_2pi*norm), fod%clzetazeta_at_r(l, fod%distlss)*l*(l+1.)/coop_2pi*norm
   enddo
   call fp%close()
   Cls_lensed = Cls_lensed+Cls_scalar
   if(fod%index_massivenu .ne. 0)then
      call fp%open('mnu_lensedCls.txt', 'w')
   else
-     call fp%open('lcdm_lensedCls.txt', 'w')
+     call fp%open('planck_lensedCls.txt', 'w')
   endif
   do l=lmin, min(lmax, 2600)
      write(fp%unit, "(I5, 20E16.7)") l, Cls_lensed(1:4, l)*(l*(l+1.d0)/coop_2pi*norm)

@@ -1,6 +1,7 @@
 module coop_firstorder_mod
   use coop_wrapper_background
   use coop_pertobj_mod
+  use coop_wrapper_firstorder
   implicit none
 #include "constants.h"
 
@@ -8,7 +9,7 @@ private
 
 
 
-  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe, coop_power_lnk_min, coop_power_lnk_max,  coop_k_dense_fac, coop_index_ClTT, coop_index_ClTE, coop_index_ClEE, coop_index_ClBB, coop_index_ClLenLen, coop_index_ClTLen,  coop_num_Cls, coop_Cls_lmax, coop_bbks_trans
+  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe, coop_power_lnk_min, coop_power_lnk_max,  coop_k_dense_fac, coop_index_ClTT, coop_index_ClTE, coop_index_ClEE, coop_index_ClBB, coop_index_ClLenLen, coop_index_ClTLen,  coop_num_Cls, coop_Cls_lmax, coop_bbks_trans, coop_zeta_single_slice
 
   COOP_INT::coop_Cls_lmax(0:2) = (/ 2500, 2000, 1500 /)
 
@@ -22,9 +23,9 @@ private
 
   COOP_REAL, dimension(0:2), parameter::coop_source_tau_step_factor = (/ 1.d0, 1.d0, 1.d0 /)
   COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
-  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 130, 120, 100 /)
+  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 150, 120, 100 /)
   COOP_REAL, parameter::coop_source_k_index = 0.45d0
-  COOP_INT, parameter:: coop_k_dense_fac = 32
+  COOP_INT, parameter:: coop_k_dense_fac = 50
 
 
   COOP_INT, parameter::coop_index_ClTT = 1
@@ -313,7 +314,11 @@ contains
        kfine(itau) = 0.8d0/source%dtau(itau) !!k > kfine use fine grid
     enddo
     ikcut = source%nk
-    kchicut = min(max(l*2.5d0, 3000.d0), l*100.d0)
+    if(coop_zeta_single_slice)then
+       kchicut = min(max(l*4.d0, 6000.d0), l*100.d0)       
+    else
+       kchicut = min(max(l*2.5d0, 3000.d0), l*100.d0)
+    endif
     do while(source%k(ikcut) * source%chi(1) .gt. kchicut .and. ikcut .gt. 2)
        ikcut = ikcut - 1
     enddo
@@ -375,7 +380,7 @@ contains
           if(coop_zeta_single_slice)then
              do ik=1, source%nk
                 do idense = 1, coop_k_dense_fac
-                   trans(4, idense, ik) = coop_jl(l, source%k_dense(idense, ik)*source%distlss)
+                   trans(4, idense, ik) = - coop_jl(l, source%k_dense(idense, ik)*source%distlss)
                 enddo
              enddo
           endif
@@ -1090,8 +1095,11 @@ contains
 
 
     source%kmin = 0.2d0/this%distlss
-    source%kmax = (min(max(1500, coop_Cls_lmax(source%m)), 3000)*1.5d0)/this%distlss
-
+    if(coop_zeta_single_slice)then
+       source%kmax = (min(max(1500, coop_Cls_lmax(source%m)), 3000)*2.d0)/this%distlss       
+    else
+       source%kmax = (min(max(1500, coop_Cls_lmax(source%m)), 3000)*1.5d0)/this%distlss
+    endif
     call source%k2kop(source%kmin, source%kopmin)
     call source%k2kop(source%kmax, source%kopmax)
     source%dkop = (source%kopmax-source%kopmin)/(n-1)
@@ -1212,7 +1220,7 @@ contains
   subroutine coop_cosmology_firstorder_init_source(this, m)
     class(coop_cosmology_firstorder)::this
     COOP_INT :: m
-    this%distlss = this%distlss
+    this%source(m)%distlss = this%distlss
     this%source(m)%m = m
     this%source(m)%nsrc = coop_num_sources(m)
     this%source(m)%nsaux = coop_num_saux(m)

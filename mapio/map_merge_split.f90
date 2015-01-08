@@ -1,5 +1,6 @@
 program map
   use coop_healpix_mod
+  use coop_wrapper_firstorder
   use coop_wrapper_utils
   use healpix_types
   use alm_tools
@@ -14,7 +15,7 @@ program map
   COOP_STRING,dimension(nmax)::fin
   COOP_STRING::fout, fbeam
   integer,dimension(:),allocatable::nmaps_in, ordering_in, nside_in
-  integer nin, i, j, l, il
+  integer nin, i, j, l, il, l1, l2
   real,dimension(:,:),allocatable:: map_in  
   real,dimension(:,:),allocatable:: map_out, map_tmp
   integer(8) npixtot
@@ -26,7 +27,7 @@ program map
   COOP_REAL fwhm, scal, threshold
   type(coop_file)::fp
   
-  write(*,*) "options are: SPLIT; SMOOTH; DOBEAM; MULTIPLY;I2TQTUT;IQU2TEB;T2ZETA; IQU2ZETA; QU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE"
+  write(*,*) "options are: SPLIT; SMOOTH; DOBEAM; MULTIPLY;I2TQTUT;IQU2TEB;T2ZETA; IQU2ZETA; QU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE; HIGHPASS"
   nin = 1
   inline_mode =  (iargc() .gt. 0)
 
@@ -119,6 +120,32 @@ program map
         enddo
         print*, "beam applied"
         goto 500
+     case("HIGHPASS")
+        if(inline_mode)then
+           inline = coop_inputArgs(nin+1)
+           read(inline, *) l1
+           inline = coop_inputArgs(nin+2)
+           read(inline, *) l2
+        else
+           write(*,*) "Enter l1, l2"
+           read(*,*) l1, l2
+        endif
+        nin = nin -1
+        do i=1, nin
+           call hgm%read(trim(fin(i)))
+           call hgm%map2alm()
+           hgm%alm(0:l1, :,:) = 0.
+           do l=l1+1, l2-1
+              hgm%alm(l, :, :) = hgm%alm(l, :, :)*sin(dble(l-l1)/(l2-l1)*coop_pi/2)**2
+           enddo
+           call hgm%alm2map()
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_hp_"//COOP_STR_OF(l1)//"_"//COOP_STR_OF(l2))))
+
+        enddo
+
+        print*, "maps are all highpassed"
+        goto 500
+        
      case("SMOOTH")
         if(inline_mode)then
            inline = coop_inputArgs(nin+1)
@@ -264,11 +291,22 @@ program map
            write(*,*) "Enter the fwhm in arcmin:"
            read(*,*) fwhm
         endif
+        if(trim(coop_inputArgs(nin+2)).eq."SINGLE_SLICE")then
+           write(*,*) "Doing single slice zeta"
+           coop_zeta_single_slice = .true.
+        else
+           coop_zeta_single_slice = .false.
+           write(*,*) "Doing weighted zeta"
+        endif
         nin = nin -1
         do i=1, nin
            call hgm%read(trim(fin(i)), nmaps_wanted = 3, spin = (/ 0, 2 , 2 /) )
            call hgm%te2zeta(fwhm_arcmin = fwhm, want_unconstrained = .true.)
-           call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_ZETA")), index_list = (/ 1, 2, 3 /) )
+           if(coop_zeta_single_slice)then
+              call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_SINGLE_SLICE_ZETA")), index_list = (/ 1, 2, 3 /) )              
+           else
+              call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_ZETA")), index_list = (/ 1, 2, 3 /) )
+           endif
         enddo
         print*, "maps are all converted to zeta"
         goto 500
@@ -279,12 +317,24 @@ program map
         else
            write(*,*) "Enter the fwhm in arcmin:"
            read(*,*) fwhm
-        endif        
+        endif
+        if(trim(coop_inputArgs(nin+2)).eq."SINGLE_SLICE")then
+           write(*,*) "Doing single slice zeta"
+           coop_zeta_single_slice = .true.
+        else
+           coop_zeta_single_slice = .false.
+           write(*,*) "Doing weighted zeta"
+        endif
+        
         nin = nin -1
         do i=1, nin
            call hgm%read(trim(fin(i)), nmaps_wanted = 3, nmaps_to_read = 2, spin = (/ 2, 2, 0 /) )
            call hgm%E2zeta(fwhm_arcmin = fwhm, want_unconstrained = .true.)
-           call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_ZETA")), index_list = (/ 1, 2, 3/) )
+           if(coop_zeta_single_slice)then
+              call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_SINGLE_SLICE_ZETA")), index_list = (/ 1, 2, 3/) )              
+           else
+              call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_ZETA")), index_list = (/ 1, 2, 3/) )
+           endif
         enddo
         print*, "maps are all converted to zeta"
         goto 500
@@ -296,11 +346,22 @@ program map
            write(*,*) "Enter the fwhm in arcmin:"
            read(*,*) fwhm
         endif        
+        if(trim(coop_inputArgs(nin+2)).eq."SINGLE_SLICE")then
+           write(*,*) "Doing single slice zeta"
+           coop_zeta_single_slice = .true.
+        else
+           coop_zeta_single_slice = .false.
+           write(*,*) "Doing weighted zeta"
+        endif
         nin = nin -1
         do i=1, nin
            call hgm%read(trim(fin(i)), nmaps_wanted = 3, nmaps_to_read = 1, spin = (/ 0, 0, 0 /) )
            call hgm%t2zeta(fwhm_arcmin = fwhm, want_unconstrained = .true.)
-           call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_ZETA")), index_list = (/ 1, 2, 3/) )
+           if(coop_zeta_single_slice)then
+              call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_SINGLE_SLICE_ZETA")), index_list = (/ 1, 2, 3/) )              
+           else
+              call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_ZETA")), index_list = (/ 1, 2, 3/) )
+           endif
         enddo
         print*, "maps are all converted to zeta"
         goto 500                        
