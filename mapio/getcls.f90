@@ -15,14 +15,14 @@ program test
   COOP_INT, parameter::lmax = 3000
   COOP_INT, parameter::smooth_delta_ell = 20
   
-  COOP_UNKNOWN_STRING, parameter::imask_file = "planck14/dx11_v2_common_int_mask_005a_2048.fits"
-  COOP_UNKNOWN_STRING, parameter::polmask_file = "planck14/dx11_v2_common_pol_mask_005a_2048.fits"
+  COOP_UNKNOWN_STRING, parameter::imask_file = "planck14/dx11_v2_smica_int_mask_005a_2048.fits"
+  COOP_UNKNOWN_STRING, parameter::polmask_file = "planck14/dx11_v2_smica_pol_mask_005a_2048.fits"
   COOP_REAL, parameter::rmin = coop_ln2, rmax = log(dble(lmax))
   COOP_REAL lnl(2:lmax)
   type(coop_healpix_maps)::map, imask, polmask
   type(coop_file)::fp
   integer l, i, j
-  COOP_INT, parameter::fit_n = 8
+  COOP_INT, parameter::fit_n = 10
   COOP_REAL::coef(fit_n, 3)
 
   if(iargc().lt.2)then
@@ -49,20 +49,24 @@ program test
 
   call map%map2alm(lmax = lmax)
   call map%get_cls()
-  call imask%free
-  call polmask%free
   map%cl(:,1) = map%cl(:,1) * (imask%npix/sum(dble(imask%map(:,1))))
   map%cl(:,2) = map%cl(:,2) * (polmask%npix/sum(dble(polmask%map(:,1))))
   map%cl(:,3) = map%cl(:,3) * (polmask%npix/sum(dble(polmask%map(:,1))))
+  call imask%free
+  call polmask%free
+  
   do l=2, lmax
-     lnl = log(dble(l))
+     lnl(l) = log(dble(l))
   enddo
+  coef = 0.d0
   do i=1, 3
-     call coop_chebfit(lmax-1, lnl, log(dble(map%cl(2:lmax, 1))), fit_n, rmin, rmax, coef(:, i)) 
-  enddo
-  print*, coef(1, i), " &"
-  do j=2, fit_n
-     print*, ", ", coef(j,i) , " &"
+     call coop_chebfit(lmax-1, lnl(2:lmax), log(dble(map%cl(2:lmax, i))), fit_n, rmin, rmax, coef(:, i))
+     print*,
+     do j=1, fit_n-1
+        print*, coef(j,i) , ", &"
+     enddo
+     print*, coef(fit_n, i)
+     print*
   enddo
   do l=0, map%lmax
      map%cl(l, :) = map%cl(l, :)*(l*(l+1)/coop_2pi*1.e12)

@@ -16,7 +16,7 @@ module coop_healpix_mod
 
   private
 
-  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_get_disc, coop_healpix_export_spots, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_lb2ang, coop_healpix_ang2lb, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_healpix_max_threshold
+  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_get_disc, coop_healpix_export_spots, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_lb2ang, coop_healpix_ang2lb, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_healpix_max_threshold, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise
   
   logical::coop_healpix_alm_check_done = .false.
   logical::coop_healpix_want_cls = .true.
@@ -86,7 +86,7 @@ module coop_healpix_mod
      procedure :: smooth_mask => coop_healpix_smooth_mask
      procedure :: T2zeta => coop_healpix_maps_t2zeta
      procedure :: TE2zeta => coop_healpix_maps_te2zeta
-     procedure :: E2zeta => coop_healpix_maps_t2zeta
+     procedure :: E2zeta => coop_healpix_maps_E2zeta
      procedure :: trim_mask => coop_healpix_trim_mask
      procedure :: convert2nested => coop_healpix_convert_to_nested
      procedure :: convert2ring => coop_healpix_convert_to_ring
@@ -1155,7 +1155,10 @@ contains
                    cycle
                 endif
              endif
-             write(*,*) this%spin
+             write(*,*) this%nmaps
+             write(*,*) j
+             write(*,*) index_list
+             print*, this%spin
              stop "coop_healpix_maps_map2alm: nonzero spin maps must appear in pairs"
           endif
        enddo
@@ -3460,7 +3463,7 @@ contains
     call coop_get_lensing_Cls(2, this%lmax, Cls, Cls_lensed)
     
     norm = 1.d5 / 2.726 / Knorm
-    this%alm(0:1, :, 1) = 0.
+
     !$omp parallel do private(i, ucnorm, CTT)
     do l = 2, this%lmax
        CTT = ( Cls(coop_index_ClTT, l) + abs(Cls_lensed(coop_index_ClTT,l)) +  coop_Planck_TNoise(l)/coop_healpix_beam(l, fwhm_arcmin) )
@@ -3533,7 +3536,6 @@ contains
     call coop_get_lensing_Cls(2, this%lmax, Cls, Cls_lensed)
     
     norm = 1.d5 / 2.726 / Knorm
-    this%alm(0:1, :, 1) = 0.
     !$omp parallel do private(i, ucnorm, CEE, l)
     do l = 2, this%lmax
        CEE = ( Cls(coop_index_ClEE, l) + abs(Cls_lensed(coop_index_ClEE,l)) +  coop_Planck_ENoise(l)/coop_healpix_beam(l, fwhm_arcmin) )
@@ -3541,7 +3543,7 @@ contains
        this%alm(l, :, 1) = this%alm(l,:,1) *  (Cls(coop_index_ClEzeta,l)/CEE * norm)!!the lensing Cl is added as a "noise"
        if(douc)then
 
-          ucnorm = Cls(coop_index_Clzetazeta, l) -  Cls(coop_index_ClTzeta,l)**2/CEE
+          ucnorm = Cls(coop_index_Clzetazeta, l) -  Cls(coop_index_ClEzeta,l)**2/CEE
           if(ucnorm .lt. 0.d0) stop "clzetazeta - cltzeta**2/cltt negative?"
           ucnorm = sqrt(ucnorm)*norm
           this%alm(l, 0, 2) = coop_random_complex_Gaussian(.true.)*ucnorm
@@ -3609,7 +3611,7 @@ contains
     endif
     
     norm = 1.d5 / 2.726 /Knorm
-    this%alm(0:1, :, 1) = 0.
+
     !$omp parallel do private(CTT, CTE, CEE, delta, bl, ucnorm, coef_T, coef_E)
     do l = 2, this%lmax
        bl = coop_healpix_beam(l, fwhm_arcmin)
@@ -3660,8 +3662,17 @@ contains
   function coop_Planck_TNoise(l) result(Nl)
     COOP_INT l
     COOP_REAL Nl
-    COOP_INT, parameter::fit_n = 8
-    COOP_REAL, parameter,dimension(fit_n)::coef = 0.
+    COOP_INT, parameter::fit_n = 10
+    COOP_REAL, parameter,dimension(fit_n)::coef =  (/   -34.541512859596317      , &
+  -2.3327044684438025      , &
+  -5.2434038408357253E-2 , &
+  0.10730432003605284      , &
+  0.50599237614744652      , &
+   4.4555688282625905E-2 , &
+ -0.11595894402202822      , &
+  -7.9077770071418474E-3 , &
+ -0.26911077968221031      , &
+  0.16444457464651557  /)
     COOP_REAL, parameter::rmin = coop_ln2, rmax = log(3000.d0)
     call coop_chebeval(fit_n, rmin, rmax, coef, log(dble(l)), Nl)
     Nl = exp(Nl)/2.726**2
@@ -3670,8 +3681,18 @@ contains
   function coop_Planck_ENoise(l) result(Nl)
     COOP_INT l
     COOP_REAL Nl
-    COOP_INT, parameter::fit_n = 8
-    COOP_REAL, parameter,dimension(fit_n)::coef = 0.
+    COOP_INT, parameter::fit_n = 10
+    COOP_REAL, parameter,dimension(fit_n)::coef = (/  &
+         -34.960562790571522      , &
+         -0.87917841773973660      , &
+         0.80533716121595145      , &
+         0.19774868605364659      , &
+         6.2456251840707022E-002 , &
+         -6.4067689277299111E-002 , &
+         6.9826114409022866E-003 , &
+         -5.2937498702857466E-002 , &
+         -1.3724094895074757E-002 , &
+         -3.1217087209044592E-002 /)
     COOP_REAL, parameter::rmin = coop_ln2, rmax = log(3000.d0)
     call coop_chebeval(fit_n, rmin, rmax, coef, log(dble(l)), Nl)
     Nl = exp(Nl)/2.726**2
@@ -3680,8 +3701,18 @@ contains
   function coop_Planck_BNoise(l) result(Nl)
     COOP_INT l
     COOP_REAL Nl
-    COOP_INT, parameter::fit_n = 8
-    COOP_REAL, parameter,dimension(fit_n)::coef = 0.
+    COOP_INT, parameter::fit_n = 10
+    COOP_REAL, parameter,dimension(fit_n)::coef =  (/ &
+           -34.981682219713093      , &
+           -0.88852205874105650      , &
+           0.87526333776073173      , &
+           0.13522507399381523      , &
+           0.12803135081705186      , &
+           -8.4600554185378374E-2 , &
+           -1.3976431844054060E-2 , &
+           -2.2053627296518163E-2 , &
+           -3.6967260171160810E-2 , &
+           -1.4665139293283336E-2 /)
     COOP_REAL, parameter::rmin = coop_ln2, rmax = log(3000.d0)
     call coop_chebeval(fit_n, rmin, rmax, coef, log(dble(l)), Nl)
     Nl = exp(Nl)/2.726**2

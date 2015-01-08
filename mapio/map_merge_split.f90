@@ -26,7 +26,7 @@ program map
   COOP_REAL fwhm, scal, threshold
   type(coop_file)::fp
   
-  write(*,*) "options are: SPLIT; SMOOTH; DOBEAM; MULTIPLY;I2TQTUT;IQU2TEB;T2ZETA; IQU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE"
+  write(*,*) "options are: SPLIT; SMOOTH; DOBEAM; MULTIPLY;I2TQTUT;IQU2TEB;T2ZETA; IQU2ZETA; QU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE"
   nin = 1
   inline_mode =  (iargc() .gt. 0)
 
@@ -272,6 +272,22 @@ program map
         enddo
         print*, "maps are all converted to zeta"
         goto 500
+     case("QU2ZETA")
+        if(inline_mode)then
+           inline = coop_inputArgs(nin+1)
+           read(inline, *) fwhm
+        else
+           write(*,*) "Enter the fwhm in arcmin:"
+           read(*,*) fwhm
+        endif        
+        nin = nin -1
+        do i=1, nin
+           call hgm%read(trim(fin(i)), nmaps_wanted = 3, nmaps_to_read = 2, spin = (/ 2, 2, 0 /) )
+           call hgm%E2zeta(fwhm_arcmin = fwhm, want_unconstrained = .true.)
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_ZETA")), index_list = (/ 1, 2, 3/) )
+        enddo
+        print*, "maps are all converted to zeta"
+        goto 500
      case("T2ZETA")
         if(inline_mode)then
            inline = coop_inputArgs(nin+1)
@@ -287,7 +303,7 @@ program map
            call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_ZETA")), index_list = (/ 1, 2, 3/) )
         enddo
         print*, "maps are all converted to zeta"
-        goto 500                
+        goto 500                        
      case("", "SHUFFLE")
         nin = nin - 1
         exit
