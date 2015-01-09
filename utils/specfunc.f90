@@ -1472,6 +1472,21 @@ contains
     enddo    
   end subroutine get_coop_normalized_plm
 
+
+  subroutine coop_get_normalized_Plm_array(m, lmax, x, Plms)
+    COOP_INT m, lmax, l
+    COOP_REAL Plms(0:lmax), x
+    Plms(0:min(m-1, lmax)) = 0.d0
+    if(lmax .lt. m) return
+    Plms(m) = (4.d0*(1.d0-x**2))**(m/2.d0)*dexp(log_gamma(m+0.5d0)-log_gamma(2*m+1.d0)/2.d0)/coop_sqrtpi
+    if(mod(m,2).ne.0) Plms(m) = - Plms(m)
+    if(lmax .le. m) return    
+    Plms(m+1) = sqrt(2*m+1.d0)*x*Plms(m)
+    do i= m+2, lmax
+       Plms(i)  = ((2*i-1)*x*Plms(i-1)-dsqrt((i-m-1.d0)*(i+m-1.d0))*Plms(i-2))/(dsqrt((i-m)*dble(i+m)))
+    enddo
+  end subroutine coop_get_normalized_Plm_array
+
 !! return sqrt((l-m)!/(l+m)!) P_l^m(x)
 !!no check
   

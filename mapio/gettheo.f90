@@ -13,13 +13,13 @@ program stackth
   COOP_REAL, parameter:: r_degree = 2.d0
   COOP_REAL, parameter:: width = 2.d0*sin(r_degree*coop_SI_degree/2.d0)
   COOP_REAL, parameter:: dr = width/n
-
+  logical,parameter::flat = .false. !!use nonflat is actually faster
   !!settings
   integer, parameter::index_corr = index_temp  !!index_temp
   COOP_UNKNOWN_STRING,parameter::clfile = "planckbest_lensedtotCls.dat"  
   COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax_QTUTOrient"  
-  COOP_REAL, parameter::nu = -8.d0  !!threshold  
-  COOP_REAL, parameter::fwhm = 15.d0
+  COOP_REAL::nu !! threshold
+  COOP_REAL::fwhm !!fwhm in arcmin
   COOP_INT::head_level
   COOP_STRING::prefix, line
   type(coop_file)::fp
@@ -27,15 +27,24 @@ program stackth
   integer l, il, i, j, iomega, m
   type(coop_arguments)::args
   type(coop_healpix_patch)::patchI, patchQU, patchQrUr
-  
+  COOP_REAL::Pl0(0:lmax), Pl2(0:lmax, Pl4(0:lmax)
   COOP_REAL::cls(4, 2:lmax), ell(2:lmax), sigma, l2cls(4,2:lmax), sigma2, sigma0, sigma1, cosbeta, j2, j4, j0, omega, weights(4), cr(0:1, 0:2, 0:n*3/2), frI(0:2, 0:n*3/2), frQU(0:2, 0:n*3/2), pomega, phi, romega, r(0:n*3/2), kr
-  if(trim(coop_InputArgs(1)).ne."")then
-     prefix = trim(coop_InputArgs(1))//"_"
+  line = coop_InputArgs(2)
+  if(trim(line).eq."")then
+     write(*,*) "Syntax:"
+     write(*,*) "./GetTheo nu fwhm_arcmin [output_prefix] [head_level]"
+     stop
+  endif
+  read(line, *) fwhm
+  line = coop_InputArgs(1)
+  read(line, *) nu
+  if(trim(coop_InputArgs(3)).ne."")then
+     prefix = trim(coop_InputArgs(3))//"_"
   else
      prefix = ""
   endif
-  if(trim(coop_InputArgs(2)).ne."")then
-     line = coop_InputArgs(2)
+  if(trim(coop_InputArgs(4)).ne."")then
+     line = coop_InputArgs(4)
      read(line,*) head_level
   else
      head_level = 0
@@ -93,11 +102,23 @@ program stackth
   do i = 0, n*3/2
      omega = dr*i
      r(i) = omega
+     if(.not.flat)then  !!get Plms
+        call coop_get_noramlized_Plm_array(m=0, lmax=lmax, x = 1.d0-omega**2/2.d0, Plms = Pl0)
+        call coop_get_noramlized_Plm_array(m=2, lmax=lmax, x = 1.d0-omega**2/2.d0, Plms = Pl2)
+        call coop_get_noramlized_Plm_array(m=4, lmax=lmax, x = 1.d0-omega**2/2.d0, Plms = Pl4)
+     endif
+     endif
      do l = lmin, lmax
-        kr = (l+0.5d0)*omega
-        j0 = coop_bessj(0, kr)
-        j2 = coop_bessj(2, kr)
-        j4 = coop_bessj(4, kr)
+        if(flat)then
+           kr = sqrt(l*(l+1.d0))*omega
+           j0 = coop_bessj(0, kr)
+           j2 = coop_bessj(2, kr)
+           j4 = coop_bessj(4, kr)
+        else
+           j0 = Pl0(l)
+           j2 = Pl2(l)
+           j4 = Pl4(l)
+        endif
         cr(0, 0, i) = cr(0, 0, i) + (l+0.5d0)*j0*cls(index_corr, l)
         cr(1, 0, i) = cr(1, 0, i) - (l+0.5d0)*j0*l2cls(index_corr, l)
         cr(0, 1, i) = cr(0, 1, i) + (l+0.5d0)*j2*cls(index_corr, l)
@@ -106,6 +127,7 @@ program stackth
         cr(1, 2, i) = cr(1, 2, i) - (l+0.5d0)*j4*l2cls(index_corr, l)        
      enddo
      cr(:,:,i) = cr(:,:,i)/coop_2pi
+   !  cr(1, 1, :) = cr(1, 1, :)*0.9
      call coop_gaussian_radial_modes_I(weights, cr(:,:,i), frI(:, i))
      call coop_gaussian_radial_modes_QU(weights, cr(:,:,i), frQU(:, i))
      if(i.le.n)then

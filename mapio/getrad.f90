@@ -9,13 +9,13 @@ program hastack_prog
   use alm_tools
   implicit none
 #include "constants.h"
-  COOP_INT, parameter::n_sim = 100
+  COOP_INT, parameter::n_sim = 15
   COOP_INT, parameter::mmax = 4  
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_SHORT_STRING::spot_type, stack_type, threshold_input
 
   
-  COOP_UNKNOWN_STRING, parameter::prefix = "sr/"
+  COOP_UNKNOWN_STRING, parameter::prefix = "sr30/"
   COOP_REAL,parameter::r_degree = 2.d0
   COOP_REAL::threshold
   
@@ -194,14 +194,14 @@ contains
   function sim_file_name_cmb_imap(i)
     COOP_INT i
     COOP_STRING sim_file_name_cmb_imap
-    sim_file_name_cmb_imap ="massive/simu_TQTUT_"//trim(coop_ndigits(i-1, 5))//"_015a_n1024.fits"
+    sim_file_name_cmb_imap ="massive/simu_TQTUT_"//trim(coop_ndigits(i-1, 5))//"_030a_n1024.fits"
   end function sim_file_name_cmb_imap
 
 
   function sim_file_name_cmb_polmap(i)
     COOP_INT i
     COOP_STRING sim_file_name_cmb_polmap
-    sim_file_name_cmb_polmap = "massive/simu_pol_"//trim(coop_ndigits(i-1, 5))//"_015a_n1024.fits"
+    sim_file_name_cmb_polmap = "massive/simu_pol_"//trim(coop_ndigits(i-1, 5))//"_030a_n1024.fits"
   end function sim_file_name_cmb_polmap
 
 end program hastack_prog

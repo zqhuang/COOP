@@ -15,10 +15,14 @@ program hastack_prog
   COOP_REAL,dimension(:,:), allocatable:: frr_mean
   COOP_REAL,dimension(:,:,:),allocatable::frr_cov
   type(coop_file)::fp
-  COOP_STRING::prefix
+  COOP_STRING::prefix, output
   COOP_REAL::dr_arcmin, dr
   COOP_INT isim, i, j, m
-
+  if(trim(coop_InputArgs(2)).ne."")then
+     output = trim(coop_InputArgs(2))//"_"
+  else
+     output = ""
+  end if
   prefix = trim(adjustl(coop_inputArgs(1)))
   call fp%open(trim(prefix)//"_info.txt", 'r')
   read(fp%unit, *) n, nmaps, dr_arcmin, nsims
@@ -63,12 +67,12 @@ program hastack_prog
   frr_cov = frr_cov / nsims
   call fp%close()
   do m = 0, mmax/2
-     call fp%open("mean_profile_m"//COOP_STR_OF(m*2)//".txt", "w")
+     call fp%open(trim(output)//"mean_profile_m"//COOP_STR_OF(m*2)//".txt", "w")
      do i = 0, n
         write(fp%unit, "(3E16.7)") dr*i,  sum(fr_mean(i, m, :))/nmaps, sqrt(sum(fr_sq(i, m, :))/nmaps)
      enddo
      call fp%close()
-     call fp%open("rad_cov_m"//COOP_STR_OF(m*2)//".txt")
+     call fp%open(trim(output)//"rad_cov_m"//COOP_STR_OF(m*2)//".txt")
      call coop_write_matrix(fp%unit, frr_cov(:, :, m), n_bins, n_bins)
      call fp%close()
   enddo
