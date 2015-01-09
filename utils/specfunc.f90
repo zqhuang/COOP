@@ -1482,8 +1482,8 @@ contains
     if(mod(m,2).ne.0) Plms(m) = - Plms(m)
     if(lmax .le. m) return    
     Plms(m+1) = sqrt(2*m+1.d0)*x*Plms(m)
-    do i= m+2, lmax
-       Plms(i)  = ((2*i-1)*x*Plms(i-1)-dsqrt((i-m-1.d0)*(i+m-1.d0))*Plms(i-2))/(dsqrt((i-m)*dble(i+m)))
+    do l= m+2, lmax
+       Plms(l)  = ((2*l-1)*x*Plms(l-1)-sqrt((l-m-1.d0)*(l+m-1.d0))*Plms(l-2))/(dsqrt((l-m)*dble(l+m)))
     enddo
   end subroutine coop_get_normalized_Plm_array
 

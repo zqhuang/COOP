@@ -1,7 +1,6 @@
 module coop_firstorder_mod
   use coop_wrapper_background
   use coop_pertobj_mod
-  use coop_wrapper_firstorder
   implicit none
 #include "constants.h"
 
