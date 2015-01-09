@@ -21,6 +21,7 @@ module coop_healpix_mod
   logical::coop_healpix_alm_check_done = .false.
   logical::coop_healpix_want_cls = .true.
   COOP_REAL,parameter::coop_healpix_max_threshold = 10.d0
+  COOP_REAL,parameter::coop_healpix_zeta_normalization = 1.d-5
 
   COOP_INT,parameter::dlc = kind( (1.d0,1.d0) )
   COOP_INT,parameter::coop_inpainting_lowl_max = 20
@@ -81,6 +82,7 @@ module coop_healpix_mod
      procedure :: iqu2LapTEB => coop_healpix_maps_iqu2LapTEB
      procedure :: teb2iqu => coop_healpix_maps_teb2iqu
      procedure :: iqu2TQTUT => coop_healpix_maps_iqu2TQTUT
+     procedure :: iqu2TQTUT1 => coop_healpix_maps_iqu2TQTUT1     
      procedure :: smooth => coop_healpix_maps_smooth
      procedure :: smooth_with_window => coop_healpix_maps_smooth_with_window
      procedure :: smooth_mask => coop_healpix_smooth_mask
@@ -735,8 +737,22 @@ contains
     this%alm(:,:,3) = 0
     this%spin(2:3) = 2
     this%spin(1) = 0
-    call this%alm2map()
+    call this%alm2map( index_list = (/ 2, 3 /) )
   end subroutine coop_healpix_maps_iqu2TQTUT
+
+  subroutine coop_healpix_maps_iqu2TQTUT1(this)
+    class(coop_healpix_maps) this
+    COOP_INT l
+    call this%map2alm(index_list = (/ 1 /) )
+    this%alm(:,:, 2:3) = 0.
+    do l = 2, this%lmax
+       this%alm(l,:,2) = this%alm(l,:,1)*(l*(l+1.))
+    enddo
+    this%spin(2:3) = 2
+    this%spin(1) = 0
+    call this%alm2map( index_list = (/ 2, 3 /) )
+  end subroutine coop_healpix_maps_iqu2TQTUT1
+
 
   subroutine coop_healpix_maps_iqu2TEB(this)
     class(coop_healpix_maps) this
@@ -2148,7 +2164,6 @@ contains
   end subroutine coop_healpix_getQU
 
 
-  !!note that map and mask are converted to NESTED order after calling this
   subroutine coop_healpix_maps_get_spots(map, spots,  spot_type, threshold, threshold_pol, mask)
     COOP_UNKNOWN_STRING spot_type
     type(coop_list_realarr)::spots
@@ -2468,6 +2483,8 @@ contains
        write(*,*) trim(spot_type)
        stop "unknown spot type"
     end select
+!!$    call map%convert2ring
+!!$    if(domask)call mask%convert2ring    
 #else
     stop "CANNOT FIND HEALPIX"
 #endif
@@ -2606,7 +2623,7 @@ contains
              call neighbours_nest(map%nside, i, list, nneigh)  
              if(all(map%map(list(1:nneigh),1) .lt. map%map(i,1)))then
                 rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
-                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                
+                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi
                 call nest2ring(map%nside, i, ipix)
                 call listpix%push(ipix)
                 call listangle%push(real(rotate_angle))
@@ -2776,6 +2793,7 @@ contains
     else
        domask = .false.
     endif
+    
     if(domask) call mask%read(mask_file, nmaps_wanted = 1)
     if(present(threshold_pol))then
        if(present(threshold))then
@@ -2796,6 +2814,7 @@ contains
           if(domask)then
              call map%get_spots(spots = spots,  spot_type = spot_type, threshold=threshold, mask = mask)
           else
+
              call map%get_spots(spots = spots,  spot_type = spot_type, threshold=threshold)
           endif
        else
@@ -3462,7 +3481,7 @@ contains
     call fod%source(0)%get_All_Cls(2, this%lmax, Cls)
     call coop_get_lensing_Cls(2, this%lmax, Cls, Cls_lensed)
     
-    norm = 1.d5 / 2.726 / Knorm
+    norm = 1.d0/coop_healpix_zeta_normalization/ COOP_DEFAULT_TCMB / Knorm
 
     !$omp parallel do private(i, ucnorm, CTT)
     do l = 2, this%lmax
@@ -3535,7 +3554,7 @@ contains
     call fod%source(0)%get_All_Cls(2, this%lmax, Cls)
     call coop_get_lensing_Cls(2, this%lmax, Cls, Cls_lensed)
     
-    norm = 1.d5 / 2.726 / Knorm
+    norm = 1.d0/coop_healpix_zeta_normalization/ COOP_DEFAULT_TCMB / Knorm
     !$omp parallel do private(i, ucnorm, CEE, l)
     do l = 2, this%lmax
        CEE = ( Cls(coop_index_ClEE, l) + abs(Cls_lensed(coop_index_ClEE,l)) +  coop_Planck_ENoise(l)/coop_healpix_beam(l, fwhm_arcmin) )
@@ -3610,7 +3629,7 @@ contains
        Knorm = 1.d0
     endif
     
-    norm = 1.d5 / 2.726 /Knorm
+    norm = 1.d0/coop_healpix_zeta_normalization/COOP_DEFAULT_TCMB/Knorm
 
     !$omp parallel do private(CTT, CTE, CEE, delta, bl, ucnorm, coef_T, coef_E)
     do l = 2, this%lmax
@@ -3675,7 +3694,7 @@ contains
   0.16444457464651557  /)
     COOP_REAL, parameter::rmin = coop_ln2, rmax = log(3000.d0)
     call coop_chebeval(fit_n, rmin, rmax, coef, log(dble(l)), Nl)
-    Nl = exp(Nl)/2.726**2
+    Nl = exp(Nl)/COOP_DEFAULT_TCMB **2
   end function Coop_Planck_TNoise
 
   function coop_Planck_ENoise(l) result(Nl)

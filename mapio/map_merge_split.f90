@@ -26,12 +26,12 @@ program map
   type(coop_healpix_maps) hgm, hgm2
   COOP_REAL fwhm, scal, threshold
   type(coop_file)::fp
-  
-  write(*,*) "options are: SPLIT; SMOOTH; DOBEAM; MULTIPLY;I2TQTUT;IQU2TEB;T2ZETA; IQU2ZETA; QU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE; HIGHPASS"
+
   nin = 1
   inline_mode =  (iargc() .gt. 0)
-
-
+  if(.not. inline_mode)then
+     write(*,*) "options are: SPLIT; SMOOTH; DOBEAM; MULTIPLY;I2TQTUT;IQU2TEB;T2ZETA; IQU2ZETA; QU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE; HIGHPASS"
+  endif
   do while(nin .le. nmax)
      if(inline_mode)then
         fin(nin) = trim(coop_inputArgs(nin))

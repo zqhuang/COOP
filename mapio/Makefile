@@ -68,6 +68,10 @@ HA: $(OBJ) hast.o
 GetRad: $(OBJ) getrad.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) getrad.o $(LINK)
 
+POSTRAD: $(OBJ) postrad.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) postrad.o $(LINK)
+
+
 SST: $(OBJ) sstack.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) sstack.o $(LINK)
 

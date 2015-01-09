@@ -21,11 +21,12 @@ program hastack_prog
   
   COOP_STRING::allprefix
   COOP_REAL,parameter::patch_size=2.d0*sin(r_degree*coop_SI_degree/2.d0)
-  COOP_INT, parameter::n = 48
+  COOP_INT,parameter:: n_bins = 6
+  COOP_INT, parameter:: n_per_bin = 8
+  COOP_INT, parameter::n = n_bins * n_per_bin
   COOP_REAL, parameter::dr = patch_size/n
-  
-  COOP_UNKNOWN_STRING, parameter::cs_method = "smica"
-  
+
+  logical, parameter::do_mask = .false.  
   COOP_UNKNOWN_STRING, parameter::imask_file  = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
   COOP_UNKNOWN_STRING, parameter::polmask_file  ="planck14/dx11_v2_common_pol_mask_010a_1024.fits"
 
@@ -55,6 +56,7 @@ program hastack_prog
   if(trim(spot_type) .eq. "" .or. trim(stack_type).eq."")then
      print*, "Syntax:"
      print*, "./GetRad Tmax T [nu]"
+     print*, "./GetRad Tmax_QTUTOrient T [nu]"     
      print*, "./GetRad Tmax QrUr [nu]"
      print*, "./GetRad Tmax QU [nu]"
      print*, "./GetRad Tmax_QTUTOrient QU [nu]"
@@ -65,9 +67,10 @@ program hastack_prog
 
   lmax  = 2000
   write(*,*) "Using lmax = "//COOP_STR_OF(lmax)
-  call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )  
-  call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )
-  
+  if(do_mask)then
+     call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )  
+     call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )
+  endif
   call patch%init(trim(stack_type), n, dr, mmax = mmax)
   if(abs(threshold).lt.6.d0)then
      allprefix = prefix//trim(stack_type)//"_on_"//trim(spot_type)//"_"//COOP_STR_OF(nint(r_degree))//"deg_nu"//COOP_STR_OF(nint(threshold))     
@@ -76,7 +79,7 @@ program hastack_prog
   endif
 
   call fp%open(trim(allprefix)//"_info.txt", "w")
-  write(fp%unit,*) n, patch%nmaps, dr/coop_SI_arcmin
+  write(fp%unit,*) n, patch%nmaps, dr/coop_SI_arcmin, n_sim
   call fp%close()
 
   fr_file = trim(allprefix)//".dat"
@@ -90,7 +93,7 @@ program hastack_prog
      ind = i
      if(ind .ge. n_sim) exit
   enddo
-100 write(*,*) "Loaded "//trim(coop_num2str(ind+1))//" maps from checkpoint"
+100 write(*,*) "Loaded "//trim(coop_num2str(ind))//" maps from checkpoint"
   call fp%close()
 200 call fp%open(trim(fr_file), "u")
   do i=1, ind
@@ -106,10 +109,18 @@ program hastack_prog
      select case(trim(spot_type))
      case("Tmax", "Tmax_QTUTOrient", "PTmax")
         call load_imap(ind)
-        call imap%get_listpix(listpix, listangle, trim(spot_type), threshold, imask)
+        if(do_mask)then
+           call imap%get_listpix(listpix, listangle, trim(spot_type), threshold, imask)
+        else
+           call imap%get_listpix(listpix, listangle, trim(spot_type), threshold)
+        endif
      case("Pmax")
         call load_polmap(ind)
-        call polmap%get_listpix(listpix, listangle, trim(spot_type), threshold, polmask)
+        if(do_mask)then
+           call polmap%get_listpix(listpix, listangle, trim(spot_type), threshold, polmask)
+        else
+           call polmap%get_listpix(listpix, listangle, trim(spot_type), threshold)
+        endif
      case("default")
         print*, trim(spot_type)
         stop "Not supported"
@@ -117,10 +128,18 @@ program hastack_prog
      select case(trim(stack_type))
      case("T")
         call load_imap(ind)
-        call imap%stack_with_listpix(patch, listpix, listangle, imask)
+        if(do_mask)then
+           call imap%stack_with_listpix(patch, listpix, listangle, imask)
+        else
+           call imap%stack_with_listpix(patch, listpix, listangle)           
+        endif
      case("QU", "QrUr")
         call load_polmap(ind)
-        call polmap%stack_with_listpix(patch, listpix, listangle, polmask)
+        if(do_mask)then
+           call polmap%stack_with_listpix(patch, listpix, listangle, polmask)
+        else
+           call polmap%stack_with_listpix(patch, listpix, listangle)           
+        endif
      case default
         print*, trim(stack_type)
         stop "Not supported"
@@ -128,7 +147,7 @@ program hastack_prog
      call patch%get_all_radial_profiles()
      write(fp%unit) ind
      write(fp%unit) patch%fr
-     if(mod(ind, 30).eq. 0) flush(fp%unit)
+     flush(fp%unit)
   enddo
   call fp%close()
   call coop_MPI_Finalize()
@@ -148,13 +167,13 @@ contains
     spin(1) = 0
     if(nm.gt.1) spin(2:3) = 2
     if(iload_first_call)then
-       call imap%read(trim(sim_file_name_cmb_imap(i)), nmaps_wanted = nm , spin = spin , nmaps_to_read = 1 )
+       call imap%read(trim(sim_file_name_cmb_imap(i)), nmaps_wanted = nm , spin = spin)
        iload_first_call = .false.
     else
-       call imap%read(trim(sim_file_name_cmb_imap(i)),  nmaps_to_read = 1, known_size = .true.)
+       call imap%read(trim(sim_file_name_cmb_imap(i)),  nmaps_to_read = nm, known_size = .true.)
     endif
     deallocate(spin)
-    imap%map(:, 1) = imap%map(:, 1)*imask%map(:, 1)    
+!    imap%map(:, 1) = imap%map(:, 1)*imask%map(:, 1)    
   end subroutine load_imap
 
 
@@ -167,8 +186,8 @@ contains
     else
        call polmap%read(trim(sim_file_name_cmb_polmap(i)), nmaps_to_read = 2 , known_size = .true.)
     endif
-    polmap%map(:, 1) = polmap%map(:, 1)*polmask%map(:, 1)
-    polmap%map(:, 2) = polmap%map(:, 2)*polmask%map(:, 1)
+!    polmap%map(:, 1) = polmap%map(:, 1)*polmask%map(:, 1)
+!    polmap%map(:, 2) = polmap%map(:, 2)*polmask%map(:, 1)
   end subroutine load_polmap
 
 
