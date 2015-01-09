@@ -10,11 +10,11 @@ program test
 
   implicit none
 #include "constants.h"
-  COOP_INT,parameter::lmax = 2000
+  COOP_INT,parameter::lmax = 1600
   type(coop_healpix_maps)::map, imask, polmask
   integer l, m, il
   type(coop_file)::fp
-  COOP_REAL::beam_fwhm = 15.
+  COOP_REAL::beam_fwhm = 30.
   COOP_REAL sigma, w
   call coop_random_init()
 

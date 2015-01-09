@@ -9,7 +9,7 @@ program stackth
   use alm_tools
   implicit none
 #include "constants.h"
-  integer, parameter::lmax=2000, n=50, index_temp = 1, index_pol = 4
+  integer, parameter::lmin = 2, lmax=2000, n=50, index_temp = 1, index_pol = 4
   COOP_REAL, parameter:: r_degree = 2.d0
   COOP_REAL, parameter:: width = 2.d0*sin(r_degree*coop_SI_degree/2.d0)
   COOP_REAL, parameter:: dr = width/n
@@ -28,7 +28,7 @@ program stackth
   type(coop_arguments)::args
   type(coop_healpix_patch)::patchI, patchQU, patchQrUr
   
-  COOP_REAL::cls(4, 0:lmax), ell(0:lmax), sigma, l2cls(4,0:lmax), sigma2, sigma0, sigma1, cosbeta, j2, j4, j0, omega, weights(4), cr(0:1, 0:2, 0:n*3/2), frI(0:2, 0:n*3/2), frQU(0:2, 0:n*3/2), pomega, phi, romega, r(0:n*3/2), kr
+  COOP_REAL::cls(4, 2:lmax), ell(2:lmax), sigma, l2cls(4,2:lmax), sigma2, sigma0, sigma1, cosbeta, j2, j4, j0, omega, weights(4), cr(0:1, 0:2, 0:n*3/2), frI(0:2, 0:n*3/2), frQU(0:2, 0:n*3/2), pomega, phi, romega, r(0:n*3/2), kr
   if(trim(coop_InputArgs(1)).ne."")then
      prefix = trim(coop_InputArgs(1))//"_"
   else
@@ -41,22 +41,20 @@ program stackth
      head_level = 0
   endif
   call coop_random_init()
-  cls = 0.d0
-  ell = 0.d0
-  
   sigma = fwhm*coop_sigma_by_fwhm*coop_SI_arcmin
   call fp%open(clfile, "r")
   do l=2, lmax
      read(fp%unit, *) il, cls(:, l)
      ell(l)  = l
-     l2cls(:,l) = cls(:, l)*coop_2pi*exp(-l*(l+1.d0)*sigma**2)     
+     l2cls(:,l) = cls(:, l)*coop_2pi*exp(-l*(l+1.d0)*sigma**2)
+     l2cls(1:3, l) = l2cls(1:3, l) +  l*(l+1.)*(/ coop_Planck_TNoise(l), coop_Planck_ENoise(l), coop_Planck_BNoise(l) /)    
      cls(:,l) = l2cls(:,l)/(l*(l+1.d0))
      if(il.ne.l) stop "cl file broken"
   enddo
   call fp%close()
-  sigma0 = sqrt(sum(Cls(1,0:lmax)*(ell+0.5d0))/coop_2pi)
-  sigma1 = sqrt(sum(l2Cls(1,0:lmax)*(ell+0.5d0))/coop_2pi)
-  sigma2 = sqrt(sum(l2Cls(1,0:lmax)*(ell+0.5d0)*(ell*(ell+1.d0)))/coop_2pi)
+  sigma0 = sqrt(sum(Cls(1,:)*(ell+0.5d0))/coop_2pi)
+  sigma1 = sqrt(sum(l2Cls(1,:)*(ell+0.5d0))/coop_2pi)
+  sigma2 = sqrt(sum(l2Cls(1,:)*(ell+0.5d0)*(ell*(ell+1.d0)))/coop_2pi)
   cosbeta = sigma1**2/sigma0/sigma2
   print*, "gamma = ", cosbeta
   print*, "sigma_0 = ", sigma0
@@ -85,8 +83,8 @@ program stackth
         write(fpQU(m)%unit, "(I6)") n+1
         write(fpI(m)%unit, "(A)") "Theory"
         write(fpQU(m)%unit, "(A)") "Theory"
-        write(fpI(m)%unit, "(A)") "red_dashed"
-        write(fpQU(m)%unit, "(A)") "red_dashed"
+        write(fpI(m)%unit, "(A)") "blue_dashed"
+        write(fpQU(m)%unit, "(A)") "blue_dashed"
         write(fpI(m)%unit, "(A)") "0"
         write(fpQU(m)%unit, "(A)") "0"
      endif
@@ -95,7 +93,7 @@ program stackth
   do i = 0, n*3/2
      omega = dr*i
      r(i) = omega
-     do l = 2, lmax
+     do l = lmin, lmax
         kr = (l+0.5d0)*omega
         j0 = coop_bessj(0, kr)
         j2 = coop_bessj(2, kr)
