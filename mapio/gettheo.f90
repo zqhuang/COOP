@@ -27,7 +27,7 @@ program stackth
   integer l, il, i, j, iomega, m
   type(coop_arguments)::args
   type(coop_healpix_patch)::patchI, patchQU, patchQrUr
-  COOP_REAL::Pl0(0:lmax), Pl2(0:lmax, Pl4(0:lmax)
+  COOP_REAL::Pl0(0:lmax), Pl2(0:lmax), Pl4(0:lmax)
   COOP_REAL::cls(4, 2:lmax), ell(2:lmax), sigma, l2cls(4,2:lmax), sigma2, sigma0, sigma1, cosbeta, j2, j4, j0, omega, weights(4), cr(0:1, 0:2, 0:n*3/2), frI(0:2, 0:n*3/2), frQU(0:2, 0:n*3/2), pomega, phi, romega, r(0:n*3/2), kr
   line = coop_InputArgs(2)
   if(trim(line).eq."")then
@@ -103,10 +103,10 @@ program stackth
      omega = dr*i
      r(i) = omega
      if(.not.flat)then  !!get Plms
-        call coop_get_noramlized_Plm_array(m=0, lmax=lmax, x = 1.d0-omega**2/2.d0, Plms = Pl0)
-        call coop_get_noramlized_Plm_array(m=2, lmax=lmax, x = 1.d0-omega**2/2.d0, Plms = Pl2)
-        call coop_get_noramlized_Plm_array(m=4, lmax=lmax, x = 1.d0-omega**2/2.d0, Plms = Pl4)
-     endif
+        call coop_get_normalized_Plm_array(m=0, lmax=lmax, x = 1.d0-omega**2/2.d0, Plms = Pl0)
+        call coop_get_normalized_Plm_array(m=2, lmax=lmax, x = 1.d0-omega**2/2.d0, Plms = Pl2)
+        call coop_get_normalized_Plm_array(m=4, lmax=lmax, x = 1.d0-omega**2/2.d0, Plms = Pl4)
+
      endif
      do l = lmin, lmax
         if(flat)then
@@ -175,6 +175,34 @@ program stackth
   call patchQU%plot(2, trim(prefix)//"U_stack.txt")
   call patchQrUr%plot(1, trim(prefix)//"Qr_stack.txt")
   call patchQrUr%plot(2, trim(prefix)//"Ur_stack.txt")
+
+  !!test the integrator
+  call patchI%get_all_radial_profiles()
+  do i = -3, 3
+     print*, i, patchI%icm(-3:3, i, 0)
+  enddo
+  print*
+  do i = -3, 3
+     print*, i, patchI%icm(-3:3, i, 1)
+  enddo
+  print*  
+  
+  do i = -3, 3
+     print*, i, patchI%wcm(-2:2, i, 4)
+  enddo
+  print*
+  do i = -2, 2
+     print*, i, patchI%wcm(-2:2, i, 5)
+  enddo
+  print*
+  
+  do m = 0, 2
+     print*, m
+     do i=0, n
+        print*, dr*i, patchI%fr(i,m,1), frI( m , i)
+     enddo
+  enddo
+  
   call figCr%open(trim(prefix)//"cr.txt")
   call figCr%init(xlabel="$\varpi$", ylabel="$c_{m,n}(\varpi)$")
   call figCr%curve(x = r, y = cr(0,0,:)/sigma0, color="red", linewidth=1.8, linetype="solid", legend="$c_{0,0}(\varpi)/\sigma_0$")

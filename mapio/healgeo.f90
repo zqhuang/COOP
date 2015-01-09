@@ -425,7 +425,7 @@ contains
     COOP_REAL dr, cosmt, sinmt, theta
     COOP_INT i,j,m
     COOP_INT, optional::mmax
-    COOP_REAL sumrc(0:n+1), sumrs(0:n+1)
+    COOP_REAL sumrc(0:n+1), sumrs(0:n+1), weight(0:n+1)
     call this%free()
     this%caption = ""
     this%headless_vectors = .true.
@@ -514,6 +514,32 @@ contains
        enddo
     enddo
     !$omp end parallel do
+    m = 0
+    sumrc = 1.d-10
+    this%wcm(0,0,0)=1.d0
+    this%wcm(0,0,1:)=0.d0
+    this%wsm(0,0,:) = 0.d0
+    
+    do j=-this%n, this%n
+       do i=-this%n, this%n
+          if( this%icm(i, j, 0).eq.0  .or. this%icm(i,j,0) .gt. this%n)cycle
+          sumrc(this%icm(i,j,0)) = sumrc(this%icm(i,j,0)) + this%wcm(i,j,m)
+          sumrc(this%icm(i,j,1)) = sumrc(this%icm(i,j,1)) + this%wcm(i,j,m+1)
+       enddo
+    enddo
+    !$omp parallel do private(i, j)
+    do j=-this%n, this%n
+       do i=-this%n, this%n
+          if( this%icm(i, j, 0).gt.0  .and. this%icm(i,j,0) .le. this%n) &
+               this%wcm(i, j, m) = this%wcm(i, j, m)/sumrc(this%icm(i, j, 0))
+          if( this%icm(i, j, 1).gt.0  .and. this%icm(i,j,1) .le. this%n) &  
+               this%wcm(i, j, m+1) = this%wcm(i, j, m+1)/sumrc(this%icm(i, j, 1))
+       enddo
+    enddo
+    !$omp end parallel do
+    sumrc = 0.d0
+    sumrs = 0.d0
+    
     !$omp parallel do private(m, i, j, cosmt, sinmt, theta)
     do m = 2, this%mmax, 2
        do j=-this%n, this%n
@@ -524,6 +550,7 @@ contains
                 sinmt = sin(m*theta)*2.d0
                 this%wcm(i, j, m) = this%wcm(i, j, 0)*cosmt
                 this%wcm(i, j, m+1) = this%wcm(i, j, 1)*cosmt
+                sumrc(
                 this%wsm(i, j, m) = this%wcm(i, j, 0)*sinmt
                 this%wsm(i, j, m+1) = this%wcm(i, j, 1)*sinmt
              else
@@ -538,9 +565,9 @@ contains
     !$omp end parallel do
 
     !!do renormalization
-    do m = 0, this%mmax, 2
-       sumrc = 1.d-31
-       sumrs = 1.d-31
+    do m = 2, this%mmax, 2
+       sumrc = 1.d-10
+       sumrs = 1.d-10
        do j=-this%n, this%n
           do i=-this%n, this%n
              if( this%icm(i, j, 0).eq.0  .or. this%icm(i,j,0) .gt. this%n)cycle
@@ -579,9 +606,7 @@ contains
        enddo
        !$omp end parallel do
     enddo
-    this%wcm(0,0,0)=1.d0
-    this%wcm(0,0,1:)=0.d0
-    this%wsm(0,0,:) = 0.d0
+    
   end subroutine coop_healpix_patch_init
 
 
