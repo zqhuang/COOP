@@ -18,7 +18,7 @@ program stackth
   !!settings
   logical,parameter::do_highpass = .false.
   integer, parameter::index_corr = index_temp  !!index_temp
-  COOP_UNKNOWN_STRING,parameter::clfile = "planckbest_lensedtotCls.dat" !!  "planck14_best_cls.dat"  !!
+  COOP_UNKNOWN_STRING,parameter::clfile = "planck14_best_cls.dat"  !! "planckbest_lensedtotCls.dat" !! 
   COOP_STRING::spot_type
   COOP_REAL::nu !! threshold
   COOP_REAL::fwhm !!fwhm in arcmin
