@@ -16,7 +16,7 @@ program test
   type(coop_healpix_maps)::map
   COOP_STRING::prefix
   COOP_REAL, dimension(:,:,:,:),allocatable::f
-  COOP_REAL, dimension(:,:,:) fsim_base, fdata_base
+  COOP_REAL, dimension(:,:,:), allocatable:: fsim_base, fdata_base
   COOP_REAL, dimension(:),allocatable::r, rsq, mean, chisq, tmpf
   COOP_REAL, dimension(:,:),allocatable::cov, bounds
   COOP_INT::nproj
