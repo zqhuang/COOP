@@ -186,7 +186,7 @@ contains
     endif
     deallocate(spin)
     call do_smooth_imap(imap, i)        
-    if(nm.gt.1)call imap%iqu2TQTUT()
+    if(nm.gt.1)call imap%iqu2TQTUT( idone = (fwhm .gt. coop_SI_arcmin .or. do_calibration)  )
   end subroutine load_imap
 
 

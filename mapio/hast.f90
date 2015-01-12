@@ -199,7 +199,7 @@ contains
           call imap%smooth(fwhm, l_upper = lmax, index_list = (/ 1 /) )
        endif
     endif
-    if(nm.gt.1)call imap%iqu2TQTUT()
+    if(nm.gt.1)call imap%iqu2TQTUT( idone = (do_calibration .or.  fwhm .ge.coop_SI_arcmin) )
   end subroutine load_imap
 
 
