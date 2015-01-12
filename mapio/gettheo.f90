@@ -18,7 +18,7 @@ program stackth
   !!settings
   logical,parameter::do_highpass = .false.
   integer, parameter::index_corr = index_temp  !!index_temp
-  COOP_UNKNOWN_STRING,parameter::clfile = "planckbest_lensedtotCls.dat" !! "planck14_best_cls.dat"  
+  COOP_UNKNOWN_STRING,parameter::clfile = "planckbest_lensedtotCls.dat" !!  "planck14_best_cls.dat"  !!
   COOP_STRING::spot_type
   COOP_REAL::nu !! threshold
   COOP_REAL::fwhm !!fwhm in arcmin
@@ -67,7 +67,7 @@ program stackth
      else
         l2cls(:,l) = cls(:, l)*(coop_2pi*exp(-l*(l+1.d0)*sigma**2))        
      endif
-     l2cls(1:3, l) = l2cls(1:3, l) +  l*(l+1.)*(/ coop_Planck_TNoise(l), coop_Planck_ENoise(l), coop_Planck_BNoise(l) /)    
+ !    l2cls(1:3, l) = l2cls(1:3, l) +  l*(l+1.)*(/ coop_Planck_TNoise(l), coop_Planck_ENoise(l), coop_Planck_BNoise(l) /)    
      cls(:,l) = l2cls(:,l)/(l*(l+1.d0))
      if(il.ne.l) stop "cl file broken"
   enddo

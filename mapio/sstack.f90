@@ -9,11 +9,16 @@ program hastack_prog
   use alm_tools
   implicit none
 #include "constants.h"
-  logical,parameter::do_calibration = .true.
+  logical,parameter::do_calibration = .false.  
   COOP_INT, parameter::n_sim = 1000
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_SHORT_STRING::spot_type, stack_type, threshold_input
-  COOP_REAL, parameter::patch_size = 2.d0*coop_SI_degree
+  
+  COOP_REAL, parameter::patch_size = 2.d0*sin(coop_SI_degree)
+  COOP_INT, parameter::n = 36
+  COOP_REAL, parameter::dr = patch_size/n
+  COOP_REAL::threshold = 1.  
+
   COOP_UNKNOWN_STRING, parameter::cs_method = "smica"
   COOP_UNKNOWN_STRING, parameter::pol_case = "case1"
   
@@ -28,10 +33,7 @@ program hastack_prog
   COOP_STRING::allprefix
   COOP_UNKNOWN_STRING, parameter::mapdir = "/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
   COOP_REAL,parameter::fwhm = coop_SI_arcmin * sqrt(fwhm_arcmin**2-fwhm_in**2)
-  COOP_REAL::threshold = 1.
-  COOP_REAL, parameter::dr = coop_SI_arcmin * max(fwhm_arcmin/5.d0, 5.d0)
-  COOP_INT, parameter::n = nint(patch_size/dr)
-
+  
   COOP_UNKNOWN_STRING, parameter::imap_file  = "planck14/dx11_v2_"//cs_method//"_int_cmb"//postfix
   COOP_UNKNOWN_STRING, parameter::polmap_file  = "planck14/dx11_v2_"//cs_method//"_pol_"//pol_case//"_cmb"//polpost
   COOP_UNKNOWN_STRING, parameter::imask_file  = "planck14/dx11_v2_common_int_mask"//postfix
@@ -61,6 +63,7 @@ program hastack_prog
   if(trim(spot_type) .eq. "" .or. trim(stack_type).eq."")then
      print*, "Syntax:"
      print*, "./SST Tmax  T [nu]"
+     print*, "./SST Tmax_QTUTOrient  T [nu]"     
      print*, "./SST Tmax  QrUr [nu]"
      print*, "./SST Tmax  QU [nu]"
      print*, "./SST Tmax_QTUTOrient QU [nu]"
