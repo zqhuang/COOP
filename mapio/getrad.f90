@@ -9,20 +9,22 @@ program hastack_prog
   use alm_tools
   implicit none
 #include "constants.h"
-  COOP_INT, parameter::n_sim = 30
+  COOP_INT, parameter::n_sim = 100
   COOP_INT, parameter::mmax = 4  
   COOP_UNKNOWN_STRING, parameter::color_table = "Rainbow"
   COOP_SHORT_STRING::spot_type, stack_type, threshold_input
 
   
-  COOP_UNKNOWN_STRING, parameter::prefix = "sr30/"
-  COOP_REAL,parameter::r_degree = 2.d0
+  COOP_UNKNOWN_STRING, parameter::prefix = "sr/"
+  COOP_UNKNOWN_STRING, parameter::mapprefix = "massive/simu"
+  COOP_INT, parameter :: fwhm = 15
+  COOP_REAL, parameter :: r_degree = 2.d0
   COOP_REAL::threshold
   
   COOP_STRING::allprefix
   COOP_REAL,parameter::patch_size=2.d0*sin(r_degree*coop_SI_degree/2.d0)
-  COOP_INT,parameter:: n_bins = 6
-  COOP_INT, parameter:: n_per_bin = 8
+  COOP_INT,parameter:: n_bins = 4
+  COOP_INT, parameter:: n_per_bin = 9
   COOP_INT, parameter::n = n_bins * n_per_bin
   COOP_REAL, parameter::dr = patch_size/n
 
@@ -194,14 +196,14 @@ contains
   function sim_file_name_cmb_imap(i)
     COOP_INT i
     COOP_STRING sim_file_name_cmb_imap
-    sim_file_name_cmb_imap ="massive/simu_TQTUT_"//trim(coop_ndigits(i-1, 5))//"_030a_n1024.fits"
+    sim_file_name_cmb_imap =trim(mapprefix)//"_TQTUT_"//trim(coop_ndigits(i-1, 5))//"_0"//COOP_STR_OF(fwhm)//"a_n1024.fits"
   end function sim_file_name_cmb_imap
 
 
   function sim_file_name_cmb_polmap(i)
     COOP_INT i
     COOP_STRING sim_file_name_cmb_polmap
-    sim_file_name_cmb_polmap = "massive/simu_pol_"//trim(coop_ndigits(i-1, 5))//"_030a_n1024.fits"
+    sim_file_name_cmb_polmap = trim(mapprefix)//"_pol_"//trim(coop_ndigits(i-1, 5))//"_0"//COOP_STR_OF(fwhm)//"a_n1024.fits"
   end function sim_file_name_cmb_polmap
 
 end program hastack_prog

@@ -12,9 +12,10 @@ program test
 #include "constants.h"
 
   COOP_STRING::imap_file, polmap_file, output_file
-  COOP_INT, parameter::lmax = 3000
+  COOP_INT, parameter::lmax = 2000
+  logical,parameter::do_smooth = .false.
   COOP_INT, parameter::smooth_delta_ell = 20
-  
+  logical,parameter::do_mask = .false.
   COOP_UNKNOWN_STRING, parameter::imask_file = "planck14/dx11_v2_smica_int_mask_005a_2048.fits"
   COOP_UNKNOWN_STRING, parameter::polmask_file = "planck14/dx11_v2_smica_pol_mask_005a_2048.fits"
   COOP_REAL, parameter::rmin = coop_ln2, rmax = log(dble(lmax))
@@ -41,20 +42,22 @@ program test
   call map%read(imap_file, nmaps_wanted = 3, spin = (/ 0, 2, 2 /) )
   call map%import(polmap_file, index_start = 2, index_end = 3, spin = (/ 2, 2 /))
 
-  call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
-  map%map(:,1) = map%map(:, 1)*imask%map(:,1)
-  call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )  
-  map%map(:,2) = map%map(:, 2)*polmask%map(:,1)
-  map%map(:,3) = map%map(:, 3)*polmask%map(:,1)
-
+  if(do_mask)then
+     call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
+     map%map(:,1) = map%map(:, 1)*imask%map(:,1)
+     call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )  
+     map%map(:,2) = map%map(:, 2)*polmask%map(:,1)
+     map%map(:,3) = map%map(:, 3)*polmask%map(:,1)
+  endif
   call map%map2alm(lmax = lmax)
   call map%get_cls()
-  map%cl(:,1) = map%cl(:,1) * (imask%npix/sum(dble(imask%map(:,1))))
-  map%cl(:,2) = map%cl(:,2) * (polmask%npix/sum(dble(polmask%map(:,1))))
-  map%cl(:,3) = map%cl(:,3) * (polmask%npix/sum(dble(polmask%map(:,1))))
-  call imask%free
-  call polmask%free
-  
+  if(do_mask)then
+     map%cl(:,1) = map%cl(:,1) * (imask%npix/sum(dble(imask%map(:,1))))
+     map%cl(:,2) = map%cl(:,2) * (polmask%npix/sum(dble(polmask%map(:,1))))
+     map%cl(:,3) = map%cl(:,3) * (polmask%npix/sum(dble(polmask%map(:,1))))
+     call imask%free
+     call polmask%free
+  endif
   do l=2, lmax
      lnl(l) = log(dble(l))
   enddo
@@ -71,9 +74,11 @@ program test
   do l=0, map%lmax
      map%cl(l, :) = map%cl(l, :)*(l*(l+1)/coop_2pi*1.e12)
   enddo
-  do i=1, 1
-     call coop_smooth_data(map%lmax+1, map%cl(0:map%lmax, i), smooth_delta_ell)
-  enddo
+  if(do_smooth)then
+     do i=1, 1
+        call coop_smooth_data(map%lmax+1, map%cl(0:map%lmax, i), smooth_delta_ell)
+     enddo
+  endif
   call fp%open(output_file, "w")
   do l = 0, map%lmax
      write(fp%unit, "(I5, 6E16.7)") l, map%cl(l,:)

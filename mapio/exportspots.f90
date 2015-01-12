@@ -7,10 +7,10 @@ program test
   COOP_INT::fwhm_arcmin = 15.
   COOP_INT::fwhm_in = 15.
   COOP_STRING::spot_type = "Tmax_QTUTOrient"
-  COOP_STRING::input_file ="massive/simu_TQTUT_00000_015a_n1024.fits"
+  COOP_STRING::input_file ="massive/simu_TQTUT_00001_015a_n1024.fits"
   COOP_STRING::imask_file  = "" 
   COOP_STRING::polmask_file  = "" 
-  COOP_REAL:: threshold = 1.e31
+  COOP_REAL:: threshold = 0.d0
   COOP_REAL:: threshold_pol = 1.e31
 
   COOP_STRING::mask_file

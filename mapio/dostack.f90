@@ -6,8 +6,8 @@ program test
 #include "constants.h"
 
   COOP_STRING :: spot_type = "T"
-  COOP_STRING :: map_file =  "massive/simu_TQTUT_00000_015a_n1024.fits"
-  COOP_STRING:: spots_file = "spots/simu_TQTUT_00000_015a_n1024_fwhm15_Tmax_QTUTOrient.txt"
+  COOP_STRING :: map_file =  "massive/simu_TQTUT_00001_015a_n1024.fits"
+  COOP_STRING:: spots_file = "spots/simu_TQTUT_00001_015a_n1024_fwhm15_Tmax_QTUTOrient_threshold0.txt"
   COOP_STRING :: imask_file = ""
   COOP_STRING:: polmask_file =  "" 
   COOP_STRING::unit = "K"
@@ -15,8 +15,9 @@ program test
 
   COOP_UNKNOWN_STRING,parameter:: color_table = "Rainbow"
   COOP_REAL,parameter::r_degree = 2.d0
-  COOP_REAL,parameter::r=2.d0*sin(r_degree*coop_SI_degree/2.d0), dr = max(coop_SI_arcmin*3., r/60.)
-  COOP_INT, parameter::n = ceiling(r/dr)
+  COOP_REAL,parameter::r=2.d0*sin(r_degree*coop_SI_degree/2.d0)
+  COOP_INT, parameter::n = 36
+  COOP_REAL,parameter::dr = r/n
   COOP_UNKNOWN_STRING, parameter :: prefix = "stacked/"
   COOP_STRING fout,fout2, caption, fname, inline
   COOP_INT,parameter::mmax = 4

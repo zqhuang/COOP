@@ -9,15 +9,17 @@ program stackth
   use alm_tools
   implicit none
 #include "constants.h"
-  integer, parameter::lmin = 2, lmax=2000, n=50, index_temp = 1, index_pol = 4
+  integer, parameter::lmin = 2, lmax=2000, index_temp = 1, index_pol = 4
   COOP_REAL, parameter:: r_degree = 2.d0
   COOP_REAL, parameter:: width = 2.d0*sin(r_degree*coop_SI_degree/2.d0)
+  COOP_INT,parameter:: n=36
   COOP_REAL, parameter:: dr = width/n
   logical,parameter::flat = .false. !!use nonflat is actually faster
   !!settings
+  logical,parameter::do_highpass = .false.
   integer, parameter::index_corr = index_temp  !!index_temp
-  COOP_UNKNOWN_STRING,parameter::clfile = "planckbest_lensedtotCls.dat"  
-  COOP_UNKNOWN_STRING, parameter::spot_type = "Tmax_QTUTOrient"  
+  COOP_UNKNOWN_STRING,parameter::clfile = "planckbest_lensedtotCls.dat" !! "planck14_best_cls.dat"  
+  COOP_STRING::spot_type
   COOP_REAL::nu !! threshold
   COOP_REAL::fwhm !!fwhm in arcmin
   COOP_INT::head_level
@@ -29,33 +31,42 @@ program stackth
   type(coop_healpix_patch)::patchI, patchQU, patchQrUr
   COOP_REAL::Pl0(0:lmax), Pl2(0:lmax), Pl4(0:lmax)
   COOP_REAL::cls(4, 2:lmax), ell(2:lmax), sigma, l2cls(4,2:lmax), sigma2, sigma0, sigma1, cosbeta, j2, j4, j0, omega, weights(4), cr(0:1, 0:2, 0:n*3/2), frI(0:2, 0:n*3/2), frQU(0:2, 0:n*3/2), pomega, phi, romega, r(0:n*3/2), kr
-  line = coop_InputArgs(2)
+  line = coop_InputArgs(3)
   if(trim(line).eq."")then
      write(*,*) "Syntax:"
-     write(*,*) "./GetTheo nu fwhm_arcmin [output_prefix] [head_level]"
+     write(*,*) "./GetTheo spot_type nu fwhm_arcmin [output_prefix] [head_level]"
      stop
-  endif
+  endif  
   read(line, *) fwhm
-  line = coop_InputArgs(1)
+  spot_type =  trim(coop_InputArgs(1))
+  line = coop_InputArgs(2)
   read(line, *) nu
-  if(trim(coop_InputArgs(3)).ne."")then
-     prefix = trim(coop_InputArgs(3))//"_"
-  else
-     prefix = ""
-  endif
   if(trim(coop_InputArgs(4)).ne."")then
-     line = coop_InputArgs(4)
+     prefix = "rprof/"//trim(coop_InputArgs(4))//"_"
+  else
+     prefix = "rprof/"
+  endif
+  if(trim(coop_InputArgs(5)).ne."")then
+     line = coop_InputArgs(5)
      read(line,*) head_level
   else
      head_level = 0
   endif
+  if(do_highpass)then
+     print*, "warning: high-pass filter is on"
+  endif
+  
   call coop_random_init()
   sigma = fwhm*coop_sigma_by_fwhm*coop_SI_arcmin
   call fp%open(clfile, "r")
   do l=2, lmax
      read(fp%unit, *) il, cls(:, l)
      ell(l)  = l
-     l2cls(:,l) = cls(:, l)*coop_2pi*exp(-l*(l+1.d0)*sigma**2)
+     if(do_highpass)then
+        l2cls(:,l) = cls(:, l)*(coop_2pi*exp(-l*(l+1.d0)*sigma**2)*coop_highpass_filter(20, 40, l))        
+     else
+        l2cls(:,l) = cls(:, l)*(coop_2pi*exp(-l*(l+1.d0)*sigma**2))        
+     endif
      l2cls(1:3, l) = l2cls(1:3, l) +  l*(l+1.)*(/ coop_Planck_TNoise(l), coop_Planck_ENoise(l), coop_Planck_BNoise(l) /)    
      cls(:,l) = l2cls(:,l)/(l*(l+1.d0))
      if(il.ne.l) stop "cl file broken"
@@ -127,15 +138,14 @@ program stackth
         cr(1, 2, i) = cr(1, 2, i) - (l+0.5d0)*j4*l2cls(index_corr, l)        
      enddo
      cr(:,:,i) = cr(:,:,i)/coop_2pi
-   !  cr(1, 1, :) = cr(1, 1, :)*0.9
      call coop_gaussian_radial_modes_I(weights, cr(:,:,i), frI(:, i))
      call coop_gaussian_radial_modes_QU(weights, cr(:,:,i), frQU(:, i))
-     if(i.le.n)then
-        do m=0,2
-           write(fpI(m)%unit, "(2E16.7)") omega, frI(m, i)
-           write(fpQU(m)%unit, "(2E16.7)") omega, frQU(m, i)
-        enddo
-     endif
+!!$     if(i.le.n)then
+!!$        do m=0,2
+!!$           write(fpI(m)%unit, "(2E16.7)") omega, frI(m, i)
+!!$           write(fpQU(m)%unit, "(2E16.7)") omega, frQU(m, i)
+!!$        enddo
+!!$     endif
   enddo
   call patchI%init("I", n, dr, 4)
   call patchQU%init("QU", n, dr, 4)
@@ -178,28 +188,16 @@ program stackth
 
   !!test the integrator
   call patchI%get_all_radial_profiles()
-  do i = -3, 3
-     print*, i, patchI%icm(-3:3, i, 0)
-  enddo
-  print*
-  do i = -3, 3
-     print*, i, patchI%icm(-3:3, i, 1)
-  enddo
-  print*  
-  
-  do i = -3, 3
-     print*, i, patchI%wcm(-2:2, i, 4)
-  enddo
-  print*
-  do i = -2, 2
-     print*, i, patchI%wcm(-2:2, i, 5)
-  enddo
-  print*
-  
-  do m = 0, 2
-     print*, m
-     do i=0, n
-        print*, dr*i, patchI%fr(i,m,1), frI( m , i)
+  call patchQU%get_all_radial_profiles()
+  do i=0, n
+     do m=0,2
+        if(head_level.eq.0)then
+           write(fpI(m)%unit, "(3E16.7)") dr*i, frI(m, i), patchI%fr(i, m, 1)
+           write(fpQU(m)%unit, "(4E16.7)") dr*i, frQU(m, i), patchQU%fr(i, m, 1), patchQU%fr(i, m, 2)          
+        else
+           write(fpI(m)%unit, "(2E16.7)") dr*i, frI(m, i)
+           write(fpQU(m)%unit, "(2E16.7)") dr*i, frQU(m, i)
+        endif
      enddo
   enddo
   

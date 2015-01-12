@@ -10,7 +10,7 @@ program hastack_prog
   implicit none
 #include "constants.h"
   COOP_INT:: n_bins, n, nmaps, nsims
-  COOP_INT, parameter:: n_per_bin = 16, mmax = 4
+  COOP_INT, parameter:: n_per_bin = 9, mmax = 4
   COOP_REAL,dimension(:,:,:),allocatable::fr, frr, fr_mean, fr_sq
   COOP_REAL,dimension(:,:), allocatable:: frr_mean
   COOP_REAL,dimension(:,:,:),allocatable::frr_cov
@@ -19,11 +19,15 @@ program hastack_prog
   COOP_REAL::dr_arcmin, dr
   COOP_INT isim, i, j, m
   if(trim(coop_InputArgs(2)).ne."")then
-     output = trim(coop_InputArgs(2))//"_"
+     output = "rprof/"//trim(coop_InputArgs(2))//"_"
   else
-     output = ""
+     output = "rprof/"
   end if
   prefix = trim(adjustl(coop_inputArgs(1)))
+  if(trim(prefix).eq."")then
+     write(*,*) "./POSTRAD prefix [output]"
+     stop
+  endif
   call fp%open(trim(prefix)//"_info.txt", 'r')
   read(fp%unit, *) n, nmaps, dr_arcmin, nsims
   call fp%close()

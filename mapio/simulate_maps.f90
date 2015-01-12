@@ -14,10 +14,14 @@ program test
   type(coop_healpix_maps)::map, imask, polmask
   integer l, m, il
   type(coop_file)::fp
-  COOP_REAL::beam_fwhm = 30.
+  COOP_UNKNOWN_STRING, parameter::prefix = "massive/simu"
+  logical,parameter::do_highpass = .false.
+  COOP_REAL::beam_fwhm = 15.
   COOP_REAL sigma, w
   call coop_random_init()
-
+  if(do_highpass)then
+     print*, "Warning: high-pass filter is on"
+  endif
   call map%init(nside = 1024, nmaps=3, spin = (/ 0, 2, 2 /))
 
   call map%allocate_alms(lmax=lmax)
@@ -30,17 +34,21 @@ program test
      read(fp%unit, *) il, map%cl(l,coop_healpix_index_TT), map%cl(l, coop_healpix_index_EE), map%cl(l, coop_healpix_index_BB), map%cl(l, coop_healpix_index_TE)
      map%cl(l, :) = map%cl(l, :)*exp(-l*(l+1.d0)*sigma**2)
      if(il.ne. l) stop "wrong index"
-     map%cl(l,:) = map%cl(l,:)*(coop_2pi/l/(l+1.d0)/1.e12)
+     if(do_highpass)then
+        map%cl(l,:) = map%cl(l,:)*(coop_2pi/l/(l+1.d0)/1.e12*coop_highpass_filter(20, 40, l) )        
+     else
+        map%cl(l,:) = map%cl(l,:)*(coop_2pi/l/(l+1.d0)/1.e12)
+     endif
   enddo
 
   do il = 0, 99
-     if(coop_file_exists("massive/simu_TQTUT_"//trim(coop_ndigits(il, 5))//"_0"//COOP_STR_OF(nint(beam_fwhm))//"a_n1024.fits"))cycle
+     print*, "simulating map #", il
+     if(coop_file_exists(trim(prefix)//"_TQTUT_"//trim(coop_ndigits(il, 5))//"_0"//COOP_STR_OF(nint(beam_fwhm))//"a_n1024.fits"))cycle
      call map%simulate()
-     call map%write("massive/simu_int_"//trim(coop_ndigits(il, 5))//"_0"//COOP_STR_OF(nint(beam_fwhm))//"a_n1024.fits", index_list = (/ 1 /) )
-     call map%write("massive/simu_pol_"//trim(coop_ndigits(il, 5))//"_0"//COOP_STR_OF(nint(beam_fwhm))//"a_n1024.fits", index_list = (/2, 3/) )
+     call map%write(trim(prefix)//"_pol_"//trim(coop_ndigits(il, 5))//"_0"//COOP_STR_OF(nint(beam_fwhm))//"a_n1024.fits", index_list = (/2, 3/) )
 
-     call map%iqu2TQTUT()
-     call map%write("massive/simu_TQTUT_"//trim(coop_ndigits(il, 5))//"_0"//COOP_STR_OF(nint(beam_fwhm))//"a_n1024.fits")
+     call map%iqu2TQTUT(idone = .true.)
+     call map%write(trim(prefix)//"_TQTUT_"//trim(coop_ndigits(il, 5))//"_0"//COOP_STR_OF(nint(beam_fwhm))//"a_n1024.fits")
   enddo
 
 end program test

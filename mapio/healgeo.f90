@@ -16,7 +16,7 @@ module coop_healpix_mod
 
   private
 
-  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_get_disc, coop_healpix_export_spots, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_lb2ang, coop_healpix_ang2lb, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_healpix_max_threshold, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise
+  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_get_disc, coop_healpix_export_spots, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_lb2ang, coop_healpix_ang2lb, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_healpix_max_threshold, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter
   
   logical::coop_healpix_alm_check_done = .false.
   logical::coop_healpix_want_cls = .true.
@@ -49,7 +49,15 @@ module coop_healpix_mod
   end type coop_healpix_disc
 
   type coop_healpix_maps
-     COOP_INT npix, nside, nmaps, ordering, lmax, iq, iu, mask_npix, maskpol_npix
+     COOP_INT::nside = 0
+     COOP_INT::nmaps = 0
+     COOP_INT:: npix = 0
+     COOP_INT::ordering = COOP_RING
+     COOP_INT::lmax = -1
+     COOP_INT::iq = 0
+     COOP_INT::iu = 0
+     COOP_INT::mask_npix= 0
+     COOP_INT::maskpol_npix = 0
      character(LEN=80),dimension(64)::header
      COOP_INT,dimension(:),allocatable::spin
      COOP_SINGLE, dimension(:,:),allocatable::map
@@ -420,9 +428,11 @@ contains
 
   subroutine coop_healpix_patch_init(this, genre, n, dr, mmax)
     class(coop_healpix_patch) this
+    logical,parameter::do_norm = .true.
+    logical,parameter::remove_m0 = .true.
     COOP_UNKNOWN_STRING::genre
     COOP_INT n
-    COOP_REAL dr, cosmt, sinmt, theta
+    COOP_REAL dr, cosmt, sinmt, theta, rij
     COOP_INT i,j,m
     COOP_INT, optional::mmax
     COOP_REAL sumrc(0:n+1), sumrs(0:n+1), weight(0:n+1)
@@ -481,9 +491,10 @@ contains
     allocate(this%wcm(-this%n:this%n, -this%n:this%n, 0:this%mmax+1))
     allocate(this%wsm(-this%n:this%n, -this%n:this%n, 0:this%mmax+1))
     allocate(this%icm(-this%n:this%n, -this%n:this%n, 0:1))
-    this%image = 0.d9
+    this%image = 0.d0
     this%wcm = 0.d0
     this%wsm = 0.d0
+    this%wcm(0,0,0) = 1.d0
     this%fr = 0.d0
     
     this%indisk = 1.d0
@@ -503,44 +514,48 @@ contains
 
     this%num_indisk_tol = count(this%indisk .ne. 0.d0)*coop_healpix_mask_tol
 
-    !$omp parallel do private(i, j)
+    !!------------------------------------------------------------------
+    !!start doing m=0 
+    !$omp parallel do private(i, j, rij)
     do j=-this%n, this%n
        do i=-this%n, this%n
-          this%wcm(i, j, 0) = sqrt(dble(i**2+j**2))
-          this%icm(i, j, 0) = floor(this%wcm(i, j, 0))
+          rij =  sqrt(dble(i**2+j**2))
+          this%icm(i, j, 0) = floor(rij)
+          rij = rij - this%icm(i,j,0)
           this%icm(i, j, 1) = this%icm(i, j, 0) + 1
-          this%wcm(i, j, 1) = this%wcm(i, j, 0) - this%icm(i, j, 0)
-          this%wcm(i, j, 0) = 1.d0 - this%wcm(i, j, 1)
+          if(this%icm(i,j,0) .gt. n) &
+               this%icm(i,j,0) = 0
+          if(this%icm(i,j,1) .gt. n) &
+               this%icm(i,j,1) = 0
+          if(this%icm(i,j,0) .ne. 0) &
+               this%wcm(i, j, 0) = 1.d0  - rij
+          if(this%icm(i, j, 1) .ne. 0) &
+               this%wcm(i, j, 1) = rij
        enddo
     enddo
     !$omp end parallel do
-    m = 0
-    sumrc = 1.d-10
-    this%wcm(0,0,0)=1.d0
-    this%wcm(0,0,1:)=0.d0
-    this%wsm(0,0,:) = 0.d0
+
+    sumrc = 1.d-30
     
     do j=-this%n, this%n
        do i=-this%n, this%n
-          if( this%icm(i, j, 0).eq.0  .or. this%icm(i,j,0) .gt. this%n)cycle
-          sumrc(this%icm(i,j,0)) = sumrc(this%icm(i,j,0)) + this%wcm(i,j,m)
-          sumrc(this%icm(i,j,1)) = sumrc(this%icm(i,j,1)) + this%wcm(i,j,m+1)
+          sumrc(this%icm(i,j,0)) = sumrc(this%icm(i,j,0)) + this%wcm(i,j,0)
+          sumrc(this%icm(i,j,1)) = sumrc(this%icm(i,j,1)) + this%wcm(i,j,1)
        enddo
     enddo
+    
     !$omp parallel do private(i, j)
     do j=-this%n, this%n
        do i=-this%n, this%n
-          if( this%icm(i, j, 0).gt.0  .and. this%icm(i,j,0) .le. this%n) &
-               this%wcm(i, j, m) = this%wcm(i, j, m)/sumrc(this%icm(i, j, 0))
-          if( this%icm(i, j, 1).gt.0  .and. this%icm(i,j,1) .le. this%n) &  
-               this%wcm(i, j, m+1) = this%wcm(i, j, m+1)/sumrc(this%icm(i, j, 1))
+          this%wcm(i, j, 0) = this%wcm(i, j, 0)/sumrc(this%icm(i, j, 0))
+          this%wcm(i, j, 1) = this%wcm(i, j, 1)/sumrc(this%icm(i, j, 1))
        enddo
     enddo
     !$omp end parallel do
-    sumrc = 0.d0
-    sumrs = 0.d0
+
+    !!m = 0 is done
+    !!------------------------------------------------------------------
     
-    !$omp parallel do private(m, i, j, cosmt, sinmt, theta)
     do m = 2, this%mmax, 2
        do j=-this%n, this%n
           do i = -this%n, this%n
@@ -550,61 +565,72 @@ contains
                 sinmt = sin(m*theta)*2.d0
                 this%wcm(i, j, m) = this%wcm(i, j, 0)*cosmt
                 this%wcm(i, j, m+1) = this%wcm(i, j, 1)*cosmt
-                sumrc(
                 this%wsm(i, j, m) = this%wcm(i, j, 0)*sinmt
                 this%wsm(i, j, m+1) = this%wcm(i, j, 1)*sinmt
-             else
-                this%wcm(i, j, m) = 0.d0
-                this%wcm(i, j, m+1) = 0.d0
-                this%wsm(i, j, m) = 0.d0
-                this%wsm(i, j, m+1) = 0.d0
              endif
           enddo
        enddo
-    enddo
-    !$omp end parallel do
 
-    !!do renormalization
-    do m = 2, this%mmax, 2
-       sumrc = 1.d-10
-       sumrs = 1.d-10
-       do j=-this%n, this%n
-          do i=-this%n, this%n
-             if( this%icm(i, j, 0).eq.0  .or. this%icm(i,j,0) .gt. this%n)cycle
-             theta = atan2(dble(j), dble(i))
-             cosmt = cos(m*theta)
-             sumrc(this%icm(i,j,0)) = sumrc(this%icm(i,j,0)) + this%wcm(i,j,m)*cosmt
-             sumrc(this%icm(i,j,1)) = sumrc(this%icm(i,j,1)) + this%wcm(i,j,m+1)*cosmt
-             if(m.gt.0)then
-                sinmt = sin(m*theta)                
-                sumrs(this%icm(i,j,0)) = sumrs(this%icm(i,j,0)) + this%wsm(i,j,m)*sinmt                
+       if(do_norm)then
+          !!now normalize
+          sumrc = 1.d-6
+          sumrs = 1.d-6
+          do j=-this%n, this%n
+             do i=-this%n, this%n
+                if(this%icm(i, j, 0) .ne. 0)then
+                   theta = atan2(dble(j), dble(i))
+                   cosmt = cos(m*theta)
+                   sumrc(this%icm(i,j,0)) = sumrc(this%icm(i,j,0)) + this%wcm(i,j,m)*cosmt
+                   sumrc(this%icm(i,j,1)) = sumrc(this%icm(i,j,1)) + this%wcm(i,j,m+1)*cosmt
+                   sinmt = sin(m*theta)                
+                   sumrs(this%icm(i,j,0)) = sumrs(this%icm(i,j,0)) + this%wsm(i,j,m)*sinmt                
 
-                sumrs(this%icm(i,j,1)) = sumrs(this%icm(i,j,1)) + this%wsm(i,j,m+1)*sinmt
-             endif
+                   sumrs(this%icm(i,j,1)) = sumrs(this%icm(i,j,1)) + this%wsm(i,j,m+1)*sinmt
+                endif
+             enddo
           enddo
-       enddo
-       !$omp parallel do private(i, j)
-       do j=-this%n, this%n
-          do i=-this%n, this%n
-             if(this%icm(i, j, 0) .le. this%n .and. (m.eq.0 .or. this%icm(i, j, 0).ne.0) )then
-                this%wcm(i, j, m) = this%wcm(i, j, m)/sumrc(this%icm(i, j, 0))
-                if(m.gt.0) this%wsm(i, j, m) = this%wsm(i, j, m)/sumrs(this%icm(i, j, 0))                
-             else
-                this%icm(i, j, 0) = 0
-                this%wcm(i, j, m) =0.d0
-                this%wsm(i, j, m) =0.d0                                
-             endif
-             if(this%icm(i, j, 1) .le. this%n  .and. (m.eq.0 .or. this%icm(i, j, 1).ne.0) )then
-                this%wcm(i, j, m+1) = this%wcm(i, j, m+1)/sumrc(this%icm(i, j, 1))
-                if(m.gt.0) this%wsm(i, j, m+1) = this%wsm(i, j, m+1)/sumrs(this%icm(i, j, 1))                
-             else
-                this%icm(i, j, 1) = 0
-                this%wcm(i, j, m+1) =0.d0
-                this%wsm(i, j, m+1) =0.d0                                
-             endif
-          enddo          
-       enddo
-       !$omp end parallel do
+          !$omp parallel do private(i, j)
+          do j=-this%n, this%n
+             do i=-this%n, this%n
+                if(this%icm(i, j, 0).ne. 0)then
+                   if(sumrc(this%icm(i, j, 0)) .gt. 0.01d0) this%wcm(i, j, m) = this%wcm(i, j, m)/sumrc(this%icm(i, j, 0))
+                   if(sumrs(this%icm(i, j, 0)) .gt. 0.01d0) this%wsm(i, j, m) = this%wsm(i, j, m)/sumrs(this%icm(i, j, 0))
+                   if(sumrc(this%icm(i, j, 1)) .gt. 0.01d0) this%wcm(i, j, m+1) = this%wcm(i, j, m+1)/sumrc(this%icm(i, j, 1))
+                   if(sumrs(this%icm(i, j, 1)) .gt. 0.01d0) this%wsm(i, j, m+1) = this%wsm(i, j, m+1)/sumrs(this%icm(i, j, 1))
+                endif
+             enddo
+          enddo
+          !$omp end parallel do
+       end if
+       if(remove_m0)then             !!remove m = 0 degeneracy
+          sumrc = 0.d0
+          sumrs = 0.d0
+          do j=-this%n, this%n
+             do i = -this%n, this%n
+                if(this%icm(i,j,0).ne.0)then
+                   theta = atan2(dble(j), dble(i))
+                   sumrc(this%icm(i, j, 0)) = sumrc(this%icm(i, j, 0)) + this%wcm(i, j, m)
+                   sumrc(this%icm(i, j, 1)) = sumrc(this%icm(i, j, 1)) + this%wcm(i, j, m+1)                
+                   sumrs(this%icm(i, j, 0)) = sumrs(this%icm(i, j, 0)) + this%wsm(i, j, m)
+                   sumrs(this%icm(i, j, 1)) = sumrs(this%icm(i, j, 1)) + this%wsm(i, j, m+1)
+                endif
+             enddo
+          enddo
+          !$omp parallel do private(i, j)
+          do j=-this%n, this%n
+             do i=-this%n, this%n
+                if(this%icm(i, j, 0) .ne. 0)then
+                   this%wcm(i, j, m) = this%wcm(i, j, m) - sumrc(this%icm(i, j, 0))*this%wcm(i, j, 0)
+                   this%wcm(i, j, m+1) = this%wcm(i, j, m+1) - sumrc(this%icm(i, j, 1))*this%wcm(i, j, 1)
+                   this%wsm(i, j, m) = this%wsm(i, j, m) - sumrs(this%icm(i, j, 0))*this%wcm(i, j, 0)
+                   this%wsm(i, j, m+1) = this%wsm(i, j, m+1) - sumrs(this%icm(i, j, 1))*this%wcm(i, j, 1)                
+
+                endif
+             enddo
+          enddo
+          !$omp end parallel do
+       endif
+       
     enddo
     
   end subroutine coop_healpix_patch_init
@@ -755,9 +781,16 @@ contains
     endif
   end subroutine coop_healpix_Cls2Rot
 
-  subroutine coop_healpix_maps_iqu2TQTUT(this)
+  subroutine coop_healpix_maps_iqu2TQTUT(this, idone)
     class(coop_healpix_maps) this
-    call this%map2alm(index_list = (/ 1 /) )
+    logical, optional::idone
+    if(.not. present(idone))then
+       call this%map2alm(index_list = (/ 1 /) )
+    else
+       if(.not. idone)then
+          call this%map2alm(index_list = (/ 1 /) )
+       endif
+    endif
     this%alm(:,:,2) = this%alm(:,:,1)
     this%alm(:,:,3) = 0
     this%spin(2:3) = 2
@@ -765,10 +798,17 @@ contains
     call this%alm2map( index_list = (/ 2, 3 /) )
   end subroutine coop_healpix_maps_iqu2TQTUT
 
-  subroutine coop_healpix_maps_iqu2TQTUT1(this)
+  subroutine coop_healpix_maps_iqu2TQTUT1(this, idone)
     class(coop_healpix_maps) this
+    logical,optional::idone
     COOP_INT l
-    call this%map2alm(index_list = (/ 1 /) )
+    if(.not.present(idone))then
+       call this%map2alm(index_list = (/ 1 /) )
+    else
+       if(.not. idone)then
+          call this%map2alm(index_list = (/ 1 /) )
+       endif
+    endif
     this%alm(:,:, 2:3) = 0.
     do l = 2, this%lmax
        this%alm(l,:,2) = this%alm(l,:,1)*(l*(l+1.))
@@ -832,6 +872,7 @@ contains
     real,dimension(3, 0:lmax)::Cls_sqrteig
     real,dimension(3, 3, 0:lmax)::Cls_rot
     COOP_INT l, m
+    
     call this%init(nside = nside, nmaps = 3, spin = (/ 0, 2, 2 /), lmax = lmax)    
     !$omp parallel do private(l, m)
     do l=0, lmax
@@ -3761,6 +3802,20 @@ contains
     call coop_chebeval(fit_n, rmin, rmax, coef, log(dble(l)), Nl)
     Nl = exp(Nl)/2.726**2
   end function Coop_Planck_BNoise
+
+  function Coop_highpass_filter(l1, l2, l) result(w)
+    COOP_INT l1, l2, l
+    COOP_REAL w
+    if(l.le. l1)then
+       w = 0.d0
+       return
+    endif
+    if(l.ge.l2)then
+       w = 1.d0
+       return
+    endif
+    w = sin(dble(l-l1)/dble(l2-l1)*coop_pio2)**2
+  end function Coop_highpass_filter
   
 
 end module coop_healpix_mod
