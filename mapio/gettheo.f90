@@ -24,7 +24,7 @@ program stackth
   COOP_REAL::fwhm !!fwhm in arcmin
   COOP_INT::head_level
   COOP_STRING::prefix, line
-  type(coop_file)::fp
+  type(coop_file)::fp, fpfr
   type(coop_asy)::figCr, fpI(0:2), fpQU(0:2)
   integer l, il, i, j, iomega, m
   type(coop_arguments)::args
@@ -185,10 +185,16 @@ program stackth
   call patchQU%plot(2, trim(prefix)//"U_stack.txt")
   call patchQrUr%plot(1, trim(prefix)//"Qr_stack.txt")
   call patchQrUr%plot(2, trim(prefix)//"Ur_stack.txt")
-
+  
   !!test the integrator
   call patchI%get_all_radial_profiles()
   call patchQU%get_all_radial_profiles()
+  call fpfr%open(trim(prefix)//"_frI.txt", "w")
+  write(fpfr%unit, *) patchI%fr(:,:,1)
+  call fpfr%close()
+  call fpfr%open(trim(prefix)//"_frQU.txt", "w")
+  write(fpfr%unit, *) (patchQU%fr(:,:,1)+patchQU%fr(:,:,2))/2.d0
+  call fpfr%close()
   do i=0, n
      do m=0,2
         if(head_level.eq.0)then

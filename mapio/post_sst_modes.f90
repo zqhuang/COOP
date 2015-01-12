@@ -15,7 +15,7 @@ program test
   COOP_REAL::dr, pvalue
   type(coop_healpix_maps)::map
   COOP_STRING::prefix
-  COOP_REAL, dimension(:,:,:,:),allocatable::f
+  COOP_REAL, dimension(:,:,:,:),allocatable::f, fsim_base, fdata_base
   COOP_REAL, dimension(:),allocatable::r, rsq, mean, chisq, tmpf
   COOP_REAL, dimension(:,:),allocatable::cov, bounds
   COOP_INT::nproj
@@ -25,33 +25,46 @@ program test
   COOP_STRING::data_mean_file = "planck14/data_mean_file.dat"
   COOP_STRING::sim_mean_file = "ffp8/sim_mean_file.dat"  
   type(coop_asy)::fig
-  
-  if(iargc() .lt. 7)then
-     write(*,*) "./POSTSST prefix start1 end1 start2 end2 nproj map_want [Label] [Bounds_File]"
+  if(iargc() .lt. 9)then
+     write(*,*) "./POSTSST data_mean_file, sim_mean_file, prefix start1 end1 start2 end2 nproj map_want [Label] [Bounds_File]"
      stop
   endif
-  prefix = coop_InputArgs(1)
-  start1 = coop_str2int(coop_InputArgs(2))
-  end1 = coop_str2int(coop_InputArgs(3))
-  start2 = coop_str2int(coop_InputArgs(4))  
-  end2 = coop_str2int(coop_InputArgs(5))
-  nproj = coop_str2int(coop_InputArgs(6))
-  map_want = coop_str2int(coop_InputArgs(7))
-  label = trim(coop_InputArgs(8))
-  bounds_file = trim(coop_InputArgs(9))
+  data_mean_file = trim(coop_InputArgs(1))
+  sim_mean_file = trim(coop_InputArgs(2))  
+  prefix = coop_InputArgs(3)
+  start1 = coop_str2int(coop_InputArgs(4))
+  end1 = coop_str2int(coop_InputArgs(5))
+  start2 = coop_str2int(coop_InputArgs(6))  
+  end2 = coop_str2int(coop_InputArgs(7))
+  nproj = coop_str2int(coop_InputArgs(8))
+  map_want = coop_str2int(coop_InputArgs(9))
+  label = trim(coop_InputArgs(10))
+  bounds_file = trim(coop_InputArgs(11))
   
   if(trim(label).eq."") label = "P"
 
   nsims = max(end1, end2)
   n1 = end1- start1+1
   n2 = end2 - start2 + 1
+  
   call fp%open(trim(prefix)//"_info.txt", "r")
   read(fp%unit,*) n, nmaps, dr
   call fp%close()
+
+  
+  
   nproj = min(n+1, nproj)
   
   dr = dr*coop_SI_arcmin
-  allocate(f(0:n, 0:mmax/2, nmaps, 0:nsims), r(0:n), rsq(0:n), mean(nproj), chisq(0:nsims), vec(nproj, 0:nsims), cov(nproj, nproj), bounds(-2:2, nproj), tmpf(n) )
+  allocate(f(0:n, 0:mmax/2, nmaps, 0:nsims), fsim_base(0:n, 0:mmax/2, nmaps),  fdata_base(0:n, 0:mmax/2, nmaps), r(0:n), rsq(0:n), mean(nproj), chisq(0:nsims), vec(nproj, 0:nsims), cov(nproj, nproj), bounds(-2:2, nproj), tmpf(n) )
+  call fp%open(sim_mean_file, "r")
+  read(fp%unit, *) fsim_base
+  call fp%close()
+
+  call fp%open(data_mean_file, "r")
+  read(fp%unit, *) fdata_base
+  call fp%close()
+  
   do i=0,n
      r(i) = (dr*i)
   enddo
