@@ -3580,8 +3580,6 @@ contains
     endif
     deallocate(Cls, Cls_lensed)
 
-  contains
-
 #else
     stop "To use t2zeta you have to turn on DO_ZETA_TRANS in include/constants.h"
 #endif
@@ -3651,8 +3649,6 @@ contains
        this%alm_done(1) = .false.
     endif
     deallocate(Cls, Cls_lensed)
-
-  contains
 
 #else
     stop "To use t2zeta you have to turn on DO_ZETA_TRANS in include/constants.h"
@@ -3731,7 +3727,6 @@ contains
        this%alm_done(1) = .false.
     endif
     deallocate(Cls, Cls_lensed)
-  contains
 #else
     stop "To use t2zeta you have to turn on DO_ZETA_TRANS in include/constants.h"
 #endif

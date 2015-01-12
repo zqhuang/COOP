@@ -24,7 +24,7 @@ program hastack_prog
   
   COOP_UNKNOWN_STRING, parameter::prefix = "sr/"//cs_method//"_"//pol_case//"_"
   COOP_INT, parameter::mmax = 4
-  COOP_REAL, parameter::fwhm_arcmin = 30.d0
+  COOP_REAL, parameter::fwhm_arcmin = 15.d0
   COOP_REAL, parameter::fwhm_in = 10.d0
   COOP_UNKNOWN_STRING, parameter::input_resolution =   "_010a_1024"
   COOP_UNKNOWN_STRING, parameter::postfix =  input_resolution//".fits"
@@ -72,7 +72,7 @@ program hastack_prog
      stop
   endif
 
-  lmax  = min(ceiling(3.d0/(fwhm_arcmin*coop_SI_arcmin * coop_sigma_by_fwhm)), 2048, coop_healpix_default_lmax)
+  lmax  = 2000
   write(*,*) "Using lmax = "//COOP_STR_OF(lmax)
   allocate(window(0:lmax))
   window(0:1) = 0.d0  
