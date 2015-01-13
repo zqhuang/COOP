@@ -124,7 +124,7 @@ program test
            cov(i, j) = sum((vec(i, start1:end1)-mean(i))*(vec(j, start1:end1) - mean(j)))/n1
            cov(j, i) = cov(i, j)
         enddo
-        cov(i, i) = cov(i, i)
+        cov(i, i) = cov(i, i)*1.001+1.d-8
      enddo
      call coop_matsym_inverse(cov)
      write(*,"(A)") "************** m = "//COOP_STR_OF(m_want)//"****************"

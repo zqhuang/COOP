@@ -68,7 +68,7 @@ program stackth
      else
         l2cls(:,l) = cls(:, l)*(coop_2pi*exp(-l*(l+1.d0)*sigma**2))        
      endif
- !    l2cls(1:3, l) = l2cls(1:3, l) +  l*(l+1.)*(/ coop_Planck_TNoise(l), coop_Planck_ENoise(l), coop_Planck_BNoise(l) /)    
+!     l2cls(1:3, l) = l2cls(1:3, l) +  l*(l+1.)*(/ coop_Planck_TNoise(l), coop_Planck_ENoise(l), coop_Planck_BNoise(l) /)    
      cls(:,l) = l2cls(:,l)/(l*(l+1.d0))
      if(il.ne.l) stop "cl file broken"
   enddo
