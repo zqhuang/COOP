@@ -127,7 +127,7 @@ program test
         cov(i, i) = cov(i, i)
      enddo
      call coop_matsym_inverse(cov)
-     write(*,"(A)") "************** m = "COOP_STR_OF(m_want)//"****************"
+     write(*,"(A)") "************** m = "//COOP_STR_OF(m_want)//"****************"
      if(nproj .le. 5)then
         write(*,*) "mean:"
         write(*,"(5G14.5)") mean
