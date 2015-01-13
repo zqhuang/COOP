@@ -18,7 +18,7 @@ program stackth
   !!settings
   logical,parameter::do_highpass = .false.
   integer, parameter::index_corr = index_temp  !!index_temp
-  COOP_UNKNOWN_STRING,parameter::clfile = "planck14_best_cls.dat"  !! "planckbest_lensedtotCls.dat" !! 
+  COOP_STRING::clfile != "planck14_best_cls.dat"  !! "planckbest_lensedtotCls.dat" !! 
   COOP_STRING::spot_type
   COOP_REAL::nu !! threshold
   COOP_REAL::fwhm !!fwhm in arcmin
@@ -31,22 +31,23 @@ program stackth
   type(coop_healpix_patch)::patchI, patchQU, patchQrUr
   COOP_REAL::Pl0(0:lmax), Pl2(0:lmax), Pl4(0:lmax)
   COOP_REAL::cls(4, 2:lmax), ell(2:lmax), sigma, l2cls(4,2:lmax), sigma2, sigma0, sigma1, cosbeta, j2, j4, j0, omega, weights(4), cr(0:1, 0:2, 0:n*3/2), frI(0:2, 0:n*3/2), frQU(0:2, 0:n*3/2), pomega, phi, romega, r(0:n*3/2), kr
-  line = coop_InputArgs(3)
+  line = coop_InputArgs(4)
   if(trim(line).eq."")then
      write(*,*) "Syntax:"
-     write(*,*) "./GetTheo spot_type nu fwhm_arcmin [output_prefix] [head_level]"
+     write(*,*) "./GetTheo clfile spot_type nu fwhm_arcmin [output_prefix] [head_level]"
      stop
   endif  
   read(line, *) fwhm
-  spot_type =  trim(coop_InputArgs(1))
-  line = coop_InputArgs(2)
+  clfile = trim(coop_InputArgs(1))
+  spot_type =  trim(coop_InputArgs(2))
+  line = coop_InputArgs(3)
   read(line, *) nu
-  if(trim(coop_InputArgs(4)).ne."")then
+  if(trim(coop_InputArgs(5)).ne."")then
      prefix = "rprof/"//trim(coop_InputArgs(4))//"_"
   else
      prefix = "rprof/"
   endif
-  if(trim(coop_InputArgs(5)).ne."")then
+  if(trim(coop_InputArgs(6)).ne."")then
      line = coop_InputArgs(5)
      read(line,*) head_level
   else
