@@ -191,10 +191,10 @@ program stackth
   call patchI%get_all_radial_profiles()
   call patchQU%get_all_radial_profiles()
   call fpfr%open(trim(prefix)//"frI.txt", "w")
-  write(fpfr%unit, *) patchI%fr(:,:,1)
+  write(fpfr%unit, *) patchI%fr
   call fpfr%close()
   call fpfr%open(trim(prefix)//"frQU.txt", "w")
-  write(fpfr%unit, *) (patchQU%fr(:,:,1)+patchQU%fr(:,:,2))/2.d0
+  write(fpfr%unit, *) patchQU%fr
   call fpfr%close()
   do i=0, n
      do m=0,2
