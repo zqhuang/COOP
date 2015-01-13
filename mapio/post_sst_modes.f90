@@ -127,6 +127,7 @@ program test
         cov(i, i) = cov(i, i)
      enddo
      call coop_matsym_inverse(cov)
+     write(*,"(A)") "************** m = "COOP_STR_OF(m_want)//"****************"
      if(nproj .le. 5)then
         write(*,*) "mean:"
         write(*,"(5G14.5)") mean
@@ -138,9 +139,9 @@ program test
      do i=0, nsims
         chisq(i) = dot_product(vec(:,i)-mean,  matmul(cov, vec(:, i)-mean))
      enddo
-     write(*,"(A, I5, A, F12.4, A, F12.4)") "m=", m_want, ", p-value = ", count(chisq(start2:end2).gt.chisq(0))/dble(n2), ", chi^2=", chisq(0)
+     write(*,"(A, G12.4, A, G12.4)")  "Sim case: p-value = ", count(chisq(start2:end2).gt.chisq(0))/dble(n2), ", chi^2=", chisq(0)
      chisq0 = dot_product(vec(:,0),  matmul(cov, vec(:, 0)))
-     write(*,"(A, I5, A, F12.4, A, F12.4)") "    Noise-free case: p-value = ", count(chisq(start2:end2).gt.chisq0)/dble(n2), ", chi^2=", chisq0
+     write(*,"(A, G12.4, A, G12.4)") "Noise-free case: p-value = ", count(chisq(start2:end2).gt.chisq0)/dble(n2), ", chi^2=", chisq0
      
      if(nproj .eq. n + 1)then !!make the scattering plot
         call fig%open(trim(prefix)//"_fig"//trim(label)//COOP_STR_OF(m_want)//".txt")
