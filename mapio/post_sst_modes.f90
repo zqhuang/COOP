@@ -21,6 +21,7 @@ program test
   COOP_REAL, dimension(:),allocatable::r, rsq, mean, chisq, tmpf
   COOP_REAL, dimension(:,:),allocatable::cov, bounds
   COOP_INT::nproj
+  COOP_REAL::chisq0
   COOP_REAL,dimension(:,:),allocatable::vec
   COOP_SHORT_STRING::label
   COOP_STRING::bounds_file
@@ -123,13 +124,23 @@ program test
            cov(i, j) = sum((vec(i, start1:end1)-mean(i))*(vec(j, start1:end1) - mean(j)))/n1
            cov(j, i) = cov(i, j)
         enddo
-        cov(i, i) = cov(i, i)*1.0001+1.d-8
+        cov(i, i) = cov(i, i)
      enddo
      call coop_matsym_inverse(cov)
+     if(nproj .le. 5)then
+        write(*,*) "mean:"
+        write(*,"(5G14.5)") mean
+        write(*,*) "cov:"        
+        do i=1, nproj
+           write(*,"(5G14.5)") cov(i, :)
+        enddo
+     endif
      do i=0, nsims
         chisq(i) = dot_product(vec(:,i)-mean,  matmul(cov, vec(:, i)-mean))
      enddo
      write(*,"(A, I5, A, F12.4, A, F12.4)") "m=", m_want, ", p-value = ", count(chisq(start2:end2).gt.chisq(0))/dble(n2), ", chi^2=", chisq(0)
+     chisq0 = dot_product(vec(:,0),  matmul(cov, vec(:, 0)))
+     write(*,"(A, I5, A, F12.4, A, F12.4)") "    Noise-free case: p-value = ", count(chisq(start2:end2).gt.chisq0)/dble(n2), ", chi^2=", chisq0
      
      if(nproj .eq. n + 1)then !!make the scattering plot
         call fig%open(trim(prefix)//"_fig"//trim(label)//COOP_STR_OF(m_want)//".txt")
