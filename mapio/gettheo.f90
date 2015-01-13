@@ -189,10 +189,10 @@ program stackth
   !!test the integrator
   call patchI%get_all_radial_profiles()
   call patchQU%get_all_radial_profiles()
-  call fpfr%open(trim(prefix)//"_frI.txt", "w")
+  call fpfr%open(trim(prefix)//"frI.txt", "w")
   write(fpfr%unit, *) patchI%fr(:,:,1)
   call fpfr%close()
-  call fpfr%open(trim(prefix)//"_frQU.txt", "w")
+  call fpfr%open(trim(prefix)//"frQU.txt", "w")
   write(fpfr%unit, *) (patchQU%fr(:,:,1)+patchQU%fr(:,:,2))/2.d0
   call fpfr%close()
   do i=0, n
