@@ -92,7 +92,7 @@ program hastack_prog
   call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )
   
   call patch%init(trim(stack_type), n, dr, mmax = mmax)
-  if(threshold .gt. 0.1d0)then
+  if(threshold .gt. -2.d0)then
      allprefix = prefix//trim(stack_type)//"_on_"//trim(spot_type)//"_fr_"//COOP_STR_OF(nint(patch_size/coop_SI_degree))//"deg"//input_resolution//"_smooth"//COOP_STR_OF(nint(fwhm_arcmin))//"_nu"//COOP_STR_OF(nint(threshold))     
   else
      allprefix = prefix//trim(stack_type)//"_on_"//trim(spot_type)//"_fr_"//COOP_STR_OF(nint(patch_size/coop_SI_degree))//"deg"//input_resolution//"_smooth"//COOP_STR_OF(nint(fwhm_arcmin))

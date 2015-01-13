@@ -11,6 +11,7 @@ program test
 #include "constants.h"
   type(coop_file)::fp
   COOP_INT,parameter::mmax = 4
+  COOP_REAL,parameter::normK = 1.d6
   integer i, n, nmaps, nsims, m_want, map_want, isim, j, start1, end1, start2, end2, n1, n2
   COOP_REAL::dr, pvalue
   type(coop_healpix_maps)::map
@@ -78,10 +79,15 @@ program test
         stop "data file broken"
      endif
      read(fp%unit) f(0:n, 0:mmax/2, 1:nmaps, isim)
+     if(isim.eq.0)then
+        f(0:n, 0:mmax/2, 1:nmaps, isim) = f(0:n, 0:mmax/2, 1:nmaps, isim)*normK - fsim_base        
+     else
+        f(0:n, 0:mmax/2, 1:nmaps, isim) = f(0:n, 0:mmax/2, 1:nmaps, isim)*normK - fdata_base
+     endif
   enddo
   call fp%close()
   call fp%close()
-  f = f*1.e6
+  
 
   !!collapse to complex radial modes
   if(map_want .gt. nmaps)then
