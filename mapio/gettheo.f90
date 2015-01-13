@@ -43,12 +43,12 @@ program stackth
   line = coop_InputArgs(3)
   read(line, *) nu
   if(trim(coop_InputArgs(5)).ne."")then
-     prefix = "rprof/"//trim(coop_InputArgs(4))//"_"
+     prefix = "rprof/"//trim(coop_InputArgs(5))//"_"
   else
      prefix = "rprof/"
   endif
   if(trim(coop_InputArgs(6)).ne."")then
-     line = coop_InputArgs(5)
+     line = coop_InputArgs(6)
      read(line,*) head_level
   else
      head_level = 0
