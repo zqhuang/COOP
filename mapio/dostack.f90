@@ -5,11 +5,11 @@ program test
 
 #include "constants.h"
 
-  COOP_STRING :: spot_type = "T"
-  COOP_STRING :: map_file =  "massive/simu_TQTUT_00001_015a_n1024.fits"
-  COOP_STRING:: spots_file = "spots/simu_TQTUT_00001_015a_n1024_fwhm15_Tmax_QTUTOrient_threshold0.txt"
-  COOP_STRING :: imask_file = ""
-  COOP_STRING:: polmask_file =  "" 
+  COOP_STRING :: spot_type = "QU"
+  COOP_STRING :: map_file =  "dust/dust_iqu_030a.fits"
+  COOP_STRING:: spots_file = "spots/dust_iqu_030a_fwhm15_Tmax_QTUTOrient_threshold0pt5.txt"
+  COOP_STRING :: imask_file = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
+  COOP_STRING:: polmask_file =  "planck14/dx11_v2_common_pol_mask_010a_1024.fits" 
   COOP_STRING::unit = "K"
 
 
@@ -30,7 +30,8 @@ program test
   COOP_REAL::zmax  = -1.1e31
   COOP_REAL::zmin2 = 1.1e31
   COOP_REAL::zmax2  = -1.1e31
-  
+
+  coop_healpix_IAU_headless_vector = .true.  
   if(iargc() .ge. 5)then
      map_file = trim(adjustl(coop_InputArgs(1)))
      spots_file = trim(adjustl(coop_InputArgs(2)))
@@ -100,7 +101,7 @@ program test
         map%map(:, i) = map%map(:, i)*mask%map(:, 1)
      enddo
   endif
-  if(trim(unit).eq."K")then
+  if(maxval(abs(map%map(0:100,1))).lt. 1.e-2)then
      map%map = map%map*1.e6
   endif
 
@@ -237,7 +238,7 @@ program test
   write(*,*) "the output file is: "//trim(fout)
   call system("../utils/fasy.sh "//trim(fout))
   if(trim(fout2).ne."")then
-     call system("../utisl/fasy.sh "//trim(fout2))
+     call system("../utils/fasy.sh "//trim(fout2))
   endif
   call patch%get_all_radial_profiles()
   do m = 0, 4, 2

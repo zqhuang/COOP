@@ -16,8 +16,9 @@ module coop_healpix_mod
 
   private
 
-  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_get_disc, coop_healpix_export_spots, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_lb2ang, coop_healpix_ang2lb, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_healpix_max_threshold, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter
+  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_get_disc, coop_healpix_export_spots, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_lb2ang, coop_healpix_ang2lb, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_healpix_max_threshold, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_healpix_latitude_cut_mask, coop_healpix_trim_maskfile, coop_healpix_IAU_headless_vector
   
+  logical::coop_healpix_IAU_headless_vector = .false.
   logical::coop_healpix_alm_check_done = .false.
   logical::coop_healpix_want_cls = .true.
   COOP_REAL,parameter::coop_healpix_max_threshold = 10.d0
@@ -141,6 +142,20 @@ module coop_healpix_mod
 #define RADIUS2COS(r)  (1.d0-(r)**2/2.d0)
 
 contains
+
+
+  subroutine coop_healpix_latitude_cut_mask(nside, latitude_degree, filename)
+    COOP_REAL::latitude_degree
+    COOP_UNKNOWN_STRING::filename
+    type(coop_healpix_maps)::mask
+    COOP_INT::listpix(0:nside**2*12-1), nlist, nside
+    call mask%init(nside = nside, nmaps = 1, spin = (/ 0 /))
+    mask%map(:,1) = 1.
+    call query_strip(nside, coop_pio2 - latitude_degree*coop_SI_degree, coop_pio2 + latitude_degree*coop_SI_degree, listpix, nlist, nest = 0, inclusive = 1)
+    mask%map(listpix(0:nlist-1), 1) = 0.
+    call mask%write(trim(filename))
+    call mask%free()
+  end subroutine coop_healpix_latitude_cut_mask
 
   subroutine coop_healpix_diffuse_into_mask(this, mask, smoothscale, pol)  !!lambda<1
     real,parameter::nefolds = 2.
@@ -286,7 +301,11 @@ contains
                 xc = i*this%dr
                 yc = j*this%dr
                 r = sqrt(this%image(i,j,1)**2+this%image(i,j,2)**2)*norm
-                theta = 0.5d0*COOP_POLAR_ANGLE(this%image(i,j,1), this%image(i,j,2))
+                if(coop_healpix_IAU_headless_vector)then
+                   theta = 0.5d0*COOP_POLAR_ANGLE(this%image(i,j,1), this%image(i,j,2)) + coop_pio2                   
+                else
+                   theta = 0.5d0*COOP_POLAR_ANGLE(this%image(i,j,1), this%image(i,j,2))
+                endif
                 k = k + 1
                 xstart(k) = xc - r*cos(theta)
                 ystart(k) = yc - r*sin(theta)
@@ -2950,7 +2969,7 @@ contains
 
   subroutine coop_healpix_trim_maskfile(mask_file, smoothscale, output)
     COOP_UNKNOWN_STRING mask_file
-    COOP_SINGLE smoothscale
+    COOP_REAL smoothscale
     COOP_UNKNOWN_STRING, optional::output
     type(coop_healpix_maps) this
     call this%read(mask_file, nmaps_wanted = 1)
@@ -2958,7 +2977,7 @@ contains
     if(present(output))then
        call this%write(trim(output))
     else
-       call this%write(trim(coop_file_add_postfix(trim(mask_file), "_smoothed")))
+       call this%write(trim(coop_file_add_postfix(trim(mask_file), "_trimmed")))
     endif
     call this%free
   end subroutine coop_healpix_trim_maskfile
@@ -2969,7 +2988,7 @@ contains
     type(coop_healpix_maps) hgs
     COOP_INT,dimension(:),allocatable::listpix
     COOP_INT i, j, nsteps
-    COOP_SINGLE smoothscale
+    COOP_REAL smoothscale
     nsteps = ceiling(smoothscale/sqrt(4.*coop_pi/this%npix))/2
     if(nsteps .le. 0 .or. nsteps .gt. 200)stop "coop_healpix_smooth_mask: invalid input of smoothscale"
     call this%convert2nested()

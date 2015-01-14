@@ -9,15 +9,16 @@ program stackth
   use alm_tools
   implicit none
 #include "constants.h"
-  integer, parameter::lmin = 2, lmax=2000, index_temp = 1, index_pol = 4
+  integer, parameter::lmin = 2, lmax=2000, index_TT = 1, index_TE = 4, index_EE=2
   COOP_REAL, parameter:: r_degree = 2.d0
   COOP_REAL, parameter:: width = 2.d0*sin(r_degree*coop_SI_degree/2.d0)
   COOP_INT,parameter:: n=36
   COOP_REAL, parameter:: dr = width/n
   logical,parameter::flat = .false. !!use nonflat is actually faster
   !!settings
-  logical,parameter::do_highpass = .false.
-  integer, parameter::index_corr = index_temp  !!index_temp
+  logical,parameter::do_highpass = .true.
+  integer, parameter::index_corr = index_EE  !!index_temp
+  integer,parameter::index_auto = index_EE
   COOP_STRING::clfile != "planck14_best_cls.dat"  !! "planckbest_lensedtotCls.dat" !! 
   COOP_STRING::spot_type
   COOP_REAL::nu !! threshold
@@ -61,21 +62,22 @@ program stackth
   sigma = fwhm*coop_sigma_by_fwhm*coop_SI_arcmin
   call fp%open(clfile, "r")
   do l=2, lmax
-     read(fp%unit, *) il, cls(:, l)
+     read(fp%unit, *) il, l2cls(:, l)
      ell(l)  = l
+     l2cls(:,l) = l2cls(:, l)*(coop_2pi*exp(-l*(l+1.d0)*sigma**2))
+     l2cls(2,l) = l2cls(2, l)  +  l*(l+1.d0)*coop_Planck_ENoise(l)
+     l2cls(3,l) = l2cls(3, l)  +  l*(l+1.d0)*coop_Planck_BNoise(l)
      if(do_highpass)then
-        l2cls(:,l) = cls(:, l)*(coop_2pi*exp(-l*(l+1.d0)*sigma**2)*coop_highpass_filter(20, 40, l))        
-     else
-        l2cls(:,l) = cls(:, l)*(coop_2pi*exp(-l*(l+1.d0)*sigma**2))        
+        l2cls(2:3,l) = l2cls(2:3,l)*coop_highpass_filter(20, 40, l)
+        l2cls(4,l) = l2cls(4,l)*sqrt(coop_highpass_filter(20, 40, l))
      endif
-!     l2cls(1:3, l) = l2cls(1:3, l) +  l*(l+1.)*(/ coop_Planck_TNoise(l), coop_Planck_ENoise(l), coop_Planck_BNoise(l) /)    
      cls(:,l) = l2cls(:,l)/(l*(l+1.d0))
      if(il.ne.l) stop "cl file broken"
   enddo
   call fp%close()
-  sigma0 = sqrt(sum(Cls(1,:)*(ell+0.5d0))/coop_2pi)
-  sigma1 = sqrt(sum(l2Cls(1,:)*(ell+0.5d0))/coop_2pi)
-  sigma2 = sqrt(sum(l2Cls(1,:)*(ell+0.5d0)*(ell*(ell+1.d0)))/coop_2pi)
+  sigma0 = sqrt(sum(Cls(index_auto,:)*(ell+0.5d0))/coop_2pi)
+  sigma1 = sqrt(sum(l2Cls(index_auto,:)*(ell+0.5d0))/coop_2pi)
+  sigma2 = sqrt(sum(l2Cls(index_auto,:)*(ell+0.5d0)*(ell*(ell+1.d0)))/coop_2pi)
   cosbeta = sigma1**2/sigma0/sigma2
   print*, "gamma = ", cosbeta
   print*, "sigma_0 = ", sigma0
@@ -84,9 +86,9 @@ program stackth
   select case(trim(spot_type))
   case("Tmax_QTUTOrient")
      call coop_gaussian_get_oriented_stacking_weights(nu, args, weights)
-  case("Tmax")
+  case("Tmax", "Emax", "Bmax")
      call coop_gaussian_get_nonoriented_stacking_weights(nu, args, weights)
-  case("PTmax")
+  case("PTmax", "Pmax")
      call coop_gaussian_get_pmax_stacking_weights(nu, args, weights)
   end select
   write(*,*) "Weights = ", weights(1)*sigma0, weights(2)*sigma2, weights(3)*sigma0, weights(4)*sigma2

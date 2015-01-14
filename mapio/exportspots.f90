@@ -4,14 +4,14 @@ program test
   implicit none
 #include "constants.h"
 
-  COOP_INT::fwhm_arcmin = 15.
-  COOP_INT::fwhm_in = 15.
+  COOP_INT::fwhm_arcmin = 30.
+  COOP_INT::fwhm_in = 30.
   COOP_STRING::spot_type = "Tmax_QTUTOrient"
-  COOP_STRING::input_file ="massive/simu_TQTUT_00001_015a_n1024.fits"
-  COOP_STRING::imask_file  = "" 
-  COOP_STRING::polmask_file  = "" 
-  COOP_REAL:: threshold = 0.d0
-  COOP_REAL:: threshold_pol = 1.e31
+  COOP_STRING::input_file ="dust/dust_iqu_030a.fits"
+  COOP_STRING :: imask_file = "planck14/lat30_mask_n1024.fits"
+  COOP_STRING:: polmask_file =  "planck14/lat30_mask_n1024.fits"
+  COOP_REAL:: threshold = 0.5d0
+  COOP_REAL:: threshold_pol = 1.1e31
 
   COOP_STRING::mask_file
   COOP_STRING output_file

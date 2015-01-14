@@ -30,7 +30,7 @@ program map
   nin = 1
   inline_mode =  (iargc() .gt. 0)
   if(.not. inline_mode)then
-     write(*,*) "options are: SPLIT; SMOOTH; DOBEAM; MULTIPLY;I2TQTUT;IQU2TEB;T2ZETA; IQU2ZETA; QU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE; HIGHPASS"
+     write(*,*) "options are: SPLIT; SMOOTH; DOBEAM; MULTIPLY;I2TQTUT;IQU2TEB;T2ZETA; IQU2ZETA; QU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE; HIGHPASS;TRIM"
   endif
   do while(nin .le. nmax)
      if(inline_mode)then
@@ -145,7 +145,21 @@ program map
 
         print*, "maps are all highpassed"
         goto 500
-        
+     case("TRIM")
+        if(inline_mode)then
+           inline = coop_inputArgs(nin+1)
+           read(inline, *) fwhm
+        else
+           write(*,*) "Enter trim scale (arcmin)"
+           read(*,*) fwhm
+        endif
+        fwhm = fwhm * coop_SI_arcmin
+        nin = nin -1
+        do i=1, nin
+           call coop_healpix_trim_maskfile(fin(i), fwhm)
+        enddo
+        print*, "maps are all trimmed"
+        goto 500
      case("SMOOTH")
         if(inline_mode)then
            inline = coop_inputArgs(nin+1)

@@ -9,8 +9,8 @@ program stackth
   use alm_tools
   implicit none
 #include "constants.h"
-  COOP_INT l
-  do l=2, 2500
-     print*, l, coop_Planck_TNoise(l)*(l*(l+1)/coop_2pi*2.726e6**2), coop_Planck_ENoise(l)*(l*(l+1)/coop_2pi*2.726e6**2), coop_Planck_BNoise(l)*(l*(l+1)/coop_2pi*2.726e6**2)
-  enddo
+  type(coop_healpix_maps)::hgm, mask
+  call hgm%read("planck14/", nmaps_wanted = 3, nmaps_to_read = 1, spin=(/ 0, 2, 2 /) )
+  call hgm%iqu2TQTUT1()
+  call hgm%write("planck14/dx11_v2_smica_TQTUT_cmb_010a_1024_hp_10_20.fits")
 end program stackth
