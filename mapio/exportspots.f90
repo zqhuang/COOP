@@ -4,14 +4,14 @@ program test
   implicit none
 #include "constants.h"
 
-  COOP_INT::fwhm_arcmin = 30.
-  COOP_INT::fwhm_in = 30.
-  COOP_STRING::spot_type = "Tmax_QTUTOrient"
-  COOP_STRING::input_file ="dust/dust_iqu_030a.fits"
-  COOP_STRING :: imask_file = "planck14/lat30_mask_n1024.fits"
-  COOP_STRING:: polmask_file =  "planck14/lat30_mask_n1024.fits"
-  COOP_REAL:: threshold = 0.5d0
-  COOP_REAL:: threshold_pol = 1.1e31
+  COOP_INT::fwhm_arcmin = 15.
+  COOP_INT::fwhm_in = 15.
+  COOP_STRING::spot_type = "TQUL"
+  COOP_STRING::input_file ="tuhin/dust_TQUL_015a_b30-500_n512.fits"
+  COOP_STRING :: imask_file = "planck14/lat30_mask_n512.fits"
+  COOP_STRING:: polmask_file = "planck14/lat30_mask_n512.fits"
+  COOP_REAL:: threshold = 0.5
+  COOP_REAL:: threshold_pol = 0.6
 
   COOP_STRING::mask_file
   COOP_STRING output_file
@@ -33,7 +33,7 @@ program test
   endif
   fwhm = sqrt(max(dble(fwhm_arcmin)**2 - dble(fwhm_in)**2, 0.d0))*coop_SI_arcmin
   select case(trim(spot_type))
-  case("Tmax", "Tmax_QTUTOrient", "PTmax", "Tmin", "Tmin_QTUTOrient", "PTmin", "PTmaxSortT", "zetamax", "zetamax_qzuzOrient", "zetamin", "zetamin_qzuzOrient", "PZmax", "PZmin")
+  case("Tmax", "Tmax_QTUTOrient", "PTmax", "Tmin", "Tmin_QTUTOrient", "PTmin", "PTmaxSortT", "zetamax", "zetamax_qzuzOrient", "zetamin", "zetamin_qzuzOrient", "PZmax", "PZmin", "TQUL", "TQULb")
      mask_file = trim(adjustl(imask_file))
   case("Pmax", "Pmin", "Emax", "Emin", "Bmax", "Bmin","PmaxSortT")
      mask_file = trim(adjustl(polmask_file))

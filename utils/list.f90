@@ -46,7 +46,7 @@ module coop_list_mod
   end interface coop_dictionary_lookup
 
 
-  COOP_INT,parameter:: coop_list_i1_max_length = 2**12
+  COOP_INT,parameter:: coop_list_i1_max_length = 2**14
   COOP_INT,parameter:: coop_list_i2_max_length = coop_list_i1_max_length * 4
   COOP_INT,parameter:: coop_list_i3_max_length = coop_list_i2_max_length * 4
   COOP_INT,parameter:: coop_list_i4_max_length = coop_list_i3_max_length * 4

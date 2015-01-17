@@ -9,8 +9,10 @@ program stackth
   use alm_tools
   implicit none
 #include "constants.h"
-  type(coop_healpix_maps)::hgm, mask
-  call hgm%read("planck14/", nmaps_wanted = 3, nmaps_to_read = 1, spin=(/ 0, 2, 2 /) )
-  call hgm%iqu2TQTUT1()
-  call hgm%write("planck14/dx11_v2_smica_TQTUT_cmb_010a_1024_hp_10_20.fits")
+  type(coop_healpix_maps)::hgm, mask, hgm2
+  COOP_INT l
+  call hgm%init(nside = 256, nmaps = 1, spin = (/ 0 /) )
+  call hgm%mark_spots("spots/dust_TQUL_015a_b30-500_n512_fwhm15_TQUL_threshold0pt5_2ndthreshold0pt6.txt", imap = 1, width = 30.d0, length = 180.d0)
+  call hgm%write("peaks.fits")
+  
 end program stackth

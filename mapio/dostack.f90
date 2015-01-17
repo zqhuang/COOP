@@ -5,13 +5,13 @@ program test
 
 #include "constants.h"
 
-  COOP_STRING :: spot_type = "QU"
-  COOP_STRING :: map_file =  "dust/dust_iqu_030a.fits"
-  COOP_STRING:: spots_file = "spots/dust_iqu_030a_fwhm15_Tmax_QTUTOrient_threshold0pt5.txt"
-  COOP_STRING :: imask_file = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
-  COOP_STRING:: polmask_file =  "planck14/dx11_v2_common_pol_mask_010a_1024.fits" 
+  COOP_STRING :: spot_type = "T"
+  COOP_STRING :: map_file =  "tuhin/dust_TQUL_015a_b30-500_n512.fits"
+  COOP_STRING:: spots_file = "spots/dust_TQUL_015a_b30-500_n512_fwhm15_TQULb_threshold0pt2_2ndthreshold0pt4.txt"
+  COOP_STRING :: imask_file = "planck14/lat30_mask_n512.fits"
+  COOP_STRING:: polmask_file =  "planck14/lat30_mask_n512.fits"
   COOP_STRING::unit = "K"
-
+  COOP_STRING::str_2nd = "\nu_p"
 
   COOP_UNKNOWN_STRING,parameter:: color_table = "Rainbow"
   COOP_REAL,parameter::r_degree = 2.d0
@@ -31,28 +31,26 @@ program test
   COOP_REAL::zmin2 = 1.1e31
   COOP_REAL::zmax2  = -1.1e31
 
-  coop_healpix_IAU_headless_vector = .true.  
   if(iargc() .ge. 5)then
      map_file = trim(adjustl(coop_InputArgs(1)))
      spots_file = trim(adjustl(coop_InputArgs(2)))
      spot_type = trim(adjustl(coop_InputArgs(3)))     
      imask_file = trim(adjustl(coop_InputArgs(4)))
      polmask_file = trim(adjustl(coop_InputArgs(5)))
-     unit = trim(adjustl(coop_InputArgs(6)))
-     if(iargc().ge. 8)then
-        inline = trim(adjustl(coop_InputArgs(7)))
+     if(iargc().ge. 7)then
+        inline = trim(adjustl(coop_InputArgs(6)))
         read(inline, *) zmin
-        inline = trim(adjustl(coop_InputArgs(8)))
+        inline = trim(adjustl(coop_InputArgs(7)))
         read(inline, *) zmax        
      endif
-     if(iargc().ge.10)then
-        inline = trim(adjustl(coop_InputArgs(9)))
+     if(iargc().ge.9)then
+        inline = trim(adjustl(coop_InputArgs(8)))
         read(inline, *) zmin2
-        inline = trim(adjustl(coop_InputArgs(10)))
+        inline = trim(adjustl(coop_InputArgs(9)))
         read(inline, *) zmax2               
      endif
   endif
-
+  coop_healpix_IAU_headless_vector = .true.       
   if(.not. coop_file_exists(spots_file))then
      write(*,*) "Cannot find the file "//trim(adjustl(spots_file))
      stop
@@ -97,6 +95,7 @@ program test
   end select
   call map%read(trim(map_file))
   if(do_mask)then
+     if(mask%nside .ne.map%nside) stop "mask must have the same nside"
      do i=1, min(map%nmaps, 3)
         map%map(:, i) = map%map(:, i)*mask%map(:, 1)
      enddo
@@ -107,6 +106,12 @@ program test
 
   if(index(spots_file, "_Tmax_QTUTOrient") .gt. 0)then
      caption = "$T$ maxima, oriented"
+  elseif(index(spots_file, "_TQULb").gt.0)then
+     caption = "$T$ maxima, $\nabla^2$ oriented"
+     str_2nd = "\nu_e^{\rm upper}"
+  elseif(index(spots_file, "_TQULt").gt.0)then
+     caption = "$T$ maxima, $\nabla^2$ oriented"
+     str_2nd = "\nu_e"     
   elseif(index(spots_file, "_Tmax").gt.0)then
      caption = "$T$ maxima, random orientation"
   elseif(index(spots_file, "_zetamax_qzuzOrient").gt.0)then
@@ -149,8 +154,24 @@ program test
      stop "Unknown spots_file class"
   endif
 
-  if(index(spots_file, "_threshold0pt5").gt.0)then
+  if(index(spots_file, "_threshold0pt1").gt.0)then
+     caption = trim(caption)//", $\nu=0.1$"
+  elseif(index(spots_file, "_threshold0pt2").gt.0)then
+     caption = trim(caption)//", $\nu=0.2$"
+  elseif(index(spots_file, "_threshold0pt3").gt.0)then
+     caption = trim(caption)//", $\nu=0.3$"
+  elseif(index(spots_file, "_threshold0pt4").gt.0)then
+     caption = trim(caption)//", $\nu=0.4$"
+  elseif(index(spots_file, "_threshold0pt5").gt.0)then
      caption = trim(caption)//", $\nu=0.5$"
+  elseif(index(spots_file, "_threshold0pt6").gt.0)then
+     caption = trim(caption)//", $\nu=0.6$"
+  elseif(index(spots_file, "_threshold0pt7").gt.0)then
+     caption = trim(caption)//", $\nu=0.7$"
+  elseif(index(spots_file, "_threshold0pt8").gt.0)then
+     caption = trim(caption)//", $\nu=0.8$"
+  elseif(index(spots_file, "_threshold0pt9").gt.0)then
+     caption = trim(caption)//", $\nu=0.9$"
   elseif(index(spots_file, "_threshold1pt5").gt.0)then
      caption = trim(caption)//", $\nu=1.5$"
   elseif(index(spots_file, "_threshold2pt5").gt.0)then
@@ -168,22 +189,38 @@ program test
   endif
   
   
-  if(index(spots_file, "_2ndthreshold0pt5").gt.0)then
-     caption = trim(caption)//", $\nu'=0.5$"
+  if(index(spots_file, "_2ndthreshold0pt1").gt.0)then
+     caption = trim(caption)//", $"//trim(str_2nd)//"=0.1$"
+  elseif(index(spots_file, "_2ndthreshold0pt2").gt.0)then
+     caption = trim(caption)//", $"//trim(str_2nd)//"=0.2$"
+  elseif(index(spots_file, "_2ndthreshold0pt3").gt.0)then
+     caption = trim(caption)//", $"//trim(str_2nd)//"=0.3$"
+  elseif(index(spots_file, "_2ndthreshold0pt4").gt.0)then
+     caption = trim(caption)//", $"//trim(str_2nd)//"=0.4$"
+  elseif(index(spots_file, "_2ndthreshold0pt5").gt.0)then
+     caption = trim(caption)//", $"//trim(str_2nd)//"=0.5$"
+  elseif(index(spots_file, "_2ndthreshold0pt6").gt.0)then
+     caption = trim(caption)//", $"//trim(str_2nd)//"=0.6$"
+  elseif(index(spots_file, "_2ndthreshold0pt7").gt.0)then
+     caption = trim(caption)//", $"//trim(str_2nd)//"=0.7$"
+  elseif(index(spots_file, "_2ndthreshold0pt8").gt.0)then
+     caption = trim(caption)//", $"//trim(str_2nd)//"=0.8$"
+  elseif(index(spots_file, "_2ndthreshold0pt9").gt.0)then
+     caption = trim(caption)//", $"//trim(str_2nd)//"=0.9$"
   elseif(index(spots_file, "_2ndthreshold1pt5").gt.0)then
-     caption = trim(caption)//", $\nu'=1.5$"
+     caption = trim(caption)//", $"//trim(str_2nd)//"=1.5$"
   elseif(index(spots_file, "_2ndthreshold2pt5").gt.0)then
-     caption = trim(caption)//", $\nu'=2.5$"     
+     caption = trim(caption)//", $"//trim(str_2nd)//"=2.5$"     
   elseif(index(spots_file, "_2ndthreshold3pt5").gt.0)then
-     caption = trim(caption)//", $\nu'=3.5$"
+     caption = trim(caption)//", $"//trim(str_2nd)//"=3.5$"
   elseif(index(spots_file, "_2ndthreshold0").gt.0)then
-     caption = trim(caption)//", $\nu'=0$"
+     caption = trim(caption)//", $"//trim(str_2nd)//"=0$"
   elseif(index(spots_file, "_2ndthreshold1").gt.0)then
-     caption = trim(caption)//", $\nu'=1$"
+     caption = trim(caption)//", $"//trim(str_2nd)//"=1$"
   elseif(index(spots_file, "_2ndthreshold2").gt.0)then
-     caption = trim(caption)//", $\nu'=2$"
+     caption = trim(caption)//", $"//trim(str_2nd)//"=2$"
   elseif(index(spots_file, "_2ndthreshold3").gt.0)then
-     caption = trim(caption)//", $\nu'=3$"
+     caption = trim(caption)//", $"//trim(str_2nd)//"=3$"
   endif
 
 
@@ -227,7 +264,6 @@ program test
      patch%zmax = zmax
   endif
   call patch%plot(imap = 1, output =trim(fout))
-  
   if(trim(fout2).ne."")then
      if(zmin2 .lt. zmax2)then
         patch%zmin = zmin2

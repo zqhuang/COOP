@@ -10,7 +10,14 @@ emap  = fullprefix + "_E" + postfix
 bmap = fullprefix + "_B" + postfix
 
 if(not (os.path.isfile(imap_in)  and os.path.isfile(polmap_in) and os.path.isfile(imask) and os.path.isfile(polmask))):
-    print "not all files exist; please check."
+    if(not (os.path.isfile(imap_in))):
+        print imap_in + " is missing"
+    if(not (os.path.isfile(polmap_in))):
+        print polmap_in + " is missing"
+    if(not (os.path.isfile(imask))):
+        print imask + " is missing"
+    if(not (os.path.isfile(polmask))):
+        print polmask + " is missing"        
     sys.exit()
     
 if(not (os.path.isfile(zetamap) and os.path.isfile(tqtutmap) and os.path.isfile(emap) and os.path.isfile(bmap) and os.path.isfile(imap) and os.path.isfile(polmap) and os.path.isfile(zetaqzuz))):
@@ -50,11 +57,11 @@ def stack(inputmap, spots, st, zmin = 1.1e31, zmax = -1.1e31, zmin2=1.1e31, zmax
             return
     if(zmin < zmax):
         if(zmin2 < zmax2):
-            os.system("./Stack " + inputmap + " " + spots_dir+spots + " " + st + " " + imask + " " + polmask + " " + unit + " " + str(zmin) + " " + str(zmax)+ " " + str(zmin2) + " " + str(zmax2))                   
+            os.system("./Stack " + inputmap + " " + spots_dir+spots + " " + st + " " + imask + " " + polmask + " " + str(zmin) + " " + str(zmax)+ " " + str(zmin2) + " " + str(zmax2))                   
         else:
-            os.system("./Stack " + inputmap + " " + spots_dir+spots + " " + st + " " + imask + " " + polmask + " " + unit + " " + str(zmin) + " " + str(zmax))        
+            os.system("./Stack " + inputmap + " " + spots_dir+spots + " " + st + " " + imask + " " + polmask + " " + str(zmin) + " " + str(zmax))        
     else:
-        os.system("./Stack " + inputmap + " " + spots_dir+spots + " " + st + " " + imask + " " + polmask + " " + unit)
+        os.system("./Stack " + inputmap + " " + spots_dir+spots + " " + st + " " + imask + " " + polmask)
 #    os.system("../utils/fasy.sh "+stack_dir+output)
 
 
@@ -97,11 +104,13 @@ stack(polmap, spots_emax, "QrUr")
 #stack(emap, spots_zetamax, "E")
 #stack(bmap, spots_zetamax, "B")
 
-stack(imap, spots_tmax_orient, "T", -32., 70.)
+stack(imap, spots_tmax_orient, "T")
+#, -32., 70.)
 #stack(imap, spots_tmin_orient, "T", -70., 35.)
 #stack(emap, spots_tmax_orient, "E")
 #stack(zetamap, spots_tmax_orient, "zeta")
-stack(polmap, spots_tmax_orient, "QU", -0.4, 0.41, -0.31, 0.31)
+stack(polmap, spots_tmax_orient, "QU")
+#, -0.4, 0.41, -0.31, 0.31)
 #stack(polmap, spots_tmin_orient, "QU")
 #stack(tqtutmap, spots_tmax_orient, "QU")
 

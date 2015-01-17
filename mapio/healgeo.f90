@@ -16,9 +16,9 @@ module coop_healpix_mod
 
   private
 
-  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_get_disc, coop_healpix_export_spots, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_lb2ang, coop_healpix_ang2lb, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_healpix_max_threshold, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_healpix_latitude_cut_mask, coop_healpix_trim_maskfile, coop_healpix_IAU_headless_vector
+  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_plot_spots,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_get_disc, coop_healpix_export_spots, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_lb2ang, coop_healpix_ang2lb, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_healpix_max_threshold, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_trim_maskfile, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask
   
-  logical::coop_healpix_IAU_headless_vector = .false.
+  logical::coop_healpix_IAU_headless_vector = .true.
   logical::coop_healpix_alm_check_done = .false.
   logical::coop_healpix_want_cls = .true.
   COOP_REAL,parameter::coop_healpix_max_threshold = 10.d0
@@ -68,7 +68,9 @@ module coop_healpix_mod
      COOP_REAL chisq, mcmc_temperature
      logical,dimension(:),allocatable::alm_done
      COOP_SINGLE,dimension(:,:),allocatable::checksum
-   contains     
+   contains
+     procedure :: ang2pix => coop_healpix_maps_ang2pix
+     procedure :: pix2ang => coop_healpix_maps_pix2ang
      procedure :: init => coop_healpix_maps_init
      procedure :: free => coop_healpix_maps_free
      procedure :: write => coop_healpix_maps_write
@@ -109,6 +111,7 @@ module coop_healpix_mod
      procedure :: stack_with_covariance => coop_healpix_maps_stack_with_covariance
      procedure :: stack_with_listpix => coop_healpix_maps_stack_with_listpix
      procedure :: stack_north_south => coop_healpix_maps_stack_north_south
+     procedure :: mark_spots => coop_healpix_maps_mark_spots
   end type coop_healpix_maps
 
   type coop_healpix_patch
@@ -144,6 +147,74 @@ module coop_healpix_mod
 contains
 
 
+  subroutine coop_healpix_maps_ang2pix(this, theta, phi, pix)
+    class(coop_healpix_maps)::this
+    COOP_REAL theta, phi
+    COOP_INT pix
+#ifdef HAS_HEALPIX    
+    if(this%ordering .eq. COOP_RING)then
+       call ang2pix_ring(this%nside, theta, phi, pix)
+    else
+       call ang2pix_nest(this%nside, theta, phi, pix)       
+    endif
+#else
+    stop "You need to compile with Healpix to use ang2pix" 
+#endif       
+  end subroutine coop_healpix_maps_ang2pix
+
+  subroutine coop_healpix_maps_pix2ang(this, pix, theta, phi)
+    class(coop_healpix_maps)::this
+    COOP_REAL theta, phi
+    COOP_INT pix
+#ifdef HAS_HEALPIX    
+    if(this%ordering .eq. COOP_RING)then
+       call pix2ang_ring(this%nside, pix, theta, phi)
+    else
+       call pix2ang_nest(this%nside, pix, theta, phi)
+    endif
+#else
+    stop "You need to compile with Healpix to use pix2ang" 
+#endif       
+  end subroutine coop_healpix_maps_pix2ang
+  
+
+  !!width, length in unit of arcmin
+  subroutine coop_healpix_maps_mark_spots(this, spots_file, imap, width, length)
+    class(coop_healpix_maps)::this
+    COOP_UNKNOWN_STRING::spots_file
+    type(coop_file)::fp
+    COOP_INT i, j, pix, nw, nl, imap
+    COOP_REAL theta, phi, angle, width, length,  dr, x, y, cost, sint
+    type(coop_healpix_disc) disc
+    dr = sqrt(coop_4pi/this%npix)/4.
+    nw = max(0, nint((width*coop_SI_arcmin/dr-1.d0)/2.d0))
+    nl = max(0, nint((length*coop_SI_arcmin/dr-1.d0)/2.d0))
+    this%map(:, imap) = 1.
+    do i = 0, floor(coop_pi/dr)
+       call this%ang2pix(dr*i, coop_pi-1.d-5, pix)
+       this%map(pix, imap) = 0.       
+       call this%ang2pix(dr*i, -coop_pi+1.d-5, pix)
+       this%map(pix, imap) = 0.              
+    enddo
+    call fp%open(spots_file, "r")
+    do
+       read(fp%unit, *, ERR=100, END=100) theta, phi, angle
+       cost = cos(angle)
+       sint = sin(angle)
+       call this%ang2pix(theta, phi, pix)
+       call coop_healpix_get_disc(this%nside, pix, disc)
+       do i = -nw, nw
+          y = i*dr          
+          do j=-nl, nl
+             x = j*dr
+             call disc%xy2pix(x*cost-y*sint, x*sint+y*cost, pix)
+             this%map(pix, imap) = 0.
+          enddo
+       enddo
+    enddo
+100 call fp%close()
+  end subroutine coop_healpix_maps_mark_spots
+
   subroutine coop_healpix_latitude_cut_mask(nside, latitude_degree, filename)
     COOP_REAL::latitude_degree
     COOP_UNKNOWN_STRING::filename
@@ -156,6 +227,27 @@ contains
     call mask%write(trim(filename))
     call mask%free()
   end subroutine coop_healpix_latitude_cut_mask
+
+  subroutine coop_healpix_latitude_cut_smoothmask(nside, latitude_degree, depth, filename)
+    COOP_REAL::latitude_degree, depth
+    COOP_UNKNOWN_STRING::filename
+    type(coop_healpix_maps)::mask
+    COOP_INT i
+    COOP_REAL theta, phi, lat, dep
+    COOP_INT::listpix(0:nside**2*12-1), nlist, nside
+    lat = latitude_degree*coop_SI_degree
+    dep = depth*coop_SI_degree
+    call mask%init(nside = nside, nmaps = 1, spin = (/ 0 /))
+    mask%map(:,1) = 1.
+    call query_strip(nside, coop_pio2 - lat, coop_pio2 + lat, listpix, nlist, nest = 0, inclusive = 1)
+    do i = 0, nlist-1
+       call pix2ang_ring(nside, listpix(i), theta, phi)
+       mask%map(listpix(i),1) = exp(- ((lat - abs(theta - coop_pio2))/dep)**2)
+    enddo
+    call mask%write(trim(filename))
+    call mask%free()
+  end subroutine coop_healpix_latitude_cut_smoothmask
+  
 
   subroutine coop_healpix_diffuse_into_mask(this, mask, smoothscale, pol)  !!lambda<1
     real,parameter::nefolds = 2.
@@ -828,7 +920,7 @@ contains
           call this%map2alm(index_list = (/ 1 /) )
        endif
     endif
-    this%alm(:,:, 2:3) = 0.
+    this%alm(:,:, 3) = 0.
     do l = 2, this%lmax
        this%alm(l,:,2) = this%alm(l,:,1)*(l*(l+1.))
     enddo
@@ -1060,6 +1152,20 @@ contains
        endif
     else
        select case(this%nmaps)
+       case(4)
+          if(index(filename, "TQUL").ne.0)then
+             this%spin(1) = 0
+             this%spin(2:3) = 2
+             this%spin(4) = 0
+             this%iq = 2
+             this%iu = 3
+             write(*,*) "TQUL map default spin: 0 2 2 0"
+          else
+             this%spin = 0
+             this%iq = 0
+             this%iu = 0
+             write(*,*) "I assume all maps are scalar, specify spins otherwise"
+          endif
        case(3)
           if(index(filename, "TEB") .eq. 0 .and. index(filename, "teb") .eq. 0)then
              this%spin(1) = 0
@@ -1085,6 +1191,10 @@ contains
              this%spin = 0
              write(*,*) "I assume all maps are scalar, specify spins otherwise"
           endif
+       case(1)
+          this%iq = 0
+          this%iu = 0
+          this%spin = 0          
        case default
           this%iq = 0
           this%iu = 0
@@ -2253,7 +2363,7 @@ contains
     COOP_UNKNOWN_STRING spot_type
     type(coop_list_realarr)::spots
     COOP_REAL,optional::threshold, threshold_pol
-    COOP_REAL theta, phi, rotate_angle, fcut, fcut2
+    COOP_REAL theta, phi, rotate_angle, fcut, fcut2, sigma0, sigmap
     class(coop_healpix_maps)map
     type(coop_healpix_maps),optional::mask
     COOP_REAL total_weight
@@ -2267,7 +2377,7 @@ contains
        if(mask%nside .ne. map%nside)then
           write(*,*) "map nside = ", map%nside
           write(*,*) "mask nside = ", mask%nside
-          stop "coop_healpix_export_spots: mask and map must have the same nside"
+          stop "coop_healpix_get_spots: mask and map must have the same nside"
        endif
        total_weight = count(mask%map(:,1).gt.0.5)
        do_mask = .true.
@@ -2355,10 +2465,11 @@ contains
        if(present(threshold))then
           if(threshold.lt.coop_healpix_max_threshold)then
              if(do_mask)then
-                fcut = threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
+                sigma0 = sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)            
              else
-                fcut = threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
+                sigma0 = sqrt(sum(dble(map%map(:,1))**2)/total_weight)
              endif
+             fcut = threshold* sigma0
           else
              fcut=-1.e30
           endif
@@ -2391,6 +2502,101 @@ contains
              endif
           else
              if(map%map(i,1) .lt. fcut  .or. map%map(i,2)**2+map%map(i,3)**2 .lt.fcut2  )cycle
+             call neighbours_nest(map%nside, i, list, nneigh)  
+             if(all(map%map(list(1:nneigh),1) .lt. map%map(i,1)))then
+                call pix2ang_nest(map%nside, i, theta, phi)
+                rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
+                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
+                call spots%push( real( (/ theta, phi, rotate_angle /) ) )
+             endif
+          endif
+       enddo
+
+    case("TQUL" ) !!oriented with QU, maxima of T, T and ellipiticity constraint
+       if(map%nmaps .lt. 4) stop "For TQUL you need four maps"
+       if(present(threshold))then
+          if(threshold.lt.coop_healpix_max_threshold)then
+             if(do_mask)then
+                sigma0 = sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)            
+             else
+                sigma0 = sqrt(sum(dble(map%map(:,1))**2)/total_weight)
+             endif
+             fcut = threshold * sigma0
+          else
+             fcut=-1.e30
+          endif
+       else
+          fcut = -1.e30
+       endif
+       if(present(threshold_pol))then
+          if(threshold_pol.lt.1.d0 .and. threshold_pol .ge. 0.d0)then
+             fcut2 = threshold_pol**2
+          else
+             fcut2 = 0.d0
+          endif
+       else
+          fcut2 = 0.d0
+       endif
+       
+       do i=0, map%npix-1
+          if(do_mask)then
+             if( map%map(i,1) .lt. fcut .or. map%map(i,2)**2+map%map(i,3)**2 .lt. fcut2*map%map(i,4)**2 .or. mask%map(i,1) .le. 0.5)cycle
+             call neighbours_nest(map%nside, i, list, nneigh)  
+             if(all(map%map(list(1:nneigh),1) .lt. map%map(i,1)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5)) then
+                call pix2ang_nest(map%nside, i, theta, phi)
+                rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
+                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
+                call spots%push( real( (/ theta, phi, rotate_angle /) ) )
+             endif
+          else
+             if(map%map(i,1) .lt. fcut  .or. (map%map(i,2)**2+map%map(i,3)**2) .lt. fcut2*map%map(i,4)**2  )cycle
+             call neighbours_nest(map%nside, i, list, nneigh)  
+             if(all(map%map(list(1:nneigh),1) .lt. map%map(i,1)))then
+                call pix2ang_nest(map%nside, i, theta, phi)
+                rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
+                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
+                call spots%push( real( (/ theta, phi, rotate_angle /) ) )
+             endif
+          endif
+       enddo
+    case("TQULb" ) !!oriented with QU, maxima of T, T and ellipiticity constraint
+       if(map%nmaps .lt. 4) stop "For TQUL you need four maps"
+       if(present(threshold))then
+          if(threshold.lt.coop_healpix_max_threshold)then
+             if(do_mask)then
+                sigma0 = sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)            
+             else
+                sigma0 = sqrt(sum(dble(map%map(:,1))**2)/total_weight)
+             endif
+             fcut = threshold * sigma0
+          else
+             fcut=-1.e30
+          endif
+       else
+          fcut = -1.e30
+       endif
+       if(present(threshold_pol))then
+          if(threshold_pol.lt.1.d0 .and. threshold_pol .ge. 0.d0)then
+             fcut2 = threshold_pol**2
+          else
+             fcut2 = 1.d0
+          endif
+       else
+          fcut2 = 1.d0
+       endif
+       
+       do i=0, map%npix-1
+          if(do_mask)then
+             if( map%map(i,1) .lt. fcut .or. map%map(i,2)**2+map%map(i,3)**2 .gt. fcut2*map%map(i,4)**2 .or. mask%map(i,1) .le. 0.5)cycle
+             call neighbours_nest(map%nside, i, list, nneigh)  
+             if(all(map%map(list(1:nneigh),1) .lt. map%map(i,1)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5)) then
+                call pix2ang_nest(map%nside, i, theta, phi)
+                rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
+                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
+                call spots%push( real( (/ theta, phi, rotate_angle /) ) )
+             endif
+          else
+             if(map%map(i,1) .lt. fcut  .or. (map%map(i,2)**2+map%map(i,3)**2) .gt. fcut2*map%map(i,4)**2  )cycle
              call neighbours_nest(map%nside, i, list, nneigh)  
              if(all(map%map(list(1:nneigh),1) .lt. map%map(i,1)))then
                 call pix2ang_nest(map%nside, i, theta, phi)
@@ -2593,7 +2799,7 @@ contains
     call listangle%init()
     do_mask = .false.
     if(present(mask))then
-       if(mask%nside .ne. map%nside) stop "coop_healpix_export_spots: mask and map must have the same nside"
+       if(mask%nside .ne. map%nside) stop "coop_healpix_get_listpix: mask and map must have the same nside"
        total_weight = count(mask%map(:,1).gt. 0.5)
        do_mask = .true.
     else
@@ -2846,7 +3052,7 @@ contains
        stop "unknown spot type"
     end select
     call map%convert2ring()
-    if(do_mask)    call mask%convert2ring()
+    if(do_mask)call mask%convert2ring()
 #else
     stop "CANNOT FIND HEALPIX"
 #endif
@@ -2863,12 +3069,7 @@ contains
     type(coop_list_realarr) spots
     COOP_SINGLE arr(10)
     logical domask
-    select case(trim(spot_type))
-    case("Tmax_QTUTOrient", "Tmin_QTUTOrient", "PTmax", "PTmin", "PZmin", "PZmax", "zetamax_qzuzOrient", "zetamin_qzuzOrient")
-       call map%read(trim(map_file), nmaps_wanted = 3)
-    case default
-       call map%read(trim(map_file))
-    end select
+    call map%read(map_file)
     if(present(fwhm))then
        if(abs(fwhm) .gt. 1.d-3) &
             call map%smooth(fwhm)
@@ -2880,6 +3081,7 @@ contains
     endif
     
     if(domask) call mask%read(mask_file, nmaps_wanted = 1)
+    if(mask%nside .ne. map%nside) stop "export_spots: mask should have the same nside"
     if(present(threshold_pol))then
        if(present(threshold))then
           if(domask)then
@@ -3828,9 +4030,29 @@ contains
        w = 1.d0
        return
     endif
-    w = sin(dble(l-l1)/dble(l2-l1)*coop_pio2)**2
+    w = sin(dble(l-l1)/dble(l2-l1)*coop_pio2)
   end function Coop_highpass_filter
-  
+
+  function coop_gaussian_filter(fwhm_arcmin, l) result(w)
+    COOP_INT l
+    COOP_REAL fwhm_arcmin, w
+    w = exp(-((coop_sigma_by_fwhm*coop_SI_arcmin/coop_sqrt2)*fwhm_arcmin)**2*l*(l+1.d0))
+  end function coop_gaussian_filter
+
+  function coop_lowpass_filter(l1, l2, l) result(w)
+    COOP_INT l1, l2, l
+    COOP_REAL w
+    if(l.ge. l2)then
+       w = 0.d0
+       return
+    endif
+    if(l.le.l1)then
+       w = 1.d0
+       return
+    endif
+    w = sin(dble(l2-l)/dble(l2-l1)*coop_pio2)
+  end function coop_lowpass_filter
+
 
 end module coop_healpix_mod
 
