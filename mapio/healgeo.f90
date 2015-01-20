@@ -124,13 +124,14 @@ module coop_healpix_mod
   end type coop_healpix_maps
 
   type coop_healpix_patch
-     COOP_STRING::caption
-     COOP_SHORT_STRING,dimension(:),allocatable::label
-     COOP_SHORT_STRING::color_table
+     COOP_STRING::caption=""
+!     type(coop_to_be_stacked):: tbs
+     logical::headless_vectors = .false.     
+     COOP_SHORT_STRING::color_table="Rainbow"
      COOP_SHORT_STRING:: genre
-     COOP_INT::n, mmax, nmaps, npix, nstack_raw
+     COOP_INT::n, mmax, nmaps, npix, nstack_raw, imap
      COOP_REAL::dr, zmin, zmax
-     logical::headless_vectors
+     COOP_SHORT_STRING,dimension(:),allocatable::label     
      COOP_REAL,dimension(:,:,:),allocatable::image
      COOP_REAL,dimension(:),allocatable::r
      COOP_REAL,dimension(:,:,:),allocatable::fr
@@ -619,13 +620,16 @@ contains
        stop
     end select
     allocate(this%label(this%nmaps))
-    do i=1, this%nmaps
-       this%label(i) = ""
-    enddo
     select case(trim(this%genre))
     case("QU")
        this%label(1) = "$Q(\mu K)$"
        this%label(2) = "$U(\mu K)$"
+    case("QTUT")
+       this%label(1) = "$Q_T(\mu K)$"
+       this%label(2) = "$U_T(\mu K)$"
+    case("QLTULT")
+       this%label(1) = "$Q_{\nabla^2 T}(\mu K/{\rm rad}^2)$"
+       this%label(2) = "$U_{\nabla^2 T}(\mu K/{\rm rad}^2)$"              
     case("QrUr")
        this%label(1) = "$Q_r(\mu K)$"
        this%label(2) = "$U_r(\mu K)$"
@@ -634,9 +638,10 @@ contains
     case("zeta")
        this%label(1) = "$\zeta (10^{-5})$"
     case default
-       write(*,*) "Unknown stacking genre: "//trim(this%genre)
-       write(*,*) "Only supports: QU, QrUr, T, E, B"
-       stop
+       if("I
+       do i=1, this%nmaps
+          this%label(i) = ""
+       enddo
     end select
 
     allocate(this%image(-this%n:this%n, -this%n:this%n, this%nmaps))
@@ -4137,7 +4142,9 @@ contains
     COOP_INT::total_weight
     COOP_REAL::sigma,thetaphi(2)
     logical,optional::restore
-#ifdef HAS_HEALPIX    
+#ifdef HAS_HEALPIX
+    if(sto%nmaps .ne. this%nmaps)stop "get_peaks: nmaps mismatch"
+    sto%nside = this%nside
     call this%convert2nested()
     if(present(mask))then
        if(mask%nside .ne. this%nside)then
@@ -4345,6 +4352,54 @@ contains
     enddo
   end subroutine coop_healpix_maps_mark_peaks
 
+  subroutine coop_healpix_maps_stack_on_peaks(this, sto, patch, mask)
+    COOP_INT,parameter::n_threads = 4
+    class(coop_healpix_maps)::this
+    type(coop_stacking_options)::sto
+    type(coop_healpix_disc),dimension(n_threads)::disc
+    type(coop_healpix_patch)::patch
+    type(coop_healpix_patch),dimension(n_threads)::p, tmp
+    type(coop_healpix_maps),optional::mask
+    COOP_INT ithread, i
+#ifdef HAS_HEALPIX
+    patch%image = 0.d0
+    patch%nstack = 0.d0
+    patch%nstack_raw = 0
+    do ithread=1, n_threads
+       p(ithread) = patch
+       tmp(ithread) = patch
+    enddo
+    !$omp parallel do private(i, ithread)
+    do ithread = 1, n_threads
+       do i=ithread, sto%peak_pix%n, n_threads
+          call this%get_disc(sto%pix(this%nside, i), disc(ithread))
+          if(present(mask))then
+             call coop_healpix_stack_on_patch(this, disc(ithread), sto%rotate_angle(i), p(ithread), tmp(ithread), mask)    
+          else
+             call coop_healpix_stack_on_patch(this, disc(ithread), sto%rotate_angle(i), p(ithread), tmp(ithread))
+          endif
+       enddo
+    enddo
+    !$omp end parallel do
+    do ithread = 1, n_threads
+       patch%image = patch%image + p(ithread)%image
+       patch%nstack = patch%nstack + p(ithread)%nstack
+       patch%nstack_raw = patch%nstack_raw + p(ithread)%nstack_raw
+       call p(ithread)%free()
+       call tmp(ithread)%free()
+    enddo
+    if(patch%nstack_raw .ne. 0)then
+       do i=1, patch%nmaps
+          patch%image(:, :, i) = patch%image(:, :, i)/max(patch%nstack, 1.d0)
+       enddo
+    else
+       write(*,*) "warning: no patches has been found"
+       patch%image = 0.d0
+    endif
+#else
+    stop "CANNOT FIND HEALPIX"
+#endif
+  end subroutine coop_healpix_maps_stack_on_peaks
   
 end module coop_healpix_mod
 

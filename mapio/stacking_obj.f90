@@ -1,5 +1,12 @@
 module coop_stacking_mod
   use coop_wrapper_firstorder
+#ifdef HAS_HEALPIX
+  use head_fits
+  use fitstools
+  use pix_tools
+  use alm_tools
+  use udgrade_nr
+#endif
   implicit none
 #include "constants.h"
 
@@ -16,9 +23,11 @@ module coop_stacking_mod
   COOP_INT,parameter::coop_stacking_genre_Pmax_Oriented = 9
   COOP_INT,parameter::coop_stacking_genre_Pmin_Oriented = 10
 
+
   type coop_stacking_options
      COOP_INT::genre = coop_stacking_genre_Null
      COOP_INT::nmaps = 0
+     COOP_INT::nside = 0
      COOP_INT::index_I = 0
      COOP_INT::index_Q = 0
      COOP_INT::index_U = 0
@@ -41,13 +50,16 @@ module coop_stacking_mod
      COOP_SINGLE::P2byL2_lower = -1.e20
      COOP_SINGLE::P2byL2_upper = 1.e20
      COOP_INT::threshold_option = 0
+     logical::addpi = .true.  !!randomly add pi on polarization directions
      logical::nested = .false.
      type(coop_list_integer)::peak_pix
      type(coop_list_realarr)::peak_ang
      type(coop_list_realarr)::peak_map
    contains
      procedure::init => coop_stacking_options_init
+     procedure::free => coop_stacking_options_free
      procedure::reject=>coop_stacking_options_reject
+     procedure::pix => coop_stacking_options_pix
      procedure::export_pix => coop_stacking_options_export_pix
      procedure::export_ang => coop_stacking_options_export_ang     
      procedure::rotate_angle => coop_stacking_options_rotate_angle
@@ -57,7 +69,131 @@ module coop_stacking_mod
   end type coop_stacking_options
 
 
+  type coop_to_be_stacked
+     COOP_INT::nmaps = 0
+     COOP_INT,dimension(:),allocatable::ind
+     COOP_INT,dimension(:),allocatable::spin
+     COOP_STRING,dimension(:),allocatable::label
+     logical, dimension(:),allocatable::headless_vector !!headless vector
+     logical, dimension(:),allocatable::local_rotation !!local rotation
+   contains     
+     procedure::init => coop_to_be_stacked_init
+     procedure::free => coop_to_be_stacked_free
+  end type coop_to_be_stacked
+
+
 contains
+
+  subroutine coop_stacking_options_free(this)
+    class(coop_stacking_options)::this
+    call this%peak_pix%init()
+    call this%peak_ang%init()
+    call this%peak_map%init()
+  end subroutine coop_stacking_options_free
+
+  subroutine coop_to_be_stacked_free(this, nmaps)
+    class(coop_to_be_stacked)::this
+    COOP_INT,optional::nmaps    
+    if(allocated(this%ind))deallocate(this%ind)
+    if(allocated(this%spin))deallocate(this%spin)
+    if(allocated(this%label))deallocate(this%label)
+    if(allocated(this%headless_vector)) deallocate(this%headless_vector)
+    if(allocated(this%local_rotation)) deallocate(this%local_rotation)
+    if(present(nmaps))then
+       this%nmaps = nmaps
+       allocate(this%ind(this%nmaps), this%spin(this%nmaps), this%label(this%nmaps), this%local_rotation(this%nmaps), this%headless_vector(this%nmaps))       
+    else
+       this%nmaps = 0
+    endif
+  end subroutine coop_to_be_stacked_free
+
+  subroutine coop_to_be_stacked_init(this, str)
+    class(coop_to_be_stacked)::this
+    COOP_UNKNOWN_STRING::str
+    type(coop_list_string)::l, subl
+    COOP_STRING::line
+    COOP_INT i, j
+    select case(trim(adjustl(str))
+    case("I", "T", "E", "B")
+       call this%free(1)
+       this%ind = 1
+       this%spin = 0
+       this%label = "$"//trim(adjustl(str))//"(\mu K)$"
+       this%headless_vector = .false.
+       this%local_rotation = .false.
+    case("zeta", "Z", "\zeta")
+       call this%free(1)
+       this%ind = 1
+       this%spin = 0
+       this%label = "$10^5\zeta$"
+       this%headless_vector = .false.
+       this%local_rotation = .false.
+    case("QU")
+       call this%free(2)
+       this%ind = (/ 1, 2 /)
+       this%spin = 2
+       this%label(1) =  "$Q(\mu K)$"
+       this%label(2) =  "$U(\mu K)$"
+       this%headless_vector = .true.
+       this%local_rotation = .false.
+    case("QrUr")
+       call this%free(2)
+       this%ind = (/ 1, 2 /)
+       this%spin = 2
+       this%label(1) =  "$Q_r(\mu K)$"
+       this%label(2) =  "$U_r(\mu K)$"
+       this%headless_vector = (/ .true., .false. /)
+       this%local_rotation = .true.
+    case("QTUT")
+       call this%free(2)
+       this%ind = (/ 1, 2 /)
+       this%spin = 2
+       this%label(1) =  "$Q_T(\mu K)$"
+       this%label(2) =  "$U_T(\mu K)$"
+       this%headless_vector = .true.
+       this%local_rotation = .false.
+    case("QLTULT")
+       call this%free(2)
+       this%ind = (/ 1, 2 /)
+       this%spin = 2
+       this%label(1) =  "$Q_{\nabla^2 T}(\mu K/\mathrm{rad}^2)$"
+       this%label(2) =  "$U_{\nabla^2 T}(\mu K/\mathrm{rad}^2)$"
+       this%headless_vector = .true.
+       this%local_rotation = .false.
+    case default  !! label1@index1@spin1@headless_vector1@local_roataion1::label2:index2:spin2@headless_vector2@local_roataion2
+       call coop_string_to_list(str, l, "::")
+       call this%free(l%n)
+       do i = 1, l%n
+          call coop_string_to_list(l%element(i), subl, "@")
+          this%label(i) = trim(subl%element(1))
+          if(subl%n .ge. 2)then
+             call subl%get_element(2, line)
+             read(line, *) this%ind(i)
+          else
+             this%ind(i) = 1
+          endif
+          if(sub%n .ge. 3)then
+             call subl%get_element(3, line)
+             read(line, *) this%spin(i)
+          else
+             this%spin(i) = 0
+          endif
+          if(this%spin(i) .ne. 0 .and. subl%n .ge. 4)then
+             this%headless_vector(i) = (trim(subl%element(4)) .eq. "T")
+             if(subl%n .ge. 5)then
+                this%local_rotation(i) = trim(subl%element(5)) .eq. "T")
+             else
+                this%local_rotation(i) = .false.
+             endif
+          else
+             this%headless_vector(i) = .false.
+             this%local_rotation(i) = .false.
+          endif
+       enddo
+       call l%init()
+       call subl%init()
+    end select
+  end subroutine coop_to_be_stacked_init
 
   subroutine coop_stacking_options_init(this, domax, peak_name, Orient_name, nmaps)
     class(coop_stacking_options)::this
@@ -65,6 +201,7 @@ contains
     COOP_SHORT_STRING::p
     logical domax
     COOP_INT::nmaps
+    call this%free()
     p = trim(adjustl(peak_name))
     if(trim(adjustl(orient_name)).eq. "NULL" .or. trim(adjustl(orient_name)) .eq. "random")then
        if(domax)then
@@ -195,6 +332,24 @@ contains
     end select
   end function coop_stacking_options_reject
 
+  function coop_stacking_options_pix(this, nside, i) result(pix)
+    class(coop_stacking_options)::this
+    COOP_INT nside, i, pix
+    COOP_SINGLE::thetaphi(2)
+#ifdef HAS_HEALPIX    
+    if(this%nside .eq. nside)then
+       pix = this%peak_pix%element(i)
+       return
+    endif
+    call this%peak_ang%get_element(i, thetaphi)
+    if(this%nested)then
+       call ang2pix_nest(nside, dble(thetaphi(1)), dble(thetaphi(2)), pix)
+    else
+       call ang2pix_ring(nside, dble(thetaphi(1)), dble(thetaphi(2)), pix)
+    endif
+#endif    
+  end function coop_stacking_options_pix
+
 
   subroutine coop_stacking_options_export_pix(this, filename)
     class(coop_stacking_options)::this
@@ -208,20 +363,14 @@ contains
     call fp%close()
   end subroutine coop_stacking_options_export_pix
 
-  subroutine coop_stacking_options_export_ang(this, filename, addpi)
+  subroutine coop_stacking_options_export_ang(this, filename)
     class(coop_stacking_options)::this
     COOP_UNKNOWN_STRING::filename
     type(coop_file)::fp
     COOP_INT :: i
-    logical, optional::addpi
     logical dor
     call fp%open(filename, "w")
-    if(present(addpi))then
-       dor = addpi
-    else
-       dor = .false.
-    endif
-    if(dor)then
+    if(this%addpi)then
        do i = 1, this%peak_ang%n
           write(fp%unit, "(3E14.5)") this%peak_ang%element(i),  this%rotate_angle(i) + coop_rand01()*coop_pi
        enddo       
