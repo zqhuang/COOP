@@ -1,16 +1,18 @@
-program test
+program Exp_spots
   use coop_wrapper_utils
   use coop_healpix_mod
+  use coop_stacking_mod
   implicit none
 #include "constants.h"
 
+#ifdef HAS_HEALPIX
   COOP_INT::fwhm_arcmin = 15.
   COOP_INT::fwhm_in = 15.
   COOP_STRING::spot_type = "TQUL"
   COOP_STRING::input_file ="tuhin/dust_TQUL_015a_b30-500_n512.fits"
   COOP_STRING :: imask_file = "planck14/lat30_mask_n512.fits"
   COOP_STRING:: polmask_file = "planck14/lat30_mask_n512.fits"
-  COOP_REAL:: threshold = 0.5
+  COOP_REAL:: threshold = 0.1
   COOP_REAL:: threshold_pol = 0.6
 
   COOP_STRING::mask_file
@@ -46,12 +48,15 @@ program test
      output_file = trim(adjustl(force_outfile))
   else
      output_file = trim(prefix)//trim(spot_type)
-     if(threshold.lt.coop_healpix_max_threshold) &
+     if(abs(threshold).lt.coop_stacking_max_threshold) &
           output_file = trim(output_file)//"_threshold"//trim(coop_numstr2goodstr(coop_num2str(threshold)))
-     if(threshold_pol.lt.coop_healpix_max_threshold) &
+     if(abs(threshold_pol).lt.coop_stacking_max_threshold) &
           output_file = trim(output_file)//"_2ndthreshold"//trim(coop_numstr2goodstr(coop_num2str(threshold_pol)))
      output_file = trim(output_file)//".txt"
   endif
   call coop_healpix_export_spots(trim(input_file), trim(output_file), trim(spot_type), threshold = threshold, threshold_pol = threshold_pol, mask_file = trim(mask_file), fwhm = fwhm)  
   write(*,*) "The output file is: "//trim(output_file)
-end program test
+#else
+  print*, "You need to install healpix"
+#endif
+end program Exp_spots

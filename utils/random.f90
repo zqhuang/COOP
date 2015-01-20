@@ -219,6 +219,17 @@ contains
     coop_random_uniform = a  + coop_random_unit()*(b-a)
   end function coop_random_uniform
 
+  function coop_rand01() result(i01)
+    COOP_INT i01
+    COOP_REAL r
+    call random_number(r)
+    if(r .gt. 0.5d0)then
+       i01 = 1
+    else
+       i01 = 0
+    end if
+  end function coop_rand01
+  
 end module Coop_random_mod
 
 

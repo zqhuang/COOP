@@ -60,7 +60,8 @@ module coop_list_mod
   COOP_INT,parameter::coop_list_unit_len = 8192
 
   type coop_list_integer
-     COOP_INT n, stack, loc
+     COOP_INT::n =0
+     COOP_INT::stack, loc
      COOP_INT,dimension(:),allocatable::i1
      COOP_INT,dimension(:),allocatable::i2
      COOP_INT,dimension(:),allocatable::i3
@@ -75,7 +76,8 @@ module coop_list_mod
   end type coop_list_integer
 
   type coop_list_real
-     COOP_INT n, stack, loc
+     COOP_INT::n =0
+     COOP_INT::stack, loc
      real(sp),dimension(:),allocatable::i1
      real(sp),dimension(:),allocatable::i2
      real(sp),dimension(:),allocatable::i3
@@ -91,7 +93,8 @@ module coop_list_mod
 
   type coop_list_realarr
      COOP_INT dim
-     COOP_INT n, stack, loc
+     COOP_INT::n = 0
+     COOP_INT stack, loc
      real(sp),dimension(:,:),allocatable::i1
      real(sp),dimension(:,:),allocatable::i2
      real(sp),dimension(:,:),allocatable::i3
@@ -107,7 +110,8 @@ module coop_list_mod
   end type coop_list_realarr
 
   type coop_list_double
-     COOP_INT n, stack, loc
+     COOP_INT::n = 0
+     COOP_INT stack, loc
      real(dl),dimension(:),allocatable::i1
      real(dl),dimension(:),allocatable::i2
      real(dl),dimension(:),allocatable::i3
@@ -122,7 +126,8 @@ module coop_list_mod
   end type coop_list_double
 
   type coop_list_logical
-     COOP_INT n, stack, loc
+     COOP_INT::n = 0
+     COOP_INT stack, loc
      logical,dimension(:),allocatable::i1
      logical,dimension(:),allocatable::i2
      logical,dimension(:),allocatable::i3
@@ -137,7 +142,8 @@ module coop_list_mod
   end type coop_list_logical
 
   type coop_list_character
-     COOP_INT n, stack, loc
+     COOP_INT::n = 0
+     COOP_INT stack, loc
      character,dimension(:),allocatable::i1
      character,dimension(:),allocatable::i2
      character,dimension(:),allocatable::i3
@@ -152,7 +158,8 @@ module coop_list_mod
   end type coop_list_character
 
   type coop_list_string
-     COOP_INT n, stack, loc
+     COOP_INT::n = 0
+     COOP_INT:: stack, loc
      COOP_STRING,dimension(:),allocatable::i1
      COOP_STRING,dimension(:),allocatable::i2
      COOP_STRING,dimension(:),allocatable::i3
@@ -167,7 +174,8 @@ module coop_list_mod
   end type coop_list_string
 
   type coop_dictionary
-     COOP_INT n, capacity
+     COOP_INT::n = 0
+     COOP_INT::capacity
      COOP_SHORT_STRING,dimension(:),allocatable::key
      COOP_STRING,dimension(:),allocatable::val
      COOP_INT, dimension(:),allocatable::id

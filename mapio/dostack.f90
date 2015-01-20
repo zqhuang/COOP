@@ -5,11 +5,12 @@ program test
 
 #include "constants.h"
 
+#ifdef HAS_HEALPIX
   COOP_STRING :: spot_type = "T"
-  COOP_STRING :: map_file =  "tuhin/dust_TQUL_015a_b30-500_n512.fits"
-  COOP_STRING:: spots_file = "spots/dust_TQUL_015a_b30-500_n512_fwhm15_TQULb_threshold0pt2_2ndthreshold0pt4.txt"
-  COOP_STRING :: imask_file = "planck14/lat30_mask_n512.fits"
-  COOP_STRING:: polmask_file =  "planck14/lat30_mask_n512.fits"
+  COOP_STRING :: map_file =  "planck14/dx11_v2_smica_int_cmb_010a_1024.fits" !"tuhin/dust_TQUL_015a_b30-500_n512.fits"
+  COOP_STRING:: spots_file = "listpix_Tmax.txt" !"spots/dust_TQUL_015a_b30-500_n512_fwhm15_TQULb_threshold0pt2_2ndthreshold0pt4.txt"
+  COOP_STRING :: imask_file ="planck14/dx11_v2_common_int_mask_010a_1024.fits" ! "planck14/lat30_mask_n512.fits"
+  COOP_STRING:: polmask_file = "planck14/dx11_v2_common_pol_mask_010a_1024.fits" ! "planck14/lat30_mask_n512.fits"
   COOP_STRING::unit = "K"
   COOP_STRING::str_2nd = "\nu_p"
 
@@ -283,6 +284,9 @@ program test
      call coop_asy_curve(fp, patch%r, patch%fr(:, m/2, 1))
      call fp%close()
   enddo
+#else
+  print*, "You need to install Healpix"
+#endif  
 end program test
 
 

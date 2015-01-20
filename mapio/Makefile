@@ -48,6 +48,8 @@ Test: $(OBJ) test.o
 SimuMaps: $(OBJ) simulate_maps.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) simulate_maps.o $(LINK)
 
+CatP: $(OBJ) peakcat.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) peakcat.o $(LINK)
 
 
 GetSpots: $(OBJ) exportspots.o
