@@ -15,15 +15,13 @@ default: all
 $(LIB): $(OBJ) 
 	ar -r $@ $?
 
-all: $(LIB) UDG GetSpots Stack MSMAP ByProd GetInfo GetTheo
+all: $(LIB) UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo
 
 GetTheo:  $(OBJ) gettheo.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) gettheo.o $(LINK)
 
-GetTheo:  $(OBJ) exportpeaks.o
+GetPeaks:  $(OBJ) exportpeaks.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) exportpeaks.o $(LINK)
-
-
 
 GetInfo: $(OBJ) getinfo.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) getinfo.o $(LINK)

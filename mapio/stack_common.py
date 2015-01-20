@@ -24,98 +24,99 @@ if(not (os.path.isfile(zetamap) and os.path.isfile(tqtutmap) and os.path.isfile(
     print "Producing auxiliary maps"
     os.system("./ByProd  " + fullprefix + " " + imap_in + " " + polmap_in + " " + imask + " " + polmask + " " +  str(fwhm_in) + " " + str(fwhm_out))
 
-    
-def getspots(inputmap, st):
-    if(threshold < 6):
-        output =  prefix  + "_fwhm" + str(fwhm_out) + "_" + st + "_threshold" + str(threshold)+".txt"
+
+def strna(s):
+    return filter(lambda x: x.isdigit() or x.isalpha(), s)
+
+def getspots(inputmap, domax, peak_name, orient_name = "NULL"):
+    output =  prefix  + "_fwhm" + str(fwhm_out) + "_" + strna(peak_name)    
+    if(domax):
+        output = output + "max"
     else:
-        output =  prefix  + "_fwhm" + str(fwhm_out) + "_" + st + "_NoThreshold.txt"    
+        output = output + "min"
+    output = output +  "_ORIENT" + strna(orient_name) 
+    if(threshold < 10):
+        output = output + "_nu"+str(threshold)
+    else:
+        output =  output 
     if(check_files):
-        if( os.path.isfile(spots_dir + output)):
+        if( os.path.isfile(spots_dir + output+".dat")):
             print spots_dir + output + " already exists, skipping..."
             return output
-    os.system("./GetSpots " + inputmap + " " + st + " " + imask + " " + polmask + " " + spots_dir + output + " " + str(threshold) + " 0 0")
+    if(domax):
+        col = "./GetPeaks " + inputmap + " "  + imask + " " + polmask + " T  '" + peak_name + "' '" + orient_name + "' " + spots_dir + output + " " + str(threshold)
+    else:
+        col = "./GetPeaks " + inputmap + " "  + imask + " " + polmask + " F  '" + peak_name + "' '" + orient_name + "' " + spots_dir + output + " " + str(threshold)
+    print col
+    os.system(col)
     return output
 
 
 def stack(inputmap, spots, st, zmin = 1.1e31, zmax = -1.1e31, zmin2=1.1e31, zmax2 = -1.1e31):        
     if(check_files):
-        if(string.find(inputmap, "TQTUT")!=-1 and (st == "QU" or st == "QrUr")):
-            if(st == "QrUr"):
-                output = "QTr_on_" + spots
-            else:            
-                output = "QT_on_" + spots
-        else:
-            if(st == "QrUr"):
-                output = "Qr_on_" + spots
-            elif (st == "zeta"):
-                output = "zeta_on_" + spots
-            else:
-                output = st[0] + "_on_"+spots
-        if(os.path.isfile(stack_dir + output)):
+        output = strna(st)+ "_on_" + spots
+        if(os.path.isfile(stack_dir + output + ".txt") or os.path.isfile(stack_dir + output + "_1.txt")):
             print stack_dir+output+ "  already exists, skipping..."
             return
-    if(zmin < zmax):
-        if(zmin2 < zmax2):
-            os.system("./Stack " + inputmap + " " + spots_dir+spots + " " + st + " " + imask + " " + polmask + " " + str(zmin) + " " + str(zmax)+ " " + str(zmin2) + " " + str(zmax2))                   
-        else:
-            os.system("./Stack " + inputmap + " " + spots_dir+spots + " " + st + " " + imask + " " + polmask + " " + str(zmin) + " " + str(zmax))        
-    else:
-        os.system("./Stack " + inputmap + " " + spots_dir+spots + " " + st + " " + imask + " " + polmask)
-#    os.system("../utils/fasy.sh "+stack_dir+output)
+    col = "./Stack " + inputmap + " " + imask + " " + polmask + " " +  spots_dir + spots + ".dat" + " '" + st +  "' " + stack_dir + output + " " + str(zmin) + " " + str(zmax)+ " " + str(zmin2) + " " + str(zmax2)
+    print col
+    os.system(col)
+    if(os.path.isfile(stack_dir + output + ".txt")):
+       os.system("../utils/fasy.sh "+stack_dir+output+".txt")
+    if(os.path.isfile(stack_dir + output + "_1.txt")):
+       os.system("../utils/fasy.sh "+stack_dir+output+"_1.txt")
+    if(os.path.isfile(stack_dir + output + "_2.txt")):
+       os.system("../utils/fasy.sh "+stack_dir+output+"_2.txt")
 
 
     
 
-spots_tmax = getspots(imap, "Tmax")
-spots_tmin = getspots(imap, "Tmin")
-spots_emax = getspots(emap, "Emax")
-spots_bmax = getspots(bmap, "Bmax")
-spots_zetamax = getspots(zetamap, "zetamax")
-spots_tmax_orient = getspots(tqtutmap, "Tmax_QTUTOrient")
-spots_tmin_orient = getspots(tqtutmap, "Tmin_QTUTOrient")
-spots_zetamax_orient = getspots(zetaqzuz, "zetamax_qzuzOrient")
-spots_ptmax = getspots(tqtutmap, "PTmax")
-spots_pmax = getspots(polmap, "Pmax")
+spots_tmax = getspots(imap, True, "$T$")
+spots_tmin = getspots(imap, False, "$T$")
+spots_emax = getspots(emap, True, "$E$")
+spots_bmax = getspots(bmap, True, "$B$")
+spots_zetamax = getspots(zetamap, True, "$\zeta$")
+spots_tmax_orient = getspots(tqtutmap, True, "$T$", "$(Q_T,U_T)$")
+spots_tmin_orient = getspots(tqtutmap, False, "$T$", "$(Q_T,U_T)$")
+spots_zetamax_orient = getspots(zetaqzuz, True, "$\zeta$", "$(Q_\zeta,U_\zeta)$")
+spots_ptmax = getspots(tqtutmap, True, "$P_T$", "$(Q_T,U_T)$")
+spots_pmax = getspots(polmap, True, "$P$", "$(Q,U)$")
 
-#stack(imap, spots_tmax, "T", 0., 70.)
-#stack(imap, spots_tmin, "T", -70., 0.)
-#stack(emap, spots_tmax, "E")
-#stack(bmap, spots_tmax, "B")
-#stack(zetamap, spots_tmax, "zeta")
-#stack(polmap, spots_tmax, "QrUr")
-#stack(polmap, spots_tmin, "QrUr")
-#stack(polmap, spots_tmax, "QU")
-#stack(tqtutmap, spots_tmax, "QrUr")
-#stack(tqtutmap, spots_tmax, "QU")
+stack(imap, spots_tmax, "T")
+stack(imap, spots_tmin, "T")
+stack(emap, spots_tmax, "E")
+stack(bmap, spots_tmax, "B")
+stack(zetamap, spots_tmax, "zeta")
+stack(polmap, spots_tmax, "QrUr")
+stack(polmap, spots_tmin, "QrUr")
+stack(polmap, spots_tmax, "QU")
+stack(tqtutmap, spots_tmax, "QTUT")
 
-#stack(emap, spots_emax, "E")
-#stack(imap, spots_emax, "T")
-#stack(bmap, spots_emax, "B")
+stack(emap, spots_emax, "E")
+stack(imap, spots_emax, "T")
+stack(bmap, spots_emax, "B")
 stack(polmap, spots_emax, "QU")
 stack(polmap, spots_emax, "QrUr")
    
-#stack(imap, spots_bmax, "T")
-#stack(emap, spots_bmax, "E")
-#stack(bmap, spots_bmax, "B")
+stack(imap, spots_bmax, "T")
+stack(emap, spots_bmax, "E")
+stack(bmap, spots_bmax, "B")
 
-#stack(zetamap, spots_zetamax, "zeta")
-#stack(imap, spots_zetamax, "T")
+stack(zetamap, spots_zetamax, "zeta")
+stack(imap, spots_zetamax, "T")
 #stack(emap, spots_zetamax, "E")
 #stack(bmap, spots_zetamax, "B")
 
 stack(imap, spots_tmax_orient, "T")
-#, -32., 70.)
-#stack(imap, spots_tmin_orient, "T", -70., 35.)
-#stack(emap, spots_tmax_orient, "E")
-#stack(zetamap, spots_tmax_orient, "zeta")
+stack(imap, spots_tmin_orient, "T")
+stack(emap, spots_tmax_orient, "E")
+stack(zetamap, spots_tmax_orient, "zeta")
 stack(polmap, spots_tmax_orient, "QU")
-#, -0.4, 0.41, -0.31, 0.31)
-#stack(polmap, spots_tmin_orient, "QU")
-#stack(tqtutmap, spots_tmax_orient, "QU")
+stack(polmap, spots_tmin_orient, "QU")
+stack(tqtutmap, spots_tmax_orient, "QTUT")
 
 
-#stack(zetamap, spots_zetamax_orient, "zeta")
+stack(zetamap, spots_zetamax_orient, "zeta")
 
 
 stack(polmap, spots_ptmax, "QU")

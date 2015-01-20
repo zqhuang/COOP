@@ -1,7 +1,7 @@
 import sys, os, string, math, re
 
 outdir = "tmpmaps/"
-spots_dir = "spots/"
+spots_dir = "peaks/"
 stack_dir = "stacked/"
 check_files = True
 

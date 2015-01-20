@@ -427,6 +427,8 @@ contains
              yend(k) = 2*yc - ystart(k)
           enddo
        enddo
+       call coop_asy_lines(fig, xstart, ystart, xend, yend, "black", "solid", 2.)
+       deallocate(xstart, xend, ystart, yend)
     endif
 100 call fig%close()
     if(present(use_degree))then
@@ -536,8 +538,6 @@ contains
     if(allocated(this%indisk))deallocate(this%indisk)
     call this%tbs%free()
     this%nmaps = 0
-    this%n = -1
-    this%mmax = -1
   end subroutine coop_healpix_patch_free
 
   subroutine coop_healpix_patch_init(this, genre, n, dr, mmax)

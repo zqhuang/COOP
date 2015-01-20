@@ -97,8 +97,9 @@ contains
     call fp%open(filename, "u")
     write(fp%unit) this%genre, this%nmaps, this%nside, this%index_I, this%index_Q, this%index_U, this%index_L
     write(fp%unit) this%I_lower, this%I_upper, this%L_lower, this%L_upper, this%P2_lower, this%P2_upper, this%I_lower_nu, this%I_upper_nu, this%L_lower_nu, this%L_upper_nu, this%P_lower_nu, this%P_upper_nu, this%P2byI2_lower, this%P2byI2_upper, this%P2byL2_lower, this%P2byL2_upper
-    write(fp%unit) this%genre
+    write(fp%unit) this%caption
     write(fp%unit) this%threshold_option, this%addpi, this%nested
+    write(fp%unit) this%peak_pix%n
     do i=1, this%peak_pix%n
        write(fp%unit) this%peak_pix%element(i), this%peak_ang%element(i), this%peak_map%element(i)
     enddo
@@ -109,7 +110,7 @@ contains
     class(coop_stacking_options)::this
     COOP_UNKNOWN_STRING::filename
     type(coop_file) fp
-    COOP_INT pix
+    COOP_INT pix, i, n
     COOP_SINGLE::thetaphi(2)
     COOP_SINGLE,dimension(:),allocatable::map
     if(.not. coop_file_exists(filename))then
@@ -120,10 +121,11 @@ contains
     call fp%open(filename, "ur")
     read(fp%unit) this%genre, this%nmaps, this%nside, this%index_I, this%index_Q, this%index_U, this%index_L
     read(fp%unit) this%I_lower, this%I_upper, this%L_lower, this%L_upper, this%P2_lower, this%P2_upper, this%I_lower_nu, this%I_upper_nu, this%L_lower_nu, this%L_upper_nu, this%P_lower_nu, this%P_upper_nu, this%P2byI2_lower, this%P2byI2_upper, this%P2byL2_lower, this%P2byL2_upper
-    read(fp%unit) this%genre
+    read(fp%unit) this%caption
     read(fp%unit) this%threshold_option, this%addpi, this%nested
     allocate(map(this%nmaps))
-    do i=1, this%peak_pix%n
+    read(fp%unit) n
+    do i=1, n
        read(fp%unit) pix, thetaphi, map
        call this%peak_pix%push(pix)
        call this%peak_ang%push(thetaphi)
@@ -152,17 +154,17 @@ contains
     if(allocated(this%local_rotation)) deallocate(this%local_rotation)
     if(present(nmaps))then
        this%nmaps = nmaps
-       allocate(this%ind(this%nmaps), this%spin(this%nmaps), this%label(this%nmaps), this%local_rotation(this%nmaps), this%headless_vector(this%nmaps), this%zmin(this%nmaps), this%zmax(this%nmaps))       
+       allocate(this%ind(this%nmaps), this%spin(this%nmaps), this%label(this%nmaps), this%local_rotation(this%nmaps), this%headless_vector(this%nmaps), this%zmin(this%nmaps), this%zmax(this%nmaps))
+       this%zmin = 1.1e31
+       this%zmax = -1.1e31
+       this%headless_vector = .false.
+       this%local_rotation = .false.
+       this%label = ""
+       this%spin = 0
+       this%ind = 1
     else
        this%nmaps = 0
     endif
-    this%zmin = 1.1e31
-    this%zmax = -1.1e31
-    this%headless_vector = .false.
-    this%local_rotation = .false.
-    this%label = ""
-    this%spin = 0
-    this%ind = 1
   end subroutine coop_to_be_stacked_free
 
   subroutine coop_to_be_stacked_init(this, str)
@@ -241,10 +243,20 @@ contains
     end select
     !!check spin pairs
     i = 1
-    do 
+    do while(i.le. this%nmaps)
        if(this%spin(i) .ne. 0)then
-          if( i .ge. this%nmaps) stop "to_be_stacked_init: nonzero spin must go in pairs"
-          if( this%spin(i+1) .ne. this%spin(i) .or. this%ind(i+1).ne. this%ind(i)+1)stop "to_be_stacked_init: nonzero spin must go in pairs"
+          if( i .ge. this%nmaps)then
+             print*, this%nmaps
+             print*, this%spin
+             print*, this%ind             
+             stop "to_be_stacked_init: nonzero spin must go in pairs"
+          endif
+          if( this%spin(i+1) .ne. this%spin(i) .or. this%ind(i+1).ne. this%ind(i)+1)then
+             print*, this%nmaps
+             print*, this%spin
+             print*, this%ind
+             stop "to_be_stacked_init: nonzero spin must go in pairs"
+          endif
           i = i + 2
        else
           i = i + 1
@@ -260,7 +272,7 @@ contains
     COOP_INT::nmaps
     call this%free()
     p = trim(adjustl(peak_name))
-    if(trim(adjustl(orient_name)).eq. "NULL" .or. trim(adjustl(orient_name)) .eq. "random")then
+    if(trim(adjustl(orient_name)).eq. "NULL" .or. trim(adjustl(orient_name)) .eq. "RANDOM" .or. trim(adjustl(orient_name)).eq. "NONE" )then
        if(domax)then
           if(len_trim(p).gt. 9)then
              if(p(1:9).eq."$\nabla^2")then

@@ -17,8 +17,8 @@ program stackth
   logical,parameter::flat = .false. !!use nonflat is actually faster
   !!settings
   logical,parameter::do_highpass = .false.
-  integer, parameter::index_corr = index_EE  !!index_temp
-  integer,parameter::index_auto = index_EE
+  integer, parameter::index_corr = index_TT  !!index_temp
+  integer,parameter::index_auto = index_TT
   COOP_STRING::clfile != "planck14_best_cls.dat"  !! "planckbest_lensedtotCls.dat" !! 
   COOP_STRING::spot_type
   COOP_REAL::nu !! threshold
@@ -152,9 +152,9 @@ program stackth
 !!$        enddo
 !!$     endif
   enddo
-  call patchI%init("I", n, dr, 4)
-  call patchQU%init("QU", n, dr, 4)
-  call patchQrUr%init("QrUr", n, dr, 4)
+  call patchI%init("I", n, dr)
+  call patchQU%init("QU", n, dr)
+  call patchQrUr%init("QrUr", n, dr)
   patchI%nstack = 1.d0
   patchQU%nstack = 1.d0
   patchQrUr%nstack = 1.d0
