@@ -9,5 +9,5 @@ program stackth
   use alm_tools
   implicit none
 #include "constants.h"
-  call coop_healpix_latitude_cut_mask(512, 30.d0, "planck14/lat30_mask.fits")
+  call coop_healpix_latitude_cut_mask(256, 30.d0, "planck14/lat30_mask_n256.fits")
 end program stackth
