@@ -16,8 +16,11 @@ module coop_healpix_mod
 #include "constants.h"
 
   private
+
+  !!some stupid conventions...
   !!the direction of headless vector rotate by pi/2 if you use IAU convention
-  logical::coop_healpix_IAU_headless_vector = .false.
+  logical::coop_healpix_IAU_headless_vector = .true.
+  COOP_REAL::coop_healpix_QrUrSign = -1.d0  !!WMAP7 invented this...
   
   public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_lb2ang, coop_healpix_ang2lb, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_trim_maskfile, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask
   
@@ -1668,6 +1671,7 @@ contains
                 call disc%ang2pix( r, phi, pix)
                 qu = this%map(pix, patch%tbs%ind)
                 call coop_healpix_rotate_qu(qu, phi, patch%tbs%spin(1))
+                qu = qu * coop_healpix_QrUrSign
                 if(present(mask))then
                    patch%nstack(i, j) = mask%map(pix, 1)
                    patch%image(i, j, :) = qu*mask%map(pix,1)
@@ -1717,6 +1721,7 @@ contains
                    qu = this%map(pix, patch%tbs%ind(k:k+1))
                    if(patch%tbs%local_rotation(k))then
                       call coop_healpix_rotate_qu(qu, phi, patch%tbs%spin(k))
+                      qu = qu * coop_healpix_QrUrSign
                    else
                       call coop_healpix_rotate_qu(qu, angle,patch%tbs%spin(k))
                    endif
