@@ -638,7 +638,6 @@ contains
     case("zeta")
        this%label(1) = "$\zeta (10^{-5})$"
     case default
-       if("I
        do i=1, this%nmaps
           this%label(i) = ""
        enddo

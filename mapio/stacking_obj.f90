@@ -113,7 +113,7 @@ contains
     type(coop_list_string)::l, subl
     COOP_STRING::line
     COOP_INT i, j
-    select case(trim(adjustl(str))
+    select case(trim(adjustl(str)))
     case("I", "T", "E", "B")
        call this%free(1)
        this%ind = 1
@@ -172,7 +172,7 @@ contains
           else
              this%ind(i) = 1
           endif
-          if(sub%n .ge. 3)then
+          if(subl%n .ge. 3)then
              call subl%get_element(3, line)
              read(line, *) this%spin(i)
           else
@@ -181,7 +181,7 @@ contains
           if(this%spin(i) .ne. 0 .and. subl%n .ge. 4)then
              this%headless_vector(i) = (trim(subl%element(4)) .eq. "T")
              if(subl%n .ge. 5)then
-                this%local_rotation(i) = trim(subl%element(5)) .eq. "T")
+                this%local_rotation(i) = (trim(subl%element(5)) .eq. "T")
              else
                 this%local_rotation(i) = .false.
              endif
