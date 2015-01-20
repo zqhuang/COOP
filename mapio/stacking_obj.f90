@@ -56,6 +56,8 @@ module coop_stacking_mod
      type(coop_list_realarr)::peak_ang
      type(coop_list_realarr)::peak_map
    contains
+     procedure::export => coop_stacking_options_export
+     procedure::import => coop_stacking_options_import     
      procedure::init => coop_stacking_options_init
      procedure::free => coop_stacking_options_free
      procedure::reject=>coop_stacking_options_reject
@@ -76,6 +78,8 @@ module coop_stacking_mod
      COOP_STRING,dimension(:),allocatable::label
      logical, dimension(:),allocatable::headless_vector !!headless vector
      logical, dimension(:),allocatable::local_rotation !!local rotation
+     COOP_REAL, dimension(:),allocatable::zmin !!lowerbound
+     COOP_REAL, dimension(:),allocatable::zmax !!upperbound
    contains     
      procedure::init => coop_to_be_stacked_init
      procedure::free => coop_to_be_stacked_free
@@ -83,6 +87,51 @@ module coop_stacking_mod
 
 
 contains
+
+  
+  subroutine coop_stacking_options_export(this, filename)
+    class(coop_stacking_options)::this
+    COOP_UNKNOWN_STRING::filename
+    type(coop_file)fp
+    COOP_INT i
+    call fp%open(filename, "u")
+    write(fp%unit) this%genre, this%nmaps, this%nside, this%index_I, this%index_Q, this%index_U, this%index_L
+    write(fp%unit) this%I_lower, this%I_upper, this%L_lower, this%L_upper, this%P2_lower, this%P2_upper, this%I_lower_nu, this%I_upper_nu, this%L_lower_nu, this%L_upper_nu, this%P_lower_nu, this%P_upper_nu, this%P2byI2_lower, this%P2byI2_upper, this%P2byL2_lower, this%P2byL2_upper
+    write(fp%unit) this%genre
+    write(fp%unit) this%threshold_option, this%addpi, this%nested
+    do i=1, this%peak_pix%n
+       write(fp%unit) this%peak_pix%element(i), this%peak_ang%element(i), this%peak_map%element(i)
+    enddo
+    call fp%close()
+  end subroutine coop_stacking_options_export
+
+  subroutine coop_stacking_options_import(this, filename)
+    class(coop_stacking_options)::this
+    COOP_UNKNOWN_STRING::filename
+    type(coop_file) fp
+    COOP_INT pix
+    COOP_SINGLE::thetaphi(2)
+    COOP_SINGLE,dimension(:),allocatable::map
+    if(.not. coop_file_exists(filename))then
+       write(*,*) "stack option file "//trim(adjustl(filename))//" does not exist"
+       stop
+    endif
+    call this%free()
+    call fp%open(filename, "ur")
+    read(fp%unit) this%genre, this%nmaps, this%nside, this%index_I, this%index_Q, this%index_U, this%index_L
+    read(fp%unit) this%I_lower, this%I_upper, this%L_lower, this%L_upper, this%P2_lower, this%P2_upper, this%I_lower_nu, this%I_upper_nu, this%L_lower_nu, this%L_upper_nu, this%P_lower_nu, this%P_upper_nu, this%P2byI2_lower, this%P2byI2_upper, this%P2byL2_lower, this%P2byL2_upper
+    read(fp%unit) this%genre
+    read(fp%unit) this%threshold_option, this%addpi, this%nested
+    allocate(map(this%nmaps))
+    do i=1, this%peak_pix%n
+       read(fp%unit) pix, thetaphi, map
+       call this%peak_pix%push(pix)
+       call this%peak_ang%push(thetaphi)
+       call this%peak_map%push(map)
+    enddo
+    call fp%close()
+    deallocate(map)
+  end subroutine coop_stacking_options_import
 
   subroutine coop_stacking_options_free(this)
     class(coop_stacking_options)::this
@@ -93,18 +142,27 @@ contains
 
   subroutine coop_to_be_stacked_free(this, nmaps)
     class(coop_to_be_stacked)::this
-    COOP_INT,optional::nmaps    
+    COOP_INT,optional::nmaps
     if(allocated(this%ind))deallocate(this%ind)
     if(allocated(this%spin))deallocate(this%spin)
     if(allocated(this%label))deallocate(this%label)
+    if(allocated(this%zmin))deallocate(this%zmin)        
+    if(allocated(this%zmax))deallocate(this%zmax)    
     if(allocated(this%headless_vector)) deallocate(this%headless_vector)
     if(allocated(this%local_rotation)) deallocate(this%local_rotation)
     if(present(nmaps))then
        this%nmaps = nmaps
-       allocate(this%ind(this%nmaps), this%spin(this%nmaps), this%label(this%nmaps), this%local_rotation(this%nmaps), this%headless_vector(this%nmaps))       
+       allocate(this%ind(this%nmaps), this%spin(this%nmaps), this%label(this%nmaps), this%local_rotation(this%nmaps), this%headless_vector(this%nmaps), this%zmin(this%nmaps), this%zmax(this%nmaps))       
     else
        this%nmaps = 0
     endif
+    this%zmin = 1.1e31
+    this%zmax = -1.1e31
+    this%headless_vector = .false.
+    this%local_rotation = .false.
+    this%label = ""
+    this%spin = 0
+    this%ind = 1
   end subroutine coop_to_be_stacked_free
 
   subroutine coop_to_be_stacked_init(this, str)
@@ -116,26 +174,17 @@ contains
     select case(trim(adjustl(str)))
     case("I", "T", "E", "B")
        call this%free(1)
-       this%ind = 1
-       this%spin = 0
        this%label = "$"//trim(adjustl(str))//"(\mu K)$"
-       this%headless_vector = .false.
-       this%local_rotation = .false.
     case("zeta", "Z", "\zeta")
        call this%free(1)
-       this%ind = 1
-       this%spin = 0
        this%label = "$10^5\zeta$"
-       this%headless_vector = .false.
-       this%local_rotation = .false.
     case("QU")
        call this%free(2)
-       this%ind = (/ 1, 2 /)
+       this%ind = (/ 1, 2 /)       
        this%spin = 2
        this%label(1) =  "$Q(\mu K)$"
        this%label(2) =  "$U(\mu K)$"
        this%headless_vector = .true.
-       this%local_rotation = .false.
     case("QrUr")
        call this%free(2)
        this%ind = (/ 1, 2 /)
@@ -151,7 +200,6 @@ contains
        this%label(1) =  "$Q_T(\mu K)$"
        this%label(2) =  "$U_T(\mu K)$"
        this%headless_vector = .true.
-       this%local_rotation = .false.
     case("QLTULT")
        call this%free(2)
        this%ind = (/ 1, 2 /)
@@ -159,8 +207,7 @@ contains
        this%label(1) =  "$Q_{\nabla^2 T}(\mu K/\mathrm{rad}^2)$"
        this%label(2) =  "$U_{\nabla^2 T}(\mu K/\mathrm{rad}^2)$"
        this%headless_vector = .true.
-       this%local_rotation = .false.
-    case default  !! label1@index1@spin1@headless_vector1@local_roataion1::label2:index2:spin2@headless_vector2@local_roataion2
+    case default  !! label1@index1@spin1@headless_vector1@local_roataion1@zmin1@zmax1::label2:index2:spin2@headless_vector2@local_roataion2@zmin1@zmax1
        call coop_string_to_list(str, l, "::")
        call this%free(l%n)
        do i = 1, l%n
@@ -169,30 +216,40 @@ contains
           if(subl%n .ge. 2)then
              call subl%get_element(2, line)
              read(line, *) this%ind(i)
-          else
-             this%ind(i) = 1
-          endif
-          if(subl%n .ge. 3)then
-             call subl%get_element(3, line)
-             read(line, *) this%spin(i)
-          else
-             this%spin(i) = 0
-          endif
-          if(this%spin(i) .ne. 0 .and. subl%n .ge. 4)then
-             this%headless_vector(i) = (trim(subl%element(4)) .eq. "T")
-             if(subl%n .ge. 5)then
-                this%local_rotation(i) = (trim(subl%element(5)) .eq. "T")
-             else
-                this%local_rotation(i) = .false.
+             if(subl%n .ge. 3)then
+                call subl%get_element(3, line)
+                read(line, *) this%spin(i)
+                if(subl%n .ge. 4)then
+                   this%headless_vector(i) = (trim(subl%element(4)) .eq. "T" .and. this%spin(i) .eq. 2)
+                   if(subl%n .ge. 5)then
+                      this%local_rotation(i) = (trim(subl%element(5)) .eq. "T" .and. this%spin(i) .eq. 2)
+                      if(subl%n .ge. 6)then
+                         call subl%get_element(6, line)
+                         read(line, *) this%zmin(i)
+                         if(subl%n .ge. 7)then
+                            call subl%get_element(7, line)
+                            read(line, *) this%zmax(i)
+                         endif
+                      endif
+                   endif
+                endif                
              endif
-          else
-             this%headless_vector(i) = .false.
-             this%local_rotation(i) = .false.
           endif
        enddo
        call l%init()
        call subl%init()
     end select
+    !!check spin pairs
+    i = 1
+    do 
+       if(this%spin(i) .ne. 0)then
+          if( i .ge. this%nmaps) stop "to_be_stacked_init: nonzero spin must go in pairs"
+          if( this%spin(i+1) .ne. this%spin(i) .or. this%ind(i+1).ne. this%ind(i)+1)stop "to_be_stacked_init: nonzero spin must go in pairs"
+          i = i + 2
+       else
+          i = i + 1
+       endif
+    enddo
   end subroutine coop_to_be_stacked_init
 
   subroutine coop_stacking_options_init(this, domax, peak_name, Orient_name, nmaps)
@@ -267,8 +324,10 @@ contains
        select case(this%genre)
        case(coop_stacking_genre_Imax, coop_stacking_genre_Imin)
           this%index_I = 1
+          this%threshold_option = 4          
        case(coop_stacking_genre_Lmax, coop_stacking_genre_Lmin)
           this%index_L = 1
+          this%threshold_option = 1
        case default
           stop "nmaps does not match stacking option"
        end select
@@ -277,9 +336,11 @@ contains
        case(coop_stacking_genre_Pmax_Oriented, coop_stacking_genre_Pmin_Oriented)
           this%index_Q = 1
           this%index_U = 2
+          this%threshold_option = 2          
        case(coop_stacking_genre_Imax, coop_stacking_genre_Imin, coop_stacking_genre_Lmax, coop_stacking_genre_Lmin)
           this%index_I = 1
           this%index_L = 2
+          this%threshold_option = 5          
        case default
           stop "nmaps does not match stacking option"          
        end select
@@ -289,16 +350,19 @@ contains
           this%index_I = 1
           this%index_Q = 2
           this%index_U = 3
+          this%threshold_option = 6          
        case(coop_stacking_genre_Lmax, coop_stacking_genre_Lmin, coop_stacking_genre_Lmax_Oriented, coop_stacking_genre_Lmin_Oriented)  
           this%index_L = 1
           this%index_Q = 2
           this%index_U = 3
+          this%threshold_option = 3
        end select
     case(4:)
        this%index_I = 1
        this%index_Q = 2
        this%index_U = 3
        this%index_L = 4
+       this%threshold_option = 7       
     end select
   end subroutine coop_stacking_options_init
 

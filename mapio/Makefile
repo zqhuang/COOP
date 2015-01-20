@@ -15,10 +15,13 @@ default: all
 $(LIB): $(OBJ) 
 	ar -r $@ $?
 
-all: $(LIB) UDG GetSpots MSMAP Stack ByProd GetInfo GetTheo HA SST
+all: $(LIB) UDG GetSpots Stack MSMAP ByProd GetInfo GetTheo
 
 GetTheo:  $(OBJ) gettheo.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) gettheo.o $(LINK)
+
+GetTheo:  $(OBJ) exportpeaks.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) exportpeaks.o $(LINK)
 
 
 
@@ -51,9 +54,6 @@ SimuMaps: $(OBJ) simulate_maps.o
 CatP: $(OBJ) peakcat.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) peakcat.o $(LINK)
 
-
-GetSpots: $(OBJ) exportspots.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) exportspots.o $(LINK)
 
 Stack: $(OBJ) dostack.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) dostack.o $(LINK)
@@ -113,7 +113,7 @@ Shells: $(OBJ) shells.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) shells.o $(LINK)	
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack GetSpots MSMAP InpEB InpT TrimC GetCl QEB MultStack Shells POSTHA HA SST POSTSST ByProd GetInfo
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack MSMAP InpEB InpT TrimC GetCl QEB MultStack Shells POSTHA HA SST POSTSST ByProd GetInfo
 
 
 test.o: $(LIB)

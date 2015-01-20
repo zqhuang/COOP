@@ -16,10 +16,12 @@ module coop_healpix_mod
 #include "constants.h"
 
   private
-
-  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_export_spots, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_lb2ang, coop_healpix_ang2lb, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_trim_maskfile, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask
+  !!the direction of headless vector rotate by pi/2 if you use IAU convention
+  logical::coop_healpix_IAU_headless_vector = .false.
   
-  logical::coop_healpix_IAU_headless_vector = .true.
+  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_lb2ang, coop_healpix_ang2lb, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_trim_maskfile, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask
+  
+
   logical::coop_healpix_alm_check_done = .false.
   logical::coop_healpix_want_cls = .true.
   COOP_REAL,parameter::coop_healpix_zeta_normalization = 1.d-5
@@ -110,28 +112,22 @@ module coop_healpix_mod
      procedure :: convert2nested => coop_healpix_convert_to_nested
      procedure :: convert2ring => coop_healpix_convert_to_ring
      procedure :: filter_alm =>  coop_healpix_filter_alm
-     procedure :: get_spots => coop_healpix_maps_get_spots
+     !!stacking stuff
      procedure :: get_peaks => coop_healpix_maps_get_peaks
      procedure :: mark_peaks => coop_healpix_maps_mark_peaks
-     procedure :: get_listpix => coop_healpix_maps_get_listpix
-     procedure :: stack =>     coop_healpix_maps_stack
      procedure :: stack_on_peaks  =>     coop_healpix_maps_stack_on_peaks     
-     procedure :: multstack =>     coop_healpix_maps_multstack
-     procedure :: stack_with_covariance => coop_healpix_maps_stack_with_covariance
-     procedure :: stack_with_listpix => coop_healpix_maps_stack_with_listpix
-     procedure :: stack_north_south => coop_healpix_maps_stack_north_south
-     procedure :: mark_spots => coop_healpix_maps_mark_spots
   end type coop_healpix_maps
 
   type coop_healpix_patch
      COOP_STRING::caption=""
-!     type(coop_to_be_stacked):: tbs
-     logical::headless_vectors = .false.     
+     type(coop_to_be_stacked):: tbs
      COOP_SHORT_STRING::color_table="Rainbow"
-     COOP_SHORT_STRING:: genre
-     COOP_INT::n, mmax, nmaps, npix, nstack_raw, imap
-     COOP_REAL::dr, zmin, zmax
-     COOP_SHORT_STRING,dimension(:),allocatable::label     
+     COOP_INT::n = 0
+     COOP_INT::mmax = 0
+     COOP_INT::nmaps = 0
+     COOP_INT::npix = 0
+     COOP_INT::nstack_raw = 0
+     COOP_REAL::dr
      COOP_REAL,dimension(:,:,:),allocatable::image
      COOP_REAL,dimension(:),allocatable::r
      COOP_REAL,dimension(:,:,:),allocatable::fr
@@ -219,36 +215,6 @@ contains
   end subroutine coop_healpix_maps_pix2vec
   
 
-  !!width, length in unit of arcmin
-  subroutine coop_healpix_maps_mark_spots(this, spots_file, imap, width, length)
-    class(coop_healpix_maps)::this
-    COOP_UNKNOWN_STRING::spots_file
-    type(coop_file)::fp
-    COOP_INT i, j, pix, nw, nl, imap
-    COOP_REAL theta, phi, angle, width, length,  dr, x, y, cost, sint
-    type(coop_healpix_disc) disc
-    dr = sqrt(coop_4pi/this%npix)/4.
-    nw = max(0, nint((width*coop_SI_arcmin/dr-1.d0)/2.d0))
-    nl = max(0, nint((length*coop_SI_arcmin/dr-1.d0)/2.d0))
-    this%map(:, imap) = 1.
-    call fp%open(spots_file, "r")
-    do
-       read(fp%unit, *, ERR=100, END=100) theta, phi, angle
-       cost = cos(angle)
-       sint = sin(angle)
-       call this%ang2pix(theta, phi, pix)
-       call this%get_disc(pix, disc)
-       do i = -nw, nw
-          y = i*dr          
-          do j=-nl, nl
-             x = j*dr
-             call disc%xy2pix(x*cost-y*sint, x*sint+y*cost, pix)
-             this%map(pix, imap) = 0.
-          enddo
-       enddo
-    enddo
-100 call fp%close()
-  end subroutine coop_healpix_maps_mark_spots
 
   subroutine coop_healpix_latitude_cut_mask(nside, latitude_degree, filename)
     COOP_REAL::latitude_degree
@@ -364,25 +330,19 @@ contains
 
   end subroutine coop_healpix_diffuse_into_mask
 
-  subroutine coop_healpix_patch_plot(this, imap, output, use_degree, label)
+  subroutine coop_healpix_patch_plot(this, imap, output, use_degree)
     COOP_INT::bgrids
     class(coop_healpix_patch)::this
     COOP_INT imap
     COOP_UNKNOWN_STRING::output
     type(coop_asy)::fig
-    COOP_INT nb, i, j, k, ns
+    COOP_INT nb, i, j, k, ns, iq, iu
     COOP_REAL  xc, yc,  norm, r, theta, minz, maxz
     COOP_REAL,dimension(:),allocatable::xstart, xend, ystart, yend
     logical,optional::use_degree
     logical use_rad
     COOP_SHORT_STRING::xlabel, ylabel
-    COOP_UNKNOWN_STRING,optional::label    
-    COOP_STRING::zlabel
-    if(present(label))then
-       zlabel = trim(adjustl(label))
-    else
-       zlabel = trim(adjustl(this%label(imap)))
-    endif
+    if(imap .le. 0 .or. imap .gt. this%nmaps) stop "coop_healpix_patch_plot: imap overflow"    
     call fig%open(output)
     if(present(use_degree))then
        if(use_degree)then
@@ -400,18 +360,17 @@ contains
        ylabel = "$\varpi\sin\varphi (\mathrm{deg})$"
     endif
     call fig%init(caption = trim(this%caption), xlabel =trim(xlabel), ylabel =trim(ylabel), width = 5., height = 3.9, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)))              
-    if(imap .le. 0 .or. imap .gt. this%nmaps) stop "coop_healpix_patch_plot: imap overflow"
-    if(this%zmin .lt.0.99e30)then
-       minz = this%zmin
+    if(this%tbs%zmin(imap) .lt.0.99e30)then
+       minz = this%tbs%zmin(imap)
     else
        call coop_array_get_threshold(this%image(:,:,imap), COOP_REAL_OF(0.99), minz)
     endif
-    if(this%zmax .gt. -0.99e30)then
-       maxz = this%zmax
+    if(this%tbs%zmax(imap) .gt. -0.99e30)then
+       maxz = this%tbs%zmax(imap)
     else
        call coop_array_get_threshold(this%image(:,:,imap), COOP_REAL_OF(0.01), maxz)
     endif
-    call coop_asy_density(fig, this%image(:,:,imap), -this%r(this%n), this%r(this%n), -this%r(this%n), this%r(this%n), label = trim(zlabel), zmax = maxz, zmin = minz, color_table = trim(this%color_table))
+    call coop_asy_density(fig, this%image(:,:,imap), -this%r(this%n), this%r(this%n), -this%r(this%n), this%r(this%n), label = trim(this%tbs%label(imap)), zmax = maxz, zmin = minz, color_table = trim(this%color_table))
     if(use_rad)then
        theta = nint(2.d0*asin(this%r(this%n)/2.d0)/coop_SI_degree*10.d0)/10.d0
        call coop_asy_label(fig, "$\mathbf{-"//COOP_STR_OF(theta)//"}^\circ$", -this%r(this%n), -this%r(this%n)*1.15, color="blue")
@@ -419,9 +378,25 @@ contains
        call fig%arrow(this%r(this%n),  -this%r(this%n)*1.08, this%r(this%n),  -this%r(this%n)*1.01)
        call fig%arrow(-this%r(this%n),  -this%r(this%n)*1.08, -this%r(this%n),  -this%r(this%n)*1.01)
     endif
-    if(this%headless_vectors .and. this%nmaps .eq. 2)then
+    if(this%tbs%spin(imap).eq.2 .and. this%tbs%headless_vector(imap) .and. this%nmaps .ge. 2)then
+       if(imap .eq. this%nmaps)then
+          iq = imap-1
+          iu = imap
+       elseif(this%tbs%spin(imap+1) .eq. 2)then
+          iq = imap
+          iu = imap+1
+       elseif(imap .gt. 1)then
+          if(this%tbs%spin(imap-1).eq.2)then
+             iq = imap-1
+             iu = imap
+          else
+             stop "patch_plot: spin 2 must go in pairs"
+          endif
+       else
+          stop "patch_plot: spin 2 must go in pairs"
+       endif
        bgrids = max(this%n/7, 2)
-       norm = maxval(this%image(:,:,1)**2+this%image(:,:,2)**2)
+       norm = maxval(this%image(:,:,iq)**2+this%image(:,:,iu)**2)
        if(norm .gt. 0.d0)then
           norm = bgrids*this%dr/2./sqrt(norm)*0.96
        else
@@ -432,45 +407,26 @@ contains
        allocate(xstart(nb),  ystart(nb), xend(nb), yend(nb))
        k = 0
        ns = ns*bgrids
-       select case(this%genre)
-       case("QU")
-          do j = -ns, ns, bgrids
-             do i = -ns, ns, bgrids
-                xc = i*this%dr
-                yc = j*this%dr
-                r = sqrt(this%image(i,j,1)**2+this%image(i,j,2)**2)*norm
-                if(coop_healpix_IAU_headless_vector)then
-                   theta = 0.5d0*COOP_POLAR_ANGLE(this%image(i,j,1), this%image(i,j,2)) + coop_pio2                   
-                else
-                   theta = 0.5d0*COOP_POLAR_ANGLE(this%image(i,j,1), this%image(i,j,2))
-                endif
-                k = k + 1
-                xstart(k) = xc - r*cos(theta)
-                ystart(k) = yc - r*sin(theta)
-                xend(k) = 2*xc - xstart(k)
-                yend(k) = 2*yc - ystart(k)
-             enddo
+       do j = -ns, ns, bgrids
+          do i = -ns, ns, bgrids
+             xc = i*this%dr
+             yc = j*this%dr
+             r = sqrt(this%image(i,j,iq)**2+this%image(i,j,iu)**2)*norm
+             if(coop_healpix_IAU_headless_vector)then
+                theta = 0.5d0*COOP_POLAR_ANGLE(this%image(i,j,iq), this%image(i,j,iu)) + coop_pio2                   
+             else
+                theta = 0.5d0*COOP_POLAR_ANGLE(this%image(i,j,iq), this%image(i,j,iu))
+             endif
+             if(this%tbs%local_rotation(imap))then
+                theta  = theta + COOP_POLAR_ANGLE(xc, yc)
+             endif
+             k = k + 1
+             xstart(k) = xc - r*cos(theta)
+             ystart(k) = yc - r*sin(theta)
+             xend(k) = 2*xc - xstart(k)
+             yend(k) = 2*yc - ystart(k)
           enddo
-       case("QrUr")
-          do j = -ns, ns, bgrids
-             do i = -ns, ns, bgrids
-                xc = i*this%dr
-                yc = j*this%dr
-                r = sqrt(this%image(i,j,1)**2+this%image(i,j,2)**2)*norm
-                theta = 0.5d0*COOP_POLAR_ANGLE(this%image(i,j,1), this%image(i,j,2)) + COOP_POLAR_ANGLE(xc, yc)
-                k = k + 1
-                xstart(k) = xc - r*cos(theta)
-                ystart(k) = yc - r*sin(theta)
-                xend(k) = 2*xc - xstart(k)
-                yend(k) = 2*yc - ystart(k)
-             enddo
-          enddo
-       case default
-          write(*,"(A)") trim(this%genre)
-          stop "Unknown genre for headless vectors"
-       end select
-       call coop_asy_lines(fig, xstart, ystart, xend, yend, "black", "solid", 2.)
-       deallocate(xstart, xend, ystart, yend)
+       enddo
     endif
 100 call fig%close()
     if(present(use_degree))then
@@ -528,7 +484,7 @@ contains
     if(present(label))then
        call coop_asy_density(fig, remap, -ns*dk, ns*dk,-ns*dk, ns*dk, label = "$\mathrm{Re} "//trim(adjustl(label))//"_\ell$", zmax = maxz, zmin = minz, color_table = trim(this%color_table))
     else
-       call coop_asy_density(fig, remap, -ns*dk, ns*dk,-ns*dk, ns*dk, label = trim(adjustl(this%label(imap))), zmax = maxz, zmin = minz, color_table = trim(this%color_table))       
+       call coop_asy_density(fig, remap, -ns*dk, ns*dk,-ns*dk, ns*dk, label = trim(adjustl(this%tbs%label(imap))), zmax = maxz, zmin = minz, color_table = trim(this%color_table))       
     endif
     call fig%close()
 
@@ -541,7 +497,7 @@ contains
     if(present(label))then
        call coop_asy_density(fig, immap, -ns*dk, ns*dk,-ns*dk, ns*dk, zmax = maxz, zmin = minz, label = "$\mathrm{Im}"//trim(adjustl(label))//"_\ell$", color_table = trim(this%color_table))
     else
-       call coop_asy_density(fig, immap, -ns*dk, ns*dk,-ns*dk, ns*dk, zmax = maxz, zmin = minz, label =trim(adjustl(this%label(imap))), color_table = trim(this%color_table))       
+       call coop_asy_density(fig, immap, -ns*dk, ns*dk,-ns*dk, ns*dk, zmax = maxz, zmin = minz, label =trim(adjustl(this%tbs%label(imap))), color_table = trim(this%color_table))       
     endif
     call fig%close()
 
@@ -560,7 +516,7 @@ contains
     if(present(label))then
        call coop_asy_density(fig, immap, -ns*dk, ns*dk, -ns*dk, ns*dk, zmax = maxz, zmin = minz, label = "$\ell^2 |"//trim(adjustl(label))//"_\ell|^2 $", color_table = trim(this%color_table))       
     else
-       call coop_asy_density(fig, immap, -ns*dk, ns*dk, -ns*dk, ns*dk, zmax = maxz, zmin = minz, label = trim(this%label(imap)), color_table = trim(this%color_table))
+       call coop_asy_density(fig, immap, -ns*dk, ns*dk, -ns*dk, ns*dk, zmax = maxz, zmin = minz, label = trim(this%tbs%label(imap)), color_table = trim(this%color_table))
     endif
     call fig%close()    
     
@@ -571,7 +527,6 @@ contains
   subroutine coop_healpix_patch_free(this)
     class(coop_healpix_patch) this
     if(allocated(this%image))deallocate(this%image)
-    if(allocated(this%label))deallocate(this%label)
     if(allocated(this%r))deallocate(this%r)
     if(allocated(this%fr))deallocate(this%fr)
     if(allocated(this%wcm))deallocate(this%wcm)
@@ -579,6 +534,8 @@ contains
     if(allocated(this%icm))deallocate(this%icm)
     if(allocated(this%nstack))deallocate(this%nstack)
     if(allocated(this%indisk))deallocate(this%indisk)
+    call this%tbs%free()
+    this%nmaps = 0
     this%n = -1
     this%mmax = -1
   end subroutine coop_healpix_patch_free
@@ -594,12 +551,8 @@ contains
     COOP_INT, optional::mmax
     COOP_REAL sumrc(0:n+1), sumrs(0:n+1), weight(0:n+1)
     call this%free()
-    this%caption = ""
-    this%headless_vectors = .true.
-    this%color_table = "Rainbow"
-    this%zmin = 1.e30
-    this%zmax = -1.e30
-    this%genre = trim(adjustl(genre))
+    call this%tbs%init(genre)
+    this%nmaps = this%tbs%nmaps    
     this%n = n
     this%npix = (2*this%n+1)**2
     this%dr = dr
@@ -609,40 +562,6 @@ contains
        this%mmax = 4
     endif
     if(this%n .lt. 0) return
-    select case(trim(this%genre))
-    case("QU", "QrUr")
-       this%nmaps = 2
-    case("T","E","B", "I", "zeta")
-       this%nmaps = 1
-    case default
-       write(*,*) "Unknown stacking genre: "//trim(this%genre)
-       write(*,*) "Only supports: QU, QrUr, T, E, B"
-       stop
-    end select
-    allocate(this%label(this%nmaps))
-    select case(trim(this%genre))
-    case("QU")
-       this%label(1) = "$Q(\mu K)$"
-       this%label(2) = "$U(\mu K)$"
-    case("QTUT")
-       this%label(1) = "$Q_T(\mu K)$"
-       this%label(2) = "$U_T(\mu K)$"
-    case("QLTULT")
-       this%label(1) = "$Q_{\nabla^2 T}(\mu K/{\rm rad}^2)$"
-       this%label(2) = "$U_{\nabla^2 T}(\mu K/{\rm rad}^2)$"              
-    case("QrUr")
-       this%label(1) = "$Q_r(\mu K)$"
-       this%label(2) = "$U_r(\mu K)$"
-    case("T","E","B", "I")
-       this%label(1) = "$"//trim(this%genre)//"(\mu K)$"
-    case("zeta")
-       this%label(1) = "$\zeta (10^{-5})$"
-    case default
-       do i=1, this%nmaps
-          this%label(i) = ""
-       enddo
-    end select
-
     allocate(this%image(-this%n:this%n, -this%n:this%n, this%nmaps))
     allocate(this%nstack(-this%n:this%n, -this%n:this%n))
     allocate(this%indisk(-this%n:this%n, -this%n:this%n))
@@ -1560,73 +1479,6 @@ contains
   end subroutine coop_healpix_filter_alm
 
 
-  subroutine split_angular_mode(n, qmap, umap, m, nr, fr)
-    COOP_INT n, m, nr
-    COOP_SINGLE qmap(-n:n,-n:n), umap(-n:n,-n:n)
-    COOP_SINGLE fr(0:nr), w(0:nr), q, u, r, phi, fpoint
-    COOP_INT i, j, ir
-    fr = 0
-    w = 0
-    do i = -n, n
-       do j = -n, n
-          r = sqrt(real(i)**2 + real(j)**2)
-          ir = floor(r)          
-          if(ir .le. nr)then
-             phi = m*COOP_POLAR_ANGLE(real(i), real(j))
-             r = r - ir
-             fpoint = qmap(i,j)*cos(phi) + umap(i,j)*sin(phi)
-             fr(ir) = fr(ir) + fpoint*(1.d0-r)
-             w(ir) = w(ir) + 1.d0-r
-             if(ir.ne.nr)then
-                fr(ir+1) = fr(ir+1)+fpoint*r
-                w(ir+1) = w(ir+1)+r
-             endif
-          endif
-       enddo
-    enddo
-    do ir = 0, nr
-       if(w(ir).gt.0.)then
-          fr(ir) = fr(ir)/w(ir)
-       endif
-    enddo
-    do ir = n, nr !!damp the amplitude in the corners
-       fr(ir) = fr(ir)*exp(-((ir-n+1.)/n*(1.414/0.414))**2)
-    enddo
-    if(m.ne.0) fr(0) = 0
-  end subroutine split_angular_mode
-
-
-  subroutine map_filter_modes(n, qmap, umap, ms)
-    COOP_INT n, nm
-    COOP_INT ms(:)
-    COOP_SINGLE qmap(-n:n, -n:n), umap(-n:n, -n:n)
-    real,dimension(:,:),allocatable::fr
-    COOP_SINGLE r, phi, s1, s2
-    COOP_INT i, j, ir, nr, im
-    nm = size(ms)
-    nr = ceiling(coop_sqrt2*n)+1
-    allocate(fr(0:nr, nm))
-    do im = 1, nm
-       call split_angular_mode(n, qmap, umap, ms(im), nr, fr(0:nr, im))
-    enddo
-    qmap = 0
-    umap = 0
-    do i=-n, n
-       do j=-n,n
-          r = sqrt(real(i)**2 + real(j)**2)
-          ir = floor(r)
-          r = r - ir
-          phi = COOP_POLAR_ANGLE(real(i), real(j))
-          do  im =1, nm
-             qmap(i,j) = qmap(i,j) + (fr(ir,im)*(1.-r)+fr(ir+1,im)*r)*cos(ms(im)*phi)
-             umap(i,j) = umap(i,j) + (fr(ir,im)*(1.-r)+fr(ir+1,im)*r)*sin(ms(im)*phi)
-             
-          enddo
-       enddo
-    enddo
-    deallocate(fr)
-  end subroutine map_filter_modes
-
 
   subroutine coop_healpix_maps_get_disc(this, pix, disc)
     class(coop_healpix_maps)::this
@@ -1741,11 +1593,12 @@ contains
 #endif
   end subroutine coop_healpix_disc_xy2pix
 
-  subroutine coop_healpix_rotate_qu(qu, phi)
+  subroutine coop_healpix_rotate_qu(qu, phi, spin)
     COOP_SINGLE qu(2)
+    COOP_INT spin
     COOP_REAL phi, cosp, sinp
-    cosp = cos(2.d0*phi)
-    sinp = sin(2.d0*phi)
+    cosp = cos(spin*phi)
+    sinp = sin(spin*phi)
     qu = (/ qu(1)*cosp + qu(2)*sinp,  -qu(1)*sinp + qu(2)*cosp /)
   end subroutine coop_healpix_rotate_qu
 
@@ -1757,509 +1610,6 @@ contains
     call patch%get_radial_profile(1, 0)
     var = patch%fr(0:patch%n, 0, 1)
   end subroutine coop_healpix_patch_get_fr0
-
-
-
-
-
-  subroutine coop_healpix_maps_stack(this, patch, spots_file, mask, hemisphere_direction, do_weight)
-    COOP_UNKNOWN_STRING::spots_file
-    COOP_INT,parameter::n_threads = 4
-    class(coop_healpix_maps)::this
-    type(coop_healpix_disc),dimension(n_threads)::disc
-    type(coop_healpix_patch)::patch
-    type(coop_healpix_patch),dimension(n_threads)::p, tmp
-    type(coop_healpix_maps),optional::mask
-    COOP_INT::ns
-    COOP_REAL,dimension(:),allocatable::theta, phi, angle
-    type(coop_file)::fp
-    COOP_INT imap, ithread, i, pix, iaccept, ireject
-    COOP_REAL,optional:: hemisphere_direction(2)
-    logical,optional::do_weight
-    COOP_REAL hcos, hsin
-#ifdef HAS_HEALPIX
-    if(.not. coop_file_exists(spots_file))then
-       write(*,*) "Spots file not found: "//trim(spots_file)
-       stop
-    endif
-    ns = coop_file_numlines(spots_file)
-    if(ns .eq. 0)then
-       write(*,*) "Spots file empty"
-       stop
-    endif
-    allocate(theta(ns), phi(ns), angle(ns))
-    call fp%open(spots_file)    
-    do i=1, ns
-       read(fp%unit, *) theta(i), phi(i), angle(i)
-    enddo
-    call fp%close()
-    write(*, *) "stacking "//trim(coop_num2str(ns))//" patchs"
-    patch%image = 0.d0
-    patch%nstack = 0.d0
-    patch%nstack_raw = 0
-    do ithread=1, n_threads
-       p(ithread) = patch
-       tmp(ithread) = patch
-    enddo
-    if(present(hemisphere_direction))then
-       hcos = cos(hemisphere_direction(1))
-       hsin = sin(hemisphere_direction(1))
-       !$omp parallel do private(i, pix) 
-       do ithread = 1, n_threads
-          do i=ithread, ns, n_threads
-             if(hcos * cos(theta(i)) + hsin * sin(theta(i)) * cos(phi(i) - hemisphere_direction(2)) .gt. 0.d0)then
-                call this%ang2pix(theta(i), phi(i), pix)
-                call this%get_disc(pix, disc(ithread))
-                if(present(mask))then
-                   call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread), tmp(ithread), mask)    
-                else
-                   call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread), tmp(ithread) )
-                endif
-             endif
-          enddo
-       enddo
-       !$omp end parallel do   
-    else
-       !$omp parallel do private(i, pix)
-       do ithread = 1, n_threads
-          do i=ithread, ns, n_threads
-             call this%ang2pix(theta(i), phi(i), pix)
-             call this%get_disc(pix, disc(ithread))
-             if(present(mask))then
-                call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread), tmp(ithread), mask)    
-             else
-                call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread), tmp(ithread) )
-             endif
-          enddo
-       enddo
-       !$omp end parallel do
-    endif
-    do ithread = 1, n_threads
-       patch%image = patch%image + p(ithread)%image
-       patch%nstack = patch%nstack + p(ithread)%nstack
-       patch%nstack_raw = patch%nstack_raw + p(ithread)%nstack_raw
-       call p(ithread)%free()
-       call tmp(ithread)%free()
-    enddo
-    if(patch%nstack_raw .ne. 0)then
-       if(present(do_weight))then
-          if(do_weight)then
-             do i=1, patch%nmaps
-                patch%image(:, :, i) = patch%image(:, :, i)/max(patch%nstack, 1.d0)
-             enddo
-          else
-             patch%image = patch%image/patch%nstack_raw
-          endif
-       else
-          do i=1, patch%nmaps
-             patch%image(:, :, i) = patch%image(:, :, i)/max(patch%nstack, 1.d0)
-          enddo
-       endif
-    else
-       write(*,*) "warning: no patches has been found"
-       patch%image = 0.d0
-    endif
-    deallocate(theta, phi, angle)
-#else
-    stop "CANNOT FIND HEALPIX"
-#endif
-  end subroutine coop_healpix_maps_stack
-
-
-
-  subroutine coop_healpix_maps_multstack(this, npatches, patch, lowercut, uppercut, spots_file, mask)
-    COOP_UNKNOWN_STRING::spots_file
-    COOP_INT,parameter::n_threads = 4
-    class(coop_healpix_maps)::this
-    type(coop_healpix_disc),dimension(n_threads)::disc
-    COOP_INT npatches
-    type(coop_healpix_patch)::patch(npatches)
-    type(coop_healpix_patch)::p(n_threads, npatches), tmp(n_threads)
-    type(coop_healpix_maps),optional::mask
-    COOP_INT::ns
-    COOP_REAL,dimension(:),allocatable::theta, phi, angle, col4
-    type(coop_file)::fp
-    COOP_INT imap, ithread, i, pix, iaccept, ireject, ip
-    COOP_REAL hcos, hsin, maxcol4, mincol4, dcol4
-    COOP_SINGLE uppercut, lowercut
-#ifdef HAS_HEALPIX
-    if(.not. coop_file_exists(spots_file))then
-       write(*,*) "Spots file not found: "//trim(spots_file)
-       stop
-    endif
-    ns = coop_file_numlines(spots_file)
-    if(ns .eq. 0)then
-       write(*,*) "Spots file empty"
-       stop
-    endif
-    allocate(theta(ns), phi(ns), angle(ns), col4(ns))
-    call fp%open(spots_file)    
-    do i=1, ns
-       read(fp%unit, *) theta(i), phi(i), angle(i), col4(i)
-    enddo
-    call fp%close()
-    write(*, *) "stacking "//trim(coop_num2str(ns))//" patchs"
-    maxcol4 = min(maxval(col4), uppercut)
-    mincol4 = max(minval(col4), lowercut)
-    dcol4 = (maxcol4 - mincol4)/npatches
-    do ip = 1, npatches
-       patch(ip)%image = 0.d0
-       patch(ip)%nstack = 0.d0
-       patch(ip)%nstack_raw = 0
-       do ithread=1, n_threads
-          p(ithread, ip) = patch(ip)
-       enddo
-    enddo
-    do ithread = 1, n_threads
-       tmp(ithread) = patch(1)
-    enddo
-    if(dcol4 .gt. 0.d0)then
-       !$omp parallel do private(i, pix, ip)
-       do ithread = 1, n_threads
-          do i=ithread, ns, n_threads
-             ip = floor((col4(i) - mincol4)/dcol4 + 1)
-             if(ip .ge. 1 .and. ip .le. npatches)then
-                call this%ang2pix(theta(i), phi(i), pix)
-                call this%get_disc(pix, disc(ithread))
-                if(present(mask))then
-                   call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread, ip), tmp(ithread), mask)    
-                else
-                   call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread, ip), tmp(ithread) )
-                endif
-             endif
-          enddo
-       enddo
-       !$omp end parallel do
-       do ip=1, npatches
-          patch(ip)%caption =  "$I \le "//trim(coop_num2str(nint(mincol4 + ip*dcol4)))//" \mu K$"
-          write(*,*) trim(coop_num2str(ip))//": I < "//trim(coop_num2str(mincol4 + ip*dcol4))
-       enddo
-    else
-       dcol4 = (ns + 0.1d0)/npatches
-       !$omp parallel do private(i, pix, ip)
-       do ithread = 1, n_threads
-          do i=ithread, ns, n_threads
-             ip = ceiling(i/dcol4)
-             if(ip .ge. 1 .and. ip .le. npatches)then
-                call this%ang2pix(theta(i), phi(i), pix)
-                call this%get_disc(pix, disc(ithread))
-                if(present(mask))then
-                   call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread, ip), tmp(ithread), mask)    
-                else
-                   call coop_healpix_stack_on_patch(this, disc(ithread), angle(i), p(ithread, ip), tmp(ithread) )
-                endif
-             endif
-          enddo
-       enddo
-       !$omp end parallel do
-       do ip=1, npatches
-          i  = floor(dcol4*ip)
-          patch(ip)%caption =  "$I \le "//trim(coop_num2str(nint(col4(i))))//" \mu K$"
-          write(*,*) trim(coop_num2str(ip))//": I < "//trim(coop_num2str(nint(col4(i))))//" \mu K$"
-       enddo
-    endif
-    do ithread=1, n_threads
-       call tmp(ithread)%free()
-    enddo
-    do ip=1, npatches
-       do ithread = 1, n_threads
-          patch(ip)%image = patch(ip)%image + p(ithread, ip)%image
-          patch(ip)%nstack = patch(ip)%nstack + p(ithread, ip)%nstack
-          patch(ip)%nstack_raw = patch(ip)%nstack_raw + p(ithread, ip)%nstack_raw
-          call p(ithread, ip)%free()
-       enddo
-       if(patch(ip)%nstack_raw .gt. 0)then
-          do imap = 1, patch(ip)%nmaps
-             patch(ip)%image(:,:, imap) = patch(ip)%image(:,:, imap)/max(patch(ip)%nstack, 1.d0)
-          enddo
-       endif
-    enddo
-    deallocate(theta, phi, angle, col4)
-#else
-    stop "CANNOT FIND HEALPIX"
-#endif
-  end subroutine coop_healpix_maps_multstack
-
-
-  subroutine coop_healpix_maps_stack_with_listpix(this, patch, listpix, listangle, mask, hemisphere_direction)
-    type(coop_list_integer)::listpix
-    type(coop_list_real)::listangle
-    COOP_INT,parameter::n_threads = 4
-    class(coop_healpix_maps)::this
-    type(coop_healpix_disc),dimension(n_threads)::disc
-    type(coop_healpix_patch)::patch
-    type(coop_healpix_patch),dimension(n_threads)::p, tmp
-    type(coop_healpix_maps),optional::mask
-    type(coop_file)::fp
-    COOP_REAL,optional::hemisphere_direction(2)
-    COOP_INT imap, ithread, i, pix, iaccept, ireject
-    COOP_REAL angle, theta, phi, hsint, hcost
-    COOP_REAL hcos, hsin
-#ifdef HAS_HEALPIX
-    patch%image = 0.d0
-    patch%nstack = 0.d0
-    patch%nstack_raw = 0
-    do ithread=1, n_threads
-       p(ithread) = patch
-       tmp(ithread) = patch
-    enddo
-    if(present(hemisphere_direction))then
-       hsint = sin(hemisphere_direction(1))
-       hcost = cos(hemisphere_direction(1))
-       !$omp parallel do private(i, pix, angle)
-       do ithread = 1, n_threads
-          do i=ithread, listpix%n, n_threads
-             pix = listpix%element(i)
-             call this%pix2ang(pix, theta, phi)
-             if(cos(theta)*hcost+sin(theta)*hsint*cos(phi-hemisphere_direction(2)) .ge. 0.d0)then
-                angle = listangle%element(i)
-                call this%get_disc(pix, disc(ithread))
-                if(present(mask))then
-                   call coop_healpix_stack_on_patch(this, disc(ithread), angle, p(ithread), tmp(ithread), mask)    
-                else
-                   call coop_healpix_stack_on_patch(this, disc(ithread), angle, p(ithread), tmp(ithread) )
-                endif
-             endif
-          enddo
-       enddo
-       !$omp end parallel do
-    else
-       !$omp parallel do private(i, pix, angle)
-       do ithread = 1, n_threads
-          do i=ithread, listpix%n, n_threads
-             pix = listpix%element(i)
-             angle = listangle%element(i)
-             call this%get_disc(pix, disc(ithread))
-             if(present(mask))then
-                call coop_healpix_stack_on_patch(this, disc(ithread), angle, p(ithread), tmp(ithread), mask)    
-             else
-                call coop_healpix_stack_on_patch(this, disc(ithread), angle, p(ithread), tmp(ithread) )
-             endif
-          enddo
-       enddo
-       !$omp end parallel do
-    endif
-    do ithread = 1, n_threads
-       patch%image = patch%image + p(ithread)%image
-       patch%nstack = patch%nstack + p(ithread)%nstack
-       patch%nstack_raw = patch%nstack_raw + p(ithread)%nstack_raw
-       call p(ithread)%free()
-       call tmp(ithread)%free()
-    enddo
-    do imap = 1, patch%nmaps
-       patch%image(:, :, imap) = patch%image(:,:,imap)/max(patch%nstack, 1.d0)
-    enddo
-#else
-    stop "CANNOT FIND HEALPIX"
-#endif
-  end subroutine coop_healpix_maps_stack_with_listpix
-
-
-
-  subroutine coop_healpix_maps_stack_north_south(this, patch_north, patch_south, listpix, listangle, hemisphere_direction, mask)
-    type(coop_list_integer)::listpix
-    type(coop_list_real)::listangle
-    COOP_INT,parameter::n_threads = 4
-    class(coop_healpix_maps)::this
-    type(coop_healpix_disc),dimension(n_threads)::disc
-    type(coop_healpix_patch)::patch_north, patch_south
-    type(coop_healpix_patch),dimension(n_threads)::p_south, tmp, p_north
-    type(coop_healpix_maps),optional::mask
-    type(coop_file)::fp
-    COOP_REAL::hemisphere_direction(2)
-    COOP_INT imap, ithread, i, pix, iaccept, ireject
-    COOP_REAL angle, theta, phi, hsint, hcost
-    COOP_REAL hcos, hsin
-#ifdef HAS_HEALPIX
-    patch_north%image = 0.d0
-    patch_north%nstack = 0.d0
-    patch_north%nstack_raw = 0
-    patch_south%image = 0.d0
-    patch_south%nstack = 0.d0
-    patch_south%nstack_raw = 0
-    do ithread=1, n_threads
-       p_north(ithread) = patch_north
-       p_south(ithread) = patch_south
-       tmp(ithread) = patch_north
-    enddo
-    hsint = sin(hemisphere_direction(1))
-    hcost = cos(hemisphere_direction(1))
-    !$omp parallel do private(i, pix, angle)
-    do ithread = 1, n_threads
-       do i=ithread, listpix%n, n_threads
-          pix = listpix%element(i)
-          call this%pix2ang(pix, theta, phi)
-          angle = listangle%element(i)
-          call this%get_disc(pix, disc(ithread))
-          if(cos(theta)*hcost+sin(theta)*hsint*cos(phi-hemisphere_direction(2)) .lt. 0.d0)then
-             if(present(mask))then
-                call coop_healpix_stack_on_patch(this, disc(ithread), angle, p_north(ithread), tmp(ithread), mask)    
-             else
-                call coop_healpix_stack_on_patch(this, disc(ithread), angle, p_north(ithread), tmp(ithread) )
-             endif
-          else
-             if(present(mask))then
-                call coop_healpix_stack_on_patch(this, disc(ithread), angle, p_south(ithread), tmp(ithread), mask)    
-             else
-                call coop_healpix_stack_on_patch(this, disc(ithread), angle, p_south(ithread), tmp(ithread) )
-             endif
-          endif
-       enddo
-    enddo
-    !$omp end parallel do
-    do ithread = 1, n_threads
-       patch_north%image = patch_north%image + p_north(ithread)%image
-       patch_north%nstack = patch_north%nstack + p_north(ithread)%nstack
-       patch_north%nstack_raw = patch_north%nstack_raw + p_north(ithread)%nstack_raw
-       call p_north(ithread)%free()
-       patch_south%image = patch_south%image + p_south(ithread)%image
-       patch_south%nstack = patch_south%nstack + p_south(ithread)%nstack
-       patch_south%nstack_raw = patch_south%nstack_raw + p_south(ithread)%nstack_raw
-       call p_south(ithread)%free()
-       call tmp(ithread)%free()
-    enddo
-    do imap = 1, patch_north%nmaps
-       patch_north%image(:,:,imap) = patch_north%image(:,:,imap)/max(patch_north%nstack, 1.d0)
-       patch_south%image(:,:,imap) = patch_south%image(:,:,imap)/max(patch_south%nstack, 1.d0)
-    enddo
-#else
-    stop "CANNOT FIND HEALPIX"
-#endif
-  end subroutine coop_healpix_maps_stack_north_south
-
-
-
-  subroutine coop_healpix_maps_stack_with_covariance(this, patch, spots_file, getvar, nvar, mean, cov, mask, hemisphere_direction)
-    COOP_UNKNOWN_STRING::spots_file
-    COOP_INT,parameter::n_threads = 4
-    class(coop_healpix_maps)::this
-    type(coop_healpix_disc),dimension(n_threads)::disc
-    type(coop_healpix_patch)::patch
-    type(coop_healpix_patch),dimension(n_threads)::p, tmp
-    COOP_INT nvar
-    external getvar
-    COOP_REAL cov(nvar, nvar), mean(nvar),  covtmp(nvar, nvar, n_threads), meantmp(nvar, n_threads)
-    type(coop_healpix_maps), optional::mask
-    COOP_INT::ns
-    COOP_REAL,dimension(:),allocatable::theta, phi, angle
-    type(coop_file)::fp
-    COOP_INT imap, ithread, i, pix, j
-    COOP_REAL, optional::hemisphere_direction(2)
-    COOP_REAL hcos, hsin
-#ifdef HAS_HEALPIX
-    ns = coop_file_numlines(spots_file)
-    allocate(theta(ns), phi(ns), angle(ns))
-    call fp%open(spots_file)
-    do i=1, ns
-       read(fp%unit, *) theta(i), phi(i), angle(i)
-    enddo
-    call fp%close()
-    patch%image = 0.d0
-    patch%nstack = 0.d0
-    patch%nstack_raw = 0
-    do ithread=1, n_threads
-       p(ithread) = patch
-       tmp(ithread) = patch
-    enddo
-    covtmp = 0.d0
-    meantmp = 0.d0
-    cov = 0.d0
-    mean = 0.d0
-    if(present(hemisphere_direction))then
-       hcos = cos(hemisphere_direction(1))
-       hsin = sin(hemisphere_direction(1))
-       !$omp parallel do private(i, pix)
-       do ithread = 1, n_threads
-          do i=ithread, ns, n_threads
-             if(hcos*cos(theta(i)) + hsin*sin(theta(i))*cos(phi(i)-hemisphere_direction(2)) .gt. 0.d0)then
-                call this%ang2pix(theta(i), phi(i), pix)
-                call this%get_disc(pix, disc(ithread))
-                if(present(mask))then
-                   call coop_healpix_stack_on_patch_with_covariance(this, disc(ithread), angle(i), p(ithread), tmp(ithread), getvar, nvar, meantmp(:, ithread), covtmp(:,:,ithread), mask)  
-                else
-                   call coop_healpix_stack_on_patch_with_covariance(this, disc(ithread), angle(i), p(ithread), tmp(ithread), getvar, nvar, meantmp(:, ithread), covtmp(:,:,ithread))
-                endif
-             endif
-          enddo
-       enddo
-       !$omp end parallel do
-    else
-       !$omp parallel do private(i, pix)
-       do ithread = 1, n_threads
-          do i=ithread, ns, n_threads
-             call this%ang2pix(theta(i), phi(i), pix)
-             call this%get_disc(pix, disc(ithread))
-             if(present(mask))then
-                call coop_healpix_stack_on_patch_with_covariance(this, disc(ithread), angle(i), p(ithread), tmp(ithread), getvar, nvar, meantmp(:, ithread), covtmp(:,:,ithread), mask)  
-             else
-                call coop_healpix_stack_on_patch_with_covariance(this, disc(ithread), angle(i), p(ithread), tmp(ithread), getvar, nvar, meantmp(:, ithread), covtmp(:,:,ithread))
-             endif
-          enddo
-       enddo
-       !$omp end parallel do
-    endif
-    do ithread = 1, n_threads
-       patch%image = patch%image + p(ithread)%image
-       patch%nstack = patch%nstack + p(ithread)%nstack
-       patch%nstack_raw = patch%nstack_raw + p(ithread)%nstack_raw
-       cov = cov+covtmp(:,:,ithread)
-       mean = mean + meantmp(:, ithread)
-       call p(ithread)%free()
-       call tmp(ithread)%free()
-    enddo
-    if(patch%nstack_raw .eq. 0) stop "Nothing stacked"
-    mean = mean/patch%nstack_raw
-    do imap = 1, patch%nmaps
-       patch%image(:,:,imap) = patch%image(:,:,imap)/max(patch%nstack, 1.d0)
-    enddo
-!!$    patch%image = patch%image/patch%nstack_raw
-    do j=1, nvar
-       do i=1, j
-          cov(i,j) = cov(i,j)/patch%nstack_raw - mean(i)*mean(j)
-       enddo
-    enddo
-    do j=1, nvar
-       do i=j+1, nvar
-          cov(i,j) =cov(j, i)
-       enddo
-    enddo
-    deallocate(theta, phi, angle)
-#else
-    stop "CANNOT FIND HEALPIX"
-#endif
-  end subroutine coop_healpix_maps_stack_with_covariance
-  
-
-  subroutine coop_healpix_stack_on_patch_with_covariance(this, disc, angle, patch, tmp_patch, getvar, nvar, mean, cov, mask)
-    class(coop_healpix_maps)::this
-    type(coop_healpix_disc)::disc
-    COOP_REAL angle
-    type(coop_healpix_patch)::patch, tmp_patch
-    type(coop_healpix_maps),optional::mask
-    COOP_INT i, j
-    COOP_INT::nvar
-    COOP_REAL::cov(nvar, nvar), mean(nvar)
-    external::getvar
-    COOP_REAL var(nvar)
-    if(present(mask))then
-       call coop_healpix_fetch_patch(this, disc, angle, tmp_patch, mask)
-       if(present(mask) .and. sum(tmp_patch%nstack*tmp_patch%indisk) .lt. patch%num_indisk_tol)then
-          return
-       endif
-    else
-       call coop_healpix_fetch_patch(this, disc, angle, tmp_patch)
-    endif
-    patch%image = patch%image + tmp_patch%image
-    patch%nstack = patch%nstack + tmp_patch%nstack
-    patch%nstack_raw = patch%nstack_raw + tmp_patch%nstack_raw
-    call getvar(tmp_patch, nvar, var)
-    mean = mean + var
-    do j=1, nvar
-       do i=1, j
-          cov(i, j) = cov(i, j) + var(i)*var(j)
-       enddo
-    enddo
-  end subroutine coop_healpix_stack_on_patch_with_covariance
 
 
   subroutine coop_healpix_stack_on_patch(this, disc, angle, patch, tmp_patch, mask)
@@ -2286,13 +1636,12 @@ contains
     type(coop_healpix_maps),optional::mask
     COOP_REAL angle
     type(coop_healpix_patch) patch
-    COOP_INT i, j, pix
+    COOP_INT i, j, pix,  k
     COOP_REAL x, y, r, phi
     COOP_SINGLE qu(2)
     if(.not. present(mask))patch%nstack = 1.d0
     patch%nstack_raw  = 1
-    select case(trim(patch%genre))
-    case("T", "E", "B", "I", "zeta")
+    if(all(patch%tbs%spin .eq. 0))then
        do j = -patch%n, patch%n
           do i = -patch%n, patch%n
              x = patch%dr * i
@@ -2302,31 +1651,51 @@ contains
              call disc%ang2pix( r, phi, pix)
              if(present(mask))then
                 patch%nstack(i, j) = mask%map(pix, 1)
-                patch%image(i, j, 1) = this%map(pix,1)*mask%map(pix,1)
+                patch%image(i, j, :) = this%map(pix, patch%tbs%ind)*mask%map(pix,1)
              else 
-                patch%image(i, j, 1) = this%map(pix,1)
+                patch%image(i, j, :) = this%map(pix,patch%tbs%ind)
              endif
           enddo
        enddo
-    case("QU")
-       do j = -patch%n, patch%n
-          do i = -patch%n, patch%n
-             x = patch%dr * i
-             y = patch%dr * j
-             r = sqrt(x**2+y**2)
-             phi = COOP_POLAR_ANGLE(x, y) + angle
-             call disc%ang2pix(r, phi, pix)
-             qu = this%map(pix, this%iq:this%iu)
-             call coop_healpix_rotate_qu(qu, angle)
-             if(present(mask))then
-                patch%nstack(i, j) = mask%map(pix, 1)
-                patch%image(i, j, 1:2) = qu * mask%map(pix,1)
-             else 
-                patch%image(i, j, 1:2) = qu
-             endif
+    elseif(patch%nmaps .eq. 2 .and. all(patch%tbs%spin .ne. 0))then
+       if(all(patch%tbs%local_rotation))then
+          do j = -patch%n, patch%n
+             do i = -patch%n, patch%n
+                x = patch%dr * i
+                y = patch%dr * j
+                r = sqrt(x**2+y**2)
+                phi = COOP_POLAR_ANGLE(x, y) + angle
+                call disc%ang2pix( r, phi, pix)
+                qu = this%map(pix, patch%tbs%ind)
+                call coop_healpix_rotate_qu(qu, phi, patch%tbs%spin(1))
+                if(present(mask))then
+                   patch%nstack(i, j) = mask%map(pix, 1)
+                   patch%image(i, j, :) = qu*mask%map(pix,1)
+                else 
+                   patch%image(i, j, :) = qu
+                endif
+             enddo
           enddo
-       enddo
-    case("QrUr")
+       else
+          do j = -patch%n, patch%n
+             do i = -patch%n, patch%n
+                x = patch%dr * i
+                y = patch%dr * j
+                r = sqrt(x**2+y**2)
+                phi = COOP_POLAR_ANGLE(x, y) + angle
+                call disc%ang2pix( r, phi, pix)
+                qu = this%map(pix, patch%tbs%ind)
+                call coop_healpix_rotate_qu(qu, angle, patch%tbs%spin(1))
+                if(present(mask))then
+                   patch%nstack(i, j) = mask%map(pix, 1)
+                   patch%image(i, j, :) = qu*mask%map(pix,1)
+                else 
+                   patch%image(i, j, :) = qu
+                endif
+             enddo
+          enddo
+       endif
+    else
        do j = -patch%n, patch%n
           do i = -patch%n, patch%n
              x = patch%dr * i
@@ -2334,21 +1703,39 @@ contains
              r = sqrt(x**2+y**2)
              phi = COOP_POLAR_ANGLE(x, y) + angle
              call disc%ang2pix( r, phi, pix)
-             qu = this%map(pix, this%iq:this%iu)
-             call coop_healpix_rotate_qu(qu, phi)
-             qu = -qu  !!the nonsense - sign from WMAP convention!
-             if(present(mask))then
-                patch%nstack(i, j) = mask%map(pix, 1)
-                patch%image(i, j, 1:2) = qu * mask%map(pix,1)
-             else 
-                patch%image(i, j, 1:2) = qu
-             endif
+             k = 1
+             do while(k.le. patch%nmaps)
+                select case(patch%tbs%spin(k))
+                case(0)
+                   if(present(mask))then
+                      patch%nstack(i, j) = mask%map(pix, 1)
+                      patch%image(i, j, k) = this%map(pix, patch%tbs%ind(k))*mask%map(pix,1)
+                   else 
+                      patch%image(i, j, k) = this%map(pix,patch%tbs%ind(k))
+                   endif
+                case default
+                   qu = this%map(pix, patch%tbs%ind(k:k+1))
+                   if(patch%tbs%local_rotation(k))then
+                      call coop_healpix_rotate_qu(qu, phi, patch%tbs%spin(k))
+                   else
+                      call coop_healpix_rotate_qu(qu, angle,patch%tbs%spin(k))
+                   endif
+                   if(present(mask))then
+                      patch%nstack(i, j) = mask%map(pix, 1)
+                      patch%image(i, j, k:k+1) = qu*mask%map(pix,1)
+                   else 
+                      patch%image(i, j, k:k+1) = qu
+                   endif
+                end select
+                if(patch%tbs%spin(k).ne.0)then
+                   k = k + 2
+                else
+                   k = k + 1
+                endif
+             enddo
           enddo
        enddo
-    case default
-       write(*,*) "coop_healpix_fetch_patch: Unknown stack_option"//trim(patch%genre)
-       stop
-    end select
+    endif
   end subroutine coop_healpix_fetch_patch
 
   subroutine coop_healpix_smooth_mapfile(mapfile, fwhm)
@@ -2425,428 +1812,6 @@ contains
     call hge%free()
   end subroutine coop_healpix_getQU
 
-
-  subroutine coop_healpix_maps_get_spots(map, spots,  spot_type, threshold, threshold_pol, mask)
-    COOP_UNKNOWN_STRING spot_type
-    type(coop_list_realarr)::spots
-    COOP_REAL,optional::threshold, threshold_pol
-    COOP_REAL theta, phi, rotate_angle, fcut, fcut2, sigma0, sigmap
-    class(coop_healpix_maps)map
-    type(coop_healpix_maps),optional::mask
-    COOP_REAL total_weight
-    COOP_INT i, iq, iu, j
-    COOP_INT nneigh, list(8)
-    logical do_mask
-#ifdef HAS_HEALPIX
-    call spots%init()
-    do_mask = .false.
-    if(present(mask))then
-       if(mask%nside .ne. map%nside)then
-          write(*,*) "map nside = ", map%nside
-          write(*,*) "mask nside = ", mask%nside
-          stop "coop_healpix_get_spots: mask and map must have the same nside"
-       endif
-       total_weight = count(mask%map(:,1).gt.0.5)
-       do_mask = .true.
-    else
-       total_weight = map%npix
-    endif
-    call map%convert2nested
-    if(do_mask) call mask%convert2nested
-
-    select case(trim(spot_type))
-    case("Tmax", "Emax", "Bmax", "zetamax")  !!random orientation
-
-       if(present(threshold))then
-          if(threshold.lt.coop_stacking_max_threshold)then          
-             if(do_mask)then
-                fcut = threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
-             else
-                fcut = threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
-             endif
-          else
-             fcut = -1.e30
-          endif
-       else
-          fcut = -1.e30
-       endif
-
-       do i=0, map%npix-1
-          if(do_mask)then
-             if( map%map(i,1) .lt. fcut .or. mask%map(i, 1) .le. 0.5 ) cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if ( all(map%map(list(1:nneigh),1).lt.map%map(i,1)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5 ) )then
-                call random_number(rotate_angle)
-                rotate_angle = rotate_angle*coop_2pi
-                call pix2ang_nest(map%nside, i, theta, phi)
-                call spots%push( real( (/ theta, phi, rotate_angle /) ) )
-             endif
-          else
-             if(map%map(i,1).lt.fcut )cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if(all(map%map(list(1:nneigh),1).lt. map%map(i,1)))then
-                call random_number(rotate_angle)
-                rotate_angle = rotate_angle*coop_2pi
-                call pix2ang_nest(map%nside, i, theta, phi)
-                call spots%push( real( (/ theta, phi, rotate_angle /) ) )
-             endif
-          endif
-       enddo
-    case("Tmin", "Emin", "Bmin", "zetamin")  !!random orientation
-       if(present(threshold))then
-          if(threshold .lt. coop_stacking_max_threshold)then
-             if(do_mask)then
-                fcut = - threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
-             else
-                fcut = - threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
-             endif
-          else
-             fcut = 1.e30
-          endif
-       else
-          fcut = 1.e30
-       endif
-       do i=0, map%npix-1
-          if(do_mask)then
-             if(map%map(i,1).gt.fcut .or. mask%map(i, 1) .le. 0.5)cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if( all(map%map(list(1:nneigh),1) .gt. map%map(i,1)) .and. all(mask%map(list(1:nneigh), 1) .gt. 0.5 ) ) then
-                call random_number(rotate_angle)
-                rotate_angle = rotate_angle*coop_2pi
-                call pix2ang_nest(map%nside, i, theta, phi)
-                call spots%push( real( (/ theta, phi, rotate_angle /) ) )
-             endif
-          else
-             if(map%map(i,1).gt.fcut )cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if(all(map%map(list(1:nneigh),1).gt.map%map(i,1)))then
-                call random_number(rotate_angle)
-                rotate_angle = rotate_angle*coop_2pi
-                call pix2ang_nest(map%nside, i, theta, phi)
-                call spots%push( real( (/ theta, phi, rotate_angle /) ) )
-             endif
-          endif
-       enddo
-    case("Tmax_QTUTOrient", "zetamax_qzuzOrient") !!oriented with QU, maxima of T
-       if(map%nmaps .lt. 3) stop "For Tmax_QTUTOrient mode you need 3 maps"
-       if(present(threshold))then
-          if(threshold.lt.coop_stacking_max_threshold)then
-             if(do_mask)then
-                sigma0 = sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)            
-             else
-                sigma0 = sqrt(sum(dble(map%map(:,1))**2)/total_weight)
-             endif
-             fcut = threshold* sigma0
-          else
-             fcut=-1.e30
-          endif
-       else
-          fcut = -1.e30
-       endif
-       if(present(threshold_pol))then
-          if(threshold_pol.lt.coop_stacking_max_threshold)then
-             if(do_mask)then
-                fcut2 = threshold_pol**2*(sum(dble(map%map(:,2))**2+dble(map%map(:,3))**2, mask%map(:,1).gt.0.5)/total_weight)
-             else
-                fcut2 = threshold_pol**2*(sum(dble(map%map(:,2))**2+dble(map%map(:,3))**2)/total_weight)
-             endif
-          else
-             fcut2 = -1.e30
-          endif
-       else
-          fcut2 = -1.e30
-       endif
-       
-       do i=0, map%npix-1
-          if(do_mask)then
-             if( map%map(i,1) .lt. fcut .or. map%map(i,2)**2+map%map(i,3)**2 .lt.fcut2 .or. mask%map(i,1) .le. 0.5)cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if(all(map%map(list(1:nneigh),1) .lt. map%map(i,1)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5)) then
-                call pix2ang_nest(map%nside, i, theta, phi)
-                rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
-                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
-                call spots%push( real( (/ theta, phi, rotate_angle /) ) )
-             endif
-          else
-             if(map%map(i,1) .lt. fcut  .or. map%map(i,2)**2+map%map(i,3)**2 .lt.fcut2  )cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if(all(map%map(list(1:nneigh),1) .lt. map%map(i,1)))then
-                call pix2ang_nest(map%nside, i, theta, phi)
-                rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
-                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
-                call spots%push( real( (/ theta, phi, rotate_angle /) ) )
-             endif
-          endif
-       enddo
-
-    case("TQUL" ) !!oriented with QU, maxima of T, T and ellipiticity constraint
-       if(map%nmaps .lt. 4) stop "For TQUL you need four maps"
-       if(present(threshold))then
-          if(threshold.lt.coop_stacking_max_threshold)then
-             if(do_mask)then
-                sigma0 = sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)            
-             else
-                sigma0 = sqrt(sum(dble(map%map(:,1))**2)/total_weight)
-             endif
-             fcut = threshold * sigma0
-          else
-             fcut=-1.e30
-          endif
-       else
-          fcut = -1.e30
-       endif
-       if(present(threshold_pol))then
-          if(threshold_pol.lt.1.d0 .and. threshold_pol .ge. 0.d0)then
-             fcut2 = threshold_pol**2
-          else
-             fcut2 = 0.d0
-          endif
-       else
-          fcut2 = 0.d0
-       endif
-       
-       do i=0, map%npix-1
-          if(do_mask)then
-             if( map%map(i,1) .lt. fcut .or. map%map(i,2)**2+map%map(i,3)**2 .lt. fcut2*map%map(i,4)**2 .or. mask%map(i,1) .le. 0.5)cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if(all(map%map(list(1:nneigh),1) .lt. map%map(i,1)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5)) then
-                call pix2ang_nest(map%nside, i, theta, phi)
-                rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
-                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
-                call spots%push( real( (/ theta, phi, rotate_angle /) ) )
-             endif
-          else
-             if(map%map(i,1) .lt. fcut  .or. (map%map(i,2)**2+map%map(i,3)**2) .lt. fcut2*map%map(i,4)**2  )cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if(all(map%map(list(1:nneigh),1) .lt. map%map(i,1)))then
-                call pix2ang_nest(map%nside, i, theta, phi)
-                rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
-                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
-                call spots%push( real( (/ theta, phi, rotate_angle /) ) )
-             endif
-          endif
-       enddo
-    case("TQULb" ) !!oriented with QU, maxima of T, T and ellipiticity constraint
-       if(map%nmaps .lt. 4) stop "For TQUL you need four maps"
-       if(present(threshold))then
-          if(threshold.lt.coop_stacking_max_threshold)then
-             if(do_mask)then
-                sigma0 = sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)            
-             else
-                sigma0 = sqrt(sum(dble(map%map(:,1))**2)/total_weight)
-             endif
-             fcut = threshold * sigma0
-          else
-             fcut=-1.e30
-          endif
-       else
-          fcut = -1.e30
-       endif
-       if(present(threshold_pol))then
-          if(threshold_pol.lt.1.d0 .and. threshold_pol .ge. 0.d0)then
-             fcut2 = threshold_pol**2
-          else
-             fcut2 = 1.d0
-          endif
-       else
-          fcut2 = 1.d0
-       endif
-       
-       do i=0, map%npix-1
-          if(do_mask)then
-             if( map%map(i,1) .lt. fcut .or. map%map(i,2)**2+map%map(i,3)**2 .gt. fcut2*map%map(i,4)**2 .or. mask%map(i,1) .le. 0.5)cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if(all(map%map(list(1:nneigh),1) .lt. map%map(i,1)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5)) then
-                call pix2ang_nest(map%nside, i, theta, phi)
-                rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
-                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
-                call spots%push( real( (/ theta, phi, rotate_angle /) ) )
-             endif
-          else
-             if(map%map(i,1) .lt. fcut  .or. (map%map(i,2)**2+map%map(i,3)**2) .gt. fcut2*map%map(i,4)**2  )cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if(all(map%map(list(1:nneigh),1) .lt. map%map(i,1)))then
-                call pix2ang_nest(map%nside, i, theta, phi)
-                rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
-                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
-                call spots%push( real( (/ theta, phi, rotate_angle /) ) )
-             endif
-          endif
-       enddo
-    case("Tmin_QTUTOrient", "zetamin_ztutOrient") !!oriented with QU, minima of T
-       if(map%nmaps .lt. 3) stop "For Tmin_QTUTOrient mode you need 3 maps"
-       if(present(threshold))then
-          if(threshold.lt.coop_stacking_max_threshold)then
-             if(do_mask)then
-                fcut = -threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
-             else
-                fcut = -threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
-             endif
-          else
-             fcut = 1.e30
-          endif
-       else
-          fcut = 1.e30
-       endif
-       do i=0, map%npix-1
-          if(do_mask)then
-             if( map%map(i,1) .gt. fcut .or. mask%map(i,1) .le. 0.5) cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if( all( map%map(list(1:nneigh), 1) .gt. map%map(i,1) ) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5) ) then
-                call pix2ang_nest( map%nside, i, theta, phi )
-                rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
-                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
-                call spots%push( real( (/ theta, phi, rotate_angle /) ) )
-             endif
-          else
-             if(map%map(i,1) .gt. fcut)cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if(all(map%map(list(1:nneigh),1).gt. map%map(i,1)))then
-                call pix2ang_nest(map%nside, i, theta, phi)
-                rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
-                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
-                call spots%push( real( (/ theta, phi, rotate_angle /) ) )
-             endif
-          endif
-       enddo
-    case("Pmax", "PTmax", "PZmax")
-       select case(map%nmaps)
-       case(2:3)
-          iq = map%nmaps - 1
-          iu = iq + 1
-       case default
-          stop "For polarization you need to specify Q, U maps in the input file."
-       end select
-       if(present(threshold))then
-          if(threshold.lt.coop_stacking_max_threshold)then
-             if(do_mask)then
-                fcut = threshold**2*(sum(dble(map%map(:,iq))**2 + dble(map%map(:,iu))**2, mask%map(:,1).gt.0.5)/total_weight)
-             else
-                fcut = threshold**2*(sum(dble(map%map(:,iq))**2 + dble(map%map(:,iu))**2)/total_weight)
-             endif
-          else
-             threshold = -1.e30
-          endif
-       else
-          fcut = -1.e30
-       endif
-       do i=0, map%npix-1
-          if(do_mask)then
-             if( map%map(i,iq)**2 + map%map(i,iu)**2 .lt. fcut  .or.  mask%map(i, 1) .le. 0.5 ) cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if( all( map%map(list(1:nneigh),iq)**2 + map%map(list(1:nneigh),iu)**2 .lt. map%map(i,iq)**2 + map%map(i, iu)**2 ) .and. all(mask%map(list(1:nneigh), 1) .gt. 0.5) ) then
-                rotate_angle = COOP_POLAR_ANGLE(map%map(i, iq), map%map(i, iu))/2.
-                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
-                call pix2ang_nest(map%nside, i, theta, phi)
-                call spots%push( real( (/ theta, phi, rotate_angle /) ) )
-             endif
-          else
-             if( map%map(i, iq)**2 + map%map(i, iu)**2 .lt. fcut) cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if( all( map%map(list(1:nneigh), iq)**2 + map%map(list(1:nneigh), iu)**2 .lt. map%map(i, iq)**2 + map%map(i, iu)**2 ) )then
-                rotate_angle = COOP_POLAR_ANGLE(map%map(i, iq), map%map(i, iu))/2.
-                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
-                call pix2ang_nest(map%nside, i, theta, phi)
-                call spots%push( real( (/ theta, phi, rotate_angle /) ) )
-             endif
-          endif
-       enddo
-
-    case("PmaxSortT", "PTmaxSortT")
-       select case(map%nmaps)
-       case(2:3)
-          iq = map%nmaps - 1
-          iu = iq + 1
-       case default
-          stop "For polarization you need to specify Q, U maps in the input file."
-       end select
-       if(present(threshold))then
-          if(threshold.lt.coop_stacking_max_threshold)then
-             if(do_mask)then
-                fcut = threshold**2*(sum(dble(map%map(:,iq))**2 + dble(map%map(:,iu))**2, mask%map(:,1).gt.0.5)/total_weight)
-             else
-                fcut = threshold**2*(sum(dble(map%map(:,iq))**2 + dble(map%map(:,iu))**2)/total_weight)
-             endif
-          else
-             fcut = -1.e30
-          endif
-       else
-          fcut = -1.e30
-       endif
-       do i=0, map%npix-1
-          if(do_mask)then
-             if( map%map(i,iq)**2 + map%map(i,iu)**2 .lt. fcut  .or.  mask%map(i, 1) .le. 0.5 ) cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if( all( map%map(list(1:nneigh),iq)**2 + map%map(list(1:nneigh),iu)**2 .lt. map%map(i,iq)**2 + map%map(i, iu)**2 ) .and. all(mask%map(list(1:nneigh), 1) .gt. 0.5) ) then
-                rotate_angle = COOP_POLAR_ANGLE(map%map(i, iq), map%map(i, iu))/2.
-                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi
-                call pix2ang_nest(map%nside, i, theta, phi)
-                call spots%push(  (/ real(theta), real(phi), real(rotate_angle), map%map(i, 1) /) ) 
-             endif
-          else
-             if( map%map(i, iq)**2 + map%map(i, iu)**2 .lt. fcut) cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if( all( map%map(list(1:nneigh), iq)**2 + map%map(list(1:nneigh), iu)**2 .lt. map%map(i, iq)**2 + map%map(i, iu)**2 ) )then
-                rotate_angle = COOP_POLAR_ANGLE(map%map(i, iq), map%map(i, iu))/2.
-                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi
-                call pix2ang_nest(map%nside, i, theta, phi)
-                call spots%push( (/ real(theta), real(phi), real(rotate_angle), map%map(i, 1) /) )
-             endif
-          endif
-       enddo
-       call spots%sort(4)
-    case("Pmin", "PTmin", "PZmin")
-       select case(map%nmaps)
-       case(2:3)
-          iq = map%nmaps - 1
-          iu = iq + 1
-       case default
-          stop "For polarization you need to specify Q, U maps in the input file."
-       end select
-       if(present(threshold))then
-          if(threshold .lt.coop_stacking_max_threshold)then
-             if(do_mask)then
-                fcut = threshold**2*(sum(dble(map%map(:, iq))**2+dble(map%map(:, iu))**2, mask%map(:,1).gt.0.5)/total_weight)
-             else
-                fcut = threshold**2*(sum(dble(map%map(:, iq))**2+dble(map%map(:, iu))**2)/total_weight)
-             endif
-          else
-             fcut = 1.d30
-          endif
-       else
-          fcut = 1.d30
-       endif
-       do i=0, map%npix-1
-          if(do_mask)then
-             if(map%map(i,iq)**2 + map%map(i,iu)**2 .gt. fcut .or. mask%map(i, 1) .le. 0.5 ) cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if(all(map%map(list(1:nneigh), iq)**2 + map%map(list(1:nneigh), iu)**2 .gt. map%map(i, iq)**2 + map%map(i, iu)**2) .and. all(mask%map(list(1:nneigh), 1) .gt. 0.5) ) then
-                rotate_angle = COOP_POLAR_ANGLE(map%map(i,iq), map%map(i,iu))/2.
-                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                
-                call pix2ang_nest(map%nside, i, theta, phi)
-                call spots%push( real( (/ theta, phi, rotate_angle /) ) )
-             endif
-          else
-             if(map%map(i, iq)**2 + map%map(i, iu)**2 .gt. fcut) cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if(all(map%map(list(1:nneigh), iq)**2 + map%map(list(1:nneigh), iu)**2 .gt. map%map(i, iq)**2 + map%map(i, iu)**2))then
-                rotate_angle = COOP_POLAR_ANGLE(map%map(i, iq), map%map(i, iu))/2.
-                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi
-                call pix2ang_nest(map%nside, i, theta, phi)
-                call spots%push( real( (/ theta, phi, rotate_angle /) ) )
-             endif
-          endif
-       enddo
-    case default
-       write(*,*) trim(spot_type)
-       stop "unknown spot type"
-    end select
-!!$    call map%convert2ring
-!!$    if(domask)call mask%convert2ring    
-#else
-    stop "CANNOT FIND HEALPIX"
-#endif
-  end subroutine coop_healpix_maps_get_spots
 
 
   subroutine coop_healpix_maps_get_listpix(map, listpix, listangle,  spot_type, threshold, mask)
@@ -3125,70 +2090,6 @@ contains
 #endif
   end subroutine coop_healpix_maps_get_listpix
 
-  subroutine coop_healpix_export_spots(map_file, spots_file, spot_type, threshold, threshold_pol, mask_file, fwhm)
-    COOP_UNKNOWN_STRING map_file, spots_file, spot_type
-    COOP_UNKNOWN_STRING, optional::mask_file
-    COOP_REAL,optional::threshold, threshold_pol
-    type(coop_file) fp
-    type(coop_healpix_maps) mask, map
-    COOP_REAL,optional::fwhm
-    COOP_INT i
-    type(coop_list_realarr) spots
-    COOP_SINGLE arr(10)
-    logical domask
-    call map%read(map_file)
-    if(present(fwhm))then
-       if(abs(fwhm) .gt. 1.d-3) &
-            call map%smooth(fwhm)
-    endif
-    if(present(mask_file))then
-       domask = (trim(mask_file).ne."")
-    else
-       domask = .false.
-    endif
-    
-    if(domask) call mask%read(mask_file, nmaps_wanted = 1)
-    if(mask%nside .ne. map%nside) stop "export_spots: mask should have the same nside"
-    if(present(threshold_pol))then
-       if(present(threshold))then
-          if(domask)then
-             call map%get_spots(spots = spots,  spot_type = spot_type, threshold=threshold, threshold_pol=threshold_pol, mask = mask)
-          else
-             call map%get_spots(spots = spots,  spot_type = spot_type, threshold=threshold, threshold_pol=threshold_pol)
-          endif
-       else
-          if(domask)then
-             call map%get_spots(spots = spots,  spot_type = spot_type, threshold_pol=threshold_pol, mask = mask)
-          else
-             call map%get_spots(spots = spots,  spot_type = spot_type, threshold_pol=threshold_pol)
-          endif
-       endif       
-    else
-       if(present(threshold))then
-          if(domask)then
-             call map%get_spots(spots = spots,  spot_type = spot_type, threshold=threshold, mask = mask)
-          else
-
-             call map%get_spots(spots = spots,  spot_type = spot_type, threshold=threshold)
-          endif
-       else
-          if(domask)then
-             call map%get_spots(spots = spots,  spot_type = spot_type, mask = mask)
-          else
-             call map%get_spots(spots = spots,  spot_type = spot_type)
-          endif
-       endif
-    endif
-    call fp%open(trim(spots_file),"w")
-    do i=1, spots%n
-       call spots%get_element(i, arr)
-       write(fp%unit, "(10G16.7)") arr(1:spots%dim)
-    enddo
-    call fp%close()
-    call map%free
-    call mask%free
-    call spots%init
-  end subroutine coop_healpix_export_spots
 
   subroutine coop_healpix_output_map(map, header, fname)
     real, dimension(:,:):: map
@@ -4149,7 +3050,7 @@ contains
        if(mask%nside .ne. this%nside)then
           write(*,*) "map nside = ", this%nside
           write(*,*) "mask nside = ", mask%nside
-          stop "coop_healpix_get_spots: mask and map must have the same nside"
+          stop "coop_healpix_get_peaks: mask and map must have the same nside"
        endif
        call mask%convert2nested()
        total_weight = count(mask%map(:,1) .gt. 0.5)
@@ -4364,6 +3265,22 @@ contains
     patch%image = 0.d0
     patch%nstack = 0.d0
     patch%nstack_raw = 0
+    !!adjust the index of maps
+    i = 1
+    do while(i.le.patch%nmaps)
+       if(patch%tbs%ind(i) .gt. this%nmaps) stop "stack_on_peaks: index overflow"       
+       do while(patch%tbs%spin(i) .ne. this%spin(patch%tbs%ind(i)))
+          patch%tbs%ind(i)  = patch%tbs%ind(i) + 1
+          if(patch%tbs%ind(i) .gt. this%nmaps) stop "stack_on_peaks: cannot find the map with corresponding spin"
+       enddo
+       if(patch%tbs%spin(i) .ne. 0)then
+          if(i.ge.patch%nmaps .or. patch%tbs%ind(i) .ge. this%nmaps) stop "stack_on_peaks: nonzero spin must go in pairs"
+          patch%tbs%ind(i+1) = patch%tbs%ind(i) + 1
+          i = i+2
+       else
+          i = i+1
+       endif
+    enddo
     do ithread=1, n_threads
        p(ithread) = patch
        tmp(ithread) = patch
