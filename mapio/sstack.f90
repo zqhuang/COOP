@@ -6,10 +6,11 @@ program Exp_spots
 #include "constants.h"
 #ifdef HAS_HEALPIX
 
-  COOP_STRING::output = "st/smica_fr_coldspot_cut_nu0pt1.dat"
+  
+  COOP_STRING::output = "st/smica_nu0pt1.dat"
   COOP_REAL::threshold = 0.1d0
 
-  COOP_INT,parameter::n_sim = 10
+  COOP_INT,parameter::n_sim = 30
   COOP_STRING::peak_name = "$T$"
   COOP_STRING::orient_name = "NULL"
   COOP_STRING::stack_field_name = "T"
@@ -18,11 +19,12 @@ program Exp_spots
   COOP_REAL,parameter::dr = 2.d0*sin(r_degree*coop_SI_degree/2.d0)/n
 
   COOP_REAL::r(0:n), pfr(0:n), pfr0(0:n)
+  COOP_INT::count_p
   COOP_UNKNOWN_STRING,parameter::mapdir = "massffp8/"
   COOP_UNKNOWN_STRING,parameter::postfix = "_020a_0512.fits"
   COOP_STRING::imap_file = "planck14/dx11_v2_smica_int_cmb"//postfix
   COOP_STRING::polmap_file = "planck14/dx11_v2_smica_pol_case1_cmb_hp_20_40"//postfix  
-  COOP_STRING::imask_file = "planck14/coldspot_mask_0512.fits"  !"planck14/dx11_v2_common_int_mask"//postfix !
+  COOP_STRING::imask_file = "planck14/dx11_v2_common_int_mask"//postfix !"planck14/coldspot_mask_0512.fits"  !
   COOP_STRING::polmask_file = "planck14/dx11_v2_common_pol_mask"//postfix
   
   type(coop_stacking_options)::sto_max, sto_min
@@ -73,7 +75,7 @@ program Exp_spots
   if(ind_done .ge. 0)then
      print*, "loaded "//COOP_STR_OF(ind_done+1)//" stacked maps"
   endif
-
+  count_p = 0
   do ind = 0, n_sim
      if(ind.gt.ind_done)then
         print*, "stacking map#"//COOP_STR_OF(ind)                
@@ -90,8 +92,12 @@ program Exp_spots
 !        call fig%curve(r, pfr, color = "red", linetype= "solid", linewidth = 1.5)
      else
         call fig%curve(r, pfr - pfr0, color = "blue", linetype= "dotted", linewidth = 1.)
+        if(sum(pfr-pfr0).lt.0.d0)then
+           count_p = count_p + 1
+        endif
      endif
   enddo
+  print*, COOP_STR_OF(count_p)//" in "//COOP_STR_OF(n_sim)//" has negative S"
   call fig%close()
   call fp%close()
   
