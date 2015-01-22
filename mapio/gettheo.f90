@@ -76,6 +76,7 @@ program stackth
      cls(:,l) = l2cls(:,l)/(l*(l+1.d0))
      if(il.ne.l) stop "cl file broken"
   enddo
+!  cls(:,2:50) = cls(:,2:50)*0.95
   call fp%close()
   sigma0 = sqrt(sum(Cls(index_auto,:)*(ell+0.5d0))/coop_2pi)
   sigma1 = sqrt(sum(l2Cls(index_auto,:)*(ell+0.5d0))/coop_2pi)

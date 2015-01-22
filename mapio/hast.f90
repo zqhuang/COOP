@@ -9,8 +9,8 @@ program Exp_spots
   COOP_REAL::l_deg_axis = 220.d0
   COOP_REAL::b_deg_axis = -17.d0
 
-  COOP_STRING::output = "st/smica_hem_2deg_nu1.dat"
-  COOP_REAL::threshold = 1.d0
+  COOP_STRING::output = "st/smica_hem_2deg_nu0pt5.dat"
+  COOP_REAL::threshold = 0.5d0
   
   COOP_INT,parameter::n_sim = 30
   COOP_STRING::peak_name = "$T$"
@@ -21,7 +21,7 @@ program Exp_spots
   COOP_REAL,parameter::dr = 2.d0*sin(r_degree*coop_SI_degree/2.d0)/n
 
   
-  COOP_REAL::r(0:n), fr(0:n)
+  COOP_REAL::r(0:n), pfr(0:n), pfr(0:n)
   COOP_UNKNOWN_STRING,parameter::mapdir = "massffp8/"
   COOP_UNKNOWN_STRING,parameter::postfix = "_020a_0512.fits"
   COOP_STRING::imap_file = "planck14/dx11_v2_smica_int_cmb"//postfix
@@ -91,13 +91,15 @@ program Exp_spots
      else
         read(fp%unit) i, north_max%fr, north_min%fr, south_max%fr, south_min%fr
      endif
-     fr = (north_max%fr(:, 0, 1) - south_max%fr(:,0,1) - north_min%fr(:, 0, 1) + south_min%fr(:,0,1))/2.d0
+     !     fr =  (north_max%fr(:, 0, 1)/north_max%fr(0,0,1) + north_min%fr(:,0,1)/north_min%fr(0,0,1))/2.d0 - (south_max%fr(:,0,1)/south_max%fr(0,0,1) + south_min%fr(:,0,1)/south_min%fr(0,0,1))/2.d0
+     pfr =  (north_max%fr(:, 0, 1) - north_min%fr(:,0,1))/2.d0 - (south_max%fr(:,0,1) - south_min%fr(:,0,1))/2.d0     
      if(ind.eq.0)then
-        call fig%curve(r, fr, color = "red", linetype= "solid", linewidth = 1.5, legend = "Planck")
+        pfr0 = pfr
+!        call fig%curve(r, fr, color = "red", linetype= "solid", linewidth = 1.5, legend = "Planck")
      elseif(ind.eq.1)then
-        call fig%curve(r, fr, color = "blue", linetype= "dotted", linewidth = 1.,legend = "FFP8")        
+        call fig%curve(r, pfr - pfr0, color = "blue", linetype= "dotted", linewidth = 1.,legend = "FFP8")        
      else
-        call fig%curve(r, fr, color = "blue", linetype= "dotted", linewidth = 1.)
+        call fig%curve(r, pfr - pfr0, color = "blue", linetype= "dotted", linewidth = 1.)
      endif
   enddo
   call coop_asy_legend(fig, "N", 2)

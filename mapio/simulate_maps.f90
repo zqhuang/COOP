@@ -10,7 +10,7 @@ program test
 
   implicit none
 #include "constants.h"
-  COOP_INT,parameter::lmax = 1600
+  COOP_INT,parameter::lmax = 1500
   type(coop_healpix_maps)::map, imask, polmask, mapcopy
   integer l, m, il
   type(coop_file)::fp
@@ -22,7 +22,7 @@ program test
   if(do_highpass)then
      print*, "Warning: high-pass filter is on"
   endif
-  call map%init(nside = 1024, nmaps=3, spin = (/ 0, 2, 2 /))
+  call map%init(nside = 512, nmaps=3, spin = (/ 0, 2, 2 /))
 
   call map%allocate_alms(lmax=lmax)
   map%Cl = 0.
@@ -43,15 +43,15 @@ program test
   mapcopy = map
   do il = 0, 99
      print*, "simulating map #", il
-     if(coop_file_exists(trim(prefix)//"_TQTUT_"//trim(coop_ndigits(il, 5))//"_0"//COOP_STR_OF(nint(beam_fwhm))//"a_n1024.fits"))cycle
+     if(coop_file_exists(trim(prefix)//"_TQTUT_"//trim(coop_ndigits(il, 5))//"_0"//COOP_STR_OF(nint(beam_fwhm))//"a_0512.fits"))cycle
      call map%simulate()
      if(do_highpass)then
-        call map%write(trim(prefix)//"_hp_pol_"//trim(coop_ndigits(il, 5))//"_0"//COOP_STR_OF(nint(beam_fwhm))//"a_n1024.fits", index_list = (/2, 3/) )        
+        call map%write(trim(prefix)//"_hp_pol_"//trim(coop_ndigits(il, 5))//"_0"//COOP_STR_OF(nint(beam_fwhm))//"a_0512.fits", index_list = (/2, 3/) )        
      else
-        call map%write(trim(prefix)//"_pol_"//trim(coop_ndigits(il, 5))//"_0"//COOP_STR_OF(nint(beam_fwhm))//"a_n1024.fits", index_list = (/2, 3/) )
+        call map%write(trim(prefix)//"_pol_"//trim(coop_ndigits(il, 5))//"_0"//COOP_STR_OF(nint(beam_fwhm))//"a_0512.fits", index_list = (/2, 3/) )
      endif
      call map%iqu2TQTUT(idone = .true.)
-     call map%write(trim(prefix)//"_TQTUT_"//trim(coop_ndigits(il, 5))//"_0"//COOP_STR_OF(nint(beam_fwhm))//"a_n1024.fits")
+     call map%write(trim(prefix)//"_TQTUT_"//trim(coop_ndigits(il, 5))//"_0"//COOP_STR_OF(nint(beam_fwhm))//"a_0512.fits")
      map%cl = mapcopy%cl
   enddo
 

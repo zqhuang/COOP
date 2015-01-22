@@ -6,8 +6,10 @@ program Exp_spots
 #include "constants.h"
 #ifdef HAS_HEALPIX
 
+  COOP_STRING::output = "st/smica_fr_coldspot_cut_nu0pt1.dat"
+  COOP_REAL::threshold = 0.1d0
 
-  COOP_INT,parameter::n_sim = 20
+  COOP_INT,parameter::n_sim = 10
   COOP_STRING::peak_name = "$T$"
   COOP_STRING::orient_name = "NULL"
   COOP_STRING::stack_field_name = "T"
@@ -15,19 +17,17 @@ program Exp_spots
   COOP_REAL,parameter::r_degree  = 2.d0
   COOP_REAL,parameter::dr = 2.d0*sin(r_degree*coop_SI_degree/2.d0)/n
 
-  COOP_REAL::r(0:n)
+  COOP_REAL::r(0:n), pfr(0:n), pfr0(0:n)
   COOP_UNKNOWN_STRING,parameter::mapdir = "massffp8/"
   COOP_UNKNOWN_STRING,parameter::postfix = "_020a_0512.fits"
   COOP_STRING::imap_file = "planck14/dx11_v2_smica_int_cmb"//postfix
   COOP_STRING::polmap_file = "planck14/dx11_v2_smica_pol_case1_cmb_hp_20_40"//postfix  
-  COOP_STRING::imask_file = "planck14/dx11_v2_common_int_mask"//postfix !"planck14/coldspot_select_mask_0512.fits" 
+  COOP_STRING::imask_file = "planck14/coldspot_mask_0512.fits"  !"planck14/dx11_v2_common_int_mask"//postfix !
   COOP_STRING::polmask_file = "planck14/dx11_v2_common_pol_mask"//postfix
   
   type(coop_stacking_options)::sto_max, sto_min
   type(coop_healpix_patch)::patch_max, patch_min
   type(coop_healpix_maps)::imap, imask, polmask, inoise, polnoise, polmap
-  COOP_STRING::output = "st/smica_fr_nu0pt5.dat"
-  COOP_REAL::threshold = 0.1d0
   logical::iloaded = .false.
   logical::polloaded  = .false.
   type(coop_file)::fp
@@ -84,11 +84,12 @@ program Exp_spots
      else
         read(fp%unit) i, patch_max%fr, patch_min%fr
      endif
-
+     pfr = (patch_min%fr(:, 0, 1)) !-patch_min%fr(:,0,1))/2.d0
      if(ind.eq.0)then
-        call fig%curve(r, patch_max%fr(:, 0, 1), color = "red", linetype= "solid", linewidth = 1.5)
+        pfr0 = pfr
+!        call fig%curve(r, pfr, color = "red", linetype= "solid", linewidth = 1.5)
      else
-        call fig%curve(r, patch_max%fr(:, 0, 1), color = "blue", linetype= "dotted", linewidth = 1.)
+        call fig%curve(r, pfr - pfr0, color = "blue", linetype= "dotted", linewidth = 1.)
      endif
   enddo
   call fig%close()
