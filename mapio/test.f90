@@ -9,5 +9,12 @@ program stackth
   use alm_tools
   implicit none
 #include "constants.h"
-  call coop_healpix_latitude_cut_mask(256, 30.d0, "planck14/lat30_mask_n256.fits")
+
+  type(coop_healpix_maps)::hgm
+ ! call coop_healpix_spot_select_mask(nside=512, l_deg = 207.8d0, b_deg = -56.3d0, r_deg = 12.d0, filename = "planck14/coldspot_select_mask_0512.fits")
+ ! call coop_healpix_merge_masks("planck14/coldspot_select_mask_0512.fits", "planck14/dx11_v2_common_int_mask_020a_0512.fits", "planck14/coldspot_select_mask_0512.fits")
+
+  call coop_healpix_spot_select_mask(nside=1024, l_deg = 207.8d0, b_deg = -56.3d0, r_deg = 12.d0, filename = "planck14/coldspot_select_mask_1024.fits")
+  call coop_healpix_merge_masks("planck14/coldspot_select_mask_1024.fits", "planck14/dx11_v2_common_int_mask_010a_1024.fits", "planck14/coldspot_select_mask_1024.fits")  
+
 end program stackth

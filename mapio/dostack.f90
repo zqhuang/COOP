@@ -5,12 +5,13 @@ program Stacking_Maps
   implicit none
 #include "constants.h"
 #ifdef HAS_HEALPIX
-  logical::do_max = .true.
-  COOP_STRING::stack_field_name = "QU"
-  COOP_STRING::map_file = "planck14/dx11_v2_smica_pol_case1_cmb_010a_1024.fits"
-  COOP_STRING::peak_file = "peaks/smica_fwhm10_Tmax_ORIENTNULL_nu0.dat"
-  COOP_STRING::imask_file = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
-  COOP_STRING::polmask_file = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
+
+  COOP_STRING::stack_field_name = "T"
+  COOP_STRING::map_file =  "planck14/dx11_v2_smica_int_cmb_020a_0512.fits"
+  COOP_STRING::peak_file = "peaks/smica_fwhm20_Tmin_ORIENTNULL_nu0.dat"
+  COOP_STRING::imask_file = "planck14/dx11_v2_common_int_mask_020a_0512.fits" !"planck14/coldspot_mask_0512.fits" !
+  COOP_STRING::polmask_file = "planck14/dx11_v2_common_pol_mask_020a_0512.fits"
+  COOP_UNKNOWN_STRING,parameter::mask_file_force_to_use = ""
   COOP_INT,parameter::n = 36
   COOP_REAL,parameter::r_degree  = 2.d0
   COOP_REAL,parameter::dr = 2.d0*sin(r_degree*coop_SI_degree/2.d0)/n
@@ -18,7 +19,7 @@ program Stacking_Maps
   type(coop_stacking_options)::sto
   type(coop_healpix_patch)::patch
   type(coop_healpix_maps)::hgm, mask, pmap
-  COOP_STRING::output = "stacked/sample"
+  COOP_STRING::output = "stacked/sample_cold_masked"
   COOP_INT i, m
   COOP_REAL::zmin1 = 1.1e31
   COOP_REAL::zmax1 = -1.1e31
@@ -51,14 +52,19 @@ program Stacking_Maps
   call sto%import(peak_file)
   call hgm%read(map_file)
   call patch%init(stack_field_name, n, dr)
-  if(all(patch%tbs%spin.eq.0))then
-     call mask%read(imask_file)
+  if(patch%tbs%mask_int .and. .not. patch%tbs%mask_pol)then
+     call mask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /))
+  elseif(patch%tbs%mask_pol .and. .not. patch%tbs%mask_int)then
+     call mask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /))
+  elseif(trim(mask_file_force_to_use) .ne. "")then
+     call mask%read(mask_file_force_to_use, nmaps_wanted = 1, spin = (/ 0 /))
   else
-     call mask%read(polmask_file)
+     stop "For unclassified stacking maps you have to specify the mask explicitly"
   endif
   if(mask%nside .ne. hgm%nside) stop "mask and map must have the same nside"
   do i=1, hgm%nmaps
-     hgm%map(:, i) = hgm%map(:,i)*mask%map(:, 1)
+     hgm%map(:, i) = hgm%map(:, i)*mask%map(:, 1)
+!     hgm%map(:, i) = hgm%map(:, i) - sum(dble(hgm%map(:,i)))/sum(dble(mask%map(:,1))) !!remove monopole
   enddo
   if(maxval(hgm%map(:,1)) .lt. 1.d-2)then
      hgm%map = hgm%map*1.e6

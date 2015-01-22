@@ -25,6 +25,8 @@ module coop_stacking_mod
 
 
   type coop_stacking_options
+     logical::mask_int = .false.
+     logical::mask_pol = .false.
      COOP_INT::genre = coop_stacking_genre_Null
      COOP_INT::nmaps = 0
      COOP_INT::nside = 0
@@ -72,6 +74,8 @@ module coop_stacking_mod
 
 
   type coop_to_be_stacked
+     logical::mask_int = .false.
+     logical::mask_pol = .false.
      COOP_INT::nmaps = 0
      COOP_INT,dimension(:),allocatable::ind
      COOP_INT,dimension(:),allocatable::spin
@@ -95,6 +99,7 @@ contains
     type(coop_file)fp
     COOP_INT i
     call fp%open(filename, "u")
+    write(fp%unit) this%mask_int, this%mask_pol
     write(fp%unit) this%genre, this%nmaps, this%nside, this%index_I, this%index_Q, this%index_U, this%index_L
     write(fp%unit) this%I_lower, this%I_upper, this%L_lower, this%L_upper, this%P2_lower, this%P2_upper, this%I_lower_nu, this%I_upper_nu, this%L_lower_nu, this%L_upper_nu, this%P_lower_nu, this%P_upper_nu, this%P2byI2_lower, this%P2byI2_upper, this%P2byL2_lower, this%P2byL2_upper
     write(fp%unit) this%caption
@@ -119,6 +124,7 @@ contains
     endif
     call this%free()
     call fp%open(filename, "ur")
+    read(fp%unit) this%mask_int, this%mask_pol    
     read(fp%unit) this%genre, this%nmaps, this%nside, this%index_I, this%index_Q, this%index_U, this%index_L
     read(fp%unit) this%I_lower, this%I_upper, this%L_lower, this%L_upper, this%P2_lower, this%P2_upper, this%I_lower_nu, this%I_upper_nu, this%L_lower_nu, this%L_upper_nu, this%P_lower_nu, this%P_upper_nu, this%P2byI2_lower, this%P2byI2_upper, this%P2byL2_lower, this%P2byL2_upper
     read(fp%unit) this%caption
@@ -173,15 +179,24 @@ contains
     type(coop_list_string)::l, subl
     COOP_STRING::line
     COOP_INT i, j
-    select case(trim(adjustl(str)))
-    case("I", "T", "E", "B")
+    this%mask_int = .false.
+    this%mask_pol  = .false.    
+    select case(trim(coop_str_numalpha(str)))
+    case("I", "T")
        call this%free(1)
+       this%mask_int = .true.
        this%label = "$"//trim(adjustl(str))//"(\mu K)$"
-    case("zeta", "Z", "\zeta")
+    case("E", "B")
        call this%free(1)
+       this%mask_pol = .true.       
+       this%label = "$"//trim(adjustl(str))//"(\mu K)$"
+    case("zeta", "Z")
+       call this%free(1)
+       this%mask_int = .true.       
        this%label = "$10^5\zeta$"
     case("QU")
        call this%free(2)
+       this%mask_pol = .true.       
        this%ind = (/ 1, 2 /)       
        this%spin = 2
        this%label(1) =  "$Q(\mu K)$"
@@ -189,6 +204,7 @@ contains
        this%headless_vector = .true.
     case("QrUr")
        call this%free(2)
+       this%mask_pol = .true.       
        this%ind = (/ 1, 2 /)
        this%spin = 2
        this%label(1) =  "$Q_r(\mu K)$"
@@ -197,6 +213,7 @@ contains
        this%local_rotation = .true.
     case("QTUT")
        call this%free(2)
+       this%mask_int = .true.       
        this%ind = (/ 1, 2 /)
        this%spin = 2
        this%label(1) =  "$Q_T(\mu K)$"
@@ -204,6 +221,7 @@ contains
        this%headless_vector = .true.
     case("QLTULT")
        call this%free(2)
+       this%mask_int = .true.       
        this%ind = (/ 1, 2 /)
        this%spin = 2
        this%label(1) =  "$Q_{\nabla^2 T}(\mu K/\mathrm{rad}^2)$"
@@ -240,6 +258,7 @@ contains
        enddo
        call l%init()
        call subl%init()
+       write(*,*) "Warning: unclassified maps to be stacked -- mask automatic determination can be wrong"
     end select
     !!check spin pairs
     i = 1
@@ -271,6 +290,8 @@ contains
     logical domax
     COOP_INT::nmaps
     call this%free()
+    this%mask_int = .false.
+    this%mask_pol  = .false.    
     p = trim(adjustl(peak_name))
     if(trim(adjustl(orient_name)).eq. "NULL" .or. trim(adjustl(orient_name)) .eq. "RANDOM" .or. trim(adjustl(orient_name)).eq. "NONE" )then
        if(domax)then
@@ -375,6 +396,20 @@ contains
        this%index_U = 3
        this%index_L = 4
        this%threshold_option = 7       
+    end select
+    select case(trim(coop_str_numalpha(peak_name)))
+    case("T", "I", "zeta", "PT")
+       this%mask_int = .true.
+    case("E", "B", "P")
+       this%mask_pol = .true.
+    case default
+       write(*,*) "Unknown class of peaks: cannot automatically determine mask type"
+    end select
+    select case(trim(coop_str_numalpha(orient_name)))
+    case("QU")
+       this%mask_pol = .true.
+    case("QTUT")
+       this%mask_int = .true.
     end select
   end subroutine coop_stacking_options_init
 
@@ -541,5 +576,61 @@ contains
     end select
     r = min(sqrt(abs(map(this%index_I))/max(abs(map(this%index_L)),1.d-20)), max_radius)
   end subroutine coop_stacking_options_peak_get_angle_r_e
+
+  subroutine coop_stacking_options_split_hemispheres(sto, north, south, l_deg, b_deg)
+    type(coop_stacking_options)::sto, north, south
+    COOP_REAL l_deg, b_deg, theta, phi, cost, sint
+    COOP_INT i
+    COOP_SINGLE tp(2)
+    call coop_healpix_lb2ang(l_deg, b_deg, theta, phi)
+    cost = cos(theta)
+    sint = sin(theta)
+    north = sto
+    south = sto
+    call north%free()
+    call south%free()
+    do i=1, sto%peak_ang%n
+       call sto%peak_ang%get_element(i, tp)
+       if(cos(tp(1))*cost + sin(tp(1))*sint*cos(phi - tp(2)) .ge. 0.d0)then
+          call north%peak_pix%push(sto%peak_pix%element(i))
+          call north%peak_ang%push(tp)
+          call north%peak_map%push(sto%peak_map%element(i))          
+       else
+          call south%peak_pix%push(sto%peak_pix%element(i))          
+          call south%peak_ang%push(tp)
+          call south%peak_map%push(sto%peak_map%element(i))          
+       endif
+    enddo
+  end subroutine coop_stacking_options_split_hemispheres
+
+
+  subroutine coop_healpix_lb2ang(l_deg, b_deg, theta, phi)
+    COOP_REAL l_deg, b_deg
+    COOP_REAL theta, phi
+    if(b_deg .lt. -90.d0 .or. b_deg .gt. 90.d0) stop "b must be between -90 deg to 90 deg"
+    theta = (90.d0 - b_deg)*coop_SI_degree
+    phi = l_deg * coop_SI_degree
+    do while(phi .gt. coop_2pi)
+       phi = phi - coop_2pi
+    enddo
+    do while(phi .lt. coop_2pi)
+       phi = phi + coop_2pi
+    enddo
+  end subroutine coop_healpix_lb2ang
+
+
+  subroutine coop_healpix_ang2lb(theta, phi, l_deg, b_deg)
+    COOP_REAL l_deg, b_deg
+    COOP_REAL theta, phi
+    if(theta .gt. coop_pi+1.d-12 .or. theta .lt. 0.d0) stop "theta must be between 0 and pi"
+    b_deg = (coop_pio2 - theta)/coop_SI_degree
+    l_deg = phi/coop_SI_degree
+    do while(l_deg .gt. 360.d0)
+       l_deg = l_deg - 360.d0
+    enddo
+    do while(l_deg .lt. 0.d0)
+       l_deg = l_deg + 360.d0
+    enddo
+  end subroutine coop_healpix_ang2lb
   
 end module coop_stacking_mod

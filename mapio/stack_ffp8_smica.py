@@ -1,20 +1,28 @@
 import sys, os, string, math, re
 
 outdir = "tmpmaps/"
-spots_dir = "spots/"
-stack_dir = "stacked/"
+spots_dir = "ffp8_spots/"
+stack_dir = "ffp8_stacked/"
 check_files = True
 
-prefix = "ffp8_smica"
-imap_in = "ffp8/" + prefix + "_int_00000_010a_1024.fits"
-imask = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
-polmap_in = "ffp8/" + prefix + "_pol_00000_hp_20_40_010a_1024.fits"
-polmask = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
+prefix = "smica"
+mapid  = "00000"
 
-fwhm_in = 10
+fwhm_in = 20
+nside = 2048 * 5 / fwhm_in
+if(nside < 1000):
+    strnside = "0"+str(nside)
+else:
+    strnside = str(nside)
+    
+
+imap_in = "ffp8/dx11_v2_"+prefix+"_int_cmb_mc_"+mapid+"_0" + str(fwhm_in) + "a_" + strnside + ".fits"
+imask = "planck14/dx11_v2_common_int_mask_0" + str(fwhm_in) + "a_" + strnside + ".fits"
+polmap_in = "ffp8/dx11_v2_"+prefix+"_pol_case1_cmb_mc_"+mapid+"_hp_20_40_0" + str(fwhm_in) + "a_" + strnside + ".fits"
+polmask = "planck14/dx11_v2_common_pol_mask_0" + str(fwhm_in) + "a_" + strnside + ".fits"
+
 threshold = 0
-fwhm_out = 15
-unit = "K"  
+fwhm_out = fwhm_in
 
 execfile("stack_common.py")
 

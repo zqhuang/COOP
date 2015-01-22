@@ -1,254 +1,159 @@
-program hastack_prog
+program Exp_spots
   use coop_wrapper_utils
-  use coop_fitswrap_mod
-  use coop_sphere_mod
   use coop_healpix_mod
-  use head_fits
-  use fitstools
-  use pix_tools
-  use alm_tools
+  use coop_stacking_mod
   implicit none
 #include "constants.h"
-  logical,parameter::do_calibration = .false.
-  COOP_INT, parameter::n_sim = 1000
-  COOP_STRING::spot_type, stack_type
-  COOP_REAL, parameter::patch_size = 2.d0*coop_SI_degree
-  COOP_UNKNOWN_STRING, parameter::output_dir = "ha_r2f15"
+#ifdef HAS_HEALPIX
+
+  COOP_REAL::l_deg_axis = 220.d0
+  COOP_REAL::b_deg_axis = -17.d0
+
+  COOP_STRING::output = "st/smica_hem_2deg_nu1.dat"
+  COOP_REAL::threshold = 1.d0
   
-  COOP_UNKNOWN_STRING, parameter::prefix = output_dir//"/"
-  COOP_INT, parameter::mmax = 4
-  COOP_REAL, parameter::fwhm_arcmin = 15.d0
-  COOP_REAL, parameter::fwhm_in = 10.d0
-  COOP_UNKNOWN_STRING, parameter::postfix =   "_010a_1024.fits"
+  COOP_INT,parameter::n_sim = 30
+  COOP_STRING::peak_name = "$T$"
+  COOP_STRING::orient_name = "NULL"
+  COOP_STRING::stack_field_name = "T"
+  COOP_INT,parameter::n = 36
+  COOP_REAL,parameter::r_degree  = 2.d0
+  COOP_REAL,parameter::dr = 2.d0*sin(r_degree*coop_SI_degree/2.d0)/n
 
-  COOP_STRING::allprefix
-  COOP_UNKNOWN_STRING, parameter::mapdir = "/mnt/scratch-lustre/zqhuang/scratch-3month/zqhuang/"
-  COOP_REAL,parameter::fwhm = coop_SI_arcmin * sqrt(fwhm_arcmin**2-fwhm_in**2)
-  COOP_REAL, parameter::threshold = 1
-  COOP_REAL, parameter::dr = coop_SI_arcmin * max(fwhm_arcmin/3.d0, fwhm_in/2.d0)
-  COOP_INT, parameter::n = nint(patch_size/dr)
-
-  COOP_UNKNOWN_STRING, parameter::imap_file  = "planck14/dx11_v2_smica_int_cmb"//postfix
-  COOP_UNKNOWN_STRING, parameter::polmap_file  = "planck14/dx11_v2_smica_pol_case1_cmb_hp_20_40"//postfix
-  COOP_UNKNOWN_STRING, parameter::imask_file  = "planck14/dx11_v2_common_int_mask"//postfix
-  COOP_UNKNOWN_STRING, parameter::polmask_file  ="planck14/dx11_v2_common_pol_mask"//postfix
-
-  type(coop_healpix_maps)::polmask, imask, inoise, polnoise,imap, polmap
-  type(coop_healpix_patch)::patch_s, patch_n
-  integer,parameter::scan_nside = 4
-  integer,parameter::scan_npix = scan_nside**2*6
-  integer run_id, i, ind, j, lmax, l
-  COOP_REAL   hdir(2)
-  COOP_STRING::fr_file
-  type(coop_list_integer)::listpix
-  type(coop_list_real)::listangle
-  type(coop_file) fp
-  logical::i_loaded = .false.
-  logical::pol_loaded = .false.
-  logical::iload_first_call = .true.
-  logical::polload_first_call = .true.
-  COOP_REAL::cl13, cl14
-  COOP_SINGLE,dimension(:),allocatable::window
   
-  call coop_MPI_init()
-  if(iargc() .lt. 2)then
-     print*, "./HA spot_type stack_type [id]"
-     stop
-  endif
-  spot_type = trim(coop_InputArgs(1))
-  stack_type = trim(coop_InputArgs(2))
-  if(iargc() .ge. 3)then
-     run_id = coop_str2int(coop_InputArgs(3))
-     call sleep(mod(run_id, 12)*3)  !!sleep for a second so that files are not read simultaneously     
+  COOP_REAL::r(0:n), fr(0:n)
+  COOP_UNKNOWN_STRING,parameter::mapdir = "massffp8/"
+  COOP_UNKNOWN_STRING,parameter::postfix = "_020a_0512.fits"
+  COOP_STRING::imap_file = "planck14/dx11_v2_smica_int_cmb"//postfix
+  COOP_STRING::polmap_file = "planck14/dx11_v2_smica_pol_case1_cmb_hp_20_40"//postfix  
+  COOP_STRING::imask_file = "planck14/dx11_v2_common_int_mask"//postfix 
+  COOP_STRING::polmask_file = "planck14/dx11_v2_common_pol_mask"//postfix
+  
+  type(coop_stacking_options)::sto_max, sto_min, stn_max, sts_max, stn_min, sts_min
+  type(coop_healpix_patch)::north_max, north_min, south_max, south_min
+  type(coop_healpix_maps)::imap, imask, polmask, inoise, polnoise, polmap
+
+  logical::iloaded = .false.
+  logical::polloaded  = .false.
+  type(coop_file)::fp
+  type(coop_asy)::fig
+  COOP_INT i
+  COOP_INT ind, ind_done  
+  !!specified for tempearture  
+  if(trim(orient_name).eq."NULL")then
+     call sto_max%init(.true., peak_name, orient_name, nmaps = 1)
+     call sto_min%init(.false., peak_name, orient_name, nmaps = 1)     
   else
-     run_id = 74   !!the special choice
+     call sto_max%init(.true., peak_name, orient_name, nmaps = 3)          
+     call sto_min%init(.false., peak_name, orient_name, nmaps = 3)     
   endif
+  sto_max%I_lower_nu = threshold
+  sto_min%I_upper_nu = -threshold
+  sto_max%threshold_option = 4
+  sto_min%threshold_option = 4
+  sto_max%nested = .true.
+  sto_min%nested = .true.  
 
-  if(run_id .ge.  scan_npix)then
-     write(*,*) "run id must not exceed ", scan_nside**2*12 - 1
-     call coop_MPI_Abort()
-  endif
-
-  lmax = min(ceiling(3.d0/(fwhm_arcmin*coop_SI_arcmin*coop_sigma_by_fwhm)), 2048, coop_healpix_default_lmax)
-  allocate(window(0:lmax))
-  if(do_calibration)then
-     call fp%open("calcls.txt", 'r')
-     do l = 2, lmax
-        read(fp%unit, *) i, cl13, cl14
-        if(i.ne.l) stop "calcls.txt file broken"
-        window(l) = sqrt(cl14/cl13)
-     enddo
-     call fp%close()
-  else
-     window(2:lmax) = 1.d0
-  endif  
+  do i=0, n
+     r(i) = i*dr
+  enddo
+    
+  call north_max%init(trim(stack_field_name), n, dr)
+  north_min = north_max
+  south_max = north_max
+  south_min = north_max
   
-  call pix2ang_ring(scan_nside, run_id, hdir(1), hdir(2))
-
-  !!read masks
+  ind_done = -1  
   call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
-  call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )
-  
-  call patch_n%init(trim(stack_type), n, dr, mmax = mmax)
-  call patch_s%init(trim(stack_type), n, dr, mmax = mmax)
-!  patch_s = patch_n
-
-  allprefix = prefix//trim(stack_type)//"_on_"//trim(spot_type)//"_nu"//COOP_FILESTR_OF(threshold)//"_cal"//COOP_STR_OF(do_calibration)//"_"
-
-  if(run_id.eq.0 .or. iargc().lt.3)then
-     call fp%open(trim(allprefix)//"info.txt", "w")
-     write(fp%unit,*) n, patch_n%nmaps, dr/coop_SI_arcmin
-     call fp%close()
+  if(coop_file_exists(output))then
+     call fp%open(output, "ru")
+     do i = 0, n_sim
+        read(fp%unit, ERR = 100, END = 100) ind, north_max%fr, north_min%fr, south_max%fr, south_min%fr
+        ind_done = ind
+     enddo
+100  call fp%close()
   endif
-  fr_file = trim(allprefix)//COOP_STR_OF(run_id)//".dat"
+  
+  call fp%open(output, "u")
+  call fig%open("fr_diff.txt")
+  call fig%init(xlabel = "$\varpi$", ylabel = "$ T_0^{\rm north} - T_0^{\rm south}$")
+  if(ind_done .ge. 0)then
+     print*, "loaded "//COOP_STR_OF(ind_done+1)//" stacked maps"
+  endif
 
-
-  ind = -1
-  if(.not. coop_file_exists(trim(fr_file)))goto 200
-  call fp%open(trim(fr_file), "ru")
-  do
-     read(fp%unit, ERR=100, END=100) i
-     read(fp%unit, ERR=100, END=100) patch_n%fr
-     read(fp%unit, ERR=100, END=100) patch_s%fr
-     if(i.ne.ind+1) call cooP_MPI_Abort("fr file broken")
-     ind = i
-     if(ind .ge. n_sim) exit
-  enddo
-100 write(*,*) "Loaded "//trim(coop_num2str(ind+1))//" maps from checkpoint"
-  call fp%close()
-200 call fp%open(trim(fr_file), "u")
-  do i=0, ind
-     read(fp%unit, ERR=100, END=100) j
-     read(fp%unit, ERR=100, END=100) patch_n%fr
-     read(fp%unit, ERR=100, END=100) patch_s%fr
-     if(j.ne.i)call cooP_MPI_Abort("fr file broken")
-  enddo
-  do while(ind .lt. n_sim)
-     i_loaded = .false.
-     pol_loaded = .false.
-     ind = ind + 1
-     if(mod(ind, 5).eq.0)write(*,*) "Stacking map #"//COOP_STR_OF(ind)
-     select case(trim(spot_type))
-     case("Tmax", "PTmax", "Tmax_QTUTOrient", "Tmin", "PTmin", "Tmin_QTUTOrient")
+  do ind = 0, n_sim
+     if(ind.gt.ind_done)then
+        print*, "stacking map#"//COOP_STR_OF(ind)                
         call load_imap(ind)
-        call imap%get_listpix(listpix, listangle, trim(spot_type), threshold, imask)
-     case("Pmax", "Pmin")
-        call load_polmap(ind)
-        call polmap%get_listpix(listpix, listangle, trim(spot_type), threshold, polmask)
-     case default
-        print*, trim(spot_type)        
-        stop "Unknown spot type"
-     end select
-     select case(trim(stack_type))
-     case("T")
-        call load_imap(ind)
-        call imap%stack_north_south(patch_n, patch_s, listpix, listangle, hdir, imask)
-     case("QU", "QrUr")
-        call load_polmap(ind)
-        call polmap%stack_north_south(patch_n, patch_s, listpix, listangle, hdir, polmask)
-     case default
-        print*, trim(stack_type)
-        stop "Unknown stack type"
-     end select
+        call stack_imap()
 
-     call patch_n%get_all_radial_profiles()
-     call patch_s%get_all_radial_profiles()
-     write(fp%unit) ind
-     write(fp%unit) patch_n%fr
-     write(fp%unit) patch_s%fr
-     if(mod(ind, 30).eq.0)flush(fp%unit)  !!do flush every 30 steps
+        write(fp%unit) ind,  north_max%fr, north_min%fr, south_max%fr, south_min%fr
+     else
+        read(fp%unit) i, north_max%fr, north_min%fr, south_max%fr, south_min%fr
+     endif
+     fr = (north_max%fr(:, 0, 1) - south_max%fr(:,0,1) - north_min%fr(:, 0, 1) + south_min%fr(:,0,1))/2.d0
+     if(ind.eq.0)then
+        call fig%curve(r, fr, color = "red", linetype= "solid", linewidth = 1.5, legend = "Planck")
+     elseif(ind.eq.1)then
+        call fig%curve(r, fr, color = "blue", linetype= "dotted", linewidth = 1.,legend = "FFP8")        
+     else
+        call fig%curve(r, fr, color = "blue", linetype= "dotted", linewidth = 1.)
+     endif
   enddo
+  call coop_asy_legend(fig, "N", 2)
+  call fig%close()
   call fp%close()
-  write(*,*) "Maps all done, now exiting the program"    
-  call coop_MPI_Finalize()
+  
 
 contains
 
+  subroutine stack_imap()
+    call imap%get_peaks(sto_max, mask = imask, restore = .false.)
+    call imap%get_peaks(sto_min, mask = imask, restore = .false.)
+    call coop_stacking_options_split_hemispheres(sto_max, stn_max, sts_max, l_deg_axis, b_deg_axis)
+    call coop_stacking_options_split_hemispheres(sto_min, stn_min, sts_min, l_deg_axis, b_deg_axis)    
+
+    call imap%stack_on_peaks(stn_max, north_max, imask)
+    call imap%stack_on_peaks(stn_min, north_min, imask)
+    call imap%stack_on_peaks(sts_max, south_max, imask)
+    call imap%stack_on_peaks(sts_min, south_min, imask)
+
+    call north_max%get_all_radial_profiles()
+    call north_min%get_all_radial_profiles()
+    call south_max%get_all_radial_profiles()
+    call south_min%get_all_radial_profiles()
+    
+    north_max%fr = north_max%fr*1.d6
+    north_min%fr = north_min%fr*1.d6
+    south_max%fr = south_max%fr*1.d6
+    south_min%fr = south_min%fr*1.d6    
+    
+  end subroutine stack_imap
+
   subroutine load_imap(i)
-    COOP_INT i, nm
-    COOP_INT,dimension(:),allocatable::spin
-    if(i_loaded) return
-    select case(trim(spot_type))
-    case("Tmax_QTUTOrient", "Tmin_QTUTOrient", "PTmax", "PTmin")
-       nm = 3
-    case default
-       nm = 1
-    end select
-    allocate(spin(nm))
-    spin(1) = 0
-    if(nm.gt.1) spin(2:3) = 2
+    COOP_INT i
+    logical,save::first_load = .true.
+    if(iloaded) return
     if(i.eq.0)then
-       call imap%read(filename = trim(imap_file), nmaps_wanted = nm , spin = spin , nmaps_to_read = 1 )
-       imap%map(:, 1) = imap%map(:, 1)*imask%map(:, 1)
+       call imap%read(imap_file, nmaps_wanted = sto_max%nmaps, nmaps_to_read = 1)
     else
-       if(iload_first_call)then
-          call imap%read(trim(sim_file_name_cmb_imap(i)), nmaps_wanted = nm , spin = spin , nmaps_to_read = 1 )
-          call inoise%read(trim(sim_file_name_noise_imap(i)), nmaps_wanted = nm , spin = spin, nmaps_to_read = 1 )
-          iload_first_call = .false.
-       else
-          call imap%read(trim(sim_file_name_cmb_imap(i)),  nmaps_to_read = 1, known_size = .true.)
-          call inoise%read(trim(sim_file_name_noise_imap(i)), nmaps_wanted = nm , spin = spin, nmaps_to_read = 1, known_size = .true.)          
+       if(first_load)then
+          call imap%read(trim(mapdir)//"dx11_v2_smica_int_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, nmaps_wanted = sto_max%nmaps)
+          call inoise%read(trim(mapdir)//"dx11_v2_smica_int_noise_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, nmaps_wanted = sto_max%nmaps)
+       else          
+          call imap%read(trim(mapdir)//"dx11_v2_smica_int_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, known_size = .true.)
+          call inoise%read(trim(mapdir)//"dx11_v2_smica_int_noise_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, known_size = .true.)
+          first_load = .false.
        endif
-       imap%map(:, 1) = (imap%map(:, 1) + inoise%map(:, 1))*imask%map(:, 1)
+       imap%map(:, 1) = imap%map(:, 1) + inoise%map(:, 1)       
     endif
-    deallocate(spin)
-    if(do_calibration .or.  fwhm .ge.coop_SI_arcmin)then
-       if(do_calibration)then
-          call imap%smooth_with_window(fwhm = fwhm, lmax = lmax, window = window, index_list = (/ 1 /) )         
-       else
-          call imap%smooth(fwhm, l_upper = lmax, index_list = (/ 1 /) )
-       endif
+    if(imap%nmaps .eq. 3)then
+       imap%map(:,1) = imap%map(:,1)*imask%map(:,1)
+       call imap%iqu2TQTUT()
     endif
-    if(nm.gt.1)call imap%iqu2TQTUT( idone = (do_calibration .or.  fwhm .ge.coop_SI_arcmin) )
   end subroutine load_imap
-
-
-  subroutine load_polmap(i)
-    COOP_INT i
-    if(pol_loaded)return
-    if(i.eq.0)then
-       call polmap%read(trim(polmap_file), spin = (/2 , 2 /) , nmaps_wanted = 2  )
-       polmap%map(:, 1) = polmap%map(:, 1)*polmask%map(:, 1)
-       polmap%map(:, 2) = polmap%map(:, 2)*polmask%map(:, 1)
-    else
-       if(polload_first_call)then
-          call polmap%read(trim(sim_file_name_cmb_polmap(i)), spin = (/2 , 2 /) , nmaps_wanted = 2  )
-          call polnoise%read(trim(sim_file_name_noise_polmap(i)), spin = (/2 , 2 /) , nmaps_wanted = 2 )
-          polload_first_call = .false.
-       else
-          call polmap%read(trim(sim_file_name_cmb_polmap(i)), nmaps_to_read = 2 , known_size = .true.)
-          call polnoise%read(trim(sim_file_name_noise_polmap(i)), nmaps_to_read = 2, known_size = .true.)
-       endif
-       polmap%map(:, 1) = (polmap%map(:, 1) + polnoise%map(:, 1))*polmask%map(:, 1)
-       polmap%map(:, 2) = (polmap%map(:, 2) + polnoise%map(:, 2))*polmask%map(:, 1)
-    endif
-    if(fwhm.ge.coop_SI_arcmin)call polmap%smooth(fwhm, l_upper = lmax, index_list=(/1, 2/) )    
-  end subroutine load_polmap
-
-
-  function sim_file_name_cmb_imap(i)
-    COOP_INT i
-    COOP_STRING sim_file_name_cmb_imap
-    sim_file_name_cmb_imap = mapdir//"cmb/int/dx11_v2_smica_int_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//postfix
-  end function sim_file_name_cmb_imap
-
-  function sim_file_name_noise_imap(i)
-    COOP_INT i
-    COOP_STRING sim_file_name_noise_imap
-    sim_file_name_noise_imap = mapdir//"noise/int/dx11_v2_smica_int_noise_mc_"//trim(coop_Ndigits(i-1, 5))//postfix
-  end function sim_file_name_noise_imap
-
-
-  function sim_file_name_cmb_polmap(i)
-    COOP_INT i
-    COOP_STRING sim_file_name_cmb_polmap
-    sim_file_name_cmb_polmap = mapdir//"cmb/pol/dx11_v2_smica_pol_case1_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//"_hp_20_40"//postfix
-  end function sim_file_name_cmb_polmap
-
-  function sim_file_name_noise_polmap(i)
-    COOP_INT i
-    COOP_STRING sim_file_name_noise_polmap
-    sim_file_name_noise_polmap = mapdir//"noise/pol/dx11_v2_smica_pol_case1_noise_mc_"//trim(coop_Ndigits(i-1, 5))//"_hp_20_40"//postfix
-  end function sim_file_name_noise_polmap
-
-end program hastack_prog
+  
+#else
+  print*, "You need to install healpix"
+#endif  
+end program Exp_spots

@@ -22,7 +22,7 @@ module coop_healpix_mod
   logical::coop_healpix_IAU_headless_vector = .true.
   COOP_REAL::coop_healpix_QrUrSign = -1.d0  !!WMAP7 invented this...
   
-  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_lb2ang, coop_healpix_ang2lb, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_trim_maskfile, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask
+  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_trim_maskfile, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask, coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks
   
 
   logical::coop_healpix_alm_check_done = .false.
@@ -34,7 +34,7 @@ module coop_healpix_mod
   COOP_INT,parameter::coop_inpainting_lowl_min = 5
 
   COOP_INT, parameter::coop_healpix_default_lmax=2500
-  COOP_REAL,parameter::coop_healpix_mask_tol = 0.95  !!default mask tolerance
+  COOP_REAL,parameter::coop_healpix_mask_tol = 0.5  !!default mask tolerance
   COOP_INT::coop_healpix_inpainting_lowl=5
   COOP_REAL,parameter::coop_healpix_diffuse_scale = 10.d0*coop_SI_arcmin
   COOP_INT,parameter::coop_healpix_index_TT = 1
@@ -45,9 +45,9 @@ module coop_healpix_mod
   COOP_INT,parameter::coop_healpix_index_TB = 6
 
   type, extends(coop_sphere_disc):: coop_healpix_disc
-     COOP_INT nside
-     COOP_INT center
-     COOP_INT ordering
+     COOP_INT::nside = 0
+     COOP_INT::center
+     COOP_INT::ordering = COOP_RING
    contains
      procedure :: pix2ang => coop_healpix_disc_pix2ang
      procedure :: ang2pix => coop_healpix_disc_ang2pix
@@ -217,13 +217,66 @@ contains
 #endif       
   end subroutine coop_healpix_maps_pix2vec
   
+  subroutine coop_healpix_spot_cut_mask(nside, l_deg, b_deg, r_deg, filename)
+    COOP_INT::nside
+    COOP_REAL::l_deg, b_deg, r_deg
+    COOP_UNKNOWN_STRING::filename
+    type(coop_healpix_maps)::mask
+    COOP_INT::listpix(0:nside**2*12-1), nlist, pix
+    COOP_REAL::theta, phi
+#ifdef HAS_HEALPIX
+    call coop_healpix_lb2ang(l_deg, b_deg, theta, phi)
+    call mask%init(nside = nside, nmaps = 1, spin = (/ 0 /))
+    mask%map(:,1) = 1.
+    call mask%ang2pix(theta, phi, pix)
+    call mask%query_disc(pix, r_deg*coop_SI_degree, listpix, nlist)
+    mask%map(listpix(0:nlist-1), 1) = 0.
+    call mask%write(trim(filename))
+    call mask%free()
+#else
+    stop "cannot find HEALPIX"
+#endif    
+  end subroutine coop_healpix_spot_cut_mask
+
+
+  subroutine coop_healpix_spot_select_mask(nside, l_deg, b_deg, r_deg, filename)
+    COOP_INT::nside
+    COOP_REAL::l_deg, b_deg, r_deg
+    COOP_UNKNOWN_STRING::filename
+    type(coop_healpix_maps)::mask
+    COOP_INT::listpix(0:nside**2*12-1), nlist, pix
+    COOP_REAL::theta, phi
+#ifdef HAS_HEALPIX
+    call coop_healpix_lb2ang(l_deg, b_deg, theta, phi)
+    call mask%init(nside = nside, nmaps = 1, spin = (/ 0 /))
+    mask%map(:,1) = 0.
+    call mask%ang2pix(theta, phi, pix)
+    call mask%query_disc(pix, r_deg*coop_SI_degree, listpix, nlist)
+    mask%map(listpix(0:nlist-1), 1) = 1.
+    call mask%write(trim(filename))
+    call mask%free()
+#else
+    stop "cannot find HEALPIX"
+#endif    
+  end subroutine coop_healpix_spot_select_mask
+  
+
+  subroutine coop_healpix_merge_masks(mask1, mask2, maskout)
+    COOP_UNKNOWN_STRING::mask1,mask2,maskout
+    type(coop_healpix_maps)::m1,m2
+    call m1%read(mask1, nmaps_wanted=1, spin = (/ 0 /))
+    call m2%read(mask2, nmaps_wanted=1, spin = (/ 0 /))
+    m1%map = m1%map * m2%map
+    call m1%write(maskout)
+  end subroutine coop_healpix_merge_masks
 
 
   subroutine coop_healpix_latitude_cut_mask(nside, latitude_degree, filename)
     COOP_REAL::latitude_degree
     COOP_UNKNOWN_STRING::filename
+    COOP_INT:: nside
     type(coop_healpix_maps)::mask
-    COOP_INT::listpix(0:nside**2*12-1), nlist, nside
+    COOP_INT::listpix(0:nside**2*12-1), nlist
 #ifdef HAS_HEALPIX    
     call mask%init(nside = nside, nmaps = 1, spin = (/ 0 /))
     mask%map(:,1) = 1.
@@ -240,9 +293,10 @@ contains
     COOP_REAL::latitude_degree, depth
     COOP_UNKNOWN_STRING::filename
     type(coop_healpix_maps)::mask
+    COOP_INT nside
     COOP_INT i
     COOP_REAL theta, phi, lat, dep
-    COOP_INT::listpix(0:nside**2*12-1), nlist, nside
+    COOP_INT::listpix(0:nside**2*12-1), nlist
 #ifdef HAS_HEALPIX    
     lat = latitude_degree*coop_SI_degree
     dep = depth*coop_SI_degree
@@ -1068,14 +1122,14 @@ contains
     if(allocated(this%checksum))deallocate(this%checksum)
   end subroutine coop_healpix_maps_free
 
-  subroutine coop_healpix_maps_read(this, filename, nmaps_wanted, spin, nmaps_to_read, known_size)
+  subroutine coop_healpix_maps_read(this, filename, nmaps_wanted, spin, nmaps_to_read, known_size, nested)
     class(coop_healpix_maps) this
     COOP_UNKNOWN_STRING filename
     COOP_INT,optional::nmaps_wanted, nmaps_to_read
     COOP_INT,dimension(:),optional::spin
     integer(8) npixtot
     COOP_INT nmaps_actual
-    logical,optional::known_size
+    logical,optional::known_size, nested
 #ifdef HAS_HEALPIX
     if(.not. coop_file_exists(filename))then
        write(*,*) trim(filename)
@@ -1187,7 +1241,15 @@ contains
     else
        call input_map(trim(filename), this%map, this%npix, nmaps_actual, fmissval = 0.)
     endif
-    call this%convert2ring
+    if(present(nested))then
+       if(nested)then
+          call this%convert2nested()
+       else
+          call this%convert2ring()
+       endif
+    else
+       call this%convert2ring()
+    endif
     call write_minimal_header(this%header,dtype = 'MAP', nside=this%nside, order = this%ordering, creator='Zhiqi Huang', version = 'CosmoLib', units='muK', polar=any(this%spin.eq.2) )
 #else
     stop "DID NOT FIND HEALPIX"
@@ -1842,8 +1904,8 @@ contains
     else
        total_weight = map%npix
     endif
-    call map%convert2nested
-    if(do_mask)call mask%convert2nested
+    call map%convert2nested()
+    if(do_mask)call mask%convert2nested()
 
     select case(trim(spot_type))
     case("Tmax", "Emax", "Bmax", "zetamax")  !!random orientation
@@ -2533,33 +2595,6 @@ contains
   end subroutine coop_healpix_split
 
 
-  subroutine coop_healpix_lb2ang(l_deg, b_deg, theta, phi)
-    COOP_REAL l_deg, b_deg
-    COOP_REAL theta, phi
-    theta = coop_pio2 - b_deg*coop_SI_degree
-    phi = l_deg * coop_SI_degree
-  end subroutine coop_healpix_lb2ang
-
-
-  subroutine coop_healpix_ang2lb(theta, phi, l_deg, b_deg)
-    COOP_REAL l_deg, b_deg
-    COOP_REAL theta, phi
-    b_deg = (coop_pio2 - theta)/coop_SI_degree
-    l_deg = phi/coop_SI_degree
-    do while(b_deg .gt. 90.d0)
-       b_deg = b_deg - 90.d0
-    enddo
-    do while(b_deg .lt. -90.d0)
-       b_deg = b_deg + 90.d0
-    enddo
-    do while(l_deg .gt. 360.d0)
-       l_deg = l_deg - 360.d0
-    enddo
-    do while(l_deg .lt. 0.d0)
-       l_deg = l_deg + 360.d0
-    enddo
-  end subroutine coop_healpix_ang2lb
-
 
   subroutine coop_healpix_flip_mask(mask, flip)
     type(coop_healpix_maps)mask, flip
@@ -3049,6 +3084,7 @@ contains
     logical,optional::restore
 #ifdef HAS_HEALPIX
     if(sto%nmaps .ne. this%nmaps)stop "get_peaks: nmaps mismatch"
+    call sto%free()
     sto%nside = this%nside
     call this%convert2nested()
     if(present(mask))then
@@ -3232,7 +3268,7 @@ contains
     COOP_SINGLE::thetaphi(2)
     COOP_REAL  angle, e, r, rsq, dr, x, y, cost, sint, eplus, eminus
     dr = sqrt(coop_4pi/this%npix)/3.d0  !!just to be conservative
-    this%map(:, imap) = 1.
+    this%map(:, imap) = 0.
     do i = 1, sto%peak_ang%n
        call sto%peak_ang%get_element(i, thetaphi)
        call this%ang2pix(dble(thetaphi(1)), dble(thetaphi(2)), pix)
@@ -3251,7 +3287,7 @@ contains
              y = iy*dr
              if(x**2*eminus+y**2*eplus .gt. rsq)cycle
              call disc%xy2pix(x*cost - y*sint, x*sint + y*cost, pix)
-             this%map(pix, imap) = 0.
+             this%map(pix, imap) = 1.
           enddo
        enddo
     enddo
@@ -3321,6 +3357,7 @@ contains
     stop "CANNOT FIND HEALPIX"
 #endif
   end subroutine coop_healpix_maps_stack_on_peaks
+
   
 end module coop_healpix_mod
 

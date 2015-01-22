@@ -26,7 +26,7 @@ program Exp_spots
   call hgm%get_peaks(sto, mask = mask)
   call sto%export_ang("catlog.txt")
   print*, "find ", sto%peak_pix%n, " peaks"
-  call pmap%init(nside = 64, nmaps = 1, spin = (/ 0 /) )
+  call pmap%init(nside = 256, nmaps = 1, spin = (/ 0 /) )
   call pmap%mark_peaks(sto, 1)
   
   call pmap%write("dust_peaks.fits", index_list = (/ 1 /) )

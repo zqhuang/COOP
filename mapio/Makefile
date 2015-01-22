@@ -57,8 +57,8 @@ Stack: $(OBJ) dostack.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) dostack.o $(LINK)
 
 
-MultStack: $(OBJ) multstack.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) multstack.o $(LINK)
+MatStack: $(OBJ) matstack.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) matstack.o $(LINK)
 
 
 HA: $(OBJ) hast.o

@@ -11,6 +11,7 @@ program Exp_spots
   COOP_STRING::map_file = "planck14/dx11_v2_smica_int_cmb_010a_1024.fits"
   COOP_STRING::imask_file = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
   COOP_STRING::polmask_file = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
+  COOP_STRING::mask_file_force_to_use = ""
   type(coop_stacking_options)::sto
   type(coop_healpix_maps)::hgm, mask
   COOP_STRING::output = "peaks/smica_imax_nu0"
@@ -36,10 +37,14 @@ program Exp_spots
   else
      sto%I_upper_nu = -threshold_I
   endif
-  if( sto%index_Q .eq. 0 .and. sto%index_U .eq. 0 )then
+  if( sto%mask_int .and. .not. sto%mask_pol)then
      call mask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
-  else
+  elseif( sto%mask_pol .and. .not. sto%mask_int)then
      call mask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )
+  elseif(trim(mask_file_force_to_use).ne."")then
+     call mask%read(mask_file_force_to_use, nmaps_wanted = 1, spin = (/ 0 /) )
+  else
+     stop "For unknown class of peaks you need to specify the mask file explicitly"
   endif
   if(mask%nside .ne. hgm%nside) stop "mask and map must have the same nside"  
   call hgm%get_peaks(sto, mask = mask)

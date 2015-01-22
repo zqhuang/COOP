@@ -10,7 +10,7 @@ program stackth
   implicit none
 #include "constants.h"
   integer, parameter::lmin = 2, lmax=2000, index_TT = 1, index_TE = 4, index_EE=2
-  COOP_REAL, parameter:: r_degree = 2.d0
+  COOP_REAL, parameter:: r_degree = 5.d0
   COOP_REAL, parameter:: width = 2.d0*sin(r_degree*coop_SI_degree/2.d0)
   COOP_INT,parameter:: n=36
   COOP_REAL, parameter:: dr = width/n
@@ -122,7 +122,6 @@ program stackth
         call coop_get_normalized_Plm_array(m=0, lmax=lmax, x = 1.d0-omega**2/2.d0, Plms = Pl0)
         call coop_get_normalized_Plm_array(m=2, lmax=lmax, x = 1.d0-omega**2/2.d0, Plms = Pl2)
         call coop_get_normalized_Plm_array(m=4, lmax=lmax, x = 1.d0-omega**2/2.d0, Plms = Pl4)
-
      endif
      do l = lmin, lmax
         if(flat)then

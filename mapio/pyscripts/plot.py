@@ -36,6 +36,7 @@ def plotmap(m, filename, title=None, vmin=None, vmax=None, units='',
     PHI, THETA = np.meshgrid(phi, theta)
     grid_pix = hp.ang2pix(nside, THETA, PHI)
 
+
     if mask != None:
         m = np.ma.masked_array(m, np.logical_not(mask))
         grid_mask = m.mask[grid_pix]
@@ -104,7 +105,7 @@ def plotmap(m, filename, title=None, vmin=None, vmax=None, units='',
     # space is removed directly by savefig bbox_inches="tight"
 
     #plt.subplots_adjust(left=0.01, right=0.99)
-    plt.savefig(filename, bbox_inches='tight', pad_inches=cm2inch(0.1))
+    plt.savefig(filename, format = 'pdf', pad_inches=cm2inch(0.1) ) #, bbox_inches='tight') #)
 
 def plotmultimap(m, nrowcol, filename, title=None, vmin=None, vmax=None,
                  units='', cbar=True, mask=None, ctab='parchment',
@@ -156,7 +157,6 @@ def plotmultimap(m, nrowcol, filename, title=None, vmin=None, vmax=None,
     fig = plt.figure(figsize=(cm2inch(width), cm2inch(height)))
 
     for i, s in enumerate(m):
-
         if mask != None:
             s = np.ma.masked_array(s, np.logical_not(mask))
             grid_mask = s.mask[grid_pix]
@@ -220,4 +220,5 @@ def colourbar(vmin, vmax, filename, units='', ctab='parchment'):
 
 
 m = hp.read_map("../dust_peaks.fits")
-plotmap(m, "peaks.pdf")
+plotmap(m, "peaks.pdf",title=r"peak with $e>0.6,\ I>0.5\sigma_I$", vmin=1.e-8, vmax=1., units='K',
+            cbar=False, mask=None, ctab='', width=20., grat=True)
