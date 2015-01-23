@@ -63,10 +63,10 @@ program Exp_spots
   
   if(trim(coop_inputArgs(5)).eq."T")then
      imask_file = "planck14/coldspot_mask"//postfix
-     output = trim(outputdir)//trim(cc_method)//"_nu"//trim(coop_num2goodstr(threshold))//"_"//trim(coop_str_numalpha(peak_name))//"_Orient"//trim(coop_str_numalpha(orient_name))//"_CutColdSpot.dat"            
+     output = trim(outputdir)//trim(cc_method)//"_nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"_"//trim(coop_str_numalpha(peak_name))//"_Orient"//trim(coop_str_numalpha(orient_name))//"_CutColdSpot.dat"            
   else
      imask_file = "planck14/dx11_v2_common_int_mask"//postfix
-     output = trim(outputdir)//trim(cc_method)//"_nu"//trim(coop_num2goodstr(threshold))//"_"//trim(coop_str_numalpha(peak_name))//"_Orient"//trim(coop_str_numalpha(orient_name))//".dat"                 
+     output = trim(outputdir)//trim(cc_method)//"_nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"_"//trim(coop_str_numalpha(peak_name))//"_Orient"//trim(coop_str_numalpha(orient_name))//".dat"                 
   endif
   polmask_file = "planck14/dx11_v2_common_pol_mask"//postfix
   
