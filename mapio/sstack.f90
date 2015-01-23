@@ -24,12 +24,12 @@ program Exp_spots
   COOP_UNKNOWN_STRING,parameter::outputdir = "st/"  
   COOP_UNKNOWN_STRING,parameter::mapdir = "massffp8/"
   COOP_UNKNOWN_STRING,parameter::postfix = "_020a_0512.fits"
-  
+  logical, parameter::do_nest = .true.
   COOP_STRING::imap_file, polmap_file, imask_file, polmask_file
   
   type(coop_stacking_options)::sto_max, sto_min
   type(coop_healpix_patch)::patch_max, patch_min
-  type(coop_healpix_maps)::imap, imask, polmask, inoise, polnoise, polmap
+  type(coop_healpix_maps)::imap, imask, polmask, inoise, polnoise, polmap, imask_smooth, polmask_smooth
   logical::iloaded = .false.
   logical::polloaded  = .false.
   type(coop_file)::fp
@@ -81,12 +81,13 @@ program Exp_spots
      call sto_max%init(.true., peak_name, orient_name, nmaps = 3)          
      call sto_min%init(.false., peak_name, orient_name, nmaps = 3)     
   endif
+
   sto_max%I_lower_nu = threshold
   sto_min%I_upper_nu = -threshold
   sto_max%threshold_option = 4
   sto_min%threshold_option = 4
-  sto_max%nested = .true.
-  sto_min%nested = .true.  
+  sto_max%nested = do_nest
+  sto_min%nested = do_nest
 
   do i=0, n
      r(i) = i*dr
@@ -96,8 +97,10 @@ program Exp_spots
   patch_min = patch_max
   
   ind_done = -1  
-  call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
-
+  call imask_smooth%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
+  imask = imask_smooth
+  call imask_smooth%smooth_mask(real(20.*coop_SI_arcmin)) !!smooth one pix into the mask to reduce Q_T, U_T errors
+  
   if(coop_file_exists(output))then
      call fp%open(output, "ru")
      do i = 0, n_sim
@@ -109,7 +112,7 @@ program Exp_spots
   
   call fp%open(output, "u")
   call fig%open("fr_diff.txt")
-  call fig%init(xlabel = "$\varpi$", ylabel = "$T_0^{\rm hot} + T_0^{\rm cold}$")
+  call fig%init(xlabel = "$\varpi$", ylabel = "$\delta T_0$")
   if(ind_done .ge. 0)then
      print*, "loaded "//COOP_STR_OF(ind_done+1)//" stacked maps"
   endif
@@ -124,10 +127,10 @@ program Exp_spots
      else
         read(fp%unit) i, patch_max%fr, patch_min%fr
      endif
-     pfr = (patch_min%fr(:, 0, 1)) !-patch_min%fr(:,0,1))/2.d0
+     pfr = patch_max%fr(:,0,1) !)/2.d0
      if(ind.eq.0)then
-        pfr0 = pfr
-!        call fig%curve(r, pfr, color = "red", linetype= "solid", linewidth = 1.5)
+        pfr0 = 0! pfr
+        call fig%curve(r, pfr-pfr0, color = "red", linetype= "solid", linewidth = 1.5)
      else
         call fig%curve(r, pfr - pfr0, color = "blue", linetype= "dotted", linewidth = 1.)
         if(sum(pfr-pfr0).lt.0.d0)then
@@ -143,8 +146,8 @@ program Exp_spots
 contains
 
   subroutine stack_imap()
-    call imap%get_peaks(sto_max, mask = imask, restore = .false.)
-    call imap%get_peaks(sto_min, mask = imask, restore = .false.)
+    call imap%get_peaks(sto_max, mask = imask, restore = .not. do_nest)
+    call imap%get_peaks(sto_min, mask = imask, restore = .not. do_nest)
     call imap%stack_on_peaks(sto_max, patch_max, imask)
     call imap%stack_on_peaks(sto_min, patch_min, imask)
     call patch_max%get_all_radial_profiles()
@@ -155,23 +158,16 @@ contains
 
   subroutine load_imap(i)
     COOP_INT i
-    logical,save::first_load = .true.
     if(iloaded) return
     if(i.eq.0)then
        call imap%read(imap_file, nmaps_wanted = sto_max%nmaps, nmaps_to_read = 1)
     else
-       if(first_load)then
-          call imap%read(trim(mapdir)//"cmb/int/dx11_v2_"//trim(cc_method)//"_int_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, nmaps_wanted = sto_max%nmaps)
-          call inoise%read(trim(mapdir)//"noise/int/dx11_v2_"//trim(cc_method)//"_int_noise_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, nmaps_wanted = sto_max%nmaps)
-       else          
-          call imap%read(trim(mapdir)//"cmb/int/dx11_v2_"//trim(cc_method)//"_int_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, known_size = .true.)
-          call inoise%read(trim(mapdir)//"noise/int/dx11_v2_"//trim(cc_method)//"_int_noise_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, known_size = .true.)
-          first_load = .false.
-       endif
+       call imap%read(trim(mapdir)//"cmb/int/dx11_v2_"//trim(cc_method)//"_int_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, nmaps_wanted = sto_max%nmaps)
+       call inoise%read(trim(mapdir)//"noise/int/dx11_v2_"//trim(cc_method)//"_int_noise_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, nmaps_wanted = sto_max%nmaps)
        imap%map(:, 1) = imap%map(:, 1) + inoise%map(:, 1)       
     endif
     if(imap%nmaps .eq. 3)then
-       imap%map(:,1) = imap%map(:,1)*imask%map(:,1)
+       imap%map(:,1) = imap%map(:,1)*imask_smooth%map(:,1)
        call imap%iqu2TQTUT()
     endif
   end subroutine load_imap

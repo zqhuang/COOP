@@ -1685,7 +1685,7 @@ contains
     type(coop_healpix_patch) patch, tmp_patch
     if(present(mask))then
        call coop_healpix_fetch_patch(this, disc, angle, tmp_patch, mask)
-       if(present(mask) .and. sum(tmp_patch%nstack*tmp_patch%indisk) .lt. patch%num_indisk_tol)return
+       if(sum(tmp_patch%nstack*tmp_patch%indisk) .lt. patch%num_indisk_tol)return
     else
        call coop_healpix_fetch_patch(this, disc, angle, tmp_patch)
     endif
@@ -3138,9 +3138,6 @@ contains
     case default
        index_peak = sto%index_Q
     end select
-    call sto%peak_pix%init()
-    call sto%peak_ang%init()
-    call sto%peak_map%init()
     if(sto%nested)then
        if(domask)then    
           select case(sto%genre)
