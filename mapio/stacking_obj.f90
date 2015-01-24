@@ -62,6 +62,8 @@ module coop_stacking_mod
      procedure::import => coop_stacking_options_import     
      procedure::init => coop_stacking_options_init
      procedure::free => coop_stacking_options_free
+     procedure::convert2ring => coop_stacking_options_convert2ring
+     procedure::convert2nested => coop_stacking_options_convert2nested     
      procedure::reject=>coop_stacking_options_reject
      procedure::pix => coop_stacking_options_pix
      procedure::export_pix => coop_stacking_options_export_pix
@@ -92,6 +94,48 @@ module coop_stacking_mod
 
 contains
 
+
+  subroutine coop_stacking_options_convert2ring(this)
+    class(coop_stacking_options)::this
+    type(coop_list_integer)::pixcopy
+    COOP_INT::pix_ring, pix_nested
+    COOP_INT  i
+#ifdef HAS_HEALPIX
+    if(.not.this%nested) return
+    pixcopy = this%peak_pix
+    call this%peak_pix%init()
+    do i=1, pixcopy%n
+       call pixcopy%get_element(i, pix_nested)
+       call nest2ring(this%nside, pix_nested, pix_ring)
+       call this%peak_pix%push(pix_ring)
+    enddo
+    call pixcopy%init()
+#else
+    stop "you need to install Healpix"
+#endif    
+  end subroutine coop_stacking_options_convert2ring
+
+
+  subroutine coop_stacking_options_convert2nested(this)
+    class(coop_stacking_options)::this
+    type(coop_list_integer)::pixcopy
+    COOP_INT::pix_ring, pix_nested
+    COOP_INT i
+#ifdef HAS_HEALPIX
+    if(this%nested) return
+    pixcopy = this%peak_pix
+    call this%peak_pix%init()
+    do i=1, pixcopy%n
+       call pixcopy%get_element(i, pix_nested)
+       call ring2nest(this%nside, pix_nested, pix_ring)
+       call this%peak_pix%push(pix_ring)
+    enddo
+    call pixcopy%init()    
+#else
+    stop "you need to install Healpix"
+#endif    
+  end subroutine coop_stacking_options_convert2nested
+  
   
   subroutine coop_stacking_options_export(this, filename)
     class(coop_stacking_options)::this

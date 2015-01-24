@@ -10,7 +10,7 @@ program stackth
   implicit none
 #include "constants.h"
   integer, parameter::lmin = 2, lmax=2000, index_TT = 1, index_TE = 4, index_EE=2
-  COOP_REAL, parameter:: r_degree = 5.d0
+  COOP_REAL, parameter:: r_degree = 2.d0
   COOP_REAL, parameter:: width = 2.d0*sin(r_degree*coop_SI_degree/2.d0)
   COOP_INT,parameter:: n=36
   COOP_REAL, parameter:: dr = width/n
@@ -76,7 +76,7 @@ program stackth
      cls(:,l) = l2cls(:,l)/(l*(l+1.d0))
      if(il.ne.l) stop "cl file broken"
   enddo
-!  cls(:,2:50) = cls(:,2:50)*0.95
+
   call fp%close()
   sigma0 = sqrt(sum(Cls(index_auto,:)*(ell+0.5d0))/coop_2pi)
   sigma1 = sqrt(sum(l2Cls(index_auto,:)*(ell+0.5d0))/coop_2pi)
@@ -87,14 +87,15 @@ program stackth
   print*, "sigma_2 = ", sigma2  
   call coop_gaussian_npeak_set_args(args, 2, sigma0, sigma1, sigma2)
   select case(trim(spot_type))
-  case("Tmax_QTUTOrient")
+  case("Tmax_QTUTOrient", "Tmin_QTUTOrient")
      call coop_gaussian_get_oriented_stacking_weights(nu, args, weights)
-  case("Tmax", "Emax", "Bmax")
+  case("Tmax", "Emax", "Bmax", "Tmin", "Emin", "Bmin")
      call coop_gaussian_get_nonoriented_stacking_weights(nu, args, weights)
   case("PTmax", "Pmax")
      call coop_gaussian_get_pmax_stacking_weights(nu, args, weights)
   end select
   write(*,*) "Weights = ", weights(1)*sigma0, weights(2)*sigma2, weights(3)*sigma0, weights(4)*sigma2
+
   do m=0,2
      call fpI(m)%open(trim(prefix)//"I_fwhm"//COOP_STR_OF(nint(fwhm))//"_m"//COOP_STR_OF(m*2)//".txt")
      call fpQU(m)%open(trim(prefix)//"QU_fwhm"//COOP_STR_OF(nint(fwhm))//"_m"//COOP_STR_OF(m*2)//".txt")
@@ -152,7 +153,10 @@ program stackth
 !!$        enddo
 !!$     endif
   enddo
-  call patchI%init("I", n, dr)
+  if(trim(spot_type) .eq. "Tmin_QTUTOrient" .or. trim(spot_type).eq. "Tmin")then
+     frI(0,:) = -frI(0,:)
+  endif
+  call patchI%init("T", n, dr)
   call patchQU%init("QU", n, dr)
   call patchQrUr%init("QrUr", n, dr)
   patchI%nstack = 1.d0

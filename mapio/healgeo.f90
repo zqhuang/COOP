@@ -410,11 +410,11 @@ contains
        use_rad = .true.
     endif
     if(use_rad)then
-       xlabel = "$\varpi\cos\varphi$"
-       ylabel = "$\varpi\sin\varphi$"       
+       xlabel = "$\varpi\cos\phi$"
+       ylabel = "$\varpi\sin\phi$"       
     else
-       xlabel = "$\varpi\cos\varphi (\mathrm{deg})$"
-       ylabel = "$\varpi\sin\varphi (\mathrm{deg})$"
+       xlabel = "$\varpi\cos\phi (\mathrm{deg})$"
+       ylabel = "$\varpi\sin\phi (\mathrm{deg})$"
     endif
     call fig%init(caption = trim(this%caption), xlabel =trim(xlabel), ylabel =trim(ylabel), width = 5., height = 3.9, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)))              
     if(this%tbs%zmin(imap) .lt.0.99e30)then
@@ -1251,6 +1251,8 @@ contains
        call this%convert2ring()
     endif
     call write_minimal_header(this%header,dtype = 'MAP', nside=this%nside, order = this%ordering, creator='Zhiqi Huang', version = 'CosmoLib', units='muK', polar=any(this%spin.eq.2) )
+    this%mask_npix = 0
+    this%maskpol_npix = 0
 #else
     stop "DID NOT FIND HEALPIX"
 #endif
@@ -1899,7 +1901,14 @@ contains
     do_mask = .false.
     if(present(mask))then
        if(mask%nside .ne. map%nside) stop "coop_healpix_get_listpix: mask and map must have the same nside"
-       total_weight = count(mask%map(:,1).gt. 0.5)
+       if(mask%mask_npix .gt. 0)then
+          total_weight = mask%mask_npix
+       elseif(mask%maskpol_npix .gt. 0)then
+          total_weight = mask%maskpol_npix
+       else
+          mask%mask_npix = count(mask%map(:,1).gt. 0.5)
+          total_weight = mask%mask_npix          
+       endif
        do_mask = .true.
     else
        total_weight = map%npix
@@ -2625,13 +2634,34 @@ contains
 #endif
   end subroutine coop_healpix_flip_mask
 
-  subroutine coop_healpix_maps_mask(map, mask, polmask)
+  subroutine coop_healpix_maps_mask(map, mask, polmask, remove_l_upper)
     class(coop_healpix_maps) map
     type(coop_healpix_maps) mask
     type(coop_healpix_maps),optional::polmask
+    COOP_INT, optional::remove_l_upper
+    COOP_SINGLE, dimension(:),allocatable::m01
+    complex,dimension(:,:,:),allocatable::alms
+    
     if(map%nside  .ne. mask%nside) stop "mask: nside must be the same as the map"
+    call map%convert2ring()
+    call mask%convert2ring()
     map%map(:,1) = map%map(:,1)*mask%map(:,1)
+    if(present(remove_l_upper))then
+       if(remove_l_upper .ge. 0)then
+          allocate(alms(0:remove_l_upper, 0:remove_l_upper,1))
+          if(mask%mask_npix .eq. 0)then
+             mask%mask_npix = count(mask%map(:,1).gt. 0.5)
+          endif
+          allocate(m01(0:map%npix-1))       
+          call map2alm(map%nside, remove_l_upper, remove_l_upper, map%map(:,1), alms)
+          alms = (alms * mask%npix)/mask%mask_npix
+          call alm2map(map%nside, remove_l_upper, remove_l_upper, alms, m01)
+          map%map(:,1) = map%map(:,1) - m01*mask%map(:,1)
+          deallocate(m01)
+       endif
+    endif
     if(map%nmaps.ge.3 .and. present(polmask))then
+       call polmask%convert2ring()
        if(map%nside  .ne. polmask%nside) stop "pol mask: nside must be the same as the map"
        map%map(:,2) = map%map(:,2)*polmask%map(:,1)
        map%map(:,3) = map%map(:,3)*polmask%map(:,1)
@@ -3303,6 +3333,11 @@ contains
     patch%image = 0.d0
     patch%nstack = 0.d0
     patch%nstack_raw = 0
+    if(this%ordering .eq. COOP_RING)then
+       call sto%convert2ring()
+    else
+       call sto%convert2nested()
+    endif
     !!adjust the index of maps
     i = 1
     do while(i.le.patch%nmaps)

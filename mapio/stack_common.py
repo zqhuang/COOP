@@ -36,7 +36,7 @@ def getspots(inputmap, domax, peak_name, orient_name = "NULL"):
         output = output + "min"
     output = output +  "_ORIENT" + strna(orient_name) 
     if(threshold < 10):
-        output = output + "_nu"+str(threshold)
+        output = output + "_nu"+str(threshold).replace(r".", "pt")
     else:
         output =  output 
     if(check_files):
@@ -82,45 +82,45 @@ spots_zetamax_orient = getspots(zetaqzuz, True, "$\zeta$", "$(Q_\zeta,U_\zeta)$"
 spots_ptmax = getspots(tqtutmap, True, "$P_T$", "$(Q_T,U_T)$")
 spots_pmax = getspots(polmap, True, "$P$", "$(Q,U)$")
 
-stack(imap, spots_tmax, "T")
-stack(imap, spots_tmin, "T")
-stack(emap, spots_tmax, "E")
-stack(bmap, spots_tmax, "B")
-stack(zetamap, spots_tmax, "zeta")
-stack(polmap, spots_tmax, "QrUr")
-stack(polmap, spots_tmin, "QrUr")
-stack(polmap, spots_tmax, "QU")
-stack(tqtutmap, spots_tmax, "QTUT")
+#stack(imap, spots_tmax, "T")
+#stack(imap, spots_tmin, "T")
+#stack(emap, spots_tmax, "E")
+#stack(bmap, spots_tmax, "B")
+#stack(zetamap, spots_tmax, "zeta")
+#stack(polmap, spots_tmax, "QrUr")
+#stack(polmap, spots_tmin, "QrUr")
+#stack(polmap, spots_tmax, "QU")
+#stack(tqtutmap, spots_tmax, "QTUT")
 
-stack(emap, spots_emax, "E")
-stack(imap, spots_emax, "T")
-stack(bmap, spots_emax, "B")
-stack(polmap, spots_emax, "QU")
-stack(polmap, spots_emax, "QrUr")
+#stack(emap, spots_emax, "E")
+#stack(imap, spots_emax, "T")
+#stack(bmap, spots_emax, "B")
+#stack(polmap, spots_emax, "QU")
+#stack(polmap, spots_emax, "QrUr")
    
-stack(imap, spots_bmax, "T")
-stack(emap, spots_bmax, "E")
-stack(bmap, spots_bmax, "B")
+#stack(imap, spots_bmax, "T")
+#stack(emap, spots_bmax, "E")
+#stack(bmap, spots_bmax, "B")
 
-stack(zetamap, spots_zetamax, "zeta")
-stack(imap, spots_zetamax, "T")
+#stack(zetamap, spots_zetamax, "zeta")
+#stack(imap, spots_zetamax, "T")
 #stack(emap, spots_zetamax, "E")
 #stack(bmap, spots_zetamax, "B")
 
 stack(imap, spots_tmax_orient, "T")
 stack(imap, spots_tmin_orient, "T")
-stack(emap, spots_tmax_orient, "E")
-stack(zetamap, spots_tmax_orient, "zeta")
-stack(polmap, spots_tmax_orient, "QU")
-stack(polmap, spots_tmin_orient, "QU")
-stack(tqtutmap, spots_tmax_orient, "QTUT")
+#stack(emap, spots_tmax_orient, "E")
+#stack(zetamap, spots_tmax_orient, "zeta")
+#stack(polmap, spots_tmax_orient, "QU")
+#stack(polmap, spots_tmin_orient, "QU")
+#stack(tqtutmap, spots_tmax_orient, "QTUT")
 
 
-stack(zetamap, spots_zetamax_orient, "zeta")
+#stack(zetamap, spots_zetamax_orient, "zeta")
 
 
-stack(polmap, spots_ptmax, "QU")
-stack(polmap, spots_pmax, "QU")
+#stack(polmap, spots_ptmax, "QU")
+#stack(polmap, spots_pmax, "QU")
 #stack(imap, spots_ptmax, "T")
 #stack(zetamap, spots_ptmax, "zeta")
 #stack(emap, spots_ptmax, "E")
