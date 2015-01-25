@@ -9,23 +9,23 @@ program massive_stack
   COOP_STRING::cc_method 
 
   COOP_UNKNOWN_STRING,parameter::filter = "linear"
+  COOP_STRING::stack_field_name = "T"
+  COOP_INT,parameter::resol = 1024  
+
   COOP_STRING::output, line
   COOP_REAL::threshold
-
-  COOP_INT::n_sim = 30
+  COOP_INT::n_sim 
   COOP_STRING,parameter::peak_name = "$T$"
   COOP_STRING::orient_name 
-  COOP_STRING::stack_field_name = "T"
   COOP_INT,parameter::n = 36
   COOP_REAL,parameter::r_degree  = 2.d0
   COOP_REAL,parameter::dr = 2.d0*sin(r_degree*coop_SI_degree/2.d0)/n
-
+  COOP_STRING::postfix
   COOP_REAL::r(0:n), pfr(0:n), pfr0(0:n), Wfil(0:n)
   COOP_INT::count_p
   COOP_STRING::outputdir
   COOP_UNKNOWN_STRING,parameter::mapdir = "massffp8/"
-  COOP_UNKNOWN_STRING,parameter::postfix = "_020a_0512.fits"
-  logical, parameter::do_nest = .false., remove_l01 = .false.
+  logical, parameter::do_nest = .true., remove_l01 = .false.
   COOP_STRING::imap_file, polmap_file, imask_file, polmask_file
   
   type(coop_stacking_options)::sto_max, sto_min
@@ -48,17 +48,12 @@ program massive_stack
      write(*,*) "./SST commander 2. 100 F T"          
      stop
   endif
-  select case(trim(stack_field_name))
-  case("T")
-     outputdir = "st/"
-  case("QU")
-     outputdir = "squ/"
-  case default
-     stop "so far SST only support T and QU stacking"
-  end select
+  outputdir = "st_"//trim(coop_str_numalpha(stack_field_name))//"_"//trim(coop_ndigits(resol,4))//"/"
+  postfix = "_"//trim(coop_ndigits(10240/resol,3))//"a_"//trim(coop_ndigits(resol,4))//".fits"
+  
   cc_method = trim(coop_inputArgs(1))
-  imap_file = "planck14/dx11_v2_"//trim(cc_method)//"_int_cmb"//postfix
-  polmap_file = "planck14/dx11_v2_"//trim(cc_method)//"_pol_case1_cmb_hp_20_40"//postfix
+  imap_file = "planck14/dx11_v2_"//trim(cc_method)//"_int_cmb"//trim(postfix)
+  polmap_file = "planck14/dx11_v2_"//trim(cc_method)//"_pol_case1_cmb_hp_20_40"//trim(postfix)
   
   line = coop_inputArgs(2)
   read(line, *) threshold
@@ -70,15 +65,17 @@ program massive_stack
   else
      orient_name = "NULL"
   endif
-  
+
+
+
   if(trim(coop_inputArgs(5)).eq."T")then
-     imask_file = "planck14/coldspot_mask"//postfix
+     imask_file = "planck14/coldspot_mask"//trim(postfix)
      output = trim(outputdir)//trim(cc_method)//"_nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"_"//trim(coop_str_numalpha(peak_name))//"_Orient"//trim(coop_str_numalpha(orient_name))//"_CutColdSpot.dat"            
   else
-     imask_file = "planck14/dx11_v2_common_int_mask"//postfix
+     imask_file = "planck14/dx11_v2_common_int_mask"//trim(postfix)
      output = trim(outputdir)//trim(cc_method)//"_nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"_"//trim(coop_str_numalpha(peak_name))//"_Orient"//trim(coop_str_numalpha(orient_name))//".dat"                 
   endif
-  polmask_file = "planck14/dx11_v2_common_pol_mask"//postfix
+  polmask_file = "planck14/dx11_v2_common_pol_mask"//trim(postfix)
   
   
 
@@ -137,7 +134,7 @@ program massive_stack
   endif
   
   call fp%open(output, "u")
-  call fig%open("fr_diff.txt")
+  call fig%open(coop_str_replace(output, ".dat", ".txt"))
   call fig%init(xlabel = "$\varpi$", ylabel = "$\delta T_0$")
   if(ind_done .ge. 0)then
      print*, "loaded "//COOP_STR_OF(ind_done+1)//" stacked maps"
