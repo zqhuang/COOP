@@ -8,14 +8,14 @@ program massive_stack
 
   COOP_STRING::cc_method 
 
-  COOP_UNKNOWN_STRING,parameter::filter = "gaussian"
+  COOP_UNKNOWN_STRING,parameter::filter = "linear"
   COOP_STRING::output, line
   COOP_REAL::threshold
 
   COOP_INT::n_sim = 30
   COOP_STRING,parameter::peak_name = "$T$"
   COOP_STRING::orient_name 
-  COOP_STRING::stack_field_name = "QU"
+  COOP_STRING::stack_field_name = "T"
   COOP_INT,parameter::n = 36
   COOP_REAL,parameter::r_degree  = 2.d0
   COOP_REAL,parameter::dr = 2.d0*sin(r_degree*coop_SI_degree/2.d0)/n
@@ -155,13 +155,13 @@ program massive_stack
      else
         read(fp%unit) i, patch_max%fr, patch_min%fr
      endif
-     pfr = (patch_max%fr(:,1,1) + patch_max%fr(:,1,2))/2.d0
+     pfr = - patch_min%fr(:,0,1)
      if(ind.eq.0)then
-        pfr0 = 0.
+        pfr0 = pfr
         call fig%curve(r, pfr-pfr0, color = "red", linetype= "solid", linewidth = 1.5)
      else
         call fig%curve(r, pfr - pfr0, color = "blue", linetype= "dotted", linewidth = 1.)
-        if(sum(pfr-pfr0).lt.0.d0)then
+        if(sum((pfr-pfr0)*wfil) .lt. 0.d0)then
            count_p = count_p + 1
         endif
      endif
