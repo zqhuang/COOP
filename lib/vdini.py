@@ -51,7 +51,7 @@ ppruns = [ ['lowTEB', 'plikTT'], \
            ['lowTEB', 'plikTT', 'lens', 'BAO', 'JLA', 'HSTlow'] ] 
 
 recruns = [['lowTEB', 'plikTT'], \
-           ['lowTEB', 'plikTTTEEE'], \           
+           ['lowTEB', 'plikTTTEEE'], \
            ['lowTEB', 'plikTT', 'BAO',],  \
            ['lowTEB', 'plikTTTEEE', 'BAO',],  \
            ['lowTEB', 'plikTT', 'lens', 'BAO'], \
