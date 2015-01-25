@@ -22,7 +22,7 @@ program massive_stack
 
   COOP_REAL::r(0:n), pfr(0:n), pfr0(0:n), Wfil(0:n)
   COOP_INT::count_p
-  COOP_UNKNOWN_STRING,parameter::outputdir = "squ/"  
+  COOP_STRING::outputdir
   COOP_UNKNOWN_STRING,parameter::mapdir = "massffp8/"
   COOP_UNKNOWN_STRING,parameter::postfix = "_020a_0512.fits"
   logical, parameter::do_nest = .false., remove_l01 = .false.
@@ -48,7 +48,14 @@ program massive_stack
      write(*,*) "./SST commander 2. 100 F T"          
      stop
   endif
-
+  select case(trim(stack_field_name))
+  case("T")
+     outputdir = "st/"
+  case("QU")
+     outputdir = "squ/"
+  case default
+     stop "so far SST only support T and QU stacking"
+  end select
   cc_method = trim(coop_inputArgs(1))
   imap_file = "planck14/dx11_v2_"//trim(cc_method)//"_int_cmb"//postfix
   polmap_file = "planck14/dx11_v2_"//trim(cc_method)//"_pol_case1_cmb_hp_20_40"//postfix
