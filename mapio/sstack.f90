@@ -6,11 +6,11 @@ program massive_stack
 #include "constants.h"
 #ifdef HAS_HEALPIX
 
-  COOP_STRING::cc_method 
-
-  COOP_UNKNOWN_STRING,parameter::filter = "linear"
+  COOP_STRING::cc_method = "smica"
+  COOP_STRING::filter = "tophat"
+  COOP_STRING::fr_genre = "cold0"
   COOP_STRING::stack_field_name = "T"
-  COOP_INT,parameter::resol = 1024  
+  COOP_INT::resol = 1024  
 
   COOP_STRING::output, line
   COOP_REAL::threshold
@@ -39,36 +39,46 @@ program massive_stack
   COOP_INT ind, ind_done
   COOP_REAL sumimask, sumpolmask
   
-  if(iargc() .lt. 3)then
+  if(iargc() .lt. 7)then
      write(*,*) "Syntax:"
-     write(*,*) "./SST cc_method nu n_sim [Orient] [cut_cold_spot]"
+     write(*,*) "./SST cc_method resolution stack_field nu n_sim filter fr_type [Orient] [cut_cold_spot]"
      write(*,*) "Examples:"     
-     write(*,*) "./SST smica 0.5 1000"
-     write(*,*) "./SST nilc 0. 100 T T"
-     write(*,*) "./SST commander 2. 100 F T"          
+     write(*,*) "./SST smica     1024 T  0.5 1000 tophat    cold0"
+     write(*,*) "./SST nilc      512  T  0.  100  linear    cold1 T"
+     write(*,*) "./SST commander 1024 QU 2.  500  gaussian  hot0  F T"
+     write(*,*) "./SST sevem     1024 T  1.  300  tophat    hot1  T"               
      stop
   endif
-  outputdir = "st_"//trim(coop_str_numalpha(stack_field_name))//"_"//trim(coop_ndigits(resol,4))//"/"
-  postfix = "_"//trim(coop_ndigits(10240/resol,3))//"a_"//trim(coop_ndigits(resol,4))//".fits"
-  
   cc_method = trim(coop_inputArgs(1))
-  imap_file = "planck14/dx11_v2_"//trim(cc_method)//"_int_cmb"//trim(postfix)
-  polmap_file = "planck14/dx11_v2_"//trim(cc_method)//"_pol_case1_cmb_hp_20_40"//trim(postfix)
-  
   line = coop_inputArgs(2)
-  read(line, *) threshold
-  line = coop_inputArgs(3)
+  read(line,*) resol
+  if(resol .ne. 1024 .and. resol .ne. 512) stop "only support resolution 512 and 1024"
+  stack_field_name = trim(coop_inputArgs(3))
+  line = coop_inputArgs(4)
+  read(line,*) threshold
+  line = coop_inputArgs(5)
   read(line,*) n_sim
-
-  if(trim(coop_inputArgs(4)).eq."T")then
+  filter = trim(coop_inputArgs(6))
+  fr_genre =  trim(coop_inputArgs(7))
+  if(trim(coop_inputArgs(8)).eq."T")then
      orient_name = "$(Q_T, U_T)$"
   else
      orient_name = "NULL"
   endif
+  
+  
+  
+  outputdir = "st_"//trim(coop_str_numalpha(stack_field_name))//"_"//trim(coop_ndigits(resol,4))//"/"
+  postfix = "_"//trim(coop_ndigits(10240/resol,3))//"a_"//trim(coop_ndigits(resol,4))//".fits"
+  
+  imap_file = "planck14/dx11_v2_"//trim(cc_method)//"_int_cmb"//trim(postfix)
+  polmap_file = "planck14/dx11_v2_"//trim(cc_method)//"_pol_case1_cmb_hp_20_40"//trim(postfix)
+  
 
 
 
-  if(trim(coop_inputArgs(5)).eq."T")then
+
+  if(trim(coop_inputArgs(9)).eq."T")then
      imask_file = "planck14/coldspot_mask"//trim(postfix)
      output = trim(outputdir)//trim(cc_method)//"_nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"_"//trim(coop_str_numalpha(peak_name))//"_Orient"//trim(coop_str_numalpha(orient_name))//"_CutColdSpot.dat"            
   else
@@ -100,7 +110,7 @@ program massive_stack
      r(i) = i*dr
   enddo
 
-  select case(filter)
+  select case(trim(filter))
   case("tophat")
      wfil = 1.
   case("linear")
@@ -152,7 +162,19 @@ program massive_stack
      else
         read(fp%unit) i, patch_max%fr, patch_min%fr
      endif
-     pfr = - patch_min%fr(:,0,1)
+     select case(trim(fr_genre))
+     case("cold0")
+        pfr = - patch_min%fr(:,0,1)
+     case("cold1")
+        pfr = patch_min%fr(:, 1, 1)
+     case("hot0")
+        pfr = patch_max%fr(:,0,1)
+     case("hot1")
+        pfr = patch_max%fr(:,1,1)
+     case default
+        print*,  "Unknown fr type (cold0, cold1, hot0, hot1)"
+        stop
+     end select
      if(ind.eq.0)then
         pfr0 = pfr
         call fig%curve(r, pfr-pfr0, color = "red", linetype= "solid", linewidth = 1.5)
