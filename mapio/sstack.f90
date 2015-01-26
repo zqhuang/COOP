@@ -177,9 +177,9 @@ program massive_stack
      end select
      if(ind.eq.0)then
         pfr0 = pfr
-        call fig%curve(r, pfr-pfr0, color = "red", linetype= "solid", linewidth = 1.5)
+        call fig%curve(r, pfr, color = "red", linetype= "solid", linewidth = 1.5)
      else
-        call fig%curve(r, pfr - pfr0, color = "blue", linetype= "dotted", linewidth = 1.)
+        call fig%curve(r, pfr, color = "blue", linetype= "dotted", linewidth = 1.)
         if(sum((pfr-pfr0)*wfil) .lt. 0.d0)then
            count_p = count_p + 1
         endif
