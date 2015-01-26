@@ -155,6 +155,7 @@ program stackth
   enddo
   if(trim(spot_type) .eq. "Tmin_QTUTOrient" .or. trim(spot_type).eq. "Tmin")then
      frI(0,:) = -frI(0,:)
+     frQU(2,:) = -frQU(2,:)
   endif
   call patchI%init("T", n, dr)
   call patchQU%init("QU", n, dr)
@@ -229,4 +230,6 @@ program stackth
   
   call figCr%legend(0.5, 0.9, 1)
   call figCr%close()
+
+
 end program stackth

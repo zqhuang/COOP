@@ -6,13 +6,17 @@ program massive_stack
 #include "constants.h"
 #ifdef HAS_HEALPIX
 
+  logical,parameter::do_cosmology_calibration = .true.
+  COOP_UNKNOWN_STRING,parameter::cal_file_prefix = "rprof/"
+
   COOP_STRING::cc_method = "smica"
   COOP_STRING::filter = "tophat"
   COOP_STRING::fr_genre = "cold0"
   COOP_STRING::stack_field_name = "T"
-  COOP_INT::resol = 1024  
+  COOP_INT::resol = 1024
+  COOP_INT::fwhm
 
-  COOP_STRING::output, line
+  COOP_STRING::output, line, cal_data_file, cal_sim_file
   COOP_REAL::threshold
   COOP_INT::n_sim 
   COOP_STRING,parameter::peak_name = "$T$"
@@ -29,7 +33,7 @@ program massive_stack
   COOP_STRING::imap_file, polmap_file, imask_file, polmask_file
   
   type(coop_stacking_options)::sto_max, sto_min
-  type(coop_healpix_patch)::patch_max, patch_min
+  type(coop_healpix_patch)::patch_max, patch_min, patch_cal_data, patch_cal_sim, patch_max_diff, patch_min_diff
   type(coop_healpix_maps)::imap, imask, polmask, inoise, polnoise, polmap, imask_smooth, polmask_smooth
   logical::iloaded = .false.
   logical::polloaded  = .false.
@@ -67,9 +71,9 @@ program massive_stack
   endif
   
   
-  
+  fwhm = 10240/resol
   outputdir = "st_"//trim(coop_str_numalpha(stack_field_name))//"_"//trim(coop_ndigits(resol,4))//"/"
-  postfix = "_"//trim(coop_ndigits(10240/resol,3))//"a_"//trim(coop_ndigits(resol,4))//".fits"
+  postfix = "_"//trim(coop_ndigits(fwhm,3))//"a_"//trim(coop_ndigits(resol,4))//".fits"
   
   imap_file = "planck14/dx11_v2_"//trim(cc_method)//"_int_cmb"//trim(postfix)
   polmap_file = "planck14/dx11_v2_"//trim(cc_method)//"_pol_case1_cmb_hp_20_40"//trim(postfix)
@@ -124,7 +128,10 @@ program massive_stack
   
   call patch_max%init(trim(stack_field_name), n, dr)
   patch_min = patch_max
-  
+  if(do_cosmology_calibration)then
+     call load_calibration()
+  endif
+     
   ind_done = -1  
   call imask_smooth%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
   imask = imask_smooth
@@ -162,6 +169,11 @@ program massive_stack
      else
         read(fp%unit) i, patch_max%fr, patch_min%fr
      endif
+     if(ind.eq.0 .and. do_cosmology_calibration)then
+        patch_max%fr = patch_max%fr + patch_max_diff%fr
+        patch_min%fr = patch_min%fr + patch_min_diff%fr
+     endif
+        
      select case(trim(fr_genre))
      case("cold0")
         pfr = - patch_min%fr(:,0,1)
@@ -236,7 +248,7 @@ contains
        imap%map(:, 1) = imap%map(:, 1) + inoise%map(:, 1)       
     endif
     if(imap%nmaps .eq. 3)then
-       call imap%mask(mask = imask_smooth)
+     !  call imap%mask(mask = imask_smooth)
        call imap%iqu2TQTUT()
     endif
     iloaded = .true.
@@ -254,6 +266,52 @@ contains
     endif
     polloaded = .true.
   end subroutine load_polmap
+
+
+  subroutine load_calibration()
+     patch_cal_data = patch_max
+     patch_cal_sim = patch_max
+     patch_max_diff = patch_max
+     patch_min_diff = patch_max
+     if(trim(stack_field_name).eq."T")then
+        cal_data_file = trim(cal_file_prefix)//"pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"_frI.txt"
+        cal_sim_file = trim(cal_file_prefix)//"pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"_frI.txt"
+     else
+        cal_data_file = trim(cal_file_prefix)//"pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"_frQU.txt"
+        cal_sim_file = trim(cal_file_prefix)//"pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"_frQU.txt"
+     endif
+     if(.not. coop_file_exists(cal_data_file))then
+        if(trim(orient_name) .eq. "NULL")then
+           call system("./GetTheo planck14_best_cls.dat Tmax "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//"pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt")))        
+        else
+           call system("./GetTheo planck14_best_cls.dat Tmax_QTUTOrient "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//"pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt")))
+        endif
+     endif
+     if(.not. coop_file_exists(cal_sim_file))then
+        if(trim(orient_name).eq."NULL")then
+           call system("./GetTheo planck13_best_cls.dat Tmax "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//"pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt")))        
+        else
+           call system("./GetTheo planck13_best_cls.dat Tmax_QTUTOrient "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//"pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt")))
+        endif
+     endif
+     call fp%open(cal_data_file)
+     read(fp%unit, *) patch_cal_data%fr
+     call fp%close()
+     call fp%open(cal_sim_file)
+     read(fp%unit, *) patch_cal_sim%fr
+     call fp%close()
+     patch_max_diff%fr = patch_cal_sim%fr - patch_cal_data%fr
+     patch_min_diff%fr = patch_max_diff%fr
+     select case(trim(stack_field_name))
+     case("T")
+        patch_min_diff%fr(:, 0, 1) = - patch_min_diff%fr(:, 0, 1)
+     case("QU")
+        patch_min_diff%fr(:, 2, 1) = - patch_min_diff%fr(:, 2, 1)
+     case default
+        write(*,*) "So far SST only supports T and QU stacking"
+        stop 
+     end select
+   end subroutine load_calibration
   
 #else
   print*, "You need to install healpix"
