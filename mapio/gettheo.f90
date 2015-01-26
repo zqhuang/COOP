@@ -32,7 +32,7 @@ program stackth
   type(coop_healpix_patch)::patchI, patchQU, patchQrUr
   COOP_REAL::Pl0(0:lmax), Pl2(0:lmax), Pl4(0:lmax)
   COOP_REAL::cls(4, 2:lmax), ell(2:lmax), sigma, l2cls(4,2:lmax), sigma2, sigma0, sigma1, cosbeta, j2, j4, j0, omega, weights(4), cr(0:1, 0:2, 0:n*3/2), frI(0:2, 0:n*3/2), frQU(0:2, 0:n*3/2), pomega, phi, romega, r(0:n*3/2), kr, norm
-  norm = (COOP_DEFAULT_TCMB*1.e6)**2
+  norm = (COOP_DEFAULT_TCMB*1.e6)**2/coop_2pi
   line = coop_InputArgs(4)
   if(trim(line).eq."")then
      write(*,*) "Syntax:"
@@ -65,10 +65,10 @@ program stackth
   do l=2, lmax
      read(fp%unit, *) il, l2cls(:, l)
      ell(l)  = l
-     l2cls(:,l) = l2cls(:, l)*(coop_2pi*exp(-l*(l+1.d0)*sigma**2))
 !!$     l2cls(1,l) = l2cls(1, l)  +  l*(l+1.d0)*coop_Planck_TNoise(l)*norm     
 !!$     l2cls(2,l) = l2cls(2, l)  +  l*(l+1.d0)*coop_Planck_ENoise(l)*norm
 !!$     l2cls(3,l) = l2cls(3, l)  +  l*(l+1.d0)*coop_Planck_BNoise(l)*norm
+     l2cls(:,l) = l2cls(:, l)*(coop_2pi*exp(-l*(l+1.d0)*sigma**2))
      if(do_highpass)then
         l2cls(2:3,l) = l2cls(2:3,l)*coop_highpass_filter(20, 40, l)**2
         l2cls(4,l) = l2cls(4,l)*(coop_highpass_filter(20, 40, l))

@@ -33,7 +33,7 @@ program massive_stack
   COOP_STRING::imap_file, polmap_file, imask_file, polmask_file
   
   type(coop_stacking_options)::sto_max, sto_min
-  type(coop_healpix_patch)::patch_max, patch_min, patch_cal_data, patch_cal_sim, patch_max_diff, patch_min_diff
+  type(coop_healpix_patch)::patch_max, patch_min, patch_max_data, patch_max_sim, patch_min_data, patch_min_sim
   type(coop_healpix_maps)::imap, imask, polmask, inoise, polnoise, polmap, imask_smooth, polmask_smooth
   logical::iloaded = .false.
   logical::polloaded  = .false.
@@ -169,9 +169,14 @@ program massive_stack
      else
         read(fp%unit) i, patch_max%fr, patch_min%fr
      endif
-     if(ind.eq.0 .and. do_cosmology_calibration)then
-        patch_max%fr = patch_max%fr + patch_max_diff%fr
-        patch_min%fr = patch_min%fr + patch_min_diff%fr
+     if( do_cosmology_calibration)then
+        if(ind.eq.0)then
+           patch_max%fr = patch_max%fr - patch_max_data%fr
+           patch_min%fr = patch_min%fr - patch_min_data%fr
+        else
+           patch_max%fr = patch_max%fr - patch_max_sim%fr
+           patch_min%fr = patch_min%fr - patch_min_sim%fr           
+        endif
      endif
         
      select case(trim(fr_genre))
@@ -248,7 +253,7 @@ contains
        imap%map(:, 1) = imap%map(:, 1) + inoise%map(:, 1)       
     endif
     if(imap%nmaps .eq. 3)then
-     !  call imap%mask(mask = imask_smooth)
+       call imap%mask(mask = imask_smooth)
        call imap%iqu2TQTUT()
     endif
     iloaded = .true.
@@ -269,10 +274,8 @@ contains
 
 
   subroutine load_calibration()
-     patch_cal_data = patch_max
-     patch_cal_sim = patch_max
-     patch_max_diff = patch_max
-     patch_min_diff = patch_max
+     patch_max_data = patch_max
+     patch_max_sim = patch_max
      if(trim(stack_field_name).eq."T")then
         if(trim(orient_name).eq. "NULL")then
            cal_data_file = trim(cal_file_prefix)//"pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"_frI.txt"
@@ -306,18 +309,21 @@ contains
         endif
      endif
      call fp%open(cal_data_file)
-     read(fp%unit, *) patch_cal_data%fr
+     read(fp%unit, *) patch_max_data%fr
      call fp%close()
      call fp%open(cal_sim_file)
-     read(fp%unit, *) patch_cal_sim%fr
+     read(fp%unit, *) patch_max_sim%fr
      call fp%close()
-     patch_max_diff%fr = patch_cal_sim%fr - patch_cal_data%fr
-     patch_min_diff%fr = patch_max_diff%fr
+     patch_min_sim = patch_max_sim
+     patch_min_data = patch_max_data
+     
      select case(trim(stack_field_name))
      case("T")
-        patch_min_diff%fr(:, 0, 1) = - patch_min_diff%fr(:, 0, 1)
+        patch_min_data%fr(:, 0, 1) = - patch_min_data%fr(:, 0, 1)
+        patch_min_sim%fr(:, 0, 1) = - patch_min_sim%fr(:, 0, 1)
      case("QU")
-        patch_min_diff%fr(:, 2, 1) = - patch_min_diff%fr(:, 2, 1)
+        patch_min_data%fr(:, 2, 1) = - patch_min_data%fr(:, 2, 1)
+        patch_min_sim%fr(:, 2, 1) = - patch_min_sim%fr(:, 2, 1)
      case default
         write(*,*) "So far SST only supports T and QU stacking"
         stop 
