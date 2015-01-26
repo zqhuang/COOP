@@ -25,7 +25,7 @@ program massive_stack
   COOP_INT::count_p
   COOP_STRING::outputdir
   COOP_UNKNOWN_STRING,parameter::mapdir = "massffp8/"
-  logical, parameter::do_nest = .true., remove_l01 = .false.
+  logical, parameter::do_nest = .true.
   COOP_STRING::imap_file, polmap_file, imask_file, polmask_file
   
   type(coop_stacking_options)::sto_max, sto_min
@@ -235,10 +235,8 @@ contains
        call inoise%read(trim(mapdir)//"noise/int/dx11_v2_"//trim(cc_method)//"_int_noise_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, nmaps_wanted = sto_max%nmaps)
        imap%map(:, 1) = imap%map(:, 1) + inoise%map(:, 1)       
     endif
-    if(remove_l01 .or. imap%nmaps .eq. 3)then
-       call imap%mask(mask = imask_smooth, remove_l_upper = 1)
-    endif
     if(imap%nmaps .eq. 3)then
+       call imap%mask(mask = imask_smooth)
        call imap%iqu2TQTUT()
     endif
     iloaded = .true.
