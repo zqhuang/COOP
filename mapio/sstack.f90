@@ -25,13 +25,13 @@ program massive_stack
   COOP_REAL,parameter::r_degree  = 2.d0
   COOP_REAL,parameter::dr = 2.d0*sin(r_degree*coop_SI_degree/2.d0)/n
   COOP_STRING::postfix
-  COOP_REAL::r(0:n), pfr(0:n), pfr0(0:n), Wfil(0:n)
+  COOP_REAL::r(0:n), pfr(0:n), Wfil(0:n), Smean, S2sig_lower, S2sig_upper
   COOP_INT::count_p
   COOP_STRING::outputdir
   COOP_UNKNOWN_STRING,parameter::mapdir = "massffp8/"
   logical, parameter::do_nest = .true.
   COOP_STRING::imap_file, polmap_file, imask_file, polmask_file
-  
+  COOP_REAL,dimension(:),allocatable::S_m
   type(coop_stacking_options)::sto_max, sto_min
   type(coop_healpix_patch)::patch_max, patch_min, patch_max_data, patch_max_sim, patch_min_data, patch_min_sim
   type(coop_healpix_maps)::imap, imask, polmask, inoise, polnoise, polmap, imask_smooth, polmask_smooth
@@ -62,6 +62,7 @@ program massive_stack
   read(line,*) threshold
   line = coop_inputArgs(5)
   read(line,*) n_sim
+  allocate(S_m(0:n_sim))
   filter = trim(coop_inputArgs(6))
   fr_genre =  trim(coop_inputArgs(7))
   if(trim(coop_inputArgs(8)).eq."T")then
@@ -118,7 +119,7 @@ program massive_stack
   case("tophat")
      wfil = 1.
   case("linear")
-     wfil = r
+     wfil = r/(n*dr)
   case("gaussian")
      wfil = exp(-(r/coop_SI_degree)**2)
   case default
@@ -178,34 +179,53 @@ program massive_stack
            patch_min%fr = patch_min%fr - patch_min_sim%fr           
         endif
      endif
-        
-     select case(trim(fr_genre))
-     case("cold0")
-        pfr = - patch_min%fr(:,0,1)
-     case("cold1")
-        pfr = patch_min%fr(:, 1, 1)
-     case("hot0")
-        pfr = patch_max%fr(:,0,1)
-     case("hot1")
-        pfr = patch_max%fr(:,1,1)
+     select case(trim(stack_field_name))
+     case("T")
+        select case(trim(fr_genre))
+        case("cold0")
+           pfr = - patch_min%fr(:,0,1)
+        case("cold1")
+           pfr = patch_min%fr(:, 1, 1)
+        case("hot0")
+           pfr = patch_max%fr(:,0,1)
+        case("hot1")
+           pfr = patch_max%fr(:,1,1)
+        case default
+           print*,  "Unknown fr type (cold0, cold1, hot0, hot1)"
+           stop
+        end select
+     case("QU")
+        select case(trim(fr_genre))
+        case("cold0")
+           pfr = (- patch_min%fr(:,0,1) - patch_min%fr(:,0,2))/2.d0
+        case("cold1")
+           pfr = (patch_min%fr(:, 1, 1) + patch_min%fr(:, 1, 2))/2.d0
+        case("hot0")
+           pfr = (patch_max%fr(:,0,1) + patch_max%fr(:, 0, 2))/2.d0
+        case("hot1")
+           pfr = (patch_max%fr(:,1,1) + patch_max%fr(:, 1, 2))/2.d0
+        case default
+           print*,  "Unknown fr type (cold0, cold1, hot0, hot1)"
+           stop
+        end select
      case default
-        print*,  "Unknown fr type (cold0, cold1, hot0, hot1)"
-        stop
+        stop "so far SST only supports T and QU stacking"
      end select
+     S_m(ind) =  sum(pfr*wfil)
      if(ind.eq.0)then
-        pfr0 = pfr
         call fig%curve(r, pfr, color = "red", linetype= "solid", linewidth = 1.5)
      else
         call fig%curve(r, pfr, color = "blue", linetype= "dotted", linewidth = 1.)
-        if(sum((pfr-pfr0)*wfil) .lt. 0.d0)then
-           count_p = count_p + 1
-        endif
      endif
   enddo
-  print*, COOP_STR_OF(count_p)//" in "//COOP_STR_OF(n_sim)//" has negative S"
+  call coop_quicksort(S_m(1:n_sim))
+  Smean = (S_m(n_sim/2+1)+S_m(n_sim/2))/2.d0
+  S2sig_lower = S_m(floor(n_sim*0.023))
+  S2sig_upper = S_m(ceiling(n_sim*0.977))
+  write(*,"(A6, G13.4, A3, G13.4, A3, G13.4)") "S_m = ", Smean , "+", S2sig_upper - Smean, " - ", (Smean- S2sig_lower)
   call fig%close()
   call fp%close()
-  
+  deallocate(S_m)
 
 contains
 
