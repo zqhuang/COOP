@@ -309,24 +309,24 @@ contains
      patch_max_sim = patch_max
      if(trim(stack_field_name).eq."T")then
         if(trim(orient_name).eq. "NULL")then
-           data_head = trim(cal_file_prefix)//"pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"int"
-           sim_head = trim(cal_file_prefix)//"pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"int"
+           data_head = "pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"int"
+           sim_head ="pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"int"
         else
-           data_head =  trim(cal_file_prefix)//"pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"Orientedintint"
-           sim_head = trim(cal_file_prefix)//"pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"Orientedint"
+           data_head = "pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"Orientedintint"
+           sim_head = "pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"Orientedint"
         endif
-        cal_data_file = trim(data_head)//"_frI.txt"
-        cal_sim_file = trim(sim_head)//"_frI.txt"           
+        cal_data_file = trim(cal_file_prefix)//trim(data_head)//"_frI.txt"
+        cal_sim_file = trim(cal_file_prefix)//trim(sim_head)//"_frI.txt"           
      else
         if(trim(Orient_name).eq."NULL")then
-           data_head  = trim(cal_file_prefix)//"pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"pol"
-           sim_head = trim(cal_file_prefix)//"pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"pol"
+           data_head  = "pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"pol"
+           sim_head = "pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"pol"
         else
-           data_head = trim(cal_file_prefix)//"pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"Orientedpol"
-           sim_head = trim(cal_file_prefix)//"pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"Orientedpol"
+           data_head = "pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"Orientedpol"
+           sim_head = "pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"Orientedpol"
         endif
-        cal_data_file = trim(data_head)//"_frQU.txt"
-        cal_sim_file = trim(sim_head)//"_frQU.txt"                   
+        cal_data_file =  trim(cal_file_prefix)//trim(data_head)//"_frQU.txt"
+        cal_sim_file =  trim(cal_file_prefix)//trim(sim_head)//"_frQU.txt"                   
      endif
      if(.not. coop_file_exists(cal_data_file))then
         if(trim(orient_name) .eq. "NULL")then
