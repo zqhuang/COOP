@@ -183,7 +183,7 @@ program massive_stack
      case("T")
         select case(trim(fr_genre))
         case("cold0")
-           pfr = - patch_min%fr(:,0,1)
+           pfr =  patch_min%fr(:,0,1)
         case("cold1")
            pfr = patch_min%fr(:, 1, 1)
         case("hot0")
@@ -348,6 +348,7 @@ contains
      call fp%open(cal_sim_file)
      read(fp%unit, *) patch_max_sim%fr
      call fp%close()
+     
      patch_min_sim = patch_max_sim
      patch_min_data = patch_max_data
      
@@ -356,8 +357,8 @@ contains
         patch_min_data%fr(:, 0, 1) = - patch_min_data%fr(:, 0, 1)
         patch_min_sim%fr(:, 0, 1) = - patch_min_sim%fr(:, 0, 1)
      case("QU")
-        patch_min_data%fr(:, 2, 1) = - patch_min_data%fr(:, 2, 1)
-        patch_min_sim%fr(:, 2, 1) = - patch_min_sim%fr(:, 2, 1)
+        patch_min_data%fr(:, 2, :) = - patch_min_data%fr(:, 2, :)
+        patch_min_sim%fr(:, 2, :) = - patch_min_sim%fr(:, 2, :)
      case default
         write(*,*) "So far SST only supports T and QU stacking"
         stop 
