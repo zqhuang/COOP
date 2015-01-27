@@ -119,13 +119,13 @@ program massive_stack
   case("tophat")
      wfil = 1.
   case("linear")
-     wfil = r/(n*dr)
+     wfil = r
   case("gaussian")
      wfil = exp(-(r/coop_SI_degree)**2)
   case default
      stop "Unknown filter"
   end select
-
+  wfil = wfil/sum(wfil)  !!normalize
   
   call patch_max%init(trim(stack_field_name), n, dr)
   patch_min = patch_max
@@ -220,9 +220,9 @@ program massive_stack
   enddo
   call coop_quicksort(S_m(1:n_sim))
   Smean = (S_m(n_sim/2+1)+S_m(n_sim/2))/2.d0
-  S2sig_lower = S_m(floor(n_sim*0.023))
-  S2sig_upper = S_m(ceiling(n_sim*0.977))
-  write(*,"(A6, G13.4, A3, G13.4, A3, G13.4)") "S_m = ", Smean , "+", S2sig_upper - Smean, " - ", (Smean- S2sig_lower)
+  S2sig_lower = S_m(floor(n_sim*0.023d0 + 1.d0))
+  S2sig_upper = S_m(ceiling(n_sim*0.977d0))
+  write(*,"(A6, G13.4, A3, G13.4, A3, G13.4, A12, G13.4)") "S_m = ", Smean , "+", S2sig_upper - Smean, " - ", (Smean- S2sig_lower), " with data S_m = ", S_m(0)
   call fig%close()
   call fp%close()
   deallocate(S_m)
