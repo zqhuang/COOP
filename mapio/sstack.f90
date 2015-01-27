@@ -303,38 +303,43 @@ contains
 
 
   subroutine load_calibration()
+    COOP_STRING::data_head, sim_head
+    
      patch_max_data = patch_max
      patch_max_sim = patch_max
      if(trim(stack_field_name).eq."T")then
         if(trim(orient_name).eq. "NULL")then
-           cal_data_file = trim(cal_file_prefix)//"pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"_frI.txt"
-           cal_sim_file = trim(cal_file_prefix)//"pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"_frI.txt"           
+           data_head = trim(cal_file_prefix)//"pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"int"
+           sim_head = trim(cal_file_prefix)//"pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"int"
         else
-           cal_data_file = trim(cal_file_prefix)//"pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"Oriented_frI.txt"
-           cal_sim_file = trim(cal_file_prefix)//"pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"Oriented_frI.txt"           
-
+           data_head =  trim(cal_file_prefix)//"pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"Orientedintint"
+           sim_head = trim(cal_file_prefix)//"pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"Orientedint"
         endif
+        cal_data_file = trim(data_head)//"_frI.txt"
+        cal_sim_file = trim(sim_head)//"_frI.txt"           
      else
         if(trim(Orient_name).eq."NULL")then
-           cal_data_file = trim(cal_file_prefix)//"pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"_frQU.txt"
-           cal_sim_file = trim(cal_file_prefix)//"pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"_frQU.txt"
+           data_head  = trim(cal_file_prefix)//"pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"pol"
+           sim_head = trim(cal_file_prefix)//"pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"pol"
         else
-           cal_data_file = trim(cal_file_prefix)//"pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"Oriented_frQU.txt"
-           cal_sim_file = trim(cal_file_prefix)//"pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"Oriented_frQU.txt"
+           data_head = trim(cal_file_prefix)//"pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"Orientedpol"
+           sim_head = trim(cal_file_prefix)//"pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"Orientedpol"
         endif
+        cal_data_file = trim(data_head)//"_frQU.txt"
+        cal_sim_file = trim(sim_head)//"_frQU.txt"                   
      endif
      if(.not. coop_file_exists(cal_data_file))then
         if(trim(orient_name) .eq. "NULL")then
-           call system("./GetTheo planck14_best_cls.dat Tmax "//trim(stack_field_name)//" "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//"pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt")))        
+           call system("./GetTheo planck14_best_cls.dat Tmax "//trim(stack_field_name)//" "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//trim(data_head) )        
         else
-           call system("./GetTheo planck14_best_cls.dat Tmax_QTUTOrient "//trim(stack_field_name)//" "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//"pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"Oriented")
+           call system("./GetTheo planck14_best_cls.dat Tmax_QTUTOrient "//trim(stack_field_name)//" "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//trim(data_head) )
         endif
      endif
      if(.not. coop_file_exists(cal_sim_file))then
         if(trim(orient_name).eq."NULL")then
-           call system("./GetTheo planck13_best_cls.dat Tmax "//trim(stack_field_name)//" "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//"pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt")))        
+           call system("./GetTheo planck13_best_cls.dat Tmax "//trim(stack_field_name)//" "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//trim(sim_head))
         else
-           call system("./GetTheo planck13_best_cls.dat Tmax_QTUTOrient "//trim(stack_field_name)//" "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//"pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"Oriented")
+           call system("./GetTheo planck13_best_cls.dat Tmax_QTUTOrient "//trim(stack_field_name)//" "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//trim(sim_head))
         endif
      endif
      call fp%open(cal_data_file)
