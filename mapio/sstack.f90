@@ -214,7 +214,7 @@ program massive_stack
      S_m(ind) =  sum(pfr*wfil)
      if(ind.eq.0)then
         call fig%curve(r, pfr, color = "red", linetype= "solid", linewidth = 1.5)
-     else
+     elseif(mod(ind-1, max(1, n_sim/50)) .eq. 0)then
         call fig%curve(r, pfr, color = "blue", linetype= "dotted", linewidth = 1.)
      endif
   enddo
