@@ -8,6 +8,8 @@ program massive_stack
 
   logical,parameter::do_cosmology_calibration = .true.
   COOP_UNKNOWN_STRING,parameter::cal_file_prefix = "rprof/"
+  COOP_UNKNOWN_STRING,parameter::data_theory_cl_file = "planck14best_lensedCls.dat"
+  COOP_UNKNOWN_STRING,parameter::sim_theory_cl_file = "planck13best_lensedCls.dat"  
 
   COOP_STRING::cc_method = "smica"
   COOP_STRING::filter = "tophat"
@@ -330,16 +332,16 @@ contains
      endif
      if(.not. coop_file_exists(cal_data_file))then
         if(trim(orient_name) .eq. "NULL")then
-           call system("./GetTheo planck14_best_cls.dat Tmax "//trim(stack_field_name)//" "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//trim(data_head) )        
+           call system("./GetTheo "//trim(data_theory_cl_file)//" Tmax "//trim(stack_field_name)//" "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//trim(data_head) )        
         else
-           call system("./GetTheo planck14_best_cls.dat Tmax_QTUTOrient "//trim(stack_field_name)//" "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//trim(data_head) )
+           call system("./GetTheo "//trim(data_theory_cl_file)//" Tmax_QTUTOrient "//trim(stack_field_name)//" "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//trim(data_head) )
         endif
      endif
      if(.not. coop_file_exists(cal_sim_file))then
         if(trim(orient_name).eq."NULL")then
-           call system("./GetTheo planck13_best_cls.dat Tmax "//trim(stack_field_name)//" "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//trim(sim_head))
+           call system("./GetTheo "//trim(sim_theory_cl_file)//" Tmax "//trim(stack_field_name)//" "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//trim(sim_head))
         else
-           call system("./GetTheo planck13_best_cls.dat Tmax_QTUTOrient "//trim(stack_field_name)//" "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//trim(sim_head))
+           call system("./GetTheo "//trim(sim_theory_cl_file)//" Tmax_QTUTOrient "//trim(stack_field_name)//" "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//trim(sim_head))
         endif
      endif
      call fp%open(cal_data_file)
