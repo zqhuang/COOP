@@ -17,10 +17,10 @@ program stackth
   logical,parameter::flat = .false. !!use nonflat is actually faster
   !!settings
   logical,parameter::do_highpass = .false.
-  integer, parameter::index_corr = index_TT  !!index_temp
+  integer::index_corr = index_TT 
   integer,parameter::index_auto = index_TT
   COOP_STRING::clfile != "planck14_best_cls.dat"  !! "planckbest_lensedtotCls.dat" !! 
-  COOP_STRING::spot_type
+  COOP_STRING::spot_type, stack_field
   COOP_REAL::nu !! threshold
   COOP_REAL::fwhm !!fwhm in arcmin
   COOP_INT::head_level
@@ -33,24 +33,25 @@ program stackth
   COOP_REAL::Pl0(0:lmax), Pl2(0:lmax), Pl4(0:lmax)
   COOP_REAL::cls(4, 2:lmax), ell(2:lmax), sigma, l2cls(4,2:lmax), sigma2, sigma0, sigma1, cosbeta, j2, j4, j0, omega, weights(4), cr(0:1, 0:2, 0:n*3/2), frI(0:2, 0:n*3/2), frQU(0:2, 0:n*3/2), pomega, phi, romega, r(0:n*3/2), kr, norm
   norm = (COOP_DEFAULT_TCMB*1.e6)**2/coop_2pi
-  line = coop_InputArgs(4)
+  line = coop_InputArgs(5)
   if(trim(line).eq."")then
      write(*,*) "Syntax:"
-     write(*,*) "./GetTheo clfile spot_type nu fwhm_arcmin [output_prefix] [head_level]"
+     write(*,*) "./GetTheo clfile spot_type stack_field nu fwhm_arcmin [output_prefix] [head_level]"
      stop
   endif  
   read(line, *) fwhm
   clfile = trim(coop_InputArgs(1))
   spot_type =  trim(coop_InputArgs(2))
-  line = coop_InputArgs(3)
+  stack_field = trim(coop_InputArgs(3))
+  line = coop_InputArgs(4)
   read(line, *) nu
-  if(trim(coop_InputArgs(5)).ne."")then
-     prefix = "rprof/"//trim(coop_InputArgs(5))//"_"
+  if(trim(coop_InputArgs(6)).ne."")then
+     prefix = "rprof/"//trim(coop_InputArgs(6))//"_"
   else
      prefix = "rprof/"
   endif
-  if(trim(coop_InputArgs(6)).ne."")then
-     line = coop_InputArgs(6)
+  if(trim(coop_InputArgs(7)).ne."")then
+     line = coop_InputArgs(7)
      read(line,*) head_level
   else
      head_level = 0
@@ -58,16 +59,20 @@ program stackth
   if(do_highpass)then
      print*, "warning: high-pass filter is on"
   endif
-  
+  select case(trim(stack_field))
+  case("T")
+     index_corr = index_TT
+  case("QU")
+     index_corr = index_TE
+  case default
+     stop "GetTheo so far only support stacking T or QU"
+  end select
   call coop_random_init()
   sigma = fwhm*coop_sigma_by_fwhm*coop_SI_arcmin
   call fp%open(clfile, "r")
   do l=2, lmax
      read(fp%unit, *) il, l2cls(:, l)
      ell(l)  = l
-!!$     l2cls(1,l) = l2cls(1, l)  +  l*(l+1.d0)*coop_Planck_TNoise(l)*norm     
-!!$     l2cls(2,l) = l2cls(2, l)  +  l*(l+1.d0)*coop_Planck_ENoise(l)*norm
-!!$     l2cls(3,l) = l2cls(3, l)  +  l*(l+1.d0)*coop_Planck_BNoise(l)*norm
      l2cls(:,l) = l2cls(:, l)*(coop_2pi*exp(-l*(l+1.d0)*sigma**2))
      if(do_highpass)then
         l2cls(2:3,l) = l2cls(2:3,l)*coop_highpass_filter(20, 40, l)**2

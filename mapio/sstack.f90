@@ -325,16 +325,16 @@ contains
      endif
      if(.not. coop_file_exists(cal_data_file))then
         if(trim(orient_name) .eq. "NULL")then
-           call system("./GetTheo planck14_best_cls.dat Tmax "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//"pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt")))        
+           call system("./GetTheo planck14_best_cls.dat Tmax "//trim(stack_field_name)//" "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//"pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt")))        
         else
-           call system("./GetTheo planck14_best_cls.dat Tmax_QTUTOrient "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//"pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"Oriented")
+           call system("./GetTheo planck14_best_cls.dat Tmax_QTUTOrient "//trim(stack_field_name)//" "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//"pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"Oriented")
         endif
      endif
      if(.not. coop_file_exists(cal_sim_file))then
         if(trim(orient_name).eq."NULL")then
-           call system("./GetTheo planck13_best_cls.dat Tmax "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//"pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt")))        
+           call system("./GetTheo planck13_best_cls.dat Tmax "//trim(stack_field_name)//" "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//"pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt")))        
         else
-           call system("./GetTheo planck13_best_cls.dat Tmax_QTUTOrient "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//"pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"Oriented")
+           call system("./GetTheo planck13_best_cls.dat Tmax_QTUTOrient "//trim(stack_field_name)//" "//COOP_STR_OF(threshold)//" "//COOP_STR_OF(fwhm)//" "//"pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"Oriented")
         endif
      endif
      call fp%open(cal_data_file)
