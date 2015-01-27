@@ -25,7 +25,7 @@ program massive_stack
   COOP_REAL,parameter::r_degree  = 2.d0
   COOP_REAL,parameter::dr = 2.d0*sin(r_degree*coop_SI_degree/2.d0)/n
   COOP_STRING::postfix
-  COOP_REAL::r(0:n), pfr(0:n), Wfil(0:n), Smean, S2sig_lower, S2sig_upper
+  COOP_REAL::r(0:n), pfr(0:n), Wfil(0:n), Smean, S_lower(3), S_upper(3)
   COOP_INT::count_p
   COOP_STRING::outputdir
   COOP_UNKNOWN_STRING,parameter::mapdir = "massffp8/"
@@ -220,9 +220,18 @@ program massive_stack
   enddo
   call coop_quicksort(S_m(1:n_sim))
   Smean = (S_m(n_sim/2+1)+S_m(n_sim/2))/2.d0
-  S2sig_lower = S_m(floor(n_sim*0.023d0 + 1.d0))
-  S2sig_upper = S_m(ceiling(n_sim*0.977d0))
-  write(*,"(A6, G13.4, A3, G13.4, A3, G13.4, A12, G13.4)") "S_m = ", Smean , "+", S2sig_upper - Smean, " - ", (Smean- S2sig_lower), " with data S_m = ", S_m(0)
+  S_lower(1) = S_m(floor(n_sim*0.1585d0 + 1.d0))  
+  S_lower(2) = S_m(floor(n_sim*0.023d0 + 1.d0))
+  S_lower(3) = S_m(floor(n_sim*0.0015 + 1.d0))
+  S_upper(1) = S_m(ceiling(n_sim*0.8415d0))  
+  S_upper(2) = S_m(ceiling(n_sim*0.977d0))
+  S_upper(3) = S_m(ceiling(n_sim*0.9985d0))
+  
+  write(*,"(A6, G13.4)") "S_m mean = ", Smean, " S_m data = ", S_m(0)
+  do i = 1, 3
+     write(*,"(I5,  G13.4, A9, G13.4)") i, S_lower(i), " < S_m < ", S_upper(i)
+  enddo
+  write(*,"(A8, G13.4, A5, G13.4, A5, G13.4, A5, G13.4, A5, G13.4, A5, G13.4, A5, G13.4, A2 )") "S_m = ", Smean, "^{+", S_upper(1)-Smean, "+", S_upper(2) - Smean, "+ ", S_upper(3) - Smean, "}_{-", Smean - S_lower(1), "-", Smean - S_lower(2), "-", Smean - S_lower(3), "}"
   call fig%close()
   call fp%close()
   deallocate(S_m)
