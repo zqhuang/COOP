@@ -194,7 +194,7 @@ program massive_stack
   S_upper(2) = S_m(ceiling(n_sim*0.977d0))
   S_upper(3) = S_m(ceiling(n_sim*0.9985d0))
 
-#define FSTR(x) trim(coop_num2str(x, "(G12.3)"))
+#define FSTR(x) trim(coop_num2str(x, "(F13.2)"))
   write(*,"(A12, G13.4, A12, G13.4)") "S_m mean = ", Smean, " S_m data = ", S_m(0)
   do i = 1, 3
      write(*,"(I5,  G13.4, A9, G13.4)") i, S_lower(i), " < S_m < ", S_upper(i)
