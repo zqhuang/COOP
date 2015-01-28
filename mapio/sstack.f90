@@ -193,12 +193,13 @@ program massive_stack
   S_upper(1) = S_m(ceiling(n_sim*0.8415d0))  
   S_upper(2) = S_m(ceiling(n_sim*0.977d0))
   S_upper(3) = S_m(ceiling(n_sim*0.9985d0))
-  
+
+#define FSTR(x) trim(coop_num2str(x, "(G13.4)"))
   write(*,"(A12, G13.4, A12, G13.4)") "S_m mean = ", Smean, " S_m data = ", S_m(0)
   do i = 1, 3
      write(*,"(I5,  G13.4, A9, G13.4)") i, S_lower(i), " < S_m < ", S_upper(i)
   enddo
-  write(*,"(A8, G13.4, A3, G13.4, A1, G13.4, A1, G13.4, A5, G13.4, A1, G13.4, A1, G13.4, A1 )") "S_m = ", Smean, "^{+", S_upper(1)-Smean, "+", S_upper(2) - Smean, "+ ", S_upper(3) - Smean, "}_{-", Smean - S_lower(1), "-", Smean - S_lower(2), "-", Smean - S_lower(3), "}"
+  write(*,"(A)") "S_m = "//FSTR(Smean)//"^{+"//FSTR(S_upper(1)-Smean)//"+"//FSTR(S_upper(2) - Smean)//"+"//FSTR(S_upper(3) - Smean)//"}_{-"//FSTR(Smean - S_lower(1))//"-"//FSTR(Smean - S_lower(2))//"-"//FSTR(Smean - S_lower(3))//"}"
   call fig%close()
   call fp%close()
   deallocate(S_m)
