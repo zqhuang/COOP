@@ -6,7 +6,6 @@ program massive_stack
 #include "constants.h"
 #ifdef HAS_HEALPIX
 
-  logical,parameter::do_cosmology_calibration = .true.
   COOP_UNKNOWN_STRING,parameter::cal_file_prefix = "rprof/"
   COOP_UNKNOWN_STRING,parameter::data_theory_cl_file = "planck14best_lensedCls.dat"
   COOP_UNKNOWN_STRING,parameter::sim_theory_cl_file = "planck13best_lensedCls.dat"  
@@ -27,11 +26,12 @@ program massive_stack
   COOP_REAL,parameter::r_degree  = 2.d0
   COOP_REAL,parameter::dr = 2.d0*sin(r_degree*coop_SI_degree/2.d0)/n
   COOP_STRING::postfix
-  COOP_REAL::r(0:n), pfr(0:n), Wfil(0:n), Smean, S_lower(3), S_upper(3)
+  COOP_REAL::r(0:n), pfr(0:n), pfr_theory_data(0:n), pfr_theory_sim(0:n), Wfil(0:n), Smean, S_lower(3), S_upper(3)
   COOP_INT::count_p
   COOP_STRING::outputdir
   COOP_UNKNOWN_STRING,parameter::mapdir = "massffp8/"
   logical, parameter::do_nest = .true.
+  logical::do_self = .false.
   COOP_STRING::imap_file, polmap_file, imask_file, polmask_file
   COOP_REAL,dimension(:),allocatable::S_m
   type(coop_stacking_options)::sto_max, sto_min
@@ -50,6 +50,7 @@ program massive_stack
      write(*,*) "./SST cc_method resolution stack_field nu n_sim filter fr_type [Orient] [cut_cold_spot]"
      write(*,*) "Examples:"     
      write(*,*) "./SST smica     1024 T  0.5 1000 tophat    cold0"
+     write(*,*) "./SST smica     1024 T  0.5 1000 self    cold0"     
      write(*,*) "./SST nilc      512  T  0.  100  linear    cold1 T"
      write(*,*) "./SST commander 1024 QU 2.  500  gaussian  hot0  F T"
      write(*,*) "./SST sevem     1024 T  1.  300  tophat    hot1  T"               
@@ -116,25 +117,27 @@ program massive_stack
   do i=0, n
      r(i) = i*dr
   enddo
-
-  select case(trim(filter))
-  case("tophat")
-     wfil = 1.
-  case("linear")
-     wfil = r
-  case("gaussian")
-     wfil = exp(-(r/coop_SI_degree)**2)
-  case default
-     stop "Unknown filter"
-  end select
-  wfil = wfil/sum(wfil)  !!normalize
   
   call patch_max%init(trim(stack_field_name), n, dr)
   patch_min = patch_max
-  if(do_cosmology_calibration)then
-     call load_calibration()
-  endif
-     
+  call load_theory()
+  do_self = .false.
+  select case(trim(filter))
+  case("tophat","t")
+     wfil = 1./(n+1.d0)
+  case("linear","l")
+     wfil = r
+     wfil = wfil/sum(wfil)  !!normalize     
+  case("gaussian","g")
+     wfil = exp(-(r/coop_SI_degree)**2)
+     wfil = wfil/sum(wfil)  !!normalize          
+  case("self","s")
+     wfil = pfr_theory_data/sum(pfr_theory_data**2)
+     do_self = .true.
+  case default
+     stop "Unknown filter"
+  end select
+  
   ind_done = -1  
   call imask_smooth%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
   imask = imask_smooth
@@ -172,51 +175,13 @@ program massive_stack
      else
         read(fp%unit) i, patch_max%fr, patch_min%fr
      endif
-     if( do_cosmology_calibration)then
-        if(ind.eq.0)then
-           patch_max%fr = patch_max%fr - patch_max_data%fr
-           patch_min%fr = patch_min%fr - patch_min_data%fr
-        else
-           patch_max%fr = patch_max%fr - patch_max_sim%fr
-           patch_min%fr = patch_min%fr - patch_min_sim%fr           
-        endif
-     endif
-     select case(trim(stack_field_name))
-     case("T")
-        select case(trim(fr_genre))
-        case("cold0")
-           pfr =  patch_min%fr(:,0,1)
-        case("cold1")
-           pfr = patch_min%fr(:, 1, 1)
-        case("hot0")
-           pfr = patch_max%fr(:,0,1)
-        case("hot1")
-           pfr = patch_max%fr(:,1,1)
-        case default
-           print*,  "Unknown fr type (cold0, cold1, hot0, hot1)"
-           stop
-        end select
-     case("QU")
-        select case(trim(fr_genre))
-        case("cold0")
-           pfr = (- patch_min%fr(:,0,1) - patch_min%fr(:,0,2))/2.d0
-        case("cold1")
-           pfr = (patch_min%fr(:, 1, 1) + patch_min%fr(:, 1, 2))/2.d0
-        case("hot0")
-           pfr = (patch_max%fr(:,0,1) + patch_max%fr(:, 0, 2))/2.d0
-        case("hot1")
-           pfr = (patch_max%fr(:,1,1) + patch_max%fr(:, 1, 2))/2.d0
-        case default
-           print*,  "Unknown fr type (cold0, cold1, hot0, hot1)"
-           stop
-        end select
-     case default
-        stop "so far SST only supports T and QU stacking"
-     end select
-     S_m(ind) =  sum(pfr*wfil)
+     call get_radial_f(pfr, patch_max, patch_min)
      if(ind.eq.0)then
-        call fig%curve(r, pfr, color = "red", linetype= "solid", linewidth = 1.5)
-     elseif(mod(ind-1, max(1, n_sim/50)) .eq. 0)then
+        S_m(ind) = sum((pfr - pfr_theory_data)*wfil)
+        if(do_self) wfil = pfr_theory_sim/sum(pfr_theory_sim**2)
+        call fig%curve(r, pfr, color = "red", linetype= "solid", linewidth = 1.5)        
+     else
+        S_m(ind) = sum((pfr - pfr_theory_sim)*wfil)
         call fig%curve(r, pfr, color = "blue", linetype= "dotted", linewidth = 1.)
      endif
   enddo
@@ -233,7 +198,7 @@ program massive_stack
   do i = 1, 3
      write(*,"(I5,  G13.4, A9, G13.4)") i, S_lower(i), " < S_m < ", S_upper(i)
   enddo
-  write(*,"(A8, G13.4, A5, G13.4, A5, G13.4, A5, G13.4, A5, G13.4, A5, G13.4, A5, G13.4, A2 )") "S_m = ", Smean, "^{+", S_upper(1)-Smean, "+", S_upper(2) - Smean, "+ ", S_upper(3) - Smean, "}_{-", Smean - S_lower(1), "-", Smean - S_lower(2), "-", Smean - S_lower(3), "}"
+  write(*,"(A8, G13.4, A3, G13.4, A1, G13.4, A1, G13.4, A5, G13.4, A1, G13.4, A1, G13.4, A1 )") "S_m = ", Smean, "^{+", S_upper(1)-Smean, "+", S_upper(2) - Smean, "+ ", S_upper(3) - Smean, "}_{-", Smean - S_lower(1), "-", Smean - S_lower(2), "-", Smean - S_lower(3), "}"
   call fig%close()
   call fp%close()
   deallocate(S_m)
@@ -304,7 +269,7 @@ contains
   end subroutine load_polmap
 
 
-  subroutine load_calibration()
+  subroutine load_theory()
     COOP_STRING::data_head, sim_head
     
      patch_max_data = patch_max
@@ -365,8 +330,51 @@ contains
         write(*,*) "So far SST only supports T and QU stacking"
         stop 
      end select
-   end subroutine load_calibration
-  
+     call get_radial_f(pfr_theory_data, patch_max_data, patch_min_data)
+     call get_radial_f(pfr_theory_sim, patch_max_sim, patch_min_sim)     
+   end subroutine load_theory
+
+   subroutine get_radial_f(pfr, patch_max, patch_min)
+     type(coop_healpix_patch)::patch_min, patch_max
+     COOP_REAL pfr(0:n)
+     select case(trim(stack_field_name))
+     case("T")
+        select case(trim(fr_genre))
+        case("cold0")
+           pfr =  patch_min%fr(:,0,1)
+        case("cold1")
+           pfr = patch_min%fr(:, 1, 1)
+        case("hot0")
+           pfr = patch_max%fr(:,0,1)
+        case("hot1")
+           pfr = patch_max%fr(:,1,1)
+        case default
+           print*,  "Unknown fr type (cold0, cold1, hot0, hot1)"
+           stop
+        end select
+     case("QU")
+        select case(trim(fr_genre))
+        case("cold0")
+           pfr = ( patch_min%fr(:,0,1) + patch_min%fr(:,0,2))/2.d0
+        case("cold1")
+           pfr = (patch_min%fr(:, 1, 1) + patch_min%fr(:, 1, 2))/2.d0
+        case("cold2")
+           pfr = (patch_min%fr(:, 2, 1) + patch_min%fr(:, 2, 2))/2.d0
+        case("hot0")
+           pfr = (patch_max%fr(:,0,1) + patch_max%fr(:, 0, 2))/2.d0
+        case("hot1")
+           pfr = (patch_max%fr(:,1,1) + patch_max%fr(:, 1, 2))/2.d0
+        case("hot2")
+           pfr = (patch_max%fr(:,2,1) + patch_max%fr(:, 2, 2))/2.d0
+        case default
+           print*,  "Unknown fr type (cold0, cold1, cold2, hot0, hot1, hot2)"
+           stop
+        end select
+     case default
+        stop "so far SST only supports T and QU stacking"
+     end select
+   end subroutine get_radial_f
+   
 #else
   print*, "You need to install healpix"
 #endif  
