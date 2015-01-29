@@ -20,11 +20,11 @@ program stackth
   call coop_healpix_merge_masks("planck14/power_asymmetry_hemisphere_south_1024.fits", "planck14/dx11_v2_common_pol_mask_010a_1024.fits", "planck14/power_asymmetry_hemisphere_south__pol_1024.fits")
 
 
-  call coop_healpix_spot_cut_mask(nside=1024, l_deg = 207.8d0, b_deg = -56.3d0, r_deg = 12.d0, filename = "planck14/coldspot_cut_mask_1024.fits")
+  call coop_healpix_spot_cut_mask(nside=1024, l_deg = 207.8d0, b_deg = -56.3d0, r_deg = 6.d0, filename = "planck14/coldspot_cut_mask_1024.fits")
   
-  call coop_healpix_merge_masks("planck14/coldspot_cut_mask_1024.fits", "planck14/dx11_v2_common_int_mask_010a_1024.fits", "planck14/coldspot_select_mask_int_1024.fits")
+  call coop_healpix_merge_masks("planck14/coldspot_cut_mask_1024.fits", "planck14/dx11_v2_common_int_mask_010a_1024.fits", "planck14/coldspot_cut_mask_int_1024.fits")
 
-  call coop_healpix_merge_masks("planck14/coldspot_cut_mask_1024.fits", "planck14/dx11_v2_common_pol_mask_010a_1024.fits", "planck14/coldspot_select_mask_pol_1024.fits")
+  call coop_healpix_merge_masks("planck14/coldspot_cut_mask_1024.fits", "planck14/dx11_v2_common_pol_mask_010a_1024.fits", "planck14/coldspot_mask_pol_1024.fits")
 
 
 
@@ -38,11 +38,11 @@ program stackth
   call coop_healpix_merge_masks("planck14/power_asymmetry_hemisphere_south_0512.fits", "planck14/dx11_v2_common_pol_mask_020a_0512.fits", "planck14/power_asymmetry_hemisphere_south__pol_0512.fits")
 
 
-  call coop_healpix_spot_cut_mask(nside=512, l_deg = 207.8d0, b_deg = -56.3d0, r_deg = 12.d0, filename = "planck14/coldspot_cut_mask_0512.fits")
+  call coop_healpix_spot_cut_mask(nside=512, l_deg = 207.8d0, b_deg = -56.3d0, r_deg = 6.d0, filename = "planck14/coldspot_cut_mask_0512.fits")
   
-  call coop_healpix_merge_masks("planck14/coldspot_cut_mask_0512.fits", "planck14/dx11_v2_common_int_mask_020a_0512.fits", "planck14/coldspot_select_mask_int_0512.fits")
+  call coop_healpix_merge_masks("planck14/coldspot_cut_mask_0512.fits", "planck14/dx11_v2_common_int_mask_020a_0512.fits", "planck14/coldspot_cut_mask_int_0512.fits")
 
-  call coop_healpix_merge_masks("planck14/coldspot_cut_mask_0512.fits", "planck14/dx11_v2_common_pol_mask_020a_0512.fits", "planck14/coldspot_select_mask_pol_0512.fits")     
+  call coop_healpix_merge_masks("planck14/coldspot_cut_mask_0512.fits", "planck14/dx11_v2_common_pol_mask_020a_0512.fits", "planck14/coldspot_cut_mask_pol_0512.fits")     
   
   
 end program stackth
