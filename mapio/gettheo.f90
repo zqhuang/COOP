@@ -16,9 +16,9 @@ program stackth
   COOP_REAL, parameter:: dr = width/n
   logical,parameter::flat = .false. !!use nonflat is actually faster
   !!settings
-  logical,parameter::do_highpass = .false.
+  logical,parameter::do_highpass = .true.
   integer::index_corr = index_TT 
-  integer,parameter::index_auto = index_TT
+  integer::index_auto = index_TT
   COOP_STRING::clfile != "planck14_best_cls.dat"  !! "planckbest_lensedtotCls.dat" !! 
   COOP_STRING::spot_type, stack_field
   COOP_REAL::nu !! threshold
@@ -59,11 +59,21 @@ program stackth
   if(do_highpass)then
      print*, "warning: high-pass filter is on"
   endif
+  select case(trim(spot_type))
+  case("Pmax")
+     index_auto = index_EE
+  case default
+     index_auto = index_TT
+  end select
   select case(trim(stack_field))
   case("T")
      index_corr = index_TT
   case("QU")
-     index_corr = index_TE
+     if(index_auto .eq. index_TT)then
+        index_corr = index_TE
+     else
+        index_corr = index_EE
+     endif
   case default
      stop "GetTheo so far only support stacking T or QU"
   end select
@@ -151,16 +161,10 @@ program stackth
      cr(:,:,i) = cr(:,:,i)/coop_2pi
      call coop_gaussian_radial_modes_I(weights, cr(:,:,i), frI(:, i))
      call coop_gaussian_radial_modes_QU(weights, cr(:,:,i), frQU(:, i))
-!!$     if(i.le.n)then
-!!$        do m=0,2
-!!$           write(fpI(m)%unit, "(2E16.7)") omega, frI(m, i)
-!!$           write(fpQU(m)%unit, "(2E16.7)") omega, frQU(m, i)
-!!$        enddo
-!!$     endif
   enddo
   if(trim(spot_type) .eq. "Tmin_QTUTOrient" .or. trim(spot_type).eq. "Tmin")then
      frI(0,:) = -frI(0,:)
-     frQU(2,:) = -frQU(2,:)
+     frQU(1,:) = -frQU(1,:)
   endif
   call patchI%init("T", n, dr)
   call patchQU%init("QU", n, dr)

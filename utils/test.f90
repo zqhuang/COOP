@@ -41,7 +41,7 @@ contains
     want =  (q(0)**2+u(0)**2.gt. twonu2)
     if(want)then
        s(1) = sqrt(q(0)**2+u(0)**2)
-       s(2) = (q(1)*q(0)+u(1)*u(0))/s(1)
+       s(2) = qq!(q(1)*q(0)+u(1)*u(0))/s(1)
     endif
   end subroutine getp
 

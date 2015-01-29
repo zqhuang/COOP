@@ -9,7 +9,8 @@ program Exp_spots
   COOP_REAL::l_deg_axis = 220.d0
   COOP_REAL::b_deg_axis = -17.d0
 
-  COOP_STRING::output = "st/smica_hem_2deg_nu0pt5.dat"
+  COOP_STRING::cc_method = "smica"
+  COOP_STRING::output 
   COOP_REAL::threshold = 0.5d0
   
   COOP_INT,parameter::n_sim = 30
@@ -24,11 +25,11 @@ program Exp_spots
   COOP_REAL::r(0:n), pfr(0:n), pfr(0:n)
   COOP_UNKNOWN_STRING,parameter::mapdir = "massffp8/"
   COOP_UNKNOWN_STRING,parameter::postfix = "_020a_0512.fits"
-  COOP_STRING::imap_file = "planck14/dx11_v2_smica_int_cmb"//postfix
-  COOP_STRING::polmap_file = "planck14/dx11_v2_smica_pol_case1_cmb_hp_20_40"//postfix  
+  COOP_STRING::imap_file = "planck14/dx11_v2_"//trim(cc_method)//"_int_cmb"//postfix
+  COOP_STRING::polmap_file = "planck14/dx11_v2_"//trim(cc_method)//"_pol_case1_cmb_hp_20_40"//postfix  
   COOP_STRING::imask_file = "planck14/dx11_v2_common_int_mask"//postfix 
   COOP_STRING::polmask_file = "planck14/dx11_v2_common_pol_mask"//postfix
-  
+  COOP_STRING::line
   type(coop_stacking_options)::sto_max, sto_min, stn_max, sts_max, stn_min, sts_min
   type(coop_healpix_patch)::north_max, north_min, south_max, south_min
   type(coop_healpix_maps)::imap, imask, polmask, inoise, polnoise, polmap
@@ -38,8 +39,15 @@ program Exp_spots
   type(coop_file)::fp
   type(coop_asy)::fig
   COOP_INT i
-  COOP_INT ind, ind_done  
-  !!specified for tempearture  
+  COOP_INT ind, ind_done
+
+
+  if(iargc().gt.3)then
+     
+  endif
+  
+  output = "ha/"//trim(cc_method)//"_hem_2deg_nu0pt5.dat"
+  
   if(trim(orient_name).eq."NULL")then
      call sto_max%init(.true., peak_name, orient_name, nmaps = 1)
      call sto_min%init(.false., peak_name, orient_name, nmaps = 1)     
@@ -91,11 +99,9 @@ program Exp_spots
      else
         read(fp%unit) i, north_max%fr, north_min%fr, south_max%fr, south_min%fr
      endif
-     !     fr =  (north_max%fr(:, 0, 1)/north_max%fr(0,0,1) + north_min%fr(:,0,1)/north_min%fr(0,0,1))/2.d0 - (south_max%fr(:,0,1)/south_max%fr(0,0,1) + south_min%fr(:,0,1)/south_min%fr(0,0,1))/2.d0
      pfr =  (north_max%fr(:, 0, 1) - north_min%fr(:,0,1))/2.d0 - (south_max%fr(:,0,1) - south_min%fr(:,0,1))/2.d0     
      if(ind.eq.0)then
         pfr0 = pfr
-!        call fig%curve(r, fr, color = "red", linetype= "solid", linewidth = 1.5, legend = "Planck")
      elseif(ind.eq.1)then
         call fig%curve(r, pfr - pfr0, color = "blue", linetype= "dotted", linewidth = 1.,legend = "FFP8")        
      else
@@ -129,9 +135,9 @@ contains
     north_min%fr = north_min%fr*1.d6
     south_max%fr = south_max%fr*1.d6
     south_min%fr = south_min%fr*1.d6    
-    
   end subroutine stack_imap
 
+  
   subroutine load_imap(i)
     COOP_INT i
     logical,save::first_load = .true.
@@ -140,11 +146,11 @@ contains
        call imap%read(imap_file, nmaps_wanted = sto_max%nmaps, nmaps_to_read = 1)
     else
        if(first_load)then
-          call imap%read(trim(mapdir)//"dx11_v2_smica_int_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, nmaps_wanted = sto_max%nmaps)
-          call inoise%read(trim(mapdir)//"dx11_v2_smica_int_noise_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, nmaps_wanted = sto_max%nmaps)
+          call imap%read(trim(mapdir)//"dx11_v2_"//trim(cc_method)//"_int_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, nmaps_wanted = sto_max%nmaps)
+          call inoise%read(trim(mapdir)//"dx11_v2_"//trim(cc_method)//"_int_noise_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, nmaps_wanted = sto_max%nmaps)
        else          
-          call imap%read(trim(mapdir)//"dx11_v2_smica_int_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, known_size = .true.)
-          call inoise%read(trim(mapdir)//"dx11_v2_smica_int_noise_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, known_size = .true.)
+          call imap%read(trim(mapdir)//"dx11_v2_"//trim(cc_method)//"_int_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, known_size = .true.)
+          call inoise%read(trim(mapdir)//"dx11_v2_"//trim(cc_method)//"_int_noise_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, known_size = .true.)
           first_load = .false.
        endif
        imap%map(:, 1) = imap%map(:, 1) + inoise%map(:, 1)       

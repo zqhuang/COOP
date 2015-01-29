@@ -53,7 +53,7 @@ program massive_stack
      write(*,*) "./SST smica     1024 T  0.5 1000 self    cold0"     
      write(*,*) "./SST nilc      512  T  0.  100  linear    cold1 T"
      write(*,*) "./SST commander 1024 QU 2.  500  gaussian  hot0  F T"
-     write(*,*) "./SST sevem     1024 T  1.  300  tophat    hot1  T"               
+     write(*,*) "./SST sevem     1024 T  1.  300  tophat    hot1  T"
      stop
   endif
   cc_method = trim(coop_inputArgs(1))
@@ -325,8 +325,8 @@ contains
         patch_min_data%fr(:, 0, 1) = - patch_min_data%fr(:, 0, 1)
         patch_min_sim%fr(:, 0, 1) = - patch_min_sim%fr(:, 0, 1)
      case("QU")
-        patch_min_data%fr(:, 2, :) = - patch_min_data%fr(:, 2, :)
-        patch_min_sim%fr(:, 2, :) = - patch_min_sim%fr(:, 2, :)
+        patch_min_data%fr(:, 1, :) = - patch_min_data%fr(:, 1, :)
+        patch_min_sim%fr(:, 1, :) = - patch_min_sim%fr(:, 1, :)
      case default
         write(*,*) "So far SST only supports T and QU stacking"
         stop 

@@ -3134,7 +3134,7 @@ contains
        if(domask)then
           sigma  = sqrt(sum(dble(this%map(:,sto%index_I))**2, mask%map(:,1).gt.0.5)/total_weight)
        else
-          sigma = sqrt(sum(dble(this%map(:,1))**2)/total_weight)
+          sigma = sqrt(sum(dble(this%map(:,sto%index_I))**2)/total_weight)
        endif
        sto%I_lower = sto%I_lower_nu* sigma
        sto%I_upper = sto%I_upper_nu* sigma
@@ -3143,7 +3143,7 @@ contains
        if(domask)then
           sigma  = sqrt(sum(dble(this%map(:,sto%index_L))**2, mask%map(:,1).gt.0.5)/total_weight)
        else
-          sigma = sqrt(sum(dble(this%map(:,1))**2)/total_weight)
+          sigma = sqrt(sum(dble(this%map(:, sto%index_L))**2)/total_weight)
        endif
        sto%L_lower = sto%L_lower_nu* sigma
        sto%L_upper = sto%L_upper_nu* sigma
@@ -3216,6 +3216,53 @@ contains
                 endif
              enddo
           end select
+       else
+          select case(sto%genre)
+          case(coop_stacking_genre_Imax, coop_stacking_genre_Imax_Oriented, coop_stacking_genre_Lmax, coop_stacking_genre_Lmax_Oriented)
+             do i=0, this%npix-1
+                if( sto%reject(this%map(i,:)))cycle
+                call neighbours_nest(this%nside, i, list, nneigh)  
+                if ( all(this%map(list(1:nneigh), index_peak).lt.this%map(i, index_peak)) )then
+                   call sto%peak_pix%push(i)
+                   call this%pix2ang(i, thetaphi(1), thetaphi(2))
+                   call sto%peak_ang%push(real(thetaphi))
+                   call sto%peak_map%push(this%map(i, :))
+                endif
+             enddo
+          case(coop_stacking_genre_Imin, coop_stacking_genre_Imin_Oriented, coop_stacking_genre_Lmin, coop_stacking_genre_Lmin_Oriented)
+             do i=0, this%npix-1
+                if( sto%reject(this%map(i,:)))cycle
+                call neighbours_nest(this%nside, i, list, nneigh)  
+                if ( all(this%map(list(1:nneigh), index_peak) .gt. this%map(i, index_peak))  )then
+                   call sto%peak_pix%push(i)
+                   call this%pix2ang(i, thetaphi(1), thetaphi(2))
+                   call sto%peak_ang%push(real(thetaphi))
+                   call sto%peak_map%push(this%map(i, :))
+                endif
+             enddo
+          case(coop_stacking_genre_Pmax_Oriented)
+             do i=0, this%npix-1
+                if( sto%reject(this%map(i,:)))cycle
+                call neighbours_nest(this%nside, i, list, nneigh)  
+                if ( all(this%map(list(1:nneigh), sto%index_Q)**2 + this%map(list(1:nneigh), sto%index_U)**2 .lt. this%map(i, sto%index_Q)**2 + this%map(i, sto%index_U)**2)  )then
+                   call sto%peak_pix%push(i)
+                   call this%pix2ang(i, thetaphi(1), thetaphi(2))
+                   call sto%peak_ang%push(real(thetaphi))
+                   call sto%peak_map%push(this%map(i, :))
+                endif
+             enddo
+          case(coop_stacking_genre_Pmin_Oriented)
+             do i=0, this%npix-1
+                if(sto%reject(this%map(i,:)))cycle
+                call neighbours_nest(this%nside, i, list, nneigh)  
+                if ( all(this%map(list(1:nneigh), sto%index_Q)**2 + this%map(list(1:nneigh), sto%index_U)**2 .gt. this%map(i, sto%index_Q)**2 + this%map(i, sto%index_U)**2) )then
+                   call sto%peak_pix%push(i)
+                   call this%pix2ang(i, thetaphi(1), thetaphi(2))
+                   call sto%peak_ang%push(real(thetaphi))
+                   call sto%peak_map%push(this%map(i, :))
+                endif
+             enddo
+          end select          
        end if
     else
        if(domask)then    
@@ -3269,6 +3316,57 @@ contains
                 endif
              enddo
           end select
+       else
+          select case(sto%genre)
+          case(coop_stacking_genre_Imax, coop_stacking_genre_Imax_Oriented, coop_stacking_genre_Lmax, coop_stacking_genre_Lmax_Oriented)
+             do i=0, this%npix-1
+                if( sto%reject(this%map(i,:)))cycle
+                call neighbours_nest(this%nside, i, list, nneigh)  
+                if ( all(this%map(list(1:nneigh), index_peak).lt.this%map(i, index_peak)) )then
+                   call nest2ring(this%nside, i, ip)
+                   call sto%peak_pix%push(ip)
+                   call this%pix2ang(i, thetaphi(1), thetaphi(2))
+                   call sto%peak_ang%push(real(thetaphi))
+                   call sto%peak_map%push(this%map(i, :))
+                endif
+             enddo
+          case(coop_stacking_genre_Imin, coop_stacking_genre_Imin_Oriented, coop_stacking_genre_Lmin, coop_stacking_genre_Lmin_Oriented)
+             do i=0, this%npix-1
+                if( sto%reject(this%map(i,:)))cycle
+                call neighbours_nest(this%nside, i, list, nneigh)  
+                if ( all(this%map(list(1:nneigh), index_peak) .gt. this%map(i, index_peak))  )then
+                   call nest2ring(this%nside, i, ip)
+                   call sto%peak_pix%push(ip)
+                   call this%pix2ang(i, thetaphi(1), thetaphi(2))
+                   call sto%peak_ang%push(real(thetaphi))
+                   call sto%peak_map%push(this%map(i, :))
+                endif
+             enddo
+          case(coop_stacking_genre_Pmax_Oriented)
+             do i=0, this%npix-1
+                if( sto%reject(this%map(i,:)))cycle
+                call neighbours_nest(this%nside, i, list, nneigh)  
+                if ( all(this%map(list(1:nneigh), sto%index_Q)**2 + this%map(list(1:nneigh), sto%index_U)**2 .lt. this%map(i, sto%index_Q)**2 + this%map(i, sto%index_U)**2) )then
+                   call nest2ring(this%nside, i, ip)
+                   call sto%peak_pix%push(ip)
+                   call this%pix2ang(i, thetaphi(1), thetaphi(2))
+                   call sto%peak_ang%push(real(thetaphi))
+                   call sto%peak_map%push(this%map(i, :))
+                endif
+             enddo
+          case(coop_stacking_genre_Pmin_Oriented)
+             do i=0, this%npix-1
+                if(  sto%reject(this%map(i,:)))cycle
+                call neighbours_nest(this%nside, i, list, nneigh)  
+                if ( all(this%map(list(1:nneigh), sto%index_Q)**2 + this%map(list(1:nneigh), sto%index_U)**2 .gt. this%map(i, sto%index_Q)**2 + this%map(i, sto%index_U)**2) )then
+                   call nest2ring(this%nside, i, ip)
+                   call sto%peak_pix%push(ip)
+                   call this%pix2ang(i, thetaphi(1), thetaphi(2))
+                   call sto%peak_ang%push(real(thetaphi))
+                   call sto%peak_map%push(this%map(i, :))
+                endif
+             enddo
+          end select          
        end if
     endif
     if(present(restore))then

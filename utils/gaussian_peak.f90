@@ -250,7 +250,7 @@ contains
   end subroutine coop_gaussian_get_oriented_stacking_weights
 
 
-    subroutine coop_gaussian_get_pmax_stacking_weights(nu, args, weights)
+  subroutine coop_gaussian_get_pmax_stacking_weights(nu, args, weights)
     type(coop_arguments)::args
     COOP_REAL nu
     COOP_REAL:: A(2,2), nmax, weights(4), twonu2
