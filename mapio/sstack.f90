@@ -87,15 +87,23 @@ program massive_stack
 
 
   select case(trim(coop_inputArgs(9)))
+  case("N")
+     imask_file = "planck14/HemAsym_north_int_mask"//trim(postfix)
+     polmask_file = "planck14/HemAsym_north_pol_mask"//trim(postfix)          
+     output = trim(outputdir)//trim(cc_method)//"_nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"_"//trim(coop_str_numalpha(peak_name))//"_Orient"//trim(coop_str_numalpha(orient_name))//"_HAnorth.dat"                 
+  case("S")
+     imask_file = "planck14/HemAsym_south_int_mask"//trim(postfix)
+     polmask_file = "planck14/HemAsym_south_pol_mask"//trim(postfix)          
+     output = trim(outputdir)//trim(cc_method)//"_nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"_"//trim(coop_str_numalpha(peak_name))//"_Orient"//trim(coop_str_numalpha(orient_name))//"_HAsouth.dat"                 
   case("T")
-     imask_file = "planck14/coldspot_cut_mask"//trim(postfix)
-     polmask_file = "planck14/dx11_v2_common_pol_mask"//trim(postfix)          
+     imask_file = "planck14/ColdSpotCut_int_mask"//trim(postfix)
+     polmask_file = "planck14/ColdSpotCut_pol_mask"//trim(postfix)          
      output = trim(outputdir)//trim(cc_method)//"_nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"_"//trim(coop_str_numalpha(peak_name))//"_Orient"//trim(coop_str_numalpha(orient_name))//"_CutColdSpot.dat"            
-  else
+  case default
      imask_file = "planck14/dx11_v2_common_int_mask"//trim(postfix)
      polmask_file = "planck14/dx11_v2_common_pol_mask"//trim(postfix)          
      output = trim(outputdir)//trim(cc_method)//"_nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"_"//trim(coop_str_numalpha(peak_name))//"_Orient"//trim(coop_str_numalpha(orient_name))//".dat"
-  endif
+  end select
 
   
   
