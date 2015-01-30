@@ -9,22 +9,36 @@ program stackth
   use alm_tools
   implicit none
 #include "constants.h"
+  COOP_INT::nside, fwhm
+  COOP_STRING::postfix, hastr, cstr
+  nside = 256
+  hastr = "HemAsym_"
+  cstr = "ColdSpotCut_"
+  do while (nside .lt. 1024)
+     nside = nside*2
+     fwhm = 10240/nside
+     postfix = "_"//trim(coop_ndigits(fwhm, 3))//"a_"//trim(coop_ndigits(nside,4))//".fits"
+     
+     call coop_healpix_spot_select_mask(nside=nside, l_deg = 212.d0, b_deg = -13.d0, r_deg = 90.d0, filename = "planck14/"//trim(hastr)//"north_mask"//trim(postfix))
+     call coop_healpix_spot_cut_mask(nside=nside, l_deg = 212.d0, b_deg = -13.d0, r_deg = 90.d0, filename = "planck14/"//trim(hastr)//"south_mask"//trim(postfix))
 
-  type(coop_healpix_maps)::hgm
-  call coop_healpix_spot_select_mask(nside=1024, l_deg = 212.d0, b_deg = -13.d0, r_deg = 90.d0, filename = "planck14/power_asymmetry_hemisphere_north_1024.fits")
-  call coop_healpix_spot_cut_mask(nside=1024, l_deg = 212.d0, b_deg = -13.d0, r_deg = 90.d0, filename = "planck14/power_asymmetry_hemisphere_south_1024.fits")
-  
-  call coop_healpix_merge_masks("planck14/power_asymmetry_hemisphere_north_1024.fits", "planck14/dx11_v2_common_int_mask_010a_1024.fits", "planck14/power_asymmetry_hemisphere_north_int_1024.fits")
-  call coop_healpix_merge_masks("planck14/power_asymmetry_hemisphere_south_1024.fits", "planck14/dx11_v2_common_int_mask_010a_1024.fits", "planck14/power_asymmetry_hemisphere_south__int_1024.fits")  
+     call coop_healpix_merge_masks("planck14/"//trim(hastr)//"north_mask"//trim(postfix), "planck14/dx11_v2_common_int_mask"//trim(postfix), "planck14/"//trim(hastr)//"north_int_mask"//trim(postfix))
+     call coop_healpix_merge_masks("planck14/"//trim(hastr)//"north_mask"//trim(postfix), "planck14/dx11_v2_common_pol_mask"//trim(postfix), "planck14/"//trim(hastr)//"north_pol_mask"//trim(postfix))     
 
-  call coop_healpix_merge_masks("planck14/power_asymmetry_hemisphere_north_1024.fits", "planck14/dx11_v2_common_pol_mask_010a_1024.fits", "planck14/power_asymmetry_hemisphere_north_pol_1024.fits")
-  call coop_healpix_merge_masks("planck14/power_asymmetry_hemisphere_south_1024.fits", "planck14/dx11_v2_common_pol_mask_010a_1024.fits", "planck14/power_asymmetry_hemisphere_south__pol_1024.fits")
+     call coop_healpix_merge_masks("planck14/"//trim(hastr)//"south_mask"//trim(postfix), "planck14/dx11_v2_common_int_mask"//trim(postfix), "planck14/"//trim(hastr)//"south_int_mask"//trim(postfix))
+     call coop_healpix_merge_masks("planck14/"//trim(hastr)//"south_mask"//trim(postfix), "planck14/dx11_v2_common_pol_mask"//trim(postfix), "planck14/"//trim(hastr)//"south_pol_mask"//trim(postfix))     
+
+     
 
 
-  call coop_healpix_spot_cut_mask(nside=1024, l_deg = 207.8d0, b_deg = -56.3d0, r_deg = 12.d0, filename = "planck14/coldspot_cut_mask_1024.fits")
-  
-  call coop_healpix_merge_masks("planck14/coldspot_cut_mask_1024.fits", "planck14/dx11_v2_common_int_mask_010a_1024.fits", "planck14/coldspot_select_mask_int_1024.fits")
+     call coop_healpix_spot_cut_mask(nside=nside, l_deg = 207.8d0, b_deg = -56.3d0, r_deg = 6.d0, filename = "planck14/"//trim(cstr)//"mask"//trim(postfix))
 
-  call coop_healpix_merge_masks("planck14/coldspot_cut_mask_1024.fits", "planck14/dx11_v2_common_pol_mask_010a_1024.fits", "planck14/coldspot_select_mask_pol_1024.fits")     
+     call coop_healpix_merge_masks("planck14/"//trim(cstr)//"mask"//trim(postfix), "planck14/dx11_v2_common_int_mask"//trim(postfix), "planck14/"//trim(cstr)//"int_mask"//trim(postfix) )
+
+     call coop_healpix_merge_masks("planck14/"//trim(cstr)//"mask"//trim(postfix), "planck14/dx11_v2_common_pol_mask"//trim(postfix), "planck14/"//trim(cstr)//"pol_mask"//trim(postfix) )     
+
+  enddo
+
+
   
 end program stackth
