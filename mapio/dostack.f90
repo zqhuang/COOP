@@ -5,11 +5,11 @@ program Stacking_Maps
   implicit none
 #include "constants.h"
 #ifdef HAS_HEALPIX
-  logical::use_mask = .false.
-  COOP_STRING::stack_field_name = "QU"
-  COOP_STRING::map_file =   "simu/simu_fullsky_015a_IQU_fwhm15.fits" !"planck14/dx11_v2_smica_int_cmb_020a_0512.fits"
-  COOP_STRING::peak_file = "peaks/simu_imax_nu0.dat" !"peaks/smica_fwhm20_Tmin_ORIENTNULL_nu0.dat"
-  COOP_STRING::imask_file = "planck14/dx11_v2_common_int_mask_010a_1024.fits" !"planck14/coldspot_mask_0512.fits" !
+  logical::use_mask = .true.
+  COOP_STRING::stack_field_name = "QrUr"
+  COOP_STRING::map_file =  "planck14/dx11_v2_smica_pol_case1_cmb_hp_20_40_010a_1024.fits"
+  COOP_STRING::peak_file = "peaks/simu_imax_nu0.dat" 
+  COOP_STRING::imask_file = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
   COOP_STRING::polmask_file = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
   COOP_UNKNOWN_STRING,parameter::mask_file_force_to_use = ""
   COOP_INT,parameter::n = 36
@@ -19,7 +19,7 @@ program Stacking_Maps
   type(coop_stacking_options)::sto
   type(coop_healpix_patch)::patch
   type(coop_healpix_maps)::hgm, mask, pmap
-  COOP_STRING::output = "stacked/sample_PTmax_simu"
+  COOP_STRING::output = "stacked/sample"
   COOP_INT i, m
   COOP_REAL::zmin1 = 1.1e31
   COOP_REAL::zmax1 = -1.1e31

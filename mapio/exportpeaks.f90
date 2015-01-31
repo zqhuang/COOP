@@ -5,18 +5,18 @@ program Exp_spots
   implicit none
 #include "constants.h"
 #ifdef HAS_HEALPIX
-  logical::use_mask = .false.  
+  logical::use_mask = .true.  
   logical::do_max = .true.
-  COOP_STRING::peak_name = "$P_T$"
-  COOP_STRING::orient_name = "$(Q_T, U_T)$"
-  COOP_STRING::map_file = "simu/simu_fullsky_015a_TQTUT_fwhm15.fits" ! "planck14/dx11_v2_smica_int_cmb_010a_1024.fits"
+  COOP_STRING::peak_name = "$T$"
+  COOP_STRING::orient_name = "NULL"
+  COOP_STRING::map_file =  "planck14/dx11_v2_smica_int_cmb_010a_1024.fits"
   COOP_STRING::imask_file = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
   COOP_STRING::polmask_file = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
   COOP_STRING::mask_file_force_to_use = ""
   type(coop_stacking_options)::sto
   type(coop_healpix_maps)::hgm, mask
   COOP_STRING::output = "peaks/simu_imax_nu0"
-  COOP_REAL::threshold_I = 0.d0
+  COOP_REAL::threshold = -1.e20
   COOP_STRING::line
   if(iargc() .ge. 8)then
      map_file = coop_InputArgs(1)
@@ -28,16 +28,31 @@ program Exp_spots
      orient_name = coop_InputArgs(6)
      output = coop_InputArgs(7)
      line = coop_InputArgs(8)
-     read(line, *) threshold_I
+     read(line, *) threshold
   endif
   
   call hgm%read(map_file)
   call sto%init(do_max, peak_name, orient_name, nmaps = hgm%nmaps)
-  if(do_max)then
-     sto%I_lower_nu = threshold_I
-  else
-     sto%I_upper_nu = -threshold_I
-  endif
+  select case(trim(coop_str_numalpha(peak_name)))
+  case("T", "I", "E", "B", "zeta", "Z")
+     if(do_max)then
+        sto%I_lower_nu = threshold
+     else
+        sto%I_upper_nu = -threshold
+     endif
+  case("P", "PT", "Pzeta", "PZ")
+     if(do_max)then
+        sto%P_lower_nu = max(threshold, 0.d0)
+     else
+        if(threshold .le. 0.d0) stop "For Pmin you must use positive threshold"
+        sto%P_upper_nu = threshold
+     endif
+  case default
+     if(abs(threshold).lt. coop_stacking_max_threshold)then
+        write(*,*) "cannot apply threshold for unknown peak name: "//trim(peak_name)
+        stop
+     endif
+  end select
   if(use_mask)then
      if( sto%mask_int .and. .not. sto%mask_pol)then
         call mask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
