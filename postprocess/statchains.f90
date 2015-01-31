@@ -538,15 +538,15 @@ contains
     kMpc = exp(lnk)
     standard_lnps = mean_lnAs+(standard_ns -1.)*(lnk-coop_pp_scalar_lnkpivot)
     
-    call fig_spec%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$10^{10}\mathcal{P}_{S,T}$", xlog=.true., ylog = .true., xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = 1., ymax = 250., doclip = .true.)
+    call fig_spec%init(xlabel="$ k [{\rm Mpc}^{-1}]$", ylabel = "$10^{10}\mathcal{P}_{S,T}$", xlog=.true., ylog = .true., xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = 1., ymax = 250., doclip = .true.)
     if(coop_postprocess_do_cls)then
        call fig_cls%init(xlabel = "$\ell$", ylabel ="$\mathcal{D}_\ell (\mu K ^2)$",  xlog = .true., ylog = .false., xmin = 1., xmax = 2000., ymin = 0., ymax = 6000., doclip = .true.)
        if(do_dcl) call fig_dcls%init(xlabel = "$\ell$", ylabel ="$\Delta \mathcal{D}_\ell (\mu K^2)$",  xlog = .true., ylog = .false., xmin = 1.8, xmax = 300., ymin = -500., ymax = 500., doclip = .true.)       
     endif
-    call coop_asy_topaxis(fig_spec, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell\equiv  k D_{\rm rec}$")
+    call coop_asy_topaxis(fig_spec, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell_k\equiv  k D_{\rm rec}$")
     call fig_pot%init(xlabel="$(\phi - \phi_{\rm pivot})/M_p$", ylabel = "$\ln (V/V_{\rm pivot})$", xmin = -1.5, xmax = 0.5, ymin = -0.2, ymax = 0.6, doclip = .true.)
     call fig_eps%init(xlabel = "$ k ({\rm Mpc}^{-1})$", ylabel = "$\epsilon$", xlog = .true. ,  xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = -0.005, ymax = 0.145, doclip = .true.)
-    call coop_asy_topaxis(fig_eps, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell\equiv  k D_{\rm rec}$")             
+    call coop_asy_topaxis(fig_eps, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell_k\equiv  k D_{\rm rec}$")             
 
     num_trajs = 0
     first_1sigma = .true.
@@ -732,9 +732,9 @@ contains
        ps(1:numpp) = 0.005
        call coop_asy_dots(fig_eps, k_knots, ps(1:numpp), "black", "$\Delta$")
     endif
-    if(coop_postprocess_do_cls) call coop_asy_legend(fig_cls, 4., 5000., 1)
+    if(coop_postprocess_do_cls) call coop_asy_legend(fig_cls, 4., 5000., 1, box = .false.)
     if(do_dcl)then
-       call coop_asy_legend(fig_dcls, 45., 420., 1)
+       call coop_asy_legend(fig_dcls, 45., 420., 1, box = .false.)
        call fig_dcls%close()
     endif
     if(chain_index_of_name(mc, "r") .ne. 0)then
@@ -745,9 +745,9 @@ contains
           call coop_asy_label(fig_spec, "fixed $r="//COOP_STR_OF(coop_str2real(rval))//"$", 0.012, 8., "black")
        endif
     endif
-    call coop_asy_legend(fig_spec, real(exp(lnkmin + 1.2)), 170., 2)
-    call coop_asy_legend(fig_eps, real(exp(coop_pp_lnkmin +4.)), 0.115, 1)
-    call coop_asy_legend(fig_pot, -0.2, 0.35, 1)
+    call coop_asy_legend(fig_spec, real(exp(lnkmin + 1.2)), 170., 2, box = .false.)
+    call coop_asy_legend(fig_eps, real(exp(coop_pp_lnkmin +4.)), 0.115, 1, box = .false.)
+    call coop_asy_legend(fig_pot, -0.2, 0.35, 1, box = .false.)
     call fig_spec%close()
     call fig_cls%close()
     call fig_eps%close()
@@ -924,7 +924,7 @@ contains
           ytop = max(ytop, maxval(lnpscov(:,j)*norm))
        endif
     endif
-    call coop_asy_legend(fp, 0.0001, ytop*0.9)
+    call coop_asy_legend(fp, 0.0001, ytop*0.9, box = .false.)
     call fp%close()
  
     
@@ -1045,7 +1045,7 @@ contains
        if(mc%np_pca .ge. 5)then
           call coop_asy_curve(fp, ipca, pcamat(:,5), smooth = .false., color = "gray", linetype = "longdashdotted", linewidth = 0.8, legend =  "$\sigma_5="//trim(coop_num2str(eig(5), "(G11.2)"))//"$")
        endif
-       call coop_asy_legend(fp)
+       call coop_asy_legend(fp, box = .false.)
        call fp%close()
        deallocate(pcamat , eig , ipca)
     endif

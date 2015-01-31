@@ -87,6 +87,7 @@ module coop_asy_mod
   interface coop_asy_legend
      module procedure coop_asy_legend_s, coop_asy_legend_d, coop_asy_legend_default, coop_asy_legend_location
   end interface coop_asy_legend
+  
 
   interface coop_asy_dot
      module procedure coop_asy_dot_s, coop_asy_dot_d
@@ -526,13 +527,22 @@ contains
     enddo
   end subroutine coop_asy_lines_s
 
-  subroutine coop_asy_add_legend(fp,  legend,  color, linetype, linewidth)
+  subroutine coop_asy_add_legend(fp,  legend,  color, linetype, linewidth, box)
     class(coop_asy)::fp
     COOP_UNKNOWN_STRING::legend
     COOP_UNKNOWN_STRING, optional :: color, linetype
     COOP_SINGLE, optional::linewidth
+    logical, optional::box
     COOP_STRING lineproperty
-    write(fp%unit, "(A)") "LEGEND"
+    if(present(box))then
+       if(.not. box)then
+          write(fp%unit, "(A)") "LEGEND_NOBOX"
+       else
+          write(fp%unit, "(A)") "LEGEND"          
+       endif
+    else
+       write(fp%unit, "(A)") "LEGEND"
+    endif
     write(fp%unit, "(A)") "VIRTUAL"
     if(trim(adjustl(legend)) .ne. "")then
        write(fp%unit, "(A)") trim(adjustl(legend))
@@ -2556,11 +2566,20 @@ contains
     call coop_asy_legend_location(fp, "N")
   end subroutine coop_asy_legend_default
 
-  subroutine coop_asy_legend_location(fp, loc, cols)
+  subroutine coop_asy_legend_location(fp, loc, cols, box)
     class(coop_asy) fp
     COOP_UNKNOWN_STRING :: loc
     COOP_INT , optional::cols
-    write(fp%unit, "(A)") "LEGEND"
+    logical,optional::box
+    if(present(box))then
+       if(.not. box)then
+          write(fp%unit, "(A)") "LEGEND_NOBOX"
+       else
+          write(fp%unit, "(A)") "LEGEND"          
+       endif
+    else
+       write(fp%unit, "(A)") "LEGEND"
+    endif
     if(trim(loc).ne."")then
        write(fp%unit, "(A)") trim(loc)
     else
@@ -2573,11 +2592,20 @@ contains
     endif
   end subroutine coop_asy_legend_location
 
-  subroutine coop_asy_legend_d(fp, x, y, cols)
+  subroutine coop_asy_legend_d(fp, x, y, cols, box)
     class(coop_asy) fp
     COOP_REAL x, y
     COOP_INT ,optional::cols
-    write(fp%unit, "(A)") "LEGEND"
+    logical,optional::box
+    if(present(box))then
+       if(.not. box)then
+          write(fp%unit, "(A)") "LEGEND_NOBOX"
+       else
+          write(fp%unit, "(A)") "LEGEND"          
+       endif
+    else
+       write(fp%unit, "(A)") "LEGEND"
+    endif
     write(fp%unit, "(A)") "NULL"
     write(fp%unit, "(2G15.4)") x, y
     if(present(cols))then
@@ -2587,11 +2615,20 @@ contains
     endif
   end subroutine coop_asy_legend_d
 
-  subroutine coop_asy_legend_s(fp, x, y, cols)
+  subroutine coop_asy_legend_s(fp, x, y, cols, box)
     class(coop_asy) fp
     COOP_SINGLE  x, y
     COOP_INT ,optional::cols
-    write(fp%unit, "(A)") "LEGEND"
+    logical,optional::box
+    if(present(box))then
+       if(.not. box)then
+          write(fp%unit, "(A)") "LEGEND_NOBOX"
+       else
+          write(fp%unit, "(A)") "LEGEND"          
+       endif
+    else
+       write(fp%unit, "(A)") "LEGEND"
+    endif
     write(fp%unit, "(A)") "NULL"
     write(fp%unit, "(2G15.4)") x, y
     if(present(cols))then
@@ -2601,11 +2638,20 @@ contains
     endif
   end subroutine coop_asy_legend_s
 
-  subroutine coop_asy_legend_relative(fp, xratio, yratio, cols)
+  subroutine coop_asy_legend_relative(fp, xratio, yratio, cols, box)
     class(coop_asy) fp
     COOP_SINGLE  xratio, yratio
     COOP_INT ,optional::cols
-    write(fp%unit, "(A)") "LEGEND"
+    logical,optional::box
+    if(present(box))then
+       if(.not. box)then
+          write(fp%unit, "(A)") "LEGEND_NOBOX"
+       else
+          write(fp%unit, "(A)") "LEGEND"          
+       endif
+    else
+       write(fp%unit, "(A)") "LEGEND"
+    endif
     write(fp%unit, "(A)") "NULL"
     write(fp%unit, "(2G15.4)") fp%xrel(xratio), fp%yrel(yratio)
     if(present(cols))then

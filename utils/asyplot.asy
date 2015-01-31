@@ -836,6 +836,26 @@ int plot_legend(file fin){
      add(legend(cols), ( xcoor(loc[0]), ycoor(loc[1]) ), UnFill);}
   return 1;
 }
+
+int plot_legend_nobox(file fin){
+  string cstr;
+  cstr = fetch_string(fin);
+  if(trim_string(cstr) !=""){
+      int cols = fin;
+      if(trim_string(cstr) == "N")
+         add(legend(perline = cols, p = invisible), point(N), 20N, UnFill); 
+      else if(trim_string(cstr) == "S")
+         add(legend(perline = cols, p = invisible), point(S), 20S, UnFill); 
+      else if(trim_string(cstr) == "W")
+         add(legend(perline = cols, p = invisible), point(W), 20W, UnFill);
+      else 
+         add(legend(perline = cols, p = invisible), point(E), 20E, UnFill);}
+  else{
+     real loc[] = fin.dimension(2);
+     int cols = fin;
+     add(legend(perline = cols, p = invisible), ( xcoor(loc[0]), ycoor(loc[1]) ), UnFill);}
+  return 1;
+}
 // =============================================================================
 //plot EXTRA_AXIS
 string plot_extra_axis(file fin){
@@ -1052,6 +1072,9 @@ bool plot_block(file fin){
     else if(block == "LEGEND"){
        nlines = plot_legend(fin);
        write(stdout, 'legends are added. \n');}
+    else if(block == "LEGEND_NOBOX"){
+       nlines = plot_legend_nobox(fin);
+       write(stdout, 'legends are added. \n');}       
     else if(block == "EXTRA_AXIS"){
        string added =  plot_extra_axis(fin);
        write(stdout, added + ' is added. \n');}
