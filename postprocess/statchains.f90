@@ -1045,7 +1045,7 @@ contains
        if(mc%np_pca .ge. 5)then
           call coop_asy_curve(fp, ipca, pcamat(:,5), smooth = .false., color = "gray", linetype = "longdashdotted", linewidth = 0.8, legend =  "$\sigma_5="//trim(coop_num2str(eig(5), "(G11.2)"))//"$")
        endif
-       call coop_asy_legend(fp, box = .false.)
+       call coop_asy_legend(fp)
        call fp%close()
        deallocate(pcamat , eig , ipca)
     endif
