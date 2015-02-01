@@ -841,19 +841,47 @@ int plot_legend_nobox(file fin){
   string cstr;
   cstr = fetch_string(fin);
   if(trim_string(cstr) !=""){
-      int cols = fin;
-      if(trim_string(cstr) == "N")
-         add(legend(perline = cols, p = invisible), point(N), 20N, UnFill); 
-      else if(trim_string(cstr) == "S")
-         add(legend(perline = cols, p = invisible), point(S), 20S, UnFill); 
-      else if(trim_string(cstr) == "W")
-         add(legend(perline = cols, p = invisible), point(W), 20W, UnFill);
-      else 
-         add(legend(perline = cols, p = invisible), point(E), 20E, UnFill);}
+     int cols = fin;
+     if(trim_string(cstr) == "N")
+        add(legend(perline = cols, p = invisible), point(N), 20N, UnFill); 
+     else if(trim_string(cstr) == "S")
+       add(legend(perline = cols, p = invisible), point(S), 20S, UnFill); 
+    else if(trim_string(cstr) == "W")
+       add(legend(perline = cols, p = invisible), point(W), 20W, UnFill);
+    else 
+       add(legend(perline = cols, p = invisible), point(E), 20E, UnFill);}
   else{
      real loc[] = fin.dimension(2);
      int cols = fin;
      add(legend(perline = cols, p = invisible), ( xcoor(loc[0]), ycoor(loc[1]) ), UnFill);}
+  return 1;
+}
+
+
+int plot_legend_advance(file fin){
+  string cstr;  
+  cstr = fetch_string(fin);
+  pen  boxpen = pen_from_string(cstr);
+  real xmargin = fin;
+  real ymargin = fin;
+  real linelength = fin;
+  real hskip = fin;
+  real vskip = fin;
+  int cols = fin;  
+  frame leg = legend(perline = cols, xmargin = xmargin*legendmargin, ymargin = ymargin*legendmargin, linelength = linelength*legendlinelength, hskip = hskip*legendhskip, vskip = vskip*legendvskip, p = boxpen);
+  cstr = fetch_string(fin);  
+  if(trim_string(cstr) !=""){
+      if(trim_string(cstr) == "N")
+         add(leg, point(N), 20N, UnFill); 
+      else if(trim_string(cstr) == "S")
+         add(leg, point(S), 20S, UnFill); 
+      else if(trim_string(cstr) == "W")
+         add(leg, point(W), 20W, UnFill);
+      else 
+         add(leg, point(E), 20E, UnFill);}
+  else{
+     real loc[] = fin.dimension(2);
+     add(leg, ( xcoor(loc[0]), ycoor(loc[1]) ), UnFill);}
   return 1;
 }
 // =============================================================================
@@ -1074,6 +1102,9 @@ bool plot_block(file fin){
        write(stdout, 'legends are added. \n');}
     else if(block == "LEGEND_NOBOX"){
        nlines = plot_legend_nobox(fin);
+       write(stdout, 'legends are added. \n');}              
+    else if(block == "LEGEND_ADVANCE"){
+       nlines = plot_legend_advance(fin);
        write(stdout, 'legends are added. \n');}       
     else if(block == "EXTRA_AXIS"){
        string added =  plot_extra_axis(fin);
