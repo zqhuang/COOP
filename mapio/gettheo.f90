@@ -60,14 +60,18 @@ program stackth
      print*, "warning: high-pass filter is on"
   endif
   select case(trim(spot_type))
-  case("Pmax")
+  case("Pmax", "Emax")
      index_auto = index_EE
   case default
      index_auto = index_TT
   end select
   select case(trim(stack_field))
   case("T")
-     index_corr = index_TT
+     if(index_auto .eq. index_TT)then
+        index_corr = index_TT
+     else
+        index_corr = index_TE
+     endif
   case("QU")
      if(index_auto .eq. index_TT)then
         index_corr = index_TE
