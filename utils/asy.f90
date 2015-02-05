@@ -31,6 +31,7 @@ module coop_asy_mod
      procedure::interpolate_curve => coop_asy_interpolate_curve_d
      procedure::plot => coop_asy_curve_d
      procedure::legend => coop_asy_legend_relative
+     procedure::legend_advance => coop_asy_legend_advance_relative
      procedure::add_legend => coop_asy_add_legend
      procedure::line => coop_asy_line_d
      procedure::lines => coop_asy_lines_d
@@ -87,6 +88,10 @@ module coop_asy_mod
   interface coop_asy_legend
      module procedure coop_asy_legend_s, coop_asy_legend_d, coop_asy_legend_default, coop_asy_legend_location
   end interface coop_asy_legend
+
+  interface coop_asy_legend_advance
+     module procedure coop_asy_legend_advance_s, coop_asy_legend_advance_d, coop_asy_legend_advance_location     
+  end interface coop_asy_legend_advance
   
 
   interface coop_asy_dot
@@ -175,28 +180,28 @@ contains
     endif
     write(fp%unit, "(2F12.2)") fp%width, fp%height
     if(present(caption))then
-       if(caption.eq."")then
+       if(trim(adjustl(caption)) .eq."")then
           write(fp%unit, "(A)") "NULL"
        else
-          write(fp%unit, "(A)") trim(caption)
+          write(fp%unit, "(A)") trim(adjustl(caption))
        endif
     else
        write(fp%unit, "(A)") "NULL"
     endif
     if(present(xlabel))then
-       if(trim(xlabel).eq."")then
+       if(trim(adjustl(xlabel)).eq."")then
           write(fp%unit, "(A)") "NULL"
        else
-          write(fp%unit, "(A)") trim(xlabel)
+          write(fp%unit, "(A)") trim(adjustl(xlabel))
        endif
     else
        write(fp%unit, "(A)") "NULL"
     endif
     if(present(ylabel))then
-       if(trim(ylabel).eq."")then
+       if(trim(adjustl(ylabel)).eq."")then
           write(fp%unit, "(A)") "NULL"
        else
-          write(fp%unit, "(A)") trim(ylabel)
+          write(fp%unit, "(A)") trim(adjustl(ylabel))
        endif
     else
        write(fp%unit, "(A)") "NULL"
@@ -2580,10 +2585,10 @@ contains
     else
        write(fp%unit, "(A)") "LEGEND"
     endif
-    if(trim(loc).ne."")then
-       write(fp%unit, "(A)") trim(loc)
+    if(trim(adjustl(loc)).ne."")then
+       write(fp%unit, "(A)") trim(adjustl(loc))
     else
-       write(fp%unit, "(A)") "E"
+       write(fp%unit, "(A)") "N"
     end if
     if(present(cols))then
        write(fp%unit, "(I8)")  cols
@@ -2614,6 +2619,86 @@ contains
        write(fp%unit, "(I8)")  1
     endif
   end subroutine coop_asy_legend_d
+
+
+  subroutine coop_asy_legend_advance_d(fp, x, y, box_color, xmargin, ymargin, linelength, hskip, vskip, cols)
+    class(coop_asy) fp
+    COOP_REAL::x, y
+    COOP_INT::cols
+    COOP_UNKNOWN_STRING::box_color
+    COOP_SINGLE::xmargin, ymargin, linelength, hskip, vskip
+    write(fp%unit, "(A)") "LEGEND_ADVANCE"
+    write(fp%unit, "(A)") trim(adjustl(box_color))
+    write(fp%unit, "(G15.4)") xmargin
+    write(fp%unit, "(G15.4)") ymargin
+    write(fp%unit, "(G15.4)") linelength
+    write(fp%unit, "(G15.4)") hskip
+    write(fp%unit, "(G15.4)") vskip    
+    write(fp%unit, "(I6)")  cols    
+    write(fp%unit, "(A)") "NULL"
+    write(fp%unit, "(2G15.4)") x, y
+  end subroutine coop_asy_legend_advance_d
+
+
+  subroutine coop_asy_legend_advance_s(fp, x, y, box_color, xmargin, ymargin, linelength, hskip, vskip, cols)
+    class(coop_asy) fp
+    COOP_SINGLE::x, y
+    COOP_INT::cols
+    COOP_UNKNOWN_STRING::box_color
+    COOP_SINGLE::xmargin, ymargin, linelength, hskip, vskip
+    write(fp%unit, "(A)") "LEGEND_ADVANCE"
+    write(fp%unit, "(A)") trim(adjustl(box_color))
+    write(fp%unit, "(G15.4)") xmargin
+    write(fp%unit, "(G15.4)") ymargin
+    write(fp%unit, "(G15.4)") linelength
+    write(fp%unit, "(G15.4)") hskip
+    write(fp%unit, "(G15.4)") vskip    
+    write(fp%unit, "(I6)")  cols    
+    write(fp%unit, "(A)") "NULL"
+    write(fp%unit, "(2G15.4)") x, y
+  end subroutine coop_asy_legend_advance_s
+
+
+  subroutine coop_asy_legend_advance_relative(fp, xratio, yratio, box_color, xmargin, ymargin, linelength, hskip, vskip, cols)
+    class(coop_asy) fp
+    COOP_SINGLE::xratio, yratio
+    COOP_INT::cols
+    COOP_UNKNOWN_STRING::box_color
+    COOP_SINGLE::xmargin, ymargin, linelength, hskip, vskip
+    write(fp%unit, "(A)") "LEGEND_ADVANCE"
+    write(fp%unit, "(A)") trim(adjustl(box_color))
+    write(fp%unit, "(G15.4)") xmargin
+    write(fp%unit, "(G15.4)") ymargin
+    write(fp%unit, "(G15.4)") linelength
+    write(fp%unit, "(G15.4)") hskip
+    write(fp%unit, "(G15.4)") vskip    
+    write(fp%unit, "(I6)")  cols    
+    write(fp%unit, "(A)") "NULL"
+    write(fp%unit, "(2G15.4)") fp%xrel(xratio), fp%yrel(yratio)
+  end subroutine coop_asy_legend_advance_relative
+  
+  
+  subroutine coop_asy_legend_advance_location(fp, loc, box_color, xmargin, ymargin, linelength, hskip, vskip, cols)
+    class(coop_asy) fp
+    COOP_UNKNOWN_STRING::loc
+    COOP_INT::cols
+    COOP_UNKNOWN_STRING::box_color
+    COOP_SINGLE::xmargin, ymargin, linelength, hskip, vskip
+    write(fp%unit, "(A)") "LEGEND_ADVANCE"
+    write(fp%unit, "(A)") trim(adjustl(box_color))
+    write(fp%unit, "(G15.4)") xmargin
+    write(fp%unit, "(G15.4)") ymargin
+    write(fp%unit, "(G15.4)") linelength
+    write(fp%unit, "(G15.4)") hskip
+    write(fp%unit, "(G15.4)") vskip    
+    write(fp%unit, "(I6)")  cols
+    if(trim(adjustl(loc)).ne."")then
+       write(fp%unit, "(A)") trim(adjustl(loc))
+    else
+       write(fp%unit, "(A)") "N"
+    endif
+  end subroutine coop_asy_legend_advance_location
+  
 
   subroutine coop_asy_legend_s(fp, x, y, cols, box)
     class(coop_asy) fp
@@ -2660,7 +2745,8 @@ contains
        write(fp%unit, "(I8)")  1
     endif
   end subroutine coop_asy_legend_relative
-  
+
+
 
   subroutine coop_asy_topaxis_s(fp, xmin, xmax, islog,label)
     COOP_SINGLE  xmin, xmax
@@ -2669,8 +2755,8 @@ contains
     COOP_UNKNOWN_STRING label
     write(fp%unit, "(A)")"EXTRA_AXIS"
     write(fp%unit, "(A)") "top"
-    if(trim(label).ne."")then
-       write(fp%unit, "(A)") trim(label)
+    if(trim(adjustl(label)).ne."")then
+       write(fp%unit, "(A)") trim(adjustl(label))
     else
        write(fp%unit, "(A)") "NULL"
     endif
@@ -2698,8 +2784,8 @@ contains
     COOP_UNKNOWN_STRING label
     write(fp%unit, "(A)")"EXTRA_AXIS"
     write(fp%unit, "(A)") "right"
-    if(trim(label).ne."")then
-       write(fp%unit, "(A)") trim(label)
+    if(trim(adjustl(label)).ne."")then
+       write(fp%unit, "(A)") trim(adjustl(label))
     else
        write(fp%unit, "(A)") "NULL"
     endif

@@ -15,7 +15,7 @@ default: all
 $(LIB): $(OBJ) 
 	ar -r $@ $?
 
-all: $(LIB) UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo
+all: $(LIB) UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo SST
 
 GetTheo:  $(OBJ) gettheo.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) gettheo.o $(LINK)
