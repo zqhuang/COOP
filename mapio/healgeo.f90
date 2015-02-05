@@ -22,6 +22,12 @@ module coop_healpix_mod
   logical::coop_healpix_IAU_headless_vector = .true.
   COOP_REAL::coop_healpix_QrUrSign = -1.d0  !!WMAP7 invented this...
   
+  COOP_SINGLE::coop_healpix_patch_default_figure_width = 4.
+  COOP_SINGLE::coop_healpix_patch_default_figure_height = 3.
+  logical::coop_healpix_patch_default_want_caption = .false.
+  logical::coop_healpix_patch_default_want_label = .false.
+  logical::coop_healpix_patch_default_want_arrow = .false.
+  
   public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_trim_maskfile, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask, coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks
   
 
@@ -416,7 +422,11 @@ contains
        xlabel = "$\varpi\cos\phi (\mathrm{deg})$"
        ylabel = "$\varpi\sin\phi (\mathrm{deg})$"
     endif
-    call fig%init(caption = trim(this%caption), xlabel =trim(xlabel), ylabel =trim(ylabel), width = 5., height = 3.9, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)))              
+    if(coop_healpix_patch_default_want_caption)then
+       call fig%init(caption = trim(this%caption), xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)))
+    else
+       call fig%init(xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)))          
+    endif
     if(this%tbs%zmin(imap) .lt.0.99e30)then
        minz = this%tbs%zmin(imap)
     else
@@ -427,11 +437,15 @@ contains
     else
        call coop_array_get_threshold(this%image(:,:,imap), COOP_REAL_OF(0.01), maxz)
     endif
-    call coop_asy_density(fig, this%image(:,:,imap), -this%r(this%n), this%r(this%n), -this%r(this%n), this%r(this%n), label = trim(this%tbs%label(imap)), zmax = maxz, zmin = minz, color_table = trim(this%color_table))
-    if(use_rad)then
+    if(coop_healpix_patch_default_want_label)then
+       call coop_asy_density(fig, this%image(:,:,imap), -this%r(this%n), this%r(this%n), -this%r(this%n), this%r(this%n), label = trim(this%tbs%label(imap)), zmax = maxz, zmin = minz, color_table = trim(this%color_table))
+    else
+       call coop_asy_density(fig, this%image(:,:,imap), -this%r(this%n), this%r(this%n), -this%r(this%n), this%r(this%n), zmax = maxz, zmin = minz, color_table = trim(this%color_table))       
+    endif
+    if(use_rad .and. coop_healpix_patch_default_want_arrow)then
        theta = nint(2.d0*asin(this%r(this%n)/2.d0)/coop_SI_degree*10.d0)/10.d0
-       call coop_asy_label(fig, "$\mathbf{-"//COOP_STR_OF(theta)//"}^\circ$", -this%r(this%n), -this%r(this%n)*1.15, color="blue")
-       call coop_asy_label(fig, "$\mathbf{"//COOP_STR_OF(theta)//"}^\circ$", this%r(this%n), -this%r(this%n)*1.15, color="blue")
+       call coop_asy_label(fig, "$\mathbf{-"//COOP_STR_OF(theta)//"}^\circ$", -this%r(this%n)*1.02, -this%r(this%n)*1.15, color="blue")
+       call coop_asy_label(fig, "$\mathbf{"//COOP_STR_OF(theta)//"}^\circ$", this%r(this%n)*1.02, -this%r(this%n)*1.15, color="blue")
        call fig%arrow(this%r(this%n),  -this%r(this%n)*1.08, this%r(this%n),  -this%r(this%n)*1.01)
        call fig%arrow(-this%r(this%n),  -this%r(this%n)*1.08, -this%r(this%n),  -this%r(this%n)*1.01)
     endif

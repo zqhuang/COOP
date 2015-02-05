@@ -13,6 +13,7 @@ program massive_stack
   COOP_STRING::cc_method = "smica"
   COOP_STRING::filter = "tophat"
   COOP_STRING::fr_genre = "cold0"
+  COOP_STRING::polcase = "pol_case1"
   COOP_STRING::stack_field_name = "T"
   COOP_INT::resol = 1024
   COOP_INT::fwhm
@@ -57,6 +58,15 @@ program massive_stack
      stop
   endif
   cc_method = trim(coop_inputArgs(1))
+  select case(trim(cc_method))
+  case("smica","sevem","nilc")
+     polcase= "pol_case1"
+  case("commander")
+     polcase = "pol_case5"
+  case default
+     write(*,*) "unknown cc_method = "//trim(cc_method)
+     stop
+  end select
   line = coop_inputArgs(2)
   read(line,*) resol
   if(resol .ne. 1024 .and. resol .ne. 512) stop "only support resolution 512 and 1024"
@@ -80,7 +90,7 @@ program massive_stack
   postfix = "_"//trim(coop_ndigits(fwhm,3))//"a_"//trim(coop_ndigits(resol,4))//".fits"
   
   imap_file = "planck14/dx11_v2_"//trim(cc_method)//"_int_cmb"//trim(postfix)
-  polmap_file = "planck14/dx11_v2_"//trim(cc_method)//"_pol_case1_cmb_hp_20_40"//trim(postfix)
+  polmap_file = "planck14/dx11_v2_"//trim(cc_method)//"_"//trim(polcase)//"_cmb_hp_20_40"//trim(postfix)
   
 
 
@@ -206,11 +216,12 @@ program massive_stack
   S_upper(3) = S_m(ceiling(n_sim*0.9985d0))
 
 #define FSTR(x) trim(coop_num2str(x, "(F13.2)"))
-  write(*,"(A12, G13.4, A12, G13.4)") "S_m mean = ", Smean, " S_m data = ", S_m(0)
+  write(*,"(A12, F13.2, A12, F13.2)") "S_m mean = ", Smean, " S_m data = ", S_m(0)
   do i = 1, 3
      write(*,"(I5,  G13.4, A9, G13.4)") i, S_lower(i), " < S_m < ", S_upper(i)
   enddo
-  write(*,"(A)") "S_m = "//FSTR(Smean)//"^{+"//FSTR(S_upper(1)-Smean)//"+"//FSTR(S_upper(2) - Smean)//"+"//FSTR(S_upper(3) - Smean)//"}_{-"//FSTR(Smean - S_lower(1))//"-"//FSTR(Smean - S_lower(2))//"-"//FSTR(Smean - S_lower(3))//"}"
+  write(*,"(A)") "$"//FSTR(S_m(0))//"("//FSTR(Smean)//"^{+"//FSTR(S_upper(1)-Smean)//"+"//FSTR(S_upper(2) - Smean)//"}_{-"//FSTR(Smean - S_lower(1))//"-"//FSTR(Smean - S_lower(2))//"})$"  
+  !write(*,"(A)") "S_m = "//FSTR(Smean)//"^{+"//FSTR(S_upper(1)-Smean)//"+"//FSTR(S_upper(2) - Smean)//"+"//FSTR(S_upper(3) - Smean)//"}_{-"//FSTR(Smean - S_lower(1))//"-"//FSTR(Smean - S_lower(2))//"-"//FSTR(Smean - S_lower(3))//"}"
   call fig%close()
   call fp%close()
   deallocate(S_m)
@@ -273,8 +284,8 @@ contains
     if(i.eq.0)then
        call polmap%read(polmap_file, nmaps_wanted = 2, spin = (/ 2 , 2 /) )
     else
-       call polmap%read(trim(mapdir)//"cmb/pol/dx11_v2_"//trim(cc_method)//"_pol_case1_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//"_hp_20_40"//trim(postfix), nmaps_wanted = 2, spin = (/ 2, 2 /) )
-       call polnoise%read(trim(mapdir)//"noise/pol/dx11_v2_"//trim(cc_method)//"_pol_case1_noise_mc_"//trim(coop_Ndigits(i-1, 5))//"_hp_20_40"//trim(postfix), nmaps_wanted = 2, spin = (/ 2 , 2 /) )
+       call polmap%read(trim(mapdir)//"cmb/pol/dx11_v2_"//trim(cc_method)//"_"//trim(polcase)//"_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//"_hp_20_40"//trim(postfix), nmaps_wanted = 2, spin = (/ 2, 2 /) )
+       call polnoise%read(trim(mapdir)//"noise/pol/dx11_v2_"//trim(cc_method)//"_"//trim(polcase)//"_noise_mc_"//trim(coop_Ndigits(i-1, 5))//"_hp_20_40"//trim(postfix), nmaps_wanted = 2, spin = (/ 2 , 2 /) )
        polmap%map = polmap%map + polnoise%map
     endif
     polloaded = .true.

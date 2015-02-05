@@ -5,12 +5,13 @@ program Stacking_Maps
   implicit none
 #include "constants.h"
 #ifdef HAS_HEALPIX
-  logical::use_mask = .true.
-  COOP_STRING::stack_field_name = "QrUr"
-  COOP_STRING::map_file =  "planck14/dx11_v2_smica_pol_case1_cmb_hp_20_40_010a_1024.fits"
+  logical::use_mask = .false.
+  COOP_STRING::stack_field_name = "QU"
+  COOP_UNKNOWN_STRING,parameter::map_postfix = "020a_0512.fits"
+  COOP_STRING::map_file =  "simu/simu_fullsky_015a_IQU_fwhm15.fits" !!"planck14/dx11_v2_smica_pol_case1_cmb_hp_20_40_"//map_postfix
   COOP_STRING::peak_file = "peaks/simu_imax_nu0.dat" 
-  COOP_STRING::imask_file = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
-  COOP_STRING::polmask_file = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
+  COOP_STRING::imask_file = "planck14/dx11_v2_common_int_mask_"//map_postfix
+  COOP_STRING::polmask_file = "planck14/dx11_v2_common_pol_mask_"//map_postfix
   COOP_UNKNOWN_STRING,parameter::mask_file_force_to_use = ""
   COOP_INT,parameter::n = 36
   COOP_REAL,parameter::r_degree  = 2.d0
@@ -110,7 +111,7 @@ program Stacking_Maps
      do m = 0, patch%mmax, 2
         call fig%open(trim(adjustl(output))//"_m"//COOP_STR_OF(m)//".txt")
         call fig%init(xlabel="$r$", ylabel="radial profile")
-        call coop_asy_curve(fig, patch%r, patch%fr(:, m/2, 1)+patch%fr(:, m/2, 2))
+        call coop_asy_curve(fig, patch%r, (patch%fr(:, m/2, 1)+patch%fr(:, m/2, 2))/2.d0)
         call fig%close()
         call fig%open(trim(adjustl(output))//"_m"//COOP_STR_OF(m)//".dat")
         do i=0, patch%n

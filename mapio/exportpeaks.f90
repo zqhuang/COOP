@@ -5,18 +5,19 @@ program Exp_spots
   implicit none
 #include "constants.h"
 #ifdef HAS_HEALPIX
-  logical::use_mask = .true.  
+  logical::use_mask = .false.  
   logical::do_max = .true.
   COOP_STRING::peak_name = "$T$"
-  COOP_STRING::orient_name = "NULL"
-  COOP_STRING::map_file =  "planck14/dx11_v2_smica_int_cmb_010a_1024.fits"
-  COOP_STRING::imask_file = "planck14/dx11_v2_common_int_mask_010a_1024.fits"
-  COOP_STRING::polmask_file = "planck14/dx11_v2_common_pol_mask_010a_1024.fits"
+  COOP_STRING::orient_name = "$(Q_T,U_T)$"
+  COOP_UNKNOWN_STRING,parameter::map_postfix = "020a_0512.fits"  
+  COOP_STRING::map_file =  "simu/simu_fullsky_015a_TQTUT_fwhm15.fits" !!"tmpmaps/smica_TQTUT_fwhm20.fits" !"planck14/dx11_v2_smica_int_cmb_"//map_postfix
+  COOP_STRING::imask_file = "planck14/dx11_v2_common_int_mask_"//map_postfix
+  COOP_STRING::polmask_file = "planck14/dx11_v2_common_pol_mask_"//map_postfix
   COOP_STRING::mask_file_force_to_use = ""
   type(coop_stacking_options)::sto
   type(coop_healpix_maps)::hgm, mask
   COOP_STRING::output = "peaks/simu_imax_nu0"
-  COOP_REAL::threshold = -1.e20
+  COOP_REAL::threshold = 0.5
   COOP_STRING::line
   if(iargc() .ge. 8)then
      map_file = coop_InputArgs(1)
