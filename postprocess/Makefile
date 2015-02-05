@@ -6,7 +6,7 @@ include ../compile_rules.in
 LIB = libcooppostprocess.a
 OBJ = latex.o statchains.o 
 
-default: $(LIB)
+default: $(LIB) GD
 
 $(LIB): $(OBJ) 
 	ar -r $@ $?

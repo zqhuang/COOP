@@ -655,8 +655,8 @@ contains
              if(ik.ne. l) stop "Error in bestfit cl file"
           enddo
           call fcl%close()
-          call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean, interpolate = "LogLinear", color="HEX:20DA30", linetype="dashed", linewidth = 1., legend="running bestfit")
-          if(do_dcl) call fig_dcls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean - cls_best, interpolate = "LogLinear", color="HEX:20DA30", linetype="dashed", linewidth = 1.8, legend="running bestfit")          
+          call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean, interpolate = "LogLinear", color="HEX:20DA30", linetype="dashed", linewidth = 1., legend="$n_{\rm run}$ bestfit")
+          if(do_dcl) call fig_dcls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean - cls_best, interpolate = "LogLinear", color="HEX:20DA30", linetype="dashed", linewidth = 1.8, legend="$n_{\rm run}$ bestfit")          
        endif
 
        if(trim(bestfit_varytau_file).ne."")then
@@ -745,9 +745,9 @@ contains
           call coop_asy_label(fig_spec, "fixed $r="//COOP_STR_OF(coop_str2real(rval))//"$", 0.012, 8., "black")
        endif
     endif
-    call coop_asy_legend(fig_spec, real(exp(lnkmin + 1.2)), 170., 2, box = .false.)
-    call coop_asy_legend(fig_eps, real(exp(coop_pp_lnkmin +4.)), 0.115, 1, box = .false.)
-    call coop_asy_legend(fig_pot, -0.2, 0.35, 1, box = .false.)
+    call coop_asy_legend_advance(fig_spec, real(exp(lnkmin + 1.2)), 180., "invisible", 0., 0., 0.75, 0.9, 0.9, 2)
+    call coop_asy_legend_advance(fig_eps, real(exp(coop_pp_lnkmin +4.)), 0.115,  "invisible", 0., 0., 0.75, 0.9, 0.9, 1)
+    call coop_asy_legend_advance(fig_pot, -0.2, 0.35, "invisible", 0., 0., 0.75, 0.9, 0.9, 1)
     call fig_spec%close()
     call fig_cls%close()
     call fig_eps%close()
