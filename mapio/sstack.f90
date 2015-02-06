@@ -57,6 +57,8 @@ program massive_stack
      write(*,*) "./SST sevem     1024 T  1.  300  tophat    hot1  T"
      stop
   endif
+  coop_healpix_warning = .false.
+  
   cc_method = trim(coop_inputArgs(1))
   select case(trim(cc_method))
   case("smica","sevem","nilc")

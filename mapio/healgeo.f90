@@ -27,6 +27,7 @@ module coop_healpix_mod
   logical::coop_healpix_patch_default_want_caption = .false.
   logical::coop_healpix_patch_default_want_label = .false.
   logical::coop_healpix_patch_default_want_arrow = .false.
+  logical::coop_healpix_warning = .true.
   
   public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_trim_maskfile, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask, coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks
   
@@ -1199,12 +1200,12 @@ contains
              this%spin(4) = 0
              this%iq = 2
              this%iu = 3
-             write(*,*) "TQUL map default spin: 0 2 2 0"
+             if(coop_healpix_warning)write(*,*) "TQUL map default spin: 0 2 2 0"
           else
              this%spin = 0
              this%iq = 0
              this%iu = 0
-             write(*,*) "I assume all maps are scalar, specify spins otherwise"
+             if(coop_healpix_warning)write(*,*) "I assume all maps are scalar, specify spins otherwise"
           endif
        case(3)
           if(index(filename, "TEB") .eq. 0 .and. index(filename, "teb") .eq. 0)then
@@ -1212,24 +1213,24 @@ contains
              this%spin(2:3) = 2
              this%iq = 2
              this%iu = 3
-             write(*,*) "I assume it is an IQU map, specify spins otherwise"
+             if(coop_healpix_warning)write(*,*) "I assume it is an IQU map, specify spins otherwise"
           else
              this%spin = 0
              this%iq = 0
              this%iu = 0
-             write(*,*) "I assume all maps are scalar, specify spins otherwise"
+             if(coop_healpix_warning)write(*,*) "I assume all maps are scalar, specify spins otherwise"
           endif
        case(2)  
           if(index(filename, "TE") .eq. 0 .and. index(filename, "EB").eq.0)then
              this%spin(1:2) = 2
              this%iq = 1
              this%iu = 2
-             write(*,*) "I assume it is an QU map, specify spins otherwise"
+             if(coop_healpix_warning)write(*,*) "I assume it is an QU map, specify spins otherwise"
           else
              this%iq = 0
              this%iu = 0
              this%spin = 0
-             write(*,*) "I assume all maps are scalar, specify spins otherwise"
+             if(coop_healpix_warning)write(*,*) "I assume all maps are scalar, specify spins otherwise"
           endif
        case(1)
           this%iq = 0
@@ -1239,7 +1240,7 @@ contains
           this%iq = 0
           this%iu = 0
           this%spin = 0
-          write(*,*) "I assume all maps are scalar, specify spins otherwise"
+          if(coop_healpix_warning)write(*,*) "I assume all maps are scalar, specify spins otherwise"
        end select
     endif
     if(allocated(this%map))then

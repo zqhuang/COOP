@@ -538,14 +538,14 @@ contains
     kMpc = exp(lnk)
     standard_lnps = mean_lnAs+(standard_ns -1.)*(lnk-coop_pp_scalar_lnkpivot)
     
-    call fig_spec%init(xlabel="$ k [{\rm Mpc}^{-1}]$", ylabel = "$10^{10}\mathcal{P}_{S,T}$", xlog=.true., ylog = .true., xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = 1., ymax = 250., doclip = .true.)
+    call fig_spec%init(xlabel="$ k [{\rm Mpc}^{-1}]$", ylabel = "$10^{10}\mathcal{P}_{{\cal R},\mathrm{t}}$", xlog=.true., ylog = .true., xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = 1., ymax = 250., doclip = .true.)
     if(coop_postprocess_do_cls)then
        call fig_cls%init(xlabel = "$\ell$", ylabel ="$\mathcal{D}_\ell (\mu K ^2)$",  xlog = .true., ylog = .false., xmin = 1., xmax = 2000., ymin = 0., ymax = 6000., doclip = .true.)
        if(do_dcl) call fig_dcls%init(xlabel = "$\ell$", ylabel ="$\Delta \mathcal{D}_\ell (\mu K^2)$",  xlog = .true., ylog = .false., xmin = 1.8, xmax = 300., ymin = -500., ymax = 500., doclip = .true.)       
     endif
     call coop_asy_topaxis(fig_spec, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell_k\equiv  k D_{\rm rec}$")
     call fig_pot%init(xlabel="$(\phi - \phi_{\rm pivot})/M_p$", ylabel = "$\ln (V/V_{\rm pivot})$", xmin = -1.5, xmax = 0.5, ymin = -0.2, ymax = 0.6, doclip = .true.)
-    call fig_eps%init(xlabel = "$ k ({\rm Mpc}^{-1})$", ylabel = "$\epsilon$", xlog = .true. ,  xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = -0.005, ymax = 0.145, doclip = .true.)
+    call fig_eps%init(xlabel = "$ k [{\rm Mpc}^{-1}]$", ylabel = "$\epsilon$", xlog = .true. ,  xmin = real(exp(coop_pp_lnkmin-0.08)), xmax = real(exp(coop_pp_lnkmax + 0.08)), ymin = -0.005, ymax = 0.145, doclip = .true.)
     call coop_asy_topaxis(fig_eps, xmin = real(exp(coop_pp_lnkmin-0.08))*distlss,  xmax = real(exp(coop_pp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell_k\equiv  k D_{\rm rec}$")             
 
     num_trajs = 0
@@ -614,15 +614,15 @@ contains
           if(first_1sigma)then
              first_1sigma = .false.
              if(isam .le. num_cls_samples .and. coop_postprocess_do_cls)then
-                call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = Cls_samples(:, isam), interpolate = "LogLinear", color = "blue", linetype = "dotted", legend = "1-$\sigma$ trajs.")
+                call fig_cls%interpolate_curve(xraw = coop_pp_ells, yraw = Cls_samples(:, isam), interpolate = "LogLinear", color = "blue", linetype = "dotted", legend = "$1\sigma$ samples")
                 if(do_dcl)then
                    cls_mean = 0.
                    call fig_dcls%interpolate_curve(xraw = coop_pp_ells, yraw = cls_mean, interpolate = "LogLinear", color="HEX:011010", linewidth = 0.5)
                    
-                   call fig_dcls%interpolate_curve(xraw = coop_pp_ells, yraw = Cls_samples(:, isam) - cls_best, interpolate = "LogLinear", color = "blue", linetype = "dotted", legend = "1-$\sigma$ trajs.")
+                   call fig_dcls%interpolate_curve(xraw = coop_pp_ells, yraw = Cls_samples(:, isam) - cls_best, interpolate = "LogLinear", color = "blue", linetype = "dotted", legend = "$1\sigma$ samples")
                 endif
              endif
-             call fig_pot%interpolate_curve(xraw = coop_pp_phi, yraw = coop_pp_lnV-coop_pp_lnV(coop_pp_ipivot), interpolate="LinearLinear", color = "blue", linetype = "dotted", legend="1-$\sigma$ trajs.")
+             call fig_pot%interpolate_curve(xraw = coop_pp_phi, yraw = coop_pp_lnV-coop_pp_lnV(coop_pp_ipivot), interpolate="LinearLinear", color = "blue", linetype = "dotted", legend="$1\sigma$, samples")
              call fig_eps%interpolate_curve(xraw = exp(coop_pp_lnkMpc), yraw = exp(coop_pp_lneps), interpolate = "LogLinear", color = "blue", linetype = "dotted", legend="1-$\sigma$ trajs.")
           else
              if(isam .le. num_cls_samples .and. coop_postprocess_do_cls)then
@@ -710,22 +710,22 @@ contains
     enddo
     call fig_spec%band(kmpc, 1.d10*exp(lnps_bounds(-2,:)), 1.d10*exp(lnps_bounds(2,:)), colorfill = trim(coop_asy_gray_color(0.65)), linecolor="invisible")
     call fig_spec%band(kmpc, 1.d10*exp(lnps_bounds(-1,:)), 1.d10*exp(lnps_bounds(1,:)), colorfill = trim(coop_asy_gray_color(0.4)), linecolor="invisible")
-    call fig_spec%curve(kmpc, ps_trajs(:,1), color="HEX:006FED", linetype="dashed", linewidth=0.5,legend="1-$\sigma$ scalar")
-    call fig_spec%curve(kmpc, pt_trajs(:, 1), color="HEX:8CD3F5", linetype="dotted", linewidth=0.5, legend="1-$\sigma$ tensor")       
+    call fig_spec%curve(kmpc, ps_trajs(:,1), color="HEX:006FED", linetype="dashed", linewidth=0.5,legend="$\mathcal{P}_{\cal R}$ samples")
+    call fig_spec%curve(kmpc, pt_trajs(:, 1), color="HEX:8CD3F5", linetype="dotted", linewidth=0.5, legend="$\mathcal{P}_{\mathrm{t}}$ samples")       
     do j=2, num_trajs
        call fig_spec%curve(kmpc, ps_trajs(:,j), color="HEX:006FED", linetype="dashed", linewidth=0.5)
        call fig_spec%curve(kmpc, pt_trajs(:, j), color="HEX:8CD3F5", linetype="dotted", linewidth=0.5)
     enddo
-    call fig_spec%curve(kmpc, ps, color = "red", linetype = "solid", linewidth = 1.5, legend="mean scalar")
-    call fig_spec%curve(kmpc, pt, color = "violet", linetype = "solid", linewidth = 1.2, legend="mean tensor")
+    call fig_spec%curve(kmpc, ps, color = "red", linetype = "solid", linewidth = 1.5, legend="mean $\mathcal{P}_{\cal R}$")
+    call fig_spec%curve(kmpc, pt, color = "violet", linetype = "solid", linewidth = 1.2, legend="mean $\mathcal{P}_{\mathrm{t}}$")
 
     call fig_pot%interpolate_curve(xraw = coop_pp_phi, yraw = coop_pp_lnV-coop_pp_lnV(coop_pp_ipivot), interpolate="LinearLinear", color = "red", linetype = "solid", linewidth = 1.5, legend="mean traj")
     call fig_eps%interpolate_curve(xraw = exp(coop_pp_lnkMpc), yraw = exp(coop_pp_lneps), interpolate = "LogLinear", color = "red", linetype = "solid", linewidth = 1.5, legend="mean traj")
 
 
 
-    call fig_spec%curve(kMpc, exp(standard_lnps), color = "black", linewidth=1.2, legend="$m^2\phi^2$ scalar")
-    call fig_spec%curve(kMpc, exp(mean_lnAs - 0.01625*lnk)*0.13, color = "cyan", linewidth=1.2, legend="$m^2\phi^2$ tensor")
+    call fig_spec%curve(kMpc, exp(standard_lnps), color = "black", linewidth=1.2, legend="$m^2\phi^2$ model $\mathcal{P}_{\cal R}$")
+    call fig_spec%curve(kMpc, exp(mean_lnAs - 0.01625*lnk)*0.13, color = "cyan", linewidth=1.2, legend="$m^2\phi^2$ model $\mathcal{P}_{\mathrm{t}}$")
     if(numpp .gt. 4)then
        ps(1:numpp) = 1.3
        call coop_asy_dots(fig_spec, k_knots, ps(1:numpp), "black", "$\Delta$")
@@ -745,9 +745,9 @@ contains
           call coop_asy_label(fig_spec, "fixed $r="//COOP_STR_OF(coop_str2real(rval))//"$", 0.012, 8., "black")
        endif
     endif
-    call coop_asy_legend_advance(fig_spec, real(exp(lnkmin + 1.2)), 180., "invisible", 0., 0., 0.75, 0.9, 0.9, 2)
-    call coop_asy_legend_advance(fig_eps, real(exp(coop_pp_lnkmin +4.)), 0.115,  "invisible", 0., 0., 0.75, 0.9, 0.9, 1)
-    call coop_asy_legend_advance(fig_pot, -0.2, 0.35, "invisible", 0., 0., 0.75, 0.9, 0.9, 1)
+    call coop_asy_legend_advance(fig_spec, real(exp(lnkmin + 1.)), 170., "invisible", 0., 0., 0.8, 0.9, 0.9, 2)
+    call coop_asy_legend_advance(fig_eps, real(exp(coop_pp_lnkmin +4.)), 0.115,  "invisible", 0., 0., 0.8, 0.9, 0.9, 1)
+    call coop_asy_legend_advance(fig_pot, -0.2, 0.35, "invisible", 0., 0., 0.8, 0.9, 0.9, 1)
     call fig_spec%close()
     call fig_cls%close()
     call fig_eps%close()
@@ -830,7 +830,7 @@ contains
        lnpscov(ik,ik) = lnpscov(ik,ik) + 1.d-6
     enddo
     call fp%open(trim(mc%output)//"_pwtraj_eig.txt","w")
-    call fp%init(xlabel="$ k ({\rm Mpc}^{-1})$", ylabel = "$\delta \ln \Delta_S^2$", xlog = .true. , xmin = real(exp(lnkmin - 0.01)), xmax = real(exp(lnkmax + 0.01)), width = 7.2, height = 6.)
+    call fp%init(xlabel="$ k [{\rm Mpc}^{-1}]$", ylabel = "$\delta \ln \Delta_S^2$", xlog = .true. , xmin = real(exp(lnkmin - 0.01)), xmax = real(exp(lnkmax + 0.01)), width = 7.2, height = 6.)
     call coop_matsym_diagonalize(lnpscov, lnps, sort = .true.)
     mineig = max(lnps(1), 1.d-5)
     ytop = 0.
