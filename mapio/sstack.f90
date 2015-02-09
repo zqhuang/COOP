@@ -49,13 +49,13 @@ program massive_stack
   
   if(iargc() .lt. 7)then
      write(*,*) "Syntax:"
-     write(*,*) "./SST cc_method resolution stack_field nu n_sim filter fr_type [Orient] [cut_cold_spot]"
+     write(*,*) "./SST cc_method resolution stack_field nu n_sim filter fr_type [Orient] [cut_cold_spot] [remove_mono]"
      write(*,*) "Examples:"     
      write(*,*) "./SST smica     1024 T  0.5 1000 tophat    cold0"
      write(*,*) "./SST smica     1024 T  0.5 1000 self    cold0"     
      write(*,*) "./SST nilc      512  T  0.  100  linear    cold1 T"
      write(*,*) "./SST commander 1024 QU 2.  500  gaussian  hot0  F T"
-     write(*,*) "./SST sevem     1024 T  1.  300  tophat    hot1  T"
+     write(*,*) "./SST sevem     1024 T  1.  300  self    hc0  T T"
      stop
   endif
   coop_healpix_warning = .false.
@@ -86,7 +86,7 @@ program massive_stack
   else
      orient_name = "NULL"
   endif
-  
+  remove_mono = (trim(coop_inputArgs(9)) .eq. "T")    
   
   fwhm = 10240/resol
   outputdir = "st_"//trim(coop_str_numalpha(stack_field_name))//"_"//trim(coop_ndigits(resol,4))//"/"
@@ -118,8 +118,8 @@ program massive_stack
      polmask_file = "planck14/dx11_v2_common_pol_mask"//trim(postfix)          
      output = trim(outputdir)//trim(cc_method)//"_nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"_"//trim(coop_str_numalpha(peak_name))//"_Orient"//trim(coop_str_numalpha(orient_name))//".dat"
   end select
-
   
+
   
 
 
