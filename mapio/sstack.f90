@@ -6,7 +6,7 @@ program massive_stack
 #include "constants.h"
 #ifdef HAS_HEALPIX
   logical::remove_mono = .false.
-  COOP_INT,dimension(8),parameter::redo_list = (/ 278, 327, 401, 784, 805 , 857,957, 989 /)
+!  COOP_INT,dimension(8),parameter::redo_list = (/ 278, 327, 401, 784, 805 , 857,957, 989 /)
   COOP_UNKNOWN_STRING,parameter::cal_file_prefix = "rprof/"
   COOP_UNKNOWN_STRING,parameter::data_theory_cl_file = "planck14best_lensedCls.dat"
   COOP_UNKNOWN_STRING,parameter::sim_theory_cl_file = "planck13best_lensedCls.dat"  
@@ -41,7 +41,7 @@ program massive_stack
   type(coop_healpix_maps)::imap, imask, polmask, inoise, polnoise, polmap, imask_smooth, polmask_smooth, imask_copy
   logical::iloaded = .false.
   logical::polloaded  = .false.
-  type(coop_file)::fp, fpcopy
+  type(coop_file)::fp !, fpcopy
   type(coop_asy)::fig
   COOP_INT i, iredo
   COOP_INT ind, ind_done
@@ -183,7 +183,7 @@ program massive_stack
   endif
   
   call fp%open(output, "u")
-  call fpcopy%open(trim(output)//".copy", "u")  
+!!$  call fpcopy%open(trim(output)//".copy", "u")  
   call fig%open(coop_str_replace(output, ".dat", ".txt"))
   call fig%init(xlabel = "$\varpi$", ylabel = "$\delta "//trim(stack_field_name)//"_0$")
   if(ind_done .ge. 0)then
@@ -201,18 +201,18 @@ program massive_stack
         write(fp%unit) ind, patch_max%fr, patch_min%fr
      else
         read(fp%unit) i, patch_max%fr, patch_min%fr
-        do iredo = 1, size(redo_list)
-           if(i.eq. redo_list(iredo))then
-              print*, "stacking map#"//COOP_STR_OF(ind)
-              iloaded = .false.
-              polloaded = .false.
-              call find_peaks()
-              call stack_map()
-              call compute_fr()
-           endif
-        enddo
+!!$        do iredo = 1, size(redo_list)
+!!$           if(i.eq. redo_list(iredo))then
+!!$              print*, "stacking map#"//COOP_STR_OF(ind)
+!!$              iloaded = .false.
+!!$              polloaded = .false.
+!!$              call find_peaks()
+!!$              call stack_map()
+!!$              call compute_fr()
+!!$           endif
+!!$        enddo
      endif
-     write(fpcopy%unit) ind, patch_max%fr, patch_min%fr                   
+!!$     write(fpcopy%unit) ind, patch_max%fr, patch_min%fr                   
      call get_radial_f(pfr, patch_max, patch_min)
      if(ind.eq.0)then
         S_m(ind) = sum((pfr - pfr_theory_data)*wfil)
@@ -224,7 +224,7 @@ program massive_stack
      endif
   enddo
   call fp%close()
-  call fpcopy%close()
+!!$  call fpcopy%close()
   call fig%close()
   
   call coop_quicksort(S_m(1:n_sim))
