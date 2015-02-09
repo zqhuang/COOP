@@ -86,7 +86,7 @@ program massive_stack
   else
      orient_name = "NULL"
   endif
-  remove_mono = (trim(coop_inputArgs(9)) .eq. "T")    
+  remove_mono = (trim(coop_inputArgs(10)) .eq. "T")    
   
   fwhm = 10240/resol
   outputdir = "st_"//trim(coop_str_numalpha(stack_field_name))//"_"//trim(coop_ndigits(resol,4))//"/"
