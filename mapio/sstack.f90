@@ -50,7 +50,7 @@ program massive_stack
   
   if(iargc() .lt. 7)then
      write(*,*) "Syntax:"
-     write(*,*) "./SST cc_method resolution stack_field nu n_sim filter fr_type [Orient] [cut_cold_spot] [remove_mono]"
+     write(*,*) "./SST cc_method resolution stack_field nu n_sim filter fr_type [Orient] [cut_cold_spot] [remove_mono] [ReadOnly]"
      write(*,*) "Examples:"     
      write(*,*) "./SST smica     1024 T  0.5 1000 tophat    cold0"
      write(*,*) "./SST smica     1024 T  0.5 1000 self    cold0"     
@@ -88,7 +88,7 @@ program massive_stack
      orient_name = "NULL"
   endif
   remove_mono = (trim(coop_inputArgs(10)) .eq. "T")
-  read_only = (trim(coop_inputArgs(10)) .eq. "R")
+  read_only = (trim(coop_inputArgs(11)) .eq. "T")
   
   fwhm = 10240/resol
   outputdir = "st_"//trim(coop_str_numalpha(stack_field_name))//"_"//trim(coop_ndigits(resol,4))//"/"
