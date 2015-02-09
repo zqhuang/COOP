@@ -5,31 +5,37 @@ program Stacking_Maps
   implicit none
 #include "constants.h"
 #ifdef HAS_HEALPIX
-  logical::use_mask = .false.
+  logical::use_mask = .true.
+  logical::remove_mono = .false.
+  
   COOP_STRING::stack_field_name = "QU"
-  COOP_UNKNOWN_STRING,parameter::map_postfix = "020a_0512.fits"
-  COOP_STRING::map_file =  "simu/simu_fullsky_015a_IQU_fwhm15.fits" !!"planck14/dx11_v2_smica_pol_case1_cmb_hp_20_40_"//map_postfix
-  COOP_STRING::peak_file = "peaks/simu_imax_nu0.dat" 
+  COOP_UNKNOWN_STRING,parameter::map_postfix = "010a_1024.fits"
+  COOP_STRING::map_file =  "planck14/dx11_v2_smica_pol_case1_cmb_hp_20_40_"//map_postfix
+  
+  COOP_STRING::peak_file = "peaks/sample_orient_hot.dat"
+  
   COOP_STRING::imask_file = "planck14/dx11_v2_common_int_mask_"//map_postfix
   COOP_STRING::polmask_file = "planck14/dx11_v2_common_pol_mask_"//map_postfix
   COOP_UNKNOWN_STRING,parameter::mask_file_force_to_use = ""
+  
   COOP_INT,parameter::n = 36
   COOP_REAL,parameter::r_degree  = 2.d0
   COOP_REAL,parameter::dr = 2.d0*sin(r_degree*coop_SI_degree/2.d0)/n
-  
+
   type(coop_stacking_options)::sto
   type(coop_healpix_patch)::patch
   type(coop_healpix_maps)::hgm, mask, pmap
-  COOP_STRING::output = "stacked/sample"
+  COOP_STRING::output = "stacked/sample_orient_hot"
   COOP_INT i, m
   COOP_REAL::zmin1 = 1.1e31
   COOP_REAL::zmax1 = -1.1e31
   COOP_REAL::zmin2 = 1.1e31
   COOP_REAL::zmax2 = -1.1e31
-  COOP_STRING :: line
-  
+  COOP_STRING::line  
   type(coop_asy)::fig
+  
   if(iargc() .ge. 6)then
+     use_mask = .true.
      map_file = coop_InputArgs(1)
      imask_file = coop_InputArgs(2)
      polmask_file = coop_InputArgs(3)     
@@ -48,7 +54,10 @@ program Stacking_Maps
         line = coop_InputArgs(10)
         read(line, *) zmax2
      endif
-        
+  else
+     if(.not. use_mask)then
+        write(*,*) "Warning: not using the mask"
+     endif
   endif
   call sto%import(peak_file)
   call hgm%read(map_file)
@@ -66,7 +75,7 @@ program Stacking_Maps
      if(mask%nside .ne. hgm%nside) stop "mask and map must have the same nside"
      do i=1, hgm%nmaps
         hgm%map(:, i) = hgm%map(:, i)*mask%map(:, 1)
-        !     hgm%map(:, i) = hgm%map(:, i) - sum(dble(hgm%map(:,i)))/sum(dble(mask%map(:,1))) !!remove monopole
+        if(remove_mono) hgm%map(:, i) = hgm%map(:, i) - sum(dble(hgm%map(:,i)))/sum(dble(mask%map(:,1))) !!remove monopole
      enddo
   endif
   if(maxval(hgm%map(:,1)) .lt. 1.d-2)then

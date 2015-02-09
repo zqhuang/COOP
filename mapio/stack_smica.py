@@ -7,7 +7,7 @@ check_files = True
 
 prefix = "smica"
 
-fwhm_in = 10
+fwhm_in = 20
 nside = 2048 * 5 / fwhm_in
 if(nside < 1000):
     strnside = "0"+str(nside)

@@ -88,6 +88,7 @@ program stackth
      read(fp%unit, *) il, l2cls(:, l)
      ell(l)  = l
      l2cls(:,l) = l2cls(:, l)*(coop_2pi*exp(-l*(l+1.d0)*sigma**2))
+
      if(do_highpass)then
         l2cls(2:3,l) = l2cls(2:3,l)*coop_highpass_filter(20, 40, l)**2
         l2cls(4,l) = l2cls(4,l)*(coop_highpass_filter(20, 40, l))

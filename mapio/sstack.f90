@@ -5,7 +5,8 @@ program massive_stack
   implicit none
 #include "constants.h"
 #ifdef HAS_HEALPIX
-
+  logical::remove_mono = .false.
+  COOP_INT,dimension(:),parameter::redo_list = (/ 278, 327, 401, 784, 805 , 857957, 989 /)
   COOP_UNKNOWN_STRING,parameter::cal_file_prefix = "rprof/"
   COOP_UNKNOWN_STRING,parameter::data_theory_cl_file = "planck14best_lensedCls.dat"
   COOP_UNKNOWN_STRING,parameter::sim_theory_cl_file = "planck13best_lensedCls.dat"  
@@ -27,7 +28,7 @@ program massive_stack
   COOP_REAL,parameter::r_degree  = 2.d0
   COOP_REAL,parameter::dr = 2.d0*sin(r_degree*coop_SI_degree/2.d0)/n
   COOP_STRING::postfix
-  COOP_REAL::r(0:n), pfr(0:n), pfr_theory_data(0:n), pfr_theory_sim(0:n), Wfil(0:n), Smean, S_lower(3), S_upper(3)
+  COOP_REAL::r(0:n), pfr(0:n), pfr_theory_data(0:n), pfr_theory_sim(0:n), norm_theory_data(0:n), norm_theory_sim(0:n), Wfil(0:n), Smean, S_lower(3), S_upper(3)
   COOP_INT::count_p
   COOP_STRING::outputdir
   COOP_UNKNOWN_STRING,parameter::mapdir = "massffp8/"
@@ -37,12 +38,12 @@ program massive_stack
   COOP_REAL,dimension(:),allocatable::S_m
   type(coop_stacking_options)::sto_max, sto_min
   type(coop_healpix_patch)::patch_max, patch_min, patch_max_data, patch_max_sim, patch_min_data, patch_min_sim
-  type(coop_healpix_maps)::imap, imask, polmask, inoise, polnoise, polmap, imask_smooth, polmask_smooth
+  type(coop_healpix_maps)::imap, imask, polmask, inoise, polnoise, polmap, imask_smooth, polmask_smooth, imask_copy
   logical::iloaded = .false.
   logical::polloaded  = .false.
   type(coop_file)::fp
   type(coop_asy)::fig
-  COOP_INT i
+  COOP_INT i, iredo
   COOP_INT ind, ind_done
   COOP_REAL sumimask, sumpolmask
   
@@ -89,6 +90,7 @@ program massive_stack
   
   fwhm = 10240/resol
   outputdir = "st_"//trim(coop_str_numalpha(stack_field_name))//"_"//trim(coop_ndigits(resol,4))//"/"
+  if(remove_mono) outputdir = "m"//trim(outputdir)  
   postfix = "_"//trim(coop_ndigits(fwhm,3))//"a_"//trim(coop_ndigits(resol,4))//".fits"
   
   imap_file = "planck14/dx11_v2_"//trim(cc_method)//"_int_cmb"//trim(postfix)
@@ -155,19 +157,20 @@ program massive_stack
      wfil = exp(-(r/coop_SI_degree)**2)
      wfil = wfil/sum(wfil)  !!normalize          
   case("self","s")
-     wfil = pfr_theory_data/sum(pfr_theory_data**2)
+     wfil = norm_theory_data/sum(norm_theory_data**2)
      do_self = .true.
   case default
      stop "Unknown filter"
   end select
   
-  ind_done = -1  
+  ind_done = -1
+
   call imask_smooth%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
+  imask_smooth%mask_npix = count(imask_smooth%map(:,1).gt.0.5)  
   imask = imask_smooth
+  imask_copy = imask
   if(sto_max%nmaps .gt. 1)then
      call imask_smooth%smooth_mask(real(20.*coop_SI_arcmin)) 
-  else
-     imask_smooth%mask_npix = count(imask_smooth%map(:,1).gt.0.5)
   endif
   sumimask = sum(dble(imask%map(:,1)))
   if(coop_file_exists(output))then
@@ -181,7 +184,7 @@ program massive_stack
   
   call fp%open(output, "u")
   call fig%open(coop_str_replace(output, ".dat", ".txt"))
-  call fig%init(xlabel = "$\varpi$", ylabel = "$\delta T_0$")
+  call fig%init(xlabel = "$\varpi$", ylabel = "$\delta "//trim(stack_field_name)//"_0$")
   if(ind_done .ge. 0)then
      print*, "loaded "//COOP_STR_OF(ind_done+1)//" stacked maps"
   endif
@@ -197,11 +200,22 @@ program massive_stack
         write(fp%unit) ind, patch_max%fr, patch_min%fr
      else
         read(fp%unit) i, patch_max%fr, patch_min%fr
+        do iredo = 1, size(redo_list)
+           if(i.eq. redo_list(iredo))then
+              print*, "stacking map#"//COOP_STR_OF(ind)
+              iloaded = .false.
+              polloaded = .false.
+              call find_peaks()
+              call stack_map()
+              call compute_fr()
+              write(fp%unit) ind, patch_max%fr, patch_min%fr              
+           endif
+        enddo
      endif
      call get_radial_f(pfr, patch_max, patch_min)
      if(ind.eq.0)then
         S_m(ind) = sum((pfr - pfr_theory_data)*wfil)
-        if(do_self) wfil = pfr_theory_sim/sum(pfr_theory_sim**2)
+        if(do_self) wfil = norm_theory_sim/sum(norm_theory_sim**2)
         call fig%curve(r, pfr, color = "red", linetype= "solid", linewidth = 1.5)        
      else
         S_m(ind) = sum((pfr - pfr_theory_sim)*wfil)
@@ -277,6 +291,7 @@ contains
        call imap%mask(mask = imask_smooth)
        call imap%iqu2TQTUT()
     endif
+    if(remove_mono)imap%map(:, 1) = imap%map(:, 1) - sum(dble(imap%map(:, 1)*imask_copy%map(:,1)))/sumimask
     iloaded = .true.
   end subroutine load_imap
 
@@ -355,24 +370,38 @@ contains
         write(*,*) "So far SST only supports T and QU stacking"
         stop 
      end select
-     call get_radial_f(pfr_theory_data, patch_max_data, patch_min_data)
-     call get_radial_f(pfr_theory_sim, patch_max_sim, patch_min_sim)     
+     call get_radial_f(pfr_theory_data, patch_max_data, patch_min_data, norm_theory_data)
+     call get_radial_f(pfr_theory_sim, patch_max_sim, patch_min_sim, norm_theory_sim)     
    end subroutine load_theory
 
-   subroutine get_radial_f(pfr, patch_max, patch_min)
+   subroutine get_radial_f(pfr, patch_max, patch_min, norm)
      type(coop_healpix_patch)::patch_min, patch_max
      COOP_REAL pfr(0:n)
+     COOP_REAL,optional::norm(0:n)
      select case(trim(stack_field_name))
      case("T")
         select case(trim(fr_genre))
         case("cold0")
            pfr =  patch_min%fr(:,0,1)
+           if(present(norm))norm = pfr
         case("cold1")
            pfr = patch_min%fr(:, 1, 1)
+           if(present(norm))norm = pfr           
+        case("cold2")
+           pfr = patch_min%fr(:, 2, 1)
+           if(present(norm))norm = pfr           
         case("hot0")
            pfr = patch_max%fr(:,0,1)
+           if(present(norm))norm = pfr           
         case("hot1")
            pfr = patch_max%fr(:,1,1)
+           if(present(norm))norm = pfr           
+        case("hot2")
+           pfr = patch_max%fr(:,2,1)
+           if(present(norm))norm = pfr           
+        case("hc0")
+           pfr = (patch_max%fr(:,0,1) + patch_min%fr(:,0,1))/2.d0
+           if(present(norm))norm = patch_max%fr(:,0,1)          
         case default
            print*,  "Unknown fr type (cold0, cold1, hot0, hot1)"
            stop
@@ -381,16 +410,25 @@ contains
         select case(trim(fr_genre))
         case("cold0")
            pfr = ( patch_min%fr(:,0,1) + patch_min%fr(:,0,2))/2.d0
+           if(present(norm))norm = pfr           
         case("cold1")
            pfr = (patch_min%fr(:, 1, 1) + patch_min%fr(:, 1, 2))/2.d0
+           if(present(norm))norm = pfr           
         case("cold2")
            pfr = (patch_min%fr(:, 2, 1) + patch_min%fr(:, 2, 2))/2.d0
+           if(present(norm))norm = pfr           
         case("hot0")
            pfr = (patch_max%fr(:,0,1) + patch_max%fr(:, 0, 2))/2.d0
+           if(present(norm))norm = pfr           
         case("hot1")
            pfr = (patch_max%fr(:,1,1) + patch_max%fr(:, 1, 2))/2.d0
+           if(present(norm))norm = pfr           
         case("hot2")
            pfr = (patch_max%fr(:,2,1) + patch_max%fr(:, 2, 2))/2.d0
+           if(present(norm))norm = pfr           
+        case("hc0")
+           pfr = ((patch_max%fr(:,0,1) + patch_max%fr(:, 0, 2)) - (patch_min%fr(:,0,1) + patch_min%fr(:,0,2)))/4.d0
+           if(present(norm))norm = (patch_max%fr(:,0,1) + patch_max%fr(:, 0, 2))/2.d0          
         case default
            print*,  "Unknown fr type (cold0, cold1, cold2, hot0, hot1, hot2)"
            stop

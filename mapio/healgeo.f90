@@ -1208,7 +1208,7 @@ contains
              if(coop_healpix_warning)write(*,*) "I assume all maps are scalar, specify spins otherwise"
           endif
        case(3)
-          if(index(filename, "TEB") .eq. 0 .and. index(filename, "teb") .eq. 0)then
+          if(index(filename, "TEB") .eq. 0 .and. index(filename, "teb") .eq. 0 )then
              this%spin(1) = 0
              this%spin(2:3) = 2
              this%iq = 2
@@ -1221,7 +1221,7 @@ contains
              if(coop_healpix_warning)write(*,*) "I assume all maps are scalar, specify spins otherwise"
           endif
        case(2)  
-          if(index(filename, "TE") .eq. 0 .and. index(filename, "EB").eq.0)then
+          if(index(filename, "TE") .eq. 0 .and. index(filename, "EB").eq.0 .and. index(filename, "te") .eq. 0 .and. index(filename, "eb").eq.0 )then
              this%spin(1:2) = 2
              this%iq = 1
              this%iu = 2
