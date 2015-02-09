@@ -41,7 +41,7 @@ program massive_stack
   type(coop_healpix_maps)::imap, imask, polmask, inoise, polnoise, polmap, imask_smooth, polmask_smooth, imask_copy
   logical::iloaded = .false.
   logical::polloaded  = .false.
-  type(coop_file)::fp
+  type(coop_file)::fp, fpcopy
   type(coop_asy)::fig
   COOP_INT i, iredo
   COOP_INT ind, ind_done
@@ -183,6 +183,7 @@ program massive_stack
   endif
   
   call fp%open(output, "u")
+  call fpcopy%open(trim(output)//".copy", "u")  
   call fig%open(coop_str_replace(output, ".dat", ".txt"))
   call fig%init(xlabel = "$\varpi$", ylabel = "$\delta "//trim(stack_field_name)//"_0$")
   if(ind_done .ge. 0)then
@@ -208,10 +209,10 @@ program massive_stack
               call find_peaks()
               call stack_map()
               call compute_fr()
-              write(fp%unit) ind, patch_max%fr, patch_min%fr              
            endif
         enddo
      endif
+     write(fpcopy%unit) ind, patch_max%fr, patch_min%fr                   
      call get_radial_f(pfr, patch_max, patch_min)
      if(ind.eq.0)then
         S_m(ind) = sum((pfr - pfr_theory_data)*wfil)
@@ -222,6 +223,10 @@ program massive_stack
         call fig%curve(r, pfr, color = "blue", linetype= "dotted", linewidth = 1.)
      endif
   enddo
+  call fp%close()
+  call fpcopy%close()
+  call fig%close()
+  
   call coop_quicksort(S_m(1:n_sim))
   Smean = (S_m(n_sim/2+1)+S_m(n_sim/2))/2.d0
   S_lower(1) = S_m(floor(n_sim*0.1585d0 + 1.d0))  
@@ -238,8 +243,6 @@ program massive_stack
   enddo
   write(*,"(A)") "$"//FSTR(S_m(0))//"("//FSTR(Smean)//"^{+"//FSTR(S_upper(1)-Smean)//"+"//FSTR(S_upper(2) - Smean)//"}_{-"//FSTR(Smean - S_lower(1))//"-"//FSTR(Smean - S_lower(2))//"})$"  
   !write(*,"(A)") "S_m = "//FSTR(Smean)//"^{+"//FSTR(S_upper(1)-Smean)//"+"//FSTR(S_upper(2) - Smean)//"+"//FSTR(S_upper(3) - Smean)//"}_{-"//FSTR(Smean - S_lower(1))//"-"//FSTR(Smean - S_lower(2))//"-"//FSTR(Smean - S_lower(3))//"}"
-  call fig%close()
-  call fp%close()
   deallocate(S_m)
 
 contains
