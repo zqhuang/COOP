@@ -6,7 +6,7 @@ program massive_stack
 #include "constants.h"
 #ifdef HAS_HEALPIX
   logical::remove_mono = .false.
-  COOP_INT,dimension(:),parameter::redo_list = (/ 278, 327, 401, 784, 805 , 857957, 989 /)
+  COOP_INT,dimension(8),parameter::redo_list = (/ 278, 327, 401, 784, 805 , 857,957, 989 /)
   COOP_UNKNOWN_STRING,parameter::cal_file_prefix = "rprof/"
   COOP_UNKNOWN_STRING,parameter::data_theory_cl_file = "planck14best_lensedCls.dat"
   COOP_UNKNOWN_STRING,parameter::sim_theory_cl_file = "planck13best_lensedCls.dat"  
