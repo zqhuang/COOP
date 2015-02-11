@@ -11,7 +11,7 @@ program massive_stack
   COOP_UNKNOWN_STRING,parameter::cal_file_prefix = "rprof/"
   COOP_UNKNOWN_STRING,parameter::data_theory_cl_file = "planck14best_lensedCls.dat"
   COOP_UNKNOWN_STRING,parameter::sim_theory_cl_file = "planck13best_lensedCls.dat"  
-
+  COOP_INT::show = 3
   COOP_STRING::cc_method = "smica"
   COOP_STRING::filter = "tophat"
   COOP_STRING::fr_genre = "cold0"
@@ -30,7 +30,7 @@ program massive_stack
   COOP_REAL,parameter::dr = 2.d0*sin(r_degree*coop_SI_degree/2.d0)/n
   COOP_STRING::postfix
   COOP_REAL::r(0:n), pfr(0:n), pfr_theory_data(0:n), pfr_theory_sim(0:n), norm_theory_data(0:n), norm_theory_sim(0:n), Wfil(0:n), Smean, S_lower(3), S_upper(3)
-  COOP_INT::count_p
+
   COOP_STRING::outputdir
   COOP_UNKNOWN_STRING,parameter::mapdir = "massffp8/"
   logical, parameter::do_nest = .true.
@@ -171,12 +171,11 @@ program massive_stack
   imask_smooth%mask_npix = count(imask_smooth%map(:,1).gt.0.5)  
   imask = imask_smooth
   imask_copy = imask
-  print*, maxval(abs(imask%map(0:imask%npix-1,1)- imask_smooth%map(0:imask%npix-1,1)))
-  print*, imask%npix, imask_copy%npix, imask_smooth%npix
-  stop
   if(sto_max%nmaps .gt. 1)then
      call imask_smooth%smooth_mask(real(20.*coop_SI_arcmin)) 
   endif
+
+
   sumimask = sum(dble(imask%map(:,1)))
   if(coop_file_exists(output))then
      call fp%open(output, "ru")
@@ -200,7 +199,7 @@ program massive_stack
   if(ind_done .ge. 0)then
      print*, "loaded "//COOP_STR_OF(ind_done+1)//" stacked maps"
   endif
-  count_p = 0
+
   do ind = 0, n_sim
      if(ind.gt.ind_done)then
         if(read_only) stop "Not enough maps (program terminated in ReadOnly mode)"
@@ -226,23 +225,27 @@ program massive_stack
   enddo
   call fp%close()
   call fig%close()
-  
-  call coop_quicksort(S_m(1:n_sim))
-  Smean = (S_m(n_sim/2+1)+S_m(n_sim/2))/2.d0
-  S_lower(1) = S_m(floor(n_sim*0.1585d0 + 1.d0))  
-  S_lower(2) = S_m(floor(n_sim*0.023d0 + 1.d0))
-  S_lower(3) = S_m(floor(n_sim*0.0015 + 1.d0))
-  S_upper(1) = S_m(ceiling(n_sim*0.8415d0))  
-  S_upper(2) = S_m(ceiling(n_sim*0.977d0))
-  S_upper(3) = S_m(ceiling(n_sim*0.9985d0))
+#define FSTR(x) trim(coop_num2str(x, "(F13.2)"))  
+  if(n_sim .ge. 1)then
+     call coop_quicksort(S_m(1:n_sim))
+     Smean = (S_m(n_sim/2+1)+S_m(n_sim/2))/2.d0
+     S_lower(1) = S_m(floor(n_sim*0.1585d0 + 1.d0))  
+     S_lower(2) = S_m(floor(n_sim*0.023d0 + 1.d0))
+     S_lower(3) = S_m(floor(n_sim*0.0015 + 1.d0))
+     S_upper(1) = S_m(ceiling(n_sim*0.8415d0))  
+     S_upper(2) = S_m(ceiling(n_sim*0.977d0))
+     S_upper(3) = S_m(ceiling(n_sim*0.9985d0))
 
-#define FSTR(x) trim(coop_num2str(x, "(F13.2)"))
-  write(*,"(A12, F13.2, A12, F13.2)") "S_m mean = ", Smean, " S_m data = ", S_m(0)
-  do i = 1, 3
-     write(*,"(I5,  G13.4, A9, G13.4)") i, S_lower(i), " < S_m < ", S_upper(i)
-  enddo
-  write(*,"(A)") "$"//FSTR(S_m(0))//"("//FSTR(Smean)//"^{+"//FSTR(S_upper(1)-Smean)//"+"//FSTR(S_upper(2) - Smean)//"}_{-"//FSTR(Smean - S_lower(1))//"-"//FSTR(Smean - S_lower(2))//"})$"  
-  !write(*,"(A)") "S_m = "//FSTR(Smean)//"^{+"//FSTR(S_upper(1)-Smean)//"+"//FSTR(S_upper(2) - Smean)//"+"//FSTR(S_upper(3) - Smean)//"}_{-"//FSTR(Smean - S_lower(1))//"-"//FSTR(Smean - S_lower(2))//"-"//FSTR(Smean - S_lower(3))//"}"
+
+     write(*,"(A12, F13.2, A12, F13.2)") "S_m mean = ", Smean, " S_m data = ", S_m(0)
+     do i = 1, 3
+        write(*,"(I5,  G13.4, A9, G13.4)") i, S_lower(i), " < S_m < ", S_upper(i)
+     enddo
+     write(*,"(A)") "$"//FSTR(S_m(0))//"("//FSTR(Smean)//"^{+"//FSTR(S_upper(1)-Smean)//"+"//FSTR(S_upper(2) - Smean)//"}_{-"//FSTR(Smean - S_lower(1))//"-"//FSTR(Smean - S_lower(2))//"})$"  
+     !write(*,"(A)") "S_m = "//FSTR(Smean)//"^{+"//FSTR(S_upper(1)-Smean)//"+"//FSTR(S_upper(2) - Smean)//"+"//FSTR(S_upper(3) - Smean)//"}_{-"//FSTR(Smean - S_lower(1))//"-"//FSTR(Smean - S_lower(2))//"-"//FSTR(Smean - S_lower(3))//"}"
+  else
+     write(*,*) "S_m = ", S_m(0)
+  endif
   deallocate(S_m)
 
 contains
