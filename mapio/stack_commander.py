@@ -17,10 +17,10 @@ else:
 
 imap_in = "planck14/dx11_v2_"+prefix+"_int_cmb_0" + str(fwhm_in) + "a_" + strnside + ".fits"
 imask = "planck14/dx11_v2_common_int_mask_0" + str(fwhm_in) + "a_" + strnside + ".fits"
-polmap_in = "planck14/dx11_v2_"+prefix+"_pol_case1_cmb_hp_20_40_0" + str(fwhm_in) + "a_" + strnside + ".fits"
+polmap_in = "planck14/dx11_v2_"+prefix+"_pol_case5_cmb_hp_20_40_0" + str(fwhm_in) + "a_" + strnside + ".fits"
 polmask = "planck14/dx11_v2_common_pol_mask_0" + str(fwhm_in) + "a_" + strnside + ".fits"
 
-threshold = 0
+threshold = 1
 fwhm_out = fwhm_in
 
 execfile("stack_common.py")

@@ -6,8 +6,8 @@ program Exp_spots
 #include "constants.h"
 #ifdef HAS_HEALPIX
   logical::use_mask = .true.
-  logical::do_max = .false.
-  logical::remove_mono = .false.  
+  logical::do_max = .true.
+  logical::remove_mono = .true.  
   COOP_STRING::peak_name = "$T$"
   COOP_STRING::orient_name = "$(Q_T, U_T)$"
   COOP_UNKNOWN_STRING,parameter::map_postfix = "010a_1024.fits"  
@@ -42,6 +42,7 @@ program Exp_spots
   endif
   
   call hgm%read(map_file)
+
   call sto%init(do_max, peak_name, orient_name, nmaps = hgm%nmaps)
   select case(trim(coop_str_numalpha(peak_name)))
   case("T", "I", "E", "B", "zeta", "Z")

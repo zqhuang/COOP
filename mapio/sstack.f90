@@ -60,7 +60,6 @@ program massive_stack
      stop
   endif
   coop_healpix_warning = .false.
-  
   cc_method = trim(coop_inputArgs(1))
   select case(trim(cc_method))
   case("smica","sevem","nilc")
@@ -146,7 +145,8 @@ program massive_stack
   enddo
   
   call patch_max%init(trim(stack_field_name), n, dr)
-  patch_min = patch_max
+  call patch_min%init(trim(stack_field_name), n, dr)  
+
   call load_theory()
   do_self = .false.
   select case(trim(filter))
@@ -311,10 +311,12 @@ contains
 
   subroutine load_theory()
     COOP_STRING::data_head, sim_head
+    call patch_max_data%init(trim(stack_field_name), n, dr)
+    call patch_min_data%init(trim(stack_field_name), n, dr)
+    call patch_max_sim%init(trim(stack_field_name), n, dr)
+    call patch_min_sim%init(trim(stack_field_name), n, dr)  
     
-     patch_max_data = patch_max
-     patch_max_sim = patch_max
-     if(trim(stack_field_name).eq."T")then
+    if(trim(stack_field_name).eq."T")then
         if(trim(orient_name).eq. "NULL")then
            data_head = "pl14fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"int"
            sim_head ="pl13fwhm"//COOP_STR_OF(fwhm)//"nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"int"
@@ -356,8 +358,8 @@ contains
      read(fp%unit, *) patch_max_sim%fr
      call fp%close()
      
-     patch_min_sim = patch_max_sim
-     patch_min_data = patch_max_data
+     patch_min_sim%fr = patch_max_sim%fr
+     patch_min_data%fr = patch_max_data%fr
      
      select case(trim(stack_field_name))
      case("T")
