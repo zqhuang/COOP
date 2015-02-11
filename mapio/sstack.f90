@@ -196,7 +196,7 @@ program massive_stack
      call fig%open(coop_str_replace(output, ".dat", ".txt"))
   endif
   call fig%init(xlabel = "$\varpi$", ylabel = "$\delta "//trim(stack_field_name)//"_0$")
-  if(ind_done .ge. 0)then
+  if(ind_done .ge. 0 .and. n_sim .gt. 0)then
      print*, "loaded "//COOP_STR_OF(ind_done+1)//" stacked maps"
   endif
 
