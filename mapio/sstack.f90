@@ -55,8 +55,8 @@ program massive_stack
      write(*,*) "./SST smica     1024 T  0.5 1000 tophat    cold0"
      write(*,*) "./SST smica     1024 T  0.5 1000 self    cold0"     
      write(*,*) "./SST nilc      512  T  0.  100  linear    cold1 T"
-     write(*,*) "./SST commander 1024 QU 2.  500  gaussian  hot0  F T"
-     write(*,*) "./SST sevem     1024 T  1.  300  self    hc0  T T"
+     write(*,*) "./SST commander 1024 QU 2.  500  gaussian  hot0  T F T"
+     write(*,*) "./SST sevem     1024 T  1.  300  self    hc0  T S T T"
      stop
   endif
   coop_healpix_warning = .false.
@@ -171,6 +171,9 @@ program massive_stack
   imask_smooth%mask_npix = count(imask_smooth%map(:,1).gt.0.5)  
   imask = imask_smooth
   imask_copy = imask
+  print*, imask%map(1,1), imask_smooth%map(1,1), imask_copy%map(1,1)
+  print*, imask%npix, imask_copy%npix, imask_smooth%npix
+  stop
   if(sto_max%nmaps .gt. 1)then
      call imask_smooth%smooth_mask(real(20.*coop_SI_arcmin)) 
   endif
