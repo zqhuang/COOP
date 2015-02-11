@@ -360,7 +360,7 @@ contains
   !!  return s, want
   !!==============================================
   subroutine coop_gaussian_peak_Pmax_mean(nf, mean, f, args)
-    COOP_INT,parameter::num_sims = 100000
+    COOP_INT,parameter::num_sims = 300000
     COOP_INT,parameter::max_try = 100*num_sims
     type(coop_arguments)::args
     COOP_INT::nf

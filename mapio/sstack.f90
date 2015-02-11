@@ -119,12 +119,18 @@ program massive_stack
      polmask_file = "planck14/dx11_v2_common_pol_mask"//trim(postfix)          
      output = trim(outputdir)//trim(cc_method)//"_nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"_"//trim(coop_str_numalpha(peak_name))//"_Orient"//trim(coop_str_numalpha(orient_name))//".dat"
   end select
-  
 
-  
+  ind_done = -1  
+  if(coop_file_exists(output))then
+     call fp%open(output, "ru")
+     do i = 0, n_sim
+        read(fp%unit, ERR = 100, END = 100) ind, patch_max%fr, patch_min%fr
+        ind_done = ind
+     enddo
+100  call fp%close()
+  endif
 
 
-  
   if(trim(orient_name).eq."NULL")then
      call sto_max%init(.true., peak_name, orient_name, nmaps = 1)
      call sto_min%init(.false., peak_name, orient_name, nmaps = 1)     
@@ -165,26 +171,19 @@ program massive_stack
      stop "Unknown filter"
   end select
   
-  ind_done = -1
 
-  call imask_smooth%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
-  imask_smooth%mask_npix = count(imask_smooth%map(:,1).gt.0.5)  
-  imask = imask_smooth
-  imask_copy = imask
-  if(sto_max%nmaps .gt. 1)then
-     call imask_smooth%smooth_mask(real(20.*coop_SI_arcmin)) 
+
+  if(ind_done .lt. n_sim)then !!need to do actual maps
+     call imask_smooth%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
+     imask_smooth%mask_npix = count(imask_smooth%map(:,1).gt.0.5)  
+     imask = imask_smooth
+     imask_copy = imask
+     if(sto_max%nmaps .gt. 1)then
+        call imask_smooth%smooth_mask(real(20.*coop_SI_arcmin)) 
+     endif
+     sumimask = sum(dble(imask%map(:,1)))
   endif
-
-
-  sumimask = sum(dble(imask%map(:,1)))
-  if(coop_file_exists(output))then
-     call fp%open(output, "ru")
-     do i = 0, n_sim
-        read(fp%unit, ERR = 100, END = 100) ind, patch_max%fr, patch_min%fr
-        ind_done = ind
-     enddo
-100  call fp%close()
-  endif
+     
   if(read_only)then
      call fp%open(output, "ur")     
   else
@@ -247,7 +246,7 @@ program massive_stack
      write(*,"(A, F10.2)")  "S_m = ", S_m(0)
   endif
   deallocate(S_m)
-
+  
 contains
 
   subroutine find_peaks()
