@@ -171,7 +171,7 @@ program massive_stack
   imask_smooth%mask_npix = count(imask_smooth%map(:,1).gt.0.5)  
   imask = imask_smooth
   imask_copy = imask
-  print*, imask%map(1,1), imask_smooth%map(1,1), imask_copy%map(1,1)
+  print*, maxval(abs(imask%map(0:imask%npix-1,1)- imask_smooth%map(0:imask%npix-1,1)))
   print*, imask%npix, imask_copy%npix, imask_smooth%npix
   stop
   if(sto_max%nmaps .gt. 1)then
