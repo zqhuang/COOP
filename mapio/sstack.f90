@@ -203,7 +203,7 @@ program massive_stack
   do ind = 0, n_sim
      if(ind.gt.ind_done)then
         if(read_only) stop "Not enough maps (program terminated in ReadOnly mode)"
-        print*, "stacking map#"//COOP_STR_OF(ind)
+        if(n_sim .gt. 0)print*, "stacking map#"//COOP_STR_OF(ind)
         iloaded = .false.
         polloaded = .false.
         call find_peaks()
@@ -237,14 +237,14 @@ program massive_stack
      S_upper(3) = S_m(ceiling(n_sim*0.9985d0))
 
 
-     write(*,"(A12, F13.2, A12, F13.2)") "S_m mean = ", Smean, " S_m data = ", S_m(0)
+     write(*,"(A12, F13.2, A12, F13.2)") "S_m median = ", Smean, " S_m data = ", S_m(0)
      do i = 1, 3
         write(*,"(I5,  G13.4, A9, G13.4)") i, S_lower(i), " < S_m < ", S_upper(i)
      enddo
      write(*,"(A)") "$"//FSTR(S_m(0))//"("//FSTR(Smean)//"^{+"//FSTR(S_upper(1)-Smean)//"+"//FSTR(S_upper(2) - Smean)//"}_{-"//FSTR(Smean - S_lower(1))//"-"//FSTR(Smean - S_lower(2))//"})$"  
      !write(*,"(A)") "S_m = "//FSTR(Smean)//"^{+"//FSTR(S_upper(1)-Smean)//"+"//FSTR(S_upper(2) - Smean)//"+"//FSTR(S_upper(3) - Smean)//"}_{-"//FSTR(Smean - S_lower(1))//"-"//FSTR(Smean - S_lower(2))//"-"//FSTR(Smean - S_lower(3))//"}"
   else
-     write(*,*) "S_m = ", S_m(0)
+     write(*,"(A, F10.2)")  "S_m = ", S_m(0)
   endif
   deallocate(S_m)
 

@@ -217,6 +217,8 @@ pen coorpen = black + solid + 1.5;
 string nostring(real x){
        return "";}
 
+
+
 ticks LeftTicksNoLabel(ticklabel ticklabel=nostring,
                 bool beginlabel=true, bool endlabel=true,
                 int N=0, int n=0, real Step=0, real step=0,
@@ -934,6 +936,9 @@ void plot_rightaxis(){
    add(q);
 }
 
+
+
+
 void plot_topaxis(){
   picture q;
  if(topaxis_xlog){
@@ -952,7 +957,7 @@ void plot_topaxis(){
    else
       scale(pic, Linear, Linear);
    xlimits(pic, topaxis_xmin, topaxis_xmax);
-   xaxis(pic, topaxis_label, YEqualsTop(cymax), coorpen, RightTicks("", begin=false, end=false));
+   xaxis(pic, topaxis_label, YEqualsTop(cymax), coorpen, RightTicks("",  begin=false, end=false));
         });}
  add(q);}
 
@@ -1040,9 +1045,9 @@ int plot_density(file fin){
       density = image( z, Automatic, (xmin,ymin), (xmax, ymax), p);
 
    if(xlog)
-      palette(zlabel, density, (pow10(log10(xmax)+(log10(xmax)-log10(xmin))/20.), ymin), (pow10(log10(xmax)+(log10(xmax)-log10(xmin))/8.), ymax), Right, p, PaletteTicks("")); 
+      palette(zlabel, density, (pow10(log10(xmax)+(log10(xmax)-log10(xmin))/20.), ymin), (pow10(log10(xmax)+(log10(xmax)-log10(xmin))/10.), ymax), Right, p, PaletteTicks(rotate(90)*Label())); 
    else
-      palette(zlabel, density, (xmax+(xmax-xmin)/20., ymin), (xmax+(xmax-xmin)/8., ymax), Right, p, PaletteTicks(""));
+      palette(zlabel, density, (xmax+(xmax-xmin)/20., ymin), (xmax+(xmax-xmin)/10., ymax), Right, p, PaletteTicks(rotate(90)*Label()));
    return nx*ny; 
   }
   }
@@ -1137,7 +1142,7 @@ else{
     plot_topaxis();}
 
 if(rightaxis == 0){
-   yaxis(ylabel,  axis=XEqualsCenter(cxmin, false), ymin = cymin, ymax = cymax, p = coorpen, ticks=RightTicks, above=true);
+   yaxis(ylabel,  axis=XEqualsCenter(cxmin, false), ymin = cymin, ymax = cymax, p = coorpen, ticks=RightTicks(format = rotate(90)*Label()), above=true);
    yaxis("",  axis=XEqualsCenter(cxmax, false), ymin = cymin, ymax = cymax, p=coorpen, ticks=LeftTicksNoLabel, above=true);}
 else{ 
    yaxis(ylabel,  axis=XEqualsCenter(cxmin, false), ymin = cymin, ymax = cymax, p=coorpen, ticks=RightTicks, above=true);
