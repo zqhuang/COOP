@@ -141,7 +141,8 @@ program massive_stack
      call sto_max%init(.true., peak_name, orient_name, nmaps = 3)          
      call sto_min%init(.false., peak_name, orient_name, nmaps = 3)     
   endif
-
+  sto_max%addpi = .false.
+  sto_min%addpi = .false.
   sto_max%I_lower_nu = threshold
   sto_min%I_upper_nu = -threshold
   sto_max%threshold_option = 4
@@ -209,6 +210,14 @@ program massive_stack
         call find_peaks()
         call stack_map()
         call compute_fr()
+        if(ind.eq.0)then
+           print*, ind
+           print*, patch_max%fr(0:patch_max%n, 2, 1)
+           print*, patch_max%fr(0:patch_max%n, 2, 2)           
+           
+           print*, patch_min%fr(0:patch_min%n, 2, 1)
+           print*, patch_min%fr(0:patch_min%n, 2, 2)           
+        endif
         write(fp%unit) ind, patch_max%fr(0:patch_max%n, 0:patch_max%mmax/2, 1:patch_max%nmaps), patch_min%fr(0:patch_min%n, 0:patch_min%mmax/2, 1:patch_min%nmaps)
      else
         read(fp%unit) i, patch_max%fr(0:patch_max%n, 0:patch_max%mmax/2, 1:patch_max%nmaps), patch_min%fr(0:patch_min%n, 0:patch_min%mmax/2, 1:patch_min%nmaps)
@@ -297,7 +306,7 @@ contains
        call imap%mask(mask = imask_smooth)
        call imap%iqu2TQTUT()
     endif
-!    if(remove_mono)imap%map(:, 1) = imap%map(:, 1) - sum(dble(imap%map(:, 1)*imask_copy%map(:,1)))/sumimask
+    if(remove_mono)imap%map(:, 1) = imap%map(:, 1) - sum(dble(imap%map(:, 1)*imask_copy%map(:,1)))/sumimask
     iloaded = .true.
   end subroutine load_imap
 
