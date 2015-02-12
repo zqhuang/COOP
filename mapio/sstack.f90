@@ -203,7 +203,10 @@ program massive_stack
 
   do ind = 0, n_sim
      if(ind.gt.ind_done)then
-        if(read_only) stop "Not enough maps (program terminated in ReadOnly mode)"
+        if(read_only)then
+           write(*,*) "Not enough maps "//COOP_STR_OF(ind_done)//"/"//COOP_STR_OF(n_sim)//"(program terminated in ReadOnly mode)"
+           goto 500
+        endif
         if(n_sim .gt. 0 )print*, "stacking map#"//COOP_STR_OF(ind)
         iloaded = .false.
         polloaded = .false.
@@ -257,6 +260,7 @@ program massive_stack
      write(*,"(A, F10.2)")  "S_m = ", S_m(0)
   endif
   deallocate(S_m)
+500  continue
   
 contains
 
