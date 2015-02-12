@@ -220,16 +220,18 @@ program massive_stack
         call find_peaks()
         call stack_map()
         call compute_fr()
-        call fpcheck%open(trim(output)//".chk")
         if(ind .eq. 0)then
-           write(*,*) ind, sto_max%nmaps, sto_max%peak_pix%n, sto_min%nmaps, sto_min%peak_pix%n
-           write(*,*) patch_max%icm           
-           write(*,*) patch_max%wcm
-           write(*,*) patch_max%wsm
-           write(*,*) patch_min%icm           
-           write(*,*) patch_min%wcm
-           write(*,*) patch_min%wsm
+           call fpcheck%open(trim(output)//".chk", "w")           
+           write(fpcheck%unit,"(5I8)") ind, sto_max%nmaps, sto_max%peak_pix%n, sto_min%nmaps, sto_min%peak_pix%n
+           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"I6)") patch_max%icm           
+           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.4)") patch_max%wcm
+           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.4)") patch_max%wsm
+           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"I6)") patch_min%icm           
+           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.4)") patch_min%wcm
+           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.4)") patch_min%wsm
+           call fpcheck%close()
         endif
+        
         write(fp%unit) ind, patch_max%fr(0:patch_max%n, 0:patch_max%mmax/2, 1:patch_max%nmaps), patch_min%fr(0:patch_min%n, 0:patch_min%mmax/2, 1:patch_min%nmaps)
      else
         read(fp%unit) i, patch_max%fr(0:patch_max%n, 0:patch_max%mmax/2, 1:patch_max%nmaps), patch_min%fr(0:patch_min%n, 0:patch_min%mmax/2, 1:patch_min%nmaps)
