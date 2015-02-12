@@ -187,7 +187,10 @@ program massive_stack
         call imask_smooth%smooth_mask(real(20.*coop_SI_arcmin)) 
      endif
      sumimask = imask%mask_npix
-     if(trim(stack_field_name).eq."QU") call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )
+     if(trim(stack_field_name).eq."QU")then
+        call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )
+        if(do_nest) call polmask%convert2nested()
+     endif
   endif
      
   if(read_only)then
@@ -308,6 +311,7 @@ contains
        call imap%iqu2TQTUT()
     endif
     if(remove_mono)imap%map(:, 1) = imap%map(:, 1) - sum(dble(imap%map(:, 1)), mask = imask_copy)/sumimask
+    if(do_nest) call imap%convert2nested()
     iloaded = .true.
   end subroutine load_imap
 
@@ -321,6 +325,7 @@ contains
        call polnoise%read(trim(mapdir)//"noise/pol/dx11_v2_"//trim(cc_method)//"_"//trim(polcase)//"_noise_mc_"//trim(coop_Ndigits(i-1, 5))//"_hp_20_40"//trim(postfix), nmaps_wanted = 2, spin = (/ 2 , 2 /) )
        polmap%map = polmap%map + polnoise%map
     endif
+    if(do_nest) call polmap%convert2nested()
     polloaded = .true.
   end subroutine load_polmap
 
