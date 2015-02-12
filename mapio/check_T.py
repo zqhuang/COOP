@@ -5,7 +5,7 @@ nulist = ['0', '1']
 hclist = ['hot0', 'cold0', 'hot1', 'cold1']
 nslist = ['N', 'S']
 readonly = 'T'
-nmaps = 1000
+nmaps = 500
 print "=============== F =============="
 for nu in nulist:
     print '------------------------'
