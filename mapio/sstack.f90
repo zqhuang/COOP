@@ -222,10 +222,10 @@ program massive_stack
         call compute_fr()
         if(ind .eq. 0)then
            call fpcheck%open(trim(output)//".chk", "w")           
-           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.4)") patch_max%image(:,:,1)
-           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.4)") patch_max%image(:,:,2)
-           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.4)") patch_min%image(:,:,1)
-           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.4)") patch_min%image(:,:,2)           
+           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.4)") patch_max%image(:,:,1)*1.d6
+           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.4)") patch_max%image(:,:,2)*1.d6
+           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.4)") patch_min%image(:,:,1)*1.d6
+           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.4)") patch_min%image(:,:,2)*1.d6           
            
            call fpcheck%close()
         endif
