@@ -197,14 +197,14 @@ program massive_stack
      call fig%open(coop_str_replace(output, ".dat", ".txt"))
   endif
   call fig%init(xlabel = "$\varpi$", ylabel = "$\delta "//trim(stack_field_name)//"_0$")
-  if(ind_done .ge. 0 .and. n_sim .gt. 0)then
+  if(ind_done .ge. 0 .and. n_sim .gt. 0 .and. .not. read_only)then
      print*, "loaded "//COOP_STR_OF(ind_done+1)//" stacked maps"
   endif
 
   do ind = 0, n_sim
      if(ind.gt.ind_done)then
         if(read_only) stop "Not enough maps (program terminated in ReadOnly mode)"
-        if(n_sim .gt. 0)print*, "stacking map#"//COOP_STR_OF(ind)
+        if(n_sim .gt. 0 )print*, "stacking map#"//COOP_STR_OF(ind)
         iloaded = .false.
         polloaded = .false.
         call find_peaks()
@@ -223,7 +223,7 @@ program massive_stack
         read(fp%unit) i, patch_max%fr(0:patch_max%n, 0:patch_max%mmax/2, 1:patch_max%nmaps), patch_min%fr(0:patch_min%n, 0:patch_min%mmax/2, 1:patch_min%nmaps)
      endif
      call get_radial_f(pfr, patch_max, patch_min)
-     if(ind.eq.0)then
+     if(ind.eq.0 )then
         S_m(ind) = sum((pfr - pfr_theory_data)*wfil)
         if(do_self) wfil = norm_theory_sim/sum(norm_theory_sim**2)
         call fig%curve(r, pfr, color = "red", linetype= "solid", linewidth = 1.5)        
@@ -245,12 +245,13 @@ program massive_stack
      S_upper(2) = S_m(ceiling(n_sim*0.977d0))
      S_upper(3) = S_m(ceiling(n_sim*0.9985d0))
 
-
-     write(*,"(A12, F13.2, A12, F13.2)") "S_m median = ", Smean, " S_m data = ", S_m(0)
-     do i = 1, 3
-        write(*,"(I5,  G13.4, A9, G13.4)") i, S_lower(i), " < S_m < ", S_upper(i)
-     enddo
-     write(*,"(A)") "$"//FSTR(S_m(0))//"("//FSTR(Smean)//"^{+"//FSTR(S_upper(1)-Smean)//"+"//FSTR(S_upper(2) - Smean)//"}_{-"//FSTR(Smean - S_lower(1))//"-"//FSTR(Smean - S_lower(2))//"})$"  
+     if(.not. read_only)then
+        write(*,"(A12, F13.2, A12, F13.2)") "S_m median = ", Smean, " S_m data = ", S_m(0)
+        do i = 1, 3
+           write(*,"(I5,  G13.4, A9, G13.4)") i, S_lower(i), " < S_m < ", S_upper(i)
+        enddo
+     endif
+     write(*,"(A)") "& $"//FSTR(S_m(0))//"("//FSTR(Smean)//"^{+"//FSTR(S_upper(1)-Smean)//"+"//FSTR(S_upper(2) - Smean)//"}_{-"//FSTR(Smean - S_lower(1))//"-"//FSTR(Smean - S_lower(2))//"})$"  
      !write(*,"(A)") "S_m = "//FSTR(Smean)//"^{+"//FSTR(S_upper(1)-Smean)//"+"//FSTR(S_upper(2) - Smean)//"+"//FSTR(S_upper(3) - Smean)//"}_{-"//FSTR(Smean - S_lower(1))//"-"//FSTR(Smean - S_lower(2))//"-"//FSTR(Smean - S_lower(3))//"}"
   else
      write(*,"(A, F10.2)")  "S_m = ", S_m(0)
