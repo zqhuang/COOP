@@ -3446,12 +3446,12 @@ contains
     patch%image = 0.d0
     patch%nstack = 0.d0
     patch%nstack_raw = 0
-    if(sto%ordering .eq. COOP_RING)then
+    if(sto%nested)then
+       call this%convert2nested()
+       if(present(mask))call mask%convert2nested()
+    else
        call this%convert2ring()
        if(present(mask))call mask%convert2ring()
-    else
-       call this%convert2nested()
-       if(present(mask))call mask%convert2nested()       
     endif
     !!adjust the index of maps
     i = 1
