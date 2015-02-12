@@ -111,12 +111,16 @@ Shells: $(OBJ) shells.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) shells.o $(LINK)	
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack MSMAP InpEB InpT TrimC GetCl QEB MultStack Shells POSTHA HA SST POSTSST ByProd GetInfo
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack MSMAP InpEB InpT TrimC GetCl QEB MultStack Shells POSTHA HA SST POSTSST ByProd GetInfo GetTheo
 
+
+gettheo.o: $(LIB)
+
+sstack.o: $(LIB)
 
 test.o: $(LIB)
 
-exportspots.o: $(LIB)
+exportpeaks.o: $(LIB)
 
 dostack.o :	$(LIB)
 
@@ -133,3 +137,7 @@ flat_merge.o: $(LIB)
 trimcmp.o: $(LIB)
 
 multstack.o: $(LIB)
+
+map_merge_split.o: $(LIB)
+
+map_by_products.o: $(LIB)
