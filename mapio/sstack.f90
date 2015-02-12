@@ -120,11 +120,14 @@ program massive_stack
      output = trim(outputdir)//trim(cc_method)//"_nu"//trim(coop_num2goodstr(threshold,"-","pt"))//"_"//trim(coop_str_numalpha(peak_name))//"_Orient"//trim(coop_str_numalpha(orient_name))//".dat"
   end select
 
+  call patch_max%init(trim(stack_field_name), n, dr)
+  call patch_min%init(trim(stack_field_name), n, dr)  
+
   ind_done = -1  
   if(coop_file_exists(output))then
      call fp%open(output, "ru")
      do i = 0, n_sim
-        read(fp%unit, ERR = 100, END = 100) ind, patch_max%fr, patch_min%fr
+        read(fp%unit, ERR = 100, END = 100)  ind, patch_max%fr(0:patch_max%n, 0:patch_max%mmax/2, 0:patch_max%nmaps), patch_min%fr(0:patch_min%n, 0:patch_min%mmax/2, 0:patch_min%nmaps)
         ind_done = ind
      enddo
 100  call fp%close()
@@ -150,8 +153,6 @@ program massive_stack
      r(i) = i*dr
   enddo
   
-  call patch_max%init(trim(stack_field_name), n, dr)
-  call patch_min%init(trim(stack_field_name), n, dr)  
 
   call load_theory()
   do_self = .false.
@@ -208,9 +209,9 @@ program massive_stack
         call find_peaks()
         call stack_map()
         call compute_fr()
-        write(fp%unit) ind, patch_max%fr, patch_min%fr
+        write(fp%unit) ind, patch_max%fr(0:patch_max%n, 0:patch_max%mmax/2, 0:patch_max%nmaps), patch_min%fr(0:patch_min%n, 0:patch_min%mmax/2, 0:patch_min%nmaps)
      else
-        read(fp%unit) i, patch_max%fr, patch_min%fr
+        read(fp%unit) i, patch_max%fr(0:patch_max%n, 0:patch_max%mmax/2, 0:patch_max%nmaps, patch_min%fr(0:patch_min%n, 0:patch_min%mmax/2, 0:patch_min%nmaps)
      endif
      call get_radial_f(pfr, patch_max, patch_min)
      if(ind.eq.0)then
