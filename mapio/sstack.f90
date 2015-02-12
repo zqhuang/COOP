@@ -222,20 +222,19 @@ program massive_stack
         call compute_fr()
         if(ind .eq. 0)then
            call fpcheck%open(trim(output)//".chk", "w")
-           write(fpcheck%unit, "(5E15.6)") sum(dble(imap%map(:,1))), sum(dble(polmap%map(:,1))), sum(dble(polmap%map(:,2))) , sum(dble(imask%map(:,1))), sum(dble(imask_smooth%map(:,1))), sum(dble(polmask%map(:,1)))           
-           write(fpcheck%unit, "(4I9)") sto_max%index_I, sto_max%index_Q, sto_max%index_U, sto_max%index_L
+           write(fpcheck%unit, "(5E15.6)") sum(dble(abs(imap%map(:,1)*imask%map(:,1)))), sum(dble(abs(polmap%map(:,1)*polmask%map(:,1)))), sum(dble(abs(polmap%map(:,2)*polmask%map(:,1)))) , sum(dble(imask%map(:,1))), sum(dble(imask_smooth%map(:,1))), sum(dble(polmask%map(:,1)))           
+           write(fpcheck%unit, "(2I9, 6E15.6)") sto_min%peak_pix%n,  sto_min%peak_pix%element(sto_min%peak_pix%n/2), sto_min%peak_ang%element(sto_min%peak_pix%n/2), sto_min%peak_ang%element(10), sto_min%peak_ang%element(sto_min%peak_pix%n-1)
+
            write(fpcheck%unit, "(2I9, 6E15.6)") sto_max%peak_pix%n,  sto_max%peak_pix%element(sto_max%peak_pix%n/2), sto_max%peak_ang%element(sto_max%peak_pix%n/2), sto_max%peak_ang%element(10), sto_max%peak_ang%element(sto_max%peak_pix%n-1)
-!!$           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.3)") patch_max%image(:,:,1)*1.d6
-!!$           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.3)") patch_max%image(:,:,2)*1.d6
-!!$           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.3)") patch_min%image(:,:,1)*1.d6
-!!$           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.3)") patch_min%image(:,:,2)*1.d6           
            
+           write(fpcheck%unit, "(4E14.5)") sum(abs(patch_max%image(:,:,1))), sum(abs(patch_max%image(:,:,2))), sum(abs(patch_min%image(:,:,1))), sum(abs(patch_min%image(:,:,2)))
            call fpcheck%close()
         endif
         
         write(fp%unit) ind, patch_max%fr(0:patch_max%n, 0:patch_max%mmax/2, 1:patch_max%nmaps), patch_min%fr(0:patch_min%n, 0:patch_min%mmax/2, 1:patch_min%nmaps)
      else
         read(fp%unit) i, patch_max%fr(0:patch_max%n, 0:patch_max%mmax/2, 1:patch_max%nmaps), patch_min%fr(0:patch_min%n, 0:patch_min%mmax/2, 1:patch_min%nmaps)
+        if(i.ne.ind) stop "data file is broken"
      endif
      call get_radial_f(pfr, patch_max, patch_min)
      if(ind.eq.0 )then
@@ -267,7 +266,6 @@ program massive_stack
         enddo
      endif
      write(*,"(A)") "& $"//FSTR(S_m(0))//"("//FSTR(Smean)//"^{+"//FSTR(S_upper(1)-Smean)//"+"//FSTR(S_upper(2) - Smean)//"}_{-"//FSTR(Smean - S_lower(1))//"-"//FSTR(Smean - S_lower(2))//"})$"  
-     !write(*,"(A)") "S_m = "//FSTR(Smean)//"^{+"//FSTR(S_upper(1)-Smean)//"+"//FSTR(S_upper(2) - Smean)//"+"//FSTR(S_upper(3) - Smean)//"}_{-"//FSTR(Smean - S_lower(1))//"-"//FSTR(Smean - S_lower(2))//"-"//FSTR(Smean - S_lower(3))//"}"
   else
      write(*,"(A, F10.2)")  "S_m = ", S_m(0)
   endif

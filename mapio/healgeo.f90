@@ -3434,7 +3434,7 @@ contains
   end subroutine coop_healpix_maps_mark_peaks
 
   subroutine coop_healpix_maps_stack_on_peaks(this, sto, patch, mask)
-    COOP_INT,parameter::n_threads = 4
+    COOP_INT,parameter::n_threads = 8
     class(coop_healpix_maps)::this
     type(coop_stacking_options)::sto
     type(coop_healpix_disc),dimension(n_threads)::disc
