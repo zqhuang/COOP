@@ -10,7 +10,7 @@ print "=============== F =============="
 for nu in nulist:
     print '------------------------'
     print "nu = " + nu
-    for cc in clist:
+    for cc in cclist:
         print cc
         for hc in hclist:        
             os.system(r'./SST '+cc+' 1024 T ' + ' ' + nu + ' ' + str(nmaps) + ' self '+ hc + ' T F T ' + readonly)
