@@ -297,7 +297,7 @@ contains
        call imap%mask(mask = imask_smooth)
        call imap%iqu2TQTUT()
     endif
-    if(remove_mono)imap%map(:, 1) = imap%map(:, 1) - sum(dble(imap%map(:, 1)*imask_copy%map(:,1)))/sumimask
+!    if(remove_mono)imap%map(:, 1) = imap%map(:, 1) - sum(dble(imap%map(:, 1)*imask_copy%map(:,1)))/sumimask
     iloaded = .true.
   end subroutine load_imap
 
