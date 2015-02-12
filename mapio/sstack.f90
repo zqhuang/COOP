@@ -222,13 +222,11 @@ program massive_stack
         call compute_fr()
         if(ind .eq. 0)then
            call fpcheck%open(trim(output)//".chk", "w")           
-           write(fpcheck%unit,"(5I8)") ind, sto_max%nmaps, sto_max%peak_pix%n, sto_min%nmaps, sto_min%peak_pix%n
-           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"I6)") patch_max%icm           
-           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.4)") patch_max%wcm
-           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.4)") patch_max%wsm
-           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"I6)") patch_min%icm           
-           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.4)") patch_min%wcm
-           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.4)") patch_min%wsm
+           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.4)") patch_max%image(:,:,1)
+           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.4)") patch_max%image(:,:,2)
+           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.4)") patch_min%image(:,:,1)
+           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.4)") patch_min%image(:,:,2)           
+           
            call fpcheck%close()
         endif
         
