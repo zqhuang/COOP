@@ -39,7 +39,8 @@ program massive_stack
   COOP_REAL,dimension(:),allocatable::S_m
   type(coop_stacking_options)::sto_max, sto_min
   type(coop_healpix_patch)::patch_max, patch_min, patch_max_data, patch_max_sim, patch_min_data, patch_min_sim
-  type(coop_healpix_maps)::imap, imask, polmask, inoise, polnoise, polmap, imask_smooth, polmask_smooth, imask_copy
+  type(coop_healpix_maps)::imap, imask, polmask, inoise, polnoise, polmap, imask_smooth
+  logical,dimension(:),allocatable::imask_copy
   logical::iloaded = .false.
   logical::polloaded  = .false.
   type(coop_file)::fp 
@@ -177,13 +178,16 @@ program massive_stack
 
   if(ind_done .lt. n_sim)then !!need to do actual maps
      call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
-     imask%mask_npix = count(imask%map(:,1).gt.0.5)
-     imask_smooth = imask
-     imask_copy = imask
+     allocate(imask_copy(0:imask%npix-1))
+     imask_copy = (imask%map(0:imask%npix-1, 1).gt. 0.5)     
+     imask%mask_npix = count(imask_copy)
+     call imask_smooth%init(nside = imask%nside, nmaps = 1, spin = (/ 0 /) )
+     imask_smooth%map(0:imask%npix-1, 1) = imask%map(0:imask%npix-1, 1)
      if(sto_max%nmaps .gt. 1)then
         call imask_smooth%smooth_mask(real(20.*coop_SI_arcmin)) 
      endif
-     sumimask = sum(dble(imask%map(:,1)))
+     sumimask = imask%mask_npix
+     if(trim(stack_field_name).eq."QU") call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )
   endif
      
   if(read_only)then
@@ -213,14 +217,6 @@ program massive_stack
         call find_peaks()
         call stack_map()
         call compute_fr()
-        if(ind.eq.0)then
-           print*, ind
-           print*, patch_max%fr(0:patch_max%n, 2, 1)
-           print*, patch_max%fr(0:patch_max%n, 2, 2)           
-           
-           print*, patch_min%fr(0:patch_min%n, 2, 1)
-           print*, patch_min%fr(0:patch_min%n, 2, 2)           
-        endif
         write(fp%unit) ind, patch_max%fr(0:patch_max%n, 0:patch_max%mmax/2, 1:patch_max%nmaps), patch_min%fr(0:patch_min%n, 0:patch_min%mmax/2, 1:patch_min%nmaps)
      else
         read(fp%unit) i, patch_max%fr(0:patch_max%n, 0:patch_max%mmax/2, 1:patch_max%nmaps), patch_min%fr(0:patch_min%n, 0:patch_min%mmax/2, 1:patch_min%nmaps)
@@ -290,8 +286,8 @@ contains
        call imap%stack_on_peaks(sto_min, patch_min, imask)
     case("QU")
        call load_polmap(ind)
-       call polmap%stack_on_peaks(sto_max, patch_max, imask)
-       call polmap%stack_on_peaks(sto_min, patch_min, imask)
+       call polmap%stack_on_peaks(sto_max, patch_max, polmask)
+       call polmap%stack_on_peaks(sto_min, patch_min, polmask)
     case default
        stop "so far SST only support T and QU stacking"
     end select
@@ -311,7 +307,7 @@ contains
        call imap%mask(mask = imask_smooth)
        call imap%iqu2TQTUT()
     endif
-    if(remove_mono)imap%map(:, 1) = imap%map(:, 1) - sum(dble(imap%map(:, 1)*imask_copy%map(:,1)))/sumimask
+    if(remove_mono)imap%map(:, 1) = imap%map(:, 1) - sum(dble(imap%map(:, 1)), mask = imask_copy)/sumimask
     iloaded = .true.
   end subroutine load_imap
 

@@ -5,8 +5,8 @@ nulist = ['0', '1']
 hlist = ['hot0', 'hot1', 'hot2']
 clist = ['cold0', 'cold1', 'cold2']
 nslist = ['N', 'S']
-readonly = 'T'
-nmaps = 300
+readonly = 'F'
+nmaps = 0
 print "=============== F =============="
 for nu in nulist:
     print " ------------------------- "    
