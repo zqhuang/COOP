@@ -32,6 +32,6 @@ for nu in nulist:
         print cc
         for ns in nslist:
             print "hemisphere: " + ns
-            os.system(r'./SST ' + cc + ' 1024 QU ' + ' ' + nu + ' 0 self hot0 T  ' + ns + ' T '+ readonly)
-            os.system(r'./SST ' + cc + ' 1024 QU ' + ' ' + nu + ' 0 self cold0 T ' + ns + ' T '+ readonly)                      
+            os.system(r'./SST ' + cc + ' 1024 QU ' + ' ' + nu + ' ' + str(nmaps) + ' self hot0 T  ' + ns + ' T '+ readonly)
+            os.system(r'./SST ' + cc + ' 1024 QU ' + ' ' + nu + ' ' + str(nmaps) + ' self cold0 T ' + ns + ' T '+ readonly)                      
                     
