@@ -33,7 +33,7 @@ program massive_stack
 
   COOP_STRING::outputdir
   COOP_UNKNOWN_STRING,parameter::mapdir = "massffp8/"
-  logical, parameter::do_nest = .true.
+  logical, parameter::do_nest = .false.
   logical::do_self = .false.
   COOP_STRING::imap_file, polmap_file, imask_file, polmask_file
   COOP_REAL,dimension(:),allocatable::S_m
