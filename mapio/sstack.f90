@@ -175,11 +175,10 @@ program massive_stack
 
 
   if(ind_done .lt. n_sim)then !!need to do actual maps
-     call imask_smooth%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
-     imask_smooth%mask_npix = count(imask_smooth%map(:,1).gt.0.5)
-     allocate(imask%map(0:imask_smooth%npix-1,1), imask_copy%map(0:imask_smooth%npix-1,1))
-     imask%map = imask_smooth%map
-     imask_copy%map = imask%map
+     call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
+     imask%mask_npix = count(imask%map(:,1).gt.0.5)
+     imask_smooth = imask
+     imask_copy = imask
      if(sto_max%nmaps .gt. 1)then
         call imask_smooth%smooth_mask(real(20.*coop_SI_arcmin)) 
      endif
