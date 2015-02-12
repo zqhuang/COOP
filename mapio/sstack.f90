@@ -223,8 +223,8 @@ program massive_stack
         if(ind .eq. 0)then
            call fpcheck%open(trim(output)//".chk", "w")
            write(fpcheck%unit, "(5E15.6)") sum(dble(imap%map(:,1))), sum(dble(polmap%map(:,1))), sum(dble(polmap%map(:,2))) , sum(dble(imask%map(:,1))), sum(dble(imask_smooth%map(:,1))), sum(dble(polmask%map(:,1)))           
-           write(fpcheck%unit, "(4I5)") sto_max%index_I, sto_max%index_Q, sto_max%index_U, sto_max%index_L
-           write(fpcheck%unit, "(2I5, 6E15.6)") sto_max%peak_pix%n,  sto_max%peak_pix%element(sto_max%peak_pix%n/2), sto_max%peak_ang%element(sto_max%peak_pix%n/2), sto_max%peak_ang%element(10), sto_max%peak_ang%element(sto_max%peak_pix%n-1)
+           write(fpcheck%unit, "(4I9)") sto_max%index_I, sto_max%index_Q, sto_max%index_U, sto_max%index_L
+           write(fpcheck%unit, "(2I9, 6E15.6)") sto_max%peak_pix%n,  sto_max%peak_pix%element(sto_max%peak_pix%n/2), sto_max%peak_ang%element(sto_max%peak_pix%n/2), sto_max%peak_ang%element(10), sto_max%peak_ang%element(sto_max%peak_pix%n-1)
 !!$           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.3)") patch_max%image(:,:,1)*1.d6
 !!$           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.3)") patch_max%image(:,:,2)*1.d6
 !!$           write(fpcheck%unit,"("//COOP_STR_OF((2*n+1)**2)//"F13.3)") patch_min%image(:,:,1)*1.d6
