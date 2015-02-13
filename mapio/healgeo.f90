@@ -3473,7 +3473,7 @@ contains
        p(ithread) = patch
        tmp(ithread) = patch
     enddo
-    !!$omp parallel do private(i, ithread)
+    !$omp parallel do private(i, ithread)
     do ithread = 1, n_threads
        do i=ithread, sto%peak_pix%n, n_threads
           call this%get_disc(sto%pix(this%nside, i), disc(ithread))
@@ -3484,7 +3484,7 @@ contains
           endif
        enddo
     enddo
-    !!$omp end parallel do
+    !$omp end parallel do
     do ithread = 1, n_threads
        patch%image = patch%image + p(ithread)%image
        patch%nstack = patch%nstack + p(ithread)%nstack
