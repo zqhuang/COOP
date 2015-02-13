@@ -196,7 +196,7 @@ program massive_stack
   if(read_only)then
      call fp%open(output, "ur")     
   else
-     call fp%open(output, "u")
+ !!$    call fp%open(output, "u")
   endif
   if(read_only)then
      call fig%open("tmpfig.txt")
@@ -220,20 +220,28 @@ program massive_stack
         call find_peaks()
         call stack_map()
         call compute_fr()
-        if(ind .eq. 0)then
-           call fpcheck%open(trim(output)//".chk", "w")
-           write(fpcheck%unit, "(6E15.6)") sum(dble(abs(imap%map(:,1)*imask%map(:,1)))), sum(dble(abs(polmap%map(:,1)*polmask%map(:,1)))), sum(dble(abs(polmap%map(:,2)*polmask%map(:,1)))) , sum(dble(imask%map(:,1))), sum(dble(imask_smooth%map(:,1))), sum(dble(polmask%map(:,1)))           
-           write(fpcheck%unit, "(2I9, 6E15.6)") sto_min%peak_pix%n,  sto_min%peak_pix%element(sto_min%peak_pix%n/2), sto_min%peak_ang%element(sto_min%peak_pix%n/2), sto_min%peak_ang%element(10), sto_min%peak_ang%element(sto_min%peak_pix%n-1)
+!!$        if(ind .eq. 0)then
+!!$           call fpcheck%open(trim(output)//".chk", "w")
+!!$           write(fpcheck%unit, "(6E15.6)") sum(dble(abs(imap%map(:,1)*imask%map(:,1)))), sum(dble(abs(polmap%map(:,1)*polmask%map(:,1)))), sum(dble(abs(polmap%map(:,2)*polmask%map(:,1)))) , sum(dble(imask%map(:,1))), sum(dble(imask_smooth%map(:,1))), sum(dble(polmask%map(:,1)))           
+!!$           write(fpcheck%unit, "(2I9, 6E15.6)") sto_min%peak_pix%n,  sto_min%peak_pix%element(sto_min%peak_pix%n/2), sto_min%peak_ang%element(sto_min%peak_pix%n/2), sto_min%peak_ang%element(10), sto_min%peak_ang%element(sto_min%peak_pix%n-1)
+!!$
+!!$           write(fpcheck%unit, "(2I9, 6E15.6)") sto_max%peak_pix%n,  sto_max%peak_pix%element(sto_max%peak_pix%n/2), sto_max%peak_ang%element(sto_max%peak_pix%n/2), sto_max%peak_ang%element(10), sto_max%peak_ang%element(sto_max%peak_pix%n-1)
+!!$           
+!!$           write(fpcheck%unit, "(4E14.5)") sum(abs(patch_max%image(:,:,1))), sum(abs(patch_max%image(:,:,2))), sum(abs(patch_min%image(:,:,1))), sum(abs(patch_min%image(:,:,2)))
+!!$           call fpcheck%close()
+!!$        endif
 
-           write(fpcheck%unit, "(2I9, 6E15.6)") sto_max%peak_pix%n,  sto_max%peak_pix%element(sto_max%peak_pix%n/2), sto_max%peak_ang%element(sto_max%peak_pix%n/2), sto_max%peak_ang%element(10), sto_max%peak_ang%element(sto_max%peak_pix%n-1)
+           write(*, "(6E16.7)") sum(dble(abs(imap%map(:,1)*imask%map(:,1)))), sum(dble(abs(polmap%map(:,1)*polmask%map(:,1)))), sum(dble(abs(polmap%map(:,2)*polmask%map(:,1)))) , sum(dble(imask%map(:,1))), sum(dble(imask_smooth%map(:,1))), sum(dble(polmask%map(:,1)))           
+           write(*, "(2I9, 6E16.7)") sto_min%peak_pix%n,  sto_min%peak_pix%element(sto_min%peak_pix%n/2), sto_min%peak_ang%element(sto_min%peak_pix%n/2), sto_min%peak_ang%element(10), sto_min%peak_ang%element(sto_min%peak_pix%n-1)
+
+           write(*, "(2I9, 6E16.7)") sto_max%peak_pix%n,  sto_max%peak_pix%element(sto_max%peak_pix%n/2), sto_max%peak_ang%element(sto_max%peak_pix%n/2), sto_max%peak_ang%element(10), sto_max%peak_ang%element(sto_max%peak_pix%n-1)
            
-           write(fpcheck%unit, "(4E14.5)") sum(abs(patch_max%image(:,:,1))), sum(abs(patch_max%image(:,:,2))), sum(abs(patch_min%image(:,:,1))), sum(abs(patch_min%image(:,:,2)))
-           call fpcheck%close()
-        endif
-        
-        write(fp%unit) ind, patch_max%fr(0:patch_max%n, 0:patch_max%mmax/2, 1:patch_max%nmaps), patch_min%fr(0:patch_min%n, 0:patch_min%mmax/2, 1:patch_min%nmaps)
+           write(*, "(4E14.5)") sum(abs(patch_max%image(:,:,1))), sum(abs(patch_max%image(:,:,2))), sum(abs(patch_min%image(:,:,1))), sum(abs(patch_min%image(:,:,2)))
+
+
+!!$           write(fp%unit) ind, patch_max%fr(0:patch_max%n, 0:patch_max%mmax/2, 1:patch_max%nmaps), patch_min%fr(0:patch_min%n, 0:patch_min%mmax/2, 1:patch_min%nmaps)
      else
-        read(fp%unit) i, patch_max%fr(0:patch_max%n, 0:patch_max%mmax/2, 1:patch_max%nmaps), patch_min%fr(0:patch_min%n, 0:patch_min%mmax/2, 1:patch_min%nmaps)
+!!$        read(fp%unit) i, patch_max%fr(0:patch_max%n, 0:patch_max%mmax/2, 1:patch_max%nmaps), patch_min%fr(0:patch_min%n, 0:patch_min%mmax/2, 1:patch_min%nmaps)
         if(i.ne.ind) stop "data file is broken"
      endif
      call get_radial_f(pfr, patch_max, patch_min)
