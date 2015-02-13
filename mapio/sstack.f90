@@ -221,7 +221,11 @@ program massive_stack
         call compute_fr()
         if(ind .eq. 0)then
            call fpcheck%open(trim(output)//".chk", "w")
-           write(fpcheck%unit, "(4E15.6)") sum(abs(patch_max%image(:,:,1))), sum(abs(patch_max%image(:,:,2))), sum(abs(patch_min%image(:,:,1))), sum(abs(patch_min%image(:,:,2)))
+           if(trim(stack_field_name).eq."QU")then
+              write(fpcheck%unit, "(4E15.6)") sum(abs(patch_max%image(:,:,1))), sum(abs(patch_max%image(:,:,2))), sum(abs(patch_min%image(:,:,1))), sum(abs(patch_min%image(:,:,2)))
+           else
+              write(fpcheck%unit, "(4E15.6)") sum(abs(patch_max%image(:,:,1))), sum(patch_max%image(:,:,1)**2), sum(abs(patch_min%image(:,:,1))), sum(patch_min%image(:,:,1)**2)              
+           endif
            call fpcheck%close()
         endif
         write(fp%unit) ind, patch_max%fr(0:patch_max%n, 0:patch_max%mmax/2, 1:patch_max%nmaps), patch_min%fr(0:patch_min%n, 0:patch_min%mmax/2, 1:patch_min%nmaps)
