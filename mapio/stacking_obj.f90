@@ -34,7 +34,10 @@ module coop_stacking_mod
      COOP_INT::index_Q = 0
      COOP_INT::index_U = 0
      COOP_INT::index_L = 0
-     COOP_STRING::caption
+     COOP_STRING::caption = ""
+     COOP_REAL::sigma_I = 0.d0
+     COOP_REAL::sigma_L = 0.d0
+     COOP_REAL::sigma_P = 0.d0
      COOP_SINGLE::I_lower = -1.e20
      COOP_SINGLE::I_upper = 1.e20
      COOP_SINGLE::L_lower = -1.e20
@@ -45,7 +48,7 @@ module coop_stacking_mod
      COOP_SINGLE::I_upper_nu = 1.e20
      COOP_SINGLE::L_lower_nu = -1.e20
      COOP_SINGLE::L_upper_nu = 1.e20
-     COOP_SINGLE::P_lower_nu = -1.e20
+     COOP_SINGLE::P_lower_nu = 0.
      COOP_SINGLE::P_upper_nu = 1.e20
      COOP_SINGLE::P2byI2_lower = 0.
      COOP_SINGLE::P2byI2_upper = 1.e15
@@ -59,7 +62,8 @@ module coop_stacking_mod
      type(coop_list_realarr)::peak_map
    contains
      procedure::export => coop_stacking_options_export
-     procedure::import => coop_stacking_options_import     
+     procedure::import => coop_stacking_options_import
+     procedure::subset =>  coop_stacking_options_subset
      procedure::init => coop_stacking_options_init
      procedure::free => coop_stacking_options_free
      procedure::convert2ring => coop_stacking_options_convert2ring
@@ -93,6 +97,38 @@ module coop_stacking_mod
 
 
 contains
+
+
+  subroutine coop_stacking_options_subset(this, subset)
+    class(coop_stacking_options)::this
+    type(coop_stacking_options)::subset
+    COOP_INT::i
+    call subset%free()
+    if(subset%index_I .ne. 0 .and. (abs(subset%I_lower_nu) .lt. coop_stacking_max_threshold .or. abs(subset%I_upper_nu) .lt. coop_stacking_max_threshold ) )then
+       if(this%sigma_I .eq. 0.d0) stop "nu != 0 but sigma_I = 0?"
+       subset%sigma_I = this%sigma_I
+       if(abs(subset%I_lower_nu) .lt. coop_stacking_max_threshold) subset%I_lower = subset%I_lower_nu * subset%sigma_I
+       if(abs(subset%I_upper_nu) .lt. coop_stacking_max_threshold) subset%I_upper = subset%I_upper_nu *  subset%sigma_I
+    endif
+    if(subset%index_L .ne. 0 .and. (abs(subset%L_lower_nu) .lt. coop_stacking_max_threshold .or. abs(subset%L_upper_nu) .lt. coop_stacking_max_threshold ) )then
+       if(this%sigma_L .eq. 0.d0)stop "nu !=0 but sigma_L = 0?"
+       if(abs(subset%L_lower_nu) .lt. coop_stacking_max_threshold) subset%L_lower = subset%L_lower_nu * subset%sigma_P
+       if(abs(subset%L_upper_nu) .lt. coop_stacking_max_threshold) subset%L_upper = subset%L_upper_nu * (this%L_upper/this%L_upper_nu)
+    endif
+    if(subset%index_Q .ne. 0 .and. subset%index_U .ne. 0 .and. (abs(subset%P_lower_nu) .lt. coop_stacking_max_threshold .or. abs(subset%P_upper_nu) .lt. coop_stacking_max_threshold ) )then
+       if(this%sigma_P .eq. 0.d0)stop "nu !=0 but sigma_P = 0?"
+       subset%sigma_P = this%sigma_P
+       if(abs(subset%P_lower_nu) .lt. coop_stacking_max_threshold) subset%P2_lower = (subset%P_lower_nu*subset%sigma_P)**2 
+       if(abs(subset%P_upper_nu) .lt. coop_stacking_max_threshold) subset%P2_upper = (subset%P_upper_nu*subset%sigma_P)**2
+    endif
+    do i = 1, this%peak_pix%n
+       if( .not. subset%reject(this%peak_map%element(i) ))then
+          call subset%peak_pix%push(this%peak_pix%element(i))
+          call subset%peak_ang%push(this%peak_ang%element(i))
+          call subset%peak_map%push(this%peak_map%element(i))
+       endif
+    enddo
+  end subroutine coop_stacking_options_subset
 
 
   subroutine coop_stacking_options_convert2ring(this)
@@ -152,6 +188,7 @@ contains
     do i=1, this%peak_pix%n
        write(fp%unit) this%peak_pix%element(i), this%peak_ang%element(i), this%peak_map%element(i)
     enddo
+    write(fp%unit) this%sigma_I, this%sigma_L, this%sigma_P
     call fp%close()
   end subroutine coop_stacking_options_export
 
@@ -181,6 +218,7 @@ contains
        call this%peak_ang%push(thetaphi)
        call this%peak_map%push(map)
     enddo
+    read(fp%unit) this%sigma_I, this%sigma_L, this%sigma_P    
     call fp%close()
     deallocate(map)
   end subroutine coop_stacking_options_import
@@ -676,5 +714,7 @@ contains
        l_deg = l_deg + 360.d0
     enddo
   end subroutine coop_healpix_ang2lb
+
+
   
 end module coop_stacking_mod

@@ -222,9 +222,9 @@ program massive_stack
         if(ind .eq. 0)then
            call fpcheck%open(trim(output)//".chk", "w")
            if(trim(stack_field_name).eq."QU")then
-              write(fpcheck%unit, "(4E15.6)") sum(abs(patch_max%image(:,:,1))), sum(abs(patch_max%image(:,:,2))), sum(abs(patch_min%image(:,:,1))), sum(abs(patch_min%image(:,:,2)))
+              write(fpcheck%unit, "(2I8, 8E15.6)") patch_max%nstack_raw, patch_min%nstack_raw, sum(abs(patch_max%image(:,:,1))), sum(abs(patch_max%image(:,:,2))), sum(abs(patch_min%image(:,:,1))), sum(abs(patch_min%image(:,:,2))), sum(patch_max%nstack), sum(patch_min%nstack), patch_max%sigma_I, patch_min%sigma_I             
            else
-              write(fpcheck%unit, "(4E15.6)") sum(abs(patch_max%image(:,:,1))), sum(patch_max%image(:,:,1)**2), sum(abs(patch_min%image(:,:,1))), sum(patch_min%image(:,:,1)**2)              
+              write(fpcheck%unit, "(2I8, 8E15.6)") patch_max%nstack_raw, patch_min%nstack_raw, sum(abs(patch_max%image(:,:,1))), sum(patch_max%image(:,:,1)**2), sum(abs(patch_min%image(:,:,1))), sum(patch_min%image(:,:,1)**2), sum(patch_max%nstack), sum(patch_min%nstack), patch_max%sigma_I, patch_min%sigma_I             
            endif
            call fpcheck%close()
         endif
