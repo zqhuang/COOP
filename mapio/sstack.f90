@@ -179,7 +179,6 @@ program massive_stack
      call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
      allocate(imask_copy(0:imask%npix-1))
      imask_copy = (imask%map(0:imask%npix-1, 1).gt. 0.5)
-     !!prepare the listpix, usefull for small sky fraction
      imask%mask_npix = count(imask_copy)
      call imask_smooth%init(nside = imask%nside, nmaps = 1, spin = (/ 0 /) )
      imask_smooth%map(0:imask%npix-1, 1) = imask%map(0:imask%npix-1, 1)
@@ -275,8 +274,8 @@ contains
     case default
        stop "so far SST only support temperature peaks (oriented or nonoriented)"
     end select
-    call imap%get_peaks_small_sky(sto_max, mask = imask, restore = .not. do_nest)
-    call imap%get_peaks_small_sky(sto_min, mask = imask, restore = .not. do_nest)
+    call imap%get_peaks(sto_max, mask = imask, restore = .not. do_nest)
+    call imap%get_peaks(sto_min, mask = imask, restore = .not. do_nest)
   end subroutine find_peaks
 
   subroutine compute_fr()

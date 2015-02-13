@@ -5,7 +5,7 @@ cclist = ['commander', 'nilc', 'sevem', 'smica']
 nulist = ['0', '1']
 hclist = ['hot0', 'cold0', 'hot1', 'cold1']
 nslist = ['N', 'S']
-readonly = 'T'
+readonly = 'F'
 nmaps = 0
 print "=============== F =============="
 for nu in nulist:
