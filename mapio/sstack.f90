@@ -33,7 +33,7 @@ program massive_stack
 
   COOP_STRING::outputdir
   COOP_UNKNOWN_STRING,parameter::mapdir = "massffp8/"
-  logical, parameter::do_nest = .false.
+  logical, parameter::do_nest = .true.
   logical::do_self = .false.
   COOP_STRING::imap_file, polmap_file, imask_file, polmask_file
   COOP_REAL,dimension(:),allocatable::S_m
@@ -222,7 +222,7 @@ program massive_stack
         call compute_fr()
         if(ind .eq. 0)then
            call fpcheck%open(trim(output)//".chk", "w")
-           write(fpcheck%unit, "(5E15.6)") sum(dble(abs(imap%map(:,1)*imask%map(:,1)))), sum(dble(abs(polmap%map(:,1)*polmask%map(:,1)))), sum(dble(abs(polmap%map(:,2)*polmask%map(:,1)))) , sum(dble(imask%map(:,1))), sum(dble(imask_smooth%map(:,1))), sum(dble(polmask%map(:,1)))           
+           write(fpcheck%unit, "(6E15.6)") sum(dble(abs(imap%map(:,1)*imask%map(:,1)))), sum(dble(abs(polmap%map(:,1)*polmask%map(:,1)))), sum(dble(abs(polmap%map(:,2)*polmask%map(:,1)))) , sum(dble(imask%map(:,1))), sum(dble(imask_smooth%map(:,1))), sum(dble(polmask%map(:,1)))           
            write(fpcheck%unit, "(2I9, 6E15.6)") sto_min%peak_pix%n,  sto_min%peak_pix%element(sto_min%peak_pix%n/2), sto_min%peak_ang%element(sto_min%peak_pix%n/2), sto_min%peak_ang%element(10), sto_min%peak_ang%element(sto_min%peak_pix%n-1)
 
            write(fpcheck%unit, "(2I9, 6E15.6)") sto_max%peak_pix%n,  sto_max%peak_pix%element(sto_max%peak_pix%n/2), sto_max%peak_ang%element(sto_max%peak_pix%n/2), sto_max%peak_ang%element(10), sto_max%peak_ang%element(sto_max%peak_pix%n-1)
