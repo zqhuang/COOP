@@ -1,11 +1,12 @@
 import time
 import os
+import sys
 cclist = ['commander', 'nilc', 'sevem', 'smica']
 nulist = ['0', '1']
 hclist = ['hot0', 'cold0', 'hot1', 'cold1']
 nslist = ['N', 'S']
 readonly = 'T'
-nmaps = 50
+nmaps = 0
 print "=============== F =============="
 for nu in nulist:
     print '------------------------'
@@ -15,7 +16,7 @@ for nu in nulist:
         for hc in hclist:        
             os.system(r'./SST '+cc+' 1024 T ' + ' ' + nu + ' ' + str(nmaps) + ' self '+ hc + ' T F T ' + readonly)
     
-
+#sys.exit()
 print "=========== NS ==========="
 
 for nu in nulist:

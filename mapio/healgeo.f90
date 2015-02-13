@@ -15,6 +15,8 @@ module coop_healpix_mod
   
 #include "constants.h"
 
+
+  
   private
 
   !!some stupid conventions...
@@ -124,6 +126,7 @@ module coop_healpix_mod
      procedure :: filter_alm =>  coop_healpix_filter_alm
      !!stacking stuff
      procedure :: get_peaks => coop_healpix_maps_get_peaks
+     procedure :: get_peaks_small_sky => coop_healpix_maps_get_peaks_small_sky     
      procedure :: mark_peaks => coop_healpix_maps_mark_peaks
      procedure :: stack_on_peaks  =>     coop_healpix_maps_stack_on_peaks     
   end type coop_healpix_maps
@@ -3398,6 +3401,185 @@ contains
 #endif    
   end subroutine coop_healpix_maps_get_peaks
 
+
+  subroutine coop_healpix_maps_get_peaks_small_sky(this, sto, mask, restore)
+    class(coop_healpix_maps)::this  
+    type(coop_stacking_options)::sto
+    type(coop_healpix_maps)::mask
+    COOP_INT i, nneigh, list(8), index_peak, ip, il
+    COOP_REAL::sigma,thetaphi(2)
+    logical,optional::restore
+#ifdef HAS_HEALPIX
+    if(sto%nmaps .ne. this%nmaps)stop "get_peaks: nmaps mismatch"
+    call sto%free()
+    sto%nside = this%nside
+    call this%convert2nested()
+    if(mask%nside .ne. this%nside)then
+       write(*,*) "map nside = ", this%nside
+       write(*,*) "mask nside = ", mask%nside
+       stop "coop_healpix_get_peaks_small_sky: mask and map must have the same nside"
+    endif    
+    call mask%convert2nested()
+    if(.not. allocated(mask%mask_listpix))then
+       mask%mask_npix = count(mask%map(:,1).gt. 0.5)           
+       allocate(mask%mask_listpix(mask%mask_npix))
+       ip = 1
+       do i = 0, mask%npix-1
+          if(mask%map(i,1).gt. 0.5)then
+             mask%mask_listpix(ip) = i
+             ip = ip + 1
+          endif
+       enddo
+    endif    
+    
+    if(sto%index_I .ne. 0 .and. (abs(sto%I_lower_nu).lt.coop_stacking_max_threshold .or. abs(sto%I_upper_nu).lt. coop_stacking_max_threshold))then  !!rescale I
+       sigma  = sqrt(sum(dble(this%map(:,sto%index_I))**2, mask%map(:,1).gt.0.5)/mask%mask_npix )
+       sto%I_lower = sto%I_lower_nu* sigma
+       sto%I_upper = sto%I_upper_nu* sigma
+    endif
+    if(sto%index_L .ne. 0 .and. (abs(sto%L_lower_nu).lt.coop_stacking_max_threshold .or. abs(sto%L_upper_nu).lt. coop_stacking_max_threshold) )then  !!rescale L
+       sigma  = sqrt(sum(dble(this%map(:,sto%index_L))**2, mask%map(:,1).gt.0.5)/mask%mask_npix )
+       sto%L_lower = sto%L_lower_nu* sigma
+       sto%L_upper = sto%L_upper_nu* sigma
+    endif
+    if(sto%index_Q .ne. 0 .and. sto%index_U .ne. 0 .and. (abs(sto%P_lower_nu).lt.coop_stacking_max_threshold .or. abs(sto%P_upper_nu).lt. coop_stacking_max_threshold) )then  !!rescale P2
+       sigma  = sum(dble(this%map(:,sto%index_Q)**2+this%map(:,sto%index_U)**2), mask%map(:,1).gt.0.5)/mask%mask_npix 
+       sto%P2_lower = sto%P_lower_nu**2 * sigma
+       sto%P2_upper = sto%P_upper_nu**2 * sigma
+    endif
+
+    select case(sto%genre)
+    case(coop_stacking_genre_Imax, coop_stacking_genre_Imin, coop_stacking_genre_Imax_Oriented, coop_stacking_genre_Imin_Oriented)
+       index_peak = sto%index_I
+       if(index_peak .le. 0 .or. index_peak .gt. this%nmaps) stop "map index of peak overflow"
+    case(coop_stacking_genre_Lmax, coop_stacking_genre_Lmin, coop_stacking_genre_Lmax_Oriented, coop_stacking_genre_Lmin_Oriented)
+       index_peak = sto%index_L
+       if(index_peak .le. 0 .or. index_peak .gt. this%nmaps) stop "map index of peak overflow"       
+    case default
+       index_peak = sto%index_Q
+    end select
+    if(sto%nested)then
+       select case(sto%genre)
+       case(coop_stacking_genre_Imax, coop_stacking_genre_Imax_Oriented, coop_stacking_genre_Lmax, coop_stacking_genre_Lmax_Oriented)
+          do il = 1, mask%mask_npix
+             i = mask%mask_listpix(il)
+             if( mask%map(i, 1) .le. 0.5  .or. sto%reject(this%map(i,:)))cycle
+             call neighbours_nest(this%nside, i, list, nneigh)  
+             if ( all(this%map(list(1:nneigh), index_peak).lt.this%map(i, index_peak)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5 ) )then
+                call sto%peak_pix%push(i)
+                call this%pix2ang(i, thetaphi(1), thetaphi(2))
+                call sto%peak_ang%push(real(thetaphi))
+                call sto%peak_map%push(this%map(i, :))
+             endif
+          enddo
+       case(coop_stacking_genre_Imin, coop_stacking_genre_Imin_Oriented, coop_stacking_genre_Lmin, coop_stacking_genre_Lmin_Oriented)
+          do il = 1, mask%mask_npix
+             i = mask%mask_listpix(il)
+             if(sto%reject(this%map(i,:)))cycle
+             call neighbours_nest(this%nside, i, list, nneigh)  
+             if ( all(this%map(list(1:nneigh), index_peak) .gt. this%map(i, index_peak)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5 ) )then
+                call sto%peak_pix%push(i)
+                call this%pix2ang(i, thetaphi(1), thetaphi(2))
+                call sto%peak_ang%push(real(thetaphi))
+                call sto%peak_map%push(this%map(i, :))
+             endif
+          enddo
+       case(coop_stacking_genre_Pmax_Oriented)
+          do il = 1, mask%mask_npix
+             i = mask%mask_listpix(il)
+             if(sto%reject(this%map(i,:)))cycle
+             call neighbours_nest(this%nside, i, list, nneigh)  
+             if ( all(this%map(list(1:nneigh), sto%index_Q)**2 + this%map(list(1:nneigh), sto%index_U)**2 .lt. this%map(i, sto%index_Q)**2 + this%map(i, sto%index_U)**2) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5 ) )then
+                call sto%peak_pix%push(i)
+                call this%pix2ang(i, thetaphi(1), thetaphi(2))
+                call sto%peak_ang%push(real(thetaphi))
+                call sto%peak_map%push(this%map(i, :))
+             endif
+          enddo
+       case(coop_stacking_genre_Pmin_Oriented)
+          do il = 1, mask%mask_npix
+             i = mask%mask_listpix(il)
+             if(sto%reject(this%map(i,:)))cycle
+             call neighbours_nest(this%nside, i, list, nneigh)  
+             if ( all(this%map(list(1:nneigh), sto%index_Q)**2 + this%map(list(1:nneigh), sto%index_U)**2 .gt. this%map(i, sto%index_Q)**2 + this%map(i, sto%index_U)**2) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5 ) )then
+                call sto%peak_pix%push(i)
+                call this%pix2ang(i, thetaphi(1), thetaphi(2))
+                call sto%peak_ang%push(real(thetaphi))
+                call sto%peak_map%push(this%map(i, :))
+             endif
+          enddo
+       end select
+    else
+       select case(sto%genre)
+       case(coop_stacking_genre_Imax, coop_stacking_genre_Imax_Oriented, coop_stacking_genre_Lmax, coop_stacking_genre_Lmax_Oriented)
+          do il = 1, mask%mask_npix
+             i = mask%mask_listpix(il)
+             if(sto%reject(this%map(i,:)))cycle
+             call neighbours_nest(this%nside, i, list, nneigh)  
+             if ( all(this%map(list(1:nneigh), index_peak).lt.this%map(i, index_peak)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5 ) )then
+                call nest2ring(this%nside, i, ip)
+                call sto%peak_pix%push(ip)
+                call this%pix2ang(i, thetaphi(1), thetaphi(2))
+                call sto%peak_ang%push(real(thetaphi))
+                call sto%peak_map%push(this%map(i, :))
+             endif
+          enddo
+       case(coop_stacking_genre_Imin, coop_stacking_genre_Imin_Oriented, coop_stacking_genre_Lmin, coop_stacking_genre_Lmin_Oriented)
+          do il = 1, mask%mask_npix
+             i = mask%mask_listpix(il)
+             if(sto%reject(this%map(i,:)))cycle
+             call neighbours_nest(this%nside, i, list, nneigh)  
+             if ( all(this%map(list(1:nneigh), index_peak) .gt. this%map(i, index_peak)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5 ) )then
+                call nest2ring(this%nside, i, ip)
+                call sto%peak_pix%push(ip)
+                call this%pix2ang(i, thetaphi(1), thetaphi(2))
+                call sto%peak_ang%push(real(thetaphi))
+                call sto%peak_map%push(this%map(i, :))
+             endif
+          enddo
+       case(coop_stacking_genre_Pmax_Oriented)
+          do il = 1, mask%mask_npix
+             i = mask%mask_listpix(il)
+             if(sto%reject(this%map(i,:)))cycle
+             call neighbours_nest(this%nside, i, list, nneigh)  
+             if ( all(this%map(list(1:nneigh), sto%index_Q)**2 + this%map(list(1:nneigh), sto%index_U)**2 .lt. this%map(i, sto%index_Q)**2 + this%map(i, sto%index_U)**2) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5 ) )then
+                call nest2ring(this%nside, i, ip)
+                call sto%peak_pix%push(ip)
+                call this%pix2ang(i, thetaphi(1), thetaphi(2))
+                call sto%peak_ang%push(real(thetaphi))
+                call sto%peak_map%push(this%map(i, :))
+             endif
+          enddo
+       case(coop_stacking_genre_Pmin_Oriented)
+          do il = 1, mask%mask_npix
+             i = mask%mask_listpix(il)
+             if(sto%reject(this%map(i,:)))cycle
+             call neighbours_nest(this%nside, i, list, nneigh)  
+             if ( all(this%map(list(1:nneigh), sto%index_Q)**2 + this%map(list(1:nneigh), sto%index_U)**2 .gt. this%map(i, sto%index_Q)**2 + this%map(i, sto%index_U)**2) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5 ) )then
+                call nest2ring(this%nside, i, ip)
+                call sto%peak_pix%push(ip)
+                call this%pix2ang(i, thetaphi(1), thetaphi(2))
+                call sto%peak_ang%push(real(thetaphi))
+                call sto%peak_map%push(this%map(i, :))
+             endif
+          enddo
+       end select
+    endif
+    if(present(restore))then
+       if(restore)then
+          call this%convert2ring()
+          call mask%convert2ring()
+       endif
+    else  !!by default I do restore
+       call this%convert2ring()
+       call mask%convert2ring()       
+    endif
+#else
+    stop "Cannot find HEALPIX"
+#endif    
+  end subroutine coop_healpix_maps_get_peaks_small_sky
+
+  
   subroutine coop_healpix_maps_mark_peaks(this, sto, imap)
     COOP_INT,parameter::max_n = 30
     class(coop_healpix_maps) this

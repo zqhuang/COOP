@@ -44,7 +44,7 @@ program massive_stack
   logical::polloaded  = .false.
   type(coop_file)::fp, fpcheck 
   type(coop_asy)::fig
-  COOP_INT i, iredo
+  COOP_INT i, iredo, j
   COOP_INT ind, ind_done
   COOP_REAL sumimask, sumpolmask
   
@@ -178,7 +178,8 @@ program massive_stack
   if(ind_done .lt. n_sim)then 
      call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
      allocate(imask_copy(0:imask%npix-1))
-     imask_copy = (imask%map(0:imask%npix-1, 1).gt. 0.5)     
+     imask_copy = (imask%map(0:imask%npix-1, 1).gt. 0.5)
+     !!prepare the listpix, usefull for small sky fraction
      imask%mask_npix = count(imask_copy)
      call imask_smooth%init(nside = imask%nside, nmaps = 1, spin = (/ 0 /) )
      imask_smooth%map(0:imask%npix-1, 1) = imask%map(0:imask%npix-1, 1)
@@ -224,10 +225,7 @@ program massive_stack
            write(fpcheck%unit, "(4E15.6)") sum(abs(patch_max%image(:,:,1))), sum(abs(patch_max%image(:,:,2))), sum(abs(patch_min%image(:,:,1))), sum(abs(patch_min%image(:,:,2)))
            call fpcheck%close()
         endif
-
-
-
-           write(fp%unit) ind, patch_max%fr(0:patch_max%n, 0:patch_max%mmax/2, 1:patch_max%nmaps), patch_min%fr(0:patch_min%n, 0:patch_min%mmax/2, 1:patch_min%nmaps)
+        write(fp%unit) ind, patch_max%fr(0:patch_max%n, 0:patch_max%mmax/2, 1:patch_max%nmaps), patch_min%fr(0:patch_min%n, 0:patch_min%mmax/2, 1:patch_min%nmaps)
      else
         read(fp%unit) i, patch_max%fr(0:patch_max%n, 0:patch_max%mmax/2, 1:patch_max%nmaps), patch_min%fr(0:patch_min%n, 0:patch_min%mmax/2, 1:patch_min%nmaps)
         if(i.ne.ind) stop "data file is broken"
@@ -277,8 +275,8 @@ contains
     case default
        stop "so far SST only support temperature peaks (oriented or nonoriented)"
     end select
-    call imap%get_peaks(sto_max, mask = imask, restore = .not. do_nest)
-    call imap%get_peaks(sto_min, mask = imask, restore = .not. do_nest)
+    call imap%get_peaks_small_sky(sto_max, mask = imask, restore = .not. do_nest)
+    call imap%get_peaks_small_sky(sto_min, mask = imask, restore = .not. do_nest)
   end subroutine find_peaks
 
   subroutine compute_fr()
