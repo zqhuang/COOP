@@ -111,7 +111,7 @@ Shells: $(OBJ) shells.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) shells.o $(LINK)	
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack MSMAP InpEB InpT TrimC GetCl QEB MultStack Shells POSTHA HA SST POSTSST ByProd GetInfo GetTheo
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack MSMAP SimuMaps Shells SST ByProd GetInfo GetTheo GetPeaks
 
 
 gettheo.o: $(LIB)
