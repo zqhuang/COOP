@@ -619,7 +619,7 @@ contains
     logical,parameter::do_norm = .true.
     logical,parameter::remove_m0 = .true.
     COOP_UNKNOWN_STRING::genre
-    COOP_INT n
+    COOP_INT n, nsq
     COOP_REAL dr, cosmt, sinmt, theta, rij
     COOP_INT i,j,m
     COOP_INT, optional::mmax
@@ -651,8 +651,10 @@ contains
     this%fr = 0.d0
     
     this%indisk = 1.d0
+    nsq = this%n**2
     do j=1, this%n
-       i = ceiling(sqrt((this%n-j)*dble(this%n+j)+1.d-8))
+       i = ceiling(sqrt(dble((this%n-j)*(this%n+j))))
+       if(i**2+j**2 .le. nsq) i = i + 1
        this%indisk(i:this%n, j) = 0.d0
        this%indisk(-this%n:-i, j) = 0.d0
        this%indisk(i:this%n, -j) = 0.d0
