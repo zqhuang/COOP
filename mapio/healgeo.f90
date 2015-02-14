@@ -666,7 +666,6 @@ contains
 
 
     this%num_indisk_tol = floor(count(this%indisk .gt. 0.d0)*coop_healpix_mask_tol)+0.5d0
-
     !!------------------------------------------------------------------
     !!start doing m=0 
     !$omp parallel do private(i, j, rij)
