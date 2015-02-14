@@ -15,7 +15,7 @@ module coop_healpix_mod
   
 #include "constants.h"
 
-
+#define HEAL_DEBUG COOP_YES
   
   private
 
@@ -1738,6 +1738,9 @@ contains
              r = sqrt(x**2+y**2)
              phi = COOP_POLAR_ANGLE(x, y) + angle
              call disc%ang2pix( r, phi, pix)
+#if HEAL_DEBUG
+             write(*,*) j, i, pix
+#endif                    
              if(present(mask))then
                 patch%nstack(i, j) = mask%map(pix, 1)
                 patch%image(i, j, :) = this%map(pix, patch%tbs%ind)*mask%map(pix,1)
@@ -3487,6 +3490,22 @@ contains
        p(ithread) = patch
        tmp(ithread) = patch
     enddo
+#if HEAL_DEBUG
+    do ithread = 1, n_threads
+       do i=ithread, 1, n_threads
+          call this%get_disc(sto%pix(this%nside, i), disc(ithread))
+          write(*,*) disc(ithread)%center
+          write(*,*) disc(ithread)%nx
+          write(*,*) disc(ithread)%ny
+          write(*,*) disc(ithread)%nz
+          if(present(mask))then
+             call coop_healpix_stack_on_patch(this, disc(ithread), sto%rotate_angle(i), p(ithread), tmp(ithread), mask)
+          else
+             call coop_healpix_stack_on_patch(this, disc(ithread), sto%rotate_angle(i), p(ithread), tmp(ithread))
+          endif
+       enddo
+    enddo
+#else    
     !$omp parallel do private(i, ithread)
     do ithread = 1, n_threads
        do i=ithread, sto%peak_pix%n, n_threads
@@ -3499,6 +3518,7 @@ contains
        enddo
     enddo
     !$omp end parallel do
+#endif    
     do ithread = 1, n_threads
        patch%image = patch%image + p(ithread)%image
        patch%nstack = patch%nstack + p(ithread)%nstack
