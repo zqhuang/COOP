@@ -1612,6 +1612,10 @@ contains
     COOP_REAL r !!in unit of radian
     COOP_REAL phi, vec(3), cost, sint
     COOP_INT pix
+    if(r.le.1.d-8)then
+       pix = disc%center
+       return
+    endif
     cost = RADIUS2COS(r)
     sint = sqrt(1.d0 - cost**2)
     vec = sint*cos(phi)* disc%nx + sint*sin(phi)*disc%ny + cost*disc%nz
