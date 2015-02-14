@@ -665,7 +665,7 @@ contains
     !$omp end parallel do
 
 
-    this%num_indisk_tol = count(this%indisk .ne. 0.d0)*coop_healpix_mask_tol
+    this%num_indisk_tol = floor(count(this%indisk .gt. 0.d0)*coop_healpix_mask_tol)+0.5d0
 
     !!------------------------------------------------------------------
     !!start doing m=0 
