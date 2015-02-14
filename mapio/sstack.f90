@@ -221,8 +221,8 @@ program massive_stack
            if(trim(stack_field_name).eq."QU")then
               write(fpcheck%unit, "(4I9, 20E15.6)") patch_max%nstack_raw, sto_max%peak_pix%n, patch_min%nstack_raw, sto_min%peak_pix%n, sum(abs(patch_max%image(:,:,1))), sum(abs(patch_max%image(:,:,1))), sum(abs(patch_max%image(:,:,2))), sum(abs(patch_min%image(:,:,1))), sum(abs(patch_min%image(:,:,2))), sum(patch_max%nstack), sum(patch_min%nstack), sto_max%sigma_I, sto_min%sigma_I ,  imap%map(imap%npix/2,1), polmap%map(10240,2) , polmap%map(33333,1)           
            else
-              write(fpcheck%unit, "(I9, 10E15.6)")  patch_max%nstack_raw, sum(patch_max%indisk), patch_max%num_indisk_tol,  sum(dble(patch_max%icm)), sum(patch_max%wcm), sum(patch_max%wsm), sum(patch_max%image), sum(patch_max%image**2), sum(abs(patch_max%image))
-              write(fpcheck%unit, "(I9, 10E15.6)")  patch_min%nstack_raw, sum(patch_min%indisk), patch_min%num_indisk_tol,  sum(dble(patch_min%icm)), sum(patch_min%wcm), sum(patch_min%wsm), sum(patch_min%image), sum(patch_min%image**2), sum(abs(patch_min%image))              
+              write(fpcheck%unit, "(2I9)")  patch_max%nstack_raw, sto_max%peak_pix%n, sum(abs(patch_max%image))
+              write(fpcheck%unit, "(2I9)")  patch_min%nstack_raw, sto_min%peak_pix%n, sum(abs(patch_min%image))
            endif
            call fpcheck%close()
         endif
