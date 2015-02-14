@@ -221,8 +221,8 @@ program massive_stack
            if(trim(stack_field_name).eq."QU")then
               write(fpcheck%unit, "(4I9, 20E15.6)") patch_max%nstack_raw, sto_max%peak_pix%n, patch_min%nstack_raw, sto_min%peak_pix%n, sum(abs(patch_max%image(:,:,1))), sum(abs(patch_max%image(:,:,1))), sum(abs(patch_max%image(:,:,2))), sum(abs(patch_min%image(:,:,1))), sum(abs(patch_min%image(:,:,2))), sum(patch_max%nstack), sum(patch_min%nstack), sto_max%sigma_I, sto_min%sigma_I ,  imap%map(imap%npix/2,1), polmap%map(10240,2) , polmap%map(33333,1)           
            else
-              write(fpcheck%unit, "(2I9)")  patch_max%nstack_raw, sto_max%peak_pix%n, sum(abs(patch_max%image))
-              write(fpcheck%unit, "(2I9)")  patch_min%nstack_raw, sto_min%peak_pix%n, sum(abs(patch_min%image))
+              write(fpcheck%unit, "(2I9,20E16.7)")  patch_max%nstack_raw, sto_max%peak_pix%n, sum(abs(patch_max%image)),sum(dble(imask%map(:,1))), sum(dble(imask%map(:,1)*abs(imap%map(:,1))))
+              write(fpcheck%unit, "(2I9,20E16.7)")  patch_min%nstack_raw, sto_min%peak_pix%n, sum(abs(patch_min%image))
            endif
            call fpcheck%close()
         endif
