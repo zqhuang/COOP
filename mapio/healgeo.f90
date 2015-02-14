@@ -652,7 +652,7 @@ contains
     
     this%indisk = 1.d0
     do j=1, this%n
-       i = ceiling(sqrt((this%n-j)*dble(this%n+j)+1.d-20))
+       i = ceiling(sqrt((this%n-j)*dble(this%n+j)+1.d-8))
        this%indisk(i:this%n, j) = 0.d0
        this%indisk(-this%n:-i, j) = 0.d0
        this%indisk(i:this%n, -j) = 0.d0
