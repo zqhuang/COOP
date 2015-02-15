@@ -1734,7 +1734,7 @@ contains
     COOP_SINGLE qu(2)
     if(.not. present(mask))patch%nstack = 1.d0
     patch%nstack_raw  = 1
-    if(coop_healpix_debug) write(*, "(9E16.7)") disc%nx, disc%ny, disc%nz
+    if(coop_healpix_debug) write(*, "(E16.7)") angle    
     if(all(patch%tbs%spin .eq. 0))then
        do j = -patch%n, patch%n
           do i = -patch%n, patch%n
@@ -3502,6 +3502,10 @@ contains
 #if HEAL_DEBUG
     do ithread = 1, n_threads
        do i=ithread, sto%peak_pix%n, n_threads
+          if(coop_healpix_debug)then
+             write(*,"(2I8)") sto%index_Q, sto%index_U
+             write(*,"(E16.7)") sto%rotate_angle(i), sto%peak_map%element(i)
+          endif
           call this%get_disc(sto%pix(this%nside, i), disc(ithread))
           if(present(mask))then
              call coop_healpix_stack_on_patch(this, disc(ithread), sto%rotate_angle(i), p(ithread), tmp(ithread), mask)
