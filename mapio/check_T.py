@@ -14,7 +14,7 @@ for nu in nulist:
     for cc in cclist:
         print cc
         for hc in hclist:        
-            os.system(r'./SST '+cc+' 1024 T ' + ' ' + nu + ' ' + str(nmaps) + ' self '+ hc + ' T F T ' + readonly)
+            os.system(r'./SST '+cc+' 1024 T ' + ' ' + nu + ' ' + str(nmaps) + ' self '+ hc + ' T F T ' + readonly + ' > scripts/' + cc + 'T' + nu + 'F.log')
     
 sys.exit()
 print "=========== NS ==========="
@@ -25,6 +25,6 @@ for nu in nulist:
     for cc in cclist:
         print cc
         for ns in nslist:
-            os.system(r'./SST ' + cc + ' 1024 T ' + ' ' + nu + ' ' + str(nmaps) + ' self hot0 T  ' + ns + ' T ' + readonly)
+            os.system(r'./SST ' + cc + ' 1024 T ' + ' ' + nu + ' ' + str(nmaps) + ' self hot0 T  ' + ns + ' T ' + readonly )
             os.system(r'./SST ' + cc + ' 1024 T ' + ' ' + nu + ' ' + str(nmaps) + ' self cold0 T ' + ns + ' T ' + readonly)                      
                     

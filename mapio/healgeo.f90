@@ -1738,9 +1738,6 @@ contains
              r = sqrt(x**2+y**2)
              phi = COOP_POLAR_ANGLE(x, y) + angle
              call disc%ang2pix( r, phi, pix)
-#if HEAL_DEBUG
-             write(*,*) j, i, pix
-#endif                    
              if(present(mask))then
                 patch%nstack(i, j) = mask%map(pix, 1)
                 patch%image(i, j, :) = this%map(pix, patch%tbs%ind)*mask%map(pix,1)
@@ -3451,7 +3448,11 @@ contains
   end subroutine coop_healpix_maps_mark_peaks
 
   subroutine coop_healpix_maps_stack_on_peaks(this, sto, patch, mask)
+#if HEAL_DEBUG
+    COOP_INT,parameter::n_threads = 1
+#else    
     COOP_INT,parameter::n_threads = 8
+#endif    
     class(coop_healpix_maps)::this
     type(coop_stacking_options)::sto
     type(coop_healpix_disc),dimension(n_threads)::disc
@@ -3492,17 +3493,14 @@ contains
     enddo
 #if HEAL_DEBUG
     do ithread = 1, n_threads
-       do i=ithread, 1, n_threads
+       do i=ithread, sto%peak_pix%n, n_threads
           call this%get_disc(sto%pix(this%nside, i), disc(ithread))
-          write(*,*) disc(ithread)%center
-          write(*,*) disc(ithread)%nx
-          write(*,*) disc(ithread)%ny
-          write(*,*) disc(ithread)%nz
           if(present(mask))then
              call coop_healpix_stack_on_patch(this, disc(ithread), sto%rotate_angle(i), p(ithread), tmp(ithread), mask)
           else
              call coop_healpix_stack_on_patch(this, disc(ithread), sto%rotate_angle(i), p(ithread), tmp(ithread))
           endif
+          write(*,"(I9, 10E15.6)") i, disc(ithread)%center, disc(ithread)%nx, disc(ithread)%ny, disc(ithread)%nz,  sum(abs(p(ithread)%image))
        enddo
     enddo
 #else    
