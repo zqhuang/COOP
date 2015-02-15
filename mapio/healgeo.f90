@@ -19,6 +19,10 @@ module coop_healpix_mod
   
   private
 
+#if HEAL_DEBUG
+  logical::coop_healpix_debug = .true.
+#endif
+  
   !!some stupid conventions...
   !!the direction of headless vector rotate by pi/2 if you use IAU convention
   logical::coop_healpix_IAU_headless_vector = .true.
@@ -1739,6 +1743,9 @@ contains
              phi = COOP_POLAR_ANGLE(x, y) + angle
              call disc%ang2pix( r, phi, pix)
              if(present(mask))then
+                if(coop_healpix_debug)then
+                   write(*,"(3I9, E15.6)") i, j, pix, this%map(pix, patch%tbs%ind)
+                endif
                 patch%nstack(i, j) = mask%map(pix, 1)
                 patch%image(i, j, :) = this%map(pix, patch%tbs%ind)*mask%map(pix,1)
              else 
@@ -3500,7 +3507,11 @@ contains
           else
              call coop_healpix_stack_on_patch(this, disc(ithread), sto%rotate_angle(i), p(ithread), tmp(ithread))
           endif
-          write(*,"(2I9, 10E15.6)") i, disc(ithread)%center, disc(ithread)%nx, disc(ithread)%ny, disc(ithread)%nz,  sum(abs(p(ithread)%image))
+          if(coop_healpix_debug)then
+             write(*,"(2E15.6)") sum(abs(p(ithread)%image)), sum(abs(tmp(ithread)%image))
+             coop_healpix_debug = .false.
+          endif
+             
        enddo
     enddo
 #else    
