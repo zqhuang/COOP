@@ -43,7 +43,7 @@ module coop_healpix_mod
   COOP_INT,parameter::coop_inpainting_lowl_min = 5
 
   COOP_INT, parameter::coop_healpix_default_lmax=2500
-  COOP_REAL,parameter::coop_healpix_mask_tol = 0.5d0  !!default mask tolerance
+  COOP_REAL,parameter::coop_healpix_mask_tol = 0.d0  !!default mask tolerance
   COOP_INT::coop_healpix_inpainting_lowl=5
   COOP_REAL,parameter::coop_healpix_diffuse_scale = 10.d0*coop_SI_arcmin
   COOP_INT,parameter::coop_healpix_index_TT = 1
