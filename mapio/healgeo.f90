@@ -939,10 +939,10 @@ contains
     class(coop_healpix_maps) this
     logical, optional::idone
     if(.not. present(idone))then
-       call this%map2alm(index_list = (/ 1 /) )
+       call this%map2alm(index_list = (/ 1 /), lmax=this%nside )
     else
        if(.not. idone)then
-          call this%map2alm(index_list = (/ 1 /) )
+          call this%map2alm(index_list = (/ 1 /), lmax=this%nside )
        endif
     endif
     this%alm(:,:,2) = this%alm(:,:,1)
