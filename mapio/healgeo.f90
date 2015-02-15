@@ -3504,7 +3504,7 @@ contains
        do i=ithread, sto%peak_pix%n, n_threads
           if(coop_healpix_debug)then
              write(*,"(2I8)") sto%index_Q, sto%index_U
-             write(*,"(E16.7)") sto%rotate_angle(i), sto%peak_map%element(i)
+             write(*,"(5E16.7)") sto%rotate_angle(i), sto%peak_map%element(i)
           endif
           call this%get_disc(sto%pix(this%nside, i), disc(ithread))
           if(present(mask))then
