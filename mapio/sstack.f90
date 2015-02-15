@@ -7,7 +7,6 @@ program massive_stack
 #ifdef HAS_HEALPIX
   logical::remove_mono = .false.
   logical::read_only = .false.
-  logical,parameter::test_mode = .true.
   COOP_UNKNOWN_STRING,parameter::cal_file_prefix = "rprof/"
   COOP_UNKNOWN_STRING,parameter::data_theory_cl_file = "planck14best_lensedCls.dat"
   COOP_UNKNOWN_STRING,parameter::sim_theory_cl_file = "planck13best_lensedCls.dat"  
@@ -39,8 +38,8 @@ program massive_stack
   COOP_REAL,dimension(:),allocatable::S_m
   type(coop_stacking_options)::sto_max, sto_min
   type(coop_healpix_patch)::patch_max, patch_min, patch_max_data, patch_max_sim, patch_min_data, patch_min_sim
-  type(coop_healpix_maps)::imap, imask, polmask, inoise, polnoise, polmap, imask_smooth
-  logical,dimension(:),allocatable::imask_copy
+  type(coop_healpix_maps)::imap, imask, polmask, inoise, polnoise, polmap, imask_copy
+  logical,dimension(:),allocatable::imask_logic
   logical::iloaded = .false.
   logical::polloaded  = .false.
   type(coop_file)::fp, fpcheck 
@@ -175,14 +174,11 @@ program massive_stack
 
   if(ind_done .lt. n_sim)then 
      call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
-     allocate(imask_copy(0:imask%npix-1))
-     imask_copy = (imask%map(0:imask%npix-1, 1).gt. 0.5)
-     imask%mask_npix = count(imask_copy)
-     call imask_smooth%init(nside = imask%nside, nmaps = 1, spin = (/ 0 /) )
-     imask_smooth%map(0:imask%npix-1, 1) = imask%map(0:imask%npix-1, 1)
-     if(sto_max%nmaps .gt. 1)then
-        call imask_smooth%smooth_mask(real(20.*coop_SI_arcmin)) 
-     endif
+     allocate(imask_logic(0:imask%npix-1))
+     imask_logic = (imask%map(0:imask%npix-1, 1).gt. 0.5)
+     imask%mask_npix = count(imask_logic)
+     imask_copy = imask
+     if(do_nest) call imask%convert2nested()
      sumimask = imask%mask_npix
      if(trim(stack_field_name).eq."QU")then
         call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )
@@ -217,14 +213,10 @@ program massive_stack
         call find_peaks()
         call stack_map()
         call compute_fr()
-        if(ind .eq. 0 .or. test_mode)then
-           if(trim(stack_field_name).eq."QU")then
-              write(fpcheck%unit, "(4I9, 20E15.6)") patch_max%nstack_raw, sto_max%peak_pix%n, patch_min%nstack_raw, sto_min%peak_pix%n, sum(abs(patch_max%image(:,:,1))), sum(abs(patch_max%image(:,:,1))), sum(abs(patch_max%image(:,:,2))), sum(abs(patch_min%image(:,:,1))), sum(abs(patch_min%image(:,:,2))), sum(patch_max%nstack), sum(patch_min%nstack), sto_max%sigma_I, sto_min%sigma_I ,  imap%map(imap%npix/2,1), polmap%map(10240,2) , polmap%map(33333,1)           
-           else
-              write(fpcheck%unit, "(2I9,20E16.7)")  patch_max%nstack_raw, sto_max%peak_pix%n, sum(abs(patch_max%image)),sum(dble(imask%map(:,1))), sum(dble(imask%map(:,1)*abs(imap%map(:,1))))
-              write(fpcheck%unit, "(2I9,20E16.7)")  patch_min%nstack_raw, sto_min%peak_pix%n, sum(abs(patch_min%image))
-           endif
-           if(.not. test_mode)   call fpcheck%close()  
+        if(ind .eq. 0 )then
+           write(fpcheck%unit, "(2I9,20E16.7)")  patch_max%nstack_raw, sto_max%peak_pix%n, sum(abs(patch_max%image))
+           write(fpcheck%unit, "(2I9,20E16.7)")  patch_min%nstack_raw, sto_min%peak_pix%n, sum(abs(patch_min%image))
+           call fpcheck%close()  
         endif
         write(fp%unit) ind, patch_max%fr(0:patch_max%n, 0:patch_max%mmax/2, 1:patch_max%nmaps), patch_min%fr(0:patch_min%n, 0:patch_min%mmax/2, 1:patch_min%nmaps)
      else
@@ -241,7 +233,7 @@ program massive_stack
         call fig%curve(r, pfr, color = "blue", linetype= "dotted", linewidth = 1.)
      endif
   enddo
-  if(test_mode)   call fpcheck%close()    
+
   call fp%close()
   call fig%close()
 
@@ -315,10 +307,10 @@ contains
        imap%map(:, 1) = imap%map(:, 1) + inoise%map(:, 1)       
     endif
     if(imap%nmaps .eq. 3)then
-       call imap%mask(mask = imask_smooth)
+       call imap%regularize_in_mask(imask_copy, 1)
        call imap%iqu2TQTUT()
     endif
-    if(remove_mono)imap%map(:, 1) = imap%map(:, 1) - sum(dble(imap%map(:, 1)), mask = imask_copy)/sumimask
+    if(remove_mono)imap%map(:, 1) = imap%map(:, 1) - sum(dble(imap%map(:, 1)), mask = imask_logic)/sumimask
     if(do_nest) call imap%convert2nested()
     iloaded = .true.
   end subroutine load_imap

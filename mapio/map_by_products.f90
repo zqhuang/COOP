@@ -48,8 +48,7 @@ program map
      call hgm%read(trim(imap), nmaps_wanted = 3, spin=(/ 0, 2, 2 /), nmaps_to_read = 1 )
      if(trim(imask).ne."NONE")then
         call hgimask%read(trim(imask), nmaps_wanted = 1, spin = (/ 0 /))
-        call hgimask%smooth_mask(real(10.*coop_SI_arcmin))
-        hgm%map(:, 1) = hgm%map(:, 1)*hgimask%map(:, 1)        
+        call hgm%regularize_in_mask(hgimask, 1)
      endif
      if(fwhm_out.gt.fwhm_in) &
           call hgm%smooth(fwhm = sqrt(fwhm_out**2-fwhm_in**2), index_list = (/ 1 /), l_upper = lmax)
@@ -72,9 +71,8 @@ program map
      call hgm%read(trim(qumap), nmaps_wanted = 2, spin = (/ 2, 2 /))
      if(trim(polmask).ne."NONE")then
         call hgpolmask%read(trim(polmask),nmaps_wanted = 1, spin = (/ 0 /) )
-        call hgpolmask%smooth_mask(real(10.*coop_SI_arcmin))        
-        hgm%map(:, 1) = hgm%map(:, 1)*hgpolmask%map(:, 1)
-        hgm%map(:, 2) = hgm%map(:, 2)*hgpolmask%map(:, 1)
+        call hgm%regularize_in_mask(hgm, hgpolmask, 1)
+        call hgm%regularize_in_mask(hgm, hgpolmask, 2)        
      endif
      if(fwhm_out .gt. fwhm_in) &
           call hgm%smooth(fwhm = sqrt(fwhm_out**2-fwhm_in**2), l_upper = lmax)

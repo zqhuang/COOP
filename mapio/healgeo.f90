@@ -15,13 +15,8 @@ module coop_healpix_mod
   
 #include "constants.h"
 
-#define HEAL_DEBUG COOP_YES
-  
   private
 
-#if HEAL_DEBUG
-  logical::coop_healpix_debug = .true.
-#endif
   
   !!some stupid conventions...
   !!the direction of headless vector rotate by pi/2 if you use IAU convention
@@ -88,6 +83,7 @@ module coop_healpix_mod
      logical,dimension(:),allocatable::alm_done
      COOP_SINGLE,dimension(:,:),allocatable::checksum
    contains
+     procedure :: regularize_in_mask = > coop_healpix_maps_regularize_in_mask
      procedure :: ang2pix => coop_healpix_maps_ang2pix
      procedure :: pix2ang => coop_healpix_maps_pix2ang
      procedure :: vec2pix => coop_healpix_maps_vec2pix
@@ -1734,7 +1730,6 @@ contains
     COOP_SINGLE qu(2)
     if(.not. present(mask))patch%nstack = 1.d0
     patch%nstack_raw  = 1
-    if(coop_healpix_debug) write(*, "(E16.7)") angle    
     if(all(patch%tbs%spin .eq. 0))then
        do j = -patch%n, patch%n
           do i = -patch%n, patch%n
@@ -1744,9 +1739,6 @@ contains
              phi = COOP_POLAR_ANGLE(x, y) + angle
              call disc%ang2pix( r, phi, pix)
              if(present(mask))then
-                if(coop_healpix_debug)then
-                   write(*,"(3I9, 2E16.7)") i, j, pix, r, phi
-                endif
                 patch%nstack(i, j) = mask%map(pix, 1)
                 patch%image(i, j, :) = this%map(pix, patch%tbs%ind)*mask%map(pix,1)
              else 
@@ -2334,6 +2326,7 @@ contains
     decay = exp(-nefolds/nsteps/2.)
     call this%convert2nested()
     this%mask_npix = count(this%map(:,1) .lt. 1.)
+    if(allocated(this%mask_listpix))deallocate(this%mask_listpix)
     allocate(this%mask_listpix(this%mask_npix))
     j = 0
     do i = 0, this%npix - 1
@@ -2663,6 +2656,30 @@ contains
     stop "CANNOT FIND HEALPIX"
 #endif
   end subroutine coop_healpix_flip_mask
+
+
+  subroutine coop_healpix_maps_regularize_in_mask(this, mask, imap)
+    class(coop_healpix_maps)::this
+    type(coop_healpix_maps)::mask
+    COOP_INT::i, imap
+    COOP_SINGLE::mmax, mmin, diff
+    if(this%nside .ne. mask%nside .or. this%ordering .ne. mask%ordering) stop "regularize_in_mask: maps do not match the mask"
+    mmax = maxval(this%map(:,imap)*mask%map(:,1))
+    mmin = minval(this%map(:,imap)*mask%map(:,1))
+    diff = mmax-mmin
+    if(diff .eq. 0.)then
+       this%map(:,imap) = mmax
+       return
+    endif
+    do i=0, this%npix-1
+       if(imap%mask(i,1).gt.0.5)cycle
+       if(this%map(i, imap).gt. mmax)then
+          this%map(i, imap) = mmax + log(1.d0+(this%map(i, imap)-mmax)/diff)*diff
+       elseif(this%map(i, imap) .lt. mmin)then
+          this%map(i, imap) = mmin - log(1.d0+(mmin-this%map(i, imap))/diff)*diff
+       endif
+    enddo
+  end subroutine coop_healpix_maps_regularize_in_mask
 
   subroutine coop_healpix_maps_mask(map, mask, polmask, remove_l_upper)
     class(coop_healpix_maps) map
@@ -3456,11 +3473,7 @@ contains
   end subroutine coop_healpix_maps_mark_peaks
 
   subroutine coop_healpix_maps_stack_on_peaks(this, sto, patch, mask)
-#if HEAL_DEBUG
-    COOP_INT,parameter::n_threads = 1
-#else    
     COOP_INT,parameter::n_threads = 8
-#endif    
     class(coop_healpix_maps)::this
     type(coop_stacking_options)::sto
     type(coop_healpix_disc),dimension(n_threads)::disc
@@ -3499,27 +3512,6 @@ contains
        p(ithread) = patch
        tmp(ithread) = patch
     enddo
-#if HEAL_DEBUG
-    do ithread = 1, n_threads
-       do i=ithread, sto%peak_pix%n, n_threads
-          if(coop_healpix_debug)then
-             write(*,"(2I8)") sto%index_Q, sto%index_U
-             write(*,"(5E16.7)") sto%rotate_angle(i), sto%peak_map%element(i)
-          endif
-          call this%get_disc(sto%pix(this%nside, i), disc(ithread))
-          if(present(mask))then
-             call coop_healpix_stack_on_patch(this, disc(ithread), sto%rotate_angle(i), p(ithread), tmp(ithread), mask)
-          else
-             call coop_healpix_stack_on_patch(this, disc(ithread), sto%rotate_angle(i), p(ithread), tmp(ithread))
-          endif
-          if(coop_healpix_debug)then
-             write(*,"(2E15.6)") sum(abs(p(ithread)%image)), sum(abs(tmp(ithread)%image))
-             coop_healpix_debug = .false.
-          endif
-             
-       enddo
-    enddo
-#else    
     !$omp parallel do private(i, ithread)
     do ithread = 1, n_threads
        do i=ithread, sto%peak_pix%n, n_threads
@@ -3532,7 +3524,7 @@ contains
        enddo
     enddo
     !$omp end parallel do
-#endif    
+
     do ithread = 1, n_threads
        patch%image = patch%image + p(ithread)%image
        patch%nstack = patch%nstack + p(ithread)%nstack
