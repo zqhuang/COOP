@@ -1734,6 +1734,7 @@ contains
     COOP_SINGLE qu(2)
     if(.not. present(mask))patch%nstack = 1.d0
     patch%nstack_raw  = 1
+    if(coop_healpix_debug) write(*, "(9E16.7)") disc%nx, disc%ny, disc%nz
     if(all(patch%tbs%spin .eq. 0))then
        do j = -patch%n, patch%n
           do i = -patch%n, patch%n
@@ -1744,7 +1745,7 @@ contains
              call disc%ang2pix( r, phi, pix)
              if(present(mask))then
                 if(coop_healpix_debug)then
-                   write(*,"(3I9, E15.6)") i, j, pix, this%map(pix, patch%tbs%ind)
+                   write(*,"(3I9, 2E16.7)") i, j, pix, r, phi
                 endif
                 patch%nstack(i, j) = mask%map(pix, 1)
                 patch%image(i, j, :) = this%map(pix, patch%tbs%ind)*mask%map(pix,1)
