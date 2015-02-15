@@ -299,7 +299,7 @@ contains
   subroutine load_imap(i)
     COOP_INT i
     if(iloaded) return
-    if(i.eq.0 .or. test_mode)then
+    if(i.eq.0)then
        call imap%read(imap_file, nmaps_wanted = sto_max%nmaps, nmaps_to_read = 1)
     else
        call imap%read(trim(mapdir)//"cmb/int/dx11_v2_"//trim(cc_method)//"_int_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, nmaps_wanted = sto_max%nmaps)
@@ -318,7 +318,7 @@ contains
   subroutine load_polmap(i)
     COOP_INT i
     if(polloaded) return
-    if(i.eq.0 .or. test_mode)then
+    if(i.eq.0)then
        call polmap%read(polmap_file, nmaps_wanted = 2, spin = (/ 2 , 2 /) )
     else
        call polmap%read(trim(mapdir)//"cmb/pol/dx11_v2_"//trim(cc_method)//"_"//trim(polcase)//"_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//"_hp_20_40"//trim(postfix), nmaps_wanted = 2, spin = (/ 2, 2 /) )

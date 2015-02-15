@@ -83,7 +83,7 @@ module coop_healpix_mod
      logical,dimension(:),allocatable::alm_done
      COOP_SINGLE,dimension(:,:),allocatable::checksum
    contains
-     procedure :: regularize_in_mask = > coop_healpix_maps_regularize_in_mask
+     procedure :: regularize_in_mask => coop_healpix_maps_regularize_in_mask
      procedure :: ang2pix => coop_healpix_maps_ang2pix
      procedure :: pix2ang => coop_healpix_maps_pix2ang
      procedure :: vec2pix => coop_healpix_maps_vec2pix
@@ -2672,11 +2672,11 @@ contains
        return
     endif
     do i=0, this%npix-1
-       if(imap%mask(i,1).gt.0.5)cycle
+       if(mask%map(i,1).gt.0.5)cycle
        if(this%map(i, imap).gt. mmax)then
-          this%map(i, imap) = mmax + log(1.d0+(this%map(i, imap)-mmax)/diff)*diff
+          this%map(i, imap) = mmax + log(1.+log(1.+(this%map(i, imap)-mmax)/diff))*diff
        elseif(this%map(i, imap) .lt. mmin)then
-          this%map(i, imap) = mmin - log(1.d0+(mmin-this%map(i, imap))/diff)*diff
+          this%map(i, imap) = mmin - log(1.+log(1.+(mmin-this%map(i, imap))/diff))*diff
        endif
     enddo
   end subroutine coop_healpix_maps_regularize_in_mask

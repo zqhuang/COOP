@@ -71,8 +71,8 @@ program map
      call hgm%read(trim(qumap), nmaps_wanted = 2, spin = (/ 2, 2 /))
      if(trim(polmask).ne."NONE")then
         call hgpolmask%read(trim(polmask),nmaps_wanted = 1, spin = (/ 0 /) )
-        call hgm%regularize_in_mask(hgm, hgpolmask, 1)
-        call hgm%regularize_in_mask(hgm, hgpolmask, 2)        
+        call hgm%regularize_in_mask(hgpolmask, 1)
+        call hgm%regularize_in_mask(hgpolmask, 2)        
      endif
      if(fwhm_out .gt. fwhm_in) &
           call hgm%smooth(fwhm = sqrt(fwhm_out**2-fwhm_in**2), l_upper = lmax)
