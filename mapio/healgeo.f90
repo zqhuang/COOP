@@ -3500,7 +3500,7 @@ contains
           else
              call coop_healpix_stack_on_patch(this, disc(ithread), sto%rotate_angle(i), p(ithread), tmp(ithread))
           endif
-          write(*,"(I9, 10E15.6)") i, disc(ithread)%center, disc(ithread)%nx, disc(ithread)%ny, disc(ithread)%nz,  sum(abs(p(ithread)%image))
+          write(*,"(2I9, 10E15.6)") i, disc(ithread)%center, disc(ithread)%nx, disc(ithread)%ny, disc(ithread)%nz,  sum(abs(p(ithread)%image))
        enddo
     enddo
 #else    
