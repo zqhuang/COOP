@@ -33,7 +33,7 @@ program massive_stack
   type(coop_stacking_options),dimension(num_masks)::sub_sto_max, sub_sto_min
   type(coop_stacking_options),dimension(num_nu, num_masks)::sto_max, sto_min
   type(coop_healpix_patch),dimension(num_nu, 0:num_masks)::patch_max, patch_min
-  type(coop_healpix_maps)::imap, imask, polmask, inoise, polnoise, polmap
+  type(coop_healpix_maps)::imap, imask, polmask, inoise, polnoise, polmap, imask_copy
   type(coop_healpix_maps),dimension(num_masks)::sub_imask
   logical::iloaded = .false.
   logical::polloaded  = .false.
@@ -163,6 +163,7 @@ program massive_stack
      
      call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
      imask%mask_npix = count(imask%map(:,1).gt. 0.5)
+     imask_copy = imask
      do i=1, num_masks
         call sub_imask(i)%read(trim(sub_imask_file(i)), nmaps_wanted = 1, spin = (/ 0 /) )
      enddo
