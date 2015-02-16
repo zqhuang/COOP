@@ -32,8 +32,8 @@ program massive_stack
   type(coop_stacking_options)::sto_max_all, sto_min_all  
   type(coop_stacking_options),dimension(num_masks)::sub_sto_max, sub_sto_min
   type(coop_stacking_options),dimension(num_nu, num_masks)::sto_max, sto_min
-  type(coop_healpix_patch),dimension(num_nu, num_masks)::patch_max, patch_min
-  type(coop_healpix_maps)::imap, imask, polmask, inoise, polnoise, polmap, imask_copy
+  type(coop_healpix_patch),dimension(num_nu, 0:num_masks)::patch_max, patch_min
+  type(coop_healpix_maps)::imap, imask, polmask, inoise, polnoise, polmap
   type(coop_healpix_maps),dimension(num_masks)::sub_imask
   logical::iloaded = .false.
   logical::polloaded  = .false.
@@ -82,7 +82,7 @@ program massive_stack
   
   stack_field_name = trim(coop_inputArgs(4))
   if(trim(stack_field_name) .ne. "T" .and.   trim(stack_field_name) .ne. "QU")then
-     stop "MSST only support QU/T stacking"
+     stop "MST only support QU/T stacking"
   endif
   line = coop_inputArgs(5)
   read(line,*) n_sim
@@ -99,33 +99,37 @@ program massive_stack
   sub_imask_file(2) = "planck14/HemAsym_south_int_mask"//trim(postfix)
 
 
-  call patch_max(1,1)%init(trim(stack_field_name), n, dr)
-  nmaps = patch_max(1,1)%nmaps
-  mmby2 = patch_max(1,1)%mmax/2
+  call patch_max(1,0)%init(trim(stack_field_name), n, dr)
+  nmaps = patch_max(1,0)%nmaps
+  mmby2 = patch_max(1,0)%mmax/2
   
-  allocate(frall(0:n, 0:mmby2, 1:nmaps, 1:num_nu, 1:num_masks,1:2)  )
+  allocate(frall(0:n, 0:mmby2, 1:nmaps, 1:num_nu, 0:num_masks,1:2)  )
   ind_done = -1  
   if(coop_file_exists(output))then
      call fp%open(output, "ru")
      do i = 0, n_sim
-        read(fp%unit, ERR = 100, END = 100)  ind, frall(0:n, 0:mmby2, 1:nmaps, 1:num_nu, 1:num_masks,1:2)
+        read(fp%unit, ERR = 100, END = 100)  ind, frall(0:n, 0:mmby2, 1:nmaps, 1:num_nu, 0:num_masks,1:2)
         if(ind.ne.i) stop "data file broken"
+        do j = 0, n
+           write(*,*) j*dr, frall(j, :, 1, 1, 0, 1)
+        enddo
+        
         ind_done = ind
      enddo
 100  call fp%close()
   endif
 
-  coop_healpix_mask_tol = 0.9d0
+  coop_healpix_mask_tol = 0.5d0
 
   if(ind_done .ge. 0 .and. n_sim .gt. 0 )then
      print*, "loaded "//COOP_STR_OF(ind_done+1)//" stacked maps"
   endif
 
   if(ind_done .lt. n_sim)then
-     do im = 1, num_masks     
+     do im = 0, num_masks     
         do in = 1, num_nu
-           if(in.ne.1 .or. im.ne.1) patch_max(in, im) = patch_max(1,1)
-           patch_min(in, im) = patch_max(1,1)        
+           if(in.ne.1 .or. im.ne.0) patch_max(in, im) = patch_max(1, 0)
+           patch_min(in, im) = patch_max(1, 0)        
         enddo
      enddo
      
@@ -133,7 +137,7 @@ program massive_stack
         call sto_max_all%init(.true., peak_name, orient_name, nmaps = 1)
         call sto_min_all%init(.false., peak_name, orient_name, nmaps = 1)     
      else
-        call sto_max_all%init(.true., peak_name, orient_name, nmaps = 3)          
+        call sto_max_all%init(.true., peak_name, orient_name, nmaps = 3)  
         call sto_min_all%init(.false., peak_name, orient_name, nmaps = 3)     
      endif
      sto_max_all%threshold_option = 4
@@ -151,15 +155,14 @@ program massive_stack
            sto_max(in,im)%I_lower_nu = nu(in)
            sto_min(in,im)%I_upper_nu = -nu(in)
            if(in.lt.num_nu)then
-              sto_max%I_upper_nu = nu(in+1)
-              sto_min%I_lower_nu = -nu(in+1)
+              sto_max(in, im)%I_upper_nu = nu(in+1)
+              sto_min(in, im)%I_lower_nu = -nu(in+1)
            endif
         enddo
      enddo
      
      call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
      imask%mask_npix = count(imask%map(:,1).gt. 0.5)
-     imask_copy = imask
      do i=1, num_masks
         call sub_imask(i)%read(trim(sub_imask_file(i)), nmaps_wanted = 1, spin = (/ 0 /) )
      enddo
@@ -175,7 +178,7 @@ program massive_stack
      endif
      call fp%open(output, "u")
      do ind = 1 , ind_done
-        read(fp%unit, ERR = 100, END = 100)  i, frall(0:n, 0:mmby2, 1:nmaps, 1:num_nu, 1:num_masks,1:2)
+        read(fp%unit)  i, frall(0:n, 0:mmby2, 1:nmaps, 1:num_nu, 0:num_masks,1:2)
      enddo
      do ind = ind_done+1, n_sim
         if(n_sim .gt. 0 )print*, "stacking map#"//COOP_STR_OF(ind)
@@ -184,7 +187,7 @@ program massive_stack
         call find_peaks()
         call stack_map()
         call compute_fr()
-        write(fp%unit) ind, frall(0:n, 0:mmby2, 1:nmaps, 1:num_nu, 1:num_masks,1:2)
+        write(fp%unit) ind, frall(0:n, 0:mmby2, 1:nmaps, 1:num_nu, 0:num_masks,1:2)
      enddo
      call fp%close()     
   endif
@@ -209,15 +212,42 @@ contains
        call sub_imask(im)%mask_peaks(sto_min_all, sub_sto_min(im))
        do in = 1, num_nu
           call sub_sto_max(im)%subset(sto_max(in, im))
-          call sub_sto_min(im)%subset(sto_min(in, im))          
+          call sub_sto_min(im)%subset(sto_min(in, im))
        enddo
     enddo
   end subroutine find_peaks
 
   subroutine compute_fr()
-    COOP_INT::in, im
+    COOP_INT::in, im, imap
+
+   
     do im = 1, num_masks
-       do in=1,num_nu
+       do in=num_nu-1, 1, -1
+          patch_max(in, im)%image = patch_max(in, im)%image + patch_max(in+1, im)%image
+          patch_min(in, im)%image = patch_min(in, im)%image + patch_min(in+1, im)%image
+          patch_max(in,im)%nstack = patch_max(in,im)%nstack + patch_max(in+1,im)%nstack
+          patch_min(in,im)%nstack = patch_min(in,im)%nstack + patch_min(in+1,im)%nstack
+       enddo
+    enddo
+    do in=1, num_nu
+       patch_max(in, 0)%image = 0.d0
+       patch_min(in, 0)%image = 0.d0
+       patch_max(in, 0)%nstack = 0.d0
+       patch_min(in, 0)%nstack = 0.d0
+       do im = 1, num_masks
+          patch_max(in, 0)%image = patch_max(in, 0)%image + patch_max(in, im)%image
+          patch_min(in, 0)%image = patch_min(in, 0)%image + patch_min(in, im)%image
+          patch_max(in, 0)%nstack = patch_max(in, 0)%nstack + patch_max(in, im)%nstack
+          patch_min(in, 0)%nstack = patch_min(in, 0)%nstack + patch_min(in, im)%nstack          
+          
+       enddo
+    enddo    
+    do im = 0, num_masks
+       do in = 1, num_nu
+          do imap  = 1, nmaps
+             patch_max(in, im)%image(:,:,imap) = patch_max(in, im)%image(:,:,imap) /max(patch_max(in, im)%nstack, 1.d0)
+             patch_min(in, im)%image(:,:,imap) = patch_min(in, im)%image(:,:,imap) /max(patch_min(in, im)%nstack, 1.d0)             
+          enddo
           call patch_max(in,im)%get_all_radial_profiles()
           call patch_min(in,im)%get_all_radial_profiles()
           frall(:,:,:,in,im,1) = patch_max(in,im)%fr*1.d6
@@ -233,16 +263,16 @@ contains
        call load_imap(ind)
        do im=1, num_masks
           do in=1, num_nu
-             call imap%stack_on_peaks(sto_max(in, im), patch_max(in, im), imask)
-             call imap%stack_on_peaks(sto_min(in, im), patch_min(in, im), imask)
+             call imap%stack_on_peaks(sto_max(in, im), patch_max(in, im), mask = imask, norm = .false.)
+             call imap%stack_on_peaks(sto_min(in, im), patch_min(in, im), mask = imask, norm = .false.)
           enddo
        enddo
     case("QU")
        call load_polmap(ind)
        do im=1, num_masks
           do in=1, num_nu
-             call polmap%stack_on_peaks(sto_max(in, im), patch_max(in, im), polmask)
-             call polmap%stack_on_peaks(sto_min(in, im), patch_min(in, im), polmask)
+             call polmap%stack_on_peaks(sto_max(in, im), patch_max(in, im), mask = polmask, norm = .false.)
+             call polmap%stack_on_peaks(sto_min(in, im), patch_min(in, im), mask = polmask, norm = .false.)
           enddo
        enddo
     case default

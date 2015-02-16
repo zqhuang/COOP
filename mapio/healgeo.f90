@@ -3473,7 +3473,7 @@ contains
     enddo
   end subroutine coop_healpix_maps_mark_peaks
 
-  subroutine coop_healpix_maps_stack_on_peaks(this, sto, patch, mask)
+  subroutine coop_healpix_maps_stack_on_peaks(this, sto, patch, mask, norm)
     COOP_INT,parameter::n_threads = 8
     class(coop_healpix_maps)::this
     type(coop_stacking_options)::sto
@@ -3481,6 +3481,7 @@ contains
     type(coop_healpix_patch)::patch
     type(coop_healpix_patch),dimension(n_threads)::p, tmp
     type(coop_healpix_maps),optional::mask
+    logical,optional::norm
     COOP_INT ithread, i
 #ifdef HAS_HEALPIX
     patch%image = 0.d0
@@ -3533,6 +3534,9 @@ contains
        call p(ithread)%free()
        call tmp(ithread)%free()
     enddo
+    if(present(norm))then
+       if(.not.norm)return
+    endif
     if(patch%nstack_raw .ne. 0)then
        do i=1, patch%nmaps
           patch%image(:, :, i) = patch%image(:, :, i)/max(patch%nstack, 1.d0)
@@ -3551,7 +3555,10 @@ contains
     class(coop_healpix_maps)::mask
     type(coop_stacking_options)::sto, sto_masked
     COOP_INT i, pix
-    sto_masked%nested = sto%nested    
+    sto_masked%nested = sto%nested
+    sto_masked%sigma_I = sto%sigma_I
+    sto_masked%sigma_L = sto%sigma_L
+    sto_masked%sigma_P = sto%sigma_P    
     if(sto%nested)then
        call mask%convert2nested()
     else
