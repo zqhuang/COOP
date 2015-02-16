@@ -33,11 +33,6 @@ UDG: $(OBJ) udgrade.o
 GetCl: $(OBJ) getcls.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) getcls.o $(LINK)
 
-TrimC: $(OBJ) trimcmp.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) trimcmp.o $(LINK)
-
-QEB: $(OBJ) quickeb.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) quickeb.o $(LINK)
 
 FAB: $(OBJ) fitalphabeta.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) fitalphabeta.o $(LINK)
@@ -57,29 +52,12 @@ Stack: $(OBJ) dostack.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) dostack.o $(LINK)
 
 
-MatStack: $(OBJ) matstack.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) matstack.o $(LINK)
-
-
-HA: $(OBJ) hast.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) hast.o $(LINK)
-
-
-GetRad: $(OBJ) getrad.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) getrad.o $(LINK)
-
-POSTRAD: $(OBJ) postrad.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) postrad.o $(LINK)
-
+MST: 	$(OBJ) msst.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) msst.o $(LINK)
 
 SST: $(OBJ) sstack.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) sstack.o $(LINK)
 
-POSTHA: $(OBJ) post_ha.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) post_ha.o $(LINK)
-
-POSTSST: $(OBJ) post_sst_modes.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) post_sst_modes.o $(LINK)
 
 ByProd: $(OBJ) map_by_products.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) map_by_products.o $(LINK)
@@ -111,7 +89,7 @@ Shells: $(OBJ) shells.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) shells.o $(LINK)	
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack MSMAP SimuMaps Shells SST ByProd GetInfo GetTheo GetPeaks
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack MSMAP SimuMaps Shells SST MST ByProd GetInfo GetTheo GetPeaks
 
 
 gettheo.o: $(LIB)

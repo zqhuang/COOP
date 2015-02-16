@@ -42,7 +42,7 @@ module coop_healpix_mod
   COOP_INT,parameter::coop_inpainting_lowl_min = 5
 
   COOP_INT, parameter::coop_healpix_default_lmax=2500
-  COOP_REAL,parameter::coop_healpix_mask_tol = 0.d0  !!default mask tolerance
+  COOP_REAL::coop_healpix_mask_tol = 0.d0  !!default mask tolerance
   COOP_INT::coop_healpix_inpainting_lowl=5
   COOP_REAL,parameter::coop_healpix_diffuse_scale = 10.d0*coop_SI_arcmin
   COOP_INT,parameter::coop_healpix_index_TT = 1
@@ -127,7 +127,8 @@ module coop_healpix_mod
      !!stacking stuff
      procedure :: get_peaks => coop_healpix_maps_get_peaks
      procedure :: mark_peaks => coop_healpix_maps_mark_peaks
-     procedure :: stack_on_peaks  =>     coop_healpix_maps_stack_on_peaks     
+     procedure :: stack_on_peaks  =>     coop_healpix_maps_stack_on_peaks
+     procedure:: mask_peaks => coop_healpix_mask_peaks     
   end type coop_healpix_maps
 
   type coop_healpix_patch
@@ -3544,6 +3545,28 @@ contains
     stop "CANNOT FIND HEALPIX"
 #endif
   end subroutine coop_healpix_maps_stack_on_peaks
+
+
+  subroutine coop_healpix_mask_peaks(mask, sto, sto_masked)
+    class(coop_healpix_maps)::mask
+    type(coop_stacking_options)::sto, sto_masked
+    COOP_INT i, pix
+    sto_masked%nested = sto%nested    
+    if(sto%nested)then
+       call mask%convert2nested()
+    else
+       call mask%convert2ring()
+    endif
+    call sto_masked%free()
+    do i=1, sto%peak_pix%n
+       call sto%peak_pix%get_element(i, pix)
+       if(mask%map(pix,1).ge. 0.5d0)then
+          call sto_masked%peak_pix%push(pix)
+          call sto_masked%peak_ang%push(sto%peak_ang%element(i))
+          call sto_masked%peak_map%push(sto%peak_map%element(i))
+       endif
+    enddo
+  end subroutine coop_healpix_mask_peaks
   
   
 end module coop_healpix_mod

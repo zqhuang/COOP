@@ -563,15 +563,9 @@ contains
     COOP_INT :: i
     logical dor
     call fp%open(filename, "w")
-    if(this%addpi)then
-       do i = 1, this%peak_ang%n
-          write(fp%unit, "(3E14.5)") this%peak_ang%element(i),  this%rotate_angle(i) + coop_rand01()*coop_pi
-       enddo       
-    else
-       do i = 1, this%peak_ang%n
-          write(fp%unit, "(3E14.5)") this%peak_ang%element(i),  this%rotate_angle(i)
-       enddo
-    endif
+    do i = 1, this%peak_ang%n
+       write(fp%unit, "(3E14.5)") this%peak_ang%element(i),  this%rotate_angle(i)
+    enddo
     call fp%close()
   end subroutine coop_stacking_options_export_ang
   
@@ -588,7 +582,8 @@ contains
        angle = angle*coop_2pi
     case(coop_stacking_genre_Imax_Oriented, coop_stacking_genre_Imin_Oriented, coop_stacking_genre_Lmax_Oriented, coop_stacking_genre_Lmin_Oriented, coop_stacking_genre_Pmax_Oriented, coop_stacking_genre_Pmin_Oriented)
        call this%peak_map%get_element(i, map)
-       angle = COOP_POLAR_ANGLE(map(this%index_Q), map(this%index_U))/2.d0
+       angle = COOP_POLAR_ANGLE(dble(map(this%index_Q)),dble(map(this%index_U)))/2.d0
+       if(this%addpi) angle = angle + coop_rand01()*coop_pi
     case default
        stop "rotate_angle: unknown genre"
     end select

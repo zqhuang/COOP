@@ -130,6 +130,7 @@ program massive_stack
 100  call fp%close()
   endif
 
+  coop_healpix_mask_tol = 0.9d0
 
   if(trim(orient_name).eq."NULL")then
      call sto_max%init(.true., peak_name, orient_name, nmaps = 1)
@@ -138,8 +139,8 @@ program massive_stack
      call sto_max%init(.true., peak_name, orient_name, nmaps = 3)          
      call sto_min%init(.false., peak_name, orient_name, nmaps = 3)     
   endif
-  sto_max%addpi = .false.
-  sto_min%addpi = .false.
+!  sto_max%addpi = .false.
+!  sto_min%addpi = .false.
   sto_max%I_lower_nu = threshold
   sto_min%I_upper_nu = -threshold
   sto_max%threshold_option = 4
