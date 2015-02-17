@@ -108,10 +108,6 @@ program massive_stack
      do i = 0, n_sim
         read(fp%unit, ERR = 100, END = 100)  ind, frall(0:n, 0:mmby2, 1:nmaps, 1:num_nu, 0:num_masks,1:2)
         if(ind.ne.i) stop "data file broken"
-        do j = 0, n
-           write(*,*) j*dr, frall(j, :, 1, 1, 0, 1)
-        enddo
-        
         ind_done = ind
      enddo
 100  call fp%close()
@@ -196,7 +192,7 @@ program massive_stack
      call coop_get_Input(7, in_want)     
      if(in_want .le. 0 .or. in_want .gt. num_nu) stop "export_nu overflow"
      call coop_get_Input(8, fexport)
-     call fp%open(fexport, "ur")     
+     call fp%open(output, "ur")     
      call fpout%open(fexport,"u")
      do i = 0, n_sim
         read(fp%unit) ind, frall(0:n, 0:mmby2, 1:nmaps, 1:num_nu, 0:num_masks,1:2)
