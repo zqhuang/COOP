@@ -24,7 +24,7 @@ program massive_stack
   COOP_STRING::stack_field_name
   COOP_INT::resol = 1024
   COOP_INT::fwhm
-  COOP_STRING::output, line
+  COOP_STRING::output, fexport
   COOP_INT::n_sim
   COOP_STRING::orient_name   
   COOP_STRING::postfix
@@ -37,14 +37,14 @@ program massive_stack
   type(coop_healpix_maps),dimension(num_masks)::sub_imask
   logical::iloaded = .false.
   logical::polloaded  = .false.
-  type(coop_file)::fp
-  COOP_INT i, j, in, im, nmaps, mmby2
+  type(coop_file)::fp, fpout
+  COOP_INT i, j, in, im, nmaps, mmby2, im_want, in_want
   COOP_INT ind, ind_done
   COOP_REAL,dimension(:,:,:,:,:,:),allocatable::frall
   
   if(iargc() .lt. 5)then
      write(*,*) "Syntax:"
-     write(*,*) "./MST cc_method resolution orient stack_field n_sim"
+     write(*,*) "./MST cc_method resolution orient stack_field n_sim [export_map] [export_nu] [export_file_name]"
      write(*,*) "Examples:"     
      write(*,*) "./MST smica     1024 RANDOM  QU 1000"
      write(*,*) "./MST sevem      512 QTUT    T   500"
@@ -65,8 +65,7 @@ program massive_stack
      write(*,*) "unknown cc_method = "//trim(cc_method)
      stop
   end select
-  line = coop_inputArgs(2)
-  read(line,*) resol  
+  call coop_get_Input(2, resol)
   if(resol .ne. 1024 .and. resol .ne. 512) stop "only support resolution 512 and 1024"
   fwhm = 10240/resol
   
@@ -84,8 +83,7 @@ program massive_stack
   if(trim(stack_field_name) .ne. "T" .and.   trim(stack_field_name) .ne. "QU")then
      stop "MST only support QU/T stacking"
   endif
-  line = coop_inputArgs(5)
-  read(line,*) n_sim
+  call coop_get_input(5, n_sim)
 
   postfix = "_"//trim(coop_ndigits(fwhm,3))//"a_"//trim(coop_ndigits(resol,4))//".fits"
   
@@ -190,11 +188,25 @@ program massive_stack
         call compute_fr()
         write(fp%unit) ind, frall(0:n, 0:mmby2, 1:nmaps, 1:num_nu, 0:num_masks,1:2)
      enddo
-     call fp%close()     
+     call fp%close()
+  endif
+  if(iargc() .ge. 8)then
+     call coop_get_Input(6, im_want)
+     if(im_want .lt. 0 .or. im_want .gt. num_masks)stop "export_map overflow"
+     call coop_get_Input(7, in_want)     
+     if(in_want .le. 0 .or. in_want .gt. num_nu) stop "export_nu overflow"
+     call coop_get_Input(8, fexport)
+     call fp%open(fexport, "ur")     
+     call fpout%open(fexport,"u")
+     do i = 0, n_sim
+        read(fp%unit) ind, frall(0:n, 0:mmby2, 1:nmaps, 1:num_nu, 0:num_masks,1:2)
+        write(fpout%unit) ind, frall(0:n, 0:mmby2, 1:nmaps, in_want, im_want, 1), frall(0:n, 0:mmby2, 1:nmaps, in_want, im_want, 2)
+     enddo
+     call fpout%close()
+     call fp%close()
   endif
 
 
-500  continue
   
 contains
 

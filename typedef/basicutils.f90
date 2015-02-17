@@ -28,6 +28,10 @@ module coop_basicutils_mod
      module procedure coop_set_uniform_d, coop_set_uniform_s
   end interface coop_set_uniform
 
+  interface coop_get_Input
+     module procedure coop_get_Input_Real, coop_get_Input_Single, coop_get_Input_Int, coop_get_Input_Str, coop_get_Input_Logical
+  end interface coop_get_Input
+
 contains
 
   Function coop_OuterProd(a, b) result(outerprod)
@@ -700,6 +704,70 @@ contains
     end if
   end function Coop_InputArgs
 
+  subroutine coop_get_Input_str(i, str)
+    COOP_STRING str
+    COOP_INT::i
+    if(iargc().lt.i)then
+       str= ''
+    else
+       call getarg(i, str)
+    endif
+  end subroutine coop_get_Input_str
+
+
+  subroutine coop_get_Input_Int(i, in)
+    COOP_STRING str
+    COOP_INT::i, in
+    if(iargc().lt.i)then
+       stop "coop_get_Input_Int: argument does not exist"
+    else
+       call getarg(i, str)
+       read(str, *) in
+    endif
+  end subroutine coop_get_Input_Int
+
+
+  subroutine coop_get_Input_Real(i, in)
+    COOP_STRING str
+    COOP_INT::i
+    COOP_REAL::in
+    if(iargc().lt.i)then
+       stop "coop_get_Input_real: argument does not exist"
+    else
+       call getarg(i, str)
+       read(str, *) in
+    endif
+  end subroutine coop_get_Input_Real
+
+
+  subroutine coop_get_Input_single(i, in)
+    COOP_STRING str
+    COOP_INT::i
+    COOP_SINGLE::in
+    if(iargc().lt.i)then
+       stop "coop_get_Input_single: argument does not exist"
+    else
+       call getarg(i, str)
+       read(str, *) in
+    endif
+  end subroutine coop_get_Input_single
+
+
+  subroutine coop_get_Input_Logical(i, in)
+    COOP_STRING str
+    COOP_INT::i
+    logical::in
+    if(iargc().lt.i)then
+       stop "coop_get_Input_logical: argument does not exist"
+    else
+       call getarg(i, str)
+       read(str, *) in
+    endif
+  end subroutine coop_get_Input_Logical
+  
+  
+  
+  
 
   subroutine coop_smooth_data_d(n, y, sigma)
     COOP_INT::n

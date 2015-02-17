@@ -19,7 +19,7 @@ program massive_stack
   COOP_INT::resol = 1024
   COOP_INT::fwhm
 
-  COOP_STRING::output, line, cal_data_file, cal_sim_file
+  COOP_STRING::output,  cal_data_file, cal_sim_file
   COOP_REAL::threshold
   COOP_INT::n_sim 
   COOP_STRING,parameter::peak_name = "$T$"
@@ -70,14 +70,11 @@ program massive_stack
      write(*,*) "unknown cc_method = "//trim(cc_method)
      stop
   end select
-  line = coop_inputArgs(2)
-  read(line,*) resol
+  call coop_get_Input(2, resol)
   if(resol .ne. 1024 .and. resol .ne. 512) stop "only support resolution 512 and 1024"
   stack_field_name = trim(coop_inputArgs(3))
-  line = coop_inputArgs(4)
-  read(line,*) threshold
-  line = coop_inputArgs(5)
-  read(line,*) n_sim
+  call coop_get_Input(4, threshold)
+  call coop_get_Input(5, n_sim)
   allocate(S_m(0:n_sim))
   filter = trim(coop_inputArgs(6))
   fr_genre =  trim(coop_inputArgs(7))
