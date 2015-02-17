@@ -3,10 +3,10 @@ import os
 import sys
 cclist = ['commander', 'nilc', 'sevem', 'smica']
 nulist = ['0', '1']
-hclist = ['hot0'] #, 'cold0', 'hot1', 'cold1']
+hclist = ['hot0', 'cold0', 'hot1', 'cold1']
 nslist = ['N', 'S']
-readonly = 'F'
-nmaps = 0
+readonly = 'T'
+nmaps = 1000
 print "=============== F =============="
 for nu in nulist:
     print '------------------------'
@@ -14,10 +14,10 @@ for nu in nulist:
     for cc in cclist:
         print cc
         for hc in hclist:
-            print (r'./SST '+cc+' 1024 T ' + ' ' + nu + ' ' + str(nmaps) + ' self '+ hc + ' T F T ' + readonly + r' > scripts/' + cc + r'T' + nu + r'F.log')
-            os.system(r'./SST '+cc+' 1024 T ' + ' ' + nu + ' ' + str(nmaps) + ' self '+ hc + ' T F T ' + readonly + r' > scripts/' + cc + r'T' + nu + r'F.log')
+#            print (r'./SST '+cc+' 1024 T ' + ' ' + nu + ' ' + str(nmaps) + ' self '+ hc + ' T F T ' + readonly )
+            os.system(r'./SST '+cc+' 1024 T ' + ' ' + nu + ' ' + str(nmaps) + ' self '+ hc + ' T F T ' + readonly) # + r' > scripts/' + cc + r'T' + nu + r'F.log')
     
-sys.exit()
+
 print "=========== NS ==========="
 
 for nu in nulist:
