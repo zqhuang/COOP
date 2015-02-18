@@ -1,14 +1,16 @@
 program map
   use coop_healpix_mod
   use coop_wrapper_utils
+#ifdef HAS_HEALPIX  
   use healpix_types
   use alm_tools
   use pix_tools
   use head_fits
   use fitstools
+#endif  
   implicit none
 #include "constants.h"
-  
+#ifdef HAS_HEALPIX  
   integer(8) npixtot
   COOP_STRING::fin, gif
   COOP_REAL mean
@@ -47,4 +49,7 @@ program map
      i = i+1
      fin = trim(coop_InputArgs(i))
   enddo
+#else
+  stop "you need to install healpix"
+#endif
 end program map

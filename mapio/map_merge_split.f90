@@ -2,14 +2,16 @@ program map
   use coop_healpix_mod
   use coop_wrapper_firstorder
   use coop_wrapper_utils
+#ifdef HAS_HEALPIX  
   use healpix_types
   use alm_tools
   use pix_tools
   use head_fits
   use fitstools
+#endif  
   implicit none
 #include "constants.h"
-  
+#ifdef HAS_HEALPIX  
   integer,parameter::nmax = 8
   character(len=80), dimension(64) :: header
   COOP_STRING,dimension(nmax)::fin
@@ -430,4 +432,7 @@ program map
   goto 500
 450 stop "end of file"  
 500 continue
+#else
+  stop "you need to install healpix"
+#endif
 end program map

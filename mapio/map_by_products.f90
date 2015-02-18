@@ -1,14 +1,16 @@
 program map
   use coop_healpix_mod
   use coop_wrapper_utils
+#ifdef HAS_HEALPIX  
   use healpix_types
   use alm_tools
   use pix_tools
   use head_fits
   use fitstools
+#endif  
   implicit none
 #include "constants.h"
-  
+#ifdef HAS_HEALPIX  
   COOP_STRING::imap, qumap, tqtut, emap, bmap, zeta, zetaqzuz, outi, outqu, imask, polmask, str_fwhm_in, str_fwhm_out, prefix
   type(coop_healpix_maps) hgm, hgimask, hgpolmask
   COOP_INT fwhm_in_arcmin, fwhm_out_arcmin, lmax
@@ -83,8 +85,9 @@ program map
         call hgm%write(trim(bmap), index_list = (/ 2 /) )
      endif
   endif
-
-  
+#else
+  stop "You need to install healpix"
+#endif  
 
   
 end program map

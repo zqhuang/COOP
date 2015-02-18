@@ -1,13 +1,16 @@
 program udg
   use coop_wrapper_utils
   use coop_healpix_mod
+#ifdef HAS_HEALPIX  
   use udgrade_nr
   use head_fits
   use fitstools
   use pix_tools
   use alm_tools
+#endif  
   implicit none
 #include "constants.h"
+#ifdef HAS_HEALPIX  
   character(LEN=1024)::f_map_in, f_map_out, line
   integer nside_in, nside_out, npix_in, npix_out
   real::fmissval = 0.
@@ -48,4 +51,7 @@ program udg
   call write_minimal_header(header,dtype = 'MAP', nside=nside_out, order = ordering, creator='Zhiqi Huang')
   call coop_delete_file(trim(f_map_out))
   call output_map(map_out, header, trim(f_map_out))
+#else
+  stop "you need to install healpix"
+#endif  
 end program udg

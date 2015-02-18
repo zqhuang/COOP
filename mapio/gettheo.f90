@@ -1,14 +1,18 @@
 program stackth
   use coop_wrapper_utils
   use coop_fitswrap_mod
-  use coop_sphere_mod
+  use coop_sphere_mod  
   use coop_healpix_mod
+#ifdef HAS_HEALPIX  
   use head_fits
   use fitstools
   use pix_tools
   use alm_tools
+#endif  
   implicit none
 #include "constants.h"
+
+#ifdef HAS_HEALPIX  
   integer, parameter::lmin = 2, lmax=2000, index_TT = 1, index_TE = 4, index_EE=2
   COOP_REAL, parameter:: r_degree = 2.d0
   COOP_REAL, parameter:: width = 2.d0*sin(r_degree*coop_SI_degree/2.d0)
@@ -245,5 +249,8 @@ program stackth
   call figCr%legend(0.5, 0.9, 1)
   call figCr%close()
 
+#else
+  stop "you need to install healpix"
+#endif  
 
 end program stackth
