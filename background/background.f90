@@ -1,5 +1,5 @@
 module coop_background_mod
-  use coop_wrapper_typedef
+  use coop_wrapper_utils
   implicit none
 #include "constants.h"
 
@@ -324,5 +324,62 @@ contains
          (omch2 + ombh2)**(0.560/(1+21.1* ombh2 **1.81)))
   end function coop_zrecomb_fitting
 
+
+  !!a scalar field potential V(\phi) = A H_0^2 M_p^2 (M_p/\phi)^n U(\phi)
+  !!   where U(\phi->0) = 1
+  !!the initial condition is given by \phi -> c M_p (H_0 / H)^{2/(n+2)}
+  !!A is determined by Klein-Gorden equation:
+  !!   A = 4 c^{n+2} (n+6)/[n(n+2)^2]
+  !!
+  !!the input arguments are n
+  !!  function U(phi, args),  and  Up(phi, args) = dU/dphi
+  !!  c is determined by the requirement that H(a=1) = H_0
+  subroutine coop_cosmology_background_add_scalar_field(this, n, U, Up, args)
+    class(coop_cosmology_background)::this
+    COOP_REAL  c, n, A, Omega_Lambda
+    type(coop_ode) ode
+    type(coop_arguments)::args
+    external U, Up
+    COOP_REAL U, Up
+    Omega_Lambda = this%Omega_k()
+    call ode%init(2)
+    
+  contains
+
+
+    subroutine test_c()
+      A = 4.d0 * c ** (n+2) * (n+6.d0)/(n*(n+2.d0)**2)
+      
+    end subroutine test_c
+
+
+    !!y(1) = phi; y(2) = d phi / d ln a
+    !!yp(1) = d phi /d ln a ; yp(2) = d^2 phi /d ln a ^2
+    subroutine fcn(m, lna, y, yp)
+      COOP_INT m
+      COOP_REAL a, y(m), yp(m), invHsq, rhoa4, lna, pa4, HdotbyHsq, a4
+      a = exp(lna)
+      a4 = a**4
+      call this%get_pa4_rhoa4(a, pa4, rhoa4)
+      invHsq = 3.d0*a4*(rhoa4 + V(y(1))*a4)
+      HdotbyHsq = -1.5d0*(1.d0+pa4/rhoa4)
+      yp(1) = y(2)
+      yp(2) = - (3.d0+HdotbyHsq) * yp(1) - Vp(y(1))*invHsq 
+    end subroutine fcn
+    
+
+    function V(phi)
+      COOP_REAL V, phi
+      V = U(phi, args) * A / phi**n
+    end function V
+
+    function Vp(phi)
+      COOP_REAL Vp, phi
+      Vp = A*(Up(phi, args) / phi**n - U(phi, args) * n / phi**(n+1))
+    end function Vp
+    
+  end subroutine coop_cosmology_background_add_scalar_field
+
+  
 
 end module coop_background_mod

@@ -6,7 +6,7 @@ module coop_ode_mod
 
   private
   integer,parameter::dl = coop_real_length
-  COOP_REAL,parameter::coop_ode_default_precision = 3.d-7
+  COOP_REAL,parameter::coop_ode_default_precision = 2.d-7
   
   public::coop_ode, coop_symplectic_2nd, coop_symplectic_4th, coop_symplectic_6th, coop_dverk, coop_dverk_with_arguments
 
@@ -19,16 +19,29 @@ module coop_ode_mod
      COOP_REAL c(24)
      COOP_REAL,dimension(:),allocatable:: y, yp
      COOP_REAL,dimension(:,:),allocatable:: w
-     COOP_REAL  x, tol
+     COOP_REAL  x
+     COOP_REAL::tol  = coop_ode_default_precision
    contains
      procedure::init => coop_ode_init
      procedure::set_arguments => coop_ode_set_arguments
      procedure::set_initial_conditions => coop_ode_set_initial_conditions
      procedure::evolve => coop_ode_evolve
+     procedure::free => coop_ode_free
   end type coop_ode
 
 
 contains
+
+  subroutine coop_ode_free(this)
+    class(coop_ode)this
+    if(allocated(this%y))deallocate(this%y)
+    if(allocated(this%yp))deallocate(this%yp)
+    if(allocated(this%w))deallocate(this%w)
+    call this%args%free()
+    this%n = 0
+    this%ind  = 1
+    this%has_args = .false.
+  end subroutine coop_ode_free
 
   !!method = COOP_ODE_DVERK for stable odes
   !!if the steps are small, you can use method = COOP_ODE_RK4[6,8], or COOP_ODE_GL4[6,8]

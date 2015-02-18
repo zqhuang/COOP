@@ -59,6 +59,10 @@ module coop_cosmology_mod
      procedure::H0Mpc => coop_cosmology_background_H0Mpc  !!H_0 * Mpc
      procedure::H0Gyr => coop_cosmology_background_H0Gyr  !!H_0 * Gyr
      procedure::H2a4 => coop_cosmology_background_H2a4   !! input a , return H a^2 / H_0
+     procedure::rhoa4 => coop_cosmology_background_rhoa4 !!input a, return rho a^4 / (H_0^2 M_p^2)
+
+     procedure::get_pa4_rhoa4 => coop_cosmology_background_get_pa4_rhoa4 !!input a, return rho a^4 / (H_0^2 M_p^2)
+     
      procedure::Hasq => coop_cosmology_background_Hasq   !! input a , return H a^2 / H_0
      procedure::dadtau => coop_cosmology_background_Hasq   !! input a , return da/d tau /H_0
      procedure::Hratio => coop_cosmology_background_Hratio !! input a, return H/H_0
@@ -269,6 +273,35 @@ contains
   end function coop_cosmology_background_H2a4
 
 
+  function coop_cosmology_background_rhoa4(this, a)result(rhoa4)
+    class(coop_cosmology_background)::this
+    COOP_REAL rhoa4, a
+    COOP_INT i
+    rhoa4 = 0.d0
+    do i=1, this%num_species
+       rhoa4 = rhoa4 + this%species(i)%Omega * this%species(i)%rhoa4_ratio(a)
+    enddo
+    rhoa4 = rhoa4*3.d0
+  end function coop_cosmology_background_rhoa4
+
+
+  subroutine coop_cosmology_background_get_pa4_rhoa4(this, a, pa4, rhoa4)
+    class(coop_cosmology_background)::this
+    COOP_REAL pa4, rhoa4, a, r
+    COOP_INT i
+    rhoa4 = 0.d0
+    pa4 = 0.d0
+    do i=1, this%num_species
+       r = this%species(i)%Omega * this%species(i)%rhoa4_ratio(a)
+       pa4 = pa4 + r*this%species(i)%wofa(a)
+       rhoa4 = rhoa4 +r
+    enddo
+    rhoa4 = rhoa4 * 3.d0
+    pa4 = pa4 * 3.d0
+  end subroutine coop_cosmology_background_get_pa4_rhoa4
+  
+
+  
   function coop_cosmology_background_Hasq(this, a)result(Hasq)
     class(coop_cosmology_background)::this
     COOP_REAL Hasq, a
@@ -511,6 +544,5 @@ contains
        if(error_not_found)call coop_return_error("index_of", trim(name)//" not found", "stop")
     endif
   end function coop_cosmology_background_index_of
-
   
 end module coop_cosmology_mod
