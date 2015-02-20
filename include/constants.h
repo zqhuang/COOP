@@ -28,6 +28,7 @@
 #define COOP_INTERPOLATE_QUADRATIC 2
 #define COOP_INTERPOLATE_SPLINE 3
 #define COOP_INTERPOLATE_CHEBYSHEV 4
+#define COOP_INTERPOLATE_POLYNOMIAL 5
 
 #define COOP_ODE_DVERK 1
 #define COOP_ODE_RK4 2
@@ -96,6 +97,7 @@
 #define COOP_MODULAS_SQUARE(z)  (real(z)**2 + aimag(z)**2)
 #define COOP_MULT_REAL(z1, z2)  (real(z1)*real(z2) + aimag(z1)*aimag(z2))
 #define COOP_POLAR_ANGLE(x, y)  (atan2(y, x+sign(tiny(x), x)))
+#define COOP_LN(x)  (log(max(x, tiny(x))))
 
 #define COOP_FORMAT_STRING 0
 #define COOP_FORMAT_INTEGER 1

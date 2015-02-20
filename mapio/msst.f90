@@ -295,8 +295,8 @@ contains
     if(i.eq.0)then
        call imap%read(imap_file, nmaps_wanted = sto_max_all%nmaps, nmaps_to_read = 1)
     else
-       call imap%read(trim(mapdir)//"cmb/int/dx11_v2_"//trim(cc_method)//"_int_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, nmaps_wanted = sto_max_all%nmaps)
-       call inoise%read(trim(mapdir)//"noise/int/dx11_v2_"//trim(cc_method)//"_int_noise_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, nmaps_wanted = sto_max_all%nmaps)
+       call imap%read(trim(mapdir)//"cmb/int/"//trim(cc_method)//"/dx11_v2_"//trim(cc_method)//"_int_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, nmaps_wanted = sto_max_all%nmaps)
+       call inoise%read(trim(mapdir)//"noise/int/"//trim(cc_method)//"/dx11_v2_"//trim(cc_method)//"_int_noise_mc_"//trim(coop_Ndigits(i-1, 5))//trim(postfix), nmaps_to_read = 1, nmaps_wanted = sto_max_all%nmaps)
        imap%map(:, 1) = imap%map(:, 1) + inoise%map(:, 1)       
     endif
     if(imap%nmaps .eq. 3)then
@@ -313,8 +313,8 @@ contains
     if(i.eq.0)then
        call polmap%read(polmap_file, nmaps_wanted = 2, spin = (/ 2 , 2 /) )
     else
-       call polmap%read(trim(mapdir)//"cmb/pol/dx11_v2_"//trim(cc_method)//"_"//trim(polcase)//"_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//"_hp_20_40"//trim(postfix), nmaps_wanted = 2, spin = (/ 2, 2 /) )
-       call polnoise%read(trim(mapdir)//"noise/pol/dx11_v2_"//trim(cc_method)//"_"//trim(polcase)//"_noise_mc_"//trim(coop_Ndigits(i-1, 5))//"_hp_20_40"//trim(postfix), nmaps_wanted = 2, spin = (/ 2 , 2 /) )
+       call polmap%read(trim(mapdir)//"cmb/pol/"//trim(cc_method)//"/dx11_v2_"//trim(cc_method)//"_"//trim(polcase)//"_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//"_hp_20_40"//trim(postfix), nmaps_wanted = 2, spin = (/ 2, 2 /) )
+       call polnoise%read(trim(mapdir)//"noise/pol/"//trim(cc_method)//"/dx11_v2_"//trim(cc_method)//"_"//trim(polcase)//"_noise_mc_"//trim(coop_Ndigits(i-1, 5))//"_hp_20_40"//trim(postfix), nmaps_wanted = 2, spin = (/ 2 , 2 /) )
        polmap%map = polmap%map + polnoise%map
     endif
     if(do_nest) call polmap%convert2nested()

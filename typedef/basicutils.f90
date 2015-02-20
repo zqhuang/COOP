@@ -688,6 +688,10 @@ contains
     COOP_INT n, j
     COOP_REAL p(n)
     COOP_REAL x, y
+    if(n.le.0)then
+       y = 0.d0
+       return
+    endif
     y = p(n)
     do j= n-1,1,-1
        y= y*x + p(j)

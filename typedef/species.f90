@@ -11,14 +11,24 @@ module coop_species_mod
   public:: coop_species
 
   type coop_species
-     COOP_INT genre
-     logical w_dynamic, cs2_dynamic
-     COOP_SHORT_STRING name
-     COOP_INT id
-     COOP_REAL Omega, wp1, cs2
-     COOP_REAL Omega_massless, mbyT
+     COOP_INT::genre
+     logical::w_dynamic = .false.
+     logical::cs2_dynamic = .false.
+     COOP_SHORT_STRING::name = ''
+     COOP_INT::id = 0
+     COOP_REAL::Omega = 0.
+     COOP_REAL::wp1 = 1.d0
+     COOP_REAL::cs2 = 0.d0
+     COOP_REAL::Omega_massless = 0.d0
+     COOP_REAL::mbyT = 0.d0
      type(coop_function):: fwp1, fcs2, fwp1eff
-     type(coop_function)::flnrho
+     type(coop_function):: flnrho
+     !!for scalar field DE model
+     type(coop_function)::fDE_U_of_phi, fDE_dUdphi, fDE_phi_of_lna, fDE_dphidlna, fDE_Q_of_phi
+     logical::DE_has_Q  = .false.
+     COOP_REAL::DE_tracking_n = 0.d0
+     COOP_REAL::DE_a_start = 1.d-6
+     COOP_REAL::DE_lnV0 = 0.d0
    contains
      procedure :: init => coop_species_initialize
      procedure :: print => coop_species_print
@@ -40,7 +50,15 @@ module coop_species_mod
      procedure :: pa2 => coop_species_pa2
      procedure :: dpa2da => coop_species_dpa2da
      procedure :: drhoa2da => coop_species_drhoa2da
+     !!for scalar field DE model
+     procedure :: DE_V => coop_species_DE_V
+     procedure :: DE_dlnVdphi => coop_species_DE_dlnVdphi
+     procedure :: DE_d2lnVdphi2 => coop_species_DE_d2lnVdphi2
+     procedure :: DE_phi => coop_species_DE_phi
+     procedure :: DE_dphidlna => coop_species_DE_dphidlna
+     procedure :: DE_Q => coop_species_DE_Q
   end type coop_species
+  
 
 
 
@@ -456,8 +474,60 @@ contains
     call this%fwp1%free()
     call this%fcs2%free()
     call this%fwp1eff%free()
+    call this%fDE_U_of_phi%free()
+    call this%fDE_dUdphi%free()
+    call this%fDE_phi_of_lna%free()
+    call this%fDE_dphidlna%free()
+    call this%fDE_Q_of_phi%free()
+    this%DE_has_Q = .false.
+    this%w_dynamic = .false.
+    this%cs2_dynamic = .false.
   end subroutine coop_species_free
 
 
+  function coop_species_DE_phi(this, a) result(phi)
+    class(coop_species)::this
+    COOP_REAL a, phi
+    phi = this%fDE_phi_of_lna%eval(log(a))
+  end function coop_species_DE_phi
+
+  
+  function coop_species_DE_Q(this, a) result(Q)
+    class(coop_species)::this
+    COOP_REAL a, Q
+    if(this%DE_has_Q)then    
+       Q = this%fDE_Q_of_phi%eval(this%DE_phi(a))
+    else
+       Q = 0.d0
+    endif
+  end function coop_species_DE_Q
+
+
+  function coop_species_DE_V(this, a) result(V)
+    class(coop_species)::this
+    COOP_REAL a, V, phi
+    phi = this%DE_phi(a)
+    V = exp(this%fDE_U_of_phi%eval(phi) + this%DE_lnV0 - this%DE_tracking_n * COOP_LN(phi))
+  end function coop_species_DE_V
+
+  function coop_species_DE_dphidlna(this, a) result(dphidlna)
+    class(coop_species)::this
+    COOP_REAL::a, dphidlna
+    dphidlna = this%fDE_dphidlna%eval(log(a))
+  end function coop_species_DE_dphidlna
+
+  function coop_species_DE_dlnVdphi(this, a) result(dlnVdphi)
+    class(coop_species)::this
+    COOP_REAL:: a, phi, dlnVdphi, V
+    phi = this%DE_phi(a)
+    dlnVdphi = this%fDE_dUdphi%eval(phi) - this%DE_tracking_n/max(phi, tiny(phi))
+  end function coop_species_DE_dlnVdphi
+
+  function coop_species_DE_d2lnVdphi2(this, a) result(d2lnVdphi2)
+    class(coop_species)::this
+    COOP_REAL::a, d2lnVdphi2, phi
+    phi = this%DE_phi(a)
+    d2lnVdphi2 = this%fDE_dUdphi%derivative(phi) + this%DE_tracking_n/max(phi, tiny(phi))**2
+  end function coop_species_DE_d2lnVdphi2
 
 end module coop_species_mod

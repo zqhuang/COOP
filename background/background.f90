@@ -162,7 +162,7 @@ contains
        this = coop_de_lambda(Omega_Lambda)
        return
     endif
-    arg = coop_arguments(r =  (/ Omega_Lambda, epsilon_s, epsilon_inf, zeta_s , at_by_aeq /))
+    call  arg%init(r =  (/ Omega_Lambda, epsilon_s, epsilon_inf, zeta_s , at_by_aeq /))
     fq = coop_function(coop_de_wp1_coupled_quintessence, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args = arg)
     call this%init(genre = COOP_SPECIES_FLUID, name = "Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fwp1 = fq )
     call arg%free
@@ -325,61 +325,46 @@ contains
   end function coop_zrecomb_fitting
 
 
-  !!a scalar field potential V(\phi) = A H_0^2 M_p^2 (M_p/\phi)^n U(\phi)
-  !!   where U(\phi->0) = 1
-  !!the initial condition is given by \phi -> c M_p (H_0 / H)^{2/(n+2)}
-  !!A is determined by Klein-Gorden equation:
-  !!   A = 4 c^{n+2} (n+6)/[n(n+2)^2]
-  !!
-  !!the input arguments are n
-  !!  function U(phi, args),  and  Up(phi, args) = dU/dphi
-  !!  c is determined by the requirement that H(a=1) = H_0
-  subroutine coop_cosmology_background_add_scalar_field(this, n, U, Up, args)
-    class(coop_cosmology_background)::this
-    COOP_REAL  c, n, A, Omega_Lambda
-    type(coop_ode) ode
-    type(coop_arguments)::args
-    external U, Up
-    COOP_REAL U, Up
-    Omega_Lambda = this%Omega_k()
-    call ode%init(2)
+  subroutine coop_background_add_coupled_DE(bg, Omega_c, Q, n_tracking, Uofphi, dUdphi)
+    !!Q is the coupling between DE and CDM
+    !!the potential V(phi) = V0 * exp(U(phi)) / phi^n
+    !!n_tracking is the index n
+    !!Uofphi is the function U(phi)
+    !!dUdphi is the function dU/dphi
+    !!V0 will be automatically determined by the constraint Omega_k = 0
+    class(coop_cosmology_background)::bg
+    COOP_REAL::omega_c, Q, n_tracking
+    external::Uofphi, dUdphi
+    COOP_REAL::Uofphi, dUdphi
+    type(coop_species)::cdm, de
+    type(coop_ode)::ode
+    COOP_INT i, j
+    COOP_REAL lna
+    cdm%Omega = Omega_c
+    de%Omega = bg%Omega_k() - Omega_c  !!so that after adding cdm and de Omega_k = 0
+    if(Q .lt. 1.d-10)then
+       de%DE_has_Q = .false.
+    else
+       de%DE_has_Q = .true.
+       !!change this for dynamic Q(phi)
+       call de%fDE_Q_of_phi%init_polynomial( (/ Q /) )
+    endif
     
   contains
 
-
-    subroutine test_c()
-      A = 4.d0 * c ** (n+2) * (n+6.d0)/(n*(n+2.d0)**2)
-      
-    end subroutine test_c
-
-
-    !!y(1) = phi; y(2) = d phi / d ln a
-    !!yp(1) = d phi /d ln a ; yp(2) = d^2 phi /d ln a ^2
-    subroutine fcn(m, lna, y, yp)
-      COOP_INT m
-      COOP_REAL a, y(m), yp(m), invHsq, rhoa4, lna, pa4, HdotbyHsq, a4
-      a = exp(lna)
-      a4 = a**4
-      call this%get_pa4_rhoa4(a, pa4, rhoa4)
-      invHsq = 3.d0*a4*(rhoa4 + V(y(1))*a4)
-      HdotbyHsq = -1.5d0*(1.d0+pa4/rhoa4)
-      yp(1) = y(2)
-      yp(2) = - (3.d0+HdotbyHsq) * yp(1) - Vp(y(1))*invHsq 
+    subroutine fcn(n, lna, y, yp)
+      COOP_INT::n
+      COOP_REAL::y(n), yp(n)
+      COOP_REAL::H, lna, Q, HdotbyHsq, VpbyHsq, qnow
+#define PHI y(1)
+#define DPHIDLNA y(2)
+#define LN_RHOM y(3)
+      yp(1) = DPHIDLNA
+      qnow = de%fDE_Q_of_phi%eval(PHI)
+      yp(2) = - (3.d0+HdotbyHsq)*DPHIDLNA - VpbyHsq  - exp(LN_RHOM) * qnow
     end subroutine fcn
     
-
-    function V(phi)
-      COOP_REAL V, phi
-      V = U(phi, args) * A / phi**n
-    end function V
-
-    function Vp(phi)
-      COOP_REAL Vp, phi
-      Vp = A*(Up(phi, args) / phi**n - U(phi, args) * n / phi**(n+1))
-    end function Vp
-    
-  end subroutine coop_cosmology_background_add_scalar_field
-
+  end subroutine coop_background_add_coupled_DE
   
 
 end module coop_background_mod

@@ -22,6 +22,7 @@ module coop_function_mod
    contains
      procedure::set_boundary => coop_function_set_boundary
      procedure::init => coop_function_init
+     procedure::init_polynomial => coop_function_init_polynomial
      procedure::init_NonUniform => coop_function_init_NonUniform
      procedure::eval => coop_function_evaluate  
      procedure::eval_bare => coop_function_evaluate_bare !!without log scaling
@@ -36,26 +37,14 @@ module coop_function_mod
      procedure::monotonic_solution => coop_function_monotonic_solution
   end type coop_function
 
-
   interface coop_function
      module procedure coop_function_constructor
-  end interface coop_function
-
+  end interface coop_function  
 
 contains
 
-  subroutine coop_function_set_boundary(this, fleft, fright, slopeleft, sloperight)
-    class(coop_function)::this
-    COOP_REAL,optional::fleft, fright, slopeleft, sloperight
-    if(present(fleft))this%fleft = fleft
-    if(present(fright))this%fright = fright
-    if(present(slopeleft))this%slopeleft = slopeleft
-    if(present(sloperight))this%sloperight = sloperight
-    this%check_boundary = .false.
-  end subroutine coop_function_set_boundary
 
-
-  function coop_function_constructor(f, xmin, xmax, xlog, ylog, args, method, check_boundary, smooth, name) result(cf)
+  function coop_function_constructor(f, xmin, xmax, xlog, ylog, args, method, check_boundary) result(cf)
     external f
     COOP_REAL f, xmin, xmax, dx, lnxmin, lnxmax
     logical,optional::xlog
@@ -63,8 +52,6 @@ contains
     type(coop_arguments),optional::args
     COOP_INT, optional::method
     logical,optional::check_boundary
-    logical,optional::smooth
-    COOP_UNKNOWN_STRING,optional::name
     COOP_REAL_ARRAY::y
     COOP_INT i
     type(coop_function) :: cf
@@ -124,22 +111,33 @@ contains
        write(*,*) "Cannot construct the function type: found f = NAN within the specified range."
        stop
     endif
-    if(present(smooth))then
+    if(present(check_boundary))then
        if(present(method))then
-          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = method, xlog = cf%xlog, ylog = cf%ylog, smooth = smooth)
+          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = method, xlog = cf%xlog, ylog = cf%ylog, check_boundary = check_boundary)
        else
-          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, xlog = cf%xlog, ylog = cf%ylog, smooth = smooth)
+          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = COOP_INTERPOLATE_SPLINE, xlog = cf%xlog, ylog = cf%ylog, check_boundary = check_boundary)
        endif
     else
        if(present(method))then
           call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = method, xlog = cf%xlog, ylog = cf%ylog)
        else
-          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, xlog = cf%xlog, ylog = cf%ylog)
+          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = COOP_INTERPOLATE_SPLINE, xlog = cf%xlog, ylog = cf%ylog)
        endif
     endif
-    if(present(check_boundary)) cf%check_boundary = check_boundary
-    if(present(name)) cf%name = trim(adjustl(name))
   end function coop_function_constructor
+  
+
+  subroutine coop_function_set_boundary(this, fleft, fright, slopeleft, sloperight)
+    class(coop_function)::this
+    COOP_REAL,optional::fleft, fright, slopeleft, sloperight
+    if(present(fleft))this%fleft = fleft
+    if(present(fright))this%fright = fright
+    if(present(slopeleft))this%slopeleft = slopeleft
+    if(present(sloperight))this%sloperight = sloperight
+    this%check_boundary = .false.
+  end subroutine coop_function_set_boundary
+
+
 
   subroutine coop_function_free(this)
     class(coop_function):: this
@@ -148,6 +146,43 @@ contains
     if(allocated(this%f2))deallocate(this%f2)
   end subroutine coop_function_free
 
+
+  subroutine coop_function_init_polynomial(this, p, xlog, ylog,  name)
+    class(coop_function)::this
+    logical,optional::xlog, ylog
+    COOP_REAL,dimension(:)::p
+    COOP_UNKNOWN_STRING,optional::name    
+    COOP_INT::i
+    call this%free()
+    this%method = COOP_INTERPOLATE_POLYNOMIAL
+    if(present(name))this%name = trim(adjustl(name))
+    if(present(xlog))then
+       this%xlog = xlog
+    else
+       this%xlog = .false.
+    endif
+    if(present(ylog))then
+       this%ylog = ylog
+    else
+       this%ylog = .false.
+    endif
+    this%check_boundary = .false.
+    this%n = size(p)
+    allocate(this%f(this%n), this%f1(this%n), this%f2(this%n))
+    this%f = p
+    this%f1(this%n) = 0.d0
+    this%f2(this%n) = 0.d0
+    if(this%n .gt.1) &
+         this%f2(this%n-1) = 0.d0        
+    do i = 1, this%n-1
+       this%f1(i) = this%f(i+1)*i
+    enddo
+    do i=1, this%n - 2
+       this%f2(i) = this%f1(i+1)*i
+    enddo
+    this%xmax = 1.d99**(1.d0/max(this%n-1,1))
+    this%xmin = - this%xmax
+  end subroutine coop_function_init_polynomial
 
   subroutine coop_function_init_NonUniform(this, x, f, xlog, ylog, check_boundary, smooth, name)
     class(coop_function):: this
@@ -445,6 +480,10 @@ contains
     class(coop_function):: this
     COOP_REAL x, f, a, b, xdiff
     COOP_INT l, r
+    if(this%method .eq. COOP_INTERPOLATE_POLYNOMIAL)then
+       f = coop_polyvalue(this%n, this%f, x)
+       return
+    endif
     xdiff = x - this%xmin
     b = xdiff/this%dx + 1.d0
     l = floor(b)
@@ -575,6 +614,10 @@ contains
     class(coop_function):: this
     COOP_REAL x, f, a, b, xdiff
     COOP_INT l, r
+    if(this%method .eq. COOP_INTERPOLATE_POLYNOMIAL)then
+       f = coop_polyvalue(this%n-1, this%f1, x)
+       return
+    endif
     xdiff = x - this%xmin
     b = xdiff/this%dx + 1.d0
     l = floor(b)
@@ -635,6 +678,10 @@ contains
     class(coop_function):: this
     COOP_REAL x, f, a, b, xdiff
     COOP_INT l, r
+    if(this%method .eq. COOP_INTERPOLATE_POLYNOMIAL)then
+       f = coop_polyvalue(this%n-2, this%f2, x)
+       return
+    endif
     xdiff = x - this%xmin
     b = xdiff/this%dx + 1.d0
     l = floor(b)
@@ -867,7 +914,7 @@ contains
        fs = f
     endif
     select case(this%method)
-    case(COOP_INTERPOLATE_CHEBYSHEV)
+    case(COOP_INTERPOLATE_CHEBYSHEV, COOP_INTERPOLATE_POLYNOMIAL)
        xmin = this%xmin
        xmax = this%xmax
        fmin = this%eval_bare(xmin)
