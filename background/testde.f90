@@ -4,7 +4,7 @@ program bgtest
 #include "constants.h"  
   type(coop_cosmology_background)::bg
   COOP_INT, parameter::n = 256
-  COOP_REAL:: a(n), lna(n), ln_rho_cdm(n), phi(n), lnH(n), phidot(n), V(n)
+  COOP_REAL:: a(n), lna(n), ln_rho_cdm(n), phi(n), lnH(n), phidot(n), V(n), KE(n)
   COOP_INT::i, index_CDM , index_DE
   type(coop_file)::fp
   call bg%init(h=0.68d0)
@@ -22,7 +22,8 @@ program bgtest
      ln_rho_cdm(i) = log(bg%species(index_CDM)%density_ratio(a(i)))
      phi(i) = bg%species(index_DE)%DE_phi(a(i))
      phidot(i) = bg%species(index_DE)%DE_phidot(a(i))
-     V(i) = bg%species(index_DE)%density(a(i)) - phidot(i)**2/2.d0
+     V(i) = bg%species(index_DE)%DE_V(phi(i))
+     KE(i) = phidot(i)**2/2.d0
      write(fp%unit, "(10G15.6)") lna(i), ln_rho_cdm(i)+3.d0*lna(i), phi(i), phidot(i), V(i), bg%species(index_DE)%wofa(a(i))
   enddo
   call fp%close()

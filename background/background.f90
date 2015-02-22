@@ -384,7 +384,9 @@ contains
 #define LN_RHOM_PRIME yp(3)
     lnc_upper = 0.5d0
 100 call get_ini(lna_ini, lnc_upper)
-
+    do i = 1, nsteps
+       call evolve_to(lna_coarse(i))
+    enddo
     Ot_upper = (exp(ode%LN_RHOM) + de%DE_V(ode%PHI) + ode%PHIDOT**2/2.d0)/3.d0 - this%Omega_k()
     if(Ot_upper .le. 0.d0)then
        lnc_upper = lnc_upper + 0.5d0
