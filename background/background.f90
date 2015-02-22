@@ -334,17 +334,16 @@ contains
     class(coop_cosmology_background)::this
     COOP_REAL::omega_c, Q, tracking_n
     type(coop_species)::cdm, de
-    type(coop_ode)::ode
-    COOP_INT i, istart, nsteps, j
+    type(coop_ode)::ode, ode_tc
+    COOP_INT i, istart,  j
     COOP_REAL  beta, lnrhom0
     COOP_REAL::lnc_lower, lnc_upper, lnc_mid
     COOP_REAL::Ot_lower, Ot_upper, Ot_mid, lna_ini, Vnow, KEnow
     COOP_REAL_ARRAY::lna, lnrho_cdm, lnrho_de, wp1_de, phi_de, phidot_de
-    COOP_REAL,parameter::a_ini = 1.d-7
-    COOP_INT,parameter::max_nsteps = 100000
-    COOP_INT,parameter::min_nsteps = 5
-    COOP_INT,parameter::incre_nsteps = 5
-    COOP_INT,parameter::decre_nsteps = 2        
+    COOP_REAL,parameter::a_ini = 1.d-5
+    COOP_INT,parameter::nsteps = 200
+    COOP_REAL::lna_coarse(nsteps)
+    logical::tight_coupling
     cdm%name = "CDM"
     de%name = "Dark Energy"
     lnrhom0 = log(3.d0*Omega_c)
@@ -356,7 +355,7 @@ contains
           exit
        endif
     enddo
-
+    call coop_set_uniform(nsteps, lna_coarse, lna(istart+1), log(coop_scale_factor_today))
     
     if(Q .gt. 1.d-10)then
        call de%fDE_Q_of_phi%init_polynomial( (/ Q /) )
@@ -375,7 +374,8 @@ contains
     call de%fDE_U_of_phi%init_polynomial( (/ 0.d0 /), name = "U(phi)" )  !!U = 1
     call de%fDE_dUdphi%init_polynomial( (/ 0.d0 /), name = "dU/dphi" ) !! dU /d phi = 0
     call ode%init(3)
-
+    call ode_tc%init(1)
+    
 #define PHI y(1)
 #define PHIDOT y(2)
 #define LN_RHOM y(3)
@@ -383,18 +383,9 @@ contains
 #define PHIDOT_PRIME yp(2)
 #define LN_RHOM_PRIME yp(3)
     lnc_upper = 0.5d0
-    nsteps = 100
 100 call get_ini(lna_ini, lnc_upper)
-    do i = 1, nsteps
-       call ode%evolve(fcn, lna_ini + i*(log(coop_scale_factor_today)-lna_ini)/nsteps)
-       if(coop_isnan(ode%y))then
-          nsteps = nsteps*incre_nsteps
-          if(nsteps .gt. max_nsteps)stop "add_coupled_DE: cannot solve the ODE"
-          goto 100
-       endif
-    enddo
+
     Ot_upper = (exp(ode%LN_RHOM) + de%DE_V(ode%PHI) + ode%PHIDOT**2/2.d0)/3.d0 - this%Omega_k()
-    nsteps = max(nsteps/decre_nsteps, min_nsteps)
     if(Ot_upper .le. 0.d0)then
        lnc_upper = lnc_upper + 0.5d0
        goto 100
@@ -404,14 +395,8 @@ contains
     lnc_lower = -1.d0    
 200 call get_ini(lna_ini, lnc_lower)
     do i = 1, nsteps
-       call ode%evolve(fcn, lna_ini + i*(log(coop_scale_factor_today)-lna_ini)/nsteps)
-       if(coop_isnan(ode%y))then
-          nsteps = nsteps*incre_nsteps
-          if(nsteps .gt. max_nsteps)stop "add_coupled_DE: cannot solve the ODE"          
-          goto 200
-       endif       
+       call evolve_to(lna_coarse(i))
     enddo
-    nsteps = max(nsteps/decre_nsteps, min_nsteps)
     Ot_lower = (exp(ode%LN_RHOM) + de%DE_V(ode%PHI) + ode%PHIDOT**2/2.d0)/3.d0 - this%Omega_k()
     if(Ot_lower .ge. 0.d0)then
        lnc_lower = lnc_lower - 0.5d0
@@ -431,12 +416,9 @@ contains
              phi_de(i) = ode%PHI
              phidot_de(i) = ode%PHIDOT             
           enddo
-          nsteps = 5
 500       continue
           do i = istart + 1, coop_default_array_size
-             do j = 1, nsteps
-                call ode%evolve(fcn, lna(i-1)+(lna(i)-lna(i-1))/nsteps*j)
-             enddo
+             call evolve_to(lna(i))
              lnrho_cdm(i) = ode%LN_RHOM
              Vnow =  de%DE_V(ode%PHI)
              KEnow  = ode%PHIDOT**2/2.d0
@@ -444,12 +426,6 @@ contains
              wp1_de(i) = 2.d0*KEnow/(Vnow + KEnow)
              phi_de(i) = ode%PHI
              phidot_de(i) = ode%PHIDOT
-             if(coop_isnan(ode%y))then
-                nsteps = nsteps * 2
-                if(nsteps .gt. 1000) stop "add_coupled_DE: ODE failed"
-                call get_ini(lna_ini, lnc_mid)
-                goto 500
-             endif
           enddo
           de%Omega = (de%DE_V(ode%PHI) + ode%PHIDOT**2/2.d0)/3.d0
           cdm%Omega = this%Omega_k() - de%Omega
@@ -465,15 +441,9 @@ contains
           lnc_mid = (lnc_upper + lnc_lower)/2.d0
 300       call get_ini(lna_ini, lnc_mid)
           do i = 1, nsteps
-             call ode%evolve(fcn, lna_ini + i*(log(coop_scale_factor_today)-lna_ini)/nsteps)
-             if(coop_isnan(ode%y))then
-                nsteps = nsteps*incre_nsteps
-                if(nsteps .gt. max_nsteps)stop "add_coupled_DE: cannot solve the ODE"          
-                goto 300
-             endif
+             call evolve_to(lna_coarse(i))
           enddo
           Ot_mid = (exp(ode%LN_RHOM) + de%DE_V(ode%PHI) + ode%PHIDOT**2/2.d0)/3.d0 - this%Omega_k()
-          nsteps = max(nsteps/decre_nsteps, min_nsteps)
        endif
 
        if(Ot_mid .gt. 0.d0)then
@@ -486,7 +456,8 @@ contains
     enddo
     call this%add_species(cdm)
     call this%add_species(de)    
-    
+    call ode%free()
+    call ode_tc%free()
   contains
 
     
@@ -504,7 +475,24 @@ contains
       norm = ((ddphi + 3.d0*hubble*PHIDOT) + qnow * exp(LN_RHOM)) / de%DE_tracking_n * PHI**(de%DE_tracking_n + 1.d0)
       de%DE_lnV0 = log(norm)     
       call ode%set_initial_conditions(lna, y)
+      tight_coupling = ( (hubble*PHIDOT) .lt. 1.d-3*qnow*exp(LN_RHOM) )
+      if(tight_coupling)then
+         call ode_tc%set_initial_conditions(lna, (/ y(3) /) )
+      endif
     end subroutine get_ini
+
+
+    subroutine evolve_to(lnaend)
+      COOP_REAL::lnaend
+      if(tight_coupling)then
+         call ode_tc%evolve(fcn_tight_coupling, lnaend)
+         ode%x = ode_tc%x
+         ode%LN_RHOM = ode_tc%y(1)
+         call set_tight_coupling(ode%x)
+      else
+         call ode%evolve(fcn, lnaend)
+      endif
+    end subroutine evolve_to
 
 
     subroutine fcn(n, lna, y, yp)
@@ -526,6 +514,60 @@ contains
       PHIDOT_PRIME = - 3.d0*PHIDOT - Vp/H  - (rhoma4/a4/H) * qnow
       LN_RHOM_PRIME = - 3.d0 + qnow * PHI_PRIME
     end subroutine fcn
+
+
+    subroutine fcn_tight_coupling(n,lna, y, yp)
+      COOP_INT n
+      COOP_REAL::lna, a, y(n), yp(n), V, rhoa4, phi_eq_dot, phi_eq, rhom, rhotot, hubble, qnow, Qpcorr
+      a = exp(lna)
+      phi_eq = 1.d-5 !!initial random guess, suppose Q is not sensitive to phi
+      qnow = de%DE_Q(phi_eq)      
+      phi_eq  =  exp((de%DE_lnV0+log(de%DE_tracking_n/qnow) - y(1))/(de%DE_tracking_n+1.d0))
+      qnow = de%DE_Q(phi_eq)      
+      phi_eq  =  exp((de%DE_lnV0+log(de%DE_tracking_n/qnow) - y(1))/(de%DE_tracking_n+1.d0))
+      qnow = de%DE_Q(phi_eq)            
+      Qpcorr = phi_eq*de%DE_dlnQdphi(phi_eq)/(de%DE_tracking_n+1.d0)
+      rhoa4 =  this%rhoa4(a)
+      
+      V = de%DE_V(phi_eq)      
+      rhom = exp(y(1))
+      rhotot= rhoa4/a**4 + rhom + V
+
+      hubble = sqrt(rhotot/3.d0)
+      phi_eq_dot = (3.d0*hubble)/(de%DE_tracking_n + 1.d0) * phi_eq/(1.d0 + Qpcorr)
+      hubble = sqrt((rhotot + phi_eq_dot**2/2.d0)/3.d0)      
+      phi_eq_dot = (3.d0*hubble - qnow * phi_eq_dot)/(de%DE_tracking_n + 1.d0) * phi_eq/(1.d0 + Qpcorr)
+      hubble = sqrt((rhotot + phi_eq_dot**2/2.d0)/3.d0)      
+      yp(1) = -3.d0 + qnow*phi_eq_dot / hubble
+    end subroutine fcn_tight_coupling
+
+
+    subroutine set_tight_coupling(lna)
+      COOP_REAL::lna, a,  V, pa4, rhoa4, phi_eq_dot, phi_eq, rhom, rhotot, hubble, ptot, HdotbyHsq, qnow, Qpcorr
+      a = exp(lna)
+      phi_eq = 1.d-5 !!initial random guess, suppose Q is not sensitive to phi
+      qnow = de%DE_Q(phi_eq)      
+      phi_eq  =  exp((de%DE_lnV0+log(de%DE_tracking_n/qnow) - ode%LN_RHOM)/(de%DE_tracking_n+1.d0))
+      qnow = de%DE_Q(phi_eq)      
+      phi_eq  =  exp((de%DE_lnV0+log(de%DE_tracking_n/qnow) - ode%LN_RHOM)/(de%DE_tracking_n+1.d0))
+      qnow = de%DE_Q(phi_eq)            
+      Qpcorr = phi_eq*de%DE_dlnQdphi(phi_eq)/(de%DE_tracking_n+1.d0)
+      rhoa4 =  this%rhoa4(a)
+      
+      V = de%DE_V(phi_eq)      
+      rhom = exp(ode%LN_RHOM)
+      rhotot= rhoa4/a**4 + rhom + V
+
+      hubble = sqrt(rhotot/3.d0)
+      phi_eq_dot = (3.d0*hubble)/(de%DE_tracking_n + 1.d0) * phi_eq/(1.d0 + Qpcorr)
+      hubble = sqrt((rhotot + phi_eq_dot**2/2.d0)/3.d0)      
+      phi_eq_dot = (3.d0*hubble - qnow * phi_eq_dot)/(de%DE_tracking_n + 1.d0) * phi_eq/(1.d0 + Qpcorr)
+      hubble = sqrt((rhotot + phi_eq_dot**2/2.d0)/3.d0)      
+      ode%PHI = phi_eq - 3.d0 * hubble**2/V/de%DE_tracking_n/(de%DE_tracking_n+1.d0)**2*(3.d0/(de%DE_tracking_n +1.d0) + 3.d0 + HdotbyHsq)*phi_eq**3
+      ode%PHIDOT = phi_eq_dot
+      ode%ind = 1
+      tight_coupling = (hubble * ode%PHIDOT .lt. 1.d-3*qnow*rhom)
+    end subroutine set_tight_coupling
     
   end subroutine coop_background_add_coupled_DE
   

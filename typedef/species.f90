@@ -54,6 +54,7 @@ module coop_species_mod
      procedure :: DE_phi => coop_species_DE_phi
      procedure :: DE_phidot => coop_species_DE_phidot
      procedure :: DE_Q => coop_species_DE_Q
+     procedure :: DE_dlnQdphi => coop_species_DE_dlnQdphi     
   end type coop_species
   
 
@@ -472,6 +473,16 @@ contains
        Q = 0.d0
     endif
   end function coop_species_DE_Q
+
+  function coop_species_DE_dlnQdphi(this, phi) result(dlnQdphi)
+    class(coop_species)::this
+    COOP_REAL dlnQdphi, phi
+    if(this%fDE_Q_of_phi%initialized)then    
+       dlnQdphi = this%fDE_Q_of_phi%derivative(phi)/this%fDE_Q_of_phi%eval(phi)
+    else
+       dlnQdphi = 0.d0
+    endif
+  end function coop_species_DE_dlnQdphi
 
 
   function coop_species_DE_V(this, phi) result(V)

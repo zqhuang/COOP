@@ -13,7 +13,7 @@ program bgtest
   call bg%add_species(coop_neutrinos_massless(bg%Omega_massless_neutrinos_per_species()*(bg%Nnu())))
   !! call bg%add_species(coop_cdm(0.25d0))
   !! call bg%add_species(coop_de_lambda(bg%Omega_k()))
-  call coop_background_add_coupled_DE(bg, Omega_c = 0.25d0, Q = 0.42d0, tracking_n = 0.5d0)
+  call coop_background_add_coupled_DE(bg, Omega_c = 0.25d0, Q = 0.4d0, tracking_n = 1.d0)
   index_CDM = bg%index_of("CDM")
   index_DE = bg%index_of("Dark Energy")
   call bg%setup_background()
@@ -25,7 +25,7 @@ program bgtest
      phi(i) = bg%species(index_DE)%DE_phi(a(i))
      phidot(i) = bg%species(index_DE)%DE_phidot(a(i))
      V(i) = bg%species(index_DE)%density(a(i)) - phidot(i)**2/2.d0
-     write(fp%unit, "(10G15.6)") lna(i), ln_rho_cdm(i)+3.d0*lna(i), phi(i), phidot(i), V(i)
+     write(fp%unit, "(10G15.6)") lna(i), ln_rho_cdm(i)+3.d0*lna(i), phi(i), phidot(i), V(i), bg%species(index_DE)%wofa(a(i))
   enddo
   call fp%close()
 end program bgtest
