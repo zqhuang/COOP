@@ -335,17 +335,22 @@ contains
     COOP_REAL::omega_c, Q, tracking_n
     type(coop_species)::cdm, de
     type(coop_ode)::ode
-    COOP_INT i, istart
+    COOP_INT i, istart, nsteps, j
     COOP_REAL  beta, lnrhom0
     COOP_REAL::lnc_lower, lnc_upper, lnc_mid
     COOP_REAL::Ot_lower, Ot_upper, Ot_mid, lna_ini, Vnow, KEnow
     COOP_REAL_ARRAY::lna, lnrho_cdm, lnrho_de, wp1_de, phi_de, phidot_de
+    COOP_REAL,parameter::a_ini = 1.d-7
+    COOP_INT,parameter::max_nsteps = 100000
+    COOP_INT,parameter::min_nsteps = 5
+    COOP_INT,parameter::incre_nsteps = 5
+    COOP_INT,parameter::decre_nsteps = 2        
     cdm%name = "CDM"
     de%name = "Dark Energy"
     lnrhom0 = log(3.d0*Omega_c)
     call coop_set_uniform(coop_default_array_size, lna, log(coop_min_scale_factor), log(coop_scale_factor_today))
     do i = 1, coop_default_array_size
-       if(lna(i) .gt. log(1.d-8))then
+       if(lna(i) .gt. log(a_ini))then
           istart = i
           lna_ini = lna(i)
           exit
@@ -367,7 +372,7 @@ contains
        endif
     endif
     !!change this for dynamic U(phi) and dU/d\phi
-    call de%fDE_U_of_phi%init_polynomial( (/ 1.d0 /), name = "U(phi)" )  !!U = 1
+    call de%fDE_U_of_phi%init_polynomial( (/ 0.d0 /), name = "U(phi)" )  !!U = 1
     call de%fDE_dUdphi%init_polynomial( (/ 0.d0 /), name = "dU/dphi" ) !! dU /d phi = 0
     call ode%init(3)
 
@@ -378,17 +383,35 @@ contains
 #define PHIDOT_PRIME yp(2)
 #define LN_RHOM_PRIME yp(3)
     lnc_upper = 0.5d0
+    nsteps = 100
 100 call get_ini(lna_ini, lnc_upper)
-    call ode%evolve(fcn, log(coop_scale_factor_today))
+    do i = 1, nsteps
+       call ode%evolve(fcn, lna_ini + i*(log(coop_scale_factor_today)-lna_ini)/nsteps)
+       if(coop_isnan(ode%y))then
+          nsteps = nsteps*incre_nsteps
+          if(nsteps .gt. max_nsteps)stop "add_coupled_DE: cannot solve the ODE"
+          goto 100
+       endif
+    enddo
     Ot_upper = (exp(ode%LN_RHOM) + de%DE_V(ode%PHI) + ode%PHIDOT**2/2.d0)/3.d0 - this%Omega_k()
+    nsteps = max(nsteps/decre_nsteps, min_nsteps)
     if(Ot_upper .le. 0.d0)then
        lnc_upper = lnc_upper + 0.5d0
        goto 100
     endif
-    lnc_lower = -1.d0
     
+    
+    lnc_lower = -1.d0    
 200 call get_ini(lna_ini, lnc_lower)
-    call ode%evolve(fcn, log(coop_scale_factor_today))
+    do i = 1, nsteps
+       call ode%evolve(fcn, lna_ini + i*(log(coop_scale_factor_today)-lna_ini)/nsteps)
+       if(coop_isnan(ode%y))then
+          nsteps = nsteps*incre_nsteps
+          if(nsteps .gt. max_nsteps)stop "add_coupled_DE: cannot solve the ODE"          
+          goto 200
+       endif       
+    enddo
+    nsteps = max(nsteps/decre_nsteps, min_nsteps)
     Ot_lower = (exp(ode%LN_RHOM) + de%DE_V(ode%PHI) + ode%PHIDOT**2/2.d0)/3.d0 - this%Omega_k()
     if(Ot_lower .ge. 0.d0)then
        lnc_lower = lnc_lower - 0.5d0
@@ -396,8 +419,8 @@ contains
     endif
 
     do
-       if(Ot_upper - Ot_lower .lt. 3.d-4)then
-          lnc_mid = (lnc_upper*(-Ot_lower) + lnc_lower*Ot_upper)/(Ot_upper - Ot_lower)
+       if(Ot_upper - Ot_lower .lt. 1.d-3)then
+          lnc_mid = (lnc_upper*(-Ot_lower) + lnc_lower*Ot_upper)/(Ot_upper - Ot_lower)                 
           do i=1, istart 
              call get_ini(lna(i), lnc_mid)
              lnrho_cdm(i) = ode%LN_RHOM
@@ -408,15 +431,25 @@ contains
              phi_de(i) = ode%PHI
              phidot_de(i) = ode%PHIDOT             
           enddo
+          nsteps = 5
+500       continue
           do i = istart + 1, coop_default_array_size
-             call ode%evolve(fcn, lna(i))
+             do j = 1, nsteps
+                call ode%evolve(fcn, lna(i-1)+(lna(i)-lna(i-1))/nsteps*j)
+             enddo
              lnrho_cdm(i) = ode%LN_RHOM
              Vnow =  de%DE_V(ode%PHI)
              KEnow  = ode%PHIDOT**2/2.d0
              lnrho_de(i) = log(Vnow + KEnow)
              wp1_de(i) = 2.d0*KEnow/(Vnow + KEnow)
              phi_de(i) = ode%PHI
-             phidot_de(i) = ode%PHIDOT                          
+             phidot_de(i) = ode%PHIDOT
+             if(coop_isnan(ode%y))then
+                nsteps = nsteps * 2
+                if(nsteps .gt. 1000) stop "add_coupled_DE: ODE failed"
+                call get_ini(lna_ini, lnc_mid)
+                goto 500
+             endif
           enddo
           de%Omega = (de%DE_V(ode%PHI) + ode%PHIDOT**2/2.d0)/3.d0
           cdm%Omega = this%Omega_k() - de%Omega
@@ -430,9 +463,17 @@ contains
           exit
        else
           lnc_mid = (lnc_upper + lnc_lower)/2.d0
-          call get_ini(lna_ini, lnc_mid)
-          call ode%evolve(fcn, log(coop_scale_factor_today))
+300       call get_ini(lna_ini, lnc_mid)
+          do i = 1, nsteps
+             call ode%evolve(fcn, lna_ini + i*(log(coop_scale_factor_today)-lna_ini)/nsteps)
+             if(coop_isnan(ode%y))then
+                nsteps = nsteps*incre_nsteps
+                if(nsteps .gt. max_nsteps)stop "add_coupled_DE: cannot solve the ODE"          
+                goto 300
+             endif
+          enddo
           Ot_mid = (exp(ode%LN_RHOM) + de%DE_V(ode%PHI) + ode%PHIDOT**2/2.d0)/3.d0 - this%Omega_k()
+          nsteps = max(nsteps/decre_nsteps, min_nsteps)
        endif
 
        if(Ot_mid .gt. 0.d0)then
@@ -453,7 +494,7 @@ contains
       COOP_REAL lna, a, t, ddphi, hubble, norm, qnow, lnc, y(3)
       a = exp(lna)
       LN_RHOM = lnrhom0 - 3.d0*lna      
-      hubble = sqrt((this%rhoa4(a)+exp(LN_RHOM))/3.d0)      
+      hubble = sqrt((this%rhoa4(a)/a**4+exp(LN_RHOM))/3.d0)      
       t = 1.d0/hubble/2.d0
       PHI = exp(lnc)*t**beta
       PHIDOT = beta*PHI/t
@@ -461,7 +502,7 @@ contains
       qnow = de%DE_Q(PHI)      
       ddphi = (beta-1.d0)*PHIDOT/t
       norm = ((ddphi + 3.d0*hubble*PHIDOT) + qnow * exp(LN_RHOM)) / de%DE_tracking_n * PHI**(de%DE_tracking_n + 1.d0)
-      de%DE_lnV0 = log(norm)
+      de%DE_lnV0 = log(norm)     
       call ode%set_initial_conditions(lna, y)
     end subroutine get_ini
 

@@ -13,7 +13,7 @@ program bgtest
   call bg%add_species(coop_neutrinos_massless(bg%Omega_massless_neutrinos_per_species()*(bg%Nnu())))
   !! call bg%add_species(coop_cdm(0.25d0))
   !! call bg%add_species(coop_de_lambda(bg%Omega_k()))
-  call coop_background_add_coupled_DE(bg, Omega_c = 0.25d0, Q = 0.05d0, tracking_n = 0.1d0)
+  call coop_background_add_coupled_DE(bg, Omega_c = 0.25d0, Q = 0.42d0, tracking_n = 0.5d0)
   index_CDM = bg%index_of("CDM")
   index_DE = bg%index_of("Dark Energy")
   call bg%setup_background()

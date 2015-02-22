@@ -113,7 +113,7 @@ contains
        endif
     endif
     if(coop_isnan(y))then
-       write(*,*) "Cannot construct the function type: found f = NAN within the specified range."
+       write(*,*) "Cannot construct the function  "//trim(cf%name)//": found f = NAN within the specified range."
        stop
     endif
     if(present(check_boundary))then
@@ -204,8 +204,11 @@ contains
     logical,optional::check_boundary
     logical,optional::smooth
     COOP_UNKNOWN_STRING,optional::name
+    if(present(name))then
+       this%name = trim(adjustl(name))
+    endif    
     if(coop_isnan(f))then
-       write(*,*) "Cannot construct the function type: found f = NAN within the specified range."
+       write(*,*) "Cannot construct the function "//trim(this%name)//": found f = NAN within the specified range."
        stop
     endif
     call this%free()
@@ -284,9 +287,6 @@ contains
     if(present(check_boundary))then
        this%check_boundary = check_boundary
     endif
-    if(present(name))then
-       this%name = trim(adjustl(name))
-    endif
     this%initialized = .true.
   end subroutine coop_function_init_NonUniform
 
@@ -304,8 +304,11 @@ contains
     COOP_UNKNOWN_STRING, optional::name
     COOP_INT i, count_tiny, count_small
     COOP_REAL::fmean, ftiny, curv, flarge, fsmall
+    if(present(name))then
+       this%name = trim(adjustl(name))
+    endif    
     if(coop_isnan(f))then
-       write(*,*) "Cannot construct the function type: found f = NAN within the specified range."
+       write(*,*) "Cannot construct the function "//trim(this%name)//": found f = NAN within the specified range."
        stop
     endif
     call this%free()
@@ -462,9 +465,6 @@ contains
        this%check_boundary = check_boundary
     else
        this%check_boundary = .true.
-    endif
-    if(present(name))then
-       this%name = trim(adjustl(name))
     endif
     this%initialized = .true.
   end subroutine coop_function_init
