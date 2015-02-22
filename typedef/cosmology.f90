@@ -363,10 +363,10 @@ contains
        enddo
        dis = dis * (da/6.d0)
        t = t * (da/6.d0)
-       call this%fdis%init(n, amin, amax, dis, COOP_INTERPOLATE_QUADRATIC, check_boundary = .false., slopeleft = 1.d0/Hasqmin, sloperight = 1.d0/Hasqmax)
-       call this%faoftau%init_NonUniform(dis, a)
+       call this%fdis%init(n, amin, amax, dis, COOP_INTERPOLATE_QUADRATIC, check_boundary = .false., slopeleft = 1.d0/Hasqmin, sloperight = 1.d0/Hasqmax, name = "comoving distance")
+       call this%faoftau%init_NonUniform(dis, a, name="a(tau)")
        call this%faoftau%set_boundary(fleft = amin, fright=amax, slopeleft = Hasqmin, sloperight = Hasqmax)
-       call this%ftime%init(n, amin, amax, t, COOP_INTERPOLATE_QUADRATIC, check_boundary = .false.)
+       call this%ftime%init(n, amin, amax, t, COOP_INTERPOLATE_QUADRATIC, check_boundary = .false., name = "t(a)")
        this%need_setup_background = .false. 
     endif
   end subroutine coop_cosmology_background_setup_background

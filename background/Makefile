@@ -23,3 +23,6 @@ PlotData: $(BGOBJ) plotdata.o ../include/background.h $(UTILS)/libcooputils.a
 
 clean:
 	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test
+
+test.o:	$(BGOBJ)
+plotdata.o: $(BGOBJ)

@@ -12,6 +12,7 @@ module coop_function_mod
 
   type coop_function
      COOP_SHORT_STRING::name="NoName"
+     logical::initialized = .false.
      COOP_INT::method = COOP_INTERPOLATE_QUADRATIC  
      logical::xlog =.false.
      logical::ylog = .false.
@@ -44,8 +45,9 @@ module coop_function_mod
 contains
 
 
-  function coop_function_constructor(f, xmin, xmax, xlog, ylog, args, method, check_boundary) result(cf)
+  function coop_function_constructor(f, xmin, xmax, xlog, ylog, args, method, check_boundary,name) result(cf)
     external f
+    COOP_UNKNOWN_STRING,optional::name
     COOP_REAL f, xmin, xmax, dx, lnxmin, lnxmax
     logical,optional::xlog
     logical,optional::ylog
@@ -55,6 +57,9 @@ contains
     COOP_REAL_ARRAY::y
     COOP_INT i
     type(coop_function) :: cf
+    if(present(name))then
+       cf%name = trim(adjustl(name))
+    endif
     if(present(xlog))then
        cf%xlog = xlog
     else
@@ -124,6 +129,7 @@ contains
           call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = COOP_INTERPOLATE_SPLINE, xlog = cf%xlog, ylog = cf%ylog)
        endif
     endif
+    cf%initialized = .true.
   end function coop_function_constructor
   
 
@@ -144,6 +150,7 @@ contains
     if(allocated(this%f))deallocate(this%f)
     if(allocated(this%f1))deallocate(this%f1)
     if(allocated(this%f2))deallocate(this%f2)
+    this%initialized = .false.
   end subroutine coop_function_free
 
 
@@ -182,6 +189,7 @@ contains
     enddo
     this%xmax = 1.d99**(1.d0/max(this%n-1,1))
     this%xmin = - this%xmax
+    this%initialized = .true.        
   end subroutine coop_function_init_polynomial
 
   subroutine coop_function_init_NonUniform(this, x, f, xlog, ylog, check_boundary, smooth, name)
@@ -279,6 +287,7 @@ contains
     if(present(name))then
        this%name = trim(adjustl(name))
     endif
+    this%initialized = .true.
   end subroutine coop_function_init_NonUniform
 
   subroutine coop_function_init(this, n, xmin, xmax, f, method, fleft, fright, slopeleft, sloperight, chebyshev_order, xlog, ylog, check_boundary, smooth, name)
@@ -457,6 +466,7 @@ contains
     if(present(name))then
        this%name = trim(adjustl(name))
     endif
+    this%initialized = .true.
   end subroutine coop_function_init
 
 

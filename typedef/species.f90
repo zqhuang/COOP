@@ -12,8 +12,6 @@ module coop_species_mod
 
   type coop_species
      COOP_INT::genre
-     logical::w_dynamic = .false.
-     logical::cs2_dynamic = .false.
      COOP_SHORT_STRING::name = ''
      COOP_INT::id = 0
      COOP_REAL::Omega = 0.
@@ -24,8 +22,7 @@ module coop_species_mod
      type(coop_function):: fwp1, fcs2, fwp1eff
      type(coop_function):: flnrho
      !!for scalar field DE model
-     type(coop_function)::fDE_U_of_phi, fDE_dUdphi, fDE_phi_of_lna, fDE_dphidlna, fDE_Q_of_phi
-     logical::DE_has_Q  = .false.
+     type(coop_function)::fDE_U_of_phi, fDE_dUdphi, fDE_phi, fDE_dphidlna, fDE_Q_of_phi, fDE_phidot
      COOP_REAL::DE_tracking_n = 0.d0
      COOP_REAL::DE_a_start = 1.d-6
      COOP_REAL::DE_lnV0 = 0.d0
@@ -53,9 +50,9 @@ module coop_species_mod
      !!for scalar field DE model
      procedure :: DE_V => coop_species_DE_V
      procedure :: DE_dlnVdphi => coop_species_DE_dlnVdphi
-     procedure :: DE_d2lnVdphi2 => coop_species_DE_d2lnVdphi2
+     procedure :: DE_d2lnVdphi2 => coop_species_DE_d2lnVdphi2     
      procedure :: DE_phi => coop_species_DE_phi
-     procedure :: DE_dphidlna => coop_species_DE_dphidlna
+     procedure :: DE_phidot => coop_species_DE_phidot
      procedure :: DE_Q => coop_species_DE_Q
   end type coop_species
   
@@ -91,7 +88,7 @@ contains
     if(present(Omega))then
        this%Omega = Omega
     else
-       this%Omega = 1
+       this%Omega = 1.d0
     endif
 
     if(present(Omega_massless))then
@@ -143,12 +140,8 @@ contains
     end select
     select case(this%genre)
     case(COOP_SPECIES_MASSLESS, COOP_SPECIES_COSMOLOGICAL_CONSTANT, COOP_SPECIES_CDM)
-       this%w_dynamic = .false.
-       this%cs2_dynamic = .false.
        return
     case(COOP_SPECIES_MASSIVE_BOSON)
-       this%w_dynamic = .true.
-       this%cs2_dynamic = .true.
        amin = coop_min_scale_factor
        amax = coop_scale_factor_today
        lnamin = log(amin)
@@ -169,13 +162,10 @@ contains
           lnrat(i) = lnrho- 4.d0*(lnamin+(i-1)*dlna) - w1
        enddo
        !$omp end parallel do
-       call this%fwp1%init(coop_default_array_size, amin, amax, 1.d0+warr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
-       call this%fcs2%init(coop_default_array_size, amin, amax, cs2arr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
-       call this%flnrho%init(coop_default_array_size, amin, amax, lnrat, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
-       this%fwp1eff = this%fwp1
+       call this%fwp1%init(coop_default_array_size, amin, amax, 1.d0+warr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = trim(this%name)//"1+w(a)")
+       call this%fcs2%init(coop_default_array_size, amin, amax, cs2arr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.,name= trim(this%name)//" c_s^2(a)")
+       call this%flnrho%init(coop_default_array_size, amin, amax, lnrat, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name= trim(this%name)//"\ln\rho(a) ratio")
     case(COOP_SPECIES_MASSIVE_FERMION)
-       this%w_dynamic = .true.
-       this%cs2_dynamic = .true.
        amin = coop_min_scale_factor
        amax = coop_scale_factor_today
        lnamin = log(amin)
@@ -196,38 +186,22 @@ contains
           lnrat(i) = lnrho- 4.d0*(lnamin+(i-1)*dlna) - w1
        enddo
        !$omp end parallel do
-       call this%fwp1%init(coop_default_array_size, amin, amax, 1.d0+warr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
-       call this%fcs2%init(coop_default_array_size, amin, amax, cs2arr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
-       call this%flnrho%init(coop_default_array_size, amin, amax, lnrat, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
-       this%fwp1eff = this%fwp1
+       call this%fwp1%init(coop_default_array_size, amin, amax, 1.d0+warr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = trim(this%name)//" 1+w(a)")
+       call this%fcs2%init(coop_default_array_size, amin, amax, cs2arr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = trim(this%name)//" cs^2(a)")
+       call this%flnrho%init(coop_default_array_size, amin, amax, lnrat, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = trim(this%name)//" \ln\rho(a) ratio")
     case default
-       if(present(fwp1) .or. present(fwp1eff))then
-          this%w_dynamic = .true.
-          if(present(fwp1))then
-             this%fwp1 = fwp1
-          else
-             if(present(w))then              
-                warr =  w
-                call this%fwp1%init(coop_default_array_size, coop_min_scale_factor, coop_scale_factor_today, 1.d0+warr, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
-             else
-                stop "For dynamic w you have to pass either w or fwp1 to species_init"
-             endif
-          endif
-          if(present(fwp1eff))then
-             this%fwp1eff = fwp1eff
-          else
-             this%fwp1eff = fwp1
-          endif
+       if(present(fwp1))then
+          this%fwp1 = fwp1
        else
-          this%w_dynamic = .false.
+          if(present(w))then
+             this%wp1 = 1.d0 + w
+          else
+             stop "You have to pass either w or fwp1 to species_init"
+          endif
        endif
-       if(present(fcs2))then
-          this%cs2_dynamic = .true.
-          this%fcs2 = fcs2       
-       else
-          this%cs2_dynamic = .false.
-       endif
-       if(this%w_dynamic)then
+       if(present(fwp1eff))  this%fwp1eff = fwp1eff
+       if(present(fcs2))this%fcs2 = fcs2       
+       if(this%fwp1eff%initialized .or. this%fwp1%initialized)then
           amin = coop_min_scale_factor
           amax = coop_scale_factor_today
           lnamin = log(amin)
@@ -241,14 +215,14 @@ contains
              w1 = w2
           enddo
           lnrat = lnrat*(-dlna/2.)
-          call this%flnrho%init(coop_default_array_size, amin, amax, lnrat, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false.)
+          call this%flnrho%init(coop_default_array_size, amin, amax, lnrat, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = trim(this%name)//"\ln\rho(a) ratio")
        endif
     end select
-    if(this%w_dynamic)then
+    if(this%fwp1%initialized)then
        this%wp1 = this%wp1ofa(coop_scale_factor_today)
        call this%flnrho%set_boundary(slopeleft = -3.*this%wp1effofa(amin), sloperight = -3.*this%wp1effofa(amax))
     endif
-    if(this%cs2_dynamic) this%cs2 = this%cs2ofa(coop_scale_factor_today)
+    if(this%fcs2%initialized) this%cs2 = this%cs2ofa(coop_scale_factor_today)
   end subroutine coop_species_initialize
 
   function coop_species_wofa(this, a) result(w)
@@ -261,7 +235,7 @@ contains
   function coop_species_dwda(this, a) result(dwda)
     class(coop_species) :: this
     COOP_REAL dwda, a
-    if(this%w_dynamic)then
+    if(this%fwp1%initialized)then
        dwda = this%fwp1%derivative(COOP_PROPER_SCALE_FACTOR(a))
     else
        dwda = 0.d0
@@ -272,7 +246,7 @@ contains
   function coop_species_wp1ofa(this, a) result(wp1)
     class(coop_species) :: this
     COOP_REAL wp1, a
-    if(this%w_dynamic)then
+    if(this%fwp1%initialized)then
        wp1 = this%fwp1%eval(COOP_PROPER_SCALE_FACTOR(a))
     else
        wp1 = this%wp1
@@ -289,8 +263,10 @@ contains
   function coop_species_wp1effofa(this, a) result(wp1)
     class(coop_species) :: this
     COOP_REAL wp1, a
-    if(this%w_dynamic)then
+    if(this%fwp1eff%initialized)then
        wp1 = this%fwp1eff%eval(COOP_PROPER_SCALE_FACTOR(a))
+    elseif(this%fwp1%initialized)then
+       wp1 = this%fwp1%eval(COOP_PROPER_SCALE_FACTOR(a))
     else
        wp1 = this%wp1
     endif
@@ -300,7 +276,7 @@ contains
   function coop_species_cs2ofa(this, a) result(cs2)
     class(coop_species) :: this
     COOP_REAL cs2, a
-    if(this%cs2_dynamic)then
+    if(this%fcs2%initialized)then
        cs2 = this%fcs2%eval(COOP_PROPER_SCALE_FACTOR(a))
     else
        cs2 = this%cs2
@@ -333,7 +309,7 @@ contains
        write(*,"(A)") "Species genre: unknown"
     end select
     write(*,"(A, G15.6)") "Species Omega: ", this%Omega
-    if(this%w_dynamic)then
+    if(this%fwp1%initialized)then
        write(*,"(A, G14.5)") "Species w(z=10000) = ", this%wofa(COOP_REAL_OF(1.d0/10001.d0))
        write(*,"(A, G14.5)") "Species w(z=1000) = ", this%wofa(COOP_REAL_OF(1.d0/1001.d0))
        write(*,"(A, G14.5)") "Species w(z=10) = ", this%wofa(COOP_REAL_OF(1.d0/11.d0))
@@ -344,18 +320,16 @@ contains
        write(*,"(A, G14.5)") "Species rho_ratio(z=1000) = ", this%density_ratio(COOP_REAL_OF(1.d0/1001.d0))
        write(*,"(A, G14.5)") "Species rho_ratio(z=10) = ", this%density_ratio(COOP_REAL_OF(1.d0/11.d0))
        write(*,"(A, G14.5)") "Species rho_ratio(z=1) = ", this%density_ratio(COOP_REAL_OF(0.5d0))
-       write(*,"(A, G14.5)") "Species rho_ratio(z=0.5) = ", this%density_ratio(COOP_REAL_OF(2.d0/3.d0))
        write(*,"(A, G14.5)") "Species rho_ratio(z=0) = ", this%density_ratio(COOP_REAL_OF(1.d0))
        
     else
        write(*,"(A, G14.5)") "Species w: ", this%wp1-1.d0
     endif
-    if(this%cs2_dynamic)then
+    if(this%fcs2%initialized)then
        write(*,"(A, G14.5)") "Species cs^2(z=10000) = ", this%cs2ofa(COOP_REAL_OF(1.d0/10001.d0))
        write(*,"(A, G14.5)") "Species cs^2(z=1000) = ", this%cs2ofa(COOP_REAL_OF(1.d0/1001.d0))
        write(*,"(A, G14.5)") "Species cs^2(z=10) = ", this%cs2ofa(COOP_REAL_OF(1.d0/11.d0))
        write(*,"(A, G14.5)") "Species cs^2(z=1) = ", this%cs2ofa(COOP_REAL_OF(0.5d0))
-       write(*,"(A, G14.5)") "Species cs^2(z=0.5) = ", this%cs2ofa(COOP_REAL_OF(2.d0/3.d0))
        write(*,"(A, G14.5)") "Species cs^2(z=0) = ", this%cs2ofa(COOP_REAL_OF(1.))
     else
        write(*,"(A, G14.5)") "Species cs^2: ", this%cs2
@@ -366,7 +340,7 @@ contains
     class(coop_species)::this
     COOP_REAL a, an
     COOP_REAL rhoa4
-    if(this%w_dynamic)then
+    if(this%flnrho%initialized)then
        an = COOP_PROPER_SCALE_FACTOR(a)
        rhoa4 = exp(this%flnrho%eval(an)+4.d0*log(an))
     else
@@ -378,7 +352,7 @@ contains
     class(coop_species)::this
     COOP_REAL a, an
     COOP_REAL rhoa3
-    if(this%w_dynamic)then
+    if(this%flnrho%initialized)then
        an = COOP_PROPER_SCALE_FACTOR(a)
        rhoa3 = exp(this%flnrho%eval(an)+3.d0*log(an))
     else
@@ -390,7 +364,7 @@ contains
     class(coop_species)::this
     COOP_REAL a, an
     COOP_REAL rhoa2
-    if(this%w_dynamic)then
+    if(this%flnrho%initialized)then
        an = COOP_PROPER_SCALE_FACTOR(a)
        rhoa2 = exp(this%flnrho%eval(an)+2.d0*log(an))
     else
@@ -420,7 +394,7 @@ contains
     class(coop_species)::this
     COOP_REAL a
     COOP_REAL dlnrhodlna
-    if(this%w_dynamic)then
+    if(this%flnrho%initialized)then
        dlnrhodlna = this%flnrho%derivative_bare(log(a))
     else
        dlnrhodlna = -3.*this%wp1
@@ -461,7 +435,7 @@ contains
     class(coop_species)::this
     COOP_REAL a
     COOP_REAL density
-    if(this%w_dynamic)then
+    if(this%flnrho%initialized)then
        density = exp(this%flnrho%eval(COOP_PROPER_SCALE_FACTOR(a)))
     else
        density = a**(-3.*this%wp1)
@@ -476,57 +450,51 @@ contains
     call this%fwp1eff%free()
     call this%fDE_U_of_phi%free()
     call this%fDE_dUdphi%free()
-    call this%fDE_phi_of_lna%free()
-    call this%fDE_dphidlna%free()
+    call this%fDE_phi%free()
+    call this%fDE_phidot%free()    
     call this%fDE_Q_of_phi%free()
-    this%DE_has_Q = .false.
-    this%w_dynamic = .false.
-    this%cs2_dynamic = .false.
   end subroutine coop_species_free
 
 
   function coop_species_DE_phi(this, a) result(phi)
     class(coop_species)::this
     COOP_REAL a, phi
-    phi = this%fDE_phi_of_lna%eval(log(a))
+    phi = this%fDE_phi%eval(a)
   end function coop_species_DE_phi
 
   
-  function coop_species_DE_Q(this, a) result(Q)
+  function coop_species_DE_Q(this, phi) result(Q)
     class(coop_species)::this
-    COOP_REAL a, Q
-    if(this%DE_has_Q)then    
-       Q = this%fDE_Q_of_phi%eval(this%DE_phi(a))
+    COOP_REAL Q, phi
+    if(this%fDE_Q_of_phi%initialized)then    
+       Q = this%fDE_Q_of_phi%eval(phi)
     else
        Q = 0.d0
     endif
   end function coop_species_DE_Q
 
 
-  function coop_species_DE_V(this, a) result(V)
+  function coop_species_DE_V(this, phi) result(V)
     class(coop_species)::this
-    COOP_REAL a, V, phi
-    phi = this%DE_phi(a)
+    COOP_REAL V, phi
     V = exp(this%fDE_U_of_phi%eval(phi) + this%DE_lnV0 - this%DE_tracking_n * COOP_LN(phi))
   end function coop_species_DE_V
 
-  function coop_species_DE_dphidlna(this, a) result(dphidlna)
+  function coop_species_DE_phidot(this, a) result(dphidlna)
     class(coop_species)::this
     COOP_REAL::a, dphidlna
-    dphidlna = this%fDE_dphidlna%eval(log(a))
-  end function coop_species_DE_dphidlna
+    dphidlna = this%fDE_phidot%eval(a)
+  end function coop_species_DE_phidot
 
-  function coop_species_DE_dlnVdphi(this, a) result(dlnVdphi)
+  function coop_species_DE_dlnVdphi(this, phi) result(dlnVdphi)
     class(coop_species)::this
-    COOP_REAL:: a, phi, dlnVdphi, V
-    phi = this%DE_phi(a)
+    COOP_REAL:: phi, dlnVdphi, V
     dlnVdphi = this%fDE_dUdphi%eval(phi) - this%DE_tracking_n/max(phi, tiny(phi))
   end function coop_species_DE_dlnVdphi
 
-  function coop_species_DE_d2lnVdphi2(this, a) result(d2lnVdphi2)
+  function coop_species_DE_d2lnVdphi2(this, phi) result(d2lnVdphi2)
     class(coop_species)::this
-    COOP_REAL::a, d2lnVdphi2, phi
-    phi = this%DE_phi(a)
+    COOP_REAL::d2lnVdphi2, phi
     d2lnVdphi2 = this%fDE_dUdphi%derivative(phi) + this%DE_tracking_n/max(phi, tiny(phi))**2
   end function coop_species_DE_d2lnVdphi2
 
