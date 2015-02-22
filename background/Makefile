@@ -18,6 +18,10 @@ Test: $(BGOBJ) test.o  ../include/background.h $(UTILS)/libcooputils.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(BGOBJ) test.o $(LINK)
 
 
+TestDE: $(BGOBJ) testde.o  ../include/background.h $(UTILS)/libcooputils.a
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(BGOBJ) testde.o $(LINK)
+
+
 PlotData: $(BGOBJ) plotdata.o ../include/background.h $(UTILS)/libcooputils.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(BGOBJ) plotdata.o $(LINK)
 
