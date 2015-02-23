@@ -340,7 +340,7 @@ contains
     COOP_REAL::lnc_lower, lnc_upper, lnc_mid
     COOP_REAL::Ot_lower, Ot_upper, Ot_mid, lna_ini, Vnow, KEnow
     COOP_REAL_ARRAY::lna, lnrho_cdm, lnrho_de, wp1_de, phi_de, phidot_de
-    COOP_REAL,parameter::a_ini = 1.d-5
+    COOP_REAL,parameter::a_ini = 1.d-8
     COOP_INT,parameter::nsteps = 200
     COOP_REAL::lna_coarse(nsteps)
     logical::tight_coupling
@@ -360,7 +360,7 @@ contains
     if(Q .gt. 1.d-10)then
        call de%fDE_Q_of_phi%init_polynomial( (/ Q /) )
     endif
-    de%DE_tracking_n = max(tracking_n, 0.d0)
+    de%DE_tracking_n = max(tracking_n, 0.01d0)  !! for tracking_n <~ 0.01, 1 + w_DE is very close to zero, observationally they are equivalent
     if(de%DE_tracking_n .ge. 2.d0)then
        beta = 2.d0/(de%DE_tracking_n+2.d0)
     else

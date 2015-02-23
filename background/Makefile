@@ -26,7 +26,8 @@ PlotData: $(BGOBJ) plotdata.o ../include/background.h $(UTILS)/libcooputils.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(BGOBJ) plotdata.o $(LINK)
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test TestDE
 
-test.o:	$(BGOBJ)
+test.o:   $(BGOBJ)
+testde.o:   $(BGOBJ)
 plotdata.o: $(BGOBJ)
