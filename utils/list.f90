@@ -1368,7 +1368,6 @@ contains
   end subroutine coop_dictionary_insert
 
 
-
   function coop_dictionary_key_index(dict, key) result(ind)
     class(coop_dictionary):: dict
     COOP_UNKNOWN_STRING, intent(IN)::key

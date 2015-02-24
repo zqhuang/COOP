@@ -8,7 +8,7 @@ include ../configure.in
 include ../compile_rules.in
 
 LIB = libcoopmapio.a
-OBJ = sphere.o stacking_obj.o readfits.o fitswrap.o healgeo.o zeta3d.o
+OBJ = sphere.o stacking_obj.o readfits.o healgeo.o fitswrap.o  zeta3d.o
 
 default: all
 

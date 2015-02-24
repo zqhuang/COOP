@@ -1,6 +1,7 @@
 module coop_fitswrap_mod
   use coop_wrapper_utils
   use coop_sphere_mod
+  use coop_healpix_mod
   implicit none
 
 #include "constants.h"
@@ -28,6 +29,7 @@ module coop_fitswrap_mod
      COOP_LONG_INT::npix
      real(dl),dimension(:),allocatable::image
      COOP_REAL,allocatable::transform(:, :), center(:)
+     COOP_REAL,allocatable::radec_center(:)
    contains
      procedure::regularize => coop_fits_image_regularize
      procedure::free => coop_fits_image_free
@@ -43,6 +45,7 @@ module coop_fitswrap_mod
      real(dl),dimension(:,:),allocatable:: smooth_image
      real(dl),dimension(:,:),allocatable:: smooth_Q, smooth_U
    contains
+     procedure::convert2healpix => coop_fits_image_cea_convert2healpix
      procedure::write => coop_fits_image_cea_write
      procedure::pix2ang => coop_fits_image_cea_pix2ang
      procedure::get_flatmap => coop_fits_image_cea_get_flatmap
@@ -90,6 +93,7 @@ contains
     if(allocated(this%image)) deallocate(this%image)
     if(allocated(this%transform))deallocate(this%transform)
     if(allocated(this%center))deallocate(this%center)
+    if(allocated(this%radec_center))deallocate(this%radec_center)    
     if(allocated(this%nside))deallocate(this%nside)
     select type(this)
     class is(coop_fits_image_cea)
@@ -102,8 +106,8 @@ contains
   subroutine coop_fits_get_header(this)
     class(coop_fits)::this
     COOP_LONG_STRING::header
-    COOP_INT nkeys, i, j, istart, iend
-    COOP_REAL,dimension(:),allocatable::delta
+    COOP_INT nkeys, i, j, istart, iend, ikey
+    COOP_REAL,dimension(:),allocatable::delta, units
     call coop_fits_read_header_to_string(this%filename, header, nkeys)
     istart = 1
     do i=1, nkeys
@@ -119,7 +123,7 @@ contains
        return
     class is(coop_fits_image)
        this%bitpix = nint(this%key_value("BITPIX"))
-       this%dim = nint(this%key_value("NAXIS"))
+       this%dim = nint(this%key_value("NAXIS", 2.d0))
        if(this%dim .eq. 0 )then
           call this%header%print()
           write(*,*) "Error: cannot find NAXIS key word in fits file "//trim(this%filename)
@@ -127,10 +131,10 @@ contains
        endif
        call this%free()
        allocate(this%nside(this%dim))
-       allocate(this%transform(this%dim, this%dim), this%center(this%dim))
+       allocate(this%transform(this%dim, this%dim), this%center(this%dim), this%radec_center(this%dim))
        this%npix = 1
        do i=1, this%dim
-          this%nside(i) = nint(this%key_value("NAXIS"//trim(coop_num2str(i))))
+          this%nside(i) = nint(this%key_value("NAXIS"//COOP_STR_OF(i)))
           this%npix = this%npix * this%nside(i)
        enddo
        if(any(this%nside .eq. 0))then
@@ -140,17 +144,40 @@ contains
        endif
        allocate(this%image(0:this%npix-1))
     end select
+
     !!get transform, center 
     select type(this)
     class is(coop_fits_image_cea)
        if(this%dim .ne. 2) stop "For CEA map the dimension must be 2"
+       allocate(units(this%dim))              
+       do i=1, this%dim
+          if(index(this%header%value("CUNIT"//COOP_STR_OF(i)), "deg").ne.0)then
+             units(i) = coop_SI_degree
+          elseif(index(this%header%value("CUNIT"//COOP_STR_OF(i)), "arcmin").ne.0)then
+             units(i) = coop_SI_arcmin
+          else
+             write(*,*) "Unknown unit "//trim(this%header%value("CUNIT"//COOP_STR_OF(i)))
+             stop
+          end if
+       enddo
+
        allocate(delta(this%dim))
        do i=1, this%dim
           do j=1, this%dim
-             this%transform(i, j) = this%key_value("PC"//trim(coop_num2str(i))//"_"//trim(coop_num2str(j)))
+             if(i.eq.j)then
+                this%transform(i, j) = this%key_value("PC"//COOP_STR_OF(i)//"_"//COOP_STR_OF(j), 1.d0)
+             else
+                this%transform(i, j) = this%key_value("PC"//COOP_STR_OF(i)//"_"//COOP_STR_OF(j), 0.d0)
+             endif
           enddo
-          delta(i) = this%key_value("CDELT"//trim(coop_num2str(i))) * coop_SI_degree
-          this%center(i) = this%key_value("CRPIX"//trim(coop_num2str(i)))
+          delta(i) = this%key_value("CDELT"//COOP_STR_OF(i)) * coop_SI_degree
+          if(abs(delta(i)) .lt. 1.d-12)then
+             write(*,*) trim(this%filename)//": cannot read delta"
+             call this%header%print()
+             stop
+          endif
+          this%center(i) = this%key_value("CRPIX"//COOP_STR_OF(i), (this%nside(i)+1.d0)/2.d0)
+          this%radec_center(i) = this%key_value("CRVAL"//COOP_STR_OF(i)) * coop_SI_degree
        enddo
        if(abs(abs(delta(1)/delta(2)) - 1.d0) .gt. 1.d-3)then
           print*, delta(1), delta(2)
@@ -165,19 +192,23 @@ contains
        enddo
        deallocate(delta)
     end select
-
   end subroutine coop_fits_get_header
 
-  function coop_fits_key_value(this, key) result(val)
+  function coop_fits_key_value(this, key, default_value) result(val)
     class(coop_fits)::this
     COOP_UNKNOWN_STRING::key
     COOP_SHORT_STRING::str
     COOP_REAL val
+    COOP_REAL,optional::default_value
     str = this%header%value(key)
     if(trim(str).ne."")then
        val = coop_str2real(str)
     else
-       val = 0.d0
+       if(present(default_value))then
+          val = default_value
+       else
+          val = 0.d0
+       endif
     endif
   end function coop_fits_key_value
 
@@ -194,10 +225,10 @@ contains
     real(sp),dimension(:),allocatable::tmp
     select case(this%bitpix)
     case(-64)
-       call coop_fits_get_float_data(this%filename, this%image, this%npix)
+       call coop_fits_get_double_data(this%filename, this%image, this%npix)
     case(-32)
        allocate(tmp(0:this%npix-1))
-       call coop_fits_get_double_data(this%filename, tmp, this%npix)
+       call coop_fits_get_float_data(this%filename, tmp, this%npix)
        this%image = real(tmp, dl)
        deallocate(tmp)
     case default
@@ -209,14 +240,16 @@ contains
 
   subroutine coop_fits_image_regularize(this, tail)
     class(coop_fits_image) this
-    real(dl) upper, lower, tail
+    real(dl) upper, lower, tail, diff, diff3
     call array_get_threshold_double(this%image, this%npix, 1.-tail, lower)
     call array_get_threshold_double(this%image, this%npix, tail, upper)
+    diff = (upper - lower)/5.d0
+    diff3 = diff*3.d0
     where(this%image .lt. lower)
-       this%image = 0.d0
+       this%image = lower - diff3*( log(1.d0+log(1.d0+(lower - this%image)/diff)) - 2.d0*log(1.d0+log(1.d0+(lower - this%image)/diff3)) )
     end where
     where(this%image .gt. upper)
-       this%image = 0.d0
+       this%image = upper + diff3*(log(1.d0+ log(1.d0+(this%image - upper)/diff))- 2.d0*log(1.d0+ log(1.d0+(this%image - upper)/diff3)))
     end where
   end subroutine coop_fits_image_regularize
 
@@ -231,8 +264,8 @@ contains
     iy = pix/this%nside(1) 
     ix = pix  - iy*this%nside(1) + 1 - this%center(1)
     iy = iy + 1 - this%center(2)
-    phi = this%transform(1,1)* ix + this%transform(1,2)*iy
-    theta = coop_pio2 + asin(this%transform(2, 1)*ix + this%transform(2,2)*iy)
+    phi = this%transform(1,1)* ix + this%transform(1,2)*iy + this%radec_center(1)
+    theta = coop_pio2 - asin(this%transform(2, 1)*ix + this%transform(2,2)*iy + this%radec_center(2))
   end subroutine coop_fits_image_cea_pix2ang
 
 
@@ -629,6 +662,8 @@ contains
     type(coop_file)::fp
     COOP_INT i, j, nrad, ii, jj, dis2b, irot, jrot, nstack
     COOP_REAL theta, theta_r, radius, stacked_image(-nrad:nrad,-nrad:nrad)
+    COOP_REAL::firot, fjrot, pixv
+    logical::accept
     stacked_image = 0.d0
     nstack = 0
     call fp%open(trim(spot_file))
@@ -639,10 +674,13 @@ contains
           if(dis2b .lt. nrad) cycle
           do ii= -nrad, nrad
              do jj= -nrad, nrad 
-                irot = nint(ii*cos(theta) + jj*sin(theta))
-                jrot = nint(-ii*sin(theta) + jj*cos(theta))
-                if(abs(irot).le.nrad .and. abs(jrot).le.nrad)then
-                   stacked_image(irot, jrot) = stacked_image(irot, jrot) + this%smooth_image(i+ii, j+jj)  
+                call get_rot(ii, jj, theta, irot, jrot, firot, fjrot, nrad, accept)
+                if(accept)then
+                   pixv = this%smooth_image(i+ii, j+jj)  
+                   stacked_image(irot, jrot) = stacked_image(irot, jrot) + pixv*(1.d0 - firot)*(1.d0-fjrot)
+                   stacked_image(irot+1, jrot) = stacked_image(irot+1, jrot) + pixv*firot*(1.d0-fjrot)
+                   stacked_image(irot, jrot+1) = stacked_image(irot, jrot+1) + pixv*(1.d0 - firot)*fjrot
+                   stacked_image(irot+1, jrot+1) = stacked_image(irot+1, jrot+1) + pixv*firot*fjrot                   
                 endif
              enddo
           enddo
@@ -653,11 +691,14 @@ contains
           read(fp%unit, *, ERR=100, END=100) i, j, theta, dis2b
           if(dis2b .lt. nrad) cycle
           do ii= -nrad, nrad
-             do jj= -nrad, nrad 
-                irot = nint(ii*cos(theta) + jj*sin(theta))
-                jrot = nint(-ii*sin(theta) + jj*cos(theta))
-                if(abs(irot).le.nrad .and. abs(jrot).le.nrad)then
-                   stacked_image(irot, jrot) = stacked_image(irot, jrot) + this%smooth_Q(i+ii, j+jj)  
+             do jj= -nrad, nrad
+                call get_rot(ii, jj, theta, irot, jrot, firot, fjrot, nrad, accept)
+                if(accept)then
+                   pixv = this%smooth_Q(i+ii, j+jj)  
+                   stacked_image(irot, jrot) = stacked_image(irot, jrot) + pixv*(1.d0 - firot)*(1.d0-fjrot)
+                   stacked_image(irot+1, jrot) = stacked_image(irot+1, jrot) + pixv*firot*(1.d0-fjrot)
+                   stacked_image(irot, jrot+1) = stacked_image(irot, jrot+1) + pixv*(1.d0 - firot)*fjrot
+                   stacked_image(irot+1, jrot+1) = stacked_image(irot+1, jrot+1) + pixv*firot*fjrot                   
                 endif
              enddo
           enddo
@@ -668,11 +709,14 @@ contains
           read(fp%unit, *, ERR=100, END=100) i, j, theta, dis2b
           if(dis2b .lt. nrad) cycle
           do ii= -nrad, nrad
-             do jj= -nrad, nrad 
-                irot = nint(ii*cos(theta) + jj*sin(theta))
-                jrot = nint(-ii*sin(theta) + jj*cos(theta))
-                if(abs(irot).le.nrad .and. abs(jrot).le.nrad)then
-                   stacked_image(irot, jrot) = stacked_image(irot, jrot) + this%smooth_U(i+ii, j+jj)  
+             do jj= -nrad, nrad
+                call get_rot(ii, jj, theta, irot, jrot, firot, fjrot, nrad, accept)
+                if(accept)then
+                   pixv = this%smooth_U(i+ii, j+jj)  
+                   stacked_image(irot, jrot) = stacked_image(irot, jrot) + pixv*(1.d0 - firot)*(1.d0-fjrot)
+                   stacked_image(irot+1, jrot) = stacked_image(irot+1, jrot) + pixv*firot*(1.d0-fjrot)
+                   stacked_image(irot, jrot+1) = stacked_image(irot, jrot+1) + pixv*(1.d0 - firot)*fjrot
+                   stacked_image(irot+1, jrot+1) = stacked_image(irot+1, jrot+1) + pixv*firot*fjrot                   
                 endif
              enddo
           enddo
@@ -684,11 +728,14 @@ contains
           if(dis2b .lt. nrad) cycle
           do ii= -nrad, nrad
              do jj= -nrad, nrad 
-                theta_r = COOP_POLAR_ANGLE(dble(ii), dble(jj))
-                irot = nint(ii*cos(theta) + jj*sin(theta))
-                jrot = nint(-ii*sin(theta) + jj*cos(theta))
-                if(abs(irot).le.nrad .and. abs(jrot).le.nrad)then
-                   stacked_image(irot, jrot) = stacked_image(irot, jrot) + (this%smooth_Q(i+ii, j+jj) * cos(2.*theta_r) + this%smooth_U(i+ii, j+jj)*sin(2.*theta_r)) 
+                call get_rot(ii, jj, theta, irot, jrot, firot, fjrot, nrad, accept)
+                if(accept)then
+                   theta_r = COOP_POLAR_ANGLE(dble(ii), dble(jj))       
+                   pixv =  (this%smooth_Q(i+ii, j+jj) * cos(2.*theta_r) + this%smooth_U(i+ii, j+jj)*sin(2.*theta_r))*coop_healpix_QrUrSign                   
+                   stacked_image(irot, jrot) = stacked_image(irot, jrot) + pixv*(1.d0 - firot)*(1.d0-fjrot)
+                   stacked_image(irot+1, jrot) = stacked_image(irot+1, jrot) + pixv*firot*(1.d0-fjrot)
+                   stacked_image(irot, jrot+1) = stacked_image(irot, jrot+1) + pixv*(1.d0 - firot)*fjrot
+                   stacked_image(irot+1, jrot+1) = stacked_image(irot+1, jrot+1) + pixv*firot*fjrot                   
                 endif
              enddo
           enddo
@@ -697,13 +744,16 @@ contains
     case("Q")
        do 
           read(fp%unit, *, ERR=100, END=100) i, j, theta, dis2b
-          if(dis2b .lt. nrad) cycle
+          if(dis2b .lt. nrad) cycle          
           do ii= -nrad, nrad
-             do jj= -nrad, nrad 
-                irot = nint(ii*cos(theta) + jj*sin(theta))
-                jrot = nint(-ii*sin(theta) + jj*cos(theta))
-                if(abs(irot).le.nrad .and. abs(jrot).le.nrad)then
-                   stacked_image(irot, jrot) = stacked_image(irot, jrot) + (this%smooth_Q(i+ii, j+jj) * cos(2.*theta) + this%smooth_U(i+ii, j+jj)*sin(2.*theta)) 
+             do jj= -nrad, nrad
+                call get_rot(ii, jj, theta, irot, jrot, firot, fjrot, nrad, accept)
+                if(accept)then
+                   pixv = (this%smooth_Q(i+ii, j+jj) * cos(2.*theta) + this%smooth_U(i+ii, j+jj)*sin(2.*theta)) 
+                   stacked_image(irot, jrot) = stacked_image(irot, jrot) + pixv*(1.d0 - firot)*(1.d0-fjrot)
+                   stacked_image(irot+1, jrot) = stacked_image(irot+1, jrot) + pixv*firot*(1.d0-fjrot)
+                   stacked_image(irot, jrot+1) = stacked_image(irot, jrot+1) + pixv*(1.d0 - firot)*fjrot
+                   stacked_image(irot+1, jrot+1) = stacked_image(irot+1, jrot+1) + pixv*firot*fjrot                   
                 endif
              enddo
           enddo
@@ -716,6 +766,47 @@ contains
 100 call fp%close()
     if(nstack .gt. 0) &
          stacked_image = stacked_image / nstack
+
+  contains
+
+    subroutine get_rot(i, j, theta, irot, jrot, firot, fjrot, n, accept)
+      COOP_INT::i, j, irot, jrot, n
+      COOP_REAL::theta, firot, fjrot, maxn, cost, sint
+      logical accept
+      cost = cos(theta)
+      sint = sin(theta)
+      firot = (ii*cost + jj*sint)
+      fjrot = (-ii*sint + jj*cost)
+      irot = floor(firot)
+      jrot = floor(fjrot)
+      firot = firot - irot
+      fjrot = fjrot - jrot
+      maxn = max(abs(irot), abs(irot+1), abs(jrot), abs(jrot+1))
+      if(maxn .le. n)then
+         accept = .true.
+      elseif(maxn.eq.n+1)then  !!maxn = n + 1
+         accept = .true.
+         if(abs(irot).eq.n+1)then  !!irot = -n-1
+            irot = -n
+            firot = 0.d0
+         elseif(abs(irot+1) .eq. n+1)then
+            irot = n-1
+            firot = 1.d0
+         endif
+         if(abs(jrot).eq. n+1)then
+            jrot = -n
+            fjrot = 0.d0
+         elseif(abs(jrot+1).eq.n+1)then
+            jrot = n-1
+            fjrot = 1.d0
+         endif
+      else
+         accept = .false.
+         return
+      endif
+      
+    end subroutine get_rot
+    
   end subroutine coop_fits_image_cea_stack
 
 
@@ -957,5 +1048,27 @@ contains
     endif
 
   end subroutine coop_fits_image_cea_plot
+
+  subroutine  coop_fits_image_cea_convert2healpix(this, hp, imap, mask)
+    class(coop_fits_image_cea)::this
+    type(coop_healpix_maps)::hp, mask
+    integer(8)::pix
+    COOP_INT:: hpix, imap
+    COOP_REAL theta, phi
+    if(mask%nside .ne. hp%nside) stop "fits_image_cea_convert2healpix: mask and map must have the same nside"
+    mask%map(:,1) = 0.
+    hp%map(:, imap) = 0.
+    do pix=0, this%npix-1
+       call this%pix2ang(pix, theta, phi)
+       call hp%ang2pix(theta, phi, hpix)
+       mask%map(hpix,1) = mask%map(hpix,1) + 1.
+       hp%map(hpix,imap) = hp%map(hpix, imap) + this%image(pix)       
+    enddo
+    where(mask%map(:,1).gt. 0.)
+       hp%map(:, imap) = hp%map(:, imap)/mask%map(:,1)
+       mask%map(:, 1) = 1.
+    end where
+  end subroutine coop_fits_image_cea_convert2healpix
+  
 
 end module coop_fitswrap_mod

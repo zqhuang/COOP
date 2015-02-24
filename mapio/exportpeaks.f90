@@ -6,19 +6,18 @@ program Exp_spots
 #include "constants.h"
 #ifdef HAS_HEALPIX
   logical::use_mask = .true.
-  logical::do_max = .true.
-  logical::remove_mono = .true.  
+  logical::do_max = .false.
+  logical::remove_mono = .false.  
   COOP_STRING::peak_name = "$T$"
-  COOP_STRING::orient_name = "$(Q_T, U_T)$"
-  COOP_UNKNOWN_STRING,parameter::map_postfix = "010a_1024.fits"  
-  COOP_STRING::map_file =  "tmpmaps/smica_TQTUT_fwhm10.fits" !"planck14/dx11_v2_smica_int_cmb_"//map_postfix 
-  COOP_STRING::imask_file = "planck14/HemAsym_north_int_mask_"//map_postfix !"planck14/dx11_v2_common_int_mask_"//map_postfix
-  COOP_STRING::polmask_file = "planck14/HemAsym_north_pol_mask_"//map_postfix !"planck14/dx11_v2_common_pol_mask_"//map_postfix
+  COOP_STRING::orient_name = "NULL"
+  COOP_STRING::map_file =  "act15/act15_i_hp_230_270_smoothed_fwhm5arcmin.fits"
+  COOP_STRING::imask_file = "act15/act15_imask.fits"
+  COOP_STRING::polmask_file = "act15/act15_polmask.fits"
   COOP_STRING::mask_file_force_to_use = ""
   
   type(coop_stacking_options)::sto
   type(coop_healpix_maps)::hgm, mask
-  COOP_STRING::output = "peaks/sample_orient_cold"
+  COOP_STRING::output = "peaks/act_imin_5a"
   COOP_REAL::threshold = 0.
   COOP_STRING::line
   COOP_INT::i
@@ -36,6 +35,7 @@ program Exp_spots
      line = coop_InputArgs(8)
      read(line, *) threshold
   else
+     coop_healpix_mask_tol = 0.
      if(.not. use_mask)then
         write(*,*) "Warning: not using the mask"
      endif

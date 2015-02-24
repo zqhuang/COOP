@@ -7,25 +7,25 @@ program Stacking_Maps
 #ifdef HAS_HEALPIX
   logical::use_mask = .true.
   logical::remove_mono = .false.
+  COOP_UNKNOWN_STRING,parameter::resol = "5"
+  COOP_UNKNOWN_STRING,parameter::maxmin = "min"  
+  COOP_STRING::stack_field_name = "QrUr"
+  COOP_STRING::map_file =  "act15/act15_pol_hp_230_270_smoothed_fwhm"//resol//"arcmin.fits"
   
-  COOP_STRING::stack_field_name = "QU"
-  COOP_UNKNOWN_STRING,parameter::map_postfix = "010a_1024.fits"
-  COOP_STRING::map_file =  "planck14/dx11_v2_smica_pol_case1_cmb_hp_20_40_"//map_postfix
+  COOP_STRING::peak_file = "peaks/act_i"//maxmin//"_"//resol//"a.dat"
   
-  COOP_STRING::peak_file = "peaks/sample_orient_hot.dat"
-  
-  COOP_STRING::imask_file = "planck14/dx11_v2_common_int_mask_"//map_postfix
-  COOP_STRING::polmask_file = "planck14/dx11_v2_common_pol_mask_"//map_postfix
+  COOP_STRING::imask_file ="act15/act15_imask.fits"
+  COOP_STRING::polmask_file = "act15/act15_polmask.fits"
   COOP_UNKNOWN_STRING,parameter::mask_file_force_to_use = ""
   
   COOP_INT,parameter::n = 36
   COOP_REAL,parameter::r_degree  = 2.d0
   COOP_REAL,parameter::dr = 2.d0*sin(r_degree*coop_SI_degree/2.d0)/n
-
+  logical::makepdf = .false.
   type(coop_stacking_options)::sto
   type(coop_healpix_patch)::patch
   type(coop_healpix_maps)::hgm, mask, pmap
-  COOP_STRING::output = "stacked/sample_orient_hot"
+  COOP_STRING::output 
   COOP_INT i, m
   COOP_REAL::zmin1 = 1.1e31
   COOP_REAL::zmax1 = -1.1e31
@@ -33,7 +33,7 @@ program Stacking_Maps
   COOP_REAL::zmax2 = -1.1e31
   COOP_STRING::line  
   type(coop_asy)::fig
-  
+  output = "stacked/act_"//trim(stack_field_name)//"_on_T"//maxmin//"_"//resol//"a"
   if(iargc() .ge. 6)then
      use_mask = .true.
      map_file = coop_InputArgs(1)
@@ -55,6 +55,10 @@ program Stacking_Maps
         read(line, *) zmax2
      endif
   else
+     makepdf = .true.
+     coop_healpix_patch_default_want_caption = .true.
+     coop_healpix_patch_default_want_label  = .true.
+     coop_healpix_patch_default_figure_width = 3.5     
      if(.not. use_mask)then
         write(*,*) "Warning: not using the mask"
      endif
@@ -93,6 +97,7 @@ program Stacking_Maps
      patch%tbs%zmin(1) = zmin1
      patch%tbs%zmax(1) = zmax1     
      call patch%plot(1, trim(adjustl(output))//".txt")
+     if(makepdf)call system("../utils/fasy.sh "//trim(adjustl(output))//".txt")
   case default
      patch%tbs%zmin(1) = zmin1
      patch%tbs%zmax(1) = zmax1
@@ -100,6 +105,7 @@ program Stacking_Maps
      patch%tbs%zmax(2) = zmax2          
      do i=1, patch%nmaps
         call patch%plot(i, trim(adjustl(output))//"_"//COOP_STR_OF(i)//".txt")
+        if(makepdf)call system("../utils/fasy.sh "//trim(adjustl(output))//"_"//COOP_STR_OF(i)//".txt")        
      enddo
   end select
   call patch%get_all_radial_profiles()

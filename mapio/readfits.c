@@ -97,7 +97,7 @@ void coop_fits_get_float_data_(char * filename, float * data, long * n){
    status = 0; /* MUST initialize status */
    nelements = *n;
    fits_open_file(&fptr, filename, READONLY, &status);
-   fits_read_pix(fptr, TDOUBLE, fpixel, nelements, NULL, data, NULL, &status);  
+   fits_read_pix(fptr, TFLOAT, fpixel, nelements, NULL, data, NULL, &status);  
    fits_close_file(fptr, &status);
    if (status)          /* print any error messages */
      fits_report_error(stderr, status);

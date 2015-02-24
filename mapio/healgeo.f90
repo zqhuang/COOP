@@ -30,7 +30,7 @@ module coop_healpix_mod
   logical::coop_healpix_patch_default_want_arrow = .false.
   logical::coop_healpix_warning = .true.
   
-  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_trim_maskfile, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask, coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow, coop_healpix_warning 
+  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_trim_maskfile, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask, coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow, coop_healpix_warning, coop_healpix_QrUrSign
   
 
   logical::coop_healpix_alm_check_done = .false.
@@ -2667,7 +2667,7 @@ contains
     if(this%nside .ne. mask%nside .or. this%ordering .ne. mask%ordering) stop "regularize_in_mask: maps do not match the mask"
     mmax = maxval(this%map(:,imap)*mask%map(:,1))
     mmin = minval(this%map(:,imap)*mask%map(:,1))
-    diff = mmax-mmin
+    diff = (mmax-mmin)/10.d0
     if(diff .eq. 0.)then
        this%map(:,imap) = mmax
        return
@@ -3056,6 +3056,31 @@ contains
     COOP_REAL fwhm_arcmin, bl
     bl = exp(-min(l*(l+1)*(fwhm_arcmin*coop_SI_arcmin*coop_sigma_by_fwhm)**2, 10.d0))
   end function coop_healpix_beam
+
+
+  function coop_ACT_TNoise(l) result(Nl)
+    COOP_INT l
+    COOP_REAL Nl
+    COOP_REAL,parameter::sigma = 10.d0/2.726e6*coop_SI_arcmin
+    Nl = sigma**2
+  end function coop_ACT_TNoise
+
+
+  function coop_ACT_ENoise(l) result(Nl)
+    COOP_INT l
+    COOP_REAL Nl
+    COOP_REAL,parameter::sigma = 10.d0/2.726e6*coop_SI_arcmin*coop_sqrt2
+    Nl = sigma**2
+  end function coop_ACT_ENoise
+
+
+  function coop_ACT_BNoise(l) result(Nl)
+    COOP_INT l
+    COOP_REAL Nl
+    COOP_REAL,parameter::sigma = 10.d0/2.726e6*coop_SI_arcmin*coop_sqrt2
+    Nl = sigma**2
+  end function coop_ACT_BNoise
+  
 
   function coop_Planck_TNoise(l) result(Nl)
     COOP_INT l
@@ -3574,8 +3599,8 @@ contains
        endif
     enddo
   end subroutine coop_healpix_mask_peaks
-  
-  
+
+
 end module coop_healpix_mod
 
 

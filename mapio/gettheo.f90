@@ -21,6 +21,8 @@ program stackth
   logical,parameter::flat = .false. !!use nonflat is actually faster
   !!settings
   logical,parameter::do_highpass = .true.
+  COOP_INT,parameter::hp_lowl = 230
+  COOP_INT,parameter::hp_highl = 270  
   integer::index_corr = index_TT 
   integer::index_auto = index_TT
   COOP_STRING::clfile != "planck14_best_cls.dat"  !! "planckbest_lensedtotCls.dat" !! 
@@ -42,7 +44,11 @@ program stackth
      write(*,*) "Syntax:"
      write(*,*) "./GetTheo clfile spot_type stack_field nu fwhm_arcmin [output_prefix] [head_level]"
      stop
-  endif  
+  endif
+  coop_healpix_patch_default_want_caption = .true.
+  coop_healpix_patch_default_want_label  = .true.
+  coop_healpix_patch_default_figure_width = 3.5    
+  
   read(line, *) fwhm
   clfile = trim(coop_InputArgs(1))
   spot_type =  trim(coop_InputArgs(2))
@@ -61,7 +67,7 @@ program stackth
      head_level = 0
   endif
   if(do_highpass)then
-     print*, "warning: high-pass filter is on"
+     print*, "warning: high-pass filter is on:"//COOP_STR_OF(hp_lowl)//"-"//COOP_STR_OF(hp_highl)
   endif
   select case(trim(spot_type))
   case("Pmax", "Emax")
@@ -92,13 +98,14 @@ program stackth
      read(fp%unit, *) il, l2cls(:, l)
      ell(l)  = l
      l2cls(:,l) = l2cls(:, l)*(coop_2pi*exp(-l*(l+1.d0)*sigma**2))
-
      if(do_highpass)then
-        l2cls(2:3,l) = l2cls(2:3,l)*coop_highpass_filter(20, 40, l)**2
-        l2cls(4,l) = l2cls(4,l)*(coop_highpass_filter(20, 40, l))
+        !        l2cls(2:3,l) = l2cls(2:3,l)*coop_highpass_filter(hp_lowl, hp_highl, l)**2
+        !        l2cls(4,l) = l2cls(4,l)*(coop_highpass_filter(hp_lowl, hp_highl, l))
+        l2cls(:,l) = l2cls(:,l)*(coop_highpass_filter(hp_lowl, hp_highl, l))        
      endif
      cls(:,l) = l2cls(:,l)/(l*(l+1.d0))
      if(il.ne.l) stop "cl file broken"
+
   enddo
 
   call fp%close()
