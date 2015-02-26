@@ -6,21 +6,27 @@ program Exp_spots
 #include "constants.h"
 #ifdef HAS_HEALPIX
   logical::use_mask = .true.
-  logical::do_max = .false.
-  logical::remove_mono = .false.  
-  COOP_STRING::peak_name = "$T$"
+  logical::remove_mono = .false.
+  
+  logical::do_max 
+  COOP_UNKNOWN_STRING,parameter::minmax = "max"
+  COOP_UNKNOWN_STRING,parameter::ap = "act15"
+  COOP_UNKNOWN_STRING,parameter::resol = "5"      
+  COOP_STRING::peak_name = "RANDOM"
   COOP_STRING::orient_name = "NULL"
-  COOP_STRING::map_file =  "act15/act15_i_hp_230_270_smoothed_fwhm5arcmin.fits"
+  COOP_STRING::map_file =  "act15/"//ap//"_i_hp_230_270_smoothed_fwhm"//resol//"arcmin.fits"
   COOP_STRING::imask_file = "act15/act15_imask.fits"
   COOP_STRING::polmask_file = "act15/act15_polmask.fits"
   COOP_STRING::mask_file_force_to_use = ""
   
   type(coop_stacking_options)::sto
   type(coop_healpix_maps)::hgm, mask
-  COOP_STRING::output = "peaks/act_imin_5a"
-  COOP_REAL::threshold = 0.
+  COOP_STRING::output 
+  COOP_REAL::threshold = 1.
   COOP_STRING::line
   COOP_INT::i
+  output =  "peaks/"//ap//"_random_"//minmax//"_"//resol//"a"
+  do_max = (minmax .eq. "max")
   
   if(iargc() .ge. 8)then
      use_mask = .true.
@@ -44,8 +50,9 @@ program Exp_spots
   call hgm%read(map_file)
 
   call sto%init(do_max, peak_name, orient_name, nmaps = hgm%nmaps)
+  sto%angzero = .false.
   select case(trim(coop_str_numalpha(peak_name)))
-  case("T", "I", "E", "B", "zeta", "Z")
+  case("T", "I", "E", "B", "zeta", "Z", "RANDOM")
      if(do_max)then
         sto%I_lower_nu = threshold
      else
@@ -86,7 +93,7 @@ program Exp_spots
   else
      call hgm%get_peaks(sto)
   endif
-  print*, "find "//COOP_STR_OF(sto%peak_pix%n)//" peaks"
+  print*, "find "//COOP_STR_OF(sto%peak_pix%n)//" spots"
   print*, "writing to "//trim(adjustl(output))//".dat"
   call sto%export(trim(adjustl(output))//".dat")
 #else

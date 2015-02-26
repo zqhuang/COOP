@@ -22,6 +22,10 @@ module coop_stacking_mod
   COOP_INT,parameter::coop_stacking_genre_Lmin_Oriented = 8
   COOP_INT,parameter::coop_stacking_genre_Pmax_Oriented = 9
   COOP_INT,parameter::coop_stacking_genre_Pmin_Oriented = 10
+  COOP_INT,parameter::coop_stacking_genre_Random_Hot  = 11
+  COOP_INT,parameter::coop_stacking_genre_Random_Hot_Oriented  = 12
+  COOP_INT,parameter::coop_stacking_genre_Random_Cold  = 13
+  COOP_INT,parameter::coop_stacking_genre_Random_Cold_Oriented  = 14
 
 
   type coop_stacking_options
@@ -56,6 +60,7 @@ module coop_stacking_mod
      COOP_SINGLE::P2byL2_upper = 1.e15
      COOP_INT::threshold_option = 0
      logical::addpi = .true.  !!randomly add pi on polarization directions
+     logical::angzero = .false.  !!do not rotate
      logical::nested = .false.
      type(coop_list_integer)::peak_pix
      type(coop_list_realarr)::peak_ang
@@ -180,10 +185,10 @@ contains
     COOP_INT i
     call fp%open(filename, "u")
     write(fp%unit) this%mask_int, this%mask_pol
-    write(fp%unit) this%genre, this%nmaps, this%nside, this%index_I, this%index_Q, this%index_U, this%index_L
+    write(fp%unit) this%genre, this%nmaps, this%nside,this%index_I, this%index_Q, this%index_U, this%index_L
     write(fp%unit) this%I_lower, this%I_upper, this%L_lower, this%L_upper, this%P2_lower, this%P2_upper, this%I_lower_nu, this%I_upper_nu, this%L_lower_nu, this%L_upper_nu, this%P_lower_nu, this%P_upper_nu, this%P2byI2_lower, this%P2byI2_upper, this%P2byL2_lower, this%P2byL2_upper
     write(fp%unit) this%caption
-    write(fp%unit) this%threshold_option, this%addpi, this%nested
+    write(fp%unit) this%threshold_option, this%addpi, this%nested, this%angzero
     write(fp%unit) this%peak_pix%n
     do i=1, this%peak_pix%n
        write(fp%unit) this%peak_pix%element(i), this%peak_ang%element(i), this%peak_map%element(i)
@@ -209,7 +214,7 @@ contains
     read(fp%unit) this%genre, this%nmaps, this%nside, this%index_I, this%index_Q, this%index_U, this%index_L
     read(fp%unit) this%I_lower, this%I_upper, this%L_lower, this%L_upper, this%P2_lower, this%P2_upper, this%I_lower_nu, this%I_upper_nu, this%L_lower_nu, this%L_upper_nu, this%P_lower_nu, this%P_upper_nu, this%P2byI2_lower, this%P2byI2_upper, this%P2byL2_lower, this%P2byL2_upper
     read(fp%unit) this%caption
-    read(fp%unit) this%threshold_option, this%addpi, this%nested
+    read(fp%unit) this%threshold_option, this%addpi, this%nested, this%angzero
     allocate(map(this%nmaps))
     read(fp%unit) n
     do i=1, n
@@ -373,71 +378,92 @@ contains
     COOP_INT::nmaps
     call this%free()
     this%mask_int = .false.
-    this%mask_pol  = .false.    
+    this%mask_pol  = .false.
+    this%nmaps = nmaps    
     p = trim(adjustl(peak_name))
     if(trim(adjustl(orient_name)).eq. "NULL" .or. trim(adjustl(orient_name)) .eq. "RANDOM" .or. trim(adjustl(orient_name)).eq. "NONE" )then
        if(domax)then
-          if(len_trim(p).gt. 9)then
-             if(p(1:9).eq."$\nabla^2")then
-                this%genre = coop_stacking_genre_Lmax
+          if(trim(p).eq."RANDOM")then
+             this%genre = coop_stacking_genre_random_hot
+             this%caption = "random hot spots"
+          else          
+             if(len_trim(p).gt. 9)then
+                if(p(1:9).eq."$\nabla^2")then
+                   this%genre = coop_stacking_genre_Lmax
+                else
+                   this%genre = coop_stacking_genre_Imax
+                endif
              else
                 this%genre = coop_stacking_genre_Imax
              endif
-          else
-             this%genre = coop_stacking_genre_Imax
+             this%caption = trim(p)//" maxima"
           endif
-          this%caption = trim(p)//" maxima"
        else
-          if(len_trim(p) .gt. 9)then
-             if(p(1:9) .eq. "$\nabla^2")then
-                this%genre = coop_stacking_genre_Lmin
+          if(trim(p).eq."RANDOM")then
+             this%genre = coop_stacking_genre_random_cold
+             this%caption = "random cold spots"             
+          else          
+             if(len_trim(p) .gt. 9)then
+                if(p(1:9) .eq. "$\nabla^2")then
+                   this%genre = coop_stacking_genre_Lmin
+                else
+                   this%genre = coop_stacking_genre_Imin
+                endif
              else
                 this%genre = coop_stacking_genre_Imin
              endif
-          else
-             this%genre = coop_stacking_genre_Imin
+             this%caption = trim(p)//" minima"
           endif
-          this%caption = trim(p)//" minima"          
        endif
     else
        if(domax)then
-          if(p(1:2) .eq. "$P")then
-             this%genre = coop_stacking_genre_Pmax_Oriented             
+          if(trim(p).eq."RANDOM")then
+             this%genre = coop_stacking_genre_random_hot_Oriented
+             this%caption = "random hot spots, "//trim(adjustl(Orient_name))//" oriented"
           else
-             if(len_trim(p).gt. 9)then
-                if(p(1:9).eq."$\nabla^2")then
-                   this%genre = coop_stacking_genre_Lmax_Oriented
-                else
-                   this%genre = coop_stacking_genre_Imax_Oriented               
-                endif
+             if(p(1:2) .eq. "$P")then
+                this%genre = coop_stacking_genre_Pmax_Oriented             
              else
-                this%genre = coop_stacking_genre_Imax_Oriented    
+                if(len_trim(p).gt. 9)then
+                   if(p(1:9).eq."$\nabla^2")then
+                      this%genre = coop_stacking_genre_Lmax_Oriented
+                   else
+                      this%genre = coop_stacking_genre_Imax_Oriented               
+                   endif
+                else
+                   this%genre = coop_stacking_genre_Imax_Oriented    
+                endif
              endif
+             this%caption = trim(p)//" maxima, "//trim(adjustl(Orient_name))//" oriented"
           endif
-          this%caption = trim(p)//" maxima, "//trim(adjustl(Orient_name))//" oriented"          
        else
-          if(p(1:2).eq."$P")then
-             this%genre = coop_stacking_genre_Pmin_Oriented             
+          if(trim(p).eq."RANDOM")then
+             this%genre = coop_stacking_genre_random_cold_Oriented
+             this%caption = "random cold spots, "//trim(adjustl(Orient_name))//" oriented"
           else
-             if(len_trim(p) .gt. 9)then
-                if(p(1:9) .eq. "$\nabla^2")then
-                   this%genre = coop_stacking_genre_Lmin_Oriented
+             if(p(1:2).eq."$P")then
+                this%genre = coop_stacking_genre_Pmin_Oriented             
+             else
+                if(len_trim(p) .gt. 9)then
+                   if(p(1:9) .eq. "$\nabla^2")then
+                      this%genre = coop_stacking_genre_Lmin_Oriented
+                   else
+                      this%genre = coop_stacking_genre_Imin_Oriented
+                   endif
                 else
                    this%genre = coop_stacking_genre_Imin_Oriented
                 endif
-             else
-                this%genre = coop_stacking_genre_Imin_Oriented
              endif
+             this%caption = trim(adjustl(peak_name))//" minima, "//trim(adjustl(Orient_name))//" oriented"
           endif
-          this%caption = trim(adjustl(peak_name))//" minima, "//trim(adjustl(Orient_name))//" oriented"                    
        endif
     endif
-    this%nmaps = nmaps
+
     !!now set default indices
     select case(nmaps)
     case(1)
        select case(this%genre)
-       case(coop_stacking_genre_Imax, coop_stacking_genre_Imin)
+       case(coop_stacking_genre_Imax, coop_stacking_genre_Imin, coop_stacking_genre_random_hot, coop_stacking_genre_random_cold)
           this%index_I = 1
           this%threshold_option = 4          
        case(coop_stacking_genre_Lmax, coop_stacking_genre_Lmin)
@@ -448,7 +474,7 @@ contains
        end select
     case(2)
        select case(this%genre)
-       case(coop_stacking_genre_Pmax_Oriented, coop_stacking_genre_Pmin_Oriented)
+       case(coop_stacking_genre_Pmax_Oriented, coop_stacking_genre_Pmin_Oriented, coop_stacking_genre_random_hot, coop_stacking_genre_random_cold, coop_stacking_genre_random_hot_oriented, coop_stacking_genre_random_cold_oriented)
           this%index_Q = 1
           this%index_U = 2
           this%threshold_option = 2          
@@ -461,7 +487,7 @@ contains
        end select
     case(3)
        select case(this%genre)
-       case(coop_stacking_genre_Pmax_Oriented, coop_stacking_genre_Pmin_Oriented, coop_stacking_genre_Imax_Oriented, coop_stacking_genre_Imin_Oriented, coop_stacking_genre_Imax, coop_stacking_genre_Imin)
+       case(coop_stacking_genre_Pmax_Oriented, coop_stacking_genre_Pmin_Oriented, coop_stacking_genre_Imax_Oriented, coop_stacking_genre_Imin_Oriented, coop_stacking_genre_Imax, coop_stacking_genre_Imin, coop_stacking_genre_random_hot, coop_stacking_genre_random_cold, coop_stacking_genre_random_hot_oriented, coop_stacking_genre_random_cold_oriented)
           this%index_I = 1
           this%index_Q = 2
           this%index_U = 3
@@ -484,6 +510,12 @@ contains
        this%mask_int = .true.
     case("E", "B", "P")
        this%mask_pol = .true.
+    case("RANDOM")
+       if(this%threshold_option .eq. 2 .and. this%index_Q .ne. 0 .and. this%index_U .ne. 0 )then
+          this%mask_pol = .true.
+       else
+          this%mask_int = .true.
+       endif
     case default
        write(*,*) "Unknown class of peaks: cannot automatically determine mask type"
     end select
@@ -577,10 +609,16 @@ contains
     COOP_INT i
     if(i.gt. this%peak_pix%n) stop "rotate_angle: pix overflow"
     select case(this%genre)
-    case(coop_stacking_genre_Imax, coop_stacking_genre_Imin, coop_stacking_genre_Lmax, coop_stacking_genre_Lmin, coop_stacking_genre_Null)
-       call random_number(angle)
-       angle = angle*coop_2pi
-    case(coop_stacking_genre_Imax_Oriented, coop_stacking_genre_Imin_Oriented, coop_stacking_genre_Lmax_Oriented, coop_stacking_genre_Lmin_Oriented, coop_stacking_genre_Pmax_Oriented, coop_stacking_genre_Pmin_Oriented)
+    case(coop_stacking_genre_Imax, coop_stacking_genre_Imin, coop_stacking_genre_Lmax, coop_stacking_genre_Lmin, coop_stacking_genre_Null, coop_stacking_genre_random_hot, coop_stacking_genre_random_cold)
+       if(this%angzero)then
+          angle = 0.d0
+          return
+       else
+          call random_number(angle)
+          angle = angle*coop_2pi
+          return
+       endif
+    case(coop_stacking_genre_Imax_Oriented, coop_stacking_genre_Imin_Oriented, coop_stacking_genre_Lmax_Oriented, coop_stacking_genre_Lmin_Oriented, coop_stacking_genre_Pmax_Oriented, coop_stacking_genre_Pmin_Oriented, coop_stacking_genre_random_hot_oriented, coop_stacking_genre_random_cold_oriented)
        call this%peak_map%get_element(i, map)
        angle = COOP_POLAR_ANGLE(dble(map(this%index_Q)),dble(map(this%index_U)))/2.d0
        if(this%addpi) angle = angle + coop_rand01()*coop_pi

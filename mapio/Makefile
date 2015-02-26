@@ -33,13 +33,19 @@ UDG: $(OBJ) udgrade.o
 GetCl: $(OBJ) getcls.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) getcls.o $(LINK)
 
-
-FAB: $(OBJ) fitalphabeta.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) fitalphabeta.o $(LINK)
-
-
 Test: $(OBJ) test.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
+
+Rotate: $(OBJ) rotate_map.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) rotate_map.o $(LINK)
+
+Corr: $(OBJ) corr_map.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) corr_map.o $(LINK)
+
+Blend: $(OBJ) blend_map.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) blend_map.o $(LINK)
+
+
 
 SimuMaps: $(OBJ) simulate_maps.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) simulate_maps.o $(LINK)
@@ -66,13 +72,6 @@ ByProd: $(OBJ) map_by_products.o
 MSMAP: $(OBJ) map_merge_split.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) map_merge_split.o $(LINK)
 
-InpEB: $(OBJ) simeb.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) simeb.o $(LINK)
-
-InpT: $(OBJ) simt.o
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) simt.o $(LINK)
-
-
 FSpots:  $(OBJ) flat_exportspots.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_exportspots.o $(LINK)
 
@@ -89,33 +88,37 @@ Shells: $(OBJ) shells.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) shells.o $(LINK)	
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots InpEB UDG Stack MSMAP SimuMaps Shells SST MST ByProd GetInfo GetTheo GetPeaks
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots UDG Stack MSMAP SimuMaps Shells SST MST ByProd GetInfo GetTheo GetPeaks Rotate Corr
 
 
-gettheo.o: $(LIB)
 
-sstack.o: $(LIB)
+gettheo.o: $(LIB) $(OBJ)
 
-test.o: $(LIB)
+sstack.o: $(LIB) $(OBJ)
 
-exportpeaks.o: $(LIB)
+test.o: $(LIB) $(OBJ)
 
-dostack.o :	$(LIB)
+exportpeaks.o: $(LIB) $(OBJ)
 
-flat_exportspots.o: $(LIB)
+dostack.o : $(LIB) $(OBJ)
 
-flat_stack.o: $(LIB)
+flat_exportspots.o: $(LIB) $(OBJ)
 
-asymmetry.o: $(LIB)
+flat_stack.o: $(LIB) $(OBJ)
 
-ensemble_asymmetry.o: $(LIB)
+flat_merge.o: $(LIB) $(OBJ)
 
-flat_merge.o: $(LIB)
+trimcmp.o: $(LIB) $(OBJ)
 
-trimcmp.o: $(LIB)
+multstack.o: $(LIB) $(OBJ)
 
-multstack.o: $(LIB)
+map_merge_split.o: $(LIB) $(OBJ)
 
-map_merge_split.o: $(LIB)
+map_by_products.o: $(LIB) $(OBJ)
 
-map_by_products.o: $(LIB)
+corr_map.o:	$(LIB) $(OBJ)
+
+rotate_map.o:	$(LIB) $(OBJ)
+
+healgeo.o: stacking_obj.o
+

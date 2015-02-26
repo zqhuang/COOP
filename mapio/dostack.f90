@@ -8,12 +8,12 @@ program Stacking_Maps
   logical::use_mask = .true.
   logical::remove_mono = .false.
   COOP_UNKNOWN_STRING,parameter::resol = "5"
-  COOP_UNKNOWN_STRING,parameter::maxmin = "min"  
+  COOP_UNKNOWN_STRING,parameter::maxmin = "max"
+  COOP_UNKNOWN_STRING,parameter::smap = "act15"    
+  COOP_UNKNOWN_STRING,parameter::ap = "act15"  
   COOP_STRING::stack_field_name = "QrUr"
-  COOP_STRING::map_file =  "act15/act15_pol_hp_230_270_smoothed_fwhm"//resol//"arcmin.fits"
-  
-  COOP_STRING::peak_file = "peaks/act_i"//maxmin//"_"//resol//"a.dat"
-  
+  COOP_STRING::map_file =  "act15/"//smap//"_pol_hp_230_270_smoothed_fwhm"//resol//"arcmin.fits"
+  COOP_STRING::peak_file = "peaks/"//ap//"_random_"//maxmin//"_"//resol//"a.dat"
   COOP_STRING::imask_file ="act15/act15_imask.fits"
   COOP_STRING::polmask_file = "act15/act15_polmask.fits"
   COOP_UNKNOWN_STRING,parameter::mask_file_force_to_use = ""
@@ -33,7 +33,7 @@ program Stacking_Maps
   COOP_REAL::zmax2 = -1.1e31
   COOP_STRING::line  
   type(coop_asy)::fig
-  output = "stacked/act_"//trim(stack_field_name)//"_on_T"//maxmin//"_"//resol//"a"
+  output = "stacked/"//smap//"_"//trim(stack_field_name)//"_on_"//ap//"_random_"//maxmin//"_"//resol//"a"
   if(iargc() .ge. 6)then
      use_mask = .true.
      map_file = coop_InputArgs(1)
@@ -126,7 +126,11 @@ program Stacking_Maps
      do m = 0, patch%mmax, 2
         call fig%open(trim(adjustl(output))//"_m"//COOP_STR_OF(m)//".txt")
         call fig%init(xlabel="$r$", ylabel="radial profile")
-        call coop_asy_curve(fig, patch%r, (patch%fr(:, m/2, 1)+patch%fr(:, m/2, 2))/2.d0)
+        if(m.ne.0)then
+           call coop_asy_curve(fig, patch%r, (patch%fr(:, m/2, 1)+patch%fr(:, m/2, 2))/2.d0)
+        else
+           call coop_asy_curve(fig, patch%r, patch%fr(:, m/2, 1) )
+        endif
         call fig%close()
         call fig%open(trim(adjustl(output))//"_m"//COOP_STR_OF(m)//".dat")
         do i=0, patch%n

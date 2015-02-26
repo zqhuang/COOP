@@ -36,6 +36,8 @@ program map
         do imap = 1, nmaps
            mean = sum(hgm%map(:, imap))/hgm%npix
            write(*, "(A)") "--- map #"//COOP_STR_OF(imap)//" --- "
+           write(*, "(A)") "    #pix>0 fsky= "//COOP_STR_OF(count(hgm%map(:, imap).gt. 0.)/dble(hgm%npix))
+           write(*, "(A)") "    #pix<0 fsky= "//COOP_STR_OF(count(hgm%map(:, imap).lt. 0.)/dble(hgm%npix))
            write(*, "(A)") "    mean = "//COOP_STR_OF(mean)
            write(*, "(A)") "    rms = "//COOP_STR_OF(sqrt(sum((hgm%map(:, imap)-mean)**2)/hgm%npix))
 !!$           gif = "tempgifs/"//trim(coop_file_name_of(fin, .false.))//"_"//COOP_STR_OF(imap)//".gif"

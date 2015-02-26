@@ -1049,25 +1049,57 @@ contains
 
   end subroutine coop_fits_image_cea_plot
 
-  subroutine  coop_fits_image_cea_convert2healpix(this, hp, imap, mask)
+  subroutine  coop_fits_image_cea_convert2healpix(this, hp, imap, mask, lower, upper)  !!convert to healpix map, and mask the bright spots with 5 arcmin circles
     class(coop_fits_image_cea)::this
     type(coop_healpix_maps)::hp, mask
+    type(coop_list_integer)::ps
     integer(8)::pix
-    COOP_INT:: hpix, imap
+    COOP_INT:: hpix, imap, i, listpix(0:10000), nlist
     COOP_REAL theta, phi
-    if(mask%nside .ne. hp%nside) stop "fits_image_cea_convert2healpix: mask and map must have the same nside"
+    COOP_SINGLE,optional::lower, upper
+    COOP_SINGLE flower, fupper
+#ifdef HAS_HEALPIX    
+    if(mask%nside .ne. hp%nside .or. mask%ordering .ne. hp%ordering) stop "fits_image_cea_convert2healpix: mask and map must have the same nside and ordering"
+    if(present(lower))then
+       flower = lower
+    else
+       flower = -1.e30
+    endif
+    if(present(upper))then
+       fupper = upper
+    else
+       fupper = 1.e30
+    endif
     mask%map(:,1) = 0.
     hp%map(:, imap) = 0.
+    
+    call ps%init()
     do pix=0, this%npix-1
        call this%pix2ang(pix, theta, phi)
        call hp%ang2pix(theta, phi, hpix)
-       mask%map(hpix,1) = mask%map(hpix,1) + 1.
-       hp%map(hpix,imap) = hp%map(hpix, imap) + this%image(pix)       
+       if(this%image(pix).lt.flower .or. this%image(pix).gt.fupper)then
+          mask%map(hpix, 1) = -1.
+          hp%map(hpix,imap) = 0.
+          call ps%push(hpix)
+       elseif(mask%map(hpix, 1) .ge. 0.)then
+          mask%map(hpix,1) = mask%map(hpix,1) + 1.
+          hp%map(hpix,imap) = hp%map(hpix, imap) + this%image(pix)
+       endif
     enddo
     where(mask%map(:,1).gt. 0.)
        hp%map(:, imap) = hp%map(:, imap)/mask%map(:,1)
        mask%map(:, 1) = 1.
     end where
+    do i = 1, ps%n
+       hpix = ps%element(i)
+       call hp%query_disc(hpix, coop_SI_arcmin*5.d0, listpix, nlist)
+       mask%map(listpix(0:nlist-1), 1) = 0.
+       hp%map(listpix(0:nlist-1), :) = 0.
+    enddo
+    call ps%init()
+#else
+    stop "you need to install Healpix"
+#endif    
   end subroutine coop_fits_image_cea_convert2healpix
   
 

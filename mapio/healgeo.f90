@@ -9,6 +9,7 @@ module coop_healpix_mod
   use pix_tools
   use alm_tools
   use udgrade_nr
+  use coord_v_convert,only:coordsys2euler_zyz
 #endif
   implicit none
 
@@ -30,7 +31,7 @@ module coop_healpix_mod
   logical::coop_healpix_patch_default_want_arrow = .false.
   logical::coop_healpix_warning = .true.
   
-  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_trim_maskfile, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask, coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow, coop_healpix_warning, coop_healpix_QrUrSign
+  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_trim_maskfile, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask, coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow, coop_healpix_warning, coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise
   
 
   logical::coop_healpix_alm_check_done = .false.
@@ -128,7 +129,8 @@ module coop_healpix_mod
      procedure :: get_peaks => coop_healpix_maps_get_peaks
      procedure :: mark_peaks => coop_healpix_maps_mark_peaks
      procedure :: stack_on_peaks  =>     coop_healpix_maps_stack_on_peaks
-     procedure:: mask_peaks => coop_healpix_mask_peaks     
+     procedure:: mask_peaks => coop_healpix_mask_peaks
+     procedure::rotate_coor => coop_healpix_maps_rotate_coor
   end type coop_healpix_maps
 
   type coop_healpix_patch
@@ -2407,6 +2409,7 @@ contains
     type(coop_healpix_maps)::mask
     COOP_INT,dimension(:),allocatable::listpix
 #ifdef HAS_HEALPIX
+    call mask%convert2ring()
     allocate(listpix(0:mask%npix-1))
     call ang2vec(theta, phi, vec)
     call query_disc(mask%nside, vec, coop_pio2, listpix, nlist, nest = 0, inclusive = 0)
@@ -3061,7 +3064,7 @@ contains
   function coop_ACT_TNoise(l) result(Nl)
     COOP_INT l
     COOP_REAL Nl
-    COOP_REAL,parameter::sigma = 10.d0/2.726e6*coop_SI_arcmin
+    COOP_REAL,parameter::sigma = 12.d0/2.726e6*coop_SI_arcmin
     Nl = sigma**2
   end function coop_ACT_TNoise
 
@@ -3069,7 +3072,7 @@ contains
   function coop_ACT_ENoise(l) result(Nl)
     COOP_INT l
     COOP_REAL Nl
-    COOP_REAL,parameter::sigma = 10.d0/2.726e6*coop_SI_arcmin*coop_sqrt2
+    COOP_REAL,parameter::sigma = 12.d0/2.726e6*coop_SI_arcmin*coop_sqrt2
     Nl = sigma**2
   end function coop_ACT_ENoise
 
@@ -3181,10 +3184,13 @@ contains
     type(coop_stacking_options)::sto
     type(coop_healpix_maps),optional::mask
     logical::domask
-    COOP_INT i, nneigh, list(8), index_peak, ip
+    COOP_INT i, nneigh, list(8), index_peak, ip, ipr
     COOP_INT::total_weight
     COOP_REAL::thetaphi(2)
-    logical,optional::restore
+    logical, optional::restore
+    logical,dimension(:),allocatable::livept
+    COOP_INT::nside_rand, npix_rand
+    COOP_INT, parameter:: num_rand = 500000 !!maximum number of points wanted for random selection of points (sto%genre = coop_stacking_genre_random_hot etc.)
 #ifdef HAS_HEALPIX
     if(sto%nmaps .ne. this%nmaps)stop "get_peaks: nmaps mismatch"
     call sto%free()
@@ -3203,6 +3209,8 @@ contains
        domask = .false.
        total_weight = this%npix
     endif
+    if(total_weight .le. 1) stop "get_peaks: no unmasked pixels"
+    
     if(sto%index_I .ne. 0 .and. (abs(sto%I_lower_nu).lt.coop_stacking_max_threshold .or. abs(sto%I_upper_nu).lt. coop_stacking_max_threshold))then  !!rescale I
        if(domask)then
           sto%sigma_I  = sqrt(sum(dble(this%map(:,sto%index_I))**2, mask%map(:,1).gt.0.5)/total_weight)
@@ -3237,7 +3245,13 @@ contains
        if(index_peak .le. 0 .or. index_peak .gt. this%nmaps) stop "map index of peak overflow"
     case(coop_stacking_genre_Lmax, coop_stacking_genre_Lmin, coop_stacking_genre_Lmax_Oriented, coop_stacking_genre_Lmin_Oriented)
        index_peak = sto%index_L
-       if(index_peak .le. 0 .or. index_peak .gt. this%nmaps) stop "map index of peak overflow"       
+       if(index_peak .le. 0 .or. index_peak .gt. this%nmaps) stop "map index of peak overflow"
+    case(coop_stacking_genre_random_hot, coop_stacking_genre_random_cold, coop_stacking_genre_random_hot_oriented, coop_stacking_genre_random_cold_oriented)
+       if(sto%index_Q .ne. 0 .and. sto%index_U .ne. 0 .and. (abs(sto%P_lower_nu).lt.coop_stacking_max_threshold .or. abs(sto%P_upper_nu).lt. coop_stacking_max_threshold) )then
+          index_peak = sto%index_Q
+       else
+          index_peak = sto%index_I
+       endif
     case default
        index_peak = sto%index_Q
     end select
@@ -3288,8 +3302,31 @@ contains
                    call sto%peak_map%push(this%map(i, :))
                 endif
              enddo
+          case(coop_stacking_genre_random_hot, coop_stacking_genre_random_cold, coop_stacking_genre_random_hot_oriented, coop_stacking_genre_random_cold_oriented)   !!nested, with mask
+             allocate(livept(0:this%npix-1))
+             livept = .false.
+             do i = 0, this%npix-1
+                if(mask%map(i,1).le.0.5 .or. sto%reject(this%map(i,:)))cycle
+                livept(i) = .true.
+             enddo
+             npix_rand  = count(livept)
+             nside_rand = this%nside/2**max(nint(coop_log2(dble(npix_rand)/num_rand)/2.d0), 0)
+             npix_rand = nside2npix(nside_rand)
+             do i = 0, npix_rand - 1
+                call pix2ang_nest(nside_rand, i, thetaphi(1), thetaphi(2))
+                call this%ang2pix(thetaphi(1), thetaphi(2), ip)
+                call this%pix2ang(ip, thetaphi(1), thetaphi(2))
+                if(livept(ip))then
+                   call sto%peak_pix%push(ip)
+                   call sto%peak_ang%push(real(thetaphi))
+                   call sto%peak_map%push(this%map(ip,:))
+                endif
+             enddo
+             deallocate(livept)
+          case default
+             stop "unknown stacking genre"
           end select
-       else
+       else   !!no mask, nested
           select case(sto%genre)
           case(coop_stacking_genre_Imax, coop_stacking_genre_Imax_Oriented, coop_stacking_genre_Lmax, coop_stacking_genre_Lmax_Oriented)
              do i=0, this%npix-1
@@ -3335,7 +3372,30 @@ contains
                    call sto%peak_map%push(this%map(i, :))
                 endif
              enddo
-          end select          
+          case(coop_stacking_genre_random_hot, coop_stacking_genre_random_cold, coop_stacking_genre_random_hot_oriented, coop_stacking_genre_random_cold_oriented)             !!nested, no mask
+
+             allocate(livept(0:this%npix-1))
+             livept = .false.
+             do i = 0, this%npix-1
+                if(sto%reject(this%map(i,:)))cycle
+                livept(i) = .true.
+             enddo
+             npix_rand  = count(livept)
+             nside_rand = this%nside/2**max(nint(coop_log2(dble(npix_rand)/num_rand)/2.d0), 0)
+             npix_rand = nside2npix(nside_rand)
+             do i = 0, npix_rand - 1
+                call pix2ang_nest(nside_rand, i, thetaphi(1), thetaphi(2))
+                call this%ang2pix(thetaphi(1), thetaphi(2), ip)
+                call this%pix2ang(ip, thetaphi(1), thetaphi(2))
+                if(livept(ip))then
+                   call sto%peak_pix%push(ip)
+                   call sto%peak_ang%push(real(thetaphi))
+                   call sto%peak_map%push(this%map(ip,:))
+                endif
+             enddo
+             deallocate(livept)
+             
+          end select
        end if
     else
        if(domask)then    
@@ -3388,6 +3448,31 @@ contains
                    call sto%peak_map%push(this%map(i, :))
                 endif
              enddo
+          case(coop_stacking_genre_random_hot, coop_stacking_genre_random_cold, coop_stacking_genre_random_hot_oriented, coop_stacking_genre_random_cold_oriented)             !!ring with mask
+             
+             allocate(livept(0:this%npix-1))
+             livept = .false.
+             do i = 0, this%npix-1
+                if(mask%map(i,1).le.0.5 .or. sto%reject(this%map(i,:)))cycle
+                livept(i) = .true.
+             enddo
+             npix_rand  = count(livept)
+             nside_rand = this%nside/2**max(nint(coop_log2(dble(npix_rand)/num_rand)/2.d0), 0)
+             npix_rand = nside2npix(nside_rand)
+             do i = 0, npix_rand - 1
+                call pix2ang_nest(nside_rand, i, thetaphi(1), thetaphi(2))
+                call this%ang2pix(thetaphi(1), thetaphi(2), ip)
+                call this%pix2ang(ip, thetaphi(1), thetaphi(2))
+                if(livept(ip))then
+                   call nest2ring(this%nside, ip, ipr)
+                   call sto%peak_pix%push(ipr)
+                   call sto%peak_ang%push(real(thetaphi))
+                   call sto%peak_map%push(this%map(ip,:))
+                endif
+             enddo
+             deallocate(livept)
+             
+             
           end select
        else
           select case(sto%genre)
@@ -3439,6 +3524,29 @@ contains
                    call sto%peak_map%push(this%map(i, :))
                 endif
              enddo
+          case(coop_stacking_genre_random_hot, coop_stacking_genre_random_cold, coop_stacking_genre_random_hot_oriented, coop_stacking_genre_random_cold_oriented)             !!ring, no mask
+             allocate(livept(0:this%npix-1))
+             livept = .false.
+             do i = 0, this%npix-1
+                if(sto%reject(this%map(i,:)))cycle
+                livept(i) = .true.
+             enddo
+             npix_rand  = count(livept)
+             nside_rand = this%nside/2**max(nint(coop_log2(dble(npix_rand)/num_rand)/2.d0), 0)
+             npix_rand = nside2npix(nside_rand)
+             do i = 0, npix_rand - 1
+                call pix2ang_nest(nside_rand, i, thetaphi(1), thetaphi(2))
+                call this%ang2pix(thetaphi(1), thetaphi(2), ip)
+                call this%pix2ang(ip, thetaphi(1), thetaphi(2))
+                if(livept(ip))then
+                   call nest2ring(this%nside, ip, ipr)
+                   call sto%peak_pix%push(ipr)
+                   call sto%peak_ang%push(real(thetaphi))
+                   call sto%peak_map%push(this%map(ip,:))
+                endif
+             enddo
+             deallocate(livept)
+             
           end select          
        end if
     endif
@@ -3455,6 +3563,10 @@ contains
     stop "Cannot find HEALPIX"
 #endif    
   end subroutine coop_healpix_maps_get_peaks
+
+
+  
+
 
 
 
@@ -3600,6 +3712,42 @@ contains
     enddo
   end subroutine coop_healpix_mask_peaks
 
+
+  subroutine coop_healpix_maps_rotate_coor(this, from, to)
+    !!rotate map between coordinates
+    !!from and to can be 'C'/'Q' for Celestial/eQuatorial, 'E' for Ecliptic, and 'G' for Galactic    
+    class(coop_healpix_maps)::this
+    COOP_UNKNOWN_STRING::from, to
+#ifdef HAS_HEALPIX
+    COOP_REAL psi, theta, phi
+    COOP_INT i, istart
+    complex,dimension(:,:,:),allocatable::alm_TGC
+    if(.not. allocated(this%alm))call this%map2alm()
+    select case(this%nmaps)
+    case(1)
+       allocate(alm_TGC(1, 0:this%lmax, 0:this%lmax))
+       istart  = 0
+    case(2:3)
+       allocate(alm_TGC(3, 0:this%lmax, 0:this%lmax))
+       istart = 3 - this%nmaps
+    case default
+       stop "rotate_coor only works for nmaps = 1, 2, 3"
+    end select
+    if(istart.gt.0) alm_TGC (1:istart, :,:)= 0.
+    do i=1, this%nmaps
+       alm_TGC(istart + i,:,:)= this%alm(:,:,i)
+    enddo
+    call coordsys2euler_zyz(2000.d0, 2000.d0, from, to, psi, theta, phi) 
+    call rotate_alm(this%lmax, alm_TGC, psi, theta, phi)     
+    do i=1, this%nmaps
+       this%alm(:,:,i) = alm_TGC(istart + i,:,:)
+    enddo
+    call this%alm2map()
+    deallocate(alm_TGC)
+#else
+    stop "You need to install healpix"
+#endif    
+  end subroutine coop_healpix_maps_rotate_coor
 
 end module coop_healpix_mod
 

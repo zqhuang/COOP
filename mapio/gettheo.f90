@@ -13,7 +13,7 @@ program stackth
 #include "constants.h"
 
 #ifdef HAS_HEALPIX  
-  integer, parameter::lmin = 2, lmax=2000, index_TT = 1, index_TE = 4, index_EE=2
+  integer, parameter::lmin = 2, lmax=2500, index_TT = 1, index_TE = 4, index_EE=2
   COOP_REAL, parameter:: r_degree = 2.d0
   COOP_REAL, parameter:: width = 2.d0*sin(r_degree*coop_SI_degree/2.d0)
   COOP_INT,parameter:: n=36
@@ -117,6 +117,7 @@ program stackth
   print*, "sigma_0 = ", sigma0
   print*, "sigma_2 = ", sigma2  
   call coop_gaussian_npeak_set_args(args, 2, sigma0, sigma1, sigma2)
+  print*, "nmax = ", coop_gaussian_nmax(nu, args)
   select case(trim(spot_type))
   case("Tmax_QTUTOrient", "Tmin_QTUTOrient")
      call coop_gaussian_get_oriented_stacking_weights(nu, args, weights)
@@ -124,6 +125,12 @@ program stackth
      call coop_gaussian_get_nonoriented_stacking_weights(nu, args, weights)
   case("PTmax", "Pmax")
      call coop_gaussian_get_pmax_stacking_weights(nu, args, weights)
+  case("RANDOMmax")
+     weights(1) = exp(-nu**2/2.d0)/sigma0
+     weights(2:) = 0.
+  case("RANDOMmin")
+     weights(1) = -exp(-nu**2/2.d0)/sigma0
+     weights(2:) = 0.
   end select
   write(*,*) "Weights = ", weights(1)*sigma0, weights(2)*sigma2, weights(3)*sigma0, weights(4)*sigma2
 
