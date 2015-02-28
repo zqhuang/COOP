@@ -138,7 +138,7 @@ program map
            call hgm%map2alm()
            hgm%alm(0:l1, :,:) = 0.
            do l=l1+1, l2-1
-              hgm%alm(l, :, :) = hgm%alm(l, :, :)*sin(dble(l-l1)/(l2-l1)*coop_pi/2)**2
+              hgm%alm(l, :, :) = hgm%alm(l, :, :)*sin(dble(l-l1)/(l2-l1)*coop_pio2)
            enddo
            call hgm%alm2map()
            call hgm%write(trim(coop_file_add_postfix(fin(i), "_hp_"//COOP_STR_OF(l1)//"_"//COOP_STR_OF(l2))))

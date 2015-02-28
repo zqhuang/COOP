@@ -9,10 +9,10 @@ program Exp_spots
   logical::remove_mono = .false.
   
   logical::do_max 
-  COOP_UNKNOWN_STRING,parameter::minmax = "max"
-  COOP_UNKNOWN_STRING,parameter::ap = "act15"
-  COOP_UNKNOWN_STRING,parameter::resol = "5"      
-  COOP_STRING::peak_name = "RANDOM"
+  COOP_UNKNOWN_STRING,parameter::minmax = "min"
+  COOP_UNKNOWN_STRING,parameter::ap = "planck"
+  COOP_UNKNOWN_STRING,parameter::resol = "5"
+  COOP_STRING::peak_name = "$T$"
   COOP_STRING::orient_name = "NULL"
   COOP_STRING::map_file =  "act15/"//ap//"_i_hp_230_270_smoothed_fwhm"//resol//"arcmin.fits"
   COOP_STRING::imask_file = "act15/act15_imask.fits"
@@ -22,10 +22,10 @@ program Exp_spots
   type(coop_stacking_options)::sto
   type(coop_healpix_maps)::hgm, mask
   COOP_STRING::output 
-  COOP_REAL::threshold = 1.
+  COOP_REAL::threshold = 0.
   COOP_STRING::line
   COOP_INT::i
-  output =  "peaks/"//ap//"_random_"//minmax//"_"//resol//"a"
+  output =  "peaks/"//ap//"_nu"//COOP_STR_OF(nint(threshold))//"_T"//minmax//"_"//resol//"a"
   do_max = (minmax .eq. "max")
   
   if(iargc() .ge. 8)then

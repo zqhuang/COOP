@@ -21,8 +21,8 @@ program stackth
   logical,parameter::flat = .false. !!use nonflat is actually faster
   !!settings
   logical,parameter::do_highpass = .true.
-  COOP_INT,parameter::hp_lowl = 230
-  COOP_INT,parameter::hp_highl = 270  
+  COOP_INT,parameter::hp_lowl = 20
+  COOP_INT,parameter::hp_highl = 40  
   integer::index_corr = index_TT 
   integer::index_auto = index_TT
   COOP_STRING::clfile != "planck14_best_cls.dat"  !! "planckbest_lensedtotCls.dat" !! 
@@ -99,9 +99,9 @@ program stackth
      ell(l)  = l
      l2cls(:,l) = l2cls(:, l)*(coop_2pi*exp(-l*(l+1.d0)*sigma**2))
      if(do_highpass)then
-        !        l2cls(2:3,l) = l2cls(2:3,l)*coop_highpass_filter(hp_lowl, hp_highl, l)**2
-        !        l2cls(4,l) = l2cls(4,l)*(coop_highpass_filter(hp_lowl, hp_highl, l))
-        l2cls(:,l) = l2cls(:,l)*(coop_highpass_filter(hp_lowl, hp_highl, l))        
+        l2cls(2:3,l) = l2cls(2:3,l)*coop_highpass_filter(hp_lowl, hp_highl, l)**2
+        l2cls(4,l) = l2cls(4,l)*(coop_highpass_filter(hp_lowl, hp_highl, l))
+       ! l2cls(:,l) = l2cls(:,l)*(coop_highpass_filter(hp_lowl, hp_highl, l))**2        
      endif
      cls(:,l) = l2cls(:,l)/(l*(l+1.d0))
      if(il.ne.l) stop "cl file broken"
@@ -126,10 +126,10 @@ program stackth
   case("PTmax", "Pmax")
      call coop_gaussian_get_pmax_stacking_weights(nu, args, weights)
   case("RANDOMmax")
-     weights(1) = exp(-nu**2/2.d0)/sigma0
+     weights(1) = exp(-nu**2/2.d0)/sigma0/(sqrt(coop_pio2)*erfc(nu/coop_sqrt2))
      weights(2:) = 0.
   case("RANDOMmin")
-     weights(1) = -exp(-nu**2/2.d0)/sigma0
+     weights(1) = -exp(-nu**2/2.d0)/sigma0/(sqrt(coop_pio2)*erfc(nu/coop_sqrt2))
      weights(2:) = 0.
   end select
   write(*,*) "Weights = ", weights(1)*sigma0, weights(2)*sigma2, weights(3)*sigma0, weights(4)*sigma2

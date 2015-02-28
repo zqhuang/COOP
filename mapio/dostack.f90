@@ -7,13 +7,17 @@ program Stacking_Maps
 #ifdef HAS_HEALPIX
   logical::use_mask = .true.
   logical::remove_mono = .false.
-  COOP_UNKNOWN_STRING,parameter::resol = "5"
+  
   COOP_UNKNOWN_STRING,parameter::maxmin = "max"
-  COOP_UNKNOWN_STRING,parameter::smap = "act15"    
+  COOP_UNKNOWN_STRING,parameter::thr = "1"    
   COOP_UNKNOWN_STRING,parameter::ap = "act15"  
-  COOP_STRING::stack_field_name = "QrUr"
-  COOP_STRING::map_file =  "act15/"//smap//"_pol_hp_230_270_smoothed_fwhm"//resol//"arcmin.fits"
-  COOP_STRING::peak_file = "peaks/"//ap//"_random_"//maxmin//"_"//resol//"a.dat"
+
+  
+  COOP_UNKNOWN_STRING,parameter::resol = "5"
+  COOP_UNKNOWN_STRING,parameter::smap = "planck"  
+  COOP_STRING::stack_field_name = "T"
+  COOP_STRING::map_file =  "act15/"//smap//"_i_hp_230_270_smoothed_fwhm"//resol//"arcmin.fits"
+  COOP_STRING::peak_file = "peaks/"//ap//"_nu"//thr//"_random_"//maxmin//"_"//resol//"a.dat"
   COOP_STRING::imask_file ="act15/act15_imask.fits"
   COOP_STRING::polmask_file = "act15/act15_polmask.fits"
   COOP_UNKNOWN_STRING,parameter::mask_file_force_to_use = ""
@@ -33,7 +37,7 @@ program Stacking_Maps
   COOP_REAL::zmax2 = -1.1e31
   COOP_STRING::line  
   type(coop_asy)::fig
-  output = "stacked/"//smap//"_"//trim(stack_field_name)//"_on_"//ap//"_random_"//maxmin//"_"//resol//"a"
+  output = "stacked/"//smap//"_"//trim(stack_field_name)//"_on_"//ap//"_random_"//maxmin//"_nu"//thr//"_"//resol//"a"
   if(iargc() .ge. 6)then
      use_mask = .true.
      map_file = coop_InputArgs(1)
@@ -58,7 +62,8 @@ program Stacking_Maps
      makepdf = .true.
      coop_healpix_patch_default_want_caption = .true.
      coop_healpix_patch_default_want_label  = .true.
-     coop_healpix_patch_default_figure_width = 3.5     
+     coop_healpix_patch_default_figure_width = 3.5
+     coop_healpix_mask_tol = 0.d0
      if(.not. use_mask)then
         write(*,*) "Warning: not using the mask"
      endif
