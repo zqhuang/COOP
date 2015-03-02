@@ -5,7 +5,7 @@ cclist = ['commander', 'nilc', 'sevem', 'smica']
 nulist = ['0', '1']
 hlist = ['hot0', 'hot1', 'hot2']
 clist = ['cold0', 'cold1', 'cold2']
-nslist = ['N', 'S']
+nslist = ['F', 'N', 'S']
 readonly = 'T'
 nmaps = 1000
 print "=============== F =============="
@@ -23,7 +23,7 @@ for nu in nulist:
         for c in clist:        
             os.system(r'./SST '+ cc + r' 1024 QU ' + nu + r' ' + str(nmaps) + r' self '+ c + r' T F T '+ readonly)
 
-#sys.exit()
+sys.exit()
 print "=============== NS =============="
 
 for nu in nulist:

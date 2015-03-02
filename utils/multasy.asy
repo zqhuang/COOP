@@ -203,6 +203,11 @@ import palette;
 import contour;
 //=============== global variables;
 settings.outformat="pdf";
+
+picture load_picture(string filename){
+
+picture mypic;
+
 real cxmin, cxmax, cymin, cymax, czmin, czmax, aymin, aymax, axmin, axmax, azmin, azmax;
 real infty = 0.99e30;
 int  topaxis = 0;
@@ -560,11 +565,11 @@ int plot_dots(file fin){
   if(spotlabel == "dot" || spotlabel == "DOT"){
      for (int i=0; i<ndots; ++i ) {
        t = read_xy(fin);
-       dot(z = ( xcoor(t[0]), ycoor(t[1]) ), p = colorpen, filltype = Fill );}}
+       dot(mypic,z = ( xcoor(t[0]), ycoor(t[1]) ), p = colorpen, filltype = Fill );}}
   else{
      for (int i=0; i<ndots; ++i ) {
        t = read_xy(fin);
-       label( L = spotlabel, position = ( xcoor(t[0]), ycoor(t[1]) ), align = Center, p = colorpen);}}
+       label(mypic, L = spotlabel, position = ( xcoor(t[0]), ycoor(t[1]) ), align = Center, p = colorpen);}}
    return ndots;}
 
 // =============================================================================
@@ -581,7 +586,7 @@ int plot_lines(file fin){
   pen colorpen = pen_from_string(cstr);
   for (int i = 0; i< nlines; ++i){
     pts = read_xyxy(fin);
-    draw( ( xcoor(pts[0]), ycoor(pts[1]) ) -- ( xcoor(pts[2]) , ycoor(pts[3]) ) , p = colorpen ); }
+    draw(mypic, ( xcoor(pts[0]), ycoor(pts[1]) ) -- ( xcoor(pts[2]) , ycoor(pts[3]) ) , p = colorpen ); }
   return nlines; }
 
 // =============================================================================
@@ -611,9 +616,9 @@ int plot_curve(file fin){
        pts = read_xy(fin);
        curve = curve -- ( xcoor(pts[0]), ycoor(pts[1]) ) ;}}
    if(trim_string(clegend) != "")
-      draw(curve,  colorpen, legend = clegend);
+      draw(mypic, curve,  colorpen, legend = clegend);
    else  
-      draw(curve, colorpen);
+      draw(mypic, curve, colorpen);
    return nlines; }
 
 // =============================================================================
@@ -655,8 +660,8 @@ int plot_contour(file fin){
        curves[ipath] = curves[ipath] -- cycle ;
       }
      }
-    if(trim_string(strfill) != "")  fill(curves, colorfill);
-    if(trim_string(strborder) != "")  draw(curves, colorborder); 
+    if(trim_string(strfill) != "")  fill(mypic, curves, colorfill);
+    if(trim_string(strborder) != "")  draw(mypic, curves, colorborder); 
     return totallines;}
   else if(ctype == 2 ){
     real[] t;
@@ -686,11 +691,11 @@ int plot_contour(file fin){
         if(trim_string(strfill[i]) != ''){
          pen colorfill = pen_from_string(strfill[i]);    
          for (int j=0; j<ct[i][:].length; ++j){
-          fill(ct[i][j]..cycle, colorfill);
+          fill(mypic, ct[i][j]..cycle, colorfill);
 	 }}
         if(trim_string(strborder[i]) != ''){
          pen colorborder = pen_from_string(strborder[i]);   
-           draw(ct[i][:], colorborder);} 
+           draw(mypic, ct[i][:], colorborder);} 
     }}
     else{
        guide ct[][] = contour(z, (xmin,ymin), (xmax, ymax), cvals, join = operator -- , subsample = 1);     
@@ -698,11 +703,11 @@ int plot_contour(file fin){
        if(trim_string(strfill[i]) != ''){
          pen colorfill = pen_from_string(strfill[i]);    
          for (int j=0; j< ct[i][:].length; ++j){
-           fill(ct[i][j]--cycle, colorfill);
+           fill(mypic, ct[i][j]--cycle, colorfill);
        }}
        if(trim_string(strborder[i]) != ''){
          pen colorborder = pen_from_string(strborder[i]);   
-          draw(ct[i][:], colorborder);} 
+          draw(mypic, ct[i][:], colorborder);} 
      }}
     return nx*ny;
   }
@@ -734,7 +739,7 @@ int plot_clip(file fin){
     curve = curve -- ( xcoor(pts[0]), ycoor(pts[1]) ) ;}
     curve = curve -- cycle ;
    }
-   clip(curve);
+   clip(mypic, curve);
   return nlines; }
 
 // =============================================================================
@@ -753,7 +758,7 @@ int plot_labels(file fin){
  for (int i = 0; i< nlines; ++i){
    t = read_xy(fin);
    l = fetch_label(fin);
-   label( L = l, position = ( xcoor(t[0]), ycoor(t[1]) ), align = Center, p = colorpen);}
+   label(mypic, L = l, position = ( xcoor(t[0]), ycoor(t[1]) ), align = Center, p = colorpen);}
  return nlines;}
 
 int plot_labels_left(file fin){
@@ -770,7 +775,7 @@ int plot_labels_left(file fin){
  for (int i = 0; i< nlines; ++i){
    t = read_xy(fin);
    l = fetch_label(fin);
-   label( L = l, position = ( xcoor(t[0]), ycoor(t[1]) ), align = LeftSide, p = colorpen);}
+   label(mypic, L = l, position = ( xcoor(t[0]), ycoor(t[1]) ), align = LeftSide, p = colorpen);}
  return nlines;}
 
 int plot_labels_right(file fin){
@@ -787,7 +792,7 @@ int plot_labels_right(file fin){
  for (int i = 0; i< nlines; ++i){
    t = read_xy(fin);
    l = fetch_label(fin);
-   label( L = l, position = ( xcoor(t[0]), ycoor(t[1]) ), align = RightSide, p = colorpen);}
+   label(mypic, L = l, position = ( xcoor(t[0]), ycoor(t[1]) ), align = RightSide, p = colorpen);}
  return nlines;}
 
 int plot_arrows(file fin){
@@ -802,7 +807,7 @@ int plot_arrows(file fin){
  t = new real[4];
  for (int i = 0; i< nlines; ++i){
    t = read_xyxy(fin);
-   draw((t[0], t[1]) -- (t[2], t[3]), colorpen, Arrow);}
+   draw(mypic, (t[0], t[1]) -- (t[2], t[3]), colorpen, Arrow);}
  return nlines;
 }
 
@@ -818,24 +823,24 @@ int plot_legend(file fin){
         pen colorpen = pen_from_string(cstr) + linecap(0);
 	aymax = aymax + (aymax-aymin)*0.01;
 	path  g = (axmax, aymax) .. cycle;
-        draw(g = g, p = colorpen, legend=l);
+        draw(mypic,  g = g, p = colorpen, legend=l);
         colorpen = whitepen_from_string(cstr) + linecap(0); 	
-	draw(g = g, p = colorpen);
+	draw(mypic, g = g, p = colorpen);
 	return 1;  }
      else{
        int cols = fin;
        if(trim_string(cstr) == "N")
-          add(legend(cols), point(N), 20N, UnFill); 
+          add(mypic, legend(cols), point(N), 20N, UnFill); 
        else if(trim_string(cstr) == "S")
-          add(legend(cols), point(S), 20S, UnFill); 
+          add(mypic, legend(cols), point(S), 20S, UnFill); 
        else if(trim_string(cstr) == "W")
-          add(legend(cols), point(W), 20W, UnFill);
+          add(mypic, legend(cols), point(W), 20W, UnFill);
        else 
-          add(legend(cols), point(E), 20E, UnFill);}}
+          add(mypic, legend(cols), point(E), 20E, UnFill);}}
   else{
      real loc[] = fin.dimension(2);
      int cols = fin;
-     add(legend(cols), ( xcoor(loc[0]), ycoor(loc[1]) ), UnFill);}
+     add(mypic, legend(cols), ( xcoor(loc[0]), ycoor(loc[1]) ), UnFill);}
   return 1;
 }
 
@@ -845,17 +850,17 @@ int plot_legend_nobox(file fin){
   if(trim_string(cstr) !=""){
      int cols = fin;
      if(trim_string(cstr) == "N")
-        add(legend(perline = cols, p = invisible), point(N), 20N, UnFill); 
+        add(mypic, legend(perline = cols, p = invisible), point(N), 20N, UnFill); 
      else if(trim_string(cstr) == "S")
-       add(legend(perline = cols, p = invisible), point(S), 20S, UnFill); 
+       add(mypic, legend(perline = cols, p = invisible), point(S), 20S, UnFill); 
     else if(trim_string(cstr) == "W")
-       add(legend(perline = cols, p = invisible), point(W), 20W, UnFill);
+       add(mypic, legend(perline = cols, p = invisible), point(W), 20W, UnFill);
     else 
-       add(legend(perline = cols, p = invisible), point(E), 20E, UnFill);}
+       add(mypic, legend(perline = cols, p = invisible), point(E), 20E, UnFill);}
   else{
      real loc[] = fin.dimension(2);
      int cols = fin;
-     add(legend(perline = cols, p = invisible), ( xcoor(loc[0]), ycoor(loc[1]) ), UnFill);}
+     add(mypic, legend(perline = cols, p = invisible), ( xcoor(loc[0]), ycoor(loc[1]) ), UnFill);}
   return 1;
 }
 
@@ -874,16 +879,16 @@ int plot_legend_advance(file fin){
   cstr = fetch_string(fin);  
   if(trim_string(cstr) !=""){
       if(trim_string(cstr) == "N")
-         add(leg, point(N), 20N, UnFill); 
+         add(mypic, leg, point(N), 20N, UnFill); 
       else if(trim_string(cstr) == "S")
-         add(leg, point(S), 20S, UnFill); 
+         add(mypic, leg, point(S), 20S, UnFill); 
       else if(trim_string(cstr) == "W")
-         add(leg, point(W), 20W, UnFill);
+         add(mypic, leg, point(W), 20W, UnFill);
       else 
-         add(leg, point(E), 20E, UnFill);}
+         add(mypic, leg, point(E), 20E, UnFill);}
   else{
      real loc[] = fin.dimension(2);
-     add(leg, ( xcoor(loc[0]), ycoor(loc[1]) ), UnFill);}
+     add(mypic, leg, ( xcoor(loc[0]), ycoor(loc[1]) ), UnFill);}
   return 1;
 }
 // =============================================================================
@@ -933,7 +938,7 @@ void plot_rightaxis(){
          yaxis(pic, rightaxis_label, XEqualsRight(cxmax),coorpen, LeftTicks("", begin=false,end=false));
         });}
 
-   add(q);
+   add(mypic, q);
 }
 
 
@@ -959,7 +964,7 @@ void plot_topaxis(){
    xlimits(pic, topaxis_xmin, topaxis_xmax);
    xaxis(pic, topaxis_label, YEqualsTop(cymax), coorpen, RightTicks("",  begin=false, end=false));
         });}
- add(q);}
+ add(mypic, q);}
 
 
 // =============================================================================
@@ -995,7 +1000,7 @@ int plot_density(file fin){
      zmin = t[0];
      zmax = t[1];
   int irr = fin;
-  if ( irr > 0 ) {  // irregular points
+  if ( irr >= 1 ) {  // irregular points
     int ndata = fin;
     real f[][] =fin.dimension(ndata, 3);
     real x[];
@@ -1021,33 +1026,33 @@ int plot_density(file fin){
           y[i] = log10(y[i]);}} 
    bounds density;
    if(zmin < zmax)
-      density = image(x, y, z, Range(zmin, zmax), p);
+      density = image(mypic, x, y, z, Range(zmin, zmax), p);
    else
-      density = image(x, y, z, Automatic, p);
+      density = image(mypic, x, y, z, Automatic, p);
    if(irr == 1){
    if(xlog)
-      palette(zlabel, density, (pow10(log10(xmax)+(log10(xmax)-log10(xmin))/20.), ymin), (pow10(log10(xmax)+(log10(xmax)-log10(xmin))/8.), ymax), Right, p, PaletteTicks("")); 
+      palette(mypic,zlabel, density, (pow10(log10(xmax)+(log10(xmax)-log10(xmin))/20.), ymin), (pow10(log10(xmax)+(log10(xmax)-log10(xmin))/8.), ymax), Right, p, PaletteTicks("")); 
    else
-      palette(zlabel, density, (xmax+(xmax-xmin)/20., ymin), (xmax+(xmax-xmin)/8., ymax), Right, p, PaletteTicks("")); }
+      palette(mypic,zlabel, density, (xmax+(xmax-xmin)/20., ymin), (xmax+(xmax-xmin)/8., ymax), Right, p, PaletteTicks("")); }
    return ndata;
   }
-  else{ // regular points
+  else{ // regular points, irr<=0
    int nxy[] = fin.dimension(2);  // nx, ny
-     int nx = nxy[0];
-     int ny = nxy[1];
+   int nx = nxy[0];
+   int ny = nxy[1];
    real[][] z ;
    z = new real[nx][ny];
    z = fin.dimension(nx, ny);
    bounds density;
   if( zmin < zmax )
-      density = image( z, Range(zmin, zmax), (xmin,ymin), (xmax, ymax), p);
+      density = image(mypic, z, Range(zmin, zmax), (xmin,ymin), (xmax, ymax), p);
    else
-      density = image( z, Automatic, (xmin,ymin), (xmax, ymax), p);
+      density = image(mypic, z, Automatic, (xmin,ymin), (xmax, ymax), p);
    if(irr == 0){
    if(xlog)
-      palette(zlabel, density, (pow10(log10(xmax)+(log10(xmax)-log10(xmin))/20.), ymin), (pow10(log10(xmax)+(log10(xmax)-log10(xmin))/10.), ymax), Right, p, PaletteTicks(rotate(90)*Label())); 
+      palette(mypic,zlabel, density, (pow10(log10(xmax)+(log10(xmax)-log10(xmin))/20.), ymin), (pow10(log10(xmax)+(log10(xmax)-log10(xmin))/10.), ymax), Right, p, PaletteTicks(rotate(90)*Label())); 
    else
-      palette(zlabel, density, (xmax+(xmax-xmin)/20., ymin), (xmax+(xmax-xmin)/10., ymax), Right, p, PaletteTicks(rotate(90)*Label()));}
+      palette(mypic,zlabel, density, (xmax+(xmax-xmin)/20., ymin), (xmax+(xmax-xmin)/10., ymax), Right, p, PaletteTicks(rotate(90)*Label()));}
    return nx*ny; 
   }
   }
@@ -1133,19 +1138,19 @@ void plot_axes(){
   if(!xmin_adjust && !xmax_adjust && !ymin_adjust && !ymax_adjust && doclip) 
      clip( (xmincoor, ymincoor) -- (xmaxcoor, ymincoor) -- (xmaxcoor, ymaxcoor) -- (xmincoor, ymaxcoor) -- cycle );
   if(caption !=  '')
-   label( caption, ( xmincoor*0.5+xmaxcoor*0.5, ymaxcoor+(ymaxcoor-ymincoor)*0.06 ) );
+   label(mypic, caption, ( xmincoor*0.5+xmaxcoor*0.5, ymaxcoor+(ymaxcoor-ymincoor)*0.06 ) );
  if(topaxis == 0){
-    xaxis(xlabel, axis=YEqualsCenter(cymin, false), xmin = cxmin, xmax = cxmax, p=coorpen, ticks=LeftTicks, above=true);
-    xaxis("", axis=YEqualsCenter(cymax, false), xmin = cxmin, xmax = cxmax, p=coorpen, ticks=RightTicksNoLabel, above=true);}
+    xaxis(mypic,xlabel, axis=YEqualsCenter(cymin, false), xmin = cxmin, xmax = cxmax, p=coorpen, ticks=LeftTicks, above=true);
+    xaxis(mypic,"", axis=YEqualsCenter(cymax, false), xmin = cxmin, xmax = cxmax, p=coorpen, ticks=RightTicksNoLabel, above=true);}
 else{
-    xaxis(xlabel, axis=YEqualsCenter(cymin, false), xmin = cxmin, xmax = cxmax,  p=coorpen, ticks=LeftTicks, above=true);
+    xaxis(mypic,xlabel, axis=YEqualsCenter(cymin, false), xmin = cxmin, xmax = cxmax,  p=coorpen, ticks=LeftTicks, above=true);
     plot_topaxis();}
 
 if(rightaxis == 0){
-   yaxis(ylabel,  axis=XEqualsCenter(cxmin, false), ymin = cymin, ymax = cymax, p = coorpen, ticks=RightTicks(format = rotate(90)*Label()), above=true);
-   yaxis("",  axis=XEqualsCenter(cxmax, false), ymin = cymin, ymax = cymax, p=coorpen, ticks=LeftTicksNoLabel, above=true);}
+   yaxis(mypic,ylabel,  axis=XEqualsCenter(cxmin, false), ymin = cymin, ymax = cymax, p = coorpen, ticks=RightTicks(format = rotate(90)*Label()), above=true);
+   yaxis(mypic,"",  axis=XEqualsCenter(cxmax, false), ymin = cymin, ymax = cymax, p=coorpen, ticks=LeftTicksNoLabel, above=true);}
 else{ 
-   yaxis(ylabel,  axis=XEqualsCenter(cxmin, false), ymin = cymin, ymax = cymax, p=coorpen, ticks=RightTicks, above=true);
+   yaxis(mypic,ylabel,  axis=XEqualsCenter(cxmin, false), ymin = cymin, ymax = cymax, p=coorpen, ticks=RightTicks, above=true);
    plot_rightaxis();}
 
 }
@@ -1154,38 +1159,32 @@ else{
 void set_scales(){
 if(zlog){
  if(xlog && ylog)
-   scale(Log, Log, Log);
+   scale(mypic, Log, Log, Log);
  else{
     if(xlog)
-       scale(Log, Linear, Log);
+       scale(mypic,Log, Linear, Log);
     else if(ylog)
-       scale(Linear, Log, Log);
+       scale(mypic,Linear, Log, Log);
     else
-       scale(Linear, Linear, Log);}}
+       scale(mypic,Linear, Linear, Log);}}
 else{
   if(xlog && ylog)
-    scale(Log, Log, Linear);
+    scale(mypic,Log, Log, Linear);
   else{
     if(xlog)
-       scale(Log, Linear, Linear);
+       scale(mypic,Log, Linear, Linear);
     else if(ylog)
-       scale(Linear, Log, Linear);
+       scale(mypic,Linear, Log, Linear);
     else
-       scale(Linear, Linear, Linear); }}
+       scale(mypic,Linear, Linear, Linear); }}
 }
 
 // =============================== Main Routine===============================
-string textfile;
-//load the file
-file fconf =input(name = "asyplot.config", check = false);
-textfile = fconf;
-if(textfile == "")
-    textfile = getstring(prompt="Enter the 2d image text file: ");
-file fin=input(textfile);
+file fin=input(filename);
 // =============================================================================
 //read in width and height of the figure, in unit inch
 real t[] = fin.dimension(2); 
-size(t[0]*inch, t[1]*inch, IgnoreAspect);
+size(mypic,t[0]*inch, t[1]*inch, IgnoreAspect);
 // =============================================================================
 //read in the captioin, x label, y label
 caption = fetch_string(fin);
@@ -1240,7 +1239,15 @@ else{ //plot all
  }
 // plot the axes
 plot_axes();
+ return mypic;
+}
 
+
+picture pic1 = load_picture("T_on_smica_fwhm10_Tmax_ORIENTNULL_nu0.txt");
+picture pic2 = load_picture("T_on_fwhm10_Tmax_ORIENTNULL_nu0_theory.txt");
+
+add(dest = currentpicture, src= pic2.fit(), position = (-0.5inch, 0.), align = E, above = false);
+add(dest = currentpicture, src= pic1.fit(), position = (0, 0.), align = W, filltype=UnFill, above = true);
 
 
 
