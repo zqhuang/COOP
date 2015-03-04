@@ -9,7 +9,7 @@ program bgtest
   type(coop_ode)::ode
   type(coop_file)::fp
   !!DE  parameters
-  Qcpl = 0.5d0 !!coupling between DE and CDM
+  Qcpl = 0.d0 !!coupling between DE and CDM
   tracking_n = 2.d0 !!  V \propto 1 / phi^n (n > 0)
 
   !!=============  set up background ===============  

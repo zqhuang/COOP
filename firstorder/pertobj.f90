@@ -43,7 +43,7 @@ module coop_pertobj_mod
      COOP_REAL::O1_phi, O1_phipr, slip, T2prime, E2prime
      type(coop_pert_species)::metric, baryon, cdm, T, E, B, nu, de
      type(coop_pert_species),dimension(coop_pert_default_nq)::massivenu !!massive neutrinos
-
+     COOP_REAL::de_Vp, de_phidot, de_delta_rho, de_delta_p
      COOP_REAL,dimension(:),allocatable::y, yp
    contains
      procedure::init =>  coop_pert_object_initialize
@@ -78,6 +78,9 @@ contains
     select case(pert%de%genre)
     case (COOP_PERT_NONE)
        !!do nothing
+    case(COOP_PERT_SCALAR_FIELD)
+       T00 = T00  -  pert%de_delta_rho*pert%a**2
+       
     case default
        call coop_tbw("T00: de perturbations not written")
     end select

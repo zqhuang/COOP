@@ -184,10 +184,10 @@ contains
 
 
 
-  subroutine coop_cosmology_firstorder_set_standard_cosmology(this, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe)
+  subroutine coop_cosmology_firstorder_set_standard_cosmology(this, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, de_Q, de_tracking_n)
     class(coop_cosmology_firstorder)::this
     COOP_REAL:: h, Omega_b, Omega_c,  tau_re
-    COOP_REAL, optional::nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, Nnu, YHe
+    COOP_REAL, optional::nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, Nnu, YHe, de_Q, de_tracking_n
     logical,optional::inflation_consistency
     if(present(YHe))then
        if(present(Nnu))then
@@ -203,7 +203,6 @@ contains
        endif
     endif
     call this%add_species(coop_baryon(COOP_REAL_OF(Omega_b)))
-    call this%add_species(coop_cdm(COOP_REAL_OF(Omega_c)))
     call this%add_species(coop_radiation(this%Omega_radiation()))
     if(present(nu_mass_eV))then
        if(present(Omega_nu))then
@@ -225,7 +224,13 @@ contains
     else
        call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu())))
     endif
-    call this%add_species(coop_de_lambda(this%Omega_k()))
+    if(present(de_Q) .and. present(de_tracking_n))then
+       call coop_background_add_coupled_DE(this, Omega_c = COOP_REAL_OF(Omega_c), Q = de_Q, tracking_n = de_tracking_n)
+       this%de_genre = COOP_PERT_SCALAR_FIELD
+    else
+       call this%add_species(coop_cdm(COOP_REAL_OF(Omega_c)))       
+       call this%add_species(coop_de_lambda(this%Omega_k()))
+    endif
     call this%setup_background()
     this%optre = tau_re
     call this%set_xe()
@@ -524,6 +529,9 @@ contains
     do itau = 1, source%ntau
        call coop_dverk_firstorder(nvars, coop_cosmology_firstorder_equations, this, pert, lna,   pert%y, source%lna(itau),  coop_cosmology_firstorder_ode_accuracy, ind, c, nw, w)
        call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)
+
+       !!for energy conservation test:
+             print*, log(pert%a), pert%delta_T00a2(), pert%delta_G00a2()             !! 
        !!------------------------------------------------------------
        !!forcing v_b - v_g to tight coupling approximations
        !!you can remove this, no big impact
