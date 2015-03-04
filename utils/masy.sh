@@ -1,5 +1,5 @@
 #! /bin/bash
-echo ${1} > asyplot.config
+cp ${1} asyplot.config
 if [[ -n ${2} ]]
 then
     output=${2/\.pdf/}.pdf
