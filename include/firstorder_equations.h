@@ -223,7 +223,7 @@
           O1_DELTA_C_PRIME =   O1_DELTA_C_PRIME  + de_Q * O1_DELTA_PHIPR + de_dQdphi*O1_DELTA_PHI * de_dphidlna
           O1_V_C_PRIME =   O1_V_C_PRIME - de_Q * de_dphidlna * O1_V_C + pert%kbyaH * de_Q * O1_DELTA_PHI
           O1_DELTA_PHI_PRIME = O1_DELTA_PHIPR
-          O1_DELTA_PHIPR_PRIME =  - (2.d0 + pert%daHdtau/aHsq)* O1_DELTA_PHIPR - (pert%kbyaHsq + de_Vpp/Hsq)*O1_DELTA_PHI + (3.d0*O1_PSIPR + O1_PHI_PRIME)*de_dphidlna - 2.d0*de_Vp/Hsq*O1_PHI - 3.d0*pert%rhoa2_c/aHsq* (de_Q*(O1_DELTA_C + 2.d0*O1_PHI) + de_dQdphi*O1_DELTA_PHI)
+          O1_DELTA_PHIPR_PRIME =  - (2.d0 + pert%daHdtau/aHsq)* O1_DELTA_PHIPR - (pert%kbyaHsq + de_Vpp/Hsq)*O1_DELTA_PHI + (3.d0*O1_PSIPR + O1_PHI_PRIME)*de_dphidlna - 2.d0*de_Vp/Hsq*O1_PHI - pert%rhoa2_c/aHsq* (de_Q*(O1_DELTA_C + 2.d0*O1_PHI) + de_dQdphi*O1_DELTA_PHI)
           pert%de_delta_rho = pert%de_phidot * pert%O1_DELTA_PHIPR * pert%aH / pert%a &
                - (pert%de_phidot)**2*O1_PHI + pert%de_Vp * O1_DELTA_PHI
           pert%de_delta_p = pert%de_phidot * pert%O1_DELTA_PHIPR * pert%aH / pert%a &

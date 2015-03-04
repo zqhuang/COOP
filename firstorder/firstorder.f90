@@ -15,8 +15,8 @@ private
   COOP_REAL, parameter :: coop_power_lnk_min = log(0.1d0) 
   COOP_REAL, parameter :: coop_power_lnk_max = log(5.d3) 
   COOP_REAL, parameter :: coop_visibility_amin = 1.8d-4
-  COOP_REAL, parameter :: coop_initial_condition_epsilon = 1.d-6
-  COOP_REAL, parameter :: coop_cosmology_firstorder_ode_accuracy = 1.d-8
+  COOP_REAL, parameter :: coop_initial_condition_epsilon = 1.d-7
+  COOP_REAL, parameter :: coop_cosmology_firstorder_ode_accuracy = 1.d-10
   COOP_REAL, parameter :: coop_cosmology_firstorder_tc_cutoff = 0.003d0
 
 
@@ -504,12 +504,13 @@ contains
     endif
   end subroutine coop_cosmology_firstorder_compute_source
 
-  subroutine coop_cosmology_firstorder_compute_source_k(this, source, ik)
+  subroutine coop_cosmology_firstorder_compute_source_k(this, source, ik, do_test_energy_conservation)
     class(coop_cosmology_firstorder)::this
     type(coop_cosmology_firstorder_source)::source
     COOP_INT ik, nvars, nw, itau, iq
     type(coop_pert_object) pert
     COOP_REAL, dimension(:,:),allocatable::w
+    logical,optional::do_test_energy_conservation
     COOP_REAL c(24)
     COOP_INT ind, i
     COOP_REAL tau_ini, lna, mnu_deltarho, mnu_deltav, T0i, T00
@@ -531,7 +532,9 @@ contains
        call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)
 
        !!for energy conservation test:
-             print*, log(pert%a), pert%delta_T00a2(), pert%delta_G00a2()             !! 
+       if(present(do_test_energy_conservation))then
+          if(do_test_energy_conservation)print*, log(pert%a), pert%delta_T00a2(), pert%delta_G00a2()       
+       endif
        !!------------------------------------------------------------
        !!forcing v_b - v_g to tight coupling approximations
        !!you can remove this, no big impact
