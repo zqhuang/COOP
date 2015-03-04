@@ -7,6 +7,7 @@
     COOP_REAL a, aniso,  ktauc, ktaucdot,  aniso_prime, aHtauc, aHtau, aHsq, uterm, vterm, ma, doptdlna
     COOP_REAL :: pa2pr_g, pa2pr_nu
     COOP_REAL, dimension(coop_pert_default_nq)::Fmnu2_prime, Fmnu2, Fmnu0, qbye, wp, wp_prime, wrho_minus_wp
+    COOP_REAL:: de_Q, de_dQdphi, de_phi, de_phidot, de_V, de_Vp, de_Vpp, de_dphidlna, asq, Hsq
     !!My PHI = Psi in Hu & White = Psi in Ma et al;
     !!My PSI = - Phi in Hu & White = Phi in Ma et al;
     !!My multipoles  = 4 * multipoles in Hu & White = (2l + 1) * multipoles in Ma et al
@@ -15,6 +16,7 @@
     yp(0) = 0
     pert%ksq = pert%k**2
     a = exp(lna)
+    asq = a**2
     pert%a = a
     pert%rhoa2_g = O0_RADIATION(cosmology)%rhoa2(a)
     pert%pa2_g = O0_RADIATION(cosmology)%wofa(a) * pert%rhoa2_g
@@ -23,7 +25,6 @@
     pert%rhoa2_c = O0_CDM(cosmology)%rhoa2(a)
     pert%rhoa2_nu = O0_NU(cosmology)%rhoa2(a)
     pert%pa2_nu = pert%rhoa2_nu *  O0_NU(cosmology)%wofa(a)
-
     pert%rhoa2_de = O0_DE(cosmology)%rhoa2(a)
     pert%pa2_de = O0_DE(cosmology)%wofa(a)* pert%rhoa2_de
     if(cosmology%index_massivenu .ne. 0 )then
@@ -48,8 +49,19 @@
     pert%rhoa2_sum = pert%rhoa2_g + pert%rhoa2_b + pert%rhoa2_c + pert%rhoa2_nu +pert%rhoa2_mnu+pert%rhoa2_de 
     pert%pa2_sum = pert%pa2_g + pert%pa2_nu + pert%pa2_mnu + pert%pa2_de
     aHsq = (pert%rhoa2_sum + cosmology%Omega_k())/3.d0
+    Hsq = aHsq/asq
 
     pert%aH = sqrt(aHsq)
+
+    if(O0_DE(cosmology)%fDE_phi%initialized)then
+       de_phi = O0_DE(cosmology)%DE_phi(a)
+       de_phidot = O0_DE(cosmology)%DE_phidot(a)
+       de_Q = O0_DE(cosmology)%DE_Q(de_phi)
+       de_dQdphi = O0_DE(cosmology)%DE_dlnQdphi(de_phi) * de_Q
+       call  O0_DE(cosmology)%DE_get_VVpVpp(de_phi, de_V, de_Vp, de_Vpp)
+       de_dphidlna = de_phidot*a/pert%aH
+    endif
+    
 
     pert%daHdtau = -(pert%rhoa2_sum+3.d0*pert%pa2_sum)/6.d0
 
@@ -206,8 +218,14 @@
        select case(pert%de%genre)
        case(COOP_PERT_NONE)
           !!do nothing
+       case(COOP_PERT_SCALAR_FIELD)
+          O1_DELTA_C_PRIME =   O1_DELTA_C_PRIME  + de_Q * O1_DELTA_PHIPR + de_dQdphi*O1_DELTA_PHI * de_dphidlna
+          O1_V_C_PRIME =   O1_V_C_PRIME - de_Q * de_dphidlna * O1_V_C + pert%kbyaH * de_Q * O1_DELTA_PHI
+          O1_DELTA_PHI_PRIME = O1_DELTA_PHIPR
+          O1_DELTA_PHIPR_PRIME =  - (3.d0 + pert%daHdtau/aHsq)* O1_DELTA_PHIPR - (pert%kbyaHsq + de_Vpp/Hsq)*O1_DELTA_PHI + (3.d0*O1_PSIPR + O1_PHI_PRIME)*de_dphidlna - 2.d0*de_Vp/Hsq*O1_PHI - 3.d0*pert%rhoa2_c/aHsq* (de_Q*(O1_DELTA_C + 2.d0*O1_PHI) + de_dQdphi*O1_DELTA_PHI)
+          
        case default
-          call coop_tbw("de perturbations not written")
+          call coop_tbw("DE perturbations not written")
        end select
        
     case(1)

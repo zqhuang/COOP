@@ -48,13 +48,14 @@ module coop_species_mod
      procedure :: dpa2da => coop_species_dpa2da
      procedure :: drhoa2da => coop_species_drhoa2da
      !!for scalar field DE model
-     procedure :: DE_V => coop_species_DE_V
-     procedure :: DE_dlnVdphi => coop_species_DE_dlnVdphi
-     procedure :: DE_d2lnVdphi2 => coop_species_DE_d2lnVdphi2     
-     procedure :: DE_phi => coop_species_DE_phi
-     procedure :: DE_phidot => coop_species_DE_phidot
-     procedure :: DE_Q => coop_species_DE_Q
-     procedure :: DE_dlnQdphi => coop_species_DE_dlnQdphi     
+     procedure :: DE_V => coop_species_DE_V  !!V(phi)
+     procedure :: DE_dlnVdphi => coop_species_DE_dlnVdphi  !!d ln V/d phi  (phi)
+     procedure :: DE_d2lnVdphi2 => coop_species_DE_d2lnVdphi2     !!d^2ln V/d phi^2 (phi)
+     procedure :: DE_get_VVpVpp => coop_species_DE_get_VVpVpp     !!get V, dV/dphi, d^2V/dphi^2
+     procedure :: DE_phi => coop_species_DE_phi !!phi(a)
+     procedure :: DE_phidot => coop_species_DE_phidot  !!phidot (a)
+     procedure :: DE_Q => coop_species_DE_Q !!Q(a)
+     procedure :: DE_dlnQdphi => coop_species_DE_dlnQdphi   !!d ln Q/d phi (phi)
   end type coop_species
   
 
@@ -508,5 +509,15 @@ contains
     COOP_REAL::d2lnVdphi2, phi
     d2lnVdphi2 = this%fDE_dUdphi%derivative(phi) + this%DE_tracking_n/max(phi, tiny(phi))**2
   end function coop_species_DE_d2lnVdphi2
+
+  subroutine coop_species_DE_get_VVpVpp(this, phi, V, Vp, Vpp)
+    class(coop_species)::this
+    COOP_REAL::phi, V, Vp, Vpp
+    V = this%DE_V(phi)
+    Vp = this%DE_dlnVdphi(phi)
+    Vpp = this%DE_d2lnVdphi2(phi)
+    Vpp = (Vpp + Vp**2)*V
+    Vp = Vp * V
+  end subroutine coop_species_DE_get_VVpVpp
 
 end module coop_species_mod

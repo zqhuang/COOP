@@ -11,10 +11,10 @@ module coop_pertobj_mod
   COOP_INT, parameter:: coop_pert_default_nq = 5
   COOP_REAL, dimension(coop_pert_default_nq),parameter:: coop_pert_default_q = coop_fermion_int_q5
   COOP_REAL, dimension(coop_pert_default_nq),parameter:: coop_pert_default_q_kernel = coop_fermion_int_kernel5 
-  COOP_REAL, dimension(coop_pert_default_nq), parameter::coop_pert_massivenu_threshold = 0.1d0 * coop_pert_default_q  !!ma > threshold considered to be massive
+  COOP_REAL, dimension(coop_pert_default_nq), parameter::coop_pert_massivenu_threshold = 0.1d0 * coop_pert_default_q !!ma > threshold considered to be massive
   COOP_REAL, parameter::coop_pert_massivenu_cold_threshold = 50.d0 !!ma > threshold considered to be cold 
   type coop_pert_species
-     COOP_INT::genre = COOP_PERT_NONE  !!NONE = no perturbations, other options are PERFECT_FLUID, HIERARCHY
+     COOP_INT::genre = COOP_PERT_NONE !!NONE = no perturbations, other options are PERFECT_FLUID, HIERARCHY
      COOP_INT::m = 0
      COOP_INT::s = 0
      COOP_INT::lmin = 0

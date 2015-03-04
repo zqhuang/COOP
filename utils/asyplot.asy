@@ -831,17 +831,17 @@ int plot_legend(file fin){
      else{
        int cols = fin;
        if(trim_string(cstr) == "N")
-          add(mypic, legend(cols), point(N), 20N, UnFill); 
+          add(dest = mypic, legend(mypic,cols), point(mypic,N), 20N, UnFill); 
        else if(trim_string(cstr) == "S")
-          add(mypic, legend(cols), point(S), 20S, UnFill); 
+          add(mypic, legend(mypic,cols), point(mypic,S), 20S, UnFill); 
        else if(trim_string(cstr) == "W")
-          add(mypic, legend(cols), point(W), 20W, UnFill);
+          add(dest = mypic, legend(mypic,cols), point(mypic,W), 20W, UnFill);
        else 
-          add(mypic, legend(cols), point(E), 20E, UnFill);}}
+          add(dest = mypic, legend(mypic,cols), point(mypic,E), 20E, UnFill);}}
   else{
      real loc[] = fin.dimension(2);
      int cols = fin;
-     add(mypic, legend(cols), ( xcoor(loc[0]), ycoor(loc[1]) ), UnFill);}
+     add(dest = mypic, src = legend(mypic,cols), position = ( xcoor(loc[0]), ycoor(loc[1]) ), filltype = UnFill);}
   return 1;
 }
 
@@ -851,17 +851,17 @@ int plot_legend_nobox(file fin){
   if(trim_string(cstr) !=""){
      int cols = fin;
      if(trim_string(cstr) == "N")
-        add(mypic, legend(perline = cols, p = invisible), point(N), 20N, UnFill); 
+        add(mypic, legend(mypic,perline = cols, p = invisible), point(mypic,N), 20N, UnFill); 
      else if(trim_string(cstr) == "S")
-       add(mypic, legend(perline = cols, p = invisible), point(S), 20S, UnFill); 
+       add(mypic, legend(mypic,perline = cols, p = invisible), point(mypic,S), 20S, UnFill); 
     else if(trim_string(cstr) == "W")
-       add(mypic, legend(perline = cols, p = invisible), point(W), 20W, UnFill);
+       add(mypic, legend(mypic,perline = cols, p = invisible), point(mypic,W), 20W, UnFill);
     else 
-       add(mypic, legend(perline = cols, p = invisible), point(E), 20E, UnFill);}
+       add(mypic, legend(mypic,perline = cols, p = invisible), point(mypic,E), 20E, UnFill);}
   else{
      real loc[] = fin.dimension(2);
      int cols = fin;
-     add(mypic, legend(perline = cols, p = invisible), ( xcoor(loc[0]), ycoor(loc[1]) ), UnFill);}
+     add(mypic, legend(mypic,perline = cols, p = invisible), ( xcoor(loc[0]), ycoor(loc[1]) ), UnFill);}
   return 1;
 }
 
@@ -876,17 +876,17 @@ int plot_legend_advance(file fin){
   real hskip = fin;
   real vskip = fin;
   int cols = fin;  
-  frame leg = legend(perline = cols, xmargin = xmargin*legendmargin, ymargin = ymargin*legendmargin, linelength = linelength*legendlinelength, hskip = hskip*legendhskip, vskip = vskip*legendvskip, p = boxpen);
+  frame leg = legend(mypic,perline = cols, xmargin = xmargin*legendmargin, ymargin = ymargin*legendmargin, linelength = linelength*legendlinelength, hskip = hskip*legendhskip, vskip = vskip*legendvskip, p = boxpen);
   cstr = fetch_string(fin);  
   if(trim_string(cstr) !=""){
       if(trim_string(cstr) == "N")
-         add(mypic, leg, point(N), 20N, UnFill); 
+         add(mypic, leg, point(mypic,N), 20N, UnFill); 
       else if(trim_string(cstr) == "S")
-         add(mypic, leg, point(S), 20S, UnFill); 
+         add(mypic, leg, point(mypic,S), 20S, UnFill); 
       else if(trim_string(cstr) == "W")
-         add(mypic, leg, point(W), 20W, UnFill);
+         add(mypic, leg, point(mypic,W), 20W, UnFill);
       else 
-         add(mypic, leg, point(E), 20E, UnFill);}
+         add(mypic, leg, point(mypic,E), 20E, UnFill);}
   else{
      real loc[] = fin.dimension(2);
      add(mypic, leg, ( xcoor(loc[0]), ycoor(loc[1]) ), UnFill);}

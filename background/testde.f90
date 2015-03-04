@@ -4,13 +4,13 @@ program bgtest
 #include "constants.h"  
   type(coop_cosmology_background)::bg
   COOP_INT, parameter::n = 512
-  COOP_REAL:: lna(n),a(n), Qcpl, tracking_n, phi, phidot, V
+  COOP_REAL:: lna(n),a(n), Qcpl, tracking_n, phi, phidot, V, Vp, Vpp
   COOP_INT::i, index_CDM , index_DE
   type(coop_ode)::ode
   type(coop_file)::fp
   !!DE  parameters
   Qcpl = 0.5d0 !!coupling between DE and CDM
-  tracking_n = 1.d0 !!  V \propto 1 / phi^n (n > 0)
+  tracking_n = 2.d0 !!  V \propto 1 / phi^n (n > 0)
 
   !!=============  set up background ===============  
   call bg%init(h=0.7d0)
@@ -18,8 +18,11 @@ program bgtest
   call bg%add_species(coop_radiation(bg%Omega_radiation()))
   call bg%add_species(coop_neutrinos_massless(bg%Omega_massless_neutrinos_per_species()*(bg%Nnu())))
   call coop_background_add_coupled_DE(bg, Omega_c = 0.25d0, Q = Qcpl, tracking_n = tracking_n)
+  
   index_CDM = bg%index_of("CDM")
   index_DE = bg%index_of("Dark Energy")
+
+  !!
   call bg%setup_background()
   
   !!=============== test energy conservation ===========
