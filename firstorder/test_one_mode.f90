@@ -10,7 +10,7 @@ program test
   type(coop_file)fp
 
   norm = 2.72558**2*1.d12
-  call fod%set_standard_cosmology(Omega_b=0.0485374d0, Omega_c=0.2585497252d0, h = 0.67766d0, tau_re = 0.08193d0, As = 2.2098d-9, ns = 0.968d0, nrun = 0.05d0, r = 0.d0, nt = -0.01d0, YHe = 0.248d0, Nnu = 3.d0, de_Q = 0.5d0, de_tracking_n = 0.01d0)
+  call fod%set_standard_cosmology(Omega_b=0.0485374d0, Omega_c=0.2585497252d0, h = 0.67766d0, tau_re = 0.08193d0, As = 2.2098d-9, ns = 0.968d0, nrun = 0.05d0, r = 0.d0, nt = -0.01d0, YHe = 0.248d0, Nnu = 3.d0, de_Q = 0.2d0, de_tracking_n = 0.01d0, de_dlnQdphi = 0.3d0 )  !!dynamic Q(phi) allowed
 
 
 !!$!!test energy conservation

@@ -325,7 +325,7 @@ contains
   end function coop_zrecomb_fitting
 
 
-  subroutine coop_background_add_coupled_DE(this, Omega_c, Q, tracking_n)
+  subroutine coop_background_add_coupled_DE(this, Omega_c, Q, tracking_n, dlnQdphi)
     !!this Omega_c is the effective Omega_cdm (rho_m a^3 (a<<1) -> Omega_c rho_0) 
     !!Q is the coupling between DE and CDM
     !!the potential V(phi) = V0 / phi^n
@@ -343,6 +343,7 @@ contains
     COOP_REAL,parameter::a_ini = 1.d-8
     COOP_INT,parameter::nsteps = 200
     COOP_REAL::lna_coarse(nsteps)
+    COOP_REAL, optional::dlnQdphi
     logical::tight_coupling
     cdm%name = "CDM"
     de%name = "Dark Energy"
@@ -358,7 +359,11 @@ contains
     call coop_set_uniform(nsteps, lna_coarse, lna(istart+1), log(coop_scale_factor_today))
     
     if(Q .gt. 1.d-10)then
-       call de%fDE_Q_of_phi%init_polynomial( (/ Q /) )
+       if(present(dlnQdphi))then
+          call de%fDE_Q_of_phi%init_polynomial( (/ log(Q), dlnQdphi /), ylog = .true. )
+       else
+          call de%fDE_Q_of_phi%init_polynomial( (/ Q /) )
+       endif
     endif
     de%DE_tracking_n = max(tracking_n, 0.01d0)  !! for tracking_n <~ 0.01, 1 + w_DE is very close to zero, observationally they are equivalent
     if(de%DE_tracking_n .ge. 2.d0)then
