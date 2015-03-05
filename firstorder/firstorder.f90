@@ -16,7 +16,7 @@ private
   COOP_REAL, parameter :: coop_power_lnk_max = log(5.d3) 
   COOP_REAL, parameter :: coop_visibility_amin = 1.8d-4
   COOP_REAL, parameter :: coop_initial_condition_epsilon = 1.d-7
-  COOP_REAL, parameter :: coop_cosmology_firstorder_ode_accuracy = 1.d-10
+  COOP_REAL, parameter :: coop_cosmology_firstorder_ode_accuracy = 1.d-8
   COOP_REAL, parameter :: coop_cosmology_firstorder_tc_cutoff = 0.003d0
 
 
