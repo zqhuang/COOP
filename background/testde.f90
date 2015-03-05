@@ -17,7 +17,7 @@ program bgtest
   call bg%add_species(coop_baryon(0.046d0))
   call bg%add_species(coop_radiation(bg%Omega_radiation()))
   call bg%add_species(coop_neutrinos_massless(bg%Omega_massless_neutrinos_per_species()*(bg%Nnu())))
-  call coop_background_add_coupled_DE(bg, Omega_c = 0.25d0, Q = Qcpl, tracking_n = tracking_n)
+  call coop_background_add_coupled_DE(bg, Omega_c = 0.25d0, Q = Qcpl, tracking_n = tracking_n, dlnQdphi = 0.2d0, dUdphi = -0.2d0)
   
   index_CDM = bg%index_of("CDM")
   index_DE = bg%index_of("Dark Energy")

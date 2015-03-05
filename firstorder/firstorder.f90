@@ -184,10 +184,10 @@ contains
 
 
 
-  subroutine coop_cosmology_firstorder_set_standard_cosmology(this, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, de_Q, de_tracking_n, de_dlnQdphi)
+  subroutine coop_cosmology_firstorder_set_standard_cosmology(this, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, de_Q, de_tracking_n, de_dlnQdphi, de_dUdphi)
     class(coop_cosmology_firstorder)::this
     COOP_REAL:: h, Omega_b, Omega_c,  tau_re
-    COOP_REAL, optional::nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, Nnu, YHe, de_Q, de_tracking_n, de_dlnQdphi
+    COOP_REAL, optional::nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, Nnu, YHe, de_Q, de_tracking_n, de_dlnQdphi, de_dUdphi
     logical,optional::inflation_consistency
     if(present(YHe))then
        if(present(Nnu))then
@@ -226,9 +226,17 @@ contains
     endif
     if(present(de_Q) .and. present(de_tracking_n))then
        if(present(de_dlnQdphi))then
-          call coop_background_add_coupled_DE(this, Omega_c = COOP_REAL_OF(Omega_c), Q = de_Q, tracking_n = de_tracking_n, dlnQdphi = de_dlnQdphi)          
+          if(present(de_dUdphi))then
+             call coop_background_add_coupled_DE(this, Omega_c = COOP_REAL_OF(Omega_c), Q = de_Q, tracking_n = de_tracking_n, dlnQdphi = de_dlnQdphi, dUdphi = de_dUdphi)
+          else
+             call coop_background_add_coupled_DE(this, Omega_c = COOP_REAL_OF(Omega_c), Q = de_Q, tracking_n = de_tracking_n, dlnQdphi = de_dlnQdphi)             
+          endif
        else
-          call coop_background_add_coupled_DE(this, Omega_c = COOP_REAL_OF(Omega_c), Q = de_Q, tracking_n = de_tracking_n)
+          if(present(de_dUdphi))then
+             call coop_background_add_coupled_DE(this, Omega_c = COOP_REAL_OF(Omega_c), Q = de_Q, tracking_n = de_tracking_n, dUdphi = de_dUdphi)
+          else
+             call coop_background_add_coupled_DE(this, Omega_c = COOP_REAL_OF(Omega_c), Q = de_Q, tracking_n = de_tracking_n)
+          endif
        endif
        this%de_genre = COOP_PERT_SCALAR_FIELD
     else
