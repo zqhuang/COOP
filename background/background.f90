@@ -364,8 +364,12 @@ contains
        else
           call de%fDE_Q_of_phi%init_polynomial( (/ Q /) )
        endif
+       de%DE_tracking_n = max(tracking_n, 0.005d0)  !! for tracking_n <~ 0.01, 1 + w_DE is very close to zero, observationally they are equivalent
+    else
+       de%DE_tracking_n = max(tracking_n, 0.001d0)  
     endif
-    de%DE_tracking_n = max(tracking_n, 0.01d0)  !! for tracking_n <~ 0.01, 1 + w_DE is very close to zero, observationally they are equivalent
+
+
     if(de%DE_tracking_n .ge. 2.d0)then
        beta = 2.d0/(de%DE_tracking_n+2.d0)
     else
@@ -377,11 +381,13 @@ contains
     endif
     !!change this for dynamic U(phi) and dU/d\phi
     if(present(dUdphi))then
-       call de%fDE_U_of_phi%init_polynomial( (/ 0.d0, dUdphi /), name = "U(phi)")  !!U = 1       
+       call de%fDE_U_of_phi%init_polynomial( (/ 0.d0, dUdphi /), name = "U(phi)")  
+       call de%fDE_dUdphi%init_polynomial( (/ dUdphi /), name = "dU/dphi" ) 
     else
        call de%fDE_U_of_phi%init_polynomial( (/ 0.d0 /), name = "U(phi)" )  !!U = 1
+       call de%fDE_dUdphi%init_polynomial( (/ 0.d0 /), name = "dU/dphi" )        
     endif
-    call de%fDE_dUdphi%init_polynomial( (/ dUdphi /), name = "dU/dphi" ) !! dU /d phi = 0
+
     call ode%init(3)
     call ode_tc%init(1)
     

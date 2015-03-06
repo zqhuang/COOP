@@ -9,15 +9,15 @@ program bgtest
   type(coop_ode)::ode
   type(coop_file)::fp
   !!DE  parameters
-  Qcpl = 0.d0 !!coupling between DE and CDM
-  tracking_n = 2.d0 !!  V \propto 1 / phi^n (n > 0)
+  Qcpl = 0.1d0 !!coupling between DE and CDM
+  tracking_n = 0.d0 !!  V \propto 1 / phi^n (n > 0)
 
   !!=============  set up background ===============  
   call bg%init(h=0.7d0)
   call bg%add_species(coop_baryon(0.046d0))
   call bg%add_species(coop_radiation(bg%Omega_radiation()))
   call bg%add_species(coop_neutrinos_massless(bg%Omega_massless_neutrinos_per_species()*(bg%Nnu())))
-  call coop_background_add_coupled_DE(bg, Omega_c = 0.25d0, Q = Qcpl, tracking_n = tracking_n, dlnQdphi = 0.2d0, dUdphi = -0.2d0)
+  call coop_background_add_coupled_DE(bg, Omega_c = 0.25d0, Q = Qcpl, tracking_n = tracking_n) !, dlnQdphi = 0.2d0, dUdphi = 0.d0)
   
   index_CDM = bg%index_of("CDM")
   index_DE = bg%index_of("Dark Energy")
@@ -40,7 +40,7 @@ program bgtest
      phi = bg%species(index_DE)%DE_phi(a(i))
      phidot = bg%species(index_DE)%DE_phidot(a(i))
      V =  bg%species(index_DE)%DE_V(phi)
-     write(fp%unit, "(20E19.9)") lna(i), ode%LNHUBBLE, log(bg%Hratio(a(i))), phi, phidot, V, bg%species(index_DE)%wofa(a(i)) , log(bg%species(index_CDM)%density_ratio(a(i)))   !!the difference between the 2nd column and the 3rd column is the relative error in energy conservation
+     write(fp%unit, "(20E19.9)") lna(i), ode%LNHUBBLE, log(bg%Hratio(a(i))), phi, phidot, V, bg%species(index_DE)%wofa(a(i)) , log(bg%species(index_CDM)%density_ratio(a(i))), (phidot**2/2.d0-V)/(phidot**2/2.d0+V)   !!the difference between the 2nd column and the 3rd column is the relative error in energy conservation
   enddo
   call fp%close()
 
