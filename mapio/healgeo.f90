@@ -31,7 +31,7 @@ module coop_healpix_mod
   logical::coop_healpix_patch_default_want_arrow = .false.
   logical::coop_healpix_warning = .true.
   
-  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_fetch_patch, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_trim_maskfile, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask, coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow, coop_healpix_warning, coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise
+  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_trim_maskfile, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask, coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow, coop_healpix_warning, coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise
   
 
   logical::coop_healpix_alm_check_done = .false.
@@ -126,6 +126,8 @@ module coop_healpix_mod
      procedure :: convert2ring => coop_healpix_convert_to_ring
      procedure :: filter_alm =>  coop_healpix_filter_alm
      !!stacking stuff
+     procedure :: fetch_patch => coop_healpix_fetch_patch
+     procedure :: stack_on_patch => coop_healpix_stack_on_patch
      procedure :: get_peaks => coop_healpix_maps_get_peaks
      procedure :: mark_peaks => coop_healpix_maps_mark_peaks
      procedure :: stack_on_peaks  =>     coop_healpix_maps_stack_on_peaks
@@ -3238,7 +3240,6 @@ contains
        sto%P2_lower = (sto%P_lower_nu * sto%sigma_P)**2
        sto%P2_upper = (sto%P_upper_nu * sto%sigma_P)**2
     endif
-
     select case(sto%genre)
     case(coop_stacking_genre_Imax, coop_stacking_genre_Imin, coop_stacking_genre_Imax_Oriented, coop_stacking_genre_Imin_Oriented)
        index_peak = sto%index_I

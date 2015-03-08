@@ -339,9 +339,9 @@ contains
     COOP_REAL  beta, lnrhom0
     COOP_REAL::lnc_lower, lnc_upper, lnc_mid
     COOP_REAL::Ot_lower, Ot_upper, Ot_mid, lna_ini, Vnow, KEnow
-    COOP_REAL_ARRAY::lna, lnrho_cdm, lnrho_de, wp1_de, phi_de, phidot_de
+    COOP_REAL_ARRAY::lna, lnrho_cdm, lnrho_de, wp1_de, phi_de, phidot_de, wp1eff_de, wp1eff_cdm
     COOP_REAL,parameter::a_ini = 1.d-8
-    COOP_INT,parameter::nsteps = 200
+    COOP_INT,parameter::nsteps = 500
     COOP_REAL::lna_coarse(nsteps)
     COOP_REAL, optional::dlnQdphi, dUdphi
     logical::tight_coupling
@@ -364,9 +364,9 @@ contains
        else
           call de%fDE_Q_of_phi%init_polynomial( (/ Q /) )
        endif
-       de%DE_tracking_n = max(tracking_n, 0.005d0)  !! for tracking_n <~ 0.01, 1 + w_DE is very close to zero, observationally they are equivalent
+       de%DE_tracking_n = max(tracking_n, 0.01d0)  !! for tracking_n <~ 0.01, 1 + w_DE is very close to zero, observationally they are indistinguishable
     else
-       de%DE_tracking_n = max(tracking_n, 0.001d0)  
+       de%DE_tracking_n = max(tracking_n, 0.d0)  
     endif
 
 
@@ -407,7 +407,7 @@ contains
        lnc_upper = lnc_upper + 0.5d0
        goto 100
     endif
-    
+
     
     lnc_lower = -1.d0    
 200 call get_ini(lna_ini, lnc_lower)
@@ -425,22 +425,28 @@ contains
           lnc_mid = (lnc_upper*(-Ot_lower) + lnc_lower*Ot_upper)/(Ot_upper - Ot_lower)                 
           do i=1, istart 
              call get_ini(lna(i), lnc_mid)
+             call fcn(3, lna(i), ode%y, ode%yp)
              lnrho_cdm(i) = ode%LN_RHOM
              Vnow =  de%DE_V(ode%PHI)
              KEnow  = ode%PHIDOT**2/2.d0
              lnrho_de(i) = log(Vnow + KEnow)
              wp1_de(i) = 2.d0*KEnow/(Vnow + KEnow)
+             wp1eff_cdm(i) = - ode%LN_RHOM_PRIME/3.d0 - 1.d0 
+             wp1eff_de(i) = wp1_de(i) - wp1eff_cdm(i)
              phi_de(i) = ode%PHI
              phidot_de(i) = ode%PHIDOT             
           enddo
 500       continue
           do i = istart + 1, coop_default_array_size
              call evolve_to(lna(i))
+             call fcn(3, lna(i), ode%y, ode%yp)             
              lnrho_cdm(i) = ode%LN_RHOM
              Vnow =  de%DE_V(ode%PHI)
              KEnow  = ode%PHIDOT**2/2.d0
              lnrho_de(i) = log(Vnow + KEnow)
              wp1_de(i) = 2.d0*KEnow/(Vnow + KEnow)
+             wp1eff_cdm(i) = - ode%LN_RHOM_PRIME/3.d0 
+             wp1eff_de(i) = wp1_de(i) - wp1eff_cdm(i) + 1.d0
              phi_de(i) = ode%PHI
              phidot_de(i) = ode%PHIDOT
           enddo
@@ -449,8 +455,11 @@ contains
           lnrho_cdm = lnrho_cdm - lnrho_cdm(coop_default_array_size)
           lnrho_de = lnrho_de - lnrho_de(coop_default_array_size)
           call cdm%flnrho%init(coop_default_array_size, coop_min_scale_factor, xmax = coop_scale_factor_today, f = lnrho_cdm, fleft = lnrho_cdm(1), fright = 0.d0, slopeleft = -3.d0, sloperight = -3.d0, xlog = .true.,  method = COOP_INTERPOLATE_LINEAR, check_boundary = .false., name = "CDM \ln\rho(a) ratio")
+          call cdm%fwp1eff%init(coop_default_array_size, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, f = wp1eff_cdm, fleft = wp1eff_cdm(1), fright = wp1eff_cdm(coop_default_array_size), slopeleft = 0.d0, sloperight = 0.d0, xlog = .true., method = COOP_INTERPOLATE_LINEAR, check_boundary = .false., name = "CDM 1+w_eff(a)")          
+          
           call de%flnrho%init(coop_default_array_size, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, f = lnrho_de, fleft = lnrho_de(1), fright = 0.d0, slopeleft = 0.d0, sloperight = 0.d0, xlog = .true., method = COOP_INTERPOLATE_LINEAR, check_boundary = .false., name = "DE \ln\rho(a) ratio")
           call de%fwp1%init(coop_default_array_size, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, f = wp1_de, fleft = wp1_de(1), fright = wp1_de(coop_default_array_size), slopeleft = 0.d0, sloperight = 0.d0, xlog = .true., method = COOP_INTERPOLATE_LINEAR, check_boundary = .false., name = "DE 1+w(a)")
+          call de%fwp1eff%init(coop_default_array_size, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, f = wp1eff_de, fleft = wp1eff_de(1), fright = wp1eff_de(coop_default_array_size), slopeleft = 0.d0, sloperight = 0.d0, xlog = .true., method = COOP_INTERPOLATE_LINEAR, check_boundary = .false., name = "DE 1+w_eff(a)")          
           call de%fDE_phi%init(coop_default_array_size, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, f = phi_de, fleft = phi_de(1), fright = phi_de(coop_default_array_size), slopeleft = 0.d0, sloperight = 0.d0, xlog = .true., method = COOP_INTERPOLATE_LINEAR, check_boundary = .false., name = "DE phi(a)")
           call de%fDE_phidot%init(coop_default_array_size, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, f = phidot_de, fleft = phidot_de(1), fright = phidot_de(coop_default_array_size), slopeleft = 0.d0, sloperight = 0.d0, xlog = .true., method = COOP_INTERPOLATE_LINEAR, check_boundary = .false., name = "DE \dot\phi(a)")          
           exit
@@ -481,20 +490,29 @@ contains
     subroutine get_ini(lna, lnc)
       COOP_REAL lna, a, t, ddphi, hubble, norm, qnow, lnc, y(3)
       a = exp(lna)
-      LN_RHOM = lnrhom0 - 3.d0*lna      
-      hubble = sqrt((this%rhoa4(a)/a**4+exp(LN_RHOM))/3.d0)      
-      t = 1.d0/hubble/2.d0
-      PHI = exp(lnc)*t**beta
-      PHIDOT = beta*PHI/t
-      !!set the normalization of V
-      qnow = de%DE_Q(PHI)      
-      ddphi = (beta-1.d0)*PHIDOT/t
-      norm = ((ddphi + 3.d0*hubble*PHIDOT) + qnow * exp(LN_RHOM)) / de%DE_tracking_n * PHI**(de%DE_tracking_n + 1.d0)
-      de%DE_lnV0 = log(norm)     
-      call ode%set_initial_conditions(lna, y)
-      tight_coupling = ( (hubble*PHIDOT) .lt. 1.d-3*qnow*exp(LN_RHOM) )
-      if(tight_coupling)then
-         call ode_tc%set_initial_conditions(lna, (/ y(3) /) )
+      LN_RHOM = lnrhom0 - 3.d0*lna
+      hubble = sqrt((this%rhoa4(a)/a**4+exp(LN_RHOM))/3.d0)            
+      if(de%DE_tracking_n .gt. 0.d0)then
+         t = 1.d0/hubble/2.d0
+         PHI = exp(lnc)*t**beta
+         PHIDOT = beta*PHI/t
+         !!set the normalization of V
+         qnow = de%DE_Q(PHI)      
+         ddphi = (beta-1.d0)*PHIDOT/t
+         norm = ((ddphi + 3.d0*hubble*PHIDOT) + qnow * exp(LN_RHOM)) / de%DE_tracking_n * PHI**(de%DE_tracking_n + 1.d0)
+         de%DE_lnV0 = log(norm)     
+         call ode%set_initial_conditions(lna, y)
+         tight_coupling = ( (hubble*PHIDOT) .lt. 3.d-3*qnow*exp(LN_RHOM) )
+         if(tight_coupling)then
+            call ode_tc%set_initial_conditions(lna, (/ y(3) /) )
+         endif
+      else
+         PHI = 0.d0
+         PHIDOT = 0.d0
+         !!set the normalization of V
+         de%DE_lnV0 = lnc
+         call ode%set_initial_conditions(lna, y)
+         tight_coupling = .false.
       endif
     end subroutine get_ini
 

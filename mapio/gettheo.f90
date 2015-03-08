@@ -101,7 +101,7 @@ program stackth
      if(do_highpass)then
         l2cls(2:3,l) = l2cls(2:3,l)*coop_highpass_filter(hp_lowl, hp_highl, l)**2
         l2cls(4,l) = l2cls(4,l)*(coop_highpass_filter(hp_lowl, hp_highl, l))
-       ! l2cls(:,l) = l2cls(:,l)*(coop_highpass_filter(hp_lowl, hp_highl, l))**2        
+!       l2cls(:,l) = l2cls(:,l)*(coop_highpass_filter(hp_lowl, hp_highl, l))**2        
      endif
      cls(:,l) = l2cls(:,l)/(l*(l+1.d0))
      if(il.ne.l) stop "cl file broken"

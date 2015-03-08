@@ -10,7 +10,7 @@ program test
   type(coop_file)fp
 
   norm = 2.72558**2*1.d12
-  call fod%set_standard_cosmology(Omega_b=0.0485374d0, Omega_c=0.2585497252d0, h = 0.67766d0, tau_re = 0.08193d0, As = 2.2098d-9, ns = 0.968d0, nrun = 0.05d0, r = 0.d0, nt = -0.01d0, YHe = 0.248d0, Nnu = 3.d0, de_Q = 0.2d0, de_tracking_n = 0.01d0, de_dlnQdphi = 0.3d0, de_dUdphi = -0.2d0 )
+  call fod%set_standard_cosmology(Omega_b=0.0485374d0, Omega_c=0.2585497252d0, h = 0.67766d0, tau_re = 0.08193d0, As = 2.2098d-9, ns = 0.968d0, nrun = 0.05d0, r = 0.d0, nt = -0.01d0, YHe = 0.248d0, Nnu = 3.d0, de_Q = 0.d0, de_tracking_n = 0.d0, de_dlnQdphi = 0.d0, de_dUdphi = -1.2d0 )
   !!***************************************************
   !! V = V0 / phi^n exp( C  * phi)
   !! n = de_tracking_n;  C = de_dUdphi
@@ -26,7 +26,7 @@ program test
   do while(fod%source(0)%k(ik).lt. 1.d0)
      ik = ik + 1
   enddo
-  call fod%compute_source_k(fod%source(0), ik,do_test_energy_conservation = .true.)
+  call fod%compute_source_k(fod%source(0), ik, do_test_energy_conservation = .true.)
   stop
   
   

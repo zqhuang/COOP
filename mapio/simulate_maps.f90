@@ -10,20 +10,20 @@ program test
 
   implicit none
 #include "constants.h"
-  COOP_INT,parameter::lmax = 1500
+  COOP_INT,parameter::lmax = 2500
   type(coop_healpix_maps)::map, imask, polmask, mapcopy
   integer l, m, il
   type(coop_file)::fp
   COOP_UNKNOWN_STRING, parameter::prefix = "simu/simu"
-  logical,parameter::do_highpass = .true.
-  COOP_REAL::beam_fwhm = 5.
+  logical,parameter::do_highpass = .false.
+  COOP_REAL::beam_fwhm = 20.
   COOP_INT,parameter::llow = 230, lupper=270
   COOP_REAL sigma, w
   call coop_random_init()
   if(do_highpass)then
      print*, "Warning: high-pass filter is on"
   endif
-  call map%init(nside = 2048, nmaps=3, spin = (/ 0, 2, 2 /))
+  call map%init(nside = 1024, nmaps=3, spin = (/ 0, 2, 2 /))
 
   call map%allocate_alms(lmax=lmax)
   map%Cl = 0.
@@ -50,8 +50,8 @@ program test
         call map%write(trim(prefix)//"_i_hp_"//COOP_STR_OF(llow)//"_"//COOP_STR_OF(lupper)//"_smoothed_fwhm"//COOP_STR_OF(nint(beam_fwhm))//"arcmin.fits", index_list = (/ 1 /) )                
         call map%write(trim(prefix)//"_pol_hp_"//COOP_STR_OF(llow)//"_"//COOP_STR_OF(lupper)//"_smoothed_fwhm"//COOP_STR_OF(nint(beam_fwhm))//"arcmin.fits", index_list = (/2, 3/) )        
      else
-        call map%write(trim(prefix)//"_i_hp_"//COOP_STR_OF(llow)//"_"//COOP_STR_OF(lupper)//"_smoothed_fwhm"//COOP_STR_OF(nint(beam_fwhm))//"arcmin.fits", index_list = (/ 1 /) )                        
-        call map%write(trim(prefix)//"_i_smoothed_fwhm"//COOP_STR_OF(nint(beam_fwhm))//"arcmin.fits", index_list = (/ 1 /) )                
+        call map%write(trim(prefix)//"_i_smoothed_fwhm"//COOP_STR_OF(nint(beam_fwhm))//"arcmin.fits", index_list = (/ 1 /) )                        
+        call map%write(trim(prefix)//"_pol_smoothed_fwhm"//COOP_STR_OF(nint(beam_fwhm))//"arcmin.fits", index_list = (/2, 3/) )        
      endif
 
 !     map%cl = mapcopy%cl

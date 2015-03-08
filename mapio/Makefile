@@ -36,6 +36,10 @@ GetCl: $(OBJ) getcls.o
 Test: $(OBJ) test.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
 
+
+F2H: $(OBJ) flat2heal.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat2heal.o $(LINK)
+
 Rotate: $(OBJ) rotate_map.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) rotate_map.o $(LINK)
 

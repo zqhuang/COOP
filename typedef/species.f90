@@ -396,10 +396,15 @@ contains
     class(coop_species)::this
     COOP_REAL a
     COOP_REAL dlnrhodlna
+    
     if(this%flnrho%initialized)then
-       dlnrhodlna = this%flnrho%derivative_bare(log(a))
+       if(this%fwp1eff%initialized)then
+          dlnrhodlna = -3.d0*this%wp1effofa(a)
+       else
+          dlnrhodlna = this%flnrho%derivative_bare(log(a))
+       endif
     else
-       dlnrhodlna = -3.*this%wp1
+       dlnrhodlna = -3.d0*this%wp1
     endif
   end function coop_species_dlnrhodlna
 

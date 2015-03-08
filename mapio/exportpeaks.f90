@@ -6,17 +6,17 @@ program Exp_spots
 #include "constants.h"
 #ifdef HAS_HEALPIX
   logical::use_mask = .true.
-  logical::remove_mono = .false.
+  logical::remove_mono = .true.
   
   logical::do_max 
-  COOP_UNKNOWN_STRING,parameter::minmax = "min"
+  COOP_UNKNOWN_STRING,parameter::minmax = "max"
   COOP_UNKNOWN_STRING,parameter::ap = "planck"
-  COOP_UNKNOWN_STRING,parameter::resol = "5"
+  COOP_UNKNOWN_STRING,parameter::resol = "10"
   COOP_STRING::peak_name = "$T$"
   COOP_STRING::orient_name = "NULL"
-  COOP_STRING::map_file =  "act15/"//ap//"_i_hp_230_270_smoothed_fwhm"//resol//"arcmin.fits"
-  COOP_STRING::imask_file = "act15/act15_imask.fits"
-  COOP_STRING::polmask_file = "act15/act15_polmask.fits"
+  COOP_STRING::map_file = "planck14/dx11_v2_smica_int_cmb_010a_1024.fits" ! "act15/"//ap//"_i_hp_230_270_smoothed_fwhm"//resol//"arcmin.fits"
+  COOP_STRING::imask_file = "planck14/dx11_v2_common_int_mask_010a_1024.fits" !"act15/act15_imask.fits"
+  COOP_STRING::polmask_file = "" !"act15/act15_polmask.fits"
   COOP_STRING::mask_file_force_to_use = ""
   
   type(coop_stacking_options)::sto

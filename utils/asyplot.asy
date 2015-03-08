@@ -204,6 +204,22 @@ import contour;
 //=============== global variables;
 settings.outformat="pdf";
 
+
+
+string trim_string(string rawstr){
+   int istart = 0;
+   int iend = length(rawstr) - 1;
+   while (substr(rawstr, istart, 1) == " " || substr(rawstr, istart, 1) == "\t"
+ || substr(rawstr, istart, 1) == "\b" || substr(rawstr, istart, 1) == "\v" || substr(rawstr, istart, 1) == "\n" || substr(rawstr, istart, 1) == "\r") {
+       ++istart;
+       if(istart > iend) return "";}
+   while (substr(rawstr, iend, 1) == " " || substr(rawstr, iend, 1) == "\t"
+ || substr(rawstr, iend, 1) == "\b" || substr(rawstr, iend, 1) == "\v" || substr(rawstr, iend, 1) == "\n" || substr(rawstr, iend, 1) == "\r") {
+       --iend;
+       if(iend < istart) return "";}
+   return substr(rawstr, istart, iend-istart+1);}
+
+
 picture make_picture(file inputfile){
 
 picture mypic;
@@ -297,18 +313,6 @@ axis YEqualsTop(real y, bool extend=false){
 //======= string and io functions ======
 
 
-string trim_string(string rawstr){
-   int istart = 0;
-   int iend = length(rawstr) - 1;
-   while (substr(rawstr, istart, 1) == " " || substr(rawstr, istart, 1) == "\t"
- || substr(rawstr, istart, 1) == "\b" || substr(rawstr, istart, 1) == "\v" || substr(rawstr, istart, 1) == "\n" || substr(rawstr, istart, 1) == "\r") {
-       ++istart;
-       if(istart > iend) return "";}
-   while (substr(rawstr, iend, 1) == " " || substr(rawstr, iend, 1) == "\t"
- || substr(rawstr, iend, 1) == "\b" || substr(rawstr, iend, 1) == "\v" || substr(rawstr, iend, 1) == "\n" || substr(rawstr, iend, 1) == "\r") {
-       --iend;
-       if(iend < istart) return "";}
-   return substr(rawstr, istart, iend-istart+1);}
 
 string fetch_string(file fin){
     if(eof(fin)) return "END_OF_FILE";
@@ -1263,8 +1267,10 @@ int npics;
 real pos;
 file fconf =input(name = "asyplot.config", check = false);
 pic1file = fconf;
+pic1file = trim_string(pic1file);
 if(pic1file != ""){
     pic2file = fconf;
+    pic2file = trim_string(pic2file);    
     if(pic2file !=""){
       npics = 2;
       pos = fconf;
@@ -1274,6 +1280,7 @@ if(pic1file != ""){
 }
 else{
    pic1file = getstring(prompt="Enter the 2d image text file: ");
+   pic1file = trim_string(pic1file);   
    npics = 1;
 }
 picture pic1, pic2;
