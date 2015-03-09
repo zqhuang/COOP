@@ -338,7 +338,7 @@ contains
     COOP_INT i, istart,  j
     COOP_REAL  beta, lnrhom0
     COOP_REAL::lnc_lower, lnc_upper, lnc_mid
-    COOP_REAL::Ot_lower, Ot_upper, Ot_mid, lna_ini, Vnow, KEnow
+    COOP_REAL::Ot_lower, Ot_upper, Ot_mid, lna_ini
     COOP_REAL_ARRAY::lna, lnrho_cdm, lnrho_de, wp1_de, phi_de, phidot_de, wp1eff_de, wp1eff_cdm
     COOP_REAL,parameter::a_ini = 1.d-8
     COOP_INT,parameter::nsteps = 500
@@ -425,30 +425,18 @@ contains
           lnc_mid = (lnc_upper*(-Ot_lower) + lnc_lower*Ot_upper)/(Ot_upper - Ot_lower)                 
           do i=1, istart 
              call get_ini(lna(i), lnc_mid)
-             call fcn(3, lna(i), ode%y, ode%yp)
              lnrho_cdm(i) = ode%LN_RHOM
-             Vnow =  de%DE_V(ode%PHI)
-             KEnow  = ode%PHIDOT**2/2.d0
-             lnrho_de(i) = log(Vnow + KEnow)
-             wp1_de(i) = 2.d0*KEnow/(Vnow + KEnow)
-             wp1eff_cdm(i) = - ode%LN_RHOM_PRIME/3.d0 - 1.d0 
-             wp1eff_de(i) = wp1_de(i) - wp1eff_cdm(i)
              phi_de(i) = ode%PHI
-             phidot_de(i) = ode%PHIDOT             
+             phidot_de(i) = ode%PHIDOT
+             call getweff(3, lna(i), ode%y, wp1_de(i), wp1eff_cdm(i), wp1eff_de(i), lnrho_de(i))                          
           enddo
 500       continue
           do i = istart + 1, coop_default_array_size
              call evolve_to(lna(i))
-             call fcn(3, lna(i), ode%y, ode%yp)             
              lnrho_cdm(i) = ode%LN_RHOM
-             Vnow =  de%DE_V(ode%PHI)
-             KEnow  = ode%PHIDOT**2/2.d0
-             lnrho_de(i) = log(Vnow + KEnow)
-             wp1_de(i) = 2.d0*KEnow/(Vnow + KEnow)
-             wp1eff_cdm(i) = - ode%LN_RHOM_PRIME/3.d0 
-             wp1eff_de(i) = wp1_de(i) - wp1eff_cdm(i) + 1.d0
              phi_de(i) = ode%PHI
              phidot_de(i) = ode%PHIDOT
+             call getweff(3, lna(i), ode%y, wp1_de(i), wp1eff_cdm(i), wp1eff_de(i), lnrho_de(i))                                       
           enddo
           de%Omega = (de%DE_V(ode%PHI) + ode%PHIDOT**2/2.d0)/3.d0
           cdm%Omega = this%Omega_k() - de%Omega
@@ -533,7 +521,27 @@ contains
     subroutine fcn(n, lna, y, yp)
       COOP_INT::n
       COOP_REAL::y(n), yp(n)
-      COOP_REAL::H, lna, Q, a, pa4, rhoa4, a4, qnow, rhoma4, Vp, V, KE
+      COOP_REAL::H, lna, Q, a, rhoa4, a4, qnow, rhoma4, Vp, V, KE
+      a = exp(lna)
+      a4 = a**4
+      qnow = de%DE_Q(PHI)
+      rhoma4 = exp(LN_RHOM + 4.d0*lna)
+      rhoa4 =  this%rhoa4(a)
+      V = de%DE_V(PHI)
+      KE =  PHIDOT**2/2.d0
+      rhoa4 = rhoa4 + rhoma4 + (V + KE )*a4
+      H = sqrt(rhoa4/3.d0/a4)
+      Vp = de%DE_dlnVdphi(PHI)*V
+      PHI_PRIME = PHIDOT / H
+      PHIDOT_PRIME = - 3.d0*PHIDOT - Vp/H  - (rhoma4/a4/H) * qnow
+      LN_RHOM_PRIME = - 3.d0 + qnow * PHI_PRIME
+    end subroutine fcn
+
+
+    subroutine getweff(n, lna, y, wp1_de, wp1eff_cdm, wp1eff_de, lnrhode)
+      COOP_INT::n
+      COOP_REAL::y(n), yp(n)
+      COOP_REAL::H, lna, Q, a, pa4, rhoa4, a4, qnow, rhoma4, rhodea4, V, KE, wp1eff_cdm, wp1eff_de, lnrhode, wp1_de
       a = exp(lna)
       a4 = a**4
       qnow = de%DE_Q(PHI)
@@ -541,14 +549,16 @@ contains
       call this%get_pa4_rhoa4(a, pa4, rhoa4)
       V = de%DE_V(PHI)
       KE =  PHIDOT**2/2.d0
-      rhoa4 = rhoa4 + rhoma4 + (V + KE )*a4
-      pa4 = pa4 + (KE - V)*a4
+      lnrhode = log(V+KE)
+      rhodea4 = (V + KE )*a4
+      rhoa4 = rhoa4 + rhoma4 + rhodea4
       H = sqrt(rhoa4/3.d0/a4)
-      Vp = de%DE_dlnVdphi(PHI)*V
-      PHI_PRIME = PHIDOT / H
-      PHIDOT_PRIME = - 3.d0*PHIDOT - Vp/H  - (rhoma4/a4/H) * qnow
-      LN_RHOM_PRIME = - 3.d0 + qnow * PHI_PRIME
-    end subroutine fcn
+      wp1eff_cdm = -qnow*PHIDOT/H/3.d0
+      wp1_de = 2.d0*KE/(KE+V) 
+      wp1eff_de = wp1_de - wp1eff_cdm*rhoma4/rhodea4
+      wp1eff_cdm = wp1eff_cdm + 1.d0
+    end subroutine getweff
+    
 
 
     subroutine fcn_tight_coupling(n,lna, y, yp)
