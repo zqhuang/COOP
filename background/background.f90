@@ -109,7 +109,7 @@ contains
     COOP_REAL a, wp1
     type(coop_arguments) arg
     COOP_REAL Omega_m, a_eq
-    COOP_REAL mu, mu3, s0, s1, qpsign, aux1, aux2, aux3, delta
+    COOP_REAL mu, mu3, s0, s1, qpsign, aux1, aux2, aux3, delta, diffeps
 #define OMEGA_LAMBDA arg%r(1)
 #define EPSILON_S arg%r(2)
 #define EPSILON_INFTY arg%r(3)
@@ -125,8 +125,9 @@ contains
        return
     endif
     aux1 = sqrt(EPSILON_INFTY/3.d0)
-    aux2 = sqrt(2.d0)*(sqrt(abs(EPSILON_S)/6.d0) - aux1)*(1.-ZETA_S)
-    aux3 = 2.*ZETA_S*(sqrt(abs(EPSILON_S)/6.d0) - aux1 )
+    diffeps = (sqrt(abs(EPSILON_S)/6.d0) - aux1 )
+    aux2 = coop_sqrt2*diffeps*(1.-ZETA_S)
+    aux3 = 2.*ZETA_S*diffeps
     delta=(aux1 + 0.533* aux2 + 0.307* aux3)**2 &
          + (aux1 + (0.91-0.78*Omega_m)*aux2+(0.81-1.09*Omega_m)*aux3)**2
     if(delta .lt. 0.9d0)then
@@ -141,10 +142,10 @@ contains
     s1=sqrt(1.+mu3)
     if(s0 .lt. 1.d-6)then  
        wp1 = qpsign * EPSILON_INFTY/1.5 
-    elseif(s0.lt. 5.d-3)then
-       wp1 = 2.d0 * qpsign * ( aux1* sqrt(1.+ a_eq/3./(a_eq +  a)) + aux2 * (2.d0/3.d0) * s0 )**2
+    elseif(s0 .lt. 0.005)then
+       wp1 = 2.d0 * qpsign * ( aux1 + aux2 * (2.d0/3.d0) * s0 )**2
     else
-       wp1 = 2.d0 * qpsign * (aux1*(1. + a_eq/6./(a + a_eq)) + aux2*(s1/s0-log(s0+s1)/mu3) + aux3*(1.-log(1.+mu3)/mu3))**2
+       wp1 = 2.d0 * qpsign * (aux1 + aux2*(s1/s0-log(s0+s1)/mu3) + aux3*(1.-log(1.+mu3)/mu3))**2
     endif
 #undef EPSILON_S
 #undef EPSILON_INF
