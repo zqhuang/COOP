@@ -494,7 +494,11 @@ contains
   function coop_species_DE_V(this, phi) result(V)
     class(coop_species)::this
     COOP_REAL V, phi
-    V = exp(this%fDE_U_of_phi%eval(phi) + this%DE_lnV0 - this%DE_tracking_n * COOP_LN(phi))
+    if(this%DE_tracking_n .ne. 0.d0)then
+       V = exp(this%fDE_U_of_phi%eval(phi) + this%DE_lnV0 - this%DE_tracking_n * log(phi))
+    else
+       V = exp(this%fDE_U_of_phi%eval(phi) + this%DE_lnV0)
+    endif
   end function coop_species_DE_V
 
   function coop_species_DE_phidot(this, a) result(dphidlna)
@@ -506,13 +510,21 @@ contains
   function coop_species_DE_dlnVdphi(this, phi) result(dlnVdphi)
     class(coop_species)::this
     COOP_REAL:: phi, dlnVdphi, V
-    dlnVdphi = this%fDE_dUdphi%eval(phi) - this%DE_tracking_n/max(phi, tiny(phi))
+    if(this%DE_tracking_n .ne. 0.d0)then
+       dlnVdphi = this%fDE_dUdphi%eval(phi) - this%DE_tracking_n/phi
+    else
+       dlnVdphi = this%fDE_dUdphi%eval(phi)
+    endif
   end function coop_species_DE_dlnVdphi
 
   function coop_species_DE_d2lnVdphi2(this, phi) result(d2lnVdphi2)
     class(coop_species)::this
     COOP_REAL::d2lnVdphi2, phi
-    d2lnVdphi2 = this%fDE_dUdphi%derivative(phi) + this%DE_tracking_n/max(phi, tiny(phi))**2
+    if(this%DE_tracking_n .ne. 0.d0)then
+       d2lnVdphi2 = this%fDE_dUdphi%derivative(phi) +  this%DE_tracking_n/phi**2
+    else
+       d2lnVdphi2 = this%fDE_dUdphi%derivative(phi)
+    endif
   end function coop_species_DE_d2lnVdphi2
 
   subroutine coop_species_DE_get_VVpVpp(this, phi, V, Vp, Vpp)

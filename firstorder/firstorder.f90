@@ -184,10 +184,12 @@ contains
 
 
 
-  subroutine coop_cosmology_firstorder_set_standard_cosmology(this, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, de_Q, de_tracking_n, de_dlnQdphi, de_dUdphi)
+  subroutine coop_cosmology_firstorder_set_standard_cosmology(this, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, de_Q, de_tracking_n, de_dlnQdphi, de_dUdphi, de_d2Udphi2)
     class(coop_cosmology_firstorder)::this
     COOP_REAL:: h, Omega_b, Omega_c,  tau_re
-    COOP_REAL, optional::nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, Nnu, YHe, de_Q, de_tracking_n, de_dlnQdphi, de_dUdphi
+    COOP_REAL, optional::nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, Nnu, YHe, de_Q, de_tracking_n, de_dlnQdphi, de_dUdphi, de_d2Udphi2
+    COOP_REAL::Q0, Q1, U1, U2, tracking_n
+    logical::scalar_de
     logical,optional::inflation_consistency
     if(present(YHe))then
        if(present(Nnu))then
@@ -224,24 +226,45 @@ contains
     else
        call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu())))
     endif
-    if(present(de_Q) .and. present(de_tracking_n))then
+    scalar_de = .false.
+    if(present(de_dUdphi))then
+       U1 = de_dUdphi
+       scalar_de = .true.
+    else
+       U1 = 0.d0
+    endif
+    if(present(de_d2Udphi2))then
+       U2 = de_d2Udphi2
+       scalar_de = .true.       
+    else
+       U2 = 0.d0
+    endif
+    if(present(de_Q))then
+       Q0 = de_Q
+       scalar_de = .true.       
        if(present(de_dlnQdphi))then
-          if(present(de_dUdphi))then
-             call coop_background_add_coupled_DE(this, Omega_c = COOP_REAL_OF(Omega_c), Q = de_Q, tracking_n = de_tracking_n, dlnQdphi = de_dlnQdphi, dUdphi = de_dUdphi)
-          else
-             call coop_background_add_coupled_DE(this, Omega_c = COOP_REAL_OF(Omega_c), Q = de_Q, tracking_n = de_tracking_n, dlnQdphi = de_dlnQdphi)             
-          endif
+          Q1 = de_dlnQdphi
        else
-          if(present(de_dUdphi))then
-             call coop_background_add_coupled_DE(this, Omega_c = COOP_REAL_OF(Omega_c), Q = de_Q, tracking_n = de_tracking_n, dUdphi = de_dUdphi)
-          else
-             call coop_background_add_coupled_DE(this, Omega_c = COOP_REAL_OF(Omega_c), Q = de_Q, tracking_n = de_tracking_n)
-          endif
+          Q1 = 0.d0
        endif
+    else
+       Q0 = 0.d0
+       Q1 = 0.d0
+    endif
+    if(present(de_tracking_n))then
+       scalar_de = .true.       
+       tracking_n = de_tracking_n
+    else
+       tracking_n = 0.d0
+    endif
+    
+    if(scalar_de)then
+       call coop_background_add_coupled_DE(this, Omega_c = Omega_c, Q = Q0, tracking_n = tracking_n, dlnQdphi = Q1, dUdphi = U1, d2Udphi2 = U2)
        this%de_genre = COOP_PERT_SCALAR_FIELD
     else
-       call this%add_species(coop_cdm(COOP_REAL_OF(Omega_c)))       
+       call this%add_species(coop_cdm(omega_c))
        call this%add_species(coop_de_lambda(this%Omega_k()))
+       this%de_genre = COOP_PERT_NONE       
     endif
     call this%setup_background()
     this%optre = tau_re
@@ -530,7 +553,6 @@ contains
     call this%set_initial_conditions(pert, m = source%m, k = source%k(ik), tau = tau_ini)
     lna = log(this%aoftau(tau_ini))
     call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)
-
     ind = 1
     c = 0.d0
     nvars = pert%ny + 1
@@ -538,7 +560,6 @@ contains
     allocate(w(nw, 9))
     w = 0.d0
     iq = 1
-
     do itau = 1, source%ntau
        call coop_dverk_firstorder(nvars, coop_cosmology_firstorder_equations, this, pert, lna,   pert%y, source%lna(itau),  coop_cosmology_firstorder_ode_accuracy, ind, c, nw, w)
        call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)

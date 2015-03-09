@@ -5,17 +5,18 @@ program bgtest
   type(coop_cosmology_background)::bg
   COOP_INT, parameter::nvars = 3
   COOP_INT, parameter::n = 512
-  COOP_REAL:: lna(n),a(n), Qcpl, tracking_n, phi, phidot, V, Vp, Vpp, weff, Omegac, OmegaL, omegab, dlnQdphi, dUdphi, hub, rhocdm, rhode, epsilon_inf, epsilon_s, dlnVdphi_eq, aeq, zeta_s, wp1, at, qwp1, qnow, apiv
+  COOP_REAL:: lna(n),a(n), Qcpl, tracking_n, phi, phidot, V, Vp, Vpp, weff, Omegac, OmegaL, omegab, dlnQdphi, dUdphi, d2Udphi2, hub, rhocdm, rhode, epsilon_inf, epsilon_s, dlnVdphi_eq, aeq, zeta_s, wp1, at, qwp1, qnow, apiv
   COOP_INT::i, index_CDM , index_DE
   type(coop_ode)::ode
   type(coop_species)::quint_de
   type(coop_file)::fp, fpw
   !!DE  parameters
-  Qcpl = 0.d0 !!coupling between DE and CDM
+  Qcpl = 0.5d0 !!coupling between DE and CDM
   tracking_n = 0.5d0 !!  V \propto 1 / phi^n e^{U(phi)}   (n > 0)
   dlnQdphi = 0.d0
-  dUdphi = 0.1d0
-  apiv = 0.05d0
+  dUdphi = -1.5d0
+  d2Udphi2 = 1.d0
+  apiv = 0.2d0
   !!=============  set up background ===============
   omegab = 0.046d0
   omegac = 0.25d0
@@ -25,7 +26,7 @@ program bgtest
   call bg%add_species(coop_baryon(omegab))
   call bg%add_species(coop_radiation(bg%Omega_radiation()))
   call bg%add_species(coop_neutrinos_massless(bg%Omega_massless_neutrinos_per_species()*(bg%Nnu())))
-  call coop_background_add_coupled_DE(bg, Omega_c = omegac, Q = Qcpl, tracking_n = tracking_n, dlnQdphi = dlnQdphi, dUdphi = dUdphi)
+  call coop_background_add_coupled_DE(bg, Omega_c = omegac, Q = Qcpl, tracking_n = tracking_n, dlnQdphi = dlnQdphi, dUdphi = dUdphi, d2Udphi2 = d2Udphi2)
   
   index_CDM = bg%index_of("CDM")
   index_DE = bg%index_of("Dark Energy")
@@ -76,7 +77,7 @@ program bgtest
      wp1 = bg%species(index_DE)%wp1ofa(a(i))
      qwp1 = quint_de%wp1ofa(a(i))
      qnow = bg%species(index_DE)%DE_Q(phi)
-     if(a(i).gt. 0.1)then
+     if(a(i).gt. 0.2)then
         weff = - ( (bg%species(index_CDM)%dlnrhodlna(a(i))+3.d0)*rhocdm + (bg%species(index_DE)%dlnrhodlna(a(i))+3.d0)*rhode)/( Rhocdm + rhode - 3.d0*Omegac/a(i)**3 )/3.d0
 
         write(fpw%unit, "(20E19.9)") a(i), wp1+qnow*sqrt(wp1*omegac/(1.d0-omegab-omegac))/coop_sqrt3/(a(i)**1.5+at**1.5), bg%species(index_DE)%wp1effofa(a(i)), weff+1.d0, qwp1 +qnow*sqrt(qwp1*omegac/(1.d0-omegab-omegac))/coop_sqrt3/(a(i)**1.5+at**1.5)

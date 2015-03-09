@@ -322,7 +322,7 @@ contains
   end function coop_zrecomb_fitting
 
 
-  subroutine coop_background_add_coupled_DE(this, Omega_c, Q, tracking_n, dlnQdphi, dUdphi)
+  subroutine coop_background_add_coupled_DE(this, Omega_c, Q, tracking_n, dlnQdphi, dUdphi, d2Udphi2)
     !!This Omega_c is the effective Omega_cdm (rho_m a^3 (a<<1) -> Omega_c rho_0) 
     !!Q is the coupling between DE and CDM
     !!The potential V(phi) = V0 / phi^n
@@ -340,7 +340,8 @@ contains
     COOP_REAL,parameter::a_ini = 1.d-8
     COOP_INT,parameter::nsteps = 500
     COOP_REAL::lna_coarse(nsteps)
-    COOP_REAL, optional::dlnQdphi, dUdphi
+    COOP_REAL, optional::dlnQdphi, dUdphi, d2Udphi2
+    COOP_REAL::U1, U2
     logical::tight_coupling
     cdm%name = "CDM"
     de%name = "Dark Energy"
@@ -378,12 +379,18 @@ contains
     endif
     !!change this for dynamic U(phi) and dU/d\phi
     if(present(dUdphi))then
-       call de%fDE_U_of_phi%init_polynomial( (/ 0.d0, dUdphi /), name = "U(phi)")  
-       call de%fDE_dUdphi%init_polynomial( (/ dUdphi /), name = "dU/dphi" ) 
+       U1 = dUdphi
     else
-       call de%fDE_U_of_phi%init_polynomial( (/ 0.d0 /), name = "U(phi)" )  !!U = 1
-       call de%fDE_dUdphi%init_polynomial( (/ 0.d0 /), name = "dU/dphi" )        
+       U1 = 0.d0
     endif
+    if(present(d2Udphi2))then
+       U2 = d2Udphi2
+    else
+       U2 = 0.d0
+    endif
+    call de%fDE_U_of_phi%init_polynomial( (/ 0.d0, U1, U2 /), name = "U(phi)")  
+    call de%fDE_dUdphi%init_polynomial( (/ U1, U2*2.d0 /), name = "dU/dphi" ) 
+
 
     call ode%init(3)
     call ode_tc%init(1)
