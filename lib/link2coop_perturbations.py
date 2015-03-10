@@ -281,9 +281,11 @@ replace_all("camb/equations_ppf.f90", \
               r'function w_de(a)\n real(dl) w_de, a\n w_de = coop_global_de%weffofa(COOP_REAL_OF(a)) \n end function w_de', \
               r'function grho_de(a)\n real(dl) grho_de, a\n grho_de = grhov*coop_global_de%rhoa4_ratio(COOP_REAL_OF(a)) \n end function grho_de'] )
 
+
 replace_first("camb/cmbmain.f90", [subroutine_pattern('cmbmain')], [r'subroutine cmbmain \n use coop_wrapper \n integer l \n real*8 fac \n if(CP%Max_l .gt.coop_pp_lmax)then \n  write(*,*) "You need to increase coop_pp_lmax to ", CP%Max_l, " (see COOP/lib/wrapper.f90)" \n endif \n if(CP%WantTransfer) stop "COOP linker does not support transfer output" \nif(CP%wantCls .and. CP%WantScalars)then\n   do l = 2, CP%Max_l \n      cl_scalar(l, 1, C_phi) =  coop_pp_scalar_Cls(coop_index_ClLenLen, l) * dble(l)**2 * (l+1.d0) * (l+0.5d0)\n     fac = l*(l+1.d0)/(2.*pi)\n      Cl_scalar(l,1,C_Temp) = coop_pp_scalar_Cls(coop_index_ClTT, l)*fac\n      Cl_scalar(l,1,C_E) = coop_pp_scalar_Cls(coop_index_ClEE, l)*fac \n      Cl_scalar(l,1,C_Cross) = coop_pp_scalar_Cls(coop_index_ClTE, l)*fac\n  enddo\n endif\n if(CP%wantCls .and. CP%WantTensors)then \n   do l = 2, CP%Max_l \n     fac = l*(l+1.d0)/(2.*pi)\n     Cl_tensor(l,1,CT_Temp) = coop_pp_tensor_Cls(coop_index_ClTT, l)*fac \n     Cl_tensor(l,1,CT_E) = coop_pp_tensor_Cls(coop_index_ClEE, l)*fac \n     Cl_tensor(l,1,CT_Cross) = coop_pp_tensor_Cls(coop_index_ClTE, l)*fac \n     Cl_tensor(l,1,CT_B) = coop_pp_tensor_Cls(coop_index_ClBB, l)*fac \n  enddo \n endif \n if(CP%wantCls .and. CP%WantVectors)then \n  stop "COOP linker does not support vector perturbations" \n endif \n end subroutine cmbmain'] )
 
 
+replace_first(r"source/Calculator_CAMB.f90", [r'^\s*P\%WantTransfer\s*\=.*$'], [r'P%WantTransfer = .false.'])
 
 replace_first("camb/power_tilt.f90", [line_pattern(r'module initialpower'), function_pattern('ScalarPower', r'k,ix'), function_pattern('TensorPower', r'k,ix')], [r'module InitialPower\n use coop_wrapper', r'function scalarPower(k, ix)\n real(dl) scalarpower, k\n integer ix\n scalarpower = coop_primordial_ps(k)\n end function scalarpower', r'function tensorPower(k, ix)\n real(dl) tensorPower, k\n integer ix \n tensorPower = coop_primordial_pt(k) \n end function tensorPower'])
 
@@ -320,7 +322,7 @@ list_param_replace = [r'#include "constants.h"\nmodule CosmologyParameterization
                       r'this%H0_min = 55.', \
                       r'this%H0_max = 85. \n call Ini%read("use_max_zre", this%use_max_zre)', \
                       r'call this%SetTheoryParameterNumbers(cosmomc_de_index + cosmomc_de_num_params+cosmomc_de2pp_num_params-1, cosmomc_pp_num_params)', \
-                      r'call coop_setup_cosmology_from_cosmomc(params, H0/100.d0)\nend subroutine setForH', \
+                      r'call coop_setup_cosmology_from_cosmomc(params, H0/100.d0, want_firstorder = (cosmomc_de_model == 4) )\nend subroutine setForH', \
                       r"call setfast(params, CMB)\n call coop_setup_cosmology_from_cosmomc(params)\n call coop_setup_pp()", \
                       r"adjustl(trim(cosmomc_paramnames))", \
                       r'\1\n real(mcp)::use_max_zre = 20.', \

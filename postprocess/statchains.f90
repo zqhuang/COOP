@@ -520,7 +520,6 @@ contains
     clnpt = 0
     lnpscov = 0
     call getCosmomcParams(mc, 1, CosmomcParams)
-    coop_global_cosmology_do_firstorder = .false.
     call coop_setup_cosmology_from_cosmomc(Cosmomcparams)
     call coop_setup_pp()
     numpp = cosmomc_pp_num_params - cosmomc_pp_num_origin + 1
@@ -561,10 +560,9 @@ contains
        endif
        call getCosmomcParams(mc, j, CosmomcParams)
        if(isam .le. num_cls_samples .and. coop_postprocess_do_cls)then
-          coop_global_cosmology_do_firstorder = .true.
           hubble = mc%params(j, index_H)/100.
           write(*,"(A)") "Computing Cls #"//COOP_STR_OF(isam)//" / "//COOP_STR_OF(num_cls_samples)                 
-          call coop_setup_cosmology_from_cosmomc(Cosmomcparams, hubble)
+          call coop_setup_cosmology_from_cosmomc(Cosmomcparams, hubble, want_firstorder = .true.)
           if(isam.eq.1)then
              call fcl%open(trim(mc%output)//"_bestcls.txt", "w")
              do l = 2, lmax
@@ -579,7 +577,6 @@ contains
           enddo
           write(*,"(A)")"        h = "//COOP_STR_OF(hubble)//", C_220 = "//COOP_STR_OF(cls_samples(220, isam))          
        else
-          coop_global_cosmology_do_firstorder = .false.
           call coop_setup_cosmology_from_cosmomc(Cosmomcparams)
           call coop_setup_pp()
        endif

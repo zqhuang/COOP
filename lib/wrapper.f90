@@ -31,8 +31,6 @@ module coop_wrapper
   COOP_REAL:: coop_pp_scalar_lnkpivot = log(0.05d0)
   COOP_REAL:: coop_pp_tensor_lnkpivot =  log(0.05d0)
   logical ::cosmomc_pp_inflation_consistency = .true.
-  logical ::coop_global_cosmology_do_firstorder = .false.
-  logical ::coop_global_cosmology_do_background = .false.
   COOP_INT, parameter::coop_pp_lmin = 2
   COOP_INT, parameter::coop_pp_lmax = 2850
   COOP_REAL::coop_pp_ells(coop_pp_lmin:coop_pp_lmax)  
@@ -50,9 +48,10 @@ module coop_wrapper
 
 contains
 
-  subroutine coop_setup_cosmology_from_cosmomc_s(params, h)
+  subroutine coop_setup_cosmology_from_cosmomc_s(params, h, want_firstorder)
     real params(:)
     double precision, optional::h
+    logical,optional::want_firstorder
     call COOP_COSMO_PARAMS%init(r = COOP_REAL_OF(params), i = (/ cosmomc_de_model, cosmomc_de_index, cosmomc_de_num_params, cosmomc_pp_model, cosmomc_de_index + cosmomc_de_num_params + cosmomc_de2pp_num_params, cosmomc_pp_num_params /), l = (/ cosmomc_pp_inflation_consistency /)  )
 
     if(COOP_INFLATION_CONSISTENCY)then
@@ -60,7 +59,11 @@ contains
     endif
 
     if(present(h))then
-       call coop_setup_global_cosmology_with_h(COOP_REAL_OF(h))
+       if(present(want_firstorder))then
+          call coop_setup_global_cosmology_with_h(COOP_REAL_OF(h), want_firstorder)          
+       else
+          call coop_setup_global_cosmology_with_h(COOP_REAL_OF(h))
+       endif
     endif
   end subroutine coop_setup_cosmology_from_cosmomc_s
 
@@ -72,7 +75,11 @@ contains
        COOP_NT = - COOP_AMP_RATIO / 8.d0
     endif
     if(present(h))then
-       call coop_setup_global_cosmology_with_h(COOP_REAL_OF(h))
+       if(present(want_firstorder))then
+          call coop_setup_global_cosmology_with_h(COOP_REAL_OF(h), want_firstorder)          
+       else
+          call coop_setup_global_cosmology_with_h(COOP_REAL_OF(h))
+       endif       
     endif
   end subroutine coop_setup_cosmology_from_cosmomc_d
 
@@ -82,10 +89,11 @@ contains
     write(*,*) "Author: Zhiqi Huang"
   end subroutine coop_print_info
 
-  subroutine coop_setup_global_cosmology_with_h(h)
+  subroutine coop_setup_global_cosmology_with_h(h, want_background, want_firstorder)
     COOP_REAL h
     type(coop_arguments) args
     COOP_INT l
+    logical,optional::want_background, want_firstorder
     call COOP_COSMO%free()
     call COOP_COSMO%init(name = "COOP_GLOBAL_COSMOLOGY",  id = 0, h = h)
     if(h.le.0.d0)return  !!return for bad h
@@ -152,36 +160,59 @@ contains
        stop "UNKNOWN DARK ENERGY MODEL"
     end select
     if(COOP_COSMO%h().le.0.d0)return  !!rejected model
-    if(coop_global_cosmology_do_firstorder .or. coop_global_cosmology_do_background)then
-       call COOP_COSMO%setup_background()
+    if(present(want_background))then
+       if(want_background) &
+            call coop_global_cosmology_setup_background()
     endif
-    if(coop_global_cosmology_do_firstorder)then
-       COOP_COSMO%optre = COOP_TAU
-       call COOP_COSMO%set_xe()
-       COOP_COSMO%As = 1.d-10 * exp(COOP_LN10TO10AS)
-       COOP_COSMO%ns = COOP_NS
-       COOP_COSMO%nrun = COOP_NRUN
-       COOP_COSMO%r =  COOP_AMP_RATIO
-       COOP_COSMO%nt = COOP_NT
-       COOP_COSMO%inflation_consistency = COOP_INFLATION_CONSISTENCY
-       call coop_setup_pp()
-       call COOP_COSMO%set_power(coop_pp_get_power, args)
-       call COOP_COSMO%compute_source(0)
-       do l = coop_pp_lmin, coop_pp_lmax
-          coop_pp_ells(l) = dble(l)
-       enddo
-
-       call COOP_COSMO%source(0)%get_all_Cls(coop_pp_lmin, coop_pp_lmax, coop_pp_scalar_Cls)       
-       if(COOP_COSMO%has_tensor)then
-          call COOP_COSMO%compute_source(2)
-          call COOP_COSMO%source(2)%get_all_Cls(coop_pp_lmin, coop_pp_lmax, coop_pp_tensor_Cls)
-       else
-          coop_pp_tensor_cls = 0.d0
-       endif
-       call coop_get_lensing_Cls(coop_pp_lmin, coop_pp_lmax, coop_pp_scalar_Cls, coop_pp_lensed_Cls)
-       coop_pp_total_cls = coop_pp_scalar_cls + coop_pp_lensed_cls + coop_pp_tensor_cls
+    if(present(want_firstorder))then
+       if(want_firstorder) &
+            call coop_global_cosmology_setup_firstorder
     endif
   end subroutine coop_setup_global_cosmology_with_h
+
+
+  subroutine coop_global_cosmology_setup_background()
+    call COOP_COSMO%setup_background()        
+  end subroutine coop_global_cosmology_setup_background
+
+  subroutine coop_global_cosmology_setup_firstorder(do_lensing)
+    logical,optional::do_lensing
+    type(coop_arguments) args
+    COOP_INT l
+    if(COOP_COSMO%need_setup_background)call coop_global_cosmology_setup_background()
+    COOP_COSMO%optre = COOP_TAU
+    call COOP_COSMO%set_xe()
+    COOP_COSMO%As = 1.d-10 * exp(COOP_LN10TO10AS)
+    COOP_COSMO%ns = COOP_NS
+    COOP_COSMO%nrun = COOP_NRUN
+    COOP_COSMO%r =  COOP_AMP_RATIO
+    COOP_COSMO%nt = COOP_NT
+    COOP_COSMO%inflation_consistency = COOP_INFLATION_CONSISTENCY
+    call coop_setup_pp()
+    call COOP_COSMO%set_power(coop_pp_get_power, args)
+    call COOP_COSMO%compute_source(0)
+    do l = coop_pp_lmin, coop_pp_lmax
+       coop_pp_ells(l) = dble(l)
+    enddo
+
+    call COOP_COSMO%source(0)%get_all_Cls(coop_pp_lmin, coop_pp_lmax, coop_pp_scalar_Cls)       
+    if(COOP_COSMO%has_tensor)then
+       call COOP_COSMO%compute_source(2)
+       call COOP_COSMO%source(2)%get_all_Cls(coop_pp_lmin, coop_pp_lmax, coop_pp_tensor_Cls)
+    else
+       coop_pp_tensor_cls = 0.d0
+    endif
+    if(present(do_lensing))then
+       if(do_lensing)then
+          call coop_get_lensing_Cls(coop_pp_lmin, coop_pp_lmax, coop_pp_scalar_Cls, coop_pp_lensed_Cls)
+       else
+          coop_pp_lensed_Cls  = 0.d0
+       endif
+    else
+       coop_pp_lensed_Cls  = 0.d0
+    endif
+    coop_pp_total_cls = coop_pp_scalar_cls + coop_pp_lensed_cls + coop_pp_tensor_cls
+  end subroutine coop_global_cosmology_setup_firstorder
 
 
   subroutine coop_setup_global_cosmology()
