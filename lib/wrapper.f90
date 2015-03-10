@@ -14,7 +14,7 @@ module coop_wrapper
   type(coop_arguments)::coop_global_cosmological_parameters, coop_global_param_index
 
   COOP_REAL,parameter::coop_pp_lnkmin = -9.22d0
-  COOP_REAL::coop_pp_lnkmax = 0.02d0
+  COOP_REAL::coop_pp_lnkmax = -0.3d0
 
 
 
@@ -34,7 +34,7 @@ module coop_wrapper
   logical ::coop_global_cosmology_do_firstorder = .false.
   logical ::coop_global_cosmology_do_background = .false.
   COOP_INT, parameter::coop_pp_lmin = 2
-  COOP_INT, parameter::coop_pp_lmax = 2500
+  COOP_INT, parameter::coop_pp_lmax = 2850
   COOP_REAL::coop_pp_ells(coop_pp_lmin:coop_pp_lmax)  
   COOP_REAL::coop_pp_scalar_Cls(coop_num_cls, coop_pp_lmin:coop_pp_lmax)
   COOP_REAL::coop_pp_lensed_Cls(coop_num_cls, coop_pp_lmin:coop_pp_lmax)

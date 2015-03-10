@@ -15,7 +15,7 @@ propose_pattern = r'^\s*MPI\_Max\_R\_ProposeUpdate\s*=.*$'
 propose_new_pattern = r'^\s*MPI\_Max\_R\_ProposeUpdateNew\s*=.*$'
 covmat_pattern = r'^\s*propose\_matrix\s*\=.*$'
 covmat_repl = r'propose_matrix = plots/'
-str_propose = r'MPI_Max_R_ProposeUpdate = ' + str(coop_propose_updae) + r' \nMPI_Max_R_ProposeUpdateNew = ' + str(coop_propose_updae + 200)
+str_propose = r'MPI_Max_R_ProposeUpdate = '+ str(coop_propose_updae) + r' \nMPI_Max_R_ProposeUpdateNew = '+ str(coop_propose_updae + 200)
 
 inirootname = r'myinis'
 
@@ -106,11 +106,17 @@ def copy_replace_all(fname1, fname2, patterns, repls):
     fp.close()
 
 
-def function_pattern(func, var):
-    return r'function\s+' + func + r'\s*\(\s*' + re.sub(r'\,', r'\s*\,\s*', var) + r'\s*\)\s*(\!.*)?\n(.*\n)+\s*end\s+function\s+' + func
+def function_pattern(func, var=''):
+    if var == '':
+        return r'function\s+' + func + r'(\s*\(\s*\))?\s*(\!.*)?\n(.*\n)+\s*end\s+function\s+' + func        
+    else:
+        return r'function\s+' + func + r'\s*\(\s*' + re.sub(r'\,', r'\s*\,\s*', var) + r'\s*\)\s*(\!.*)?\n(.*\n)+\s*end\s+function\s+' + func
 
-def subroutine_pattern(func, var):
-    return r'subroutine\s+' + func + r'\s*\(\s*' + re.sub(r'\,', r'\s*\,\s*', var) + r'\s*\)\s*(\!.*)?\n(.*\n)+\s*end\s+subroutine\s+' + func
+def subroutine_pattern(func, var=''):
+    if var == '':
+        return r'subroutine\s+' + func + r'(\s*\(\s*\))?\s*(\!.*)?\n(.*\n)+\s*end\s+subroutine\s+' + func        
+    else:
+        return r'subroutine\s+' + func + r'\s*\(\s*' + re.sub(r'\,', r'\s*\,\s*', var) + r'\s*\)\s*(\!.*)?\n(.*\n)+\s*end\s+subroutine\s+' + func
 
 
 def line_pattern(line):
@@ -274,6 +280,10 @@ replace_all("camb/equations_ppf.f90", \
               r'is_cosmological_constant = .false.', \
               r'function w_de(a)\n real(dl) w_de, a\n w_de = coop_global_de%weffofa(COOP_REAL_OF(a)) \n end function w_de', \
               r'function grho_de(a)\n real(dl) grho_de, a\n grho_de = grhov*coop_global_de%rhoa4_ratio(COOP_REAL_OF(a)) \n end function grho_de'] )
+
+replace_first("camb/cmbmain.f90", [subroutine_pattern('cmbmain')], [r'subroutine cmbmain \n use coop_wrapper \n integer l \n real*8 fac \n if(CP%Max_l .gt.coop_pp_lmax)then \n  write(*,*) "You need to increase coop_pp_lmax to ", CP%Max_l, " (see COOP/lib/wrapper.f90)" \n endif \n if(CP%WantTransfer) stop "COOP linker does not support transfer output" \nif(CP%wantCls .and. CP%WantScalarCls)then\n   do l = 2, CP%Max_l \n      cl_scalar(l, 1, C_phi) =  Cls(coop_index_ClLenLen, l) * dble(l)**2 * (l+1.d0) * (l+0.5d0)\n     fac = l*(l+1.d0)/(2.*pi)\n      Cl_scalar(l,1,C_Temp) = coop_pp_scalar_Cls(coop_index_ClTT, l)*fac\n      Cl_scalar(l,1,C_E) = coop_pp_scalar_Cls(coop_index_ClEE, 2:CP%Max_l)*fac \n      Cl_scalar(l,1,C_Cross) = coop_pp_scalar_Cls(coop_index_ClTE, l)*fac\n  enddo\n endif\n if(CP%wantCls .and. CP%WantTensorCls)then \n   do l = 2, CP%Max_l \n     fac = l*(l+1.d0)/(2.*pi)\n     Cl_tensor(l,1,CT_Temp) = coop_pp_tensor_Cls(coop_index_ClTT, l)*fac \n     Cl_tensor(l,1,CT_E) = coop_pp_tensor_Cls(coop_index_ClEE, 2:CP%Max_l)*fac \n     Cl_tensor(l,1,CT_Cross) = coop_pp_tensor_Cls(coop_index_ClTE, l)*fac \n     Cl_tensor(l,1,CT_B) = coop_pp_tensor_Cls(coop_index_ClBB, l)*fac \n  enddo \n endif \n if(CP%wantCls .and. CP%WantVectorCls)then \n  stop "COOP linker does not support vector perturbations" \n endif \n end subroutine cmbmain'] )
+
+
 
 replace_first("camb/power_tilt.f90", [line_pattern(r'module initialpower'), function_pattern('ScalarPower', r'k,ix'), function_pattern('TensorPower', r'k,ix')], [r'module InitialPower\n use coop_wrapper', r'function scalarPower(k, ix)\n real(dl) scalarpower, k\n integer ix\n scalarpower = coop_primordial_ps(k)\n end function scalarpower', r'function tensorPower(k, ix)\n real(dl) tensorPower, k\n integer ix \n tensorPower = coop_primordial_pt(k) \n end function tensorPower'])
 
