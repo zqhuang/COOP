@@ -61,8 +61,6 @@ contains
 
     if(present(h))then
        call coop_setup_global_cosmology_with_h(COOP_REAL_OF(h))
-    else
-       call coop_setup_global_cosmology()              
     endif
   end subroutine coop_setup_cosmology_from_cosmomc_s
 
@@ -75,8 +73,6 @@ contains
     endif
     if(present(h))then
        call coop_setup_global_cosmology_with_h(COOP_REAL_OF(h))
-    else
-       call coop_setup_global_cosmology()       
     endif
   end subroutine coop_setup_cosmology_from_cosmomc_d
 
