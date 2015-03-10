@@ -34,7 +34,7 @@ module coop_wrapper
   logical ::coop_global_cosmology_do_firstorder = .false.
   logical ::coop_global_cosmology_do_background = .false.
   COOP_INT, parameter::coop_pp_lmin = 2
-  COOP_INT, parameter::coop_pp_lmax = 1500
+  COOP_INT, parameter::coop_pp_lmax = 2500
   COOP_REAL::coop_pp_ells(coop_pp_lmin:coop_pp_lmax)  
   COOP_REAL::coop_pp_scalar_Cls(coop_num_cls, coop_pp_lmin:coop_pp_lmax)
   COOP_REAL::coop_pp_lensed_Cls(coop_num_cls, coop_pp_lmin:coop_pp_lmax)
@@ -61,6 +61,8 @@ contains
 
     if(present(h))then
        call coop_setup_global_cosmology_with_h(COOP_REAL_OF(h))
+    else
+       call coop_setup_global_cosmology()              
     endif
   end subroutine coop_setup_cosmology_from_cosmomc_s
 
@@ -73,6 +75,8 @@ contains
     endif
     if(present(h))then
        call coop_setup_global_cosmology_with_h(COOP_REAL_OF(h))
+    else
+       call coop_setup_global_cosmology()       
     endif
   end subroutine coop_setup_cosmology_from_cosmomc_d
 
@@ -91,8 +95,6 @@ contains
     if(h.le.0.d0)return  !!return for bad h
     coop_global_baryon = coop_baryon(COOP_OMEGABH2/h**2)
     call COOP_COSMO%add_species(coop_global_baryon)
-    coop_global_cdm = coop_cdm(COOP_OMEGACH2/h**2)
-    call COOP_COSMO%add_species(coop_global_cdm)
     coop_global_radiation = coop_radiation(COOP_COSMO%Omega_radiation())
     call COOP_COSMO%add_species(coop_global_radiation)
     if(COOP_MNU .eq. 0.d0)then
@@ -105,50 +107,55 @@ contains
             COOP_COSMO%Omega_nu_per_species_from_mnu_eV(COOP_MNU) ,&
             COOP_COSMO%Omega_massless_neutrinos_per_species())
        call COOP_COSMO%add_species(coop_global_massive_neutrinos)
-    endif
+    endif    
     select case(COOP_DE_MODEL)
     case(COOP_DE_COSMOLOGICAL_CONSTANT)
+       coop_global_cdm = coop_cdm(COOP_OMEGACH2/h**2)
+       call COOP_COSMO%add_species(coop_global_cdm)
        coop_global_de = coop_de_lambda( &
             COOP_COSMO%Omega_k()-COOP_OMEGAK &
             )
+       call COOP_COSMO%add_species(coop_global_de)
+       COOP_COSMO%de_genre = COOP_PERT_NONE                     
     case(COOP_DE_W0)
+       coop_global_cdm = coop_cdm(COOP_OMEGACH2/h**2)
+       call COOP_COSMO%add_species(coop_global_cdm)             
        coop_global_de = coop_de_w0( &
             COOP_COSMO%Omega_k()-COOP_OMEGAK, &
             COOP_COSMO_PARAMS%r(COOP_INDEX_DE) &
             )
+       call COOP_COSMO%add_species(coop_global_de)
+       COOP_COSMO%de_genre = COOP_PERT_NONE                     
     case(COOP_DE_W0WA)
+       coop_global_cdm = coop_cdm(COOP_OMEGACH2/h**2)
+       call COOP_COSMO%add_species(coop_global_cdm)                    
        coop_global_de = coop_de_w0wa( &
             COOP_COSMO%Omega_k()-COOP_OMEGAK, &
             COOP_COSMO_PARAMS%r(COOP_INDEX_DE), &
             COOP_COSMO_PARAMS%r(COOP_INDEX_DE+1) &
             )
+       call COOP_COSMO%add_species(coop_global_de)
+       COOP_COSMO%de_genre = COOP_PERT_NONE                     
     case(COOP_DE_QUINTESSENCE)
-      coop_global_de = coop_de_quintessence( &
+       coop_global_cdm = coop_cdm(COOP_OMEGACH2/h**2)
+       call COOP_COSMO%add_species(coop_global_cdm)                    
+       coop_global_de = coop_de_quintessence( &
             COOP_COSMO%Omega_k()-COOP_OMEGAK, &
             COOP_COSMO_PARAMS%r(COOP_INDEX_DE), &
             COOP_COSMO_PARAMS%r(COOP_INDEX_DE+1), &
             COOP_COSMO_PARAMS%r(COOP_INDEX_DE+2) &
             )
+       call COOP_COSMO%add_species(coop_global_de)
+       COOP_COSMO%de_genre = COOP_PERT_NONE              
     case(COOP_DE_COUPLED_QUINTESSENCE)
-       coop_global_de = coop_de_coupled_quintessence( &
-            COOP_COSMO%Omega_k() - COOP_OMEGAK, &
-            COOP_COSMO_PARAMS%r(COOP_INDEX_DE), &
-            COOP_COSMO_PARAMS%r(COOP_INDEX_DE+1), &
-            COOP_COSMO_PARAMS%r(COOP_INDEX_DE+2), &
-            COOP_COSMO_PARAMS%r(COOP_INDEX_DE+3) &
-            )
-       if( COOP_COSMO_PARAMS%r(COOP_INDEX_DE+4) .gt. 0.d0)then
-          !!iterate Q coupling equations
-          if(COOP_MNU .gt. 0.d0)then
-             call coop_de_iterate_coupling_equations( COOP_COSMO_PARAMS%r(COOP_INDEX_DE+4), COOP_COSMO_PARAMS%r(COOP_INDEX_DE+5), coop_global_radiation%Omega + coop_global_massless_neutrinos%Omega, coop_global_de, coop_global_baryon, coop_global_cdm, coop_global_massive_neutrinos)
-          else
-             call coop_de_iterate_coupling_equations( COOP_COSMO_PARAMS%r(COOP_INDEX_DE+4) , COOP_COSMO_PARAMS%r(COOP_INDEX_DE+5), coop_global_radiation%Omega + coop_global_massless_neutrinos%Omega, coop_global_de, coop_global_baryon, coop_global_cdm)
-          endif
-       endif
+       call coop_background_add_coupled_DE(COOP_COSMO, Omega_c = COOP_OMEGACH2/h**2, Q =  COOP_COSMO_PARAMS%r(COOP_INDEX_DE), tracking_n =  COOP_COSMO_PARAMS%r(COOP_INDEX_DE+1), dlnQdphi =  COOP_COSMO_PARAMS%r(COOP_INDEX_DE+2), dUdphi =  COOP_COSMO_PARAMS%r(COOP_INDEX_DE+3), d2Udphi2 =  COOP_COSMO_PARAMS%r(COOP_INDEX_DE+4))
+       COOP_COSMO%de_genre = COOP_PERT_SCALAR_FIELD       
+       coop_global_cdm = COOP_COSMO%species(COOP_COSMO%index_of("CDM"))
+       coop_global_de = COOP_COSMO%species(COOP_COSMO%index_of("Dark Energy"))       
     case default
        stop "UNKNOWN DARK ENERGY MODEL"
     end select
-    call COOP_COSMO%add_species(coop_global_de)
+    if(COOP_COSMO%h().le.0.d0)return  !!rejected model
     if(coop_global_cosmology_do_firstorder .or. coop_global_cosmology_do_background)then
        call COOP_COSMO%setup_background()
     endif
@@ -182,7 +189,7 @@ contains
 
 
   subroutine coop_setup_global_cosmology()
-    COOP_REAL,parameter::hmin = 0.5, hmax = 0.9
+    COOP_REAL,parameter::hmin = 0.5d0, hmax = 0.9d0
     COOP_REAL hl, hr, hm, tl, tr, tm
     hl = hmin
     call coop_setup_global_cosmology_with_h(hl)

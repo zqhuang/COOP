@@ -272,7 +272,7 @@ replace_all("camb/equations_ppf.f90", \
               function_pattern('grho_de', 'a')],
             [ r'#include "constants.h"\nmodule LambdaGeneral \nuse coop_wrapper', \
               r'is_cosmological_constant = .false.', \
-              r'function w_de(a)\n real(dl) w_de, a\n w_de = coop_global_de%wofa(COOP_REAL_OF(a)) \n end function w_de', \
+              r'function w_de(a)\n real(dl) w_de, a\n w_de = coop_global_de%weffofa(COOP_REAL_OF(a)) \n end function w_de', \
               r'function grho_de(a)\n real(dl) grho_de, a\n grho_de = grhov*coop_global_de%rhoa4_ratio(COOP_REAL_OF(a)) \n end function grho_de'] )
 
 replace_first("camb/power_tilt.f90", [line_pattern(r'module initialpower'), function_pattern('ScalarPower', r'k,ix'), function_pattern('TensorPower', r'k,ix')], [r'module InitialPower\n use coop_wrapper', r'function scalarPower(k, ix)\n real(dl) scalarpower, k\n integer ix\n scalarpower = coop_primordial_ps(k)\n end function scalarpower', r'function tensorPower(k, ix)\n real(dl) tensorPower, k\n integer ix \n tensorPower = coop_primordial_pt(k) \n end function tensorPower'])
