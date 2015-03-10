@@ -60,23 +60,24 @@ contains
 
     if(present(h))then
        if(present(want_firstorder))then
-          call coop_setup_global_cosmology_with_h(COOP_REAL_OF(h), want_firstorder)          
+          call coop_setup_global_cosmology_with_h(COOP_REAL_OF(h), want_firstorder = want_firstorder)          
        else
           call coop_setup_global_cosmology_with_h(COOP_REAL_OF(h))
        endif
     endif
   end subroutine coop_setup_cosmology_from_cosmomc_s
 
-  subroutine coop_setup_cosmology_from_cosmomc_d(params, h)
+  subroutine coop_setup_cosmology_from_cosmomc_d(params, h, want_firstorder)
     doubleprecision params(:)
     double precision, optional::h
+    logical,optional::want_firstorder    
     call COOP_COSMO_PARAMS%init(r = COOP_REAL_OF(params), i = (/ cosmomc_de_model, cosmomc_de_index, cosmomc_de_num_params, cosmomc_pp_model, cosmomc_de_index + cosmomc_de_num_params + cosmomc_de2pp_num_params, cosmomc_pp_num_params /), l = (/ cosmomc_pp_inflation_consistency /) )
     if(COOP_INFLATION_CONSISTENCY)then
        COOP_NT = - COOP_AMP_RATIO / 8.d0
     endif
     if(present(h))then
        if(present(want_firstorder))then
-          call coop_setup_global_cosmology_with_h(COOP_REAL_OF(h), want_firstorder)          
+          call coop_setup_global_cosmology_with_h(COOP_REAL_OF(h), want_firstorder = want_firstorder)          
        else
           call coop_setup_global_cosmology_with_h(COOP_REAL_OF(h))
        endif       
