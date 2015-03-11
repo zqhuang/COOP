@@ -423,6 +423,20 @@ contains
     ps = coop_primordial_ps(kMpc)
     pt = coop_primordial_pt(kMpc)
   end subroutine coop_pp_get_power
+
+
+  !!in the coupled DE case, this gives the "effective dark energy" density ratio (@scale factor = a vs. @today).
+  !!The "effective dark energy" includes the scalar field and non-conserved part of CDM (rho_CDM - rho_CDM_conserved),  where rho_CDM_conserved is extrapolated from early time when the coupling between CDM and DE can be ignored.
+  function coop_global_cosmology_DE_Rhoa4_Ratio_eff(a) result(rhoa4)
+    COOP_REAL a, rhoa4, omc_early
+    COOP_REAL,parameter::a_early = 1.d-8    
+    if(coop_global_de%genre .eq. COOP_SPECIES_COUPLED)then
+       omc_early = coop_global_cdm%omega * coop_global_cdm%rhoa3_ratio(a_early) 
+       rhoa4 = ( coop_global_de%rhoa3_ratio(a) * coop_global_de%omega + coop_global_cdm%rhoa3_ratio(a) * coop_global_cdm%omega - omc_early ) * a / (coop_global_de%omega +  coop_global_cdm%omega - omc_early) 
+    else
+       rhoa4 = coop_global_de%rhoa4_ratio(a)
+    endif
+  end function coop_global_cosmology_DE_Rhoa4_Ratio_eff
   
 
 end module coop_wrapper

@@ -19,7 +19,6 @@ program test
   !! Q = Q0 exp( A * phi)
   !! Q0 = de_Q,  A = de_dlnQdphi
   !!***************************************************
-
 !!$!!test energy conservation
   call fod%init_source(0)  
   ik = 1

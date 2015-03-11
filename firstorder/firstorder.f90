@@ -784,9 +784,8 @@ contains
     this%index_Nu = this%index_of("Massless Neutrinos", .true.)
     this%index_massiveNu = this%index_of("Massive Neutrinos")
     this%index_de = this%index_of("Dark Energy", .true.)
-
-    this%Omega_b = O0_BARYON(this)%Omega 
-    this%Omega_c = O0_CDM(this)%Omega 
+    this%Omega_b = O0_BARYON(this)%Omega
+    this%Omega_c = O0_CDM(this)%Omega
     this%Omega_g = O0_RADIATION(this)%Omega 
     if(this%index_massiveNu .ne. 0)then
        call coop_fermion_get_lnam(log(O0_MASSIVENU(this)%Omega/O0_MASSIVENU(this)%Omega_massless), this%mnu_by_Tnu)

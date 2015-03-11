@@ -18,6 +18,9 @@ default: $(LIB)
 $(LIB):	$(OBJ) 
 	ar -r $@ $?
 
+Test: $(OBJ) test.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
+
 clean:
 	rm -f *.o *.*~ *.mod \#* *.a Makefile~ 
 
