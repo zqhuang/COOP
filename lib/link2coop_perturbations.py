@@ -326,7 +326,7 @@ list_param_replace = [r'#include "constants.h"\nmodule CosmologyParameterization
                       r'this%H0_max = 90. \n call Ini%read("use_max_zre", this%use_max_zre)', \
                       r'call this%SetTheoryParameterNumbers(cosmomc_de_index + cosmomc_de_num_params+cosmomc_de2pp_num_params-1, cosmomc_pp_num_params)', \
                       r'call coop_setup_cosmology_from_cosmomc(params, H0/100.d0)\nend subroutine setForH', \
-                      r"         call setfast(params, CMB)\n    call coop_setup_cosmology_from_cosmomc(params)\n    call coop_setup_pp()" , \
+                      r"         call setfast(params, CMB)\n    call coop_setup_cosmology_from_cosmomc(params)\n " , \
                       r"adjustl(trim(cosmomc_paramnames))", \
                       r'\1\n real(mcp)::use_max_zre = 20.', \
                       r' if (CMB%zre < this%Use_min_zre .or. CMB%zre > this%use_max_zre) return \n ']
