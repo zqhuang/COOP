@@ -133,6 +133,7 @@ module coop_healpix_mod
      procedure :: stack_on_peaks  =>     coop_healpix_maps_stack_on_peaks
      procedure:: mask_peaks => coop_healpix_mask_peaks
      procedure::rotate_coor => coop_healpix_maps_rotate_coor
+     procedure:: distr_nu_e => coop_healpix_maps_distr_nu_e
   end type coop_healpix_maps
 
   type coop_healpix_patch
@@ -3749,6 +3750,52 @@ contains
     stop "You need to install healpix"
 #endif    
   end subroutine coop_healpix_maps_rotate_coor
+
+
+  subroutine coop_healpix_maps_distr_nu_e(this, mask, numin, numax, emin, emax, nnu, ne, output)
+    class(coop_healpix_maps)::this
+    type(coop_healpix_maps)::mask
+    COOP_REAL:: numin, numax, emin, emax, nu, e, dnu, de, sigmaI
+    COOP_INT:: nnu, ne, indexL, indexQ, indexU, indexI,  inu, ie, i
+    COOP_REAL::density(nnu, ne)
+    COOP_UNKNOWN_STRING::output
+    type(coop_asy)::fig
+    indexI = 1
+    indexQ = 2
+    indexU = 3
+    if(nnu .le. 1 .or. ne .le. 1)stop "distr_nu_e: nnu and ne must be >1"
+    select case(this%nmaps)
+    case(3)
+       indexL = 1
+    case(4)
+       indexL = 4
+    case default
+       stop "distr_nu_e only supports nmaps = 3 or 4"
+    end select
+    sigmaI = sqrt(sum(dble(this%map(:,indexI)*mask%map(:,1))**2)/sum(dble(mask%map(:,1))))
+    dnu = (numax- numin)/(nnu-1)
+    de = (emax - emin)/(ne-1)
+    density = 0.d0
+    do i = 0, this%npix - 1
+       nu = this%map(i, indexI)/sigmaI
+       e = (this%map(i, indexQ)**2 + this%map(i, indexU)**2)/max(this%map(i, indexL)**2, 1.d-20)
+       inu = nint((nu-numin)/dnu + 1.d0)
+       if(inu .lt. 1 .or. inu .gt. nnu)then
+          cycle
+       endif
+       ie = nint((e-emin)/de + 1.d0)
+       if(ie.lt.1 .or. ie .gt. ne)then
+          cycle
+       endif
+       density(inu, ie) = density(inu, ie) + 1.d0
+    enddo
+    density = log10(max(density/(dnu*de), 1.d-10))
+    call fig%open(output)
+    call fig%init(xlabel = "$\nu$", ylabel = "$e$")
+    call fig%density(density, numin, numax, emin, emax, "$\log_{10}{\frac{d^2N}{d\nu de}}$")
+    
+    call fig%close()
+  end subroutine coop_healpix_maps_distr_nu_e
 
 end module coop_healpix_mod
 

@@ -10,37 +10,13 @@ program test
   use alm_tools
   use udgrade_nr
   use coord_v_convert,only:coordsys2euler_zyz
-#endif
-  
+#endif  
   implicit none
 #include "constants.h"
-  type(coop_file)::fp
-  type(coop_healpix_maps)::hp, hpc, im
-  COOP_INT i, list(8), nneigh, nmax, nmin
-  call im%read("simu/simu_i_smoothed_fwhm20arcmin.fits")
-  call im%convert2nested()  
-  call hp%read("planck14/dx11_v2_common_int_mask_010a_1024.fits")  
-  call hp%convert2nested()
-  hpc = hp
-  nmax = 0
-  nmin = 0
-  do i=0, hp%npix-1
-     if(hpc%map(i,1).gt.0.5)then
-        call neighbours_nest(hpc%nside, i, list, nneigh)
-        if(any(hpc%map(list(1:nneigh), 1) .lt. 0.5))then
-           hp%map(i,1) = 0.
-        else
-           if( im%map(i,1).gt.0. .and. all(im%map(list(1:nneigh), 1) .le. im%map(i, 1)) )then
-              nmax = nmax + 1
-           elseif( im%map(i,1).lt.0. .and. all(im%map(list(1:nneigh), 1) .ge. im%map(i, 1)))then
-              nmin = nmin + 1
-           endif
-           
-        endif
-     endif
-  enddo
+  type(coop_healpix_maps)::map, mask
+  call map%read("tuhin/dust_TQUL_015a_b30-500_n512.fits", nmaps_wanted = 4)
+  call mask%read("planck14/lat30_mask_n512.fits")
+  call map%distr_nu_e(mask = mask, numin = -5.d0, numax = 8.d0, emin = 0.d0, emax = 2.d0, nnu = 50, ne = 50, output = "CMB_nue_distr.txt")
 
   
-  print*, sum(dble(hp%map))/hp%npix*2417.6*coop_4pi
-  print*, nmax, nmin
 end program test

@@ -11,12 +11,12 @@ program Exp_spots
   logical::do_max 
   COOP_UNKNOWN_STRING,parameter::minmax = "max"
   COOP_UNKNOWN_STRING,parameter::ap = "planck"
-  COOP_UNKNOWN_STRING,parameter::resol = "10"
-  COOP_STRING::peak_name = "$T$"
-  COOP_STRING::orient_name = "NULL"
-  COOP_STRING::map_file = "planck14/dx11_v2_smica_int_cmb_010a_1024.fits" ! "act15/"//ap//"_i_hp_230_270_smoothed_fwhm"//resol//"arcmin.fits"
-  COOP_STRING::imask_file = "planck14/dx11_v2_common_int_mask_010a_1024.fits" !"act15/act15_imask.fits"
-  COOP_STRING::polmask_file = "" !"act15/act15_polmask.fits"
+  COOP_UNKNOWN_STRING,parameter::resol = "15"
+  COOP_STRING::peak_name = "RANDOM"
+  COOP_STRING::orient_name = "$(\nabla^2 Q_T, \nabla^2 U_T)$"
+  COOP_STRING::map_file = "tuhin/dust_TQUL_015a_b30-500_n512.fits"
+  COOP_STRING::imask_file = "planck14/lat30_mask_n512.fits"
+  COOP_STRING::polmask_file = "planck14/lat30_mask_n512.fits"
   COOP_STRING::mask_file_force_to_use = ""
   
   type(coop_stacking_options)::sto
@@ -25,7 +25,7 @@ program Exp_spots
   COOP_REAL::threshold = 0.
   COOP_STRING::line
   COOP_INT::i
-  output =  "peaks/"//ap//"_nu"//COOP_STR_OF(nint(threshold))//"_T"//minmax//"_"//resol//"a"
+  output =  ""
   do_max = (minmax .eq. "max")
   
   if(iargc() .ge. 8)then

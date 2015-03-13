@@ -522,7 +522,7 @@ contains
     select case(trim(coop_str_numalpha(orient_name)))
     case("QU")
        this%mask_pol = .true.
-    case("QTUT")
+    case("QTUT", "QLTULT")
        this%mask_int = .true.
     end select
   end subroutine coop_stacking_options_init
@@ -623,6 +623,7 @@ contains
        angle = COOP_POLAR_ANGLE(dble(map(this%index_Q)),dble(map(this%index_U)))/2.d0
        if(this%addpi) angle = angle + coop_rand01()*coop_pi
     case default
+       write(*,*) this%genre
        stop "rotate_angle: unknown genre"
     end select
   end function coop_stacking_options_rotate_angle
@@ -656,7 +657,7 @@ contains
     if(i.gt. this%peak_pix%n) stop "rotate_angle: pix overflow"
     call this%peak_map%get_element(i, map)    
     select case(this%genre)
-    case(coop_stacking_genre_Imax, coop_stacking_genre_Imin)
+    case(coop_stacking_genre_Imax, coop_stacking_genre_Imin, coop_stacking_genre_random_hot, coop_stacking_genre_random_cold)
        call random_number(angle)
        angle = angle*coop_2pi
        e = 0.d0
@@ -670,7 +671,7 @@ contains
        angle = angle*coop_2pi
        e = 0.d0
        r = 0.d0
-    case(coop_stacking_genre_Imax_Oriented, coop_stacking_genre_Imin_Oriented)
+    case(coop_stacking_genre_Imax_Oriented, coop_stacking_genre_Imin_Oriented, coop_stacking_genre_random_hot_oriented, coop_stacking_genre_random_cold_oriented)
        angle = COOP_POLAR_ANGLE(map(this%index_Q), map(this%index_U))
        if(this%index_L .gt. 0)then
           e = min(sqrt(map(this%index_Q)**2 + map(this%index_U)**2)/max(abs(map(this%index_L)),1.d-20), 0.99d0)
@@ -687,6 +688,7 @@ contains
        e = 0.d0
        r = 0.d0
     case default
+       write(*,*) this%genre
        stop "rotate_angle: unknown genre"
     end select
     r = min(sqrt(abs(map(this%index_I))/max(abs(map(this%index_L)),1.d-20)), max_radius)
