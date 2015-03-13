@@ -3,7 +3,7 @@ program test
   implicit none
 #include "constants.h"
   COOP_REAL::Q0 = 0.2d0
-  COOP_REAL::tracking_n = 0.2d0
+  COOP_REAL::tracking_n = 0.3d0
   type(coop_cosmology_firstorder)::fod
   COOP_INT,parameter::lmin = 2, lmax = 2000
   COOP_REAL, dimension(coop_num_Cls, lmin:lmax)::Cls_scalar, Cls_tensor, Cls_lensed
@@ -21,14 +21,16 @@ program test
   !! Q = Q0 exp( A * phi)
   !! Q0 = de_Q,  A = de_dlnQdphi
   !!***************************************************
-!!$!!test energy conservation
-!!$  call fod%init_source(0)  
-!!$  ik = 1
-!!$  do while(fod%source(0)%k(ik).lt. 1.d0)
-!!$     ik = ik + 1
-!!$  enddo
-!!$  call fod%compute_source_k(fod%source(0), ik, do_test_energy_conservation = .true.)
-!!$  stop
+!!test energy conservation
+  call fod%init_source(0)  
+  ik = 1
+  do while(fod%source(0)%k(ik).lt. 1.d0)
+     ik = ik + 1
+  enddo
+  call fod%compute_source_k(fod%source(0), ik, do_test_energy_conservation = .true.)
+  print*, fod%source(0)%saux(3, ik,  fod%source(0)%ntau),  fod%source(0)%saux(2, ik,  fod%source(0)%ntau)- fod%source(0)%saux(3, ik,  fod%source(0)%ntau)
+  
+  stop
   
   
   !!compute Cl's

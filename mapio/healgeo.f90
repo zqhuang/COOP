@@ -3789,7 +3789,7 @@ contains
        endif
        density(inu, ie) = density(inu, ie) + 1.d0
     enddo
-    density = log10(max(density/(dnu*de), 1.d-10))
+    density = log10(max(density/(dnu*de), 1.d-5))
     call fig%open(output)
     call fig%init(xlabel = "$\nu$", ylabel = "$e$")
     call fig%density(density, numin, numax, emin, emax, "$\log_{10}{\frac{d^2N}{d\nu de}}$")

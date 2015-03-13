@@ -271,6 +271,9 @@ replace_all("source/Makefile", [r"^\s*(FFLAGS\s*=.*)$", r"^\s*(F90CRLINK\s*=.*)$
 
 replace_all("camb/modules.f90", [r'^(\s*subroutine\s+inithermo\s*\(\s*taumin\s*\,\s*taumax\s*\)\s*(\!.*)?)$', r'call\s+Recombination\_Init\s*\(\s*CP\%Recomb\s*\,\s*CP\%omegac\s*\,\s*CP\%omegab'], [r'\1\n use coop_wrapper', 'call Recombination_Init(CP%Recomb, CP%Omegac*coop_global_cdm%density_ratio(1.d0/1090.d0)/1090.d0**3, CP%Omegab*coop_global_cdm%density_ratio(1.d0/1090.d0)/1090.d0**3'])
 
+
+replace_first("camb/camb.f90", [r'if\s*\(\s*Params%WantCls\s*\.and\.\s*Params%WantScalars\s*\)\s*then'], [r'call coop_global_cosmology_set_firstorder() \n     if (Params%WantCls .and. Params%WantScalars) then'])
+
 replace_all("camb/equations_ppf.f90", \
             [ line_pattern(r"module lambdageneral"),  \
               r'is_cosmological_constant\s*=.+', \
@@ -317,13 +320,13 @@ list_param_pattern = [line_pattern(r'module cosmologyparameterizations'), \
 
 
 list_param_replace = [r'#include "constants.h"\nmodule CosmologyParameterizations\n use coop_wrapper', \
-                      r'H0_min = 55.', \
-                      r'H0_max = 85.', \
-                      r'this%H0_min = 55.', \
-                      r'this%H0_max = 85. \n call Ini%read("use_max_zre", this%use_max_zre)', \
+                      r'H0_min = 50.', \
+                      r'H0_max = 90.', \
+                      r'this%H0_min = 50.', \
+                      r'this%H0_max = 90. \n call Ini%read("use_max_zre", this%use_max_zre)', \
                       r'call this%SetTheoryParameterNumbers(cosmomc_de_index + cosmomc_de_num_params+cosmomc_de2pp_num_params-1, cosmomc_pp_num_params)', \
-                      r'call coop_setup_cosmology_from_cosmomc(params, H0/100.d0, want_firstorder = (cosmomc_de_model == 4) )\nend subroutine setForH', \
-                      r"call setfast(params, CMB)\n call coop_setup_cosmology_from_cosmomc(params)\n call coop_setup_pp()", \
+                      r'call coop_setup_cosmology_from_cosmomc(params, H0/100.d0)\nend subroutine setForH', \
+                      r"         call setfast(params, CMB)\n    call coop_setup_cosmology_from_cosmomc(params)\n    call coop_setup_pp()" , \
                       r"adjustl(trim(cosmomc_paramnames))", \
                       r'\1\n real(mcp)::use_max_zre = 20.', \
                       r' if (CMB%zre < this%Use_min_zre .or. CMB%zre > this%use_max_zre) return \n ']

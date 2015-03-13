@@ -54,9 +54,16 @@ contains
     logical,optional::want_firstorder
     call COOP_COSMO_PARAMS%init(r = COOP_REAL_OF(params), i = (/ cosmomc_de_model, cosmomc_de_index, cosmomc_de_num_params, cosmomc_pp_model, cosmomc_de_index + cosmomc_de_num_params + cosmomc_de2pp_num_params, cosmomc_pp_num_params /), l = (/ cosmomc_pp_inflation_consistency /)  )
 
+    
     if(COOP_INFLATION_CONSISTENCY)then
        COOP_NT = - COOP_AMP_RATIO / 8.d0
     endif
+    COOP_COSMO%As = 1.d-10 * exp(COOP_LN10TO10AS)
+    COOP_COSMO%ns = COOP_NS
+    COOP_COSMO%nrun = COOP_NRUN
+    COOP_COSMO%r =  COOP_AMP_RATIO
+    COOP_COSMO%nt = COOP_NT
+    COOP_COSMO%inflation_consistency = COOP_INFLATION_CONSISTENCY
 
     if(present(h))then
        if(present(want_firstorder))then
@@ -72,9 +79,18 @@ contains
     double precision, optional::h
     logical,optional::want_firstorder    
     call COOP_COSMO_PARAMS%init(r = COOP_REAL_OF(params), i = (/ cosmomc_de_model, cosmomc_de_index, cosmomc_de_num_params, cosmomc_pp_model, cosmomc_de_index + cosmomc_de_num_params + cosmomc_de2pp_num_params, cosmomc_pp_num_params /), l = (/ cosmomc_pp_inflation_consistency /) )
+
+    
     if(COOP_INFLATION_CONSISTENCY)then
        COOP_NT = - COOP_AMP_RATIO / 8.d0
     endif
+    COOP_COSMO%As = 1.d-10 * exp(COOP_LN10TO10AS)
+    COOP_COSMO%ns = COOP_NS
+    COOP_COSMO%nrun = COOP_NRUN
+    COOP_COSMO%r =  COOP_AMP_RATIO
+    COOP_COSMO%nt = COOP_NT
+    COOP_COSMO%inflation_consistency = COOP_INFLATION_CONSISTENCY
+    
     if(present(h))then
        if(present(want_firstorder))then
           call coop_setup_global_cosmology_with_h(COOP_REAL_OF(h), want_firstorder = want_firstorder)          
@@ -176,30 +192,35 @@ contains
     call COOP_COSMO%setup_background()        
   end subroutine coop_global_cosmology_setup_background
 
-  subroutine coop_global_cosmology_setup_firstorder(do_lensing)
-    logical,optional::do_lensing
+  subroutine coop_global_cosmology_setup_firstorder()
     type(coop_arguments) args
     COOP_INT l
+
     if(COOP_COSMO%need_setup_background)call coop_global_cosmology_setup_background()
     COOP_COSMO%optre = COOP_TAU
     call COOP_COSMO%set_xe()
-    COOP_COSMO%As = 1.d-10 * exp(COOP_LN10TO10AS)
-    COOP_COSMO%ns = COOP_NS
-    COOP_COSMO%nrun = COOP_NRUN
-    COOP_COSMO%r =  COOP_AMP_RATIO
-    COOP_COSMO%nt = COOP_NT
-    COOP_COSMO%inflation_consistency = COOP_INFLATION_CONSISTENCY
-    call coop_setup_pp()
-    call COOP_COSMO%set_power(coop_pp_get_power, args)
     call COOP_COSMO%compute_source(0)
-    do l = coop_pp_lmin, coop_pp_lmax
-       coop_pp_ells(l) = dble(l)
-    enddo
-
-    call COOP_COSMO%source(0)%get_all_Cls(coop_pp_lmin, coop_pp_lmax, coop_pp_scalar_Cls)       
     if(COOP_COSMO%has_tensor)then
        call COOP_COSMO%compute_source(2)
-       call COOP_COSMO%source(2)%get_all_Cls(coop_pp_lmin, coop_pp_lmax, coop_pp_tensor_Cls)
+    endif
+    call coop_global_cosmology_compute_Cls()
+  end subroutine coop_global_cosmology_setup_firstorder
+
+
+  subroutine coop_global_cosmology_compute_Cls(do_lensing)
+    logical,save::init = .true.
+    logical,optional::do_lensing
+    COOP_INT::l
+    if(init)then
+       do l = coop_pp_lmin, coop_pp_lmax
+          coop_pp_ells(l) = dble(l)
+       enddo
+       init = .false.
+    endif
+    call coop_setup_pp()
+    call COOP_COSMO%source(0)%get_all_Cls(coop_pp_lmin, coop_pp_lmax, coop_pp_scalar_Cls)       
+    if(COOP_COSMO%has_tensor)then
+       call COOP_COSMO%source(2)%get_all_Cls(coop_pp_lmin, coop_pp_lmax, coop_pp_tensor_Cls)       
     else
        coop_pp_tensor_cls = 0.d0
     endif
@@ -213,7 +234,8 @@ contains
        coop_pp_lensed_Cls  = 0.d0
     endif
     coop_pp_total_cls = coop_pp_scalar_cls + coop_pp_lensed_cls + coop_pp_tensor_cls
-  end subroutine coop_global_cosmology_setup_firstorder
+    
+  end subroutine coop_global_cosmology_compute_Cls
 
 
   subroutine coop_setup_global_cosmology()
@@ -280,6 +302,7 @@ contains
     COOP_REAL,dimension(:),allocatable::lnk, lnps, lnps2
     COOP_REAL  dlnk
     COOP_INT  coop_pp_nleft, coop_pp_nright, nknots, i
+    type(coop_arguments)::args
     select case(COOP_PP_MODEL)
     case(COOP_PP_STANDARD)
        call coop_set_uniform(coop_pp_n, coop_pp_lnkMpc, coop_pp_lnkmin, coop_pp_lnkmax)
@@ -352,6 +375,7 @@ contains
        coop_pp_lnpt = -50.d0
        coop_pp_lnpt2 = 0.d0
     endif
+    call COOP_COSMO%set_power(coop_pp_get_power, args)    
   end subroutine coop_setup_pp
 
 
