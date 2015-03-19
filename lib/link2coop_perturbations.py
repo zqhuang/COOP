@@ -272,7 +272,7 @@ replace_all("source/Makefile", [r"^\s*(FFLAGS\s*=.*)$", r"^\s*(F90CRLINK\s*=.*)$
 replace_all("camb/modules.f90", [r'^(\s*subroutine\s+inithermo\s*\(\s*taumin\s*\,\s*taumax\s*\)\s*(\!.*)?)$', r'call\s+Recombination\_Init\s*\(\s*CP\%Recomb\s*\,\s*CP\%omegac\s*\,\s*CP\%omegab'], [r'\1\n use coop_wrapper', 'call Recombination_Init(CP%Recomb, CP%Omegac*coop_global_cdm%density_ratio(1.d0/1090.d0)/1090.d0**3, CP%Omegab*coop_global_cdm%density_ratio(1.d0/1090.d0)/1090.d0**3'])
 
 
-replace_first("camb/camb.f90", [r'^\s*subroutine\s*CAMB_GetResults\s*\(.*\)\s*(!.*)?$', r'if\s*\(\s*Params%WantCls\s*\.and\.\s*Params%WantScalars\s*\)\s*then'], [r'    subroutine CAMB_GetResults(Params, error)\n   use coop_wrapper', r'call coop_global_cosmology_set_firstorder() \n     if (Params%WantCls .and. Params%WantScalars) then'])
+replace_first("camb/camb.f90", [r'^\s*subroutine\s*CAMB_GetResults\s*\(.*\)\s*(!.*)?$', r'if\s*\(\s*Params%WantCls\s*\.and\.\s*Params%WantScalars\s*\)\s*then'], [r'    subroutine CAMB_GetResults(Params, error)\n   use coop_wrapper', r'call coop_global_cosmology_setup_firstorder() \n     if (Params%WantCls .and. Params%WantScalars) then'])
 
 replace_all("camb/equations_ppf.f90", \
             [ line_pattern(r"module lambdageneral"),  \

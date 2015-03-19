@@ -17,6 +17,10 @@ $(LIB): $(OBJ)
 Test: $(OBJ) test.o $(TYPEDEF)/libcooptypedef.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
 
+MPLOT: $(OBJ) makeplot.o $(TYPEDEF)/libcooptypedef.a
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) makeplot.o $(LINK)
+
+
 Enc: $(OBJ) encrypt.o $(TYPEDEF)/libcooptypedef.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) encrypt.o $(LINK)
 

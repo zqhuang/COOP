@@ -8,22 +8,15 @@ program Stacking_Maps
   logical::use_mask = .true.
   logical::remove_mono = .false.
   
-  COOP_UNKNOWN_STRING,parameter::maxmin = "max"
-  COOP_UNKNOWN_STRING,parameter::thr = "1"    
-  COOP_UNKNOWN_STRING,parameter::ap = "act15"  
-  COOP_UNKNOWN_STRING,parameter::resol = "15"
-  COOP_UNKNOWN_STRING,parameter::smap = "planck"
-
-  
-  COOP_STRING::stack_field_name = "T"
-  COOP_STRING::map_file =  "tuhin/dust_TQUL_015a_b30-500_n512.fits"
-  COOP_STRING::peak_file = "dust_field_points.dat"
-  COOP_STRING::imask_file = "planck14/lat30_mask_n512.fits"
-  COOP_STRING::polmask_file = "planck14/lat30_mask_n512.fits"
+  COOP_STRING::stack_field_name = "QrUr"
+  COOP_STRING::map_file = "act15/act15_pol_hp_230_270_smoothed_fwhm5arcmin.fits"
+  COOP_STRING::imask_file = "act15/act15_imask.fits"
+  COOP_STRING::polmask_file = "act15/act15_polmask.fits"
+  COOP_STRING::peak_file = "peaks/act15_nu1_fp.dat"
   COOP_UNKNOWN_STRING,parameter::mask_file_force_to_use = ""
   
   COOP_INT,parameter::n = 36
-  COOP_REAL,parameter::r_degree  = 4.d0
+  COOP_REAL,parameter::r_degree  = 2.d0
   COOP_REAL,parameter::dr = 2.d0*sin(r_degree*coop_SI_degree/2.d0)/n
   logical::makepdf = .false.
   type(coop_stacking_options)::sto
@@ -38,7 +31,8 @@ program Stacking_Maps
   COOP_STRING::line  
   type(coop_asy)::fig
   COOP_REAL::tmax
-  output = "stacked/dust_field_points"
+  
+  output = "stacked/act15_QrUr_nu1_5arcmin_fpts"
   if(iargc() .ge. 6)then
      use_mask = .true.
      map_file = coop_InputArgs(1)
@@ -61,11 +55,10 @@ program Stacking_Maps
      endif
   else
      makepdf = .true.
-     coop_healpix_patch_default_want_arrow = .true.     
      coop_healpix_patch_default_want_caption = .true.
      coop_healpix_patch_default_want_label  = .true.
-     coop_healpix_patch_default_figure_width = 5.
-     coop_healpix_patch_default_figure_height = 4.3     
+     coop_healpix_patch_default_figure_width = 3.5
+     coop_healpix_patch_default_figure_height = 3.   
      coop_healpix_mask_tol = 0.d0
      if(.not. use_mask)then
         write(*,*) "Warning: not using the mask"

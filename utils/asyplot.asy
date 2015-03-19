@@ -925,7 +925,7 @@ string plot_extra_axis(file fin){
 void plot_rightaxis(){
   picture q;
   if(rightaxis_ylog){
-    q=secondaryY(new void(picture pic) {
+    q=secondaryY(primary = mypic, new void(picture pic) {
         if(xlog)
              scale(pic,Log,Log);
         else
@@ -934,7 +934,7 @@ void plot_rightaxis(){
         yaxis(pic, rightaxis_label, XEqualsRight(cxmax), coorpen, LeftTicks("", begin=false,end=false));
         });}
   else{
-    q=secondaryY(new void(picture pic) {
+    q=secondaryY(primary = mypic, new void(picture pic) {
          if(xlog)
             scale(pic,Log,Linear);
          else
@@ -943,7 +943,7 @@ void plot_rightaxis(){
          yaxis(pic, rightaxis_label, XEqualsRight(cxmax),coorpen, LeftTicks("", begin=false,end=false));
         });}
 
-   add(mypic, q);
+   add(dest = mypic, src = q);
 }
 
 
@@ -952,7 +952,7 @@ void plot_rightaxis(){
 void plot_topaxis(){
   picture q;
  if(topaxis_xlog){
-    q=secondaryX(new void(picture pic) {
+    q=secondaryX(primary = mypic, new void(picture pic) {
     if(ylog)
        scale(pic,Log,Log);
     else
@@ -961,7 +961,7 @@ void plot_topaxis(){
     xaxis(pic, topaxis_label, YEqualsTop(cymax), coorpen, RightTicks("", begin=false,end=false));
         });}
  else{
-   q=secondaryX(new void(picture pic) {
+   q=secondaryX(primary = mypic, new void(picture pic) {
    if(ylog)
        scale(pic, Linear, Log);
    else
@@ -969,7 +969,7 @@ void plot_topaxis(){
    xlimits(pic, topaxis_xmin, topaxis_xmax);
    xaxis(pic, topaxis_label, YEqualsTop(cymax), coorpen, RightTicks("",  begin=false, end=false));
         });}
- add(mypic, q);}
+ add(dest = mypic, src = q);}
 
 
 // =============================================================================

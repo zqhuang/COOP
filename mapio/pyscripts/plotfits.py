@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 import healpy as hp
 
 
-NSIDE = 512
-m = hp.read_map("../dust_peaks.fits")
-hp.mollview(map = m, title = "peak catalog $e>0.6,\ I>0.5 \sigma_0$", cbar = False)
-plt.savefig("peaks.pdf", format="pdf")
+m = hp.read_map("../planck14/smica_masked.fits")
+m = m * 1.e6
+hp.mollview(map = m, title = "Planck Full-mission Temperature Map", cbar = True, min = -420., max = 420., unit="$\mu K$", xsize = 600)
+plt.savefig("planckmap_full_mission.pdf", format="pdf")

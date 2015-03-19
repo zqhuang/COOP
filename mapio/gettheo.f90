@@ -12,7 +12,9 @@ program stackth
   implicit none
 #include "constants.h"
 
-#ifdef HAS_HEALPIX  
+#ifdef HAS_HEALPIX
+  logical::normalize_sigma0 = .true.
+  COOP_REAL::sigma0_norm = 59.141857614604476d0
   integer, parameter::lmin = 2, lmax=2500, index_TT = 1, index_TE = 4, index_EE=2
   COOP_REAL, parameter:: r_degree = 2.d0
   COOP_REAL, parameter:: width = 2.d0*sin(r_degree*coop_SI_degree/2.d0)
@@ -21,8 +23,8 @@ program stackth
   logical,parameter::flat = .false. !!use nonflat is actually faster
   !!settings
   logical,parameter::do_highpass = .true.
-  COOP_INT,parameter::hp_lowl = 20
-  COOP_INT,parameter::hp_highl = 40  
+  COOP_INT,parameter::hp_lowl = 230
+  COOP_INT,parameter::hp_highl = 270  
   integer::index_corr = index_TT 
   integer::index_auto = index_TT
   COOP_STRING::clfile != "planck14_best_cls.dat"  !! "planckbest_lensedtotCls.dat" !! 
@@ -99,9 +101,9 @@ program stackth
      ell(l)  = l
      l2cls(:,l) = l2cls(:, l)*(coop_2pi*exp(-l*(l+1.d0)*sigma**2))
      if(do_highpass)then
-        l2cls(2:3,l) = l2cls(2:3,l)*coop_highpass_filter(hp_lowl, hp_highl, l)**2
-        l2cls(4,l) = l2cls(4,l)*(coop_highpass_filter(hp_lowl, hp_highl, l))
-!       l2cls(:,l) = l2cls(:,l)*(coop_highpass_filter(hp_lowl, hp_highl, l))**2        
+!!$        l2cls(2:3,l) = l2cls(2:3,l)*coop_highpass_filter(hp_lowl, hp_highl, l)**2
+!!$        l2cls(4,l) = l2cls(4,l)*(coop_highpass_filter(hp_lowl, hp_highl, l))
+       l2cls(:,l) = l2cls(:,l)*(coop_highpass_filter(hp_lowl, hp_highl, l))**2        
      endif
      cls(:,l) = l2cls(:,l)/(l*(l+1.d0))
      if(il.ne.l) stop "cl file broken"
@@ -110,6 +112,11 @@ program stackth
 
   call fp%close()
   sigma0 = sqrt(sum(Cls(index_auto,:)*(ell+0.5d0))/coop_2pi)
+  if(normalize_sigma0)then
+     Cls = Cls*(sigma0_norm/sigma0)**2
+     l2Cls = L2Cls*(sigma0_norm/sigma0)**2
+     sigma0 = sigma0_norm
+  endif
   sigma1 = sqrt(sum(l2Cls(index_auto,:)*(ell+0.5d0))/coop_2pi)
   sigma2 = sqrt(sum(l2Cls(index_auto,:)*(ell+0.5d0)*(ell*(ell+1.d0)))/coop_2pi)
   cosbeta = sigma1**2/sigma0/sigma2

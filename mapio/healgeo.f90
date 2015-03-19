@@ -24,11 +24,11 @@ module coop_healpix_mod
   logical::coop_healpix_IAU_headless_vector = .true.
   COOP_REAL::coop_healpix_QrUrSign = -1.d0  !!WMAP7 invented this...
   
-  COOP_SINGLE::coop_healpix_patch_default_figure_width = 4.
-  COOP_SINGLE::coop_healpix_patch_default_figure_height = 3.
-  logical::coop_healpix_patch_default_want_caption = .false.
-  logical::coop_healpix_patch_default_want_label = .false.
-  logical::coop_healpix_patch_default_want_arrow = .false.
+  COOP_SINGLE::coop_healpix_patch_default_figure_width = 4.5
+  COOP_SINGLE::coop_healpix_patch_default_figure_height = 3.9
+  logical::coop_healpix_patch_default_want_caption = .true.
+  logical::coop_healpix_patch_default_want_label = .true.
+  logical::coop_healpix_patch_default_want_arrow = .true.
   logical::coop_healpix_warning = .true.
   
   public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_trim_maskfile, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask, coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow, coop_healpix_warning, coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise

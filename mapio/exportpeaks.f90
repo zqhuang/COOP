@@ -10,22 +10,20 @@ program Exp_spots
   
   logical::do_max 
   COOP_UNKNOWN_STRING,parameter::minmax = "max"
-  COOP_UNKNOWN_STRING,parameter::ap = "planck"
-  COOP_UNKNOWN_STRING,parameter::resol = "15"
   COOP_STRING::peak_name = "RANDOM"
-  COOP_STRING::orient_name = "$(\nabla^2 Q_T, \nabla^2 U_T)$"
-  COOP_STRING::map_file = "tuhin/dust_TQUL_015a_b30-500_n512.fits"
-  COOP_STRING::imask_file = "planck14/lat30_mask_n512.fits"
-  COOP_STRING::polmask_file = "planck14/lat30_mask_n512.fits"
+  COOP_STRING::orient_name = "RANDOM"
+  COOP_STRING::map_file = "act15/planck_i_hp_230_270_smoothed_fwhm5arcmin.fits"
+  COOP_STRING::imask_file = "act15/act15_imask.fits"
+  COOP_STRING::polmask_file = "act15/act15_polmask.fits"
   COOP_STRING::mask_file_force_to_use = ""
   
   type(coop_stacking_options)::sto
   type(coop_healpix_maps)::hgm, mask
   COOP_STRING::output 
-  COOP_REAL::threshold = 0.
+  COOP_REAL::threshold = 1.
   COOP_STRING::line
   COOP_INT::i
-  output =  ""
+  output =  "peaks/act15_nu1_fp"
   do_max = (minmax .eq. "max")
   
   if(iargc() .ge. 8)then
