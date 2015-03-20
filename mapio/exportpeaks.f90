@@ -11,8 +11,8 @@ program Exp_spots
   logical::do_max 
   COOP_UNKNOWN_STRING,parameter::minmax = "max"
   COOP_STRING::peak_name = "RANDOM"
-  COOP_STRING::orient_name = "RANDOM"
-  COOP_STRING::map_file = "act15/planck_i_hp_230_270_smoothed_fwhm5arcmin.fits"
+  COOP_STRING::orient_name = "$(Q_T, U_T)$"
+  COOP_STRING::map_file = "act15/planck_i_hp_230_270_smoothed_fwhm5arcmin_converted_to_TQTUT.fits"
   COOP_STRING::imask_file = "act15/act15_imask.fits"
   COOP_STRING::polmask_file = "act15/act15_polmask.fits"
   COOP_STRING::mask_file_force_to_use = ""
@@ -23,7 +23,7 @@ program Exp_spots
   COOP_REAL::threshold = 1.
   COOP_STRING::line
   COOP_INT::i
-  output =  "peaks/act15_nu1_fp"
+  output =  "peaks/act15_nu1_ort_fp"
   do_max = (minmax .eq. "max")
   
   if(iargc() .ge. 8)then

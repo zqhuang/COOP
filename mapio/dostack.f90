@@ -8,8 +8,8 @@ program Stacking_Maps
   logical::use_mask = .true.
   logical::remove_mono = .false.
   
-  COOP_STRING::stack_field_name = "QrUr"
-  COOP_STRING::map_file = "act15/act15_pol_hp_230_270_smoothed_fwhm5arcmin.fits"
+  COOP_STRING::stack_field_name = "T"
+  COOP_STRING::map_file = "act15/act15_i_hp_230_270_smoothed_fwhm5arcmin.fits"
   COOP_STRING::imask_file = "act15/act15_imask.fits"
   COOP_STRING::polmask_file = "act15/act15_polmask.fits"
   COOP_STRING::peak_file = "peaks/act15_nu1_fp.dat"
@@ -32,7 +32,7 @@ program Stacking_Maps
   type(coop_asy)::fig
   COOP_REAL::tmax
   
-  output = "stacked/act15_QrUr_nu1_5arcmin_fpts"
+  output = "stacked/act15_"//trim(stack_field_name)//"_nu1_5arcmin_fpts"
   if(iargc() .ge. 6)then
      use_mask = .true.
      map_file = coop_InputArgs(1)

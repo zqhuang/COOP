@@ -199,7 +199,37 @@ contains
        intv = GF_CONST*coop_integrate(coop_gaussian_peak_Gv, max(nu, -5.d0), 6.d0, args, 1.d-7)
     endif
   end function coop_gaussian_peak_intv
-  
+
+
+  subroutine coop_gaussian_get_fieldpoints_nonoriented_stacking_weights(nu, args, weights)
+    type(coop_arguments)::args
+    COOP_REAL::nu
+    COOP_REAL::  weights(4)
+    weights(1) = exp(-nu**2/2.d0)/GF_SIGMA0/(sqrt(coop_pio2)*erfc(nu/coop_sqrt2))
+    weights(2:4) = 0.d0
+  end subroutine coop_gaussian_get_fieldpoints_nonoriented_stacking_weights
+
+
+
+  subroutine coop_gaussian_get_fieldpoints_oriented_stacking_weights(nu, args, weights)
+    type(coop_arguments)::args
+    COOP_REAL::nu
+    COOP_REAL:: nmax, weights(4)
+    A(1,1) = 1.d0
+    A(2,2) = 1.d0
+    A(1,2) = GF_COS_BETA
+    A(2,1) = GF_COS_BETA
+    weights(1) = exp(-nu**2/2.d0)/GF_SIGMA0/(sqrt(coop_pio2)*erfc(nu/coop_sqrt2))
+    weights(2) = 0.d0
+    weights(3) = coop_sqrt2
+    weights(4) = -coop_sqrt2*GF_COS_BETA
+    weights(1) = weights(1)/GF_SIGMA0
+    weights(2) = weights(2)/GF_SIGMA2
+    weights(3:4) = matmul(A, weights(3:4))*(coop_sqrt2/GF_SIN_BETA**2)
+    weights(3) = weights(3)/GF_SIGMA0
+    weights(4) = weights(4)/GF_SIGMA2
+  end subroutine coop_gaussian_get_fieldpoints_oriented_stacking_weights
+
   subroutine coop_gaussian_get_nonoriented_stacking_weights(nu, args, weights)
     type(coop_arguments)::args
     COOP_REAL nu

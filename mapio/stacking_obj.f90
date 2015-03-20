@@ -60,8 +60,8 @@ module coop_stacking_mod
      COOP_SINGLE::P2byL2_upper = 1.e15
      COOP_INT::threshold_option = 0
      logical::addpi = .true.  !!randomly add pi on polarization directions
-     logical::angzero = .false.  !!do not rotate
-     logical::nested = .false.
+     logical::angzero = .true.  !!do not rotate
+     logical::nested = .true.
      type(coop_list_integer)::peak_pix
      type(coop_list_realarr)::peak_ang
      type(coop_list_realarr)::peak_map
@@ -470,6 +470,8 @@ contains
           this%index_L = 1
           this%threshold_option = 1
        case default
+          write(*,*) this%genre
+          write(*,*) nmaps
           stop "nmaps does not match stacking option"
        end select
     case(2)
@@ -483,6 +485,8 @@ contains
           this%index_L = 2
           this%threshold_option = 5          
        case default
+          write(*,*) this%genre
+          write(*,*) nmaps
           stop "nmaps does not match stacking option"          
        end select
     case(3)

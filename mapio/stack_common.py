@@ -88,7 +88,7 @@ spots_pmax = getspots(polmap, True, "$P$", "$(Q,U)$")
 #stack(bmap, spots_tmax, "B")
 #stack(zetamap, spots_tmax, "zeta")
 stack(polmap, spots_tmax, "QrUr", zmin = -0.27, zmax = 0.37)
-#stack(polmap, spots_tmin, "QrUr")
+stack(polmap, spots_tmin, "QrUr", zmax = 0.27, zmin = -0.37)
 #stack(polmap, spots_tmax, "QU")
 #stack(tqtutmap, spots_tmax, "QTUT")
 

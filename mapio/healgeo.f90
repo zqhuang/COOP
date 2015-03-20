@@ -431,8 +431,17 @@ contains
        xlabel = "$\varpi\cos\phi (\mathrm{deg})$"
        ylabel = "$\varpi\sin\phi (\mathrm{deg})$"
     endif
+    this%caption = adjustl(this%caption)
     if(coop_healpix_patch_default_want_caption)then
-       call fig%init(caption = trim(this%caption), xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)))
+       if(len_trim(this%caption) .gt. 60)then
+          call fig%init(caption = "{\tiny "//trim(this%caption)//"}", xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)))
+       elseif(len_trim(this%caption) .gt. 50)then
+          call fig%init(caption = "{\scriptsize "//trim(this%caption)//"}", xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)))
+       elseif(len_trim(this%caption) .gt. 40)then
+          call fig%init(caption = "{\small "//trim(this%caption)//"}", xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)))       
+       else
+          call fig%init(caption = trim(this%caption), xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)))
+       endif
     else
        call fig%init(xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)))          
     endif
@@ -453,10 +462,10 @@ contains
     endif
     if(use_rad .and. coop_healpix_patch_default_want_arrow)then
        theta = nint(2.d0*asin(this%r(this%n)/2.d0)/coop_SI_degree*10.d0)/10.d0
-       call coop_asy_label(fig, "$\mathbf{-"//COOP_STR_OF(theta)//"}^\circ$", -this%r(this%n)*1.02, -this%r(this%n)*1.15, color="blue")
-       call coop_asy_label(fig, "$\mathbf{"//COOP_STR_OF(theta)//"}^\circ$", this%r(this%n)*1.02, -this%r(this%n)*1.15, color="blue")
-       call fig%arrow(this%r(this%n),  -this%r(this%n)*1.08, this%r(this%n),  -this%r(this%n)*1.01)
-       call fig%arrow(-this%r(this%n),  -this%r(this%n)*1.08, -this%r(this%n),  -this%r(this%n)*1.01)
+       call coop_asy_label(fig, "$\mathbf{-"//COOP_STR_OF(theta)//"}^\circ$", -this%r(this%n)*1.02, -this%r(this%n)*1.21, color="blue")
+       call coop_asy_label(fig, "$\mathbf{"//COOP_STR_OF(theta)//"}^\circ$", this%r(this%n)*1.02, -this%r(this%n)*1.21, color="blue")
+       call fig%arrow(this%r(this%n),  -this%r(this%n)*1.1, this%r(this%n),  -this%r(this%n)*1.01)
+       call fig%arrow(-this%r(this%n),  -this%r(this%n)*1.1, -this%r(this%n),  -this%r(this%n)*1.01)
     endif
     if(this%tbs%spin(imap).eq.2 .and. this%tbs%headless_vector(imap) .and. this%nmaps .ge. 2)then
        if(imap .eq. this%nmaps)then

@@ -132,13 +132,15 @@ program stackth
      call coop_gaussian_get_nonoriented_stacking_weights(nu, args, weights)
   case("PTmax", "Pmax")
      call coop_gaussian_get_pmax_stacking_weights(nu, args, weights)
-  case("RANDOMmax")
-     weights(1) = exp(-nu**2/2.d0)/sigma0/(sqrt(coop_pio2)*erfc(nu/coop_sqrt2))
-     weights(2:) = 0.
-  case("RANDOMmin")
-     weights(1) = -exp(-nu**2/2.d0)/sigma0/(sqrt(coop_pio2)*erfc(nu/coop_sqrt2))
-     weights(2:) = 0.
+  case("RANDOMmax", "RANDOMmin")
+     call coop_gaussian_get_fieldpoints_nonoriented_stacking_weights(nu, args, weights)
+  case("RANDOMmax_QTUTOrient", "RANDOMmin_QTUTOrient")
+     call coop_gaussian_get_fieldpoints_oriented_stacking_weights(nu, args, weights)
+  case default
+     write(*,*) trim(spot_type)
+     stop "Unknown spot type"
   end select
+  
   write(*,*) "Weights = ", weights(1)*sigma0, weights(2)*sigma2, weights(3)*sigma0, weights(4)*sigma2
 
   do m=0,2
@@ -192,7 +194,7 @@ program stackth
      call coop_gaussian_radial_modes_I(weights, cr(:,:,i), frI(:, i))
      call coop_gaussian_radial_modes_QU(weights, cr(:,:,i), frQU(:, i))
   enddo
-  if(trim(spot_type) .eq. "Tmin_QTUTOrient" .or. trim(spot_type).eq. "Tmin")then
+  if(trim(spot_type) .eq. "Tmin_QTUTOrient" .or. trim(spot_type).eq. "Tmin" .or. trim(spot_type).eq. "RANDOMmin" .or. trim(spot_type).eq. "RANDOMmin_QTUTOrient")then
      frI(0,:) = -frI(0,:)
      frQU(1,:) = -frQU(1,:)
   endif
