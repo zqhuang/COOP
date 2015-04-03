@@ -12,7 +12,7 @@ program Exp_spots
   COOP_UNKNOWN_STRING,parameter::minmax = "max"
   COOP_STRING::peak_name = "RANDOM"
   COOP_STRING::orient_name = "$(Q_T, U_T)$"
-  COOP_STRING::map_file = "act15/planck_i_hp_230_270_smoothed_fwhm5arcmin_converted_to_TQTUT.fits"
+  COOP_STRING::map_file = "act15/act15_i_hp_230_270_smoothed_fwhm10arcmin_converted_to_TQTUT.fits"
   COOP_STRING::imask_file = "act15/act15_imask.fits"
   COOP_STRING::polmask_file = "act15/act15_polmask.fits"
   COOP_STRING::mask_file_force_to_use = ""

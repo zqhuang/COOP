@@ -421,7 +421,7 @@ contains
              this%genre = coop_stacking_genre_random_hot_Oriented
              this%caption = "random hot spots, "//trim(adjustl(Orient_name))//" oriented"
           else
-             if(p(1:2) .eq. "$P")then
+             if(trim(p).eq."P" .or. trim(p).eq."P_T" .or. p(1:2) .eq. "$P")then
                 this%genre = coop_stacking_genre_Pmax_Oriented             
              else
                 if(len_trim(p).gt. 9)then

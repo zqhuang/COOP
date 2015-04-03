@@ -25,6 +25,10 @@ DOCLS: $(OBJ) testcls.o $(BACKGROUND)/libcoopbackground.a
 OneMode: $(OBJ) test_one_mode.o $(BACKGROUND)/libcoopbackground.a 
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test_one_mode.o $(LINK)
 
+MCLS: $(OBJ) test_mult_cls.o $(BACKGROUND)/libcoopbackground.a 
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test_mult_cls.o $(LINK)
+
+
 Test: $(OBJ) test.o $(BACKGROUND)/libcoopbackground.a 
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
 

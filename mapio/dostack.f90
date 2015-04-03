@@ -8,15 +8,15 @@ program Stacking_Maps
   logical::use_mask = .true.
   logical::remove_mono = .false.
   
-  COOP_STRING::stack_field_name = "T"
-  COOP_STRING::map_file = "act15/act15_i_hp_230_270_smoothed_fwhm5arcmin.fits"
-  COOP_STRING::imask_file = "act15/act15_imask.fits"
-  COOP_STRING::polmask_file = "act15/act15_polmask.fits"
-  COOP_STRING::peak_file = "peaks/act15_nu1_fp.dat"
+  COOP_STRING::stack_field_name = "QU"
+  COOP_STRING::map_file = "planck14/smica_iqu.fits" !!"dust/dust_iqu.fits"
+  COOP_STRING::imask_file = "planck14/dx11_v2_common_int_mask_010a_1024.fits" !"planck14/lat30_mask_n1024.fits"
+  COOP_STRING::polmask_file = "planck14/dx11_v2_common_pol_mask_010a_1024.fits" !"planck14/lat30_mask_n1024.fits"
+  COOP_STRING::peak_file = "peaks/smica_pnu1.dat"
   COOP_UNKNOWN_STRING,parameter::mask_file_force_to_use = ""
   
-  COOP_INT,parameter::n = 36
-  COOP_REAL,parameter::r_degree  = 2.d0
+  COOP_INT,parameter::n = 50
+  COOP_REAL,parameter::r_degree  = 7.d0
   COOP_REAL,parameter::dr = 2.d0*sin(r_degree*coop_SI_degree/2.d0)/n
   logical::makepdf = .false.
   type(coop_stacking_options)::sto
@@ -32,10 +32,15 @@ program Stacking_Maps
   type(coop_asy)::fig
   COOP_REAL::tmax
   
-  output = "stacked/act15_"//trim(stack_field_name)//"_nu1_5arcmin_fpts"
+  output = "stacked/smica_pnu1"
   if(iargc() .ge. 6)then
      use_mask = .true.
-     map_file = coop_InputArgs(1)
+     coop_healpix_patch_default_want_caption = .true.
+     coop_healpix_patch_default_want_label = .true.
+     coop_healpix_patch_default_want_arrow = .true.
+     coop_healpix_patch_default_figure_width = 4.5
+     coop_healpix_patch_default_figure_height = 3.9          
+     Map_file = coop_InputArgs(1)
      imask_file = coop_InputArgs(2)
      polmask_file = coop_InputArgs(3)     
      peak_file = coop_InputArgs(4)
@@ -57,8 +62,9 @@ program Stacking_Maps
      makepdf = .true.
      coop_healpix_patch_default_want_caption = .true.
      coop_healpix_patch_default_want_label  = .true.
+     coop_healpix_patch_default_want_arrow = .true.     
      coop_healpix_patch_default_figure_width = 3.5
-     coop_healpix_patch_default_figure_height = 3.   
+     coop_healpix_patch_default_figure_height = 3.1
      coop_healpix_mask_tol = 0.d0
      if(.not. use_mask)then
         write(*,*) "Warning: not using the mask"
@@ -94,6 +100,7 @@ program Stacking_Maps
      call hgm%stack_on_peaks(sto, patch)
   endif
   patch%caption = "stacked on "//COOP_STR_OF(sto%peak_pix%n)//" "//trim(sto%caption)
+  patch%color_table = "Planck"
   select case(patch%nmaps)
   case(1)
      patch%tbs%zmin(1) = zmin1

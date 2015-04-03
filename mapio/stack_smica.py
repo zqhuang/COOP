@@ -22,6 +22,7 @@ polmask = "planck14/dx11_v2_common_pol_mask_0" + str(fwhm_in) + "a_" + strnside 
 
 threshold = 0
 fwhm_out = 15
+#fwhm_in
 
 execfile("stack_common.py")
 

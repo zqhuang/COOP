@@ -134,9 +134,6 @@ program test
         call patch(i)%plot(imap = 1, output = trim(fout))
         patch(i)%color_table="Rainbow"
         call patch(i)%plot_fft(imap = 1, output = fout,label="Q")
-!!$        fout = prefix//trim(coop_ndigits(i,2))//"_U_on_"//trim(fname)
-!!$        call patch(i)%plot(imap = 2, output = trim(fout))
-!!$        call patch(i)%plot_fft(imap = 2, output = fout)        
      case("T", "E", "B", "I") 
         fout = prefix//trim(coop_ndigits(i,2))//"_"//spot_type//"_on_"//trim(fname)
         call patch(i)%plot(imap = 1, output =trim(fout))

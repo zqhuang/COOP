@@ -15,15 +15,15 @@ program test
   integer l, m, il
   type(coop_file)::fp
   COOP_UNKNOWN_STRING, parameter::prefix = "simu/simu"
-  logical,parameter::do_highpass = .false.
-  COOP_REAL::beam_fwhm = 20.
+  logical,parameter::do_highpass = .true.
+  COOP_REAL::beam_fwhm = 5.
   COOP_INT,parameter::llow = 230, lupper=270
   COOP_REAL sigma, w
   call coop_random_init()
   if(do_highpass)then
      print*, "Warning: high-pass filter is on"
   endif
-  call map%init(nside = 1024, nmaps=3, spin = (/ 0, 2, 2 /))
+  call map%init(nside = 2048, nmaps=3, spin = (/ 0, 2, 2 /))
 
   call map%allocate_alms(lmax=lmax)
   map%Cl = 0.

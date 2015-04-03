@@ -24,8 +24,8 @@ module coop_healpix_mod
   logical::coop_healpix_IAU_headless_vector = .true.
   COOP_REAL::coop_healpix_QrUrSign = -1.d0  !!WMAP7 invented this...
   
-  COOP_SINGLE::coop_healpix_patch_default_figure_width = 4.5
-  COOP_SINGLE::coop_healpix_patch_default_figure_height = 3.9
+  COOP_SINGLE::coop_healpix_patch_default_figure_width = 3.5
+  COOP_SINGLE::coop_healpix_patch_default_figure_height = 3.
   logical::coop_healpix_patch_default_want_caption = .true.
   logical::coop_healpix_patch_default_want_label = .true.
   logical::coop_healpix_patch_default_want_arrow = .true.
@@ -507,7 +507,7 @@ contains
                 theta = 0.5d0*COOP_POLAR_ANGLE(this%image(i,j,iq), this%image(i,j,iu))
              endif
              if(this%tbs%local_rotation(imap))then
-                theta  = theta + COOP_POLAR_ANGLE(xc, yc)
+                theta  = theta + COOP_POLAR_ANGLE(xc, yc) + (1.d0-coop_healpix_QrUrSign)*coop_pio4
              endif
              k = k + 1
              xstart(k) = xc - r*cos(theta)

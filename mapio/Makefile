@@ -20,6 +20,9 @@ all: $(LIB) UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo SST
 GetTheo:  $(OBJ) gettheo.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) gettheo.o $(LINK)
 
+ACTTheo:  $(OBJ) acttheo.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) acttheo.o $(LINK)
+
 GetPeaks:  $(OBJ) exportpeaks.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) exportpeaks.o $(LINK)
 

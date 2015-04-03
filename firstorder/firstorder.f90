@@ -56,6 +56,7 @@ private
 #include "recfast_head.h"
 
 
+
   type coop_cosmology_firstorder_source
      COOP_INT::m = 0
      COOP_INT::ntau = 0
@@ -111,7 +112,9 @@ private
      procedure:: set_Planck_bestfit_with_r =>coop_cosmology_firstorder_set_Planck_bestfit_with_r
      procedure:: set_klms => coop_cosmology_firstorder_set_klms
      procedure:: set_source_tau => coop_cosmology_firstorder_set_source_tau
+     procedure:: set_source_given_tau => coop_cosmology_firstorder_set_source_given_tau     
      procedure:: set_source_k => coop_cosmology_firstorder_set_source_k
+     procedure:: set_source_given_k => coop_cosmology_firstorder_set_source_given_k     
      procedure:: set_power => coop_cosmology_firstorder_set_power
      procedure:: set_xe => coop_cosmology_firstorder_set_xe
      procedure:: set_zre_from_optre => coop_cosmology_firstorder_set_zre_from_optre
@@ -539,10 +542,11 @@ contains
     endif
   end subroutine coop_cosmology_firstorder_compute_source
 
+
   subroutine coop_cosmology_firstorder_compute_source_k(this, source, ik, do_test_energy_conservation)
     class(coop_cosmology_firstorder)::this
     type(coop_cosmology_firstorder_source)::source
-    COOP_INT ik, nvars, nw, itau, iq
+    COOP_INT ik, nvars, itau, iq
     type(coop_pert_object) pert
     COOP_REAL, dimension(:,:),allocatable::w
     logical,optional::do_test_energy_conservation
@@ -556,12 +560,11 @@ contains
     ind = 1
     c = 0.d0
     nvars = pert%ny + 1
-    nw = nvars
-    allocate(w(nw, 9))
+    allocate(w(nvars, 9))
     w = 0.d0
     iq = 1
     do itau = 1, source%ntau
-       call coop_dverk_firstorder(nvars, coop_cosmology_firstorder_equations, this, pert, lna,   pert%y, source%lna(itau),  coop_cosmology_firstorder_ode_accuracy, ind, c, nw, w)
+       call coop_dverk_firstorder(nvars, coop_cosmology_firstorder_equations, this, pert, lna,   pert%y, source%lna(itau),  coop_cosmology_firstorder_ode_accuracy, ind, c, nvars, w)
        call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)
 
        !!for energy conservation test:
@@ -590,8 +593,7 @@ contains
           c = 0.d0
           deallocate(w)
           nvars = pert%ny + 1
-          nw = nvars
-          allocate(w(nw, 9))
+          allocate(w(nvars, 9))
        endif
        if(iq.le.coop_pert_default_nq)then
           do while(itau .eq. source%index_massivenu_on(iq))
@@ -602,8 +604,7 @@ contains
              c = 0.d0
              deallocate(w)
              nvars = pert%ny + 1
-             nw = nvars
-             allocate(w(nw, 9))
+             allocate(w(nvars, 9))
              iq = iq + 1
              if(iq .gt.coop_pert_default_nq) exit
           enddo
@@ -628,8 +629,7 @@ contains
           c = 0.d0
           deallocate(w)
           nvars = pert%ny + 1
-          nw = nvars
-          allocate(w(nw, 9))          
+          allocate(w(nvars, 9))          
        endif
     enddo
     deallocate(w)
@@ -931,11 +931,48 @@ contains
     dkappada = this%dkappadtau(a) / this%dadtau(a)
   end function coop_cosmology_firstorder_dkappada
 
+  subroutine coop_cosmology_firstorder_set_source_given_tau(this, source, tau)
+    class(coop_cosmology_firstorder_source)::source
+    class(coop_cosmology_firstorder)::this
+    COOP_REAL,dimension(:)::tau
+    COOP_INT i, n
+    n=size(tau)
+    source%ntau = n
+    if(allocated(source%a))then
+       if(size(source%a).ne.n)then
+          deallocate(source%a, source%tau, source%chi, source%dtau, source%tauc, source%lna)
+          allocate(source%a(n), source%tau(n), source%dtau(n), source%chi(n), source%tauc(n), source%lna(n))
+       endif
+    else
+       allocate(source%a(n), source%tau(n), source%dtau(n), source%chi(n),  source%tauc(n), source%lna(n))
+    endif
 
-  subroutine coop_cosmology_firstorder_set_source_tau(this, source, step_factor)
+    source%tau = tau
+    !$omp parallel do
+    do i=1, n
+       source%a(i) = this%aoftau(source%tau(i))
+    enddo
+    !$omp end parallel do
+
+    source%dtau(1) = source%tau(2) - source%tau(1)
+    do i = 2, n-1
+       source%dtau(i) = (source%tau(i+1) - source%tau(i-1))/2.d0
+    enddo
+    source%dtau(n) = source%tau(n) - source%tau(n-1)
+    source%chi = this%tau0 - source%tau
+    source%lna = log(source%a)
+    !$omp parallel do
+    do i=1, n
+       source%tauc(i) = this%taucofa(source%a(i))
+    enddo
+    !$omp end parallel do
+  end subroutine coop_cosmology_firstorder_set_source_given_tau
+
+  subroutine coop_cosmology_firstorder_set_source_tau(this, source, step_factor, tau_wanted)
     class(coop_cosmology_firstorder_source)::source
     class(coop_cosmology_firstorder)::this
     COOP_REAL step_factor
+    COOP_REAL,dimension(:), optional::tau_wanted
     !!basic stepsize
     COOP_REAL,parameter::step_ini = 8.2d-4
     COOP_REAL,parameter::step_min = 6.3d-4
@@ -950,14 +987,28 @@ contains
     COOP_REAL, parameter::slowvary = 1.02d0
     COOP_REAL step
     COOP_REAL a(nmax), tau(nmax), aend, tautmp
-    COOP_INT i, n
-
-
-
+    COOP_INT i, n, nw, iw
+    logical::check_input
     n = 1
+    if(present(tau_wanted))then
+       check_input = .true.
+       nw = size(tau_wanted)
+       iw = 1
+    else
+       check_input = .false.
+    endif
     aend = 1.d0/(1.d0+this%zrecomb_start)
     a(n) = aend/2.5d0
     tau(n) = this%tauofa(a(n))
+    if(check_input)then
+       if(tau(n) .gt. tau_wanted(iw) - 5.d-2*step*step_factor)then
+          tau(n) = tau_wanted(iw)
+          a(n) = this%aoftau(tau(n))
+          iw = iw + 1
+          check_input = (iw .le. nw)
+       endif
+    endif
+    
     step = step_ini
 
     do while(a(n).lt. aend)
@@ -971,6 +1022,14 @@ contains
        else
           a(n) = this%aoftau(tau(n))
        endif
+       if(check_input)then
+          if(tau(n) .gt. tau_wanted(iw) - 5.d-2*step*step_factor)then
+             tau(n) = tau_wanted(iw)
+             a(n) = this%aoftau(tau(n))
+             iw = iw + 1
+             check_input = (iw .le. nw)
+          endif
+       endif       
     enddo
 
     aend = 1.d0/(1.d0+this%zrecomb)
@@ -985,6 +1044,14 @@ contains
        else
           a(n) = this%aoftau(tau(n))
        endif
+       if(check_input)then
+          if(tau(n) .gt. tau_wanted(iw) - 5.d-2*step*step_factor)then
+             tau(n) = tau_wanted(iw)
+             a(n) = this%aoftau(tau(n))
+             iw = iw + 1
+             check_input = (iw .le. nw)
+          endif
+       endif              
        step = max(step_min, step/slowvary)
     enddo
 
@@ -1000,86 +1067,101 @@ contains
        else
           a(n) = this%aoftau(tau(n))
        endif
+       if(check_input)then
+          if(tau(n) .gt. tau_wanted(iw) - 5.d-2*step*step_factor)then
+             tau(n) = tau_wanted(iw)
+             a(n) = this%aoftau(tau(n))
+             iw = iw + 1
+             check_input = (iw .le. nw)
+          endif
+       endif                     
        step = min(step_recend, step*slowvary)
     enddo
-    
+    if(check_input)then
+       do while(iw .le. nw)
+          n = n + 1
+          tau(n) = tau_wanted(iw)
+          iw = iw + 1
+          a(n) = this%aoftau(tau(n))
+       enddo
+    else
+       if(this%optre.gt.0.01d0)then
+          aend = min(1.d0/(1.d0 + this%zre + this%deltaz), 0.5d0)
+          do while(a(n) .lt. aend)
+             n =n+1
+             if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
+             a(n) = a(n-1) * a_factor
+             tau(n) = tau(n-1) + step*step_factor
+             tautmp = this%tauofa(a(n))
+             if(tautmp .lt. tau(n))then
+                tau(n) = tautmp
+             else
+                a(n) = this%aoftau(tau(n))
+             endif
+             step = min(step_early, step*slowvary)
+          enddo
 
-    if(this%optre.gt.0.01d0)then
-       aend = min(1.d0/(1.d0 + this%zre + this%deltaz), 0.5d0)
-       do while(a(n) .lt. aend)
+          aend = min(1.d0/(1.d0 + this%zre), 0.5d0)
+          do while(a(n) .lt. aend)
+             n =n+1
+             if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
+             a(n) = a(n-1) * a_factor
+             tau(n) = tau(n-1) + step*step_factor
+             tautmp = this%tauofa(a(n))
+             if(tautmp .lt. tau(n))then
+                tau(n) = tautmp
+             else
+                a(n) = this%aoftau(tau(n))
+             endif
+             step = max(step_reion, step/vary)
+          enddo
+
+          aend = min(1.d0/(1.d0 + this%zre-this%deltaz), 0.5d0)
+          do while(a(n) .lt. aend)
+             n =n+1
+             if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
+             a(n) = a(n-1) * a_factor
+             tau(n) = tau(n-1) + step*step_factor
+             tautmp = this%tauofa(a(n))
+             if(tautmp .lt. tau(n))then
+                tau(n) = tautmp
+             else
+                a(n) = this%aoftau(tau(n))
+             endif
+             step = min(step_early, step*vary)
+          enddo
+       endif
+
+
+       do while((1.d0-this%Omega_m) * a(n)**3 .lt. 0.1d0) 
           n =n+1
           if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
-          a(n) = a(n-1) * a_factor
           tau(n) = tau(n-1) + step*step_factor
-          tautmp = this%tauofa(a(n))
-          if(tautmp .lt. tau(n))then
-             tau(n) = tautmp
-          else
+          if(tau(n) .lt. 0.989*this%tau0)then
              a(n) = this%aoftau(tau(n))
+             step = min(step_late, step*vary)
+          else
+             tau(n) = 0.99d0*this%tau0
+             a(n) = this%aoftau(tau(n))
+             exit
           endif
-          step = min(step_early, step*slowvary)
        enddo
 
-       aend = min(1.d0/(1.d0 + this%zre), 0.5d0)
-       do while(a(n) .lt. aend)
+       do 
           n =n+1
           if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
-          a(n) = a(n-1) * a_factor
           tau(n) = tau(n-1) + step*step_factor
-          tautmp = this%tauofa(a(n))
-          if(tautmp .lt. tau(n))then
-             tau(n) = tautmp
-          else
+          if(tau(n) .lt. 0.99*this%tau0)then
              a(n) = this%aoftau(tau(n))
-          endif
-          step = max(step_reion, step/vary)
-       enddo
-
-       aend = min(1.d0/(1.d0 + this%zre-this%deltaz), 0.5d0)
-       do while(a(n) .lt. aend)
-          n =n+1
-          if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
-          a(n) = a(n-1) * a_factor
-          tau(n) = tau(n-1) + step*step_factor
-          tautmp = this%tauofa(a(n))
-          if(tautmp .lt. tau(n))then
-             tau(n) = tautmp
+             step = max(step_isw, step/vary)
           else
+             tau(n) = 0.9995d0*this%tau0
              a(n) = this%aoftau(tau(n))
+             exit
           endif
-          step = min(step_early, step*vary)
        enddo
     endif
-
-
-    do while((1.d0-this%Omega_m) * a(n)**3 .lt. 0.1d0) 
-       n =n+1
-       if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
-       tau(n) = tau(n-1) + step*step_factor
-       if(tau(n) .lt. 0.989*this%tau0)then
-          a(n) = this%aoftau(tau(n))
-          step = min(step_late, step*vary)
-       else
-          tau(n) = 0.99d0*this%tau0
-          a(n) = this%aoftau(tau(n))
-          exit
-       endif
-    enddo
-
-    do 
-       n =n+1
-       if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
-       tau(n) = tau(n-1) + step*step_factor
-       if(tau(n) .lt. 0.99*this%tau0)then
-          a(n) = this%aoftau(tau(n))
-          step = max(step_isw, step/vary)
-       else
-          tau(n) = 0.9995d0*this%tau0
-          a(n) = this%aoftau(tau(n))
-          exit
-       endif
-    enddo
-
+    
     source%ntau = n
     if(allocated(source%a))then
        if(size(source%a).ne.n)then
@@ -1202,9 +1284,72 @@ contains
           if(source%index_massivenu_on(iq) .le. 1)exit
        enddo
     enddo
-   ! print*, source%ntau, source%index_massivenu_cold, source%index_massivenu_on
-
   end subroutine coop_cosmology_firstorder_set_source_k
+
+
+  subroutine coop_cosmology_firstorder_set_source_given_k(this, source, k)
+    class(coop_cosmology_firstorder)::this
+    class(coop_cosmology_firstorder_source)::source
+    COOP_REAL,dimension(:):: k
+    COOP_INT :: n, i, iq
+    this%k_pivot = this%kMpc_pivot/this%H0Mpc()
+    source%kweight = 1.d0
+    n = size(k)
+    source%nk = n
+    if(allocated(source%k))then
+       if(size(source%k).ne.n)then
+          deallocate(source%k, source%dk, source%index_tc_off, source%kop)
+          allocate(source%k(n), source%dk(n), source%index_tc_off(n), source%kop(n))
+       endif
+    else
+       allocate(source%k(n), source%dk(n), source%index_tc_off(n), source%kop(n))
+    endif
+    source%kmin = k(1)
+    source%kmax = k(n)
+    source%k = k
+
+    !!set index_tc_off
+    if(source%ntau .gt. 0 .and. allocated(source%tauc))then
+       source%index_tc_off = 1
+       do i = 1, n
+          do while(source%index_tc_off(i) .lt. source%index_tc_max .and. source%tauc(source%index_tc_off(i)+1)*source%k(i) .le. coop_cosmology_firstorder_tc_cutoff)
+             source%index_tc_off(i)= source%index_tc_off(i)+1
+          enddo
+       enddo
+    else
+       call coop_return_error("set_source_given_k", "You need to call set_source_tau before calling set_source_given_k", "stop")
+    endif
+    
+    !!set index_massivenu_on
+    if(this%mnu_by_Tnu*source%a(source%ntau) .lt. coop_pert_massivenu_threshold(1))then
+       source%index_massivenu_on = source%ntau + 1
+       source%index_massivenu_cold = source%ntau + 1
+       return
+    endif
+    source%index_massivenu_cold = source%ntau + 1
+    do while(this%mnu_by_Tnu*source%a(source%index_massivenu_cold-1) .gt. coop_pert_massivenu_cold_threshold)
+       source%index_massivenu_cold = source%index_massivenu_cold - 1
+       if(source%index_massivenu_cold .le. 1) exit
+    enddo
+
+    source%index_massivenu_on(coop_pert_default_nq) = source%index_massivenu_cold
+    iq = coop_pert_default_nq
+    if(source%index_massivenu_on(iq) .gt. 1)then
+       do while(this%mnu_by_Tnu*source%a(source%index_massivenu_on(iq)-1) .gt. coop_pert_massivenu_threshold(iq))
+          source%index_massivenu_on(iq) = source%index_massivenu_on(iq)-1
+          if(source%index_massivenu_on(iq) .le. 1)exit
+       enddo
+    endif
+    do iq = coop_pert_default_nq - 1, 1, -1
+       source%index_massivenu_on(iq) =  source%index_massivenu_on(iq+1)
+       if(source%index_massivenu_on(iq) .le. 1)cycle
+       do while(this%mnu_by_Tnu*source%a(source%index_massivenu_on(iq)-1) .gt. coop_pert_massivenu_threshold(iq))
+          source%index_massivenu_on(iq) = source%index_massivenu_on(iq)-1
+          if(source%index_massivenu_on(iq) .le. 1)exit
+       enddo
+    enddo
+  end subroutine coop_cosmology_firstorder_set_source_given_k
+  
 
   subroutine coop_cosmology_firstorder_source_k2kop(source, k, kop)
     class(coop_cosmology_firstorder_source)::source
@@ -1258,16 +1403,27 @@ contains
   end function coop_cosmology_firstorder_ptofk
 
 
+  
 
-  subroutine coop_cosmology_firstorder_init_source(this, m)
+  subroutine coop_cosmology_firstorder_init_source(this, m, tau, k)
     class(coop_cosmology_firstorder)::this
     COOP_INT :: m
+    COOP_REAL,dimension(:),optional::tau
+    COOP_REAL,dimension(:), optional::k
     this%source(m)%distlss = this%distlss
     this%source(m)%m = m
     this%source(m)%nsrc = coop_num_sources(m)
     this%source(m)%nsaux = coop_num_saux(m)
-    call this%set_source_tau(this%source(m), coop_source_tau_step_factor(m))
-    call this%set_source_k(this%source(m), coop_source_k_n(m), coop_source_k_weight(m))
+    if(present(tau))then
+       call this%set_source_tau(this%source(m), coop_source_tau_step_factor(m), tau_wanted = tau)
+    else
+       call this%set_source_tau(this%source(m), coop_source_tau_step_factor(m))
+    endif
+    if(present(k))then
+       call this%set_source_given_k(this%source(m), k)
+    else
+       call this%set_source_k(this%source(m), coop_source_k_n(m), coop_source_k_weight(m))
+    endif
     if(allocated(this%source(m)%s))then
        if(size(this%source(m)%s, 1) .ne. this%source(m)%ntau .or. size(this%source(m)%s, 2) .ne. this%source(m)%nk)then
           deallocate(this%source(m)%s, this%source(m)%s2, this%source(m)%saux)
@@ -1590,7 +1746,6 @@ contains
     !$omp end parallel do
     sigma = sqrt((sum(pk)*dlnk + pk(1)*(1.d0/3.d0 - dlnk/2.d0)))
   end function coop_cosmology_firstorder_sigma_Gaussian_R_quick
-
-
+  
 end module coop_firstorder_mod
 
