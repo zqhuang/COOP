@@ -139,6 +139,7 @@ private
      procedure:: free => coop_cosmology_firstorder_free
      procedure:: pert2source => coop_cosmology_firstorder_pert2source
      procedure:: init_source => coop_cosmology_firstorder_init_source
+     procedure:: allocate_source => coop_cosmology_firstorder_allocate_source     
      procedure:: compute_source =>  coop_cosmology_firstorder_compute_source
      procedure:: compute_source_k =>  coop_cosmology_firstorder_compute_source_k
      procedure:: get_matter_power => coop_cosmology_firstorder_get_matter_power
@@ -968,11 +969,12 @@ contains
     !$omp end parallel do
   end subroutine coop_cosmology_firstorder_set_source_given_tau
 
-  subroutine coop_cosmology_firstorder_set_source_tau(this, source, step_factor, tau_wanted)
+  subroutine coop_cosmology_firstorder_set_source_tau(this, source, step_factor, tau_wanted, indices)
     class(coop_cosmology_firstorder_source)::source
     class(coop_cosmology_firstorder)::this
     COOP_REAL step_factor
     COOP_REAL,dimension(:), optional::tau_wanted
+    COOP_INT,dimension(:),optional::indices
     !!basic stepsize
     COOP_REAL,parameter::step_ini = 8.2d-4
     COOP_REAL,parameter::step_min = 6.3d-4
@@ -987,13 +989,14 @@ contains
     COOP_REAL, parameter::slowvary = 1.02d0
     COOP_REAL step
     COOP_REAL a(nmax), tau(nmax), aend, tautmp
-    COOP_INT i, n, nw, iw
-    logical::check_input
+    COOP_INT i, n, nw, iw, j
+    logical::check_input, do_inds
     n = 1
     if(present(tau_wanted))then
        check_input = .true.
        nw = size(tau_wanted)
        iw = 1
+       do_inds = present(indices)
     else
        check_input = .false.
     endif
@@ -1003,6 +1006,7 @@ contains
     if(check_input)then
        if(tau(n) .gt. tau_wanted(iw) - 5.d-2*step*step_factor)then
           tau(n) = tau_wanted(iw)
+          if(do_inds)indices(iw) = n
           a(n) = this%aoftau(tau(n))
           iw = iw + 1
           check_input = (iw .le. nw)
@@ -1025,6 +1029,7 @@ contains
        if(check_input)then
           if(tau(n) .gt. tau_wanted(iw) - 5.d-2*step*step_factor)then
              tau(n) = tau_wanted(iw)
+             if(do_inds) indices(iw) = n
              a(n) = this%aoftau(tau(n))
              iw = iw + 1
              check_input = (iw .le. nw)
@@ -1047,6 +1052,7 @@ contains
        if(check_input)then
           if(tau(n) .gt. tau_wanted(iw) - 5.d-2*step*step_factor)then
              tau(n) = tau_wanted(iw)
+             if(do_inds) indices(iw) = n             
              a(n) = this%aoftau(tau(n))
              iw = iw + 1
              check_input = (iw .le. nw)
@@ -1070,6 +1076,7 @@ contains
        if(check_input)then
           if(tau(n) .gt. tau_wanted(iw) - 5.d-2*step*step_factor)then
              tau(n) = tau_wanted(iw)
+             if(do_inds) indices(iw) = n             
              a(n) = this%aoftau(tau(n))
              iw = iw + 1
              check_input = (iw .le. nw)
@@ -1079,8 +1086,9 @@ contains
     enddo
     if(check_input)then
        do while(iw .le. nw)
-          n = n + 1
+          n = n + 1          
           tau(n) = tau_wanted(iw)
+          if(do_inds) indices(iw) = n          
           iw = iw + 1
           a(n) = this%aoftau(tau(n))
        enddo
@@ -1403,6 +1411,44 @@ contains
   end function coop_cosmology_firstorder_ptofk
 
 
+  subroutine coop_cosmology_firstorder_allocate_source(this, m, source, tau, k, indices)
+    class(coop_cosmology_firstorder)::this
+    class(coop_cosmology_firstorder_source)::source
+    COOP_INT :: m
+    COOP_REAL,dimension(:),optional::tau
+    COOP_REAL,dimension(:), optional::k
+    COOP_INT,dimension(:), optional::indices
+    source%distlss = this%distlss
+    source%m = m
+    source%nsrc = coop_num_sources(m)
+    source%nsaux = coop_num_saux(m)
+    if(present(tau))then
+       if(present(indices))then
+          if(size(indices).eq.size(tau))then
+             call this%set_source_tau(source, coop_source_tau_step_factor(m), tau_wanted = tau, indices = indices)
+          else
+             stop "allocate_source: the size of tau and indices must be the same"
+          endif
+       else
+          call this%set_source_tau(source, coop_source_tau_step_factor(m), tau_wanted = tau)
+       endif
+    else
+       call this%set_source_tau(source, coop_source_tau_step_factor(m))
+    endif
+    if(present(k))then
+       call this%set_source_given_k(source, k)
+    else
+       call this%set_source_k(source, coop_source_k_n(m), coop_source_k_weight(m))
+    endif
+    if(allocated(source%s))then
+       if(size(source%s, 1) .ne. source%ntau .or. size(source%s, 2) .ne. source%nk)then
+          deallocate(source%s, source%s2, source%saux)
+          allocate(source%s(source%nsrc, source%nk , source%ntau), source%s2(source%nsrc, source%nk, source%ntau), source%saux(source%nsaux, source%nk, source%ntau) )
+       endif
+    else
+       allocate(source%s(source%nsrc, source%nk , source%ntau), source%s2(source%nsrc, source%nk, source%ntau), source%saux(source%nsaux, source%nk, source%ntau) )
+    endif
+  end subroutine coop_cosmology_firstorder_allocate_source
   
 
   subroutine coop_cosmology_firstorder_init_source(this, m, tau, k)
@@ -1746,6 +1792,39 @@ contains
     !$omp end parallel do
     sigma = sqrt((sum(pk)*dlnk + pk(1)*(1.d0/3.d0 - dlnk/2.d0)))
   end function coop_cosmology_firstorder_sigma_Gaussian_R_quick
+
+  subroutine coop_cosmology_firstorder_camb_DoSourceK(this, m, ik, kMpc, tauMpc, source, num_trans, tauMpc_trans, trans)
+    class(coop_cosmology_firstorder)::this
+    type(coop_cosmology_firstorder_source)::s
+    COOP_INT m, ik
+    COOP_INT, optional::num_trans
+    COOP_REAL,dimension(:),optional::tauMpc_trans
+    COOP_REAL kMpc, tauMpc(:), h0mpc, psi, phinewt, phiweyl
+    COOP_REAL,dimension(:,:,:)::source
+    COOP_REAL,dimension(:,:,:),optional::trans
+    COOP_INT::ntau, i, itf
+    COOP_INT,dimension(:),allocatable::indices
+    ntau = size(tauMpc)
+    allocate(indices(ntau))
+    h0mpc = this%H0Mpc()
+    call this%allocate_source(m = m, source = s, k = (/ kMpc/h0mpc /), tau = tauMpc*h0mpc, indices=indices)
+    call this%compute_source_k(s, 1)
+    source(ik, 1, :) = s%s(1, 1, indices)
+    source(ik, 2, :) = s%s(2, 1, indices) 
+    source(ik, 3, :) = s%s(3, 1, indices)
+    if(m .eq. 0 .and. present(trans))then
+       trans(1, ik, :) = kMpc/this%h()       
+       do itf = 1, num_trans
+          
+          call coop_linear_interp(s%ntau, s%tau, s%saux(3, 1, :), tauMpc_trans(itf)*h0mpc, psi)
+          call coop_linear_interp(s%ntau, s%tau, s%saux(2, 1, :), tauMpc_trans(itf)*h0mpc, phiweyl)
+          phinewt = phiweyl - psi
+          trans(7, ik, itf) = phinewt    !!check in CAMB, transfer_tot = 7
+          trans(10, ik, itf) =  phiweyl/2.d0  !!check in CAMB, transfer_weyl = 10
+       enddo
+    endif
+    deallocate(indices)
+  end subroutine coop_cosmology_firstorder_camb_DoSourceK
   
 end module coop_firstorder_mod
 
