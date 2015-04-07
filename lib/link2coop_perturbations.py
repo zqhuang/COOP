@@ -287,12 +287,9 @@ replace_all("camb/equations_ppf.f90", \
 
 replace_first("camb/cmbmain.f90", [r'subroutine\s+DoSourcek\s*\(\s*Ev\s*\,\s*q\_ix\s*\)\s*(\!.*)?\n(.*\n)+\s*end\s+subroutine\s+DoSourcek'], [r'subroutine DoSourcek(Ev, q_ix) \n use coop_wrapper \n#include "constants.h"\n integer q_ix \n   type(EvolutionVars) EV  \n if(CP%WantScalars .and. global_error_flag == 0) call COOP_COSMO%camb_dosourcek(0, q_ix, Evolve_q%points(q_ix), TimeSteps%points(2:TimeSteps%npoints), src(:,:,2:TimeSteps%npoints), CP%transfer%num_redshifts, tautf, MT%TransferData) \n if(CP%WantTensors .and. global_error_flag == 0) call COOP_COSMO%camb_dosourcek(2, q_ix, Evolve_q%points(q_ix), TimeSteps%points(2:TimeSteps%npoints), src(:,:,2:timesteps%npoints), CP%transfer%num_redshifts, tautf, MT%TransferData) \n end subroutine DoSourcek'] )
 
+replace_all("source/wl.f90", [r'useweyl\s*\=.*'], [ r'useweyl = .true.'])
 
-replace_first(r"source/Calculator_CAMB.f90", [r'^\s*P\%WantTransfer\s*\=.*$'], [r'P%WantTransfer = .false.'])
-
-replace_first("camb/power_tilt.f90", [line_pattern(r'module initialpower'), function_pattern('ScalarPower', r'k,ix'), function_pattern('TensorPower', r'k,ix')], [r'module InitialPower\n use coop_wrapper', r'function scalarPower(k, ix)\n real(dl) scalarpower, k\n integer ix\n scalarpower = coop_primordial_ps(k)\n end function scalarpower', r'function tensorPower(k, ix)\n real(dl) tensorPower, k\n integer ix \n tensorPower = coop_primordial_pt(k) \n end function tensorPower'])
-
-replace_first("source/CosmologyTypes.f90", [line_pattern(r'integer,parameter::max_inipower_params=\d+')], [r'integer, parameter:: max_inipower_params = 30'])
+replace_all("source/CosmologyTypes.f90", [r'use\_Weylpower\s*\=.*'], [ r'use_weylpower = .true.'])
 
 replace_first("source/settings.f90", [line_pattern(r'integer,parameter::max_theory_params=\d+')], [r'integer, parameter:: max_theory_params = 50 \n character(LEN=256)::cosmomc_paramnames = "'+default_params+'" '])
 
