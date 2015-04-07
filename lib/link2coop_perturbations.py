@@ -285,7 +285,7 @@ replace_all("camb/equations_ppf.f90", \
               r'function grho_de(a)\n real(dl) grho_de, a\n   grho_de = grhov * coop_global_cosmology_DE_rhoa4_ratio_eff(a) \n end function grho_de'] )
 
 
-replace_first("camb/cmbmain.f90", [r'subroutine\s+DoSourcek\s*\(\s*Ev\s*\,\s*q\_ix\s*\)\s*(\!.*)?\n(.*\n)+\s*end\s+subroutine\s+DoSourcek'], [r'subroutine DoSourcek(Ev, q_ix) \n use coop_wrapper \n   integer q_ix \n   type(EvolutionVars) EV  \n if(CP%WantScalars .and. global_error_flag == 0) call COOP_COSMO%camb_dosourcek(0, q_ix, Evolv_q%points(q_ix), TimeSteps%points(2:TimeSteps%npoints), src, CP%transfer%num_redshifts, tautf, MT%TransferData) \n if(CP%WantTensors .and. global_error_flag == 0) call COOP_COSMO%camb_dosourcek(2, q_ix, Evolv_q%points(q_ix), TimeSteps%points(2:TimeSteps%npoints), src, CP%transfer%num_redshifts, tautf, MT%TransferData) \n end subroutine DoSourcek'] )
+replace_first("camb/cmbmain.f90", [r'subroutine\s+DoSourcek\s*\(\s*Ev\s*\,\s*q\_ix\s*\)\s*(\!.*)?\n(.*\n)+\s*end\s+subroutine\s+DoSourcek'], [r'subroutine DoSourcek(Ev, q_ix) \n use coop_wrapper \n#include "constants.h"\n integer q_ix \n   type(EvolutionVars) EV  \n if(CP%WantScalars .and. global_error_flag == 0) call COOP_COSMO%camb_dosourcek(0, q_ix, Evolv_q%points(q_ix), TimeSteps%points(2:TimeSteps%npoints), src, CP%transfer%num_redshifts, tautf, MT%TransferData) \n if(CP%WantTensors .and. global_error_flag == 0) call COOP_COSMO%camb_dosourcek(2, q_ix, Evolv_q%points(q_ix), TimeSteps%points(2:TimeSteps%npoints), src, CP%transfer%num_redshifts, tautf, MT%TransferData) \n end subroutine DoSourcek'] )
 
 
 replace_first(r"source/Calculator_CAMB.f90", [r'^\s*P\%WantTransfer\s*\=.*$'], [r'P%WantTransfer = .false.'])
