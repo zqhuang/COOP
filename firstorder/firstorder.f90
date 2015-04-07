@@ -1810,9 +1810,9 @@ contains
     h0mpc = this%H0Mpc()
     call this%allocate_source(m = m, source = s, k = (/ kMpc/h0mpc /), tau = tauMpc*h0mpc, indices=indices)
     call this%compute_source_k(s, 1)
-    source(ik, 1, :) = s%s(1, 1, indices)
-    source(ik, 2, :) = s%s(2, 1, indices) 
-    source(ik, 3, :) = s%s(3, 1, indices)
+    source(ik, 1, :) = s%s(1, 1, indices)*h0mpc
+    source(ik, 2, :) = s%s(2, 1, indices)*h0mpc 
+    source(ik, 3, :) = s%s(3, 1, indices)*h0mpc
     if(m .eq. 0 .and. present(trans))then
        trans(1, ik, :) = kMpc/this%h()       
        do itf = 1, num_trans
