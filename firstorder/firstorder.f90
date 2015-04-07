@@ -147,6 +147,7 @@ private
      procedure:: sigma_Gaussian_R => coop_cosmology_firstorder_sigma_Gaussian_R
      procedure:: sigma_Gaussian_R_quick => coop_cosmology_firstorder_sigma_Gaussian_R_quick
      procedure::sigma_Gaussian_R_with_dervs => coop_cosmology_firstorder_sigma_Gaussian_R_with_dervs
+     procedure::camb_DoSourceK => coop_cosmology_firstorder_camb_DoSourceK     
   end type coop_cosmology_firstorder
 
 
@@ -1801,7 +1802,7 @@ contains
     COOP_REAL,dimension(:),optional::tauMpc_trans
     COOP_REAL kMpc, tauMpc(:), h0mpc, psi, phinewt, phiweyl
     COOP_REAL,dimension(:,:,:)::source
-    COOP_REAL,dimension(:,:,:),optional::trans
+    COOP_SINGLE,dimension(:,:,:),optional::trans
     COOP_INT::ntau, i, itf
     COOP_INT,dimension(:),allocatable::indices
     ntau = size(tauMpc)
@@ -1819,7 +1820,6 @@ contains
           call coop_linear_interp(s%ntau, s%tau, s%saux(3, 1, :), tauMpc_trans(itf)*h0mpc, psi)
           call coop_linear_interp(s%ntau, s%tau, s%saux(2, 1, :), tauMpc_trans(itf)*h0mpc, phiweyl)
           phinewt = phiweyl - psi
-          trans(7, ik, itf) = phinewt    !!check in CAMB, transfer_tot = 7
           trans(10, ik, itf) =  phiweyl/2.d0  !!check in CAMB, transfer_weyl = 10
        enddo
     endif

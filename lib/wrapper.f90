@@ -206,6 +206,15 @@ contains
     call coop_global_cosmology_compute_Cls()
   end subroutine coop_global_cosmology_setup_firstorder
 
+    subroutine coop_global_cosmology_prepare_from_camb()
+    type(coop_arguments) args
+    COOP_INT l
+    call coop_global_cosmology_setup_background()
+    COOP_COSMO%optre = COOP_TAU
+    call COOP_COSMO%set_xe()
+  end subroutine coop_global_cosmology_prepare_from_camb
+
+
 
   subroutine coop_global_cosmology_compute_Cls(do_lensing)
     logical,save::init = .true.
