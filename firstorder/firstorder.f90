@@ -546,13 +546,13 @@ contains
   end subroutine coop_cosmology_firstorder_compute_source
 
 
-  subroutine coop_cosmology_firstorder_compute_source_k(this, source, ik, do_test_energy_conservation)
+  subroutine coop_cosmology_firstorder_compute_source_k(this, source, ik, do_test_energy_conservation, transfer_only)
     class(coop_cosmology_firstorder)::this
     type(coop_cosmology_firstorder_source)::source
     COOP_INT ik, nvars, itau, iq
     type(coop_pert_object) pert
     COOP_REAL, dimension(:,:),allocatable::w
-    logical,optional::do_test_energy_conservation
+    logical,optional::do_test_energy_conservation, transfer_only
     COOP_REAL c(24)
     COOP_INT ind, i
     COOP_REAL tau_ini, lna, mnu_deltarho, mnu_deltav, T0i, T00
@@ -637,6 +637,9 @@ contains
     enddo
     deallocate(w)
     call pert%free()
+    if(present(transfer_only))then
+       if(transfer_only)return
+    endif
     call source%intbypart(ik)
   end subroutine coop_cosmology_firstorder_compute_source_k
 
@@ -1852,7 +1855,7 @@ contains
     h0mpc = this%H0Mpc()
     kbyH0 = kMpc/h0mpc
     call this%allocate_source(m = 0, source = s, k = (/ kbyH0 /), tau = tauMpc_trans*h0mpc, indices=indices)
-    call this%compute_source_k(s, 1)
+    call this%compute_source_k(s, 1, transfer_only = .true.)
     trans(1, ik, :) = kMpc/this%h()
     do itf = 1, num_trans
        psi = s%saux(3, 1, indices(itf))
