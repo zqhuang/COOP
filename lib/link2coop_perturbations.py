@@ -287,9 +287,9 @@ replace_all("camb/equations_ppf.f90", \
 
 replace_first("camb/cmbmain.f90", [subroutine_pattern('DoSourcek', 'Ev,q_ix'), r'call\s+GetTransfer\s*\(\s*Ev\s*\,\s*tau\)'], [r'subroutine DoSourcek(Ev, q_ix) \n use coop_wrapper \n#include "constants.h"\n integer q_ix \n   type(EvolutionVars) EV  \n if(CP%WantScalars .and. global_error_flag == 0) call COOP_COSMO%camb_dosourcek(0, q_ix, Evolve_q%points(q_ix), TimeSteps%points(2:TimeSteps%npoints), src(:,:,2:TimeSteps%npoints), CP%transfer%num_redshifts, tautf(1:CP%transfer%num_redshifts), MT%TransferData) \n if(CP%WantTensors .and. global_error_flag == 0) call COOP_COSMO%camb_dosourcek(2, q_ix, Evolve_q%points(q_ix), TimeSteps%points(2:TimeSteps%npoints), src(:,:,2:timesteps%npoints)) \n end subroutine DoSourcek', r'call COOP_COSMO%camb_gettransfer(q_ix, EV%q, CP%transfer%num_redshifts, tautf(1:CP%transfer%num_redshifts), MT%TransferData)'] )
 
-replace_all("source/wl.f90", [r'useweyl\s*\=.*'], [ r'useweyl = .true.'])
+#replace_all("source/wl.f90", [r'useweyl\s*\=.*'], [ r'useweyl = .true.'])
 
-replace_all("source/CosmologyTypes.f90", [r'use\_Weylpower\s*\=.*'], [ r'use_weylpower = .true.'])
+#replace_all("source/CosmologyTypes.f90", [r'use\_Weylpower\s*\=.*'], [ r'use_weylpower = .true.'])
 
 replace_first("source/settings.f90", [line_pattern(r'integer,parameter::max_theory_params=\d+')], [r'integer, parameter:: max_theory_params = 50 \n character(LEN=256)::cosmomc_paramnames = "'+default_params+'" '])
 
