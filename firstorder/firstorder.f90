@@ -147,7 +147,8 @@ private
      procedure:: sigma_Gaussian_R => coop_cosmology_firstorder_sigma_Gaussian_R
      procedure:: sigma_Gaussian_R_quick => coop_cosmology_firstorder_sigma_Gaussian_R_quick
      procedure::sigma_Gaussian_R_with_dervs => coop_cosmology_firstorder_sigma_Gaussian_R_with_dervs
-     procedure::camb_DoSourceK => coop_cosmology_firstorder_camb_DoSourceK     
+     procedure::camb_DoSourceK => coop_cosmology_firstorder_camb_DoSourceK
+     procedure::camb_getTransfer => coop_cosmology_firstorder_camb_GetTransfer
   end type coop_cosmology_firstorder
 
 
@@ -1833,6 +1834,41 @@ contains
     endif
     deallocate(indices)
   end subroutine coop_cosmology_firstorder_camb_DoSourceK
+
+
+  subroutine coop_cosmology_firstorder_camb_GetTransfer(this, ik, kMpc, num_trans, tauMpc_trans, trans)
+    class(coop_cosmology_firstorder)::this
+    type(coop_cosmology_firstorder_source)::s
+    COOP_INT ik
+    COOP_INT::num_trans
+    COOP_REAL,dimension(:)::tauMpc_trans
+    COOP_SINGLE,dimension(:,:,:)::trans
+    
+    COOP_REAL kMpc, h0mpc, psi, phinewt, phiweyl
+    COOP_INT:: i, itf
+    COOP_INT,dimension(:),allocatable::indices
+    COOP_REAL::  a, kbyH0
+    allocate(indices(num_trans))
+    h0mpc = this%H0Mpc()
+    kbyH0 = kMpc/h0mpc
+    call this%allocate_source(m = 0, source = s, k = (/ kbyH0 /), tau = tauMpc_trans*h0mpc, indices=indices)
+    call this%compute_source_k(s, 1)
+    trans(1, ik, :) = kMpc/this%h()
+    do itf = 1, num_trans
+       psi = s%saux(3, 1, indices(itf))
+       phiweyl = s%saux(2, 1, indices(itf))
+       a = this%aoftau(tauMpc_trans(itf)*h0mpc)
+       phinewt = phiweyl - psi
+       if(this%index_massivenu.ne.0)then
+          trans(7, ik, itf) = phinewt/(1.5d0*h0mpc**2*(this%Omega_b*O0_BARYON(this)%density_ratio(a)+this%Omega_c*O0_CDM(this)%density_ratio(a) + this%Omega_massivenu*O0_MASSIVENU(this)%density_ratio(a) )*a**2)
+       else
+          trans(7, ik, itf) = phinewt/(1.5d0*h0mpc**2*(this%Omega_b*O0_BARYON(this)%density_ratio(a)+this%Omega_c*O0_CDM(this)%density_ratio(a))*a**2)
+       endif
+       trans(10, ik, itf) =  phiweyl/2.d0  !!check in CAMB, transfer_weyl = 10
+    enddo
+    deallocate(indices)
+  end subroutine coop_cosmology_firstorder_camb_GetTransfer
+  
   
 end module coop_firstorder_mod
 
