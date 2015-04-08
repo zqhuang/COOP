@@ -1824,9 +1824,9 @@ contains
           a = this%aoftau(tauMpc_trans(itf)*h0mpc)
           phinewt = phiweyl - psi
           if(this%index_massivenu.ne.0)then
-             trans(7, ik, itf) = phinewt/(1.5d0*h0mpc**2*(this%Omega_b*O0_BARYON(this)%density_ratio(a)+this%Omega_c*O0_CDM(this)%density_ratio(a) + this%Omega_massivenu*O0_MASSIVENU(this)%density_ratio(a) ))
+             trans(7, ik, itf) = phinewt/(1.5d0*h0mpc**2*(this%Omega_b*O0_BARYON(this)%density_ratio(a)+this%Omega_c*O0_CDM(this)%density_ratio(a) + this%Omega_massivenu*O0_MASSIVENU(this)%density_ratio(a) )*a**2)
           else
-             trans(7, ik, itf) = phinewt/(1.5d0*h0mpc**2*(this%Omega_b*O0_BARYON(this)%density_ratio(a)+this%Omega_c*O0_CDM(this)%density_ratio(a)))
+             trans(7, ik, itf) = phinewt/(1.5d0*h0mpc**2*(this%Omega_b*O0_BARYON(this)%density_ratio(a)+this%Omega_c*O0_CDM(this)%density_ratio(a))*a**2)
           endif
           trans(10, ik, itf) =  phiweyl/2.d0  !!check in CAMB, transfer_weyl = 10
        enddo
