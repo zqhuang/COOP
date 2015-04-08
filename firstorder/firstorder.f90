@@ -1805,10 +1805,12 @@ contains
     COOP_SINGLE,dimension(:,:,:),optional::trans
     COOP_INT::ntau, i, itf
     COOP_INT,dimension(:),allocatable::indices
+    COOP_REAL::  a, kbyH0
     ntau = size(tauMpc)
     allocate(indices(ntau))
     h0mpc = this%H0Mpc()
-    call this%allocate_source(m = m, source = s, k = (/ kMpc/h0mpc /), tau = tauMpc*h0mpc, indices=indices)
+    kbyH0 = kMpc/h0mpc
+    call this%allocate_source(m = m, source = s, k = (/ kbyH0 /), tau = tauMpc*h0mpc, indices=indices)
     call this%compute_source_k(s, 1)
     source(ik, 1, :) = s%s(1, 1, indices)*h0mpc
     source(ik, 2, :) = s%s(2, 1, indices)*h0mpc 
@@ -1819,7 +1821,13 @@ contains
           
           call coop_linear_interp(s%ntau, s%tau, s%saux(3, 1, :), tauMpc_trans(itf)*h0mpc, psi)
           call coop_linear_interp(s%ntau, s%tau, s%saux(2, 1, :), tauMpc_trans(itf)*h0mpc, phiweyl)
+          a = this%aoftau(tauMpc_trans(itf)*h0mpc)
           phinewt = phiweyl - psi
+          if(this%index_massivenu.ne.0)then
+             trans(7, ik, itf) = phinewt/(1.5d0*h0mpc**2*(this%Omega_b*O0_BARYON(this)%density_ratio(a)+this%Omega_c*O0_CDM(this)%density_ratio(a) + this%Omega_massivenu*O0_MASSIVENU(this)%density_ratio(a) ))
+          else
+             trans(7, ik, itf) = phinewt/(1.5d0*h0mpc**2*(this%Omega_b*O0_BARYON(this)%density_ratio(a)+this%Omega_c*O0_CDM(this)%density_ratio(a)))
+          endif
           trans(10, ik, itf) =  phiweyl/2.d0  !!check in CAMB, transfer_weyl = 10
        enddo
     endif
