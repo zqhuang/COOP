@@ -394,6 +394,7 @@ else:
 
 
 ##coupled DE 5 parameters: Q, n, dQ/dphi,  dU/dphi, d^2U/dphi^2
-copy_replace_first_append(baseini, iniroot+'coupledDE.ini', [covmat_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [ covmat_repl + r'coupledDE.covmat', r'file_root = coupledDE \nde_model = 4\nde_num_params=5\npp_model = 0 \npp_num_params = '  + str(index_H0 - index_logA) + r'\nparamnames = paramnames/params_coupledDE.paramnames', r'action = 0', str_propose], r'param[Qde] = 0. 0. 0.5 0.05 0.05 '+"\n"+r'param[nde] = 0'+"\n"+r'param[dlnQdphi] = 0'+"\n"+r'param[dUdphi] = 0 '+"\n"+r'param[d2Udphi2] = 0' +"\n" + r'use_min_zre = 6.' + "\n" + r'use_max_zre = 15.' + "\n\n" )
+mycovmat = ''   # 'coupledDE.covmat'
+copy_replace_first_append(baseini, iniroot+'coupledDE.ini', [covmat_pattern, r'^file_root\s*=.+$', r'^action\s*=.+$',  propose_pattern], [ covmat_repl + mycovmat, r'file_root = coupledDE \nde_model = 4\nde_num_params=5\npp_model = 0 \npp_num_params = '  + str(index_H0 - index_logA) + r'\nparamnames = paramnames/params_coupledDE.paramnames', r'action = 4', str_propose], r'param[Qde] = 0. 0. 0.5 0.05 0.05 '+"\n"+r'param[nde] = 0'+"\n"+r'param[dlnQdphi] = 0'+"\n"+r'param[dUdphi] = 0 '+"\n"+r'param[d2Udphi2] = 0' +"\n" + r'use_min_zre = 6.' + "\n" + r'use_max_zre = 15.' + "\n\n" )
 
 
