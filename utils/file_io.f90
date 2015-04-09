@@ -327,6 +327,7 @@ contains
     class(coop_file) fp
     COOP_INT numlines, lines
     COOP_LONG_STRING inline
+    if(numlines.le.0)return
     Lines = 0
     do while(coop_file_readline_string(fp, inline))
        lines = lines + 1

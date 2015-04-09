@@ -184,7 +184,7 @@ contains
           call fp%skip_lines(nskip(i))
           do j=nskip(i)+1, nlines(i)
              k = k + 1
-             read(fp%unit, "(A)", ERR = 120) inline
+             read(fp%unit, "(A)", ERR = 120, END=300) inline
              read(inline,  *, ERR = 50)  mc%mult(k), mc%like(k), mc%params(k,1:mc%np)
           enddo
 50        call fp%close()
