@@ -50,7 +50,7 @@ private
   COOP_INT, parameter::coop_num_Cls =  coop_index_ClTLen
   COOP_INT, dimension(0:2), parameter::coop_num_sources = (/ 3,  3,  3 /)
 #endif
-  COOP_INT, dimension(0:2), parameter::coop_num_saux = (/ 5,  1,  1 /)
+  COOP_INT, dimension(0:2), parameter::coop_num_saux = (/ 7,  1,  1 /)
 
 !!recfast head file
 #include "recfast_head.h"
@@ -1628,7 +1628,6 @@ contains
   end subroutine coop_cosmology_firstorder_source_get_Psi_trans
 
 
-
   function coop_bbks_trans(x) result(bbkstrans)
     !!BBKS fitting formula of adiabatic CDM transfer function, x = k/k_eq
     COOP_REAL::c1 = 0.284d0
@@ -1804,7 +1803,7 @@ contains
     COOP_INT m, ik
     COOP_INT, optional::num_trans
     COOP_REAL,dimension(:),optional::tauMpc_trans
-    COOP_REAL kMpc, tauMpc(:), h0mpc, psi, phinewt, phiweyl
+    COOP_REAL kMpc, tauMpc(:), h0mpc, psi, phinewt, phiweyl, vc, h0tau
     COOP_REAL,dimension(:,:,:)::source
     COOP_SINGLE,dimension(:,:,:),optional::trans
     COOP_INT::ntau, i, itf
@@ -1822,10 +1821,11 @@ contains
     if(m .eq. 0 .and. present(trans))then
        trans(1, ik, :) = kMpc/this%h()       
        do itf = 1, num_trans
-          
-          call coop_linear_interp(s%ntau, s%tau, s%saux(3, 1, :), tauMpc_trans(itf)*h0mpc, psi)
-          call coop_linear_interp(s%ntau, s%tau, s%saux(2, 1, :), tauMpc_trans(itf)*h0mpc, phiweyl)
-          a = this%aoftau(tauMpc_trans(itf)*h0mpc)
+          h0tau = tauMpc_trans(itf)*h0mpc
+          call coop_linear_interp(s%ntau, s%tau, s%saux(3, 1, :), h0tau, psi)
+          call coop_linear_interp(s%ntau, s%tau, s%saux(2, 1, :), h0tau, phiweyl)
+          call coop_linear_interp(s%ntau, s%tau, s%saux(6, 1, :), h0tau, vc)          
+          a = this%aoftau(h0tau)
           phinewt = phiweyl - psi
           if(this%index_massivenu.ne.0)then
              trans(7, ik, itf) = phinewt/(1.5d0*h0mpc**2*(this%Omega_b*O0_BARYON(this)%density_ratio(a)+this%Omega_c*O0_CDM(this)%density_ratio(a) + this%Omega_massivenu*O0_MASSIVENU(this)%density_ratio(a) )*a**2)
@@ -1833,6 +1833,7 @@ contains
              trans(7, ik, itf) = phinewt/(1.5d0*h0mpc**2*(this%Omega_b*O0_BARYON(this)%density_ratio(a)+this%Omega_c*O0_CDM(this)%density_ratio(a))*a**2)
           endif
           trans(10, ik, itf) =  phiweyl/2.d0  !!check in CAMB, transfer_weyl = 10
+          trans(11, ik, itf) = vc/kMpc**2
        enddo
     endif
     deallocate(indices)
@@ -1847,7 +1848,7 @@ contains
     COOP_REAL,dimension(:)::tauMpc_trans
     COOP_SINGLE,dimension(:,:,:)::trans
     
-    COOP_REAL kMpc, h0mpc, psi, phinewt, phiweyl
+    COOP_REAL kMpc, h0mpc, psi, phinewt, phiweyl, h0tau, vc
     COOP_INT:: i, itf
     COOP_INT,dimension(:),allocatable::indices
     COOP_REAL::  a, kbyH0
@@ -1860,14 +1861,17 @@ contains
     do itf = 1, num_trans
        psi = s%saux(3, 1, indices(itf))
        phiweyl = s%saux(2, 1, indices(itf))
-       a = this%aoftau(tauMpc_trans(itf)*h0mpc)
+       h0tau = tauMpc_trans(itf)*h0mpc
+       vc = s%saux(6, 1, indices(itf))
+       a = this%aoftau(h0tau)
        phinewt = phiweyl - psi
        if(this%index_massivenu.ne.0)then
           trans(7, ik, itf) = phinewt/(1.5d0*h0mpc**2*(this%Omega_b*O0_BARYON(this)%density_ratio(a)+this%Omega_c*O0_CDM(this)%density_ratio(a) + this%Omega_massivenu*O0_MASSIVENU(this)%density_ratio(a) )*a**2)
        else
           trans(7, ik, itf) = phinewt/(1.5d0*h0mpc**2*(this%Omega_b*O0_BARYON(this)%density_ratio(a)+this%Omega_c*O0_CDM(this)%density_ratio(a))*a**2)
-       endif
+       endif  !!check in CAMB, transfer_tot
        trans(10, ik, itf) =  phiweyl/2.d0  !!check in CAMB, transfer_weyl = 10
+       trans(11, ik, itf) = vc/kMpc**2
     enddo
     deallocate(indices)
   end subroutine coop_cosmology_firstorder_camb_GetTransfer
