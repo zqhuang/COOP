@@ -4,7 +4,7 @@
     type(coop_pert_object)::pert
     COOP_REAL lna, y(0:n-1), yp(0:n-1)
     COOP_INT i, l, iq
-    COOP_REAL a, aniso,  ktauc, ktaucdot,  aniso_prime, aHtauc, aHtau, aHsq, uterm, vterm, ma, doptdlna
+    COOP_REAL a, aniso,  ktauc, ktaucdot, ktaucdd, aniso_prime, aHtauc, aHtau, aHsq, uterm, vterm, ma, doptdlna
     COOP_REAL :: pa2pr_g, pa2pr_nu
     COOP_REAL, dimension(coop_pert_default_nq)::Fmnu2_prime, Fmnu2, Fmnu0, qbye, wp, wp_prime, wrho_minus_wp
     COOP_REAL:: de_Q, de_dQdphi, de_phi,  de_V, de_Vp, de_Vpp, de_dphidlna,  asq, Hsq, de_m2byh2
@@ -82,7 +82,8 @@
     doptdlna = 1.d0/aHtauc
     pert%tau = cosmology%tauofa(a)
     aHtau = pert%aH*pert%tau
- 
+
+    ktaucdd = pert%k*(cosmology%dot_tauc(a*1.01)-cosmology%dot_tauc(a/1.01))/(0.02/pert%aH)					      
     select case(pert%m)
     case(0)
 
@@ -158,10 +159,10 @@
        if(pert%tight_coupling)then
 
           pert%T2prime = (8.d0/9.d0)*(ktauc*O1_T_PRIME(1) + ktaucdot/pert%aH*O1_T(1)) !2.d0*pert%T%F(2)
-
           pert%E%F(2) = -coop_sqrt6/4.d0 * pert%T%F(2)
           pert%E2prime = -coop_sqrt6/4.d0 * pert%T2prime 
           pert%capP = (pert%T%F(2) - coop_sqrt6 * pert%E%F(2))/10.d0
+
        else
           !!T
           pert%capP = (O1_T(2) - coop_sqrt6 * O1_E(2))/10.d0
@@ -195,6 +196,14 @@
        aniso_prime =  0.6d0/pert%ksq * aniso_prime
        
        O1_PHI_PRIME = O1_PSI_PRIME - aniso_prime
+       if(pert%want_source)then
+          pert%ekappa = cosmology%ekappaofa(pert%a)
+          pert%vis = pert%ekappa/pert%tauc
+          pert%visdot = cosmology%vis%derivative(pert%a) * pert%a * pert%aH
+          pert%Pdot = (pert%T2prime  - coop_sqrt6 *  pert%E2prime)/10.d0 * pert%aH
+          pert%kchi = 1.d0 - pert%tau/cosmology%tau0
+          pert%kchi = pert%k* cosmology%tau0*(pert%kchi + exp(-1.d3*pert%kchi))
+       endif
        O1_PSIPR_PRIME = - O1_PHI_PRIME &
             - (3.d0 + pert%daHdtau/aHsq)*O1_PSI_PRIME &
             - 2.d0*(pert%daHdtau/aHsq + 1.d0)*O1_PHI &
@@ -240,7 +249,6 @@
        case default
           call coop_tbw("DE perturbations not written")
        end select
-       
     case(1)
        call coop_tbw("vector equations not written")
     case(2)

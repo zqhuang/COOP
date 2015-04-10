@@ -34,6 +34,7 @@ module coop_pertobj_mod
      COOP_STRING::initial_conditions = "adiabatic"
      logical::tight_coupling = .true.
      logical::massivenu_cold = .false.
+     logical::want_source = .false.
      COOP_REAL::num_mnu_ratio = 0.d0
      COOP_INT::massivenu_iq_used = 0
      COOP_INT::m = 0
@@ -41,6 +42,8 @@ module coop_pertobj_mod
      COOP_REAL::deltatr_mnu = 0.d0
      COOP_REAL::deltap_mnu = 0.d0
      COOP_REAL::O1_phi, O1_phipr, slip, T2prime, E2prime
+     !!only used for source
+     COOP_REAL::Pdot, vis, ekappa, visdot, kchi
      type(coop_pert_species)::metric, baryon, cdm, T, E, B, nu, de
      type(coop_pert_species),dimension(coop_pert_default_nq)::massivenu !!massive neutrinos
      COOP_REAL::de_Vp, de_phidot, de_delta_rho, de_delta_p

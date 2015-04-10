@@ -568,8 +568,9 @@ contains
     iq = 1
     do itau = 1, source%ntau
        call coop_dverk_firstorder(nvars, coop_cosmology_firstorder_equations, this, pert, lna,   pert%y, source%lna(itau),  coop_cosmology_firstorder_ode_accuracy, ind, c, nvars, w)
+       pert%want_source = .true.
        call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)
-
+       pert%want_source  = .false.              
        !!for energy conservation test:
        if(present(do_test_energy_conservation))then
           if(do_test_energy_conservation)print*, log(pert%a), pert%delta_T00a2(), pert%delta_G00a2()       
@@ -645,9 +646,11 @@ contains
 
 
   subroutine coop_cosmology_firstorder_source_intbypart(source, ik)
+    COOP_REAL,parameter::k_trunc = 0.8d0  !!for tiny k the integrated-by-part term is negligible.
     class(coop_cosmology_firstorder_source)::source
     COOP_REAL s2(source%ntau), sum1
     COOP_INT ik, i
+    if(source%k(ik).lt. k_trunc)return
     source%saux(1, ik, 1) = 0.d0
     source%saux(1, ik, source%ntau) = 0.d0
     s2(1) = ((source%saux(1, ik, 1) -  source%saux(1, ik, 2))/(source%dtau(1)+source%dtau(2)) +  (source%saux(1, ik, 1) )/(source%dtau(1)*2.d0))*(2.d0/source%dtau(1))
@@ -655,7 +658,7 @@ contains
     do i = 2, source%ntau-1
        s2(i) = ((source%saux(1, ik, i) -  source%saux(1, ik, i+1))/(source%dtau(i)+source%dtau(i+1)) +  (source%saux(1, ik, i) -  source%saux(1, ik, i-1))/(source%dtau(i)+source%dtau(i-1)))*(2.d0/source%dtau(i))
     enddo
-    source%saux(1, ik, :) = -s2/source%k(ik)**2
+    source%saux(1, ik, :) = s2*(-tanh(source%k(ik)/k_trunc))/source%k(ik)**2
     select case(source%m)
     case(0)
        source%s(1, ik, :) = source%s(1, ik, :) +  source%saux(1, ik, :)
@@ -928,7 +931,6 @@ contains
     COOP_REAL a, dtauc
     dtauc =  a*(2.d0 - this%dlnxedlna(a))/this%xeofa(a)/this%dkappadtau_coef*this%Hasq(a)
   end function coop_cosmology_firstorder_dot_tauc
-
 
 
   function coop_cosmology_firstorder_dkappada(this, a) result(dkappada)
