@@ -646,11 +646,11 @@ contains
 
 
   subroutine coop_cosmology_firstorder_source_intbypart(source, ik)
-    COOP_REAL,parameter::k_trunc = 0.8d0  !!for tiny k the integrated-by-part term is negligible.
+    COOP_REAL,parameter::k_trunc = 1.d0  !!for tiny k the integrated-by-part term is negligible.
     class(coop_cosmology_firstorder_source)::source
     COOP_REAL s2(source%ntau), sum1
     COOP_INT ik, i
-    if(source%k(ik).lt. k_trunc)return
+    if(source%k(ik).lt. k_trunc/5.d0)return
     source%saux(1, ik, 1) = 0.d0
     source%saux(1, ik, source%ntau) = 0.d0
     s2(1) = ((source%saux(1, ik, 1) -  source%saux(1, ik, 2))/(source%dtau(1)+source%dtau(2)) +  (source%saux(1, ik, 1) )/(source%dtau(1)*2.d0))*(2.d0/source%dtau(1))
@@ -658,7 +658,7 @@ contains
     do i = 2, source%ntau-1
        s2(i) = ((source%saux(1, ik, i) -  source%saux(1, ik, i+1))/(source%dtau(i)+source%dtau(i+1)) +  (source%saux(1, ik, i) -  source%saux(1, ik, i-1))/(source%dtau(i)+source%dtau(i-1)))*(2.d0/source%dtau(i))
     enddo
-    source%saux(1, ik, :) = s2*(-tanh(source%k(ik)/k_trunc))/source%k(ik)**2
+    source%saux(1, ik, :) = s2*(-(tanh(source%k(ik)/k_trunc))**8)/source%k(ik)**2
     select case(source%m)
     case(0)
        source%s(1, ik, :) = source%s(1, ik, :) +  source%saux(1, ik, :)
