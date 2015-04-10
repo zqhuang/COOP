@@ -41,7 +41,7 @@ program test
   if(fod%index_massivenu .ne. 0)then
      call fp%open('mnu_lensedCls.txt', 'w')
   else
-     call fp%open('planck_lensedCls.txt', 'w')
+     call fp%open('lcdm_lensedCls.txt', 'w')
   endif
   do l=lmin, min(lmax, 2600)
      write(fp%unit, "(I5, 20E16.7)") l, Cls_lensed(1:4, l)*(l*(l+1.d0)/coop_2pi*norm)
@@ -51,35 +51,35 @@ program test
 !!$
 
 
-!!$  !!compute the tensor Cl's
-!!$  call coop_prtSystime(.true.)
-!!$  call fod%compute_source(2)
-!!$  call coop_prtSystime()
-!!$
-!!$  call coop_prtSystime(.true.)
-!!$  call fod%source(2)%get_All_Cls(lmin,lmax, Cls_tensor)
-!!$  call coop_prtSystime()
-!!$  if(fod%index_massivenu .ne. 0)then
-!!$     call fp%open('mnu_tensCls.txt', 'w')
-!!$  else
-!!$     call fp%open('lcdm_tensCls.txt', 'w')
-!!$  endif
-!!$  do l=lmin, min(lmax, 1500)
-!!$     write(fp%unit, "(I5, 20E16.7)") l, Cls_tensor(1:4, l)*(l*(l+1.d0)/coop_2pi*norm)
-!!$  enddo
-!!$  call fp%close()
-!!$
-!!$  Cls_lensed = Cls_lensed + Cls_tensor
-!!$
-!!$  if(fod%index_massivenu .ne. 0)then
-!!$     call fp%open('mnu_totCls.txt', 'w')
-!!$  else
-!!$     call fp%open('lcdm_totCls.txt', 'w')
-!!$  endif
-!!$  do l=lmin, min(lmax, 2600)
-!!$     write(fp%unit, "(I5, 20E16.7)") l,  Cls_lensed(1:4, l)*(l*(l+1.d0)/coop_2pi*norm)
-!!$  enddo
-!!$  call fp%close()
+  !!compute the tensor Cl's
+  call coop_prtSystime(.true.)
+  call fod%compute_source(2)
+  call coop_prtSystime()
+
+  call coop_prtSystime(.true.)
+  call fod%source(2)%get_All_Cls(lmin,lmax, Cls_tensor)
+  call coop_prtSystime()
+  if(fod%index_massivenu .ne. 0)then
+     call fp%open('mnu_tensCls.txt', 'w')
+  else
+     call fp%open('lcdm_tensCls.txt', 'w')
+  endif
+  do l=lmin, min(lmax, 1500)
+     write(fp%unit, "(I5, 20E16.7)") l, Cls_tensor(1:4, l)*(l*(l+1.d0)/coop_2pi*norm)
+  enddo
+  call fp%close()
+
+  Cls_lensed = Cls_lensed + Cls_tensor
+
+  if(fod%index_massivenu .ne. 0)then
+     call fp%open('mnu_totCls.txt', 'w')
+  else
+     call fp%open('lcdm_totCls.txt', 'w')
+  endif
+  do l=lmin, min(lmax, 2600)
+     write(fp%unit, "(I5, 20E16.7)") l,  Cls_lensed(1:4, l)*(l*(l+1.d0)/coop_2pi*norm)
+  enddo
+  call fp%close()
 
 
 end program test

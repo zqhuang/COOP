@@ -56,7 +56,6 @@ private
 #include "recfast_head.h"
 
 
-
   type coop_cosmology_firstorder_source
      COOP_INT::m = 0
      COOP_INT::ntau = 0
@@ -70,7 +69,7 @@ private
      COOP_REAL::dkop, kopmin, kopmax, kmin, kmax, kweight, tauweight, bbks_keq, bbks_trans_kmax, distlss
      COOP_REAL,dimension(coop_k_dense_fac)::a_dense, b_dense, a2_dense, b2_dense
      COOP_REAL, dimension(:),allocatable::k, kop, dk !!tau is conformal time, chi is comoving distance; in flat case, chi + tau = tau_0
-     COOP_REAL, dimension(:),allocatable::tau, a, tauc, lna, dtau, chi !!tau is conformal time, chi is comoving distance; in flat case, chi + tau = tau_0     
+     COOP_REAL, dimension(:),allocatable::tau, a, tauc, lna, dtau, chi
      COOP_REAL, dimension(:,:),allocatable::k_dense, ws_dense, wt_dense, dk_dense
      COOP_REAL, dimension(:,:,:),allocatable::s, s2, saux
    contains
@@ -646,7 +645,7 @@ contains
 
 
   subroutine coop_cosmology_firstorder_source_intbypart(source, ik)
-    COOP_REAL,parameter::k_trunc = 30.d0  !!for tiny k the integrated-by-part term is negligible.
+    COOP_REAL,parameter::k_trunc = 10.d0  !!for tiny k the integrated-by-part term is negligible.
     class(coop_cosmology_firstorder_source)::source
     COOP_REAL s2(source%ntau), sum1
     COOP_INT ik, i
