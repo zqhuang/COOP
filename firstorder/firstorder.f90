@@ -646,7 +646,7 @@ contains
 
 
   subroutine coop_cosmology_firstorder_source_intbypart(source, ik)
-    COOP_REAL,parameter::k_trunc = 1.d0  !!for tiny k the integrated-by-part term is negligible.
+    COOP_REAL,parameter::k_trunc = 30.d0  !!for tiny k the integrated-by-part term is negligible.
     class(coop_cosmology_firstorder_source)::source
     COOP_REAL s2(source%ntau), sum1
     COOP_INT ik, i
