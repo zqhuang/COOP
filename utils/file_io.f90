@@ -7,13 +7,13 @@ module coop_file_mod
 
 private
 
-public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_create_directory, coop_delete_directory, coop_file_numcolumns, coop_file_numlines, coop_load_dictionary, coop_free_file_unit, coop_file_exists, coop_file_encrypt, coop_file_decrypt, coop_string_encrypt, coop_string_decrypt, coop_file_load_function, coop_dir_exists
+public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_create_directory, coop_delete_directory, coop_file_numcolumns, coop_file_numlines, coop_load_dictionary, coop_free_file_unit, coop_file_exists, coop_file_encrypt, coop_file_decrypt, coop_string_encrypt, coop_string_decrypt, coop_file_load_function, coop_dir_exists, coop_export_dictionary
 
   character,parameter::text_comment_symbol = "#"
 
 
   Type coop_file
-     COOP_INT unit
+     COOP_INT::unit = 0
      integer(8) pt  !!for binary mode
      COOP_SHORT_STRING mode
      COOP_LONG_STRING path
@@ -371,12 +371,11 @@ contains
        else
           delim = " ,;"//coop_tab
        endif
-       colm = max(col_key, col_value)
        call fp%open(trim(fname), "r")
        i = 0
        do while(fp%read_string(line))
           call coop_string_to_list(line, l, delim)
-          if(l%n .ge. colm)then
+          if(l%n .ge. col_value)then
              i = i + 1
              call dict%insert(coop_num2str(i), l%element(col_value))
           endif
@@ -399,6 +398,18 @@ contains
        call fp%close()
     endif
   end subroutine coop_load_dictionary
+
+  subroutine coop_export_dictionary(fname, dict)
+    COOP_UNKNOWN_STRING ::fname
+    type(coop_dictionary)::dict
+    COOP_INT i
+    type(coop_file)::fp
+    call fp%open(fname,"w")
+    do i = 1, dict%n
+       write(fp%unit, "(A)") trim(dict%key(i))//" = "//trim(dict%val(i))
+    enddo
+    call fp%close()
+  end subroutine coop_export_dictionary
 
   subroutine coop_file_encrypt(input, output)
     COOP_UNKNOWN_STRING input, output

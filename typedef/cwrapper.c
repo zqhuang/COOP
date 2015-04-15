@@ -73,8 +73,8 @@ void array_maxabs_location_(double* x, int* n, int* loc){
   double mx;
   mx = 0;
   for(i=0;i< *n;i++){
-    if(abs(*(x+i)) > mx){
-      mx = abs(*(x+i));
+    if(fabs(*(x+i)) > mx){
+      mx = fabs(*(x+i));
       *loc = i;
     }
   }

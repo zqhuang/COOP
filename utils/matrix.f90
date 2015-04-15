@@ -560,26 +560,41 @@ contains
     end select
   end subroutine coop_matsym_sqrt_small
 
-  subroutine Coop_matsym_Sqrt(A)
+  subroutine Coop_matsym_Sqrt(A, mineig)
     !!get the square root of a positive definite symmetric matrix A
     COOP_REAL ,dimension(:,:)::A
     COOP_REAL  E(size(A,1)), trans(size(A,1), size(A,1))
     COOP_INT n, i
+    COOP_REAL,optional::mineig
     n= Coop_getdim("coop_matsym_sqrt", size(A,1),size(A,2))
 #ifdef HAS_LAPACK
     call coop_matsym_diagonalize(a,e)
-    if(any(E.lt. -1.d-30))then
-       call Coop_return_error("Coop_matsym_Sqrt", "the matrix is not positive definite", "stop")
+    if(present(mineig))then
+       e = sqrt(max(e, mineig))
+    else
+       if(any(E.lt. -1.d-15))then
+          call Coop_return_error("Coop_matsym_Sqrt", "the matrix is not positive definite", "stop")
+       endif
+       e = sqrt(max(e,0.d0))
     endif
-    e = sqrt(max(e,0.d0))
     do i=1,n
        trans(i,:) = A(:,i)*e(i)
     enddo
     A = matmul(A, trans)
 #else
     call coop_svd_decompose(n,n,a,e,trans)
+
+    if(present(mineig))then
+       e = sqrt(max(e, mineig))
+    else
+       if(any(E.lt. -1.d-15))then
+          call Coop_return_error("Coop_matsym_Sqrt", "the matrix is not positive definite", "stop")
+       endif
+       e = sqrt(max(e,0.d0))
+    endif
+    
     do i=1,n
-       trans(:,i) = trans(:,i)*sqrt(e(i))
+       trans(:,i) = trans(:,i)*e(i)
     enddo
     A = matmul(A, transpose(trans))
 #endif
