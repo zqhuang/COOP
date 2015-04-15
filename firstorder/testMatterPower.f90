@@ -14,8 +14,8 @@ program test
   call coop_set_uniform(nk, k, 0.4d0, 2.d3, logscale = .true.)
   do iQ = 0, 2
      Q0 = iQ * 0.1d0
-     !!initialize cosmology
-     call cosmology%set_standard_cosmology(Omega_b=0.04904d0, Omega_c=0.2642d0, h = 0.6731d0, tau_re = 0.078d0, As = 2.195d-9, ns = 0.9655d0 , de_Q = Q0, de_tracking_n = tracking_n, de_dlnQdphi = 0.d0, de_dUdphi = 0.d0, de_d2Udphi2 = 0.d0 )
+     !!initialize cosmology; Planck 2015 bestfit +  DE models
+     call cosmology%set_standard_cosmology(Omega_b=0.04904d0, Omega_c=0.2642d0, h = 0.6731d0, tau_re = 0.078d0, As = 2.195d-9, ns = 0.9655d0, de_Q = Q0, de_tracking_n = tracking_n, de_dlnQdphi = 0.d0, de_dUdphi = 0.d0, de_d2Udphi2 = 0.d0 )
      !!***************************************************
      !! V = V0 / phi^n exp( C1  * phi + 1/2 C2 phi**2)
      !! n = de_tracking_n;  C1 = de_dUdphi; C2 = de_d2Udphi2

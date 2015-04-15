@@ -169,9 +169,10 @@ contains
     class(coop_cosmology_firstorder)::this
     COOP_REAL, optional::Omega_nu
     if(present(Omega_nu))then
-       call this%set_standard_cosmology(Omega_b=0.04801228639964265020d0, Omega_c=0.26099082900159878590d0, h = 0.67779d0, tau_re = 0.092d0, Omega_nu = Omega_nu, As = 2.210168d-9, ns = 0.9608933d0)
+       call this%set_standard_cosmology(Omega_b=0.04904d0, Omega_c=0.2642d0, h = 0.6731d0, tau_re = 0.078d0, As = 2.195d-9, ns = 0.9655d0,  Omega_nu = Omega_nu)
     else
-       call this%set_standard_cosmology(Omega_b=0.04801228639964265020d0, Omega_c=0.26099082900159878590d0, h = 0.67779d0, tau_re = 0.092d0, As = 2.210168d-9, ns = 0.9608933d0)
+       call this%set_standard_cosmology(Omega_b=0.04904d0, Omega_c=0.2642d0, h = 0.6731d0, tau_re = 0.078d0, As = 2.195d-9, ns = 0.9655d0)       
+     
     endif
   end subroutine coop_cosmology_firstorder_set_Planck_Bestfit
 
@@ -181,9 +182,10 @@ contains
     COOP_REAL r
     COOP_REAL, optional::Omega_nu
     if(present(Omega_nu))then
-       call this%set_standard_cosmology(Omega_b=0.04801228639964265020d0, Omega_c=0.26099082900159878590d0, h = 0.67779d0, tau_re = 0.092d0, Omega_nu = Omega_nu, As = 2.210168d-9, ns = 0.9608933d0, r = r)
+       call this%set_standard_cosmology(Omega_b=0.04904d0, Omega_c=0.2642d0, h = 0.6731d0, tau_re = 0.078d0, As = 2.195d-9, ns = 0.9655d0,  Omega_nu = Omega_nu, r = r)
     else
-       call this%set_standard_cosmology(Omega_b=0.04801228639964265020d0, Omega_c=0.26099082900159878590d0, h = 0.67779d0, tau_re = 0.092d0, As = 2.210168d-9, ns = 0.9608933d0, r = r)
+       call this%set_standard_cosmology(Omega_b=0.04904d0, Omega_c=0.2642d0, h = 0.6731d0, tau_re = 0.078d0, As = 2.195d-9, ns = 0.9655d0, r = r)       
+     
     endif
   end subroutine coop_cosmology_firstorder_set_Planck_Bestfit_with_r
 
@@ -1685,19 +1687,21 @@ contains
   end subroutine coop_cosmology_firstorder_source_get_PhiPlusPsi_trans
 
 
-!!return the dimensionless k^3P(k)/(2pi^2)
+!!return the dimensionless k^3 |\delta_k|^2/(2pi^2)
   subroutine coop_cosmology_firstorder_get_matter_power(this, z, nk, k, Pk)
     class(coop_cosmology_firstorder)::this
     COOP_INT nk, ik
-    COOP_REAL z, k(nk), Pk(nk), tau, Psi(nk), Ps(nk)
-    tau = this%tauofa(1.d0/(1.d0+z))
+    COOP_REAL z, a, k(nk), Pk(nk), tau, Psi(nk), Ps(nk), PhiPlusPsi(nk)
+    a = 1.d0/(1.d0+z)
+    tau = this%tauofa(a)
     call this%source(0)%get_Psi_trans(tau, nk, k, Psi)
+    call this%source(0)%get_PhiPlusPsi_trans(tau, nk, k, PhiPlusPsi)
     !$omp parallel do
     do ik = 1, nk
        ps(ik) = this%psofk(k(ik))
     enddo
     !$omp end parallel do
-    pk = Psi**2 * k**4 * ps * (4.d0/9.d0/(this%Omega_m*(1.d0+z)**3)**2)
+    pk = (PhiPlusPsi-Psi) **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)))**2
   end subroutine coop_cosmology_firstorder_get_matter_power
 
   function coop_cosmology_firstorder_sigma_TopHat_R(this, z, R) result(sigma)
