@@ -853,15 +853,26 @@ int plot_legend_nobox(file fin){
   string cstr;
   cstr = fetch_string(fin);
   if(trim_string(cstr) !=""){
-     int cols = fin;
-     if(trim_string(cstr) == "N")
-        add(mypic, legend(mypic,perline = cols, p = invisible), point(mypic,N), 20N, UnFill); 
-     else if(trim_string(cstr) == "S")
-       add(mypic, legend(mypic,perline = cols, p = invisible), point(mypic,S), 20S, UnFill); 
-    else if(trim_string(cstr) == "W")
-       add(mypic, legend(mypic,perline = cols, p = invisible), point(mypic,W), 20W, UnFill);
-    else 
-       add(mypic, legend(mypic,perline = cols, p = invisible), point(mypic,E), 20E, UnFill);}
+     if(trim_string(cstr) == "VIRTUAL"){
+        string l = fetch_string(fin);
+        cstr = fetch_string(fin);
+        pen colorpen = pen_from_string(cstr) + linecap(0);
+	aymax = aymax + (aymax-aymin)*0.01;
+	path  g = (axmax, aymax) .. cycle;
+        draw(mypic,  g = g, p = colorpen, legend=l);
+        colorpen = whitepen_from_string(cstr) + linecap(0); 	
+	draw(mypic, g = g, p = colorpen);
+	return 1;  }
+     else{	  
+       int cols = fin;
+       if(trim_string(cstr) == "N")
+	 add(mypic, legend(mypic,perline = cols, p = invisible), point(mypic,N), 20N, UnFill); 
+       else if(trim_string(cstr) == "S")
+	 add(mypic, legend(mypic,perline = cols, p = invisible), point(mypic,S), 20S, UnFill); 
+       else if(trim_string(cstr) == "W")
+	 add(mypic, legend(mypic,perline = cols, p = invisible), point(mypic,W), 20W, UnFill);
+       else 
+	 add(mypic, legend(mypic,perline = cols, p = invisible), point(mypic,E), 20E, UnFill);}}
   else{
      real loc[] = fin.dimension(2);
      int cols = fin;
