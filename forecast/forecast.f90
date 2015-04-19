@@ -1,5 +1,8 @@
 module coop_forecast_mod
   use coop_wrapper_firstorder
+#ifdef HAS_CLIK
+  use clik
+#endif  
   implicit none
 #include "constants.h"
 

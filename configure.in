@@ -41,6 +41,7 @@ FFTW3 = $(HOME)/includes/fftw3
 GSL =
 #$(HOME)/mathlib/gsl
 
+CLIKPATH = $(HOME)/work/scilibs/COOP/forecast/plc-1.0/
 
 ##cfitsio lib, mandatory if you do mapio
 CFITSIO = $(HOME)/work/scilibs/cfitsio
@@ -195,3 +196,9 @@ FFLAGS += -DHAS_LAPACK=1
 CFLAGS += -DHAS_LAPACK=1
 endif
 
+### set clik flags
+ifneq ($(CLIKPATH),)
+LINK += -L$(CLIKPATH)/lib -lclik
+INCLUDE += -I$(CLIKPATH)/include -lclik
+FFLAGS += -DHAS_CLIK=1
+endif
