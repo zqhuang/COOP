@@ -1,8 +1,6 @@
 module coop_forecast_mod
   use coop_wrapper_firstorder
-#ifdef HAS_CLIK
-  use clik
-#endif  
+  use coop_clik
   implicit none
 #include "constants.h"
 
@@ -12,20 +10,18 @@ module coop_forecast_mod
 #define MCMC_WA    mcmc%fullparams(4)
 #define MCMC_OMEGA_LAMBDA  (1.d0 - MCMC_OMEGA_M - MCMC_OMEGA_K)  
 
+  COOP_INT, parameter::coop_n_derived_with_cosmology = 3
+  COOP_INT, parameter::coop_n_derived_without_cosmology = 1
   
   COOP_REAL, parameter::coop_LogZero = 1.d30
+  
   type coop_DataSet
      COOP_STRING::name
      type(coop_arguments)::args
      logical::off = .false.
      COOP_INT:: n_nuis = 0
-     COOP_REAL, dimension(:), allocatable::nuis
-     COOP_REAL, dimension(:), allocatable::nuis_upper
-     COOP_REAL, dimension(:), allocatable::nuis_lower
-     COOP_REAL, dimension(:), allocatable::nuis_center
-     COOP_REAL, dimension(:), allocatable::nuis_sigma     
+     COOP_STRING, dimension(:),allocatable::nuis_names
    contains
-     procedure::prior => coop_dataset_prior     
      procedure::LogLike => coop_dataset_loglike
   end type coop_DataSet
 
@@ -42,15 +38,19 @@ module coop_forecast_mod
   end type coop_DataSet_SN
 
 
-  type coop_Data_Pool
-     type(coop_DataSet_SN),dimension(:), pointer::SN
-!     type(coop_DataSet_SN),dimension(:), pointer::BAO
-!     type(coop_DataSet_SN),dimension(:), pointer::CMB
-!     type(coop_DataSet_SN),dimension(:), pointer::WL
-!     type(coop_DataSet_SN),dimension(:), pointer::Lya
-!     type(coop_DataSet_SN),dimension(:), pointer::HST     
+  type, extends(coop_dataset)::coop_dataset_CMB
+     type(coop_clik_object),dimension(:),pointer::cliklike
    contains
-     procedure::Prior => coop_data_pool_prior
+     procedure::LogLike => coop_dataset_CMB_LogLike
+  end type coop_dataset_CMB
+
+
+
+  type coop_Data_Pool
+!!these are simulations     
+     type(coop_DataSet_SN),dimension(:), pointer::SN => null()
+     type(coop_dataset_CMB)::CMB     
+   contains
      procedure::LogLike => coop_data_pool_LogLike
   end type coop_Data_Pool
 
@@ -63,46 +63,252 @@ module coop_forecast_mod
      COOP_STRING::form
      COOP_INT:: n = 0
      COOP_INT:: fulln = 0
-     COOP_INT:: n_derived = 1
+     COOP_INT:: n_derived = 0
      COOP_REAL:: proposal_length = 1.2d0
      COOP_REAL::bestlike = coop_LogZero
      COOP_REAL::loglike = coop_LogZero
      COOP_REAL::loglike_proposed = coop_LogZero
      COOP_REAL::mult = 0.d0
      COOP_REAL::sum_mult = 0.d0
-     COOP_REAL::temperature = 1.d0     
+     COOP_REAL::temperature = 1.d0
      COOP_INT,dimension(:),allocatable::used
      COOP_REAL,dimension(:),allocatable::fullparams
      COOP_REAL,dimension(:),allocatable::params
      COOP_REAL,dimension(:),allocatable::bestparams     
      COOP_SHORT_STRING, dimension(:), allocatable::name
-     COOP_SHORT_STRING, dimension(:), allocatable::tex     
+     COOP_SHORT_STRING, dimension(:), allocatable::tex
      COOP_REAL,dimension(:),allocatable::lower
      COOP_REAL,dimension(:),allocatable::upper
      COOP_REAL,dimension(:),allocatable::center
-     COOP_REAL,dimension(:),allocatable::width     
+     COOP_REAL,dimension(:),allocatable::width
+     logical,dimension(:),allocatable::has_prior
+     COOP_REAL,dimension(:),allocatable::prior_sigma     
+     COOP_REAL,dimension(:),allocatable::prior_center     
      COOP_REAL,dimension(:,:),allocatable::covmat
      COOP_REAL,dimension(:,:),allocatable::propose
      COOP_REAL,dimension(:),allocatable::params_saved
      COOP_SINGLE, dimension(:),allocatable::knot
      type(coop_list_realarr)::chain
+     type(coop_dictionary)::paramnames
      COOP_INT::accept, reject
+     !!index for parameters
+     COOP_INT::index_ombh2 = 0
+     COOP_INT::index_omch2 = 0          
+     COOP_INT::index_theta = 0
+     COOP_INT::index_tau = 0
+     COOP_INT::index_mnu = 0
+     COOP_INT::index_logA = 0
+     COOP_INT::index_ns = 0
+     COOP_INT::index_nrun = 0     
+     COOP_INT::index_r = 0
+     COOP_INT::index_nt = 0     
+     COOP_INT::index_de_w = 0
+     COOP_INT::index_de_wa = 0
+     COOP_INT::index_de_Q = 0
+     COOP_INT::index_de_tracking_n = 0
+     COOP_INT::index_de_dUdphi = 0
+     COOP_INT::index_de_dlnQdphi = 0
+     COOP_INT::index_de_d2Udphi2 = 0
+     COOP_INT::index_h = 0
    contains
      procedure::init => coop_MCMC_params_init
      procedure::MCMC_step => coop_MCMC_params_MCMC_step
      procedure::update_propose => coop_MCMC_params_update_Propose
      procedure::findbest => coop_MCMC_params_findbest
      procedure::derived => coop_MCMC_params_derived
+     procedure::priorLike => coop_MCMC_params_priorLike
+     procedure::Set_Cosmology => coop_MCMC_params_Set_Cosmology
+     procedure::index_of => coop_MCMC_params_index_of
+     
   end type coop_MCMC_params
 
 
 
 contains
 
+  function coop_MCMC_params_index_of(this, name) result(ind)
+    class(coop_MCMC_params)::this    
+    COOP_UNKNOWN_STRING::name
+    COOP_INT::ind
+    ind = this%paramnames%index(trim(adjustl(name)))
+  end function coop_MCMC_params_index_of
+
+  function coop_MCMC_params_priorLike(this) result(Prior)
+    class(coop_MCMC_params)::this
+    COOP_REAL::Prior
+    Prior = coop_LogZero
+    if(any(this%params .gt. this%upper) .or. any(this%params.lt.this%lower))return
+    if(associated(this%cosmology))then
+       if(this%cosmology%h().lt. 0.01d0)return
+    endif
+        
+    Prior = sum(((this%params - this%prior_center)/this%prior_sigma)**2, mask = this%has_prior)/2.d0
+  end function coop_MCMC_params_priorLike
+
+  !!set up %cosmology from %fullparams
+  subroutine coop_MCMC_params_Set_Cosmology(this)
+    class(coop_MCMC_params)::this
+    COOP_REAL, parameter::h_b_i = 0.4d0
+    COOP_REAL, parameter::h_t_i =  1.d0
+    COOP_REAL::h_t, h_b, h_m, theta_t, theta_b, theta_m, theta_want
+    if(.not. associated(this%cosmology)) stop "MCMC_params_set_cosmology: cosmology not allocated"
+    if(this%index_theta .ne. 0)then
+       theta_want = this%fullparams(this%index_theta)
+       h_t = h_t_i
+       h_b = h_b_i
+       call calc_theta(h_t, theta_t)
+       call calc_theta(h_b, theta_b)
+       if(theta_t .lt. theta_want)then
+          call this%cosmology%set_h(0.d0)
+          return
+       endif
+       if(theta_b .gt. theta_want)then
+          call this%cosmology%set_h(0.d0)
+          return
+       endif
+       do while(h_t - h_b .gt. 1.d-3)
+          h_m = (h_t + h_b)/2.d0
+          call calc_theta(h_m, theta_m)
+          if(theta_m .gt. theta_want)then
+             h_t = h_m
+             theta_t = theta_m
+          else
+             h_b = h_m
+             theta_b = theta_m
+          endif
+       enddo
+       if(abs(theta_m - theta_want).gt.1.d-7)then
+          call calc_theta((h_t*(theta_want - theta_b)+h_b*(theta_t - theta_want))/(theta_t - theta_b), theta_m)
+       endif
+    elseif(this%index_h .ne. 0)then
+       call setForH(this%fullparams(this%index_h))
+    else
+       stop "you need to use either theta or h for MCMC runs"
+    endif
+    call this%cosmology%setup_background()
+    if(this%index_tau .ne. 0)then !!
+       this%cosmology%optre = this%fullparams(this%index_tau)
+       call this%cosmology%set_xe()
+       if(this%index_logA .ne. 0)then
+          this%cosmology%As = exp(this%fullparams(this%index_logA))*1.d-10
+       else
+          this%cosmology%As = 2.2d-9
+       endif
+       if(this%index_ns .ne. 0)then
+          this%cosmology%ns = this%fullparams(this%index_ns)
+       else
+          this%cosmoLogy%ns = 0.967d0
+       endif
+       if(this%index_nrun .ne.0)then
+          this%cosmology%nrun = this%fullparams(this%index_nrun)
+       else
+          this%cosmology%nrun = 0.d0
+       endif
+       if(this%index_r .ne. 0)then
+          this%cosmology%r = this%fullparams(this%index_r)
+          this%cosmology%has_tensor = (this%cosmology%r .gt. 0.d0)
+       else
+          this%cosmology%r = 0.d0
+          this%cosmology%has_tensor = .false.
+       endif
+       if(this%index_nt .ne. 0)then
+          this%cosmology%nt = this%fullparams(this%index_nt)
+       else
+          this%cosmology%nt = - this%cosmology%r/8.d0 !!inflationary consistency
+       endif
+       call this%cosmology%set_standard_power(this%cosmology%As, this%cosmology%ns, this%cosmology%nrun, this%cosmology%r, this%cosmology%nt)
+       call this%cosmology%compute_source(0)
+       if(this%cosmology%has_tensor)then
+          call this%cosmology%compute_source(2)
+       endif
+    endif
+  contains
+
+    subroutine calc_theta(h, theta)
+      COOP_REAL::h, theta
+      call setForH(h)
+      theta = this%cosmology%cosmomc_theta()*100.d0
+    end subroutine calc_theta
+
+    subroutine setforH(h)
+      COOP_REAL::h
+      COOP_REAL::Q, dlnQdphi, dUdphi, d2Udphi2, tracking_n, w, wa
+      call this%cosmology%free()
+      call this%cosmology%init(name = "Cosmology", id = 0, h = h)
+      this%cosmology%ombh2 =this%fullparams(this%index_ombh2)
+      this%cosmology%omch2 =this%fullparams(this%index_omch2)      
+      !!baryon
+      call this%cosmology%add_species(coop_baryon(this%cosmology%ombh2/h**2))
+      !!radiation
+      call this%cosmology%add_species(coop_radiation(this%cosmology%Omega_radiation()))
+      !!neutrinos
+      if(this%index_mnu .ne. 0)then
+         if(this%fullparams(this%index_mnu).gt. 0.01d0)then  !!do massive neutrinos
+            call this%cosmology%add_species(coop_neutrinos_massive( &
+                 this%cosmology%Omega_nu_per_species_from_mnu_eV( this%fullparams(this%index_mnu) ) ,&
+                 this%cosmology%Omega_massless_neutrinos_per_species()))
+            call this%cosmology%add_species( coop_neutrinos_massless(this%cosmology%Omega_massless_neutrinos_per_species()*(this%cosmology%NNu()-1)))
+         else
+            call this%cosmology%add_species( coop_neutrinos_massless(this%cosmology%Omega_massless_neutrinos()))
+         endif
+      else
+         call this%cosmology%add_species( coop_neutrinos_massless(this%cosmology%Omega_massless_neutrinos()))  
+      endif
+      if(this%index_de_tracking_n .ne. 0 .or. this%index_de_dUdphi .ne. 0 .or. this%index_de_Q .ne. 0)then  !!
+         if(this%index_de_tracking_n .ne. 0)then
+            tracking_n = this%fullparams(this%index_de_tracking_n)
+         else
+            tracking_n = 0.d0
+         endif
+         if(this%index_de_Q .ne. 0)then  !!coupled DE
+            Q = this%fullparams(this%index_de_Q)
+         else
+            Q = 0.d0
+         endif
+         if(this%index_de_dlnQdphi .ne. 0)then
+            dlnQdphi = this%fullparams(this%index_de_dlnQdphi)
+         else
+            dlnQdphi = 0.d0
+         endif
+         if(this%index_de_dUdphi .ne. 0)then
+            dUdphi = this%fullparams(this%index_de_dUdphi)
+         else
+            dUdphi = 0.d0
+         endif
+         if(this%index_de_d2Udphi2 .ne. 0)then
+            d2Udphi2 = this%fullparams(this%index_de_d2Udphi2)
+         else
+            d2Udphi2 = 0
+         endif
+         call coop_background_add_coupled_DE(this%cosmology, Omega_c = this%cosmology%omch2/h**2, Q = Q, tracking_n =  tracking_n, dlnQdphi = dlnQdphi, dUdphi = dUdphi, d2Udphi2 = d2Udphi2)         
+      else
+         call this%cosmology%add_species(coop_cdm(this%cosmology%omch2/h**2))
+         if(this%index_de_w .ne. 0)then
+            w = this%fullparams(this%index_de_w)
+            if(this%index_de_wa .ne. 0)then
+               wa = this%fullparams(this%index_de_wa)
+               call this%cosmology%add_species(coop_de_w0wa(this%cosmology%Omega_k(), w, wa))               
+            else
+               call this%cosmology%add_species(coop_de_w0(this%cosmology%Omega_k(), w))                              
+            endif
+         else
+            call this%cosmology%add_species(coop_de_lambda(this%cosmology%Omega_k()))                           
+         endif
+      endif
+    end subroutine setforH
+
+  end subroutine coop_MCMC_params_Set_Cosmology
+
   function  coop_MCMC_params_derived(this) result(derived)
     class(coop_MCMC_params)::this
     COOP_REAL:: derived(this%n_derived)
-    derived(1) = 1.d0 - this%fullparams(1) - this%fullparams(2)
+    if(associated(this%cosmology))then
+       derived(1) = this%cosmology%h()*100.d0
+       derived(2) = this%cosmology%Omega_m
+       derived(3) = 1.d0 - this%cosmology%Omega_m       
+    else
+       derived(1) = 1.d0 - this%fullparams(1) - this%fullparams(2)
+    endif
   end function coop_MCMC_params_derived
 
   subroutine coop_MCMC_params_update_Propose(this)
@@ -144,17 +350,24 @@ contains
   subroutine coop_MCMC_params_init(this, prefix, paramnames, ini)
     class(coop_MCMC_params)::this
     COOP_UNKNOWN_STRING::prefix, ini, paramnames
-    type(coop_dictionary)::dict, pn
+    type(coop_dictionary)::dict
     type(coop_file)::fp
     logical success
-    COOP_REAL,dimension(:),allocatable::center, lower, upper, width, iniwidth
+    COOP_REAL,dimension(:),allocatable::center, lower, upper, width, iniwidth, prior_sigma, prior_center
     COOP_INT i, iused
     COOP_STRING val
+    call this%chain%init()
+    call this%paramnames%free()
     this%prefix = trim(adjustl(prefix))
     this%proc_id = coop_MPI_rank()
+    if(associated(this%cosmology))then
+       this%n_derived = coop_n_derived_with_cosmology
+    else
+       this%n_derived = coop_n_derived_without_cosmology       
+    endif
     if(coop_file_exists(trim(paramnames)))then
        this%fulln  = coop_file_numlines(paramnames)
-       call coop_load_dictionary(paramnames, pn, col_key = 1, col_value = 2)
+       call coop_load_dictionary(paramnames, this%paramnames, col_key = 1)
     else
        write(*, "(A)") "MCMC_params_init: cannot find file "//trim(paramnames)
        stop
@@ -165,11 +378,18 @@ contains
        write(*, "(A)") "MCMC_params_init: cannot find file "//trim(ini)
        stop
     endif
-    if(allocated(this%fullparams))deallocate(this%used, this%fullparams, this%params, this%lower, this%upper, this%center, this%width, this%covmat, this%propose, this%params_saved, this%name, this%tex, this%knot, this%bestparams)
-    allocate(this%fullparams(this%fulln), this%name(this%fulln), this%tex(this%fulln), lower(this%fulln), upper(this%fulln), width(this%fulln), iniwidth(this%fulln), center(this%fulln))
+    if(allocated(this%fullparams))deallocate(this%used, this%fullparams, this%params, this%lower, this%upper, this%center, this%width, this%covmat, this%propose, this%params_saved, this%name, this%tex, this%knot, this%bestparams, this%prior_sigma, this%prior_center, this%has_prior)
+    allocate(this%fullparams(this%fulln), this%name(this%fulln), this%tex(this%fulln), lower(this%fulln), upper(this%fulln), width(this%fulln), iniwidth(this%fulln), center(this%fulln), prior_sigma(this%fulln), prior_center(this%fulln))
     do i= 1, this%fulln
-       this%name(i) = trim(pn%key(i))
-       this%tex(i) = trim(pn%val(i))
+       this%name(i) = trim(this%paramnames%key(i))
+       this%tex(i) = trim(this%paramnames%val(i))
+       call coop_dictionary_lookup(dict, "prior["//trim(this%name(i))//"]", val)
+       if(trim(val).eq."")then
+          prior_center(i) = 0.d0
+          prior_sigma(i) = 0.d0
+       else
+          read(val, *) prior_center(i), prior_sigma(i)
+       endif
        call coop_dictionary_lookup(dict, "param["//trim(this%name(i))//"]", val)
        if(trim(val).eq."")then
           write(*,*) "key  param["//trim(this%name(i))//"] is not found in the ini file "//trim(ini)
@@ -209,7 +429,7 @@ contains
     enddo
     this%n = count(width .ne. 0.d0)
     this%form = "("//COOP_STR_OF(this%n+2+this%n_derived)//"E16.7)"
-    allocate(this%used(this%n), this%params(this%n), this%lower(this%n), this%upper(this%n), this%center(this%n), this%width(this%n), this%covmat(this%n, this%n), this%propose(this%n, this%n), this%params_saved(this%n), this%knot(this%n+2), this%bestparams(this%n))
+    allocate(this%used(this%n), this%params(this%n), this%lower(this%n), this%upper(this%n), this%center(this%n), this%width(this%n), this%covmat(this%n, this%n), this%propose(this%n, this%n), this%params_saved(this%n), this%knot(this%n+2), this%bestparams(this%n), this%prior_sigma(this%n), this%prior_center(this%n), this%has_prior(this%n))
     iused= 0
     do i = 1, this%fulln
        if(width(i) .ne. 0.d0)then
@@ -223,6 +443,9 @@ contains
     this%width = width(this%used)
     this%upper = upper(this%used)
     this%lower = lower(this%used)
+    this%prior_sigma = prior_sigma(this%used)
+    this%prior_center = prior_center(this%used)
+    this%has_prior = (this%prior_sigma .gt. 0.d0)
     call coop_dictionary_lookup(dict, "propose_matrix", val)
     if(trim(val).ne."")then
        call fp%open(val, "r")
@@ -268,9 +491,30 @@ contains
        call fp%close()
        
     endif
-    deallocate(center, lower, upper, width, iniwidth)    
+    deallocate(center, lower, upper, width, iniwidth, prior_sigma, prior_center)    
     call dict%free()
-    call pn%free()
+
+    !!load all the indices
+    this%index_ombh2 = this%index_of("ombh2")
+    this%index_omch2 = this%index_of("omch2")
+    this%index_theta = this%index_of("theta")
+    this%index_tau = this%index_of("tau")
+    this%index_logA = this%index_of("logA")
+    this%index_ns = this%index_of("ns")
+    this%index_mnu = this%index_of("mnu")                        
+    this%index_nrun = this%index_of("nrun")
+    this%index_r = this%index_of("r")
+    this%index_nt =      this%index_of("nt")
+    this%index_de_w = this%index_of("de_w")
+    this%index_de_wa = this%index_of("de_wa")
+    this%index_de_Q = this%index_of("de_Q")
+    this%index_de_tracking_n = this%index_of("de_tracking_n")
+    this%index_de_dUdphi = this%index_of("de_dUdphi")
+    this%index_de_dlnQdphi = this%index_of("de_dlnQdphi")
+    this%index_de_d2Udphi2 = this%index_of("de_d2Udphi2")
+    this%index_h = this%index_of("h")
+
+    
 
   end subroutine coop_MCMC_params_init
   
@@ -285,6 +529,9 @@ contains
        if(this%accept+this%reject .eq. 0)then
           call this%chainfile%open(trim(this%prefix)//"_"//COOP_STR_OF(this%proc_id+1)//".txt", "w")          
           call this%chain%init()
+          if(associated(this%cosmology))then
+             call this%set_cosmology()
+          endif
           this%loglike = pool%LogLike(this)
           this%bestparams = this%params
           this%bestlike = this%loglike
@@ -292,14 +539,10 @@ contains
        this%params_saved = this%params
        vec =  coop_random_vector(this%n)*(this%proposal_length*coop_random_Gaussian())       
        this%params = this%params_saved + matmul(this%propose, vec)
-       if(any(this%params .gt. this%upper) .or. any(this%params .lt. this%lower))then
-          this%params = this%params_saved
-          this%fullparams(this%used) = this%params       
-          this%reject = this%reject + 1
-          this%mult = this%mult + 1.d0
-          return
+       this%fullparams(this%used) = this%params
+       if(associated(this%cosmology))then
+          call this%set_cosmology()
        endif
-       this%fullparams(this%used) = this%params           
        this%loglike_proposed = pool%loglike(this)
        if((this%loglike_proposed - this%loglike)/this%temperature .lt. coop_random_exp())then
           this%accept = this%accept + 1
@@ -355,21 +598,6 @@ contains
 
 
 
-  function coop_dataset_prior(this, mcmc) result(prior)
-    class(coop_dataset)::this
-    type(coop_MCMC_params)::mcmc
-    COOP_REAL::prior
-    if(this%n_nuis .eq. 0 .or. this%off)then
-       prior = 0.d0
-       return
-    endif
-    if(any(this%nuis .gt. this%nuis_upper) .or. any(this%nuis .lt. this%nuis_lower))then
-       prior = coop_LogZero
-       return
-    endif
-    prior = sum(((this%nuis - this%nuis_center)/this%nuis_sigma)**2)/2.d0
-  end function coop_dataset_prior
-  
 
   function coop_dataset_loglike(this, mcmc) result(loglike)
     class(coop_dataset)::this
@@ -423,35 +651,72 @@ contains
 
   end function coop_dataset_SN_loglike
 
-  function coop_Data_Pool_prior(this, mcmc) result(prior)
-    class(coop_Data_Pool)this
+
+  function coop_dataset_CMB_LogLike(this, mcmc) result(loglike)
+    class(coop_dataset_CMB)::this
     type(coop_mcmc_params)::mcmc
-    COOP_REAL prior
-    if(associated(mcmc%cosmology))then
-       if(mcmc%cosmology%h() .le. 0.d0)then
-          prior = coop_LogZero
-          return
+    COOP_REAL::loglike
+    COOP_REAL, dimension(:,:), allocatable::Cls_scalar, Cls_tensor, Cls_lensed
+    COOP_REAL, dimension(:),allocatable::pars
+    COOP_INT::lmax, i, inuis, ind, l
+    loglike = 0.d0    
+    if(.not. associated(this%cliklike))return
+    if(.not. associated(mcmc%cosmology))then
+       stop "for CMB likelihood you need to initialize the cosmology object"
+    endif
+    lmax = 0
+    do i = 1, size(this%cliklike)
+       lmax = max(lmax, maxval(this%cliklike(i)%lmax))
+    enddo
+    lmax = lmax + 100  !!use buffer to get better lensing cls
+    allocate(Cls_Scalar(coop_num_Cls, 2:lmax), Cls_Tensor(coop_num_Cls, 2:lmax), Cls_lensed(coop_num_Cls, 2:lmax))
+    call mcmc%cosmology%source(0)%get_all_cls(2, lmax, Cls_scalar)
+    call coop_get_lensing_Cls(2, lmax, Cls_Scalar, Cls_lensed)
+    Cls_lensed = Cls_lensed + Cls_scalar
+    if(mcmc%cosmology%has_tensor)then
+       call mcmc%cosmology%source(2)%get_all_cls( 2, lmax, Cls_tensor)
+       Cls_lensed = Cls_lensed + Cls_tensor       
+    endif
+    Cls_lensed = Cls_lensed*((mcmc%cosmology%Tcmb())**2*1.d12)
+    inuis = 1
+    do i = 1, size(this%cliklike)
+       if(this%cliklike(i)%numnames .gt. 0)then
+          do inuis = 1, this%cliklike(i)%numnames
+             ind = mcmc%index_of(trim(this%cliklike(i)%names(inuis)))
+             if(ind .eq. 0)then
+                write(*,*) "param["//trim(this%cliklike(i)%names(inuis))//"] not found"
+                stop
+             endif
+             this%cliklike(i)%pars(inuis) = mcmc%fullparams(ind)
+          enddo
+          call this%cliklike(i)%set_cl_and_pars(Cls_lensed, this%cliklike(i)%pars)
+       else
+          call this%cliklike(i)%set_cl_and_pars(Cls_lensed)                
        endif
-       prior = 0.d0
-       return
-    endif
-    if(MCMC_OMEGA_LAMBDA .lt. 0.d0)then
-       prior = coop_LogZero
-    else
-       prior = 0.d0
-    endif
-  end function coop_Data_Pool_prior
+       LogLike = LogLike - this%cliklike(i)%LogLike()
+    enddo
+    deallocate(Cls_Scalar, Cls_tensor, Cls_lensed)
+  end function coop_dataset_CMB_LogLike
 
   function coop_Data_Pool_LogLike(this, mcmc) result(LogLike)
     class(coop_Data_Pool)this
     type(coop_mcmc_params)::mcmc
     COOP_INT::i
     COOP_REAL LogLike
-    LogLike = this%Prior(mcmc)
+    COOP_REAL,dimension(:,:),allocatable::Cls
+    !!Prior
+    LogLike = mcmc%PriorLike()
     if(LogLike .ge. coop_LogZero) return
-    do i=1, size(this%SN)
-       LogLike = LogLike + this%SN(i)%LogLike(mcmc)
-    enddo
+    !!Supernova
+    if(associated(this%SN))then
+       do i=1, size(this%SN)
+          LogLike = LogLike + this%SN(i)%LogLike(mcmc)
+          if(LogLike .ge. coop_LogZero) return          
+       enddo
+    endif
+    !!CMB
+    LogLike = LogLike + this%CMB%LogLike(mcmc)
+    if(LogLike .ge. coop_LogZero) return              
   end function coop_Data_Pool_LogLike
 
 
@@ -560,3 +825,4 @@ contains
   end subroutine coop_dataset_SN_simulate
 
 end module coop_forecast_mod
+

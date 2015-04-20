@@ -151,18 +151,6 @@ contains
   end function coop_de_wp1_quintessence
 
 
-
-
-
-  function coop_zrecomb_fitting(ombh2, omch2) result(zstar)
-    COOP_REAL zstar, ombh2, omch2
-  !!From Hu & Sugiyama
-    zstar =  1048 * (1 + 0.00124 * ombh2**(-0.738))*(1+ &
-         (0.0783 * ombh2 **(-0.238)/(1+39.5* ombh2 ** 0.763)) * &
-         (omch2 + ombh2)**(0.560/(1+21.1* ombh2 **1.81)))
-  end function coop_zrecomb_fitting
-
-
   subroutine coop_background_add_coupled_DE(this, Omega_c, Q, tracking_n, dlnQdphi, dUdphi, d2Udphi2)
     !!This Omega_c is the effective Omega_cdm (rho_m a^3 (a<<1) -> Omega_c rho_0) 
     !!Q is the coupling between DE and CDM

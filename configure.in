@@ -198,7 +198,7 @@ endif
 
 ### set clik flags
 ifneq ($(CLIKPATH),)
-LINK += -L$(CLIKPATH)/lib -lclik
-INCLUDE += -I$(CLIKPATH)/include -lclik
+LINK += -L$(CLIKPATH)/lib -lclik_f90
+INCLUDE += -I$(CLIKPATH)/include 
 FFLAGS += -DHAS_CLIK=1
 endif

@@ -21,11 +21,17 @@ Test:	test.o $(OBJ)
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK) 
 
 
-DoSN:	test.o $(OBJ)
+DOSN:	testSN.o $(OBJ)
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testSN.o $(LINK) 
+
+
+DOCLIK:	testclik.o $(OBJ)
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testclik.o $(LINK) 
 
 
 clean:
 	rm -f *.o *.*~ *.mod \#* *.a Makefile~ 
 
 test.o: $(OBJ)
+testSN.o: $(OBJ)
+testclik.o: $(OBJ)

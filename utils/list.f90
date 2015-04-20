@@ -167,6 +167,7 @@ module coop_list_mod
    contains
      procedure::isinit => coop_list_string_is_initialized
      procedure::init => coop_list_string_initialize
+     procedure::free => coop_list_string_initialize     
      procedure::push => coop_list_string_push
      procedure::pop => coop_list_string_pop
      procedure::element => coop_list_string_element
@@ -186,6 +187,7 @@ module coop_list_mod
      procedure::value => coop_dictionary_value
      procedure::update => coop_dictionary_update
      procedure::free => coop_dictionary_free
+     procedure::init => coop_dictionary_free     
   end type coop_dictionary
 
 

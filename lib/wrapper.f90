@@ -252,15 +252,15 @@ contains
     COOP_REAL hl, hr, hm, tl, tr, tm
     hl = hmin
     call coop_setup_global_cosmology_with_h(hl)
-    tl = 100.d0*coop_global_cosmology_cosmomc_theta()
+    tl = 100.d0*COOP_COSMO%cosmomc_theta()
     hr = hmax
     call coop_setup_global_cosmology_with_h(hr)
-    tr = 100.d0*coop_global_cosmology_cosmomc_theta()
+    tr = 100.d0*COOP_COSMO%cosmomc_theta()
     if(tl .lt. COOP_100THETA-1.d-8 .and. tr .gt. COOP_100THETA+1.d-8)then
        do while(hr - hl .gt. 0.0001)
           hm = (hl + hr)/2.
           call coop_setup_global_cosmology_with_h(hm)
-          tm = 100.d0*coop_global_cosmology_cosmomc_theta()
+          tm = 100.d0*COOP_COSMO%cosmomc_theta()
           if(tm .gt. COOP_100THETA+1.d-8)then
              hr  = hm
           elseif(tm .lt. COOP_100THETA - 1.d-8)then
@@ -277,34 +277,6 @@ contains
     endif
   end subroutine coop_setup_global_cosmology
 
-
-  function coop_global_cosmology_cosmomc_theta() result(theta)
-    COOP_REAL theta, zstar, astar, rs, da
-    zstar = coop_zrecomb_fitting(COOP_OMEGABH2, COOP_OMEGACH2)
-    astar = 1.d0/(1.d0 + zstar)
-    rs = coop_integrate( coop_global_cosmology_dsoundda, COOP_REAL_OF(0.d0), astar, COOP_REAL_OF(1.d-7) )
-    da = coop_r_of_chi(coop_integrate( coop_global_cosmology_dtauda, astar, COOP_REAL_OF(1.d0), COOP_REAL_OF(1.d-7) ), COOP_OMEGAK)
-    theta = rs/da
-  end function coop_global_cosmology_cosmomc_theta
-
-  function coop_global_cosmology_dsoundda(a) result(dsda)
-    COOP_REAL a, dsda
-    dsda = (1.d0/coop_sqrt3) / sqrt(1.d0 + 0.75d0/ COOP_COSMO%Omega_radiation()/COOP_COSMO%h()**2 * a * COOP_OMEGABH2 ) / COOP_COSMO%Hasq(a)
-  end function coop_global_cosmology_dsoundda
-
-  function coop_global_cosmology_dtauda(a) result(dtauda)
-    COOP_REAL a, dtauda
-    dtauda = 1.d0/COOP_COSMO%Hasq(a)
-  end function coop_global_cosmology_dtauda
-
-
-  function coop_zrecomb_fitting(ombh2, omch2) result(zstar)
-    COOP_REAL zstar, ombh2, omch2
-  !!From Hu & Sugiyama
-    zstar =  1048 * (1 + 0.00124 * ombh2**(-0.738))*(1+ &
-         (0.0783 * ombh2 **(-0.238)/(1+39.5* ombh2 ** 0.763)) * &
-         (omch2 + ombh2)**(0.560/(1+21.1* ombh2 **1.81)))
-  end function coop_zrecomb_fitting
 
 
   subroutine coop_setup_pp()

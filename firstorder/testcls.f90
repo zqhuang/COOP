@@ -12,6 +12,9 @@ program test
   COOP_REAL z, a, s, stau, k
   !!set cosmology
   call fod%Set_Planck_bestfit()
+  norm = fod%cosmomc_theta()
+  print*, norm, fod%ombh2, fod%omch2, fod%h()
+  stop
   coop_zeta_single_slice = .true.
   !!print*, fod%zre
   !!if you want extended models

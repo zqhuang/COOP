@@ -9,7 +9,7 @@ private
 
 public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_create_directory, coop_delete_directory, coop_file_numcolumns, coop_file_numlines, coop_load_dictionary, coop_free_file_unit, coop_file_exists, coop_file_encrypt, coop_file_decrypt, coop_string_encrypt, coop_string_decrypt, coop_file_load_function, coop_dir_exists, coop_export_dictionary
 
-  character,parameter::text_comment_symbol = "#"
+  character,parameter::coop_text_comment_symbol = "#"
 
 
   Type coop_file
@@ -164,7 +164,7 @@ contains
     nc = 0
 50  read(fp%unit, "(A)", ERR=100, END=100) inline
     inline = adjustl(inline)
-    if(trim(inline) .eq. "" .or. inline(1:1).eq.text_comment_symbol)then
+    if(trim(inline) .eq. "" .or. inline(1:1).eq.coop_text_comment_symbol)then
        nc = nc + 1
        goto 50
     endif
@@ -248,7 +248,7 @@ contains
     COOP_LONG_STRING line
     Line = ""
     success = .false.
-    do while(Line(1:1) .eq. text_comment_symbol .or. Trim(Line) .eq. "")
+    do while(Line(1:1) .eq. coop_text_comment_symbol .or. Trim(Line) .eq. "")
        read(fp%unit, '(A)', End=200, Err=200) line
        line = adjustl(trim(line))
     enddo
@@ -264,7 +264,7 @@ contains
     COOP_LONG_STRING line
     Line = ""
     success = .false.
-    do while(Line(1:1) .eq. text_comment_symbol .or. Trim(Line) .eq. "")
+    do while(Line(1:1) .eq. coop_text_comment_symbol .or. Trim(Line) .eq. "")
        read(fp%unit, '(A)', End=200, Err=200) line
        line = adjustl(trim(line))
     enddo
@@ -281,7 +281,7 @@ contains
     COOP_LONG_STRING line
     Line = ""
     success = .false.
-    do while(Line(1:1) .eq. text_comment_symbol .or. Trim(Line) .eq. "")
+    do while(Line(1:1) .eq. coop_text_comment_symbol .or. Trim(Line) .eq. "")
        read(fp%unit, '(A)', End=200, Err=200) line
        line = adjustl(trim(line))
     enddo
@@ -298,7 +298,7 @@ contains
     COOP_LONG_STRING line
     Line = ""
     success = .false.
-    do while(Line(1:1) .eq. text_comment_symbol .or. Trim(Line) .eq. "")
+    do while(Line(1:1) .eq. coop_text_comment_symbol .or. Trim(Line) .eq. "")
        read(fp%unit, '(A)', End=200, Err=200) line
        line = adjustl(trim(line))
     enddo
@@ -313,7 +313,7 @@ contains
     COOP_UNKNOWN_STRING line
     Line = ""
     success = .false.
-    do while(Line(1:1) .eq. text_comment_symbol .or. Trim(Line) .eq. "")
+    do while(Line(1:1) .eq. coop_text_comment_symbol .or. Trim(Line) .eq. "")
        read(fp%unit, '(A)', End=200, Err=200) line
        line = adjustl(trim(line))
     enddo
@@ -349,7 +349,8 @@ contains
     COOP_INT, optional:: col_key, col_value
     COOP_INT colm
     COOP_SHORT_STRING:: delim
-    if(present(col_key) .and. present(col_value))then
+    COOP_STRING::val, subval
+    if(present(col_key) .and. present(col_value))then  !!key and value
        if(present(delimitor))then
           delim = delimitor
        else
@@ -365,7 +366,7 @@ contains
        enddo
        call fp%close()
        call l%init()
-    elseif(present(col_value))then
+    elseif(present(col_value))then  !!key = #lines
        if(present(delimitor))then
           delim = delimitor
        else
@@ -382,7 +383,28 @@ contains
        enddo
        call fp%close()
        call l%init()
-    else
+    elseif(present(col_key))then  !!any thing after col_key is treated as value
+       if(present(delimitor))then
+          delim = delimitor
+       else
+          delim = " ,;"//coop_tab
+       endif
+       call fp%open(trim(fname), "r")
+       do while(fp%read_string(line))
+          call coop_string_to_list(line, l, delim)
+          if(l%n .gt. col_key)then
+             val = ""
+             do i = col_key+1, l%n
+                call l%get_element(i, subval)
+                if(subval(1:1).eq. coop_text_comment_symbol)exit
+                val = trim(val)//" "//trim(subval)
+             enddo
+             if(trim(val).ne."")call dict%insert(l%element(col_key), val)
+          endif
+       enddo
+       call fp%close()
+       call l%init()       
+    else  !!use "=" to specify (key, value) paris
        if(present(delimitor))then
           delim = delimitor
        else
@@ -392,7 +414,7 @@ contains
        do while(fp%read_string(line))
           eqloc = scan(line, trim(delim))
           if(eqloc .gt. 1 .and. eqloc .lt. len_trim(line))then
-             call dict%insert(line(1:eqloc-1), line(eqloc+1:))
+             if(trim(line(eqloc+1:)).ne."")call dict%insert(line(1:eqloc-1), line(eqloc+1:))
           endif
        enddo
        call fp%close()

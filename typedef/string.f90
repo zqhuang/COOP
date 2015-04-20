@@ -9,7 +9,7 @@ module coop_string_mod
   integer,parameter::sp = kind(1.)
   integer,parameter::dl = kind(1.d0)
 
-  public::coop_num2str,  coop_ndigits, coop_str2int, coop_str2real, coop_str2logical, coop_substr, coop_str_replace, coop_str_numalpha, coop_str2lower, coop_str2upper, coop_case_insensitive_eq, coop_file_path_of, coop_file_name_of, coop_file_add_postfix, coop_convert_to_C_string, coop_data_type, coop_string_contain_numbers, coop_numstr2goodstr, coop_num2goodstr
+  public::coop_num2str,  coop_ndigits, coop_str2int, coop_str2real, coop_str2logical, coop_substr, coop_str_replace, coop_str_numalpha, coop_str2lower, coop_str2upper, coop_case_insensitive_eq, coop_file_path_of, coop_file_name_of, coop_file_add_postfix, coop_convert_to_C_string, coop_convert_to_Fortran_String, coop_data_type, coop_string_contain_numbers, coop_numstr2goodstr, coop_num2goodstr
 
   Interface coop_num2str
      module procedure coop_int2str, coop_real2str, coop_logical2str, coop_double2str
@@ -417,6 +417,16 @@ contains
        str(i:i) = char(0)
     enddo
   end subroutine coop_convert_to_C_string
+
+  subroutine coop_convert_to_Fortran_String(str)
+    COOP_UNKNOWN_STRING str
+    COOP_INT i
+    do i=1, len(str)
+       if(str(i:i).eq.char(0))then
+          str(i:i) = " "
+       endif
+    enddo
+  end subroutine coop_convert_to_Fortran_String
 
 
   function coop_string_contain_numbers(str) result(nums)

@@ -20,14 +20,14 @@ module coop_clik
      logical::is_lensing = .false.
      integer, dimension(6):: has_cl = 0
      integer, dimension(6):: lmax = -1
-     integer, allocatable:: clik_index(:,:)
      integer::numnames = 0
      integer::n_tot = 0
-     character(LEN=256),dimension(:),pointer::names
-     COOP_REAL,dimension(:),allocatable::cl_and_pars
+     character(LEN=256),dimension(:),pointer::names=>null()
+     COOP_REAL,dimension(:),allocatable::cl_and_pars, pars
    contains
      procedure::init => coop_clik_object_init
      procedure::free => coop_clik_object_free
+     procedure::print_names => coop_clik_object_print_names
      procedure::loglike => coop_clik_object_loglike
      procedure::set_cl_and_pars => coop_clik_object_set_cl_and_pars
   end type coop_clik_object
@@ -39,14 +39,15 @@ contains
   subroutine coop_clik_object_init(this, filename)
     class(coop_clik_object)::this
     COOP_UNKNOWN_STRING::filename
-    this%filename = trim(filename)
+    COOP_INT i
     call this%free()
+    this%filename = trim(filename)    
 #ifdef HAS_CLIK
     call clik_try_lensing(this%is_lensing, filename)
     if(this%is_lensing)then
        call clik_lensing_init(this%clikid, filename)
-       call clik_get_lmax(this%clikid, this%lmax(1))
-       this%numnames = clik_get_extra_parameter_names(this%clikid, this%names)
+       call clik_lensing_get_lmax(this%clikid, this%lmax(1))
+       this%numnames = clik_lensing_get_extra_parameter_names(this%clikid, this%names)
        this%n_tot = 2*(this%lmax(1)+1) + this%numnames
     else
        call clik_init(this%clikid, filename)
@@ -55,18 +56,26 @@ contains
        this%numnames = clik_get_extra_parameter_names(this%clikid, this%names)
        this%n_tot = sum(this%lmax)+6+this%numnames
     endif
+    do i=1, this%numnames
+       call coop_convert_to_Fortran_string(this%names(i))
+       this%names(i) = trim(adjustl(this%names(i)))
+    enddo
+    allocate(this%cl_and_pars(this%n_tot), this%pars(this%numnames))       
 #else
     stop "CLIK is not installed"
 #endif
-    allocate(this%cl_and_pars(this%n_tot))
+
+
   end subroutine coop_clik_object_init
 
   subroutine coop_clik_object_free(this)
     class(coop_clik_object)::this
+    if(trim(this%filename).eq."")return
     this%filename=""
     if(associated(this%names))deallocate(this%names)
     this%numnames = 0
     if(allocated(this%cl_and_pars))deallocate(this%cl_and_pars)
+    if(allocated(this%pars))deallocate(this%pars)    
     this%lmax = -1
     this%n_tot = 0
     this%has_cl = 0
@@ -83,19 +92,19 @@ contains
   !!for 
   subroutine coop_clik_object_set_cl_and_pars(this, Cls, pars)
     class(coop_clik_object)::this
-    COOP_REAL, dimension(:,:)::Cls
-    COOP_REAL, dimension(:)::pars
-    COOP_INT::istart, i, lmin, lmax, ncls
+    COOP_INT, parameter::    lmin = 2
+    COOP_REAL, dimension(:,lmin:)::Cls
+    COOP_REAL, dimension(:), optional::pars
+    COOP_INT::istart, i, lmax, ncls
     if(trim(this%filename) .eq. "") stop "set_cl_and_pars: object not initialized"
     istart = 1
     this%cl_and_pars = 0.d0
-    ncls=size(Cls, 2)
-    lmin = lbound(Cls,2)
-    lmax = ubound(Cls,2)
-    if(lmin .gt. 2)stop "set_cl_and_pars: lmin > 2?"    
+    ncls=size(Cls, 1)
+    if(ncls .ne. coop_num_cls) stop "set_cl_and_pars: input Cls is different from standard coop Cls format"
+    lmax = size(Cls,2)+(lmin-1)
     if(this%is_lensing)then
-       if(ncls .ne. 2)then
-          stop "set_cl_and_pars: For lensing Cls(:, 1) = Cl(TT), Cls(:, 2) = Cl(PP)"
+       if(ncls .lt. 2)then
+          stop "set_cl_and_pars: For lensing Cls(1, :) = Cl(TT), Cls(2,:) = Cl(PP)"
        endif
 
        if(lmax .lt. this%lmax(1))then
@@ -103,28 +112,38 @@ contains
           stop "set_cl_and_pars: need to increase lmax"
        endif
        if(this%lmax(1) .ge. lmin)then
-          this%cl_and_pars(istart+lmin:istart+this%lmax(1)) = Cls(lmin:this%lmax(1), 2)
+          this%cl_and_pars(istart+lmin:istart+this%lmax(1)) = Cls(coop_index_ClLenLen, lmin:this%lmax(1))
           istart = istart+this%lmax(1)+1
-          this%cl_and_pars(istart+lmin:istart+this%lmax(1)) = Cls(lmin:this%lmax(1), 1)
+          this%cl_and_pars(istart+lmin:istart+this%lmax(1)) = Cls(coop_index_ClTT, lmin:this%lmax(1))
+          istart = istart+this%lmax(1)+1          
        endif
     else
-       if(ncls .ne. 4 .and. ncls .ne. 6)then
-          stop "set_cl_and_pars: For lensing Cls(:, 1) = Cl(TT), Cls(:, 2) = Cl(EE), Cls(:,3) = Cl(BB), Cls(:,4) = Cl(TE) [optional Cls(:,5) = Cl(TB), Cls(:,6) = Cl(EB)]"
-       endif
-       if(lmin .gt. 2)stop "set_cl_and_pars: lmin is at most 2"
        if(lmax .lt. maxval(this%lmax))then
           write(*,*) trim(this%filename)//" lmax = ", maxval(this%lmax)
           stop "set_cl_and_pars: need to increase lmax"
        endif
-       do i = 1, ncls
+       do i=1, 4
           if(this%lmax(i) .ge. lmin)then
-             this%cl_and_pars(istart + lmin : istart + this%lmax(i)) = Cls(lmin : this%lmax(i), i)
+             this%cl_and_pars(istart + lmin : istart + this%lmax(i)) = Cls(i, lmin : this%lmax(i))
           endif
           istart = istart + this%lmax(i) + 1
-          this%cl_and_pars(istart + lmin : istart + this%lmax(1)) = Cls(lmin : this%lmax(1), 1)
        enddo
-          
+       istart = istart + this%lmax(5) + this%lmax(6) + 2
     endif
+    if(present(pars))then
+       if(size(pars).lt. this%numnames)then
+          call this%print_names()
+          stop "set_cl_and_pars: not enough nuisance parameters"
+       endif
+       this%cl_and_pars(istart:istart + this%numnames - 1) = pars(1:this%numnames)           
+    else
+       if(this%numnames .gt. 0)then
+          call this%print_names()
+          stop "set_cl_and_pars: need to pass the nuisance parameters"
+       endif
+    endif
+    
+
   end subroutine coop_clik_object_set_cl_and_pars
 
   function coop_clik_object_loglike(this) result(loglike)
@@ -140,5 +159,16 @@ contains
     loglike = coop_LogZero
 #endif    
   end function coop_clik_object_loglike
+
+  subroutine coop_clik_object_print_names(this)
+    class(coop_clik_object)::this
+    COOP_INT ::i
+    write(*,*) "===parameters for "//trim(this%filename)//"==="
+    do i=1, this%numnames
+       write(*,*) trim(this%names(i))
+    enddo
+    write(*,*) "=== End of parameter list ==="    
+  end subroutine coop_clik_object_print_names
+  
   
 end module coop_clik

@@ -10,7 +10,7 @@ private
 
   public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe, coop_power_lnk_min, coop_power_lnk_max,  coop_k_dense_fac, coop_index_ClTT, coop_index_ClTE, coop_index_ClEE, coop_index_ClBB, coop_index_ClLenLen, coop_index_ClTLen,  coop_num_Cls, coop_Cls_lmax, coop_bbks_trans, coop_zeta_single_slice
 
-  COOP_INT::coop_Cls_lmax(0:2) = (/ 2500, 2000, 1500 /)
+  COOP_INT::coop_Cls_lmax(0:2) = (/ 2700, 2700, 1500 /)
 
   COOP_REAL, parameter :: coop_power_lnk_min = log(0.1d0) 
   COOP_REAL, parameter :: coop_power_lnk_max = log(5.d3) 
@@ -31,8 +31,6 @@ private
   COOP_INT, parameter::coop_index_ClEE = 2
   COOP_INT, parameter::coop_index_ClBB = 3
   COOP_INT, parameter::coop_index_ClTE = 4
-!  COOP_INT, parameter::coop_index_ClEB = 5
-!  COOP_INT, parameter::coop_index_ClTB = 6
   COOP_INT, parameter::coop_index_ClLenLen = 5
   COOP_INT, parameter::coop_index_ClTLen = 6
 
@@ -96,6 +94,8 @@ private
      COOP_INT ::de_genre = COOP_PERT_NONE
      COOP_REAL::k_pivot 
      COOP_REAL::dkappadtau_coef, ReionFrac, Omega_b, Omega_c, Omega_nu, Omega_g, tau_eq, mnu_by_Tnu, As, ns, nrun, r, nt, Omega_massivenu, bbks_keq, sigma_8
+     !!these omega's are defined at a=1 (today)
+     COOP_REAL::ombh2, omch2 !!these two parameters are defined in the a->0 limit (only matters when baryon or CDM is coupled to DE in some modified gravity models)
      logical::inflation_consistency
      type(coop_function)::Ps, Pt, Xe, ekappa, vis, Tb
      type(coop_cosmology_firstorder_source),dimension(0:2)::source
@@ -119,7 +119,7 @@ private
      procedure:: set_zre_from_optre => coop_cosmology_firstorder_set_zre_from_optre
      procedure:: set_optre_from_zre => coop_cosmology_firstorder_set_optre_from_zre
      procedure:: set_initial_conditions => coop_cosmology_firstorder_set_initial_conditions
-
+     procedure:: cosmomc_theta => coop_cosmology_firstorder_cosmomc_theta
      procedure:: xeofa => coop_cosmology_firstorder_xeofa
      procedure:: cs2bofa => coop_cosmology_firstorder_cs2bofa
      procedure:: Tbofa => coop_cosmology_firstorder_Tbofa
@@ -795,7 +795,9 @@ contains
     this%index_massiveNu = this%index_of("Massive Neutrinos")
     this%index_de = this%index_of("Dark Energy", .true.)
     this%Omega_b = O0_BARYON(this)%Omega
+    this%ombh2 = this%Omega_b * this%h()**2    
     this%Omega_c = O0_CDM(this)%Omega
+    this%omch2 = this%Omega_c*O0_CDM(this)%rhoa3_ratio(1.d-10)*this%h()**2
     this%Omega_g = O0_RADIATION(this)%Omega 
     if(this%index_massiveNu .ne. 0)then
        call coop_fermion_get_lnam(log(O0_MASSIVENU(this)%Omega/O0_MASSIVENU(this)%Omega_massless), this%mnu_by_Tnu)
@@ -1880,7 +1882,31 @@ contains
     enddo
     deallocate(indices)
   end subroutine coop_cosmology_firstorder_camb_GetTransfer
-  
+
+
+!!slow way to calculate theta. You do not need to initialize background before calling this function.
+  function coop_cosmology_firstorder_cosmomc_theta(this) result(theta)
+    class(coop_cosmology_firstorder)::this
+    COOP_REAL zstar, theta, astar, rs, da, ombh2
+    zstar = coop_zrecomb_fitting(this%ombh2, this%omch2)
+    astar = 1.d0/(1.d0+zstar)
+    rs = coop_integrate(dsoundda, 1.d-6, astar, 1.d-7)  !!to be consistent with CosmoMC
+    da = coop_r_of_chi(coop_integrate(dtauda, astar, 1.d0, 1.d-7), this%Omega_k())
+    theta  = rs/da
+  contains
+
+    function dsoundda(a) result(dsda)  !!use approximations, to be consistent with CosmoMC
+      COOP_REAL a, dsda, R
+      R = this%ombh2 * 3.d4*a
+      dsda = dtauda(a)/sqrt(3.d0*(1.d0+R))
+!      dsda = (1.d0/coop_sqrt3) / sqrt(1.d0 + 0.75d0/ this%Omega_radiation()/this%h()**2 * a * ombh2 )/ this%Hasq(a)
+    end function dsoundda
+
+    function dtauda(a) 
+      COOP_REAL a, dtauda
+      dtauda = 1.d0/this%Hasq(a)
+    end function dtauda
+  end function coop_cosmology_firstorder_cosmomc_theta
   
 end module coop_firstorder_mod
 
