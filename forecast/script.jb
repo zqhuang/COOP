@@ -1,0 +1,8 @@
+#!/bin/csh -f
+#PBS -N coopclik
+#PBS -l nodes=8:ppn=8
+#PBS -q workq
+#PBS -l walltime=48:00:00
+##PBS -r n
+cd /mnt/raid-cita/zqhuang/raid-zqhuang/zqhuang/GitHub/COOP/forecast
+mpirun -pernode ./DOCLIK
