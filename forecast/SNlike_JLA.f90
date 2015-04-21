@@ -222,7 +222,7 @@ contains
     if(trim(absdist_file).ne."")call this%read_absdist(absdist_file)
 
     call coop_dictionary_lookup(this%settings, "pecz", this%pecz, 1.d-3)
-    call coop_dictionary_lookup(this%settings, "twscriptmfit", this%twoscriptmfit, .false.)
+    call coop_dictionary_lookup(this%settings, "twoscriptmfit", this%twoscriptmfit, .false.)
     if(this%twoscriptmfit .and. (.not. this%has_thirdvar))then
        stop "JLA: twoscriptmfit was set but thirdvar information not present"
     endif

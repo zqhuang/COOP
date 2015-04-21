@@ -190,7 +190,7 @@ contains
           call this%cosmology%set_h(0.d0)
           return
        endif
-       do while(h_t - h_b .gt. 1.d-3)
+       do while(h_t - h_b .gt. 1.d-4)
           h_m = (h_t + h_b)/2.d0
           call calc_theta(h_m, theta_m)
           if(theta_m .gt. theta_want)then
@@ -787,11 +787,13 @@ contains
     type(coop_mcmc_params)::mcmc
     COOP_REAL::loglike
     COOP_REAL grid_best, zhel, zcmb, alpha, beta
-    COOP_INT grid_i, i, ind_alpha, ind_beta
+    COOP_INT grid_i, i, ind_alpha, ind_beta, j
+   ! type(coop_file)::fp
     if(associated(this%JLALike))then
        if(.not. associated(mcmc%cosmology))stop "for JLA you need initialize cosmology"
        loglike = coop_logzero
        if(this%JLALike%n .eq. 0) stop "JLA data not loaded"
+       !call fp%open("fidlum.txt", "r")
        do i=1, this%JLALike%n
           if(this%JLALike%sn(i)%has_absdist)then
              this%JLALike%lumdists(i) = 5.0*LOG10( this%JLALike%sn(i)%absdist)
@@ -800,7 +802,10 @@ contains
              zcmb = this%JLALike%sn(i)%zcmb
              this%JLALike%lumdists(i) = 5.d0*log10((1.0+zhel)/(1.0+zcmb) * mcmc%cosmology%luminosity_distance(1.d0/(1.d0+zcmb))/mcmc%cosmology%H0Mpc())
           endif
+          !read(fp%unit,*) j, this%JLALike%lumdists(i)
+          !if(j.ne.i) stop "Error in fidlum.txt"
        enddo
+       !call fp%close()
        if (this%JLALike%marginalize) then
           !$OMP PARALLEL DO DEFAULT(SHARED),SCHEDULE(STATIC), PRIVATE(alpha,beta, grid_i)
           do grid_i = 1, this%JLALike%int_points

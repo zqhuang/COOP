@@ -38,3 +38,4 @@ clean:
 test.o: $(OBJ)
 testSN.o: $(OBJ)
 testclik.o: $(OBJ)
+teststd6.o: $(OBJ)
