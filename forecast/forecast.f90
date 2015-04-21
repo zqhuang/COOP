@@ -503,7 +503,13 @@ contains
        do i=1, this%n
           write(fp%unit, "(2A16)")  this%name(this%used(i)), this%tex(this%used(i))
        enddo
-       write(fp%unit, "(2A16)") "omegal          ", "\Omega_\Lambda  "
+       if(associated(this%cosmology))then
+          write(fp%unit, "(2A16)") "H0              ", "H_0      "                    
+          write(fp%unit, "(2A16)") "omegam          ", "\Omega_m  "          
+          write(fp%unit, "(2A16)") "omegal          ", "\Omega_\Lambda  "          
+       else
+          write(fp%unit, "(2A16)") "omegal          ", "\Omega_\Lambda  "
+       endif
        call fp%close()
        
     endif
