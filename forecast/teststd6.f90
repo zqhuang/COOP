@@ -14,7 +14,7 @@ program test
   COOP_INT i
 
   COOP_REAL::loglike
-  
+  call coop_MPI_Init()
   mcmc%cosmology => cosmology
   call mcmc%init(prefix="chains/test", paramnames= "paramnames/std6.paramnames", ini = "myinis/teststd6.ini")
   call mcmc%set_cosmology()
@@ -37,5 +37,5 @@ program test
   pool%SN_JLA%JLALike => jla
   loglike = pool%loglike(mcmc)
   write(*,*) "JLA loglike = ", loglike
-
+  call coop_MPI_Finalize()
 end program test
