@@ -1,6 +1,6 @@
 #Settings for the joint SNLS/SDSS data analysis
 name = JLA
-data_file = /Users/zqhuang/work/scilibs/COOP/data/jla/jla_lcparams.txt
+data_file = ../data/jla/jla_lcparams.txt
 pecz = 0
 intrinsicdisp = 0
 intrinsicdisp0 = 0
