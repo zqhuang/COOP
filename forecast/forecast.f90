@@ -12,7 +12,7 @@ module coop_forecast_mod
 #define MCMC_WA    mcmc%fullparams(4)
 #define MCMC_OMEGA_LAMBDA  (1.d0 - MCMC_OMEGA_M - MCMC_OMEGA_K)  
 
-  COOP_INT, parameter::coop_n_derived_with_cosmology = 3
+  COOP_INT, parameter::coop_n_derived_with_cosmology = 4
   COOP_INT, parameter::coop_n_derived_without_cosmology = 1
 
   
@@ -317,11 +317,29 @@ contains
 
   function  coop_MCMC_params_derived(this) result(derived)
     class(coop_MCMC_params)::this
-    COOP_REAL:: derived(this%n_derived)
+    COOP_REAL:: derived(this%n_derived), phi, dlnVdphi, aeq, Q
     if(associated(this%cosmology))then
        derived(1) = this%cosmology%h()*100.d0
        derived(2) = this%cosmology%Omega_m
-       derived(3) = 1.d0 - this%cosmology%Omega_m       
+       derived(3) = 1.d0 - this%cosmology%Omega_m
+       if(O0_DE(this%cosmology)%genre .eq. COOP_SPECIES_COUPLED)then
+          aeq = 1.d0
+          do while(O0_DE(this%cosmology)%density(aeq) .gt. O0_CDM(this%cosmology)%density(aeq))
+             aeq = aeq*0.95
+          enddo
+          do while(O0_DE(this%cosmology)%density(aeq) .le. O0_CDM(this%cosmology)%density(aeq))
+             aeq = aeq*1.01
+          enddo
+          do while(O0_DE(this%cosmology)%density(aeq) .gt. O0_CDM(this%cosmology)%density(aeq))
+             aeq = aeq*0.995
+          enddo
+          phi = O0_DE(this%cosmology)%DE_phi(aeq)
+          dlnVdphi = O0_DE(this%cosmology)%DE_dlnVdphi(phi)
+          Q = O0_DE(this%cosmology)%DE_Q(aeq)
+          derived(4) = (dlnVdphi + Q)**2/2.d0
+       else
+          derived(4) = 0.d0
+       endif
     else
        derived(1) = 1.d0 - this%fullparams(1) - this%fullparams(2)
     endif
@@ -506,7 +524,8 @@ contains
        if(associated(this%cosmology))then
           write(fp%unit, "(2A16)") "H0              ", "H_0      "                    
           write(fp%unit, "(2A16)") "omegam          ", "\Omega_m  "          
-          write(fp%unit, "(2A16)") "omegal          ", "\Omega_\Lambda  "          
+          write(fp%unit, "(2A16)") "omegal          ", "\Omega_\Lambda  "
+          write(fp%unit, "(2A16)") "epss            ", "\epsilon_s  "                    
        else
           write(fp%unit, "(2A16)") "omegal          ", "\Omega_\Lambda  "
        endif
