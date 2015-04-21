@@ -387,7 +387,15 @@ contains
   subroutine coop_data_JLA_read_absdist(this, filename)
     class(coop_data_JLA)::this
     COOP_UNKNOWN_STRING::filename
+    type(coop_dictionary)::dist
+    COOP_INT::i, ind
+    COOP_STRING::val
+    call coop_load_dictionary(filename, dist, col_key = 1, col_value = 2)
+    if(dist%n .le. 0) return
+    do i=1, this%n
 
+    enddo
+    call dist%free()
   end subroutine coop_data_JLA_read_absdist
 
 

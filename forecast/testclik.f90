@@ -10,10 +10,11 @@ program test
 
   type(coop_mcmc_params)::mcmc
   type(coop_data_pool)::pool
+  COOP_INT i
 
   COOP_REAL::loglike
   mcmc%cosmology => cosmology
-  call mcmc%init(prefix="chains/std6", paramnames= "paramnames/mcmc.paramnames", ini = "myinis/qcdm.ini")
+  call mcmc%init(prefix="chains/planck", paramnames= "paramnames/qcdm.paramnames", ini = "myinis/qcdm.ini")
 
   
   call pl(1)%init("../data/cmb/CAMspec_v6.2TN_2013_02_26_dist.clik")
@@ -28,6 +29,12 @@ program test
 
   call mcmc%set_cosmology()  
   loglike = pool%loglike(mcmc)
-  print*, loglike
+
+  !!do MCMC
+  do i = 1, 5
+     print*, "step", i
+     if(i.lt.500 .and. mod(i, 100).eq.0)call mcmc%update_propose()
+     call mcmc%mcmc_step(pool)
+  enddo
 
 end program test
