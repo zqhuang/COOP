@@ -2704,7 +2704,7 @@ contains
     COOP_INT, optional::remove_l_upper
     COOP_SINGLE, dimension(:),allocatable::m01
     complex,dimension(:,:,:),allocatable::alms
-    
+#ifdef HAS_HEALPIX    
     if(map%nside  .ne. mask%nside) stop "mask: nside must be the same as the map"
     call map%convert2ring()
     call mask%convert2ring()
@@ -2729,6 +2729,7 @@ contains
        map%map(:,2) = map%map(:,2)*polmask%map(:,1)
        map%map(:,3) = map%map(:,3)*polmask%map(:,1)
     endif
+#endif    
   end subroutine coop_healpix_maps_mask
 
   subroutine coop_healpix_maps_get_fullCls(map, mask, polmask)
