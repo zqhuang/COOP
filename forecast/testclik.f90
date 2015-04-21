@@ -10,7 +10,7 @@ program test
 
   type(coop_mcmc_params)::mcmc
   type(coop_data_pool)::pool
-  COOP_UNKNOWN_STRING, parameter::planckdata_path = "/home/zqhuang/includes/planck13/data"
+  COOP_UNKNOWN_STRING, parameter::planckdata_path = "/home/zqhuang/includes/planck13/data" !"../data/cmb/" 
   COOP_INT i
 
   COOP_REAL::loglike
@@ -30,13 +30,13 @@ program test
   call jla%read("../data/jla/jla.dataset")
   pool%SN_JLA%JLALike => jla
 
-  call mcmc%set_cosmology()  
-  loglike = pool%loglike(mcmc)
+!!$  call mcmc%set_cosmology()  
+!!$  loglike = pool%loglike(mcmc)
 
   !!do MCMC
-  do i = 1, 5
-     print*, "step", i
-     if(i.lt.500 .and. mod(i, 100).eq.0)call mcmc%update_propose()
+  do i = 1, 6000
+     print*, "on Node ", coop_MPI_Rank(), ": step", i, " likelihood = ", mcmc%loglike
+     if(i.lt.1000 .and. mod(i, 100).eq.0)call mcmc%update_propose()
      call mcmc%mcmc_step(pool)
   enddo
   call coop_MPI_finalize()

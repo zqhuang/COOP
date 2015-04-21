@@ -393,7 +393,12 @@ contains
     call coop_load_dictionary(filename, dist, col_key = 1, col_value = 2)
     if(dist%n .le. 0) return
     do i=1, this%n
-
+       ind = dist%index(trim(this%sn(i)%name))
+       if(ind .ne. 0)then
+          this%sn(i)%has_absdist = .true.
+          val = dist%val(ind)
+          read(val, *) this%sn(i)%absdist
+       endif
     enddo
     call dist%free()
   end subroutine coop_data_JLA_read_absdist
@@ -540,9 +545,12 @@ contains
             - 2.0 * beta * this%sn(i)%cov_mag_colour &
             - 2.0 * alphabeta * this%sn(i)%cov_stretch_colour
     enddo
-
+#ifdef HAS_LAPACK
     !Factor into Cholesky form, overwriting the input matrix
     CALL DPOTRF(coop_data_JLA_uplo,this%n,invcovmat,this%n,status)
+#else
+    stop "For JLA likelihood you need to link COOP to Lapack"
+#endif    
     IF ( status .NE. 0 ) THEN
        WRITE(*,cholerrfmt) alpha, beta
        RETURN
@@ -560,7 +568,12 @@ contains
     ! for different values of alpha and beta.
     !Note that DPOTRI only makes half of the matrix correct,
     ! so we have to be careful in what follows
+#ifdef HAS_LAPACK    
     CALL DPOTRI(coop_data_JLA_uplo,this%n,invcovmat,this%n,status)
+#else
+    stop "For JLA likelihood you need to link COOP to Lapack"
+#endif    
+    
     IF ( status .NE. 0 ) THEN
        WRITE(*,cholinvfmt) alpha, beta
 
@@ -639,7 +652,11 @@ contains
        !We re-use the invvars variable to hold the intermediate product
        !which is sort of naughty
        ! invvars = V^-1 * diffmag (invvars = 1.0*invcovmat*diffmag+0*invvars)
+#ifdef HAS_LAPACK       
        CALL DSYMV(coop_data_JLA_uplo,this%n,1.0d0,invcovmat,this%n,diffmag,1,0.0d0,invvars,1)
+#else
+    stop "For JLA likelihood you need to link COOP to Lapack"
+#endif    
 
        amarg_A = DOT_PRODUCT( diffmag, invvars ) ! diffmag*V^-1*diffmag
 
@@ -648,11 +665,21 @@ contains
           amarg_C = DOT_PRODUCT( invvars, this%A2 ) !diffmag*V^-1*A2
 
           !Be naughty again and stick V^-1 * A1 in invvars
+#ifdef HAS_LAPACK          
           CALL DSYMV(coop_data_JLA_uplo,this%n,1.0d0,invcovmat,this%n,this%A1,1,0.0d0,invvars,1)
+#else
+    stop "For JLA likelihood you need to link COOP to Lapack"
+#endif    
+          
           amarg_D = DOT_PRODUCT( invvars, this%A2 ) !A2*V^-1*A1
           amarg_E = DOT_PRODUCT( invvars, this%A1 ) !A1*V^-1*A1
           ! now V^-1 * A2
+#ifdef HAS_LAPACK          
           CALL DSYMV(coop_data_JLA_uplo,this%n,1.0d0,invcovmat,this%n,this%A2,1,0.0d0,invvars,1)
+#else
+    stop "For JLA likelihood you need to link COOP to Lapack"
+#endif    
+          
           amarg_F = DOT_PRODUCT( invvars, this%A2 ) !A2*V^-1*A2
        ELSE
           amarg_B = SUM( invvars ) !GB = 1 * V^-1 * diffmag
