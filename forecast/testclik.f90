@@ -10,16 +10,19 @@ program test
 
   type(coop_mcmc_params)::mcmc
   type(coop_data_pool)::pool
+  COOP_UNKNOWN_STRING, parameter::planckdata_path = "/home/zqhuang/includes/planck13/data"
   COOP_INT i
 
   COOP_REAL::loglike
+  call coop_MPI_init()
+  
   mcmc%cosmology => cosmology
   call mcmc%init(prefix="chains/planck", paramnames= "paramnames/qcdm.paramnames", ini = "myinis/qcdm.ini")
 
   
-  call pl(1)%init("../data/cmb/CAMspec_v6.2TN_2013_02_26_dist.clik")
-  call pl(2)%init("../data/cmb/commander_v4.1_lm49.clik")
-  call pl(3)%init("../data/cmb/lowlike_v222.clik")  
+  call pl(1)%init(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik")
+  call pl(2)%init(trim(planckdata_path)//"/commander_v4.1_lm49.clik")
+  call pl(3)%init(trim(planckdata_path)//"/lowlike_v222.clik")  
   pool%CMB%cliklike => pl
   pool%HST%HSTlike => HSTlike
 
@@ -36,5 +39,5 @@ program test
      if(i.lt.500 .and. mod(i, 100).eq.0)call mcmc%update_propose()
      call mcmc%mcmc_step(pool)
   enddo
-
+  call coop_MPI_finalize()
 end program test
