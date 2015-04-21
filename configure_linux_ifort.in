@@ -1,9 +1,9 @@
-#PLATFORM = MacOS
-#PLATFORM = Windows
 PLATFORM = LINUX
+#PLATFORM = Windows
+#PLATFORM = LINUX
 
 ifeq ($(PLATFORM),MacOS)
-GFORTRAN_NAME = gfortran-mp-4.7
+GFORTRAN_NAME = gfortran-mp-4.8
 else
 GFORTRAN_NAME = gfortran
 endif
@@ -21,36 +21,33 @@ MPI_COMPILER_ALIAS = mpif90
 USE_OPENMP = YES
 ##### compilers
 #free compiler $(GCC_NAME) and $(GFORTRAN_NAME); you also need preprocessor that comes with $(GCC_NAME)
-#FORTRAN_COMPILER = $(GFORTRAN_NAME)
-#C_COMPILER = $(GCC_NAME)
-#if you have intel compilers
 FORTRAN_COMPILER = $(IFORT_NAME)
 C_COMPILER = $(ICC_NAME)
+#if you have intel compilers
+#FORTRAN_COMPILER = $(IFORT_NAME)
+#C_COMPILER = $(ICC_NAME)
 ########################librarys #############################################
 ########not all libraries are required  (depending on what you want to do)####
 ########set to null string for librarys that are not installed ###############
 ##############################################################################
 ##LAPACK lib, mandatory if you use any data (WMAP, ACT, SPT, SNLS3yr)
 
-LAPACK = 
-# $(HOME)/includes/lapack-3.4.2
+LAPACK = $(HOME)/includes/lapack-3.4.2
 
 ##FFTW lib (v3.2 up)
-FFTW3=
-#$(HOME)/includes/fftw3
+FFTW3 = $(HOME)/includes/fftw3
 
 ## gsl lib 
 GSL =
 #$(HOME)/mathlib/gsl
 
+CLIKPATH = $(HOME)/work/scilibs/COOP/forecast/plc-1.0/
 
 ##cfitsio lib, mandatory if you do mapio
-CFITSIO = 
-#$(HOME)/work/scilibs/cfitsio
+CFITSIO = $(HOME)/work/scilibs/cfitsio
 
 ##Healpix lib, mandatory if you do mapio
-HEALPIX = 
-#$(HOME)/work/scilibs/Healpix
+HEALPIX = $(HOME)/work/scilibs/Healpix
 
 ####################### the rest ##########################################
 #should automatically work if you are using $(IFORT_NAME) or $(GFORTRAN_NAME); 
@@ -132,7 +129,6 @@ LINK += -L$(NONLINEAR) -lcoopnonlinear
 INCLUDE += -I$(NONLINEAR)
 endif
 
-
 ifneq ($(FIRSTORDER),)
 LINK += -L$(FIRSTORDER) -lcoopfirstorder
 INCLUDE += -I$(FIRSTORDER)
@@ -155,7 +151,6 @@ LINK += -L$(TYPEDEF) -lcooptypedef
 INCLUDE += -I$(TYPEDEF)
 endif
 
-
 ### set Healpix flags here
 ifneq ($(HEALPIX),)
 LINK += -L$(HEALPIX)/lib -lhealpix 
@@ -173,13 +168,12 @@ CFLAGS += -DHAS_CFITSIO=1
 INCLUDE += -I$(CFITSIO)/include
 endif
 
-
 ###set fftw flags here
 ifneq ($(FFTW3),)
 LINK += -L$(FFTW3)/lib -lfftw3 -lfftw3_mpi
 FFLAGS += -DHAS_FFTW=1
 CFLAGS += -DHAS_FFTW=1
-INCLUDE += -I$(FFTW3)/include -I$(FFTW)/include/fftw3
+INCLUDE += -I$(FFTW3)/include 
 endif
 
 ###set gsl flags here
@@ -196,9 +190,15 @@ ifeq ($(PLATFORM),MacOS)
 LINK += -framework Accelerate
 else
 LINK += -L$(LAPACK) -llapack -lblas
+INCLUDE += -I$(LAPACK)
 endif
 FFLAGS += -DHAS_LAPACK=1
 CFLAGS += -DHAS_LAPACK=1
-INCLUDE += -I$(LAPACK)
 endif
 
+### set clik flags
+ifneq ($(CLIKPATH),)
+LINK += -L$(CLIKPATH)/lib -lclik_f90
+INCLUDE += -I$(CLIKPATH)/include 
+FFLAGS += -DHAS_CLIK=1
+endif
