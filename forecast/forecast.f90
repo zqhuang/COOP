@@ -26,6 +26,14 @@ module coop_forecast_mod
      procedure::LogLike => coop_dataset_loglike
   end type coop_DataSet
 
+  type, extends(coop_dataset):: coop_dataset_CMB_simple
+     COOP_REAL::zstar = 1089.d0
+     COOP_REAL::R_center = 1.7488
+     COOP_REAL::R_sigma = 0.0074
+   contains
+     procedure::loglike =>coop_dataset_CMB_simple_loglike
+  end type coop_dataset_CMB_simple
+
   type, extends(coop_DataSet):: coop_dataset_SN_Simple
      COOP_INT::n = 0
      COOP_REAL,dimension(:),allocatable::z, mu, dmu, invdmusq
@@ -691,6 +699,26 @@ contains
     end function drz
 
   end function coop_dataset_SN_Simple_loglike
+
+
+  function coop_dataset_CMB_simple_loglike(this, mcmc) result(loglike)
+    class(coop_dataset_CMB_simple)::this
+    type(coop_mcmc_params)::mcmc
+    COOP_REAL::loglike
+
+
+    if(associated(mcmc%cosmology))then
+       loglike = ((mcmc%cosmology%comoving_angular_diameter_distance(1.d0/(1.d0+this%zstar))-this%R_center)/this%R_sigma)**2/2.d0
+    else
+    endif
+    
+  contains
+    function drz(z)
+      COOP_REAL z, drz
+      drz = 1.d0/sqrt(MCMC_OMEGA_M*(1.d0+z)**3 + MCMC_OMEGA_K*(1.d0+z)**2 + MCMC_OMEGA_LAMBDA*(1.d0+z)**(3.d0*(1.d0+MCMC_W + MCMC_WA))*exp(-3.d0*MCMC_WA*z/(1.d0+z)) )
+    end function drz
+    
+  end function coop_dataset_CMB_simple_loglike
 
 
   function coop_dataset_CMB_LogLike(this, mcmc) result(loglike)

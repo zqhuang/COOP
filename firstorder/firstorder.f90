@@ -1890,7 +1890,7 @@ contains
     COOP_REAL zstar, theta, astar, rs, da, ombh2
     zstar = coop_zrecomb_fitting(this%ombh2, this%omch2)
     astar = 1.d0/(1.d0+zstar)
-    rs = coop_integrate(dsoundda, 1.d-6, astar, 1.d-7)  !!to be consistent with CosmoMC
+    rs = coop_integrate(dsoundda, 1.d-8, astar, 1.d-7)  !!to be consistent with CosmoMC
     da = coop_r_of_chi(coop_integrate(dtauda, astar, 1.d0, 1.d-7), this%Omega_k())
     theta  = rs/da
   contains
