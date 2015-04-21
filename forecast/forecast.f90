@@ -1,6 +1,8 @@
 module coop_forecast_mod
   use coop_wrapper_firstorder
-  use coop_clik
+  use coop_clik_mod
+  use coop_HSTlike_mod
+  use coop_SNlike_JLA_mod
   implicit none
 #include "constants.h"
 
@@ -12,8 +14,7 @@ module coop_forecast_mod
 
   COOP_INT, parameter::coop_n_derived_with_cosmology = 3
   COOP_INT, parameter::coop_n_derived_without_cosmology = 1
-  
-  COOP_REAL, parameter::coop_LogZero = 1.d30
+
   
   type coop_DataSet
      COOP_STRING::name
@@ -25,31 +26,46 @@ module coop_forecast_mod
      procedure::LogLike => coop_dataset_loglike
   end type coop_DataSet
 
-  type, extends(coop_DataSet):: coop_DataSet_SN
+  type, extends(coop_DataSet):: coop_dataset_SN_Simple
      COOP_INT::n = 0
      COOP_REAL,dimension(:),allocatable::z, mu, dmu, invdmusq
      COOP_REAL::suminvdmusq
      COOP_REAL::pec_vel = 400.d0/3.d5
    contains
-     procedure::LogLike =>coop_dataset_SN_loglike
-     procedure::import => coop_dataset_SN_import
-     procedure::simulate => coop_dataset_SN_simulate
-     procedure::export => coop_dataset_SN_export   
-  end type coop_DataSet_SN
+     procedure::LogLike =>coop_dataset_SN_Simple_loglike
+     procedure::import => coop_dataset_SN_Simple_import
+     procedure::simulate => coop_dataset_SN_Simple_simulate
+     procedure::export => coop_dataset_SN_Simple_export   
+  end type coop_dataset_SN_Simple
 
 
   type, extends(coop_dataset)::coop_dataset_CMB
-     type(coop_clik_object),dimension(:),pointer::cliklike
+     type(coop_clik_object),dimension(:),pointer::cliklike => null()
    contains
      procedure::LogLike => coop_dataset_CMB_LogLike
   end type coop_dataset_CMB
 
+  type, extends(coop_dataset)::coop_dataset_HST
+     type(coop_HST_object), pointer::HSTlike => null()
+   contains
+     procedure::LogLike => coop_dataset_HST_logLike
+  end type coop_dataset_HST
+
+
+  type, extends(coop_dataset)::coop_dataset_SN_JLA
+     type(coop_data_JLA), pointer::JLAlike => null()
+   contains
+     procedure::loglike => coop_dataset_SN_JLA_loglike
+  end type coop_dataset_SN_JLA
 
 
   type coop_Data_Pool
 !!these are simulations     
-     type(coop_DataSet_SN),dimension(:), pointer::SN => null()
-     type(coop_dataset_CMB)::CMB     
+     type(coop_dataset_SN_Simple),dimension(:), pointer::SN_Simple => null()
+     type(coop_dataset_CMB)::CMB
+     type(coop_dataset_HST)::HST
+     type(coop_dataset_SN_JLA)::SN_JLA
+     
    contains
      procedure::LogLike => coop_data_pool_LogLike
   end type coop_Data_Pool
@@ -611,8 +627,8 @@ contains
   end function coop_dataset_loglike
   
 
-  function coop_dataset_SN_loglike(this, mcmc) result(loglike)
-    class(coop_dataset_SN)::this
+  function coop_dataset_SN_Simple_loglike(this, mcmc) result(loglike)
+    class(coop_dataset_SN_Simple)::this
     type(coop_MCMC_params)::mcmc
     COOP_REAL::loglike, h0mpc
     COOP_REAL::mu_theory(this%n), Mbar
@@ -649,7 +665,7 @@ contains
       drz = 1.d0/sqrt(MCMC_OMEGA_M*(1.d0+z)**3 + MCMC_OMEGA_K*(1.d0+z)**2 + MCMC_OMEGA_LAMBDA*(1.d0+z)**(3.d0*(1.d0+MCMC_W + MCMC_WA))*exp(-3.d0*MCMC_WA*z/(1.d0+z)) )
     end function drz
 
-  end function coop_dataset_SN_loglike
+  end function coop_dataset_SN_Simple_loglike
 
 
   function coop_dataset_CMB_LogLike(this, mcmc) result(loglike)
@@ -698,6 +714,65 @@ contains
     deallocate(Cls_Scalar, Cls_tensor, Cls_lensed)
   end function coop_dataset_CMB_LogLike
 
+  function coop_dataset_HST_logLike(this, mcmc) result(loglike)
+    class(coop_dataset_HST)::this
+    type(coop_mcmc_params)::Mcmc
+    COOP_REAL::loglike
+    if(associated(this%HSTlike))then
+       if(associated(mcmc%cosmology))then
+          LogLike = this%HSTLike%LogLike(mcmc%cosmology%angular_diameter_distance(1.d0/(1.d0+this%HSTLike%zeff))/mcmc%cosmology%H0Mpc())
+       else
+          stop "For HST likelihood you need to initialize cosmology"
+       endif
+    else
+       LogLike = 0.d0       
+    endif
+  end function coop_dataset_HST_logLike
+
+  function coop_dataset_SN_JLA_loglike(this, mcmc) result(loglike)
+    class(coop_dataset_SN_JLA)::this
+    type(coop_mcmc_params)::mcmc
+    COOP_REAL::loglike
+    COOP_REAL grid_best, zhel, zcmb, alpha, beta
+    COOP_INT grid_i, i, ind_alpha, ind_beta
+    if(associated(this%JLALike))then
+       if(.not. associated(mcmc%cosmology))stop "for JLA you need initialize cosmology"
+       loglike = coop_logzero
+       if(this%JLALike%n .eq. 0) stop "JLA data not loaded"
+       do i=1, this%JLALike%n
+          if(this%JLALike%sn(i)%has_absdist)then
+             this%JLALike%lumdists(i) = 5.0*LOG10( this%JLALike%sn(i)%absdist)
+          else
+             zhel = this%JLALike%sn(i)%zhel
+             zcmb = this%JLALike%sn(i)%zcmb
+             this%JLALike%lumdists(i) = 5.d0*log10((1.0+zhel)/(1.0+zcmb) * mcmc%cosmology%luminosity_distance(1.d0/(1.d0+zcmb))/mcmc%cosmology%H0Mpc())
+          endif
+       enddo
+       if (this%JLALike%marginalize) then
+          !$OMP PARALLEL DO DEFAULT(SHARED),SCHEDULE(STATIC), PRIVATE(alpha,beta, grid_i)
+          do grid_i = 1, this%JLALike%int_points
+             alpha = this%JLALike%alpha_grid(grid_i)
+             beta=this%JLALike%beta_grid(grid_i)
+             this%JLALike%marge_grid(grid_i) = this%JLALike%alpha_beta_like(alpha, beta, this%JLALike%lumdists)
+          end do
+
+          grid_best = minval(this%JLALike%marge_grid,  mask=this%JLALike%marge_grid .lt. coop_logZero)
+          loglike =  grid_best - log(sum(exp(-this%JLALike%marge_grid + grid_best),  &
+               mask=this%JLALike%marge_grid .lt. coop_logZero) * this%JLALike%step_width_alpha*this%JLALike%step_width_beta)
+       else
+          ind_alpha = mcmc%index_of("alpha_JLA")
+          ind_beta = mcmc%index_of("beta_JLA")
+          if(ind_alpha .eq. 0)stop "param[alpha_JLA] is not found"
+          if(ind_beta .eq. 0)stop "param[beta_JLA] is not found"          
+          alpha = mcmc%fullparams(ind_alpha)
+          beta = mcmc%fullparams(ind_beta)
+          loglike =this%JLALike%alpha_beta_like(alpha, beta, this%JLALike%lumdists)
+       end if
+    else
+       LogLike = 0.d0
+    endif
+  end function coop_dataset_SN_JLA_loglike
+
   function coop_Data_Pool_LogLike(this, mcmc) result(LogLike)
     class(coop_Data_Pool)this
     type(coop_mcmc_params)::mcmc
@@ -708,20 +783,24 @@ contains
     LogLike = mcmc%PriorLike()
     if(LogLike .ge. coop_LogZero) return
     !!Supernova
-    if(associated(this%SN))then
-       do i=1, size(this%SN)
-          LogLike = LogLike + this%SN(i)%LogLike(mcmc)
+    if(associated(this%SN_Simple))then
+       do i=1, size(this%SN_Simple)
+          LogLike = LogLike + this%SN_Simple(i)%LogLike(mcmc)
           if(LogLike .ge. coop_LogZero) return          
        enddo
     endif
+    LogLike = LogLike + this%SN_JLA%LogLike(mcmc)
+    if(LogLike .ge. coop_LogZero) return    
     !!CMB
     LogLike = LogLike + this%CMB%LogLike(mcmc)
-    if(LogLike .ge. coop_LogZero) return              
+    if(LogLike .ge. coop_LogZero) return
+    LogLike = LogLike + this%HST%LogLike(mcmc)
+    if(LogLike .ge. coop_LogZero) return
   end function coop_Data_Pool_LogLike
 
 
-  subroutine coop_dataset_SN_export(this, fname)
-    class(coop_dataset_SN)::this
+  subroutine coop_dataset_SN_Simple_export(this, fname)
+    class(coop_dataset_SN_Simple)::this
     COOP_UNKNOWN_STRING::fname
     type(coop_file)::fp
     COOP_INT i
@@ -731,10 +810,10 @@ contains
     enddo
     call fp%close()
 
-  end subroutine coop_dataset_SN_export
+  end subroutine coop_dataset_SN_Simple_export
 
-  subroutine coop_dataset_SN_import(this, fname)
-    class(coop_dataset_SN)::this
+  subroutine coop_dataset_SN_Simple_import(this, fname)
+    class(coop_dataset_SN_Simple)::this
     COOP_UNKNOWN_STRING::fname
     type(coop_file)::fp
     type(coop_list_realarr)::rl
@@ -772,11 +851,11 @@ contains
     enddo
     this%suminvdmusq = sum(this%invdmusq)
     call rl%init()
-  end subroutine coop_dataset_SN_import
+  end subroutine coop_dataset_SN_Simple_import
 
   
-  subroutine coop_dataset_SN_simulate(this, mcmc, z, dmu)
-    class(coop_dataset_SN)::this
+  subroutine coop_dataset_SN_Simple_simulate(this, mcmc, z, dmu)
+    class(coop_dataset_SN_Simple)::this
     type(coop_mcmc_params)::mcmc
     COOP_INT i, n
     COOP_REAL::h0mpc
@@ -822,7 +901,7 @@ contains
       COOP_REAL z, drz
       drz = 1.d0/sqrt(MCMC_OMEGA_M*(1.d0+z)**3 + MCMC_OMEGA_K*(1.d0+z)**2 + MCMC_OMEGA_LAMBDA*(1.d0+z)**(3.d0*(1.d0+MCMC_W + MCMC_WA))*exp(-3.d0*MCMC_WA*z/(1.d0+z)) )
     end function drz
-  end subroutine coop_dataset_SN_simulate
+  end subroutine coop_dataset_SN_Simple_simulate
 
 end module coop_forecast_mod
 

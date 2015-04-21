@@ -3,7 +3,7 @@ program test
   use coop_forecast_mod
   implicit none
 #include "constants.h"
-  type(coop_dataset_SN), target::SN(1)
+  type(coop_dataset_SN_Simple), target::SN(1)
   type(coop_data_pool)::pool  
   type(coop_MCMC_params)::mcmc
   COOP_REAL::z_g = -4.d-5
@@ -32,7 +32,7 @@ program test
      write(*,*) "output: data/sn_"//COOP_STR_OF(nint(z_g*1.d5))//".txt"
   case("BEST","best")
      call SN(1)%import("data/sn_"//COOP_STR_OF(nint(z_g*1.d5))//".txt")
-     pool%SN =>  SN
+     pool%SN_Simple =>  SN
      call mcmc%findbest(pool, temperature  = 1.d-4)
      do i=1, mcmc%n
         print*, trim(mcmc%name(mcmc%used(i)))//" = ", mcmc%bestparams(i), " +/- ", sqrt(mcmc%covmat(i,i))
@@ -41,7 +41,7 @@ program test
      print*,"best like = ", mcmc%bestlike
   case("MCMC","mcmc")
      call SN(1)%import("data/sn_"//COOP_STR_OF(nint(z_g*1.d5))//".txt")
-     pool%SN =>  SN
+     pool%SN_Simple =>  SN
      do i = 1, 400000
         if(mod(i, 5000).eq.0)then
            print*, i

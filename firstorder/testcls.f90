@@ -11,14 +11,16 @@ program test
   COOP_REAL norm
   COOP_REAL z, a, s, stau, k
   !!set cosmology
-  call fod%Set_Planck_bestfit()
+  !! call fod%Set_Planck_bestfit()
+ call fod%set_standard_cosmology(Omega_b=0.0485374d0, Omega_c=0.2585497252d0, h = 0.8d0, tau_re = 0.08193d0, nu_mass_eV = 0.06d0, As = 2.2098d-9, ns = 0.968d0)
   norm = fod%cosmomc_theta()
-  print*, norm, fod%ombh2, fod%omch2, fod%h()
+  print*, fod%h(), 11425.8/(fod%angular_diameter_distance(1.d0/1.04d0)/fod%H0Mpc()), 3.811*fod%h()/(0.04*(1.d0+0.02*fod%HdotbyHsq(1.d0))/1.04d0)
   stop
   coop_zeta_single_slice = .true.
   !!print*, fod%zre
   !!if you want extended models
- !! call fod%set_standard_cosmology(Omega_b=0.0485374d0, Omega_c=0.2585497252d0, h = 0.67766d0, tau_re = 0.08193d0, nu_mass_eV = 0.06d0, As = 2.2098d-9, ns = 0.968d0, nrun = 0.05d0, r = 0.d0, nt = -0.01d0, YHe = 0.248d0, Nnu = 3.d0)
+  !!
+  
   norm = 2.72558**2*1.d12
   !!compute the scalar Cl's
   call coop_prtSystime(.true.)

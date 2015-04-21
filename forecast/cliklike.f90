@@ -1,4 +1,4 @@
-module coop_clik
+module coop_clik_mod
 #ifdef HAS_CLIK  
   use clik
 #endif  
@@ -171,4 +171,4 @@ contains
   end subroutine coop_clik_object_print_names
   
   
-end module coop_clik
+end module coop_clik_mod

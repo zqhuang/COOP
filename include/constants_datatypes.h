@@ -7,3 +7,5 @@
   integer,parameter::coop_string_length = 256
   integer,parameter::coop_short_string_length = 32
   integer,parameter::coop_long_string_length = 8192
+  real(coop_real_length), parameter::coop_LogZero = 1.d30
+    

@@ -10,7 +10,7 @@ include ../configure.in
 include ../compile_rules.in
 
 LIB = libcoopforecast.a
-OBJ = cliklike.o forecast.o 
+OBJ = SNlike_JLA.o HSTlike.o cliklike.o forecast.o 
 
 default: $(LIB)
 

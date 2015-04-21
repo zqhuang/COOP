@@ -1,4 +1,5 @@
     character(LEN=2)::open_mode
+    if(trim(adjustl(filename)).eq."") stop "coop_file_open: file name cannot be a null string"    
     fp%pt = 1
     if(present(mode))then
        open_mode = adjustl(trim(mode))
