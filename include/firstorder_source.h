@@ -6,14 +6,20 @@
 
     select case(source%m) 
     case(0) !!scalar
-       source%saux(1, ik, itau) = (3.d0/8.d0)*pert%vis*pert%capP*( (1.d0+ tanh(4.d0 - 20.d0*source%tau(itau)/this%tau0))/2.d0)  !!truncate at large z to get better numeric stability; this is not necessary for most smooth models.
+       source%saux(1, ik, itau) = (3.d0/8.d0)*pert%vis*pert%capP !*( (1.d0+ tanh(4.d0 - 20.d0*source%tau(itau)/this%tau0))/2.d0)  !!truncate at large z to get better numeric stability; this is not necessary for most smooth models.
        source%saux(2, ik, itau) = pert%O1_Phi+pert%O1_PSI
        source%saux(3, ik, itau) = pert%O1_PSI
        source%saux(6, ik, itau) = pert%O1_V_C
-       source%saux(7, ik, itau) = pert%O1_V_B       
-       source%s(1,  ik, itau) =  (pert%O1_Phipr + pert%O1_PSIPR)*pert%aH*pert%ekappa    & !!ISW
-            + pert%vis * (pert%O1_T(0)/4.d0 + pert%O1_Phi + pert%O1_V_B_PRIME/pert%kbyaH + pert%capP/8.0)  &
-            + pert%visdot * (pert%O1_V_B/pert%k) 
+       source%saux(7, ik, itau) = pert%O1_V_B
+       if(pert%has_rad_pert)then
+          source%s(1,  ik, itau) =  (pert%O1_Phipr + pert%O1_PSIPR)*pert%aH*pert%ekappa    & !!ISW
+               + pert%vis * (pert%O1_T(0)/4.d0 + pert%O1_Phi + pert%O1_V_B_PRIME/pert%kbyaH + pert%capP/8.0)  &
+               + pert%visdot * (pert%O1_V_B/pert%k)
+       else
+          source%s(1,  ik, itau) =  (pert%O1_Phipr + pert%O1_PSIPR)*pert%aH*pert%ekappa    & !!ISW
+               + pert%vis * (pert%O1_V_B_PRIME/pert%kbyaH + pert%capP/8.0)  &
+               + pert%visdot * (pert%O1_V_B/pert%k)
+       endif
        source%s(2, ik, itau) =pert%vis * pert%capP * (3.d0/8.d0)/ pert%kchi **2
        if(source%nsrc .ge.3)source%s(3, ik, itau) = -(pert%O1_Phi+pert%O1_PSI)*max(1.d0-source%chi(itau)/this%distlss, 0.d0)/max(source%chi(itau), 1.d-3)
        if(source%nsrc.ge.4) source%s(4, ik, itau) = -pert%vis 

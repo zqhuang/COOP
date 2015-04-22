@@ -35,6 +35,7 @@ module coop_pertobj_mod
      logical::tight_coupling = .true.
      logical::massivenu_cold = .false.
      logical::want_source = .false.
+     logical::has_rad_pert = .true.
      COOP_REAL::num_mnu_ratio = 0.d0
      COOP_INT::massivenu_iq_used = 0
      COOP_INT::m = 0
@@ -217,30 +218,49 @@ contains
             lmax = 1, q = 1.d0, mass = 0.d0 )
 
     else
-       call this%T%set_defaults( genre = COOP_PERT_HIERARCHY, &
-            m = m, s = 0, index = this%baryon%last_index + 1, &
-            lmax = 14, q = 1.d0, mass = 0.d0 )
+       if(this%has_rad_pert)then
+          call this%T%set_defaults( genre = COOP_PERT_HIERARCHY, &
+               m = m, s = 0, index = this%baryon%last_index + 1, &
+               lmax = 14, q = 1.d0, mass = 0.d0 )
 
-       call this%E%set_defaults( genre = COOP_PERT_HIERARCHY, &
-            m = m, s = 2, index = this%T%last_index + 1, &
-            lmax = 12, q = 1.d0, mass = 0.d0 )
-       
-       if(m.eq.0)then
-          call this%B%set_defaults( genre = COOP_PERT_NONE, &
-               m = m, s = 2, index = this%E%last_index + 1, &
-               lmax = 1, q = 1.d0, mass = 0.d0 )
+          call this%E%set_defaults( genre = COOP_PERT_HIERARCHY, &
+               m = m, s = 2, index = this%T%last_index + 1, &
+               lmax = 12, q = 1.d0, mass = 0.d0 )
+
+          if(m.eq.0)then
+             call this%B%set_defaults( genre = COOP_PERT_NONE, &
+                  m = m, s = 2, index = this%E%last_index + 1, &
+                  lmax = 1, q = 1.d0, mass = 0.d0 )
+          else
+             call this%B%set_defaults( genre = COOP_PERT_HIERARCHY, &
+                  m = m, s = 2, index = this%E%last_index + 1, &
+                  lmax = this%E%lmax, q = 1.d0, mass = 0.d0 )
+          endif
        else
-          call this%B%set_defaults( genre = COOP_PERT_HIERARCHY, &
-               m = m, s = 2, index = this%E%last_index + 1, &
-               lmax = this%E%lmax, q = 1.d0, mass = 0.d0 )
+          call this%T%set_defaults( genre = COOP_PERT_NONE, &
+               m = m, s = 0, index = this%baryon%last_index + 1, &
+               lmax = -1, q = 1.d0, mass = 0.d0 )
+
+          call this%E%set_defaults( genre = COOP_PERT_NONE, &
+               m = m, s = 2, index = this%baryon%last_index + 1, &
+               lmax = 1, q = 1.d0, mass = 0.d0 )
+
+          call this%B%set_defaults( genre = COOP_PERT_NONE, &
+               m = m, s = 2, index =this%baryon%last_index + 1, &
+               lmax = 1, q = 1.d0, mass = 0.d0 )
        endif
     endif
 
 
-    call this%nu%set_defaults( genre = COOP_PERT_HIERARCHY, &
-         m = m, s = 0, index = this%B%last_index + 1, &
-         lmax = 12, q = 1.d0, mass = 0.d0 )
-
+    if(this%has_rad_pert)then
+       call this%nu%set_defaults( genre = COOP_PERT_HIERARCHY, &
+            m = m, s = 0, index = this%B%last_index + 1, &
+            lmax = 12, q = 1.d0, mass = 0.d0 )
+    else
+       call this%nu%set_defaults( genre = COOP_PERT_HIERARCHY, &
+            m = m, s = 0, index = this%B%last_index + 1, &
+            lmax = 8, q = 1.d0, mass = 0.d0 )
+    endif
 
     if(present(nu_mass))then
        if( present(a) .and. nu_mass .gt. 0.d0)then

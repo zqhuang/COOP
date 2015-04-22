@@ -381,7 +381,7 @@ contains
                 sumfac = 1.d0+tanh(20.d0-(40.d0/dphase)*(phasesum - last_phasesum))
              endif
              difffac = 1.d0+tanh(20.d0-(40.d0/dphase)*(phasediff - last_phasediff))
-             trans = trans + COOP_INTERP_SOURCE(source, :, idense, ik, ichi) * (ampchi(idense, ik, ichi) * ampr(idense, ik, ir)*( cos(phasediff)*difffac + cos(phasesum)*sumfac )*source%k_dense(idense, ik)**2*source%dk_dense(idense, ik)/4.d0)
+             trans = trans + COOP_INTERP_SOURCE(source, :, idense, ik, ichi) * (ampchi(idense, ik, ichi) * ampr(idense, ik, ir)*( cos(phasediff)*difffac + cos(phasesum)*sumfac )*source%k_dense(idense, ik)*source%ws_dense(idense, ik)/source%ps_dense(idense, ik)/4.d0)
              last_phasediff = phasediff
              last_phasesum = phasesum
           enddo
@@ -389,7 +389,7 @@ contains
           do idense = 1, coop_k_dense_fac
              phasediff = abs(phasechi(idense, ik, ichi)-phaser(idense, ik, ir))
              difffac = 1.d0+tanh(20.d0-(40.d0/dphase)*(phasediff - last_phasediff))
-             trans = trans + COOP_INTERP_SOURCE(source, :, idense, ik, ichi) * (ampchi(idense, ik, ichi) * ampr(idense, ik, ir)*cos(phasediff)*source%k_dense(idense, ik)**2*source%dk_dense(idense, ik) * difffac *kwindow(idense, ik)/4.d0)
+             trans = trans + COOP_INTERP_SOURCE(source, :, idense, ik, ichi) * (ampchi(idense, ik, ichi) * ampr(idense, ik, ir)*cos(phasediff)*source%k_dense(idense, ik)*source%ws_dense(idense, ik)/source%ps_dense(idense, ik) * difffac *kwindow(idense, ik)/4.d0)
              if(difffac .lt. 1.d-4)return
              last_phasediff = phasediff
           enddo

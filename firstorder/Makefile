@@ -55,3 +55,4 @@ test_one_mode.o: wrapper.o
 Cls_post_process.o: firstorder.o lensing.o
 zeta.o:	wrapper.o
 testzeta.o:	wrapper.o
+testcls.o: 	$(OBJ)
