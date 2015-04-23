@@ -10,6 +10,7 @@ program test
 
   type(coop_mcmc_params)::mcmc
   type(coop_data_pool)::pool
+  COOP_STRING::inifile
   COOP_UNKNOWN_STRING, parameter::planckdata_path =  "/home/zqhuang/includes/planck13/data" ! "../data/cmb/"  !
   COOP_INT i
   COOP_INT,parameter::total_steps = 6000
@@ -17,10 +18,19 @@ program test
   logical do_update_propose 
   COOP_REAL::loglike
   call coop_MPI_init()
-  
+
+  if(iargc().ge.1)then
+     inifile = trim(coop_InputArgs(1))
+  else
+     write(*,*) "missing ini file"
+     write(*,*) "Syntax: "
+     write(*,*) "./DOCLIK myinis/xx.ini"
+     stop 
+  endif
+
   mcmc%cosmology => cosmology
-  call mcmc%init(prefix="chains/qcdm", paramnames= "paramnames/qcdm.paramnames", ini = "myinis/qcdm.ini")
-  mcmc%do_flush = .true.
+  call mcmc%init(trim(inifile))
+  mcmc%do_flush = .true.  !!do not buffer
   
   call pl(1)%init(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik")
   call pl(2)%init(trim(planckdata_path)//"/commander_v4.1_lm49.clik")

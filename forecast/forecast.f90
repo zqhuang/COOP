@@ -794,14 +794,26 @@ contains
 
 
 
-  subroutine coop_MCMC_params_init(this, prefix, paramnames, ini)
+  subroutine coop_MCMC_params_init(this,  ini)
     class(coop_MCMC_params)::this
-    COOP_UNKNOWN_STRING::prefix, ini, paramnames
+    COOP_UNKNOWN_STRING::ini
     type(coop_file)::fp
     logical success
     COOP_REAL,dimension(:),allocatable::center, lower, upper, width, iniwidth, prior_sigma, prior_center
     COOP_INT i, iused
+    COOP_STRING::paramnames, prefix
     COOP_STRING val
+    if(coop_file_exists(trim(ini)))then
+       call coop_load_dictionary(ini, this%settings)
+    else
+       write(*, "(A)") "MCMC_params_init: cannot find ini file "//trim(ini)
+       stop
+    endif
+    prefix = this%settings%value("chain_name")
+    if(trim(prefix).eq."")then
+       write(*,*) "MCMC_params_init: you need to have an entry chain_name = ... in the ini file "//trim(ini)
+       stop
+    endif
     call this%chain%init()
     call this%paramnames%free()
     this%prefix = trim(adjustl(prefix))
@@ -817,17 +829,16 @@ contains
     else
        this%n_derived = coop_n_derived_without_cosmology       
     endif
+    paramnames = this%settings%value("paramnames")
+    if(trim(paramnames).eq."")then
+       write(*,*) "MCMC_params_init: you need to have an entry paramnames = ... in the ini file "//trim(ini)
+       stop
+    endif
     if(coop_file_exists(trim(paramnames)))then
        this%fulln  = coop_file_numlines(paramnames)
        call coop_load_dictionary(paramnames, this%paramnames, col_key = 1)
     else
        write(*, "(A)") "MCMC_params_init: cannot find file "//trim(paramnames)
-       stop
-    endif
-    if(coop_file_exists(trim(ini)))then
-       call coop_load_dictionary(ini, this%settings)
-    else
-       write(*, "(A)") "MCMC_params_init: cannot find file "//trim(ini)
        stop
     endif
     if(allocated(this%fullparams))deallocate(this%used, this%fullparams, this%params, this%lower, this%upper, this%center, this%width, this%covmat, this%propose, this%params_saved, this%name, this%tex, this%knot, this%bestparams, this%prior_sigma, this%prior_center, this%has_prior)
