@@ -86,7 +86,7 @@ module coop_forecast_mod
      type(coop_dictionary)::settings     
      COOP_STRING::prefix
      COOP_STRING::form
-
+     logical::do_flush = .false.
      COOP_INT:: n = 0
      COOP_INT:: fulln = 0
      COOP_INT:: n_derived = 0
@@ -397,12 +397,14 @@ contains
     class(coop_MCMC_params)::this
     type(coop_data_pool)::pool
     COOP_REAL vec(this%n)
+    COOP_INT numlines
     if(this%n .le. 0) stop "MCMC: no varying parameters"
     select type(this)
     class is(coop_MCMC_params)
        if(this%accept+this%reject .eq. 0)then
           call coop_random_init()
-          call this%chainfile%open(trim(this%prefix)//"_"//COOP_STR_OF(this%proc_id+1)//".txt", "w")          
+          call this%chainfile%open(trim(this%prefix)//"_"//COOP_STR_OF(this%proc_id+1)//".txt", "w")                       
+
           call this%chain%init()
           if(associated(this%cosmology))then
              call this%set_cosmology()
@@ -427,6 +429,7 @@ contains
           call this%chain%push( this%knot)          
           if(this%chainfile%unit .ne. 0)then
              write(this%chainfile%unit, trim(this%form)) this%knot, this%derived()
+             if(this%do_flush)call flush(this%chainfile%unit)
           endif
           this%loglike = this%loglike_proposed
           this%mult  = 1.d0
@@ -802,6 +805,12 @@ contains
     call this%chain%init()
     call this%paramnames%free()
     this%prefix = trim(adjustl(prefix))
+    if(coop_file_exists(trim(this%prefix)//"_"//COOP_STR_OF(coop_MPI_Rank()+1)//".txt"))then
+       if(coop_file_numlines(trim(this%prefix)//"_"//COOP_STR_OF(coop_MPI_Rank()+1)//".txt").gt.50)then
+          write(*,*) "file "//trim(this%prefix)//"_"//COOP_STR_OF(coop_MPI_Rank()+1)//".txt alread exists"
+          stop "COOP does not support overwriting files  with more than 50 lines. Please remove these files manually."
+       endif
+    endif
     this%proc_id = coop_MPI_rank()
     if(associated(this%cosmology))then
        this%n_derived = coop_n_derived_with_cosmology
@@ -892,13 +901,15 @@ contains
     call coop_dictionary_lookup(this%settings, "propose_matrix", val)
     if(trim(val).ne."")then
        call fp%open(val, "r")
-       call coop_read_matrix(fp%unit, this%n, this%n, this%propose, success)
+       call coop_read_matrix(fp%unit, this%n, this%n, this%covmat, success)
        call fp%close()
-       if(.not. success)then
+       if(success)then
+          this%propose = this%covmat
+          call coop_matsym_sqrt(this%propose)
+       else
           write(*,*) "propose matrix "//trim(val)//" is broken"
           stop
        endif
-       this%covmat = matmul(this%propose, this%propose)
     elseif(coop_file_exists(trim(this%prefix)//".covmat"))then
        call fp%open(trim(this%prefix)//".covmat", "r")
        call coop_read_matrix(fp%unit, this%n, this%n, this%covmat, success)

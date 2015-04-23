@@ -20,7 +20,7 @@ program test
   
   mcmc%cosmology => cosmology
   call mcmc%init(prefix="chains/qcdm", paramnames= "paramnames/qcdm.paramnames", ini = "myinis/qcdm.ini")
-
+  mcmc%do_flush = .true.
   
   call pl(1)%init(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik")
   call pl(2)%init(trim(planckdata_path)//"/commander_v4.1_lm49.clik")
@@ -52,7 +52,6 @@ program test
         if(i .gt. total_steps/4) do_update_propose = .false.
      endif
      call mcmc%mcmc_step(pool)
-     call flush()
   enddo
   call coop_MPI_finalize()
 end program test
