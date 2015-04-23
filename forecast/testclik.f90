@@ -10,10 +10,10 @@ program test
 
   type(coop_mcmc_params)::mcmc
   type(coop_data_pool)::pool
-  COOP_UNKNOWN_STRING, parameter::planckdata_path = "../data/cmb/" !"/home/zqhuang/includes/planck13/data" ! "../data/cmb/"  !
+  COOP_UNKNOWN_STRING, parameter::planckdata_path = "/home/zqhuang/includes/planck13/data" ! "../data/cmb/"  !
   COOP_INT i
-  COOP_INT,parameter::total_steps = 2000
-  COOP_INT,parameter::update_freq = 50
+  COOP_INT,parameter::total_steps = 6000
+  COOP_INT,parameter::update_freq = 300
 
   COOP_REAL::loglike
   call coop_MPI_init()
