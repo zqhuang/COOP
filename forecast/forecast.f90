@@ -401,6 +401,7 @@ contains
     select type(this)
     class is(coop_MCMC_params)
        if(this%accept+this%reject .eq. 0)then
+          call coop_random_init()
           call this%chainfile%open(trim(this%prefix)//"_"//COOP_STR_OF(this%proc_id+1)//".txt", "w")          
           call this%chain%init()
           if(associated(this%cosmology))then
