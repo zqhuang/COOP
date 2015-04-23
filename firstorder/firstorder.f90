@@ -13,7 +13,7 @@ module coop_firstorder_mod
 
   !!this makes the code faster and more accurate
   logical,parameter:: coop_firstorder_optimize = .true.
-  COOP_INT, parameter::coop_limber_ell = 300
+  COOP_INT, parameter::coop_limber_ell = 500
   logical,parameter::coop_do_limber_separately = .true.      
   
   COOP_INT::coop_Cls_lmax(0:2) = (/ 2800, 2000, 1500 /)
@@ -24,14 +24,14 @@ module coop_firstorder_mod
   COOP_REAL, parameter :: coop_initial_condition_epsilon = 1.d-7
   COOP_REAL, parameter :: coop_cosmology_firstorder_ode_accuracy = 1.d-8
   COOP_REAL, parameter :: coop_cosmology_firstorder_tc_cutoff = 0.001d0
-  COOP_REAL, parameter ::  coop_cosmology_firstorder_omega_rad_cutoff = 3.d-2
+  COOP_REAL, parameter ::  coop_cosmology_firstorder_omega_rad_cutoff = 1.d-2
 
 
   COOP_REAL, dimension(0:2), parameter::coop_source_tau_step_factor = (/ 1.d0, 1.d0, 1.d0 /)
   COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
-  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 140, 120, 100 /)
-  COOP_REAL, parameter::coop_source_k_index = 0.45d0
-  COOP_INT, parameter:: coop_k_dense_fac = 35
+  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 150, 120, 100 /)
+  COOP_REAL, parameter::coop_source_k_index = 0.55d0
+  COOP_INT, parameter:: coop_k_dense_fac = 40
 
   COOP_INT, parameter::coop_index_source_T = 1
   COOP_INT, parameter::coop_index_source_E = 2
@@ -344,10 +344,10 @@ contains
     do itau = 1, itau_cut
        kmin(itau) = xmin/source%chi(itau)
        kmax(itau) = xmax/source%chi(itau)
-       kfine(itau) = 3.d0/source%dtau(itau) !!k > kfine use fine grid
+       kfine(itau) = 1.8d0/source%dtau(itau) !!k > kfine use fine grid
     enddo
     ikcut = source%nk
-    kchicut = min(max(l*2.5d0, 4000.d0), l*100.d0)
+    kchicut = min(max(l*2.8d0, 4000.d0), l*100.d0)
     do while(source%k(ikcut) * source%chi(1) .gt. kchicut .and. ikcut .gt. 2)
        ikcut = ikcut - 1
     enddo
@@ -1045,7 +1045,7 @@ contains
     enddo
     source%index_vis_max = coop_maxloc(source%vis)
     source%index_vis_end = source%index_vis_max
-    viscut = source%vis(source%index_vis_max)*0.005d0
+    viscut = source%vis(source%index_vis_max)*0.003d0
     do while(source%index_vis_end .lt. n .and. source%vis(source%index_vis_end) .gt. viscut )
        source%index_vis_end = source%index_vis_end + 1
     enddo
@@ -1088,7 +1088,7 @@ contains
 
 
     source%kmin = 0.2d0/this%distlss
-    source%kmax = (min(max(1500, coop_Cls_lmax(source%m)), 3000)*1.6d0)/this%distlss
+    source%kmax = (min(max(1500, coop_Cls_lmax(source%m)), 3000)*1.7d0)/this%distlss
     call source%k2kop(source%kmin, source%kopmin)
     call source%k2kop(source%kmax, source%kopmax)
     source%dkop = (source%kopmax-source%kopmin)/(n-1)
