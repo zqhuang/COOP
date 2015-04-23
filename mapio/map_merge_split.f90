@@ -308,21 +308,16 @@ program map
            read(*,*) fwhm
         endif
         if(trim(coop_inputArgs(nin+2)).eq."SINGLE_SLICE")then
-           write(*,*) "Doing single slice zeta"
-           coop_zeta_single_slice = .true.
+           write(*,*) "Single slice zeta not supproted now"
+           stop
         else
-           coop_zeta_single_slice = .false.
            write(*,*) "Doing weighted zeta"
         endif
         nin = nin -1
         do i=1, nin
            call hgm%read(trim(fin(i)), nmaps_wanted = 3, spin = (/ 0, 2 , 2 /) )
            call hgm%te2zeta(fwhm_arcmin = fwhm, want_unconstrained = .true.)
-           if(coop_zeta_single_slice)then
-              call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_SINGLE_SLICE_ZETA")), index_list = (/ 1, 2, 3 /) )              
-           else
-              call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_ZETA")), index_list = (/ 1, 2, 3 /) )
-           endif
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_ZETA")), index_list = (/ 1, 2, 3 /) )
         enddo
         print*, "maps are all converted to zeta"
         goto 500
@@ -335,10 +330,8 @@ program map
            read(*,*) fwhm
         endif
         if(trim(coop_inputArgs(nin+2)).eq."SINGLE_SLICE")then
-           write(*,*) "Doing single slice zeta"
-           coop_zeta_single_slice = .true.
+           write(*,*) "Single slice zeta not supported"
         else
-           coop_zeta_single_slice = .false.
            write(*,*) "Doing weighted zeta"
         endif
         
@@ -346,11 +339,7 @@ program map
         do i=1, nin
            call hgm%read(trim(fin(i)), nmaps_wanted = 3, nmaps_to_read = 2, spin = (/ 2, 2, 0 /) )
            call hgm%E2zeta(fwhm_arcmin = fwhm, want_unconstrained = .true.)
-           if(coop_zeta_single_slice)then
-              call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_SINGLE_SLICE_ZETA")), index_list = (/ 1, 2, 3/) )              
-           else
-              call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_ZETA")), index_list = (/ 1, 2, 3/) )
-           endif
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_ZETA")), index_list = (/ 1, 2, 3/) )
         enddo
         print*, "maps are all converted to zeta"
         goto 500
@@ -363,21 +352,15 @@ program map
            read(*,*) fwhm
         endif        
         if(trim(coop_inputArgs(nin+2)).eq."SINGLE_SLICE")then
-           write(*,*) "Doing single slice zeta"
-           coop_zeta_single_slice = .true.
+           write(*,*) "Single slice zeta not supported now"
         else
-           coop_zeta_single_slice = .false.
            write(*,*) "Doing weighted zeta"
         endif
         nin = nin -1
         do i=1, nin
            call hgm%read(trim(fin(i)), nmaps_wanted = 3, nmaps_to_read = 1, spin = (/ 0, 0, 0 /) )
            call hgm%t2zeta(fwhm_arcmin = fwhm, want_unconstrained = .true.)
-           if(coop_zeta_single_slice)then
-              call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_SINGLE_SLICE_ZETA")), index_list = (/ 1, 2, 3/) )              
-           else
-              call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_ZETA")), index_list = (/ 1, 2, 3/) )
-           endif
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_ZETA")), index_list = (/ 1, 2, 3/) )
         enddo
         print*, "maps are all converted to zeta"
         goto 500                        
