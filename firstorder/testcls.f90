@@ -24,6 +24,12 @@ program test
   call cosmology%compute_source(0)
   call coop_prtSystime()
 
+  call cosmology%Set_Planck_bestfit()
+  call coop_prtSystime(.true.)
+  call cosmology%compute_source(0)
+  call coop_prtSystime()
+
+  
   call coop_prtSystime(.true.)
   call cosmology%source(0)%get_All_Cls(lmin, lmax, Cls_scalar)
   call coop_prtSystime()

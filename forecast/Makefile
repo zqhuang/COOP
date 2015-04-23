@@ -33,7 +33,7 @@ STD6:	teststd6.o $(OBJ)
 
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ 
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~  DOCLIK STD6 DOSN Test
 
 test.o: $(OBJ)
 testSN.o: $(OBJ)

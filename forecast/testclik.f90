@@ -10,8 +10,10 @@ program test
 
   type(coop_mcmc_params)::mcmc
   type(coop_data_pool)::pool
-  COOP_UNKNOWN_STRING, parameter::planckdata_path = "/home/zqhuang/includes/planck13/data" !"../data/cmb/" 
+  COOP_UNKNOWN_STRING, parameter::planckdata_path = "../data/cmb/" !"/home/zqhuang/includes/planck13/data" ! "../data/cmb/"  !
   COOP_INT i
+  COOP_INT,parameter::total_steps = 2000
+  COOP_INT,parameter::update_freq = 50
 
   COOP_REAL::loglike
   call coop_MPI_init()
@@ -32,11 +34,14 @@ program test
 
 !!$  call mcmc%set_cosmology()  
 !!$  loglike = pool%loglike(mcmc)
-
+!!$ print*, loglike
   !!do MCMC
-  do i = 1, 6000
+  do i = 1, total_steps
      print*, "on Node ", coop_MPI_Rank(), ": step", i, " likelihood = ", mcmc%loglike
-     if(i.lt.1000 .and. mod(i, 100).eq.0)call mcmc%update_propose()
+     if(i.lt. total_steps/4 .and. mod(i - update_freq/2, update_freq).eq.0)then
+        call mcmc%update_propose()
+        if(i.lt.update_freq)call mcmc%chain%init()
+     endif
      call mcmc%mcmc_step(pool)
   enddo
   call coop_MPI_finalize()

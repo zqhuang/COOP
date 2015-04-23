@@ -810,12 +810,10 @@ contains
     dkappada = this%dkappadtau(a) / this%dadtau(a)
   end function coop_cosmology_firstorder_dkappada
 
-  subroutine coop_cosmology_firstorder_set_source_tau(this, source, step_factor, tau_wanted, indices)
+  subroutine coop_cosmology_firstorder_set_source_tau(this, source, step_factor)
     class(coop_cosmology_firstorder_source)::source
     class(coop_cosmology_firstorder)::this
     COOP_REAL step_factor, viscut
-    COOP_REAL,dimension(:), optional::tau_wanted
-    COOP_INT,dimension(:),optional::indices
     !!basic stepsize
     COOP_REAL,parameter::step_ini = 8.2d-4
     COOP_REAL,parameter::step_min = 6.3d-4
@@ -833,26 +831,9 @@ contains
     COOP_INT i, n, nw, iw, j
     logical::check_input, do_inds
     n = 1
-    if(present(tau_wanted))then
-       check_input = .true.
-       nw = size(tau_wanted)
-       iw = 1
-       do_inds = present(indices)
-    else
-       check_input = .false.
-    endif
     aend = 1.d0/(1.d0+this%zrecomb_start)
     a(n) = aend/2.5d0
     tau(n) = this%tauofa(a(n))
-    if(check_input)then
-       if(tau(n) .gt. tau_wanted(iw) - 5.d-2*step*step_factor)then
-          tau(n) = tau_wanted(iw)
-          if(do_inds)indices(iw) = n
-          a(n) = this%aoftau(tau(n))
-          iw = iw + 1
-          check_input = (iw .le. nw)
-       endif
-    endif
     
     step = step_ini
 
@@ -867,15 +848,6 @@ contains
        else
           a(n) = this%aoftau(tau(n))
        endif
-       if(check_input)then
-          if(tau(n) .gt. tau_wanted(iw) - 5.d-2*step*step_factor)then
-             tau(n) = tau_wanted(iw)
-             if(do_inds) indices(iw) = n
-             a(n) = this%aoftau(tau(n))
-             iw = iw + 1
-             check_input = (iw .le. nw)
-          endif
-       endif       
     enddo
 
     aend = 1.d0/(1.d0+this%zrecomb)
@@ -890,15 +862,6 @@ contains
        else
           a(n) = this%aoftau(tau(n))
        endif
-       if(check_input)then
-          if(tau(n) .gt. tau_wanted(iw) - 5.d-2*step*step_factor)then
-             tau(n) = tau_wanted(iw)
-             if(do_inds) indices(iw) = n             
-             a(n) = this%aoftau(tau(n))
-             iw = iw + 1
-             check_input = (iw .le. nw)
-          endif
-       endif              
        step = max(step_min, step/slowvary)
     enddo
 
@@ -914,72 +877,54 @@ contains
        else
           a(n) = this%aoftau(tau(n))
        endif
-       if(check_input)then
-          if(tau(n) .gt. tau_wanted(iw) - 5.d-2*step*step_factor)then
-             tau(n) = tau_wanted(iw)
-             if(do_inds) indices(iw) = n             
-             a(n) = this%aoftau(tau(n))
-             iw = iw + 1
-             check_input = (iw .le. nw)
-          endif
-       endif                     
        step = min(step_recend, step*slowvary)
     enddo
-    if(check_input)then
-       do while(iw .le. nw)
-          n = n + 1          
-          tau(n) = tau_wanted(iw)
-          if(do_inds) indices(iw) = n          
-          iw = iw + 1
-          a(n) = this%aoftau(tau(n))
+    if(this%optre.gt.0.01d0)then
+       aend = min(1.d0/(1.d0 + this%zre + this%deltaz), 0.5d0)
+       do while(a(n) .lt. aend)
+          n =n+1
+          if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
+          a(n) = a(n-1) * a_factor
+          tau(n) = tau(n-1) + step*step_factor
+          tautmp = this%tauofa(a(n))
+          if(tautmp .lt. tau(n))then
+             tau(n) = tautmp
+          else
+             a(n) = this%aoftau(tau(n))
+          endif
+          step = min(step_early, step*slowvary)
        enddo
-    else
-       if(this%optre.gt.0.01d0)then
-          aend = min(1.d0/(1.d0 + this%zre + this%deltaz), 0.5d0)
-          do while(a(n) .lt. aend)
-             n =n+1
-             if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
-             a(n) = a(n-1) * a_factor
-             tau(n) = tau(n-1) + step*step_factor
-             tautmp = this%tauofa(a(n))
-             if(tautmp .lt. tau(n))then
-                tau(n) = tautmp
-             else
-                a(n) = this%aoftau(tau(n))
-             endif
-             step = min(step_early, step*slowvary)
-          enddo
 
-          aend = min(1.d0/(1.d0 + this%zre), 0.5d0)
-          do while(a(n) .lt. aend)
-             n =n+1
-             if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
-             a(n) = a(n-1) * a_factor
-             tau(n) = tau(n-1) + step*step_factor
-             tautmp = this%tauofa(a(n))
-             if(tautmp .lt. tau(n))then
-                tau(n) = tautmp
-             else
-                a(n) = this%aoftau(tau(n))
-             endif
-             step = max(step_reion, step/vary)
-          enddo
+       aend = min(1.d0/(1.d0 + this%zre), 0.5d0)
+       do while(a(n) .lt. aend)
+          n =n+1
+          if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
+          a(n) = a(n-1) * a_factor
+          tau(n) = tau(n-1) + step*step_factor
+          tautmp = this%tauofa(a(n))
+          if(tautmp .lt. tau(n))then
+             tau(n) = tautmp
+          else
+             a(n) = this%aoftau(tau(n))
+          endif
+          step = max(step_reion, step/vary)
+       enddo
 
-          aend = min(1.d0/(1.d0 + this%zre-this%deltaz), 0.5d0)
-          do while(a(n) .lt. aend)
-             n =n+1
-             if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
-             a(n) = a(n-1) * a_factor
-             tau(n) = tau(n-1) + step*step_factor
-             tautmp = this%tauofa(a(n))
-             if(tautmp .lt. tau(n))then
-                tau(n) = tautmp
-             else
-                a(n) = this%aoftau(tau(n))
-             endif
-             step = min(step_early, step*vary)
-          enddo
-       endif
+       aend = min(1.d0/(1.d0 + this%zre-this%deltaz), 0.5d0)
+       do while(a(n) .lt. aend)
+          n =n+1
+          if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
+          a(n) = a(n-1) * a_factor
+          tau(n) = tau(n-1) + step*step_factor
+          tautmp = this%tauofa(a(n))
+          if(tautmp .lt. tau(n))then
+             tau(n) = tautmp
+          else
+             a(n) = this%aoftau(tau(n))
+          endif
+          step = min(step_early, step*vary)
+       enddo
+
 
 
        do while((1.d0-this%Omega_m) * a(n)**3 .lt. 0.1d0) 
@@ -1018,7 +963,7 @@ contains
           allocate(source%a(n), source%tau(n), source%dtau(n), source%chi(n), source%tauc(n), source%lna(n), source%omega_rad(n), source%vis(n))
        endif
     else
-       allocate(source%a(n), source%tau(n), source%dtau(n), source%chi(n),  source%tauc(n), source%lna(n), source%omega_rad(n), source%vis(n))
+       allocate(source%a(n),source%tau(n), source%dtau(n), source%chi(n),  source%tauc(n), source%lna(n), source%omega_rad(n), source%vis(n))
     endif
     source%a = a(1:n)
     source%tau = tau(1:n)
