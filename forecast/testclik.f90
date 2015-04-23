@@ -52,6 +52,7 @@ program test
         if(i .gt. total_steps/4) do_update_propose = .false.
      endif
      call mcmc%mcmc_step(pool)
+     call flush()
   enddo
   call coop_MPI_finalize()
 end program test
