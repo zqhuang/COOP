@@ -5,4 +5,4 @@
 #PBS -l walltime=48:00:00
 ##PBS -r n
 cd /mnt/raid-cita/zqhuang/raid-zqhuang/zqhuang/GitHub/COOP/forecast
-mpirun -pernode ./DOCLIK myjob.log
+mpirun -pernode ./DOCLIK > myjob.log
