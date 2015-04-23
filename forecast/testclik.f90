@@ -10,16 +10,16 @@ program test
 
   type(coop_mcmc_params)::mcmc
   type(coop_data_pool)::pool
-  COOP_UNKNOWN_STRING, parameter::planckdata_path = "/home/zqhuang/includes/planck13/data" ! "../data/cmb/"  !
+  COOP_UNKNOWN_STRING, parameter::planckdata_path =  "/home/zqhuang/includes/planck13/data" ! "../data/cmb/"  !
   COOP_INT i
   COOP_INT,parameter::total_steps = 6000
   COOP_INT,parameter::update_freq = 300
-
+  logical do_update_propose 
   COOP_REAL::loglike
   call coop_MPI_init()
   
   mcmc%cosmology => cosmology
-  call mcmc%init(prefix="chains/planck", paramnames= "paramnames/qcdm.paramnames", ini = "myinis/qcdm.ini")
+  call mcmc%init(prefix="chains/qcdm", paramnames= "paramnames/qcdm.paramnames", ini = "myinis/qcdm.ini")
 
   
   call pl(1)%init(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik")
@@ -36,11 +36,20 @@ program test
 !!$  loglike = pool%loglike(mcmc)
 !!$ print*, loglike
   !!do MCMC
+  do_update_propose = (mcmc%settings%index("propose_matrix").eq.0)
+  if(do_update_propose)then
+     print*, "will update propose matrix"
+  else
+     print*, "has propose matrix: "//trim(mcmc%settings%value("propose_matrix"))
+  endif
   do i = 1, total_steps
      print*, "on Node ", coop_MPI_Rank(), ": step", i, " likelihood = ", mcmc%loglike
-     if(i.lt. total_steps/4 .and. mod(i - update_freq/2, update_freq).eq.0)then
-        call mcmc%update_propose()
-        if(i.lt.update_freq)call mcmc%chain%init()
+     if(do_update_propose)then
+        if(mod(i - update_freq/2, update_freq).eq.0)then
+           call mcmc%update_propose()
+           if(i.lt.update_freq)call mcmc%chain%init()
+        endif
+        if(i .gt. total_steps/4) do_update_propose = .false.
      endif
      call mcmc%mcmc_step(pool)
   enddo

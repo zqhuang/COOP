@@ -83,8 +83,10 @@ module coop_forecast_mod
      COOP_INT::proc_id = 0
      type(coop_cosmology_firstorder),pointer::cosmology => null()   
      type(coop_file)::chainfile
+     type(coop_dictionary)::settings     
      COOP_STRING::prefix
      COOP_STRING::form
+
      COOP_INT:: n = 0
      COOP_INT:: fulln = 0
      COOP_INT:: n_derived = 0
@@ -389,183 +391,6 @@ contains
   end subroutine coop_MCMC_params_update_Propose
 
 
-  subroutine coop_MCMC_params_init(this, prefix, paramnames, ini)
-    class(coop_MCMC_params)::this
-    COOP_UNKNOWN_STRING::prefix, ini, paramnames
-    type(coop_dictionary)::dict
-    type(coop_file)::fp
-    logical success
-    COOP_REAL,dimension(:),allocatable::center, lower, upper, width, iniwidth, prior_sigma, prior_center
-    COOP_INT i, iused
-    COOP_STRING val
-    call this%chain%init()
-    call this%paramnames%free()
-    this%prefix = trim(adjustl(prefix))
-    this%proc_id = coop_MPI_rank()
-    if(associated(this%cosmology))then
-       this%n_derived = coop_n_derived_with_cosmology
-    else
-       this%n_derived = coop_n_derived_without_cosmology       
-    endif
-    if(coop_file_exists(trim(paramnames)))then
-       this%fulln  = coop_file_numlines(paramnames)
-       call coop_load_dictionary(paramnames, this%paramnames, col_key = 1)
-    else
-       write(*, "(A)") "MCMC_params_init: cannot find file "//trim(paramnames)
-       stop
-    endif
-    if(coop_file_exists(trim(ini)))then
-       call coop_load_dictionary(ini, dict)
-    else
-       write(*, "(A)") "MCMC_params_init: cannot find file "//trim(ini)
-       stop
-    endif
-    if(allocated(this%fullparams))deallocate(this%used, this%fullparams, this%params, this%lower, this%upper, this%center, this%width, this%covmat, this%propose, this%params_saved, this%name, this%tex, this%knot, this%bestparams, this%prior_sigma, this%prior_center, this%has_prior)
-    allocate(this%fullparams(this%fulln), this%name(this%fulln), this%tex(this%fulln), lower(this%fulln), upper(this%fulln), width(this%fulln), iniwidth(this%fulln), center(this%fulln), prior_sigma(this%fulln), prior_center(this%fulln))
-    do i= 1, this%fulln
-       this%name(i) = trim(this%paramnames%key(i))
-       this%tex(i) = trim(this%paramnames%val(i))
-       call coop_dictionary_lookup(dict, "prior["//trim(this%name(i))//"]", val)
-       if(trim(val).eq."")then
-          prior_center(i) = 0.d0
-          prior_sigma(i) = 0.d0
-       else
-          read(val, *) prior_center(i), prior_sigma(i)
-       endif
-       call coop_dictionary_lookup(dict, "param["//trim(this%name(i))//"]", val)
-       if(trim(val).eq."")then
-          write(*,*) "key  param["//trim(this%name(i))//"] is not found in the ini file "//trim(ini)
-          stop
-       elseif(scan(trim(adjustl(val)), " "//coop_tab) .eq. 0)then
-          read(val, *) center(i)
-          lower(i) = center(i)
-          upper(i) = center(i)
-          width(i) = 0.d0
-          iniwidth(i) = 0.d0
-       else
-          read(val, *) center(i), lower(i), upper(i), width(i), iniwidth(i)
-          if(lower(i) .gt. center(i) .or. upper(i) .lt.  center(i))then
-             write(*,*) "mcmc_params_init: "//trim(this%name(i))//" boundary check failed"
-             write(*,*) center(i), lower(i), upper(i), width(i), iniwidth(i)
-             stop
-          endif
-          if(width(i) .eq. 0.d0)then
-             lower(i) = center(i)
-             upper(i) = center(i)
-             iniwidth(i) = 0.d0
-          elseif(upper(i) - lower(i) .eq. 0.d0)then
-             lower(i) = center(i)
-             upper(i) = center(i)
-             width(i) = 0.d0
-             iniwidth(i) = 0.d0
-          endif
-       endif
-       if(iniwidth(i) .ne. 0.d0)then
-          this%fullparams(i) = center(i) + iniwidth(i)*coop_random_Gaussian()
-          do while(this%fullparams(i) .gt. upper(i) .or. this%fullparams(i) .lt. lower(i))
-             this%fullparams(i) = center(i) + iniwidth(i)*coop_random_Gaussian()
-          enddo
-       else
-          this%fullparams(i) = center(i)
-       endif
-    enddo
-    this%n = count(width .ne. 0.d0)
-    this%form = "("//COOP_STR_OF(this%n+2+this%n_derived)//"E16.7)"
-    allocate(this%used(this%n), this%params(this%n), this%lower(this%n), this%upper(this%n), this%center(this%n), this%width(this%n), this%covmat(this%n, this%n), this%propose(this%n, this%n), this%params_saved(this%n), this%knot(this%n+2), this%bestparams(this%n), this%prior_sigma(this%n), this%prior_center(this%n), this%has_prior(this%n))
-    iused= 0
-    do i = 1, this%fulln
-       if(width(i) .ne. 0.d0)then
-          iused = iused + 1
-          this%used(iused) = i
-       endif
-    enddo
-    this%params = this%fullparams(this%used)
-    this%bestparams = this%params
-    this%center = center(this%used)
-    this%width = width(this%used)
-    this%upper = upper(this%used)
-    this%lower = lower(this%used)
-    this%prior_sigma = prior_sigma(this%used)
-    this%prior_center = prior_center(this%used)
-    this%has_prior = (this%prior_sigma .gt. 0.d0)
-    call coop_dictionary_lookup(dict, "propose_matrix", val)
-    if(trim(val).ne."")then
-       call fp%open(val, "r")
-       call coop_read_matrix(fp%unit, this%n, this%n, this%propose, success)
-       call fp%close()
-       if(.not. success)then
-          write(*,*) "propose matrix "//trim(val)//" is broken"
-          stop
-       endif
-       this%covmat = matmul(this%propose, this%propose)
-    elseif(coop_file_exists(trim(this%prefix)//".covmat"))then
-       call fp%open(trim(this%prefix)//".covmat", "r")
-       call coop_read_matrix(fp%unit, this%n, this%n, this%covmat, success)
-       call fp%close()
-       if(success)then
-          this%propose = this%covmat
-          call coop_matsym_sqrt(this%propose)
-       endif
-    else
-       success = .false.       
-    endif
-    if(.not. success)then
-       this%covmat = 0.d0
-       this%propose = 0.d0
-       do i=1, this%n
-          this%covmat(i, i) = this%width(i)**2
-          this%propose(i, i) = this%width(i)
-       enddo
-    endif
-    if(this%proc_id .eq. 0)then
-       
-       call coop_export_dictionary(trim(this%prefix)//".inputparams", dict)
-       call fp%open(trim(this%prefix)//".ranges", "w")
-       do i=1, this%fulln
-          write(fp%unit, "(A32, 2E16.7)") this%name(i), lower(i), upper(i)
-       enddo
-       call fp%close()
-       call fp%open(trim(this%prefix)//".paramnames", "w")
-       do i=1, this%n
-          write(fp%unit, "(2A16)")  this%name(this%used(i)), this%tex(this%used(i))
-       enddo
-       if(associated(this%cosmology))then
-          write(fp%unit, "(2A16)") "H0              ", "H_0      "                    
-          write(fp%unit, "(2A16)") "omegam          ", "\Omega_m  "          
-          write(fp%unit, "(2A16)") "omegal          ", "\Omega_\Lambda  "
-          write(fp%unit, "(2A16)") "epss            ", "\epsilon_s  "                    
-       else
-          write(fp%unit, "(2A16)") "omegal          ", "\Omega_\Lambda  "
-       endif
-       call fp%close()
-       
-    endif
-    deallocate(center, lower, upper, width, iniwidth, prior_sigma, prior_center)    
-    call dict%free()
-
-    !!load all the indices
-    this%index_ombh2 = this%index_of("ombh2")
-    this%index_omch2 = this%index_of("omch2")
-    this%index_theta = this%index_of("theta")
-    this%index_tau = this%index_of("tau")
-    this%index_logA = this%index_of("logA")
-    this%index_ns = this%index_of("ns")
-    this%index_mnu = this%index_of("mnu")                        
-    this%index_nrun = this%index_of("nrun")
-    this%index_r = this%index_of("r")
-    this%index_nt =      this%index_of("nt")
-    this%index_de_w = this%index_of("de_w")
-    this%index_de_wa = this%index_of("de_wa")
-    this%index_de_Q = this%index_of("de_Q")
-    this%index_de_tracking_n = this%index_of("de_tracking_n")
-    this%index_de_dUdphi = this%index_of("de_dUdphi")
-    this%index_de_dlnQdphi = this%index_of("de_dlnQdphi")
-    this%index_de_d2Udphi2 = this%index_of("de_d2Udphi2")
-    this%index_h = this%index_of("h")
-
-    
-
-  end subroutine coop_MCMC_params_init
   
 
   subroutine coop_MCMC_params_MCMC_step(this, Pool)
@@ -961,5 +786,185 @@ contains
     end function drz
   end subroutine coop_dataset_SN_Simple_simulate
 
-end module coop_forecast_mod
 
+
+
+
+  subroutine coop_MCMC_params_init(this, prefix, paramnames, ini)
+    class(coop_MCMC_params)::this
+    COOP_UNKNOWN_STRING::prefix, ini, paramnames
+    type(coop_file)::fp
+    logical success
+    COOP_REAL,dimension(:),allocatable::center, lower, upper, width, iniwidth, prior_sigma, prior_center
+    COOP_INT i, iused
+    COOP_STRING val
+    call this%chain%init()
+    call this%paramnames%free()
+    this%prefix = trim(adjustl(prefix))
+    this%proc_id = coop_MPI_rank()
+    if(associated(this%cosmology))then
+       this%n_derived = coop_n_derived_with_cosmology
+    else
+       this%n_derived = coop_n_derived_without_cosmology       
+    endif
+    if(coop_file_exists(trim(paramnames)))then
+       this%fulln  = coop_file_numlines(paramnames)
+       call coop_load_dictionary(paramnames, this%paramnames, col_key = 1)
+    else
+       write(*, "(A)") "MCMC_params_init: cannot find file "//trim(paramnames)
+       stop
+    endif
+    if(coop_file_exists(trim(ini)))then
+       call coop_load_dictionary(ini, this%settings)
+    else
+       write(*, "(A)") "MCMC_params_init: cannot find file "//trim(ini)
+       stop
+    endif
+    if(allocated(this%fullparams))deallocate(this%used, this%fullparams, this%params, this%lower, this%upper, this%center, this%width, this%covmat, this%propose, this%params_saved, this%name, this%tex, this%knot, this%bestparams, this%prior_sigma, this%prior_center, this%has_prior)
+    allocate(this%fullparams(this%fulln), this%name(this%fulln), this%tex(this%fulln), lower(this%fulln), upper(this%fulln), width(this%fulln), iniwidth(this%fulln), center(this%fulln), prior_sigma(this%fulln), prior_center(this%fulln))
+    do i= 1, this%fulln
+       this%name(i) = trim(this%paramnames%key(i))
+       this%tex(i) = trim(this%paramnames%val(i))
+       call coop_dictionary_lookup(this%settings, "prior["//trim(this%name(i))//"]", val)
+       if(trim(val).eq."")then
+          prior_center(i) = 0.d0
+          prior_sigma(i) = 0.d0
+       else
+          read(val, *) prior_center(i), prior_sigma(i)
+       endif
+       call coop_dictionary_lookup(this%settings, "param["//trim(this%name(i))//"]", val)
+       if(trim(val).eq."")then
+          write(*,*) "key  param["//trim(this%name(i))//"] is not found in the ini file "//trim(ini)
+          stop
+       elseif(scan(trim(adjustl(val)), " "//coop_tab) .eq. 0)then
+          read(val, *) center(i)
+          lower(i) = center(i)
+          upper(i) = center(i)
+          width(i) = 0.d0
+          iniwidth(i) = 0.d0
+       else
+          read(val, *) center(i), lower(i), upper(i), width(i), iniwidth(i)
+          if(lower(i) .gt. center(i) .or. upper(i) .lt.  center(i))then
+             write(*,*) "mcmc_params_init: "//trim(this%name(i))//" boundary check failed"
+             write(*,*) center(i), lower(i), upper(i), width(i), iniwidth(i)
+             stop
+          endif
+          if(width(i) .eq. 0.d0)then
+             lower(i) = center(i)
+             upper(i) = center(i)
+             iniwidth(i) = 0.d0
+          elseif(upper(i) - lower(i) .eq. 0.d0)then
+             lower(i) = center(i)
+             upper(i) = center(i)
+             width(i) = 0.d0
+             iniwidth(i) = 0.d0
+          endif
+       endif
+       if(iniwidth(i) .ne. 0.d0)then
+          this%fullparams(i) = center(i) + iniwidth(i)*coop_random_Gaussian()
+          do while(this%fullparams(i) .gt. upper(i) .or. this%fullparams(i) .lt. lower(i))
+             this%fullparams(i) = center(i) + iniwidth(i)*coop_random_Gaussian()
+          enddo
+       else
+          this%fullparams(i) = center(i)
+       endif
+    enddo
+    this%n = count(width .ne. 0.d0)
+    this%form = "("//COOP_STR_OF(this%n+2+this%n_derived)//"E16.7)"
+    allocate(this%used(this%n), this%params(this%n), this%lower(this%n), this%upper(this%n), this%center(this%n), this%width(this%n), this%covmat(this%n, this%n), this%propose(this%n, this%n), this%params_saved(this%n), this%knot(this%n+2), this%bestparams(this%n), this%prior_sigma(this%n), this%prior_center(this%n), this%has_prior(this%n))
+    iused= 0
+    do i = 1, this%fulln
+       if(width(i) .ne. 0.d0)then
+          iused = iused + 1
+          this%used(iused) = i
+       endif
+    enddo
+    this%params = this%fullparams(this%used)
+    this%bestparams = this%params
+    this%center = center(this%used)
+    this%width = width(this%used)
+    this%upper = upper(this%used)
+    this%lower = lower(this%used)
+    this%prior_sigma = prior_sigma(this%used)
+    this%prior_center = prior_center(this%used)
+    this%has_prior = (this%prior_sigma .gt. 0.d0)
+    call coop_dictionary_lookup(this%settings, "propose_matrix", val)
+    if(trim(val).ne."")then
+       call fp%open(val, "r")
+       call coop_read_matrix(fp%unit, this%n, this%n, this%propose, success)
+       call fp%close()
+       if(.not. success)then
+          write(*,*) "propose matrix "//trim(val)//" is broken"
+          stop
+       endif
+       this%covmat = matmul(this%propose, this%propose)
+    elseif(coop_file_exists(trim(this%prefix)//".covmat"))then
+       call fp%open(trim(this%prefix)//".covmat", "r")
+       call coop_read_matrix(fp%unit, this%n, this%n, this%covmat, success)
+       call fp%close()
+       if(success)then
+          this%propose = this%covmat
+          call coop_matsym_sqrt(this%propose)
+       endif
+    else
+       success = .false.       
+    endif
+    if(.not. success)then
+       this%covmat = 0.d0
+       this%propose = 0.d0
+       do i=1, this%n
+          this%covmat(i, i) = this%width(i)**2
+          this%propose(i, i) = this%width(i)
+       enddo
+    endif
+    if(this%proc_id .eq. 0)then
+       
+       call coop_export_dictionary(trim(this%prefix)//".inputparams", this%settings)
+       call fp%open(trim(this%prefix)//".ranges", "w")
+       do i=1, this%fulln
+          write(fp%unit, "(A32, 2E16.7)") this%name(i), lower(i), upper(i)
+       enddo
+       call fp%close()
+       call fp%open(trim(this%prefix)//".paramnames", "w")
+       do i=1, this%n
+          write(fp%unit, "(2A16)")  this%name(this%used(i)), this%tex(this%used(i))
+       enddo
+       if(associated(this%cosmology))then
+          write(fp%unit, "(2A16)") "H0              ", "H_0      "                    
+          write(fp%unit, "(2A16)") "omegam          ", "\Omega_m  "          
+          write(fp%unit, "(2A16)") "omegal          ", "\Omega_\Lambda  "
+          write(fp%unit, "(2A16)") "epss            ", "\epsilon_s  "                    
+       else
+          write(fp%unit, "(2A16)") "omegal          ", "\Omega_\Lambda  "
+       endif
+       call fp%close()
+       
+    endif
+    deallocate(center, lower, upper, width, iniwidth, prior_sigma, prior_center)    
+
+    !!load all the indices
+    this%index_ombh2 = this%index_of("ombh2")
+    this%index_omch2 = this%index_of("omch2")
+    this%index_theta = this%index_of("theta")
+    this%index_tau = this%index_of("tau")
+    this%index_logA = this%index_of("logA")
+    this%index_ns = this%index_of("ns")
+    this%index_mnu = this%index_of("mnu")                        
+    this%index_nrun = this%index_of("nrun")
+    this%index_r = this%index_of("r")
+    this%index_nt =      this%index_of("nt")
+    this%index_de_w = this%index_of("de_w")
+    this%index_de_wa = this%index_of("de_wa")
+    this%index_de_Q = this%index_of("de_Q")
+    this%index_de_tracking_n = this%index_of("de_tracking_n")
+    this%index_de_dUdphi = this%index_of("de_dUdphi")
+    this%index_de_dlnQdphi = this%index_of("de_dlnQdphi")
+    this%index_de_d2Udphi2 = this%index_of("de_d2Udphi2")
+    this%index_h = this%index_of("h")
+
+    
+
+  end subroutine coop_MCMC_params_init
+
+
+end module coop_forecast_mod  
