@@ -8,14 +8,15 @@ module coop_firstorder_mod
 
 
 
-  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe, coop_power_lnk_min, coop_power_lnk_max,  coop_k_dense_fac, coop_index_ClTT, coop_index_ClTE, coop_index_ClEE, coop_index_ClBB, coop_index_ClLenLen, coop_index_ClTLen,  coop_num_Cls, coop_Cls_lmax, coop_bbks_trans , coop_zeta_single_slice
+  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe, coop_power_lnk_min, coop_power_lnk_max,  coop_k_dense_fac, coop_index_ClTT, coop_index_ClTE, coop_index_ClEE, coop_index_ClBB, coop_index_ClLenLen, coop_index_ClTLen,  coop_num_Cls, coop_Cls_lmax, coop_bbks_trans, coop_index_source_T, coop_index_source_E, coop_index_source_B, coop_index_source_Len, coop_index_source_zeta
 
 
   !!this makes the code faster and more accurate
   logical,parameter:: coop_firstorder_optimize = .true.
-  COOP_INT, parameter::coop_limber_ell = 100
+  COOP_INT, parameter::coop_limber_ell = 300
+  logical,parameter::coop_do_limber_separately = .true.      
   
-  COOP_INT::coop_Cls_lmax(0:2) = (/ 3000, 3000, 1500 /)
+  COOP_INT::coop_Cls_lmax(0:2) = (/ 2800, 2000, 1500 /)
 
   COOP_REAL, parameter :: coop_power_lnk_min = log(0.1d0) 
   COOP_REAL, parameter :: coop_power_lnk_max = log(5.d3) 
@@ -28,7 +29,7 @@ module coop_firstorder_mod
 
   COOP_REAL, dimension(0:2), parameter::coop_source_tau_step_factor = (/ 1.d0, 1.d0, 1.d0 /)
   COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
-  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 150, 120, 100 /)
+  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 140, 120, 100 /)
   COOP_REAL, parameter::coop_source_k_index = 0.45d0
   COOP_INT, parameter:: coop_k_dense_fac = 35
 
@@ -55,11 +56,9 @@ module coop_firstorder_mod
   COOP_INT, parameter::coop_num_Cls =  coop_index_Clzetazeta
   public::  coop_index_ClTzeta,  coop_index_ClEzeta, coop_index_clzetazeta
   COOP_INT, dimension(0:2), parameter::coop_num_sources = (/ 4,  3,  3 /)
-  Logical:: coop_zeta_single_slice = .false.    
 #else
   COOP_INT, parameter::coop_num_Cls =  coop_index_ClTLen
   COOP_INT, dimension(0:2), parameter::coop_num_sources = (/ 3,  3,  3 /)
-  Logical:: coop_zeta_single_slice = .false.    
 #endif
   COOP_INT, dimension(0:2), parameter::coop_num_saux = (/ 7,  1,  1 /)
 
@@ -75,11 +74,11 @@ module coop_firstorder_mod
      COOP_INT::nsaux = 0
      COOP_INT, dimension(:),allocatable::index_tc_off, index_rad_off
      COOP_INT, dimension(coop_pert_default_nq)::index_massivenu_on
-     COOP_INT::index_massivenu_cold, index_rad_small
+     COOP_INT::index_massivenu_cold, index_rad_small, index_vis_end, index_vis_max, index_vis_start
      COOP_REAL::dkop, kopmin, kopmax, kmin, kmax, kweight, tauweight, bbks_keq, bbks_trans_kmax, distlss, dkop_dense
      COOP_REAL,dimension(coop_k_dense_fac)::a_dense, b_dense, a2_dense, b2_dense
      COOP_REAL, dimension(:),allocatable::k, kop, dk !!tau is conformal time, chi is comoving distance; in flat case, chi + tau = tau_0
-     COOP_REAL, dimension(:),allocatable::tau, a, tauc, lna, dtau, chi, omega_rad
+     COOP_REAL, dimension(:),allocatable::tau, a, tauc, lna, dtau, chi, omega_rad, vis
      COOP_REAL, dimension(:,:),allocatable::k_dense, ws_dense, wt_dense, ps_dense
      COOP_REAL, dimension(:,:,:),allocatable::s, s2, saux
    contains
@@ -124,9 +123,7 @@ module coop_firstorder_mod
      procedure:: set_Planck_bestfit_with_r =>coop_cosmology_firstorder_set_Planck_bestfit_with_r
      procedure:: set_klms => coop_cosmology_firstorder_set_klms
      procedure:: set_source_tau => coop_cosmology_firstorder_set_source_tau
-     procedure:: set_source_given_tau => coop_cosmology_firstorder_set_source_given_tau     
      procedure:: set_source_k => coop_cosmology_firstorder_set_source_k
-     procedure:: set_source_given_k => coop_cosmology_firstorder_set_source_given_k     
      procedure:: set_power => coop_cosmology_firstorder_set_power
      procedure:: set_xe => coop_cosmology_firstorder_set_xe
      procedure:: set_zre_from_optre => coop_cosmology_firstorder_set_zre_from_optre
@@ -151,7 +148,6 @@ module coop_firstorder_mod
      procedure:: free => coop_cosmology_firstorder_free
      procedure:: pert2source => coop_cosmology_firstorder_pert2source
      procedure:: init_source => coop_cosmology_firstorder_init_source
-     procedure:: allocate_source => coop_cosmology_firstorder_allocate_source     
      procedure:: compute_source =>  coop_cosmology_firstorder_compute_source
      procedure:: compute_source_k =>  coop_cosmology_firstorder_compute_source_k
      procedure:: get_matter_power => coop_cosmology_firstorder_get_matter_power
@@ -160,9 +156,6 @@ module coop_firstorder_mod
      procedure:: sigma_Gaussian_R_quick => coop_cosmology_firstorder_sigma_Gaussian_R_quick
      procedure::sigma_Gaussian_R_with_dervs => coop_cosmology_firstorder_sigma_Gaussian_R_with_dervs
      !!
-     procedure::camb_DoSourceK => coop_cosmology_firstorder_camb_DoSourceK
-     procedure::camb_getTransfer => coop_cosmology_firstorder_camb_GetTransfer
-     
   end type coop_cosmology_firstorder
 
 
@@ -335,43 +328,39 @@ contains
     COOP_INT::l
     COOP_REAL,dimension(:,:,:)::trans
     COOP_INT::n, ik, idense, itau, ii, nchis, ikcut, kchicut, itau_cut
-    COOP_REAL::jl, xmin, xmax, dchi
+    COOP_REAL::jl, xmin, xmax, dchi, chis
     COOP_REAL,dimension(:),allocatable::kmin, kmax, kfine
     if(size(trans,2).ne. coop_k_dense_fac .or. size(trans, 3).ne. source%nk .or. size(trans, 1) .ne. source%nsrc) call coop_return_error("get_transfer", "wrong size", "stop")
     if(l.ge.coop_limber_ell)then
-       itau_cut = source%index_rad_small
+       itau_cut = source%index_vis_end
     else
        itau_cut = source%ntau
     endif
-    trans = 0
+    trans = 0.d0
     call coop_jl_startpoint(l, xmin)
     call coop_jl_check_init(l)
-    xmax = (coop_jl_zero(l, 3)+coop_jl_zero(l, 4))/2.d0
+    xmax = (coop_jl_zero(l, 8)+coop_jl_zero(l, 9))/2.d0
     allocate(kmin(source%ntau), kmax(source%ntau), kfine(source%ntau))
     do itau = 1, itau_cut
        kmin(itau) = xmin/source%chi(itau)
        kmax(itau) = xmax/source%chi(itau)
-       kfine(itau) = 1.d0/source%dtau(itau) !!k > kfine use fine grid
+       kfine(itau) = 3.d0/source%dtau(itau) !!k > kfine use fine grid
     enddo
     ikcut = source%nk
-    if(coop_zeta_single_slice)then
-       kchicut = min(max(l*4.d0, 6000.d0), l*100.d0)       
-    else
-       kchicut = min(max(l*2.5d0, 3000.d0), l*100.d0)
-    endif
+    kchicut = min(max(l*2.5d0, 4000.d0), l*100.d0)
     do while(source%k(ikcut) * source%chi(1) .gt. kchicut .and. ikcut .gt. 2)
        ikcut = ikcut - 1
     enddo
     !$omp parallel do private(ik, itau, idense, jl, ii, dchi, nchis)
     do ik=2, ikcut
-       do itau = 1, itau_cut
+       do itau = source%index_vis_start, itau_cut
           if(source%k(ik)*source%chi(itau) .lt. xmin) exit
           if(source%k(ik) .lt. kfine(itau))then
              do idense = 1, coop_k_dense_fac
                 jl = coop_jl(l, source%k_dense(idense, ik)*source%chi(itau))
                 trans(:, idense, ik) = trans(:, idense, ik) + jl* source%dtau(itau)* COOP_INTERP_SOURCE(source, :, idense, ik, itau) 
              enddo
-          else
+          elseif(l.lt.coop_limber_ell)then
              if(source%k(ik) .gt. kmin(itau) .and. source%k_dense(1,ik) .lt. kmax(itau))then            
                 do idense = 1, coop_k_dense_fac
                    nchis = 1+ceiling(source%k_dense(idense, ik)*source%dtau(itau))
@@ -388,7 +377,24 @@ contains
        enddo
     enddo
     !$omp end parallel do
+    if(.not. coop_do_limber_separately)then
+       if(l .ge. coop_limber_ell)then
+          trans(coop_index_source_Len, :, :) = 0.d0
+          do ik = 2, source%nk
+             chis = (l+0.5d0)/source%k(ik)          
+             if( chis .gt. source%chi(source%index_vis_start) )cycle
+             chis = (l+0.5d0)/source%k(ik-1)          
+             if( chis .lt. source%chi(source%index_vis_end) )exit
+             !$omp parallel do
+             do idense = 1, coop_k_dense_fac
+                trans(coop_index_source_Len, idense, ik) = sqrt(coop_pi/2.d0 /(l+0.5d0))/source%k_dense(idense, ik)*source%interpolate_one(source%k_dense(idense, ik), (l+0.5d0)/source%k_dense(idense, ik), coop_index_source_Len)
+             enddo
+             !$omp end parallel do          
+          enddo
+       endif
+    endif
     deallocate(kmin, kmax, kfine)
+
   end subroutine coop_cosmology_firstorder_source_get_transfer
 
   subroutine coop_cosmology_firstorder_source_get_Cls_limber(source, l, Cls)
@@ -397,7 +403,7 @@ contains
     COOP_REAL,dimension(coop_num_cls),intent(OUT)::Cls
     COOP_REAL::src(source%nsrc), kop, rk
     Cls = 0.d0
-    do itau = source%index_rad_small + 1, source%ntau
+    do itau = source%index_vis_end + 1, source%ntau
        call source%k2kop(l/source%chi(itau), kop)
        rk = (kop-source%kopmin)/source%dkop+1.d0
        ik = ceiling(rk)
@@ -414,12 +420,49 @@ contains
        Cls(coop_index_ClEE) = Cls(coop_index_ClEE) + rk*src(coop_index_source_E)**2
        Cls(coop_index_ClTE) = Cls(coop_index_ClTE) + rk*src(coop_index_source_T)*src(coop_index_source_E)
        if(source%m .eq. 0)then
-          Cls(coop_index_ClLenLen) = Cls(coop_index_ClLenLen) + rk*src(coop_index_source_Len)**2
-          Cls(coop_index_ClTLen) = Cls(coop_index_ClTLen) + rk*src(coop_index_source_T)*src(coop_index_source_Len)
+          if(source%nsrc .ge. 3)then
+             Cls(coop_index_ClLenLen) = Cls(coop_index_ClLenLen) + rk*src(coop_index_source_Len)**2
+             Cls(coop_index_ClTLen) = Cls(coop_index_ClTLen) + rk*src(coop_index_source_T)*src(coop_index_source_Len)
+#if DO_ZETA_TRANS             
+             if(source%nsrc .ge. 4)then
+                Cls(coop_index_ClTzeta) = Cls(coop_index_ClTzeta) + rk*src(coop_index_source_zeta)*src(coop_index_source_T)
+                Cls(coop_index_ClEzeta) = Cls(coop_index_ClTzeta) + rk*src(coop_index_source_zeta)*src(coop_index_source_E)
+                Cls(coop_index_Clzetazeta) = Cls(coop_index_ClTzeta) + rk*src(coop_index_source_zeta)**2
+             endif
+#endif             
+          endif
        else
           Cls(coop_index_ClBB) = Cls(coop_index_ClBB) + rk*src(coop_index_source_B)**2
        endif
     enddo
+    if(source%m .eq. 0 )then
+       do itau = 1, source%index_vis_end
+          call source%k2kop(l/source%chi(itau), kop)
+          rk = (kop-source%kopmin)/source%dkop+1.d0
+          ik = ceiling(rk)
+          if(ik.lt.2 .or. ik .gt. source%nk)cycle
+          idense = coop_k_dense_fac - nint((ik - rk)*coop_k_dense_fac)
+          if(idense .eq. 0)then
+             ik = ik - 1
+             if(ik.eq.1)cycle
+             idense = coop_k_dense_fac
+          endif
+          src = COOP_INTERP_SOURCE(source, :, idense, ik, itau)
+          rk = source%ps_dense(idense,ik)*source%chi(itau)*source%dtau(itau)
+
+          if(source%nsrc .ge. 3)then
+             Cls(coop_index_ClLenLen) = Cls(coop_index_ClLenLen) + rk*src(coop_index_source_Len)**2
+             Cls(coop_index_ClTLen) = Cls(coop_index_ClTLen) + rk*src(coop_index_source_T)*src(coop_index_source_Len)
+#if DO_ZETA_TRANS             
+             if(source%nsrc .ge. 4)then
+                Cls(coop_index_ClTzeta) = Cls(coop_index_ClTzeta) + rk*src(coop_index_source_zeta)*src(coop_index_source_T)
+                Cls(coop_index_ClEzeta) = Cls(coop_index_ClTzeta) + rk*src(coop_index_source_zeta)*src(coop_index_source_E)
+                Cls(coop_index_Clzetazeta) = Cls(coop_index_ClTzeta) + rk*src(coop_index_source_zeta)**2
+             endif
+#endif             
+          endif
+       enddo
+    endif
     Cls = Cls*((2.d0*coop_pi**2)/dble(l)**3)
   end subroutine coop_cosmology_firstorder_source_get_Cls_limber
 
@@ -443,19 +486,12 @@ contains
           Cls(coop_index_ClTE) = sqrt((l+2.d0)*(l+1.d0)*l*(l-1.d0))*sum(source%ws_dense * trans(coop_index_source_T, :, :)*trans(coop_index_source_E, :, :))*coop_4pi
           Cls(coop_index_ClEE) = (l+2.d0)*(l+1.d0)*l*(l-1.d0)*sum(source%ws_dense * trans(coop_index_source_E,:,:)**2)*coop_4pi
        endif
-       if(source%nsrc.ge.3)then
+       if(source%nsrc.ge.3 .and. (.not. coop_do_limber_separately .or. l .lt. coop_limber_ell) )then
           Cls(coop_index_ClLenLen) =  sum(source%ws_dense * trans(coop_index_source_Len, :, :)**2)*coop_4pi
           Cls(coop_index_ClTLen) =  sum(source%ws_dense * trans(coop_index_source_T, :, :) * trans(coop_index_source_Len,:,:))*coop_4pi
        endif
 #if DO_ZETA_TRANS        
-       if(source%nsrc.ge.4)then
-          if(coop_zeta_single_slice)then
-             do ik=1, source%nk
-                do idense = 1, coop_k_dense_fac
-                   trans(coop_index_source_zeta, idense, ik) = - coop_jl(l, source%k_dense(idense, ik)*source%distlss)
-                enddo
-             enddo
-          endif
+       if(source%nsrc.ge.4 .and. l .lt. coop_limber_ell)then
           Cls(coop_index_ClTzeta) = sum(source%ws_dense * trans(coop_index_source_T, :, :)*trans(coop_index_source_zeta,:,:))*coop_4pi
           Cls(coop_index_ClEzeta) = sqrt((l+2.d0)*(l+1.d0)*l*(l-1.d0))*sum(source%ws_dense * trans(coop_index_source_E, :, :) * trans(coop_index_source_zeta,:,:))*coop_4pi
           Cls(coop_index_Clzetazeta) = sum(source%ws_dense * trans(coop_index_source_zeta, :, :)**2)*coop_4pi
@@ -476,10 +512,14 @@ contains
        call coop_return_error("get_Cls", "unknown m = "//trim(coop_num2str(source%m)), "stop")
     end select
     deallocate(trans)
-    if(l .ge. coop_limber_ell)then
-       call source%get_cls_limber(l, cls_limber)
-       Cls = Cls + Cls_limber
+    if(coop_do_limber_separately)then
+       if(l .ge. coop_limber_ell)then
+          call source%get_cls_limber(l, cls_limber)
+          Cls = Cls + Cls_limber
+       endif
     endif
+    Cls(coop_index_ClLenLen) =  Cls(coop_index_ClLenLen)*l*(l+1.d0)
+    Cls(coop_index_ClTLen) =  Cls(coop_index_ClLenLen)*l
   end subroutine coop_cosmology_firstorder_source_get_Cls
 
 
@@ -529,12 +569,18 @@ contains
           call coop_spline(nc, ls_computed, Cls_Computed(:, i), Cls2_computed(:, i))
           do l = lmin, lmax_compute
              call coop_splint(nc, ls_computed, Cls_Computed(:, i), Cls2_computed(:, i), dble(l), Cls(i, l))
-             Cls(i, l) = Cls(i, l)/(l*(l+1.d0)*norm)
           enddo
           do l = lmax_compute+1, lmax
              Cls(i, l) = Cls(i, lmax_compute)*exp(-(dble(l)**2-dble(lmax_compute)**2)/1.2d6)
           enddo
        endif
+    enddo
+    !$omp end parallel do
+    !$omp parallel do
+    do l= lmin, lmax
+       Cls(:, l) = Cls(:, l)/(l*(l+1.d0)*norm)
+       Cls(coop_index_ClLenLen, l) =  Cls(coop_index_ClLenLen, l)/(l*(l+1.d0))
+       Cls(coop_index_ClTLen, l) =  Cls(coop_index_ClLenLen, l)/l
     enddo
     !$omp end parallel do
     deallocate(ls_computed, Cls_computed,Cls2_computed)
@@ -767,7 +813,7 @@ contains
   subroutine coop_cosmology_firstorder_set_source_tau(this, source, step_factor, tau_wanted, indices)
     class(coop_cosmology_firstorder_source)::source
     class(coop_cosmology_firstorder)::this
-    COOP_REAL step_factor
+    COOP_REAL step_factor, viscut
     COOP_REAL,dimension(:), optional::tau_wanted
     COOP_INT,dimension(:),optional::indices
     !!basic stepsize
@@ -968,11 +1014,11 @@ contains
     source%ntau = n
     if(allocated(source%a))then
        if(size(source%a).ne.n)then
-          deallocate(source%a, source%tau, source%chi, source%dtau, source%tauc, source%lna, source%omega_rad)
-          allocate(source%a(n), source%tau(n), source%dtau(n), source%chi(n), source%tauc(n), source%lna(n), source%omega_rad(n))
+          deallocate(source%a, source%tau, source%chi, source%dtau, source%tauc, source%lna, source%omega_rad, source%vis)
+          allocate(source%a(n), source%tau(n), source%dtau(n), source%chi(n), source%tauc(n), source%lna(n), source%omega_rad(n), source%vis(n))
        endif
     else
-       allocate(source%a(n), source%tau(n), source%dtau(n), source%chi(n),  source%tauc(n), source%lna(n), source%omega_rad(n))
+       allocate(source%a(n), source%tau(n), source%dtau(n), source%chi(n),  source%tauc(n), source%lna(n), source%omega_rad(n), source%vis(n))
     endif
     source%a = a(1:n)
     source%tau = tau(1:n)
@@ -986,6 +1032,7 @@ contains
     !$omp parallel do
     do i=1, n
        source%tauc(i) = this%taucofa(source%a(i))
+       source%vis(i) = this%visofa(source%a(i))
        source%omega_rad(i) = this%Omega_r/( this%Omega_r + source%a(i)*(this%Omega_m+(1.d0-this%Omega_m)*source%a(i)**3))  !!this is just an approximation, only used for optimization (drop radiation when omega_rad is very small)       
     enddo
     !$omp end parallel do
@@ -995,6 +1042,17 @@ contains
           source%index_rad_small = i
           exit
        endif
+    enddo
+    source%index_vis_max = coop_maxloc(source%vis)
+    source%index_vis_end = source%index_vis_max
+    viscut = source%vis(source%index_vis_max)*0.005d0
+    do while(source%index_vis_end .lt. n .and. source%vis(source%index_vis_end) .gt. viscut )
+       source%index_vis_end = source%index_vis_end + 1
+    enddo
+    viscut = source%vis(source%index_vis_max)*1.d-4
+    source%index_vis_start = source%index_vis_max    
+    do while(source%index_vis_start .gt. 1 .and. source%vis(source%index_vis_start) .gt. viscut )
+       source%index_vis_start = source%index_vis_start - 1
     enddo
 
   end subroutine coop_cosmology_firstorder_set_source_tau
@@ -1030,11 +1088,7 @@ contains
 
 
     source%kmin = 0.2d0/this%distlss
-    if(coop_zeta_single_slice)then
-       source%kmax = (min(max(1500, coop_Cls_lmax(source%m)), 3000)*2.d0)/this%distlss       
-    else
-       source%kmax = (min(max(1500, coop_Cls_lmax(source%m)), 3000)*1.5d0)/this%distlss
-    endif
+    source%kmax = (min(max(1500, coop_Cls_lmax(source%m)), 3000)*1.6d0)/this%distlss
     call source%k2kop(source%kmin, source%kopmin)
     call source%k2kop(source%kmax, source%kopmax)
     source%dkop = (source%kopmax-source%kopmin)/(n-1)
@@ -1064,8 +1118,9 @@ contains
           enddo
        enddo
        !$omp end parallel do
-       source%index_rad_off = max(source%index_rad_small, source%index_tc_off + 1)
+
        if(coop_firstorder_optimize)then
+          source%index_rad_off = max(source%index_rad_small, source%index_tc_off + 1)          
           !$omp parallel do
           do i = 1, n
              do while(source%index_rad_off(i) .le. source%ntau)
@@ -1077,6 +1132,8 @@ contains
              enddo
           enddo
           !$omp end parallel do
+       else
+          source%index_rad_off = source%ntau + 1
        endif
     else
        call coop_return_error("set_source_k", "You need to call set_source_tau before calling set_source_k", "stop")
@@ -1307,7 +1364,7 @@ contains
 
 #include "firstorder_basic_utils.h"
 #include "firstorder_compute_sigma.h"  
-#include "firstorder_cosmomc_utils.h"
+
   
 end module coop_firstorder_mod
 

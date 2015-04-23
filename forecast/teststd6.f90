@@ -18,14 +18,12 @@ program test
   mcmc%cosmology => cosmology
   call mcmc%init(prefix="chains/test", paramnames= "paramnames/std6.paramnames", ini = "myinis/teststd6.ini")
   call mcmc%set_cosmology()
-  print*, mcmc%cosmology%h()
-  stop
  call pl(1)%init(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik")
  ! call pl(1)%init(trim(planckdata_path)//"/commander_v4.1_lm49.clik")
 !  call pl(1)%init(trim(planckdata_path)//"/lowlike_v222.clik")  
   pool%CMB%cliklike => pl
   loglike = pool%loglike(mcmc)
-!!$  write(*,*) "CMB loglike = ", loglike
+  write(*,*) "CMB loglike = ", loglike
 !!$  nullify(pool%CMB%cliklike)
 !!$  pool%HST%HSTlike => HSTlike
 !!$  loglike = pool%loglike(mcmc)

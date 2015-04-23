@@ -764,9 +764,6 @@ contains
        endif
        LogLike = LogLike - this%cliklike(i)%LogLike()
     enddo
-    do l = 2, 2500
-       print*, l, Cls_lensed(1, l)*l*(l+1.d0)/coop_2pi, Cls_scalar(1, l)*l*(l+1.d0)/coop_2pi, Cls_lensed(coop_index_ClLenLen, l)*l*(l+1.d0)/coop_2pi
-    enddo
     deallocate(Cls_Scalar, Cls_tensor, Cls_lensed)
   end function coop_dataset_CMB_LogLike
 
