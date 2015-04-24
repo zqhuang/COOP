@@ -480,7 +480,7 @@ contains
           this%params = this%params_saved + matmul(this%propose, vec)          
        endif
        this%fullparams(this%used) = this%params
-       if(associated(this%cosmology))then
+       if(associated(this%cosmology) .and. this%fast_steps.eq.0)then
           call this%set_cosmology()
        endif
        this%loglike_proposed = pool%loglike(this)
