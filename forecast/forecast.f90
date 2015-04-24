@@ -111,7 +111,7 @@ module coop_forecast_mod
      COOP_REAL::temperature = 1.d0
      COOP_INT::lmax = 0
      COOP_REAL, dimension(:,:), allocatable::Cls_scalar, Cls_tensor, Cls_lensed     
-     COOP_INT,dimension(:),allocatable::used
+     COOP_INT,dimension(:),allocatable::used, map2used
      COOP_REAL,dimension(:),allocatable::fullparams
      COOP_REAL,dimension(:),allocatable::params
      COOP_REAL,dimension(:),allocatable::bestparams     
@@ -896,9 +896,14 @@ contains
     type(coop_file)::fp
     logical success
     COOP_REAL,dimension(:),allocatable::center, lower, upper, width, iniwidth, prior_sigma, prior_center
-    COOP_INT i, iused
+    COOP_INT i, iused, j
     COOP_STRING::paramnames, prefix
     COOP_STRING val
+    COOP_LONG_STRING::line
+    COOP_INT::ncov
+    type(coop_list_string)::sl
+    COOP_REAL,dimension(:,:),allocatable::cov_read
+    COOP_INT, dimension(:),allocatable::ind_read
     if(coop_file_exists(trim(ini)))then
        call coop_load_dictionary(ini, this%settings)
     else
@@ -935,8 +940,8 @@ contains
        write(*, "(A)") "MCMC_params_init: cannot find file "//trim(paramnames)
        stop
     endif
-    if(allocated(this%fullparams))deallocate(this%used, this%fullparams, this%params, this%lower, this%upper, this%center, this%width, this%covmat, this%propose, this%params_saved, this%name, this%tex, this%knot, this%bestparams, this%prior_sigma, this%prior_center, this%has_prior)
-    allocate(this%fullparams(this%fulln), this%name(this%fulln), this%tex(this%fulln), lower(this%fulln), upper(this%fulln), width(this%fulln), iniwidth(this%fulln), center(this%fulln), prior_sigma(this%fulln), prior_center(this%fulln))
+    if(allocated(this%fullparams))deallocate(this%used, this%map2used, this%fullparams, this%params, this%lower, this%upper, this%center, this%width, this%covmat, this%propose, this%params_saved, this%name, this%tex, this%knot, this%bestparams, this%prior_sigma, this%prior_center, this%has_prior)
+    allocate(this%map2used(this%fulln), this%fullparams(this%fulln), this%name(this%fulln), this%tex(this%fulln), lower(this%fulln), upper(this%fulln), width(this%fulln), iniwidth(this%fulln), center(this%fulln), prior_sigma(this%fulln), prior_center(this%fulln))
     do i= 1, this%fulln
        this%name(i) = trim(this%paramnames%key(i))
        this%tex(i) = trim(this%paramnames%val(i))
@@ -988,10 +993,12 @@ contains
     this%form = "("//COOP_STR_OF(this%n+2+this%n_derived)//"E16.7)"
     allocate(this%used(this%n), this%params(this%n), this%lower(this%n), this%upper(this%n), this%center(this%n), this%width(this%n), this%covmat(this%n, this%n), this%propose(this%n, this%n), this%params_saved(this%n), this%knot(this%n+2), this%bestparams(this%n), this%prior_sigma(this%n), this%prior_center(this%n), this%has_prior(this%n))
     iused= 0
+    this%map2used = 0
     do i = 1, this%fulln
        if(width(i) .ne. 0.d0)then
           iused = iused + 1
           this%used(iused) = i
+          this%map2used(i) = iused
        endif
     enddo
     this%params = this%fullparams(this%used)
@@ -1003,37 +1010,48 @@ contains
     this%prior_sigma = prior_sigma(this%used)
     this%prior_center = prior_center(this%used)
     this%has_prior = (this%prior_sigma .gt. 0.d0)
+    this%covmat = 0.d0
+    this%propose = 0.d0
+    do i=1, this%n
+       this%covmat(i, i) = this%width(i)**2
+       this%propose(i, i) = this%width(i)
+    enddo
     call coop_dictionary_lookup(this%settings, "propose_matrix", val)
     if(trim(val).ne."")then
        call fp%open(val, "r")
-       call coop_read_matrix(fp%unit, this%n, this%n, this%covmat, success)
+       read(fp%unit, *) line
+       if(line(1:1).eq."#")line = adjustl(line(2:))
+       call coop_string_to_list(line, sl)
+       ncov = sl%n
+       allocate(cov_read(ncov, ncov), ind_read(ncov))
+       call coop_read_matrix(fp%unit, ncov, ncov, cov_read, success)
        call fp%close()
        if(success)then
-          this%propose = this%covmat
-          call coop_matsym_sqrt(this%propose)
+          do i = 1, ncov
+             ind_read(i) = this%paramnames%index(trim(sl%element(i)))
+             if(ind_read(i).ne.0) ind_read(i) = this%map2used(ind_read(i))
+          enddo
+          if(any(ind_read .ne. 0))then
+             do i=1, ncov
+                if(ind_read(i).eq.0)cycle
+                do j=1, ncov
+                   if(ind_read(j).eq.0)cycle
+                   this%covmat(ind_read(i), ind_read(j)) = cov_read(i, j)
+                enddo
+             enddo
+             this%propose = this%covmat
+             call coop_matsym_sqrt(this%propose)
+             write(*, *) "propose matrix "//trim(val)//" is loaded with "//COOP_STR_OF(count(ind_read.ne.0))//" usable parameters from totally "//COOP_STR_OF(ncov)//" parameters"
+          endif
        else
           write(*,*) "propose matrix "//trim(val)//" is broken"
           stop
        endif
-    elseif(coop_file_exists(trim(this%prefix)//".covmat"))then
-       call fp%open(trim(this%prefix)//".covmat", "r")
-       call coop_read_matrix(fp%unit, this%n, this%n, this%covmat, success)
-       call fp%close()
-       if(success)then
-          this%propose = this%covmat
-          call coop_matsym_sqrt(this%propose)
-       endif
-    else
-       success = .false.       
+       deallocate(cov_read, ind_read)
+       call sl%init()
     endif
-    if(.not. success)then
-       this%covmat = 0.d0
-       this%propose = 0.d0
-       do i=1, this%n
-          this%covmat(i, i) = this%width(i)**2
-          this%propose(i, i) = this%width(i)
-       enddo
-    endif
+
+
     this%n_fast = 0    
     call coop_dictionary_lookup(this%settings, "last_slow", val)
     if(trim(val).ne."")then

@@ -464,6 +464,7 @@ contains
     COOP_REAL,parameter::low_ell_cut = 50
     COOP_REAL,parameter::low_k_cut = low_ell_cut/distlss
     type(mcmc_chain) mc
+    COOP_STRING::allnames
     COOP_UNKNOWN_STRING output
     COOP_SHORT_STRING::rval=""
     type(coop_file)::fcl
@@ -991,9 +992,14 @@ contains
     Write(fp%unit,"(a)")"\end{document}"
     call fp%close()
 
-!!covmat    
-    call fp%open(trim(mc%output)//".covmat", "w")
-    call coop_write_matrix(fp%unit, mc%covmat, mc%np, mc%np)
+    !!covmat
+    allnames = ""
+    do ip=1, mc%np_used
+       allnames = trim(allnames)//" "//trim(mc%name(mc%used(ip)))
+    enddo    
+    call fp%open(trim(mc%output)//".covmat", "w")    
+    write(fp%unit, "(A)") trim(allnames)
+    call coop_write_matrix(fp%unit, mc%cov_used, mc%np_used, mc%np_used)
     call fp%close()
     call fp%open(trim(mc%output)//".corr", "w")
     call coop_write_matrix(fp%unit, mc%corrmat, mc%np_used, mc%np_used)
@@ -1009,9 +1015,9 @@ contains
     enddo
     call fp%close()
 
-    call fp%open(trim(mc%output)//".covused", "w")
-    call coop_write_matrix(fp%unit, mc%cov_used, mc%np_used, mc%np_used)
-    call fp%close()
+!!$    call fp%open(trim(mc%output)//".covused", "w")
+!!$    call coop_write_matrix(fp%unit, mc%cov_used, mc%np_used, mc%np_used)
+!!$    call fp%close()
     if(mc%np_pca .gt. 0)then
        call coop_feedback( "Doing PCA")
        allocate(pcamat(mc%np_pca, mc%np_pca),eig(mc%np_pca), ipca(mc%np_pca))
