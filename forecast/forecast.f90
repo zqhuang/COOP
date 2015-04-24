@@ -102,7 +102,7 @@ module coop_forecast_mod
      COOP_INT:: n = 0
      COOP_INT:: fulln = 0
      COOP_INT:: n_derived = 0
-     COOP_REAL:: proposal_length = 1.d0
+     COOP_REAL:: proposal_length = 2.4d0
      COOP_REAL::bestlike = coop_LogZero
      COOP_REAL::loglike = coop_LogZero
      COOP_REAL::loglike_proposed = coop_LogZero
