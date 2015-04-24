@@ -86,7 +86,7 @@ contains
     if(nfiles.eq.0)then
        call coop_return_error("load_chain", trim(prefix)//"_1.txt is not found on the disk", "stop")
     else
-       call coop_feedback( "found "//trim(coop_num2str(nfiles))//" chain files on the disck")
+       call coop_feedback( "found "//trim(coop_num2str(nfiles))//" chain files on the disk")
     endif
     fname = trim(prefix)//".inputparams"
     if(coop_file_exists(fname))then
