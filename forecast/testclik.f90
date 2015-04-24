@@ -11,7 +11,7 @@ program test
   type(coop_mcmc_params)::mcmc
   type(coop_data_pool)::pool
   COOP_STRING::inifile
-  COOP_UNKNOWN_STRING, parameter::planckdata_path = "../data/cmb/"  ! "/home/zqhuang/includes/planck13/data" ! 
+  COOP_UNKNOWN_STRING, parameter::planckdata_path =  "/home/zqhuang/includes/planck13/data" ! "../data/cmb/"  !
   COOP_INT i
   COOP_INT,parameter::total_steps = 6000
   COOP_INT,parameter::update_freq = 300
@@ -36,6 +36,9 @@ program test
      write(*,*) "doing fast-slow MCMC"
      write(*,*) "number of varying fast parameters:"//COOP_STR_OF(mcmc%n_fast)
      write(*,*) "number of varying slow parameters:"//COOP_STR_OF(mcmc%n_slow)
+     if(mcmc%n_slow .eq.0)then
+        mcmc%fast_per_round = 100
+     endif
   endif
 
   
@@ -52,7 +55,7 @@ program test
   
   !!do MCMC
   do i = 1, total_steps
-     print*, "on Node ", coop_MPI_Rank(), ": step", i, " likelihood = ", mcmc%loglike
+     print*, "on Node ", coop_MPI_Rank(), ": step", i, " likelihood = ", mcmc%loglike, "; sum params = ", sum(mcmc%fullparams)
      if(do_update_propose)then
         if(mod(i, update_freq).eq.0)then
            call mcmc%update_propose()

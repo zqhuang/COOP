@@ -92,7 +92,7 @@ module coop_forecast_mod
      logical::do_write_chain = .true.
      logical::do_overwrite = .false.
      logical::do_fastslow = .false.
-     logical::do_memsave = .false.
+     logical::do_memsave = .true.
      COOP_INT::n_fast = 0
      COOP_INT::index_fast_start = 0
      COOP_INT::n_slow = 0
@@ -109,6 +109,8 @@ module coop_forecast_mod
      COOP_REAL::mult = 0.d0
      COOP_REAL::sum_mult = 0.d0
      COOP_REAL::temperature = 1.d0
+     COOP_INT::lmax = 0
+     COOP_REAL, dimension(:,:), allocatable::Cls_scalar, Cls_tensor, Cls_lensed     
      COOP_INT,dimension(:),allocatable::used
      COOP_REAL,dimension(:),allocatable::fullparams
      COOP_REAL,dimension(:),allocatable::params
@@ -260,6 +262,16 @@ contains
        if(this%cosmology%has_tensor)then
           call this%cosmology%compute_source(2)
        endif
+       if(this%lmax .gt. 1)then
+          call this%cosmology%source(0)%get_all_cls(2, this%lmax, this%Cls_scalar)
+          call coop_get_lensing_Cls(2, this%lmax, this%Cls_Scalar, this%Cls_lensed)
+          this%Cls_lensed = this%Cls_lensed + this%Cls_scalar
+          if(this%cosmology%has_tensor)then
+             call this%cosmology%source(2)%get_all_cls( 2, this%lmax, this%Cls_tensor)
+             this%Cls_lensed = this%Cls_lensed + this%Cls_tensor
+          endif
+          this%Cls_lensed = this%Cls_lensed*((this%cosmology%Tcmb())**2*1.d12) 
+       endif       
     endif
   contains
 
@@ -416,7 +428,7 @@ contains
     class(coop_MCMC_params)::this
     type(coop_data_pool)::pool
     COOP_REAL vec(this%n)
-    COOP_INT numlines
+    COOP_INT i
     COOP_LONG_STRING::line
     if(this%n .le. 0) stop "MCMC: no varying parameters"
     select type(this)
@@ -427,6 +439,19 @@ contains
           call this%chain%init()
           this%sum_mult = 0.d0
           this%fast_steps = 0
+          if(associated(pool%CMB%ClikLike))then  !!want cls
+             this%lmax  = 0
+             do i = 1, size(pool%CMB%ClikLike)
+                this%lmax = max(this%lmax, maxval(pool%CMB%ClikLike(i)%lmax))
+             enddo
+             this%lmax = this%lmax + 100 !!buffer for good lensing
+             if(allocated(this%Cls_scalar))then
+                deallocate(this%Cls_Scalar, this%Cls_tensor, this%Cls_lensed)
+             endif
+             allocate(this%Cls_scalar(coop_num_cls, 2:this%lmax), this%Cls_tensor(coop_num_cls, 2:this%lmax), this%Cls_lensed(coop_num_cls, 2:this%lmax))
+          else
+             this%lmax = 0
+          endif
           this%chainname = trim(this%prefix)//"_"//COOP_STR_OF(coop_MPI_Rank()+1)//".txt"
           if(.not. this%do_overwrite)then
              if(coop_file_exists(this%chainname))then
@@ -436,8 +461,7 @@ contains
                 do while(this%chainfile%read_string(line))
                    read(line, *) this%knot
                    this%sum_mult = this%sum_mult + this%knot(1)
-                   if(this%do_memsave) &
-                        call this%chain%push(this%knot)
+                   call this%chain%push(this%knot)
                    if(this%knot(2) .lt. this%bestlike)then
                       this%bestparams = this%knot(3:this%n+2)
                       this%bestlike = this%knot(2)
@@ -449,7 +473,12 @@ contains
                    this%fullparams(this%used) = this%params
                    this%loglike = this%knot(2)
                    this%mult = 1
-                   call this%chainfile%open(this%chainname, "a")  
+                   call this%chainfile%open(this%chainname, "a")
+                   write(*,*) "continuing "//COOP_STR_OF(this%chain%n)//" lines from file "//trim(this%chainname)
+                   if(.not. this%do_memsave) call this%chain%init()
+                   if(associated(this%cosmology))then
+                      call this%set_cosmology()
+                   endif
                 else
                    this%do_overwrite = .true.
                 endif
@@ -470,13 +499,11 @@ contains
        this%params_saved = this%params
        if(this%do_fastslow .and. this%fast_steps .lt. this%fast_per_round)then
           this%fast_steps = this%fast_steps + 1
-          call coop_random_get_Gaussian_vector(this%n_fast, vec(1:this%n_fast))
-          vec(1:this%n_fast) =  vec(1:this%n_fast)*(this%proposal_length*coop_random_Gaussian())
-          this%params(this%index_fast_start:this%n) = this%params_saved(this%index_fast_start:this%n) + matmul(this%propose_fast, vec(1:this%n_fast))          
+          vec(1:this%n_fast) = coop_random_vector(this%n_fast)*(this%proposal_length*coop_random_Gaussian())
+          this%params(this%index_fast_start:this%n) = this%params_saved(this%index_fast_start:this%n) + matmul(this%propose_fast, vec(1:this%n_fast))
        else
           this%fast_steps = 0
-          call coop_random_get_Gaussian_vector(this%n, vec)
-          vec =  vec*(this%proposal_length*coop_random_Gaussian())
+          vec = coop_random_vector(this%n)*(this%proposal_length*coop_random_Gaussian())
           this%params = this%params_saved + matmul(this%propose, vec)          
        endif
        this%fullparams(this%used) = this%params
@@ -495,7 +522,7 @@ contains
           if(this%chainfile%unit .ne. 0)then
              if(this%do_write_chain)then
                 write(this%chainfile%unit, trim(this%form)) this%knot, this%derived()
-                if(this%do_flush .and. this%fast_steps.eq.0)call flush(this%chainfile%unit)
+                if(this%do_flush)call flush(this%chainfile%unit)
              endif
           endif
           this%loglike = this%loglike_proposed
@@ -634,28 +661,13 @@ contains
     class(coop_dataset_CMB)::this
     type(coop_mcmc_params)::mcmc
     COOP_REAL::loglike
-    COOP_REAL, dimension(:,:), allocatable::Cls_scalar, Cls_tensor, Cls_lensed
     COOP_REAL, dimension(:),allocatable::pars
-    COOP_INT::lmax, i, inuis, ind, l
+    COOP_INT::i, inuis, ind, l
     loglike = 0.d0    
     if(.not. associated(this%cliklike))return
     if(.not. associated(mcmc%cosmology))then
        stop "for CMB likelihood you need to initialize the cosmology object"
     endif
-    lmax = 0
-    do i = 1, size(this%cliklike)
-       lmax = max(lmax, maxval(this%cliklike(i)%lmax))
-    enddo
-    lmax = lmax + 100  !!use buffer to get better lensing cls
-    allocate(Cls_Scalar(coop_num_Cls, 2:lmax), Cls_Tensor(coop_num_Cls, 2:lmax), Cls_lensed(coop_num_Cls, 2:lmax))
-    call mcmc%cosmology%source(0)%get_all_cls(2, lmax, Cls_scalar)
-    call coop_get_lensing_Cls(2, lmax, Cls_Scalar, Cls_lensed)
-    Cls_lensed = Cls_lensed + Cls_scalar
-    if(mcmc%cosmology%has_tensor)then
-       call mcmc%cosmology%source(2)%get_all_cls( 2, lmax, Cls_tensor)
-       Cls_lensed = Cls_lensed + Cls_tensor       
-    endif
-    Cls_lensed = Cls_lensed*((mcmc%cosmology%Tcmb())**2*1.d12)
     inuis = 1
     do i = 1, size(this%cliklike)
        if(this%cliklike(i)%numnames .gt. 0)then
@@ -667,13 +679,12 @@ contains
              endif
              this%cliklike(i)%pars(inuis) = mcmc%fullparams(ind)
           enddo
-          call this%cliklike(i)%set_cl_and_pars(Cls_lensed, this%cliklike(i)%pars)
+          call this%cliklike(i)%set_cl_and_pars(mcmc%Cls_lensed, this%cliklike(i)%pars)
        else
-          call this%cliklike(i)%set_cl_and_pars(Cls_lensed)                
+          call this%cliklike(i)%set_cl_and_pars(mcmc%Cls_lensed)                
        endif
        LogLike = LogLike - this%cliklike(i)%LogLike()
     enddo
-    deallocate(Cls_Scalar, Cls_tensor, Cls_lensed)
   end function coop_dataset_CMB_LogLike
 
   function coop_dataset_HST_logLike(this, mcmc) result(loglike)
@@ -900,6 +911,9 @@ contains
        stop
     endif
     call coop_dictionary_lookup(this%settings, "overwrite", this%do_overwrite, .false.)
+    if(this%do_overwrite)then
+       write(*,*) "Warning: overwriting chains when overwrite options is on"
+    endif
     call this%chain%init()
     call this%paramnames%free()
     this%prefix = trim(adjustl(prefix))
