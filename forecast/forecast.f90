@@ -899,6 +899,7 @@ contains
        write(*,*) "MCMC_params_init: you need to have an entry chain_name = ... in the ini file "//trim(ini)
        stop
     endif
+    call coop_dictionary_lookup(this%settings, "overwrite", this%do_overwrite, .false.)
     call this%chain%init()
     call this%paramnames%free()
     this%prefix = trim(adjustl(prefix))
