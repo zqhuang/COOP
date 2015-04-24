@@ -32,6 +32,13 @@ program test
   call mcmc%init(trim(inifile))
   mcmc%do_flush = .true.  !!do not buffer
   
+  if(mcmc%do_fastslow .and. coop_MPI_Rank().eq.0)then
+     write(*,*) "doing fast-slow MCMC"
+     write(*,*) "number of varying fast parameters:"//COOP_STR_OF(mcmc%n_fast)
+     write(*,*) "number of varying slow parameters:"//COOP_STR_OF(mcmc%n_slow)
+  endif
+
+  
   call pl(1)%init(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik")
   call pl(2)%init(trim(planckdata_path)//"/commander_v4.1_lm49.clik")
   call pl(3)%init(trim(planckdata_path)//"/lowlike_v222.clik")  
@@ -41,25 +48,20 @@ program test
 
   call jla%read("../data/jla/jla.dataset")
   pool%SN_JLA%JLALike => jla
-
-!!$  call mcmc%set_cosmology()  
-!!$  loglike = pool%loglike(mcmc)
-!!$ print*, loglike
+  do_update_propose = .true.
+  
   !!do MCMC
-  do_update_propose = (mcmc%settings%index("propose_matrix").eq.0)
-  if(do_update_propose)then
-     print*, "will update propose matrix"
-  else
-     print*, "has propose matrix: "//trim(mcmc%settings%value("propose_matrix"))
-  endif
   do i = 1, total_steps
      print*, "on Node ", coop_MPI_Rank(), ": step", i, " likelihood = ", mcmc%loglike
      if(do_update_propose)then
-        if(mod(i - update_freq/2, update_freq).eq.0)then
+        if(mod(i, update_freq).eq.0)then
            call mcmc%update_propose()
-           if(i.lt.update_freq)call mcmc%chain%init()
         endif
-        if(i .gt. total_steps/4) do_update_propose = .false.
+        if(i .gt. total_steps/3)then
+           do_update_propose = .false.
+           call mcmc%chain%init()
+           mcmc%do_memsave = .false.
+        endif
      endif
      call mcmc%mcmc_step(pool)
   enddo

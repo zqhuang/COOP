@@ -13,18 +13,14 @@ program test
   !!set cosmology
   !! call cosmology%Set_Planck_bestfit()
   hub = 0.676d0
- call cosmology%set_standard_cosmology(Omega_b = 0.022d0/hub**2, omega_c = 0.12d0/hub**2, h = hub, tau_re = 0.08d0, As = 2.21979d-9, ns = 0.96d0)
+  call cosmology%set_standard_cosmology(Omega_b = 0.022d0/hub**2, omega_c = 0.12d0/hub**2, h = hub, tau_re = 0.08d0, As = 2.21979d-9, ns = 0.96d0)
+
 !  coop_zeta_single_slice = .true.
   !!print*, cosmology%zre
   !!if you want extended models
   !!
   norm = cosmology%Tcmb()**2*1.d12
   !!compute the scalar Cl's
-  call coop_prtSystime(.true.)
-  call cosmology%compute_source(0)
-  call coop_prtSystime()
-
-  call cosmology%Set_Planck_bestfit()
   call coop_prtSystime(.true.)
   call cosmology%compute_source(0)
   call coop_prtSystime()

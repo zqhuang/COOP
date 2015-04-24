@@ -31,6 +31,7 @@ module coop_forecast_mod
      COOP_REAL::R_center = 1.7488
      COOP_REAL::R_sigma = 0.0074
    contains
+     procedure::set_R_center => coop_dataset_CMB_simple_set_R_center     
      procedure::loglike =>coop_dataset_CMB_simple_loglike
   end type coop_dataset_CMB_simple
 
@@ -70,6 +71,7 @@ module coop_forecast_mod
   type coop_Data_Pool
 !!these are simulations     
      type(coop_dataset_SN_Simple),dimension(:), pointer::SN_Simple => null()
+     type(coop_dataset_CMB_Simple), pointer::CMB_Simple => null()    
      type(coop_dataset_CMB)::CMB
      type(coop_dataset_HST)::HST
      type(coop_dataset_SN_JLA)::SN_JLA
@@ -84,13 +86,23 @@ module coop_forecast_mod
      type(coop_cosmology_firstorder),pointer::cosmology => null()   
      type(coop_file)::chainfile
      type(coop_dictionary)::settings     
-     COOP_STRING::prefix
+     COOP_STRING::prefix, chainname
      COOP_STRING::form
      logical::do_flush = .false.
+     logical::do_write_chain = .true.
+     logical::do_overwrite = .false.
+     logical::do_fastslow = .false.
+     logical::do_memsave = .false.
+     COOP_INT::n_fast = 0
+     COOP_INT::index_fast_start = 0
+     COOP_INT::n_slow = 0
+     COOP_INT::fast_steps = 0
+     COOP_INT::fast_per_round = 5
+     COOP_REAL::time = 0.d0
      COOP_INT:: n = 0
      COOP_INT:: fulln = 0
      COOP_INT:: n_derived = 0
-     COOP_REAL:: proposal_length = 1.2d0
+     COOP_REAL:: proposal_length = 1.d0
      COOP_REAL::bestlike = coop_LogZero
      COOP_REAL::loglike = coop_LogZero
      COOP_REAL::loglike_proposed = coop_LogZero
@@ -114,6 +126,7 @@ module coop_forecast_mod
      COOP_REAL,dimension(:,:),allocatable::propose
      COOP_REAL,dimension(:),allocatable::params_saved
      COOP_SINGLE, dimension(:),allocatable::knot
+     COOP_REAL,dimension(:,:),allocatable::propose_fast
      type(coop_list_realarr)::chain
      type(coop_dictionary)::paramnames
      COOP_INT::accept, reject
@@ -359,6 +372,7 @@ contains
     class(coop_MCMC_params)::this
     COOP_INT::i, istart, i1, i2
     COOP_REAL::mean(this%n), cov(this%n, this%n), mult, diff(this%n)
+    if(.not. this%do_memsave)stop "cannot update propose matrix when do_memsave is off"
     if(this%chain%n .lt. 20)return
     istart =  this%chain%n/4
     mult = 0.d0
@@ -388,6 +402,11 @@ contains
     this%covmat = cov
     this%propose = cov
     call coop_matsym_sqrt(this%propose)
+    if(this%do_fastslow)then
+       this%propose_fast = this%covmat(this%index_fast_start:this%n, this%index_fast_start:this%n)
+       call coop_matsym_sqrt(this%propose_fast)
+    endif
+    
   end subroutine coop_MCMC_params_update_Propose
 
 
@@ -398,24 +417,68 @@ contains
     type(coop_data_pool)::pool
     COOP_REAL vec(this%n)
     COOP_INT numlines
+    COOP_LONG_STRING::line
     if(this%n .le. 0) stop "MCMC: no varying parameters"
     select type(this)
     class is(coop_MCMC_params)
        if(this%accept+this%reject .eq. 0)then
+          this%time = coop_systime_sec(.true.)
           call coop_random_init()
-          call this%chainfile%open(trim(this%prefix)//"_"//COOP_STR_OF(this%proc_id+1)//".txt", "w")                       
-
           call this%chain%init()
-          if(associated(this%cosmology))then
-             call this%set_cosmology()
+          this%sum_mult = 0.d0
+          this%fast_steps = 0
+          this%chainname = trim(this%prefix)//"_"//COOP_STR_OF(coop_MPI_Rank()+1)//".txt"
+          if(.not. this%do_overwrite)then
+             if(coop_file_exists(this%chainname))then
+                this%bestlike = coop_logZero
+                this%bestparams = this%params
+                call this%chainfile%open(this%chainname, "r")
+                do while(this%chainfile%read_string(line))
+                   read(line, *) this%knot
+                   this%sum_mult = this%sum_mult + this%knot(1)
+                   if(this%do_memsave) &
+                        call this%chain%push(this%knot)
+                   if(this%knot(2) .lt. this%bestlike)then
+                      this%bestparams = this%knot(3:this%n+2)
+                      this%bestlike = this%knot(2)
+                   endif
+                enddo
+                call this%chainfile%close()
+                if(this%chain%n.gt.0)then
+                   this%params = this%knot(3:this%n+2)
+                   this%fullparams(this%used) = this%params
+                   this%loglike = this%knot(2)
+                   this%mult = 1
+                   call this%chainfile%open(this%chainname, "a")  
+                else
+                   this%do_overwrite = .true.
+                endif
+             else
+                this%do_overwrite = .true.
+             endif             
           endif
-          this%loglike = pool%LogLike(this)
-          this%bestparams = this%params
-          this%bestlike = this%loglike
+          if(this%do_overwrite)then
+             call this%chainfile%open(this%chainname, "w")
+             if(associated(this%cosmology))then
+                call this%set_cosmology()
+             endif
+             this%loglike = pool%LogLike(this)
+             this%bestparams = this%params
+             this%bestlike = this%loglike
+          endif
        endif
        this%params_saved = this%params
-       vec =  coop_random_vector(this%n)*(this%proposal_length*coop_random_Gaussian())       
-       this%params = this%params_saved + matmul(this%propose, vec)
+       if(this%do_fastslow .and. this%fast_steps .lt. this%fast_per_round)then
+          this%fast_steps = this%fast_steps + 1
+          call coop_random_get_Gaussian_vector(this%n_fast, vec(1:this%n_fast))
+          vec(1:this%n_fast) =  vec(1:this%n_fast)*(this%proposal_length*coop_random_Gaussian())
+          this%params(this%index_fast_start:this%n) = this%params_saved(this%index_fast_start:this%n) + matmul(this%propose_fast, vec(1:this%n_fast))          
+       else
+          this%fast_steps = 0
+          call coop_random_get_Gaussian_vector(this%n, vec)
+          vec =  vec*(this%proposal_length*coop_random_Gaussian())
+          this%params = this%params_saved + matmul(this%propose, vec)          
+       endif
        this%fullparams(this%used) = this%params
        if(associated(this%cosmology))then
           call this%set_cosmology()
@@ -426,10 +489,14 @@ contains
           this%knot(1) = this%mult
           this%knot(2) = this%loglike
           this%knot(3:this%n+2) = this%params_saved
-          call this%chain%push( this%knot)          
+          this%sum_mult = this%sum_mult + this%knot(1)
+          if(this%do_memsave) &          
+               call this%chain%push(this%knot)          
           if(this%chainfile%unit .ne. 0)then
-             write(this%chainfile%unit, trim(this%form)) this%knot, this%derived()
-             if(this%do_flush)call flush(this%chainfile%unit)
+             if(this%do_write_chain)then
+                write(this%chainfile%unit, trim(this%form)) this%knot, this%derived()
+                if(this%do_flush .and. this%fast_steps.eq.0)call flush(this%chainfile%unit)
+             endif
           endif
           this%loglike = this%loglike_proposed
           this%mult  = 1.d0
@@ -534,20 +601,33 @@ contains
     class(coop_dataset_CMB_simple)::this
     type(coop_mcmc_params)::mcmc
     COOP_REAL::loglike
-
-
     if(associated(mcmc%cosmology))then
-       loglike = ((mcmc%cosmology%comoving_angular_diameter_distance(1.d0/(1.d0+this%zstar))-this%R_center)/this%R_sigma)**2/2.d0
+       loglike = ((mcmc%cosmology%distlss*sqrt(mcmc%cosmology%omega_m) - this%R_center)/this%R_sigma)**2/2.d0
     else
+       loglike = ((coop_r_of_chi(coop_integrate(drz, 0.d0, this%zstar), MCMC_OMEGA_K)*sqrt(MCMC_OMEGA_M) - this%R_center)/this%R_sigma)**2/2.d0
     endif
     
   contains
     function drz(z)
       COOP_REAL z, drz
-      drz = 1.d0/sqrt(MCMC_OMEGA_M*(1.d0+z)**3 + MCMC_OMEGA_K*(1.d0+z)**2 + MCMC_OMEGA_LAMBDA*(1.d0+z)**(3.d0*(1.d0+MCMC_W + MCMC_WA))*exp(-3.d0*MCMC_WA*z/(1.d0+z)) )
+      drz = 1.d0/sqrt(MCMC_OMEGA_M*(1.d0+z)**3 + MCMC_OMEGA_K*(1.d0+z)**2 + MCMC_OMEGA_LAMBDA*(1.d0+z)**(3.d0*(1.d0+MCMC_W + MCMC_WA))*exp(-3.d0*MCMC_WA*z/(1.d0+z)) + 9.d-5*(1.d0+z)**4)  !!a fiducial Omega_r is put in here
     end function drz
     
   end function coop_dataset_CMB_simple_loglike
+
+
+  subroutine coop_dataset_CMB_simple_set_R_center(this, Omega_m) 
+    class(coop_dataset_CMB_simple)::this
+    COOP_REAL Omega_m
+    this%R_center = coop_integrate(drz, 0.d0, this%zstar)*sqrt(omega_m)
+  contains
+    function drz(z)
+      COOP_REAL z, drz
+      drz = 1.d0/sqrt(Omega_m*(1.d0+z)**3 + (1.d0-Omega_m) + 9.d-5*(1.d0+z)**4)  !!a fiducial Omega_r is put in here
+    end function drz
+    
+  end subroutine coop_dataset_CMB_simple_set_R_center
+  
 
 
   function coop_dataset_CMB_LogLike(this, mcmc) result(loglike)
@@ -675,6 +755,11 @@ contains
           LogLike = LogLike + this%SN_Simple(i)%LogLike(mcmc)
           if(LogLike .ge. coop_LogZero) return          
        enddo
+    endif
+    !!simple CMB
+    if(associated(this%CMB_Simple))then
+       LogLike = LogLike + this%CMB_Simple%LogLike(mcmc)
+       if(LogLike .ge. coop_LogZero) return                 
     endif
     LogLike = LogLike + this%SN_JLA%LogLike(mcmc)
     if(LogLike .ge. coop_LogZero) return    
@@ -817,12 +902,6 @@ contains
     call this%chain%init()
     call this%paramnames%free()
     this%prefix = trim(adjustl(prefix))
-    if(coop_file_exists(trim(this%prefix)//"_"//COOP_STR_OF(coop_MPI_Rank()+1)//".txt"))then
-       if(coop_file_numlines(trim(this%prefix)//"_"//COOP_STR_OF(coop_MPI_Rank()+1)//".txt").gt.50)then
-          write(*,*) "file "//trim(this%prefix)//"_"//COOP_STR_OF(coop_MPI_Rank()+1)//".txt alread exists"
-          stop "COOP does not support overwriting files  with more than 50 lines. Please remove these files manually."
-       endif
-    endif
     this%proc_id = coop_MPI_rank()
     if(associated(this%cosmology))then
        this%n_derived = coop_n_derived_with_cosmology
@@ -940,6 +1019,25 @@ contains
           this%propose(i, i) = this%width(i)
        enddo
     endif
+    this%n_fast = 0    
+    call coop_dictionary_lookup(this%settings, "last_slow", val)
+    if(trim(val).ne."")then
+       this%n_slow = this%paramnames%index(trim(val))
+       if(this%n_slow .ne. 0)then
+          if(this%n_slow .lt. this%fulln)then
+             this%n_fast = count(width(this%n_slow+1:this%fulln).gt.0.d0)
+          endif
+       endif
+    endif
+    this%do_fastslow = (this%n_fast .gt. 0)
+    if(this%do_fastslow)then
+       this%n_slow = this%n - this%n_fast
+       this%index_fast_start = this%n_slow + 1
+       if(allocated(this%propose_fast))deallocate(this%propose_fast)
+       allocate(this%propose_fast(this%n_fast, this%n_fast))
+       this%propose_fast = this%covmat(this%n_slow+1:this%n, this%n_slow+1:this%n)
+       call coop_matsym_sqrt(this%propose_fast)
+    endif
     if(this%proc_id .eq. 0)then
        
        call coop_export_dictionary(trim(this%prefix)//".inputparams", this%settings)
@@ -967,7 +1065,13 @@ contains
 
     !!load all the indices
     this%index_ombh2 = this%index_of("ombh2")
+    if(this%index_ombh2.eq.0)then
+       this%index_ombh2 = this%index_of("omegabh2")
+    endif
     this%index_omch2 = this%index_of("omch2")
+    if(this%index_omch2 .eq.0 )then
+       this%index_omch2 = this%index_of("omegach2")
+    endif
     this%index_theta = this%index_of("theta")
     this%index_tau = this%index_of("tau")
     this%index_logA = this%index_of("logA")

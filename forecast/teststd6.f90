@@ -16,7 +16,7 @@ program test
   COOP_REAL::loglike
   call coop_MPI_Init()
   mcmc%cosmology => cosmology
-  call mcmc%init(prefix="chains/test", paramnames= "paramnames/std6.paramnames", ini = "myinis/teststd6.ini")
+  call mcmc%init( "myinis/teststd6.ini")
   call mcmc%set_cosmology()
  call pl(1)%init(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik")
  ! call pl(1)%init(trim(planckdata_path)//"/commander_v4.1_lm49.clik")

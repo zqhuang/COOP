@@ -13,7 +13,7 @@ module coop_firstorder_mod
 
   !!this makes the code faster and more accurate
   logical,parameter:: coop_firstorder_optimize = .true.
-  COOP_INT, parameter::coop_limber_ell = 500
+  COOP_INT, parameter::coop_limber_ell = 600
   logical,parameter::coop_do_limber_separately = .true.      
   
   COOP_INT::coop_Cls_lmax(0:2) = (/ 2800, 2000, 1500 /)
@@ -29,7 +29,7 @@ module coop_firstorder_mod
 
   COOP_REAL, dimension(0:2), parameter::coop_source_tau_step_factor = (/ 1.d0, 1.d0, 1.d0 /)
   COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
-  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 150, 120, 100 /)
+  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 170, 120, 100 /)
   COOP_REAL, parameter::coop_source_k_index = 0.55d0
   COOP_INT, parameter:: coop_k_dense_fac = 40
 
@@ -377,22 +377,6 @@ contains
        enddo
     enddo
     !$omp end parallel do
-    if(.not. coop_do_limber_separately)then
-       if(l .ge. coop_limber_ell)then
-          trans(coop_index_source_Len, :, :) = 0.d0
-          do ik = 2, source%nk
-             chis = (l+0.5d0)/source%k(ik)          
-             if( chis .gt. source%chi(source%index_vis_start) )cycle
-             chis = (l+0.5d0)/source%k(ik-1)          
-             if( chis .lt. source%chi(source%index_vis_end) )exit
-             !$omp parallel do
-             do idense = 1, coop_k_dense_fac
-                trans(coop_index_source_Len, idense, ik) = sqrt(coop_pi/2.d0 /(l+0.5d0))/source%k_dense(idense, ik)*source%interpolate_one(source%k_dense(idense, ik), (l+0.5d0)/source%k_dense(idense, ik), coop_index_source_Len)
-             enddo
-             !$omp end parallel do          
-          enddo
-       endif
-    endif
     deallocate(kmin, kmax, kfine)
 
   end subroutine coop_cosmology_firstorder_source_get_transfer
@@ -486,7 +470,7 @@ contains
           Cls(coop_index_ClTE) = sqrt((l+2.d0)*(l+1.d0)*l*(l-1.d0))*sum(source%ws_dense * trans(coop_index_source_T, :, :)*trans(coop_index_source_E, :, :))*coop_4pi
           Cls(coop_index_ClEE) = (l+2.d0)*(l+1.d0)*l*(l-1.d0)*sum(source%ws_dense * trans(coop_index_source_E,:,:)**2)*coop_4pi
        endif
-       if(source%nsrc.ge.3 .and. (.not. coop_do_limber_separately .or. l .lt. coop_limber_ell) )then
+       if(source%nsrc.ge.3 .and. ( l .lt. coop_limber_ell) )then
           Cls(coop_index_ClLenLen) =  sum(source%ws_dense * trans(coop_index_source_Len, :, :)**2)*coop_4pi
           Cls(coop_index_ClTLen) =  sum(source%ws_dense * trans(coop_index_source_T, :, :) * trans(coop_index_source_Len,:,:))*coop_4pi
        endif
@@ -512,11 +496,9 @@ contains
        call coop_return_error("get_Cls", "unknown m = "//trim(coop_num2str(source%m)), "stop")
     end select
     deallocate(trans)
-    if(coop_do_limber_separately)then
-       if(l .ge. coop_limber_ell)then
-          call source%get_cls_limber(l, cls_limber)
-          Cls = Cls + Cls_limber
-       endif
+    if(l .ge. coop_limber_ell)then
+       call source%get_cls_limber(l, cls_limber)
+       Cls = Cls + Cls_limber
     endif
     Cls(coop_index_ClLenLen) =  Cls(coop_index_ClLenLen)*l*(l+1.d0)
     Cls(coop_index_ClTLen) =  Cls(coop_index_ClLenLen)*l
