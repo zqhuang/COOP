@@ -12,7 +12,7 @@ include ../compile_rules.in
 LIB = libcoopforecast.a
 OBJ = SNlike_JLA.o HSTlike.o cliklike.o forecast.o 
 
-default: $(LIB)
+default: $(LIB) DOCLIK
 
 $(LIB):	$(OBJ) 
 	ar -r $@ $?
