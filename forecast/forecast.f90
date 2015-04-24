@@ -1019,7 +1019,7 @@ contains
     call coop_dictionary_lookup(this%settings, "propose_matrix", val)
     if(trim(val).ne."")then
        call fp%open(val, "r")
-       read(fp%unit, *) line
+       read(fp%unit, "(A)") line
        if(line(1:1).eq."#")line = adjustl(line(2:))
        call coop_string_to_list(line, sl)
        ncov = sl%n
@@ -1041,10 +1041,10 @@ contains
              enddo
              this%propose = this%covmat
              call coop_matsym_sqrt(this%propose)
-             write(*, *) "propose matrix "//trim(val)//" is loaded with "//COOP_STR_OF(count(ind_read.ne.0))//" usable parameters from totally "//COOP_STR_OF(ncov)//" parameters"
+             if(this%proc_id.eq.0)write(*, *) "propose matrix "//trim(val)//" is loaded with "//COOP_STR_OF(count(ind_read.ne.0))//" usable parameters from totally "//COOP_STR_OF(ncov)//" parameters"
           endif
        else
-          write(*,*) "propose matrix "//trim(val)//" is broken"
+          if(this%proc_id.eq.0)write(*,*) "propose matrix "//trim(val)//" is broken"
           stop
        endif
        deallocate(cov_read, ind_read)
