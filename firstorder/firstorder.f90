@@ -98,7 +98,7 @@ module coop_firstorder_mod
   
   type, extends(coop_cosmology_background) :: coop_cosmology_firstorder
      logical::do_reionization = .true.
-     COOP_REAL::zrecomb, distlss, tau0, zrecomb_start, maxvis, taurecomb, arecomb, zrecomb_end, arecomb_start, z_star, z_drag
+     COOP_REAL::zrecomb, distlss, tau0, zrecomb_start, maxvis, taurecomb, arecomb, zrecomb_end, arecomb_start
      COOP_REAL::optre = 0.07d0
      COOP_REAL::zre = 8.d0
      COOP_REAL::deltaz = 1.5d0
@@ -134,6 +134,8 @@ module coop_firstorder_mod
      procedure:: cs2bofa => coop_cosmology_firstorder_cs2bofa
      procedure:: Tbofa => coop_cosmology_firstorder_Tbofa
      procedure:: dxeda => coop_cosmology_firstorder_dxeda
+     procedure:: z_drag => coop_cosmology_firstorder_z_drag
+     procedure:: z_star => coop_cosmology_firstorder_z_star     
      procedure:: dlnxedlna => coop_cosmology_firstorder_dlnxedlna
      procedure:: dkappadz => coop_cosmology_firstorder_dkappadz    !!(z)
      procedure:: doptdragdz => coop_cosmology_firstorder_doptdragdz    !!(z)
@@ -684,13 +686,66 @@ contains
     dsda = (1.d0/coop_sqrt3) / sqrt(1.d0 +  this%Rbya *  a )/ this%Hasq(a)
   end function coop_cosmology_firstorder_dsoundda
 
-  
-  function coop_cosmology_firstorder_z_drag(this)
-    class(coop_cosmology_firstorder)::this    
+
+  !! z_drag 
+  function coop_cosmology_firstorder_z_drag(this) result(z_drag)
+    class(coop_cosmology_firstorder)::this
+    COOP_REAL z_drag, intopt, dz, z, dilow, diup, dimid
+    intopt = 0.d0
+    z = this%zre + this%deltaz * 5.d0
+    dilow = this%doptdragdz(z)
+    dz = 1.d-2
+    do while(intopt .lt. 6.d0)
+       dimid = this%doptdragdz(z+dz/2.d0)
+       z = z + dz
+       diup = this%doptdragdz(z)       
+       intopt = intopt + (diup + dimid*4.d0 + dilow)*dz
+       dilow = diup
+       if(z .gt. 1.d4) stop "z_drag does not converge"
+    enddo
+    dz = dz/10.d0
+    do while(intopt .gt. 6.d0)
+       dimid = this%doptdragdz(z - dz/2.d0)
+       z = z - dz
+       diup = this%doptdragdz(z)       
+       intopt = intopt - (diup + dimid*4.d0 + dilow)*dz
+       dilow = diup
+    enddo
+    if(diup .gt. 1.d-10)then
+       z_drag = min(z + (1.d0-intopt/6.d0)/diup, z+dz)
+    else
+       z_drag = z
+    endif
   end function coop_cosmology_firstorder_z_drag
 
-  function coop_cosmology_firstorder_z_star(this)
-    class(coop_cosmology_firstorder)::this    
+  function coop_cosmology_firstorder_z_star(this) result(z_star)
+    class(coop_cosmology_firstorder)::this
+    COOP_REAL z_star, intopt, dz, z, dilow, diup, dimid
+    intopt = 0.d0
+    z = this%zre + this%deltaz * 5.d0
+    dilow = this%dkappadz(z)
+    dz = 1.d-2
+    do while(intopt .lt. 6.d0)
+       dimid = this%dkappadz(z+dz/2.d0)
+       z = z + dz
+       diup = this%dkappadz(z)       
+       intopt = intopt + (diup + dimid*4.d0 + dilow)*dz
+       dilow = diup
+       if(z .gt. 1.d4) stop "z_star does not converge"
+    enddo
+    dz = dz/10.d0
+    do while(intopt .gt. 6.d0)
+       dimid = this%dkappadz(z - dz/2.d0)
+       z = z - dz
+       diup = this%dkappadz(z)       
+       intopt = intopt - (diup + dimid*4.d0 + dilow)*dz
+       dilow = diup
+    enddo
+    if(diup .gt. 1.d-10)then
+       z_star = min(z + (1.d0-intopt/6.d0)/diup, z+dz)
+    else
+       z_star = z
+    endif
   end function coop_cosmology_firstorder_z_star
   
     
