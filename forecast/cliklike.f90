@@ -15,6 +15,7 @@ module coop_clik_mod
 #endif  
 
   type coop_clik_object
+     logical::initialized = .false.
      COOP_STRING::filename=""
      type(clik_object)::clikid
      logical::is_lensing = .false.
@@ -41,6 +42,7 @@ contains
     COOP_UNKNOWN_STRING::filename
     COOP_INT i
     call this%free()
+    this%initialized = .true.
     this%filename = trim(filename)    
 #ifdef HAS_CLIK
     call clik_try_lensing(this%is_lensing, filename)
@@ -85,7 +87,8 @@ contains
     else
        call clik_cleanup(this%clikid)
     endif
-#endif    
+#endif
+    this%initialized = .false.
   end subroutine coop_clik_object_free
 
   !!for lensing Cls(:, 1) = Cl(TT), Cls(:, 2) = Cl(PP)
@@ -95,7 +98,8 @@ contains
     COOP_INT, parameter::    lmin = 2
     COOP_REAL, dimension(:,lmin:)::Cls
     COOP_REAL, dimension(:), optional::pars
-    COOP_INT::istart, i, lmax, ncls
+    COOP_INT::istart, i, lmax, ncls, l
+    if(.not. this%initialized)return
     if(trim(this%filename) .eq. "") stop "set_cl_and_pars: object not initialized"
     istart = 1
     this%cl_and_pars = 0.d0
@@ -112,7 +116,9 @@ contains
           stop "set_cl_and_pars: need to increase lmax"
        endif
        if(this%lmax(1) .ge. lmin)then
-          this%cl_and_pars(istart+lmin:istart+this%lmax(1)) = Cls(coop_index_ClLenLen, lmin:this%lmax(1))
+          do l = lmin, this%lmax(1)
+             this%cl_and_pars(istart+l) = Cls(coop_index_ClLenLen,l)/(7.430422d12)
+          enddo
           istart = istart+this%lmax(1)+1
           this%cl_and_pars(istart+lmin:istart+this%lmax(1)) = Cls(coop_index_ClTT, lmin:this%lmax(1))
           istart = istart+this%lmax(1)+1          
@@ -149,11 +155,15 @@ contains
   function coop_clik_object_loglike(this) result(loglike)
     class(coop_clik_object)::this
     COOP_REAL loglike
+    if(.not. this%initialized)then
+       loglike = 0.d0
+       return
+    endif
 #ifdef HAS_CLIK
     if(this%is_lensing)then
-       loglike = clik_lensing_compute(this%clikid, this%cl_and_pars)
+       loglike = -clik_lensing_compute(this%clikid, this%cl_and_pars)
     else
-       loglike = clik_compute(this%clikid, this%cl_and_pars)
+       loglike = -clik_compute(this%clikid, this%cl_and_pars)
     endif
 #else
     loglike = coop_LogZero
@@ -163,6 +173,7 @@ contains
   subroutine coop_clik_object_print_names(this)
     class(coop_clik_object)::this
     COOP_INT ::i
+    if(.not. this%initialized)return    
     write(*,*) "===parameters for "//trim(this%filename)//"==="
     do i=1, this%numnames
        write(*,*) trim(this%names(i))

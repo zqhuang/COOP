@@ -4,8 +4,8 @@ program test
   implicit none
 #include "constants.h"
   COOP_STRING::action= "TEST"
-  logical::use_CMB, use_SN, use_BAO, use_HST, use_compressed_CMB
-  type(coop_clik_object),target::pl(3)
+  logical::use_CMB, use_SN, use_BAO, use_HST, use_lensing, use_compressed_CMB
+  type(coop_clik_object),target::pl(4)
   type(coop_HST_object),target::HSTlike
   type(coop_data_JLA),target:: jla
   type(coop_bao_object),target::bao(4)
@@ -17,8 +17,8 @@ program test
   COOP_UNKNOWN_STRING, parameter::planckdata_path = "../data/cmb/"
   COOP_UNKNOWN_STRING, parameter::planckdata_path2 =   "/home/zqhuang/includes/planck13/data" 
   COOP_INT i
-  COOP_INT,parameter::total_steps = 10000
-  COOP_INT,parameter::update_freq = 500
+  COOP_INT,parameter::total_steps = 20000
+  COOP_INT,parameter::update_freq = 1000
   logical do_update_propose 
   COOP_REAL::loglike
   call coop_MPI_init()
@@ -36,6 +36,7 @@ program test
   call mcmc%init(trim(inifile))
   mcmc%do_flush = .true.  !!do not buffer
   call coop_dictionary_lookup(mcmc%settings, "use_CMB", use_CMB, .true.)
+  call coop_dictionary_lookup(mcmc%settings, "use_lensing", use_lensing, .true.)  
   call coop_dictionary_lookup(mcmc%settings, "use_SN", use_SN, .true.)  
   call coop_dictionary_lookup(mcmc%settings, "use_BAO", use_BAO, .true.)
   call coop_dictionary_lookup(mcmc%settings, "use_HST", use_HST, .true.)
@@ -79,10 +80,12 @@ program test
         call pl(1)%init(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik")
         call pl(2)%init(trim(planckdata_path)//"/commander_v4.1_lm49.clik")
         call pl(3)%init(trim(planckdata_path)//"/lowlike_v222.clik")
+        if(use_lensing)call pl(4)%init(trim(planckdata_path)//"/lensing_likelihood_v4_ref.clik_lensing")
      else !!try another path
         call pl(1)%init(trim(planckdata_path2)//"/CAMspec_v6.2TN_2013_02_26_dist.clik")
         call pl(2)%init(trim(planckdata_path2)//"/commander_v4.1_lm49.clik")
         call pl(3)%init(trim(planckdata_path2)//"/lowlike_v222.clik")
+         if(use_lensing)call pl(4)%init(trim(planckdata_path2)//"/lensing_likelihood_v4_ref.clik_lensing")        
         
      endif
      pool%CMB%cliklike => pl

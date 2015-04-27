@@ -280,7 +280,8 @@ contains
              call this%cosmology%source(2)%get_all_cls( 2, this%lmax, this%Cls_tensor)
              this%Cls_lensed = this%Cls_lensed + this%Cls_tensor
           endif
-          this%Cls_lensed = this%Cls_lensed*((this%cosmology%Tcmb())**2*1.d12) 
+          this%Cls_lensed = this%Cls_lensed*((this%cosmology%Tcmb())**2*1.d12)
+
        endif       
     endif
   contains
@@ -687,6 +688,7 @@ contains
     endif
     inuis = 1
     do i = 1, size(this%cliklike)
+       if(.not. this%cliklike(i)%initialized) cycle
        if(this%cliklike(i)%numnames .gt. 0)then
           do inuis = 1, this%cliklike(i)%numnames
              ind = mcmc%index_of(trim(this%cliklike(i)%names(inuis)))
@@ -700,7 +702,7 @@ contains
        else
           call this%cliklike(i)%set_cl_and_pars(mcmc%Cls_lensed)                
        endif
-       LogLike = LogLike - this%cliklike(i)%LogLike()
+       LogLike = LogLike + this%cliklike(i)%LogLike()
     enddo
   end function coop_dataset_CMB_LogLike
 
