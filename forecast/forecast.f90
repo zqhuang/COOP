@@ -98,6 +98,7 @@ module coop_forecast_mod
      COOP_STRING::form
      logical::do_flush = .false.
      logical::do_write_chain = .true.
+     logical::do_write_reject = .false.  !!for likelihood interpolation     
      logical::do_overwrite = .false.
      logical::do_fastslow = .false.
      logical::do_memsave = .true.
@@ -530,6 +531,13 @@ contains
              this%bestparams = this%params
           endif
        else
+          if(this%chainfile%unit .ne. 0 .and. this%do_write_reject)then
+             this%knot(1) = 0.d0
+             this%knot(2) = this%loglike_proposed
+             this%knot(3:this%n+2) = this%params
+             write(this%chainfile%unit, trim(this%form)) this%knot, this%derived()
+             if(this%do_flush)call flush(this%chainfile%unit)
+          endif
           this%params = this%params_saved
           this%fullparams(this%used) = this%params       
           this%reject = this%reject + 1
