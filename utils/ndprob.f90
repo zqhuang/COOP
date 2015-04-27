@@ -62,7 +62,7 @@ contains
     COOP_UNKNOWN_STRING,optional::name
     COOP_REAL,dimension(:),allocatable::f
     COOP_INT i, dim, i1, i2
-    COOP_REAL::worst_lnlike
+    COOP_REAL::worst_lnlike, best_lnlike
     if(.not. coop_file_exists(filename))then
        write(*,*) "nd_prob_load: "//trim(filename)//" does not exit"
        stop
@@ -74,9 +74,9 @@ contains
        this%name = "NoName"
     endif
     select case(trim(form))
-    case("MCMC", "mcmc", "CHAIN", "chain")
+    case("MCMC", "mcmc", "CHAIN", "chain", "Chain")
        this%dim = coop_file_numcolumns(filename) - 2
-    case("table", "TABLE")
+    case("table", "TABLE", "Table", "NormalizedTable")
        this%dim = coop_file_numcolumns(filename) - 1
     case default
        write(*,*) "nd_prob_load: "//trim(form)
@@ -106,7 +106,7 @@ contains
        do i=1, this%n
           read(fp%unit, *, ERR=100, END=100) this%mult(i), this%f(i), this%x(:, i)
        enddo
-    case("table", "TABLE")
+    case("NormalizedTable", "Table", "TABLE", "table")
        do i=1, this%n
           read(fp%unit, *, ERR=100, END=100) this%x(:, i), this%f(i)
           if(this%f(i) .lt. 0.d0)then
@@ -119,6 +119,12 @@ contains
           endif
        enddo
        this%mult = 1.d0
+       if(trim(form).ne."NormalizedTable")then
+          best_lnlike = minval(this%f, mask = this%f .lt. coop_logZero) 
+          where (this%f .lt. coop_logZero)
+             this%f = this%f - best_lnlike
+          end where
+       endif
     case default
        stop "nd_prob_load: unknown format"
     end select
@@ -148,6 +154,8 @@ contains
        this%umax(dim) = this%u(dim, this%ind(this%n, dim))
     enddo
     deallocate(f)
+
+
     !$omp parallel do
     do i=1, this%n
        this%r2(i) = sum(this%u(:, i)**2)

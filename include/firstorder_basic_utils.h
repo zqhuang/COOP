@@ -266,7 +266,7 @@
        this%zrecomb_end = this%zrecomb_end  - 10.d0      
     enddo
 
-    this%distlss = this%comoving_distance(1.d0/(1.d0+this%zrecomb))
+    this%distlss = this%comoving_angular_diameter_distance(1.d0/(1.d0+this%zrecomb))
     this%tau0 = this%conformal_time(coop_scale_factor_today)
 
 

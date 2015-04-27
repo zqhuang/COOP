@@ -3,17 +3,14 @@ program test
   use coop_forecast_mod
   implicit none
 #include "constants.h"
-  COOP_UNKNOWN_STRING,parameter::action= "MCMC"
-  logical::use_CMB = .true.
-  logical::use_BAO = .true.
-  logical::use_SN = .true.
-  logical::use_HST = .true.
+  COOP_UNKNOWN_STRING,parameter::action= "TEST"
+  logical::use_CMB, use_SN, use_BAO, use_HST, use_compressed_CMB
   type(coop_clik_object),target::pl(3)
   type(coop_HST_object),target::HSTlike
   type(coop_data_JLA),target:: jla
   type(coop_bao_object),target::bao(4)
   type(coop_cosmology_firstorder),target::cosmology
-
+  type(coop_dataset_CMB_simple),target::Compressed_CMB
   type(coop_mcmc_params)::mcmc
   type(coop_data_pool)::pool
   COOP_STRING::inifile
@@ -38,6 +35,11 @@ program test
   mcmc%cosmology => cosmology
   call mcmc%init(trim(inifile))
   mcmc%do_flush = .true.  !!do not buffer
+  call coop_dictionary_lookup(mcmc%settings, "use_CMB", use_CMB, .true.)
+  call coop_dictionary_lookup(mcmc%settings, "use_SN", use_SN, .true.)  
+  call coop_dictionary_lookup(mcmc%settings, "use_BAO", use_BAO, .true.)
+  call coop_dictionary_lookup(mcmc%settings, "use_HST", use_HST, .true.)
+  call coop_dictionary_lookup(mcmc%settings, "use_compressed_CMB", use_compressed_CMB, .false.)  
   
   if(mcmc%do_fastslow .and. coop_MPI_Rank().eq.0)then
      write(*,*) "doing fast-slow MCMC"
@@ -47,7 +49,9 @@ program test
         mcmc%fast_per_round = 100
      endif
   endif
-
+  if(use_compressed_cmb .and. .not. use_CMB)then
+     pool%CMB_Simple => compressed_CMB
+  endif
 
   !!BAO
   if(use_BAO)then
@@ -92,7 +96,7 @@ program test
      write(*,*) "-ln(likelihood) = ", loglike
   case("MCMC", "mcmc")
 
-     mcmc%do_write_reject = .true.
+!     mcmc%do_write_reject = .true.  !!for likelihood reconstruction
      do_update_propose = (mcmc%settings%index("propose_matrix") .eq. 0)
      mcmc%do_memsave = do_update_propose
 

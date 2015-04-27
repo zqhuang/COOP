@@ -88,8 +88,8 @@ module coop_cosmology_mod
      procedure::Dv_of_z => coop_cosmology_background_Dv_of_z
      procedure::H_of_z => coop_cosmology_background_H_of_z
      procedure::dA_of_z => coop_cosmology_background_DA_of_z
-     procedure::comoving_dA_of_z => coop_cosmology_background_DA_of_z
-     procedure::dL_of_z => coop_cosmology_background_DA_of_z          
+     procedure::comoving_dA_of_z => coop_cosmology_background_comoving_DA_of_z
+     procedure::dL_of_z => coop_cosmology_background_DL_of_z          
   end type coop_cosmology_background
 
   interface coop_cosmology

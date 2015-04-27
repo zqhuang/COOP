@@ -5,7 +5,7 @@ genre = DV
 zeff=0.32
 
 # rs_rescale = 148.92/153.017d0
-rs_unit = 0.9732252
+rs_unit = 0.973225197
 
 
 obs = 8.250   0.170
