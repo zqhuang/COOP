@@ -1,0 +1,18 @@
+#DR7 z=0.15 with reconstrcution: http://arxiv.org/abs/1409.3242
+
+name = MGS
+
+zeff = 0.15
+
+genre = DV
+
+rs_unit = 148.69
+
+DV_unit = 638.9518
+
+#not used
+#obs = 4.465666824   0.1681350461
+
+#use the table
+prob_file = ../data/bao/sdss_MGS_prob.txt
+

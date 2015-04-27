@@ -1,0 +1,12 @@
+# http://arxiv.org/abs/1106.3366
+
+name = 6DF
+
+zeff = 0.106
+
+genre = invDV
+
+#rescale 149.8/153.9
+rs_unit = 0.97336
+
+obs = 0.336 0.015

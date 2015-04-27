@@ -252,6 +252,11 @@
     this%maxvis = this%vis%eval(1.d0/(1.d0+this%zrecomb))
     this%zrecomb_start = this%zrecomb+30.d0
     this%arecomb_start = 1.d0/(1.d0+this%zrecomb_start)
+    call this%get_z_drag(this%z_drag)
+    call this%get_z_star(this%z_star)    
+    this%r_drag = coop_integrate(dsoundda, 1.d-9, 1.d0/(1.d0+this%z_drag))
+    this%r_star = coop_integrate(dsoundda, 1.d-9, 1.d0/(1.d0+this%z_star))    
+    
     do while(this%vis%eval(1.d0/(this%zrecomb_start+1.d0))/this%maxvis .gt. 1.d-4 .and. this%zrecomb_start .lt. 2.d4)
        this%zrecomb_start = this%zrecomb_start + 30.d0
     enddo
@@ -263,6 +268,14 @@
 
     this%distlss = this%comoving_distance(1.d0/(1.d0+this%zrecomb))
     this%tau0 = this%conformal_time(coop_scale_factor_today)
+
+
+  contains
+
+    function dsoundda(a) result(dsda)
+      COOP_REAL a , dsda
+      dsda = this%dsoundda(a)
+    end function dsoundda
     
   end subroutine coop_cosmology_firstorder_set_xe
 

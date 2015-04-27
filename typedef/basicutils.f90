@@ -57,6 +57,53 @@ contains
     iminloc=imin(1)
   end function coop_minloc
 
+
+
+  subroutine coop_find_maxlocs(arr, locs)
+    COOP_REAL, dimension(:),intent(in)::arr
+    COOP_REAL, dimension(:),allocatable::x
+    COOP_INT, dimension(:), intent(out)::locs
+    COOP_INT n, m, i, imin
+    n = size(arr)
+    m = size(locs)
+    if(m .gt. n) stop "maxlocs cannot exceed the dimension of the array"
+    allocate(x(m))
+    locs = (/ (i, i= 1, m) /)
+    x = arr(1:m)
+    imin = coop_minloc(x)
+    do i=m+1, n
+       if(arr(i) .gt. x(imin))then
+          x(imin) = arr(i)
+          locs(imin) = i
+          imin = coop_minloc(x)
+       endif
+    enddo
+    deallocate(x)
+  end subroutine coop_find_maxlocs
+
+  subroutine coop_find_minlocs(arr, locs)
+    COOP_REAL, dimension(:),intent(in)::arr
+    COOP_REAL, dimension(:),allocatable::x
+    COOP_INT, dimension(:), intent(out)::locs
+    COOP_INT n, m, i, imax
+    n = size(arr)
+    m = size(locs)
+    if(m .gt. n) stop "minlocs cannot exceed the dimension of the array"
+    allocate(x(m))
+    locs = (/ (i, i= 1, m) /)
+    x = arr(1:m)
+    imax = coop_maxloc(x)
+    do i=m+1, n
+       if(arr(i) .lt. x(imax))then
+          x(imax) = arr(i)
+          locs(imax) = i
+          imax = coop_maxloc(x)
+       endif
+    enddo
+    deallocate(x)
+  end subroutine coop_find_minlocs
+  
+
   subroutine coop_swap_real(x,y)
     COOP_REAL x,y,tmp
     tmp=x
@@ -826,3 +873,6 @@ contains
 
 
 end module coop_basicutils_mod
+
+
+

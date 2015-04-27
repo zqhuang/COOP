@@ -95,10 +95,11 @@ module coop_firstorder_mod
      procedure::get_Psi_trans => coop_cosmology_firstorder_source_get_psi_trans
      procedure::get_PhiPlusPsi_trans => coop_cosmology_firstorder_source_get_PhiPlusPsi_trans
   end type coop_cosmology_firstorder_source
+
   
   type, extends(coop_cosmology_background) :: coop_cosmology_firstorder
      logical::do_reionization = .true.
-     COOP_REAL::zrecomb, distlss, tau0, zrecomb_start, maxvis, taurecomb, arecomb, zrecomb_end, arecomb_start
+     COOP_REAL::zrecomb, distlss, tau0, zrecomb_start, maxvis, taurecomb, arecomb, zrecomb_end, arecomb_start, z_drag, z_star, r_drag, r_star
      COOP_REAL::optre = 0.07d0
      COOP_REAL::zre = 8.d0
      COOP_REAL::deltaz = 1.5d0
@@ -134,8 +135,8 @@ module coop_firstorder_mod
      procedure:: cs2bofa => coop_cosmology_firstorder_cs2bofa
      procedure:: Tbofa => coop_cosmology_firstorder_Tbofa
      procedure:: dxeda => coop_cosmology_firstorder_dxeda
-     procedure:: z_drag => coop_cosmology_firstorder_z_drag
-     procedure:: z_star => coop_cosmology_firstorder_z_star     
+     procedure:: get_z_drag => coop_cosmology_firstorder_get_z_drag
+     procedure:: get_z_star => coop_cosmology_firstorder_get_z_star     
      procedure:: dlnxedlna => coop_cosmology_firstorder_dlnxedlna
      procedure:: dkappadz => coop_cosmology_firstorder_dkappadz    !!(z)
      procedure:: doptdragdz => coop_cosmology_firstorder_doptdragdz    !!(z)
@@ -160,6 +161,8 @@ module coop_firstorder_mod
      procedure:: sigma_Gaussian_R => coop_cosmology_firstorder_sigma_Gaussian_R
      procedure:: sigma_Gaussian_R_quick => coop_cosmology_firstorder_sigma_Gaussian_R_quick
      procedure::sigma_Gaussian_R_with_dervs => coop_cosmology_firstorder_sigma_Gaussian_R_with_dervs
+
+     procedure::growth_of_z => coop_cosmology_firstorder_growth_of_z
      !!
   end type coop_cosmology_firstorder
 
@@ -559,6 +562,7 @@ contains
     dkappada = this%dkappadtau(a) / this%dadtau(a)
   end function coop_cosmology_firstorder_dkappada
 
+
   subroutine coop_cosmology_firstorder_source_get_Psi_trans(source, tau, nk, k, psi)
     class(coop_cosmology_firstorder_source) source
     COOP_INT nk
@@ -688,7 +692,7 @@ contains
 
 
   !! z_drag 
-  function coop_cosmology_firstorder_z_drag(this) result(z_drag)
+  subroutine coop_cosmology_firstorder_get_z_drag(this, z_drag)
     class(coop_cosmology_firstorder)::this
     COOP_REAL z_drag, intopt, dz, z, dilow, diup, dimid
     intopt = 0.d0
@@ -716,9 +720,9 @@ contains
     else
        z_drag = z
     endif
-  end function coop_cosmology_firstorder_z_drag
+  end subroutine coop_cosmology_firstorder_get_z_drag
 
-  function coop_cosmology_firstorder_z_star(this) result(z_star)
+  subroutine coop_cosmology_firstorder_get_z_star(this, z_star)
     class(coop_cosmology_firstorder)::this
     COOP_REAL z_star, intopt, dz, z, dilow, diup, dimid
     intopt = 0.d0
@@ -746,11 +750,44 @@ contains
     else
        z_star = z
     endif
-  end function coop_cosmology_firstorder_z_star
+  end subroutine coop_cosmology_firstorder_get_z_star
   
     
 #include "firstorder_basic_utils.h"
 #include "firstorder_compute_sigma.h"  
+
+
+!!return phi(z)/phi_matter_dominate  
+  function coop_cosmology_firstorder_growth_of_z(this, z) result(Dz)
+    class(coop_cosmology_firstorder)::this
+    COOP_REAL  atau, btau, tau
+    COOP_INT itau, im, it
+    COOP_REAL::z, Dz
+    tau = this%tauofa(1.d0/(1.d0+z))
+    if(tau .le. this%source(0)%tau(1))then
+       itau = 1
+       atau = 0.d0
+    elseif(tau .ge. this%source(0)%tau(this%source(0)%ntau))then
+       itau = this%source(0)%ntau - 1
+       atau = (tau - this%source(0)%tau(itau))/(this%source(0)%tau(itau+1)-this%source(0)%tau(itau))
+    else
+       itau = 1
+       it = this%source(0)%ntau
+       do while(it - itau .gt. 1)
+          im = (itau+it)/2
+          if(this%source(0)%tau(im) .gt. tau)then
+             it = im
+          else
+             itau = im
+          endif
+       enddo
+       atau = (tau - this%source(0)%tau(itau))/(this%source(0)%tau(itau+1)-this%source(0)%tau(itau))
+    endif
+    btau = 1.d0-atau
+    Dz = ((this%source(0)%saux(2, 1, itau) - this%source(0)%saux(3, 1, itau))*btau +  (this%source(0)%saux(2, 1, itau+1) - this%source(0)%saux(3, 1, itau+1))*atau)/(3.d0/5.d0*coop_primordial_zeta_norm)  !!matter dominated regime phi = 3/5
+    
+  end function coop_cosmology_firstorder_growth_of_z
+
 
   
 end module coop_firstorder_mod

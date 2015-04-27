@@ -80,9 +80,16 @@ module coop_cosmology_mod
      procedure::comoving_distance => coop_cosmology_background_comoving_distance
      procedure::comoving_angular_diameter_distance => coop_cosmology_background_comoving_angular_diameter_distance  
      procedure::luminosity_distance => coop_cosmology_background_luminosity_distance   
-     procedure::angular_diameter_distance => coop_cosmology_background_angular_diameter_distance 
+     procedure::angular_diameter_distance => coop_cosmology_background_angular_diameter_distance
      procedure::add_species=>coop_cosmology_background_add_species
      procedure::index_of => coop_cosmology_background_index_of
+
+     !!functions of z
+     procedure::Dv_of_z => coop_cosmology_background_Dv_of_z
+     procedure::H_of_z => coop_cosmology_background_H_of_z
+     procedure::dA_of_z => coop_cosmology_background_DA_of_z
+     procedure::comoving_dA_of_z => coop_cosmology_background_DA_of_z
+     procedure::dL_of_z => coop_cosmology_background_DA_of_z          
   end type coop_cosmology_background
 
   interface coop_cosmology
@@ -432,7 +439,7 @@ contains
        chi = abs(this%fdis%eval(coop_scale_factor_today)  - this%fdis%eval(a1))
     endif
   end function coop_cosmology_background_comoving_distance
-  
+
   !!r, chi must be in unit of H_0^{-1}
   function coop_r_of_chi(chi, Omega_k) result(r)
     COOP_REAL chi, Omega_k, r, oc2
@@ -554,5 +561,38 @@ contains
          (omch2 + ombh2)**(0.560/(1+21.1* ombh2 **1.81)))
   end function coop_zrecomb_fitting
   
+
+  function coop_cosmology_background_Dv_of_z(this, z) result(Dv)
+    class(coop_cosmology_background)::this    
+    COOP_REAL::z, Dv, a
+    a = 1.d0/(1.d0+z)
+    Dv = (z*this%comoving_angular_diameter_distance(a)**2/this%HRatio(a))**(1.d0/3.d0)
+  end function coop_cosmology_background_Dv_of_z
+
+  function coop_cosmology_background_H_of_z(this, z) result(Hz)
+    class(coop_cosmology_background)::this
+    COOP_REAL::z, Hz
+    Hz = this%Hratio(1.d0/(1.d0+z))
+  end function coop_cosmology_background_H_of_z
+
+  function coop_cosmology_background_dA_of_z(this, z) result(dA)
+    class(coop_cosmology_background)::this
+    COOP_REAL::z, dA
+    dA = this%angular_diameter_distance(1.d0/(1.d0+z))
+  end function coop_cosmology_background_dA_of_z
+
+  function coop_cosmology_background_dL_of_z(this, z) result(dL)
+    class(coop_cosmology_background)::this
+    COOP_REAL::z, dL
+    dL = this%luminosity_distance(1.d0/(1.d0+z))
+  end function coop_cosmology_background_dL_of_z
+
+  function coop_cosmology_background_comoving_dA_of_z(this, z) result(dA)
+    class(coop_cosmology_background)::this
+    COOP_REAL::z, dA
+    dA = this%comoving_angular_diameter_distance(1.d0/(1.d0+z))
+  end function coop_cosmology_background_comoving_dA_of_z
+  
+
   
 end module coop_cosmology_mod

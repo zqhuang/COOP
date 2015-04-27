@@ -3,6 +3,7 @@ module coop_forecast_mod
   use coop_clik_mod
   use coop_HSTlike_mod
   use coop_SNlike_JLA_mod
+  use coop_bao_mod
   implicit none
 #include "constants.h"
 
@@ -48,6 +49,12 @@ module coop_forecast_mod
   end type coop_dataset_SN_Simple
 
 
+  type, extends(coop_dataset)::coop_dataset_BAO
+     type(coop_bao_object),dimension(:),pointer::baolike => null()
+   contains
+     procedure::loglike => coop_dataset_BAO_loglike
+  end type coop_dataset_BAO
+  
   type, extends(coop_dataset)::coop_dataset_CMB
      type(coop_clik_object),dimension(:),pointer::cliklike => null()
    contains
@@ -71,7 +78,8 @@ module coop_forecast_mod
   type coop_Data_Pool
 !!these are simulations     
      type(coop_dataset_SN_Simple),dimension(:), pointer::SN_Simple => null()
-     type(coop_dataset_CMB_Simple), pointer::CMB_Simple => null()    
+     type(coop_dataset_CMB_Simple), pointer::CMB_Simple => null()
+     type(coop_dataset_BAO)::BAO
      type(coop_dataset_CMB)::CMB
      type(coop_dataset_HST)::HST
      type(coop_dataset_SN_JLA)::SN_JLA
@@ -160,6 +168,7 @@ module coop_forecast_mod
      procedure::priorLike => coop_MCMC_params_priorLike
      procedure::Set_Cosmology => coop_MCMC_params_Set_Cosmology
      procedure::index_of => coop_MCMC_params_index_of
+     procedure::get_lmax_from_data => coop_MCMC_params_get_lmax_from_data
      
   end type coop_MCMC_params
 
@@ -258,11 +267,12 @@ contains
           this%cosmology%nt = - this%cosmology%r/8.d0 !!inflationary consistency
        endif
        call this%cosmology%set_standard_power(this%cosmology%As, this%cosmology%ns, this%cosmology%nrun, this%cosmology%r, this%cosmology%nt)
-       call this%cosmology%compute_source(0)
-       if(this%cosmology%has_tensor)then
-          call this%cosmology%compute_source(2)
-       endif
        if(this%lmax .gt. 1)then
+          call this%cosmology%compute_source(0)
+          if(this%cosmology%has_tensor)then
+             call this%cosmology%compute_source(2)
+          endif
+          
           call this%cosmology%source(0)%get_all_cls(2, this%lmax, this%Cls_scalar)
           call coop_get_lensing_Cls(2, this%lmax, this%Cls_Scalar, this%Cls_lensed)
           this%Cls_lensed = this%Cls_lensed + this%Cls_scalar
@@ -439,19 +449,7 @@ contains
           call this%chain%init()
           this%sum_mult = 0.d0
           this%fast_steps = 0
-          if(associated(pool%CMB%ClikLike))then  !!want cls
-             this%lmax  = 0
-             do i = 1, size(pool%CMB%ClikLike)
-                this%lmax = max(this%lmax, maxval(pool%CMB%ClikLike(i)%lmax))
-             enddo
-             this%lmax = this%lmax + 100 !!buffer for good lensing
-             if(allocated(this%Cls_scalar))then
-                deallocate(this%Cls_Scalar, this%Cls_tensor, this%Cls_lensed)
-             endif
-             allocate(this%Cls_scalar(coop_num_cls, 2:this%lmax), this%Cls_tensor(coop_num_cls, 2:this%lmax), this%Cls_lensed(coop_num_cls, 2:this%lmax))
-          else
-             this%lmax = 0
-          endif
+          call this%get_lmax_from_data(pool)
           this%chainname = trim(this%prefix)//"_"//COOP_STR_OF(coop_MPI_Rank()+1)//".txt"
           if(.not. this%do_overwrite)then
              if(coop_file_exists(this%chainname))then
@@ -597,7 +595,7 @@ contains
        h0mpc = mcmc%cosmology%H0Mpc()
        !$omp parallel do
        do i=1, this%n
-          mu_theory(i) = 5.d0*log10((1.d0+this%z(i))*mcmc%cosmology%luminosity_distance(1.d0/(1.d0+this%z(i)))/h0mpc)
+          mu_theory(i) = 5.d0*log10(mcmc%cosmology%dL_of_z(this%z(i))/h0mpc)
        enddo
        !$omp end parallel do
     else
@@ -655,7 +653,19 @@ contains
     
   end subroutine coop_dataset_CMB_simple_set_R_center
   
-
+  function coop_dataset_BAO_loglike(this, mcmc) result(loglike)
+    class(coop_dataset_BAO)::this
+    type(coop_mcmc_params)::mcmc
+    COOP_REAL::loglike
+    COOP_INT :: i
+    loglike = 0.d0
+    if(.not. associated(this%baolike))return
+    if(.not.associated(mcmc%cosmology)) stop "BAO like requires cosmology input"
+    do i=1, size(this%baolike)
+       loglike = loglike + this%baolike(i)%loglike(mcmc%cosmology)
+       if(loglike .ge. coop_logZero) return
+    enddo
+  end function coop_dataset_BAO_loglike
 
   function coop_dataset_CMB_LogLike(this, mcmc) result(loglike)
     class(coop_dataset_CMB)::this
@@ -693,7 +703,7 @@ contains
     COOP_REAL::loglike
     if(associated(this%HSTlike))then
        if(associated(mcmc%cosmology))then
-          LogLike = this%HSTLike%LogLike(mcmc%cosmology%angular_diameter_distance(1.d0/(1.d0+this%HSTLike%zeff))/mcmc%cosmology%H0Mpc())
+          LogLike = this%HSTLike%LogLike(mcmc%cosmology%dA_of_z(this%HSTLike%zeff)/mcmc%cosmology%H0Mpc())
        else
           stop "For HST likelihood you need to initialize cosmology"
        endif
@@ -720,7 +730,7 @@ contains
           else
              zhel = this%JLALike%sn(i)%zhel
              zcmb = this%JLALike%sn(i)%zcmb
-             this%JLALike%lumdists(i) = 5.d0*log10((1.0+zhel)/(1.0+zcmb) * mcmc%cosmology%luminosity_distance(1.d0/(1.d0+zcmb))/mcmc%cosmology%H0Mpc())
+             this%JLALike%lumdists(i) = 5.d0*log10((1.0+zhel)/(1.0+zcmb) * mcmc%cosmology%dL_of_z(zcmb)/mcmc%cosmology%H0Mpc())
           endif
           !read(fp%unit,*) j, this%JLALike%lumdists(i)
           !if(j.ne.i) stop "Error in fidlum.txt"
@@ -772,12 +782,14 @@ contains
        LogLike = LogLike + this%CMB_Simple%LogLike(mcmc)
        if(LogLike .ge. coop_LogZero) return                 
     endif
+    LogLike = LogLike + this%HST%LogLike(mcmc)
+    if(LogLike .ge. coop_LogZero) return    
     LogLike = LogLike + this%SN_JLA%LogLike(mcmc)
+    if(LogLike .ge. coop_LogZero) return
+    LogLike = LogLike + this%BAO%LogLike(mcmc)
     if(LogLike .ge. coop_LogZero) return    
     !!CMB
     LogLike = LogLike + this%CMB%LogLike(mcmc)
-    if(LogLike .ge. coop_LogZero) return
-    LogLike = LogLike + this%HST%LogLike(mcmc)
     if(LogLike .ge. coop_LogZero) return
   end function coop_Data_Pool_LogLike
 
@@ -865,7 +877,7 @@ contains
        h0mpc=mcmc%cosmology%H0Mpc()           
        !$omp parallel do
        do i=1, this%n
-          this%mu(i) = 5.d0*log10((1.d0+this%z(i))*mcmc%cosmology%luminosity_distance(1.d0/(1.d0+z(i)))/h0mpc)
+          this%mu(i) = 5.d0*log10(mcmc%cosmology%dL_of_z(z(i))/h0mpc)
        enddo
        !$omp end parallel do
     else
@@ -1126,5 +1138,24 @@ contains
 
   end subroutine coop_MCMC_params_init
 
+  subroutine coop_MCMC_params_get_lmax_from_data(this, pool)
+    class(coop_MCMC_params)::this
+    type(coop_data_pool)::pool
+    COOP_INT::i
+    if(associated(pool%CMB%ClikLike))then  !!want cls
+       this%lmax  = 0
+       do i = 1, size(pool%CMB%ClikLike)
+          this%lmax = max(this%lmax, maxval(pool%CMB%ClikLike(i)%lmax))
+       enddo
+       this%lmax = this%lmax + 100 !!buffer for good lensing
+       if(allocated(this%Cls_scalar))then
+          deallocate(this%Cls_Scalar, this%Cls_tensor, this%Cls_lensed)
+       endif
+       allocate(this%Cls_scalar(coop_num_cls, 2:this%lmax), this%Cls_tensor(coop_num_cls, 2:this%lmax), this%Cls_lensed(coop_num_cls, 2:this%lmax))
+    else
+       this%lmax = 0
+    endif
+  end subroutine coop_MCMC_params_get_lmax_from_data
+  
 
 end module coop_forecast_mod  

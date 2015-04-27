@@ -18,6 +18,7 @@ module coop_matrix_mod
   interface coop_write_matrix
      module procedure coop_write_matrix_s, coop_write_matrix_d
   end interface coop_write_matrix
+
   
   interface coop_print_matrix
      module procedure coop_print_matrix_s, coop_print_matrix_d
@@ -108,13 +109,13 @@ contains
     endif
   End Subroutine Coop_print_matrix_d
 
-  Subroutine Coop_read_matrix_d(funit,nx,ny,mat, success)
+  Subroutine Coop_read_matrix_d(funit, nx, ny, mat, success)
     logical,optional::success
     COOP_INT funit,nx,ny
     real(dl)  mat(nx,ny)
     COOP_INT i
     COOP_LONG_STRING line
-    if(ny.gt. 1000)then
+    if(ny.gt. 256)then
        call coop_feedback("warning: reading a huge matrix: will not check comment lines")
        do i=1,nx
           read(funit,*) mat(i,1:ny)
@@ -184,7 +185,7 @@ contains
     real(sp) mat(nx,ny)
     COOP_INT i
     COOP_LONG_STRING line
-    if(ny.gt. 1000)then
+    if(ny.gt. 256)then
        call coop_feedback( "warning: reading a huge matrix: will not check comment lines")
        do i=1,nx
           read(funit,*) mat(i,1:ny)
@@ -563,41 +564,12 @@ contains
   subroutine Coop_matsym_Sqrt(A, mineig)
     !!get the square root of a positive definite symmetric matrix A
     COOP_REAL ,dimension(:,:)::A
-    COOP_REAL  E(size(A,1)), trans(size(A,1), size(A,1))
-    COOP_INT n, i
     COOP_REAL,optional::mineig
-    n= Coop_getdim("coop_matsym_sqrt", size(A,1),size(A,2))
-#ifdef HAS_LAPACK
-    call coop_matsym_diagonalize(a,e)
     if(present(mineig))then
-       e = sqrt(max(e, mineig))
+       call coop_matsym_power(A, 0.5d0, mineig)
     else
-       if(any(E.lt. -1.d-15))then
-          call Coop_return_error("Coop_matsym_Sqrt", "the matrix is not positive definite", "stop")
-       endif
-       e = sqrt(max(e,0.d0))
+       call coop_matsym_power(A, 0.5d0)
     endif
-    do i=1,n
-       trans(i,:) = A(:,i)*e(i)
-    enddo
-    A = matmul(A, trans)
-#else
-    call coop_svd_decompose(n,n,a,e,trans)
-
-    if(present(mineig))then
-       e = sqrt(max(e, mineig))
-    else
-       if(any(E.lt. -1.d-15))then
-          call Coop_return_error("Coop_matsym_Sqrt", "the matrix is not positive definite", "stop")
-       endif
-       e = sqrt(max(e,0.d0))
-    endif
-    
-    do i=1,n
-       trans(:,i) = trans(:,i)*e(i)
-    enddo
-    A = matmul(A, transpose(trans))
-#endif
   End subroutine Coop_matsym_Sqrt
 
   subroutine coop_matsym_power_small(n, A, alpha)
@@ -630,33 +602,40 @@ contains
   end subroutine coop_matsym_power_small
 
 
-  subroutine Coop_matsym_power(A,alpha)
+  subroutine Coop_matsym_power(A,alpha, mineig)
     !!get A^alpha for a positive definite symmetric matrix A
     COOP_REAL ,dimension(:,:)::A
     COOP_REAL alpha
     COOP_REAL  E(size(A,1)), trans(size(A,1), size(A,1))
     COOP_INT n, i
+    COOP_REAL, optional::mineig
+    COOP_REAL::me
     n= Coop_getdim("coop_matsym_sqrt", size(A,1),size(A,2))
+    if(present(mineig))then
+       me = mineig
+    else
+       me = 1.d-30
+    endif
 #ifdef HAS_LAPACK
     call coop_matsym_diagonalize(a,e)
-    if(any(E.lt. -1.d-30))then
-       call Coop_return_error("Coop_matsym_Sqrt", "the matrix is not positive definite", "stop")
+    if(any(e .lt. -me))then
+       call Coop_return_error("Coop_matsym_power", "the matrix is not positive definite", "stop")
     endif
-    e = (max(e,0.d0))**alpha
+    e = (max(e, me))**alpha
     do i=1,n
        trans(i,:) = A(:,i)*e(i)
     enddo
     A = matmul(A, trans)
 #else
     call coop_svd_decompose(n,n,a,e,trans)
-    if(any(E.lt. -1.d-30))then
-       call Coop_return_error("Coop_matsym_Sqrt", "the matrix is not positive definite", "stop")
+    if(any(e .lt. me))then
+       call Coop_return_error("Coop_matsym_power", "the matrix is not positive definite", "stop")
     endif
-    e = (max(e,0.d0))**alpha
+    e = (max(e, me))**alpha
     do i=1,n
        trans(:,i) = trans(:,i)*e(i)
     enddo
-    A = matmul(A, transpose(trans))
+    a = matmul(a, transpose(trans))
 #endif
   End subroutine Coop_matsym_power
 

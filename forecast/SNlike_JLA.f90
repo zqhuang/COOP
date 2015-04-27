@@ -104,6 +104,7 @@ Module coop_SNlike_JLA_mod
   !   mbetoule, Dec 2013: adaptation to the JLA sample
   !   AL, Mar 2014: updates for latest CosmoMC structure
   !   AL, June 2014: updated JLA_marginalize=T handling so it should work (also default JLA.ini)
+  !!  Zhiqi Huang March 2015: adopted to COOP
   use coop_wrapper_firstorder
   implicit none
 #include "constants.h"

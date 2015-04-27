@@ -14,6 +14,8 @@ program test
   hub = 0.676d0
   call cosmology%set_standard_cosmology(Omega_b = 0.022d0/hub**2, omega_c = 0.12d0/hub**2, h = hub, tau_re = 0.08d0, As = 2.21979d-9, ns = 0.96d0)
 
+  print*, cosmology%r_drag/cosmology%H0Mpc(), cosmology%r_star/cosmology%H0Mpc()
+  stop
 
   norm = cosmology%Tcmb()**2*1.d12
   !!compute the scalar Cl's

@@ -1,13 +1,14 @@
 module coop_file_mod
   use coop_wrapper_typedef
   use coop_list_mod
+  use coop_matrix_mod
   implicit none
 #include "constants.h"
 
 
 private
 
-public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_create_directory, coop_delete_directory, coop_file_numcolumns, coop_file_numlines, coop_load_dictionary, coop_free_file_unit, coop_file_exists, coop_file_encrypt, coop_file_decrypt, coop_string_encrypt, coop_string_decrypt, coop_file_load_function, coop_dir_exists, coop_export_dictionary
+public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_create_directory, coop_delete_directory, coop_file_numcolumns, coop_file_numlines, coop_load_dictionary, coop_free_file_unit, coop_file_exists, coop_file_encrypt, coop_file_decrypt, coop_string_encrypt, coop_string_decrypt, coop_file_load_function, coop_dir_exists, coop_export_dictionary, coop_import_matrix, coop_export_matrix
 
   character,parameter::coop_text_comment_symbol = "#"
 
@@ -34,6 +35,16 @@ public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_crea
   interface coop_file
      procedure coop_open_file
   end interface coop_file
+
+  interface coop_import_matrix
+     module procedure coop_import_matrix_s, coop_import_matrix_d
+  end interface coop_import_matrix
+
+  interface coop_export_matrix
+     module procedure coop_export_matrix_s, coop_export_matrix_d
+  end interface coop_export_matrix
+  
+  
 
 contains
 
@@ -523,6 +534,60 @@ contains
        endif
     enddo
   end subroutine coop_string_decrypt
+
+
+  subroutine coop_import_matrix_d(filename, nx, ny, mat, success)
+    COOP_UNKNOWN_STRING::filename
+    COOP_INT nx, ny
+    COOP_REAL::mat(nx, ny)
+    logical,optional::success
+    type(coop_file)::fp
+    call fp%open(filename, "r")
+    if(present(success))then
+       call coop_read_matrix(fp%unit, nx, ny, mat, success)
+    else
+       call coop_read_matrix(fp%unit, nx, ny, mat)       
+    endif
+    call fp%close()
+  end subroutine coop_import_matrix_d
+
+  subroutine coop_import_matrix_s(filename, nx, ny, mat, success)
+    COOP_UNKNOWN_STRING::filename
+    COOP_INT nx, ny
+    COOP_SINGLE::mat(nx, ny)
+    logical,optional::success
+    type(coop_file)::fp
+    call fp%open(filename, "r")
+    if(present(success))then
+       call coop_read_matrix(fp%unit, nx, ny, mat, success)
+    else
+       call coop_read_matrix(fp%unit, nx, ny, mat)       
+    endif
+    call fp%close()
+  end subroutine coop_import_matrix_s
+
+
+
+
+  subroutine coop_export_matrix_d(filename, nx, ny, mat)
+    COOP_UNKNOWN_STRING::filename
+    COOP_INT nx, ny
+    COOP_REAL::mat(nx, ny)
+    type(coop_file)::fp
+    call fp%open(filename, "r")
+    call coop_write_matrix(fp%unit, mat, nx, ny)       
+    call fp%close()
+  end subroutine coop_export_matrix_d
+
+  subroutine coop_export_matrix_s(filename, nx, ny, mat)
+    COOP_UNKNOWN_STRING::filename
+    COOP_INT nx, ny
+    COOP_SINGLE::mat(nx, ny)
+    type(coop_file)::fp
+    call fp%open(filename, "r")
+    call coop_write_matrix(fp%unit, mat, nx, ny)       
+    call fp%close()
+  end subroutine coop_export_matrix_s  
 
 
 end module coop_file_mod

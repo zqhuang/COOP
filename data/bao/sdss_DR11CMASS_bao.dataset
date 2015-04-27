@@ -1,0 +1,19 @@
+name = DR11CMASS
+
+num_data = 2
+
+zeff =0.57
+
+genre1 = DA
+genre2 = invH
+
+rs_unit = 149.28
+
+#93.558/299792.458
+H_unit = 0.00031207589618548709
+DA_unit = 1359.72
+
+prob_file = ../data/bao/sdss_DR11CMASS_consensus.dat
+
+
+
