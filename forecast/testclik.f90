@@ -17,7 +17,8 @@ program test
   type(coop_mcmc_params)::mcmc
   type(coop_data_pool)::pool
   COOP_STRING::inifile
-  COOP_UNKNOWN_STRING, parameter::planckdata_path = "../data/cmb/" !  "/home/zqhuang/includes/planck13/data" !    !
+  COOP_UNKNOWN_STRING, parameter::planckdata_path = "../data/cmb/"
+  COOP_UNKNOWN_STRING, parameter::planckdata_path2 =   "/home/zqhuang/includes/planck13/data" 
   COOP_INT i
   COOP_INT,parameter::total_steps = 10000
   COOP_INT,parameter::update_freq = 500
@@ -67,9 +68,16 @@ program test
   endif
 
   if(use_CMB)then
-     call pl(1)%init(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik")
-     call pl(2)%init(trim(planckdata_path)//"/commander_v4.1_lm49.clik")
-     call pl(3)%init(trim(planckdata_path)//"/lowlike_v222.clik")  
+     if(coop_file_exists(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik"))then
+        call pl(1)%init(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik")
+        call pl(2)%init(trim(planckdata_path)//"/commander_v4.1_lm49.clik")
+        call pl(3)%init(trim(planckdata_path)//"/lowlike_v222.clik")
+     else !!try another path
+        call pl(1)%init(trim(planckdata_path2)//"/CAMspec_v6.2TN_2013_02_26_dist.clik")
+        call pl(2)%init(trim(planckdata_path2)//"/commander_v4.1_lm49.clik")
+        call pl(3)%init(trim(planckdata_path2)//"/lowlike_v222.clik")
+        
+     endif
      pool%CMB%cliklike => pl
   endif
 
@@ -86,6 +94,7 @@ program test
 
      
      do_update_propose = (mcmc%settings%index("propose_matrix") .ne. 0)
+     mcmc%do_memsave = do_update_propose
 
      !!do MCMC
      do i = 1, total_steps
