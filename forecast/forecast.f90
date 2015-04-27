@@ -635,7 +635,6 @@ contains
     COOP_REAL::loglike
     if(associated(mcmc%cosmology))then
        loglike = ((mcmc%cosmology%comoving_dA_of_z(mcmc%cosmology%z_star)*sqrt(mcmc%cosmology%ombh2+mcmc%cosmology%omch2)/mcmc%cosmology%h() - this%R_center)/this%R_sigma)**2/2.d0
-       print*, mcmc%cosmology%comoving_dA_of_z(mcmc%cosmology%z_star), sqrt(mcmc%cosmology%ombh2+mcmc%cosmology%omch2)/mcmc%cosmology%h()
     else
        loglike = ((coop_r_of_chi(coop_integrate(drz, 0.d0, this%zstar), MCMC_OMEGA_K)*sqrt(MCMC_OMEGA_M) - this%R_center)/this%R_sigma)**2/2.d0
     endif
