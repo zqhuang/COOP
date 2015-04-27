@@ -3,7 +3,7 @@ program test
   use coop_forecast_mod
   implicit none
 #include "constants.h"
-  COOP_UNKNOWN_STRING,parameter::action= "TEST"
+  COOP_STRING::action= "TEST"
   logical::use_CMB, use_SN, use_BAO, use_HST, use_compressed_CMB
   type(coop_clik_object),target::pl(3)
   type(coop_HST_object),target::HSTlike
@@ -39,7 +39,10 @@ program test
   call coop_dictionary_lookup(mcmc%settings, "use_SN", use_SN, .true.)  
   call coop_dictionary_lookup(mcmc%settings, "use_BAO", use_BAO, .true.)
   call coop_dictionary_lookup(mcmc%settings, "use_HST", use_HST, .true.)
-  call coop_dictionary_lookup(mcmc%settings, "use_compressed_CMB", use_compressed_CMB, .false.)  
+  call coop_dictionary_lookup(mcmc%settings, "use_compressed_CMB", use_compressed_CMB, .false.)
+
+  call coop_dictionary_lookup(mcmc%settings, "action", action)
+  if(trim(action) .eq. "") action = "TEST"
   
   if(mcmc%do_fastslow .and. coop_MPI_Rank().eq.0)then
      write(*,*) "doing fast-slow MCMC"
@@ -86,7 +89,7 @@ program test
   endif
 
 
-  select case(action)
+  select case(trim(action))
   case("TEST", "test")
      mcmc%params = mcmc%center
      mcmc%fullparams(mcmc%used) = mcmc%params
@@ -116,7 +119,7 @@ program test
         call mcmc%mcmc_step(pool)
      enddo
   case default
-     print*, action
+     print*, trim(action)
      stop "unknown action"
   end select
   call coop_MPI_finalize()
