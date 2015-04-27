@@ -29,6 +29,13 @@ if( not os.path.isfile(inifile)):
     print inifile + " does not exist"
     sys.exit()
 
+num_chains = 8    
+if(len(sys.argv) >= 3):
+    num_chains = int(sys.argv[2])
+    if num_chains < 1 or num_chains > 16:
+        print "Chain number must be between 1 and 16"
+        sys.exit()
+    
 chainname = search_value(inifile, r'chain\_name\s*\=\s*chains\/([^\s\/\\]+)')
 paramnames = search_value(inifile, r'paramnames\s*\=\s*paramnames\/([^\s\/\\]+)')    
 
@@ -49,7 +56,7 @@ current_path = os.getcwd()
 jobname = chainname
     
 fp = open(r'scripts/' + jobname + r'.jb', 'w')
-fp.write(r'#!/bin/csh -f' + "\n" + r'#PBS -N '+jobname + "\n" + r'#PBS -l nodes=8:ppn=8' + "\n" + r'#PBS -q workq' + "\n" + r'#PBS -l walltime=48:00:00' + "\n" + r'##PBS -r n' + "\n" + r'cd ' + current_path + "\n" + 'mpirun -pernode ./DOCLIK ' + inifile + ' > ./scripts/'+jobname+r'.log' + "\n")
+fp.write(r'#!/bin/csh -f' + "\n" + r'#PBS -N '+jobname + "\n" + r'#PBS -l nodes=' + str(num_chains) + r':ppn=8' + "\n" + r'#PBS -q workq' + "\n" + r'#PBS -l walltime=48:00:00' + "\n" + r'##PBS -r n' + "\n" + r'cd ' + current_path + "\n" + 'mpirun -pernode ./DOCLIK ' + inifile + ' > ./scripts/'+jobname+r'.log' + "\n")
 
 fp.close()
 
