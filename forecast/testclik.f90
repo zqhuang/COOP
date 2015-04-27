@@ -92,8 +92,8 @@ program test
      write(*,*) "-ln(likelihood) = ", loglike
   case("MCMC", "mcmc")
 
-     
-     do_update_propose = (mcmc%settings%index("propose_matrix") .ne. 0)
+     mcmc%do_write_reject = .true.
+     do_update_propose = (mcmc%settings%index("propose_matrix") .eq. 0)
      mcmc%do_memsave = do_update_propose
 
      !!do MCMC

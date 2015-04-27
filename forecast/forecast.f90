@@ -111,7 +111,7 @@ module coop_forecast_mod
      COOP_INT:: n = 0
      COOP_INT:: fulln = 0
      COOP_INT:: n_derived = 0
-     COOP_REAL:: proposal_length = 2.4d0
+     COOP_REAL:: proposal_length = 1.6d0
      COOP_REAL::bestlike = coop_LogZero
      COOP_REAL::loglike = coop_LogZero
      COOP_REAL::loglike_proposed = coop_LogZero
@@ -424,10 +424,10 @@ contains
     enddo
     this%covmat = cov
     this%propose = cov
-    call coop_matsym_sqrt(this%propose)
+    call coop_matsym_sqrt(this%propose, mineig = 1.d-15)
     if(this%do_fastslow)then
        this%propose_fast = this%covmat(this%index_fast_start:this%n, this%index_fast_start:this%n)
-       call coop_matsym_sqrt(this%propose_fast)
+       call coop_matsym_sqrt(this%propose_fast, mineig = 1.d-15)
     endif
     
   end subroutine coop_MCMC_params_update_Propose
@@ -1060,7 +1060,7 @@ contains
                 enddo
              enddo
              this%propose = this%covmat
-             call coop_matsym_sqrt(this%propose)
+             call coop_matsym_sqrt(this%propose, mineig = 1.d-15)
              if(this%proc_id.eq.0)write(*, *) "propose matrix "//trim(val)//" is loaded with "//COOP_STR_OF(count(ind_read.ne.0))//" usable parameters from totally "//COOP_STR_OF(ncov)//" parameters"
           endif
        else
@@ -1089,7 +1089,7 @@ contains
        if(allocated(this%propose_fast))deallocate(this%propose_fast)
        allocate(this%propose_fast(this%n_fast, this%n_fast))
        this%propose_fast = this%covmat(this%n_slow+1:this%n, this%n_slow+1:this%n)
-       call coop_matsym_sqrt(this%propose_fast)
+       call coop_matsym_sqrt(this%propose_fast, mineig = 1.d-15)
     endif
     if(this%proc_id .eq. 0)then
        
