@@ -31,6 +31,15 @@ module coop_forecast_mod
      COOP_REAL::zstar = 1089.d0
      COOP_REAL::R_center = 1.7488
      COOP_REAL::R_sigma = 0.0074
+     COOP_REAL::ombh2_center = 0.02228
+     COOP_REAL::ombh2_sigma = 0.00023
+     COOP_REAL::lA_center = 301.76
+     COOP_REAL::lA_sigma = 0.14
+     COOP_REAL::corr_R_ombh2 = -0.63
+     COOP_REAL::corr_R_lA = 0.54
+     COOP_REAL::corr_ombh2_lA = -0.43
+     COOP_REAL::invcov(3,3)
+     logical::has_invcov = .false.
    contains
      procedure::set_R_center => coop_dataset_CMB_simple_set_R_center     
      procedure::loglike =>coop_dataset_CMB_simple_loglike
@@ -508,11 +517,11 @@ contains
        this%params_saved = this%params
        if(this%do_fastslow .and. this%fast_steps .lt. this%fast_per_round)then
           this%fast_steps = this%fast_steps + 1
-          vec(1:this%n_fast) = coop_random_vector(this%n_fast)*this%proposal_r()
+          vec(1:this%n_fast) = this%propose_fast_vec()*this%proposal_r()
           this%params(this%index_fast_start:this%n) = this%params_saved(this%index_fast_start:this%n) + matmul(this%propose_fast, vec(1:this%n_fast))
        else
           this%fast_steps = 0
-          vec = coop_random_vector(this%n)*(this%proposal_length*coop_random_Gaussian())
+          vec = this%propose_vec()*this%proposal_r()
           this%params = this%params_saved + matmul(this%propose, vec)          
        endif
        this%fullparams(this%used) = this%params
@@ -644,9 +653,26 @@ contains
   function coop_dataset_CMB_simple_loglike(this, mcmc) result(loglike)
     class(coop_dataset_CMB_simple)::this
     type(coop_mcmc_params)::mcmc
-    COOP_REAL::loglike
+    COOP_REAL::loglike, vec(3), dA_star
     if(associated(mcmc%cosmology))then
-       loglike = ((mcmc%cosmology%comoving_dA_of_z(mcmc%cosmology%z_star)*sqrt(mcmc%cosmology%ombh2+mcmc%cosmology%omch2)/mcmc%cosmology%h() - this%R_center)/this%R_sigma)**2/2.d0
+       if(.not. this%has_invcov)then
+          this%invcov(1,1) = this%R_sigma**2
+          this%invcov(2,2) = this%ombh2_sigma**2
+          this%invcov(3,3) = this%lA_sigma**2
+          this%invcov(1,2) = this%R_sigma*this%ombh2_sigma*this%corr_R_ombh2
+          this%invcov(2,1) = this%invcov(1,2)
+          this%invcov(1,3) = this%R_sigma*this%lA_sigma*this%corr_R_lA
+          this%invcov(3,1) = this%invcov(1,3)
+          this%invcov(2,3) = this%ombh2_sigma*this%lA_sigma*this%corr_ombh2_lA
+          this%invcov(3,2) = this%invcov(2,3)
+          call coop_matsym_inverse_small(3, this%invcov)
+          this%has_invcov = .true.
+       endif
+       dA_star = mcmc%cosmology%comoving_dA_of_z(mcmc%cosmology%z_star)
+       vec = (/ dA_star*sqrt(mcmc%cosmology%ombh2+mcmc%cosmology%omch2)/mcmc%cosmology%h() - this%R_center, &
+            mcmc%cosmology%ombh2 -this%ombh2_center, &
+            coop_pi*dA_star/mcmc%cosmology%r_star - this%lA_center /)
+       loglike = dot_product(vec, matmul(this%invcov, vec))/2.d0
     else
        loglike = ((coop_r_of_chi(coop_integrate(drz, 0.d0, this%zstar), MCMC_OMEGA_K)*sqrt(MCMC_OMEGA_M) - this%R_center)/this%R_sigma)**2/2.d0
     endif
@@ -1185,7 +1211,7 @@ contains
     endif
   end subroutine coop_MCMC_params_get_lmax_from_data
 
-  subroutine coop_MCMC_params_proposal_r(this) result(r)
+  function coop_MCMC_params_proposal_r(this) result(r)
     class(coop_MCMC_params)::this    
     COOP_REAL::r
     if(coop_random_unit() .lt. 1.d0/3.d0)then
@@ -1193,9 +1219,10 @@ contains
     else
        r = this%proposal_length*sqrt((coop_random_Gaussian()**2 + coop_random_Gaussian()**2)/2.d0)
     endif
-  end subroutine coop_MCMC_params_proposal_r
+  end function coop_MCMC_params_proposal_r
 
-  function coop_MCMC_params_propose_fast_vec(this) result(vec)
+  function coop_MCMC_params_propose_vec(this) result(vec)
+    class(coop_MCMC_params)::this    
     COOP_REAL::vec(this%n)
     if(this%n .eq. 1)then
        vec = 1.d0
@@ -1211,9 +1238,10 @@ contains
     else
        this%index_propose = this%index_propose + 1
     endif
-  end function coop_MCMC_params_propose_fast_vec
+  end function coop_MCMC_params_propose_vec
 
   function coop_MCMC_params_propose_fast_vec(this) result(vec)
+    class(coop_MCMC_params)::this        
     COOP_REAL::vec(this%n_fast)
     if(this%n_fast .eq. 1)then
        vec = 1.d0
