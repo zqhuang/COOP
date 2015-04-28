@@ -1152,7 +1152,7 @@ void plot_axes(){
   ymincoor = ycoor(cymin);
   ymaxcoor = ycoor(cymax);
   if(!xmin_adjust && !xmax_adjust && !ymin_adjust && !ymax_adjust && doclip) 
-     clip( (xmincoor, ymincoor) -- (xmaxcoor, ymincoor) -- (xmaxcoor, ymaxcoor) -- (xmincoor, ymaxcoor) -- cycle );
+     clip(mypic, (xmincoor, ymincoor) -- (xmaxcoor, ymincoor) -- (xmaxcoor, ymaxcoor) -- (xmincoor, ymaxcoor) -- cycle );
   if(caption !=  '')
    label(mypic, caption, ( xmincoor*0.5+xmaxcoor*0.5, ymaxcoor+(ymaxcoor-ymincoor)*0.06 ) );
  if(topaxis == 0){

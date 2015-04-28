@@ -3,7 +3,7 @@ program test
   implicit none
 #include "constants.h"
   COOP_REAL::Q0 = 0.d0
-  COOP_REAL::alpha = 4.d0 !!power to adjust h
+  COOP_REAL::alpha = 4.43d0 !!power to adjust h
   COOP_REAL::tracking_n = 0.3d0
   COOP_REAL::h0 = 0.68d0
   COOP_REAL::ombh2 = 0.022d0
@@ -19,7 +19,7 @@ program test
   COOP_REAL norm
   type(coop_file)::fp
   type(coop_asy)::fig
-  logical::plot_lensed = .false.
+  logical::plot_lensed = .true.
   logical::logscale = .true.
   logical::plot_diff = .true.
 
@@ -30,7 +30,7 @@ program test
      call fig%open("Cl_Q.txt")
   endif
   if(plot_diff)then
-     call fig%init(xlabel = "$\ell$", ylabel = "$C_{\ell}/C_{\ell,Q=0}-1$ ", xlog = logscale  , xmin =1.8, xmax = real(lmax+1), caption="Coupled Dark Energy $Q = \frac{\partial \ln m_{DM}}{\partial \phi}$")     
+     call fig%init(xlabel = "$\ell$", ylabel = "$C_{\ell}/C_{\ell,Q=0}-1$ ", xlog = logscale  , xmin =1.8, xmax = real(lmax+1), ymin = -0.01, ymax = 0.01, doclip = .true., caption="Coupled Dark Energy $Q = \frac{\partial \ln m_{DM}}{\partial \phi}$")     
   else
      call fig%init(xlabel = "$\ell$", ylabel = "$\frac{\ell(\ell+1)C_{\ell}}{2\pi} (\mu K^2)$ ", xlog = logscale , xmin = 1.8, xmax = real(lmax+1),  caption="Coupled Dark Energy $Q = \frac{\partial \ln m_{DM}}{\partial \phi}$")
   endif
