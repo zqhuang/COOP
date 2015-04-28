@@ -30,7 +30,7 @@ program test
      call fig%open("Cl_Q.txt")
   endif
   if(plot_diff)then
-     call fig%init(xlabel = "$\ell$", ylabel = "$C_{\ell}/C_{\ell,Q=0}-1$ ", xlog = logscale  , xmin =1.8, xmax = real(lmax+1), ymin = -0.05, ymax = 0.05, doclip = .true., caption="Coupled Dark Energy $Q = \frac{\partial \ln m_{DM}}{\partial \phi}$")     
+     call fig%init(xlabel = "$\ell$", ylabel = "$C_{\ell}/C_{\ell,Q=0}-1$ ", xlog = logscale  , xmin =1.8, xmax = real(lmax+1), ymin = -0.15, ymax = 0.05, doclip = .true., caption="Coupled Dark Energy $Q = \frac{\partial \ln m_{DM}}{\partial \phi}$")     
   else
      call fig%init(xlabel = "$\ell$", ylabel = "$\frac{\ell(\ell+1)C_{\ell}}{2\pi} (\mu K^2)$ ", xlog = logscale , xmin = 1.8, xmax = real(lmax+1),  caption="Coupled Dark Energy $Q = \frac{\partial \ln m_{DM}}{\partial \phi}$")
   endif
@@ -123,7 +123,7 @@ program test
      endif
   end if
 
-  call fig%label("$V=V_0\phi^{-0.3}$", 0.1, 0.4, alignment = "right")
+  call fig%label("$V=V_0\phi^{-0.3}$", 0.1, 0.93, alignment = "right")
   if(plot_diff)then
      call fig%legend(0.45, 0.4, 1, .false.)     
   else
