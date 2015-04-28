@@ -758,14 +758,22 @@ contains
 
 
 !!return phi(z)/phi_matter_dominate  
-  function coop_cosmology_firstorder_growth_of_z(this, z) result(Dz)
+  function coop_cosmology_firstorder_growth_of_z(this, z, k) result(Dz)
     class(coop_cosmology_firstorder)::this
     COOP_REAL  atau, btau, tau
-    COOP_INT itau, im, it
+    COOP_INT itau, im, it, ik
+    COOP_REAL rk, kop
     COOP_REAL::z, Dz
+    COOP_REAL,optional::k
+    COOP_REAL, parameter::omr_zero = 1.d-3
+    COOP_INT::iz_ref
+    iz_ref = this%source(0)%ntau
+    do while( iz_ref .gt. 2 .and. this%source(0)%omega_rad(iz_ref-1).lt.omr_zero)
+       iz_ref = iz_ref - 1
+    enddo
     tau = this%tauofa(1.d0/(1.d0+z))
-    if(tau .le. this%source(0)%tau(1))then
-       itau = 1
+    if(tau .le. this%source(0)%tau(iz_ref))then
+       itau = iz_ref
        atau = 0.d0
     elseif(tau .ge. this%source(0)%tau(this%source(0)%ntau))then
        itau = this%source(0)%ntau - 1
@@ -784,8 +792,29 @@ contains
        atau = (tau - this%source(0)%tau(itau))/(this%source(0)%tau(itau+1)-this%source(0)%tau(itau))
     endif
     btau = 1.d0-atau
-    Dz = ((this%source(0)%saux(2, 1, itau) - this%source(0)%saux(3, 1, itau))*btau +  (this%source(0)%saux(2, 1, itau+1) - this%source(0)%saux(3, 1, itau+1))*atau)/(3.d0/5.d0*coop_primordial_zeta_norm)  !!matter dominated regime phi = 3/5
-    
+    if(present(k))then
+       call this%source(0)%k2kop(k, kop)
+       rk = (kop - this%source(0)%kopmin)/this%source(0)%dkop + 1.d0
+       ik = floor(rk)
+       rk = rk - ik
+       if(ik .lt.1)then
+          Dz = ((this%source(0)%saux(2, 1, itau) - this%source(0)%saux(3, 1, itau))*btau +  (this%source(0)%saux(2, 1, itau+1) - this%source(0)%saux(3, 1, itau+1))*atau)/  (this%source(0)%saux(2, 1, iz_ref) - this%source(0)%saux(3, 1, iz_ref))
+          return
+       elseif(ik .ge. this%source(0)%nk)then
+          ik = this%source(0)%nk
+          Dz = ((this%source(0)%saux(2, ik, itau) - this%source(0)%saux(3, ik, itau))*btau +  (this%source(0)%saux(2, ik, itau+1) - this%source(0)%saux(3, ik, itau+1))*atau)/ (this%source(0)%saux(2, ik, iz_ref) - this%source(0)%saux(3, ik, iz_ref))
+          return
+       else
+          Dz =  ( &
+               ((this%source(0)%saux(2, ik, itau) - this%source(0)%saux(3, ik, itau))*btau +  (this%source(0)%saux(2, ik, itau+1) - this%source(0)%saux(3, ik, itau+1))*atau)  * (1.d0 -rk) &
+               +((this%source(0)%saux(2, ik+1, itau) - this%source(0)%saux(3, ik+1, itau))*btau +  (this%source(0)%saux(2, ik+1, itau+1) - this%source(0)%saux(3, ik+1, itau+1))*atau)  * rk ) &
+               / ( (this%source(0)%saux(2, ik, iz_ref) - this%source(0)%saux(3, ik, iz_ref))*(1.d0-rk) &
+               +   (this%source(0)%saux(2, ik+1, iz_ref) - this%source(0)%saux(3, ik+1, iz_ref))*rk )
+          
+       endif
+    else !!k -> 0 limit
+       Dz = ((this%source(0)%saux(2, 1, itau) - this%source(0)%saux(3, 1, itau))*btau +  (this%source(0)%saux(2, 1, itau+1) - this%source(0)%saux(3, 1, itau+1))*atau)/ (this%source(0)%saux(2, 1, iz_ref) - this%source(0)%saux(3, 1, iz_ref))
+    endif
   end function coop_cosmology_firstorder_growth_of_z
 
   

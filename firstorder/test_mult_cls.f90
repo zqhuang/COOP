@@ -19,15 +19,23 @@ program test
   COOP_REAL norm
   type(coop_file)::fp
   type(coop_asy)::fig
-  logical::plot_lensed = .true.
+  logical::plot_lensed = .false.
   logical::logscale = .true.
   logical::plot_diff = .true.
 
   norm = 2.72558**2*1.d12
   if(plot_lensed)then
-     call fig%open("Cl_lensed_Q.txt")     
+     if(plot_diff)then
+        call fig%open("Cl_lensed_Q_diff.txt")
+     else
+        call fig%open("Cl_lensed_Q_full.txt")        
+     endif
   else
-     call fig%open("Cl_Q.txt")
+     if(plot_diff)then
+        call fig%open("Cl_unlensed_Q_diff.txt")
+     else
+        call fig%open("Cl_unlensed_Q_full.txt")        
+     endif
   endif
   if(plot_diff)then
      call fig%init(xlabel = "$\ell$", ylabel = "$C_{\ell}/C_{\ell,Q=0}-1$ ", xlog = logscale  , xmin =1.8, xmax = real(lmax+1), ymin = -0.15, ymax = 0.05, doclip = .true., caption="Coupled Dark Energy $Q = \frac{\partial \ln m_{DM}}{\partial \phi}$")     
@@ -123,10 +131,11 @@ program test
      endif
   end if
 
-  call fig%label("$V=V_0\phi^{-0.3}$", 0.1, 0.93, alignment = "right")
   if(plot_diff)then
+     call fig%label("$V=V_0\phi^{-0.3}$", 0.1, 0.93, alignment = "right")     
      call fig%legend(0.45, 0.4, 1, .false.)     
   else
+     call fig%label("$V=V_0\phi^{-0.3}$", 0.3, 0.5, alignment = "right")          
      call fig%legend(0.1, 0.9, 1, .false.)
   endif
   call fig%close()
