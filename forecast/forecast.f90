@@ -105,12 +105,14 @@ module coop_forecast_mod
      COOP_INT::index_fast_start = 0
      COOP_INT::n_slow = 0
      COOP_INT::fast_steps = 0
+     COOP_INT::index_propose_fast = 1
+     COOP_INT::index_propose = 1
      COOP_INT::fast_per_round = 5
      COOP_REAL::time = 0.d0
      COOP_INT:: n = 0
      COOP_INT:: fulln = 0
      COOP_INT:: n_derived = 0
-     COOP_REAL:: proposal_length = 1.6d0
+     COOP_REAL:: proposal_length = 2.4d0
      COOP_REAL::bestlike = coop_LogZero
      COOP_REAL::loglike = coop_LogZero
      COOP_REAL::loglike_proposed = coop_LogZero
@@ -118,6 +120,7 @@ module coop_forecast_mod
      COOP_REAL::sum_mult = 0.d0
      COOP_REAL::temperature = 1.d0
      COOP_INT::lmax = 0
+
      COOP_REAL, dimension(:,:), allocatable::Cls_scalar, Cls_tensor, Cls_lensed     
      COOP_INT,dimension(:),allocatable::used, map2used
      COOP_REAL,dimension(:),allocatable::fullparams
@@ -133,6 +136,9 @@ module coop_forecast_mod
      COOP_REAL,dimension(:),allocatable::prior_sigma     
      COOP_REAL,dimension(:),allocatable::prior_center     
      COOP_REAL,dimension(:,:),allocatable::covmat
+     COOP_REAL,dimension(:,:),allocatable::invcov
+     COOP_REAL,dimension(:,:),allocatable::vecs
+     COOP_REAL,dimension(:,:),allocatable::vecs_fast          
      COOP_REAL,dimension(:,:),allocatable::propose
      COOP_REAL,dimension(:),allocatable::params_saved
      COOP_SINGLE, dimension(:),allocatable::knot
@@ -169,7 +175,9 @@ module coop_forecast_mod
      procedure::Set_Cosmology => coop_MCMC_params_Set_Cosmology
      procedure::index_of => coop_MCMC_params_index_of
      procedure::get_lmax_from_data => coop_MCMC_params_get_lmax_from_data
-     
+     procedure::proposal_r => coop_MCMC_params_proposal_r
+     procedure::propose_vec => coop_MCMC_params_propose_vec
+     procedure::propose_fast_vec => coop_MCMC_params_propose_fast_vec     
   end type coop_MCMC_params
 
 
@@ -423,11 +431,13 @@ contains
        enddo
     enddo
     this%covmat = cov
+    this%invcov = cov
     this%propose = cov
     call coop_matsym_sqrt(this%propose, mineig = 1.d-15)
+    call coop_matsym_power(this%invcov, -1.d0, mineig = 1.d-15)
     if(this%do_fastslow)then
-       this%propose_fast = this%covmat(this%index_fast_start:this%n, this%index_fast_start:this%n)
-       call coop_matsym_sqrt(this%propose_fast, mineig = 1.d-15)
+       this%propose_fast = this%invcov(this%index_fast_start:this%n, this%index_fast_start:this%n)
+       call coop_matsym_power(this%propose_fast, -0.5d0, mineig = 1.d-15)
     endif
     
   end subroutine coop_MCMC_params_update_Propose
@@ -498,7 +508,7 @@ contains
        this%params_saved = this%params
        if(this%do_fastslow .and. this%fast_steps .lt. this%fast_per_round)then
           this%fast_steps = this%fast_steps + 1
-          vec(1:this%n_fast) = coop_random_vector(this%n_fast)*(this%proposal_length*coop_random_Gaussian())
+          vec(1:this%n_fast) = coop_random_vector(this%n_fast)*this%proposal_r()
           this%params(this%index_fast_start:this%n) = this%params_saved(this%index_fast_start:this%n) + matmul(this%propose_fast, vec(1:this%n_fast))
        else
           this%fast_steps = 0
@@ -565,10 +575,11 @@ contains
           call this%mcmc_step(pool)
        enddo
        call this%update_propose()
+       this%covmat = this%covmat*0.8d0
+       this%propose = this%propose*sqrt(0.8d0)
+       this%temperature = this%temperature*0.8d0       
        this%params = this%bestparams
        this%fullparams(this%used) = this%bestparams
-       this%temperature = this%temperature*0.8d0
-       this%covmat = this%covmat*0.8d0
        call this%chain%init()
     enddo
     this%temperature = 1.d0
@@ -961,7 +972,8 @@ contains
        write(*, "(A)") "MCMC_params_init: cannot find file "//trim(paramnames)
        stop
     endif
-    if(allocated(this%fullparams))deallocate(this%used, this%map2used, this%fullparams, this%params, this%lower, this%upper, this%center, this%width, this%covmat, this%propose, this%params_saved, this%name, this%tex, this%knot, this%bestparams, this%prior_sigma, this%prior_center, this%has_prior)
+    if(allocated(this%fullparams))deallocate(this%used, this%map2used, this%fullparams, this%params, this%lower, this%upper, this%center, this%width, this%covmat, this%propose, this%params_saved, this%name, this%tex, this%knot, this%bestparams, this%prior_sigma, this%prior_center, this%has_prior, this%invcov, this%vecs)
+    this%index_propose = 1
     allocate(this%map2used(this%fulln), this%fullparams(this%fulln), this%name(this%fulln), this%tex(this%fulln), lower(this%fulln), upper(this%fulln), width(this%fulln), iniwidth(this%fulln), center(this%fulln), prior_sigma(this%fulln), prior_center(this%fulln))
     do i= 1, this%fulln
        this%name(i) = trim(this%paramnames%key(i))
@@ -1012,7 +1024,7 @@ contains
     enddo
     this%n = count(width .ne. 0.d0)
     this%form = "("//COOP_STR_OF(this%n+2+this%n_derived)//"E16.7)"
-    allocate(this%used(this%n), this%params(this%n), this%lower(this%n), this%upper(this%n), this%center(this%n), this%width(this%n), this%covmat(this%n, this%n), this%propose(this%n, this%n), this%params_saved(this%n), this%knot(this%n+2), this%bestparams(this%n), this%prior_sigma(this%n), this%prior_center(this%n), this%has_prior(this%n))
+    allocate(this%used(this%n), this%params(this%n), this%lower(this%n), this%upper(this%n), this%center(this%n), this%width(this%n), this%covmat(this%n, this%n), this%invcov(this%n, this%n), this%propose(this%n, this%n), this%params_saved(this%n), this%knot(this%n+2), this%bestparams(this%n), this%prior_sigma(this%n), this%prior_center(this%n), this%has_prior(this%n), this%vecs(this%n, this%n))
     iused= 0
     this%map2used = 0
     do i = 1, this%fulln
@@ -1033,8 +1045,10 @@ contains
     this%has_prior = (this%prior_sigma .gt. 0.d0)
     this%covmat = 0.d0
     this%propose = 0.d0
+    this%invcov = 0.d0
     do i=1, this%n
        this%covmat(i, i) = this%width(i)**2
+       this%invcov(i, i) = 1.d0/this%covmat(i,i)
        this%propose(i, i) = this%width(i)
     enddo
     call coop_dictionary_lookup(this%settings, "propose_matrix", val)
@@ -1060,6 +1074,8 @@ contains
                    this%covmat(ind_read(i), ind_read(j)) = cov_read(i, j)
                 enddo
              enddo
+             this%invcov = this%covmat
+             call coop_matsym_power(this%invcov, -1.d0, mineig = 1.d-15)
              this%propose = this%covmat
              call coop_matsym_sqrt(this%propose, mineig = 1.d-15)
              if(this%proc_id.eq.0)write(*, *) "propose matrix "//trim(val)//" is loaded with "//COOP_STR_OF(count(ind_read.ne.0))//" usable parameters from totally "//COOP_STR_OF(ncov)//" parameters"
@@ -1088,9 +1104,12 @@ contains
        this%n_slow = this%n - this%n_fast
        this%index_fast_start = this%n_slow + 1
        if(allocated(this%propose_fast))deallocate(this%propose_fast)
+       if(allocated(this%vecs_fast))deallocate(this%vecs_fast)
        allocate(this%propose_fast(this%n_fast, this%n_fast))
-       this%propose_fast = this%covmat(this%n_slow+1:this%n, this%n_slow+1:this%n)
-       call coop_matsym_sqrt(this%propose_fast, mineig = 1.d-15)
+       allocate(this%vecs_fast(this%n_fast, this%n_fast))
+       this%index_propose_fast = 1
+       this%propose_fast = this%invcov(this%n_slow+1:this%n, this%n_slow+1:this%n)
+       call coop_matsym_power(this%propose_fast, -0.5d0, mineig = 1.d-15)
     endif
     if(this%proc_id .eq. 0)then
        
@@ -1165,6 +1184,52 @@ contains
        this%lmax = 0
     endif
   end subroutine coop_MCMC_params_get_lmax_from_data
+
+  subroutine coop_MCMC_params_proposal_r(this) result(r)
+    class(coop_MCMC_params)::this    
+    COOP_REAL::r
+    if(coop_random_unit() .lt. 1.d0/3.d0)then
+       r = coop_random_exp()
+    else
+       r = this%proposal_length*sqrt((coop_random_Gaussian()**2 + coop_random_Gaussian()**2)/2.d0)
+    endif
+  end subroutine coop_MCMC_params_proposal_r
+
+  function coop_MCMC_params_propose_fast_vec(this) result(vec)
+    COOP_REAL::vec(this%n)
+    if(this%n .eq. 1)then
+       vec = 1.d0
+       return
+    endif
+    if(this%index_propose .le. 1 .or. this%index_propose .gt. this%n)then
+       call coop_random_rotation(this%vecs, this%n)
+       this%index_propose = 1
+    endif
+    vec = this%vecs(:, this%index_propose)
+    if(this%index_propose .ge. this%n)then
+       this%index_propose = 1
+    else
+       this%index_propose = this%index_propose + 1
+    endif
+  end function coop_MCMC_params_propose_fast_vec
+
+  function coop_MCMC_params_propose_fast_vec(this) result(vec)
+    COOP_REAL::vec(this%n_fast)
+    if(this%n_fast .eq. 1)then
+       vec = 1.d0
+       return
+    endif
+    if(this%index_propose_fast .le. 1 .or. this%index_propose_fast .gt. this%n_fast)then
+       call coop_random_rotation(this%vecs_fast, this%n_fast)
+       this%index_propose_fast = 1
+    endif
+    vec = this%vecs_fast(:, this%index_propose_fast)
+    if(this%index_propose_fast .ge. this%n_fast)then
+       this%index_propose_fast = 1
+    else
+       this%index_propose_fast = this%index_propose_fast + 1
+    endif
+  end function coop_MCMC_params_propose_fast_vec
   
 
 end module coop_forecast_mod  

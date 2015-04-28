@@ -37,14 +37,14 @@ contains
     COOP_INT, intent(in) :: n
     COOP_REAL r(n, n), vec(N), norm
     COOP_INT i,j
-    do j = 1, N
+    do j = 1,  n 
        do
           call coop_random_get_gaussian_vector(n, vec)
           do i = 1, j-1
              vec = vec - sum(vec*R(:,i))*R(:,i)
           end do
           norm = sum(vec**2)
-          if (norm > 1e-3) exit
+          if (norm .gt. 1.d-3) exit
        end do
        R(:, j) = vec / sqrt(norm)
     end do
