@@ -3,7 +3,7 @@ program test
   implicit none
 #include "constants.h"
   COOP_REAL::Q0 = 0.d0
-  COOP_REAL::alpha = 4.43d0 !!power to adjust h
+  COOP_REAL::alpha = 4.65d0 !!power to adjust h
   COOP_REAL::tracking_n = 0.3d0
   COOP_REAL::h0 = 0.68d0
   COOP_REAL::ombh2 = 0.022d0
@@ -30,7 +30,7 @@ program test
      call fig%open("Cl_Q.txt")
   endif
   if(plot_diff)then
-     call fig%init(xlabel = "$\ell$", ylabel = "$C_{\ell}/C_{\ell,Q=0}-1$ ", xlog = logscale  , xmin =1.8, xmax = real(lmax+1), ymin = -0.01, ymax = 0.01, doclip = .true., caption="Coupled Dark Energy $Q = \frac{\partial \ln m_{DM}}{\partial \phi}$")     
+     call fig%init(xlabel = "$\ell$", ylabel = "$C_{\ell}/C_{\ell,Q=0}-1$ ", xlog = logscale  , xmin =1.8, xmax = real(lmax+1), ymin = -0.05, ymax = 0.05, doclip = .true., caption="Coupled Dark Energy $Q = \frac{\partial \ln m_{DM}}{\partial \phi}$")     
   else
      call fig%init(xlabel = "$\ell$", ylabel = "$\frac{\ell(\ell+1)C_{\ell}}{2\pi} (\mu K^2)$ ", xlog = logscale , xmin = 1.8, xmax = real(lmax+1),  caption="Coupled Dark Energy $Q = \frac{\partial \ln m_{DM}}{\partial \phi}$")
   endif
@@ -64,10 +64,9 @@ program test
   call fod%set_standard_cosmology(Omega_b=ombh2/h**2, Omega_c=omch2/h**2, h = h, tau_re = 0.08d0, As = 2.2d-9, ns = 0.96d0, de_Q = 0.1d0, de_tracking_n = tracking_n)
   theta=fod%r_star/fod%distlss
   h = (theta0/theta)**alpha*h0
-  call fod%set_standard_cosmology(Omega_b=ombh2/h**2, Omega_c=omch2/h**2, h = h, tau_re = 0.08d0, As = 2.2d-9, ns = 0.96d0, de_Q = 0.1d0, de_tracking_n = tracking_n)  
-
-  print*, "theta before correction = ", theta  
-  theta=fod%cosmomc_theta()
+  call fod%set_standard_cosmology(Omega_b=ombh2/h**2, Omega_c=omch2/h**2, h = h, tau_re = 0.08d0, As = 2.2d-9, ns = 0.96d0, de_Q = 0.1d0, de_tracking_n = tracking_n)
+  print*, "theta before correction = ", theta
+  theta=fod%r_star/fod%distlss    
   print*, "theta after correction= ", theta
   print*, "rho_m at recombination", O0_CDM(fod)%rhoa3_ratio(1.d0/(1.d0+fod%z_star))/O0_CDM(fod)%rhoa3_ratio(1.d-5)
   
@@ -97,10 +96,10 @@ program test
 
   theta= fod%r_star/fod%distlss
   h = (theta0/theta)**alpha*h0
-  call fod%set_standard_cosmology(Omega_b=ombh2/h**2, Omega_c=omch2/h**2, h = h, tau_re = 0.08d0, As = 2.2d-9, ns = 0.96d0, de_Q = 0.2d0, de_tracking_n = tracking_n)      
+  call fod%set_standard_cosmology(Omega_b=ombh2/h**2, Omega_c=omch2/h**2, h = h, tau_re = 0.08d0, As = 2.2d-9, ns = 0.96d0, de_Q = 0.2d0, de_tracking_n = tracking_n)
 
   print*, "theta before correction = ", theta  
-  theta=fod%cosmomc_theta()
+  theta=fod%r_star/fod%distlss    
   print*, "theta after correction= ", theta
   print*, "rho_m at recombination", O0_CDM(fod)%rhoa3_ratio(1.d0/(1.d0+fod%z_star))/O0_CDM(fod)%rhoa3_ratio(1.d-5)
   

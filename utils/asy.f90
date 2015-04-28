@@ -18,8 +18,16 @@ module coop_asy_mod
   integer, parameter::coop_asy_num_line_types = 12
 
   type, extends(coop_file) :: coop_asy
-     COOP_SINGLE  xmin, xmax, ymin, ymax, width, height
-     logical::xlog, ylog
+     COOP_SINGLE::xmin, xmax, ymin, ymax
+     COOP_SINGLE::width = 8.
+     COOP_SINGLE::height = 6.
+     logical::xlog = .false.
+     logical::ylog = .false.
+     logical::clip = .false.
+     logical::adjust_xmin = .true.
+     logical::adjust_xmax = .true.
+     logical::adjust_ymin = .true.
+     logical::adjust_ymax = .true.
      COOP_SHORT_STRING, dimension(coop_asy_num_line_types)::color
      COOP_SHORT_STRING, dimension(coop_asy_num_line_types)::linetype
      COOP_SINGLE , dimension(coop_asy_num_line_types)::linewidth
@@ -46,6 +54,7 @@ module coop_asy_mod
      procedure::expand => coop_asy_expand
      procedure::arrow => coop_asy_arrow_d
      procedure::arrows => coop_asy_arrows_d
+     procedure::adjust_virtual_boundary => coop_asy_adjust_virtual_boundary
   end type coop_asy
 
 
@@ -158,10 +167,21 @@ module coop_asy_mod
 
 contains
 
+  subroutine coop_asy_adjust_virtual_boundary(this, x, y)
+    class(coop_asy)::this
+    COOP_SINGLE::x, y
+    if(this%adjust_xmin .and. x .lt. this%xmin) &
+         this%xmin = x
+    if(this%adjust_xmax .and. x .gt. this%xmax) &
+         this%xmax = x
+    if(this%adjust_ymin .and. y .lt. this%ymin) &
+         this%ymin = y
+    if(this%adjust_ymax .and. y .gt. this%ymax) &
+         this%ymax = y
+  end subroutine coop_asy_adjust_virtual_boundary
 
-
-  subroutine coop_asy_init(fp,  xmin, xmax, ymin, ymax, width, height, caption, xlabel, ylabel, xlog, ylog, zlog, doclip, nblocks)
-    class(coop_asy) fp
+  subroutine coop_asy_init(this,  xmin, xmax, ymin, ymax, width, height, caption, xlabel, ylabel, xlog, ylog, zlog, doclip, nblocks)
+    class(coop_asy) this
     COOP_SINGLE ,optional:: width, height
     COOP_UNKNOWN_STRING,optional:: caption, xlabel, ylabel
     COOP_INT ,optional::nblocks
@@ -169,63 +189,63 @@ contains
     COOP_SINGLE ,optional:: xmin, xmax, ymin, ymax
     character(len = 5) tmp
     if(present(width))then
-       fp%width = width
+       this%width = width
     else
-       fp%width = coop_asy_default_width
+       this%width = coop_asy_default_width
     endif
     if(present(height))then
-       fp%height = height
+       this%height = height
     else
-       fp%height = coop_asy_default_height
+       this%height = coop_asy_default_height
     endif
-    write(fp%unit, "(2F12.2)") fp%width, fp%height
+    write(this%unit, "(2F12.2)") this%width, this%height
     if(present(caption))then
        if(trim(adjustl(caption)) .eq."")then
-          write(fp%unit, "(A)") "NULL"
+          write(this%unit, "(A)") "NULL"
        else
-          write(fp%unit, "(A)") trim(adjustl(caption))
+          write(this%unit, "(A)") trim(adjustl(caption))
        endif
     else
-       write(fp%unit, "(A)") "NULL"
+       write(this%unit, "(A)") "NULL"
     endif
     if(present(xlabel))then
        if(trim(adjustl(xlabel)).eq."")then
-          write(fp%unit, "(A)") "NULL"
+          write(this%unit, "(A)") "NULL"
        else
-          write(fp%unit, "(A)") trim(adjustl(xlabel))
+          write(this%unit, "(A)") trim(adjustl(xlabel))
        endif
     else
-       write(fp%unit, "(A)") "NULL"
+       write(this%unit, "(A)") "NULL"
     endif
     if(present(ylabel))then
        if(trim(adjustl(ylabel)).eq."")then
-          write(fp%unit, "(A)") "NULL"
+          write(this%unit, "(A)") "NULL"
        else
-          write(fp%unit, "(A)") trim(adjustl(ylabel))
+          write(this%unit, "(A)") trim(adjustl(ylabel))
        endif
     else
-       write(fp%unit, "(A)") "NULL"
+       write(this%unit, "(A)") "NULL"
     endif
     if(present(xlog))then
-       fp%xlog  =xlog
+       this%xlog  =xlog
        if(xlog)then
           tmp(1:2) = "1 "
        else
           tmp(1:2) = "0 "
        endif
     else
-       fp%xlog = .false.
+       this%xlog = .false.
        tmp(1:2) = "0 "
     endif
     if(present(ylog))then
-       fp%ylog = ylog
+       this%ylog = ylog
        if(ylog)then
           tmp(3:4) = "1 "
        else
           tmp(3:4) = "0 "
        endif
     else
-       fp%ylog = .false.
+       this%ylog = .false.
        tmp(3:4) = "0 "
     endif
     if(present(zlog))then
@@ -237,199 +257,205 @@ contains
     else
        tmp(5:5) = "0"
     endif
-    write(fp%unit, "(A)") tmp
+    write(this%unit, "(A)") tmp
     if(present(doclip))then
-       if(doclip)then
-          write(fp%unit, "(A)") "1"
-       else
-          write(fp%unit, "(A)") "0"
-       endif
+       this%clip = doclip
     else
-       write(fp%unit, "(A)") "0"
+       this%clip = .false.
     endif
     if(present(xmin))then
-       fp%xmin = xmin
+       this%xmin = xmin
+       this%adjust_xmin = .false.
     else
-       fp%xmin = 1.1e30
+       this%xmin = 1.1e30
+       this%adjust_xmin = .true.
+       this%clip = .false.                  
     endif
     if(present(xmax))then
-       fp%xmax = xmax
+       this%xmax = xmax
+       this%adjust_xmax = .false.
     else
-       fp%xmax = -1.1e30
+       this%xmax = -1.1e30
+       this%adjust_xmax = .true.
+       this%clip = .false.                  
     endif
     if(present(ymin))then
-       fp%ymin = ymin
+       this%ymin = ymin
+       this%adjust_ymin = .false.
     else
-       fp%ymin = 1.1e30
+       this%ymin = 1.1e30
+       this%adjust_ymin = .true.
+       this%clip = .false.                  
     endif
     if(present(ymax))then
-       fp%ymax = ymax
+       this%adjust_ymax = .false.
+       this%ymax = ymax
     else
-       fp%ymax = -1.1e30
+       this%adjust_ymax = .true.
+       this%ymax = -1.1e30
+       this%clip = .false.           
     endif
-    write(fp%unit,"(2G14.5)") fp%xmin, fp%xmax
-    write(fp%unit,"(2G14.5)") fp%ymin, fp%ymax
+    if(this%clip)then
+       write(this%unit, "(A)") "1"
+    else
+       write(this%unit, "(A)") "0"
+    endif
+    
+    write(this%unit,"(2G14.5)") this%xmin, this%xmax
+    write(this%unit,"(2G14.5)") this%ymin, this%ymax
     if(present(nblocks))then
-       write(fp%unit,"(I5)") nblocks    !!plot only n blocks
+       write(this%unit,"(I5)") nblocks    !!plot only n blocks
     else
-       write(fp%unit,"(I5)") 0   !!0 means any number of blocks
+       write(this%unit,"(I5)") 0   !!0 means any number of blocks
     endif
-    fp%color(1) = "black"
-    fp%color(2) = "red"
-    fp%color(3) = "blue"
-    fp%color(4) = "green"
-    fp%color(5) = "violet"
-    fp%color(6) = "cyan"
-    fp%color(7) = "skyblue"
-    fp%color(8) = "orange"
-    fp%color(9) = "brown"
-    fp%color(10) = "gray"
-    fp%color(11) = "pink"
-    fp%color(12) = "yellow"
-    fp%linewidth(1:3) = 1.2
-    fp%linewidth(4:6) = 0.9
-    fp%linewidth(7:12) = 0.6
-    fp%linetype(1) = "solid"
-    fp%linetype(2) = "dotted"
-    fp%linetype(3) = "dashed"
-    fp%linetype(4) = "dashdotted"
-    fp%linetype(5) = "longdashed"
-    fp%linetype(6) = "longdashdotted"
-    fp%linetype(7:12) = "solid"
+    this%color(1) = "black"
+    this%color(2) = "red"
+    this%color(3) = "blue"
+    this%color(4) = "green"
+    this%color(5) = "violet"
+    this%color(6) = "cyan"
+    this%color(7) = "skyblue"
+    this%color(8) = "orange"
+    this%color(9) = "brown"
+    this%color(10) = "gray"
+    this%color(11) = "pink"
+    this%color(12) = "yellow"
+    this%linewidth(1:3) = 1.2
+    this%linewidth(4:6) = 0.9
+    this%linewidth(7:12) = 0.6
+    this%linetype(1) = "solid"
+    this%linetype(2) = "dotted"
+    this%linetype(3) = "dashed"
+    this%linetype(4) = "dashdotted"
+    this%linetype(5) = "longdashed"
+    this%linetype(6) = "longdashdotted"
+    this%linetype(7:12) = "solid"
   end subroutine coop_asy_init
 
-  subroutine coop_asy_write_limits(fp, xmin, xmax, ymin, ymax)
-    class(coop_asy) fp
+  subroutine coop_asy_write_limits(this, xmin, xmax, ymin, ymax)
+    class(coop_asy) this
     COOP_SINGLE  xmin, xmax, ymin, ymax
-    write(fp%unit, "(2G14.5)") xmin, xmax
-    write(fp%unit, "(2G14.5)") ymin, ymax
-    fp%xmin = min(xmin, fp%xmin)
-    fp%xmax = min(xmax, fp%xmax)
-    fp%ymin = min(ymin, fp%ymin)
-    fp%ymax = min(ymax, fp%ymax)
+    write(this%unit, "(2G14.5)") xmin, xmax
+    write(this%unit, "(2G14.5)") ymin, ymax
+    call this%adjust_virtual_boundary(xmin, ymin)
+    call this%adjust_virtual_boundary(xmax, ymax)    
   end subroutine coop_asy_write_limits
 
-  subroutine coop_asy_write_coor(fp, x, y, x2, y2)
-    class(coop_asy) fp
+  subroutine coop_asy_write_coor(this, x, y, x2, y2)
+    class(coop_asy) this
     COOP_SINGLE  x, y
     COOP_SINGLE ,optional:: x2, y2
+    call this%adjust_virtual_boundary(x, y)
     if(present(x2) .and. present(y2))then
-       write(fp%unit, "(4G14.5)") x, y, x2, y2
-       fp%xmin = min(x2, fp%xmin)
-       fp%xmax = max(x2, fp%xmax)
-       fp%ymin = min(y2, fp%ymin)
-       fp%ymax = max(y2, fp%ymax)
+       write(this%unit, "(4G14.5)") x, y, x2, y2
+       call this%adjust_virtual_boundary(x2, y2)
     else
-       write(fp%unit, "(2G14.5)") x, y
+       write(this%unit, "(2G14.5)") x, y
     endif
-    fp%xmin = min(x, fp%xmin)
-    fp%xmax = max(x, fp%xmax)
-    fp%ymin = min(y, fp%ymin)
-    fp%ymax = max(y, fp%ymax)
   end subroutine coop_asy_write_coor
 
-  subroutine coop_asy_dot_d(fp, x, y, color, symbol)
-    class(coop_asy) fp
+  subroutine coop_asy_dot_d(this, x, y, color, symbol)
+    class(coop_asy) this
     COOP_INT  n
     COOP_REAL  x,y
     COOP_UNKNOWN_STRING,optional:: color
     COOP_UNKNOWN_STRING,optional::symbol
-    write(fp%unit, "(A)") "DOTS"
-    write(fp%unit, "(A)") "1"
+    write(this%unit, "(A)") "DOTS"
+    write(this%unit, "(A)") "1"
     if(present(color))then
-       write(fp%unit, "(A)") trim(color)
+       write(this%unit, "(A)") trim(color)
     else
-       write(fp%unit, "(A)") "black"
+       write(this%unit, "(A)") "black"
     endif
     if(present(symbol))then
-       write(fp%unit, "(A)") trim(symbol)
+       write(this%unit, "(A)") trim(symbol)
     else
-       write(fp%unit, "(A)") "dot"
+       write(this%unit, "(A)") "dot"
     endif
-    call fp%write_coor(real(x, sp), real(y, sp))
+    call this%write_coor(real(x, sp), real(y, sp))
   end subroutine coop_asy_dot_d
 
 
-  subroutine coop_asy_dot_s(fp, x, y, color, symbol)
-    class(coop_asy) fp
+  subroutine coop_asy_dot_s(this, x, y, color, symbol)
+    class(coop_asy) this
     COOP_INT  n
     COOP_SINGLE  x,y
     COOP_UNKNOWN_STRING,optional:: color
     COOP_UNKNOWN_STRING,optional::symbol
-    write(fp%unit, "(A)") "DOTS"
-    write(fp%unit, "(A)") "1"
+    write(this%unit, "(A)") "DOTS"
+    write(this%unit, "(A)") "1"
     if(present(color))then
-       write(fp%unit, "(A)") trim(color)
+       write(this%unit, "(A)") trim(color)
     else
-       write(fp%unit, "(A)") "black"
+       write(this%unit, "(A)") "black"
     endif
     if(present(symbol))then
-       write(fp%unit, "(A)") trim(symbol)
+       write(this%unit, "(A)") trim(symbol)
     else
-       write(fp%unit, "(A)") "dot"
+       write(this%unit, "(A)") "dot"
     endif
-    call fp%write_coor(x, y)
+    call this%write_coor(x, y)
   end subroutine coop_asy_dot_s
 
 
 
-  subroutine coop_asy_dots_d(fp, x, y, color, symbol)
-    class(coop_asy) fp
+  subroutine coop_asy_dots_d(this, x, y, color, symbol)
+    class(coop_asy) this
     COOP_INT  n,i
     COOP_REAL ,dimension(:),intent(IN)::x,y
     COOP_UNKNOWN_STRING,optional:: color
     COOP_UNKNOWN_STRING,optional::symbol
     n = coop_getdim( "coop_asy_dot_block", size(x), size(y))
-    write(fp%unit, "(A)") "DOTS"
-    write(fp%unit, "(I8)") n
+    write(this%unit, "(A)") "DOTS"
+    write(this%unit, "(I8)") n
     if(present(color))then
-       write(fp%unit, "(A)") trim(color)
+       write(this%unit, "(A)") trim(color)
     else
-       write(fp%unit, "(A)") "black"
+       write(this%unit, "(A)") "black"
     endif
     if(present(symbol))then
-       write(fp%unit, "(A)") trim(symbol)
+       write(this%unit, "(A)") trim(symbol)
     else
-       write(fp%unit, "(A)") "dot"
+       write(this%unit, "(A)") "dot"
     endif
     do i=1,n
-       call fp%write_coor(real(x(i),sp), real(y(i),sp))
+       call this%write_coor(real(x(i),sp), real(y(i),sp))
     enddo
   end subroutine coop_asy_dots_d
 
-  subroutine coop_asy_dots_s(fp, x, y, color, symbol)
-    class(coop_asy) fp
+  subroutine coop_asy_dots_s(this, x, y, color, symbol)
+    class(coop_asy) this
     COOP_INT  n,i
     COOP_SINGLE ,dimension(:),intent(IN)::x,y
     COOP_UNKNOWN_STRING,optional:: color
     COOP_UNKNOWN_STRING,optional::symbol
     n = coop_getdim( "coop_asy_dot_block", size(x), size(y))
-    write(fp%unit, "(A)") "DOTS"
-    write(fp%unit, "(I8)") n
+    write(this%unit, "(A)") "DOTS"
+    write(this%unit, "(I8)") n
     if(present(color))then
-       write(fp%unit, "(A)") trim(color)
+       write(this%unit, "(A)") trim(color)
     else
-       write(fp%unit, "(A)") "black"
+       write(this%unit, "(A)") "black"
     endif
     if(present(symbol))then
-       write(fp%unit, "(A)") trim(symbol)
+       write(this%unit, "(A)") trim(symbol)
     else
-       write(fp%unit, "(A)") "dot"
+       write(this%unit, "(A)") "dot"
     endif
     do i=1,n
-       call fp%write_coor(x(i),y(i))
+       call this%write_coor(x(i),y(i))
     enddo
   end subroutine coop_asy_dots_s
 
 
-  subroutine coop_asy_line_d(fp, xstart, ystart, xend, yend, color, linetype, linewidth)
-    class(coop_asy) fp
+  subroutine coop_asy_line_d(this, xstart, ystart, xend, yend, color, linetype, linewidth)
+    class(coop_asy) this
     COOP_REAL ::xstart, ystart, xend, yend
     COOP_UNKNOWN_STRING, optional::color, linetype
     COOP_SINGLE ,optional::linewidth
     COOP_STRING lineproperty
-    write(fp%unit, "(A)") "LINES"
-    write(fp%unit, "(A)") "1"
+    write(this%unit, "(A)") "LINES"
+    write(this%unit, "(A)") "1"
     if(present(color))then
        lineproperty=trim(color)
     else
@@ -443,19 +469,19 @@ contains
     if(present(linewidth))then
        lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
     endif
-    write(fp%unit, "(A)") trim(lineproperty)
-    call fp%write_coor(real(xstart, sp), real(ystart, sp), real(xend, sp), real(yend, sp))
+    write(this%unit, "(A)") trim(lineproperty)
+    call this%write_coor(real(xstart, sp), real(ystart, sp), real(xend, sp), real(yend, sp))
   end subroutine coop_asy_line_d
 
 
-  subroutine coop_asy_line_s(fp, xstart, ystart, xend, yend, color, linetype, linewidth)
-    class(coop_asy) fp
+  subroutine coop_asy_line_s(this, xstart, ystart, xend, yend, color, linetype, linewidth)
+    class(coop_asy) this
     real::xstart, ystart, xend, yend
     COOP_UNKNOWN_STRING, optional::color, linetype
     COOP_SINGLE ,optional::linewidth
     COOP_STRING lineproperty
-    write(fp%unit, "(A)") "LINES"
-    write(fp%unit, "(A)") "1"
+    write(this%unit, "(A)") "LINES"
+    write(this%unit, "(A)") "1"
     if(present(color))then
        lineproperty=trim(color)
     else
@@ -469,20 +495,20 @@ contains
     if(present(linewidth))then
        lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
     endif
-    write(fp%unit, "(A)") trim(lineproperty)
-    call fp%write_coor(xstart, ystart, xend, yend)
+    write(this%unit, "(A)") trim(lineproperty)
+    call this%write_coor(xstart, ystart, xend, yend)
   end subroutine coop_asy_line_s
   
-  subroutine coop_asy_lines_d(fp, xstart, ystart, xend, yend, color, linetype, linewidth)
-    class(coop_asy) fp
+  subroutine coop_asy_lines_d(this, xstart, ystart, xend, yend, color, linetype, linewidth)
+    class(coop_asy) this
     COOP_REAL ,dimension(:),intent(IN)::xstart, ystart, xend, yend
     COOP_UNKNOWN_STRING, optional::color, linetype
     COOP_SINGLE ,optional::linewidth
     COOP_STRING lineproperty
     COOP_INT  n, i
-    write(fp%unit, "(A)") "LINES"
+    write(this%unit, "(A)") "LINES"
     n = coop_getdim("coop_asy_lines", size(xstart), size(ystart), size(xend), size(yend))
-    write(fp%unit, "(I8)") n
+    write(this%unit, "(I8)") n
     if(present(color))then
        lineproperty=trim(color)
     else
@@ -496,23 +522,23 @@ contains
     if(present(linewidth))then
        lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
     endif
-    write(fp%unit, "(A)") trim(lineproperty)
+    write(this%unit, "(A)") trim(lineproperty)
     do i = 1, n
-       call fp%write_coor(real(xstart(i),sp), real(ystart(i),sp), real(xend(i), sp), real(yend(i), sp))
+       call this%write_coor(real(xstart(i),sp), real(ystart(i),sp), real(xend(i), sp), real(yend(i), sp))
     enddo
   end subroutine coop_asy_lines_d
 
 
-  subroutine coop_asy_lines_s(fp, xstart, ystart, xend, yend, color, linetype, linewidth)
-    class(coop_asy) fp
+  subroutine coop_asy_lines_s(this, xstart, ystart, xend, yend, color, linetype, linewidth)
+    class(coop_asy) this
     COOP_SINGLE ,dimension(:),intent(IN)::xstart, ystart, xend, yend
     COOP_UNKNOWN_STRING, optional::color, linetype
     COOP_SINGLE ,optional::linewidth
     COOP_STRING lineproperty
     COOP_INT  n, i
-    write(fp%unit, "(A)") "LINES"
+    write(this%unit, "(A)") "LINES"
     n = coop_getdim("coop_asy_lines", size(xstart), size(ystart), size(xend), size(yend))
-    write(fp%unit, "(I8)") n
+    write(this%unit, "(I8)") n
     if(present(color))then
        lineproperty=trim(color)
     else
@@ -526,14 +552,14 @@ contains
     if(present(linewidth))then
        lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
     endif
-    write(fp%unit, "(A)") trim(lineproperty)
+    write(this%unit, "(A)") trim(lineproperty)
     do i = 1, n
-       call fp%write_coor( xstart(i), ystart(i), xend(i), yend(i))
+       call this%write_coor( xstart(i), ystart(i), xend(i), yend(i))
     enddo
   end subroutine coop_asy_lines_s
 
-  subroutine coop_asy_add_legend(fp,  legend,  color, linetype, linewidth, box)
-    class(coop_asy)::fp
+  subroutine coop_asy_add_legend(this,  legend,  color, linetype, linewidth, box)
+    class(coop_asy)::this
     COOP_UNKNOWN_STRING::legend
     COOP_UNKNOWN_STRING, optional :: color, linetype
     COOP_SINGLE, optional::linewidth
@@ -541,18 +567,18 @@ contains
     COOP_STRING lineproperty
     if(present(box))then
        if(.not. box)then
-          write(fp%unit, "(A)") "LEGEND_NOBOX"
+          write(this%unit, "(A)") "LEGEND_NOBOX"
        else
-          write(fp%unit, "(A)") "LEGEND"          
+          write(this%unit, "(A)") "LEGEND"          
        endif
     else
-       write(fp%unit, "(A)") "LEGEND"
+       write(this%unit, "(A)") "LEGEND"
     endif
-    write(fp%unit, "(A)") "VIRTUAL"
+    write(this%unit, "(A)") "VIRTUAL"
     if(trim(adjustl(legend)) .ne. "")then
-       write(fp%unit, "(A)") trim(adjustl(legend))
+       write(this%unit, "(A)") trim(adjustl(legend))
     else
-       write(fp%unit, "(A)") "NULL"
+       write(this%unit, "(A)") "NULL"
     endif
     if(present(color))then
        lineproperty=trim(color)
@@ -569,16 +595,16 @@ contains
     else
        lineproperty = trim(lineproperty)//"_8"
     endif
-    write(fp%unit, "(A)") trim(lineproperty)
-    fp%ymax = fp%ymax + (fp%ymax-fp%ymin)*0.01
+    write(this%unit, "(A)") trim(lineproperty)
+    this%ymax = this%ymax + (this%ymax-this%ymin)*0.01
   end subroutine coop_asy_add_legend
 
-  subroutine coop_asy_interpolate_curve_d(fp, xraw, yraw, interpolate, color, linetype, linewidth, legend)
+  subroutine coop_asy_interpolate_curve_d(this, xraw, yraw, interpolate, color, linetype, linewidth, legend)
     COOP_INT ,parameter::n = 256
     COOP_REAL  x(n), y(n),  minx, maxx, dx
     COOP_INT  w(n)
     COOP_REAL ,dimension(:),allocatable::xx, yy, yy2
-    class(coop_asy) fp
+    class(coop_asy) this
     COOP_REAL ,dimension(:),intent(IN)::xraw, yraw
     COOP_UNKNOWN_STRING interpolate
     COOP_UNKNOWN_STRING,optional:: color, linetype
@@ -739,16 +765,16 @@ contains
        npt = m
     end select
 
-100 write(fp%unit, "(A)") "CURVE"
-    write(fp%unit, "(I8)") npt
+100 write(this%unit, "(A)") "CURVE"
+    write(this%unit, "(I8)") npt
     if(present(legend))then
        if(trim(legend).ne."")then
-          write(fp%unit, "(A)") trim(legend)
+          write(this%unit, "(A)") trim(legend)
        else
-          write(fp%unit, "(A)") "NULL"
+          write(this%unit, "(A)") "NULL"
        endif
     else
-       write(fp%unit, "(A)") "NULL"
+       write(this%unit, "(A)") "NULL"
     endif
     if(present(color))then
        lineproperty=trim(color)
@@ -763,21 +789,21 @@ contains
     if(present(linewidth))then
        lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
     endif
-    write(fp%unit, "(A)") trim(lineproperty)
-    write(fp%unit, "(A)") "0"
+    write(this%unit, "(A)") trim(lineproperty)
+    write(this%unit, "(A)") "0"
     if(do_raw)then
        do i=1,npt
-          call fp%write_coor( real(xraw(i), sp), real(yraw(i), sp) )
+          call this%write_coor( real(xraw(i), sp), real(yraw(i), sp) )
        enddo
     else
        do i=1,npt
-          call fp%write_coor(real(x(i), sp), real(y(i), sp))
+          call this%write_coor(real(x(i), sp), real(y(i), sp))
        enddo
     endif
   end subroutine coop_asy_interpolate_curve_d
 
-  subroutine coop_asy_plot_likelihood_d(fp, xraw, yraw, color, linetype, linewidth, legend, left_tail, right_tail)
-    class(coop_asy) fp
+  subroutine coop_asy_plot_likelihood_d(this, xraw, yraw, color, linetype, linewidth, legend, left_tail, right_tail)
+    class(coop_asy) this
     COOP_REAL ,dimension(:),intent(IN)::xraw, yraw
     COOP_UNKNOWN_STRING,optional:: color, linetype
     COOP_SINGLE ,optional::linewidth
@@ -807,16 +833,16 @@ contains
           npt = npt+1
        endif
     endif
-100 write(fp%unit, "(A)") "CURVE"
-    write(fp%unit, "(I8)") npt
+100 write(this%unit, "(A)") "CURVE"
+    write(this%unit, "(I8)") npt
     if(present(legend))then
        if(trim(legend).ne."")then
-          write(fp%unit, "(A)") trim(legend)
+          write(this%unit, "(A)") trim(legend)
        else
-          write(fp%unit, "(A)") "NULL"
+          write(this%unit, "(A)") "NULL"
        endif
     else
-       write(fp%unit, "(A)") "NULL"
+       write(this%unit, "(A)") "NULL"
     endif
     if(present(color))then
        lineproperty=trim(color)
@@ -831,33 +857,33 @@ contains
     if(present(linewidth))then
        lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
     endif
-    write(fp%unit, "(A)") trim(lineproperty)
-    write(fp%unit, "(A)") "0"
+    write(this%unit, "(A)") trim(lineproperty)
+    write(this%unit, "(A)") "0"
     if(do_left_tail)then
-       call fp%write_coor(real(xraw(1)*2.-xraw(2), sp), 0._sp)
+       call this%write_coor(real(xraw(1)*2.-xraw(2), sp), 0._sp)
     endif
     do i=1,imax-1
-       call fp%write_coor( real(xraw(i), sp), real(yraw(i), sp) )
+       call this%write_coor( real(xraw(i), sp), real(yraw(i), sp) )
     enddo
     if(imax.gt.1) &
-         call fp%write_coor( real((xraw(i)+xraw(i-1))/2., sp), real(yraw(i)*0.75+yraw(i-1)*0.25, sp) )
-    call fp%write_coor( real(xraw(imax), sp), real(yraw(imax), sp) )
+         call this%write_coor( real((xraw(i)+xraw(i-1))/2., sp), real(yraw(i)*0.75+yraw(i-1)*0.25, sp) )
+    call this%write_coor( real(xraw(imax), sp), real(yraw(imax), sp) )
     if(imax .lt. m) &
-         call fp%write_coor( real((xraw(i)+xraw(i+1))/2., sp), real(yraw(i)*0.75+yraw(i+1)*0.25, sp) )
+         call this%write_coor( real((xraw(i)+xraw(i+1))/2., sp), real(yraw(i)*0.75+yraw(i+1)*0.25, sp) )
     do i=imax+1, m
-       call fp%write_coor( real(xraw(i), sp), real(yraw(i), sp) )
+       call this%write_coor( real(xraw(i), sp), real(yraw(i), sp) )
     enddo
     if(do_right_tail)then
-       call fp%write_coor(real(xraw(m)*2.-xraw(m-1), sp), 0._sp)
+       call this%write_coor(real(xraw(m)*2.-xraw(m-1), sp), 0._sp)
     endif
   end subroutine coop_asy_plot_likelihood_d
 
-  subroutine coop_asy_interpolate_curve_s(fp, xraw, yraw, interpolate, color, linetype, linewidth, legend)
+  subroutine coop_asy_interpolate_curve_s(this, xraw, yraw, interpolate, color, linetype, linewidth, legend)
     COOP_INT ,parameter::n = 256
     COOP_REAL  x(n), y(n),  minx, maxx, dx
     COOP_INT  w(n)
     COOP_REAL ,dimension(:),allocatable::xx, yy, yy2
-    class(coop_asy) fp
+    class(coop_asy) this
     COOP_SINGLE ,dimension(:),intent(IN)::xraw, yraw
     COOP_UNKNOWN_STRING interpolate
     COOP_UNKNOWN_STRING,optional:: color, linetype
@@ -1018,16 +1044,16 @@ contains
        npt = m
     end select
 
-100 write(fp%unit, "(A)") "CURVE"
-    write(fp%unit, "(I8)") npt
+100 write(this%unit, "(A)") "CURVE"
+    write(this%unit, "(I8)") npt
     if(present(legend))then
        if(trim(legend).ne."")then
-          write(fp%unit, "(A)") trim(legend)
+          write(this%unit, "(A)") trim(legend)
        else
-          write(fp%unit, "(A)") "NULL"
+          write(this%unit, "(A)") "NULL"
        endif
     else
-       write(fp%unit, "(A)") "NULL"
+       write(this%unit, "(A)") "NULL"
     endif
     if(present(color))then
        lineproperty=trim(color)
@@ -1042,23 +1068,23 @@ contains
     if(present(linewidth))then
        lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
     endif
-    write(fp%unit, "(A)") trim(lineproperty)
-    write(fp%unit, "(A)") "0"
+    write(this%unit, "(A)") trim(lineproperty)
+    write(this%unit, "(A)") "0"
     if(do_raw)then
        do i=1,npt
-          call fp%write_coor( xraw(i), yraw(i) )
+          call this%write_coor( xraw(i), yraw(i) )
        enddo
     else
        do i=1,npt
-          call fp%write_coor( real(x(i), sp), real(y(i), sp) )
+          call this%write_coor( real(x(i), sp), real(y(i), sp) )
        enddo
     endif
   end subroutine coop_asy_interpolate_curve_s
 
 
 
-  subroutine coop_asy_plot_likelihood_s(fp, xraw, yraw, color, linetype, linewidth, legend, left_tail, right_tail)
-    class(coop_asy) fp
+  subroutine coop_asy_plot_likelihood_s(this, xraw, yraw, color, linetype, linewidth, legend, left_tail, right_tail)
+    class(coop_asy) this
     COOP_SINGLE ,dimension(:),intent(IN)::xraw, yraw
     COOP_UNKNOWN_STRING,optional:: color, linetype
     COOP_SINGLE ,optional::linewidth
@@ -1088,16 +1114,16 @@ contains
           npt = npt+1
        endif
     endif
-100 write(fp%unit, "(A)") "CURVE"
-    write(fp%unit, "(I8)") npt
+100 write(this%unit, "(A)") "CURVE"
+    write(this%unit, "(I8)") npt
     if(present(legend))then
        if(trim(legend).ne."")then
-          write(fp%unit, "(A)") trim(legend)
+          write(this%unit, "(A)") trim(legend)
        else
-          write(fp%unit, "(A)") "NULL"
+          write(this%unit, "(A)") "NULL"
        endif
     else
-       write(fp%unit, "(A)") "NULL"
+       write(this%unit, "(A)") "NULL"
     endif
     if(present(color))then
        lineproperty=trim(color)
@@ -1112,33 +1138,33 @@ contains
     if(present(linewidth))then
        lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
     endif
-    write(fp%unit, "(A)") trim(lineproperty)
-    write(fp%unit, "(A)") "0"
-    if(do_left_tail) call fp%write_coor(xraw(1)*2.-xraw(2), 0.)
+    write(this%unit, "(A)") trim(lineproperty)
+    write(this%unit, "(A)") "0"
+    if(do_left_tail) call this%write_coor(xraw(1)*2.-xraw(2), 0.)
     do i=1,imax-1
-       call fp%write_coor( xraw(i), yraw(i) )
+       call this%write_coor( xraw(i), yraw(i) )
     enddo
     if(imax.gt.1) &
-         call fp%write_coor( (xraw(i)+xraw(i-1))/2.,  yraw(i)*0.75+yraw(i-1)*0.25 )
-    call fp%write_coor(xraw(imax), yraw(imax))
+         call this%write_coor( (xraw(i)+xraw(i-1))/2.,  yraw(i)*0.75+yraw(i-1)*0.25 )
+    call this%write_coor(xraw(imax), yraw(imax))
     if(imax .lt. m) &
-         call fp%write_coor( (xraw(i)+xraw(i+1))/2., yraw(i)*0.75+yraw(i+1)*0.25 )
+         call this%write_coor( (xraw(i)+xraw(i+1))/2., yraw(i)*0.75+yraw(i+1)*0.25 )
     do i=imax+1, m
-       call fp%write_coor( xraw(i), yraw(i) )
+       call this%write_coor( xraw(i), yraw(i) )
     enddo
-    if(do_right_tail) call fp%write_coor(xraw(m)*2.-xraw(m-1), 0.)
+    if(do_right_tail) call this%write_coor(xraw(m)*2.-xraw(m-1), 0.)
   end subroutine coop_asy_plot_likelihood_s
 
 
 
-  subroutine coop_asy_curve_from_file(fp, fname, interpolate, xcol, ycol, color, linetype, linewidth, legend)
+  subroutine coop_asy_curve_from_file(this, fname, interpolate, xcol, ycol, color, linetype, linewidth, legend)
     COOP_INT ,parameter::n = 256
     COOP_INT , optional::xcol, ycol
     COOP_REAL  x(n), y(n),  minx, maxx, dx
     COOP_INT  w(n)
     COOP_REAL ,dimension(:),allocatable::xx, yy, yy2
-    class(coop_asy) fp
-    type(coop_file) fp2
+    class(coop_asy) this
+    type(coop_file) this2
     COOP_REAL ,dimension(:),allocatable::xraw, yraw, line
     COOP_UNKNOWN_STRING interpolate, fname
     COOP_UNKNOWN_STRING,optional:: color, linetype
@@ -1169,9 +1195,9 @@ contains
     endif
     allocate(line(0:ncols))
     allocate(xraw(m), yraw(m))
-    call fp2%open(trim(fname), "r")
+    call this2%open(trim(fname), "r")
     do i = 1, m
-       if(fp2%read_real_array(line(1:ncols)))then
+       if(this2%read_real_array(line(1:ncols)))then
           line(0) = i
           xraw(i) = line(xl)
           yraw(i) = line(yl)
@@ -1179,7 +1205,7 @@ contains
           call coop_return_error("coop_asy_curve_from_file", trim(fname)//" has a wrong format", "stop")
        endif
     enddo
-    call fp2%close()
+    call this2%close()
     minx = minval(xraw)
     maxx = maxval(xraw)
     y = 0.
@@ -1331,16 +1357,16 @@ contains
        npt = m
     end select
 
-100 write(fp%unit, "(A)") "CURVE"
-    write(fp%unit, "(I8)") npt
+100 write(this%unit, "(A)") "CURVE"
+    write(this%unit, "(I8)") npt
     if(present(legend))then
        if(trim(legend).ne."")then
-          write(fp%unit, "(A)") trim(legend)
+          write(this%unit, "(A)") trim(legend)
        else
-          write(fp%unit, "(A)") "NULL"
+          write(this%unit, "(A)") "NULL"
        endif
     else
-       write(fp%unit, "(A)") "NULL"
+       write(this%unit, "(A)") "NULL"
     endif
     if(present(color))then
        lineproperty=trim(color)
@@ -1355,23 +1381,23 @@ contains
     if(present(linewidth))then
        lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
     endif
-    write(fp%unit, "(A)") trim(lineproperty)
-    write(fp%unit, "(A)") "0"
+    write(this%unit, "(A)") trim(lineproperty)
+    write(this%unit, "(A)") "0"
     if(do_raw)then
        do i=1,npt
-          call fp%write_coor( real(xraw(i), sp), real(yraw(i), sp))
+          call this%write_coor( real(xraw(i), sp), real(yraw(i), sp))
        enddo
     else
        do i=1,npt
-          call fp%write_coor(real(x(i), sp), real(y(i), sp))
+          call this%write_coor(real(x(i), sp), real(y(i), sp))
        enddo
     endif
     deallocate(xraw, yraw, line)
   end subroutine coop_asy_curve_from_file
 
 
-  subroutine coop_asy_curve_d(fp, x, y, smooth, color, linetype, linewidth, legend)
-    class(coop_asy) fp
+  subroutine coop_asy_curve_d(this, x, y, smooth, color, linetype, linewidth, legend)
+    class(coop_asy) this
     logical,optional::smooth
     COOP_REAL ,dimension(:),intent(IN)::x,y
     COOP_UNKNOWN_STRING,optional:: color, linetype
@@ -1380,16 +1406,16 @@ contains
     COOP_INT  i,n
     COOP_STRING lineproperty
     n = coop_getdim("coop_asy_curve", size(x), size(y))
-    write(fp%unit, "(A)") "CURVE"
-    write(fp%unit, "(I8)") n
+    write(this%unit, "(A)") "CURVE"
+    write(this%unit, "(I8)") n
     if(present(legend))then
        if(trim(legend).ne."")then
-          write(fp%unit, "(A)") trim(legend)
+          write(this%unit, "(A)") trim(legend)
        else
-          write(fp%unit, "(A)") "NULL"
+          write(this%unit, "(A)") "NULL"
        endif
     else
-       write(fp%unit, "(A)") "NULL"
+       write(this%unit, "(A)") "NULL"
     endif
     if(present(color))then
        lineproperty=trim(color)
@@ -1404,23 +1430,23 @@ contains
     if(present(linewidth))then
        lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
     endif
-    write(fp%unit, "(A)") trim(lineproperty)
+    write(this%unit, "(A)") trim(lineproperty)
     if(present(smooth))then
        if(smooth)then
-          write(fp%unit, "(A)") "1"
+          write(this%unit, "(A)") "1"
        else
-          write(fp%unit, "(A)") "0"
+          write(this%unit, "(A)") "0"
        endif
     else
-       write(fp%unit, "(A)") "0"  !!no smoothing by default
+       write(this%unit, "(A)") "0"  !!no smoothing by default
     endif
     do i=1,n
-       call fp%write_coor(real(x(i), sp), real(y(i), sp))
+       call this%write_coor(real(x(i), sp), real(y(i), sp))
     enddo
   end subroutine coop_asy_curve_d
 
-  subroutine coop_asy_curve_s(fp, x, y, smooth, color, linetype, linewidth, legend)
-    class(coop_asy) fp
+  subroutine coop_asy_curve_s(this, x, y, smooth, color, linetype, linewidth, legend)
+    class(coop_asy) this
     logical,optional::smooth
     COOP_SINGLE ,dimension(:),intent(IN)::x,y
     COOP_UNKNOWN_STRING,optional:: color, linetype
@@ -1429,16 +1455,16 @@ contains
     COOP_UNKNOWN_STRING,optional::legend
     COOP_STRING lineproperty
     n = coop_getdim("coop_asy_curve", size(x), size(y))
-    write(fp%unit, "(A)") "CURVE"
-    write(fp%unit, "(I8)") n
+    write(this%unit, "(A)") "CURVE"
+    write(this%unit, "(I8)") n
     if(present(legend))then
        if(trim(legend).ne."")then
-          write(fp%unit, "(A)") trim(legend)
+          write(this%unit, "(A)") trim(legend)
        else
-          write(fp%unit, "(A)") "NULL"
+          write(this%unit, "(A)") "NULL"
        endif
     else
-       write(fp%unit, "(A)") "NULL"
+       write(this%unit, "(A)") "NULL"
     endif
     if(present(color))then
        lineproperty=trim(color)
@@ -1453,96 +1479,96 @@ contains
     if(present(linewidth))then
        lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
     endif
-    write(fp%unit, "(A)") trim(lineproperty)
+    write(this%unit, "(A)") trim(lineproperty)
     if(present(smooth))then
        if(smooth)then
-          write(fp%unit, "(A)") "1"
+          write(this%unit, "(A)") "1"
        else
-          write(fp%unit, "(A)") "0"
+          write(this%unit, "(A)") "0"
        endif
     else
-       write(fp%unit, "(A)") "0"  !!no smoothing by default
+       write(this%unit, "(A)") "0"  !!no smoothing by default
     endif
     do i=1,n
-       call fp%write_coor( x(i), y(i) )
+       call this%write_coor( x(i), y(i) )
     enddo
   end subroutine coop_asy_curve_s
 
-  subroutine coop_asy_labels_d(fp, labels, x, y, color, alignment)
+  subroutine coop_asy_labels_d(this, labels, x, y, color, alignment)
     COOP_STRING, dimension(:),intent(IN)::labels
     COOP_REAL ,dimension(:),intent(IN)::x, y
-    class(coop_asy) fp
+    class(coop_asy) this
     COOP_UNKNOWN_STRING,optional::color
     COOP_UNKNOWN_STRING,optional::alignment
     COOP_INT  n, i
     if(present(alignment))then
        select case(trim(adjustl(alignment)))
        case("left", "LEFT", "Left", "l", "L")
-          write(fp%unit, "(A)") "LEFTLABELS"
+          write(this%unit, "(A)") "LEFTLABELS"
        case("right", "RIGHT", "Right", "r", "R")
-          write(fp%unit, "(A)") "RIGHTLABELS"
+          write(this%unit, "(A)") "RIGHTLABELS"
        case default
-          write(fp%unit, "(A)") "LABELS"          
+          write(this%unit, "(A)") "LABELS"          
        end select
     else
-       write(fp%unit, "(A)") "LABELS"
+       write(this%unit, "(A)") "LABELS"
     endif    
     n = coop_getdim("coop_asy_labels", size(x), size(y), size(labels))
-    write(fp%unit,"(I8)") n
+    write(this%unit,"(I8)") n
     if(present(color))then
-       write(fp%unit, "(A)") trim(color)
+       write(this%unit, "(A)") trim(color)
     else
-       write(fp%unit, "(A)") "black"
+       write(this%unit, "(A)") "black"
     endif
     do i=1,n
-       call fp%write_coor(real(x(i), sp), real(y(i), sp))
+       call this%write_coor(real(x(i), sp), real(y(i), sp))
        if(trim(labels(i)).eq."")then
-          write(fp%unit, "(A)") "NULLL"
+          write(this%unit, "(A)") "NULLL"
        else
-          write(fp%unit, "(A)") trim(labels(i))
+          write(this%unit, "(A)") trim(labels(i))
        endif
     enddo
   end subroutine coop_asy_labels_d
 
-  subroutine coop_asy_labels_s(fp, labels, x, y, color, alignment)
+  subroutine coop_asy_labels_s(this, labels, x, y, color, alignment)
     COOP_STRING, dimension(:),intent(IN)::labels
     COOP_SINGLE ,dimension(:),intent(IN)::x, y
-    class(coop_asy) fp
+    class(coop_asy) this
     COOP_UNKNOWN_STRING,optional::color
     COOP_UNKNOWN_STRING,optional::alignment
     COOP_INT  n, i
     if(present(alignment))then
        select case(trim(alignment))
        case("left","LEFT","Left","l","L")
-          write(fp%unit, "(A)") "LEFTLABELS"
+          write(this%unit, "(A)") "LEFTLABELS"
        case("right","RIGHT","Right","r","R")
-          write(fp%unit, "(A)") "RIGHTLABELS"
+          write(this%unit, "(A)") "RIGHTLABELS"
        case default
-          write(fp%unit, "(A)") "LABELS"          
+          write(this%unit, "(A)") "LABELS"          
        end select
     else
-       write(fp%unit, "(A)") "LABELS"
+       write(this%unit, "(A)") "LABELS"
     endif
     n = coop_getdim("coop_asy_labels", size(x), size(y), size(labels))
-    write(fp%unit,"(I8)") n
+    write(this%unit,"(I8)") n
     if(present(color))then
-       write(fp%unit, "(A)") trim(color)
+       write(this%unit, "(A)") trim(color)
     else
-       write(fp%unit, "(A)") "black"
+       write(this%unit, "(A)") "black"
     endif
     do i=1,n
-       call fp%write_coor( x(i), y(i))
+       call this%write_coor( x(i), y(i))
        if(trim(labels(i)).eq."")then
-          write(fp%unit, "(A)") "NULLL"
+          write(this%unit, "(A)") "NULLL"
        else
-          write(fp%unit, "(A)") trim(labels(i))
+          write(this%unit, "(A)") trim(labels(i))
        endif
     enddo
   end subroutine coop_asy_labels_s
 
 
-  subroutine coop_asy_label_d(fp, label, x, y, color, alignment)
-    class(coop_asy) fp
+  subroutine coop_asy_label_d(this, label, x, y, color, alignment)
+    class(coop_asy) this
     COOP_UNKNOWN_STRING label
     COOP_UNKNOWN_STRING,optional::color
     COOP_UNKNOWN_STRING,optional::alignment
@@ -1550,31 +1576,31 @@ contains
     if(present(alignment))then
        select case(trim(alignment))
        case("left","LEFT","Left","l","L")
-          write(fp%unit, "(A)") "LEFTLABELS"
+          write(this%unit, "(A)") "LEFTLABELS"
        case("right","RIGHT","Right","r","R")
-          write(fp%unit, "(A)") "RIGHTLABELS"
+          write(this%unit, "(A)") "RIGHTLABELS"
        case default
-          write(fp%unit, "(A)") "LABELS"          
+          write(this%unit, "(A)") "LABELS"          
        end select
     else
-       write(fp%unit, "(A)") "LABELS"
+       write(this%unit, "(A)") "LABELS"
     endif
-    write(fp%unit, "(A)") "1"
+    write(this%unit, "(A)") "1"
     if(present(color))then
-       write(fp%unit, "(A)") trim(color)
+       write(this%unit, "(A)") trim(color)
     else
-       write(fp%unit, "(A)") "black"
+       write(this%unit, "(A)") "black"
     endif
-    call fp%write_coor( real(x, sp), real(y, sp) )
+    call this%write_coor( real(x, sp), real(y, sp) )
     if(trim(label).eq."")then
-       write(fp%unit, "(A)") "NULL"
+       write(this%unit, "(A)") "NULL"
     else
-       write(fp%unit, "(A)") trim(label)
+       write(this%unit, "(A)") trim(label)
     endif
   end subroutine coop_asy_label_d
 
-  subroutine coop_asy_label_relative(fp, label, xratio, yratio, color, alignment)
-    class(coop_asy) fp
+  subroutine coop_asy_label_relative(this, label, xratio, yratio, color, alignment)
+    class(coop_asy) this
     COOP_UNKNOWN_STRING label
     COOP_UNKNOWN_STRING,optional::color
     COOP_UNKNOWN_STRING,optional::alignment
@@ -1582,32 +1608,32 @@ contains
     if(present(alignment))then
        select case(trim(alignment))
        case("left","LEFT","Left","l","L")
-          write(fp%unit, "(A)") "LEFTLABELS"
+          write(this%unit, "(A)") "LEFTLABELS"
        case("right","RIGHT","Right","r","R")
-          write(fp%unit, "(A)") "RIGHTLABELS"
+          write(this%unit, "(A)") "RIGHTLABELS"
        case default
-          write(fp%unit, "(A)") "LABELS"          
+          write(this%unit, "(A)") "LABELS"          
        end select
     else
-       write(fp%unit, "(A)") "LABELS"
+       write(this%unit, "(A)") "LABELS"
     endif
-    write(fp%unit, "(A)") "1"
+    write(this%unit, "(A)") "1"
     if(present(color))then
-       write(fp%unit, "(A)") trim(color)
+       write(this%unit, "(A)") trim(color)
     else
-       write(fp%unit, "(A)") "black"
+       write(this%unit, "(A)") "black"
     endif
-    call fp%write_coor(fp%xrel(xratio), fp%yrel(yratio))
+    call this%write_coor(this%xrel(xratio), this%yrel(yratio))
     if(trim(label).eq."")then
-       write(fp%unit, "(A)") "NULL"
+       write(this%unit, "(A)") "NULL"
     else
-       write(fp%unit, "(A)") trim(label)
+       write(this%unit, "(A)") trim(label)
     endif
   end subroutine coop_asy_label_relative
 
   
-  subroutine coop_asy_label_s(fp, label, x, y, color, alignment)
-    class(coop_asy) fp
+  subroutine coop_asy_label_s(this, label, x, y, color, alignment)
+    class(coop_asy) this
     COOP_UNKNOWN_STRING label
     COOP_UNKNOWN_STRING,optional::color
     COOP_UNKNOWN_STRING,optional::alignment
@@ -1615,33 +1641,33 @@ contains
     if(present(alignment))then
        select case(trim(alignment))
        case("left","LEFT","Left","l","L")
-          write(fp%unit, "(A)") "LEFTLABELS"
+          write(this%unit, "(A)") "LEFTLABELS"
        case("right","RIGHT","Right","r","R")
-          write(fp%unit, "(A)") "RIGHTLABELS"
+          write(this%unit, "(A)") "RIGHTLABELS"
        case default
-          write(fp%unit, "(A)") "LABELS"          
+          write(this%unit, "(A)") "LABELS"          
        end select
     else
-       write(fp%unit, "(A)") "LABELS"
+       write(this%unit, "(A)") "LABELS"
     endif    
-    write(fp%unit, "(A)") "1"
+    write(this%unit, "(A)") "1"
     if(present(color))then
-       write(fp%unit, "(A)") trim(color)
+       write(this%unit, "(A)") trim(color)
     else
-       write(fp%unit, "(A)") "black"
+       write(this%unit, "(A)") "black"
     endif
-    call fp%write_coor( x, y)
+    call this%write_coor( x, y)
     if(trim(label).eq."")then
-       write(fp%unit, "(A)") "NULL"
+       write(this%unit, "(A)") "NULL"
     else
-       write(fp%unit, "(A)") trim(label)
+       write(this%unit, "(A)") trim(label)
     endif
   end subroutine coop_asy_label_s
 
 
 
-  subroutine coop_asy_contour_d(fp, x, y, colorfill, smooth, linecolor, linetype, linewidth)
-    class(coop_asy) fp
+  subroutine coop_asy_contour_d(this, x, y, colorfill, smooth, linecolor, linetype, linewidth)
+    class(coop_asy) this
     logical,optional::smooth
     COOP_REAL ,dimension(:),intent(IN)::x,y
     COOP_UNKNOWN_STRING,optional::colorfill
@@ -1650,12 +1676,12 @@ contains
     COOP_INT  i,n
     COOP_STRING lineproperty
     n = coop_getdim("coop_asy_contour", size(x), size(y))
-    write(fp%unit, "(A)") "CONTOUR"
-    write(fp%unit, "(A)") "1" !!type 1 contour
+    write(this%unit, "(A)") "CONTOUR"
+    write(this%unit, "(A)") "1" !!type 1 contour
     if(present(colorfill))then
-       write(fp%unit, "(A)") trim(colorfill)
+       write(this%unit, "(A)") trim(colorfill)
     else
-       write(fp%unit, "(A)") "black"
+       write(this%unit, "(A)") "black"
     endif
     if(present(linecolor).or. present(linetype).or.present(linewidth))then
        if(present(linecolor))then
@@ -1671,28 +1697,28 @@ contains
        if(present(linewidth))then
           lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
        endif
-       write(fp%unit, "(A)") trim(lineproperty)
+       write(this%unit, "(A)") trim(lineproperty)
     else
-       write(fp%unit, "(A)") "NULL"
+       write(this%unit, "(A)") "NULL"
     endif
     if(present(smooth))then
        if(smooth)then
-          write(fp%unit, "(A)") "1"
+          write(this%unit, "(A)") "1"
        else
-          write(fp%unit, "(A)") "0"
+          write(this%unit, "(A)") "0"
        endif
     else
-       write(fp%unit, "(A)") "0"  !!no smoothing by default
+       write(this%unit, "(A)") "0"  !!no smoothing by default
     endif
-    write(fp%unit, "(A)") "1"  !!1 path 
-    write(fp%unit, "(I8)") n
+    write(this%unit, "(A)") "1"  !!1 path 
+    write(this%unit, "(I8)") n
     do i=1,n
-       call fp%write_coor(real(x(i), sp), real(y(i), sp))
+       call this%write_coor(real(x(i), sp), real(y(i), sp))
     enddo
   end subroutine coop_asy_contour_d
 
-  subroutine coop_asy_contour_s(fp, x, y, colorfill, smooth, linecolor, linetype, linewidth)
-    class(coop_asy) fp
+  subroutine coop_asy_contour_s(this, x, y, colorfill, smooth, linecolor, linetype, linewidth)
+    class(coop_asy) this
     logical,optional::smooth
     COOP_SINGLE ,dimension(:),intent(IN)::x,y
     COOP_UNKNOWN_STRING,optional::colorfill
@@ -1701,12 +1727,12 @@ contains
     COOP_INT  i,n
     COOP_STRING lineproperty
     n = coop_getdim("coop_asy_contour", size(x), size(y))
-    write(fp%unit, "(A)") "CONTOUR"
-    write(fp%unit, "(A)") "1"   !!type I contour
+    write(this%unit, "(A)") "CONTOUR"
+    write(this%unit, "(A)") "1"   !!type I contour
     if(present(colorfill))then
-       write(fp%unit, "(A)") trim(colorfill)
+       write(this%unit, "(A)") trim(colorfill)
     else
-       write(fp%unit, "(A)") "black"
+       write(this%unit, "(A)") "black"
     endif
     if(present(linecolor).or. present(linetype).or.present(linewidth))then
        if(present(linecolor))then
@@ -1722,29 +1748,29 @@ contains
        if(present(linewidth))then
           lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
        endif
-       write(fp%unit, "(A)") trim(lineproperty)
+       write(this%unit, "(A)") trim(lineproperty)
     else
-       write(fp%unit, "(A)") "NULL"
+       write(this%unit, "(A)") "NULL"
     endif
     if(present(smooth))then
        if(smooth)then
-          write(fp%unit, "(A)") "1"
+          write(this%unit, "(A)") "1"
        else
-          write(fp%unit, "(A)") "0"
+          write(this%unit, "(A)") "0"
        endif
     else
-       write(fp%unit, "(A)") "0"  !!no smoothing by default
+       write(this%unit, "(A)") "0"  !!no smoothing by default
     endif
-    write(fp%unit, "(A)") "1"  !!1 path 
-    write(fp%unit, "(I8)") n
+    write(this%unit, "(A)") "1"  !!1 path 
+    write(this%unit, "(I8)") n
     do i=1,n
-       call fp%write_coor( x(i), y(i) )
+       call this%write_coor( x(i), y(i) )
     enddo
   end subroutine coop_asy_contour_s
 
 
-  subroutine coop_asy_contour_path(fp, path, colorfill, smooth, linecolor, linetype, linewidth)
-    class(coop_asy) fp
+  subroutine coop_asy_contour_path(this, path, colorfill, smooth, linecolor, linetype, linewidth)
+    class(coop_asy) this
     logical,optional::smooth
     type(coop_asy_path) path
     COOP_SINGLE  xy(2)
@@ -1755,12 +1781,12 @@ contains
     COOP_STRING lineproperty
     if(path%nclosed.eq.0 .or. (.not. path%l%isinit()) .or. path%l%n .eq. 0)return
     if(path%l%dim .ne.2) stop "coop_asy_contour_path: wrong dimension of list in path"
-    write(fp%unit, "(A)") "CONTOUR"
-    write(fp%unit, "(A)") "1"   !!type I contour
+    write(this%unit, "(A)") "CONTOUR"
+    write(this%unit, "(A)") "1"   !!type I contour
     if(present(colorfill))then
-       write(fp%unit, "(A)") trim(colorfill)
+       write(this%unit, "(A)") trim(colorfill)
     else
-       write(fp%unit, "(A)") "black"
+       write(this%unit, "(A)") "black"
     endif
     if(present(linecolor).or. present(linetype).or.present(linewidth))then
        if(present(linecolor))then
@@ -1776,33 +1802,33 @@ contains
        if(present(linewidth))then
           lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
        endif
-       write(fp%unit, "(A)") trim(lineproperty)
+       write(this%unit, "(A)") trim(lineproperty)
     else
-       write(fp%unit, "(A)") "NULL"
+       write(this%unit, "(A)") "NULL"
     endif
     if(present(smooth))then
        if(smooth)then
-          write(fp%unit, "(A)") "1"
+          write(this%unit, "(A)") "1"
        else
-          write(fp%unit, "(A)") "0"
+          write(this%unit, "(A)") "0"
        endif
     else
-       write(fp%unit, "(A)") "0"  !!no smoothing by default
+       write(this%unit, "(A)") "0"  !!no smoothing by default
     endif
-    write(fp%unit, "(I8)") path%nclosed
+    write(this%unit, "(I8)") path%nclosed
     i = 1
     do ipath = 1, path%nclosed
-       write(fp%unit, "(I8)") path%length(ipath)
+       write(this%unit, "(I8)") path%length(ipath)
        do pl = 1, path%length(ipath)
           call path%l%get_element(i, xy)
-          call fp%write_coor(xy(1), xy(2))
+          call this%write_coor(xy(1), xy(2))
           i = i + 1
        enddo
     enddo
   end subroutine coop_asy_contour_path
 
-  subroutine coop_asy_contour_mult_d(fp, x, y, colorfill, smooth, linecolor, linetype, linewidth)
-    class(coop_asy) fp
+  subroutine coop_asy_contour_mult_d(this, x, y, colorfill, smooth, linecolor, linetype, linewidth)
+    class(coop_asy) this
     logical,optional::smooth
     COOP_REAL ,dimension(:,:),intent(IN)::x,y
     COOP_UNKNOWN_STRING,optional::colorfill
@@ -1812,12 +1838,12 @@ contains
     COOP_STRING lineproperty
     n = coop_getdim("coop_asy_contour", size(x,1), size(y,1))
     m = coop_getdim("coop_asy_contour", size(x,2), size(y,2))
-    write(fp%unit, "(A)") "CONTOUR"
-    write(fp%unit, "(A)") "1"   !!type I contour
+    write(this%unit, "(A)") "CONTOUR"
+    write(this%unit, "(A)") "1"   !!type I contour
     if(present(colorfill))then
-       write(fp%unit, "(A)") trim(colorfill)
+       write(this%unit, "(A)") trim(colorfill)
     else
-       write(fp%unit, "(A)") "black"
+       write(this%unit, "(A)") "black"
     endif
     if(present(linecolor).or. present(linetype).or.present(linewidth))then
        if(present(linecolor))then
@@ -1833,30 +1859,30 @@ contains
        if(present(linewidth))then
           lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
        endif
-       write(fp%unit, "(A)") trim(lineproperty)
+       write(this%unit, "(A)") trim(lineproperty)
     else
-       write(fp%unit, "(A)") "NULL"
+       write(this%unit, "(A)") "NULL"
     endif
     if(present(smooth))then
        if(smooth)then
-          write(fp%unit, "(A)") "1"
+          write(this%unit, "(A)") "1"
        else
-          write(fp%unit, "(A)") "0"
+          write(this%unit, "(A)") "0"
        endif
     else
-       write(fp%unit, "(A)") "0"  !!no smoothing by default
+       write(this%unit, "(A)") "0"  !!no smoothing by default
     endif
-    write(fp%unit, "(I8)") m
+    write(this%unit, "(I8)") m
     do ipath = 1, m
-       write(fp%unit, "(I8)") n
+       write(this%unit, "(I8)") n
        do i=1,n
-          call fp%write_coor(real(x(i, ipath), sp), real(y(i, ipath), sp))
+          call this%write_coor(real(x(i, ipath), sp), real(y(i, ipath), sp))
        enddo
     enddo
   end subroutine coop_asy_contour_mult_d
 
-  subroutine coop_asy_contour_mult_s(fp, x, y, colorfill, smooth, linecolor, linetype, linewidth)
-    class(coop_asy) fp
+  subroutine coop_asy_contour_mult_s(this, x, y, colorfill, smooth, linecolor, linetype, linewidth)
+    class(coop_asy) this
     logical,optional::smooth
     COOP_SINGLE ,dimension(:,:),intent(IN)::x,y
     COOP_UNKNOWN_STRING,optional::colorfill
@@ -1866,12 +1892,12 @@ contains
     COOP_STRING lineproperty
     n = coop_getdim("coop_asy_contour", size(x,1), size(y,1))
     m = coop_getdim("coop_asy_contour", size(x,2), size(y,2))
-    write(fp%unit, "(A)") "CONTOUR"
-    write(fp%unit, "(A)") "1"   !!type I contour
+    write(this%unit, "(A)") "CONTOUR"
+    write(this%unit, "(A)") "1"   !!type I contour
     if(present(colorfill))then
-       write(fp%unit, "(A)") trim(colorfill)
+       write(this%unit, "(A)") trim(colorfill)
     else
-       write(fp%unit, "(A)") "black"
+       write(this%unit, "(A)") "black"
     endif
     if(present(linecolor).or. present(linetype).or.present(linewidth))then
        if(present(linecolor))then
@@ -1887,31 +1913,31 @@ contains
        if(present(linewidth))then
           lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
        endif
-       write(fp%unit, "(A)") trim(lineproperty)
+       write(this%unit, "(A)") trim(lineproperty)
     else
-       write(fp%unit, "(A)") "NULL"
+       write(this%unit, "(A)") "NULL"
     endif
     if(present(smooth))then
        if(smooth)then
-          write(fp%unit, "(A)") "1"
+          write(this%unit, "(A)") "1"
        else
-          write(fp%unit, "(A)") "0"
+          write(this%unit, "(A)") "0"
        endif
     else
-       write(fp%unit, "(A)") "0"  !!no smoothing by default
+       write(this%unit, "(A)") "0"  !!no smoothing by default
     endif
-    write(fp%unit, "(I8)") m
+    write(this%unit, "(I8)") m
     do ipath = 1, m
-       write(fp%unit, "(I8)") n
+       write(this%unit, "(I8)") n
        do i=1,n
-          call fp%write_coor( x(i, ipath), y(i, ipath) )
+          call this%write_coor( x(i, ipath), y(i, ipath) )
        enddo
     enddo
   end subroutine coop_asy_contour_mult_s
 
 
-  subroutine coop_asy_contour_arr_d(fp, z, xmin, xmax, ymin, ymax, cvals, colorfill, smooth, linecolor, linetype, linewidth)
-    class(coop_asy) fp
+  subroutine coop_asy_contour_arr_d(this, z, xmin, xmax, ymin, ymax, cvals, colorfill, smooth, linecolor, linetype, linewidth)
+    class(coop_asy) this
     COOP_REAL ,dimension(:,:)::z
     COOP_REAL  xmin, xmax, ymin, ymax
     COOP_REAL  cvals(:)
@@ -1922,39 +1948,39 @@ contains
     logical smooth
     nx = size(z, 1)
     ny = size(z, 2)
-    write(fp%unit, "(A)") "CONTOUR"
-    write(fp%unit, "(A)") "2" !!type 2 contour
-    call fp%write_limits( real(xmin, sp), real(xmax, sp), real(ymin, sp), real(ymax, sp))
+    write(this%unit, "(A)") "CONTOUR"
+    write(this%unit, "(A)") "2" !!type 2 contour
+    call this%write_limits( real(xmin, sp), real(xmax, sp), real(ymin, sp), real(ymax, sp))
     if(present(linewidth))then
        nc = coop_getdim("coop_asy_contour_arr_d", size(cvals), size(colorfill), size(linecolor), size(linetype), size(linewidth))
     else
        nc = coop_getdim("coop_asy_contour_arr_d", size(cvals), size(colorfill), size(linecolor), size(linetype))
     endif
-    write(fp%unit, "(I8)") nc
-    write(fp%unit, "("//trim(coop_num2str(nc))//"G14.5)") cvals
+    write(this%unit, "(I8)") nc
+    write(this%unit, "("//trim(coop_num2str(nc))//"G14.5)") cvals
     do i = 1, nc
-       write(fp%unit, "(A)") trim(colorfill(i))
+       write(this%unit, "(A)") trim(colorfill(i))
        if(present(linewidth))then
-          write(fp%unit, "(A)") trim(coop_asy_linestyle(linecolor(i), linetype(i), linewidth(i)))
+          write(this%unit, "(A)") trim(coop_asy_linestyle(linecolor(i), linetype(i), linewidth(i)))
        else
-          write(fp%unit, "(A)") trim(coop_asy_linestyle(linecolor(i), linetype(i)))
+          write(this%unit, "(A)") trim(coop_asy_linestyle(linecolor(i), linetype(i)))
        endif
     enddo
     if(smooth)then
-       write(fp%unit, "(A)") "1"
+       write(this%unit, "(A)") "1"
     else
-       write(fp%unit, "(A)") "0"
+       write(this%unit, "(A)") "0"
     endif
-    write(fp%unit, "(2I8)") nx, ny
+    write(this%unit, "(2I8)") nx, ny
     do i=1,nx
-       write(fp%unit, "("//trim(coop_num2str(ny))//"G14.5)") real(z(i,:))
+       write(this%unit, "("//trim(coop_num2str(ny))//"G14.5)") real(z(i,:))
     enddo
   end subroutine coop_asy_contour_arr_d
   
 
 
-  subroutine coop_asy_contour_arr_s(fp, z, xmin, xmax, ymin, ymax, cvals, colorfill, smooth, linecolor, linetype, linewidth)
-    class(coop_asy) fp
+  subroutine coop_asy_contour_arr_s(this, z, xmin, xmax, ymin, ymax, cvals, colorfill, smooth, linecolor, linetype, linewidth)
+    class(coop_asy) this
     COOP_SINGLE ,dimension(:,:)::z
     COOP_SINGLE  xmin, xmax, ymin, ymax
     COOP_SINGLE  cvals(:)
@@ -1965,40 +1991,40 @@ contains
     logical smooth
     nx = size(z, 1)
     ny = size(z, 2)
-    write(fp%unit, "(A)") "CONTOUR"
-    write(fp%unit, "(A)") "2" !!type 2 contour
-    call fp%write_limits(xmin, xmax, ymin, ymax)
+    write(this%unit, "(A)") "CONTOUR"
+    write(this%unit, "(A)") "2" !!type 2 contour
+    call this%write_limits(xmin, xmax, ymin, ymax)
     if(present(linewidth))then
        nc = coop_getdim("coop_asy_contour_arr_s", size(cvals), size(colorfill), size(linecolor), size(linetype), size(linewidth))
     else
        nc = coop_getdim("coop_asy_contour_arr_s", size(cvals), size(colorfill), size(linecolor), size(linetype))
     endif
-    write(fp%unit, "(I8)") nc
-    write(fp%unit, "("//trim(coop_num2str(nc))//"G14.5)") cvals
+    write(this%unit, "(I8)") nc
+    write(this%unit, "("//trim(coop_num2str(nc))//"G14.5)") cvals
     do i = 1, nc
-       write(fp%unit, "(A)") trim(colorfill(i))
+       write(this%unit, "(A)") trim(colorfill(i))
        if(present(linewidth))then
-          write(fp%unit, "(A)") trim(coop_asy_linestyle(linecolor(i), linetype(i), linewidth(i)))
+          write(this%unit, "(A)") trim(coop_asy_linestyle(linecolor(i), linetype(i), linewidth(i)))
        else
-          write(fp%unit, "(A)") trim(coop_asy_linestyle(linecolor(i), linetype(i)))
+          write(this%unit, "(A)") trim(coop_asy_linestyle(linecolor(i), linetype(i)))
        endif
     enddo
     if(smooth)then
-       write(fp%unit, "(A)") "1"
+       write(this%unit, "(A)") "1"
     else
-       write(fp%unit, "(A)") "0"
+       write(this%unit, "(A)") "0"
     endif
-    write(fp%unit, "(2I8)") nx, ny
+    write(this%unit, "(2I8)") nx, ny
     do i=1,nx
-       write(fp%unit, "("//trim(coop_num2str(ny))//"G14.5)") z(i,:)
+       write(this%unit, "("//trim(coop_num2str(ny))//"G14.5)") z(i,:)
     enddo
   end subroutine coop_asy_contour_arr_s
 
 
 
 
-  subroutine coop_asy_density_d(fp, z, xmin, xmax, ymin, ymax, label, zmin, zmax, color_table)
-    class(coop_asy) fp
+  subroutine coop_asy_density_d(this, z, xmin, xmax, ymin, ymax, label, zmin, zmax, color_table)
+    class(coop_asy) this
     COOP_REAL ,dimension(:,:)::z
     COOP_REAL  xmin, xmax, ymin, ymax
     COOP_REAL ,optional::zmin, zmax
@@ -2008,27 +2034,27 @@ contains
     COOP_UNKNOWN_STRING, optional::color_table
     nx = size(z, 1)
     ny = size(z, 2)
-    write(fp%unit, "(A)") "DENSITY"
+    write(this%unit, "(A)") "DENSITY"
     if(present(color_table))then
        if(trim(color_table).ne."")then
-          write(fp%unit, "(A)") trim(color_table)
+          write(this%unit, "(A)") trim(color_table)
        else
-          write(fp%unit, "(A)") "Rainbow"
+          write(this%unit, "(A)") "Rainbow"
        endif
     else
-       write(fp%unit, "(A)") "Rainbow"
+       write(this%unit, "(A)") "Rainbow"
     endif
 
     if(present(label))then
        if(trim(label).ne."")then
-          write(fp%unit,"(A)") trim(label)
+          write(this%unit,"(A)") trim(label)
        else
-          write(fp%unit,"(A)") "NULL"
+          write(this%unit,"(A)") "NULL"
        endif
     else
-       write(fp%unit,"(A)") "NULL"
+       write(this%unit,"(A)") "NULL"
     endif
-    call fp%write_limits(real(xmin, sp), real(xmax, sp), real(ymin, sp), real(ymax, sp))
+    call this%write_limits(real(xmin, sp), real(xmax, sp), real(ymin, sp), real(ymax, sp))
     if(present(zmin))then
        minz = zmin
     else
@@ -2040,16 +2066,16 @@ contains
        call coop_array_get_threshold(z, 0.01d0, maxz)
     endif
 
-    write(fp%unit, "(2G14.5)") minz, maxz
-    write(fp%unit, "(A)") "0"
-    write(fp%unit, "(2I8)") nx, ny
+    write(this%unit, "(2G14.5)") minz, maxz
+    write(this%unit, "(A)") "0"
+    write(this%unit, "(2I8)") nx, ny
     do i=1,nx
-       write(fp%unit, "("//trim(coop_num2str(ny))//"G14.5)") real(z(i,:))
+       write(this%unit, "("//trim(coop_num2str(ny))//"G14.5)") real(z(i,:))
     enddo
   end subroutine coop_asy_density_d
 
-  subroutine coop_asy_density_s(fp, z, xmin, xmax, ymin, ymax, label, zmin, zmax, color_table)
-    class(coop_asy) fp
+  subroutine coop_asy_density_s(this, z, xmin, xmax, ymin, ymax, label, zmin, zmax, color_table)
+    class(coop_asy) this
     COOP_SINGLE ,dimension(:,:)::z
     COOP_SINGLE  xmin, xmax, ymin, ymax
     COOP_SINGLE ,optional::zmin, zmax
@@ -2058,26 +2084,26 @@ contains
     COOP_UNKNOWN_STRING, optional::label, color_table
     nx = size(z, 1)
     ny = size(z, 2)
-    write(fp%unit, "(A)") "DENSITY"
+    write(this%unit, "(A)") "DENSITY"
     if(present(color_table))then
        if(trim(color_table).ne."")then
-          write(fp%unit,"(A)") trim(color_table)
+          write(this%unit,"(A)") trim(color_table)
        else
-          write(fp%unit,"(A)") "Rainbow"
+          write(this%unit,"(A)") "Rainbow"
        endif
     else
-       write(fp%unit,"(A)") "Rainbow"
+       write(this%unit,"(A)") "Rainbow"
     endif
     if(present(label))then
        if(trim(label).ne."")then
-          write(fp%unit,"(A)") trim(label)
+          write(this%unit,"(A)") trim(label)
        else
-          write(fp%unit,"(A)") "NULL"
+          write(this%unit,"(A)") "NULL"
        endif
     else
-       write(fp%unit,"(A)") "NULL"
+       write(this%unit,"(A)") "NULL"
     endif
-    call fp%write_limits(xmin, xmax, ymin, ymax)
+    call this%write_limits(xmin, xmax, ymin, ymax)
     if(present(zmin))then
        minz = zmin
     else
@@ -2088,17 +2114,17 @@ contains
     else
        call coop_array_get_threshold(z, 0.01, maxz)
     endif
-    write(fp%unit, "(2G14.5)") minz, maxz
-    write(fp%unit, "(A)") "0"
-    write(fp%unit, "(2I8)") nx, ny
+    write(this%unit, "(2G14.5)") minz, maxz
+    write(this%unit, "(A)") "0"
+    write(this%unit, "(2I8)") nx, ny
     do i=1,nx
-       write(fp%unit, "("//trim(coop_num2str(ny))//"G14.5)") z(i,:)
+       write(this%unit, "("//trim(coop_num2str(ny))//"G14.5)") z(i,:)
     enddo
   end subroutine coop_asy_density_s
 
 
- subroutine coop_asy_irregular_density_d(fp, x, y, z, label, xmin, xmax, ymin, ymax, zmin, zmax, color_table)
-    class(coop_asy) fp
+ subroutine coop_asy_irregular_density_d(this, x, y, z, label, xmin, xmax, ymin, ymax, zmin, zmax, color_table)
+    class(coop_asy) this
     COOP_REAL ,dimension(:)::x, y, z
     COOP_UNKNOWN_STRING, optional::label, color_table
     COOP_REAL ,optional::xmin, xmax, ymin, ymax, zmin, zmax
@@ -2135,36 +2161,36 @@ contains
     else
        call coop_array_get_threshold(z, 0.01d0, maxz)
     endif
-    write(fp%unit,"(A)") "DENSITY"
+    write(this%unit,"(A)") "DENSITY"
     if(present(color_table))then
        if(trim(color_table).ne."")then
-          write(fp%unit,"(A)") trim(color_table)
+          write(this%unit,"(A)") trim(color_table)
        else
-          write(fp%unit,"(A)") "Rainbow"
+          write(this%unit,"(A)") "Rainbow"
        endif
     else
-       write(fp%unit,"(A)") "Rainbow"
+       write(this%unit,"(A)") "Rainbow"
     endif
     if(present(label))then
        if(trim(label).ne."")then
-          write(fp%unit,"(A)") trim(label)
+          write(this%unit,"(A)") trim(label)
        else
-          write(fp%unit,"(A)") "NULL"
+          write(this%unit,"(A)") "NULL"
        endif
     else
-       write(fp%unit,"(A)") "NULL"
+       write(this%unit,"(A)") "NULL"
     endif
-    call fp%write_limits(real(minx, sp), real(maxx, sp), real(miny, sp), real(maxy, sp))
-    write(fp%unit, "(2G14.5)") minz, maxz
-    write(fp%unit,"(A)") "1"
-    write(fp%unit,"(I10)") n
+    call this%write_limits(real(minx, sp), real(maxx, sp), real(miny, sp), real(maxy, sp))
+    write(this%unit, "(2G14.5)") minz, maxz
+    write(this%unit,"(A)") "1"
+    write(this%unit,"(I10)") n
     do i=1,n
-       write(fp%unit, "(3G14.5)") real(x(i)), real(y(i)), real(z(i))
+       write(this%unit, "(3G14.5)") real(x(i)), real(y(i)), real(z(i))
     enddo
   end subroutine coop_asy_irregular_density_d
 
-  subroutine coop_asy_irregular_density_s(fp, x, y, z, label, xmin, xmax, ymin, ymax, zmin, zmax, color_table)
-    class(coop_asy) fp
+  subroutine coop_asy_irregular_density_s(this, x, y, z, label, xmin, xmax, ymin, ymax, zmin, zmax, color_table)
+    class(coop_asy) this
     COOP_SINGLE ,dimension(:)::x, y, z
     COOP_UNKNOWN_STRING, optional::label, color_table
     COOP_SINGLE ,optional::xmin, xmax, ymin, ymax, zmin, zmax
@@ -2201,78 +2227,78 @@ contains
     else
        call coop_array_get_threshold(z, 0.01, maxz)
     endif
-    write(fp%unit,"(A)") "DENSITY"
+    write(this%unit,"(A)") "DENSITY"
 
     if(present(color_table))then
        if(trim(color_table).ne."")then
-          write(fp%unit,"(A)") trim(color_table)
+          write(this%unit,"(A)") trim(color_table)
        else
-          write(fp%unit,"(A)") "Rainbow"
+          write(this%unit,"(A)") "Rainbow"
        endif
     else
-       write(fp%unit,"(A)") "Rainbow"
+       write(this%unit,"(A)") "Rainbow"
     endif
 
     if(present(label))then
        if(trim(label).ne."")then
-          write(fp%unit,"(A)") trim(label)
+          write(this%unit,"(A)") trim(label)
        else
-          write(fp%unit,"(A)") "NULL"
+          write(this%unit,"(A)") "NULL"
        endif
     else
-       write(fp%unit,"(A)") "NULL"
+       write(this%unit,"(A)") "NULL"
     endif
-    call fp%write_limits(minx, maxx, miny, maxy) !real(minx, sp), real(maxx, sp), real(miny, sp), real(maxy, sp))
-    write(fp%unit, "(2G14.5)") minz, maxz
-    write(fp%unit,"(A)") "1"
-    write(fp%unit,"(I10)") n
+    call this%write_limits(minx, maxx, miny, maxy) !real(minx, sp), real(maxx, sp), real(miny, sp), real(maxy, sp))
+    write(this%unit, "(2G14.5)") minz, maxz
+    write(this%unit,"(A)") "1"
+    write(this%unit,"(I10)") n
     do i=1,n
-       write(fp%unit, "(3G14.5)") x(i), y(i), z(i)
+       write(this%unit, "(3G14.5)") x(i), y(i), z(i)
     enddo
   end subroutine coop_asy_irregular_density_s
 
-  subroutine coop_asy_clip_d(fp, x, y, smooth)
-    class(coop_asy) fp
+  subroutine coop_asy_clip_d(this, x, y, smooth)
+    class(coop_asy) this
     logical,optional::smooth
     COOP_REAL ,dimension(:),intent(IN)::x,y
     COOP_INT  i,n
     n = coop_getdim("coop_asy_clip", size(x), size(y))
-    write(fp%unit, "(A)") "CLIP"
-    write(fp%unit, "(I8)") n
+    write(this%unit, "(A)") "CLIP"
+    write(this%unit, "(I8)") n
     if(present(smooth))then
        if(smooth)then
-          write(fp%unit, "(A)") "1"
+          write(this%unit, "(A)") "1"
        else
-          write(fp%unit, "(A)") "0"
+          write(this%unit, "(A)") "0"
        endif
     else
-       write(fp%unit, "(A)") "0"  !!no smoothing by default
+       write(this%unit, "(A)") "0"  !!no smoothing by default
     endif
     do i=1,n
-       call fp%write_coor(real(x(i), sp), real(y(i), sp))
+       call this%write_coor(real(x(i), sp), real(y(i), sp))
     enddo
 
   end subroutine coop_asy_clip_d
 
-  subroutine coop_asy_clip_s(fp, x, y, smooth)
-    class(coop_asy) fp
+  subroutine coop_asy_clip_s(this, x, y, smooth)
+    class(coop_asy) this
     logical,optional::smooth
     COOP_SINGLE ,dimension(:),intent(IN)::x,y
     COOP_INT  i,n
     n = coop_getdim("coop_asy_clip", size(x), size(y))
-    write(fp%unit, "(A)") "CLIP"
-    write(fp%unit, "(I8)") n
+    write(this%unit, "(A)") "CLIP"
+    write(this%unit, "(I8)") n
     if(present(smooth))then
        if(smooth)then
-          write(fp%unit, "(A)") "1"
+          write(this%unit, "(A)") "1"
        else
-          write(fp%unit, "(A)") "0"
+          write(this%unit, "(A)") "0"
        endif
     else
-       write(fp%unit, "(A)") "0"  !!no smoothing by default
+       write(this%unit, "(A)") "0"  !!no smoothing by default
     endif
     do i=1,n
-       call fp%write_coor( x(i), y(i))
+       call this%write_coor( x(i), y(i))
     enddo
   end subroutine coop_asy_clip_s
 
@@ -2476,24 +2502,24 @@ contains
 
     subroutine insert_point()
       COOP_SINGLE  x, y
-      COOP_SINGLE  fp(2), s
+      COOP_SINGLE  this(2), s
       x =  xmin+i*dx
       y = ymin+j*dy
       if(i.eq.0 .or. i.eq.n)then
-         fp(1) = 0 
+         this(1) = 0 
       else
-         fp(1) = (f(x+dxby2, y) - f(x-dxby2, y))
+         this(1) = (f(x+dxby2, y) - f(x-dxby2, y))
       endif
       if(j.eq.0 .or. j.eq.n)then
-         fp(2) = 0
+         this(2) = 0
       else
-         fp(2) =  (f(x, y+dyby2) - f(x, y-dyby2))
+         this(2) =  (f(x, y+dyby2) - f(x, y-dyby2))
       endif
-      s= sum(fp**2)
+      s= sum(this**2)
       if(s.gt.0)then
          s = (threshold - f(x, y))/s
-         x = min(xmax, max(x + max(min(fp(1)*s, 0.5), -0.5)*dx, xmin))
-         y = min(ymax, max(y + max(min(fp(2)*s, 0.5), -0.5)*dy, ymin))
+         x = min(xmax, max(x + max(min(this(1)*s, 0.5), -0.5)*dx, xmin))
+         y = min(ymax, max(y + max(min(this(2)*s, 0.5), -0.5)*dy, ymin))
       endif
       call coop_asy_path_append(path, x, y)
     end subroutine insert_point
@@ -2566,329 +2592,329 @@ contains
   end subroutine coop_asy_path_from_array
 
 
-  subroutine coop_asy_legend_default(fp)
-    class(coop_asy) fp
-    call coop_asy_legend_location(fp, "N")
+  subroutine coop_asy_legend_default(this)
+    class(coop_asy) this
+    call coop_asy_legend_location(this, "N")
   end subroutine coop_asy_legend_default
 
-  subroutine coop_asy_legend_location(fp, loc, cols, box)
-    class(coop_asy) fp
+  subroutine coop_asy_legend_location(this, loc, cols, box)
+    class(coop_asy) this
     COOP_UNKNOWN_STRING :: loc
     COOP_INT , optional::cols
     logical,optional::box
     if(present(box))then
        if(.not. box)then
-          write(fp%unit, "(A)") "LEGEND_NOBOX"
+          write(this%unit, "(A)") "LEGEND_NOBOX"
        else
-          write(fp%unit, "(A)") "LEGEND"          
+          write(this%unit, "(A)") "LEGEND"          
        endif
     else
-       write(fp%unit, "(A)") "LEGEND"
+       write(this%unit, "(A)") "LEGEND"
     endif
     if(trim(adjustl(loc)).ne."")then
-       write(fp%unit, "(A)") trim(adjustl(loc))
+       write(this%unit, "(A)") trim(adjustl(loc))
     else
-       write(fp%unit, "(A)") "N"
+       write(this%unit, "(A)") "N"
     end if
     if(present(cols))then
-       write(fp%unit, "(I8)")  cols
+       write(this%unit, "(I8)")  cols
     else
-       write(fp%unit, "(I8)")  1
+       write(this%unit, "(I8)")  1
     endif
   end subroutine coop_asy_legend_location
 
-  subroutine coop_asy_legend_d(fp, x, y, cols, box)
-    class(coop_asy) fp
+  subroutine coop_asy_legend_d(this, x, y, cols, box)
+    class(coop_asy) this
     COOP_REAL x, y
     COOP_INT ,optional::cols
     logical,optional::box
     if(present(box))then
        if(.not. box)then
-          write(fp%unit, "(A)") "LEGEND_NOBOX"
+          write(this%unit, "(A)") "LEGEND_NOBOX"
        else
-          write(fp%unit, "(A)") "LEGEND"          
+          write(this%unit, "(A)") "LEGEND"          
        endif
     else
-       write(fp%unit, "(A)") "LEGEND"
+       write(this%unit, "(A)") "LEGEND"
     endif
-    write(fp%unit, "(A)") "NULL"
-    write(fp%unit, "(2G15.4)") x, y
+    write(this%unit, "(A)") "NULL"
+    write(this%unit, "(2G15.4)") x, y
     if(present(cols))then
-       write(fp%unit, "(I8)")  cols
+       write(this%unit, "(I8)")  cols
     else
-       write(fp%unit, "(I8)")  1
+       write(this%unit, "(I8)")  1
     endif
   end subroutine coop_asy_legend_d
 
 
-  subroutine coop_asy_legend_advance_d(fp, x, y, box_color, xmargin, ymargin, linelength, hskip, vskip, cols)
-    class(coop_asy) fp
+  subroutine coop_asy_legend_advance_d(this, x, y, box_color, xmargin, ymargin, linelength, hskip, vskip, cols)
+    class(coop_asy) this
     COOP_REAL::x, y
     COOP_INT::cols
     COOP_UNKNOWN_STRING::box_color
     COOP_SINGLE::xmargin, ymargin, linelength, hskip, vskip
-    write(fp%unit, "(A)") "LEGEND_ADVANCE"
-    write(fp%unit, "(A)") trim(adjustl(box_color))
-    write(fp%unit, "(G15.4)") xmargin
-    write(fp%unit, "(G15.4)") ymargin
-    write(fp%unit, "(G15.4)") linelength
-    write(fp%unit, "(G15.4)") hskip
-    write(fp%unit, "(G15.4)") vskip    
-    write(fp%unit, "(I6)")  cols    
-    write(fp%unit, "(A)") "NULL"
-    write(fp%unit, "(2G15.4)") x, y
+    write(this%unit, "(A)") "LEGEND_ADVANCE"
+    write(this%unit, "(A)") trim(adjustl(box_color))
+    write(this%unit, "(G15.4)") xmargin
+    write(this%unit, "(G15.4)") ymargin
+    write(this%unit, "(G15.4)") linelength
+    write(this%unit, "(G15.4)") hskip
+    write(this%unit, "(G15.4)") vskip    
+    write(this%unit, "(I6)")  cols    
+    write(this%unit, "(A)") "NULL"
+    write(this%unit, "(2G15.4)") x, y
   end subroutine coop_asy_legend_advance_d
 
 
-  subroutine coop_asy_legend_advance_s(fp, x, y, box_color, xmargin, ymargin, linelength, hskip, vskip, cols)
-    class(coop_asy) fp
+  subroutine coop_asy_legend_advance_s(this, x, y, box_color, xmargin, ymargin, linelength, hskip, vskip, cols)
+    class(coop_asy) this
     COOP_SINGLE::x, y
     COOP_INT::cols
     COOP_UNKNOWN_STRING::box_color
     COOP_SINGLE::xmargin, ymargin, linelength, hskip, vskip
-    write(fp%unit, "(A)") "LEGEND_ADVANCE"
-    write(fp%unit, "(A)") trim(adjustl(box_color))
-    write(fp%unit, "(G15.4)") xmargin
-    write(fp%unit, "(G15.4)") ymargin
-    write(fp%unit, "(G15.4)") linelength
-    write(fp%unit, "(G15.4)") hskip
-    write(fp%unit, "(G15.4)") vskip    
-    write(fp%unit, "(I6)")  cols    
-    write(fp%unit, "(A)") "NULL"
-    write(fp%unit, "(2G15.4)") x, y
+    write(this%unit, "(A)") "LEGEND_ADVANCE"
+    write(this%unit, "(A)") trim(adjustl(box_color))
+    write(this%unit, "(G15.4)") xmargin
+    write(this%unit, "(G15.4)") ymargin
+    write(this%unit, "(G15.4)") linelength
+    write(this%unit, "(G15.4)") hskip
+    write(this%unit, "(G15.4)") vskip    
+    write(this%unit, "(I6)")  cols    
+    write(this%unit, "(A)") "NULL"
+    write(this%unit, "(2G15.4)") x, y
   end subroutine coop_asy_legend_advance_s
 
 
-  subroutine coop_asy_legend_advance_relative(fp, xratio, yratio, box_color, xmargin, ymargin, linelength, hskip, vskip, cols)
-    class(coop_asy) fp
+  subroutine coop_asy_legend_advance_relative(this, xratio, yratio, box_color, xmargin, ymargin, linelength, hskip, vskip, cols)
+    class(coop_asy) this
     COOP_SINGLE::xratio, yratio
     COOP_INT::cols
     COOP_UNKNOWN_STRING::box_color
     COOP_SINGLE::xmargin, ymargin, linelength, hskip, vskip
-    write(fp%unit, "(A)") "LEGEND_ADVANCE"
-    write(fp%unit, "(A)") trim(adjustl(box_color))
-    write(fp%unit, "(G15.4)") xmargin
-    write(fp%unit, "(G15.4)") ymargin
-    write(fp%unit, "(G15.4)") linelength
-    write(fp%unit, "(G15.4)") hskip
-    write(fp%unit, "(G15.4)") vskip    
-    write(fp%unit, "(I6)")  cols    
-    write(fp%unit, "(A)") "NULL"
-    write(fp%unit, "(2G15.4)") fp%xrel(xratio), fp%yrel(yratio)
+    write(this%unit, "(A)") "LEGEND_ADVANCE"
+    write(this%unit, "(A)") trim(adjustl(box_color))
+    write(this%unit, "(G15.4)") xmargin
+    write(this%unit, "(G15.4)") ymargin
+    write(this%unit, "(G15.4)") linelength
+    write(this%unit, "(G15.4)") hskip
+    write(this%unit, "(G15.4)") vskip    
+    write(this%unit, "(I6)")  cols    
+    write(this%unit, "(A)") "NULL"
+    write(this%unit, "(2G15.4)") this%xrel(xratio), this%yrel(yratio)
   end subroutine coop_asy_legend_advance_relative
   
   
-  subroutine coop_asy_legend_advance_location(fp, loc, box_color, xmargin, ymargin, linelength, hskip, vskip, cols)
-    class(coop_asy) fp
+  subroutine coop_asy_legend_advance_location(this, loc, box_color, xmargin, ymargin, linelength, hskip, vskip, cols)
+    class(coop_asy) this
     COOP_UNKNOWN_STRING::loc
     COOP_INT::cols
     COOP_UNKNOWN_STRING::box_color
     COOP_SINGLE::xmargin, ymargin, linelength, hskip, vskip
-    write(fp%unit, "(A)") "LEGEND_ADVANCE"
-    write(fp%unit, "(A)") trim(adjustl(box_color))
-    write(fp%unit, "(G15.4)") xmargin
-    write(fp%unit, "(G15.4)") ymargin
-    write(fp%unit, "(G15.4)") linelength
-    write(fp%unit, "(G15.4)") hskip
-    write(fp%unit, "(G15.4)") vskip    
-    write(fp%unit, "(I6)")  cols
+    write(this%unit, "(A)") "LEGEND_ADVANCE"
+    write(this%unit, "(A)") trim(adjustl(box_color))
+    write(this%unit, "(G15.4)") xmargin
+    write(this%unit, "(G15.4)") ymargin
+    write(this%unit, "(G15.4)") linelength
+    write(this%unit, "(G15.4)") hskip
+    write(this%unit, "(G15.4)") vskip    
+    write(this%unit, "(I6)")  cols
     if(trim(adjustl(loc)).ne."")then
-       write(fp%unit, "(A)") trim(adjustl(loc))
+       write(this%unit, "(A)") trim(adjustl(loc))
     else
-       write(fp%unit, "(A)") "N"
+       write(this%unit, "(A)") "N"
     endif
   end subroutine coop_asy_legend_advance_location
   
 
-  subroutine coop_asy_legend_s(fp, x, y, cols, box)
-    class(coop_asy) fp
+  subroutine coop_asy_legend_s(this, x, y, cols, box)
+    class(coop_asy) this
     COOP_SINGLE  x, y
     COOP_INT ,optional::cols
     logical,optional::box
     if(present(box))then
        if(.not. box)then
-          write(fp%unit, "(A)") "LEGEND_NOBOX"
+          write(this%unit, "(A)") "LEGEND_NOBOX"
        else
-          write(fp%unit, "(A)") "LEGEND"          
+          write(this%unit, "(A)") "LEGEND"          
        endif
     else
-       write(fp%unit, "(A)") "LEGEND"
+       write(this%unit, "(A)") "LEGEND"
     endif
-    write(fp%unit, "(A)") "NULL"
-    write(fp%unit, "(2G15.4)") x, y
+    write(this%unit, "(A)") "NULL"
+    write(this%unit, "(2G15.4)") x, y
     if(present(cols))then
-       write(fp%unit, "(I8)")  cols
+       write(this%unit, "(I8)")  cols
     else
-       write(fp%unit, "(I8)")  1
+       write(this%unit, "(I8)")  1
     endif
   end subroutine coop_asy_legend_s
 
-  subroutine coop_asy_legend_relative(fp, xratio, yratio, cols, box)
-    class(coop_asy) fp
+  subroutine coop_asy_legend_relative(this, xratio, yratio, cols, box)
+    class(coop_asy) this
     COOP_SINGLE  xratio, yratio
     COOP_INT ,optional::cols
     logical,optional::box
     if(present(box))then
        if(.not. box)then
-          write(fp%unit, "(A)") "LEGEND_NOBOX"
+          write(this%unit, "(A)") "LEGEND_NOBOX"
        else
-          write(fp%unit, "(A)") "LEGEND"          
+          write(this%unit, "(A)") "LEGEND"          
        endif
     else
-       write(fp%unit, "(A)") "LEGEND"
+       write(this%unit, "(A)") "LEGEND"
     endif
-    write(fp%unit, "(A)") "NULL"
-    write(fp%unit, "(2G15.4)") fp%xrel(xratio), fp%yrel(yratio)
+    write(this%unit, "(A)") "NULL"
+    write(this%unit, "(2G15.4)") this%xrel(xratio), this%yrel(yratio)
     if(present(cols))then
-       write(fp%unit, "(I8)")  cols
+       write(this%unit, "(I8)")  cols
     else
-       write(fp%unit, "(I8)")  1
+       write(this%unit, "(I8)")  1
     endif
   end subroutine coop_asy_legend_relative
 
 
 
-  subroutine coop_asy_topaxis_s(fp, xmin, xmax, islog,label)
+  subroutine coop_asy_topaxis_s(this, xmin, xmax, islog,label)
     COOP_SINGLE  xmin, xmax
     logical islog
-    class(coop_asy) fp
+    class(coop_asy) this
     COOP_UNKNOWN_STRING label
-    write(fp%unit, "(A)")"EXTRA_AXIS"
-    write(fp%unit, "(A)") "top"
+    write(this%unit, "(A)")"EXTRA_AXIS"
+    write(this%unit, "(A)") "top"
     if(trim(adjustl(label)).ne."")then
-       write(fp%unit, "(A)") trim(adjustl(label))
+       write(this%unit, "(A)") trim(adjustl(label))
     else
-       write(fp%unit, "(A)") "NULL"
+       write(this%unit, "(A)") "NULL"
     endif
     if(islog)then
-       write(fp%unit, "(A)") "1"
+       write(this%unit, "(A)") "1"
     else
-       write(fp%unit, "(A)") "0"
+       write(this%unit, "(A)") "0"
     endif
-    write(fp%unit, "(2G14.5)") xmin, xmax
+    write(this%unit, "(2G14.5)") xmin, xmax
   end subroutine coop_asy_topaxis_s
 
-  subroutine coop_asy_topaxis_d(fp, xmin, xmax, islog,label)
+  subroutine coop_asy_topaxis_d(this, xmin, xmax, islog,label)
     COOP_REAL  xmin, xmax
     logical islog
-    class(coop_asy) fp
+    class(coop_asy) this
     COOP_UNKNOWN_STRING label
-    call coop_asy_topaxis_s(fp, real(xmin), real(xmax), islog,label)
+    call coop_asy_topaxis_s(this, real(xmin), real(xmax), islog,label)
   end subroutine coop_asy_topaxis_d
 
 
-  subroutine coop_asy_rightaxis_s(fp, ymin, ymax, islog, label)
+  subroutine coop_asy_rightaxis_s(this, ymin, ymax, islog, label)
     COOP_SINGLE  ymin, ymax
     logical islog
-    class(coop_asy) fp
+    class(coop_asy) this
     COOP_UNKNOWN_STRING label
-    write(fp%unit, "(A)")"EXTRA_AXIS"
-    write(fp%unit, "(A)") "right"
+    write(this%unit, "(A)")"EXTRA_AXIS"
+    write(this%unit, "(A)") "right"
     if(trim(adjustl(label)).ne."")then
-       write(fp%unit, "(A)") trim(adjustl(label))
+       write(this%unit, "(A)") trim(adjustl(label))
     else
-       write(fp%unit, "(A)") "NULL"
+       write(this%unit, "(A)") "NULL"
     endif
     if(islog)then
-       write(fp%unit, "(A)") "1"
+       write(this%unit, "(A)") "1"
     else
-       write(fp%unit, "(A)") "0"
+       write(this%unit, "(A)") "0"
     endif
-    write(fp%unit, "(2G14.5)") ymin, ymax
+    write(this%unit, "(2G14.5)") ymin, ymax
   end subroutine coop_asy_rightaxis_s
 
-  subroutine coop_asy_rightaxis_d(fp, ymin, ymax, islog, label)
+  subroutine coop_asy_rightaxis_d(this, ymin, ymax, islog, label)
     COOP_REAL  ymin, ymax
     logical islog
     COOP_UNKNOWN_STRING label
-    class(coop_asy) fp
-    call coop_asy_rightaxis_s(fp, real(ymin), real(ymax), islog,label)
+    class(coop_asy) this
+    call coop_asy_rightaxis_s(this, real(ymin), real(ymax), islog,label)
   end subroutine coop_asy_rightaxis_d
 
-  subroutine coop_asy_error_bar_d(fp, x, y, dy_minus, dy_plus, dx_minus, dx_plus, color)
-    class(coop_asy) fp
+  subroutine coop_asy_error_bar_d(this, x, y, dy_minus, dy_plus, dx_minus, dx_plus, color)
+    class(coop_asy) this
     COOP_REAL  x, y
     COOP_REAL ,optional::dy_minus, dy_plus, dx_minus, dx_plus
     COOP_UNKNOWN_STRING, optional::color
     if(present(color))then
-       call coop_asy_label(fp, "$\bullet$", x, y, color)
+       call coop_asy_label(this, "$\bullet$", x, y, color)
        if(present(dy_minus))then
-          call coop_asy_line(fp, x, y, x, y-dy_minus, linewidth = 1., color=color)
-          call coop_asy_label(fp, "-", x, y-dy_minus, color=color)
+          call coop_asy_line(this, x, y, x, y-dy_minus, linewidth = 1., color=color)
+          call coop_asy_label(this, "-", x, y-dy_minus, color=color)
        endif
        if(present(dy_plus))then
-          call coop_asy_line(fp, x, y, x, y+dy_plus, linewidth = 1., color= color)
-          call coop_asy_label(fp, "-", x, y+dy_plus, color=color)
+          call coop_asy_line(this, x, y, x, y+dy_plus, linewidth = 1., color= color)
+          call coop_asy_label(this, "-", x, y+dy_plus, color=color)
        endif
        if(present(dx_minus))then
-          call coop_asy_line(fp, x, y, x-dx_minus, y, linewidth = 1., color=color)
-          call coop_asy_label(fp, "{\tiny $|$}", x-dx_minus, y, color=color)
+          call coop_asy_line(this, x, y, x-dx_minus, y, linewidth = 1., color=color)
+          call coop_asy_label(this, "{\tiny $|$}", x-dx_minus, y, color=color)
        endif
        if(present(dx_plus))then
-          call coop_asy_line(fp, x, y, x+dx_plus, y, linewidth = 1., color=color)
-          call coop_asy_label(fp, "{\tiny $|$}", x+dx_plus, y, color=color)
+          call coop_asy_line(this, x, y, x+dx_plus, y, linewidth = 1., color=color)
+          call coop_asy_label(this, "{\tiny $|$}", x+dx_plus, y, color=color)
        endif
     else
-       call coop_asy_label(fp, "$\bullet$", x, y)
+       call coop_asy_label(this, "$\bullet$", x, y)
        if(present(dy_minus))then
-          call coop_asy_line(fp, x, y, x, y-dy_minus, linewidth = 1.)
-          call coop_asy_label(fp, "-", x, y-dy_minus)
+          call coop_asy_line(this, x, y, x, y-dy_minus, linewidth = 1.)
+          call coop_asy_label(this, "-", x, y-dy_minus)
        endif
        if(present(dy_plus))then
-          call coop_asy_line(fp, x, y, x, y+dy_plus, linewidth = 1.)
-          call coop_asy_label(fp, "-", x, y+dy_plus)
+          call coop_asy_line(this, x, y, x, y+dy_plus, linewidth = 1.)
+          call coop_asy_label(this, "-", x, y+dy_plus)
        endif
        if(present(dx_minus))then
-          call coop_asy_line(fp, x, y, x-dx_minus, y, linewidth = 1.)
-          call coop_asy_label(fp, "{\tiny $|$}", x-dx_minus, y)
+          call coop_asy_line(this, x, y, x-dx_minus, y, linewidth = 1.)
+          call coop_asy_label(this, "{\tiny $|$}", x-dx_minus, y)
        endif
        if(present(dx_plus))then
-          call coop_asy_line(fp, x, y, x+dx_plus, y, linewidth = 1.)
-          call coop_asy_label(fp, "{\tiny $|$}", x+dx_plus, y)
+          call coop_asy_line(this, x, y, x+dx_plus, y, linewidth = 1.)
+          call coop_asy_label(this, "{\tiny $|$}", x+dx_plus, y)
        endif
     endif
   end subroutine coop_asy_error_bar_d
 
-  subroutine coop_asy_error_bar_s(fp, x, y, dy_minus, dy_plus, dx_minus, dx_plus, color)
-    class(coop_asy) fp
+  subroutine coop_asy_error_bar_s(this, x, y, dy_minus, dy_plus, dx_minus, dx_plus, color)
+    class(coop_asy) this
     COOP_SINGLE  x, y
     COOP_SINGLE ,optional::dy_minus, dy_plus, dx_minus, dx_plus
     COOP_UNKNOWN_STRING, optional::color
     if(present(color))then
-       call coop_asy_label(fp, "$\bullet$", x, y, color)
+       call coop_asy_label(this, "$\bullet$", x, y, color)
        if(present(dy_minus))then
-          call coop_asy_line(fp, x, y, x, y-dy_minus, linewidth = 1., color=color)
-          call coop_asy_label(fp, "-", x, y-dy_minus, color=color)
+          call coop_asy_line(this, x, y, x, y-dy_minus, linewidth = 1., color=color)
+          call coop_asy_label(this, "-", x, y-dy_minus, color=color)
        endif
        if(present(dy_plus))then
-          call coop_asy_line(fp, x, y, x, y+dy_plus, linewidth = 1., color= color)
-          call coop_asy_label(fp, "-", x, y+dy_plus, color=color)
+          call coop_asy_line(this, x, y, x, y+dy_plus, linewidth = 1., color= color)
+          call coop_asy_label(this, "-", x, y+dy_plus, color=color)
        endif
        if(present(dx_minus))then
-          call coop_asy_line(fp, x, y, x-dx_minus, y, linewidth = 1., color=color)
-          call coop_asy_label(fp, "{\tiny $|$}", x-dx_minus, y, color=color)
+          call coop_asy_line(this, x, y, x-dx_minus, y, linewidth = 1., color=color)
+          call coop_asy_label(this, "{\tiny $|$}", x-dx_minus, y, color=color)
        endif
        if(present(dx_plus))then
-          call coop_asy_line(fp, x, y, x+dx_plus, y, linewidth = 1., color=color)
-          call coop_asy_label(fp, "{\tiny $|$}", x+dx_plus, y, color=color)
+          call coop_asy_line(this, x, y, x+dx_plus, y, linewidth = 1., color=color)
+          call coop_asy_label(this, "{\tiny $|$}", x+dx_plus, y, color=color)
        endif
     else
-       call coop_asy_label(fp, "$\bullet$", x, y)
+       call coop_asy_label(this, "$\bullet$", x, y)
        if(present(dy_minus))then
-          call coop_asy_line(fp, x, y, x, y-dy_minus, linewidth = 1.)
-          call coop_asy_label(fp, "-", x, y-dy_minus)
+          call coop_asy_line(this, x, y, x, y-dy_minus, linewidth = 1.)
+          call coop_asy_label(this, "-", x, y-dy_minus)
        endif
        if(present(dy_plus))then
-          call coop_asy_line(fp, x, y, x, y+dy_plus, linewidth = 1.)
-          call coop_asy_label(fp, "-", x, y+dy_plus)
+          call coop_asy_line(this, x, y, x, y+dy_plus, linewidth = 1.)
+          call coop_asy_label(this, "-", x, y+dy_plus)
        endif
        if(present(dx_minus))then
-          call coop_asy_line(fp, x, y, x-dx_minus, y, linewidth = 1.)
-          call coop_asy_label(fp, "{\tiny $|$}", x-dx_minus, y)
+          call coop_asy_line(this, x, y, x-dx_minus, y, linewidth = 1.)
+          call coop_asy_label(this, "{\tiny $|$}", x-dx_minus, y)
        endif
        if(present(dx_plus))then
-          call coop_asy_line(fp, x, y, x+dx_plus, y, linewidth = 1.)
-          call coop_asy_label(fp, "{\tiny $|$}", x+dx_plus, y)
+          call coop_asy_line(this, x, y, x+dx_plus, y, linewidth = 1.)
+          call coop_asy_label(this, "{\tiny $|$}", x+dx_plus, y)
        endif
     endif
   end subroutine coop_asy_error_bar_s
@@ -2975,8 +3001,8 @@ contains
 
 
 
-  subroutine coop_asy_band_d(fp, x, ylower, yupper, colorfill, smooth, linecolor, linetype, linewidth)
-    class(coop_asy) fp
+  subroutine coop_asy_band_d(this, x, ylower, yupper, colorfill, smooth, linecolor, linetype, linewidth)
+    class(coop_asy) this
     logical,optional::smooth
     COOP_REAL ,dimension(:),intent(IN)::x,ylower, yupper
     COOP_UNKNOWN_STRING,optional::colorfill
@@ -2985,12 +3011,12 @@ contains
     COOP_INT  i,n
     COOP_STRING lineproperty
     n = coop_getdim("coop_asy_contour", size(x), size(ylower), size(yupper))
-    write(fp%unit, "(A)") "CONTOUR"
-    write(fp%unit, "(A)") "1" !!type 1 contour
+    write(this%unit, "(A)") "CONTOUR"
+    write(this%unit, "(A)") "1" !!type 1 contour
     if(present(colorfill))then
-       write(fp%unit, "(A)") trim(colorfill)
+       write(this%unit, "(A)") trim(colorfill)
     else
-       write(fp%unit, "(A)") "lightgray"
+       write(this%unit, "(A)") "lightgray"
     endif
     if(present(linecolor).or. present(linetype).or.present(linewidth))then
        if(present(linecolor))then
@@ -3006,40 +3032,40 @@ contains
        if(present(linewidth))then
           lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
        endif
-       write(fp%unit, "(A)") trim(lineproperty)
+       write(this%unit, "(A)") trim(lineproperty)
     else
-       write(fp%unit, "(A)") "NULL"
+       write(this%unit, "(A)") "NULL"
     endif
     if(present(smooth))then
        if(smooth)then
-          write(fp%unit, "(A)") "1"
+          write(this%unit, "(A)") "1"
        else
-          write(fp%unit, "(A)") "0"
+          write(this%unit, "(A)") "0"
        endif
     else
-       write(fp%unit, "(A)") "0"  !!no smoothing by default
+       write(this%unit, "(A)") "0"  !!no smoothing by default
     endif
-    write(fp%unit, "(A)") "1"  !!1 path 
-    write(fp%unit, "(I8)") n*2
+    write(this%unit, "(A)") "1"  !!1 path 
+    write(this%unit, "(I8)") n*2
     if(x(2).gt. x(1))then
        do i = 1, n
-          call fp%write_coor(real(x(i), sp), real(ylower(i), sp))
+          call this%write_coor(real(x(i), sp), real(ylower(i), sp))
        enddo
        do i = n, 1, -1
-          call fp%write_coor(real(x(i), sp), real(yupper(i), sp))
+          call this%write_coor(real(x(i), sp), real(yupper(i), sp))
        enddo
     else
        do i = n, 1, -1
-          call fp%write_coor(real(x(i), sp), real(ylower(i), sp))
+          call this%write_coor(real(x(i), sp), real(ylower(i), sp))
        enddo
        do i = 1, n
-          call fp%write_coor(real(x(i), sp), real(yupper(i), sp))
+          call this%write_coor(real(x(i), sp), real(yupper(i), sp))
        enddo
     endif
   end subroutine coop_asy_band_d
 
-  subroutine coop_asy_band_s(fp, x, ylower, yupper, colorfill, smooth, linecolor, linetype, linewidth)
-    class(coop_asy) fp
+  subroutine coop_asy_band_s(this, x, ylower, yupper, colorfill, smooth, linecolor, linetype, linewidth)
+    class(coop_asy) this
     logical,optional::smooth
     COOP_SINGLE ,dimension(:),intent(IN)::x,ylower, yupper
     COOP_UNKNOWN_STRING,optional::colorfill
@@ -3048,12 +3074,12 @@ contains
     COOP_INT  i,n
     COOP_STRING lineproperty
     n = coop_getdim("coop_asy_contour", size(x), size(ylower), size(yupper))
-    write(fp%unit, "(A)") "CONTOUR"
-    write(fp%unit, "(A)") "1" !!type 1 contour
+    write(this%unit, "(A)") "CONTOUR"
+    write(this%unit, "(A)") "1" !!type 1 contour
     if(present(colorfill))then
-       write(fp%unit, "(A)") trim(colorfill)
+       write(this%unit, "(A)") trim(colorfill)
     else
-       write(fp%unit, "(A)") "lightgray"
+       write(this%unit, "(A)") "lightgray"
     endif
     if(present(linecolor).or. present(linetype).or.present(linewidth))then
        if(present(linecolor))then
@@ -3069,81 +3095,83 @@ contains
        if(present(linewidth))then
           lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
        endif
-       write(fp%unit, "(A)") trim(lineproperty)
+       write(this%unit, "(A)") trim(lineproperty)
     else
-       write(fp%unit, "(A)") "NULL"
+       write(this%unit, "(A)") "NULL"
     endif
     if(present(smooth))then
        if(smooth)then
-          write(fp%unit, "(A)") "1"
+          write(this%unit, "(A)") "1"
        else
-          write(fp%unit, "(A)") "0"
+          write(this%unit, "(A)") "0"
        endif
     else
-       write(fp%unit, "(A)") "0"  !!no smoothing by default
+       write(this%unit, "(A)") "0"  !!no smoothing by default
     endif
-    write(fp%unit, "(A)") "1"  !!1 path 
-    write(fp%unit, "(I8)") n*2
+    write(this%unit, "(A)") "1"  !!1 path 
+    write(this%unit, "(I8)") n*2
     if(x(2).gt. x(1))then
        do i = 1, n
-          call fp%write_coor(real(x(i), sp), real(ylower(i), sp))
+          call this%write_coor(real(x(i), sp), real(ylower(i), sp))
        enddo
        do i = n, 1, -1
-          call fp%write_coor(real(x(i), sp), real(yupper(i), sp))
+          call this%write_coor(real(x(i), sp), real(yupper(i), sp))
        enddo
     else
        do i = n, 1, -1
-          call fp%write_coor(real(x(i), sp), real(ylower(i), sp))
+          call this%write_coor(real(x(i), sp), real(ylower(i), sp))
        enddo
        do i = 1, n
-          call fp%write_coor(real(x(i), sp), real(yupper(i), sp))
+          call this%write_coor(real(x(i), sp), real(yupper(i), sp))
        enddo
     endif
   end subroutine coop_asy_band_s
 
-  function coop_asy_xrel(fp, xratio) result(xrel)
-    class(coop_asy)::fp
+  function coop_asy_xrel(this, xratio) result(xrel)
+    class(coop_asy)::this
     COOP_SINGLE  xratio
     COOP_SINGLE  xrel
-    if(fp%xlog)then
-       xrel = fp%xmax**xratio*fp%xmin**(1.d0-xratio)
+    if(this%xlog)then
+       xrel = this%xmax**xratio*this%xmin**(1.d0-xratio)
     else
-       xrel = xratio*fp%xmax + (1.d0-xratio)*fp%xmin
+       xrel = xratio*this%xmax + (1.d0-xratio)*this%xmin
     endif
   end function coop_asy_xrel
 
-  function coop_asy_yrel(fp, yratio) result(yrel)
-    class(coop_asy)::fp
+  function coop_asy_yrel(this, yratio) result(yrel)
+    class(coop_asy)::this
     COOP_SINGLE  yratio
     COOP_SINGLE  yrel
-    if(fp%ylog)then
-       yrel = fp%ymax**yratio*fp%ymin**(1.d0-yratio)
+    if(this%ylog)then
+       yrel = this%ymax**yratio*this%ymin**(1.d0-yratio)
     else
-       yrel = yratio*fp%ymax + (1.d0-yratio)*fp%ymin
+       yrel = yratio*this%ymax + (1.d0-yratio)*this%ymin
     endif
   end function coop_asy_yrel
-  
-  subroutine coop_asy_expand(fp, xl, xr, yl, yr)
-    class(coop_asy) fp
+
+
+  !!force adjusting boundary
+  subroutine coop_asy_expand(this, xl, xr, yl, yr)
+    class(coop_asy) this
     COOP_SINGLE xl, xr, yl, yr, dx, dy
-    write(fp%unit, "(A)") "EXPAND"
-    write(fp%unit, "(4G14.5)")  xl, xr, yl, yr
-    dx = fp%xmax - fp%xmin
-    dy = fp%ymax - fp%ymin
-    fp%xmin = fp%xmin - dx*xl
-    fp%xmax = fp%xmax + dx*xr
-    fp%ymin = fp%ymin - dy*yl
-    fp%ymax = fp%ymax + dy*yr
+    write(this%unit, "(A)") "EXPAND"
+    write(this%unit, "(4G14.5)")  xl, xr, yl, yr
+    dx = this%xmax - this%xmin
+    dy = this%ymax - this%ymin
+    this%xmin = this%xmin - dx*xl
+    this%xmax = this%xmax + dx*xr
+    this%ymin = this%ymin - dy*yl
+    this%ymax = this%ymax + dy*yr
   end subroutine coop_asy_expand
 
-  subroutine coop_asy_arrow_d(fp, xstart, ystart, xend, yend, color, linetype, linewidth)
-    class(coop_asy)::fp
+  subroutine coop_asy_arrow_d(this, xstart, ystart, xend, yend, color, linetype, linewidth)
+    class(coop_asy)::this
     COOP_REAL xstart, ystart, xend, yend
     COOP_UNKNOWN_STRING,optional:: color, linetype
     COOP_SINGLE ,optional::linewidth
     COOP_STRING lineproperty
-    write(fp%unit, "(A)") "ARROWS"
-    write(fp%unit, "(A)") "1"
+    write(this%unit, "(A)") "ARROWS"
+    write(this%unit, "(A)") "1"
     if(present(color))then
        lineproperty=trim(color)
     else
@@ -3157,18 +3185,18 @@ contains
     if(present(linewidth))then
        lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
     endif
-    write(fp%unit, "(A)") trim(lineproperty)
-    call fp%write_coor(real(xstart, sp), real(ystart, sp), real(xend, sp), real(yend, sp))    
+    write(this%unit, "(A)") trim(lineproperty)
+    call this%write_coor(real(xstart, sp), real(ystart, sp), real(xend, sp), real(yend, sp))    
   end subroutine coop_asy_arrow_d
 
-  subroutine coop_asy_arrow_s(fp, xstart, ystart, xend, yend, color, linetype, linewidth)
-    class(coop_asy)::fp
+  subroutine coop_asy_arrow_s(this, xstart, ystart, xend, yend, color, linetype, linewidth)
+    class(coop_asy)::this
     COOP_SINGLE xstart, ystart, xend, yend
     COOP_UNKNOWN_STRING,optional:: color, linetype
     COOP_SINGLE ,optional::linewidth
     COOP_STRING lineproperty
-    write(fp%unit, "(A)") "ARROWS"
-    write(fp%unit, "(A)") "1"
+    write(this%unit, "(A)") "ARROWS"
+    write(this%unit, "(A)") "1"
     if(present(color))then
        lineproperty=trim(color)
     else
@@ -3182,12 +3210,12 @@ contains
     if(present(linewidth))then
        lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
     endif
-    write(fp%unit, "(A)") trim(lineproperty)
-    call fp%write_coor(xstart, ystart, xend, yend)
+    write(this%unit, "(A)") trim(lineproperty)
+    call this%write_coor(xstart, ystart, xend, yend)
   end subroutine coop_asy_arrow_s
 
-  subroutine coop_asy_arrows_d(fp, n, xstart, ystart, xend, yend, color, linetype, linewidth)
-    class(coop_asy)::fp
+  subroutine coop_asy_arrows_d(this, n, xstart, ystart, xend, yend, color, linetype, linewidth)
+    class(coop_asy)::this
     COOP_INT n, i
     COOP_REAL xstart(n), ystart(n), xend(n), yend(n)
     COOP_UNKNOWN_STRING,optional:: color, linetype
@@ -3197,8 +3225,8 @@ contains
        write(*, '(A, I10)') "n = ", n
        stop "cannot plot so many arrows"
     endif
-    write(fp%unit, "(A)") "ARROWS"
-    write(fp%unit, "(I5)") n
+    write(this%unit, "(A)") "ARROWS"
+    write(this%unit, "(I5)") n
     if(present(color))then
        lineproperty=trim(color)
     else
@@ -3212,14 +3240,14 @@ contains
     if(present(linewidth))then
        lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
     endif
-    write(fp%unit, "(A)") trim(lineproperty)
+    write(this%unit, "(A)") trim(lineproperty)
     do i=1, n
-       call fp%write_coor(real(xstart(i), sp), real(ystart(i), sp), real(xend(i), sp), real(yend(i), sp))
+       call this%write_coor(real(xstart(i), sp), real(ystart(i), sp), real(xend(i), sp), real(yend(i), sp))
     enddo
   end subroutine coop_asy_arrows_d
   
-  subroutine coop_asy_arrows_s(fp, n, xstart, ystart, xend, yend, color, linetype, linewidth)
-    class(coop_asy)::fp
+  subroutine coop_asy_arrows_s(this, n, xstart, ystart, xend, yend, color, linetype, linewidth)
+    class(coop_asy)::this
     COOP_INT n, i
     COOP_SINGLE xstart(n), ystart(n), xend(n), yend(n)
     COOP_UNKNOWN_STRING,optional:: color, linetype
@@ -3229,8 +3257,8 @@ contains
        write(*, '(A, I10)') "n = ", n
        stop "cannot plot so many arrows"
     endif
-    write(fp%unit, "(A)") "ARROWS"
-    write(fp%unit, "(I5)") n
+    write(this%unit, "(A)") "ARROWS"
+    write(this%unit, "(I5)") n
     if(present(color))then
        lineproperty=trim(color)
     else
@@ -3244,9 +3272,9 @@ contains
     if(present(linewidth))then
        lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
     endif
-    write(fp%unit, "(A)") trim(lineproperty)
+    write(this%unit, "(A)") trim(lineproperty)
     do i=1, n
-       call fp%write_coor(xstart(i), ystart(i), xend(i), yend(i))
+       call this%write_coor(xstart(i), ystart(i), xend(i), yend(i))
     enddo
   end subroutine coop_asy_arrows_s
   
