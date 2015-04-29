@@ -28,20 +28,19 @@ module coop_forecast_mod
   end type coop_DataSet
 
   type, extends(coop_dataset):: coop_dataset_CMB_simple
-     COOP_REAL::zstar = 1089.d0
-     COOP_REAL::R_center = 1.7488
-     COOP_REAL::R_sigma = 0.0074
+     COOP_REAL::z_star = 1089.
      COOP_REAL::ombh2_center = 0.02228
-     COOP_REAL::ombh2_sigma = 0.00023
-     COOP_REAL::lA_center = 301.76
-     COOP_REAL::lA_sigma = 0.14
-     COOP_REAL::corr_R_ombh2 = -0.63
-     COOP_REAL::corr_R_lA = 0.54
-     COOP_REAL::corr_ombh2_lA = -0.43
+     COOP_REAL::ombh2_sigma = 0.00024
+     COOP_REAL::omch2_center = 0.1197
+     COOP_REAL::omch2_sigma = 0.0023
+     COOP_REAL::theta_center = 1.04085
+     COOP_REAL::theta_sigma = 0.00048
+     COOP_REAL::corr_ombh2_omch2 = -0.558
+     COOP_REAL::corr_ombh2_theta = 0.4675
+     COOP_REAL::corr_omch2_theta = -0.4562
      COOP_REAL::invcov(3,3)
      logical::has_invcov = .false.
    contains
-     procedure::set_R_center => coop_dataset_CMB_simple_set_R_center     
      procedure::loglike =>coop_dataset_CMB_simple_loglike
   end type coop_dataset_CMB_simple
 
@@ -249,7 +248,7 @@ contains
           return
        endif
        iloop = 0
-       do while(h_t - h_b .gt. 1.d-4)
+       do while(h_t - h_b .gt. 2.d-4)
           h_m = (h_t + h_b)/2.d0
           call calc_theta(h_m, theta_m)
           if(theta_m .gt. theta_want)then
@@ -266,6 +265,10 @@ contains
              return
           endif
        enddo
+       if((theta_t-theta_b).gt. 1.d-6)then
+          h_m = ((theta_t - theta_want)*h_b + (theta_want - theta_b)*h_t)/(theta_t-theta_b)
+          call setForH(h_m)
+       endif
     elseif(this%index_h .ne. 0)then
        call setForH(this%fullparams(this%index_h))
     else
@@ -684,50 +687,39 @@ contains
   function coop_dataset_CMB_simple_loglike(this, mcmc) result(loglike)
     class(coop_dataset_CMB_simple)::this
     type(coop_mcmc_params)::mcmc
-    COOP_REAL::loglike, vec(3), dA_star
+    COOP_REAL::loglike, vec(3)
     if(associated(mcmc%cosmology))then
        if(.not. this%has_invcov)then
-          this%invcov(1,1) = this%R_sigma**2
-          this%invcov(2,2) = this%ombh2_sigma**2
-          this%invcov(3,3) = this%lA_sigma**2
-          this%invcov(1,2) = this%R_sigma*this%ombh2_sigma*this%corr_R_ombh2
+          this%invcov(1,1) = this%ombh2_sigma**2
+          this%invcov(2,2) = this%omch2_sigma**2
+          this%invcov(3,3) = this%theta_sigma**2
+          this%invcov(1,2) = this%ombh2_sigma*this%omch2_sigma*this%corr_ombh2_omch2
           this%invcov(2,1) = this%invcov(1,2)
-          this%invcov(1,3) = this%R_sigma*this%lA_sigma*this%corr_R_lA
+          this%invcov(1,3) = this%ombh2_sigma*this%theta_sigma*this%corr_ombh2_theta
           this%invcov(3,1) = this%invcov(1,3)
-          this%invcov(2,3) = this%ombh2_sigma*this%lA_sigma*this%corr_ombh2_lA
+          this%invcov(2,3) = this%omch2_sigma*this%theta_sigma*this%corr_omch2_theta
           this%invcov(3,2) = this%invcov(2,3)
           call coop_matsym_inverse_small(3, this%invcov)
           this%has_invcov = .true.
        endif
-       dA_star = mcmc%cosmology%comoving_dA_of_z(mcmc%cosmology%z_star)
-       vec = (/ dA_star*sqrt(mcmc%cosmology%ombh2+mcmc%cosmology%omch2)/mcmc%cosmology%h() - this%R_center, &
-            mcmc%cosmology%ombh2 -this%ombh2_center, &
-            coop_pi*dA_star/mcmc%cosmology%r_star - this%lA_center /)
+       vec = (/ mcmc%cosmology%ombh2 -this%ombh2_center, &
+            mcmc%cosmology%omch2 - this%omch2_center,  &
+            100.d0*mcmc%cosmology%cosmomc_theta() - this%theta_center /)
        loglike = dot_product(vec, matmul(this%invcov, vec))/2.d0
+       if(mcmc%feedback.ge.3)write(*,*) vec, loglike
     else
-       loglike = ((coop_r_of_chi(coop_integrate(drz, 0.d0, this%zstar), MCMC_OMEGA_K)*sqrt(MCMC_OMEGA_M) - this%R_center)/this%R_sigma)**2/2.d0
+       stop "cannot use compressed CMB likelihood for models without cosmology"
     endif
     
-  contains
-    function drz(z)
-      COOP_REAL z, drz
-      drz = 1.d0/sqrt(MCMC_OMEGA_M*(1.d0+z)**3 + MCMC_OMEGA_K*(1.d0+z)**2 + MCMC_OMEGA_LAMBDA*(1.d0+z)**(3.d0*(1.d0+MCMC_W + MCMC_WA))*exp(-3.d0*MCMC_WA*z/(1.d0+z)) + 9.d-5*(1.d0+z)**4)  !!a fiducial Omega_r is put in here
-    end function drz
+!!$  contains
+!!$    function drz(z)
+!!$      COOP_REAL z, drz
+!!$      drz = 1.d0/sqrt(MCMC_OMEGA_M*(1.d0+z)**3 + MCMC_OMEGA_K*(1.d0+z)**2 + MCMC_OMEGA_LAMBDA*(1.d0+z)**(3.d0*(1.d0+MCMC_W + MCMC_WA))*exp(-3.d0*MCMC_WA*z/(1.d0+z)) + 9.d-5*(1.d0+z)**4)  !!a fiducial Omega_r is put in here
+!!$    end function drz
     
   end function coop_dataset_CMB_simple_loglike
 
 
-  subroutine coop_dataset_CMB_simple_set_R_center(this, Omega_m) 
-    class(coop_dataset_CMB_simple)::this
-    COOP_REAL Omega_m
-    this%R_center = coop_integrate(drz, 0.d0, this%zstar)*sqrt(omega_m)
-  contains
-    function drz(z)
-      COOP_REAL z, drz
-      drz = 1.d0/sqrt(Omega_m*(1.d0+z)**3 + (1.d0-Omega_m) + 9.d-5*(1.d0+z)**4)  !!a fiducial Omega_r is put in here
-    end function drz
-    
-  end subroutine coop_dataset_CMB_simple_set_R_center
   
   function coop_dataset_BAO_loglike(this, mcmc) result(loglike)
     class(coop_dataset_BAO)::this
@@ -1322,6 +1314,6 @@ contains
     loglike = (this%fullparams(1)/3.d0 - this%fullparams(2))**2/2.d0 &
          + (this%fullparams(3)/5.d0 - this%fullparams(4))**2/2.d0
   end function coop_MCMC_params_general_loglike
-  
+
 
 end module coop_forecast_mod  
