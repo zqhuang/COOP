@@ -171,6 +171,7 @@ module coop_forecast_mod
      COOP_INT::index_de_Q = 0
      COOP_INT::index_de_tracking_n = 0
      COOP_INT::index_de_dUdphi = 0
+     COOP_INT::index_de_epsv = 0     
      COOP_INT::index_de_dlnQdphi = 0
      COOP_INT::index_de_d2Udphi2 = 0
      COOP_INT::index_h = 0
@@ -352,7 +353,11 @@ contains
          if(this%index_de_dUdphi .ne. 0)then
             dUdphi = this%fullparams(this%index_de_dUdphi)
          else
-            dUdphi = 0.d0
+            if(this%index_de_epsv .ne. 0)then
+               dUdphi = sign(sqrt(abs(this%fullparams(this%index_de_epsv))), this%fullparams(this%index_de_epsv))
+            else
+               dUdphi = 0.d0
+            endif
          endif
          if(this%index_de_d2Udphi2 .ne. 0)then
             d2Udphi2 = this%fullparams(this%index_de_d2Udphi2)
@@ -1184,6 +1189,7 @@ contains
     this%index_de_Q = this%index_of("de_Q")
     this%index_de_tracking_n = this%index_of("de_tracking_n")
     this%index_de_dUdphi = this%index_of("de_dUdphi")
+    this%index_de_epsv = this%index_of("de_epsv")    
     this%index_de_dlnQdphi = this%index_of("de_dlnQdphi")
     this%index_de_d2Udphi2 = this%index_of("de_d2Udphi2")
     this%index_h = this%index_of("h")

@@ -18,7 +18,7 @@ program test
   COOP_UNKNOWN_STRING, parameter::planckdata_path2 =   "/home/zqhuang/includes/planck13/data" 
   COOP_INT i
   COOP_INT,parameter::total_steps = 20000
-  COOP_INT,parameter::update_freq = 1000
+  COOP_INT,parameter::update_freq = 2000
   logical do_update_propose 
   COOP_REAL::loglike
   call coop_MPI_init()
@@ -102,8 +102,8 @@ program test
      write(*,*) "-ln(likelihood) = ", loglike
   case("MCMC", "mcmc")
 
-!     mcmc%do_write_reject = .true.  !!for likelihood reconstruction
-     do_update_propose = (mcmc%settings%index("propose_matrix") .eq. 0)
+!!     mcmc%do_write_reject = .true.  !!for likelihood reconstruction
+     do_update_propose = (mcmc%settings%index("propose_matrix") .eq. 0 .or. trim(mcmc%settings%value("update_propose")).eq. "T")
      mcmc%do_memsave = do_update_propose
 
      !!do MCMC
