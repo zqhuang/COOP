@@ -7,10 +7,10 @@ module coop_forecast_mod
   implicit none
 #include "constants.h"
 
-#define MCMC_OMEGA_M mcmc%fullparams(1)
-#define MCMC_OMEGA_K mcmc%fullparams(2)
-#define MCMC_W    mcmc%fullparams(3)
-#define MCMC_WA    mcmc%fullparams(4)
+#define MCMC_OMEGA_M mcmc%fullparams(mcmc%index_omegam)
+#define MCMC_OMEGA_K mcmc%fullparams(mcmc%index_omegak)
+#define MCMC_W    mcmc%fullparams(mcmc%index_de_w)
+#define MCMC_WA    mcmc%fullparams(mcmc%index_de_wa)
 #define MCMC_OMEGA_LAMBDA  (1.d0 - MCMC_OMEGA_M - MCMC_OMEGA_K)  
 
   COOP_INT, parameter::coop_n_derived_with_cosmology = 4
@@ -111,6 +111,7 @@ module coop_forecast_mod
      logical::do_overwrite = .false.
      logical::do_fastslow = .false.
      logical::do_memsave = .true.
+     logical::do_general_loglike = .false.
      COOP_INT::n_fast = 0
      COOP_INT::index_fast_start = 0
      COOP_INT::n_slow = 0
@@ -168,7 +169,10 @@ module coop_forecast_mod
      COOP_INT::index_ns = 0
      COOP_INT::index_nrun = 0     
      COOP_INT::index_r = 0
-     COOP_INT::index_nt = 0     
+     COOP_INT::index_nt = 0
+     COOP_INT::index_omegam = 0
+     COOP_INT::index_omegab = 0     
+     COOP_INT::index_omegak = 0     
      COOP_INT::index_de_w = 0
      COOP_INT::index_de_wa = 0
      COOP_INT::index_de_Q = 0
@@ -190,7 +194,8 @@ module coop_forecast_mod
      procedure::get_lmax_from_data => coop_MCMC_params_get_lmax_from_data
      procedure::proposal_r => coop_MCMC_params_proposal_r
      procedure::propose_vec => coop_MCMC_params_propose_vec
-     procedure::propose_fast_vec => coop_MCMC_params_propose_fast_vec     
+     procedure::propose_fast_vec => coop_MCMC_params_propose_fast_vec
+     procedure::general_loglike => coop_MCMC_params_general_loglike
   end type coop_MCMC_params
 
 
@@ -229,7 +234,6 @@ contains
     COOP_INT::iloop
     COOP_REAL::h_t, h_b, h_m, theta_t, theta_b, theta_m, theta_want
     if(.not. associated(this%cosmology)) stop "MCMC_params_set_cosmology: cosmology not allocated"
-    if(this%feedback .ge. 3 .and. this%index_de_Q.ne.0)write(*,*) "computing cosmology on Node "//COOP_STR_OF(this%proc_id)
     if(this%index_theta .ne. 0)then
        theta_want = this%fullparams(this%index_theta)
        h_t = min(h_t_i, sqrt(this%fullparams(this%index_ombh2)+this%fullparams(this%index_omch2)/omega_m_min))
@@ -423,7 +427,11 @@ contains
           derived(4) = 0.d0
        endif
     else
-       derived(1) = 1.d0 - this%fullparams(1) - this%fullparams(2)
+       if(this%index_omegam .ne. 0 .and. this%index_omegak .ne. 0)then
+          derived(1) = 1.d0 - this%fullparams(this%index_omegam)- this%fullparams(this%index_omegak)
+       else
+          derived(1) = 0.d0
+       endif
     endif
   end function coop_MCMC_params_derived
 
@@ -551,7 +559,6 @@ contains
           call this%set_cosmology()
        endif
        this%loglike_proposed = pool%loglike(this)
-       if(this%feedback .ge. 3)write(*,*) "trial loglike on "//COOP_STR_OF(this%proc_id)//" is "//COOP_STR_OF(this%loglike_proposed)       
        if((this%loglike_proposed - this%loglike)/this%temperature .lt. coop_random_exp())then
           this%accept = this%accept + 1
           this%knot(1) = this%mult
@@ -839,28 +846,34 @@ contains
     COOP_REAL,dimension(:,:),allocatable::Cls
     !!Prior
     LogLike = mcmc%PriorLike()
-    if(LogLike .ge. coop_LogZero) return
-    !!Supernova
-    if(associated(this%SN_Simple))then
-       do i=1, size(this%SN_Simple)
-          LogLike = LogLike + this%SN_Simple(i)%LogLike(mcmc)
-          if(LogLike .ge. coop_LogZero) return          
-       enddo
-    endif
-    !!simple CMB
-    if(associated(this%CMB_Simple))then
-       LogLike = LogLike + this%CMB_Simple%LogLike(mcmc)
-       if(LogLike .ge. coop_LogZero) return                 
-    endif
-    LogLike = LogLike + this%HST%LogLike(mcmc)
     if(LogLike .ge. coop_LogZero) return    
-    LogLike = LogLike + this%SN_JLA%LogLike(mcmc)
-    if(LogLike .ge. coop_LogZero) return
-    LogLike = LogLike + this%BAO%LogLike(mcmc)
-    if(LogLike .ge. coop_LogZero) return    
-    !!CMB
-    LogLike = LogLike + this%CMB%LogLike(mcmc)
-    if(LogLike .ge. coop_LogZero) return
+    if(mcmc%do_general_loglike)then
+       loglike = LogLike + mcmc%general_loglike()
+       if(LogLike .ge. coop_LogZero) return           
+    else
+       !!Supernova
+       if(associated(this%SN_Simple))then
+          do i=1, size(this%SN_Simple)
+             LogLike = LogLike + this%SN_Simple(i)%LogLike(mcmc)
+             if(LogLike .ge. coop_LogZero) return          
+          enddo
+       endif
+
+       !!simple CMB
+       if(associated(this%CMB_Simple))then
+          LogLike = LogLike + this%CMB_Simple%LogLike(mcmc)
+          if(LogLike .ge. coop_LogZero) return                 
+       endif
+       LogLike = LogLike + this%HST%LogLike(mcmc)
+       if(LogLike .ge. coop_LogZero) return    
+       LogLike = LogLike + this%SN_JLA%LogLike(mcmc)
+       if(LogLike .ge. coop_LogZero) return
+       LogLike = LogLike + this%BAO%LogLike(mcmc)
+       if(LogLike .ge. coop_LogZero) return    
+       !!CMB
+       LogLike = LogLike + this%CMB%LogLike(mcmc)
+       if(LogLike .ge. coop_LogZero) return
+    endif
   end function coop_Data_Pool_LogLike
 
 
@@ -1005,6 +1018,12 @@ contains
     call this%paramnames%free()
     this%prefix = trim(adjustl(prefix))
     this%proc_id = coop_MPI_rank()
+    call coop_dictionary_lookup(this%settings, "general_loglike", this%do_general_loglike, .false.)
+  
+    call coop_dictionary_lookup(this%settings, "feedback", this%feedback, 1)  
+    if(this%do_general_loglike)then
+       if(associated(this%cosmology))nullify(this%cosmology)
+    endif
     if(associated(this%cosmology))then
        this%n_derived = coop_n_derived_with_cosmology
     else
@@ -1096,6 +1115,13 @@ contains
     this%prior_center = prior_center(this%used)
     this%has_prior = (this%prior_sigma .gt. 0.d0)
     this%any_prior = any(this%has_prior)
+    if(this%any_prior .and. this%feedback .ge. 1)then
+       do i=1, this%n
+          if(this%has_prior(i))then
+             write(*,*) "prior["//trim(this%name(this%map2used(i)))//"] = "//COOP_STR_OF(this%prior_center(i))//" +/- "//COOP_STR_OF(this%prior_sigma(i))
+          endif
+       enddo
+    endif
     this%covmat = 0.d0
     this%propose = 0.d0
     this%invcov = 0.d0
@@ -1215,9 +1241,9 @@ contains
     this%index_de_dlnQdphi = this%index_of("de_dlnQdphi")
     this%index_de_d2Udphi2 = this%index_of("de_d2Udphi2")
     this%index_h = this%index_of("h")
-
-    
-
+    this%index_omegam = this%index_of("omegam")
+    this%index_omegab = this%index_of("omegab")    
+    this%index_omegak = this%index_of("omegak")
   end subroutine coop_MCMC_params_init
 
   subroutine coop_MCMC_params_get_lmax_from_data(this, pool)
@@ -1286,6 +1312,16 @@ contains
        this%index_propose_fast = this%index_propose_fast + 1
     endif
   end function coop_MCMC_params_propose_fast_vec
+
+
+!!$++++++++++++++++  Define Your Own Likelihood ++++++++++++++++++++++++
+!!$set "mcmc_general = T" in ini file
+  function coop_MCMC_params_general_loglike(this) result(loglike)
+    class(coop_MCMC_params)::this
+    COOP_REAL::loglike
+    loglike = (this%fullparams(1)/3.d0 - this%fullparams(2))**2/2.d0 &
+         + (this%fullparams(3)/5.d0 - this%fullparams(4))**2/2.d0
+  end function coop_MCMC_params_general_loglike
   
 
 end module coop_forecast_mod  

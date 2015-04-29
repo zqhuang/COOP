@@ -18,20 +18,20 @@ module coop_statchains_mod
   integer::coop_postprocess_nbins = 0
   integer::coop_postprocess_num_contours = 2
 
-  type MCMC_chain
+  type coop_mcmc_chain
      COOP_STRING prefix, output
-     real bestlike, worstlike, totalmult, likecut(mcmc_stat_num_cls)
-     integer ibest, iworst
-     integer np
+     logical::do_preprocess = .false.
+     COOP_INT::np_used = 0
+     COOP_INT::np = 0
+     COOP_SINGLE:: bestlike, worstlike, totalmult, likecut(mcmc_stat_num_cls)
+     COOP_INT ibest, iworst
      COOP_SHORT_STRING,dimension(:),allocatable::name, simplename
      COOP_STRING,dimension(:),allocatable::label
-     real,dimension(:),allocatable::lower, upper, mean, std, plotlower, plotupper, dx, base !!plotlower and plotupper are used to make plots, with ~0 long tail truncated
+     COOP_SINGLE,dimension(:),allocatable::lower, upper, mean, std, plotlower, plotupper, dx, base !!plotlower and plotupper are used to make plots, with ~0 long tail truncated
      real,dimension(:,:),allocatable::lowsig, upsig
      logical,dimension(:),allocatable::vary, left_is_tail, right_is_tail
      integer,dimension(:),allocatable::map2used
      real,dimension(:,:),allocatable::covmat, corrmat, cov_used
-
-     integer np_used
      integer,dimension(:),allocatable::used
 
 
@@ -53,12 +53,82 @@ module coop_statchains_mod
      type(coop_dictionary) inputparams
      type(coop_dictionary) allparams
      type(coop_dictionary) usedparams
-  end type MCMC_chain
+
+     COOP_INT::index_epss = 0     
+     COOP_INT::index_ombh2 = 0
+     COOP_INT::index_omch2 = 0          
+     COOP_INT::index_theta = 0
+     COOP_INT::index_tau = 0
+     COOP_INT::index_mnu = 0
+     COOP_INT::index_logA = 0
+     COOP_INT::index_ns = 0
+     COOP_INT::index_nrun = 0     
+     COOP_INT::index_r = 0
+     COOP_INT::index_nt = 0
+     COOP_INT::index_omegam = 0
+     COOP_INT::index_omegab = 0     
+     COOP_INT::index_omegak = 0     
+     COOP_INT::index_de_w = 0
+     COOP_INT::index_de_wa = 0
+     COOP_INT::index_de_Q = 0
+     COOP_INT::index_de_tracking_n = 0
+     COOP_INT::index_de_dUdphi = 0
+     COOP_INT::index_de_epsv = 0     
+     COOP_INT::index_de_dlnQdphi = 0
+     COOP_INT::index_de_d2Udphi2 = 0
+     COOP_INT::index_h = 0
+     logical::index_set = .false.
+   contains
+     procedure:: export_stats => coop_mcmc_chain_export_stats
+     procedure::load => coop_mcmc_chain_load
+     procedure::analyze => coop_mcmc_chain_analyze
+     procedure::index_of => coop_mcmc_chain_index_of
+     procedure::all_index_of => coop_mcmc_chain_all_index_of     
+     procedure::set_indices => coop_mcmc_chain_set_indices
+     procedure::name2value => coop_mcmc_chain_name2value
+     procedure::getcosmomcparams =>  coop_mcmc_chain_getCosmoMCParams
+     procedure::preprocess => coop_mcmc_chain_preprocess
+  end type coop_mcmc_chain
 
 contains
 
-  subroutine load_chain(mc, prefix, ignore_percent)
-    type(MCMC_chain) mc
+  subroutine coop_mcmc_chain_set_indices(this)
+    class(coop_mcmc_chain)::this
+    this%index_set = .false.
+    this%index_epss = this%index_of("epss")
+    this%index_ombh2 = this%index_of("ombh2")
+    if(this%index_ombh2.eq.0)then
+       this%index_ombh2 = this%index_of("omegabh2")
+    endif
+    this%index_omch2 = this%index_of("omch2")
+    if(this%index_omch2 .eq.0 )then
+       this%index_omch2 = this%index_of("omegach2")
+    endif
+    this%index_theta = this%index_of("theta")
+    this%index_tau = this%index_of("tau")
+    this%index_logA = this%index_of("logA")
+    this%index_ns = this%index_of("ns")
+    this%index_mnu = this%index_of("mnu")                        
+    this%index_nrun = this%index_of("nrun")
+    this%index_r = this%index_of("r")
+    this%index_nt =      this%index_of("nt")
+    this%index_de_w = this%index_of("de_w")
+    this%index_de_wa = this%index_of("de_wa")
+    this%index_de_Q = this%index_of("de_Q")
+    this%index_de_tracking_n = this%index_of("de_tracking_n")
+    this%index_de_dUdphi = this%index_of("de_dUdphi")
+    this%index_de_epsv = this%index_of("de_epsv")    
+    this%index_de_dlnQdphi = this%index_of("de_dlnQdphi")
+    this%index_de_d2Udphi2 = this%index_of("de_d2Udphi2")
+    this%index_h = this%index_of("h")
+    this%index_omegam = this%index_of("omegam")
+    this%index_omegab = this%index_of("omegab")    
+    this%index_omegak = this%index_of("omegak")
+    this%index_set = .true.
+  end subroutine coop_mcmc_chain_set_indices
+
+  subroutine coop_mcmc_chain_load(mc, prefix, ignore_percent)
+    class(coop_mcmc_chain) mc
     COOP_UNKNOWN_STRING prefix
     integer,optional::ignore_percent
     integer nfiles, i, j, lens, k
@@ -84,7 +154,7 @@ contains
        endif
     enddo
     if(nfiles.eq.0)then
-       call coop_return_error("load_chain", trim(prefix)//"_1.txt is not found on the disk", "stop")
+       call coop_return_error("coop_mcmc_chain_load", trim(prefix)//"_1.txt is not found on the disk", "stop")
     else
        call coop_feedback( "found "//trim(coop_num2str(nfiles))//" chain files on the disk")
     endif
@@ -137,7 +207,8 @@ contains
 
        enddo
        call fp%close()
-       call coop_load_dictionary(trim(fname), mc%usedparams, col_key = 1, col_value = 2)       
+       call coop_load_dictionary(trim(fname), mc%usedparams, col_key = 1)
+       call mc%set_indices()
     else
        write(*,*) "paramnames file not found"
        stop
@@ -146,10 +217,10 @@ contains
        mc%simplename(i) = trim(coop_str_numalpha(mc%name(i)))
     enddo
     if(mc%do_extensions)then
-       cosmomc_de_index = max(all_index_of_name(mc, "meffsterile"), all_index_of_name(mc, "mnu"), all_index_of_name(mc, "omegak")) + 1
-       ind = min(all_index_of_name(mc, "logA"), all_index_of_name(mc, "ns"))
+       cosmomc_de_index = max(coop_mcmc_chain_all_index_of(mc, "meffsterile"), coop_mcmc_chain_all_index_of(mc, "mnu"), coop_mcmc_chain_all_index_of(mc, "omegak")) + 1
+       ind = min(coop_mcmc_chain_all_index_of(mc, "logA"), coop_mcmc_chain_all_index_of(mc, "ns"))
        cosmomc_de2pp_num_params = ind - cosmomc_de_index - cosmomc_de_num_params
-       cosmomc_pp_num_origin = all_index_of_name(mc, "Aphiphi") - ind + 1
+       cosmomc_pp_num_origin = coop_mcmc_chain_all_index_of(mc, "Aphiphi") - ind + 1
 
        call coop_dictionary_lookup(mc%inputparams, "inflation_consistency", cosmomc_pp_inflation_consistency, .true.)
 
@@ -195,22 +266,26 @@ contains
        call coop_feedback(" Warning: some lines seem to be broken. This could be caused by inconsistent ini files with checkpoint. Check your MCMC chains.")
     endif
     deallocate(nskip, nlines)
+    if(mc%do_preprocess)then
+       call coop_feedback( "Preprocessing ... ")
+       call mc%preprocess()
+    endif
     call coop_feedback( "Analysing the chain ... ")
-    call analyze_chain(mc)
+    call mc%analyze()
     call coop_feedback( "Chain analysed.")
     return
-120 call coop_return_error("load_chain", "bad line #"//trim(coop_num2str(j))//" in file #"//trim(coop_num2str(i)), "stop")
+120 call coop_return_error("coop_mcmc_chain_load", "bad line #"//trim(coop_num2str(j))//" in file #"//trim(coop_num2str(i)), "stop")
 300 call coop_return_error("load chain", "End of file during read. Line #"//trim(coop_num2str(j))//" in file #"//trim(coop_num2str(i))//". This should not happen unless you have manually added comment lines in to the chain file", "stop")
-  end subroutine load_chain
+  end subroutine coop_mcmc_chain_load
 
-  subroutine analyze_chain(mc)
+  subroutine coop_mcmc_chain_analyze(mc)
     integer,parameter::n_fine_bins = 2048
     real c(n_fine_bins), dx,  multcut, acc, maxc
     real,dimension(:),allocatable::c2dlist
-    type(mcmc_chain) mc
+    class(coop_mcmc_chain) mc
     integer ip, i, loc, j, j2, ip2, k, loc2, icl
     mc%totalmult = sum(mc%mult)
-    if(mc%totalmult .le. 0 .or. mc%n.eq.0) stop "analyze_chains: found no samples"
+    if(mc%totalmult .le. 0 .or. mc%n.eq.0) stop "coop_mcmc_chain_analyzes: found no samples"
 
     mc%ibest = 1
     mc%iworst = 1
@@ -449,10 +524,11 @@ contains
        enddo
     enddo
     deallocate(c2dlist)
-  end subroutine analyze_chain
+  end subroutine coop_mcmc_chain_analyze
 
 
-  subroutine export_stats(mc, output)
+  subroutine coop_mcmc_chain_export_stats(mc, output)
+    class(coop_mcmc_chain) mc    
     integer,parameter::nk = 71
     logical, parameter::doAsMarg = .true.
     logical,parameter::do_traj_cov = .true.
@@ -463,7 +539,6 @@ contains
     COOP_REAL,parameter::standard_ns = 0.967d0
     COOP_REAL,parameter::low_ell_cut = 50
     COOP_REAL,parameter::low_k_cut = low_ell_cut/distlss
-    type(mcmc_chain) mc
     COOP_STRING::allnames
     COOP_UNKNOWN_STRING output
     COOP_SHORT_STRING::rval=""
@@ -496,7 +571,7 @@ contains
 
     if(mc%do_extensions)then
        allocate(cosmomcParams(num_params))       
-       mean_lnAs = mc%mean(chain_index_of_name(mc, "logA"))       
+       mean_lnAs = mc%mean(mc%index_of("logA"))       
        call coop_feedback("Generating primordial power spectra trajectories")
        call fig_spec%open(trim(mc%output)//"_power_trajs.txt", "w")
        if(coop_postprocess_do_cls)then
@@ -519,7 +594,7 @@ contains
        clnps = 0
        clnpt = 0
        lnpscov = 0
-       call getCosmomcParams(mc, 1, CosmomcParams)
+       call coop_mcmc_chain_getCosmoMCParams(mc, 1, CosmomcParams)
        call coop_setup_cosmology_from_cosmomc(Cosmomcparams)
        call coop_setup_pp()
        numpp = cosmomc_pp_num_params - cosmomc_pp_num_origin + 1
@@ -558,7 +633,7 @@ contains
           else
              j = coop_random_index(mc%n)
           endif
-          call getCosmomcParams(mc, j, CosmomcParams)
+          call coop_mcmc_chain_getCosmoMCParams(mc, j, CosmomcParams)
           if(isam .le. num_cls_samples .and. coop_postprocess_do_cls)then
              hubble = mc%params(j, index_H)/100.
              write(*,"(A)") "Computing Cls #"//COOP_STR_OF(isam)//" / "//COOP_STR_OF(num_cls_samples)                 
@@ -734,7 +809,7 @@ contains
           call coop_asy_legend(fig_dcls, 45., 420., 1, box = .false.)
           call fig_dcls%close()
        endif
-       if(chain_index_of_name(mc, "r") .ne. 0)then
+       if(mc%index_of("r") .ne. 0)then
           call coop_asy_label(fig_spec,  "free $r$", 0.012, 8., "black")
        else
           rval = trim(mc%inputparams%value("param[r]"))
@@ -768,7 +843,7 @@ contains
           if(doAsMarg)then
              ind_highk = numpp - 1 - ind_lowk
              allocate(cov_lowk(ind_lowk, ind_lowk), cov_highk(numpp - ind_lowk-1, numpp - ind_lowk-1), shift_knots(numpp-1), cov_all(numpp-1, numpp-1))
-             index_pp = chain_index_of_name(mc, "pp1")
+             index_pp = mc%index_of("pp1")
              print*, "pp1 index = ", index_pp
              ind_highk = numpp-1-ind_lowk
              if(index_pp .ne. 0)then
@@ -1090,72 +1165,69 @@ contains
           enddo
        enddo
     endif
-  end subroutine export_stats
+  end subroutine coop_mcmc_chain_export_stats
 
 
-  subroutine getCosmoMCParams(mc, ind, Params)
-    integer nparams
-    type(mcmc_chain) mc
+  subroutine coop_mcmc_chain_getCosmoMCParams(this, ind, Params)
+    class(coop_mcmc_chain) this
     COOP_REAL  Params(:)
+    integer nparams    
     integer i, ind
     nparams = size(Params)
     do i = 1, nparams
-       params(i) = name2value(mc, ind,  trim(mc%allparams%key(i)))
+       params(i) = this%name2value(ind,  trim(this%allparams%key(i)))
     enddo
-  end subroutine getCosmoMCParams
+  end subroutine coop_mcmc_chain_getCosmoMCParams
 
 
-  function all_index_of_name(mc, name) result(ind)
-    type(mcmc_chain) mc
+  function coop_mcmc_chain_all_index_of(mc, name) result(ind)
+    class(coop_mcmc_chain) mc
     integer ind
     COOP_UNKNOWN_STRING name
     ind = mc%allparams%index(trim(name))
-  end function all_index_of_name
+  end function coop_mcmc_chain_all_index_of
 
 
-  function chain_index_of_name(mc, name) result(ind)
-    type(mcmc_chain) mc
+  function coop_mcmc_chain_index_of(this, name) result(ind)
+    class(coop_mcmc_chain) this
     COOP_UNKNOWN_STRING name
-    integer ind, ip
-    COOP_STRING sname
-    sname = trim(coop_str_numalpha(name))
-    if(trim(sname).eq."")then
-       ind = 0
-       return
-    endif
-    do ip = 1, mc%np
-       if(trim(sname).eq. trim(mc%simplename(ip)))then
-          ind = ip
-          return
-       endif
-    enddo
-    ind = 0
+    COOP_INT ind
+    ind = this%usedparams%index(trim(adjustl(name)))   
     return
-  end function chain_index_of_name
+  end function coop_mcmc_chain_index_of
 
-  subroutine chain_preprocess(mc)
-    type(mcmc_chain) mc
-  end subroutine chain_preprocess
-
-
-
-  function name2value(mc, isample, name) result(val)
-    type(mcmc_chain) mc
+  function coop_mcmc_chain_name2value(this, isample, name) result(val)
+    class(coop_mcmc_chain) this
     integer isample
     COOP_UNKNOWN_STRING name
     real val
     integer ind
     COOP_SHORT_STRING str
-    if(isample .le. 0 .or. isample .gt. mc%n)  stop "name2value: index overflow"
-    ind = chain_index_of_name(mc, name)
+    if(isample .le. 0 .or. isample .gt. this%n)  stop "coop_mcmc_chain_name2value: index overflow"
+    ind = this%index_of(name)
     if(ind.eq.0)then
-       str = mc%inputparams%value("param["//trim(name)//"]")
-       if(trim(str).eq."") stop "name2value: cannot find the name"
+       str = this%inputparams%value("param["//trim(name)//"]")
+       if(trim(str).eq."") stop "coop_mcmc_chain_name2value: cannot find the name"
        read(str, *) val
     else
-       val = mc%params( isample, ind )
+       val = this%params( isample, ind )
     end if
-  end function name2value
+  end function coop_mcmc_chain_name2value
+
+  subroutine coop_mcmc_chain_preprocess(this)
+    class(coop_mcmc_chain) this
+    COOP_INT::i
+    if(.not. this%do_preprocess) return
+    call coop_feedback("rescaling probability with sqrt(epsilon_s)")
+    if(this%index_epss .ne. 0 .and. this%index_de_dUdphi .ne. 0)then
+       do i=1, this%n
+          this%mult(i) = this%mult(i)*sqrt(this%params(i, this%index_epss))
+       enddo
+    endif
+       
+  end subroutine coop_mcmc_chain_preprocess
+
+
 
 
 

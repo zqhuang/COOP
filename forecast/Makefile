@@ -26,7 +26,7 @@ DOSN:	testSN.o $(OBJ)
 
 
 DOCLIK:	testclik.o $(OBJ)
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testclik.o $(LINK) 
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testclik.o $(LINK)
 
 STD6:	teststd6.o $(OBJ)
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) teststd6.o $(LINK) 

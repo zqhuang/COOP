@@ -17,7 +17,7 @@ program test
   COOP_UNKNOWN_STRING, parameter::planckdata_path = "../data/cmb/"
   COOP_UNKNOWN_STRING, parameter::planckdata_path2 =   "/home/zqhuang/includes/planck13/data" 
   COOP_INT i
-  COOP_INT,parameter::total_steps = 20000
+  COOP_INT,parameter::total_steps = 60000
   COOP_INT,parameter::update_freq = 2000
   logical do_update_propose 
   COOP_REAL::loglike
@@ -35,17 +35,6 @@ program test
   mcmc%cosmology => cosmology
   call mcmc%init(trim(inifile))
   mcmc%do_flush = .true.  !!do not buffer
-  call coop_dictionary_lookup(mcmc%settings, "use_CMB", use_CMB, .true.)
-  call coop_dictionary_lookup(mcmc%settings, "use_lensing", use_lensing, .true.)  
-  call coop_dictionary_lookup(mcmc%settings, "use_SN", use_SN, .true.)  
-  call coop_dictionary_lookup(mcmc%settings, "use_BAO", use_BAO, .true.)
-  call coop_dictionary_lookup(mcmc%settings, "use_HST", use_HST, .true.)
-  call coop_dictionary_lookup(mcmc%settings, "use_compressed_CMB", use_compressed_CMB, .false.)
-
-  call coop_dictionary_lookup(mcmc%settings, "action", action)
-  call coop_dictionary_lookup(mcmc%settings, "feedback", mcmc%feedback, 0)  
-  if(trim(action) .eq. "") action = "TEST"
-  
   if(mcmc%do_fastslow .and. coop_MPI_Rank().eq.0)then
      write(*,*) "doing fast-slow MCMC"
      write(*,*) "number of varying fast parameters:"//COOP_STR_OF(mcmc%n_fast)
@@ -54,51 +43,66 @@ program test
         mcmc%fast_per_round = 100
      endif
   endif
-  if(use_compressed_cmb .and. .not. use_CMB)then
-     pool%CMB_Simple => compressed_CMB
-  endif
 
-  !!BAO
-  if(use_BAO)then
-     call bao(1)%init("../data/bao/sdss_6DF_bao.dataset")
-     call bao(2)%init("../data/bao/sdss_MGS_bao.dataset")
-     call bao(3)%init("../data/bao/sdss_DR11LOWZ_bao.dataset")
-     call bao(4)%init("../data/bao/sdss_DR11CMASS_bao.dataset")     
-     pool%BAO%baolike => bao
-  endif
+  
+  call coop_dictionary_lookup(mcmc%settings, "action", action)
+  if(trim(action) .eq. "") action = "TEST"  
+  if(.not. mcmc%do_general_loglike)then
+     call coop_dictionary_lookup(mcmc%settings, "use_CMB", use_CMB, .true.)
+     call coop_dictionary_lookup(mcmc%settings, "use_lensing", use_lensing, .true.)  
+     call coop_dictionary_lookup(mcmc%settings, "use_SN", use_SN, .true.)  
+     call coop_dictionary_lookup(mcmc%settings, "use_BAO", use_BAO, .true.)
+     call coop_dictionary_lookup(mcmc%settings, "use_HST", use_HST, .true.)
+     call coop_dictionary_lookup(mcmc%settings, "use_compressed_CMB", use_compressed_CMB, .false.)
 
-  !!HST
-  if(use_HST) pool%HST%HSTlike => HSTlike
 
-  !!supernova  
-  if(use_SN)then
-     call jla%read("../data/jla/jla.dataset")
-     pool%SN_JLA%JLALike => jla
-  endif
 
-  if(use_CMB)then
-     if(coop_file_exists(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik"))then
-        call pl(1)%init(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik")
-        call pl(2)%init(trim(planckdata_path)//"/commander_v4.1_lm49.clik")
-        call pl(3)%init(trim(planckdata_path)//"/lowlike_v222.clik")
-        if(use_lensing)call pl(4)%init(trim(planckdata_path)//"/lensing_likelihood_v4_ref.clik_lensing")
-     else !!try another path
-        call pl(1)%init(trim(planckdata_path2)//"/CAMspec_v6.2TN_2013_02_26_dist.clik")
-        call pl(2)%init(trim(planckdata_path2)//"/commander_v4.1_lm49.clik")
-        call pl(3)%init(trim(planckdata_path2)//"/lowlike_v222.clik")
-         if(use_lensing)call pl(4)%init(trim(planckdata_path2)//"/lensing_likelihood_v4_ref.clik_lensing")        
-        
+     if(use_compressed_cmb .and. .not. use_CMB)then
+        pool%CMB_Simple => compressed_CMB
      endif
-     pool%CMB%cliklike => pl
+
+     !!BAO
+     if(use_BAO)then
+        call bao(1)%init("../data/bao/sdss_6DF_bao.dataset")
+        call bao(2)%init("../data/bao/sdss_MGS_bao.dataset")
+        call bao(3)%init("../data/bao/sdss_DR11LOWZ_bao.dataset")
+        call bao(4)%init("../data/bao/sdss_DR11CMASS_bao.dataset")     
+        pool%BAO%baolike => bao
+     endif
+
+     !!HST
+     if(use_HST) pool%HST%HSTlike => HSTlike
+
+     !!supernova  
+     if(use_SN)then
+        call jla%read("../data/jla/jla.dataset")
+        pool%SN_JLA%JLALike => jla
+     endif
+
+     if(use_CMB)then
+        if(coop_file_exists(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik"))then
+           call pl(1)%init(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik")
+           call pl(2)%init(trim(planckdata_path)//"/commander_v4.1_lm49.clik")
+           call pl(3)%init(trim(planckdata_path)//"/lowlike_v222.clik")
+           if(use_lensing)call pl(4)%init(trim(planckdata_path)//"/lensing_likelihood_v4_ref.clik_lensing")
+        else !!try another path
+           call pl(1)%init(trim(planckdata_path2)//"/CAMspec_v6.2TN_2013_02_26_dist.clik")
+           call pl(2)%init(trim(planckdata_path2)//"/commander_v4.1_lm49.clik")
+           call pl(3)%init(trim(planckdata_path2)//"/lowlike_v222.clik")
+           if(use_lensing)call pl(4)%init(trim(planckdata_path2)//"/lensing_likelihood_v4_ref.clik_lensing")        
+
+        endif
+        pool%CMB%cliklike => pl
+     endif
   endif
-
-
   select case(trim(action))
   case("TEST", "test")
      mcmc%params = mcmc%center
      mcmc%fullparams(mcmc%used) = mcmc%params
-     call mcmc%get_lmax_from_data(pool)
-     call mcmc%set_cosmology()
+     if(associated(mcmc%cosmology))then
+        call mcmc%get_lmax_from_data(pool)
+        call mcmc%set_cosmology()
+     endif        
      loglike = pool%loglike(mcmc)
      write(*,*) "-ln(likelihood) = ", loglike
   case("MCMC", "mcmc")
@@ -120,10 +124,8 @@ program test
            endif
         endif
         call mcmc%mcmc_step(pool)
-        if(mcmc%feedback .ge. 2)then
-           print*, "on Node ", coop_MPI_Rank(), ": step", i, " likelihood = ", mcmc%loglike
-        else
-           if(mod(i, 20).eq. 0) print*, "on Node ", coop_MPI_Rank(), ": step", i, " likelihood = ", mcmc%loglike           
+        if(.not. mcmc%do_general_loglike .and. mcmc%feedback .gt. 0)then
+           if(mod(i, 29/mcmc%feedback+1).eq. 0) print*, "on Node ", coop_MPI_Rank(), ": step", i, " likelihood = ", mcmc%loglike
         endif
      enddo
   case default

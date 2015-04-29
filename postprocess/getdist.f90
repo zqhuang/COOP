@@ -4,7 +4,7 @@ program getdist
   use coop_inifile_mod
   implicit none
 #include "constants.h"
-  type(mcmc_chain) mc
+  type(coop_mcmc_chain) mc
   logical error
   COOP_STRING fini, prefix, outdir, p, name1, name2
   COOP_LONG_STRING inline
@@ -24,6 +24,7 @@ program getdist
      stop
   endif
   prefix = ini_read_string("root", .false.)
+  mc%do_preprocess = ini_read_logical("preprocess", .false.)
   if(trim(prefix).eq."") stop "You need to specify the key 'root' in ini file"
   if(trim(Coop_InputArgs(2)).ne."")then
      prefix = trim(adjustl(coop_file_path_of(prefix)))//trim(adjustl(coop_inputArgs(2)))
@@ -51,7 +52,7 @@ program getdist
   bestfit_cl_file = ini_read_string("bestfit_cl_file", .false.)
   bestfit_run_file = ini_read_string("bestfit_run_file", .false.)
   bestfit_varytau_file = ini_read_string("bestfit_varytau_file", .false.)
-  call load_chain(mc, prefix, discard_percent)
+  call mc%load(prefix, discard_percent)
 
   inline = trim(adjustl(ini_read_string("want2d", .false.)))
   if(trim(inline).ne. "")then
@@ -62,8 +63,8 @@ program getdist
         if(j.eq.0)cycle
         name1 = trim(adjustl(p(1:j-1)))
         name2 = trim(adjustl(p(j+1:)))
-        ip1 = chain_index_of_name(mc, name1)
-        ip2 = chain_index_of_name(mc, name2)
+        ip1 = mc%index_of(name1)
+        ip2 = mc%index_of(name2)
         if(ip1 .gt. 0.and. ip2.gt.0)then
            ip1 = mc%map2used(ip1)
            ip2 = mc%map2used(ip2)
@@ -82,7 +83,7 @@ program getdist
      do i=1, sl%n
         call coop_list_get_element(sl, i, p)
         name1 = trim(adjustl(p))
-        ip1 = chain_index_of_name(mc, name1)
+        ip1 = mc%index_of(name1)
         if(ip1 .gt. 0)then
            ip1 = mc%map2used(ip1)
            if(ip1 .ne. 0) mc%want_1d_output(ip1) = .true.
@@ -99,7 +100,7 @@ program getdist
      if(allocated(mc%pca))deallocate(mc%pca)
      allocate(mc%pca(mc%np_pca))
      do i = 1, sl%n
-        mc%pca(i) = chain_index_of_name(mc, sl%element(i))
+        mc%pca(i) = mc%index_of(sl%element(i))
         if(mc%pca(i).eq.0)then
            write(*,*) "PCA name not matched"
            mc%np_pca = 0
@@ -115,7 +116,7 @@ program getdist
      enddo
      write(*,*) "Doing PCA for "//trim(inline)
   endif
-  call export_stats(mc, outdir)
+  call mc%export_stats(outdir)
   call coop_MPI_Finalize()
 end program getdist
 
