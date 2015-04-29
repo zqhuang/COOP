@@ -706,7 +706,6 @@ contains
             mcmc%cosmology%omch2 - this%omch2_center,  &
             100.d0*mcmc%cosmology%cosmomc_theta() - this%theta_center /)
        loglike = dot_product(vec, matmul(this%invcov, vec))/2.d0
-       if(mcmc%feedback.ge.3)write(*,*) vec, loglike
     else
        stop "cannot use compressed CMB likelihood for models without cosmology"
     endif
