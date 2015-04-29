@@ -43,6 +43,7 @@ program test
   call coop_dictionary_lookup(mcmc%settings, "use_compressed_CMB", use_compressed_CMB, .false.)
 
   call coop_dictionary_lookup(mcmc%settings, "action", action)
+  call coop_dictionary_lookup(mcmc%settings, "feedback", mcmc%feedback, 0)  
   if(trim(action) .eq. "") action = "TEST"
   
   if(mcmc%do_fastslow .and. coop_MPI_Rank().eq.0)then
@@ -119,7 +120,11 @@ program test
            endif
         endif
         call mcmc%mcmc_step(pool)
-        print*, "on Node ", coop_MPI_Rank(), ": step", i, " likelihood = ", mcmc%loglike
+        if(mcmc%feedback .ge. 2)then
+           print*, "on Node ", coop_MPI_Rank(), ": step", i, " likelihood = ", mcmc%loglike
+        else
+           if(mod(i, 20).eq. 0) print*, "on Node ", coop_MPI_Rank(), ": step", i, " likelihood = ", mcmc%loglike           
+        endif
      enddo
   case default
      print*, trim(action)

@@ -98,6 +98,7 @@ module coop_forecast_mod
 
   
   type coop_MCMC_params
+     COOP_INT::feedback = 0
      COOP_INT::proc_id = 0
      type(coop_cosmology_firstorder),pointer::cosmology => null()   
      type(coop_file)::chainfile
@@ -221,14 +222,18 @@ contains
   !!set up %cosmology from %fullparams
   subroutine coop_MCMC_params_Set_Cosmology(this)
     class(coop_MCMC_params)::this
+    COOP_REAL,parameter::omega_m_min = 0.1
+    COOP_REAL,parameter::omega_m_max = 0.9    
     COOP_REAL, parameter::h_b_i = 0.4d0
     COOP_REAL, parameter::h_t_i =  1.d0
+    COOP_INT::iloop
     COOP_REAL::h_t, h_b, h_m, theta_t, theta_b, theta_m, theta_want
     if(.not. associated(this%cosmology)) stop "MCMC_params_set_cosmology: cosmology not allocated"
+    if(this%feedback .ge. 3 .and. this%index_de_Q.ne.0)write(*,*) "computing cosmology on Node "//COOP_STR_OF(this%proc_id)
     if(this%index_theta .ne. 0)then
        theta_want = this%fullparams(this%index_theta)
-       h_t = h_t_i
-       h_b = h_b_i
+       h_t = min(h_t_i, sqrt(this%fullparams(this%index_ombh2)+this%fullparams(this%index_omch2)/omega_m_min))
+       h_b = max(h_b_i, sqrt(this%fullparams(this%index_ombh2)+this%fullparams(this%index_omch2)/omega_m_max))
        call calc_theta(h_t, theta_t)
        call calc_theta(h_b, theta_b)
        if(theta_t .lt. theta_want)then
@@ -239,6 +244,7 @@ contains
           call this%cosmology%set_h(0.d0)
           return
        endif
+       iloop = 0
        do while(h_t - h_b .gt. 1.d-4)
           h_m = (h_t + h_b)/2.d0
           call calc_theta(h_m, theta_m)
@@ -249,10 +255,13 @@ contains
              h_b = h_m
              theta_b = theta_m
           endif
+          iloop = iloop+1
+          if(iloop.gt. 20)then
+             call this%cosmology%set_h(0.d0)
+             if(this%feedback .ge. 1)write(*,*) "SetH on Node "//COOP_STR_OF(this%proc_id)//" failed"
+             return
+          endif
        enddo
-       if(abs(theta_m - theta_want).gt.1.d-7)then
-          call calc_theta((h_t*(theta_want - theta_b)+h_b*(theta_t - theta_want))/(theta_t - theta_b), theta_m)
-       endif
     elseif(this%index_h .ne. 0)then
        call setForH(this%fullparams(this%index_h))
     else
@@ -369,7 +378,7 @@ contains
          else
             d2Udphi2 = 0
          endif
-         call coop_background_add_coupled_DE(this%cosmology, Omega_c = this%cosmology%omch2/h**2, Q = Q, tracking_n =  tracking_n, dlnQdphi = dlnQdphi, dUdphi = dUdphi, d2Udphi2 = d2Udphi2)         
+         call coop_background_add_coupled_DE(this%cosmology, Omega_c = this%cosmology%omch2/h**2, Q = Q, tracking_n =  tracking_n, dlnQdphi = dlnQdphi, dUdphi = dUdphi, d2Udphi2 = d2Udphi2)
       else
          call this%cosmology%add_species(coop_cdm(this%cosmology%omch2/h**2))
          if(this%index_de_w .ne. 0)then
@@ -391,20 +400,19 @@ contains
   function  coop_MCMC_params_derived(this) result(derived)
     class(coop_MCMC_params)::this
     COOP_REAL:: derived(this%n_derived), phi, dlnVdphi, aeq, Q
-    COOP_INT::iloop
     if(associated(this%cosmology))then
        derived(1) = this%cosmology%h()*100.d0
        derived(2) = this%cosmology%Omega_m
        derived(3) = 1.d0 - this%cosmology%Omega_m
        if(O0_DE(this%cosmology)%genre .eq. COOP_SPECIES_COUPLED)then
           aeq = 1.d0
-          do while(O0_DE(this%cosmology)%density(aeq) .gt. O0_CDM(this%cosmology)%density(aeq) .and. aeq .gt. 0.1)
+          do while(O0_DE(this%cosmology)%density(aeq) .gt. O0_CDM(this%cosmology)%density(aeq) .and. aeq .gt. 0.2)
              aeq = aeq*0.95
           enddo
           do while(O0_DE(this%cosmology)%density(aeq) .le. O0_CDM(this%cosmology)%density(aeq) .and. aeq .lt. 0.98)
              aeq = aeq*1.01
           enddo
-          do while(O0_DE(this%cosmology)%density(aeq) .gt. O0_CDM(this%cosmology)%density(aeq) .and. aeq .gt. 0.1)
+          do while(O0_DE(this%cosmology)%density(aeq) .gt. O0_CDM(this%cosmology)%density(aeq) .and. aeq .gt. 0.2)
              aeq = aeq*0.995
           enddo
           phi = O0_DE(this%cosmology)%DE_phi(aeq)
@@ -423,6 +431,7 @@ contains
     class(coop_MCMC_params)::this
     COOP_INT::i, istart, i1, i2
     COOP_REAL::mean(this%n), cov(this%n, this%n), mult, diff(this%n)
+    if(this%feedback .ge. 2)write(*,*) "updating propose matrix on Node "//COOP_STR_OF(this%proc_id)
     if(.not. this%do_memsave)stop "cannot update propose matrix when do_memsave is off"
     if(this%chain%n .lt. 20)return
     istart =  this%chain%n/4
@@ -458,8 +467,7 @@ contains
     if(this%do_fastslow)then
        this%propose_fast = this%invcov(this%index_fast_start:this%n, this%index_fast_start:this%n)
        call coop_matsym_power(this%propose_fast, -0.5d0, mineig = 1.d-15)
-    endif
-    
+    endif    
   end subroutine coop_MCMC_params_update_Propose
 
 
@@ -543,6 +551,7 @@ contains
           call this%set_cosmology()
        endif
        this%loglike_proposed = pool%loglike(this)
+       if(this%feedback .ge. 3)write(*,*) "trial loglike on "//COOP_STR_OF(this%proc_id)//" is "//COOP_STR_OF(this%loglike_proposed)       
        if((this%loglike_proposed - this%loglike)/this%temperature .lt. coop_random_exp())then
           this%accept = this%accept + 1
           this%knot(1) = this%mult
