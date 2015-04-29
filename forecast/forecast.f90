@@ -152,6 +152,7 @@ module coop_forecast_mod
      COOP_REAL,dimension(:),allocatable::params_saved
      COOP_SINGLE, dimension(:),allocatable::knot
      COOP_REAL,dimension(:,:),allocatable::propose_fast
+     COOP_REAL,dimension(:),allocatable::derived_params
      type(coop_list_realarr)::chain
      type(coop_dictionary)::paramnames
      COOP_INT::accept, reject
@@ -500,8 +501,9 @@ contains
                    write(*,*) "continuing "//COOP_STR_OF(this%chain%n)//" lines from file "//trim(this%chainname)
                    if(.not. this%do_memsave) call this%chain%init()
                    if(associated(this%cosmology))then
-                      call this%set_cosmology()
+                      call this%set_cosmology()                      
                    endif
+                   this%derived_params = this%derived()                   
                 else
                    this%do_overwrite = .true.
                 endif
@@ -514,6 +516,8 @@ contains
              if(associated(this%cosmology))then
                 call this%set_cosmology()
              endif
+             this%derived_params = this%derived()
+             this%mult = 1.d0
              this%loglike = pool%LogLike(this)
              this%bestparams = this%params
              this%bestlike = this%loglike
@@ -544,11 +548,12 @@ contains
                call this%chain%push(this%knot)          
           if(this%chainfile%unit .ne. 0)then
              if(this%do_write_chain)then
-                write(this%chainfile%unit, trim(this%form)) this%knot, this%derived()
+                write(this%chainfile%unit, trim(this%form)) this%knot, this%derived_params
                 if(this%do_flush)call flush(this%chainfile%unit)
              endif
           endif
           this%loglike = this%loglike_proposed
+          this%derived_params = this%derived()          
           this%mult  = 1.d0
           if(this%loglike .lt. this%bestlike)then
              this%bestlike = this%loglike
@@ -991,6 +996,8 @@ contains
     else
        this%n_derived = coop_n_derived_without_cosmology       
     endif
+    if(allocated(this%derived_params))deallocate(this%derived_params)
+    allocate(this%derived_params(this%n_derived))
     paramnames = this%settings%value("paramnames")
     if(trim(paramnames).eq."")then
        write(*,*) "MCMC_params_init: you need to have an entry paramnames = ... in the ini file "//trim(ini)
