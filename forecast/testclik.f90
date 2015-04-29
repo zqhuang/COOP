@@ -108,7 +108,6 @@ program test
 
      !!do MCMC
      do i = 1, total_steps
-        if(i.lt. 20 .or. mod(i, 10) .eq. 0) print*, "on Node ", coop_MPI_Rank(), ": step", i, " likelihood = ", mcmc%loglike
         if(do_update_propose)then
            if(mod(i, update_freq).eq.0)then
               call mcmc%update_propose()
@@ -120,6 +119,7 @@ program test
            endif
         endif
         call mcmc%mcmc_step(pool)
+        print*, "on Node ", coop_MPI_Rank(), ": step", i, " likelihood = ", mcmc%loglike
      enddo
   case default
      print*, trim(action)

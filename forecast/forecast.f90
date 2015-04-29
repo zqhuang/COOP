@@ -142,6 +142,7 @@ module coop_forecast_mod
      COOP_REAL,dimension(:),allocatable::center
      COOP_REAL,dimension(:),allocatable::width
      logical,dimension(:),allocatable::has_prior
+     logical::any_prior = .false.
      COOP_REAL,dimension(:),allocatable::prior_sigma     
      COOP_REAL,dimension(:),allocatable::prior_center     
      COOP_REAL,dimension(:,:),allocatable::covmat
@@ -210,8 +211,11 @@ contains
     if(associated(this%cosmology))then
        if(this%cosmology%h().lt. 0.01d0)return
     endif
-        
-    Prior = sum(((this%params - this%prior_center)/this%prior_sigma)**2, mask = this%has_prior)/2.d0
+    if(this%any_prior)then
+       Prior = sum(((this%params - this%prior_center)/this%prior_sigma)**2, mask = this%has_prior)/2.d0
+    else
+       prior = 0.d0
+    endif
   end function coop_MCMC_params_priorLike
 
   !!set up %cosmology from %fullparams
@@ -387,19 +391,20 @@ contains
   function  coop_MCMC_params_derived(this) result(derived)
     class(coop_MCMC_params)::this
     COOP_REAL:: derived(this%n_derived), phi, dlnVdphi, aeq, Q
+    COOP_INT::iloop
     if(associated(this%cosmology))then
        derived(1) = this%cosmology%h()*100.d0
        derived(2) = this%cosmology%Omega_m
        derived(3) = 1.d0 - this%cosmology%Omega_m
        if(O0_DE(this%cosmology)%genre .eq. COOP_SPECIES_COUPLED)then
           aeq = 1.d0
-          do while(O0_DE(this%cosmology)%density(aeq) .gt. O0_CDM(this%cosmology)%density(aeq))
+          do while(O0_DE(this%cosmology)%density(aeq) .gt. O0_CDM(this%cosmology)%density(aeq) .and. aeq .gt. 0.1)
              aeq = aeq*0.95
           enddo
-          do while(O0_DE(this%cosmology)%density(aeq) .le. O0_CDM(this%cosmology)%density(aeq))
+          do while(O0_DE(this%cosmology)%density(aeq) .le. O0_CDM(this%cosmology)%density(aeq) .and. aeq .lt. 0.98)
              aeq = aeq*1.01
           enddo
-          do while(O0_DE(this%cosmology)%density(aeq) .gt. O0_CDM(this%cosmology)%density(aeq))
+          do while(O0_DE(this%cosmology)%density(aeq) .gt. O0_CDM(this%cosmology)%density(aeq) .and. aeq .gt. 0.1)
              aeq = aeq*0.995
           enddo
           phi = O0_DE(this%cosmology)%DE_phi(aeq)
@@ -1081,6 +1086,7 @@ contains
     this%prior_sigma = prior_sigma(this%used)
     this%prior_center = prior_center(this%used)
     this%has_prior = (this%prior_sigma .gt. 0.d0)
+    this%any_prior = any(this%has_prior)
     this%covmat = 0.d0
     this%propose = 0.d0
     this%invcov = 0.d0
