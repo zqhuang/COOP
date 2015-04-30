@@ -605,7 +605,7 @@ contains
     end select
 
     if(.not. this%do_general_loglike .and. this%feedback .gt. 0)then
-       if(mod(i, 29/this%feedback+1).eq. 0)then
+       if(mod(this%accept+this%reject, 29/this%feedback+1).eq. 0)then
           write(*,*) "on Node "//COOP_STR_OF(coop_MPI_Rank())//": step "//COOP_STR_OF(this%accept + this%reject)//", likelihood = "//COOP_STR_OF(this%loglike)//", accept ratio = "//COOP_STR_OF(dble(this%accept)/(this%accept+this%reject))
 
        endif
