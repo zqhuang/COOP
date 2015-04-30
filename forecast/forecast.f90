@@ -445,12 +445,12 @@ contains
   subroutine coop_MCMC_params_update_Propose(this)
     class(coop_MCMC_params)::this
     COOP_INT::i, istart, i1, i2
-    COOP_REAL::mean(this%n), cov(this%n, this%n), mult, diff(this%n)
+    COOP_REAL:: mult, diff(this%n)
     this%time = nint(coop_systime_sec())
     if(this%time .lt. this%update_seconds )return
     if(this%feedback .ge. 2)write(*,*) "updating propose matrix on Node "//COOP_STR_OF(this%proc_id)
     if(.not. this%do_memsave)stop "cannot update propose matrix when do_memsave is off"
-    call this%covmat%alloc(this%n)  !!set sigma = 1 and the rest 0  
+    call this%covmat%alloc(this%n)  !!set sigma = 1 and the rest 0
     if(this%chain%n .ge. 10)then
        istart =  this%chain%n/2  !!use the second half of the chain
        do i = istart, this%chain%n  
@@ -458,15 +458,20 @@ contains
           this%covmat%mult  = this%covmat%mult + this%knot(1)
           this%covmat%mean = this%covmat%mean + this%knot(1)*this%knot(3:this%n+2)
        enddo
-       if(this%covmat%mult .gt. 0.d0)then
+       if(this%covmat%mult .gt. 1.d-2)then
           this%covmat%mean = this%covmat%mean / this%covmat%mult
           do i = istart, this%chain%n  
              call this%chain%get_element(i, this%knot)
-             diff  = this%knot(3:this%n+2)  - mean
+             diff  = this%knot(3:this%n+2)  - this%covmat%mean
              do i1 = 1, this%n
                 do i2 = 1, i1
                    this%covmat%c(i1, i2) = this%covmat%c(i1, i2) + diff(i1)*diff(i2)*this%knot(1)
                 enddo
+             enddo
+          enddo
+          do i1 = 1, this%n
+             do i2 = 1, i1 -1         
+                this%covmat%c(i2, i1) = this%covmat%c(i1, i2)
              enddo
           enddo
           this%covmat%c = this%covmat%c/this%covmat%mult

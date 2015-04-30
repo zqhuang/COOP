@@ -1382,7 +1382,7 @@ contains
     enddo
     deallocate(info)
     
-    if(this%mult .gt. 0.d0)then
+    if(this%mult .gt. 1.d-2)then
        this%mean = this%mean/this%mult
        this%c = this%c/this%mult
        call this%normalize()
