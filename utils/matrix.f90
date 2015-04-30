@@ -1370,12 +1370,9 @@ contains
     enddo
     info(2:n) = info(2:n)*info(1)
     call coop_MPI_Sum(info)
-    if(info(1) .gt. 0.d0)then
-       info(2:n) = info(2:n)/info(1)
-    endif
+    this%mult = info(1)
     this%sigma = 1
     this%mean = info(2:this%n+1)
-    this%mult = info(1)
     ii = this%n + 1    
     do i=1, this%n
        do j = 1, i
@@ -1384,7 +1381,12 @@ contains
        enddo
     enddo
     deallocate(info)
-    call this%normalize()
+    
+    if(this%mult .gt. 0.d0)then
+       this%mean = this%mean/this%mult
+       this%c = this%c/this%mult
+       call this%normalize()
+    endif
 #endif    
   end subroutine coop_covmat_MPI_sync
   
