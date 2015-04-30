@@ -104,25 +104,8 @@ program test
      loglike = pool%loglike(mcmc)
      write(*,*) "-ln(likelihood) = ", loglike
   case("MCMC", "mcmc")
-
-!!     mcmc%do_write_reject = .true.  !!for likelihood reconstruction
-
-     !!do MCMC
      do i = 1, total_steps
-        if(do_update_propose)then
-           if(mod(i, update_freq).eq.0)then
-              call mcmc%update_propose()
-           endif
-           if(i .gt. total_steps/3)then
-              do_update_propose = .false.
-              call mcmc%chain%init()
-              mcmc%do_memsave = .false.
-           endif
-        endif
         call mcmc%mcmc_step(pool)
-        if(.not. mcmc%do_general_loglike .and. mcmc%feedback .gt. 0)then
-           if(mod(i, 29/mcmc%feedback+1).eq. 0) print*, "on Node ", coop_MPI_Rank(), ": step", i, " likelihood = ", mcmc%loglike
-        endif
      enddo
   case default
      print*, trim(action)
