@@ -486,6 +486,7 @@ contains
        if(this%do_fastslow)then
           this%mapping_fast = this%mapping(this%index_fast_start:this%n, this%index_fast_start:this%n)
        endif
+       if(this%feedback .ge. 2)write(*,*) "propose matrix is updated on Node "//COOP_STR_OF(this%proc_id)       
     endif
   end subroutine coop_MCMC_params_update_Propose
 
