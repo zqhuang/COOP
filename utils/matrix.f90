@@ -1371,7 +1371,7 @@ contains
     info(2:n) = info(2:n)*info(1)
     call coop_MPI_Sum(info)
     this%mult = info(1)
-    this%sigma = 1
+    this%sigma = 1.d0
     this%mean = info(2:this%n+1)
     ii = this%n + 1    
     do i=1, this%n
