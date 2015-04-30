@@ -5,6 +5,8 @@
   COOP_REAL, parameter:: coop_logInfinity = log(coop_Infinity)
   COOP_REAL, parameter:: coop_logTiny = - coop_logInfinity
 
+  COOP_INT, parameter::coop_tmp_file_unit = 9
+
 
   COOP_REAL, parameter:: coop_primordial_zeta_norm = 1.d0
 
@@ -24,3 +26,4 @@
   COOP_INT, parameter:: coop_max_num_PP_params = 32
 
 
+  

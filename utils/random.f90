@@ -4,8 +4,53 @@ module coop_random_mod
   implicit none
 #include "constants.h"
 
+  type coop_random_cycl
+     COOP_INT::n = 0
+     COOP_INT::loc = 0     
+     COOP_INT, dimension(:), allocatable::ind
+   contains
+     procedure::init => coop_random_cycl_init
+     procedure::free => coop_random_cycl_free
+     procedure::next => coop_random_cycl_next
+  end type coop_random_cycl
+
 contains
 
+  subroutine coop_random_cycl_free(this)
+    class(coop_random_cycl)::this
+    if(allocated(this%ind))deallocate(this%ind)
+    this%n = 0
+    this%loc = 1
+  end subroutine coop_random_cycl_free
+
+  subroutine coop_random_cycl_init(this, n)
+    class(coop_random_cycl)::this
+    COOP_INT, optional::n
+    COOP_INT::i, j, tmp
+    if(present(n))then
+       if(this%n .ne. n)then
+          if(allocated(this%ind))deallocate(this%ind)
+          this%n = n
+          allocate(this%ind(n))
+       endif
+    endif
+    this%ind = (/ (i, i=1, this%n) /)
+    do i=1, this%n-1
+       tmp = this%ind(i)
+       j = coop_random_index(this%n - i) + i
+       this%ind(i) = this%ind(j)
+       this%ind(j) = tmp
+    enddo
+    this%loc = 1    
+  end subroutine coop_random_cycl_init
+
+  function coop_random_cycl_next(this) result(next)
+    class(coop_random_cycl)::this
+    COOP_INT next
+    next = this%ind(this%loc)
+    this%loc = this%loc + 1
+    if(this%loc .gt. this%n)call this%init()  !!initialize new random indices
+  end function coop_random_cycl_next
 
   subroutine Coop_random_Init(i)
     COOP_INT,optional::i

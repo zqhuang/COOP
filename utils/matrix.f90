@@ -4,16 +4,35 @@ module coop_matrix_mod
   use coop_wrapper_typedef
   use coop_sort_mod
   use coop_sortrev_mod
+  use coop_MPI_mod
   implicit none
 
 #include "constants.h"
 
   private
 
-  public::coop_write_matrix, coop_print_matrix, coop_read_matrix, coop_set_identity_matrix, coop_identity_matrix, coop_diagonal_matrix, coop_matrix_add_diagonal, coop_matrix_sum_columns,  coop_matrix_solve_small,  Coop_matrix_Solve, Coop_matrix_Inverse, coop_matsym_xCx, coop_matrix_det_small,coop_matsym_mat2vec, coop_matsym_vec2mat, coop_matsym_inverse_small, Coop_matsym_Inverse, Coop_matsym_Diagonalize, coop_matsymdiag_small,  Coop_matsym_Sqrt,  coop_matsym_sqrt_small,  coop_matsym_power_small,  Coop_matsym_power,  coop_matsym_function, Coop_matsym_LnDet, Coop_matsym_Solve, coop_matsym_index, coop_matrix_sorted_svd
+  public::coop_write_matrix, coop_print_matrix, coop_read_matrix, coop_set_identity_matrix, coop_identity_matrix, coop_diagonal_matrix, coop_matrix_add_diagonal, coop_matrix_sum_columns,  coop_matrix_solve_small,  Coop_matrix_Solve, Coop_matrix_Inverse, coop_matsym_xCx, coop_matrix_det_small,coop_matsym_mat2vec, coop_matsym_vec2mat, coop_matsym_inverse_small, Coop_matsym_Inverse, Coop_matsym_Diagonalize, coop_matsymdiag_small,  Coop_matsym_Sqrt,  coop_matsym_sqrt_small,  coop_matsym_power_small,  Coop_matsym_power,  coop_matsym_function, Coop_matsym_LnDet, Coop_matsym_Solve, coop_matsym_index, coop_matrix_sorted_svd, coop_matsym_cholesky, coop_covmat
 
-  COOP_INT,parameter::dl = kind(1.d0)
-  COOP_INT,parameter::sp = kind(1.)
+  type coop_covmat   !!assume only lower triangle is saved in C; !!invC contains full matrix; L is lower triangle Cholesky, with zero filled.
+     COOP_INT::n = 0
+     COOP_REAL::mult = 0.d0
+     COOP_REAL,dimension(:,:),allocatable::C, invC, L
+     COOP_REAL,dimension(:),allocatable::mean, sigma
+   contains
+     procedure::free => coop_covmat_free
+     procedure::alloc => coop_covmat_alloc
+     procedure::diagonal => coop_covmat_diagonal
+     procedure::write => coop_covmat_write
+     procedure::read => coop_covmat_read
+     procedure::import => coop_covmat_import
+     procedure::export => coop_covmat_export
+     procedure::normalize => coop_covmat_normalize     
+     procedure::chi2 => coop_covmat_chi2
+     procedure::invert => coop_covmat_invert
+     procedure::Cholesky => coop_covmat_Cholesky
+     procedure::MPI_sync => coop_covmat_MPI_sync
+  end type coop_covmat
+
 
   interface coop_write_matrix
      module procedure coop_write_matrix_s, coop_write_matrix_d
@@ -75,7 +94,7 @@ contains
   Subroutine Coop_write_matrix_d(funit, mat,nx,ny)
     COOP_INT funit
     COOP_INT,optional::nx,ny
-    real(dl)  mat(:,:)
+    COOP_REAL  mat(:,:)
     COOP_INT i
     COOP_SHORT_STRING Form
     if(present(nx).and.present(ny))then
@@ -93,7 +112,7 @@ contains
 
   Subroutine coop_print_matrix_d(mat, nx, ny)
     COOP_INT,optional:: nx,ny
-    real(dl)  mat(:,:)
+    COOP_REAL  mat(:,:)
     COOP_INT i
     character(Len=128)Form
     if(present(nx).and.present(ny))then
@@ -112,7 +131,7 @@ contains
   Subroutine Coop_read_matrix_d(funit, nx, ny, mat, success)
     logical,optional::success
     COOP_INT funit,nx,ny
-    real(dl)  mat(nx,ny)
+    COOP_REAL  mat(nx,ny)
     COOP_INT i
     COOP_LONG_STRING line
     if(ny.gt. 256)then
@@ -145,7 +164,7 @@ contains
   Subroutine Coop_write_matrix_s(funit, mat,nx,ny)
     COOP_INT funit
     COOP_INT,optional::nx,ny
-    real(sp) mat(:,:)
+    COOP_SINGLE mat(:,:)
     COOP_INT i
     COOP_SHORT_STRING form
     if(present(nx).and.present(ny))then
@@ -163,7 +182,7 @@ contains
 
   Subroutine coop_print_matrix_s(mat, nx, ny)
     COOP_INT,optional:: nx,ny
-    real(sp) mat(:,:)
+    COOP_SINGLE mat(:,:)
     COOP_INT i
     COOP_SHORT_STRING form
     if(present(nx).and.present(ny))then
@@ -182,7 +201,7 @@ contains
   Subroutine Coop_read_matrix_s(funit,nx,ny,mat, success)
     logical,optional::success
     COOP_INT funit,nx,ny
-    real(sp) mat(nx,ny)
+    COOP_SINGLE mat(nx,ny)
     COOP_INT i
     COOP_LONG_STRING line
     if(ny.gt. 256)then
@@ -714,8 +733,8 @@ contains
 #ifdef HAS_LAPACK
        call dposv('L', n, 1, acopy, n, b, n, info)
 #else
-       call Coop_matrix_Cholesky(n,acopy)
-       call Coop_matrix_cholesky_solve(n,acopy,b)
+       call Coop_matsym_cholesky(n,acopy)
+       call Coop_matsym_cholesky_solve(n,acopy,b)
 #endif
     end select
   end subroutine coop_matsym_solve_small
@@ -729,9 +748,9 @@ contains
 #ifdef HAS_LAPACK
     call dposv('L', n, m, a, n, b, n, i)
 #else
-    call Coop_matrix_Cholesky(n,a)
+    call Coop_matsym_cholesky(n,a)
     do i=1,m
-       call Coop_matrix_cholesky_solve(n,a,b(:,i))
+       call Coop_matsym_cholesky_solve(n,a,b(:,i))
     enddo
 #endif
   End Subroutine Coop_matsym_Solve
@@ -1051,21 +1070,55 @@ contains
   !! decompose positive definit real symetric matrix A=LL^T,
   !! where elements of L satisfy L(i,j)=0 if j>i
   !! L is saved in A, A is destroyed
-  Subroutine Coop_matrix_cholesky(n, a)
+  subroutine coop_matsym_cholesky(n, a, mineig, zerofill)
     COOP_INT n, i, j
-    COOP_REAL  a(n,n)
-    a(1,1)=sqrt(a(1,1))
-    a(2:n,1)=A(2:n,1)/A(1,1)
-    do I=2,N
-       A(I,I)=sqrt(A(I,I)-sum(A(I,1:I-1)**2)) !!L(I,I) doNE
-       do J=I+1,N  !! NOW CALCULATE L(J,I), J>=I
-          A(J,I)=(A(J,I)-sum(A(J,1:I-1)*A(I,1:I-1)))/A(I,I)
-       enddo
-       A(1:I-1,I)=0.d0
+    COOP_REAL a(n, n)    
+    COOP_REAL,optional::mineig
+    COOP_REAL::s, stol
+    COOP_REAL::sigma(n)
+    logical, optional::zerofill
+    logical zf
+    if(present(zerofill))then
+       zf= zerofill
+    else
+       zf = .true.
+    endif
+    if(present(mineig))then
+       stol = mineig **2
+    else
+       stol = 1.d-30
+    endif
+    !$omp parallel do
+    do i=1, n
+       sigma(i) = sqrt(max(a(i,i), stol))
     enddo
-  end Subroutine Coop_matrix_cholesky
+    !$omp end parallel do
+    do i=1, n
+       a(i+1:n, i) = a(i+1:n, i)/sigma(i)
+       a(i, 1:i-1) = a(i, 1:i-1)/sigma(i)
+    enddo
+    a(1,1)= 1.d0
+    do  i =2 , n
+       s = 1.d0 - sum(A(i,1:i-1)**2)
+       if(s .lt. -stol)then
+          stop "matsym_cholesky: matrix is not positive definite"
+       else
+          s = max(s, stol)
+       endif
+       A(i, i)=sqrt(s) !!L(I,I) doNE
+       do j = i+1, n  !! NOW CALCULATE L(J,I), J>=I
+          a(j, i)=(A(j, i)-sum(a(j,1:i-1)*a(i,1:i-1)))/A(i,i)
+       enddo
+       if(zf)a(1:i-1,i)=0.d0
+    enddo
+    !$omp parallel do
+    do i=1, n
+       a(i, 1:i) = a(i, 1:i)*sigma(i)
+    enddo
+    !$omp end parallel do
+  end Subroutine Coop_matsym_cholesky
 
-  Subroutine Coop_matrix_cholesky_solve(n,a,b)
+  Subroutine Coop_matsym_cholesky_solve(n,a,b)
     COOP_INT N,i
     COOP_REAL  A(N,N),b(N)
     b(1)=b(1)/A(1,1)
@@ -1076,7 +1129,7 @@ contains
     do i=n-1,1,-1
        b(i)=(b(i)-sum(b(i+1:n)*A(i+1:n,i)))/A(i,i)
     enddo
-  end Subroutine Coop_matrix_cholesky_solve
+  end Subroutine Coop_matsym_cholesky_solve
 
   function coop_matsym_index(n, i, j) result(ind)
     COOP_INT n, i, j
@@ -1115,5 +1168,225 @@ contains
     !$omp end parallel do
   end subroutine coop_matrix_sorted_svd
 
+
+
+!!! covmat
+  subroutine coop_covmat_free(this)
+    class(coop_covmat)::this
+    this%n = 0
+    this%mult = 0.d0
+    if(allocated(this%mean))deallocate(this%mean)
+    if(allocated(this%sigma))deallocate(this%sigma)
+    if(allocated(this%C))deallocate(this%C)
+    if(allocated(this%invC))deallocate(this%invC)
+    if(allocated(this%L))deallocate(this%L)            
+  end subroutine coop_covmat_free
+
+  subroutine coop_covmat_alloc(this, n)
+    class(coop_covmat)::this
+    COOP_INT::n
+    if(this%n .eq. n)goto 100
+    call this%free()
+    this%n = n
+    allocate(this%mean(n), this%sigma(n), this%C(n, n), this%invC(n, n), this%L(n, n))
+100 this%mean = 0.d0
+    this%sigma = 1.d0
+    this%c = 0.d0
+    this%L = 0.d0
+    this%invc = 0.d0
+  end subroutine coop_covmat_alloc
+  
+  subroutine coop_covmat_export(this, filename)
+    class(coop_covmat)::this
+    COOP_UNKNOWN_STRING::filename
+    COOP_INT i
+    open(coop_tmp_file_unit, file = trim(adjustl(filename)), form='unformatted')
+    write(coop_tmp_file_unit) this%n
+    write(coop_tmp_file_unit) this%mean, this%sigma
+    do i=1, this%n
+       write(coop_tmp_file_unit) this%C(i+1:this%n, i)
+    enddo
+    close(coop_tmp_file_unit)
+  end subroutine coop_covmat_export
+
+  subroutine coop_covmat_import(this, filename)
+    class(coop_covmat)::this
+    COOP_UNKNOWN_STRING::filename    
+    COOP_INT::n, i
+    open(coop_tmp_file_unit, file = trim(adjustl(filename)), form="unformatted")
+    read(coop_tmp_file_unit, ERR=100, END=100) n
+    call this%alloc(n)
+    read(coop_tmp_file_unit, ERR=100, END=100)this%mean, this%sigma
+    do i=1, n
+       read(coop_tmp_file_unit, ERR = 100, END=100) this%C(i+1:n, i)
+       this%C(i, i) = 1.d0
+    enddo
+    close(coop_tmp_file_unit)
+    do i=2, this%n
+       this%c(1:i-1,i) = this%c(i, 1:i-1)
+    enddo    
+    call this%cholesky()
+    call this%invert()
+    return
+100 write(*,*) "file: "//trim(adjustl(filename))
+    stop "covmat_read: failed"
+  end subroutine coop_covmat_import
+
+
+  subroutine coop_covmat_write(this, unit)
+    class(coop_covmat)::this
+    COOP_INT::unit
+    COOP_INT i
+    write(unit,"(I10)") this%n
+    write(unit,"("//COOP_STR_OF(this%n)//"E16.7)") this%mean
+    write(unit, "("//COOP_STR_OF(this%n)//"E16.7)")this%sigma
+    do i=1, this%n
+       write(unit, "("//COOP_STR_OF(this%n-i)//"E16.7)") this%C(i+1:this%n, i)
+    enddo
+  end subroutine coop_covmat_write
+
+  subroutine coop_covmat_read(this, unit)
+    class(coop_covmat)::this
+    COOP_INT::unit
+    COOP_INT::n, i
+    read(unit,*, ERR=100, END=100) n
+    call this%alloc(n)
+    read(unit,*, ERR=100, END=100)this%mean, this%sigma
+    do i=1, n
+       read(unit,*, ERR = 100, END=100) this%C(i+1:n, i)
+       this%c(i,i) = 1.d0
+    enddo
+    do i=2, this%n
+       this%c(1:i-1,i) = this%c(i, 1:i-1)
+    enddo    
+    call this%cholesky()
+    call this%invert()    
+    return
+100 stop "covmat_read: failed"
+  end subroutine coop_covmat_read
+  
+
+  subroutine coop_covmat_invert(this)
+    class(coop_covmat)::this
+    COOP_INT i,j    
+    this%invC = this%L
+    !!invert L
+    do  i=1, this%n
+       this%invC(i,i)=1./this%invC(i, i)
+       do  j=i+1,this%n
+          this%invC(j,i)=-dot_product(this%invC(j,i:j-1), this%invC(i:j-1,i))/this%invC(j, j)
+       enddo
+    enddo
+    !!compute C^{-1}
+    do i=1,this%n
+       do j=i+1,this%n
+          this%invC(i,j)=dot_product(this%invC(j:this%n,i),this%invC(j:this%n,j))
+       enddo
+    enddo
+    do i=1,this%n-1
+       this%invC(i,i)=dot_product(this%invC(i:this%n,i),this%invC(i:this%n,i))
+       this%invC(i+1:this%n,i)=this%invC(i,i+1:this%n)
+    enddo
+    this%invC(this%n,this%n)=this%invC(this%n,this%n)**2
+  end subroutine coop_covmat_invert
+
+  subroutine coop_covmat_cholesky(this)
+    class(coop_covmat)::this
+    COOP_INT::i, j
+    COOP_REAL::s
+    this%L(1, 1) = 1.d0
+    this%L(2:this%n, 1) = this%C(2:this%n, 1)
+    do  i =2 , this%n
+       s = 1.d0 - sum(this%L(i,1:i-1)**2)
+       if(s .lt. -1.d-14)then
+          stop "covmat_cholesky: matrix is not positive definite"
+       endif
+       this%L(i, i)=sqrt(max(s, 1.d-14)) 
+       do j = i+1, this%n  
+          this%L(j, i)=(this%C(j, i)-sum(this%L(j,1:i-1)*this%L(i,1:i-1)))/this%L(i,i)
+       enddo
+       this%L(1:i-1,i)=0.d0
+    enddo
+  end subroutine coop_covmat_cholesky
+
+  function coop_covmat_chi2(this, x) result(chisq)
+    class(coop_covmat)::this
+    COOP_REAL::x(this%n), mu(this%n), chisq
+    COOP_INT::i, j
+    mu = (x - this%mean)/this%sigma
+    chisq = dot_product(mu, matmul(this%invC, mu))/2.d0
+  end function coop_covmat_chi2
+
+  subroutine coop_covmat_normalize(this)
+    class(coop_covmat)::this
+    COOP_INT::i
+    COOP_REAL::rescale(this%n)
+    !$omp parallel do
+    do i=1, this%n
+       rescale(i) = sqrt(this%c(i, i))
+    end do
+    !$omp end parallel do    
+    do i=1, this%n
+       if(rescale(i).ne.1.d0)then
+          this%c(i+1:this%n, i) = this%c(i+1:this%n, i)/rescale(i)
+          this%c(i, 1:i-1) = this%c(i, 1:i-1)/rescale(i)
+          this%c(i,i) = 1.d0
+          this%sigma(i) = this%sigma(i)*rescale(i)
+       endif
+    enddo
+    !!symmetrize
+    do i=2, this%n
+       this%c(1:i-1,i) = this%c(i, 1:i-1)
+    enddo
+    call this%cholesky()
+    call this%invert()
+  end subroutine coop_covmat_normalize
+
+  subroutine coop_covmat_diagonal(this, sigma)
+    class(coop_covmat)::this
+    COOP_REAL::sigma(this%n)
+    this%sigma = sigma
+    call coop_set_identity_matrix(this%n, this%c)
+    call coop_set_identity_matrix(this%n, this%invc)
+    call coop_set_identity_matrix(this%n, this%L)    
+  end subroutine coop_covmat_diagonal
+
+
+  subroutine coop_covmat_MPI_sync(this)
+    class(coop_covmat)::this
+#ifdef MPI        
+    COOP_REAL, dimension(:),allocatable::info
+    COOP_INT:: n, i, j, ii
+    n = 1 + this%n*(this%n+3)/2  !!mult, mean, cov
+    allocate(info(n))
+    info(1) = this%mult
+    info(2:this%n+1) = this%mean
+    ii = this%n + 1
+    do i=1, this%n
+       do j = 1, i
+          ii = ii + 1          
+          info(ii)  = this%c(i, j)*this%sigma(i)*this%sigma(j)
+       enddo
+    enddo
+    info(2:n) = info(2:n)*info(1)
+    call coop_MPI_Sum(info)
+    if(info(1) .gt. 0.d0)then
+       info(2:n) = info(2:n)/info(1)
+    endif
+    this%sigma = 1
+    this%mean = info(2:this%n+1)
+    this%mult = info(1)
+    ii = this%n + 1    
+    do i=1, this%n
+       do j = 1, i
+          ii = ii + 1          
+          this%c(i, j) =  info(ii)  
+       enddo
+    enddo
+    deallocate(info)
+    call this%normalize()
+#endif    
+  end subroutine coop_covmat_MPI_sync
+  
 
 end module Coop_matrix_mod

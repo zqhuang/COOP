@@ -29,8 +29,8 @@ public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_crea
      procedure::read_string => coop_file_readline_string
   End type coop_file
 
-  COOP_INT,parameter::coop_file_unit_min = 11
-  COOP_INT,parameter::coop_file_unit_max = 99
+  COOP_INT,parameter::coop_file_unit_min = coop_tmp_file_unit + 10
+  COOP_INT,parameter::coop_file_unit_max = coop_file_unit_min + 100
 
   interface coop_file
      procedure coop_open_file
