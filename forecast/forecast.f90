@@ -464,6 +464,9 @@ contains
     if(this%feedback .ge. 1)write(*,*) "updating propose matrix on Node "//COOP_STR_OF(this%proc_id)
     if(.not. this%do_memsave)stop "cannot update propose matrix when do_memsave is off"
     call this%covmat%alloc(this%n)  !!set sigma = 1 and the rest 0
+    this%covmat%mean = 0.d0
+    this%covmat%c = 0.d0
+    this%covmat%mult = 0.d0
     if(this%chain%n .ge. 10)then
        istart =  this%chain%n/2  !!use the second half of the chain
        do i = istart, this%chain%n  
@@ -490,9 +493,7 @@ contains
           this%covmat%c = this%covmat%c/this%covmat%mult
        endif
     endif
-    write(*,*)size(this%covmat%mean), this%n    
     call this%covmat%MPI_Sync()
-    write(*,*)size(this%covmat%mean), this%n
     this%time = nint(coop_systime_sec(.true.))  !!reset time
     if(this%covmat%mult .gt. this%n*10.d0 .and. .not. coop_isnan(this%covmat%L))then !!update mapping matrix
        do i=1, this%n
@@ -527,11 +528,11 @@ contains
              write(*,"("//COOP_STR_OF(this%n)//"E14.5)") this%covmat%sigma
              write(*,*) "correlation matrix = "
              do i=1, this%covmat%n
-                write(*,"("//COOP_STR_OF(this%n)//"E14.5)") this%covmat%c(:, i)
+                write(*,"("//COOP_STR_OF(this%n)//"E14.5)") this%covmat%c(i, :)
              enddo             
              write(*,*) "mapping matrix = "
              do i=1, this%covmat%n
-                write(*,"("//COOP_STR_OF(this%n)//"E14.5)") this%mapping(:, i)
+                write(*,"("//COOP_STR_OF(this%n)//"E14.5)") this%mapping(i, :)
              enddo
              call coop_MPI_Abort()
           endif

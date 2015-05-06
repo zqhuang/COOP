@@ -1357,6 +1357,7 @@ contains
 #ifdef MPI        
     COOP_REAL, dimension(:),allocatable::info, covinfo
     COOP_INT:: i, j, ii
+    if(coop_MPI_NumProc().eq.1)return
     allocate(info(0:this%n), covinfo(this%n*(this%n+1)/2))
     info(0) = this%mult
     info(1:this%n) = this%mean*this%mult
