@@ -1194,6 +1194,7 @@ contains
     this%c = 0.d0
     this%L = 0.d0
     this%invc = 0.d0
+    this%mult = 0.d0
   end subroutine coop_covmat_alloc
   
   subroutine coop_covmat_export(this, filename)

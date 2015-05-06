@@ -464,9 +464,6 @@ contains
     if(this%feedback .ge. 1)write(*,*) "updating propose matrix on Node "//COOP_STR_OF(this%proc_id)
     if(.not. this%do_memsave)stop "cannot update propose matrix when do_memsave is off"
     call this%covmat%alloc(this%n)  !!set sigma = 1 and the rest 0
-    this%covmat%mean = 0.d0
-    this%covmat%c = 0.d0
-    this%covmat%mult = 0.d0
     if(this%chain%n .ge. 10)then
        istart =  this%chain%n/2  !!use the second half of the chain
        do i = istart, this%chain%n  
