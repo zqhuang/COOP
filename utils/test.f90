@@ -2,13 +2,17 @@ program TestNpeak
   use coop_wrapper_utils
   implicit none
 #include "constants.h"
-  COOP_REAL,dimension(:),allocatable::a
+  type(coop_covmat)::covmat
   call coop_MPI_init()
-  allocate(a(2))
-  a = 1.d0
-  call coop_MPI_sum(a)
-  write(*,*) coop_MPI_rank(), a
-  
+  call covmat%alloc(2)
+  covmat%mean = coop_MPI_Rank()
+  covmat%c(1, 1) = 1.d0+coop_MPI_Rank()
+  covmat%c(2, 2) = 1.d0+coop_MPI_Rank()
+  covmat%c(2, 1) = 0.4d0
+  call covmat%normalize()
+  covmat%mult = 1.d0
+  call covmat%MPI_Sync()
+  write(*,*) coop_MPI_Rank(), covmat%sigma, covmat%c
   call coop_MPI_finalize()
   
 end program TestNpeak

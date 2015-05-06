@@ -492,7 +492,7 @@ contains
     endif
     call this%covmat%MPI_Sync()
     this%time = nint(coop_systime_sec(.true.))  !!reset time
-    if(this%covmat%mult .gt. this%n*5.d0)then !!update mapping matrix
+    if(this%covmat%mult .gt. this%n*10.d0)then !!update mapping matrix
        do i=1, this%n
           this%mapping(i, :) = this%covmat%L(i, :)*this%covmat%sigma(i)
        enddo

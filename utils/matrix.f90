@@ -1355,38 +1355,40 @@ contains
   subroutine coop_covmat_MPI_sync(this)
     class(coop_covmat)::this
 #ifdef MPI        
-    COOP_REAL, dimension(:),allocatable::info
-    COOP_INT:: n, i, j, ii
-    n = 1 + this%n*(this%n+3)/2  !!mult, mean, cov
-    allocate(info(n))
-    info(1) = this%mult
-    info(2:this%n+1) = this%mean
-    ii = this%n + 1
+    COOP_REAL, dimension(:),allocatable::info, covinfo
+    COOP_INT:: i, j, ii
+    allocate(info(0:this%n), covinfo(this%n*(this%n+1)/2))
+    info(0) = this%mult
+    info(1:this%n) = this%mean*this%mult
+    call coop_MPI_sum(info(0:this%n))
+    if(info(0) .le. 0.d0)return !!does not change anything for mult = 0
+    info(1:this%n) = info(1:this%n)/info(0)
+    ii = 0
     do i=1, this%n
        do j = 1, i
-          ii = ii + 1          
-          info(ii)  = this%c(i, j)*this%sigma(i)*this%sigma(j)
+          ii = ii + 1
+          if(i.eq.j)then
+             covinfo(ii)  = (this%c(i, i)*this%sigma(i)**2 + (this%mean(i)-info(i))**2)*this%mult
+          else
+             covinfo(ii)  = (this%c(i, j)*this%sigma(i)*this%sigma(j))*this%mult
+          endif
        enddo
     enddo
-    info(2:n) = info(2:n)*info(1)
-    call coop_MPI_Sum(info)
-    this%mult = info(1)
+    call coop_MPI_Sum(covinfo)
+    covinfo = covinfo/info(0)
+    this%mult = info(0)
     this%sigma = 1.d0
-    this%mean = info(2:this%n+1)
-    ii = this%n + 1    
+    this%mean = info
+    ii = 0    
     do i=1, this%n
        do j = 1, i
           ii = ii + 1          
-          this%c(i, j) =  info(ii)  
+          this%c(i, j) =  covinfo(ii)
+          this%c(j, i) = this%c(i, j)
        enddo
     enddo
-    deallocate(info)
-    
-    if(this%mult .gt. 1.d-2)then
-       this%mean = this%mean/this%mult
-       this%c = this%c/this%mult
-       call this%normalize()
-    endif
+    deallocate(info, covinfo)
+    call this%normalize()
 #endif    
   end subroutine coop_covmat_MPI_sync
   
