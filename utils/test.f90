@@ -13,6 +13,7 @@ program TestNpeak
   covmat%mult = 1.d0
   call covmat%MPI_Sync()
   write(*,*) coop_MPI_Rank(), covmat%sigma, covmat%c
+  write(*,*) matmul(covmat%L, transpose(covmat%L))
   call coop_MPI_finalize()
   
 end program TestNpeak

@@ -490,9 +490,11 @@ contains
           this%covmat%c = this%covmat%c/this%covmat%mult
        endif
     endif
+    write(*,*)size(this%covmat%mean), this%n    
     call this%covmat%MPI_Sync()
+    write(*,*)size(this%covmat%mean), this%n
     this%time = nint(coop_systime_sec(.true.))  !!reset time
-    if(this%covmat%mult .gt. this%n*10.d0)then !!update mapping matrix
+    if(this%covmat%mult .gt. this%n*10.d0 .and. .not. coop_isnan(this%covmat%L))then !!update mapping matrix
        do i=1, this%n
           this%mapping(i, :) = this%covmat%L(i, :)*this%covmat%sigma(i)
        enddo
@@ -515,6 +517,25 @@ contains
     if(this%n .le. 0) stop "MCMC: no varying parameters"
     select type(this)
     class is(coop_MCMC_params)
+       if(this%feedback .gt. 3)then !!check reject rate
+          if(this%reject .gt. this%accept*20)then
+             write(*,*) "Reject rate enormalously high"
+             write(*,*) "MPI Rank = ",this%proc_id, size(this%covmat%mean), size(this%covmat%sigma), size(this%covmat%c), size(this%covmat%L)             
+             write(*,*) "mean = "             
+             write(*,"("//COOP_STR_OF(this%n)//"E14.5)") this%covmat%mean
+             write(*,*) "sigma = "                          
+             write(*,"("//COOP_STR_OF(this%n)//"E14.5)") this%covmat%sigma
+             write(*,*) "correlation matrix = "
+             do i=1, this%covmat%n
+                write(*,"("//COOP_STR_OF(this%n)//"E14.5)") this%covmat%c(:, i)
+             enddo             
+             write(*,*) "mapping matrix = "
+             do i=1, this%covmat%n
+                write(*,"("//COOP_STR_OF(this%n)//"E14.5)") this%mapping(:, i)
+             enddo
+             call coop_MPI_Abort()
+          endif
+       endif
        if(this%accept+this%reject .eq. 0)then
           this%time = coop_systime_sec(.true.)
           call coop_random_init()

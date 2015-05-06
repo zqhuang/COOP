@@ -1378,7 +1378,7 @@ contains
     covinfo = covinfo/info(0)
     this%mult = info(0)
     this%sigma = 1.d0
-    this%mean = info
+    this%mean = info(1:this%n)
     ii = 0    
     do i=1, this%n
        do j = 1, i
