@@ -573,12 +573,12 @@ contains
           if(this%cycl%next() .gt. this%n_slow)then
              vec(1:this%n_fast) = this%propose_fast_vec()*this%proposal_r()
              this%params(this%index_fast_start:this%n) = this%params_saved(this%index_fast_start:this%n) + matmul(this%mapping_fast, vec(1:this%n_fast))
-             this%slow_changed = .true.
+             this%slow_changed = .false.
              
           else
              vec(1:this%n_slow) = this%propose_slow_vec()*this%proposal_r()
              this%params = this%params_saved + matmul(this%mapping(:, 1:this%n_slow), vec(1:this%n_slow))
-             this%slow_changed = .false.             
+             this%slow_changed = .true.             
           endif
        else
           vec = this%propose_vec()*this%proposal_r()
@@ -593,6 +593,10 @@ contains
           this%loglike_proposed = pool%loglike(this)
        else
           this%loglike_proposed = coop_logZero
+       endif
+       if(this%feedback .ge. 4)then
+          write(*,"(A, "//COOP_STR_OF(this%n)//"E16.7)") "proposed parameters:", this%params          
+          write(*,"(A)") "proposed likelihood:"//COOP_STR_OF(this%loglike_proposed)
        endif
        if((this%loglike_proposed - this%loglike)/this%temperature .lt. coop_random_exp())then
           this%accept = this%accept + 1
@@ -631,7 +635,7 @@ contains
     end select
 
     if(.not. this%do_general_loglike .and. this%feedback .gt. 0)then
-       if(mod(this%accept+this%reject, 29/this%feedback+1).eq. 0)then
+       if(mod(this%accept+this%reject, 9/this%feedback+1).eq. 0)then
           write(*,*) "on Node "//COOP_STR_OF(coop_MPI_Rank())//": step "//COOP_STR_OF(this%accept + this%reject)//", likelihood = "//COOP_STR_OF(this%loglike)//", accept ratio = "//COOP_STR_OF(dble(this%accept)/(this%accept+this%reject))
 
        endif
