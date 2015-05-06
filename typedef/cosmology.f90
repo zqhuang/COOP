@@ -66,7 +66,7 @@ module coop_cosmology_mod
      procedure::Hasq => coop_cosmology_background_Hasq   !! input a , return H a^2 / H_0
      procedure::dadtau => coop_cosmology_background_Hasq   !! input a , return da/d tau /H_0
      procedure::Hratio => coop_cosmology_background_Hratio !! input a, return H/H_0
-     procedure::HdotbyHsq => coop_cosmology_background_HdotbyHsq !! input a, return \dot H/H^2 = - epsilon
+     procedure::HdotbyHsq => coop_cosmology_background_HdotbyHsq !! input a, return \dot H/H^2
      procedure::time => coop_cosmology_background_time !!input a, return H_0 * time
      procedure::conformal_time => coop_cosmology_background_conformal_time !!input a, return H_0 * conformal time
 
@@ -82,6 +82,7 @@ module coop_cosmology_mod
      procedure::luminosity_distance => coop_cosmology_background_luminosity_distance   
      procedure::angular_diameter_distance => coop_cosmology_background_angular_diameter_distance
      procedure::add_species=>coop_cosmology_background_add_species
+     procedure::delete_species=>coop_cosmology_background_delete_species     
      procedure::index_of => coop_cosmology_background_index_of
 
      !!functions of z
@@ -255,6 +256,21 @@ contains
     this%omega_k_value = this%omega_k_value - species%Omega
     this%need_setup_background = .true.
   end subroutine coop_cosmology_background_add_species
+
+  !!delete the last n species
+  subroutine coop_cosmology_background_delete_species(this, ind)
+    class(coop_cosmology_background)::this
+    COOP_INT:: i, ind
+    if(ind .le. 0 .or. ind .gt. this%num_species)return
+    this%omega_k_value = this%omega_k_value + this%species(ind)%Omega
+    do i = ind, this%num_species-1
+       this%species(i) = this%species(i+1)
+    enddo
+    call this%species(this%num_species)%free()
+    this%num_species = this%num_species - 1
+    this%need_setup_background = .true.
+  end subroutine coop_cosmology_background_delete_species
+  
 
   function coop_cosmology_background_H0Mpc(this)result(H0Mpc)
     class(coop_cosmology_background)::this

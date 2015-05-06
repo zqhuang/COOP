@@ -5,7 +5,7 @@ program bgtest
   type(coop_cosmology_background)::bg
   COOP_INT, parameter::nvars = 3
   COOP_INT, parameter::n = 512
-  COOP_REAL:: lna(n),a(n), Qcpl, tracking_n, phi, phidot, V, Vp, Vpp, weff, Omegac, OmegaL, omegab, dlnQdphi, dUdphi, d2Udphi2, hub, rhocdm, rhode, epsilon_inf, epsilon_s, dlnVdphi_eq, lnVpp_eq, aeq, zeta_s, wp1, at, qwp1, qnow, apiv
+  COOP_REAL:: lna(n),a(n), eps(n), Qcpl, tracking_n, phi, phidot, V, Vp, Vpp, weff, Omegac, OmegaL, omegab, dlnQdphi, dUdphi, d2Udphi2, hub, rhocdm, rhode, epsilon_inf, epsilon_s, dlnVdphi_eq, lnVpp_eq, aeq, zeta_s, wp1, at, qwp1, qnow, apiv
   COOP_INT::i, index_CDM , index_DE
   type(coop_ode)::ode
   type(coop_species)::quint_de
@@ -18,8 +18,8 @@ program bgtest
   d2Udphi2 = 0.d0
   apiv = 0.1d0
   !!=============  set up background ===============
-  omegab = 0.046d0
-  omegac = 0.25d0
+  omegab = 0.049d0
+  omegac = 0.265d0
 
  
   call bg%init(h=0.7d0)

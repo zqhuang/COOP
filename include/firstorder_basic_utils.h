@@ -759,12 +759,13 @@
   end function coop_cosmology_firstorder_source_interpolate_one
 
 
-  subroutine coop_cosmology_firstorder_set_standard_cosmology(this, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, de_Q, de_tracking_n, de_dlnQdphi, de_dUdphi, de_d2Udphi2)
+  subroutine coop_cosmology_firstorder_set_standard_cosmology(this, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, de_Q, de_tracking_n, de_dlnQdphi, de_dUdphi, de_d2Udphi2, de_epsilon_s, de_epsilon_inf, de_zeta_s)
     class(coop_cosmology_firstorder)::this
     COOP_REAL:: h, tau_re, Omega_b, Omega_c
-    COOP_REAL, optional::nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, Nnu, YHe, de_Q, de_tracking_n, de_dlnQdphi, de_dUdphi, de_d2Udphi2
-    COOP_REAL::Q0, Q1, U1, U2, tracking_n
+    COOP_REAL, optional::nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, Nnu, YHe, de_Q, de_tracking_n, de_dlnQdphi, de_dUdphi, de_d2Udphi2, de_epsilon_s, de_epsilon_inf, de_zeta_s
+    COOP_REAL::Q0, Q1, U1, U2, tracking_n, epsilon_s, epsilon_inf, zeta_s
     logical::scalar_de
+    COOP_INT::err
     logical,optional::inflation_consistency
     if(present(YHe))then
        if(present(Nnu))then
@@ -830,12 +831,35 @@
        scalar_de = .true.       
        tracking_n = de_tracking_n
     else
-       tracking_n = 0.d0
+       if(present(de_epsilon_s))then
+          epsilon_s = de_epsilon_s
+          if(present(de_epsilon_inf))then
+             epsilon_inf  = de_epsilon_inf
+          else
+             epsilon_inf = 0.01d0
+          endif
+          if(present(de_zeta_s))then
+             zeta_s = de_zeta_s
+          else
+             zeta_s = 0.d0
+          endif
+       else
+          tracking_n = 0.d0
+       endif
     endif
     
     if(scalar_de)then
-       call coop_background_add_coupled_DE(this, Omega_c = Omega_c, Q = Q0, tracking_n = tracking_n, dlnQdphi = Q1, dUdphi = U1, d2Udphi2 = U2)
+       if(present(de_epsilon_s) .and. (.not. present(de_tracking_n)))then
+          call coop_background_add_coupled_DE_with_w(this, Omega_c = Omega_c, Q = Q0, dlnQdphi = Q1, epsilon_s = epsilon_s, epsilon_inf = epsilon_inf, zeta_s = zeta_s, err = err)
+          if(err .ne. 0)then
+             call this%set_h(0.d0)
+             return
+          endif
+       else
+          call coop_background_add_coupled_DE(this, Omega_c = Omega_c, Q = Q0, tracking_n = tracking_n, dlnQdphi = Q1, dUdphi = U1, d2Udphi2 = U2)
+       endif
        this%de_genre = COOP_PERT_SCALAR_FIELD
+          
     else
        call this%add_species(coop_cdm(omega_c))
        call this%add_species(coop_de_lambda(this%Omega_k()))

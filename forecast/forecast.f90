@@ -180,7 +180,9 @@ module coop_forecast_mod
      COOP_INT::index_de_Q = 0
      COOP_INT::index_de_tracking_n = 0
      COOP_INT::index_de_dUdphi = 0
-     COOP_INT::index_de_epsv = 0     
+     COOP_INT::index_de_epss = 0
+     COOP_INT::index_de_epsinf = 0
+     COOP_INT::index_de_zetas = 0               
      COOP_INT::index_de_dlnQdphi = 0
      COOP_INT::index_de_d2Udphi2 = 0
      COOP_INT::index_h = 0
@@ -230,8 +232,8 @@ contains
   !!set up %cosmology from %fullparams
   subroutine coop_MCMC_params_Set_Cosmology(this)
     class(coop_MCMC_params)::this
-    COOP_REAL,parameter::omega_m_min = 0.1
-    COOP_REAL,parameter::omega_m_max = 0.9    
+    COOP_REAL,parameter::omega_m_min = 0.15
+    COOP_REAL,parameter::omega_m_max = 0.55    
     COOP_REAL, parameter::h_b_i = 0.4d0
     COOP_REAL, parameter::h_t_i =  1.d0
     COOP_INT::iloop
@@ -242,7 +244,9 @@ contains
        h_t = min(h_t_i, sqrt(this%fullparams(this%index_ombh2)+this%fullparams(this%index_omch2)/omega_m_min))
        h_b = max(h_b_i, sqrt(this%fullparams(this%index_ombh2)+this%fullparams(this%index_omch2)/omega_m_max))
        call calc_theta(h_t, theta_t)
+       if(this%cosmology%h().eq.0.d0)return       
        call calc_theta(h_b, theta_b)
+       if(this%cosmology%h().eq.0.d0)return       
        if(theta_t .lt. theta_want)then
           call this%cosmology%set_h(0.d0)
           return
@@ -255,6 +259,7 @@ contains
        do while(h_t - h_b .gt. 2.d-4)
           h_m = (h_t + h_b)/2.d0
           call calc_theta(h_m, theta_m)
+          if(this%cosmology%h().eq.0.d0)return          
           if(theta_m .gt. theta_want)then
              h_t = h_m
              theta_t = theta_m
@@ -272,9 +277,11 @@ contains
        if((theta_t-theta_b).gt. 1.d-6)then
           h_m = ((theta_t - theta_want)*h_b + (theta_want - theta_b)*h_t)/(theta_t-theta_b)
           call setForH(h_m)
+          if(this%cosmology%h().eq.0.d0)return
        endif
     elseif(this%index_h .ne. 0)then
        call setForH(this%fullparams(this%index_h))
+          if(this%cosmology%h().eq.0.d0)return       
     else
        stop "you need to use either theta or h for MCMC runs"
     endif
@@ -332,12 +339,14 @@ contains
     subroutine calc_theta(h, theta)
       COOP_REAL::h, theta
       call setForH(h)
+      if(this%cosmology%h().eq.0.d0)return      
       theta = this%cosmology%cosmomc_theta()*100.d0
     end subroutine calc_theta
 
     subroutine setforH(h)
       COOP_REAL::h
-      COOP_REAL::Q, dlnQdphi, dUdphi, d2Udphi2, tracking_n, w, wa
+      COOP_REAL::Q, dlnQdphi, dUdphi, d2Udphi2, tracking_n, w, wa, epsilon_s, epsilon_inf, zeta_s
+      COOP_INT::err
       call this%cosmology%free()
       call this%cosmology%init(name = "Cosmology", id = 0, h = h)
       this%cosmology%ombh2 =this%fullparams(this%index_ombh2)
@@ -359,7 +368,7 @@ contains
       else
          call this%cosmology%add_species( coop_neutrinos_massless(this%cosmology%Omega_massless_neutrinos()))  
       endif
-      if(this%index_de_tracking_n .ne. 0 .or. this%index_de_dUdphi .ne. 0 .or. this%index_de_Q .ne. 0)then  !!
+      if(this%index_de_tracking_n .ne. 0 .or. this%index_de_dUdphi .ne. 0 .or. this%index_de_Q .ne. 0 .or. this%index_de_epss .ne. 0 .or. this%index_de_epsinf .ne. 0)then  !!
          if(this%index_de_tracking_n .ne. 0)then
             tracking_n = this%fullparams(this%index_de_tracking_n)
          else
@@ -378,18 +387,37 @@ contains
          if(this%index_de_dUdphi .ne. 0)then
             dUdphi = this%fullparams(this%index_de_dUdphi)
          else
-            if(this%index_de_epsv .ne. 0)then
-               dUdphi = sign(sqrt(abs(this%fullparams(this%index_de_epsv))), this%fullparams(this%index_de_epsv))
-            else
-               dUdphi = 0.d0
-            endif
+            dUdphi = 0.d0
          endif
          if(this%index_de_d2Udphi2 .ne. 0)then
             d2Udphi2 = this%fullparams(this%index_de_d2Udphi2)
          else
             d2Udphi2 = 0
          endif
-         call coop_background_add_coupled_DE(this%cosmology, Omega_c = this%cosmology%omch2/h**2, Q = Q, tracking_n =  tracking_n, dlnQdphi = dlnQdphi, dUdphi = dUdphi, d2Udphi2 = d2Udphi2)
+         if(this%index_de_epss .ne. 0)then
+            epsilon_s = this%fullparams(this%index_de_epss)
+         else
+            epsilon_s = 0.d0
+         endif
+         if(this%index_de_epsinf .ne. 0)then
+            epsilon_inf = this%fullparams(this%index_de_epsinf)
+         else
+            epsilon_inf = 0.01d0
+         endif
+         if(this%index_de_zetas .ne. 0)then
+            zeta_s = this%fullparams(this%index_de_zetas)
+         else
+            zeta_s = 0.d0
+         endif
+         if(this%index_de_epss .ne. 0 .or. this%index_de_epsinf .ne. 0)then
+            call coop_background_add_coupled_DE_with_w(this%cosmology, Omega_c = this%cosmology%omch2/h**2, Q = Q, dlnQdphi = dlnQdphi, epsilon_s = epsilon_s, epsilon_inf = epsilon_inf, zeta_s = zeta_s, err = err)
+            if(err .ne. 0)then
+               call this%cosmology%set_h(0.d0)
+               return
+            endif
+         else
+            call coop_background_add_coupled_DE(this%cosmology, Omega_c = this%cosmology%omch2/h**2, Q = Q, tracking_n =  tracking_n, dlnQdphi = dlnQdphi, dUdphi = dUdphi, d2Udphi2 = d2Udphi2)
+         endif
       else
          call this%cosmology%add_species(coop_cdm(this%cosmology%omch2/h**2))
          if(this%index_de_w .ne. 0)then
@@ -1252,7 +1280,9 @@ contains
     this%index_de_Q = this%index_of("de_Q")
     this%index_de_tracking_n = this%index_of("de_tracking_n")
     this%index_de_dUdphi = this%index_of("de_dUdphi")
-    this%index_de_epsv = this%index_of("de_epsv")    
+    this%index_de_epss = this%index_of("de_epss")
+    this%index_de_epsinf = this%index_of("de_epsinf")
+    this%index_de_zetas = this%index_of("de_zetas")            
     this%index_de_dlnQdphi = this%index_of("de_dlnQdphi")
     this%index_de_d2Udphi2 = this%index_of("de_d2Udphi2")
     this%index_h = this%index_of("h")

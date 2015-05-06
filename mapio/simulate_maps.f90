@@ -10,20 +10,21 @@ program test
 
   implicit none
 #include "constants.h"
-  COOP_INT,parameter::lmax = 2500
+  COOP_INT,parameter::lmax = 800
   type(coop_healpix_maps)::map, imask, polmask, mapcopy
   integer l, m, il
   type(coop_file)::fp
-  COOP_UNKNOWN_STRING, parameter::prefix = "simu/simu"
-  logical,parameter::do_highpass = .true.
-  COOP_REAL::beam_fwhm = 5.
+  COOP_UNKNOWN_STRING, parameter::prefix = "simu/simu512"
+  logical,parameter::do_highpass = .false.
+  COOP_REAL::beam_fwhm = 20.
   COOP_INT,parameter::llow = 230, lupper=270
   COOP_REAL sigma, w
+  call coop_MPI_Init()
   call coop_random_init()
   if(do_highpass)then
      print*, "Warning: high-pass filter is on"
   endif
-  call map%init(nside = 2048, nmaps=3, spin = (/ 0, 2, 2 /))
+  call map%init(nside = 512, nmaps=3, spin = (/ 0, 2, 2 /))
 
   call map%allocate_alms(lmax=lmax)
   map%Cl = 0.
@@ -56,5 +57,5 @@ program test
 
 !     map%cl = mapcopy%cl
 !  enddo
-
+     call coop_MPI_Finalize()
 end program test

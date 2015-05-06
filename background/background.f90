@@ -4,9 +4,9 @@ module coop_background_mod
 #include "constants.h"
 
   private
-  COOP_INT:: coop_coupled_de_num_iterate = 8
+  COOP_REAL,parameter::coop_min_de_tracking_n = 0.01d0
 
-  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_quintessence, coop_de_wp1_quintessence, coop_background_add_coupled_DE
+  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_quintessence, coop_de_wp1_quintessence, coop_background_add_coupled_DE,  coop_background_add_coupled_DE_with_w
 
 contains
 
@@ -105,49 +105,68 @@ contains
     w = coop_de_wp1_quintessence(a, arg) - 1.d0
   end function coop_de_w_quintessence
 
-  function coop_de_wp1_quintessence(a, arg) result(wp1)
-    COOP_REAL a, wp1
-    type(coop_arguments) arg
-    COOP_REAL Omega_m, a_eq
-    COOP_REAL mu, mu3, s0, s1, qpsign, aux1, aux2, aux3, delta, diffeps
-#define OMEGA_LAMBDA arg%r(1)
-#define EPSILON_S arg%r(2)
-#define EPSILON_INFTY arg%r(3)
-#define ZETA_S arg%r(4)
-    if(EPSILON_S .ge. 0.d0)then
+  function coop_de_aeq_fitting(omega_lambda, epsilon_s, epsilon_inf, zeta_s) result(aeq)
+    COOP_REAL, parameter::omega_r = 9.d-5 !!approximate value for h = 0.68    
+    COOP_REAL::omega_lambda, epsilon_s, epsilon_inf, zeta_s, aeq, delta, qpsign, epss, sqrtepss, sqrtepsinf, Omega_m, diff
+
+    if(epsilon_s .ge. 0.d0)then
        qpsign = 1.d0
+       epss = epsilon_s
     else
        qpsign = -1.d0
+       epss = - EPSILON_S
     endif
-    Omega_m  = 1.d0 - OMEGA_LAMBDA
-    if(Omega_m .gt. 0.65d0 .or. Omega_m .lt. 0.05d0)then
-       wp1 = 1.d0 !!set w to be a crazy value to rule out the model
-       return
-    endif
-    aux1 = sqrt(EPSILON_INFTY/3.d0)
-    diffeps = (sqrt(abs(EPSILON_S)/6.d0) - aux1 )
-    aux2 = coop_sqrt2*diffeps*(1.-ZETA_S)
-    aux3 = 2.*ZETA_S*diffeps
-    delta=(aux1 + 0.533* aux2 + 0.307* aux3)**2 &
-         + (aux1 + (0.91-0.78*Omega_m)*aux2+(0.81-1.09*Omega_m)*aux3)**2
-    if(delta .lt. 0.9d0)then
-       a_eq = (Omega_m/OMEGA_LAMBDA)**((1.d0/3.d0)/(1.d0 - sign(delta,EPSILON_S)))
+    Omega_m  = 1.d0 - Omega_lambda - omega_r
+    sqrtepss = sqrt(epss)
+    sqrtepsinf = sqrt(epsilon_inf)
+    diff = sqrtepss - coop_sqrt2 * sqrtepsinf
+    delta = (sqrtepsinf + (0.91-0.78*Omega_m+(0.236-0.76*Omega_m)*zeta_s)*diff)**2 &
+         + (sqrtepsinf + (0.533-0.1*zeta_s)*diff)**2 
+    aeq = (Omega_m/Omega_lambda)**(1.d0/(3.d0-qpsign*delta))
+  end function coop_de_aeq_fitting
+
+  function coop_de_wp1_quintessence(a, arg) result(wp1)
+    COOP_REAL, parameter::omega_r = 9.d-5 !!approximate value for h = 0.68
+    COOP_REAL a, wp1
+    type(coop_arguments) arg
+    COOP_REAL Omega_m, a_eq, epss
+#define OMEGA_LAMBDA arg%r(1)
+#define EPSILON_S arg%r(2)
+#define EPSILON_INF arg%r(3)
+#define ZETA_S arg%r(4)
+    COOP_REAL::mu, mu3, sqrtepss, sqrtepsinf, diff, delta, f, f2, s0, s1, qpsign
+    if(EPSILON_S .ge. 0.d0)then
+       qpsign = 1.d0
+       epss = EPSILON_S
     else
-       wp1 = qpsign * 3.d0  !!set w to be a crazy value to rule out the model
-       return
+       qpsign = -1.d0
+       epss = - EPSILON_S
     endif
-    mu=a/a_eq
-    mu3=mu**3
-    s0=sqrt(mu3)
-    s1=sqrt(1.+mu3)
-    if(s0 .lt. 5.d-3)then
-       wp1 = 2.d0 * qpsign * ( aux1 + aux2 * (2.d0/3.d0) * s0 )**2
-    else
-       wp1 = 2.d0 * qpsign * (aux1 + aux2*(s1/s0-log(s0+s1)/mu3) + aux3*(1.-log(1.+mu3)/mu3))**2
+    Omega_m  = 1.d0 - OMEGA_LAMBDA - omega_r
+    sqrtepss = sqrt(epss)
+    sqrtepsinf = sqrt(EPSILON_INF)
+    diff = sqrtepss - coop_sqrt2 * sqrtepsinf
+    delta = (sqrtepsinf + (0.91-0.78*Omega_m+(0.236-0.76*Omega_m)*ZETA_S)*diff)**2 &
+         + (sqrtepsinf + (0.533-0.1*ZETA_S)*diff)**2 
+    a_eq = (Omega_m/OMEGA_LAMBDA)**(1.d0/(3.d0-qpsign*delta))
+    mu = a/a_eq
+    mu3 = mu**3    
+    s0 = sqrt(mu3)
+    if(mu .gt. 0.05d0)then
+       s1 = sqrt(1.d0+mu3)
+       f = s1/s0 - log(s0+s1)/mu3
+       f2 = coop_sqrt2*(1.d0-log(1.d0+mu3)/mu3) - f
+    else  !!asymptotic
+       f = s0*((2.d0/3.d0)-0.2d0*mu3)
+       f2 = mu3*(1.d0/coop_sqrt2 - (coop_sqrt2/3.d0)*mu3)  - f
     endif
+    s0 = sqrtepsinf*sqrt(((4.d0/3.d0*omega_r) + omega_m*a)/(omega_r+omega_m*a))
+    wp1 = (2.d0/3.d0)*qpsign*(s0 + (sqrtepss  - coop_sqrt2*s0)*(f + ZETA_S * f2))**2
 #undef EPSILON_S
 #undef EPSILON_INF
 #undef ZETA_S
+#undef OMEGA_LAMBDA
+    
   end function coop_de_wp1_quintessence
 
 
@@ -187,13 +206,13 @@ contains
     enddo
     call coop_set_uniform(nsteps, lna_coarse, lna(istart+1), log(coop_scale_factor_today))
     
-    if(Q .gt. 1.d-10)then
+    if(Q .gt. 1.d-6)then
        if(present(dlnQdphi))then
           call de%fDE_Q_of_phi%init_polynomial( (/ log(Q), dlnQdphi /), ylog = .true. )
        else
           call de%fDE_Q_of_phi%init_polynomial( (/ Q /) )
        endif
-       de%DE_tracking_n = max(tracking_n, 0.01d0)  !! for tracking_n <~ 0.01, 1 + w_DE is very close to zero, observationally they are indistinguishable
+       de%DE_tracking_n = max(tracking_n, coop_min_de_tracking_n)  
     else
        de%DE_tracking_n = max(tracking_n, 0.d0)  
     endif
@@ -325,7 +344,7 @@ contains
          norm = ((ddphi + 3.d0*hubble*PHIDOT) + qnow * exp(LN_RHOM)) / de%DE_tracking_n * PHI**(de%DE_tracking_n + 1.d0)
          de%DE_lnV0 = log(norm)     
          call ode%set_initial_conditions(lna, y)
-         tight_coupling = ( (hubble*PHIDOT) .lt. 3.d-3*qnow*exp(LN_RHOM) )
+         tight_coupling = ( (hubble*PHIDOT) .lt. 5.d-3*qnow*exp(LN_RHOM) )
          if(tight_coupling)then
             call ode_tc%set_initial_conditions(lna, (/ y(3) /) )
          endif
@@ -450,6 +469,106 @@ contains
     end subroutine set_tight_coupling
     
   end subroutine coop_background_add_coupled_DE
+
+  subroutine coop_background_add_coupled_DE_with_w(this, Omega_c, epsilon_s, epsilon_inf, zeta_s, Q, dlnQdphi, err)
+    COOP_REAL::a_piv, a_zeta, aeq, a_ini
+    
+    class(coop_cosmology_background)::this
+    type(coop_species)::de
+    COOP_REAL::Omega_c, epsilon_s, epsilon_inf, zeta_s, Q, dlnQdphi
+    COOP_REAL::tracking_n, dUdphi, d2Udphi2
+    COOP_INT::i, index_de, index_cdm
+    COOP_REAL::rhoc0, wp1, wp1_zeta, delta_wp1, n_low, n_high, dUdphi_low, dUdphi_high, phi_eq, d2Udphi2_trial, diffwp1, mindiff
+    COOP_INT::err
+    
+    err = 0    
+    index_cdm = this%num_species + 1
+    index_de = this%num_species+2
+    rhoc0 = 3.d0*omega_c
+    aeq = coop_de_aeq_fitting(omega_lambda = this%Omega_k() - omega_c, epsilon_s = epsilon_s, epsilon_inf = epsilon_inf, zeta_s = zeta_s)
+    if(aeq .gt. coop_scale_factor_today)then
+       err = 1
+       return
+    endif
+    a_ini = aeq/8.d0
+    a_piv = min(aeq*1.303, coop_scale_factor_today)  !!where F_2(a/a_eq) = 0
+    a_zeta = aeq*0.8d0  
+    de = coop_de_quintessence(Omega_Lambda = this%Omega_k() - omega_c, epsilon_s = epsilon_s, epsilon_inf = epsilon_inf, zeta_s = zeta_s)
+    
+    !!search for tracking_n
+    wp1 = de%wp1ofa(a_ini)    
+    n_high = max(epsilon_inf*(4.d0/3.d0)/(1.d0-(2.d0/3.d0)*epsilon_inf), coop_min_de_tracking_n)
+    n_low = max(n_high/3.d0, coop_min_de_tracking_n)
+    do 
+       tracking_n = (n_high + n_low)/2.d0
+       call coop_background_add_coupled_DE(this, omega_c = omega_c, tracking_n = tracking_n, Q = Q, dlnQdphi = dlnQdphi, dUdphi = 0.d0, d2Udphi2 = 0.d0 )
+       if( wp1_eff(a_ini) .gt. wp1 ) then
+          n_high = tracking_n
+       else
+          n_low = tracking_n
+       endif
+       if(n_high - n_low .lt. 5.d-3)exit
+       call this%delete_species(index_de)
+       call this%delete_species(index_cdm)       
+    enddo
+    !!search for dUdphi
+    wp1 = de%wp1ofa(a_piv)
+    delta_wp1  = wp1_eff(a_piv) - wp1
+    if(delta_wp1 .gt. 0.d0)then
+       dUdphi_low = 0.d0
+       dUdphi_high = 1.d0
+    else
+       dUdphi_high = 0.d0
+       dUdphi_low = -1.d0
+    endif
+    do
+       call this%delete_species(index_de)
+       call this%delete_species(index_cdm)       
+       dUdphi = (dUdphi_high + dUdphi_low)/2.d0
+       call coop_background_add_coupled_DE(this, omega_c = omega_c, tracking_n = tracking_n, Q = Q, dlnQdphi = dlnQdphi, dUdphi =dUdphi, d2Udphi2 = 0.d0 )
+       if(wp1_eff(a_piv) .gt. wp1)then
+          dUdphi_low = dUdphi
+       else
+          dUdphi_high = dUdphi
+       endif
+       if(dUdphi_high - dUdphi_low .lt. 0.02)exit
+    enddo
+
+    if(abs(zeta_s) .lt. 1.d-2 .or. abs(epsilon_s - 2.d0*epsilon_inf).lt. 0.01)return
+    
+    !!serach for d2Udphi2
+    wp1_zeta = de%wp1ofa(a_zeta)
+    mindiff = (wp1_eff(a_zeta) - wp1_zeta)**2 + (wp1_eff(a_piv) - wp1)**2
+    phi_eq = this%species(index_de)%de_Phi(aeq)
+    d2Udphi2 = 0.d0
+    do i=-5, 5
+       if(i.eq.0)cycle
+       call this%delete_species(index_de)
+       call this%delete_species(index_cdm)       
+       d2Udphi2_trial = i*0.02d0
+       call coop_background_add_coupled_DE(this, omega_c = omega_c, tracking_n = tracking_n, Q = Q, dlnQdphi = dlnQdphi, dUdphi =dUdphi - d2Udphi2_trial*phi_eq, d2Udphi2 = d2Udphi2_trial )
+       diffwp1 = (wp1_eff(a_zeta) - wp1_zeta)**2 + (wp1_eff(a_piv) - wp1)**2
+       if(diffwp1 .lt. mindiff)then
+          mindiff = diffwp1
+          d2Udphi2 = d2Udphi2_trial
+       endif
+    enddo
+    dUdphi = dUdphi - d2Udphi2*phi_eq
+    call this%delete_species(index_de)
+    call this%delete_species(index_cdm)
+    call coop_background_add_coupled_DE(this, omega_c = omega_c, tracking_n = tracking_n, Q = Q, dlnQdphi = dlnQdphi, dUdphi =dUdphi, d2Udphi2 = d2Udphi2)    
+
+  contains
+
+    function wp1_eff(a) result(wp1)
+      COOP_REAL::a, wp1
+      wp1 = (1.d0 + this%species(index_DE)%pa2(a)/(this%species(index_DE)%rhoa2(a)+ this%species(index_CDM)%rhoa2(a) - rhoc0/a))
+    end function wp1_eff
+
+       
+  end subroutine coop_background_add_coupled_DE_with_w
+
+  
   
 
 end module coop_background_mod

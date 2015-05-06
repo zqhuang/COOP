@@ -6,8 +6,6 @@ module coop_firstorder_mod
 
   private
 
-
-
   public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe, coop_power_lnk_min, coop_power_lnk_max,  coop_k_dense_fac, coop_index_ClTT, coop_index_ClTE, coop_index_ClEE, coop_index_ClBB, coop_index_ClLenLen, coop_index_ClTLen,  coop_num_Cls, coop_Cls_lmax, coop_bbks_trans, coop_index_source_T, coop_index_source_E, coop_index_source_B, coop_index_source_Len, coop_index_source_zeta
 
 
@@ -157,6 +155,7 @@ module coop_firstorder_mod
      procedure:: compute_source =>  coop_cosmology_firstorder_compute_source
      procedure:: compute_source_k =>  coop_cosmology_firstorder_compute_source_k
      procedure:: get_matter_power => coop_cosmology_firstorder_get_matter_power
+     procedure:: get_Mphi_power => coop_cosmology_firstorder_get_Mphi_power     
      procedure:: sigma_Tophat_R => coop_cosmology_firstorder_sigma_Tophat_R
      procedure:: sigma_Gaussian_R => coop_cosmology_firstorder_sigma_Gaussian_R
      procedure:: sigma_Gaussian_R_quick => coop_cosmology_firstorder_sigma_Gaussian_R_quick
@@ -682,6 +681,23 @@ contains
     !$omp end parallel do
     pk = (PhiPlusPsi-Psi) **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)))**2
   end subroutine coop_cosmology_firstorder_get_matter_power
+
+
+  subroutine coop_cosmology_firstorder_get_MPhi_power(this, z, nk, k, Pk)
+    class(coop_cosmology_firstorder)::this
+    COOP_INT nk, ik
+    COOP_REAL z, a, k(nk), Pk(nk), tau, Psi(nk), Ps(nk), PhiPlusPsi(nk)
+    a = 1.d0/(1.d0+z)
+    tau = this%tauofa(a)
+    call this%source(0)%get_Psi_trans(tau, nk, k, Psi)
+    call this%source(0)%get_PhiPlusPsi_trans(tau, nk, k, PhiPlusPsi)
+    !$omp parallel do
+    do ik = 1, nk
+       ps(ik) = this%psofk(k(ik))
+    enddo
+    !$omp end parallel do
+    pk = (PhiPlusPsi-Psi) **2 * ps * (2.d0*k**2/(3.d0*(this%omch2+this%ombh2)/this%h()**2/a**3))**2
+  end subroutine coop_cosmology_firstorder_get_MPhi_power
 
 
   function coop_cosmology_firstorder_dsoundda(this, a) result(dsda)  !!use approximations, to be consistent with CosmoMC

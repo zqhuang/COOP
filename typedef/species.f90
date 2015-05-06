@@ -22,7 +22,7 @@ module coop_species_mod
      type(coop_function):: fwp1, fcs2, fwp1eff
      type(coop_function):: flnrho
      !!for scalar field DE model
-     type(coop_function)::fDE_U_of_phi, fDE_dUdphi, fDE_phi, fDE_dphidlna, fDE_Q_of_phi, fDE_phidot
+     type(coop_function)::fDE_U_of_phi, fDE_dUdphi, fDE_phi, fDE_Q_of_phi, fDE_phidot
      COOP_REAL::DE_tracking_n = 0.d0
      COOP_REAL::DE_a_start = 1.d-6
      COOP_REAL::DE_lnV0 = 0.d0
