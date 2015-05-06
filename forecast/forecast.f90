@@ -13,7 +13,7 @@ module coop_forecast_mod
 #define MCMC_WA    mcmc%fullparams(mcmc%index_de_wa)
 #define MCMC_OMEGA_LAMBDA  (1.d0 - MCMC_OMEGA_M - MCMC_OMEGA_K)  
 
-  COOP_INT, parameter::coop_n_derived_with_cosmology = 4
+  COOP_INT, parameter::coop_n_derived_with_cosmology = 3
   COOP_INT, parameter::coop_n_derived_without_cosmology = 1
 
   
@@ -99,6 +99,7 @@ module coop_forecast_mod
   type coop_MCMC_params
      COOP_INT::feedback = 0
      COOP_INT::proc_id = 0
+     COOP_INT::total_steps = 50000
      type(coop_cosmology_firstorder),pointer::cosmology => null()   
      type(coop_file)::chainfile
      type(coop_dictionary)::settings     
@@ -109,12 +110,12 @@ module coop_forecast_mod
      logical::do_write_reject = .false.  !!for likelihood interpolation     
      logical::do_overwrite = .false.
      logical::do_fastslow = .false.
+     logical::slow_changed = .true.
      logical::do_memsave = .true.
      logical::do_general_loglike = .false.
      COOP_INT::n_fast = 0
      COOP_INT::index_fast_start = 0
      COOP_INT::n_slow = 0
-     COOP_INT::fast_steps = 0
      COOP_INT::index_propose_fast = 1
      COOP_INT::index_propose_slow = 1     
      COOP_INT::index_propose = 1
@@ -233,7 +234,7 @@ contains
   subroutine coop_MCMC_params_Set_Cosmology(this)
     class(coop_MCMC_params)::this
     COOP_REAL,parameter::omega_m_min = 0.15
-    COOP_REAL,parameter::omega_m_max = 0.55    
+    COOP_REAL,parameter::omega_m_max = 0.45   
     COOP_REAL, parameter::h_b_i = 0.4d0
     COOP_REAL, parameter::h_t_i =  1.d0
     COOP_INT::iloop
@@ -243,8 +244,8 @@ contains
        theta_want = this%fullparams(this%index_theta)
        h_t = min(h_t_i, sqrt(this%fullparams(this%index_ombh2)+this%fullparams(this%index_omch2)/omega_m_min))
        h_b = max(h_b_i, sqrt(this%fullparams(this%index_ombh2)+this%fullparams(this%index_omch2)/omega_m_max))
-       call calc_theta(h_t, theta_t)
-       if(this%cosmology%h().eq.0.d0)return       
+       call calc_theta(h_t, theta_t)       
+       if(this%cosmology%h().eq.0.d0)return
        call calc_theta(h_b, theta_b)
        if(this%cosmology%h().eq.0.d0)return       
        if(theta_t .lt. theta_want)then
@@ -285,6 +286,7 @@ contains
     else
        stop "you need to use either theta or h for MCMC runs"
     endif
+
     call this%cosmology%setup_background()
     if(this%index_tau .ne. 0)then !!
        this%cosmology%optre = this%fullparams(this%index_tau)
@@ -334,6 +336,7 @@ contains
 
        endif       
     endif
+    
   contains
 
     subroutine calc_theta(h, theta)
@@ -443,24 +446,6 @@ contains
        derived(1) = this%cosmology%h()*100.d0
        derived(2) = this%cosmology%Omega_m
        derived(3) = 1.d0 - this%cosmology%Omega_m
-       if(O0_DE(this%cosmology)%genre .eq. COOP_SPECIES_COUPLED)then
-          aeq = 1.d0
-          do while(O0_DE(this%cosmology)%density(aeq) .gt. O0_CDM(this%cosmology)%density(aeq) .and. aeq .gt. 0.2)
-             aeq = aeq*0.95
-          enddo
-          do while(O0_DE(this%cosmology)%density(aeq) .le. O0_CDM(this%cosmology)%density(aeq) .and. aeq .lt. 0.98)
-             aeq = aeq*1.01
-          enddo
-          do while(O0_DE(this%cosmology)%density(aeq) .gt. O0_CDM(this%cosmology)%density(aeq) .and. aeq .gt. 0.2)
-             aeq = aeq*0.995
-          enddo
-          phi = O0_DE(this%cosmology)%DE_phi(aeq)
-          dlnVdphi = O0_DE(this%cosmology)%DE_dlnVdphi(phi)
-          Q = O0_DE(this%cosmology)%DE_Q(aeq)
-          derived(4) = (dlnVdphi + Q)**2/2.d0
-       else
-          derived(4) = 0.d0
-       endif
     else
        if(this%index_omegam .ne. 0 .and. this%index_omegak .ne. 0)then
           derived(1) = 1.d0 - this%fullparams(this%index_omegam)- this%fullparams(this%index_omegak)
@@ -535,7 +520,6 @@ contains
           call coop_random_init()
           call this%chain%init()
           this%sum_mult = 0.d0
-          this%fast_steps = 0
           call this%get_lmax_from_data(pool)
           this%chainname = trim(this%prefix)//"_"//COOP_STR_OF(coop_MPI_Rank()+1)//".txt"
           if(.not. this%do_overwrite)then
@@ -562,7 +546,7 @@ contains
                    write(*,*) "continuing "//COOP_STR_OF(this%chain%n)//" lines from file "//trim(this%chainname)
                    if(.not. this%do_memsave) call this%chain%init()
                    if(associated(this%cosmology))then
-                      call this%set_cosmology()                      
+                      call this%set_cosmology()
                    endif
                    this%derived_params = this%derived()                   
                 else
@@ -589,19 +573,27 @@ contains
           if(this%cycl%next() .gt. this%n_slow)then
              vec(1:this%n_fast) = this%propose_fast_vec()*this%proposal_r()
              this%params(this%index_fast_start:this%n) = this%params_saved(this%index_fast_start:this%n) + matmul(this%mapping_fast, vec(1:this%n_fast))
+             this%slow_changed = .true.
+             
           else
              vec(1:this%n_slow) = this%propose_slow_vec()*this%proposal_r()
-             this%params = this%params_saved + matmul(this%mapping(:, 1:this%n_slow), vec(1:this%n_slow))          
+             this%params = this%params_saved + matmul(this%mapping(:, 1:this%n_slow), vec(1:this%n_slow))
+             this%slow_changed = .false.             
           endif
        else
           vec = this%propose_vec()*this%proposal_r()
-          this%params = this%params_saved + matmul(this%mapping, vec)          
+          this%params = this%params_saved + matmul(this%mapping, vec)
+          this%slow_changed = .true.          
        endif
        this%fullparams(this%used) = this%params
-       if(associated(this%cosmology) .and. this%fast_steps.eq.0)then
-          call this%set_cosmology()
+       if(this%priorlike() .lt. coop_logZero)then
+          if(associated(this%cosmology) .and. this%slow_changed)then
+             call this%set_cosmology()
+          endif
+          this%loglike_proposed = pool%loglike(this)
+       else
+          this%loglike_proposed = coop_logZero
        endif
-       this%loglike_proposed = pool%loglike(this)
        if((this%loglike_proposed - this%loglike)/this%temperature .lt. coop_random_exp())then
           this%accept = this%accept + 1
           this%knot(1) = this%mult
@@ -1057,13 +1049,14 @@ contains
     call this%cycl%free()
     this%prefix = trim(adjustl(prefix))
     this%proc_id = coop_MPI_rank()
-    call coop_dictionary_lookup(this%settings, "update_seconds", this%update_seconds, 1000000000)
+    call coop_dictionary_lookup(this%settings, "update_seconds", this%update_seconds, 1000000000)    
     this%update_seconds = max(this%update_seconds, 30) !!
     if(this%update_seconds .gt. 3600*24*30)then
        this%do_memsave = .false.
     else
        this%do_memsave = .true.
     endif
+    call coop_dictionary_lookup(this%settings, "total_steps", this%total_steps, 50000)    
     call coop_dictionary_lookup(this%settings, "general_loglike", this%do_general_loglike, .false.)
   
     call coop_dictionary_lookup(this%settings, "feedback", this%feedback, 1)  
@@ -1249,7 +1242,6 @@ contains
           write(fp%unit, "(2A16)") "H0              ", "H_0      "                    
           write(fp%unit, "(2A16)") "omegam          ", "\Omega_m  "          
           write(fp%unit, "(2A16)") "omegal          ", "\Omega_\Lambda  "
-          write(fp%unit, "(2A16)") "epss            ", "\epsilon_s  "                    
        else
           write(fp%unit, "(2A16)") "omegal          ", "\Omega_\Lambda  "
        endif

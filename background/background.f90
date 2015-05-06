@@ -6,7 +6,7 @@ module coop_background_mod
   private
   COOP_REAL,parameter::coop_min_de_tracking_n = 0.01d0
 
-  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_quintessence, coop_de_wp1_quintessence, coop_background_add_coupled_DE,  coop_background_add_coupled_DE_with_w
+  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_quintessence, coop_de_wp1_quintessence, coop_background_add_coupled_DE,  coop_background_add_coupled_DE_with_w, coop_de_aeq_fitting
 
 contains
 
@@ -16,7 +16,7 @@ contains
     type(coop_function),optional::fcs2b
     COOP_REAL Omega_b
     if(present(fcs2b))then
-       call this%init(genre = COOP_SPECIES_FLUID, name = "Baryon", id = 1, Omega=Omega_b, w = COOP_REAL_OF(0.), fcs2 = fcs2b)  !!you might want to replace the cs^2(baryon)
+       call this%init(genre = COOP_SPECIES_FLUID, name = "Baryon", id = 1, Omega=Omega_b, w = COOP_REAL_OF(0.), fcs2 = fcs2b )  !!you might want to replace the cs^2(baryon)
     else
        call this%init(genre = COOP_SPECIES_FLUID, name = "Baryon", id = 1, Omega=Omega_b, w = COOP_REAL_OF(0.), cs2 = COOP_REAL_OF(0.))  !!you might want to replace the cs^2(baryon)
     endif
@@ -63,7 +63,7 @@ contains
        return
     endif
     w0wa = coop_arguments(r =  (/ w0, wa /))
-    fw0wa = coop_function(coop_de_wp1_w0wa, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.), xlog = .true., args = w0wa)
+    fw0wa = coop_function(coop_de_wp1_w0wa, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.), xlog = .true., args = w0wa, name = "w0wa model 1+w")
     call this%init(genre = COOP_SPECIES_FLUID, name = "Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fwp1 = fw0wa )
     call w0wa%free
   end function coop_de_w0wa
@@ -94,7 +94,7 @@ contains
        return
     endif
     arg = coop_arguments(r =  (/ Omega_Lambda, epsilon_s, epsilon_inf, zeta_s /))
-    fq = coop_function(coop_de_wp1_quintessence, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args = arg)
+    fq = coop_function(coop_de_wp1_quintessence, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args = arg, name = "quintessence 1+w")
     call this%init(genre = COOP_SPECIES_FLUID, name = "Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fwp1 = fq )
     call arg%free
   end function coop_de_quintessence
@@ -486,7 +486,7 @@ contains
     index_de = this%num_species+2
     rhoc0 = 3.d0*omega_c
     aeq = coop_de_aeq_fitting(omega_lambda = this%Omega_k() - omega_c, epsilon_s = epsilon_s, epsilon_inf = epsilon_inf, zeta_s = zeta_s)
-    if(aeq .gt. coop_scale_factor_today)then
+    if(aeq .gt. 1.2d0)then
        err = 1
        return
     endif

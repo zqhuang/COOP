@@ -17,7 +17,6 @@ program test
   COOP_UNKNOWN_STRING, parameter::planckdata_path = "../data/cmb/"
   COOP_UNKNOWN_STRING, parameter::planckdata_path2 =   "/home/zqhuang/includes/planck13/data" 
   COOP_INT i
-  COOP_INT,parameter::total_steps = 60000
   COOP_REAL::loglike
   call coop_MPI_init()
 
@@ -104,7 +103,8 @@ program test
      loglike = pool%loglike(mcmc)
      write(*,*) "-ln(likelihood) = ", loglike
   case("MCMC", "mcmc")
-     do i = 1, total_steps
+     if(mcmc%feedback .gt. 2) write(*,*) "Starting MCMC on Node #"//COOP_STR_OF(mcmc%proc_id)
+     do i = 1, mcmc%total_steps
         call mcmc%mcmc_step(pool)
      enddo
   case default
