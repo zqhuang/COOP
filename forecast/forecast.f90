@@ -459,6 +459,7 @@ contains
     class(coop_MCMC_params)::this
     COOP_INT::i, istart, i1, i2
     COOP_REAL::converge_R
+    type(coop_file)::fp
     COOP_REAL:: mult, diff(this%n)
     this%time = nint(coop_systime_sec())
     if(this%time .lt. this%update_seconds )return
@@ -500,7 +501,12 @@ contains
        if(this%do_fastslow)then
           this%mapping_fast = this%mapping(this%index_fast_start:this%n, this%index_fast_start:this%n)
        endif
-       if(this%feedback .ge. 2)write(*,"(A, F15.4)") "propose matrix is updated on Node "//COOP_STR_OF(this%proc_id)//", convergence R - 1 = ", converge_R
+       if(this%feedback .ge. 2)write(*,"(A, G15.4)") "propose matrix is updated on Node "//COOP_STR_OF(this%proc_id)//", convergence R - 1 = ", converge_R
+       if(this%proc_id.eq.0)then
+          call fp%open(trim(this%prefix)//".converge_stat", "w")
+          write(fp%unit, "(G15.4)") converge_R
+          call fp%close()
+       endif
     endif
   end subroutine coop_MCMC_params_update_Propose
 
