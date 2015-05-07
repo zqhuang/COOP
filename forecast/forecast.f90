@@ -458,6 +458,7 @@ contains
   subroutine coop_MCMC_params_update_Propose(this)
     class(coop_MCMC_params)::this
     COOP_INT::i, istart, i1, i2
+    COOP_REAL::converge_R
     COOP_REAL:: mult, diff(this%n)
     this%time = nint(coop_systime_sec())
     if(this%time .lt. this%update_seconds )return
@@ -490,16 +491,16 @@ contains
           this%covmat%c = this%covmat%c/this%covmat%mult
        endif
     endif
-    call this%covmat%MPI_Sync()
+    call this%covmat%MPI_Sync(converge_R = converge_R)
     this%time = nint(coop_systime_sec(.true.))  !!reset time
-    if(this%covmat%mult .gt. this%n*10.d0 .and. .not. coop_isnan(this%covmat%L))then !!update mapping matrix
+    if(this%covmat%mult .gt. this%n*10.d0 .and. converge_R .lt. 100.d0 .and. .not. coop_isnan(this%covmat%L))then !!update mapping matrix
        do i=1, this%n
           this%mapping(i, :) = this%covmat%L(i, :)*this%covmat%sigma(i)
        enddo
        if(this%do_fastslow)then
           this%mapping_fast = this%mapping(this%index_fast_start:this%n, this%index_fast_start:this%n)
        endif
-       if(this%feedback .ge. 2)write(*,*) "propose matrix is updated on Node "//COOP_STR_OF(this%proc_id)       
+       if(this%feedback .ge. 2)write(*,"(A, F15.4)") "propose matrix is updated on Node "//COOP_STR_OF(this%proc_id)//", convergence R - 1 = ", converge_R
     endif
   end subroutine coop_MCMC_params_update_Propose
 

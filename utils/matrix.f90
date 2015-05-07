@@ -11,7 +11,7 @@ module coop_matrix_mod
 
   private
 
-  public::coop_write_matrix, coop_print_matrix, coop_read_matrix, coop_set_identity_matrix, coop_identity_matrix, coop_diagonal_matrix, coop_matrix_add_diagonal, coop_matrix_sum_columns,  coop_matrix_solve_small,  Coop_matrix_Solve, Coop_matrix_Inverse, coop_matsym_xCx, coop_matrix_det_small,coop_matsym_mat2vec, coop_matsym_vec2mat, coop_matsym_inverse_small, Coop_matsym_Inverse, Coop_matsym_Diagonalize, coop_matsymdiag_small,  Coop_matsym_Sqrt,  coop_matsym_sqrt_small,  coop_matsym_power_small,  Coop_matsym_power,  coop_matsym_function, Coop_matsym_LnDet, Coop_matsym_Solve, coop_matsym_index, coop_matrix_sorted_svd, coop_matsym_cholesky, coop_covmat
+  public::coop_write_matrix, coop_print_matrix, coop_read_matrix, coop_set_identity_matrix, coop_identity_matrix, coop_diagonal_matrix, coop_matrix_add_diagonal, coop_matrix_sum_columns,  coop_matrix_solve_small,  Coop_matrix_Solve, Coop_matrix_Inverse, coop_matsym_xCx, coop_matrix_det_small,coop_matsym_mat2vec, coop_matsym_vec2mat, coop_matsym_inverse_small, Coop_matsym_Inverse, Coop_matsym_Diagonalize, coop_matsymdiag_small,  Coop_matsym_Sqrt,  coop_matsym_sqrt_small,  coop_matsym_power_small,  Coop_matsym_power,  coop_matsym_function, Coop_matsym_LnDet, Coop_matsym_Solve, coop_matsym_index, coop_matrix_sorted_svd, coop_matsym_cholesky, coop_covmat, coop_matrix_dominant_eigen_value, coop_matsym_cholesky_invert, coop_matsym_invcholesky2inv
 
   type coop_covmat   !!assume only lower triangle is saved in C; !!invC contains full matrix; L is lower triangle Cholesky, with zero filled.
      COOP_INT::n = 0
@@ -405,7 +405,7 @@ contains
     COOP_REAL  A(n,n)
 #ifndef HAS_LAPACK
     COOP_INT i, j
-    COOP_REAL  sigma(n), p(n)
+    COOP_REAL  sigma(n)
 #endif
     select case(n)
     case(1)
@@ -421,34 +421,20 @@ contains
 #ifdef HAS_LAPACK
        call coop_matrix_sympos_inverse(a)
 #else
-       do i=1, n
-          sigma(i) = sqrt(A(i,i))
-       enddo
        do i=1,n
-          do j=1, n
-             A(i,j) = A(i,j)/sigma(i)/sigma(j)
-          enddo
+          sigma(i) = sqrt(a(i,i))
+          a(i,:) = a(i,:)/sigma(i)
+          a(:, i) = a(:, i)/sigma(i)
        enddo
-       call coop_matsym_choldc(n,a,p)
-       call coop_matsym_cholinv(n,a,p)
+       call coop_matsym_cholesky(n, a)
+       call coop_matsym_cholesky_invert(n, a)
+       call coop_matsym_invcholesky2inv(n, a)
        do i=1,n
-          do j=i+1,n
-             A(i,j)=dot_product(A(j:n,i),A(j:n,j))
-          enddo
-       enddo
-       do i=1,n-1
-          A(i,i)=dot_product(A(i:n,i),A(i:n,i))
-          A(i+1:n,i)=A(i,i+1:n)
-       enddo
-       A(n,n)=A(n,n)**2
-       do i=1,n
-          do j=1, n
-             A(i,j) = A(i,j)/sigma(i)/sigma(j)
-          enddo
+          a(i,:) = a(i,:)*sigma(i)
+          a(:, i) = a(:, i)*sigma(i)
        enddo
 #endif
     end select
-
   end subroutine coop_matsym_inverse_small
 
 
@@ -456,48 +442,8 @@ contains
     !! Invert a positive definite symetric matrix
     COOP_INT n
     COOP_REAL ,dimension(:,:),intent(inout):: A
-#ifndef HAS_LAPACK
-    COOP_REAL  p(size(A,1)), sigma(size(A,1))
-    COOP_INT i,j
-#endif
     n = Coop_getdim("Coop_matsym_Inverse", size(A,1), size(A,2))
-    select case(n)
-    case(1)
-       A=1.d0/A
-    case(2)
-       A=ReShape( (/ A(2,2),-A(2,1), -A(1,2),A(1,1) /) / (A(1,1)*A(2,2)-A(1,2)*A(2,1)), (/ 2, 2 /) )
-    case default
-#ifdef HAS_LAPACK
-       call coop_matrix_sympos_inverse(a)
-#else
-       do i=1, n
-          sigma(i) = sqrt(A(i,i))
-       enddo
-       do i=1,n
-          do j=1, n
-             A(i,j) = A(i,j)/sigma(i)/sigma(j)
-          enddo
-       enddo
-       call coop_matsym_choldc(n,a,p)
-       call coop_matsym_cholinv(n,a,p)
-       do i=1,n
-          do j=i+1,n
-             A(i,j)=dot_product(A(j:n,i),A(j:n,j))
-          enddo
-       enddo
-       do i=1,n-1
-          A(i,i)=dot_product(A(i:n,i),A(i:n,i))
-          A(i+1:n,i)=A(i,i+1:n)
-       enddo
-       A(n,n)=A(n,n)**2
-       do i=1,n
-          do j=1, n
-             A(i,j) = A(i,j)/sigma(i)/sigma(j)
-          enddo
-       enddo
-#endif
-    end select
-
+    call coop_matsym_inverse_small(n, a)
   end subroutine Coop_matsym_Inverse
 
 
@@ -917,48 +863,6 @@ contains
     end do
   end Subroutine coop_matrix_lubksb
 
-  Subroutine coop_matsym_choldc(n,a,p) !!a=LL^T,
-    COOP_INT n
-    COOP_REAL  a(n,n)
-    COOP_REAL  p(n)
-    COOP_INT i
-    COOP_REAL  summ
-    do i=1,n
-       summ=a(i,i)-dot_product(a(i,1:i-1),a(i,1:i-1))
-       if (summ <= 0.0)then
-          call coop_return_error('coop_matsym_choldc', 'negative summ', 'stop')
-       endif
-       p(i)=sqrt(summ)
-       a(i+1:n,i)=(a(i,i+1:n)-matmul(a(i+1:n,1:i-1),a(i,1:i-1)))/p(i)
-    end do
-  end Subroutine coop_matsym_choldc
-
-  Subroutine coop_matsym_cholsl(n,a,p,b,x) !!solve LL^T x = b
-    COOP_INT n
-    COOP_REAL  a(n,n)
-    COOP_REAL  p(n),b(n)
-    COOP_REAL  x(n)
-    COOP_INT i
-    do i=1,n
-       x(i)=(b(i)-dot_product(a(i,1:i-1),x(1:i-1)))/p(i) !!solve L y = b
-    end do
-    do i=n,1,-1
-       x(i)=(x(i)-dot_product(a(i+1:n,i),x(i+1:n)))/p(i) !! solve L^T x = y
-    end do
-  end Subroutine coop_matsym_cholsl
-
-  subroutine coop_matsym_cholinv(n,a,p)  !!invert L
-    COOP_INT n
-    COOP_REAL  a(n,n),p(n)
-    COOP_INT i,j
-    do  i=1,n
-       a(i,i)=1./p(i)
-       do  j=i+1,n
-          a(j,i)=-dot_product(a(j,i:j-1),a(i:j-1,i))/p(j)
-       enddo
-    enddo
-  end subroutine coop_matsym_cholinv
-
   !!********************************************************
   !!matrix diagonalization; diag(eig1; eig2; ..; eign ) = R^T A R
   !!return R;
@@ -1119,17 +1023,47 @@ contains
   end Subroutine Coop_matsym_cholesky
 
   Subroutine Coop_matsym_cholesky_solve(n,a,b)
-    COOP_INT N,i
-    COOP_REAL  A(N,N),b(N)
-    b(1)=b(1)/A(1,1)
-    do I=2,N
-       b(i)=(b(i)-sum(A(i,1:i-1)*b(1:i-1)))/A(i,i)
+    COOP_INT n,i
+    COOP_REAL  a(n, n), b(n) 
+    b(1)=b(1)/a(1,1)
+    do i = 2,n
+       b(i)=(b(i)-sum(a(i,1:i-1)*b(1:i-1)))/a(i,i)
     enddo
-    b(N)=b(N)/A(N,N)
+    b(n)=b(n)/a(n, n)
     do i=n-1,1,-1
-       b(i)=(b(i)-sum(b(i+1:n)*A(i+1:n,i)))/A(i,i)
+       b(i)=(b(i)-sum(b(i+1:n)*a(i+1:n,i)))/a(i,i)
     enddo
   end Subroutine Coop_matsym_cholesky_solve
+
+  subroutine coop_matsym_cholesky_invert(n, a)
+    COOP_INT::n
+    COOP_REAL::a(n, n)
+    COOP_INT i,j
+    do  i=1,n
+       a(i,i)=1.d0/a(i, i)
+       do  j=i+1,n
+          a(j,i)=-dot_product(a(j,i:j-1),a(i:j-1,i))/a(j,j)
+       enddo
+    enddo
+  end subroutine coop_matsym_cholesky_invert
+
+  subroutine coop_matsym_invcholesky2inv(n, a)
+    COOP_INT::n
+    COOP_REAL::a(n, n)
+    COOP_INT::i, j
+    !!compute C^{-1}
+    do i=1,n
+       do j=i+1,n
+          a(i,j)=dot_product(a(j:n,i),a(j:n,j))
+       enddo
+    enddo
+    do i=1,n-1
+       a(i,i)=dot_product(a(i:n,i),a(i:n,i))
+       a(i+1:n,i)=a(i,i+1:n)
+    enddo
+    a(n,n)=a(n,n)**2
+  end subroutine coop_matsym_invcholesky2inv
+  
 
   function coop_matsym_index(n, i, j) result(ind)
     COOP_INT n, i, j
@@ -1272,23 +1206,8 @@ contains
     COOP_INT i,j    
     this%invC = this%L
     !!invert L
-    do  i=1, this%n
-       this%invC(i,i)=1./this%invC(i, i)
-       do  j=i+1,this%n
-          this%invC(j,i)=-dot_product(this%invC(j,i:j-1), this%invC(i:j-1,i))/this%invC(j, j)
-       enddo
-    enddo
-    !!compute C^{-1}
-    do i=1,this%n
-       do j=i+1,this%n
-          this%invC(i,j)=dot_product(this%invC(j:this%n,i),this%invC(j:this%n,j))
-       enddo
-    enddo
-    do i=1,this%n-1
-       this%invC(i,i)=dot_product(this%invC(i:this%n,i),this%invC(i:this%n,i))
-       this%invC(i+1:this%n,i)=this%invC(i,i+1:this%n)
-    enddo
-    this%invC(this%n,this%n)=this%invC(this%n,this%n)**2
+    call coop_matsym_cholesky_invert(this%n, this%invC)
+    call coop_matsym_invcholesky2inv(this%n, this%invC)
   end subroutine coop_covmat_invert
 
   subroutine coop_covmat_cholesky(this)
@@ -1353,13 +1272,19 @@ contains
   end subroutine coop_covmat_diagonal
 
 
-  subroutine coop_covmat_MPI_sync(this)
+  subroutine coop_covmat_MPI_sync(this, converge_R, weight_B)
     class(coop_covmat)::this
-#ifdef MPI        
+    COOP_REAL, optional::converge_R, weight_B !!convergence test
     COOP_REAL, dimension(:),allocatable::info, covinfo
-    COOP_INT:: i, j, ii
-    if(coop_MPI_NumProc().eq.1)return
-    allocate(info(0:this%n), covinfo(this%n*(this%n+1)/2))
+    COOP_REAL,dimension(:,:),allocatable::cov, meanscov
+    COOP_REAL::weight_W, R
+    COOP_INT:: i, j, ii, ms, num_proc
+    if(present(converge_R))converge_R = 1.d0    
+#ifdef MPI        
+    num_proc = coop_MPI_NumProc()
+    if(num_proc .eq.1)return
+    ms = this%n*(this%n+1)/2
+    allocate(info(0:this%n), covinfo(ms*2))
     info(0) = this%mult
     info(1:this%n) = this%mean*this%mult
     call coop_MPI_sum(info(0:this%n))
@@ -1369,30 +1294,110 @@ contains
     do i=1, this%n
        do j = 1, i
           ii = ii + 1
-          if(i.eq.j)then
-             covinfo(ii)  = (this%c(i, i)*this%sigma(i)**2 + (this%mean(i)-info(i))**2)*this%mult
-          else
-             covinfo(ii)  = (this%c(i, j)*this%sigma(i)*this%sigma(j))*this%mult
-          endif
+          covinfo(ii)  = this%c(i, j)*this%sigma(i)*this%sigma(j) *this%mult !!mean of covariance 
+          covinfo(ms+ii) = (this%mean(i)-info(i))*(this%mean(j)-info(j))*this%mult  !!covariance of mean
        enddo
     enddo
     call coop_MPI_Sum(covinfo)
     covinfo = covinfo/info(0)
+    covinfo(ms+1:2*ms) = covinfo(ms+1:2*ms)*(dble(num_proc)/(num_proc-1.d0))
+    
     this%mult = info(0)
     this%sigma = 1.d0
     this%mean = info(1:this%n)
-    ii = 0    
+    ii = 0
+    allocate(cov(this%n, this%n), meanscov(this%n, this%n))
     do i=1, this%n
        do j = 1, i
           ii = ii + 1          
-          this%c(i, j) =  covinfo(ii)
-          this%c(j, i) = this%c(i, j)
+          cov(i, j) = covinfo(ii)
+          meanscov(i, j) = covinfo(ii+ms)
+          cov(j, i) = cov(i, j)
+          meanscov(j, i) = meanscov(i, j)
        enddo
     enddo
-    deallocate(info, covinfo)
+    if(present(converge_R))then
+       converge_R = coop_GelmanRubin_R(this%n, cov, meanscov)
+    endif
+    if(present(weight_B))then
+       weight_W = 1.d0-weight_B
+    else
+       if(present(converge_R))then
+          weight_W = max(converge_R/(1.d0+converge_R), 0.1d0)
+       else
+          weight_W = 1.d0 - 1.d0/info(0) !!default weight
+       endif
+    endif
+    
+    this%c = cov * weight_W + meanscov * (1.d0-weight_W)
+    deallocate(info, covinfo, cov, meanscov)
     call this%normalize()
 #endif    
   end subroutine coop_covmat_MPI_sync
+
+
+  function coop_matrix_dominant_eigen_value(n, a, accuracy) result(lambda)
+    COOP_INT, parameter::max_loops = 150
+    COOP_INT::n, iloop
+    COOP_REAL::a(n, n)
+    COOP_REAL,optional::accuracy
+    COOP_REAL::eps
+    COOP_REAL::x(n), y(n), last_lambda, lambda
+    x = 1.d0/sqrt(dble(n))
+    do iloop = 1, max(5, n/10)  !!do 5 iterations
+       y = matmul(a, x)
+       x =  y/sqrt(dot_product(y, y))
+    enddo
+    y = matmul(a, x)
+    last_lambda = dot_product(x, y)
+    x =  y/sqrt(dot_product(y, y))
+    iloop = 0
+    if(present(accuracy))then
+       eps = accuracy/2.d0
+    else
+       eps = 1.d-4
+    endif
+    do 
+       y = matmul(a, x)
+       lambda = dot_product(x, y)
+       if(abs(lambda/last_lambda - 1.d0) .le. eps)return
+       x = y/sqrt(dot_product(y, y))
+       iloop = iloop+1
+       if(iloop .gt. max_loops)then
+          write(*,*) "Warning: dominant eigen value does not converge"
+          write(*,*) "last iteration: ", lambda/last_lambda - 1.d0
+          return
+       endif
+       last_lambda = lambda
+    enddo
+  end function coop_matrix_dominant_eigen_value
+
+
+
+  function coop_GelmanRubin_R(n, cov, meanscov) result(R)
+    COOP_INT, intent(in) :: n
+    COOP_REAL,intent(in) :: cov(n,n), meanscov(n,n)
+    COOP_REAL:: evals(n), R
+    COOP_INT::i
+    COOP_REAL:: rot(n, n), rotmeans(n, n)
+    COOP_REAL::sc
+    rot = cov
+    rotmeans = meanscov
+    do i=1,n
+       sc = sqrt(cov(i,i))
+       rot(i,:) = rot(i,:) / sc
+       rot(:,i) = rot(:,i) / sc
+       rotmeans(i,:) = rotmeans(i,:) /sc
+       rotmeans(:,i) = rotmeans(:,i) /sc
+    end do
+    call coop_matsym_cholesky(n, rot)
+    call coop_matsym_cholesky_invert(n, rot)
+    rotmeans =  matmul(matmul(rot, rotmeans), transpose(rot))
+    R = coop_matrix_dominant_eigen_value(n, rotmeans, 1.d-3)
+  end function coop_GelmanRubin_R
+
   
 
 end module Coop_matrix_mod
+
+
