@@ -1279,7 +1279,7 @@ contains
     COOP_REAL,dimension(:,:),allocatable::cov, meanscov
     COOP_REAL::weight_W, R
     COOP_INT:: i, j, ii, ms, num_proc
-    if(present(converge_R))converge_R = 1.d0    
+    if(present(converge_R))converge_R = 0.d0    
 #ifdef MPI        
     num_proc = coop_MPI_NumProc()
     if(num_proc .eq.1)return
@@ -1342,7 +1342,12 @@ contains
     COOP_REAL::a(n, n)
     COOP_REAL,optional::accuracy
     COOP_REAL::eps
-    COOP_REAL::x(n), y(n), last_lambda, lambda
+    COOP_REAL::x(n), y(n), last_lambda, lambda, sigma
+    sigma = maxval(abs(a))
+    if(sigma .eq. 0.d0)then
+       lambda = 0.d0
+       return
+    endif
     x = 1.d0/sqrt(dble(n))
     do iloop = 1, max(5, n/10)  !!do 5 iterations
        y = matmul(a, x)

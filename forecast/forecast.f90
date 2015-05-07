@@ -497,6 +497,11 @@ contains
     if(this%feedback.ge.1 .and. this%proc_id .eq. 0)then
        write(*, "(A, G15.4)") "convergence R - 1 = ", converge_R       
     endif
+    if(this%proc_id.eq.0)then
+       call fp%open(trim(this%prefix)//".converge_stat", "w")
+       write(fp%unit, "(G15.4)") converge_R
+       call fp%close()
+    endif
        
        
     if(this%covmat%mult .gt. this%n*10.d0 .and. converge_R .lt. 100.d0 .and. .not. coop_isnan(this%covmat%L))then !!update mapping matrix
@@ -507,11 +512,6 @@ contains
           this%mapping_fast = this%mapping(this%index_fast_start:this%n, this%index_fast_start:this%n)
        endif
        if(this%feedback .ge. 2)write(*,*) "propose matrix is updated on Node "//COOP_STR_OF(this%proc_id)
-       if(this%proc_id.eq.0)then
-          call fp%open(trim(this%prefix)//".converge_stat", "w")
-          write(fp%unit, "(G15.4)") converge_R
-          call fp%close()
-       endif
     endif
   end subroutine coop_MCMC_params_update_Propose
 
