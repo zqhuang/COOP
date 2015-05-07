@@ -494,6 +494,11 @@ contains
     endif
     call this%covmat%MPI_Sync(converge_R = converge_R)
     this%time = nint(coop_systime_sec(.true.))  !!reset time
+    if(this%feedback.ge.1 .and. this%proc_id .eq. 0)then
+       write(*, "(A, G15.4)") "convergence R - 1 = ", converge_R       
+    endif
+       
+       
     if(this%covmat%mult .gt. this%n*10.d0 .and. converge_R .lt. 100.d0 .and. .not. coop_isnan(this%covmat%L))then !!update mapping matrix
        do i=1, this%n
           this%mapping(i, :) = this%covmat%L(i, :)*this%covmat%sigma(i)
@@ -501,7 +506,7 @@ contains
        if(this%do_fastslow)then
           this%mapping_fast = this%mapping(this%index_fast_start:this%n, this%index_fast_start:this%n)
        endif
-       if(this%feedback .ge. 2)write(*,"(A, G15.4)") "propose matrix is updated on Node "//COOP_STR_OF(this%proc_id)//", convergence R - 1 = ", converge_R
+       if(this%feedback .ge. 2)write(*,*) "propose matrix is updated on Node "//COOP_STR_OF(this%proc_id)
        if(this%proc_id.eq.0)then
           call fp%open(trim(this%prefix)//".converge_stat", "w")
           write(fp%unit, "(G15.4)") converge_R
