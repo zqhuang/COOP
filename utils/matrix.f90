@@ -1322,7 +1322,7 @@ contains
        weight_W = 1.d0-weight_B
     else
        if(present(converge_R))then
-          weight_W = max(converge_R/(1.d0+converge_R), 0.1d0)
+          weight_W = max(converge_R/(0.05d0+converge_R), 0.5d0)
        else
           weight_W = 1.d0 - 1.d0/info(0) !!default weight
        endif

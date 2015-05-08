@@ -246,6 +246,7 @@ contains
     COOP_INT::ncols
     COOP_LONG_STRING inline    
     COOP_SINGLE, dimension(:),allocatable::s
+    if(.not. coop_file_exists(filename))return
     if(present(num))then !!unformatted
        ncols = num
     else

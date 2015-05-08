@@ -3,6 +3,7 @@ module coop_nd_prob_mod
   use coop_matrix_mod
   use coop_file_mod
   use coop_wrapper_typedef
+  use coop_MPI_mod
   implicit none
 #include "constants.h"  
 
@@ -125,22 +126,42 @@ contains
   subroutine coop_nd_prob_load_chains(this, prefix, nvars)
     COOP_UNKNOWN_STRING::prefix
     class(coop_nd_prob)::this
-    type(coop_file)::fp
-    COOP_STRING::filename
-    COOP_INT::nvars, n, nchains, i
+    type(coop_file)::fp, ndf
+    COOP_STRING::txtfile, ndffile
+    COOP_INT::nvars, i, stat
+    COOP_SHORT_STRING::postfix
     type(coop_list_realarr)::rl
-    if(.not. coop_file_exists(trim(prefix)//"_1.txt"))then
-       write(*,*) "cannot find chain "//trim(prefix)
-       stop
+    COOP_SINGLE, dimension(:),allocatable::s
+    !!step 1: dump txt to ndf
+    txtfile = trim(prefix)//"_"//COOP_STR_OF(coop_MPI_Rank()+1)//".txt"
+    ndffile = trim(prefix)//"_"//COOP_STR_OF(coop_MPI_Rank()+1)//".ndf"
+    if(coop_file_exists(txtfile) .and. .not. coop_file_exists(ndffile))then
+       allocate(s(2+nvars))       
+       call fp%open(txtfile, "r")
+       call ndf%open(ndffile, "u")
+       stat = 0
+       read(fp%unit, *, iostat = stat) s        
+       do while(stat .eq. 0)
+          write(ndf%unit) s
+          call rl%push(s)
+          read(fp%unit, *, iostat = stat) s        
+       enddo
+       call fp%close()
+       call ndf%close()
+       deallocate(s)
     endif
-    n = 0
-    i = 1
-    filename = trim(prefix)//"_"//COOP_STR_OF(i)//".ndf"
-    do while(coop_file_exists(filename))
-       call coop_file_load_realarr(filename, rl, 2+nvars)
-       i = i + 1
-       filename = trim(prefix)//"_"//COOP_STR_OF(i)//".ndf"       
+    !!step 2: load from ndf files, wrapped with MPI_Barrier to avoid simultaneous I/O
+    call coop_MPI_Barrier()
+    i = coop_MPI_Rank() + 1   
+    do 
+       ndffile = trim(prefix)//"_"//COOP_STR_OF(i)//".ndf"              
+       call coop_file_load_realarr(ndffile, rl, 2+nvars)
+       i = mod(i, coop_MPI_NumProc()) + 1
+       if(i.eq. coop_MPI_Rank()+1) exit
     enddo
+    call coop_MPI_Barrier()
+    !!step 3: analyze the data
+    if(rl%n .le. 0) return
     call this%alloc(dim = nvars, capacity = rl%n)
     do i=1, rl%n
        call this%add(rl%element(i))

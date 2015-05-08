@@ -507,7 +507,6 @@ contains
     if(this%do_ndf)then
        call this%like_approx%load_chains(this%prefix, this%n)
        if(this%feedback .ge.2)write(*,*) COOP_STR_OF(this%proc_id)//": likelihood fitting function loaded with "//COOP_STR_OF(this%like_approx%n)//" data points"
-       call coop_MPI_Barrier()
        call this%ndffile%open(this%ndfname, "ua")       
     endif
     this%time = nint(coop_systime_sec(.true.))  !!reset time
@@ -571,7 +570,17 @@ contains
           call this%get_lmax_from_data(pool)
           this%chainname = trim(this%prefix)//"_"//COOP_STR_OF(this%proc_id+1)//".txt"
           this%ndfname = trim(this%prefix)//"_"//COOP_STR_OF(this%proc_id+1)//".ndf"          
-          if(.not. this%do_overwrite)then
+          if(this%do_overwrite)then
+             if(this%do_ndf) call this%ndffile%open(this%ndfname, "u")
+          else
+             if(this%do_ndf)then
+                call this%like_approx%load_chains(this%prefix, this%n)
+                if(this%feedback .ge.2 .and. this%like_approx%n .gt. 0)then
+                   write(*,*) COOP_STR_OF(this%proc_id)//": likelihood fitting function loaded with "//COOP_STR_OF(this%like_approx%n)//" data points"
+                endif
+                call this%ndffile%open(this%ndfname, "ua")
+             endif
+             
              if(coop_file_exists(this%chainname))then
                 this%bestlike = coop_logZero
                 this%bestparams = this%params
@@ -604,9 +613,6 @@ contains
              else
                 this%do_overwrite = .true.
              endif
-             if(this%do_ndf) call this%ndffile%open(this%ndfname, "ua")
-          else
-             if(this%do_ndf) call this%ndffile%open(this%ndfname, "u")
           endif
           if(this%do_overwrite)then
              call this%chainfile%open(this%chainname, "w")
