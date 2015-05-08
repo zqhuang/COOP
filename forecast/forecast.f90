@@ -1155,7 +1155,7 @@ contains
     this%do_ndf  = (this%approx_frac .gt. 0.d0)
     if(this%do_ndf .and. this%feedback .ge.2 .and. this%proc_id.eq.0)write(*,"(A, G15.4)") "approximation fraction:", this%approx_frac
     call coop_dictionary_lookup(this%settings, "drift_frac", this%drift_frac, 0.d0)
-    call coop_dictionary_lookup(this%settings, "drift_step", this%drift_frac, 0.02d0)    
+    call coop_dictionary_lookup(this%settings, "drift_step", this%drift_step, 0.02d0)    
     this%do_drift = (this%drift_frac .gt. 0.d0)
     if(this%do_drift .and. this%feedback .ge. 2 .and. this%proc_id.eq.0)then
        write(*, "(A, G15.4)") "random drift probability: ", this%drift_frac
