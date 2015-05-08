@@ -149,6 +149,7 @@ contains
        call fp%close()
        call ndf%close()
        deallocate(s)
+       call rl%init()
     endif
     !!step 2: load from ndf files, wrapped with MPI_Barrier to avoid simultaneous I/O
     call coop_MPI_Barrier()
