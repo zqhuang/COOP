@@ -143,16 +143,15 @@ contains
        read(fp%unit, *, iostat = stat) s        
        do while(stat .eq. 0)
           write(ndf%unit) s
-          call rl%push(s)
           read(fp%unit, *, iostat = stat) s        
        enddo
        call fp%close()
        call ndf%close()
        deallocate(s)
-       call rl%init()
     endif
     !!step 2: load from ndf files, wrapped with MPI_Barrier to avoid simultaneous I/O
     call coop_MPI_Barrier()
+    call rl%init()
     i = coop_MPI_Rank() + 1   
     do
        ndffile = trim(prefix)//"_"//COOP_STR_OF(i)//".ndf"              

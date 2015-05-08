@@ -19,7 +19,11 @@
        open(fp%unit,FILE=trim(adjustl(filename)),FORM="FORMATTED",STATUS="UNKNOWN", ACCESS='SEQUENTIAL', ACTION="READ", Err=200)
        fp%mode = 'txt'
     case("a", "A")
-       open(fp%unit,FILE=trim(adjustl(filename)),FORM="FORMATTED",STATUS="UNKNOWN", ACCESS='APPEND',ACTION="READWRITE", Err=200)
+       if(coop_file_exists(filename))then
+          open(fp%unit,FILE=trim(adjustl(filename)),FORM="FORMATTED",STATUS="UNKNOWN", ACCESS='APPEND',ACTION="READWRITE", Err=200)
+       else
+          open(fp%unit,FILE=trim(adjustl(filename)),FORM="FORMATTED",ACTION="READWRITE", Err=200)          
+       endif
        fp%mode = 'txt'
     case("b", "B")
        if(present(recl))then
@@ -49,7 +53,11 @@
        open(UNIT=fp%unit,FILE=trim(adjustl(filename)),FORM="UNFORMATTED",STATUS="UNKNOWN", ACCESS="SEQUENTIAL",ACTION="READ",ERR=200)        
        fp%mode = "unf"
     case('AU', "au", "ua", "UA")
-       open(UNIT=fp%unit,FILE=trim(adjustl(filename)),FORM="UNFORMATTED",STATUS="UNKNOWN", ACCESS="APPEND",ACTION="READWRITE",ERR=200)        
+       if(coop_file_exists(filename))then
+          open(UNIT=fp%unit,FILE=trim(adjustl(filename)),FORM="UNFORMATTED",STATUS="OLD", ACCESS="APPEND",ACTION="READWRITE",ERR=200)
+       else
+          open(UNIT=fp%unit,FILE=trim(adjustl(filename)),FORM="UNFORMATTED",ACTION="READWRITE",ERR=200)
+       endif
        fp%mode = "unf"
     case default
        write(*,*) "Error in fp: unknow mode "//trim(mode)
