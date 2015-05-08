@@ -154,13 +154,14 @@ contains
     !!step 2: load from ndf files, wrapped with MPI_Barrier to avoid simultaneous I/O
     call coop_MPI_Barrier()
     i = coop_MPI_Rank() + 1   
-    do 
+    do
        ndffile = trim(prefix)//"_"//COOP_STR_OF(i)//".ndf"              
        call coop_file_load_realarr(ndffile, rl, 2+nvars)
        i = mod(i, coop_MPI_NumProc()) + 1
+       call coop_MPI_Barrier()         !!so no file is opened by two nodes
        if(i.eq. coop_MPI_Rank()+1) exit
     enddo
-    call coop_MPI_Barrier()
+
     !!step 3: analyze the data
     if(rl%n .le. 0) return
     call this%alloc(dim = nvars, capacity = rl%n)
