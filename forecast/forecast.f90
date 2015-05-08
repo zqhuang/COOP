@@ -108,13 +108,17 @@ module coop_forecast_mod
      COOP_STRING::form
      logical::do_flush = .false.
      logical::do_write_chain = .true.
-     logical::do_ndf = .true.  !!for likelihood interpolation     
+     logical::do_ndf = .true.  !!for likelihood interpolation
+     logical::do_drift = .false.
      logical::do_overwrite = .false.
      logical::do_fastslow = .false.
      logical::slow_changed = .true.
      logical::do_memsave = .true.
      logical::do_general_loglike = .false.
      COOP_REAL::approx_frac = 0.d0
+     COOP_REAL::drift_frac = 0.d0
+     COOP_REAL::drift_step = 0.02d0
+     logical::is_drift = .false.
      COOP_INT::n_fast = 0
      COOP_INT::index_fast_start = 0
      COOP_INT::n_slow = 0
@@ -671,7 +675,7 @@ contains
           this%loglike_proposed = coop_logZero
           
        endif
-       if(this%loglike_proposed .lt. coop_logZero .and. (this%loglike_proposed - this%loglike)/this%temperature .lt. coop_random_exp())then
+       if(this%loglike_proposed .lt. coop_logZero .and. ((this%loglike_proposed - this%loglike)/this%temperature .lt. coop_random_exp() .or. this%is_drift))then
           this%accept = this%accept + 1
           this%knot(1) = this%mult
           this%knot(2) = this%loglike
@@ -1148,8 +1152,14 @@ contains
   
     call coop_dictionary_lookup(this%settings, "feedback", this%feedback, 1)
     call coop_dictionary_lookup(this%settings, "approx_frac", this%approx_frac, 0.d0)
-    this%do_ndf  = (this%approx_frac .gt. 5.d-2) !!if less than 5% just do exact
-    if(this%do_ndf .and. this%feedback .ge.2 .and. this%proc_id.eq.0)write(*,*) "approximation fraction:", this%approx_frac
+    this%do_ndf  = (this%approx_frac .gt. 0.d0)
+    if(this%do_ndf .and. this%feedback .ge.2 .and. this%proc_id.eq.0)write(*,"(A, G15.4)") "approximation fraction:", this%approx_frac
+    call coop_dictionary_lookup(this%settings, "drift_frac", this%drift_frac, 0.d0)
+    call coop_dictionary_lookup(this%settings, "drift_step", this%drift_frac, 0.02d0)    
+    this%do_drift = (this%drift_frac .gt. 0.d0)
+    if(this%do_drift .and. this%feedback .ge. 2 .and. this%proc_id.eq.0)then
+       write(*, "(A, G15.4)") "random drift probability: ", this%drift_frac
+    endif
     if(this%do_general_loglike)then
        if(associated(this%cosmology))nullify(this%cosmology)
     endif
@@ -1399,6 +1409,13 @@ contains
        r = coop_random_exp()
     else
        r = this%proposal_length*sqrt((coop_random_Gaussian()**2 + coop_random_Gaussian()**2)/2.d0)
+    endif
+    this%is_drift = .false.
+    if(this%do_drift)then
+       if(coop_random_unit() .lt. this%drift_frac)then
+          this%is_drift = .true.
+          r = r * this%drift_step
+       endif
     endif
   end function coop_MCMC_params_proposal_r
 
