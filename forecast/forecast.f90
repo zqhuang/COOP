@@ -117,7 +117,7 @@ module coop_forecast_mod
      logical::do_general_loglike = .false.
      COOP_REAL::approx_frac = 0.d0
      COOP_REAL::drift_frac = 0.d0
-     COOP_REAL::drift_step = 0.02d0
+     COOP_REAL::drift_step = 0.01d0
      logical::is_drift = .false.
      COOP_INT::n_fast = 0
      COOP_INT::index_fast_start = 0
@@ -510,7 +510,7 @@ contains
     call this%covmat%MPI_Sync(converge_R = converge_R)
     if(this%do_ndf)then
        call this%like_approx%load_chains(this%prefix, this%n)
-       if(this%feedback .ge.2)write(*,*) COOP_STR_OF(this%proc_id)//": likelihood fitting function loaded with "//COOP_STR_OF(this%like_approx%n)//" data points"
+       if(this%feedback .ge. 1)write(*,*) COOP_STR_OF(this%proc_id)//": likelihood fitting function loaded with "//COOP_STR_OF(this%like_approx%n)//" data points"
        call this%ndffile%open(this%ndfname, "ua")       
     endif
     this%time = nint(coop_systime_sec(0.d0))  !!reset time
@@ -658,7 +658,7 @@ contains
           endif
           this%loglike_proposed_is_exact = .true.
           if(this%do_ndf)then
-             if(this%like_approx%n .gt. this%n * 20)then
+             if(this%like_approx%n .gt. this%n * 50)then
                 if(coop_random_unit().lt. this%approx_frac)then
                    this%loglike_proposed = this%like_approx%eval(this%params)
                    if(this%feedback .ge. 3) write(*,*) this%proc_id,": approx -lnlike = ", this%loglike_proposed
@@ -1153,11 +1153,11 @@ contains
     call coop_dictionary_lookup(this%settings, "feedback", this%feedback, 1)
     call coop_dictionary_lookup(this%settings, "approx_frac", this%approx_frac, 0.d0)
     this%do_ndf  = (this%approx_frac .gt. 0.d0)
-    if(this%do_ndf .and. this%feedback .ge.2 .and. this%proc_id.eq.0)write(*,"(A, G15.4)") "approximation fraction:", this%approx_frac
+    if(this%do_ndf .and. this%feedback .ge.1  .and. this%proc_id.eq.0)write(*,"(A, G15.4)") "approximation fraction:", this%approx_frac
     call coop_dictionary_lookup(this%settings, "drift_frac", this%drift_frac, 0.d0)
-    call coop_dictionary_lookup(this%settings, "drift_step", this%drift_step, 0.02d0)    
+    call coop_dictionary_lookup(this%settings, "drift_step", this%drift_step, 0.01d0)    
     this%do_drift = (this%drift_frac .gt. 0.d0)
-    if(this%do_drift .and. this%feedback .ge. 2 .and. this%proc_id.eq.0)then
+    if(this%do_drift .and. this%feedback .ge. 1 .and. this%proc_id.eq.0)then
        write(*, "(A, G15.4)") "random drift probability: ", this%drift_frac
     endif
     if(this%do_general_loglike)then
