@@ -137,7 +137,7 @@ module coop_forecast_mod
      COOP_REAL::temperature = 1.d0
      COOP_INT::lmax = 0
      COOP_INT::update_seconds = 100000000
-     COOP_INT::update_times = 0
+     COOP_INT::num_exact_calc = 0
      COOP_REAL, dimension(:,:), allocatable::Cls_scalar, Cls_tensor, Cls_lensed     
      COOP_INT,dimension(:),allocatable::used, map2used
      COOP_REAL,dimension(:),allocatable::fullparams
@@ -509,7 +509,7 @@ contains
        if(this%feedback .ge.2)write(*,*) COOP_STR_OF(this%proc_id)//": likelihood fitting function loaded with "//COOP_STR_OF(this%like_approx%n)//" data points"
        call this%ndffile%open(this%ndfname, "ua")       
     endif
-    this%time = nint(coop_systime_sec(.true.))  !!reset time
+    this%time = nint(coop_systime_sec(0.d0))  !!reset time
     if(this%feedback.ge.1 .and. this%proc_id .eq. 0)then
        write(*, "(A, G15.4)") "convergence R - 1 = ", converge_R       
     endif
@@ -543,8 +543,8 @@ contains
     if(this%n .le. 0) stop "MCMC: no varying parameters"
     select type(this)
     class is(coop_MCMC_params)
-       if(this%feedback .gt. 3)then !!check reject rate
-          if(this%reject .gt. this%accept*20)then
+       if(this%feedback .gt. 4)then !!check reject rate
+          if(this%reject .gt. this%accept*20 .and. this%accept .gt. 0)then
              write(*,*) "Reject rate enormalously high"
              write(*,*) "MPI Rank = ",this%proc_id, size(this%covmat%mean), size(this%covmat%sigma), size(this%covmat%c), size(this%covmat%L)             
              write(*,*) "mean = "             
@@ -563,7 +563,6 @@ contains
           endif
        endif
        if(this%accept+this%reject .eq. 0)then
-          this%time = coop_systime_sec(.true.)
           call coop_random_init()
           call this%chain%init()
           this%sum_mult = 0.d0
@@ -606,7 +605,7 @@ contains
                    if(associated(this%cosmology))then
                       call this%set_cosmology()
                    endif
-                   this%derived_params = this%derived()                   
+                   this%derived_params = this%derived()
                 else
                    this%do_overwrite = .true.
                 endif
@@ -615,6 +614,7 @@ contains
              endif
           endif
           if(this%do_overwrite)then
+             this%time = coop_systime_sec(0.d0)                          
              call this%chainfile%open(this%chainname, "w")
              if(associated(this%cosmology))then
                 call this%set_cosmology()
@@ -622,9 +622,12 @@ contains
              this%derived_params = this%derived()
              this%mult = 1.d0
              this%loglike = pool%LogLike(this)
+             this%num_exact_calc = this%num_exact_calc + 1
              this%loglike_is_exact = .true.
              this%bestparams = this%params
              this%bestlike = this%loglike
+          else
+             this%time = coop_systime_sec(this%update_seconds*min(0.9d0, this%chain%n/200.d0))                          
           endif
        endif
        this%params_saved = this%params
@@ -661,6 +664,7 @@ contains
           endif
           if(this%loglike_proposed_is_exact)then
              this%loglike_proposed = pool%loglike(this)
+             this%num_exact_calc = this%num_exact_calc + 1             
              if(this%feedback .ge. 3) write(*,*) this%proc_id, ": -lnlike = ", this%loglike_proposed
           endif
        else
@@ -1129,6 +1133,9 @@ contains
     call this%like_approx%free()
     this%prefix = trim(adjustl(prefix))
     this%proc_id = coop_MPI_rank()
+    this%num_exact_calc = 0
+    this%accept = 0
+    this%reject = 0
     call coop_dictionary_lookup(this%settings, "update_seconds", this%update_seconds, 1000000000)    
     this%update_seconds = max(this%update_seconds, 30) !!
     if(this%update_seconds .gt. 3600*24*30)then

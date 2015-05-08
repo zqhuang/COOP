@@ -136,18 +136,16 @@ contains
 
   
 
-  function coop_systime_sec(reset) result(sec)
+  function coop_systime_sec(current_time) result(sec)
     COOP_REAL sec
-    logical,optional::Reset
+    COOP_REAL,optional::current_time
     COOP_REAL,save::pretime=0.d0 
     COOP_INT nowtime, countrate
     call system_clock(nowtime, countrate)
-    if(present(Reset))then
-       if(Reset)then
-          Pretime = NowTime/dble(CountRate)
-          sec = 0.d0
-          return
-       end if
+    if(present(current_time))then
+       Pretime = NowTime/dble(CountRate) - current_time
+       sec = current_time
+       return
     end if
     sec = NowTime/dble(CountRate)-PreTime
     return 
