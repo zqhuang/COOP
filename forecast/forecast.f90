@@ -102,17 +102,19 @@ module coop_forecast_mod
      COOP_INT::total_steps = 50000
      type(coop_cosmology_firstorder),pointer::cosmology => null()   
      type(coop_file)::chainfile
+     type(coop_file)::ndffile     
      type(coop_dictionary)::settings     
-     COOP_STRING::prefix, chainname
+     COOP_STRING::prefix, chainname, ndfname
      COOP_STRING::form
      logical::do_flush = .false.
      logical::do_write_chain = .true.
-     logical::do_write_reject = .false.  !!for likelihood interpolation     
+     logical::do_ndf = .true.  !!for likelihood interpolation     
      logical::do_overwrite = .false.
      logical::do_fastslow = .false.
      logical::slow_changed = .true.
      logical::do_memsave = .true.
      logical::do_general_loglike = .false.
+     COOP_REAL::approx_frac = 0.d0
      COOP_INT::n_fast = 0
      COOP_INT::index_fast_start = 0
      COOP_INT::n_slow = 0
@@ -127,7 +129,9 @@ module coop_forecast_mod
      COOP_REAL:: proposal_length = 2.4d0
      COOP_REAL::bestlike = coop_LogZero
      COOP_REAL::loglike = coop_LogZero
+     logical::loglike_is_exact = .true.
      COOP_REAL::loglike_proposed = coop_LogZero
+     logical::loglike_proposed_is_exact = .true.     
      COOP_REAL::mult = 0.d0
      COOP_REAL::sum_mult = 0.d0
      COOP_REAL::temperature = 1.d0
@@ -161,6 +165,7 @@ module coop_forecast_mod
      type(coop_covmat)::covmat
      type(coop_list_realarr)::chain
      type(coop_dictionary)::paramnames
+     type(coop_nd_prob)::like_approx
      COOP_INT::accept, reject
      !!index for parameters
      COOP_INT::index_ombh2 = 0
@@ -413,10 +418,15 @@ contains
             zeta_s = 0.d0
          endif
          if(this%index_de_epss .ne. 0 .or. this%index_de_epsinf .ne. 0)then
-            call coop_background_add_coupled_DE_with_w(this%cosmology, Omega_c = this%cosmology%omch2/h**2, Q = Q, dlnQdphi = dlnQdphi, epsilon_s = epsilon_s, epsilon_inf = epsilon_inf, zeta_s = zeta_s, err = err)
-            if(err .ne. 0)then
-               call this%cosmology%set_h(0.d0)
-               return
+            if(this%index_de_Q .ne. 0)then
+               call coop_background_add_coupled_DE_with_w(this%cosmology, Omega_c = this%cosmology%omch2/h**2, Q = Q, dlnQdphi = dlnQdphi, epsilon_s = epsilon_s, epsilon_inf = epsilon_inf, zeta_s = zeta_s, err = err)
+               if(err .ne. 0)then
+                  call this%cosmology%set_h(0.d0)
+                  return
+               endif
+            else
+               call this%cosmology%add_species(coop_cdm(this%cosmology%omch2/h**2))
+               call this%cosmology%add_species(coop_de_quintessence(this%cosmology%Omega_k(), epsilon_s, epsilon_inf, zeta_s))
             endif
          else
             call coop_background_add_coupled_DE(this%cosmology, Omega_c = this%cosmology%omch2/h**2, Q = Q, tracking_n =  tracking_n, dlnQdphi = dlnQdphi, dUdphi = dUdphi, d2Udphi2 = d2Udphi2)
@@ -492,7 +502,14 @@ contains
           this%covmat%c = this%covmat%c/this%covmat%mult
        endif
     endif
+    if(this%do_ndf) call this%ndffile%close()
     call this%covmat%MPI_Sync(converge_R = converge_R)
+    if(this%do_ndf)then
+       call this%like_approx%load_chains(this%prefix, this%n)
+       if(this%feedback .ge.2)write(*,*) COOP_STR_OF(this%proc_id)//": likelihood fitting function loaded with "//COOP_STR_OF(this%like_approx%n)//" data points"
+       call coop_MPI_Barrier()
+       call this%ndffile%open(this%ndfname, "ua")       
+    endif
     this%time = nint(coop_systime_sec(.true.))  !!reset time
     if(this%feedback.ge.1 .and. this%proc_id .eq. 0)then
        write(*, "(A, G15.4)") "convergence R - 1 = ", converge_R       
@@ -504,7 +521,7 @@ contains
     endif
        
        
-    if(this%covmat%mult .gt. this%n*10.d0 .and. converge_R .lt. 100.d0 .and. .not. coop_isnan(this%covmat%L))then !!update mapping matrix
+    if(this%covmat%mult .gt. this%n*10.d0 .and. converge_R .lt. 100.d0 .and. .not. coop_isnan(this%covmat%L) .and. all(this%covmat%sigma.gt.0.d0))then !!update mapping matrix
        do i=1, this%n
           this%mapping(i, :) = this%covmat%L(i, :)*this%covmat%sigma(i)
        enddo
@@ -552,7 +569,8 @@ contains
           call this%chain%init()
           this%sum_mult = 0.d0
           call this%get_lmax_from_data(pool)
-          this%chainname = trim(this%prefix)//"_"//COOP_STR_OF(coop_MPI_Rank()+1)//".txt"
+          this%chainname = trim(this%prefix)//"_"//COOP_STR_OF(this%proc_id+1)//".txt"
+          this%ndfname = trim(this%prefix)//"_"//COOP_STR_OF(this%proc_id+1)//".ndf"          
           if(.not. this%do_overwrite)then
              if(coop_file_exists(this%chainname))then
                 this%bestlike = coop_logZero
@@ -585,7 +603,10 @@ contains
                 endif
              else
                 this%do_overwrite = .true.
-             endif             
+             endif
+             if(this%do_ndf) call this%ndffile%open(this%ndfname, "ua")
+          else
+             if(this%do_ndf) call this%ndffile%open(this%ndfname, "u")
           endif
           if(this%do_overwrite)then
              call this%chainfile%open(this%chainname, "w")
@@ -595,6 +616,7 @@ contains
              this%derived_params = this%derived()
              this%mult = 1.d0
              this%loglike = pool%LogLike(this)
+             this%loglike_is_exact = .true.
              this%bestparams = this%params
              this%bestlike = this%loglike
           endif
@@ -621,15 +643,25 @@ contains
           if(associated(this%cosmology) .and. this%slow_changed)then
              call this%set_cosmology()
           endif
-          this%loglike_proposed = pool%loglike(this)
+          this%loglike_proposed_is_exact = .true.
+          if(this%do_ndf)then
+             if(this%like_approx%n .gt. this%n * 20)then
+                if(coop_random_unit().lt. this%approx_frac)then
+                   this%loglike_proposed = this%like_approx%eval(this%params)
+                   if(this%feedback .ge. 3) write(*,*) this%proc_id,": approx -lnlike = ", this%loglike_proposed
+                   this%loglike_proposed_is_exact = .false.                   
+                endif
+             endif
+          endif
+          if(this%loglike_proposed_is_exact)then
+             this%loglike_proposed = pool%loglike(this)
+             if(this%feedback .ge. 3) write(*,*) this%proc_id, ": -lnlike = ", this%loglike_proposed
+          endif
        else
           this%loglike_proposed = coop_logZero
+          
        endif
-       if(this%feedback .ge. 4)then
-          write(*,"(A, "//COOP_STR_OF(this%n)//"E16.7)") "proposed parameters:", this%params          
-          write(*,"(A)") "proposed likelihood:"//COOP_STR_OF(this%loglike_proposed)
-       endif
-       if((this%loglike_proposed - this%loglike)/this%temperature .lt. coop_random_exp())then
+       if(this%loglike_proposed .lt. coop_logZero .and. (this%loglike_proposed - this%loglike)/this%temperature .lt. coop_random_exp())then
           this%accept = this%accept + 1
           this%knot(1) = this%mult
           this%knot(2) = this%loglike
@@ -643,7 +675,12 @@ contains
                 if(this%do_flush)call flush(this%chainfile%unit)
              endif
           endif
+          if(this%ndffile%unit .ne. 0 .and. this%loglike_is_exact .and. this%do_ndf)then
+             write(this%ndffile%unit) this%knot
+             if(this%do_flush)call flush(this%ndffile%unit)                
+          endif
           this%loglike = this%loglike_proposed
+          this%loglike_is_exact = this%loglike_proposed_is_exact
           this%derived_params = this%derived()          
           this%mult  = 1.d0
           if(this%loglike .lt. this%bestlike)then
@@ -651,12 +688,12 @@ contains
              this%bestparams = this%params
           endif
        else
-          if(this%chainfile%unit .ne. 0 .and. this%do_write_reject)then
-             this%knot(1) = 0.d0
+          if(this%ndffile%unit .ne. 0 .and. this%do_ndf .and. this%loglike_proposed_is_exact )then
+             this%knot(1) = 0.01d0
              this%knot(2) = this%loglike_proposed
              this%knot(3:this%n+2) = this%params
-             write(this%chainfile%unit, trim(this%form)) this%knot, this%derived()
-             if(this%do_flush)call flush(this%chainfile%unit)
+             write(this%ndffile%unit) this%knot
+             if(this%do_flush)call flush(this%ndffile%unit)
           endif
           this%params = this%params_saved
           this%fullparams(this%used) = this%params       
@@ -667,7 +704,7 @@ contains
 
     if(.not. this%do_general_loglike .and. this%feedback .gt. 0)then
        if(mod(this%accept+this%reject, 9/this%feedback+1).eq. 0)then
-          write(*,*) "on Node "//COOP_STR_OF(coop_MPI_Rank())//": step "//COOP_STR_OF(this%accept + this%reject)//", likelihood = "//COOP_STR_OF(this%loglike)//", accept ratio = "//COOP_STR_OF(dble(this%accept)/(this%accept+this%reject))
+          write(*,*) "on Node "//COOP_STR_OF(this%proc_id)//": step "//COOP_STR_OF(this%accept + this%reject)//", likelihood = "//COOP_STR_OF(this%loglike)//", accept ratio = "//COOP_STR_OF(dble(this%accept)/(this%accept+this%reject))
 
        endif
     endif
@@ -687,6 +724,7 @@ contains
        mintemp = 0.001d0
     endif
     if(this%chainfile%unit .ne. 0) call this%chainfile%close()
+    if(this%ndffile%unit .ne. 0) call this%ndffile%close()
     do while(this%temperature .gt. 0.0001d0)
        nsteps = 50 + ceiling(this%temperature * 45)       
        do i=1, nsteps
@@ -1082,6 +1120,7 @@ contains
     call this%paramnames%free()
     call this%covmat%free()
     call this%cycl%free()
+    call this%like_approx%free()
     this%prefix = trim(adjustl(prefix))
     this%proc_id = coop_MPI_rank()
     call coop_dictionary_lookup(this%settings, "update_seconds", this%update_seconds, 1000000000)    
@@ -1094,7 +1133,10 @@ contains
     call coop_dictionary_lookup(this%settings, "total_steps", this%total_steps, 50000)    
     call coop_dictionary_lookup(this%settings, "general_loglike", this%do_general_loglike, .false.)
   
-    call coop_dictionary_lookup(this%settings, "feedback", this%feedback, 1)  
+    call coop_dictionary_lookup(this%settings, "feedback", this%feedback, 1)
+    call coop_dictionary_lookup(this%settings, "approx_frac", this%approx_frac, 0.d0)
+    this%do_ndf  = (this%approx_frac .gt. 5.d-2) !!if less than 5% just do exact
+    if(this%do_ndf .and. this%feedback .ge.2 .and. this%proc_id.eq.0)write(*,*) "approximation fraction:", this%approx_frac
     if(this%do_general_loglike)then
        if(associated(this%cosmology))nullify(this%cosmology)
     endif

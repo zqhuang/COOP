@@ -14,7 +14,9 @@ module coop_nd_prob_mod
      COOP_INT:: range = 128 !!search # samples in one dimension
      COOP_INT::dim = 0
      COOP_INT::n = 0
+     COOP_INT::capacity
      COOP_REAL::total_mult = 0.d0
+     logical::need_update = .true.     
      COOP_REAL,dimension(:,:),allocatable::x, u, x2u
      COOP_REAL,dimension(:),allocatable::f, r2, mult, mean, umin, umax
      !!f saves - log(prob), r2 saves (x C^{-1} x )
@@ -22,19 +24,85 @@ module coop_nd_prob_mod
    contains
      procedure::report_err => coop_nd_prob_report_err
      procedure::load => coop_nd_prob_load
+     procedure::load_chains => coop_nd_prob_load_chains     
      procedure::free => coop_nd_prob_free
      procedure::alloc => coop_nd_prob_alloc
      procedure::eval => coop_nd_prob_eval
+     procedure::add => coop_nd_prob_add
+     procedure::update => coop_nd_prob_update
   end type coop_nd_prob
 
 
 contains
 
-  subroutine coop_nd_prob_alloc(this)
+
+  subroutine coop_nd_prob_update(this)
     class(coop_nd_prob)::this
-    if(this%n .eq. 0 .or. this%dim .eq.0) stop "cannot allocate nd_prob with 0 data or 0 dimension"
-    allocate(this%x(this%dim, this%n), this%u(this%dim, this%n), this%x2u(this%dim, this%dim), this%f(this%n), this%mult(this%n), this%mean(this%dim), this%ind(this%n, this%dim), this%umin(this%dim), this%umax(this%dim), this%r2(this%n))
+    COOP_INT i1, i2, dim, i
+    COOP_REAL, dimension(:),allocatable::f
+    COOP_REAL:: worst_lnlike
+    this%total_mult = sum(this%mult(1:this%n))
+    if(this%total_mult .le. 0.d0) stop "nd_prob: zero total multiplicity"
+    do dim = 1, this%dim
+       this%mean(dim) = sum(this%x(dim, 1:this%n)*this%mult)/this%total_mult
+    enddo
+    do i1 = 1, this%dim
+       do i2 = 1, i1
+          this%x2u(i1, i2) = sum((this%x(i1, 1:this%n) - this%mean(i1))*(this%x(i2, 1:this%n) - this%mean(i2))*this%mult(1:this%n))/this%total_mult
+          this%x2u(i2, i1) = this%x2u(i1, i2)
+       enddo
+    enddo
+    call coop_matsym_cholesky(this%dim, this%x2u)
+    call coop_matsym_cholesky_invert(this%dim, this%x2u)
+    do i = 1, this%n
+       this%u(:, i) = matmul(this%x2u, this%x(:,i)-this%mean)
+    enddo
+    !!now sort and make index list
+    allocate(f(this%n))
+    do dim = 1, this%dim
+       f= this%u(dim, 1:this%n)
+       call coop_quicksort_index(f, this%ind(1:this%n, dim))
+       this%umin(dim) = this%u(dim, this%ind(1, dim))
+       this%umax(dim) = this%u(dim, this%ind(this%n, dim))
+    enddo
+    deallocate(f)
+    !$omp parallel do
+    do i=1, this%n
+       this%r2(i) = sum(this%u(:, i)**2)
+       if(this%f(i) .lt. coop_logZero) &
+            this%f(i) = this%f(i) - this%r2(i)/2.d0
+    enddo
+    !$omp end parallel do
+    worst_lnlike = maxval(this%f(1:this%n), mask = (this%f(1:this%n) .lt. coop_logZero))
+    where (this%f(1:this%n) .ge. coop_logZero)
+       this%f(1:this%n) = worst_lnlike + 10.d0
+       !!no event detection: assuming probability e^{-10} times smaller than gaussian interpolation.
+    end where
+  end subroutine coop_nd_prob_update
+
+  subroutine coop_nd_prob_alloc(this, dim, capacity)
+    class(coop_nd_prob)::this
+    COOP_INT::capacity, dim
+    if(capacity .le. 0 .or. dim .le.0) stop "cannot allocate nd_prob with 0 data or 0 dimension"
+    call this%free()    
+    this%dim = dim
+    this%n = 0
+    this%total_mult = 0.d0
+    this%capacity = capacity
+    this%need_update = .true.
+    allocate(this%x(dim, capacity), this%u(dim, capacity), this%x2u(dim, dim), this%f(capacity), this%mult(capacity), this%mean(dim), this%ind(capacity, dim), this%umin(dim), this%umax(dim), this%r2(capacity))    
   end subroutine coop_nd_prob_alloc
+
+  subroutine coop_nd_prob_add(this, line)
+    class(coop_nd_prob)::this    
+    COOP_SINGLE::line(:)
+    if(this%n.eq. this%capacity) return
+    this%n = this%n + 1
+    this%mult(this%n) = line(1)
+    this%f(this%n) = line(2)    
+    this%x(:, this%n) = line(3:this%dim+2)
+    this%need_update = .true.
+  end subroutine coop_nd_prob_add
   
   subroutine coop_nd_prob_free(this)
     class(coop_nd_prob)::this
@@ -51,7 +119,35 @@ contains
     this%n = 0
     this%dim = 0
     this%total_mult = 0.d0
+    this%need_update = .true.    
   end subroutine coop_nd_prob_free
+
+  subroutine coop_nd_prob_load_chains(this, prefix, nvars)
+    COOP_UNKNOWN_STRING::prefix
+    class(coop_nd_prob)::this
+    type(coop_file)::fp
+    COOP_STRING::filename
+    COOP_INT::nvars, n, nchains, i
+    type(coop_list_realarr)::rl
+    if(.not. coop_file_exists(trim(prefix)//"_1.txt"))then
+       write(*,*) "cannot find chain "//trim(prefix)
+       stop
+    endif
+    n = 0
+    i = 1
+    filename = trim(prefix)//"_"//COOP_STR_OF(i)//".ndf"
+    do while(coop_file_exists(filename))
+       call coop_file_load_realarr(filename, rl, 2+nvars)
+       i = i + 1
+       filename = trim(prefix)//"_"//COOP_STR_OF(i)//".ndf"       
+    enddo
+    call this%alloc(dim = nvars, capacity = rl%n)
+    do i=1, rl%n
+       call this%add(rl%element(i))
+    enddo
+    call rl%free()
+    call this%update()
+  end subroutine coop_nd_prob_load_chains
 
   subroutine coop_nd_prob_load(this, filename, form, nvars, name)
     COOP_UNKNOWN_STRING::filename
@@ -61,7 +157,7 @@ contains
     COOP_INT, optional::nvars
     COOP_UNKNOWN_STRING,optional::name
     COOP_REAL,dimension(:),allocatable::f
-    COOP_INT i, dim, i1, i2
+    COOP_INT i, dim, i1, i2, n
     COOP_REAL::worst_lnlike, best_lnlike
     if(.not. coop_file_exists(filename))then
        write(*,*) "nd_prob_load: "//trim(filename)//" does not exit"
@@ -75,25 +171,26 @@ contains
     endif
     select case(trim(form))
     case("MCMC", "mcmc", "CHAIN", "chain", "Chain")
-       this%dim = coop_file_numcolumns(filename) - 2
+       dim = coop_file_numcolumns(filename) - 2
     case("table", "TABLE", "Table", "NormalizedTable")
-       this%dim = coop_file_numcolumns(filename) - 1
+       dim = coop_file_numcolumns(filename) - 1
     case default
        write(*,*) "nd_prob_load: "//trim(form)
        stop "unknown format"
     end select
     if(present(nvars))then
-       if(nvars .gt. this%dim) stop "gd_function_load: dimension overflow"       
-       this%dim = nvars
+       if(nvars .gt. dim) stop "gd_function_load: dimension overflow"       
+       dim = nvars
     endif
-    this%n = coop_file_numlines(filename)
-    if(this%dim .le. 0 .or. this%n .le. 0 .or. this%dim .gt. 64)then
-       write(*,*) "nd_prob_load: dim = "//COOP_STR_OF(this%dim)
-       write(*,*) "nd_prob_load: n = "//COOP_STR_OF(this%n)
+    n = coop_file_numlines(filename)
+    if(dim .le. 0 .or. n .le. 0 .or. dim .gt. 64)then
+       write(*,*) "nd_prob_load: dim = "//COOP_STR_OF(dim)
+       write(*,*) "nd_prob_load: n = "//COOP_STR_OF(n)
        write(*,*) "cannot initialize (1<=dim<=64; n>=1 not satisfied)"
        stop
     endif
-    call this%alloc()
+    call this%alloc(dim = dim, capacity = n)
+    this%n = n  
     if(this%dim .eq. 1)then
        this%range = 2
     else
@@ -118,56 +215,18 @@ contains
              this%f(i) = coop_logZero
           endif
        enddo
-       this%mult = 1.d0
+       this%mult(1:this%n) = 1.d0
        if(trim(form).ne."NormalizedTable")then
-          best_lnlike = minval(this%f, mask = this%f .lt. coop_logZero) 
-          where (this%f .lt. coop_logZero)
-             this%f = this%f - best_lnlike
+          best_lnlike = minval(this%f(1:this%n), mask = this%f(1:this%n) .lt. coop_logZero) 
+          where (this%f(1:this%n) .lt. coop_logZero)
+             this%f(1:this%n) = this%f(1:this%n) - best_lnlike
           end where
        endif
     case default
        stop "nd_prob_load: unknown format"
     end select
     call fp%close()    
-    this%total_mult = sum(this%mult)
-    if(this%total_mult .le. 0.d0) stop "nd_prob: zero total multiplicity"
-
-    do dim = 1, this%dim
-       this%mean(dim) = sum(this%x(dim, :)*this%mult)/this%total_mult
-    enddo
-    do i1 = 1, this%dim
-       do i2 = 1, i1
-          this%x2u(i1, i2) = sum((this%x(i1, :) - this%mean(i1))*(this%x(i2, :) - this%mean(i2))*this%mult)/this%total_mult
-          this%x2u(i2, i1) = this%x2u(i1, i2)
-       enddo
-    enddo
-    call coop_matsym_power(this%x2u, -0.5d0, 1.d-14)
-    do i = 1, this%n
-       this%u(:, i) = matmul(this%x2u, this%x(:,i)-this%mean)
-    enddo
-    !!now sort and make index list
-    allocate(f(this%n))
-    do dim = 1, this%dim
-       f= this%u(dim, :)
-       call coop_quicksort_index(f, this%ind(:, dim))
-       this%umin(dim) = this%u(dim, this%ind(1, dim))
-       this%umax(dim) = this%u(dim, this%ind(this%n, dim))
-    enddo
-    deallocate(f)
-
-
-    !$omp parallel do
-    do i=1, this%n
-       this%r2(i) = sum(this%u(:, i)**2)
-       if(this%f(i) .lt. coop_logZero) &
-            this%f(i) = this%f(i) - this%r2(i)/2.d0
-    enddo
-    !$omp end parallel do
-    worst_lnlike = maxval(this%f, mask = (this%f .lt. coop_logZero))
-    where (this%f .ge. coop_logZero)
-       this%f = worst_lnlike + 10.d0
-       !!no event detection: assuming probability e^{-10} times smaller than gaussian interpolation.
-    end where
+    call this%update()
     return
 100 write(*,*) "nd_prob_load: "//trim(filename)//" is broken at line"//COOP_STR_OF(i)
     stop
@@ -263,3 +322,5 @@ contains
 
   
 end module coop_nd_prob_mod
+    
+

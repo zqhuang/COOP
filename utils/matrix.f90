@@ -1280,9 +1280,8 @@ contains
     COOP_REAL::weight_W, R
     COOP_INT:: i, j, ii, ms, num_proc
     if(present(converge_R))converge_R = 0.d0    
-#ifdef MPI        
     num_proc = coop_MPI_NumProc()
-    if(num_proc .eq.1)return
+    if(num_proc .eq.1)goto 100
     ms = this%n*(this%n+1)/2
     allocate(info(0:this%n), covinfo(ms*2))
     info(0) = this%mult
@@ -1331,8 +1330,8 @@ contains
     
     this%c = cov * weight_W + meanscov * (1.d0-weight_W)
     deallocate(info, covinfo, cov, meanscov)
-    call this%normalize()
-#endif    
+
+100 call this%normalize()    
   end subroutine coop_covmat_MPI_sync
 
 

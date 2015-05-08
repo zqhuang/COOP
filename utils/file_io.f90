@@ -8,7 +8,7 @@ module coop_file_mod
 
 private
 
-public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_create_directory, coop_delete_directory, coop_file_numcolumns, coop_file_numlines, coop_load_dictionary, coop_free_file_unit, coop_file_exists, coop_file_encrypt, coop_file_decrypt, coop_string_encrypt, coop_string_decrypt, coop_file_load_function, coop_dir_exists, coop_export_dictionary, coop_import_matrix, coop_export_matrix
+public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_create_directory, coop_delete_directory, coop_file_numcolumns, coop_file_numlines, coop_load_dictionary, coop_free_file_unit, coop_file_exists, coop_file_encrypt, coop_file_decrypt, coop_string_encrypt, coop_string_decrypt, coop_file_load_function, coop_dir_exists, coop_export_dictionary, coop_import_matrix, coop_export_matrix, coop_file_load_realarr
 
   character,parameter::coop_text_comment_symbol = "#"
 
@@ -154,6 +154,7 @@ contains
     !!    'rb' (binary, read only)
     !!    'a' (text mode for append)
     !!    'u' (unformated)
+    !!    'ua' (unformated, append)    
     !!    'ur' (unformated, read only)
 #include "file_init.h"    
   end subroutine coop_file_open
@@ -237,18 +238,62 @@ contains
 100 call fp%close()
   End Function Coop_File_NumColumns
 
-  Function coop_File_NumLines(filename) result(Lines) !! # comment, empty lines are skipped
+  subroutine coop_file_load_realarr(filename, rl, num)
+    COOP_UNKNOWN_STRING, INTENT(IN)::filename
+    Type(Coop_file) fp
+    type(coop_list_realarr)::rl
+    COOP_INT, optional::num
+    COOP_INT::ncols
+    COOP_LONG_STRING inline    
+    COOP_SINGLE, dimension(:),allocatable::s
+    if(present(num))then !!unformatted
+       ncols = num
+    else
+       ncols = coop_file_numColumns(filename)
+    endif
+    if(ncols .le. 0)return
+    allocate(s(ncols))
+    if(present(num))then  !!unformatted file, with num entries per line
+       call fp%open(filename, "ru")
+       do
+          read(fp%unit, ERR=100, END=100) s
+          call rl%push(s)          
+       enddo
+    else
+       call fp%open(filename, "r")
+       do while(coop_file_readline_string(fp, inline))
+          read(inline, *, ERR=100) s
+          call rl%push(s)
+       enddo
+    end if
+100 call fp%close()
+    deallocate(s)
+  end subroutine coop_file_load_realarr
+
+  Function coop_File_NumLines(filename, num) result(Lines) !! # comment, empty lines are skipped
     COOP_UNKNOWN_STRING, INTENT(IN)::filename
     COOP_LONG_STRING inline
     COOP_INT Lines
+    COOP_INT, optional::num
+    COOP_REAL, dimension(:), allocatable::s
     Type(Coop_file) fp
     Lines = 0
     if(.not. coop_File_Exists(filename)) return
-    call fp%open(filename, "r")
-    do while(coop_file_readline_string(fp, inline))
-       lines = lines + 1
-    enddo
+    if(present(num))then  !!unformatted file, with num entries per line
+       allocate(s(num))
+       call fp%open(filename, "ru")
+       do
+          read(fp%unit, ERR=100, END=100) s
+          lines = lines + 1
+       enddo
+    else
+       call fp%open(filename, "r")
+       do while(coop_file_readline_string(fp, inline))
+          lines = lines + 1
+       enddo
+    end if
 100 call fp%close()
+    if(present(num))deallocate(s)
   End Function Coop_File_NumLines
 
 

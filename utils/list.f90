@@ -68,6 +68,7 @@ module coop_list_mod
      COOP_INT,dimension(:),allocatable::i4
    contains
      procedure::init => coop_list_integer_initialize
+     procedure::free => coop_list_integer_initialize     
      procedure::isinit => coop_list_integer_is_initialized
      procedure::push => coop_list_integer_push
      procedure::pop => coop_list_integer_pop
@@ -84,6 +85,7 @@ module coop_list_mod
      real(sp),dimension(:),allocatable::i4
    contains
      procedure::init => coop_list_real_initialize
+     procedure::free => coop_list_real_initialize     
      procedure::isinit => coop_list_real_is_initialized
      procedure::push => coop_list_real_push
      procedure::pop => coop_list_real_pop
@@ -100,7 +102,8 @@ module coop_list_mod
      real(sp),dimension(:,:),allocatable::i3
      real(sp),dimension(:,:),allocatable::i4
    contains
-     procedure::init => coop_list_realarr_initialize
+     procedure::init => coop_list_realarr_initialize     
+     procedure::free => coop_list_realarr_initialize     
      procedure::isinit => coop_list_realarr_is_initialized
      procedure::push => coop_list_realarr_push
      procedure::pop => coop_list_realarr_pop
@@ -119,6 +122,7 @@ module coop_list_mod
    contains
      procedure::isinit => coop_list_double_is_initialized
      procedure::init => coop_list_double_initialize
+     procedure::free => coop_list_double_initialize     
      procedure::push => coop_list_double_push
      procedure::pop => coop_list_double_pop
      procedure::element => coop_list_double_element
@@ -135,6 +139,7 @@ module coop_list_mod
    contains
      procedure::isinit => coop_list_logical_is_initialized
      procedure::init => coop_list_logical_initialize
+     procedure::free => coop_list_logical_initialize     
      procedure::push => coop_list_logical_push
      procedure::pop => coop_list_logical_pop
      procedure::element => coop_list_logical_element
@@ -151,6 +156,7 @@ module coop_list_mod
    contains
      procedure::isinit => coop_list_character_is_initialized
      procedure::init => coop_list_character_initialize
+     procedure::free => coop_list_character_initialize     
      procedure::push => coop_list_character_push
      procedure::pop => coop_list_character_pop
      procedure::element => coop_list_character_element

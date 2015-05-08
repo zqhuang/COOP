@@ -40,6 +40,7 @@
     case('u', "U")
        open(UNIT=fp%unit,FILE=trim(adjustl(filename)),FORM="UNFORMATTED",STATUS="UNKNOWN", ACCESS="SEQUENTIAL",ACTION="READWRITE",ERR=200)        
        fp%mode = "unf"
+       fp%mode = "unf"       
     case('uq', "UQ", "qu", "QU")
        call coop_file_overwrite_query(trim(adjustl(filename)))
        open(UNIT=fp%unit,FILE=trim(adjustl(filename)),FORM="UNFORMATTED",STATUS="UNKNOWN", ACCESS="SEQUENTIAL",ACTION="READWRITE",ERR=200)        
