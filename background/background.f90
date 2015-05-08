@@ -519,7 +519,14 @@ contains
        dUdphi_high = 1.d0
     else
        dUdphi_high = 0.d0
-       dUdphi_low = -1.d0
+       dUdphi_low = -1.732d0
+       call this%delete_species(index_de)
+       call this%delete_species(index_cdm)       
+       call coop_background_add_coupled_DE(this, omega_c = omega_c, tracking_n = tracking_n, Q = Q, dlnQdphi = dlnQdphi, dUdphi =dUdphi_low, d2Udphi2 = 0.d0 )
+       if(wp1_eff(a_piv) .lt. wp1)then
+          err = 1
+          return
+       endif
     endif
     do
        call this%delete_species(index_de)
@@ -534,7 +541,7 @@ contains
        if(dUdphi_high - dUdphi_low .lt. 0.02)exit
     enddo
 
-    if(abs(zeta_s) .lt. 1.d-2 .or. abs(epsilon_s - 2.d0*epsilon_inf).lt. 0.01)return
+    if(abs(zeta_s) .lt. 2.d-2 .or. abs(epsilon_s - 2.d0*epsilon_inf).lt. 0.02)return
     
     !!serach for d2Udphi2
     wp1_zeta = de%wp1ofa(a_zeta)
@@ -545,7 +552,7 @@ contains
        if(i.eq.0)cycle
        call this%delete_species(index_de)
        call this%delete_species(index_cdm)       
-       d2Udphi2_trial = i*0.02d0
+       d2Udphi2_trial = i*0.04d0
        call coop_background_add_coupled_DE(this, omega_c = omega_c, tracking_n = tracking_n, Q = Q, dlnQdphi = dlnQdphi, dUdphi =dUdphi - d2Udphi2_trial*phi_eq, d2Udphi2 = d2Udphi2_trial )
        diffwp1 = (wp1_eff(a_zeta) - wp1_zeta)**2 + (wp1_eff(a_piv) - wp1)**2
        if(diffwp1 .lt. mindiff)then
