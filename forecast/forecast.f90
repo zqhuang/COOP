@@ -115,6 +115,7 @@ module coop_forecast_mod
      logical::slow_changed = .true.
      logical::do_memsave = .true.
      logical::do_general_loglike = .false.
+     COOP_REAL::converge_R = coop_logZero
      COOP_REAL::approx_frac = 0.d0
      COOP_REAL::drift_frac = 0.d0
      COOP_REAL::drift_step = 0.01d0
@@ -473,7 +474,6 @@ contains
   subroutine coop_MCMC_params_update_Propose(this)
     class(coop_MCMC_params)::this
     COOP_INT::i, istart, i1, i2
-    COOP_REAL::converge_R
     type(coop_file)::fp
     COOP_REAL:: mult, diff(this%n)
     this%time = nint(coop_systime_sec())
@@ -508,7 +508,7 @@ contains
        endif
     endif
     if(this%do_ndf) call this%ndffile%close()
-    call this%covmat%MPI_Sync(converge_R = converge_R)
+    call this%covmat%MPI_Sync(converge_R = this%converge_R)
     if(this%do_ndf)then
        call this%like_approx%load_chains(this%prefix, this%n)
        if(this%feedback .ge. 1)write(*,*) COOP_STR_OF(this%proc_id)//": likelihood fitting function loaded with "//COOP_STR_OF(this%like_approx%n)//" data points"
@@ -516,16 +516,16 @@ contains
     endif
     this%time = nint(coop_systime_sec(0.d0))  !!reset time
     if(this%feedback.ge.1 .and. this%proc_id .eq. 0)then
-       write(*, "(A, G15.4)") "convergence R - 1 = ", converge_R       
+       write(*, "(A, G15.4)") "convergence R - 1 = ", this%converge_R       
     endif
     if(this%proc_id.eq.0)then
        call fp%open(trim(this%prefix)//".converge_stat", "w")
-       write(fp%unit, "(G15.4)") converge_R
+       write(fp%unit, "(G15.4)") this%converge_R
        call fp%close()
     endif
        
        
-    if(this%covmat%mult .gt. this%n*10.d0 .and. converge_R .lt. 100.d0 .and. converge_R .gt. 0.03d0 .and. .not. coop_isnan(this%covmat%L) .and. all(this%covmat%sigma.gt.0.d0))then !!update mapping matrix
+    if(this%covmat%mult .gt. this%n*10.d0 .and. this%converge_R .lt. 100.d0 .and. this%converge_R .gt. 0.03d0 .and. .not. coop_isnan(this%covmat%L) .and. all(this%covmat%sigma.gt.0.d0))then !!update mapping matrix
        if(this%proc_id.eq.0)call this%covmat%export(trim(this%prefix)//".runcov")       
        do i=1, this%n
           this%mapping(i, :) = this%covmat%L(i, :)*this%covmat%sigma(i)
@@ -656,7 +656,7 @@ contains
        endif
        this%fullparams(this%used) = this%params
        if(this%priorlike() .lt. coop_logZero)then
-          if(this%do_ndf .and. this%slow_changed .and. (this%like_approx%n .gt. this%n * 50) .and. (coop_random_unit().lt. this%approx_frac) )then
+          if(this%do_ndf .and. this%slow_changed .and. this%like_approx%n .gt. this%n * 50 .and. this%converge_R .lt. 50.d0  .and. coop_random_unit().lt. this%approx_frac )then
              this%loglike_proposed = this%like_approx%eval(this%params)
              this%num_approx_calc = this%num_approx_calc + 1
              this%loglike_proposed_is_exact = .false.
@@ -1103,7 +1103,7 @@ contains
     type(coop_file)::fp
     logical success
     COOP_REAL,dimension(:),allocatable::center, lower, upper, width, iniwidth, prior_sigma, prior_center
-    COOP_INT i, iused, j
+    COOP_INT i, iused, j, stat
     COOP_STRING::paramnames, prefix
     COOP_STRING val
     COOP_LONG_STRING::line
@@ -1125,6 +1125,15 @@ contains
     call coop_dictionary_lookup(this%settings, "overwrite", this%do_overwrite, .false.)
     if(this%do_overwrite)then
        write(*,*) "Warning: overwriting chains when overwrite options is on"
+       this%converge_R = coop_logZero       
+    else
+       if(coop_file_exists(trim(this%prefix)//".converge_stat"))then
+          call fp%open(trim(this%prefix)//".converge_stat", "r")
+          read(fp%unit, iostat = stat)  this%converge_R
+          if(stat .ne. 0)this%converge_R = coop_logZero 
+       else
+          this%converge_R = coop_logZero          
+       endif
     endif
     call this%chain%init()
     call this%paramnames%free()
