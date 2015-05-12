@@ -142,6 +142,7 @@ module coop_forecast_mod
      COOP_INT::lmax = 0
      COOP_INT::update_seconds = 100000000
      COOP_INT::num_exact_calc = 0
+     COOP_INT::num_approx_calc = 0     
      COOP_REAL, dimension(:,:), allocatable::Cls_scalar, Cls_tensor, Cls_lensed     
      COOP_INT,dimension(:),allocatable::used, map2used
      COOP_REAL,dimension(:),allocatable::fullparams
@@ -654,27 +655,20 @@ contains
        endif
        this%fullparams(this%used) = this%params
        if(this%priorlike() .lt. coop_logZero)then
-          if(associated(this%cosmology) .and. this%slow_changed)then
-             call this%set_cosmology()
-          endif
-          this%loglike_proposed_is_exact = .true.
-          if(this%do_ndf)then
-             if(this%like_approx%n .gt. this%n * 50)then
-                if(coop_random_unit().lt. this%approx_frac)then
-                   this%loglike_proposed = this%like_approx%eval(this%params)
-                   if(this%feedback .ge. 3) write(*,*) this%proc_id,": approx -lnlike = ", this%loglike_proposed
-                   this%loglike_proposed_is_exact = .false.                   
-                endif
+          if(this%do_ndf .and. this%slow_changed .and. (this%like_approx%n .gt. this%n * 50) .and. (coop_random_unit().lt. this%approx_frac) )then
+             this%loglike_proposed = this%like_approx%eval(this%params)
+             this%num_approx_calc = this%num_approx_calc + 1
+             this%loglike_proposed_is_exact = .false.
+          else
+             if(associated(this%cosmology) .and. this%slow_changed)then
+                call this%set_cosmology()
              endif
-          endif
-          if(this%loglike_proposed_is_exact)then
              this%loglike_proposed = pool%loglike(this)
-             this%num_exact_calc = this%num_exact_calc + 1             
-             if(this%feedback .ge. 3) write(*,*) this%proc_id, ": -lnlike = ", this%loglike_proposed
+             this%num_exact_calc = this%num_exact_calc + 1
+             this%loglike_proposed_is_exact = .true.             
           endif
        else
           this%loglike_proposed = coop_logZero
-          
        endif
        if(this%loglike_proposed .lt. coop_logZero .and. ((this%loglike_proposed - this%loglike)/this%temperature .lt. coop_random_exp() .or. this%is_drift))then
           this%accept = this%accept + 1
@@ -719,7 +713,7 @@ contains
 
     if(.not. this%do_general_loglike .and. this%feedback .gt. 0)then
        if(mod(this%accept+this%reject, 9/this%feedback+1).eq. 0)then
-          write(*,*) "on Node "//COOP_STR_OF(this%proc_id)//": step "//COOP_STR_OF(this%accept + this%reject)//", likelihood = "//COOP_STR_OF(this%loglike)//", accept ratio = "//COOP_STR_OF(dble(this%accept)/(this%accept+this%reject))
+          write(*,*) "on Node "//COOP_STR_OF(this%proc_id)//": step "//COOP_STR_OF(this%accept + this%reject)//", likelihood = "//COOP_STR_OF(this%loglike)//", accept ratio = "//COOP_STR_OF(dble(this%accept)/max(this%accept+this%reject,1)), " exact likelihoods ratio = "//COOP_STR_OF(dble(this%num_exact_calc)/max(this%num_exact_calc + this%num_approx_calc,1))
 
        endif
     endif
@@ -1139,6 +1133,7 @@ contains
     this%prefix = trim(adjustl(prefix))
     this%proc_id = coop_MPI_rank()
     this%num_exact_calc = 0
+    this%num_approx_calc = 0
     this%accept = 0
     this%reject = 0
     call coop_dictionary_lookup(this%settings, "update_seconds", this%update_seconds, 1000000000)    
@@ -1265,7 +1260,7 @@ contains
        enddo
     endif
     if((.not. this%do_overwrite) .and. coop_file_exists(trim(this%prefix)//".runcov"))then
-       call this%covmat%import(trim(this%prefix)//".runcov"
+       call this%covmat%import(trim(this%prefix)//".runcov")
     else
        call this%covmat%diagonal(this%width)
        call coop_dictionary_lookup(this%settings, "propose_matrix", val)
