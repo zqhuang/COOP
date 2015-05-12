@@ -508,6 +508,7 @@ contains
     endif
     if(this%do_ndf) call this%ndffile%close()
     call this%covmat%MPI_Sync(converge_R = converge_R)
+    if(this%proc_id.eq.0)call this%covmat%export(trim(this%prefix)//".runcov")
     if(this%do_ndf)then
        call this%like_approx%load_chains(this%prefix, this%n)
        if(this%feedback .ge. 1)write(*,*) COOP_STR_OF(this%proc_id)//": likelihood fitting function loaded with "//COOP_STR_OF(this%like_approx%n)//" data points"
@@ -1263,39 +1264,43 @@ contains
           endif
        enddo
     endif
-    call this%covmat%diagonal(this%width)
-    call coop_dictionary_lookup(this%settings, "propose_matrix", val)
-    if(trim(val).ne."")then
-       call fp%open(val, "r")
-       read(fp%unit, "(A)") line
-       if(line(1:1).eq."#")line = adjustl(line(2:))
-       call coop_string_to_list(line, sl)
-       ncov = sl%n
-       allocate(cov_read(ncov, ncov), ind_read(ncov))
-       call coop_read_matrix(fp%unit, ncov, ncov, cov_read, success)
-       call fp%close()
-       if(success)then
-          do i = 1, ncov
-             ind_read(i) = this%paramnames%index(trim(sl%element(i)))
-             if(ind_read(i).ne.0) ind_read(i) = this%map2used(ind_read(i))
-          enddo
-          if(any(ind_read .ne. 0))then
-             do i=1, ncov
-                if(ind_read(i).eq.0)cycle
-                do j=1, ncov
-                   if(ind_read(j).eq.0)cycle
-                   this%covmat%c(ind_read(i), ind_read(j)) = cov_read(i, j)/this%covmat%sigma(ind_read(i))/this%covmat%sigma(ind_read(j))
-                enddo
+    if((.not. this%do_overwrite) .and. coop_file_exists(trim(this%prefix)//".runcov"))then
+       call this%covmat%import(trim(this%prefix)//".runcov"
+    else
+       call this%covmat%diagonal(this%width)
+       call coop_dictionary_lookup(this%settings, "propose_matrix", val)
+       if(trim(val).ne."")then
+          call fp%open(val, "r")
+          read(fp%unit, "(A)") line
+          if(line(1:1).eq."#")line = adjustl(line(2:))
+          call coop_string_to_list(line, sl)
+          ncov = sl%n
+          allocate(cov_read(ncov, ncov), ind_read(ncov))
+          call coop_read_matrix(fp%unit, ncov, ncov, cov_read, success)
+          call fp%close()
+          if(success)then
+             do i = 1, ncov
+                ind_read(i) = this%paramnames%index(trim(sl%element(i)))
+                if(ind_read(i).ne.0) ind_read(i) = this%map2used(ind_read(i))
              enddo
-             call this%covmat%normalize()             
-             if(this%proc_id.eq.0 .and. this%feedback .ge. 1)write(*, *) "propose matrix "//trim(val)//" is loaded with "//COOP_STR_OF(count(ind_read.ne.0))//" usable parameters from totally "//COOP_STR_OF(ncov)//" parameters"
+             if(any(ind_read .ne. 0))then
+                do i=1, ncov
+                   if(ind_read(i).eq.0)cycle
+                   do j=1, ncov
+                      if(ind_read(j).eq.0)cycle
+                      this%covmat%c(ind_read(i), ind_read(j)) = cov_read(i, j)/this%covmat%sigma(ind_read(i))/this%covmat%sigma(ind_read(j))
+                   enddo
+                enddo
+                call this%covmat%normalize()             
+                if(this%proc_id.eq.0 .and. this%feedback .ge. 1)write(*, *) "propose matrix "//trim(val)//" is loaded with "//COOP_STR_OF(count(ind_read.ne.0))//" usable parameters from totally "//COOP_STR_OF(ncov)//" parameters"
+             endif
+          else
+             if(this%proc_id.eq.0)write(*,*) "propose matrix "//trim(val)//" is broken"
+             stop
           endif
-       else
-          if(this%proc_id.eq.0)write(*,*) "propose matrix "//trim(val)//" is broken"
-          stop
+          deallocate(cov_read, ind_read)
+          call sl%init()
        endif
-       deallocate(cov_read, ind_read)
-       call sl%init()
     endif
     do i=1, this%n
        this%mapping(i,:) = this%covmat%L(i,:)*this%covmat%sigma(i)

@@ -67,6 +67,7 @@ module coop_cosmology_mod
      procedure::dadtau => coop_cosmology_background_Hasq   !! input a , return da/d tau /H_0
      procedure::Hratio => coop_cosmology_background_Hratio !! input a, return H/H_0
      procedure::HdotbyHsq => coop_cosmology_background_HdotbyHsq !! input a, return \dot H/H^2
+     procedure::HddbyH3 => coop_cosmology_background_HddbyH3     !!input a, return \ddot H/ H^3
      procedure::time => coop_cosmology_background_time !!input a, return H_0 * time
      procedure::conformal_time => coop_cosmology_background_conformal_time !!input a, return H_0 * conformal time
 
@@ -336,6 +337,28 @@ contains
     COOP_REAL Hratio, a
     Hratio = this%Hasq(a)/a**2
   end function coop_cosmology_background_Hratio
+
+
+  function coop_cosmology_background_HddbyH3(this, a) result(HddbyH3) 
+    class(coop_cosmology_background)::this
+    COOP_INT i
+    COOP_REAL HddbyH3, a, pa4, rhoa4, w,  rhoa4_total, pa4_total, ddterm, HdotbyHsq, H2term
+    rhoa4_total = 0.d0
+    pa4_total = 0.d0
+    ddterm = 0.d0
+    do i=1, this%num_species
+       rhoa4 = this%species(i)%Omega * this%species(i)%rhoa4_ratio(a)
+       w = this%species(i)%wofa(a)
+       pa4 = w *rhoa4
+       ddterm = ddterm - rhoa4*(this%species(i)%wp1effofa(a)*(1.d0+3.d0*w)+this%species(i)%dwda(a)*a)
+       rhoa4_total = rhoa4_total + rhoa4
+       pa4_total = pa4_total + pa4
+    enddo
+    H2term = (rhoa4_total + this%Omega_k_value*a**2)
+    HdotbyHsq = -(rhoa4_total + 3.d0*pa4_total)/2.d0/H2term - 1.d0
+    HddbyH3 = 1.5d0*ddterm/H2term - 2.d0*HdotbyHsq
+  end function coop_cosmology_background_HddbyH3
+
 
   function coop_cosmology_background_HdotbyHsq(this, a)result(HdotbyHsq)
     class(coop_cosmology_background)::this
