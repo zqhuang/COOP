@@ -509,7 +509,6 @@ contains
     endif
     if(this%do_ndf) call this%ndffile%close()
     call this%covmat%MPI_Sync(converge_R = converge_R)
-    if(this%proc_id.eq.0)call this%covmat%export(trim(this%prefix)//".runcov")
     if(this%do_ndf)then
        call this%like_approx%load_chains(this%prefix, this%n)
        if(this%feedback .ge. 1)write(*,*) COOP_STR_OF(this%proc_id)//": likelihood fitting function loaded with "//COOP_STR_OF(this%like_approx%n)//" data points"
@@ -526,14 +525,15 @@ contains
     endif
        
        
-    if(this%covmat%mult .gt. this%n*10.d0 .and. converge_R .lt. 100.d0 .and. .not. coop_isnan(this%covmat%L) .and. all(this%covmat%sigma.gt.0.d0))then !!update mapping matrix
+    if(this%covmat%mult .gt. this%n*10.d0 .and. converge_R .lt. 100.d0 .and. converge_R .gt. 0.03d0 .and. .not. coop_isnan(this%covmat%L) .and. all(this%covmat%sigma.gt.0.d0))then !!update mapping matrix
+       if(this%proc_id.eq.0)call this%covmat%export(trim(this%prefix)//".runcov")       
        do i=1, this%n
           this%mapping(i, :) = this%covmat%L(i, :)*this%covmat%sigma(i)
        enddo
        if(this%do_fastslow)then
           this%mapping_fast = this%mapping(this%index_fast_start:this%n, this%index_fast_start:this%n)
        endif
-       if(this%feedback .ge. 2)write(*,*) "propose matrix is updated on Node "//COOP_STR_OF(this%proc_id)
+       if(this%feedback .ge. 1)write(*,*) "propose matrix is updated on Node "//COOP_STR_OF(this%proc_id)
     endif
   end subroutine coop_MCMC_params_update_Propose
 
