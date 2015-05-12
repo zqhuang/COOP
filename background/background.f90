@@ -6,7 +6,7 @@ module coop_background_mod
   private
   COOP_REAL,parameter::coop_min_de_tracking_n = 0.01d0
 
-  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_quintessence, coop_de_wp1_quintessence, coop_background_add_coupled_DE,  coop_background_add_coupled_DE_with_w, coop_de_aeq_fitting
+  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_quintessence, coop_de_wp1_quintessence, coop_background_add_coupled_DE,  coop_background_add_coupled_DE_with_w, coop_background_add_EFT_DE, coop_de_aeq_fitting
 
 contains
 
@@ -575,7 +575,64 @@ contains
        
   end subroutine coop_background_add_coupled_DE_with_w
 
-  
+  subroutine coop_background_add_EFT_DE(this, wp1, alpha_M, err)
+    class(coop_cosmology_background)::this
+    type(coop_function)::wp1, alpha_M
+    type(coop_species)::de
+    COOP_INT::i, err, j
+    COOP_REAL_ARRAY::lnrho,  wp1eff
+    COOP_REAL::lna, lnamin, lnamax, dlna, alpha_l, a_l, a_r, alpha_r, wp1_l, wp1_r, omega_de, om_l, om_r, rhoa4de, rhotot_l, rhotot_r, step
+    err = 0
+    de%name = "Dark Energy"
+    de%genre = COOP_SPECIES_EFT
+    de%fwp1 = wp1
+    omega_de = this%Omega_k()    
+    de%Omega = omega_de
+    lnamin = log(coop_min_scale_factor)
+    lnamax = log(coop_scale_factor_today)
+    dlna = (lnamax-lnamin)/(coop_default_array_size-1)
+    lnrho(coop_default_array_size) = log(3.d0*omega_de)
+    wp1_r = wp1%eval(coop_scale_factor_today)
+    alpha_r = alpha_M%eval(coop_scale_factor_today)
+    om_r = omega_de
+    wp1eff(coop_default_array_size) =wp1_r - alpha_r/3.d0/om_r
+    a_r = coop_scale_factor_today
+    lna = lnamax
+    rhotot_r = 3.d0
+    step = (1.5d0*dlna)
+    i = coop_default_array_size
+    do i=coop_default_array_size-1, 1, -1
+       lna = lna - dlna              
+       a_l = exp(lna)
+       alpha_l = alpha_M%eval(a_l)
+       wp1_l = wp1%eval(a_l)
+       wp1eff(i) = wp1_l - alpha_l/3.d0/om_r
+       rhotot_l =  this%rhoa4(a_l)              
+       do j=1,3
+          lnrho(i) = lnrho(i+1) + (wp1eff(i)+wp1eff(i+1))*step
+          rhoa4de = exp(lnrho(i)+4.d0*lna)
+          om_l = rhoa4de/(rhoa4de + rhotot_l)
+          if(om_l .lt. 1.d-80)then
+             lnrho(1:i-1) = lnrho(i)
+             wp1eff(1:i-1) = wp1eff(i)
+             return
+          endif
+          wp1eff(i) = wp1_l - alpha_l/3.d0/om_l
+       enddo
+       rhotot_l = (rhotot_l + rhoa4de)/a_l**4
+       if(rhotot_l .lt. rhotot_r)then  !!
+          err = 1
+          return
+       endif
+       rhotot_r = rhotot_l
+    enddo
+    lnrho = lnrho - lnrho(coop_default_array_size)
+    call de%fwp1eff%init(coop_default_array_size, coop_min_scale_factor, coop_scale_factor_today, wp1eff, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "DE 1+w_eff(a)")
+    call de%flnrho%init(coop_default_array_size,coop_min_scale_factor, coop_scale_factor_today, lnrho, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "DE ln rho_ratio")
+    call de%flnrho%set_boundary(slopeleft = -3.d0*wp1eff(1), sloperight = -3.d0*wp1eff(coop_default_array_size))    
+    de%cs2 = 0.d0
+    call this%add_species(de)
+  end subroutine coop_background_add_EFT_DE
   
 
 end module coop_background_mod

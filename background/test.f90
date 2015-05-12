@@ -3,50 +3,33 @@ program bgtest
   implicit none
 #include "constants.h"  
   type(coop_cosmology_background)::bg
-  COOP_INT, parameter::n = 256
-  COOP_REAL:: a(n), wp1(n), wp1eff(n)
-  COOP_INT::i, err
-  COOP_REAL::omega_c, epsilon_s, epsilon_inf, zeta_s, Q, dlnQdphi
   type(coop_asy)::fig
-  type(coop_species)::de
-  omega_c = 0.25d0
-  epsilon_inf = 0.2d0
-  epsilon_s = 0.25d0
-  zeta_s = 0.5d0
-  Q = 0.2d0
-  dlnQdphi = 0.d0
+  type(coop_function)::wp1, alpha_M
+  COOP_REAL_ARRAY::lna, dlnHdlna, alpha
+  COOP_REAL::H, a
+  COOP_INT::err, i
   call bg%init(h=0.68d0)
   call bg%add_species(coop_baryon(0.049d0))
+  call bg%add_species(coop_cdm(0.26d0))  
   call bg%add_species(coop_radiation(bg%Omega_radiation()))
   call bg%add_species(coop_neutrinos_massless(bg%Omega_massless_neutrinos_per_species()*(bg%Nnu())))
-  de = coop_de_quintessence(Omega_Lambda = bg%Omega_k() - Omega_c, epsilon_s = epsilon_s, epsilon_inf = epsilon_inf, zeta_s = zeta_s)
-  call coop_background_add_coupled_DE_with_w(bg, omega_c, epsilon_s, epsilon_inf, zeta_s, Q, dlnQdphi, err)
-  if(err .ne. 0) stop "error"
-  call coop_set_uniform(n, a, 0.1d0, 1.d0)
-  do i=1, n
-     wp1(i) = de%wp1ofa(a(i))
-     wp1eff(i) = wp1_eff(a(i))
+  call wp1%init_polynomial( (/ 0.d0, 0.05d0 /) )
+  call alpha_M%init_polynomial( (/ 0.d0, 0.d0, 0.d0, 0.d0, 0.05d0 /) )
+  call coop_background_add_EFT_DE(bg, wp1, alpha_M, err)
+ ! call bg%add_species(coop_de_w0wa(bg%Omega_k(), -0.9d0, 0.d0))
+!!test energy conservation    
+  call coop_set_uniform(coop_default_array_size, lna, -0.2d0, 0.d0)
+
+
+  a = exp(lna(1))
+  do i=1, coop_default_array_size
+     dlnHdlna(i)  = bg%HdotbyHsq(exp(lna(i)))
+     alpha(i) = alpha_M%eval(exp(lna(i)))
   enddo
-  call fig%open("wa.txt")
-  call fig%init(xlabel = "$a$", ylabel = "$1+w$")
-  call fig%curve(a, wp1, color="red", linetype = "solid")
-  call fig%curve(a, wp1eff, color="blue", linetype = "dotted")  
-  call fig%close()
-contains
-
-    function wp1_eff(a) result(wp1)
-      COOP_REAL::a, wp1
-      wp1 = (1.d0 + bg%species(5)%pa2(a)/(bg%species(5)%rhoa2(a)+ bg%species(4)%rhoa2(a) - (3.d0*omega_c)/a))
-    end function wp1_eff
-
-    function quint_f(x) result(f)
-      COOP_REAL x, f
-      f = sqrt(1.d0+x**3)/x**1.5 - log(x**1.5+sqrt(1.d0+x**3))/x**3
-    end function quint_f
-
-    function quint_f2(x) result(f2)
-      COOP_REAL x, f2
-      f2 = coop_sqrt2*(1.d0 - log(1.d0+x**3)/x**3)- quint_f(x)
-    end function quint_f2
-
+  alpha(1) = alpha(1)/2.d0
+  alpha(coop_default_array_size) =   alpha(coop_default_array_size)/2.d0
+  dlnHdlna(1) = dlnHdlna(1)/2.d0
+  dlnHdlna(coop_default_array_size) =   dlnHdlna(coop_default_array_size)/2.d0
+  H = exp(- sum(dlnHdlna)*(lna(2)-lna(1)))
+  print*, 3.d0*H**2/(bg%rhoa4(a)/a**4)/exp(sum(alpha)*(lna(2)-lna(1)))-1.d0
 end program bgtest
