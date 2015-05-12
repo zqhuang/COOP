@@ -133,9 +133,9 @@ module coop_forecast_mod
      COOP_REAL:: proposal_length = 2.4d0
      COOP_REAL::bestlike = coop_LogZero
      COOP_REAL::loglike = coop_LogZero
-     logical::loglike_is_exact = .true.
+     logical::loglike_is_exact = .false.
      COOP_REAL::loglike_proposed = coop_LogZero
-     logical::loglike_proposed_is_exact = .true.     
+     logical::loglike_proposed_is_exact = .false.     
      COOP_REAL::mult = 0.d0
      COOP_REAL::sum_mult = 0.d0
      COOP_REAL::temperature = 1.d0
@@ -605,6 +605,7 @@ contains
                    this%fullparams(this%used) = this%params
                    this%loglike = this%knot(2)
                    this%mult = 1
+                   this%loglike_is_exact = .false.
                    call this%chainfile%open(this%chainname, "a")
                    write(*,*) "continuing "//COOP_STR_OF(this%chain%n)//" lines from file "//trim(this%chainname)
                    if(.not. this%do_memsave) call this%chain%init()
