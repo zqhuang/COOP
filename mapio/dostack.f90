@@ -8,7 +8,7 @@ program Stacking_Maps
   logical::use_mask = .true.
   logical::remove_mono = .false.
 
-  COOP_UNKNOWN_STRING,parameter::prefix= "dust_fp_e0pt8to1"
+  COOP_UNKNOWN_STRING,parameter::prefix= "dust_fp_e0to0pt2"
   COOP_STRING::stack_field_name = "QU"
   COOP_STRING::map_file = "tuhin/dust_QU_015a_b30-500_n512.fits"
   COOP_STRING::imask_file = "planck14/lat30_mask_n512.fits"
@@ -17,7 +17,7 @@ program Stacking_Maps
   COOP_UNKNOWN_STRING,parameter::mask_file_force_to_use = ""
   
   COOP_INT,parameter::n = 50
-  COOP_REAL,parameter::r_degree  = 10.d0
+  COOP_REAL,parameter::r_degree  = 5.d0
   COOP_REAL,parameter::dr = 2.d0*sin(r_degree*coop_SI_degree/2.d0)/n
   logical::makepdf = .false.
   type(coop_stacking_options)::sto
@@ -25,10 +25,10 @@ program Stacking_Maps
   type(coop_healpix_maps)::hgm, mask, pmap
   COOP_STRING::output 
   COOP_INT i, m
-  COOP_REAL::zmin1 = -3.
-  COOP_REAL::zmax1 = 3
-  COOP_REAL::zmin2 = -3.
-  COOP_REAL::zmax2 = 3.
+  COOP_REAL::zmin1 = 1.e31
+  COOP_REAL::zmax1 = -1.e31
+  COOP_REAL::zmin2 = 1.e31
+  COOP_REAL::zmax2 = -1.e31
   COOP_STRING::line  
   type(coop_asy)::fig
   COOP_REAL::tmax

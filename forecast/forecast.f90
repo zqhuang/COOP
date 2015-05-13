@@ -231,9 +231,6 @@ contains
     COOP_REAL::Prior
     Prior = coop_LogZero
     if(any(this%params .gt. this%upper) .or. any(this%params.lt.this%lower))return
-    if(associated(this%cosmology))then
-       if(this%cosmology%h().lt. 0.01d0)return
-    endif
     if(this%any_prior)then
        Prior = sum(((this%params - this%prior_center)/this%prior_sigma)**2, mask = this%has_prior)/2.d0
     else
@@ -968,8 +965,14 @@ contains
     COOP_REAL LogLike
     COOP_REAL,dimension(:,:),allocatable::Cls
     !!Prior
-    LogLike = mcmc%PriorLike()
-    if(LogLike .ge. coop_LogZero) return    
+    LogLike = mcmc%PriorLike()    
+    if(LogLike .ge. coop_LogZero) return
+    if(associated(mcmc%cosmology))then
+       if(mcmc%cosmology%h().lt. 0.01d0)then
+          LogLike =coop_LogZero
+          return
+       endif
+    endif    
     if(mcmc%do_general_loglike)then
        loglike = LogLike + mcmc%general_loglike()
        if(LogLike .ge. coop_LogZero) return           

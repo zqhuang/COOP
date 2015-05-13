@@ -25,13 +25,13 @@ program Exp_spots
   call sto%init(do_max, peak_name, orient_name, nmaps = 4)
   sto%threshold_option = 7
   sto%I_lower_nu = 6.d-5/rmsI
-  sto%P2byL2_lower = 1.**2
-  sto%P2byL2_upper = 1.5d0**2
+  sto%P2byL2_lower = 0.**2
+  sto%P2byL2_upper = 0.2d0**2
 
 
   call hgm%get_peaks(sto, mask = mask)
   print*, "find "//COOP_STR_OF(sto%peak_pix%n)//" peaks"
-  call sto%export("peaks/dust_fp_e1to1pt5.dat")  
+  call sto%export("peaks/dust_fp_e0to0pt2.dat")  
 !!$  call pmap%init(nside = 256, nmaps = 1, spin = (/ 0 /) )
 !!$  call pmap%mark_peaks(sto, 1)
 !!$  
