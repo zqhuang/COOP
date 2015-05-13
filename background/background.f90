@@ -472,13 +472,13 @@ contains
 
   subroutine coop_background_add_coupled_DE_with_w(this, Omega_c, epsilon_s, epsilon_inf, zeta_s, Q, dlnQdphi, err)
     COOP_REAL::a_piv, a_zeta, aeq, a_ini
-    
+    COOP_REAL,parameter::max_dUdphi = coop_sqrt3 !!set by epsilon = epsilon_CDM
     class(coop_cosmology_background)::this
     type(coop_species)::de
     COOP_REAL::Omega_c, epsilon_s, epsilon_inf, zeta_s, Q, dlnQdphi
     COOP_REAL::tracking_n, dUdphi, d2Udphi2
     COOP_INT::i, index_de, index_cdm
-    COOP_REAL::rhoc0, wp1, wp1_zeta, delta_wp1, n_low, n_high, dUdphi_low, dUdphi_high, phi_eq, d2Udphi2_trial, diffwp1, mindiff
+    COOP_REAL::rhoc0, wp1, wp1_zeta, delta_wp1, n_low, n_high, dUdphi_low, dUdphi_high, phi_eq, d2Udphi2_trial, diffwp1, mindiff, step
     COOP_INT::err
     
     err = 0    
@@ -497,51 +497,89 @@ contains
     
     !!search for tracking_n
     wp1 = de%wp1ofa(a_ini)    
-    n_high = max(epsilon_inf*(4.d0/3.d0)/(1.d0-(2.d0/3.d0)*epsilon_inf), coop_min_de_tracking_n)
-    n_low = max(n_high/3.d0, coop_min_de_tracking_n)
-    do 
-       tracking_n = (n_high + n_low)/2.d0
-       call coop_background_add_coupled_DE(this, omega_c = omega_c, tracking_n = tracking_n, Q = Q, dlnQdphi = dlnQdphi, dUdphi = 0.d0, d2Udphi2 = 0.d0 )
-       if( wp1_eff(a_ini) .gt. wp1 ) then
-          n_high = tracking_n
-       else
-          n_low = tracking_n
-       endif
-       if(n_high - n_low .lt. 5.d-3)exit
-       call this%delete_species(index_de)
-       call this%delete_species(index_cdm)       
-    enddo
+    n_high = epsilon_inf*(4.d0/3.d0)/(1.d0-(2.d0/3.d0)*epsilon_inf)
+    if(n_high .le. coop_min_de_tracking_n)then
+       tracking_n = coop_min_de_tracking_n
+    else
+       n_low = max(n_high/3.d0, coop_min_de_tracking_n)
+       do 
+          tracking_n = (n_high + n_low)/2.d0
+          call coop_background_add_coupled_DE(this, omega_c = omega_c, tracking_n = tracking_n, Q = Q, dlnQdphi = dlnQdphi, dUdphi = 0.d0, d2Udphi2 = 0.d0 )
+          if( wp1_eff(a_ini) .gt. wp1 ) then
+             n_high = tracking_n
+          else
+             n_low = tracking_n
+          endif
+          if(n_high - n_low .lt. 5.d-3)exit
+          call this%delete_species(index_de)
+          call this%delete_species(index_cdm)       
+       enddo
+    endif
     !!search for dUdphi
     wp1 = de%wp1ofa(a_piv)
     delta_wp1  = wp1_eff(a_piv) - wp1
-    if(delta_wp1 .gt. 0.d0)then
-       dUdphi_low = 0.d0
-       dUdphi_high = 1.d0
-    else
+    if(delta_wp1 .gt. 0.01d0)then
+       print*, 0.d0, delta_wp1
+       step = 0.05
+       dUdphi = step
+       call this%delete_species(index_de)
+       call this%delete_species(index_cdm)       
+       call coop_background_add_coupled_DE(this, omega_c = omega_c, tracking_n = tracking_n, Q = Q, dlnQdphi = dlnQdphi, dUdphi =dUdphi, d2Udphi2 = 0.d0 )
+       diffwp1  = wp1_eff(a_piv) - wp1
+       print*, dUdphi, diffwp1
+       if(abs(diffwp1) .lt. 0.01d0)goto 30
+       if(diffwp1 .ge. delta_wp1 .or. diffwp1 .lt. 0.d0 )then
+          err = 2
+          return
+       endif
+       step = max(min(diffwp1/(delta_wp1-diffwp1+1.d-3)*step/2.d0, 0.5d0), 0.02d0)
+       dUdphi = dUdphi + step
+       delta_wp1 = diffwp1       
+       do 
+          call this%delete_species(index_de)
+          call this%delete_species(index_cdm)       
+          call coop_background_add_coupled_DE(this, omega_c = omega_c, tracking_n = tracking_n, Q = Q, dlnQdphi = dlnQdphi, dUdphi =dUdphi, d2Udphi2 = 0.d0 )
+          diffwp1  = wp1_eff(a_piv) - wp1
+          print*, dUdphi, diffwp1, delta_wp1        
+          if(abs(diffwp1) .lt. 0.01d0)goto 30
+          if(diffwp1 .ge. delta_wp1 .or. diffwp1 .lt. 0.d0 )then
+             err = 3
+             return
+          endif
+          step = max(min(diffwp1/(delta_wp1-diffwp1+1.d-3)*step/2.d0, 0.5d0), 0.02d0)
+          dUdphi = dUdphi + step
+          delta_wp1 = diffwp1
+          if(dUdphi .gt. 30.d0)then
+             err = 4
+             return
+          endif
+       enddo          
+    elseif(delta_wp1 .lt. -0.01d0)then
        dUdphi_high = 0.d0
-       dUdphi_low = -1.732d0
+       dUdphi_low = -max_dUdphi
        call this%delete_species(index_de)
        call this%delete_species(index_cdm)       
        call coop_background_add_coupled_DE(this, omega_c = omega_c, tracking_n = tracking_n, Q = Q, dlnQdphi = dlnQdphi, dUdphi =dUdphi_low, d2Udphi2 = 0.d0 )
        if(wp1_eff(a_piv) .lt. wp1)then
-          err = 1
+          err = 5
           return
        endif
+       do  while(dUdphi_high - dUdphi_low .gt. 0.01d0)
+          call this%delete_species(index_de)
+          call this%delete_species(index_cdm)       
+          dUdphi = (dUdphi_high + dUdphi_low)/2.d0
+          call coop_background_add_coupled_DE(this, omega_c = omega_c, tracking_n = tracking_n, Q = Q, dlnQdphi = dlnQdphi, dUdphi =dUdphi, d2Udphi2 = 0.d0 )
+          if(wp1_eff(a_piv) .gt. wp1)then
+             dUdphi_low = dUdphi
+          else
+             dUdphi_high = dUdphi
+          endif
+       enddo
+    else
+       dUdphi  = 0.
     endif
-    do
-       call this%delete_species(index_de)
-       call this%delete_species(index_cdm)       
-       dUdphi = (dUdphi_high + dUdphi_low)/2.d0
-       call coop_background_add_coupled_DE(this, omega_c = omega_c, tracking_n = tracking_n, Q = Q, dlnQdphi = dlnQdphi, dUdphi =dUdphi, d2Udphi2 = 0.d0 )
-       if(wp1_eff(a_piv) .gt. wp1)then
-          dUdphi_low = dUdphi
-       else
-          dUdphi_high = dUdphi
-       endif
-       if(dUdphi_high - dUdphi_low .lt. 0.02)exit
-    enddo
 
-    if(abs(zeta_s) .lt. 2.d-2 .or. abs(epsilon_s - 2.d0*epsilon_inf).lt. 0.02)return
+30  if(abs(zeta_s) .lt. 2.d-2 .or. abs(epsilon_s - 2.d0*epsilon_inf).lt. 0.02)return
     
     !!serach for d2Udphi2
     wp1_zeta = de%wp1ofa(a_zeta)
@@ -552,7 +590,7 @@ contains
        if(i.eq.0)cycle
        call this%delete_species(index_de)
        call this%delete_species(index_cdm)       
-       d2Udphi2_trial = i*0.04d0
+       d2Udphi2_trial = i*0.05d0
        call coop_background_add_coupled_DE(this, omega_c = omega_c, tracking_n = tracking_n, Q = Q, dlnQdphi = dlnQdphi, dUdphi =dUdphi - d2Udphi2_trial*phi_eq, d2Udphi2 = d2Udphi2_trial )
        diffwp1 = (wp1_eff(a_zeta) - wp1_zeta)**2 + (wp1_eff(a_piv) - wp1)**2
        if(diffwp1 .lt. mindiff)then

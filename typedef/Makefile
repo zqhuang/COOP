@@ -20,7 +20,7 @@ test.o		:wrapper.o
 wrapper.o 	:cosmology.o
 cosmology.o	:species.o
 species.o	:particle.o
-particle.o	:function.o ../include/species_init.h
+particle.o	:function.o 
 function.o	:arguments.o
 arguments.o	:string.o
 string.o	:basicutils.o
