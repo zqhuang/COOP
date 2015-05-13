@@ -546,11 +546,13 @@ contains
     COOP_REAL vec(this%n)
     COOP_INT i
     COOP_LONG_STRING::line
-    if(this%n .le. 0) stop "MCMC: no varying parameters"
+    logical::debug_mode
+    if(this%n .le. 0) call coop_MPI_Abort("MCMC: no varying parameters")
+    debug_mode = .false.
     select type(this)
     class is(coop_MCMC_params)
        if(this%feedback .gt. 4)then !!check reject rate
-          if(this%reject .gt. this%accept*20 .and. this%accept .gt. 0)then
+          if(this%reject .gt. this%accept*30 .and. this%accept .gt. 0)then
              write(*,*) "Reject rate enormalously high"
              write(*,*) "MPI Rank = ",this%proc_id, size(this%covmat%mean), size(this%covmat%sigma), size(this%covmat%c), size(this%covmat%L)             
              write(*,*) "mean = "             
@@ -565,7 +567,7 @@ contains
              do i=1, this%covmat%n
                 write(*,"("//COOP_STR_OF(this%n)//"E14.5)") this%mapping(i, :)
              enddo
-             call coop_MPI_Abort()
+             debug_mode = .true.
           endif
        endif
        if(this%accept+this%reject .eq. 0)then
@@ -671,6 +673,15 @@ contains
        else
           this%loglike_proposed = coop_logZero
        endif
+       if(debug_mode)then
+          write(*,*) "params:         ", this%params_saved
+          write(*,*) "proposed params:", this%params
+          write(*,*) "prior like     :", this%priorlike()
+          write(*,*) "loglike        :", this%loglike
+          write(*,*) "proposed loglike:", this%loglike_proposed
+          call coop_MPI_Abort()
+       endif
+       
        if(this%loglike_proposed .lt. coop_logZero .and. ((this%loglike_proposed - this%loglike)/this%temperature .lt. coop_random_exp() .or. this%is_drift))then
           this%accept = this%accept + 1
           this%knot(1) = this%mult
