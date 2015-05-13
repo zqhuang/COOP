@@ -7,16 +7,17 @@ program Stacking_Maps
 #ifdef HAS_HEALPIX
   logical::use_mask = .true.
   logical::remove_mono = .false.
-  
+
+  COOP_UNKNOWN_STRING,parameter::prefix= "dust_fp_e0pt8to1"
   COOP_STRING::stack_field_name = "QU"
-  COOP_STRING::map_file = "planck14/smica_iqu.fits" !!"dust/dust_iqu.fits"
-  COOP_STRING::imask_file = "planck14/dx11_v2_common_int_mask_010a_1024.fits" !"planck14/lat30_mask_n1024.fits"
-  COOP_STRING::polmask_file = "planck14/dx11_v2_common_pol_mask_010a_1024.fits" !"planck14/lat30_mask_n1024.fits"
-  COOP_STRING::peak_file = "peaks/smica_pnu1.dat"
+  COOP_STRING::map_file = "tuhin/dust_QU_015a_b30-500_n512.fits"
+  COOP_STRING::imask_file = "planck14/lat30_mask_n512.fits"
+  COOP_STRING::polmask_file = "planck14/lat30_mask_n512.fits"
+  COOP_STRING::peak_file = "peaks/"//prefix//".dat"
   COOP_UNKNOWN_STRING,parameter::mask_file_force_to_use = ""
   
   COOP_INT,parameter::n = 50
-  COOP_REAL,parameter::r_degree  = 7.d0
+  COOP_REAL,parameter::r_degree  = 10.d0
   COOP_REAL,parameter::dr = 2.d0*sin(r_degree*coop_SI_degree/2.d0)/n
   logical::makepdf = .false.
   type(coop_stacking_options)::sto
@@ -24,15 +25,15 @@ program Stacking_Maps
   type(coop_healpix_maps)::hgm, mask, pmap
   COOP_STRING::output 
   COOP_INT i, m
-  COOP_REAL::zmin1 = 1.1e31
-  COOP_REAL::zmax1 = -1.1e31
-  COOP_REAL::zmin2 = 1.1e31
-  COOP_REAL::zmax2 = -1.1e31
+  COOP_REAL::zmin1 = -3.
+  COOP_REAL::zmax1 = 3
+  COOP_REAL::zmin2 = -3.
+  COOP_REAL::zmax2 = 3.
   COOP_STRING::line  
   type(coop_asy)::fig
   COOP_REAL::tmax
   
-  output = "stacked/smica_pnu1"
+  output = "stacked/"//prefix//"_"//trim(stack_field_name)
   if(iargc() .ge. 6)then
      use_mask = .true.
      coop_healpix_patch_default_want_caption = .true.

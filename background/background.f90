@@ -519,14 +519,12 @@ contains
     wp1 = de%wp1ofa(a_piv)
     delta_wp1  = wp1_eff(a_piv) - wp1
     if(delta_wp1 .gt. 0.01d0)then
-       print*, 0.d0, delta_wp1
        step = 0.05
        dUdphi = step
        call this%delete_species(index_de)
        call this%delete_species(index_cdm)       
        call coop_background_add_coupled_DE(this, omega_c = omega_c, tracking_n = tracking_n, Q = Q, dlnQdphi = dlnQdphi, dUdphi =dUdphi, d2Udphi2 = 0.d0 )
        diffwp1  = wp1_eff(a_piv) - wp1
-       print*, dUdphi, diffwp1
        if(abs(diffwp1) .lt. 0.01d0)goto 30
        if(diffwp1 .ge. delta_wp1 .or. diffwp1 .lt. 0.d0 )then
           err = 2
@@ -540,7 +538,6 @@ contains
           call this%delete_species(index_cdm)       
           call coop_background_add_coupled_DE(this, omega_c = omega_c, tracking_n = tracking_n, Q = Q, dlnQdphi = dlnQdphi, dUdphi =dUdphi, d2Udphi2 = 0.d0 )
           diffwp1  = wp1_eff(a_piv) - wp1
-          print*, dUdphi, diffwp1, delta_wp1        
           if(abs(diffwp1) .lt. 0.01d0)goto 30
           if(diffwp1 .ge. delta_wp1 .or. diffwp1 .lt. 0.d0 )then
              err = 3
