@@ -100,7 +100,8 @@ module coop_forecast_mod
      COOP_INT::feedback = 0
      COOP_INT::proc_id = 0
      COOP_INT::total_steps = 50000
-     type(coop_cosmology_firstorder),pointer::cosmology => null()   
+     type(coop_cosmology_firstorder),pointer::cosmology => null()
+     type(coop_cosmology_firstorder),pointer::cosmology_saved => null()        
      type(coop_file)::chainfile
      type(coop_file)::ndffile     
      type(coop_dictionary)::settings     
@@ -543,7 +544,8 @@ contains
     COOP_REAL vec(this%n)
     COOP_INT i
     COOP_LONG_STRING::line
-    logical::debug_mode
+    logical::debug_mode, cosmology_changed
+    type(coop_cosmology_firstorder),target::cosmo
     if(this%n .le. 0) call coop_MPI_Abort("MCMC: no varying parameters")
     debug_mode = .false.
     select type(this)
@@ -637,6 +639,8 @@ contains
           endif
        endif
        this%params_saved = this%params
+       this%cosmology_saved => this%cosmology
+       cosmology_changed = .false.
        if(this%do_fastslow)then       
           if(this%cycl%next() .gt. this%n_slow)then
              vec(1:this%n_fast) = this%propose_fast_vec()*this%proposal_r()
@@ -654,6 +658,7 @@ contains
           this%slow_changed = .true.          
        endif
        this%fullparams(this%used) = this%params
+       
        if(this%priorlike() .lt. coop_logZero)then
           if(this%do_ndf .and. this%slow_changed .and. this%like_approx%n .gt. this%n * 50 .and. this%converge_R .lt. 50.d0  .and. coop_random_unit().lt. this%approx_frac )then
              this%loglike_proposed = this%like_approx%eval(this%params)
@@ -661,6 +666,8 @@ contains
              this%loglike_proposed_is_exact = .false.
           else
              if(associated(this%cosmology) .and. this%slow_changed)then
+                this%cosmology => cosmo
+                cosmology_changed = .true.
                 call this%set_cosmology()
              endif
              this%loglike_proposed = pool%loglike(this)
@@ -684,6 +691,10 @@ contains
           this%knot(1) = this%mult
           this%knot(2) = this%loglike
           this%knot(3:this%n+2) = this%params_saved
+          if(cosmology_changed)then
+             this%cosmology => this%cosmology_saved
+             this%cosmology = cosmo
+          endif
           this%sum_mult = this%sum_mult + this%knot(1)
           if(this%do_memsave) &          
                call this%chain%push(this%knot)          
@@ -699,6 +710,7 @@ contains
           endif
           this%loglike = this%loglike_proposed
           this%loglike_is_exact = this%loglike_proposed_is_exact
+          
           this%derived_params = this%derived()          
           this%mult  = 1.d0
           if(this%loglike .lt. this%bestlike)then
@@ -713,6 +725,7 @@ contains
              write(this%ndffile%unit) this%knot
              if(this%do_flush)call flush(this%ndffile%unit)
           endif
+          if(cosmology_changed)this%cosmology => this%cosmology_saved
           this%params = this%params_saved
           this%fullparams(this%used) = this%params       
           this%reject = this%reject + 1
