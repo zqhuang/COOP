@@ -660,7 +660,7 @@ contains
        this%fullparams(this%used) = this%params
        
        if(this%priorlike() .lt. coop_logZero)then
-          if(this%do_ndf .and. this%slow_changed .and. this%like_approx%n .gt. this%n * 50 .and. this%converge_R .lt. 50.d0  .and. coop_random_unit().lt. this%approx_frac )then
+          if(this%do_ndf .and. this%slow_changed .and. this%like_approx%n .gt. this%n * 50 .and. this%converge_R .lt. 50.d0  .and. coop_random_unit().lt. this%approx_frac .and. (.not. this%is_drift) )then
              this%loglike_proposed = this%like_approx%eval(this%params)
              this%num_approx_calc = this%num_approx_calc + 1
              this%loglike_proposed_is_exact = .false.
