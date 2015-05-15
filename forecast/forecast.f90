@@ -173,7 +173,9 @@ module coop_forecast_mod
      type(coop_list_realarr)::chain
      type(coop_dictionary)::paramnames
      type(coop_nd_prob)::like_approx
-     COOP_INT::accept, reject, step
+     COOP_INT::accept = 0
+     COOP_INT::reject = 0
+     COOP_INT::step = 0
      !!index for parameters
      COOP_INT::index_ombh2 = 0
      COOP_INT::index_omch2 = 0          
@@ -474,9 +476,10 @@ contains
     COOP_INT::i, istart, i1, i2
     type(coop_file)::fp
     COOP_REAL:: mult, diff(this%n)
+    if(this%step .eq. this%total_steps) call coop_MPI_Abort("Step = Total Steps; MPI terminating.")    
     this%time = nint(coop_systime_sec())
-    if(this%time .lt. this%update_seconds .and. this%step .lt. this%total_steps )return
-    if(this%feedback .ge. 1)write(*,*) "updating propose matrix on Node "//COOP_STR_OF(this%proc_id)
+    if(this%time .lt. this%update_seconds)return
+    if(this%feedback .ge. 1)write(*,*) "updating propose matrix on Node "//COOP_STR_OF(this%proc_id)//", step "//COOP_STR_OF(this%step)//", time = "//COOP_STR_OF(this%time)
     if(.not. this%do_memsave)stop "cannot update propose matrix when do_memsave is off"
     call this%covmat%alloc(this%n)  !!set sigma = 1 and the rest 0
     if(this%chain%n .ge. 10)then
@@ -506,11 +509,7 @@ contains
        endif
     endif
     if(this%do_ndf) call this%ndffile%close()
-    if(this%step .eq. this%total_steps)then
-       call this%covmat%MPI_Sync(converge_R = this%converge_R, -1.d0) !!terminate the program
-    else
-       call this%covmat%MPI_Sync(converge_R = this%converge_R) !!terminate the program       
-    endif
+    call this%covmat%MPI_Sync(converge_R = this%converge_R) !!terminate the program       
     if(this%do_ndf)then
        call this%like_approx%load_chains(this%prefix, this%n)
        if(this%feedback .ge. 1)write(*,*) COOP_STR_OF(this%proc_id)//": likelihood fitting function loaded with "//COOP_STR_OF(this%like_approx%n)//" data points"
@@ -551,7 +550,6 @@ contains
     logical::cosmology_changed
     type(coop_cosmology_firstorder),target::cosmo
     if(this%n .le. 0) call coop_MPI_Abort("MCMC: no varying parameters")
-    this%step = this%step + 1
     select type(this)
     class is(coop_MCMC_params)
        if(this%feedback .gt. 4)then !!check reject rate
@@ -581,6 +579,7 @@ contains
           this%ndfname = trim(this%prefix)//"_"//COOP_STR_OF(this%proc_id+1)//".ndf"          
           if(this%do_overwrite)then
              if(this%do_ndf) call this%ndffile%open(this%ndfname, "u")
+             
           else
              if(this%do_ndf)then
                 call this%like_approx%load_chains(this%prefix, this%n)
@@ -638,7 +637,7 @@ contains
              this%bestparams = this%params
              this%bestlike = this%loglike
           else
-             this%time = coop_systime_sec(this%update_seconds*min(0.9d0, this%chain%n/200.d0))                          
+             this%time = coop_systime_sec(this%update_seconds*min(0.9d0, this%chain%n/200.d0))
           endif
        endif
        this%params_saved = this%params
@@ -734,6 +733,7 @@ contains
 
        endif
     endif
+    this%step = this%step + 1        
     call this%update_propose()
   end subroutine coop_MCMC_params_MCMC_step
 
@@ -1107,10 +1107,6 @@ contains
       drz = 1.d0/sqrt(MCMC_OMEGA_M*(1.d0+z)**3 + MCMC_OMEGA_K*(1.d0+z)**2 + MCMC_OMEGA_LAMBDA*(1.d0+z)**(3.d0*(1.d0+MCMC_W + MCMC_WA))*exp(-3.d0*MCMC_WA*z/(1.d0+z)) )
     end function drz
   end subroutine coop_dataset_SN_Simple_simulate
-
-
-
-
 
   subroutine coop_MCMC_params_init(this,  ini)
     class(coop_MCMC_params)::this

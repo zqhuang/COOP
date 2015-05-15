@@ -1286,15 +1286,8 @@ contains
     allocate(info(0:this%n), covinfo(ms*2))
     info(0) = this%mult
     info(1:this%n) = this%mean*this%mult
-    if(present(weight_B))then
-       if(weight_B .lt. 0.d0)then  !!negative weight_B terminates the MPI program
-          info(0) = -coop_logZero
-       endif
-    endif
     call coop_MPI_sum(info(0:this%n))
     if(info(0) .le. 0.d0)then
-       if(info(0) .lt. -1.d0)call MPI_Abort("Received END signal in MPI_Sync")
-    else
        return !!does not change anything for mult = 0
     endif
     info(1:this%n) = info(1:this%n)/info(0)
