@@ -173,7 +173,7 @@ module coop_forecast_mod
      type(coop_list_realarr)::chain
      type(coop_dictionary)::paramnames
      type(coop_nd_prob)::like_approx
-     COOP_INT::accept, reject
+     COOP_INT::accept, reject, step
      !!index for parameters
      COOP_INT::index_ombh2 = 0
      COOP_INT::index_omch2 = 0          
@@ -475,7 +475,7 @@ contains
     type(coop_file)::fp
     COOP_REAL:: mult, diff(this%n)
     this%time = nint(coop_systime_sec())
-    if(this%time .lt. this%update_seconds )return
+    if(this%time .lt. this%update_seconds .and. this%step .lt. this%total_steps )return
     if(this%feedback .ge. 1)write(*,*) "updating propose matrix on Node "//COOP_STR_OF(this%proc_id)
     if(.not. this%do_memsave)stop "cannot update propose matrix when do_memsave is off"
     call this%covmat%alloc(this%n)  !!set sigma = 1 and the rest 0
@@ -506,7 +506,11 @@ contains
        endif
     endif
     if(this%do_ndf) call this%ndffile%close()
-    call this%covmat%MPI_Sync(converge_R = this%converge_R)
+    if(this%step .eq. this%total_steps)then
+       call this%covmat%MPI_Sync(converge_R = this%converge_R, -1.d0) !!terminate the program
+    else
+       call this%covmat%MPI_Sync(converge_R = this%converge_R) !!terminate the program       
+    endif
     if(this%do_ndf)then
        call this%like_approx%load_chains(this%prefix, this%n)
        if(this%feedback .ge. 1)write(*,*) COOP_STR_OF(this%proc_id)//": likelihood fitting function loaded with "//COOP_STR_OF(this%like_approx%n)//" data points"
@@ -544,10 +548,10 @@ contains
     COOP_REAL vec(this%n)
     COOP_INT i
     COOP_LONG_STRING::line
-    logical::debug_mode, cosmology_changed
+    logical::cosmology_changed
     type(coop_cosmology_firstorder),target::cosmo
     if(this%n .le. 0) call coop_MPI_Abort("MCMC: no varying parameters")
-    debug_mode = .false.
+    this%step = this%step + 1
     select type(this)
     class is(coop_MCMC_params)
        if(this%feedback .gt. 4)then !!check reject rate
@@ -566,10 +570,9 @@ contains
              do i=1, this%covmat%n
                 write(*,"("//COOP_STR_OF(this%n)//"E14.5)") this%mapping(i, :)
              enddo
-             debug_mode = .true.
           endif
        endif
-       if(this%accept+this%reject .eq. 0)then
+       if(this%step .eq. 0)then
           call coop_random_init()
           call this%chain%init()
           this%sum_mult = 0.d0
@@ -676,14 +679,6 @@ contains
           endif
        else
           this%loglike_proposed = coop_logZero
-       endif
-       if(debug_mode)then
-          write(*,*) "params:         ", this%params_saved
-          write(*,*) "proposed params:", this%params
-          write(*,*) "prior like     :", this%priorlike()
-          write(*,*) "loglike        :", this%loglike
-          write(*,*) "proposed loglike:", this%loglike_proposed
-          call coop_MPI_Abort()
        endif
        
        if(this%loglike_proposed .lt. coop_logZero .and. ((this%loglike_proposed - this%loglike)/this%temperature .lt. coop_random_exp() .or. this%is_drift))then
@@ -851,13 +846,6 @@ contains
     else
        stop "cannot use compressed CMB likelihood for models without cosmology"
     endif
-    
-!!$  contains
-!!$    function drz(z)
-!!$      COOP_REAL z, drz
-!!$      drz = 1.d0/sqrt(MCMC_OMEGA_M*(1.d0+z)**3 + MCMC_OMEGA_K*(1.d0+z)**2 + MCMC_OMEGA_LAMBDA*(1.d0+z)**(3.d0*(1.d0+MCMC_W + MCMC_WA))*exp(-3.d0*MCMC_WA*z/(1.d0+z)) + 9.d-5*(1.d0+z)**4)  !!a fiducial Omega_r is put in here
-!!$    end function drz
-    
   end function coop_dataset_CMB_simple_loglike
 
 
@@ -1173,6 +1161,7 @@ contains
     this%num_approx_calc = 0
     this%accept = 0
     this%reject = 0
+    this%step = 0
     call coop_dictionary_lookup(this%settings, "update_seconds", this%update_seconds, 1000000000)    
     this%update_seconds = max(this%update_seconds, 30) !!
     if(this%update_seconds .gt. 3600*24*30)then

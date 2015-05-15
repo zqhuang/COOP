@@ -1277,7 +1277,7 @@ contains
     COOP_REAL, optional::converge_R, weight_B !!convergence test
     COOP_REAL, dimension(:),allocatable::info, covinfo
     COOP_REAL,dimension(:,:),allocatable::cov, meanscov
-    COOP_REAL::weight_W, R
+    COOP_REAL:: R, bfac
     COOP_INT:: i, j, ii, ms, num_proc
     if(present(converge_R))converge_R = 0.d0    
     num_proc = coop_MPI_NumProc()
@@ -1286,8 +1286,17 @@ contains
     allocate(info(0:this%n), covinfo(ms*2))
     info(0) = this%mult
     info(1:this%n) = this%mean*this%mult
+    if(present(weight_B))then
+       if(weight_B .lt. 0.d0)then  !!negative weight_B terminates the MPI program
+          info(0) = -coop_logZero
+       endif
+    endif
     call coop_MPI_sum(info(0:this%n))
-    if(info(0) .le. 0.d0)return !!does not change anything for mult = 0
+    if(info(0) .le. 0.d0)then
+       if(info(0) .lt. -1.d0)call MPI_Abort("Received END signal in MPI_Sync")
+    else
+       return !!does not change anything for mult = 0
+    endif
     info(1:this%n) = info(1:this%n)/info(0)
     ii = 0
     do i=1, this%n
@@ -1319,16 +1328,16 @@ contains
        converge_R = coop_GelmanRubin_R(this%n, cov, meanscov)
     endif
     if(present(weight_B))then
-       weight_W = 1.d0-weight_B
+       bfac = weight_B
     else
        if(present(converge_R))then
-          weight_W = max(converge_R/(0.02d0+converge_R), 0.5d0)
+          bfac = converge_R/(converge_R + 3.d2)
        else
-          weight_W = 1.d0 - 1.d0/info(0) !!default weight
+          bfac = 1.d0/info(0) !!default weight
        endif
     endif
     
-    this%c = cov  + meanscov * (1.d0-weight_W)
+    this%c = cov  + meanscov * bfac
     deallocate(info, covinfo, cov, meanscov)
 
 100 call this%normalize()    
