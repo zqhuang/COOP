@@ -1299,7 +1299,7 @@ contains
     enddo
     call coop_MPI_Sum(covinfo)
     covinfo = covinfo/info(0)
-    covinfo(ms+1:2*ms) = covinfo(ms+1:2*ms)*(dble(num_proc)/(num_proc-1.d0))
+    covinfo(ms+1:2*ms) = covinfo(ms+1:2*ms)*(dble(num_proc)/(num_proc-1.d0)/covinfo(0))
     
     this%mult = info(0)
     this%sigma = 1.d0
@@ -1322,13 +1322,13 @@ contains
        weight_W = 1.d0-weight_B
     else
        if(present(converge_R))then
-          weight_W = max(converge_R/(0.05d0+converge_R), 0.5d0)
+          weight_W = max(converge_R/(0.02d0+converge_R), 0.5d0)
        else
           weight_W = 1.d0 - 1.d0/info(0) !!default weight
        endif
     endif
     
-    this%c = cov * weight_W + meanscov * (1.d0-weight_W)
+    this%c = cov  + meanscov * (1.d0-weight_W)
     deallocate(info, covinfo, cov, meanscov)
 
 100 call this%normalize()    
