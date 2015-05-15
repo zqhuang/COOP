@@ -1301,7 +1301,7 @@ contains
     enddo
     call coop_MPI_Sum(covinfo)
     covinfo = covinfo/info(0)
-    covinfo(ms+1:2*ms) = covinfo(ms+1:2*ms)*(dble(num_proc)/(num_proc-1.d0)/covinfo(0))
+    covinfo(ms+1:2*ms) = covinfo(ms+1:2*ms)*(dble(num_proc)/(num_proc-1.d0)/info(0))
     
     this%mult = info(0)
     this%sigma = 1.d0
@@ -1344,19 +1344,33 @@ contains
     COOP_REAL,optional::accuracy
     COOP_REAL::eps
     COOP_REAL::x(n), y(n), last_lambda, lambda, sigma
-    sigma = maxval(abs(a))
+    lambda = 0.d0
+    sigma = maxval(abs(a))    
     if(sigma .eq. 0.d0)then
-       lambda = 0.d0
        return
     endif
     x = 1.d0/sqrt(dble(n))
     do iloop = 1, max(5, n/10)  !!do 5 iterations
        y = matmul(a, x)
-       x =  y/sqrt(dot_product(y, y))
+       sigma = sqrt(dot_product(y, y))
+       if(sigma .le. 1.d-30)then
+          write(*,*) "Warning: dominant eigen too small"
+          return
+       endif
+       x =  y/sigma
     enddo
     y = matmul(a, x)
     last_lambda = dot_product(x, y)
-    x =  y/sqrt(dot_product(y, y))
+    if(abs(last_lambda) .lt. 1.d-30)then
+       write(*,*) "Warning: dominant eigen too small"
+       return       
+    endif
+    sigma = sqrt(dot_product(y, y))
+    if(sigma .le. 1.d-30)then
+       write(*,*) "Warning: dominant eigen too small"
+       return
+    endif
+    x =  y/sigma
     iloop = 0
     if(present(accuracy))then
        eps = accuracy/2.d0
@@ -1367,14 +1381,24 @@ contains
        y = matmul(a, x)
        lambda = dot_product(x, y)
        if(abs(lambda/last_lambda - 1.d0) .le. eps)return
-       x = y/sqrt(dot_product(y, y))
+       sigma = sqrt(dot_product(y, y))
+       if(sigma .le. 1.d-30)then
+          write(*,*) "Warning: dominant eigen too small"
+          return
+       endif
+       x =  y/sigma
        iloop = iloop+1
        if(iloop .gt. max_loops)then
           write(*,*) "Warning: dominant eigen value does not converge"
-          write(*,*) "last iteration: ", lambda/last_lambda - 1.d0
+          call coop_print_matrix(a, n, n)
+          write(*,*) "last iteration: ", last_lambda, lambda
           return
        endif
        last_lambda = lambda
+       if(abs(last_lambda) .lt. 1.d-30)then
+          write(*,*) "Warning: dominant eigen too small"
+          return       
+       endif
     enddo
   end function coop_matrix_dominant_eigen_value
 
