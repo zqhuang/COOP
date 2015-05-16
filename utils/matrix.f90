@@ -1300,8 +1300,10 @@ contains
        enddo
     enddo
     call coop_MPI_Sum(covinfo)
+    !!normalize
     covinfo = covinfo/info(0)
-    covinfo(ms+1:2*ms) = covinfo(ms+1:2*ms)*(dble(num_proc)/(num_proc-1.d0)/info(0))
+    !!correction
+    covinfo(ms+1:2*ms) = covinfo(ms+1:2*ms)*(dble(num_proc)/(num_proc-1.d0)
     
     this%mult = info(0)
     this%sigma = 1.d0
