@@ -643,17 +643,22 @@ contains
        this%params_saved = this%params
        this%cosmology_saved => this%cosmology
        cosmology_changed = .false.
-       if(this%do_fastslow)then       
-          if(this%cycl%next() .gt. this%n_slow)then
-             vec(1:this%n_fast) = this%propose_fast_vec()*this%proposal_r()
-             this%params(this%index_fast_start:this%n) = this%params_saved(this%index_fast_start:this%n) + matmul(this%mapping_fast, vec(1:this%n_fast))
-             this%slow_changed = .false.
-             
+       if(this%do_fastslow)then
+          if(this%loglike_is_exact)then
+             if(this%cycl%next() .gt. this%n_slow)then
+                vec(1:this%n_fast) = this%propose_fast_vec()*this%proposal_r()
+                this%params(this%index_fast_start:this%n) = this%params_saved(this%index_fast_start:this%n) + matmul(this%mapping_fast, vec(1:this%n_fast))
+                this%slow_changed = .false.
+             else
+                vec(1:this%n_slow) = this%propose_slow_vec()*this%proposal_r()
+                this%params = this%params_saved + matmul(this%mapping(:, 1:this%n_slow), vec(1:this%n_slow))
+                this%slow_changed = .true.             
+             endif
           else
              vec(1:this%n_slow) = this%propose_slow_vec()*this%proposal_r()
              this%params = this%params_saved + matmul(this%mapping(:, 1:this%n_slow), vec(1:this%n_slow))
              this%slow_changed = .true.             
-          endif
+          endif            
        else
           vec = this%propose_vec()*this%proposal_r()
           this%params = this%params_saved + matmul(this%mapping, vec)
@@ -662,7 +667,7 @@ contains
        this%fullparams(this%used) = this%params
        
        if(this%priorlike() .lt. coop_logZero)then
-          if(this%do_ndf .and. this%slow_changed .and. this%like_approx%n .gt. this%n * 50 .and. this%converge_R .lt. 50.d0  .and. coop_random_unit().lt. this%approx_frac .and. (.not. this%is_drift) )then
+          if(this%do_ndf .and. this%slow_changed .and. this%like_approx%n .gt. this%n * 50 .and. this%converge_R .lt. 30.d0  .and. coop_random_unit().lt. this%approx_frac .and. (.not. this%is_drift) )then
              this%loglike_proposed = this%like_approx%eval(this%params)
              this%num_approx_calc = this%num_approx_calc + 1
              this%loglike_proposed_is_exact = .false.
@@ -1335,17 +1340,18 @@ contains
        endif
     endif
     this%do_fastslow = (this%n_fast .gt. 0)
+    this%n_slow = this%n - this%n_fast
+    this%index_fast_start = this%n_slow + 1
+    this%index_propose_fast = 1
+    this%index_propose_slow = 1
+    
     if(this%do_fastslow)then
-       this%n_slow = this%n - this%n_fast
-       this%index_fast_start = this%n_slow + 1
        if(allocated(this%mapping_fast))deallocate(this%mapping_fast)
        if(allocated(this%vecs_fast))deallocate(this%vecs_fast)
        if(allocated(this%vecs_slow))deallocate(this%vecs_slow)       
        allocate(this%mapping_fast(this%n_fast, this%n_fast))
        allocate(this%vecs_fast(this%n_fast, this%n_fast))
        allocate(this%vecs_slow(this%n_slow, this%n_slow))       
-       this%index_propose_fast = 1
-       this%index_propose_slow = 1
        this%mapping_fast = this%mapping(this%index_fast_start:this%n, this%index_fast_start:this%n)
     endif
     if(this%proc_id .eq. 0)then
