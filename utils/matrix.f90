@@ -1303,7 +1303,7 @@ contains
     !!normalize
     covinfo = covinfo/info(0)
     !!correction
-    covinfo(ms+1:2*ms) = covinfo(ms+1:2*ms)*(dble(num_proc)/(num_proc-1.d0)
+    covinfo(ms+1:2*ms) = covinfo(ms+1:2*ms)*(dble(num_proc)/(num_proc-1.d0))
     
     this%mult = info(0)
     this%sigma = 1.d0
