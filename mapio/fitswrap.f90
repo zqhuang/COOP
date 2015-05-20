@@ -106,18 +106,9 @@ contains
   subroutine coop_fits_get_header(this)
     class(coop_fits)::this
     COOP_LONG_STRING::header
-    COOP_INT nkeys, i, j, istart, iend, ikey
+    COOP_INT i, j
     COOP_REAL,dimension(:),allocatable::delta, units
-    call coop_fits_read_header_to_string(this%filename, header, nkeys)
-    istart = 1
-    do i=1, nkeys
-       j = scan(header(istart:), "=")
-       iend = scan(header(istart:), coop_newline)
-       j = j+ istart - 1
-       iend = iend + istart - 2
-       call this%header%insert(header(istart:j-1), header(j+1:iend))
-       istart = iend + 2
-    enddo
+    call coop_fits_to_header(this%filename, this%header)
     select type(this)
     type is (coop_fits)
        return

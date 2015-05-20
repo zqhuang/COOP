@@ -76,11 +76,11 @@ program Stacking_Maps
   call patch%init(stack_field_name, n, dr)
   if(use_mask)then
      if(patch%tbs%mask_int .and. .not. patch%tbs%mask_pol)then
-        call mask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /))
+        call mask%read(imask_file, nmaps_wanted = 1)
      elseif(patch%tbs%mask_pol .and. .not. patch%tbs%mask_int)then
-        call mask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /))
+        call mask%read(polmask_file, nmaps_wanted = 1)
      elseif(trim(mask_file_force_to_use) .ne. "")then
-        call mask%read(mask_file_force_to_use, nmaps_wanted = 1, spin = (/ 0 /))
+        call mask%read(mask_file_force_to_use, nmaps_wanted = 1)
      else
         stop "For unclassified stacking maps you have to specify the mask explicitly"
      endif

@@ -36,7 +36,7 @@ contains
 
     type(coop_healpix_maps)::hm
 
-    call hm%init(nside, 2, (/ 0, 0 /), lmax)
+    call hm%init(nside = nside, nmaps = 2, genre = "TE", lmax = lmax)
     hm%alm = 0.
     if(allocated(coop_zeta3d_shells) .and. allocated(coop_zeta3d_trans))then  !!prepare the Gaussian field
        do i=1, coop_zeta_nr

@@ -33,6 +33,35 @@ void coop_fits_read_header_to_string_(char* filename, char* cards, int* nkeys){
 }
 
 
+void coop_fits_read_all_headers_to_string_(char* filename, char* cards, int* nkeys){
+#ifdef HAS_CFITSIO
+  fitsfile *fptr;         
+  char card[FLEN_CARD]; 
+  int status, ii, num_hdus, ih, hdutype; 
+  status = 0; /* MUST initialize status */
+  fits_open_file(&fptr, filename, READONLY, &status);
+  fits_get_num_hdus(fptr, &num_hdus, &status);
+  for(ih = 1; ih<=num_hdus; ih++){
+    fits_movabs_hdu(fptr, ih, &hdutype, &status);
+    fits_get_hdrspace(fptr, nkeys, NULL, &status);        
+    for (ii = 1; ii <= *nkeys; ii++)  { 
+      fits_read_record(fptr, ii, card, &status); /* read keyword */
+      if(ii == 1 && ih == 1)
+	strcpy(cards, card);
+      else
+	strcat(cards, card);//    printf("%s\n", card);
+      strcat(cards, "\n");//    printf("%s\n", card);
+    }}
+  fits_close_file(fptr, &status);
+    
+  if (status)          /* print any error messages */
+    fits_report_error(stderr, status);
+#else
+  printf("CFITSIO library is missing. Please change your configure file.");
+#endif
+}
+
+
 
 void coop_fits_get_dimension_(char* filename, int* nx,int* ny, int* bytes){
 #ifdef HAS_CFITSIO

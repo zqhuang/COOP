@@ -92,6 +92,7 @@
 #define COOP_PP_GENERAL_SINGLE_FIELD 3
 #define COOP_PP_BUMP  4  
 
+#define COOP_UNKNOWN_ORDERING 0
 #define COOP_RING 1
 #define COOP_NESTED 2
 

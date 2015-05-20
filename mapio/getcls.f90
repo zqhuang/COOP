@@ -39,13 +39,13 @@ program test
   else
      output_file = coop_str_replace(imap_file, ".fits", "_cls.txt")
   endif
-  call map%read(imap_file, nmaps_wanted = 3, spin = (/ 0, 2, 2 /) )
-  call map%import(polmap_file, index_start = 2, index_end = 3, spin = (/ 2, 2 /))
+  call map%read(imap_file, nmaps_wanted = 3)
+  call map%import(polmap_file, index_start = 2, index_end = 3)
 
   if(do_mask)then
-     call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
+     call imask%read(imask_file, nmaps_wanted = 1)
      map%map(:,1) = map%map(:, 1)*imask%map(:,1)
-     call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )  
+     call polmask%read(polmask_file, nmaps_wanted = 1)
      map%map(:,2) = map%map(:, 2)*polmask%map(:,1)
      map%map(:,3) = map%map(:, 3)*polmask%map(:,1)
   endif

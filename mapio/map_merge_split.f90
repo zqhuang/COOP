@@ -32,7 +32,7 @@ program map
   nin = 1
   inline_mode =  (iargc() .gt. 0)
   if(.not. inline_mode)then
-     write(*,*) "options are: SPLIT; SMOOTH; DOBEAM; MULTIPLY;I2TQTUT;IQU2TEB;T2ZETA; IQU2ZETA; QU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE; HIGHPASS;TRIM"
+     write(*,*) "options are: SPLIT; SMOOTH; DOBEAM; MULTIPLY;I2TQTUT;IQU2TEB;T2ZETA; IQU2ZETA; QU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE; HIGHPASS;"
   endif
   do while(nin .le. nmax)
      if(inline_mode)then
@@ -146,21 +146,6 @@ program map
         enddo
 
         print*, "maps are all highpassed"
-        goto 500
-     case("TRIM")
-        if(inline_mode)then
-           inline = coop_inputArgs(nin+1)
-           read(inline, *) fwhm
-        else
-           write(*,*) "Enter trim scale (arcmin)"
-           read(*,*) fwhm
-        endif
-        fwhm = fwhm * coop_SI_arcmin
-        nin = nin -1
-        do i=1, nin
-           call coop_healpix_trim_maskfile(fin(i), fwhm)
-        enddo
-        print*, "maps are all trimmed"
         goto 500
      case("SMOOTH")
         if(inline_mode)then
@@ -284,8 +269,8 @@ program map
      case("I2TQTUT")
         nin = nin -1
         do i=1, nin
-           call hgm%read(trim(fin(i)), nmaps_wanted = 3, spin=(/ 0, 2, 2 /), nmaps_to_read = 1 )
-           call hgm%iqu2TQTUT()
+           call hgm%read(trim(fin(i)), nmaps_wanted = 3, nmaps_to_read = 1 )
+           call hgm%get_QU()
            call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_TQTUT")))
         enddo
         print*, "maps are all converted to TQTUT"
@@ -294,7 +279,7 @@ program map
         nin = nin -1
         do i=1, nin
            call hgm%read(trim(fin(i)))
-           call hgm%iqu2TEB()
+           call hgm%qu2EB()
            call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_TEB")))
         enddo
         print*, "maps are all converted to TEB"
@@ -315,7 +300,7 @@ program map
         endif
         nin = nin -1
         do i=1, nin
-           call hgm%read(trim(fin(i)), nmaps_wanted = 3, spin = (/ 0, 2 , 2 /) )
+           call hgm%read(trim(fin(i)), nmaps_wanted = 3)
            call hgm%te2zeta(fwhm_arcmin = fwhm, want_unconstrained = .true.)
            call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_ZETA")), index_list = (/ 1, 2, 3 /) )
         enddo
@@ -337,7 +322,7 @@ program map
         
         nin = nin -1
         do i=1, nin
-           call hgm%read(trim(fin(i)), nmaps_wanted = 3, nmaps_to_read = 2, spin = (/ 2, 2, 0 /) )
+           call hgm%read(trim(fin(i)), nmaps_wanted = 3, nmaps_to_read = 2)
            call hgm%E2zeta(fwhm_arcmin = fwhm, want_unconstrained = .true.)
            call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_ZETA")), index_list = (/ 1, 2, 3/) )
         enddo
@@ -358,7 +343,7 @@ program map
         endif
         nin = nin -1
         do i=1, nin
-           call hgm%read(trim(fin(i)), nmaps_wanted = 3, nmaps_to_read = 1, spin = (/ 0, 0, 0 /) )
+           call hgm%read(trim(fin(i)), nmaps_wanted = 3, nmaps_to_read = 1)
            call hgm%t2zeta(fwhm_arcmin = fwhm, want_unconstrained = .true.)
            call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_ZETA")), index_list = (/ 1, 2, 3/) )
         enddo

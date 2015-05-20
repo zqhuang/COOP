@@ -29,9 +29,8 @@ module coop_healpix_mod
   logical::coop_healpix_patch_default_want_caption = .true.
   logical::coop_healpix_patch_default_want_label = .true.
   logical::coop_healpix_patch_default_want_arrow = .true.
-  logical::coop_healpix_warning = .true.
   
-  public::coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_inpainting, coop_healpix_smooth_maskfile, coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_diffuse_into_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_trim_maskfile, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask, coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow, coop_healpix_warning, coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise
+  public::coop_fits_to_header, coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask, coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint_space, coop_healpix_maps_ave_udgrade
   
 
   logical::coop_healpix_alm_check_done = .false.
@@ -39,13 +38,9 @@ module coop_healpix_mod
   COOP_REAL,parameter::coop_healpix_zeta_normalization = 1.d-5
 
   COOP_INT,parameter::dlc = kind( (1.d0,1.d0) )
-  COOP_INT,parameter::coop_inpainting_lowl_max = 20
-  COOP_INT,parameter::coop_inpainting_lowl_min = 5
 
   COOP_INT, parameter::coop_healpix_default_lmax=2500
   COOP_REAL::coop_healpix_mask_tol = 0.d0  !!default mask tolerance
-  COOP_INT::coop_healpix_inpainting_lowl=5
-  COOP_REAL,parameter::coop_healpix_diffuse_scale = 10.d0*coop_SI_arcmin
   COOP_INT,parameter::coop_healpix_index_TT = 1
   COOP_INT,parameter::coop_healpix_index_EE = 2
   COOP_INT,parameter::coop_healpix_index_BB = 3
@@ -70,20 +65,31 @@ module coop_healpix_mod
      COOP_INT:: npix = 0
      COOP_INT::ordering = COOP_RING
      COOP_INT::lmax = -1
+     COOP_SHORT_STRING::creator = "COOP"
+     COOP_SHORT_STRING::dtype = "MAP"     
+     COOP_SHORT_STRING::version = "0.0"
+     COOP_SHORT_STRING::coordsys = "G"
+     COOP_INT::firstpix = 0
+     COOP_INT::lastpix = 0
      COOP_INT::iq = 0
      COOP_INT::iu = 0
-     COOP_INT::mask_npix= 0
-     COOP_INT::maskpol_npix = 0
-     character(LEN=80),dimension(64)::header
+     COOP_SINGLE::bad_data =  -1.637500000000e30
+     COOP_REAL::fwhm_degree = 0.
+     logical::polar = .false.     
+     type(coop_dictionary)::header
      COOP_INT,dimension(:),allocatable::spin
+     COOP_SHORT_STRING,dimension(:),allocatable::fields
+     COOP_SHORT_STRING,dimension(:),allocatable::units     
      COOP_SINGLE, dimension(:,:),allocatable::map
      complex, dimension(:,:,:),allocatable::alm
      COOP_SINGLE, dimension(:,:),allocatable::Cl
-     COOP_INT,dimension(:),allocatable::mask_listpix, maskpol_listpix
-     COOP_REAL chisq, mcmc_temperature
      logical,dimension(:),allocatable::alm_done
      COOP_SINGLE,dimension(:,:),allocatable::checksum
    contains
+     procedure :: fields_to_spins => coop_healpix_maps_fields_to_spins
+     procedure :: set_unit => coop_healpix_maps_set_unit
+     procedure :: set_units => coop_healpix_maps_set_units     
+     procedure :: set_field => coop_healpix_maps_set_field     
      procedure :: regularize_in_mask => coop_healpix_maps_regularize_in_mask
      procedure :: ang2pix => coop_healpix_maps_ang2pix
      procedure :: pix2ang => coop_healpix_maps_pix2ang
@@ -99,29 +105,23 @@ module coop_healpix_mod
      procedure :: extend => coop_healpix_maps_extend
      procedure :: import => coop_healpix_maps_import
      procedure :: open => coop_healpix_maps_read
-     procedure :: mask => coop_healpix_maps_mask
      procedure :: allocate_alms => coop_healpix_maps_allocate_alms
      procedure :: get_cls =>   coop_healpix_maps_get_cls
-     procedure :: get_fullcls => coop_healpix_maps_get_fullcls
      procedure :: map2alm => coop_healpix_maps_map2alm
      procedure :: alm2map => coop_healpix_maps_alm2map
      procedure :: udgrade => coop_healpix_maps_udgrade
      procedure :: simulate => coop_healpix_maps_simulate
      procedure :: simulate_Tmaps => coop_healpix_maps_simulate_Tmaps
      procedure :: simulate_TQUmaps => coop_healpix_maps_simulate_TQUmaps
-     procedure :: iqu2TEB => coop_healpix_maps_iqu2TEB
      procedure :: qu2EB => coop_healpix_maps_qu2EB
-     procedure :: iqu2LapTEB => coop_healpix_maps_iqu2LapTEB
-     procedure :: teb2iqu => coop_healpix_maps_teb2iqu
-     procedure :: iqu2TQTUT => coop_healpix_maps_iqu2TQTUT
-     procedure :: iqu2TQTUT1 => coop_healpix_maps_iqu2TQTUT1     
+     procedure :: EB2QU => coop_healpix_maps_EB2QU
+     procedure :: get_QU => coop_healpix_maps_get_QU
+     procedure :: get_QUL => coop_healpix_maps_get_QUL
      procedure :: smooth => coop_healpix_maps_smooth
      procedure :: smooth_with_window => coop_healpix_maps_smooth_with_window
-     procedure :: smooth_mask => coop_healpix_smooth_mask
      procedure :: T2zeta => coop_healpix_maps_t2zeta
      procedure :: TE2zeta => coop_healpix_maps_te2zeta
      procedure :: E2zeta => coop_healpix_maps_E2zeta
-     procedure :: trim_mask => coop_healpix_trim_mask
      procedure :: convert2nested => coop_healpix_convert_to_nested
      procedure :: convert2ring => coop_healpix_convert_to_ring
      procedure :: filter_alm =>  coop_healpix_filter_alm
@@ -162,6 +162,29 @@ module coop_healpix_mod
      procedure::plot => coop_healpix_patch_plot
      procedure::plot_fft => coop_healpix_patch_plot_fft
   end type coop_healpix_patch
+
+
+  type coop_healpix_inpaint_space
+     COOP_INT::nside = 0
+     COOP_INT::npix = 0
+     COOP_INT::nside_fine = 0
+     COOP_INT::npix_fine = 0     
+     COOP_INT::n_unknown = 0
+     COOP_INT::n_known = 0
+     COOP_REAL_ARRAY::correlation
+     COOP_REAL::dtheta = 0.d0
+     COOP_INT,dimension(:),allocatable::known, unknown
+     COOP_REAL,dimension(:,:),allocatable::fluc
+     COOP_SINGLE,dimension(:,:),allocatable::mean
+     type(coop_healpix_maps)::map, mask, map_fine, mask_fine
+   contains
+     procedure::free => coop_healpix_inpaint_space_free
+     procedure::set_correlation => coop_healpix_inpaint_space_set_correlation
+     procedure::eval_correlation => coop_healpix_inpaint_space_eval_correlation
+     procedure::init => coop_healpix_inpaint_space_init
+     procedure::get_cov => coop_healpix_inpaint_space_get_cov
+     procedure::inpaint => coop_healpix_inpaint_space_inpaint
+  end type coop_healpix_inpaint_space
   
 
 
@@ -170,6 +193,69 @@ module coop_healpix_mod
 
 contains
 
+  function coop_unit2muK(unit) result(fac)
+    COOP_UNKNOWN_STRING::unit
+    COOP_REAL::fac
+    if(unit(1:1).eq."K")then
+       fac = 1.d6
+       return
+    endif
+    if(unit(1:2).eq."mK")then
+       fac = 1.d3
+       return
+    endif
+    fac = 1.d0
+  end function coop_unit2muK
+
+  subroutine coop_fits_to_header(filename, header)
+    COOP_UNKNOWN_STRING::filename
+    COOP_STRING::cfname
+    type(coop_dictionary)::header
+    COOP_LONG_STRING::str
+    COOP_INT nkeys, i, j, istart, iend, ikey
+    call header%free()
+    cfname  = trim(adjustl(filename))
+    call coop_convert_to_C_String(cfname)
+    call coop_fits_read_all_headers_to_string(cfname, str, nkeys)
+    istart = 1
+    do i=1, nkeys
+       j = scan(str(istart:),"=")
+       iend = scan(str(istart:), coop_newline)
+       j = j + istart - 1
+       iend = iend + istart - 2
+       call header%insert(str(istart:j-1), trim(coop_string_strip_quotes(str(j+1:iend))))
+       istart = iend+2
+    enddo
+  end subroutine coop_fits_to_header
+
+
+  subroutine coop_healpix_maps_set_unit(this, imap, unit)
+    class(coop_healpix_maps)::this
+    COOP_INT::imap
+    COOP_UNKNOWN_STRING::unit
+    call this%header%insert("TUNIT"//COOP_STR_OF(imap), trim(unit), overwrite=.true.)
+  end subroutine coop_healpix_maps_set_unit
+
+
+  subroutine coop_healpix_maps_set_units(this, unit)
+    class(coop_healpix_maps)::this
+    COOP_UNKNOWN_STRING::unit
+    COOP_INT i
+    do i=1, this%nmaps
+       call this%header%insert("TUNIT"//COOP_STR_OF(i), trim(unit), overwrite=.true.)
+    enddo
+  end subroutine coop_healpix_maps_set_units
+  
+
+  subroutine coop_healpix_maps_set_field(this, imap, field)
+    class(coop_healpix_maps)::this
+    COOP_INT::imap
+    COOP_UNKNOWN_STRING::field
+    call this%header%insert("TTYPE"//COOP_STR_OF(imap), trim(adjustl(field)), overwrite=.true.)
+    this%fields(imap) = trim(adjustl(field))
+    call this%fields_to_spins(imap)
+  end subroutine coop_healpix_maps_set_field
+  
 
   subroutine coop_healpix_maps_ang2pix(this, theta, phi, pix)
     class(coop_healpix_maps)::this
@@ -241,7 +327,7 @@ contains
     COOP_REAL::theta, phi
 #ifdef HAS_HEALPIX
     call coop_healpix_lb2ang(l_deg, b_deg, theta, phi)
-    call mask%init(nside = nside, nmaps = 1, spin = (/ 0 /))
+    call mask%init(nside = nside, nmaps = 1, genre="MASK")
     mask%map(:,1) = 1.
     call mask%ang2pix(theta, phi, pix)
     call mask%query_disc(pix, r_deg*coop_SI_degree, listpix, nlist)
@@ -253,6 +339,8 @@ contains
 #endif    
   end subroutine coop_healpix_spot_cut_mask
 
+  
+
 
   subroutine coop_healpix_spot_select_mask(nside, l_deg, b_deg, r_deg, filename)
     COOP_INT::nside
@@ -263,7 +351,7 @@ contains
     COOP_REAL::theta, phi
 #ifdef HAS_HEALPIX
     call coop_healpix_lb2ang(l_deg, b_deg, theta, phi)
-    call mask%init(nside = nside, nmaps = 1, spin = (/ 0 /))
+    call mask%init(nside = nside, nmaps = 1, genre="MASK")
     mask%map(:,1) = 0.
     call mask%ang2pix(theta, phi, pix)
     call mask%query_disc(pix, r_deg*coop_SI_degree, listpix, nlist)
@@ -279,9 +367,11 @@ contains
   subroutine coop_healpix_merge_masks(mask1, mask2, maskout)
     COOP_UNKNOWN_STRING::mask1,mask2,maskout
     type(coop_healpix_maps)::m1,m2
-    call m1%read(mask1, nmaps_wanted=1, spin = (/ 0 /))
-    call m2%read(mask2, nmaps_wanted=1, spin = (/ 0 /))
+    call m1%read(mask1, nmaps_wanted=1)
+    call m2%read(mask2, nmaps_wanted=1)
     m1%map = m1%map * m2%map
+    call m1%set_unit(1, " ")
+    call m1%set_field(1, "MASK")
     call m1%write(maskout)
   end subroutine coop_healpix_merge_masks
 
@@ -293,7 +383,7 @@ contains
     type(coop_healpix_maps)::mask
     COOP_INT::listpix(0:nside**2*12-1), nlist
 #ifdef HAS_HEALPIX    
-    call mask%init(nside = nside, nmaps = 1, spin = (/ 0 /))
+    call mask%init(nside = nside, nmaps = 1, genre="MASK")
     mask%map(:,1) = 1.
     call query_strip(nside, coop_pio2 - latitude_degree*coop_SI_degree, coop_pio2 + latitude_degree*coop_SI_degree, listpix, nlist, nest = 0, inclusive = 1)
     mask%map(listpix(0:nlist-1), 1) = 0.
@@ -315,7 +405,7 @@ contains
 #ifdef HAS_HEALPIX    
     lat = latitude_degree*coop_SI_degree
     dep = depth*coop_SI_degree
-    call mask%init(nside = nside, nmaps = 1, spin = (/ 0 /))
+    call mask%init(nside = nside, nmaps = 1, genre="MASK")
     mask%map(:,1) = 1.
     call query_strip(nside, coop_pio2 - lat, coop_pio2 + lat, listpix, nlist, nest = 0, inclusive = 1)
     do i = 0, nlist-1
@@ -329,78 +419,6 @@ contains
 #endif    
   end subroutine coop_healpix_latitude_cut_smoothmask
   
-
-  subroutine coop_healpix_diffuse_into_mask(this, mask, smoothscale, pol)  !!lambda<1
-   ! real,parameter::nefolds = 2.
-    type(coop_healpix_maps) mask, this
-    type(coop_healpix_maps) masknew, hgs, maskcopy
-    COOP_INT i, j, nsteps, nmaps, istart, iend
-    COOP_REAL smoothscale, decay
-    logical, optional::pol
-#ifdef HAS_HEALPIX    
-    nsteps = ceiling(smoothscale/sqrt(coop_pi*4./this%npix))
-    if(nsteps .le. 0 .or. nsteps .gt. 200)stop "coop_healpix_smooth_mask: invalid input of smoothscale"
-    decay = 1.d0 !exp(-nefolds/nsteps/2.)
-    maskcopy = mask
-    call maskcopy%convert2nested()
-    call this%convert2nested()
-    maskcopy%mask_npix = count(maskcopy%map(:,1) .lt. 0.5)
-    allocate(maskcopy%mask_listpix(maskcopy%mask_npix))
-    j = 0
-    do i = 0, this%npix - 1
-       if(maskcopy%map(i,1).lt. 0.5)then
-          j = j + 1
-          maskcopy%mask_listpix(j) = i
-       endif
-    enddo
-    hgs = this
-    masknew = maskcopy
-    istart = 1
-    iend = 1
-    if(present(pol))then
-       if(pol .and. this%iq .gt. 0)then
-          istart = this%iq
-          iend = this%iu
-       endif
-    endif
-    do i=1, nsteps
-       call coop_healpix_iterate_mask(this, hgs, maskcopy, masknew, decay)
-       call coop_healpix_iterate_mask(hgs, this, maskcopy, maskcopy, decay)
-    enddo
-    call hgs%free
-    call masknew%free
-    call maskcopy%free
-    call this%convert2ring()
-#else
-    stop "You need to install healpix"
-#endif    
-  contains 
-    
-    subroutine coop_healpix_iterate_mask(this_from, this_to, mask_from, mask_to, decay)  
-      type(coop_healpix_maps) this_from, this_to
-      type(coop_healpix_maps)  mask_from , mask_to
-      COOP_INT list(8), nneigh
-      COOP_INT i, j
-      COOP_REAL decay, summask
-#ifdef HAS_HEALPIX
-      !$omp parallel do private(list, nneigh, i, summask, j)
-      do i = 1, mask_from%mask_npix
-         call neighbours_nest(mask_from%nside, mask_from%mask_listpix(i), list, nneigh)
-         summask = sum(mask_from%map(list(1:nneigh), 1))
-         if(mask_from%map(mask_from%mask_listpix(i),1) .lt. 0.5 .and. summask .gt. 0.)then
-            do j = istart, iend
-               this_to%map(mask_from%mask_listpix(i), j) =  sum(mask_from%map(list(1:nneigh), 1)*this_from%map(list(1:nneigh), j))/summask*decay
-            enddo
-            mask_to%map(mask_from%mask_listpix(i),1) = 1.
-         endif
-      enddo
-      !$omp end parallel do
-#else
-      stop "CANNOT FIND HEALPIX"
-#endif
-    end subroutine coop_healpix_iterate_mask
-
-  end subroutine coop_healpix_diffuse_into_mask
 
   subroutine coop_healpix_patch_plot(this, imap, output, use_degree)
     COOP_INT::bgrids
@@ -869,14 +887,13 @@ contains
     endif
   end subroutine coop_healpix_maps_simulate
 
-
   subroutine coop_healpix_maps_simulate_Tmaps(this, nside, lmax, sqrtCls)
     class(coop_healpix_maps) this
     COOP_INT nside
     COOP_INT lmax
     COOP_SINGLE sqrtCls(0:lmax)
     COOP_INT l,m
-    call this%init( nside = nside, nmaps = 1, spin = (/ 0 /), lmax = lmax)
+    call this%init( nside = nside, nmaps = 1, genre="TEMPERATURE", lmax = lmax)
     !$omp parallel do private(l, m)
     do l=0, lmax
        this%alm(l, 0, 1) = coop_random_complex_Gaussian(.true.)*SqrtCls(l)     
@@ -950,27 +967,47 @@ contains
     endif
   end subroutine coop_healpix_Cls2Rot
 
-  subroutine coop_healpix_maps_iqu2TQTUT(this, idone)
+  subroutine coop_healpix_maps_get_QU(this, idone)
     class(coop_healpix_maps) this
     logical, optional::idone
+    if(this%spin(1).ne.0)then
+       stop "get_QU: the first map must be spin 0"
+    end if
     if(.not. present(idone))then
-       call this%map2alm(index_list = (/ 1 /), lmax=this%nside )
+       call this%map2alm(index_list = (/ 1 /))
     else
        if(.not. idone)then
-          call this%map2alm(index_list = (/ 1 /), lmax=this%nside )
+          call this%map2alm(index_list = (/ 1 /))
        endif
     endif
+    if(this%nmaps.lt.3) call this%extend(3)
     this%alm(:,:,2) = this%alm(:,:,1)
     this%alm(:,:,3) = 0
-    this%spin(2:3) = 2
-    this%spin(1) = 0
+    select case(trim(this%fields(1)))
+    case("T","I","TEMPERATURE", "INTENSITY")
+       call this%set_field(2, "QT")
+       call this%set_field(3, "UT")
+    case("ZETA", "Z")
+       call this%set_field(2, "QZ")
+       call this%set_field(3, "UZ")
+    case("E", "E-POLARISATION")
+       call this%set_field(2, "Q")
+       call this%set_field(3, "U")
+    case default
+       write(*,*) trim(this%fields(1))
+       stop "get_QU: only supprt I, ZETA and E maps"
+    end select
     call this%alm2map( index_list = (/ 2, 3 /) )
-  end subroutine coop_healpix_maps_iqu2TQTUT
+  end subroutine coop_healpix_maps_get_QU
 
-  subroutine coop_healpix_maps_iqu2TQTUT1(this, idone)
+  subroutine coop_healpix_maps_get_QUL(this, idone)
     class(coop_healpix_maps) this
     logical,optional::idone
     COOP_INT l
+    if(this%spin(1).ne.0)then
+       stop "get_QUL: the first map must be spin 0"
+    end if
+    
     if(.not.present(idone))then
        call this%map2alm(index_list = (/ 1 /) )
     else
@@ -978,61 +1015,61 @@ contains
           call this%map2alm(index_list = (/ 1 /) )
        endif
     endif
+    if(this%nmaps.lt.4) call this%extend(4)
     this%alm(:,:, 3) = 0.
     do l = 2, this%lmax
-       this%alm(l,:,2) = this%alm(l,:,1)*(l*(l+1.))
+       this%alm(l,:,4) = this%alm(l,:,1)*(l*(l+1.))
+       this%alm(l,:,2) = this%alm(l,:,4)
     enddo
-    this%spin(2:3) = 2
-    this%spin(1) = 0
-    call this%alm2map( index_list = (/ 2, 3 /) )
-  end subroutine coop_healpix_maps_iqu2TQTUT1
+    select case(trim(this%fields(1)))
+    case("T","I","TEMPERATURE", "INTENSITY")
+       call this%set_field(2, "QLT")
+       call this%set_field(3, "ULT")
+       call this%set_field(4, "LT")       
+    case("ZETA", "Z")
+       call this%set_field(2, "QLZ")
+       call this%set_field(3, "ULZ")
+       call this%set_field(4, "LZ")       
+    case("E", "E-POLARISATION")
+       call this%set_field(2, "QLE")
+       call this%set_field(3, "ULE")
+       call this%set_field(4, "LE")       
+    case default
+       write(*,*) trim(this%fields(1))
+       stop "get_QU: only supprt I, ZETA and E maps"
+    end select
 
+    call this%alm2map( index_list = (/ 2, 3, 4 /) )
+  end subroutine coop_healpix_maps_get_QUL
 
-  subroutine coop_healpix_maps_iqu2TEB(this)
-    class(coop_healpix_maps) this
-    call this%map2alm( index_list = (/ 2 ,3 /) )
-    this%spin = 0
-    this%iq = 0
-    this%iu = 0
-    call this%alm2map(index_list = (/ 2, 3 /) )
-  end subroutine coop_healpix_maps_iqu2TEB
 
   subroutine coop_healpix_maps_qu2EB(this)
     class(coop_healpix_maps) this
-    this%spin = 2
-    this%iq = 1
-    this%iu = 2
-    call this%map2alm(index_list = (/ 1, 2 /) )
-    this%spin = 0
+    if(this%iq.eq.0 .or. this%iu.eq.0 .or. this%iq+1 .ne. this%iu)stop "QU2EB: cannot find Q, U maps"
+    call this%map2alm(index_list = (/ this%iq, this%iu /) )
+    call this%set_field(this%iq, "E-POLARISATION")
+    call this%set_field(this%iu, "B-POLARISATION")
+    call this%alm2map( index_list = (/ this%iq, this%iu /) )
     this%iq = 0
     this%iu = 0
-    call this%alm2map(index_list = (/ 1, 2 /) )
   end subroutine coop_healpix_maps_qu2EB
 
-
-
-  subroutine coop_healpix_maps_iqu2LapTEB(this)
+  subroutine coop_healpix_maps_EB2QU(this)
     class(coop_healpix_maps) this
-    COOP_INT l
-    call this%map2alm( index_list = (/ 1, 2, 3 /) )
-    this%spin = 0
-    this%iq = 0
-    this%iu = 0
-    do l=0, this%lmax
-       this%alm(l, :, :) = this%alm(l, :, :)*l*(l+1.d0)
+    COOP_INT ie
+    ie = 1
+    do while(ie.lt.this%nmaps)
+       if(trim(this%fields(ie)).eq. "E-POLARISATION" .or. trim(this%fields(ie)).eq."E")then
+          if(trim(this%fields(ie+1)).eq."B-POLARISATION" .or. trim(this%fields(ie+1)).eq."B") exit
+       endif
+       ie  = ie + 1
     enddo
-    call this%alm2map( index_list = (/ 1, 2, 3 /) )
-  end subroutine coop_healpix_maps_iqu2LapTEB
-
-
-  subroutine coop_healpix_maps_teb2iqu(this)
-    class(coop_healpix_maps) this
-    call this%map2alm( index_list = (/ 2, 3 /) )
-    this%spin = (/ 0, 2, 2 /)
-    this%iq = 2
-    this%iu = 3
-    call this%alm2map( index_list = (/ 2, 3 /) )
-  end subroutine coop_healpix_maps_teb2iqu
+    if(ie.ge.this%nmaps)stop "EB2QU: cannot find E, B maps"
+    call this%map2alm(index_list = (/ ie, ie+1 /) )
+    call this%set_field(ie, "Q-POLARISATION")
+    call this%set_field(ie+1, "U-POLARISATION")
+    call this%alm2map(index_list = (/ ie, ie+1 /) )
+  end subroutine coop_healpix_maps_EB2QU
 
 
   subroutine coop_healpix_maps_simulate_TQUmaps(this, nside, lmax, Cls_sqrteig, Cls_rot)
@@ -1042,7 +1079,7 @@ contains
     real,dimension(3, 3, 0:lmax)::Cls_rot
     COOP_INT l, m
     
-    call this%init(nside = nside, nmaps = 3, spin = (/ 0, 2, 2 /), lmax = lmax)    
+    call this%init(nside = nside, nmaps = 3, genre="IQU", lmax = lmax)    
     !$omp parallel do private(l, m)
     do l=0, lmax
        this%alm(l, 0, :) = matmul(Cls_rot(:, :, l), Cls_sqrteig(:,l) * (/ coop_random_complex_Gaussian(.true.), coop_random_complex_Gaussian(.true.), coop_random_complex_Gaussian(.true.) /) )
@@ -1055,11 +1092,12 @@ contains
   end subroutine coop_healpix_maps_simulate_TQUmaps
 
 
-  subroutine coop_healpix_maps_init(this, nside, nmaps, spin, lmax)
+  subroutine coop_healpix_maps_init(this, nside, nmaps, genre, lmax, nested)
     class(coop_healpix_maps) this
     COOP_INT:: nside, nmaps
-    COOP_INT:: spin(nmaps)
     COOP_INT, optional::lmax
+    COOP_UNKNOWN_STRING,optional::genre
+    logical,optional::nested
 #ifdef HAS_HEALPIX
     if(allocated(this%map))then
        if(this%nside .eq. nside .and. this%nmaps.eq.nmaps)then
@@ -1068,30 +1106,87 @@ contains
        deallocate(this%map)
     endif
     if(allocated(this%spin))deallocate(this%spin)
+    if(allocated(this%fields))deallocate(this%fields)
+    if(allocated(this%units))deallocate(this%units)        
     this%nside = nside
     this%nmaps = nmaps
     this%npix = nside2npix(nside)
     allocate(this%map(0:this%npix - 1, nmaps))
-    allocate(this%spin(this%nmaps))
-100 this%spin = spin
-    if(all(this%spin(1:this%nmaps-1) .ne. 2))then
-       this%iq = 0
-       this%iu = 0
-    else
-       this%iq = 1
-       do while(this%spin(this%iq) .ne. 2)
-          this%iq = this%iq + 1
-       enddo
-       this%iu = this%iq + 1
-       if(this%spin(this%iu).ne.2)then
-          this%iq = 0
-          this%iu = 0
-       endif
+    allocate(this%spin(this%nmaps), this%fields(this%nmaps), this%units(this%nmaps))
+100 if(present(lmax)) call this%allocate_alms(lmax)
+    this%ordering = COOP_RING !!default ordering
+    if(present(genre))then
+       select case(trim(adjustl(genre)))
+       case("IQU", "TQU")
+          if(this%nmaps.lt.3)stop "For IQU map you need at least 3 maps"
+          call this%set_units("muK")
+          call this%set_field(1, "INTENSITY")
+          call this%set_field(2, "Q-POLARISATION")
+          call this%set_field(3, "U-POLARISATION")
+       case("MASK", "M")
+          call this%set_unit(1, " ")
+          call this%set_field(1, trim(genre))
+       case("I", "INTENSITY", "T", "TEMPERATURE", "E", "B", "E-POLARISATION", "B-POLARISATION", "LT", "LZ", "LE", "LB")
+          call this%set_unit(1, "muK")
+          call this%set_field(1, trim(genre))
+       case("ZETA", "Z")
+          call this%set_unit(1, "10^{-5}")
+          call this%set_field(1, trim(genre))          
+       case("QU")
+          if(this%nmaps.lt.2) stop "For QU map you need at least 2 maps"
+          call this%set_units("muK")
+          call this%set_field(1, "Q-POLARISATION")
+          call this%set_field(2, "U-POLARISATION")
+       case("TEB", "IEB")
+          if(this%nmaps.lt.3)stop "For TEB map you need at least 3 maps"        
+          call this%set_units("muK")          
+          call this%set_field(1, "TEMPERATURE")
+          call this%set_field(2, "E-POLARISATION")
+          call this%set_field(3, "B-POLARISATION")
+       case("TE", "IE")
+          if(this%nmaps.lt.2) stop "For TE map you need at least 2 maps"
+          call this%set_units("muK")
+          call this%set_field(1, "TEMPERATURE")
+          call this%set_field(2, "E-POLARISATION")          
+       case("EB")
+          if(this%nmaps.lt.2) stop "For EB map you need at least 2 maps"
+          call this%set_units("muK")
+          call this%set_field(1, "E-POLARISATION")
+          call this%set_field(2, "B-POLARISATION")
+       case("TQUL")
+          if(this%nmaps.lt.4) stop "For TQUL map you need at least 4 maps"
+          call this%set_units("muK")
+          call this%set_field(1, "TEMPERATURE")
+          call this%set_field(2, "QLT")
+          call this%set_field(3, "ULT")
+          call this%set_field(4, "LT")
+       case("ZQUL")
+          if(this%nmaps.lt.4) stop "For TQUL map you need at least 4 maps"
+          call this%set_units("10^{-5}")
+          call this%set_field(1, "ZETA")
+          call this%set_field(2, "QLZ")
+          call this%set_field(3, "ULZ")
+          call this%set_field(4, "LZ")          
+       case("TQTUT")
+          if(this%nmaps.lt.3) stop "For TQTUT map you need at least 3 maps"
+          call this%set_units("muK")
+          call this%set_field(1, "TEMPERATURE")
+          call this%set_field(2, "QT")
+          call this%set_field(3, "UT")
+       case("ZQZUZ")
+          if(this%nmaps.lt.3) stop "For ZQZUZ map you need at least 3 maps"
+          call this%set_units("10^{-5}")
+          call this%set_field(1, "ZETA")
+          call this%set_field(2, "QZ")
+          call this%set_field(3, "UZ")
+       case default
+          write(*,"(A)") trim(genre)//": unknown map types"
+          stop
+       end select
+    end if
+    if(present(nested))then
+       if(nested)this%ordering = COOP_NESTED
     endif
-    if(present(lmax)) call this%allocate_alms(lmax)
-200 this%ordering = COOP_RING !!default ordering
-    call write_minimal_header(this%header,dtype = 'MAP', nside=this%nside, order = this%ordering, creator='Zhiqi Huang', version = 'COOP', units='muK', polar=any(this%spin.eq.2) )
-    this%maskpol_npix = 0
 #else
     stop "DID not find healpix"
 #endif
@@ -1145,24 +1240,29 @@ contains
 
   subroutine coop_healpix_maps_free(this)
     class(coop_healpix_maps) this
+    if(allocated(this%fields))deallocate(this%fields)
+    if(allocated(this%units))deallocate(this%units)    
     if(allocated(this%map))deallocate(this%map)
     if(allocated(this%alm))deallocate(this%alm)
     if(allocated(this%cl))deallocate(this%cl)
     if(allocated(this%spin))deallocate(this%spin)
-    if(allocated(this%mask_listpix))deallocate(this%mask_listpix)
-    if(allocated(this%maskpol_listpix))deallocate(this%maskpol_listpix)
     if(allocated(this%alm_done))deallocate(this%alm_done)
     if(allocated(this%checksum))deallocate(this%checksum)
+    call this%header%free()
   end subroutine coop_healpix_maps_free
 
-  subroutine coop_healpix_maps_read(this, filename, nmaps_wanted, spin, nmaps_to_read, known_size, nested)
+  subroutine coop_healpix_maps_read(this, filename, nmaps_wanted, nmaps_to_read, known_size, nested)
     class(coop_healpix_maps) this
     COOP_UNKNOWN_STRING filename
+    COOP_STRING::lowercase_name
     COOP_INT,optional::nmaps_wanted, nmaps_to_read
-    COOP_INT,dimension(:),optional::spin
     integer(8) npixtot
     COOP_INT nmaps_actual
     logical,optional::known_size, nested
+    COOP_REAL::fac, maxabs, rt
+    logical::missing_fields
+    COOP_SHORT_STRING ordering, the_unit
+    COOP_INT i
 #ifdef HAS_HEALPIX
     if(.not. coop_file_exists(filename))then
        write(*,*) trim(filename)
@@ -1173,9 +1273,36 @@ contains
           nmaps_actual = this%nmaps
           goto 200
        endif
+    else
+       call this%free()
     endif
-    npixtot = getsize_fits(trim(filename), nmaps = nmaps_actual, nside = this%nside, ordering = this%ordering)
+    call coop_fits_to_header(filename, this%header)
+    call coop_dictionary_lookup(this%header, "NSIDE", this%nside, 0)
+    call coop_dictionary_lookup(this%header, "TFIELDS", nmaps_actual, 0)
+    call coop_dictionary_lookup(this%header, "ORDERING", ordering, "")
+    call coop_dictionary_lookup(this%header, "BAD_DATA", this%bad_data, this%bad_data)
+    call coop_dictionary_lookup(this%header, "COORDSYS", this%coordsys, this%coordsys)
+    call coop_dictionary_lookup(this%header, "FIRSTPIX", this%firstpix, 0) 
+   
+    
+    
+    if(this%nside .eq. 0 .or. nmaps_actual .eq. 0 .or. trim(ordering).eq."")then !!try robust routine
+       npixtot = getsize_fits(trim(filename), nmaps = nmaps_actual, nside = this%nside, ordering = this%ordering)
+       if(this%nside .eq. 0 .or. nmaps_actual .eq. 0) stop "coop_healpix_maps_read failed"       
+    else
+       select case(trim(ordering))
+       case("RING", "ring", "Ring")
+          this%ordering = COOP_RING
+       case("NESTED", "nested", "Nested")
+          this%ordering = COOP_NESTED
+       case default
+          this%ordering = COOP_UNKNOWN_ORDERING
+       end select
+    endif
     this%npix =nside2npix(this%nside)
+
+    call coop_dictionary_lookup(this%header, "LASTPIX", this%lastpix, this%npix-1)
+
     if(present(nmaps_wanted))then       
        this%nmaps = nmaps_wanted
        if(nmaps_wanted .lt. nmaps_actual)then          
@@ -1193,74 +1320,23 @@ contains
     else
        allocate(this%spin(this%nmaps))
     endif
-    if(present(spin))then
-       if(size(spin).ne. this%nmaps)then
-          stop "coop_healpix_maps_read: the list of spins should have the same size as nmaps"
-       else
-          this%spin = spin
-          this%iq = 1
-          do while(this%spin(this%iq) .ne.2 .and. this%iq .lt. this%nmaps)
-             this%iq = this%iq + 1
-          enddo
-          if(this%iq .ge. this%nmaps)then
-             this%iq = 0
-             this%iu = 0
-          else
-             this%iu = this%iq + 1
-          endif
+    if(allocated(this%fields))then
+       if(size(this%fields) .ne. this%nmaps)then
+          deallocate(this%fields)
+          allocate(this%fields(this%nmaps))
        endif
     else
-       select case(this%nmaps)
-       case(4)
-          if(index(filename, "TQUL").ne.0)then
-             this%spin(1) = 0
-             this%spin(2:3) = 2
-             this%spin(4) = 0
-             this%iq = 2
-             this%iu = 3
-             if(coop_healpix_warning)write(*,*) "TQUL map default spin: 0 2 2 0"
-          else
-             this%spin = 0
-             this%iq = 0
-             this%iu = 0
-             if(coop_healpix_warning)write(*,*) "I assume all maps are scalar, specify spins otherwise"
-          endif
-       case(3)
-          if(index(filename, "TEB") .eq. 0 .and. index(filename, "teb") .eq. 0 )then
-             this%spin(1) = 0
-             this%spin(2:3) = 2
-             this%iq = 2
-             this%iu = 3
-             if(coop_healpix_warning)write(*,*) "I assume it is an IQU map, specify spins otherwise"
-          else
-             this%spin = 0
-             this%iq = 0
-             this%iu = 0
-             if(coop_healpix_warning)write(*,*) "I assume all maps are scalar, specify spins otherwise"
-          endif
-       case(2)  
-          if(index(filename, "TE") .eq. 0 .and. index(filename, "EB").eq.0 .and. index(filename, "te") .eq. 0 .and. index(filename, "eb").eq.0 )then
-             this%spin(1:2) = 2
-             this%iq = 1
-             this%iu = 2
-             if(coop_healpix_warning)write(*,*) "I assume it is an QU map, specify spins otherwise"
-          else
-             this%iq = 0
-             this%iu = 0
-             this%spin = 0
-             if(coop_healpix_warning)write(*,*) "I assume all maps are scalar, specify spins otherwise"
-          endif
-       case(1)
-          this%iq = 0
-          this%iu = 0
-          this%spin = 0          
-       case default
-          this%iq = 0
-          this%iu = 0
-          this%spin = 0
-          if(coop_healpix_warning)write(*,*) "I assume all maps are scalar, specify spins otherwise"
-       end select
+       allocate(this%fields(this%nmaps))
     endif
+    if(allocated(this%units))then
+       if(size(this%units) .ne. this%nmaps)then
+          deallocate(this%units)
+          allocate(this%units(this%nmaps))
+       endif
+    else
+       allocate(this%units(this%nmaps))
+    endif
+    
     if(allocated(this%map))then
        if(size(this%map, 1).ne. this%npix .or. size(this%map, 2).ne.this%nmaps)then
           deallocate(this%map)
@@ -1269,6 +1345,7 @@ contains
     else
        allocate(this%map(0:this%npix-1, this%nmaps))
     endif
+    
 200 if(present(nmaps_to_read))then
        call input_map(trim(filename), this%map, this%npix, min(nmaps_actual, nmaps_to_read), fmissval = 0.)
     else
@@ -1283,30 +1360,172 @@ contains
     else
        call this%convert2ring()
     endif
-    call write_minimal_header(this%header,dtype = 'MAP', nside=this%nside, order = this%ordering, creator='Zhiqi Huang', version = 'CosmoLib', units='muK', polar=any(this%spin.eq.2) )
-    this%mask_npix = 0
-    this%maskpol_npix = 0
+    missing_fields = .false.
+    do i=1, this%nmaps
+       this%units(i) = trim(this%header%value("TUNIT"//COOP_STR_OF(i)))
+       if(trim(this%units(i)).eq."")then
+          maxabs = maxval(abs(this%map(:,i)))
+          rt = sqrt(sum(this%map(:,i)**2)/this%npix)
+          if( maxabs .lt. 2. .and. rt .gt. 0.2 .and. this%nmaps .eq. 1)then
+             this%units(i) = " "
+          elseif( maxabs .lt. 100. .and. rt .lt. 0.2)then
+             this%units(i) = "K"
+          else
+             this%units(i) = "muK"
+          endif
+          call this%header%update("TUNIT"//COOP_STR_OF(i), trim(this%units(i)))          
+       endif
+       fac = coop_unit2muK(this%units(i))
+       if(abs(fac-1.d0).gt.1.d-6)then
+          this%map(:, i) = this%map(:,i)*fac
+          this%units(i) = "muK"
+          call this%header%update("TUNIT"//COOP_STR_OF(i), "muK")
+       endif
+       call coop_dictionary_lookup(this%header, "TTYPE"//COOP_STR_OF(i), this%fields(i))
+       missing_fields = missing_fields .or. (trim(this%fields(i)).eq."")
+    enddo
+
+    if(missing_fields)then
+       lowercase_name = trim(filename)
+       call coop_str2lower(lowercase_name)
+       select case(this%nmaps)
+       case(1)
+          if(index(lowercase_name, "mask").ne.0 )then
+             call this%set_field(1,  "MASK")
+          elseif(index(lowercase_name, "zeta").ne.0)then
+             call this%set_field(1, "ZETA")
+          elseif(index(lowercase_name, "_t").ne. 0 .or. index(lowercase_name, "_i").ne.0)then
+             call this%set_field(1, "T")
+          elseif(index(lowercase_name, "_e").ne. 0)then
+             call this%set_field(1, "E")
+          elseif(index(lowercase_name, "_b").ne. 0)then
+             call this%set_field(1, "B")
+          else
+             write(*,*)"cannot determine the map types for file "//trim(filename)
+             stop
+          endif
+       case(2)
+          if(index(lowercase_name, "qu").ne.0 .or. index(lowercase_name, "pol").ne.0)then
+             call this%set_field(1, "Q")
+             call this%set_field(2, "U")
+          elseif(index(lowercase_name, "eb").ne.0)then
+             call this%set_field(1, "E")
+             call this%set_field(2, "B")
+          elseif(index(lowercase_name, "qtut").ne.0)then
+             call this%set_field(1, "QT")
+             call this%set_field(2, "UT")
+          elseif(index(lowercase_name, "qzuz").ne.0)then
+             call this%set_field(1, "QZ")
+             call this%set_field(2, "UZ")
+          elseif(index(lowercase_name, "qltult").ne.0)then
+             call this%set_field(1, "QLT")
+             call this%set_field(2, "ULT")
+          elseif(index(lowercase_name, "qlzulz").ne.0)then
+             call this%set_field(1, "QLZ")
+             call this%set_field(2, "ULZ")
+          else
+             write(*,*)"cannot determine the map types for file "//trim(filename)
+             stop             
+          endif
+       case(3)
+          if(index(lowercase_name, "iqu").ne.0 .or. index(lowercase_name, "tqu").ne.0)then          
+             call this%set_field(1, "I")
+             call this%set_field(2, "Q")
+             call this%set_field(3, "U")
+          elseif(index(lowercase_name, "teb").ne.0 .or. index(lowercase_name, "ieb").ne.0)then
+             call this%set_field(1, "T")
+             call this%set_field(2, "E")
+             call this%set_field(3, "B")
+          elseif(index(lowercase_name, "tqtut").ne.0)then
+             call this%set_field(1, "T")
+             call this%set_field(2, "QT")
+             call this%set_field(3, "UT")
+          elseif(index(lowercase_name, "zqzuz").ne.0)then             
+             call this%set_field(1, "ZETA")
+             call this%set_field(2, "QZ")
+             call this%set_field(3, "UZ")
+          else
+             write(*,*)"cannot determine the map types for file "//trim(filename)
+             stop                          
+          endif
+       case(4)
+          if(index(lowercase_name, "tqul").ne.0)then                       
+             call this%set_field(1, "T")
+             call this%set_field(2, "QLT")
+             call this%set_field(3, "ULT")
+             call this%set_field(4, "LT")
+          elseif(index(lowercase_name, "zqul").ne.0)then                       
+             call this%set_field(1, "ZETA")
+             call this%set_field(2, "QLZ")
+             call this%set_field(3, "ULZ")
+             call this%set_field(4, "LZ")
+          else
+             write(*,*)"cannot determine the map types for file "//trim(filename)
+             stop                                       
+          endif
+       case default
+          stop "read: cannot determine the fields for nmaps>4"
+       end select
+    else
+       call this%fields_to_spins()
+    endif
 #else
     stop "DID NOT FIND HEALPIX"
 #endif
   end subroutine coop_healpix_maps_read
 
 
+  subroutine coop_healpix_maps_fields_to_spins(this, imap)
+    class(coop_healpix_maps)::this
+    COOP_INT::i
+    COOP_INT,optional::imap
+    if(present(imap))then
+       i = imap
+       select case(trim(this%fields(i)))
+       case("INTENSITY", "TEMPERATURE", "MASK", "E-POLARISATION", "B-POLARISATION", "E", "B", "ZETA", "Z", "I", "T", "M", "LT", "LZ", "LE")
+          this%spin(i) = 0          
+       case("Q-POLARISATION", "Q", "QT", "QLT", "QLZ", "QZ", "QLE")
+          this%spin(i) = 2
+          this%iq = i
+       case("U-POLARISATION", "U", "UT", "ULT", "ULZ", "UZ", "ULE")
+          this%spin(i) = 2
+          this%iu = i
+       case default
+          write(*,*) "map type: "//trim(this%fields(i))//" is unknown"
+          stop
+       end select
+    else       
+       do i = 1, this%nmaps
+          select case(trim(this%fields(i)))
+          case("INTENSITY", "TEMPERATURE", "MASK", "E-POLARISATION", "B-POLARISATION", "E", "B", "ZETA", "Z", "I", "T", "M", "LT", "LZ", "LE")
+             this%spin(i) = 0          
+          case("Q-POLARISATION", "Q", "QT", "QLT", "QLZ", "QZ", "QLE")
+             this%spin(i) = 2
+             this%iq = i
+          case("U-POLARISATION", "U", "UT", "ULT", "ULZ", "UZ", "ULE")
+             this%spin(i) = 2
+             this%iu = i
+          case default
+             write(*,*) "map type: "//trim(this%fields(i))//" is unknown"
+             stop
+          end select
+       enddo
+    endif
+  end subroutine coop_healpix_maps_fields_to_spins
 
-    subroutine coop_healpix_maps_import(this, filename, index_start, index_end, spin)
+  subroutine coop_healpix_maps_import(this, filename, index_start, index_end)
     class(coop_healpix_maps) this
     COOP_UNKNOWN_STRING filename
     type(coop_healpix_maps)::tmp
     COOP_INT index_start, index_end, spin(index_end-index_start + 1)
 #ifdef HAS_HEALPIX
-    call tmp%read(filename = trim(filename), nmaps_wanted = index_end-index_start + 1, spin = spin )
-    call this%convert2ring()    
+    if(index_end .gt. this%nmaps) call this%extend(index_end)
+    call tmp%read(filename = trim(filename), nmaps_wanted = index_end-index_start + 1, nested = (this%ordering .eq. COOP_NESTED) )
     if(tmp%nside .ne. this%nside) stop "import: nside must be the same"
-    if(index_end .gt. this%nmaps)then
-       call this%extend(index_end)
-    endif
     this%map(:, index_start:index_end) = tmp%map
-    this%spin(index_start:index_end) = spin
+    this%spin(index_start:index_end) = tmp%spin
+    this%fields(index_start:index_end) = tmp%fields
+    this%units(index_start:index_end) = tmp%units
     call tmp%free()
 #else
     stop "DID NOT FIND HEALPIX"
@@ -1318,7 +1537,10 @@ contains
     class(coop_healpix_maps)this
     COOP_UNKNOWN_STRING filename
     COOP_INT,dimension(:),optional::index_list
+    character(LEN=80),dimension(:),allocatable::header    
     logical pol
+    COOP_INT i, ind
+#ifdef HAS_HEALPIX    
     if(present(index_list))then
        if(any(index_list .lt. 1 .or. index_list .gt. this%nmaps)) stop "coop_healpix_write_map: index out of range"
        pol = any(this%spin(index_list).eq.2)
@@ -1326,26 +1548,33 @@ contains
        pol =any(this%spin.eq.2)
     endif
     call coop_delete_file(trim(filename))
+    allocate(header(this%header%n+64))
+    do i=1, size(header)
+       header(i)  = ''
+    enddo
     if(allocated(this%alm))then
-#ifdef HAS_HEALPIX
-       call write_minimal_header(this%header,dtype = 'MAP', nside=this%nside, order = this%ordering, creator='Zhiqi Huang', version = 'CosmoLib', units='muK', nlmax = this%lmax, nmmax = this%lmax, polar= pol)
-#else
-       stop "DID NOT FIND HEALPIX"
-#endif
+       call write_minimal_header(header,dtype = trim(this%dtype), nside=this%nside, order = this%ordering, creator=trim(this%creator), version =trim(this%version), nlmax = this%lmax, nmmax = this%lmax, polar= pol, coordsys = trim(this%coordsys), fwhm_degree = this%fwhm_degree)
     else
-#ifdef HAS_HEALPIX
-       call write_minimal_header(this%header,dtype = 'MAP', nside=this%nside, order = this%ordering, creator='Zhiqi Huang', version = 'CosmoLib', units='muK', polar= pol )
-#else
-       stop "DID NOT FIND HEALPIX"
-#endif
+       call write_minimal_header(header,dtype = trim(this%dtype), nside=this%nside, order = this%ordering, creator='COOP', version = '0.0', polar=pol, coordsys = trim(this%coordsys), fwhm_degree = this%fwhm_degree)
     endif
-#ifdef HAS_HEALPIX
+    do i=1, this%header%n
+       select case(trim(this%header%key(i)))
+       case("SIMPLE", "BITPIX", "NAXIS", "EXTEND", "XTENSION", "NAXIS1", "NAXIS2", "PCOUNT", "GCOUNT", "TFIELDS")  !!these will be added by Healpix automatically
+          cycle
+       case default
+          call add_card(header, trim(this%header%key(i)), trim(this%header%val(i)), update = .true.)
+       end select
+    enddo
     if(present(index_list))then
-       call output_map(this%map(:, index_list), this%header, trim(filename))
+       call output_map(this%map(:, index_list), header, trim(filename))
     else
-       call output_map(this%map, this%header, trim(filename))
+       call output_map(this%map, header, trim(filename))
     endif
+    deallocate(header)
+#else
+       stop "DID NOT FIND HEALPIX"
 #endif
+   
   end subroutine coop_healpix_maps_write
 
   subroutine coop_healpix_convert_to_nested(this)
@@ -1909,7 +2138,7 @@ contains
     type(coop_healpix_maps) hge, hgqu
     call hge%read(Emap_file,  nmaps_wanted = 1)
     call hge%map2alm()
-    call hgqu%init(nside = hge%nside, nmaps = 2, spin =  (/ 2, 2 /), lmax=hge%lmax)
+    call hgqu%init(nside = hge%nside, nmaps = 2, genre="QU", lmax=hge%lmax)
     hgqu%alm(:, :, 1) = hge%alm(:, :, 1)
     hgqu%alm(:, :, 2) = 0
     call hgqu%alm2map()
@@ -1917,291 +2146,6 @@ contains
     call hgqu%free()
     call hge%free()
   end subroutine coop_healpix_getQU
-
-
-
-  subroutine coop_healpix_maps_get_listpix(map, listpix, listangle,  spot_type, threshold, mask)
-    COOP_UNKNOWN_STRING spot_type
-    type(coop_list_integer)::listpix
-    type(coop_list_real)::listangle
-    COOP_REAL,optional::threshold
-    COOP_REAL theta, phi, rotate_angle, fcut
-    class(coop_healpix_maps)map
-    type(coop_healpix_maps),optional::mask
-    COOP_REAL total_weight
-    COOP_INT i, iq, iu, j, ipix
-    COOP_INT nneigh, list(8)
-    logical do_mask
-#ifdef HAS_HEALPIX
-    call listpix%init()
-    call listangle%init()
-    do_mask = .false.
-    if(present(mask))then
-       if(mask%nside .ne. map%nside) stop "coop_healpix_get_listpix: mask and map must have the same nside"
-       if(mask%mask_npix .gt. 0)then
-          total_weight = mask%mask_npix
-       elseif(mask%maskpol_npix .gt. 0)then
-          total_weight = mask%maskpol_npix
-       else
-          mask%mask_npix = count(mask%map(:,1).gt. 0.5)
-          total_weight = mask%mask_npix          
-       endif
-       do_mask = .true.
-    else
-       total_weight = map%npix
-    endif
-    call map%convert2nested()
-    if(do_mask)call mask%convert2nested()
-
-    select case(trim(spot_type))
-    case("Tmax", "Emax", "Bmax", "zetamax")  !!random orientation
-       if(present(threshold))then
-          if(threshold .lt. coop_stacking_max_threshold)then
-             if(do_mask)then
-                fcut = threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
-             else
-                fcut = threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
-             endif
-          else
-             fcut = -1.e30
-          endif
-       else
-          fcut = -1.e30
-       endif
-       do i=0, map%npix-1
-          if(do_mask)then
-             if( map%map(i,1) .lt. fcut .or. mask%map(i, 1) .le. 0.5 ) cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if ( all(map%map(list(1:nneigh),1).lt.map%map(i,1)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5 ) )then
-                call random_number(rotate_angle)
-                rotate_angle = rotate_angle*coop_2pi
-                call nest2ring(map%nside, i, ipix)
-                call listpix%push(ipix)
-                call listangle%push(real(rotate_angle))
-             endif
-          else
-             if(map%map(i,1).lt.fcut )cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if(all(map%map(list(1:nneigh),1).lt. map%map(i,1)))then
-                call random_number(rotate_angle)
-                rotate_angle = rotate_angle*coop_2pi
-                call nest2ring(map%nside, i, ipix)
-                call listpix%push(ipix)
-                call listangle%push(real(rotate_angle))
-             endif
-          endif
-       enddo
-    case("Tmin", "Emin", "Bmin")  !!random orientation
-       if(present(threshold))then
-          if(threshold.lt.coop_stacking_max_threshold)then
-             if(do_mask)then
-                fcut = - threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
-             else
-                fcut = - threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
-             endif
-          else
-             fcut = 1.e30
-          endif
-       else
-          fcut = 1.e30
-       endif
-       do i=0, map%npix-1
-          if(do_mask)then
-             if(map%map(i,1).gt.fcut .or. mask%map(i, 1) .le. 0.5)cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if( all(map%map(list(1:nneigh),1) .gt. map%map(i,1)) .and. all(mask%map(list(1:nneigh), 1) .gt. 0.5 ) ) then
-                call random_number(rotate_angle)
-                rotate_angle = rotate_angle*coop_2pi
-                call nest2ring(map%nside, i, ipix)
-                call listpix%push(ipix)
-                call listangle%push(real(rotate_angle))
-             endif
-          else
-             if(map%map(i,1).gt.fcut )cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if(all(map%map(list(1:nneigh),1).gt.map%map(i,1)))then
-                call random_number(rotate_angle)
-                rotate_angle = rotate_angle*coop_2pi
-                call nest2ring(map%nside, i, ipix)
-                call listpix%push(ipix)
-                call listangle%push(real(rotate_angle))
-             endif
-          endif
-       enddo
-    case("Tmax_QTUTOrient", "zetamax_qzuzOrient") !!oriented with QU, maxima of T
-       if(map%nmaps .lt. 3) stop "For Tmax_QTUTOrient mode you need 3 maps"
-       if(present(threshold))then
-          if(threshold.lt.coop_stacking_max_threshold)then
-             if(do_mask)then
-                fcut = threshold*sqrt(sum(dble(map%map(:,1))**2,mask%map(:,1).gt.0.5)/total_weight)
-             else
-                fcut = threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
-             endif
-          else
-             fcut = -1.e30
-          endif
-       else
-          fcut = -1.e30
-       endif
-       do i=0, map%npix-1
-          if(do_mask)then
-             if( map%map(i,1) .lt. fcut .or. mask%map(i,1) .le. 0.5)cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if(all(map%map(list(1:nneigh),1) .lt. map%map(i,1)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5)) then
-                rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
-                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                
-                call nest2ring(map%nside, i, ipix)
-                call listpix%push(ipix)
-                call listangle%push(real(rotate_angle))
-             endif
-          else
-             if(map%map(i,1) .lt. fcut)cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if(all(map%map(list(1:nneigh),1) .lt. map%map(i,1)))then
-                rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
-                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi
-                call nest2ring(map%nside, i, ipix)
-                call listpix%push(ipix)
-                call listangle%push(real(rotate_angle))
-             endif
-          endif
-       enddo
-    case("Tmin_QTUTOrient", "zetamin_qzuzOrient") !!oriented with QU, minima of T
-       if(map%nmaps .lt. 3) stop "For Tmin_QTUTOrient mode you need 3 maps"
-       if(present(threshold))then
-          if(threshold.lt.coop_stacking_max_threshold)then
-             if(do_mask)then
-                fcut = -threshold*sqrt(sum(dble(map%map(:,1))**2, mask%map(:,1).gt.0.5)/total_weight)
-             else
-                fcut = -threshold*sqrt(sum(dble(map%map(:,1))**2)/total_weight)
-             endif
-          else
-             fcut = 1.e30
-          endif
-       else
-          fcut = 1.e30
-       endif
-       do i=0, map%npix-1
-          if(do_mask)then
-             if( map%map(i,1) .gt. fcut .or. mask%map(i,1) .le. 0.5) cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if( all( map%map(list(1:nneigh), 1) .gt. map%map(i,1) ) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5) ) then
-                rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
-                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
-                call nest2ring(map%nside, i, ipix)
-                call listpix%push(ipix)
-                call listangle%push(real(rotate_angle))
-             endif
-          else
-             if(map%map(i,1) .gt. fcut)cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if(all(map%map(list(1:nneigh),1).gt. map%map(i,1)))then
-                rotate_angle = COOP_POLAR_ANGLE(map%map(i, 2), map%map(i, 3))/2.
-                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
-                call nest2ring(map%nside, i, ipix)
-                call listpix%push(ipix)
-                call listangle%push(real(rotate_angle))
-             endif
-          endif
-       enddo
-    case("Pmax", "PTmax", "PZmax")
-       select case(map%nmaps)
-       case(2:3)
-          iq = map%nmaps - 1
-          iu = iq + 1
-       case default
-          stop "For polarization you need to specify Q, U maps in the input file."
-       end select
-       if(present(threshold))then
-          if(threshold.lt. coop_stacking_max_threshold)then
-             if(do_mask)then
-                fcut = threshold**2*(sum(dble(map%map(:,iq))**2 + dble(map%map(:,iu))**2, mask%map(:,1).gt.0.5)/total_weight)
-             else
-                fcut = threshold**2*(sum(dble(map%map(:,iq))**2 + dble(map%map(:,iu))**2)/total_weight)
-             endif
-          else
-             fcut = -1.e30
-          endif
-       else
-          fcut = -1.e30
-       endif
-       do i=0, map%npix-1
-          if(do_mask)then
-             if( map%map(i,iq)**2 + map%map(i,iu)**2 .lt. fcut  .or.  mask%map(i, 1) .le. 0.5 ) cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if( all( map%map(list(1:nneigh),iq)**2 + map%map(list(1:nneigh),iu)**2 .lt. map%map(i,iq)**2 + map%map(i, iu)**2 ) .and. all(mask%map(list(1:nneigh), 1) .gt. 0.5) ) then
-                rotate_angle = COOP_POLAR_ANGLE(map%map(i, iq), map%map(i, iu))/2.
-                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
-                call nest2ring(map%nside, i, ipix)
-                call listpix%push(ipix)
-                call listangle%push(real(rotate_angle))
-             endif
-          else
-             if( map%map(i, iq)**2 + map%map(i, iu)**2 .lt. fcut) cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if( all( map%map(list(1:nneigh), iq)**2 + map%map(list(1:nneigh), iu)**2 .lt. map%map(i, iq)**2 + map%map(i, iu)**2 ) )then
-                rotate_angle = COOP_POLAR_ANGLE(map%map(i, iq), map%map(i, iu))/2.
-                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
-                call nest2ring(map%nside, i, ipix)
-                call listpix%push(ipix)
-                call listangle%push(real(rotate_angle))
-             endif
-          endif
-       enddo
-    case("Pmin", "PTmin", "PZmin")
-       select case(map%nmaps)
-       case(2:3)
-          iq = map%nmaps - 1
-          iu = iq + 1
-       case default
-          stop "For polarization you need to specify Q, U maps in the input file."
-       end select
-       if(present(threshold))then
-          if(threshold.lt. coop_stacking_max_threshold)then          
-             if(do_mask)then
-                fcut = threshold**2*(sum(dble(map%map(:, iq))**2+dble(map%map(:, iu))**2, mask%map(:,1).gt.0.5)/total_weight)
-             else
-                fcut = threshold**2*(sum(dble(map%map(:, iq))**2+dble(map%map(:, iu))**2)/total_weight)
-             endif
-          else
-             fcut = 1.d30
-          endif
-       else
-          fcut = 1.d30
-       endif
-       do i=0, map%npix-1
-          if(do_mask)then
-             if(map%map(i,iq)**2 + map%map(i,iu)**2 .gt. fcut .or. mask%map(i, 1) .le. 0.5 ) cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if(all(map%map(list(1:nneigh), iq)**2 + map%map(list(1:nneigh), iu)**2 .gt. map%map(i, iq)**2 + map%map(i, iu)**2) .and. all(mask%map(list(1:nneigh), 1) .gt. 0.5) ) then
-                rotate_angle = COOP_POLAR_ANGLE(map%map(i,iq), map%map(i,iu))/2.
-                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
-                call nest2ring(map%nside, i, ipix)
-                call listpix%push(ipix)
-                call listangle%push(real(rotate_angle))
-             endif
-          else
-             if(map%map(i, iq)**2 + map%map(i, iu)**2 .gt. fcut) cycle
-             call neighbours_nest(map%nside, i, list, nneigh)  
-             if(all(map%map(list(1:nneigh), iq)**2 + map%map(list(1:nneigh), iu)**2 .gt. map%map(i, iq)**2 + map%map(i, iu)**2))then
-                rotate_angle = COOP_POLAR_ANGLE(map%map(i, iq), map%map(i, iu))/2.
-                if(coop_random_unit().gt.0.5d0)rotate_angle=rotate_angle+coop_pi                                
-                call nest2ring(map%nside, i, ipix)
-                call listpix%push(ipix)
-                call listangle%push(real(rotate_angle))
-             endif
-          endif
-       enddo
-    case default
-       write(*,*) trim(spot_type)
-       stop "unknown spot type"
-    end select
-    call map%convert2ring()
-    if(do_mask)call mask%convert2ring()
-#else
-    stop "CANNOT FIND HEALPIX"
-#endif
-  end subroutine coop_healpix_maps_get_listpix
 
 
   subroutine coop_healpix_output_map(map, header, fname)
@@ -2223,10 +2167,10 @@ contains
     COOP_INT,dimension(:),optional::index_list
     call map%read(mapfile)
     call mask%read(maskfile,  nmaps_wanted = 1)
-    if(mask%ordering .eq. COOP_RING)then
-       call map%convert2ring()
-    elseif(mask%ordering .eq. COOP_NESTED)then
-       call map%convert2nested()
+    if(map%ordering .eq. COOP_RING)then
+       call mask%convert2ring()
+    elseif(map%ordering .eq. COOP_NESTED)then
+       call mask%convert2nested()
     else
        write(*,*) "coop_healpix_mask_map: mask file has unknown ordering."
        stop
@@ -2247,140 +2191,8 @@ contains
     endif
     call map%free
     call mask%free
+
   end subroutine coop_healpix_mask_map
-
-
-  subroutine coop_healpix_trim_maskfile(mask_file, smoothscale, output)
-    COOP_UNKNOWN_STRING mask_file
-    COOP_REAL smoothscale
-    COOP_UNKNOWN_STRING, optional::output
-    type(coop_healpix_maps) this
-    call this%read(mask_file, nmaps_wanted = 1)
-    call this%trim_mask( smoothscale)
-    if(present(output))then
-       call this%write(trim(output))
-    else
-       call this%write(trim(coop_file_add_postfix(trim(mask_file), "_trimmed")))
-    endif
-    call this%free
-  end subroutine coop_healpix_trim_maskfile
-
-  subroutine coop_healpix_trim_mask(this, smoothscale)
-    real,parameter::nefolds = 4
-    class(coop_healpix_maps) this
-    type(coop_healpix_maps) hgs
-    COOP_INT,dimension(:),allocatable::listpix
-    COOP_INT i, j, nsteps
-    COOP_REAL smoothscale
-    nsteps = ceiling(smoothscale/sqrt(4.*coop_pi/this%npix))/2
-    if(nsteps .le. 0 .or. nsteps .gt. 200)stop "coop_healpix_smooth_mask: invalid input of smoothscale"
-    call this%convert2nested()
-    this%mask_npix = count(this%map(:,1) .gt. 0.)
-    allocate(this%mask_listpix(this%mask_npix))
-    j = 0
-    do i = 0, this%npix - 1
-       if(this%map(i,1).gt. 0.)then
-          j = j + 1
-          this%mask_listpix(j) = i
-       endif
-    enddo
-    select type(this)
-    type is (coop_healpix_maps)
-       hgs = this
-    class default
-       stop "the mask must be basic coop_healpix_maps type"
-    end select
-    do i=1, nsteps
-       call coop_healpix_iterate_mask(this, hgs)
-       call coop_healpix_iterate_mask(hgs, this)
-    enddo
-    call hgs%free
-    call this%convert2ring()
-  contains 
-    subroutine coop_healpix_iterate_mask(this_from, this_to)  
-      type(coop_healpix_maps) this_from, this_to
-      COOP_INT list(8), nneigh
-      COOP_INT i
-#ifdef HAS_HEALPIX
-      !$omp parallel do private(list, nneigh, i)
-      do i = 1, this%mask_npix
-         call neighbours_nest(this_from%nside, this%mask_listpix(i), list, nneigh)
-         this_to%map(this_from%mask_listpix(i), 1) = min(minval(this_from%map(list(1:nneigh), 1)) , this_from%map(this_from%mask_listpix(i), 1))
-      enddo
-      !$omp end parallel do
-#else
-      stop "CANNOT FIND HEALPIX"
-#endif
-    end subroutine coop_healpix_iterate_mask
-  end subroutine coop_healpix_trim_mask
-
-
-  subroutine coop_healpix_smooth_maskfile(mask_file, smoothscale, output)
-    COOP_UNKNOWN_STRING mask_file
-    COOP_SINGLE smoothscale
-    COOP_UNKNOWN_STRING, optional::output
-    type(coop_healpix_maps) this
-    call this%read(mask_file, nmaps_wanted = 1)
-    call this%smooth_mask( smoothscale)
-    if(present(output))then
-       call this%write(trim(output))
-    else
-       call this%write(trim(coop_file_add_postfix(trim(mask_file), "_smoothed")))
-    endif
-    call this%free
-  end subroutine coop_healpix_smooth_maskfile
-
-  subroutine coop_healpix_smooth_mask(this, smoothscale)
-    real,parameter::nefolds = 4
-    class(coop_healpix_maps) this
-    type(coop_healpix_maps) hgs
-    COOP_INT i, j, nsteps
-    COOP_SINGLE smoothscale, decay
-    nsteps = ceiling(smoothscale*this%nside*nefolds/2.)
-    if(nsteps .le. 0 .or. nsteps .gt. 200)stop "coop_healpix_smooth_mask: invalid input of smoothscale"
-    decay = exp(-nefolds/nsteps/2.)
-    call this%convert2nested()
-    this%mask_npix = count(this%map(:,1) .lt. 1.)
-    if(allocated(this%mask_listpix))deallocate(this%mask_listpix)
-    allocate(this%mask_listpix(this%mask_npix))
-    j = 0
-    do i = 0, this%npix - 1
-       if(this%map(i,1).lt. 1.)then
-          j = j + 1
-          this%mask_listpix(j) = i
-       endif
-    enddo
-    select type(this)
-    type is (coop_healpix_maps)
-       hgs = this
-    class default
-       stop "the mask must be basic coop_healpix_maps type"
-    end select
-    do i=1, nsteps
-       call coop_healpix_iterate_mask(this, hgs, decay)
-       call coop_healpix_iterate_mask(hgs, this, decay)
-    enddo
-    call hgs%free
-    call this%convert2ring()
-    deallocate(this%mask_listpix)
-  contains 
-    subroutine coop_healpix_iterate_mask(this_from, this_to, decay)  
-      type(coop_healpix_maps) this_from, this_to
-      COOP_INT list(8), nneigh
-      COOP_INT i
-      COOP_SINGLE decay
-#ifdef HAS_HEALPIX
-      !$omp parallel do private(list, nneigh, i)
-      do i = 1, this%mask_npix
-         call neighbours_nest(this_from%nside, this%mask_listpix(i), list, nneigh)
-         this_to%map(this_from%mask_listpix(i), 1) = max(maxval(this_from%map(list(1:nneigh), 1)) * decay , this_from%map(this_from%mask_listpix(i), 1))
-      enddo
-      !$omp end parallel do
-#else
-      stop "CANNOT FIND HEALPIX"
-#endif
-    end subroutine coop_healpix_iterate_mask
-  end subroutine coop_healpix_smooth_mask
 
   subroutine coop_healpix_maps_query_disc(this, pix, radius, listpix, nlist)
     class(coop_healpix_maps)::this
@@ -2433,204 +2245,6 @@ contains
   end subroutine coop_healpix_mask_hemisphere
 
 
-
-  subroutine coop_healpix_inpainting(mode, map_file, mask_file, maskpol_file, output_freq, output_types, mask_smooth_scale)
-    COOP_UNKNOWN_STRING map_file, mask_file, mode
-    COOP_INT, optional::output_freq 
-    COOP_UNKNOWN_STRING,optional:: maskpol_file, output_types
-    COOP_INT,parameter:: total_steps = 1000, burnin = 30
-    COOP_INT output_steps 
-    COOP_INT step, naccept, weight
-    logical accept
-    type(coop_healpix_maps) map, simumap, mask, maskpol, mapmean, map_diffused
-    COOP_SHORT_STRING::ot
-    COOP_REAL prev_chisq
-    COOP_REAL, optional:: mask_smooth_scale
-    COOP_SINGLE::mss
-    if(present(mask_smooth_scale))then
-       mss = mask_smooth_scale
-    else
-       mss = 2.*coop_SI_degree
-    endif
-    if(present(output_freq))then
-       output_steps = output_freq
-    else
-       output_steps = 50
-    endif
-    if(present(output_types))then
-       ot = trim(output_types)
-    else
-       ot = "IQU"
-    end if
-    if(trim(mode) .eq. "I")then
-       call map%read(map_file, nmaps_wanted = 1)
-    else
-       call map%read(map_file, nmaps_wanted = 3)
-    endif
-    mapmean = map   
-    mapmean%map = 0
-    call mask%read(mask_file, nmaps_wanted = 1)
-    where(mask%map(:,1) .lt. 0.5)
-       map%map(:,1) = 0.
-    end where
-
-    
-    if(present(maskpol_file)) then
-       call maskpol%read(maskpol_file, nmaps_wanted = 1)
-       where(maskpol%map(:,1) .lt. 0.5)
-          map%map(:,2) = 0.
-          map%map(:,3) = 0.
-       end where
-       map%maskpol_npix = count(maskpol%map(:,1).lt. 0.5)
-    else
-       map%maskpol_npix = 0
-    endif
-    map_diffused = map
-    call coop_healpix_diffuse_into_mask(map_diffused, mask, coop_healpix_diffuse_scale)
-    call coop_healpix_smooth_mask(mask, mss)
-    if(present(maskpol_file))then
-       call coop_healpix_diffuse_into_mask(map_diffused, maskpol, coop_healpix_diffuse_scale, pol=.true.)
-       call coop_healpix_smooth_mask(maskpol, mss)
-    endif
-    map%map = map_diffused%map
-    write(*,*) "mask smoothed"
-    !call mask%write(trim(coop_file_add_postfix(mask_file, "_smoothed")))
-    map%mask_npix = count(mask%map(:,1).lt. 0.5)
-    call coop_healpix_inpainting_init(map, simumap)
-
-    write(*,*) "Inpaining workspace initialized."
-    prev_chisq = map%chisq
-    naccept = 0
-    weight = 0
-    step = 0
-    do while(step .lt. total_steps)
-       step = step + 1
-       if(present(maskpol_file))then
-          call coop_healpix_inpainting_step(accept, map, map_diffused, simumap, mask, maskpol)
-       else
-          call coop_healpix_inpainting_step(accept, map, map_diffused, simumap, mask)
-       endif
-       if(accept) naccept = naccept + 1
-       if(naccept .gt. burnin/2 .and. naccept .le. burnin .and. accept)then
-          map%Cl = simumap%Cl
-       endif
-       if(naccept .ge. burnin)then
-          mapmean%map = mapmean%map + map%map
-          if(weight.eq.0)then
-             write(*,*) "initial trials done: now start sampling"
-             step = 0
-          endif
-          weight = weight + 1
-       endif
-       if(naccept .lt. burnin)then
-          write(*,*) "Trial #"//trim(coop_num2str(step))//" before burn-in. Estimated progress: "//trim(coop_num2str(100.*naccept/real(burnin), "(F10.1)"))//"%"
-       endif
-       write(*, "(I6, A)") step, " accept = "//trim(coop_num2str(accept))//" temperature = "//trim(coop_num2str(map%mcmc_temperature,"(F10.2)"))//" chisq = "//trim(coop_num2str(prev_chisq, "(G14.3)"))//" --> "//trim(coop_num2str(map%chisq, "(G14.3)"))
-
-       prev_chisq = map%chisq
-
-       
-       if(mod(step, output_steps) .eq.0 .and. naccept.ge.burnin)then
-          call map%write(trim(coop_file_add_postfix(trim(map_file), "_inp"//trim(coop_ndigits(step, 4)))))         
-       endif
-       if(mod(step, output_steps*10) .eq. 0 .and. naccept.gt.burnin)then !!less mean maps to save disk space
-          simumap%map =  mapmean%map/weight
-          call simumap%write(trim(coop_file_add_postfix(trim(map_file), "_inp_mean"//trim(coop_ndigits(step, 4)))))
-       endif
-    enddo
-    call map%free()
-    call mapmean%free()
-    call simumap%free()
-    call mask%free()
-    call maskpol%free()
-  end subroutine coop_healpix_inpainting
-
-  subroutine coop_healpix_inpainting_init(map, simumap)
-    type(coop_healpix_maps) map, simumap,tmpmap
-    call map%map2alm()
-    map%cl(0:1, :) = 0.
-    map%cl(:, coop_healpix_index_TT) = max(map%cl(:, coop_healpix_index_TT), 1.e-20)*(map%npix/real(map%npix - map%mask_npix))
-    if(map%nmaps.ge.3)then
-       map%cl(:, coop_healpix_index_EE) = max(map%cl(:, coop_healpix_index_EE), 1.e-20)*(map%npix/real(map%npix-map%maskpol_npix))
-       map%cl(:, coop_healpix_index_TE) = map%cl(:, coop_healpix_index_TE)* sqrt( (map%npix/real(map%npix - map%mask_npix)) * (map%npix/real(map%npix-map%maskpol_npix)) ) * (1.d0 - 1.d-6)  !!make sure TE^2 < TT * EE
-       map%cl(:, coop_healpix_index_BB) = max(map%cl(:, coop_healpix_index_BB), 1.e-12)*(map%npix/real(map%npix-map%maskpol_npix))
-       map%cl(:, coop_healpix_index_EB) = 0. 
-       map%Cl(:, coop_healpix_index_TB) = 0.
-    endif
-    map%Cl(0:1,:) = 0.
-    map%mcmc_temperature = 20.     !!start with a high temperature
-    coop_healpix_inpainting_lowl = 5
-    simumap = map
-    call coop_healpix_inpainting_get_chisq(map, simumap)
-
-    map%chisq = simumap%chisq
-  end subroutine coop_healpix_inpainting_init
-  
-  subroutine coop_healpix_inpainting_step(accept, map, map_diffused, simumap, mask, maskpol)
-    type(coop_healpix_maps) map, simumap, mask, map_diffused
-    type(coop_healpix_maps),optional::maskpol
-    logical accept
-    COOP_INT i
-    simumap%Cl = map%Cl
-    call simumap%simulate()
-    simumap%map(:,1) =  map%map(:,1) * mask%map(:,1) + simumap%map(:,1) * sqrt(1.-mask%map(:,1)**2) + map_diffused%map(:,1)*(1. - mask%map(:,1))
-    if(map%nmaps.eq.3)then
-       if(present(maskpol))then
-          simumap%map(:,2) =  map%map(:,2) * maskpol%map(:,1) + simumap%map(:,2) * sqrt(1.-maskpol%map(:,1)**2) + map_diffused%map(:,2)*(1. - maskpol%map(:,1))
-          simumap%map(:,3) =  map%map(:,3) * maskpol%map(:,1) + simumap%map(:,3) * sqrt(1.-maskpol%map(:,1)**2) + map_diffused%map(:,3)*(1. - maskpol%map(:,1))
-       else
-          stop "coop_healpix_inpainting_step: need polarization mask"
-       endif
-    endif
-    call coop_healpix_inpainting_accept_reject(accept, map, simumap)
-  end subroutine coop_healpix_inpainting_step
-
-
-  subroutine coop_healpix_inpainting_get_chisq(map, simumap)
-    type(coop_healpix_maps) map, simumap
-    COOP_INT l
-    COOP_SINGLE chisq
-    call simumap%map2alm()
-    if(map%nmaps .eq. 1)then
-       chisq = 0.
-       !$omp parallel do reduction(+:chisq)
-       do l = 2, coop_healpix_inpainting_lowl 
-          chisq = chisq + (2*l+1)*(simumap%Cl(l,1)/map%Cl(l,1) - log(simumap%Cl(l,1)/map%Cl(l,1))-1.d0)
-       enddo
-       !$omp end parallel do
-       simumap%chisq = chisq 
-
-    else
-       chisq = 0.
-       !$omp parallel do reduction(+:chisq)
-       do l = 2, coop_healpix_inpainting_lowl 
-          chisq = chisq + (2*l+1)*(simumap%Cl(l,coop_healpix_index_BB)/map%Cl(l,coop_healpix_index_BB) - log(simumap%Cl(l,coop_healpix_index_BB)/map%Cl(l,coop_healpix_index_BB))-3.d0 - log((simumap%Cl(l, coop_healpix_index_TT)*simumap%Cl(l, coop_healpix_index_EE) - simumap%Cl(l, coop_healpix_index_TE)**2)/(map%Cl(l, coop_healpix_index_TT)*map%Cl(l, coop_healpix_index_EE) - map%Cl(l, coop_healpix_index_TE)**2)) + (map%Cl(l, coop_healpix_index_TT)*simumap%Cl(l, coop_healpix_index_EE) + simumap%Cl(l, coop_healpix_index_TT)*map%Cl(l, coop_healpix_index_EE) - 2.*map%Cl(l, coop_healpix_index_TE)*simumap%Cl(l, coop_healpix_index_TE) )/(map%Cl(l, coop_healpix_index_TT)*map%Cl(l, coop_healpix_index_EE) - map%Cl(l, coop_healpix_index_TE)**2))
-       enddo
-       !$omp end parallel do
-       simumap%chisq = chisq 
-    endif
-  end subroutine coop_healpix_inpainting_get_chisq
-
-  subroutine coop_healpix_inpainting_accept_reject(accept, map, simumap)
-    type(coop_healpix_maps) map, simumap
-    logical accept
-    call coop_healpix_inpainting_get_chisq(map, simumap)
-    if(simumap%chisq - map%chisq .lt. coop_random_exp()*2*map%mcmc_temperature)then
-       accept = .true.
-       map%chisq = simumap%chisq
-       map%map = simumap%map
-
-       map%alm = simumap%alm
-       map%mcmc_temperature = max(1., map%mcmc_temperature*0.95)
-       coop_healpix_inpainting_lowl = min(coop_inpainting_lowl_max, coop_healpix_inpainting_lowl + 1)
-    else
-       accept = .false.
-       map%mcmc_temperature = map%mcmc_temperature*1.01
-       coop_healpix_inpainting_lowl = max(coop_inpainting_lowl_min, coop_healpix_inpainting_lowl - 1)
-    endif
-  end subroutine coop_healpix_inpainting_accept_reject
-
-
   subroutine coop_healpix_split(filename)
     COOP_UNKNOWN_STRING:: filename
     type(coop_healpix_maps) this
@@ -2652,11 +2266,11 @@ contains
     if(allocated(flip%map))then
        if(flip%nside .ne. mask%nside)then
           call flip%free()
-          call flip%init(nside = mask%nside, nmaps = 1, spin = (/ 0 /) )
+          call flip%init(nside = mask%nside, nmaps = 1, genre="MASK")
        endif
     else
        call flip%free()
-       call flip%init(nside = mask%nside, nmaps = 1, spin = (/ 0 /) )       
+       call flip%init(nside = mask%nside, nmaps = 1, genre = "MASK")
     endif
     call mask%convert2ring()
     !$omp parallel do private(pix, conjpix, theta, phi)
@@ -2697,168 +2311,14 @@ contains
     enddo
   end subroutine coop_healpix_maps_regularize_in_mask
 
-  subroutine coop_healpix_maps_mask(map, mask, polmask, remove_l_upper)
-    class(coop_healpix_maps) map
-    type(coop_healpix_maps) mask
-    type(coop_healpix_maps),optional::polmask
-    COOP_INT, optional::remove_l_upper
-    COOP_SINGLE, dimension(:),allocatable::m01
-    complex,dimension(:,:,:),allocatable::alms
-#ifdef HAS_HEALPIX    
-    if(map%nside  .ne. mask%nside) stop "mask: nside must be the same as the map"
-    call map%convert2ring()
-    call mask%convert2ring()
-    map%map(:,1) = map%map(:,1)*mask%map(:,1)
-    if(present(remove_l_upper))then
-       if(remove_l_upper .ge. 0)then
-          allocate(alms(0:remove_l_upper, 0:remove_l_upper,1))
-          if(mask%mask_npix .eq. 0)then
-             mask%mask_npix = count(mask%map(:,1).gt. 0.5)
-          endif
-          allocate(m01(0:map%npix-1))       
-          call map2alm(map%nside, remove_l_upper, remove_l_upper, map%map(:,1), alms)
-          alms = (alms * mask%npix)/mask%mask_npix
-          call alm2map(map%nside, remove_l_upper, remove_l_upper, alms, m01)
-          map%map(:,1) = map%map(:,1) - m01*mask%map(:,1)
-          deallocate(m01)
-       endif
-    endif
-    if(map%nmaps.ge.3 .and. present(polmask))then
-       call polmask%convert2ring()
-       if(map%nside  .ne. polmask%nside) stop "pol mask: nside must be the same as the map"
-       map%map(:,2) = map%map(:,2)*polmask%map(:,1)
-       map%map(:,3) = map%map(:,3)*polmask%map(:,1)
-    endif
-#endif    
-  end subroutine coop_healpix_maps_mask
-
-  subroutine coop_healpix_maps_get_fullCls(map, mask, polmask)
-    COOP_INT,parameter::lrange = 20
-    class(coop_healpix_maps) map
-    type(coop_healpix_maps) mask, mapcopy
-    type(coop_healpix_maps),optional::polmask
-    COOP_REAL, dimension(:),allocatable::ifsky, polfsky
-    COOP_REAL:: w(-lrange:lrange)
-    COOP_INT i, j, ncls, l, isim
-    if(mask%nside .ne. map%nside) stop "nside must agree for get_fullCl"
-    if(present(polmask) .and. map%nmaps .eq. 3 .and. map%iq .eq. 2)then
-       if(polmask%nside .ne. map%nside) stop "nside must agree for get_fullCl"
-       call map%mask(mask, polmask)
-       ncls = 6
-    else
-       call map%mask(mask)
-       ncls = 1
-    endif
-    call map%map2alm()
-
-    allocate(ifsky(0:map%lmax))
-    ifsky = count(mask%map(:,1).gt.0.)/dble(mask%npix)
-    if(ncls .eq. 6)then
-       allocate(polfsky(0:map%lmax))
-       polfsky = count(polmask%map(:, 1).gt.0.)/dble(polmask%npix)
-    endif
-
-    select type(map)
-    type is (coop_healpix_maps)
-       mapcopy = map
-    class default
-       stop "get_fullCls: can only process healpix_maps structure"
-    end select
-    do l=-lrange, lrange
-       w(l) = exp(-(l*2.d0/lrange)**2)
-    enddo
-    w = w/sum(w)
-    call do_cl_map()
-    do isim = 1, 3
-       call mapcopy%simulate()
-       if(present(polmask) .and. map%nmaps .eq. 3 .and. map%iq .eq. 2)then
-          call mapcopy%mask(mask, polmask)
-       else
-          call mapcopy%mask(mask)
-       endif
-       call mapcopy%map2alm()
-       do l= lrange, map%lmax - lrange
-          ifsky(l) = ifsky(l)/sum(map%cl(l-lrange:l+lrange, coop_healpix_index_TT)*w)*sum(mapcopy%cl(l-lrange:l+lrange, coop_healpix_index_TT)*w)
-       enddo
-       do l=0, lrange-1
-          ifsky(l) = ifsky(l)/sum(map%cl(0:l+lrange, coop_healpix_index_TT)*w(-l:lrange))*sum(mapcopy%cl(0:l+lrange, coop_healpix_index_TT)*w(-l:lrange))
-       enddo
-       do l = map%lmax - lrange + 1, map%lmax
-          ifsky(l) = ifsky(l)/sum(map%cl(l-lrange:map%lmax, coop_healpix_index_TT)*w(-lrange:map%lmax-l))*sum(mapcopy%cl(l-lrange:map%lmax, coop_healpix_index_TT)*w(-lrange:map%lmax-l))
-       enddo
-       if(ncls.eq.6)then
-          do l= lrange, map%lmax - lrange
-             polfsky(l) = polfsky(l)/sum(map%cl(l-lrange:l+lrange, coop_healpix_index_EE)*w)*sum(mapcopy%cl(l-lrange:l+lrange, coop_healpix_index_EE)*w)
-          enddo
-          do l=0, lrange-1
-             polfsky(l) = polfsky(l)/sum(map%cl(0:l+lrange, coop_healpix_index_EE)*w(-l:lrange))*sum(mapcopy%cl(0:l+lrange, coop_healpix_index_EE)*w(-l:lrange))
-          enddo
-          do l = map%lmax - lrange + 1, map%lmax
-             polfsky(l) = polfsky(l)/sum(map%cl(l-lrange:map%lmax, coop_healpix_index_EE)*w(-lrange:map%lmax-l))*sum(mapcopy%cl(l-lrange:map%lmax, coop_healpix_index_EE)*w(-lrange:map%lmax-l))
-          enddo
-       endif
-       call do_cl_map()
-    enddo
-    map%cl = mapcopy%cl 
-    call mapcopy%free()
-    deallocate(ifsky)
-    if(ncls.eq.6)deallocate(polfsky)
-
-    contains
-
-      subroutine do_cl_map()
-       mapcopy%cl(:,coop_healpix_index_TT) = map%cl(:,coop_healpix_index_TT)/ifsky
-       select case(mapcopy%nmaps)
-       case(1)  !!I
-       case(3)  !!I, Q, U
-          if(.not. present(polmask))stop "for IQU mapcopys you need to specify polarization mask"
-          if( map%iq .ne. 2) stop "get_fullcls only supports IQU map"
-          mapcopy%cl(:,coop_healpix_index_EE) = map%cl(:,coop_healpix_index_EE)/polfsky
-          mapcopy%cl(:,coop_healpix_index_BB) = map%cl(:,coop_healpix_index_BB)/polfsky
-          mapcopy%cl(:,coop_healpix_index_TE) = map%cl(:,coop_healpix_index_TE)/sqrt(ifsky*polfsky)*(1.d0-1.d-6)
-          mapcopy%cl(:,coop_healpix_index_TB) = map%cl(:,coop_healpix_index_TB)/sqrt(ifsky*polfsky) * (1.d0 - 1.d-6)
-          mapcopy%cl(:,coop_healpix_index_EB) = map%cl(:,coop_healpix_index_EB)/polfsky
-       case default
-          stop "get_fullCl only supports I or IQU maps"
-       end select
-     end subroutine do_cl_map
-  end subroutine coop_healpix_maps_get_fullCls
-
-  subroutine coop_healpix_maps_udgrade(map, nside)
-    class(coop_healpix_maps)::map
-    real, dimension(:,:),allocatable::newmap
-    COOP_INT nside, npix
-#ifdef HAS_HEALPIX
-    npix = nside2npix(nside)
-    allocate(newmap(0:npix-1, map%nmaps))
-    if(map%ordering .eq. COOP_NESTED)then
-       call udgrade_nest(map%map, map%nside, newmap, nside, 0., .true.)
-    else
-       call udgrade_ring(map%map, map%nside, newmap, nside, 0., .true.)
-    endif
-    deallocate(map%map)
-    map%nside = nside
-    map%npix = npix
-    allocate(map%map(0:npix-1, map%nmaps))
-    map%map = newmap
-    map%header  = ""
-    call write_minimal_header(map%header,dtype = 'MAP', nside=nside, order = map%ordering, creator='Zhiqi Huang', version = 'COOP', units='muK', polar=any(map%spin.eq.2) )
-    
-    deallocate(newmap)
-#else
-    stop "HEALPIX library is missing."
-#endif    
-  end subroutine coop_healpix_maps_udgrade
-
-
-
+ 
   subroutine coop_healpix_maps_t2zeta(this, fwhm_arcmin, want_unconstrained)
     class(coop_healpix_maps)::this
     COOP_INT::l, i
     logical,optional::want_unconstrained 
     type(coop_cosmology_firstorder)::fod
     COOP_REAL,dimension(:,:),allocatable::Cls, Cls_lensed
-    COOP_REAL::fwhm_arcmin, norm, ucnorm, CTT, Knorm
+    COOP_REAL::fwhm_arcmin, norm, ucnorm, CTT
     logical douc
 #if DO_ZETA_TRANS
     if(present(want_unconstrained))then
@@ -2868,11 +2328,6 @@ contains
     else
        douc = .false.
     endif
-    if(maxval(this%map(:,1)) .gt. 1.)then !!unit is muK
-       Knorm  = 1.d6
-    else
-       Knorm = 1.d0
-    endif
     call this%map2alm(index_list = (/ 1 /) )
     
     call fod%Set_Planck_bestfit()
@@ -2881,7 +2336,7 @@ contains
     call fod%source(0)%get_All_Cls(2, this%lmax, Cls)
     call coop_get_lensing_Cls(2, this%lmax, Cls, Cls_lensed)
     
-    norm = 1.d0/coop_healpix_zeta_normalization/ COOP_DEFAULT_TCMB / Knorm
+    norm = 1.d0/coop_healpix_zeta_normalization/ COOP_DEFAULT_TCMB 
 
     !$omp parallel do private(i, ucnorm, CTT)
     do l = 2, this%lmax
@@ -2900,14 +2355,18 @@ contains
        endif
     enddo
     !$omp end parallel do
+    call this%set_units(" 10^{-5}")
+    call this%set_fields(1, "ZETA")
+    
+    
     if(douc)then
        this%alm(:,:,3) = this%alm(:,:,2) + this%alm(:,:,1)
-       this%spin(1:3) = 0
+       call this%set_fields(2, "ZETA")
+       call this%set_fields(3, "ZETA")       
        this%alm(0:1,:,3) = 0.
        call this%alm2map( index_list = (/ 1, 2, 3 /) )
        this%alm_done(1:3) = .false.
     else
-       this%spin(1) = 0
        this%alm(0:1,:,1) = 0.
        call this%alm2map( index_list = (/ 1 /) )
        this%alm_done(1) = .false.
@@ -2926,7 +2385,7 @@ contains
     logical,optional::want_unconstrained 
     type(coop_cosmology_firstorder)::fod
     COOP_REAL,dimension(:,:),allocatable::Cls, Cls_lensed
-    COOP_REAL::fwhm_arcmin, norm, ucnorm, CEE, Knorm
+    COOP_REAL::fwhm_arcmin, norm, ucnorm, CEE
     logical douc
 #if DO_ZETA_TRANS
     if(present(want_unconstrained))then
@@ -2935,11 +2394,6 @@ contains
             stop "maps_t2zeta for unconstrained map you need nmaps>=3"
     else
        douc = .false.
-    endif
-    if(maxval(this%map(:,1)) .gt. 1.)then !!unit is muK
-       Knorm  = 1.d6
-    else
-       Knorm = 1.d0
     endif
     if(this%spin(1).eq.0)then
        call this%map2alm(index_list = (/ 1 /) )
@@ -2952,7 +2406,7 @@ contains
     call fod%source(0)%get_All_Cls(2, this%lmax, Cls)
     call coop_get_lensing_Cls(2, this%lmax, Cls, Cls_lensed)
     
-    norm = 1.d0/coop_healpix_zeta_normalization/ COOP_DEFAULT_TCMB / Knorm
+    norm = 1.d0/coop_healpix_zeta_normalization/ COOP_DEFAULT_TCMB 
     !$omp parallel do private(i, ucnorm, CEE, l)
     do l = 2, this%lmax
        CEE = ( Cls(coop_index_ClEE, l) + abs(Cls_lensed(coop_index_ClEE,l)) +  coop_Planck_ENoise(l)/coop_healpix_beam(l, fwhm_arcmin) )
@@ -2970,6 +2424,10 @@ contains
        endif
     enddo
     !$omp end parallel do
+
+    call this%set_units(" 10^{-5}")
+    call this%set_fields(1, "ZETA")
+    
     if(douc)then
        this%alm(:,:,3) = this%alm(:,:,2) + this%alm(:,:,1)
        this%spin(1:3) = 0
@@ -2977,6 +2435,9 @@ contains
        call this%alm2map( index_list = (/ 1, 2, 3 /) )
        this%alm_done(1:3) = .false.
     else
+       call this%set_fields(2, "ZETA")
+       call this%set_fields(3, "ZETA")       
+    
        this%spin(1) = 0
        this%alm(0:1,:,1) = 0.
        call this%alm2map( index_list = (/ 1 /) )
@@ -2998,7 +2459,7 @@ contains
     type(coop_cosmology_firstorder)::fod
     COOP_REAL,dimension(:,:),allocatable::Cls, Cls_lensed
     COOP_REAL CTT, CTE, CEE, delta, bl
-    COOP_REAL::fwhm_arcmin, norm, ucnorm, coef_T, coef_E, Knorm
+    COOP_REAL::fwhm_arcmin, norm, ucnorm, coef_T, coef_E
     logical douc
 #if DO_ZETA_TRANS    
     if(this%nmaps .lt. 3) stop "TE2Zeta not enough maps"
@@ -3019,7 +2480,7 @@ contains
     allocate(Cls(coop_num_cls, 2:this%lmax), Cls_lensed(coop_num_cls, 2:this%lmax))
     call fod%source(0)%get_All_Cls(2, this%lmax, Cls)
     call coop_get_lensing_Cls(2, this%lmax, Cls, Cls_lensed)
-    if(maxval(this%map(:,1)) .gt. 1.)then !!unit is muK
+    if(trim(this%units).eq."muK")then
        Knorm  = 1.d6
     else
        Knorm = 1.d0
@@ -3047,15 +2508,20 @@ contains
           enddo
        endif
     enddo
+
+    call this%set_units(" 10^{-5}")
+    call this%set_fields(1, "ZETA")
+    
+    
     !$omp end parallel do
     if(douc)then
        this%alm(:,:,3) = this%alm(:,:,2) + this%alm(:,:,1)
-       this%spin(1:3) = 0
        this%alm(0:1,:,1:3) = 0
+       call this%set_fields(2, "ZETA")
+       call this%set_fields(3, "ZETA")              
        call this%alm2map( index_list = (/ 1, 2, 3 /) )
        this%alm_done(1:3) = .false.
     else
-       this%spin(1) = 0
        this%alm(0:1,:,1) = 0
        call this%alm2map( index_list = (/ 1 /) )
        this%alm_done(1) = .false.
@@ -3756,6 +3222,7 @@ contains
     enddo
     call this%alm2map()
     deallocate(alm_TGC)
+    this%coordsys = trim(to)
 #else
     stop "You need to install healpix"
 #endif    
@@ -3807,6 +3274,269 @@ contains
     call fig%close()
   end subroutine coop_healpix_maps_distr_nu_e
 
+  subroutine coop_healpix_maps_ave_udgrade(from, to)
+    type(coop_healpix_maps)::from, to
+    COOP_INT::div, i, imap
+    call from%convert2nested()
+    call to%convert2nested()
+    if(from%nside .eq. to%nside)then
+       to%map = from%map
+       return
+    endif
+    if(from%nside .gt. to%nside)then !!degrade
+       div = (from%nside/to%nside)**2
+       do imap = 1, min(from%nmaps, to%nmaps)
+          do i=0, to%npix-1
+             to%map(i, imap) = sum(dble(from%map(i*div:(i+1)*div-1, imap)))/div
+          enddo
+       enddo
+       return
+    endif
+    !!upgrade
+    div = (to%nside/from%nside)**2
+    do imap = 1, min(from%nmaps, to%nmaps)
+       do i=0, from%npix-1
+          to%map(i*div:(i+1)*div-1, imap) = from%map(i, imap)
+       enddo
+    enddo
+  end subroutine coop_healpix_maps_ave_udgrade
+
+  subroutine coop_healpix_maps_udgrade(this, nside)
+    class(coop_healpix_maps)::this
+    COOP_SINGLE, dimension(:,:),allocatable::newmap
+    COOP_INT nside, npix
+#ifdef HAS_HEALPIX
+    npix = nside2npix(nside)
+    allocate(newmap(0:npix-1, this%nmaps))
+    if(this%ordering .eq. COOP_NESTED)then
+       call udgrade_nest(this%map, this%nside, newmap, nside, 0., .true.)
+    else
+       call udgrade_ring(this%map, this%nside, newmap, nside, 0., .true.)
+    endif
+    deallocate(this%map)
+    this%nside = nside
+    this%npix = npix
+    allocate(this%map(0:npix-1, this%nmaps))
+    this%map = newmap
+    deallocate(newmap)
+#else
+    stop "HEALPIX library is missing."
+#endif    
+  end subroutine coop_healpix_maps_udgrade
+
+
+  subroutine coop_healpix_inpaint_space_inpaint(this, map, mask)
+    class(coop_healpix_inpaint_space)::this
+    type(coop_healpix_maps)::map, mask
+#ifdef HAS_HEALPIX
+    
+#endif    
+  end subroutine coop_healpix_inpaint_space_inpaint
+  
+  subroutine coop_healpix_inpaint_space_free(this)
+    class(coop_healpix_inpaint_space)::this
+    this%nside = 0
+    this%npix = 0
+    this%n_unknown = 0
+    this%n_known = 0
+    if(allocated(this%mean))deallocate(this%mean)
+    if(allocated(this%fluc))deallocate(this%fluc)
+    if(allocated(this%known))deallocate(this%known)
+    if(allocated(this%unknown))deallocate(this%unknown)
+    call this%map%free()
+    call this%mask%free()
+    call this%map_fine%free()
+    call this%mask_fine%free()
+  end subroutine coop_healpix_inpaint_space_free
+
+  function coop_healpix_inpaint_space_eval_correlation(this, x) result(c)
+    class(coop_healpix_inpaint_space)::this
+    COOP_REAL :: x, theta, c, ri
+    COOP_INT :: i
+    if(x .ge. 1.d0)then
+       c = this%correlation(1)
+       return
+    endif
+    theta = acos(x)
+    ri = theta/this%dtheta+1.d0
+    i = min(floor(ri), coop_default_array_size-1)
+    ri = ri - i
+    c = this%correlation(i)*(1.d0-ri) + this%correlation(i+1)*ri
+  end function coop_healpix_inpaint_space_eval_correlation
+
+  subroutine coop_healpix_inpaint_space_set_correlation(this, lmax, Cls)
+    class(coop_healpix_inpaint_space)::this
+    COOP_INT::lmax, i
+    COOP_REAL::cls(0:lmax)
+    COOP_REAL::als(0:lmax), bls(0:lmax)
+    COOP_REAL::x
+    call coop_sphere_correlation_init(lmax, als, bls)
+    this%dtheta = coop_pi/(coop_default_array_size-1.d0)
+    !$omp parallel do 
+    do i=1, coop_default_array_size
+       this%correlation(i) = coop_sphere_correlation(lmax, cls, als, bls, cos((i-1)*this%dtheta))
+    enddo
+    !$omp end parallel do
+  end subroutine coop_healpix_inpaint_space_set_correlation
+  
+
+  subroutine coop_healpix_inpaint_space_init(this, map, mask, lmax, cls)
+    COOP_INT,parameter::nside_default = 4
+    class(coop_healpix_inpaint_space)::this
+    type(coop_healpix_maps)::map, mask
+    COOP_REAL,parameter::known_threshold = 0.98d0
+    COOP_INT::lmax
+    COOP_REAL::cls(0:lmax)
+    COOP_INT:: i, j, k
+    COOP_REAL,dimension(:,:),allocatable::c_all,  c_known, c_cross
+#ifdef HAS_HEALPIX
+    call this%free()
+    call this%set_correlation(lmax, cls)
+    this%nside = nside_default
+    this%npix = nside2npix(this%nside)
+    this%nside_fine = this%nside*2
+    this%npix_fine = nside2npix(this%nside_fine)
+
+
+    call this%map%init(nside = this%nside, nmaps = 1, genre = "T", nested = .true.)
+    call this%mask%init(nside = this%nside, nmaps = 1, genre = "MASK", nested = .true.)
+
+    call this%map_fine%init(nside = this%nside_fine, nmaps = 1, genre = "T", nested = .true.)
+    call this%mask_fine%init(nside = this%nside_fine, nmaps = 1, genre = "MASK", nested = .true.)    
+    
+    
+    call map%convert2nested()
+    call mask%convert2nested()
+    call coop_healpix_maps_ave_udgrade(map, this%map_fine)
+    call coop_healpix_maps_ave_udgrade(mask, this%mask_fine)
+    call coop_healpix_maps_ave_udgrade(this%map_fine, this%map)
+    call coop_healpix_maps_ave_udgrade(this%mask_fine, this%mask)
+
+    this%n_unknown = count( this%mask%map .lt. known_threshold )
+    this%n_known = this%npix - this%n_unknown
+    if(this%n_known .eq. 0) stop "Inpainting does not work for mask size = 0 "
+    
+    allocate(c_all(0:this%npix-1, 0:this%npix-1), c_known(this%n_known, this%n_known),  c_cross(this%n_unknown, this%n_known), this%unknown(this%n_unknown), this%known(this%n_known), this%mean(this%n_unknown,1), this%fluc(this%n_unknown, this%n_unknown))     
+    
+    j = 0
+    k = 0
+    do i = 0, this%npix-1
+       if(this%mask%map(i, 1) .lt. known_threshold)then
+          j = j + 1          
+          this%unknown(j) = i
+       else
+          k = k + 1
+          this%known(k) = i
+       endif
+    enddo
+    if(j .lt. this%n_unknown .or. k.lt. this%n_known) stop "inpaint_space_init: unknown error"
+    !    call coop_healpix_evaluate_covariance(this%nside, c_all, lmax, Cls)
+    call this%get_cov(c_all)
+    print*, c_all(1, 1), c_all(1,2), c_all(2, 1)
+   
+    c_known = c_all(this%known, this%known)
+    c_cross = c_all(this%unknown, this%known)
+    call coop_matsym_inverse(c_known)
+    call coop_matsym_inverse(c_all)  !!the most expensive operation
+    this%fluc = c_all(this%unknown, this%unknown)
+    call coop_matsym_cholesky(this%n_unknown, this%fluc)
+    call coop_matsym_cholesky_invert(this%n_unknown, this%fluc)
+    this%mean = matmul(matmul(c_cross, c_known), this%map%map(this%known, 1:1))
+    deallocate(c_all, c_known, c_cross)
+    this%map%map(this%unknown, :) = this%mean
+#else
+    stop "CANNOT FIND HEALPIX"
+#endif    
+  end subroutine coop_healpix_inpaint_space_init
+
+
+  !!because healpix maps have irregular pix shapes, the covariance matrix is evalucated via simulations
+  subroutine coop_healpix_evaluate_covariance(nside, cov, lmax, Cls)
+    COOP_INT,parameter::nsim = 1024
+    COOP_INT::nside, lmax, isim, i, j, l, m
+    COOP_REAL::Cls(0:lmax), sqrtCls(0:lmax), cov(0:12*nside**2-1, 0:12*nside**2-1), mean(0:12*nside**2-1)
+    type(coop_healpix_maps)::map, lmap
+    if(any(Cls.lt.0.d0))stop "evaluate_covariance: negative Cls"
+    sqrtCls = sqrt(Cls)
+    call lmap%init(nside = nside, nmaps = 1, genre = "TEMPERATURE")
+    call map%init(nside = nside*8, nmaps = 1, genre = "TEMPERATURE", lmax = lmax)    
+    map%alm = 0.
+    cov = 0.
+    mean = 0.
+    do isim = 1, nsim
+       !$omp parallel do private(l, m)
+       do l = 1, lmax
+          map%alm(l, 0, 1) = coop_random_complex_Gaussian(.true.)*SqrtCls(l)     
+          do m = 1, l
+             map%alm(l, m, 1) = coop_random_complex_Gaussian()*SqrtCls(l)
+          enddo
+       enddo
+       !$omp end parallel do
+       call map%alm2map()
+       call coop_healpix_maps_ave_udgrade(map, lmap)
+       do i = 0, lmap%npix-1
+          do j=i , lmap%npix-1
+             cov(j, i) = cov(j, i) + lmap%map(i, 1)*lmap%map(j,1)
+          enddo
+       enddo
+       mean = mean + lmap%map(:, 1)
+    enddo
+    mean = mean/nsim
+    cov = cov/nsim
+    do i = 0, lmap%npix-1
+       do j=i+1, lmap%npix-1
+          cov(j, i) = cov(j, i) - mean(i)*mean(j)
+          cov(i, j) = cov(j, i)
+       enddo
+       cov(i,i) = (cov(i,i)-mean(i)**2*0.99)*1.01
+    enddo
+    call map%free()
+    call lmap%free()
+  end subroutine coop_healpix_evaluate_covariance
+
+
+  subroutine coop_healpix_inpaint_space_get_cov(this, cov)
+    class(coop_healpix_inpaint_space)::this    
+    COOP_INT,parameter::res = 8
+    COOP_INT,parameter::res2 = res**2    
+    COOP_REAL::cov(0:this%npix-1, 0:this%npix-1)    
+    type(coop_healpix_maps)::hres
+    COOP_REAL,dimension(:,:),allocatable::vec
+    COOP_INT::i, j, ii, jj
+#ifdef HAS_HEALPIX    
+    call hres%init(nside = this%nside*res, nmaps=1, genre="TEMPERATURE", nested = .true.)
+    call this%map%convert2nested()
+    allocate(vec(3, 0:hres%npix-1))
+    do i=0, hres%npix-1
+       call pix2vec_nest(hres%nside, i, vec(:, i))
+    enddo
+    cov = 0.d0
+    !$omp parallel do private(i, j, ii, jj)
+    do i=0, this%npix-1
+       do j = i, this%npix-1
+          do ii= i*res2, (i+1)*res2-1
+             do jj= j*res2, (j+1)*res2-1
+                cov(j, i) = cov(j, i) + this%eval_correlation((dot_product(vec(:, ii), vec(:, jj))))
+             enddo
+          enddo
+       enddo
+    enddo
+    !$omp end parallel do
+    deallocate(vec)
+    do i=0, this%npix-1
+       do j=i, this%npix-1
+          cov(j, i) = cov(j, i)/res2**2
+          if(i.eq.j)then
+             cov(i, i) = cov(i, i)*1.01
+          else
+             cov(i, j) = cov(j, i)
+          endif
+       enddo
+    enddo
+#endif    
+  end subroutine coop_healpix_inpaint_space_get_cov
+
+  
 end module coop_healpix_mod
 
 

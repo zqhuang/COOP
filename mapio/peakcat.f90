@@ -17,9 +17,8 @@ program Exp_spots
   COOP_INT::npeaks
   COOP_REAL::theta, phi, angle, rmsI
   COOP_INT i, ip
+  call mask%read(polmask_file)
   call hgm%read(map_file)
-  call mask%read(polmask_file)  
-
   rmsI = sqrt(sum(dble(hgm%map(:,1)**2*mask%map(:,1)))/sum(dble(mask%map(:,1))))
 
   call sto%init(do_max, peak_name, orient_name, nmaps = 4)
@@ -27,7 +26,6 @@ program Exp_spots
   sto%I_lower_nu = 6.d-5/rmsI
   sto%P2byL2_lower = 0.**2
   sto%P2byL2_upper = 0.2d0**2
-
 
   call hgm%get_peaks(sto, mask = mask)
   print*, "find "//COOP_STR_OF(sto%peak_pix%n)//" peaks"

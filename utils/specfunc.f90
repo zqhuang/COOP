@@ -5,7 +5,7 @@ module coop_special_function_mod
 
   private
 
-  public:: coop_log2, coop_sinc, coop_sinhc, coop_is_integer, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_incompleteGamma, coop_rec3j, coop_threej000, coop_bessI0, coop_bessi1, coop_bessJ0, coop_bessJ1, sphere_correlation, sphere_correlation_init, coop_get_normalized_Plm_array
+  public:: coop_log2, coop_sinc, coop_sinhc, coop_is_integer, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_incompleteGamma, coop_rec3j, coop_threej000, coop_bessI0, coop_bessi1, coop_bessJ0, coop_bessJ1, coop_sphere_correlation, coop_sphere_correlation_init, coop_get_normalized_Plm_array
 
 
 
@@ -1139,7 +1139,7 @@ contains
     end select
   end function coop_legendreP
 
-  subroutine sphere_correlation_init(lmax, als, bls)
+  subroutine coop_sphere_correlation_init(lmax, als, bls)
     COOP_INT lmax, l
     COOP_REAL als(0:lmax), bls(0:lmax)
     als(0) = 1.d0/coop_4pi
@@ -1148,9 +1148,9 @@ contains
        als(l) = (2*l+1.d0)/l
        bls(l) = -(l-1.d0)/(2*l-3.d0)*(2*l+1.d0)/l
     enddo
-  end subroutine sphere_correlation_init
+  end subroutine coop_sphere_correlation_init
 
-  function Sphere_Correlation(lmax, Cls, als, bls, x) result(s) !!x = cos(theta)  !!I assume lmax>=1
+  function coop_Sphere_Correlation(lmax, Cls, als, bls, x) result(s) !!x = cos(theta)  !!I assume lmax>=1
     !!als and bls are auxilliary arrays. You need to initialize them using Sphere_Correlation_init(lmax, als, bls)
     COOP_INT lmax
     COOP_REAL Cls(0:lmax), als(0:lmax), bls(0:lmax), x
@@ -1163,7 +1163,7 @@ contains
        Pls = (/ Pls(2), als(l) * x * Pls(2) + bls(l)*Pls(1) /)
        s = s + Cls(l)*Pls(2)
     enddo
-  end function Sphere_Correlation
+  end function Coop_Sphere_Correlation
 
   !! return sqrt(4 pi / (2l + 1) ) * Y_l^m (arccos x, 0)
   recursive function Coop_normalized_plm(l, m, x) result(Plm)
@@ -1476,15 +1476,25 @@ contains
   subroutine coop_get_normalized_Plm_array(m, lmax, x, Plms)
     COOP_INT m, lmax, l
     COOP_REAL Plms(0:lmax), x
-    Plms(0:min(m-1, lmax)) = 0.d0
-    if(lmax .lt. m) return
-    Plms(m) = (4.d0*(1.d0-x**2))**(m/2.d0)*dexp(log_gamma(m+0.5d0)-log_gamma(2*m+1.d0)/2.d0)/coop_sqrtpi
-    if(mod(m,2).ne.0) Plms(m) = - Plms(m)
-    if(lmax .le. m) return    
-    Plms(m+1) = sqrt(2*m+1.d0)*x*Plms(m)
-    do l= m+2, lmax
-       Plms(l)  = ((2*l-1)*x*Plms(l-1)-sqrt((l-m-1.d0)*(l+m-1.d0))*Plms(l-2))/(dsqrt((l-m)*dble(l+m)))
-    enddo
+    if(m.eq.0)then
+       Plms(0) = 1.d0
+       if(lmax.le.0)return
+       Plms(1) = x
+       if(lmax.le.1)return
+       do l=2, lmax
+          Plms(l)  = ((2*l-1)*x*Plms(l-1)- (l-1)*Plms(l-2))/l
+       enddo
+    else
+       Plms(0:min(m-1, lmax)) = 0.d0
+       if(lmax .lt. m) return
+       Plms(m) = (4.d0*(1.d0-x**2))**(m/2.d0)*dexp(log_gamma(m+0.5d0)-log_gamma(2*m+1.d0)/2.d0)/coop_sqrtpi
+       if(mod(m,2).ne.0) Plms(m) = - Plms(m)
+       if(lmax .le. m) return    
+       Plms(m+1) = sqrt(2*m+1.d0)*x*Plms(m)
+       do l= m+2, lmax
+          Plms(l)  = ((2*l-1)*x*Plms(l-1)-sqrt((l-m-1.d0)*(l+m-1.d0))*Plms(l-2))/(dsqrt((l-m)*dble(l+m)))
+       enddo
+    endif
   end subroutine coop_get_normalized_Plm_array
 
 !! return sqrt((l-m)!/(l+m)!) P_l^m(x)

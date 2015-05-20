@@ -59,7 +59,6 @@ program massive_stack
      write(*,*) "./SST sevem     1024 T  1.  300  self    hc0  T S T T"
      stop
   endif
-  coop_healpix_warning = .false.
   cc_method = trim(coop_inputArgs(1))
   select case(trim(cc_method))
   case("smica","sevem","nilc")
@@ -171,15 +170,15 @@ program massive_stack
 
 
   if(ind_done .lt. n_sim)then 
-     call imask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
+     call imask%read(imask_file, nmaps_wanted = 1)
      allocate(imask_logic(0:imask%npix-1))
      imask_logic = (imask%map(0:imask%npix-1, 1).gt. 0.5)
-     imask%mask_npix = count(imask_logic)
      imask_copy = imask
      if(do_nest) call imask%convert2nested()
-     sumimask = imask%mask_npix
+     sumimask =   count(imask_logic)
+
      if(trim(stack_field_name).eq."QU")then
-        call polmask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )
+        call polmask%read(polmask_file, nmaps_wanted = 1)
         if(do_nest) call polmask%convert2nested()
      endif
   endif
@@ -306,7 +305,7 @@ contains
     endif
     if(imap%nmaps .eq. 3)then
        call imap%regularize_in_mask(imask_copy, 1)
-       call imap%iqu2TQTUT()
+       call imap%get_QU()
     endif
     if(remove_mono)imap%map(:, 1) = imap%map(:, 1) - sum(dble(imap%map(:, 1)), mask = imask_logic)/sumimask
     if(do_nest) call imap%convert2nested()
@@ -317,10 +316,10 @@ contains
     COOP_INT i
     if(polloaded) return
     if(i.eq.0)then
-       call polmap%read(polmap_file, nmaps_wanted = 2, spin = (/ 2 , 2 /) )
+       call polmap%read(polmap_file, nmaps_wanted = 2)
     else
-       call polmap%read(trim(mapdir)//"cmb/pol/"//trim(cc_method)//"/dx11_v2_"//trim(cc_method)//"_"//trim(polcase)//"_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//"_hp_20_40"//trim(postfix), nmaps_wanted = 2, spin = (/ 2, 2 /) )
-       call polnoise%read(trim(mapdir)//"noise/pol/"//trim(cc_method)//"/dx11_v2_"//trim(cc_method)//"_"//trim(polcase)//"_noise_mc_"//trim(coop_Ndigits(i-1, 5))//"_hp_20_40"//trim(postfix), nmaps_wanted = 2, spin = (/ 2 , 2 /) )
+       call polmap%read(trim(mapdir)//"cmb/pol/"//trim(cc_method)//"/dx11_v2_"//trim(cc_method)//"_"//trim(polcase)//"_cmb_mc_"//trim(coop_Ndigits(i-1, 5))//"_hp_20_40"//trim(postfix), nmaps_wanted = 2)
+       call polnoise%read(trim(mapdir)//"noise/pol/"//trim(cc_method)//"/dx11_v2_"//trim(cc_method)//"_"//trim(polcase)//"_noise_mc_"//trim(coop_Ndigits(i-1, 5))//"_hp_20_40"//trim(postfix), nmaps_wanted = 2)
        polmap%map = polmap%map + polnoise%map
     endif
     if(do_nest) call polmap%convert2nested()

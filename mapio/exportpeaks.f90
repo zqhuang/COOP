@@ -71,11 +71,11 @@ program Exp_spots
   end select
   if(use_mask)then
      if( sto%mask_int .and. .not. sto%mask_pol)then
-        call mask%read(imask_file, nmaps_wanted = 1, spin = (/ 0 /) )
+        call mask%read(imask_file, nmaps_wanted = 1)
      elseif( sto%mask_pol .and. .not. sto%mask_int)then
-        call mask%read(polmask_file, nmaps_wanted = 1, spin = (/ 0 /) )
+        call mask%read(polmask_file, nmaps_wanted = 1)
      elseif(trim(mask_file_force_to_use).ne."")then
-        call mask%read(mask_file_force_to_use, nmaps_wanted = 1, spin = (/ 0 /) )
+        call mask%read(mask_file_force_to_use, nmaps_wanted = 1)
         write(*,*) "Using forced mask: "//trim(mask_file_force_to_use)
      else
         stop "For unknown class of peaks you need to specify the mask file explicitly"

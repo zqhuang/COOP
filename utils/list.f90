@@ -1426,14 +1426,19 @@ contains
   end subroutine coop_dictionary_update
 
 
-  subroutine coop_dictionary_lookup_string(dict, key, val)
+  subroutine coop_dictionary_lookup_string(dict, key, val, default_val)
     class(coop_dictionary):: dict
     COOP_UNKNOWN_STRING, intent(IN):: key
     COOP_UNKNOWN_STRING, intent(OUT)::val
+    COOP_UNKNOWN_STRING, optional::default_val
     COOP_INT ind
     ind = coop_dictionary_key_index(dict, key)
     if(ind .eq. 0)then
-       val = ""
+       if(present(default_val))then
+          val = trim(default_val)
+       else
+          val = ""
+       endif
     else
        val = trim(dict%val(ind))
     endif

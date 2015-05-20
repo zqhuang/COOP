@@ -14,6 +14,9 @@ program test
   implicit none
 #include "constants.h"
   type(coop_healpix_maps)::map, mask
+  type(coop_file)::fp
+  COOP_STRING::line
+  COOP_INT ::i
   call map%read("planck14/dx11_v2_smica_pol_case1_cmb_hp_20_40_010a_1024.fits")
   call mask%read("planck14/dx11_v2_smica_pol_mask_010a_1024.fits")
   map%map = map%map*1.e6
@@ -22,7 +25,6 @@ program test
      map%map(:,2) = -1.63750e30          
   end where
   call map%write("planck14/smica_masked.fits")
-!  call map%distr_nu_e(mask = mask, numin = -5.d0, numax = 8.d0, emin = 0.d0, emax = 2.d0, nnu = 50, ne = 50, output = "CMB_nue_distr.txt")
 
   
 end program test

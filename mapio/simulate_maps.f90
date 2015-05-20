@@ -24,7 +24,7 @@ program test
   if(do_highpass)then
      print*, "Warning: high-pass filter is on"
   endif
-  call map%init(nside = 512, nmaps=3, spin = (/ 0, 2, 2 /))
+  call map%init(nside = 512, nmaps=3,genre="IQU")
 
   call map%allocate_alms(lmax=lmax)
   map%Cl = 0.

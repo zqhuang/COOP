@@ -9,7 +9,7 @@ module coop_string_mod
   integer,parameter::sp = kind(1.)
   integer,parameter::dl = kind(1.d0)
 
-  public::coop_num2str,  coop_ndigits, coop_str2int, coop_str2real, coop_str2logical, coop_substr, coop_str_replace, coop_str_numalpha, coop_str2lower, coop_str2upper, coop_case_insensitive_eq, coop_file_path_of, coop_file_name_of, coop_file_add_postfix, coop_convert_to_C_string, coop_convert_to_Fortran_String, coop_data_type, coop_string_contain_numbers, coop_numstr2goodstr, coop_num2goodstr
+  public::coop_num2str,  coop_ndigits, coop_str2int, coop_str2real, coop_str2logical, coop_substr, coop_str_replace, coop_str_numalpha, coop_str2lower, coop_str2upper, coop_case_insensitive_eq, coop_file_path_of, coop_file_name_of, coop_file_add_postfix, coop_convert_to_C_string, coop_convert_to_Fortran_String, coop_data_type, coop_string_contain_numbers, coop_numstr2goodstr, coop_num2goodstr, coop_string_strip_quotes
 
   Interface coop_num2str
      module procedure coop_int2str, coop_real2str, coop_logical2str, coop_double2str
@@ -508,6 +508,27 @@ contains
     return
   end function coop_data_type
 
-
+  function coop_string_strip_quotes(str) result(restr)
+    COOP_UNKNOWN_STRING::str
+    COOP_STRING::restr
+    COOP_INT::istart, iend, ic
+    ic = scan(str, "/")
+    if(ic .eq. 0)then
+       ic  = len_trim(str)
+    else
+       ic = ic - 1
+       if(ic.eq.0)then
+          restr = ""
+          return
+       endif
+    endif
+    istart = verify(str(1:ic), " '""")
+    iend = verify(str(1:ic)," '""", .true.)
+    if(istart .le.iend)then
+       restr  = str(istart:iend)
+    else
+       restr = ""
+    endif
+  end function coop_string_strip_quotes
 
 end module coop_string_mod

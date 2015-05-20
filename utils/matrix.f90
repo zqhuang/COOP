@@ -34,6 +34,7 @@ module coop_matrix_mod
   end type coop_covmat
 
 
+
   interface coop_write_matrix
      module procedure coop_write_matrix_s, coop_write_matrix_d
   end interface coop_write_matrix
@@ -430,8 +431,8 @@ contains
        call coop_matsym_cholesky_invert(n, a)
        call coop_matsym_invcholesky2inv(n, a)
        do i=1,n
-          a(i,:) = a(i,:)*sigma(i)
-          a(:, i) = a(:, i)*sigma(i)
+          a(i,:) = a(i,:)/sigma(i)
+          a(:, i) = a(:, i)/sigma(i)
        enddo
 #endif
     end select
@@ -440,10 +441,24 @@ contains
 
   subroutine Coop_matsym_Inverse(A)
     !! Invert a positive definite symetric matrix
-    COOP_INT n
+    COOP_INT n, i
     COOP_REAL ,dimension(:,:),intent(inout):: A
+    COOP_REAL,dimension(:),allocatable::sigma
     n = Coop_getdim("Coop_matsym_Inverse", size(A,1), size(A,2))
-    call coop_matsym_inverse_small(n, a)
+    allocate(sigma(n))
+    do i=1,n
+       sigma(i) = sqrt(a(i,i))
+       a(i,:) = a(i,:)/sigma(i)
+       a(:, i) = a(:, i)/sigma(i)
+    enddo
+    call coop_matsym_cholesky(n, a)
+    call coop_matsym_cholesky_invert(n, a)
+    call coop_matsym_invcholesky2inv(n, a)
+    do i=1,n
+       a(i,:) = a(i,:)/sigma(i)
+       a(:, i) = a(:, i)/sigma(i)
+    enddo
+    deallocate(sigma)
   end subroutine Coop_matsym_Inverse
 
 
@@ -1427,8 +1442,6 @@ contains
     rotmeans =  matmul(matmul(rot, rotmeans), transpose(rot))
     R = coop_matrix_dominant_eigen_value(n, rotmeans, 1.d-3)
   end function coop_GelmanRubin_R
-
-  
 
 end module Coop_matrix_mod
 
