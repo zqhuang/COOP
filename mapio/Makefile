@@ -98,7 +98,7 @@ Shells: $(OBJ) shells.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) shells.o $(LINK)	
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots UDG Stack MSMAP SimuMaps Shells SST MST ByProd GetInfo GetTheo GetPeaks Rotate Corr
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots UDG Stack MSMAP SimuMaps Shells SST MST ByProd GetInfo GetTheo GetPeaks Rotate Corr Inpaint
 
 
 
@@ -107,6 +107,8 @@ gettheo.o: $(LIB) $(OBJ)
 sstack.o: $(LIB) $(OBJ)
 
 test.o: $(LIB) $(OBJ)
+
+testinp.o: $(LIB) $(OBJ)
 
 exportpeaks.o: $(LIB) $(OBJ)
 
@@ -119,8 +121,6 @@ flat_stack.o: $(LIB) $(OBJ)
 flat_merge.o: $(LIB) $(OBJ)
 
 trimcmp.o: $(LIB) $(OBJ)
-
-multstack.o: $(LIB) $(OBJ)
 
 map_merge_split.o: $(LIB) $(OBJ)
 
