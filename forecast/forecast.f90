@@ -841,7 +841,7 @@ contains
           this%invcov(3,1) = this%invcov(1,3)
           this%invcov(2,3) = this%omch2_sigma*this%theta_sigma*this%corr_omch2_theta
           this%invcov(3,2) = this%invcov(2,3)
-          call coop_matsym_inverse_small(3, this%invcov)
+          call coop_sympos_inverse(3, 3, this%invcov)
           this%has_invcov = .true.
        endif
        vec = (/ mcmc%cosmology%ombh2 -this%ombh2_center, &
@@ -1298,7 +1298,7 @@ contains
           call coop_string_to_list(line, sl)
           ncov = sl%n
           allocate(cov_read(ncov, ncov), ind_read(ncov))
-          call coop_read_matrix(fp%unit, ncov, ncov, cov_read, success)
+          call coop_read_matrix(fp%unit, cov_read, ncov, ncov, success)
           call fp%close()
           if(success)then
              do i = 1, ncov

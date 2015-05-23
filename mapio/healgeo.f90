@@ -29,9 +29,10 @@ module coop_healpix_mod
   logical::coop_healpix_patch_default_want_caption = .true.
   logical::coop_healpix_patch_default_want_label = .true.
   logical::coop_healpix_patch_default_want_arrow = .true.
-  COOP_REAL,parameter::coop_inpaint_mask_threshold = 0.95d0
-  COOP_REAL,parameter::coop_inpaint_refine_factor = 8
-  COOP_REAL,parameter::coop_inpaint_refine_factor_sq = coop_inpaint_refine_factor**2
+  COOP_INT, parameter:: coop_inpaint_nside_start = 2
+  COOP_SINGLE,parameter::coop_inpaint_mask_threshold = 0.2
+  COOP_INT,parameter::coop_inpaint_refine_factor = 1
+  COOP_INT,parameter::coop_inpaint_refine_factor_sq = coop_inpaint_refine_factor**2
     
   
   public::coop_fits_to_header, coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask, coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade
@@ -172,20 +173,28 @@ module coop_healpix_mod
      COOP_INT::lmax = -1
      COOP_INT::ncorr = 0
      COOP_REAL::dtheta = 0.d0
+     COOP_INT::nMT = 0
+     COOP_INT::ncT = 0
+     COOP_INT::base_nside = 0
      COOP_REAL,dimension(:),allocatable::als, bls, Cls     
      COOP_REAL,dimension(:),allocatable::corr
      COOP_REAL,dimension(:,:),allocatable::vec
      logical,dimension(:),allocatable::lask
      type(coop_healpix_maps),pointer::map => null()
      type(coop_healpix_maps),pointer::mask => null()
-     type(coop_healpix_maps)::lMT, lcT, hMT, hcT, lM, hM, hc, lc
+     type(coop_healpix_maps)::lMT, lcT, hM, lM
+     COOP_REAL, dimension(:,:), allocatable::Fmean
+     COOP_REAL, dimension(:,:), allocatable::Ffluc     
+     COOP_SINGLE, dimension(:), allocatable::mean
+     COOP_INT, dimension(:), allocatable::indMT, indCT, iiMT, iiCT
    contains
      procedure::free => coop_healpix_inpaint_free
-     procedure::start => coop_healpix_inpaint_start
+     procedure::init => coop_healpix_inpaint_init
      procedure::upgrade => coop_healpix_inpaint_upgrade     
      procedure::set_corr => coop_healpix_inpaint_set_corr
      procedure::eval_cov => coop_healpix_inpaint_eval_cov
-     procedure::h_corr => coop_healpix_inpaint_h_corr     
+     procedure::h_corr => coop_healpix_inpaint_h_corr
+     procedure::lask2mask => coop_healpix_inpaint_lask2mask
   end type coop_healpix_inpaint
   
 
@@ -3374,15 +3383,23 @@ contains
     if(allocated(this%bls))deallocate(this%bls)
     if(allocated(this%cls))deallocate(this%cls)
     if(allocated(this%vec))deallocate(this%vec)
-    call this%hMT%free()
-    call this%hcT%free()
+    if(allocated(this%Fmean))deallocate(this%Fmean)
+    if(allocated(this%Ffluc))deallocate(this%Ffluc)    
+    if(allocated(this%mean))deallocate(this%mean)
+    if(allocated(this%indMT))deallocate(this%indMT)
+    if(allocated(this%indCT))deallocate(this%indCT)
+    if(allocated(this%iiMT))deallocate(this%iiMT)
+    if(allocated(this%iiCT))deallocate(this%iiCT)            
     call this%lMT%free()
     call this%lcT%free()
     call this%hM%free()
-    call this%lM%free()    
+    call this%lM%free()
     this%lmax = -1
     this%ncorr = 0
     this%dtheta = 0.d0
+    this%nMT = 0
+    this%ncT = 0
+    this%base_nside = 0
   end subroutine coop_healpix_inpaint_free
 
   subroutine coop_healpix_inpaint_set_corr(this, lmax, Cls)
@@ -3391,22 +3408,23 @@ contains
     COOP_REAL,dimension(:),optional::Cls
     COOP_REAL,dimension(:),allocatable::Cls_smooth
     COOP_INT::l, i
-    COOP_REAL::theta
+    COOP_REAL::thetasq
 #ifdef HAS_HEALPIX
     if(present(lmax) .and. present(Cls))then
        if(this%lmax .ge. 0) deallocate(this%als, this%bls, this%cls)
        this%lmax = lmax
        allocate(this%als(0:lmax), this%bls(0:lmax), this%cls(0:lmax))
-       call coop_sphere_correlation_init(this%lmax, this%als, this%bls)       
+       call coop_sphere_correlation_init(this%lmax, this%als, this%bls)
+       this%cls = cls
     endif
-    this%ncorr = max(min(this%lmax*4, this%hMT%nside*6), 64)
+    this%ncorr = max(min(this%lmax*4, this%hM%nside*6), 64)
     this%dtheta = coop_pi/this%ncorr
     if(allocated(this%corr))deallocate(this%corr)
     allocate(this%corr(0:this%ncorr))
     allocate(cls_smooth(0:this%lmax))
-    theta = 2.d0*sin((1.d0/coop_sqrt3/2.d0)/this%hMT%nside)
+    thetasq = coop_4pi/this%hM%npix/7.2d0
     do l = 0, this%lmax
-       cls_smooth(l) = this%cls(l)*coop_bessj0((l+0.5d0)*theta)**2
+       cls_smooth(l) = this%cls(l)*exp(-l*(l+1.d0)*thetasq)
     enddo
     !$omp parallel do 
     do i=0, this%ncorr
@@ -3415,12 +3433,13 @@ contains
     !$omp end parallel do
     deallocate(cls_smooth)
     if(allocated(this%vec))then
-       if(size(this%vec, 2) .eq. this%hMT%npix) return
+       if(size(this%vec, 2) .eq. this%hM%npix) return
+       deallocate(this%vec)
     endif
-    allocate(this%vec(3, 0:this%hMT%npix-1))
+    allocate(this%vec(3, 0:this%hM%npix-1))
     !$omp parallel do
-    do i=0, 12*nside**2-1
-       call pix2vec_nest(nside, i, this%vec(:, i))
+    do i=0, this%hM%npix-1
+       call pix2vec_nest(this%hM%nside, i, this%vec(:, i))
     enddo
     !$omp end parallel do
 #endif    
@@ -3430,7 +3449,7 @@ contains
   function coop_healpix_inpaint_h_corr(this, i, j) result(c)
     class(coop_healpix_inpaint)::this
     COOP_REAL :: x, c, ri
-    COOP_INT :: i, j
+    COOP_INT :: i, j, loc
     x = dot_product(this%vec(:, i), this%vec(:, j))
     if(x .ge. 0.99999999d0)then
        c = this%corr(0)
@@ -3441,108 +3460,245 @@ contains
        return
     endif
     ri = acos(x)/this%dtheta
-    i = floor(ri)
-    ri = ri - i
-    c = this%corr(i)*(1.d0-ri) + this%corr(i+1)*ri
+    loc = floor(ri)
+    ri = ri - loc
+    c = this%corr(loc)*(1.d0-ri) + this%corr(loc+1)*ri
   end function coop_healpix_inpaint_h_corr
 
-  subroutine coop_healpix_inpaint_eval_cov(this, i, j, mm, cc, mc, cm) 
+  subroutine coop_healpix_inpaint_eval_cov(this, i, j, mm, cc, mc, cm, cf,mf, ff) 
     class(coop_healpix_inpaint)::this    
-    COOP_REAL::mm, mc, cc,cm, tmp
+    COOP_REAL,optional::mm, mc, cc,cm, cf, mf, ff
+    COOP_REAL::tmp
     logical::do_single
     COOP_INT::i, j, ii, jj
-    mm = 0.d0
-    mc = 0.d0
-    cc = 0.d0
-    cm = 0.d0
-    if(this%lM%map(i, 1) .eq. 0.)then  !!mm and mc vanishes
-       if(this%lM%map(j, 1).eq. 0.)then
-          do ii=i*coop_inpaint_refine_factor_sq, (i+1)*coop_inpaint_refine_factor_sq-1
-             do jj=j*coop_inpaint_refine_factor_sq, (j+1)*coop_inpaint_refine_factor_sq-1
-                cc =  cc  + this%h_corr(ii, jj)
-             enddo
-          enddo
-       elseif(this%lc%map(j, 1) .eq. 0.)then
-          do ii=i*coop_inpaint_refine_factor_sq, (i+1)*coop_inpaint_refine_factor_sq-1
-             do jj=j*coop_inpaint_refine_factor_sq, (j+1)*coop_inpaint_refine_factor_sq-1
-                cm =  cm  + this%h_corr(ii, jj)
-             enddo
-          enddo
-       else
-          do ii=i*coop_inpaint_refine_factor_sq, (i+1)*coop_inpaint_refine_factor_sq-1
-             do jj=j*coop_inpaint_refine_factor_sq, (j+1)*coop_inpaint_refine_factor_sq-1
-                tmp =  this%h_corr(ii, jj)
-                cc =  cc + this%hc%map(jj, 1)*tmp
-                cm =  cm + this%hM%map(jj, 1)*tmp
-             enddo
-          enddo
-       endif
-    elseif(this%lc%map(i, 1).eq.0.)then
-       if(this%lM%map(j, 1).eq.0.)then
-          do ii=i*coop_inpaint_refine_factor_sq, (i+1)*coop_inpaint_refine_factor_sq-1
-             do jj=j*coop_inpaint_refine_factor_sq, (j+1)*coop_inpaint_refine_factor_sq-1
-                mc =  mc  + this%h_corr(ii, jj)
-             enddo
-          enddo
-       elseif(this%lc%map(j, 1).eq.0.)then
-          do ii=i*coop_inpaint_refine_factor_sq, (i+1)*coop_inpaint_refine_factor_sq-1
-             do jj=j*coop_inpaint_refine_factor_sq, (j+1)*coop_inpaint_refine_factor_sq-1
-                mm =  mm  + this%h_corr(ii, jj)
-             enddo
-          enddo
-       else
-          do ii=i*coop_inpaint_refine_factor_sq, (i+1)*coop_inpaint_refine_factor_sq-1
-             do jj=j*coop_inpaint_refine_factor_sq, (j+1)*coop_inpaint_refine_factor_sq-1
-                tmp =  this%h_corr(ii, jj)
-                mc =  mc + this%hc%map(jj, 1)*tmp
-                mm =  mm + this%hM%map(jj, 1)*tmp
-             enddo
-          enddo
-       endif
-    else
-       if(this%lM%map(j, 1).eq.0.)then
-          do ii=i*coop_inpaint_refine_factor_sq, (i+1)*coop_inpaint_refine_factor_sq-1
-             do jj=j*coop_inpaint_refine_factor_sq, (j+1)*coop_inpaint_refine_factor_sq-1
-                tmp =  this%h_corr(ii, jj)
-                cc =  cc  + this%hc%map(ii,1)*tmp
-                mc = mc + this%hm%map(ii,1)*tmp
-             enddo
-          enddo
-       elseif(this%lc%map(j, 1).eq. 0.)then
-          do ii=i*coop_inpaint_refine_factor_sq, (i+1)*coop_inpaint_refine_factor_sq-1
-             do jj=j*coop_inpaint_refine_factor_sq, (j+1)*coop_inpaint_refine_factor_sq-1
-                tmp =  this%h_corr(ii, jj)
-                mm =  mm + this%hM%map(ii,1)*tmp
-                cm =  cm + this%hc%map(ii,1)*tmp
-             enddo
-          enddo
-       else
-          do ii=i*coop_inpaint_refine_factor_sq, (i+1)*coop_inpaint_refine_factor_sq-1
-             do jj=j*coop_inpaint_refine_factor_sq, (j+1)*coop_inpaint_refine_factor_sq-1
-                tmp =  this%h_corr(ii, jj)
-                mm =  mm + this%hM%map(ii,1)*this%hM%map(jj, 1)*tmp
-                cc =  cc  + this%hc%map(ii,1)*this%hc%map(jj, 1)*tmp
-                cm =  cm + this%hc%map(ii,1)*this%hM%map(jj, 1)*tmp
-                mc = mc + this%hm%map(ii,1)*this%hc%map(jj, 1)*tmp
-             enddo
-          enddo
-       endif
-    endif
-    mm = mm/coop_inpaint_refine_factor_sq
-    mc = mc/coop_inpaint_refine_factor_sq
-    cm = cm/coop_inpaint_refine_factor_sq
-    cc = cc/coop_inpaint_refine_factor_sq
+    if(present(mm))mm = 0.d0
+    if(present(mc))mc = 0.d0
+    if(present(cc))cc = 0.d0
+    if(present(cf))cf = 0.d0
+    if(present(mf))mf = 0.d0    
+    if(present(ff))ff = 0.d0        
+    if(present(cm))cm = 0.d0
+    do ii=i*coop_inpaint_refine_factor_sq, (i+1)*coop_inpaint_refine_factor_sq-1
+       do jj=j*coop_inpaint_refine_factor_sq, (j+1)*coop_inpaint_refine_factor_sq-1
+          tmp =  this%h_corr(ii, jj)
+          if(present(mm)) mm =  mm + this%hM%map(ii,1)*this%hM%map(jj, 1)*tmp
+          if(present(cc)) cc =  cc + (1.-this%hM%map(ii,1))*(1.-this%hM%map(jj, 1))*tmp
+          if(present(cf)) cf =  cf + (1.-this%hM%map(ii, 1))*tmp
+          if(present(mf)) mf =  mf + this%hM%map(ii, 1)*tmp          
+          
+          if(present(cm)) cm =  cm + (1.-this%hM%map(ii,1))*this%hM%map(jj, 1)*tmp
+          if(present(mc)) mc =  mc + this%hM%map(ii,1)*(1.-this%hM%map(jj, 1))*tmp
+          if(present(ff)) ff = ff + tmp
+       enddo
+    enddo
+    if(present(mm))mm = mm/dble(coop_inpaint_refine_factor_sq)**2
+    if(present(mc))mc = mc/dble(coop_inpaint_refine_factor_sq)**2
+    if(present(cm))cm = cm/dble(coop_inpaint_refine_factor_sq)**2
+    if(present(cc))cc = cc/dble(coop_inpaint_refine_factor_sq)**2
+    if(present(cf))cf = cf/dble(coop_inpaint_refine_factor_sq)**2
+    if(present(mf))mf = mf/dble(coop_inpaint_refine_factor_sq)**2    
+    if(present(ff))ff = ff/dble(coop_inpaint_refine_factor_sq)**2        
   end subroutine coop_healpix_inpaint_eval_cov
 
-  subroutine coop_healpix_inpaint_start(this)
-    class(coop_healpix_inpaint)::this
+  subroutine coop_healpix_inpaint_init(this, map, mask, lmax, Cls)
+    class(coop_healpix_inpaint)::this    
+    type(coop_healpix_maps), target::map, mask
+    COOP_INT::lmax, i, iM, ic, j, info
+    COOP_REAL::Cls(0:lmax), mindiag
+    COOP_REAL, dimension(:, :),allocatable::cov
+
+    COOP_REAL::mm
     
-  end subroutine coop_healpix_inpaint_start
-  
+    call this%free()
+    call this%lMT%init(nside = coop_inpaint_nside_start, nmaps = 1, genre = "TEMPERATURE", nested = .true.)
+    this%lcT = this%lMT
+    call this%lM%init(nside = coop_inpaint_nside_start, nmaps = 1, genre = "MASK", nested = .true.)
+    call this%hM%init(nside = coop_inpaint_nside_start*coop_inpaint_refine_factor, nmaps = 1, genre = "MASK", nested = .true.)
+    this%map => map
+    this%mask => mask
+    allocate(this%lask(0:this%mask%npix-1))
+    this%lask = (this%mask%map(:,1) .gt. 0.5)
+    this%map%map(:,1) = this%map%map(:,1)*this%mask%map(:,1) !!mask the map
+    call coop_healpix_maps_ave_udgrade(this%map, this%lMT)  !!M T at low resolution is known;
+    call this%lask2mask(this%hM)
+    call this%lask2mask(this%lM)
+    call this%set_corr(lmax, Cls)    !!set up the correlation function calculator
+
+    this%nMT = count(this%lM%map(:,1) .ge. coop_inpaint_mask_threshold)
+    this%ncT = count(this%lM%map(:,1) .le. 1.-coop_inpaint_mask_threshold)
+    
+    allocate(this%mean(this%ncT))
+    allocate(this%Ffluc(this%ncT, this%ncT), this%Fmean(this%nCT, this%nMT))
+    allocate(this%indMT(this%nMT), this%indcT(this%nCT), this%iiMT(0:this%lM%npix-1), this%iiCT(0:this%lM%npix-1))
+    this%iiMT = 0
+    this%iiCT = 0
+    iM = 0
+    ic = 0
+    do i=0, this%lM%npix-1
+       if(this%lM%map(i,1) .ge. coop_inpaint_mask_threshold)then
+          iM = iM + 1
+          this%indMT(iM) = i
+          this%iiMT(i) = iM
+       endif
+       if(this%lM%map(i,1) .le. 1.-coop_inpaint_mask_threshold)then
+          ic = ic + 1
+          this%indCT(ic) = i
+          this%iiCT(i) = ic + this%nMT 
+       endif
+    enddo
+    if(iM .ne. this%nMT .or. ic .ne. this%ncT) stop "inpaint_start: unknown error"
+    allocate(cov(this%nMT+this%ncT, this%nMT+this%ncT))
+    do i = 0, this%lM%npix-1
+       do j = 0, i
+          if(this%iiMT(i) .eq. 0)then
+             if(this%iiMT(j).eq.0)then
+                call this%eval_cov(i, j, cc = cov(this%iicT(i), this%iicT(j)))
+                cov( this%iicT(j), this%iicT(i)) = cov(this%iicT(i), this%iicT(j))                
+             elseif(this%iiCT(j) .eq. 0)then
+                call this%eval_cov(i, j, cm = cov(this%iicT(i), this%iiMT(j)))
+                cov(this%iiMT(j), this%iicT(i)) = cov(this%iicT(i), this%iiMT(j))                 
+             else
+                call this%eval_cov(i, j, cc = cov(this%iicT(i), this%iicT(j)),  cm = cov(this%iicT(i), this%iiMT(j)))
+                cov(this%iicT(j), this%iicT(i)) =  cov(this%iicT(i), this%iicT(j))
+                cov(this%iiMT(j), this%iicT(i)) = cov(this%iicT(i), this%iiMT(j))                                 
+             endif
+          elseif(this%iiCT(i) .eq. 0)then
+             if(this%iiMT(j).eq.0)then
+                call this%eval_cov(i, j, mc = cov(this%iiMT(i), this%iicT(j)))
+                cov( this%iicT(j), this%iiMT(i) ) = cov( this%iiMT(i), this%iicT(j))                
+             elseif(this%iiCT(j) .eq. 0)then
+                call this%eval_cov(i, j, mm = cov(this%iiMT(i), this%iiMT(j)))
+                cov( this%iiMT(j), this%iiMT(i) ) = cov( this%iiMT(i), this%iiMT(j))
+             else
+                call this%eval_cov(i, j, mm = cov(this%iiMT(i), this%iiMT(j)), mc = cov(this%iiMT(i), this%iicT(j)))
+                cov( this%iiMT(j), this%iiMT(i) ) = cov( this%iiMT(i), this%iiMT(j))                
+                cov( this%iicT(j), this%iiMT(i) ) = cov( this%iiMT(i), this%iicT(j))                
+             endif
+          else
+             if(this%iiMT(j).eq.0)then
+                call this%eval_cov(i, j, mc = cov(this%iiMT(i), this%iiCT(j)), cc = cov(this%iiCT(i), this%iicT(j)))
+                cov( this%iicT(j), this%iiMT(i) ) = cov( this%iiMT(i), this%iicT(j))
+                cov( this%iicT(j), this%iicT(i)) = cov(this%iicT(i), this%iicT(j))                                
+             elseif(this%iiCT(j) .eq. 0)then
+                call this%eval_cov(i, j, mm = cov(this%iiMT(i), this%iiMT(j)), cm = cov(this%iiCT(i), this%iiMT(j)))
+                cov( this%iiMT(j), this%iiMT(i) ) = cov( this%iiMT(i), this%iiMT(j))
+                cov(this%iiMT(j), this%iicT(i)) = cov(this%iicT(i), this%iiMT(j))                                 
+             else
+                call this%eval_cov(i, j, mm = cov(this%iiMT(i), this%iiMT(j)), cm = cov(this%iiCT(i), this%iiMT(j)),  mc = cov(this%iiMT(i), this%iiCT(j)), cc = cov(this%iiCT(i), this%iicT(j)))
+
+                cov( this%iicT(j), this%iiMT(i) ) = cov( this%iiMT(i), this%iicT(j))
+                cov( this%iicT(j), this%iicT(i)) = cov(this%iicT(i), this%iicT(j))
+                cov( this%iiMT(j), this%iiMT(i) ) = cov( this%iiMT(i), this%iiMT(j))
+                cov(this%iiMT(j), this%iicT(i)) = cov(this%iicT(i), this%iiMT(j))                                 
+             endif
+          endif
+       enddo
+    enddo
+    call coop_solve_constrained(m = this%nMT + this%nCT, n_known = this%nMT, n_unknown = this%nCT, dim_fmean = this%nCT, dim_ffluc = this%nCT, C = cov, Fmean = this%Fmean, Ffluc = this%Ffluc)
+    
+    this%mean = matmul(this%Fmean, this%lMT%map(this%indMT,1))
+    this%base_nside = this%lMT%nside
+    deallocate(cov)
+  end subroutine coop_healpix_inpaint_init
+
   subroutine coop_healpix_inpaint_upgrade(this)
     class(coop_healpix_inpaint)::this
-    
+    type(coop_healpix_maps)::lmap
+    COOP_INT::nside, unside, i, i1, i2, il, list(8),flist(40), nneigh, nc, last_nc, info
+    COOP_REAL::shift(3), x(37), sumc(40), cov(40, 40), Fmean(3, 40), FFluc(3,3)
+    nside = this%lCT%nside
+    if(nside .eq. this%base_nside)then
+       this%lCT%map = 0.
+       this%lCT%map(this%indCT, 1) = this%mean + matmul(this%Ffluc, coop_random_gaussian_vector(this%nCT))
+       return
+    endif
+    unside = nside*2
+    call this%lct%udgrade(nside = unside)
+    call this%lMT%init(nside = unside, nmaps = 1, genre = "TEMPERATURE", nested = .true.)
+    call coop_healpix_maps_ave_udgrade(this%map, this%lMT)
+    call this%lM%init(nside = unside, nmaps = 1, genre = "MASK", nested = .true.)
+    call this%hM%init(nside = unside*coop_inpaint_refine_factor, nmaps = 1, genre = "MASK", nested = .true.)
+    call this%lask2mask(this%lM)
+    call this%lask2mask(this%hM)
+    call this%set_corr()
+    !!now fill in
+    last_nc = 40
+    do i = 0, 12*nside**2-1
+       if(all(this%lM%map(4*i:4*i+3, 1) .ge. 1.-coop_inpaint_mask_threshold))cycle
+       call neighbours_nest(nside, i, list, nneigh)
+       nc = 4*(nneigh + 2)
+       do il = 1, nneigh
+          flist(4*il-3) = 4*list(il)
+          flist(4*il-2) = flist(4*il-3)+1
+          flist(4*il-1) = flist(4*il-2)+1
+          flist(4*il) = flist(4*il-1)+1
+       enddo
+       x(1:nc-8) = this%lMT%map(flist(1:nc-8), 1) + this%lCT%map(flist(1:nc-8), 1)
+       flist(nc - 7) = 4*i
+       flist(nc - 6) = flist(nc - 7) + 1
+       flist(nc - 5) = flist(nc - 6) + 1
+       flist(nc - 4) = flist(nc - 5) + 1
+       flist(nc-3:nc) = flist(nc-7:nc-4)
+       x(nc-7:nc-4) = this%lMT%map(flist(nc-7:nc-4),1)
+       x(nc-3) = this%lCT%map(flist(nc),1)
+
+       if(nc.ne.last_nc)then
+          last_nc = nc
+       endif
+       do i1 = 1, nc - 8 
+          do i2 = 1, i1
+             call this%eval_cov(flist(i1), flist(i2), ff = cov(i1, i2))
+             cov(i2, i1) = cov(i1, i2)
+          enddo
+       enddo
+       do i1 = nc-7, nc-4
+          do i2=1, nc-8
+             call this%eval_cov(flist(i1), flist(i2), mf = cov(i1, i2))
+             cov(i2, i1) = cov(i1, i2)             
+          enddo
+          do i2 = nc-7, i1
+             call this%eval_cov(flist(i1), flist(i2), mm = cov(i1, i2))
+             cov(i2, i1) = cov(i1, i2)                          
+          enddo
+       enddo
+       do i1=nc-3, nc
+          do i2 = 1, nc-8
+             call this%eval_cov(flist(i1), flist(i2), cf = cov(i1, i2))
+             cov(i2, i1) = cov(i1, i2)                          
+          enddo
+          do i2 = nc-7, nc-4
+             if(i2+4 .le. i1)then
+                call this%eval_cov(flist(i1), flist(i2), cm = cov(i1, i2), cc = cov(i1, i2+4))
+                cov(i2+4, i1) = cov(i1, i2+4)                
+             else
+                call this%eval_cov(flist(i1), flist(i2), cm = cov(i1, i2))
+             endif
+             cov(i2, i1) = cov(i1, i2)             
+          enddo
+       enddo
+       sumc(1:nc) = (cov(1:nc, nc-3) + cov(1:nc, nc-2) + cov(1:nc, nc-1) +cov(1:nc, nc))/4.d0
+       sumc(nc-3) = sum(sumc(nc-3:nc))/4.d0
+       cov(nc-3,1:nc) = sumc(1:nc)
+       cov(1:nc, nc-3) = sumc(1:nc)
+       call coop_solve_constrained(m = 40, n_known = nc-3, n_unknown = 3, dim_fmean = 3, dim_ffluc = 3, C=cov, Fmean =Fmean, FFluc = FFluc)
+       shift = matmul(Fmean(1:3, 1:nc-3), x(1:nc-3)) + matmul(Ffluc, coop_random_gaussian_vector(3))
+       this%lCT%map(4*i:4*i+2,1) = shift
+       this%lCT%map(4*i+3,1) = 4.d0*this%lCT%map(4*i+3,1)-sum(shift)
+    enddo
   end subroutine coop_healpix_inpaint_upgrade
+
+  subroutine  coop_healpix_inpaint_lask2mask(this, mask)
+    class(coop_healpix_inpaint)::this
+    type(coop_healpix_maps)::mask
+    COOP_INT::i, nfac
+    COOP_REAL::rfac
+    if(mask%nside .gt. this%mask%nside) stop "last2mask only supports downgrade"
+    nfac = (this%mask%nside/mask%nside)**2
+    rfac = dble(nfac)
+    do i = 0, mask%npix-1
+       mask%map(i,1) = count(this%lask(i*nfac:(i+1)*nfac-1))/rfac
+    enddo
+  end subroutine coop_healpix_inpaint_lask2mask
   
 end module coop_healpix_mod
 

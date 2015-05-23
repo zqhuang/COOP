@@ -850,9 +850,9 @@ contains
                 cov_lowk = mc%covmat(index_pp:index_pp+ind_lowk-1,index_pp:index_pp+ind_lowk-1)
                 cov_highk = mc%covmat(index_pp+ind_lowk:index_pp+numpp-2, index_pp+ind_lowk:index_pp+numpp-2)
                 cov_all = mc%covmat(index_pp:index_pp+numpp-2, index_pp:index_pp+numpp-2)
-                call coop_matsym_inverse(cov_lowk)
-                call coop_matsym_inverse(cov_highk)
-                call coop_matsym_inverse(cov_all)
+                call coop_sympos_inverse(ind_lowk, ind_lowk,cov_lowk)
+                call coop_sympos_inverse(numpp - ind_lowk-1, numpp - ind_lowk-1, cov_highk)
+                call coop_sympos_inverse(numpp-1, numpp-1, cov_all)
                 write(*,*) "number of lowk knots =", ind_lowk
                 write(*,*) "number of highk knots =", numpp - ind_lowk-1
                 do i = 1, coop_pp_nleft
@@ -886,8 +886,8 @@ contains
              allocate(cov_lowk(ind_lowk, ind_lowk), cov_highk(numpp - ind_lowk, numpp - ind_lowk))
              cov_lowk = cov_knots(1:ind_lowk, 1:ind_lowk)
              cov_highk = cov_knots(ind_lowk+1:numpp, ind_lowk+1:numpp)
-             call coop_matsym_inverse(cov_lowk)
-             call coop_matsym_inverse(cov_highk)
+             call coop_matsym_inverse(cov_lowk,ind_lowk, ind_lowk))
+             call coop_matsym_inverse(numpp - ind_lowk, numpp - ind_lowk, cov_highk)
              lnps_standard_knots = lnps_standard_knots - lnps_mean_knots
              write(*,*) "number of lowk knots =", ind_lowk
              write(*,*) "number of highk knots =", numpp - ind_lowk 

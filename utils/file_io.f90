@@ -582,7 +582,7 @@ contains
   end subroutine coop_string_decrypt
 
 
-  subroutine coop_import_matrix_d(filename, nx, ny, mat, success)
+  subroutine coop_import_matrix_d(filename, mat, nx, ny, success)
     COOP_UNKNOWN_STRING::filename
     COOP_INT nx, ny
     COOP_REAL::mat(nx, ny)
@@ -590,14 +590,14 @@ contains
     type(coop_file)::fp
     call fp%open(filename, "r")
     if(present(success))then
-       call coop_read_matrix(fp%unit, nx, ny, mat, success)
+       call coop_read_matrix(fp%unit,  mat, nx, ny, success)
     else
-       call coop_read_matrix(fp%unit, nx, ny, mat)       
+       call coop_read_matrix(fp%unit, mat, nx, ny)       
     endif
     call fp%close()
   end subroutine coop_import_matrix_d
 
-  subroutine coop_import_matrix_s(filename, nx, ny, mat, success)
+  subroutine coop_import_matrix_s(filename, mat, nx, ny, success)
     COOP_UNKNOWN_STRING::filename
     COOP_INT nx, ny
     COOP_SINGLE::mat(nx, ny)
@@ -605,9 +605,9 @@ contains
     type(coop_file)::fp
     call fp%open(filename, "r")
     if(present(success))then
-       call coop_read_matrix(fp%unit, nx, ny, mat, success)
+       call coop_read_matrix(fp%unit, mat, nx, ny, success)
     else
-       call coop_read_matrix(fp%unit, nx, ny, mat)       
+       call coop_read_matrix(fp%unit, mat, nx, ny)       
     endif
     call fp%close()
   end subroutine coop_import_matrix_s

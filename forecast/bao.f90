@@ -145,7 +145,7 @@ contains
        else
           call coop_dictionary_lookup(dict, "invcov_file", efile)
           if(trim(efile).ne."")then  !!covariance matrix
-             call coop_import_matrix(efile, this%nobs, this%nobs, this%invcov, success)
+             call coop_import_matrix(efile, this%invcov, this%nobs, this%nobs, success)
              if(.not. success) goto 100
 
              do i=1, this%nobs

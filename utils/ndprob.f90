@@ -4,6 +4,7 @@ module coop_nd_prob_mod
   use coop_file_mod
   use coop_wrapper_typedef
   use coop_MPI_mod
+  use coop_cholesky_mod
   implicit none
 #include "constants.h"  
 
@@ -39,7 +40,7 @@ contains
 
   subroutine coop_nd_prob_update(this)
     class(coop_nd_prob)::this
-    COOP_INT i1, i2, dim, i
+    COOP_INT i1, i2, dim, i, info
     COOP_REAL, dimension(:),allocatable::f
     COOP_REAL:: worst_lnlike
     this%total_mult = sum(this%mult(1:this%n))
@@ -53,8 +54,9 @@ contains
           this%x2u(i2, i1) = this%x2u(i1, i2)
        enddo
     enddo
-    call coop_matsym_cholesky(this%dim, this%x2u)
-    call coop_matsym_cholesky_invert(this%dim, this%x2u)
+    call coop_cholesky(this%dim, this%dim, this%x2u, info)
+    if(info .ne. 0) call coop_return_error("nd_prob_udpate", "x2u not positive definite", "stop")
+    call coop_cholesky_inv(this%dim, this%dim, this%x2u)
     do i = 1, this%n
        this%u(:, i) = matmul(this%x2u, this%x(:,i)-this%mean)
     enddo

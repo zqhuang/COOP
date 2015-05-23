@@ -5,13 +5,14 @@ module coop_matrix_mod
   use coop_sort_mod
   use coop_sortrev_mod
   use coop_MPI_mod
+  use coop_cholesky_mod
   implicit none
 
 #include "constants.h"
 
   private
 
-  public::coop_write_matrix, coop_print_matrix, coop_read_matrix, coop_set_identity_matrix, coop_identity_matrix, coop_diagonal_matrix, coop_matrix_add_diagonal, coop_matrix_sum_columns,  coop_matrix_solve_small,  Coop_matrix_Solve, Coop_matrix_Inverse, coop_matsym_xCx, coop_matrix_det_small,coop_matsym_mat2vec, coop_matsym_vec2mat, coop_matsym_inverse_small, Coop_matsym_Inverse, Coop_matsym_Diagonalize, coop_matsymdiag_small,  Coop_matsym_Sqrt,  coop_matsym_sqrt_small,  coop_matsym_power_small,  Coop_matsym_power,  coop_matsym_function, Coop_matsym_LnDet, Coop_matsym_Solve, coop_matsym_index, coop_matrix_sorted_svd, coop_matsym_cholesky, coop_covmat, coop_matrix_dominant_eigen_value, coop_matsym_cholesky_invert, coop_matsym_invcholesky2inv
+  public::coop_write_matrix, coop_print_matrix, coop_read_matrix, coop_set_identity_matrix, coop_identity_matrix, coop_diagonal_matrix, coop_matrix_add_diagonal, coop_matrix_sum_columns,  coop_matrix_solve_small,  Coop_matrix_Solve, Coop_matrix_Inverse, coop_matsym_xCx, coop_matrix_det_small,coop_matsym_mat2vec, coop_matsym_vec2mat, coop_matsym_Diagonalize, coop_matsymdiag_small,  Coop_matsym_Sqrt,  coop_matsym_sqrt_small,  coop_matsym_power_small,  Coop_matsym_power,  coop_matsym_function, Coop_matsym_LnDet, Coop_matsym_Solve, coop_matsym_index, coop_matrix_sorted_svd,  coop_covmat, coop_matrix_dominant_eigen_value
 
   type coop_covmat   !!assume only lower triangle is saved in C; !!invC contains full matrix; L is lower triangle Cholesky, with zero filled.
      COOP_INT::n = 0
@@ -129,10 +130,10 @@ contains
     endif
   End Subroutine Coop_print_matrix_d
 
-  Subroutine Coop_read_matrix_d(funit, nx, ny, mat, success)
+  Subroutine Coop_read_matrix_d(funit, mat, nx, ny, success)
     logical,optional::success
     COOP_INT funit,nx,ny
-    COOP_REAL  mat(nx,ny)
+    COOP_REAL  mat(:, :)
     COOP_INT i
     COOP_LONG_STRING line
     if(ny.gt. 256)then
@@ -199,10 +200,10 @@ contains
     endif
   End Subroutine Coop_print_matrix_s
 
-  Subroutine Coop_read_matrix_s(funit,nx,ny,mat, success)
+  Subroutine Coop_read_matrix_s(funit,mat, nx,ny, success)
     logical,optional::success
     COOP_INT funit,nx,ny
-    COOP_SINGLE mat(nx,ny)
+    COOP_SINGLE mat(:,:)
     COOP_INT i
     COOP_LONG_STRING line
     if(ny.gt. 256)then
@@ -400,67 +401,6 @@ contains
        enddo
     enddo
   end subroutine coop_matsym_vec2mat
-
-  subroutine coop_matsym_inverse_small(n,A)
-    COOP_INT n
-    COOP_REAL  A(n,n)
-#ifndef HAS_LAPACK
-    COOP_INT i, j
-    COOP_REAL  sigma(n)
-#endif
-    select case(n)
-    case(1)
-       A=1.d0/A
-    case(2)
-       A=ReShape( (/ A(2,2), -A(2,1), -A(1,2), A(1,1) /) / (A(1,1)*A(2,2)-A(1,2)*A(2,1)), (/ 2, 2 /) )
-    case(3)
-       A = Reshape( (/ A(2,2)*A(3,3) - A(2,3)*A(3,2), A(2,3)*A(3,1)-A(2,1)*A(3,3), A(2,1)*A(3,2)- A(2,2)*A(3,1),  &
-            A(3,2)*A(1,3)-A(1,2)*A(3,3), A(3,3)*A(1,1)-A(3,1)*A(1,3), A(1,2)*A(3,1)-A(1,1)*A(3,2), &
-            A(1,2)*A(2,3)- A(2,2)*A(1,3), A(2,1)*A(1,3)-A(1,1)*A(2,3),  A(1,1)*A(2,2)-A(1,2)*A(2,1) /), (/ 3, 3 /) ) &
-            / ( A(1,1)*(A(2,2)*A(3,3) - A(2,3)*A(3,2)) + A(1,2)*(A(2,3)*A(3,1)-A(2,1)*A(3,3)) + A(1,3)*(A(2,1)*A(3,2)- A(2,2)*A(3,1)) )
-    case default
-#ifdef HAS_LAPACK
-       call coop_matrix_sympos_inverse(a)
-#else
-       do i=1,n
-          sigma(i) = sqrt(a(i,i))
-          a(i,:) = a(i,:)/sigma(i)
-          a(:, i) = a(:, i)/sigma(i)
-       enddo
-       call coop_matsym_cholesky(n, a)
-       call coop_matsym_cholesky_invert(n, a)
-       call coop_matsym_invcholesky2inv(n, a)
-       do i=1,n
-          a(i,:) = a(i,:)/sigma(i)
-          a(:, i) = a(:, i)/sigma(i)
-       enddo
-#endif
-    end select
-  end subroutine coop_matsym_inverse_small
-
-
-  subroutine Coop_matsym_Inverse(A)
-    !! Invert a positive definite symetric matrix
-    COOP_INT n, i
-    COOP_REAL ,dimension(:,:),intent(inout):: A
-    COOP_REAL,dimension(:),allocatable::sigma
-    n = Coop_getdim("Coop_matsym_Inverse", size(A,1), size(A,2))
-    allocate(sigma(n))
-    do i=1,n
-       sigma(i) = sqrt(a(i,i))
-       a(i,:) = a(i,:)/sigma(i)
-       a(:, i) = a(:, i)/sigma(i)
-    enddo
-    call coop_matsym_cholesky(n, a)
-    call coop_matsym_cholesky_invert(n, a)
-    call coop_matsym_invcholesky2inv(n, a)
-    do i=1,n
-       a(i,:) = a(i,:)/sigma(i)
-       a(:, i) = a(:, i)/sigma(i)
-    enddo
-    deallocate(sigma)
-  end subroutine Coop_matsym_Inverse
-
 
   !!find R such that R^T H R = diag(e), and R^T R = 1
   !!EIGEN VALUES ARE STORED IN E WITH E(1)<=E(2)...(from ground state..)
@@ -693,9 +633,11 @@ contains
        acopy = a
 #ifdef HAS_LAPACK
        call dposv('L', n, 1, acopy, n, b, n, info)
+       if(info.ne.0) call Coop_return_error("coop_matsym_solve_small", "the matrix is not positive definite", "stop")
 #else
-       call Coop_matsym_cholesky(n,acopy)
-       call Coop_matsym_cholesky_solve(n,acopy,b)
+       call Coop_cholesky(n, n, acopy, info)
+       if(info.ne.0) call Coop_return_error("coop_matsym_solve_small", "the matrix is not positive definite", "stop")       
+       call Coop_cholesky_solve(n, n, acopy, b)
 #endif
     end select
   end subroutine coop_matsym_solve_small
@@ -703,13 +645,15 @@ contains
   Subroutine Coop_matsym_Solve(A,b)
     COOP_REAL ,dimension(:,:),INTENT(INOUT)::A
     COOP_REAL ,dimension(:,:),INTENT(INOUT)::b
-    COOP_INT n, m, i
+    COOP_INT n, m, info, i
     n=COOP_GETDIM("Coop_matsym_Solve",SIZE(A,1),SIZE(A,2),SIZE(b,1))
     m = size(b, 2)
 #ifdef HAS_LAPACK
-    call dposv('L', n, m, a, n, b, n, i)
+    call dposv('L', n, m, a, n, b, n, info)
+    if(info.ne.0) call Coop_return_error("coop_matsym_solve", "the matrix is not positive definite", "stop")           
 #else
-    call Coop_matsym_cholesky(n,a)
+    call Coop_cholesky(n, n, a, info)
+    if(info.ne.0) call Coop_return_error("coop_matsym_solve", "the matrix is not positive definite", "stop")               
     do i=1,m
        call Coop_matsym_cholesky_solve(n,a,b(:,i))
     enddo
@@ -791,23 +735,6 @@ contains
     x = bcopy(1:n)
     deallocate(work, bcopy)
   end subroutine coop_matrix_least_square_solve
-
-  !!calculate the inverse of a symmetric positive definite A
-  subroutine coop_matrix_sympos_inverse(A)
-    COOP_REAL ,dimension(:,:) :: A
-    COOP_INT N, info, i, j
-    n = coop_getdim("matrix_sympose_inverse", size(A,1), size(A,2))
-    call DPOTRF("L", n, A, n, info)
-    if(info.ne.0) call Coop_return_error("matrix_sympose_inverse", "the matrix is not positive definite", "stop")
-    call DPOTRI("L", n, A, n, info)
-    if(info.ne.0) call Coop_return_error("matrix_sympose_inverse", "cannot find the inverse of the matrix", "stop")
-    do i=2,n
-       do j=1,i-1
-          A(j,i)= A(i,j)
-       enddo
-    enddo
-  end subroutine coop_matrix_sympos_inverse
-
 
 
   !Does m = U diag U^T, returning U in real symmetric matrix M
@@ -985,100 +912,6 @@ contains
     endif
   end Subroutine Coop_matsymDIAGSTEP_D
 
-  !!%%%%%%%%%%%%%% CHOLESKY DECOMPOSITION %%%%%%%%%%%%%%%%%%%%%%%
-  !! decompose positive definit real symetric matrix A=LL^T,
-  !! where elements of L satisfy L(i,j)=0 if j>i
-  !! L is saved in A, A is destroyed
-  subroutine coop_matsym_cholesky(n, a, mineig, zerofill)
-    COOP_INT n, i, j
-    COOP_REAL a(n, n)    
-    COOP_REAL,optional::mineig
-    COOP_REAL::s, stol
-    COOP_REAL::sigma(n)
-    logical, optional::zerofill
-    logical zf
-    if(present(zerofill))then
-       zf= zerofill
-    else
-       zf = .true.
-    endif
-    if(present(mineig))then
-       stol = mineig **2
-    else
-       stol = 1.d-30
-    endif
-    !$omp parallel do
-    do i=1, n
-       sigma(i) = sqrt(max(a(i,i), stol))
-    enddo
-    !$omp end parallel do
-    do i=1, n
-       a(i+1:n, i) = a(i+1:n, i)/sigma(i)
-       a(i, 1:i-1) = a(i, 1:i-1)/sigma(i)
-    enddo
-    a(1,1)= 1.d0
-    do  i =2 , n
-       s = 1.d0 - sum(A(i,1:i-1)**2)
-       if(s .lt. -stol)then
-          stop "matsym_cholesky: matrix is not positive definite"
-       else
-          s = max(s, stol)
-       endif
-       A(i, i)=sqrt(s) !!L(I,I) doNE
-       do j = i+1, n  !! NOW CALCULATE L(J,I), J>=I
-          a(j, i)=(A(j, i)-sum(a(j,1:i-1)*a(i,1:i-1)))/A(i,i)
-       enddo
-       if(zf)a(1:i-1,i)=0.d0
-    enddo
-    !$omp parallel do
-    do i=1, n
-       a(i, 1:i) = a(i, 1:i)*sigma(i)
-    enddo
-    !$omp end parallel do
-  end Subroutine Coop_matsym_cholesky
-
-  Subroutine Coop_matsym_cholesky_solve(n,a,b)
-    COOP_INT n,i
-    COOP_REAL  a(n, n), b(n) 
-    b(1)=b(1)/a(1,1)
-    do i = 2,n
-       b(i)=(b(i)-sum(a(i,1:i-1)*b(1:i-1)))/a(i,i)
-    enddo
-    b(n)=b(n)/a(n, n)
-    do i=n-1,1,-1
-       b(i)=(b(i)-sum(b(i+1:n)*a(i+1:n,i)))/a(i,i)
-    enddo
-  end Subroutine Coop_matsym_cholesky_solve
-
-  subroutine coop_matsym_cholesky_invert(n, a)
-    COOP_INT::n
-    COOP_REAL::a(n, n)
-    COOP_INT i,j
-    do  i=1,n
-       a(i,i)=1.d0/a(i, i)
-       do  j=i+1,n
-          a(j,i)=-dot_product(a(j,i:j-1),a(i:j-1,i))/a(j,j)
-       enddo
-    enddo
-  end subroutine coop_matsym_cholesky_invert
-
-  subroutine coop_matsym_invcholesky2inv(n, a)
-    COOP_INT::n
-    COOP_REAL::a(n, n)
-    COOP_INT::i, j
-    !!compute C^{-1}
-    do i=1,n
-       do j=i+1,n
-          a(i,j)=dot_product(a(j:n,i),a(j:n,j))
-       enddo
-    enddo
-    do i=1,n-1
-       a(i,i)=dot_product(a(i:n,i),a(i:n,i))
-       a(i+1:n,i)=a(i,i+1:n)
-    enddo
-    a(n,n)=a(n,n)**2
-  end subroutine coop_matsym_invcholesky2inv
-  
 
   function coop_matsym_index(n, i, j) result(ind)
     COOP_INT n, i, j
@@ -1221,8 +1054,8 @@ contains
     COOP_INT i,j    
     this%invC = this%L
     !!invert L
-    call coop_matsym_cholesky_invert(this%n, this%invC)
-    call coop_matsym_invcholesky2inv(this%n, this%invC)
+    call coop_cholesky_inv(this%n, this%n, this%invC)
+    call coop_cholesky_sq(this%n, this%n, this%invC)
   end subroutine coop_covmat_invert
 
   subroutine coop_covmat_cholesky(this)
@@ -1425,7 +1258,7 @@ contains
     COOP_INT, intent(in) :: n
     COOP_REAL,intent(in) :: cov(n,n), meanscov(n,n)
     COOP_REAL:: evals(n), R
-    COOP_INT::i
+    COOP_INT::i, info
     COOP_REAL:: rot(n, n), rotmeans(n, n)
     COOP_REAL::sc
     rot = cov
@@ -1437,8 +1270,9 @@ contains
        rotmeans(i,:) = rotmeans(i,:) /sc
        rotmeans(:,i) = rotmeans(:,i) /sc
     end do
-    call coop_matsym_cholesky(n, rot)
-    call coop_matsym_cholesky_invert(n, rot)
+    call coop_cholesky(n, n, rot, info)
+    if(info .ne. 0) call coop_return_error("GelmanRubin_R", "matrix is not positive definite", "stop")
+    call coop_cholesky_inv(n, n, rot)
     rotmeans =  matmul(matmul(rot, rotmeans), transpose(rot))
     R = coop_matrix_dominant_eigen_value(n, rotmeans, 1.d-3)
   end function coop_GelmanRubin_R
