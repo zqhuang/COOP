@@ -886,8 +886,8 @@ contains
              allocate(cov_lowk(ind_lowk, ind_lowk), cov_highk(numpp - ind_lowk, numpp - ind_lowk))
              cov_lowk = cov_knots(1:ind_lowk, 1:ind_lowk)
              cov_highk = cov_knots(ind_lowk+1:numpp, ind_lowk+1:numpp)
-             call coop_matsym_inverse(cov_lowk,ind_lowk, ind_lowk))
-             call coop_matsym_inverse(numpp - ind_lowk, numpp - ind_lowk, cov_highk)
+             call coop_sympos_inverse(ind_lowk, ind_lowk, cov_lowk)
+             call coop_sympos_inverse(numpp - ind_lowk, numpp - ind_lowk, cov_highk)
              lnps_standard_knots = lnps_standard_knots - lnps_mean_knots
              write(*,*) "number of lowk knots =", ind_lowk
              write(*,*) "number of highk knots =", numpp - ind_lowk 
