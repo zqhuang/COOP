@@ -903,7 +903,7 @@ contains
        enddo
        call fp%open(trim(mc%output)//"_pwtraj_eig.txt","w")
        call fp%init(xlabel="$ k [{\rm Mpc}^{-1}]$", ylabel = "$\delta \ln \Delta_S^2$", xlog = .true. , xmin = real(exp(lnkmin - 0.01)), xmax = real(exp(lnkmax + 0.01)), width = 7.2, height = 6.)
-       call coop_matsym_diagonalize(lnpscov, lnps, sort = .true.)
+       call coop_matsym_diagonalize(nk, nk, lnpscov, lnps)
        mineig = max(lnps(1), 1.d-5)
        ytop = 0.
        j = 1
@@ -1098,7 +1098,7 @@ contains
        allocate(pcamat(mc%np_pca, mc%np_pca),eig(mc%np_pca), ipca(mc%np_pca))
        pcamat = mc%covmat(mc%pca, mc%pca)
        call coop_set_uniform(mc%np_pca, ipca, 1.d0, 1.d0*mc%np_pca)
-       call coop_matsym_diagonalize(pcamat, eig, sort=.true.) !!sort eigen values
+       call coop_matsym_diagonalize(mc%np_pca, mc%np_pca, pcamat, eig) 
        eig = sqrt(eig)
        call fp%open(trim(mc%output)//".pcamat", "w")
        write(fp%unit, "(A)") "# format is  i, sigma_i (newline) eigen vector (i = 2, 3, ...)"

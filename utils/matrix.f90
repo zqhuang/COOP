@@ -12,7 +12,7 @@ module coop_matrix_mod
 
   private
 
-  public::coop_write_matrix, coop_print_matrix, coop_read_matrix, coop_set_identity_matrix, coop_identity_matrix, coop_diagonal_matrix, coop_matrix_add_diagonal, coop_matrix_sum_columns,  coop_matrix_solve_small,  Coop_matrix_Solve, Coop_matrix_Inverse, coop_matsym_xCx, coop_matrix_det_small,coop_matsym_mat2vec, coop_matsym_vec2mat, coop_matsym_Diagonalize, coop_matsymdiag_small,  Coop_matsym_Sqrt,  coop_matsym_sqrt_small,  coop_matsym_power_small,  Coop_matsym_power,  coop_matsym_function, Coop_matsym_LnDet, Coop_matsym_Solve, coop_matsym_index, coop_matrix_sorted_svd,  coop_covmat, coop_matrix_dominant_eigen_value
+  public::coop_write_matrix, coop_print_matrix, coop_read_matrix, coop_set_identity_matrix, coop_identity_matrix, coop_diagonal_matrix, coop_matrix_add_diagonal, coop_matrix_sum_columns,  coop_matrix_solve_small,  Coop_matrix_Solve, Coop_matrix_Inverse, coop_matsym_xCx, coop_matrix_det_small,coop_matsym_mat2vec, coop_matsym_vec2mat, coop_matsym_Diagonalize,  Coop_matsym_Sqrt,  coop_matsym_sqrt_small,  coop_matsym_power_small,  Coop_matsym_power,  coop_matsym_function, Coop_matsym_LnDet, Coop_matsym_Solve, coop_matsym_index, coop_matrix_sorted_svd,  coop_covmat, coop_matrix_dominant_eigen_value, coop_solve_constrained, coop_matsym_diag
 
   type coop_covmat   !!assume only lower triangle is saved in C; !!invC contains full matrix; L is lower triangle Cholesky, with zero filled.
      COOP_INT::n = 0
@@ -405,27 +405,17 @@ contains
   !!find R such that R^T H R = diag(e), and R^T R = 1
   !!EIGEN VALUES ARE STORED IN E WITH E(1)<=E(2)...(from ground state..)
   !!EIGEN VECTORS ARE STORED IN COLUMNS OF H(:,1), H(:,2),...
-  Subroutine Coop_matsym_Diagonalize(H, e, sort)
-    COOP_REAL ,dimension(:,:)::h
-    COOP_REAL ,dimension(:)::e
-    logical,optional:: sort
-    COOP_REAL  psi(size(e),size(e))
-    COOP_INT Indx(size(E))
-    COOP_INT i, n
-    n = Coop_getdim("Coop_matsym_diagonalize",SIZE(H,1),SIZE(H,2),SIZE(E))
+  Subroutine Coop_matsym_Diagonalize(m, n, H, e)
+    COOP_INT::m, n
+    COOP_REAL::h(m, n)
+    COOP_REAL::e(n)
 #ifdef HAS_LAPACK
-    call coop_matrix_diagonalize(h, e)
-    if(present(sort))then
-       if(sort)then
-          psi = H
-          call coop_quicksortacc(e,indx)
-          do i=1,n
-             h(:,I)=psi(:,indx(I))
-          enddo
-       endif
-    endif
+    call coop_matrix_diagonalize(m,n,h,e)
 #else
-    call Coop_matsymDIAG(h,psi,1.d-8)
+    COOP_REAL  psi(n, n)
+    COOP_INT Indx(n)
+    COOP_INT i
+    call Coop_matsym_diag(m, n, h, psi, 1.d-8)
     do i = 1,N
        e(i) = h(i,i)
     enddo
@@ -436,33 +426,6 @@ contains
 #endif
 
   End Subroutine Coop_matsym_Diagonalize
-
-  subroutine coop_matsymdiag_small(n, a, psi)
-    COOP_INT n
-    COOP_REAL  a(n,n), psi(n,n)
-    COOP_REAL  s, d, theta
-    select case(n)
-    case(1)
-       psi = 1.d0
-       return
-    case(2)
-       if(a(1,2).eq.0.d0)then
-          psi = reshape( (/ 1.d0, 0.d0, 0.d0, 1.d0 /), (/ 2, 2 /) )
-          return
-       endif
-       d = sign(sqrt((a(1,1)-a(2,2))**2/4.d0+a(1,2)*a(2,1)), a(1,1)-a(2,2))
-       s = (a(1,1) + a(2,2))/2.d0
-       theta = atan2((a(1,1)-a(2,2))/2.d0 - d, a(1,2))
-       a(1,1) = (s+d)
-       a(2,1) = 0.d0
-       a(1,2) = 0.d0
-       a(2,2) = (s-d)
-       psi(:,1) = (/ cos(theta), - sin(theta) /)
-       psi(:,2) = (/ -psi(2,1), psi(1,1) /)
-    case default
-       call coop_matsymdiag(a, psi, 1.d-10)
-    end select
-  end subroutine coop_matsymdiag_small
 
 
   subroutine coop_matsym_sqrt_small(n, a)
@@ -534,24 +497,32 @@ contains
     if(present(mineig))then
        me = mineig
     else
-       me = 1.d-30
+       me = 1.d-10
     endif
 #ifdef HAS_LAPACK
-    call coop_matsym_diagonalize(a,e)
-    if(any(e .lt. -me))then
-       call Coop_return_error("Coop_matsym_power", "the matrix is not positive definite", "stop")
-    endif
-    e = (max(e, me))**alpha
+    call coop_matsym_diagonalize(n, n, a,e)
+    me = maxval(abs(e))*me
+    where (e.lt. me)
+       e = 0.d0
+    elsewhere
+       e = e**alpha       
+    end where
+
     do i=1,n
        trans(i,:) = A(:,i)*e(i)
     enddo
     A = matmul(A, trans)
 #else
     call coop_svd_decompose(n,n,a,e,trans)
+    me = maxval(abs(e))*me    
     if(any(e .lt. me))then
        call Coop_return_error("Coop_matsym_power", "the matrix is not positive definite", "stop")
     endif
-    e = (max(e, me))**alpha
+    where (e.lt. me)
+       e = 0.d0
+    elsewhere
+       e = e**alpha       
+    endwhere
     do i=1,n
        trans(:,i) = trans(:,i)*e(i)
     enddo
@@ -570,7 +541,7 @@ contains
        return
     endif
 #ifdef HAS_LAPACK
-    call coop_matsym_diagonalize(a, e)
+    call coop_matsym_diagonalize(n, n, a, e)
     do i=1,n
        trans(i,:) = A(:,i)*f(e(i))
     enddo
@@ -738,16 +709,15 @@ contains
 
 
   !Does m = U diag U^T, returning U in real symmetric matrix M
-  subroutine coop_Matrix_Diagonalize(M, diag)
-    COOP_REAL , intent(inout):: m(:,:)
-    COOP_REAL , intent(out) :: diag(:)
-    COOP_INT n
+  subroutine coop_Matrix_Diagonalize(m, n, c, diag)
+    COOP_INT::m, n
+    COOP_REAL , intent(inout):: c(m, n )
+    COOP_REAL , intent(out) :: diag(n)
     COOP_INT ierr, tmpsize
     COOP_REAL , allocatable, dimension(:) :: tmp
-    n = coop_getdim("matrix_diagonalize", size(M, 1), size(M,2), size(diag))
-    tmpsize =  3*n -1
+    tmpsize =  9*n+1
     allocate(tmp(tmpsize));
-    call DSYEV('V','U',n,m,n,diag,tmp,tmpsize,ierr) !evalues and vectors of symmetric matrix
+    call DSYEV('V','L',n,c,m,diag,tmp,tmpsize,ierr) !evalues and vectors of symmetric matrix
     if (ierr .ne. 0) call Coop_return_error("matrix_diagonalize", "cannot diagonalize", "return")
     deallocate(tmp)
   end subroutine Coop_Matrix_Diagonalize
@@ -809,35 +779,42 @@ contains
   !!matrix diagonalization; diag(eig1; eig2; ..; eign ) = R^T A R
   !!return R;
   !!return A=diag(eig1, eig2, ..., eign)
-  Subroutine Coop_matsymDIAG(A,R,PRECISION)
-    COOP_INT,parameter::MAXLOOP=200000
-    COOP_REAL ,dimension(:,:),INTENT(INOUT)::A
-    COOP_REAL ,dimension(:,:),INTENT(INOUT)::R
-    COOP_REAL  PRECISION,PREC
-    COOP_INT N,I
+  Subroutine Coop_matsym_diag(m, n, a, R, precision)
+    COOP_INT m,n, i    
+    COOP_INT,parameter::MAXLOOP=100000
+    COOP_REAL::a(m, n), R(n, n)
+    COOP_REAL, optional::precision
+    COOP_REAL::prec
     Logical Tag
-    N=COOP_GETDIM("Coop_matsymDIAG",SIZE(A,1),SIZE(A,2),SIZE(R,1),SIZE(R,2))
-    PREC=PRECISION*sum(abs(A))/N/N
+    if(n.eq.1.d0)then
+       R=1.d0
+       return
+    endif
+    if(present(precision))then
+       prec = precision*sum(abs(A(1:n, 1:n)))/N/N
+    else
+       prec = 1.d-6*sum(abs(A(1:n, 1:n)))/N/N       
+    endif
     R=0.d0
     do i=1,n
        R(i,i)=1.d0
     enddo
-    I=0
+    i = 0
     Tag=.true.
-
-    do while(I.lt.MAXLOOP.and.TAG)
-       call Coop_matsymDIAGSTEP_D(A,R,N,PREC,tag)
+    do while(i .lt.MAXLOOP .and. tag)
+       call Coop_matsym_diag_step(m, A, R, N, prec, tag)
        I=I+1
     enddo
-  end Subroutine Coop_matsymDIAG
+  end Subroutine Coop_matsym_diag
 
-  Subroutine Coop_matsymROTANGLE_D(A,M1,N1,tant,cost,sint)
-    COOP_REAL ,dimension(:,:),INTENT(IN)::A
+  Subroutine Coop_matsym_rotang(m, n, A, m1, n1, tant,cost,sint)
+    COOP_INT m, n, m1, n1    !!m1 > n1
+    COOP_REAL ::A(m, n)
     COOP_REAL ,parameter::EPS=1.D-6
     COOP_REAL ,parameter::LARGEPAR=1.d0/EPS
-    COOP_INT M1,N1
+
     COOP_REAL  tant,cost,sint,S,S2
-    s = (A(N1,N1)-A(M1,M1))*0.5d0/A(M1,N1)
+    s = (A(n1,n1)-A(m1,m1))*0.5d0/A(m1,n1)
     s2 = s**2
     if(S2.lt.EPS)then
        tant=sign(1.d0+S2*(0.5d0-S2/8.d0),S)-S
@@ -852,46 +829,46 @@ contains
        cost=1.d0/dsqrt(1.d0 + tant**2)
     endif
     sint  = tant * cost
-  end Subroutine Coop_matsymROTANGLE_D
+  end Subroutine Coop_matsym_rotang
 
-  Subroutine Coop_matsymFINDMAX_D(A,N,M1,N1,PRECISION,TAG)
-    COOP_INT M1,N1,I,N,J
-    COOP_REAL  A(N,N)
-    COOP_REAL  PRECISION,TEMP,Y
-    logical TAG
+  Subroutine Coop_matsym_findmax(m, A,N,m1,n1,precision,tag)
+    COOP_INT m, m1, n1, n, i, j
+    COOP_REAL  A(m, n)
+    COOP_REAL  precision,temp,Y
+    logical tag
     temp = precision
     do I=2,N
        do J=1,I-1
           Y=abs(A(I,J))
-          if(Y.gt.TEMP)then
-             TEMP=Y
-             M1=I
-             N1=J
+          if(Y.gt.temp)then
+             temp=Y
+             m1=I
+             n1=J
           endif
        enddo
     enddo
     tag = (temp .gt. precision)
-  end  Subroutine Coop_matsymFINDMAX_D
+  end  Subroutine Coop_matsym_findmax
 
-  Subroutine Coop_matsymROT_D(R,N,M1,N1,cost,sint)
-    COOP_INT N,M1,N1,I
+  Subroutine Coop_matsym_rot(R,N,m1,n1,cost,sint)
+    COOP_INT n, m1, n1, i
     COOP_REAL  cost,sint
-    COOP_REAL  R(N,N),RM1(N)
-    do I=1,N
-       RM1(i)=R(i,M1)*cost-R(i,N1)*sint
-       R(i,N1)=R(i,N1)*cost+R(i,M1)*sint
+    COOP_REAL  R(N,N),Rm1(N)
+    do i = 1, n
+       Rm1(i)=R(i,m1)*cost-R(i,n1)*sint
+       R(i,n1)=R(i,n1)*cost+R(i,m1)*sint
     enddo
-    R(:,M1)=RM1
-  end Subroutine Coop_matsymROT_D
+    R(:,m1)=Rm1
+  end Subroutine Coop_matsym_rot
 
-  Subroutine Coop_matsymDIAGSTEP_D(A,R,N,PRECISION,TAG)
-    COOP_INT N,N1,M1  !!N1<M1
-    COOP_REAL  A(N,N),R(N,N),PRECISION,cost,sint,tant,TEMP
-    logical TAG
-    call Coop_matsymFINDMAX_D(A,N,M1,N1,PRECISION,TAG)
-    if(TAG)then
-       call Coop_matsymROTANGLE_D(A,M1,N1,tant,cost,sint)
-       call Coop_matsymROT_D(R,N,M1,N1,cost,sint)
+  Subroutine Coop_matsym_diag_step(m, A, R, N, precision, tag)
+    COOP_INT m, n, n1, m1  !!n1<m1
+    COOP_REAL  A(m, n),R(n, n), precision, cost,sint,tant,temp
+    logical tag
+    call Coop_matsym_findmax(m,A,N,m1,n1,precision,tag)
+    if(tag)then
+       call Coop_matsym_rotang(m, n, A,m1,n1,tant,cost,sint)
+       call Coop_matsym_rot(R,N,m1,n1,cost,sint)
        A(1:N1-1,M1)=cost*A(M1,1:N1-1)-sint*A(N1,1:N1-1)
        A(N1+1:M1-1,M1)=cost*A(M1,N1+1:M1-1)-sint*A(N1,N1+1:M1-1)
        A(M1+1:N,M1)=cost*A(M1,M1+1:N)-sint*A(N1,M1+1:N)
@@ -908,9 +885,9 @@ contains
        A(M1,M1)=A(M1,M1)-TEMP
        A(N1,N1)=A(N1,N1)+TEMP
        A(M1,N1)=0.d0
-       A(N1,M1)=0.d0
+       A(N1,M1)=0.d0       
     endif
-  end Subroutine Coop_matsymDIAGSTEP_D
+  end Subroutine Coop_matsym_diag_step
 
 
   function coop_matsym_index(n, i, j) result(ind)
@@ -1276,6 +1253,39 @@ contains
     rotmeans =  matmul(matmul(rot, rotmeans), transpose(rot))
     R = coop_matrix_dominant_eigen_value(n, rotmeans, 1.d-3)
   end function coop_GelmanRubin_R
+
+
+
+  !! for constrained problems
+  !!suppose you have a covariance matrix C for known vector x_I and unknown vector x_J, you want to construct a mapping matrix Fmean (n_J, n_I) such that mean <x_J> = Fmean x_I and a matrix Ffluc (n_J, n_J) such that \delta x_J = Ffluc (Gaussian random vector y_J)
+  !!after calling this subroutine C is destroyed
+  subroutine coop_solve_constrained(m, n_known, n_unknown, dim_fmean, dim_ffluc, C, Fmean, Ffluc, epsilon)
+    COOP_INT,intent(IN)::m, n_known, n_unknown, dim_fmean, dim_ffluc
+    COOP_INT::n
+    COOP_REAL,intent(INOUT)::C(m, n_known+n_unknown)
+    COOP_REAL,intent(OUT)::Fmean(dim_fmean, n_known), FFluc(dim_ffluc, n_unknown)
+    COOP_REAL::eig(n_known)
+    COOP_REAL::epsilon, mineig
+    COOP_INT::i, j
+    !!do cholesky for  n_known x n_known
+    n = n_unknown + n_known
+    call coop_matsym_diagonalize(m, n_known, C, eig)
+    mineig = maxval(abs(eig))*epsilon
+    where (eig.lt.mineig)
+       eig = 0.d0
+    elsewhere
+       eig = 1.d0/eig
+    end where
+    Fmean(1:n_unknown, 1:n_known) = matmul(C(n_known+1:n, 1:n_known), C(1:n_known, 1:n_known))
+    do i = 1, n_known
+       Fmean(1:n_unknown, i) = Fmean(1:n_unknown, i)*eig(i)
+    enddo
+    Fmean(1:n_unknown, 1:n_known) = matmul( Fmean(1:n_unknown, 1:n_known), transpose(C(1:n_known, 1:n_known)))
+
+    Ffluc(1:n_unknown, 1:n_unknown) = C(n_known+1:n, n_known+1:n) - matmul(Fmean(1:n_unknown, 1:n_known), transpose(C(n_known+1:n, 1:n_known)))
+    call coop_matsym_power(Ffluc, 0.5d0, mineig = epsilon)
+  end subroutine coop_solve_constrained
+  
 
 end module Coop_matrix_mod
 

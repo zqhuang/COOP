@@ -10,36 +10,11 @@ module coop_cholesky_mod
   private
 
 
-  public::coop_solve_constrained, coop_cholesky, coop_cholesky_inv, coop_cholesky_sq, coop_cholesky_solve, coop_cholesky_solve_transpose, coop_cholesky_solve_mult, coop_sympos_inverse
+  public:: coop_cholesky, coop_cholesky_inv, coop_cholesky_sq, coop_cholesky_solve, coop_cholesky_solve_transpose, coop_cholesky_solve_mult, coop_sympos_inverse, coop_sympos_clean, coop_fillzero
 
 contains
 
-  !! for constrained problems
-  !!suppose you have a covariance matrix C for known vector x_I and unknown vector x_J, you want to construct a mapping matrix Fmean (n_J, n_I) such that mean <x_J> = Fmean x_I and a matrix Ffluc (n_J, n_J) such that \delta x_J = Ffluc (Gaussian random vector y_J)
-  !!after calling this subroutine C is destroyed
-  subroutine coop_solve_constrained(m, n_known, n_unknown, dim_fmean, dim_ffluc, C, Fmean, Ffluc)
-    COOP_INT,intent(IN)::m, n_known, n_unknown, dim_fmean, dim_ffluc
-    COOP_INT::n, info
-    COOP_REAL,intent(INOUT)::C(m, n_known+n_unknown)
-    COOP_REAL,intent(OUT)::Fmean(dim_fmean, n_known), FFluc(dim_ffluc, n_unknown)
-    COOP_REAL::cI(n_known, n_known)
-    COOP_INT::i, j
-    !!do cholesky for  n_known x n_known
-    n = n_unknown + n_known
-    do i=1, n_known
-       do j=1, i
-          cI(i, j) = c(i, j)
-          cI(j, i) = c(i, j)
-       enddo
-    enddo
-    call coop_cholesky(m, n_known, C, info)
-    if(info .ne. 0) stop "solve_constrained: matrix not positive definite"
-    Fmean(1:n_unknown, 1:n_known) = C(n_known+1:n, 1:n_known)
-    call coop_cholesky_solve_transpose(m = m, n = n_known, mb = dim_fmean, neqs = n_unknown, a = C,  b = Fmean)
-    Ffluc(1:n_unknown, 1:n_unknown) = C(n_known+1:n, n_known+1:n) - matmul(Fmean(1:n_unknown, 1:n_known), transpose(C(n_known+1:n, 1:n_known)))
-    call coop_cholesky(dim_ffluc, n_unknown, FFluc, info)
-    if(info .ne. 0) stop "solve_constrained: matrix not positive definite"    
-  end subroutine coop_solve_constrained
+
 
   subroutine coop_fillzero(uplo, m, n, a)
     character uplo
@@ -58,13 +33,45 @@ contains
        stop 'fillzero: unknown uplo option'
     end select
   end subroutine coop_fillzero
-  
+
+  subroutine coop_sympos_clean(m, n, a, epsilon)
+    COOP_INT::m, n, i, j
+    COOP_REAL::a(m, n), onemeps, epsilon, tmp, incr
+    COOP_REAL::sigma(n)
+    onemeps = 1.d0-epsilon
+    do i=1, n
+       sigma(i) = sqrt(a(i,i))
+       a(i, 1:i-1) =  a(i, 1:i-1) /sigma(i)
+       a(i+1:n, i) =  a(i+1:n, i) /sigma(i)
+       a(i, i) = 1.d0
+    enddo
+    do j=1, n-1
+       do i=j+1, n
+          if(abs(a(i, j)) .lt. epsilon)then  !!add a positive definite matrix to eliminate a(i, j)
+             a(i, i) = a(i, i) + abs(a(i, j))
+             a(j, j) = a(j, j) + abs(a(i, j))
+             a(i, j)=0.d0
+          elseif(abs(a(i,j)) .gt. onemeps)then
+             tmp = sign(onemeps, a(i, j))
+             a(i, i) = a(i, i) + abs(a(i, j) - tmp)
+             a(j, j) = a(j, j) + abs(a(i, j) - tmp)             
+             a(i, j) = tmp
+          endif
+       enddo
+    enddo
+    do i=1, n
+       a(i, 1:i) =  a(i, 1:i) * sigma(i)
+       a(i:n, i) =  a(i:n, i) * sigma(i)
+    enddo
+  end subroutine coop_sympos_clean
+
   subroutine coop_cholesky(m, n, a, info)
     COOP_INT m, n, i, j, info
     COOP_REAL a(m, n), mineig
     info = 0
 #ifdef HAS_LAPACK
     call dpotrf('L', n, a, m, info)
+    call coop_fillzero('U',m, n, a)
 #else    
     if(a(1,1).le.0.d0)then
        info = 1

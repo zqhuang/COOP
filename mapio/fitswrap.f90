@@ -608,7 +608,7 @@ contains
           Cls(3, 3, l) = rin(3)!!BB
           Cls(1, 2, l) = rin(4)!!TE
           Cls(2, 1, l) = rin(4)!!TE
-          call coop_matsymdiag_small(3, Cls(:,:,l), rot(:,:,l))
+          call coop_matsym_diag(3, 3, Cls(:,:,l), rot(:,:,l))
           do i=1, 3
              sqrteig(i, l) = sqrt(Cls(i, i, l))
           enddo

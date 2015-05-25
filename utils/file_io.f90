@@ -615,22 +615,22 @@ contains
 
 
 
-  subroutine coop_export_matrix_d(filename, nx, ny, mat)
+  subroutine coop_export_matrix_d(filename, mat, nx, ny)
     COOP_UNKNOWN_STRING::filename
     COOP_INT nx, ny
     COOP_REAL::mat(nx, ny)
     type(coop_file)::fp
-    call fp%open(filename, "r")
+    call fp%open(filename, "w")
     call coop_write_matrix(fp%unit, mat, nx, ny)       
     call fp%close()
   end subroutine coop_export_matrix_d
 
-  subroutine coop_export_matrix_s(filename, nx, ny, mat)
+  subroutine coop_export_matrix_s(filename, mat, nx, ny)
     COOP_UNKNOWN_STRING::filename
     COOP_INT nx, ny
     COOP_SINGLE::mat(nx, ny)
     type(coop_file)::fp
-    call fp%open(filename, "r")
+    call fp%open(filename, "w")
     call coop_write_matrix(fp%unit, mat, nx, ny)       
     call fp%close()
   end subroutine coop_export_matrix_s  

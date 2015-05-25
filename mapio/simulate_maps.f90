@@ -10,23 +10,22 @@ program test
 
   implicit none
 #include "constants.h"
-  COOP_INT,parameter::lmax = 800
-  type(coop_healpix_maps)::map, imask, polmask, mapcopy
+  COOP_INT,parameter::lmax = 1500
+  COOP_INT,parameter::nside = 1024
+  COOP_REAL,parameter::beam_fwhm = 5.  
+  type(coop_healpix_maps)::map
   integer l, m, il
   type(coop_file)::fp
-  COOP_UNKNOWN_STRING, parameter::prefix = "simu/simu512"
+  COOP_UNKNOWN_STRING, parameter::prefix = "simu/simu"
   logical,parameter::do_highpass = .false.
-  COOP_REAL::beam_fwhm = 20.
+  COOP_REAL:: sigma
   COOP_INT,parameter::llow = 230, lupper=270
-  COOP_REAL sigma, w
   call coop_MPI_Init()
   call coop_random_init()
   if(do_highpass)then
      print*, "Warning: high-pass filter is on"
   endif
-  call map%init(nside = 512, nmaps=3,genre="IQU")
-
-  call map%allocate_alms(lmax=lmax)
+  call map%init(nside = 1024, nmaps=1, genre="TEMPERATURE", lmax = lmax)
   map%Cl = 0.
   sigma = coop_sigma_by_fwhm * beam_fwhm * coop_SI_arcmin
   
@@ -37,25 +36,20 @@ program test
      map%cl(l, :) = map%cl(l, :)*exp(-l*(l+1.d0)*sigma**2)
      if(il.ne. l) stop "wrong index"
      if(do_highpass)then
-        map%cl(l,:) = map%cl(l,:)*(coop_2pi/l/(l+1.d0)/1.e12*coop_highpass_filter(llow, lupper, l)**2 )        
+        map%cl(l,:) = map%cl(l,:)*(coop_2pi/l/(l+1.d0)*coop_highpass_filter(llow, lupper, l)**2 )        
      else
-        map%cl(l,:) = map%cl(l,:)*(coop_2pi/l/(l+1.d0)/1.e12)
+        map%cl(l,:) = map%cl(l,:)*(coop_2pi/l/(l+1.d0))
      endif
   enddo
-  mapcopy = map
-!  do il = 0, 0
-!     print*, "simulating map #", il
-!     if(coop_file_exists(trim(prefix)//"_TQTUT_"//trim(coop_ndigits(il, 5))//"_0"//COOP_STR_OF(nint(beam_fwhm))//"a_0512.fits"))cycle
-     call map%simulate()
-     if(do_highpass)then
-        call map%write(trim(prefix)//"_i_hp_"//COOP_STR_OF(llow)//"_"//COOP_STR_OF(lupper)//"_smoothed_fwhm"//COOP_STR_OF(nint(beam_fwhm))//"arcmin.fits", index_list = (/ 1 /) )                
-        call map%write(trim(prefix)//"_pol_hp_"//COOP_STR_OF(llow)//"_"//COOP_STR_OF(lupper)//"_smoothed_fwhm"//COOP_STR_OF(nint(beam_fwhm))//"arcmin.fits", index_list = (/2, 3/) )        
-     else
-        call map%write(trim(prefix)//"_i_smoothed_fwhm"//COOP_STR_OF(nint(beam_fwhm))//"arcmin.fits", index_list = (/ 1 /) )                        
-        call map%write(trim(prefix)//"_pol_smoothed_fwhm"//COOP_STR_OF(nint(beam_fwhm))//"arcmin.fits", index_list = (/2, 3/) )        
-     endif
-
-!     map%cl = mapcopy%cl
-!  enddo
-     call coop_MPI_Finalize()
+  write(*,*) "simulating maps:"
+  call map%simulate()
+  write(*,*) "maps are simulated"
+  if(do_highpass)then
+     call map%write(trim(prefix)//"_i_hp_"//COOP_STR_OF(llow)//"_"//COOP_STR_OF(lupper)//"_"//COOP_STR_OF(nside)//"_"//COOP_STR_OF(nint(beam_fwhm))//"a.fits", index_list = (/ 1 /) )                        
+   !  call map%write(trim(prefix)//"_pol_hp_"//COOP_STR_OF(llow)//"_"//COOP_STR_OF(lupper)//"_"//COOP_STR_OF(nside)//"_"//COOP_STR_OF(nint(beam_fwhm))//"a.fits", index_list = (/2, 3/) )        
+  else
+     call map%write(trim(prefix)//"_i_"//COOP_STR_OF(nside)//"_"//COOP_STR_OF(nint(beam_fwhm))//"a.fits", index_list = (/ 1 /) )                        
+     !call map%write(trim(prefix)//"_pol_"//COOP_STR_OF(nside)//"_"//COOP_STR_OF(nint(beam_fwhm))//"a.fits", index_list = (/2, 3/) )        
+  endif
+  call coop_MPI_Finalize()
 end program test
