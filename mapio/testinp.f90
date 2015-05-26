@@ -5,7 +5,7 @@ program test
 #include "constants.h"
   type(coop_healpix_maps)::map, mask, m2
   type(coop_healpix_inpaint)::inp
-  COOP_INT,parameter ::lmax = 30
+  COOP_INT,parameter ::lmax = 100
   COOP_INT,parameter ::nrun = 100 
   COOP_REAL::cls(0:lmax), Cls_ave(0:lmax)
   COOP_INT::l, ell, i, irun
@@ -30,15 +30,15 @@ program test
      call coop_prtsystime(.true.)
      call inp%init(map, mask, lmax, cls)
      do i=1, 3
-        call inp%upgrade()  
+        call inp%upgrade()
      enddo
      inp%lMT%map = inp%lCT%map + inp%lMT%map
      call inp%lMT%map2alm(lmax = lmax)
      Cls_ave(2:lmax) = Cls_ave(2:lmax)+inp%lMT%Cl(2:lmax, 1)
      call coop_prtsystime()
-     write(*,*) "deviation: ", sum(abs(Cls_ave(2:lmax)/irun/Cls(2:lmax)-1.d0))/39.d0
+     write(*,*) "deviation: ", sum(abs(Cls_ave(2:30)/irun/Cls(2:30)-1.d0))/29.d0
      call fp%open("clsout/clsout"//COOP_STR_OF(irun)//".dat", "w")
-     do l=2, lmax
+     do l=2, 30
         write(fp%unit, "(I8, 2E16.7)") l, Cls(l)*l*(l+1.d0)/coop_2pi, Cls_ave(l)*l*(l+1.d0)/coop_2pi/irun
      enddo
      call fp%close()

@@ -515,9 +515,6 @@ contains
 #else
     call coop_svd_decompose(n,n,a,e,trans)
     me = maxval(abs(e))*me    
-    if(any(e .lt. me))then
-       call Coop_return_error("Coop_matsym_power", "the matrix is not positive definite", "stop")
-    endif
     where (e.lt. me)
        e = 0.d0
     elsewhere

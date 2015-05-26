@@ -30,8 +30,8 @@ module coop_healpix_mod
   logical::coop_healpix_patch_default_want_label = .true.
   logical::coop_healpix_patch_default_want_arrow = .true.
   COOP_INT, parameter:: coop_inpaint_nside_start = 8
-  COOP_SINGLE,parameter::coop_inpaint_mask_threshold = 0.05
-  COOP_INT,parameter::coop_inpaint_refine_factor = 4
+  COOP_SINGLE,parameter::coop_inpaint_mask_threshold = 0.1
+  COOP_INT,parameter::coop_inpaint_refine_factor = 1
   
   public::coop_fits_to_header, coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask, coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade
   
@@ -3434,9 +3434,9 @@ contains
     if(allocated(this%corr))deallocate(this%corr)
     allocate(this%corr(0:this%ncorr))
     allocate(cls_smooth(0:this%lmax))
-    thetasq = coop_4pi/this%hM%npix/7.2d0
+    thetasq = 1.d0/this%hM%npix    
     do l = 0, this%lmax
-       cls_smooth(l) = this%cls(l)*exp(-l*(l+1.d0)*thetasq)
+       cls_smooth(l) = this%cls(l)/(1.d0+l*(l+1.d0)*thetasq)
     enddo
     !$omp parallel do 
     do i=0, this%ncorr
@@ -3483,34 +3483,44 @@ contains
     COOP_REAL::tmp
     logical::do_single
     COOP_INT::i, j, ii, jj, refine_sq
-    if(present(mm))mm = 0.d0
-    if(present(mc))mc = 0.d0
-    if(present(cc))cc = 0.d0
-    if(present(cf))cf = 0.d0
-    if(present(mf))mf = 0.d0    
-    if(present(ff))ff = 0.d0        
-    if(present(cm))cm = 0.d0
-    refine_sq = this%refine**2
-    do ii=i*refine_sq, (i+1)*refine_sq-1
-       do jj=j*refine_sq, (j+1)*refine_sq-1
-          tmp =  this%h_corr(ii, jj)
-          if(present(mm)) mm =  mm + this%hM%map(ii,1)*this%hM%map(jj, 1)*tmp
-          if(present(cc)) cc =  cc + (1.-this%hM%map(ii,1))*(1.-this%hM%map(jj, 1))*tmp
-          if(present(cf)) cf =  cf + (1.-this%hM%map(ii, 1))*tmp
-          if(present(mf)) mf =  mf + this%hM%map(ii, 1)*tmp          
-          
-          if(present(cm)) cm =  cm + (1.-this%hM%map(ii,1))*this%hM%map(jj, 1)*tmp
-          if(present(mc)) mc =  mc + this%hM%map(ii,1)*(1.-this%hM%map(jj, 1))*tmp
-          if(present(ff)) ff = ff + tmp
+    if(this%refine .eq. 1)then
+       tmp =  this%h_corr(i, j)
+       if(present(mm)) mm =   this%hM%map(i,1)*this%hM%map(j, 1)*tmp
+       if(present(cc)) cc =  (1.-this%hM%map(i,1))*(1.-this%hM%map(j, 1))*tmp
+       if(present(cf)) cf =  (1.-this%hM%map(i, 1))*tmp
+       if(present(mf)) mf =  this%hM%map(i, 1)*tmp          
+       if(present(cm)) cm =  (1.-this%hM%map(i,1))*this%hM%map(j, 1)*tmp
+       if(present(mc)) mc =  this%hM%map(i,1)*(1.-this%hM%map(j, 1))*tmp
+       if(present(ff)) ff =  tmp
+    else
+       if(present(mm))mm = 0.d0
+       if(present(mc))mc = 0.d0
+       if(present(cc))cc = 0.d0
+       if(present(cf))cf = 0.d0
+       if(present(mf))mf = 0.d0    
+       if(present(ff))ff = 0.d0        
+       if(present(cm))cm = 0.d0
+       refine_sq = this%refine**2
+       do ii=i*refine_sq, (i+1)*refine_sq-1
+          do jj=j*refine_sq, (j+1)*refine_sq-1
+             tmp =  this%h_corr(ii, jj)
+             if(present(mm)) mm =  mm + this%hM%map(ii,1)*this%hM%map(jj, 1)*tmp
+             if(present(cc)) cc =  cc + (1.-this%hM%map(ii,1))*(1.-this%hM%map(jj, 1))*tmp
+             if(present(cf)) cf =  cf + (1.-this%hM%map(ii, 1))*tmp
+             if(present(mf)) mf =  mf + this%hM%map(ii, 1)*tmp          
+             if(present(cm)) cm =  cm + (1.-this%hM%map(ii,1))*this%hM%map(jj, 1)*tmp
+             if(present(mc)) mc =  mc + this%hM%map(ii,1)*(1.-this%hM%map(jj, 1))*tmp
+             if(present(ff)) ff = ff + tmp
+          enddo
        enddo
-    enddo
-    if(present(mm))mm = mm/dble(refine_sq)**2
-    if(present(mc))mc = mc/dble(refine_sq)**2
-    if(present(cm))cm = cm/dble(refine_sq)**2
-    if(present(cc))cc = cc/dble(refine_sq)**2
-    if(present(cf))cf = cf/dble(refine_sq)**2
-    if(present(mf))mf = mf/dble(refine_sq)**2
-    if(present(ff))ff = ff/dble(refine_sq)**2
+       if(present(mm))mm = mm/dble(refine_sq)**2
+       if(present(mc))mc = mc/dble(refine_sq)**2
+       if(present(cm))cm = cm/dble(refine_sq)**2
+       if(present(cc))cc = cc/dble(refine_sq)**2
+       if(present(cf))cf = cf/dble(refine_sq)**2
+       if(present(mf))mf = mf/dble(refine_sq)**2
+       if(present(ff))ff = ff/dble(refine_sq)**2
+    endif
   end subroutine coop_healpix_inpaint_eval_cov
 
   subroutine coop_healpix_inpaint_init(this, map, mask, lmax, Cls)
@@ -3611,7 +3621,7 @@ contains
           endif
        enddo
     enddo
-    call coop_solve_constrained(m = this%nMT + this%nCT, n_known = this%nMT, n_unknown = this%nCT, dim_fmean = this%nCT, dim_ffluc = this%nCT, C = cov, Fmean = this%Fmean, Ffluc = this%Ffluc, epsilon = 3.d-2)
+    call coop_solve_constrained(m = this%nMT + this%nCT, n_known = this%nMT, n_unknown = this%nCT, dim_fmean = this%nCT, dim_ffluc = this%nCT, C = cov, Fmean = this%Fmean, Ffluc = this%Ffluc, epsilon = 1.d-2)
     this%mean = matmul(this%Fmean, this%lMT%map(this%indMT,1))
     this%base_nside = this%lMT%nside
     deallocate(cov)
@@ -3621,7 +3631,7 @@ contains
     class(coop_healpix_inpaint)::this
     type(coop_healpix_maps)::lmap
     COOP_INT::nside, unside, i, i1, i2, il, list(8),flist(40), nneigh, nc
-    COOP_REAL::shift(3), x(37), sumc(40), cov(40, 40), Fmean(3, 40), FFluc(3,3)
+    COOP_REAL::shift(3), x(37), sumc(40), cov(40, 40), Fmean(3, 40), FFluc(3,3),s
     logical, optional::reset
     type(coop_healpix_maps)::ltmp, htmp
     logical,dimension(:),allocatable::is_boundary
@@ -3639,8 +3649,8 @@ contains
     endif
     nside = this%lCT%nside
     if(nside .eq. this%base_nside)then
-       where(this%lM%map(:,1) .gt.  1.-coop_inpaint_mask_threshold)
-          this%lCT%map(:,1) = this%lMT%map(:,1)*(1.d0-this%lM%map(:,1))/this%lM%map(:,1)
+       where(this%lM%map(:,1) .ge.  1.-coop_inpaint_mask_threshold)
+          this%lCT%map(:,1) = this%lMT%map(:,1)* (1.d0-this%lM%map(:,1))/this%lM%map(:,1) 
        elsewhere
           this%lCT%map(:,1) = 0.
        end where
@@ -3665,10 +3675,27 @@ contains
     call htmp%convert2nested()
     call coop_healpix_maps_ave_udgrade(htmp, ltmp)
     call htmp%free()    
-    ltmp%map = ltmp%map*(1.-this%lM%map)
+    ltmp%map = ltmp%map*sqrt(1.-this%lM%map**2)
     allocate(is_boundary(0:  12*nside**2-1))
     do i = 0, 12*nside**2-1
-       is_boundary(i) = (any(this%lM%map(4*i:4*i+3, 1) .ge. 0.1 .and. this%lM%map(4*i:4*i+3, 1) .lt. 0.6 ) )
+       if(all(this%lM%map(4*i:4*i+3, 1) .ge. 1.-coop_inpaint_mask_threshold))then  !!unmasked region
+          is_boundary(i) = .false.
+          cycle
+       endif
+       if(any(this%lM%map(4*i:4*i+3, 1) .gt. coop_inpaint_mask_threshold))then
+          is_boundary(i) = .true.
+          cycle
+       endif
+       call neighbours_nest(nside, i, list, nneigh)
+       do il = 1, nneigh
+          if(any(this%lM%map(4*list(il):4*list(il)+3, 1) .gt. coop_inpaint_mask_threshold))then
+             is_boundary(i) = .true.
+             cycle
+          endif
+       enddo
+       is_boundary(i) = .false.
+    enddo
+    do i = 0, 12*nside**2-1
        if(.not. is_boundary(i)) &
             this%lCT%map(4*i:4*i+3,1) =   this%lCT%map(4*i:4*i+3,1) + ltmp%map(4*i:4*i+3,1) - sum(ltmp%map(4*i:4*i+3,1))/4.
     enddo
@@ -3740,7 +3767,7 @@ contains
              cov(i2, i1) = cov(i1, i2)
           enddo
        enddo
-       call coop_solve_constrained(m = 40, n_known = nc-3, n_unknown = 3, dim_fmean = 3, dim_ffluc = 3, C=cov, Fmean =Fmean, FFluc = FFluc, epsilon = 3.d-2)
+       call coop_solve_constrained(m = 40, n_known = nc-3, n_unknown = 3, dim_fmean = 3, dim_ffluc = 3, C=cov, Fmean =Fmean, FFluc = FFluc, epsilon = 1.d-2)
        shift =  matmul(Ffluc, coop_random_gaussian_vector(3)) + matmul(Fmean(1:3, 1:nc-3), x(1:nc-3)) 
        this%lCT%map(4*i+1:4*i+3,1) =  this%lCT%map(4*i:4*i+2,1) + shift
        this%lCT%map(4*i,1) = this%lCT%map(4*i+3,1)-sum(shift)

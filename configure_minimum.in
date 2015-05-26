@@ -3,6 +3,7 @@ PLATFORM = MacOS
 #PLATFORM = LINUX
 
 ifeq ($(PLATFORM),MacOS)
+### set it to the gfortran compiler on your MacOS
 GFORTRAN_NAME = gfortran-mp-4.8
 else
 GFORTRAN_NAME = gfortran
@@ -30,25 +31,27 @@ C_COMPILER = $(GCC_NAME)
 ########not all libraries are required  (depending on what you want to do)####
 ########set to null string for librarys that are not installed ###############
 ##############################################################################
-##LAPACK lib; for MacOS set LAPACK = APPLE
+##LAPACK lib, mandatory if you use any data (WMAP, ACT, SPT, SNLS3yr)
+
+#for MacOS set LAPACK = APPLE
 LAPACK = APPLE
 
 ##FFTW lib (v3.2 up)
 FFTW3 =
-#$(HOME)/includes/fftw3
+
 
 ## gsl lib 
 GSL =
-#$(HOME)/mathlib/gsl
 
 CLIKPATH =
-#$(HOME)/work/scilibs/COOP/forecast/plc-1.0/
 
-##cfitsio lib, mandatory if you do maps
-CFITSIO = $(HOME)/work/scilibs/cfitsio
+##cfitsio lib, mandatory if you want to analyze maps
+CFITSIO =
+#/xxx/cfitsio/
 
-##Healpix lib, mandatory if you do maps
-HEALPIX = $(HOME)/work/scilibs/Healpix
+##Healpix lib, mandatory if you want to analyze maps
+HEALPIX = 
+#/xxx/Healpix/
 
 ####################### the rest ##########################################
 #should automatically work if you are using $(IFORT_NAME) or $(GFORTRAN_NAME); 

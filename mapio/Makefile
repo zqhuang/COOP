@@ -17,6 +17,9 @@ $(LIB): $(OBJ)
 
 all: $(LIB) UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo SST
 
+LLPW:	$(OBJ) lowl_power.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) lowl_power.o $(LINK)
+
 GetTheo:  $(OBJ) gettheo.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) gettheo.o $(LINK)
 
