@@ -18,7 +18,7 @@ n = number of blocks (integer)
 =========================================================
 More about the blocks:
 ---------------------------------------------------------
-Each block can be either DOTS, LINES, CURVE, LABELS, ARROWS, CONTOUR, CLIP, LEGEND, EXTRA_AXIS, DENSITY, EXPAND
+Each block can be either DOTS, LINES, CURVE, LABELS, ARROWS, CONTOUR, CLIP, LEGEND, EXTRA_AXIS, DENSITY, EXPAND, ERRORBARS
 ---------------------------------------------------------
 Format of DOTS block
 ---------------------------------------------------------
@@ -523,6 +523,15 @@ real[] read_xy(file fin){
    if(t[1]>aymax) aymax = t[1];
    return t;}
 
+real[] read_xyerrors(file fin){
+   real t[] = fin.dimension(6);
+   if(t[0]-t[3]<axmin) axmin = t[0] - t[3];
+   if(t[0]+t[2]>axmax) axmax = t[0] + t[2];
+   if(t[1]-t[5]<aymin) aymin = t[1]-t[5];
+   if(t[1]+t[4]>aymax) aymax = t[1]+t[4];
+   return t;}
+
+
 real[] read_xyxy(file fin){
    real t[] = fin.dimension(4);
     if(t[0]<axmin) axmin = t[0];
@@ -626,6 +635,48 @@ int plot_curve(file fin){
       draw(mypic, curve, colorpen);
    return nlines; }
 
+
+// =============================================================================
+//plot errorbars
+//ERRORBARS
+//num_errorbars
+//color_type_width for error bars
+//center symbol
+//color_type_width for center
+//x, y, dx_minus, dx_plus, dy_minus, dy_plus
+int plot_errorbars(file fin){
+  int nlines = fin;
+  if(nlines <= 0 || nlines > 100000){
+    write(stdout,  'Too many points: ' + ((string) nlines) + ' points');
+    return 0;}
+  real[] pts;
+  pts = new real[6];
+  pair[] centers;
+  pair[] dpf;
+  pair[] dmf;
+  centers = new pair[nlines];
+  dpf = new pair[nlines];
+  dmf = new pair[nlines];
+  string cstr;
+  cstr = fetch_string(fin);
+  pen colorpen = pen_from_string(cstr);
+  real barsize = fin;
+  string center_symbol = fetch_string(fin);
+  cstr = fetch_string(fin);  
+  pen centerpen = pen_from_string(cstr);   
+  for (int i = 0; i< nlines; ++i){
+     pts = read_xyerrors(fin);
+     centers[i] = ( pts[0], pts[1] );
+     dpf[i] = ( pts[2], pts[4] );
+     dmf[i] = ( pts[3], pts[5] );}
+  errorbars(pic = mypic, z = centers, dp = dpf, dm = dmf, p = colorpen, size = barsize);
+  if(center_symbol == "DOT"){
+      for(int i=0; i<nlines; ++i)
+         dot(mypic, z = centers[i], p = centerpen, filltype = Fill );}
+   else if(center_symbol != ""){
+      for(int i=0; i<nlines; ++i)   
+         label(mypic, L = center_symbol, position = centers[i], align = Center, p = centerpen);}  
+  return nlines; }
 // =============================================================================
 //plot contour
 int plot_contour(file fin){
@@ -1112,6 +1163,9 @@ bool plot_block(file fin){
     else if(block == "CURVE"){
        nlines = plot_curve(fin);
        write(stdout, 'a curve is plotted from ' + ((string) nlines ) + ' points.\n');}
+    else if(block == "ERRORBARS"){
+       nlines = plot_errorbars(fin);
+       write(stdout, ((string) nlines ) + ' errorbars are plotted.\n');}
     else if(block == "CONTOUR"){
        nlines = plot_contour(fin);
        write(stdout, 'a contour is plotted from ' + ((string) nlines ) + ' points.\n');}

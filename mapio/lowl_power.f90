@@ -6,26 +6,84 @@ program test
   type(coop_healpix_maps)::map, mask, m2
   type(coop_healpix_inpaint)::inp
   COOP_INT,parameter ::lmax = 100
-  COOP_INT,parameter ::nrun = 1000 
-  COOP_REAL::cls(0:lmax), Cls_ave(0:lmax), Cls_pseudo(0:lmax)
+  COOP_INT,parameter ::nrun = 100
+  COOP_REAL,parameter::radius_deg = 10.d0
+  logical,parameter::force_output = .false.
+  COOP_STRING::mask_spot = ""
+  COOP_REAL::cls(0:lmax), Cls_sim(0:lmax, nrun), Cls_ave(0:lmax), delta_Cls(0:lmax)
   COOP_INT::l, ell, i, irun
   type(coop_file)::fp
   call coop_MPI_init()
   call coop_random_init()
-  call fp%open("planck14best_lensedCls.dat", "r")  !!fiducial Cl's
+  !!read in Cl's for fiducial LCDM model
+  call fp%open("planck14best_lensedCls.dat", "r") 
   do l=2, lmax
      read(fp%unit, *) i, Cls(l)
      Cls(l) = Cls(l)*coop_2pi/l/(l+1.d0)
   enddo  
   call fp%close()
   Cls(0:1) = 0.d0
-  Cls_ave = 0.d0
-  call map%read("planck14/dx11_v2_smica_int_cmb_010a_1024.fits")
-  call mask%read("planck14/dx11_v2_smica_int_mask_010a_1024.fits")
-  map%map = map%map*mask%map
-  call map%map2alm(lmax = lmax)
-  Cls_pseudo(0:lmax) = map%Cl(0:lmax, 1)
+
+  
+  !!read the maps
+  call map%read("planck14/dx11_v2_commander_int_cmb_040a_0256.fits")
+  call mask%read("planck14/dx11_v2_commander_int_mask_040a_0256.fits")
+
+100 write(*,*) "enter the mask spot [NEP, SEP, NCP, SCP, NGP, SGP, COLDSPOT, NONE, NASYM, SASYM]"
+  read(*,*) mask_spot
+  mask_spot = adjustl(mask_spot)
+  !!mask out a disk
+  select case(trim(mask_spot))
+  case("COLDSPOT")
+     call mask%mask_disc(l_deg = 207.8d0, b_deg = -56.3d0, r_deg = radius_deg)
+  case("NGP")
+     call mask%mask_disc(l_deg = 0.d0, b_deg = 90.d0, r_deg = radius_deg)
+  case("SGP")
+     call mask%mask_disc(l_deg = 0.d0, b_deg = -90.d0, r_deg = radius_deg)
+  case("NEP") 
+     call mask%mask_disc(l_deg = 98.d0, b_deg = 31.d0, r_deg = radius_deg)
+  case("SEP")
+     call mask%mask_disc(l_deg = 278.d0, b_deg = -31.d0, r_deg = radius_deg)
+  case("NCP")
+     call mask%mask_disc(l_deg = 123.d0, b_deg = 28.d0, r_deg = radius_deg)     
+  case("SCP")
+     call mask%mask_disc(l_deg = 303.d0, b_deg = -28.d0, r_deg = radius_deg)
+  case("NASYM")
+     call mask%mask_disc(l_deg = 212.d0, b_deg = -13.d0, r_deg = 90.d0)
+  case("SASYM")
+     call mask%mask_disc(l_deg = 32.d0, b_deg = 13.d0, r_deg = 90.d0)
+  case("NONE", "OUTPUT")
+     !do nothing
+  case default
+     write(*,*) trim(mask_spot)//": unknown mask option"
+     goto 100
+  end select
+
+  !!compute pseudo Cl's
+  map%map = map%map*mask%map  
+  !!initialize
+  !!Compute pixel-space covariance matrix from fiducial Cl's
+  !!For more serious applications you should use a full covariance matrix from FFP9 simulations  
   call inp%init(map, mask, lmax, cls)
+  if(trim(mask_spot).eq."OUTPUT" .or. force_output)then
+     call coop_prtsystime(.true.)     
+     do i=1, 5
+        call inp%upgrade()    !!nside -> 32 -> 64
+        m2 = inp%lMT
+        m2%map = inp%lCT%map + inp%lMT%map
+        call m2%write("inpainted_map_"//COOP_STR_OF(m2%nside)//".fits")            
+        print*, "nside = ", inp%lMT%nside
+        call coop_prtsystime()
+     enddo
+     where(mask%map(:,1).eq.0.)
+        map%map(:,1) = map%bad_data
+     end where
+     call map%write("original_map.fits")
+     stop
+  endif
+  !!
+  Cls_sim = 0.d0
+  Cls_ave = 0.d0
   do irun = 1, nrun
      write(*,*) "***** ensemble # ", irun, " ***********"
      call inp%upgrade(reset = .true.)  !!nside -> 16
@@ -37,15 +95,18 @@ program test
 !!$call inp%lMT%write("inpainted_map.fits")
 !!$stop     
      call inp%lMT%map2alm(lmax = lmax)
-     Cls_ave(2:lmax) = Cls_ave(2:lmax)+inp%lMT%Cl(2:lmax, 1)
-     if(mod(irun, 20).eq. 0)then
-        call fp%open("clsout/clsout"//COOP_STR_OF(irun)//".dat", "w")
-        write(fp%unit, "(A8, 3A16)") "# ell ",  "  model C_l  ", "  pseudo C_l ", " ave Cl  "
-        do l=2, lmax/2
-           write(fp%unit, "(I8, 3E16.7)") l, Cls(l)*l*(l+1.d0)/coop_2pi, Cls_pseudo(l)*l*(l+1.d0)/coop_2pi, Cls_ave(l)*l*(l+1.d0)/coop_2pi/irun
-        enddo
-        call fp%close()
-     endif
+     Cls_sim(2:lmax, irun) = inp%lMT%Cl(2:lmax, 1)
   enddo
+  do l = 2, lmax
+     Cls_ave(l) = sum(Cls_sim(l, 1:nrun))/nrun
+     delta_Cls(l)  = sqrt(sum((Cls_sim(l, 1:nrun)-Cls_ave(l))**2)/nrun + Cls(l)**2/(2.d0*l+1.d0)) !!only compute the diagonal
+  enddo
+
+  call fp%open("clsout/clsout_"//trim(mask_spot)//".dat", "w")
+  write(fp%unit, "(A8, 3A16)") "# ell ",  "  model C_l  ", " ave Cl  ", "  delta C_l "
+  do l=2, lmax/2
+     write(fp%unit, "(I8, 3E16.7)") l, Cls(l)*l*(l+1.d0)/coop_2pi, Cls_ave(l)*l*(l+1.d0)/coop_2pi,  delta_Cls(l)*l*(l+1.d0)/coop_2pi
+  enddo
+  call fp%close()
   call coop_MPI_finalize()  
 end program test

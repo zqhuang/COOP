@@ -32,6 +32,7 @@ module coop_healpix_mod
   COOP_INT, parameter:: coop_inpaint_nside_start = 8
   COOP_SINGLE,parameter::coop_inpaint_mask_threshold = 0.1
   COOP_INT,parameter::coop_inpaint_refine_factor = 1
+  COOP_REAL,parameter::coop_pixel_smooth_fudge=0.8d0
   
   public::coop_fits_to_header, coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask, coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade
   
@@ -128,6 +129,8 @@ module coop_healpix_mod
      procedure :: convert2nested => coop_healpix_convert_to_nested
      procedure :: convert2ring => coop_healpix_convert_to_ring
      procedure :: filter_alm =>  coop_healpix_filter_alm
+     !!mask
+     procedure :: mask_disc => coop_healpix_maps_mask_disc
      !!stacking stuff
      procedure :: fetch_patch => coop_healpix_fetch_patch
      procedure :: stack_on_patch => coop_healpix_stack_on_patch
@@ -171,6 +174,7 @@ module coop_healpix_mod
      COOP_INT::lmax = -1
      COOP_INT::ncorr = 0
      COOP_REAL::dtheta = 0.d0
+     COOP_REAL::sigma0 = 0.d0
      COOP_INT::nMT = 0
      COOP_INT::ncT = 0
      COOP_INT::base_nside = 0
@@ -336,9 +340,9 @@ contains
     COOP_INT::listpix(0:nside**2*12-1), nlist, pix
     COOP_REAL::theta, phi
 #ifdef HAS_HEALPIX
-    call coop_healpix_lb2ang(l_deg, b_deg, theta, phi)
     call mask%init(nside = nside, nmaps = 1, genre="MASK")
     mask%map(:,1) = 1.
+    call coop_healpix_lb2ang(l_deg, b_deg, theta, phi)    
     call mask%ang2pix(theta, phi, pix)
     call mask%query_disc(pix, r_deg*coop_SI_degree, listpix, nlist)
     mask%map(listpix(0:nlist-1), 1) = 0.
@@ -349,7 +353,16 @@ contains
 #endif    
   end subroutine coop_healpix_spot_cut_mask
 
-  
+  subroutine coop_healpix_maps_mask_disc(this, l_deg, b_deg, r_deg)
+    class(coop_healpix_maps)::this
+    COOP_REAL::l_deg, b_deg, r_deg
+    COOP_INT::listpix(0:this%npix-1), nlist, pix
+    COOP_REAL::theta, phi
+    call coop_healpix_lb2ang(l_deg, b_deg, theta, phi)    
+    call this%ang2pix(theta, phi, pix)
+    call this%query_disc(pix, r_deg*coop_SI_degree, listpix, nlist)
+    this%map(listpix(0:nlist-1), :) = 0.
+  end subroutine coop_healpix_maps_mask_disc
 
 
   subroutine coop_healpix_spot_select_mask(nside, l_deg, b_deg, r_deg, filename)
@@ -3419,7 +3432,7 @@ contains
     COOP_REAL,dimension(:),optional::Cls
     COOP_REAL,dimension(:),allocatable::Cls_smooth
     COOP_INT::l, i
-    COOP_REAL::thetasq
+    COOP_REAL::thetasq, theta
 #ifdef HAS_HEALPIX
     if(present(lmax) .and. present(Cls))then
        if(this%lmax .ge. 0) deallocate(this%als, this%bls, this%cls, this%sqrtcls)
@@ -3434,9 +3447,16 @@ contains
     if(allocated(this%corr))deallocate(this%corr)
     allocate(this%corr(0:this%ncorr))
     allocate(cls_smooth(0:this%lmax))
-    thetasq = 1.d0/this%hM%npix    
+    thetasq = coop_pixel_smooth_fudge/this%lM%npix
+    theta = sqrt(thetasq)
     do l = 0, this%lmax
-       cls_smooth(l) = this%cls(l)/(1.d0+l*(l+1.d0)*thetasq)
+       cls_smooth(l) = this%cls(l)/(1.+thetasq*l*(l+1.))
+    enddo
+    this%sigma0 = sqrt(coop_sphere_correlation(this%lmax, cls_smooth, this%als, this%bls, 1.d0))
+    thetasq = coop_pixel_smooth_fudge/this%hM%npix
+    theta = sqrt(thetasq)    
+    do l = 0, this%lmax
+       cls_smooth(l) = this%cls(l)/(1.+thetasq*l*(l+1.))
     enddo
     !$omp parallel do 
     do i=0, this%ncorr
@@ -3649,11 +3669,13 @@ contains
     endif
     nside = this%lCT%nside
     if(nside .eq. this%base_nside)then
-       where(this%lM%map(:,1) .ge.  1.-coop_inpaint_mask_threshold)
-          this%lCT%map(:,1) = this%lMT%map(:,1)* (1.d0-this%lM%map(:,1))/this%lM%map(:,1) 
-       elsewhere
-          this%lCT%map(:,1) = 0.
-       end where
+       do i = 0, this%lM%npix-1
+          if(this%lM%map(i,1) .ge.  1.-coop_inpaint_mask_threshold)then
+             this%lCT%map(i,1) = this%lMT%map(i,1)* (1.d0-this%lM%map(i,1))/this%lM%map(i,1) + this%sigma0*(1.d0-this%lM%map(i,1))*coop_random_Gaussian()
+          else
+             this%lCT%map(i,1) = 0.
+          endif
+       enddo
        this%lCT%map(this%indCT, 1) = this%mean + matmul(this%Ffluc, coop_random_gaussian_vector(this%nCT))
     endif
     if(this%lMT%nside .ge. this%map%nside)return    

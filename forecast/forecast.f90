@@ -142,7 +142,8 @@ module coop_forecast_mod
      COOP_REAL::sum_mult = 0.d0
      COOP_REAL::temperature = 1.d0
      COOP_INT::lmax = 0
-     COOP_INT::update_seconds = 100000000
+     COOP_INT::update_seconds = 0 !!this has higher priority unless not used (set to be zero)
+     COOP_INT::update_steps = 0  !!lower priority; not used if set to be zero
      COOP_INT::num_exact_calc = 0
      COOP_INT::num_approx_calc = 0     
      COOP_REAL, dimension(:,:), allocatable::Cls_scalar, Cls_tensor, Cls_lensed     
@@ -458,6 +459,7 @@ contains
   function  coop_MCMC_params_derived(this) result(derived)
     class(coop_MCMC_params)::this
     COOP_REAL:: derived(this%n_derived), phi, dlnVdphi, aeq, Q
+    if(this%n_derived .le. 0) return
     if(associated(this%cosmology))then
        derived(1) = this%cosmology%h()*100.d0
        derived(2) = this%cosmology%Omega_m
@@ -477,8 +479,12 @@ contains
     type(coop_file)::fp
     COOP_REAL:: mult, diff(this%n)
     if(this%step .eq. this%total_steps) call coop_MPI_Abort("Step = Total Steps; MPI terminating.")    
-    this%time = nint(coop_systime_sec())
-    if(this%time .lt. this%update_seconds)return
+    if(this%update_seconds .gt. 0)then
+       this%time = nint(coop_systime_sec())       
+       if(this%time .lt. this%update_seconds)return
+    else
+       if(mod(this%step, this%update_steps).ne. 0)return
+    endif
     if(this%feedback .ge. 1)write(*,*) "updating propose matrix on Node "//COOP_STR_OF(this%proc_id)//", step "//COOP_STR_OF(this%step)//", time = "//COOP_STR_OF(this%time)
     if(.not. this%do_memsave)stop "cannot update propose matrix when do_memsave is off"
     call this%covmat%alloc(this%n)  !!set sigma = 1 and the rest 0
@@ -1163,8 +1169,11 @@ contains
     this%accept = 0
     this%reject = 0
     this%step = 0
-    call coop_dictionary_lookup(this%settings, "update_seconds", this%update_seconds, 1000000000)    
-    this%update_seconds = max(this%update_seconds, 30) !!
+    call coop_dictionary_lookup(this%settings, "update_seconds", this%update_seconds, 0)
+    call coop_dictionary_lookup(this%settings, "update_steps", this%update_steps, 0)
+    if(this%update_seconds .eq. 0 .and. this%update_steps .eq. 0)then
+       this%update_seconds = 100000000 !!just do not update
+    endif
     if(this%update_seconds .gt. 3600*24*30)then
        this%do_memsave = .false.
     else
@@ -1189,7 +1198,11 @@ contains
     if(associated(this%cosmology))then
        this%n_derived = coop_n_derived_with_cosmology
     else
-       this%n_derived = coop_n_derived_without_cosmology       
+       if(this%do_general_loglike)then
+          this%n_derived = 0
+       else
+          this%n_derived = coop_n_derived_without_cosmology
+       endif
     endif
     if(allocated(this%derived_params))deallocate(this%derived_params)
     allocate(this%derived_params(this%n_derived))
@@ -1511,8 +1524,14 @@ contains
   function coop_MCMC_params_general_loglike(this) result(loglike)
     class(coop_MCMC_params)::this
     COOP_REAL::loglike
-    loglike = (this%fullparams(1)/3.d0 - this%fullparams(2))**2/2.d0 &
-         + (this%fullparams(3)/5.d0 - this%fullparams(4))**2/2.d0
+    COOP_REAL,dimension(3,3)::covmat = reshape( (/ 1.d0, 0.1d0, 0.2d0, 0.1d0, 1.d0, -0.3d0, 0.2d0, -0.3d0, 1.d0 /), (/ 3, 3/) )
+    COOP_REAL,dimension(3,3)::invcov
+    logical,save::init = .true.
+    if(init)then
+       invcov  =covmat
+       call coop_sympos_inverse(3, 3, invcov)
+    endif
+    loglike = dot_product(this%fullparams(1:3), matmul(invcov, this%fullparams(1:3)))/2.d0 + this%fullparams(4)**2/0.02d0
   end function coop_MCMC_params_general_loglike
 
 

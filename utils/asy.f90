@@ -6,7 +6,7 @@ module coop_asy_mod
   implicit none
   private
 
-  public::coop_asy, coop_asy_path, coop_asy_error_bar, coop_asy_interpolate_curve, coop_asy_gray_color, coop_asy_rgb_color, coop_asy_label, coop_asy_legend, coop_asy_legend_advance, coop_asy_dot, coop_asy_line, coop_asy_labels, coop_asy_dots, coop_asy_lines, coop_asy_contour, coop_asy_curve, coop_asy_density,  coop_asy_topaxis, coop_asy_rightaxis, coop_asy_clip, coop_asy_plot_function, coop_asy_plot_likelihood, coop_asy_curve_from_file, coop_asy_path_from_array, coop_asy_histogram, coop_asy_band
+  public::coop_asy, coop_asy_path, coop_asy_error_bar, coop_asy_errorbars, coop_asy_interpolate_curve, coop_asy_gray_color, coop_asy_rgb_color, coop_asy_label, coop_asy_legend, coop_asy_legend_advance, coop_asy_dot, coop_asy_line, coop_asy_labels, coop_asy_dots, coop_asy_lines, coop_asy_contour, coop_asy_curve, coop_asy_density,  coop_asy_topaxis, coop_asy_rightaxis, coop_asy_clip, coop_asy_plot_function, coop_asy_plot_likelihood, coop_asy_curve_from_file, coop_asy_path_from_array, coop_asy_histogram, coop_asy_band
 
 
 #include "constants.h"
@@ -51,6 +51,7 @@ module coop_asy_mod
      procedure::density => coop_asy_density_d
      procedure::xrel => coop_asy_xrel
      procedure::yrel => coop_asy_yrel
+     procedure::errorbars => coop_asy_errorbars_d
      procedure::expand => coop_asy_expand
      procedure::arrow => coop_asy_arrow_d
      procedure::arrows => coop_asy_arrows_d
@@ -77,6 +78,12 @@ module coop_asy_mod
   interface coop_asy_error_bar
      module procedure coop_asy_error_bar_s, coop_asy_error_bar_d
   end interface coop_asy_error_bar
+
+
+  interface coop_asy_errorbars
+     module procedure coop_asy_errorbars_s, coop_asy_errorbars_d
+  end interface coop_asy_errorbars
+  
 
   interface coop_asy_interpolate_curve
      module procedure coop_asy_interpolate_curve_d, coop_asy_interpolate_curve_s
@@ -2831,6 +2838,119 @@ contains
     call coop_asy_rightaxis_s(this, real(ymin), real(ymax), islog,label)
   end subroutine coop_asy_rightaxis_d
 
+  subroutine coop_asy_errorbars_d(this, x, y, dy, color, barsize, dy_minus, dx, dx_minus, center_color, center_symbol)
+    class(coop_asy)::this
+    COOP_REAL,dimension(:)::x, y, dy
+    COOP_SINGLE, optional::barsize
+    COOP_UNKNOWN_STRING,optional::color, center_symbol, center_color
+    COOP_REAL,dimension(:), optional::dx, dx_minus, dy_minus
+    COOP_INT::n, i
+    COOP_SINGLE,dimension(:),allocatable::dym, dxm, dxp
+    n = coop_getdim("coop_asy_contour", size(x), size(y), size(dy))
+    allocate(dym(n), dxm(n), dxp(n))
+    if(present(dy_minus))then
+       if(size(dy_minus).ne.n) call coop_return_error("asy_errorbars", "dy_minus size discrepancy", "stop")
+       dym = dy_minus
+    else
+       dym = dy
+    endif
+    if(present(dx))then
+       if(size(dx).ne.n) call coop_return_error("asy_errorbars", "dx size discrepancy", "stop")       
+       dxp = dx
+    else
+       dxp = 0.
+    endif
+    if(present(dx_minus))then
+       if(size(dx_minus).ne.n) call coop_return_error("asy_errorbars", "dx_minus size discrepancy", "stop")       
+       dxm = dx_minus
+    else
+       dxm = dxp
+    endif
+    write(this%unit, "(A)") "ERRORBARS"
+    write(this%unit, "(I5)") n
+    if(present(color))then
+       write(this%unit, "(A)") trim(adjustl(color))
+    else
+       write(this%unit, "(A)") "black"
+    endif
+    if(present(barsize))then
+       write(this%unit, "(G14.5)") max(barsize, 0.)
+    else
+       write(this%unit, "(A)") "0."  !!automatically determined by asymptote
+    endif
+    if(present(center_symbol) )then
+       write(this%unit, "(A)") trim(adjustl(center_symbol))
+    else
+       write(this%unit, "(A)") "DOT"
+    endif
+    if(present(center_color))then
+       write(this%unit, "(A)") trim(adjustl(center_color))
+    else
+       write(this%unit, "(A)") "black_solid_5"
+    endif
+    do i= 1,n
+       write(this%unit, "(6G14.5)") real(x(i)), real(y(i)), dxp(i), dxm(i), real(dy(i)), dym(i)
+    enddo
+    deallocate(dym, dxm, dxp)
+  end subroutine coop_asy_errorbars_d
+
+
+  subroutine coop_asy_errorbars_s(this, x, y, dy, color, barsize, dy_minus, dx, dx_minus, center_color, center_symbol)
+    class(coop_asy)::this
+    COOP_SINGLE,dimension(:)::x, y, dy
+    COOP_SINGLE, optional::barsize
+    COOP_UNKNOWN_STRING,optional::color, center_symbol, center_color
+    COOP_SINGLE,dimension(:), optional::dx, dx_minus, dy_minus
+    COOP_INT::n, i
+    COOP_SINGLE,dimension(:),allocatable::dym, dxm, dxp
+    n = coop_getdim("coop_asy_contour", size(x), size(y), size(dy))
+    allocate(dym(n), dxm(n), dxp(n))
+    if(present(dy_minus))then
+       if(size(dy_minus).ne.n) call coop_return_error("asy_errorbars", "dy_minus size discrepancy", "stop")
+       dym = dy_minus
+    else
+       dym = dy
+    endif
+    if(present(dx))then
+       if(size(dx).ne.n) call coop_return_error("asy_errorbars", "dx size discrepancy", "stop")       
+       dxp = dx
+    else
+       dxp = 0.
+    endif
+    if(present(dx_minus))then
+       if(size(dx_minus).ne.n) call coop_return_error("asy_errorbars", "dx_minus size discrepancy", "stop")       
+       dxm = dx_minus
+    else
+       dxm = dxp
+    endif
+    write(this%unit, "(A)") "ERRORBARS"
+    write(this%unit, "(I5)") n
+    if(present(color))then
+       write(this%unit, "(A)") trim(adjustl(color))
+    else
+       write(this%unit, "(A)") "black"
+    endif
+    if(present(barsize))then
+       write(this%unit, "(G14.5)") max(barsize, 0.)
+    else
+       write(this%unit, "(A)") "0."  !!automatically determined by asymptote
+    endif
+    if(present(center_symbol) )then
+       write(this%unit, "(A)") trim(adjustl(center_symbol))
+    else
+       write(this%unit, "(A)") "DOT"
+    endif
+    if(present(center_color))then
+       write(this%unit, "(A)") trim(adjustl(center_color))
+    else
+       write(this%unit, "(A)") "black_solid_5"
+    endif
+    do i= 1,n
+       write(this%unit, "(6G14.5)") real(x(i)), real(y(i)), dxp(i), dxm(i), real(dy(i)), dym(i)
+    enddo
+    deallocate(dym, dxm, dxp)
+  end subroutine coop_asy_errorbars_s  
+  
   subroutine coop_asy_error_bar_d(this, x, y, dy_minus, dy_plus, dx_minus, dx_plus, color)
     class(coop_asy) this
     COOP_REAL  x, y
@@ -2838,22 +2958,22 @@ contains
     COOP_UNKNOWN_STRING, optional::color
     if(present(color))then
        call coop_asy_label(this, "$\bullet$", x, y, color)
-       if(present(dy_minus))then
-          call coop_asy_line(this, x, y, x, y-dy_minus, linewidth = 1., color=color)
-          call coop_asy_label(this, "-", x, y-dy_minus, color=color)
-       endif
-       if(present(dy_plus))then
-          call coop_asy_line(this, x, y, x, y+dy_plus, linewidth = 1., color= color)
-          call coop_asy_label(this, "-", x, y+dy_plus, color=color)
-       endif
-       if(present(dx_minus))then
-          call coop_asy_line(this, x, y, x-dx_minus, y, linewidth = 1., color=color)
-          call coop_asy_label(this, "{\tiny $|$}", x-dx_minus, y, color=color)
-       endif
-       if(present(dx_plus))then
-          call coop_asy_line(this, x, y, x+dx_plus, y, linewidth = 1., color=color)
-          call coop_asy_label(this, "{\tiny $|$}", x+dx_plus, y, color=color)
-       endif
+!!$       if(present(dy_minus))then
+!!$          call coop_asy_line(this, x, y, x, y-dy_minus, linewidth = 1., color=color)
+!!$          call coop_asy_label(this, "-", x, y-dy_minus, color=color)
+!!$       endif
+!!$       if(present(dy_plus))then
+!!$          call coop_asy_line(this, x, y, x, y+dy_plus, linewidth = 1., color= color)
+!!$          call coop_asy_label(this, "-", x, y+dy_plus, color=color)
+!!$       endif
+!!$       if(present(dx_minus))then
+!!$          call coop_asy_line(this, x, y, x-dx_minus, y, linewidth = 1., color=color)
+!!$          call coop_asy_label(this, "{\tiny $|$}", x-dx_minus, y, color=color)
+!!$       endif
+!!$       if(present(dx_plus))then
+!!$          call coop_asy_line(this, x, y, x+dx_plus, y, linewidth = 1., color=color)
+!!$          call coop_asy_label(this, "{\tiny $|$}", x+dx_plus, y, color=color)
+!!$       endif
     else
        call coop_asy_label(this, "$\bullet$", x, y)
        if(present(dy_minus))then

@@ -15,7 +15,7 @@ ICC_NAME=icc
 ######## compiler options  #######
 ### YES or NO
 #### distributed memory (you should have a compiler alias mpif77 or mpif90 installed); This is used to generate multiple chains when doing MCMC.
-USE_MPI = NO
+USE_MPI = YES
 MPI_COMPILER_ALIAS = mpif90
 #### shared memory; 
 USE_OPENMP = YES
