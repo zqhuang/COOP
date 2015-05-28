@@ -1011,7 +1011,7 @@ contains
     if(this%nmaps.lt.3) call this%extend(3)
     this%alm(:,:,2) = this%alm(:,:,1)
     this%alm(:,:,3) = 0
-    select case(trim(this%fields(1)))
+    select case(trim(coop_str_numUpperalpha(this%fields(1))))
     case("T","I","TEMPERATURE", "INTENSITY")
        call this%set_field(2, "QT")
        call this%set_field(3, "UT")
@@ -1049,7 +1049,7 @@ contains
        this%alm(l,:,4) = this%alm(l,:,1)*(l*(l+1.))
        this%alm(l,:,2) = this%alm(l,:,4)
     enddo
-    select case(trim(this%fields(1)))
+    select case(trim(coop_str_num_Upperalpha(this%fields(1))))
     case("T","I","TEMPERATURE", "INTENSITY")
        call this%set_field(2, "QLT")
        call this%set_field(3, "ULT")
@@ -1148,7 +1148,7 @@ contains
 100 if(present(lmax)) call this%allocate_alms(lmax)
     this%ordering = COOP_RING !!default ordering
     if(present(genre))then
-       select case(trim(adjustl(genre)))
+       select case(trim(adjustl(coop_str_numUpperalpha(genre))))
        case("IQU", "TQU")
           if(this%nmaps.lt.3)stop "For IQU map you need at least 3 maps"
           call this%set_units("muK")
@@ -1513,7 +1513,7 @@ contains
     COOP_INT,optional::imap
     if(present(imap))then
        i = imap
-       select case(trim(this%fields(i)))
+       select case(trim(coop_str_numUpperalpha(this%fields(i))))
        case("INTENSITY", "TEMPERATURE", "MASK", "E-POLARISATION", "B-POLARISATION", "E", "B", "ZETA", "Z", "I", "T", "M", "LT", "LZ", "LE")
           this%spin(i) = 0          
        case("Q-POLARISATION", "Q", "QT", "QLT", "QLZ", "QZ", "QLE")
@@ -1528,7 +1528,7 @@ contains
        end select
     else       
        do i = 1, this%nmaps
-          select case(trim(this%fields(i)))
+          select case(trim(coop_str_numUpperalpha(this%fields(i))))
           case("INTENSITY", "TEMPERATURE", "MASK", "E-POLARISATION", "B-POLARISATION", "E", "B", "ZETA", "Z", "I", "T", "M", "LT", "LZ", "LE")
              this%spin(i) = 0          
           case("Q-POLARISATION", "Q", "QT", "QLT", "QLZ", "QZ", "QLE")
@@ -1590,7 +1590,7 @@ contains
        call write_minimal_header(header,dtype = trim(this%dtype), nside=this%nside, order = this%ordering, creator='COOP', version = '0.0', polar=pol, coordsys = trim(this%coordsys), fwhm_degree = this%fwhm_degree)
     endif
     do i=1, this%header%n
-       select case(trim(this%header%key(i)))
+       select case(trim(coop_str_numUpperAlpha(this%header%key(i))))
        case("SIMPLE", "BITPIX", "NAXIS", "EXTEND", "XTENSION", "NAXIS1", "NAXIS2", "PCOUNT", "GCOUNT", "TFIELDS")  !!these will be added by Healpix automatically
           cycle
        case default

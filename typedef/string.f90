@@ -9,7 +9,7 @@ module coop_string_mod
   integer,parameter::sp = kind(1.)
   integer,parameter::dl = kind(1.d0)
 
-  public::coop_num2str,  coop_ndigits, coop_str2int, coop_str2real, coop_str2logical, coop_substr, coop_str_replace, coop_str_numalpha, coop_str2lower, coop_str2upper, coop_case_insensitive_eq, coop_file_path_of, coop_file_name_of, coop_file_add_postfix, coop_convert_to_C_string, coop_convert_to_Fortran_String, coop_data_type, coop_string_contain_numbers, coop_numstr2goodstr, coop_num2goodstr, coop_string_strip_quotes
+  public::coop_num2str,  coop_ndigits, coop_str2int, coop_str2real, coop_str2logical, coop_substr, coop_str_replace, coop_str_numalpha, coop_str2lower, coop_str2upper, coop_case_insensitive_eq, coop_file_path_of, coop_file_name_of, coop_file_add_postfix, coop_convert_to_C_string, coop_convert_to_Fortran_String, coop_data_type, coop_string_contain_numbers, coop_numstr2goodstr, coop_num2goodstr, coop_string_strip_quotes, coop_str_numUpperAlpha, coop_str_numLowerAlpha
 
   Interface coop_num2str
      module procedure coop_int2str, coop_real2str, coop_logical2str, coop_double2str
@@ -306,6 +306,50 @@ contains
        end if
     enddo
   end function coop_str_numalpha
+
+
+  function coop_str_numUpperalpha(str) result(s)
+    COOP_UNKNOWN_STRING str
+    COOP_STRING s
+    COOP_INT i, lens, j, k
+    lens = len_trim(str)
+    s = ""
+    k = 1
+    do i=1, lens
+       j = ichar(str(i:i))
+       if(j.ge.48 .and.j.le.57 .or. j.ge.65 .and. j.le.90 .or. j.ge.97 .and. j.le. 122 )then
+          if(j .ge. 97)then
+             s(k:k) = char(j-32)
+          else
+             s(k:k) = str(i:i)
+          endif
+          k  = k  + 1
+       end if
+    enddo
+  end function coop_str_numUpperalpha
+
+
+  function coop_str_numLoweralpha(str) result(s)
+    COOP_UNKNOWN_STRING str
+    COOP_STRING s
+    COOP_INT i, lens, j, k
+    lens = len_trim(str)
+    s = ""
+    k = 1
+    do i=1, lens
+       j = ichar(str(i:i))
+       if(j.ge.48 .and.j.le.57 .or. j.ge.65 .and. j.le.90 .or. j.ge.97 .and. j.le. 122 )then
+          if(j .ge. 65 .and. j .le. 90)then
+             s(k:k) = char(j+ 32)
+          else
+             s(k:k) = str(i:i)
+          endif
+          k  = k  + 1
+       end if
+    enddo
+  end function coop_str_numLoweralpha
+
+  
 
   subroutine coop_Str2Lower(Str)
     COOP_UNKNOWN_STRING  Str
