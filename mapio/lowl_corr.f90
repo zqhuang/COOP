@@ -1,20 +1,32 @@
 program test
   use coop_wrapper_utils
   use coop_healpix_mod
+#ifdef HAS_HEALPIX
+  use head_fits
+  use fitstools
+  use pix_tools
+  use alm_tools
+  use udgrade_nr
+  use coord_v_convert,only:coordsys2euler_zyz
+#endif
+  
   implicit none
 #include "constants.h"
   type(coop_healpix_maps)::map, mask, m2
   type(coop_healpix_inpaint)::inp
-  COOP_INT,parameter ::lmax = 100
+  COOP_INT,parameter ::lmax = 32
   COOP_INT,parameter ::nrun = 100
   COOP_REAL,parameter::radius_deg = 10.d0
-  logical,parameter::force_output = .false.
+  COOP_INT,parameter::n = 80  
   COOP_STRING::mask_spot = ""
-  COOP_REAL::cls(0:lmax), Cls_sim(0:lmax, nrun), Cls_ave(0:lmax), delta_Cls(0:lmax), sigma
-  COOP_INT::l, ell, i, irun
+  COOP_REAL::cls(0:lmax), Shalf, thisShalf
+  COOP_REAL::Corr(0:n), weight(0:n), xstep, x, vec(3, 12*16**2-1)
+  COOP_INT::l, i, irun, j, pos, iCount
   type(coop_file)::fp
   call coop_MPI_init()
   call coop_random_init()
+  xstep = 2.d0/n
+  
   !!read in Cl's for fiducial LCDM model
   call fp%open("planck14best_lensedCls.dat", "r") 
   do l=2, lmax
@@ -23,15 +35,9 @@ program test
   enddo  
   call fp%close()
   Cls(0:1) = 0.d0
-
-  
-  !!read the maps
-!!$  call map%read("planck14/dx11_v2_commander_int_cmb_040a_0256.fits")
-!!$  call mask%read("planck14/dx11_v2_commander_int_mask_040a_0256.fits")
-
   call map%read("lowl/commander_dx11d2_extdata_temp_cmb_n0256_60arc_v1_cr.fits")
-  call mask%read("planck14/lat30_mask_n256.fits")  
-!!$  call mask%read("lowl/commander_dx11d2_mask_temp_n0256_likelihood_v1.fits")
+  !call mask%read("lowl/commander_dx11d2_mask_temp_n0256_likelihood_v1.fits")
+  call mask%read("planck14/dx11_v2_commander_int_mask_040a_0256.fits")  
 
 
 100 write(*,*) "enter the mask spot [NEP, SEP, NCP, SCP, NGP, SGP, COLDSPOT, NONE, NASYM, SASYM]"
@@ -63,63 +69,70 @@ program test
      write(*,*) trim(mask_spot)//": unknown mask option"
      goto 100
   end select
-
+  do i=0, 12*16**2-1
+     call pix2vec_nest(16, i, vec(:, i))
+  enddo
   !!compute pseudo Cl's
   map%map = map%map*mask%map  
   !!initialize
   !!Compute pixel-space covariance matrix from fiducial Cl's
-  !!For more serious applications you should use a full covariance matrix from FFP9 simulations  
+  !!For more serious applications you should use a full covariance matrix from FFP9 simulations
+  Corr = 0.d0
+  weight = 0.d0
   call inp%init(map, mask, lmax, cls)
-  if(trim(mask_spot).eq."OUTPUT" .or. force_output)then
-     call coop_prtsystime(.true.)
-     call inp%upgrade(.true.)
-     m2 = inp%lMT
-     m2%map = inp%lCT%map + inp%lMT%map
-     call m2%write("inpainted_map_"//COOP_STR_OF(m2%nside)//".fits")            
-     print*, "nside = ", inp%lMT%nside
-     call coop_prtsystime()
-
-        
-     do i=1, 6
-        call inp%upgrade()    !!nside -> 32 -> 64
-        m2 = inp%lMT
-        m2%map = inp%lCT%map + inp%lMT%map
-        call m2%write("inpainted_map_"//COOP_STR_OF(m2%nside)//".fits")            
-        print*, "nside = ", inp%lMT%nside
-        call coop_prtsystime()
-     enddo
-     where(mask%map(:,1).eq.0.)
-        map%map(:,1) = map%bad_data
-     end where
-     call map%write("original_map.fits")
-     stop
-  endif
-  !!
-  Cls_sim = 0.d0
-  Cls_ave = 0.d0
   do irun = 1, nrun
      write(*,*) "***** inpainting # ", irun, " ***********"
      call inp%upgrade(reset = .true.)  !!nside -> 8
-     do i=1, 3
-        call inp%upgrade()    !!nside -> 16 -> 32 -> 64
-     enddo
+     call inp%upgrade()    !!nside ->16
      inp%lMT%map = inp%lCT%map + inp%lMT%map
-!!$!======== if you want to see how the inpainted map looks like"
-!!$call inp%lMT%write("inpainted_map.fits")
-!!$stop     
-     call inp%lMT%map2alm(lmax = lmax)
-     Cls_sim(2:lmax, irun) = inp%lMT%Cl(2:lmax, 1)
+     do i=0, inp%lMT%npix-1
+        do j = 0, i-1
+           x = dot_product(vec(:, i), vec(:, j))
+           if(x.lt.0.5d0)then
+              pos = nint((1.d0+x)/xstep)
+              corr(pos) = corr(pos)+inp%lMT%map(i, 1)*inp%lMT%map(j, 1)
+              weight(pos) = weight(pos)+1.d0
+           endif
+        enddo
+     enddo
   enddo
-  do l = 2, lmax
-     Cls_ave(l) = sum(Cls_sim(l, 1:nrun))/nrun
-     delta_Cls(l)  = sqrt(sum((Cls_sim(l, 1:nrun)-Cls_ave(l))**2)/nrun + Cls(l)**2/(2.d0*l+1.d0)) !!only compute the diagonal
+  where (weight .ne. 0.d0)
+     Corr = Corr/weight
+  elsewhere
+     corr = 0.d0
+  end where
+  Shalf = sum(corr**2)*xstep
+  print*, "S_{1/2} =", Shalf
+  print*, "now estimating the p value"
+  do i=0, 12*16**2-1
+     call pix2vec_ring(16, i, vec(:, i))
   enddo
-
-  call fp%open("clsout/clsout_"//trim(mask_spot)//".dat", "w")
-  write(fp%unit, "(A8, 3A16)") "# ell ",  "  model C_l  ", " ave Cl  ", "  delta C_l "
-  do l=2, lmax/2
-     write(fp%unit, "(I8, 3E16.7)") l, Cls(l)*l*(l+1.d0)/coop_2pi, Cls_ave(l)*l*(l+1.d0)/coop_2pi,  delta_Cls(l)*l*(l+1.d0)/coop_2pi
+  call inp%lMT%convert2ring()
+  do irun = 1, 1000
+     weight = 0.d0
+     corr = 0.d0
+     call inp%lMT%simulate_Tmaps(inp%lMT%nside, inp%lmax, inp%sqrtCls)
+     do i=0, inp%lMT%npix-1
+        do j = 0, i-1
+           x = dot_product(vec(:, i), vec(:, j))
+           if(x.lt.0.5d0)then
+              pos = nint((1.d0+x)/xstep)
+              corr(pos) = corr(pos)+inp%lMT%map(i, 1)*inp%lMT%map(j, 1)
+              weight(pos) = weight(pos)+1.d0
+           endif
+        enddo
+     enddo
+     where (weight .ne. 0.d0)
+        Corr = Corr/weight
+     elsewhere
+        corr = 0.d0
+     end where
+     thisShalf =  sum(corr**2)*xstep
+     if(thisShalf .le. Shalf)then
+        icount = icount + 1
+        print* , "***** simulation #", irun, " ***** S_{1/2} = ", thisShalf
+     endif
   enddo
-  call fp%close()
+  print*, "p value = ", icount/1000.d0
   call coop_MPI_finalize()  
 end program test

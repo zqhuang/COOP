@@ -20,6 +20,9 @@ all: $(LIB) UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo SST
 LLPW:	$(OBJ) lowl_power.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) lowl_power.o $(LINK)
 
+LLCORR:	$(OBJ) lowl_corr.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) lowl_corr.o $(LINK)
+
 GetTheo:  $(OBJ) gettheo.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) gettheo.o $(LINK)
 
@@ -101,7 +104,7 @@ Shells: $(OBJ) shells.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) shells.o $(LINK)	
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots UDG Stack MSMAP SimuMaps Shells SST MST ByProd GetInfo GetTheo GetPeaks Rotate Corr Inpaint
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots UDG Stack MSMAP SimuMaps Shells SST MST ByProd GetInfo GetTheo GetPeaks Rotate Corr Inpaint LLPW
 
 
 

@@ -179,6 +179,7 @@ module coop_healpix_mod
      COOP_INT::ncT = 0
      COOP_INT::base_nside = 0
      COOP_INT::refine = coop_inpaint_refine_factor
+     logical::first_realization = .true.
      COOP_REAL,dimension(:),allocatable::als, bls, Cls, sqrtCls     
      COOP_REAL,dimension(:),allocatable::corr
      COOP_REAL,dimension(:,:),allocatable::vec
@@ -1012,13 +1013,13 @@ contains
     this%alm(:,:,2) = this%alm(:,:,1)
     this%alm(:,:,3) = 0
     select case(trim(coop_str_numUpperalpha(this%fields(1))))
-    case("T","I","TEMPERATURE", "INTENSITY")
+    case("T","I","TEMPERATURE", "INTENSITY", "ISTOKES")
        call this%set_field(2, "QT")
        call this%set_field(3, "UT")
     case("ZETA", "Z")
        call this%set_field(2, "QZ")
        call this%set_field(3, "UZ")
-    case("E", "E-POLARISATION")
+    case("E", "EPOLARISATION")
        call this%set_field(2, "Q")
        call this%set_field(3, "U")
     case default
@@ -1049,8 +1050,8 @@ contains
        this%alm(l,:,4) = this%alm(l,:,1)*(l*(l+1.))
        this%alm(l,:,2) = this%alm(l,:,4)
     enddo
-    select case(trim(coop_str_num_Upperalpha(this%fields(1))))
-    case("T","I","TEMPERATURE", "INTENSITY")
+    select case(trim(coop_str_numUpperalpha(this%fields(1))))
+    case("T","I","TEMPERATURE", "INTENSITY", "ISTOKES")
        call this%set_field(2, "QLT")
        call this%set_field(3, "ULT")
        call this%set_field(4, "LT")       
@@ -1058,7 +1059,7 @@ contains
        call this%set_field(2, "QLZ")
        call this%set_field(3, "ULZ")
        call this%set_field(4, "LZ")       
-    case("E", "E-POLARISATION")
+    case("E", "EPOLARISATION")
        call this%set_field(2, "QLE")
        call this%set_field(3, "ULE")
        call this%set_field(4, "LE")       
@@ -1514,12 +1515,12 @@ contains
     if(present(imap))then
        i = imap
        select case(trim(coop_str_numUpperalpha(this%fields(i))))
-       case("INTENSITY", "TEMPERATURE", "MASK", "E-POLARISATION", "B-POLARISATION", "E", "B", "ZETA", "Z", "I", "T", "M", "LT", "LZ", "LE")
+       case("INTENSITY", "TEMPERATURE", "MASK", "EPOLARISATION", "BPOLARISATION", "E", "B", "ZETA", "Z", "I", "T", "M", "LT", "LZ", "LE", "ISTOKES")
           this%spin(i) = 0          
-       case("Q-POLARISATION", "Q", "QT", "QLT", "QLZ", "QZ", "QLE")
+       case("QPOLARISATION", "Q", "QT", "QLT", "QLZ", "QZ", "QLE", "QSTOKES")
           this%spin(i) = 2
           this%iq = i
-       case("U-POLARISATION", "U", "UT", "ULT", "ULZ", "UZ", "ULE")
+       case("UPOLARISATION", "U", "UT", "ULT", "ULZ", "UZ", "ULE", "USTOKES")
           this%spin(i) = 2
           this%iu = i
        case default
@@ -1529,12 +1530,12 @@ contains
     else       
        do i = 1, this%nmaps
           select case(trim(coop_str_numUpperalpha(this%fields(i))))
-          case("INTENSITY", "TEMPERATURE", "MASK", "E-POLARISATION", "B-POLARISATION", "E", "B", "ZETA", "Z", "I", "T", "M", "LT", "LZ", "LE")
+          case("INTENSITY", "TEMPERATURE", "MASK", "EPOLARISATION", "BPOLARISATION", "E", "B", "ZETA", "Z", "I", "T", "M", "LT", "LZ", "LE", "ISTOKES")
              this%spin(i) = 0          
-          case("Q-POLARISATION", "Q", "QT", "QLT", "QLZ", "QZ", "QLE")
+          case("QPOLARISATION", "Q", "QT", "QLT", "QLZ", "QZ", "QLE", "QSTOKES")
              this%spin(i) = 2
              this%iq = i
-          case("U-POLARISATION", "U", "UT", "ULT", "ULZ", "UZ", "ULE")
+          case("UPOLARISATION", "U", "UT", "ULT", "ULZ", "UZ", "ULE", "USTOKES")
              this%spin(i) = 2
              this%iu = i
           case default
@@ -1591,10 +1592,11 @@ contains
     endif
     do i=1, this%header%n
        select case(trim(coop_str_numUpperAlpha(this%header%key(i))))
-       case("SIMPLE", "BITPIX", "NAXIS", "EXTEND", "XTENSION", "NAXIS1", "NAXIS2", "PCOUNT", "GCOUNT", "TFIELDS")  !!these will be added by Healpix automatically
+       case("SIMPLE", "BITPIX", "NAXIS", "EXTEND", "XTENSION", "NAXIS1", "NAXIS2", "PCOUNT", "GCOUNT", "TFIELDS", "DATE")  !!these will be added by Healpix automatically
           cycle
-       case default
-          call add_card(header, trim(this%header%key(i)), trim(this%header%val(i)), update = .true.)
+       case("TTYPE1", "TTYPE2", "TTYPE3", "TTYPE4", "TTYPE5", "TTYPE6", "TUNIT1", "TUNIT2", "TUNIT3", "TUNIT4", "TUNIT5", "TUNIT6")
+             call add_card(header, trim(this%header%key(i)), trim(this%header%val(i)), update = .true.)
+       case default          
        end select
     enddo
     if(present(index_list))then
@@ -1651,6 +1653,8 @@ contains
     call this%convert2ring()
     if(present(lmax))then
        if(lmax .gt. this%nside*3)then
+          write(*,*) "nside  =", this%nside
+          write(*,*) "lmax = ", lmax
           write(*,*) "lmax > nside x 3 is not recommended"
           stop
        else
@@ -3422,6 +3426,7 @@ contains
     this%nMT = 0
     this%ncT = 0
     this%base_nside = 0
+    this%first_realization = .true.
   end subroutine coop_healpix_inpaint_free
 
 
@@ -3478,11 +3483,19 @@ contains
   end subroutine coop_healpix_inpaint_set_corr
     
 
-  function coop_healpix_inpaint_h_corr(this, i, j) result(c)
+  function coop_healpix_inpaint_h_corr(this, i, j, costheta) result(c)
     class(coop_healpix_inpaint)::this
     COOP_REAL :: x, c, ri
-    COOP_INT :: i, j, loc
-    x = dot_product(this%vec(:, i), this%vec(:, j))
+    COOP_INT,optional :: i, j
+    COOP_INT :: loc
+    COOP_REAL,optional::costheta
+    if(present(i) .and. present(j))then
+       x = dot_product(this%vec(:, i), this%vec(:, j))
+    elseif(present(costheta))then
+       x = costheta
+    else
+       stop "you need to pass i, j or costheta"
+    endif
     if(x .ge. 0.99999999d0)then
        c = this%corr(0)
        return
@@ -3644,6 +3657,7 @@ contains
     call coop_solve_constrained(m = this%nMT + this%nCT, n_known = this%nMT, n_unknown = this%nCT, dim_fmean = this%nCT, dim_ffluc = this%nCT, C = cov, Fmean = this%Fmean, Ffluc = this%Ffluc, epsilon = 1.d-2)
     this%mean = matmul(this%Fmean, this%lMT%map(this%indMT,1))
     this%base_nside = this%lMT%nside
+    this%first_realization = .true.
     deallocate(cov)
   end subroutine coop_healpix_inpaint_init
 
@@ -3665,10 +3679,11 @@ contains
           call this%hM%init(nside = this%base_nside*this%refine, nmaps = 1, genre = "MASK", nested = .true.)
           call this%lask2mask(this%lM)
           call this%lask2mask(this%hM)
+          this%first_realization = .true.
        endif
     endif
     nside = this%lCT%nside
-    if(nside .eq. this%base_nside)then
+    if(nside .eq. this%base_nside .and. this%first_realization)then
        do i = 0, this%lM%npix-1
           if(this%lM%map(i,1) .ge.  1.-coop_inpaint_mask_threshold)then
              this%lCT%map(i,1) = this%lMT%map(i,1)* (1.d0-this%lM%map(i,1))/this%lM%map(i,1) + this%sigma0*(1.d0-this%lM%map(i,1))*coop_random_Gaussian()
@@ -3677,8 +3692,10 @@ contains
           endif
        enddo
        this%lCT%map(this%indCT, 1) = this%mean + matmul(this%Ffluc, coop_random_gaussian_vector(this%nCT))
+       this%first_realization = .false.       
+       return
     endif
-    if(this%lMT%nside .ge. this%map%nside)return    
+    if(this%lMT%nside .ge. this%map%nside)return
     unside = nside*2
     call this%lct%udgrade(nside = unside)
     call this%lMT%init(nside = unside, nmaps = 1, genre = "TEMPERATURE", nested = .true.)
@@ -3691,7 +3708,7 @@ contains
     call this%lask2mask(this%hM)
     call this%set_corr()
     !!fill in
-    call htmp%init(nside = unside*this%refine, nmaps = 1, genre = "TEMPERATURE", lmax = this%lmax)
+    call htmp%init(nside = this%map%nside, nmaps = 1, genre = "TEMPERATURE", lmax = this%lmax)
     call ltmp%init(nside = unside, nmaps = 1, genre = "TEMPERATURE", nested = .true.)    
     call htmp%simulate_Tmaps(htmp%nside, this%lmax, this%sqrtCls)
     call htmp%convert2nested()
