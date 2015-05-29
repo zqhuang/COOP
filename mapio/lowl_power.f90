@@ -64,12 +64,13 @@ program test
      goto 100
   end select
 
-  !!compute pseudo Cl's
   map%map = map%map*mask%map  
   !!initialize
   !!Compute pixel-space covariance matrix from fiducial Cl's
   !!For more serious applications you should use a full covariance matrix from FFP9 simulations  
   call inp%init(map, mask, lmax, cls)
+
+  !!if you want to see how the inpainted maps look like
   if(trim(mask_spot).eq."OUTPUT" .or. force_output)then
      call coop_prtsystime(.true.)
      call inp%upgrade(.true.)
@@ -80,8 +81,8 @@ program test
      call coop_prtsystime()
 
         
-     do i=1, 6
-        call inp%upgrade()    !!nside -> 32 -> 64
+     do i=1, 5
+        call inp%upgrade()    !!nside -> 16-> 32 -> 64-> 128 -> 256
         m2 = inp%lMT
         m2%map = inp%lCT%map + inp%lMT%map
         call m2%write("inpainted_map_"//COOP_STR_OF(m2%nside)//".fits")            
@@ -103,19 +104,16 @@ program test
      do i=1, 3
         call inp%upgrade()    !!nside -> 16 -> 32 -> 64
      enddo
-     inp%lMT%map = inp%lCT%map + inp%lMT%map
-!!$!======== if you want to see how the inpainted map looks like"
-!!$call inp%lMT%write("inpainted_map.fits")
-!!$stop     
+     inp%lMT%map = inp%lMT%map  + inp%lCT%map !!measured map + inpainted map
      call inp%lMT%map2alm(lmax = lmax)
      Cls_sim(2:lmax, irun) = inp%lMT%Cl(2:lmax, 1)
   enddo
   do l = 2, lmax
      Cls_ave(l) = sum(Cls_sim(l, 1:nrun))/nrun
-     delta_Cls(l)  = sqrt(sum((Cls_sim(l, 1:nrun)-Cls_ave(l))**2)/nrun + Cls(l)**2/(2.d0*l+1.d0)) !!only compute the diagonal
+     delta_Cls(l)  = sqrt(sum((Cls_sim(l, 1:nrun)-Cls_ave(l))**2)/nrun + Cls(l)**2*2./(2.d0*l+1.d0)) !!only compute the diagonal
   enddo
 
-  call fp%open("clsout/clsout_"//trim(mask_spot)//".dat", "w")
+  call fp%open("inpainted_cls_"//trim(mask_spot)//".dat", "w")
   write(fp%unit, "(A8, 3A16)") "# ell ",  "  model C_l  ", " ave Cl  ", "  delta C_l "
   do l=2, lmax/2
      write(fp%unit, "(I8, 3E16.7)") l, Cls(l)*l*(l+1.d0)/coop_2pi, Cls_ave(l)*l*(l+1.d0)/coop_2pi,  delta_Cls(l)*l*(l+1.d0)/coop_2pi
