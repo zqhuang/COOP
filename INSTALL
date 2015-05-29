@@ -20,5 +20,15 @@ add this to ~/.bashrc so that you don't need to load the module every time.
 
 
 ********* Update from GitHub*************
+git pull origin master
+**** if you find conflict of a file: xxx
+cp xxx   xxx.bkup
+git checkout xxx
+git pull
+then you manually merge xxx and xxx.bkup
+
+
+*** or if you want to discard all local changes *******
 ./autoupdate.sh
+
 

@@ -26,11 +26,11 @@ program test
 
   
   !!read the maps
-!!$  call map%read("planck14/dx11_v2_commander_int_cmb_040a_0256.fits")
-!!$  call mask%read("planck14/dx11_v2_commander_int_mask_040a_0256.fits")
+  call map%read("planck14/dx11_v2_commander_int_cmb_040a_0256.fits")
+  call mask%read("planck14/dx11_v2_commander_int_mask_040a_0256.fits")
 
-  call map%read("lowl/commander_dx11d2_extdata_temp_cmb_n0256_60arc_v1_cr.fits")
-  call mask%read("planck14/lat30_mask_n256.fits")  
+!!$  call map%read("lowl/commander_dx11d2_extdata_temp_cmb_n0256_60arc_v1_cr.fits")
+!!$  call mask%read("planck14/lat30_mask_n256.fits")  
 !!$  call mask%read("lowl/commander_dx11d2_mask_temp_n0256_likelihood_v1.fits")
 
 
