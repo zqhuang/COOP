@@ -13,45 +13,33 @@ program test
 #endif  
   implicit none
 #include "constants.h"
-  COOP_INT, parameter::lmax = 30
+  type(coop_healpix_maps)::hmap, lmap, hcpy
+  COOP_INT,parameter::lmax = 500
+  COOP_REAL::Cls(0:lmax), sqrtCls(0:lmax)
   type(coop_file)::fp
-  type(coop_asy)::fig
-  COOP_SINGLE, parameter::linewidth = 0.5
-  COOP_STRING::line
-  COOP_INT::l, i , ic
-  COOP_REAL::tmp, tmp2
-  COOP_REAL::ells(2:lmax), Cls(2:lmax), Cls_fiducial(2:lmax), delta_Cls(2:lmax), delta_mCls(2:lmax)
-  call coop_set_uniform(lmax-1, ells, 2.d0, dble(lmax))
-  call fig%open("lowl_Cl.txt")
-  call fig%init(xlabel = "$\ell$", ylabel = "$\frac{\ell(\ell +1)}{2\pi}C_l \, (\mu K^2)$", width = 6., height = 5., xmin = 1.5, xmax = 30.5, ymin = 0., ymax = 2200., doclip=.true.)
-
-  call fp%open("plikv17_cls.dat", "r")
-  do l = 2, lmax
-     read(fp%unit, *) i, tmp, tmp2, Cls(l), delta_Cls(l), delta_mCls(l)
-     if(i.ne. l) stop "error"
+  COOP_INT::l, basenside, i
+  Cls(0:1) = 0.d0
+  if(iargc().ge.1)then
+     basenside = coop_str2int(coop_InputArgs(1))
+  else
+     print*, "enter nside"
+     read(*,*) basenside
+  endif
+  call fp%open("planck14best_lensedCls.dat", "r") 
+  do l=2, lmax
+     read(fp%unit, *) i, Cls(l)
+     if(i.ne.l) stop "error in cl file"
+     Cls(l) = Cls(l)*coop_2pi/l/(l+1.d0)*coop_gaussian_filter(10.d0, l)**2
   enddo
+  sqrtCls = sqrt(Cls)
   call fp%close()
-
-
-  call fig%curve(x = ells, y = Cls, legend="Commander NSIDE = 16; From Likelihood Group", color ="gray", linetype = "solid", linewidth = 2.)  
-  call fig%errorbars(x = ells, y = Cls, dy = delta_Cls, dy_minus = delta_Cls, color = "gray_solid_1",  barsize = 5., center_color = "gray_solid_4")
-  
-
-  call fp%open("clsout/clsout_NONE.dat", "r")
-  read(fp%unit, "(A)")line
-  do l = 2, lmax
-     read(fp%unit, *) i, Cls_fiducial(l), Cls(l), delta_Cls(l)
-     if(i.ne. l) stop "error"
-  enddo
-  call fp%close()
-
-  call fig%curve(x = ells, y = Cls_fiducial, legend="$\Lambda$CDM", color = "red", linetype = "solid", linewidth = 1.)
-  
-  call fig%curve(x = ells, y = Cls, legend="Commander NSIDE=256; From Zhiqi; Ignoring noise", color ="blue", linetype = "dotted", linewidth = 2.)  
-  
-
-  
-  
-  call fig%legend(0.1, 0.92, 1, box = .false.)
-  
+  call lmap%init(nside = basenside,  nmaps = 1, genre = "TEMPERATURE",nested = .true.)
+  call hmap%init(nside = basenside*8, nmaps = 1, genre = "TEMPERATURE")
+  call hcpy%init(nside = basenside*8, nmaps = 1, genre = "TEMPERATURE", nested = .true.)
+  call hmap%simulate_Tmaps(hmap%nside, lmax, sqrtCls)
+  call hmap%convert2nested()
+  call coop_healpix_maps_ave_udgrade(hmap, lmap)
+  call coop_healpix_maps_ave_udgrade(lmap, hcpy)
+  hmap%map = hmap%map - hcpy%map
+  print*, sum(hmap%map*hcpy%map)/sqrt(sum(hmap%map**2)*sum(hcpy%map**2))
 end program test

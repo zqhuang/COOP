@@ -5,7 +5,7 @@ program test
 #include "constants.h"
   type(coop_healpix_maps)::map, mask, m2
   type(coop_healpix_inpaint)::inp
-  COOP_INT,parameter ::lmax = 100
+  COOP_INT,parameter ::lmax = 500
   COOP_INT,parameter ::nrun = 100
   COOP_REAL,parameter::radius_deg = 10.d0
   logical,parameter::force_output = .false.
@@ -25,13 +25,14 @@ program test
   Cls(0:1) = 0.d0
 
   
-  !!read the maps
-  call map%read("planck14/dx11_v2_commander_int_cmb_040a_0256.fits")
-  call mask%read("planck14/dx11_v2_commander_int_mask_040a_0256.fits")
+  !!$$  read the maps
+  !!$$  call map%read("planck14/dx11_v2_commander_int_cmb_040a_0256.fits")
+  !!$$  call mask%read("planck14/dx11_v2_commander_int_mask_040a_0256.fits")
 
-!!$  call map%read("lowl/commander_dx11d2_extdata_temp_cmb_n0256_60arc_v1_cr.fits")
-!!$  call mask%read("planck14/lat30_mask_n256.fits")  
-!!$  call mask%read("lowl/commander_dx11d2_mask_temp_n0256_likelihood_v1.fits")
+  call map%read("lowl/commander_dx11d2_extdata_temp_cmb_n0256_60arc_v1_cr.fits")
+  !!call mask%read("planck14/lat30_mask_n256.fits")
+  
+  call mask%read("lowl/commander_dx11d2_mask_temp_n0256_likelihood_v1.fits")
 
 
 100 write(*,*) "enter the mask spot [NEP, SEP, NCP, SCP, NGP, SGP, COLDSPOT, NONE, NASYM, SASYM]"
@@ -89,10 +90,10 @@ program test
         print*, "nside = ", inp%lMT%nside
         call coop_prtsystime()
      enddo
-     where(mask%map(:,1).eq.0.)
-        map%map(:,1) = map%bad_data
+     where(inp%mask%map(:,1).eq.0.)
+        inp%map%map(:,1) = map%bad_data
      end where
-     call map%write("original_map.fits")
+     call inp%map%write("original_map.fits")
      stop
   endif
   !!
@@ -113,7 +114,7 @@ program test
      delta_Cls(l)  = sqrt(sum((Cls_sim(l, 1:nrun)-Cls_ave(l))**2)/nrun + Cls(l)**2*2./(2.d0*l+1.d0)) !!only compute the diagonal
   enddo
 
-  call fp%open("inpainted_cls_"//trim(mask_spot)//".dat", "w")
+  call fp%open("clsout/clsout_"//trim(mask_spot)//".dat", "w")
   write(fp%unit, "(A8, 3A16)") "# ell ",  "  model C_l  ", " ave Cl  ", "  delta C_l "
   do l=2, lmax/2
      write(fp%unit, "(I8, 3E16.7)") l, Cls(l)*l*(l+1.d0)/coop_2pi, Cls_ave(l)*l*(l+1.d0)/coop_2pi,  delta_Cls(l)*l*(l+1.d0)/coop_2pi

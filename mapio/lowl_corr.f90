@@ -36,8 +36,8 @@ program test
   call fp%close()
   Cls(0:1) = 0.d0
   call map%read("lowl/commander_dx11d2_extdata_temp_cmb_n0256_60arc_v1_cr.fits")
-  !call mask%read("lowl/commander_dx11d2_mask_temp_n0256_likelihood_v1.fits")
-  call mask%read("planck14/dx11_v2_commander_int_mask_040a_0256.fits")  
+  call mask%read("lowl/commander_dx11d2_mask_temp_n0256_likelihood_v1.fits")
+ ! call mask%read("planck14/dx11_v2_commander_int_mask_040a_0256.fits")  
 
 
 100 write(*,*) "enter the mask spot [NEP, SEP, NCP, SCP, NGP, SGP, COLDSPOT, NONE, NASYM, SASYM]"
