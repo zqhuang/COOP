@@ -16,7 +16,7 @@ module coop_healpix_mod
   
 #include "constants.h"
 
-#define DO_L_SPLIT COOP_NO  
+#define DO_L_SPLIT COOP_YES 
   private
 
   
@@ -33,7 +33,6 @@ module coop_healpix_mod
   COOP_INT, parameter:: coop_inpaint_nside_start = 8
   COOP_SINGLE,parameter::coop_inpaint_mask_threshold = 0.1
   COOP_INT,parameter::coop_inpaint_refine_factor = 1
-  COOP_REAL,parameter::coop_pixel_smooth_fudge=0.75d0
   
   public::coop_fits_to_header, coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask, coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade
   
@@ -47,6 +46,7 @@ module coop_healpix_mod
 
   COOP_INT, parameter::coop_healpix_default_lmax=2500
   COOP_REAL, parameter::coop_healpix_lmax_by_nside = 2.5
+  COOP_INT, parameter::coop_healpix_filter_lmax = 500
   COOP_REAL::coop_healpix_mask_tol = 0.d0  !!default mask tolerance
   COOP_INT,parameter::coop_healpix_index_TT = 1
   COOP_INT,parameter::coop_healpix_index_EE = 2
@@ -183,7 +183,8 @@ module coop_healpix_mod
      COOP_INT::base_nside = 0
      COOP_INT::refine = coop_inpaint_refine_factor
      logical::first_realization = .true.
-     COOP_REAL,dimension(:),allocatable::als, bls, Cls, sqrtCls     
+     COOP_REAL,dimension(:),allocatable::als, bls, Cls, sqrtCls
+     COOP_REAL,dimension(:),allocatable::filter_mean, filter_fluc
      COOP_REAL,dimension(:),allocatable::corr
      COOP_REAL,dimension(:,:),allocatable::vec
      logical,dimension(:),allocatable::lask
@@ -3488,6 +3489,8 @@ contains
     if(allocated(this%als))deallocate(this%als)
     if(allocated(this%bls))deallocate(this%bls)
     if(allocated(this%cls))deallocate(this%cls)
+    if(allocated(this%filter_mean))deallocate(this%filter_mean)
+    if(allocated(this%filter_fluc))deallocate(this%filter_fluc)
     if(allocated(this%sqrtcls))deallocate(this%sqrtcls)    
     if(allocated(this%vec))deallocate(this%vec)
     if(allocated(this%Fmean))deallocate(this%Fmean)
@@ -3519,7 +3522,8 @@ contains
     COOP_REAL,dimension(:),optional::Cls
     COOP_REAL,dimension(:),allocatable::Cls_smooth
     COOP_INT::l, i
-    COOP_REAL::thetasq, theta
+    COOP_REAL::thetasq, theta, clr1, clr2, cross
+    type(coop_file)::fp
 #ifdef HAS_HEALPIX
     if(present(lmax) .and. present(Cls))then
        if(this%lmax .ge. 0) deallocate(this%als, this%bls, this%cls, this%sqrtcls)
@@ -3528,23 +3532,43 @@ contains
        call coop_sphere_correlation_init(this%lmax, this%als, this%bls)
        this%cls = cls
        this%sqrtcls = sqrt(this%cls)
+#if DO_L_SPLIT
+       if(allocated(this%filter_mean))deallocate(this%filter_mean)
+       if(allocated(this%filter_fluc))deallocate(this%filter_fluc)
+       allocate(this%filter_mean(0:this%lmax), this%filter_fluc(0:this%lmax))
+       call fp%open("healpix_filters/filter"//COOP_STR_OF(this%map%nside/this%base_nside)//".dat", "r")
+       this%filter_mean = 0.d0
+       this%filter_fluc = this%sqrtCls
+       do l = 2, min(coop_healpix_filter_lmax, this%lmax)
+          read(fp%unit, *, END=100, ERR=100) i, clr1, clr2, cross
+          if(i.ne. l)then
+             write(*,*) "healpix_filters/filter"//COOP_STR_OF(this%map%nside/this%base_nside)//".dat is broken"
+             stop
+          endif
+          if(clr2.gt. 0.01) this%filter_mean(l) = cross*sqrt(clr1/clr2)
+          this%filter_fluc(l) = sqrt(max(1.d0-cross**2, 0.d0)*clr1*Cls(l))
+       enddo
+100    continue
+       call fp%close()
+
+#endif    
     endif
     this%ncorr = max(min(this%lmax*4, this%hM%nside*6), 64)
     this%dtheta = coop_pi/this%ncorr
     if(allocated(this%corr))deallocate(this%corr)
     allocate(this%corr(0:this%ncorr))
     allocate(cls_smooth(0:this%lmax))
-    thetasq = coop_pixel_smooth_fudge/this%lM%npix
-    theta = sqrt(thetasq)
+    theta = sqrt((1.d0/this%hM%npix))
     do l = 0, this%lmax
-       cls_smooth(l) = this%cls(l)/(1.+thetasq*l*(l+1.))
+       cls_smooth(l) = this%cls(l)*exp(-(l*theta)**2)
     enddo
     this%sigma0 = sqrt(coop_sphere_correlation(this%lmax, cls_smooth, this%als, this%bls, 1.d0))
-    thetasq = coop_pixel_smooth_fudge/this%hM%npix
-    theta = sqrt(thetasq)    
-    do l = 0, this%lmax
-       cls_smooth(l) = this%cls(l)/(1.+thetasq*l*(l+1.))
-    enddo
+    if(this%hM%nside .ne. this%lM%nside)then
+       theta = sqrt((1.d0/this%hM%npix))
+       do l = 0, this%lmax
+          cls_smooth(l) = this%cls(l)*exp(-(l*theta)**2)
+       enddo
+    endif
     !$omp parallel do 
     do i=0, this%ncorr
        this%corr(i) = coop_sphere_correlation(this%lmax, cls_smooth, this%als, this%bls, cos(i*this%dtheta))
@@ -3747,8 +3771,8 @@ contains
   subroutine coop_healpix_inpaint_upgrade(this, reset)
     class(coop_healpix_inpaint)::this
     type(coop_healpix_maps)::lmap
-    COOP_INT::nside, npix, unside, i, i1, i2, il, l,list(8),flist(40), nneigh, nc, lcut, n_boundary, ib
-    COOP_REAL::shift(3), x(37), sumc(40), cov(40, 40), Fmean(3, 40), FFluc(3,3),s, maxshift, ave
+    COOP_INT::nside, npix, unside, i, i1, i2,m, il, l,list(8),flist(40), nneigh, nc, lcut, n_boundary, ib
+    COOP_REAL::shift(3), x(37), sumc(40), cov(40, 40), Fmean(3, 40), FFluc(3,3),s
     logical, optional::reset
     type(coop_healpix_maps)::ltmp, htmp
     logical,dimension(:),allocatable::is_boundary
@@ -3782,13 +3806,15 @@ contains
        call ltmp%init(nside = this%lCT%nside, nmaps = 1, genre = "TEMPERATURE", nested = .true.)
        ltmp%map = this%lCT%map + this%lMT%map              
 #if DO_L_SPLIT
-       lcut = floor(ltmp%nside*coop_healpix_lmax_by_nside)
-       call ltmp%map2alm(lmax = lcut )
-       do l = 0, lcut-1
-          this%sim%alm(l, 0:l,1) = ltmp%alm(l, 0:l,1)*sqrt(1.d0-(l/dble(lcut))**4)+ this%sim%alm(l, 0:l,1)*(l/dble(lcut))**2
+       call coop_healpix_maps_ave_udgrade(ltmp, this%sim)
+       call this%sim%map2alm()
+       do l=2, min(this%sim%lmax, this%lmax)
+          this%sim%alm(l,0,1) = coop_random_complex_Gaussian(.true.)*this%filter_fluc(l) + (1.+this%filter_mean(l))*this%sim%alm(l,0,1)
+          do m = 1, l
+             this%sim%alm(l,m,1) = coop_random_complex_Gaussian()*this%filter_fluc(l) + (1.+this%filter_mean(l))*this%sim%alm(l,m,1)             
+          enddo
        enddo
        call this%sim%alm2map()
-       call this%sim%convert2nested()
 #else
        call this%sim%convert2nested()
 #endif       
@@ -3849,13 +3875,6 @@ contains
     call ltmp%free()
     call coop_quicksort_index(count_boundary, index_boundary)
     index_boundary = index_boundary - 1
-    maxshift = 0.d0
-    do ib = 1, npix
-       i = index_boundary(ib)       
-       if(is_boundary(i))exit
-       ave = sum(this%lCT%map(4*i:4*i+3,1))/4.d0
-       maxshift = max(maxshift, sum(abs(this%lCT%map(4*i:4*i+3,1) - ave)))
-    enddo
     !!paint the boundary
     do ib = npix, 1, -1
        i = index_boundary(ib)
@@ -3926,9 +3945,7 @@ contains
        enddo
        call coop_solve_constrained(m = 40, n_known = nc-3, n_unknown = 3, dim_fmean = 3, dim_ffluc = 3, C=cov, Fmean =Fmean, FFluc = FFluc, epsilon = 1.d-2)
        shift =  matmul(Ffluc, coop_random_gaussian_vector(3)) + matmul(Fmean(1:3, 1:nc-3), x(1:nc-3))
-!!$       if(sum(abs(shift)).gt. maxshift)then
-!!$          shift = shift*maxshift/sum(abs(shift))
-!!$       endif
+
        this%lCT%map(4*i+1:4*i+3,1) =  this%lCT%map(4*i:4*i+2,1) + shift
        this%lCT%map(4*i,1) = this%lCT%map(4*i+3,1)-sum(shift)
     enddo
