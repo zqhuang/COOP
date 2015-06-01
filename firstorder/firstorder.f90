@@ -25,9 +25,9 @@ module coop_firstorder_mod
   COOP_REAL, parameter ::  coop_cosmology_firstorder_omega_rad_cutoff = 1.d-2
 
 
-  COOP_REAL, dimension(0:2), parameter::coop_source_tau_step_factor = (/ 0.8d0, 1.d0, 1.d0 /)
+  COOP_REAL, dimension(0:2), parameter::coop_source_tau_step_factor = (/ 1.d0, 1.d0, 1.d0 /)
   COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
-  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 200, 120, 100 /)
+  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 160, 120, 100 /)
   COOP_REAL, parameter::coop_source_k_index = 0.55d0
   COOP_INT, parameter:: coop_k_dense_fac = 40
 
