@@ -11,7 +11,9 @@ program test
   logical,parameter::force_output = .false.
   COOP_STRING::mask_spot = ""
   COOP_REAL::cls(0:lmax), Cls_sim(0:lmax, nrun), Cls_ave(0:lmax), delta_Cls(0:lmax), sigma
-  COOP_INT::l, ell, i, irun
+  COOP_INT::l, ell, i, irun, ipix
+  type(coop_healpix_maps)::directions
+  COOP_REAL::theta, phi, l_deg, b_deg, Cls_scan(0:lmax, 0:47)
   type(coop_file)::fp
   call coop_MPI_init()
   call coop_random_init()
@@ -24,7 +26,18 @@ program test
   call fp%close()
   Cls(0:1) = 0.d0
 
-  
+!!$  call directions%init(nside = 2, nmaps = 1, genre = "T")
+!!$  do ipix = 0, directions%npix-1
+!!$     call directions%pix2ang(ipix, theta, phi)
+!!$     l_deg = phi*360./coop_2pi
+!!$     b_deg = (coop_pi/2.d0 - theta)*(180.d0/coop_pi)
+!!$     cls_scan(:, ipix) = Cls_ave
+!!$     call fp%open("scan_cls.txt", "w")
+!!$     
+!!$     call fp%close()
+!!$  enddo
+
+     
   !!$$  read the maps
   !call map%read("planck14/dx11_v2_commander_int_cmb_040a_0256.fits")
   !call mask%read("planck14/dx11_v2_commander_int_mask_040a_0256.fits")

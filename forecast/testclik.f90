@@ -128,6 +128,13 @@ program test
      do i = 1, mcmc%total_steps
         call mcmc%mcmc_step(pool)
      enddo
+  case("BEST", "best")
+     call mcmc%findbest(pool, 0.01d0)
+     call fp%open(trim(mcmc%prefix)//".best", "w")
+     write(fp%unit, "(A16, G16.7)") "best like = ", mcmc%bestlike
+     do i=1,mcmc%fulln
+        write(fp%unit, "(A16, G16.7)")mcmc%paramnames%val(i), mcmc%fullparams(i)
+     enddo
   case default
      print*, trim(action)
      stop "unknown action"
