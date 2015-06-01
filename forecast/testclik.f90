@@ -13,11 +13,13 @@ program test
   type(coop_dataset_CMB_simple),target::Compressed_CMB
   type(coop_mcmc_params)::mcmc
   type(coop_data_pool)::pool
-  COOP_STRING::inifile
+  type(coop_file)::fp
+  COOP_STRING::inifile, pname
   COOP_UNKNOWN_STRING, parameter::planckdata_path = "../data/cmb/"
   COOP_UNKNOWN_STRING, parameter::planckdata_path2 =   "/home/zqhuang/includes/planck13/data" 
   COOP_INT i
   COOP_REAL::loglike
+  COOP_REAL::pvalue
   call coop_MPI_init()
 
   if(iargc().ge.1)then
@@ -96,12 +98,31 @@ program test
   case("TEST", "test")
      mcmc%params = mcmc%center
      mcmc%fullparams(mcmc%used) = mcmc%params
+     if(iargc() .ge. 3)then
+        pname = trim(coop_inputArgs(2))
+        call coop_get_Input(3, pvalue)
+        i=mcmc%paramnames%index(trim(pname))
+        if(i.ne.0)then
+           mcmc%fullparams(i) = pvalue
+        else
+           write(*,*) trim(pname)//" is not found"
+           stop
+        endif
+     endif
      if(associated(mcmc%cosmology))then
         call mcmc%get_lmax_from_data(pool)
         call mcmc%set_cosmology()
      endif        
      loglike = pool%loglike(mcmc)
      write(*,*) "-ln(likelihood) = ", loglike
+     if(iargc().ge.3)then
+        call fp%open(trim(mcmc%prefix)//".log", "a")        
+        write(fp%unit, "(2G16.7)") pvalue, loglike        
+     else
+        call fp%open(trim(mcmc%prefix)//".log", "w")        
+        write(fp%unit, "(G16.7)") loglike
+     endif
+     call fp%close()
   case("MCMC", "mcmc")
      if(mcmc%feedback .gt. 2) write(*,*) "Starting MCMC on Node #"//COOP_STR_OF(mcmc%proc_id)
      do i = 1, mcmc%total_steps
