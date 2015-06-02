@@ -3066,24 +3066,64 @@ contains
     color = coop_asy_gray_color_s(real(gray))
   end function coop_asy_gray_color_d
 
-  subroutine coop_asy_histogram(x, nbins, filename)
+  subroutine coop_asy_histogram(x, nbins, filename, xlabel, ylabel)
+    COOP_INT nbins    
     COOP_UNKNOWN_STRING::filename
-    COOP_REAL x(:), dx
-    COOP_INT nbins, iloc, i
-    COOP_REAL xmin, xmax, c(nbins), xb(nbins)
+    COOP_REAL::x(:)
+    COOP_REAL::xcopy(size(x))
+    COOP_REAL c(nbins), xb(nbins)
+    COOP_INT::i, n, nstep, ntail, j, next, nstep1, nstep2, nstep3
+    COOP_UNKNOWN_STRING,optional::xlabel, ylabel
     type(coop_asy)::fig
-    call coop_array_get_threshold(x, 0.997d0, xmin)
-    call coop_array_get_threshold(x, 0.003d0, xmax)
-    dx = (xmax-xmin)/nbins
-    if(dx .eq. 0.d0) stop "data with single point cannot be histogrammed"
-    call coop_set_uniform(nbins, xb, xmin + dx/2.d0, xmax-dx/2.d0)
-    c = 0.
-    call fig%open(trim(filename))
-    call fig%init(xlabel = "x", ylabel = "P")
-    do i=1, size(x)
-       iloc = nint((x(i) - xmin)/dx+0.5)
-       if(iloc.gt.0 .and. iloc .le.nbins) c(iloc) = c(iloc)+1
+    n = size(x)
+    if(n.lt. 48 .or. nbins.lt. 6) stop "asy_histogram assumes at least 6 bins and 48 samples"
+    xcopy = x
+    call coop_quicksort(xcopy)
+    nstep1 = n/nbins/4
+    if(nstep1 .lt. 2)stop "too many bins for asy_histogram: max number of bins is n/8"        
+    nstep2 = nstep1*2
+    nstep3 = nstep1*3
+    if(nbins.gt.6)then
+       nstep = (n- (nstep1+nstep2+nstep3)*2)/(nbins-6)
+    endif
+    ntail = n - nstep*(nbins-6) - (nstep1+nstep2+nstep3)*2
+    nstep1 = nstep1 + ntail/6
+    nstep2 = nstep2 + ntail/6
+    nstep3 = (n - (nstep1+nstep2)*2 - nstep*(nbins-6) ) / 2
+    j = nstep1
+    xb(1) = sum(xcopy(1:j))/nstep1
+    c(1) = nstep1/((xcopy(j+1)+xcopy(j))/2.d0 - xcopy(1) - (xcopy(2)-xcopy(1))/2.d0)
+
+    do i=2, nbins-1
+       next = j+1
+       if(i.eq.2 .or. i.eq. nbins-1)then
+          j = j + nstep2
+       elseif(i.eq.3.or.i.eq.nbins-2)then
+          j = j + nstep3
+       else
+          j = j + nstep
+       endif
+       xb(i) = sum(xcopy(next:j))/(j-next+1)
+       c(i) = (j-next+1)/((xcopy(j+1)+xcopy(j))/2.d0-(xcopy(next)+xcopy(next-1))/2.d0)
     enddo
+    next = j+1
+    xb(nbins) = sum(xcopy(next:n))/(n-j)
+    c(nbins) = (n-j)/((xcopy(n)+(xcopy(n)-xcopy(n-1))/2.d0)-(xcopy(j)+xcopy(next))/2.d0)
+    call fig%open(trim(adjustl(filename)))
+    if(present(xlabel))then
+       if(present(ylabel))then
+          call fig%init(xlabel = xlabel, ylabel = ylabel, ymin = 0., ymax = 1.05)
+       else
+          call fig%init(xlabel = xlabel, ylabel = "P", ymin = 0., ymax = 1.05)          
+       endif
+    else
+       if(present(ylabel))then
+          call fig%init(xlabel = "x", ylabel = ylabel, ymin = 0., ymax = 1.05)          
+       else
+          call fig%init(xlabel = "x", ylabel = "P",ymin = 0., ymax = 1.05)
+       endif
+    endif
+    c = c/maxval(c)
     call coop_asy_curve(fig, xb, c)
     call fig%close()
   end subroutine coop_asy_histogram

@@ -3,7 +3,7 @@ program test
   use coop_forecast_mod
   implicit none
 #include "constants.h"
-  COOP_STRING::action= "TEST"
+  logical,parameter::use_Planck13 = .true.
   logical::use_CMB, use_SN, use_BAO, use_HST, use_lensing, use_compressed_CMB
   type(coop_clik_object),target::pl(4)
   type(coop_HST_object),target::HSTlike
@@ -16,7 +16,6 @@ program test
   type(coop_file)::fp
   COOP_STRING::inifile, pname
   COOP_UNKNOWN_STRING, parameter::planckdata_path = "../data/cmb/"
-  COOP_UNKNOWN_STRING, parameter::planckdata_path2 =   "/home/zqhuang/includes/planck13/data" 
   COOP_INT i
   COOP_REAL::loglike
   COOP_REAL::pvalue
@@ -34,7 +33,7 @@ program test
   mcmc%cosmology => cosmology
   call mcmc%init(trim(inifile))
   mcmc%do_flush = .true.  !!do not buffer
-  if(mcmc%do_fastslow .and. coop_MPI_Rank().eq.0)then
+  if(mcmc%do_fastslow .and. coop_MPI_Rank().eq.0 .and. trim(mcmc%action) .eq. "MCMC")then
      write(*,*) "doing fast-slow MCMC"
      write(*,*) "number of varying fast parameters:"//COOP_STR_OF(mcmc%n_fast)
      write(*,*) "number of varying slow parameters:"//COOP_STR_OF(mcmc%n_slow)
@@ -44,8 +43,6 @@ program test
   endif
 
   
-  call coop_dictionary_lookup(mcmc%settings, "action", action)
-  if(trim(action) .eq. "") action = "TEST"  
   if(.not. mcmc%do_general_loglike)then
      call coop_dictionary_lookup(mcmc%settings, "use_CMB", use_CMB, .true.)
      call coop_dictionary_lookup(mcmc%settings, "use_lensing", use_lensing, .true.)  
@@ -79,22 +76,32 @@ program test
      endif
 
      if(use_CMB)then
-        if(coop_file_exists(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik"))then
-           call pl(1)%init(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik")
-           call pl(2)%init(trim(planckdata_path)//"/commander_v4.1_lm49.clik")
-           call pl(3)%init(trim(planckdata_path)//"/lowlike_v222.clik")
-           if(use_lensing)call pl(4)%init(trim(planckdata_path)//"/lensing_likelihood_v4_ref.clik_lensing")
-        else !!try another path
-           call pl(1)%init(trim(planckdata_path2)//"/CAMspec_v6.2TN_2013_02_26_dist.clik")
-           call pl(2)%init(trim(planckdata_path2)//"/commander_v4.1_lm49.clik")
-           call pl(3)%init(trim(planckdata_path2)//"/lowlike_v222.clik")
-           if(use_lensing)call pl(4)%init(trim(planckdata_path2)//"/lensing_likelihood_v4_ref.clik_lensing")        
+        if(use_Planck13)then
+           if(coop_file_exists(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik"))then
+              call pl(1)%init(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik")
+              call pl(2)%init(trim(planckdata_path)//"/commander_v4.1_lm49.clik")
+              call pl(3)%init(trim(planckdata_path)//"/lowlike_v222.clik")
+              if(use_lensing)call pl(4)%init(trim(planckdata_path)//"/lensing_likelihood_v4_ref.clik_lensing")
+           else 
+              write(*,*) "you need to make planck likelihood symbolic links to "//trim(planckdata_path)
+              stop
+           endif
+        else  !!use Planck15
+           if(coop_file_exists(trim(planckdata_path)//"/plik_dx11dr2H_M_v18_TT.clik"))then
+              call pl(1)%init(trim(planckdata_path)//"/plik_dx11dr2H_M_v18_TT.clik")              
+              call pl(2)%init(trim(planckdata_path)//"/commander_rc2_v1.1_l2_29_B.clik")
+              call pl(3)%init(trim(planckdata_path)//"/lowl_SMW_70_dx11d_2014_10_03_v5c_Ap.clik")
 
+              if(use_lensing)call pl(4)%init(trim(planckdata_path)//"/smica_g30_ftl_full_pp.dataset")
+           else !!try another path
+              write(*,*) "you need to make planck likelihood symbolic links to "//trim(planckdata_path)
+              if(use_lensing)call pl(4)%init(trim(planckdata_path)//"/lensing_likelihood_v4_ref.clik_lensing")
+           endif
         endif
         pool%CMB%cliklike => pl
      endif
   endif
-  select case(trim(action))
+  select case(trim(mcmc%action))
   case("TEST", "test")
      mcmc%params = mcmc%center
      mcmc%fullparams(mcmc%used) = mcmc%params
@@ -136,7 +143,7 @@ program test
         write(fp%unit, "(A16, G16.7)")mcmc%paramnames%val(i), mcmc%fullparams(i)
      enddo
   case default
-     print*, trim(action)
+     print*, trim(mcmc%action)
      stop "unknown action"
   end select
   call coop_MPI_finalize()

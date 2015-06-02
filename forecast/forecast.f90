@@ -97,6 +97,7 @@ module coop_forecast_mod
 
   
   type coop_MCMC_params
+     COOP_STRING::action
      COOP_INT::feedback = 0
      COOP_INT::proc_id = 0
      COOP_INT::total_steps = 50000
@@ -1139,59 +1140,65 @@ contains
        write(*, "(A)") "MCMC_params_init: cannot find ini file "//trim(ini)
        stop
     endif
+  call coop_dictionary_lookup(this%settings, "action", this%action)
+  if(trim(this%action) .eq. "") this%action = "TEST"  
+    
     prefix = this%settings%value("chain_name")
     if(trim(prefix).eq."")then
        write(*,*) "MCMC_params_init: you need to have an entry chain_name = ... in the ini file "//trim(ini)
        stop
-    endif
-    call coop_dictionary_lookup(this%settings, "overwrite", this%do_overwrite, .false.)
-    if(this%do_overwrite)then
-       write(*,*) "Warning: overwriting chains when overwrite options is on"
-       this%converge_R = coop_logZero       
-    else
-       if(coop_file_exists(trim(this%prefix)//".converge_stat"))then
-          call fp%open(trim(this%prefix)//".converge_stat", "r")
-          read(fp%unit, iostat = stat)  this%converge_R
-          if(stat .ne. 0)this%converge_R = coop_logZero 
-       else
-          this%converge_R = coop_logZero          
-       endif
     endif
     call this%chain%init()
     call this%paramnames%free()
     call this%covmat%free()
     call this%cycl%free()
     call this%like_approx%free()
-    this%prefix = trim(adjustl(prefix))
+    this%prefix = trim(adjustl(prefix))    
     this%proc_id = coop_MPI_rank()
     this%num_exact_calc = 0
     this%num_approx_calc = 0
     this%accept = 0
     this%reject = 0
     this%step = 0
-    call coop_dictionary_lookup(this%settings, "update_seconds", this%update_seconds, 0)
-    call coop_dictionary_lookup(this%settings, "update_steps", this%update_steps, 0)
-    if(this%update_seconds .eq. 0 .and. this%update_steps .eq. 0)then
-       this%update_seconds = 100000000 !!just do not update
-    endif
-    if(this%update_seconds .gt. 3600*24*30)then
-       this%do_memsave = .false.
-    else
-       this%do_memsave = .true.
-    endif
-    call coop_dictionary_lookup(this%settings, "total_steps", this%total_steps, 50000)    
-    call coop_dictionary_lookup(this%settings, "general_loglike", this%do_general_loglike, .false.)
-  
     call coop_dictionary_lookup(this%settings, "feedback", this%feedback, 1)
-    call coop_dictionary_lookup(this%settings, "approx_frac", this%approx_frac, 0.d0)
-    this%do_ndf  = (this%approx_frac .gt. 0.d0)
-    if(this%do_ndf .and. this%feedback .ge.1  .and. this%proc_id.eq.0)write(*,"(A, G15.4)") "approximation fraction:", this%approx_frac
-    call coop_dictionary_lookup(this%settings, "drift_frac", this%drift_frac, 0.d0)
-    call coop_dictionary_lookup(this%settings, "drift_step", this%drift_step, 0.01d0)    
-    this%do_drift = (this%drift_frac .gt. 0.d0)
-    if(this%do_drift .and. this%feedback .ge. 1 .and. this%proc_id.eq.0)then
-       write(*, "(A, G15.4)") "random drift probability: ", this%drift_frac
-    endif
+    call coop_dictionary_lookup(this%settings, "general_loglike", this%do_general_loglike, .false.)
+    
+    select case(trim(this%action))
+    case("MCMC")
+       call coop_dictionary_lookup(this%settings, "overwrite", this%do_overwrite, .false.)
+       if(this%do_overwrite)then
+          write(*,*) "Warning: overwriting chains when overwrite options is on"
+          this%converge_R = coop_logZero       
+       else
+          if(coop_file_exists(trim(this%prefix)//".converge_stat"))then
+             call fp%open(trim(this%prefix)//".converge_stat", "r")
+             read(fp%unit, iostat = stat)  this%converge_R
+             if(stat .ne. 0)this%converge_R = coop_logZero 
+          else
+             this%converge_R = coop_logZero          
+          endif
+       endif
+       call coop_dictionary_lookup(this%settings, "update_seconds", this%update_seconds, 0)
+       call coop_dictionary_lookup(this%settings, "update_steps", this%update_steps, 0)
+       if(this%update_seconds .eq. 0 .and. this%update_steps .eq. 0)then
+          this%update_seconds = 100000000 !!just do not update
+       endif
+       if(this%update_seconds .gt. 3600*24*30)then
+          this%do_memsave = .false.
+       else
+          this%do_memsave = .true.
+       endif
+       call coop_dictionary_lookup(this%settings, "total_steps", this%total_steps, 50000)    
+       call coop_dictionary_lookup(this%settings, "approx_frac", this%approx_frac, 0.d0)
+       this%do_ndf  = (this%approx_frac .gt. 0.d0)
+       if(this%do_ndf .and. this%feedback .ge.1  .and. this%proc_id.eq.0)write(*,"(A, G15.4)") "approximation fraction:", this%approx_frac
+       call coop_dictionary_lookup(this%settings, "drift_frac", this%drift_frac, 0.d0)
+       call coop_dictionary_lookup(this%settings, "drift_step", this%drift_step, 0.01d0)    
+       this%do_drift = (this%drift_frac .gt. 0.d0)
+       if(this%do_drift .and. this%feedback .ge. 1 .and. this%proc_id.eq.0)then
+          write(*, "(A, G15.4)") "random drift probability: ", this%drift_frac
+       endif
+    end select
     if(this%do_general_loglike)then
        if(associated(this%cosmology))nullify(this%cosmology)
     endif
@@ -1259,7 +1266,7 @@ contains
              iniwidth(i) = 0.d0
           endif
        endif
-       if(iniwidth(i) .ne. 0.d0)then
+       if(iniwidth(i) .ne. 0.d0 .and. trim(this%action).ne. "TEST")then
           this%fullparams(i) = center(i) + iniwidth(i)*coop_random_Gaussian()
           do while(this%fullparams(i) .gt. upper(i) .or. this%fullparams(i) .lt. lower(i))
              this%fullparams(i) = center(i) + iniwidth(i)*coop_random_Gaussian()
@@ -1299,95 +1306,98 @@ contains
           endif
        enddo
     endif
-    if((.not. this%do_overwrite) .and. coop_file_exists(trim(this%prefix)//".runcov"))then
-       call this%covmat%import(trim(this%prefix)//".runcov")
-    else
-       call this%covmat%diagonal(this%width)
-       call coop_dictionary_lookup(this%settings, "propose_matrix", val)
-       if(trim(val).ne."")then
-          call fp%open(val, "r")
-          read(fp%unit, "(A)") line
-          if(line(1:1).eq."#")line = adjustl(line(2:))
-          call coop_string_to_list(line, sl)
-          ncov = sl%n
-          allocate(cov_read(ncov, ncov), ind_read(ncov))
-          call coop_read_matrix(fp%unit, cov_read, ncov, ncov, success)
-          call fp%close()
-          if(success)then
-             do i = 1, ncov
-                ind_read(i) = this%paramnames%index(trim(sl%element(i)))
-                if(ind_read(i).ne.0) ind_read(i) = this%map2used(ind_read(i))
-             enddo
-             if(any(ind_read .ne. 0))then
-                do i=1, ncov
-                   if(ind_read(i).eq.0)cycle
-                   do j=1, ncov
-                      if(ind_read(j).eq.0)cycle
-                      this%covmat%c(ind_read(i), ind_read(j)) = cov_read(i, j)/this%covmat%sigma(ind_read(i))/this%covmat%sigma(ind_read(j))
-                   enddo
+    if(trim(this%action)  .ne. "TEST")then
+       if((.not. this%do_overwrite) .and. coop_file_exists(trim(this%prefix)//".runcov"))then
+          call this%covmat%import(trim(this%prefix)//".runcov")
+       else
+          call this%covmat%diagonal(this%width)
+          call coop_dictionary_lookup(this%settings, "propose_matrix", val)
+          if(trim(val).ne."")then
+             call fp%open(val, "r")
+             read(fp%unit, "(A)") line
+             if(line(1:1).eq."#")line = adjustl(line(2:))
+             call coop_string_to_list(line, sl)
+             ncov = sl%n
+             allocate(cov_read(ncov, ncov), ind_read(ncov))
+             call coop_read_matrix(fp%unit, cov_read, ncov, ncov, success)
+             call fp%close()
+             if(success)then
+                do i = 1, ncov
+                   ind_read(i) = this%paramnames%index(trim(sl%element(i)))
+                   if(ind_read(i).ne.0) ind_read(i) = this%map2used(ind_read(i))
                 enddo
-                call this%covmat%normalize()             
-                if(this%proc_id.eq.0 .and. this%feedback .ge. 1)write(*, *) "propose matrix "//trim(val)//" is loaded with "//COOP_STR_OF(count(ind_read.ne.0))//" usable parameters from totally "//COOP_STR_OF(ncov)//" parameters"
+                if(any(ind_read .ne. 0))then
+                   do i=1, ncov
+                      if(ind_read(i).eq.0)cycle
+                      do j=1, ncov
+                         if(ind_read(j).eq.0)cycle
+                         this%covmat%c(ind_read(i), ind_read(j)) = cov_read(i, j)/this%covmat%sigma(ind_read(i))/this%covmat%sigma(ind_read(j))
+                      enddo
+                   enddo
+                   call this%covmat%normalize()             
+                   if(this%proc_id.eq.0 .and. this%feedback .ge. 1)write(*, *) "propose matrix "//trim(val)//" is loaded with "//COOP_STR_OF(count(ind_read.ne.0))//" usable parameters from totally "//COOP_STR_OF(ncov)//" parameters"
+                endif
+             else
+                if(this%proc_id.eq.0)write(*,*) "propose matrix "//trim(val)//" is broken"
+                stop
              endif
-          else
-             if(this%proc_id.eq.0)write(*,*) "propose matrix "//trim(val)//" is broken"
-             stop
-          endif
-          deallocate(cov_read, ind_read)
-          call sl%init()
-       endif
-    endif
-    do i=1, this%n
-       this%mapping(i,:) = this%covmat%L(i,:)*this%covmat%sigma(i)
-    enddo
-
-
-    this%n_fast = 0    
-    call coop_dictionary_lookup(this%settings, "last_slow", val)
-    if(trim(val).ne."")then
-       this%n_slow = this%paramnames%index(trim(val))
-       if(this%n_slow .ne. 0)then
-          if(this%n_slow .lt. this%fulln)then
-             this%n_fast = count(width(this%n_slow+1:this%fulln).gt.0.d0)
+             deallocate(cov_read, ind_read)
+             call sl%init()
           endif
        endif
-    endif
-    this%do_fastslow = (this%n_fast .gt. 0)
-    this%n_slow = this%n - this%n_fast
-    this%index_fast_start = this%n_slow + 1
-    this%index_propose_fast = 1
-    this%index_propose_slow = 1
-    
-    if(this%do_fastslow)then
-       if(allocated(this%mapping_fast))deallocate(this%mapping_fast)
-       if(allocated(this%vecs_fast))deallocate(this%vecs_fast)
-       if(allocated(this%vecs_slow))deallocate(this%vecs_slow)       
-       allocate(this%mapping_fast(this%n_fast, this%n_fast))
-       allocate(this%vecs_fast(this%n_fast, this%n_fast))
-       allocate(this%vecs_slow(this%n_slow, this%n_slow))       
-       this%mapping_fast = this%mapping(this%index_fast_start:this%n, this%index_fast_start:this%n)
+       do i=1, this%n
+          this%mapping(i,:) = this%covmat%L(i,:)*this%covmat%sigma(i)
+       enddo
+
+
+       this%n_fast = 0    
+       call coop_dictionary_lookup(this%settings, "last_slow", val)
+       if(trim(val).ne."")then
+          this%n_slow = this%paramnames%index(trim(val))
+          if(this%n_slow .ne. 0)then
+             if(this%n_slow .lt. this%fulln)then
+                this%n_fast = count(width(this%n_slow+1:this%fulln).gt.0.d0)
+             endif
+          endif
+       endif
+       this%do_fastslow = (this%n_fast .gt. 0)
+       this%n_slow = this%n - this%n_fast
+       this%index_fast_start = this%n_slow + 1
+       this%index_propose_fast = 1
+       this%index_propose_slow = 1
+
+       if(this%do_fastslow)then
+          if(allocated(this%mapping_fast))deallocate(this%mapping_fast)
+          if(allocated(this%vecs_fast))deallocate(this%vecs_fast)
+          if(allocated(this%vecs_slow))deallocate(this%vecs_slow)       
+          allocate(this%mapping_fast(this%n_fast, this%n_fast))
+          allocate(this%vecs_fast(this%n_fast, this%n_fast))
+          allocate(this%vecs_slow(this%n_slow, this%n_slow))       
+          this%mapping_fast = this%mapping(this%index_fast_start:this%n, this%index_fast_start:this%n)
+       endif
     endif
     if(this%proc_id .eq. 0)then
        
        call coop_export_dictionary(trim(this%prefix)//".inputparams", this%settings)
-       call fp%open(trim(this%prefix)//".ranges", "w")
-       do i=1, this%fulln
-          write(fp%unit, "(A32, 2E16.7)") this%name(i), lower(i), upper(i)
-       enddo
-       call fp%close()
-       call fp%open(trim(this%prefix)//".paramnames", "w")
-       do i=1, this%n
-          write(fp%unit, "(2A16)")  this%name(this%used(i)), this%tex(this%used(i))
-       enddo
-       if(associated(this%cosmology))then
-          write(fp%unit, "(2A16)") "H0              ", "H_0      "                    
-          write(fp%unit, "(2A16)") "omegam          ", "\Omega_m  "          
-          write(fp%unit, "(2A16)") "omegal          ", "\Omega_\Lambda  "
-       else
-          write(fp%unit, "(2A16)") "omegal          ", "\Omega_\Lambda  "
+       if(trim(this%action) .ne. "TEST")then
+          call fp%open(trim(this%prefix)//".ranges", "w")
+          do i=1, this%fulln
+             write(fp%unit, "(A32, 2E16.7)") this%name(i), lower(i), upper(i)
+          enddo
+          call fp%close()
+          call fp%open(trim(this%prefix)//".paramnames", "w")
+          do i=1, this%n
+             write(fp%unit, "(2A16)")  this%name(this%used(i)), this%tex(this%used(i))
+          enddo
+          if(associated(this%cosmology))then
+             write(fp%unit, "(2A16)") "H0              ", "H_0      "                    
+             write(fp%unit, "(2A16)") "omegam          ", "\Omega_m  "          
+             write(fp%unit, "(2A16)") "omegal          ", "\Omega_\Lambda  "
+          else
+             write(fp%unit, "(2A16)") "omegal          ", "\Omega_\Lambda  "
+          endif
+          call fp%close()
        endif
-       call fp%close()
-       
     endif
     deallocate(center, lower, upper, width, iniwidth, prior_sigma, prior_center)    
 
