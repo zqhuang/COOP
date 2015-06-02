@@ -14,7 +14,7 @@ program test
 #include "constants.h"
   type(coop_healpix_maps)::map, mask, m2, lmap, lmask
   type(coop_healpix_inpaint)::inp
-  COOP_INT,parameter ::lmax = 10
+  COOP_INT::lmax = 10
   COOP_INT::nrun
   COOP_INT,parameter ::nsim = 5000  
   COOP_REAL,parameter::radius_deg = 10.d0
