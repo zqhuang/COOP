@@ -3706,6 +3706,7 @@ contains
     COOP_REAL::Cls(0:lmax), mindiag
     COOP_REAL, dimension(:, :),allocatable::cov
     COOP_REAL::mm
+#ifdef HAS_HEALPIX    
     call this%free()    
     this%map => map
     this%mask => mask
@@ -3803,6 +3804,7 @@ contains
     this%first_realization = .true.
     deallocate(cov)
     call this%sim%init(nside=this%map%nside, nmaps = 1, genre = "TEMPERATURE")
+#endif    
   end subroutine coop_healpix_inpaint_init
 
   subroutine coop_healpix_inpaint_upgrade(this, reset)
@@ -3815,6 +3817,7 @@ contains
     logical,dimension(:),allocatable::is_boundary
     COOP_INT,dimension(:),allocatable::index_boundary
     COOP_SINGLE,dimension(:),allocatable::count_boundary
+#ifdef HAS_HEALPIX    
     if(present(reset) .and. this%lM%nside .ne. this%base_nside)then
        if(reset)then
           call this%lCT%init(nside = this%base_nside, nmaps = 1, genre = "TEMPERATURE", nested = .true.)
@@ -3987,6 +3990,7 @@ contains
        this%lCT%map(4*i,1) = this%lCT%map(4*i+3,1)-sum(shift)
     enddo
     deallocate(is_boundary, count_boundary)
+#endif    
   end subroutine coop_healpix_inpaint_upgrade
 
   subroutine  coop_healpix_inpaint_lask2mask(this, mask)
