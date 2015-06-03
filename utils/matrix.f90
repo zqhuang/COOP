@@ -623,7 +623,7 @@ contains
     call Coop_cholesky(n, n, a, info)
     if(info.ne.0) call Coop_return_error("coop_matsym_solve", "the matrix is not positive definite", "stop")               
     do i=1,m
-       call Coop_matsym_cholesky_solve(n,a,b(:,i))
+       call Coop_cholesky_solve_mult(n, n, n, m, a, b)
     enddo
 #endif
   End Subroutine Coop_matsym_Solve

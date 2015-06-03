@@ -70,6 +70,10 @@ CatP: $(OBJ) peakcat.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) peakcat.o $(LINK)
 
 
+FullStack: $(OBJ) stack_fullsky.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) stack_fullsky.o $(LINK)
+
+
 Stack: $(OBJ) dostack.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) dostack.o $(LINK)
 

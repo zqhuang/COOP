@@ -25,11 +25,11 @@ module coop_healpix_mod
   logical::coop_healpix_IAU_headless_vector = .true.
   COOP_REAL::coop_healpix_QrUrSign = -1.d0  !!WMAP7 invented this...
   
-  COOP_SINGLE::coop_healpix_patch_default_figure_width = 3.5
-  COOP_SINGLE::coop_healpix_patch_default_figure_height = 3.
+  COOP_SINGLE::coop_healpix_patch_default_figure_width = 4.5
+  COOP_SINGLE::coop_healpix_patch_default_figure_height = 4.
   logical::coop_healpix_patch_default_want_caption = .true.
   logical::coop_healpix_patch_default_want_label = .true.
-  logical::coop_healpix_patch_default_want_arrow = .true.
+  logical::coop_healpix_patch_default_want_arrow = .false.
   COOP_INT, parameter:: coop_inpaint_nside_start = 8
   COOP_SINGLE,parameter::coop_inpaint_mask_threshold = 0.1
   COOP_INT,parameter::coop_inpaint_refine_factor = 1
@@ -508,10 +508,10 @@ contains
     endif
     if(use_rad .and. coop_healpix_patch_default_want_arrow)then
        theta = nint(2.d0*asin(this%r(this%n)/2.d0)/coop_SI_degree*10.d0)/10.d0
-       call coop_asy_label(fig, "$\mathbf{-"//COOP_STR_OF(theta)//"}^\circ$", -this%r(this%n)*1.02, -this%r(this%n)*1.21, color="blue")
-       call coop_asy_label(fig, "$\mathbf{"//COOP_STR_OF(theta)//"}^\circ$", this%r(this%n)*1.02, -this%r(this%n)*1.21, color="blue")
-       call fig%arrow(this%r(this%n),  -this%r(this%n)*1.1, this%r(this%n),  -this%r(this%n)*1.01)
-       call fig%arrow(-this%r(this%n),  -this%r(this%n)*1.1, -this%r(this%n),  -this%r(this%n)*1.01)
+       call coop_asy_label(fig, "$\mathbf{-"//COOP_STR_OF(theta)//"}^\circ$", -this%r(this%n)*1.01, -this%r(this%n)*1.23, color="blue")
+       call coop_asy_label(fig, "$\mathbf{"//COOP_STR_OF(theta)//"}^\circ$", this%r(this%n)*1.01, -this%r(this%n)*1.23, color="blue")
+       call fig%arrow(this%r(this%n),  -this%r(this%n)*1.17, this%r(this%n),  -this%r(this%n)*1.13)
+       call fig%arrow(-this%r(this%n),  -this%r(this%n)*1.17, -this%r(this%n),  -this%r(this%n)*1.13)
     endif
     if(this%tbs%spin(imap).eq.2 .and. this%tbs%headless_vector(imap) .and. this%nmaps .ge. 2)then
        if(imap .eq. this%nmaps)then
@@ -2055,6 +2055,7 @@ contains
              x = patch%dr * i
              y = patch%dr * j
              r = sqrt(x**2+y**2)
+             if(r.ge. 2.d0)cycle
              phi = COOP_POLAR_ANGLE(x, y) + angle
              call disc%ang2pix( r, phi, pix)
              if(present(mask))then
@@ -2072,6 +2073,7 @@ contains
                 x = patch%dr * i
                 y = patch%dr * j
                 r = sqrt(x**2+y**2)
+                if(r.ge. 2.d0)cycle                                
                 phi = COOP_POLAR_ANGLE(x, y) + angle
                 call disc%ang2pix( r, phi, pix)
                 qu = this%map(pix, patch%tbs%ind)
@@ -2091,6 +2093,7 @@ contains
                 x = patch%dr * i
                 y = patch%dr * j
                 r = sqrt(x**2+y**2)
+                if(r.ge. 2.d0)cycle                                
                 phi = COOP_POLAR_ANGLE(x, y) + angle
                 call disc%ang2pix( r, phi, pix)
                 qu = this%map(pix, patch%tbs%ind)
@@ -2110,6 +2113,7 @@ contains
              x = patch%dr * i
              y = patch%dr * j
              r = sqrt(x**2+y**2)
+             if(r.ge. 2.d0)cycle                             
              phi = COOP_POLAR_ANGLE(x, y) + angle
              call disc%ang2pix( r, phi, pix)
              k = 1
@@ -3265,16 +3269,37 @@ contains
     enddo
   end subroutine coop_healpix_mask_peaks
 
-
-  subroutine coop_healpix_maps_rotate_coor(this, from, to)
+  subroutine coop_healpix_maps_rotate_coor(this, output, from, to, zyz_psi, zyz_theta, zyz_phi)
     !!rotate map between coordinates
     !!from and to can be 'C'/'Q' for Celestial/eQuatorial, 'E' for Ecliptic, and 'G' for Galactic    
     class(coop_healpix_maps)::this
-    COOP_UNKNOWN_STRING::from, to
+    COOP_UNKNOWN_STRING, optional::from, to
+    COOP_REAL,optional::zyz_psi, zyz_theta, zyz_phi
+    type(coop_healpix_maps),optional::output
 #ifdef HAS_HEALPIX
     COOP_REAL psi, theta, phi
     COOP_INT i, istart
     complex,dimension(:,:,:),allocatable::alm_TGC
+    if(present(from) .and. present(to))then
+       call coordsys2euler_zyz(2000.d0, 2000.d0, from, to, psi, theta, phi)
+    else
+       if(present(zyz_psi))then
+          psi = zyz_psi
+       else
+          psi = 0.d0
+       endif
+       if(present(zyz_theta))then
+          theta = zyz_theta
+       else
+          theta = 0.d0
+       endif
+       if(present(zyz_phi))then
+          phi = zyz_phi
+       else
+          phi = 0.d0
+       endif
+    endif
+    if(psi .eq. 0.d0 .and. theta .eq. 0.d0 .and. phi .eq. 0.d0)return
     if(.not. allocated(this%alm))call this%map2alm()
     select case(this%nmaps)
     case(1)
@@ -3290,14 +3315,26 @@ contains
     do i=1, this%nmaps
        alm_TGC(istart + i,:,:)= this%alm(:,:,i)
     enddo
-    call coordsys2euler_zyz(2000.d0, 2000.d0, from, to, psi, theta, phi) 
     call rotate_alm(this%lmax, alm_TGC, psi, theta, phi)     
-    do i=1, this%nmaps
-       this%alm(:,:,i) = alm_TGC(istart + i,:,:)
-    enddo
-    call this%alm2map()
+    if(present(output))then
+       if(output%nmaps .ne. this%nmaps) stop "rotate_coor: different format"
+       if(any(output%spin .ne. this%spin)) stop "rotate_coor: different spins"
+       if(output%lmax .ne. this%lmax)call output%allocate_alms(lmax = this%lmax)
+       
+       do i=1, this%nmaps
+          output%alm(:,:,i) = alm_TGC(istart + i,:,:)
+       enddo
+       call output%alm2map()
+       if(present(to)) output%coordsys = trim(to)
+    else
+       do i=1, this%nmaps
+          this%alm(:,:,i) = alm_TGC(istart + i,:,:)
+       enddo
+       call this%alm2map()
+       if(present(to)) this%coordsys = trim(to)
+    endif
     deallocate(alm_TGC)
-    this%coordsys = trim(to)
+
 #else
     stop "You need to install healpix"
 #endif    

@@ -11,19 +11,20 @@ program Exp_spots
   logical::do_max 
   COOP_UNKNOWN_STRING,parameter::minmax = "max"
   COOP_STRING::peak_name = "RANDOM"
-  COOP_STRING::orient_name = "$(Q_T, U_T)$"
-  COOP_STRING::map_file = "act15/act15_i_hp_230_270_smoothed_fwhm10arcmin_converted_to_TQTUT.fits"
-  COOP_STRING::imask_file = "act15/act15_imask.fits"
-  COOP_STRING::polmask_file = "act15/act15_polmask.fits"
+  COOP_STRING::orient_name = "RANDOM"
+  COOP_STRING::map_file = "simu/simu_i_16_440a_0.fits" ! "lowl/commander_dx11d2_extdata_temp_cmb_n0016_440arc_v1_cr.fits" !
+  !
+  COOP_STRING::imask_file = "lowl/commander_dx11d2_mask_temp_n0016_likelihood_v1.fits"
+  COOP_STRING::polmask_file = "lowl/commander_dx11d2_mask_temp_n0016_likelihood_v1.fits"
   COOP_STRING::mask_file_force_to_use = ""
   
   type(coop_stacking_options)::sto
   type(coop_healpix_maps)::hgm, mask
   COOP_STRING::output 
-  COOP_REAL::threshold = 1.
+  COOP_REAL::threshold = 0.
   COOP_STRING::line
   COOP_INT::i
-  output =  "peaks/act15_nu1_ort_fp"
+  output =  "peaks/planck_lowres_0"
   do_max = (minmax .eq. "max")
   
   if(iargc() .ge. 8)then

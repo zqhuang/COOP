@@ -385,7 +385,7 @@ contains
        if(domax)then
           if(trim(p).eq."RANDOM")then
              this%genre = coop_stacking_genre_random_hot
-             this%caption = "random hot spots"
+             this%caption = "hot spots"
           else          
              if(len_trim(p).gt. 9)then
                 if(p(1:9).eq."$\nabla^2")then
@@ -401,7 +401,7 @@ contains
        else
           if(trim(p).eq."RANDOM")then
              this%genre = coop_stacking_genre_random_cold
-             this%caption = "random cold spots"             
+             this%caption = "cold spots"             
           else          
              if(len_trim(p) .gt. 9)then
                 if(p(1:9) .eq. "$\nabla^2")then
@@ -419,7 +419,7 @@ contains
        if(domax)then
           if(trim(p).eq."RANDOM")then
              this%genre = coop_stacking_genre_random_hot_Oriented
-             this%caption = "random hot spots, "//trim(adjustl(Orient_name))//" oriented"
+             this%caption = "hot spots, "//trim(adjustl(Orient_name))//" oriented"
           else
              if(trim(p).eq."P" .or. trim(p).eq."P_T" .or. p(1:2) .eq. "$P")then
                 this%genre = coop_stacking_genre_Pmax_Oriented             
@@ -439,7 +439,7 @@ contains
        else
           if(trim(p).eq."RANDOM")then
              this%genre = coop_stacking_genre_random_cold_Oriented
-             this%caption = "random cold spots, "//trim(adjustl(Orient_name))//" oriented"
+             this%caption = "cold spots, "//trim(adjustl(Orient_name))//" oriented"
           else
              if(p(1:2).eq."$P")then
                 this%genre = coop_stacking_genre_Pmin_Oriented             
