@@ -4005,6 +4005,15 @@ contains
        mask%map(i,1) = count(this%lask(i*nfac:(i+1)*nfac-1))/rfac
     enddo
   end subroutine coop_healpix_inpaint_lask2mask
+
+  subroutine coop_healpix_maps_eval_corr(this, n, corr, xmin, xmax, mask)
+    class(coop_healpix_maps)::this
+    COOP_INT::n
+    COOP_REAL::corr(0:n)
+    COOP_REAL::xmin, xmax
+    type(coop_healpix_maps),optional::mask
+    
+  end subroutine coop_healpix_maps_eval_corr
   
 end module coop_healpix_mod
 
