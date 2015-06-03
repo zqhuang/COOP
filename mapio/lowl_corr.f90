@@ -231,7 +231,7 @@ program test
   call fp%close()
   print*, "p value = ", pvalue
   call coop_asy_histogram(x = log(S_sim), nbins = 20, filename = "Shalf/S_"//COOP_STR_OF(masked_S)//COOP_STR_OF(remove_mean)//COOP_STR_OF(use_commander_mask)//"_"//COOP_STR_OF(lmax)//"_"//COOP_STR_OF(n)//".txt", xlabel="$\ln S_{1/2}$", ylabel = "Probability")
-  call coop_asy_histogram(x = log(S_sim(1:nsim/20)), nbins = 20, filename = "Shalf/S_"//COOP_STR_OF(masked_S)//COOP_STR_OF(remove_mean)//COOP_STR_OF(use_commander_mask)//"_"//COOP_STR_OF(lmax)//"_"//COOP_STR_OF(n)//".txt", xlabel="$\ln S_{1/2}$", ylabel = "Probability")  
+  call coop_asy_histogram(x = log(S_sim(1:nsim/20)), nbins = 20, filename = "Shalf/S_tail_"//COOP_STR_OF(masked_S)//COOP_STR_OF(remove_mean)//COOP_STR_OF(use_commander_mask)//"_"//COOP_STR_OF(lmax)//"_"//COOP_STR_OF(n)//".txt", xlabel="$\ln S_{1/2}$", ylabel = "Probability")  
   
   call coop_MPI_finalize()  
 end program test
