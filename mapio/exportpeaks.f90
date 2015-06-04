@@ -9,11 +9,11 @@ program Exp_spots
   logical::remove_mono = .true.
   
   logical::do_max 
-  COOP_UNKNOWN_STRING,parameter::minmax = "max"
-  COOP_UNKNOWN_STRING,parameter::ind = "0"  
+  COOP_UNKNOWN_STRING,parameter::minmax = "min"
+  COOP_UNKNOWN_STRING,parameter::ind = "9"  
   COOP_STRING::peak_name = "RANDOM"
   COOP_STRING::orient_name = "NULL"
-  COOP_STRING::map_file = "lowl/commander_dx11d2_extdata_temp_cmb_n0016_440arc_v1_cr.fits"
+  COOP_STRING::map_file = "lowl/commander_dx11d2_extdata_temp_cmb_n0016_440arc_v1_cr.fits" !"simu/simu_i_16_440a_"//trim(ind)//".fits" !
   !
   COOP_STRING::imask_file = "lowl/commander_dx11d2_mask_temp_n0016_likelihood_v1.fits"
   COOP_STRING::polmask_file = "lowl/commander_dx11d2_mask_temp_n0016_likelihood_v1.fits"
@@ -25,7 +25,7 @@ program Exp_spots
   COOP_REAL::threshold = 0.
   COOP_STRING::line
   COOP_INT::i
-  output =  "peaks/planck_lowres_"//trim(ind)
+  output =  "peaks/cold_lowres" !_"//trim(ind)
   do_max = (minmax .eq. "max")
   
   if(iargc() .ge. 8)then

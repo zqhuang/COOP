@@ -56,7 +56,7 @@ current_path = os.getcwd()
 jobname = chainname
     
 fp = open(r'scripts/' + jobname + r'.jb', 'w')
-fp.write(r'#!/bin/csh -f' + "\n" + r'#PBS -N '+jobname + "\n" + r'#PBS -l nodes=' + str(num_chains) + r':ppn=8' + "\n" + r'#PBS -q workq' + "\n" + r'#PBS -l walltime=48:00:00' + "\n" + r'##PBS -r n' + "\n" + r'cd ' + current_path + "\n" + 'mpirun -pernode ./DOCLIK ' + inifile + ' > ./scripts/'+jobname+r'.log' + "\n")
+fp.write(r'#!/bin/csh -f' + "\n" + r'#PBS -N '+jobname + "\n" + r'#PBS -l nodes=' + str(num_chains) + r':ppn=8' + "\n" + r'#PBS -q workq' + "\n" + r'#PBS -l walltime=48:00:00' + "\n" + r'##PBS -r n' + "\n" + r'cd ' + current_path + "\n" + 'mpirun -pernode ./MCMC ' + inifile + ' > ./scripts/'+jobname+r'.log' + "\n")
 
 fp.close()
 
