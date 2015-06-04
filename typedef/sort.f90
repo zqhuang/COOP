@@ -184,7 +184,8 @@ contains
     COOP_INT n, i
     COOP_REAL ,dimension(:),allocatable::x
     n = Coop_getdim("coop_quicksort_index", size(r), size(ind))
-    allocate(x(n), source=r)
+    allocate(x(n))
+    x = r
     ind = (/ (i , i=1,n) /)
     call coop_quicksortacc(x, ind)
     deallocate(x)
@@ -196,7 +197,8 @@ contains
     COOP_INT n, i
     COOP_SINGLE,dimension(:),allocatable::x
     n = Coop_getdim("coop_quicksort_index", size(r), size(ind))
-    allocate(x(n), source=r)
+    allocate(x(n))
+    x = r
     ind = (/ (i , i=1,n) /)
     call coop_quicksortacc(x, ind)
     deallocate(x)

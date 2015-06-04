@@ -10,9 +10,10 @@ program Exp_spots
   
   logical::do_max 
   COOP_UNKNOWN_STRING,parameter::minmax = "max"
+  COOP_UNKNOWN_STRING,parameter::ind = "0"  
   COOP_STRING::peak_name = "RANDOM"
   COOP_STRING::orient_name = "NULL"
-  COOP_STRING::map_file ="lowl/commander_dx11d2_extdata_temp_cmb_n0016_440arc_v1_cr.fits" ! "simu/simu_i_16_440a_0.fits" ! 
+  COOP_STRING::map_file = "lowl/commander_dx11d2_extdata_temp_cmb_n0016_440arc_v1_cr.fits"
   !
   COOP_STRING::imask_file = "lowl/commander_dx11d2_mask_temp_n0016_likelihood_v1.fits"
   COOP_STRING::polmask_file = "lowl/commander_dx11d2_mask_temp_n0016_likelihood_v1.fits"
@@ -24,7 +25,7 @@ program Exp_spots
   COOP_REAL::threshold = 0.
   COOP_STRING::line
   COOP_INT::i
-  output =  "peaks/planck_lowres_0"
+  output =  "peaks/planck_lowres_"//trim(ind)
   do_max = (minmax .eq. "max")
   
   if(iargc() .ge. 8)then
@@ -45,9 +46,7 @@ program Exp_spots
         write(*,*) "Warning: not using the mask"
      endif
   endif
-  
   call hgm%read(map_file)
-
   call sto%init(do_max, peak_name, orient_name, nmaps = hgm%nmaps)
   sto%angzero = .false.
   select case(trim(coop_str_numalpha(peak_name)))

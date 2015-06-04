@@ -236,6 +236,8 @@ contains
     cfname  = trim(adjustl(filename))
     call coop_convert_to_C_String(cfname)
     call coop_fits_read_all_headers_to_string(cfname, str, nkeys)
+    print*
+    print*, trim(str)
     call coop_convert_to_Fortran_String(str)
     istart = 1
     do i=1, nkeys
@@ -1548,6 +1550,7 @@ contains
     else
        call this%fields_to_spins()
     endif
+
 #else
     stop "DID NOT FIND HEALPIX"
 #endif

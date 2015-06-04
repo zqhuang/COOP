@@ -42,7 +42,7 @@ program test
      endif
   enddo
   mcopy = map
-  do i=1, 10
+  do i=0, 9
      write(*,*) "simulating maps", i     
      call map%simulate()
      call map%write(trim(prefix)//"_i_"//COOP_STR_OF(nside)//"_"//COOP_STR_OF(nint(beam_fwhm))//"a_"//COOP_STR_OF(i)//".fits", index_list = (/ 1 /) )

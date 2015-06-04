@@ -8,10 +8,10 @@ program Stacking_Maps
   logical::use_mask = .true.
   logical::remove_mono = .false.
 
-  COOP_UNKNOWN_STRING,parameter::str_ind = "8"
-  COOP_UNKNOWN_STRING,parameter::prefix= "planck_lowres" !_"//str_ind
+  COOP_UNKNOWN_STRING,parameter::str_ind = "0"
+  COOP_UNKNOWN_STRING,parameter::prefix= "planck_lowres_"//str_ind
   COOP_STRING::stack_field_name = "T"
-  COOP_STRING::map_file =  "lowl/commander_dx11d2_extdata_temp_cmb_n0016_440arc_v1_cr.fits" ! "simu/simu_i_16_440a_"//str_ind//".fits" !
+  COOP_STRING::map_file =  "simu/simu_i_16_440a_"//str_ind//".fits" ! "lowl/commander_dx11d2_extdata_temp_cmb_n0016_440arc_v1_cr.fits" ! ! "lowl/commander_inp_n0016.fits" !
   COOP_STRING::imask_file =  "lowl/commander_dx11d2_mask_temp_n0016_likelihood_v1.fits"
   COOP_STRING::polmask_file =  "lowl/commander_dx11d2_mask_temp_n0016_likelihood_v1.fits"
   COOP_STRING::peak_file = "peaks/"//prefix//".dat"
@@ -27,7 +27,7 @@ program Stacking_Maps
   COOP_STRING::output 
   COOP_INT i, m
   COOP_REAL::zmin1 = -5.
-  COOP_REAL::zmax1 = 5.
+  COOP_REAL::zmax1 = 15.
   COOP_REAL::zmin2 = 1.e31
   COOP_REAL::zmax2 = -1.e31
   COOP_STRING::line  
