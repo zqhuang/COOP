@@ -4009,10 +4009,63 @@ contains
   subroutine coop_healpix_maps_eval_corr(this, n, corr, xmin, xmax, mask)
     class(coop_healpix_maps)::this
     COOP_INT::n
-    COOP_REAL::corr(0:n)
+    COOP_REAL::corr(n), weight(n)
     COOP_REAL::xmin, xmax
     type(coop_healpix_maps),optional::mask
-    
+    COOP_REAL,dimension(:,:),allocatable::vec
+    COOP_REAL::cost, dx
+    COOP_INT::i, j, loc
+    dx = (xmax-xmin)/n
+    if(this%nside .le. 16)then  !!brute-force
+       allocate(vec(3, 0:this%npix-1))
+       !$omp parallel do
+       do i=0, this%npix-1
+          call this%pix2vec(i, vec(:, i))
+       enddo
+       !$omp end parallel do
+       if(present(mask))then
+          do i=0, this%npix-1
+             if(mask%map(i,1).lt. 0.5)cycle
+             do j=1, i-1
+                if(mask%map(j,1).lt. 0.5)cycle
+                cost = dot_product(vec(:, i) , vec(:, j))
+                loc = nint((cost - xmin)/dx+(0.5d0+1.d-10))
+                if(loc .ge. 1 .and. loc.le.n)then
+                   weight(loc) = weight(loc) + 1.d0
+                   corr(loc) = corr(loc) + this%map(i,1)*this%map(j,1)
+                endif
+             enddo
+             !!j = i
+             if(xmax .eq. 1.d0)then
+                weight(n) = weight(n) + 1
+                corr(n) = corr(n) + this%map(i,1)**2
+             endif
+          enddo
+       else
+          do i=0, this%npix-1
+             do j=1, i-1
+                cost = dot_product(vec(:, i) , vec(:, j))
+                loc = nint((cost - xmin)/dx+(0.5d0+1.d-10))
+                if(loc .ge. 1 .and. loc.le.n)then
+                   weight(loc) = weight(loc) + 1.d0
+                   corr(loc) = corr(loc) + this%map(i,1)*this%map(j,1)
+                endif
+             enddo
+             !!j = i
+             if(xmax .eq. 1.d0)then
+                weight(n) = weight(n) + 1
+                corr(n) = corr(n) + this%map(i,1)**2
+             endif
+          enddo
+       endif
+    else
+       
+    endif
+    where (weight .gt. 0.5d0)
+       corr = corr/weight
+    elsewhere
+       corr = 0.d0
+    end where
   end subroutine coop_healpix_maps_eval_corr
   
 end module coop_healpix_mod

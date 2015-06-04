@@ -9,9 +9,9 @@ program Stacking_Maps
   logical::remove_mono = .false.
 
   COOP_UNKNOWN_STRING,parameter::str_ind = "8"
-  COOP_UNKNOWN_STRING,parameter::prefix= "planck_lowres_"//str_ind
+  COOP_UNKNOWN_STRING,parameter::prefix= "planck_lowres" !_"//str_ind
   COOP_STRING::stack_field_name = "T"
-  COOP_STRING::map_file =  "simu/simu_i_16_440a_"//str_ind//".fits" ! "lowl/commander_dx11d2_extdata_temp_cmb_n0016_440arc_v1_cr.fits" !
+  COOP_STRING::map_file =  "lowl/commander_dx11d2_extdata_temp_cmb_n0016_440arc_v1_cr.fits" ! "simu/simu_i_16_440a_"//str_ind//".fits" !
   COOP_STRING::imask_file =  "lowl/commander_dx11d2_mask_temp_n0016_likelihood_v1.fits"
   COOP_STRING::polmask_file =  "lowl/commander_dx11d2_mask_temp_n0016_likelihood_v1.fits"
   COOP_STRING::peak_file = "peaks/"//prefix//".dat"
@@ -73,6 +73,7 @@ program Stacking_Maps
      endif
   endif
   call sto%import(peak_file)
+  sto%angzero = .true.
   call hgm%read(map_file)
   call patch%init(stack_field_name, n, dr)
   if(use_mask)then

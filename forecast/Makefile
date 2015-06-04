@@ -12,7 +12,7 @@ include ../compile_rules.in
 LIB = libcoopforecast.a
 OBJ = SNlike_JLA.o bao.o HSTlike.o cliklike.o forecast.o 
 
-default: $(LIB) DOCLIK
+default: $(LIB) MCMC
 
 $(LIB):	$(OBJ) 
 	ar -r $@ $?
@@ -25,8 +25,8 @@ DOSN:	testSN.o $(OBJ)
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testSN.o $(LINK) 
 
 
-DOCLIK:	testclik.o $(OBJ)
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testclik.o $(LINK)
+MCMC:	runmcmc.o $(OBJ)
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) runmcmc.o $(LINK)
 
 STD6:	teststd6.o $(OBJ)
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) teststd6.o $(LINK) 

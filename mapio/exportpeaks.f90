@@ -11,8 +11,8 @@ program Exp_spots
   logical::do_max 
   COOP_UNKNOWN_STRING,parameter::minmax = "max"
   COOP_STRING::peak_name = "RANDOM"
-  COOP_STRING::orient_name = "RANDOM"
-  COOP_STRING::map_file = "simu/simu_i_16_440a_0.fits" ! "lowl/commander_dx11d2_extdata_temp_cmb_n0016_440arc_v1_cr.fits" !
+  COOP_STRING::orient_name = "NULL"
+  COOP_STRING::map_file ="lowl/commander_dx11d2_extdata_temp_cmb_n0016_440arc_v1_cr.fits" ! "simu/simu_i_16_440a_0.fits" ! 
   !
   COOP_STRING::imask_file = "lowl/commander_dx11d2_mask_temp_n0016_likelihood_v1.fits"
   COOP_STRING::polmask_file = "lowl/commander_dx11d2_mask_temp_n0016_likelihood_v1.fits"
