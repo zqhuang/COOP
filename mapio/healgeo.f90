@@ -236,6 +236,7 @@ contains
     cfname  = trim(adjustl(filename))
     call coop_convert_to_C_String(cfname)
     call coop_fits_read_all_headers_to_string(cfname, str, nkeys)
+    call coop_convert_to_Fortran_String(str)
     istart = 1
     do i=1, nkeys
        j = scan(str(istart:),"=")

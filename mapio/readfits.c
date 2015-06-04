@@ -37,14 +37,15 @@ void coop_fits_read_all_headers_to_string_(char* filename, char* cards, int* nke
 #ifdef HAS_CFITSIO
   fitsfile *fptr;         
   char card[FLEN_CARD]; 
-  int status, ii, num_hdus, ih, hdutype; 
+  int status, ii, num_hdus, ih, hdutype, this_nkeys; 
   status = 0; /* MUST initialize status */
   fits_open_file(&fptr, filename, READONLY, &status);
   fits_get_num_hdus(fptr, &num_hdus, &status);
   for(ih = 1; ih<=num_hdus; ih++){
     fits_movabs_hdu(fptr, ih, &hdutype, &status);
-    fits_get_hdrspace(fptr, nkeys, NULL, &status);        
-    for (ii = 1; ii <= *nkeys; ii++)  { 
+    fits_get_hdrspace(fptr, &this_nkeys, NULL, &status);
+    *nkeys = *nkeys + this_nkeys;
+    for (ii = 1; ii <= this_nkeys; ii++)  { 
       fits_read_record(fptr, ii, card, &status); /* read keyword */
       if(ii == 1 && ih == 1)
 	strcpy(cards, card);

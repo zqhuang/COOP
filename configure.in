@@ -41,7 +41,7 @@ FFTW3 =
 GSL =
 #$(HOME)/mathlib/gsl
 
-CLIKPATH =$(HOME)/work/scilibs/COOP/forecast/plc-1.0/
+CLIKPATH =$(HOME)/work/scilibs/planck13/plc-1.0/
 
 ##cfitsio lib, mandatory if you do maps
 CFITSIO = $(HOME)/work/scilibs/cfitsio
