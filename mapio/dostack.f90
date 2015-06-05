@@ -7,6 +7,7 @@ program Stacking_Maps
 #ifdef HAS_HEALPIX
   logical::use_mask = .true.
   logical::remove_mono = .false.
+  logical::randrot = .false.
   COOP_SHORT_STRING::str_ind
   COOP_STRING::prefix
   COOP_STRING::stack_field_name = "T"
@@ -34,10 +35,15 @@ program Stacking_Maps
   type(coop_asy)::fig
   COOP_REAL::tmax
   str_ind = trim(coop_InputArgs(1))
+  call coop_get_Input(2, randrot, .true.)
   prefix= "cold_lowres" !//trim(str_ind)
   !map_file =  "simu/simu_i_16_440a_"//trim(str_ind)//".fits"
-  map_file =  "lowl/commander_dx11d2_extdata_temp_cmb_n0016_440arc_v1_cr.fits" ! ! "lowl/commander_inp_n0016.fits" !  
-  output = "stacked/"//trim(prefix)//"_"//trim(stack_field_name)
+  map_file =  "lowl/commander_dx11d2_extdata_temp_cmb_n0016_440arc_v1_cr.fits" ! ! "lowl/commander_inp_n0016.fits" !
+  if(randrot)then
+     output = "stacked/"//trim(prefix)//"_randRot_"//trim(stack_field_name)     
+  else
+     output = "stacked/"//trim(prefix)//"_NSalign_"//trim(stack_field_name)
+  endif
   peak_file = "peaks/"//trim(prefix)//".dat"  
   if(iargc() .ge. 6)then
      use_mask = .true.
@@ -77,7 +83,7 @@ program Stacking_Maps
      endif
   endif
   call sto%import(peak_file)
-  sto%angzero = .false.
+  sto%angzero = .not. randrot
   call hgm%read(map_file)
   call patch%init(stack_field_name, n, dr)
   if(use_mask)then

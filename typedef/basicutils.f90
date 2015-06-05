@@ -753,22 +753,32 @@ contains
     end if
   end function Coop_InputArgs
 
-  subroutine coop_get_Input_str(i, str)
+  subroutine coop_get_Input_str(i, str, default)
     COOP_STRING str
     COOP_INT::i
+    COOP_UNKNOWN_STRING,optional::default
     if(iargc().lt.i)then
-       str= ''
+       if(present(default))then
+          str= trim(default)
+       else
+          str = ''
+       endif
     else
        call getarg(i, str)
     endif
   end subroutine coop_get_Input_str
 
 
-  subroutine coop_get_Input_Int(i, in)
+  subroutine coop_get_Input_Int(i, in, default)
     COOP_STRING str
-    COOP_INT::i, in
+    COOP_INT::i, in, stat
+    COOP_INT,optional::default
     if(iargc().lt.i)then
-       stop "coop_get_Input_Int: argument does not exist"
+       if(present(default))then
+          in = default 
+       else
+          stop "coop_get_Input_Int: argument does not exist"
+       endif
     else
        call getarg(i, str)
        read(str, *) in
@@ -776,12 +786,17 @@ contains
   end subroutine coop_get_Input_Int
 
 
-  subroutine coop_get_Input_Real(i, in)
+  subroutine coop_get_Input_Real(i, in, default)
     COOP_STRING str
     COOP_INT::i
     COOP_REAL::in
+    COOP_REAL,optional::default
     if(iargc().lt.i)then
-       stop "coop_get_Input_real: argument does not exist"
+       if(present(default))then
+          in = default
+       else
+          stop "coop_get_Input_real: argument does not exist"
+       endif
     else
        call getarg(i, str)
        read(str, *) in
@@ -789,12 +804,17 @@ contains
   end subroutine coop_get_Input_Real
 
 
-  subroutine coop_get_Input_single(i, in)
+  subroutine coop_get_Input_single(i, in, default)
     COOP_STRING str
     COOP_INT::i
     COOP_SINGLE::in
+    COOP_SINGLE,optional::default
     if(iargc().lt.i)then
-       stop "coop_get_Input_single: argument does not exist"
+       if(present(default))then
+          in = default
+       else
+          stop "coop_get_Input_single: argument does not exist"
+       endif
     else
        call getarg(i, str)
        read(str, *) in
@@ -802,20 +822,22 @@ contains
   end subroutine coop_get_Input_single
 
 
-  subroutine coop_get_Input_Logical(i, in)
+  subroutine coop_get_Input_Logical(i, in, default)
     COOP_STRING str
     COOP_INT::i
     logical::in
+    logical,optional::default
     if(iargc().lt.i)then
-       stop "coop_get_Input_logical: argument does not exist"
+       if(present(default))then
+          in = default
+       else
+          stop "coop_get_Input_logical: argument does not exist"
+       endif
     else
        call getarg(i, str)
        read(str, *) in
     endif
   end subroutine coop_get_Input_Logical
-  
-  
-  
   
 
   subroutine coop_smooth_data_d(n, y, sigma)
