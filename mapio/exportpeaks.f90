@@ -5,50 +5,52 @@ program Exp_spots
   implicit none
 #include "constants.h"
 #ifdef HAS_HEALPIX
-  logical::use_mask = .true.
-  logical::remove_mono = .true.
-  
+  logical::remove_mono = .true.  
   logical::do_max 
-  COOP_UNKNOWN_STRING,parameter::minmax = "min"
-  COOP_UNKNOWN_STRING,parameter::ind = "9"  
-  COOP_STRING::peak_name = "RANDOM"
-  COOP_STRING::orient_name = "NULL"
-  COOP_STRING::map_file = "lowl/commander_dx11d2_extdata_temp_cmb_n0016_440arc_v1_cr.fits" !"simu/simu_i_16_440a_"//trim(ind)//".fits" !
-  !
-  COOP_STRING::imask_file = "lowl/commander_dx11d2_mask_temp_n0016_likelihood_v1.fits"
-  COOP_STRING::polmask_file = "lowl/commander_dx11d2_mask_temp_n0016_likelihood_v1.fits"
-  COOP_STRING::mask_file_force_to_use = ""
-  
+  COOP_STRING::map_file, imask_file, polmask_file, mask_file, peak_name, orient_name, output
   type(coop_stacking_options)::sto
   type(coop_healpix_maps)::hgm, mask
-  COOP_STRING::output 
-  COOP_REAL::threshold = 0.
-  COOP_STRING::line
-  COOP_INT::i
-  output =  "peaks/cold_lowres" !_"//trim(ind)
-  do_max = (minmax .eq. "max")
-  
-  if(iargc() .ge. 8)then
-     use_mask = .true.
-     map_file = coop_InputArgs(1)
-     imask_file = coop_InputArgs(2)
-     polmask_file = coop_InputArgs(3)
-     line = coop_InputArgs(4)
-     read(line, *) do_max
-     peak_name = coop_InputArgs(5)
-     orient_name = coop_InputArgs(6)
-     output = coop_InputArgs(7)
-     line = coop_InputArgs(8)
-     read(line, *) threshold
-  else
-     coop_healpix_mask_tol = 0.
-     if(.not. use_mask)then
-        write(*,*) "Warning: not using the mask"
-     endif
+  COOP_REAL::threshold
+  COOP_INT::i, nside_scan
+
+  if(iargc().le.0)then
+     write(*,"(A)") "----------------------------------------------------------"     
+     write(*,"(A)") "Syntax:"
+     write(*,"(A)") "./GetPeaks -map MAP_FILE"
+     write(*,"(A)") "----------------------------------------------------------"
+     write(*,"(A)") "other options are:"     
+     write(*,"(A)") "-out OUTPUT_FILE"
+     write(*,"(A)") "-hot [T|F]"
+     write(*,"(A)") "-peak [RANDOM|T|E|B|P_T|P|\zeta|P_\zeta]"
+     write(*,"(A)") "-orient [RANDOM|(Q_T, U_T)|(Q, U)]"
+     write(*,"(A)") "-mask [MASK_FILE|NONE|'']"
+     write(*,"(A)") "-nu THRESHOLD_VALUE"
+     write(*,"(A)") "-nss NSIDE_SCAN"          
+     write(*,"(A)") "-imask [INTENSITY_MASK_FILE] (automatically chosen when mask = '')"
+     write(*,"(A)") "-polmask [POL_MASK_FILE] (automatically chosen when mask = '')"
+     write(*,"(A)") "----------------------------------------------------------"     
+     stop
   endif
+  call coop_get_command_line_argument(key = 'map', arg = map_file)
+  call coop_get_command_line_argument(key = 'hot', arg = do_max, default =.true.)
+
+  call coop_get_command_line_argument(key = 'mask', arg = mask_file, default = 'NONE')
+  call coop_get_command_line_argument(key = 'imask', arg = imask_file, default = '')
+  call coop_get_command_line_argument(key = 'polmask', arg = polmask_file, default = '')      
+  call coop_get_command_line_argument(key = 'peak', arg = peak_name, default = 'T')
+  call coop_get_command_line_argument(key = 'orient', arg = orient_name, default = 'RANDOM')
+  call coop_get_command_line_argument(key = 'nu', arg = threshold, default = 0.d0)
+  if(do_max)then
+     call coop_get_command_line_argument(key = 'out', arg = output, default = "peaks/"//trim(coop_file_name_of(map_file, want_ext = .false.))//"_"//trim(coop_str_numalpha(peak_name))//"_"//trim(coop_str_numalpha(orient_name))//"_hot.dat")
+  else
+     call coop_get_command_line_argument(key = 'out', arg = output, default = "peaks/"//trim(coop_file_name_of(map_file, want_ext = .false.))//"_"//trim(coop_str_numalpha(peak_name))//"_"//trim(coop_str_numalpha(orient_name))//"_cold.dat")
+  endif
+  call coop_get_command_line_argument(key = 'nss', arg = nside_scan, default = 0)
+  coop_healpix_mask_tol = 0.
   call hgm%read(map_file)
+  if(trim(mask_file).eq."" .and. trim(imask_file).eq."" .and. trim(polmask_file).eq."") mask_file = "NONE"
   call sto%init(do_max, peak_name, orient_name, nmaps = hgm%nmaps)
-  sto%angzero = .false.
+  sto%angzero = .false.  
   select case(trim(coop_str_numalpha(peak_name)))
   case("T", "I", "E", "B", "zeta", "Z", "RANDOM")
      if(do_max)then
@@ -69,14 +71,13 @@ program Exp_spots
         stop
      endif
   end select
-  if(use_mask)then
-     if( sto%mask_int .and. .not. sto%mask_pol)then
+  if(trim(mask_file).ne."NONE")then
+     if(trim(mask_file).ne."")then
+        call mask%read(mask_file, nmaps_wanted = 1)
+     elseif( sto%mask_int .and. .not. sto%mask_pol)then
         call mask%read(imask_file, nmaps_wanted = 1)
      elseif( sto%mask_pol .and. .not. sto%mask_int)then
         call mask%read(polmask_file, nmaps_wanted = 1)
-     elseif(trim(mask_file_force_to_use).ne."")then
-        call mask%read(mask_file_force_to_use, nmaps_wanted = 1)
-        write(*,*) "Using forced mask: "//trim(mask_file_force_to_use)
      else
         stop "For unknown class of peaks you need to specify the mask file explicitly"
      endif
@@ -87,13 +88,21 @@ program Exp_spots
            hgm%map(:,i) =  hgm%map(:,i) - sum(dble( hgm%map(:,i)))/sum(dble(mask%map(:,1)))
         enddo
      endif
-     call hgm%get_peaks(sto, mask = mask)
+     if(nside_scan .eq. 0)then
+        call hgm%get_peaks(sto, mask = mask)
+     else
+        call hgm%get_peaks(sto, mask = mask, nside_scan = nside_scan)
+     endif
   else
-     call hgm%get_peaks(sto)
+     if(nside_scan .eq. 0)then
+        call hgm%get_peaks(sto)
+     else
+        call hgm%get_peaks(sto, nside_scan = nside_scan)
+     endif
   endif
   print*, "find "//COOP_STR_OF(sto%peak_pix%n)//" spots"
-  print*, "writing to "//trim(adjustl(output))//".dat"
-  call sto%export(trim(adjustl(output))//".dat")
+  print*, "writing to "//trim(output)
+  call sto%export(trim(output))
 #else
   print*, "You need to install healpix"
 #endif  

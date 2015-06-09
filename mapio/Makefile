@@ -32,18 +32,23 @@ ACTTheo:  $(OBJ) acttheo.o
 GetPeaks:  $(OBJ) exportpeaks.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) exportpeaks.o $(LINK)
 
+FindExt: $(OBJ) find_extrema.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) find_extrema.o $(LINK)
+
 GetInfo: $(OBJ) getinfo.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) getinfo.o $(LINK)
 
 UDG: $(OBJ) udgrade.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) udgrade.o $(LINK)
 
-
 GetCl: $(OBJ) getcls.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) getcls.o $(LINK)
 
 Test: $(OBJ) test.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
+
+MPat: $(OBJ) merge_patches.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) merge_patches.o $(LINK)
 
 Inpaint: $(OBJ) testinp.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testinp.o $(LINK)

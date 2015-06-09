@@ -11,46 +11,40 @@ program udg
   implicit none
 #include "constants.h"
 #ifdef HAS_HEALPIX  
-  character(LEN=1024)::f_map_in, f_map_out, line
+  character(LEN=1024)::f_map_in, f_map_out, f_mask, line
   integer nside_in, nside_out, npix_in, npix_out
-  real::fmissval = 0.
-  logical::pessimistic = .false.
-  real,dimension(:,:),allocatable::map_in, map_out
-  integer ordering, nmaps
-  integer(8) npixtot
-  character(LEN=80)::header(64)
-
-  write(*,*) "usage:"
-  write(*,*) "./UDG map_in map_out nside_out pessimistic fmissval"
-  if(iargc().lt.5) stop
-  f_map_in = coop_InputArgs(1)
-  f_map_out = coop_InputArgs(2) 
-  if(trim(f_map_in).eq."") stop
-  line = coop_InputArgs(3) 
-  read(line, *) nside_out
-  line = coop_InputArgs(4)
-  if(trim(line).ne."")then
-     read(line, *) pessimistic
+  logical::ave, has_mask
+  type(coop_healpix_maps)::map_in, map_out, mask
+  if(iargc().lt.3)then
+     write(*,*) "Syntax:"
+     write(*,*) "./UDG -inp MAP_IN -out MAP_OUT -nside NSIDE_OUT -mask MASK -ave DO_AVERAGE[T/F]"
+     write(*,*) "If -ave set to be false, will do mask udgrade (>0.5 ~ 1; <=0.5 ~ 0)."
+     stop
   endif
-  line = coop_InputArgs(5)
-  if(trim(line).ne."")then
-     read(line, *) fmissval
-  endif
-     
-  npixtot = getsize_fits(trim(f_map_in), nmaps = nmaps, nside = nside_in, ordering = ordering)
-  npix_in = nside2npix(nside_in)
-  npix_out = nside2npix(nside_out)
-  allocate(map_in(0:npix_in-1, nmaps))
-  allocate(map_out(0:npix_out-1, nmaps))
-  call input_map(trim(f_map_in), map_in, npix_in, nmaps, fmissval = 0.)
-  if(ordering .eq. COOP_NESTED)then
-     call udgrade_nest(map_in, nside_in, map_out, nside_out, fmissval, pessimistic)
+  call coop_get_command_line_argument(key = "inp", arg  = f_map_in)
+  call coop_get_command_line_argument(key = "out", arg = f_map_out)
+  call coop_get_command_line_argument(key = "nside", arg = nside_out)
+  call coop_get_command_line_argument(key = "ave", arg = ave, default = .true.)
+  call coop_get_command_line_argument(key = "mask", arg = f_mask, default = "NONE")
+  has_mask = (trim(f_mask) .ne. "NONE")
+  call map_in%read(f_map_in)
+  call map_out%init(nside = nside_out, nmaps = map_in%nmaps)  
+  if(has_mask)then
+     call mask%read(f_mask)
+     call map_in%apply_mask(mask)
+     call coop_healpix_maps_ave_udgrade(from = map_in, to = map_out, mask = mask)     
   else
-     call udgrade_ring(map_in, nside_in, map_out, nside_out, fmissval, pessimistic)
+     call coop_healpix_maps_ave_udgrade(map_in, map_out)
   endif
-  call write_minimal_header(header,dtype = 'MAP', nside=nside_out, order = ordering, creator='Zhiqi Huang')
-  call coop_delete_file(trim(f_map_out))
-  call output_map(map_out, header, trim(f_map_out))
+  call coop_healpix_maps_copy_genre(map_in, map_out)
+  if(.not. ave .and. map_in%nmaps.eq.1 .and. all(map_in%map .eq. 0. .or. map_in%map .eq. 1.))then
+     where(map_out%map .ge. 0.5)
+        map_out%map = 1.
+     elsewhere
+        map_out%map = 0.
+     end where
+  endif
+  call map_out%write(trim(f_map_out))
 #else
   stop "you need to install healpix"
 #endif  

@@ -5,94 +5,86 @@ program Stacking_Maps
   implicit none
 #include "constants.h"
 #ifdef HAS_HEALPIX
-  logical::use_mask = .true.
-  logical::remove_mono = .false.
-  logical::randrot = .false.
-  COOP_SHORT_STRING::str_ind
-  COOP_STRING::prefix
-  COOP_STRING::stack_field_name = "T"
-  COOP_STRING::map_file
-  COOP_STRING::imask_file =  "lowl/commander_dx11d2_mask_temp_n0016_likelihood_v1.fits"
-  COOP_STRING::polmask_file =  "lowl/commander_dx11d2_mask_temp_n0016_likelihood_v1.fits"
-
-  COOP_STRING::peak_file 
-  COOP_UNKNOWN_STRING,parameter::mask_file_force_to_use = ""
-  
-  COOP_INT,parameter::n = 100
-  COOP_REAL,parameter::r_degree  = 180.d0
-  COOP_REAL,parameter::dr = 2.d0*sin(r_degree*coop_SI_degree/2.d0)/n
-  logical::makepdf = .false.
+  logical::remove_mono = .true.
+  logical::randrot
+  COOP_STRING::mask_file, peak_file, map_file, output, imask_file, polmask_file, field_name
+  COOP_INT::n = 100
+  COOP_REAL::r_degree, dr
+  logical::makepdf = .true.
   type(coop_stacking_options)::sto
   type(coop_healpix_patch)::patch
   type(coop_healpix_maps)::hgm, mask, pmap
-  COOP_STRING::output 
   COOP_INT i, m
-  COOP_REAL::zmin1 = -15.
-  COOP_REAL::zmax1 = 5.
-  COOP_REAL::zmin2 = 1.e31
-  COOP_REAL::zmax2 = -1.e31
-  COOP_STRING::line  
+  COOP_REAL::zmin1, zmax1, zmin2, zmax2
   type(coop_asy)::fig
   COOP_REAL::tmax
-  str_ind = trim(coop_InputArgs(1))
-  call coop_get_Input(2, randrot, .true.)
-  prefix= "cold_lowres" !//trim(str_ind)
-  !map_file =  "simu/simu_i_16_440a_"//trim(str_ind)//".fits"
-  map_file =  "lowl/commander_dx11d2_extdata_temp_cmb_n0016_440arc_v1_cr.fits" ! ! "lowl/commander_inp_n0016.fits" !
+  if(iargc().le.0)then
+     write(*,"(A)") "----------------------------------------------------------"     
+     write(*,"(A)") "Syntax:"
+     write(*,"(A)") "./Stack -map MAP_FILE -peaks PEAK_FILE  -field [T|QU|QrUr]"
+     write(*,"(A)") "----------------------------------------------------------"
+     write(*,"(A)") "other options are:"
+     write(*,"(A)") "-out OUTPUT_FILE"     
+     write(*,"(A)") "-mask [MASK_FILE|NONE|'']"
+     write(*,"(A)") "-radius RADIUS_IN_DEGREE"
+     write(*,"(A)") "-res RESOLUTION(10-200)"
+     write(*,"(A)") "-width WIDTH_IN_INCH"
+     write(*,"(A)") "-height HEIGHT_IN_INCH"
+     write(*,"(A)") "-colortable [Rainbow|Planck]"
+     write(*,"(A)") "-imask [INTENSITY_MASK_FILE] (automatically chosen when mask = '')"
+     write(*,"(A)") "-polmask [POL_MASK_FILE] (automatically chosen when mask = '')"
+     write(*,"(A)") "-randrot [T|F]"     
+     write(*,"(A)") "-min MIN_VALUE_FOR_MAP1"
+     write(*,"(A)") "-max MAX_VALUE_FOR_MAP1"                    
+     write(*,"(A)") "-min2 MIN_VALUE_FOR_MAP2"
+     write(*,"(A)") "-max2 MAX_VALUE_FOR_MAP2"
+     write(*,"(A)") "-want_caption [T|F]"
+     write(*,"(A)") "-want_label [T|F]"
+     write(*,"(A)") "-want_arrow [T|F]"
+     write(*,"(A)") "----------------------------------------------------------"     
+     stop
+  endif
+
+  call coop_get_command_line_argument(key = 'map', arg = map_file)
+  call coop_get_command_line_argument(key = 'peaks', arg = peak_file)
+  call coop_get_command_line_argument(key = 'field', arg = field_name)  
+  call coop_get_command_line_argument(key = 'mask', arg = mask_file, default = "NONE")
+  call coop_get_command_line_argument(key = 'randrot', arg = randrot, default = .true.)
+  call coop_get_command_line_argument(key = 'min', arg = zmin1, default=1.d31)
+  call coop_get_command_line_argument(key = 'max', arg = zmax1, default=-1.d31)  
+  call coop_get_command_line_argument(key = 'min2', arg = zmin2, default=1.d31)
+  call coop_get_command_line_argument(key = 'max2', arg = zmax2, default=-1.d31)
+
+  
+  call coop_get_command_line_argument(key = 'radius', arg = r_degree, default = 2.d0)
+  call coop_get_command_line_argument(key = 'res', arg  = n, default = 40)
+
+  dr = 2.d0*sin(r_degree*coop_SI_degree/2.d0)/n  
   if(randrot)then
-     output = "stacked/"//trim(prefix)//"_randRot_"//trim(stack_field_name)     
+     call coop_get_command_line_argument(key = 'out', arg = output, default = "stacked/"//trim(field_name)//"_on_"//trim(coop_file_name_of(peak_file, want_ext = .false.))//"_randRot")
   else
-     output = "stacked/"//trim(prefix)//"_NSalign_"//trim(stack_field_name)
+     call coop_get_command_line_argument(key = 'out', arg = output, default = "stacked/"//trim(field_name)//"_on_"//trim(coop_file_name_of(peak_file, want_ext = .false.))//"_NSalign")     
   endif
-  peak_file = "peaks/"//trim(prefix)//".dat"  
-  if(iargc() .ge. 6)then
-     use_mask = .true.
-     coop_healpix_patch_default_want_caption = .true.
-     coop_healpix_patch_default_want_label = .true.
-     coop_healpix_patch_default_want_arrow = .true.
-     coop_healpix_patch_default_figure_width = 4.5
-     coop_healpix_patch_default_figure_height = 3.9          
-     Map_file = coop_InputArgs(1)
-     imask_file = coop_InputArgs(2)
-     polmask_file = coop_InputArgs(3)     
-     peak_file = coop_InputArgs(4)
-     stack_field_name = coop_InputArgs(5)
-     output = coop_InputArgs(6)
-     if(iargc() .ge. 8)then
-        line = coop_InputArgs(7)
-        read(line, *) zmin1
-        line = coop_InputArgs(8)
-        read(line, *) zmax1
-     endif
-     if(iargc() .ge. 10)then
-        line = coop_InputArgs(9)
-        read(line, *) zmin2
-        line = coop_InputArgs(10)
-        read(line, *) zmax2
-     endif
-  else
-     makepdf = .true.
-     coop_healpix_patch_default_want_caption = .true.
-     coop_healpix_patch_default_want_label  = .true.
-     coop_healpix_patch_default_want_arrow = .true.     
-     coop_healpix_patch_default_figure_width = 4.5
-     coop_healpix_patch_default_figure_height = 4.
-     coop_healpix_mask_tol = 0.d0
-     if(.not. use_mask)then
-        write(*,*) "Warning: not using the mask"
-     endif
-  endif
+  call coop_get_command_line_argument(key = 'want_caption', arg = coop_healpix_patch_default_want_caption, default =  .true.)
+  
+  call coop_get_command_line_argument(key = 'want_label',  arg = coop_healpix_patch_default_want_label, default  = .true.)
+  call coop_get_command_line_argument(key = 'want_arrow', arg = coop_healpix_patch_default_want_arrow, default = .true.)
+  call coop_get_command_line_argument(key = 'width', arg = coop_healpix_patch_default_figure_width, default = 5.)
+  call coop_get_command_line_argument(key = 'height', arg = coop_healpix_patch_default_figure_height, default = 4.2)
+  call coop_get_command_line_argument(key = 'imask', arg = imask_file, default = "")
+  call coop_get_command_line_argument(key = 'polmask', arg = polmask_file, default = "")  
+
   call sto%import(peak_file)
   sto%angzero = .not. randrot
   call hgm%read(map_file)
-  call patch%init(stack_field_name, n, dr)
-  if(use_mask)then
-     if(patch%tbs%mask_int .and. .not. patch%tbs%mask_pol)then
+  call patch%init(field_name, n, dr)
+  if(trim(mask_file) .ne. "NONE")then
+     if(trim(mask_file) .ne. "")then
+        call mask%read(mask_file, nmaps_wanted = 1)
+     elseif(patch%tbs%mask_int .and. .not. patch%tbs%mask_pol)then
         call mask%read(imask_file, nmaps_wanted = 1)
      elseif(patch%tbs%mask_pol .and. .not. patch%tbs%mask_int)then
         call mask%read(polmask_file, nmaps_wanted = 1)
-     elseif(trim(mask_file_force_to_use) .ne. "")then
-        call mask%read(mask_file_force_to_use, nmaps_wanted = 1)
      else
         stop "For unclassified stacking maps you have to specify the mask explicitly"
      endif
@@ -107,13 +99,13 @@ program Stacking_Maps
      hgm%map = hgm%map*1.e6
   endif
   print*, "stacking on "//COOP_STR_OF(sto%peak_pix%n)//" peaks"  
-  if(use_mask)then
+  if(trim(mask_file).ne."NONE")then
      call hgm%stack_on_peaks(sto, patch, mask)
   else
      call hgm%stack_on_peaks(sto, patch)
   endif
   patch%caption = "stacked on "//COOP_STR_OF(sto%peak_pix%n)//" "//trim(sto%caption)
-  patch%color_table = "Rainbow"
+  call coop_get_command_line_argument(key = 'colortable', arg = patch%color_table, default = 'Rainbow')
   select case(patch%nmaps)
   case(1)
      patch%tbs%zmin(1) = zmin1
@@ -130,6 +122,7 @@ program Stacking_Maps
         if(makepdf)call system("../utils/fasy.sh "//trim(adjustl(output))//"_"//COOP_STR_OF(i)//".txt")        
      enddo
   end select
+  call patch%export(trim(adjustl(output))//".patch")
   call patch%get_all_radial_profiles()
   select case(patch%nmaps)
   case(1)

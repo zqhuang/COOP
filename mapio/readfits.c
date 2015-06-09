@@ -41,6 +41,7 @@ void coop_fits_read_all_headers_to_string_(char* filename, char* cards, int* nke
   status = 0; /* MUST initialize status */
   fits_open_file(&fptr, filename, READONLY, &status);
   fits_get_num_hdus(fptr, &num_hdus, &status);
+  *nkeys = 0;
   for(ih = 1; ih<=num_hdus; ih++){
     fits_movabs_hdu(fptr, ih, &hdutype, &status);
     fits_get_hdrspace(fptr, &this_nkeys, NULL, &status);

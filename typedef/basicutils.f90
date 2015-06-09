@@ -32,6 +32,14 @@ module coop_basicutils_mod
      module procedure coop_get_Input_Real, coop_get_Input_Single, coop_get_Input_Int, coop_get_Input_Str, coop_get_Input_Logical
   end interface coop_get_Input
 
+  interface coop_maxloc
+     module procedure coop_maxloc_d, coop_maxloc_s, coop_maxloc_i
+  end interface coop_maxloc
+
+  interface coop_minloc
+     module procedure coop_minloc_d, coop_minloc_s, coop_minloc_i
+  end interface coop_minloc
+  
 contains
 
   Function coop_OuterProd(a, b) result(outerprod)
@@ -41,21 +49,54 @@ contains
          spread(b,dim=1,ncopies=size(a))
   end function Coop_OuterProd
 
-  function coop_maxloc(arr) result(imaxloc)
+  function coop_maxloc_d(arr) result(imaxloc)
     COOP_REAL, DIMENSION(:), INTENT(IN) :: arr
     COOP_INT imaxloc
     COOP_INT,DIMENSION(1)::imax
     imax=maxloc(arr(:))
     imaxloc=imax(1)
-  end function coop_maxloc
+  end function coop_maxloc_d
 
-  function coop_minloc(arr) result(iminloc)
+  function coop_minloc_d(arr) result(iminloc)
     COOP_REAL, DIMENSION(:), INTENT(IN) :: arr
     COOP_INT iminloc
     COOP_INT,DIMENSION(1)::imin
     imin=minloc(arr(:))
     iminloc=imin(1)
-  end function coop_minloc
+  end function coop_minloc_d
+
+
+  function coop_maxloc_s(arr) result(imaxloc)
+    COOP_SINGLE, DIMENSION(:), INTENT(IN) :: arr
+    COOP_INT imaxloc
+    COOP_INT,DIMENSION(1)::imax
+    imax=maxloc(arr(:))
+    imaxloc=imax(1)
+  end function coop_maxloc_s
+
+  function coop_minloc_s(arr) result(iminloc)
+    COOP_SINGLE, DIMENSION(:), INTENT(IN) :: arr
+    COOP_INT iminloc
+    COOP_INT,DIMENSION(1)::imin
+    imin=minloc(arr(:))
+    iminloc=imin(1)
+  end function coop_minloc_s
+
+  function coop_maxloc_i(arr) result(imaxloc)
+    COOP_INT, DIMENSION(:), INTENT(IN) :: arr
+    COOP_INT imaxloc
+    COOP_INT,DIMENSION(1)::imax
+    imax=maxloc(arr(:))
+    imaxloc=imax(1)
+  end function coop_maxloc_i
+
+  function coop_minloc_i(arr) result(iminloc)
+    COOP_INT, DIMENSION(:), INTENT(IN) :: arr
+    COOP_INT iminloc
+    COOP_INT,DIMENSION(1)::imin
+    imin=minloc(arr(:))
+    iminloc=imin(1)
+  end function coop_minloc_i
 
 
 
@@ -761,7 +802,7 @@ contains
        if(present(default))then
           str= trim(default)
        else
-          str = ''
+          stop "cannot find the string argument"
        endif
     else
        call getarg(i, str)

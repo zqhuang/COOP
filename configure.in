@@ -34,8 +34,7 @@ C_COMPILER = $(GCC_NAME)
 LAPACK = APPLE
 
 ##FFTW lib (v3.2 up)
-FFTW3 =
-#$(HOME)/includes/fftw3
+FFTW3 =$(HOME)/work/scilibs/fftw/
 
 ## gsl lib 
 GSL =

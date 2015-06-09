@@ -8,7 +8,7 @@ module coop_list_mod
   COOP_INT,parameter::sp = kind(1.)
   COOP_INT,parameter::dl = kind(1.d0)
 
-  public::coop_list_integer, coop_list_real, coop_list_realarr, coop_list_double, coop_list_logical, coop_list_string, coop_list_character, coop_string_to_list, coop_dictionary, coop_dictionary_lookup, coop_get_prime_numbers, coop_list_get_element, coop_commander_line_argument, coop_get_commander_line_argument
+  public::coop_list_integer, coop_list_real, coop_list_realarr, coop_list_double, coop_list_logical, coop_list_string, coop_list_character, coop_string_to_list, coop_dictionary, coop_dictionary_lookup, coop_get_prime_numbers, coop_list_get_element, coop_command_line_argument, coop_get_command_line_argument
 
   interface coop_list_initialize
      module procedure coop_list_integer_initialize, coop_list_real_initialize, coop_list_double_initialize, coop_list_logical_initialize, coop_list_string_initialize, coop_list_character_initialize, coop_list_realarr_initialize
@@ -45,9 +45,9 @@ module coop_list_mod
      module procedure coop_dictionary_lookup_string, coop_dictionary_lookup_int, coop_dictionary_lookup_real, coop_dictionary_lookup_double, coop_dictionary_lookup_logical, coop_dictionary_lookup_int_array, coop_dictionary_lookup_real_array, coop_dictionary_lookup_double_array, coop_dictionary_lookup_logical_array
   end interface coop_dictionary_lookup
 
-  interface coop_get_commander_line_argument
-     module procedure coop_get_commander_line_argument_single, coop_get_commander_line_argument_real, coop_get_commander_line_argument_logical, coop_get_commander_line_argument_int, coop_get_commander_line_argument_str
-  end interface coop_get_commander_line_argument
+  interface coop_get_command_line_argument
+     module procedure coop_get_command_line_argument_single, coop_get_command_line_argument_real, coop_get_command_line_argument_logical, coop_get_command_line_argument_int, coop_get_command_line_argument_str
+  end interface coop_get_command_line_argument
 
 
   COOP_INT,parameter:: coop_list_i1_max_length = 2**14
@@ -201,6 +201,8 @@ module coop_list_mod
      procedure::load_input => coop_dictionary_load_input
   end type coop_dictionary
 
+
+  type(coop_dictionary)::coop_command_line_inputs
 
 contains
 
@@ -1688,7 +1690,6 @@ contains
     deallocate(key, index, tmp)
   end subroutine coop_list_realarr_sort
 
-
   subroutine coop_dictionary_load_input(this)
     class(coop_dictionary)::this
     COOP_INT::i, n
@@ -1715,31 +1716,34 @@ contains
     enddo
   end subroutine coop_dictionary_load_input
 
-  function coop_commander_line_argument(index, key, default) result(str)
+  subroutine coop_load_command_line_inputs()
+    if(coop_command_line_inputs%n .eq. 0) &
+         call coop_command_line_inputs%load_input()
+  end subroutine coop_load_command_line_inputs  
+
+  function coop_command_line_argument(index, key, default) result(str)
     COOP_INT,optional::index
     COOP_UNKNOWN_STRING,optional::key, default
-    type(coop_dictionary)::dict
     COOP_STRING::str
     if(present(index))then
        str = coop_InputArgs(index)
     elseif(present(key))then
-       call dict%load_input()
-       str = dict%value(trim(adjustl(key)))
-       call dict%free()
+       call coop_load_command_line_inputs()
+       str = coop_command_line_inputs%value(trim(adjustl(key)))
     else
        if(present(default))then
           str = default
        else
-          str = ''
+          str = coop_InputArgs(1)
        endif
     endif
-  end function coop_commander_line_argument
+  end function coop_command_line_argument
 
-  subroutine coop_get_commander_line_argument_str(index, key, arg, default)
+  subroutine coop_get_command_line_argument_str(index, key, arg, default)
     COOP_INT,optional::index
     COOP_UNKNOWN_STRING,optional::key, default
-    type(coop_dictionary)::dict
     COOP_UNKNOWN_STRING::arg
+    COOP_INT::ind
     if(present(index))then
        if(present(default))then
           call coop_get_Input(index, arg, default)
@@ -1747,25 +1751,32 @@ contains
           call coop_get_Input(index, arg)
        endif
     elseif(present(key))then
-       call dict%load_input()
-       arg = dict%value(trim(adjustl(key)))
-       call dict%free()
+       call coop_load_command_line_inputs()
+       ind = coop_command_line_inputs%index(trim(adjustl(key)))
+       if(ind.eq.0)then
+          if(present(default))then
+             arg = default
+             return
+          endif
+          write(*,*) 'key '//trim(key)//' missing in command line'
+          stop
+       endif
+       arg = trim(coop_command_line_inputs%val(ind))
     else
        if(present(default))then
           arg = default
        else
-          arg = ''
+          stop "cannot find the string argument in command line input"
        endif
     endif
-  end subroutine coop_get_commander_line_argument_str
+  end subroutine coop_get_command_line_argument_str
 
 
 
-  subroutine coop_get_commander_line_argument_int(index, key, arg, default)
+  subroutine coop_get_command_line_argument_int(index, key, arg, default)
     COOP_INT,optional::index
     COOP_UNKNOWN_STRING,optional::key
     COOP_INT,optional::default
-    type(coop_dictionary)::dict
     COOP_INT::arg
     COOP_STRING::str
     if(present(index))then
@@ -1775,24 +1786,30 @@ contains
           call coop_get_Input(index, arg)
        endif
     elseif(present(key))then
-       call dict%load_input()
-       str = dict%value(trim(adjustl(key)))
+       call coop_load_command_line_inputs()
+       str = coop_command_line_inputs%value(trim(adjustl(key)))
+       if(trim(str).eq.'')then
+          if(present(default))then
+             arg = default
+             return
+          endif
+          write(*,*) 'key '//trim(key)//' missing in command line'
+          stop
+       endif       
        read(str, *) arg
-       call dict%free()
     else
        if(present(default))then
           arg = default
        else
-          stop "cannot find the integer argument in commander line input"
+          stop "cannot find the integer argument in command line input"
        endif
     endif
-  end subroutine coop_get_commander_line_argument_int
+  end subroutine coop_get_command_line_argument_int
 
 
-  subroutine coop_get_commander_line_argument_logical(index, key, arg, default)
+  subroutine coop_get_command_line_argument_logical(index, key, arg, default)
     COOP_INT,optional::index
     COOP_UNKNOWN_STRING,optional::key
-    type(coop_dictionary)::dict
     logical::arg
     logical,optional::default    
     COOP_STRING::str
@@ -1803,25 +1820,31 @@ contains
           call coop_get_Input(index, arg)
        endif
     elseif(present(key))then
-       call dict%load_input()
-       str = dict%value(trim(adjustl(key)))
+       call coop_load_command_line_inputs()
+       str = coop_command_line_inputs%value(trim(adjustl(key)))
+       if(trim(str).eq.'')then
+          if(present(default))then
+             arg = default
+             return
+          endif          
+          write(*,*) 'key '//trim(key)//' missing in command line'
+          stop
+       endif
        read(str, *) arg
-       call dict%free()
     else
        if(present(default))then
           arg = default
        else
-          stop "cannot find the logical argument in commander line input"
+          stop "cannot find the logical argument in command line input"
        endif
     endif
-  end subroutine coop_get_commander_line_argument_logical
+  end subroutine coop_get_command_line_argument_logical
 
 
 
-  subroutine coop_get_commander_line_argument_real(index, key, arg, default)
+  subroutine coop_get_command_line_argument_real(index, key, arg, default)
     COOP_INT,optional::index
     COOP_UNKNOWN_STRING,optional::key
-    type(coop_dictionary)::dict
     COOP_REAL::arg
     COOP_REAL,optional::default    
     COOP_STRING::str
@@ -1832,24 +1855,30 @@ contains
           call coop_get_Input(index, arg)
        endif
     elseif(present(key))then
-       call dict%load_input()
-       str = dict%value(trim(adjustl(key)))
+       call coop_load_command_line_inputs()
+       str = coop_command_line_inputs%value(trim(adjustl(key)))
+       if(trim(str).eq.'')then
+          if(present(default))then
+             arg = default
+             return
+          endif          
+          write(*,*) 'key '//trim(key)//' missing in command line'
+          stop
+       endif       
        read(str, *) arg
-       call dict%free()
     else
        if(present(default))then
           arg = default
        else
-          stop "cannot find the REAL argument in commander line input"
+          stop "cannot find the REAL argument in command line input"
        endif
     endif
-  end subroutine coop_get_commander_line_argument_real
+  end subroutine coop_get_command_line_argument_real
 
 
-  subroutine coop_get_commander_line_argument_single(index, key, arg, default)
+  subroutine coop_get_command_line_argument_single(index, key, arg, default)
     COOP_INT,optional::index
     COOP_UNKNOWN_STRING,optional::key
-    type(coop_dictionary)::dict
     COOP_SINGLE::arg
     COOP_SINGLE,optional::default    
     COOP_STRING::str
@@ -1860,18 +1889,25 @@ contains
           call coop_get_Input(index, arg)
        endif
     elseif(present(key))then
-       call dict%load_input()
-       str = dict%value(trim(adjustl(key)))
+       call coop_load_command_line_inputs()
+       str = coop_command_line_inputs%value(trim(adjustl(key)))
+       if(trim(str).eq.'')then
+          if(present(default))then
+             arg = default
+             return
+          endif          
+          write(*,*) 'key '//trim(key)//' missing in command line'
+          stop
+       endif
        read(str, *) arg
-       call dict%free()
     else
        if(present(default))then
           arg = default
        else
-          stop "cannot find the SINGLE argument in commander line input"
+          stop "cannot find the SINGLE argument in command line input"
        endif
     endif
-  end subroutine coop_get_commander_line_argument_single
+  end subroutine coop_get_command_line_argument_single
 
   
 End module coop_list_mod

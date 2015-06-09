@@ -5,8 +5,8 @@ program test
 #include "constants.h"
   type(coop_healpix_maps)::map, mask, m2
   type(coop_healpix_inpaint)::inp
-  COOP_INT,parameter ::lmax = 500
-  COOP_INT,parameter ::nrun = 100
+  COOP_INT,parameter ::lmax = 100
+  COOP_INT,parameter ::nrun = 200
   COOP_REAL,parameter::radius_deg = 10.d0
   logical,parameter::force_output = .false.
   COOP_STRING::mask_spot = ""
@@ -26,30 +26,13 @@ program test
   call fp%close()
   Cls(0:1) = 0.d0
 
-!!$  call directions%init(nside = 2, nmaps = 1, genre = "T")
-!!$  do ipix = 0, directions%npix-1
-!!$     call directions%pix2ang(ipix, theta, phi)
-!!$     l_deg = phi*360./coop_2pi
-!!$     b_deg = (coop_pi/2.d0 - theta)*(180.d0/coop_pi)
-!!$     cls_scan(:, ipix) = Cls_ave
-!!$     call fp%open("scan_cls.txt", "w")
-!!$     
-!!$     call fp%close()
-!!$  enddo
-
-     
-  !!$$  read the maps
-  !call map%read("planck14/dx11_v2_commander_int_cmb_040a_0256.fits")
-  !call mask%read("planck14/dx11_v2_commander_int_mask_040a_0256.fits")
+  
   
   call map%read("lowl/commander_dx11d2_extdata_temp_cmb_n0256_60arc_v1_cr.fits")
-  !  call mask%read("planck14/lat30_mask_n256.fits")
-  
-  call mask%read("lowl/commander_dx11d2_mask_temp_n0256_likelihood_v1.fits")
-  
-
-100 write(*,*) "enter the mask spot [NEP, SEP, NCP, SCP, NGP, SGP, COLDSPOT, NONE, NASYM, SASYM]"
-  read(*,*) mask_spot
+  !call mask%read("planck14/dx11_v2_commander_int_mask_040a_0256.fits")  
+  !call mask%read("lowl/commander_dx11d2_mask_temp_n0256_likelihood_v1.fits")
+  call mask%read("lowl/lat15_mask_n0256.fits")            
+  call coop_get_command_line_argument(key = "mask",  arg = mask_spot, default = "OUTPUT")
   mask_spot = adjustl(mask_spot)
   !!mask out a disk
   select case(trim(mask_spot))
@@ -75,7 +58,7 @@ program test
      !do nothing
   case default
      write(*,*) trim(mask_spot)//": unknown mask option"
-     goto 100
+     stop
   end select
 
   map%map = map%map*mask%map  
@@ -115,7 +98,7 @@ program test
   do irun = 1, nrun
      write(*,*) "***** inpainting # ", irun, " ***********"
      call inp%upgrade(reset = .true.)  !!nside -> 8
-     do i=1, 3
+     do i=1, 4
         call inp%upgrade()    !!nside -> 16 -> 32 -> 64
      enddo
      inp%lMT%map = inp%lMT%map  + inp%lCT%map !!measured map + inpainted map
