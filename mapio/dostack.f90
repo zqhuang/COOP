@@ -21,7 +21,7 @@ program Stacking_Maps
   if(iargc().le.0)then
      write(*,"(A)") "----------------------------------------------------------"     
      write(*,"(A)") "Syntax:"
-     write(*,"(A)") "./Stack -map MAP_FILE -peaks PEAK_FILE  -field [T|QU|QrUr]"
+     write(*,"(A)") "./Stack -map MAP_FILE -peaks PEAK_FILE  -field [T|E|B|zeta|QU|QrUr]"
      write(*,"(A)") "----------------------------------------------------------"
      write(*,"(A)") "other options are:"
      write(*,"(A)") "-out OUTPUT_FILE"     

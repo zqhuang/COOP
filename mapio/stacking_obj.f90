@@ -273,6 +273,10 @@ contains
        call this%free(1)
        this%mask_int = .true.
        this%label = "$"//trim(adjustl(str))//"(\mu K)$"
+    case("LT")
+       call this%free(1)
+       this%mask_int = .true.
+       this%label = "$\nabla^2 T (\mu K)$"
     case("E", "B")
        call this%free(1)
        this%mask_pol = .true.       
@@ -306,6 +310,32 @@ contains
        this%label(1) =  "$Q_T(\mu K)$"
        this%label(2) =  "$U_T(\mu K)$"
        this%headless_vector = .true.
+    case("QTUZ")
+       call this%free(2)
+       this%mask_int = .true.       
+       this%ind = (/ 1, 2 /)
+       this%spin = 2
+       this%label(1) =  "$Q_\zeta(\mu K)$"
+       this%label(2) =  "$U_\zeta(\mu K)$"
+       this%headless_vector = .true.
+    case("QZrUZr")
+       call this%free(2)
+       this%mask_int = .true.       
+       this%ind = (/ 1, 2 /)
+       this%spin = 2
+       this%label(1) =  "$Q_{\zeta,r}(\mu K)$"
+       this%label(2) =  "$U_{\zeta,r}(\mu K)$"
+       this%headless_vector = (/ .true., .false. /)
+       this%local_rotation = .true.
+    case("QTrUTr")
+       call this%free(2)
+       this%mask_int = .true.       
+       this%ind = (/ 1, 2 /)
+       this%spin = 2
+       this%label(1) =  "$Q_{T,r}(\mu K)$"
+       this%label(2) =  "$U_{T,r}(\mu K)$"
+       this%headless_vector = (/ .true., .false. /)
+       this%local_rotation = .true.
     case("QLTULT")
        call this%free(2)
        this%mask_int = .true.       
@@ -314,7 +344,16 @@ contains
        this%label(1) =  "$Q_{\nabla^2 T}(\mu K/\mathrm{rad}^2)$"
        this%label(2) =  "$U_{\nabla^2 T}(\mu K/\mathrm{rad}^2)$"
        this%headless_vector = .true.
-    case default  !! label1@index1@spin1@headless_vector1@local_roataion1@zmin1@zmax1::label2:index2:spin2@headless_vector2@local_roataion2@zmin1@zmax1
+    case("QLTrULTr")
+       call this%free(2)
+       this%mask_int = .true.       
+       this%ind = (/ 1, 2 /)
+       this%spin = 2
+       this%label(1) =  "$Q_{\nabla^2 T,r}(\mu K)$"
+       this%label(2) =  "$U_{\nabla^2 T,r}(\mu K)$"
+       this%headless_vector = (/ .true., .false. /)
+       this%local_rotation = .true.       
+    case default  !! label1@index1@spin1@headless_vector1@local_roataion1@zmin1@zmax1::label2:index2:spin2@headless_vector2@local_roataion2@zmin2@zmax2
        call coop_string_to_list(str, l, "::")
        call this%free(l%n)
        do i = 1, l%n

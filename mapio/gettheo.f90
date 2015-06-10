@@ -13,161 +13,142 @@ program stackth
 #include "constants.h"
 
 #ifdef HAS_HEALPIX
-  logical::normalize_sigma0 = .false.
+  logical,parameter::flat = .false. !!use nonflat is actually faster  
+  logical::normalize_sigma0, hot
   COOP_REAL::sigma0_norm = 59.141857614604476d0
-  integer, parameter::lmin = 2, lmax=2500, index_TT = 1, index_TE = 4, index_EE=2
-  COOP_REAL, parameter:: r_degree = 2.d0
-  COOP_REAL, parameter:: width = 2.d0*sin(r_degree*coop_SI_degree/2.d0)
-  COOP_INT,parameter:: n=36
-  COOP_REAL, parameter:: dr = width/n
-  logical,parameter::flat = .false. !!use nonflat is actually faster
-  !!settings
-  logical,parameter::do_highpass = .true.
-  COOP_INT,parameter::hp_lowl = 20
-  COOP_INT,parameter::hp_highl = 40
-  integer::index_corr = index_TT 
-  integer::index_auto = index_TT
-  COOP_STRING::clfile != "planck14_best_cls.dat"  !! "planckbest_lensedtotCls.dat" !! 
-  COOP_STRING::spot_type, stack_field
-  COOP_REAL::nu !! threshold
-  COOP_REAL::fwhm !!fwhm in arcmin
-  COOP_INT::head_level
-  COOP_STRING::prefix, line
+  
+  COOP_REAL:: r_degree, width, dr, nu, fwhm_arcmin
+  COOP_INT::lmax, hpauto_lowl, hpauto_highl, n, ind_auto, ind_cross, hpcross_lowl, hpcross_highl
+  COOP_STRING::clfile, field, peak, orient, output_prefix, colortable
   type(coop_file)::fp, fpfr
   type(coop_asy)::figCr, fpI(0:2), fpQU(0:2)
-  integer l, il, i, j, iomega, m
+  integer i, j, il, l, iomega, m
   type(coop_arguments)::args
   type(coop_healpix_patch)::patchI, patchQU, patchQrUr
-  COOP_REAL::Pl0(0:lmax), Pl2(0:lmax), Pl4(0:lmax)
-  COOP_REAL::cls(4, 2:lmax), ell(2:lmax), sigma, l2cls(4,2:lmax), sigma2, sigma0, sigma1, cosbeta, j2, j4, j0, omega, weights(4), cr(0:1, 0:2, 0:n*3/2), frI(0:2, 0:n*3/2), frQU(0:2, 0:n*3/2), pomega, phi, romega, r(0:n*3/2), kr, norm
-  norm = (COOP_DEFAULT_TCMB*1.e6)**2/coop_2pi
-  line = coop_InputArgs(5)
-  if(trim(line).eq."")then
-     write(*,*) "Syntax:"
-     write(*,*) "./GetTheo clfile spot_type stack_field nu fwhm_arcmin [output_prefix] [head_level]"
+  COOP_REAL, dimension(:), allocatable::Pl0, Pl2, Pl4, r, ell
+  COOP_REAL:: sigma, sigma2, sigma0, sigma1, cosbeta, j2, j4, j0, omega, weights(4), pomega, phi, romega, kr
+  COOP_REAL,dimension(:,:),allocatable:: cls, l2cls,  frI, frQU
+  COOP_REAL,dimension(:,:,:),allocatable:: cr
+  call coop_MPI_Init()
+  if(iargc() .lt. 2)then
+     write(*,"(A)") "Syntax:"
+     write(*,"(A)") "./GetTheo -cl CL_FILE -auto CL_COLUMN_AUTO_CORRELATION -cross CL_COLUMN_CROSS_CORRELATION -field [T|E|B|zeta] -peak [RANDOM|T|E|B|P_T|P|\zeta|P_\zeta] -out OUTPUT_PREFIX"
+     write(*, "(A)") "Optional:"
+     write(*, "(A)") "-orient [RANDOM|(Q_T,U_T)|(Q,U)]"
+     write(*, "(A)") "-nu THRESHOLD"
+     write(*, "(A)") "-fwhm FWHM_IN_ARCMIN"
+     write(*, "(A)") "-hot [T/F]"
+     write(*, "(A)") "-want_caption [T/F]"
+     write(*, "(A)") "-want_label [T/F]"
+     write(*, "(A)") "-want_arrow [T/F]"
+     write(*, "(A)") "-lmax LMAX"     
+     write(*, "(A)") "-radius RAIDUS_IN_DEGREE"
+     write(*, "(A)") "-res RESOLUTION[10-200]"
+     write(*, "(A)") "-normrms NORMALIZE_SIGMA_0[T/F]"
+     write(*, "(A)") "-hpauto_lowl HIGHPASS_AUTO_LOWER"
+     write(*, "(A)") "-hpauto_highl HIGHPASS_AUTO_UPPER"
+     write(*, "(A)") "-hpcross_lowl HIGHPASS_CROSS_LOWER"
+     write(*, "(A)") "-hpcross_highl HIGHPASS_CROSS_UPPER"
+     write(*, "(A)") "-color_table [Rainbow/Planck]"     
+     
      stop
   endif
-  coop_healpix_patch_default_want_caption = .false.
-  coop_healpix_patch_default_want_label  = .false.
-  coop_healpix_patch_default_want_arrow  = .false.  
+  call coop_get_command_line_argument(key = 'cl', arg = clfile)
+  call coop_get_command_line_argument(key = 'auto', arg = ind_auto)
+  call coop_get_command_line_argument(key = 'cross', arg = ind_cross)  
+  call coop_get_command_line_argument(key = 'field', arg = field)
+  call coop_get_command_line_argument(key = 'peak', arg = peak)
+  call coop_get_command_line_argument(key = 'out', arg = output_prefix)  
+  call coop_get_command_line_argument(key = 'orient', arg = orient, default = 'RANDOM')
+  call coop_get_command_line_argument(key = 'nu', arg = nu, default = 0.d0)
+  call coop_get_command_line_argument(key = 'fwhm', arg = fwhm_arcmin, default = 5.d0)
   
-  read(line, *) fwhm
-  clfile = trim(coop_InputArgs(1))
-  spot_type =  trim(coop_InputArgs(2))
-  stack_field = trim(coop_InputArgs(3))
-  line = coop_InputArgs(4)
-  read(line, *) nu
-  if(trim(coop_InputArgs(6)).ne."")then
-     prefix = "rprof/"//trim(coop_InputArgs(6))//"_"
-  else
-     prefix = "rprof/"
-  endif
-  if(trim(coop_InputArgs(7)).ne."")then
-     line = coop_InputArgs(7)
-     read(line,*) head_level
-  else
-     head_level = 0
-  endif
-
-  if(do_highpass)then
-     print*, "warning: high-pass filter is on:"//COOP_STR_OF(hp_lowl)//"-"//COOP_STR_OF(hp_highl)
-  endif
-  select case(trim(spot_type))
-  case("Pmax", "Emax")
-     index_auto = index_EE
-  case default
-     index_auto = index_TT
-  end select
-  select case(trim(stack_field))
-  case("T")
-     if(index_auto .eq. index_TT)then
-        index_corr = index_TT
-     else
-        index_corr = index_TE
-     endif
-  case("QU")
-     if(index_auto .eq. index_TT)then
-        index_corr = index_TE
-     else
-        index_corr = index_EE
-     endif
-  case default
-     stop "GetTheo so far only support stacking T or QU"
-  end select
+  call coop_get_command_line_argument(key = 'want_caption', arg = coop_healpix_patch_default_want_caption, default = .true.)
+  call coop_get_command_line_argument(key = 'want_label', arg = coop_healpix_patch_default_want_label, default  = .true.)
+  call coop_get_command_line_argument(key = 'want_arrow', arg = coop_healpix_patch_default_want_arrow, default  = .true.)
+  call coop_get_command_line_argument(key = 'lmax', arg = lmax, default = 2500)
+  call coop_get_command_line_argument(key = 'hpauto_lowl', arg = hpauto_lowl, default =-1)
+  call coop_get_command_line_argument(key = 'hpauto_highl', arg = hpauto_highl, default = 0)
+  call coop_get_command_line_argument(key = 'hpcross_lowl', arg = hpcross_lowl, default = -1)
+  call coop_get_command_line_argument(key = 'hpcross_highl', arg = hpcross_highl, default = 0)
+  call coop_get_command_line_argument(key = 'radius', arg = r_degree, default = 2.d0)
+  call coop_get_command_line_argument(key = "res", arg = n, default = 50)
+  call coop_get_command_line_argument(key = 'normrms', arg = normalize_sigma0, default = .false.)
+  call coop_get_command_line_argument(key = 'hot', arg = hot, default = .true.)
+  call coop_get_command_line_argument(key = 'color_table', arg = colortable, default = "Rainbow")  
   call coop_random_init()
-  sigma = fwhm*coop_sigma_by_fwhm*coop_SI_arcmin
+  
+  allocate(Pl0(0:lmax), Pl2(0:lmax), Pl4(0:lmax), cls(4, 2:lmax), l2cls(4, 2:lmax), cr(0:1, 0:2, 0:n*3/2), frI(0:2, 0:n*3/2), frQU(0:2, 0:n*3/2) , ell(2:lmax), r(0:n*3/2))
+  width = 2.d0*sin(r_degree*coop_SI_degree/2.d0)
+  dr = width/n  
+  sigma = fwhm_arcmin*coop_sigma_by_fwhm*coop_SI_arcmin
+  
   call fp%open(clfile, "r")
   do l=2, lmax
-     read(fp%unit, *) il, l2cls(:, l)
+     read(fp%unit, *, ERR=100, END=100) il, l2cls(:, l)
      ell(l)  = l
      l2cls(:,l) = l2cls(:, l)*(coop_2pi*exp(-l*(l+1.d0)*sigma**2))
-     if(do_highpass)then
-        if(hp_lowl .gt. 50)then
-           l2cls(:,l) = l2cls(:,l)*(coop_highpass_filter(hp_lowl, hp_highl, l))**2                   
-        else
-           l2cls(2:3,l) = l2cls(2:3,l)*coop_highpass_filter(hp_lowl, hp_highl, l)**2
-           l2cls(4,l) = l2cls(4,l)*(coop_highpass_filter(hp_lowl, hp_highl, l))
-        endif
+     l2cls(ind_cross, l) = l2cls(ind_cross, l)*coop_highpass_filter(hpcross_lowl, hpcross_highl, l)*coop_highpass_filter(hpauto_lowl, hpauto_highl, l)
+     if(ind_auto .ne. ind_cross)then
+        l2cls(ind_auto, l) = l2cls(ind_auto, l)*coop_highpass_filter(hpauto_lowl, hpauto_highl, l)**2
      endif
      cls(:,l) = l2cls(:,l)/(l*(l+1.d0))
-     if(il.ne.l) stop "cl file broken"
-
+     if(il.ne.l) stop "Error in Cl file"
   enddo
+  goto 200
+100 stop "Error in Cl file"
+200 call fp%close()
 
-  call fp%close()
-  sigma0 = sqrt(sum(Cls(index_auto,:)*(ell+0.5d0))/coop_2pi)
+  sigma0 = sqrt(sum(Cls(ind_auto,:)*(ell+0.5d0))/coop_2pi)
   if(normalize_sigma0)then
-     write(*,*) "***********Warning: Normalizing sigma0!!!!**********"
      Cls = Cls*(sigma0_norm/sigma0)**2
-     l2Cls = L2Cls*(sigma0_norm/sigma0)**2
+     l2Cls = l2Cls*(sigma0_norm/sigma0)**2
      sigma0 = sigma0_norm
   endif
-  sigma1 = sqrt(sum(l2Cls(index_auto,:)*(ell+0.5d0))/coop_2pi)
-  sigma2 = sqrt(sum(l2Cls(index_auto,:)*(ell+0.5d0)*(ell*(ell+1.d0)))/coop_2pi)
+  sigma1 = sqrt(sum(l2Cls(ind_auto,:)*(ell+0.5d0))/coop_2pi)
+  sigma2 = sqrt(sum(l2Cls(ind_auto,:)*(ell+0.5d0)*(ell*(ell+1.d0)))/coop_2pi)
   cosbeta = sigma1**2/sigma0/sigma2
-  print*, "gamma = ", cosbeta
-  print*, "sigma_0 = ", sigma0
-  print*, "sigma_2 = ", sigma2  
   call coop_gaussian_npeak_set_args(args, 2, sigma0, sigma1, sigma2)
-  print*, "nmax = ", coop_gaussian_nmax(nu, args)
-  select case(trim(spot_type))
-  case("Tmax_QTUTOrient", "Tmin_QTUTOrient")
-     call coop_gaussian_get_oriented_stacking_weights(nu, args, weights)
-  case("Tmax", "Emax", "Bmax", "Tmin", "Emin", "Bmin")
-     call coop_gaussian_get_nonoriented_stacking_weights(nu, args, weights)
-  case("PTmax", "Pmax")
+
+  select case(trim(peak))
+  case("T", "E", "B", "zeta")
+     select case(trim(orient))
+     case("NULL", "RANDOM")
+        call coop_gaussian_get_nonoriented_stacking_weights(nu, args, weights)
+     case default
+        call coop_gaussian_get_oriented_stacking_weights(nu, args, weights)
+     end select
+  case("P", "P_T", "P_\zeta")
      call coop_gaussian_get_pmax_stacking_weights(nu, args, weights)
-  case("RANDOMmax", "RANDOMmin")
-     call coop_gaussian_get_fieldpoints_nonoriented_stacking_weights(nu, args, weights)
-  case("RANDOMmax_QTUTOrient", "RANDOMmin_QTUTOrient")
-     call coop_gaussian_get_fieldpoints_oriented_stacking_weights(nu, args, weights)
+  case("RANDOM")
+     select case(trim(orient))
+     case("NULL", "RANDOM")     
+        call coop_gaussian_get_fieldpoints_nonoriented_stacking_weights(nu, args, weights)
+     case default
+        call coop_gaussian_get_fieldpoints_oriented_stacking_weights(nu, args, weights)
+     end select
   case default
-     write(*,*) trim(spot_type)
-     stop "Unknown spot type"
+     write(*,*) trim(peak)
+     stop "Unknown peak type"
   end select
-  
-  write(*,*) "Weights = ", weights(1)*sigma0, weights(2)*sigma2, weights(3)*sigma0, weights(4)*sigma2
 
   do m=0,2
-     call fpI(m)%open(trim(prefix)//"I_fwhm"//COOP_STR_OF(nint(fwhm))//"_m"//COOP_STR_OF(m*2)//".txt")
-     call fpQU(m)%open(trim(prefix)//"QU_fwhm"//COOP_STR_OF(nint(fwhm))//"_m"//COOP_STR_OF(m*2)//".txt")
-     if(head_level .ge. 1)then
-        if(head_level.ge.2)then
-           call fpI(m)%init(xlabel="$\varpi$", ylabel="$T_"//COOP_STR_OF(m*2)//"$")
-           call fpQU(m)%init(xlabel="$\varpi$", ylabel="$P_"//COOP_STR_OF(m*2)//"$")
-        endif
-        write(fpI(m)%unit, "(A)") "CURVE"
-        write(fpQU(m)%unit, "(A)") "CURVE"
-        write(fpI(m)%unit, "(I6)") n+1
-        write(fpQU(m)%unit, "(I6)") n+1
-        write(fpI(m)%unit, "(A)") "Theory"
-        write(fpQU(m)%unit, "(A)") "Theory"
-        write(fpI(m)%unit, "(A)") "blue_dashed"
-        write(fpQU(m)%unit, "(A)") "blue_dashed"
-        write(fpI(m)%unit, "(A)") "0"
-        write(fpQU(m)%unit, "(A)") "0"
-     endif
+     call fpI(m)%open(trim(output_prefix)//"_I_fwhm"//COOP_STR_OF(nint(fwhm_arcmin))//"_m"//COOP_STR_OF(m*2)//".txt")
+     call fpQU(m)%open(trim(output_prefix)//"_QU_fwhm"//COOP_STR_OF(nint(fwhm_arcmin))//"_m"//COOP_STR_OF(m*2)//".txt")
+     call fpI(m)%init(xlabel="$\varpi$", ylabel="$T_"//COOP_STR_OF(m*2)//"$")
+     call fpQU(m)%init(xlabel="$\varpi$", ylabel="$P_"//COOP_STR_OF(m*2)//"$")
+     write(fpI(m)%unit, "(A)") "CURVE"
+     write(fpQU(m)%unit, "(A)") "CURVE"
+     write(fpI(m)%unit, "(I6)") n+1
+     write(fpQU(m)%unit, "(I6)") n+1
+     write(fpI(m)%unit, "(A)") "Theory"
+     write(fpQU(m)%unit, "(A)") "Theory"
+     write(fpI(m)%unit, "(A)") "blue_dashed"
+     write(fpQU(m)%unit, "(A)") "blue_dashed"
+     write(fpI(m)%unit, "(A)") "0"
+     write(fpQU(m)%unit, "(A)") "0"
   enddo
+
   cr = 0.d0       
   do i = 0, n*3/2
      omega = dr*i
@@ -177,7 +158,7 @@ program stackth
         call coop_get_normalized_Plm_array(m=2, lmax=lmax, x = 1.d0-omega**2/2.d0, Plms = Pl2)
         call coop_get_normalized_Plm_array(m=4, lmax=lmax, x = 1.d0-omega**2/2.d0, Plms = Pl4)
      endif
-     do l = lmin, lmax
+     do l = 0, lmax
         if(flat)then
            kr = sqrt(l*(l+1.d0))*omega
            j0 = coop_bessj(0, kr)
@@ -188,37 +169,59 @@ program stackth
            j2 = Pl2(l)
            j4 = Pl4(l)
         endif
-        cr(0, 0, i) = cr(0, 0, i) + (l+0.5d0)*j0*cls(index_corr, l)
-        cr(1, 0, i) = cr(1, 0, i) - (l+0.5d0)*j0*l2cls(index_corr, l)
-        cr(0, 1, i) = cr(0, 1, i) + (l+0.5d0)*j2*cls(index_corr, l)
-        cr(1, 1, i) = cr(1, 1, i) - (l+0.5d0)*j2*l2cls(index_corr, l)
-        cr(0, 2, i) = cr(0, 2, i) + (l+0.5d0)*j4*cls(index_corr, l)
-        cr(1, 2, i) = cr(1, 2, i) - (l+0.5d0)*j4*l2cls(index_corr, l)        
+        cr(0, 0, i) = cr(0, 0, i) + (l+0.5d0)*j0*cls(ind_cross, l)
+        cr(1, 0, i) = cr(1, 0, i) - (l+0.5d0)*j0*l2cls(ind_cross, l)
+        cr(0, 1, i) = cr(0, 1, i) + (l+0.5d0)*j2*cls(ind_cross, l)
+        cr(1, 1, i) = cr(1, 1, i) - (l+0.5d0)*j2*l2cls(ind_cross, l)
+        cr(0, 2, i) = cr(0, 2, i) + (l+0.5d0)*j4*cls(ind_cross, l)
+        cr(1, 2, i) = cr(1, 2, i) - (l+0.5d0)*j4*l2cls(ind_cross, l)        
      enddo
      cr(:,:,i) = cr(:,:,i)/coop_2pi
+
      call coop_gaussian_radial_modes_I(weights, cr(:,:,i), frI(:, i))
      call coop_gaussian_radial_modes_QU(weights, cr(:,:,i), frQU(:, i))
   enddo
-  if(trim(spot_type) .eq. "Tmin_QTUTOrient" .or. trim(spot_type).eq. "Tmin" .or. trim(spot_type).eq. "RANDOMmin" .or. trim(spot_type).eq. "RANDOMmin_QTUTOrient")then
+
+  if(.not. hot)then
      frI(0,:) = -frI(0,:)
      frQU(1,:) = -frQU(1,:)
   endif
-  call patchI%init("T", n, dr)
-  call patchQU%init("QU", n, dr)
-  call patchQrUr%init("QrUr", n, dr)
+  call patchI%init(trim(field), n, dr)
+  select case(trim(field))
+  case("T", "I")
+     call patchQU%init("QTUT", n, dr)
+     call patchQrUr%init("QTrUTr", n, dr)
+  case("E", "B")
+     call patchQU%init("QU", n, dr)
+     call patchQrUr%init("QrUr", n, dr)
+  case("zeta")
+     call patchQU%init("QZUZ", n, dr)
+     call patchQrUr%init("QZrUZr", n, dr)
+  case ("LT")
+     call patchQU%init("QLTULT", n, dr)
+     call patchQrUr%init("QLTrULTr", n, dr)     
+  case default
+     write(*,*) trim(field)
+     stop "unknown field name."
+  end select
+     
+  patchI%color_table = trim(colortable)
+  patchQU%color_table = trim(colortable)
+  patchQrUr%color_table = trim(colortable)    
   patchI%nstack = 1.d0
   patchQU%nstack = 1.d0
   patchQrUr%nstack = 1.d0
   patchI%nstack_raw = 1.d0
   patchQU%nstack_raw = 1.d0
-  patchQrUr%nstack_raw = 1.d0  
+  patchQrUr%nstack_raw = 1.d0
+
   do i=-n, n
      do j=-n, n
         if(i.eq.0.and.j.eq.0)then
            patchI%image(i,j,1) = frI(0,0)
-           patchQU%image(i,j,1) = frQU(0, 0)
+           patchQU%image(i,j,1) = frQU(0,0)
            patchQU%image(i,j,2) = 0.d0
-           patchQrUr%image(i,j,1) = frQU(0, 0)
+           patchQrUr%image(i,j,1) = frQU(0,0)
            patchQrUr%image(i,j,2) = 0.d0
         else
            phi = atan2(dble(j), dble(i))
@@ -233,37 +236,33 @@ program stackth
         endif
      enddo
   enddo
-  patchI%caption = "best-fit $\Lambda$CDM theory, $\nu="//COOP_STR_OF(nint(nu))//"$"
-  patchQU%caption = "best-fit $\Lambda$CDM theory, $\nu="//COOP_STR_OF(nint(nu))//"$"
-  patchQrUr%caption = "best-fit $\Lambda$CDM theory, $\nu="//COOP_STR_OF(nint(nu))//"$"
-  call patchI%plot(1, trim(prefix)//"I_stack.txt")
-  call patchQU%plot(1, trim(prefix)//"Q_stack.txt")
-  call patchQU%plot(2, trim(prefix)//"U_stack.txt")
-  call patchQrUr%plot(1, trim(prefix)//"Qr_stack.txt")
-  call patchQrUr%plot(2, trim(prefix)//"Ur_stack.txt")
+  
+  patchI%caption = "$\Lambda$CDM, $\nu="//COOP_STR_OF(nint(nu))//"$"
+  patchQU%caption = "$\Lambda$CDM, $\nu="//COOP_STR_OF(nint(nu))//"$"
+  patchQrUr%caption = "$\Lambda$CDM, $\nu="//COOP_STR_OF(nint(nu))//"$"
+  call patchI%plot(1, trim(output_prefix)//"_I_stack.txt")
+  call patchQU%plot(1, trim(output_prefix)//"_Q_stack.txt")
+  call patchQU%plot(2, trim(output_prefix)//"_U_stack.txt")
+  call patchQrUr%plot(1, trim(output_prefix)//"_Qr_stack.txt")
+  call patchQrUr%plot(2, trim(output_prefix)//"_Ur_stack.txt")
   
   !!test the integrator
   call patchI%get_all_radial_profiles()
   call patchQU%get_all_radial_profiles()
-  call fpfr%open(trim(prefix)//"frI.txt", "w")
+  call fpfr%open(trim(output_prefix)//"frI.txt", "w")
   write(fpfr%unit, *) patchI%fr
   call fpfr%close()
-  call fpfr%open(trim(prefix)//"frQU.txt", "w")
+  call fpfr%open(trim(output_prefix)//"frQU.txt", "w")
   write(fpfr%unit, *) patchQU%fr
   call fpfr%close()
   do i=0, n
      do m=0,2
-        if(head_level.eq.0)then
-           write(fpI(m)%unit, "(3E16.7)") dr*i, frI(m, i), patchI%fr(i, m, 1)
-           write(fpQU(m)%unit, "(4E16.7)") dr*i, frQU(m, i), patchQU%fr(i, m, 1), patchQU%fr(i, m, 2)          
-        else
-           write(fpI(m)%unit, "(2E16.7)") dr*i, frI(m, i)
-           write(fpQU(m)%unit, "(2E16.7)") dr*i, frQU(m, i)
-        endif
+        write(fpI(m)%unit, "(2E16.7)") dr*i, frI(m, i)
+        write(fpQU(m)%unit, "(2E16.7)") dr*i, frQU(m, i)
      enddo
   enddo
   
-  call figCr%open(trim(prefix)//"cr.txt")
+  call figCr%open(trim(output_prefix)//"cr.txt")
   call figCr%init(xlabel="$\varpi$", ylabel="$c_{m,n}(\varpi)$")
   call figCr%curve(x = r, y = cr(0,0,:)/sigma0, color="red", linewidth=1.8, linetype="solid", legend="$c_{0,0}(\varpi)/\sigma_0$")
   call figCr%curve(x = r, y = cr(0,1,:)/sigma0, color="orange", linewidth=1.5, linetype="dotted", legend="$c_{0,1}(\varpi)/\sigma_0$")
