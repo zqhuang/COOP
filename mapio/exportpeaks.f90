@@ -82,12 +82,7 @@ program Exp_spots
         stop "For unknown class of peaks you need to specify the mask file explicitly"
      endif
      if(mask%nside .ne. hgm%nside) stop "mask and map must have the same nside"
-     if(remove_mono)then
-        do i = 1, hgm%nmaps
-           hgm%map(:,i) =  hgm%map(:,i)* mask%map(:,1)
-           hgm%map(:,i) =  hgm%map(:,i) - sum(dble( hgm%map(:,i)))/sum(dble(mask%map(:,1)))
-        enddo
-     endif
+     call hgm%apply_mask(mask = mask, remove_monopole = remove_mono)
      if(nside_scan .eq. 0)then
         call hgm%get_peaks(sto, mask = mask)
      else

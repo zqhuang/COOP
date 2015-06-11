@@ -6,11 +6,10 @@ program Stacking_Maps
 #include "constants.h"
 #ifdef HAS_HEALPIX
   logical::remove_mono = .true.
-  logical::randrot
+  logical::randrot, want_pdf
   COOP_STRING::mask_file, peak_file, map_file, output, imask_file, polmask_file, field_name
   COOP_INT::n = 100
   COOP_REAL::r_degree, dr
-  logical::makepdf = .true.
   type(coop_stacking_options)::sto
   type(coop_healpix_patch)::patch
   type(coop_healpix_maps)::hgm, mask, pmap
@@ -41,6 +40,7 @@ program Stacking_Maps
      write(*,"(A)") "-want_caption [T|F]"
      write(*,"(A)") "-want_label [T|F]"
      write(*,"(A)") "-want_arrow [T|F]"
+     write(*,"(A)") "-want_pdf [T|F]"     
      write(*,"(A)") "----------------------------------------------------------"     
      stop
   endif
@@ -50,6 +50,7 @@ program Stacking_Maps
   call coop_get_command_line_argument(key = 'field', arg = field_name)  
   call coop_get_command_line_argument(key = 'mask', arg = mask_file, default = "NONE")
   call coop_get_command_line_argument(key = 'randrot', arg = randrot, default = .true.)
+  call coop_get_command_line_argument(key = 'want_pdf', arg = want_pdf, default = .false.)  
   call coop_get_command_line_argument(key = 'min', arg = zmin1, default=1.d31)
   call coop_get_command_line_argument(key = 'max', arg = zmax1, default=-1.d31)  
   call coop_get_command_line_argument(key = 'min2', arg = zmin2, default=1.d31)
@@ -57,7 +58,7 @@ program Stacking_Maps
 
   
   call coop_get_command_line_argument(key = 'radius', arg = r_degree, default = 2.d0)
-  call coop_get_command_line_argument(key = 'res', arg  = n, default = 40)
+  call coop_get_command_line_argument(key = 'res', arg  = n, default = 30)
 
   dr = 2.d0*sin(r_degree*coop_SI_degree/2.d0)/n  
   if(randrot)then
@@ -88,16 +89,9 @@ program Stacking_Maps
      else
         stop "For unclassified stacking maps you have to specify the mask explicitly"
      endif
-     if(mask%nside .ne. hgm%nside) stop "mask and map must have the same nside"
-     do i=1, hgm%nmaps
-        hgm%map(:, i) = hgm%map(:, i)*mask%map(:, 1)
-        if(remove_mono) hgm%map(:, i) = hgm%map(:, i) - sum(dble(hgm%map(:,i)))/sum(dble(mask%map(:,1))) !!remove monopole
-     enddo
+     call hgm%apply_mask(mask = mask, remove_monopole = remove_mono)
   endif
   tmax = maxval(hgm%map(:,1))
-  if(tmax .lt. 1.d0 .and. tmax .gt. 1.d-5)then
-     hgm%map = hgm%map*1.e6
-  endif
   print*, "stacking on "//COOP_STR_OF(sto%peak_pix%n)//" peaks"  
   if(trim(mask_file).ne."NONE")then
      call hgm%stack_on_peaks(sto, patch, mask)
@@ -111,7 +105,7 @@ program Stacking_Maps
      patch%tbs%zmin(1) = zmin1
      patch%tbs%zmax(1) = zmax1     
      call patch%plot(1, trim(adjustl(output))//".txt")
-     if(makepdf)call system("../utils/fasy.sh "//trim(adjustl(output))//".txt")
+     if(want_pdf)call system("../utils/fasy.sh "//trim(adjustl(output))//".txt")
   case default
      patch%tbs%zmin(1) = zmin1
      patch%tbs%zmax(1) = zmax1
@@ -119,7 +113,7 @@ program Stacking_Maps
      patch%tbs%zmax(2) = zmax2          
      do i=1, patch%nmaps
         call patch%plot(i, trim(adjustl(output))//"_"//COOP_STR_OF(i)//".txt")
-        if(makepdf)call system("../utils/fasy.sh "//trim(adjustl(output))//"_"//COOP_STR_OF(i)//".txt")        
+        if(want_pdf)call system("../utils/fasy.sh "//trim(adjustl(output))//"_"//COOP_STR_OF(i)//".txt")        
      enddo
   end select
   call patch%export(trim(adjustl(output))//".patch")
