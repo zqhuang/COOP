@@ -3,91 +3,60 @@ program test
   use coop_fitswrap_mod
   use coop_sphere_mod
   use coop_healpix_mod
-#ifdef HAS_HEALPIX  
+#ifdef HAS_HEALPIX
   use head_fits
   use fitstools
   use pix_tools
   use alm_tools
+  use udgrade_nr
+  use coord_v_convert,only:coordsys2euler_zyz
 #endif  
   implicit none
 #include "constants.h"
-  COOP_INT::i, j
-  COOP_INT,parameter::n = 30
-  COOP_REAL::r(0:n), tn_cold(0:n), ts_cold(0:n), tn_hot(0:n), ts_hot(0:n)
+  type(coop_healpix_maps)::hmap, lmap
+  COOP_INT,parameter::lmax = 2500
+  COOP_REAL::Cls(0:lmax), sqrtCls(0:lmax), Cl_ll(0:lmax), Cl_lh(0:lmax), Cl_hh(0:lmax), norm
   type(coop_file)::fp
-  type(coop_asy)::fig_cold, fig_hot, fig
-  COOP_SINGLE::ymin = -8.
-  COOP_SINGLE::ymax = 10.
-  call fig_cold%open("pwasym_stack_cold.txt")
-  call fig_hot%open("pwasym_stack_hot.txt")
-  call fig%open("pwasym_stack_hotcold.txt")  
-  call fig_cold%init(xlabel = "$\varpi$", ylabel = "$(T_N - T_S) [\mu K]$", ymin = ymin, ymax = ymax, caption = "on $\nu \ge 0.5$ cold pixels; FWHM $2^{\circ}$; high-pass $\ell_{\min} = 10$")
-  call fig_hot%init(xlabel = "$\varpi$", ylabel = "$(T_N - T_S) [\mu K]$",  ymin = ymin, ymax = ymax,  caption = "on $\nu\ge 0.5$ hot pixels; FWHM $2^{\circ}$; high-pass $\ell_{\min} = 10$")
-  call fig%init(xlabel = "$\varpi$", ylabel = "$(T_N - T_S) [\mu K]$",  ymin = ymin, ymax = ymax, caption = " hot - cold; $\nu\ge 0.5$ pixels; FWHM $2^{\circ}$; high-pass $\ell_{\min} = 10$")    
-  
-  call fp%open("stacked/nasym_120a_cold_nu0p5_m0.dat", "r")
-  do i=0, n
-     read(fp%unit, *) r(i), tn_cold(i)
+  COOP_INT::l, basenside, i, irun
+  COOP_INT,parameter::nrun = 300
+  Cls(0:1) = 0.d0
+  if(iargc().ge.1)then
+     basenside = coop_str2int(coop_InputArgs(1))
+  else
+     print*, "enter nside"
+     read(*,*) basenside
+  endif
+  call fp%open("planck14best_lensedCls.dat", "r") 
+  do l=2, lmax
+     read(fp%unit, *) i, Cls(l)
+     if(i.ne.l) stop "error in cl file"
+     Cls(l) = Cls(l)*coop_2pi/l/(l+1.d0)*coop_gaussian_filter(10.d0, l)**2
+  enddo
+  sqrtCls = sqrt(Cls)
+  call fp%close()
+  call lmap%init(nside = basenside,  nmaps = 1, genre = "TEMPERATURE")
+  call hmap%init(nside = basenside*2, nmaps = 2, genre = "TEMPERATURE", lmax = lmax)
+  Cl_hh = 0
+  Cl_ll = 0
+  Cl_lh = 0
+  coop_healpix_alm_check_done = .false.       
+  do irun = 1, nrun
+     write(*,*) irun
+     call hmap%simulate_Tmaps(hmap%nside, lmax, sqrtCls)
+     call coop_healpix_maps_ave_udgrade(from = hmap, to = lmap, imap_from = 1, imap_to = 1)
+     call coop_healpix_maps_ave_udgrade(from = lmap, to = hmap, imap_from = 1, imap_to = 2)
+     hmap%map(:,1) = hmap%map(:,1) - hmap%map(:,2)
+     call hmap%map2alm(lmax = lmax)
+     Cl_hh(2:hmap%lmax)  = Cl_hh(2:hmap%lmax)  + hmap%cl(2:hmap%lmax,coop_matsym_index(2, 1, 1))
+     Cl_ll(2:hmap%lmax)  = Cl_ll(2:hmap%lmax)  + hmap%cl(2:hmap%lmax,coop_matsym_index(2, 2, 2))     
+     Cl_lh(2:hmap%lmax)  = Cl_lh(2:hmap%lmax)  + hmap%cl(2:hmap%lmax,coop_matsym_index(2, 1, 2))
+  enddo
+  Cl_hh = Cl_hh/nrun
+  Cl_ll = Cl_ll/nrun
+  Cl_lh = Cl_lh/nrun
+  call fp%open("healpix_filters/hlcorr"//COOP_STR_OF(basenside)//".dat",'w')
+  do l=2, hmap%lmax
+     write(fp%unit,"(I8, 4E16.7)") l, Cl_hh(l)/Cls(l), Cl_ll(l)/Cls(l), Cl_lh(l)/sqrt(Cl_hh(l)*Cl_ll(l)), (Cl_hh(l)+cl_ll(l)+cl_lh(l)*2.)/cls(l)
   enddo
   call fp%close()
-  call fp%open("stacked/sasym_120a_cold_nu0p5_m0.dat", "r")
-  do i=0, n
-     read(fp%unit, *) r(i), ts_cold(i)
-  enddo
-  call fp%close()
-  call fp%open("stacked/nasym_120a_hot_nu0p5_m0.dat", "r")
-  do i=0, n
-     read(fp%unit, *) r(i), tn_hot(i)
-  enddo
-  call fp%close()
-  call fp%open("stacked/sasym_120a_hot_nu0p5_m0.dat", "r")
-  do i=0, n
-     read(fp%unit, *) r(i), ts_hot(i)
-  enddo
-  call fp%close()
-  
-  call fig_hot%curve(x = r, y = (tn_hot - ts_hot), legend = "Planck", color = "red", linewidth = 2.)
-  call fig_cold%curve(x = r, y = (tn_cold - ts_cold), legend = "Planck", color = "red", linewidth = 2.)  
-  call fig%curve(x = r, y = (tn_hot-tn_cold - ts_hot+ts_cold), legend = "Planck", color = "red", linewidth = 2.)    
-  
-  do j = 0, 99
-     call fp%open("stacked/ffp8_"//COOP_STR_OF(j)//"_nasym_120a_cold_nu0p5_m0.dat", "r")
-     do i=0, n
-        read(fp%unit, *) r(i), tn_cold(i)
-     enddo
-     call fp%close()
-     call fp%open("stacked/ffp8_"//COOP_STR_OF(j)//"_sasym_120a_cold_nu0p5_m0.dat", "r")
-     do i=0, n
-        read(fp%unit, *) r(i), ts_cold(i)
-     enddo
-     call fp%close()
-     call fp%open("stacked/ffp8_"//COOP_STR_OF(j)//"_nasym_120a_hot_nu0p5_m0.dat", "r")
-     do i=0, n
-        read(fp%unit, *) r(i), tn_hot(i)
-     enddo
-     call fp%close()
-     call fp%open("stacked/ffp8_"//COOP_STR_OF(j)//"_sasym_120a_hot_nu0p5_m0.dat", "r")
-     do i=0, n
-        read(fp%unit, *) r(i), ts_hot(i)
-     enddo
-     call fp%close()
-     if(j.eq.0)then
-        call fig_hot%curve(x = r, y = 2.d0*(tn_hot - ts_hot)/(ts_hot+tn_hot), legend = "FFP8", color = "gray", linewidth = 1.2, linetype = "dotted")
-        call fig_cold%curve(x = r, y = 2.d0*(tn_cold - ts_cold)/(ts_cold+tn_cold), legend = "FFP8", color = "gray", linewidth = 1.2, linetype = "dotted")  
-        call fig%curve(x = r, y = 2.d0*(tn_hot-tn_cold - ts_hot+ts_cold)/(tn_hot-tn_cold+ts_hot - ts_cold), legend = "FFP8", color = "gray", linewidth = 1.2, linetype = "dotted")    
-     else
-        call fig_hot%curve(x = r, y = (tn_hot - ts_hot), color = "gray", linewidth = 1.2, linetype = "dotted")
-        call fig_cold%curve(x = r, y = (tn_cold - ts_cold),  color = "gray", linewidth = 1.2, linetype = "dotted")  
-        call fig%curve(x = r, y = (tn_hot-tn_cold - ts_hot+ts_cold), color = "gray", linewidth = 1.2, linetype = "dotted")    
-     endif
-  enddo
-  call fig%legend(0.1, 0.2)
-  call fig_hot%legend(0.1, 0.9)
-  call fig_cold%legend(0.1, 0.9)  
-  call fig%close()
-  call fig_hot%close()
-  call fig_cold%close()
-  call system("../utils/fasy.sh pwasym_stack_hotcold.txt")
-  call system("../utils/fasy.sh pwasym_stack_hot.txt")
-  call system("../utils/fasy.sh pwasym_stack_cold.txt")  
 end program test

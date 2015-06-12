@@ -34,8 +34,8 @@ program test
   enddo
   sqrtCls = sqrt(Cls)
   call fp%close()
-  call lmap%init(nside = 8,  nmaps = 1, genre = "TEMPERATURE")
-  call hmap%init(nside = basenside*8, nmaps = 2, genre = "TEMPERATURE", lmax = lmax)
+  call lmap%init(nside = basenside,  nmaps = 1, genre = "TEMPERATURE")
+  call hmap%init(nside = basenside*2, nmaps = 2, genre = "TEMPERATURE", lmax = lmax)
   Cl_hh = 0
   Cl_ll = 0
   Cl_lh = 0
@@ -54,7 +54,7 @@ program test
   Cl_hh = Cl_hh/nrun
   Cl_ll = Cl_ll/nrun
   Cl_lh = Cl_lh/nrun
-  call fp%open("filter"//COOP_STR_OF(basenside)//".dat",'w')
+  call fp%open("healpix_filters/hlcorr"//COOP_STR_OF(basenside)//".dat",'w')
   do l=2, hmap%lmax
      write(fp%unit,"(I8, 4E16.7)") l, Cl_hh(l)/Cls(l), Cl_ll(l)/Cls(l), Cl_lh(l)/sqrt(Cl_hh(l)*Cl_ll(l))
   enddo

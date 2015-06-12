@@ -21,10 +21,10 @@ program test
   enddo  
   call fp%close()
   Cls(0:1) = 0.d0
-  call mask%read("lowl/mask_hot_bar_n0256.fits")              
-  !call mask%read("lowl/commander_dx11d2_mask_temp_n0256_likelihood_v1.fits")  
+  ! call mask%read("lowl/mask_hot_bar_n0256.fits")              
+  ! call mask%read("lowl/commander_dx11d2_mask_temp_n0256_likelihood_v1.fits")  
   ! call mask%read("planck14/lat30_mask_n256.fits")
-  !  call mask%read("planck14/dx11_v2_commander_int_mask_040a_0256.fits")
+  call mask%read("planck14/dx11_v2_commander_int_mask_040a_0256.fits")
   Cls_ave = 0.d0
   call map%init(nside = 256, nmaps = 1, genre = "TEMPERATURE", lmax = lmax)
   do irun = 1, nrun

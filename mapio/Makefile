@@ -109,11 +109,11 @@ FSim:	 $(OBJ) flat_sim.o
 FMerge:	 $(OBJ) flat_merge.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_merge.o $(LINK)
 
-Shells: $(OBJ) shells.o
+DoShell: $(OBJ) shells.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) shells.o $(LINK)	
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots UDG Stack MSMAP SimuMaps Shells SST MST ByProd GetInfo GetTheo GetPeaks Rotate Corr Inpaint LLPW
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots UDG Stack MSMAP SimuMaps DoShell SST MST ByProd GetInfo GetTheo GetPeaks Rotate Corr Inpaint LLPW
 
 
 

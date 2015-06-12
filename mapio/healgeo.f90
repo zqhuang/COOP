@@ -44,7 +44,6 @@ module coop_healpix_mod
 
   COOP_INT, parameter::coop_healpix_default_lmax=2500
   COOP_REAL, parameter::coop_healpix_lmax_by_nside = 2.5
-  COOP_INT, parameter::coop_healpix_filter_lmax = 500
   COOP_REAL::coop_healpix_mask_tol = 0.d0  !!default mask tolerance
   COOP_INT,parameter::coop_healpix_index_TT = 1
   COOP_INT,parameter::coop_healpix_index_EE = 2
@@ -965,14 +964,16 @@ contains
     endif
   end subroutine coop_healpix_maps_simulate
 
-  subroutine coop_healpix_maps_simulate_Tmaps(this, nside, lmax, sqrtCls, lmin, onlyalm)
+  subroutine coop_healpix_maps_simulate_Tmaps(this, nside, lmax, sqrtCls, lmin, onlyalm, onlyphase)
     class(coop_healpix_maps) this
     COOP_INT nside
     COOP_INT lmax
     COOP_REAL sqrtCls(0:lmax)
     COOP_INT l,m,  ell_min, ell_max
     COOP_INT,optional::lmin
-    logical,optional::onlyalm
+    logical op
+    logical,optional::onlyalm, onlyphase
+    COOP_REAL::theta
     if(present(lmin))then
        ell_min = lmin
     else
@@ -985,14 +986,31 @@ contains
        call this%allocate_alms(lmax = ell_max)
     endif
 
-    !$omp parallel do private(l, m)
-    do l=ell_min, ell_max
-       this%alm(l, 0, 1) = coop_random_complex_Gaussian(.true.)*SqrtCls(l)     
-       do m = 1, l
-          this%alm(l, m, 1) = coop_random_complex_Gaussian()*SqrtCls(l)
+    if(present(onlyphase))then
+       op = onlyphase
+    else
+       op = .false.
+    endif
+    if(op)then
+       !$omp parallel do private(l, m, theta)
+       do l=ell_min, ell_max
+          this%alm(l, 0, 1) = SqrtCls(l)     
+          do m = 1, l
+             theta = coop_random_unit()*coop_2pi
+             this%alm(l, m, 1) = cmplx(SqrtCls(l)*cos(theta), SqrtCls(l)*sin(theta))
+          enddo
        enddo
-    enddo
-    !$omp end parallel do
+       !$omp end parallel do       
+    else
+       !$omp parallel do private(l, m)
+       do l=ell_min, ell_max
+          this%alm(l, 0, 1) = coop_random_complex_Gaussian(.true.)*SqrtCls(l)     
+          do m = 1, l
+             this%alm(l, m, 1) = coop_random_complex_Gaussian()*SqrtCls(l)
+          enddo
+       enddo
+       !$omp end parallel do
+    endif
     if(present(onlyalm))then
        if(onlyalm)return
     endif
@@ -3626,7 +3644,7 @@ contains
     COOP_REAL,dimension(:),optional::Cls
     COOP_REAL,dimension(:),allocatable::Cls_smooth
     COOP_INT::l, i
-    COOP_REAL::thetasq, theta, clr1, clr2, cross
+    COOP_REAL::thetasq, theta, clr1, clr2, cross, norm
     type(coop_file)::fp
 #ifdef HAS_HEALPIX
     if(present(lmax) .and. present(Cls))then
@@ -3640,11 +3658,15 @@ contains
        if(allocated(this%filter_mean))deallocate(this%filter_mean)
        if(allocated(this%filter_fluc))deallocate(this%filter_fluc)
        allocate(this%filter_mean(0:this%lmax), this%filter_fluc(0:this%lmax))
-       call fp%open("healpix_filters/filter"//COOP_STR_OF(this%map%nside/this%base_nside)//".dat", "r")
+       call fp%open("healpix_filters/hlcorr"//COOP_STR_OF(this%LM%nside/2)//".dat", "r")
        this%filter_mean = 0.d0
        this%filter_fluc = this%sqrtCls
-       do l = 2, min(coop_healpix_filter_lmax, this%lmax)
-          read(fp%unit, *, END=100, ERR=100) i, clr1, clr2, cross
+       do l = 2, this%lmax
+          read(fp%unit, *, END=100, ERR=100) i, clr1, clr2, cross, norm
+          if(abs(cross) .gt. 1.d0) stop "Error in filter file: correlatin cannot be > 1"
+          if(abs(norm-1.d0) .gt. 0.05) stop "Error in filter file: the normalization has not converged"
+          clr1 = clr1/norm
+          clr2 = clr2/norm
           if(i.ne. l)then
              write(*,*) "healpix_filters/filter"//COOP_STR_OF(this%map%nside/this%base_nside)//".dat is broken"
              stop
@@ -3652,8 +3674,9 @@ contains
           if(clr2.gt. 0.01) this%filter_mean(l) = cross*sqrt(clr1/clr2)
           this%filter_fluc(l) = sqrt(max(1.d0-cross**2, 0.d0)*clr1*Cls(l))
        enddo
-100    continue
-       call fp%close()
+       goto 200
+100    stop "filter file is broken"
+200    call fp%close()
 
 #endif    
     endif
@@ -3662,13 +3685,13 @@ contains
     if(allocated(this%corr))deallocate(this%corr)
     allocate(this%corr(0:this%ncorr))
     allocate(cls_smooth(0:this%lmax))
-    theta = sqrt((1.d0/this%hM%npix))
+    theta = 0.3/this%lM%nside  !!0.3 is the universal number that gives the effective pix window function
     do l = 0, this%lmax
        cls_smooth(l) = this%cls(l)*exp(-(l*theta)**2)
     enddo
     this%sigma0 = sqrt(coop_sphere_correlation(this%lmax, cls_smooth, this%als, this%bls, 1.d0))
     if(this%hM%nside .ne. this%lM%nside)then
-       theta = sqrt((1.d0/this%hM%npix))
+       theta = 0.3/this%hM%nside       
        do l = 0, this%lmax
           cls_smooth(l) = this%cls(l)*exp(-(l*theta)**2)
        enddo
