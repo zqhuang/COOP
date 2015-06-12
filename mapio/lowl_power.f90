@@ -5,7 +5,7 @@ program test
 #include "constants.h"
   type(coop_healpix_maps)::map, mask, m2
   type(coop_healpix_inpaint)::inp
-  COOP_INT,parameter ::lmax = 100
+  COOP_INT,parameter ::lmax = 1500
   COOP_INT,parameter ::nrun = 200
   COOP_REAL,parameter::radius_deg = 10.d0
   logical,parameter::force_output = .false.
@@ -30,8 +30,9 @@ program test
   
   call map%read("lowl/commander_dx11d2_extdata_temp_cmb_n0256_60arc_v1_cr.fits")
   !call mask%read("planck14/dx11_v2_commander_int_mask_040a_0256.fits")  
-  ! call mask%read("lowl/commander_dx11d2_mask_temp_n0256_likelihood_v1.fits")
-  call mask%read("lowl/lat15_mask_n0256.fits")            
+ ! call mask%read("lowl/commander_dx11d2_mask_temp_n0256_likelihood_v1.fits")
+  call mask%read("lowl/lat15_mask_n0256.fits")
+  !call mask%read("lowl/mask_hot_bar_n0256.fits")                
   call coop_get_command_line_argument(key = "mask",  arg = mask_spot, default = "OUTPUT")
   mask_spot = adjustl(mask_spot)
   !!mask out a disk
