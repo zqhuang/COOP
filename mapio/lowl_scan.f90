@@ -54,9 +54,9 @@ program test
      if(.not. loaded)then
         write(*,"(A,I5,A,I5)") "step ", i_scan, " / ", npix_scan
         call map%read("lowl/commander_I_n0128_60a.fits")        
-        call mask%read("lowl/commander_mask_n0128_60a.fits")        
+        call mask%read("lowl/commander_mask_n0128_60a.fits")
         call mask%mask_pixel(nside_scan, i_scan)
-        call mask%write("scaned_mask_"//COOP_STR_OF(i_scan)//".fits")        
+        if(nside_scan .le.2) call mask%write("scaned_mask_"//COOP_STR_OF(i_scan)//".fits")
         call inp%init(map, mask, lmax, cls)
         do irun = 1, nrun
            if(mod(irun, nrun/10).eq.0) write(*, "(A$)")"."

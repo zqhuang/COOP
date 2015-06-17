@@ -388,9 +388,9 @@ contains
   subroutine coop_healpix_maps_mask_pixel(this, nside, ipix)
     class(coop_healpix_maps)::this
     COOP_INT::nside, ipix
-    if(nside.lt.this%nside)return    
+    if(nside.gt.this%nside)return    
     call this%convert2nested()
-    this%map(ipix*(this%nside/nside)**2:(ipix+1)*(this%nside/nside)**2-1, 1) = 0.
+    this%map(ipix*(this%nside/nside)**2:(ipix+1)*(this%nside/nside)**2-1, :) = 0.
   end subroutine coop_healpix_maps_mask_pixel
   
 
