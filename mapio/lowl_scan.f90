@@ -49,13 +49,14 @@ program test
   else
      loaded = .false.
      call map%read("lowl/commander_I_n0128_60a.fits")
-     call mask%read("lowl/commander_mask_n0128_60a.fits")
   endif
   call fig%curve(x = ells(2:32), y = Cls(2:32)*ells(2:32)*(ells(2:32)+1.)/coop_2pi, linetype="solid", color="red", legend = "$\Lambda$CDM", linewidth = 2.)
   do i_scan = 0, npix_scan - 1
      if(.not. loaded)then
         write(*,"(A,I5,A,I5)") "step ", i_scan, " / ", npix_scan
+        call mask%read("lowl/commander_mask_n0128_60a.fits")        
         call mask%mask_pixel(nside_scan, i_scan)
+        call mask%write("scaned_mask_"//COOP_STR_OF(i_scan)//".fits")        
         call inp%init(map, mask, lmax, cls)
         do irun = 1, nrun
            if(mod(irun, nrun/10).eq.0) write(*, "(A$)")"."
@@ -68,11 +69,12 @@ program test
         Cls_ave(0:lmax, i_scan)  =   Cls_ave(0:lmax, i_scan) / nrun
      endif
      if(i_scan .eq. 0)then
-        call fig%curve(x = ells(2:32), y = Cls_ave(2:32, i_scan)*ells(2:32)*(ells(2:32)+1.)/coop_2pi, linetype="dotted", color="gray", legend = "Masked Data", linewidth = 1.5)
+        call fig%curve(x = ells(2:32), y = Cls_ave(2:32, i_scan)*ells(2:32)*(ells(2:32)+1.)/coop_2pi, linetype="dotted", color="gray", legend = "Masked Data", linewidth = 1.)
      else
-        call fig%curve(x = ells(2:32), y = Cls_ave(2:32, i_scan)*ells(2:32)*(ells(2:32)+1.)/coop_2pi, linetype="dotted", color="gray", linewidth = 1.5)
+        call fig%curve(x = ells(2:32), y = Cls_ave(2:32, i_scan)*ells(2:32)*(ells(2:32)+1.)/coop_2pi, linetype="dotted", color="gray", linewidth = 1.)
      endif
   enddo
+  call fig%legend(0.3, 0.2)
   call fig%close()
   if(.not. loaded)then
      call fp%open("clmasked_nside_scan"//COOP_STR_OF(nside_scan)//".dat","u")
