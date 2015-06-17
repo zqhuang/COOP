@@ -183,7 +183,6 @@ module coop_healpix_mod
      COOP_INT::base_nside = 0
      logical::first_realization = .true.
      COOP_REAL,dimension(:),allocatable::als, bls, Cls, sqrtCls, smooth_Cls
-     COOP_REAL,dimension(:),allocatable::filter_mean, filter_fluc, filter_clL
      COOP_REAL,dimension(:),allocatable::corr
      COOP_REAL,dimension(:,:),allocatable::vec
      logical,dimension(:),allocatable::lask
@@ -3663,9 +3662,6 @@ contains
     if(allocated(this%als))deallocate(this%als)
     if(allocated(this%bls))deallocate(this%bls)
     if(allocated(this%cls))deallocate(this%cls)
-    if(allocated(this%filter_mean))deallocate(this%filter_mean)
-    if(allocated(this%filter_clL))deallocate(this%filter_clL)    
-    if(allocated(this%filter_fluc))deallocate(this%filter_fluc)
     if(allocated(this%sqrtcls))deallocate(this%sqrtcls)
     if(allocated(this%smooth_cls))deallocate(this%smooth_cls)        
     if(allocated(this%vec))deallocate(this%vec)
@@ -3709,36 +3705,6 @@ contains
        this%cls = cls
        this%smooth_cls = cls       
        this%sqrtcls = sqrt(this%cls)
-       if(allocated(this%filter_mean))deallocate(this%filter_mean)
-       if(allocated(this%filter_clL))deallocate(this%filter_clL)       
-       if(allocated(this%filter_fluc))deallocate(this%filter_fluc)
-       allocate(this%filter_mean(0:this%sim%lmax), this%filter_fluc(0:this%sim%lmax), this%filter_clL(0:this%sim%lmax))
-
-       this%filter_mean = 0.d0
-       this%filter_fluc = 0.d0
-       this%filter_clL = 0.d0
-       call fp%open("healpix_filters/InpF"//COOP_STR_OF(this%map%nside)//".dat", "r")
-
-       do l = 2, this%sim%lmax
-          read(fp%unit, *, END=100, ERR=100) i, clr1, clr2, cross
-          if(abs(cross) .gt. 1.d0) stop "Error in filter file: correlatin cannot be > 1"
-          if(i.ne. l)then
-             write(*,*) "healpix_filters/filter"//COOP_STR_OF(this%map%nside/this%base_nside)//".dat is broken"
-             stop
-          endif
-          this%filter_clL(l) = clr2*this%Cls(l)
-          if(cross .ge. 0.1 .and. clr2 .gt. 0.1)then
-             this%filter_mean(l) = cross*sqrt(1.d0/clr2)
-             this%filter_fluc(l) = sqrt((1.d0-cross**2)*this%Cls(l))
-          else
-             this%filter_mean(l) = 0.d0
-             this%filter_fluc(l) = this%sqrtCls(l)
-          endif
-       enddo
-       goto 200
-100    stop "filter file is broken"
-200    call fp%close()
-       
     endif
 
     
