@@ -18,9 +18,8 @@ program test
   COOP_INT,parameter::npix_scan = nside_scan**2*12
   COOP_INT,parameter ::lmax = 320
   COOP_INT,parameter ::nrun = 250
-  COOP_REAL,parameter::radius_deg = sqrt(4.d0/npix_scan)
+  COOP_REAL,parameter::radius_deg = sqrt(4.d0/npix_scan)/coop_SI_degree
   logical::loaded = .false.
-  COOP_STRING::mask_spot = ""
   COOP_REAL::cls(0:lmax), Cls_ave(0:lmax, 0:npix_scan-1 ), ells(0:lmax)
   COOP_INT::l, ell, i, irun, i_scan
   COOP_REAL::theta, phi, l_deg, b_deg
