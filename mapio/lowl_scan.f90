@@ -48,12 +48,12 @@ program test
      loaded = .true.
   else
      loaded = .false.
-     call map%read("lowl/commander_I_n0128_60a.fits")
   endif
   call fig%curve(x = ells(2:32), y = Cls(2:32)*ells(2:32)*(ells(2:32)+1.)/coop_2pi, linetype="solid", color="red", legend = "$\Lambda$CDM", linewidth = 2.)
   do i_scan = 0, npix_scan - 1
      if(.not. loaded)then
         write(*,"(A,I5,A,I5)") "step ", i_scan, " / ", npix_scan
+        call map%read("lowl/commander_I_n0128_60a.fits")        
         call mask%read("lowl/commander_mask_n0128_60a.fits")        
         call mask%mask_pixel(nside_scan, i_scan)
         call mask%write("scaned_mask_"//COOP_STR_OF(i_scan)//".fits")        
