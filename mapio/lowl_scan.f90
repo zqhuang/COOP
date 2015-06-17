@@ -13,12 +13,13 @@ program test
 #include "constants.h"
   type(coop_healpix_maps)::map, mask, m2
   type(coop_healpix_inpaint)::inp
-  COOP_INT,parameter::nside_scan = 2
+  logical::makefig
+  COOP_INT,parameter::nside_scan = 1
   COOP_INT,parameter::npix_scan = nside_scan**2*12
   COOP_INT,parameter ::lmax = 320
   COOP_INT,parameter ::nrun = 300
   COOP_REAL,parameter::radius_deg = sqrt(4.d0/npix_scan)
-  logical,parameter::force_output = .false.
+  logical::loaded = .false.
   COOP_STRING::mask_spot = ""
   COOP_REAL::cls(0:lmax), Cls_ave(0:lmax, 0:npix_scan-1 ), ells(0:lmax)
   COOP_INT::l, ell, i, irun, i_scan
@@ -39,34 +40,47 @@ program test
   ells(0) = 0.d0
   ells(1) = 1.d0
   !!read map and mask
-  call map%read("lowl/commander_I_n0128_60a.fits")
-  call mask%read("lowl/commander_mask_n0128_60a.fits")
   Cls_ave = 0.d0
-  call fig%open("clsmasked.txt")
-  call fig%curve(x = ells(2:32), y = Cls(2:32), linetype="solid", color="red", legend = "$\Lambda$CDM")
-  do i_scan = 0, npix_scan - 1
-     call pix2ang_nest(nside_scan, i_scan, theta, phi)
-     l_deg = phi/coop_SI_degree
-     b_deg = (coop_pio2 - theta)/coop_SI_degree
-     write(*,"(A,I5,A,I5,A,I5,A)") "step ", i_scan, "; disc center (l, b) = (", nint(l_deg), ",", nint(b_deg), ")"
-     call mask%mask_disc(l_deg = l_deg, b_deg = b_deg, r_deg = radius_deg)
-     call inp%init(map, mask, lmax, cls)
-     do irun = 1, nrun
-        call inp%upgrade(reset = .true., nside_want = inp%map%nside)
-        inp%lMT%map = inp%lMT%map  + inp%lCT%map !!measured map + inpainted map
-        call inp%lMT%map2alm(lmax = lmax)
-        Cls_ave(0:lmax, i_scan) =  Cls_ave(0:lmax, i_scan) + inp%lMT%Cl(0:lmax, 1)
-     enddo
-     Cls_ave(0:lmax, i_scan)  =   Cls_ave(0:lmax, i_scan) / nrun
+  call fig%open("clsmasked_"//COOP_STR_OF(nside_scan)//".txt")
+  call fig%init(xlabel="$\ell$", ylabel="$\frac{\ell(\ell+1)}{2\pi}C_l$")
+  if(coop_file_exists("clmasked_nside_scan"//COOP_STR_OF(nside_scan)//".dat"))then
+     call fp%open("clmasked_nside_scan"//COOP_STR_OF(nside_scan)//".dat","ru")
+     read(fp%unit) Cls_ave
+     call fp%close()
+     loaded = .true.
+  else
+     loaded = .false.
+     call map%read("lowl/commander_I_n0128_60a.fits")
+     call mask%read("lowl/commander_mask_n0128_60a.fits")
+  endif
+  call fig%curve(x = ells(2:32), y = Cls(2:32)*ells(2:32)*(ells(2:32)+1.)/coop_2pi, linetype="solid", color="red", legend = "$\Lambda$CDM")
+  do i_scan = 10, 10 !0, npix_scan - 1
+     if(.not. loaded)then
+        call pix2ang_nest(nside_scan, i_scan, theta, phi)
+        l_deg = phi/coop_SI_degree
+        b_deg = (coop_pio2 - theta)/coop_SI_degree
+        write(*,"(A,I5,A,I5,A,I5,A)") "step ", i_scan, "; disc center (l, b) = (", nint(l_deg), ",", nint(b_deg), ")"
+        call mask%mask_disc(l_deg = l_deg, b_deg = b_deg, r_deg = radius_deg)
+        call inp%init(map, mask, lmax, cls)
+        do irun = 1, nrun
+           call inp%upgrade(reset = .true., nside_want = inp%map%nside)
+           inp%lMT%map = inp%lMT%map  + inp%lCT%map !!measured map + inpainted map
+           call inp%lMT%map2alm(lmax = lmax)
+           Cls_ave(0:lmax, i_scan) =  Cls_ave(0:lmax, i_scan) + inp%lMT%Cl(0:lmax, 1)
+        enddo
+        Cls_ave(0:lmax, i_scan)  =   Cls_ave(0:lmax, i_scan) / nrun
+     endif
      if(i_scan .eq. 0)then
-        call fig%curve(x = ells(2:32), y = Cls_ave(2:32, i_scan), linetype="dotted", color="gray", legend = "Masked Data")
+        call fig%curve(x = ells(2:32), y = Cls_ave(2:32, i_scan)*ells(2:32)*(ells(2:32)+1.)/coop_2pi, linetype="dotted", color="gray", legend = "Masked Data")
      else
-        call fig%curve(x = ells(2:32), y = Cls_ave(2:32, i_scan), linetype="dotted", color="gray")
+        call fig%curve(x = ells(2:32), y = Cls_ave(2:32, i_scan)*ells(2:32)*(ells(2:32)+1.)/coop_2pi, linetype="dotted", color="gray")
      endif
   enddo
   call fig%close()
-  call fp%open("clmasked.dat","u")
-  write(fp%unit) cls_ave
-  call fp%close()
+  if(.not. loaded)then
+     call fp%open("clmasked_nside_scan"//COOP_STR_OF(nside_scan)//".dat","u")
+     write(fp%unit) cls_ave
+     call fp%close()
+  endif
   call coop_MPI_finalize()  
 end program test

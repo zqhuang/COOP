@@ -4147,8 +4147,8 @@ contains
             weight(0) = 1.d0
             weight = weight/sum(weight)
          endif
-         corr = exp(-((l/dble(this%LMT%nside) - l/dble(this%sim%nside))*corr_scale)**2)         
-         if(corr .gt. 0.1)then
+         if(l .lt. this%lMT%nside*coop_healpix_lmax_by_nside)then
+            corr = exp(-((l/dble(this%LMT%nside) - l/dble(this%sim%nside))*corr_scale)**2)                     
             thiscl = sum(this%sim%cl(l-5:l+5,1)*weight)
             mean = sqrt(this%cls(l)/thiscl)*corr
             fluc = sqrt(this%cls(l)*(1.-corr**2))
