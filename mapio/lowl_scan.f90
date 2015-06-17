@@ -54,7 +54,7 @@ program test
      call mask%read("lowl/commander_mask_n0128_60a.fits")
   endif
   call fig%curve(x = ells(2:32), y = Cls(2:32)*ells(2:32)*(ells(2:32)+1.)/coop_2pi, linetype="solid", color="red", legend = "$\Lambda$CDM")
-  do i_scan = 10, 10 !0, npix_scan - 1
+  do i_scan = 0, npix_scan - 1
      if(.not. loaded)then
         call pix2ang_nest(nside_scan, i_scan, theta, phi)
         l_deg = phi/coop_SI_degree
