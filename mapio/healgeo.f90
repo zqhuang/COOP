@@ -30,9 +30,9 @@ module coop_healpix_mod
   logical::coop_healpix_patch_default_want_label = .true.
   logical::coop_healpix_patch_default_want_arrow = .false.
   COOP_INT, parameter:: coop_inpaint_nside_start = 8
-  COOP_SINGLE,parameter::coop_inpaint_mask_threshold = 0.1
+  COOP_SINGLE,parameter::coop_inpaint_mask_threshold = 0.05
   
-  public::coop_fits_to_header, coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask, coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade, coop_healpix_maps_copy_genre, coop_healpix_correlation_function, coop_healpix_mask_reverse
+  public::coop_fits_to_header, coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask, coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade, coop_healpix_maps_copy_genre, coop_healpix_correlation_function, coop_healpix_mask_reverse, coop_healpix_maps_diffuse, coop_healpix_mask_diffuse, coop_healpix_nside2lmax
   
 
   logical::coop_healpix_alm_check_done = .false.
@@ -175,6 +175,7 @@ module coop_healpix_mod
   type coop_healpix_inpaint
      COOP_INT::lmax = -1
      COOP_INT::ncorr = 0
+     COOP_REAL::fsky = 0.d0
      COOP_REAL::dtheta = 0.d0
      COOP_REAL::sigma0 = 0.d0
      COOP_INT::nMT = 0
@@ -182,12 +183,13 @@ module coop_healpix_mod
      COOP_INT::base_nside = 0
      logical::first_realization = .true.
      COOP_REAL,dimension(:),allocatable::als, bls, Cls, sqrtCls, smooth_Cls
-     COOP_REAL,dimension(:),allocatable::filter_mean, filter_fluc
+     COOP_REAL,dimension(:),allocatable::filter_mean, filter_fluc, filter_clL
      COOP_REAL,dimension(:),allocatable::corr
      COOP_REAL,dimension(:,:),allocatable::vec
      logical,dimension(:),allocatable::lask
      type(coop_healpix_maps),pointer::map => null()
      type(coop_healpix_maps),pointer::mask => null()
+     type(coop_healpix_maps)::smooth_mask, smooth_map
      type(coop_healpix_maps)::lMT, lcT, lM, sim
      COOP_REAL, dimension(:,:), allocatable::Fmean
      COOP_REAL, dimension(:,:), allocatable::Ffluc     
@@ -199,7 +201,7 @@ module coop_healpix_mod
      procedure::upgrade => coop_healpix_inpaint_upgrade     
      procedure::set_corr => coop_healpix_inpaint_set_corr
      procedure::eval_cov => coop_healpix_inpaint_eval_cov
-     procedure::h_corr => coop_healpix_inpaint_h_corr
+     procedure::correlation => coop_healpix_inpaint_correlation
      procedure::lask2mask => coop_healpix_inpaint_lask2mask
   end type coop_healpix_inpaint
 
@@ -976,7 +978,8 @@ contains
     else
        ell_min = 0
     endif
-    ell_max = min(lmax, floor(nside*coop_healpix_lmax_by_nside))
+    call coop_healpix_nside2lmax(nside, ell_max)
+    ell_max = min(lmax, ell_max)
     if(this%nside .ne. nside)then
        call this%init(nside = nside, nmaps = 1, genre = "TEMPERATURE", lmax=ell_max)
     elseif(this%lmax .ne. ell_max)then
@@ -1188,7 +1191,8 @@ contains
     COOP_REAL,dimension(3, 0:lmax)::Cls_sqrteig
     COOP_REAL,dimension(3, 3, 0:lmax)::Cls_rot
     COOP_INT l, m, lm
-    lm = min(lmax, floor(nside*coop_healpix_lmax_by_nside))
+    call coop_healpix_nside2lmax(nside, lm)
+    lm = min(lmax, lm)
     if(this%nside .ne. nside)then
        call this%init(nside = nside, nmaps = 3, genre="IQU", lmax = lm)
     elseif(this%lmax .ne. lm)then
@@ -2269,7 +2273,58 @@ contains
     endif
   end subroutine coop_healpix_maps_smooth
 
-    subroutine coop_healpix_maps_smooth_with_window(map, fwhm, lmax, window, index_list)
+  subroutine coop_healpix_mask_diffuse(from, to, fwhm)
+    class(coop_healpix_maps)::from, to
+    type(coop_healpix_maps)::hm
+    COOP_REAL::fwhm, thetasq
+    COOP_INT::l, lmax
+    call hm%init(nside = min(from%nside*2, 2048), nmaps = 1, genre = "MASK", nested = .true.)
+    call coop_healpix_maps_ave_udgrade(from, hm)
+
+    thetasq = (fwhm*coop_sigma_by_fwhm)**2/2.d0
+    call coop_healpix_nside2lmax(hm%nside, lmax)
+    lmax = min(lmax, ceiling(2.5d0/sqrt(thetasq)))
+    call hm%map2alm(lmax = lmax )
+    do l = 0, hm%lmax
+       hm%alm(l, 0:l, 1) = hm%alm(l, 0:l, 1)*exp(-l*(l+1.d0)*thetasq)
+    enddo
+    call hm%alm2map()
+    if(to%nside .ne. from%nside) call to%init(nside = from%nside, nmaps=1, genre = "MASK")
+    call coop_healpix_maps_ave_udgrade(hm, to)
+    where (from%map(:, 1) .gt. 0.)
+       to%map(:, 1) = from%map(:, 1)
+    elsewhere
+       to%map(:, 1) = min(max(to%map(:, 1), 0.), 1.)
+    end where
+  end subroutine coop_healpix_mask_diffuse
+
+
+  subroutine coop_healpix_maps_diffuse(from, to, mask, fwhm)
+    class(coop_healpix_maps)::from, to, mask
+    type(coop_healpix_maps)::hm
+    COOP_REAL::fwhm, thetasq
+    COOP_INT::l, lmax
+    call mask%convert2nested()
+    call hm%init(nside = min(from%nside*2, 2048), nmaps = from%nmaps, genre = "I", nested = .true.)
+    call coop_healpix_maps_ave_udgrade(from = from, to = hm, mask = mask)
+    thetasq = (fwhm*coop_sigma_by_fwhm)**2/2.d0
+    call coop_healpix_nside2lmax(hm%nside, lmax)
+    lmax = min(lmax, ceiling(2.5d0/sqrt(thetasq)))
+    call hm%map2alm(lmax = lmax )
+    do l = 0, hm%lmax
+       hm%alm(l, 0:l, 1) = hm%alm(l, 0:l, 1)*exp(-l*(l+1.d0)*thetasq)
+    enddo
+    call hm%alm2map()
+    if(to%nside .ne. from%nside) call to%init(nside = from%nside, nmaps=1, genre = "I")
+    call coop_healpix_maps_ave_udgrade(hm, to)
+    where (mask%map(:, 1) .gt. 0.)
+       to%map(:, 1) = from%map(:, 1)
+    end where
+  end subroutine coop_healpix_maps_diffuse
+  
+  
+
+  subroutine coop_healpix_maps_smooth_with_window(map, fwhm, lmax, window, index_list)
     class(coop_healpix_maps) map
     COOP_REAL fwhm
     COOP_INT lmax
@@ -2365,12 +2420,11 @@ contains
 #endif    
     end subroutine coop_healpix_maps_query_disc
 
-  subroutine coop_healpix_maps_query_strip(this, pix, theta1, theta2, listpix, nlist)
+  subroutine coop_healpix_maps_query_strip(this, theta1, theta2, listpix, nlist)
     class(coop_healpix_maps)::this
-    COOP_INT pix, listpix(0:), nlist
-    COOP_REAL theta1, theta2, vec(3)
+    COOP_INT listpix(0:), nlist
+    COOP_REAL theta1, theta2
 #ifdef HAS_HEALPIX
-    call this%pix2vec(pix, vec)
     if(this%ordering .eq. COOP_RING)then
        call query_strip(this%nside, theta1, theta2, listpix, nlist, nest = 0, inclusive = 0)
     else
@@ -3477,7 +3531,8 @@ contains
     if(present(mask))then
        if(mask%nside .ne. from%nside)stop "ave_udgrade: nside(mask) != nside(from)"
     endif
-    nmaps = min(from%nmaps, to%nmaps)                
+    nmaps = min(from%nmaps, to%nmaps)
+    call coop_healpix_maps_copy_genre(from, to)
     call from%convert2nested()
     call to%convert2nested()
     if(from%nside .eq. to%nside)then
@@ -3609,6 +3664,7 @@ contains
     if(allocated(this%bls))deallocate(this%bls)
     if(allocated(this%cls))deallocate(this%cls)
     if(allocated(this%filter_mean))deallocate(this%filter_mean)
+    if(allocated(this%filter_clL))deallocate(this%filter_clL)    
     if(allocated(this%filter_fluc))deallocate(this%filter_fluc)
     if(allocated(this%sqrtcls))deallocate(this%sqrtcls)
     if(allocated(this%smooth_cls))deallocate(this%smooth_cls)        
@@ -3624,6 +3680,8 @@ contains
     call this%lcT%free()
     call this%lM%free()
     call this%sim%free()
+    call this%smooth_mask%free()
+    call this%smooth_map%free()    
     this%lmax = -1
     this%ncorr = 0
     this%dtheta = 0.d0
@@ -3652,31 +3710,34 @@ contains
        this%smooth_cls = cls       
        this%sqrtcls = sqrt(this%cls)
        if(allocated(this%filter_mean))deallocate(this%filter_mean)
+       if(allocated(this%filter_clL))deallocate(this%filter_clL)       
        if(allocated(this%filter_fluc))deallocate(this%filter_fluc)
-       allocate(this%filter_mean(0:this%sim%lmax), this%filter_fluc(0:this%sim%lmax))
+       allocate(this%filter_mean(0:this%sim%lmax), this%filter_fluc(0:this%sim%lmax), this%filter_clL(0:this%sim%lmax))
 
        this%filter_mean = 0.d0
        this%filter_fluc = 0.d0
-       call fp%open("healpix_filters/FLH"//COOP_STR_OF(this%map%nside)//".dat", "r")
+       this%filter_clL = 0.d0
+       call fp%open("healpix_filters/InpF"//COOP_STR_OF(this%map%nside)//".dat", "r")
 
-    do l = 2, this%sim%lmax
-       read(fp%unit, *, END=100, ERR=100) i, clr1, clr2, cross
-       if(abs(cross) .gt. 1.d0) stop "Error in filter file: correlatin cannot be > 1"
-       if(i.ne. l)then
-          write(*,*) "healpix_filters/filter"//COOP_STR_OF(this%map%nside/this%base_nside)//".dat is broken"
-          stop
-       endif
-       if(cross .ge. 0.01 .and. clr2 .gt. 0.01)then
-          this%filter_mean(l) = cross*sqrt(clr1/clr2)
-          this%filter_fluc(l) = sqrt((1.d0-cross**2)*this%smooth_Cls(l))
-       else
-          this%filter_mean(l) = 0.d0
-          this%filter_fluc(l) = sqrt(this%smooth_Cls(l))
-       endif
-    enddo
-    goto 200
-100 stop "filter file is broken"
-200 call fp%close()
+       do l = 2, this%sim%lmax
+          read(fp%unit, *, END=100, ERR=100) i, clr1, clr2, cross
+          if(abs(cross) .gt. 1.d0) stop "Error in filter file: correlatin cannot be > 1"
+          if(i.ne. l)then
+             write(*,*) "healpix_filters/filter"//COOP_STR_OF(this%map%nside/this%base_nside)//".dat is broken"
+             stop
+          endif
+          this%filter_clL(l) = clr2*this%Cls(l)
+          if(cross .ge. 0.1 .and. clr2 .gt. 0.1)then
+             this%filter_mean(l) = cross*sqrt(1.d0/clr2)
+             this%filter_fluc(l) = sqrt((1.d0-cross**2)*this%Cls(l))
+          else
+             this%filter_mean(l) = 0.d0
+             this%filter_fluc(l) = this%sqrtCls(l)
+          endif
+       enddo
+       goto 200
+100    stop "filter file is broken"
+200    call fp%close()
        
     endif
 
@@ -3685,7 +3746,11 @@ contains
     this%dtheta = coop_pi/this%ncorr
     if(allocated(this%corr))deallocate(this%corr)
     allocate(this%corr(0:this%ncorr))
-    theta = 0.3/this%lM%nside  !!0.3 is the universal number that gives the effective pix window function
+    if(this%lM%nside .lt. this%map%nside)then
+       theta = 0.3/this%lM%nside  !!0.3 is the universal number that gives the effective pix window function
+    else
+       theta = 0.d0
+    endif
     do l = 0, this%lmax
        this%smooth_Cls(l) = this%cls(l)*exp(-(l*theta)**2)
     enddo
@@ -3705,16 +3770,11 @@ contains
        call pix2vec_nest(this%lM%nside, i, this%vec(:, i))
     enddo
     !$omp end parallel do
-
-
-
-
-    
 #endif    
   end subroutine coop_healpix_inpaint_set_corr
     
 
-  function coop_healpix_inpaint_h_corr(this, i, j, costheta) result(c)
+  function coop_healpix_inpaint_correlation(this, i, j, costheta) result(c)
     class(coop_healpix_inpaint)::this
     COOP_REAL :: x, c, ri
     COOP_INT,optional :: i, j
@@ -3739,7 +3799,7 @@ contains
     loc = floor(ri)
     ri = ri - loc
     c = this%corr(loc)*(1.d0-ri) + this%corr(loc+1)*ri
-  end function coop_healpix_inpaint_h_corr
+  end function coop_healpix_inpaint_correlation
 
   subroutine coop_healpix_inpaint_eval_cov(this, i, j, mm, cc, mc, cm, cf,mf, ff) 
     class(coop_healpix_inpaint)::this    
@@ -3747,7 +3807,7 @@ contains
     COOP_REAL::tmp
     logical::do_single
     COOP_INT::i, j, ii, jj
-    tmp =  this%h_corr(i, j)
+    tmp =  this%correlation(i, j)
     if(present(mm)) mm =   this%lM%map(i,1)*this%lM%map(j, 1)*tmp
     if(present(cc)) cc =  (1.-this%lM%map(i,1))*(1.-this%lM%map(j, 1))*tmp
     if(present(cf)) cf =  (1.-this%lM%map(i, 1))*tmp
@@ -3765,11 +3825,23 @@ contains
     COOP_REAL, dimension(:, :),allocatable::cov
     COOP_REAL::mm
 #ifdef HAS_HEALPIX    
-    call this%free()    
+    call this%free()
+    if(map%nside .ne. mask%nside) stop "inpaint_init: error"
     this%map => map
     this%mask => mask
     call this%map%convert2nested()
     call this%mask%convert2nested()
+    call coop_healpix_mask_diffuse(this%mask, this%smooth_mask, 0.5d0*coop_SI_degree)
+    call coop_healpix_maps_diffuse(this%map, this%smooth_map, this%mask, 0.5d0*coop_SI_degree)
+    !$omp parallel do
+    do i=0, this%smooth_mask%npix-1
+       if(this%smooth_mask%map(i, 1) .ge. 0.5)then
+          this%smooth_map%map(i,1) = this%smooth_map%map(i,1) / this%smooth_mask%map(i,1)
+       else
+          this%smooth_map%map(i,1) = this%smooth_map%map(i,1) / max(sqrt(this%smooth_mask%map(i,1)/2.), 0.1)
+       endif
+    enddo
+    !$omp end parallel do
     this%base_nside = min(this%map%nside, coop_inpaint_nside_start)
     call this%lMT%init(nside = this%base_nside, nmaps = 1, genre = "TEMPERATURE", nested = .true.)
     this%lcT = this%lMT
@@ -3778,9 +3850,11 @@ contains
     
     allocate(this%lask(0:this%mask%npix-1))
     this%lask = (this%mask%map(:,1) .gt. 0.5)
+    this%fsky = count(this%lask)/dble(this%mask%npix)
     this%map%map(:,1) = this%map%map(:,1)*this%mask%map(:,1) !!mask the map
     call coop_healpix_maps_ave_udgrade(this%map, this%lMT)  !!M T at low resolution is known;
     call this%lask2mask(this%lM)
+    call this%sim%init(nside = this%map%nside, nmaps = 1, genre = "T", nested = .true., lmax = min(lmax, floor(this%map%nside*coop_healpix_lmax_by_nside)))        
     call this%set_corr(lmax, Cls)    !!set up the correlation function calculator
 
     this%nMT = count(this%lM%map(:,1) .ge. coop_inpaint_mask_threshold)
@@ -3853,183 +3927,245 @@ contains
           endif
        enddo
     enddo
-    call coop_solve_constrained(m = this%nMT + this%nCT, n_known = this%nMT, n_unknown = this%nCT, dim_fmean = this%nCT, dim_ffluc = this%nCT, C = cov, Fmean = this%Fmean, Ffluc = this%Ffluc, epsilon = 1.d-2)
-    this%mean = matmul(this%Fmean, this%lMT%map(this%indMT,1))
+    if(this%nMT .gt. 0)then
+       call coop_solve_constrained(m = this%nMT + this%nCT, n_known = this%nMT, n_unknown = this%nCT, dim_fmean = this%nCT, dim_ffluc = this%nCT, C = cov, Fmean = this%Fmean, Ffluc = this%Ffluc, epsilon = 1.d-3)
+       this%mean = matmul(this%Fmean, this%lMT%map(this%indMT,1))
+    else
+       this%mean = 0.d0
+       this%Ffluc = cov
+       call coop_matsym_sqrt(this%FFluc, 1.d-10)
+    endif
     this%base_nside = this%lMT%nside
     this%first_realization = .true.
-    call this%sim%init(nside = this%map%nside, nmaps = 1, genre = "T", nested = .true., lmax = min(this%lmax, floor(this%map%nside*coop_healpix_lmax_by_nside)))    
     deallocate(cov)
 #endif    
   end subroutine coop_healpix_inpaint_init
 
-  subroutine coop_healpix_inpaint_upgrade(this, reset)
+  subroutine coop_healpix_inpaint_upgrade(this, reset, nside_want)
     class(coop_healpix_inpaint)::this
-    type(coop_healpix_maps)::lmap
-    COOP_INT::nside, npix, unside, i, i1, i2,m, il, l,list(8),flist(40), nneigh, nc, lcut, n_boundary, ib
-    COOP_REAL::shift(3), x(37), sumc(40), cov(40, 40), Fmean(3, 40), FFluc(3,3),s
     logical, optional::reset
-    type(coop_healpix_maps)::ltmp
-    logical,dimension(:),allocatable::is_boundary
-    COOP_INT,dimension(:),allocatable::index_boundary
-    COOP_SINGLE,dimension(:),allocatable::count_boundary
-#ifdef HAS_HEALPIX    
-    if(present(reset) .and. this%lM%nside .ne. this%base_nside)then
-       if(reset)then
-          call this%lCT%init(nside = this%base_nside, nmaps = 1, genre = "TEMPERATURE", nested = .true.)
-          this%lMT = this%lCT
-          call coop_healpix_maps_ave_udgrade(this%map, this%lMT)  !!M T at low resolution is known;
-          call this%lM%init(nside = this%base_nside, nmaps = 1, genre = "MASK", nested = .true.)
-          call this%lask2mask(this%lM)
+    COOP_INT,optional::nside_want
+    COOP_INT::nside_start, nside_target
+    COOP_INT::i
+#ifdef HAS_HEALPIX
+    if(present(nside_want))then
+       nside_target = min(max(nside_want, this%base_nside), this%map%nside)
+    else
+       nside_target = this%map%nside
+    endif
+    if(present(reset))then
+       if(reset)then       
+          if(this%lM%nside .ne. this%base_nside)then
+             call this%lCT%init(nside = this%base_nside, nmaps = 1, genre = "TEMPERATURE", nested = .true.)
+             call this%lMT%init(nside = this%base_nside, nmaps = 1, genre = "TEMPERATURE", nested = .true.)             
+             call coop_healpix_maps_ave_udgrade(this%map, this%lMT)
+             call this%lM%init(nside = this%base_nside, nmaps = 1, genre = "MASK", nested = .true.)
+             call this%lask2mask(this%lM)
+          endif
           this%first_realization = .true.
        endif
     endif
-    nside = this%lCT%nside
-    unside = nside*2    
-    if(nside .eq. this%base_nside .and. this%first_realization)then
+    nside_start = this%lCT%nside
+    !!step 0: nside = base_nside
+    if(nside_start .eq. this%base_nside .and. this%first_realization)then
        do i = 0, this%lM%npix-1
-          if(this%lM%map(i,1) .ge.  1.-coop_inpaint_mask_threshold)then
-             this%lCT%map(i,1) = this%lMT%map(i,1)* (1.d0-this%lM%map(i,1))/this%lM%map(i,1) + this%sigma0*(1.d0-this%lM%map(i,1))*coop_random_Gaussian()
-          else
-             this%lCT%map(i,1) = 0.
+          if(this%lM%map(i,1) .gt.  1.-coop_inpaint_mask_threshold)then
+             this%lCT%map(i,1) = this%lMT%map(i,1)* (1.d0-this%lM%map(i,1))/this%lM%map(i,1) 
           endif
        enddo
        this%lCT%map(this%indCT, 1) = this%mean + matmul(this%Ffluc, coop_random_gaussian_vector(this%nCT))
        this%first_realization = .false.
-
-       call ltmp%init(nside = nside, nmaps = 1, genre = "TEMPERATURE", nested = .true.)
-       ltmp%map(:,1) = this%lCT%map(:,1) + this%lMT%map(:,1)
-       !!simulate the differential map
-       call coop_healpix_maps_ave_udgrade(ltmp, this%sim)
-       call ltmp%free()
-       call this%sim%map2alm(lmax = this%sim%lmax)
-       this%sim%alm(0:1,:,:) = 0.
-       do l=2, this%sim%lmax
-          this%sim%alm(l, 0, 1) = this%sim%alm(l, 0, 1)*this%filter_mean(l) + this%filter_fluc(l)*coop_random_complex_Gaussian(.true.)       
-          do m = 1, l
-             this%sim%alm(l, m, 1) = this%sim%alm(l, m, 1)*this%filter_mean(l) + this%filter_fluc(l)*coop_random_complex_Gaussian()
-          enddo
-       enddo
-       call this%sim%alm2map()
-       call this%sim%convert2nested()
-       return
     endif
-    if(this%lMT%nside .ge. this%map%nside)return
-    call this%lct%udgrade(nside = unside)
-    call this%lMT%init(nside = unside, nmaps = 1, genre = "TEMPERATURE", nested = .true.)
+    if(this%lMT%nside .ge. nside_target)return           
+    !! step 1: nside = base_nside * 2
+    if(this%lMT%nside .eq. this%base_nside)then
+       call do_split()
+       call set_sim()
+    endif
+    if(this%lMT%nside .ge. nside_target)return                  
+    call this%lMT%init(nside = nside_target, nmaps = 1, genre = "TEMPERATURE", nested = .true.)
     call coop_healpix_maps_ave_udgrade(this%map, this%lMT)
-    call this%lM%init(nside = unside, nmaps = 1, genre = "MASK", nested = .true.)
-    !!set up pixel-space correlation
-    call this%lask2mask(this%lM)
-    call this%set_corr()
-    npix = 12*nside**2
-    allocate(is_boundary(0: npix -1), count_boundary(0:npix-1), index_boundary(npix))
-    do i = 0, npix-1
-       if(all(this%lM%map(4*i:4*i+3, 1) .ge. 1.-coop_inpaint_mask_threshold))then  !!unmasked region
-          is_boundary(i) = .false.
-          cycle
-       endif
-       if(any(this%lM%map(4*i:4*i+3, 1) .gt. coop_inpaint_mask_threshold))then
-          is_boundary(i) = .true.
-          cycle
-       endif
-       call neighbours_nest(nside, i, list, nneigh)
-       do il = 1, nneigh
-          if(any(this%lM%map(4*list(il):4*list(il)+3, 1) .gt. coop_inpaint_mask_threshold))then
-             is_boundary(i) = .true.
-             cycle
-          endif
-       enddo
-       is_boundary(i) = .false.
-    enddo
-    call ltmp%init(nside = this%lCT%nside, nmaps = 1, genre = "T", nested = .true.)
-    call coop_healpix_maps_ave_udgrade(this%sim, ltmp)
-    do i=0, npix-1
-       call neighbours_nest(nside, i, list, nneigh)
-       if(is_boundary(i))then
-          count_boundary(i) = nneigh - count(is_boundary(list(1:nneigh))) + coop_random_unit()*0.01         
-       else
-          count_boundary(i) = -100
-          this%lCT%map(4*i:4*i+3,1) =  this%lCT%map(4*i:4*i+3,1) + ltmp%map(4*i:4*i+3,1) - sum(ltmp%map(4*i:4*i+3,1))/4.
-       endif
-    enddo
-    call ltmp%free()
-    call coop_quicksort_index(count_boundary, index_boundary)
-    index_boundary = index_boundary - 1
-    !!paint the boundary
-    do ib = npix, 1, -1
-       i = index_boundary(ib)
-       if(.not. is_boundary(i))exit
-       call neighbours_nest(nside, i, list, nneigh)
-       nc = 4*(nneigh + 2)
-       do il = 1, nneigh
-          flist(4*il-3) = 4*list(il)
-          flist(4*il-2) = flist(4*il-3)+1
-          flist(4*il-1) = flist(4*il-2)+1
-          flist(4*il) = flist(4*il-1)+1
-       enddo
-       x(1:nc-8) = this%lMT%map(flist(1:nc-8), 1) + this%lCT%map(flist(1:nc-8), 1)
-       flist(nc - 7) = 4*i
-       flist(nc - 6) = flist(nc - 7) + 1
-       flist(nc - 5) = flist(nc - 6) + 1
-       flist(nc - 4) = flist(nc - 5) + 1
-       flist(nc-3:nc) = flist(nc-7:nc-4)
-       x(nc-7:nc-4) = this%lMT%map(flist(nc-7:nc-4),1)
-       x(nc-3) = this%lCT%map(flist(nc),1)
+    call this%lCT%init(nside = nside_target, nmaps = 1, genre = "TEMPERATURE", nested = .true.)    
+    call coop_healpix_maps_ave_udgrade(this%sim, this%lCT)
+  contains
 
-       do i1 = 1, nc - 8 
-          do i2 = 1, i1
-             call this%eval_cov(flist(i1), flist(i2), ff = cov(i1, i2))
-             cov(i2, i1) = cov(i1, i2)
-          enddo
-       enddo
-       do i1 = nc-7, nc-4
-          do i2=1, nc-8
-             call this%eval_cov(flist(i1), flist(i2), mf = cov(i1, i2))
-             cov(i2, i1) = cov(i1, i2)             
-          enddo
-          do i2 = nc-7, i1
-             call this%eval_cov(flist(i1), flist(i2), mm = cov(i1, i2))
-             cov(i2, i1) = cov(i1, i2)                          
-          enddo
-       enddo
-       do i1=nc-3, nc
-          do i2 = 1, nc-8
-             call this%eval_cov(flist(i1), flist(i2), cf = cov(i1, i2))
-             cov(i2, i1) = cov(i1, i2)                          
-          enddo
-          do i2 = nc-7, nc-4
-             if(i2+4 .le. i1)then
-                call this%eval_cov(flist(i1), flist(i2), cm = cov(i1, i2), cc = cov(i1, i2+4))
-                cov(i2+4, i1) = cov(i1, i2+4)                
-             else
-                call this%eval_cov(flist(i1), flist(i2), cm = cov(i1, i2))
-             endif
-             cov(i2, i1) = cov(i1, i2)             
-          enddo
-       enddo
-       sumc(1:nc) = (cov(1:nc, nc-3) + cov(1:nc, nc-2) + cov(1:nc, nc-1) +cov(1:nc, nc))/4.d0
-       cov(1:nc-4, nc-2) = cov(1:nc-4, nc-2) - sumc(1:nc-4)
-       cov(nc-2, 1:nc-4) = cov(1:nc-4, nc-2)
-       cov(1:nc-4, nc-1) = cov(1:nc-4, nc-1) - sumc(1:nc-4)
-       cov(nc-1, 1:nc-4) = cov(1:nc-4, nc-1)       
-       cov(1:nc-4, nc) = cov(1:nc-4, nc) - sumc(1:nc-4)
-       cov(nc, 1:nc-4) = cov(1:nc-4, nc)
-       cov(nc-3, nc-3) = sum(sumc(nc-3:nc))/4.d0  !!< ave ave>
-       cov(nc-2:nc, nc-3) = sumc(nc-2:nc) - cov(nc-3, nc-3)
-       cov(nc-3, nc-2:nc)  = cov(nc-2:nc, nc-3)
-       do i1 = nc-2, nc
-          do i2 = nc-2, i1
-             cov(i1, i2) = cov(i1, i2) - sumc(i1) - sumc(i2) + cov(nc-3, nc-3)
-             cov(i2, i1) = cov(i1, i2)
-          enddo
-       enddo
-       call coop_solve_constrained(m = 40, n_known = nc-3, n_unknown = 3, dim_fmean = 3, dim_ffluc = 3, C=cov, Fmean =Fmean, FFluc = FFluc, epsilon = 1.d-2)
-       shift =  matmul(Ffluc, coop_random_gaussian_vector(3)) + matmul(Fmean(1:3, 1:nc-3), x(1:nc-3))
+    subroutine  do_split()
+      COOP_INT:: nside_fine, npix_fine, nside_coarse, npix_coarse
+      COOP_INT:: i, j, k, l,n_masked, ii, i0, i1, i2, i3, jj
+      type(coop_healpix_maps)::llc    
+      COOP_INT,dimension(:,:),allocatable::list
+      COOP_INT,dimension(:),allocatable::ind_masked, nlist, nbs
+      logical,dimension(:),allocatable::is_masked
+      COOP_REAL,parameter::radius = 15.d0*coop_SI_degree
+      COOP_INT,parameter::nmax = 128
+      COOP_REAL::cov(0:nmax-1, 0:nmax-1), Fmean(1, 0:nmax-1), FFluc(1, 1), x(0:nmax-1)
+      COOP_INT::listpix(0:nmax-1)
+      COOP_REAL::cc(0:3, 0:3)
+      
+      nside_coarse = this%lMT%nside
+      npix_coarse = nside2npix(nside_coarse)
+      nside_fine = nside_coarse*2
+      npix_fine = nside2npix(nside_fine)
+      if(3.d0*(radius*nside_fine)**2 .gt. nmax*1.1)then
+         stop "do_split: you need to increase nmax"
+      endif
+     
 
-       this%lCT%map(4*i+1:4*i+3,1) =  this%lCT%map(4*i:4*i+2,1) + shift
-       this%lCT%map(4*i,1) = this%lCT%map(4*i+3,1)-sum(shift)
-    enddo
-    deallocate(is_boundary, count_boundary)
+      call this%lMT%init(nside = nside_fine, nmaps = 1, genre = "TEMPERATURE", nested = .true.)
+      llc = this%lCT
+      call this%lCT%init(nside = nside_fine, nmaps = 1, genre = "TEMPERATURE", nested = .true.)
+      call coop_healpix_maps_ave_udgrade(llc, this%lCT)
+      call coop_healpix_maps_ave_udgrade(this%map, this%lMT)
+      call this%lM%init(nside = nside_fine, nmaps = 1, genre = "MASK", nested = .true.)
+      call this%lask2mask(this%lM)
+      call this%set_corr()
+      allocate(is_masked(0:npix_fine-1))
+      is_masked = (this%lM%map(:,1) .le.  1.-coop_inpaint_mask_threshold)
+      n_masked = count(is_masked)
+      allocate(ind_masked(n_masked), list(0:nmax-1, n_masked), nlist(n_masked), nbs(n_masked))
+      j = 0
+      do i=0, npix_fine-1
+         if(is_masked(i))then
+            j = j +1
+            ind_masked(j) = i
+         endif
+      enddo
+      do j = 1, n_masked
+         i0 = ind_masked(j)
+         ii = (i0/4)*4         
+         select case(i-ii)
+         case(0)
+            i1 = ii+1
+            i2 = ii+2
+            i3 = ii+3
+         case(1)
+            i1 = ii
+            i2 = ii+2
+            i3 = ii+3
+         case(2)
+            i1 = ii
+            i2 = ii+1
+            i3 = ii+3
+         case(3)
+            i1 = ii
+            i2 = ii+1
+            i3 = ii+2
+         end select
+         call query_disc(nside_fine, this%vec(:, i0), radius, list(0:nmax-1, j), nlist(j), nest = 1, inclusive = 0)
+         if(nlist(j) .ge. nmax) stop "do split: nlist >= nmax"
+         do k=0, nlist(j)-1
+            if(list(k,j).eq.i0)then
+               list(k,j) = list(0, j)
+               list(0, j) = i0               
+               exit
+            endif
+         enddo
+         do k=1, nlist(j)-1
+            if(list(k,j).eq.i1)then
+               list(k,j) = list(1,j)
+               list(1,j) = i1
+               exit
+            endif
+         enddo
+         do k=2, nlist(j)-1
+            if(list(k,j).eq.i2)then
+               list(k,j) = list(2,j)
+               list(2,j) = i2
+               exit
+            endif
+         enddo
+         do k=3, nlist(j)-1
+            if(list(k,j).eq.i3)then
+               list(k,j) = list(3,j)
+               list(3,j) = i3
+               exit
+            endif
+         enddo
+         nbs(j) = count(is_masked(list(1:nlist(j)-1, j)))
+      enddo
+      do
+         j = coop_minloc(nbs)
+         if(nbs(j) .ge. nmax)exit
+         do ii=0,3
+            do jj = 0, ii
+               call this%eval_cov(list(ii, j), list(jj, j), cc = cc(ii,jj))
+            enddo
+         enddo
+         cov(nlist(j), nlist(j)) = (cc(1,1)+cc(2,2)+cc(3,3)+2.d0*(cc(2,1)+cc(3,1)+cc(3,2)) - 6.d0*sum(cc(1:3,0)) + cc(0,0)*9.d0)/16.d0
+         call this%eval_cov(list(0, j), list(0, j), mm = cov(0, 0))
+         do i=1, nlist(j)-1
+            call this%eval_cov(list(0, j), list(i, j), cf = cc(0,0), mf = cov(0, i))
+            cov(i, 0) = cov(0, i)
+            do ii=1, 3
+               call this%eval_cov(list(ii, j), list(i, j), cf = cc(ii,0))
+            enddo
+            cov(nlist(j), i) = (cc(0,0)*3.d0-sum(cc(1:3,0)))/4.d0
+            cov(i, nlist(j)) = cov(nlist(j), i)
+            do k=1, i
+               call this%eval_cov(list(i, j), list(k, j), ff = cov(i, k))
+               cov(k, i) = cov(i, k)
+            enddo
+            x(i) = this%lMT%map(list(i,j), 1) + this%lCT%map(list(i,j), 1)
+         enddo
+         x(0) = this%lMT%map(list(0, j), 1)
+         call coop_solve_constrained(m = nmax, n_known = nlist(j), n_unknown = 1, dim_fmean = nmax, dim_ffluc = 1, C = cov, Fmean =  Fmean, Ffluc = FFluc,  epsilon = 1.d-2)
+         this%lCT%map(list(0, j),1) =  this%lCT%map(list(0, j),1) + dot_product(Fmean(0:nlist(j)-1, 1), x(0:nlist(j)-1)) + FFluc(1,1)*coop_random_Gaussian()
+         is_masked(ind_masked(j)) = .false.
+         i = list(0,j)/4
+         if(.not. any(is_masked(4*i:4*i+3)))then
+            this%lCT%map(4*i:4*i+3,1) = this%lCT%map(4*i:4*i+3,1) - sum(this%lCT%map(4*i:4*i+3,1))/4.d0 + llc%map(i,1)
+         endif
+         do i = 1, n_masked
+            if(is_masked(ind_masked(i)))then
+               nbs(i) = count(is_masked(list(1:nlist(i)-1, i)))
+            else
+               nbs(i) = nmax
+            endif
+         enddo
+      enddo
+      call llc%free()
+      deallocate(is_masked, ind_masked, list, nlist, nbs)
+    end subroutine do_split
+
+
+    subroutine set_sim()
+      COOP_INT::nr, i, l, m
+      COOP_REAL::corr, fluc, thiscl, mean
+      COOP_REAL::weight(-5:5)
+      nr = (this%map%nside/this%lMT%nside)**2      
+      do i=0, this%lMT%npix-1
+         this%sim%map(i*nr:(i+1)*nr-1,1) = (this%lMT%map(i, 1) + this%lCT%map(i,1))
+      enddo
+      call this%sim%map2alm(lmax = this%lmax)
+      do l= 8, this%sim%lmax
+         if(l.lt.20)then
+            do i = 1, 5
+               weight(i) = exp(-(10.d0/l*i)**2)
+               weight(-i) = weight(i)
+            enddo
+            weight(0) = 1.d0
+            weight = weight/sum(weight)
+         endif
+         if(l.le. this%lMT%nside*coop_healpix_lmax_by_nside)then
+            thiscl = sum(this%sim%cl(l-5:l+5,1)*weight)
+            corr = exp(-((l/this%LMT%nside - l/this%sim%nside)*0.3)**2)
+            mean = sqrt(this%cls(l)/thiscl)*corr
+            fluc = sqrt(this%cls(l)*(1.-corr**2))
+            
+         else
+            mean = 0.d0
+            fluc = sqrt(this%Cls(l))
+         endif
+         this%sim%alm(l, 0, 1) = this%sim%alm(l, 0, 1)*mean + fluc*coop_random_complex_Gaussian(.true.)
+         do m=1, l
+            this%sim%alm(l, m, 1) = this%sim%alm(l, m, 1)*mean + fluc*coop_random_complex_Gaussian()            
+         enddo
+      enddo
+      call this%sim%alm2map()
+      call this%sim%convert2nested()
+      this%sim%map = (this%sim%map*sqrt(1.-this%smooth_mask%map**2)+this%smooth_map%map*this%smooth_mask%map)*(1.-this%mask%map)
+    end subroutine set_sim
+    
 #endif    
   end subroutine coop_healpix_inpaint_upgrade
 
@@ -4233,6 +4369,11 @@ contains
     call mask%write(fout)
     call mask%free()
   end subroutine coop_healpix_mask_reverse
+
+  subroutine coop_healpix_nside2lmax(nside,lmax)
+    COOP_INT::nside, lmax
+    lmax = floor(nside*coop_healpix_lmax_by_nside)
+  end subroutine coop_healpix_nside2lmax
 
 end module coop_healpix_mod
 

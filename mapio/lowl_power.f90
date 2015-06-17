@@ -6,7 +6,7 @@ program test
   type(coop_healpix_maps)::map, mask, m2
   type(coop_healpix_inpaint)::inp
   COOP_INT,parameter ::lmax = 1500
-  COOP_INT,parameter ::nrun = 200
+  COOP_INT,parameter ::nrun = 300
   COOP_REAL,parameter::radius_deg = 10.d0
   logical,parameter::force_output = .false.
   COOP_STRING::mask_spot = ""
@@ -29,10 +29,11 @@ program test
   
   
   call map%read("lowl/commander_dx11d2_extdata_temp_cmb_n0256_60arc_v1_cr.fits")
-  !call mask%read("planck14/dx11_v2_commander_int_mask_040a_0256.fits")  
+ ! call mask%read("planck14/dx11_v2_commander_int_mask_040a_0256.fits")  
  ! call mask%read("lowl/commander_dx11d2_mask_temp_n0256_likelihood_v1.fits")
   call mask%read("lowl/lat15_mask_n0256.fits")
-  !call mask%read("lowl/mask_hot_bar_n0256.fits")                
+ ! call mask%read("lowl/mask_hot_bar_n0256.fits")
+ ! call mask%read("lowl/mask_tiny.fits")
   call coop_get_command_line_argument(key = "mask",  arg = mask_spot, default = "OUTPUT")
   mask_spot = adjustl(mask_spot)
   !!mask out a disk
@@ -71,22 +72,23 @@ program test
   !!if you want to see how the inpainted maps look like
   if(trim(mask_spot).eq."OUTPUT" .or. force_output)then
      call coop_prtsystime(.true.)
-     call inp%upgrade(.true.)
+     call inp%upgrade(reset = .true., nside_want = inp%base_nside)
      m2 = inp%lMT
      m2%map = inp%lCT%map + inp%lMT%map
      call m2%write("inpainted_map_"//COOP_STR_OF(m2%nside)//".fits")            
      print*, "nside = ", inp%lMT%nside
      call coop_prtsystime()
 
-        
-     do i=1, 5
-        call inp%upgrade()    !!nside -> 16-> 32 -> 64-> 128 -> 256
+     do while(inp%lMT%nside .lt. 256)
+        call inp%upgrade(nside_want = inp%lMT%nside*2)    !!nside -> 16-> 32 -> 64-> 128 -> 256
         m2 = inp%lMT
         m2%map = inp%lCT%map + inp%lMT%map
         call m2%write("inpainted_map_"//COOP_STR_OF(m2%nside)//".fits")            
         print*, "nside = ", inp%lMT%nside
         call coop_prtsystime()
      enddo
+
+     
      where(inp%mask%map(:,1).eq.0.)
         inp%map%map(:,1) = map%bad_data
      end where
@@ -98,10 +100,7 @@ program test
   Cls_ave = 0.d0
   do irun = 1, nrun
      write(*,*) "***** inpainting # ", irun, " ***********"
-     call inp%upgrade(reset = .true.)  !!nside -> 8
-     do i=1, 4
-        call inp%upgrade()    !!nside -> 16 -> 32 -> 64
-     enddo
+     call inp%upgrade(reset = .true., nside_want = 256)
      inp%lMT%map = inp%lMT%map  + inp%lCT%map !!measured map + inpainted map
      call inp%lMT%map2alm(lmax = lmax)
      Cls_sim(2:lmax, irun) = inp%lMT%Cl(2:lmax, 1)

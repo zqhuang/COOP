@@ -192,7 +192,8 @@ module coop_list_mod
      COOP_INT, dimension(:),allocatable::id
    contains
      procedure::print => coop_dictionary_print
-     procedure::insert => coop_dictionary_insert
+     procedure::insert => coop_dictionary_insert !!insert a key
+     procedure::delete => coop_dictionary_delete  !!delete a key
      procedure::index => coop_dictionary_key_index
      procedure::value => coop_dictionary_value
      procedure::update => coop_dictionary_update
@@ -1381,6 +1382,27 @@ contains
        dict%id(iup) = dict%n
     endif
   end subroutine coop_dictionary_insert
+
+
+  subroutine coop_dictionary_delete(dict, key)
+    class(coop_dictionary):: dict
+    COOP_UNKNOWN_STRING key
+    COOP_SHORT_STRING,dimension(:),allocatable::tmpkey
+    COOP_INT ind, i, j
+    ind = dict%index(key)
+    if(ind .eq. 0) return
+    dict%key(ind:dict%n-1) = dict%key(ind+1:dict%n)
+    do i=1, dict%n
+       if(dict%id(i).gt.ind)then
+          dict%id(i) = dict%id(i)-1
+       elseif(dict%id(i) .eq. ind)then
+          j = i
+       endif
+    enddo
+    dict%id(j:dict%n-1) = dict%id(j+1:dict%n)
+    dict%n = dict%n-1
+  end subroutine coop_dictionary_delete
+  
 
 
   function coop_dictionary_key_index(dict, key) result(ind)

@@ -1,62 +1,58 @@
 program test
   use coop_wrapper_utils
-  use coop_fitswrap_mod
-  use coop_sphere_mod
   use coop_healpix_mod
-#ifdef HAS_HEALPIX
-  use head_fits
-  use fitstools
-  use pix_tools
-  use alm_tools
-  use udgrade_nr
-  use coord_v_convert,only:coordsys2euler_zyz
-#endif  
   implicit none
 #include "constants.h"
-  type(coop_healpix_maps)::hmap, lmap
-  COOP_INT,parameter::lmax = 2500
-  COOP_REAL::Cls(0:lmax), sqrtCls(0:lmax), Cl_ll(0:lmax), Cl_lh(0:lmax), Cl_hh(0:lmax), norm
+  type(coop_healpix_maps)::map, mask, m2, ltmp
+  type(coop_healpix_inpaint)::inp
+  COOP_INT,parameter ::lmax = 128, nside = 256, nrun = 100
+  COOP_REAL::cls(0:lmax), sqrtCls(0:lmax), Cls_ave(0:lmax), ells(0:lmax), Cls_sim(0:lmax)
+  COOP_INT::l, ell, i, irun
   type(coop_file)::fp
-  COOP_INT::l, basenside, i, irun
-  COOP_INT,parameter::nrun = 1200
-  Cls(0:1) = 0.d0
-  if(iargc().ge.1)then
-     basenside = coop_str2int(coop_InputArgs(1))
-  else
-     print*, "enter nside"
-     read(*,*) basenside
-  endif
-  call fp%open("planck14best_lensedCls.dat", "r") 
+  type(coop_asy)::fig
+  call coop_MPI_init()
+  call coop_random_init()
+  !call coop_healpix_latitude_cut_mask(nside = nside, latitude_degree = 15.d0, filename = "planck14/lat15_mask_n"//COOP_STR_OF(nside)//".fits")
+  call coop_set_uniform(lmax+1, ells, 0.d0, dble(lmax))
+  call fp%open("planck14best_lensedCls.dat", "r")
   do l=2, lmax
      read(fp%unit, *) i, Cls(l)
-     if(i.ne.l) stop "error in cl file"
-     Cls(l) = Cls(l)*coop_2pi/l/(l+1.d0)*coop_gaussian_filter(10.d0, l)**2
-  enddo
-  sqrtCls = sqrt(Cls)
+     Cls(l) = Cls(l)*coop_2pi/l/(l+1.d0)*coop_gaussian_filter(60.d0, l)**2
+  enddo  
   call fp%close()
-  call lmap%init(nside = 8,  nmaps = 1, genre = "TEMPERATURE")
-  call hmap%init(nside = basenside, nmaps = 2, genre = "TEMPERATURE", lmax = lmax)
-  Cl_hh = 0
-  Cl_ll = 0
-  Cl_lh = 0
-  coop_healpix_alm_check_done = .false.       
+  Cls(0:1) = 0.d0
+  sqrtCls  = sqrt(Cls)
+  !  call mask%read("lowl/mask_tiny.fits")
+  ! call mask%read("lowl/mask_hot_bar_n0256.fits")              
+  ! call mask%read("lowl/commander_dx11d2_mask_temp_n0256_likelihood_v1.fits")  
+ ! call mask%read("planck14/lat15_mask_n"//COOP_STR_OF(nside)//".fits")
+   call mask%read("planck14/dx11_v2_commander_int_mask_040a_0256.fits")
+  Cls_ave = 0.d0
+  Cls_sim = 0.d0
+  call map%init(nside = nside, nmaps = 1, genre = "I", lmax = lmax)
+  call m2%init(nside = nside, nmaps = 1, genre = "I", nested = .true., lmax = lmax)  
+  !  call map%read("lowl/commander_dx11d2_extdata_temp_cmb_n0256_60arc_v1_cr.fits")
   do irun = 1, nrun
-     write(*,*) irun
-     call hmap%simulate_Tmaps(hmap%nside, lmax, sqrtCls)
-     call coop_healpix_maps_ave_udgrade(from = hmap, to = lmap, imap_from = 1, imap_to = 1)
-     call coop_healpix_maps_ave_udgrade(from = lmap, to = hmap, imap_from = 1, imap_to = 2)
-    ! hmap%map(:,1) = hmap%map(:,1) - hmap%map(:,2)
-     call hmap%map2alm(lmax = lmax)
-     Cl_hh(2:hmap%lmax)  = Cl_hh(2:hmap%lmax)  + hmap%cl(2:hmap%lmax,coop_matsym_index(2, 1, 1))
-     Cl_ll(2:hmap%lmax)  = Cl_ll(2:hmap%lmax)  + hmap%cl(2:hmap%lmax,coop_matsym_index(2, 2, 2))     
-     Cl_lh(2:hmap%lmax)  = Cl_lh(2:hmap%lmax)  + hmap%cl(2:hmap%lmax,coop_matsym_index(2, 1, 2))
+     print*, "sim #", irun
+     call map%simulate_Tmaps(nside = nside, lmax = lmax, sqrtCls = sqrtCls)
+     call inp%init(map, mask, lmax, cls)
+     call inp%upgrade(nside_want = 8)
+     inp%lMT%map = inp%lMT%map+inp%lCT%map
+     call coop_healpix_maps_ave_udgrade(inp%lMT, m2)
+     call m2%map2alm()
+     cls_ave = cls_ave + m2%cl(0:lmax,1)
+     call inp%upgrade(nside_want = 16)
+     inp%lMT%map = inp%lMT%map+inp%lCT%map
+     call coop_healpix_maps_ave_udgrade(inp%lMT, m2)
+     call m2%map2alm()
+     cls_sim = cls_sim + m2%cl(0:lmax,1)
   enddo
-  Cl_hh = Cl_hh/nrun
-  Cl_ll = Cl_ll/nrun
-  Cl_lh = Cl_lh/nrun
-  call fp%open("healpix_filters/FLH"//COOP_STR_OF(basenside)//".dat",'w')
-  do l=2, hmap%lmax
-     write(fp%unit,"(I8, 4E16.7)") l, Cl_hh(l)/Cls(l), Cl_ll(l)/Cls(l), Cl_lh(l)/sqrt(max(Cl_hh(l)*Cl_ll(l), 1.d-10))
+  cls_ave = cls_ave/nrun
+  cls_sim=Cls_sim/nrun
+  call fp%open("clr.dat","w")
+  do l=2, 50
+     write(fp%unit,*) l, cls_ave(l)/cls(l), Cls_sim(l)/Cls(l)
   enddo
   call fp%close()
+  call coop_MPI_finalize()  
 end program test
