@@ -17,7 +17,7 @@ program test
   COOP_INT,parameter::nside_scan = 1
   COOP_INT,parameter::npix_scan = nside_scan**2*12
   COOP_INT,parameter ::lmax = 320
-  COOP_INT,parameter ::nrun = 300
+  COOP_INT,parameter ::nrun = 250
   COOP_REAL,parameter::radius_deg = sqrt(4.d0/npix_scan)
   logical::loaded = .false.
   COOP_STRING::mask_spot = ""
@@ -44,6 +44,7 @@ program test
   call fig%open("clsmasked_"//COOP_STR_OF(nside_scan)//".txt")
   call fig%init(xlabel="$\ell$", ylabel="$\frac{\ell(\ell+1)}{2\pi}C_l$")
   if(coop_file_exists("clmasked_nside_scan"//COOP_STR_OF(nside_scan)//".dat"))then
+     write(*,*) "The output file clmasked_nside_scan"//COOP_STR_OF(nside_scan)//".dat already exist. (You can rename or delete it if you really want to redo everything.)"
      call fp%open("clmasked_nside_scan"//COOP_STR_OF(nside_scan)//".dat","ru")
      read(fp%unit) Cls_ave
      call fp%close()
@@ -53,7 +54,7 @@ program test
      call map%read("lowl/commander_I_n0128_60a.fits")
      call mask%read("lowl/commander_mask_n0128_60a.fits")
   endif
-  call fig%curve(x = ells(2:32), y = Cls(2:32)*ells(2:32)*(ells(2:32)+1.)/coop_2pi, linetype="solid", color="red", legend = "$\Lambda$CDM")
+  call fig%curve(x = ells(2:32), y = Cls(2:32)*ells(2:32)*(ells(2:32)+1.)/coop_2pi, linetype="solid", color="red", legend = "$\Lambda$CDM", linewidth = 2.)
   do i_scan = 0, npix_scan - 1
      if(.not. loaded)then
         call pix2ang_nest(nside_scan, i_scan, theta, phi)
@@ -71,9 +72,9 @@ program test
         Cls_ave(0:lmax, i_scan)  =   Cls_ave(0:lmax, i_scan) / nrun
      endif
      if(i_scan .eq. 0)then
-        call fig%curve(x = ells(2:32), y = Cls_ave(2:32, i_scan)*ells(2:32)*(ells(2:32)+1.)/coop_2pi, linetype="dotted", color="gray", legend = "Masked Data")
+        call fig%curve(x = ells(2:32), y = Cls_ave(2:32, i_scan)*ells(2:32)*(ells(2:32)+1.)/coop_2pi, linetype="dotted", color="gray", legend = "Masked Data", linewidth = 1.5)
      else
-        call fig%curve(x = ells(2:32), y = Cls_ave(2:32, i_scan)*ells(2:32)*(ells(2:32)+1.)/coop_2pi, linetype="dotted", color="gray")
+        call fig%curve(x = ells(2:32), y = Cls_ave(2:32, i_scan)*ells(2:32)*(ells(2:32)+1.)/coop_2pi, linetype="dotted", color="gray", linewidth = 1.5)
      endif
   enddo
   call fig%close()
