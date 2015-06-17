@@ -11,9 +11,8 @@ program test
   logical,parameter::force_output = .false.
   COOP_STRING::mask_spot = ""
   COOP_REAL::cls(0:lmax), Cls_sim(0:lmax, nrun), Cls_ave(0:lmax), delta_Cls(0:lmax), sigma
-  COOP_INT::l, ell, i, irun, ipix
-  type(coop_healpix_maps)::directions
-  COOP_REAL::theta, phi, l_deg, b_deg, Cls_scan(0:lmax, 0:47)
+  COOP_INT::l, ell, i, irun, nside
+  COOP_REAL::theta, phi
   type(coop_file)::fp
   call coop_MPI_init()
   call coop_random_init()
@@ -26,12 +25,13 @@ program test
   call fp%close()
   Cls(0:1) = 0.d0
 
-  
-  
-  call map%read("lowl/commander_dx11d2_extdata_temp_cmb_n0256_60arc_v1_cr.fits")
+  nside = 128
+  !call coop_healpix_latitude_cut_mask(nside = nside, latitude_degree = 15.d0, filename = "lowl/lat15_mask_n"//COOP_STR_OF(nside)//".fits")  
+  call map%read("lowl/commander_I_n0128_60a.fits")
+  call mask%read("lowl/commander_mask_n0128_60a.fits")
  ! call mask%read("planck14/dx11_v2_commander_int_mask_040a_0256.fits")  
  ! call mask%read("lowl/commander_dx11d2_mask_temp_n0256_likelihood_v1.fits")
-  call mask%read("lowl/lat15_mask_n0256.fits")
+ ! call mask%read("lowl/lat15_mask_n128.fits")
  ! call mask%read("lowl/mask_hot_bar_n0256.fits")
  ! call mask%read("lowl/mask_tiny.fits")
   call coop_get_command_line_argument(key = "mask",  arg = mask_spot, default = "OUTPUT")
@@ -63,7 +63,6 @@ program test
      stop
   end select
 
-  map%map = map%map*mask%map  
   !!initialize
   !!Compute pixel-space covariance matrix from fiducial Cl's
   !!For more serious applications you should use a full covariance matrix from FFP9 simulations  
@@ -79,7 +78,7 @@ program test
      print*, "nside = ", inp%lMT%nside
      call coop_prtsystime()
 
-     do while(inp%lMT%nside .lt. 256)
+     do while(inp%lMT%nside .lt. inp%map%nside)
         call inp%upgrade(nside_want = inp%lMT%nside*2)    !!nside -> 16-> 32 -> 64-> 128 -> 256
         m2 = inp%lMT
         m2%map = inp%lCT%map + inp%lMT%map
@@ -100,7 +99,7 @@ program test
   Cls_ave = 0.d0
   do irun = 1, nrun
      write(*,*) "***** inpainting # ", irun, " ***********"
-     call inp%upgrade(reset = .true., nside_want = 256)
+     call inp%upgrade(reset = .true., nside_want = inp%map%nside)
      inp%lMT%map = inp%lMT%map  + inp%lCT%map !!measured map + inpainted map
      call inp%lMT%map2alm(lmax = lmax)
      Cls_sim(2:lmax, irun) = inp%lMT%Cl(2:lmax, 1)

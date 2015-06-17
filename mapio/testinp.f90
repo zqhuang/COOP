@@ -7,6 +7,7 @@ program test
   type(coop_healpix_inpaint)::inp
   COOP_INT,parameter ::lmax = 640
   COOP_INT,parameter ::nrun = 300
+  COOP_INT,parameter::nside =256
   COOP_REAL::cls(0:lmax), sqrtcls(0:lmax), Cls_ave(0:lmax), ells(0:lmax), Cls_sim(0:lmax)
   COOP_INT::l, ell, i, irun
   type(coop_file)::fp
@@ -24,9 +25,9 @@ program test
   sqrtcls = sqrt(cls)
   !  call mask%read("lowl/mask_tiny.fits")
   !  call mask%read("lowl/mask_hot_bar_n0256.fits")              
-  !  call mask%read("lowl/commander_dx11d2_mask_temp_n0256_likelihood_v1.fits")
+    call mask%read("lowl/commander_dx11d2_mask_temp_n0256_likelihood_v1.fits")
   !  call mask%read("planck14/lat30_mask_n256.fits")
-  call mask%read("planck14/dx11_v2_commander_int_mask_040a_0256.fits")
+  !call mask%read("planck14/dx11_v2_commander_int_mask_040a_0256.fits")
   Cls_ave = 0.d0
   Cls_sim = 0.d0
   call map%init(nside = 256, nmaps = 1, genre = "TEMPERATURE", lmax = lmax)

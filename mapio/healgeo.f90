@@ -4129,6 +4129,7 @@ contains
 
 
     subroutine set_sim()
+      COOP_REAL,parameter::corr_scale = 0.3d0
       COOP_INT::nr, i, l, m
       COOP_REAL::corr, fluc, thiscl, mean
       COOP_REAL::weight(-5:5)
@@ -4138,7 +4139,7 @@ contains
       enddo
       call this%sim%map2alm(lmax = this%lmax)
       do l= 8, this%sim%lmax
-         if(l.lt.20)then
+         if(l.le.20)then
             do i = 1, 5
                weight(i) = exp(-(10.d0/l*i)**2)
                weight(-i) = weight(i)
@@ -4146,9 +4147,9 @@ contains
             weight(0) = 1.d0
             weight = weight/sum(weight)
          endif
-         if(l.le. this%lMT%nside*coop_healpix_lmax_by_nside)then
+         corr = exp(-((l/dble(this%LMT%nside) - l/dble(this%sim%nside))*corr_scale)**2)         
+         if(corr .gt. 0.1)then
             thiscl = sum(this%sim%cl(l-5:l+5,1)*weight)
-            corr = exp(-((l/this%LMT%nside - l/this%sim%nside)*0.3)**2)
             mean = sqrt(this%cls(l)/thiscl)*corr
             fluc = sqrt(this%cls(l)*(1.-corr**2))
             

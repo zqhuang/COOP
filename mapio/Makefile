@@ -20,6 +20,10 @@ all: $(LIB) UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo SST
 LLPW:	$(OBJ) lowl_power.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) lowl_power.o $(LINK)
 
+LLSCAN:	$(OBJ) lowl_scan.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) lowl_scan.o $(LINK)
+
+
 LLCORR:	$(OBJ) lowl_corr.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) lowl_corr.o $(LINK)
 
