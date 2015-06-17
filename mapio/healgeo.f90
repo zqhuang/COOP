@@ -130,6 +130,7 @@ module coop_healpix_mod
      !!mask
      procedure :: apply_mask => coop_healpix_maps_apply_mask
      procedure :: mask_disc => coop_healpix_maps_mask_disc
+     procedure :: mask_pixel => coop_healpix_maps_mask_pixel     
      !!stacking stuff
      procedure :: fetch_patch => coop_healpix_fetch_patch
      procedure :: stack_on_patch => coop_healpix_stack_on_patch
@@ -382,6 +383,16 @@ contains
     call this%query_disc(pix, r_deg*coop_SI_degree, listpix, nlist)
     this%map(listpix(0:nlist-1), :) = 0.
   end subroutine coop_healpix_maps_mask_disc
+
+
+  subroutine coop_healpix_maps_mask_pixel(this, nside, ipix)
+    class(coop_healpix_maps)::this
+    COOP_INT::nside, ipix
+    if(nside.lt.this%nside)return    
+    call this%convert2nested()
+    this%map(ipix*(this%nside/nside)**2:(ipix+1)*(this%nside/nside)**2-1, 1) = 0.
+  end subroutine coop_healpix_maps_mask_pixel
+  
 
 
   subroutine coop_healpix_spot_select_mask(nside, l_deg, b_deg, r_deg, filename)

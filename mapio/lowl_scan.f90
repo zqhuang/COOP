@@ -17,12 +17,10 @@ program test
   COOP_INT,parameter::nside_scan = 1
   COOP_INT,parameter::npix_scan = nside_scan**2*12
   COOP_INT,parameter ::lmax = 320
-  COOP_INT,parameter ::nrun = 250
-  COOP_REAL,parameter::radius_deg = sqrt(4.d0/npix_scan)/coop_SI_degree
+  COOP_INT,parameter ::nrun = 200
   logical::loaded = .false.
   COOP_REAL::cls(0:lmax), Cls_ave(0:lmax, 0:npix_scan-1 ), ells(0:lmax)
   COOP_INT::l, ell, i, irun, i_scan
-  COOP_REAL::theta, phi, l_deg, b_deg
   type(coop_asy)::fig
   type(coop_file)::fp
   call coop_MPI_init()
@@ -56,18 +54,17 @@ program test
   call fig%curve(x = ells(2:32), y = Cls(2:32)*ells(2:32)*(ells(2:32)+1.)/coop_2pi, linetype="solid", color="red", legend = "$\Lambda$CDM", linewidth = 2.)
   do i_scan = 0, npix_scan - 1
      if(.not. loaded)then
-        call pix2ang_nest(nside_scan, i_scan, theta, phi)
-        l_deg = phi/coop_SI_degree
-        b_deg = (coop_pio2 - theta)/coop_SI_degree
-        write(*,"(A,I5,A,I5,A,I5,A)") "step ", i_scan, "; disc center (l, b) = (", nint(l_deg), ",", nint(b_deg), ")"
-        call mask%mask_disc(l_deg = l_deg, b_deg = b_deg, r_deg = radius_deg)
+        write(*,"(A,I5,A,I5)") "step ", i_scan, " / ", npix_scan
+        call mask%mask_pixel(nside_scan, i_scan)
         call inp%init(map, mask, lmax, cls)
         do irun = 1, nrun
+           if(mod(irun, nrun/10).eq.0) write(*, "(A$)")"."
            call inp%upgrade(reset = .true., nside_want = inp%map%nside)
            inp%lMT%map = inp%lMT%map  + inp%lCT%map !!measured map + inpainted map
            call inp%lMT%map2alm(lmax = lmax)
            Cls_ave(0:lmax, i_scan) =  Cls_ave(0:lmax, i_scan) + inp%lMT%Cl(0:lmax, 1)
         enddo
+        write(*,*) 
         Cls_ave(0:lmax, i_scan)  =   Cls_ave(0:lmax, i_scan) / nrun
      endif
      if(i_scan .eq. 0)then
