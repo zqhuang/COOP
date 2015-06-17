@@ -4074,8 +4074,8 @@ contains
             x(i) = this%lMT%map(list(i,j), 1) + this%lCT%map(list(i,j), 1)
          enddo
          x(0) = this%lMT%map(list(0, j), 1)
-         call coop_solve_constrained(m = nmax, n_known = nlist(j), n_unknown = 1, dim_fmean = nmax, dim_ffluc = 1, C = cov, Fmean =  Fmean, Ffluc = FFluc,  epsilon = 1.d-2)
-         this%lCT%map(list(0, j),1) =  this%lCT%map(list(0, j),1) + dot_product(Fmean(0:nlist(j)-1, 1), x(0:nlist(j)-1)) + FFluc(1,1)*coop_random_Gaussian()
+         call coop_solve_constrained(m = nmax, n_known = nlist(j), n_unknown = 1, dim_fmean = 1, dim_ffluc = 1, C = cov, Fmean =  Fmean, Ffluc = FFluc,  epsilon = 1.d-2)
+         this%lCT%map(list(0, j),1) =  this%lCT%map(list(0, j),1) + dot_product(Fmean(1,0:nlist(j)-1), x(0:nlist(j)-1)) + FFluc(1,1)*coop_random_Gaussian()
          is_masked(ind_masked(j)) = .false.
          i = list(0,j)/4
          if(.not. any(is_masked(4*i:4*i+3)))then
