@@ -605,17 +605,18 @@ contains
     function wp1_eff(a) result(wp1)
       COOP_REAL::a, wp1
       wp1 = (1.d0 + this%species(index_DE)%pa2(a)/(this%species(index_DE)%rhoa2(a)+ this%species(index_CDM)%rhoa2(a) - rhoc0/a))
-    end function wp1_eff
-
-       
+    end function wp1_eff       
   end subroutine coop_background_add_coupled_DE_with_w
+
+
+
 
   subroutine coop_background_add_EFT_DE(this, wp1, alpha_M, err)
     class(coop_cosmology_background)::this
     type(coop_function)::wp1, alpha_M
     type(coop_species)::de
     COOP_INT::i, err, j
-    COOP_REAL_ARRAY::lnrho,  wp1eff
+    COOP_REAL_ARRAY::lnrho,  wp1eff, M2
     COOP_REAL::lna, lnamin, lnamax, dlna, alpha_l, a_l, a_r, alpha_r, wp1_l, wp1_r, omega_de, om_l, om_r, rhoa4de, rhotot_l, rhotot_r, step
     err = 0
     de%name = "Dark Energy"
@@ -635,7 +636,7 @@ contains
     lna = lnamax
     rhotot_r = 3.d0
     step = (1.5d0*dlna)
-    i = coop_default_array_size
+    M2(coop_default_array_size)=0.d0
     do i=coop_default_array_size-1, 1, -1
        lna = lna - dlna              
        a_l = exp(lna)
@@ -659,15 +660,21 @@ contains
           err = 1
           return
        endif
+       M2(i) = M2(i+1) - (alpha_l+alpha_r)
        rhotot_r = rhotot_l
+       alpha_r = alpha_l
     enddo
+    M2 = exp(M2*(dlna/2.d0))
     lnrho = lnrho - lnrho(coop_default_array_size)
     call de%fwp1eff%init(coop_default_array_size, coop_min_scale_factor, coop_scale_factor_today, wp1eff, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "DE 1+w_eff(a)")
     call de%flnrho%init(coop_default_array_size,coop_min_scale_factor, coop_scale_factor_today, lnrho, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "DE ln rho_ratio")
     call de%flnrho%set_boundary(slopeleft = -3.d0*wp1eff(1), sloperight = -3.d0*wp1eff(coop_default_array_size))    
     de%cs2 = 0.d0
     call this%add_species(de)
-  end subroutine coop_background_add_EFT_DE
-  
+#if DO_EFT_DE    
+    this%f_alpha_M = alpha_M
+    call this%f_M2%init(coop_default_array_size, coop_min_scale_factor, coop_scale_factor_today, M2, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "EFT M^2")
+#endif    
+  end subroutine coop_background_add_EFT_DE  
 
 end module coop_background_mod

@@ -1560,7 +1560,7 @@ contains
        write(*,*) "ini file # of parameters: "//COOP_STR_OF(this%n)
        stop
     endif
-    loglike =0.5d0*dot_product(matmul(invcov, this%params-fiducial), this%params-fiducial) 
+    loglike =0.5d0*dot_product(matmul(invcov, this%params-fiducial), this%params-fiducial) + coop_random_Gaussian()/10.d0
     if(loglike .lt. -1.d-2) call coop_MPI_abort("error in covmat")
     return
 100 stop "Error in file"    

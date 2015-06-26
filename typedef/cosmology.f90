@@ -32,6 +32,9 @@ module coop_cosmology_mod
      COOP_REAL:: Nnu_value = COOP_DEFAULT_NUM_NEUTRINO_SPECIES
      logical::need_setup_background = .true.
      type(coop_function):: fdis, ftime, faoftau
+#if DO_EFT_DE
+     type(coop_function):: f_alpha_M, f_alpha_T, f_alpha_B, f_alpha_K, f_alpha_H, f_M2
+#endif     
      COOP_REAL::dis_const, time_const, a_eq, Omega_r, Omega_m, a_switch, dis_switch
      COOP_INT :: num_species = 0
      type(coop_species), dimension(coop_max_num_species)::species
@@ -631,7 +634,112 @@ contains
     COOP_REAL::z, dA
     dA = this%comoving_angular_diameter_distance(1.d0/(1.d0+z))
   end function coop_cosmology_background_comoving_dA_of_z
+
+#if DO_EFT_DE
+  function coop_cosmology_background_alpha_M(this,a) result(alpha_M)
+    class(coop_cosmology_background)::this
+    COOP_REAL::alpha_M,a
+    if(this%f_alpha_M%initialized)then
+       alpha_M = this%f_alpha_M%eval(a)
+    else
+       alpha_M = 0.d0
+    endif
+  end function coop_cosmology_background_alpha_M
+
+  function coop_cosmology_background_alpha_M_prime(this,a) result(alpha_M_prime)
+    class(coop_cosmology_background)::this
+    COOP_REAL::alpha_M_prime,a
+    if(this%f_alpha_M%initialized)then
+       alpha_M_prime = this%f_alpha_M%derivative(a)*a
+    else
+       alpha_M_prime = 0.d0
+    endif
+  end function coop_cosmology_background_alpha_M_prime
+
+  function coop_cosmology_background_alpha_T(this,a) result(alpha_T)
+    class(coop_cosmology_background)::this
+    COOP_REAL::alpha_T,a
+    if(this%f_alpha_T%initialized)then
+       alpha_T = this%f_alpha_T%eval(a)
+    else
+       alpha_T = 0.d0
+    endif
+  end function coop_cosmology_background_alpha_T
+
+  function coop_cosmology_background_alpha_T_prime(this,a) result(alpha_T_prime)
+    class(coop_cosmology_background)::this
+    COOP_REAL::alpha_T_prime,a
+    if(this%f_alpha_T%initialized)then
+       alpha_T_prime = this%f_alpha_T%derivative(a)*a
+    else
+       alpha_T_prime = 0.d0
+    endif
+  end function coop_cosmology_background_alpha_T_prime
+
+
+  function coop_cosmology_background_alpha_B(this,a) result(alpha_B)
+    class(coop_cosmology_background)::this
+    COOP_REAL::alpha_B,a
+    if(this%f_alpha_B%initialized)then
+       alpha_B = this%f_alpha_B%eval(a)
+    else
+       alpha_B = 0.d0
+    endif
+  end function coop_cosmology_background_alpha_B
+
+  function coop_cosmology_background_alpha_B_prime(this,a) result(alpha_B_prime)
+    class(coop_cosmology_background)::this
+    COOP_REAL::alpha_B_prime,a
+    if(this%f_alpha_B%initialized)then
+       alpha_B_prime = this%f_alpha_B%derivative(a)*a
+    else
+       alpha_B_prime = 0.d0
+    endif
+  end function coop_cosmology_background_alpha_B_prime
+
+
+
+  function coop_cosmology_background_alpha_H(this,a) result(alpha_H)
+    class(coop_cosmology_background)::this
+    COOP_REAL::alpha_H,a
+    if(this%f_alpha_H%initialized)then
+       alpha_H = this%f_alpha_H%eval(a)
+    else
+       alpha_H = 0.d0
+    endif
+  end function coop_cosmology_background_alpha_H
+
+  function coop_cosmology_background_alpha_H_prime(this,a) result(alpha_H_prime)
+    class(coop_cosmology_background)::this
+    COOP_REAL::alpha_H_prime,a
+    if(this%f_alpha_H%initialized)then
+       alpha_H_prime = this%f_alpha_H%derivative(a)*a
+    else
+       alpha_H_prime = 0.d0
+    endif
+  end function coop_cosmology_background_alpha_H_prime
+
   
+  function coop_cosmology_background_alpha_K(this,a) result(alpha_K)
+    class(coop_cosmology_background)::this
+    COOP_REAL::alpha_K,a
+    if(this%f_alpha_K%initialized)then
+       alpha_K = this%f_alpha_K%eval(a)
+    else
+       alpha_K = 0.d0
+    endif
+  end function coop_cosmology_background_alpha_K
+
+  function coop_cosmology_background_alpha_K_prime(this,a) result(alpha_K_prime)
+    class(coop_cosmology_background)::this
+    COOP_REAL::alpha_K_prime,a
+    if(this%f_alpha_K%initialized)then
+       alpha_K_prime = this%f_alpha_K%derivative(a)*a
+    else
+       alpha_K_prime = 0.d0
+    endif
+  end function coop_cosmology_background_alpha_K_prime
+#endif  
 
   
 end module coop_cosmology_mod
