@@ -10,11 +10,9 @@ module coop_cholesky_mod
   private
 
 
-  public:: coop_cholesky, coop_cholesky_inv, coop_cholesky_sq, coop_cholesky_solve, coop_cholesky_solve_transpose, coop_cholesky_solve_mult, coop_sympos_inverse, coop_sympos_clean, coop_fillzero
+  public:: coop_cholesky, coop_cholesky_inv, coop_cholesky_sq, coop_cholesky_solve, coop_cholesky_solve_transpose, coop_cholesky_solve_mult, coop_sympos_inverse, coop_sympos_clean, coop_fillzero, coop_fill_symmetrize
 
 contains
-
-
 
   subroutine coop_fillzero(uplo, m, n, a)
     character uplo
@@ -33,6 +31,28 @@ contains
        stop 'fillzero: unknown uplo option'
     end select
   end subroutine coop_fillzero
+
+
+  subroutine coop_fill_symmetrize(uplo, m, n, a)
+    character uplo
+    COOP_INT m, n, i, j
+    COOP_REAL a(m, n)
+    select case(uplo)
+    case('U', 'u')
+       do i=2, n
+          a(1:i-1, i) = a(i, 1:i-1)
+       enddo
+    case('L', 'l')
+       do i=1, n-1
+          a(i+1:n, i) = a(i, i+1:n)
+       enddo
+    case default
+       stop 'fillzero: unknown uplo option'
+    end select
+  end subroutine coop_fill_symmetrize
+
+ 
+ 
 
   subroutine coop_sympos_clean(m, n, a, epsilon)
     COOP_INT::m, n, i, j
@@ -195,7 +215,8 @@ contains
        if(info.ne.0) call Coop_return_error("coop_sympos_inverse", "the matrix is not positive definite", "stop")
 #ifdef HAS_LAPACK
        call dpotri("L", n, a, m, info)
-       if(info.ne.0) call Coop_return_error("coop_sympos_inverse", "the matrix is not positive definite", "stop")       
+       if(info.ne.0) call Coop_return_error("coop_sympos_inverse", "the matrix is not positive definite", "stop")
+       call coop_fill_symmetrize('U', m, n, a)
 #else       
        call coop_cholesky_inv(m, n, a)
        call coop_cholesky_sq(m, n, a)

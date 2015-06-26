@@ -479,7 +479,9 @@ contains
     COOP_INT::i, istart, i1, i2
     type(coop_file)::fp
     COOP_REAL:: mult, diff(this%n)
-    if(this%step .eq. this%total_steps) call coop_MPI_Abort("Step = Total Steps; MPI terminating.")    
+    if(this%step .eq. this%total_steps)then
+       if(this%update_seconds .ne. 0) call coop_MPI_Abort("Step = Total Steps; MPI terminating.")
+    endif
     if(this%update_seconds .gt. 0)then
        this%time = nint(coop_systime_sec())       
        if(this%time .lt. this%update_seconds)return
@@ -490,7 +492,7 @@ contains
     if(.not. this%do_memsave)stop "cannot update propose matrix when do_memsave is off"
     call this%covmat%alloc(this%n)  !!set sigma = 1 and the rest 0
     if(this%chain%n .ge. 10)then
-       istart =  this%chain%n/2  !!use the second half of the chain
+       istart =  ceiling(this%chain%n*0.3)  !!discard 30% samples
        do i = istart, this%chain%n  
           call this%chain%get_element(i, this%knot)
           this%covmat%mult  = this%covmat%mult + this%knot(1)
@@ -533,7 +535,7 @@ contains
     endif
        
        
-    if(this%covmat%mult .gt. this%n*10.d0 .and. this%converge_R .lt. 100.d0 .and. this%converge_R .gt. 0.03d0 .and. .not. coop_isnan(this%covmat%L) .and. all(this%covmat%sigma.gt.0.d0))then !!update mapping matrix
+    if(this%covmat%mult .gt. this%n*10.d0 .and. this%converge_R .lt. 1000.d0 .and. this%converge_R .gt. 0.03d0 .and. .not. coop_isnan(this%covmat%L) .and. all(this%covmat%sigma.gt.0.d0))then !!update mapping matrix
        if(this%proc_id.eq.0)call this%covmat%export(trim(this%prefix)//".runcov")       
        do i=1, this%n
           this%mapping(i, :) = this%covmat%L(i, :)*this%covmat%sigma(i)
@@ -1459,8 +1461,9 @@ contains
     if(coop_random_unit() .lt. 1.d0/3.d0)then
        r = coop_random_exp()
     else
-       r = this%proposal_length*sqrt((coop_random_Gaussian()**2 + coop_random_Gaussian()**2)/2.d0)
+       r = sqrt((coop_random_Gaussian()**2 + coop_random_Gaussian()**2)/2.d0)
     endif
+    r = this%proposal_length*r
     this%is_drift = .false.
     if(this%do_drift)then
        if(coop_random_unit() .lt. this%drift_frac)then
@@ -1532,16 +1535,35 @@ contains
 !!$++++++++++++++++  Define Your Own Likelihood ++++++++++++++++++++++++
 !!$set "mcmc_general = T" in ini file
   function coop_MCMC_params_general_loglike(this) result(loglike)
+    COOP_INT,parameter::nparams = 22
     class(coop_MCMC_params)::this
+    COOP_INT:: i, j 
     COOP_REAL::loglike
-    COOP_REAL,dimension(3,3)::covmat = reshape( (/ 1.d0, 0.1d0, 0.2d0, 0.1d0, 1.d0, -0.3d0, 0.2d0, -0.3d0, 1.d0 /), (/ 3, 3/) )
-    COOP_REAL,dimension(3,3)::invcov
+    COOP_REAL,dimension(nparams, nparams), save::invcov
+    COOP_REAL::p(25)
+    type(coop_file)::fp
     logical,save::init = .true.
+    COOP_STRING::line
+    COOP_REAL,dimension(nparams)::fiducial = (/ 0.022, 0.11, 1.041, 0.08, 3.07, 0.96 , 123. , 56., 120., 2.3, 26., 8., 0.96, 0.31, 0.61, 1., 1., 0.32, 3.5, 0.27, 0.14, 3.06 /)
     if(init)then
-       invcov  =covmat
-       call coop_sympos_inverse(3, 3, invcov)
+       call fp%open("covmats/lcdm.covmat", "r")
+       read(fp%unit, "(A)") line
+       do i=1, nparams
+          read(fp%unit, *, END=100, ERR=100) p
+          invcov(1:nparams, i) = p(1:nparams)
+       enddo
+       call fp%close()
+       call coop_sympos_inverse(nparams, nparams, invcov)
     endif
-    loglike = dot_product(this%fullparams(1:3), matmul(invcov, this%fullparams(1:3)))/2.d0 + this%fullparams(4)**2/0.02d0
+    if(this%n .ne. nparams)then
+       write(*,*) "general model # of paramemters: "//COOP_STR_OF(nparams)
+       write(*,*) "ini file # of parameters: "//COOP_STR_OF(this%n)
+       stop
+    endif
+    loglike =0.5d0*dot_product(matmul(invcov, this%params-fiducial), this%params-fiducial) 
+    if(loglike .lt. -1.d-2) call coop_MPI_abort("error in covmat")
+    return
+100 stop "Error in file"    
   end function coop_MCMC_params_general_loglike
 
 

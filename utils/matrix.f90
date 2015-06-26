@@ -1154,7 +1154,7 @@ contains
        endif
     endif
     
-    this%c = cov  + meanscov * bfac
+    this%c = cov  !+ meanscov * bfac
     deallocate(info, covinfo, cov, meanscov)
 
 100 call this%normalize()    
