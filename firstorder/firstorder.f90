@@ -172,9 +172,13 @@ contains
 !!recfast code
 #include "recfast_source.h"
 
-!!this head file contains the evolution equations of the firstorder ODE system
+  !!this head file contains the evolution equations of the firstorder ODE system
+#if DO_EFT_DE
+#include "firstorder_equations_EFT.h"  
+#else  
 #include "firstorder_equations.h"
-
+#endif
+  
 !!this head file set the outputs (saved in this%source%s)
 #include "firstorder_source.h"
 

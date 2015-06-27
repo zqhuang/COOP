@@ -61,6 +61,7 @@ module coop_cosmology_mod
      procedure::setup_background => coop_cosmology_background_setup_background
      procedure::H0Mpc => coop_cosmology_background_H0Mpc  !!H_0 * Mpc
      procedure::H0Gyr => coop_cosmology_background_H0Gyr  !!H_0 * Gyr
+     
      procedure::H2a4 => coop_cosmology_background_H2a4   !! input a , return H a^2 / H_0
      procedure::rhoa4 => coop_cosmology_background_rhoa4 !!input a, return rho a^4 / (H_0^2 M_p^2)
 
@@ -94,7 +95,20 @@ module coop_cosmology_mod
      procedure::H_of_z => coop_cosmology_background_H_of_z
      procedure::dA_of_z => coop_cosmology_background_DA_of_z
      procedure::comoving_dA_of_z => coop_cosmology_background_comoving_DA_of_z
-     procedure::dL_of_z => coop_cosmology_background_DL_of_z          
+     procedure::dL_of_z => coop_cosmology_background_DL_of_z
+#if DO_EFT_DE
+     procedure::alpha_M => coop_cosmology_background_alpha_M
+     procedure::alpha_T => coop_cosmology_background_alpha_T
+     procedure::alpha_K => coop_cosmology_background_alpha_K
+     procedure::alpha_B => coop_cosmology_background_alpha_B
+     procedure::alpha_H => coop_cosmology_background_alpha_H
+     procedure::alpha_M_prime => coop_cosmology_background_alpha_M_prime
+     procedure::alpha_T_prime => coop_cosmology_background_alpha_T_prime
+     procedure::alpha_K_prime => coop_cosmology_background_alpha_K_prime
+     procedure::alpha_B_prime => coop_cosmology_background_alpha_B_prime
+     procedure::alpha_H_prime => coop_cosmology_background_alpha_H_prime     
+     procedure::M2 => coop_cosmology_background_M2     
+#endif     
   end type coop_cosmology_background
 
   interface coop_cosmology
@@ -297,6 +311,9 @@ contains
     do i=1, this%num_species
        H2a4 = H2a4 + this%species(i)%Omega * this%species(i)%rhoa4_ratio(a)
     enddo
+#if DO_EFT_DE    
+    if(this%f_M2%initialized) H2a4 = H2a4/this%f_M2%eval(a)
+#endif    
   end function coop_cosmology_background_H2a4
 
 
@@ -384,7 +401,7 @@ contains
     integer,parameter::n = 32768
     COOP_REAL, parameter::amin = 5.d-4, amax = coop_scale_factor_today
     COOP_REAL,dimension(n):: dis, a, t
-    COOP_REAL  hasq1, hasq2, da, daby2, Hasqmin, Hasqmax
+    COOP_REAL  hasq1, hasq2, da, daby2, Hasqmin, Hasqmax, M2
     integer i
     if(this%need_setup_background)then
        call coop_set_uniform(n, a, amin, amax)
@@ -394,8 +411,15 @@ contains
        this%Omega_r = this%H2a4(coop_min_scale_factor) - this%Omega_m * coop_min_scale_factor
        this%Omega_m = ( this%H2a4(amin) - this%Omega_r ) / amin
        this%a_eq = this%Omega_r / this%Omega_m
+#if DO_EFT_DE
+       M2 = this%M2(this%a_eq)
+       this%dis_const = 2.d0*this%a_eq/sqrt(this%Omega_r/M2)
+       this%time_const = 4.d0/3.d0*this%a_eq**2/sqrt(this%Omega_r/M2)       
+#else       
        this%dis_const = 2.d0*this%a_eq/sqrt(this%Omega_r)
-       this%time_const = 4.d0/3.d0*this%a_eq**2/sqrt(this%Omega_r)
+       this%time_const = 4.d0/3.d0*this%a_eq**2/sqrt(this%Omega_r)       
+#endif       
+
        this%dis_switch = this%dis_const * (sqrt(1.d0+a(1)/this%a_eq) - 1.d0)
        da = (amax-amin)/(n-1.d0)
        daby2 = da/2.d0
@@ -636,6 +660,16 @@ contains
   end function coop_cosmology_background_comoving_dA_of_z
 
 #if DO_EFT_DE
+  function coop_cosmology_background_M2(this,a) result(M2)
+    class(coop_cosmology_background)::this
+    COOP_REAL::M2,a
+    if(this%f_M2%initialized)then
+       M2 = this%f_M2%eval(a)
+    else
+       M2 = 1.d0
+    endif
+  end function coop_cosmology_background_M2
+  
   function coop_cosmology_background_alpha_M(this,a) result(alpha_M)
     class(coop_cosmology_background)::this
     COOP_REAL::alpha_M,a
