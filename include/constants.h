@@ -3,7 +3,7 @@
 #define COOP_NO 0
 
 #define DO_ZETA_TRANS COOP_NO
-#define DO_EFT_DE COOP_YES
+#define DO_EFT_DE COOP_NO
 
 #define COOP_INT integer(coop_integer_length)
 #define COOP_INT_ARRAY integer(coop_integer_length),dimension(coop_default_array_size)
@@ -136,6 +136,9 @@
 #define O1_DELTA_PHI O1_DE(0)
 #define O1_DELTA_PHIPR O1_DE(1)
 
+#define O1_DE_HPI O1_DE(0)    
+#define O1_DE_HPIPR O1_DE(1)
+
 #define O1_PHI  pert%O1_Phi
 #define O1_PHI_PRIME  pert%O1_phipr
 #define O1_PSI_PRIME yp(pert%metric%i(0))
@@ -157,12 +160,15 @@
 #define O1_V_DE_PRIME  O1_DE_PRIME(1)
 #define O1_DELTA_PHI_PRIME O1_DE_PRIME(0)
 #define O1_DELTA_PHIPR_PRIME O1_DE_PRIME(1)
-
+  
+#define O1_DE_HPI_PRIME  O1_DE_PRIME(0)
+#define O1_DE_HPIPR_PRIME O1_DE_PRIME(1)
 
 #define COOP_PERT_NONE 0
 #define COOP_PERT_METRIC 1
 #define COOP_PERT_PERFECT_FLUID 2
 #define COOP_PERT_HIERARCHY 3
 #define COOP_PERT_SCALAR_FIELD 4
+#define COOP_PERT_EFT 5
 
 #define COOP_INTERP_SOURCE(source, ind, idense, ik, itau) (source%s(ind, ik, itau)*source%a_dense(idense) + source%s(ind, ik-1, itau)*source%b_dense(idense) + source%s2(ind, ik, itau)*source%a2_dense(idense) + source%s2(ind, ik-1, itau)*source%b2_dense(idense))

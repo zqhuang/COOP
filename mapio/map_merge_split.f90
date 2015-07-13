@@ -27,12 +27,13 @@ program map
   logical::inline_mode = .false.
   type(coop_healpix_maps) hgm, hgm2
   COOP_REAL fwhm, scal, threshold
+  COOP_SINGLE::sigmas(100)
   type(coop_file)::fp
 
   nin = 1
   inline_mode =  (iargc() .gt. 0)
   if(.not. inline_mode)then
-     write(*,*) "options are: SPLIT; SMOOTH; DOBEAM; MULTIPLY;I2TQTUT;IQU2TEB;T2ZETA; IQU2ZETA; QU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE; HIGHPASS;"
+     write(*,*) "options are: SPLIT; SMOOTH; DOBEAM; MULTIPLY;I2TQTUT;I2TQUL;IQU2TEB;T2ZETA; IQU2ZETA; QU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE; HIGHPASS; LOWPASS"
   endif
   do while(nin .le. nmax)
      if(inline_mode)then
@@ -146,6 +147,31 @@ program map
         enddo
 
         print*, "maps are all highpassed"
+        goto 500
+     case("LOWPASS")
+        if(inline_mode)then
+           inline = coop_inputArgs(nin+1)
+           read(inline, *) l1
+           inline = coop_inputArgs(nin+2)
+           read(inline, *) l2
+        else
+           write(*,*) "Enter l1, l2"
+           read(*,*) l1, l2
+        endif
+        nin = nin -1
+        do i=1, nin
+           call hgm%read(trim(fin(i)))
+           call hgm%map2alm()
+           hgm%alm(l2:hgm%lmax, :,:) = 0.
+           do l=l1+1, l2-1
+              hgm%alm(l, :, :) = hgm%alm(l, :, :)*sin(dble(l2-l)/(l2-l1)*coop_pio2)
+           enddo
+           call hgm%alm2map()
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_lp_"//COOP_STR_OF(l1)//"_"//COOP_STR_OF(l2))))
+
+        enddo
+
+        print*, "maps are all lowpassed"
         goto 500
      case("SMOOTH")
         if(inline_mode)then
@@ -265,6 +291,24 @@ program map
         endif
         call hgm%free()
         call hgm2%free()
+        goto 500
+     case("I2TQUL")
+        nin = nin -1
+        do i=1, nin
+           call hgm%read(trim(fin(i)), nmaps_wanted = 4, nmaps_to_read = 1 )
+           hgm2 = hgm
+           call hgm2%map2alm(index_list = (/ 1 /) )
+           hgm2%alm(0:1, :, 1) = 0.
+           do l = 2, hgm2%lmax
+              hgm2%alm(l, :, 1) = hgm2%alm(l, :, 1)*(l*(l+1.d0))
+           enddo
+           call hgm2%alm2map(index_list = (/ 1 /) )
+           call hgm2%get_QU()
+           hgm%map(:, 2:3) = hgm2%map(:,2:3)
+           hgm%map(:, 4) = hgm2%map(:, 1)
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_TQUL")))
+        enddo
+        print*, "maps are all converted to TQUL"
         goto 500
      case("I2TQTUT")
         nin = nin -1

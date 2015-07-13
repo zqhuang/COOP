@@ -1175,6 +1175,7 @@ contains
           if(coop_file_exists(trim(this%prefix)//".converge_stat"))then
              call fp%open(trim(this%prefix)//".converge_stat", "r")
              read(fp%unit, iostat = stat)  this%converge_R
+             call fp%close()
              if(stat .ne. 0)this%converge_R = coop_logZero 
           else
              this%converge_R = coop_logZero          

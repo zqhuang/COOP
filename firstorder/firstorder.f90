@@ -117,6 +117,9 @@ module coop_firstorder_mod
      logical::has_tensor = .false.
    contains
      procedure:: set_standard_cosmology =>  coop_cosmology_firstorder_set_standard_cosmology
+#if DO_EFT_DE     
+     procedure:: set_EFT_cosmology =>  coop_cosmology_firstorder_set_EFT_cosmology
+#endif     
      procedure:: set_standard_power => coop_cosmology_firstorder_set_standard_power
      procedure:: set_Planck_bestfit =>coop_cosmology_firstorder_set_Planck_bestfit
      procedure:: set_Planck_bestfit_with_r =>coop_cosmology_firstorder_set_Planck_bestfit_with_r

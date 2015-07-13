@@ -32,7 +32,7 @@ module coop_healpix_mod
   COOP_INT, parameter:: coop_inpaint_nside_start = 8
   COOP_SINGLE,parameter::coop_inpaint_mask_threshold = 0.05
   
-  public::coop_fits_to_header, coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask, coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade, coop_healpix_maps_copy_genre, coop_healpix_correlation_function, coop_healpix_mask_reverse, coop_healpix_maps_diffuse, coop_healpix_mask_diffuse, coop_healpix_nside2lmax
+  public::coop_fits_to_header, coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask, coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade, coop_healpix_maps_copy_genre, coop_healpix_correlation_function, coop_healpix_mask_reverse, coop_healpix_maps_diffuse, coop_healpix_mask_diffuse, coop_healpix_nside2lmax, coop_healpix_filament
   
 
   logical::coop_healpix_alm_check_done = .false.
@@ -137,9 +137,12 @@ module coop_healpix_mod
      procedure :: get_peaks => coop_healpix_maps_get_peaks
      procedure :: mark_peaks => coop_healpix_maps_mark_peaks
      procedure :: stack_on_peaks  =>     coop_healpix_maps_stack_on_peaks
+     procedure :: stack_filaments_on_peaks  =>     coop_healpix_maps_stack_filaments_on_peaks     
      procedure:: mask_peaks => coop_healpix_mask_peaks
      procedure:: rotate_coor => coop_healpix_maps_rotate_coor
      procedure:: distr_nu_e => coop_healpix_maps_distr_nu_e
+     procedure :: fetch_filament => coop_healpix_fetch_filament
+     procedure :: stack_on_filament => coop_healpix_stack_on_filament     
   end type coop_healpix_maps
 
   type coop_healpix_patch
@@ -171,6 +174,13 @@ module coop_healpix_mod
      procedure::import => coop_healpix_patch_import     
      procedure::plot_fft => coop_healpix_patch_plot_fft
   end type coop_healpix_patch
+
+
+  type, extends(coop_healpix_patch)::coop_healpix_filament
+     COOP_INT::ny = 0
+   contains
+     procedure::plot => coop_healpix_filament_plot
+  end type coop_healpix_filament
 
 
   type coop_healpix_inpaint
@@ -625,7 +635,7 @@ contains
     read(fp%unit) this%dr        
     read(fp%unit) this%mmax
     call this%init(genre = this%genre, n = this%n, dr = this%dr, mmax = this%mmax)
-    read(fp%unit) this%nstack    
+    read(fp%unit) this%nstack   
     read(fp%unit) this%nstack_raw
     read(fp%unit) this%image
     call this%get_all_radial_profiles()
@@ -732,7 +742,7 @@ contains
     this%nmaps = 0
   end subroutine coop_healpix_patch_free
 
-  subroutine coop_healpix_patch_init(this, genre, n, dr, mmax)
+  subroutine coop_healpix_patch_init(this, genre, n, dr, mmax, ny)
     class(coop_healpix_patch) this
     logical,parameter::do_norm = .true.
     logical,parameter::remove_m0 = .true.
@@ -740,11 +750,19 @@ contains
     COOP_INT n, nsq
     COOP_REAL dr, cosmt, sinmt, theta, rij
     COOP_INT i,j,m
-    COOP_INT, optional::mmax
+    COOP_INT, optional::mmax, ny
     COOP_REAL sumrc(0:n+1), sumrs(0:n+1), weight(0:n+1)
     call this%free()
     this%genre = trim(genre)
     this%n = n
+    select type(this)
+    type is(coop_healpix_filament)
+       if(present(ny))then       
+          this%ny = ny
+       else
+          stop "filament_init needs ny input"
+       endif
+    end select
     this%dr = dr
     if(present(mmax))then
        this%mmax = mmax
@@ -755,21 +773,44 @@ contains
     this%nmaps = this%tbs%nmaps    
     this%npix = (2*this%n+1)**2
     if(this%n .lt. 0) return
-    allocate(this%image(-this%n:this%n, -this%n:this%n, this%nmaps))
-    allocate(this%nstack(-this%n:this%n, -this%n:this%n))
-    allocate(this%indisk(-this%n:this%n, -this%n:this%n))
-    allocate(this%r(0:this%n))
+    select type(this)
+    type is(coop_healpix_patch)
+       allocate(this%image(-this%n:this%n, -this%n:this%n, this%nmaps))
+       allocate(this%nstack(-this%n:this%n, -this%n:this%n))
+       allocate(this%indisk(-this%n:this%n, -this%n:this%n))
+       allocate(this%r(0:this%n))
+       this%image = 0.d0
+       this%nstack = 0.d0
+       this%indisk = 1.d0
+       this%nstack_raw = 0
+       !$omp parallel do
+       do i=0, this%n
+          this%r(i) = this%dr * i
+       enddo
+       !$omp end parallel do
+    type is(coop_healpix_filament)
+       allocate(this%image(-this%n:this%n, -this%ny:this%ny, this%nmaps))
+       allocate(this%nstack(-this%n:this%n,  -this%ny:this%ny))
+       allocate(this%indisk(-this%n:this%n, -this%ny:this%ny))
+       allocate(this%r(0:max(this%n, this%ny)))
+       this%image = 0.d0
+       this%nstack = 0
+       this%indisk = 1.d0
+       !$omp parallel do
+       do i=0, this%n
+          this%r(i) = this%dr * i
+       enddo
+       !$omp end parallel do
+       return
+    end select
     allocate(this%fr(0:this%n, 0:this%mmax/2, this%nmaps))
     allocate(this%wcm(-this%n:this%n, -this%n:this%n, 0:this%mmax+1))
     allocate(this%wsm(-this%n:this%n, -this%n:this%n, 0:this%mmax+1))
     allocate(this%icm(-this%n:this%n, -this%n:this%n, 0:1))
-    this%image = 0.d0
     this%wcm = 0.d0
     this%wsm = 0.d0
     this%wcm(0,0,0) = 1.d0
-    this%fr = 0.d0
-    
-    this%indisk = 1.d0
+    this%fr = 0.d0   
     nsq = this%n**2
     do j=1, this%n
        i = ceiling(sqrt(dble((this%n-j)*(this%n+j))))
@@ -779,12 +820,6 @@ contains
        this%indisk(i:this%n, -j) = 0.d0
        this%indisk(-this%n:-i, -j) = 0.d0
     enddo
-    !$omp parallel do
-    do i=0, this%n
-       this%r(i) = this%dr * i
-    enddo
-    !$omp end parallel do
-
 
     this%num_indisk_tol = floor(count(this%indisk .gt. 0.d0)*coop_healpix_mask_tol)+0.5d0
     !!------------------------------------------------------------------
@@ -1659,8 +1694,8 @@ contains
           this%spin(i) = 2
           this%iu = i
        case default
-          write(*,*) "map type: "//trim(this%fields(i))//" is unknown"
-          stop
+          write(*,*) "WARNING: map type "//trim(this%fields(i))//" is unknown"
+          this%spin(i) = 0
        end select
     else       
        do i = 1, this%nmaps
@@ -1674,8 +1709,8 @@ contains
              this%spin(i) = 2
              this%iu = i
           case default
-             write(*,*) "map type: "//trim(this%fields(i))//" is unknown"
-             stop
+             write(*,*) "WARNING: map type "//trim(this%fields(i))//" is unknown"
+             this%spin(i) = 0
           end select
        enddo
     endif
@@ -2025,8 +2060,8 @@ contains
        pix = disc%center
        return
     endif
-    cost = RADIUS2COS(r)
-    sint = sqrt(1.d0 - cost**2)
+    cost = RADIUS2COS(abs(r))
+    sint = sign(sqrt(1.d0 - cost**2), r)
     vec = sint*cos(phi)* disc%nx + sint*sin(phi)*disc%ny + cost*disc%nz
 #ifdef HAS_HEALPIX
     if(disc%ordering .eq. COOP_RING)then
@@ -2117,16 +2152,15 @@ contains
     COOP_REAL angle
     type(coop_healpix_patch) patch, tmp_patch
     if(present(mask))then
-       call coop_healpix_fetch_patch(this, disc, angle, tmp_patch, mask)
+       call this%fetch_patch(disc, angle, tmp_patch, mask)
        if(sum(tmp_patch%nstack*tmp_patch%indisk) .lt. patch%num_indisk_tol)return
     else
-       call coop_healpix_fetch_patch(this, disc, angle, tmp_patch)
+       call this%fetch_patch(disc, angle, tmp_patch)
     endif
     patch%image = patch%image + tmp_patch%image
     patch%nstack = patch%nstack + tmp_patch%nstack
     patch%nstack_raw = patch%nstack_raw + tmp_patch%nstack_raw
   end subroutine coop_healpix_stack_on_patch
-
 
   subroutine coop_healpix_fetch_patch(this, disc, angle, patch, mask)
     class(coop_healpix_maps)::this
@@ -2252,6 +2286,8 @@ contains
     write(*,*) "output: "//trim(coop_file_add_postfix(trim(mapfile),"_smoothed_fwhm"//trim(coop_num2str(nint(fwhm/coop_SI_arcmin)))//"arcmin"))
     call map%free()
   end subroutine coop_healpix_smooth_mapfile
+
+
 
   subroutine coop_healpix_maps_smooth(map, fwhm, index_list, l_lower, l_upper)
     class(coop_healpix_maps) map
@@ -3267,16 +3303,6 @@ contains
 #endif    
   end subroutine coop_healpix_maps_get_peaks
 
-
-  
-
-
-
-
-  
-
-
-
   
   subroutine coop_healpix_maps_mark_peaks(this, sto, imap)
     COOP_INT,parameter::max_n = 30
@@ -3391,6 +3417,7 @@ contains
   end subroutine coop_healpix_maps_stack_on_peaks
 
 
+  
   subroutine coop_healpix_mask_peaks(mask, sto, sto_masked)
     class(coop_healpix_maps)::mask
     type(coop_stacking_options)::sto, sto_masked
@@ -4352,6 +4379,276 @@ contains
     COOP_INT::nside, lmax
     lmax = floor(nside*coop_healpix_lmax_by_nside)
   end subroutine coop_healpix_nside2lmax
+
+
+
+  subroutine coop_healpix_stack_on_filament(this, disc, filament, tmp_filament, mask)
+    class(coop_healpix_maps) this
+    type(coop_healpix_disc) disc
+    type(coop_healpix_maps),optional::mask
+    type(coop_healpix_filament) filament, tmp_filament
+    if(present(mask))then
+       call this%fetch_filament(disc, tmp_filament, mask)
+       if(sum(tmp_filament%nstack*tmp_filament%indisk) .lt. filament%num_indisk_tol)return
+    else
+       call this%fetch_filament(disc, tmp_filament)
+    endif
+    filament%image = filament%image + tmp_filament%image
+    filament%nstack = filament%nstack + tmp_filament%nstack
+    filament%nstack_raw = filament%nstack_raw + tmp_filament%nstack_raw
+  end subroutine coop_healpix_stack_on_filament  
+  
+
+
+  subroutine coop_healpix_fetch_filament(this, disc, filament, mask)
+    COOP_REAL,parameter::b_min = 0.1
+    COOP_REAL,parameter::e2_min = 0.1
+    COOP_REAL,parameter::e2_max = 3.
+    class(coop_healpix_maps)::this
+    type(coop_healpix_disc) disc
+    type(coop_healpix_maps),optional::mask
+    type(coop_healpix_filament) filament
+    COOP_INT i, j, pix,  k, pix1, pix2
+    COOP_REAL x, y, x1, y1, x2, y2, cos1, sin1, cos2, sin2, phi1, phi2, p1, p2, phi1_new, phi2_new, const1, const2, fpeak
+    logical::left, right
+    COOP_SINGLE qu(2)
+    filament%image = 0.
+    filament%nstack = 1.d0
+    filament%nstack_raw  = 1
+    pix1 = disc%center
+    x1 = 0.d0
+    y1 = 0.d0
+    x2 = 0.d0
+    y2 = 0.d0
+    if(this%map(pix1, 2)**2 + this%map(pix1, 3)**2 .le. e2_min * this%map(pix1, 4)**2 .or. this%map(pix1, 2)**2 + this%map(pix1, 3)**2 .gt. e2_max * this%map(pix1,4)**2)return
+    fpeak = abs(this%map(pix1, 1))*b_min
+    phi1 = COOP_POLAR_ANGLE(this%map(pix1,2), this%map(pix1,3))/2.d0
+    if(coop_random_unit().gt.0.5)then
+       const1 = 0.d0
+       const2 = coop_pi
+    else
+       const1 = coop_pi
+       const2 = 0.d0
+    endif
+    if(this%map(pix1, 1) .lt. 0.) then
+       const1 = const1 + coop_pio2
+       const2 = const2 + coop_pio2
+    endif
+    phi2 = phi1 + const2
+    phi1 = phi1 + const1
+    cos1 = cos(phi1)
+    sin1 = sin(phi1)
+    cos2 = - cos1
+    sin2 = - sin1
+    do j=-filament%ny, filament%ny
+       x = x2 - (filament%dr*j)*sin2
+       y = y2 + (filament%dr*j)*cos2
+       call disc%xy2pix(x, y, pix)
+       filament%image(0, j, 1) = this%map(pix, 1)
+       filament%nstack(0, j) = 1.d0
+    enddo
+    left = .true.
+    right = .true.
+    do i=1, filament%n
+       if(left)then
+          x1 = x1 + filament%dr*cos1
+          y1 = y1 + filament%dr*sin1
+          call disc%xy2pix(x1, y1, pix1)
+          phi1_new = COOP_POLAR_ANGLE(this%map(pix1,2), this%map(pix1,3))/2.d0 + const1
+          if( abs(this%map(pix1, 1)).lt. fpeak )then
+             left = .false.
+          else
+             phi1 = phi1_new
+             cos1 = cos(phi1)
+             sin1 = sin(phi1)
+             do j=-filament%ny, filament%ny
+                x = x1 + (filament%dr*j)*sin1
+                y = y1 - (filament%dr*j)*cos1
+                call disc%xy2pix(x, y, pix)
+                filament%image(-i, j, 1) = this%map(pix, 1)
+                filament%nstack(-i, j) = 1.d0
+             enddo
+          endif
+       endif
+       if(right)then
+          x2 = x2 + filament%dr*cos2
+          y2 = y2 + filament%dr*sin2       
+          call disc%xy2pix(x2, y2, pix2)
+          phi2_new = COOP_POLAR_ANGLE(this%map(pix2,2), this%map(pix2,3))/2.d0 + const2
+          if( abs(this%map(pix2, 1)).lt. fpeak)then
+             right = .false.
+          else
+             phi2 = phi2_new
+             cos2 = cos(phi2)
+             sin2 = sin(phi2)
+             do j=-filament%ny, filament%ny
+                x = x2 - (filament%dr*j)*sin2
+                y = y2 + (filament%dr*j)*cos2
+                call disc%xy2pix(x, y, pix)
+                filament%image(i, j, 1) = this%map(pix, 1)
+                filament%nstack(i, j) = 1.d0
+             enddo
+          endif
+       endif
+    enddo
+  end subroutine coop_healpix_fetch_filament
+
+
+  subroutine coop_healpix_filament_plot(this, imap, output, use_degree)
+    COOP_INT::bgrids
+    class(coop_healpix_filament)::this
+    COOP_INT imap
+    COOP_UNKNOWN_STRING::output
+    type(coop_asy)::fig
+    COOP_INT nb, i, j, k, ns, iq, iu
+    COOP_REAL  xc, yc,  norm, r, theta, minz, maxz
+    COOP_REAL,dimension(:),allocatable::xstart, xend, ystart, yend
+    logical,optional::use_degree
+    logical use_rad
+    COOP_SHORT_STRING::xlabel, ylabel
+    if(imap .le. 0 .or. imap .gt. this%nmaps)then
+       write(*,*) this%nmaps, imap
+       stop "coop_healpix_filament_plot: imap overflow"
+    endif
+    call fig%open(output)
+    if(present(use_degree))then
+       if(use_degree)then
+          this%r = this%r/coop_SI_degree
+       endif
+       use_rad = .not. use_degree
+    else
+       use_rad = .true.
+    endif
+    if(use_rad)then
+       xlabel = "$\varpi\cos\phi$"
+       ylabel = "$\varpi\sin\phi$"       
+    else
+       xlabel = "$\varpi\cos\phi (\mathrm{deg})$"
+       ylabel = "$\varpi\sin\phi (\mathrm{deg})$"
+    endif
+    this%caption = adjustl(this%caption)
+    if(coop_healpix_patch_default_want_caption)then
+       if(len_trim(this%caption) .gt. 60)then
+          call fig%init(caption = "{\tiny "//trim(this%caption)//"}", xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%ny)), ymax = real(this%r(this%ny)))
+       elseif(len_trim(this%caption) .gt. 50)then
+          call fig%init(caption = "{\scriptsize "//trim(this%caption)//"}", xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%ny)), ymax = real(this%r(this%ny)))
+       elseif(len_trim(this%caption) .gt. 40)then
+          call fig%init(caption = "{\small "//trim(this%caption)//"}", xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%ny)), ymax = real(this%r(this%ny)))       
+       else
+          call fig%init(caption = trim(this%caption), xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%ny)), ymax = real(this%r(this%ny)))
+       endif
+    else
+       call fig%init(xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%ny)), ymax = real(this%r(this%ny)))          
+    endif
+    if(this%tbs%zmin(imap) .lt.0.99e30)then
+       minz = this%tbs%zmin(imap)
+    else
+       call coop_array_get_threshold(this%image(:,:,imap), COOP_REAL_OF(0.99), minz)
+    endif
+    if(this%tbs%zmax(imap) .gt. -0.99e30)then
+       maxz = this%tbs%zmax(imap)
+    else
+       call coop_array_get_threshold(this%image(:,:,imap), COOP_REAL_OF(0.01), maxz)
+    endif
+    if(coop_healpix_patch_default_want_label)then
+       call coop_asy_density(fig, this%image(:,:,imap), -this%r(this%n), this%r(this%n), -this%r(this%ny), this%r(this%ny), label = trim(this%tbs%label(imap)), zmax = maxz, zmin = minz, color_table = trim(this%color_table))
+    else
+       call coop_asy_density(fig, this%image(:,:,imap), -this%r(this%n), this%r(this%n), -this%r(this%ny), this%r(this%ny), zmax = maxz, zmin = minz, color_table = trim(this%color_table))       
+    endif
+    if(use_rad .and. coop_healpix_patch_default_want_arrow)then
+       theta = nint(2.d0*asin(this%r(this%n)/2.d0)/coop_SI_degree*10.d0)/10.d0
+       call coop_asy_label(fig, "$\mathbf{-"//COOP_STR_OF(theta)//"}^\circ$", -this%r(this%n)*1.01, -this%r(this%n)*1.23, color="blue")
+       call coop_asy_label(fig, "$\mathbf{"//COOP_STR_OF(theta)//"}^\circ$", this%r(this%n)*1.01, -this%r(this%n)*1.23, color="blue")
+       call fig%arrow(this%r(this%n),  -this%r(this%ny)*1.17, this%r(this%n),  -this%r(this%ny)*1.13)
+       call fig%arrow(-this%r(this%n),  -this%r(this%ny)*1.17, -this%r(this%n),  -this%r(this%ny)*1.13)
+    endif
+100 call fig%close()
+    if(present(use_degree))then
+       if(use_degree)then
+          this%r = this%r*coop_SI_degree
+       endif
+    endif    
+  end subroutine coop_healpix_filament_plot
+
+
+
+  subroutine coop_healpix_maps_stack_filaments_on_peaks(this, sto, filament, mask, norm)
+    COOP_INT,parameter::n_threads = 8
+    class(coop_healpix_maps)::this
+    type(coop_stacking_options)::sto
+    type(coop_healpix_disc),dimension(n_threads)::disc
+    type(coop_healpix_filament)::filament
+    type(coop_healpix_filament),dimension(n_threads)::p, tmp
+    type(coop_healpix_maps),optional::mask
+    logical,optional::norm
+    COOP_INT ithread, i
+#ifdef HAS_HEALPIX
+    filament%image = 0.d0
+    filament%nstack = 0.d0
+    filament%nstack_raw = 0
+    if(sto%nested)then
+       call this%convert2nested()
+       if(present(mask))call mask%convert2nested()
+    else
+       call this%convert2ring()
+       if(present(mask))call mask%convert2ring()
+    endif
+    !!adjust the index of maps
+    i = 1
+    do while(i.le.filament%nmaps)
+       if(filament%tbs%ind(i) .gt. this%nmaps) stop "stack_on_peaks: index overflow"       
+       do while(filament%tbs%spin(i) .ne. this%spin(filament%tbs%ind(i)))
+          filament%tbs%ind(i)  = filament%tbs%ind(i) + 1
+          if(filament%tbs%ind(i) .gt. this%nmaps) stop "stack_on_peaks: cannot find the map with corresponding spin"
+       enddo
+       if(filament%tbs%spin(i) .ne. 0)then
+          if(i.ge.filament%nmaps .or. filament%tbs%ind(i) .ge. this%nmaps) stop "stack_on_peaks: nonzero spin must go in pairs"
+          filament%tbs%ind(i+1) = filament%tbs%ind(i) + 1
+          i = i+2
+       else
+          i = i+1
+       endif
+    enddo
+    do ithread=1, n_threads
+       p(ithread) = filament
+       tmp(ithread) = filament
+    enddo
+    !$omp parallel do private(i, ithread)
+    do ithread = 1, n_threads
+       do i=ithread, sto%peak_pix%n, n_threads
+          call this%get_disc(sto%pix(this%nside, i), disc(ithread))
+          if(present(mask))then
+             call coop_healpix_stack_on_filament(this, disc(ithread),  p(ithread), tmp(ithread), mask)    
+          else
+             call coop_healpix_stack_on_filament(this, disc(ithread),  p(ithread), tmp(ithread))
+          endif
+       enddo
+    enddo
+    !$omp end parallel do
+
+    do ithread = 1, n_threads
+       filament%image = filament%image + p(ithread)%image
+       filament%nstack = filament%nstack + p(ithread)%nstack
+       filament%nstack_raw = filament%nstack_raw + p(ithread)%nstack_raw
+       call p(ithread)%free()
+       call tmp(ithread)%free()
+    enddo
+    if(present(norm))then
+       if(.not.norm)return
+    endif
+    if(filament%nstack_raw .ne. 0)then
+       do i=1, filament%nmaps
+          filament%image(:, :, i) = filament%image(:, :, i)/max(filament%nstack, 1.d0)
+       enddo
+    else
+       write(*,*) "warning: no filamentes has been found"
+       filament%image = 0.d0
+    endif
+#else
+    stop "CANNOT FIND HEALPIX"
+#endif
+  end subroutine coop_healpix_maps_stack_filaments_on_peaks
+
 
 end module coop_healpix_mod
 

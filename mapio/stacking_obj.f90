@@ -793,6 +793,4 @@ contains
     enddo
   end subroutine coop_healpix_ang2lb
 
-
-  
 end module coop_stacking_mod

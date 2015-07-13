@@ -51,6 +51,10 @@ GetCl: $(OBJ) getcls.o
 Test: $(OBJ) test.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
 
+CCards: $(OBJ) change_cards.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) change_cards.o $(LINK)
+
+
 MPat: $(OBJ) merge_patches.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) merge_patches.o $(LINK)
 
@@ -86,6 +90,8 @@ FullStack: $(OBJ) stack_fullsky.o
 Stack: $(OBJ) dostack.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) dostack.o $(LINK)
 
+StackFil: $(OBJ) stack_filaments.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) stack_filaments.o $(LINK)
 
 MST: 	$(OBJ) msst.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) msst.o $(LINK)

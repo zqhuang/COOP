@@ -30,7 +30,10 @@ module coop_pertobj_mod
   end type coop_pert_species
 
   type coop_pert_object
-     COOP_REAL::k, a, aH, daHdtau, tau, tauc, taucdot, R, rhoa2_b, rhoa2_c, rhoa2_nu, rhoa2_de, rhoa2_g, rhoa2_mnu, pa2_mnu, pa2_g, pa2_nu, pa2_de, rhoa2_sum, pa2_sum, cs2b, capP, kbyaH, ksq, kbyaHsq
+     COOP_REAL::k, a, aH, daHdtau, HdotbyHsq, tau, tauc, taucdot, R, rhoa2_b, rhoa2_c, rhoa2_nu, rhoa2_de, rhoa2_g, rhoa2_mnu, pa2_mnu, pa2_g, pa2_nu, pa2_de, rhoa2_sum, pa2_sum, cs2b, capP, kbyaH, ksq, kbyaHsq
+#if DO_EFT_DE     
+     COOP_REAL::M2, alpha_M, alpha_K, alpha_T, alpha_B, alpha_H, alpha_M_prime, alpha_K_prime, alpha_T_prime, alpha_B_prime, alpha_H_prime, HdotbyHsq_prime
+#endif     
      COOP_STRING::initial_conditions = "adiabatic"
      logical::tight_coupling = .true.
      logical::massivenu_cold = .false.
@@ -84,7 +87,6 @@ contains
        !!do nothing
     case(COOP_PERT_SCALAR_FIELD)
        T00 = T00  -  pert%de_delta_rho*pert%a**2
-       
     case default
        call coop_tbw("T00: de perturbations not written")
     end select
@@ -325,7 +327,7 @@ contains
           call this%de%set_defaults(genre = de_genre, m = m, s = 0, &
                index = this%massivenu(coop_pert_default_nq)%last_index + 1, &
                lmax = 1, q = 1.d0, mass = 0.d0)
-       case(COOP_PERT_SCALAR_FIELD) 
+       case(COOP_PERT_SCALAR_FIELD, COOP_PERT_EFT) 
           if(m.eq.0)then
              call this%de%set_defaults(genre = de_genre, m = m, s = 0, &
                   index = this%massivenu(coop_pert_default_nq)%last_index + 1, &

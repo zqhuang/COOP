@@ -40,6 +40,8 @@ MGR: $(OBJ) test_mult_growth.o $(BACKGROUND)/libcoopbackground.a
 Test: $(OBJ) test.o $(BACKGROUND)/libcoopbackground.a 
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
 
+TestEFT: $(OBJ) testeft.o $(BACKGROUND)/libcoopbackground.a 
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testeft.o $(LINK)
 
 Z3D: $(OBJ) zeta.o $(BACKGROUND)/libcoopbackground.a 
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) zeta.o $(LINK)
