@@ -436,7 +436,7 @@ program map
   num_maps_wanted = 0
   npix = nside2npix(nside_in(1))
   do i=1,nin
-     write(*,*) trim(coop_num2str(nmaps_in(i)))//" maps are found in file "//trim(fin(i))//", enter the indices of the maps that you want to keep (numbers between 1 to "//trim(coop_num2str(nmaps_in(i)))//" seperated with spaces):"
+     write(*,*) trim(coop_num2str(nmaps_in(i)))//" maps are found in file "//trim(fin(i))//", enter the indices of the maps that you want to keep (numbers between 1 to "//trim(coop_num2str(nmaps_in(i)))//" seperated by spaces):"
      read(*, "(A)") inline
      write(*,*) trim(inline)
      call coop_string_to_list(inline, indices_wanted(i))

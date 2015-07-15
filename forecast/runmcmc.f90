@@ -87,8 +87,8 @@ program test
               stop
            endif
         else  !!use Planck15
-           if(coop_file_exists(trim(planckdata_path)//"/high_l/plik/plik_dx11dr2H_M_v18_TT.clik"))then
-              call pl(1)%init(trim(planckdata_path)//"/high_l/plik/plik_dx11dr2H_M_v18_TT.clik")              
+           if(coop_file_exists(trim(planckdata_path)//"/high_l/plik/plik_dx11dr2_HM_v18_TTTEEE.clik"))then
+              call pl(1)%init(trim(planckdata_path)//"/high_l/plik/plik_dx11dr2_HM_v18_TTTEEE.clik")              
               call pl(2)%init(trim(planckdata_path)//"low_l/commander/commander_rc2_v1.1_l2_29_B.clik")
               call pl(3)%init(trim(planckdata_path)//"low_l/bflike/lowl_SMW_70_dx11d_2014_10_03_v5c_Ap.clik")
               if(use_lensing)call pl(4)%init(trim(planckdata_path)//"/lensing/smica_g30_ftl_full_pp.dataset")
