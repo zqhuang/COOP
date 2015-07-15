@@ -1305,7 +1305,7 @@ contains
     if(this%any_prior .and. this%feedback .ge. 1)then
        do i=1, this%n
           if(this%has_prior(i))then
-             write(*,*) "prior["//trim(this%name(this%map2used(i)))//"] = "//COOP_STR_OF(this%prior_center(i))//" +/- "//COOP_STR_OF(this%prior_sigma(i))
+             write(*,*) "prior["//trim(this%name(this%used(i)))//"] = "//COOP_STR_OF(this%prior_center(i))//" +/- "//COOP_STR_OF(this%prior_sigma(i))
           endif
        enddo
     endif
