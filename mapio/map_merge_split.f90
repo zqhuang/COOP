@@ -27,7 +27,7 @@ program map
   logical::inline_mode = .false.
   type(coop_healpix_maps) hgm, hgm2
   COOP_REAL fwhm, scal, threshold
-  COOP_SINGLE::sigmas(100)
+  COOP_SINGLE::sigmas(100), maxabs
   type(coop_file)::fp
 
   nin = 1
@@ -204,6 +204,22 @@ program map
         enddo
         call hgm%free
         goto 500
+     case("MAX")
+        if(inline_mode)then
+           inline = coop_inputArgs(nin+1)
+           read(inline, *) maxabs
+        else           
+           write(*,*) "Enter the maximum pixel value"
+           read(*,*) maxabs
+        endif
+        nin  = nin - 1
+        do i=1, nin
+           call hgm%read(trim(fin(i)))
+           hgm%map = max(min(hgm%map, maxabs), -maxabs)
+           call hgm%write(trim(fin(i)))
+        enddo
+        call hgm%free
+        goto 500        
      case("MULTIPLY")
         if(inline_mode)then
            fout = trim(coop_inputArgs(nin+1))
@@ -296,6 +312,7 @@ program map
         nin = nin -1
         do i=1, nin
            call hgm%read(trim(fin(i)), nmaps_wanted = 4, nmaps_to_read = 1 )
+           print*, "T map read"
            hgm2 = hgm
            call hgm2%map2alm(index_list = (/ 1 /) )
            hgm2%alm(0:1, :, 1) = 0.

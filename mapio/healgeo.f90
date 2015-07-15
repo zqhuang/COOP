@@ -1603,8 +1603,8 @@ contains
           elseif(index(lowercase_name, "_b").ne. 0)then
              call this%set_field(1, "B")
           else
-             write(*,*)"cannot determine the map types for file "//trim(filename)
-             stop
+             write(*,*)"Warning: cannot determine the map types for file "//trim(filename)
+             call this%set_field(1, "T")
           endif
        case(2)
           if(index(lowercase_name, "qu").ne.0 .or. index(lowercase_name, "pol").ne.0)then
@@ -1626,8 +1626,9 @@ contains
              call this%set_field(1, "QLZ")
              call this%set_field(2, "ULZ")
           else
-             write(*,*)"cannot determine the map types for file "//trim(filename)
-             stop             
+             write(*,*)"WARNING: cannot determine the map types for file "//trim(filename)
+             call this%set_field(1, "Q")
+             call this%set_field(2, "U")             
           endif
        case(3)
           if(index(lowercase_name, "iqu").ne.0 .or. index(lowercase_name, "tqu").ne.0)then          
@@ -1647,8 +1648,10 @@ contains
              call this%set_field(2, "QZ")
              call this%set_field(3, "UZ")
           else
-             write(*,*)"cannot determine the map types for file "//trim(filename)
-             stop                          
+             write(*,*)"Warning: cannot determine the map types for file "//trim(filename)
+             call this%set_field(1, "I")
+             call this%set_field(2, "Q")
+             call this%set_field(3, "U")                                       
           endif
        case(4)
           if(index(lowercase_name, "tqul").ne.0)then                       
@@ -1662,8 +1665,11 @@ contains
              call this%set_field(3, "ULZ")
              call this%set_field(4, "LZ")
           else
-             write(*,*)"cannot determine the map types for file "//trim(filename)
-             stop                                       
+             write(*,*)"Warning: cannot determine the map types for file "//trim(filename)
+             call this%set_field(1, "T")
+             call this%set_field(2, "QLT")
+             call this%set_field(3, "ULT")
+             call this%set_field(4, "LT")
           endif
        case default
           stop "read: cannot determine the fields for nmaps>4"
@@ -4420,7 +4426,9 @@ contains
     y1 = 0.d0
     x2 = 0.d0
     y2 = 0.d0
-    if(this%map(pix1, 2)**2 + this%map(pix1, 3)**2 .le. e2_min * this%map(pix1, 4)**2 .or. this%map(pix1, 2)**2 + this%map(pix1, 3)**2 .gt. e2_max * this%map(pix1,4)**2)return
+    if(this%map(pix1, 2)**2 + this%map(pix1, 3)**2 .le. e2_min * this%map(pix1, 4)**2 .or. this%map(pix1, 2)**2 + this%map(pix1, 3)**2 .gt. e2_max * this%map(pix1,4)**2)then
+       return
+    endif
     fpeak = abs(this%map(pix1, 1))*b_min
     phi1 = COOP_POLAR_ANGLE(this%map(pix1,2), this%map(pix1,3))/2.d0
     if(coop_random_unit().gt.0.5)then

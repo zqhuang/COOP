@@ -3,7 +3,7 @@ program test
   use coop_forecast_mod
   implicit none
 #include "constants.h"
-  logical,parameter::use_Planck13 = .true.
+  logical,parameter::use_Planck13 = .false.
   logical::use_CMB, use_SN, use_BAO, use_HST, use_lensing, use_compressed_CMB
   type(coop_clik_object),target::pl(4)
   type(coop_HST_object),target::HSTlike
@@ -87,15 +87,14 @@ program test
               stop
            endif
         else  !!use Planck15
-           if(coop_file_exists(trim(planckdata_path)//"/plik_dx11dr2H_M_v18_TT.clik"))then
-              call pl(1)%init(trim(planckdata_path)//"/plik_dx11dr2H_M_v18_TT.clik")              
-              call pl(2)%init(trim(planckdata_path)//"/commander_rc2_v1.1_l2_29_B.clik")
-              call pl(3)%init(trim(planckdata_path)//"/lowl_SMW_70_dx11d_2014_10_03_v5c_Ap.clik")
-
-              if(use_lensing)call pl(4)%init(trim(planckdata_path)//"/smica_g30_ftl_full_pp.dataset")
+           if(coop_file_exists(trim(planckdata_path)//"/high_l/plik/plik_dx11dr2H_M_v18_TT.clik"))then
+              call pl(1)%init(trim(planckdata_path)//"/high_l/plik/plik_dx11dr2H_M_v18_TT.clik")              
+              call pl(2)%init(trim(planckdata_path)//"low_l/commander/commander_rc2_v1.1_l2_29_B.clik")
+              call pl(3)%init(trim(planckdata_path)//"low_l/bflike/lowl_SMW_70_dx11d_2014_10_03_v5c_Ap.clik")
+              if(use_lensing)call pl(4)%init(trim(planckdata_path)//"/lensing/smica_g30_ftl_full_pp.dataset")
            else !!try another path
               write(*,*) "you need to make planck likelihood symbolic links to "//trim(planckdata_path)
-              if(use_lensing)call pl(4)%init(trim(planckdata_path)//"/lensing_likelihood_v4_ref.clik_lensing")
+              stop
            endif
         endif
         pool%CMB%cliklike => pl
