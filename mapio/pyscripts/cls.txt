@@ -1,0 +1,4 @@
+NSIDE = 512
+ORDERING = RING in fits file
+NSIDE = 512
+ORDERING = RING in fits file
