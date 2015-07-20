@@ -4659,7 +4659,7 @@ contains
   end subroutine coop_healpix_maps_stack_filaments_on_peaks
 
 
-  subroutine coop_healpix_maps_filament_perimeter_area_list(this, pix, r, palist, countcut, peakcut, rmscut, imap, plot, sum_pa)
+  subroutine coop_healpix_maps_filament_perimeter_area_list(this, pix, r, palist, countcut, peakcut, rmscut, imap, plot, sum_pa, want_abs_area, plot_min_perimeter, area_truncation)
     class(coop_healpix_maps)::this
     COOP_INT::pix
     COOP_SINGLE::r, threshold
@@ -4669,11 +4669,14 @@ contains
     type(coop_asy_path) path
     type(coop_healpix_disc)::disc
     type(coop_list_realarr)::palist
-    COOP_SINGLE::pa(2)
+    COOP_SINGLE::pa(2), plot_p
     COOP_UNKNOWN_STRING, optional::plot
+    COOP_SINGLE, optional::plot_min_perimeter
     type(coop_asy)::fig
-    logical::doplot
-    COOP_REAL, parameter::smallest_area =  (15.d0*coop_SI_arcmin)**2
+    logical::doplot, wabs
+    logical,optional::want_abs_area
+    COOP_REAL::smallest_area
+    COOP_SINGLE, optional::area_truncation
     COOP_SINGLE,optional::sum_pa(2)
     if(present(imap))then
        if(imap .gt. this%nmaps) stop "filament_width: imap overflow"
@@ -4681,6 +4684,16 @@ contains
     else
        id = 1
     endif
+    if(present(area_truncation))then
+       smallest_area  = area_truncation
+    else
+       smallest_area = coop_SI_arcmin**2
+    endif
+    if(present(want_abs_area))then
+       wabs = want_abs_area
+    else
+       wabs = .false.
+    endif    
     if(pix .lt. 0 .or. pix .ge. this%npix) stop "filament_width: pix overflow"
     call this%get_disc(pix, disc)
     n = floor(r*this%nside)
@@ -4694,19 +4707,30 @@ contains
        call path%from_function(fxy, -r, r, -r, r, threshold, n,  rmscut = 1.)       
     endif
     doplot = .false.
+    if(present(plot_min_perimeter))then
+       plot_p = plot_min_perimeter
+    else
+       plot_p = 4.d0*r
+    endif
     if(present(sum_pa))then
        sum_pa = 0.
        do i=1, path%nclosed
           call path%get_perimeter_and_area(i, pa(1), pa(2))
-          if(abs(pa(2)) .gt. smallest_area) call palist%push(pa)
-          if(pa(1) .gt. r*6.d0)doplot = .true.
+          if(abs(pa(2)) .gt. smallest_area)then
+             if(wabs) pa(2) = abs(pa(2))
+             call palist%push(pa)
+          endif
+          if(pa(1) .gt. plot_p)doplot = .true.
           sum_pa = sum_pa + pa
        enddo
     else
        do i=1, path%nclosed
           call path%get_perimeter_and_area(i, pa(1), pa(2))
-          if(abs(pa(2)) .gt. smallest_area) call palist%push(pa)
-          if(pa(1) .gt. r*6.d0)doplot = .true.
+          if(abs(pa(2)) .gt. smallest_area)then
+             if(wabs) pa(2) = abs(pa(2))
+             call palist%push(pa)
+          endif
+          if(pa(1) .gt. plot_p)doplot = .true.
        enddo
     endif
     if(present(plot) .and. doplot)then
