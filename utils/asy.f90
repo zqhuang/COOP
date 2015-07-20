@@ -6,7 +6,7 @@ module coop_asy_mod
   implicit none
   private
 
-  public::coop_asy, coop_asy_path, coop_asy_error_bar, coop_asy_errorbars, coop_asy_interpolate_curve, coop_asy_gray_color, coop_asy_rgb_color, coop_asy_label, coop_asy_legend, coop_asy_legend_advance, coop_asy_dot, coop_asy_line, coop_asy_labels, coop_asy_dots, coop_asy_lines, coop_asy_contour, coop_asy_curve, coop_asy_density,  coop_asy_topaxis, coop_asy_rightaxis, coop_asy_clip, coop_asy_plot_function, coop_asy_plot_likelihood, coop_asy_curve_from_file, coop_asy_path_from_array, coop_asy_histogram, coop_asy_band
+  public::coop_asy, coop_asy_path, coop_asy_error_bar, coop_asy_errorbars, coop_asy_interpolate_curve, coop_asy_gray_color, coop_asy_rgb_color, coop_asy_label, coop_asy_legend, coop_asy_legend_advance, coop_asy_dot, coop_asy_line, coop_asy_labels, coop_asy_dots, coop_asy_lines, coop_asy_contour, coop_asy_curve, coop_asy_density,  coop_asy_topaxis, coop_asy_rightaxis, coop_asy_clip, coop_asy_plot_function, coop_asy_plot_likelihood, coop_asy_curve_from_file, coop_asy_histogram, coop_asy_band
 
 
 #include "constants.h"
@@ -128,7 +128,7 @@ module coop_asy_mod
   end interface coop_asy_labels
 
   interface coop_asy_dots
-     module procedure coop_asy_dots_s, coop_asy_dots_d
+     module procedure coop_asy_dots_s, coop_asy_dots_d, coop_asy_dots_list
   end interface coop_asy_dots
 
   interface coop_asy_lines
@@ -165,9 +165,17 @@ module coop_asy_mod
   end interface coop_asy_rightaxis
 
   type coop_asy_path
-     COOP_INT  nclosed
-     COOP_INT ,dimension(:),allocatable:: length
+     COOP_INT::nclosed = 0
+     COOP_INT,dimension(:),allocatable:: length
      type(coop_list_realarr) l
+   contains
+     procedure::append => coop_asy_path_append_s
+     procedure::close => coop_asy_path_close
+     procedure::free => coop_asy_path_free
+     procedure::from_array => coop_asy_path_from_array
+     procedure::from_array_center => coop_asy_path_from_array_center     
+     procedure::from_function => coop_asy_path_from_function
+     procedure::get_perimeter_and_area => coop_asy_path_get_perimeter_and_area
   end type coop_asy_path
 
 
@@ -405,7 +413,6 @@ contains
   end subroutine coop_asy_dot_s
 
 
-
   subroutine coop_asy_dots_d(this, x, y, color, symbol)
     class(coop_asy) this
     COOP_INT  n,i
@@ -455,6 +462,36 @@ contains
   end subroutine coop_asy_dots_s
 
 
+  subroutine coop_asy_dots_list(this, xylist, xunit, yunit, color, symbol)
+    class(coop_asy) this
+    COOP_INT  i
+    type(coop_list_realarr)::xylist
+    COOP_SINGLE,optional::xunit, yunit
+    COOP_SINGLE:: xy(2)
+    COOP_UNKNOWN_STRING,optional:: color
+    COOP_UNKNOWN_STRING,optional::symbol
+    if(xylist%n .eq. 0) return
+    write(this%unit, "(A)") "DOTS"
+    write(this%unit, "(I8)") xylist%n
+    if(present(color))then
+       write(this%unit, "(A)") trim(color)
+    else
+       write(this%unit, "(A)") "black"
+    endif
+    if(present(symbol))then
+       write(this%unit, "(A)") trim(symbol)
+    else
+       write(this%unit, "(A)") "dot"
+    endif
+    do i=1, xylist%n
+       call xylist%get_element(i, xy)
+       if(present(xunit))xy(1) = xy(1)/xunit
+       if(present(yunit))xy(2) = xy(2)/yunit
+       call this%write_coor(xy(1), xy(2))
+    enddo
+  end subroutine coop_asy_dots_list
+
+  
   subroutine coop_asy_line_d(this, xstart, ystart, xend, yend, color, linetype, linewidth)
     class(coop_asy) this
     COOP_REAL ::xstart, ystart, xend, yend
@@ -1622,7 +1659,7 @@ contains
           write(this%unit, "(A)") "LABELS"          
        end select
     else
-       write(this%unit, "(A)") "LABELS"
+       write(this%unit, "(A)") "RIGHTLABELS"
     endif
     write(this%unit, "(A)") "1"
     if(present(color))then
@@ -2328,20 +2365,20 @@ contains
     endif
   end function coop_asy_linestyle
 
-  subroutine coop_asy_path_append_s(path, x, y)
+  subroutine coop_asy_path_append_s(this, x, y)
     COOP_SINGLE  x, y
-    type(coop_asy_path) path
-    call path%l%push( (/ x, y /) )
+    class(coop_asy_path) this
+    call this%l%push( (/ x, y /) )
   end subroutine coop_asy_path_append_s
 
-  subroutine coop_asy_path_append_d(path, x, y)
+  subroutine coop_asy_path_append_d(this, x, y)
     COOP_REAL  x, y
-    type(coop_asy_path) path
-    call coop_asy_path_append_s(path, real(x), real(y))
+    class(coop_asy_path) this
+    call coop_asy_path_append_s(this, real(x), real(y))
   end subroutine coop_asy_path_append_d
 
   subroutine coop_asy_path_close(path)
-    type(coop_asy_path) path
+    class(coop_asy_path) path
     if(allocated(path%length))then
        path%nclosed = path%nclosed + 1
        if(path%nclosed .gt. coop_asy_path_max_nclosed) stop "coop_asy_path_close: too many closed paths"
@@ -2353,25 +2390,28 @@ contains
     endif
   end subroutine coop_asy_path_close
 
-  subroutine coop_asy_path_clear(path)
-    type(coop_asy_path) path
+  subroutine coop_asy_path_free(path)
+    class(coop_asy_path) path
     if(allocated(path%length))deallocate(path%length)
     call path%l%init()
-  end subroutine coop_asy_path_clear
+    path%nclosed = 0
+  end subroutine coop_asy_path_free
 
   !!generate a path that encloses the region of f(x, y) > threshold
-  subroutine coop_asy_path_2dcl(path, f, xmin, xmax, ymin, ymax, threshold, resolution)
+  subroutine coop_asy_path_from_function(this, f, xmin, xmax, ymin, ymax, threshold, resolution, countcut, peakcut, rmscut)
     COOP_INT ,parameter::default_resolution = 64
     COOP_INT ,optional:: resolution
-    type(coop_asy_path) path
+    COOP_SINGLE, optional::countcut, peakcut, rmscut
+    class(coop_asy_path) this
     external f
     COOP_SINGLE  f
     COOP_SINGLE  xmin, xmax, ymin, ymax, threshold, dx, dy, dxby2, dyby2
     COOP_INT  n
     logical,dimension(:,:),allocatable::above
+    COOP_SINGLE, dimension(:,:),allocatable::image
     COOP_INT ,dimension(:,:,:),allocatable::lines
     COOP_INT  i, j, imin, jmin, last
-    call coop_asy_path_clear(path) !!clear the path
+    call this%free()
     if(present(resolution))then
        n = resolution
     else
@@ -2386,11 +2426,34 @@ contains
     above(:,0) = .false.
     above(n+1,:) = .false.
     above(:, n+1) = .false.
-    do j = 1, n
-       do i=1,n
-          above(i, j) = (f(xmin+dx*(i-0.5), ymin+dy*(j-0.5)) .gt. threshold)
+    if(present(countcut) .or. present(peakcut) .or. present(rmscut))then
+       allocate(image(n, n))
+       do j=1, n
+          do i=1,n
+             image(i, j) = f(xmin+dx*(i-0.5), ymin+dy*(j-0.5)) 
+          enddo
        enddo
-    enddo
+       image = image - sum(image)/n**2       
+       if(present(countcut))then
+          call coop_array_get_threshold(image, countcut, threshold)
+       elseif(present(rmscut))then
+          threshold = sqrt(sum(image**2)/n**2)*rmscut
+       else
+          threshold = maxval(image)*peakcut
+       endif
+       do j = 1, n
+          do i=1,n
+             above(i, j) = (image(i, j).gt. threshold)
+          enddo
+       enddo
+       deallocate(image)
+    else
+       do j = 1, n
+          do i=1,n
+             above(i, j) = (f(xmin+dx*(i-0.5), ymin+dy*(j-0.5)) .gt. threshold)
+          enddo
+       enddo
+    endif
     lines = 0
     do j=0, n
        do i=0, n
@@ -2498,7 +2561,7 @@ contains
           endif
        end select
        if(i.eq.imin .and. j.eq.jmin)then !!this happens in finite steps
-          call coop_asy_path_close(path)
+          call this%close()
           goto 100 
        else
           call insert_point()
@@ -2509,33 +2572,33 @@ contains
 
     subroutine insert_point()
       COOP_SINGLE  x, y
-      COOP_SINGLE  this(2), s
+      COOP_SINGLE  t(2), s
       x =  xmin+i*dx
       y = ymin+j*dy
       if(i.eq.0 .or. i.eq.n)then
-         this(1) = 0 
+         t(1) = 0 
       else
-         this(1) = (f(x+dxby2, y) - f(x-dxby2, y))
+         t(1) = (f(x+dxby2, y) - f(x-dxby2, y))
       endif
       if(j.eq.0 .or. j.eq.n)then
-         this(2) = 0
+         t(2) = 0
       else
-         this(2) =  (f(x, y+dyby2) - f(x, y-dyby2))
+         t(2) =  (f(x, y+dyby2) - f(x, y-dyby2))
       endif
-      s= sum(this**2)
+      s= sum(t**2)
       if(s.gt.0)then
          s = (threshold - f(x, y))/s
-         x = min(xmax, max(x + max(min(this(1)*s, 0.5), -0.5)*dx, xmin))
-         y = min(ymax, max(y + max(min(this(2)*s, 0.5), -0.5)*dy, ymin))
+         x = min(xmax, max(x + max(min(t(1)*s, 0.5), -0.5)*dx, xmin))
+         y = min(ymax, max(y + max(min(t(2)*s, 0.5), -0.5)*dy, ymin))
       endif
-      call coop_asy_path_append(path, x, y)
+      call this%append(x, y)
     end subroutine insert_point
 
-  end subroutine coop_asy_path_2dcl
+  end subroutine coop_asy_path_from_function
 
 
-  subroutine coop_asy_path_from_array_center(path, f, xmin, xmax, ymin, ymax, threshold)
-    type(coop_asy_path) path
+  subroutine coop_asy_path_from_array_center(this, f, xmin, xmax, ymin, ymax, threshold)
+    class(coop_asy_path) this
     COOP_SINGLE  f(:,:)
     COOP_SINGLE  xmin, xmax, ymin, ymax, threshold, dx, dy
     COOP_INT  nx, ny, n
@@ -2544,7 +2607,8 @@ contains
     n = min(max(nx, ny,16)*2, 256) !!higher resolution is useless since we do bilinear interpolation
     dx = (xmax-xmin)/nx
     dy = (ymax- ymin)/ny
-    call coop_asy_path_2dcl(path, finterp, xmin, xmax, ymin, ymax, threshold, n)
+    call this%from_function(finterp, xmin, xmax, ymin, ymax, threshold, n)
+
   contains
     
     function  finterp(x, y)
@@ -2570,8 +2634,8 @@ contains
 
 
 
-  subroutine coop_asy_path_from_array(path, f, xmin, xmax, ymin, ymax, threshold)
-    type(coop_asy_path) path
+  subroutine coop_asy_path_from_array(this, f, xmin, xmax, ymin, ymax, threshold)
+    class(coop_asy_path) this
     COOP_SINGLE  f(:,:)
     COOP_SINGLE  xmin, xmax, ymin, ymax, threshold, dx, dy
     COOP_INT  nx, ny, n
@@ -2580,7 +2644,7 @@ contains
     n = min(max(nx, ny,16)*2, 256) !!higher resolution is useless since we do bilinear interpolation
     dx = (xmax-xmin)/(nx-1)
     dy = (ymax- ymin)/(ny-1)
-    call coop_asy_path_2dcl(path, finterp, xmin, xmax, ymin, ymax, threshold, n)
+    call this%from_function(finterp, xmin, xmax, ymin, ymax, threshold, n)
   contains
     
     function  finterp(x, y)
@@ -3437,5 +3501,37 @@ contains
        call this%write_coor(xstart(i), ystart(i), xend(i), yend(i))
     enddo
   end subroutine coop_asy_arrows_s
+
+  subroutine coop_asy_path_get_perimeter_and_area(this, ipath, perimeter, area)
+    class(coop_asy_path)::this
+    COOP_SINGLE:: perimeter, area
+    COOP_INT::ipath
+    COOP_SINGLE:: xy(2), lastxy(2), beginxy(2)
+    COOP_INT::i, j
+    if(this%nclosed .lt. ipath) stop "asy_path_perimeter: ipath overflow"    
+    if(ipath.gt.1)then
+       i = sum(this%length(1:ipath-1))+1
+    else
+       i = 1
+    endif
+    call this%l%get_element(i, beginxy)
+    lastxy = 0.
+    perimeter = 0.
+    area = 0.
+    do j = 2, this%length(ipath)
+       i = i  + 1
+       call this%l%get_element(i, xy)
+       xy = xy - beginxy
+       perimeter = perimeter + sqrt(sum((xy-lastxy)**2))
+       area = area + lastxy(1)*xy(2) - lastxy(2)*xy(1)
+       lastxy = xy
+    enddo
+    xy = 0.d0
+    perimeter = perimeter + sqrt(sum((xy-lastxy)**2))
+    area = area + lastxy(1)*xy(2) - lastxy(2)*xy(1)
+    area = area/2. !abs(area)/2.
+  end subroutine coop_asy_path_get_perimeter_and_area
+
+
   
 end module coop_asy_mod

@@ -17,6 +17,12 @@ $(LIB): $(OBJ)
 
 all: $(LIB) UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo SST
 
+SWS:	$(OBJ) sample_widths.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) sample_widths.o $(LINK)
+
+MM:	$(OBJ) map_minkowski.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) map_minkowski.o $(LINK)
+
 LLPW:	$(OBJ) lowl_power.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) lowl_power.o $(LINK)
 

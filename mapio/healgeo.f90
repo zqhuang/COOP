@@ -32,7 +32,7 @@ module coop_healpix_mod
   COOP_INT, parameter:: coop_inpaint_nside_start = 8
   COOP_SINGLE,parameter::coop_inpaint_mask_threshold = 0.05
   
-  public::coop_fits_to_header, coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask, coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade, coop_healpix_maps_copy_genre, coop_healpix_correlation_function, coop_healpix_mask_reverse, coop_healpix_maps_diffuse, coop_healpix_mask_diffuse, coop_healpix_nside2lmax, coop_healpix_filament
+  public::coop_fits_to_header, coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_latitude_cut_mask, coop_healpix_IAU_headless_vector,  coop_healpix_latitude_cut_smoothmask, coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade, coop_healpix_maps_copy_genre, coop_healpix_correlation_function, coop_healpix_mask_reverse, coop_healpix_maps_diffuse, coop_healpix_mask_diffuse, coop_healpix_nside2lmax, coop_healpix_filament, coop_healpix_lmax_by_nside
   
 
   logical::coop_healpix_alm_check_done = .false.
@@ -142,7 +142,8 @@ module coop_healpix_mod
      procedure:: rotate_coor => coop_healpix_maps_rotate_coor
      procedure:: distr_nu_e => coop_healpix_maps_distr_nu_e
      procedure :: fetch_filament => coop_healpix_fetch_filament
-     procedure :: stack_on_filament => coop_healpix_stack_on_filament     
+     procedure :: stack_on_filament => coop_healpix_stack_on_filament
+     procedure :: filament_perimeter_area_list => coop_healpix_maps_filament_perimeter_area_list
   end type coop_healpix_maps
 
   type coop_healpix_patch
@@ -2288,8 +2289,8 @@ contains
     COOP_REAL fwhm
     call map%read(mapfile)
     call map%smooth(fwhm)
-    call map%write(trim(coop_file_add_postfix(trim(mapfile),"_smoothed_fwhm"//trim(coop_num2str(nint(fwhm/coop_SI_arcmin)))//"arcmin")))
-    write(*,*) "output: "//trim(coop_file_add_postfix(trim(mapfile),"_smoothed_fwhm"//trim(coop_num2str(nint(fwhm/coop_SI_arcmin)))//"arcmin"))
+    call map%write(trim(coop_file_add_postfix(trim(mapfile),"_"//trim(coop_num2str(nint(fwhm/coop_SI_arcmin)))//"a")))
+    write(*,*) "output: "//trim(coop_file_add_postfix(trim(mapfile),"_"//trim(coop_num2str(nint(fwhm/coop_SI_arcmin)))//"a"))
     call map%free()
   end subroutine coop_healpix_smooth_mapfile
 
@@ -4657,6 +4658,74 @@ contains
 #endif
   end subroutine coop_healpix_maps_stack_filaments_on_peaks
 
+
+  subroutine coop_healpix_maps_filament_perimeter_area_list(this, pix, r, palist, countcut, peakcut, rmscut, imap, plot, sum_pa)
+    class(coop_healpix_maps)::this
+    COOP_INT::pix
+    COOP_SINGLE::r, threshold
+    COOP_SINGLE,optional::peakcut, countcut, rmscut
+    COOP_INT,optional::imap
+    COOP_INT::id, n, i
+    type(coop_asy_path) path
+    type(coop_healpix_disc)::disc
+    type(coop_list_realarr)::palist
+    COOP_SINGLE::pa(2)
+    COOP_UNKNOWN_STRING, optional::plot
+    type(coop_asy)::fig
+    logical::doplot
+    COOP_REAL, parameter::smallest_area =  (15.d0*coop_SI_arcmin)**2
+    COOP_SINGLE,optional::sum_pa(2)
+    if(present(imap))then
+       if(imap .gt. this%nmaps) stop "filament_width: imap overflow"
+       id = imap
+    else
+       id = 1
+    endif
+    if(pix .lt. 0 .or. pix .ge. this%npix) stop "filament_width: pix overflow"
+    call this%get_disc(pix, disc)
+    n = floor(r*this%nside)
+    if(present(countcut))then
+       call path%from_function(fxy, -r, r, -r, r, threshold, n, countcut = countcut)
+    elseif(present(peakcut))then
+       call path%from_function(fxy, -r, r, -r, r, threshold, n, peakcut = peakcut)
+    elseif(present(rmscut))then
+       call path%from_function(fxy, -r, r, -r, r, threshold, n, rmscut = rmscut)       
+    else
+       call path%from_function(fxy, -r, r, -r, r, threshold, n,  rmscut = 1.)       
+    endif
+    doplot = .false.
+    if(present(sum_pa))then
+       sum_pa = 0.
+       do i=1, path%nclosed
+          call path%get_perimeter_and_area(i, pa(1), pa(2))
+          if(abs(pa(2)) .gt. smallest_area) call palist%push(pa)
+          if(pa(1) .gt. r*6.d0)doplot = .true.
+          sum_pa = sum_pa + pa
+       enddo
+    else
+       do i=1, path%nclosed
+          call path%get_perimeter_and_area(i, pa(1), pa(2))
+          if(abs(pa(2)) .gt. smallest_area) call palist%push(pa)
+          if(pa(1) .gt. r*6.d0)doplot = .true.
+       enddo
+    endif
+    if(present(plot) .and. doplot)then
+       call fig%open(plot)
+       call fig%init(xlabel = "$x$", ylabel = "$y$", xmin = -r, xmax = r, ymin = -r, ymax = r)
+       call coop_asy_contour(fig, path, colorfill = "skyblue", smooth = .false., linecolor = "blue", linetype = "solid", linewidth = 0.5)
+       call fig%close()
+    endif
+    call path%free()    
+  contains
+
+    function fxy(x, y)
+      COOP_SINGLE::x, y, fxy
+      COOP_INT::ip
+      call disc%xy2pix(dble(x), dble(y), ip)
+      fxy = this%map(ip, id)
+    end function fxy
+    
+  end subroutine coop_healpix_maps_filament_perimeter_area_list
 
 end module coop_healpix_mod
 

@@ -33,7 +33,7 @@ program map
   nin = 1
   inline_mode =  (iargc() .gt. 0)
   if(.not. inline_mode)then
-     write(*,*) "options are: SPLIT; SMOOTH; DOBEAM; MULTIPLY;I2TQTUT;I2TQUL;IQU2TEB;T2ZETA; IQU2ZETA; QU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE; HIGHPASS; LOWPASS"
+     write(*,*) "options are: SPLIT; SMOOTH; DOBEAM; MULTIPLY;I2TQTUT;I2TQUL;IQU2TEB;T2ZETA; IQU2ZETA; QU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE; HIGHPASS; LOWPASS; LOG"
   endif
   do while(nin .le. nmax)
      if(inline_mode)then
@@ -204,6 +204,18 @@ program map
         enddo
         call hgm%free
         goto 500
+     case("LOG")
+        nin  = nin - 1
+        do i=1, nin
+           call hgm%read(trim(fin(i)))
+           do j = 1, hgm%nmaps
+              scal = sqrt(sum(hgm%map(:, j)**2)/hgm%npix)/1000.d0
+              hgm%map(:, j) = log(max(hgm%map(:, j), scal))
+           enddo
+           call hgm%write(trim(fin(i)))
+        enddo
+        call hgm%free
+        goto 500        
      case("MAX")
         if(inline_mode)then
            inline = coop_inputArgs(nin+1)
