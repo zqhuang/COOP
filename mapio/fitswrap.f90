@@ -19,6 +19,7 @@ module coop_fitswrap_mod
      type(coop_dictionary):: header
    contains
      procedure::open => coop_fits_open
+     procedure::free => coop_fits_free
      procedure::key_value=>coop_fits_key_value
   end type coop_fits
 
@@ -27,12 +28,10 @@ module coop_fitswrap_mod
      COOP_INT::dim
      COOP_INT,dimension(:),allocatable::nside
      COOP_LONG_INT::npix
-     real(dl),dimension(:),allocatable::image
-     COOP_REAL,allocatable::transform(:, :), center(:)
-     COOP_REAL,allocatable::radec_center(:)
+     COOP_REAL,dimension(:),allocatable::image
+     COOP_REAL,allocatable::transform(:, :), center(:)     
    contains
      procedure::regularize => coop_fits_image_regularize
-     procedure::free => coop_fits_image_free
      procedure::get_linear_coordinates => coop_fits_image_get_linear_coordinates
      procedure::get_data => coop_fits_image_get_data
   end type coop_fits_image
@@ -42,6 +41,7 @@ module coop_fitswrap_mod
      real(dl) xmin, xmax, ymin, ymax
      COOP_INT:: smooth_nx, smooth_ny, smooth_npix
      type(coop_sphere_disc)::disc
+     COOP_REAL,allocatable::radec_center(:)     
      real(dl),dimension(:,:),allocatable:: smooth_image
      real(dl),dimension(:,:),allocatable:: smooth_Q, smooth_U
    contains
@@ -75,6 +75,7 @@ contains
     class(coop_fits)::this
     COOP_UNKNOWN_STRING::filename
     COOP_INT i
+    call this%free()
     if(coop_file_exists(filename))then
        this%filename = trim(filename)
        call coop_convert_to_C_string(this%filename)
@@ -88,20 +89,24 @@ contains
     end select
   end subroutine coop_fits_open
 
-  subroutine coop_fits_image_free(this)
-    class(coop_fits_image) :: this
-    if(allocated(this%image)) deallocate(this%image)
-    if(allocated(this%transform))deallocate(this%transform)
-    if(allocated(this%center))deallocate(this%center)
-    if(allocated(this%radec_center))deallocate(this%radec_center)    
-    if(allocated(this%nside))deallocate(this%nside)
+  subroutine coop_fits_free(this)
+    class(coop_fits) :: this
+    call this%header%free()
     select type(this)
-    class is(coop_fits_image_cea)
+    class is(coop_fits_image)
+       if(allocated(this%image)) deallocate(this%image)
+       if(allocated(this%nside))deallocate(this%nside)
+       if(allocated(this%transform))deallocate(this%transform)
+    end select
+    select type(this)
+    class is (coop_fits_image_cea)
+       if(allocated(this%center))deallocate(this%center)
+       if(allocated(this%radec_center))deallocate(this%radec_center)    
        if(allocated(this%smooth_image))deallocate(this%smooth_image)
        if(allocated(this%smooth_Q))deallocate(this%smooth_Q)
        if(allocated(this%smooth_U))deallocate(this%smooth_U)
     end select
-  end subroutine coop_fits_image_free
+  end subroutine coop_fits_free
 
   subroutine coop_fits_get_header(this)
     class(coop_fits)::this
@@ -120,9 +125,7 @@ contains
           write(*,*) "Error: cannot find NAXIS key word in fits file "//trim(this%filename)
           stop
        endif
-       call this%free()
        allocate(this%nside(this%dim))
-       allocate(this%transform(this%dim, this%dim), this%center(this%dim), this%radec_center(this%dim))
        this%npix = 1
        do i=1, this%dim
           this%nside(i) = nint(this%key_value("NAXIS"//COOP_STR_OF(i)))
@@ -134,12 +137,19 @@ contains
           stop
        endif
        allocate(this%image(0:this%npix-1))
+       allocate(this%transform(this%dim, this%dim), this%center(this%dim))
+       this%transform = 0.d0
+       do i=1, this%dim
+          this%transform(i, i) = 1.d0
+       enddo
+       this%center = 0.d0
     end select
 
     !!get transform, center 
     select type(this)
     class is(coop_fits_image_cea)
        if(this%dim .ne. 2) stop "For CEA map the dimension must be 2"
+       allocate(this%radec_center(this%dim))
        allocate(units(this%dim))              
        do i=1, this%dim
           if(index(this%header%value("CUNIT"//COOP_STR_OF(i)), "deg").ne.0)then
@@ -182,6 +192,8 @@ contains
           this%transform(:, i) =  this%transform(:, i) * delta(i)
        enddo
        deallocate(delta)
+    class default
+       return
     end select
   end subroutine coop_fits_get_header
 

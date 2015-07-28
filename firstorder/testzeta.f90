@@ -39,10 +39,13 @@ program test
   call fp%close()
 #else
   do while(l.ge.2)
-     call coop_get_zeta_shells_cov(fod, l, coop_zeta_nr, coop_zeta_r, cov)
-     call coop_prtsystime(.true.)
+     call coop_prtsystime(.true.)     
      call coop_get_zeta_trans_l(fod%source(0),  l, coop_zeta_nr, coop_zeta_r, trans)
      call coop_prtsystime()
+     call coop_get_zeta_shells_cov(fod, l, coop_zeta_nr, coop_zeta_r, cov)
+     print*, sqrt(sum(cov**2)/size(cov)), sqrt(sum(trans(:,1)**2)/size(trans, 1))
+     call coop_prtsystime()
+     
      trans(:,1)=  trans(:,1)*coop_zeta_dr
      trans(:,2)=  trans(:,2)*coop_zeta_dr*sqrt((l+2.d0)*(l+1.d0)*l*(l-1.d0))
      print*, dot_product(trans(:, 1), matmul(cov, trans(:, 1))), Cls(coop_index_clTT, l)

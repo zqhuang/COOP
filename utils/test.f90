@@ -3,14 +3,16 @@ program TestNpeak
   use coop_wrapper_utils
   implicit none
 #include "constants.h"
-
-  type(coop_asy_path)::path
-  COOP_SINGLE::x0 = 1.2, y0 = 2.35
-  COOP_SINGLE::p, a
-  call path%append( x0 + 4., y0 + 3. )  
-  call path%append( x0 + 4., y0 )  
-  call path%append( x0, y0 )
-  call path%close()
-  call path%get_perimeter_and_area(1, p, a)
-  write(*,*) p, a
+  COOP_INT, parameter::n=31, m = 20  
+  COOP_REAL::image(-n:n, -n:n, m)
+  COOP_COMPLEX::fimage(0:n, 0:2*n, m)
+  COOP_INT::i 
+  call random_number(image)
+  !$omp parallel do
+  do i=1, m
+     call coop_fft_forward(2*n+1, 2*n+1, image(:,:,i), fimage(:, :, i))
+  enddo
+  !$omp end parallel do
+  print*, fimage(0, 0,1)
+  print*, fimage(0, 1,1), fimage(0, 2*n,1)
 end program TestNpeak

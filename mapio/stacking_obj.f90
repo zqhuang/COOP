@@ -14,18 +14,20 @@ module coop_stacking_mod
   COOP_INT,parameter::coop_stacking_genre_Null = 0
   COOP_INT,parameter::coop_stacking_genre_Imax = 1
   COOP_INT,parameter::coop_stacking_genre_Imin = 2
-  COOP_INT,parameter::coop_stacking_genre_Imax_Oriented = 3
-  COOP_INT,parameter::coop_stacking_genre_Imin_Oriented = 4
-  COOP_INT,parameter::coop_stacking_genre_Lmax = 5
-  COOP_INT,parameter::coop_stacking_genre_Lmin = 6
-  COOP_INT,parameter::coop_stacking_genre_Lmax_Oriented = 7
-  COOP_INT,parameter::coop_stacking_genre_Lmin_Oriented = 8
-  COOP_INT,parameter::coop_stacking_genre_Pmax_Oriented = 9
-  COOP_INT,parameter::coop_stacking_genre_Pmin_Oriented = 10
-  COOP_INT,parameter::coop_stacking_genre_Random_Hot  = 11
-  COOP_INT,parameter::coop_stacking_genre_Random_Hot_Oriented  = 12
-  COOP_INT,parameter::coop_stacking_genre_Random_Cold  = 13
-  COOP_INT,parameter::coop_stacking_genre_Random_Cold_Oriented  = 14
+  COOP_INT,parameter::coop_stacking_genre_Saddle = 3  
+  COOP_INT,parameter::coop_stacking_genre_Imax_Oriented = 4
+  COOP_INT,parameter::coop_stacking_genre_Imin_Oriented = 5
+  COOP_INT,parameter::coop_stacking_genre_Saddle_Oriented = 6  
+  COOP_INT,parameter::coop_stacking_genre_Lmax = 7
+  COOP_INT,parameter::coop_stacking_genre_Lmin = 8
+  COOP_INT,parameter::coop_stacking_genre_Lmax_Oriented = 9
+  COOP_INT,parameter::coop_stacking_genre_Lmin_Oriented = 10
+  COOP_INT,parameter::coop_stacking_genre_Pmax_Oriented = 11
+  COOP_INT,parameter::coop_stacking_genre_Pmin_Oriented = 12
+  COOP_INT,parameter::coop_stacking_genre_Random_Hot  = 13
+  COOP_INT,parameter::coop_stacking_genre_Random_Hot_Oriented  = 14
+  COOP_INT,parameter::coop_stacking_genre_Random_Cold  = 15
+  COOP_INT,parameter::coop_stacking_genre_Random_Cold_Oriented  = 16
 
 
   type coop_stacking_options
@@ -269,6 +271,18 @@ contains
     this%mask_int = .false.
     this%mask_pol  = .false.    
     select case(trim(coop_str_numalpha(str)))
+    case("LNI")
+       call this%free(1)
+       this%mask_int = .true.
+       this%label = "$\ln I$"
+    case("LNQU")
+       call this%free(2)
+       this%mask_pol = .true.       
+       this%ind = (/ 1, 2 /)       
+       this%spin = 2
+       this%label(1) =  "$\ln Q$"
+       this%label(2) =  "$\ln U$"
+       this%headless_vector = .true.
     case("I", "T")
        call this%free(1)
        this%mask_int = .true.
@@ -421,7 +435,10 @@ contains
     this%nmaps = nmaps    
     p = trim(adjustl(peak_name))
     if(trim(adjustl(orient_name)).eq. "NULL" .or. trim(adjustl(orient_name)) .eq. "RANDOM" .or. trim(adjustl(orient_name)).eq. "NONE" )then
-       if(domax)then
+       if(trim(p) .eq. "SADDLE")then
+          this%genre = coop_stacking_genre_saddle
+          this%caption = "saddle points"
+       elseif(domax)then
           if(trim(p).eq."RANDOM")then
              this%genre = coop_stacking_genre_random_hot
              this%caption = "hot spots"
@@ -455,7 +472,10 @@ contains
           endif
        endif
     else
-       if(domax)then
+       if(trim(p).eq."SADDLE")then
+          this%genre = coop_stacking_genre_saddle_oriented
+          this%caption = " saddle points, "//trim(adjustl(Orient_name))//" oriented"
+       elseif(domax)then
           if(trim(p).eq."RANDOM")then
              this%genre = coop_stacking_genre_random_hot_Oriented
              this%caption = "hot spots, "//trim(adjustl(Orient_name))//" oriented"
@@ -548,8 +568,8 @@ contains
        this%index_L = 4
        this%threshold_option = 7       
     end select
-    select case(trim(coop_str_numalpha(peak_name)))
-    case("T", "I", "zeta", "PT")
+    select case(trim(coop_str_numUpperalpha(peak_name)))
+    case("T", "I", "ZETA", "PT", "PZ", "PZETA", "SADDLE")
        this%mask_int = .true.
     case("E", "B", "P")
        this%mask_pol = .true.
@@ -562,10 +582,10 @@ contains
     case default
        write(*,*) "Unknown class of peaks: cannot automatically determine mask type"
     end select
-    select case(trim(coop_str_numalpha(orient_name)))
-    case("QU")
+    select case(trim(coop_str_numUpperalpha(orient_name)))
+    case("QU", "QEUE", "QNABLA2EUNABLA2E")
        this%mask_pol = .true.
-    case("QTUT", "QLTULT")
+    case("QTUT", "QNABLA2TUNABLA2T","QNABLA2ZETAUNABLA2ZETA", "QZETAUZETA")
        this%mask_int = .true.
     end select
   end subroutine coop_stacking_options_init
@@ -652,7 +672,7 @@ contains
     COOP_INT i
     if(i.gt. this%peak_pix%n) stop "rotate_angle: pix overflow"
     select case(this%genre)
-    case(coop_stacking_genre_Imax, coop_stacking_genre_Imin, coop_stacking_genre_Lmax, coop_stacking_genre_Lmin, coop_stacking_genre_Null, coop_stacking_genre_random_hot, coop_stacking_genre_random_cold)
+    case(coop_stacking_genre_Imax, coop_stacking_genre_Imin, coop_stacking_genre_Lmax, coop_stacking_genre_Lmin, coop_stacking_genre_Null, coop_stacking_genre_random_hot, coop_stacking_genre_random_cold, coop_stacking_genre_Saddle)
        if(this%angzero)then
           angle = 0.d0
           return
@@ -661,7 +681,7 @@ contains
           angle = angle*coop_2pi
           return
        endif
-    case(coop_stacking_genre_Imax_Oriented, coop_stacking_genre_Imin_Oriented, coop_stacking_genre_Lmax_Oriented, coop_stacking_genre_Lmin_Oriented, coop_stacking_genre_Pmax_Oriented, coop_stacking_genre_Pmin_Oriented, coop_stacking_genre_random_hot_oriented, coop_stacking_genre_random_cold_oriented)
+    case(coop_stacking_genre_Imax_Oriented, coop_stacking_genre_Imin_Oriented, coop_stacking_genre_Lmax_Oriented, coop_stacking_genre_Lmin_Oriented, coop_stacking_genre_Pmax_Oriented, coop_stacking_genre_Pmin_Oriented, coop_stacking_genre_random_hot_oriented, coop_stacking_genre_random_cold_oriented, coop_stacking_genre_Saddle_oriented)
        call this%peak_map%get_element(i, map)
        angle = COOP_POLAR_ANGLE(dble(map(this%index_Q)),dble(map(this%index_U)))/2.d0
        if(this%addpi) angle = angle + coop_rand01()*coop_pi

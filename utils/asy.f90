@@ -2065,8 +2065,6 @@ contains
   end subroutine coop_asy_contour_arr_s
 
 
-
-
   subroutine coop_asy_density_d(this, z, xmin, xmax, ymin, ymax, label, zmin, zmax, color_table)
     class(coop_asy) this
     COOP_REAL ,dimension(:,:)::z
@@ -2300,6 +2298,8 @@ contains
        write(this%unit, "(3G14.5)") x(i), y(i), z(i)
     enddo
   end subroutine coop_asy_irregular_density_s
+
+  
 
   subroutine coop_asy_clip_d(this, x, y, smooth)
     class(coop_asy) this

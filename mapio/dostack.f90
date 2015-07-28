@@ -40,6 +40,7 @@ program Stacking_Maps
      write(*,"(A)") "-want_caption [T|F]"
      write(*,"(A)") "-want_label [T|F]"
      write(*,"(A)") "-want_arrow [T|F]"
+     write(*,"(A)") "-fft [F|T]"
      write(*,"(A)") "-want_pdf [T|F]"     
      write(*,"(A)") "----------------------------------------------------------"     
      stop
@@ -55,7 +56,7 @@ program Stacking_Maps
   call coop_get_command_line_argument(key = 'max', arg = zmax1, default=-1.d31)  
   call coop_get_command_line_argument(key = 'min2', arg = zmin2, default=1.d31)
   call coop_get_command_line_argument(key = 'max2', arg = zmax2, default=-1.d31)
-
+  call coop_get_command_line_argument(key = 'fft', arg = coop_healpix_patch_stack_fft, default = .false.)
   
   call coop_get_command_line_argument(key = 'radius', arg = r_degree, default = 2.d0)
   call coop_get_command_line_argument(key = 'res', arg  = n, default = 30)

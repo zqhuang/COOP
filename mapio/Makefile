@@ -17,11 +17,18 @@ $(LIB): $(OBJ)
 
 all: $(LIB) UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo SST
 
+PLOTLINES: $(OBJ) plot_lines.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) plot_lines.o $(LINK)
+
 SWS:	$(OBJ) sample_widths.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) sample_widths.o $(LINK)
 
 MM:	$(OBJ) map_minkowski.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) map_minkowski.o $(LINK)
+
+MM0:	$(OBJ) minkowski0.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) minkowski0.o $(LINK)
+
 
 LLPW:	$(OBJ) lowl_power.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) lowl_power.o $(LINK)
@@ -129,7 +136,7 @@ DoShell: $(OBJ) shells.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) shells.o $(LINK)	
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots UDG Stack MSMAP SimuMaps DoShell SST MST ByProd GetInfo GetTheo GetPeaks Rotate Corr Inpaint LLPW
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots UDG Stack MSMAP SimuMaps DoShell SST MST ByProd GetInfo GetTheo GetPeaks Rotate Corr Inpaint LLPW MM SWS MM0 PLOTLINES CatP FullStack LLCORR LLSCAN GetCl CCards
 
 
 

@@ -44,7 +44,7 @@ program test
         map_p%map(i, 1) = map_p%bad_data
      else
         call palist%init()        
-        call map%filament_perimeter_area_list(pix, r, palist, rmscut = rmscut, sum_pa = sum_pa)
+        call map%perimeter_area_list(pix, r, palist, rmscut = rmscut, sum_pa = sum_pa)
         map_count%map(i, 1) = palist%n
         map_a%map(i, 1) = sum_pa(2)/coop_SI_degree**2
         map_p%map(i, 1) = sum_pa(1)/coop_SI_degree
@@ -80,7 +80,7 @@ program test
         map_p%map(i, 1) = map_p%bad_data
      else
         call palist%init()        
-        call map%filament_perimeter_area_list(pix, r, palist, rmscut = rmscut, sum_pa = sum_pa)
+        call map%perimeter_area_list(pix, r, palist, rmscut = rmscut, sum_pa = sum_pa)
         map_count%map(i, 1) = palist%n
         map_a%map(i, 1) = sum_pa(2)/coop_SI_degree**2
         map_p%map(i, 1) = sum_pa(1)/coop_SI_degree

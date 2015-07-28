@@ -29,7 +29,7 @@ program test
      do while(mask%map(pix, 1) .lt. 0.5)
         pix = coop_random_index(map%npix)-1
      enddo
-     call map%filament_perimeter_area_list(pix, r, palist, rmscut = rmscut, plot = "contours/contours_"//COOP_STR_OF(i)//".txt", want_abs_area = .true.)
+     call map%perimeter_area_list(pix, r, palist, rmscut = rmscut, plot = "contours/contours_"//COOP_STR_OF(i)//".txt", want_abs_area = .true.)
   enddo
   filename = trim(dustorcmb)//"_pa_"//COOP_STR_OF(resolution)//"a_nu"//COOP_FILESTR_OF(dble(rmscut))//".txt"
   call fig%open(filename)
@@ -47,7 +47,7 @@ program test
      do while(mask%map(pix, 1) .lt. 0.5)
         pix = coop_random_index(map%npix)-1
      enddo
-     call map%filament_perimeter_area_list(pix, r, palist, rmscut = rmscut, want_abs_area = .true.)             
+     call map%perimeter_area_list(pix, r, palist, rmscut = rmscut, want_abs_area = .true.)             
   enddo
   call coop_asy_dots(fig, palist, xunit = real(coop_SI_degree), yunit = real(coop_SI_degree**2), color = "red")
   

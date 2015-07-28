@@ -1,13 +1,20 @@
 #!/bin/bash
-rm -f *.gif
-map2gif -inp inpainted_map_8.fits -out inp_0008.gif -bar T -min -420 -max 420
-map2gif -inp inpainted_map_16.fits -out inp_0016.gif -bar T -min -420 -max 420
-map2gif -inp inpainted_map_32.fits -out inp_0032.gif -bar T -min -420 -max 420
-map2gif -inp inpainted_map_64.fits -out inp_0064.gif -bar T -min -420 -max 420
-map2gif -inp inpainted_map_128.fits -out inp_0128.gif -bar T -min -420 -max 420
-map2gif -inp inpainted_map_256.fits -out inp_0256.gif -bar T -min -420 -max 420
-map2gif -inp inpainted_map_512.fits -out inp_0512.gif -bar T -min -420 -max 420
-map2gif -inp inpainted_map_1024.fits -out inp_1024.gif -bar T -min -420 -max 420
-map2gif -inp original_map.fits -out original_map.gif -bar T -min -420 -max 420
+mapname=dust
+nside=0
+radius=0.
+if [ ${nside} == "0" ]
+then
+    mask=dust/lat30_mask_n1024.fits
+else
+    mask=dust/lat30_mask_n${nside}.fits
+fi
+./MM0 -map dust/${mapname}_i_n1024_gauss_sim_15a.fits -prefix gauss_15a -numin -2.1 -numax 2.1 -nnu 22 -nside ${nside} -mask ${mask} -radius ${radius}
+./MM0 -map dust/${mapname}_i_n1024_gauss_sim_30a.fits -prefix gauss_30a -numin -2.1 -numax 2.1 -nnu 22 -nside ${nside} -mask ${mask} -radius ${radius}
+./MM0 -map dust/${mapname}_i_n1024_gauss_sim_60a.fits -prefix gauss_60a -numin -2.1 -numax 2.1 -nnu 22 -nside ${nside} -mask ${mask} -radius ${radius}
+./MM0 -map dust/${mapname}_i_n1024_15a.fits -prefix dust_15a -numin -2.1 -numax 2.1 -nnu 22 -nside ${nside} -mask ${mask} -radius ${radius}
+./MM0 -map dust/${mapname}_i_n1024_30a.fits -prefix dust_30a -numin -2.1 -numax 2.1 -nnu 22 -nside ${nside} -mask ${mask} -radius ${radius}
+./MM0 -map dust/${mapname}_i_n1024_60a.fits -prefix dust_60a -numin -2.1 -numax 2.1 -nnu 22 -nside ${nside} -mask ${mask} -radius ${radius}
+
+#map2gif -inp original_map.fits -out original_map.gif -bar T -min -420 -max 420
 
 

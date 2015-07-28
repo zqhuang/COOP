@@ -109,7 +109,7 @@ contains
     do while(chi(nchi) .lt. chimax)
        nchi = nchi + 1
        if(nchi .gt. n) call coop_return_error("set_default_zeta_r", "nr overflow", "stop")
-       chi(nchi) = chi(nchi-1)+ min((chi(nchi-1)-chi(nchi-2))*1.03d0, 9.9d-4)
+       chi(nchi) = chi(nchi-1)+ min((chi(nchi-1)-chi(nchi-2))*1.03d0, 1.d-3)
     enddo
     coop_zeta_nr = nchi
     if(allocated(coop_zeta_dr))deallocate(coop_zeta_r, coop_zeta_dr)
@@ -239,7 +239,6 @@ contains
           endif
        endif
     endif
-          
     call coop_jl_setup_amp_phase(l)
     !$omp parallel do private(ichi, ik ,idense)
     do ichi = 1, source%ntau
@@ -260,8 +259,8 @@ contains
           enddo
        enddo
        !$omp end parallel do
-       ampr(:,:,nbuffer+1:nr) = ampchi
-       phaser(:,:,nbuffer+1:nr) = phasechi
+       ampr(:,:,nbuffer+1:nr) = ampchi(:, :, source%ntau:1:-1)
+       phaser(:,:,nbuffer+1:nr) = phasechi(:, :, source%ntau:1:-1)
     else
        !$omp parallel do private(ir, ik ,idense)
        do ir = 1, nr
@@ -345,7 +344,6 @@ contains
     COOP_INT ik, idense
     COOP_REAL  kmin, xmin, phasediff, phasesum, last_phasediff, last_phasesum, sumfac, difffac
     logical::dosum
-
 !!$    if(source%a(ichi) .gt. 0.3d0)then !! low redshift stuff, use approx S(k, chi)  = S(k->0, chi)
 !!$       if(abs(source%chi(ichi) - r(ir)).lt. 1.d-6)then
 !!$          kmin = (l+0.5d0)/r(ir)

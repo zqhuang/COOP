@@ -21,8 +21,8 @@ program Exp_spots
      write(*,"(A)") "other options are:"     
      write(*,"(A)") "-out OUTPUT_FILE"
      write(*,"(A)") "-hot [T|F]"
-     write(*,"(A)") "-peak [RANDOM|T|E|B|P_T|P|\zeta|P_\zeta]"
-     write(*,"(A)") "-orient [RANDOM|(Q_T, U_T)|(Q, U)]"
+     write(*,"(A)") "-peak [SADDLE|RANDOM|T|E|B|P_T|P|\zeta|P_\zeta]"
+     write(*,"(A)") "-orient [RANDOM|(Q_T, U_T)|(Q, U)|(Q_{\nabla^2T},U_{\nabla^2T})]"
      write(*,"(A)") "-mask [MASK_FILE|NONE|'']"
      write(*,"(A)") "-nu THRESHOLD_VALUE"
      write(*,"(A)") "-nss NSIDE_SCAN"          
@@ -40,6 +40,9 @@ program Exp_spots
   call coop_get_command_line_argument(key = 'peak', arg = peak_name, default = 'T')
   call coop_get_command_line_argument(key = 'orient', arg = orient_name, default = 'RANDOM')
   call coop_get_command_line_argument(key = 'nu', arg = threshold, default = 0.d0)
+  if((index(orient_name, coop_backslash).ne.0 .or. index(orient_name, "_") .ne. 0 .or. index(orient_name, "^").ne.0) .and. index(orient_name, "$").eq.0)then
+     orient_name = "$"//trim(adjustl(orient_name))//"$"
+  endif
   if(do_max)then
      call coop_get_command_line_argument(key = 'out', arg = output, default = "peaks/"//trim(coop_file_name_of(map_file, want_ext = .false.))//"_"//trim(coop_str_numalpha(peak_name))//"_"//trim(coop_str_numalpha(orient_name))//"_hot.dat")
   else
@@ -51,14 +54,15 @@ program Exp_spots
   if(trim(mask_file).eq."" .and. trim(imask_file).eq."" .and. trim(polmask_file).eq."") mask_file = "NONE"
   call sto%init(do_max, peak_name, orient_name, nmaps = hgm%nmaps)
   sto%angzero = .false.  
-  select case(trim(coop_str_numalpha(peak_name)))
-  case("T", "I", "E", "B", "zeta", "Z", "RANDOM")
+  select case(trim(coop_str_numUpperalpha(peak_name)))
+     !!do nothing
+  case("T", "I", "E", "B", "ZETA", "Z", "RANDOM", "SADDLE")
      if(do_max)then
         sto%I_lower_nu = threshold
      else
         sto%I_upper_nu = -threshold
      endif
-  case("P", "PT", "Pzeta", "PZ")
+  case("P", "PT", "PZETA", "PZ")
      if(do_max)then
         sto%P_lower_nu = max(threshold, 0.d0)
      else

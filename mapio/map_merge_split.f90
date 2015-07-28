@@ -15,25 +15,24 @@ program map
   integer,parameter::nmax = 8
   character(len=80), dimension(64) :: header
   COOP_STRING,dimension(nmax)::fin
-  COOP_STRING::fout, fbeam
+  COOP_STRING::fout, fbeam, field
   integer,dimension(:),allocatable::nmaps_in, ordering_in, nside_in
-  integer nin, i, j, l, il, l1, l2
-  real,dimension(:,:),allocatable:: map_in  
-  real,dimension(:,:),allocatable:: map_out, map_tmp
+  integer nin, i, j, l, il, l1, l2, pix
+  real,dimension(:,:),allocatable:: map_tmp
   integer(8) npixtot
   type(coop_list_integer),dimension(nmax)::indices_wanted
   COOP_STRING::inline
   integer num_maps_wanted, npix, k
   logical::inline_mode = .false.
-  type(coop_healpix_maps) hgm, hgm2
-  COOP_REAL fwhm, scal, threshold
-  COOP_SINGLE::sigmas(100), maxabs
+  type(coop_healpix_maps) hgm, hgm2, mask
+  COOP_REAL fwhm, scal, threshold, eig_p, eig_n, pol_amp
+  COOP_SINGLE::sigmas(100), maxabs, fsky
   type(coop_file)::fp
 
   nin = 1
   inline_mode =  (iargc() .gt. 0)
   if(.not. inline_mode)then
-     write(*,*) "options are: SPLIT; SMOOTH; DOBEAM; MULTIPLY;I2TQTUT;I2TQUL;IQU2TEB;T2ZETA; IQU2ZETA; QU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE; HIGHPASS; LOWPASS; LOG"
+     write(*,*) "options are: SPLIT; SMOOTH; DOBEAM; MULTIPLY;I2TQTUT;I2TQUL;I2TQULDD;IQU2TEB;T2ZETA; IQU2ZETA; QU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE; HIGHPASS; LOWPASS; LOG; LOGIQU; GAUSSIANIZE"
   endif
   do while(nin .le. nmax)
      if(inline_mode)then
@@ -200,22 +199,87 @@ program map
         do i=1, nin
            call hgm%read(trim(fin(i)))
            hgm%map = hgm%map * scal
-           call hgm%write(trim(fin(i)))
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_scal")))
         enddo
         call hgm%free
+        goto 500
+     case("GAUSSIANIZE")
+        if(inline_mode)then
+           inline = coop_inputArgs(nin+1)
+        else
+           write(*,*) "Enter the mask (use NONE for no mask)"
+           read(*, "(A)") inline
+        endif
+        nin = nin - 1        
+        if(trim(adjustl(inline)).eq. "NONE" .or. trim(adjustl(inline)).eq. "")then  !!no mask
+           do i = 1, nin
+              call hgm%read(trim(fin(i)))
+              if( (hgm%nmaps .eq. 1 .and. hgm%spin(1) .eq. 0) .or. (hgm%nmaps .eq. 3 .and. hgm%spin(1) .eq. 0 .and. hgm%iq .eq. 2) )then
+                 write(*,*) "GAUSSIANIZING "//trim(fin(i))
+                 call hgm%map2alm()                 
+                 call hgm%simulate()
+                 call hgm%write(trim(coop_file_add_postfix(fin(i), "_gauss_sim")))
+              else
+                 write(*,*) "GAUSSIANIZE not supported for "//trim(fin(i))
+              endif
+           end do
+        else
+           call mask%read(trim(adjustl(inline)))
+           fsky = sum(dble(mask%map(:, 1)))/mask%npix           
+           do i = 1, nin
+              call hgm%read(trim(fin(i)))
+              if( (hgm%nmaps .eq. 1 .and. hgm%spin(1) .eq. 0) .or. (hgm%nmaps .eq. 3 .and. hgm%spin(1) .eq. 0 .and. hgm%iq .eq. 2) )then
+                 write(*,*) "GAUSSIANIZING "//trim(fin(i))                 
+                 call hgm%apply_mask(mask = mask)
+                 call hgm%map2alm()
+                 hgm%cl(0:1, :) = 0.
+                 hgm%cl = hgm%cl/fsky
+                 call hgm%simulate()
+                 call hgm%write(trim(coop_file_add_postfix(fin(i), "_gauss_sim")))
+              else
+                 write(*,*) "GAUSSIANIZE not supported for "//trim(fin(i))
+              endif
+           end do
+        endif
+        call hgm%free()
         goto 500
      case("LOG")
         nin  = nin - 1
         do i=1, nin
            call hgm%read(trim(fin(i)))
            do j = 1, hgm%nmaps
-              scal = sqrt(sum(hgm%map(:, j)**2)/hgm%npix)/1000.d0
-              hgm%map(:, j) = log(max(hgm%map(:, j), scal))
+              scal = sqrt(sum(hgm%map(:, j)**2)/hgm%npix)/100.d0
+              hgm%map(:, j) = log(max(hgm%map(:, j), 0.)+scal)
            enddo
-           call hgm%write(trim(fin(i)))
+           call hgm%set_fields("LNI")
+           call hgm%set_units("1")
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_ln")))
         enddo
         call hgm%free
-        goto 500        
+        goto 500
+     case("LOGIQU")
+        nin  = nin - 1
+        do i=1, nin
+           call hgm%read(trim(fin(i)), nmaps_wanted = 3)
+           scal = sqrt(sum(hgm%map(:, 1)**2)/hgm%npix)/100.d0
+           !$omp parallel do private(eig_p, eig_n, pol_amp, pix)
+           do pix = 0, hgm%npix-1
+              hgm%map(pix, 1) = max(0., hgm%map(pix, 1)) + scal
+              pol_amp = max(min(sqrt(hgm%map(pix, 2)**2 + hgm%map(pix, 3)**2)/hgm%map(pix, 1), 0.9999), 0.0001)
+              eig_p = log(hgm%map(pix, 1) + pol_amp)
+              eig_n = log(hgm%map(pix, 1) - pol_amp)
+              hgm%map(pix, 1) = 0.5d0 * (eig_p + eig_n)
+              hgm%map(pix, 2:3) = hgm%map(pix, 2:3) * (0.5d0 * (eig_p - eig_n)/pol_amp)
+           enddo
+           !$omp end parallel do
+           call hgm%set_units("1")
+           call hgm%set_field(1, "LNI")
+           call hgm%set_field(2, "LNQ")
+           call hgm%set_field(3, "LNU")           
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_ln")))           
+        enddo
+        call hgm%free
+        goto 500                
      case("MAX")
         if(inline_mode)then
            inline = coop_inputArgs(nin+1)
@@ -228,7 +292,7 @@ program map
         do i=1, nin
            call hgm%read(trim(fin(i)))
            hgm%map = max(min(hgm%map, maxabs), -maxabs)
-           call hgm%write(trim(fin(i)))
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_maxcut"))) 
         enddo
         call hgm%free
         goto 500        
@@ -252,7 +316,7 @@ program map
               hgm%map(:, i) = hgm%map(:, i) * hgm2%map(:,1)
            enddo
            call hgm%write(trim(fout))
-        elseif(hgm2%nmaps.eq.1)then
+        elseif(hgm%nmaps.eq.1)then
            do i=1, hgm2%nmaps
               hgm2%map(:, i) = hgm2%map(:, i) * hgm%map(:,1)
            enddo
@@ -324,27 +388,26 @@ program map
         nin = nin -1
         do i=1, nin
            call hgm%read(trim(fin(i)), nmaps_wanted = 4, nmaps_to_read = 1 )
-           print*, "T map read"
-           hgm2 = hgm
-           call hgm2%map2alm(index_list = (/ 1 /) )
-           hgm2%alm(0:1, :, 1) = 0.
-           do l = 2, hgm2%lmax
-              hgm2%alm(l, :, 1) = hgm2%alm(l, :, 1)*(l*(l+1.d0))
-           enddo
-           call hgm2%alm2map(index_list = (/ 1 /) )
-           call hgm2%get_QU()
-           hgm%map(:, 2:3) = hgm2%map(:,2:3)
-           hgm%map(:, 4) = hgm2%map(:, 1)
-           call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_TQUL")))
+           call hgm%get_QUL()
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_conv_TQUL")))
         enddo
         print*, "maps are all converted to TQUL"
         goto 500
+     case("I2TQULDD")
+        nin = nin -1
+        do i=1, nin
+           call hgm%read(trim(fin(i)), nmaps_wanted = 6, nmaps_to_read = 1 )
+           call hgm%get_QULDD()
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_conv_TQULDD")))
+        enddo
+        print*, "maps are all converted to TQULDD"
+        goto 500        
      case("I2TQTUT")
         nin = nin -1
         do i=1, nin
            call hgm%read(trim(fin(i)), nmaps_wanted = 3, nmaps_to_read = 1 )
            call hgm%get_QU()
-           call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_TQTUT")))
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_conv_TQTUT")))
         enddo
         print*, "maps are all converted to TQTUT"
         goto 500
@@ -353,7 +416,7 @@ program map
         do i=1, nin
            call hgm%read(trim(fin(i)))
            call hgm%qu2EB()
-           call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_TEB")))
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_conv_TEB")))
         enddo
         print*, "maps are all converted to TEB"
         goto 500
@@ -375,7 +438,7 @@ program map
         do i=1, nin
            call hgm%read(trim(fin(i)), nmaps_wanted = 3)
            call hgm%te2zeta(fwhm_arcmin = fwhm, want_unconstrained = .true.)
-           call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_ZETA")), index_list = (/ 1, 2, 3 /) )
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_conv_ZETA")), index_list = (/ 1, 2, 3 /) )
         enddo
         print*, "maps are all converted to zeta"
         goto 500
@@ -397,7 +460,7 @@ program map
         do i=1, nin
            call hgm%read(trim(fin(i)), nmaps_wanted = 3, nmaps_to_read = 2)
            call hgm%E2zeta(fwhm_arcmin = fwhm, want_unconstrained = .true.)
-           call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_ZETA")), index_list = (/ 1, 2, 3/) )
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_conv_ZETA")), index_list = (/ 1, 2, 3/) )
         enddo
         print*, "maps are all converted to zeta"
         goto 500
@@ -418,7 +481,7 @@ program map
         do i=1, nin
            call hgm%read(trim(fin(i)), nmaps_wanted = 3, nmaps_to_read = 1)
            call hgm%t2zeta(fwhm_arcmin = fwhm, want_unconstrained = .true.)
-           call hgm%write(trim(coop_file_add_postfix(fin(i), "_converted_to_ZETA")), index_list = (/ 1, 2, 3/) )
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_conv_ZETA")), index_list = (/ 1, 2, 3/) )
         enddo
         print*, "maps are all converted to zeta"
         goto 500                        
@@ -455,21 +518,26 @@ program map
      num_maps_wanted = num_maps_wanted + indices_wanted(i)%n
   enddo
   write(*,*) "totally "//trim(coop_num2str(num_maps_wanted))//" maps"
-  allocate(map_out(0:npix-1, num_maps_wanted))
+  call hgm%init(nside = nside_in(1), nmaps = num_maps_wanted, genre = "I")
   j = 1
   do i=1, nin
      allocate(map_tmp(0:npix-1, nmaps_in(i)))
      call input_map(trim(fin(i)), map_tmp, npix, nmaps_in(i), fmissval = 0.)
      if(ordering_in(i) .eq. COOP_NESTED) call convert_nest2ring(nside_in(i), map_tmp)
      do k = 1, indices_wanted(i)%n
-        map_out(:, j) = map_tmp(:, indices_wanted(i)%element(k))
+        hgm%map(:, j) = map_tmp(:, indices_wanted(i)%element(k))
         j = j + 1
      enddo
      deallocate(map_tmp)
   enddo
-  call write_minimal_header(header,dtype = 'MAP', nside=nside_in(1), order=COOP_RING, creator='Zhiqi Huang') !!ring order
+  write(*,*) "enter the genre of each map"  
+  do i=1, hgm%nmaps
+     write(*,*) "map "//COOP_STR_OF(i)//":"
+     read(*,*) field
+     call hgm%set_field(i, field)
+  enddo
   call coop_delete_file(trim(fout))
-  call output_map(map_out, header, trim(fout))
+  call hgm%write(trim(fout))
   goto 500
 450 stop "end of file"  
 500 continue
