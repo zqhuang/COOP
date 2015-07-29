@@ -153,6 +153,9 @@ module coop_healpix_mod
      procedure :: zeros => coop_healpix_maps_zeros
      procedure :: local_disk_minkowski0 => coop_healpix_maps_local_disk_minkowski0
      procedure :: scan_local_minkowski0 => coop_healpix_maps_scan_local_minkowski0
+     procedure :: local_disk_minkowski1 => coop_healpix_maps_local_disk_minkowski1
+     procedure :: scan_local_minkowski1 => coop_healpix_maps_scan_local_minkowski1
+
   end type coop_healpix_maps
 
   type coop_healpix_patch
@@ -1248,13 +1251,13 @@ contains
     logical,optional::idone    
     COOP_INT l, lmax, i
     COOP_REAL::resol
-    COOP_SINGLE_COMPLEX,allocatable::alms(:,:,:)
 #ifdef HAS_HEALPIX
     if(this%spin(1).ne.0)then
        stop "get_QULDD: the first map must be spin 0"
     end if
     if(this%nmaps.lt.6) call this%extend(6)
 
+    !!set alms    
     if(.not.present(idone))then
        call this%map2alm(index_list = (/ 1 /) )
     else
@@ -1263,21 +1266,15 @@ contains
        endif
     endif
     lmax = min(this%lmax, this%nside*2)
-    allocate(alms(1, 0:lmax, 0:lmax))
-    resol = 2./this%nside/this%nside
-    alms = 0.
-    do l=1, lmax
-       alms(1, l, 0:l) = this%alm(l, 0:l, 1)*exp(-l*(l+1.)*resol)
-    enddo
-    call alm2map_der(nsmax = this%nside, nlmax = lmax, nmmax = lmax, alm = alms, map = this%map(:, 4), der1 = this%map(:, 5:6))
-
-    this%alm(:,:, 2:4) = 0.
-
+    resol = 2./this%nside/this%nside    
+    this%alm(:,:, 2:6) = 0.
     do l = 2, lmax
-       this%alm(l,0:l,4) = alms(1, l, 0:l) *(l*(l+1.))
-       this%alm(l,0:l,2) = this%alm(l,0:l,4)
+       this%alm(l,0:l,2) = this%alm(l, 0:l, 1)* (l*(l+1.)*exp(-l*(l+1.)*resol))
+       this%alm(l,0:l,4) = this%alm(l, 0:l, 2)
+       this%alm(l,0:l,5) = this%alm(l, 0:l, 1)* sqrt(l*(l+1.)*exp(-l*(l+1.)*resol))
     enddo
-    deallocate(alms)
+    
+    !!set units and spins
     do i=2, 6
        call this%set_unit(i, this%units(1))
     enddo    
@@ -1310,8 +1307,7 @@ contains
        write(*,*) trim(this%fields(1))
        stop "get_QULDD: only supprt I, ZETA and E maps"
     end select
-
-    call this%alm2map( index_list = (/ 2, 3, 4 /) )
+    call this%alm2map( index_list = (/ 2, 3, 4, 5, 6 /) )
 #endif    
   end subroutine coop_healpix_maps_get_QULDD
 
@@ -1533,11 +1529,11 @@ contains
           if(this%nmaps .lt. 6) stop "for dervs map you need at least 6 maps"
           call this%set_units("muK")
           call this%set_field(1, "I")
-          call this%set_field(2, "ID1")
-          call this%set_field(3, "ID2")
-          call this%set_field(4, "IDD11")
-          call this%set_field(5, "IDD12")
-          call this%set_field(6, "IDD22")
+          call this%set_field(2, "QLT")
+          call this%set_field(3, "ULT")
+          call this%set_field(4, "LT")
+          call this%set_field(5, "ID1")
+          call this%set_field(6, "ID2")
        case("ZQZUZ")
           if(this%nmaps.lt.3) stop "For ZQZUZ map you need at least 3 maps"
           call this%set_units("10^{-5}")
@@ -1913,8 +1909,6 @@ contains
           this%spin(i) = 0
        case("ID1", "ID2", "ZD1", "ZD2", "ED1", "ED2", "BD1", "BD2", "LNID1", "LNID2")
           this%spin(i) = 1
-       case("IDD11", "IDD12", "IDD22", "LNIDD11", "LNIDD12", "LNIDD22")
-          this%spin(i) = 2
        case("QPOLARISATION", "Q", "QT", "QLT", "QLZ", "QZ", "QLE", "QSTOKES", "LNQ", "LNQT", "LNQLT")
           this%spin(i) = 2
           this%iq = i
@@ -1932,8 +1926,6 @@ contains
              this%spin(i) = 0
           case("ID1", "ID2", "ZD1", "ZD2", "ED1", "ED2", "BD1", "BD2", "LNID1", "LNID2")
              this%spin(i) = 1
-          case("IDD11", "IDD12", "IDD22", "LNIDD11", "LNIDD12", "LNIDD22")
-             this%spin(i) = 2
           case("QPOLARISATION", "Q", "QT", "QLT", "QLZ", "QZ", "QLE", "QSTOKES", "LNQ", "LNQT", "LNQLT")
              this%spin(i) = 2
              this%iq = i
@@ -5098,7 +5090,7 @@ contains
     class(coop_healpix_maps)::this
     type(coop_healpix_maps)::dervs
     logical, optional::alms_done
-    COOP_INT::imap, i
+    COOP_INT::imap
 #ifdef HAS_HEALPIX
     if(imap.gt. this%nmaps) stop "get_dervs: imap over flow"
     if(dervs%nmaps .ne. 6 .or. dervs%nside .ne. this%nside) &
@@ -5108,24 +5100,22 @@ contains
     elseif(.not. alms_done)then
        call this%map2alm(index_list = (/ imap /) )       
     endif
-    call alm2map_der(nsmax = this%nside, nlmax = this%lmax, nmmax = this%lmax, alm = reshape(this%alm(0:this%lmax, 0:this%lmax, imap), (/ 1, this%lmax+1, this%lmax+1 /) ), map = dervs%map(:, 1), der1 = dervs%map(:, 2:3), der2 = dervs%map(:, 4:6))
-    do i=2, 6
-       call this%set_unit(i, this%units(1))
-    enddo    
+    call alm2map_der(nsmax = this%nside, nlmax = this%lmax, nmmax = this%lmax, alm = reshape(this%alm(0:this%lmax, 0:this%lmax, imap), (/ 1, this%lmax+1, this%lmax+1 /) ), map = dervs%map(:, 1), der1 = dervs%map(:, 5:6), der2 = dervs%map(:, 2:4))
+    call dervs%set_units(this%units(imap))
 #endif    
   end subroutine coop_healpix_maps_get_dervs
 
 
-  subroutine coop_healpix_maps_local_disk_minkowski0(this, pix, radius, nu, imap, mean, rms, V0)
+  subroutine coop_healpix_maps_local_disk_minkowski0(this, pix, r_deg, nu, imap, mean, rms, V0)
     class(coop_healpix_maps)::this
     COOP_INT::pix, imap, i
-    COOP_REAL::radius
+    COOP_REAL::r_deg
     COOP_REAL::nu(:)
     COOP_SINGLE:: V0(:), rms, mean
     COOP_INT::listpix(0:this%npix-1)
     COOP_INT::nlist
     if(size(V0) .ne. size(nu)) stop "local_disk_minkowsk: nu and V0 must have the same size"
-    call this%query_disc(pix, radius, listpix, nlist)
+    call this%query_disc(pix, r_deg, listpix, nlist)
     mean = sum(this%map(listpix(0:nlist-1), imap))/nlist
     rms = sqrt(sum((this%map(listpix(0:nlist-1), imap) - mean)**2)/nlist)
     do i = 1, size(V0)
@@ -5134,12 +5124,12 @@ contains
   end subroutine coop_healpix_maps_local_disk_minkowski0
 
 
-  subroutine coop_healpix_maps_scan_local_minkowski0(this, imap, nu, meanmap, rmsmap, V0map, radius)
+  subroutine coop_healpix_maps_scan_local_minkowski0(this, imap, nu, meanmap, rmsmap, V0map, r_deg)
     class(coop_healpix_maps)::this
     COOP_INT::imap
     COOP_REAL::nu(:)
     type(coop_healpix_maps)::meanmap, rmsmap, V0map
-    COOP_REAL, optional::radius
+    COOP_REAL, optional::r_deg
     COOP_INT::ipix, space, i
     COOP_REAL::theta, phi
     if(V0map%nside .ge. this%nside .or. meanmap%nside .ne. rmsmap%nside .or. meanmap%nside .ne. V0map%nside .or. V0map%nmaps.ne.size(nu)) stop "wrong nside for scan_local_minkowski"
@@ -5147,12 +5137,12 @@ contains
     call rmsmap%convert2nested()
     call V0map%convert2nested()
     call this%convert2nested()
-    if(present(radius))then
-       if(radius .gt. 0.d0)then
+    if(present(r_deg))then
+       if(r_deg .gt. 0.d0)then
           do ipix=0, V0map%npix-1
              call V0map%pix2ang(ipix, theta, phi)
              call this%ang2pix(theta, phi, i)
-             call this%local_disk_minkowski0(i, radius*coop_SI_degree, nu, imap, meanmap%map(ipix, 1), rmsmap%map(ipix,1), V0map%map(ipix,1:V0map%nmaps))
+             call this%local_disk_minkowski0(i, r_deg*coop_SI_degree, nu, imap, meanmap%map(ipix, 1), rmsmap%map(ipix,1), V0map%map(ipix,1:V0map%nmaps))
           enddo
           return
        endif
@@ -5167,9 +5157,59 @@ contains
        enddo
     enddo
   end subroutine coop_healpix_maps_scan_local_minkowski0
+  
+  subroutine coop_healpix_maps_local_disk_minkowski1(this, imap, sourcemap, pix, r_deg, nu, mean, rms, V1)
+    class(coop_healpix_maps)::this
+    COOP_INT::pix, imap, i, sourcemap
+    COOP_REAL::r_deg
+    COOP_REAL::nu(:)
+    COOP_SINGLE:: V1(:), rms, mean
+    COOP_INT::listpix(0:this%npix-1)
+    COOP_INT::nlist
+    if(size(V1) .ne. size(nu)) stop "local_disk_minkowsk: nu and V1 must have the same size"
+    call this%query_disc(pix, r_deg, listpix, nlist)
+    mean = sum(this%map(listpix(0:nlist-1), imap))/nlist
+    rms = sqrt(sum((this%map(listpix(0:nlist-1), imap) - mean)**2)/nlist)
+    do i = 1, size(V1)
+       V1(i) = sum(this%map(listpix(0:nlist-1), sourcemap), mask  = this%map(listpix(0:nlist-1), imap) .ge. mean + nu(i)*rms)/nlist
+    enddo
+  end subroutine coop_healpix_maps_local_disk_minkowski1
 
- 
 
+  subroutine coop_healpix_maps_scan_local_minkowski1(this, imap, sourcemap, nu, meanmap, rmsmap, V1map, r_deg)
+    class(coop_healpix_maps)::this
+    COOP_INT::imap, sourcemap
+    COOP_REAL::nu(:)
+    type(coop_healpix_maps)::meanmap, rmsmap, V1map
+    COOP_REAL, optional::r_deg
+    COOP_INT::ipix, space, i
+    COOP_REAL::theta, phi
+    if(V1map%nside .ge. this%nside .or. meanmap%nside .ne. rmsmap%nside .or. meanmap%nside .ne. V1map%nside .or. V1map%nmaps.ne.size(nu)) stop "wrong nside for scan_local_minkowski"
+    call meanmap%convert2nested()
+    call rmsmap%convert2nested()
+    call V1map%convert2nested()
+    call this%convert2nested()
+    if(present(r_deg))then
+       if(r_deg .gt. 0.d0)then
+          do ipix=0, V1map%npix-1
+             call V1map%pix2ang(ipix, theta, phi)
+             call this%ang2pix(theta, phi, i)
+             call this%local_disk_minkowski1(imap, sourcemap, i, r_deg*coop_SI_degree, nu, meanmap%map(ipix, 1), rmsmap%map(ipix,1), V1map%map(ipix,1:V1map%nmaps))
+          enddo
+          return
+       endif
+    endif
+    space = (this%nside/V1map%nside)**2       
+    do ipix=0, V1map%npix-1
+       meanmap%map(ipix,1) = sum(this%map(ipix*space:(ipix+1)*space-1, imap))/real(space)
+       rmsmap%map(ipix,1) = sqrt(sum( (this%map(ipix*space:(ipix+1)*space-1, imap) - meanmap%map(ipix,1))**2 )/real(space))
+       do i = 1, size(nu)
+          V1map%map(ipix,i) =  sum(this%map(ipix*space:(ipix+1)*space-1, sourcemap), mask = this%map(ipix*space:(ipix+1)*space-1, imap) .ge.  meanmap%map(ipix,1) + nu(i)*rmsmap%map(ipix,1))/space
+       enddo
+    enddo
+  end subroutine coop_healpix_maps_scan_local_minkowski1
+  
+  
 
 end module coop_healpix_mod
 

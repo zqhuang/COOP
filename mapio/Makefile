@@ -29,6 +29,9 @@ MM:	$(OBJ) map_minkowski.o
 MM0:	$(OBJ) minkowski0.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) minkowski0.o $(LINK)
 
+MM1:	$(OBJ) minkowski1.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) minkowski1.o $(LINK)
+
 
 LLPW:	$(OBJ) lowl_power.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) lowl_power.o $(LINK)

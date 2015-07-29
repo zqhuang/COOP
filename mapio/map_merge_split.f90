@@ -216,7 +216,7 @@ program map
               call hgm%read(trim(fin(i)))
               if( (hgm%nmaps .eq. 1 .and. hgm%spin(1) .eq. 0) .or. (hgm%nmaps .eq. 3 .and. hgm%spin(1) .eq. 0 .and. hgm%iq .eq. 2) )then
                  write(*,*) "GAUSSIANIZING "//trim(fin(i))
-                 call hgm%map2alm()                 
+                 call hgm%map2alm()
                  call hgm%simulate()
                  call hgm%write(trim(coop_file_add_postfix(fin(i), "_gauss_sim")))
               else
