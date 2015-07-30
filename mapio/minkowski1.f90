@@ -3,10 +3,10 @@ program test
   use coop_healpix_mod
   implicit none
 #include "constants.h"
-  type(coop_healpix_maps)::map, meanmap, V1map, rmsmap, mask
+  type(coop_healpix_maps)::map, meanmap, V1map, rmsmap, sigma1map, mask
   COOP_REAL::r_deg, numin, numax
   COOP_REAL,dimension(:),allocatable::nu, V1
-  COOP_REAL::global_mean, global_rms, summ
+  COOP_REAL::global_mean, global_rms, summ, global_sigma1
   COOP_INT::nside, nnu, i
   COOP_REAL:: nuc, Gauss_dAdnu, dAdnu
   COOP_STRING::map_file, prefix, mask_file
@@ -29,14 +29,18 @@ program test
   call coop_random_init()
   call coop_get_command_line_argument(key = "map", arg = map_file)
   call coop_get_command_line_argument(key = "mask", arg = mask_file, default = "NONE")  
-  call coop_get_command_line_argument(key = "numin", arg = numin, default = 0.d0)
+  call coop_get_command_line_argument(key = "numin", arg = numin, default = -2.d0)
   call coop_get_command_line_argument(key = "numax", arg = numax, default = 2.d0)
-  call coop_get_command_line_argument(key = "nnu", arg = nnu, default = 20)
+  call coop_get_command_line_argument(key = "nnu", arg = nnu, default = 21)
   call coop_get_command_line_argument(key = "radius", arg = r_deg, default = 0.d0)
   call coop_get_command_line_argument(key = "nside", arg = nside, default = 2)
   call coop_get_command_line_argument(key = "prefix", arg = prefix)
   
-  call map%read(map_file)
+  call map%read(map_file, nmaps_wanted = 6, nmaps_to_read = 1)
+  call map%get_QULDD()
+  map%map(:,2) = ( 0.5*map%map(:,4)*(map%map(:,5)**2+map%map(:,6)**2) - 0.5*(map%map(:,5)**2-map%map(:, 6)**2)*map%map(:, 2) - map%map(:,5)*map%map(:,6)*map%map(:,3) )/(map%map(:,5)**2+map%map(:,6)**2)**1.5
+  map%map(:,3) = map%map(:,5)**2 + map%map(:,6)**2
+
   allocate(nu(nnu), V1(nnu))
   call coop_set_uniform(nnu, nu, numin, numax)
 
@@ -44,11 +48,12 @@ program test
      call meanmap%init(nside = nside, nmaps = 1, genre = "I", nested = .true.)
      call rmsmap%init(nside = nside, nmaps = 1, genre = "I", nested = .true.)
      call V1map%init(nside = nside, nmaps = nnu, genre = "I", nested = .true.)
+     call sigma1map%init(nside = nside, nmaps = nnu, genre = "I", nested = .true.)     
 
 
 
 
-     call map%scan_local_minkowski0(1, nu, meanmap, rmsmap, V1map, r_deg)  
+     call map%scan_local_minkowski1(1, 2, 3, nu, meanmap, rmsmap, sigma1map, V1map, r_deg)  
      call meanmap%write(trim(adjustl(prefix))//"_mean.fits")
      call rmsmap%write(trim(adjustl(prefix))//"_rms.fits")
      call V1map%write(trim(adjustl(prefix))//"_V1.fits")
@@ -78,6 +83,7 @@ program test
         summ = sum(dble(mask%map(:, 1)))
         global_mean = sum(dble(map%map(:, 1)))/summ
         global_rms = sqrt(sum(dble((map%map(:, 1) - global_mean)**2*mask%map(:,1)))/summ)
+        global_sigma1 = sqrt(sum(map%map(:,3)*mask%map(:,1))/summ)
         where (mask%map(:, 1) .lt. 0.5)
            map%map(:, 1) = global_mean - global_rms * 100. !!just put out of the box
         end where
@@ -85,17 +91,15 @@ program test
         summ = map%npix
         global_mean = sum(dble(map%map(:,1)))/summ
         global_rms = sqrt(sum(dble((map%map(:,1)-global_mean)**2))/summ)
+        global_sigma1 = sqrt(sum(map%map(:,3))/summ)
      endif
      do i=1, nnu
-        V1(i) = count(map%map(:,1) .gt. global_mean + global_rms * nu(i))/summ
+        V1(i) = sum(map%map(:,2), mask = map%map(:,1) .gt. global_mean + global_rms * nu(i))/summ/global_sigma1*global_rms
      enddo
   endif
-  call fp%open(trim(adjustl(prefix))//".txt", "w")
-  do i=1, nnu-1
-     nuc = (nu(i)+nu(i+1))/2.d0
-     gauss_dAdnu = exp(-nuc**2/2.d0)/sqrt(coop_2pi)
-     dAdnu = -(V1(i+1)-V1(i))/(nu(i+1)-nu(i))     
-     write(fp%unit, *) nuc, dAdnu*log(dAdnu/gauss_dAdnu)
+  call fp%open(trim(adjustl(prefix))//"_V1.txt", "w")
+  do i=1, nnu
+     write(fp%unit, *)  nu(i), V1(i)*sqrt(8.d0/coop_2pi)*log(V1(i)*exp(nu(i)**2/2.d0)*sqrt(8.d0))
   enddo
   call fp%close()
   call coop_MPI_finalize()

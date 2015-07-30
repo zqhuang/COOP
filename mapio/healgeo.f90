@@ -5158,29 +5158,30 @@ contains
     enddo
   end subroutine coop_healpix_maps_scan_local_minkowski0
   
-  subroutine coop_healpix_maps_local_disk_minkowski1(this, imap, sourcemap, pix, r_deg, nu, mean, rms, V1)
+  subroutine coop_healpix_maps_local_disk_minkowski1(this, imap, sourcemap, grad2map, pix, r_deg, nu, mean, rms, sigma1, V1)
     class(coop_healpix_maps)::this
-    COOP_INT::pix, imap, i, sourcemap
+    COOP_INT::pix, imap, i, sourcemap, grad2map
     COOP_REAL::r_deg
     COOP_REAL::nu(:)
-    COOP_SINGLE:: V1(:), rms, mean
+    COOP_SINGLE:: V1(:), rms, mean, sigma1
     COOP_INT::listpix(0:this%npix-1)
     COOP_INT::nlist
     if(size(V1) .ne. size(nu)) stop "local_disk_minkowsk: nu and V1 must have the same size"
     call this%query_disc(pix, r_deg, listpix, nlist)
     mean = sum(this%map(listpix(0:nlist-1), imap))/nlist
     rms = sqrt(sum((this%map(listpix(0:nlist-1), imap) - mean)**2)/nlist)
+    sigma1 = sum(this%map(listpix(0:nlist-1), grad2map))/nlist
     do i = 1, size(V1)
-       V1(i) = sum(this%map(listpix(0:nlist-1), sourcemap), mask  = this%map(listpix(0:nlist-1), imap) .ge. mean + nu(i)*rms)/nlist
+       V1(i) = sum(this%map(listpix(0:nlist-1), sourcemap), mask  = this%map(listpix(0:nlist-1), imap) .ge. mean + nu(i)*rms)/nlist/sigma1*rms
     enddo
   end subroutine coop_healpix_maps_local_disk_minkowski1
 
 
-  subroutine coop_healpix_maps_scan_local_minkowski1(this, imap, sourcemap, nu, meanmap, rmsmap, V1map, r_deg)
+  subroutine coop_healpix_maps_scan_local_minkowski1(this, imap, sourcemap, grad2map, nu, meanmap, rmsmap, sigma1map, V1map, r_deg)
     class(coop_healpix_maps)::this
-    COOP_INT::imap, sourcemap
+    COOP_INT::imap, sourcemap, grad2map
     COOP_REAL::nu(:)
-    type(coop_healpix_maps)::meanmap, rmsmap, V1map
+    type(coop_healpix_maps)::meanmap, rmsmap, V1map, sigma1map
     COOP_REAL, optional::r_deg
     COOP_INT::ipix, space, i
     COOP_REAL::theta, phi
@@ -5194,7 +5195,7 @@ contains
           do ipix=0, V1map%npix-1
              call V1map%pix2ang(ipix, theta, phi)
              call this%ang2pix(theta, phi, i)
-             call this%local_disk_minkowski1(imap, sourcemap, i, r_deg*coop_SI_degree, nu, meanmap%map(ipix, 1), rmsmap%map(ipix,1), V1map%map(ipix,1:V1map%nmaps))
+             call this%local_disk_minkowski1(imap, sourcemap, grad2map, i, r_deg*coop_SI_degree, nu, meanmap%map(ipix, 1), rmsmap%map(ipix,1), sigma1map%map(ipix,1), V1map%map(ipix,1:V1map%nmaps))
           enddo
           return
        endif
@@ -5203,8 +5204,9 @@ contains
     do ipix=0, V1map%npix-1
        meanmap%map(ipix,1) = sum(this%map(ipix*space:(ipix+1)*space-1, imap))/real(space)
        rmsmap%map(ipix,1) = sqrt(sum( (this%map(ipix*space:(ipix+1)*space-1, imap) - meanmap%map(ipix,1))**2 )/real(space))
+       sigma1map%map(ipix,1) = sqrt(sum(this%map(ipix*space:(ipix+1)*space-1, grad2map))/real(space))
        do i = 1, size(nu)
-          V1map%map(ipix,i) =  sum(this%map(ipix*space:(ipix+1)*space-1, sourcemap), mask = this%map(ipix*space:(ipix+1)*space-1, imap) .ge.  meanmap%map(ipix,1) + nu(i)*rmsmap%map(ipix,1))/space
+          V1map%map(ipix,i) =  sum(this%map(ipix*space:(ipix+1)*space-1, sourcemap), mask = this%map(ipix*space:(ipix+1)*space-1, imap) .ge.  meanmap%map(ipix,1) + nu(i)*rmsmap%map(ipix,1))/space/sigma1map%map(ipix,1)*rmsmap%map(ipix,1)
        enddo
     enddo
   end subroutine coop_healpix_maps_scan_local_minkowski1

@@ -29,9 +29,9 @@ program test
   call coop_random_init()
   call coop_get_command_line_argument(key = "map", arg = map_file)
   call coop_get_command_line_argument(key = "mask", arg = mask_file, default = "NONE")  
-  call coop_get_command_line_argument(key = "numin", arg = numin, default = 0.d0)
-  call coop_get_command_line_argument(key = "numax", arg = numax, default = 2.d0)
-  call coop_get_command_line_argument(key = "nnu", arg = nnu, default = 20)
+  call coop_get_command_line_argument(key = "numin", arg = numin, default = -2.1d0)
+  call coop_get_command_line_argument(key = "numax", arg = numax, default = 2.1d0)
+  call coop_get_command_line_argument(key = "nnu", arg = nnu, default = 22)
   call coop_get_command_line_argument(key = "radius", arg = r_deg, default = 0.d0)
   call coop_get_command_line_argument(key = "nside", arg = nside, default = 2)
   call coop_get_command_line_argument(key = "prefix", arg = prefix)
@@ -90,7 +90,7 @@ program test
         V0(i) = count(map%map(:,1) .gt. global_mean + global_rms * nu(i))/summ
      enddo
   endif
-  call fp%open(trim(adjustl(prefix))//".txt", "w")
+  call fp%open(trim(adjustl(prefix))//"_V0.txt", "w")
   do i=1, nnu-1
      nuc = (nu(i)+nu(i+1))/2.d0
      gauss_dAdnu = exp(-nuc**2/2.d0)/sqrt(coop_2pi)
