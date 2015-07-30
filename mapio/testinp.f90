@@ -28,7 +28,7 @@ program test
   !  call mask%read("lowl/commander_dx11d2_mask_temp_n0256_likelihood_v1.fits")
   !  call mask%read("planck14/lat30_mask_n256.fits")
   !call mask%read("planck14/dx11_v2_commander_int_mask_040a_0256.fits")
-  call mask%read("lowl/commander_mask_n0128_60a.fits")
+  call mask%read("lowl/hemisphere_mask.fits")
   Cls_ave = 0.d0
   Cls_sim = 0.d0
   call map%init(nside = nside, nmaps = 1, genre = "TEMPERATURE", lmax = lmax)

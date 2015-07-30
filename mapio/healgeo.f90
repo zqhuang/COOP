@@ -5170,7 +5170,7 @@ contains
     call this%query_disc(pix, r_deg, listpix, nlist)
     mean = sum(this%map(listpix(0:nlist-1), imap))/nlist
     rms = sqrt(sum((this%map(listpix(0:nlist-1), imap) - mean)**2)/nlist)
-    sigma1 = sum(this%map(listpix(0:nlist-1), grad2map))/nlist
+    sigma1 = sqrt(sum(this%map(listpix(0:nlist-1), grad2map))/nlist)
     do i = 1, size(V1)
        V1(i) = sum(this%map(listpix(0:nlist-1), sourcemap), mask  = this%map(listpix(0:nlist-1), imap) .ge. mean + nu(i)*rms)/nlist/sigma1*rms
     enddo
