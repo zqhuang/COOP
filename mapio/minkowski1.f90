@@ -6,9 +6,9 @@ program test
   type(coop_healpix_maps)::map, meanmap, V1map, rmsmap, sigma1map, mask
   COOP_REAL::r_deg, numin, numax
   COOP_REAL,dimension(:),allocatable::nu, V1
-  COOP_REAL::global_mean, global_rms, summ, global_sigma1
+  COOP_REAL::global_mean, global_rms, summ, global_sigma1, gauss_V1
   COOP_INT::nside, nnu, i
-  COOP_REAL:: nuc, Gauss_dAdnu, dAdnu
+  COOP_REAL:: nuc, Gauss_dAdnu, dAdnu, rat
   COOP_STRING::map_file, prefix, mask_file
   type(coop_file)::fp
   call coop_MPI_init()
@@ -98,8 +98,14 @@ program test
      enddo
   endif
   call fp%open(trim(adjustl(prefix))//"_V1.txt", "w")
+  V1 = max(V1, 0.)  !!get rid of negative V1's due to numerical noise
   do i=1, nnu
-     write(fp%unit, *)  nu(i), V1(i)*sqrt(8.d0/coop_2pi)*log(V1(i)*exp(nu(i)**2/2.d0)*sqrt(8.d0))
+     gauss_V1 = exp(-nu(i)**2/2.d0)/sqrt(8.d0)
+     rat = V1(i)/gauss_V1
+     if(V1(i) .le. 0.)then
+        V1(i) = gauss_V1
+     endif
+     write(fp%unit, "(3E16.7)")  nu(i), V1(i) * sqrt(8.d0/coop_2pi) * log( V1(i) * exp(nu(i)**2/2.d0) * sqrt(8.d0)), max(rat, 0.)
   enddo
   call fp%close()
   call coop_MPI_finalize()

@@ -362,7 +362,7 @@ contains
   function coop_cosmology_background_HddbyH3(this, a) result(HddbyH3) 
     class(coop_cosmology_background)::this
     COOP_INT i
-    COOP_REAL HddbyH3, a, pa4, rhoa4, w,  rhoa4_total, pa4_total, ddterm, HdotbyHsq, H2term, alpha_M
+    COOP_REAL HddbyH3, a, pa4, rhoa4, w,  rhoa4_total, pa4_total, ddterm, H2term, addbyaHsq
     rhoa4_total = 0.d0
     pa4_total = 0.d0
     ddterm = 0.d0
@@ -370,16 +370,16 @@ contains
        rhoa4 = this%species(i)%Omega * this%species(i)%rhoa4_ratio(a)
        w = this%species(i)%wofa(a)
        pa4 = w *rhoa4
-       ddterm = ddterm + rhoa4*(this%species(i)%wp1effofa(a)*(1.d0+3.d0*w) - 3.d0*this%species(i)%dwda(a)*a)
+       ddterm = ddterm + rhoa4*(this%species(i)%wp1effofa(a)*(1.d0+3.d0*w) - this%species(i)%dwda(a) * a)
        rhoa4_total = rhoa4_total + rhoa4
        pa4_total = pa4_total + pa4
     enddo
     H2term = (rhoa4_total + this%Omega_k_value*a**2)
-    HdotbyHsq = -(rhoa4_total + 3.d0*pa4_total)/2.d0/H2term - 1.d0
+    addbyaHsq =  -(rhoa4_total + 3.d0*pa4_total)/2.d0/H2term
 #if DO_EFT_DE
-    HddbyH3 = 1.5d0*ddterm/H2term - (2.d0 + alpha_M) * HdotbyHsq - alpha_M 
+    HddbyH3 = 1.5d0 * ddterm / H2term - 2.d0 * (addbyaHsq - 1.d0) - this%alpha_M(a) *addbyaHsq
 #else    
-    HddbyH3 = 1.5d0*ddterm/H2term - 2.d0*HdotbyHsq    
+    HddbyH3 = 1.5d0 * ddterm / H2term - 2.d0 * (addbyaHsq - 1.d0)
 #endif    
   end function coop_cosmology_background_HddbyH3
 

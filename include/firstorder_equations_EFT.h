@@ -10,7 +10,6 @@
     COOP_REAL, dimension(coop_pert_default_nq)::Fmnu2_prime, Fmnu2, Fmnu0, qbye, wp, wp_prime, wrho_minus_wp
     COOP_REAL::  asq, Hsq
     COOP_INT::category
-
     COOP_REAL::Hpc_dd, Hpc_d, Hpc, dec,  HddbyH3, Hpc2, Hpc1
     !!My PHI = Psi in Hu & White = Psi in Ma et al;
     !!My PSI = - Phi in Hu & White = Phi in Ma et al;
@@ -31,6 +30,8 @@
     pert%pa2_nu = pert%rhoa2_nu *  O0_NU(cosmology)%wofa(a)
     pert%rhoa2_de = O0_DE(cosmology)%rhoa2(a)
     pert%pa2_de = O0_DE(cosmology)%wofa(a)* pert%rhoa2_de
+    
+    
     pert%M2 = cosmology%M2(a)
     
     pert%alpha_M = cosmology%alpha_M(a)
@@ -64,6 +65,10 @@
        pert%pa2_mnu = 0.d0
     endif
 
+    pert%rhoa2_matter = pert%rhoa2_g + pert%rhoa2_b + pert%rhoa2_c + pert%rhoa2_nu +pert%rhoa2_mnu
+    pert%pa2_matter = pert%pa2_g + pert%pa2_nu + pert%pa2_mnu
+
+    
     pert%rhoa2_sum = pert%rhoa2_g + pert%rhoa2_b + pert%rhoa2_c + pert%rhoa2_nu +pert%rhoa2_mnu+pert%rhoa2_de 
     pert%pa2_sum = pert%pa2_g + pert%pa2_nu + pert%pa2_mnu + pert%pa2_de
     aHsq = (pert%rhoa2_sum + cosmology%Omega_k())/3.d0/pert%M2

@@ -6,7 +6,7 @@ program test
   type(coop_healpix_maps)::map, meanmap, V0map, rmsmap, mask
   COOP_REAL::r_deg, numin, numax
   COOP_REAL,dimension(:),allocatable::nu, V0
-  COOP_REAL::global_mean, global_rms, summ
+  COOP_REAL::global_mean, global_rms, summ, rat
   COOP_INT::nside, nnu, i
   COOP_REAL:: nuc, Gauss_dAdnu, dAdnu
   COOP_STRING::map_file, prefix, mask_file
@@ -49,9 +49,9 @@ program test
 
 
      call map%scan_local_minkowski0(1, nu, meanmap, rmsmap, V0map, r_deg)  
-     call meanmap%write(trim(adjustl(prefix))//"_mean.fits")
-     call rmsmap%write(trim(adjustl(prefix))//"_rms.fits")
-     call V0map%write(trim(adjustl(prefix))//"_V0.fits")
+!!$     call meanmap%write(trim(adjustl(prefix))//"_mean.fits")
+!!$     call rmsmap%write(trim(adjustl(prefix))//"_rms.fits")
+!!$     call V0map%write(trim(adjustl(prefix))//"_V0.fits")
 
      if(trim(mask_file) .ne. "NONE")then
         call mask%read(mask_file, nested = .true.)
@@ -94,8 +94,12 @@ program test
   do i=1, nnu-1
      nuc = (nu(i)+nu(i+1))/2.d0
      gauss_dAdnu = exp(-nuc**2/2.d0)/sqrt(coop_2pi)
-     dAdnu = -(V0(i+1)-V0(i))/(nu(i+1)-nu(i))     
-     write(fp%unit, *) nuc, dAdnu*log(dAdnu/gauss_dAdnu)
+     dAdnu = -(V0(i+1)-V0(i))/(nu(i+1)-nu(i))
+     rat = dAdnu/gauss_dAdnu
+     if(dAdnu .le. 0.)then
+        dAdnu = gauss_dAdnu
+     endif
+     write(fp%unit, "(3E16.7)") nuc, dAdnu*log(dAdnu/gauss_dAdnu), rat
   enddo
   call fp%close()
   call coop_MPI_finalize()

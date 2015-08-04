@@ -648,7 +648,7 @@ contains
           lnrho(i) = lnrho(i+1) + (wp1eff(i)+wp1eff(i+1))*step
           rhoa4de = exp(lnrho(i)+4.d0*lna)
           om_l = rhoa4de/(rhoa4de + rhotot_l)
-          if(om_l .lt. 1.d-80)then
+          if(om_l .lt. 1.d-50)then
              lnrho(1:i-1) = lnrho(i)
              wp1eff(1:i-1) = wp1eff(i)
              return
