@@ -274,6 +274,111 @@ contains
        i01 = 0
     end if
   end function coop_rand01
+
+
+
+  subroutine coop_fit_gaussian(x, nbins, xbar, sigma, A)
+    COOP_INT nbins    
+    COOP_REAL::x(:)
+    COOP_REAL::xcopy(size(x))
+    COOP_REAL c(nbins), xb(nbins), err(nbins), dx, newxbar, newsigma, newA, newchisq, chisq, xbar, sigma, A
+    COOP_INT::i, n, nstep, ntail, j, next, nstep1, nstep2, nstep3, fail
+    n = size(x)
+    if(n.lt. 48 .or. nbins.lt. 6) stop "fit_gaussian assumes at least 6 bins and 48 samples"
+    xcopy = x
+    call coop_quicksort(xcopy)
+    nstep1 = n/nbins/4
+    if(nstep1 .lt. 2)stop "too many bins for fit_gaussian: max number of bins is n/8"        
+    nstep2 = nstep1*2
+    nstep3 = nstep1*3
+    if(nbins.gt.6)then
+       nstep = (n- (nstep1+nstep2+nstep3)*2)/(nbins-6)
+    endif
+    ntail = n - nstep*(nbins-6) - (nstep1+nstep2+nstep3)*2
+    nstep1 = nstep1 + ntail/6
+    nstep2 = nstep2 + ntail/6
+    nstep3 = (n - (nstep1+nstep2)*2 - nstep*(nbins-6) ) / 2
+    j = nstep1
+    xb(1) = sum(xcopy(1:j))/nstep1
+    dx = ((xcopy(j+1)+xcopy(j))/2.d0 - xcopy(1) - (xcopy(2)-xcopy(1))/2.d0)
+    c(1) = nstep1/dx
+    err(1) = c(1)/dx
+
+    do i=2, nbins-1
+       next = j+1
+       if(i.eq.2 .or. i.eq. nbins-1)then
+          j = j + nstep2
+       elseif(i.eq.3.or.i.eq.nbins-2)then
+          j = j + nstep3
+       else
+          j = j + nstep
+       endif
+       xb(i) = sum(xcopy(next:j))/(j-next+1)
+       dx = ((xcopy(j+1)+xcopy(j))/2.d0-(xcopy(next)+xcopy(next-1))/2.d0)
+       c(i) = (j-next+1)/dx
+       err(i) = c(i)/dx
+    enddo
+    next = j+1
+    xb(nbins) = sum(xcopy(next:n))/(n-j)
+    dx = ((xcopy(n)+(xcopy(n)-xcopy(n-1))/2.d0)-(xcopy(j)+xcopy(next))/2.d0)
+    c(nbins) = (n-j)/dx
+    err(nbins) = c(nbins)/dx
+    xbar = sum(x)/n
+    sigma = sqrt(sum((x-xbar)**2)/n)
+    call get_chisq(xbar, sigma, chisq)
+    dx = sigma/20.d0
+    do i = 1, 30
+       call random_walk(xbar, sigma, dx, newxbar, newsigma)
+       call get_chisq(newxbar, newsigma, newchisq)
+       if(newchisq .lt. chisq)then
+          xbar = newxbar
+          sigma = newsigma
+          chisq = newchisq
+       endif
+    enddo
+    dx = sigma/20.d0
+    fail = 0
+    do i = 1, 50000
+       call random_walk(xbar, sigma, dx, newxbar, newsigma)
+       call get_chisq(newxbar, newsigma, newchisq)
+       if(newchisq .lt. chisq)then
+          xbar = newxbar
+          sigma = newsigma
+          chisq = newchisq
+          fail = 0
+       else
+          fail = fail + 1
+       endif
+       if(fail .gt. 10)then
+          dx = dx * 0.8d0
+          fail  = 0
+          if(dx/sigma .lt. 1.d-5)exit
+       endif
+    enddo
+    call get_A(xbar, sigma, A)
+    A = A*sigma*sqrt(coop_2pi)
+  contains
+
+    subroutine random_walk(xbar, sigma, dx, newxbar, newsigma)
+      COOP_REAL::r, xbar, sigma, dx, newxbar, newsigma
+      call random_number(r)
+      newxbar = xbar + dx*(r-0.5d0)
+      call random_number(r)      
+      newsigma = exp(log(sigma)+dx/sigma*(r-0.5d0))
+    end subroutine random_walk
+
+    subroutine get_A(xbar, sigma, A)
+      COOP_REAL::xbar, sigma, A
+      A = sum( c*exp(-((xb-xbar)/sigma)**2/2.d0)/err) / sum(exp(-((xb-xbar)/sigma)**2)/err)
+    end subroutine get_A
+    
+    subroutine get_chisq(xbar, sigma, chisq)
+      COOP_REAL::xbar, sigma, A, chisq
+      call get_A(xbar, sigma, A)
+      chisq  = sum((A*exp(-((xb - xbar)/sigma)**2/2.d0) - c)**2/err)
+    end subroutine get_chisq
+    
+  end subroutine coop_fit_gaussian  
   
 end module Coop_random_mod
 

@@ -651,7 +651,8 @@ contains
           if(om_l .lt. 1.d-50)then
              lnrho(1:i-1) = lnrho(i)
              wp1eff(1:i-1) = wp1eff(i)
-             return
+             M2(1:i-1) = M2(i)
+             goto 100
           endif
           wp1eff(i) = wp1_l - alpha_l/3.d0/om_l
        enddo
@@ -664,7 +665,7 @@ contains
        rhotot_r = rhotot_l
        alpha_r = alpha_l
     enddo
-    M2 = exp(M2*(dlna/2.d0))
+100 M2 = exp(M2*(dlna/2.d0))
     lnrho = lnrho - lnrho(coop_default_array_size)
     call de%fwp1eff%init(coop_default_array_size, coop_min_scale_factor, coop_scale_factor_today, wp1eff, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "DE 1+w_eff(a)")
     call de%flnrho%init(coop_default_array_size,coop_min_scale_factor, coop_scale_factor_today, lnrho, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "DE ln rho_ratio")

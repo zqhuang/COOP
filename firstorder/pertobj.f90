@@ -32,7 +32,7 @@ module coop_pertobj_mod
   type coop_pert_object
      COOP_REAL::k, a, aH, daHdtau, HdotbyHsq, tau, tauc, taucdot, R, rhoa2_b, rhoa2_c, rhoa2_nu, rhoa2_de, rhoa2_g, rhoa2_mnu, pa2_mnu, pa2_g, pa2_nu, pa2_de, rhoa2_sum, pa2_sum, cs2b, capP, kbyaH, ksq, kbyaHsq
 #if DO_EFT_DE     
-     COOP_REAL::M2, alpha_M, alpha_K, alpha_T, alpha_B, alpha_H, alpha_M_prime, alpha_K_prime, alpha_T_prime, alpha_B_prime, alpha_H_prime, HdotbyHsq_prime, p_prime_a2_matter, rho_prime_a2_matter, pa2_matter, rhoa2_matter
+     COOP_REAL::M2, alpha_M, alpha_K, alpha_T, alpha_B, alpha_H, alpha_M_prime, alpha_K_prime, alpha_T_prime, alpha_B_prime, alpha_H_prime, HdotbyHsq_prime, p_prime_a2_matter, rho_prime_a2_matter, pa2_matter, rhoa2_matter, HddbyH3, u
 #endif     
      COOP_STRING::initial_conditions = "adiabatic"
      logical::tight_coupling = .true.
@@ -87,6 +87,12 @@ contains
        !!do nothing
     case(COOP_PERT_SCALAR_FIELD)
        T00 = T00  -  pert%de_delta_rho*pert%a**2
+#if DO_EFT_DE       
+    case(COOP_PERT_EFT)
+       T00 = T00/pert%M2 - pert%aH**2* ( &
+            (pert%alpha_K - pert%alpha_B*6.d0)*(pert%O1_DE_HPIPR - pert%HdotbyHsq * pert%O1_DE_HPI) &
+            + 6.d0*(pert%alpha_B*pert%HdotbyHsq + pert%u + pert%kbyaHsq/3.d0*(pert%alpha_H - pert%alpha_B))*pert%O1_DE_HPI)
+#endif       
     case default
        call coop_tbw("T00: de perturbations not written")
     end select
@@ -96,7 +102,11 @@ contains
   function coop_pert_object_delta_G00a2(pert) result(G00)
     class(coop_pert_object)::pert
     COOP_REAL::G00
+#if DO_EFT_DE
+    G00 = 2.d0*(pert%k**2 * pert%O1_PSI*(1.d0+pert%alpha_H) + 3.d0*pert%aH**2*((1.d0+pert%alpha_B)*pert%O1_PSIPR + pert%O1_Phi*(1.d0-pert%alpha_K/6.d0+pert%alpha_B*2.d0)))    
+#else    
     G00 = 2.d0*(pert%k**2 * pert%O1_PSI + 3.d0*pert%aH**2*(pert%O1_PSIPR + pert%O1_Phi))
+#endif    
   end function coop_pert_object_delta_G00a2
 
   function coop_pert_object_delta_T0ia2(pert) result(T0i)

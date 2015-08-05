@@ -930,7 +930,6 @@ contains
     enddo
     !$omp end parallel do
   end subroutine coop_smooth_data_s
-  
 
 
 end module coop_basicutils_mod

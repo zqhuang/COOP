@@ -2,15 +2,15 @@
     COOP_INT n
     type(coop_cosmology_firstorder)::cosmology
     type(coop_pert_object)::pert
-    COOP_REAL, parameter::epsilon_EFT = 1.d-5
+    COOP_REAL, parameter::tol = 1.d-5, conv_slope = 30.d0
     COOP_REAL lna, y(0:n-1), yp(0:n-1)
     COOP_INT i, l, iq
-    COOP_REAL a, aniso,  ktauc, ktaucdot, ktaucdd, aniso_prime, aHtauc, aHtau, aHsq, uterm, vterm, ma, doptdlna
+    COOP_REAL a, aniso,  ktauc, ktaucdot, ktaucdd, aniso_prime, aHtauc, aHtau, aHsq, uterm, vterm, ma, doptdlna, M2a2H2, anisobyM2
     COOP_REAL :: pa2pr_g, pa2pr_nu
     COOP_REAL, dimension(coop_pert_default_nq)::Fmnu2_prime, Fmnu2, Fmnu0, qbye, wp, wp_prime, wrho_minus_wp
     COOP_REAL::  asq, Hsq
     COOP_INT::category
-    COOP_REAL::Hpc_dd, Hpc_d, Hpc, dec,  HddbyH3, Hpc2, Hpc1
+    COOP_REAL:: Pc, P1, P0, Pcpr, P1pr, P0pr, phi_c, phipr_c, pidot_c, Mat(4, 2), cons(2)
     !!My PHI = Psi in Hu & White = Psi in Ma et al;
     !!My PSI = - Phi in Hu & White = Phi in Ma et al;
     !!My multipoles  = 4 * multipoles in Hu & White = (2l + 1) * multipoles in Ma et al
@@ -46,24 +46,8 @@
     pert%alpha_K_prime = cosmology%alpha_K_prime(a)
     pert%alpha_H_prime = cosmology%alpha_H_prime(a)
 
-    if(cosmology%index_massivenu .ne. 0 )then
-       pert%rhoa2_mnu = O0_MASSIVENU(cosmology)%rhoa2(a)
-       pert%pa2_mnu = pert%rhoa2_mnu *  O0_MASSIVENU(cosmology)%wofa(a)
-       ma = cosmology%mnu_by_Tnu * a
-       if(ma  .lt. 1.d-4)then
-          wrho_minus_wp = (cosmology%mnu_by_Tnu * a)**2/coop_pert_default_q**2
-          qbye = 1.d0 - wrho_minus_wp/2.d0
-          wrho_minus_wp = wrho_minus_wp * coop_pert_default_q_kernel *  pert%num_mnu_ratio
-       else
-          qbye =  coop_pert_default_q/sqrt(coop_pert_default_q**2 + (cosmology%mnu_by_Tnu * a)**2)
-          wrho_minus_wp = coop_pert_default_q_kernel *  pert%num_mnu_ratio * (1.d0/qbye - qbye)
-       endif
-       wp = qbye * coop_pert_default_q_kernel * pert%num_mnu_ratio
-       wp_prime = -(cosmology%mnu_by_Tnu*a)**2/(coop_pert_default_q**2 + (cosmology%mnu_by_Tnu * a)**2) * wp
-    else
-       pert%rhoa2_mnu = 0.d0
-       pert%pa2_mnu = 0.d0
-    endif
+    pert%rhoa2_mnu = 0.d0
+    pert%pa2_mnu = 0.d0
 
     pert%rhoa2_matter = pert%rhoa2_g + pert%rhoa2_b + pert%rhoa2_c + pert%rhoa2_nu +pert%rhoa2_mnu
     pert%pa2_matter = pert%pa2_g + pert%pa2_nu + pert%pa2_mnu
@@ -71,15 +55,16 @@
     
     pert%rhoa2_sum = pert%rhoa2_g + pert%rhoa2_b + pert%rhoa2_c + pert%rhoa2_nu +pert%rhoa2_mnu+pert%rhoa2_de 
     pert%pa2_sum = pert%pa2_g + pert%pa2_nu + pert%pa2_mnu + pert%pa2_de
-    aHsq = (pert%rhoa2_sum + cosmology%Omega_k())/3.d0/pert%M2
+    aHsq = (pert%rhoa2_sum + cosmology%Omega_k())/3.d0/pert%M2  !!a^2H^2
+    M2a2H2 = pert%M2 * aHsq
     Hsq = aHsq/asq
 
     pert%aH = sqrt(aHsq)
 
     pert%daHdtau = -(pert%rhoa2_sum+3.d0*pert%pa2_sum)/6.d0/pert%M2
     pert%HdotbyHsq = pert%daHdtau/aHsq - 1.d0
-    HddbyH3 = cosmology%HddbyH3(a)
-    pert%HdotbyHsq_prime = HddbyH3 - 2.d0*pert%HdotbyHsq**2    
+    pert%HddbyH3 = cosmology%HddbyH3(a)
+    pert%HdotbyHsq_prime = pert%HddbyH3 - 2.d0*pert%HdotbyHsq**2    
     
     pa2pr_nu = O0_NU(cosmology)%dpa2da(a)*a
     pa2pr_g = O0_RADIATION(cosmology)%dpa2da(a)*a
@@ -123,39 +108,21 @@
           endif
        endif
        aniso = (pert%pa2_g * pert%T%F(2) + pert%pa2_nu * O1_NU(2))
-
-       if(cosmology%index_massivenu .ne. 0 .and. .not. pert%massivenu_cold)then
-          do iq = 1, pert%massivenu_iq_used
-             Fmnu2(iq) = O1_MASSIVENU(2, iq)
-             Fmnu0(iq) = O1_MASSIVENU(0, iq)
-             O1_MASSIVENU_PRIME(0, iq) = - O1_MASSIVENU(1, iq)*pert%kbyaH/3.d0 * qbye(iq) + 4.d0 * O1_PSI_PRIME 
-          enddo
-          do iq = pert%massivenu_iq_used + 1, coop_pert_default_nq
-             Fmnu2(iq) = O1_NU(2)
-             Fmnu0(iq) = O1_NU(0)
-          enddo
-          aniso = aniso +  pert%pa2_nu * sum(Fmnu2*wp)
-       endif
        aniso = 0.6d0/pert%ksq * aniso
+       anisobyM2 = aniso/pert%M2
 
-       !!now start doing the EFT part
-       dec = - (pert%rhoa2_de + pert%pa2_de)/(2.d0*pert%M2*aHsq)
-       
-       Hpc1 = 6.d0*((dec + pert%alpha_B*(3.d0+pert%alpha_M+pert%HdotbyHsq) + pert%alpha_B_prime)*pert%HdotbyHsq + HddbyH3*pert%alpha_B)
-       Hpc2 = - pert%kbyaH**2*(dec + 1.d0+ pert%alpha_B*(1.d0+pert%alpha_M)+pert%alpha_T - (1.d0+pert%alpha_H)*(1.d0+pert%alpha_M) + (pert%alpha_B_prime - pert%alpha_H_prime) + pert%HdotbyHsq*(pert%alpha_B - pert%alpha_H))
-       Hpc = Hpc1 + Hpc2
-       
-       
+
+       !!Phi = Pc + P0 Hpi + P1 Hpi'
+       Pc = ((1.d0+pert%alpha_T)*O1_PSI - anisobyM2)/(1.d0+pert%alpha_H)
+       P1 = pert%alpha_H/(1.d0+pert%alpha_H)
+       P0 = (pert%alpha_T - pert%alpha_M - pert%HdotbyHsq*pert%alpha_H)/(1.d0+pert%alpha_H)
        
        !!Eq. (111) 
-       O1_PHI = (O1_PSI*(1.d0+pert%alpha_T) - aniso/pert%M2 - (pert%alpha_M - pert%alpha_T) * O1_DE_HPI + pert%alpha_H * (O1_DE_HPI_PRIME - pert%HdotbyHsq * O1_DE_HPI))/(1.d0+pert%alpha_H)
+       O1_PHI = Pc + P0 *  O1_DE_HPI + P1 * O1_DE_HPIPR
 
        !!velocities
        O1_V_C_PRIME = - O1_V_C + pert%kbyaH * O1_PHI
        O1_NU_PRIME(1) = (O1_NU(0) + 4.d0*O1_PHI - 0.4d0 * O1_NU(2))*pert%kbyaH
-       do iq=1, pert%massivenu_iq_used
-          O1_MASSIVENU_PRIME(1, iq) = (O1_MASSIVENU(0, iq)*qbye(iq) + 4.d0*O1_PHI/qbye(iq) - 0.4d0 * O1_MASSIVENU(2, iq)*qbye(iq)) * pert%kbyaH
-       enddo
        O1_V_B_PRIME = - O1_V_B + pert%kbyaH * (O1_PHI + pert%cs2b * O1_DELTA_B) - pert%slip/(pert%R * aHtauc)
        if(pert%has_rad_pert) &       
             O1_T_PRIME(1) = (O1_T(0) + 4.d0*O1_PHI - 0.4d0*pert%T%F(2))*pert%kbyaH + 4.d0*pert%slip/aHtauc
@@ -170,22 +137,6 @@
        O1_NU_PRIME(pert%nu%lmax) = pert%kbyaH * (pert%nu%lmax +0.5d0)/(pert%nu%lmax-0.5d0)*  O1_NU(pert%nu%lmax-1) -  (pert%nu%lmax+1)* O1_NU(pert%nu%lmax)/(aHtau)
 
 
-       if(cosmology%index_massivenu .ne. 0)then
-          !!massive neutrinos
-          if(pert%massivenu_cold)then
-             O1_MASSIVENU_PRIME(0, 1) = - O1_MASSIVENU(1, 1)* pert%kbyaH+ 3.d0 * O1_PSI_PRIME
-             O1_MASSIVENU_PRIME(1, 1) = - O1_MASSIVENU(1, 1) + pert%kbyaH * O1_PHI
-          else
-             do iq = 1, pert%massivenu_iq_used
-                do l = 2, pert%massivenu(iq)%lmax - 1
-                   O1_MASSIVENU_PRIME(l, iq) = pert%kbyaH * qbye(iq) * (cosmology%klms_by_2lm1(l, 0, 0) * O1_MASSIVENU(l-1, iq) - cosmology%klms_by_2lp1(l+1, 0, 0) * O1_MASSIVENU(l+1,iq))
-                enddo
-                O1_MASSIVENU_PRIME(pert%massivenu(iq)%lmax, iq) =  pert%kbyaH * qbye(iq) * (pert%massivenu(iq)%lmax+0.5d0)/(pert%massivenu(iq)%lmax-0.5d0) *  O1_MASSIVENU(pert%nu%lmax-1, iq) &
-                     -  (pert%nu%lmax+1)* O1_MASSIVENU(pert%nu%lmax, iq) / aHtau 
-             enddo
-          endif
-       endif
-       
        if(pert%tight_coupling)then
 
           pert%T2prime = (8.d0/9.d0)*(ktauc*O1_T_PRIME(1) + ktaucdot/pert%aH*O1_T(1)) !2.d0*pert%T%F(2)
@@ -220,26 +171,71 @@
              pert%E2prime = 0.d0
           endif
        endif
-       aniso_prime =  pert%pa2_nu * O1_NU_PRIME(2) + pa2pr_nu*O1_NU(2) +  pert%pa2_g * pert%T2prime + pa2pr_g * pert%T%F(2)       
-       if(cosmology%index_massivenu .ne. 0 .and. .not. pert%massivenu_cold)then
-          do iq = 1, pert%massivenu_iq_used
-             Fmnu2_prime(iq) = O1_MASSIVENU_PRIME(2, iq)
-          enddo
-          do iq = pert%massivenu_iq_used + 1, coop_pert_default_nq
-             Fmnu2_prime(iq) = O1_NU_PRIME(2)
-          enddo
-          aniso_prime = aniso_prime + pa2pr_nu * sum(Fmnu2*wp) + pert%pa2_nu*sum(Fmnu2_prime*wp + Fmnu2*wp_prime) 
-       endif
+       aniso_prime = pert%pa2_nu * O1_NU_PRIME(2) + pa2pr_nu*O1_NU(2) +  pert%pa2_g * pert%T2prime + pa2pr_g * pert%T%F(2)
        aniso_prime =  0.6d0/pert%ksq * aniso_prime
+
+       !!now start doing the EFT part
+       Pcpr = (- pert%alpha_H_prime*Pc + pert%alpha_T_prime * O1_PSI + (1.d0+pert%alpha_T)*O1_PSIPR + (aniso * pert%alpha_M - aniso_prime)/pert%M2)/(1.d0+pert%alpha_H)
+       P1pr = pert%alpha_H_prime/(1.d0+pert%alpha_H)**2
+       P0pr = (-pert%alpha_H_prime*P0 + pert%alpha_T_prime - pert%alpha_M_prime - pert%HdotbyHsq * pert%alpha_H_prime - pert%HdotbyHsq_prime*pert%alpha_H)/(1.d0+pert%alpha_H)
+
+       pert%u = - (pert%rhoa2_de + pert%pa2_de)/(2.d0*M2a2h2)       
+
+       Mat(1, 1) = 1.d0
        
-!!$       O1_PHI_PRIME = O1_PSI_PRIME - aniso_prime
-       O1_PHI_PRIME = O1_PHI*(-pert%alpha_H_prime)/(1.d0+pert%alpha_H) &
-            + ( &
-            O1_PSIPR*(1.d0+pert%alpha_T) + O1_PSI*(1.d0+pert%alpha_T_prime) &
-            - aniso_prime/pert%M2  - aniso/pert%M2*pert%alpha_M &
-            - (pert%alpha_M_prime - pert%alpha_T_prime) * O1_DE_HPI - (pert%alpha_M - pert%alpha_T) * O1_DE_HPIPR &
-            + pert%alpha_H * ( - pert%HdotbyHsq * O1_DE_HPIPR - pert%HdotbyHsq_prime*O1_DE_HPI) + pert%alpha_H_prime * (O1_DE_HPI_PRIME - pert%HdotbyHsq * O1_DE_HPI) &
-            )/(1.d0+pert%alpha_H)  !!this is actually Phi_Prime - alpha_H/(1+alpha_H) PsiPr_Prime
+       phi_c = 1.d0+2.d0*pert%HdotbyHsq - pert%u - pert%alpha_K/6.d0 + (2.d0+pert%HdotbyHsq)*pert%alpha_B + pert%alpha_B_prime + (3.d0+pert%alpha_M)*(1.d0+pert%alpha_B)
+       phipr_c = 1.d0 + pert%alpha_B
+       pidot_c = pert%u - pert%alpha_B_prime - (3.d0+pert%alpha_M + pert%HdotbyHsq)*pert%alpha_B
+       Mat(2, 1) = P1 *  phipr_c - pert%alpha_B       
+       Mat(3,1) = P1*phi_c + (P1pr + P0)*phipr_c + pert%alpha_B * pert%HdotbyHsq &
+            + pidot_c + (pert%alpha_K/6.d0 - pert%alpha_B)
+       Mat(4,1) = phi_c * P0 + phipr_c * P0pr &
+            + pert%alpha_B * pert%HdotbyHsq_prime &
+            - pert%HdotbyHsq * pidot_c &
+            + (3.d0+pert%alpha_M + 2.d0*pert%hdotbyHsq)*pert%hdotbyHsq - 2.d0*pert%pa2_matter/M2a2H2 + pert%HdotbyHsq_prime  &
+            - (pert%alpha_K/6.d0 - pert%alpha_B) * pert%HdotbyHsq  &
+            + pert%u + pert%HdotbyHsq * pert%alpha_B + pert%kbyaHsq*(pert%alpha_H - pert%alpha_B)
+
+       Cons(1) =  - phi_c * Pc - phipr_c * Pcpr + 0.5d0 * (O1_DELTA_B*pert%rhoa2_b/M2a2H2*(pert%cs2b - 1.d0/3.d0) + O1_DELTA_C * pert%rhoa2_c/M2a2H2*(-1.d0/3.d0)- 2.d0/3.d0 * pert%kbyaHsq * anisobyM2) &
+               - (4.d0 + pert%HdotbyHsq + pert%alpha_M + pert%alpha_B)*O1_PSIPR &
+               -((1.d0 + pert%alpha_H)/3.d0*pert%kbyaHsq)*O1_PSI
+
+       phi_c  = 6.d0*pert%u + (6.d0*pert%alpha_B - pert%alpha_K) * (3.d0 + pert%alpha_M) + 2.d0*(pert%alpha_B * 9.d0 - pert%alpha_K) * pert%HdotbyHsq  + 6.d0*pert%alpha_B_prime - pert%alpha_K_prime + 2.d0*pert%kbyaHsq*(pert%alpha_H - pert%alpha_B)
+       phipr_c = 6.d0*pert%alpha_B- pert%alpha_K
+       Mat(1, 2) = 6.d0*pert%alpha_B
+       Cons(2) = phi_c * Pc   + phipr_c * Pcpr &
+            - (6.d0*(pert%alpha_B*(2.d0*pert%HdotbyHsq+3.d0+pert%alpha_M) + pert%u + pert%alpha_B_prime)+2.d0*pert%kbyaHsq*pert%alpha_H)*O1_PSIPR &
+            - (2.d0*pert%kbyaHsq * (pert%alpha_M + pert%alpha_H + pert%alpha_M * pert%alpha_H - pert%alpha_T - pert%alpha_H_prime))*O1_PSI
+       Mat(2, 2) = pert%alpha_K + phipr_c * P1
+       Mat(3, 2) = - pert%alpha_K * pert%HdotbyHsq &
+            + ((3.d0+pert%alpha_M + 2.d0*pert%HdotbyHsq)*pert%alpha_K + pert%alpha_K_prime) &
+            + phipr_c * (P0 + P1pr) + phi_c * P1
+       Mat(4, 2) = -pert%alpha_K * pert%HdotbyHsq_prime - pert%HdotbyHsq * ((3.d0 + pert%alpha_M + 2.d0*pert%HdotbyHsq)*pert%alpha_K + pert%alpha_K_prime ) &
+            + 6.d0*(pert%u * pert%HdotbyHsq + pert%alpha_B * pert%HdotbyHsq * (3.d0 + pert%alpha_M  + pert%HdotbyHsq) + pert%HdotbyHsq * pert%alpha_B_prime + pert%alpha_B*(pert%HdotbyHsq_prime + 2.d0 * pert%HdotbyHsq ** 2) ) &
+            - 2.d0 * pert%kbyaHsq * ( pert%u + 1.d0 + pert%alpha_B*(1.d0+pert%alpha_M) +pert%alpha_T -(1.d0+pert%alpha_H)*(1.d0+pert%alpha_M) + pert%HdotbyHsq*(pert%alpha_B - pert%alpha_H) + pert%alpha_B_prime - pert%alpha_H_prime) &
+            + phipr_c * P0pr &
+            + phi_c * P0
+
+       
+       Mat(:, 2) = Mat(:, 2) - Mat(:, 1)* Mat(1, 2) !!this makes Mat(1, 2) = 0
+       Cons(2) = Cons(2) - Cons(1) * Mat(1, 2)
+       if(abs(Mat(2, 2)) .lt. tol)then
+          if( abs(Mat(3, 2)) .lt. tol)then
+             if(abs(Mat(4,2)).lt. tol)then  !!no dof, LCDM case                
+                O1_DE_HPIPR_PRIME = 0.d0
+                O1_DE_HPI_PRIME = 0.d0
+             else
+                O1_DE_HPI_PRIME = - (O1_DE_HPI - Cons(2)/Mat(4,2))*conv_slope
+                O1_DE_HPIPR_PRIME = 0.d0
+             endif
+          else
+             O1_DE_HPI_PRIME = O1_DE_HPIPR
+             O1_DE_HPIPR_PRIME = - (O1_DE_HPIPR - (Cons(2) - O1_DE_HPI*Mat(4,2))/Mat(3, 2))*conv_slope
+          endif
+       else
+          O1_DE_HPI_PRIME = O1_DE_HPIPR
+          O1_DE_HPIPR_PRIME = (Cons(2) - O1_DE_HPIPR*Mat(3, 2) - O1_DE_HPI*Mat(4, 2))/Mat(2, 2)
+       endif
        
        if(pert%want_source)then
           pert%ekappa = cosmology%ekappaofa(pert%a)
@@ -249,36 +245,9 @@
           pert%kchi = 1.d0 - pert%tau/cosmology%tau0
           pert%kchi = pert%k * cosmology%tau0 * (pert%kchi + exp(-1.d3*pert%kchi))
        endif
-       O1_PSIPR_PRIME = - (1.d0+pert%alpha_B)*O1_PHI_PRIME &
-            - (3.d0 + pert%alpha_M  + pert%daHdtau/aHsq)*O1_PSI_PRIME &
-            - 2.d0*(pert%daHdtau/aHsq + 1.d0)*O1_PHI &
-            - pert%kbyaHsq/3.d0*(O1_PSI+aniso/pert%M2) &
-            + ( &
-            pert%rhoa2_b/aHsq * O1_DELTA_B * (pert%cs2b - 1.d0/3.d0) &
-            + pert%rhoa2_c/aHsq*O1_DELTA_C*(-1.d0/3.d0) &
-            )/2.d0/pert%M2
 
-       if(cosmology%index_massivenu .ne. 0)then
-          if(pert%massivenu_cold)then
-             O1_PSIPR_PRIME = O1_PSIPR_PRIME - O1_MASSIVENU(0, 1)*pert%rhoa2_mnu/6.0/aHsq
-          else
-             pert%deltatr_mnu = sum(Fmnu0*wrho_minus_wp)
-	     pert%deltap_mnu = sum(Fmnu0*wp)
-             O1_PSIPR_PRIME =  O1_PSIPR_PRIME - (pert%pa2_nu/aHsq * pert%deltatr_mnu)/2.d0
-          endif
-       else
-          pert%deltatr_mnu = 0.d0
-          pert%deltap_mnu = 0.d0
-       endif
-
-       select case(pert%de%genre)
-       case(COOP_PERT_NONE)
-       case(COOP_PERT_EFT)
-          O1_DE_HPI_PRIME = O1_DE_HPIPR
-          O1_DE_HPIPR_PRIME = 0.d0
-       case default
-          call coop_tbw("DE perturbations not written")
-       end select
+       pert%deltatr_mnu = 0.d0
+       pert%deltap_mnu = 0.d0
     case(1)
        call coop_tbw("vector equations not written")
     case(2)

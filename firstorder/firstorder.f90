@@ -373,9 +373,9 @@ contains
     type(coop_pert_object) pert
     COOP_REAL, dimension(:,:),allocatable::w
     logical,optional::do_test_energy_conservation, transfer_only
-    COOP_REAL c(24)
+    COOP_REAL c(24), T00, G00, T0i, G0i
     COOP_INT ind, i
-    COOP_REAL tau_ini, lna, mnu_deltarho, mnu_deltav, T0i, T00
+    COOP_REAL tau_ini, lna, mnu_deltarho, mnu_deltav
     tau_ini = min(coop_initial_condition_epsilon/source%k(ik), this%conformal_time(this%a_eq*coop_initial_condition_epsilon), source%tau(1)*0.999d0)
     call this%set_initial_conditions(pert, m = source%m, k = source%k(ik), tau = tau_ini)
     lna = log(this%aoftau(tau_ini))
@@ -393,7 +393,11 @@ contains
        pert%want_source  = .false.              
        !!for energy conservation test:
        if(present(do_test_energy_conservation))then
-          if(do_test_energy_conservation)print*, log(pert%a), pert%delta_T00a2(), pert%delta_G00a2()       
+          T00 = pert%delta_T00a2()
+          G00 = pert%delta_G00a2()       
+          if(do_test_energy_conservation)then
+             write(*,"(3E16.7)")  log(pert%a),T00, G00
+          endif
        endif
        !!------------------------------------------------------------
        !!forcing v_b - v_g to tight coupling approximations

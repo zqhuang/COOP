@@ -1078,6 +1078,7 @@
     call this%add_species(coop_cdm(omega_c))
     call coop_background_add_EFT_DE(this, wp1, alphaM, err)
     if(err .ne. 0)then
+       write(*,*) "Warning: EFT DE settings failed"
        call this%set_h(0.d0)
        return
     endif

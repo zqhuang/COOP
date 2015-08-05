@@ -3,6 +3,7 @@ module coop_asy_mod
   use coop_interpolation_mod
   use coop_file_mod
   use coop_list_mod
+  use coop_random_mod
   implicit none
   private
 
@@ -3130,14 +3131,15 @@ contains
     color = coop_asy_gray_color_s(real(gray))
   end function coop_asy_gray_color_d
 
-  subroutine coop_asy_histogram(x, nbins, filename, xlabel, ylabel)
+  subroutine coop_asy_histogram(x, nbins, filename, xlabel, ylabel, fit_gaussian)
     COOP_INT nbins    
     COOP_UNKNOWN_STRING::filename
     COOP_REAL::x(:)
     COOP_REAL::xcopy(size(x))
-    COOP_REAL c(nbins), xb(nbins)
+    COOP_REAL c(nbins), xb(nbins), xbar, sigma, A
     COOP_INT::i, n, nstep, ntail, j, next, nstep1, nstep2, nstep3
     COOP_UNKNOWN_STRING,optional::xlabel, ylabel
+    logical, optional::fit_gaussian
     type(coop_asy)::fig
     n = size(x)
     if(n.lt. 48 .or. nbins.lt. 6) stop "asy_histogram assumes at least 6 bins and 48 samples"
@@ -3187,8 +3189,23 @@ contains
           call fig%init(xlabel = "x", ylabel = "P",ymin = 0., ymax = 1.05)
        endif
     endif
-    c = c/maxval(c)
-    call coop_asy_curve(fig, xb, c)
+    if(present(fit_gaussian))then
+       if(fit_gaussian)then
+          call coop_fit_gaussian(x, nbins, xbar, sigma, A)
+          c = c/n*sigma
+          call coop_asy_curve(fig, xb, c, color="red", linewidth = 1.5)         
+          c = A/n/sqrt(coop_2pi)*exp(-(xb-xbar)**2/sigma**2/2.d0)
+          call coop_asy_curve(fig, xb, c, color="blue", linetype="dotted", linewidth = 1.)                              
+       else
+          xbar = sum(x)/n
+          sigma = sqrt(sum((x-xbar)**2)/n)
+          c = c/n*sigma
+          call coop_asy_curve(fig, xb, c)          
+       endif       
+    else
+       c = c/maxval(c)
+       call coop_asy_curve(fig, xb, c)
+    endif
     call fig%close()
   end subroutine coop_asy_histogram
 
