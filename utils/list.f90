@@ -8,7 +8,7 @@ module coop_list_mod
   COOP_INT,parameter::sp = kind(1.)
   COOP_INT,parameter::dl = kind(1.d0)
 
-  public::coop_list_integer, coop_list_real, coop_list_realarr, coop_list_double, coop_list_logical, coop_list_string, coop_list_character, coop_string_to_list, coop_dictionary, coop_dictionary_lookup, coop_get_prime_numbers, coop_list_get_element, coop_command_line_argument, coop_get_command_line_argument
+  public::coop_list_integer, coop_list_real, coop_list_realarr, coop_list_double, coop_list_logical, coop_list_string, coop_list_character, coop_string_to_list, coop_dictionary, coop_dictionary_lookup, coop_get_prime_numbers, coop_list_get_element, coop_command_line_argument, coop_get_command_line_argument, coop_dynamic_array_integer
 
   interface coop_list_initialize
      module procedure coop_list_integer_initialize, coop_list_real_initialize, coop_list_double_initialize, coop_list_logical_initialize, coop_list_string_initialize, coop_list_character_initialize, coop_list_realarr_initialize
@@ -63,9 +63,21 @@ module coop_list_mod
 
   COOP_INT,parameter::coop_list_unit_len = 8192
 
+  type coop_dynamic_array_integer
+     COOP_INT::n = 0
+     COOP_INT,dimension(:),allocatable::i
+   contains
+     procedure::init => coop_dynamic_array_integer_initialize
+     procedure::free => coop_dynamic_array_integer_initialize
+     procedure::get_indices => coop_dynamic_array_integer_get_indices
+  end type coop_dynamic_array_integer
+
+
+
   type coop_list_integer
      COOP_INT::n =0
-     COOP_INT::stack, loc
+     COOP_INT::stack = 1
+     COOP_INT::loc = 0
      COOP_INT,dimension(:),allocatable::i1
      COOP_INT,dimension(:),allocatable::i2
      COOP_INT,dimension(:),allocatable::i3
@@ -82,7 +94,8 @@ module coop_list_mod
 
   type coop_list_real
      COOP_INT::n =0
-     COOP_INT::stack, loc
+     COOP_INT::stack = 1
+     COOP_INT::loc = 0
      real(sp),dimension(:),allocatable::i1
      real(sp),dimension(:),allocatable::i2
      real(sp),dimension(:),allocatable::i3
@@ -100,7 +113,8 @@ module coop_list_mod
   type coop_list_realarr
      COOP_INT dim
      COOP_INT::n = 0
-     COOP_INT stack, loc
+     COOP_INT::stack = 1
+     COOP_INT::loc = 0
      real(sp),dimension(:,:),allocatable::i1
      real(sp),dimension(:,:),allocatable::i2
      real(sp),dimension(:,:),allocatable::i3
@@ -118,7 +132,8 @@ module coop_list_mod
 
   type coop_list_double
      COOP_INT::n = 0
-     COOP_INT stack, loc
+     COOP_INT::stack = 1
+     COOP_INT::loc = 0
      real(dl),dimension(:),allocatable::i1
      real(dl),dimension(:),allocatable::i2
      real(dl),dimension(:),allocatable::i3
@@ -135,7 +150,8 @@ module coop_list_mod
 
   type coop_list_logical
      COOP_INT::n = 0
-     COOP_INT stack, loc
+     COOP_INT::stack=1
+     COOP_INT::loc = 0
      logical,dimension(:),allocatable::i1
      logical,dimension(:),allocatable::i2
      logical,dimension(:),allocatable::i3
@@ -152,7 +168,8 @@ module coop_list_mod
 
   type coop_list_character
      COOP_INT::n = 0
-     COOP_INT stack, loc
+     COOP_INT::stack = 1
+     COOP_INT::loc = 0
      character,dimension(:),allocatable::i1
      character,dimension(:),allocatable::i2
      character,dimension(:),allocatable::i3
@@ -169,7 +186,8 @@ module coop_list_mod
 
   type coop_list_string
      COOP_INT::n = 0
-     COOP_INT:: stack, loc
+     COOP_INT::stack = 1
+     COOP_INT::loc = 0
      COOP_STRING,dimension(:),allocatable::i1
      COOP_STRING,dimension(:),allocatable::i2
      COOP_STRING,dimension(:),allocatable::i3
@@ -210,6 +228,33 @@ contains
 !! initialize
 
 
+  subroutine coop_dynamic_array_integer_initialize(this)
+    class(coop_dynamic_array_integer)::this
+    if(allocated(this%i))deallocate(this%i)    
+    this%n = 0
+  end subroutine coop_dynamic_array_integer_initialize
+
+  subroutine coop_dynamic_array_integer_get_indices(this, mask, start_index)
+    class(coop_dynamic_array_integer)::this
+    logical,dimension(:),intent(IN)::mask
+    COOP_INT::n, i, j
+    COOP_INT,optional::start_index
+    n = size(mask)
+    call this%free()
+    this%n = count(mask)
+    allocate(this%i(this%n))
+    j = 0
+    do i=1, n
+       if(mask(i))then
+          j = j + 1
+          this%i(j) = i
+       endif
+    enddo
+    if(present(start_index))then
+       this%i = this%i + (start_index - 1)
+    endif
+  end subroutine coop_dynamic_array_integer_get_indices
+  
   subroutine coop_list_string_initialize(l)
     class(coop_list_string) l
     l%n = 0

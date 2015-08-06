@@ -138,7 +138,7 @@ DoShell: $(OBJ) shells.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) shells.o $(LINK)	
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots UDG Stack MSMAP SimuMaps DoShell SST MST ByProd GetInfo GetTheo GetPeaks Rotate Corr Inpaint LLPW MM SWS MM0 PLOTLINES CatP FullStack LLCORR LLSCAN GetCl CCards
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test FMerge Fsim FStack FSpots UDG Stack MSMAP SimuMaps DoShell SST MST ByProd GetInfo GetTheo GetPeaks Rotate Corr Inpaint LLPW MM SWS MM0 MM1 PLOTLINES CatP FullStack LLCORR LLSCAN GetCl CCards
 
 
 

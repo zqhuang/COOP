@@ -5106,32 +5106,48 @@ contains
   end subroutine coop_healpix_maps_get_dervs
 
 
-  subroutine coop_healpix_maps_local_disk_minkowski0(this, pix, r_deg, nu, imap, mean, rms, V0)
+  subroutine coop_healpix_maps_local_disk_minkowski0(this, pix, r_deg, nu, imap, mean, rms, V0, gaussian_fit)
     class(coop_healpix_maps)::this
     COOP_INT::pix, imap, i
     COOP_REAL::r_deg
     COOP_REAL::nu(:)
     COOP_SINGLE:: V0(:), rms, mean
+    COOP_REAL::xbar, xrms, Amp
     COOP_INT::listpix(0:this%npix-1)
     COOP_INT::nlist
+    logical::gaussian_fit
     if(size(V0) .ne. size(nu)) stop "local_disk_minkowsk: nu and V0 must have the same size"
     call this%query_disc(pix, r_deg, listpix, nlist)
-    mean = sum(this%map(listpix(0:nlist-1), imap))/nlist
-    rms = sqrt(sum((this%map(listpix(0:nlist-1), imap) - mean)**2)/nlist)
+    if(gaussian_fit)then
+       call coop_fit_gaussian(dble(this%map(listpix(0:nlist-1), imap)), max(nlist/200, 20), xbar, xrms, Amp)
+       mean = xbar
+       rms = xrms
+    else
+       mean = sum(this%map(listpix(0:nlist-1), imap))/nlist
+       rms = sqrt(sum((this%map(listpix(0:nlist-1), imap) - mean)**2)/nlist)
+    endif
     do i = 1, size(V0)
        V0(i) = count(this%map(listpix(0:nlist-1), imap) .ge. mean + nu(i)*rms)/real(nlist)
     enddo
   end subroutine coop_healpix_maps_local_disk_minkowski0
 
 
-  subroutine coop_healpix_maps_scan_local_minkowski0(this, imap, nu, meanmap, rmsmap, V0map, r_deg)
+  subroutine coop_healpix_maps_scan_local_minkowski0(this, imap, nu, meanmap, rmsmap, V0map, r_deg, do_gaussian_fit)
     class(coop_healpix_maps)::this
     COOP_INT::imap
     COOP_REAL::nu(:)
     type(coop_healpix_maps)::meanmap, rmsmap, V0map
     COOP_REAL, optional::r_deg
+    COOP_REAL::mean, rms, Amp
     COOP_INT::ipix, space, i
     COOP_REAL::theta, phi
+    logical,optional::do_gaussian_fit
+    logical::gf
+    if(present(do_gaussian_fit))then
+       gf = do_gaussian_fit
+    else
+       gf = .false.
+    endif
     if(V0map%nside .ge. this%nside .or. meanmap%nside .ne. rmsmap%nside .or. meanmap%nside .ne. V0map%nside .or. V0map%nmaps.ne.size(nu)) stop "wrong nside for scan_local_minkowski"
     call meanmap%convert2nested()
     call rmsmap%convert2nested()
@@ -5142,34 +5158,47 @@ contains
           do ipix=0, V0map%npix-1
              call V0map%pix2ang(ipix, theta, phi)
              call this%ang2pix(theta, phi, i)
-             call this%local_disk_minkowski0(i, r_deg*coop_SI_degree, nu, imap, meanmap%map(ipix, 1), rmsmap%map(ipix,1), V0map%map(ipix,1:V0map%nmaps))
+             call this%local_disk_minkowski0(i, r_deg*coop_SI_degree, nu, imap, meanmap%map(ipix, 1), rmsmap%map(ipix,1), V0map%map(ipix,1:V0map%nmaps), gf)
           enddo
           return
        endif
     endif
     space = (this%nside/V0map%nside)**2       
     do ipix=0, V0map%npix-1
-       
-       meanmap%map(ipix,1) = sum(this%map(ipix*space:(ipix+1)*space-1, imap))/real(space)
-       rmsmap%map(ipix,1) = sqrt(sum( (this%map(ipix*space:(ipix+1)*space-1, imap) - meanmap%map(ipix,1))**2 )/real(space))
+       if(gf)then
+          call coop_fit_gaussian(dble(this%map(ipix*space:(ipix+1)*space-1, imap)), max(space/200, 20), mean, rms, Amp)
+          meanmap%map(ipix, 1) = mean
+          rmsmap%map(ipix,1) = rms
+       else
+          meanmap%map(ipix,1) = sum(this%map(ipix*space:(ipix+1)*space-1, imap))/real(space)
+          rmsmap%map(ipix,1) = sqrt(sum( (this%map(ipix*space:(ipix+1)*space-1, imap) - meanmap%map(ipix,1))**2 )/real(space))
+       endif
        do i = 1, size(nu)
           V0map%map(ipix,i) = count(this%map(ipix*space:(ipix+1)*space-1, imap) .ge.  meanmap%map(ipix,1) + nu(i)*rmsmap%map(ipix,1))/real(space)
        enddo
     enddo
   end subroutine coop_healpix_maps_scan_local_minkowski0
   
-  subroutine coop_healpix_maps_local_disk_minkowski1(this, imap, sourcemap, grad2map, pix, r_deg, nu, mean, rms, sigma1, V1)
+  subroutine coop_healpix_maps_local_disk_minkowski1(this, imap, sourcemap, grad2map, pix, r_deg, nu, mean, rms, sigma1, V1, gaussian_fit)
     class(coop_healpix_maps)::this
     COOP_INT::pix, imap, i, sourcemap, grad2map
     COOP_REAL::r_deg
     COOP_REAL::nu(:)
     COOP_SINGLE:: V1(:), rms, mean, sigma1
+    COOP_REAL::xmean, xrms, Amp
     COOP_INT::listpix(0:this%npix-1)
     COOP_INT::nlist
+    logical::gaussian_fit
     if(size(V1) .ne. size(nu)) stop "local_disk_minkowsk: nu and V1 must have the same size"
     call this%query_disc(pix, r_deg, listpix, nlist)
-    mean = sum(this%map(listpix(0:nlist-1), imap))/nlist
-    rms = sqrt(sum((this%map(listpix(0:nlist-1), imap) - mean)**2)/nlist)
+    if(gaussian_fit)then
+       call coop_fit_gaussian(dble(this%map(listpix(0:nlist-1), imap)), max(nlist/200, 20), xmean, xrms, Amp)
+       mean = xmean
+       rms = xrms
+    else
+       mean = sum(this%map(listpix(0:nlist-1), imap))/nlist
+       rms = sqrt(sum((this%map(listpix(0:nlist-1), imap) - mean)**2)/nlist)
+    endif
     sigma1 = sqrt(sum(this%map(listpix(0:nlist-1), grad2map))/nlist)
     do i = 1, size(V1)
        V1(i) = sum(this%map(listpix(0:nlist-1), sourcemap), mask  = this%map(listpix(0:nlist-1), imap) .ge. mean + nu(i)*rms)/nlist/sigma1*rms
@@ -5177,7 +5206,7 @@ contains
   end subroutine coop_healpix_maps_local_disk_minkowski1
 
 
-  subroutine coop_healpix_maps_scan_local_minkowski1(this, imap, sourcemap, grad2map, nu, meanmap, rmsmap, sigma1map, V1map, r_deg)
+  subroutine coop_healpix_maps_scan_local_minkowski1(this, imap, sourcemap, grad2map, nu, meanmap, rmsmap, sigma1map, V1map, r_deg, do_gaussian_fit)
     class(coop_healpix_maps)::this
     COOP_INT::imap, sourcemap, grad2map
     COOP_REAL::nu(:)
@@ -5185,6 +5214,14 @@ contains
     COOP_REAL, optional::r_deg
     COOP_INT::ipix, space, i
     COOP_REAL::theta, phi
+    COOP_REAL::xmean, xrms, Amp
+    logical,optional::do_gaussian_fit
+    logical::gf
+    if(present(do_gaussian_fit))then
+       gf = do_gaussian_fit
+    else
+       gf = .false.
+    endif    
     if(V1map%nside .ge. this%nside .or. meanmap%nside .ne. rmsmap%nside .or. meanmap%nside .ne. V1map%nside .or. V1map%nmaps.ne.size(nu)) stop "wrong nside for scan_local_minkowski"
     call meanmap%convert2nested()
     call rmsmap%convert2nested()
@@ -5195,15 +5232,21 @@ contains
           do ipix=0, V1map%npix-1
              call V1map%pix2ang(ipix, theta, phi)
              call this%ang2pix(theta, phi, i)
-             call this%local_disk_minkowski1(imap, sourcemap, grad2map, i, r_deg*coop_SI_degree, nu, meanmap%map(ipix, 1), rmsmap%map(ipix,1), sigma1map%map(ipix,1), V1map%map(ipix,1:V1map%nmaps))
+             call this%local_disk_minkowski1(imap, sourcemap, grad2map, i, r_deg*coop_SI_degree, nu, meanmap%map(ipix, 1), rmsmap%map(ipix,1), sigma1map%map(ipix,1), V1map%map(ipix,1:V1map%nmaps), gf)
           enddo
           return
        endif
     endif
     space = (this%nside/V1map%nside)**2       
     do ipix=0, V1map%npix-1
-       meanmap%map(ipix,1) = sum(this%map(ipix*space:(ipix+1)*space-1, imap))/real(space)
-       rmsmap%map(ipix,1) = sqrt(sum( (this%map(ipix*space:(ipix+1)*space-1, imap) - meanmap%map(ipix,1))**2 )/real(space))
+       if(gf)then
+          call coop_fit_Gaussian(dble(this%map(ipix*space:(ipix+1)*space-1, imap)), max(space/200, 20), xmean, xrms, Amp)
+          meanmap%map(ipix,1) = xmean
+          rmsmap%map(ipix, 1) = xrms
+       else
+          meanmap%map(ipix,1) = sum(this%map(ipix*space:(ipix+1)*space-1, imap))/real(space)
+          rmsmap%map(ipix,1) = sqrt(sum( (this%map(ipix*space:(ipix+1)*space-1, imap) - meanmap%map(ipix,1))**2 )/real(space))
+       endif
        sigma1map%map(ipix,1) = sqrt(sum(this%map(ipix*space:(ipix+1)*space-1, grad2map))/real(space))
        do i = 1, size(nu)
           V1map%map(ipix,i) =  sum(this%map(ipix*space:(ipix+1)*space-1, sourcemap), mask = this%map(ipix*space:(ipix+1)*space-1, imap) .ge.  meanmap%map(ipix,1) + nu(i)*rmsmap%map(ipix,1))/space/sigma1map%map(ipix,1)*rmsmap%map(ipix,1)

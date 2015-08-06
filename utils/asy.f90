@@ -3178,30 +3178,30 @@ contains
     call fig%open(trim(adjustl(filename)))
     if(present(xlabel))then
        if(present(ylabel))then
-          call fig%init(xlabel = xlabel, ylabel = ylabel, ymin = 0., ymax = 1.05)
+          call fig%init(xlabel = xlabel, ylabel = ylabel, ymin = 0., ymax = 1.12)
        else
-          call fig%init(xlabel = xlabel, ylabel = "P", ymin = 0., ymax = 1.05)          
+          call fig%init(xlabel = xlabel, ylabel = "P", ymin = 0., ymax = 1.12)          
        endif
     else
        if(present(ylabel))then
-          call fig%init(xlabel = "x", ylabel = ylabel, ymin = 0., ymax = 1.05)          
+          call fig%init(xlabel = "x", ylabel = ylabel, ymin = 0., ymax = 1.12)          
        else
-          call fig%init(xlabel = "x", ylabel = "P",ymin = 0., ymax = 1.05)
+          call fig%init(xlabel = "x", ylabel = "P",ymin = 0., ymax = 1.12)
        endif
     endif
     if(present(fit_gaussian))then
        if(fit_gaussian)then
           call coop_fit_gaussian(x, nbins, xbar, sigma, A)
-          c = c/n*sigma
+          c = c/n*sigma*sqrt(coop_2pi)
           call coop_asy_curve(fig, xb, c, color="red", linewidth = 1.5)         
-          c = A/n/sqrt(coop_2pi)*exp(-(xb-xbar)**2/sigma**2/2.d0)
+          c = A/n*exp(-(xb-xbar)**2/sigma**2/2.d0)
           call coop_asy_curve(fig, xb, c, color="blue", linetype="dotted", linewidth = 1.)                              
        else
           xbar = sum(x)/n
           sigma = sqrt(sum((x-xbar)**2)/n)
-          c = c/n*sigma
+          c = c/n*sigma*sqrt(coop_2pi)
           call coop_asy_curve(fig, xb, c)          
-       endif       
+       endif
     else
        c = c/maxval(c)
        call coop_asy_curve(fig, xb, c)

@@ -3,19 +3,15 @@ program Test
   use coop_wrapper_utils
   implicit none
 #include "constants.h"
-  COOP_INT,parameter::n = 500000
+  COOP_INT,parameter::n = 100
   COOP_REAL,dimension(:),allocatable::x
-  COOP_REAL::xbar, sigma, A
-  COOP_INT::i
+  type(coop_dynamic_array_integer)::inds
   call coop_MPI_init()
-  call coop_random_init()
-  allocate(x(n))
-  do i=1, n
-     x(i) = coop_random_Gaussian()*2.d0 - 1.5d0 + 0.02 * coop_random_Gaussian()**3
-  enddo
-  call coop_fit_Gaussian(x, n/500, xbar, sigma, A)
-  print*, xbar, sigma, A
-  call coop_asy_histogram(x, n/1000, xlabel = "$x$", ylabel = "$y$", filename = "x.txt", fit_gaussian = .true.)
+  allocate(x(0:n-1))
+  x = 0.d0
+  x(5:10) = 1.
+  call inds%get_indices( x.gt.0.5d0 , start_index = 0)
+  print*, inds%i
   call coop_MPI_Finalize()
 
 end program Test

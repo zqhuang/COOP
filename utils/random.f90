@@ -302,8 +302,7 @@ contains
     xb(1) = sum(xcopy(1:j))/nstep1
     dx = ((xcopy(j+1)+xcopy(j))/2.d0 - xcopy(1) - (xcopy(2)-xcopy(1))/2.d0)
     c(1) = nstep1/dx
-    err(1) = c(1)/dx
-
+    err(1) =1.d0/dx
     do i=2, nbins-1
        next = j+1
        if(i.eq.2 .or. i.eq. nbins-1)then
@@ -316,13 +315,13 @@ contains
        xb(i) = sum(xcopy(next:j))/(j-next+1)
        dx = ((xcopy(j+1)+xcopy(j))/2.d0-(xcopy(next)+xcopy(next-1))/2.d0)
        c(i) = (j-next+1)/dx
-       err(i) = c(i)/dx
+       err(i) = 1.d0/dx
     enddo
     next = j+1
     xb(nbins) = sum(xcopy(next:n))/(n-j)
     dx = ((xcopy(n)+(xcopy(n)-xcopy(n-1))/2.d0)-(xcopy(j)+xcopy(next))/2.d0)
     c(nbins) = (n-j)/dx
-    err(nbins) = c(nbins)/dx
+    err(nbins) = 1.d0/dx
     xbar = sum(x)/n
     sigma = sqrt(sum((x-xbar)**2)/n)
     call get_chisq(xbar, sigma, chisq)

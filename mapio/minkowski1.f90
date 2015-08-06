@@ -6,11 +6,13 @@ program test
   type(coop_healpix_maps)::map, meanmap, V1map, rmsmap, sigma1map, mask
   COOP_REAL::r_deg, numin, numax
   COOP_REAL,dimension(:),allocatable::nu, V1
-  COOP_REAL::global_mean, global_rms, summ, global_sigma1, gauss_V1
+  COOP_REAL::global_mean, global_rms, summ, global_sigma1, gauss_V1, Amp
   COOP_INT::nside, nnu, i
   COOP_REAL:: nuc, Gauss_dAdnu, dAdnu, rat
   COOP_STRING::map_file, prefix, mask_file
+  type(coop_dynamic_array_integer)::inds  
   type(coop_file)::fp
+  logical::gf
   call coop_MPI_init()
   if(iargc().le.0)then
      write(*,"(A)") "----------------------------------------------------------"     
@@ -23,7 +25,8 @@ program test
      write(*,"(A)") "-numax NU_MAX"
      write(*,"(A)") "-nnu N_NU"
      write(*,"(A)") "-radius RAIDUS_IN_DEGREE [0.]"
-     write(*,"(A)") "-nside NSIDE [2]"     
+     write(*,"(A)") "-nside NSIDE [2]"
+     write(*,"(A)") "-gf [T|F]"     
      stop
   endif
   call coop_random_init()
@@ -35,6 +38,7 @@ program test
   call coop_get_command_line_argument(key = "radius", arg = r_deg, default = 0.d0)
   call coop_get_command_line_argument(key = "nside", arg = nside, default = 2)
   call coop_get_command_line_argument(key = "prefix", arg = prefix)
+  call coop_get_command_line_argument(key = "gf", arg = gf, default = .false.)    
   
   call map%read(map_file, nmaps_wanted = 6, nmaps_to_read = 1)
   call map%get_QULDD()
@@ -53,7 +57,7 @@ program test
 
 
 
-     call map%scan_local_minkowski1(1, 2, 3, nu, meanmap, rmsmap, sigma1map, V1map, r_deg)  
+     call map%scan_local_minkowski1(1, 2, 3, nu, meanmap, rmsmap, sigma1map, V1map, r_deg, do_gaussian_fit = gf)  
      call meanmap%write(trim(adjustl(prefix))//"_mean.fits")
      call rmsmap%write(trim(adjustl(prefix))//"_rms.fits")
      call V1map%write(trim(adjustl(prefix))//"_V1.fits")
@@ -81,16 +85,25 @@ program test
         endif
         call map%apply_mask(mask)
         summ = sum(dble(mask%map(:, 1)))
-        global_mean = sum(dble(map%map(:, 1)))/summ
-        global_rms = sqrt(sum(dble((map%map(:, 1) - global_mean)**2*mask%map(:,1)))/summ)
+        if(gf)then
+           call inds%get_indices( mask%map(:, 1) .gt. 0.5,  start_index = 0)
+           call coop_fit_gaussian(dble(map%map(inds%i, 1)),  max(inds%n/200, 20), global_mean, global_rms, Amp)
+        else
+           global_mean = sum(dble(map%map(:, 1)))/summ
+           global_rms = sqrt(sum(dble((map%map(:, 1) - global_mean)**2*mask%map(:,1)))/summ)
+        endif
         global_sigma1 = sqrt(sum(map%map(:,3)*mask%map(:,1))/summ)
         where (mask%map(:, 1) .lt. 0.5)
            map%map(:, 1) = global_mean - global_rms * 100. !!just put out of the box
         end where
      else
         summ = map%npix
-        global_mean = sum(dble(map%map(:,1)))/summ
-        global_rms = sqrt(sum(dble((map%map(:,1)-global_mean)**2))/summ)
+        if(gf)then
+           call coop_fit_gaussian(dble(map%map(:,1)), max(map%npix/200, 20), global_mean, global_rms, Amp)
+        else
+           global_mean = sum(dble(map%map(:,1)))/summ
+           global_rms = sqrt(sum(dble((map%map(:,1)-global_mean)**2))/summ)
+        endif
         global_sigma1 = sqrt(sum(map%map(:,3))/summ)
      endif
      do i=1, nnu

@@ -186,8 +186,11 @@ contains
 #include "firstorder_source.h"
 
 !!this head file sets the initial conditions
+#if DO_EFT_DE
+#include "firstorder_ic_EFT.h"  
+#else  
 #include "firstorder_ic.h"
-
+#endif
   subroutine coop_cosmology_firstorder_set_Planck_Bestfit(this, Omega_nu)
     class(coop_cosmology_firstorder)::this
     COOP_REAL, optional::Omega_nu

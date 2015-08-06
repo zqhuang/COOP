@@ -236,7 +236,7 @@
           O1_DE_HPI_PRIME = O1_DE_HPIPR
           O1_DE_HPIPR_PRIME = (Cons(2) - O1_DE_HPIPR*Mat(3, 2) - O1_DE_HPI*Mat(4, 2))/Mat(2, 2)
        endif
-       
+       O1_PSIPR_PRIME = Cons(1) - Mat(2,1)*O1_DE_HPIPR_PRIME - Mat(3,1)*O1_DE_HPIPR - Mat(4,1)*O1_DE_HPI
        if(pert%want_source)then
           pert%ekappa = cosmology%ekappaofa(pert%a)
           pert%vis = pert%ekappa/pert%tauc
