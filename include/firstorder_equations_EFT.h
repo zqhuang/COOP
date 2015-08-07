@@ -2,7 +2,7 @@
     COOP_INT n
     type(coop_cosmology_firstorder)::cosmology
     type(coop_pert_object)::pert
-    COOP_REAL, parameter::tol = 1.d-5, conv_slope = 30.d0
+    COOP_REAL, parameter::tol = 1.d-5, conv_slope = 50.d0
     COOP_REAL lna, y(0:n-1), yp(0:n-1)
     COOP_INT i, l, iq
     COOP_REAL a, aniso,  ktauc, ktaucdot, ktaucdd, aniso_prime, aHtauc, aHtau, aHsq, uterm, vterm, ma, doptdlna, M2a2H2, anisobyM2
@@ -226,7 +226,9 @@
                 O1_DE_HPI_PRIME = 0.d0
              else
                 O1_DE_HPI_PRIME = - (O1_DE_HPI - Cons(2)/Mat(4,2))*conv_slope
-                O1_DE_HPIPR_PRIME = 0.d0
+                O1_DE_HPIPR_PRIME = -(O1_DE_HPIPR -  &
+                     (Cons(1)  - Mat(3,1)*O1_DE_HPIPR - Mat(4,1)*O1_DE_HPI + PcPr  + (2.d0/3.d0*pert%kbyaHsq*(1.d0+pert%HdotbyHsq) + pert%HdotbyHsq_prime)/(pert%kbyaHsq/3.d0- pert%HdotbyHsq)*(O1_PSIPR + O1_PHI))/(pert%kbyaHsq/3.d0- pert%HdotbyHsq) &
+                     )*conv_slope
              endif
           else
              O1_DE_HPI_PRIME = O1_DE_HPIPR

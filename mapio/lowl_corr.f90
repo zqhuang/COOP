@@ -57,13 +57,13 @@ program test
   call map%map2alm(lmax = lmax)
   call c_map%init(lmax = lmax, cls = dble(map%cl(0:lmax,1)))
   call c_map%set_beam(fwhm = fwhm_deg*coop_SI_degree)
-
-
+  if(lmin_vary .gt.2) &
+       cls(2:lmin_vary-1) = map%cl(2:lmin_vary-1,1)
   if(trim(mask_file).ne. "NONE")then
      S_data = c_map%corr2int(-1.d0, 0.5d0, mask_corr = c_mask)
      sqrtCls = sqrt(cls)
      do isim = 1, nsim
-        call map%simulate_Tmaps(nside = map%nside, lmax = lmax, sqrtCls = sqrtCls, lmin = lmin_vary)
+        call map%simulate_Tmaps(nside = map%nside, lmax = lmax, sqrtCls = sqrtCls)
         call map%apply_mask(mask)
         call map%map2alm(lmax = lmax)
         call c_map%init(lmax = lmax, cls = dble(map%cl(0:lmax,1)))
