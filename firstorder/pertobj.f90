@@ -135,7 +135,7 @@ contains
        !!do nothing
 #if DO_EFT_DE       
     case(COOP_PERT_EFT)
-       T0i = T0i + 2.d0* (pert%alpha_B *pert%O1_DE_HPIPR - (pert%u + pert%alpha_B * pert%HdotbyHsq)*pert%O1_DE_HPI)*pert%k*pert%aH
+       T0i = T0i/pert%M2 + 2.d0* (pert%alpha_B *pert%O1_DE_HPIPR - (pert%u + pert%alpha_B * pert%HdotbyHsq)*pert%O1_DE_HPI)*pert%k*pert%aH
 #endif       
     case default
        call coop_tbw("T0i: de perturbations not written")

@@ -54,7 +54,10 @@ contains
     allocate(work(lwork), iwork(8*min(m, n)))
     call dgesdd("A", m, n, a,  m, w, u, m, v, n, work, lwork, iwork, info)
     deallocate(work, iwork)
-    if(info .gt. 0) stop "svd decomposition failed to converge"
+    if(info .gt. 0)then
+       write(*,*) "Warning: svd decomposition failed to converge in LAPACK"
+       return
+    endif
     if(info .lt. 0)then
        print*, "the ", -info, " th argument in svd decomposition is wrong"
        stop
