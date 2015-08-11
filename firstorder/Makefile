@@ -51,7 +51,7 @@ testZ: $(OBJ) testzeta.o $(BACKGROUND)/libcoopbackground.a
 
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test DOCLS OneMode
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test DOCLS OneMode TestEFT testZ Z3D MGR MCLS OneMode FNL
 
 
 firstorder.o:	pertobj.o  ../include/firstorder_equations.h ../include/firstorder_source.h ../include/recfast_source.h ../include/recfast_head.h ../include/firstorder_basic_utils.h ../include/firstorder_ic.h ../include/firstorder_ic_EFT.h ../include/firstorder_equations_EFT.h

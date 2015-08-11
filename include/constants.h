@@ -2,8 +2,7 @@
 #define COOP_YES 1
 #define COOP_NO 0
 
-#define DO_ZETA_TRANS COOP_YES
-#define DO_EFT_DE COOP_NO
+#define DO_ZETA_TRANS COOP_NO
 
 #define COOP_INT integer(coop_integer_length)
 #define COOP_INT_ARRAY integer(coop_integer_length),dimension(coop_default_array_size)

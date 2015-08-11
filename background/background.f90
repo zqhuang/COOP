@@ -612,12 +612,13 @@ contains
 
 
   subroutine coop_background_add_EFT_DE(this, wp1, alpha_M, err)
+    COOP_INT,parameter::narr = 20000
     class(coop_cosmology_background)::this
     type(coop_function)::wp1, alpha_M
     type(coop_species)::de
     COOP_INT::i, err, j
-    COOP_REAL_ARRAY::lnrho,  wp1eff, M2
-    COOP_REAL::lna, lnamin, lnamax, dlna, alpha_l, a_l, a_r, alpha_r, wp1_l, wp1_r, omega_de, om_l, om_r, rhoa4de, rhotot_l, rhotot_r, step
+    COOP_REAL,dimension(narr)::lnrho,  wp1eff, M2
+    COOP_REAL::lna, lnamin, lnamax, dlna, alpha_l, a_l, a_r, alpha_r, wp1_l, wp1_r, omega_de, om_l, om_r, rhoa4de_l, rhotot_l, rhotot_r, step, rhoa4de_r
     err = 0
     de%name = "Dark Energy"
     de%genre = COOP_SPECIES_EFT
@@ -626,55 +627,84 @@ contains
     de%Omega = omega_de
     lnamin = log(coop_min_scale_factor)
     lnamax = log(coop_scale_factor_today)
-    dlna = (lnamax-lnamin)/(coop_default_array_size-1)
-    lnrho(coop_default_array_size) = log(3.d0*omega_de)
+    dlna = (lnamax-lnamin)/(narr-1.d0)
+    lnrho(narr) = log(3.d0*omega_de)
     wp1_r = wp1%eval(coop_scale_factor_today)
     alpha_r = alpha_M%eval(coop_scale_factor_today)
     om_r = omega_de
-    wp1eff(coop_default_array_size) =wp1_r - alpha_r/3.d0/om_r
+    wp1eff(narr) =wp1_r - alpha_r/3.d0/om_r
     a_r = coop_scale_factor_today
     lna = lnamax
     rhotot_r = 3.d0
+    rhoa4de_r = om_r*rhotot_r
     step = (1.5d0*dlna)
-    M2(coop_default_array_size)=0.d0
-    do i=coop_default_array_size-1, 1, -1
+    M2(narr)=0.d0
+    do i=narr-1, 1, -1
        lna = lna - dlna              
        a_l = exp(lna)
        alpha_l = alpha_M%eval(a_l)
        wp1_l = wp1%eval(a_l)
-       wp1eff(i) = wp1_l - alpha_l/3.d0/om_r
-       rhotot_l =  this%rhoa4(a_l)              
-       do j=1,3
+       rhotot_l =  this%rhoa4(a_l)
+       om_l = rhoa4de_r/(rhotot_l + rhoa4de_r)  !!first assuming rho_de constant
+       wp1eff(i) = wp1_l - alpha_l/3.d0/om_l
+       if(om_l .gt. 1.d-2)then
+          do j=1, 3
+             lnrho(i) = lnrho(i+1) + (wp1eff(i)+wp1eff(i+1))*step
+             rhoa4de_l = exp(lnrho(i)+4.d0*lna)
+             om_l = rhoa4de_l/(rhoa4de_l + rhotot_l)
+             if(om_l .lt. 1.d-50)then
+                lnrho(1:i-1) = lnrho(i)
+                wp1eff(1:i-1) = wp1eff(i)
+                M2(1:i-1) = M2(i)
+                goto 100
+             endif
+             wp1eff(i) = wp1_l - alpha_l/3.d0/om_l
+          enddo          
+       elseif(om_l .gt. 1.d-4)then
+          do j=1, 2
+             lnrho(i) = lnrho(i+1) + (wp1eff(i)+wp1eff(i+1))*step
+             rhoa4de_l = exp(lnrho(i)+4.d0*lna)
+             om_l = rhoa4de_l/(rhoa4de_l + rhotot_l)
+             if(om_l .lt. 1.d-50)then
+                lnrho(1:i-1) = lnrho(i)
+                wp1eff(1:i-1) = wp1eff(i)
+                M2(1:i-1) = M2(i)
+                goto 100
+             endif
+             wp1eff(i) = wp1_l - alpha_l/3.d0/om_l
+          enddo
+       else
           lnrho(i) = lnrho(i+1) + (wp1eff(i)+wp1eff(i+1))*step
-          rhoa4de = exp(lnrho(i)+4.d0*lna)
-          om_l = rhoa4de/(rhoa4de + rhotot_l)
+          rhoa4de_l = exp(lnrho(i)+4.d0*lna)
+          om_l = rhoa4de_l/(rhoa4de_l + rhotot_l)
           if(om_l .lt. 1.d-50)then
              lnrho(1:i-1) = lnrho(i)
              wp1eff(1:i-1) = wp1eff(i)
              M2(1:i-1) = M2(i)
              goto 100
           endif
-          wp1eff(i) = wp1_l - alpha_l/3.d0/om_l
-       enddo
-       rhotot_l = (rhotot_l + rhoa4de)/a_l**4
+          wp1eff(i) = wp1_l - alpha_l/3.d0/om_l          
+       endif
+       rhotot_l = (rhotot_l + rhoa4de_l)/a_l**4
        if(rhotot_l .lt. rhotot_r)then  !!
           err = 1
           return
        endif
        M2(i) = M2(i+1) - (alpha_l+alpha_r)
        rhotot_r = rhotot_l
+       rhoa4de_r = rhoa4de_l
        alpha_r = alpha_l
     enddo
 100 M2 = exp(M2*(dlna/2.d0))
-    lnrho = lnrho - lnrho(coop_default_array_size)
-    call de%fwp1eff%init(coop_default_array_size, coop_min_scale_factor, coop_scale_factor_today, wp1eff, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "DE 1+w_eff(a)")
-    call de%flnrho%init(coop_default_array_size,coop_min_scale_factor, coop_scale_factor_today, lnrho, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "DE ln rho_ratio")
-    call de%flnrho%set_boundary(slopeleft = -3.d0*wp1eff(1), sloperight = -3.d0*wp1eff(coop_default_array_size))    
+    lnrho = lnrho - lnrho(narr)
+    call de%fwp1eff%init(narr, coop_min_scale_factor, coop_scale_factor_today, wp1eff, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "DE 1+w_eff(a)")
+    call de%flnrho%init(narr,coop_min_scale_factor, coop_scale_factor_today, lnrho, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "DE ln rho_ratio")
+    call de%flnrho%set_boundary(slopeleft = -3.d0*wp1eff(1), sloperight = -3.d0*wp1eff(narr))    
     de%cs2 = 0.d0
     call this%add_species(de)
 #if DO_EFT_DE    
     this%f_alpha_M = alpha_M
-    call this%f_M2%init(coop_default_array_size, coop_min_scale_factor, coop_scale_factor_today, M2, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "EFT M^2")
+    call this%f_M2%init(narr, coop_min_scale_factor, coop_scale_factor_today, M2, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "EFT M^2")
 #endif    
   end subroutine coop_background_add_EFT_DE  
 

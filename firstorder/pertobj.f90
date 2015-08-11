@@ -133,6 +133,10 @@ contains
     select case(pert%de%genre)
     case (COOP_PERT_NONE)
        !!do nothing
+#if DO_EFT_DE       
+    case(COOP_PERT_EFT)
+       T0i = T0i + 2.d0* (pert%alpha_B *pert%O1_DE_HPIPR - (pert%u + pert%alpha_B * pert%HdotbyHsq)*pert%O1_DE_HPI)*pert%k*pert%aH
+#endif       
     case default
        call coop_tbw("T0i: de perturbations not written")
     end select
@@ -142,7 +146,11 @@ contains
   function coop_pert_object_delta_G0ia2(pert) result(G0i)
     class(coop_pert_object)::pert
     COOP_REAL::G0i
+#if DO_EFT_DE
+    G0i = 2.d0*pert%k*pert%aH*(pert%O1_PSIPR + pert%O1_Phi*(1.d0+pert%alpha_B))    
+#else    
     G0i = 2.d0*pert%k*pert%aH*(pert%O1_PSIPR + pert%O1_Phi)
+#endif    
   end function coop_pert_object_delta_G0ia2
 
   function coop_pert_object_zeta(pert) result(zeta)

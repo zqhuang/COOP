@@ -10,7 +10,7 @@ module coop_firstorder_mod
 
 
   !!this makes the code faster and more accurate
-  logical,parameter:: coop_firstorder_optimize = .true.
+  logical,parameter:: coop_firstorder_optimize = .false.
   COOP_INT, parameter::coop_limber_ell = 600
   logical,parameter::coop_do_limber_separately = .true.      
   
@@ -397,9 +397,11 @@ contains
        !!for energy conservation test:
        if(present(do_test_energy_conservation))then
           T00 = pert%delta_T00a2()
-          G00 = pert%delta_G00a2()       
+          T0i = pert%delta_T0ia2()
+          G00 = pert%delta_G00a2()
+          G0i = pert%delta_G0ia2()
           if(do_test_energy_conservation)then
-             write(*,"(3E16.7)")  log(pert%a),T00, G00
+             write(*,"(5E16.7)")  log(pert%a),T00, G00/T00-1.d0, T0i, G0i/T0i-1.d0
           endif
        endif
        !!------------------------------------------------------------

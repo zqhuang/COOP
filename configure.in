@@ -30,6 +30,9 @@ C_COMPILER = $(GCC_NAME)
 ########not all libraries are required  (depending on what you want to do)####
 ########set to null string for librarys that are not installed ###############
 ##############################################################################
+### set to EFT for effective field theory, LAMBDA for cosmological constant
+DARK_ENERGY_MODEL = EFT
+
 ##LAPACK lib; for MacOS set LAPACK = APPLE
 LAPACK = APPLE
 
@@ -202,4 +205,9 @@ ifneq ($(CLIKPATH),)
 LINK += -L$(CLIKPATH)/lib -lclik_f90
 INCLUDE += -I$(CLIKPATH)/include 
 FFLAGS += -DHAS_CLIK=1
+endif
+
+##effective field theory dark energy
+ifeq ($(DARK_ENERGY_MODEL),EFT)
+FFLAGS += -DDO_EFT_DE=1
 endif
