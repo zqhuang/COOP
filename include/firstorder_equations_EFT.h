@@ -2,7 +2,7 @@
     COOP_INT n
     type(coop_cosmology_firstorder)::cosmology
     type(coop_pert_object)::pert
-    COOP_REAL, parameter::tol = 1.d-6, conv_slope = 3000.d0
+    COOP_REAL, parameter::tol = 1.d-7, conv_slope = 1000.d0
     COOP_REAL lna, y(0:n-1), yp(0:n-1)
     COOP_INT i, l, iq
     COOP_REAL a, aniso,  ktauc, ktaucdot, ktaucdd, aniso_prime, aHtauc, aHtau, aHsq, uterm, vterm, ma, doptdlna, M2a2H2, anisobyM2, anisobyM2_prime, u_prime, alpha_H_pp, wp1_de, w_de_prime, wp1eff_de, kbyaHsq_prime
@@ -202,25 +202,30 @@
 
        Mat(:, eq_mupp) = Mat(:, eq_mupp) - Mat(:, eq_psipp)*Mat(i_psipp, eq_mupp)
 
-
-       if(abs(Mat(i_mupp, eq_mupp)) .lt. tol)then
+       select case(pert%de_scheme)
+       case(0)
           O1_PHI =  - Mat(i_const, eq_phi) - Mat(i_mu, eq_phi)*O1_DE_HPI - Mat(i_mup, eq_phi)*O1_DE_HPIPR
           O1_PHI_PRIME = -Mat(i_const, eq_phip) - Mat(i_mu, eq_phip)*O1_DE_HPI - Mat(i_mup, eq_phip)*O1_DE_HPIPR
           O1_PSIPR_PRIME = - Mat(i_const, eq_psipp) - Mat(i_mu, eq_psipp)*O1_DE_HPI - Mat(i_mup, eq_psipp)*O1_DE_HPIPR
           O1_DE_HPIPR_PRIME = -(O1_DE_HPIPR -  &
                (O1_PSIPR_PRIME + O1_PHI_PRIME+(O1_PSIPR+O1_PHI)*(2.d0/3.d0*pert%kbyaHsq*(1.d0+pert%HdotbyHsq)+pert%HdotbyHsq_prime)/(pert%kbyaHsq/3.d0-pert%HdotbyHsq))/(pert%kbyaHsq/3.d0-pert%HdotbyHsq) &
                )*conv_slope
-          mu_sol = -Mat(i_const, eq_mupp)/Mat(i_mu, eq_mupp)
-          O1_DE_HPI_PRIME = - (O1_DE_HPI - mu_sol)*conv_slope
-       else  !!for nonzero alpha_k
+          O1_DE_HPI = (O1_PSIPR + O1_PHI)/(pert%kbyaHsq/3.d0-pert%HdotbyHsq) 
+          O1_DE_HPIPR =  (O1_PSIPR_PRIME + O1_PHI_PRIME+(O1_PSIPR+O1_PHI)*(2.d0/3.d0*pert%kbyaHsq*(1.d0+pert%HdotbyHsq)+pert%HdotbyHsq_prime)/(pert%kbyaHsq/3.d0-pert%HdotbyHsq))/(pert%kbyaHsq/3.d0-pert%HdotbyHsq) 
           O1_DE_HPI_PRIME = O1_DE_HPIPR
+          O1_DE_HPIPR_PRIME = 0.d0
+       case(1)
+          
+       case(2)
+       case(3)
+          O1_DE_HPI_PRIME = O1_DE_HPIPR          
           O1_DE_HPIPR_PRIME = (-Mat(i_const, eq_mupp) - Mat(i_mu, eq_mupp)*O1_DE_HPI - Mat(i_mup, eq_mupp)*O1_DE_HPIPR)/Mat(i_mupp, eq_mupp)
           O1_PSIPR_PRIME = - Mat(i_const, eq_psipp) - Mat(i_mu, eq_psipp)*O1_DE_HPI - Mat(i_mup, eq_psipp)*O1_DE_HPIPR - Mat(i_mupp, eq_psipp)*O1_DE_HPIPR_PRIME
           O1_PHI = - Mat(i_const, eq_phi) - Mat(i_mu,eq_phi)*O1_DE_HPI - Mat(i_mup, eq_phi) * O1_DE_HPIPR
           O1_PHI_PRIME = -Mat(i_const, eq_phip) - Mat(i_mu, eq_phip)*O1_DE_HPI - Mat(i_mup,eq_phip)*O1_DE_HPIPR - Mat(i_mupp, eq_phip)*O1_DE_HPIPR_PRIME
-       endif
+       end select
        !!velocities
-100    O1_V_C_PRIME = - O1_V_C + pert%kbyaH * O1_PHI
+       O1_V_C_PRIME = - O1_V_C + pert%kbyaH * O1_PHI
        O1_NU_PRIME(1) = (O1_NU(0) + 4.d0*O1_PHI - 0.4d0 * O1_NU(2))*pert%kbyaH
        O1_V_B_PRIME = - O1_V_B + pert%kbyaH * (O1_PHI + pert%cs2b * O1_DELTA_B) - pert%slip/(pert%R * aHtauc)
        if(pert%has_rad_pert) &       

@@ -4,26 +4,25 @@ program test
   use coop_fitswrap_mod
   implicit none
 #include "constants.h"
-  type(coop_healpix_maps)::mask, dustmap
-  COOP_SINGLE::mean, sigma
-  COOP_REAL::xbar, rms, A
-  COOP_INT, dimension(:), allocatable::listpix
-  COOP_INT::nlist, i, j
-  call mask%read("dust/lat30_mask_n1024.fits")
-  call dustmap%read("dust/dust_i_n1024_15a.fits")
-  nlist = count(mask%map(:,1).gt.0.5)
-  mean = sum(dustmap%map(:,1)*mask%map(:,1))/nlist
-  sigma = sqrt(sum((dustmap%map(:,1)-mean)**2*mask%map(:,1))/nlist)
-  allocate(listpix(nlist))
-  j = 0
-  do i=0, mask%npix-1
-     if(mask%map(i, 1) .gt. 0.5)then
-        j = j + 1
-        listpix(j) = i
-     endif
+  type(coop_healpix_maps)::map
+  type(coop_file)::fp
+  COOP_INT::i, j, l
+  COOP_INT,parameter::lmin = 19, lmax = 31
+  COOP_REAL::Cls_model(2:lmax), Cls(2:lmax), junk, Cl_binned, weights(2:lmax)
+  COOP_STRING::line
+  do l = lmin, lmax
+     weights(l) = (2.d0*l+1.d0)
   enddo
-  call coop_fit_gaussian( dble(dustmap%map(listpix, 1)), 100, xbar, rms, A)
-  print*, xbar, rms
-  print*, mean, sigma
-  call coop_asy_histogram( x = dble(dustmap%map(listpix, 1)), nbins = 100, xlabel = "$\ln I$", ylabel = "$dP/d\ln I$", filename = "lnI_hist.txt", fit_gaussian = .true.) 
+  call map%init(nmaps = 1, nside = 2, genre = "T", nested = .true.)
+  do i=0, map%npix-1
+     call fp%open("jycls/inpainted_cls_ipix"//COOP_STR_OF(i)//".dat", "r")
+     read(fp%unit, "(A)") line
+     do j= 2, 31
+        read(fp%unit, *) l, Cls_model(l), Cls(l), junk
+     enddo
+     Cl_binned = sum(Cls(lmin:lmax)*weights(lmin:lmax))/sum(Cls_model(lmin:lmax)*weights(lmin:lmax)) - 1.d0
+     call fp%close()
+     map%map(i, 1) = Cl_binned
+  enddo
+  call map%write("deltaCl.fits")
 end program test

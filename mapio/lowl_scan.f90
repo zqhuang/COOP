@@ -14,9 +14,9 @@ program test
   type(coop_healpix_maps)::map, mask, m2
   type(coop_healpix_inpaint)::inp
   logical::makefig
-  COOP_INT,parameter::nside_scan = 1
+  COOP_INT,parameter::nside_scan = 2
   COOP_INT,parameter::npix_scan = nside_scan**2*12
-  COOP_INT,parameter ::lmax = 320
+  COOP_INT,parameter ::lmax = 120
   COOP_INT,parameter ::nrun = 200
   logical::loaded = .false.
   COOP_REAL::cls(0:lmax), Cls_ave(0:lmax, 0:npix_scan-1 ), ells(0:lmax)
