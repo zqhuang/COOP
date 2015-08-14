@@ -1029,13 +1029,15 @@ contains
 
   subroutine coop_smooth_fit_fit(this, n, x, y, dof, xlog, ylog)
     class(coop_smooth_fit)::this
-    COOP_INT::n
+    COOP_INT::dof    
+    COOP_INT::n, i, nd,nu
     COOP_REAL,intent(IN)::x(n), y(n)
-    COOP_REAL::xs(n), ys(n), k
+    COOP_REAL::ctry(dof)
+    COOP_REAL::xs(n), ys(n)    
     logical,optional::xlog, ylog
-    COOP_INT::dof
     COOP_REAL::dev
     if(dof .lt. 1) stop "smooth_fit: dof must be > 0"
+    if(dof .ge. n) stop "smooth_fit: dof must be < n"
     call this%free()
     allocate(this%c(dof))
     
@@ -1067,14 +1069,18 @@ contains
     xs = xs - this%center
     this%norm = 1.d2**(2.d0/dof)/maxval(abs(xs))
     xs = xs * this%norm
-    k = sum(log(abs(ys)+1.d0))/sum(log(abs(xs)+1.d0)) - 1
-    this%n_down = dof-1
-    this%n_up = 0
-    do while(this%n_up - this%n_down .lt. k .and. this%n_up .lt. dof-1)
-       this%n_down = this%n_down - 1
-       this%n_up = this%n_up + 1
+    this%dev = 1.d99
+    do i = 0, dof-1
+       nd = i
+       nu = dof-1-nd
+       call coop_ratlsq(n, xs, ys, nu, nd, ctry, dev)
+       if(abs(dev).lt. abs(this%dev))then
+          this%dev = dev
+          this%n_up = nu
+          this%n_down = nd
+          this%c = ctry
+       endif
     enddo
-    call coop_ratlsq(n, xs, ys, this%n_up, this%n_down, this%c, this%dev)
     this%initialized = .true.
   end subroutine coop_smooth_fit_fit
 

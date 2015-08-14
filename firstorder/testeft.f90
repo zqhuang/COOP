@@ -8,10 +8,10 @@ program test
   type(coop_asy)::fig
   COOP_INT::ik
   !!initialize w and alpha functions
-  call wp1%init_polynomial( (/ 0.d0, 0.15d0 /) )
+  call wp1%init_polynomial( (/ 0.d0, 0.d0 /) )
   call alphaM%init_polynomial( (/ 0.d0, 0.d0, 0.d0, 0.d0, 0.1d0 /) )
-  call alphaK%init_polynomial( (/ 0.d0, 0.d0, 0.d0, 0.d0, 0.d0 /) )
-  call alphaB%init_polynomial( (/ 0.d0, 0.d0, 0.d0, 0.d0, 0.d0 /) )
+  call alphaK%init_polynomial( (/ 0.d0, 0.d0, 0.01d0 /) )
+  call alphaB%init_polynomial( (/ 0.d0, 0.d0, 0.2d0 /) )
   call alphaH%init_polynomial( (/ 0.d0, 0.d0, 0.d0, 0.d0, 0.d0 /) )
   call alphaT%init_polynomial( (/ 0.d0, 0.d0, 0.d0, 0.d0, 0.d0 /) )      
   !!initialize cosmology

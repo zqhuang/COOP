@@ -89,7 +89,7 @@ contains
        T00 = T00  -  pert%de_delta_rho*pert%a**2
 #if DO_EFT_DE       
     case(COOP_PERT_EFT)
-       T00 = T00/pert%M2 - pert%aH**2* ( &
+       T00 = T00/pert%M2 - pert%aH**2 * ( &
             (pert%alpha_K - pert%alpha_B*6.d0)*(pert%O1_DE_HPIPR - pert%HdotbyHsq * pert%O1_DE_HPI) &
             + 6.d0*(pert%alpha_B*pert%HdotbyHsq + pert%u + pert%kbyaHsq/3.d0*(pert%alpha_H - pert%alpha_B))*pert%O1_DE_HPI)
 #endif       

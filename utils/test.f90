@@ -1,20 +1,42 @@
 program Test
-  use coop_wrapper_typedef
   use coop_wrapper_utils
   implicit none
 #include "constants.h"
-  integer,parameter::n = 21
-  integer,parameter::fit_order = 5
-  real*8 xa(n), ya(n), y, dy, c(2*fit_order+1), dev
+  integer,parameter::dof=8
+  integer,parameter::n = dof*20  
+  real*8 xa(n), ya(n), x, r(n)
   type(coop_smooth_fit)::sf
-  xa = (/ -1.d0, -0.8d0, -0.5d0, -0.2d0, -0.1d0, 0.d0, 0.1d0, 0.2d0, 0.28d0,0.31d0, 0.32d0, 0.4d0, 0.41d0, 0.5d0, 0.55d0, 0.65d0, 0.8d0, 0.85d0, 0.9d0, 1.2d0, 1.5d0 /)
+  COOP_INT::i
 
-  !!example of extrapolation of noisy data
-  call random_number(ya)
-  ya = sin(xa) +(ya-0.5d0)/1000.d0
-
-  call sf%fit(n, xa, ya, 6)
-  print*, sf%eval(2.d0), sin(2.d0)
   
+  call coop_set_uniform(n, xa, 0.d0, 1.d0)
+
+  print*, "extrapolating smooth data"  
+  do i=1, n
+     ya(i) = f(xa(i))
+  enddo
+  call sf%fit(n, xa, ya, dof = dof)
+  do i = 1, 20
+     x=1.d0+0.1d0*i
+     print*, x, sf%eval(x), f(x)
+  enddo
+
+  print*, "extrapolating noisy data"
+  
+  call random_number(r)
+  ya = ya + (r-0.5d0)*0.001d0  !!add some noise
+  call sf%fit(n, xa, ya, dof = dof)
+  do i = 1, 20
+     x=1.d0+0.1d0*i
+     print*, x, sf%eval(x), f(x)
+  enddo
+
+  
+contains
+
+  function f(x)
+    COOP_REAL::f, x
+    f = x*sqrt(x**2+1.d0)*cos(x)
+  end function f
   
 end program Test
