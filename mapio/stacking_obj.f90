@@ -790,10 +790,10 @@ contains
     if(b_deg .lt. -90.d0 .or. b_deg .gt. 90.d0) stop "b must be between -90 deg to 90 deg"
     theta = (90.d0 - b_deg)*coop_SI_degree
     phi = l_deg * coop_SI_degree
-    do while(phi .gt. coop_2pi)
+    do while(phi .ge. coop_2pi)
        phi = phi - coop_2pi
     enddo
-    do while(phi .lt. coop_2pi)
+    do while(phi .lt. 0.d0)
        phi = phi + coop_2pi
     enddo
   end subroutine coop_healpix_lb2ang

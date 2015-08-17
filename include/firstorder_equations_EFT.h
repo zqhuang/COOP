@@ -1,15 +1,15 @@
-  subroutine coop_cosmology_firstorder_equations(n, lna, y, yp, cosmology, pert)
+subroutine coop_cosmology_firstorder_equations(n, lna, y, yp, cosmology, pert)
     COOP_INT n
     type(coop_cosmology_firstorder)::cosmology
     type(coop_pert_object)::pert
-    COOP_REAL, parameter::tol = 1.d-7, conv_slope = 1000.d0
+    COOP_REAL, parameter::eps = 1.d-6
     COOP_REAL lna, y(0:n-1), yp(0:n-1)
     COOP_INT i, l, iq
     COOP_REAL a, aniso,  ktauc, ktaucdot, ktaucdd, aniso_prime, aHtauc, aHtau, aHsq, uterm, vterm, ma, doptdlna, M2a2H2, anisobyM2, anisobyM2_prime, u_prime, alpha_H_pp, wp1_de, w_de_prime, wp1eff_de, kbyaHsq_prime
     COOP_REAL :: pa2pr_g, pa2pr_nu
     COOP_REAL::  asq, Hsq
-    COOP_INT, parameter::i_psipp = 1, i_mupp = 2, i_phi = 3, i_phip = 4, i_mup = 5, i_mu = 6, i_const = 7 , eq_phi = 1, eq_phip = 2, eq_psipp = 3, eq_mupp = 4
-    COOP_REAL::  Mat(i_const, eq_mupp), derv(i_const, eq_mupp), pidot_c, mu_sol
+    COOP_INT, parameter::i_psipp = 1, i_mupp = 2, i_phi = 3, i_phip = 4, i_mup = 5, i_mu = 6, i_const = 7 , eq_phi = 1, eq_phip = 2, eq_psipp = 3, eq_mupp = 4, eq_aux = 5
+    COOP_REAL::   pidot_c, mu_sol
 
     !!My PHI = Psi in Hu & White = Psi in Ma et al;
     !!My PSI = - Phi in Hu & White = Phi in Ma et al;
@@ -91,7 +91,7 @@
     ktaucdot = pert%k * pert%taucdot
     pert%kbyaH  = pert%k/pert%aH
     pert%kbyaHsq = pert%kbyaH**2
-    kbyaHsq_prime = -2.d0* pert%kbyaHsq*(1.d0+pert%HdotbyHsq)
+    kbyaHsq_prime = -2.d0 * pert%kbyaHsq * ( 1.d0 + pert%HdotbyHsq )
     aHtauc = pert%aH * pert%tauc
     doptdlna = 1.d0/aHtauc
     pert%tau = cosmology%tauofa(a)
@@ -126,13 +126,13 @@
        aniso = 0.6d0/pert%ksq * aniso
        anisobyM2 = aniso/pert%M2
 
-       Mat = 0.d0
+       pert%deMat = 0.d0
 
        !!equation  for Phi (eq. 111)
-       Mat(i_phi, eq_phi) = 1.d0+pert%alpha_H
-       Mat(i_const, eq_phi) = anisobyM2- (1.d0+pert%alpha_T)*O1_PSI
-       Mat(i_mup, eq_phi) = - pert%alpha_H
-       Mat(i_mu, eq_phi)= (-pert%alpha_T + pert%alpha_M + pert%HdotbyHsq*pert%alpha_H)
+       pert%deMat(i_phi, eq_phi) = 1.d0+pert%alpha_H
+       pert%deMat(i_const, eq_phi) = anisobyM2- (1.d0+pert%alpha_T)*O1_PSI
+       pert%deMat(i_mup, eq_phi) = - pert%alpha_H
+       pert%deMat(i_mu, eq_phi)= (-pert%alpha_T + pert%alpha_M + pert%HdotbyHsq*pert%alpha_H)
 
 
 
@@ -140,7 +140,7 @@
        if(pert%has_rad_pert)then
           if(pert%tight_coupling)then
              aniso_prime = (pert%pa2_nu *(pert%kbyaH * (cosmology%klms_by_2lm1(2, 0, 0) *   O1_NU(1) - cosmology%klms_by_2lp1(3, 0, 0) *  O1_NU(3) ) )  + pa2pr_nu*O1_NU(2) +  pert%pa2_g * ( (8.d0/9.d0)*(ktauc*((O1_T(0) - 0.4d0*pert%T%F(2))*pert%kbyaH + 4.d0*pert%slip/aHtauc) + ktaucdot/pert%aH*O1_T(1)) ) + pa2pr_g * pert%T%F(2))*(0.6d0/pert%ksq)
-             Mat(i_phi, eq_phip) = pert%pa2_g * (32.d0/9.d0)* ktauc*pert%kbyaH/pert%M2*(0.6d0/pert%ksq)
+             pert%deMat(i_phi, eq_phip) = pert%pa2_g * (32.d0/9.d0)* ktauc*pert%kbyaH/pert%M2*(0.6d0/pert%ksq)
           else
              aniso_prime = (pert%pa2_nu *(pert%kbyaH * (cosmology%klms_by_2lm1(2, 0, 0) *   O1_NU(1) - cosmology%klms_by_2lp1(3, 0, 0) *  O1_NU(3) ) )  + pa2pr_nu*O1_NU(2) +  pert%pa2_g * ( pert%kbyaH * (cosmology%klms_by_2lm1(2, 0, 0)*O1_T(1) - cosmology%klms_by_2lp1(3, 0, 0)*O1_T(3))  - (O1_T(2) - ((O1_T(2) - coop_sqrt6 * O1_E(2))/10.d0))/aHtauc) + pa2pr_g * pert%T%F(2))*(0.6d0/pert%ksq)
           endif
@@ -150,79 +150,101 @@
        anisobyM2_prime = aniso_prime/pert%M2 - anisobyM2*pert%alpha_M
 
        
-       Mat(i_phi, eq_phip) = pert%alpha_H_prime + Mat(i_phi, eq_phip)
-       Mat(i_phip, eq_phip) = Mat(i_phi, eq_phi)
-       Mat(i_mu,  eq_phip) = pert%alpha_M_prime - pert%alpha_T_prime + pert%HdotbyHsq*pert%alpha_H_prime + pert%HdotbyHsq_prime*pert%alpha_H
-       Mat(i_mup, eq_phip) = Mat(i_mu, eq_phi) - pert%alpha_H_prime
-       Mat(i_mupp, eq_phip) = Mat(i_mup, eq_phi)
-       Mat(i_const, eq_phip) =  anisobyM2_prime - (1.d0+pert%alpha_T)*O1_PSIPR - pert%alpha_T_prime * O1_PSI 
+       pert%deMat(i_phi, eq_phip) = pert%alpha_H_prime + pert%deMat(i_phi, eq_phip)
+       pert%deMat(i_phip, eq_phip) = pert%deMat(i_phi, eq_phi)
+       pert%deMat(i_mu,  eq_phip) = pert%alpha_M_prime - pert%alpha_T_prime + pert%HdotbyHsq*pert%alpha_H_prime + pert%HdotbyHsq_prime*pert%alpha_H
+       pert%deMat(i_mup, eq_phip) = pert%deMat(i_mu, eq_phi) - pert%alpha_H_prime
+       pert%deMat(i_mupp, eq_phip) = pert%deMat(i_mup, eq_phi)
+       pert%deMat(i_const, eq_phip) =  anisobyM2_prime - (1.d0+pert%alpha_T)*O1_PSIPR - pert%alpha_T_prime * O1_PSI 
        
 
 
        !!equation for Psi'' (eq. 112)
-       pidot_c = pert%u - pert%alpha_B_prime - (3.d0+pert%alpha_M + pert%HdotbyHsq)*pert%alpha_B       
-       Mat(i_psipp, eq_psipp) = 1.d0
-       Mat(i_mupp, eq_psipp) =  - pert%alpha_B
-       Mat(i_mup, eq_psipp) = pert%alpha_B * pert%HdotbyHsq &
-            +  pidot_c + (pert%alpha_K/6.d0 - pert%alpha_B)
-       Mat(i_mu, eq_psipp) =  pert%alpha_B * pert%HdotbyHsq_prime &
-            - pert%HdotbyHsq * pidot_c &
-            + (3.d0+pert%alpha_M + 2.d0*pert%hdotbyHsq)*pert%hdotbyHsq - 2.d0*pert%pa2_matter/M2a2H2 + pert%HdotbyHsq_prime  &    !!here I am replacing p' with - 4p assuming no massive neutrinos
-            - (pert%alpha_K/6.d0 - pert%alpha_B) * pert%HdotbyHsq  &
-            + pert%u + pert%HdotbyHsq * pert%alpha_B + pert%kbyaHsq*(pert%alpha_H - pert%alpha_B)/3.d0  
+       pert%deMat(i_psipp, eq_psipp) = 1.d0
+       pert%deMat(i_mupp, eq_psipp) =  - pert%alpha_B
+       pert%deMat(i_mup, eq_psipp) = pert%u - pert%alpha_B_prime - (4.d0+pert%alpha_M ) * pert%alpha_B + pert%alpha_K/6.d0 
+       pert%deMat(i_mu, eq_psipp) =  (1.d0+pert%alpha_B) * pert%HdotbyHsq_prime &
+            + pert%HdotbyHsq * (pert%alpha_B_prime+pert%HdotbyHsq - pert%u + 2.d0*pert%alpha_B - pert%alpha_K/6.d0 + (3.d0+pert%alpha_M+pert%HdotbyHsq)*(1.d0+pert%alpha_B))  &
+            + pert%u - 2.d0*pert%pa2_matter/M2a2H2   &    !!here I am replacing p' with - 4p assuming no massive neutrinos
+            + pert%kbyaHsq*(pert%alpha_H - pert%alpha_B)/3.d0  
 
-      Mat(i_phi, eq_psipp) = 1.d0+2.d0*pert%HdotbyHsq - pert%u - pert%alpha_K/6.d0 + (2.d0+pert%HdotbyHsq)*pert%alpha_B + pert%alpha_B_prime + (3.d0+pert%alpha_M)*(1.d0+pert%alpha_B)
-      Mat(i_phip, eq_psipp) = 1.d0 + pert%alpha_B
-      Mat(i_const, eq_psipp)  =  - 0.5d0 * (O1_DELTA_B*pert%rhoa2_b/M2a2H2*(pert%cs2b - 1.d0/3.d0) + O1_DELTA_C * pert%rhoa2_c/M2a2H2*(-1.d0/3.d0)- 2.d0/3.d0 * pert%kbyaHsq * anisobyM2) &
+      pert%deMat(i_phi, eq_psipp) = 1.d0+2.d0*pert%HdotbyHsq - pert%u - pert%alpha_K/6.d0 + (2.d0+pert%HdotbyHsq)*pert%alpha_B + pert%alpha_B_prime + (3.d0+pert%alpha_M)*(1.d0+pert%alpha_B)
+      pert%deMat(i_phip, eq_psipp) = 1.d0 + pert%alpha_B
+      pert%deMat(i_const, eq_psipp)  =  - 0.5d0 * (O1_DELTA_B*pert%rhoa2_b/M2a2H2*(pert%cs2b - 1.d0/3.d0) + O1_DELTA_C * pert%rhoa2_c/M2a2H2*(-1.d0/3.d0)- 2.d0/3.d0 * pert%kbyaHsq * anisobyM2) &
                + (4.d0 + pert%HdotbyHsq + pert%alpha_M + pert%alpha_B)*O1_PSIPR &
                + ((1.d0 + pert%alpha_H)/3.d0*pert%kbyaHsq)*O1_PSI
 
       
       !!equations for mu''
-       Mat(i_psipp, eq_mupp) = 6.d0*pert%alpha_B
-       Mat(i_mupp, eq_mupp) = pert%alpha_K
-       Mat(i_mup, eq_mupp) = - pert%alpha_K * pert%HdotbyHsq &
-            + ((3.d0+pert%alpha_M + 2.d0*pert%HdotbyHsq)*pert%alpha_K + pert%alpha_K_prime)
-       Mat(i_mu, eq_mupp) = -pert%alpha_K * pert%HdotbyHsq_prime - pert%HdotbyHsq * ((3.d0 + pert%alpha_M + 2.d0*pert%HdotbyHsq)*pert%alpha_K + pert%alpha_K_prime ) &
+       pert%deMat(i_psipp, eq_mupp) = 6.d0*pert%alpha_B
+       pert%deMat(i_mupp, eq_mupp) = pert%alpha_K
+       pert%deMat(i_mup, eq_mupp) = (3.d0+pert%alpha_M + pert%HdotbyHsq)*pert%alpha_K + pert%alpha_K_prime
+       pert%deMat(i_mu, eq_mupp) = -pert%alpha_K * pert%HdotbyHsq_prime - pert%HdotbyHsq * ((3.d0 + pert%alpha_M + 2.d0*pert%HdotbyHsq)*pert%alpha_K + pert%alpha_K_prime ) &
             + 6.d0* (pert%HdotbyHsq*(pert%u + pert%alpha_B * (3.d0 + pert%alpha_M  + pert%HdotbyHsq*3.d0) + pert%alpha_B_prime) + pert%alpha_B*pert%HdotbyHsq_prime) &
             - 2.d0 * pert%kbyaHsq * ( pert%u + (pert%alpha_B - pert%alpha_H)*(1.d0+pert%alpha_M + pert%HdotbyHsq) +pert%alpha_T -pert%alpha_M +  pert%alpha_B_prime - pert%alpha_H_prime)
-       Mat(i_phip, eq_mupp) =  6.d0*pert%alpha_B- pert%alpha_K
-       Mat(i_phi, eq_mupp) = 6.d0*pert%u + (6.d0*pert%alpha_B - pert%alpha_K) * (3.d0 + pert%alpha_M) + 2.d0*(pert%alpha_B * 9.d0 - pert%alpha_K) * pert%HdotbyHsq  + 6.d0*pert%alpha_B_prime - pert%alpha_K_prime + 2.d0*pert%kbyaHsq*(pert%alpha_H - pert%alpha_B)
-       Mat(i_const, eq_mupp) =   (6.d0*(pert%alpha_B*(2.d0*pert%HdotbyHsq+3.d0+pert%alpha_M) + pert%u + pert%alpha_B_prime)+2.d0*pert%kbyaHsq*pert%alpha_H)*O1_PSIPR &
+       pert%deMat(i_phip, eq_mupp) =  6.d0*pert%alpha_B- pert%alpha_K
+       pert%deMat(i_phi, eq_mupp) = 6.d0*pert%u + (6.d0*pert%alpha_B - pert%alpha_K) * (3.d0 + pert%alpha_M) + 2.d0*(pert%alpha_B * 9.d0 - pert%alpha_K) * pert%HdotbyHsq  + 6.d0*pert%alpha_B_prime - pert%alpha_K_prime + 2.d0*pert%kbyaHsq*(pert%alpha_H - pert%alpha_B)
+       pert%deMat(i_const, eq_mupp) =   (6.d0*(pert%alpha_B*(2.d0*pert%HdotbyHsq+3.d0+pert%alpha_M) + pert%u + pert%alpha_B_prime)+2.d0*pert%kbyaHsq*pert%alpha_H)*O1_PSIPR &
             + 2.d0*pert%kbyaHsq * (pert%alpha_M*(1.d0+pert%alpha_H) + pert%alpha_H  - pert%alpha_T + pert%alpha_H_prime)*O1_PSI
 
        !!Ok now try solving the equations
-       Mat(:, eq_phi) = Mat(:, eq_phi)/Mat(i_phi, eq_phi)
-       Mat(:, eq_phip) = Mat(:, eq_phip)/Mat(i_phip, eq_phip)
-       Mat(:, eq_psipp) = Mat(:, eq_psipp)/Mat(i_psipp, eq_psipp)
-       Mat(:, eq_phip) =  Mat(:, eq_phip) - Mat(i_phi, eq_phip)*Mat(:, eq_phi)
-       Mat(:, eq_psipp) = Mat(:, eq_psipp) - Mat(:, eq_phi)*Mat(i_phi, eq_psipp) - Mat(:, eq_phip) * Mat(i_phip, eq_psipp)
+       pert%deMat(:, eq_phi) = pert%deMat(:, eq_phi)/pert%deMat(i_phi, eq_phi)
+       pert%deMat(:, eq_phip) = pert%deMat(:, eq_phip)/pert%deMat(i_phip, eq_phip)
+       pert%deMat(:, eq_psipp) = pert%deMat(:, eq_psipp)/pert%deMat(i_psipp, eq_psipp)
+       pert%deMat(:, eq_phip) =  pert%deMat(:, eq_phip) - pert%deMat(i_phi, eq_phip)*pert%deMat(:, eq_phi)
+       pert%deMat(:, eq_psipp) = pert%deMat(:, eq_psipp) - pert%deMat(:, eq_phi)*pert%deMat(i_phi, eq_psipp) - pert%deMat(:, eq_phip) * pert%deMat(i_phip, eq_psipp)
 
-       Mat(:, eq_mupp) = Mat(:, eq_mupp) - Mat(:, eq_phi)*Mat(i_phi, eq_mupp) - Mat(:, eq_phip)*Mat(i_phip, eq_mupp)
+       pert%deMat(:, eq_mupp) = pert%deMat(:, eq_mupp) - pert%deMat(:, eq_phi) * pert%deMat(i_phi, eq_mupp) - pert%deMat(:, eq_phip) * pert%deMat(i_phip, eq_mupp)
 
-       Mat(:, eq_mupp) = Mat(:, eq_mupp) - Mat(:, eq_psipp)*Mat(i_psipp, eq_mupp)
+       pert%deMat(:, eq_mupp) = pert%deMat(:, eq_mupp) - pert%deMat(:, eq_psipp) * pert%deMat(i_psipp, eq_mupp)
 
        select case(pert%de_scheme)
        case(0)
-          O1_PHI =  - Mat(i_const, eq_phi) - Mat(i_mu, eq_phi)*O1_DE_HPI - Mat(i_mup, eq_phi)*O1_DE_HPIPR
-          O1_PHI_PRIME = -Mat(i_const, eq_phip) - Mat(i_mu, eq_phip)*O1_DE_HPI - Mat(i_mup, eq_phip)*O1_DE_HPIPR
-          O1_PSIPR_PRIME = - Mat(i_const, eq_psipp) - Mat(i_mu, eq_psipp)*O1_DE_HPI - Mat(i_mup, eq_psipp)*O1_DE_HPIPR
-          O1_DE_HPIPR_PRIME = -(O1_DE_HPIPR -  &
-               (O1_PSIPR_PRIME + O1_PHI_PRIME+(O1_PSIPR+O1_PHI)*(2.d0/3.d0*pert%kbyaHsq*(1.d0+pert%HdotbyHsq)+pert%HdotbyHsq_prime)/(pert%kbyaHsq/3.d0-pert%HdotbyHsq))/(pert%kbyaHsq/3.d0-pert%HdotbyHsq) &
-               )*conv_slope
-          O1_DE_HPI = (O1_PSIPR + O1_PHI)/(pert%kbyaHsq/3.d0-pert%HdotbyHsq) 
+          O1_PHI =  - pert%deMat(i_const, eq_phi)
+          O1_PHI_PRIME = - pert%deMat(i_const, eq_phip) 
+          O1_PSIPR_PRIME = - pert%deMat(i_const, eq_psipp) 
+          O1_DE_HPI = ( O1_PSIPR + O1_PHI )/(pert%kbyaHsq/3.d0-pert%HdotbyHsq) 
           O1_DE_HPIPR =  (O1_PSIPR_PRIME + O1_PHI_PRIME+(O1_PSIPR+O1_PHI)*(2.d0/3.d0*pert%kbyaHsq*(1.d0+pert%HdotbyHsq)+pert%HdotbyHsq_prime)/(pert%kbyaHsq/3.d0-pert%HdotbyHsq))/(pert%kbyaHsq/3.d0-pert%HdotbyHsq) 
           O1_DE_HPI_PRIME = O1_DE_HPIPR
           O1_DE_HPIPR_PRIME = 0.d0
        case(1)
+          if(abs(pert%deMat(i_mu, eq_mupp)) .lt. eps)then
+             pert%deMat(i_mu, eq_mupp) = sign(eps,  pert%deMat(i_mu, eq_mupp))
+          endif
+          O1_DE_HPI = - pert%deMat(i_const, eq_mupp)/pert%deMat(i_mu, eq_mupp)
+          pert%deMat(i_mup, eq_aux) = pert%deMat(i_mu, eq_mupp)
+          pert%deMat(i_mu, eq_aux) = 6.d0 * ((pert%HdotbyHsq_prime+pert%alpha_T_prime - pert%alpha_M_prime)*pert%u +(pert%HdotbyHsq + pert%alpha_T - pert%alpha_M) * u_prime) - 2.d0*(pert%kbyaHsq*(u_prime + pert%alpha_T_prime - pert%alpha_M_prime) + kbyahsq_prime*(pert%u + pert%alpha_T - pert%alpha_M))
+          pert%deMat(i_psipp, eq_aux) = 6.d0*pert%u
+          pert%deMat(i_const, eq_aux) = (6.d0*u_prime+2.d0*pert%kbyaHsq*(pert%alpha_M - pert%alpha_T) + 6.d0*pert%u*(1.d0+pert%alpha_T) )*O1_PSIPR &
+               + (2.d0*kbyahsq_prime*(pert%alpha_M - pert%alpha_T) + 2.d0*pert%kbyaHsq*(pert%alpha_M_prime - pert%alpha_T_prime) + 6.d0*(pert%alpha_T_prime*pert%u+(1.d0+pert%alpha_T)*u_prime))*O1_PSI &
+               - 6.d0*(pert%u * anisobyM2_prime + u_prime * anisobyM2)
+          pert%deMat(:, eq_psipp) =  pert%deMat(:, eq_psipp) - (pert%deMat(i_mup, eq_psipp)/pert%deMat(i_mup, eq_aux)) * pert%deMat(:, eq_aux)
           
+          O1_PSIPR_PRIME = - pert%deMat(i_const, eq_psipp)  - O1_DE_HPI *  pert%deMat(i_mu, eq_psipp)
+          O1_DE_HPIPR = -(pert%deMat(i_const, eq_aux)  + pert%deMat(i_mu, eq_aux)*O1_DE_HPI + pert%deMat(i_psipp, eq_aux)* O1_PSIPR_PRIME)/pert%deMat(i_mup, eq_aux)
+          O1_PHI = - pert%deMat(i_const, eq_phi) - O1_DE_HPI * pert%deMat(i_mu, eq_phi) - O1_DE_HPIPR * pert%deMat(i_mup, eq_phi)
+          O1_PHI_PRIME = - pert%deMat(i_const, eq_phip) - O1_DE_HPI * pert%deMat(i_mu, eq_phip) - O1_DE_HPIPR*pert%deMat(i_mup, eq_phip)
+
+          print*, O1_DE_HPIPR, (O1_PSIPR_PRIME + O1_PHI_PRIME+(O1_PSIPR+O1_PHI)*(2.d0/3.d0*pert%kbyaHsq*(1.d0+pert%HdotbyHsq)+pert%HdotbyHsq_prime)/(pert%kbyaHsq/3.d0-pert%HdotbyHsq))/(pert%kbyaHsq/3.d0-pert%HdotbyHsq)
+
+          
+
+          O1_DE_HPI_PRIME = O1_DE_HPIPR
+          O1_DE_HPIPR_PRIME = 0.d0
        case(2)
+          if(abs(pert%deMat(i_mup, eq_mupp)) .lt. eps)then
+             pert%deMat(i_mup, eq_mupp) = sign(eps,  pert%deMat(i_mup, eq_mupp))
+          endif
+          stop "scheme = 2 hasn't been coded"
        case(3)
+          if(abs(pert%deMat(i_mupp, eq_mupp)) .lt. eps)then
+             pert%deMat(i_mupp, eq_mupp) = sign(eps,  pert%deMat(i_mupp, eq_mupp))
+          endif
           O1_DE_HPI_PRIME = O1_DE_HPIPR          
-          O1_DE_HPIPR_PRIME = (-Mat(i_const, eq_mupp) - Mat(i_mu, eq_mupp)*O1_DE_HPI - Mat(i_mup, eq_mupp)*O1_DE_HPIPR)/Mat(i_mupp, eq_mupp)
-          O1_PSIPR_PRIME = - Mat(i_const, eq_psipp) - Mat(i_mu, eq_psipp)*O1_DE_HPI - Mat(i_mup, eq_psipp)*O1_DE_HPIPR - Mat(i_mupp, eq_psipp)*O1_DE_HPIPR_PRIME
-          O1_PHI = - Mat(i_const, eq_phi) - Mat(i_mu,eq_phi)*O1_DE_HPI - Mat(i_mup, eq_phi) * O1_DE_HPIPR
-          O1_PHI_PRIME = -Mat(i_const, eq_phip) - Mat(i_mu, eq_phip)*O1_DE_HPI - Mat(i_mup,eq_phip)*O1_DE_HPIPR - Mat(i_mupp, eq_phip)*O1_DE_HPIPR_PRIME
+          O1_DE_HPIPR_PRIME = (-pert%deMat(i_const, eq_mupp) - pert%deMat(i_mu, eq_mupp)*O1_DE_HPI - pert%deMat(i_mup, eq_mupp)*O1_DE_HPIPR)/pert%deMat(i_mupp, eq_mupp)
+          O1_PSIPR_PRIME = - pert%deMat(i_const, eq_psipp) - pert%deMat(i_mu, eq_psipp)*O1_DE_HPI - pert%deMat(i_mup, eq_psipp)*O1_DE_HPIPR - pert%deMat(i_mupp, eq_psipp)*O1_DE_HPIPR_PRIME
+          O1_PHI = - pert%deMat(i_const, eq_phi) - pert%deMat(i_mu,eq_phi)*O1_DE_HPI - pert%deMat(i_mup, eq_phi) * O1_DE_HPIPR
+          O1_PHI_PRIME = -pert%deMat(i_const, eq_phip) - pert%deMat(i_mu, eq_phip)*O1_DE_HPI - pert%deMat(i_mup,eq_phip)*O1_DE_HPIPR - pert%deMat(i_mupp, eq_phip)*O1_DE_HPIPR_PRIME
        end select
        !!velocities
        O1_V_C_PRIME = - O1_V_C + pert%kbyaH * O1_PHI

@@ -71,12 +71,13 @@ module coop_firstorder_mod
      COOP_INT::nsrc = 0
      COOP_INT::nsaux = 0
      COOP_INT, dimension(:),allocatable::index_tc_off, index_rad_off
+     COOP_INT::index_de_perturb_on
      COOP_INT, dimension(coop_pert_default_nq)::index_massivenu_on
      COOP_INT::index_massivenu_cold, index_rad_small, index_vis_end, index_vis_max, index_vis_start
      COOP_REAL::dkop, kopmin, kopmax, kmin, kmax, kweight, tauweight, bbks_keq, bbks_trans_kmax, distlss, dkop_dense
      COOP_REAL,dimension(coop_k_dense_fac)::a_dense, b_dense, a2_dense, b2_dense
      COOP_REAL, dimension(:),allocatable::k, kop, dk !!tau is conformal time, chi is comoving distance; in flat case, chi + tau = tau_0
-     COOP_REAL, dimension(:),allocatable::tau, a, tauc, lna, dtau, chi, omega_rad, vis
+     COOP_REAL, dimension(:),allocatable::tau, a, tauc, lna, dtau, chi, omega_rad, vis, omega_de
      COOP_REAL, dimension(:,:),allocatable::k_dense, ws_dense, wt_dense, ps_dense
      COOP_REAL, dimension(:,:,:),allocatable::s, s2, saux
    contains
@@ -370,9 +371,10 @@ contains
 
 
   subroutine coop_cosmology_firstorder_compute_source_k(this, source, ik, do_test_energy_conservation, transfer_only)
+    COOP_REAL, parameter::eps = 1.d-6
     class(coop_cosmology_firstorder)::this
     type(coop_cosmology_firstorder_source)::source
-    COOP_INT ik, nvars, itau, iq
+    COOP_INT ik, nvars, itau, iq, scheme
     type(coop_pert_object) pert
     COOP_REAL, dimension(:,:),allocatable::w
     logical,optional::do_test_energy_conservation, transfer_only
@@ -382,6 +384,7 @@ contains
     tau_ini = min(coop_initial_condition_epsilon/source%k(ik), this%conformal_time(this%a_eq*coop_initial_condition_epsilon), source%tau(1)*0.999d0)
     call this%set_initial_conditions(pert, m = source%m, k = source%k(ik), tau = tau_ini)
     lna = log(this%aoftau(tau_ini))
+    pert%de_scheme = 0
     call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)
     ind = 1
     c = 0.d0
@@ -415,6 +418,27 @@ contains
        endif
        !!------------------------------------------------------------
        call this%pert2source(pert, source, itau, ik)
+
+       if(itau .ge. source%index_de_perturb_on)then
+          if(abs(pert%deMat(2, 4)).gt. eps)then
+             scheme = 3
+          else
+             if(abs(pert%deMat(5, 4)) .gt. eps)then
+                scheme = 2
+             else
+                if(abs(pert%deMat(6, 4)) .gt. eps)then
+                   scheme = 1
+                else
+                   scheme = 0
+                endif
+             endif
+          endif
+          if(scheme .ne. pert%de_scheme)then
+             ind = 1
+             pert%de_scheme = scheme
+          endif
+       endif
+       
 
        if(itau .eq. source%index_tc_off(ik))then
           call pert%save_ode()

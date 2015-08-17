@@ -34,6 +34,7 @@ module coop_pertobj_mod
 #if DO_EFT_DE
      COOP_INT::de_scheme = 0     
      COOP_REAL::M2, alpha_M, alpha_K, alpha_T, alpha_B, alpha_H, alpha_M_prime, alpha_K_prime, alpha_T_prime, alpha_B_prime, alpha_H_prime, HdotbyHsq_prime, p_prime_a2_matter, rho_prime_a2_matter, pa2_matter, rhoa2_matter, HddbyH3, u
+     COOP_REAL::deMat(7, 5)
 #endif     
      COOP_STRING::initial_conditions = "adiabatic"
      logical::tight_coupling = .true.

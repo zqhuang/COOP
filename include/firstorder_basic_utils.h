@@ -115,7 +115,7 @@
     class(coop_cosmology_firstorder_source)::this
     if(allocated(this%k))deallocate(this%k, this%dk, this%index_tc_off, this%kop,this%index_rad_off)
     this%nk = 0
-    if(allocated(this%tau))deallocate(this%tau, this%chi, this%dtau, this%a, this%tauc, this%lna, this%omega_rad, this%vis)
+    if(allocated(this%tau))deallocate(this%tau, this%chi, this%dtau, this%a, this%tauc, this%lna, this%omega_rad, this%vis, this%omega_de)
     this%ntau = 0
     if(allocated(this%s))deallocate(this%s, this%s2, this%saux)
     if(allocated(this%k_dense))deallocate(this%k_dense, this%ws_dense, this%wt_dense, this%ps_dense)
@@ -533,10 +533,10 @@
     if(allocated(source%a))then
        if(size(source%a).ne.n)then
           deallocate(source%a, source%tau, source%chi, source%dtau, source%tauc, source%lna, source%omega_rad, source%vis)
-          allocate(source%a(n), source%tau(n), source%dtau(n), source%chi(n), source%tauc(n), source%lna(n), source%omega_rad(n), source%vis(n))
+          allocate(source%a(n), source%tau(n), source%dtau(n), source%chi(n), source%tauc(n), source%lna(n), source%omega_rad(n), source%vis(n), source%omega_de(n))
        endif
     else
-       allocate(source%a(n),source%tau(n), source%dtau(n), source%chi(n),  source%tauc(n), source%lna(n), source%omega_rad(n), source%vis(n))
+       allocate(source%a(n),source%tau(n), source%dtau(n), source%chi(n),  source%tauc(n), source%lna(n), source%omega_rad(n), source%vis(n), source%omega_de(n))
     endif
     source%a = a(1:n)
     source%tau = tau(1:n)
@@ -551,7 +551,8 @@
     do i=1, n
        source%tauc(i) = this%taucofa(source%a(i))
        source%vis(i) = this%visofa(source%a(i))
-       source%omega_rad(i) = this%Omega_r/( this%Omega_r + source%a(i)*(this%Omega_m+(1.d0-this%Omega_m)*source%a(i)**3))  !!this is just an approximation, only used for optimization (drop radiation when omega_rad is very small)       
+       source%omega_rad(i) = this%Omega_r/( this%Omega_r + source%a(i)*(this%Omega_m+(1.d0-this%Omega_m)*source%a(i)**3))  !!this is just an approximation, only used for optimization (drop radiation when omega_rad is very small)
+       source%omega_de(i) = O0_DE(this)%rhoa4(source%a(i))/this%rhoa4(source%a(i))
     enddo
     !$omp end parallel do
     source%index_rad_small = 0
@@ -626,7 +627,7 @@
     enddo
     !$omp end parallel do
 
-    !!set index_tc_off and index_rad_off
+    !!set index_tc_off, index_de_perturb_on, and index_rad_off
     if(source%ntau .gt. 0 .and. allocated(source%tauc))then
        source%index_tc_off = 1
        !$omp parallel do
@@ -637,6 +638,11 @@
        enddo
        !$omp end parallel do
 
+       source%index_de_perturb_on = 1
+       do while(source%omega_de(source%index_de_perturb_on) .lt. 1.d-6 .and. source%index_de_perturb_on .lt. source%ntau)
+          source%index_de_perturb_on  =  source%index_de_perturb_on + 1
+       enddo
+       
        if(coop_firstorder_optimize)then
           source%index_rad_off = max(source%index_rad_small, source%index_tc_off + 1)          
           !$omp parallel do

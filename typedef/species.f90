@@ -44,6 +44,8 @@ module coop_species_mod
      procedure :: density => coop_species_density
      procedure :: pressure => coop_species_pressure
      procedure :: rhoa2 => coop_species_rhoa2
+     procedure :: rhoa3 => coop_species_rhoa3
+     procedure :: rhoa4 => coop_species_rhoa4     
      procedure :: pa2 => coop_species_pa2
      procedure :: dpa2da => coop_species_dpa2da
      procedure :: drhoa2da => coop_species_drhoa2da
@@ -391,6 +393,22 @@ contains
     density = 3.d0*this%Omega * this%rhoa2_ratio(a)
   end function coop_species_rhoa2
 
+
+  function coop_species_rhoa3(this, a) result(density)  !!unit H_0^2M_p^2
+    class(coop_species)::this
+    COOP_REAL a
+    COOP_REAL density
+    density = 3.d0*this%Omega * this%rhoa3_ratio(a)
+  end function coop_species_rhoa3
+
+
+  function coop_species_rhoa4(this, a) result(density)  !!unit H_0^2M_p^2
+    class(coop_species)::this
+    COOP_REAL a
+    COOP_REAL density
+    density = 3.d0*this%Omega * this%rhoa4_ratio(a)
+  end function coop_species_rhoa4
+  
 
   function coop_species_dlnrhodlna(this, a) result(dlnrhodlna)  
     class(coop_species)::this

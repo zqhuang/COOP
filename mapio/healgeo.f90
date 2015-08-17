@@ -108,6 +108,7 @@ module coop_healpix_mod
      procedure :: write => coop_healpix_maps_write
      procedure :: read => coop_healpix_maps_read
      procedure :: extend => coop_healpix_maps_extend
+     procedure :: draw_latitude_line => coop_healpix_maps_draw_latitude_line
      procedure :: import => coop_healpix_maps_import
      procedure :: open => coop_healpix_maps_read
      procedure :: allocate_alms => coop_healpix_maps_allocate_alms
@@ -136,6 +137,7 @@ module coop_healpix_mod
      procedure :: apply_mask => coop_healpix_maps_apply_mask
      procedure :: generate_latcut_mask => coop_healpix_maps_generate_latcut_mask
      procedure :: mask_disc => coop_healpix_maps_mask_disc
+     procedure :: mask_strip => coop_healpix_maps_mask_strip
      procedure :: mask_pixel => coop_healpix_maps_mask_pixel     
      !!stacking stuff
      procedure :: fetch_patch => coop_healpix_maps_fetch_patch
@@ -419,6 +421,41 @@ contains
     call this%query_disc(pix, r_deg*coop_SI_degree, listpix, nlist)
     this%map(listpix(0:nlist-1), :) = 0.
   end subroutine coop_healpix_maps_mask_disc
+
+
+  subroutine coop_healpix_maps_draw_latitude_line(this, latitude_deg, width_deg)
+    class(coop_healpix_maps)::this
+    COOP_REAL::latitude_deg
+    COOP_REAL,optional::width_deg
+    COOP_INT::listpix(0:this%npix-1), nlist
+    call this%query_strip(coop_pio2-(latitude_deg+width_deg/2.d0)*coop_SI_degree,  coop_pio2-(latitude_deg-width_deg/2.d0)*coop_SI_degree, listpix, nlist)
+    this%map(listpix(0:nlist-1), :) = this%bad_data
+  end subroutine coop_healpix_maps_draw_latitude_line
+
+
+  subroutine coop_healpix_maps_mask_strip(this, l_deg, b_deg, r1_deg, r2_deg)
+    class(coop_healpix_maps)::this
+    COOP_REAL::l_deg, b_deg, r1_deg, r2_deg
+    COOP_INT::listpix1(0:this%npix-1), nlist1, pix, listpix2(0:this%npix-1), nlist2
+    COOP_REAL::theta, phi
+    type(coop_healpix_maps)::mask
+    call mask%init(nside = this%nside, nmaps = 1, genre = "MASK", nested = (this%ordering .eq. COOP_NESTED) )
+    call coop_healpix_lb2ang(l_deg, b_deg, theta, phi)    
+    call mask%ang2pix(theta, phi, pix)
+    call mask%query_disc(pix, r1_deg*coop_SI_degree, listpix1, nlist1)
+    call mask%query_disc(pix, r2_deg*coop_SI_degree, listpix2, nlist2)
+    mask%map = 1.
+    if(nlist1 .lt. nlist2)then
+       mask%map( listpix2(0:nlist2-1), 1) = 0.
+       mask%map( listpix1(0:nlist1-1), 1) = 1.
+    else
+       mask%map( listpix1(0:nlist1-1), 1) = 0.
+       mask%map( listpix2(0:nlist2-1), 1) = 1.       
+    endif
+    call this%apply_mask(mask)
+    call mask%free
+  end subroutine coop_healpix_maps_mask_strip
+  
 
 
   subroutine coop_healpix_maps_mask_pixel(this, nside, ipix)
@@ -3727,12 +3764,12 @@ contains
     enddo
   end subroutine coop_healpix_mask_peaks
 
-  subroutine coop_healpix_maps_rotate_coor(this, output, from, to, zyz_psi, zyz_theta, zyz_phi)
+  subroutine coop_healpix_maps_rotate_coor(this, output, from, to, zyz_psi, zyz_theta, zyz_phi, l_deg, b_deg)
     !!rotate map between coordinates
     !!from and to can be 'C'/'Q' for Celestial/eQuatorial, 'E' for Ecliptic, and 'G' for Galactic    
     class(coop_healpix_maps)::this
     COOP_UNKNOWN_STRING, optional::from, to
-    COOP_REAL,optional::zyz_psi, zyz_theta, zyz_phi
+    COOP_REAL,optional::zyz_psi, zyz_theta, zyz_phi, l_deg, b_deg    
     type(coop_healpix_maps),optional::output
 #ifdef HAS_HEALPIX
     COOP_REAL psi, theta, phi
@@ -3740,6 +3777,8 @@ contains
     COOP_SINGLE_COMPLEX,dimension(:,:,:),allocatable::alm_TGC
     if(present(from) .and. present(to))then
        call coordsys2euler_zyz(2000.d0, 2000.d0, from, to, psi, theta, phi)
+    elseif(present(l_deg) .and. present(b_deg))then
+       call coop_healpix_lb2ang(l_deg = l_deg, b_deg = b_deg, theta = theta, phi = phi )
     else
        if(present(zyz_psi))then
           psi = zyz_psi
@@ -3757,6 +3796,7 @@ contains
           phi = 0.d0
        endif
     endif
+
     if(psi .eq. 0.d0 .and. theta .eq. 0.d0 .and. phi .eq. 0.d0)return
     if(.not. allocated(this%alm))call this%map2alm()
     select case(this%nmaps)
@@ -3773,7 +3813,12 @@ contains
     do i=1, this%nmaps
        alm_TGC(istart + i,:,:)= this%alm(:,:,i)
     enddo
-    call rotate_alm(this%lmax, alm_TGC, psi, theta, phi)     
+    if(present(l_deg) .and. present(b_deg))then
+       call rotate_alm(this%lmax, alm_TGC, 0.d0, 0.d0, -phi)
+       call rotate_alm(this%lmax, alm_TGC, 0.d0, -theta, 0.d0)       
+    else
+       call rotate_alm(this%lmax, alm_TGC, psi, theta, phi)
+    endif
     if(present(output))then
        if(output%nmaps .ne. this%nmaps) stop "rotate_coor: different format"
        if(any(output%spin .ne. this%spin)) stop "rotate_coor: different spins"
@@ -4547,10 +4592,11 @@ contains
     to%polar = from%polar
   end subroutine coop_healpix_maps_copy_genre
 
-  subroutine coop_healpix_maps_apply_mask(this, mask, remove_monopole)
+  subroutine coop_healpix_maps_apply_mask(this, mask, remove_monopole, bad_data)
     class(coop_healpix_maps)::this
     type(coop_healpix_maps)::mask
     logical,optional::remove_monopole
+    logical,optional::bad_data
     COOP_INT::i
     COOP_REAL::summask
     if(mask%nside .ne. this%nside) stop "apply_mask:mask and map must have the same nside"
@@ -4573,6 +4619,15 @@ contains
           this%map(:, i) = this%map(:, i) - sum(dble(this%map(:, i)))/summask
        endif
     enddo
+    if(present(bad_data))then
+       if(bad_data)then
+          do i=1, this%nmaps
+             where(mask%map(:,1) .lt. 0.5)
+                this%map(:, i) = this%bad_data
+             end where
+          enddo
+       endif
+    endif
   end subroutine coop_healpix_maps_apply_mask
 
   subroutine coop_healpix_correlation_function_free(this)
