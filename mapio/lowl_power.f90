@@ -5,8 +5,8 @@ program test
 #include "constants.h"
   type(coop_healpix_maps)::map, mask, m2
   type(coop_healpix_inpaint)::inp
-  COOP_INT,parameter ::lmax = 1000
-  COOP_INT,parameter ::nrun = 300
+  COOP_INT,parameter ::lmax = 180
+  COOP_INT,parameter ::nrun = 200
   COOP_REAL,parameter::radius_deg = 10.d0
   logical,parameter::force_output = .false.
   COOP_STRING::mask_spot = ""
@@ -26,17 +26,8 @@ program test
   Cls(0:1) = 0.d0
 
   nside = 128
-  !call coop_healpix_latitude_cut_mask(nside = nside, latitude_degree = 15.d0, filename = "lowl/lat15_mask_n"//COOP_STR_OF(nside)//".fits")  
-  !  call map%read("lowl/commander_I_n0128_60a.fits")
-  call map%read("lowl/commander_dx11d2_extdata_temp_cmb_n0256_60arc_v1_cr.fits")
-  !  call mask%read("lowl/commander_mask_n0128_60a.fits")
-  !  call map%read("planck14/dx11_v2_smica_int_cmb_010a_1024.fits")
-  ! call mask%read("planck14/dx11_v2_common_int_mask_010a_1024.fits")    
-  !call mask%read("planck14/dx11_v2_commander_int_mask_040a_0256.fits")  
- ! call mask%read("lowl/commander_dx11d2_mask_temp_n0256_likelihood_v1.fits")
- ! call mask%read("lowl/lat15_mask_n128.fits")
-  call mask%read("lowl/mask_hot_bar_n0256.fits")
- ! call mask%read("lowl/mask_tiny.fits")
+  call map%read("lowl/commander_I_n0128_60a.fits")
+  call mask%read("lowl/commander_mask_n0128_60a.fits")
   call coop_get_command_line_argument(key = "mask",  arg = mask_spot, default = "OUTPUT")
   mask_spot = adjustl(mask_spot)
   !!mask out a disk
@@ -80,17 +71,6 @@ program test
      call m2%write("inpainted_map_"//COOP_STR_OF(m2%nside)//".fits")            
      print*, "nside = ", inp%lMT%nside
      call coop_prtsystime()
-
-     do while(inp%lMT%nside .lt. inp%map%nside)
-        call inp%upgrade(nside_want = inp%lMT%nside*2)    !!nside -> 16-> 32 -> 64-> 128 -> 256
-        m2 = inp%lMT
-        m2%map = inp%lCT%map + inp%lMT%map
-        call m2%write("inpainted_map_"//COOP_STR_OF(m2%nside)//".fits")            
-        print*, "nside = ", inp%lMT%nside
-        call coop_prtsystime()
-     enddo
-
-     
      where(inp%mask%map(:,1).eq.0.)
         inp%map%map(:,1) = map%bad_data
      end where

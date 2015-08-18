@@ -371,7 +371,7 @@ contains
 
 
   subroutine coop_cosmology_firstorder_compute_source_k(this, source, ik, do_test_energy_conservation, transfer_only)
-    COOP_REAL, parameter::eps = 1.d-6
+    COOP_REAL, parameter::eps = 1.d-7
     class(coop_cosmology_firstorder)::this
     type(coop_cosmology_firstorder_source)::source
     COOP_INT ik, nvars, itau, iq, scheme
@@ -438,6 +438,7 @@ contains
           if(scheme .ne. pert%de_scheme)then
              ind = 1
              pert%de_scheme = scheme
+             write(*,*) "switching to scheme", scheme
           endif
        endif
 #endif       
