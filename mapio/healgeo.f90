@@ -133,12 +133,13 @@ module coop_healpix_mod
      procedure :: convert2nested => coop_healpix_convert_to_nested
      procedure :: convert2ring => coop_healpix_convert_to_ring
      procedure :: filter_alm =>  coop_healpix_filter_alm
+     procedure :: reflect => coop_healpix_maps_reflect
      !!mask
      procedure :: apply_mask => coop_healpix_maps_apply_mask
      procedure :: generate_latcut_mask => coop_healpix_maps_generate_latcut_mask
      procedure :: mask_disc => coop_healpix_maps_mask_disc
      procedure :: mask_strip => coop_healpix_maps_mask_strip
-     procedure :: mask_pixel => coop_healpix_maps_mask_pixel     
+     procedure :: mask_pixel => coop_healpix_maps_mask_pixel
      !!stacking stuff
      procedure :: fetch_patch => coop_healpix_maps_fetch_patch
      procedure :: stack_on_patch => coop_healpix_maps_stack_on_patch
@@ -157,7 +158,7 @@ module coop_healpix_mod
      procedure :: scan_local_minkowski0 => coop_healpix_maps_scan_local_minkowski0
      procedure :: local_disk_minkowski1 => coop_healpix_maps_local_disk_minkowski1
      procedure :: scan_local_minkowski1 => coop_healpix_maps_scan_local_minkowski1
-
+     
   end type coop_healpix_maps
 
   type coop_healpix_patch
@@ -5308,8 +5309,19 @@ contains
        enddo
     enddo
   end subroutine coop_healpix_maps_scan_local_minkowski1
-  
-  
+
+  subroutine coop_healpix_maps_reflect(this)
+    class(coop_healpix_maps)::this
+    COOP_INT::inds(0:this%npix-1)
+    COOP_INT::i
+    COOP_REAL::theta, phi
+    do i=0, this%npix-1
+       call this%pix2ang(i, theta, phi)
+       call this%ang2pix(coop_pi-theta, coop_pi+phi, inds(i))
+    enddo
+    this%map(:,:) = this%map(inds, :)
+  end subroutine coop_healpix_maps_reflect
+
 
 end module coop_healpix_mod
 

@@ -407,8 +407,6 @@ PROGRAM MAP2GIF
    end if
 
    !--- create the GIF image ---
-   !!Zhiqi modify
-   call system('rm -f '//trim(output_file))
    call gifmap(&
         imgint,           &
         trim(output_file) &
@@ -755,6 +753,8 @@ END SUBROUTINE PROJ_GNOMIC
             input_file = trim(arg)
          case ('-out')
             output_file = trim(arg)
+            !!Zhiqi modify
+            call system('rm -f '//trim(output_file))
          case ('-col')
             read (arg,*) color_table
          case('-sig')
