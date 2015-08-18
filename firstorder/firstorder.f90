@@ -384,7 +384,9 @@ contains
     tau_ini = min(coop_initial_condition_epsilon/source%k(ik), this%conformal_time(this%a_eq*coop_initial_condition_epsilon), source%tau(1)*0.999d0)
     call this%set_initial_conditions(pert, m = source%m, k = source%k(ik), tau = tau_ini)
     lna = log(this%aoftau(tau_ini))
+#if DO_EFT_DE    
     pert%de_scheme = 0
+#endif    
     call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)
     ind = 1
     c = 0.d0
@@ -418,7 +420,7 @@ contains
        endif
        !!------------------------------------------------------------
        call this%pert2source(pert, source, itau, ik)
-
+#if DO_EFT_DE
        if(itau .ge. source%index_de_perturb_on)then
           if(abs(pert%deMat(2, 4)).gt. eps)then
              scheme = 3
@@ -438,7 +440,7 @@ contains
              pert%de_scheme = scheme
           endif
        endif
-       
+#endif       
 
        if(itau .eq. source%index_tc_off(ik))then
           call pert%save_ode()
