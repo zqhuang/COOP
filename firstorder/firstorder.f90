@@ -461,9 +461,9 @@ contains
           if(scheme .ne. pert%de_scheme)then
              ind = 1
              pert%de_scheme = scheme
-             if(present(do_test_energy_conservation))then
-                write(*,*) "switching to scheme:", scheme
-             endif
+!!$             if(present(do_test_energy_conservation))then
+!!$                write(*,*) "switching to scheme:", scheme
+!!$             endif
           endif
        endif
 #endif       
