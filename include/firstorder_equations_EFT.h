@@ -5,7 +5,7 @@ subroutine coop_cosmology_firstorder_equations(n, lna, y, yp, cosmology, pert)
     COOP_REAL, parameter::eps = 1.d-7
     COOP_REAL lna, y(0:n-1), yp(0:n-1)
     COOP_INT i, l, iq
-    COOP_REAL a, aniso,  ktauc, ktaucdot, ktaucdd, aniso_prime, aHtauc, aHtau, aHsq, uterm, vterm, ma, doptdlna, M2a2H2, anisobyM2, anisobyM2_prime, u_prime, alpha_H_pp, wp1_de, w_de_prime, wp1eff_de, kbyaHsq_prime, sth, sth_prime
+    COOP_REAL a, aniso,  ktauc, ktaucdot, ktaucdd, aniso_prime, aHtauc, aHtau, aHsq, uterm, vterm, ma, doptdlna, M2a2H2, anisobyM2, anisobyM2_prime, u_prime, alpha_H_pp, wp1_de, w_de_prime, wp1eff_de, kbyaHsq_prime, sth, sth_prime, cmupp, auxt, auxt_prime, auxs, auxs_prime, psipr_th1, psipr_th2
     COOP_REAL :: pa2pr_g, pa2pr_nu
     COOP_REAL::  asq, Hsq
     COOP_INT, parameter::i_psipp = 1, i_mupp = 2, i_phi = 3, i_phip = 4, i_mup = 5, i_mu = 6, i_const = 7 , eq_phi = 1, eq_phip = 2, eq_psipp = 3, eq_mupp = 4, eq_aux = 5
@@ -231,8 +231,12 @@ subroutine coop_cosmology_firstorder_equations(n, lna, y, yp, cosmology, pert)
           if(abs(pert%deMat(i_mup, eq_mupp)) .lt. eps)then
              pert%deMat(i_mup, eq_mupp) = sign(eps,  pert%deMat(i_mup, eq_mupp))
           endif
-          sth = (6.d0*pert%u + 2.d0*pert%kbyahsq*pert%alpha_H)/(1.d0+pert%alpha_H)
-          sth_prime = (6.d0*u_prime + 2.d0*(kbyahsq_prime*pert%alpha_H + pert%kbyahsq*pert%alpha_H_prime) - pert%alpha_H_prime/(1.d0+pert%alpha_H)*(6.d0*pert%u + 2.d0*pert%kbyahsq*pert%alpha_H))/(1.d0+pert%alpha_H)
+          auxt = pert%alpha_M+pert%alpha_H *(1.d0+pert%alpha_M) - pert%alpha_T + pert%alpha_H_prime
+          auxt_prime = pert%alpha_M_prime*(1.d0+pert%alpha_H) + pert%alpha_H_prime*(1.d0+pert%alpha_M)-pert%alpha_T_prime + alpha_H_pp
+          auxs = 6.d0*pert%u + 2.d0*pert%kbyahsq*pert%alpha_H
+          auxs_prime = 6.d0*u_prime + 2.d0*(kbyahsq_prime*pert%alpha_H + pert%kbyahsq*pert%alpha_H_prime)
+          sth = auxs/(1.d0+pert%alpha_H)
+          sth_prime = (auxs_prime - pert%alpha_H_prime/(1.d0+pert%alpha_H)*auxs)/(1.d0+pert%alpha_H)
           pert%deMat(i_mupp, eq_aux) = pert%deMat(i_mup, eq_mupp)
           pert%deMat(i_mup, eq_aux) = pert%deMat(i_mu, eq_mupp) &
                + pert%alpha_H_prime * sth + sth_prime*pert%alpha_H
@@ -240,21 +244,24 @@ subroutine coop_cosmology_firstorder_equations(n, lna, y, yp, cosmology, pert)
                - 2.d0*kbyahsq_prime*(pert%u + pert%alpha_T - pert%alpha_M - pert%alpha_H_prime - pert%alpha_H*(1.d0+pert%alpha_M+pert%HdotbyHsq)) &
                - 2.d0*pert%kbyahsq*(u_prime + pert%alpha_T_prime - pert%alpha_M_prime - alpha_H_pp - pert%alpha_H_prime*(1.d0+pert%alpha_M+pert%HdotbyHsq) - pert%alpha_H*(pert%alpha_M_prime + pert%hdotbyhsq_prime)) &              
                - sth_prime * (pert%alpha_M - pert%alpha_T + pert%HdotbyHsq*pert%alpha_H) - (pert%alpha_M_prime - pert%alpha_T_prime + pert%HdotbyHsq_prime * pert%alpha_H + pert%alpha_H_prime*pert%HdotbyHsq)*sth
-          pert%deMat(i_psipp, eq_aux)  = 6.d0*pert%u + 2.d0*pert%kbyahsq*pert%alpha_H
-          pert%deMat(i_const, eq_aux) = ( 6.d0*u_prime+2.d0*(kbyahsq_prime*pert%alpha_H + pert%kbyahsq*pert%alpha_H_prime) + 2.d0*pert%kbyahsq*(pert%alpha_M+pert%alpha_H *(1.d0+pert%alpha_M) - pert%alpha_T + pert%alpha_H_prime) + (1.d0+pert%alpha_T)*sth ) * O1_PSIPR &
-               + (2.d0 * ( kbyahsq_prime*(pert%alpha_M+pert%alpha_H *(1.d0+pert%alpha_M) - pert%alpha_T + pert%alpha_H_prime) + pert%kbyahsq*(pert%alpha_M_prime*(1.d0+pert%alpha_H) + pert%alpha_H_prime*(1.d0+pert%alpha_M)-pert%alpha_T_prime + alpha_H_pp)) + sth*pert%alpha_T_prime + sth_prime*(1.d0+pert%alpha_T))*O1_PSI &
+          pert%deMat(i_psipp, eq_aux)  = auxs
+          pert%deMat(i_const, eq_aux) = ( 6.d0*u_prime+2.d0*(kbyahsq_prime*pert%alpha_H + pert%kbyahsq*pert%alpha_H_prime) + 2.d0*pert%kbyahsq*auxt + (1.d0+pert%alpha_T)*sth ) * O1_PSIPR &
+               + (2.d0 * ( kbyahsq_prime*auxt + pert%kbyahsq*auxt_prime) + sth*pert%alpha_T_prime + sth_prime*(1.d0+pert%alpha_T))*O1_PSI &
                - sth*anisobyM2_prime - sth_prime*anisobyM2
 
-          O1_DE_HPIPR = (-pert%deMat(i_const, eq_mupp)-pert%deMat(i_mu, eq_mupp)*O1_DE_HPI)/pert%deMat(i_mup, eq_mupp)
-          
           pert%deMat(:, eq_psipp) = pert%deMat(:, eq_psipp) - (pert%deMat(i_mupp, eq_psipp)/pert%deMat(i_mupp, eq_aux))*pert%deMat(:, eq_aux)
-
-          
-          O1_PSIPR_PRIME = ( - pert%deMat(i_const, eq_psipp) - pert%deMat(i_mu, eq_psipp)*O1_DE_HPI - pert%deMat(i_mup, eq_psipp)*O1_DE_HPIPR )/pert%deMat(i_psipp, eq_psipp)
+          O1_DE_HPIPR = (-pert%deMat(i_const, eq_psipp)-pert%deMat(i_mu, eq_psipp)*O1_DE_HPI)/pert%deMat(i_mup, eq_psipp)
           O1_DE_HPI_PRIME = O1_DE_HPIPR
-          O1_PHI = - pert%deMat(i_const, eq_phi) - pert%deMat(i_mu,eq_phi)*O1_DE_HPI - pert%deMat(i_mup, eq_phi) * O1_DE_HPIPR          
-          O1_DE_HPIPR_PRIME = (-pert%deMat(i_const, eq_aux)-pert%deMat(i_mu, eq_aux)*O1_DE_HPI - pert%deMat(i_mup, eq_aux)*O1_DE_HPIPR - pert%deMat(i_psipp, eq_aux)*O1_PSIPR_PRIME)/pert%deMat(i_mupp, eq_aux)
-          O1_PHI_PRIME = -pert%deMat(i_const, eq_phip) - pert%deMat(i_mu, eq_phip)*O1_DE_HPI - pert%deMat(i_mup,eq_phip)*O1_DE_HPIPR - pert%deMat(i_mupp, eq_phip)*O1_DE_HPIPR_PRIME          
+          O1_PHI = - pert%deMat(i_const, eq_phi) - pert%deMat(i_mu,eq_phi)*O1_DE_HPI - pert%deMat(i_mup, eq_phi) * O1_DE_HPIPR
+          psipr_th1 = (- O1_PHI - O1_PSI*(2.d0*pert%kbyahsq/auxs*auxt) - O1_DE_HPI*(pert%HdotbyHsq+2.d0*pert%kbyahsq/auxs*(auxt-pert%u)))
+          psipr_th2 = (- pert%rhoa2_b*O1_DELTA_B &
+               - pert%rhoa2_c*O1_DELTA_C &
+               - pert%rhoa2_g*O1_T(0) &
+               - pert%rhoa2_nu*(O1_NU(0)))/m2a2h2/6.d0 &
+               - O1_PHI-pert%kbyahsq/3.d0*(1.d0+pert%alpha_H)*O1_PSI - O1_DE_HPI*(pert%u+pert%kbyahsq*pert%alpha_H/3.d0)
+          O1_PSIPR_PRIME = (- O1_PSIPR + (psipr_th1+psipr_th2*pert%kbyahsq)/(1.d0+pert%kbyahsq))*1.d4
+          O1_DE_HPIPR_PRIME = 0.d0
+          O1_PHI_PRIME = 0.d0
        case(3)
           if(abs(pert%deMat(i_mupp, eq_mupp)) .lt. eps)then
              pert%deMat(i_mupp, eq_mupp) = sign(eps,  pert%deMat(i_mupp, eq_mupp))
@@ -264,6 +271,8 @@ subroutine coop_cosmology_firstorder_equations(n, lna, y, yp, cosmology, pert)
           O1_PSIPR_PRIME = - pert%deMat(i_const, eq_psipp) - pert%deMat(i_mu, eq_psipp)*O1_DE_HPI - pert%deMat(i_mup, eq_psipp)*O1_DE_HPIPR - pert%deMat(i_mupp, eq_psipp)*O1_DE_HPIPR_PRIME
           O1_PHI = - pert%deMat(i_const, eq_phi) - pert%deMat(i_mu,eq_phi)*O1_DE_HPI - pert%deMat(i_mup, eq_phi) * O1_DE_HPIPR
           O1_PHI_PRIME = -pert%deMat(i_const, eq_phip) - pert%deMat(i_mu, eq_phip)*O1_DE_HPI - pert%deMat(i_mup,eq_phip)*O1_DE_HPIPR - pert%deMat(i_mupp, eq_phip)*O1_DE_HPIPR_PRIME
+       case default
+          stop "unknown EFT DE scheme"
        end select
        !!velocities
        O1_V_C_PRIME = - O1_V_C + pert%kbyaH * O1_PHI

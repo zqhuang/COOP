@@ -639,7 +639,7 @@
        !$omp end parallel do
 
        source%index_de_perturb_on = 1
-       do while(source%omega_de(source%index_de_perturb_on) .lt. 1.d-6 .and. source%index_de_perturb_on .lt. source%ntau)
+       do while(source%omega_de(source%index_de_perturb_on) .lt. 1.d-5 .and. source%index_de_perturb_on .lt. source%ntau)
           source%index_de_perturb_on  =  source%index_de_perturb_on + 1
        enddo
        

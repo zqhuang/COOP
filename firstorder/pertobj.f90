@@ -116,7 +116,7 @@ contains
     integer iq
     COOP_REAL::T0i, Fmnu1(coop_pert_default_nq)
     T0i = (pert%rhoa2_c)*pert%O1_V_C &
-         + (pert%rhoa2_b)*(1.d0+pert%cs2b)*pert%O1_V_B &
+         + (pert%rhoa2_b)*pert%O1_V_B &
          + (pert%rhoa2_nu + pert%pa2_nu)*pert%O1_NU(1)/4.d0 &
          + (pert%rhoa2_g + pert%pa2_g)* pert%O1_T(1)/4.d0 
     if(pert%num_mnu_ratio .gt. 0.d0)then

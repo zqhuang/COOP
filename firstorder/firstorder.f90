@@ -341,18 +341,31 @@ contains
   end subroutine coop_cosmology_firstorder_source_get_All_Cls
 
 
-  subroutine coop_cosmology_firstorder_compute_source(this, m)
+  subroutine coop_cosmology_firstorder_compute_source(this, m, success)
     class(coop_cosmology_firstorder)::this
     COOP_INT m, ik, itau, is
+    logical, optional::success
+    logical,dimension(:),allocatable::suc
     call this%init_source(m)
     this%source(m)%bbks_keq = this%bbks_keq
     this%source(m)%bbks_trans_kmax = coop_bbks_trans(this%source(m)%kmax/this%bbks_keq)
-    !$omp parallel do
-    do ik = 1, this%source(m)%nk
-       call this%compute_source_k(this%source(m), ik)
-    enddo
-    !$omp end parallel do
-
+    if(present(success))then
+       allocate(suc(this%source(m)%nk))
+       !$omp parallel do
+       do ik = 1, this%source(m)%nk
+          call this%compute_source_k(this%source(m), ik, success = suc(ik))
+       enddo
+       !$omp end parallel do
+       success = all(suc)
+       deallocate(suc)
+       if(.not. success) return
+    else
+       !$omp parallel do
+       do ik = 1, this%source(m)%nk
+          call this%compute_source_k(this%source(m), ik)
+       enddo
+       !$omp end parallel do
+    endif
 
     do itau = 1, this%source(m)%ntau
        do is = 1, this%source(m)%nsrc
@@ -370,14 +383,15 @@ contains
   end subroutine coop_cosmology_firstorder_compute_source
 
 
-  subroutine coop_cosmology_firstorder_compute_source_k(this, source, ik, do_test_energy_conservation, transfer_only)
-    COOP_REAL, parameter::eps = 1.d-7
+  subroutine coop_cosmology_firstorder_compute_source_k(this, source, ik, do_test_energy_conservation, transfer_only, success)
+    COOP_REAL, parameter::eps = 1.d-20
     class(coop_cosmology_firstorder)::this
     type(coop_cosmology_firstorder_source)::source
     COOP_INT ik, nvars, itau, iq, scheme
     type(coop_pert_object) pert
     COOP_REAL, dimension(:,:),allocatable::w
-    logical,optional::do_test_energy_conservation, transfer_only
+    logical,optional::do_test_energy_conservation, transfer_only, success
+    
     COOP_REAL c(24), T00, G00, T0i, G0i
     COOP_INT ind, i
     COOP_REAL tau_ini, lna, mnu_deltarho, mnu_deltav
@@ -394,10 +408,19 @@ contains
     allocate(w(nvars, 9))
     w = 0.d0
     iq = 1
+    if(present(success))then
+       success = .true.
+    endif
     do itau = 1, source%ntau
        call coop_dverk_firstorder(nvars, coop_cosmology_firstorder_equations, this, pert, lna,   pert%y, source%lna(itau),  coop_cosmology_firstorder_ode_accuracy, ind, c, nvars, w)
        pert%want_source = .true.
        call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)
+       if(present(success))then
+          if(.not. all(abs(pert%y).lt. 1.d30))then
+             success = .false.
+             return
+          endif
+       endif
        pert%want_source  = .false.              
        !!for energy conservation test:
        if(present(do_test_energy_conservation))then
@@ -438,7 +461,9 @@ contains
           if(scheme .ne. pert%de_scheme)then
              ind = 1
              pert%de_scheme = scheme
-             write(*,*) "switching to scheme", scheme
+             if(present(do_test_energy_conservation))then
+                write(*,*) "switching to scheme:", scheme
+             endif
           endif
        endif
 #endif       
@@ -604,6 +629,57 @@ contains
     dkappada = this%dkappadtau(a) / this%dadtau(a)
   end function coop_cosmology_firstorder_dkappada
 
+
+  !!input:
+  !!source: computed source
+  !!tau: conformal time
+  !!k(1:nk): k array
+  !!output:
+  !!phiLen(1:nk)
+  subroutine coop_cosmology_firstorder_source_get_Len_trans(source, tau, nk, k, phiLen)
+    class(coop_cosmology_firstorder_source) source
+    COOP_INT nk
+    COOP_REAL k(nk), tau, phiLen(nk)
+    COOP_REAL kop, a, b, atau, btau
+    COOP_INT ik, itau, im, it, ikop
+    if(tau .le. source%tau(1))then
+       itau = 1
+       atau = 0.d0
+    elseif(tau .ge. source%tau(source%ntau))then
+       itau = source%ntau - 1
+       atau = (tau - source%tau(itau))/(source%tau(itau+1)-source%tau(itau))
+    else
+       itau = 1
+       it = source%ntau
+       do while(it - itau .gt. 1)
+          im = (itau+it)/2
+          if(source%tau(im) .gt. tau)then
+             it = im
+          else
+             itau = im
+          endif
+       enddo
+       atau = (tau - source%tau(itau))/(source%tau(itau+1)-source%tau(itau))
+    endif
+    btau = 1.d0-atau
+    !$omp parallel do private(ikop, kop, a, b)
+    do ik=1, nk
+       call source%k2kop(k(ik), kop)
+       a = (kop - source%kopmin)/source%dkop + 1.d0
+       ikop = floor(a)
+       if(ikop .lt. 1)then
+          phiLen(ik) = source%s(coop_index_source_Len, 1, itau)*btau +  source%s(coop_index_source_Len, 1, itau+1)*atau
+       elseif(ikop .ge. source%nk)then
+          phiLen(ik) = source%s(coop_index_source_Len, source%nk, itau)*btau +  source%s(coop_index_source_Len, source%nk, itau+1)*atau
+       else
+          a = a - ikop
+          b = 1.d0 - a
+          phiLen(ik) = ((source%s(coop_index_source_Len, ikop, itau)+source%s2(coop_index_source_Len, ikop, itau)*(1.d0-b**2))*b + (source%s(coop_index_source_Len, ikop+1, itau) + source%s2(coop_index_source_Len, ikop+1, itau)*(1.d0-a**2) ) * a ) * btau +  ((source%s(coop_index_source_Len, ikop, itau+1)+source%s2(coop_index_source_Len, ikop, itau+1)*(1.d0-b**2))*b + (source%s(coop_index_source_Len, ikop+1, itau+1) + source%s2(coop_index_source_Len, ikop+1, itau+1)*(1.d0-a**2) ) * a ) * atau
+       endif
+    enddo
+    !$omp end parallel do
+  end subroutine coop_cosmology_firstorder_source_get_Len_trans
+  
 
   subroutine coop_cosmology_firstorder_source_get_Psi_trans(source, tau, nk, k, psi)
     class(coop_cosmology_firstorder_source) source

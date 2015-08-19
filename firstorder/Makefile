@@ -10,10 +10,17 @@ include ../compile_rules.in
 LIB = libcoopfirstorder.a
 OBJ = pertobj.o firstorder.o lensing.o Cls_post_process.o wrapper.o
 
-default: $(LIB)
+default: $(LIB) 
 
 $(LIB): $(OBJ)
 	ar -r $@ $?
+
+
+EFTONE: $(OBJ) eft_one_mode.o $(BACKGROUND)/libcoopbackground.a 
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) eft_one_mode.o $(LINK)
+
+EFTCLS: $(OBJ) eft_cls.o $(BACKGROUND)/libcoopbackground.a 
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) eft_cls.o $(LINK)
 
 FNL: 	$(OBJ) testfnl.o $(BACKGROUND)/libcoopbackground.a 
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testfnl.o $(LINK)
