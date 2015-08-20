@@ -606,7 +606,7 @@
 
 
   subroutine coop_dverk_firstorder_with_args(n, fcn, cosmology, args, x, y, xend, tol, ind, c, nw, w)
-    type(coop_cosmology_firstorder) cosmology
+    class(coop_cosmology_firstorder) cosmology
     type(coop_arguments) args
 #define DVERK_ARGUMENTS ,cosmology,args
 #include "dverk.h"    
@@ -615,7 +615,7 @@
 
 
   subroutine coop_dverk_firstorder(n, fcn, cosmology, pert, x, y, xend, tol, ind, c, nw, w)
-    type(coop_cosmology_firstorder) cosmology
+    class(coop_cosmology_firstorder) cosmology
     type(coop_pert_object) pert
 #define DVERK_ARGUMENTS ,cosmology,pert
 #include "dverk.h"    
@@ -624,7 +624,7 @@
 
 
   function coop_integrate_firstorder(func, a, b, cosmology, precision) result(integral)
-    type(coop_cosmology_firstorder) cosmology
+    class(coop_cosmology_firstorder) cosmology
 #define QROMB_ARGUMENTS ,cosmology
 #include "qromb.h"
 #undef QROMB_ARGUMENTS
