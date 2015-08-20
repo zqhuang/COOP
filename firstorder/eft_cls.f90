@@ -4,7 +4,7 @@ program test
 #include "constants.h"
   !!----------------------------------------
   !!output Cls file
-  COOP_STRING::output = "cls_scalar_alphaK0pt3_wm0pt9.txt"
+  COOP_STRING::output = "cls_scalar_output.txt"
   !!background EOS
   COOP_REAL, parameter::w0 = -0.9d0
   COOP_REAL, parameter::wa = 0.d0    
