@@ -9,11 +9,11 @@ program test
   COOP_REAL, parameter::w0 = -0.9d0
   COOP_REAL, parameter::wa = 0.d0    
   !!define the alpha parameters  
-  COOP_REAL, parameter::alpha_M0 = 0.d0
-  COOP_REAL, parameter::alpha_T0 = 0.d0
-  COOP_REAL, parameter::alpha_K0 = 0.3d0
-  COOP_REAL, parameter::alpha_B0 = 0.053d0
-  COOP_REAL, parameter::alpha_H0 = 0.d0
+  COOP_REAL, parameter::alpha_M0 = 0.1d0
+  COOP_REAL, parameter::alpha_T0 = 0.1d0
+  COOP_REAL, parameter::alpha_K0 = 0.2d0
+  COOP_REAL, parameter::alpha_B0 = 0.03d0
+  COOP_REAL, parameter::alpha_H0 = 0.1d0
   !!----------------------------------------
   !! declare other variables
   type(coop_cosmology_firstorder)::cosmology
