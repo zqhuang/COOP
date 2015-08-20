@@ -510,6 +510,7 @@ contains
     COOP_INT::i, nlist
     COOP_INT::listpix(0:12*nside**2-1)
     COOP_REAL, optional::depth_deg
+#ifdef HAS_HEALPIX    
     call this%init(nside = nside, nmaps = 1, genre="MASK")    
     this%map(:,1) = 1.
     lat = latitude_deg*coop_SI_degree    
@@ -523,6 +524,7 @@ contains
     else
        this%map(listpix(0:nlist-1), 1) = 0.
     endif
+#endif    
   end subroutine coop_healpix_maps_generate_latcut_mask
 
 
