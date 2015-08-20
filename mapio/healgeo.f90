@@ -513,7 +513,7 @@ contains
     call this%init(nside = nside, nmaps = 1, genre="MASK")    
     this%map(:,1) = 1.
     lat = latitude_deg*coop_SI_degree    
-    call query_strip(this%nside, coop_pio2 - lat, coop_pio2 + lat, listpix, nlist, nest = 0, inclusive = 1)
+    call query_strip(nside = this%nside, theta1 = coop_pio2 - lat, theta2 = coop_pio2 + lat, listpix = listpix, nlist = nlist, nest = 0, inclusive = 1)
     if(present(depth_deg))then
        dep = depth_deg*coop_SI_degree       
        do i = 0, nlist-1
@@ -2739,9 +2739,9 @@ contains
     COOP_REAL theta1, theta2
 #ifdef HAS_HEALPIX
     if(this%ordering .eq. COOP_RING)then
-       call query_strip(this%nside, theta1, theta2, listpix, nlist, nest = 0, inclusive = 0)
+       call query_strip(nside = this%nside, theta1 = theta1, theta2 = theta2, listpix = listpix, nlist = nlist, nest = 0, inclusive = 0)
     else
-       call query_strip(this%nside, theta1, theta2, listpix, nlist, nest = 1, inclusive = 0)
+       call query_strip(nside = this%nside, theta1 = theta1, theta2 = theta2, listpix = listpix, nlist = nlist, nest = 1, inclusive = 0)
     endif
 #else
       stop "CANNOT FIND HEALPIX"    
