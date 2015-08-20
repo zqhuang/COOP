@@ -784,7 +784,7 @@ contains
 
   function coop_dataset_loglike(this, mcmc) result(loglike)
     class(coop_dataset)::this
-    class(coop_MCMC_params)::mcmc
+    type(coop_MCMC_params)::mcmc
     COOP_REAL::loglike
     if(this%off)then
        loglike = 0.d0
@@ -796,7 +796,7 @@ contains
 
   function coop_dataset_SN_Simple_loglike(this, mcmc) result(loglike)
     class(coop_dataset_SN_Simple)::this
-    class(coop_MCMC_params)::mcmc
+    type(coop_MCMC_params)::mcmc
     COOP_REAL::loglike, h0mpc
     COOP_REAL::mu_theory(this%n), Mbar
     COOP_INT i
@@ -837,7 +837,7 @@ contains
 
   function coop_dataset_CMB_simple_loglike(this, mcmc) result(loglike)
     class(coop_dataset_CMB_simple)::this
-    class(coop_mcmc_params)::mcmc
+    type(coop_mcmc_params)::mcmc
     COOP_REAL::loglike, vec(3)
     if(associated(mcmc%cosmology))then
        if(.not. this%has_invcov)then
@@ -866,7 +866,7 @@ contains
   
   function coop_dataset_BAO_loglike(this, mcmc) result(loglike)
     class(coop_dataset_BAO)::this
-    class(coop_mcmc_params)::mcmc
+    type(coop_mcmc_params)::mcmc
     COOP_REAL::loglike
     COOP_INT :: i
     loglike = 0.d0
@@ -880,7 +880,7 @@ contains
 
   function coop_dataset_CMB_LogLike(this, mcmc) result(loglike)
     class(coop_dataset_CMB)::this
-    class(coop_mcmc_params)::mcmc
+    type(coop_mcmc_params)::mcmc
     COOP_REAL::loglike
     COOP_REAL, dimension(:),allocatable::pars
     COOP_INT::i, inuis, ind, l
@@ -911,7 +911,7 @@ contains
 
   function coop_dataset_HST_logLike(this, mcmc) result(loglike)
     class(coop_dataset_HST)::this
-    class(coop_mcmc_params)::Mcmc
+    type(coop_mcmc_params)::Mcmc
     COOP_REAL::loglike
     if(associated(this%HSTlike))then
        if(associated(mcmc%cosmology))then
@@ -926,7 +926,7 @@ contains
 
   function coop_dataset_SN_JLA_loglike(this, mcmc) result(loglike)
     class(coop_dataset_SN_JLA)::this
-    class(coop_mcmc_params)::mcmc
+    type(coop_mcmc_params)::mcmc
     COOP_REAL::loglike
     COOP_REAL grid_best, zhel, zcmb, alpha, beta
     COOP_INT grid_i, i, ind_alpha, ind_beta, j
@@ -975,7 +975,7 @@ contains
 
   function coop_Data_Pool_LogLike(this, mcmc) result(LogLike)
     class(coop_Data_Pool)this
-    class(coop_mcmc_params)::mcmc
+    type(coop_mcmc_params)::mcmc
     COOP_INT::i
     COOP_REAL LogLike
     COOP_REAL,dimension(:,:),allocatable::Cls

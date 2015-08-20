@@ -1,6 +1,6 @@
   subroutine coop_cosmology_firstorder_equations(n, lna, y, yp, cosmology, pert)
     COOP_INT n
-    class(coop_cosmology_firstorder)::cosmology
+    type(coop_cosmology_firstorder)::cosmology
     type(coop_pert_object)::pert
     COOP_REAL lna, y(0:n-1), yp(0:n-1)
     COOP_INT i, l, iq
