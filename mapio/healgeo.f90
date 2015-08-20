@@ -3892,7 +3892,7 @@ contains
 
   subroutine coop_healpix_maps_ave_udgrade(from, to, mask, imap_from, imap_to)
     class(coop_healpix_maps)::from, to
-    type(coop_healpix_maps),optional::mask    
+    class(coop_healpix_maps),optional::mask    
     COOP_INT::div, i, imap, nmaps
     COOP_INT,optional::imap_from, imap_to
     COOP_REAL::summask
