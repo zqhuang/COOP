@@ -594,7 +594,12 @@
     if(this%ReionFrac .le. 0.d0)then
        this%optre = 0.d0
     else
-       this%optre = coop_integrate_firstorder(coop_optre_int, 0.d0, this%zre + this%deltaz * 10.d0, this, COOP_REAL_OF(1.e-7))
+       select type(this)
+       type is(coop_cosmology_firstorder)
+          this%optre = coop_integrate_firstorder(coop_optre_int, 0.d0, this%zre + this%deltaz * 10.d0, this, COOP_REAL_OF(1.e-7))
+       class default
+          stop "for compatibility with older versions of gfortran optre_from_zre only works for type coop_cosmology_firstorder"
+       end select
     endif
   end subroutine coop_cosmology_firstorder_set_optre_from_zre
 
