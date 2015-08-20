@@ -8,7 +8,7 @@ module coop_function_mod
 
   private
 
-  public:: coop_function, coop_function_multeval, coop_function_multeval_bare
+  public:: coop_function, coop_function_multeval, coop_function_multeval_bare, coop_function_constructor
 
   type coop_function
      COOP_SHORT_STRING::name="NoName"
@@ -38,9 +38,9 @@ module coop_function_mod
      procedure::monotonic_solution => coop_function_monotonic_solution
   end type coop_function
 
-  interface coop_function
-     module procedure coop_function_constructor
-  end interface coop_function  
+!!$  interface coop_function
+!!$     module procedure coop_function_constructor
+!!$  end interface coop_function  
 
 contains
 
