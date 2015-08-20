@@ -640,7 +640,12 @@ contains
              endif
              this%derived_params = this%derived()
              this%mult = 1.d0
-             this%loglike = pool%LogLike(this)
+             select type(this)
+             type is (coop_MCMC_params)
+                this%loglike = pool%LogLike(this)
+             class default
+                stop "for compatibility with old versions of gfortran Pool_Loglike only support type coop_MCMC_params"
+             end select
              this%num_exact_calc = this%num_exact_calc + 1
              this%loglike_is_exact = .true.
              this%bestparams = this%params
@@ -686,7 +691,12 @@ contains
                 cosmology_changed = .true.
                 call this%set_cosmology()
              endif
-             this%loglike_proposed = pool%loglike(this)
+             select type(this)
+             type is(coop_MCMC_params)
+                this%loglike_proposed = pool%loglike(this)
+             class default
+                stop "for compatibility with old versions of gfortran Pool_Loglike only support type coop_MCMC_params"                
+             end select
              this%num_exact_calc = this%num_exact_calc + 1
              this%loglike_proposed_is_exact = .true.             
           endif
