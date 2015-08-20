@@ -223,7 +223,12 @@
     endif
 
     call this%set_zre_from_optre()
-    call coop_recfast_get_xe(this, this%xe, this%Tb, this%reionFrac, this%zre, this%deltaz)
+    select type(this)
+    type is(coop_cosmology_firstorder)
+       call coop_recfast_get_xe(this, this%xe, this%Tb, this%reionFrac, this%zre, this%deltaz)
+    class default
+       stop "For compatibility with lower versions of gfortran set_xe only works with type coop_cosmology_firstorder"
+    end select
     call coop_set_uniform(n, a, log(coop_visibility_amin), log(coop_scale_factor_today))
 
     a = exp(a)

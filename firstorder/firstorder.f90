@@ -400,8 +400,13 @@ contains
     lna = log(this%aoftau(tau_ini))
 #if DO_EFT_DE    
     pert%de_scheme = 0
-#endif    
-    call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)
+#endif
+    select type(this)
+    type is(coop_cosmology_firstorder)
+       call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)
+    class default
+       stop "For compatibility with lower versions of gfortran, firstorder equations only works with type coop_cosmology_firstorder"
+    end select
     ind = 1
     c = 0.d0
     nvars = pert%ny + 1
@@ -412,9 +417,22 @@ contains
        success = .true.
     endif
     do itau = 1, source%ntau
-       call coop_dverk_firstorder(nvars, coop_cosmology_firstorder_equations, this, pert, lna,   pert%y, source%lna(itau),  coop_cosmology_firstorder_ode_accuracy, ind, c, nvars, w)
+       select type(this)
+       type is(coop_cosmology_firstorder)
+       
+          call coop_dverk_firstorder(nvars, coop_cosmology_firstorder_equations, this, pert, lna,   pert%y, source%lna(itau),  coop_cosmology_firstorder_ode_accuracy, ind, c, nvars, w)
+       class default
+          stop "For compatibility with lower versions of gfortran, dverk_firstorder  only works with type coop_cosmology_firstorder"
+       end select
+       
        pert%want_source = .true.
-       call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)
+       select type(this)
+       type is(coop_cosmology_firstorder)
+          call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)
+       class default
+          stop "For compatibility with lower versions of gfortran, firstorder equations only works with type coop_cosmology_firstorder"
+       end select
+          
        if(present(success))then
           if(.not. all(abs(pert%y).lt. 1.d30))then
              success = .false.
@@ -470,7 +488,14 @@ contains
 
        if(itau .eq. source%index_tc_off(ik))then
           call pert%save_ode()
-          call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)   !!set tight coupling apprixmations
+       
+          select type(this)
+          type is(coop_cosmology_firstorder)          
+             call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)   !!set tight coupling apprixmations
+          class default
+             stop "For compatibility with lower versions of gfortran, firstorder equations only works with type coop_cosmology_firstorder"
+          end select
+             
           pert%tight_coupling = .false.
           call pert%init(m = source%m, nu_mass = this%mnu_by_Tnu, de_genre = this%de_genre, a = source%a(itau))
           call pert%restore_ode()
@@ -482,7 +507,13 @@ contains
        endif
        if(itau .eq. source%index_rad_off(ik))then
           call pert%save_ode()
-          call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)   !!set tight coupling apprixmations
+          select type(this)
+          type is(coop_cosmology_firstorder)
+             call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)   !!set tight coupling apprixmations
+          class default
+             stop "For compatibility with lower versions of gfortran, firstorder equations only works with type coop_cosmology_firstorder"
+          end select
+             
           pert%has_rad_pert  = .false.
           call pert%init(m = source%m, nu_mass = this%mnu_by_Tnu, de_genre = this%de_genre, a = source%a(itau))
           call pert%restore_ode()
