@@ -8,7 +8,7 @@ module coop_file_mod
 
 private
 
-public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_create_directory, coop_delete_directory, coop_file_numcolumns, coop_file_numlines, coop_load_dictionary, coop_free_file_unit, coop_file_exists, coop_file_encrypt, coop_file_decrypt, coop_string_encrypt, coop_string_decrypt, coop_file_load_function, coop_dir_exists, coop_export_dictionary, coop_import_matrix, coop_export_matrix, coop_file_load_realarr
+public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_create_directory, coop_delete_directory, coop_file_numcolumns, coop_file_numlines, coop_load_dictionary, coop_free_file_unit, coop_file_exists, coop_file_encrypt, coop_file_decrypt, coop_string_encrypt, coop_string_decrypt, coop_file_load_function, coop_dir_exists, coop_export_dictionary, coop_import_matrix, coop_export_matrix, coop_file_load_realarr, coop_open_file
 
   character,parameter::coop_text_comment_symbol = "#"
 
@@ -32,9 +32,9 @@ public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_crea
   COOP_INT,parameter::coop_file_unit_min = coop_tmp_file_unit + 10
   COOP_INT,parameter::coop_file_unit_max = coop_file_unit_min + 100
 
-  interface coop_file
-     procedure coop_open_file
-  end interface coop_file
+!!$  interface coop_file
+!!$     procedure coop_open_file
+!!$  end interface coop_file
 
   interface coop_import_matrix
      module procedure coop_import_matrix_s, coop_import_matrix_d
