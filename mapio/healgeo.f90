@@ -513,7 +513,7 @@ contains
     call this%init(nside = nside, nmaps = 1, genre="MASK")    
     this%map(:,1) = 1.
     lat = latitude_deg*coop_SI_degree    
-    call this%query_strip(nside = this%nside, theta1 = coop_pio2 - lat, theta2 = coop_pio2 + lat, listpix = listpix, nlist = nlist)
+    call this%query_strip(theta1 = coop_pio2 - lat, theta2 = coop_pio2 + lat, listpix = listpix, nlist = nlist)
     if(present(depth_deg))then
        dep = depth_deg*coop_SI_degree       
        do i = 0, nlist-1
