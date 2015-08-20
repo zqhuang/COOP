@@ -13,7 +13,7 @@ module coop_cosmology_mod
 
   private
 
-  public:: coop_cosmology, coop_cosmology_background, coop_r_of_chi, coop_zrecomb_fitting
+  public:: coop_cosmology, coop_cosmology_background, coop_r_of_chi, coop_zrecomb_fitting, coop_cosmology_constructor, coop_cosmology_background_constructor
 
   type coop_cosmology
      COOP_SHORT_STRING  name
@@ -111,13 +111,13 @@ module coop_cosmology_mod
 #endif     
   end type coop_cosmology_background
 
-  interface coop_cosmology
-     module procedure coop_cosmology_constructor
-  end interface coop_cosmology
-
-  interface coop_cosmology_background
-     module procedure coop_cosmology_background_constructor
-  end interface coop_cosmology_background
+!!$  interface coop_cosmology
+!!$     module procedure coop_cosmology_constructor
+!!$  end interface coop_cosmology
+!!$
+!!$  interface coop_cosmology_background
+!!$     module procedure coop_cosmology_background_constructor
+!!$  end interface coop_cosmology_background
 
 contains
 
