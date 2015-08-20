@@ -975,7 +975,7 @@ contains
 
   function coop_Data_Pool_LogLike(this, mcmc) result(LogLike)
     class(coop_Data_Pool)this
-    type(coop_mcmc_params)::mcmc
+    class(coop_mcmc_params)::mcmc
     COOP_INT::i
     COOP_REAL LogLike
     COOP_REAL,dimension(:,:),allocatable::Cls

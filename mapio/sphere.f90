@@ -7,7 +7,7 @@ module coop_sphere_mod
 
   private
 
-  public::coop_sphere_disc, coop_sphere_ang2vec, coop_sphere_vec2ang
+  public::coop_sphere_disc, coop_sphere_ang2vec, coop_sphere_vec2ang, coop_sphere_disc_constructor
 
 
   type coop_sphere_disc
@@ -17,10 +17,10 @@ module coop_sphere_mod
      procedure::init => coop_sphere_disc_initialize
      procedure::ang2flat => coop_spere_disc_ang2flat
   end type coop_sphere_disc
-
-  interface coop_sphere_disc
-     module procedure coop_sphere_disc_constructor
-  end interface coop_sphere_disc
+!!$
+!!$  interface coop_sphere_disc
+!!$     module procedure coop_sphere_disc_constructor
+!!$  end interface coop_sphere_disc
 
 contains
 
