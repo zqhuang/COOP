@@ -234,7 +234,7 @@
 
   
   subroutine coop_recfast_get_xe(bg, xeofa, Tbofa, reionFrac, zre, deltaz)  
-    type(coop_cosmology_firstorder)::bg
+    class(coop_cosmology_firstorder)::bg
     type(coop_arguments)::args
     type(coop_function)::xeofa, Tbofa
     integer ndim , nw, ind, i
