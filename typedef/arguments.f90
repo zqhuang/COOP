@@ -6,7 +6,7 @@ module coop_arguments_mod
 
 private
 
-public::coop_arguments
+public::coop_arguments, coop_arguments_constructor
 
   type coop_arguments
      COOP_INT::n_int =0
@@ -20,9 +20,9 @@ public::coop_arguments
      procedure::free => coop_arguments_free
   end type coop_arguments
 
-  interface coop_arguments
-     module procedure coop_arguments_constructor
-  end interface coop_arguments
+!!$  interface coop_arguments
+!!$     module procedure coop_arguments_constructor
+!!$  end interface coop_arguments
 
 contains
 

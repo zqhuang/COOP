@@ -97,7 +97,7 @@ contains
     enddo
     y(1) = (k/coop_2pi) * h_tbl(istart)/bgy(3, istart)/exp(lna_tbl(istart))
     y(2) = y(1) * ( bgyp(1,istart)/bgy(1, istart) - bgyp(3, istart)/bgy(3, istart) - h_tbl(istart) )
-    args = coop_arguments( r= (/ k**2,  2.d0* (log((k/exp(lna_tbl(istart)))*y(1)**2)) + intfric_tbl(istart) /) )
+    args = coop_arguments_constructor( r= (/ k**2,  2.d0* (log((k/exp(lna_tbl(istart)))*y(1)**2)) + intfric_tbl(istart) /) )
     call ode%init(n=2)
     call ode%set_arguments(args)
     call ode%set_initial_conditions( xini = lna_tbl(istart), yini = y)
@@ -123,7 +123,7 @@ contains
     enddo
     y(1) = (k*coop_sqrt2/coop_pi)/exp(lna_tbl(istart))/Mpl
     y(2) = -y(1) * h_tbl(istart)
-    args = coop_arguments( r = (/ k**2, &
+    args = coop_arguments_constructor( r = (/ k**2, &
          2.d0* (log((k/exp(lna_tbl(istart)))*y(1)**2)) + tenintfric_tbl(istart) /) )
     call ode%init(n=2)
     call ode%set_arguments(args)
