@@ -560,7 +560,7 @@ contains
     type(coop_cosmology_firstorder),target::cosmo
     if(this%n .le. 0) call coop_MPI_Abort("MCMC: no varying parameters")
     select type(this)
-    class is(coop_MCMC_params)
+    type is(coop_MCMC_params)
        if(this%feedback .gt. 4)then !!check reject rate
           if(this%reject .gt. this%accept*30 .and. this%accept .gt. 0)then
              write(*,*) "Reject rate enormalously high"
@@ -640,12 +640,7 @@ contains
              endif
              this%derived_params = this%derived()
              this%mult = 1.d0
-             select type(this)
-             type is (coop_MCMC_params)
-                this%loglike = pool%LogLike(this)
-             class default
-                stop "for compatibility with old versions of gfortran Pool_Loglike only support type coop_MCMC_params"
-             end select
+             this%loglike = pool%LogLike(this)
              this%num_exact_calc = this%num_exact_calc + 1
              this%loglike_is_exact = .true.
              this%bestparams = this%params
@@ -691,12 +686,7 @@ contains
                 cosmology_changed = .true.
                 call this%set_cosmology()
              endif
-             select type(this)
-             type is(coop_MCMC_params)
-                this%loglike_proposed = pool%loglike(this)
-             class default
-                stop "for compatibility with old versions of gfortran Pool_Loglike only support type coop_MCMC_params"                
-             end select
+             this%loglike_proposed = pool%loglike(this)
              this%num_exact_calc = this%num_exact_calc + 1
              this%loglike_proposed_is_exact = .true.             
           endif
@@ -749,6 +739,8 @@ contains
           this%reject = this%reject + 1
           this%mult = this%mult + 1.d0
        endif
+    class default
+       stop "for compatibility with old versions of gfortran McMC_step only support type coop_MCMC_params"
     end select
 
     if(.not. this%do_general_loglike .and. this%feedback .gt. 0)then
