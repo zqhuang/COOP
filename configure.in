@@ -15,7 +15,7 @@ ICC_NAME=icc
 ######## compiler options  #######
 ### YES or NO
 #### distributed memory (you should have a compiler alias mpif77 or mpif90 installed); This is used to generate multiple chains when doing MCMC.
-USE_MPI = NO
+USE_MPI = YES
 MPI_COMPILER_ALIAS = mpif90
 #### shared memory; 
 USE_OPENMP = YES
@@ -37,23 +37,19 @@ DARK_ENERGY_MODEL = EFT
 LAPACK = APPLE
 
 ##FFTW lib (v3.2 up)
-FFTW3 =
-#$(HOME)/work/scilibs/fftw/
+FFTW3 = $(HOME)/work/scilibs/fftw/
 
 ## gsl lib 
 GSL =
 #$(HOME)/mathlib/gsl
 
-CLIKPATH =
-#$(HOME)/work/scilibs/planck15/plc-2.0/
+CLIKPATH = $(HOME)/work/scilibs/planck15/plc-2.0/
 
 ##cfitsio lib, mandatory if you do maps
-CFITSIO =
-#$(HOME)/work/scilibs/cfitsio
+CFITSIO = $(HOME)/work/scilibs/cfitsio
 
 ##Healpix lib, mandatory if you do maps
-HEALPIX =
-#$(HOME)/work/scilibs/Healpix
+HEALPIX = $(HOME)/work/scilibs/Healpix
 
 ####################### the rest ##########################################
 #should automatically work if you are using $(IFORT_NAME) or $(GFORTRAN_NAME); 
@@ -80,7 +76,7 @@ endif
 ifeq ($(C_COMPILER), $(GCC_NAME))
 CFLAGS = -cpp -O3 
 ifeq ($(USE_OPENMP), YES)
-CFLAGS += -openmp
+CFLAGS += -fopenmp
 endif
 endif
 

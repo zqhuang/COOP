@@ -170,13 +170,30 @@ contains
 #endif    
   end function coop_clik_object_loglike
 
-  subroutine coop_clik_object_print_names(this)
+  subroutine coop_clik_object_print_names(this, with_param)
     class(coop_clik_object)::this
     COOP_INT ::i
-    if(.not. this%initialized)return    
-    write(*,*) "===parameters for "//trim(this%filename)//"==="
+    logical wp
+    logical,optional::with_param
+    if(.not. this%initialized)return
+    write(*,*) "TT from l=0 to", this%lmax(1)
+    write(*,*) "EE from l=0 to", this%lmax(2)
+    write(*,*) "BB from l=0 to", this%lmax(3)
+    write(*,*) "TE from l=0 to", this%lmax(4)
+    write(*,*) "EB from l=0 to", this%lmax(5)
+    write(*,*) "TB from l=0 to", this%lmax(6)
+    write(*,*) "=== "//COOP_STR_OF(this%numnames)//" parameters for "//trim(this%filename)//"==="
+    if(present(with_param))then
+       wp = with_param
+    else
+       wp = .false.
+    endif
     do i=1, this%numnames
-       write(*,*) trim(this%names(i))
+       if(wp)then
+          write(*,"(A)") "param["//trim(this%names(i))//"] = "
+       else
+          write(*,"(A)") trim(this%names(i))
+       endif
     enddo
     write(*,*) "=== End of parameter list ==="    
   end subroutine coop_clik_object_print_names

@@ -5,16 +5,21 @@ program test
 #include "constants.h"
   type(coop_healpix_maps)::map, mask, m2
   type(coop_healpix_inpaint)::inp
-  COOP_INT,parameter ::lmax = 180
-  COOP_INT,parameter ::nrun = 200
+  COOP_INT,parameter ::lmax = 200
+  COOP_INT,parameter ::nrun = 300
   COOP_REAL,parameter::radius_deg = 10.d0
   logical,parameter::force_output = .false.
   COOP_STRING::mask_spot = ""
-  COOP_REAL::cls(0:lmax), Cls_sim(0:lmax, nrun), Cls_ave(0:lmax), delta_Cls(0:lmax), sigma
-  COOP_INT::l, ell, i, irun, nside
+  COOP_STRING::fout = ""
+  COOP_REAL::cls(0:lmax), Cls_sim(0:lmax, nrun), Cls_ave(0:lmax), delta_Cls(0:lmax), sigma, cls_saved(0:lmax)
+  logical iterate
+  COOP_INT::l, ell, i, irun, nside, nup
   COOP_REAL::theta, phi
   type(coop_file)::fp
   call coop_MPI_init()
+  call coop_get_command_line_argument(key = "mask",  arg = mask_spot, default = "NONE")
+  call coop_get_command_line_argument(key = "it",  arg = iterate, default = .false.)
+  
   call coop_random_init()
   !!read in Cl's for fiducial LCDM model
   call fp%open("planck14best_lensedCls.dat", "r") 
@@ -24,11 +29,11 @@ program test
   enddo  
   call fp%close()
   Cls(0:1) = 0.d0
+  cls_saved = cls
 
-  nside = 128
   call map%read("lowl/commander_I_n0128_60a.fits")
   call mask%read("lowl/commander_mask_n0128_60a.fits")
-  call coop_get_command_line_argument(key = "mask",  arg = mask_spot, default = "OUTPUT")
+
   mask_spot = adjustl(mask_spot)
   !!mask out a disk
   select case(trim(mask_spot))
@@ -56,11 +61,13 @@ program test
      write(*,*) trim(mask_spot)//": unknown mask option"
      stop
   end select
-
+  if(iterate)then
+     fout = "clsout/clsout_"//trim(mask_spot)//"_it.dat"
+  else
+     fout = "clsout/clsout_"//trim(mask_spot)//".dat"          
+  endif
   !!initialize
-  !!Compute pixel-space covariance matrix from fiducial Cl's
-  !!For more serious applications you should use a full covariance matrix from FFP9 simulations  
-  call inp%init(map, mask, lmax, cls)
+100 call inp%init(map, mask, lmax, cls)
 
   !!if you want to see how the inpainted maps look like
   if(trim(mask_spot).eq."OUTPUT" .or. force_output)then
@@ -68,19 +75,26 @@ program test
      call inp%upgrade(reset = .true., nside_want = inp%base_nside)
      m2 = inp%lMT
      m2%map = inp%lCT%map + inp%lMT%map
-     call m2%write("inpainted_map_"//COOP_STR_OF(m2%nside)//".fits")            
-     print*, "nside = ", inp%lMT%nside
+     call m2%write("inpainted_map_"//COOP_STR_OF(m2%nside)//".fits")
+     do while(m2%nside .lt. inp%map%nside)
+        call inp%upgrade(nside_want = m2%nside*2)
+        m2 = inp%lMT
+        m2%map = inp%lCT%map + inp%lMT%map
+        call m2%write("inpainted_map_"//COOP_STR_OF(m2%nside)//".fits")
+        print*, "nside = ", inp%lMT%nside
+     enddo
      call coop_prtsystime()
      where(inp%mask%map(:,1).eq.0.)
         inp%map%map(:,1) = map%bad_data
      end where
      call inp%map%write("original_map.fits")
-     stop
+
   endif
-  !!
   Cls_sim = 0.d0
   Cls_ave = 0.d0
-  do irun = 1, nrun
+  nup = nrun
+  if(iterate) nup = max(nup/2, 1)
+  do irun = 1, nup
      write(*,*) "***** inpainting # ", irun, " ***********"
      call inp%upgrade(reset = .true., nside_want = inp%map%nside)
      inp%lMT%map = inp%lMT%map  + inp%lCT%map !!measured map + inpainted map
@@ -91,11 +105,24 @@ program test
      Cls_ave(l) = sum(Cls_sim(l, 1:nrun))/nrun
      delta_Cls(l)  = sqrt(sum((Cls_sim(l, 1:nrun)-Cls_ave(l))**2)/nrun + Cls(l)**2*2./(2.d0*l+1.d0)) !!only compute the diagonal
   enddo
-
-  call fp%open("clsout/clsout_"//trim(mask_spot)//".dat", "w")
+  if(iterate)then
+     do l = 2, lmax
+        Cls(l) = Cls_ave(l)*l*(l+1.d0)
+     enddo
+     call coop_smooth_data(lmax-5, Cls(6:lmax), 3)
+     do l = 2, lmax
+        Cls(l) = Cls(l)/(l*(l+1.d0))
+     enddo
+     
+     write(*,*) "Iterating"
+     iterate = .false.
+     goto 100
+ 
+  endif
+  call fp%open(trim(fout), "w")
   write(fp%unit, "(A8, 3A16)") "# ell ",  "  model C_l  ", " ave Cl  ", "  delta C_l "
   do l=2, lmax/2
-     write(fp%unit, "(I8, 3E16.7)") l, Cls(l)*l*(l+1.d0)/coop_2pi, Cls_ave(l)*l*(l+1.d0)/coop_2pi,  delta_Cls(l)*l*(l+1.d0)/coop_2pi
+     write(fp%unit, "(I8, 3E16.7)") l, Cls_saved(l)*l*(l+1.d0)/coop_2pi, Cls_ave(l)*l*(l+1.d0)/coop_2pi,  delta_Cls(l)*l*(l+1.d0)/coop_2pi
   enddo
   call fp%close()
   call coop_MPI_finalize()  

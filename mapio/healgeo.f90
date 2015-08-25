@@ -2573,17 +2573,20 @@ contains
        lmax = min(lmax, l_upper)
     endif
     if(lmax .lt. 2) stop "Huge smoothing scale cannot be done!"    
-    if(lmax*abs(fwhm).lt.0.01)return
+    if(lmax*abs(fwhm).lt.0.01 .and. .not. present(l_lower) .and. .not. present(l_upper))return
     if(present(index_list))then
        if(any(index_list .gt. map%nmaps)) stop "smooth: index_list overflow"
        call map%map2alm(lmax, index_list)
        if(present(l_lower)) map%alm(0:l_lower-1, :, :) = 0.
-       call map%filter_alm(fwhm = fwhm, index_list = index_list)
+       if(abs(fwhm).gt.0.d0) &
+            call map%filter_alm(fwhm = fwhm, index_list = index_list)
        call map%alm2map(index_list)
     else
        call map%map2alm(lmax)
-       if(present(l_lower)) map%alm(0:l_lower-1, :, :) = 0.       
-       call map%filter_alm(fwhm =fwhm)
+       if(present(l_lower)) &
+            map%alm(0:l_lower-1, :, :) = 0.
+       if(abs(fwhm).gt.0.d0) &       
+            call map%filter_alm(fwhm =fwhm)
        call map%alm2map()
     endif
   end subroutine coop_healpix_maps_smooth
@@ -4155,11 +4158,12 @@ contains
   end subroutine coop_healpix_inpaint_eval_cov
 
   subroutine coop_healpix_inpaint_init(this, map, mask, lmax, Cls)
+    COOP_REAL::eps
     class(coop_healpix_inpaint)::this    
     type(coop_healpix_maps), target::map, mask
     COOP_INT::lmax, i, iM, ic, j, info
     COOP_REAL::Cls(0:lmax), mindiag
-    COOP_REAL, dimension(:, :),allocatable::cov
+    COOP_REAL, dimension(:, :),allocatable::cov, covcopy
     COOP_REAL::mm
 #ifdef HAS_HEALPIX    
     call this%free()
@@ -4217,7 +4221,7 @@ contains
        endif
     enddo
     if(iM .ne. this%nMT .or. ic .ne. this%ncT) stop "inpaint_start: unknown error"
-    allocate(cov(this%nMT+this%ncT, this%nMT+this%ncT))
+    allocate(cov(this%nMT+this%ncT, this%nMT+this%ncT), covcopy(this%nMT+this%ncT, this%nMT+this%ncT), )
     do i = 0, this%lM%npix-1
        do j = 0, i
           if(this%iiMT(i) .eq. 0)then
@@ -4265,7 +4269,15 @@ contains
        enddo
     enddo
     if(this%nMT .gt. 0)then
-       call coop_solve_constrained(m = this%nMT + this%nCT, n_known = this%nMT, n_unknown = this%nCT, dim_fmean = this%nCT, dim_ffluc = this%nCT, C = cov, Fmean = this%Fmean, Ffluc = this%Ffluc, epsilon = 1.d-3)
+       eps = 1.d-3
+       covcopy = cov
+       call coop_solve_constrained(m = this%nMT + this%nCT, n_known = this%nMT, n_unknown = this%nCT, dim_fmean = this%nCT, dim_ffluc = this%nCT, C = covcopy, Fmean = this%Fmean, Ffluc = this%Ffluc, epsilon = eps)
+       do while(coop_isnan(this%Fmean))
+          eps = eps*1.5d0
+          if(eps.gt.0.05d0)stop "Inpainting matrix operations failed"
+          covcopy = cov
+          call coop_solve_constrained(m = this%nMT + this%nCT, n_known = this%nMT, n_unknown = this%nCT, dim_fmean = this%nCT, dim_ffluc = this%nCT, C = covcopy, Fmean = this%Fmean, Ffluc = this%Ffluc, epsilon = eps)
+       enddo
        this%mean = matmul(this%Fmean, this%lMT%map(this%indMT,1))
     else
        this%mean = 0.d0
@@ -4274,12 +4286,13 @@ contains
     endif
     this%base_nside = this%lMT%nside
     this%first_realization = .true.
-    deallocate(cov)
+    deallocate(cov, covcopy)
 #endif    
   end subroutine coop_healpix_inpaint_init
 
   subroutine coop_healpix_inpaint_upgrade(this, reset, nside_want)
     class(coop_healpix_inpaint)::this
+    COOP_REAL::eps 
     logical, optional::reset
     COOP_INT,optional::nside_want
     COOP_INT::nside_start, nside_target
@@ -4327,15 +4340,16 @@ contains
   contains
 
     subroutine  do_split()
+      COOP_REAL::eps
       COOP_INT:: nside_fine, npix_fine, nside_coarse, npix_coarse
       COOP_INT:: i, j, k, l,n_masked, ii, i0, i1, i2, i3, jj
       type(coop_healpix_maps)::llc    
       COOP_INT,dimension(:,:),allocatable::list
       COOP_INT,dimension(:),allocatable::ind_masked, nlist, nbs
       logical,dimension(:),allocatable::is_masked
-      COOP_REAL,parameter::radius = 15.d0*coop_SI_degree
+      COOP_REAL,parameter::radius = 14.d0*coop_SI_degree
       COOP_INT,parameter::nmax = 128
-      COOP_REAL::cov(0:nmax-1, 0:nmax-1), Fmean(1, 0:nmax-1), FFluc(1, 1), x(0:nmax-1)
+      COOP_REAL::cov(0:nmax-1, 0:nmax-1), Fmean(1, 0:nmax-1), FFluc(1, 1), x(0:nmax-1), covcopy(0:nmax-1, 0:nmax-1)
       COOP_INT::listpix(0:nmax-1)
       COOP_REAL::cc(0:3, 0:3)
       
@@ -4445,7 +4459,15 @@ contains
             x(i) = this%lMT%map(list(i,j), 1) + this%lCT%map(list(i,j), 1)
          enddo
          x(0) = this%lMT%map(list(0, j), 1)
-         call coop_solve_constrained(m = nmax, n_known = nlist(j), n_unknown = 1, dim_fmean = 1, dim_ffluc = 1, C = cov, Fmean =  Fmean, Ffluc = FFluc,  epsilon = 1.d-2)
+         eps = 1.d-2
+         covcopy = cov         
+         call coop_solve_constrained(m = nmax, n_known = nlist(j), n_unknown = 1, dim_fmean = 1, dim_ffluc = 1, C = covcopy, Fmean =  Fmean, Ffluc = FFluc,  epsilon = eps)
+         do while(coop_isnan(Fmean(1,0:nlist(j)-1)))
+            eps = eps*1.5d0
+            if(eps.gt. 0.1d0) stop "Inpainting matrix operations failed"
+            covcopy = cov         
+            call coop_solve_constrained(m = nmax, n_known = nlist(j), n_unknown = 1, dim_fmean = 1, dim_ffluc = 1, C = covcopy, Fmean =  Fmean, Ffluc = FFluc,  epsilon = eps)
+         enddo
          this%lCT%map(list(0, j),1) =  this%lCT%map(list(0, j),1) + dot_product(Fmean(1,0:nlist(j)-1), x(0:nlist(j)-1)) + FFluc(1,1)*coop_random_Gaussian()
          is_masked(ind_masked(j)) = .false.
          i = list(0,j)/4
@@ -4503,7 +4525,6 @@ contains
       call this%sim%convert2nested()
       this%sim%map = (this%sim%map*sqrt(1.-this%smooth_mask%map**2)+this%smooth_map%map*this%smooth_mask%map)*(1.-this%mask%map)
     end subroutine set_sim
-    
 #endif    
   end subroutine coop_healpix_inpaint_upgrade
 

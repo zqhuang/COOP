@@ -21,6 +21,10 @@ Test:	test.o $(OBJ)
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK) 
 
 
+PRINTCLIK:	print_clik.o $(OBJ)
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) print_clik.o $(LINK) 
+
+
 DOSN:	testSN.o $(OBJ)
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testSN.o $(LINK) 
 
@@ -33,9 +37,10 @@ STD6:	teststd6.o $(OBJ)
 
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~  MCMC Test STD6 DOSN
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~  MCMC Test STD6 DOSN PRINTCLIK
 
 test.o: $(OBJ)
 testSN.o: $(OBJ)
 testclik.o: $(OBJ)
 teststd6.o: $(OBJ)
+forecast.o: cliklike.o

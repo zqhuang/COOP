@@ -8,7 +8,7 @@ module coop_file_mod
 
 private
 
-public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_create_directory, coop_delete_directory, coop_file_numcolumns, coop_file_numlines, coop_load_dictionary, coop_free_file_unit, coop_file_exists, coop_file_encrypt, coop_file_decrypt, coop_string_encrypt, coop_string_decrypt, coop_file_load_function, coop_dir_exists, coop_export_dictionary, coop_import_matrix, coop_export_matrix, coop_file_load_realarr, coop_open_file
+public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_create_directory, coop_delete_directory, coop_file_numcolumns, coop_file_numlines, coop_load_dictionary, coop_free_file_unit, coop_file_exists, coop_file_encrypt, coop_file_decrypt, coop_string_encrypt, coop_string_decrypt, coop_file_load_function, coop_dir_exists, coop_export_dictionary, coop_import_matrix, coop_export_matrix, coop_file_load_realarr, coop_open_file, coop_dynamic_array_real
 
   character,parameter::coop_text_comment_symbol = "#"
 
@@ -44,9 +44,75 @@ public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_crea
      module procedure coop_export_matrix_s, coop_export_matrix_d
   end interface coop_export_matrix
   
-  
+    type coop_dynamic_array_real
+       COOP_INT::nrows = 0
+       COOP_INT::ncols = 0
+       COOP_REAL, dimension(:, :),allocatable::f
+     contains
+       procedure::init => coop_dynamic_array_real_init
+       procedure::load_txt => coop_dynamic_array_real_load_txt
+       procedure::dump_txt => coop_dynamic_array_real_dump_txt
+       procedure::free => coop_dynamic_array_real_free
+    end type coop_dynamic_array_real
 
 contains
+
+
+  
+  subroutine coop_dynamic_array_real_init(this, nrows, ncols)
+    class(coop_dynamic_array_real)::this
+    COOP_INT::nrows, ncols
+    if(this%nrows .eq.  nrows  .and. this%ncols .eq. ncols)return
+    if(allocated(this%f))deallocate(this%f)
+    this%nrows = nrows
+    this%ncols = ncols
+    allocate(this%f(nrows, ncols))
+  end subroutine coop_dynamic_array_real_init
+
+  subroutine coop_dynamic_array_real_free(this)
+    class(coop_dynamic_array_real)::this
+    if(allocated(this%f))deallocate(this%f)
+    this%nrows = 0
+    this%ncols = 0
+  end subroutine coop_dynamic_array_real_free
+
+  subroutine coop_dynamic_array_real_load_txt(this, filename)
+    class(coop_dynamic_array_real)::this
+    COOP_UNKNOWN_STRING::filename
+    type(coop_file)::fp
+    COOP_INT::i
+    call this%free()
+    this%nrows = coop_file_NumLines(filename)
+    this%ncols = coop_file_NumColumns(filename)
+    if(this%nrows .gt. 0 .and. this%ncols .gt. 0)then
+       allocate(this%f(this%nrows, this%ncols))
+       call fp%open(filename, "r")
+       do i=1, this%nrows
+          if(.not. fp%read_real_array(this%f(i, :)))then
+             write(*,*) trim(filename)
+             stop "data file is broken"
+          endif
+       enddo
+       call fp%close()
+    endif
+  end subroutine coop_dynamic_array_real_load_txt
+
+
+    subroutine coop_dynamic_array_real_dump_txt(this, filename)
+    class(coop_dynamic_array_real)::this
+    COOP_UNKNOWN_STRING::filename
+    type(coop_file)::fp
+    COOP_STRING::fmt
+    COOP_INT::i
+    fmt = "("//COOP_STR_OF(this%ncols)//"E16.7)"
+    call fp%open(filename, "w")
+    do i=1, this%nrows
+       write(fp%unit, trim(fmt)) this%f(i, :)
+    enddo
+    call fp%close()    
+  end subroutine coop_dynamic_array_real_dump_txt
+
+  
 
   subroutine coop_file_load_function(fname, col1, col2, func, check_boundary)
     COOP_UNKNOWN_STRING fname

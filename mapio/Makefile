@@ -42,6 +42,10 @@ LLSCAN:	$(OBJ) lowl_scan.o
 LLCORR:	$(OBJ) lowl_corr.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) lowl_corr.o $(LINK)
 
+HASYM: 	$(OBJ) hemiasym.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) hemiasym.o $(LINK)
+
+
 GetTheo:  $(OBJ) gettheo.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) gettheo.o $(LINK)
 

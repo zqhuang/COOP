@@ -46,7 +46,7 @@ module coop_list_mod
   end interface coop_dictionary_lookup
 
   interface coop_get_command_line_argument
-     module procedure coop_get_command_line_argument_single, coop_get_command_line_argument_real, coop_get_command_line_argument_logical, coop_get_command_line_argument_int, coop_get_command_line_argument_str
+     module procedure coop_get_command_line_argument_single, coop_get_command_line_argument_real, coop_get_command_line_argument_logical, coop_get_command_line_argument_int, coop_get_command_line_argument_str, coop_get_command_line_argument_intarr, coop_get_command_line_argument_realarr, coop_get_command_line_argument_singlearr
   end interface coop_get_command_line_argument
 
 
@@ -71,7 +71,6 @@ module coop_list_mod
      procedure::free => coop_dynamic_array_integer_initialize
      procedure::get_indices => coop_dynamic_array_integer_get_indices
   end type coop_dynamic_array_integer
-
 
 
   type coop_list_integer
@@ -226,8 +225,6 @@ module coop_list_mod
 contains
 
 !! initialize
-
-
   subroutine coop_dynamic_array_integer_initialize(this)
     class(coop_dynamic_array_integer)::this
     if(allocated(this%i))deallocate(this%i)    
@@ -1874,6 +1871,42 @@ contains
   end subroutine coop_get_command_line_argument_int
 
 
+
+  subroutine coop_get_command_line_argument_intarr(index, key, arg, default)
+    COOP_INT,optional::index
+    COOP_UNKNOWN_STRING,optional::key
+    COOP_INT,optional::default(:)
+    COOP_INT::arg(:)
+    COOP_STRING::str
+    if(present(index))then       
+       if(present(default))then
+          call coop_get_Input(index, str, "")
+       else
+          call coop_get_Input(index, str)
+       endif
+    elseif(present(key))then
+       call coop_load_command_line_inputs()
+       str = coop_command_line_inputs%value(trim(adjustl(key)))
+       if(trim(str).eq.'')then
+          if(present(default))then
+             arg = default
+             return
+          endif
+          write(*,*) 'key '//trim(key)//' missing in command line'
+          stop
+       endif       
+    else
+       if(present(default))then
+          arg = default
+          return
+       else
+          stop "cannot find the integer argument in command line input"
+       endif       
+    endif
+    read(str, *) arg
+  end subroutine coop_get_command_line_argument_intarr
+
+  
   subroutine coop_get_command_line_argument_logical(index, key, arg, default)
     COOP_INT,optional::index
     COOP_UNKNOWN_STRING,optional::key
@@ -1943,6 +1976,44 @@ contains
   end subroutine coop_get_command_line_argument_real
 
 
+
+
+  subroutine coop_get_command_line_argument_realarr(index, key, arg, default)
+    COOP_INT,optional::index
+    COOP_UNKNOWN_STRING,optional::key
+    COOP_REAL,optional::default(:)
+    COOP_REAL::arg(:)
+    COOP_STRING::str
+    if(present(index))then       
+       if(present(default))then
+          call coop_get_Input(index, str, "")
+       else
+          call coop_get_Input(index, str)
+       endif
+    elseif(present(key))then
+       call coop_load_command_line_inputs()
+       str = coop_command_line_inputs%value(trim(adjustl(key)))
+       if(trim(str).eq.'')then
+          if(present(default))then
+             arg = default
+             return
+          endif
+          write(*,*) 'key '//trim(key)//' missing in command line'
+          stop
+       endif       
+    else
+       if(present(default))then
+          arg = default
+          return
+       else
+          stop "cannot find the integer argument in command line input"
+       endif       
+    endif
+    read(str, *) arg
+  end subroutine coop_get_command_line_argument_realarr
+  
+
+
   subroutine coop_get_command_line_argument_single(index, key, arg, default)
     COOP_INT,optional::index
     COOP_UNKNOWN_STRING,optional::key
@@ -1975,6 +2046,44 @@ contains
        endif
     endif
   end subroutine coop_get_command_line_argument_single
+
+
+
+  subroutine coop_get_command_line_argument_singlearr(index, key, arg, default)
+    COOP_INT,optional::index
+    COOP_UNKNOWN_STRING,optional::key
+    COOP_SINGLE,optional::default(:)
+    COOP_SINGLE::arg(:)
+    COOP_STRING::str
+    if(present(index))then       
+       if(present(default))then
+          call coop_get_Input(index, str, "")
+       else
+          call coop_get_Input(index, str)
+       endif
+    elseif(present(key))then
+       call coop_load_command_line_inputs()
+       str = coop_command_line_inputs%value(trim(adjustl(key)))
+       if(trim(str).eq.'')then
+          if(present(default))then
+             arg = default
+             return
+          endif
+          write(*,*) 'key '//trim(key)//' missing in command line'
+          stop
+       endif       
+    else
+       if(present(default))then
+          arg = default
+          return
+       else
+          stop "cannot find the integer argument in command line input"
+       endif       
+    endif
+    read(str, *) arg
+  end subroutine coop_get_command_line_argument_singlearr
+  
+  
 
   
 End module coop_list_mod

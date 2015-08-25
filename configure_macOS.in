@@ -80,7 +80,7 @@ endif
 ifeq ($(C_COMPILER), $(GCC_NAME))
 CFLAGS = -cpp -O3 
 ifeq ($(USE_OPENMP), YES)
-CFLAGS += -openmp
+CFLAGS += -fopenmp
 endif
 endif
 

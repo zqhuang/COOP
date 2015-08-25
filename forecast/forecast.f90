@@ -492,7 +492,7 @@ contains
     if(.not. this%do_memsave)stop "cannot update propose matrix when do_memsave is off"
     call this%covmat%alloc(this%n)  !!set sigma = 1 and the rest 0
     if(this%chain%n .ge. 10)then
-       istart =  ceiling(this%chain%n*0.3)  !!discard 30% samples
+       istart =  ceiling(this%chain%n*0.2)  !!discard 20% samples
        do i = istart, this%chain%n  
           call this%chain%get_element(i, this%knot)
           this%covmat%mult  = this%covmat%mult + this%knot(1)
@@ -1557,6 +1557,7 @@ contains
        enddo
        call fp%close()
        call coop_sympos_inverse(nparams, nparams, invcov)
+       init = .false.
     endif
     if(this%n .ne. nparams)then
        write(*,*) "general model # of paramemters: "//COOP_STR_OF(nparams)
