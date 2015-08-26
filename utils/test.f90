@@ -9,15 +9,14 @@ program Test
   COOP_INT::i
   if(iargc().lt.8)then
      write(*,*) "./SMOOTHDATA"
+     stop
+  endif
      
   call coop_get_command_line_argument(key = 'inp', arg = input)
   call coop_get_command_line_argument(key = 'out', arg = output)  
   call coop_get_command_line_argument(key = 'width', arg = width)
   call coop_get_command_line_argument(key = 'col', arg = col)    
   call raw%load_txt(trim(input))
-  smooth = raw
-  if(col .gt. 
-  do 
   
   
 end program Test
