@@ -13,8 +13,8 @@ program test
   COOP_INT,parameter::lmax = 100
   COOP_INT,parameter::nside = 256
   COOP_INT,parameter::nside_output = 16  
-  COOP_REAL,parameter::beam_fwhm = 440.
-  logical,parameter::do_constrained = .true.
+  COOP_REAL,parameter::beam_fwhm = 60.
+  logical,parameter::do_constrained = .false.
   type(coop_healpix_maps)::map,  lmap, mask, hmap
   integer l, m, il, i
   type(coop_file)::fp
@@ -52,15 +52,15 @@ program test
         call lmap%write(trim(prefix)//"_inp_"//COOP_STR_OF(lmap%nside)//"_"//COOP_STR_OF(nint(beam_fwhm))//"a_"//COOP_STR_OF(i)//".fits")        
      enddo
   else
-    ! Cls(2) =  254.90171756233437     
+     !! Cls(2) =  254.90171756233437     
      call map%init(nside = nside, nmaps=1, genre="TEMPERATURE", lmax = lmax)
      call lmap%init(nside = nside_output, nmaps = 1, genre = "TEMPERATURE")
-     do i=1, 1000
+     do i=1, 100
         map%Cl(:,1) = Cls        
         write(*,*) "simulating map #"//COOP_STR_OF(i)        
         call map%simulate()
-        call coop_healpix_maps_ave_udgrade(map, lmap)
-        call lmap%write(trim(prefix)//"_full_"//COOP_STR_OF(lmap%nside)//"_"//COOP_STR_OF(nint(beam_fwhm))//"a_"//COOP_STR_OF(i)//".fits")
+!        call coop_healpix_maps_ave_udgrade(map, lmap)
+        call map%write(trim(prefix)//"_full_"//COOP_STR_OF(map%nside)//"_"//COOP_STR_OF(nint(beam_fwhm))//"a_"//COOP_STR_OF(i)//".fits")
      enddo
   endif
   call coop_MPI_Finalize()

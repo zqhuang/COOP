@@ -21,6 +21,7 @@ module coop_clik_mod
      logical::is_lensing = .false.
      integer, dimension(6):: has_cl = 0
      integer, dimension(6):: lmax = -1
+     integer, dimension(7):: lensing_lmaxs = -1     
      integer::numnames = 0
      integer::n_tot = 0
      character(LEN=256),dimension(:),pointer::names=>null()
@@ -48,15 +49,22 @@ contains
     call clik_try_lensing(this%is_lensing, filename)
     if(this%is_lensing)then
        call clik_lensing_init(this%clikid, filename)
+       !!clik setup
        call clik_lensing_get_lmax(this%clikid, this%lmax(1))
+       if(this%lmax(1) .eq. -1)then  !!try plik
+          call clik_lensing_get_lmaxs(this%clikid, this%lensing_lmaxs)
+       else
+          this%lensing_lmaxs(1:2) = this%lmax(1)
+          this%lensing_lmaxs(3:7) = -1
+       endif
        this%numnames = clik_lensing_get_extra_parameter_names(this%clikid, this%names)
-       this%n_tot = 2*(this%lmax(1)+1) + this%numnames
+       this%n_tot = sum(this%lensing_lmaxs(1:7)+1) + this%numnames
     else
        call clik_init(this%clikid, filename)
        call clik_get_has_cl(this%clikid, this%has_cl)
        call clik_get_lmax(this%clikid, this%lmax)
        this%numnames = clik_get_extra_parameter_names(this%clikid, this%names)
-       this%n_tot = sum(this%lmax)+6+this%numnames
+       this%n_tot = sum(this%lmax+1)+this%numnames
     endif
     do i=1, this%numnames
        call coop_convert_to_Fortran_string(this%names(i))
@@ -111,18 +119,20 @@ contains
           stop "set_cl_and_pars: For lensing Cls(1, :) = Cl(TT), Cls(2,:) = Cl(PP)"
        endif
 
-       if(lmax .lt. this%lmax(1))then
-          write(*,*) trim(this%filename)//" lmax = ", this%lmax(1)
+       if(lmax .lt. maxval(this%lensing_lmaxs))then
+          write(*,*) trim(this%filename)//" lmax = ",maxval(this%lensing_lmaxs)
           stop "set_cl_and_pars: need to increase lmax"
        endif
-       if(this%lmax(1) .ge. lmin)then
-          do l = lmin, this%lmax(1)
-             this%cl_and_pars(istart+l) = Cls(coop_index_ClLenLen,l)/(7.430422d12)
-          enddo
-          istart = istart+this%lmax(1)+1
-          this%cl_and_pars(istart+lmin:istart+this%lmax(1)) = Cls(coop_index_ClTT, lmin:this%lmax(1))
-          istart = istart+this%lmax(1)+1          
+       if(lmin .le. this%lensing_lmaxs(1))then
+          this%cl_and_pars(istart+lmin:istart+this%lensing_lmaxs(1))= Cls(coop_index_ClLenLen,lmin:this%lensing_lmaxs(1))/(7.430422d12)
        endif
+       istart = istart+this%lensing_lmaxs(1)+1                 
+       do i = 2, 5
+          if(this%lensing_lmaxs(i) .ge. lmin)then
+             this%cl_and_pars(istart+lmin:istart+this%lensing_lmaxs(1)) = Cls(i-1, lmin:this%lensing_lmaxs(i))
+          endif
+          istart = istart+this%lensing_lmaxs(i)+1          
+       enddo
     else
        if(lmax .lt. maxval(this%lmax))then
           write(*,*) trim(this%filename)//" lmax = ", maxval(this%lmax)
@@ -176,12 +186,23 @@ contains
     logical wp
     logical,optional::with_param
     if(.not. this%initialized)return
-    write(*,*) "TT from l=0 to", this%lmax(1)
-    write(*,*) "EE from l=0 to", this%lmax(2)
-    write(*,*) "BB from l=0 to", this%lmax(3)
-    write(*,*) "TE from l=0 to", this%lmax(4)
-    write(*,*) "EB from l=0 to", this%lmax(5)
-    write(*,*) "TB from l=0 to", this%lmax(6)
+    if(this%is_lensing)then
+       write(*,*) "This is a lensing likelihood"
+       write(*,*) "PhiPhi from l=0 to", this%lensing_lmaxs(1)       
+       write(*,*) "TT from l=0 to", this%lensing_lmaxs(2)
+       write(*,*) "EE from l=0 to", this%lensing_lmaxs(3)
+       write(*,*) "BB from l=0 to", this%lensing_lmaxs(4)
+       write(*,*) "TE from l=0 to", this%lensing_lmaxs(5)
+       write(*,*) "EB from l=0 to", this%lensing_lmaxs(6)
+       write(*,*) "TB from l=0 to", this%lensing_lmaxs(7)
+    else
+       write(*,*) "TT from l=0 to", this%lmax(1)
+       write(*,*) "EE from l=0 to", this%lmax(2)
+       write(*,*) "BB from l=0 to", this%lmax(3)
+       write(*,*) "TE from l=0 to", this%lmax(4)
+       write(*,*) "EB from l=0 to", this%lmax(5)
+       write(*,*) "TB from l=0 to", this%lmax(6)
+    endif
     write(*,*) "=== "//COOP_STR_OF(this%numnames)//" parameters for "//trim(this%filename)//"==="
     if(present(with_param))then
        wp = with_param

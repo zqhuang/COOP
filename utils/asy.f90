@@ -40,6 +40,7 @@ module coop_asy_mod
      procedure::interpolate_curve => coop_asy_interpolate_curve_d
      procedure::plot => coop_asy_curve_d
      procedure::legend => coop_asy_legend_relative
+     procedure::compact_legend=>coop_asy_compact_legend_relative
      procedure::legend_advance => coop_asy_legend_advance_relative
      procedure::add_legend => coop_asy_add_legend
      procedure::line => coop_asy_line_d
@@ -2826,23 +2827,42 @@ contains
     COOP_SINGLE  xratio, yratio
     COOP_INT ,optional::cols
     logical,optional::box
+    write(this%unit, "(A)") "LEGEND_ADVANCE"
     if(present(box))then
-       if(.not. box)then
-          write(this%unit, "(A)") "LEGEND_NOBOX"
+       if(box)then
+          write(this%unit, "(A)") "black"          
        else
-          write(this%unit, "(A)") "LEGEND"          
+          write(this%unit, "(A)") "invisible"
        endif
     else
-       write(this%unit, "(A)") "LEGEND"
+       write(this%unit, "(A)") "black"       
     endif
+    write(this%unit, "(G15.4)") "0.5"
+    write(this%unit, "(G15.4)") "0.3"
+    write(this%unit, "(G15.4)") "1"
+    write(this%unit, "(G15.4)") "0.95"
+    write(this%unit, "(G15.4)") "0.95"    
+    write(this%unit, "(I6)")  cols   
     write(this%unit, "(A)") "NULL"
     write(this%unit, "(2G15.4)") this%xrel(xratio), this%yrel(yratio)
-    if(present(cols))then
-       write(this%unit, "(I8)")  cols
-    else
-       write(this%unit, "(I8)")  1
-    endif
   end subroutine coop_asy_legend_relative
+  
+
+  subroutine coop_asy_compact_legend_relative(this, xratio, yratio, cols)
+    class(coop_asy) this
+    COOP_SINGLE  xratio, yratio
+    COOP_INT ,optional::cols
+    write(this%unit, "(A)") "LEGEND_ADVANCE"
+    write(this%unit, "(A)") "invisible"
+    write(this%unit, "(G15.4)") "0.05"
+    write(this%unit, "(G15.4)") "0.05"
+    write(this%unit, "(G15.4)") "0.75"
+    write(this%unit, "(G15.4)") "0.85"
+    write(this%unit, "(G15.4)") "0.85"    
+    write(this%unit, "(I6)")  cols   
+    write(this%unit, "(A)") "NULL"
+    write(this%unit, "(2G15.4)") this%xrel(xratio), this%yrel(yratio)
+  end subroutine coop_asy_compact_legend_relative
 
 
 

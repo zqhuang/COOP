@@ -8,7 +8,7 @@ else
 GFORTRAN_NAME = gfortran
 endif
 
-GCC_NAME=gcc
+GCC_NAME=gcc-mp-4.8
 IFORT_NAME=ifort
 ICC_NAME=icc
 
@@ -174,7 +174,7 @@ endif
 
 ###set fftw flags here
 ifneq ($(FFTW3),)
-LINK += -L$(FFTW3)/lib -lfftw3 -lfftw3_mpi
+LINK += -L$(FFTW3)/lib -lfftw3
 FFLAGS += -DHAS_FFTW=1
 CFLAGS += -DHAS_FFTW=1
 INCLUDE += -I$(FFTW3)/include 

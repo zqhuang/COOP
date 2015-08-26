@@ -1,4 +1,4 @@
-program test
+program RunMC
   use coop_wrapper_firstorder
   use coop_forecast_mod
   implicit none
@@ -52,7 +52,6 @@ program test
      call coop_dictionary_lookup(mcmc%settings, "use_compressed_CMB", use_compressed_CMB, .false.)
 
 
-
      if(use_compressed_cmb .and. .not. use_CMB)then
         pool%CMB_Simple => compressed_CMB
      endif
@@ -62,21 +61,27 @@ program test
         call bao(1)%init("../data/bao/sdss_6DF_bao.dataset")
         call bao(2)%init("../data/bao/sdss_MGS_bao.dataset")
         call bao(3)%init("../data/bao/sdss_DR11LOWZ_bao.dataset")
-        call bao(4)%init("../data/bao/sdss_DR11CMASS_bao.dataset")     
+        call bao(4)%init("../data/bao/sdss_DR11CMASS_bao.dataset")
+        write(*,*) "Using BAO"        
         pool%BAO%baolike => bao
      endif
 
      !!HST
-     if(use_HST) pool%HST%HSTlike => HSTlike
+     if(use_HST)then
+        pool%HST%HSTlike => HSTlike
+        write(*,*) "Using HST"
+     endif
 
      !!supernova  
      if(use_SN)then
+        write(*,*) "Using JLA"
         call jla%read("../data/jla/jla.dataset")
         pool%SN_JLA%JLALike => jla
      endif
 
      if(use_CMB)then
         if(use_Planck13)then
+           write(*,*) "Using Planck 13 likelihood"
            if(coop_file_exists(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik/_mdb"))then
               call pl(1)%init(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik")
               call pl(2)%init(trim(planckdata_path)//"/commander_v4.1_lm49.clik")
@@ -87,11 +92,12 @@ program test
               stop
            endif
         else  !!use Planck15
+           write(*,*) "Using Planck 15 likelihood"           
            if(coop_file_exists(trim(planckdata_path)//"/hi_l/plik/plik_dx11dr2_HM_v18_TTTEEE.clik/_mdb"))then
               call pl(1)%init(trim(planckdata_path)//"/hi_l/plik/plik_dx11dr2_HM_v18_TTTEEE.clik")              
               call pl(2)%init(trim(planckdata_path)//"low_l/commander/commander_rc2_v1.1_l2_29_B.clik")
               call pl(3)%init(trim(planckdata_path)//"low_l/bflike/lowl_SMW_70_dx11d_2014_10_03_v5c_Ap.clik")
-              if(use_lensing)call pl(4)%init(trim(planckdata_path)//"/lensing/smica_g30_ftl_full_pp.dataset")
+              if(use_lensing)call pl(4)%init(trim(planckdata_path)//"/lensing/smica_g30_ftl_full_pp.clik_lensing")
            else !!try another path
               write(*,*) "you need to make planck likelihood symbolic links to "//trim(planckdata_path)
               stop
@@ -102,6 +108,7 @@ program test
   endif
   select case(trim(mcmc%action))
   case("TEST", "test")
+     write(*,*) "Running TEST:"
      mcmc%params = mcmc%center
      mcmc%fullparams(mcmc%used) = mcmc%params
      if(iargc() .ge. 3)then
@@ -146,4 +153,4 @@ program test
      stop "unknown action"
   end select
   call coop_MPI_finalize()
-end program test
+end program RunMC

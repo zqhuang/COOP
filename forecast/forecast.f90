@@ -15,7 +15,6 @@ module coop_forecast_mod
 
   COOP_INT, parameter::coop_n_derived_with_cosmology = 3
   COOP_INT, parameter::coop_n_derived_without_cosmology = 1
-
   
   type coop_DataSet
      COOP_STRING::name
@@ -160,8 +159,11 @@ module coop_forecast_mod
      COOP_REAL,dimension(:),allocatable::width
      logical,dimension(:),allocatable::has_prior
      logical::any_prior = .false.
-     COOP_REAL,dimension(:),allocatable::prior_sigma     
-     COOP_REAL,dimension(:),allocatable::prior_center     
+     COOP_INT::n_lc_priors = 0
+     COOP_REAL,dimension(:),allocatable::prior_sigma, lc_prior_sigma     
+     COOP_REAL,dimension(:),allocatable::prior_center, lc_prior_center
+     COOP_INT,dimension(:,:), allocatable::lc_prior_index
+     COOP_REAL,dimension(:,:), allocatable::lc_prior_weight     
      COOP_REAL,dimension(:,:),allocatable::vecs
      COOP_REAL,dimension(:,:),allocatable::vecs_fast
      COOP_REAL,dimension(:,:),allocatable::vecs_slow     
@@ -234,12 +236,18 @@ contains
   function coop_MCMC_params_priorLike(this) result(Prior)
     class(coop_MCMC_params)::this
     COOP_REAL::Prior
+    COOP_INT::ip
     Prior = coop_LogZero
     if(any(this%params .gt. this%upper) .or. any(this%params.lt.this%lower))return
     if(this%any_prior)then
        Prior = sum(((this%params - this%prior_center)/this%prior_sigma)**2, mask = this%has_prior)/2.d0
     else
        prior = 0.d0
+    endif
+    if(this%n_lc_priors .gt. 0)then
+       do ip = 1, this%n_lc_priors
+          Prior = Prior + ((this%fullparams(this%lc_prior_index(1, ip)) * this%lc_prior_weight(1, ip) + this%fullparams(this%lc_prior_index(2, ip)) * this%lc_prior_weight(2, ip) - this%lc_prior_center(ip))/this%lc_prior_sigma(ip))**2/2.d0
+       enddo
     endif
   end function coop_MCMC_params_priorLike
 
@@ -979,7 +987,7 @@ contains
     class(coop_Data_Pool)this
     type(coop_mcmc_params)::mcmc
     COOP_INT::i
-    COOP_REAL LogLike
+    COOP_REAL LogLike, tmp
     COOP_REAL,dimension(:,:),allocatable::Cls
     !!Prior
     LogLike = mcmc%PriorLike()    
@@ -992,30 +1000,39 @@ contains
     endif    
     if(mcmc%do_general_loglike)then
        loglike = LogLike + mcmc%general_loglike()
-       if(LogLike .ge. coop_LogZero) return           
+       if(.not.(LogLike .lt. coop_LogZero)) return                          
     else
        !!Supernova
        if(associated(this%SN_Simple))then
           do i=1, size(this%SN_Simple)
              LogLike = LogLike + this%SN_Simple(i)%LogLike(mcmc)
-             if(LogLike .ge. coop_LogZero) return          
+             if(.not.(LogLike .lt. coop_LogZero)) return                   
           enddo
        endif
 
        !!simple CMB
        if(associated(this%CMB_Simple))then
           LogLike = LogLike + this%CMB_Simple%LogLike(mcmc)
-          if(LogLike .ge. coop_LogZero) return                 
+          if(.not.(LogLike .lt. coop_LogZero)) return                     
        endif
-       LogLike = LogLike + this%HST%LogLike(mcmc)
-       if(LogLike .ge. coop_LogZero) return    
-       LogLike = LogLike + this%SN_JLA%LogLike(mcmc)
-       if(LogLike .ge. coop_LogZero) return
-       LogLike = LogLike + this%BAO%LogLike(mcmc)
-       if(LogLike .ge. coop_LogZero) return    
+
+       tmp = this%HST%LogLike(mcmc)
+       if(mcmc%feedback .gt. 2 ) write(*,*) "HST like", tmp
+       LogLike = LogLike + tmp
+       if(.not.(LogLike .lt. coop_LogZero)) return           
+       tmp = this%SN_JLA%LogLike(mcmc)
+       LogLike = LogLike + tmp
+       if(mcmc%feedback .gt. 2 ) write(*,*) "JLA like", tmp
+       if(.not.(LogLike .lt. coop_LogZero)) return                  
+       tmp =  this%BAO%LogLike(mcmc)
+       if(mcmc%feedback .gt. 2 ) write(*,*) "BAO like", tmp              
+       LogLike = LogLike + tmp
+       if(.not.(LogLike .lt. coop_LogZero)) return    
        !!CMB
-       LogLike = LogLike + this%CMB%LogLike(mcmc)
-       if(LogLike .ge. coop_LogZero) return
+       tmp = this%CMB%LogLike(mcmc)
+       if(mcmc%feedback .gt. 2 ) write(*,*) "CMB like", tmp                     
+       LogLike = LogLike + tmp
+       if(.not.(LogLike .lt. coop_LogZero)) return           
     endif
   end function coop_Data_Pool_LogLike
 
@@ -1132,7 +1149,7 @@ contains
     COOP_REAL,dimension(:),allocatable::center, lower, upper, width, iniwidth, prior_sigma, prior_center
     COOP_INT i, iused, j, stat
     COOP_STRING::paramnames, prefix
-    COOP_STRING val
+    COOP_STRING val, lcname1, lcname2
     COOP_LONG_STRING::line
     COOP_INT::ncov
     type(coop_list_string)::sl
@@ -1281,6 +1298,31 @@ contains
        endif
     enddo
     this%n = count(width .ne. 0.d0)
+
+
+    call coop_dictionary_lookup(this%settings,  "n_lc_priors", this%n_lc_priors, 0)
+    if(this%n_lc_priors .gt. 0)then
+       if(allocated(this%lc_prior_center))then
+          deallocate(this%lc_prior_center, this%lc_prior_sigma, this%lc_prior_weight, this%lc_prior_index)
+       endif
+       allocate(this%lc_prior_center(this%n_lc_priors), this%lc_prior_sigma(this%n_lc_priors), this%lc_prior_weight(2,this%n_lc_priors), this%lc_prior_index(2,this%n_lc_priors))
+       do i=1, this%n_lc_priors
+          call coop_dictionary_lookup(this%settings, "lc_prior"//COOP_STR_OF(i), val)
+          read(val, *) lcname1, lcname2, this%lc_prior_weight(:, i), this%lc_prior_center(i), this%lc_prior_sigma(i)
+          this%lc_prior_index(1, i) = this%index_of(trim(adjustl(lcname1)))
+          if( this%lc_prior_index(1, i) .eq. 0)then
+             write(*,"(A)") trim(adjustl(lcname1))
+             stop "parameter not found"
+          endif
+          this%lc_prior_index(2, i) = this%index_of(trim(adjustl(lcname2)))
+          if( this%lc_prior_index(2, i) .eq. 0)then
+             write(*,"(A)") trim(adjustl(lcname2))
+             stop "parameter not found"
+          endif          
+       enddo
+    endif
+
+    
     this%form = "("//COOP_STR_OF(this%n+2+this%n_derived)//"E16.7)"
     allocate(this%used(this%n), this%params(this%n), this%lower(this%n), this%upper(this%n), this%center(this%n), this%width(this%n), this%mapping(this%n, this%n), this%params_saved(this%n), this%knot(this%n+2), this%bestparams(this%n), this%prior_sigma(this%n), this%prior_center(this%n), this%has_prior(this%n), this%vecs(this%n, this%n))
     call this%covmat%alloc(this%n)
