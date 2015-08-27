@@ -345,8 +345,19 @@ contains
           if(this%cosmology%has_tensor)then
              call this%cosmology%compute_source(2)
           endif
+          if(this%feedback .gt. 2) then
+             write(*,*) "sources done"
+             call coop_prtsystime()
+          endif
           
           call this%cosmology%source(0)%get_all_cls(2, this%lmax, this%Cls_scalar)
+          if(this%feedback .gt. 2) then
+             write(*,*) "Cls done"
+             call coop_prtsystime()
+             call this%cosmology%source(0)%get_all_cls(2, this%lmax, this%Cls_scalar)
+             write(*,*) "Cls done again with saved bessel functions"             
+             call coop_prtsystime()        
+          endif
           call coop_get_lensing_Cls(2, this%lmax, this%Cls_Scalar, this%Cls_lensed)
           this%Cls_lensed = this%Cls_lensed + this%Cls_scalar
           if(this%cosmology%has_tensor)then
@@ -354,7 +365,10 @@ contains
              this%Cls_lensed = this%Cls_lensed + this%Cls_tensor
           endif
           this%Cls_lensed = this%Cls_lensed*((this%cosmology%Tcmb())**2*1.d12)
-
+          if(this%feedback .gt. 2) then
+             write(*,*) "lensing Cls done"
+             call coop_prtsystime()
+          endif
        endif       
     endif
     

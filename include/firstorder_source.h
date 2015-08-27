@@ -7,10 +7,14 @@
     select case(source%m) 
     case(0) !!scalar
        source%saux(1, ik, itau) = (3.d0/8.d0)*pert%vis*pert%capP !*( (1.d0+ tanh(4.d0 - 20.d0*source%tau(itau)/this%tau0))/2.d0)  !!truncate at large z to get better numeric stability; this is not necessary for most smooth models.
-       source%saux(2, ik, itau) = pert%O1_Phi+pert%O1_PSI
-       source%saux(3, ik, itau) = pert%O1_PSI
-       source%saux(6, ik, itau) = pert%O1_V_C
-       source%saux(7, ik, itau) = pert%O1_V_B
+       if(coop_num_saux(0).ge.5)then
+          source%saux(2, ik, itau) = pert%O1_Phi+pert%O1_PSI
+          source%saux(3, ik, itau) = pert%O1_PSI
+       endif
+       if(coop_num_saux(0).ge.7)then
+          source%saux(6, ik, itau) = pert%O1_V_C
+          source%saux(7, ik, itau) = pert%O1_V_B
+       endif
        if(pert%has_rad_pert)then
           source%s(coop_index_source_T,  ik, itau) =  (pert%O1_Phipr + pert%O1_PSIPR)*pert%aH*pert%ekappa    & !!ISW
                + pert%vis * (pert%O1_T(0)/4.d0 + pert%O1_Phi + pert%O1_V_B_PRIME/pert%kbyaH + pert%capP/8.0)  &

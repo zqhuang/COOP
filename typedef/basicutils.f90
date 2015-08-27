@@ -6,11 +6,14 @@ module coop_basicutils_mod
 
   public
 
-  integer,parameter::sp = kind(1.)
-  integer,parameter::dl = kind(1.d0)
+  interface coop_left_index
+     module procedure coop_left_index_d, coop_left_index_s
+  end interface coop_left_index
 
-  private::sp, dl
-
+  interface coop_right_index
+     module procedure coop_right_index_d, coop_right_index_s
+  end interface coop_right_index
+  
   interface coop_swap
      module procedure coop_swap_real, coop_swap_int, coop_swap_real_array, coop_swap_int_array
   end interface coop_swap
@@ -42,6 +45,194 @@ module coop_basicutils_mod
   
 contains
 
+  function coop_right_index_d(n, arr, x)  result(r)
+    COOP_INT::n
+    COOP_REAL::arr(n)
+    COOP_REAL::x
+    COOP_INT::l, r, m
+    if(arr(1).le. arr(n))then
+       if(arr(1) .gt. x)then
+          r = 1
+          return
+       endif
+       if(arr(n) .lt. x)then
+          r = n+1
+          return
+       endif
+       l = 1
+       r = n
+       do while(r-l.gt.1)
+          m = (l+r)/2
+          if(arr(m).le. x)then
+             l = m
+          else
+             r = m
+          endif
+       enddo
+    else
+       if(arr(1) .lt. x)then
+          r = 1
+          return
+       endif
+       if(arr(n) .gt. x)then
+          r = n+1
+          return
+       endif
+       l = 1
+       r = n
+       do while(r-l.gt.1)
+          m = (l+r)/2
+          if(arr(m).ge. x)then
+             l = m
+          else
+             r = m
+          endif
+       enddo
+    endif
+  end function coop_right_index_d
+
+
+  function coop_right_index_s(n, arr, x)  result(r)
+    COOP_INT::n
+    COOP_SINGLE::arr(n)
+    COOP_SINGLE::x
+    COOP_INT::l, r, m
+    if(arr(1).le. arr(n))then
+       if(arr(1) .gt. x)then
+          r = 1
+          return
+       endif
+       if(arr(n) .lt. x)then
+          r = n+1
+          return
+       endif
+       l = 1
+       r = n
+       do while(r-l.gt.1)
+          m = (l+r)/2
+          if(arr(m).le. x)then
+             l = m
+          else
+             r = m
+          endif
+       enddo
+    else
+       if(arr(1) .lt. x)then
+          r = 1
+          return
+       endif
+       if(arr(n) .gt. x)then
+          r = n+1
+          return
+       endif
+       l = 1
+       r = n
+       do while(r-l.gt.1)
+          m = (l+r)/2
+          if(arr(m).ge. x)then
+             l = m
+          else
+             r = m
+          endif
+       enddo
+    endif
+  end function coop_right_index_s
+  
+
+  function coop_left_index_d(n, arr, x)  result(l)
+    COOP_INT::n
+    COOP_REAL::arr(n)
+    COOP_REAL::x
+    COOP_INT::l, r, m
+    if(arr(1) .le. arr(n))then
+       if(arr(1) .gt. x)then
+          l = 0
+          return
+       endif
+       if(arr(n) .lt. x)then
+          l = n
+          return
+       endif
+       l = 1
+       r = n
+       do while(r-l.gt.1)
+          m = (l+r)/2
+          if(arr(m).le. x)then
+             l = m
+          else
+             r = m
+          endif
+       enddo
+    else
+       if(arr(1) .lt. x)then
+          l = 0
+          return
+       endif
+       if(arr(n) .gt. x)then
+          l = n
+          return
+       endif
+       l = 1
+       r = n
+       do while(r-l.gt.1)
+          m = (l+r)/2
+          if(arr(m).ge. x)then
+             l = m
+          else
+             r = m
+          endif
+       enddo
+    endif
+  end function coop_left_index_d
+
+
+  function coop_left_index_s(n, arr, x)  result(l)
+    COOP_INT::n
+    COOP_SINGLE::arr(n)
+    COOP_SINGLE::x
+    COOP_INT::l, r, m
+    if(arr(1) .le. arr(n))then
+       if(arr(1) .gt. x)then
+          l = 0
+          return
+       endif
+       if(arr(n) .lt. x)then
+          l = n
+          return
+       endif
+       l = 1
+       r = n
+       do while(r-l.gt.1)
+          m = (l+r)/2
+          if(arr(m).le. x)then
+             l = m
+          else
+             r = m
+          endif
+       enddo
+    else
+       if(arr(1) .lt. x)then
+          l = 0
+          return
+       endif
+       if(arr(n) .gt. x)then
+          l = n
+          return
+       endif
+       l = 1
+       r = n
+       do while(r-l.gt.1)
+          m = (l+r)/2
+          if(arr(m).ge. x)then
+             l = m
+          else
+             r = m
+          endif
+       enddo
+    endif
+  end function coop_left_index_s
+  
+  
   Function coop_OuterProd(a, b) result(outerprod)
     COOP_REAL, DIMENSION(:), INTENT(IN) :: a,b
     COOP_REAL, DIMENSION(size(a),size(b)) :: outerprod
@@ -727,38 +918,38 @@ contains
   end subroutine coop_chebeval
 
   function coop_isnan_d(x)  result(isnan)
-    real(dl) x
+    COOP_REAL x
     logical isnan
     isnan = .not. (x.gt.0.d0 .or. x.le.0.d0)
   end function coop_isnan_d
 
   function coop_isnan_arrd(x) result(isnan)
-    real(dl),dimension(:):: x
+    COOP_REAL,dimension(:):: x
     logical isnan
     isnan = .not. (all(x.gt.0.d0 .or. x.le.0.d0))
   end function coop_isnan_arrd
 
   function coop_isnan_arr2d(x) result(isnan)
-    real(dl),dimension(:,:):: x
+    COOP_REAL,dimension(:,:):: x
     logical isnan
     isnan = .not. (all(x.gt.0.d0 .or. x.le.0.d0))
   end function coop_isnan_arr2d
 
 
   function coop_isnan_s(x)  result(isnan)
-    real(sp) x
+    COOP_SINGLE::x
     logical isnan
     isnan = .not. (x.gt.0.d0 .or. x.le.0.d0)
   end function coop_isnan_s
 
   function coop_isnan_arrs(x) result(isnan)
-    real(sp),dimension(:):: x
+    COOP_SINGLE,dimension(:):: x
     logical isnan
     isnan = .not. (all(x.gt.0.d0 .or. x.le.0.d0))
   end function coop_isnan_arrs
 
   function coop_isnan_arr2s(x) result(isnan)
-    real(sp),dimension(:,:):: x
+    COOP_SINGLE,dimension(:,:):: x
     logical isnan
     isnan = .not. (all(x.gt.0.d0 .or. x.le.0.d0))
   end function coop_isnan_arr2s

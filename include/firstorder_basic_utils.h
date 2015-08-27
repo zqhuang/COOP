@@ -45,11 +45,11 @@
   end function Coop_cosmology_firstorder_Clzetazeta
 
   subroutine coop_cosmology_firstorder_source_intbypart(source, ik)
-    COOP_REAL,parameter::k_trunc = 10.d0  !!for tiny k the integrated-by-part term is negligible.
+    COOP_REAL,parameter::k_trunc = 2.d0  !!for tiny k the integrated-by-part term is negligible.
     class(coop_cosmology_firstorder_source)::source
     COOP_REAL s2(source%ntau), sum1
     COOP_INT ik, i
-    if(source%k(ik).lt. k_trunc/5.d0)return
+    if(source%k(ik).lt. k_trunc/5.d0 )return
     source%saux(1, ik, 1) = 0.d0
     source%saux(1, ik, source%ntau) = 0.d0
     s2(1) = ((source%saux(1, ik, 1) -  source%saux(1, ik, 2))/(source%dtau(1)+source%dtau(2)) +  (source%saux(1, ik, 1) )/(source%dtau(1)*2.d0))*(2.d0/source%dtau(1))
@@ -586,7 +586,7 @@
     class(coop_cosmology_firstorder)::this
     class(coop_cosmology_firstorder_source)::source
     COOP_INT n, i, iq, j
-    COOP_REAL weight, dlnk
+    COOP_REAL weight, dlnk, tau_cut, omega_rad_cut
     this%k_pivot = this%kMpc_pivot/this%H0Mpc()
     source%kweight = weight
     source%nk = n
@@ -611,8 +611,8 @@
     enddo
 
 
-    source%kmin = 0.2d0/this%distlss
-    source%kmax = (min(max(1500, coop_Cls_lmax(source%m)), 3000)*1.7d0)/this%distlss
+    source%kmin = 0.4d0/this%distlss
+    source%kmax = (min(max(1500, coop_Cls_lmax(source%m)), 3000)*1.5d0)/this%distlss
     call source%k2kop(source%kmin, source%kopmin)
     call source%k2kop(source%kmax, source%kopmax)
     source%dkop = (source%kopmax-source%kopmin)/(n-1)
@@ -634,31 +634,20 @@
 
     !!set index_tc_off, index_de_perturb_on, and index_rad_off
     if(source%ntau .gt. 0 .and. allocated(source%tauc))then
-       source%index_tc_off = 1
-       !$omp parallel do
+       !$omp parallel do private(tau_cut)
        do i = 1, n
-          do while(source%index_tc_off(i) .lt. source%ntau-1 .and. source%tauc(source%index_tc_off(i)+1)*source%k(i) .le. coop_cosmology_firstorder_tc_cutoff)
-             source%index_tc_off(i)= source%index_tc_off(i)+1
-          enddo
+          tau_cut = min(0.03, coop_cosmology_firstorder_tc_cutoff*(1.d0+source%k(i)/500.d0))/max(source%k(i), 0.1d0)  !!for very large k we use less accurate scheme to speed up the code
+          source%index_tc_off(i) = max(1, coop_left_index(source%ntau, source%tau, tau_cut))
        enddo
        !$omp end parallel do
-
+       
        source%index_de_perturb_on = 1
-       do while(source%omega_de(source%index_de_perturb_on) .lt. 1.d-5 .and. source%index_de_perturb_on .lt. source%ntau)
-          source%index_de_perturb_on  =  source%index_de_perturb_on + 1
-       enddo
+       source%index_de_perturb_on = coop_right_index(source%ntau, source%omega_de, 1.d-5)       
        
        if(coop_firstorder_optimize)then
-          source%index_rad_off = max(source%index_rad_small, source%index_tc_off + 1)          
           !$omp parallel do
           do i = 1, n
-             do while(source%index_rad_off(i) .le. source%ntau)
-                if(source%omega_rad(source%index_rad_off(i)) .gt.  source%k(i)/1.d4)then
-                   source%index_rad_off(i)= source%index_rad_off(i) + 1
-                else
-                   exit
-                endif
-             enddo
+             source%index_rad_off(i) = max(source%index_rad_small, source%index_tc_off(i)+1, coop_right_index_d(source%ntau, source%omega_rad, (source%k(i)/5.d2)**4))
           enddo
           !$omp end parallel do
        else
@@ -936,7 +925,7 @@
     do itau = 1, itau_cut
        kmin(itau) = xmin/source%chi(itau)
        kmax(itau) = xmax/source%chi(itau)
-       kfine(itau) = 1.8d0/source%dtau(itau) !!k > kfine use fine grid
+       kfine(itau) = 1.5d0/source%dtau(itau) !!k > kfine use fine grid
     enddo
     ikcut = source%nk
     kchicut = min(max(l*2.8d0, 4000.d0), l*100.d0)

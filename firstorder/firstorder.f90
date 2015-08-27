@@ -19,17 +19,17 @@ module coop_firstorder_mod
   COOP_REAL, parameter :: coop_power_lnk_min = log(0.1d0) 
   COOP_REAL, parameter :: coop_power_lnk_max = log(5.d3) 
   COOP_REAL, parameter :: coop_visibility_amin = 1.8d-4
-  COOP_REAL, parameter :: coop_initial_condition_epsilon = 1.d-7
-  COOP_REAL, parameter :: coop_cosmology_firstorder_ode_accuracy = 1.d-8
-  COOP_REAL, parameter :: coop_cosmology_firstorder_tc_cutoff = 0.001d0
-  COOP_REAL, parameter ::  coop_cosmology_firstorder_omega_rad_cutoff = 1.d-2
+  COOP_REAL, parameter :: coop_initial_condition_epsilon = 2.d-7
+  COOP_REAL, parameter :: coop_cosmology_firstorder_ode_accuracy = 2.d-7
+  COOP_REAL, parameter :: coop_cosmology_firstorder_tc_cutoff = 0.005d0
+  COOP_REAL, parameter ::  coop_cosmology_firstorder_omega_rad_cutoff = 0.02
 
 
   COOP_REAL, dimension(0:2), parameter::coop_source_tau_step_factor = (/ 1.d0, 1.d0, 1.d0 /)
   COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
-  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 160, 120, 100 /)
-  COOP_REAL, parameter::coop_source_k_index = 0.55d0
-  COOP_INT, parameter:: coop_k_dense_fac = 40
+  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 280, 120, 100 /)
+  COOP_REAL, parameter::coop_source_k_index = 0.9d0
+  COOP_INT, parameter:: coop_k_dense_fac = 20
 
   COOP_INT, parameter::coop_index_source_T = 1
   COOP_INT, parameter::coop_index_source_E = 2
@@ -58,7 +58,7 @@ module coop_firstorder_mod
   COOP_INT, parameter::coop_num_Cls =  coop_index_ClTLen
   COOP_INT, dimension(0:2), parameter::coop_num_sources = (/ 3,  3,  3 /)
 #endif
-  COOP_INT, dimension(0:2), parameter::coop_num_saux = (/ 7,  1,  1 /)
+  COOP_INT, dimension(0:2), parameter::coop_num_saux = (/ 5,  1,  1 /)
 
 !!recfast head file
 #include "recfast_head.h"
@@ -245,7 +245,13 @@ contains
           Cls(coop_index_ClEzeta) = sqrt((l+2.d0)*(l+1.d0)*l*(l-1.d0))*sum(source%ws_dense * trans(coop_index_source_E, :, :) * trans(coop_index_source_zeta,:,:))*coop_4pi
           Cls(coop_index_Clzetazeta) = sum(source%ws_dense * trans(coop_index_source_zeta, :, :)**2)*coop_4pi
        endif
-#endif       
+#endif
+       if(l .ge. coop_limber_ell)then
+          call source%get_cls_limber(l, cls_limber)
+          Cls = Cls + Cls_limber
+       endif
+       Cls(coop_index_ClLenLen) =  Cls(coop_index_ClLenLen)*l*(l+1.d0)
+       Cls(coop_index_ClTLen) =  Cls(coop_index_ClLenLen)*l
     case(1)
        call coop_tbw("get_Cls: vector")
     case(2)
@@ -261,12 +267,6 @@ contains
        call coop_return_error("get_Cls", "unknown m = "//trim(coop_num2str(source%m)), "stop")
     end select
     deallocate(trans)
-    if(l .ge. coop_limber_ell)then
-       call source%get_cls_limber(l, cls_limber)
-       Cls = Cls + Cls_limber
-    endif
-    Cls(coop_index_ClLenLen) =  Cls(coop_index_ClLenLen)*l*(l+1.d0)
-    Cls(coop_index_ClTLen) =  Cls(coop_index_ClLenLen)*l
   end subroutine coop_cosmology_firstorder_source_get_Cls
 
 
@@ -330,12 +330,12 @@ contains
        Cls(coop_index_ClTLen, l) =  Cls(coop_index_ClLenLen, l)/l
     enddo
     !$omp end parallel do
-    deallocate(ls_computed, Cls_computed,Cls2_computed)
+100 deallocate(ls_computed, Cls_computed,Cls2_computed)
 
   contains
 
     subroutine next_l()
-      l = l + min(38, 12 + l/70, max(1, l/4))
+      l = l + min(60, 12 + l/30, max(1, l/3))
     end subroutine next_l
 
   end subroutine coop_cosmology_firstorder_source_get_All_Cls
@@ -515,6 +515,7 @@ contains
           end select
              
           pert%has_rad_pert  = .false.
+          if(this%index_massivenu .eq. 0) pert%has_nu_pert = .false.
           call pert%init(m = source%m, nu_mass = this%mnu_by_Tnu, de_genre = this%de_genre, a = source%a(itau))
           call pert%restore_ode()
           ind = 1

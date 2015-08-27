@@ -91,9 +91,13 @@
 
        O1_DELTA_C_PRIME = - O1_V_C * pert%kbyaH + 3.d0 * O1_PSI_PRIME
        O1_DELTA_B_PRIME = - O1_V_B * pert%kbyaH + 3.d0 * O1_PSI_PRIME
-       if(pert%has_rad_pert) &
-            O1_T_PRIME(0) = - O1_T(1) * pert%kbyaH/3.d0 + 4.d0 * O1_PSI_PRIME 
-       O1_NU_PRIME(0) = - O1_NU(1) * pert%kbyaH/3.d0 + 4.d0 * O1_PSI_PRIME
+       if(pert%has_rad_pert)then
+          O1_T_PRIME(0) = - O1_T(1) * pert%kbyaH/3.d0 + 4.d0 * O1_PSI_PRIME
+       endif
+       if(pert%has_nu_pert)then
+          O1_NU_PRIME(0) = - O1_NU(1) * pert%kbyaH/3.d0 + 4.d0 * O1_PSI_PRIME
+          pert%nu%F(2) = O1_NU(2)
+       endif
 
        if(pert%tight_coupling)then
           pert%T%F(2) = (8.d0/9.d0)*ktauc * O1_T(1)
@@ -102,17 +106,16 @@
           pert%slip = ktauc &
                * (Uterm - ktauc*(Uterm*(-pert%aH*pert%k/pert%R + pert%daHdtau/pert%aH*ktaucdot)/vterm)/vterm)/vterm   !!v_b - v_g accurate to (k tau_c)^2 
        else
-          if(pert%has_rad_pert)then          
-             pert%T%F(2) = O1_T(2)
+          if(pert%has_rad_pert)then
+             pert%T%F(2) = O1_T(2)             
              pert%slip = O1_V_B - O1_T(1)/4.d0
           else
              pert%T%F(2) = 0.d0
              pert%slip = 0.d0
           endif
        endif
-       aniso = pert%pa2_g * pert%T%F(2) + pert%pa2_nu * O1_NU(2)
-
-       if(cosmology%index_massivenu .ne. 0 .and. .not. pert%massivenu_cold)then
+       aniso = pert%pa2_g * pert%T%F(2) + pert%pa2_nu * pert%nu%F(2)
+       if(pert%has_nu_pert .and. cosmology%index_massivenu .ne. 0 .and. .not. pert%massivenu_cold)then
           do iq = 1, pert%massivenu_iq_used
              Fmnu2(iq) = O1_MASSIVENU(2, iq)
              Fmnu0(iq) = O1_MASSIVENU(0, iq)
@@ -129,10 +132,12 @@
 
        !!velocities
        O1_V_C_PRIME = - O1_V_C + pert%kbyaH * O1_PHI
-       O1_NU_PRIME(1) = (O1_NU(0) + 4.d0*O1_PHI - 0.4d0 * O1_NU(2))*pert%kbyaH
-       do iq=1, pert%massivenu_iq_used
-          O1_MASSIVENU_PRIME(1, iq) = (O1_MASSIVENU(0, iq)*qbye(iq) + 4.d0*O1_PHI/qbye(iq) - 0.4d0 * O1_MASSIVENU(2, iq)*qbye(iq)) * pert%kbyaH
-       enddo
+       if(pert%has_nu_pert)then
+          O1_NU_PRIME(1) = (O1_NU(0) + 4.d0*O1_PHI - 0.4d0 * O1_NU(2))*pert%kbyaH
+          do iq=1, pert%massivenu_iq_used
+             O1_MASSIVENU_PRIME(1, iq) = (O1_MASSIVENU(0, iq)*qbye(iq) + 4.d0*O1_PHI/qbye(iq) - 0.4d0 * O1_MASSIVENU(2, iq)*qbye(iq)) * pert%kbyaH
+          enddo
+       endif
        O1_V_B_PRIME = - O1_V_B + pert%kbyaH * (O1_PHI + pert%cs2b * O1_DELTA_B) - pert%slip/(pert%R * aHtauc)
        if(pert%has_rad_pert) &       
             O1_T_PRIME(1) = (O1_T(0) + 4.d0*O1_PHI - 0.4d0*pert%T%F(2))*pert%kbyaH + 4.d0*pert%slip/aHtauc
@@ -140,14 +145,15 @@
 
        !!higher moments
        !!massless neutrinos
-       do l = 2, pert%nu%lmax - 1
-          O1_NU_PRIME(l) =  pert%kbyaH * (cosmology%klms_by_2lm1(l, 0, 0) *   O1_NU( l-1 ) - cosmology%klms_by_2lp1(l+1, 0, 0) *  O1_NU( l+1 ) )
-       enddo
+       if(pert%has_nu_pert)then
+          do l = 2, pert%nu%lmax - 1
+             O1_NU_PRIME(l) =  pert%kbyaH * (cosmology%klms_by_2lm1(l, 0, 0) *   O1_NU( l-1 ) - cosmology%klms_by_2lp1(l+1, 0, 0) *  O1_NU( l+1 ) )
+          enddo
 
-       O1_NU_PRIME(pert%nu%lmax) = pert%kbyaH * (pert%nu%lmax +0.5d0)/(pert%nu%lmax-0.5d0)*  O1_NU(pert%nu%lmax-1) -  (pert%nu%lmax+1)* O1_NU(pert%nu%lmax)/(aHtau)
+          O1_NU_PRIME(pert%nu%lmax) = pert%kbyaH * (pert%nu%lmax +0.5d0)/(pert%nu%lmax-0.5d0)*  O1_NU(pert%nu%lmax-1) -  (pert%nu%lmax+1)* O1_NU(pert%nu%lmax)/(aHtau)
 
-
-       if(cosmology%index_massivenu .ne. 0)then
+       endif
+       if(pert%has_nu_pert .and. cosmology%index_massivenu .ne. 0)then
           !!massive neutrinos
           if(pert%massivenu_cold)then
              O1_MASSIVENU_PRIME(0, 1) = - O1_MASSIVENU(1, 1)* pert%kbyaH+ 3.d0 * O1_PSI_PRIME
@@ -197,15 +203,18 @@
              pert%E2prime = 0.d0
           endif
        endif
-       aniso_prime =  pert%pa2_nu * O1_NU_PRIME(2) + pa2pr_nu*O1_NU(2) +  pert%pa2_g * pert%T2prime + pa2pr_g * pert%T%F(2)       
-       if(cosmology%index_massivenu .ne. 0 .and. .not. pert%massivenu_cold)then
-          do iq = 1, pert%massivenu_iq_used
-             Fmnu2_prime(iq) = O1_MASSIVENU_PRIME(2, iq)
-          enddo
-          do iq = pert%massivenu_iq_used + 1, coop_pert_default_nq
-             Fmnu2_prime(iq) = O1_NU_PRIME(2)
-          enddo
-          aniso_prime = aniso_prime + pa2pr_nu * sum(Fmnu2*wp) + pert%pa2_nu*sum(Fmnu2_prime*wp + Fmnu2*wp_prime) 
+       aniso_prime =  pert%pa2_g * pert%T2prime + pa2pr_g * pert%T%F(2)
+       if(pert%has_nu_pert)then
+          aniso_prime = aniso_prime + pert%pa2_nu * O1_NU_PRIME(2) + pa2pr_nu*O1_NU(2)
+          if(cosmology%index_massivenu .ne. 0 .and. .not. pert%massivenu_cold)then
+             do iq = 1, pert%massivenu_iq_used
+                Fmnu2_prime(iq) = O1_MASSIVENU_PRIME(2, iq)
+             enddo
+             do iq = pert%massivenu_iq_used + 1, coop_pert_default_nq
+                Fmnu2_prime(iq) = O1_NU_PRIME(2)
+             enddo
+             aniso_prime = aniso_prime + pa2pr_nu * sum(Fmnu2*wp) + pert%pa2_nu*sum(Fmnu2_prime*wp + Fmnu2*wp_prime) 
+          endif
        endif
        aniso_prime =  0.6d0/pert%ksq * aniso_prime
        
@@ -279,45 +288,48 @@
        endif
        if(pert%has_rad_pert)then       
           pert%capP = (pert%T%F(2) - coop_sqrt6 * pert%E%F(2))/10.d0
-          aniso = pert%pa2_g * pert%T%F(2) + pert%pa2_nu * O1_NU(2)          
+          aniso = pert%pa2_g * pert%T%F(2) 
        else
           pert%capP = 0.d0
-          aniso =  pert%pa2_nu * O1_NU(2)          
+          aniso = 0.d0
        endif
-       if(cosmology%index_massivenu .ne. 0 .and. .not. pert%massivenu_cold)then
-          do iq = 1, pert%massivenu_iq_used
-             Fmnu2(iq) = O1_MASSIVENU(2, iq)
-          enddo
-          do iq = pert%massivenu_iq_used + 1, coop_pert_default_nq
-             Fmnu2(iq) = O1_NU(2)
-          enddo
-          aniso = aniso +  pert%pa2_nu * sum(Fmnu2*wp)
+       if(pert%has_nu_pert)then
+          aniso = aniso +  pert%pa2_nu * O1_NU(2)
+          if(cosmology%index_massivenu .ne. 0 .and. .not. pert%massivenu_cold)then
+             do iq = 1, pert%massivenu_iq_used
+                Fmnu2(iq) = O1_MASSIVENU(2, iq)
+             enddo
+             do iq = pert%massivenu_iq_used + 1, coop_pert_default_nq
+                Fmnu2(iq) = O1_NU(2)
+             enddo
+             aniso = aniso +  pert%pa2_nu * sum(Fmnu2*wp)
+          endif
        endif
        O1_TEN_HPR_PRIME = -(2.d0+pert%daHdtau/aHsq)*O1_TEN_HPR &
             - pert%kbyaH**2 * O1_TEN_H &
             + 0.4d0/aHsq * aniso
-
-
-       O1_NU_PRIME(2) =  pert%kbyaH * ( - cosmology%klms_by_2lp1(3, 2, 0) *  O1_NU( 3 ) ) - 4.d0*O1_TEN_HPR
-       do l = 3, pert%nu%lmax - 1
-          O1_NU_PRIME(l) =  pert%kbyaH * (cosmology%klms_by_2lm1(l, 2, 0) *   O1_NU( l-1 ) - cosmology%klms_by_2lp1(l+1, 2, 0) *  O1_NU( l+1 ) )
-       enddo
-
-       O1_NU_PRIME(pert%nu%lmax) = pert%kbyaH * (pert%nu%lmax-2.d0/pert%nu%lmax+0.5d0)/(pert%nu%lmax-2.d0/pert%nu%lmax-0.5d0)*  O1_NU(pert%nu%lmax-1) &
-            -  (pert%nu%lmax-2.d0/pert%nu%lmax+1)* O1_NU(pert%nu%lmax)/(aHtau)
-
-       if(cosmology%index_massivenu .ne. 0 .and. .not. pert%massivenu_cold)then
-          !!massive neutrinos
-          do iq = 1, pert%massivenu_iq_used
-             O1_MASSIVENU_PRIME(2, iq) = pert%kbyaH * qbye(iq) * (- cosmology%klms_by_2lp1(3, 2, 0) * O1_MASSIVENU(3, iq))-4.d0*O1_TEN_HPR
-             do l = 3, pert%massivenu(iq)%lmax - 1
-                O1_MASSIVENU_PRIME(l, iq) = pert%kbyaH * qbye(iq) * (cosmology%klms_by_2lm1(l, 2, 0) * O1_MASSIVENU(l-1, iq) - cosmology%klms_by_2lp1(l+1, 2, 0) * O1_MASSIVENU(l+1,iq))
-             enddo
-             O1_MASSIVENU_PRIME(pert%massivenu(iq)%lmax, iq) =  pert%kbyaH * qbye(iq) * (pert%massivenu(iq)%lmax-2.d0/pert%massivenu(iq)%lmax+0.5d0)/(pert%massivenu(iq)%lmax-2.d0/pert%massivenu(iq)%lmax-0.5d0) *  O1_MASSIVENU(pert%nu%lmax-1, iq) &
-                  -  (pert%nu%lmax-2.d0/pert%massivenu(iq)%lmax+1)* O1_MASSIVENU(pert%nu%lmax, iq) / aHtau 
+       if(pert%has_nu_pert)then
+          
+          O1_NU_PRIME(2) =  pert%kbyaH * ( - cosmology%klms_by_2lp1(3, 2, 0) *  O1_NU( 3 ) ) - 4.d0*O1_TEN_HPR
+          do l = 3, pert%nu%lmax - 1
+             O1_NU_PRIME(l) =  pert%kbyaH * (cosmology%klms_by_2lm1(l, 2, 0) *   O1_NU( l-1 ) - cosmology%klms_by_2lp1(l+1, 2, 0) *  O1_NU( l+1 ) )
           enddo
-       endif
 
+          O1_NU_PRIME(pert%nu%lmax) = pert%kbyaH * (pert%nu%lmax-2.d0/pert%nu%lmax+0.5d0)/(pert%nu%lmax-2.d0/pert%nu%lmax-0.5d0)*  O1_NU(pert%nu%lmax-1) &
+               -  (pert%nu%lmax-2.d0/pert%nu%lmax+1)* O1_NU(pert%nu%lmax)/(aHtau)
+
+          if(cosmology%index_massivenu .ne. 0 .and. .not. pert%massivenu_cold)then
+             !!massive neutrinos
+             do iq = 1, pert%massivenu_iq_used
+                O1_MASSIVENU_PRIME(2, iq) = pert%kbyaH * qbye(iq) * (- cosmology%klms_by_2lp1(3, 2, 0) * O1_MASSIVENU(3, iq))-4.d0*O1_TEN_HPR
+                do l = 3, pert%massivenu(iq)%lmax - 1
+                   O1_MASSIVENU_PRIME(l, iq) = pert%kbyaH * qbye(iq) * (cosmology%klms_by_2lm1(l, 2, 0) * O1_MASSIVENU(l-1, iq) - cosmology%klms_by_2lp1(l+1, 2, 0) * O1_MASSIVENU(l+1,iq))
+                enddo
+                O1_MASSIVENU_PRIME(pert%massivenu(iq)%lmax, iq) =  pert%kbyaH * qbye(iq) * (pert%massivenu(iq)%lmax-2.d0/pert%massivenu(iq)%lmax+0.5d0)/(pert%massivenu(iq)%lmax-2.d0/pert%massivenu(iq)%lmax-0.5d0) *  O1_MASSIVENU(pert%nu%lmax-1, iq) &
+                     -  (pert%nu%lmax-2.d0/pert%massivenu(iq)%lmax+1)* O1_MASSIVENU(pert%nu%lmax, iq) / aHtau 
+             enddo
+          endif
+       endif
        if(pert%tight_coupling)then
           pert%T2prime = -16.d0/3.d0*(O1_TEN_HPR_PRIME*aHtauc - O1_TEN_HPR * (pert%taucdot  + pert%tauc*pert%daHdtau/pert%aH)/aHtauc**2)
           pert%E2prime = (-coop_sqrt6/4.d0)*pert%T2prime

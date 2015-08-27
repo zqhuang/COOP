@@ -41,6 +41,7 @@ module coop_pertobj_mod
      logical::massivenu_cold = .false.
      logical::want_source = .false.
      logical::has_rad_pert = .true.
+     logical::has_nu_pert = .true.     
      COOP_REAL::num_mnu_ratio = 0.d0
      COOP_INT::massivenu_iq_used = 0
      COOP_INT::m = 0
@@ -274,14 +275,14 @@ contains
     endif
 
 
-    if(this%has_rad_pert)then
+    if(this%has_nu_pert)then
        call this%nu%set_defaults( genre = COOP_PERT_HIERARCHY, &
             m = m, s = 0, index = this%B%last_index + 1, &
             lmax = 12, q = 1.d0, mass = 0.d0 )
     else
        call this%nu%set_defaults( genre = COOP_PERT_HIERARCHY, &
             m = m, s = 0, index = this%B%last_index + 1, &
-            lmax = 8, q = 1.d0, mass = 0.d0 )
+            lmax = -1, q = 1.d0, mass = 0.d0 )
     endif
 
     if(present(nu_mass))then
