@@ -106,8 +106,8 @@ CC = $(C_COMPILER)
 
 ifeq ($(USE_MPI), YES)
 FC = $(MPI_COMPILER_ALIAS)
-FFLAGS += -DMPI
-CFLAGS += -DMPI
+FFLAGS += -DMPI -shared-intel
+CFLAGS += -DMPI -shared-intel
 INCLUDE += -I/usr/local/include
 else
 FC = $(FORTRAN_COMPILER)
