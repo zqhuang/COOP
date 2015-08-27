@@ -4,9 +4,6 @@
 #include "fftw3-mpi.h"
 #endif
 #endif
-#ifdef MPI
-#include "mpi.h"
-#endif
 #include <stdio.h>
 #include <stdlib.h>
 #include <math.h>
