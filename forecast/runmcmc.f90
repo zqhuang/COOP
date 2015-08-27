@@ -62,26 +62,26 @@ program RunMC
         call bao(2)%init("../data/bao/sdss_MGS_bao.dataset")
         call bao(3)%init("../data/bao/sdss_DR11LOWZ_bao.dataset")
         call bao(4)%init("../data/bao/sdss_DR11CMASS_bao.dataset")
-        write(*,*) "Using BAO"        
+        if(mcmc%feedback.gt.0)write(*,*) "Using BAO"        
         pool%BAO%baolike => bao
      endif
 
      !!HST
      if(use_HST)then
         pool%HST%HSTlike => HSTlike
-        write(*,*) "Using HST"
+        if(mcmc%feedback.gt.0)write(*,*) "Using HST"
      endif
 
      !!supernova  
      if(use_SN)then
-        write(*,*) "Using JLA"
+        if(mcmc%feedback.gt.0)write(*,*) "Using JLA"
         call jla%read("../data/jla/jla.dataset")
         pool%SN_JLA%JLALike => jla
      endif
 
      if(use_CMB)then
         if(use_Planck13)then
-           write(*,*) "Using Planck 13 likelihood"
+           if(mcmc%feedback.gt.0)write(*,*) "Using Planck 13 likelihood"
            if(coop_file_exists(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik/_mdb"))then
               call pl(1)%init(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik")
               call pl(2)%init(trim(planckdata_path)//"/commander_v4.1_lm49.clik")
@@ -92,7 +92,7 @@ program RunMC
               stop
            endif
         else  !!use Planck15
-           write(*,*) "Using Planck 15 likelihood"           
+           if(mcmc%feedback.gt.0)write(*,*) "Using Planck 15 likelihood"           
            if(coop_file_exists(trim(planckdata_path)//"/hi_l/plik/plik_dx11dr2_HM_v18_TTTEEE.clik/_mdb"))then
               call pl(1)%init(trim(planckdata_path)//"/hi_l/plik/plik_dx11dr2_HM_v18_TTTEEE.clik")              
               call pl(2)%init(trim(planckdata_path)//"low_l/commander/commander_rc2_v1.1_l2_29_B.clik")
@@ -124,9 +124,15 @@ program RunMC
      endif
      if(associated(mcmc%cosmology))then
         call mcmc%get_lmax_from_data(pool)
+        write(*,*) "Setting up cosmology"
+        call coop_prtsystime(.true.)        
         call mcmc%set_cosmology()
-     endif        
+        call coop_prtsystime()             
+     endif
+     write(*,*) "Computing likelihood"     
+     call coop_prtsystime(.true.)
      loglike = pool%loglike(mcmc)
+     call coop_prtsystime()     
      write(*,*) "-ln(likelihood) = ", loglike
      if(iargc().ge.3)then
         call fp%open(trim(mcmc%prefix)//".log", "a")        
