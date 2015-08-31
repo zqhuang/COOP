@@ -6,7 +6,7 @@ program test
   implicit none
 #include "constants.h"
   type(coop_healpix_maps)::map, mask, lowmask, lowmap, invlowmask, bandmap
-  COOP_INT, parameter::lmax = 80, nsims = 200
+  COOP_INT, parameter::lmax = 80, nsims = 20
   COOP_REAL::q1, q2, filter, sigma, Cls(0:lmax), nu, thetaphi(2), l_deg, b_deg, SqrtCls(0:lmax), window(0:lmax)
   COOP_INT::l1, l2, l, i,ic, isim
   type(coop_file)::fp
@@ -38,13 +38,10 @@ program test
   elsewhere
      mask%map = 0.
   end where
-  call map%apply_mask(mask, bad_data = .true.)
-  call map%savefig("cold_spot_rotated_1deg.gif", title="cold spot rotated to the center")
-  stop
-  
   q1 =  (l1+0.5d0)
   q2 =  (l2+0.5d0)
   call map%map2alm(lmax = lmax)
+  call map%alm2map()
   map%alm(0:1, :, :) = 0.  
   lowmap = map
   bandmap = map
@@ -53,32 +50,21 @@ program test
      window(l) = (exp(-l*(l+1.d0)/q2**2/2.d0) - exp(-l*(l+1.d0)/q1**2/2.d0))
      bandmap%alm(l, 0:l, 1) = bandmap%alm(l, 0:l, 1)* window(l)
      lowmap%alm(l, 0:l, 1) = lowmap%alm(l, 0:l, 1)*exp(-l*(l+1.d0)/q1**2/2.d0)
-!!$     map%alm(l, 0:l, 1) = map%alm(l, 0:l, 1)*exp(-l*(l+1.d0)/q2**2/2.d0)     
      sqrtCls(l) = sqrtCls(l) * window(l)
   enddo
   call bandmap%alm2map()
   call lowmap%alm2map()
-!!$  call map%alm2map()
 
   lowmask = mask
   rmslow = sqrt(sum(lowmap%map**2)/lowmap%npix)
   lowmask%map = 0.   
-  where (abs(lowmap%map) .gt. rmslow*1.d0 .and. mask%map .gt. 0.5)
+  where (abs(lowmap%map) .gt. rmslow*1.5d0 .and. mask%map .gt. 0.5)
      lowmask%map = 1.
   end where
   invlowmask = lowmask
   invlowmask%map = (1. - lowmask%map)*mask%map
-
-!!$  call lowmask%mask_disc(l_deg = 0.d0, b_deg = 0.d0, r_deg = 5.d0, fillvalue = 0.5d0)
-!!$  call lowmask%savefig("coldspot_constrained_mask.gif", title = "green: cold spot; red: constrained region")
-!!$  call map%apply_mask(mask, bad_data = .true.)
-!!$  call map%savefig("coldspot_rotated_l20smooth.gif", title="cold spot rotated tothe center; l_smooth = 20")
-!!$  call lowmap%apply_mask(mask, bad_data = .true.)
-!!$  call lowmap%savefig("coldspot_rotated_l6smooth.gif", title="cold spot rotated to the center; l_smooth = 6")
-!!$  call bandmap%apply_mask(mask, bad_data = .true.)
-!!$  call bandmap%savefig("coldspot_rotated_diff_l6_l20.gif", title = "cold spot rotated to the center; diff. between l_smooth = 6 and l_smooth = 20")
-!!$  stop  
-!!$  call invlowmask%savefig("invlm.gif")
+  call lowmask%savefig("lm.gif")
+  call invlowmask%savefig("invlm.gif")
 
   call sto%init(domax = hot, peak_name = "T", Orient_name = "RANDOM", nmaps = 1)
   if(hot)then
@@ -113,9 +99,10 @@ program test
      lowmap%map = lowmap%map+bandmap%map
      call bandmap%smooth_with_window(fwhm = 0.d0,lmax = lmax,window = window)     
      call bandmap%get_peaks(sto, mask = invlowmask)
-!!$     call bandmap%savefig("sim"//COOP_STR_OF(isim)//".gif", title="simulation #"//COOP_STR_OF(isim))
-     print*, isim, sto%peak_map%n             
+     call bandmap%savefig("sim"//COOP_STR_OF(isim)//".gif", title="simulation #"//COOP_STR_OF(isim))
      if(sto%peak_map%n .gt. 0) then
+        print*, "----------------------------"
+        print*, isim, sto%peak_map%n        
         ic = ic +1
         do i=1, sto%peak_pix%n
            thetaphi  = sto%peak_ang%element(i)
@@ -125,8 +112,9 @@ program test
      endif
   enddo
   lowmap%map = lowmap%map/nsims
-  call lowmap%write("meanmap.fits")
-  call lowmap%savefig("meanmap.gif", title="constrained mean map")
+  call lowmap%map2alm()
+  call lowmap%alm2map()
+  call lowmap%savefig("meanmap.gif")
   write(*,"(F10.1, A)") (ic*100./nsims), "%"
   call coop_MPI_Finalize()
 end program test

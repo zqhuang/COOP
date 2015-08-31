@@ -802,6 +802,7 @@
     else
        call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu())))
     endif
+#if DO_COUPLED_DE    
     scalar_de = .false.
     if(present(de_dUdphi))then
        U1 = de_dUdphi
@@ -861,10 +862,13 @@
        this%de_genre = COOP_PERT_SCALAR_FIELD
           
     else
+#endif       
        call this%add_species(coop_cdm(omega_c))
        call this%add_species(coop_de_lambda(this%Omega_k()))
-       this%de_genre = COOP_PERT_NONE       
+       this%de_genre = COOP_PERT_NONE
+#if DO_COUPLED_DE       
     endif
+#endif    
     call this%setup_background()
     this%optre = tau_re
     call this%set_xe()

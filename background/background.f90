@@ -6,7 +6,7 @@ module coop_background_mod
   private
   COOP_REAL,parameter::coop_min_de_tracking_n = 0.01d0
 
-  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_quintessence, coop_de_wp1_quintessence, coop_background_add_coupled_DE,  coop_background_add_coupled_DE_with_w, coop_background_add_EFT_DE, coop_de_aeq_fitting
+  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_quintessence, coop_de_wp1_quintessence, coop_background_add_coupled_DE,  coop_background_add_EFT_DE, coop_de_aeq_fitting
 
 contains
 
@@ -170,443 +170,118 @@ contains
   end function coop_de_wp1_quintessence
 
 
-  subroutine coop_background_add_coupled_DE(this, Omega_c, Q, tracking_n, dlnQdphi, dUdphi, d2Udphi2)
-    !!This Omega_c is the effective Omega_cdm (rho_m a^3 (a<<1) -> Omega_c rho_0) 
-    !!Q is the coupling between DE and CDM
-    !!The potential V(phi) = V0 / phi^n
-    !!Tracking_n is the index n
-    !!V0 will be automatically determined by the constraint Omega_k = 0
+  subroutine coop_background_add_coupled_DE(this, Omega_c, fQ, fwp1, success)  !!this Omega_c  is defined as lim_{a->0} rho_cdm a^3/ rho_critical0, 
     class(coop_cosmology_background)::this
-    COOP_REAL::omega_c, Q, tracking_n
-    type(coop_species)::cdm, de
-    type(coop_ode)::ode, ode_tc
-    COOP_INT i, istart,  j
-    COOP_REAL  beta, lnrhom0
-    COOP_REAL::lnc_lower, lnc_upper, lnc_mid
-    COOP_REAL::Ot_lower, Ot_upper, Ot_mid, lna_ini
-    COOP_REAL_ARRAY::lna, lnrho_cdm, lnrho_de, wp1_de, phi_de, phidot_de, wp1eff_de, wp1eff_cdm
-    COOP_REAL,parameter::a_ini = 1.d-8
-    COOP_INT,parameter::nsteps = 500
-    COOP_REAL::lna_coarse(nsteps)
-    COOP_REAL, optional::dlnQdphi, dUdphi, d2Udphi2
-    COOP_REAL::U1, U2
-    logical::tight_coupling
-    cdm%name = "CDM"
-    de%name = "Dark Energy"
-    cdm%genre = COOP_SPECIES_COUPLED
-    de%genre = COOP_SPECIES_COUPLED
-    lnrhom0 = log(3.d0*Omega_c)
-    call coop_set_uniform(coop_default_array_size, lna, log(coop_min_scale_factor), log(coop_scale_factor_today))
-    do i = 1, coop_default_array_size
-       if(lna(i) .gt. log(a_ini))then
-          istart = i
-          lna_ini = lna(i)
-          exit
-       endif
+    COOP_REAL::Omega_c
+    type(coop_function)::fQ, fwp1
+    logical success    
+#if DO_COUPLED_DE
+    COOP_INT, parameter::ns = 8192
+    type(coop_ode)::ode
+    type(coop_species)::de, cdm
+    COOP_INT::i
+    COOP_REAL::rho_ce, lna(ns), y(3, ns), yp(3, ns), lnV(ns), m2a2(ns)
+    success = .false.
+    if(this%Omega_k() .le. Omega_c) return
+    rho_ce = omega_c * 3.d0
+    call coop_set_uniform(ns, lna, log(coop_min_scale_factor), log(coop_scale_factor_today))
+    call ode%init(n=3, method = COOP_ODE_RK4)
+    y(1, 1) = log( de%rhoa4(exp(lna(1))) )
+    y(2, 1) = 0.d0
+    y(3, 1) = 0.d0
+    call ode%set_initial_conditions(xini = lna(1), yini=y(:, 1))
+    call de%init(genre = COOP_SPECIES_FLUID, name = "Dark Energy", id=5, Omega = this%Omega_k()- Omega_c,  fwp1 = fwp1 )
+    do i=2, ns
+       call ode%evolve(cpl_eq, lna(i))
+       y(:, i) = ode%y
+       if(y(2, i) .gt. 0.405d0)return  !!if CDM changed by more than 50%, reject the model
+       call cpl_eq_get_potential(3, lna(i), y(:, i), yp(:, i), lnV(i))
+       if(yp(2,i) .gt. 1.d10)return          
     enddo
-    call coop_set_uniform(nsteps, lna_coarse, lna(istart+1), log(coop_scale_factor_today))
+    de%cplde_wp1 = fwp1
+    de%cplde_Q = fQ
     
-    if(Q .gt. 1.d-6)then
-       if(present(dlnQdphi))then
-          call de%fDE_Q_of_phi%init_polynomial( (/ log(Q), dlnQdphi /), ylog = .true. )
-       else
-          call de%fDE_Q_of_phi%init_polynomial( (/ Q /) )
-       endif
-       de%DE_tracking_n = max(tracking_n, coop_min_de_tracking_n)  
-    else
-       de%DE_tracking_n = max(tracking_n, 0.d0)  
-    endif
-
-
-    if(de%DE_tracking_n .ge. 2.d0)then
-       beta = 2.d0/(de%DE_tracking_n+2.d0)
-    else
-       if(de%fDE_Q_of_phi%initialized)then
-          beta = 1.5d0/(de%DE_tracking_n+1.d0)
-       else
-          beta = 2.d0/(de%DE_tracking_n+2.d0)
-       endif
-    endif
-    !!change this for dynamic U(phi) and dU/d\phi
-    if(present(dUdphi))then
-       U1 = dUdphi
-    else
-       U1 = 0.d0
-    endif
-    if(present(d2Udphi2))then
-       U2 = d2Udphi2
-    else
-       U2 = 0.d0
-    endif
-    call de%fDE_U_of_phi%init_polynomial( (/ 0.d0, U1, U2 /), name = "U(phi)")  
-    call de%fDE_dUdphi%init_polynomial( (/ U1, U2*2.d0 /), name = "dU/dphi" ) 
-
-
-    call ode%init(3)
-    call ode_tc%init(1)
-    
-#define PHI y(1)
-#define PHIDOT y(2)
-#define LN_RHOM y(3)
-#define PHI_PRIME yp(1)
-#define PHIDOT_PRIME yp(2)
-#define LN_RHOM_PRIME yp(3)
-    lnc_upper = 0.5d0
-100 call get_ini(lna_ini, lnc_upper)
-    do i = 1, nsteps
-       call evolve_to(lna_coarse(i))
-    enddo
-    Ot_upper = (exp(ode%LN_RHOM) + de%DE_V(ode%PHI) + ode%PHIDOT**2/2.d0)/3.d0 - this%Omega_k()
-    if(Ot_upper .le. 0.d0)then
-       lnc_upper = lnc_upper + 0.5d0
-       goto 100
-    endif
-
-    
-    lnc_lower = -1.d0    
-200 call get_ini(lna_ini, lnc_lower)
-    do i = 1, nsteps
-       call evolve_to(lna_coarse(i))
-    enddo
-    Ot_lower = (exp(ode%LN_RHOM) + de%DE_V(ode%PHI) + ode%PHIDOT**2/2.d0)/3.d0 - this%Omega_k()
-    if(Ot_lower .ge. 0.d0)then
-       lnc_lower = lnc_lower - 0.5d0
-       goto 200
-    endif
-
-    do
-       if(Ot_upper - Ot_lower .lt. 1.d-3)then
-          lnc_mid = (lnc_upper*(-Ot_lower) + lnc_lower*Ot_upper)/(Ot_upper - Ot_lower)                 
-          do i=1, istart 
-             call get_ini(lna(i), lnc_mid)
-             lnrho_cdm(i) = ode%LN_RHOM
-             phi_de(i) = ode%PHI
-             phidot_de(i) = ode%PHIDOT
-             call getweff(3, lna(i), ode%y, wp1_de(i), wp1eff_cdm(i), wp1eff_de(i), lnrho_de(i))                          
-          enddo
-500       continue
-          do i = istart + 1, coop_default_array_size
-             call evolve_to(lna(i))
-             lnrho_cdm(i) = ode%LN_RHOM
-             phi_de(i) = ode%PHI
-             phidot_de(i) = ode%PHIDOT
-             call getweff(3, lna(i), ode%y, wp1_de(i), wp1eff_cdm(i), wp1eff_de(i), lnrho_de(i))                                       
-          enddo
-          de%Omega = (de%DE_V(ode%PHI) + ode%PHIDOT**2/2.d0)/3.d0
-          cdm%Omega = this%Omega_k() - de%Omega
-          lnrho_cdm = lnrho_cdm - lnrho_cdm(coop_default_array_size)
-          lnrho_de = lnrho_de - lnrho_de(coop_default_array_size)
-          call cdm%flnrho%init(coop_default_array_size, coop_min_scale_factor, xmax = coop_scale_factor_today, f = lnrho_cdm, fleft = lnrho_cdm(1), fright = 0.d0, slopeleft = -3.d0, sloperight = -3.d0*wp1eff_cdm(coop_default_array_size), xlog = .true.,  method = COOP_INTERPOLATE_LINEAR, check_boundary = .false., name = "CDM \ln\rho(a) ratio")
-          call cdm%fwp1eff%init(coop_default_array_size, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, f = wp1eff_cdm, fleft = wp1eff_cdm(1), fright = wp1eff_cdm(coop_default_array_size), slopeleft = 0.d0, sloperight = 0.d0, xlog = .true., method = COOP_INTERPOLATE_LINEAR, check_boundary = .false., name = "CDM 1+w_eff(a)")          
-          
-          call de%flnrho%init(coop_default_array_size, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, f = lnrho_de, fleft = lnrho_de(1), fright = 0.d0, slopeleft = 0.d0, sloperight = -3.d0*wp1eff_de(coop_default_array_size), xlog = .true., method = COOP_INTERPOLATE_LINEAR, check_boundary = .false., name = "DE \ln\rho(a) ratio")
-          call de%fwp1%init(coop_default_array_size, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, f = wp1_de, fleft = wp1_de(1), fright = wp1_de(coop_default_array_size), slopeleft = 0.d0, sloperight = 0.d0, xlog = .true., method = COOP_INTERPOLATE_LINEAR, check_boundary = .false., name = "DE 1+w(a)")
-          call de%fwp1eff%init(coop_default_array_size, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, f = wp1eff_de, fleft = wp1eff_de(1), fright = wp1eff_de(coop_default_array_size), slopeleft = 0.d0, sloperight = 0.d0, xlog = .true., method = COOP_INTERPOLATE_LINEAR, check_boundary = .false., name = "DE 1+w_eff(a)")          
-          call de%fDE_phi%init(coop_default_array_size, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, f = phi_de, fleft = phi_de(1), fright = phi_de(coop_default_array_size), slopeleft = 0.d0, sloperight = 0.d0, xlog = .true., method = COOP_INTERPOLATE_LINEAR, check_boundary = .false., name = "DE phi(a)")
-          call de%fDE_phidot%init(coop_default_array_size, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, f = phidot_de, fleft = phidot_de(1), fright = phidot_de(coop_default_array_size), slopeleft = 0.d0, sloperight = 0.d0, xlog = .true., method = COOP_INTERPOLATE_LINEAR, check_boundary = .false., name = "DE \dot\phi(a)")          
-          exit
-       else
-          lnc_mid = (lnc_upper + lnc_lower)/2.d0
-300       call get_ini(lna_ini, lnc_mid)
-          do i = 1, nsteps
-             call evolve_to(lna_coarse(i))
-          enddo
-          Ot_mid = (exp(ode%LN_RHOM) + de%DE_V(ode%PHI) + ode%PHIDOT**2/2.d0)/3.d0 - this%Omega_k()
-       endif
-
-       if(Ot_mid .gt. 0.d0)then
-          lnc_upper = lnc_mid
-          Ot_upper = Ot_mid
-       else
-          lnc_lower = lnc_mid
-          Ot_lower = Ot_mid
-       endif
-    enddo
-    call this%add_species(cdm)
-    call this%add_species(de)    
-    call ode%free()
-    call ode_tc%free()
+    call de%cplde_lnV_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = lnV, method = COOP_INTERPOLATE_SPLINE)
+    call de%cplde_phi_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = y(3,:), method = COOP_INTERPOLATE_SPLINE)
+    call de%cplde_phi_prime_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = yp(3,:), method = COOP_INTERPOLATE_SPLINE)
+    call de%cplde_m2a2_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = m2a2, method = COOP_INTERPOLATE_SPLINE)    
+    success = .true.
   contains
-
-    
-    subroutine get_ini(lna, lnc)
-      COOP_REAL lna, a, t, ddphi, hubble, norm, qnow, lnc, y(3)
-      a = exp(lna)
-      LN_RHOM = lnrhom0 - 3.d0*lna
-      hubble = sqrt((this%rhoa4(a)/a**4+exp(LN_RHOM))/3.d0)            
-      if(de%DE_tracking_n .gt. 0.d0)then
-         t = 1.d0/hubble/2.d0
-         PHI = exp(lnc)*t**beta
-         PHIDOT = beta*PHI/t
-         !!set the normalization of V
-         qnow = de%DE_Q(PHI)      
-         ddphi = (beta-1.d0)*PHIDOT/t
-         norm = ((ddphi + 3.d0*hubble*PHIDOT) + qnow * exp(LN_RHOM)) / de%DE_tracking_n * PHI**(de%DE_tracking_n + 1.d0)
-         de%DE_lnV0 = log(norm)     
-         call ode%set_initial_conditions(lna, y)
-         tight_coupling = ( (hubble*PHIDOT) .lt. 5.d-3*qnow*exp(LN_RHOM) )
-         if(tight_coupling)then
-            call ode_tc%set_initial_conditions(lna, (/ y(3) /) )
-         endif
-      else
-         PHI = 0.d0
-         PHIDOT = 0.d0
-         !!set the normalization of V
-         de%DE_lnV0 = lnc
-         call ode%set_initial_conditions(lna, y)
-         tight_coupling = .false.
-      endif
-    end subroutine get_ini
-
-
-    subroutine evolve_to(lnaend)
-      COOP_REAL::lnaend
-      if(tight_coupling)then
-         call ode_tc%evolve(fcn_tight_coupling, lnaend)
-         ode%x = ode_tc%x
-         ode%LN_RHOM = ode_tc%y(1)
-         call set_tight_coupling(ode%x)
-      else
-         call ode%evolve(fcn, lnaend)
-      endif
-    end subroutine evolve_to
-
-
-    subroutine fcn(n, lna, y, yp)
+    !! rho_ce = \lim a-> 0 rho a^3
+    !! rho_eff = rho_DE + rho_c -  rho_ce a^{-3} 
+    !! y(1) = ln (rho_eff)  
+    !! y(2) = ln (rho_c a^3 / rho_ce ) (>0)
+    !! y(3) = phi
+    !!time variable lna
+    subroutine cpl_eq(n, lna, y, yp)
       COOP_INT::n
-      COOP_REAL::y(n), yp(n)
-      COOP_REAL::H, lna, Q, a, rhoa4, a4, qnow, rhoma4, Vp, V, KE
+      COOP_REAL::lna, y(n), yp(n)
+      COOP_REAL:: a, wp1, Q, phi_prime, rhoa4_de_eff, rhoa4_de, rhoa4_c, delta_rhoa4_c, rhoa4_other, h2a4, delta
       a = exp(lna)
-      a4 = a**4
-      qnow = de%DE_Q(PHI)
-      rhoma4 = exp(LN_RHOM + 4.d0*lna)
-      rhoa4 =  this%rhoa4(a)
-      V = de%DE_V(PHI)
-      KE =  PHIDOT**2/2.d0
-      rhoa4 = rhoa4 + rhoma4 + (V + KE )*a4
-      H = sqrt(rhoa4/3.d0/a4)
-      Vp = de%DE_dlnVdphi(PHI)*V
-      PHI_PRIME = PHIDOT / H
-      PHIDOT_PRIME = - 3.d0*PHIDOT - Vp/H  - (rhoma4/a4/H) * qnow
-      LN_RHOM_PRIME = - 3.d0 + qnow * PHI_PRIME
-    end subroutine fcn
+      wp1 = fwp1%eval(a)
+      Q = fQ%eval(a)
+      yp(1) = -3.d0*wp1
+      rhoa4_de_eff = exp(y(1)+4.d0*lna)
+      rhoa4_c = rho_ce*exp(y(2)+lna)
+      delta_rhoa4_c = rho_ce*a*(exp(y(2))-1.d0)      
+      if(rhoa4_de_eff .lt. delta_rhoa4_c)then !!negative energy
+         yp(2:3) = 1.d30
+         return
+      endif
+      rhoa4_other = this%rhoa4(a)
+      h2a4 = rhoa4_de_eff + rho_ce * a + rhoa4_other
+      delta =  (rhoa4_de_eff * wp1- delta_rhoa4_c + (rhoa4_c*Q)**2/H2a4/4.d0)/H2a4 
+      if(delta .lt. 0.d0)then
+         yp(2:3) = 1.d30
+         return
+      endif
+      phi_prime = Q*rhoa4_c/H2a4/2.d0+sqrt(delta)
+      if(phi_prime**2*H2a4/2.d0 + delta_rhoa4_c .ge. rhoa4_de_eff)then
+         y(2:3) = 1.d30
+         return
+      endif
+      yp(2) = 3.d0*Q*phi_prime
+      yp(3) = phi_prime
+    end subroutine cpl_eq
 
-
-    subroutine getweff(n, lna, y, wp1_de, wp1eff_cdm, wp1eff_de, lnrhode)
+    subroutine cpl_eq_get_potential(n, lna, y, yp, lnV)
       COOP_INT::n
-      COOP_REAL::y(n), yp(n)
-      COOP_REAL::H, lna, Q, a, pa4, rhoa4, a4, qnow, rhoma4, rhodea4, V, KE, wp1eff_cdm, wp1eff_de, lnrhode, wp1_de
+      COOP_REAL::lna, y(n), yp(n), lnV
+      COOP_REAL:: a, wp1, Q, phi_prime, rhoa4_de_eff, rhoa4_de, rhoa4_c, delta_rhoa4_c, rhoa4_other, h2a4, delta
       a = exp(lna)
-      a4 = a**4
-      qnow = de%DE_Q(PHI)
-      rhoma4 = exp(LN_RHOM + 4.d0*lna)
-      call this%get_pa4_rhoa4(a, pa4, rhoa4)
-      V = de%DE_V(PHI)
-      KE =  PHIDOT**2/2.d0
-      lnrhode = log(V+KE)
-      rhodea4 = (V + KE )*a4
-      rhoa4 = rhoa4 + rhoma4 + rhodea4
-      H = sqrt(rhoa4/3.d0/a4)
-      wp1eff_cdm = -qnow*PHIDOT/H/3.d0
-      wp1_de = 2.d0*KE/(KE+V) 
-      wp1eff_de = wp1_de - wp1eff_cdm*rhoma4/rhodea4
-      wp1eff_cdm = wp1eff_cdm + 1.d0
-    end subroutine getweff
-    
-
-
-    subroutine fcn_tight_coupling(n,lna, y, yp)
-      COOP_INT n
-      COOP_REAL::lna, a, y(n), yp(n), V, rhoa4, phi_eq_dot, phi_eq, rhom, rhotot, hubble, qnow, Qpcorr
-      a = exp(lna)
-      phi_eq = 1.d-5 !!initial random guess, suppose Q is not sensitive to phi
-      qnow = de%DE_Q(phi_eq)      
-      phi_eq  =  exp((de%DE_lnV0+log(de%DE_tracking_n/qnow) - y(1))/(de%DE_tracking_n+1.d0))
-      qnow = de%DE_Q(phi_eq)      
-      phi_eq  =  exp((de%DE_lnV0+log(de%DE_tracking_n/qnow) - y(1))/(de%DE_tracking_n+1.d0))
-      qnow = de%DE_Q(phi_eq)            
-      Qpcorr = phi_eq*de%DE_dlnQdphi(phi_eq)/(de%DE_tracking_n+1.d0)
-      rhoa4 =  this%rhoa4(a)
-      
-      V = de%DE_V(phi_eq)      
-      rhom = exp(y(1))
-      rhotot= rhoa4/a**4 + rhom + V
-
-      hubble = sqrt(rhotot/3.d0)
-      phi_eq_dot = (3.d0*hubble)/(de%DE_tracking_n + 1.d0) * phi_eq/(1.d0 + Qpcorr)
-      hubble = sqrt((rhotot + phi_eq_dot**2/2.d0)/3.d0)      
-      phi_eq_dot = (3.d0*hubble - qnow * phi_eq_dot)/(de%DE_tracking_n + 1.d0) * phi_eq/(1.d0 + Qpcorr)
-      hubble = sqrt((rhotot + phi_eq_dot**2/2.d0)/3.d0)      
-      yp(1) = -3.d0 + qnow*phi_eq_dot / hubble
-    end subroutine fcn_tight_coupling
-
-
-    subroutine set_tight_coupling(lna)
-      COOP_REAL::lna, a,  V, pa4, rhoa4, phi_eq_dot, phi_eq, rhom, rhotot, hubble, ptot, HdotbyHsq, qnow, Qpcorr
-      a = exp(lna)
-      phi_eq = 1.d-5 !!initial random guess, suppose Q is not sensitive to phi
-      qnow = de%DE_Q(phi_eq)      
-      phi_eq  =  exp((de%DE_lnV0+log(de%DE_tracking_n/qnow) - ode%LN_RHOM)/(de%DE_tracking_n+1.d0))
-      qnow = de%DE_Q(phi_eq)      
-      phi_eq  =  exp((de%DE_lnV0+log(de%DE_tracking_n/qnow) - ode%LN_RHOM)/(de%DE_tracking_n+1.d0))
-      qnow = de%DE_Q(phi_eq)            
-      Qpcorr = phi_eq*de%DE_dlnQdphi(phi_eq)/(de%DE_tracking_n+1.d0)
-      rhoa4 =  this%rhoa4(a)
-      
-      V = de%DE_V(phi_eq)      
-      rhom = exp(ode%LN_RHOM)
-      rhotot= rhoa4/a**4 + rhom + V
-
-      hubble = sqrt(rhotot/3.d0)
-      phi_eq_dot = (3.d0*hubble)/(de%DE_tracking_n + 1.d0) * phi_eq/(1.d0 + Qpcorr)
-      hubble = sqrt((rhotot + phi_eq_dot**2/2.d0)/3.d0)      
-      phi_eq_dot = (3.d0*hubble - qnow * phi_eq_dot)/(de%DE_tracking_n + 1.d0) * phi_eq/(1.d0 + Qpcorr)
-      hubble = sqrt((rhotot + phi_eq_dot**2/2.d0)/3.d0)      
-      ode%PHI = phi_eq - 3.d0 * hubble**2/V/de%DE_tracking_n/(de%DE_tracking_n+1.d0)**2*(3.d0/(de%DE_tracking_n +1.d0) + 3.d0 + HdotbyHsq)*phi_eq**3
-      ode%PHIDOT = phi_eq_dot
-      ode%ind = 1
-      tight_coupling = (hubble * ode%PHIDOT .lt. 1.d-3*qnow*rhom)
-    end subroutine set_tight_coupling
-    
+      wp1 = fwp1%eval(a)
+      Q = fQ%eval(a)
+      yp(1) = -3.d0*wp1
+      rhoa4_de_eff = exp(y(1)+4.d0*lna)
+      rhoa4_c = rho_ce*exp(y(2)+lna)
+      delta_rhoa4_c = rho_ce*a*(exp(y(2))-1.d0)      
+      if(rhoa4_de_eff .lt. delta_rhoa4_c)then !!negative energy
+         yp(2:3) = 1.d30
+         return
+      endif
+      rhoa4_other = this%rhoa4(a)
+      h2a4 = rhoa4_de_eff + rho_ce * a + rhoa4_other
+      delta =  (rhoa4_de_eff * wp1- delta_rhoa4_c + (rhoa4_c*Q)**2/H2a4/4.d0)/H2a4 
+      if(delta .lt. 0.d0)then
+         yp(2:3) = 1.d30
+         return
+      endif
+      phi_prime = Q*rhoa4_c/H2a4/2.d0+sqrt(delta)
+      lnV = rhoa4_de_eff - (phi_prime**2*H2a4/2.d0 + delta_rhoa4_c)
+      if(lnV .le. 0.d0)then
+         y(2:3) = 1.d30
+         return
+      else
+         lnV = log(lnV)-4.d0*lna
+      endif
+      yp(2) = 3.d0*Q*phi_prime
+      yp(3) = phi_prime
+    end subroutine cpl_eq_get_potential
+#else
+    write(*,*) "Coupled Dark Energy model cannot be initialized"
+    stop "You need to set DARK_ENERGY_MODEL=COUPLED_DE in configure.in"
+#endif    
   end subroutine coop_background_add_coupled_DE
-
-  subroutine coop_background_add_coupled_DE_with_w(this, Omega_c, epsilon_s, epsilon_inf, zeta_s, Q, dlnQdphi, err)
-    COOP_REAL::a_piv, a_zeta, aeq, a_ini
-    COOP_REAL,parameter::max_dUdphi = coop_sqrt3 !!set by epsilon = epsilon_CDM
-    class(coop_cosmology_background)::this
-    type(coop_species)::de
-    COOP_REAL::Omega_c, epsilon_s, epsilon_inf, zeta_s, Q, dlnQdphi
-    COOP_REAL::tracking_n, dUdphi, d2Udphi2
-    COOP_INT::i, index_de, index_cdm
-    COOP_REAL::rhoc0, wp1, wp1_zeta, delta_wp1, n_low, n_high, dUdphi_low, dUdphi_high, phi_eq, d2Udphi2_trial, diffwp1, mindiff, step
-    COOP_INT::err
-    
-    err = 0    
-    index_cdm = this%num_species + 1
-    index_de = this%num_species+2
-    rhoc0 = 3.d0*omega_c
-    aeq = coop_de_aeq_fitting(omega_lambda = this%Omega_k() - omega_c, epsilon_s = epsilon_s, epsilon_inf = epsilon_inf, zeta_s = zeta_s)
-    if(aeq .gt. 1.2d0)then
-       err = 1
-       return
-    endif
-    a_ini = aeq/8.d0
-    a_piv = min(aeq*1.303, coop_scale_factor_today)  !!where F_2(a/a_eq) = 0
-    a_zeta = aeq*0.8d0  
-    de = coop_de_quintessence(Omega_Lambda = this%Omega_k() - omega_c, epsilon_s = epsilon_s, epsilon_inf = epsilon_inf, zeta_s = zeta_s)
-    
-    !!search for tracking_n
-    wp1 = de%wp1ofa(a_ini)    
-    n_high = epsilon_inf*(4.d0/3.d0)/(1.d0-(2.d0/3.d0)*epsilon_inf)
-    if(n_high .le. coop_min_de_tracking_n)then
-       tracking_n = coop_min_de_tracking_n
-    else
-       n_low = max(n_high/3.d0, coop_min_de_tracking_n)
-       do 
-          tracking_n = (n_high + n_low)/2.d0
-          call coop_background_add_coupled_DE(this, omega_c = omega_c, tracking_n = tracking_n, Q = Q, dlnQdphi = dlnQdphi, dUdphi = 0.d0, d2Udphi2 = 0.d0 )
-          if( wp1_eff(a_ini) .gt. wp1 ) then
-             n_high = tracking_n
-          else
-             n_low = tracking_n
-          endif
-          if(n_high - n_low .lt. 5.d-3)exit
-          call this%delete_species(index_de)
-          call this%delete_species(index_cdm)       
-       enddo
-    endif
-    !!search for dUdphi
-    wp1 = de%wp1ofa(a_piv)
-    delta_wp1  = wp1_eff(a_piv) - wp1
-    if(delta_wp1 .gt. 0.01d0)then
-       step = 0.05
-       dUdphi = step
-       call this%delete_species(index_de)
-       call this%delete_species(index_cdm)       
-       call coop_background_add_coupled_DE(this, omega_c = omega_c, tracking_n = tracking_n, Q = Q, dlnQdphi = dlnQdphi, dUdphi =dUdphi, d2Udphi2 = 0.d0 )
-       diffwp1  = wp1_eff(a_piv) - wp1
-       if(abs(diffwp1) .lt. 0.01d0)goto 30
-       if(diffwp1 .ge. delta_wp1 .or. diffwp1 .lt. 0.d0 )then
-          err = 2
-          return
-       endif
-       step = max(min(diffwp1/(delta_wp1-diffwp1+1.d-3)*step/2.d0, 0.5d0), 0.02d0)
-       dUdphi = dUdphi + step
-       delta_wp1 = diffwp1       
-       do 
-          call this%delete_species(index_de)
-          call this%delete_species(index_cdm)       
-          call coop_background_add_coupled_DE(this, omega_c = omega_c, tracking_n = tracking_n, Q = Q, dlnQdphi = dlnQdphi, dUdphi =dUdphi, d2Udphi2 = 0.d0 )
-          diffwp1  = wp1_eff(a_piv) - wp1
-          if(abs(diffwp1) .lt. 0.01d0)goto 30
-          if(diffwp1 .ge. delta_wp1 .or. diffwp1 .lt. 0.d0 )then
-             err = 3
-             return
-          endif
-          step = max(min(diffwp1/(delta_wp1-diffwp1+1.d-3)*step/2.d0, 0.5d0), 0.02d0)
-          dUdphi = dUdphi + step
-          delta_wp1 = diffwp1
-          if(dUdphi .gt. 30.d0)then
-             err = 4
-             return
-          endif
-       enddo          
-    elseif(delta_wp1 .lt. -0.01d0)then
-       dUdphi_high = 0.d0
-       dUdphi_low = -max_dUdphi
-       call this%delete_species(index_de)
-       call this%delete_species(index_cdm)       
-       call coop_background_add_coupled_DE(this, omega_c = omega_c, tracking_n = tracking_n, Q = Q, dlnQdphi = dlnQdphi, dUdphi =dUdphi_low, d2Udphi2 = 0.d0 )
-       if(wp1_eff(a_piv) .lt. wp1)then
-          err = 5
-          return
-       endif
-       do  while(dUdphi_high - dUdphi_low .gt. 0.01d0)
-          call this%delete_species(index_de)
-          call this%delete_species(index_cdm)       
-          dUdphi = (dUdphi_high + dUdphi_low)/2.d0
-          call coop_background_add_coupled_DE(this, omega_c = omega_c, tracking_n = tracking_n, Q = Q, dlnQdphi = dlnQdphi, dUdphi =dUdphi, d2Udphi2 = 0.d0 )
-          if(wp1_eff(a_piv) .gt. wp1)then
-             dUdphi_low = dUdphi
-          else
-             dUdphi_high = dUdphi
-          endif
-       enddo
-    else
-       dUdphi  = 0.
-    endif
-
-30  if(abs(zeta_s) .lt. 2.d-2 .or. abs(epsilon_s - 2.d0*epsilon_inf).lt. 0.02)return
-    
-    !!serach for d2Udphi2
-    wp1_zeta = de%wp1ofa(a_zeta)
-    mindiff = (wp1_eff(a_zeta) - wp1_zeta)**2 + (wp1_eff(a_piv) - wp1)**2
-    phi_eq = this%species(index_de)%de_Phi(aeq)
-    d2Udphi2 = 0.d0
-    do i=-5, 5
-       if(i.eq.0)cycle
-       call this%delete_species(index_de)
-       call this%delete_species(index_cdm)       
-       d2Udphi2_trial = i*0.05d0
-       call coop_background_add_coupled_DE(this, omega_c = omega_c, tracking_n = tracking_n, Q = Q, dlnQdphi = dlnQdphi, dUdphi =dUdphi - d2Udphi2_trial*phi_eq, d2Udphi2 = d2Udphi2_trial )
-       diffwp1 = (wp1_eff(a_zeta) - wp1_zeta)**2 + (wp1_eff(a_piv) - wp1)**2
-       if(diffwp1 .lt. mindiff)then
-          mindiff = diffwp1
-          d2Udphi2 = d2Udphi2_trial
-       endif
-    enddo
-    dUdphi = dUdphi - d2Udphi2*phi_eq
-    call this%delete_species(index_de)
-    call this%delete_species(index_cdm)
-    call coop_background_add_coupled_DE(this, omega_c = omega_c, tracking_n = tracking_n, Q = Q, dlnQdphi = dlnQdphi, dUdphi =dUdphi, d2Udphi2 = d2Udphi2)    
-
-  contains
-
-    function wp1_eff(a) result(wp1)
-      COOP_REAL::a, wp1
-      wp1 = (1.d0 + this%species(index_DE)%pa2(a)/(this%species(index_DE)%rhoa2(a)+ this%species(index_CDM)%rhoa2(a) - rhoc0/a))
-    end function wp1_eff       
-  end subroutine coop_background_add_coupled_DE_with_w
 
 
 
@@ -619,6 +294,7 @@ contains
     COOP_INT::i, err, j
     COOP_REAL,dimension(narr)::lnrho,  wp1eff, M2
     COOP_REAL::lna, lnamin, lnamax, dlna, alpha_l, a_l, a_r, alpha_r, wp1_l, wp1_r, omega_de, om_l, om_r, rhoa4de_l, rhotot_l, rhotot_r, step, rhoa4de_r
+#if DO_EFT_DE        
     err = 0
     de%name = "Dark Energy"
     de%genre = COOP_SPECIES_EFT
@@ -702,10 +378,17 @@ contains
     call de%flnrho%set_boundary(slopeleft = -3.d0*wp1eff(1), sloperight = -3.d0*wp1eff(narr))    
     de%cs2 = 0.d0
     call this%add_species(de)
-#if DO_EFT_DE    
     this%f_alpha_M = alpha_M
     call this%f_M2%init(narr, coop_min_scale_factor, coop_scale_factor_today, M2, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "EFT M^2")
+#else
+    write(*,*) "EFT Dark Energy model cannot be initialized"
+    stop "You need to set DARK_ENERGY_MODEL=EFT in configure.in"
 #endif    
   end subroutine coop_background_add_EFT_DE  
 
+
+
+  
+  
+  
 end module coop_background_mod

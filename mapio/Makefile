@@ -12,7 +12,7 @@ OBJ = sphere.o stacking_obj.o readfits.o healgeo.o fitswrap.o  zeta3d.o
 
 default: all
 
-$(LIB): $(OBJ) 
+$(LIB): $(OBJ)
 	ar -r $@ $?
 
 all: $(LIB) UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo SST

@@ -167,12 +167,14 @@ contains
             COOP_COSMO_PARAMS%r(COOP_INDEX_DE+2) &
             )
        call COOP_COSMO%add_species(coop_global_de)
-       COOP_COSMO%de_genre = COOP_PERT_NONE              
+       COOP_COSMO%de_genre = COOP_PERT_NONE
+#if DO_COUPLED_DE       
     case(COOP_DE_COUPLED_QUINTESSENCE)
        call coop_background_add_coupled_DE(COOP_COSMO, Omega_c = COOP_OMEGACH2/h**2, Q =  COOP_COSMO_PARAMS%r(COOP_INDEX_DE), tracking_n =  COOP_COSMO_PARAMS%r(COOP_INDEX_DE+1), dlnQdphi =  COOP_COSMO_PARAMS%r(COOP_INDEX_DE+2), dUdphi =  COOP_COSMO_PARAMS%r(COOP_INDEX_DE+3), d2Udphi2 =  COOP_COSMO_PARAMS%r(COOP_INDEX_DE+4))
        COOP_COSMO%de_genre = COOP_PERT_SCALAR_FIELD       
        coop_global_cdm = COOP_COSMO%species(COOP_COSMO%index_of("CDM"))
-       coop_global_de = COOP_COSMO%species(COOP_COSMO%index_of("Dark Energy"))       
+       coop_global_de = COOP_COSMO%species(COOP_COSMO%index_of("Dark Energy"))
+#endif       
     case default
        stop "UNKNOWN DARK ENERGY MODEL"
     end select

@@ -35,6 +35,8 @@ module coop_pertobj_mod
      COOP_INT::de_scheme = 0     
      COOP_REAL::M2, alpha_M, alpha_K, alpha_T, alpha_B, alpha_H, alpha_M_prime, alpha_K_prime, alpha_T_prime, alpha_B_prime, alpha_H_prime, HdotbyHsq_prime, p_prime_a2_matter, rho_prime_a2_matter, pa2_matter, rhoa2_matter, HddbyH3, u
      COOP_REAL::deMat(7, 5)
+#elif DO_COUPLED_DE
+     COOP_REAL::de_Vp, de_phidot, de_delta_rho, de_delta_p
 #endif     
      COOP_STRING::initial_conditions = "adiabatic"
      logical::tight_coupling = .true.
@@ -53,7 +55,7 @@ module coop_pertobj_mod
      COOP_REAL::Pdot, vis, ekappa, visdot, kchi
      type(coop_pert_species)::metric, baryon, cdm, T, E, B, nu, de
      type(coop_pert_species),dimension(coop_pert_default_nq)::massivenu !!massive neutrinos
-     COOP_REAL::de_Vp, de_phidot, de_delta_rho, de_delta_p
+
      COOP_REAL,dimension(:),allocatable::y, yp
    contains
      procedure::init =>  coop_pert_object_initialize
@@ -88,8 +90,10 @@ contains
     select case(pert%de%genre)
     case (COOP_PERT_NONE)
        !!do nothing
+#if DO_COUPLED_DE       
     case(COOP_PERT_SCALAR_FIELD)
        T00 = T00  -  pert%de_delta_rho*pert%a**2
+#endif       
 #if DO_EFT_DE       
     case(COOP_PERT_EFT)
        T00 = T00/pert%M2 - pert%aH**2 * ( &

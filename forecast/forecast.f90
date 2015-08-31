@@ -193,18 +193,27 @@ module coop_forecast_mod
      COOP_INT::index_nt = 0
      COOP_INT::index_omegam = 0
      COOP_INT::index_omegab = 0     
-     COOP_INT::index_omegak = 0     
+     COOP_INT::index_omegak = 0
+     COOP_INT::index_h = 0
+     
      COOP_INT::index_de_w = 0
      COOP_INT::index_de_wa = 0
+     COOP_INT::index_de_epss = 0
+     COOP_INT::index_de_epsinf = 0
+     COOP_INT::index_de_zetas = 0                    
+#if DO_COUPLED_DE     
      COOP_INT::index_de_Q = 0
      COOP_INT::index_de_tracking_n = 0
      COOP_INT::index_de_dUdphi = 0
-     COOP_INT::index_de_epss = 0
-     COOP_INT::index_de_epsinf = 0
-     COOP_INT::index_de_zetas = 0               
      COOP_INT::index_de_dlnQdphi = 0
      COOP_INT::index_de_d2Udphi2 = 0
-     COOP_INT::index_h = 0
+#elif DO_EFT_DE     
+     COOP_INT::index_de_alpha_M0 = 0
+     COOP_INT::index_de_alpha_H0 = 0
+     COOP_INT::index_de_alpha_T0 = 0
+     COOP_INT::index_de_alpha_B0 = 0
+     COOP_INT::index_de_alpha_K0 = 0
+#endif     
    contains
      procedure::init => coop_MCMC_params_init
      procedure::MCMC_step => coop_MCMC_params_MCMC_step
@@ -406,6 +415,24 @@ contains
       else
          call this%cosmology%add_species( coop_neutrinos_massless(this%cosmology%Omega_massless_neutrinos()))  
       endif
+
+      if(this%index_de_epss .ne. 0)then
+         epsilon_s = this%fullparams(this%index_de_epss)
+      else
+         epsilon_s = 0.d0
+      endif
+      if(this%index_de_epsinf .ne. 0)then
+         epsilon_inf = this%fullparams(this%index_de_epsinf)
+      else
+         epsilon_inf = 0.01d0
+      endif
+      if(this%index_de_zetas .ne. 0)then
+         zeta_s = this%fullparams(this%index_de_zetas)
+      else
+         zeta_s = 0.d0
+      endif
+      
+#if DO_COUPLED_DE      
       if(this%index_de_tracking_n .ne. 0 .or. this%index_de_dUdphi .ne. 0 .or. this%index_de_Q .ne. 0 .or. this%index_de_epss .ne. 0 .or. this%index_de_epsinf .ne. 0)then  !!
          if(this%index_de_tracking_n .ne. 0)then
             tracking_n = this%fullparams(this%index_de_tracking_n)
@@ -432,21 +459,6 @@ contains
          else
             d2Udphi2 = 0
          endif
-         if(this%index_de_epss .ne. 0)then
-            epsilon_s = this%fullparams(this%index_de_epss)
-         else
-            epsilon_s = 0.d0
-         endif
-         if(this%index_de_epsinf .ne. 0)then
-            epsilon_inf = this%fullparams(this%index_de_epsinf)
-         else
-            epsilon_inf = 0.01d0
-         endif
-         if(this%index_de_zetas .ne. 0)then
-            zeta_s = this%fullparams(this%index_de_zetas)
-         else
-            zeta_s = 0.d0
-         endif
          if(this%index_de_epss .ne. 0 .or. this%index_de_epsinf .ne. 0)then
             if(this%index_de_Q .ne. 0)then
                call coop_background_add_coupled_DE_with_w(this%cosmology, Omega_c = this%cosmology%omch2/h**2, Q = Q, dlnQdphi = dlnQdphi, epsilon_s = epsilon_s, epsilon_inf = epsilon_inf, zeta_s = zeta_s, err = err)
@@ -462,6 +474,7 @@ contains
             call coop_background_add_coupled_DE(this%cosmology, Omega_c = this%cosmology%omch2/h**2, Q = Q, tracking_n =  tracking_n, dlnQdphi = dlnQdphi, dUdphi = dUdphi, d2Udphi2 = d2Udphi2)
          endif
       else
+#endif         
          call this%cosmology%add_species(coop_cdm(this%cosmology%omch2/h**2))
          if(this%index_de_w .ne. 0)then
             w = this%fullparams(this%index_de_w)
@@ -474,7 +487,9 @@ contains
          else
             call this%cosmology%add_species(coop_de_lambda(this%cosmology%Omega_k()))                           
          endif
+#if DO_COUPLED_DE         
       endif
+#endif      
     end subroutine setforH
 
   end subroutine coop_MCMC_params_Set_Cosmology
@@ -1479,16 +1494,28 @@ contains
     this%index_nrun = this%index_of("nrun")
     this%index_r = this%index_of("r")
     this%index_nt =      this%index_of("nt")
+
+!!dark energy equation of state parameters    
     this%index_de_w = this%index_of("de_w")
     this%index_de_wa = this%index_of("de_wa")
-    this%index_de_Q = this%index_of("de_Q")
-    this%index_de_tracking_n = this%index_of("de_tracking_n")
-    this%index_de_dUdphi = this%index_of("de_dUdphi")
     this%index_de_epss = this%index_of("de_epss")
     this%index_de_epsinf = this%index_of("de_epsinf")
     this%index_de_zetas = this%index_of("de_zetas")            
+
+#if DO_EFT_DE    
+    this%index_de_alpha_M0 = this%index_of("de_alpha_M0")
+    this%index_de_alpha_H0 = this%index_of("de_alpha_H0")
+    this%index_de_alpha_K0 = this%index_of("de_alpha_K0")
+    this%index_de_alpha_T0 = this%index_of("de_alpha_T0")    
+    this%index_de_alpha_B0 = this%index_of("de_alpha_B0")
+#elseif DO_COUPLED_DE
+    this%index_de_Q = this%index_of("de_Q")
+    this%index_de_tracking_n = this%index_of("de_tracking_n")
+    this%index_de_dUdphi = this%index_of("de_dUdphi")
     this%index_de_dlnQdphi = this%index_of("de_dlnQdphi")
     this%index_de_d2Udphi2 = this%index_of("de_d2Udphi2")
+#endif    
+    
     this%index_h = this%index_of("h")
     this%index_omegam = this%index_of("omegam")
     this%index_omegab = this%index_of("omegab")    

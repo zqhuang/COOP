@@ -21,11 +21,14 @@ module coop_species_mod
      COOP_REAL::mbyT = 0.d0
      type(coop_function):: fwp1, fcs2, fwp1eff
      type(coop_function):: flnrho
-     !!for scalar field DE model
-     type(coop_function)::fDE_U_of_phi, fDE_dUdphi, fDE_phi, fDE_Q_of_phi, fDE_phidot
-     COOP_REAL::DE_tracking_n = 0.d0
-     COOP_REAL::DE_a_start = 1.d-6
-     COOP_REAL::DE_lnV0 = 0.d0
+#if DO_COUPLED_DE
+     type(coop_function)::cplde_wp1
+     type(coop_function)::cplde_Q     
+     type(coop_function)::cplde_lnV_lna
+     type(coop_function)::cplde_phi_lna
+     type(coop_function)::cplde_phi_prime_lna     
+     type(coop_function)::cplde_m2a2_lna
+#endif     
    contains
      procedure :: init => coop_species_initialize
      procedure :: print => coop_species_print
@@ -49,15 +52,6 @@ module coop_species_mod
      procedure :: pa2 => coop_species_pa2
      procedure :: dpa2da => coop_species_dpa2da
      procedure :: drhoa2da => coop_species_drhoa2da
-     !!for scalar field DE model
-     procedure :: DE_V => coop_species_DE_V  !!V(phi)
-     procedure :: DE_dlnVdphi => coop_species_DE_dlnVdphi  !!d ln V/d phi  (phi)
-     procedure :: DE_d2lnVdphi2 => coop_species_DE_d2lnVdphi2     !!d^2ln V/d phi^2 (phi)
-     procedure :: DE_get_VVpVpp => coop_species_DE_get_VVpVpp     !!get V, dV/dphi, d^2V/dphi^2
-     procedure :: DE_phi => coop_species_DE_phi !!phi(a)
-     procedure :: DE_phidot => coop_species_DE_phidot  !!phidot (a)
-     procedure :: DE_Q => coop_species_DE_Q !!Q(a)
-     procedure :: DE_dlnQdphi => coop_species_DE_dlnQdphi   !!d ln Q/d phi (phi)
   end type coop_species
   
 
@@ -473,86 +467,15 @@ contains
     call this%fwp1%free()
     call this%fcs2%free()
     call this%fwp1eff%free()
-    call this%fDE_U_of_phi%free()
-    call this%fDE_dUdphi%free()
-    call this%fDE_phi%free()
-    call this%fDE_phidot%free()    
-    call this%fDE_Q_of_phi%free()
+#if DO_COUPLED_DE    
+    call this%cplde_wp1%free()
+    call this%cplde_Q%free()    
+    call this%cplde_lnV_lna%free()
+    call this%cplde_phi_lna%free()    
+    call this%cplde_phi_prime_lna%free()
+    call this%cplde_m2a2_lna%free()    
+#endif    
   end subroutine coop_species_free
 
-
-  function coop_species_DE_phi(this, a) result(phi)
-    class(coop_species)::this
-    COOP_REAL a, phi
-    phi = this%fDE_phi%eval(a)
-  end function coop_species_DE_phi
-
-  
-  function coop_species_DE_Q(this, phi) result(Q)
-    class(coop_species)::this
-    COOP_REAL Q, phi
-    if(this%fDE_Q_of_phi%initialized)then    
-       Q = this%fDE_Q_of_phi%eval(phi)
-    else
-       Q = 0.d0
-    endif
-  end function coop_species_DE_Q
-
-  function coop_species_DE_dlnQdphi(this, phi) result(dlnQdphi)
-    class(coop_species)::this
-    COOP_REAL dlnQdphi, phi
-    if(this%fDE_Q_of_phi%initialized)then    
-       dlnQdphi = this%fDE_Q_of_phi%derivative(phi)/this%fDE_Q_of_phi%eval(phi)
-    else
-       dlnQdphi = 0.d0
-    endif
-  end function coop_species_DE_dlnQdphi
-
-
-  function coop_species_DE_V(this, phi) result(V)
-    class(coop_species)::this
-    COOP_REAL V, phi
-    if(this%DE_tracking_n .ne. 0.d0)then
-       V = exp(this%fDE_U_of_phi%eval(phi) + this%DE_lnV0 - this%DE_tracking_n * log(phi))
-    else
-       V = exp(this%fDE_U_of_phi%eval(phi) + this%DE_lnV0)
-    endif
-  end function coop_species_DE_V
-
-  function coop_species_DE_phidot(this, a) result(dphidlna)
-    class(coop_species)::this
-    COOP_REAL::a, dphidlna
-    dphidlna = this%fDE_phidot%eval(a)
-  end function coop_species_DE_phidot
-
-  function coop_species_DE_dlnVdphi(this, phi) result(dlnVdphi)
-    class(coop_species)::this
-    COOP_REAL:: phi, dlnVdphi, V
-    if(this%DE_tracking_n .ne. 0.d0)then
-       dlnVdphi = this%fDE_dUdphi%eval(phi) - this%DE_tracking_n/phi
-    else
-       dlnVdphi = this%fDE_dUdphi%eval(phi)
-    endif
-  end function coop_species_DE_dlnVdphi
-
-  function coop_species_DE_d2lnVdphi2(this, phi) result(d2lnVdphi2)
-    class(coop_species)::this
-    COOP_REAL::d2lnVdphi2, phi
-    if(this%DE_tracking_n .ne. 0.d0)then
-       d2lnVdphi2 = this%fDE_dUdphi%derivative(phi) +  this%DE_tracking_n/phi**2
-    else
-       d2lnVdphi2 = this%fDE_dUdphi%derivative(phi)
-    endif
-  end function coop_species_DE_d2lnVdphi2
-
-  subroutine coop_species_DE_get_VVpVpp(this, phi, V, Vp, Vpp)
-    class(coop_species)::this
-    COOP_REAL::phi, V, Vp, Vpp
-    V = this%DE_V(phi)
-    Vp = this%DE_dlnVdphi(phi)
-    Vpp = this%DE_d2lnVdphi2(phi)
-    Vpp = (Vpp + Vp**2)*V
-    Vp = Vp * V
-  end subroutine coop_species_DE_get_VVpVpp
 
 end module coop_species_mod

@@ -30,8 +30,8 @@ C_COMPILER = $(GCC_NAME)
 ########not all libraries are required  (depending on what you want to do)####
 ########set to null string for librarys that are not installed ###############
 ##############################################################################
-### set to EFT for effective field theory, LAMBDA for cosmological constant
-DARK_ENERGY_MODEL = EFT
+### set to EFT for effective field theory, LAMBDA for cosmological constant, COUPLED_DE for coupled Dark Energy (a scalar field coupled with CDM)
+DARK_ENERGY_MODEL = LAMBDA
 #EFT
 
 ##LAPACK lib; for MacOS set LAPACK = APPLE
@@ -159,7 +159,7 @@ endif
 ### set Healpix flags here
 ifneq ($(HEALPIX),)
 LINK += -L$(HEALPIX)/lib -lhealpix 
-FFLAGS += -DHAS_HEALPIX=1
+FFLAGS += -DHAS_HEALPIX=1 
 CFLAGS += -DHAS_HEALPIX=1
 INCLUDE += -I$(HEALPIX)/include
 endif
@@ -211,4 +211,8 @@ endif
 ##effective field theory dark energy
 ifeq ($(DARK_ENERGY_MODEL),EFT)
 FFLAGS += -DDO_EFT_DE=1
+endif
+##coupled DE
+ifeq ($(DARK_ENERGY_MODEL),COUPLED_DE)
+FFLAGS += -DDO_COUPLED_DE=1
 endif

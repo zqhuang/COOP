@@ -215,3 +215,8 @@ endif
 ifeq ($(DARK_ENERGY_MODEL),EFT)
 FFLAGS += -DDO_EFT_DE=1
 endif
+
+##coupled DE
+ifeq ($(DARK_ENERGY_MODEL),COUPLED_DE)
+FFLAGS += -DDO_COUPLED_DE=1
+endif

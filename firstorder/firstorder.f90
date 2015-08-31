@@ -179,7 +179,9 @@ contains
   !!this head file contains the evolution equations of the firstorder ODE system
 #if DO_EFT_DE
 #include "firstorder_equations_EFT.h"  
-#else  
+#elif DO_COUPLE_DE
+#include "firstorder_equations_CPLDE.h"  
+#else   
 #include "firstorder_equations.h"
 #endif
   
@@ -188,10 +190,13 @@ contains
 
 !!this head file sets the initial conditions
 #if DO_EFT_DE
-#include "firstorder_ic_EFT.h"  
+#include "firstorder_ic_EFT.h"
+#elif DO_COUPLE_DE
+#include "firstorder_ic_CPLDE.h"    
 #else  
 #include "firstorder_ic.h"
 #endif
+  
   subroutine coop_cosmology_firstorder_set_Planck_Bestfit(this, Omega_nu)
     class(coop_cosmology_firstorder)::this
     COOP_REAL, optional::Omega_nu

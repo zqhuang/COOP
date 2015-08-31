@@ -4,8 +4,10 @@ use('pdf')
 import matplotlib.pyplot as plt
 import healpy as hp
 import sys
+
 map = hp.read_map(sys.argv[1])
+
 fig = plt.figure()
-hp.mollview(map = map, title = sys.argv[3], cbar = True, xsize = 600)
+hp.mollview(map = map, title = sys.argv[3], cbar = True, xsize = 600, max=float(sys.argv[4]), min = float(sys.argv[5]))
 plt.savefig(sys.argv[2], format="pdf")
 
