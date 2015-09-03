@@ -802,72 +802,14 @@
     else
        call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu())))
     endif
-#if DO_COUPLED_DE    
-    scalar_de = .false.
-    if(present(de_dUdphi))then
-       U1 = de_dUdphi
-       scalar_de = .true.
-    else
-       U1 = 0.d0
-    endif
-    if(present(de_d2Udphi2))then
-       U2 = de_d2Udphi2
-       scalar_de = .true.       
-    else
-       U2 = 0.d0
-    endif
-    if(present(de_Q))then
-       Q0 = de_Q
-       scalar_de = .true.       
-       if(present(de_dlnQdphi))then
-          Q1 = de_dlnQdphi
-       else
-          Q1 = 0.d0
-       endif
-    else
-       Q0 = 0.d0
-       Q1 = 0.d0
-    endif
-    if(present(de_tracking_n))then
-       scalar_de = .true.       
-       tracking_n = de_tracking_n
-    else
-       if(present(de_epsilon_s))then
-          epsilon_s = de_epsilon_s
-          if(present(de_epsilon_inf))then
-             epsilon_inf  = de_epsilon_inf
-          else
-             epsilon_inf = 0.01d0
-          endif
-          if(present(de_zeta_s))then
-             zeta_s = de_zeta_s
-          else
-             zeta_s = 0.d0
-          endif
-       else
-          tracking_n = 0.d0
-       endif
-    endif
-    
-    if(scalar_de)then
-       if(present(de_epsilon_s) .and. (.not. present(de_tracking_n)))then
-          call coop_background_add_coupled_DE_with_w(this, Omega_c = Omega_c, Q = Q0, dlnQdphi = Q1, epsilon_s = epsilon_s, epsilon_inf = epsilon_inf, zeta_s = zeta_s, err = err)
-          if(err .ne. 0)then
-             call this%set_h(0.d0)
-             return
-          endif
-       else
-          call coop_background_add_coupled_DE(this, Omega_c = Omega_c, Q = Q0, tracking_n = tracking_n, dlnQdphi = Q1, dUdphi = U1, d2Udphi2 = U2)
-       endif
-       this%de_genre = COOP_PERT_SCALAR_FIELD
-          
-    else
-#endif       
-       call this%add_species(coop_cdm(omega_c))
-       call this%add_species(coop_de_lambda(this%Omega_k()))
-       this%de_genre = COOP_PERT_NONE
-#if DO_COUPLED_DE       
-    endif
+#if DO_EFT_DE
+    stop "set_standard_cosmology: EFT_DE need to be done"
+#elif DO_COUPLED_DE
+    stop "set_standard_cosmology: COUPLED_DE need to be done"    
+#else
+    call this%add_species(coop_cdm(omega_c))
+    call this%add_species(coop_de_lambda(this%Omega_k()))
+    this%de_genre = COOP_PERT_NONE
 #endif    
     call this%setup_background()
     this%optre = tau_re

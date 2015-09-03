@@ -4233,8 +4233,8 @@ contains
     this%mask => mask
     call this%map%convert2nested()
     call this%mask%convert2nested()
-    call coop_healpix_mask_diffuse(this%mask, this%smooth_mask, 0.5d0*coop_SI_degree)
-    call coop_healpix_maps_diffuse(this%map, this%smooth_map, this%mask, 0.5d0*coop_SI_degree)
+    call coop_healpix_mask_diffuse(this%mask, this%smooth_mask, 2.d0/lmax)
+    call coop_healpix_maps_diffuse(this%map, this%smooth_map, this%mask, 2.d0/lmax)
     !$omp parallel do
     do i=0, this%smooth_mask%npix-1
        if(this%smooth_mask%map(i, 1) .ge. 0.5)then
@@ -4584,7 +4584,7 @@ contains
       enddo
       call this%sim%alm2map()
       call this%sim%convert2nested()
-      this%sim%map = (this%sim%map*sqrt(1.-this%smooth_mask%map**2)+this%smooth_map%map*this%smooth_mask%map)*(1.-this%mask%map)
+      this%sim%map = (this%sim%map*(1.-this%smooth_mask%map)+this%smooth_map%map*this%smooth_mask%map)*(1.-this%mask%map)
     end subroutine set_sim
 #endif    
   end subroutine coop_healpix_inpaint_upgrade

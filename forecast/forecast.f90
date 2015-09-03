@@ -432,62 +432,22 @@ contains
          zeta_s = 0.d0
       endif
       
-#if DO_COUPLED_DE      
-      if(this%index_de_tracking_n .ne. 0 .or. this%index_de_dUdphi .ne. 0 .or. this%index_de_Q .ne. 0 .or. this%index_de_epss .ne. 0 .or. this%index_de_epsinf .ne. 0)then  !!
-         if(this%index_de_tracking_n .ne. 0)then
-            tracking_n = this%fullparams(this%index_de_tracking_n)
+#if DO_EFT_DE
+      stop "set_for_H: EFT_DE needs to be done"
+#elif DO_COUPLED_DE
+      stop "set_for_H: COUPLED_DE needs to be done"
+#else      
+      call this%cosmology%add_species(coop_cdm(this%cosmology%omch2/h**2))
+      if(this%index_de_w .ne. 0)then
+         w = this%fullparams(this%index_de_w)
+         if(this%index_de_wa .ne. 0)then
+            wa = this%fullparams(this%index_de_wa)
+            call this%cosmology%add_species(coop_de_w0wa(this%cosmology%Omega_k(), w, wa))               
          else
-            tracking_n = 0.d0
-         endif
-         if(this%index_de_Q .ne. 0)then  !!coupled DE
-            Q = this%fullparams(this%index_de_Q)
-         else
-            Q = 0.d0
-         endif
-         if(this%index_de_dlnQdphi .ne. 0)then
-            dlnQdphi = this%fullparams(this%index_de_dlnQdphi)
-         else
-            dlnQdphi = 0.d0
-         endif
-         if(this%index_de_dUdphi .ne. 0)then
-            dUdphi = this%fullparams(this%index_de_dUdphi)
-         else
-            dUdphi = 0.d0
-         endif
-         if(this%index_de_d2Udphi2 .ne. 0)then
-            d2Udphi2 = this%fullparams(this%index_de_d2Udphi2)
-         else
-            d2Udphi2 = 0
-         endif
-         if(this%index_de_epss .ne. 0 .or. this%index_de_epsinf .ne. 0)then
-            if(this%index_de_Q .ne. 0)then
-               call coop_background_add_coupled_DE_with_w(this%cosmology, Omega_c = this%cosmology%omch2/h**2, Q = Q, dlnQdphi = dlnQdphi, epsilon_s = epsilon_s, epsilon_inf = epsilon_inf, zeta_s = zeta_s, err = err)
-               if(err .ne. 0)then
-                  call this%cosmology%set_h(0.d0)
-                  return
-               endif
-            else
-               call this%cosmology%add_species(coop_cdm(this%cosmology%omch2/h**2))
-               call this%cosmology%add_species(coop_de_quintessence(this%cosmology%Omega_k(), epsilon_s, epsilon_inf, zeta_s))
-            endif
-         else
-            call coop_background_add_coupled_DE(this%cosmology, Omega_c = this%cosmology%omch2/h**2, Q = Q, tracking_n =  tracking_n, dlnQdphi = dlnQdphi, dUdphi = dUdphi, d2Udphi2 = d2Udphi2)
+            call this%cosmology%add_species(coop_de_w0(this%cosmology%Omega_k(), w))                              
          endif
       else
-#endif         
-         call this%cosmology%add_species(coop_cdm(this%cosmology%omch2/h**2))
-         if(this%index_de_w .ne. 0)then
-            w = this%fullparams(this%index_de_w)
-            if(this%index_de_wa .ne. 0)then
-               wa = this%fullparams(this%index_de_wa)
-               call this%cosmology%add_species(coop_de_w0wa(this%cosmology%Omega_k(), w, wa))               
-            else
-               call this%cosmology%add_species(coop_de_w0(this%cosmology%Omega_k(), w))                              
-            endif
-         else
-            call this%cosmology%add_species(coop_de_lambda(this%cosmology%Omega_k()))                           
-         endif
-#if DO_COUPLED_DE         
+         call this%cosmology%add_species(coop_de_lambda(this%cosmology%Omega_k()))                           
       endif
 #endif      
     end subroutine setforH

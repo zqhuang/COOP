@@ -170,43 +170,80 @@ contains
   end function coop_de_wp1_quintessence
 
 
-  subroutine coop_background_add_coupled_DE(this, Omega_c, fQ, fwp1, success)  !!this Omega_c  is defined as lim_{a->0} rho_cdm a^3/ rho_critical0, 
+  subroutine coop_background_add_coupled_DE(this, Omega_c, fQ, fwp1, err)  !!this Omega_c  is defined as lim_{a->0} rho_cdm a^3/ rho_critical0,
+
+    !!err = 0: success
+    !!err = -1: Omega_DE < 0
+    !!err = 1: w < -1
+    !!err = 2: negative DE energy
+    !!err = 3: negative DE kinetic energy
+    !!err = 4: negaitve DE potential energy
+    COOP_REAL, parameter::tc_tol = 5.d-3
     class(coop_cosmology_background)::this
     COOP_REAL::Omega_c
     type(coop_function)::fQ, fwp1
-    logical success    
+    COOP_INT::err
 #if DO_COUPLED_DE
     COOP_INT, parameter::ns = 8192
+    type(coop_function)::fwp1effcdm, fwp1de, fwp1effde
     type(coop_ode)::ode
-    type(coop_species)::de, cdm
+    type(coop_species)::de, cdm, deeff
     COOP_INT::i
-    COOP_REAL::rho_ce, lna(ns), y(3, ns), yp(3, ns), lnV(ns), m2a2(ns)
-    success = .false.
-    if(this%Omega_k() .le. Omega_c) return
+    COOP_REAL::rho_ce, lna(ns), y(3, ns), yp(3, ns), lnV(ns), wp1de(ns), wp1effde(ns), wp1effcdm(ns), H2a4(ns), m2a2(ns), omde, omc
+    err = 0
+    if(this%Omega_k() .le. Omega_c)then
+       err = -1
+       return
+    endif
     rho_ce = omega_c * 3.d0
     call coop_set_uniform(ns, lna, log(coop_min_scale_factor), log(coop_scale_factor_today))
     call ode%init(n=3, method = COOP_ODE_RK4)
-    y(1, 1) = log( de%rhoa4(exp(lna(1))) )
+    y(1, 1) = log(3.d0*(this%Omega_k() - Omega_c)) - 3.d0*coop_integrate(wp1_eval, lna(1), lna(ns))
     y(2, 1) = 0.d0
     y(3, 1) = 0.d0
     call ode%set_initial_conditions(xini = lna(1), yini=y(:, 1))
-    call de%init(genre = COOP_SPECIES_FLUID, name = "Dark Energy", id=5, Omega = this%Omega_k()- Omega_c,  fwp1 = fwp1 )
+    i = 1
+    call cpl_eq_get_potential(3, lna(i), y(:, i), yp(:, i), H2a4 = H2a4(i), lnV = lnV(i), wp1de = wp1de(i), wp1effde = wp1effde(i), wp1effcdm = wp1effcdm(i), omde  = omde, omc = omc)
+    if(err .ne. 0)goto 100
     do i=2, ns
        call ode%evolve(cpl_eq, lna(i))
        y(:, i) = ode%y
-       if(y(2, i) .gt. 0.405d0)return  !!if CDM changed by more than 50%, reject the model
-       call cpl_eq_get_potential(3, lna(i), y(:, i), yp(:, i), lnV(i))
-       if(yp(2,i) .gt. 1.d10)return          
+       if(err .ne. 0) goto 100
+       call cpl_eq_get_potential(3, lna(i), y(:, i), yp(:, i), H2a4 = H2a4(i), lnV = lnV(i), wp1de = wp1de(i), wp1effde = wp1effde(i), wp1effcdm = wp1effcdm(i), omde  = omde, omc = omc)
+       if(err .ne. 0)goto 100       
     enddo
+    call fwp1de%init(n = ns, xmin=coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., f = wp1de, method = COOP_INTERPOLATE_SPLINE, name = "Dark Energy 1+w", check_boundary = .false.)
+    call fwp1effde%init(n = ns, xmin=coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., f = wp1effde, method = COOP_INTERPOLATE_SPLINE, name= "Dark Energy effective 1+w", check_boundary = .false.)
+    call de%init(name = "Dark Energy", id = 5, Omega = omde, genre = COOP_SPECIES_FLUID, fwp1 = fwp1de, fwp1eff =fwp1effde)
     de%cplde_wp1 = fwp1
     de%cplde_Q = fQ
-    
     call de%cplde_lnV_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = lnV, method = COOP_INTERPOLATE_SPLINE)
     call de%cplde_phi_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = y(3,:), method = COOP_INTERPOLATE_SPLINE)
+
     call de%cplde_phi_prime_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = yp(3,:), method = COOP_INTERPOLATE_SPLINE)
-    call de%cplde_m2a2_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = m2a2, method = COOP_INTERPOLATE_SPLINE)    
-    success = .true.
+    !!compute m2a2
+    m2a2 = 0.d0    
+    call de%cplde_m2a2_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = m2a2, method = COOP_INTERPOLATE_SPLINE)
+    
+    call fwp1effcdm%init(n = ns, xmin=coop_min_scale_factor, xmax = coop_scale_factor_today, f = wp1effcdm, method = COOP_INTERPOLATE_SPLINE, xlog = .true.)
+    call cdm%init(genre=COOP_SPECIES_FLUID, name = "CDM", id = 1, Omega = omc, w = 0.d0, fwp1eff = fwp1effcdm)
+    
+    call this%add_species(cdm)
+    call this%add_species(de)
+100 continue
+    call de%free()
+    call cdm%free()
+    call fwp1effcdm%free()
+    call fwp1de%free()
+    call fwp1effde%free()
+    
   contains
+
+    function wp1_eval(lna) result(wp1)
+      COOP_REAL::lna, wp1
+      wp1 = fwp1%eval(exp(lna))      
+    end function wp1_eval
+    
     !! rho_ce = \lim a-> 0 rho a^3
     !! rho_eff = rho_DE + rho_c -  rho_ce a^{-3} 
     !! y(1) = ln (rho_eff)  
@@ -215,67 +252,89 @@ contains
     !!time variable lna
     subroutine cpl_eq(n, lna, y, yp)
       COOP_INT::n
-      COOP_REAL::lna, y(n), yp(n)
-      COOP_REAL:: a, wp1, Q, phi_prime, rhoa4_de_eff, rhoa4_de, rhoa4_c, delta_rhoa4_c, rhoa4_other, h2a4, delta
-      a = exp(lna)
-      wp1 = fwp1%eval(a)
-      Q = fQ%eval(a)
-      yp(1) = -3.d0*wp1
-      rhoa4_de_eff = exp(y(1)+4.d0*lna)
-      rhoa4_c = rho_ce*exp(y(2)+lna)
-      delta_rhoa4_c = rho_ce*a*(exp(y(2))-1.d0)      
-      if(rhoa4_de_eff .lt. delta_rhoa4_c)then !!negative energy
-         yp(2:3) = 1.d30
-         return
-      endif
-      rhoa4_other = this%rhoa4(a)
-      h2a4 = rhoa4_de_eff + rho_ce * a + rhoa4_other
-      delta =  (rhoa4_de_eff * wp1- delta_rhoa4_c + (rhoa4_c*Q)**2/H2a4/4.d0)/H2a4 
-      if(delta .lt. 0.d0)then
-         yp(2:3) = 1.d30
-         return
-      endif
-      phi_prime = Q*rhoa4_c/H2a4/2.d0+sqrt(delta)
-      if(phi_prime**2*H2a4/2.d0 + delta_rhoa4_c .ge. rhoa4_de_eff)then
-         y(2:3) = 1.d30
-         return
-      endif
-      yp(2) = 3.d0*Q*phi_prime
-      yp(3) = phi_prime
+      COOP_REAL::lna, y(n), yp(n), H2a4
+      call cpl_eq_get_potential(n, lna, y, yp, H2a4)
     end subroutine cpl_eq
 
-    subroutine cpl_eq_get_potential(n, lna, y, yp, lnV)
+    subroutine cpl_eq_get_potential(n, lna, y, yp, H2a4, lnV, wp1de, wp1effde, wp1effcdm, omde, omc)
       COOP_INT::n
-      COOP_REAL::lna, y(n), yp(n), lnV
-      COOP_REAL:: a, wp1, Q, phi_prime, rhoa4_de_eff, rhoa4_de, rhoa4_c, delta_rhoa4_c, rhoa4_other, h2a4, delta
+      COOP_REAL, optional::lnV, wp1de, wp1effde, wp1effcdm, omde, omc
+      COOP_REAL::lna, y(n), yp(n)
+      COOP_REAL:: a, wp1, Q, phi_prime, rhoa4_de_eff, rhoa4_de, rhoa4_c, delta_rhoa4_c, rhoa4_other, h2a4, delta, wder
       a = exp(lna)
-      wp1 = fwp1%eval(a)
+      wp1 =fwp1%eval(a)
+      !! 1 + w < 0: error
+      if(wp1.lt.0.d0)then
+         err = 1
+         return
+      endif
+      !! 1 + w = 0: Lambda
+      if(wp1 .lt. 1.d-30)then   !!\delta \rho_c = \dot\phi = 0
+         yp = 0.d0
+         if(present(lnV))then
+            rhoa4_c = rho_ce*exp(y(2)+lna)
+            rhoa4_de =  exp(y(1)+4.d0*lna)
+            H2a4 = (this%rhoa4(a) + rhoa4_c + rhoa4_de )/3.d0
+            lnV = exp(y(1))
+            wp1de =  0.d0
+            wp1effcdm = 1.d0
+            wp1effde = 0.d0
+            omde = rhoa4_de/H2a4/3.d0
+            omc = rhoa4_c/H2a4/3.d0
+         endif
+         return
+      endif
+      !! 1+w > 0 : start to roll        
       Q = fQ%eval(a)
       yp(1) = -3.d0*wp1
       rhoa4_de_eff = exp(y(1)+4.d0*lna)
       rhoa4_c = rho_ce*exp(y(2)+lna)
-      delta_rhoa4_c = rho_ce*a*(exp(y(2))-1.d0)      
+      delta_rhoa4_c = rho_ce*a*(exp(y(2))-1.d0)
       if(rhoa4_de_eff .lt. delta_rhoa4_c)then !!negative energy
-         yp(2:3) = 1.d30
+         err = 2
          return
       endif
+      rhoa4_de = rhoa4_de_eff - delta_rhoa4_c
       rhoa4_other = this%rhoa4(a)
-      h2a4 = rhoa4_de_eff + rho_ce * a + rhoa4_other
-      delta =  (rhoa4_de_eff * wp1- delta_rhoa4_c + (rhoa4_c*Q)**2/H2a4/4.d0)/H2a4 
-      if(delta .lt. 0.d0)then
-         yp(2:3) = 1.d30
-         return
+      h2a4 = (rhoa4_de + rhoa4_c + rhoa4_other)/3.d0
+
+      if(Q .gt. 0.d0 )then
+         wder = fwp1%derivative(a)*a/wp1 -3.d0*(wp1-1.d0)
+         if(H2a4*rhoa4_de_eff*wp1*(wder/rhoa4_c/Q)**2  .lt. tc_tol)then
+            phi_prime = (wder * rhoa4_de_eff*wp1 / rhoa4_c / Q)
+            phi_prime = phi_prime * min((wp1*rhoa4_de_eff)/( delta_rhoa4_c + phi_prime**2*H2a4), 1.d0)
+            goto 50
+         endif
       endif
-      phi_prime = Q*rhoa4_c/H2a4/2.d0+sqrt(delta)
-      lnV = rhoa4_de_eff - (phi_prime**2*H2a4/2.d0 + delta_rhoa4_c)
-      if(lnV .le. 0.d0)then
-         y(2:3) = 1.d30
-         return
-      else
-         lnV = log(lnV)-4.d0*lna
+      delta = (rhoa4_de_eff*wp1 - delta_rhoa4_c)/H2a4
+      if(delta.lt. 0.d0)then
+         if(delta .lt. 0.d0)then
+            err = 3
+            return
+         endif
       endif
-      yp(2) = 3.d0*Q*phi_prime
+      phi_prime = sqrt(delta)
+50    yp(2) = Q*phi_prime
       yp(3) = phi_prime
+      if(present(lnV))then
+         lnV = rhoa4_de - phi_prime**2 * H2a4/2.d0 
+         if(lnV .le. 0.d0)then
+            err = 4
+            return
+         else
+            lnV = log(lnV)-4.d0*lna
+         endif
+         wp1de =  phi_prime**2*H2a4/rhoa4_de
+         wp1effcdm =  1.d0 - Q*phi_prime/3.d0
+         wp1effde = wp1de + Q*phi_prime/3.d0 * rhoa4_c/rhoa4_de
+         omde = rhoa4_de/H2a4/3.d0
+         omc = rhoa4_c/H2a4/3.d0
+      else
+         if(rhoa4_de .lt. phi_prime**2*H2a4/2.d0)then
+            err = 4
+            return
+         endif
+      endif
     end subroutine cpl_eq_get_potential
 #else
     write(*,*) "Coupled Dark Energy model cannot be initialized"
