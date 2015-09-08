@@ -10,14 +10,14 @@ program bgtest
   COOP_INT::i, index_CDM , index_DE, err
   type(coop_ode)::ode
   type(coop_function)::fwp1, fQ
-  call fwp1%init_polynomial( (/ 0.1d0, 0.2d0 /) )
-  call fQ%init_polynomial( (/ 0.5d0 /) )
+  call fwp1%init_polynomial( (/ 0.d0, 0.1d0 /) )
+  call fQ%init_polynomial( (/ 0.1d0 /) )
   call bg%init(h=0.7d0)
   call bg%add_species(coop_baryon(omegab))
   call bg%add_species(coop_radiation(bg%Omega_radiation()))
   call bg%add_species(coop_neutrinos_massless(bg%Omega_massless_neutrinos_per_species()*(bg%Nnu())))
   call coop_background_add_coupled_DE(bg, Omega_c = omegac, fwp1 = fwp1, fQ = fQ, err = err)
-  print*, err
+  if(err .ne. 0) print*, err
   if(err.eq. 0)then
      index_CDM = bg%index_of("CDM")
      index_DE = bg%index_of("Dark Energy")
@@ -25,7 +25,6 @@ program bgtest
      lna = -5.d0
      call ode%set_initial_conditions(xini = lna, yini = (/ log(bg%Hratio(exp(lna))), log(bg%species(index_DE)%density(exp(lna))),  log(bg%species(index_CDM)%density(exp(lna))) /) )
      call ode%evolve(lnHeq, xend = 0.d0)
-     write(*, *) ode%y - (/ log(bg%Hratio(exp(ode%x))), log(bg%species(index_DE)%density(exp(ode%x))), log(bg%species(index_CDM)%density(exp(ode%x))) /)
   endif
 contains
 

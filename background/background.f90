@@ -178,7 +178,9 @@ contains
     !!err = 2: negative DE energy
     !!err = 3: negative DE kinetic energy
     !!err = 4: negaitve DE potential energy
+    !!err = 5: non-monotonic potential
     COOP_REAL, parameter::tc_tol = 5.d-3
+    COOP_REAL, parameter::phi_start = 0.d0 
     class(coop_cosmology_background)::this
     COOP_REAL::Omega_c
     type(coop_function)::fQ, fwp1
@@ -188,19 +190,21 @@ contains
     type(coop_function)::fwp1effcdm, fwp1de, fwp1effde
     type(coop_ode)::ode
     type(coop_species)::de, cdm, deeff
-    COOP_INT::i
-    COOP_REAL::rho_ce, lna(ns), y(3, ns), yp(3, ns), lnV(ns), wp1de(ns), wp1effde(ns), wp1effcdm(ns), H2a4(ns), m2a2(ns), omde, omc
+    COOP_INT::i, i_tc_off
+    COOP_REAL::rho_ce, lna(ns), y(3, ns), yp(3, ns), lnV(ns), dlnVdphi(ns), wp1de(ns), wp1effde(ns), wp1effcdm(ns), H2a4(ns), m2byH2(ns), omde, omc, dlna, tc_w
     err = 0
+    i_tc_off = 1
     if(this%Omega_k() .le. Omega_c)then
        err = -1
        return
     endif
     rho_ce = omega_c * 3.d0
     call coop_set_uniform(ns, lna, log(coop_min_scale_factor), log(coop_scale_factor_today))
+    dlna = lna(2) - lna(1)
     call ode%init(n=3, method = COOP_ODE_RK4)
-    y(1, 1) = log(3.d0*(this%Omega_k() - Omega_c)) - 3.d0*coop_integrate(wp1_eval, lna(1), lna(ns))
+    y(1, 1) = log(3.d0*(this%Omega_k() - Omega_c)) + 3.d0*coop_integrate(wp1_eval, lna(1), lna(ns))
     y(2, 1) = 0.d0
-    y(3, 1) = 0.d0
+    y(3, 1) = phi_start
     call ode%set_initial_conditions(xini = lna(1), yini=y(:, 1))
     i = 1
     call cpl_eq_get_potential(3, lna(i), y(:, i), yp(:, i), H2a4 = H2a4(i), lnV = lnV(i), wp1de = wp1de(i), wp1effde = wp1effde(i), wp1effcdm = wp1effcdm(i), omde  = omde, omc = omc)
@@ -212,21 +216,64 @@ contains
        call cpl_eq_get_potential(3, lna(i), y(:, i), yp(:, i), H2a4 = H2a4(i), lnV = lnV(i), wp1de = wp1de(i), wp1effde = wp1effde(i), wp1effcdm = wp1effcdm(i), omde  = omde, omc = omc)
        if(err .ne. 0)goto 100       
     enddo
-    call fwp1de%init(n = ns, xmin=coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., f = wp1de, method = COOP_INTERPOLATE_SPLINE, name = "Dark Energy 1+w", check_boundary = .false.)
-    call fwp1effde%init(n = ns, xmin=coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., f = wp1effde, method = COOP_INTERPOLATE_SPLINE, name= "Dark Energy effective 1+w", check_boundary = .false.)
+    call fwp1effcdm%init(n = ns, xmin=coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., f = wp1effcdm, method = COOP_INTERPOLATE_LINEAR, name = "CDM 1+w", check_boundary = .false.)
+    call cdm%init(genre=COOP_SPECIES_FLUID, name = "CDM", id = 1, Omega = omc, w = 0.d0, fwp1eff = fwp1effcdm)
+
+    
+    call fwp1de%init(n = ns, xmin=coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., f = wp1de, method = COOP_INTERPOLATE_LINEAR, name = "Dark Energy 1+w", check_boundary = .false.)
+    call fwp1effde%init(n = ns, xmin=coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., f = wp1effde, method = COOP_INTERPOLATE_LINEAR, name= "Dark Energy effective 1+w", check_boundary = .false.)
     call de%init(name = "Dark Energy", id = 5, Omega = omde, genre = COOP_SPECIES_FLUID, fwp1 = fwp1de, fwp1eff =fwp1effde)
+    
     de%cplde_wp1 = fwp1
     de%cplde_Q = fQ
-    call de%cplde_lnV_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = lnV, method = COOP_INTERPOLATE_SPLINE)
-    call de%cplde_phi_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = y(3,:), method = COOP_INTERPOLATE_SPLINE)
+    call de%cplde_lnV_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = lnV, method = COOP_INTERPOLATE_LINEAR)
+    call de%cplde_phi_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = y(3,:), method = COOP_INTERPOLATE_LINEAR)
 
-    call de%cplde_phi_prime_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = yp(3,:), method = COOP_INTERPOLATE_SPLINE)
-    !!compute m2a2
-    m2a2 = 0.d0    
-    call de%cplde_m2a2_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = m2a2, method = COOP_INTERPOLATE_SPLINE)
+    call de%cplde_phi_prime_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = yp(3,:), method = COOP_INTERPOLATE_LINEAR)
+
     
-    call fwp1effcdm%init(n = ns, xmin=coop_min_scale_factor, xmax = coop_scale_factor_today, f = wp1effcdm, method = COOP_INTERPOLATE_SPLINE, xlog = .true.)
-    call cdm%init(genre=COOP_SPECIES_FLUID, name = "CDM", id = 1, Omega = omc, w = 0.d0, fwp1eff = fwp1effcdm)
+    if(i_tc_off .gt. 1)then
+       !$omp parallel do private(tc_w)
+       do i= 2, ns-1
+          if(fQ%eval(exp(lna(i)))*yp(3, i).gt. 0.d0)then
+             tc_w = (1.d0-tanh(50.d0*(lna(i)-lna(i_tc_off))))/2.d0
+          else
+             tc_w = 0.d0
+          endif
+          !!weighted sum of numeric derivative and tight-coupling approximation
+          dlnVdphi(i) =  (lnV(i+1)-lnV(i-1))/max(2.d0*yp(3, i)*dlna, 1.d-20)*(1.d0 - tc_w) &
+          - cdm%density(exp(lna(i)))*fQ%eval(exp(lna(i)))/exp(lnV(i))*tc_w
+       enddo
+       !$omp end parallel do
+    else
+       !$omp parallel do 
+       do i= 2, ns-1
+          dlnVdphi(i) =  (lnV(i+1)-lnV(i-1))/max(2.d0*yp(3, i)*dlna, 1.d-20)
+       enddo
+       !$omp end parallel do
+       
+    endif
+    dlnVdphi(ns) = dlnVdphi(ns-1)    
+    dlnVdphi(1) = dlnVdphi(2)
+    if(any(dlnVdphi .gt. 0.d0))then
+       err = 6
+       return
+    endif
+    dlnVdphi = min(dlnVdphi, -1.d-50)
+    
+    call de%cplde_lnSlope_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = -log(-dlnVdphi), method = COOP_INTERPOLATE_LINEAR)
+    
+    !!compute m2a2, truncate m^2/H^2 (fast oscillations cannot be numerically resolved, but they are irrelevant for observables.)
+    do i = 3, ns-2
+       m2byH2(i) = ( -(log(-dlnVdphi(i+1)) - log(-dlnVdphi(i-1)))/max(2.d0*yp(3, i)*dlna, 1.d-20) - dlnVdphi(i) ) * (-dlnVdphi(i)) * exp(lnV(i) + 2.d0*lna(i))/(h2a4(i)*exp(-lna(i)*2.d0))
+    enddo
+    m2byH2(1:3) = m2byH2(3)
+    m2byH2(ns-1:ns) = m2byH2(ns)
+    do i= 1, ns, 10
+       write(*,*) lna(i), m2byH2(i)
+    enddo
+    call de%cplde_m2byH2_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = m2byH2, method = COOP_INTERPOLATE_LINEAR)
+    
     
     call this%add_species(cdm)
     call this%add_species(de)
@@ -260,7 +307,7 @@ contains
       COOP_INT::n
       COOP_REAL, optional::lnV, wp1de, wp1effde, wp1effcdm, omde, omc
       COOP_REAL::lna, y(n), yp(n)
-      COOP_REAL:: a, wp1, Q, phi_prime, rhoa4_de_eff, rhoa4_de, rhoa4_c, delta_rhoa4_c, rhoa4_other, h2a4, delta, wder
+      COOP_REAL:: a, wp1, Q, phi_prime, rho_de, rhoa4_de_eff, rhoa4_de, rhoa4_c, delta_rhoa4_c, rhoa4_other, h2a4, delta, wder
       a = exp(lna)
       wp1 =fwp1%eval(a)
       !! 1 + w < 0: error
@@ -268,23 +315,7 @@ contains
          err = 1
          return
       endif
-      !! 1 + w = 0: Lambda
-      if(wp1 .lt. 1.d-30)then   !!\delta \rho_c = \dot\phi = 0
-         yp = 0.d0
-         if(present(lnV))then
-            rhoa4_c = rho_ce*exp(y(2)+lna)
-            rhoa4_de =  exp(y(1)+4.d0*lna)
-            H2a4 = (this%rhoa4(a) + rhoa4_c + rhoa4_de )/3.d0
-            lnV = exp(y(1))
-            wp1de =  0.d0
-            wp1effcdm = 1.d0
-            wp1effde = 0.d0
-            omde = rhoa4_de/H2a4/3.d0
-            omc = rhoa4_c/H2a4/3.d0
-         endif
-         return
-      endif
-      !! 1+w > 0 : start to roll        
+
       Q = fQ%eval(a)
       yp(1) = -3.d0*wp1
       rhoa4_de_eff = exp(y(1)+4.d0*lna)
@@ -295,14 +326,20 @@ contains
          return
       endif
       rhoa4_de = rhoa4_de_eff - delta_rhoa4_c
+      rho_de = exp(y(1)) - delta_rhoa4_c/a**4
       rhoa4_other = this%rhoa4(a)
       h2a4 = (rhoa4_de + rhoa4_c + rhoa4_other)/3.d0
 
       if(Q .gt. 0.d0 )then
-         wder = fwp1%derivative(a)*a/wp1 -3.d0*(wp1-1.d0)
-         if(H2a4*rhoa4_de_eff*wp1*(wder/rhoa4_c/Q)**2  .lt. tc_tol)then
-            phi_prime = (wder * rhoa4_de_eff*wp1 / rhoa4_c / Q)
-            phi_prime = phi_prime * min((wp1*rhoa4_de_eff)/( delta_rhoa4_c + phi_prime**2*H2a4), 1.d0)
+         wder = fwp1%derivative(a)*a -3.d0*(wp1-1.d0)*wp1
+         if(H2a4*rhoa4_de_eff*(wder/rhoa4_c/Q)**2  .lt. tc_tol*wp1)then
+            phi_prime = (wder * rhoa4_de_eff / rhoa4_c / Q)
+            if(phi_prime .lt. 0.d0)then
+               err = 5
+               return
+            endif
+            phi_prime = phi_prime * min(((wp1*rhoa4_de_eff)/( delta_rhoa4_c + phi_prime**2*H2a4))**20, 1.d0)
+            i_tc_off = i+1
             goto 50
          endif
       endif
@@ -317,12 +354,12 @@ contains
 50    yp(2) = Q*phi_prime
       yp(3) = phi_prime
       if(present(lnV))then
-         lnV = rhoa4_de - phi_prime**2 * H2a4/2.d0 
+         lnV = rho_de - phi_prime**2 * H2a4/2.d0/a**4 
          if(lnV .le. 0.d0)then
             err = 4
             return
          else
-            lnV = log(lnV)-4.d0*lna
+            lnV = log(lnV)
          endif
          wp1de =  phi_prime**2*H2a4/rhoa4_de
          wp1effcdm =  1.d0 - Q*phi_prime/3.d0
@@ -439,6 +476,7 @@ contains
     call this%add_species(de)
     this%f_alpha_M = alpha_M
     call this%f_M2%init(narr, coop_min_scale_factor, coop_scale_factor_today, M2, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "EFT M^2")
+    call de%free()
 #else
     write(*,*) "EFT Dark Energy model cannot be initialized"
     stop "You need to set DARK_ENERGY_MODEL=EFT in configure.in"

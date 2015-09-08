@@ -25,9 +25,10 @@ module coop_species_mod
      type(coop_function)::cplde_wp1
      type(coop_function)::cplde_Q     
      type(coop_function)::cplde_lnV_lna
+     type(coop_function)::cplde_lnSlope_lna     !!log(- d ln V / d ln phi) as a function of ln a
      type(coop_function)::cplde_phi_lna
      type(coop_function)::cplde_phi_prime_lna     
-     type(coop_function)::cplde_m2a2_lna
+     type(coop_function)::cplde_m2byH2_lna
 #endif     
    contains
      procedure :: init => coop_species_initialize
@@ -473,7 +474,8 @@ contains
     call this%cplde_lnV_lna%free()
     call this%cplde_phi_lna%free()    
     call this%cplde_phi_prime_lna%free()
-    call this%cplde_m2a2_lna%free()    
+    call this%cplde_m2byH2_lna%free()
+    call this%cplde_lnSlope_lna%free()
 #endif    
   end subroutine coop_species_free
 
