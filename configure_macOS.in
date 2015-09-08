@@ -32,6 +32,8 @@ C_COMPILER = $(GCC_NAME)
 ##############################################################################
 ### set to EFT for effective field theory, LAMBDA for cosmological constant
 DARK_ENERGY_MODEL = EFT
+#DARK_ENERGY_MODEL = COUPLED_DE
+#DARK_ENERGY_MODEL = LAMBDA
 
 ##LAPACK lib; for MacOS set LAPACK = APPLE
 LAPACK = APPLE
