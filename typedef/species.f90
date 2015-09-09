@@ -23,9 +23,10 @@ module coop_species_mod
      type(coop_function):: flnrho
 #if DO_COUPLED_DE
      type(coop_function)::cplde_wp1
-     type(coop_function)::cplde_Q     
+     type(coop_function)::cplde_Q
+     type(coop_function)::cplde_dQdphi_lna
      type(coop_function)::cplde_lnV_lna
-     type(coop_function)::cplde_lnSlope_lna     !!log(- d ln V / d ln phi) as a function of ln a
+     type(coop_function)::cplde_dVdphibyH2_lna     !!log(- d ln V / d phi) as a function of ln a
      type(coop_function)::cplde_phi_lna
      type(coop_function)::cplde_phi_prime_lna     
      type(coop_function)::cplde_m2byH2_lna
@@ -475,7 +476,8 @@ contains
     call this%cplde_phi_lna%free()    
     call this%cplde_phi_prime_lna%free()
     call this%cplde_m2byH2_lna%free()
-    call this%cplde_lnSlope_lna%free()
+    call this%cplde_dQdphi_lna%free()
+    call this%cplde_dVdphibyH2_lna%free()    
 #endif    
   end subroutine coop_species_free
 

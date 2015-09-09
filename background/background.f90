@@ -180,7 +180,8 @@ contains
     !!err = 4: negaitve DE potential energy
     !!err = 5: non-monotonic potential
     COOP_REAL, parameter::tc_tol = 5.d-3
-    COOP_REAL, parameter::phi_start = 0.d0 
+    COOP_REAL, parameter::phi_start = 0.d0
+    COOP_REAL, parameter::min_phi_prime = 1.d-10
     class(coop_cosmology_background)::this
     COOP_REAL::Omega_c
     type(coop_function)::fQ, fwp1
@@ -191,7 +192,7 @@ contains
     type(coop_ode)::ode
     type(coop_species)::de, cdm, deeff
     COOP_INT::i, i_tc_off
-    COOP_REAL::rho_ce, lna(ns), y(3, ns), yp(3, ns), lnV(ns), dlnVdphi(ns), wp1de(ns), wp1effde(ns), wp1effcdm(ns), H2a4(ns), m2byH2(ns), omde, omc, dlna, tc_w
+    COOP_REAL::rho_ce, a(ns), lna(ns), y(3, ns), yp(3, ns), lnV(ns), dlnVdphi(ns), dVdphibyH2(ns), wp1de(ns), wp1effde(ns), wp1effcdm(ns), H2a4(ns), m2byH2(ns), dQdphi(ns), omde, omc, dlna, tc_w
     err = 0
     i_tc_off = 1
     if(this%Omega_k() .le. Omega_c)then
@@ -200,6 +201,7 @@ contains
     endif
     rho_ce = omega_c * 3.d0
     call coop_set_uniform(ns, lna, log(coop_min_scale_factor), log(coop_scale_factor_today))
+    a = exp(lna)
     dlna = lna(2) - lna(1)
     call ode%init(n=3, method = COOP_ODE_RK4)
     y(1, 1) = log(3.d0*(this%Omega_k() - Omega_c)) + 3.d0*coop_integrate(wp1_eval, lna(1), lna(ns))
@@ -226,17 +228,22 @@ contains
     
     de%cplde_wp1 = fwp1
     de%cplde_Q = fQ
-    call de%cplde_lnV_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = lnV, method = COOP_INTERPOLATE_LINEAR)
-    call de%cplde_phi_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = y(3,:), method = COOP_INTERPOLATE_LINEAR)
-
-    call de%cplde_phi_prime_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = yp(3,:), method = COOP_INTERPOLATE_LINEAR)
-
+    !$omp parallel do
+    do i=1, ns
+       dQdphi(i)=fQ%derivative(a(i))*a(i)/max(yp(3, i), min_phi_prime)
+    enddo
+    !$omp end parallel do
+    call de%cplde_dQdphi_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = dQdphi, method = COOP_INTERPOLATE_LINEAR, name = "dQ / d phi")
+    call de%cplde_lnV_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = lnV, method = COOP_INTERPOLATE_LINEAR, name = "ln V")
+    call de%cplde_phi_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = y(3,:), method = COOP_INTERPOLATE_LINEAR, name = "phi")
+    call de%cplde_phi_prime_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = yp(3,:), method = COOP_INTERPOLATE_LINEAR, name="d phi / d lna")
+    
     
     if(i_tc_off .gt. 1)then
        !$omp parallel do private(tc_w)
        do i= 2, ns-1
           if(fQ%eval(exp(lna(i)))*yp(3, i).gt. 0.d0)then
-             tc_w = (1.d0-tanh(50.d0*(lna(i)-lna(i_tc_off))))/2.d0
+             tc_w = (1.d0-tanh(20.d0*(lna(i)-lna(i_tc_off))))/2.d0
           else
              tc_w = 0.d0
           endif
@@ -259,20 +266,17 @@ contains
        err = 6
        return
     endif
-    dlnVdphi = min(dlnVdphi, -1.d-50)
-    
-    call de%cplde_lnSlope_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = -log(-dlnVdphi), method = COOP_INTERPOLATE_LINEAR)
-    
+    dVdphibyH2 = dlnVdphi * exp(lnV + 4.d0*lna) / H2a4 
+
+    call de%cplde_dVdphibyH2_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = dVdphibyH2, method = COOP_INTERPOLATE_LINEAR, name = "d V / d phi / H^2")
+    dlnVdphi = min(dlnVdphi, -1.d-30)
     !!compute m2a2, truncate m^2/H^2 (fast oscillations cannot be numerically resolved, but they are irrelevant for observables.)
     do i = 3, ns-2
        m2byH2(i) = ( -(log(-dlnVdphi(i+1)) - log(-dlnVdphi(i-1)))/max(2.d0*yp(3, i)*dlna, 1.d-20) - dlnVdphi(i) ) * (-dlnVdphi(i)) * exp(lnV(i) + 2.d0*lna(i))/(h2a4(i)*exp(-lna(i)*2.d0))
     enddo
-    m2byH2(1:3) = m2byH2(3)
+    m2byH2(1:2) = m2byH2(3)
     m2byH2(ns-1:ns) = m2byH2(ns)
-    do i= 1, ns, 10
-       write(*,*) lna(i), m2byH2(i)
-    enddo
-    call de%cplde_m2byH2_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = m2byH2, method = COOP_INTERPOLATE_LINEAR)
+    call de%cplde_m2byH2_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = m2byH2, method = COOP_INTERPOLATE_LINEAR, name = " m^2/H^2 ")
     
     
     call this%add_species(cdm)

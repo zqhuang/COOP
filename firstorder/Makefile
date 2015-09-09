@@ -50,6 +50,9 @@ Test: $(OBJ) test.o $(BACKGROUND)/libcoopbackground.a
 TestEFT: $(OBJ) testeft.o $(BACKGROUND)/libcoopbackground.a 
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testeft.o $(LINK)
 
+TestCPLDE: $(OBJ) testcplde.o $(BACKGROUND)/libcoopbackground.a 
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testcplde.o $(LINK)
+
 Z3D: $(OBJ) zeta.o $(BACKGROUND)/libcoopbackground.a 
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) zeta.o $(LINK)
 

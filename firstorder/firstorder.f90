@@ -120,6 +120,9 @@ module coop_firstorder_mod
      procedure:: set_standard_cosmology =>  coop_cosmology_firstorder_set_standard_cosmology
 #if DO_EFT_DE     
      procedure:: set_EFT_cosmology =>  coop_cosmology_firstorder_set_EFT_cosmology
+#endif
+#if DO_COUPLED_DE
+     procedure:: set_coupled_DE_cosmology =>  coop_cosmology_firstorder_set_coupled_DE_cosmology
 #endif     
      procedure:: set_standard_power => coop_cosmology_firstorder_set_standard_power
      procedure:: set_Planck_bestfit =>coop_cosmology_firstorder_set_Planck_bestfit
@@ -179,7 +182,7 @@ contains
   !!this head file contains the evolution equations of the firstorder ODE system
 #if DO_EFT_DE
 #include "firstorder_equations_EFT.h"  
-#elif DO_COUPLE_DE
+#elif DO_COUPLED_DE
 #include "firstorder_equations_CPLDE.h"  
 #else   
 #include "firstorder_equations.h"
@@ -484,9 +487,6 @@ contains
           if(scheme .ne. pert%de_scheme)then
              ind = 1
              pert%de_scheme = scheme
-!!$             if(present(do_test_energy_conservation))then
-!!$                write(*,*) "switching to scheme:", scheme
-!!$             endif
           endif
        endif
 #endif       
@@ -989,6 +989,282 @@ contains
     endif
   end function coop_cosmology_firstorder_growth_of_z
 
+
+  subroutine coop_cosmology_firstorder_set_standard_cosmology(this, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe)
+    class(coop_cosmology_firstorder)::this
+    COOP_REAL:: h, tau_re, Omega_b, Omega_c
+    COOP_REAL, optional::nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, Nnu, YHe
+    logical::scalar_de
+    COOP_INT::err
+    logical,optional::inflation_consistency
+    if(present(YHe))then
+       if(present(Nnu))then
+          call this%init(h=h, YHe = YHe, Nnu = NNu)
+       else
+          call this%init(h=h, YHe = YHe)
+       endif
+    else
+       if(present(Nnu))then
+          call this%init(h=h, Nnu = NNu)
+       else
+          call this%init(h=h)
+       endif
+    endif
+    call this%add_species(coop_baryon(COOP_REAL_OF(Omega_b)))
+    call this%add_species(coop_radiation(this%Omega_radiation()))
+    if(present(nu_mass_eV))then
+       if(present(Omega_nu))then
+          call coop_return_error("set_standard_cosmology", "you cannot have both Omega_nu and nu_mass_eV in the arguments", "stop")
+       endif
+       if(nu_mass_eV .gt. 1.d-3)then
+          call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu()-1)))
+          call this%add_species(coop_neutrinos_massive(this%Omega_nu_per_species_from_mnu_eV(nu_mass_eV), this%Omega_massless_neutrinos_per_species()))
+       else
+          call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu())))
+       endif
+    elseif(present(Omega_nu))then
+       if(Omega_nu .gt. this%Omega_massless_neutrinos_per_species()*1.01d0)then
+          call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu()-1)))
+          call this%add_species(coop_neutrinos_massive(Omega_nu, this%Omega_massless_neutrinos_per_species()))
+       else
+          call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu())))
+       endif
+    else
+       call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu())))
+    endif
+    call this%add_species(coop_cdm(omega_c))
+    call this%add_species(coop_de_lambda(this%Omega_k()))
+    this%de_genre = COOP_PERT_NONE
+    call this%setup_background()
+    this%optre = tau_re
+    call this%set_xe()
+    if(present(As).or.present(ns) .or. present(nrun) .or. present(r) .or. present(nt) .or. present(inflation_consistency))then
+       if(present(As))then
+          this%As = As
+       else
+          this%As = 1.d0
+       endif
+       if(present(ns))then
+          this%ns = ns
+       else
+          this%ns = 1.d0
+       endif
+       if(present(nrun))then
+          this%nrun = nrun
+       else
+          this%nrun = 0.d0
+       endif
+       if(present(r))then
+          this%r = r
+       else
+          this%r = 0.d0
+       endif
+       if(present(nt))then
+          this%nt = nt
+       else
+          this%nt = 0.d0
+       endif
+       if(present(inflation_consistency))then
+          this%inflation_consistency = inflation_consistency 
+       else
+          this%inflation_consistency = .true.
+       endif
+       call this%set_standard_power(this%As, this%ns, this%nrun, this%r, this%nt, this%inflation_consistency)
+    endif
+  end subroutine coop_cosmology_firstorder_set_standard_cosmology
+
+
+#if DO_COUPLED_DE
+  subroutine coop_cosmology_firstorder_set_coupled_DE_cosmology(this, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, fwp1, fQ)
+    class(coop_cosmology_firstorder)::this
+    COOP_REAL:: h, tau_re, Omega_b, Omega_c
+    COOP_REAL, optional::nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, Nnu, YHe
+    type(coop_function)::fwp1, fQ  !!1+w(a)  and Q(a)
+    COOP_INT::err  !!
+    logical,optional::inflation_consistency
+    if(present(YHe))then
+       if(present(Nnu))then
+          call this%init(h=h, YHe = YHe, Nnu = NNu)
+       else
+          call this%init(h=h, YHe = YHe)
+       endif
+    else
+       if(present(Nnu))then
+          call this%init(h=h, Nnu = NNu)
+       else
+          call this%init(h=h)
+       endif
+    endif
+    call this%add_species(coop_baryon(COOP_REAL_OF(Omega_b)))
+    call this%add_species(coop_radiation(this%Omega_radiation()))
+    if(present(nu_mass_eV))then
+       if(present(Omega_nu))then
+          call coop_return_error("set_standard_cosmology", "you cannot have both Omega_nu and nu_mass_eV in the arguments", "stop")
+       endif
+       if(nu_mass_eV .gt. 1.d-3)then
+          call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu()-1)))
+          call this%add_species(coop_neutrinos_massive(this%Omega_nu_per_species_from_mnu_eV(nu_mass_eV), this%Omega_massless_neutrinos_per_species()))
+       else
+          call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu())))
+       endif
+    elseif(present(Omega_nu))then
+       if(Omega_nu .gt. this%Omega_massless_neutrinos_per_species()*1.01d0)then
+          call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu()-1)))
+          call this%add_species(coop_neutrinos_massive(Omega_nu, this%Omega_massless_neutrinos_per_species()))
+       else
+          call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu())))
+       endif
+    else
+       call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu())))
+    endif
+    call coop_background_add_coupled_DE(this, Omega_c = Omega_c, fQ = fQ, fwp1 =fwp1, err = err)
+    this%de_genre = COOP_PERT_SCALAR_FIELD
+    if(err .ne. 0)then
+       write(*,*) "add_coupled_DE_failed"
+       call this%set_h(0.d0)
+       return
+    endif
+    call this%setup_background()
+    this%optre = tau_re
+    call this%set_xe()
+    if(present(As).or.present(ns) .or. present(nrun) .or. present(r) .or. present(nt) .or. present(inflation_consistency))then
+       if(present(As))then
+          this%As = As
+       else
+          this%As = 1.d0
+       endif
+       if(present(ns))then
+          this%ns = ns
+       else
+          this%ns = 1.d0
+       endif
+       if(present(nrun))then
+          this%nrun = nrun
+       else
+          this%nrun = 0.d0
+       endif
+       if(present(r))then
+          this%r = r
+       else
+          this%r = 0.d0
+       endif
+       if(present(nt))then
+          this%nt = nt
+       else
+          this%nt = 0.d0
+       endif
+       if(present(inflation_consistency))then
+          this%inflation_consistency = inflation_consistency 
+       else
+          this%inflation_consistency = .true.
+       endif
+       call this%set_standard_power(this%As, this%ns, this%nrun, this%r, this%nt, this%inflation_consistency)
+    endif
+  end subroutine coop_cosmology_firstorder_set_coupled_DE_cosmology
+#endif  
+  
+#if DO_EFT_DE
+  subroutine coop_cosmology_firstorder_set_EFT_cosmology(this, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, wp1, alphaM, alphaB, alphaK, alphaT, alphaH)
+    class(coop_cosmology_firstorder)::this
+    COOP_REAL:: h, tau_re, Omega_b, Omega_c
+    COOP_REAL, optional::nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, Nnu, YHe
+    type(coop_function),optional::alphaM, alphaB, alphaK, alphaT, alphaH, wp1
+    COOP_INT::err
+    logical,optional::inflation_consistency
+    type(coop_species)::de
+    if(present(YHe))then
+       if(present(Nnu))then
+          call this%init(h=h, YHe = YHe, Nnu = NNu)
+       else
+          call this%init(h=h, YHe = YHe)
+       endif
+    else
+       if(present(Nnu))then
+          call this%init(h=h, Nnu = NNu)
+       else
+          call this%init(h=h)
+       endif
+    endif
+    call this%add_species(coop_baryon(COOP_REAL_OF(Omega_b)))
+    call this%add_species(coop_radiation(this%Omega_radiation()))
+    if(present(nu_mass_eV))then
+       if(present(Omega_nu))then
+          call coop_return_error("set_standard_cosmology", "you cannot have both Omega_nu and nu_mass_eV in the arguments", "stop")
+       endif
+       if(nu_mass_eV .gt. 1.d-3)then
+          call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu()-1)))
+          call this%add_species(coop_neutrinos_massive(this%Omega_nu_per_species_from_mnu_eV(nu_mass_eV), this%Omega_massless_neutrinos_per_species()))
+       else
+          call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu())))
+       endif
+    elseif(present(Omega_nu))then
+       if(Omega_nu .gt. this%Omega_massless_neutrinos_per_species()*1.01d0)then
+          call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu()-1)))
+          call this%add_species(coop_neutrinos_massive(Omega_nu, this%Omega_massless_neutrinos_per_species()))
+       else
+          call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu())))
+       endif
+    else
+       call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu())))
+    endif
+    call this%add_species(coop_cdm(omega_c))
+    call coop_background_add_EFT_DE(this, wp1, alphaM, err)
+    if(err .ne. 0)then
+       write(*,*) "Warning: EFT DE settings failed"
+       call this%set_h(0.d0)
+       return
+    endif
+    this%de_genre = COOP_PERT_EFT
+    if(present(alphaB))then
+       this%f_alpha_B =  alphaB
+    endif
+    if(present(alphaK))then
+       this%f_alpha_K = alphaK
+    endif
+    if(present(alphaT))then
+       this%f_alpha_T = alphaT
+    endif
+    if(present(alphaH))then
+       this%f_alpha_H = alphaH
+    endif
+    call this%setup_background()
+    this%optre = tau_re
+    call this%set_xe()
+    if(present(As).or.present(ns) .or. present(nrun) .or. present(r) .or. present(nt) .or. present(inflation_consistency))then
+       if(present(As))then
+          this%As = As
+       else
+          this%As = 1.d0
+       endif
+       if(present(ns))then
+          this%ns = ns
+       else
+          this%ns = 1.d0
+       endif
+       if(present(nrun))then
+          this%nrun = nrun
+       else
+          this%nrun = 0.d0
+       endif
+       if(present(r))then
+          this%r = r
+       else
+          this%r = 0.d0
+       endif
+       if(present(nt))then
+          this%nt = nt
+       else
+          this%nt = 0.d0
+       endif
+       if(present(inflation_consistency))then
+          this%inflation_consistency = inflation_consistency 
+       else
+          this%inflation_consistency = .true.
+       endif
+       call this%set_standard_power(this%As, this%ns, this%nrun, this%r, this%nt, this%inflation_consistency)
+    endif
+  end subroutine coop_cosmology_firstorder_set_EFT_cosmology
+#endif
   
   
 end module coop_firstorder_mod

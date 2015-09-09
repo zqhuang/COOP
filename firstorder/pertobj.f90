@@ -137,16 +137,11 @@ contains
           T0i = T0i + (pert%rhoa2_nu + pert%pa2_nu) * sum(Fmnu1*coop_pert_default_q_kernel)*pert%num_mnu_ratio/4.d0 
        endif
     endif
-    select case(pert%de%genre)
-    case (COOP_PERT_NONE)
-       !!do nothing
 #if DO_EFT_DE       
-    case(COOP_PERT_EFT)
-       T0i = T0i/pert%M2 + 2.d0* (pert%alpha_B *pert%O1_DE_HPIPR - (pert%u + pert%alpha_B * pert%HdotbyHsq)*pert%O1_DE_HPI)*pert%k*pert%aH
+    T0i = T0i/pert%M2 + 2.d0* (pert%alpha_B *pert%O1_DE_HPIPR - (pert%u + pert%alpha_B * pert%HdotbyHsq)*pert%O1_DE_HPI)*pert%k*pert%aH
+#elif DO_COUPLED_DE
+    T0i = T0i + pert%de_phidot*pert%a*pert%k*pert%O1_DELTA_PHI
 #endif       
-    case default
-       call coop_tbw("T0i: de perturbations not written")
-    end select
 
   end function coop_pert_object_delta_T0ia2
 
@@ -340,19 +335,12 @@ contains
                lmax = lmax_massivenu, q = coop_pert_default_q(iq), mass = nu_mass )
        endif
     enddo
-     
-    !!dark energy
+
     if(present(de_genre))then
+       !!dark energy
        select case(de_genre)
-       case(COOP_PERT_NONE)
-          call this%de%set_defaults(genre = de_genre, m = m, s = 0, &
-               index = this%massivenu(coop_pert_default_nq)%last_index + 1, &
-               lmax = -1, q = 1.d0, mass = 0.d0)
-       case(COOP_PERT_PERFECT_FLUID)
-          call this%de%set_defaults(genre = de_genre, m = m, s = 0, &
-               index = this%massivenu(coop_pert_default_nq)%last_index + 1, &
-               lmax = 1, q = 1.d0, mass = 0.d0)
-       case(COOP_PERT_SCALAR_FIELD, COOP_PERT_EFT) 
+#if DO_EFT_DE
+       case(COOP_PERT_EFT)          
           if(m.eq.0)then
              call this%de%set_defaults(genre = de_genre, m = m, s = 0, &
                   index = this%massivenu(coop_pert_default_nq)%last_index + 1, &
@@ -362,13 +350,27 @@ contains
                   index = this%massivenu(coop_pert_default_nq)%last_index + 1, &
                   lmax = 1, q = 1.d0, mass = 0.d0)
           endif
-       case default
-          call coop_return_error("pert_initialize", "unknown genre "//trim(coop_num2str(this%de%genre)), "stop")
+#elif DO_COUPLED_DE
+       case(COOP_PERT_SCALAR_FIELD)
+          if(m .eq. 0)then
+             call this%de%set_defaults(genre = de_genre, m = m, s = 0, &
+                  index = this%massivenu(coop_pert_default_nq)%last_index + 1, &
+                  lmax = 1, q = 1.d0, mass = 0.d0)
+          else
+             call this%de%set_defaults(genre = COOP_PERT_NONE, m = m, s = 0, &
+                  index = this%massivenu(coop_pert_default_nq)%last_index + 1, &
+                  lmax = 1, q = 1.d0, mass = 0.d0)
+          endif
+#endif
+       case default  !!lambda
+          call this%de%set_defaults(genre = COOP_PERT_NONE, m = m, s = 0, &
+               index = this%massivenu(coop_pert_default_nq)%last_index + 1, &
+               lmax = -1, q = 1.d0, mass = 0.d0)
        end select
-    else
+    else  !!lambda
        call this%de%set_defaults(genre = COOP_PERT_NONE, m = m, s = 0, &
             index = this%massivenu(coop_pert_default_nq)%last_index + 1, &
-            lmax = 1, q = 1.d0, mass = 0.d0)
+            lmax = -1, q = 1.d0, mass = 0.d0)
     endif
     this%ny = this%de%last_index
     allocate(this%y(0:this%ny))
