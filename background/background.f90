@@ -6,7 +6,7 @@ module coop_background_mod
   private
   COOP_REAL,parameter::coop_min_de_tracking_n = 0.01d0
 
-  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_quintessence, coop_de_wp1_quintessence, coop_background_add_coupled_DE,  coop_background_add_EFT_DE, coop_de_aeq_fitting
+  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_quintessence, coop_de_wp1_quintessence, coop_background_add_coupled_DE,  coop_background_add_EFT_DE, coop_de_aeq_fitting, coop_de_alpha_invh2
 
 contains
 
@@ -46,12 +46,20 @@ contains
     COOP_REAL:: Omega_massless
     call this%init(genre = COOP_SPECIES_MASSIVE_FERMION, name = "Massive Neutrinos", id = 4, Omega=Omega_nu, Omega_massless = Omega_massless)
   end function coop_neutrinos_massive
+
   
   function coop_de_lambda(Omega_Lambda) result(this)
     type(coop_species) this
     COOP_REAL Omega_Lambda
     call this%init(genre = COOP_SPECIES_LAMBDA, name = "Dark Energy",id=5, Omega = Omega_Lambda, w = COOP_REAL_OF(-1.d0), cs2 = COOP_REAL_OF(1.d0))
   end function coop_de_lambda
+
+  function coop_de_general(Omega_Lambda, fwp1) result(this)
+    type(coop_species) this
+    COOP_REAL Omega_Lambda
+    type(coop_function)::fwp1
+    call this%init(genre = COOP_SPECIES_FLUID, name = "Dark Energy", id = 5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fwp1 = fwp1)
+  end function coop_de_general
   
   function coop_de_w0wa(Omega_Lambda, w0, wa) result(this)
     type(coop_species) this
@@ -65,7 +73,8 @@ contains
     w0wa = coop_arguments_constructor(r =  (/ w0, wa /))
     fw0wa = coop_function_constructor(coop_de_wp1_w0wa, xmin = coop_min_scale_factor, xmax = COOP_REAL_OF(1.), xlog = .true., args = w0wa, name = "w0wa model 1+w")
     call this%init(genre = COOP_SPECIES_FLUID, name = "Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fwp1 = fw0wa )
-    call w0wa%free
+    call w0wa%free()
+    call fw0wa%free()
   end function coop_de_w0wa
 
   function coop_de_w0(Omega_Lambda, w0) result(this)
@@ -97,6 +106,7 @@ contains
     fq = coop_function_constructor(coop_de_wp1_quintessence, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args = arg, name = "quintessence 1+w")
     call this%init(genre = COOP_SPECIES_FLUID, name = "Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fwp1 = fq )
     call arg%free
+    call fq%free
   end function coop_de_quintessence
 
   function coop_de_w_quintessence(a, arg) result(w)
@@ -487,9 +497,13 @@ contains
 #endif    
   end subroutine coop_background_add_EFT_DE  
 
+  function coop_de_alpha_invh2(a, arg) result(alpha)
+    type(coop_arguments)::arg  !! arg%r = (/ alpha0, Omega_m, Omega_r /) 
+    COOP_REAL::alpha
+    COOP_REAL::a
+    alpha = arg%r(1)*a**4/(arg%r(2)*a + arg%r(3) + (1.d0 - arg%r(2) - arg%r(3))*a**4)
+  end function coop_de_alpha_invh2
 
-
-  
   
   
 end module coop_background_mod

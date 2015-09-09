@@ -195,7 +195,6 @@ module coop_forecast_mod
      COOP_INT::index_omegab = 0     
      COOP_INT::index_omegak = 0
      COOP_INT::index_h = 0
-     
      COOP_INT::index_de_w = 0
      COOP_INT::index_de_wa = 0
      COOP_INT::index_de_epss = 0
@@ -203,10 +202,6 @@ module coop_forecast_mod
      COOP_INT::index_de_zetas = 0                    
 #if DO_COUPLED_DE     
      COOP_INT::index_de_Q = 0
-     COOP_INT::index_de_tracking_n = 0
-     COOP_INT::index_de_dUdphi = 0
-     COOP_INT::index_de_dlnQdphi = 0
-     COOP_INT::index_de_d2Udphi2 = 0
 #elif DO_EFT_DE     
      COOP_INT::index_de_alpha_M0 = 0
      COOP_INT::index_de_alpha_H0 = 0
@@ -265,8 +260,9 @@ contains
     class(coop_MCMC_params)::this
     COOP_REAL,parameter::omega_m_min = 0.15
     COOP_REAL,parameter::omega_m_max = 0.45   
-    COOP_REAL, parameter::h_b_i = 0.4d0
-    COOP_REAL, parameter::h_t_i =  1.d0
+    COOP_REAL, parameter::h_b_i = 0.45d0
+    COOP_REAL, parameter::h_t_i =  0.95d0
+    COOP_REAL, parameter::alpha_dep_Omega_m = 0.3d0
     COOP_INT::iloop
     COOP_REAL::h_t, h_b, h_m, theta_t, theta_b, theta_m, theta_want
     if(.not. associated(this%cosmology)) stop "MCMC_params_set_cosmology: cosmology not allocated"
@@ -316,7 +312,21 @@ contains
     else
        stop "you need to use either theta or h for MCMC runs"
     endif
-
+#if DO_EFT_DE    
+    if(this%index_de_alpha_K0 .ne. 0)then
+       this%f_alpha_K = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ this%fullparams(this%index_de_alpha_K0), alpha_dep_Omega_m, this%cosmology%Omega_radiation() + this%cosmology%Omega_massless_neutrinos() /) ) , name = "EFT DE alpha_K")
+    endif
+    if(this%index_de_alpha_B0 .ne. 0)then
+       this%f_alpha_B = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ this%fullparams(this%index_de_alpha_B0), alpha_dep_Omega_m, this%cosmology%Omega_radiation() + this%cosmology%Omega_massless_neutrinos() /) ) , name = "EFT DE alpha_B")
+    endif
+    if(this%index_de_alpha_H0 .ne. 0)then
+       this%f_alpha_H = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ this%fullparams(this%index_de_alpha_H0), alpha_dep_Omega_m, this%cosmology%Omega_radiation() + this%cosmology%Omega_massless_neutrinos() /) ) , name = "EFT DE alpha_H")
+    endif
+    if(this%index_de_alpha_T0 .ne. 0)then
+       this%f_alpha_T = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ this%fullparams(this%index_de_alpha_T0), alpha_dep_Omega_m, this%cosmology%Omega_radiation() + this%cosmology%Omega_massless_neutrinos() /) ) , name = "EFT DE alpha_T")
+    endif
+#endif    
+    
     call this%cosmology%setup_background()
     if(this%index_tau .ne. 0)then !!
        this%cosmology%optre = this%fullparams(this%index_tau)
@@ -392,8 +402,9 @@ contains
 
     subroutine setforH(h)
       COOP_REAL::h
-      COOP_REAL::Q, dlnQdphi, dUdphi, d2Udphi2, tracking_n, w, wa, epsilon_s, epsilon_inf, zeta_s
+      COOP_REAL::Q, w, wa, epsilon_s, epsilon_inf, zeta_s
       COOP_INT::err
+      type(coop_function)::fQ, fwp1
       call this%cosmology%free()
       call this%cosmology%init(name = "Cosmology", id = 0, h = h)
       this%cosmology%ombh2 =this%fullparams(this%index_ombh2)
@@ -404,6 +415,9 @@ contains
       call this%cosmology%add_species(coop_radiation(this%cosmology%Omega_radiation()))
       !!neutrinos
       if(this%index_mnu .ne. 0)then
+#if DO_EFT_DE
+         stop "For EFT DE model massive neutrinos are not implemented yet."
+#endif         
          if(this%fullparams(this%index_mnu).gt. 0.01d0)then  !!do massive neutrinos
             call this%cosmology%add_species(coop_neutrinos_massive( &
                  this%cosmology%Omega_nu_per_species_from_mnu_eV( this%fullparams(this%index_mnu) ) ,&
@@ -416,26 +430,67 @@ contains
          call this%cosmology%add_species( coop_neutrinos_massless(this%cosmology%Omega_massless_neutrinos()))  
       endif
 
-      if(this%index_de_epss .ne. 0)then
-         epsilon_s = this%fullparams(this%index_de_epss)
+      if(this%index_de_epss .ne. 0 .or. this%index_de_epsinf .ne. 0 .or. this%index_de_zetas .ne. 0)then
+         if(this%index_de_epss .ne. 0)then
+            epsilon_s = this%fullparams(this%index_de_epss)
+         else
+            epsilon_s = 0.d0
+         endif
+         if(this%index_de_epsinf .ne. 0)then
+            epsilon_inf = this%fullparams(this%index_de_epsinf)
+         else
+            epsilon_inf = 0.01d0
+         endif
+         if(this%index_de_zetas .ne. 0)then
+            zeta_s = this%fullparams(this%index_de_zetas)
+         else
+            zeta_s = 0.d0
+         endif
+         fwp1 = coop_function_constructor(coop_de_wp1_quintessence, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args = coop_arguments_constructor( r = (/ this%cosmology%Omega_k()  - this%cosmology%omch2/h**2, epsilon_s, epsilon_inf, zeta_s /) ), name = "DE 1+w")
       else
-         epsilon_s = 0.d0
-      endif
-      if(this%index_de_epsinf .ne. 0)then
-         epsilon_inf = this%fullparams(this%index_de_epsinf)
-      else
-         epsilon_inf = 0.01d0
-      endif
-      if(this%index_de_zetas .ne. 0)then
-         zeta_s = this%fullparams(this%index_de_zetas)
-      else
-         zeta_s = 0.d0
+         if(this%index_de_w .ne. 0)then
+            w = this%fullparams(this%index_de_w)
+            if(this%index_de_wa .ne. 0)then
+               wa = this%fullparams(this%index_de_wa)
+            else
+               wa = 0.d0
+            endif
+         else
+            w = -1.d0
+            wa = 0.d0
+         endif
+         call fwp1%init_polynomial( (/ 1.d0 + w + wa, - wa /) )
       endif
       
 #if DO_EFT_DE
-      stop "set_for_H: EFT_DE needs to be done"
+      call this%cosmology%add_species(coop_cdm(this%cosmology%omch2/h**2))
+      
+      if(this%index_de_alpha_M0 .ne. 0)then
+         call args%init ( r = (/ this%fullparams(this%index_de_alpha_M0), alpha_dep_Omega_m, this%cosmology%Omega_radiation() + this%cosmology%Omega_massless_neutrinos() /) )         
+         call coop_background_add_EFT_DE(this%cosmology, wp1 = fwp1, alpha_M = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= args, name = "EFT DE alpha_M"), err = err)
+         if(err .ne. 0) then
+            call this%cosmology%set_h(0.d0)
+            call fwp1%free()
+            return
+         endif
+      else
+         call this%cosmology%add_species(coop_de_general(this%cosmology%Omega_k(), fwp1))
+      endif
+      cosmology%de_genre = COOP_PERT_EFT
+      call args%free()
 #elif DO_COUPLED_DE
-      stop "set_for_H: COUPLED_DE needs to be done"
+      if(this%index_de_Q .ne. 0)then
+         Q = this%fullparams(this%index_de_Q)
+      else
+         Q = 0.d0
+      endif
+      call fQ%init_polynomial( (/ Q /) )
+      call coop_background_add_coupled_DE(this%cosmology, Omega_c = this%cosmology%omch2/h**2, fwp1 = fwp1, fQ = fQ, err = err)
+      if(err .ne. 0)then
+         call this%cosmology%set_h(0.d0)
+      endif
+      this%cosmology%de_genre = COOP_PERT_SCALAR_FIELD      
+      call fQ%free()
 #else      
       call this%cosmology%add_species(coop_cdm(this%cosmology%omch2/h**2))
       if(this%index_de_w .ne. 0)then
@@ -449,7 +504,8 @@ contains
       else
          call this%cosmology%add_species(coop_de_lambda(this%cosmology%Omega_k()))                           
       endif
-#endif      
+#endif
+100   call fwp1%free()      
     end subroutine setforH
 
   end subroutine coop_MCMC_params_Set_Cosmology
@@ -1468,14 +1524,9 @@ contains
     this%index_de_alpha_K0 = this%index_of("de_alpha_K0")
     this%index_de_alpha_T0 = this%index_of("de_alpha_T0")    
     this%index_de_alpha_B0 = this%index_of("de_alpha_B0")
-#elseif DO_COUPLED_DE
+#elif DO_COUPLED_DE
     this%index_de_Q = this%index_of("de_Q")
-    this%index_de_tracking_n = this%index_of("de_tracking_n")
-    this%index_de_dUdphi = this%index_of("de_dUdphi")
-    this%index_de_dlnQdphi = this%index_of("de_dlnQdphi")
-    this%index_de_d2Udphi2 = this%index_of("de_d2Udphi2")
 #endif    
-    
     this%index_h = this%index_of("h")
     this%index_omegam = this%index_of("omegam")
     this%index_omegab = this%index_of("omegab")    

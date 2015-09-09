@@ -211,6 +211,13 @@ contains
        this%num_species = 0
        this%omega_k_value = 1.
        this%need_setup_background = .true.
+#if DO_EFT_DE
+       call this%f_alpha_M%free()
+       call this%f_alpha_H%free()
+       call this%f_alpha_T%free()
+       call this%f_alpha_B%free()       
+       call this%f_alpha_K%free()
+#endif       
     end select
   end subroutine coop_cosmology_free
 
