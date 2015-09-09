@@ -22,6 +22,9 @@ EFTONE: $(OBJ) eft_one_mode.o $(BACKGROUND)/libcoopbackground.a
 EFTCLS: $(OBJ) eft_cls.o $(BACKGROUND)/libcoopbackground.a 
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) eft_cls.o $(LINK)
 
+CPLDECLS: $(OBJ) cplde_cls.o $(BACKGROUND)/libcoopbackground.a 
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) cplde_cls.o $(LINK)
+
 FNL: 	$(OBJ) testfnl.o $(BACKGROUND)/libcoopbackground.a 
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testfnl.o $(LINK)
 
@@ -61,7 +64,7 @@ testZ: $(OBJ) testzeta.o $(BACKGROUND)/libcoopbackground.a
 
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test DOCLS OneMode TestEFT testZ Z3D MGR MCLS OneMode FNL
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test DOCLS OneMode TestEFT testZ Z3D MGR MCLS EFTONE EFTCLS TestCPLDE CPLDECLS FNL
 
 
 firstorder.o:	pertobj.o  ../include/firstorder_equations.h ../include/firstorder_source.h ../include/recfast_source.h ../include/recfast_head.h ../include/firstorder_basic_utils.h ../include/firstorder_ic.h ../include/firstorder_ic_EFT.h ../include/firstorder_equations_EFT.h

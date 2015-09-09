@@ -187,7 +187,7 @@ contains
     type(coop_function)::fQ, fwp1
     COOP_INT::err
 #if DO_COUPLED_DE
-    COOP_INT, parameter::ns = 8192
+    COOP_INT, parameter::ns = 12000
     type(coop_function)::fwp1effcdm, fwp1de, fwp1effde
     type(coop_ode)::ode
     type(coop_species)::de, cdm, deeff
