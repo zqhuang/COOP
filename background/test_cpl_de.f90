@@ -10,8 +10,8 @@ program bgtest
   COOP_INT::i, index_CDM , index_DE, err
   type(coop_ode)::ode
   type(coop_function)::fwp1, fQ
-  call fwp1%init_polynomial( (/ 0.d0, 0.2d0 /) )
-  call fQ%init_polynomial( (/ 0.d0 /) )
+  call fwp1%init_polynomial( (/ 0.2d0 /) )
+  call fQ%init_polynomial( (/ 0.4d0 /) )
   call bg%init(h=0.7d0)
   call bg%add_species(coop_baryon(omegab))
   call bg%add_species(coop_radiation(bg%Omega_radiation()))
@@ -28,7 +28,9 @@ program bgtest
      call ode%evolve(lnHeq, xend = 0.d0)
      print*, ode%y(1) - log(bg%Hratio(exp(ode%x)))
      print*, ode%y(2) - log(bg%species(index_DE)%density(exp(ode%x)))
-     print*, ode%y(3) - log(bg%species(index_CDM)%density(exp(ode%x)))          
+     print*, ode%y(3) - log(bg%species(index_CDM)%density(exp(ode%x)))
+     call coop_asy_plot_function(bg%species(index_DE)%cplde_dVdphibyH2_lna, "dVdphibyH2.txt")
+     call coop_asy_plot_function(bg%species(index_DE)%cplde_m2byH2_lna, "m2byH2.txt")     
   endif
   
 contains

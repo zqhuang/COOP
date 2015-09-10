@@ -265,6 +265,7 @@ contains
     COOP_REAL, parameter::alpha_dep_Omega_m = 0.3d0
     COOP_INT::iloop
     COOP_REAL::h_t, h_b, h_m, theta_t, theta_b, theta_m, theta_want
+    logical success
     if(.not. associated(this%cosmology)) stop "MCMC_params_set_cosmology: cosmology not allocated"
     if(this%index_theta .ne. 0)then
        theta_want = this%fullparams(this%index_theta)
@@ -360,9 +361,17 @@ contains
        endif
        call this%cosmology%set_standard_power(this%cosmology%As, this%cosmology%ns, this%cosmology%nrun, this%cosmology%r, this%cosmology%nt)
        if(this%lmax .gt. 1)then
-          call this%cosmology%compute_source(0)
+          call this%cosmology%compute_source(0, success = success)
+          if(.not. success)then
+             call this%cosmology%set_h(0.d0)
+             return
+          endif
           if(this%cosmology%has_tensor)then
-             call this%cosmology%compute_source(2)
+             call this%cosmology%compute_source(2, success = success)
+             if(.not. success)then
+                call this%cosmology%set_h(0.d0)
+                return
+             endif
           endif
           if(this%feedback .gt. 2) then
              write(*,*) "sources done"

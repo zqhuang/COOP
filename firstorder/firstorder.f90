@@ -399,7 +399,6 @@ contains
     type(coop_pert_object) pert
     COOP_REAL, dimension(:,:),allocatable::w
     logical,optional::do_test_energy_conservation, transfer_only, success
-    
     COOP_REAL c(24), T00, G00, T0i, G0i
     COOP_INT ind, i
     COOP_REAL tau_ini, lna, mnu_deltarho, mnu_deltav
@@ -440,7 +439,6 @@ contains
        class default
           stop "For compatibility with lower versions of gfortran, firstorder equations only works with type coop_cosmology_firstorder"
        end select
-          
        if(present(success))then
           if(.not. all(abs(pert%y).lt. 1.d30))then
              success = .false.
@@ -450,11 +448,11 @@ contains
        pert%want_source  = .false.              
        !!for energy conservation test:
        if(present(do_test_energy_conservation))then
-          T00 = pert%delta_T00a2()
-          T0i = pert%delta_T0ia2()
-          G00 = pert%delta_G00a2()
-          G0i = pert%delta_G0ia2()
           if(do_test_energy_conservation)then
+             T00 = pert%delta_T00a2()
+             T0i = pert%delta_T0ia2()
+             G00 = pert%delta_G00a2()
+             G0i = pert%delta_G0ia2()
              write(*,"(5E16.7)")  log(pert%a),T00, G00/T00-1.d0, T0i, G0i/T0i-1.d0
           endif
        endif

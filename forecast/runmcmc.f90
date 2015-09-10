@@ -129,19 +129,23 @@ program RunMC
         call mcmc%set_cosmology()
         call coop_prtsystime()             
      endif
-     write(*,*) "Computing likelihood"     
-     call coop_prtsystime(.true.)
-     loglike = pool%loglike(mcmc)
-     call coop_prtsystime()     
-     write(*,*) "-ln(likelihood) = ", loglike
-     if(iargc().ge.3)then
-        call fp%open(trim(mcmc%prefix)//".log", "a")        
-        write(fp%unit, "(2G16.7)") pvalue, loglike        
+     if(mcmc%cosmology%h() .eq. 0.d0) then
+        write(*,*) "-ln(likelihood) = \infty"
      else
-        call fp%open(trim(mcmc%prefix)//".log", "w")        
-        write(fp%unit, "(G16.7)") loglike
+        write(*,*) "Computing likelihood"     
+        call coop_prtsystime(.true.)
+        loglike = pool%loglike(mcmc)
+        call coop_prtsystime()     
+        write(*,*) "-ln(likelihood) = ", loglike
+        if(iargc().ge.3)then
+           call fp%open(trim(mcmc%prefix)//".log", "a")        
+           write(fp%unit, "(2G16.7)") pvalue, loglike        
+        else
+           call fp%open(trim(mcmc%prefix)//".log", "w")        
+           write(fp%unit, "(G16.7)") loglike
+        endif
+        call fp%close()
      endif
-     call fp%close()
   case("MCMC", "mcmc")
      if(mcmc%feedback .gt. 2) write(*,*) "Starting MCMC on Node #"//COOP_STR_OF(mcmc%proc_id)
      do i = 1, mcmc%total_steps
