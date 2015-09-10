@@ -4282,7 +4282,7 @@ contains
        endif
     enddo
     if(iM .ne. this%nMT .or. ic .ne. this%ncT) stop "inpaint_start: unknown error"
-    allocate(cov(this%nMT+this%ncT, this%nMT+this%ncT), covcopy(this%nMT+this%ncT, this%nMT+this%ncT), )
+    allocate(cov(this%nMT+this%ncT, this%nMT+this%ncT), covcopy(this%nMT+this%ncT, this%nMT+this%ncT))
     do i = 0, this%lM%npix-1
        do j = 0, i
           if(this%iiMT(i) .eq. 0)then
