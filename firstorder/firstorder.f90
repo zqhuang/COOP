@@ -10,7 +10,7 @@ module coop_firstorder_mod
 
 
   !!this makes the code faster and more accurate
-  logical,parameter:: coop_firstorder_optimize = .false.
+  logical,parameter:: coop_firstorder_optimize = .true.
   COOP_INT, parameter::coop_limber_ell = 600
   logical,parameter::coop_do_limber_separately = .true.      
   
