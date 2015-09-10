@@ -315,16 +315,16 @@ contains
     endif
 #if DO_EFT_DE    
     if(this%index_de_alpha_K0 .ne. 0)then
-       this%f_alpha_K = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ this%fullparams(this%index_de_alpha_K0), alpha_dep_Omega_m, this%cosmology%Omega_radiation() + this%cosmology%Omega_massless_neutrinos() /) ) , name = "EFT DE alpha_K")
+       this%cosmology%f_alpha_K = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ this%fullparams(this%index_de_alpha_K0), alpha_dep_Omega_m, this%cosmology%Omega_radiation() + this%cosmology%Omega_massless_neutrinos() /) ) , name = "EFT DE alpha_K")
     endif
     if(this%index_de_alpha_B0 .ne. 0)then
-       this%f_alpha_B = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ this%fullparams(this%index_de_alpha_B0), alpha_dep_Omega_m, this%cosmology%Omega_radiation() + this%cosmology%Omega_massless_neutrinos() /) ) , name = "EFT DE alpha_B")
+       this%cosmology%f_alpha_B = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ this%fullparams(this%index_de_alpha_B0), alpha_dep_Omega_m, this%cosmology%Omega_radiation() + this%cosmology%Omega_massless_neutrinos() /) ) , name = "EFT DE alpha_B")
     endif
     if(this%index_de_alpha_H0 .ne. 0)then
-       this%f_alpha_H = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ this%fullparams(this%index_de_alpha_H0), alpha_dep_Omega_m, this%cosmology%Omega_radiation() + this%cosmology%Omega_massless_neutrinos() /) ) , name = "EFT DE alpha_H")
+       this%cosmology%f_alpha_H = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ this%fullparams(this%index_de_alpha_H0), alpha_dep_Omega_m, this%cosmology%Omega_radiation() + this%cosmology%Omega_massless_neutrinos() /) ) , name = "EFT DE alpha_H")
     endif
     if(this%index_de_alpha_T0 .ne. 0)then
-       this%f_alpha_T = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ this%fullparams(this%index_de_alpha_T0), alpha_dep_Omega_m, this%cosmology%Omega_radiation() + this%cosmology%Omega_massless_neutrinos() /) ) , name = "EFT DE alpha_T")
+       this%cosmology%f_alpha_T = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ this%fullparams(this%index_de_alpha_T0), alpha_dep_Omega_m, this%cosmology%Omega_radiation() + this%cosmology%Omega_massless_neutrinos() /) ) , name = "EFT DE alpha_T")
     endif
 #endif    
     
@@ -473,10 +473,9 @@ contains
       
 #if DO_EFT_DE
       call this%cosmology%add_species(coop_cdm(this%cosmology%omch2/h**2))
-      
       if(this%index_de_alpha_M0 .ne. 0)then
-         call args%init ( r = (/ this%fullparams(this%index_de_alpha_M0), alpha_dep_Omega_m, this%cosmology%Omega_radiation() + this%cosmology%Omega_massless_neutrinos() /) )         
-         call coop_background_add_EFT_DE(this%cosmology, wp1 = fwp1, alpha_M = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= args, name = "EFT DE alpha_M"), err = err)
+         call coop_background_add_EFT_DE(this%cosmology, wp1 = fwp1, alpha_M = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., &
+              args= coop_arguments_constructor( r = (/ this%fullparams(this%index_de_alpha_M0), alpha_dep_Omega_m, this%cosmology%Omega_radiation() + this%cosmology%Omega_massless_neutrinos() /) )  , name = "EFT DE alpha_M"), err = err)
          if(err .ne. 0) then
             call this%cosmology%set_h(0.d0)
             call fwp1%free()
@@ -485,8 +484,7 @@ contains
       else
          call this%cosmology%add_species(coop_de_general(this%cosmology%Omega_k(), fwp1))
       endif
-      cosmology%de_genre = COOP_PERT_EFT
-      call args%free()
+      this%cosmology%de_genre = COOP_PERT_EFT
 #elif DO_COUPLED_DE
       if(this%index_de_Q .ne. 0)then
          Q = this%fullparams(this%index_de_Q)
