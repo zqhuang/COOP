@@ -88,7 +88,7 @@
        O1_DELTA_C_PRIME = - O1_V_C * pert%kbyaH + 3.d0 * O1_PSI_PRIME
        O1_DELTA_B_PRIME = - O1_V_B * pert%kbyaH + 3.d0 * O1_PSI_PRIME
        O1_T_PRIME(0) = (- O1_T(1) * pert%kbyaH/3.d0 + 4.d0 * O1_PSI_PRIME)*pert%latedamp
-       O1_NU_PRIME(0) = - O1_NU(1) * pert%kbyaH/3.d0 + 4.d0 * O1_PSI_PRIME
+       O1_NU_PRIME(0) = (- O1_NU(1) * pert%kbyaH/3.d0 + 4.d0 * O1_PSI_PRIME)*pert%latedamp
 
        if(pert%tight_coupling)then
           pert%T%F(2) = (8.d0/9.d0)*ktauc * O1_T(1)
@@ -118,7 +118,7 @@
        pert%delta_gamma = pert%latedamp * O1_T(0) - 4.d0*(1.d0-pert%latedamp)*(O1_PHI + O1_V_B/ktauc)
        !!velocities
        O1_V_C_PRIME = - O1_V_C + pert%kbyaH * O1_PHI
-       O1_NU_PRIME(1) = (O1_NU(0) + 4.d0*O1_PHI - 0.4d0 * O1_NU(2))*pert%kbyaH
+       O1_NU_PRIME(1) = ((O1_NU(0) + 4.d0*O1_PHI - 0.4d0 * O1_NU(2))*pert%kbyaH)*pert%latedamp
        do iq=1, pert%massivenu_iq_used
           O1_MASSIVENU_PRIME(1, iq) = (O1_MASSIVENU(0, iq)*qbye(iq) + 4.d0*O1_PHI/qbye(iq) - 0.4d0 * O1_MASSIVENU(2, iq)*qbye(iq)) * pert%kbyaH
        enddo
@@ -129,10 +129,10 @@
        !!higher moments
        !!massless neutrinos
        do l = 2, pert%nu%lmax - 1
-          O1_NU_PRIME(l) =  pert%kbyaH * (cosmology%klms_by_2lm1(l, 0, 0) *   O1_NU( l-1 ) - cosmology%klms_by_2lp1(l+1, 0, 0) *  O1_NU( l+1 ) )
+          O1_NU_PRIME(l) =  (pert%kbyaH * (cosmology%klms_by_2lm1(l, 0, 0) *   O1_NU( l-1 ) - cosmology%klms_by_2lp1(l+1, 0, 0) *  O1_NU( l+1 ) ))*pert%latedamp
        enddo
 
-       O1_NU_PRIME(pert%nu%lmax) = pert%kbyaH * (pert%nu%lmax +0.5d0)/(pert%nu%lmax-0.5d0)*  O1_NU(pert%nu%lmax-1) -  (pert%nu%lmax+1)* O1_NU(pert%nu%lmax)/(aHtau)
+       O1_NU_PRIME(pert%nu%lmax) = (pert%kbyaH * (pert%nu%lmax +0.5d0)/(pert%nu%lmax-0.5d0)*  O1_NU(pert%nu%lmax-1) -  (pert%nu%lmax+1)* O1_NU(pert%nu%lmax)/(aHtau))*pert%latedamp
 
        if(cosmology%index_massivenu .ne. 0)then
           !!massive neutrinos
@@ -261,13 +261,13 @@
        O1_TEN_HPR_PRIME = -(2.d0+pert%daHdtau/aHsq)*O1_TEN_HPR &
             - pert%kbyaH**2 * O1_TEN_H &
             + 0.4d0/aHsq * aniso
-       O1_NU_PRIME(2) =  pert%kbyaH * ( - cosmology%klms_by_2lp1(3, 2, 0) *  O1_NU( 3 ) ) - 4.d0*O1_TEN_HPR
+       O1_NU_PRIME(2) =  (pert%kbyaH * ( - cosmology%klms_by_2lp1(3, 2, 0) *  O1_NU( 3 ) ) - 4.d0*O1_TEN_HPR)*pert%latedamp
        do l = 3, pert%nu%lmax - 1
-          O1_NU_PRIME(l) =  pert%kbyaH * (cosmology%klms_by_2lm1(l, 2, 0) *   O1_NU( l-1 ) - cosmology%klms_by_2lp1(l+1, 2, 0) *  O1_NU( l+1 ) )
+          O1_NU_PRIME(l) =  (pert%kbyaH * (cosmology%klms_by_2lm1(l, 2, 0) *   O1_NU( l-1 ) - cosmology%klms_by_2lp1(l+1, 2, 0) *  O1_NU( l+1 ) ))*pert%latedamp
        enddo
 
-       O1_NU_PRIME(pert%nu%lmax) = pert%kbyaH * (pert%nu%lmax-2.d0/pert%nu%lmax+0.5d0)/(pert%nu%lmax-2.d0/pert%nu%lmax-0.5d0)*  O1_NU(pert%nu%lmax-1) &
-            -  (pert%nu%lmax-2.d0/pert%nu%lmax+1)* O1_NU(pert%nu%lmax)/(aHtau)
+       O1_NU_PRIME(pert%nu%lmax) = (pert%kbyaH * (pert%nu%lmax-2.d0/pert%nu%lmax+0.5d0)/(pert%nu%lmax-2.d0/pert%nu%lmax-0.5d0)*  O1_NU(pert%nu%lmax-1) &
+            -  (pert%nu%lmax-2.d0/pert%nu%lmax+1)* O1_NU(pert%nu%lmax)/(aHtau))*pert%latedamp
 
        if(cosmology%index_massivenu .ne. 0 .and. .not. pert%massivenu_cold)then
           !!massive neutrinos
@@ -299,8 +299,8 @@
           do l=3, pert%E%lmax -1
              O1_E_PRIME(l) = (pert%kbyah * (cosmology%klms_by_2lm1(l, 2, 2) * O1_E(l-1) &
                   - cosmology%fourbyllp1(l)*O1_B(l) &
-                  - cosmology%klms_by_2lp1(l+1, 2, 2) * O1_E(l+1)) - O1_E(l)/aHtauc
-             O1_B_PRIME(l) = pert%kbyah * (cosmology%klms_by_2lm1(l, 2, 2) * O1_B(l-1) + cosmology%fourbyllp1(l)*O1_E(l)- cosmology%klms_by_2lp1(l+1, 2, 2) * O1_B(l+1)) -  O1_B(l)/aHtauc)*pert%latedamp
+                  - cosmology%klms_by_2lp1(l+1, 2, 2) * O1_E(l+1)) - O1_E(l)/aHtauc)*pert%latedamp
+             O1_B_PRIME(l) = (pert%kbyah * (cosmology%klms_by_2lm1(l, 2, 2) * O1_B(l-1) + cosmology%fourbyllp1(l)*O1_E(l)- cosmology%klms_by_2lp1(l+1, 2, 2) * O1_B(l+1)) -  O1_B(l)/aHtauc)*pert%latedamp
           enddo
           O1_E_PRIME(pert%E%lmax) = (pert%kbyah  *((pert%E%lmax-4.d0/pert%E%lmax+0.5d0)/(pert%E%lmax-4.d0/pert%E%lmax-0.5d0)) * O1_E(pert%E%lmax-1) &
                - cosmology%fourbyllp1(pert%E%lmax)*O1_B(pert%E%lmax) &
