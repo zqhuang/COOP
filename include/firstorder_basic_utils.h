@@ -1,3 +1,14 @@
+
+  function coop_cosmology_firstorder_late_damp_factor(this, k, tau) result(Gam)
+    class(coop_cosmology_firstorder)::this
+    COOP_REAL::k, Gam, tau
+    if(coop_firstorder_optimize)then
+       Gam = (1.d0 - tanh((k*tau-max(1000.d0, k*this%tau_late))/50.d0))/2.d0
+    else
+       Gam = 1.d0
+    endif
+  end function coop_cosmology_firstorder_late_damp_factor
+
   subroutine coop_cosmology_firstorder_init_source(this, m)
     class(coop_cosmology_firstorder)::this
     COOP_INT :: m
@@ -113,7 +124,7 @@
 
   subroutine coop_cosmology_firstorder_source_free(this)
     class(coop_cosmology_firstorder_source)::this
-    if(allocated(this%k))deallocate(this%k, this%dk, this%index_tc_off, this%kop,this%index_rad_off)
+	 if(allocated(this%k))deallocate(this%k, this%dk, this%index_tc_off, this%kop)
     this%nk = 0
     if(allocated(this%tau))deallocate(this%tau, this%chi, this%dtau, this%a, this%tauc, this%lna, this%omega_rad, this%vis, this%omega_de)
     this%ntau = 0
@@ -214,7 +225,8 @@
     this%bbks_keq =  (0.073*coop_SI_c/1.d5) * this%h_value * this%omega_m * exp(- this%omega_b - sqrt(2.*this%h_value)*this%omega_b/this%omega_m)
 
     this%tau_eq = this%conformal_time(this%a_eq)
-
+    this%tau_late = this%conformal_time(this%a_eq*5.d0)
+    
     this%dkappadtau_coef = this%species(this%index_baryon)%Omega * this%h() * coop_SI_sigma_thomson * (coop_SI_rhocritbyh2/coop_SI_c**2) * coop_SI_hbyH0 * coop_SI_c/ coop_SI_m_H * (1.d0 - this%YHe())
     if(this%do_reionization)then
        this%reionFrac = 1.d0 + this%YHe()/(coop_m_He_by_m_H * (1.d0-  this%YHe()))
@@ -560,13 +572,6 @@
        source%omega_de(i) = O0_DE(this)%rhoa4(source%a(i))/this%rhoa4(source%a(i))
     enddo
     !$omp end parallel do
-    source%index_rad_small = 0
-    do i = 1,  n 
-       if(source%omega_rad(i) .lt. coop_cosmology_firstorder_omega_rad_cutoff)then
-          source%index_rad_small = i
-          exit
-       endif
-    enddo
     source%index_vis_max = coop_maxloc(source%vis)
     source%index_vis_end = source%index_vis_max
     viscut = source%vis(source%index_vis_max)*0.003d0
@@ -592,15 +597,15 @@
     source%nk = n
     if(allocated(source%k))then
        if(size(source%k).ne.n)then
-          deallocate(source%k, source%dk, source%index_tc_off, source%kop, source%index_rad_off)
-          allocate(source%k(n), source%dk(n), source%index_tc_off(n), source%index_rad_off(n), source%kop(n))
+          deallocate(source%k, source%dk, source%index_tc_off, source%kop)
+          allocate(source%k(n), source%dk(n), source%index_tc_off(n),  source%kop(n))
        endif
        if(size(source%k_dense, 2).ne.n .or. size(source%k_dense, 1).ne. coop_k_dense_fac )then
           deallocate(source%k_dense, source%ws_dense, source%wt_dense, source%ps_dense)
           allocate(source%k_dense(coop_k_dense_fac, n), source%ws_dense(coop_k_dense_fac, n), source%wt_dense(coop_k_dense_fac, n), source%ps_dense(coop_k_dense_fac, n) )
        endif
     else
-       allocate(source%k(n), source%dk(n), source%index_tc_off(n), source%index_rad_off(n), source%kop(n))
+       allocate(source%k(n), source%dk(n), source%index_tc_off(n),  source%kop(n))
        allocate(source%k_dense(coop_k_dense_fac, n), source%ws_dense(coop_k_dense_fac, n), source%wt_dense(coop_k_dense_fac, n), source%ps_dense(coop_k_dense_fac, n) )
     endif
     do i=1, coop_k_dense_fac
@@ -612,7 +617,7 @@
 
 
     source%kmin = 0.4d0/this%distlss
-    source%kmax = (min(max(1500, coop_Cls_lmax(source%m)), 3000)*1.5d0)/this%distlss
+    source%kmax = (min(max(1500, coop_Cls_lmax(source%m)), 3000)*2.2d0)/this%distlss
     call source%k2kop(source%kmin, source%kopmin)
     call source%k2kop(source%kmax, source%kopmax)
     source%dkop = (source%kopmax-source%kopmin)/(n-1)
@@ -632,7 +637,7 @@
     enddo
     !$omp end parallel do
 
-    !!set index_tc_off, index_de_perturb_on, and index_rad_off
+    !!set index_tc_off, index_de_perturb_on
     if(source%ntau .gt. 0 .and. allocated(source%tauc))then
        !$omp parallel do private(tau_cut)
        do i = 1, n
@@ -644,15 +649,6 @@
        source%index_de_perturb_on = 1
        source%index_de_perturb_on = coop_right_index(source%ntau, source%omega_de, 1.d-5)       
        
-       if(coop_firstorder_optimize)then
-          !$omp parallel do
-          do i = 1, n
-             source%index_rad_off(i) = max(source%index_rad_small, source%index_tc_off(i)+1, coop_right_index_d(source%ntau, source%omega_rad, (source%k(i)/5.d2)**4))
-          enddo
-          !$omp end parallel do
-       else
-          source%index_rad_off = source%ntau + 1
-       endif
     else
        call coop_return_error("set_source_k", "You need to call set_source_tau before calling set_source_k", "stop")
     endif
@@ -762,60 +758,98 @@
   
   subroutine coop_cosmology_firstorder_source_get_transfer(source, l, trans)
     class(coop_cosmology_firstorder_source)::source
-    COOP_INT::l
+    COOP_INT::l, limber_start
     COOP_REAL,dimension(:,:,:)::trans
-    COOP_INT::n, ik, idense, itau, ii, nchis, ikcut, kchicut, itau_cut
-    COOP_REAL::jl, xmin, xmax, dchi, chis
-    COOP_REAL,dimension(:),allocatable::kmin, kmax, kfine
+    COOP_INT::n, ik, idense, itau, ikmin, ikmax, limber_ikmin, itau_cut
+    COOP_REAL::jl, xmin, chi_source, wl, wr, const,  kchicut, x
+
     if(size(trans,2).ne. coop_k_dense_fac .or. size(trans, 3).ne. source%nk .or. size(trans, 1) .ne. source%nsrc) call coop_return_error("get_transfer", "wrong size", "stop")
-    if(l.ge.coop_limber_ell)then
-       itau_cut = source%index_vis_end
-    else
-       itau_cut = source%ntau
-    endif
+    select case(source%m)
+    case(0)
+       limber_start = 3
+    case(2)
+       limber_start = 4
+    case default
+       stop "get_transfer: only m=0, 2 are implemented"
+    end select
     trans = 0.d0
-    call coop_jl_startpoint(l, xmin)
     call coop_jl_check_init(l)
-    xmax = (coop_jl_zero(l, 8)+coop_jl_zero(l, 9))/2.d0
-    allocate(kmin(source%ntau), kmax(source%ntau), kfine(source%ntau))
-    do itau = 1, itau_cut
-       kmin(itau) = xmin/source%chi(itau)
-       kmax(itau) = xmax/source%chi(itau)
-       kfine(itau) = 1.5d0/source%dtau(itau) !!k > kfine use fine grid
-    enddo
-    ikcut = source%nk
-    kchicut = min(max(l*2.8d0, 4000.d0), l*100.d0)
-    do while(source%k(ikcut) * source%chi(1) .gt. kchicut .and. ikcut .gt. 2)
-       ikcut = ikcut - 1
-    enddo
-    !$omp parallel do private(ik, itau, idense, jl, ii, dchi, nchis)
-    do ik=2, ikcut
-       do itau = source%index_vis_start, itau_cut
-          if(source%k(ik)*source%chi(itau) .lt. xmin) exit
-          if(source%k(ik) .lt. kfine(itau))then
-             do idense = 1, coop_k_dense_fac
-                jl = coop_jl(l, source%k_dense(idense, ik)*source%chi(itau))
-                trans(:, idense, ik) = trans(:, idense, ik) + jl* source%dtau(itau)* COOP_INTERP_SOURCE(source, :, idense, ik, itau) 
+    call coop_jl_startpoint(l, xmin)
+    ikmin = max( coop_right_index(source%nk, source%k, xmin/source%chi(source%index_vis_start)),  2 )
+    ikmax = min( source%nk,  ceiling(max(l*4.d0, 800.d0)/source%distlss) )
+    !!l < 20;  Want reionization; brute-force integral
+    if(l .lt. 100)then 
+       !$omp parallel do private(ik, itau, idense, jl, x)
+       do ik=ikmin, ikmax
+          do idense = 1, coop_k_dense_fac 
+             do itau = source%index_vis_start, source%ntau
+                x = source%k_dense(idense, ik)*source%chi(itau)
+                if(x .lt. xmin)exit
+                jl = coop_jl(l, x )
+                trans(:, idense, ik) = trans(:, idense, ik) + (jl* source%dtau(itau)) * COOP_INTERP_SOURCE(source, :, idense, ik, itau) 
              enddo
-          elseif(l.lt.coop_limber_ell)then
-             if(source%k(ik) .gt. kmin(itau) .and. source%k_dense(1,ik) .lt. kmax(itau))then            
-                do idense = 1, coop_k_dense_fac
-                   nchis = 1+ceiling(source%k_dense(idense, ik)*source%dtau(itau))
-                   dchi = source%dtau(itau)/(nchis*2+1)
-                   jl = 0.d0
-                   do ii = -nchis, nchis
-                      jl = jl + coop_jl(l, source%k_dense(idense, ik)*(source%chi(itau)+dchi*ii))
-                   enddo
-                   jl = jl/(2*nchis+1.d0)
-                   trans(:,idense, ik) = trans(:,idense, ik) + jl* source%dtau(itau)*COOP_INTERP_SOURCE(source, :, idense, ik, itau)
-                enddo
+          enddo
+       enddo
+       !$omp end parallel do
+       return
+    endif
+    const = sqrt(coop_pi/2.d0/l)        
+    if(l .lt. coop_limber_ell)then
+       !$omp parallel do private(ik, itau, idense, jl, x)
+       do ik=ikmin, ikmax
+          do idense = 1, coop_k_dense_fac 
+             do itau = source%index_vis_start, source%ntau
+                x = source%k_dense(idense, ik)*source%chi(itau)
+                if(x .lt. xmin)exit
+                jl = coop_jl(l, x )
+                trans(1:limber_start-1, idense, ik) = trans(1:limber_start-1, idense, ik) + (jl* source%dtau(itau)) * COOP_INTERP_SOURCE(source, 1:limber_start-1, idense, ik, itau) 
+             enddo
+          enddo
+       enddo
+       !$omp end parallel do
+       !$omp parallel do private(ik, itau, idense, chi_source, wl, wr)       
+       do ik = ikmin, ikmax
+          do idense = 1, coop_k_dense_fac
+             !limber contribution
+             chi_source = l/source%k_dense(idense, ik)
+             itau = coop_left_index(source%ntau, source%chi, chi_source)
+             if(itau .ge. 1 .and. itau .lt. source%ntau)then
+                wr = (source%chi(itau) - chi_source)/(source%chi(itau) - source%chi(itau + 1))
+                wl = 1.d0 - wr
+                trans(limber_start:source%nsrc, idense, ik) =  trans(limber_start:source%nsrc, idense, ik) + const/source%k_dense(idense, ik) *  (( COOP_INTERP_SOURCE(source, limber_start:source%nsrc, idense, ik, itau) *  wl + COOP_INTERP_SOURCE(source, limber_start:source%nsrc, idense, ik, itau+1) *  wr ))
+             endif
+          enddo
+       enddo
+       !$omp end parallel do
+       return
+    endif
+    !!otherwise it is a mixture of limber contribution and the contribution from last scattering surface:
+    !$omp parallel do private(ik, itau, idense, chi_source, wl, wr, x, jl)
+    do ik = ikmin, ikmax
+       do idense = 1, coop_k_dense_fac
+          !limber contribution
+          chi_source = l/source%k_dense(idense, ik)
+          itau = coop_left_index(source%ntau, source%chi, chi_source)
+          if(itau .ge. 1 .and. itau .lt. source%ntau)then
+             wr = (source%chi(itau) - chi_source)/(source%chi(itau) - source%chi(itau + 1))
+             wl = 1.d0 - wr
+             if(itau .gt. source%index_vis_end)then
+                trans(:, idense, ik) =  trans(:, idense, ik) + const/source%k_dense(idense, ik) *  ( COOP_INTERP_SOURCE(source, :, idense, ik, itau) *  wl + COOP_INTERP_SOURCE(source, :, idense, ik, itau+1) *  wr )
+             else
+                trans(limber_start:source%nsrc, idense, ik) =  trans(limber_start:source%nsrc, idense, ik) + const/source%k_dense(idense, ik) *  (( COOP_INTERP_SOURCE(source, limber_start:source%nsrc, idense, ik, itau) *  wl + COOP_INTERP_SOURCE(source, limber_start:source%nsrc, idense, ik, itau+1) *  wr ))            
              endif
           endif
+          !!recombination contribution
+          do itau = source%index_vis_start, source%index_vis_end
+             x = source%k_dense(idense, ik)*source%chi(itau)
+             if(x .lt. xmin)exit
+             jl = coop_jl(l, x )
+             trans(1:limber_start-1, idense, ik) = trans(1:limber_start-1, idense, ik) + (jl* source%dtau(itau)) * COOP_INTERP_SOURCE(source, 1:limber_start-1, idense, ik, itau) 
+
+          enddo
        enddo
     enddo
     !$omp end parallel do
-    deallocate(kmin, kmax, kfine)
-
   end subroutine coop_cosmology_firstorder_source_get_transfer
 
   subroutine coop_cosmology_firstorder_source_get_Cls_limber(source, l, Cls)

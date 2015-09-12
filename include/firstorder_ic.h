@@ -5,7 +5,6 @@
     COOP_REAL tau, k, Rnu
     pert%k = k
     pert%tight_coupling = .true.
-    pert%has_rad_pert = .true.
     call pert%init(m = m, nu_mass = this%mnu_by_Tnu, de_genre = this%de_genre)
     call pert%set_zero()
     

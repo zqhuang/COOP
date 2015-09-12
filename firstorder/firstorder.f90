@@ -11,8 +11,7 @@ module coop_firstorder_mod
 
   !!this makes the code faster and more accurate
   logical,parameter:: coop_firstorder_optimize = .true.
-  COOP_INT, parameter::coop_limber_ell = 600
-  logical,parameter::coop_do_limber_separately = .true.      
+  COOP_INT, parameter::coop_limber_ell = 550
   
   COOP_INT::coop_Cls_lmax(0:2) = (/ 2800, 2000, 1500 /)
 
@@ -22,7 +21,6 @@ module coop_firstorder_mod
   COOP_REAL, parameter :: coop_initial_condition_epsilon = 2.d-7
   COOP_REAL, parameter :: coop_cosmology_firstorder_ode_accuracy = 2.d-7
   COOP_REAL, parameter :: coop_cosmology_firstorder_tc_cutoff = 0.005d0
-  COOP_REAL, parameter ::  coop_cosmology_firstorder_omega_rad_cutoff = 0.02
 
 
   COOP_REAL, dimension(0:2), parameter::coop_source_tau_step_factor = (/ 1.d0, 1.d0, 1.d0 /)
@@ -70,10 +68,10 @@ module coop_firstorder_mod
      COOP_INT::nk = 0
      COOP_INT::nsrc = 0
      COOP_INT::nsaux = 0
-     COOP_INT, dimension(:),allocatable::index_tc_off, index_rad_off
+     COOP_INT, dimension(:),allocatable::index_tc_off
      COOP_INT::index_de_perturb_on
      COOP_INT, dimension(coop_pert_default_nq)::index_massivenu_on
-     COOP_INT::index_massivenu_cold, index_rad_small, index_vis_end, index_vis_max, index_vis_start
+     COOP_INT::index_massivenu_cold, index_vis_end, index_vis_max, index_vis_start
      COOP_REAL::dkop, kopmin, kopmax, kmin, kmax, kweight, tauweight, bbks_keq, bbks_trans_kmax, distlss, dkop_dense
      COOP_REAL,dimension(coop_k_dense_fac)::a_dense, b_dense, a2_dense, b2_dense
      COOP_REAL, dimension(:),allocatable::k, kop, dk !!tau is conformal time, chi is comoving distance; in flat case, chi + tau = tau_0
@@ -98,7 +96,7 @@ module coop_firstorder_mod
   
   type, extends(coop_cosmology_background) :: coop_cosmology_firstorder
      logical::do_reionization = .true.
-     COOP_REAL::zrecomb, distlss, tau0, zrecomb_start, maxvis, taurecomb, arecomb, zrecomb_end, arecomb_start, z_drag, z_star, r_drag, r_star
+     COOP_REAL::zrecomb, distlss, tau0, zrecomb_start, maxvis, taurecomb, arecomb, zrecomb_end, arecomb_start, z_drag, z_star, r_drag, r_star, tau_late
      COOP_REAL::optre = 0.07d0
      COOP_REAL::zre = 8.d0
      COOP_REAL::deltaz = 1.5d0
@@ -169,6 +167,7 @@ module coop_firstorder_mod
      procedure::sigma_Gaussian_R_with_dervs => coop_cosmology_firstorder_sigma_Gaussian_R_with_dervs
 
      procedure::growth_of_z => coop_cosmology_firstorder_growth_of_z
+     procedure::late_damp_factor => coop_cosmology_firstorder_late_damp_factor
      !!
   end type coop_cosmology_firstorder
 
@@ -229,7 +228,7 @@ contains
     class(coop_cosmology_firstorder_source)::source
     COOP_INT l
     COOP_REAL,dimension(coop_num_cls),intent(OUT)::Cls
-    COOP_REAL,dimension(coop_num_cls)::Cls_limber
+!    COOP_REAL,dimension(coop_num_cls)::Cls_limber
     COOP_REAL,dimension(:,:,:),allocatable::trans
     COOP_INT:: i, ik, idense
     COOP_REAL::tmp
@@ -243,23 +242,13 @@ contains
           Cls(coop_index_ClTE) = sqrt((l+2.d0)*(l+1.d0)*l*(l-1.d0))*sum(source%ws_dense * trans(coop_index_source_T, :, :)*trans(coop_index_source_E, :, :))*coop_4pi
           Cls(coop_index_ClEE) = (l+2.d0)*(l+1.d0)*l*(l-1.d0)*sum(source%ws_dense * trans(coop_index_source_E,:,:)**2)*coop_4pi
        endif
-       if(source%nsrc.ge.3 .and. ( l .lt. coop_limber_ell) )then
-          Cls(coop_index_ClLenLen) =  sum(source%ws_dense * trans(coop_index_source_Len, :, :)**2)*coop_4pi
-          Cls(coop_index_ClTLen) =  sum(source%ws_dense * trans(coop_index_source_T, :, :) * trans(coop_index_source_Len,:,:))*coop_4pi
-       endif
+       Cls(coop_index_ClLenLen) =  sum(source%ws_dense * trans(coop_index_source_Len, :, :)**2)*coop_4pi
+       Cls(coop_index_ClTLen) =  sum(source%ws_dense * trans(coop_index_source_T, :, :) * trans(coop_index_source_Len,:,:))*coop_4pi
 #if DO_ZETA_TRANS        
-       if(source%nsrc.ge.4 .and. l .lt. coop_limber_ell)then
-          Cls(coop_index_ClTzeta) = sum(source%ws_dense * trans(coop_index_source_T, :, :)*trans(coop_index_source_zeta,:,:))*coop_4pi
-          Cls(coop_index_ClEzeta) = sqrt((l+2.d0)*(l+1.d0)*l*(l-1.d0))*sum(source%ws_dense * trans(coop_index_source_E, :, :) * trans(coop_index_source_zeta,:,:))*coop_4pi
-          Cls(coop_index_Clzetazeta) = sum(source%ws_dense * trans(coop_index_source_zeta, :, :)**2)*coop_4pi
-       endif
+       Cls(coop_index_ClTzeta) = sum(source%ws_dense * trans(coop_index_source_T, :, :)*trans(coop_index_source_zeta,:,:))*coop_4pi
+       Cls(coop_index_ClEzeta) = sqrt((l+2.d0)*(l+1.d0)*l*(l-1.d0))*sum(source%ws_dense * trans(coop_index_source_E, :, :) * trans(coop_index_source_zeta,:,:))*coop_4pi
+       Cls(coop_index_Clzetazeta) = sum(source%ws_dense * trans(coop_index_source_zeta, :, :)**2)*coop_4pi
 #endif
-       if(l .ge. coop_limber_ell)then
-          call source%get_cls_limber(l, cls_limber)
-          Cls = Cls + Cls_limber
-       endif
-       Cls(coop_index_ClLenLen) =  Cls(coop_index_ClLenLen)*l*(l+1.d0)
-       Cls(coop_index_ClTLen) =  Cls(coop_index_ClLenLen)*l
     case(1)
        call coop_tbw("get_Cls: vector")
     case(2)
@@ -334,8 +323,6 @@ contains
     !$omp parallel do
     do l= lmin, lmax
        Cls(:, l) = Cls(:, l)/(l*(l+1.d0)*norm)
-       Cls(coop_index_ClLenLen, l) =  Cls(coop_index_ClLenLen, l)/(l*(l+1.d0))
-       Cls(coop_index_ClTLen, l) =  Cls(coop_index_ClLenLen, l)/l
     enddo
     !$omp end parallel do
 100 deallocate(ls_computed, Cls_computed,Cls2_computed)
@@ -453,7 +440,7 @@ contains
              T0i = pert%delta_T0ia2()
              G00 = pert%delta_G00a2()
              G0i = pert%delta_G0ia2()
-             write(*,"(5E16.7)")  log(pert%a),T00, G00/T00-1.d0, T0i, G0i/T0i-1.d0
+             write(*,"(20E16.7)")  log(pert%a),T00, G00/T00-1.d0, T0i, G0i/T0i-1.d0,  pert%delta_gamma, pert%O1_T(0)
           endif
        endif
        !!------------------------------------------------------------
@@ -500,25 +487,6 @@ contains
           end select
              
           pert%tight_coupling = .false.
-          call pert%init(m = source%m, nu_mass = this%mnu_by_Tnu, de_genre = this%de_genre, a = source%a(itau))
-          call pert%restore_ode()
-          ind = 1
-          c = 0.d0
-          deallocate(w)
-          nvars = pert%ny + 1
-          allocate(w(nvars, 9))
-       endif
-       if(itau .eq. source%index_rad_off(ik))then
-          call pert%save_ode()
-          select type(this)
-          type is(coop_cosmology_firstorder)
-             call coop_cosmology_firstorder_equations(pert%ny+1, lna, pert%y, pert%yp, this, pert)   !!set tight coupling apprixmations
-          class default
-             stop "For compatibility with lower versions of gfortran, firstorder equations only works with type coop_cosmology_firstorder"
-          end select
-             
-          pert%has_rad_pert  = .false.
-          if(this%index_massivenu .eq. 0) pert%has_nu_pert = .false.
           call pert%init(m = source%m, nu_mass = this%mnu_by_Tnu, de_genre = this%de_genre, a = source%a(itau))
           call pert%restore_ode()
           ind = 1

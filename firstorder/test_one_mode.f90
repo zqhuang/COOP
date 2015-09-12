@@ -2,41 +2,34 @@ program test
   use coop_wrapper_firstorder
   implicit none
 #include "constants.h"
-  COOP_REAL::Q0 = 0.d0
-  COOP_REAL::tracking_n = 0.01d0
-  COOP_INT, parameter::ntau = 1000
-  type(coop_cosmology_firstorder)::fod
-  COOP_REAL k
-  COOP_REAL tau(ntau)
-  type(coop_file)::fp
-  type(coop_asy)::fig
+  !!----------------------------------------
+  !!wave number k, because COOP uses fixed k arrays, the actual k will be the one that is closest to the following number
+  COOP_REAL::kMpc_want = 0.2d0
+
+  !!----------------------------------------
+  !! declare other variables  
+  type(coop_cosmology_firstorder)::cosmology
+  type(coop_function)::wp1, alphaM, alphaB, alphaK, alphaT, alphaH
+  logical::success
+  COOP_INT::ik
+  !!----------------------------------------
+  !!main code
+  !!----------------------------------------    
   !!initialize cosmology
-  call fod%set_standard_cosmology(Omega_b=0.0485374d0, Omega_c=0.2585497252d0, h = 0.67766d0, tau_re = 0.08193d0, As = 2.2098d-9, ns = 0.968d0, nrun = 0.d0, r = 0.d0, nt = -0.01d0, YHe = 0.248d0, Nnu = 3.d0, de_Q = Q0, de_tracking_n = tracking_n, de_dlnQdphi = 0.d0, de_dUdphi = 0.d0, de_d2Udphi2 = 0.d0 )
-  !!***************************************************
-  !! V = V0 / phi^n exp( C1  * phi + 1/2 C2 phi**2)
-  !! n = de_tracking_n;  C1 = de_dUdphi; C2 = de_d2Udphi2
-  !! V0 is determined by the condition Omega_k =0
-  !!***************************************************
-  !! Q = Q0 exp( A * phi)
-  !! Q0 = de_Q,  A = de_dlnQdphi
-  !!***************************************************
-
-
+  call cosmology%set_standard_cosmology(Omega_b=0.049d0, Omega_c=0.265d0, h = 0.68d0, tau_re = 0.06d0, As = 2.21d-9, ns = 0.968d0)
+  !!----------------------------------------    
   !!set k/H0  
-  k = 10.d0
-
-  !!set tau
-  call coop_set_uniform(ntau, tau, 5.d-3, fod%TAU0)
+  call cosmology%init_source(0)
+  ik = 1
+  do while(cosmology%source(0)%k(ik).lt. kMpc_want/cosmology%H0Mpc() .and. ik .lt. cosmology%source(0)%nk)
+     ik = ik + 1
+  enddo
+  write(*,*) "k [Mpc^{-1}] = ", cosmology%source(0)%k(ik)*cosmology%H0Mpc()
+  !!--------------solve mode k---------------
+  !!output are
+  write(*,"(5A16)") "# ln a",    " T00 ",  " T00/G00 - 1 ",   "T0i, T0i/G0i - 1"
   
+  call cosmology%compute_source_k(cosmology%source(0), ik, do_test_energy_conservation = .true., success = success)
+  if(.not. success)write(*,*) "Solution blows up exponentially. Model is ruled out."
   
-!!test energy conservation
-  call fod%init_source(0, k = (/ k /), tau = tau)
-  print*, fod%source(0)%ntau
-  call fod%compute_source_k(fod%source(0), 1, do_test_energy_conservation = .true.)
-  print*, fod%source(0)%saux(3, 1,  fod%source(0)%ntau),  fod%source(0)%saux(2, 1,  fod%source(0)%ntau)- fod%source(0)%saux(3, 1,  fod%source(0)%ntau)
-  
-  
-  
-
-
 end program test
