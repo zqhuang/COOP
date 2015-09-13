@@ -151,19 +151,19 @@ program RunMC
         call coop_dictionary_lookup(mcmc%settings, "cls_root", cls_output)
         if(trim(cls_output) .ne. "")then
            write(*,*) "saving Cl's to file: "//trim(cls_output)
-           call fp%open(cls_output//"_scalCls.txt", "w")
+           call fp%open(trim(cls_output)//"_scalCls.txt", "w")
            do l = 2, mcmc%lmax
               write(fp%unit, "(I8, 20E16.7)") l, mcmc%cls_scalar(:, l)*l*(l+1.d0)/coop_2pi
            enddo
            call fp%close()
            if(mcmc%cosmology%has_tensor)then
-              call fp%open(cls_output//"_tensCls.txt", "w")
+              call fp%open(trim(cls_output)//"_tensCls.txt", "w")
               do l = 2,mcmc%lmax
                  write(fp%unit, "(I8, 20E16.7)") l, mcmc%cls_tensor(:, l)*l*(l+1.d0)/coop_2pi
               enddo
               call fp%close()
            endif
-           call fp%open(cls_output//"_lensedCls.txt", "w")
+           call fp%open(trim(cls_output)//"_lensedCls.txt", "w")
            do l = 2, mcmc%lmax
               write(fp%unit, "(I8, 20E16.7)") l, mcmc%cls_lensed(:, l)*l*(l+1.d0)/coop_2pi
            enddo
