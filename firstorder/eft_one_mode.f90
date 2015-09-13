@@ -4,7 +4,7 @@ program test
 #include "constants.h"
   !!----------------------------------------
   !!wave number k, because COOP uses fixed k arrays, the actual k will be the one that is closest to the following number
-  COOP_REAL::kMpc_want = 0.0001d0
+  COOP_REAL::kMpc_want = 0.2d0
 
   !!background EOS
   COOP_REAL, parameter::w0 = -1.d0

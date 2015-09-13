@@ -83,7 +83,6 @@
        O1_DELTA_C_PRIME = - O1_V_C * pert%kbyaH + 3.d0 * O1_PSI_PRIME
        O1_DELTA_B_PRIME = - O1_V_B * pert%kbyaH + 3.d0 * O1_PSI_PRIME
        O1_T_PRIME(0) = (- O1_T(1) * pert%kbyaH/3.d0 + 4.d0 * O1_PSI_PRIME)*pert%latedamp
-       
        O1_NU_PRIME(0) = (- O1_NU(1) * pert%kbyaH/3.d0 + 4.d0 * O1_PSI_PRIME)*pert%latedamp
 
        if(pert%tight_coupling)then

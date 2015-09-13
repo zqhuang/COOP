@@ -63,8 +63,8 @@ subroutine coop_cosmology_firstorder_equations(n, lna, y, yp, cosmology, pert)
 
 
     
-    pert%rhoa2_sum = pert%rhoa2_g + pert%rhoa2_b + pert%rhoa2_c + pert%rhoa2_nu +pert%rhoa2_mnu+pert%rhoa2_de 
-    pert%pa2_sum = pert%pa2_g + pert%pa2_nu + pert%pa2_mnu + pert%pa2_de
+    pert%rhoa2_sum = pert%rhoa2_matter + pert%rhoa2_de 
+    pert%pa2_sum = pert%pa2_matter + pert%pa2_de
     aHsq = (pert%rhoa2_sum + cosmology%Omega_k())/3.d0/pert%M2  !!a^2H^2
     M2a2H2 = pert%M2 * aHsq
     pert%u = - (pert%rhoa2_de + pert%pa2_de)/(2.d0*M2a2h2)
@@ -103,10 +103,8 @@ subroutine coop_cosmology_firstorder_equations(n, lna, y, yp, cosmology, pert)
        O1_PSI_PRIME = O1_PSIPR
        O1_DELTA_C_PRIME = - O1_V_C * pert%kbyaH + 3.d0 * O1_PSI_PRIME
        O1_DELTA_B_PRIME = - O1_V_B * pert%kbyaH + 3.d0 * O1_PSI_PRIME
-	 O1_T_PRIME(0) = (- O1_T(1) * pert%kbyaH/3.d0 + 4.d0 * O1_PSI_PRIME)*pert%latedamp
-       pert%T%F(0) = O1_T(0)
+       O1_T_PRIME(0) = (- O1_T(1) * pert%kbyaH/3.d0 + 4.d0 * O1_PSI_PRIME)*pert%latedamp
        O1_NU_PRIME(0) = (- O1_NU(1) * pert%kbyaH/3.d0 + 4.d0 * O1_PSI_PRIME)*pert%latedamp
-       pert%nu%F(0) = O1_NU(0)
        if(pert%tight_coupling)then
           pert%T%F(2) = (8.d0/9.d0)*ktauc * O1_T(1)
           Uterm = - pert%aH * O1_V_B + (pert%cs2b * O1_DELTA_B - O1_T(0)/4.d0 +  pert%T%F(2)/10.d0)*pert%k
@@ -158,8 +156,8 @@ subroutine coop_cosmology_firstorder_equations(n, lna, y, yp, cosmology, pert)
        pert%deMat(i_mu, eq_psipp) =  (1.d0+pert%alpha_B) * pert%HdotbyHsq_prime &
             + pert%HdotbyHsq * (pert%alpha_B_prime+pert%HdotbyHsq - pert%u + 2.d0*pert%alpha_B - pert%alpha_K/6.d0 + (3.d0+pert%alpha_M+pert%HdotbyHsq)*(1.d0+pert%alpha_B))  &
             + pert%u - 2.d0*pert%pa2_matter/M2a2H2   &    !!here I am replacing p' with - 4p assuming no massive neutrinos
-            + pert%kbyaHsq*(pert%alpha_H - pert%alpha_B)/3.d0  
-
+            + pert%kbyaHsq*(pert%alpha_H - pert%alpha_B)/3.d0
+!       pert%deMat(i_mu, eq_psipp) = 0.d0
       pert%deMat(i_phi, eq_psipp) = 1.d0+2.d0*pert%HdotbyHsq - pert%u - pert%alpha_K/6.d0 + (2.d0+pert%HdotbyHsq)*pert%alpha_B + pert%alpha_B_prime + (3.d0+pert%alpha_M)*(1.d0+pert%alpha_B)
       pert%deMat(i_phip, eq_psipp) = 1.d0 + pert%alpha_B
       pert%deMat(i_const, eq_psipp)  =  - 0.5d0 * (O1_DELTA_B*pert%rhoa2_b/M2a2H2*(pert%cs2b - 1.d0/3.d0) + O1_DELTA_C * pert%rhoa2_c/M2a2H2*(-1.d0/3.d0)- 2.d0/3.d0 * pert%kbyaHsq * anisobyM2) &
@@ -248,8 +246,8 @@ subroutine coop_cosmology_firstorder_equations(n, lna, y, yp, cosmology, pert)
           psipr_th1 = (- O1_PHI - O1_PSI*(2.d0*pert%kbyahsq/auxs*auxt) - O1_DE_HPI*(pert%HdotbyHsq+2.d0*pert%kbyahsq/auxs*(auxt-pert%u)))
           psipr_th2 = (- pert%rhoa2_b*O1_DELTA_B &
                - pert%rhoa2_c*O1_DELTA_C &
-               - pert%rhoa2_g*pert%T%F(0) &
-               - pert%rhoa2_nu*pert%nu%F(0))/m2a2h2/6.d0 &             
+               - pert%rhoa2_g*O1_T(0) &
+               - pert%rhoa2_nu*O1_NU(0))/m2a2h2/6.d0 &             
                - O1_PHI-pert%kbyahsq/3.d0*(1.d0+pert%alpha_H)*O1_PSI - O1_DE_HPI*(pert%u+pert%kbyahsq*pert%alpha_H/3.d0)
           O1_PSIPR_PRIME = (- O1_PSIPR + (psipr_th1+psipr_th2*pert%kbyahsq)/(1.d0+pert%kbyahsq))*1.d4
           O1_DE_HPIPR_PRIME = 0.d0

@@ -24,7 +24,7 @@ program test
   !! declare other variables
   type(coop_cosmology_firstorder)::cosmology
   type(coop_function)::wp1, alphaM, alphaB, alphaK, alphaT, alphaH
-  COOP_INT, parameter::lmin = 2, lmax = 2500
+  COOP_INT, parameter::lmin = 2, lmax = 2850
   COOP_REAL::Cls(coop_num_Cls, lmin:lmax)
   COOP_REAL::norm, lnorm
   COOP_INT::l
@@ -56,8 +56,8 @@ program test
   if(.not. success) stop "Solution blows up exponentially; Model is ruled out."
   call cosmology%source(0)%get_all_cls(lmin, lmax, Cls)
   call fp%open(output,"w")
-  write(fp%unit, "(A8, 5A16)") "# ell ", "   TT  ",  "   EE  ",  "   TE   ", "Phi_lens Phi_lens ", " T Phi_lens  "
-  do l = lmin, lmax
+!  write(fp%unit, "(A8, 5A16)") "# ell ", "   TT  ",  "   EE  ",  "   TE   ", "Phi_lens Phi_lens ", " T Phi_lens  "
+  do l = lmin, lmax-100
      norm =cosmology%Tcmb()**2*1.d12
      lnorm =  l*(l+1.d0)/coop_2pi*norm
      write(fp%unit, "(I8, 5E16.7)") l, Cls(coop_index_ClTT, l)*lnorm,  Cls(coop_index_ClEE, l)*lnorm,  Cls(coop_index_ClTE, l)*lnorm,  Cls(coop_index_ClLenLen, l)*(l*(l+1.d0))**2*norm, Cls(coop_index_ClTLen, l)*(l*(l+1.d0))**1.5*norm

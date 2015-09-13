@@ -1547,7 +1547,11 @@ contains
     if(associated(pool%CMB%ClikLike))then  !!want cls
        this%lmax  = 0
        do i = 1, size(pool%CMB%ClikLike)
-          this%lmax = max(this%lmax, maxval(pool%CMB%ClikLike(i)%lmax))
+          if(pool%CMB%ClikLike(i)%is_lensing)then
+             this%lmax = max(this%lmax, maxval(pool%CMB%ClikLike(i)%lensing_lmaxs))             
+          else
+             this%lmax = max(this%lmax, maxval(pool%CMB%ClikLike(i)%lmax))
+          endif
        enddo
        this%lmax = this%lmax + 100 !!buffer for good lensing
        if(allocated(this%Cls_scalar))then
