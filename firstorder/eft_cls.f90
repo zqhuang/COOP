@@ -15,12 +15,18 @@ program test
   COOP_REAL, parameter::alpha_B0 = 0.d0
   COOP_REAL, parameter::alpha_H0 = 0.d0
   !!----------------------------------------
+  COOP_REAL, parameter::hub = 0.676d0 !! h = H_0/100
+  COOP_REAL, parameter::ombh2 = 0.022d0 !!Omega_b h^2
+  COOP_REAL, parameter::omch2 = 0.12d0   !!Omega_c h^2
+  COOP_REAL, parameter::tau_re = 0.08  !!optical depth
+  COOP_REAL, parameter::As = 2.219795d-9
+  COOP_REAL, parameter::ns = 0.96d0
   !! declare other variables
   type(coop_cosmology_firstorder)::cosmology
   type(coop_function)::wp1, alphaM, alphaB, alphaK, alphaT, alphaH
   COOP_INT, parameter::lmin = 2, lmax = 2500
   COOP_REAL::Cls(coop_num_Cls, lmin:lmax)
-  COOP_REAL::norm
+  COOP_REAL::norm, lnorm
   COOP_INT::l
   logical success
   type(coop_file)::fp
@@ -45,15 +51,16 @@ program test
   !!call alphaT%init_polynomial( (/ 0.d0, 0.d0, 0.d0, 0.d0, 0.d0 /) )
 
   !!initialize cosmology
-  call cosmology%set_EFT_cosmology(Omega_b=0.049d0, Omega_c=0.265d0, h = 0.68d0, tau_re = 0.06d0, As = 2.21d-9, ns = 0.968d0, wp1 = wp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT)
+  call cosmology%set_EFT_cosmology(Omega_b=ombh2/hub**2, Omega_c=omch2/hub**2, h = hub, tau_re = tau_re, As = As, ns = ns, wp1 = wp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT)
   call cosmology%compute_source(0, success = success)
   if(.not. success) stop "Solution blows up exponentially; Model is ruled out."
   call cosmology%source(0)%get_all_cls(lmin, lmax, Cls)
   call fp%open(output,"w")
   write(fp%unit, "(A8, 5A16)") "# ell ", "   TT  ",  "   EE  ",  "   TE   ", "Phi_lens Phi_lens ", " T Phi_lens  "
   do l = lmin, lmax
-     norm = l*(l+1.d0)/coop_2pi*cosmology%Tcmb()**2*1.d12
-     write(fp%unit, "(I8, 5E16.7)") l, Cls(coop_index_ClTT, l)*norm,  Cls(coop_index_ClEE, l)*norm,  Cls(coop_index_ClTE, l)*norm,  Cls(coop_index_ClLenLen, l)*(l*(l+1.d0))**2, Cls(coop_index_ClTLen, l)*(l*(l+1.d0))**1.5
+     norm =cosmology%Tcmb()**2*1.d12
+     lnorm =  l*(l+1.d0)/coop_2pi*norm
+     write(fp%unit, "(I8, 5E16.7)") l, Cls(coop_index_ClTT, l)*lnorm,  Cls(coop_index_ClEE, l)*lnorm,  Cls(coop_index_ClTE, l)*lnorm,  Cls(coop_index_ClLenLen, l)*(l*(l+1.d0))**2*norm, Cls(coop_index_ClTLen, l)*(l*(l+1.d0))**1.5*norm
   enddo
   call fp%close()
 #else

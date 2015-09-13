@@ -16,9 +16,11 @@ program RunMC
   type(coop_file)::fp
   COOP_STRING::inifile, pname
   COOP_UNKNOWN_STRING, parameter::planckdata_path = "../data/cmb/"
-  COOP_INT i
+  COOP_INT i, l
   COOP_REAL::loglike
   COOP_REAL::pvalue
+  COOP_STRING::Cls_output = ""
+  
   call coop_MPI_init()
 
   if(iargc().ge.1)then
@@ -127,24 +129,50 @@ program RunMC
         write(*,*) "Setting up cosmology"
         call coop_prtsystime(.true.)        
         call mcmc%set_cosmology()
-        call coop_prtsystime()             
-     endif
-     if(mcmc%cosmology%h() .eq. 0.d0) then
-        write(*,*) "-ln(likelihood) = \infty"
-     else
-        write(*,*) "Computing likelihood"     
-        call coop_prtsystime(.true.)
-        loglike = pool%loglike(mcmc)
-        call coop_prtsystime()     
-        write(*,*) "-ln(likelihood) = ", loglike
-        if(iargc().ge.3)then
-           call fp%open(trim(mcmc%prefix)//".log", "a")        
-           write(fp%unit, "(2G16.7)") pvalue, loglike        
+        call coop_prtsystime()
+        if(mcmc%cosmology%h() .eq. 0.d0) then
+           write(*,*) "-ln(likelihood) = \infty"
         else
-           call fp%open(trim(mcmc%prefix)//".log", "w")        
-           write(fp%unit, "(G16.7)") loglike
+           write(*,*) "h = ", mcmc%cosmology%h()        
+           write(*,*) "Computing likelihood"     
+           call coop_prtsystime(.true.)
+           loglike = pool%loglike(mcmc)
+           call coop_prtsystime()     
+           write(*,*) "-ln(likelihood) = ", loglike
+           if(iargc().ge.3)then
+              call fp%open(trim(mcmc%prefix)//".log", "a")        
+              write(fp%unit, "(2G16.7)") pvalue, loglike        
+           else
+              call fp%open(trim(mcmc%prefix)//".log", "w")        
+              write(fp%unit, "(G16.7)") loglike
+           endif
+           call fp%close()
+        endif        
+        call coop_dictionary_lookup(mcmc%settings, "cls_root", cls_output)
+        if(trim(cls_output) .ne. "")then
+           write(*,*) "saving Cl's to file: "//trim(cls_output)
+           call fp%open(cls_output//"_scalCls.txt", "w")
+           do l = 2, mcmc%lmax
+              write(fp%unit, "(I8, 20E16.7)") l, mcmc%cls_scalar(:, l)*l*(l+1.d0)/coop_2pi
+           enddo
+           call fp%close()
+           if(mcmc%cosmology%has_tensor)then
+              call fp%open(cls_output//"_tensCls.txt", "w")
+              do l = 2,mcmc%lmax
+                 write(fp%unit, "(I8, 20E16.7)") l, mcmc%cls_tensor(:, l)*l*(l+1.d0)/coop_2pi
+              enddo
+              call fp%close()
+           endif
+           call fp%open(cls_output//"_lensedCls.txt", "w")
+           do l = 2, mcmc%lmax
+              write(fp%unit, "(I8, 20E16.7)") l, mcmc%cls_lensed(:, l)*l*(l+1.d0)/coop_2pi
+           enddo
+           call fp%close()
+
         endif
-        call fp%close()
+     else
+        loglike = pool%loglike(mcmc)
+        write(*,*) "-ln(likelihood) = ", loglike
      endif
   case("MCMC", "mcmc")
      if(mcmc%feedback .gt. 2) write(*,*) "Starting MCMC on Node #"//COOP_STR_OF(mcmc%proc_id)
