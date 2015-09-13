@@ -158,8 +158,6 @@ contains
           stop "set_cl_and_pars: need to pass the nuisance parameters"
        endif
     endif
-    
-
   end subroutine coop_clik_object_set_cl_and_pars
 
   function coop_clik_object_loglike(this) result(loglike)
@@ -175,6 +173,7 @@ contains
     else
        loglike = -clik_compute(this%clikid, this%cl_and_pars)
     endif
+    !write(*,*) "check: ", size(this%cl_and_pars), sum(this%cl_and_pars), loglike
 #else
     loglike = coop_LogZero
 #endif    

@@ -963,7 +963,7 @@ contains
              endif
              this%cliklike(i)%pars(inuis) = mcmc%fullparams(ind)
           enddo
-          call this%cliklike(i)%set_cl_and_pars(mcmc%Cls_lensed, this%cliklike(i)%pars)
+          call this%cliklike(i)%set_cl_and_pars(mcmc%Cls_lensed, this%cliklike(i)%pars)          
        else
           call this%cliklike(i)%set_cl_and_pars(mcmc%Cls_lensed)                
        endif
