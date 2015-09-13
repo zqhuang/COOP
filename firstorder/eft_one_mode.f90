@@ -7,10 +7,10 @@ program test
   COOP_REAL::kMpc_want = 20.d0
 
   !!background EOS
-  COOP_REAL, parameter::w0 = -0.9d0
+  COOP_REAL, parameter::w0 = -1.d0
   COOP_REAL, parameter::wa = 0.d0    
   !!define the alpha parameters
-  COOP_REAL, parameter::alpha_M0 = 0.1d0
+  COOP_REAL, parameter::alpha_M0 = 0.d0
   COOP_REAL, parameter::alpha_T0 = 0.d0
   COOP_REAL, parameter::alpha_B0 = 0.d0
   COOP_REAL, parameter::alpha_K0 = 0.d0
@@ -27,7 +27,7 @@ program test
   
   !!----------------------------------------  
   !!initialize w functions as a polynomials of a
-  call wp1%init_polynomial( (/ 1+w0+wa, -wa /) )
+  call wp1%init_polynomial( (/ 1.d0+w0+wa, -wa /) )
 
   
   !!----------------------------------------  
@@ -48,6 +48,12 @@ program test
   !!----------------------------------------    
   !!initialize cosmology
   call cosmology%set_EFT_cosmology(Omega_b=0.049d0, Omega_c=0.265d0, h = 0.68d0, tau_re = 0.06d0, As = 2.21d-9, ns = 0.968d0, wp1 = wp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT)
+#else
+  Write(*,*) "warning: EFT DE disabled; using LCDM model."
+  write(*,*) "To enable EFT dark energy, set DARK_ENERGY_MODEL=EFT in configure.in and recompile the package."
+  call cosmology%set_standard_cosmology(Omega_b=0.049d0, Omega_c=0.265d0, h = 0.68d0, tau_re = 0.06d0, As = 2.21d-9, ns = 0.968d0)
+#endif
+  
   !!----------------------------------------    
   !!set k/H0  
   call cosmology%init_source(0)
@@ -62,10 +68,6 @@ program test
   
   call cosmology%compute_source_k(cosmology%source(0), ik, do_test_energy_conservation = .true., success = success)
   if(.not. success)write(*,*) "Solution blows up exponentially. Model is ruled out."
-#else
-  write(*,*) "EFT dark energy disabled."
-  write(*,*) "To enable EFT dark energy, set DARK_ENERGY_MODEL=EFT in configure.in and recompile the package."
-#endif
 contains
   subroutine generate_function(alpha0, f)
     COOP_REAL::alpha0

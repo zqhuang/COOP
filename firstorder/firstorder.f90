@@ -440,7 +440,7 @@ contains
              T0i = pert%delta_T0ia2()
              G00 = pert%delta_G00a2()
              G0i = pert%delta_G0ia2()
-             write(*,"(20E16.7)")  log(pert%a),T00, G00/T00-1.d0, T0i, G0i/T0i-1.d0,  pert%delta_gamma, pert%O1_T(0)
+             write(*,"(20E16.7)")  log(pert%a),T00, G00/T00-1.d0, T0i, G0i/T0i-1.d0, pert%o1_phi, pert%O1_PSI
           endif
        endif
        !!------------------------------------------------------------
@@ -472,6 +472,7 @@ contains
           if(scheme .ne. pert%de_scheme)then
              ind = 1
              pert%de_scheme = scheme
+             print*, pert%de_scheme
           endif
        endif
 #endif       
