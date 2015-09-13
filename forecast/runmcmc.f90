@@ -3,9 +3,8 @@ program RunMC
   use coop_forecast_mod
   implicit none
 #include "constants.h"
-  logical,parameter::use_Planck13 = .false.
   logical::use_CMB, use_SN, use_BAO, use_HST, use_lensing, use_compressed_CMB
-  type(coop_clik_object),target::pl(4)
+  type(coop_clik_object),target::pl(5)
   type(coop_HST_object),target::HSTlike
   type(coop_data_JLA),target:: jla
   type(coop_bao_object),target::bao(4)
@@ -16,10 +15,11 @@ program RunMC
   type(coop_file)::fp
   COOP_STRING::inifile, pname
   COOP_UNKNOWN_STRING, parameter::planckdata_path = "../data/cmb/"
-  COOP_INT i, l
+  COOP_INT i, l, icmb
   COOP_REAL::loglike
   COOP_REAL::pvalue
   COOP_STRING::Cls_output = ""
+  COOP_STRING::cmb_dataset  = ""
   
   call coop_MPI_init()
 
@@ -82,30 +82,30 @@ program RunMC
      endif
 
      if(use_CMB)then
-        if(use_Planck13)then
-           if(mcmc%feedback.gt.0)write(*,*) "Using Planck 13 likelihood"
-           if(coop_file_exists(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik/_mdb"))then
-              call pl(1)%init(trim(planckdata_path)//"/CAMspec_v6.2TN_2013_02_26_dist.clik")
-              call pl(2)%init(trim(planckdata_path)//"/commander_v4.1_lm49.clik")
-              call pl(3)%init(trim(planckdata_path)//"/lowlike_v222.clik")
-              if(use_lensing)call pl(4)%init(trim(planckdata_path)//"/lensing_likelihood_v4_ref.clik_lensing")
-           else 
-              write(*,*) "you need to make planck likelihood symbolic links to "//trim(planckdata_path)
-              stop
+        icmb = 1
+        do
+           if(icmb .ge. size(pl)) stop "too many cmb datasets"
+           call coop_dictionary_lookup(mcmc%settings, "cmb_dataset"//COOP_STR_OF(icmb), cmb_dataset)
+           if(trim(cmb_dataset).eq."")then
+              exit
            endif
-        else  !!use Planck15
-           if(mcmc%feedback.gt.0)write(*,*) "Using Planck 15 likelihood"           
-           if(coop_file_exists(trim(planckdata_path)//"/hi_l/plik/plik_dx11dr2_HM_v18_TTTEEE.clik/_mdb"))then
-              call pl(1)%init(trim(planckdata_path)//"/hi_l/plik/plik_dx11dr2_HM_v18_TTTEEE.clik")              
-              call pl(2)%init(trim(planckdata_path)//"low_l/commander/commander_rc2_v1.1_l2_29_B.clik")
-              call pl(3)%init(trim(planckdata_path)//"low_l/bflike/lowl_SMW_70_dx11d_2014_10_03_v5c_Ap.clik")
-              if(use_lensing)call pl(4)%init(trim(planckdata_path)//"/lensing/smica_g30_ftl_full_pp.clik_lensing")
-           else !!try another path
-              write(*,*) "you need to make planck likelihood symbolic links to "//trim(planckdata_path)
-              stop
+           call pl(icmb)%init(trim(cmb_dataset))
+           write(*, "(A)") "loading "//trim(cmb_dataset)
+           icmb = icmb + 1              
+        enddo
+        if(use_lensing)then
+           call coop_dictionary_lookup(mcmc%settings, "cmb_lensing_dataset", cmb_dataset)
+           if(trim(cmb_dataset).ne."")then
+              call pl(icmb)%init(trim(cmb_dataset))              
+              write(*, "(A)") "loading "//trim(cmb_dataset)
+           else
+              stop "You need to set cmb_lensing_dataset for CMB lensing"
            endif
+        else
+           icmb = icmb - 1
         endif
-        pool%CMB%cliklike => pl
+        if(icmb .gt. 0) &
+             pool%CMB%cliklike => pl(1:icmb)
      endif
   endif
   select case(trim(mcmc%action))
