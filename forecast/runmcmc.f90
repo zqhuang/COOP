@@ -17,7 +17,7 @@ program RunMC
   COOP_UNKNOWN_STRING, parameter::planckdata_path = "../data/cmb/"
   COOP_INT i, l, icmb
   COOP_REAL::loglike
-  COOP_REAL::pvalue
+  COOP_REAL::pvalue, norm, lnorm
   COOP_STRING::Cls_output = ""
   COOP_STRING::cmb_dataset  = ""
   
@@ -150,22 +150,26 @@ program RunMC
         endif        
         call coop_dictionary_lookup(mcmc%settings, "cls_root", cls_output)
         if(trim(cls_output) .ne. "")then
+           norm = mcmc%cosmology%TCmb()**2*1.d12           
            write(*,*) "saving Cl's to file: "//trim(cls_output)
            call fp%open(trim(cls_output)//"_scalCls.txt", "w")
            do l = 2, mcmc%lmax
-              write(fp%unit, "(I8, 20E16.7)") l, mcmc%cls_scalar(:, l)*l*(l+1.d0)/coop_2pi
+              lnorm = l*(l+1.d0)/coop_2pi*norm
+              write(fp%unit, "(I8, 20E16.7)") l, mcmc%cls_scalar(coop_index_ClTT, l)*lnorm, mcmc%cls_scalar(coop_index_ClEE, l)*lnorm, mcmc%cls_scalar(coop_index_ClEE, l)*lnorm, mcmc%cls_scalar(coop_index_ClLenLen, l)*norm*(l*(l+1.d0))**2, mcmc%cls_scalar(coop_index_ClTLen, l)*norm*(l*(l+1.d0))**1.5
            enddo
            call fp%close()
            if(mcmc%cosmology%has_tensor)then
               call fp%open(trim(cls_output)//"_tensCls.txt", "w")
               do l = 2,mcmc%lmax
-                 write(fp%unit, "(I8, 20E16.7)") l, mcmc%cls_tensor(:, l)*l*(l+1.d0)/coop_2pi
+                 lnorm = l*(l+1.d0)/coop_2pi*norm                 
+                 write(fp%unit, "(I8, 20E16.7)") l, mcmc%cls_tensor(1:4, l)*lnorm
               enddo
               call fp%close()
            endif
            call fp%open(trim(cls_output)//"_lensedCls.txt", "w")
            do l = 2, mcmc%lmax
-              write(fp%unit, "(I8, 20E16.7)") l, mcmc%cls_lensed(:, l)*l*(l+1.d0)/coop_2pi
+              lnorm = l*(l+1.d0)/coop_2pi             
+              write(fp%unit, "(I8, 20E16.7)") l, mcmc%cls_lensed(1:4, l)*lnorm
            enddo
            call fp%close()
 

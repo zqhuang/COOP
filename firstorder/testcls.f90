@@ -4,15 +4,15 @@ program test
 #include "constants.h"
   type(coop_cosmology_firstorder)::cosmology
   type(coop_file)fp
-  integer,parameter::lmin=2, lmax=2800, nk=256
+  integer,parameter::lmin=2, lmax=2608, nk=256
   integer i, l, ell_now
   COOP_REAL, dimension(coop_num_Cls, lmin:lmax)::Cls_scalar, Cls_tensor, Cls_lensed
   COOP_REAL norm, hub, lnorm
   COOP_REAL k(nk), matterPk(nk), khMpc(nk)
   COOP_REAL,dimension(:),allocatable::intpp 
 
-  hub = 0.676d0
-  call cosmology%set_standard_cosmology(Omega_b = 0.022d0/hub**2, omega_c = 0.12d0/hub**2, h = hub, tau_re = 0.08d0, As = 2.219795d-9, ns = 0.96d0)
+  hub = 0.68141112343305932d0
+  call cosmology%set_standard_cosmology(Omega_b = 0.02223508d0/hub**2, omega_c = 0.1196d0/hub**2, h = hub, tau_re = 0.07832564d0, As = exp(3.066313)*1.d-10, ns = 0.9624d0)
 
 
   norm = cosmology%Tcmb()**2*1.d12
@@ -29,14 +29,14 @@ program test
   call coop_get_lensing_Cls(lmin, lmax, Cls_Scalar, Cls_lensed)
   call coop_prtSystime()
   call fp%open('std6_scalCls.txt', 'w')
-  do l=lmin, min(lmax, 2500)
+  do l=lmin, lmax
      lnorm = l*(l+1.d0)/coop_2pi*norm
      write(fp%unit, "(I5, 20E16.7)") l, Cls_scalar(coop_index_ClTT, l)*lnorm, Cls_scalar(coop_index_ClEE, l)*lnorm, Cls_scalar(coop_index_ClTE, l)*lnorm, Cls_scalar(coop_index_ClLenLen, l)*norm*(l*(l+1.d0))**2, Cls_scalar(coop_index_ClTLen, l)*norm*(l*(l+1.d0))**1.5
   enddo
   call fp%close()
   Cls_lensed = Cls_lensed+Cls_scalar
   call fp%open('std6_lensedCls.txt', 'w')
-  do l=lmin, min(lmax, 2500)
+  do l=lmin, lmax
      lnorm = l*(l+1.d0)/coop_2pi*norm
      write(fp%unit, "(I5, 20E16.7)") l, Cls_lensed(coop_index_ClTT, l)*lnorm, Cls_lensed(coop_index_ClEE, l)*lnorm,  Cls_lensed(coop_index_ClBB, l)*lnorm,  Cls_lensed(coop_index_ClTE, l)*lnorm
   enddo

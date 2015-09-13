@@ -217,6 +217,7 @@ contains
        call this%f_alpha_T%free()
        call this%f_alpha_B%free()       
        call this%f_alpha_K%free()
+       call this%f_M2%free()
 #endif       
     end select
   end subroutine coop_cosmology_free
