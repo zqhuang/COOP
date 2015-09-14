@@ -346,9 +346,10 @@ contains
     this%source(m)%bbks_trans_kmax = coop_bbks_trans(this%source(m)%kmax/this%bbks_keq)
     if(present(success))then
        allocate(suc(this%source(m)%nk))
+       suc = .true.
        !$omp parallel do
        do ik = 1, this%source(m)%nk
-          call this%compute_source_k(this%source(m), ik, success = suc(ik))
+          if(all(suc))call this%compute_source_k(this%source(m), ik, success = suc(ik))
        enddo
        !$omp end parallel do
        success = all(suc)
