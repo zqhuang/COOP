@@ -123,7 +123,8 @@ module coop_healpix_mod
      procedure :: EB2QU => coop_healpix_maps_EB2QU
      procedure :: get_QU => coop_healpix_maps_get_QU
      procedure :: get_QUL => coop_healpix_maps_get_QUL
-     procedure :: get_QULDD => coop_healpix_maps_get_QULDD     
+     procedure :: get_QULDD => coop_healpix_maps_get_QULDD
+     procedure :: get_QUL6D => coop_healpix_maps_get_QUL6D          
      procedure :: get_dervs => coop_healpix_maps_get_dervs
      procedure :: smooth => coop_healpix_maps_smooth
      procedure :: smooth_with_window => coop_healpix_maps_smooth_with_window
@@ -1357,6 +1358,92 @@ contains
   end subroutine coop_healpix_maps_get_QULDD
 
 
+  subroutine coop_healpix_maps_get_QUL6D(this, idone)
+    class(coop_healpix_maps) this
+    logical,optional::idone    
+    COOP_INT l, lmax, i
+    COOP_REAL::resol
+#ifdef HAS_HEALPIX
+    if(this%spin(1).ne.0)then
+       stop "get_QULDD: the first map must be spin 0"
+    end if
+    if(this%nmaps.lt.10) call this%extend(10)
+
+    !!set alms    
+    if(.not.present(idone))then
+       call this%map2alm(index_list = (/ 1 /) )
+    else
+       if(.not. idone)then
+          call this%map2alm(index_list = (/ 1 /) )
+       endif
+    endif
+    lmax = min(this%lmax, this%nside*2)
+    resol = 2./this%nside/this%nside    
+    this%alm(:,:, 2:10) = 0.
+    do l = 2, lmax
+       this%alm(l,0:l,2) = this%alm(l, 0:l, 1)* (l*(l+1.)*exp(-l*(l+1.)*resol))
+       this%alm(l,0:l,4) = this%alm(l, 0:l, 2)
+       this%alm(l,0:l,5) = this%alm(l, 0:l, 1)* sqrt(l*(l+1.)*exp(-l*(l+1.)*resol))
+    enddo
+    
+    !!set units and spins
+    do i=2, 10
+       call this%set_unit(i, this%units(1))
+    enddo    
+    select case(trim(coop_str_numUpperalpha(this%fields(1))))
+    case("LNI")
+       call this%set_field(2, "LNQLT")
+       call this%set_field(3, "LNULT")
+       call this%set_field(4, "LNLT")
+       call this%set_field(5, "LNID1")
+       call this%set_field(6, "LNID2")
+    case("T","I","TEMPERATURE", "INTENSITY", "ISTOKES")
+       call this%set_field(2, "QLT")
+       call this%set_field(3, "ULT")
+       call this%set_field(4, "LT")
+       call this%set_field(5, "ID1")
+       call this%set_field(6, "ID2")
+    case("ZETA", "Z")
+       call this%set_field(2, "QLZ")
+       call this%set_field(3, "ULZ")
+       call this%set_field(4, "LZ")
+       call this%set_field(5, "ZD1")
+       call this%set_field(6, "ZD2")
+    case("E", "EPOLARISATION")
+       call this%set_field(2, "QLE")
+       call this%set_field(3, "ULE")
+       call this%set_field(4, "LE")
+       call this%set_field(5, "ED1")
+       call this%set_field(6, "ED2")
+    case default
+       write(*,*) trim(this%fields(1))
+       stop "get_QULDD: only supprt I, ZETA and E maps"
+    end select
+    call this%set_field(7, "I")
+    call this%set_field(8, "I")       
+    call this%set_field(9, "I")
+    call this%set_field(10, "I")       
+    
+    call this%alm2map( index_list = (/ 2, 3, 4, 5, 6 /) )
+    this%map(:, 7) = this%map(:, 2)
+    this%map(:, 9) = this%map(:, 3)    
+    call this%map2alm(index_list = (/ 7, 9 /) )
+    do l = 2, lmax
+       this%alm(l,0:l,7) = this%alm(l, 0:l, 7)* sqrt(l*(l+1.)*exp(-l*(l+1.)*resol))
+       this%alm(l,0:l,9) = this%alm(l, 0:l, 9)* sqrt(l*(l+1.)*exp(-l*(l+1.)*resol))
+    enddo
+    call this%set_field(7, "QD1")
+    call this%set_field(8, "QD2")       
+    call this%set_field(9, "UD1")
+    call this%set_field(10, "UD2")       
+    call this%alm2map( index_list = (/ 7, 8 , 9, 10 /) )
+    
+#endif    
+  end subroutine coop_healpix_maps_get_QUL6D
+  
+
+  
+
 
   subroutine coop_healpix_maps_qu2EB(this)
     class(coop_healpix_maps) this
@@ -1950,9 +2037,9 @@ contains
     if(present(imap))then
        i = imap
        select case(trim(coop_str_numUpperalpha(this%fields(i))))
-       case("INTENSITY", "TEMPERATURE", "MASK", "EPOLARISATION", "BPOLARISATION", "E", "B", "ZETA", "Z", "I", "T", "M", "LT", "LZ", "LE", "ISTOKES", "", "LNI", "GENERAL")
+       case("INTENSITY", "TEMPERATURE", "MASK", "EPOLARISATION", "BPOLARISATION", "E", "B", "ZETA", "Z", "I", "T", "M", "LT", "LZ", "LE", "ISTOKES", "", "LNI", "GENERAL", "LNLT")
           this%spin(i) = 0
-       case("ID1", "ID2", "ZD1", "ZD2", "ED1", "ED2", "BD1", "BD2", "LNID1", "LNID2")
+       case("ID1", "ID2", "ZD1", "ZD2", "ED1", "ED2", "BD1", "BD2", "LNID1", "LNID2", "QD1", "QD2", "UD1", "UD2")
           this%spin(i) = 1
        case("QPOLARISATION", "Q", "QT", "QLT", "QLZ", "QZ", "QLE", "QSTOKES", "LNQ", "LNQT", "LNQLT")
           this%spin(i) = 2
@@ -1967,9 +2054,9 @@ contains
     else       
        do i = 1, this%nmaps
           select case(trim(coop_str_numUpperalpha(this%fields(i))))
-          case("INTENSITY", "TEMPERATURE", "MASK", "EPOLARISATION", "BPOLARISATION", "E", "B", "ZETA", "Z", "I", "T", "M", "LT", "LZ", "LE", "ISTOKES", "", "LNI")
+          case("INTENSITY", "TEMPERATURE", "MASK", "EPOLARISATION", "BPOLARISATION", "E", "B", "ZETA", "Z", "I", "T", "M", "LT", "LZ", "LE", "ISTOKES", "", "LNI", "LNLT")
              this%spin(i) = 0
-          case("ID1", "ID2", "ZD1", "ZD2", "ED1", "ED2", "BD1", "BD2", "LNID1", "LNID2")
+          case("ID1", "ID2", "ZD1", "ZD2", "ED1", "ED2", "BD1", "BD2", "LNID1", "LNID2", "LNQD1", "LNQD2", "LNUD1", "LNUD2","QD1", "QD2", "UD1", "UD2")
              this%spin(i) = 1
           case("QPOLARISATION", "Q", "QT", "QLT", "QLZ", "QZ", "QLE", "QSTOKES", "LNQ", "LNQT", "LNQLT")
              this%spin(i) = 2
@@ -2089,7 +2176,7 @@ contains
        select case(trim(coop_str_numUpperAlpha(this%header%key(i))))
        case("SIMPLE", "BITPIX", "NAXIS", "EXTEND", "XTENSION", "NAXIS1", "NAXIS2", "PCOUNT", "GCOUNT", "TFIELDS", "DATE")  !!these will be added by Healpix automatically
           cycle
-       case("TTYPE1", "TTYPE2", "TTYPE3", "TTYPE4", "TTYPE5", "TTYPE6", "TUNIT1", "TUNIT2", "TUNIT3", "TUNIT4", "TUNIT5", "TUNIT6")
+       case("TTYPE1", "TTYPE2", "TTYPE3", "TTYPE4", "TTYPE5", "TTYPE6", "TTYPE7", "TTYPE8", "TTYPE9", "TTYPE10", "TTYPE11", "TTYPE12", "TUNIT1", "TUNIT2", "TUNIT3", "TUNIT4", "TUNIT5", "TUNIT6", "TUNIT7", "TUNIT8", "TUNIT9", "TUNIT10", "TUNIT11", "TUNIT12")
              call add_card(header, trim(this%header%key(i)), trim(this%header%val(i)), update = .true.)
        case default          
        end select
@@ -3302,7 +3389,7 @@ contains
        sto%P2_upper = (sto%P_upper_nu * sto%sigma_P)**2
     endif
     select case(sto%genre)
-    case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented)
+    case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented, coop_stacking_genre_col_oriented)
        index_peak = sto%index_I
        if(index_peak .ne. 1 .or. sto%index_L .ne. 4 .or. sto%index_Q .ne. 2 .or. sto%index_U .ne. 3 .or. this%nmaps .lt. 6)then
           stop "get_peaks: wrong configuration for saddle points stacking"
@@ -3325,7 +3412,7 @@ contains
     if(sto%nested)then
        if(domask)then    
           select case(sto%genre)
-          case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented)
+          case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented, coop_stacking_genre_col_oriented)
              call this%zeros(5, zeros1, mask)
              call this%zeros(6, zeros2, mask)
              zeros1%map = zeros1%map*zeros2%map
@@ -3414,7 +3501,7 @@ contains
           end select
        else   !!no mask, nested
           select case(sto%genre)
-          case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_oriented)
+          case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_oriented, coop_stacking_genre_col_oriented)
              call this%zeros(5, zeros1)
              call this%zeros(6, zeros2)
              zeros1%map = zeros1%map*zeros2%map
@@ -3500,7 +3587,7 @@ contains
     else  !!ring ordering
        if(domask)then     !!with mask
           select case(sto%genre)
-          case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented)
+          case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented, coop_stacking_genre_col_oriented)
              call this%zeros(5, zeros1, mask)
              call this%zeros(6, zeros2, mask)
              zeros1%map = zeros1%map*zeros2%map
@@ -3589,7 +3676,7 @@ contains
           end select
        else  !!ring ordering, no mask
           select case(sto%genre)
-          case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented)
+          case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented, coop_stacking_genre_col_oriented)
              call this%zeros(5, zeros1)
              call this%zeros(6, zeros2)
              zeros1%map = zeros1%map*zeros2%map

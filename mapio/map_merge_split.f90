@@ -32,7 +32,7 @@ program map
   nin = 1
   inline_mode =  (iargc() .gt. 0)
   if(.not. inline_mode)then
-     write(*,*) "options are: SPLIT; SMOOTH; DOBEAM; MULTIPLY;I2TQTUT;I2TQUL;I2TQULDD;IQU2TEB;T2ZETA; IQU2ZETA; QU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE; HIGHPASS; LOWPASS; LOG; LOGIQU; GAUSSIANIZE"
+     write(*,*) "options are: SPLIT; SMOOTH; DOBEAM; MULTIPLY;I2TQTUT;I2TQUL;I2TQULDD;I2TQUL6D;IQU2TEB;T2ZETA; IQU2ZETA; QU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE; HIGHPASS; LOWPASS; LOG; LOGIQU; GAUSSIANIZE"
   endif
   do while(nin .le. nmax)
      if(inline_mode)then
@@ -401,7 +401,16 @@ program map
            call hgm%write(trim(coop_file_add_postfix(fin(i), "_conv_TQULDD")))
         enddo
         print*, "maps are all converted to TQULDD"
-        goto 500        
+        goto 500
+     case("I2TQUL6D")
+        nin = nin -1
+        do i=1, nin
+           call hgm%read(trim(fin(i)), nmaps_wanted = 10, nmaps_to_read = 1 )
+           call hgm%get_QUL6D()
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_conv_TQUL6D")))
+        enddo
+        print*, "maps are all converted to TQUL6D"
+        goto 500                
      case("I2TQTUT")
         nin = nin -1
         do i=1, nin

@@ -28,7 +28,7 @@ module coop_stacking_mod
   COOP_INT,parameter::coop_stacking_genre_Random_Hot_Oriented  = 14
   COOP_INT,parameter::coop_stacking_genre_Random_Cold  = 15
   COOP_INT,parameter::coop_stacking_genre_Random_Cold_Oriented  = 16
-
+  COOP_INT,parameter::coop_stacking_genre_col_oriented = 17
 
   type coop_stacking_options
      logical::mask_int = .false.
@@ -434,8 +434,8 @@ contains
     this%mask_pol  = .false.
     this%nmaps = nmaps    
     p = trim(adjustl(peak_name))
-    if(trim(adjustl(orient_name)).eq. "NULL" .or. trim(adjustl(orient_name)) .eq. "RANDOM" .or. trim(adjustl(orient_name)).eq. "NONE" )then
-       if(trim(p) .eq. "SADDLE")then
+    if(trim(adjustl(orient_name)).eq. "NULL" .or. trim(adjustl(orient_name)) .eq. "RANDOM" .or. trim(adjustl(orient_name)).eq. "NONE" )then !!random orientation
+       if(trim(p) .eq. "SADDLE" .or. trim(p).eq."COL")then
           this%genre = coop_stacking_genre_saddle
           this%caption = "saddle points"
        elseif(domax)then
@@ -475,6 +475,9 @@ contains
        if(trim(p).eq."SADDLE")then
           this%genre = coop_stacking_genre_saddle_oriented
           this%caption = " saddle points, "//trim(adjustl(Orient_name))//" oriented"
+       elseif(trim(p).eq."COL")then
+          this%genre = coop_stacking_genre_col_oriented
+          this%caption = "cols, "//trim(adjustl(orient_name))//" oriented"
        elseif(domax)then
           if(trim(p).eq."RANDOM")then
              this%genre = coop_stacking_genre_random_hot_Oriented
@@ -569,7 +572,7 @@ contains
        this%threshold_option = 7       
     end select
     select case(trim(coop_str_numUpperalpha(peak_name)))
-    case("T", "I", "ZETA", "PT", "PZ", "PZETA", "SADDLE")
+    case("T", "I", "ZETA", "PT", "PZ", "PZETA", "SADDLE", "COL")
        this%mask_int = .true.
     case("E", "B", "P")
        this%mask_pol = .true.
@@ -685,6 +688,12 @@ contains
        call this%peak_map%get_element(i, map)
        angle = COOP_POLAR_ANGLE(dble(map(this%index_Q)),dble(map(this%index_U)))/2.d0
        if(this%addpi) angle = angle + coop_rand01()*coop_pi
+    case(coop_stacking_genre_Col_Oriented)
+       call this%peak_map%get_element(i, map)
+       angle = COOP_POLAR_ANGLE(dble(map(this%index_Q)),dble(map(this%index_U)))/2.d0
+       if(map(10)*cos(angle) + map(9)*sin(angle) .le. 0.d0)then
+          angle = angle + coop_pi
+       endif
     case default
        write(*,*) this%genre
        stop "rotate_angle: unknown genre"

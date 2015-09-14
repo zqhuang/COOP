@@ -427,7 +427,7 @@ contains
           stop "For compatibility with lower versions of gfortran, firstorder equations only works with type coop_cosmology_firstorder"
        end select
        if(present(success))then
-          if(.not. all(abs(pert%y).lt. 1.d30))then
+          if(.not. (all(abs(pert%y).lt. 1.d20) .and. all(abs(pert%yp) .lt. 1.d20)))then
              success = .false.
              return
           endif

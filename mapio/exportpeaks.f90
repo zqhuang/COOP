@@ -21,7 +21,7 @@ program Exp_spots
      write(*,"(A)") "other options are:"     
      write(*,"(A)") "-out OUTPUT_FILE"
      write(*,"(A)") "-hot [T|F]"
-     write(*,"(A)") "-peak [SADDLE|RANDOM|T|E|B|P_T|P|\zeta|P_\zeta]"
+     write(*,"(A)") "-peak [SADDLE|COL|RANDOM|T|E|B|P_T|P|\zeta|P_\zeta]"
      write(*,"(A)") "-orient [RANDOM|(Q_T, U_T)|(Q, U)|(Q_{\nabla^2T},U_{\nabla^2T})]"
      write(*,"(A)") "-mask [MASK_FILE|NONE|'']"
      write(*,"(A)") "-nu THRESHOLD_VALUE"
@@ -56,7 +56,7 @@ program Exp_spots
   sto%angzero = .false.  
   select case(trim(coop_str_numUpperalpha(peak_name)))
      !!do nothing
-  case("T", "I", "E", "B", "ZETA", "Z", "RANDOM", "SADDLE")
+  case("T", "I", "E", "B", "ZETA", "Z", "RANDOM", "SADDLE", "COL")
      if(do_max)then
         sto%I_lower_nu = threshold
      else
