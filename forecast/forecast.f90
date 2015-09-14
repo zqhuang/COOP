@@ -13,7 +13,7 @@ module coop_forecast_mod
 #define MCMC_WA    mcmc%fullparams(mcmc%index_de_wa)
 #define MCMC_OMEGA_LAMBDA  (1.d0 - MCMC_OMEGA_M - MCMC_OMEGA_K)  
 
-  COOP_INT, parameter::coop_n_derived_with_cosmology = 3
+  COOP_INT, parameter::coop_n_derived_with_cosmology = 4
   COOP_INT, parameter::coop_n_derived_without_cosmology = 1
   
   type coop_DataSet
@@ -530,6 +530,7 @@ contains
        derived(1) = this%cosmology%h()*100.d0
        derived(2) = this%cosmology%Omega_m
        derived(3) = 1.d0 - this%cosmology%Omega_m
+       derived(4) = this%cosmology%sigma_8
     else
        if(this%index_omegam .ne. 0 .and. this%index_omegak .ne. 0)then
           derived(1) = 1.d0 - this%fullparams(this%index_omegam)- this%fullparams(this%index_omegak)
@@ -1497,6 +1498,7 @@ contains
              write(fp%unit, "(2A16)") "H0              ", "H_0      "                    
              write(fp%unit, "(2A16)") "omegam          ", "\Omega_m  "          
              write(fp%unit, "(2A16)") "omegal          ", "\Omega_\Lambda  "
+             write(fp%unit, "(2A16)") "sigma8          ", "\sigma_8"
           else
              write(fp%unit, "(2A16)") "omegal          ", "\Omega_\Lambda  "
           endif
