@@ -1487,20 +1487,20 @@ contains
        if(trim(this%action) .ne. "TEST")then
           call fp%open(trim(this%prefix)//".ranges", "w")
           do i=1, this%fulln
-             write(fp%unit, "(A32, 2E16.7)") this%name(i), lower(i), upper(i)
+             write(fp%unit, "(A16, 2E16.7)") this%name(i), lower(i), upper(i)
           enddo
           call fp%close()
           call fp%open(trim(this%prefix)//".paramnames", "w")
           do i=1, this%n
-             write(fp%unit, "(2A16)")  this%name(this%used(i)), this%tex(this%used(i))
+             write(fp%unit, "(A16, A32)")  this%name(this%used(i)), this%tex(this%used(i))
           enddo
           if(associated(this%cosmology))then
-             write(fp%unit, "(2A16)") "H0              ", "H_0      "                    
-             write(fp%unit, "(2A16)") "omegam          ", "\Omega_m  "          
-             write(fp%unit, "(2A16)") "omegal          ", "\Omega_\Lambda  "
-             write(fp%unit, "(2A16)") "sigma8          ", "\sigma_8"
+             write(fp%unit, "(A16, A32)") "H0              ", "H_0      "                    
+             write(fp%unit, "(A16, A32)") "omegam          ", "\Omega_m  "          
+             write(fp%unit, "(A16, A32)") "omegal          ", "\Omega_\Lambda  "
+             write(fp%unit, "(A16, A32)") "sigma8          ", "\sigma_8"
           else
-             write(fp%unit, "(2A16)") "omegal          ", "\Omega_\Lambda  "
+             write(fp%unit, "(A16, A32)") "omegal          ", "\Omega_\Lambda  "
           endif
           call fp%close()
        endif
