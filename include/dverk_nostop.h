@@ -434,18 +434,9 @@
 !c
     go to 99999
 !c     end loop
-!c
 !c  begin abort action
 500 continue
-!c
-    write(*,*) 'Warning: dverk crashes with ind =',  ind
-    write(*,*) 'x = ', x
-    call fcn(n, x, y, w(1, 1) DVERK_ARGUMENTS)
-    write(*, "(2A16)") "  y  ",  " dy/dx  "
-    do i=1, min(n, 100)
-       write(*, "(2E16.7)"), y(i), w(i, 1)
-    enddo
-    stop
-!c
+    write(*,*) 'Warning: dverk crashes with ind =',  ind, 'x = ', x
+    x = xend
+    y = 0.d0
 !c  end abort action
-!c

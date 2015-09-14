@@ -359,10 +359,8 @@ contains
       endif
       delta = (rhoa4_de_eff*wp1 - delta_rhoa4_c)/H2a4
       if(delta.lt. 0.d0)then
-         if(delta .lt. 0.d0)then
-            err = 3
-            return
-         endif
+         err = 3
+         return
       endif
       phi_prime = sqrt(delta)
 50    yp(2) = Q*phi_prime

@@ -10,8 +10,9 @@ program bgtest
   COOP_INT::i, index_CDM , index_DE, err
   type(coop_ode)::ode
   type(coop_function)::fwp1, fQ
-  call fwp1%init_polynomial( (/ 0.2d0 /) )
-  call fQ%init_polynomial( (/ 0.4d0 /) )
+#if DO_COUPLED_DE  
+  call fwp1%init_polynomial( (/ 0.d0 /) )
+  call fQ%init_polynomial( (/ 0.d0 /) )
   call bg%init(h=0.7d0)
   call bg%add_species(coop_baryon(omegab))
   call bg%add_species(coop_radiation(bg%Omega_radiation()))
@@ -32,6 +33,11 @@ program bgtest
      call coop_asy_plot_function(bg%species(index_DE)%cplde_dVdphibyH2_lna, "dVdphibyH2.txt")
      call coop_asy_plot_function(bg%species(index_DE)%cplde_m2byH2_lna, "m2byH2.txt")     
   endif
+#else
+  write(*,*) "Coupled DE disabled"
+  stop "You need to enable it in configure.in (set DARK_ENERGY_MODEL = COUPLED_DE)"
+  
+#endif  
   
 contains
 

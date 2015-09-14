@@ -614,7 +614,7 @@
     type(coop_cosmology_firstorder) cosmology
     type(coop_arguments) args
 #define DVERK_ARGUMENTS ,cosmology,args
-#include "dverk.h"    
+#include "dverk_nostop.h"    
 #undef DVERK_ARGUMENTS
   end subroutine coop_dverk_firstorder_with_args
 
@@ -623,7 +623,7 @@
     type(coop_cosmology_firstorder) cosmology
     type(coop_pert_object) pert
 #define DVERK_ARGUMENTS ,cosmology,pert
-#include "dverk.h"    
+#include "dverk_nostop.h"    
 #undef DVERK_ARGUMENTS
   end subroutine coop_dverk_firstorder
 

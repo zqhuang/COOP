@@ -415,6 +415,10 @@ contains
        type is(coop_cosmology_firstorder)
        
           call coop_dverk_firstorder(nvars, coop_cosmology_firstorder_equations, this, pert, lna,   pert%y, source%lna(itau),  coop_cosmology_firstorder_ode_accuracy, ind, c, nvars, w)
+          if(present(success) .and. ind .le. 0 .or. ind .gt.6)then
+             success = .false.
+             return
+          endif
        class default
           stop "For compatibility with lower versions of gfortran, dverk_firstorder  only works with type coop_cosmology_firstorder"
        end select
