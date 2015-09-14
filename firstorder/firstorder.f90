@@ -473,7 +473,6 @@ contains
           if(scheme .ne. pert%de_scheme)then
              ind = 1
              pert%de_scheme = scheme
-             print*, pert%de_scheme
           endif
        endif
 #endif       
