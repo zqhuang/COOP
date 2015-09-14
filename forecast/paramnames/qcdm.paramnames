@@ -6,7 +6,7 @@ de_epss	 \epsilon_s
 de_epsinf  \epsilon_\infty
 de_zetas  \zeta_s
 de_Q	Q_{\rm cpl}
-logA	\ln[10^{10}A_s]
+logAm2tau	\ln[10^{10}A_s]-2\tau
 ns	n_s
 A_cib_217	  A_{\rm cib, 271}
 cib_index	  n_{\rm cib}

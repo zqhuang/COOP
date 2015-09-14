@@ -8,7 +8,7 @@ de_alpha_K0  \alpha_{K0}
 de_alpha_B0  \alpha_{B0}
 de_alpha_T0  \alpha_{T0}
 de_alpha_H0  \alpha_{H0}
-logA	\ln[10^{10}A_s]
+logAm2tau	\ln[10^{10}A_s]-2\tau
 ns	n_s
 A_cib_217	  A_{\rm cib, 271}
 cib_index	  n_{\rm cib}

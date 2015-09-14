@@ -2,7 +2,7 @@ ombh2	\Omega_b h^2
 omch2   \Omega_c h^2
 theta	100\theta
 tau	\tau
-logA	\ln[10^{10}A_s]
+logAm2tau	\ln[10^{10}A_s]-2\tau
 ns	n_s
 A_cib_217	  A_{\rm cib, 271}
 cib_index	  n_{\rm cib}

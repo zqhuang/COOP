@@ -187,6 +187,7 @@ module coop_forecast_mod
      COOP_INT::index_tau = 0
      COOP_INT::index_mnu = 0
      COOP_INT::index_logA = 0
+     COOP_INT::index_logAm2tau = 0     
      COOP_INT::index_ns = 0
      COOP_INT::index_nrun = 0     
      COOP_INT::index_r = 0
@@ -332,10 +333,14 @@ contains
     if(this%index_tau .ne. 0)then !!
        this%cosmology%optre = this%fullparams(this%index_tau)
        call this%cosmology%set_xe()
-       if(this%index_logA .ne. 0)then
-          this%cosmology%As = exp(this%fullparams(this%index_logA))*1.d-10
+       if(this%index_logAm2tau .ne. 0)then
+          this%cosmology%As = exp(this%fullparams(this%index_logAm2tau)+2.d0*this%cosmology%optre)*1.d-10      
        else
-          this%cosmology%As = 2.2d-9
+          if(this%index_logA .ne. 0)then
+             this%cosmology%As = exp(this%fullparams(this%index_logA))*1.d-10
+          else
+             this%cosmology%As = 2.2d-9
+          endif
        endif
        if(this%index_ns .ne. 0)then
           this%cosmology%ns = this%fullparams(this%index_ns)
@@ -1511,6 +1516,7 @@ contains
     endif
     this%index_theta = this%index_of("theta")
     this%index_tau = this%index_of("tau")
+    this%index_logAm2tau = this%index_of("logAm2tau")
     this%index_logA = this%index_of("logA")
     this%index_ns = this%index_of("ns")
     this%index_mnu = this%index_of("mnu")                        
