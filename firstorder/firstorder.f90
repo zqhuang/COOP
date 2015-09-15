@@ -10,10 +10,10 @@ module coop_firstorder_mod
 
 
   !!this makes the code faster and more accurate
-  logical,parameter:: coop_firstorder_optimize = .true.
-  COOP_INT, parameter::coop_limber_ell = 550
+  logical,parameter :: coop_firstorder_optimize = .true.
+  COOP_INT, parameter :: coop_limber_ell = 550
   
-  COOP_INT::coop_Cls_lmax(0:2) = (/ 2800, 2000, 1500 /)
+  COOP_INT :: coop_Cls_lmax(0:2) = (/ 2800, 2000, 1500 /)
 
   COOP_REAL, parameter :: coop_power_lnk_min = log(0.1d0) 
   COOP_REAL, parameter :: coop_power_lnk_max = log(5.d3) 
@@ -23,17 +23,17 @@ module coop_firstorder_mod
   COOP_REAL, parameter :: coop_cosmology_firstorder_tc_cutoff = 0.005d0
 
 
-  COOP_REAL, dimension(0:2), parameter::coop_source_tau_step_factor = (/ 1.d0, 1.d0, 1.d0 /)
-  COOP_REAL, dimension(0:2), parameter::coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
-  COOP_INT, dimension(0:2), parameter::coop_source_k_n = (/ 280, 120, 100 /)
-  COOP_REAL, parameter::coop_source_k_index = 0.9d0
-  COOP_INT, parameter:: coop_k_dense_fac = 20
+  COOP_REAL, dimension(0:2), parameter :: coop_source_tau_step_factor = (/ 1.d0, 1.d0, 1.d0 /)
+  COOP_REAL, dimension(0:2), parameter :: coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
+  COOP_INT, dimension(0:2), parameter :: coop_source_k_n = (/ 280, 120, 100 /)
+  COOP_REAL, parameter :: coop_source_k_index = 0.9d0
+  COOP_INT, parameter :: coop_k_dense_fac = 20
 
-  COOP_INT, parameter::coop_index_source_T = 1
-  COOP_INT, parameter::coop_index_source_E = 2
-  COOP_INT, parameter::coop_index_source_B = 3
-  COOP_INT, parameter::coop_index_source_Len = 3
-  COOP_INT, parameter::coop_index_source_zeta = 4  
+  COOP_INT, parameter :: coop_index_source_T = 1
+  COOP_INT, parameter :: coop_index_source_E = 2
+  COOP_INT, parameter :: coop_index_source_B = 3
+  COOP_INT, parameter :: coop_index_source_Len = 3
+  COOP_INT, parameter :: coop_index_source_zeta = 4  
 
   COOP_INT, parameter::coop_index_ClTT = 1
   COOP_INT, parameter::coop_index_ClEE = 2
