@@ -6,7 +6,7 @@ module coop_background_mod
   private
   COOP_REAL,parameter::coop_min_de_tracking_n = 0.01d0
 
-  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_quintessence, coop_de_wp1_quintessence, coop_background_add_coupled_DE,  coop_background_add_EFT_DE, coop_de_aeq_fitting, coop_de_alpha_invh2, coop_de_general
+  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_quintessence, coop_de_wp1_quintessence, coop_de_wp1_coupled_quintessence, coop_background_add_coupled_DE,  coop_background_add_EFT_DE, coop_de_aeq_fitting, coop_de_alpha_invh2, coop_de_general
 
 contains
 
@@ -179,6 +179,51 @@ contains
     
   end function coop_de_wp1_quintessence
 
+
+  function coop_de_wp1_coupled_quintessence(a, arg) result(wp1)
+    COOP_REAL, parameter::omega_r = 9.d-5 !!approximate value for h = 0.68
+    COOP_REAL a, wp1
+    type(coop_arguments) arg
+    COOP_REAL Omega_m, a_eq, epss
+#define OMEGA_LAMBDA arg%r(1)
+#define EPSILON_S arg%r(2)
+#define EPSILON_INF arg%r(3)
+#define ZETA_S arg%r(4)
+#define BETA_S arg%r(5)    
+    COOP_REAL::mu, mu3, sqrtepss, sqrtepsinf, diff, delta, f, f2, s0, s1, qpsign
+    if(EPSILON_S .ge. 0.d0)then
+       qpsign = 1.d0
+       epss = EPSILON_S
+    else
+       qpsign = -1.d0
+       epss = - EPSILON_S
+    endif
+    Omega_m  = 1.d0 - OMEGA_LAMBDA - omega_r
+    sqrtepss = sqrt(epss)
+    sqrtepsinf = sqrt(EPSILON_INF*a**BETA_S)
+    diff = sqrtepss - coop_sqrt2 * sqrtepsinf
+    delta = (sqrtepsinf + (0.91-0.78*Omega_m+(0.236-0.76*Omega_m)*ZETA_S)*diff)**2 &
+         + (sqrtepsinf + (0.533-0.1*ZETA_S)*diff)**2 
+    a_eq = (Omega_m/OMEGA_LAMBDA)**(1.d0/(3.d0-qpsign*delta))
+    mu = a/a_eq
+    mu3 = mu**3    
+    s0 = sqrt(mu3)
+    if(mu .gt. 0.05d0)then
+       s1 = sqrt(1.d0+mu3)
+       f = s1/s0 - log(s0+s1)/mu3
+       f2 = coop_sqrt2*(1.d0-log(1.d0+mu3)/mu3) - f
+    else  !!asymptotic
+       f = s0*((2.d0/3.d0)-0.2d0*mu3)
+       f2 = mu3*(1.d0/coop_sqrt2 - (coop_sqrt2/3.d0)*mu3)  - f
+    endif
+    s0 = sqrtepsinf*sqrt(((4.d0/3.d0*omega_r) + omega_m*a)/(omega_r+omega_m*a))
+    wp1 = (2.d0/3.d0)*qpsign*(s0 + (sqrtepss  - coop_sqrt2*s0)*(f + ZETA_S * f2))**2
+#undef EPSILON_S
+#undef EPSILON_INF
+#undef ZETA_S
+#undef OMEGA_LAMBDA
+    
+  end function coop_de_wp1_coupled_quintessence
 
   subroutine coop_background_add_coupled_DE(this, Omega_c, fQ, fwp1, err)  !!this Omega_c  is defined as lim_{a->0} rho_cdm a^3/ rho_critical0,
 

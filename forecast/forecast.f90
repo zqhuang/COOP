@@ -200,7 +200,8 @@ module coop_forecast_mod
      COOP_INT::index_de_wa = 0
      COOP_INT::index_de_epss = 0
      COOP_INT::index_de_epsinf = 0
-     COOP_INT::index_de_zetas = 0                    
+     COOP_INT::index_de_zetas = 0
+     COOP_INT::index_de_betas = 0                         
 #if DO_COUPLED_DE     
      COOP_INT::index_de_Q = 0
 #elif DO_EFT_DE     
@@ -409,7 +410,7 @@ contains
 
     subroutine setforH(h)
       COOP_REAL::h
-      COOP_REAL::Q, w, wa, epsilon_s, epsilon_inf, zeta_s
+      COOP_REAL::Q, w, wa, epsilon_s, epsilon_inf, zeta_s, beta_s
       COOP_INT::err
       type(coop_function)::fQ, fwp1
       call this%cosmology%free()
@@ -437,7 +438,7 @@ contains
          call this%cosmology%add_species( coop_neutrinos_massless(this%cosmology%Omega_massless_neutrinos()))  
       endif
 
-      if(this%index_de_epss .ne. 0 .or. this%index_de_epsinf .ne. 0 .or. this%index_de_zetas .ne. 0)then
+      if(this%index_de_epss .ne. 0 .or. this%index_de_epsinf .ne. 0 .or. this%index_de_zetas .ne. 0 .or. this%index_de_betas .ne. 0)then
          if(this%index_de_epss .ne. 0)then
             epsilon_s = this%fullparams(this%index_de_epss)
          else
@@ -453,7 +454,12 @@ contains
          else
             zeta_s = 0.d0
          endif
-         fwp1 = coop_function_constructor(coop_de_wp1_quintessence, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args = coop_arguments_constructor( r = (/ this%cosmology%Omega_k()  - this%cosmology%omch2/h**2, epsilon_s, epsilon_inf, zeta_s /) ), name = "DE 1+w")
+         if(this%index_de_betas .ne. 0)then
+            beta_s = this%fullparams(this%index_de_betas)
+         else
+            beta_s = 6.d0
+         endif
+         fwp1 = coop_function_constructor(coop_de_wp1_coupled_quintessence, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args = coop_arguments_constructor( r = (/ this%cosmology%Omega_k()  - this%cosmology%omch2/h**2, epsilon_s, epsilon_inf, zeta_s , beta_s /) ), name = "DE 1+w")
       else
          if(this%index_de_w .ne. 0)then
             w = this%fullparams(this%index_de_w)
@@ -1524,7 +1530,8 @@ contains
     this%index_de_wa = this%index_of("de_wa")
     this%index_de_epss = this%index_of("de_epss")
     this%index_de_epsinf = this%index_of("de_epsinf")
-    this%index_de_zetas = this%index_of("de_zetas")            
+    this%index_de_zetas = this%index_of("de_zetas")
+    this%index_de_betas = this%index_of("de_betas")                
 
 #if DO_EFT_DE    
     this%index_de_alpha_M0 = this%index_of("de_alpha_M0")

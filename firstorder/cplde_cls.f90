@@ -4,7 +4,7 @@ program test
 #include "constants.h"
   !!----------------------------------------
   !!output Cls file
-  COOP_STRING::output = "cls_scalar_lambda.txt"
+  COOP_STRING::output = "cls_coupled_DE.txt"
   !!----------------------------------------
   !! declare other variables
   type(coop_cosmology_firstorder)::cosmology
@@ -18,7 +18,7 @@ program test
   !!----------------------------------------
   !!main code
   !!initialize cosmology
-  call fwp1%init_polynomial( (/ 0.d0, 0.2d0 /) )
+  call fwp1%init_polynomial( (/ 0.d0.d0, 0.2d0 /) )
   call fQ%init_polynomial( (/ 0.d0,  0.d0 /) )
   call cosmology%set_coupled_DE_cosmology(Omega_b=0.049d0, Omega_c=0.265d0, h = 0.68d0, tau_re = 0.06d0, As = 2.21d-9, ns = 0.968d0, fwp1 = fwp1, fQ = fQ)
   if(cosmology%h() .eq. 0.d0) stop "Initialization failed; check the input parameters."
