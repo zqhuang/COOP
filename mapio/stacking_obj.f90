@@ -691,8 +691,15 @@ contains
     case(coop_stacking_genre_Col_Oriented)
        call this%peak_map%get_element(i, map)
        angle = COOP_POLAR_ANGLE(dble(map(this%index_Q)),dble(map(this%index_U)))/2.d0
+!!$       if(abs(map(10)*cos(angle) + map(9)*sin(angle)) .lt. 1.d5)then
+!!$          angle = 1.d31
+!!$          return
+!!$       endif
        if(map(10)*cos(angle) + map(9)*sin(angle) .le. 0.d0)then
           angle = angle + coop_pi
+       endif
+       if(map(9)*cos(angle) - map(10)*sin(angle) .le. 0.d0)then
+          angle = angle + coop_2pi*3.d0
        endif
     case default
        write(*,*) this%genre

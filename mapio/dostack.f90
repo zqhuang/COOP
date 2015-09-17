@@ -99,7 +99,7 @@ program Stacking_Maps
   else
      call hgm%stack_on_peaks(sto, patch)
   endif
-  patch%caption = "stacked on "//COOP_STR_OF(sto%peak_pix%n)//" "//trim(sto%caption)
+  patch%caption = "stacked on "//COOP_STR_OF(patch%nstack_raw)//" "//trim(sto%caption)
   call coop_get_command_line_argument(key = 'colortable', arg = patch%color_table, default = 'Rainbow')
   select case(patch%nmaps)
   case(1)

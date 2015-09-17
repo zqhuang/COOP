@@ -4,6 +4,17 @@ program test
 #include "constants.h"
   type(coop_cosmology_firstorder)::cosmology
   type(coop_file)fp
+  COOP_REAL, parameter::hub = 0.676d0 !! h = H_0/100
+  COOP_REAL, parameter::ombh2 = 0.022d0 !!Omega_b h^2
+  COOP_REAL, parameter::omch2 = 0.12d0   !!Omega_c h^2
+  COOP_REAL, parameter::tau_re = 0.08  !!optical depth
+  COOP_REAL, parameter::As = 2.219795d-9
+  COOP_REAL, parameter::ns = 0.96d0
+  
+  COOP_REAL, parameter::Omega_b = ombh2/hub**2
+  COOP_REAL, parameter::Omega_c = omch2/hub**2
+
+  
   integer,parameter::lmin=2, lmax=2608, nk=256
   integer i, l, ell_now
   COOP_REAL, dimension(coop_num_Cls, lmin:lmax)::Cls_scalar, Cls_tensor, Cls_lensed
@@ -12,7 +23,7 @@ program test
   COOP_REAL,dimension(:),allocatable::intpp 
 
   hub = 0.68141112343305932d0
-  call cosmology%set_standard_cosmology(Omega_b = 0.02223508d0/hub**2, omega_c = 0.1196d0/hub**2, h = hub, tau_re = 0.07832564d0, As = exp(3.066313)*1.d-10, ns = 0.9624d0)
+  call cosmology%set_standard_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hub, tau_re = tau_re , As = As, ns = ns)
 
 
   norm = cosmology%Tcmb()**2*1.d12

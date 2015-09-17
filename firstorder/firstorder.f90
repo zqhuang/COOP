@@ -25,8 +25,8 @@ module coop_firstorder_mod
 
   COOP_REAL, dimension(0:2), parameter :: coop_source_tau_step_factor = (/ 1.d0, 1.d0, 1.d0 /)
   COOP_REAL, dimension(0:2), parameter :: coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
-  COOP_INT, dimension(0:2), parameter :: coop_source_k_n = (/ 280, 120, 100 /)
-  COOP_REAL, parameter :: coop_source_k_index = 0.9d0
+  COOP_INT, dimension(0:2), parameter :: coop_source_k_n = (/ 300, 120, 100 /)
+  COOP_REAL, parameter :: coop_source_k_index = 0.88d0
   COOP_INT, parameter :: coop_k_dense_fac = 20
 
   COOP_INT, parameter :: coop_index_source_T = 1
@@ -402,6 +402,20 @@ contains
     class default
        stop "For compatibility with lower versions of gfortran, firstorder equations only works with type coop_cosmology_firstorder"
     end select
+    
+    !!for energy conservation test:
+    if(present(do_test_energy_conservation))then
+       if(do_test_energy_conservation)then
+          T00 = pert%delta_T00a2()
+          T0i = pert%delta_T0ia2()
+          G00 = pert%delta_G00a2()
+          G0i = pert%delta_G0ia2()
+          write(*,"(20E16.7)")  log(pert%a),T00, G00/T00-1.d0, T0i, G0i/T0i-1.d0, pert%o1_phi, pert%O1_PSI
+       endif
+    endif
+    
+
+    
     ind = 1
     c = 0.d0
     nvars = pert%ny + 1
@@ -446,7 +460,6 @@ contains
              G00 = pert%delta_G00a2()
              G0i = pert%delta_G0ia2()
              write(*,"(20E16.7)")  log(pert%a),T00, G00/T00-1.d0, T0i, G0i/T0i-1.d0, pert%o1_phi, pert%O1_PSI
-!             call coop_print_matrix(pert%deMat, 7, 5)
           endif
        endif
        !!------------------------------------------------------------
@@ -807,7 +820,11 @@ contains
        ps(ik) = this%psofk(k(ik))
     enddo
     !$omp end parallel do
+#if DO_EFT_DE
+    pk = (PhiPlusPsi-Psi) **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a))/this%M2(a) )**2    
+#else    
     pk = (PhiPlusPsi-Psi) **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)))**2
+#endif
   end subroutine coop_cosmology_firstorder_get_matter_power
 
 

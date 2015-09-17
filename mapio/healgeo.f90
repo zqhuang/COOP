@@ -185,6 +185,8 @@ module coop_healpix_mod
    contains
      procedure::free => coop_healpix_patch_free
      procedure::init => coop_healpix_patch_init
+     procedure::flipx => coop_healpix_patch_flipx
+     procedure::flipy => coop_healpix_patch_flipy     
      procedure::get_radial_profile => coop_healpix_patch_get_radial_profile
      procedure::get_all_radial_profiles => coop_healpix_patch_get_all_radial_profiles
      procedure::plot => coop_healpix_patch_plot
@@ -2563,11 +2565,17 @@ contains
     type(coop_healpix_maps),optional::mask
     COOP_REAL angle
     type(coop_healpix_patch) patch, tmp_patch
+    if(angle .ge. 1.d30)return
     if(present(mask))then
        call this%fetch_patch(disc, angle, tmp_patch, mask)
        if(sum(tmp_patch%nstack*tmp_patch%indisk) .lt. patch%num_indisk_tol)return
     else
        call this%fetch_patch(disc, angle, tmp_patch)
+    endif
+    if(angle .gt. coop_4pi)then   !! if angle > 4pi do flip
+       call tmp_patch%flipx()
+    elseif(angle .lt. -coop_4pi)then
+       call tmp_patch%flipy()
     endif
     patch%image = patch%image + tmp_patch%image
     patch%nstack = patch%nstack + tmp_patch%nstack
@@ -5492,6 +5500,24 @@ contains
     enddo
     this%map(:,:) = this%map(inds, :)
   end subroutine coop_healpix_maps_reflect
+
+  subroutine coop_healpix_patch_flipx(this)
+    class(coop_healpix_patch)::this
+    if(this%n .gt. 0)then
+       this%image = this%image(this%n:-this%n:-1,:, :)
+       this%nstack = this%nstack(this%n:-this%n:-1, :)
+    endif
+  end subroutine coop_healpix_patch_flipx
+
+
+  subroutine coop_healpix_patch_flipy(this)
+    class(coop_healpix_patch)::this
+    if(this%n .gt. 0)then
+       this%image = this%image(:, this%n:-this%n:-1, :)
+       this%nstack = this%nstack(:, this%n:-this%n:-1)
+    endif
+  end subroutine coop_healpix_patch_flipy
+  
 
 
 end module coop_healpix_mod

@@ -4,8 +4,19 @@ program test
 #include "constants.h"
   !!----------------------------------------
   !!wave number k, because COOP uses fixed k arrays, the actual k will be the one that is closest to the following number
-  COOP_REAL::kMpc_want = 0.2d0
+  COOP_REAL::kMpc_want = 0.001d0
 
+  !!cosmological parameters
+  COOP_REAL,parameter::ombh2 = 0.022d0
+  COOP_REAL,parameter::omch2 = 0.4349d0  !!0.12 LCDM  
+  COOP_REAL,parameter::hubble = 0.676d0  !!H0/100
+  COOP_REAL,parameter::tau_re = 0.08d0  !!optical depth2
+  COOP_REAL,parameter::As = 2.22d-9   !!amplitude
+  COOP_REAL, parameter::ns = 0.96d0   !!tilt
+  COOP_REAL, parameter::Omega_b = ombh2/hubble**2
+  COOP_REAL, parameter::Omega_c = omch2/hubble**2
+  !!for EFT Dark Energy I have assumed massless neutrinos, if you want to compare with CAMB/CLASS you need to set mnu = 0
+  
   !!background EOS
   COOP_REAL, parameter::w0 = -1.d0
   COOP_REAL, parameter::wa = 0.d0    
@@ -47,11 +58,11 @@ program test
   
   !!----------------------------------------    
   !!initialize cosmology
-  call cosmology%set_EFT_cosmology(Omega_b=0.049d0, Omega_c=0.265d0, h = 0.68d0, tau_re = 0.06d0, As = 2.21d-9, ns = 0.968d0, wp1 = wp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT)
+  call cosmology%set_EFT_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, tau_re = tau_re, As = As, ns = ns, wp1 = wp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT)
 #else
   Write(*,*) "warning: EFT DE disabled; using LCDM model."
   write(*,*) "To enable EFT dark energy, set DARK_ENERGY_MODEL=EFT in configure.in and recompile the package."
-  call cosmology%set_standard_cosmology(Omega_b=0.049d0, Omega_c=0.265d0, h = 0.68d0, tau_re = 0.06d0, As = 2.21d-9, ns = 0.968d0)
+  call cosmology%set_standard_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, tau_re = tau_re, As = As, ns = ns)
 #endif
   
   !!----------------------------------------    
@@ -64,7 +75,7 @@ program test
   write(*,*) "k [Mpc^{-1}] = ", cosmology%source(0)%k(ik)*cosmology%H0Mpc()
   !!--------------solve mode k---------------
   !!output are
-  write(*,"(5A16)") "# ln a",    " T00 ",  " T00/G00 - 1 ",   "T0i, T0i/G0i - 1"
+  write(*,"(10A16)") "# ln a",    " T00 ",  " T00/G00 - 1 ",   "T0i", "T0i/G0i - 1", " Phi ",  "  Psi "
   
   call cosmology%compute_source_k(cosmology%source(0), ik, do_test_energy_conservation = .true., success = success)
   if(.not. success)write(*,*) "Solution blows up exponentially. Model is ruled out."
