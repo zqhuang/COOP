@@ -8,10 +8,10 @@ module coop_firstorder_mod
 
   public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe, coop_power_lnk_min, coop_power_lnk_max,  coop_k_dense_fac, coop_index_ClTT, coop_index_ClTE, coop_index_ClEE, coop_index_ClBB, coop_index_ClLenLen, coop_index_ClTLen,  coop_num_Cls, coop_Cls_lmax, coop_bbks_trans, coop_index_source_T, coop_index_source_E, coop_index_source_B, coop_index_source_Len, coop_index_source_zeta
 
-
   !!this makes the code faster and more accurate
   logical,parameter :: coop_firstorder_optimize = .true.
   COOP_INT, parameter :: coop_limber_ell = 550
+
   
   COOP_INT :: coop_Cls_lmax(0:2) = (/ 2800, 2000, 1500 /)
 
@@ -20,7 +20,7 @@ module coop_firstorder_mod
   COOP_REAL, parameter :: coop_visibility_amin = 1.8d-4
   COOP_REAL, parameter :: coop_initial_condition_epsilon = 2.d-7
   COOP_REAL, parameter :: coop_cosmology_firstorder_ode_accuracy = 2.d-7
-  COOP_REAL, parameter :: coop_cosmology_firstorder_tc_cutoff = 0.005d0
+  COOP_REAL, parameter :: coop_cosmology_firstorder_tc_cutoff = 0.01d0
 
 
   COOP_REAL, dimension(0:2), parameter :: coop_source_tau_step_factor = (/ 1.d0, 1.d0, 1.d0 /)
@@ -379,15 +379,15 @@ contains
   end subroutine coop_cosmology_firstorder_compute_source
 
 
-  subroutine coop_cosmology_firstorder_compute_source_k(this, source, ik, do_test_energy_conservation, transfer_only, success)
+  subroutine coop_cosmology_firstorder_compute_source_k(this, source, ik, do_output, transfer_only, success)
     COOP_REAL, parameter::eps = 1.d-20
     class(coop_cosmology_firstorder)::this
     type(coop_cosmology_firstorder_source)::source
     COOP_INT ik, nvars, itau, iq, scheme
     type(coop_pert_object) pert
     COOP_REAL, dimension(:,:),allocatable::w
-    logical,optional::do_test_energy_conservation, transfer_only, success
-    COOP_REAL c(24), T00, G00, T0i, G0i
+    logical,optional::do_output, transfer_only, success
+    COOP_REAL c(24)
     COOP_INT ind, i
     COOP_REAL tau_ini, lna, mnu_deltarho, mnu_deltav
     tau_ini = min(coop_initial_condition_epsilon/source%k(ik), this%conformal_time(this%a_eq*coop_initial_condition_epsilon), source%tau(1)*0.999d0)
@@ -404,13 +404,9 @@ contains
     end select
     
     !!for energy conservation test:
-    if(present(do_test_energy_conservation))then
-       if(do_test_energy_conservation)then
-          T00 = pert%delta_T00a2()
-          T0i = pert%delta_T0ia2()
-          G00 = pert%delta_G00a2()
-          G0i = pert%delta_G0ia2()
-          write(*,"(20E16.7)")  log(pert%a),T00, G00/T00-1.d0, T0i, G0i/T0i-1.d0, pert%o1_phi, pert%O1_PSI
+    if(present(do_output))then
+       if(do_output)then
+          call pert%print()
        endif
     endif
     
@@ -453,13 +449,9 @@ contains
        endif
        pert%want_source  = .false.              
        !!for energy conservation test:
-       if(present(do_test_energy_conservation))then
-          if(do_test_energy_conservation)then
-             T00 = pert%delta_T00a2()
-             T0i = pert%delta_T0ia2()
-             G00 = pert%delta_G00a2()
-             G0i = pert%delta_G0ia2()
-             write(*,"(20E16.7)")  log(pert%a),T00, G00/T00-1.d0, T0i, G0i/T0i-1.d0, pert%o1_phi, pert%O1_PSI
+       if(present(do_output))then
+          if(do_output)then
+             call pert%print()
           endif
        endif
        !!------------------------------------------------------------
@@ -496,6 +488,7 @@ contains
 #endif       
 
        if(itau .eq. source%index_tc_off(ik))then
+          if(coop_feedback_level .ge. 5) write(*,*) "switching tight coupling off"
           call pert%save_ode()
        
           select type(this)
@@ -1109,7 +1102,7 @@ contains
     call coop_background_add_coupled_DE(this, Omega_c = Omega_c, fQ = fQ, fwp1 =fwp1, err = err)
     this%de_genre = COOP_PERT_SCALAR_FIELD
     if(err .ne. 0)then
-       write(*,*) "add_coupled_DE_failed"
+       if(coop_feedback_level .gt. 0)write(*,*) "add_coupled_DE_failed"
        call this%set_h(0.d0)
        return
     endif
@@ -1199,7 +1192,7 @@ contains
     call this%add_species(coop_cdm(omega_c))
     call coop_background_add_EFT_DE(this, wp1, alphaM, err)
     if(err .ne. 0)then
-       write(*,*) "Warning: EFT DE settings failed"
+       if(coop_feedback_level.gt.0)write(*,*) "Warning: EFT DE settings failed"
        call this%set_h(0.d0)
        return
     endif

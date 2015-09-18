@@ -66,6 +66,7 @@ module coop_pertobj_mod
      procedure::delta_T0ia2 => coop_pert_object_delta_T0ia2
      procedure::delta_G0ia2 => coop_pert_object_delta_G0ia2
      procedure::zeta => coop_pert_object_zeta  !!covmoving curvature fluctuations
+     procedure::print => coop_pert_object_print
   end type coop_pert_object
 
 
@@ -421,6 +422,20 @@ contains
     enddo
     if(this%de%nvars .gt. 0)   this%y(this%de%index:this%de%last_index) = this%de%F(this%de%lmin:this%de%lmax)    
   end subroutine coop_pert_object_restore_ode
+
+
+  !!user specified subroutine
+  !!this example shows how to print T00, T00/G00-1, T0i, T0i/G0i-1, Phi, PSI
+  subroutine coop_pert_object_print(pert)
+    class(coop_pert_object)::pert
+    COOP_REAL::T00, T0i, G00, G0i
+    T00 = pert%delta_T00a2()
+    T0i = pert%delta_T0ia2()
+    G00 = pert%delta_G00a2()
+    G0i = pert%delta_G0ia2()
+    write(*,"(20E16.7)")  log(pert%a),T00, G00/T00-1.d0, T0i, G0i/T0i-1.d0, pert%o1_phi, pert%O1_PSI
+  end subroutine coop_pert_object_print
+  
   
 end module coop_pertobj_mod
 

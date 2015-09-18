@@ -10,61 +10,24 @@ include ../compile_rules.in
 LIB = libcoopfirstorder.a
 OBJ = pertobj.o firstorder.o lensing.o Cls_post_process.o wrapper.o
 
-default: $(LIB) 
+default: $(LIB)
 
 $(LIB): $(OBJ)
 	ar -r $@ $?
 
 
-EFTONE: $(OBJ) eft_one_mode.o $(BACKGROUND)/libcoopbackground.a 
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) eft_one_mode.o $(LINK)
+SolvePert: $(OBJ) solve_pert.o $(BACKGROUND)/libcoopbackground.a 
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) solve_pert.o $(LINK)
 
-EFTCLS: $(OBJ) eft_cls.o $(BACKGROUND)/libcoopbackground.a 
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) eft_cls.o $(LINK)
-
-CPLDECLS: $(OBJ) cplde_cls.o $(BACKGROUND)/libcoopbackground.a 
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) cplde_cls.o $(LINK)
-
-FNL: 	$(OBJ) testfnl.o $(BACKGROUND)/libcoopbackground.a 
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testfnl.o $(LINK)
+CalcCls: $(OBJ) calc_cls.o $(BACKGROUND)/libcoopbackground.a 
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) calc_cls.o $(LINK)
 
 
-DOCLS: $(OBJ) testcls.o $(BACKGROUND)/libcoopbackground.a 
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testcls.o $(LINK)
-
-OneMode: $(OBJ) test_one_mode.o $(BACKGROUND)/libcoopbackground.a 
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test_one_mode.o $(LINK)
-
-MPK:  $(OBJ) testMatterPower.o $(BACKGROUND)/libcoopbackground.a 
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testMatterPower.o $(LINK)
-
-
-MCLS: $(OBJ) test_mult_cls.o $(BACKGROUND)/libcoopbackground.a 
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test_mult_cls.o $(LINK)
-
-
-MGR: $(OBJ) test_mult_growth.o $(BACKGROUND)/libcoopbackground.a 
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test_mult_growth.o $(LINK)
-
-
-Test: $(OBJ) test.o $(BACKGROUND)/libcoopbackground.a 
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
-
-TestEFT: $(OBJ) testeft.o $(BACKGROUND)/libcoopbackground.a 
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testeft.o $(LINK)
-
-TestCPLDE: $(OBJ) testcplde.o $(BACKGROUND)/libcoopbackground.a 
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testcplde.o $(LINK)
-
-Z3D: $(OBJ) zeta.o $(BACKGROUND)/libcoopbackground.a 
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) zeta.o $(LINK)
-
-testZ: $(OBJ) testzeta.o $(BACKGROUND)/libcoopbackground.a 
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testzeta.o $(LINK)
-
+CalcMP:  $(OBJ) calc_mp.o $(BACKGROUND)/libcoopbackground.a 
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) calc_mp.o $(LINK)
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test DOCLS OneMode TestEFT testZ Z3D MGR MCLS EFTONE EFTCLS TestCPLDE CPLDECLS FNL
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test CalcCls SolvePert CalcMP
 
 
 firstorder.o:	pertobj.o  ../include/firstorder_equations.h ../include/firstorder_source.h ../include/recfast_source.h ../include/recfast_head.h ../include/firstorder_basic_utils.h ../include/firstorder_ic.h ../include/firstorder_ic_EFT.h ../include/firstorder_equations_EFT.h

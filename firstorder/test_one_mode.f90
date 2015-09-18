@@ -29,7 +29,7 @@ program test
   !!output are
   write(*,"(5A16)") "# ln a",    " T00 ",  " T00/G00 - 1 ",   "T0i, T0i/G0i - 1"
   
-  call cosmology%compute_source_k(cosmology%source(0), ik, do_test_energy_conservation = .true., success = success)
+  call cosmology%compute_source_k(cosmology%source(0), ik, do_output = .true., success = success)
   if(.not. success)write(*,*) "Solution blows up exponentially. Model is ruled out."
   
 end program test

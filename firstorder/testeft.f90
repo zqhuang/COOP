@@ -26,5 +26,5 @@ program test
   do while(cosmology%source(0)%k(ik).lt. 2.d0)
      ik = ik + 1
   enddo
-  call cosmology%compute_source_k(cosmology%source(0), ik, do_test_energy_conservation = .true.)
+  call cosmology%compute_source_k(cosmology%source(0), ik, do_output = .true.)
 end program test

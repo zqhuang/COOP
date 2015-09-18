@@ -422,7 +422,7 @@
     logical::check_input, do_inds
     n = 1
     aend = 1.d0/(1.d0+this%zrecomb_start)
-    a(n) = aend/2.5d0
+    a(n) = min(aend/2.d0, max(aend/(3.d0*exp((coop_feedback_level-1)*2.d0)), coop_min_scale_factor))
     tau(n) = this%tauofa(a(n))
     
     step = step_ini
@@ -591,7 +591,7 @@
     class(coop_cosmology_firstorder)::this
     class(coop_cosmology_firstorder_source)::source
     COOP_INT n, i, iq, j
-    COOP_REAL weight, dlnk, tau_cut, omega_rad_cut
+    COOP_REAL weight, dlnk, tauc_cut, omega_rad_cut
     this%k_pivot = this%kMpc_pivot/this%H0Mpc()
     source%kweight = weight
     source%nk = n
@@ -639,10 +639,10 @@
 
     !!set index_tc_off, index_de_perturb_on
     if(source%ntau .gt. 0 .and. allocated(source%tauc))then
-       !$omp parallel do private(tau_cut)
+       !$omp parallel do private(tauc_cut)
        do i = 1, n
-          tau_cut = min(0.03, coop_cosmology_firstorder_tc_cutoff*(1.d0+source%k(i)/500.d0))/max(source%k(i), 0.1d0)  !!for very large k we use less accurate scheme to speed up the code
-          source%index_tc_off(i) = max(1, coop_left_index(source%ntau, source%tau, tau_cut))
+          tauc_cut = min(0.05, coop_cosmology_firstorder_tc_cutoff*(1.d0+source%k(i)/500.d0))/source%k(i)  !!for very large k we use less accurate scheme to speed up the code
+          source%index_tc_off(i) = max(1, min(coop_left_index(source%ntau, source%tauc, tauc_cut), coop_left_index(source%ntau, source%tauc/source%tau, coop_cosmology_firstorder_tc_cutoff), source%ntau))
        enddo
        !$omp end parallel do
        

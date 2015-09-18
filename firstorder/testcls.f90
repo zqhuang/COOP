@@ -18,11 +18,10 @@ program test
   integer,parameter::lmin=2, lmax=2608, nk=256
   integer i, l, ell_now
   COOP_REAL, dimension(coop_num_Cls, lmin:lmax)::Cls_scalar, Cls_tensor, Cls_lensed
-  COOP_REAL norm, hub, lnorm
+  COOP_REAL norm, lnorm
   COOP_REAL k(nk), matterPk(nk), khMpc(nk)
   COOP_REAL,dimension(:),allocatable::intpp 
 
-  hub = 0.68141112343305932d0
   call cosmology%set_standard_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hub, tau_re = tau_re , As = As, ns = ns)
 
 

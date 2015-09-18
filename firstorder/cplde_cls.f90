@@ -29,6 +29,7 @@ program test
   COOP_INT::l
   logical success
   type(coop_file)::fp
+#if DO_COUPLED_DE  
   !!----------------------------------------
   !!main code
   !!initialize cosmology
@@ -38,12 +39,17 @@ program test
 
   
   call cosmology%set_coupled_DE_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hub, tau_re = tau_re , As = As, ns = ns, fwp1 = fwp1, fQ = fQ)
-  if(cosmology%h() .eq. 0.d0) stop "Initialization failed; check the input parameters."
+#else
+  Write(*,*) "warning: COUPLED DE disabled; using LCDM model."
+  write(*,*) "To enable coupled dark energy, set DARK_ENERGY_MODEL=COUPLED_DE in configure.in and recompile the package."
+  call cosmology%set_standard_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, tau_re = tau_re, As = As, ns = ns)  
+#endif
+  if(cosmology%h() .eq. 0.d0) stop "Initialization failed; check the input parameters."  
   call cosmology%compute_source(0, success = success)
   if(.not. success) stop "Solution blows up exponentially; Model is ruled out."
   call cosmology%source(0)%get_all_cls(lmin, lmax, Cls)
   call fp%open(output,"w")
-!  write(fp%unit, "(A8, 5A16)") "# ell ", "   TT  ",  "   EE  ",  "   TE   ", "Phi_lens Phi_lens ", " T Phi_lens  "
+  write(fp%unit, "(A8, 5A16)") "# ell ", "   TT  ",  "   EE  ",  "   TE   ", "Phi_lens Phi_lens ", " T Phi_lens  "
   norm = cosmology%Tcmb()**2*1.d12
   do l = lmin, lmax
      lnorm = l*(l+1.d0)/coop_2pi*norm

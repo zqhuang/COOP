@@ -5,22 +5,24 @@ program test
   !!----------------------------------------
   !!output Cls file
   COOP_STRING::output = "cls_scalar_output.txt"
-  !!background EOS
+  !!cosmological parameters
+  COOP_REAL, parameter::hub = 0.676d0   !! h = H_0/100
+  COOP_REAL, parameter::ombh2 = 0.022d0 !!Omega_b h^2
+  COOP_REAL, parameter::omch2 = 0.12d0  !!Omega_c h^2
+  COOP_REAL, parameter::tau_re = 0.08   !!optical depth
+  COOP_REAL, parameter::As = 2.22d-9   
+  COOP_REAL, parameter::ns = 0.96d0
+  !!DE energy w0-wa
   COOP_REAL, parameter::w0 = -1.d0
-  COOP_REAL, parameter::wa = 0.d0    
+  COOP_REAL, parameter::wa = 0.d0
+#if DO_EFT_DE  
   !!define the alpha parameters  
   COOP_REAL, parameter::alpha_M0 = 0.d0
   COOP_REAL, parameter::alpha_T0 = 0.d0
   COOP_REAL, parameter::alpha_K0 = 0.d0
   COOP_REAL, parameter::alpha_B0 = 0.d0
   COOP_REAL, parameter::alpha_H0 = 0.d0
-  !!----------------------------------------
-  COOP_REAL, parameter::hub = 0.676d0 !! h = H_0/100
-  COOP_REAL, parameter::ombh2 = 0.022d0 !!Omega_b h^2
-  COOP_REAL, parameter::omch2 = 0.12d0   !!Omega_c h^2
-  COOP_REAL, parameter::tau_re = 0.08  !!optical depth
-  COOP_REAL, parameter::As = 2.22d-9
-  COOP_REAL, parameter::ns = 0.96d0
+  
   COOP_STRING, parameter::camb_output = "testlcdm_scalCls.dat"  !!camb output with the same parameters
   !! declare other variables
   type(coop_cosmology_firstorder)::cosmology

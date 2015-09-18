@@ -1,3 +1,6 @@
+Online documentation:
+http://www.cita.utoronto.ca/~zqhuang/work/coop.php
+
 *****  First Time Compile ********
 
 1. replace the proper configure file, for example, if you are using gfortran in linux system:
