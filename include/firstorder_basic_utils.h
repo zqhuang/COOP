@@ -642,7 +642,7 @@
        !$omp parallel do private(tauc_cut)
        do i = 1, n
           tauc_cut = min(0.05, coop_cosmology_firstorder_tc_cutoff*(1.d0+source%k(i)/500.d0))/source%k(i)  !!for very large k we use less accurate scheme to speed up the code
-          source%index_tc_off(i) = max(1, min(coop_left_index(source%ntau, source%tauc, tauc_cut), coop_left_index(source%ntau, source%tauc/source%tau, coop_cosmology_firstorder_tc_cutoff), source%ntau))
+    source%index_tc_off(i) = max(1, min(coop_left_index(source%index_vis_max, source%tauc(1:source%index_vis_max), tauc_cut), coop_left_index(source%index_vis_max, source%tauc(1:source%index_vis_max)/source%tau(1:source%index_vis_max), coop_cosmology_firstorder_tc_cutoff), source%ntau))
        enddo
        !$omp end parallel do
        
