@@ -124,7 +124,8 @@ module coop_healpix_mod
      procedure :: get_QU => coop_healpix_maps_get_QU
      procedure :: get_QUL => coop_healpix_maps_get_QUL
      procedure :: get_QULDD => coop_healpix_maps_get_QULDD
-     procedure :: get_QUL6D => coop_healpix_maps_get_QUL6D          
+     procedure :: get_QUL4D => coop_healpix_maps_get_QUL4D
+     procedure :: get_QUL6D => coop_healpix_maps_get_QUL6D               
      procedure :: get_dervs => coop_healpix_maps_get_dervs
      procedure :: smooth => coop_healpix_maps_smooth
      procedure :: smooth_with_window => coop_healpix_maps_smooth_with_window
@@ -1367,7 +1368,7 @@ contains
     COOP_REAL::resol
 #ifdef HAS_HEALPIX
     if(this%spin(1).ne.0)then
-       stop "get_QULDD: the first map must be spin 0"
+       stop "get_QUL6D: the first map must be spin 0"
     end if
     if(this%nmaps.lt.10) call this%extend(10)
 
@@ -1419,7 +1420,7 @@ contains
        call this%set_field(6, "ED2")
     case default
        write(*,*) trim(this%fields(1))
-       stop "get_QULDD: only supprt I, ZETA and E maps"
+       stop "get_QUL6D: only supprt I, ZETA and E maps"
     end select
     call this%set_field(7, "I")
     call this%set_field(8, "I")       
@@ -1444,6 +1445,83 @@ contains
   end subroutine coop_healpix_maps_get_QUL6D
   
 
+  subroutine coop_healpix_maps_get_QUL4D(this, fwhm, idone)
+    class(coop_healpix_maps) this
+    COOP_REAL::fwhm
+    logical,optional::idone    
+    COOP_INT l, lmax, i
+    COOP_REAL::resol, sigma2
+#ifdef HAS_HEALPIX
+    if(this%spin(1).ne.0)then
+       stop "get_QUL4D: the first map must be spin 0"
+    end if
+    if(this%nmaps.lt.8) call this%extend(8)
+
+    !!set alms    
+    if(.not.present(idone))then
+       call this%map2alm(index_list = (/ 1 /) )
+    else
+       if(.not. idone)then
+          call this%map2alm(index_list = (/ 1 /) )
+       endif
+    endif
+    lmax = min(this%lmax, this%nside*2)
+    resol = 2./this%nside/this%nside
+    sigma2 = max( (coop_sigma_by_fwhm * fwhm)**2/2.d0, resol)
+    this%alm(:,:, 2:8) = 0.
+    do l = 2, lmax
+       this%alm(l,0:l,2) = this%alm(l, 0:l, 1)* (l*(l+1.)*exp(-l*(l+1.)*resol))
+       this%alm(l,0:l,4) = this%alm(l, 0:l, 2)
+       this%alm(l,0:l,5) = this%alm(l, 0:l, 1)* sqrt(l*(l+1.)*exp(-l*(l+1.)*resol))
+       this%alm(l,0:l,7) = this%alm(l, 0:l, 1)* sqrt(l*(l+1.)*exp(-l*(l+1.)*sigma2))       
+    enddo
+    
+    !!set units and spins
+    do i=2, 8
+       call this%set_unit(i, this%units(1))
+    enddo    
+    select case(trim(coop_str_numUpperalpha(this%fields(1))))
+    case("LNI")
+       call this%set_field(2, "LNQLT")
+       call this%set_field(3, "LNULT")
+       call this%set_field(4, "LNLT")
+       call this%set_field(5, "LNID1")
+       call this%set_field(6, "LNID2")
+       call this%set_field(7, "LNID1")
+       call this%set_field(8, "LNID2")       
+    case("T","I","TEMPERATURE", "INTENSITY", "ISTOKES")
+       call this%set_field(2, "QLT")
+       call this%set_field(3, "ULT")
+       call this%set_field(4, "LT")
+       call this%set_field(5, "ID1")
+       call this%set_field(6, "ID2")
+       call this%set_field(7, "ID1")
+       call this%set_field(8, "ID2")
+    case("ZETA", "Z")
+       call this%set_field(2, "QLZ")
+       call this%set_field(3, "ULZ")
+       call this%set_field(4, "LZ")
+       call this%set_field(5, "ZD1")
+       call this%set_field(6, "ZD2")
+       call this%set_field(7, "ZD1")
+       call this%set_field(8, "ZD2")       
+    case("E", "EPOLARISATION")
+       call this%set_field(2, "QLE")
+       call this%set_field(3, "ULE")
+       call this%set_field(4, "LE")
+       call this%set_field(5, "ED1")
+       call this%set_field(6, "ED2")
+       call this%set_field(7, "ED1")
+       call this%set_field(8, "ED2")
+    case default
+       write(*,*) trim(this%fields(1))
+       stop "get_QUL4D: only supprt I, ZETA and E maps"
+    end select
+    call this%alm2map( index_list = (/ 2, 3, 4, 5, 6, 7, 8 /) )    
+#endif    
+  end subroutine coop_healpix_maps_get_QUL4D
+  
+  
   
 
 

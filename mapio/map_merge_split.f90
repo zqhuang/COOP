@@ -402,6 +402,23 @@ program map
         enddo
         print*, "maps are all converted to TQULDD"
         goto 500
+     case("I2TQUL4D")
+        if(inline_mode)then
+           inline = coop_inputArgs(nin+1)
+           read(inline, *) fwhm
+        else           
+           write(*,*) "Enter FWHM in arcmin:"
+           read(*,*) fwhm
+        end if
+        fwhm = coop_SI_arcmin*fwhm
+        nin = nin -1
+        do i=1, nin
+           call hgm%read(trim(fin(i)), nmaps_wanted = 8, nmaps_to_read = 1 )
+           call hgm%get_QUL4D(fwhm)
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_conv_TQUL4D")))
+        enddo
+        print*, "maps are all converted to TQUL4D"
+        goto 500                        
      case("I2TQUL6D")
         nin = nin -1
         do i=1, nin

@@ -56,7 +56,7 @@ current_path = os.getcwd()
 jobname = chainname
     
 fp = open(r'scripts/' + jobname + r'.jb', 'w')
-fp.write(r'#!/bin/csh -f' + "\n" + r'#PBS -N '+jobname + "\n" + r'#PBS -l nodes=' + str(num_chains) + r':ppn=8' + "\n" + r'#PBS -q workq' + "\n" + r'#PBS -l walltime=48:00:00' + "\n" + r'##PBS -r n' + "\n" + r'cd ' + current_path + "\n" + 'mpirun --map-by ppr:1:node ./MCMC ' + inifile + ' > ./scripts/'+jobname+r'.log' + "\n")
+fp.write(r'#!/bin/csh -f' + "\n" + r'#PBS -N '+jobname + "\n" + r'#PBS -l nodes=' + str(num_chains/2) + r':ppn=8' + "\n" + r'#PBS -q workq' + "\n" + r'#PBS -l walltime=48:00:00' + "\n" + r'##PBS -r n' + "\n" + r'cd ' + current_path + "\n" + 'mpirun -np ' + str(num_chains) + ' --map-by node:PE=4 ./MCMC ' + inifile + ' > ./scripts/'+jobname+r'.log' + "\n")
 
 fp.close()
 
