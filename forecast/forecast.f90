@@ -29,11 +29,11 @@ module coop_forecast_mod
   type, extends(coop_dataset):: coop_dataset_CMB_simple
      COOP_REAL::z_star = 1089.
      COOP_REAL::ombh2_center = 0.02207
-     COOP_REAL::ombh2_sigma = 0.00034
+     COOP_REAL::ombh2_sigma = 0.0004
      COOP_REAL::omch2_center = 0.1196
-     COOP_REAL::omch2_sigma = 0.0032
+     COOP_REAL::omch2_sigma = 0.004
      COOP_REAL::theta_center = 1.04132
-     COOP_REAL::theta_sigma = 0.00069
+     COOP_REAL::theta_sigma = 0.0007
      COOP_REAL::corr_ombh2_omch2 = -0.558
      COOP_REAL::corr_ombh2_theta = 0.4675
      COOP_REAL::corr_omch2_theta = -0.4562
