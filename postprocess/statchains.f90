@@ -341,8 +341,8 @@ contains
           mc%std(ip) = sqrt(sum((mc%params(:,ip)-mc%mean(ip))**2*mc%mult)/mc%totalmult)
           mc%vary(ip) = .true.
 
-          mc%upper(ip) = mc%upper(ip) + dx
-          mc%lower(ip) = mc%lower(ip) - dx
+          mc%upper(ip) = mc%upper(ip) + dx/5.d0
+          mc%lower(ip) = mc%lower(ip) - dx/5.d0
           dx = (mc%upper(ip) - mc%lower(ip))/n_fine_bins          
           c = 0
           do i=1, mc%n
@@ -357,7 +357,7 @@ contains
              acc = acc + c(i)
              if(i.gt. n_fine_bins/4) exit
           enddo
-          call coop_array_get_threshold(c, 0.3, maxc)
+          call max(coop_array_get_threshold(c, 0.3, maxc), sum(c)/n_fine_bins)
           if(sum(c(1:i+n_fine_bins/50))/(i+n_fine_bins/50) .ge. maxc )then  
              mc%left_is_tail(ip) = .false.
              mc%plotlower(ip) = mc%lower(ip)
