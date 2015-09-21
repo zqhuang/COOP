@@ -1467,7 +1467,7 @@ contains
     endif
     lmax = min(this%lmax, this%nside*2)
     resol = 2./this%nside/this%nside
-    sigma2 = max( (coop_sigma_by_fwhm * fwhm)**2/2.d0, resol)
+    sigma2 = max( (coop_sigma_by_fwhm * fwhm)**2, resol)
     this%alm(:,:, 2:8) = 0.
     do l = 2, lmax
        this%alm(l,0:l,2) = this%alm(l, 0:l, 1)* (l*(l+1.)*exp(-l*(l+1.)*resol))

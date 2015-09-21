@@ -100,13 +100,25 @@ module coop_firstorder_mod
      COOP_REAL::optre = 0.07d0
      COOP_REAL::zre = 8.d0
      COOP_REAL::deltaz = 1.5d0
+     COOP_REAL::sigma_8 = 0.8d0
+     COOP_REAL::r = 0.d0
+     COOP_REAL::As = 2.2d-9
+     COOP_REAL::ns = 0.96d0
+     COOP_REAL::nrun = 0.d0
+     COOP_REAL::nt = 0.d0
      COOP_REAL::kMpc_pivot = 0.05d0
      COOP_INT ::de_genre = COOP_PERT_NONE
-     COOP_REAL::k_pivot 
-     COOP_REAL::dkappadtau_coef, ReionFrac, Omega_b, Rbya, Omega_c, Omega_nu, Omega_g, tau_eq, mnu_by_Tnu, As, ns, nrun, r, nt, Omega_massivenu, bbks_keq, sigma_8
-     !!these omega's are defined at a=1 (today)
-     COOP_REAL::ombh2, omch2 !!these two parameters are defined in the a->0 limit (only matters when baryon or CDM is coupled to DE in some modified gravity models)
-     logical::inflation_consistency
+     COOP_REAL::k_pivot
+     
+     !!these omega's are defined at a=1 (today)     
+     COOP_REAL::dkappadtau_coef, ReionFrac, Omega_b, Rbya, Omega_c, Omega_nu, Omega_g, tau_eq, mnu_by_Tnu,  Omega_massivenu, bbks_keq
+
+     !!these two parameters are defined in the a->0 limit (only matters when baryon or CDM is coupled to DE in some modified gravity models)     
+     COOP_REAL::ombh2 = 0.022d0
+     COOP_REAL::omch2 = 0.12d0
+     
+     logical::inflation_consistency = .true.
+     
      type(coop_function)::Ps, Pt, Xe, ekappa, vis, Tb
      type(coop_cosmology_firstorder_source),dimension(0:2)::source
      COOP_INT::index_baryon, index_cdm, index_radiation, index_nu, index_massiveNu, index_de
