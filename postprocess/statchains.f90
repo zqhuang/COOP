@@ -386,7 +386,7 @@ contains
              mc%plotupper(ip) = mc%upper(ip)
           else
              mc%right_is_tail(ip) = .true.
-             mc%plotupper(ip) = mc%upper(ip) - dx*(n_fine_bins - i)
+             mc%plotupper(ip) = mc%upper(ip) - dx*(n_fine_bins - i+1)
           endif
           if(mc%right_is_tail(ip) .eqv. mc%left_is_tail(ip))then
              i = 1
