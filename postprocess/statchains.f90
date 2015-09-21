@@ -6,17 +6,17 @@ module coop_statchains_mod
 
 #include "constants.h"
 
-  integer,parameter::mcmc_stat_num_cls = 3  !!minimum 3
+  COOP_INT,parameter::mcmc_stat_num_cls = 3  !!minimum 3
 
-  real,dimension(mcmc_stat_num_cls)::mcmc_stat_cls = (/ 0.683, 0.954, 0.997 /)
+  COOP_SINGLE,dimension(mcmc_stat_num_cls)::mcmc_stat_cls = (/ 0.683, 0.954, 0.997 /)
 
   COOP_STRING :: measured_cltt_file = ""
   COOP_STRING :: bestfit_cl_file = ""
   COOP_STRING :: bestfit_run_file = ""
   COOP_STRING :: bestfit_varytau_file = ""
   logical::coop_postprocess_do_cls = .false.
-  integer::coop_postprocess_nbins = 0
-  integer::coop_postprocess_num_contours = 2
+  COOP_INT::coop_postprocess_nbins = 0
+  COOP_INT::coop_postprocess_num_contours = 2
 
   type coop_mcmc_chain
      COOP_STRING prefix, output
@@ -28,24 +28,24 @@ module coop_statchains_mod
      COOP_SHORT_STRING,dimension(:),allocatable::name, simplename
      COOP_STRING,dimension(:),allocatable::label
      COOP_SINGLE,dimension(:),allocatable::lower, upper, mean, std, plotlower, plotupper, dx, base !!plotlower and plotupper are used to make plots, with ~0 long tail truncated
-     real,dimension(:,:),allocatable::lowsig, upsig
+     COOP_SINGLE,dimension(:,:),allocatable::lowsig, upsig
      logical,dimension(:),allocatable::vary, left_is_tail, right_is_tail
-     integer,dimension(:),allocatable::map2used
-     real,dimension(:,:),allocatable::covmat, corrmat, cov_used
-     integer,dimension(:),allocatable::used
+     COOP_INT,dimension(:),allocatable::map2used
+     COOP_SINGLE,dimension(:,:),allocatable::covmat, corrmat, cov_used
+     COOP_INT,dimension(:),allocatable::used
 
 
-     integer np_pca
-     integer,dimension(:),allocatable::pca  
+     COOP_INT np_pca
+     COOP_INT,dimension(:),allocatable::pca  
 
-     integer n
-     real,dimension(:),allocatable::mult, like  !! n
-     real,dimension(:,:),allocatable::params !! n, np
+     COOP_INT::n = 0
+     COOP_SINGLE,dimension(:),allocatable::mult, like  !! n
+     COOP_SINGLE,dimension(:,:),allocatable::params !! n, np
 
-     integer nb !!number of bins
-     real,dimension(:,:),allocatable::c1d  !!1d counts: nb, np_used
-     real,dimension(:,:,:),allocatable::c2d !!2d counts: nb, nb, np_used*(np_used+1)/2
-     real,dimension(:,:),allocatable::cut2d
+     COOP_INT::nb = 10 !!number of bins
+     COOP_SINGLE,dimension(:,:),allocatable::c1d  !!1d counts: nb, np_used
+     COOP_SINGLE,dimension(:,:,:),allocatable::c2d !!2d counts: nb, nb, np_used*(np_used+1)/2
+     COOP_SINGLE,dimension(:,:),allocatable::cut2d
      logical,dimension(:,:),allocatable::want_2d_output
      logical,dimension(:),allocatable::want_1d_output
      logical::do_extensions = .false.
@@ -130,12 +130,12 @@ contains
   subroutine coop_mcmc_chain_load(mc, prefix, ignore_percent)
     class(coop_mcmc_chain) mc
     COOP_UNKNOWN_STRING prefix
-    integer,optional::ignore_percent
-    integer nfiles, i, j, lens, k
-    integer,dimension(:),allocatable::nskip, nlines
+    COOP_INT,optional::ignore_percent
+    COOP_INT nfiles, i, j, lens, k
+    COOP_INT,dimension(:),allocatable::nskip, nlines
     COOP_LONG_STRING fname
     COOP_LONG_STRING inline, tmp
-    integer ispace, ind
+    COOP_INT ispace, ind
     type(coop_file) fp
     mc%prefix = trim(prefix)
     nfiles = 0
@@ -279,11 +279,13 @@ contains
   end subroutine coop_mcmc_chain_load
 
   subroutine coop_mcmc_chain_analyze(mc)
-    integer,parameter::n_fine_bins = 2048
-    real c(n_fine_bins), dx,  multcut, acc, maxc
-    real,dimension(:),allocatable::c2dlist
+    COOP_INT,parameter::n_coarse_bins = 32
+    COOP_INT,parameter::n_cc = 64    
+    COOP_INT,parameter::n_fine_bins = n_coarse_bins*n_cc
+    COOP_SINGLE:: c(n_fine_bins), dx,  multcut, acc, maxc, cc(n_coarse_bins)
+    COOP_SINGLE,dimension(:),allocatable::c2dlist
     class(coop_mcmc_chain) mc
-    integer ip, i, loc, j, j2, ip2, k, loc2, icl
+    COOP_INT ip, i, loc, j, j2, ip2, k, loc2, icl
     mc%totalmult = sum(mc%mult)
     if(mc%totalmult .le. 0 .or. mc%n.eq.0) stop "coop_mcmc_chain_analyzes: found no samples"
 
@@ -349,6 +351,9 @@ contains
              loc = nint((mc%params(i, ip)-mc%lower(ip))/dx + 0.5)
              c(loc) = c(loc) + mc%mult(i)
           enddo
+          do i=1, n_coarse_bins
+             cc(i) = sum(c((i-1)*n_cc+1:i*n_cc))/n_cc
+          enddo
           i = 1
           acc = c(i)
           multcut = mc%totalmult*max(min(sqrt(0.01/mc%n), 0.002), 0.0005)
@@ -357,9 +362,8 @@ contains
              acc = acc + c(i)
              if(i.gt. n_fine_bins/4) exit
           enddo
-          call coop_array_get_threshold(c, 0.3, maxc)
-          maxc =  max(maxc, sum(c)/n_fine_bins)
-          if(sum(c(1:i+n_fine_bins/50))/(i+n_fine_bins/50) .ge. maxc )then  
+          call coop_array_get_threshold(cc, 0.3, maxc)
+          if(sum(c(1:i+n_cc))/(i+n_cc) .ge. maxc )then  
              mc%left_is_tail(ip) = .false.
              mc%plotlower(ip) = mc%lower(ip)
           else
@@ -371,12 +375,13 @@ contains
           do while(acc .lt. multcut)
              i = i - 1
              acc = acc + c(i)
+             if(i .lt. n_fine_bins*3/4) exit             
           enddo
           if(i.lt.n_fine_bins)then
              acc = acc-c(i)
              i = i + 1
           endif
-          if( sum(c(i-n_fine_bins/50:n_fine_bins))/(n_fine_bins+n_fine_bins/50+1-i) .ge. maxc )then
+          if( sum(c(i-n_cc:n_fine_bins))/(n_fine_bins+n_cc+1-i) .ge. maxc )then
              mc%right_is_tail(ip) = .false.
              mc%plotupper(ip) = mc%upper(ip)
           else
@@ -530,13 +535,13 @@ contains
 
   subroutine coop_mcmc_chain_export_stats(mc, output)
     class(coop_mcmc_chain) mc    
-    integer,parameter::nk = 71
+    COOP_INT,parameter::nk = 71
     logical, parameter::doAsMarg = .true.
     logical,parameter::do_traj_cov = .true.
-    integer,parameter::distlss = 13893.
-    integer, parameter::num_1sigma_trajs = 50
-    integer, parameter::num_samples_to_get_mean = 2500
-    integer,parameter::lmin = coop_pp_lmin, lmax = coop_pp_lmax, num_cls_samples = 50
+    COOP_INT,parameter::distlss = 13893.
+    COOP_INT, parameter::num_1sigma_trajs = 50
+    COOP_INT, parameter::num_samples_to_get_mean = 2500
+    COOP_INT,parameter::lmin = coop_pp_lmin, lmax = coop_pp_lmax, num_cls_samples = 50
     COOP_REAL,parameter::standard_ns = 0.967d0
     COOP_REAL,parameter::low_ell_cut = 50
     COOP_REAL,parameter::low_k_cut = low_ell_cut/distlss
@@ -1172,8 +1177,8 @@ contains
   subroutine coop_mcmc_chain_getCosmoMCParams(this, ind, Params)
     class(coop_mcmc_chain) this
     COOP_REAL  Params(:)
-    integer nparams    
-    integer i, ind
+    COOP_INT nparams    
+    COOP_INT i, ind
     nparams = size(Params)
     do i = 1, nparams
        params(i) = this%name2value(ind,  trim(this%allparams%key(i)))
@@ -1183,7 +1188,7 @@ contains
 
   function coop_mcmc_chain_all_index_of(mc, name) result(ind)
     class(coop_mcmc_chain) mc
-    integer ind
+    COOP_INT ind
     COOP_UNKNOWN_STRING name
     ind = mc%allparams%index(trim(name))
   end function coop_mcmc_chain_all_index_of
@@ -1199,10 +1204,10 @@ contains
 
   function coop_mcmc_chain_name2value(this, isample, name) result(val)
     class(coop_mcmc_chain) this
-    integer isample
+    COOP_INT isample
     COOP_UNKNOWN_STRING name
-    real val
-    integer ind
+    COOP_SINGLE val
+    COOP_INT ind
     COOP_SHORT_STRING str
     if(isample .le. 0 .or. isample .gt. this%n)  stop "coop_mcmc_chain_name2value: index overflow"
     ind = this%index_of(name)
