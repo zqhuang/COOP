@@ -357,7 +357,8 @@ contains
              acc = acc + c(i)
              if(i.gt. n_fine_bins/4) exit
           enddo
-          call max(coop_array_get_threshold(c, 0.3, maxc), sum(c)/n_fine_bins)
+          call coop_array_get_threshold(c, 0.3, maxc)
+          maxc =  max(maxc, sum(c)/n_fine_bins)
           if(sum(c(1:i+n_fine_bins/50))/(i+n_fine_bins/50) .ge. maxc )then  
              mc%left_is_tail(ip) = .false.
              mc%plotlower(ip) = mc%lower(ip)
