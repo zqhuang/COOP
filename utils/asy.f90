@@ -2669,14 +2669,14 @@ contains
   subroutine coop_asy_path_from_array_gaussianfit(this, f, xmin, xmax, ymin, ymax, threshold)
     class(coop_asy_path) this
     COOP_SINGLE  f(:,:)
-    COOP_SINGLE  xmin, xmax, ymin, ymax, threshold, dx, dy, cov(2,2), invcov(2,2), mean(2), ntot, delta, fbyg(size(f,1), size(f,2)), vec(2)
+    COOP_SINGLE  xmin, xmax, ymin, ymax, threshold, dx, dy, cov(2,2), invcov(2,2), mean(2), wtot, delta, fbyg(size(f,1), size(f,2)), vec(2)
     COOP_INT  nx, ny, n, ix, iy
     nx = size(f, 1)
     ny = size(f, 2)
     n = min(max(nx, ny,16)*6, 256)
     dx = (xmax-xmin)/(nx-1)
     dy = (ymax- ymin)/(ny-1)
-    ntot = real(nx)*real(ny)
+    wtot = sum(f)
     mean = 0.d0    
     do ix = 1, nx
        mean(1) = mean(1) + sum(f(ix, :))*(ix-1)*dx
@@ -2684,17 +2684,17 @@ contains
     do iy=1, ny
        mean(2) = mean(2) + sum(f(:, iy))*(iy-1)*dy
     enddo
-    mean(1) = mean(1)/ntot
-    mean(2) = mean(2)/ntot
+    mean(1) = mean(1)/wtot
+    mean(2) = mean(2)/wtot
     cov = 0.d0
     do ix= 1, nx
        do iy = 1, ny
-          cov(1, 1) = cov(1, 1) + ((ix-1)*dx-mean(1))**2
-          cov(2, 2) = cov(2, 2) + ((iy-1)*dy-mean(2))**2
-          cov(1, 2) = cov(1, 2) + ((ix-1)*dx-mean(1))*((iy-1)*dy-mean(2))
+          cov(1, 1) = cov(1, 1) + ((ix-1)*dx-mean(1))**2*f(ix, iy)
+          cov(2, 2) = cov(2, 2) + ((iy-1)*dy-mean(2))**2*f(ix, iy)
+          cov(1, 2) = cov(1, 2) + ((ix-1)*dx-mean(1))*((iy-1)*dy-mean(2))*f(ix, iy)
        enddo
     enddo
-    cov = cov/ntot
+    cov = cov/wtot
     delta = cov(1,1)*cov(2,2)-cov(1,2)**2
     invcov(1,1) = cov(2,2)/delta
     invcov(2,2) = cov(1,1)/delta
