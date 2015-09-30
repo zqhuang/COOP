@@ -2700,7 +2700,6 @@ contains
     invcov(2,2) = cov(1,1)/delta
     invcov(1,2) = -cov(1,2)/delta
     invcov(2,1) = invcov(1,2)
-    call this%from_function(finterp, xmin, xmax, ymin, ymax, threshold, n)
     do ix=1, nx
        do iy = 1, ny
           vec = (/ (ix-1)*dx, (iy-1)*dy /) - mean
@@ -2709,6 +2708,7 @@ contains
     enddo
     mean(1) = mean(1) + xmin
     mean(2) = mean(2) + ymin
+    call this%from_function(finterp, xmin, xmax, ymin, ymax, threshold, n)    
   contains
     
     function  finterp(x, y)
