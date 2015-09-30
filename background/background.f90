@@ -4,7 +4,6 @@ module coop_background_mod
 #include "constants.h"
 
   private
-  COOP_REAL,parameter::coop_min_de_tracking_n = 0.01d0
 
   public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_quintessence, coop_de_wp1_quintessence, coop_de_wp1_coupled_quintessence, coop_background_add_coupled_DE,  coop_background_add_EFT_DE, coop_de_aeq_fitting, coop_de_alpha_invh2, coop_de_general
 
@@ -225,7 +224,201 @@ contains
     
   end function coop_de_wp1_coupled_quintessence
 
-  subroutine coop_background_add_coupled_DE(this, Omega_c, fQ, fwp1, err)  !!this Omega_c  is defined as lim_{a->0} rho_cdm a^3/ rho_critical0,
+!!$  subroutine coop_background_add_coupled_DE_negative_powerlaw(this, Omega_c, alpha, Q, err)  !!simple model: constant Q and negative powerlaw potential V = V0 phi^{-alpha}.
+!!$    class(coop_cosmology_background)::this
+!!$    COOP_REAL::Omega_c
+!!$    COOP_INT::err
+!!$    COOP_REAL::alpha, Q
+!!$#if DO_COUPLED_DE    
+!!$    COOP_INT, parameter::ns = 12000
+!!$    type(coop_function)::fwp1effcdm, fwp1de, fwp1effde
+!!$    type(coop_ode)::ode
+!!$    type(coop_species)::de, cdm, deeff
+!!$    COOP_REAL::phi_ini
+!!$    COOP_INT::i, i_tc_off
+!!$    COOP_REAL::rho_ce, a(ns), lna(ns), y(2, ns), yp(2, ns), lnV(ns), dlnVdphi(ns), dVdphibyH2(ns), wp1de(ns), wp1effde(ns), wp1effcdm(ns), H2a4(ns), m2byH2(ns), dQdphi(ns), omde, omc, dlna, tc_w, wp1eff(ns)
+!!$    err = 0
+!!$    i_tc_off = 1
+!!$    if(this%Omega_k() .le. Omega_c)then
+!!$       err = -1
+!!$       return
+!!$    endif
+!!$    rho_ce = omega_c * 3.d0    
+!!$    call coop_set_uniform(ns, lna, log(coop_min_scale_factor), log(coop_scale_factor_today))
+!!$    a = exp(lna)
+!!$    dlna = lna(2) - lna(1)
+!!$
+!!$    
+!!$    call ode%init(n=2, method = COOP_ODE_RK4)
+!!$    
+!!$    call ode%set_initial_conditions(xini = lna(1), yini=y(:, 1))
+!!$    i = 1
+!!$    call cpl_eq_get_potential(3, lna(i), y(:, i), yp(:, i), H2a4 = H2a4(i), lnV = lnV(i), wp1de = wp1de(i), wp1effde = wp1effde(i), wp1effcdm = wp1effcdm(i), omde  = omde, omc = omc)
+!!$    if(err .ne. 0)goto 100
+!!$    do i=2, ns
+!!$       call ode%evolve(cpl_eq, lna(i))
+!!$       y(:, i) = ode%y
+!!$       if(err .ne. 0) goto 100
+!!$       call cpl_eq_get_potential(3, lna(i), y(:, i), yp(:, i), H2a4 = H2a4(i), lnV = lnV(i), wp1de = wp1de(i), wp1effde = wp1effde(i), wp1effcdm = wp1effcdm(i), omde  = omde, omc = omc)
+!!$       if(err .ne. 0)goto 100       
+!!$    enddo
+!!$    call fwp1effcdm%init(n = ns, xmin=coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., f = wp1effcdm, method = COOP_INTERPOLATE_LINEAR, name = "CDM 1+w", check_boundary = .false.)
+!!$    call cdm%init(genre=COOP_SPECIES_FLUID, name = "CDM", id = 1, Omega = omc, w = 0.d0, fwp1eff = fwp1effcdm)
+!!$
+!!$    
+!!$    call fwp1de%init(n = ns, xmin=coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., f = wp1de, method = COOP_INTERPOLATE_LINEAR, name = "Dark Energy 1+w", check_boundary = .false.)
+!!$    call fwp1effde%init(n = ns, xmin=coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., f = wp1effde, method = COOP_INTERPOLATE_LINEAR, name= "Dark Energy effective 1+w", check_boundary = .false.)
+!!$    call de%init(name = "Dark Energy", id = 5, Omega = omde, genre = COOP_SPECIES_FLUID, fwp1 = fwp1de, fwp1eff =fwp1effde)
+!!$    
+!!$    de%cplde_wp1 = fwp1
+!!$    de%cplde_Q = fQ
+!!$    !$omp parallel do
+!!$    do i=1, ns
+!!$       dQdphi(i)=fQ%derivative(a(i))*a(i)/max(yp(3, i), min_phi_prime)
+!!$    enddo
+!!$    !$omp end parallel do
+!!$    call de%cplde_dQdphi_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = dQdphi, method = COOP_INTERPOLATE_LINEAR, name = "dQ / d phi")
+!!$    call de%cplde_lnV_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = lnV, method = COOP_INTERPOLATE_LINEAR, name = "ln V")
+!!$    call de%cplde_phi_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = y(3,:), method = COOP_INTERPOLATE_LINEAR, name = "phi")
+!!$    call de%cplde_phi_prime_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = yp(3,:), method = COOP_INTERPOLATE_LINEAR, name="d phi / d lna")
+!!$    
+!!$    
+!!$    if(i_tc_off .gt. 1)then
+!!$       !$omp parallel do private(tc_w)
+!!$       do i= 2, ns-1
+!!$          if(fQ%eval(exp(lna(i)))*yp(3, i).gt. 0.d0)then
+!!$             tc_w = (1.d0-tanh(20.d0*(lna(i)-lna(i_tc_off))))/2.d0
+!!$          else
+!!$             tc_w = 0.d0
+!!$          endif
+!!$          !!weighted sum of numeric derivative and tight-coupling approximation
+!!$          dlnVdphi(i) =  (lnV(i+1)-lnV(i-1))/max(2.d0*yp(3, i)*dlna, 1.d-20)*(1.d0 - tc_w) &
+!!$          - cdm%density(exp(lna(i)))*fQ%eval(exp(lna(i)))/exp(lnV(i))*tc_w
+!!$       enddo
+!!$       !$omp end parallel do
+!!$    else
+!!$       !$omp parallel do 
+!!$       do i= 2, ns-1
+!!$          dlnVdphi(i) =  (lnV(i+1)-lnV(i-1))/max(2.d0*yp(3, i)*dlna, 1.d-20)
+!!$       enddo
+!!$       !$omp end parallel do
+!!$       
+!!$    endif
+!!$    dlnVdphi(ns) = dlnVdphi(ns-1)    
+!!$    dlnVdphi(1) = dlnVdphi(2)
+!!$    if(any(dlnVdphi .gt. 0.d0))then
+!!$       err = 6
+!!$       return
+!!$    endif
+!!$    dVdphibyH2 = dlnVdphi * exp(lnV + 4.d0*lna) / H2a4 
+!!$
+!!$    call de%cplde_dVdphibyH2_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = dVdphibyH2, method = COOP_INTERPOLATE_LINEAR, name = "d V / d phi / H^2")
+!!$    dlnVdphi = min(dlnVdphi, -1.d-30)
+!!$    !!compute m2a2, truncate m^2/H^2 (fast oscillations cannot be numerically resolved, but they are irrelevant for observables.)
+!!$    do i = 3, ns-2
+!!$       m2byH2(i) = ( -(log(-dlnVdphi(i+1)) - log(-dlnVdphi(i-1)))/max(2.d0*yp(3, i)*dlna, 1.d-20) - dlnVdphi(i) ) * (-dlnVdphi(i)) * exp(lnV(i) + 2.d0*lna(i))/(h2a4(i)*exp(-lna(i)*2.d0))
+!!$    enddo
+!!$    m2byH2(1:2) = m2byH2(3)
+!!$    m2byH2(ns-1:ns) = m2byH2(ns)
+!!$    call de%cplde_m2byH2_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = m2byH2, method = COOP_INTERPOLATE_LINEAR, name = " m^2/H^2 ")
+!!$    
+!!$    
+!!$    call this%add_species(cdm)
+!!$    call this%add_species(de)
+!!$100 continue
+!!$    call de%free()
+!!$    call cdm%free()
+!!$    call fwp1effcdm%free()
+!!$    call fwp1de%free()
+!!$    call fwp1effde%free()
+!!$    
+!!$  contains
+!!$
+!!$
+!!$    function lnV_of_phi(phi)
+!!$      COOP_REAL::phi, lnV
+!!$      lnV = lnV0 - alpha*log(phi)
+!!$    end function lnV_of_phi
+!!$
+!!$    subroutine cpl_eq(n, lna, y, yp)
+!!$      COOP_INT::n
+!!$      COOP_REAL::lna, y(n), yp(n), H2a4
+!!$      call cpl_eq_get_potential(n, lna, y, yp, H2a4)
+!!$    end subroutine cpl_eq
+!!$
+!!$    subroutine cpl_eq_get_potential(n, lna, y, yp, H2a4, lnV, wp1de, wp1effde, wp1effcdm, omde, omc)
+!!$      COOP_INT::n
+!!$      COOP_REAL, optional::lnV, wp1de, wp1effde, wp1effcdm, omde, omc
+!!$      COOP_REAL::lna, y(n), yp(n)
+!!$      COOP_REAL:: a, wp1, Q, phi_prime, rho_de, rhoa4_de_eff, rhoa4_de, rhoa4_c, delta_rhoa4_c, rhoa4_other, h2a4, delta, wder
+!!$      a = exp(lna)
+!!$      Q = fQ%eval(a)
+!!$      LN_RHOC_RAT_PRIME = Q*PHID
+!!$      PHI_PRIME = PHID
+!!$      PHID_PRIME = 
+!!$      
+!!$      rhoa4_de_eff = exp(y(1)+4.d0*lna)
+!!$      rhoa4_c = rho_ce*exp(y(2)+lna)
+!!$      delta_rhoa4_c = rho_ce*a*(exp(y(2))-1.d0)
+!!$      if(rhoa4_de_eff .lt. delta_rhoa4_c)then !!negative energy
+!!$         err = 2
+!!$         return
+!!$      endif
+!!$      rhoa4_de = rhoa4_de_eff - delta_rhoa4_c
+!!$      rho_de = exp(y(1)) - delta_rhoa4_c/a**4
+!!$      rhoa4_other = this%rhoa4(a)
+!!$      h2a4 = (rhoa4_de + rhoa4_c + rhoa4_other)/3.d0
+!!$
+!!$      if(Q .gt. 0.d0 )then
+!!$         wder = fwp1%derivative(a)*a -3.d0*(wp1-1.d0)*wp1
+!!$         if(H2a4*rhoa4_de_eff*(wder/rhoa4_c/Q)**2  .lt. tc_tol*wp1)then
+!!$            phi_prime = (wder * rhoa4_de_eff / rhoa4_c / Q)
+!!$            if(phi_prime .lt. 0.d0)then
+!!$               err = 5
+!!$               return
+!!$            endif
+!!$            phi_prime = phi_prime * min(((wp1*rhoa4_de_eff)/( delta_rhoa4_c + phi_prime**2*H2a4))**20, 1.d0)
+!!$            i_tc_off = i+1
+!!$            goto 50
+!!$         endif
+!!$      endif
+!!$      delta = (rhoa4_de_eff*wp1 - delta_rhoa4_c)/H2a4
+!!$      if(delta.lt. 0.d0)then
+!!$         err = 3
+!!$         return
+!!$      endif
+!!$      phi_prime = sqrt(delta)
+!!$50    yp(2) = Q*phi_prime
+!!$      yp(3) = phi_prime
+!!$      if(present(lnV))then
+!!$         lnV = rho_de - phi_prime**2 * H2a4/2.d0/a**4 
+!!$         if(lnV .le. 0.d0)then
+!!$            err = 4
+!!$            return
+!!$         else
+!!$            lnV = log(lnV)
+!!$         endif
+!!$         wp1de =  phi_prime**2*H2a4/rhoa4_de
+!!$         wp1effcdm =  1.d0 - Q*phi_prime/3.d0
+!!$         wp1effde = wp1de + Q*phi_prime/3.d0 * rhoa4_c/rhoa4_de
+!!$         omde = rhoa4_de/H2a4/3.d0
+!!$         omc = rhoa4_c/H2a4/3.d0
+!!$      else
+!!$         if(rhoa4_de .lt. phi_prime**2*H2a4/2.d0)then
+!!$            err = 4
+!!$            return
+!!$         endif
+!!$      endif
+!!$    end subroutine cpl_eq_get_potential
+!!$
+!!$    
+!!$#else
+!!$    write(*,*) "Coupled Dark Energy model cannot be initialized"
+!!$    stop "You need to set DARK_ENERGY_MODEL=COUPLED_DE in configure.in"
+!!$#endif    
+!!$  end subroutine coop_background_add_coupled_DE_negative_powerlaw
+  
+  subroutine coop_background_add_coupled_DE(this, Omega_c, fQ, fwp1, err)
 
     !!err = 0: success
     !!err = -1: Omega_DE < 0

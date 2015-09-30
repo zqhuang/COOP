@@ -22,7 +22,7 @@ module coop_healpix_mod
   !!the direction of headless vector rotate by pi/2 if you use IAU convention
   logical::coop_healpix_IAU_headless_vector = .true.
   COOP_REAL::coop_healpix_QrUrSign = -1.d0  !!WMAP7 invented this...
-  
+  COOP_SINGLE::coop_healpix_fmissval = 0.
   COOP_SINGLE::coop_healpix_patch_default_figure_width = 4.5
   COOP_SINGLE::coop_healpix_patch_default_figure_height = 4.
   logical::coop_healpix_patch_stack_fft = .false.
@@ -32,7 +32,7 @@ module coop_healpix_mod
   COOP_INT, parameter:: coop_inpaint_nside_start = 8
   COOP_SINGLE,parameter::coop_inpaint_mask_threshold = 0.05
   
-  public::coop_fits_to_header, coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_IAU_headless_vector,  coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade, coop_healpix_maps_copy_genre, coop_healpix_correlation_function, coop_healpix_mask_reverse, coop_healpix_maps_diffuse, coop_healpix_mask_diffuse, coop_healpix_nside2lmax, coop_healpix_filament, coop_healpix_lmax_by_nside, coop_healpix_patch_stack_fft
+  public::coop_fits_to_header, coop_healpix_fmissval,coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_IAU_headless_vector,  coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade, coop_healpix_maps_copy_genre, coop_healpix_correlation_function, coop_healpix_mask_reverse, coop_healpix_maps_diffuse, coop_healpix_mask_diffuse, coop_healpix_nside2lmax, coop_healpix_filament, coop_healpix_lmax_by_nside, coop_healpix_patch_stack_fft, coop_healpix_maps_Cls2Pseudo
   
 
   logical::coop_healpix_alm_check_done = .false.
@@ -119,6 +119,8 @@ module coop_healpix_mod
      procedure :: simulate => coop_healpix_maps_simulate
      procedure :: simulate_Tmaps => coop_healpix_maps_simulate_Tmaps
      procedure :: simulate_TQUmaps => coop_healpix_maps_simulate_TQUmaps
+     procedure :: simulate_TEBmaps => coop_healpix_maps_simulate_TEBmaps     
+     procedure :: simulate_General_maps => coop_healpix_maps_simulate_General_maps
      procedure :: qu2EB => coop_healpix_maps_qu2EB
      procedure :: EB2QU => coop_healpix_maps_EB2QU
      procedure :: get_QU => coop_healpix_maps_get_QU
@@ -547,9 +549,9 @@ contains
     COOP_REAL  xc, yc,  norm, r, theta, minz, maxz
     COOP_REAL,dimension(:),allocatable::xstart, xend, ystart, yend
     logical,optional::use_degree
-    logical use_rad
+    logical use_rad, wanthead
     COOP_SHORT_STRING::xlabel, ylabel
-    if(imap .le. 0 .or. imap .gt. this%nmaps) stop "coop_healpix_patch_plot: imap overflow"    
+    if(imap .le. 0 .or. imap .gt. this%nmaps) stop "coop_healpix_patch_plot: imap overflow"
     call fig%open(output)
     if(present(use_degree))then
        if(use_degree)then
@@ -1078,8 +1080,12 @@ contains
        deallocate(sqrtCls)
     elseif(this%nmaps.eq.3 .and. this%iq .eq.2)then
        allocate(Cls_sqrteig(3, 0:this%lmax), Cls_rot(3,3,0:this%lmax))
-       call coop_healpix_Cls2Rot(this%lmax, this%Cl, Cls_sqrteig, Cls_rot)
-       call this%simulate_TQUmaps(this%nside, this%lmax, Cls_sqrteig, Cls_rot)
+       call coop_healpix_Cls2Rot(this%lmax, this%Cl(0:this%lmax, 6), Cls_sqrteig, Cls_rot)
+       if(this%spin(2).eq.2)then
+          call this%simulate_TQUmaps(this%nside, this%lmax, Cls_sqrteig, Cls_rot)
+       else
+          call this%simulate_TEBmaps(this%nside, this%lmax, Cls_sqrteig, Cls_rot)
+       endif
        deallocate(Cls_sqrteig, Cls_rot)
     else
        stop "unknown coop_healpix_maps_simulate mode"
@@ -1202,6 +1208,40 @@ contains
        end do
     endif
   end subroutine coop_healpix_Cls2Rot
+
+
+  subroutine coop_healpix_Cls2Rot_General(lmax, nmaps, Cls, Cls_sqrteig, Cls_rot)
+    COOP_INT lmax, nmaps
+    COOP_SINGLE,dimension(0:lmax, nmaps*(nmaps+1)/2),intent(IN)::Cls 
+    COOP_REAL, dimension(nmaps, 0:lmax),intent(OUT)::Cls_sqrteig
+    COOP_REAL, dimension(nmaps, nmaps, 0:lmax),intent(OUT)::Cls_rot
+    COOP_INT l, i, j, k
+    COOP_REAL a(nmaps, nmaps)
+    if(nmaps.eq.1)then
+       cls_rot = 1.d0
+       cls_sqrteig = sqrt(cls)
+       return
+    endif
+    do l=0, lmax
+       do i=1, nmaps
+          do j=1, i
+             k = coop_matsym_index(nmaps, i, j)
+             a(i, j) = Cls(l, k)
+             a(j, i) = a(i, j)
+          enddo
+       enddo
+       call coop_matsym_diag(nmaps, nmaps, a, Cls_rot(1:nmaps, 1:nmaps, l))
+       do i=1, nmaps
+          if(a(i,i).lt.0.d0)then
+             print*, l, Cls(l, :)
+             call coop_print_matrix(a, nmaps, nmaps)
+             stop
+          endif
+          Cls_sqrteig(i, l) = sqrt(a(i, i))
+       enddo
+    enddo
+  end subroutine coop_healpix_Cls2Rot_General
+  
 
   subroutine coop_healpix_maps_get_QU(this, idone)
     class(coop_healpix_maps) this
@@ -1560,6 +1600,7 @@ contains
     COOP_REAL,dimension(3, 0:lmax)::Cls_sqrteig
     COOP_REAL,dimension(3, 3, 0:lmax)::Cls_rot
     COOP_INT l, m, lm
+    if(this%nmaps .lt. 3) call this%extend(nmaps = 3)    
     call coop_healpix_nside2lmax(nside, lm)
     lm = min(lmax, lm)
     if(this%nside .ne. nside)then
@@ -1567,6 +1608,8 @@ contains
     elseif(this%lmax .ne. lm)then
        call this%allocate_alms(lmax = lm)
     endif
+    this%spin(1) = 0
+    this%spin(2:3) = 2
     !$omp parallel do private(l, m)
     do l=0, lm
        this%alm(l, 0, :) = matmul(Cls_rot(:, :, l), Cls_sqrteig(:,l) * (/ coop_random_complex_Gaussian(.true.), coop_random_complex_Gaussian(.true.), coop_random_complex_Gaussian(.true.) /) )
@@ -1578,6 +1621,49 @@ contains
     call this%alm2map()
   end subroutine coop_healpix_maps_simulate_TQUmaps
 
+    subroutine coop_healpix_maps_simulate_TEBmaps(this, nside, lmax, Cls_sqrteig, Cls_rot)
+    class(coop_healpix_maps) this
+    COOP_INT lmax, nside
+    COOP_REAL,dimension(3, 0:lmax)::Cls_sqrteig
+    COOP_REAL,dimension(3, 3, 0:lmax)::Cls_rot
+    COOP_INT l, m, lm
+    if(this%nmaps .lt. 3) call this%extend(nmaps = 3)
+    call coop_healpix_nside2lmax(nside, lm)
+    lm = min(lmax, lm)
+    if(this%nside .ne. nside)then
+       call this%init(nside = nside, nmaps = 3, genre="TEB", lmax = lm)
+    elseif(this%lmax .ne. lm)then
+       call this%allocate_alms(lmax = lm)
+    endif
+    this%spin(1:3) = 0    
+    !$omp parallel do private(l, m)
+    do l=0, lm
+       this%alm(l, 0, :) = matmul(Cls_rot(:, :, l), Cls_sqrteig(:,l) * (/ coop_random_complex_Gaussian(.true.), coop_random_complex_Gaussian(.true.), coop_random_complex_Gaussian(.true.) /) )
+       do m = 1, l
+          this%alm(l, m, :) = matmul(Cls_rot(:, :, l), Cls_sqrteig(:,l) * (/ coop_random_complex_Gaussian(), coop_random_complex_Gaussian(), coop_random_complex_Gaussian() /) )
+       enddo
+    enddo
+    !$omp end parallel do
+    call this%alm2map()
+  end subroutine coop_healpix_maps_simulate_TEBmaps
+
+    subroutine coop_healpix_maps_simulate_General_maps(this, Cls_sqrteig, Cls_rot)
+    class(coop_healpix_maps) this
+    COOP_INT lmax, nside
+    COOP_REAL,dimension(this%nmaps, 0:this%lmax)::Cls_sqrteig
+    COOP_REAL,dimension(this%nmaps, this%nmaps, 0:this%lmax)::Cls_rot
+    COOP_INT l, m
+    !$omp parallel do private(l, m)
+    do l=0, this%lmax
+       this%alm(l, 0, 1:this%nmaps) = matmul(Cls_rot(1:this%nmaps, 1:this%nmaps, l), Cls_sqrteig(1:this%nmaps,l) * coop_random_gaussian_vector(this%nmaps) )
+       do m = 1, l
+          this%alm(l, m, 1:this%nmaps) = matmul(Cls_rot(1:this%nmaps, 1:this%nmaps, l), Cls_sqrteig(1:this%nmaps,l) * coop_random_complex_Gaussian_vector(this%nmaps))
+       enddo
+    enddo
+    !$omp end parallel do
+    call this%alm2map()
+  end subroutine coop_healpix_maps_simulate_General_maps
+  
 
   subroutine coop_healpix_maps_init(this, nside, nmaps, genre, lmax, nested)
     class(coop_healpix_maps) this
@@ -1929,16 +2015,11 @@ contains
        allocate(this%map(0:this%npix-1, this%nmaps))
     endif
     
-200 if(present(nmaps_to_read))then
-       call input_map(trim(filename), this%map, this%npix, min(nmaps_actual, nmaps_to_read), fmissval = 0.)
-       if(this%nmaps .gt. nmaps_to_read)then
-          do i=nmaps_to_read+1, this%nmaps
-             call this%set_unit(i, this%units(1))
-          enddo
-       endif
-    else
-       call input_map(trim(filename), this%map, this%npix, nmaps_actual, fmissval = 0.)
-    endif
+200 if(present(nmaps_to_read)) &
+         nmaps_actual = min(nmaps_actual, nmaps_to_read)
+    
+    call input_map(trim(filename), this%map, this%npix, nmaps_actual, fmissval = coop_healpix_fmissval)
+
     if(present(nested))then
        if(nested)then
           call this%convert2nested()
@@ -1952,7 +2033,7 @@ contains
     lowercase_name = trim(filename)       
     call coop_str2lower(lowercase_name)
     
-    do i=1, this%nmaps
+    do i=1, nmaps_actual
        this%units(i) = trim(this%header%value("TUNIT"//COOP_STR_OF(i)))
        if(trim(this%units(i)).eq."")then
           maxabs = maxval(abs(this%map(:,i)))
@@ -1975,9 +2056,12 @@ contains
        call coop_dictionary_lookup(this%header, "TTYPE"//COOP_STR_OF(i), this%fields(i))
        missing_fields = missing_fields .or. (trim(this%fields(i)).eq."")
     enddo
+    do i=nmaps_actual+1, this%nmaps
+       call this%set_unit(i, this%units(1))
+    enddo
 
     if(missing_fields)then
-       select case(this%nmaps)
+       select case(nmaps_actual)
        case(1)
           if(index(lowercase_name, "mask").ne.0 )then
              call this%set_field(1,  "MASK")
@@ -1990,7 +2074,7 @@ contains
           elseif(index(lowercase_name, "_b").ne. 0)then
              call this%set_field(1, "B")
           else
-             write(*,*)"Warning: cannot determine the map types for file "//trim(filename)
+             write(*,*)"Warning: cannot determine the map types for file "//trim(filename)//", set to T"
              call this%set_field(1, "T")
           endif
        case(2)
@@ -2013,7 +2097,7 @@ contains
              call this%set_field(1, "QLZ")
              call this%set_field(2, "ULZ")
           else
-             if(.not. present(nmaps_to_read))write(*,*)"WARNING: cannot determine the map types for file "//trim(filename)
+             if(.not. present(nmaps_to_read))write(*,*)"WARNING: cannot determine the map types for file "//trim(filename)//", set to QU"
              call this%set_field(1, "Q")
              call this%set_field(2, "U")             
           endif
@@ -2035,7 +2119,7 @@ contains
              call this%set_field(2, "QZ")
              call this%set_field(3, "UZ")
           else
-             if(.not. present(nmaps_to_read))write(*,*)"Warning: cannot determine the map types for file "//trim(filename)
+             if(.not. present(nmaps_to_read))write(*,*)"Warning: cannot determine the map types for file "//trim(filename)//", set to IQU"
              call this%set_field(1, "I")
              call this%set_field(2, "Q")
              call this%set_field(3, "U")                                       
@@ -2057,7 +2141,7 @@ contains
              call this%set_field(3, "ULE")
              call this%set_field(4, "LE")
           else
-             if(.not. present(nmaps_to_read))write(*,*)"Warning: cannot determine the map types for file "//trim(filename)
+             if(.not. present(nmaps_to_read))write(*,*)"Warning: cannot determine the map types for file "//trim(filename)//", set to TQUL"
              call this%set_field(1, "T")
              call this%set_field(2, "QLT")
              call this%set_field(3, "ULT")
@@ -2086,7 +2170,7 @@ contains
              call this%set_field(5, "ED1")
              call this%set_field(6, "ED2")
           else
-             if(.not. present(nmaps_to_read))write(*,*)"Warning: cannot determine the map types for file "//trim(filename)
+             if(.not. present(nmaps_to_read))write(*,*)"Warning: cannot determine the map types for file "//trim(filename)//", set to IQULDD"
              call this%set_field(1, "T")
              call this%set_field(2, "QLT")
              call this%set_field(3, "ULT")
@@ -2095,15 +2179,19 @@ contains
              call this%set_field(6, "ID2")
           endif
        case default
-          if(.not. present(nmaps_to_read))then
-             write(*,*) "nmaps = ", this%nmaps
-             stop "read: cannot determine the fields for this nmaps"
-          endif
+          do i=1, nmaps_actual
+             call this%set_field(i, "I")
+          enddo
+          write(*,*) "Warning: cannot determine the map types for file "//trim(filename)//", set to spin 0"
        end select
     else
-       call this%fields_to_spins()
+       do i = 1, nmaps_actual
+          call this%fields_to_spins(i)
+       enddo
     endif
-
+    do i= nmaps_actual+1, this%nmaps
+       call this%set_field(i, "I")
+    enddo
 #else
     stop "DID NOT FIND HEALPIX"
 #endif
@@ -2128,7 +2216,7 @@ contains
           this%spin(i) = 2
           this%iu = i
        case default
-          write(*,*) "WARNING: map type "//trim(this%fields(i))//" is unknown"
+          write(*,*) "WARNING: map type "//trim(this%fields(i))//" is unknown, set spin = zero"
           this%spin(i) = 0
        end select
     else       
@@ -2145,7 +2233,7 @@ contains
              this%spin(i) = 2
              this%iu = i
           case default
-             write(*,*) "WARNING: map type "//trim(this%fields(i))//" is unknown"
+             write(*,*) "WARNING: map type "//trim(this%fields(i))//" is unknown, set spin = zero"
              this%spin(i) = 0
           end select
        enddo
@@ -2848,34 +2936,56 @@ contains
     elsewhere
        to%map(:, 1) = min(max(to%map(:, 1), 0.), 1.)
     end where
+    call hm%free()
   end subroutine coop_healpix_mask_diffuse
 
 
-  subroutine coop_healpix_maps_diffuse(from, to, mask, fwhm)
+  subroutine coop_healpix_maps_diffuse(from, to, mask, fwhm, index_list)
     class(coop_healpix_maps)::from, to, mask
     type(coop_healpix_maps)::hm
+    COOP_INT, dimension(:), optional::index_list
     COOP_REAL::fwhm, thetasq
-    COOP_INT::l, lmax
+    COOP_INT::l, lmax, imap
     call mask%convert2nested()
-    call hm%init(nside = min(from%nside*2, 2048), nmaps = from%nmaps, genre = "I", nested = .true.)
+    call hm%init(nside = min(from%nside*2, 2048), nmaps = from%nmaps, genre = "I")
+    call coop_healpix_maps_copy_genre(from, hm)
+    if(to%nside .ne. from%nside .or. to%nmaps .ne. from%nmaps)then
+       call to%init(nside = from%nside, nmaps = from%nmaps, genre = "I")
+    endif
+    call coop_healpix_maps_copy_genre(from, to)
     call coop_healpix_maps_ave_udgrade(from = from, to = hm, mask = mask)
     thetasq = (fwhm*coop_sigma_by_fwhm)**2/2.d0
     call coop_healpix_nside2lmax(hm%nside, lmax)
     lmax = min(lmax, ceiling(2.5d0/sqrt(thetasq)))
-    call hm%map2alm(lmax = lmax )
-    do l = 0, hm%lmax
-       hm%alm(l, 0:l, 1) = hm%alm(l, 0:l, 1)*exp(-l*(l+1.d0)*thetasq)
-    enddo
-    call hm%alm2map()
-    if(to%nside .ne. from%nside) call to%init(nside = from%nside, nmaps=1, genre = "I")
-    call coop_healpix_maps_ave_udgrade(hm, to)
-    where (mask%map(:, 1) .gt. 0.)
-       to%map(:, 1) = from%map(:, 1)
-    end where
+    if(present(index_list))then
+       call hm%map2alm(lmax = lmax, index_list = index_list )
+       do l = 0, hm%lmax
+          hm%alm(l, 0:l, index_list) = hm%alm(l, 0:l, index_list)*exp(-l*(l+1.d0)*thetasq)
+       enddo
+       call hm%alm2map(index_list = index_list)
+
+       call coop_healpix_maps_ave_udgrade(hm, to)
+       do imap = 1, size(index_list)       
+          where (mask%map(:, 1) .gt. 0.)
+             to%map(:, index_list(imap)) = from%map(:, index_list(imap))
+          end where
+       enddo
+    else
+       call hm%map2alm(lmax = lmax )
+       do l = 0, hm%lmax
+          hm%alm(l, 0:l, :) = hm%alm(l, 0:l, :)*exp(-l*(l+1.d0)*thetasq)
+       enddo
+       call hm%alm2map()
+       call coop_healpix_maps_ave_udgrade(hm, to)
+       do imap = 1, from%nmaps       
+          where (mask%map(:, 1) .gt. 0.)
+             to%map(:, imap) = from%map(:, imap)
+          end where
+       enddo
+    endif
+    call hm%free()
   end subroutine coop_healpix_maps_diffuse
   
-  
-
   subroutine coop_healpix_maps_smooth_with_window(map, fwhm, lmax, window, index_list)
     class(coop_healpix_maps) map
     COOP_REAL fwhm
@@ -3073,14 +3183,19 @@ contains
   end subroutine coop_healpix_maps_regularize_in_mask
 
  
-  subroutine coop_healpix_maps_t2zeta(this, fwhm_arcmin, want_unconstrained)
+  subroutine coop_healpix_maps_t2zeta(this, fwhm_arcmin, want_unconstrained, weight_option, hp_l1, hp_l2, mask)
     class(coop_healpix_maps)::this
-    COOP_INT::l, i
+    type(coop_healpix_maps), optional::mask
+    type(coop_healpix_maps)::smoothmap
+    COOP_UNKNOWN_STRING,optional::weight_option    
+    COOP_INT::l, m, ieven, iodd
     logical,optional::want_unconstrained 
-    type(coop_cosmology_firstorder)::fod
-    COOP_REAL,dimension(:,:),allocatable::Cls, Cls_lensed
-    COOP_REAL::fwhm_arcmin, norm, ucnorm, CTT
+    type(coop_cosmology_firstorder)::cosmology
+    COOP_REAL,dimension(:,:),allocatable::Cls
+    COOP_REAL::fwhm_arcmin, norm, ucnorm, CTT, Tnorm, bl
     logical douc
+    COOP_INT, optional::hp_l1, hp_l2
+
 #if DO_ZETA_TRANS
     if(present(want_unconstrained))then
        douc = want_unconstrained
@@ -3090,63 +3205,96 @@ contains
        douc = .false.
     endif
     call this%map2alm(index_list = (/ 1 /) )
-    
-    call fod%Set_Planck_bestfit()
-    call fod%compute_source(0)
-    allocate(Cls(coop_num_cls, 2:this%lmax), Cls_lensed(coop_num_cls, 2:this%lmax))
-    call fod%source(0)%get_All_Cls(2, this%lmax, Cls)
-    call coop_get_lensing_Cls(2, this%lmax, Cls, Cls_lensed)
-    
-    norm = 1.d0/coop_healpix_zeta_normalization/ COOP_DEFAULT_TCMB 
 
-    !$omp parallel do private(i, ucnorm, CTT)
+    call cosmology%Set_Planck_bestfit()
+    if(present(weight_option))then
+       select case(trim(weight_option))
+       case("vis")
+          call cosmology%set_zeta_weight_vis()
+       case("earlyvis")
+          call cosmology%set_zeta_weight_earlyvis()
+       case("latevis")
+          call cosmology%set_zeta_weight_latevis()
+       case("recomb_slice")
+          call cosmology%set_zeta_weight_single_slice()
+       case("reion_slice")
+          call cosmology%set_zeta_weight_single_slice(cosmology%tau0 - cosmology%tauofa(1.d0/(1.d0+cosmology%zre)))
+       case default
+          stop "unknown weight option"
+       end select
+    endif
+    call cosmology%compute_source(0)
+    allocate(Cls(coop_num_cls, 2:this%lmax))
+    call cosmology%source(0)%get_All_Cls(2, this%lmax, Cls)
+    
+    select case(trim(this%units(1)))
+    case("muK")
+       Tnorm =  (COOP_DEFAULT_TCMB *1.d6)
+    case("mK")
+       Tnorm =  (COOP_DEFAULT_TCMB *1.d3)
+    case("K")
+       Tnorm =  COOP_DEFAULT_TCMB
+    case default
+       Tnorm = (COOP_DEFAULT_TCMB *1.d6)
+       write(*,*) "unit = "//trim(this%units(1))
+       write(*,*) "Warning: the unit of the map is not understood, assuming muK"
+    end select
+    norm = 1.d0/coop_healpix_zeta_normalization/ Tnorm
+
+    !$omp parallel do private(l, m, ucnorm, CTT, bl, ieven)
     do l = 2, this%lmax
-       CTT = ( Cls(coop_index_ClTT, l) + abs(Cls_lensed(coop_index_ClTT,l)) +  coop_Planck_TNoise(l)/coop_healpix_beam(l, fwhm_arcmin) )
-       
-       this%alm(l, :, 1) = this%alm(l,:,1) *  (Cls(coop_index_ClTzeta,l)/CTT * norm)!!the lensing Cl is added as a "noise"
+       CTT = (Cls(coop_index_ClTT, l)  +  coop_Planck_TNoise(l))
+       this%alm(l, :, 1) = this%alm(l,:,1) *  (Cls(coop_index_ClTzeta,l)/CTT * norm)
        if(douc)then
-
-          ucnorm = Cls(coop_index_Clzetazeta, l) -  Cls(coop_index_ClTzeta,l)**2/CTT
+          bl = coop_healpix_beam(l, fwhm_arcmin)
+          if(present(hp_l1) .and. present(hp_l2))then
+             bl = bl * coop_highpass_filter(hp_l1, hp_l2, l)**2
+          endif
+          ucnorm = (Cls(coop_index_Clzetazeta, l) -  Cls(coop_index_ClTzeta,l)**2/CTT)*bl
           if(ucnorm .lt. 0.d0) stop "clzetazeta - cltzeta**2/cltt negative?"
-          ucnorm = sqrt(ucnorm)*norm
-          this%alm(l, 0, 2) = coop_random_complex_Gaussian(.true.)*ucnorm
-          do i=1, l
-             this%alm(l, i, 2) = coop_random_complex_Gaussian()*ucnorm
+          ucnorm = sqrt(ucnorm)/coop_healpix_zeta_normalization
+          do ieven = 2, this%nmaps, 2
+             this%alm(l, 0, ieven) = coop_random_complex_Gaussian(.true.)*ucnorm
+             do m=1, l
+                this%alm(l, m, ieven) = coop_random_complex_Gaussian()*ucnorm
+             enddo
           enddo
        endif
     enddo
     !$omp end parallel do
     call this%set_units(" 10^{-5}")
-    call this%set_field(1, "ZETA")
-    
-    
+
     if(douc)then
-       this%alm(:,:,3) = this%alm(:,:,2) + this%alm(:,:,1)
-       call this%set_field(2, "ZETA")
-       call this%set_field(3, "ZETA")       
-       this%alm(0:1,:,3) = 0.
-       call this%alm2map( index_list = (/ 1, 2, 3 /) )
-       this%alm_done(1:3) = .false.
+       call this%set_fields("ZETA")       
+       do iodd = 3, this%nmaps, 2
+          this%alm(:,:,iodd) = this%alm(:,:,iodd-1) + this%alm(:,:,1)
+       enddo
+       this%alm(0:1,:,:) = 0.
+       call this%alm2map()
     else
+       call this%set_field(1, "ZETA")       
        this%alm(0:1,:,1) = 0.
        call this%alm2map( index_list = (/ 1 /) )
-       this%alm_done(1) = .false.
     endif
-    deallocate(Cls, Cls_lensed)
-
+    deallocate(Cls) 
+    if(present(mask))call this%apply_mask(mask, bad_data = .true.)       
 #else
     stop "To use t2zeta you have to turn on DO_ZETA_TRANS in include/constants.h"
 #endif
   end subroutine coop_healpix_maps_t2zeta
 
 
-   subroutine coop_healpix_maps_E2zeta(this, fwhm_arcmin, want_unconstrained)
+  subroutine coop_healpix_maps_E2zeta(this, fwhm_arcmin, want_unconstrained, weight_option, hp_l1, hp_l2, mask)
+    COOP_UNKNOWN_STRING, optional::weight_option
     class(coop_healpix_maps)::this
-    COOP_INT::l, i
+    type(coop_healpix_maps), optional::mask
+    COOP_INT::l, ieven, iodd, m
+    COOP_INT, optional::hp_l1, hp_l2
     logical,optional::want_unconstrained 
-    type(coop_cosmology_firstorder)::fod
-    COOP_REAL,dimension(:,:),allocatable::Cls, Cls_lensed
-    COOP_REAL::fwhm_arcmin, norm, ucnorm, CEE
+    type(coop_cosmology_firstorder)::cosmology
+    COOP_REAL,dimension(:,:),allocatable::Cls
+    type(coop_healpix_maps)::smoothmap
+    COOP_REAL::fwhm_arcmin, norm, ucnorm, CEE, CEZ, Tnorm, bl
     logical douc
 #if DO_ZETA_TRANS
     if(present(want_unconstrained))then
@@ -3161,26 +3309,62 @@ contains
     else
        call this%map2alm(index_list = (/ 1, 2 /) )
     endif
-    call fod%Set_Planck_bestfit()
-    call fod%compute_source(0)
-    allocate(Cls(coop_num_cls, 2:this%lmax), Cls_lensed(coop_num_cls, 2:this%lmax))
-    call fod%source(0)%get_All_Cls(2, this%lmax, Cls)
-    call coop_get_lensing_Cls(2, this%lmax, Cls, Cls_lensed)
     
-    norm = 1.d0/coop_healpix_zeta_normalization/ COOP_DEFAULT_TCMB 
-    !$omp parallel do private(i, ucnorm, CEE, l)
-    do l = 2, this%lmax
-       CEE = ( Cls(coop_index_ClEE, l) + abs(Cls_lensed(coop_index_ClEE,l)) +  coop_Planck_ENoise(l)/coop_healpix_beam(l, fwhm_arcmin) )
-       
-       this%alm(l, :, 1) = this%alm(l,:,1) *  (Cls(coop_index_ClEzeta,l)/CEE * norm)!!the lensing Cl is added as a "noise"
-       if(douc)then
+    call cosmology%Set_Planck_bestfit()
+    if(present(weight_option))then
+       select case(trim(weight_option))
+       case("vis")
+          call cosmology%set_zeta_weight_vis()
+       case("earlyvis")
+          call cosmology%set_zeta_weight_earlyvis()
+       case("latevis")
+          call cosmology%set_zeta_weight_latevis()
+       case("recomb_slice")
+          call cosmology%set_zeta_weight_single_slice()
+       case("reion_slice")
+          call cosmology%set_zeta_weight_single_slice(cosmology%tau0 - cosmology%tauofa(1.d0/(1.d0+cosmology%zre)))
+       case default
+          stop "unknown weight option"
+       end select
+    endif
+    
+    call cosmology%compute_source(0)
+    allocate(Cls(coop_num_cls, 2:this%lmax))
+    call cosmology%source(0)%get_All_Cls(2, this%lmax, Cls)
 
-          ucnorm = Cls(coop_index_Clzetazeta, l) -  Cls(coop_index_ClEzeta,l)**2/CEE
-          if(ucnorm .lt. 0.d0) stop "clzetazeta - cltzeta**2/cltt negative?"
-          ucnorm = sqrt(ucnorm)*norm
-          this%alm(l, 0, 2) = coop_random_complex_Gaussian(.true.)*ucnorm
-          do i=1, l
-             this%alm(l, i, 2) = coop_random_complex_Gaussian()*ucnorm
+    select case(trim(this%units(1)))
+    case("muK")
+       Tnorm =  (COOP_DEFAULT_TCMB *1.d6)
+    case("mK")
+       Tnorm =  (COOP_DEFAULT_TCMB *1.d3)
+    case("K")
+       Tnorm =  COOP_DEFAULT_TCMB
+    case default
+       Tnorm = (COOP_DEFAULT_TCMB *1.d6)
+       write(*,*) "unit = "//trim(this%units(1))
+       write(*,*) "Warning: the unit of the map is not understood, assuming muK"
+    end select
+    norm = 1.d0/coop_healpix_zeta_normalization/ Tnorm
+   
+    !$omp parallel do private(ieven, m, ucnorm, CEE, CEZ, l, bl)
+    do l = 2, this%lmax
+       
+       CEE = (Cls(coop_index_ClEE, l) +   coop_Planck_ENoise(l))
+       CEZ = Cls(coop_index_ClEzeta,l)
+       this%alm(l, :, 1) = this%alm(l,:,1) *  (CEZ/CEE * norm)
+       if(douc)then
+          bl = coop_healpix_beam(l, fwhm_arcmin)
+          if(present(hp_l1) .and. present(hp_l2))then
+             bl = bl* coop_highpass_filter(hp_l1, hp_l2, l)**2
+          endif
+          ucnorm = (Cls(coop_index_Clzetazeta, l) -  CEZ**2/CEE)*bl
+          if(ucnorm .lt. 0.d0) stop "clzetazeta - clEzeta**2/clEE negative?"
+          ucnorm = sqrt(ucnorm)/coop_healpix_zeta_normalization
+          do ieven = 2, this%nmaps, 2
+             this%alm(l, 0, ieven) = coop_random_complex_Gaussian(.true.)*ucnorm
+             do m=1, l
+                this%alm(l, m, ieven) = coop_random_complex_Gaussian()*ucnorm
+             enddo
           enddo
        endif
     enddo
@@ -3190,37 +3374,40 @@ contains
     call this%set_field(1, "ZETA")
     
     if(douc)then
-       this%alm(:,:,3) = this%alm(:,:,2) + this%alm(:,:,1)
-       this%spin(1:3) = 0
-       this%alm(0:1,:,3) = 0.
-       call this%alm2map( index_list = (/ 1, 2, 3 /) )
-       this%alm_done(1:3) = .false.
+       do iodd = 3, this%nmaps, 2
+          this%alm(:,:,iodd) = this%alm(:,:,iodd-1) + this%alm(:,:,1)
+       enddo
+       this%spin = 0
+       this%alm(0:1,:,:) = 0.
+       call this%alm2map()
     else
        call this%set_field(2, "ZETA")
        call this%set_field(3, "ZETA")       
-    
        this%spin(1) = 0
        this%alm(0:1,:,1) = 0.
        call this%alm2map( index_list = (/ 1 /) )
-       this%alm_done(1) = .false.
     endif
-    deallocate(Cls, Cls_lensed)
-
+    deallocate(Cls)
+    if(present(mask))call this%apply_mask(mask, bad_data = .true.)       
 #else
-    stop "To use t2zeta you have to turn on DO_ZETA_TRANS in include/constants.h"
+    stop "To use e2zeta you have to turn on DO_ZETA_TRANS in include/constants.h"
 #endif
   end subroutine coop_healpix_maps_E2zeta
 
 
 
-  subroutine coop_healpix_maps_te2zeta(this, fwhm_arcmin, want_unconstrained)
+  subroutine coop_healpix_maps_te2zeta(this, fwhm_arcmin, want_unconstrained, weight_option, hp_l1, hp_l2, mask)
+    COOP_UNKNOWN_STRING, optional::weight_option
     class(coop_healpix_maps)::this
-    COOP_INT::l, i
+    type(coop_healpix_maps)::smoothmap    
+    COOP_INT::l, m, ieven, iodd
+    type(coop_healpix_maps), optional::mask
+    COOP_INT, optional::hp_l1, hp_l2
     logical, optional::want_unconstrained
-    type(coop_cosmology_firstorder)::fod
-    COOP_REAL,dimension(:,:),allocatable::Cls, Cls_lensed
-    COOP_REAL CTT, CTE, CEE, delta, bl
-    COOP_REAL::fwhm_arcmin, norm, ucnorm, coef_T, coef_E
+    type(coop_cosmology_firstorder)::cosmology
+    COOP_REAL,dimension(:,:),allocatable::Cls
+    COOP_REAL CTT, CTE, CEE, delta, bl, CEZ, CTZ
+    COOP_REAL::fwhm_arcmin, norm, ucnorm, coef_T, coef_E, Tnorm
     logical douc
 #if DO_ZETA_TRANS
     COOP_REAL::knorm
@@ -3237,53 +3424,88 @@ contains
        if(this%spin(1).ne. 0 .or. this%spin(2).ne.2 .or. this%spin(3) .ne. 2) stop "TE2Zeta spin does not match"
        call this%map2alm(index_list = (/ 1, 2, 3 /) )
     endif
-    call fod%Set_Planck_bestfit()
-    call fod%compute_source(0)
-    allocate(Cls(coop_num_cls, 2:this%lmax), Cls_lensed(coop_num_cls, 2:this%lmax))
-    call fod%source(0)%get_All_Cls(2, this%lmax, Cls)
-    call coop_get_lensing_Cls(2, this%lmax, Cls, Cls_lensed)
+    call cosmology%Set_Planck_bestfit()
+    if(present(weight_option))then
+       select case(trim(weight_option))
+       case("vis")
+          call cosmology%set_zeta_weight_vis()
+       case("earlyvis")
+          call cosmology%set_zeta_weight_earlyvis()
+       case("latevis")
+          call cosmology%set_zeta_weight_latevis()
+       case("recomb_slice")
+          call cosmology%set_zeta_weight_single_slice()
+       case("reion_slice")
+          call cosmology%set_zeta_weight_single_slice(cosmology%tau0 - cosmology%tauofa(1.d0/(1.d0+cosmology%zre)))
+       case default
+          stop "unknown weight option"
+       end select
+    endif
     
-    norm = 1.d0/coop_healpix_zeta_normalization/COOP_DEFAULT_TCMB
+    call cosmology%compute_source(0)
+    allocate(Cls(coop_num_cls, 2:this%lmax))
+    call cosmology%source(0)%get_All_Cls(2, this%lmax, Cls)
 
-    !$omp parallel do private(CTT, CTE, CEE, delta, bl, ucnorm, coef_T, coef_E)
+    select case(trim(this%units(1)))
+    case("muK")
+       Tnorm =  (COOP_DEFAULT_TCMB *1.d6)
+    case("mK")
+       Tnorm =  (COOP_DEFAULT_TCMB *1.d3)
+    case("K")
+       Tnorm =  COOP_DEFAULT_TCMB
+    case default
+       Tnorm = (COOP_DEFAULT_TCMB *1.d6)
+       write(*,*) "unit = "//trim(this%units(1))
+       write(*,*) "Warning: the unit of the map is not understood, assuming muK"
+    end select
+    norm = 1.d0/coop_healpix_zeta_normalization/ Tnorm
+
+    !$omp parallel do private(CTT, CTE, CEE, delta, bl, CTZ, CEZ, ucnorm, coef_T, coef_E, ieven, l, m)
     do l = 2, this%lmax
-       bl = coop_healpix_beam(l, fwhm_arcmin)
-       CTT = Cls(coop_index_ClTT, l) + abs(Cls_lensed(coop_index_ClTT,l))+ coop_Planck_TNoise(l)/bl
-       CEE = Cls(coop_index_ClEE, l) + abs(Cls_lensed(coop_index_ClEE, l)) + Coop_Planck_Enoise(l)/bl
-       CTE = Cls(coop_index_ClTE, l)
+       CTT = (Cls(coop_index_ClTT, l) + coop_Planck_TNoise(l))
+       CEE = (Cls(coop_index_ClEE, l)  + Coop_Planck_Enoise(l))
+       CTE = Cls(coop_index_ClTE, l)     
+       CTZ = Cls(coop_index_ClTzeta,l)
+       CEZ = Cls(coop_index_ClEzeta,l)
        delta =  CTT*CEE-CTE**2
-       coef_T = (Cls(coop_index_ClTzeta,l)*CEE - Cls(coop_index_ClEzeta,l) * CTE)/delta
-       coef_E = (-Cls(coop_index_ClTzeta,l)*CTE + Cls(coop_index_ClEzeta,l) * CTT)/delta
+       coef_T = (CTZ*CEE - CEZ*CTE)/delta
+       coef_E = (CEZ*CTT - CTZ*CTE)/delta
        this%alm(l, :, 1) = (coef_T * norm) * this%alm(l,:,1) + (coef_E * norm) * this%alm(l,:,2)
        if(douc)then
-          ucnorm = Cls(coop_index_Clzetazeta, l) - (CTT*coef_T**2 +CEE*coef_E**2 +  2.d0*coef_E*coef_T*CTE)
-          if(ucnorm .lt. 0.d0) stop "clzetazeta - cltzeta**2/cltt negative?"
-          ucnorm = sqrt(ucnorm)*norm
-          this%alm(l, 0, 2) = coop_random_complex_Gaussian(.true.)*ucnorm
-          do i=1, l
-             this%alm(l, i, 2) = coop_random_complex_Gaussian()*ucnorm
+          bl = coop_healpix_beam(l, fwhm_arcmin)
+          if(present(hp_l1) .and. present(hp_l2))then
+             bl = bl* coop_highpass_filter(hp_l1, hp_l2, l)**2
+          endif
+          ucnorm = (Cls(coop_index_Clzetazeta, l) - (CTT*coef_T**2 +CEE*coef_E**2 +  2.d0*coef_E*coef_T*CTE))*bl
+          if(ucnorm .lt. 0.d0) stop "clzetazeta_fluc negative?"
+          ucnorm = sqrt(ucnorm)/coop_healpix_zeta_normalization
+          do ieven = 2, this%nmaps, 2
+             this%alm(l, 0, ieven) = coop_random_complex_Gaussian(.true.)*ucnorm
+             do m=1, l
+                this%alm(l, m, ieven) = coop_random_complex_Gaussian()*ucnorm
+             enddo
           enddo
        endif
     enddo
-
+    !$omp end parallel do
     call this%set_units(" 10^{-5}")
-    call this%set_field(1, "ZETA")
-    
+
     if(douc)then
-       this%alm(:,:,3) = this%alm(:,:,2) + this%alm(:,:,1)
-       this%alm(0:1,:,1:3) = 0
-       call this%set_field(2, "ZETA")
-       call this%set_field(3, "ZETA")              
-       call this%alm2map( index_list = (/ 1, 2, 3 /) )
-       this%alm_done(1:3) = .false.
+       call this%set_fields( "ZETA")       
+       do iodd = 3, this%nmaps, 2
+          this%alm(:,:,iodd) = this%alm(:,:,iodd-1) + this%alm(:,:,1)
+       enddo
+       this%alm(0:1,:,:) = 0
+       call this%alm2map()
     else
+       call this%set_field(1, "ZETA")       
        this%alm(0:1,:,1) = 0
        call this%alm2map( index_list = (/ 1 /) )
-       this%alm_done(1) = .false.
     endif
-    deallocate(Cls, Cls_lensed)
+    deallocate(Cls)
+    if(present(mask))call this%apply_mask(mask, bad_data = .true.)           
 #else
-    stop "To use t2zeta you have to turn on DO_ZETA_TRANS in include/constants.h"
+    stop "To use te2zeta you have to turn on DO_ZETA_TRANS in include/constants.h"
 #endif
   end subroutine coop_healpix_maps_te2zeta
 
@@ -3335,7 +3557,7 @@ contains
   0.16444457464651557  /)
     COOP_REAL, parameter::rmin = coop_ln2, rmax = log(3000.d0)
     call coop_chebeval(fit_n, rmin, rmax, coef, log(dble(l)), Nl)
-    Nl = exp(Nl)/COOP_DEFAULT_TCMB **2
+    Nl = exp(Nl)/(2.726) **2
   end function Coop_Planck_TNoise
 
   function coop_Planck_ENoise(l) result(Nl)
@@ -3355,7 +3577,7 @@ contains
          -3.1217087209044592E-002 /)
     COOP_REAL, parameter::rmin = coop_ln2, rmax = log(3000.d0)
     call coop_chebeval(fit_n, rmin, rmax, coef, log(dble(l)), Nl)
-    Nl = exp(Nl)/2.726**2
+    Nl = exp(Nl)/(2.726)**2
   end function Coop_Planck_ENoise
   
   function coop_Planck_BNoise(l) result(Nl)
@@ -4840,13 +5062,13 @@ contains
 
   subroutine coop_healpix_maps_copy_genre(from, to)
     class(coop_healpix_maps)::from, to
-    COOP_INT::i
-    if(to%nmaps .ne. from%nmaps) stop "copy genre only works for same nmaps"
-    do i=1, min(from%nmaps, to%nmaps)
+    COOP_INT::i, nmaps
+    nmaps = min(from%nmaps, to%nmaps)
+    do i=1, nmaps
        call to%set_field(i, trim(adjustl(from%fields(i))))
        call to%set_unit(i, trim(adjustl(from%units(i))))
     enddo    
-    to%spin = from%spin
+    to%spin(1:nmaps) = from%spin(1:nmaps)
     to%polar = from%polar
   end subroutine coop_healpix_maps_copy_genre
 
@@ -5595,7 +5817,58 @@ contains
        this%nstack = this%nstack(:, this%n:-this%n:-1)
     endif
   end subroutine coop_healpix_patch_flipy
-  
+
+  !!convert a TEB power spectrum to pseudo power spectrum
+  subroutine coop_healpix_maps_Cls2Pseudo(lmax, nmaps, Cls, mask, genre)
+    COOP_INT, parameter::nsims = 200
+    COOP_INT::lmax, isim, nside, nmaps
+    type(coop_healpix_maps)::this
+    COOP_REAL::Cls(0:lmax, nmaps*(nmaps+1)/2)  !!TT, EE, BB, TE, TB, EB
+    type(coop_healpix_maps)::mask, mask_deg
+    COOP_UNKNOWN_STRING, optional::genre
+    COOP_REAL,dimension(:),allocatable::sqrtCls
+    COOP_REAL,dimension(:, :),allocatable::Cls_sqrteig
+    COOP_REAL,dimension(:,:,:),allocatable::Cls_rot
+    COOP_INT l, lmax_map
+    if(all(mask%map(:,1).ge.1.))return
+    if(lmax .lt. 50)then
+       nside = 32
+    elseif(lmax .lt. 100)then
+       nside = 64
+    else
+       nside = 128
+    endif
+    mask_deg = mask
+    call mask_deg%udgrade(nside = nside)
+    call coop_healpix_nside2lmax(nside,lmax_map)
+    if(present(genre))then
+       call this%init(nside = nside, nmaps = nmaps, genre = genre, lmax = min(lmax_map, lmax))
+    else
+       call this%init(nside = nside, nmaps = nmaps, genre = "I", lmax = min(lmax_map, lmax))       
+    endif
+    this%cl(0:this%lmax, 1:nmaps*(nmaps+1)/2) = cls(0:this%lmax, 1:nmaps*(nmaps+1)/2)
+    Cls(0:this%lmax, 1:nmaps*(nmaps+1)/2) = 0.d0
+    allocate(Cls_sqrteig(nmaps, 0:this%lmax), Cls_rot(nmaps,nmaps,0:this%lmax))
+    
+    call coop_healpix_Cls2Rot_General(this%lmax, nmaps, this%Cl(0:this%lmax, 1:nmaps*(nmaps+1)/2), Cls_sqrteig, Cls_rot)
+    if(coop_isnan(sum(cls_sqrteig)) .or. coop_isnan(sum(cls_rot)))then
+       stop "NAN rotation matrix!"
+    endif
+    do isim = 1, nsims
+       if(mod(isim, 10).eq.0)write(*,*) "mask correction step #"//COOP_STR_OF(isim)
+       call this%simulate_General_maps(Cls_sqrteig, Cls_rot)
+       call this%apply_mask(mask_deg)
+       call this%map2alm()
+       Cls(0:this%lmax, 1:nmaps*(nmaps+1)/2) = Cls(0:this%lmax, 1:nmaps*(nmaps+1)/2) + this%cl(0:this%lmax, 1:nmaps*(nmaps+1)/2)
+    enddo
+    Cls(0:this%lmax, 1:nmaps*(nmaps+1)/2) = Cls(0:this%lmax, 1:nmaps*(nmaps+1)/2) / nsims
+    if(this%lmax .lt. lmax)then
+       Cls(this%lmax+1:lmax, 1:nmaps*(nmaps+1)/2) = Cls(this%lmax+1:lmax, 1:nmaps*(nmaps+1)/2)*(sum(mask%map(:,1))/mask%npix)
+    endif
+    deallocate(Cls_sqrteig, Cls_rot)
+    call this%free()
+    call mask_deg%free()
+  end subroutine coop_healpix_maps_Cls2Pseudo
 
 
 end module coop_healpix_mod

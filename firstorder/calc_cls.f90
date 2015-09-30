@@ -4,17 +4,19 @@ program test
 #include "constants.h"
   !!----------------------------------------
   !!wave number k, because COOP uses fixed k arrays, the actual k will be the one that is closest to the following number
-  COOP_STRING::output_root = "test"
+  COOP_STRING::output_root = "vis"
   logical::do_cmb_lensing = .true.
-  
+#if DO_ZETA_TRANS
+  logical::zeta_single_slice = .false.
+#endif  
   !!cosmological parameters
-  COOP_REAL,parameter::ombh2 = 0.022d0
-  COOP_REAL,parameter::omch2 = 0.12d0  !!0.12 LCDM  
-  COOP_REAL,parameter::hubble = 0.676d0  !!H0/100
-  COOP_REAL,parameter::tau_re = 0.08d0  !!optical depth2
-  COOP_REAL,parameter::As = 2.22d-9   !!amplitude
+  COOP_REAL,parameter::ombh2 = 0.02225d0
+  COOP_REAL,parameter::omch2 = 0.1198d0  !!0.12 LCDM  
+  COOP_REAL,parameter::hubble = 0.6727d0  !!H0/100
+  COOP_REAL,parameter::tau_re = 0.079d0  !!optical depth2
+  COOP_REAL,parameter::As = 2.206d-9   !!amplitude
   COOP_REAL, parameter::r = 0.d0  !! tensor/scalar ratio
-  COOP_REAL, parameter::ns = 0.96d0   !!tilt
+  COOP_REAL, parameter::ns = 0.9645d0   !!tilt
   COOP_REAL, parameter::Omega_b = ombh2/hubble**2
   COOP_REAL, parameter::Omega_c = omch2/hubble**2
   !!for EFT Dark Energy I have assumed massless neutrinos, if you want to compare with CAMB/CLASS you need to set mnu = 0
@@ -39,7 +41,7 @@ program test
   type(coop_cosmology_firstorder)::cosmology
   type(coop_function)::fwp1, fQ, alphaM, alphaB, alphaK, alphaT, alphaH
   COOP_INT, parameter::lmin = 2, lmax = 2500
-  COOP_REAL::Cls(coop_num_Cls, lmin:lmax), tensCls(coop_num_Cls, lmin:lmax), lensedCls(coop_num_Cls, lmin:lmax) 
+  COOP_REAL::Cls(coop_num_Cls, lmin:lmax), tensCls(coop_num_Cls, lmin:lmax), lensedCls(coop_num_Cls, lmin:lmax), ells(lmin:lmax)
   COOP_REAL::norm, lnorm
   COOP_INT::l
   logical success
@@ -69,8 +71,10 @@ program test
   write(*,*) "Dark Energy Model = Lambda (DE w = -1 )"
   call cosmology%set_standard_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, tau_re = tau_re, As = As, ns = ns)
 #endif
-  !!----------------------------------------    
-  !!set k/H0  
+  !!----------------------------------------
+#if DO_ZETA_TRANS
+  if(zeta_single_slice)coop_zeta_single_slice_chi = cosmology%distlss
+#endif  
   call cosmology%init_source(0)
   call cosmology%compute_source(0, success = success)
   if(.not. success) stop "Solution blows up exponentially; Model is ruled out."
@@ -97,6 +101,21 @@ program test
      enddo
      call fp%close()
   endif
+#if DO_ZETA_TRANS
+  call fp%open(trim(output_root)//"_zetaCls.dat","w")
+  write(*,*) "zeta Cls are saved  in "//trim(output_root)//"_zetaCls.dat"     
+  write(fp%unit, "(A8, 5A16)") "# ell ", "   TT  ",  "  EE  ",  "  ZZ ", " TE ", "  TZ ",  "  EZ  "
+  do l=lmin, lmax
+     ells(l) = l
+     lnorm = l*(l+1.d0)/coop_2pi*norm
+     if(zeta_single_slice)then
+        write(fp%unit, "(I5, 20E16.7)") l, Cls(coop_index_ClTT, l)*lnorm, Cls(coop_index_ClEE, l)*lnorm,  Cls(coop_index_Clzetazeta, l)*lnorm, Cls(coop_index_ClTE, l)*lnorm, Cls(coop_index_ClTzeta, l)*lnorm, Cls(coop_index_ClEzeta, l)*lnorm, cosmology%Clzetazeta_at_R(l, cosmology%distlss)*lnorm        
+     else
+        write(fp%unit, "(I5, 20E16.7)") l, Cls(coop_index_ClTT, l)*lnorm, Cls(coop_index_ClEE, l)*lnorm,  Cls(coop_index_Clzetazeta, l)*lnorm, Cls(coop_index_ClTE, l)*lnorm, Cls(coop_index_ClTzeta, l)*lnorm, Cls(coop_index_ClEzeta, l)*lnorm
+     endif
+  enddo
+  call fp%close()
+#endif  
   if(r .gt. 0.d0)then  !! do tensor modes
      call cosmology%compute_source(2, success = success)
      call cosmology%source(2)%get_all_cls(lmin, lmax, tensCls)
@@ -135,5 +154,42 @@ contains
     alpha = alpha0/(1.d0-omega_m0-omega_r0 + omega_m0/a**3 + omega_r0/a**4)
     call f%init(n = n, xmin = a(1), xmax = a(n), f = alpha, xlog = .true., ylog = .false.)
   end subroutine generate_function
+
+  subroutine generate_latevis()
+    COOP_INT, parameter::n = 1024
+    COOP_REAL::chi(n), vis(n), a, chiend
+    COOP_INT::i
+    call coop_set_uniform(n, chi, 0.d0, cosmology%tau0)
+    chiend = cosmology%tau0 - cosmology%tauofa(1.d0/(1.d0+cosmology%zre+cosmology%deltaz*5.d0))
+    do i=1, n
+       if(chi(i) .lt. chiend)then
+          a = cosmology%aoftau(cosmology%tau0 - chi(i))
+          vis(i) = cosmology%visofa(a)
+       else
+          vis(i) = 0.d0
+       endif
+    enddo
+    vis = vis/(sum(vis)*(chi(2)-chi(1)))
+    call coop_zeta_user_specified_weight%init(n = n, xmin = chi(1), xmax = chi(n), f = vis, method = COOP_INTERPOLATE_LINEAR, name="latevis")
+  end subroutine generate_latevis
+
+
+  subroutine generate_earlyvis()
+    COOP_INT, parameter::n = 1024
+    COOP_REAL::chi(n), vis(n), a, chiend
+    COOP_INT::i
+    call coop_set_uniform(n, chi, 0.d0, cosmology%tau0)
+    chiend = cosmology%tau0 - cosmology%tauofa(1.d0/(1.d0+cosmology%zre+cosmology%deltaz*5.d0))
+    do i=1, n
+       if(chi(i) .ge. chiend)then
+          a = cosmology%aoftau(cosmology%tau0 - chi(i))
+          vis(i) = cosmology%visofa(a)
+       else
+          vis(i) = 0.d0
+       endif
+    enddo
+    vis = vis/(sum(vis)*(chi(2)-chi(1)))
+    call coop_zeta_user_specified_weight%init(n = n, xmin = chi(1), xmax = chi(n), f = vis, method = COOP_INTERPOLATE_LINEAR, name="earlyvis")
+  end subroutine generate_earlyvis  
   
 end program test

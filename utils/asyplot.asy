@@ -1002,7 +1002,7 @@ void plot_rightaxis(){
          else
             scale(pic,Linear,Linear);
          ylimits(pic, rightaxis_ymin, rightaxis_ymax);
-         yaxis(pic, rightaxis_label, XEqualsRight(cxmax),coorpen, LeftTicks("", begin=false,end=false));
+	 yaxis(pic, rightaxis_label, XEqualsRight(cxmax),coorpen, LeftTicks("", begin=false,end=false));
         });}
 
    add(dest = mypic, src = q);

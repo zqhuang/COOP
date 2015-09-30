@@ -547,14 +547,12 @@ program map
   call hgm%init(nside = nside_in(1), nmaps = num_maps_wanted, genre = "I")
   j = 1
   do i=1, nin
-     allocate(map_tmp(0:npix-1, nmaps_in(i)))
-     call input_map(trim(fin(i)), map_tmp, npix, nmaps_in(i), fmissval = 0.)
-     if(ordering_in(i) .eq. COOP_NESTED) call convert_nest2ring(nside_in(i), map_tmp)
+     call hgm2%read(trim(fin(i)))
+     call hgm2%convert2ring()
      do k = 1, indices_wanted(i)%n
-        hgm%map(:, j) = map_tmp(:, indices_wanted(i)%element(k))
+        hgm%map(:, j) = hgm2%map(:, indices_wanted(i)%element(k))
         j = j + 1
      enddo
-     deallocate(map_tmp)
   enddo
   write(*,*) "enter the genre of each map"  
   do i=1, hgm%nmaps

@@ -36,6 +36,7 @@ program map
         do imap = 1, nmaps
            mean = sum(hgm%map(:, imap))/hgm%npix
            write(*, "(A)") "--- map #"//COOP_STR_OF(imap)//" --- "
+           write(*, "(A, I5)") "spin = ", hgm%spin(imap)
            write(*, "(A)") "    #pix>0 fsky= "//COOP_STR_OF(count(hgm%map(:, imap).gt. 0.)/dble(hgm%npix))
            write(*, "(A)") "    #pix<0 fsky= "//COOP_STR_OF(count(hgm%map(:, imap).lt. 0.)/dble(hgm%npix))
            write(*, "(A)") "    min = "//COOP_STR_OF(minval(hgm%map(:,imap)))

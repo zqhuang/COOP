@@ -132,8 +132,8 @@ contains
 
   !!thread-safe
   function coop_random_complex_Gaussian(real_imaginary) result(c)
+    COOP_COMPLEX c    
     COOP_REAL r, v(2)
-    COOP_COMPLEX c
     logical,optional::real_imaginary
     call random_number(v)
     v = 2.d0*v - 1.d0
@@ -154,6 +154,15 @@ contains
     endif
   end function coop_random_complex_Gaussian
 
+  function coop_random_complex_Gaussian_vector(n) result(c)
+    COOP_INT::n
+    COOP_COMPLEX c(n)
+    COOP_INT::i
+    do i=1, n
+       c(i) = coop_random_complex_Gaussian()
+    enddo
+  end function coop_random_complex_Gaussian_vector
+  
 
   function coop_random_Gaussian() result(s)
     COOP_REAL r, v(2), s

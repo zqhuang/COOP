@@ -617,7 +617,11 @@
 
 
     source%kmin = 0.4d0/this%distlss
+#if DO_ZETA_TRANS
+    source%kmax = (min(max(1500, coop_Cls_lmax(source%m)), 3000)*4.d0)/this%distlss	 
+#else	 
     source%kmax = (min(max(1500, coop_Cls_lmax(source%m)), 3000)*2.2d0)/this%distlss
+#endif	 
     call source%k2kop(source%kmin, source%kopmin)
     call source%k2kop(source%kmax, source%kopmax)
     source%dkop = (source%kopmax-source%kopmin)/(n-1)
@@ -766,11 +770,9 @@
     if(size(trans,2).ne. coop_k_dense_fac .or. size(trans, 3).ne. source%nk .or. size(trans, 1) .ne. source%nsrc) call coop_return_error("get_transfer", "wrong size", "stop")
     select case(source%m)
     case(0)
-       limber_start = 3
+       limber_start = coop_index_source_Len
     case(2)
-       limber_start = 4
-    case default
-       stop "get_transfer: only m=0, 2 are implemented"
+       limber_start = coop_index_source_B + 1       
     end select
     trans = 0.d0
     call coop_jl_check_init(l)
@@ -791,7 +793,7 @@
           enddo
        enddo
        !$omp end parallel do
-       return
+       goto 100
     endif
     const = sqrt(coop_pi/2.d0/l)        
     if(l .lt. coop_limber_ell)then
@@ -807,21 +809,23 @@
           enddo
        enddo
        !$omp end parallel do
-       !$omp parallel do private(ik, itau, idense, chi_source, wl, wr)       
-       do ik = ikmin, ikmax
-          do idense = 1, coop_k_dense_fac
-             !limber contribution
-             chi_source = l/source%k_dense(idense, ik)
-             itau = coop_left_index(source%ntau, source%chi, chi_source)
-             if(itau .ge. 1 .and. itau .lt. source%ntau)then
-                wr = (source%chi(itau) - chi_source)/(source%chi(itau) - source%chi(itau + 1))
-                wl = 1.d0 - wr
-                trans(limber_start:source%nsrc, idense, ik) =  trans(limber_start:source%nsrc, idense, ik) + const/source%k_dense(idense, ik) *  (( COOP_INTERP_SOURCE(source, limber_start:source%nsrc, idense, ik, itau) *  wl + COOP_INTERP_SOURCE(source, limber_start:source%nsrc, idense, ik, itau+1) *  wr ))
-             endif
+       if(source%m.eq.0)then
+          !$omp parallel do private(ik, itau, idense, chi_source, wl, wr)       
+          do ik = ikmin, ikmax
+             do idense = 1, coop_k_dense_fac
+                !limber contribution
+                chi_source = l/source%k_dense(idense, ik)
+                itau = coop_left_index(source%ntau, source%chi, chi_source)
+                if(itau .ge. 1 .and. itau .lt. source%ntau)then
+                   wr = (source%chi(itau) - chi_source)/(source%chi(itau) - source%chi(itau + 1))
+                   wl = 1.d0 - wr
+                   trans(limber_start:source%nsrc, idense, ik) =  trans(limber_start:source%nsrc, idense, ik) + const/source%k_dense(idense, ik) *  (( COOP_INTERP_SOURCE(source, limber_start:source%nsrc, idense, ik, itau) *  wl + COOP_INTERP_SOURCE(source, limber_start:source%nsrc, idense, ik, itau+1) *  wr ))
+                endif
+             enddo
           enddo
-       enddo
-       !$omp end parallel do
-       return
+          !$omp end parallel do
+       endif
+       goto 100
     endif
     !!otherwise it is a mixture of limber contribution and the contribution from last scattering surface:
     !$omp parallel do private(ik, itau, idense, chi_source, wl, wr, x, jl)
@@ -835,7 +839,7 @@
              wl = 1.d0 - wr
              if(itau .gt. source%index_vis_end)then
                 trans(:, idense, ik) =  trans(:, idense, ik) + const/source%k_dense(idense, ik) *  ( COOP_INTERP_SOURCE(source, :, idense, ik, itau) *  wl + COOP_INTERP_SOURCE(source, :, idense, ik, itau+1) *  wr )
-             else
+             elseif(source%m.eq.0)then
                 trans(limber_start:source%nsrc, idense, ik) =  trans(limber_start:source%nsrc, idense, ik) + const/source%k_dense(idense, ik) *  (( COOP_INTERP_SOURCE(source, limber_start:source%nsrc, idense, ik, itau) *  wl + COOP_INTERP_SOURCE(source, limber_start:source%nsrc, idense, ik, itau+1) *  wr ))            
              endif
           endif
@@ -850,6 +854,18 @@
        enddo
     enddo
     !$omp end parallel do
+100 continue
+#if DO_ZETA_TRANS
+    if(coop_zeta_single_slice_chi .gt. 0.d0 .and. .not. coop_zeta_user_specified_weight%initialized)then
+       !$omp parallel do private(ik , idense)
+       do ik = 1, source%nk
+          do idense = 1, coop_k_dense_fac
+             trans(coop_index_source_zeta, idense, ik) = -coop_jl(l, source%k_dense(idense, ik)*coop_zeta_single_slice_chi)
+          enddo
+       enddo
+       !$omp end parallel do
+    endif
+#endif    
   end subroutine coop_cosmology_firstorder_source_get_transfer
 
   subroutine coop_cosmology_firstorder_source_get_Cls_limber(source, l, Cls)

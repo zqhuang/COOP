@@ -779,12 +779,35 @@ contains
   Subroutine Coop_matsym_diag(m, n, a, R, precision)
     COOP_INT m,n, i    
     COOP_INT,parameter::MAXLOOP=100000
-    COOP_REAL::a(m, n), R(n, n)
+    COOP_REAL::a(m, n), R(n, n), l1, l2
     COOP_REAL, optional::precision
     COOP_REAL::prec
     Logical Tag
-    if(n.eq.1.d0)then
+    if(n.eq.1)then
        R=1.d0
+       return
+    endif
+    if(n.eq.2)then
+       if(A(1,2).eq.0.d0)then
+          R(1,1) = 1.d0
+          R(2,2) = 1.d0
+          R(1,2) = 0.d0
+          R(2,1) = 0.d0
+          return
+       endif
+       prec = max(sqrt((A(1,1)-A(2,2))**2/4.d0+A(1,2)**2), 1.d-99)
+       l1 = (A(1,1)+A(2,2))/2.d0 + prec
+       l2 = (A(1,1)+A(2,2))/2.d0 - prec
+       prec = max(sqrt((A(1,1)- l1)**2 + A(1, 2)**2), 1.d-99)
+       R(1, 1) = A(1, 2)/prec
+       R(2, 1) = (l1 - A(1,1))/prec
+       prec = max(sqrt((A(1,1)-l2)**2 + A(1, 2)**2), 1.d-99)
+       R(1, 2) = A(1,2)/prec
+       R(2,2) = (l2 - A(1,1))/prec
+       A(1,1) = l1
+       A(2,2) = l2
+       A(1,2)=0.d0
+       A(2,1) = 0.d0
        return
     endif
     if(present(precision))then

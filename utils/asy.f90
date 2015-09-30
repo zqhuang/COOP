@@ -175,6 +175,7 @@ module coop_asy_mod
      procedure::close => coop_asy_path_close
      procedure::free => coop_asy_path_free
      procedure::from_array => coop_asy_path_from_array
+     procedure::from_array_gaussianfit => coop_asy_path_from_array_gaussianfit     
      procedure::from_array_center => coop_asy_path_from_array_center     
      procedure::from_function => coop_asy_path_from_function
      procedure::get_perimeter_and_area => coop_asy_path_get_perimeter_and_area
@@ -1825,6 +1826,7 @@ contains
     COOP_SINGLE ,optional::linewidth
     COOP_INT  i, ipath, pl
     COOP_STRING lineproperty
+
     if(path%nclosed.eq.0 .or. (.not. path%l%isinit()) .or. path%l%n .eq. 0)return
     if(path%l%dim .ne.2) stop "coop_asy_contour_path: wrong dimension of list in path"
     write(this%unit, "(A)") "CONTOUR"
@@ -1854,12 +1856,12 @@ contains
     endif
     if(present(smooth))then
        if(smooth)then
-          write(this%unit, "(A)") "1"
+          write(this%unit, "(A)") "1"            
        else
-          write(this%unit, "(A)") "0"
+          write(this%unit, "(A)") "0"            
        endif
     else
-       write(this%unit, "(A)") "0"  !!no smoothing by default
+       write(this%unit, "(A)") "0"  
     endif
     write(this%unit, "(I8)") path%nclosed
     i = 1
@@ -2663,6 +2665,67 @@ contains
     end function finterp
     
   end subroutine coop_asy_path_from_array
+
+  subroutine coop_asy_path_from_array_gaussianfit(this, f, xmin, xmax, ymin, ymax, threshold)
+    class(coop_asy_path) this
+    COOP_SINGLE  f(:,:)
+    COOP_SINGLE  xmin, xmax, ymin, ymax, threshold, dx, dy, cov(2,2), invcov(2,2), mean(2), ntot, delta, fbyg(size(f,1), size(f,2)), vec(2)
+    COOP_INT  nx, ny, n, ix, iy
+    nx = size(f, 1)
+    ny = size(f, 2)
+    n = min(max(nx, ny,16)*6, 256)
+    dx = (xmax-xmin)/(nx-1)
+    dy = (ymax- ymin)/(ny-1)
+    ntot = real(nx)*real(ny)
+    mean = 0.d0    
+    do ix = 1, nx
+       mean(1) = mean(1) + sum(f(ix, :))*(ix-1)*dx
+    enddo
+    do iy=1, ny
+       mean(2) = mean(2) + sum(f(:, iy))*(iy-1)*dy
+    enddo
+    mean(1) = mean(1)/ntot
+    mean(2) = mean(2)/ntot
+    cov = 0.d0
+    do ix= 1, nx
+       do iy = 1, ny
+          cov(1, 1) = cov(1, 1) + ((ix-1)*dx-mean(1))**2
+          cov(2, 2) = cov(2, 2) + ((iy-1)*dy-mean(2))**2
+          cov(1, 2) = cov(1, 2) + ((ix-1)*dx-mean(1))*((iy-1)*dy-mean(2))
+       enddo
+    enddo
+    cov = cov/ntot
+    delta = cov(1,1)*cov(2,2)-cov(1,2)**2
+    invcov(1,1) = cov(2,2)/delta
+    invcov(2,2) = cov(1,1)/delta
+    invcov(1,2) = -cov(1,2)/delta
+    invcov(2,1) = invcov(1,2)
+    call this%from_function(finterp, xmin, xmax, ymin, ymax, threshold, n)
+    do ix=1, nx
+       do iy = 1, ny
+          vec = (/ (ix-1)*dx, (iy-1)*dy /) - mean
+          fbyg(ix, iy) = f(ix, iy)*exp(0.5d0*dot_product(vec, matmul(invcov, vec)))
+       enddo
+    enddo
+    mean(1) = mean(1) + xmin
+    mean(2) = mean(2) + ymin
+  contains
+    
+    function  finterp(x, y)
+      COOP_SINGLE  x, y, finterp
+      COOP_INT  i, j
+      COOP_SINGLE  ri, rj, vec(2)
+      ri = (x-xmin)/dx + 1.
+      rj = (y-ymin)/dy + 1.
+      i = min(max(floor(ri), 1), nx-1)
+      j = min(max(floor(rj), 1), ny-1)
+      ri = ri - i
+      rj = rj - j
+      vec = (/ x, y /) - mean
+      finterp = ((fbyg(i, j)*(1.-ri) + fbyg(i+1, j)*ri)*(1.-rj)+(fbyg(i, j+1)*(1.-ri) + fbyg(i+1, j+1)*ri)*rj)*exp(-0.5d0*dot_product(vec, matmul(invcov, vec)))
+    end function finterp
+    
+  end subroutine coop_asy_path_from_array_gaussianfit
 
 
   subroutine coop_asy_legend_default(this)

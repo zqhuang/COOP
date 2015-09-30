@@ -6,7 +6,10 @@ module coop_firstorder_mod
 
   private
 
-  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe, coop_power_lnk_min, coop_power_lnk_max,  coop_k_dense_fac, coop_index_ClTT, coop_index_ClTE, coop_index_ClEE, coop_index_ClBB, coop_index_ClLenLen, coop_index_ClTLen,  coop_num_Cls, coop_Cls_lmax, coop_bbks_trans, coop_index_source_T, coop_index_source_E, coop_index_source_B, coop_index_source_Len, coop_index_source_zeta
+  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe, coop_power_lnk_min, coop_power_lnk_max,  coop_k_dense_fac, coop_index_ClTT, coop_index_ClTE, coop_index_ClEE, coop_index_ClBB, coop_index_ClLenLen, coop_index_ClTLen,  coop_num_Cls, coop_Cls_lmax, coop_bbks_trans, coop_index_source_T, coop_index_source_E, coop_index_source_B, coop_index_source_Len, coop_next_l, coop_nl_to_lmax, coop_set_ells
+#if DO_ZETA_TRANS  
+  public::coop_index_source_zeta, coop_index_ClZetaZeta, coop_index_ClTZeta, coop_index_ClEZeta, coop_zeta_single_slice_chi, coop_zeta_user_specified_weight
+#endif  
 
   !!this makes the code faster and more accurate
   logical,parameter :: coop_firstorder_optimize = .true.
@@ -25,15 +28,23 @@ module coop_firstorder_mod
 
   COOP_REAL, dimension(0:2), parameter :: coop_source_tau_step_factor = (/ 1.d0, 1.d0, 1.d0 /)
   COOP_REAL, dimension(0:2), parameter :: coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
-  COOP_INT, dimension(0:2), parameter :: coop_source_k_n = (/ 300, 120, 100 /)
+  COOP_INT, dimension(0:2), parameter :: coop_source_k_n = (/ 300, 160, 160 /)
   COOP_REAL, parameter :: coop_source_k_index = 0.88d0
-  COOP_INT, parameter :: coop_k_dense_fac = 20
+
 
   COOP_INT, parameter :: coop_index_source_T = 1
   COOP_INT, parameter :: coop_index_source_E = 2
   COOP_INT, parameter :: coop_index_source_B = 3
+#if DO_ZETA_TRANS
+  COOP_INT, parameter :: coop_k_dense_fac = 25
+  COOP_INT, parameter :: coop_index_source_zeta = 3
+  COOP_INT, parameter :: coop_index_source_Len = 4
+  COOP_REAL::coop_zeta_single_slice_chi = -1.d0  !!if set to negative, weight = visibility function
+  type(coop_function)::coop_zeta_user_specified_weight
+#else
+  COOP_INT, parameter :: coop_k_dense_fac = 15  
   COOP_INT, parameter :: coop_index_source_Len = 3
-  COOP_INT, parameter :: coop_index_source_zeta = 4  
+#endif
 
   COOP_INT, parameter::coop_index_ClTT = 1
   COOP_INT, parameter::coop_index_ClEE = 2
@@ -50,7 +61,6 @@ module coop_firstorder_mod
   COOP_INT, parameter::coop_index_ClEzeta = 8
   COOP_INT, parameter::coop_index_Clzetazeta = 9
   COOP_INT, parameter::coop_num_Cls =  coop_index_Clzetazeta
-  public::  coop_index_ClTzeta,  coop_index_ClEzeta, coop_index_clzetazeta
   COOP_INT, dimension(0:2), parameter::coop_num_sources = (/ 4,  3,  3 /)
 #else
   COOP_INT, parameter::coop_num_Cls =  coop_index_ClTLen
@@ -181,6 +191,13 @@ module coop_firstorder_mod
      procedure::growth_of_z => coop_cosmology_firstorder_growth_of_z
      procedure::late_damp_factor => coop_cosmology_firstorder_late_damp_factor
      !!
+#if DO_ZETA_TRANS
+     procedure::set_zeta_weight_latevis => coop_cosmology_firstorder_set_zeta_weight_latevis
+     procedure::set_zeta_weight_earlyvis => coop_cosmology_firstorder_set_zeta_weight_earlyvis
+     procedure::set_zeta_weight_vis => coop_cosmology_firstorder_set_zeta_weight_vis
+     procedure::set_zeta_weight_single_slice => coop_cosmology_firstorder_set_zeta_weight_single_slice          
+#endif     
+     
   end type coop_cosmology_firstorder
 
 
@@ -215,9 +232,9 @@ contains
     class(coop_cosmology_firstorder)::this
     COOP_REAL, optional::Omega_nu
     if(present(Omega_nu))then
-       call this%set_standard_cosmology(Omega_b=0.04904d0, Omega_c=0.2642d0, h = 0.6731d0, tau_re = 0.078d0, As = 2.195d-9, ns = 0.9655d0,  Omega_nu = Omega_nu)
+       call this%set_standard_cosmology(Omega_b=0.04917d0, Omega_c=0.2647d0, h = 0.6727d0, tau_re = 0.079d0, As = 2.206d-9, ns = 0.9645d0,  Omega_nu = Omega_nu)
     else
-       call this%set_standard_cosmology(Omega_b=0.04904d0, Omega_c=0.2642d0, h = 0.6731d0, tau_re = 0.078d0, As = 2.195d-9, ns = 0.9655d0)       
+       call this%set_standard_cosmology(Omega_b=0.04917d0, Omega_c=0.2647d0, h = 0.6727d0, tau_re = 0.079d0, As = 2.206d-9, ns = 0.9645d0)
      
     endif
   end subroutine coop_cosmology_firstorder_set_Planck_Bestfit
@@ -228,19 +245,19 @@ contains
     COOP_REAL r
     COOP_REAL, optional::Omega_nu
     if(present(Omega_nu))then
-       call this%set_standard_cosmology(Omega_b=0.04904d0, Omega_c=0.2642d0, h = 0.6731d0, tau_re = 0.078d0, As = 2.195d-9, ns = 0.9655d0,  Omega_nu = Omega_nu, r = r)
+       call this%set_standard_cosmology(Omega_b=0.04917d0, Omega_c=0.2647d0, h = 0.6727d0, tau_re = 0.079d0, As = 2.206d-9, ns = 0.9645d0,  Omega_nu = Omega_nu, r = r)
     else
-       call this%set_standard_cosmology(Omega_b=0.04904d0, Omega_c=0.2642d0, h = 0.6731d0, tau_re = 0.078d0, As = 2.195d-9, ns = 0.9655d0, r = r)       
+       call this%set_standard_cosmology(Omega_b=0.04917d0, Omega_c=0.2647d0, h = 0.6727d0, tau_re = 0.079d0, As = 2.206d-9, ns = 0.9645d0, r = r)       
      
     endif
   end subroutine coop_cosmology_firstorder_set_Planck_Bestfit_with_r
+
 
 
   subroutine coop_cosmology_firstorder_source_get_Cls(source, l, Cls)
     class(coop_cosmology_firstorder_source)::source
     COOP_INT l
     COOP_REAL,dimension(coop_num_cls),intent(OUT)::Cls
-!    COOP_REAL,dimension(coop_num_cls)::Cls_limber
     COOP_REAL,dimension(:,:,:),allocatable::trans
     COOP_INT:: i, ik, idense
     COOP_REAL::tmp
@@ -291,7 +308,7 @@ contains
     l = lmin 
     nc = 1
     do
-       call next_l()
+       call coop_next_l(l)
        nc = nc + 1
        if(l.ge.lmax_compute)then
           l = lmax
@@ -303,7 +320,7 @@ contains
     ls_computed(i) = lmin
     l = lmin
     do
-       call next_l()
+       call coop_next_l(l)
        i = i + 1
        if(l.ge.lmax_compute)then
           ls_computed(i) = dble(lmax_compute)
@@ -339,13 +356,36 @@ contains
     !$omp end parallel do
 100 deallocate(ls_computed, Cls_computed,Cls2_computed)
 
-  contains
-
-    subroutine next_l()
-      l = l + min(60, 12 + l/30, max(1, l/3))
-    end subroutine next_l
-
   end subroutine coop_cosmology_firstorder_source_get_All_Cls
+
+  subroutine coop_next_l(l)
+    COOP_INT::l
+    l = l + min(60, 12 + l/30, max(1, l/3))
+  end subroutine coop_next_l
+
+  function coop_nl_to_lmax(lmax) result(nl)
+    COOP_INT::l, lmax, nl
+    l = 2
+    nl = 1
+    do while(l .lt. lmax)
+       nl = nl + 1
+       call coop_next_l(l)
+    enddo
+  end function coop_nl_to_lmax
+
+  subroutine coop_set_ells(ells, lmax)
+    COOP_INT::nl, lmax, l
+    COOP_INT::ells(:)
+    l = 2
+    nl = 0
+    do while(l .lt. lmax)
+       nl = nl + 1
+       ells(nl) = l
+       call coop_next_l(l)
+    enddo
+    nl = nl + 1
+    ells(nl) = lmax
+  end subroutine coop_set_ells
 
 
   subroutine coop_cosmology_firstorder_compute_source(this, m, success)
@@ -1259,6 +1299,67 @@ contains
     endif
   end subroutine coop_cosmology_firstorder_set_EFT_cosmology
 #endif
+
+#if DO_ZETA_TRANS
+  subroutine coop_cosmology_firstorder_set_zeta_weight_latevis(this)
+    class(coop_cosmology_firstorder)::this    
+    COOP_INT, parameter::n = 1024
+    COOP_REAL::chi(n), vis(n), a, chiend
+    COOP_INT::i
+    call coop_set_uniform(n, chi, 0.d0, this%tau0)
+    chiend = this%tau0 - this%tauofa(1.d0/(1.d0+this%zre+this%deltaz*5.d0))
+    do i=1, n
+       if(chi(i) .lt. chiend)then
+          a = this%aoftau(this%tau0 - chi(i))
+          vis(i) = this%visofa(a)
+       else
+          vis(i) = 0.d0
+       endif
+    enddo
+    vis = vis/(sum(vis)*(chi(2)-chi(1)))
+    call coop_zeta_user_specified_weight%init(n = n, xmin = chi(1), xmax = chi(n), f = vis, method = COOP_INTERPOLATE_LINEAR, name="latevis")
+    coop_zeta_single_slice_chi = -1.d0    
+  end subroutine coop_cosmology_firstorder_set_zeta_weight_latevis
+
+
+  subroutine coop_cosmology_firstorder_set_zeta_weight_earlyvis(this)
+    class(coop_cosmology_firstorder)::this
+    COOP_INT, parameter::n = 1024
+    COOP_REAL::chi(n), vis(n), a, chiend
+    COOP_INT::i
+    call coop_set_uniform(n, chi, 0.d0, this%tau0)
+    chiend = this%tau0 - this%tauofa(1.d0/(1.d0+this%zre+this%deltaz*5.d0))
+    do i=1, n
+       if(chi(i) .ge. chiend)then
+          a = this%aoftau(this%tau0 - chi(i))
+          vis(i) = this%visofa(a)
+       else
+          vis(i) = 0.d0
+       endif
+    enddo
+    vis = vis/(sum(vis)*(chi(2)-chi(1)))
+    call coop_zeta_user_specified_weight%init(n = n, xmin = chi(1), xmax = chi(n), f = vis, method = COOP_INTERPOLATE_LINEAR, name="earlyvis")
+    coop_zeta_single_slice_chi = -1.d0    
+  end subroutine coop_cosmology_firstorder_set_zeta_weight_earlyvis
+
+  subroutine coop_cosmology_firstorder_set_zeta_weight_vis(this)
+    class(coop_cosmology_firstorder)::this    
+    call coop_zeta_user_specified_weight%free()
+    coop_zeta_single_slice_chi = -1.d0
+  end subroutine coop_cosmology_firstorder_set_zeta_weight_vis
+
+  subroutine coop_cosmology_firstorder_set_zeta_weight_single_slice(this, chi)
+    class(coop_cosmology_firstorder)::this
+    COOP_REAL,optional::chi
+    call coop_zeta_user_specified_weight%free()
+    if(present(chi))then
+       coop_zeta_single_slice_chi = chi
+    else
+       coop_zeta_single_slice_chi = this%distlss       
+    endif
+  end subroutine coop_cosmology_firstorder_set_zeta_weight_single_slice
+
+#endif  
   
   
 end module coop_firstorder_mod
