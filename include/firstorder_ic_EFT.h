@@ -2,7 +2,7 @@
     class(coop_cosmology_firstorder)::this
     class(coop_pert_object)::pert
     COOP_INT :: m 
-    COOP_REAL tau, k, Rnu
+    COOP_REAL tau, k, Rnu, M2
     pert%k = k
     pert%tight_coupling = .true.
     call pert%init(m = m, nu_mass = this%mnu_by_Tnu, de_genre = this%de_genre)
@@ -13,7 +13,6 @@
     else
        pert%num_mnu_ratio = 0.d0
     endif
-
     select case(trim(pert%initial_conditions))
     case("adiabatic")
        select case(pert%m)
@@ -42,7 +41,7 @@
           call coop_tbw("vector initialization")
        case(2)
           pert%O1_TEN_H = coop_primordial_zeta_norm/coop_sqrt6
-          pert%O1_TEN_HPR = -(k*tau)**2/5.d0
+          pert%O1_TEN_HPR = -(k*tau)**2/5.d0 
        end select
     case default
        stop "unknown initial conditions"

@@ -8,15 +8,15 @@ program test
   
   !!----------------------------------------
   !!wave number k, because COOP uses fixed k arrays, the actual k will be the one that is closest to the following number
-  COOP_REAL::kMpc_want = 0.2d0
+  COOP_REAL::kMpc_want = 0.0001d0
 
   !!cosmological parameters
-  COOP_REAL,parameter::ombh2 = 0.022d0
-  COOP_REAL,parameter::omch2 = 0.12d0  !!0.12 LCDM  
-  COOP_REAL,parameter::hubble = 0.676d0  !!H0/100
-  COOP_REAL,parameter::tau_re = 0.08d0  !!optical depth2
-  COOP_REAL,parameter::As = 2.22d-9   !!amplitude
-  COOP_REAL, parameter::ns = 0.96d0   !!tilt
+  COOP_REAL,parameter::ombh2 = 0.0223d0
+  COOP_REAL,parameter::omch2 = 0.1189d0  !!0.12 LCDM  
+  COOP_REAL,parameter::hubble = 0.6824d0  !!H0/100
+  COOP_REAL,parameter::tau_re = 0.06d0  !!optical depth2
+  COOP_REAL,parameter::As = 2.111d-9   !!amplitude
+  COOP_REAL, parameter::ns = 0.9653d0   !!tilt
   COOP_REAL, parameter::Omega_b = ombh2/hubble**2
   COOP_REAL, parameter::Omega_c = omch2/hubble**2
   !!for EFT Dark Energy I have assumed massless neutrinos, if you want to compare with CAMB/CLASS you need to set mnu = 0
@@ -27,13 +27,13 @@ program test
   
 #if DO_EFT_DE  
   !!define the alpha parameters
-  COOP_REAL, parameter::alpha_M0 = -0.1d0
+  COOP_REAL, parameter::alpha_M0 = -0.05d0
   COOP_REAL, parameter::alpha_T0 = 0.d0
   COOP_REAL, parameter::alpha_B0 = 0.d0
   COOP_REAL, parameter::alpha_K0 = 0.d0
   COOP_REAL, parameter::alpha_H0 = 0.d0
 #elif DO_COUPLED_DE
-  COOP_REAL, parameter::Q0 = 0.2d0
+  COOP_REAL, parameter::Q0 = 0.d0
   COOP_REAL, parameter::Qa = 0.d0  
 #endif  
   !!----------------------------------------

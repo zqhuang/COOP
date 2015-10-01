@@ -674,31 +674,34 @@ contains
              lnrho(i) = lnrho(i+1) + (wp1eff(i)+wp1eff(i+1))*step
              rhoa4de_l = exp(lnrho(i)+4.d0*lna)
              om_l = rhoa4de_l/(rhoa4de_l + rhotot_l)
+             wp1eff(i) = wp1_l - alpha_l/3.d0/om_l
              if(om_l .lt. 1.d-50)then
+                M2(i) = M2(i+1) - (alpha_l+alpha_r)                
                 lnrho(1:i-1) = lnrho(i)
                 wp1eff(1:i-1) = wp1eff(i)
                 M2(1:i-1) = M2(i)
                 goto 100
              endif
-             wp1eff(i) = wp1_l - alpha_l/3.d0/om_l
           enddo          
        elseif(om_l .gt. 1.d-4)then
           do j=1, 2
              lnrho(i) = lnrho(i+1) + (wp1eff(i)+wp1eff(i+1))*step
              rhoa4de_l = exp(lnrho(i)+4.d0*lna)
              om_l = rhoa4de_l/(rhoa4de_l + rhotot_l)
+             wp1eff(i) = wp1_l - alpha_l/3.d0/om_l
              if(om_l .lt. 1.d-50)then
+                M2(i) = M2(i+1) - (alpha_l+alpha_r)                
                 lnrho(1:i-1) = lnrho(i)
                 wp1eff(1:i-1) = wp1eff(i)
                 M2(1:i-1) = M2(i)
                 goto 100
              endif
-             wp1eff(i) = wp1_l - alpha_l/3.d0/om_l
           enddo
        else
           lnrho(i) = lnrho(i+1) + (wp1eff(i)+wp1eff(i+1))*step
           rhoa4de_l = exp(lnrho(i)+4.d0*lna)
           om_l = rhoa4de_l/(rhoa4de_l + rhotot_l)
+          M2(i) = M2(i+1) - (alpha_l+alpha_r)
           if(om_l .lt. 1.d-50)then
              lnrho(1:i-1) = lnrho(i)
              wp1eff(1:i-1) = wp1eff(i)

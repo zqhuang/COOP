@@ -9,19 +9,21 @@ program bgtest
   COOP_INT::err
   type(coop_ode)::ode
   COOP_REAL:: lna(n), lnH(n), omegab, omegac
-  COOP_REAL::y(1), yp(1)
+  COOP_REAL::y(1), yp(1), a
   COOP_INT::index_de
   omegab = 0.049d0
   omegac = 0.265d0
-  call wp1%init_polynomial( (/ 0.d0, -0.2d0 /) )
-  call alpha_M%init_polynomial( (/ 0.d0, 0.d0, 0.d0, 0.d0, 0.2d0 /) )
+  call wp1%init_polynomial( (/ 0.d0, 0.d0 /) )
+  call alpha_M%init_polynomial( (/ 0.d0, 0.d0, 0.d0, 0.1d0 /) )
   call bg%init(h=0.68d0)
   call bg%add_species(coop_baryon(omegab))
   call bg%add_species(coop_cdm(omegac))  
   call bg%add_species(coop_radiation(bg%Omega_radiation()))
   call bg%add_species(coop_neutrinos_massless(bg%Omega_massless_neutrinos_per_species()*(bg%Nnu())))
-  call coop_background_add_EFT_DE(bg, wp1, alpha_M, err)  
+  call coop_background_add_EFT_DE(bg, wp1, alpha_M, err)
   call bg%setup_background()
+  a  = 1.d-10
+  print*, bg%tauofa(a)*bg%aHratio(a)
   call ode%init(nvars)
   call ode%set_initial_conditions(0.d0, (/ bg%HdotbyHsq(1.d0) /) )
   call ode%evolve(getderv, -1.d0)

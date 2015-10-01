@@ -70,6 +70,7 @@ module coop_cosmology_mod
      procedure::Hasq => coop_cosmology_background_Hasq   !! input a , return H a^2 / H_0
      procedure::dadtau => coop_cosmology_background_Hasq   !! input a , return da/d tau /H_0
      procedure::Hratio => coop_cosmology_background_Hratio !! input a, return H/H_0
+     procedure::aHratio => coop_cosmology_background_aHratio !! input a, return H/H_0     
      procedure::HdotbyHsq => coop_cosmology_background_HdotbyHsq !! input a, return \dot H/H^2
      procedure::HddbyH3 => coop_cosmology_background_HddbyH3     !!input a, return \ddot H/ H^3
      procedure::time => coop_cosmology_background_time !!input a, return H_0 * time
@@ -366,6 +367,12 @@ contains
     Hratio = this%Hasq(a)/a**2
   end function coop_cosmology_background_Hratio
 
+  function coop_cosmology_background_aHratio(this, a)result(aHratio)
+    class(coop_cosmology_background)::this
+    COOP_REAL aHratio, a
+    aHratio = this%Hasq(a)/a
+  end function coop_cosmology_background_aHratio
+  
 
   function coop_cosmology_background_HddbyH3(this, a) result(HddbyH3) 
     class(coop_cosmology_background)::this
@@ -411,20 +418,20 @@ contains
   subroutine coop_cosmology_background_setup_background(this)
     class(coop_cosmology_background)::this
     integer,parameter::n = 32768
-    COOP_REAL, parameter::amin = 5.d-4, amax = coop_scale_factor_today
+    COOP_REAL, parameter::amin = 2.d-4, amax = coop_scale_factor_today
     COOP_REAL,dimension(n):: dis, a, t
     COOP_REAL  hasq1, hasq2, da, daby2, Hasqmin, Hasqmax, M2
     integer i
     if(this%need_setup_background)then
        call coop_set_uniform(n, a, amin, amax)
        this%a_switch = amin
-       this%Omega_r = this%H2a4(coop_min_scale_factor)
-       this%Omega_m = ( this%H2a4(amin) - this%Omega_r ) / amin
-       this%Omega_r = this%H2a4(coop_min_scale_factor) - this%Omega_m * coop_min_scale_factor
-       this%Omega_m = ( this%H2a4(amin) - this%Omega_r ) / amin
+       this%Omega_r = this%rhoa4(coop_min_scale_factor)/3.d0
+       this%Omega_m = ( this%rhoa4(amin)/3.d0 - this%Omega_r ) / amin
+       this%Omega_r = this%rhoa4(coop_min_scale_factor)/3.d0 - this%Omega_m * coop_min_scale_factor
+       this%Omega_m = ( this%rhoa4(amin)/3.d0 - this%Omega_r ) / amin
        this%a_eq = this%Omega_r / this%Omega_m
 #if DO_EFT_DE
-       M2 = this%M2(this%a_eq)
+       M2 = this%M2(min(this%a_eq, amin))
        this%dis_const = 2.d0*this%a_eq/sqrt(this%Omega_r/M2)
        this%time_const = 4.d0/3.d0*this%a_eq**2/sqrt(this%Omega_r/M2)       
 #else       
@@ -464,11 +471,7 @@ contains
        tau = this%fdis%eval(a)
     else
        eps = a/this%a_eq
-       if(eps .lt. 1.d-4)then
-          tau = this%dis_const * (0.5d0 - eps/8.d0)*eps
-       else
-          tau = this%dis_const * ( sqrt(1.d0 + eps) - 1.d0)
-       endif
+       tau = this%dis_const * ( sqrt(1.d0 + eps) - 1.d0)
     endif
   end function coop_cosmology_background_conformal_time
 
