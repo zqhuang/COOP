@@ -159,7 +159,7 @@ contains
     COOP_INT, parameter::n = 1024
     COOP_REAL::chi(n), vis(n), a, chiend
     COOP_INT::i
-#ifdef DO_ZETA_TRANS    
+#if DO_ZETA_TRANS    
     call coop_set_uniform(n, chi, 0.d0, cosmology%tau0)
     chiend = cosmology%tau0 - cosmology%tauofa(1.d0/(1.d0+cosmology%zre+cosmology%deltaz*5.d0))
     do i=1, n
@@ -180,7 +180,7 @@ contains
     COOP_INT, parameter::n = 1024
     COOP_REAL::chi(n), vis(n), a, chiend
     COOP_INT::i
-#ifdef DO_ZETA_TRANS    
+#if DO_ZETA_TRANS    
     call coop_set_uniform(n, chi, 0.d0, cosmology%tau0)
     chiend = cosmology%tau0 - cosmology%tauofa(1.d0/(1.d0+cosmology%zre+cosmology%deltaz*5.d0))
     do i=1, n
