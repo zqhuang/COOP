@@ -159,6 +159,7 @@ contains
     COOP_INT, parameter::n = 1024
     COOP_REAL::chi(n), vis(n), a, chiend
     COOP_INT::i
+#ifdef DO_ZETA_TRANS    
     call coop_set_uniform(n, chi, 0.d0, cosmology%tau0)
     chiend = cosmology%tau0 - cosmology%tauofa(1.d0/(1.d0+cosmology%zre+cosmology%deltaz*5.d0))
     do i=1, n
@@ -171,6 +172,7 @@ contains
     enddo
     vis = vis/(sum(vis)*(chi(2)-chi(1)))
     call coop_zeta_user_specified_weight%init(n = n, xmin = chi(1), xmax = chi(n), f = vis, method = COOP_INTERPOLATE_LINEAR, name="latevis")
+#endif    
   end subroutine generate_latevis
 
 
@@ -178,6 +180,7 @@ contains
     COOP_INT, parameter::n = 1024
     COOP_REAL::chi(n), vis(n), a, chiend
     COOP_INT::i
+#ifdef DO_ZETA_TRANS    
     call coop_set_uniform(n, chi, 0.d0, cosmology%tau0)
     chiend = cosmology%tau0 - cosmology%tauofa(1.d0/(1.d0+cosmology%zre+cosmology%deltaz*5.d0))
     do i=1, n
@@ -190,6 +193,7 @@ contains
     enddo
     vis = vis/(sum(vis)*(chi(2)-chi(1)))
     call coop_zeta_user_specified_weight%init(n = n, xmin = chi(1), xmax = chi(n), f = vis, method = COOP_INTERPOLATE_LINEAR, name="earlyvis")
+#endif    
   end subroutine generate_earlyvis  
   
 end program test
