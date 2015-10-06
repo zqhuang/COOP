@@ -14,5 +14,5 @@ DV_unit = 638.9518
 #obs = 4.465666824   0.1681350461
 
 #use the table
-prob_file = ../data/bao/sdss_MGS_prob.txt
+prob_file = %DATASETDIR%/bao/sdss_MGS_prob.txt
 

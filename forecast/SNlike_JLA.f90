@@ -215,7 +215,7 @@ contains
     COOP_STRING::absdist_file, covfile
     COOP_REAL idisp_zero
     call this%free()
-    call coop_load_dictionary(filename, this%settings)
+    call coop_load_dictionary(COOP_DATAPATH(filename), this%settings)
     call this%read_sn(this%settings%value("data_file"))
     allocate(this%intrinsicdisp(this%n_disp))
     call coop_dictionary_lookup(this%settings, "name", this%name)
@@ -320,14 +320,14 @@ contains
     REAL :: dz, dm, ds, dc, dt
     type(coop_list_string)::lstr
     ntot = 0
-    call fp%open(filename, "r")
+    call fp%open(COOP_DATAPATH(filename), "r")
     do while(fp%read_string(line))
        ntot = ntot + 1
     enddo
     call fp%close()
     allocate(this%sn(ntot))
     this%n = 0
-    call fp%open(filename, "r")
+    call fp%open(COOP_DATAPATH(filename), "r")
     this%has_thirdvar = .false.
     this%sn%has_absdist = .false.
     this%sn%dataset = 1    
@@ -391,7 +391,7 @@ contains
     type(coop_dictionary)::dist
     COOP_INT::i, ind
     COOP_STRING::val
-    call coop_load_dictionary(filename, dist, col_key = 1, col_value = 2)
+    call coop_load_dictionary(COOP_DATAPATH(filename), dist, col_key = 1, col_value = 2)
     if(dist%n .le. 0) return
     do i=1, this%n
        ind = dist%index(trim(this%sn(i)%name))
@@ -463,7 +463,7 @@ contains
     type(coop_file)::fp
     INTEGER :: j,k, file_unit, nfile
     COOP_REAL :: tmp
-    call fp%open(filename, "r")
+    call fp%open(COOP_DATAPATH(filename), "r")
     READ (fp%unit, '(I5)', end=200, ERR=100) nfile
     if (nfile .ne. n) THEN
        WRITE (*,'("For file ",A," expected size ",I5," got ",I5)') &

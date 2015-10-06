@@ -3,13 +3,16 @@ module coop_string_mod
   use coop_basicutils_mod
   implicit none
 #include "constants.h"
+#include "paths.h"  
+
+  COOP_UNKNOWN_STRING, parameter::coop_default_data_dir = MAINPATH//"/data/"
 
   private
 
   integer,parameter::sp = kind(1.)
   integer,parameter::dl = kind(1.d0)
 
-  public::coop_num2str,  coop_ndigits, coop_str2int, coop_str2real, coop_str2logical, coop_substr, coop_str_replace, coop_str_numalpha, coop_str2lower, coop_str2upper, coop_case_insensitive_eq, coop_file_path_of, coop_file_name_of, coop_file_add_postfix, coop_convert_to_C_string, coop_convert_to_Fortran_String, coop_data_type, coop_string_contain_numbers, coop_numstr2goodstr, coop_num2goodstr, coop_string_strip_quotes, coop_str_numUpperAlpha, coop_str_numLowerAlpha
+  public::coop_num2str,  coop_ndigits, coop_str2int, coop_str2real, coop_str2logical, coop_substr, coop_str_replace, coop_str_numalpha, coop_str2lower, coop_str2upper, coop_case_insensitive_eq, coop_file_path_of, coop_file_name_of, coop_file_add_postfix, coop_convert_to_C_string, coop_convert_to_Fortran_String, coop_data_type, coop_string_contain_numbers, coop_numstr2goodstr, coop_num2goodstr, coop_string_strip_quotes, coop_str_numUpperAlpha, coop_str_numLowerAlpha, coop_datapath_format
 
   Interface coop_num2str
      module procedure coop_int2str, coop_real2str, coop_logical2str, coop_double2str
@@ -574,5 +577,17 @@ contains
        restr = ""
     endif
   end function coop_string_strip_quotes
+
+  function coop_datapath_format(path, ind) result(formatted_path)
+    COOP_UNKNOWN_STRING::path
+    COOP_INT, optional::ind
+    COOP_LONG_STRING::formatted_path
+    COOP_INT::idigit
+    formatted_path = coop_str_replace(path, "%DATASETDIR%", coop_default_data_dir)
+    idigit = index(formatted_path, "%u")
+    if(idigit .ne. 0)then
+       formatted_path(idigit:) = COOP_STR_OF(ind)//trim(formatted_path(idigit+2:))
+    endif
+  end function coop_datapath_format
 
 end module coop_string_mod

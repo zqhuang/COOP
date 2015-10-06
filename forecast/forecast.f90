@@ -4,6 +4,7 @@ module coop_forecast_mod
   use coop_HSTlike_mod
   use coop_SNlike_JLA_mod
   use coop_bao_mod
+  use coop_wl_mod
   implicit none
 #include "constants.h"
 
@@ -81,6 +82,12 @@ module coop_forecast_mod
      procedure::loglike => coop_dataset_SN_JLA_loglike
   end type coop_dataset_SN_JLA
 
+  type, extends(coop_dataset)::coop_dataset_WL
+     type(coop_WL_object), dimension(:), pointer::WLLike => null()
+   contains
+     procedure::LogLike => coop_dataset_WL_LogLike
+  end type coop_dataset_WL
+
 
   type coop_Data_Pool
 !!these are simulations     
@@ -90,6 +97,7 @@ module coop_forecast_mod
      type(coop_dataset_CMB)::CMB
      type(coop_dataset_HST)::HST
      type(coop_dataset_SN_JLA)::SN_JLA
+     type(coop_dataset_WL)::WL
    contains
      procedure::LogLike => coop_data_pool_LogLike
   end type coop_Data_Pool
@@ -929,7 +937,19 @@ contains
     endif
   end function coop_dataset_CMB_simple_loglike
 
-
+  function coop_dataset_WL_LogLike(this, mcmc) result(loglike)
+    class(coop_dataset_WL)::this
+    type(coop_mcmc_params)::mcmc
+    COOP_REAL::loglike
+    COOP_INT :: i
+    loglike = 0.d0
+    if(.not. associated(this%WLlike))return
+    if(.not.associated(mcmc%cosmology)) stop "WL like requires cosmology input"
+    do i=1, size(this%WLlike)
+       loglike = loglike + this%WLLike(i)%loglike(mcmc%cosmology)
+       if(loglike .ge. coop_logZero) return
+    enddo
+  end function coop_dataset_WL_LogLike
   
   function coop_dataset_BAO_loglike(this, mcmc) result(loglike)
     class(coop_dataset_BAO)::this
@@ -1072,24 +1092,31 @@ contains
           LogLike = LogLike + this%CMB_Simple%LogLike(mcmc)
           if(.not.(LogLike .lt. coop_LogZero)) return                     
        endif
-
+       !!HST
        tmp = this%HST%LogLike(mcmc)
        if(mcmc%feedback .gt. 2 ) write(*,*) "HST like", tmp
        LogLike = LogLike + tmp
-       if(.not.(LogLike .lt. coop_LogZero)) return           
+       if(.not.(LogLike .lt. coop_LogZero)) return
+       !!JLA SN
        tmp = this%SN_JLA%LogLike(mcmc)
        LogLike = LogLike + tmp
        if(mcmc%feedback .gt. 2 ) write(*,*) "JLA like", tmp
-       if(.not.(LogLike .lt. coop_LogZero)) return                  
+       if(.not.(LogLike .lt. coop_LogZero)) return
+       !!BAO
        tmp =  this%BAO%LogLike(mcmc)
        if(mcmc%feedback .gt. 2 ) write(*,*) "BAO like", tmp              
        LogLike = LogLike + tmp
-       if(.not.(LogLike .lt. coop_LogZero)) return    
+       if(.not.(LogLike .lt. coop_LogZero)) return
+       !!WL
+       tmp = this%WL%LogLike(mcmc)
+       if(mcmc%feedback .gt. 2) write(*,*) "WL Like", tmp
+       LogLike = LogLike + tmp
+       if(.not.(LogLike .lt. coop_LogZero)) return
        !!CMB
        tmp = this%CMB%LogLike(mcmc)
        if(mcmc%feedback .gt. 2 ) write(*,*) "CMB like", tmp                     
        LogLike = LogLike + tmp
-       if(.not.(LogLike .lt. coop_LogZero)) return           
+       if(.not.(LogLike .lt. coop_LogZero)) return
     endif
   end function coop_Data_Pool_LogLike
 

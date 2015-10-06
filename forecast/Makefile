@@ -10,7 +10,7 @@ include ../configure.in
 include ../compile_rules.in
 
 LIB = libcoopforecast.a
-OBJ = SNlike_JLA.o bao.o HSTlike.o cliklike.o forecast.o 
+OBJ = SNlike_JLA.o bao.o HSTlike.o wl.o cliklike.o forecast.o 
 
 default: $(LIB) MCMC
 
@@ -39,8 +39,5 @@ STD6:	teststd6.o $(OBJ)
 clean:
 	rm -f *.o *.*~ *.mod \#* *.a Makefile~  MCMC Test STD6 DOSN PRINTCLIK
 
-test.o: $(OBJ)
-testSN.o: $(OBJ)
-testclik.o: $(OBJ)
-teststd6.o: $(OBJ)
-forecast.o: cliklike.o
+runmcmc.o: $(OBJ)
+forecast.o: cliklike.o bao.o wl.o SNlike_JLA.o HSTlike.o

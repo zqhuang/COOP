@@ -13,7 +13,7 @@ rs_unit = 149.28
 H_unit = 0.00031207589618548709
 DA_unit = 1359.72
 
-prob_file = ../data/bao/sdss_DR11CMASS_consensus.dat
+prob_file = %DATASETDIR%bao/sdss_DR11CMASS_consensus.dat
 
 
 

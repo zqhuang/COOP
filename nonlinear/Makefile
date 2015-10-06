@@ -25,3 +25,7 @@ Test: $(OBJ) test.o $(FIRSTORDER)/libcoopfirstorder.a
 clean:
 	rm -f *.o *.*~ *.mod \#* *.a Makefile~ 
 
+
+test.o: $(OBJ)
+
+fnl.o: $(OBJ)

@@ -46,9 +46,9 @@ contains
     this%initialized = .true.
     this%filename = trim(filename)    
 #ifdef HAS_CLIK
-    call clik_try_lensing(this%is_lensing, filename)
+    call clik_try_lensing(this%is_lensing, COOP_DATAPATH(filename))
     if(this%is_lensing)then
-       call clik_lensing_init(this%clikid, filename)
+       call clik_lensing_init(this%clikid, COOP_DATAPATH(filename))
        !!clik setup
        call clik_lensing_get_lmax(this%clikid, this%lmax(1))
        if(this%lmax(1) .eq. -1)then  !!try plik
@@ -60,7 +60,7 @@ contains
        this%numnames = clik_lensing_get_extra_parameter_names(this%clikid, this%names)
        this%n_tot = sum(this%lensing_lmaxs(1:7)+1) + this%numnames
     else
-       call clik_init(this%clikid, filename)
+       call clik_init(this%clikid, COOP_DATAPATH(filename))
        call clik_get_has_cl(this%clikid, this%has_cl)
        call clik_get_lmax(this%clikid, this%lmax)
        this%numnames = clik_get_extra_parameter_names(this%clikid, this%names)

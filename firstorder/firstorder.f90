@@ -182,6 +182,7 @@ module coop_firstorder_mod
      procedure:: compute_source =>  coop_cosmology_firstorder_compute_source
      procedure:: compute_source_k =>  coop_cosmology_firstorder_compute_source_k
      procedure:: get_matter_power => coop_cosmology_firstorder_get_matter_power
+     procedure:: get_Weyl_power => coop_cosmology_firstorder_get_Weyl_power
      procedure:: get_Mphi_power => coop_cosmology_firstorder_get_Mphi_power     
      procedure:: sigma_Tophat_R => coop_cosmology_firstorder_sigma_Tophat_R
      procedure:: sigma_Gaussian_R => coop_cosmology_firstorder_sigma_Gaussian_R
@@ -864,12 +865,33 @@ contains
     enddo
     !$omp end parallel do
 #if DO_EFT_DE
-    pk = (PhiPlusPsi-Psi) **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a))/this%M2(a) )**2    
+    pk = (PhiPlusPsi-Psi) **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a) /a**2) * this%M2(a) )**2    
 #else    
-    pk = (PhiPlusPsi-Psi) **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)))**2
+    pk = (PhiPlusPsi-Psi) **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)) /a**2)**2
 #endif
   end subroutine coop_cosmology_firstorder_get_matter_power
 
+
+!!replace Phi with (Phi + Psi)/2 in "matter powers spectrum"
+  subroutine coop_cosmology_firstorder_get_Weyl_power(this, z, nk, k, Pk)
+    class(coop_cosmology_firstorder)::this
+    COOP_INT nk, ik
+    COOP_REAL z, a, k(nk), Pk(nk), tau, Psi(nk), Ps(nk), PhiPlusPsi(nk)
+    a = 1.d0/(1.d0+z)
+    tau = this%tauofa(a)
+    call this%source(0)%get_PhiPlusPsi_trans(tau, nk, k, PhiPlusPsi)
+    !$omp parallel do
+    do ik = 1, nk
+       ps(ik) = this%psofk(k(ik))
+    enddo
+    !$omp end parallel do
+#if DO_EFT_DE
+    pk = (PhiPlusPsi) **2 * ps * (k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)) * this%M2(a) /a**2 )**2
+#else    
+    pk = (PhiPlusPsi) **2 * ps * (k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)) /a**2 )**2
+#endif
+  end subroutine coop_cosmology_firstorder_get_Weyl_power
+  
 
   subroutine coop_cosmology_firstorder_get_MPhi_power(this, z, nk, k, Pk)
     class(coop_cosmology_firstorder)::this

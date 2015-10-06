@@ -7,13 +7,68 @@ module coop_halofit_mod
   private
 
 
-  public::coop_halofit_get_power
+  public::coop_halofit_get_power, coop_halofit_get_Weyl_power, coop_halofit_get_WeakLensing_Power
 
 contains
 
-  !!return the dimensionless P
-  subroutine coop_halofit_get_power(cosmology, z, nk, k, Pl, Pnl)
+
+  !!only works for flat universe
+  subroutine coop_halofit_get_WeakLensing_Power(cosmology, num_bins, num_z_source, z_source, n_source, num_l, l, Cl)
+    !!z_source(1:num_z_source) are the redshift of sources
+    !!n_source(1:num_z_source, 1:num_bins) are dN/d\Omega in each redshift bins
     class(coop_cosmology_firstorder)::cosmology
+    COOP_INT::num_bins, num_z_source, num_l
+    COOP_REAL::z_source(num_z_source), n_source(num_z_source, num_bins), l(num_l), Cl(num_l, num_bins*(num_bins+1)/2), Wz(num_z_source, num_bins), a(num_z_source), r(num_z_source), Hasq(num_z_source), dz(num_z_source), k(num_l, num_z_source), Pk(num_l, num_z_source), fac, s(num_z_source), Pl(num_l)
+    COOP_INT::ib, ib1, ib2, icross, iz, il
+    a = 1.d0/(1.d0+z_source)
+    !$omp parallel do 
+    do iz = 1, num_z_source
+       r(iz) = max(cosmology%comoving_angular_diameter_distance(a(iz)), 3.d-4)
+       Hasq(iz) = cosmology%Hasq(a(iz))
+    enddo
+    !$omp end parallel do
+    dz(2:num_z_source-1) = (z_source(3:num_z_source) - z_source(1:num_z_source-2))/2.d0
+    dz(1) = (z_source(2)-z_source(1))/2.d0
+    dz(num_z_source) = (z_source(num_z_source)-z_source(num_z_source-1))/2.d0
+    Wz(num_z_source, :) = 0.    
+    !$omp parallel do private(ib, iz)
+    do ib = 1, num_bins
+       do iz = 1, num_z_source-1
+          Wz(iz, ib) = sum(n_source(iz+1:num_z_source, ib)*dz(iz+1:num_z_source)*(r(iz+1:num_z_source) - r(iz))/r(iz+1:num_z_source))
+       enddo
+    enddo
+    !$omp end parallel do
+    do iz = 1, num_z_source
+       k(:,iz)  = l/r(iz)
+       call coop_halofit_get_Weyl_power(cosmology = cosmology, z = z_source(iz), nk = num_l, k = k(:, iz), Pl = Pl, Pnl = Pk(:, iz))
+!       Pk(:,iz) = Pl
+    enddo
+
+    fac = 2.d0*coop_pi**2*2.25d0*cosmology%omega_m**2
+    do il = 1, num_l
+       s = Pk(il, :)*dz/Hasq/k(il,:)**3
+       do ib1 = 1, num_bins
+          do ib2 = 1, ib1
+             icross = coop_matsym_index(num_bins, ib1, ib2)
+             Cl(il, icross) = fac * sum(s*Wz(:, ib1)*Wz(:, ib2))
+          enddo
+       enddo
+    enddo
+  end subroutine coop_halofit_get_WeakLensing_Power
+
+  !!return the dimensionless k^3/(2pi^2)P(k) (with Phi replaced by (Phi+Psi)/2)  
+  subroutine coop_halofit_get_Weyl_power(cosmology, z, nk, k, Pl, Pnl)
+    class(coop_cosmology_firstorder)::cosmology
+    COOP_INT::nk
+    COOP_REAL z, k(nk), Pnl(nk), Pl(nk)
+    call cosmology%get_Weyl_power(z, nk, k, pl)
+    call coop_halofit_get_power(cosmology, z, nk, k, pl, pnl, linear_done=.true.)
+  end subroutine coop_halofit_get_Weyl_power
+
+  !!return the dimensionless k^3/(2pi^2)P(k)
+  subroutine coop_halofit_get_power(cosmology, z, nk, k, Pl, Pnl, linear_done)
+    class(coop_cosmology_firstorder)::cosmology
+    logical,optional::linear_done
     COOP_INT nk
     COOP_REAL k(nk), Pnl(nk), Pl(nk), z
     COOP_REAL om_m, om_v, fnu, w0
@@ -22,7 +77,13 @@ contains
     COOP_REAL sig,rknl,rneff,rncur,d1,d2
     COOP_REAL diff, rup, rdown, rmid
     integer i, nloops
-    call cosmology%get_matter_power(z, nk, k, pl)
+    if(present(linear_done))then
+       if(.not. linear_done)then
+          call cosmology%get_matter_power(z, nk, k, pl)
+       endif
+    else
+       call cosmology%get_matter_power(z, nk, k, pl)
+    endif
     a = 1.d0/(1.d0+z)
     om_m = cosmology%omega_m*a/cosmology%H2a4(a)
     om_v = 1.d0 - om_m
@@ -31,39 +92,26 @@ contains
 
     rdown = 0.1d0/k(nk)  
     rup = 1.d0 !!  k ~ H_0
-    if(cosmology%sigma_Gaussian_R_quick(z, rdown) .le. 0.97d0)then
+    if(cosmology%sigma_Gaussian_R_quick(z, rdown) .le. 0.995d0)then
        Pnl = Pl
        return
-    elseif(cosmology%sigma_Gaussian_R_quick(z, rup) .ge. 1.03d0)then
+    elseif(cosmology%sigma_Gaussian_R_quick(z, rup) .ge. 1.005d0)then
        call coop_return_error("halofit_power", "linear power overflow", "stop")
     endif
     nloops = 1
     do 
        rmid=sqrt(rdown*rup)
-       sig = cosmology%sigma_Gaussian_R_quick(z, rmid)
-       if(sig .ge. 1.03d0)then
-          rdown = rmid
-       elseif(sig .le. 0.97d0)then
-          rup = rmid
-       else
-          exit
-       endif
-       nloops = nloops+1
-       if(nloops .gt. 200) call coop_return_error("halofit_power", "r_G not converging", "stop")
-    end do
-    nloops = 1
-    do 
-       rmid=sqrt(rdown*rup)
        sig = cosmology%sigma_Gaussian_R(z, rmid)
-       if(sig .ge. 1.003d0)then
+       if(sig .ge. 1.005d0)then
           rdown = rmid
-       elseif(sig .le. 0.997d0)then
+       elseif(sig .le. 0.995d0)then
           rup = rmid
        else
           exit
        endif
        nloops = nloops+1
-       if(nloops .gt. 200) call coop_return_error("halofit_power", "r_G not converging", "stop")
+
+       if(nloops .gt. 100) call coop_return_error("halofit_power", "r_G not converging", "stop")
     end do
     call cosmology%sigma_Gaussian_R_with_dervs(z, rmid, sig, d1, d2)
     rmid = rmid *exp( log(1.d0/sig**2)/d1)

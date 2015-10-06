@@ -61,7 +61,7 @@
 
   function coop_cosmology_firstorder_sigma_Gaussian_R(this, z, R) result(sigma)
     class(coop_cosmology_firstorder)::this    
-    COOP_INT, parameter::nk = 1500
+    COOP_INT, parameter::nk = 1800
     COOP_INT ik
     COOP_REAL lnk(nk), k(nk), Pk(nk), dlnk
     COOP_REAL z, R, sigma
@@ -81,7 +81,7 @@
   !!quick estimate
   function coop_cosmology_firstorder_sigma_Gaussian_R_quick(this, z, R) result(sigma)
     class(coop_cosmology_firstorder)::this    
-    COOP_INT, parameter::nk = 300
+    COOP_INT, parameter::nk = 600
     COOP_INT ik
     COOP_REAL lnk(nk), k(nk), Pk(nk), dlnk
     COOP_REAL z, R, sigma

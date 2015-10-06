@@ -3,18 +3,18 @@ program RunMC
   use coop_forecast_mod
   implicit none
 #include "constants.h"
-  logical::use_CMB, use_SN, use_BAO, use_HST, use_lensing, use_compressed_CMB
+  logical::use_CMB, use_SN, use_BAO, use_HST, use_WL, use_lensing, use_compressed_CMB
   type(coop_clik_object),target::pl(5)
   type(coop_HST_object),target::HSTlike
   type(coop_data_JLA),target:: jla
   type(coop_bao_object),target::bao(4)
+  type(coop_wl_object), target::wl(1)
   type(coop_cosmology_firstorder),target::cosmology
   type(coop_dataset_CMB_simple),target::Compressed_CMB
   type(coop_mcmc_params)::mcmc
   type(coop_data_pool)::pool
   type(coop_file)::fp
   COOP_STRING::inifile, pname
-  COOP_UNKNOWN_STRING, parameter::planckdata_path = "../data/cmb/"
   COOP_INT i, l, icmb
   COOP_REAL::loglike
   COOP_REAL::pvalue, norm, lnorm
@@ -28,7 +28,7 @@ program RunMC
   else
      write(*,*) "missing ini file"
      write(*,*) "Syntax: "
-     write(*,*) "./DOCLIK myinis/xx.ini"
+     write(*,*) "./MCMC myinis/xx.ini"
      stop 
   endif
 
@@ -46,11 +46,12 @@ program RunMC
 
   
   if(.not. mcmc%do_general_loglike)then
-     call coop_dictionary_lookup(mcmc%settings, "use_CMB", use_CMB, .true.)
-     call coop_dictionary_lookup(mcmc%settings, "use_lensing", use_lensing, .true.)  
-     call coop_dictionary_lookup(mcmc%settings, "use_SN", use_SN, .true.)  
-     call coop_dictionary_lookup(mcmc%settings, "use_BAO", use_BAO, .true.)
-     call coop_dictionary_lookup(mcmc%settings, "use_HST", use_HST, .true.)
+     call coop_dictionary_lookup(mcmc%settings, "use_CMB", use_CMB, .false.)
+     call coop_dictionary_lookup(mcmc%settings, "use_WL", use_WL, .false.)     
+     call coop_dictionary_lookup(mcmc%settings, "use_lensing", use_lensing, .false.)  
+     call coop_dictionary_lookup(mcmc%settings, "use_SN", use_SN, .false.)  
+     call coop_dictionary_lookup(mcmc%settings, "use_BAO", use_BAO, .false.)
+     call coop_dictionary_lookup(mcmc%settings, "use_HST", use_HST, .false.)
      call coop_dictionary_lookup(mcmc%settings, "use_compressed_CMB", use_compressed_CMB, .false.)
 
 
@@ -60,10 +61,10 @@ program RunMC
 
      !!BAO
      if(use_BAO)then
-        call bao(1)%init("../data/bao/sdss_6DF_bao.dataset")
-        call bao(2)%init("../data/bao/sdss_MGS_bao.dataset")
-        call bao(3)%init("../data/bao/sdss_DR11LOWZ_bao.dataset")
-        call bao(4)%init("../data/bao/sdss_DR11CMASS_bao.dataset")
+        call bao(1)%init("%DATASETDIR%bao/sdss_6DF_bao.dataset")
+        call bao(2)%init("%DATASETDIR%bao/sdss_MGS_bao.dataset")
+        call bao(3)%init("%DATASETDIR%bao/sdss_DR11LOWZ_bao.dataset")
+        call bao(4)%init("%DATASETDIR%bao/sdss_DR11CMASS_bao.dataset")
         if(mcmc%feedback.gt.0)write(*,*) "Using BAO"        
         pool%BAO%baolike => bao
      endif
@@ -77,10 +78,17 @@ program RunMC
      !!supernova  
      if(use_SN)then
         if(mcmc%feedback.gt.0)write(*,*) "Using JLA"
-        call jla%read("../data/jla/jla.dataset")
+        call jla%read("%DATASETDIR%jla/jla.dataset")
         pool%SN_JLA%JLALike => jla
      endif
 
+     !!wl
+     if(use_WL)then
+        if(mcmc%feedback .gt. 0) write(*,*) "Using weak lensing data"
+        call wl(1)%init("%DATASETDIR%weaklensing/CFHTLENS_6bin.dataset")
+        pool%WL%WLLike => wl
+     endif
+     
      if(use_CMB)then
         icmb = 1
         do

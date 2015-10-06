@@ -51,7 +51,7 @@ contains
     COOP_REAL::zeff, obs, uni
     logical success
     call this%free()
-    call coop_load_dictionary(filename, dict)
+    call coop_load_dictionary(COOP_DATAPATH(filename), dict)
     call coop_dictionary_lookup(dict, "name", this%name)
     call coop_dictionary_lookup(dict, "num_data", this%nobs, 1)
     allocate(this%points(this%nobs), this%invcov(this%nobs, this%nobs))
@@ -131,7 +131,7 @@ contains
     call coop_dictionary_lookup(dict, "prob_file",efile)
     if(trim(efile).ne."")then
        this%Gaussian_like = .false.
-       call this%prob%load(efile, form = "TABLE")
+       call this%prob%load(COOP_DATAPATH(efile), form = "TABLE")
     else
        this%Gaussian_like = .true.
        if(this%nobs .eq. 1)then  !!for one observable never need covariance matrix
@@ -145,7 +145,7 @@ contains
        else
           call coop_dictionary_lookup(dict, "invcov_file", efile)
           if(trim(efile).ne."")then  !!covariance matrix
-             call coop_import_matrix(efile, this%invcov, this%nobs, this%nobs, success)
+             call coop_import_matrix(COOP_DATAPATH(efile), this%invcov, this%nobs, this%nobs, success)
              if(.not. success) goto 100
 
              do i=1, this%nobs

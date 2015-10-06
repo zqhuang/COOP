@@ -460,8 +460,9 @@ contains
   end Subroutine Coop_File_SkipLines
 
 
-  subroutine coop_load_dictionary(fname, dict, delimitor, col_key, col_value)
+  recursive subroutine coop_load_dictionary(fname, dict, delimitor, col_key, col_value)
     COOP_UNKNOWN_STRING fname
+    COOP_STRING::path
     type(coop_dictionary) dict
     COOP_STRING line
     integer i
@@ -470,10 +471,10 @@ contains
     COOP_INT eqloc
     COOP_UNKNOWN_STRING, optional::delimitor
     COOP_INT, optional:: col_key, col_value
-    COOP_INT colm
+    COOP_INT colm, linelen
     COOP_SHORT_STRING:: delim
     COOP_STRING::val, subval
-    if(present(col_key) .and. present(col_value))then  !!key and value
+    if(present(col_key) .and. present(col_value))then  !!key and value from column col_key and column col_value
        if(present(delimitor))then
           delim = delimitor
        else
@@ -489,7 +490,7 @@ contains
        enddo
        call fp%close()
        call l%init()
-    elseif(present(col_value))then  !!key = #lines
+    elseif(present(col_value))then !!key = # of lines
        if(present(delimitor))then
           delim = delimitor
        else
@@ -501,7 +502,7 @@ contains
           call coop_string_to_list(line, l, delim)
           if(l%n .ge. col_value)then
              i = i + 1
-             call dict%insert(coop_num2str(i), l%element(col_value))
+             call dict%insert(COOP_STR_OF(i), l%element(col_value))
           endif
        enddo
        call fp%close()
@@ -527,7 +528,8 @@ contains
        enddo
        call fp%close()
        call l%init()       
-    else  !!use "=" to specify (key, value) paris
+    else  !!use "=" to specify (key, value) pairs; free stype; allow DEFAULT(subfile) entry
+       path = trim(coop_file_path_of(fname))
        if(present(delimitor))then
           delim = delimitor
        else
@@ -535,6 +537,10 @@ contains
        endif
        call fp%open(trim(fname), "r")
        do while(fp%read_string(line))
+          linelen = len_trim(line)
+          if(line(1:8) .eq. "DEFAULT(" .and. line(linelen:linelen) .eq. ")")then
+             call coop_load_dictionary(trim(path)//adjustl(trim(line(9:linelen-1))), dict, trim(delim))
+          end if
           eqloc = scan(line, trim(delim))
           if(eqloc .gt. 1 .and. eqloc .lt. len_trim(line))then
              if(trim(line(eqloc+1:)).ne."")call dict%insert(line(1:eqloc-1), line(eqloc+1:))
