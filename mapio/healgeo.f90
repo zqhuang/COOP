@@ -130,6 +130,7 @@ module coop_healpix_mod
      procedure :: get_QUL6D => coop_healpix_maps_get_QUL6D               
      procedure :: get_dervs => coop_healpix_maps_get_dervs
      procedure :: smooth => coop_healpix_maps_smooth
+     procedure :: tophat_smooth => coop_healpix_maps_tophat_smooth     
      procedure :: smooth_with_window => coop_healpix_maps_smooth_with_window
      procedure :: T2zeta => coop_healpix_maps_t2zeta
      procedure :: TE2zeta => coop_healpix_maps_te2zeta
@@ -2878,18 +2879,28 @@ contains
     call map%free()
   end subroutine coop_healpix_smooth_mapfile
 
+  subroutine coop_healpix_maps_tophat_smooth(this, theta)
+    class(coop_healpix_maps)::this
+    COOP_REAL::theta
+    COOP_INT::l
+    if(theta .lt. 1.d-8) return
+    call this%map2alm()
+    do l = 1, this%lmax
+       this%alm(l, :, :) = this%alm(l, :, :)* (2.d0*Bessel_J1(l*theta)/(l*theta))
+    enddo
+    call this%alm2map()
+  end subroutine coop_healpix_maps_tophat_smooth
 
-
-  subroutine coop_healpix_maps_smooth(map, fwhm, index_list, l_lower, l_upper)
-    class(coop_healpix_maps) map
+  subroutine coop_healpix_maps_smooth(this, fwhm, index_list, l_lower, l_upper)
+    class(coop_healpix_maps)::this
     COOP_REAL fwhm
     COOP_INT, optional::l_lower, l_upper
     COOP_INT,dimension(:),optional::index_list
     COOP_INT lmax
     if(fwhm .gt. 0.d0)then
-       lmax = min(ceiling(3./max(abs(fwhm)*coop_sigma_by_fwhm, 1.d-6)), floor(map%nside*coop_healpix_lmax_by_nside), coop_healpix_default_lmax)
+       lmax = min(ceiling(3./max(abs(fwhm)*coop_sigma_by_fwhm, 1.d-6)), floor(this%nside*coop_healpix_lmax_by_nside), coop_healpix_default_lmax)
     else
-       lmax = min(floor(map%nside*coop_healpix_lmax_by_nside), coop_healpix_default_lmax)
+       lmax = min(floor(this%nside*coop_healpix_lmax_by_nside), coop_healpix_default_lmax)
     endif
     if(present(l_upper))then
        lmax = min(lmax, l_upper)
@@ -2897,19 +2908,19 @@ contains
     if(lmax .lt. 2) stop "Huge smoothing scale cannot be done!"    
     if(lmax*abs(fwhm).lt.0.01 .and. .not. present(l_lower) .and. .not. present(l_upper))return
     if(present(index_list))then
-       if(any(index_list .gt. map%nmaps)) stop "smooth: index_list overflow"
-       call map%map2alm(lmax, index_list)
-       if(present(l_lower)) map%alm(0:l_lower-1, :, :) = 0.
+       if(any(index_list .gt. this%nmaps)) stop "smooth: index_list overflow"
+       call this%map2alm(lmax, index_list)
+       if(present(l_lower)) this%alm(0:l_lower-1, :, :) = 0.
        if(abs(fwhm).gt.0.d0) &
-            call map%filter_alm(fwhm = fwhm, index_list = index_list)
-       call map%alm2map(index_list)
+            call this%filter_alm(fwhm = fwhm, index_list = index_list)
+       call this%alm2map(index_list)
     else
-       call map%map2alm(lmax)
+       call this%map2alm(lmax)
        if(present(l_lower)) &
-            map%alm(0:l_lower-1, :, :) = 0.
+            this%alm(0:l_lower-1, :, :) = 0.
        if(abs(fwhm).gt.0.d0) &       
-            call map%filter_alm(fwhm =fwhm)
-       call map%alm2map()
+            call this%filter_alm(fwhm =fwhm)
+       call this%alm2map()
     endif
   end subroutine coop_healpix_maps_smooth
 
