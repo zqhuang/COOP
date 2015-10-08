@@ -99,6 +99,7 @@ module coop_firstorder_mod
      procedure::interpolate => coop_cosmology_firstorder_source_interpolate
      procedure::intbypart => coop_cosmology_firstorder_source_intbypart
      procedure::interpolate_one => coop_cosmology_firstorder_source_interpolate_one
+     procedure::get_Phi_trans => coop_cosmology_firstorder_source_get_phi_trans     
      procedure::get_Psi_trans => coop_cosmology_firstorder_source_get_psi_trans
      procedure::get_PhiPlusPsi_trans => coop_cosmology_firstorder_source_get_PhiPlusPsi_trans
   end type coop_cosmology_firstorder_source
@@ -795,6 +796,15 @@ contains
     
   end subroutine coop_cosmology_firstorder_source_get_Psi_trans
 
+  subroutine coop_cosmology_firstorder_source_get_Phi_trans(source, tau, nk, k, phi)
+    class(coop_cosmology_firstorder_source) source
+    COOP_REAL::tau
+    COOP_INT::nk
+    COOP_REAL::k(nk), psi(nk), Phi(nk), PhiPlusPsi(nk)
+    call source%get_Psi_trans(tau, nk, k, psi)
+    call source%get_PhiPlusPsi_trans(tau, nk, k, PhiPlusPsi)
+    Phi = PhiPlusPsi - Psi
+  end subroutine coop_cosmology_firstorder_source_get_Phi_trans
 
   function coop_bbks_trans(x) result(bbkstrans)
     !!BBKS fitting formula of adiabatic CDM transfer function, x = k/k_eq
@@ -991,7 +1001,7 @@ contains
     sigma8 = this%sigma_tophat_R(z = z, r = 8.d0/this%h()*this%H0Mpc())
     zplus = (1+z)*1.05 - 1.d0
     zminus = max((1+z)/1.05 - 1.d0, 0.d0)
-    f = 1.d0+(log(this%growth_of_z(zminus, 100.d0)/this%growth_of_z(zplus, 100.d0))/log((1.d0+zplus)/(1.d0+zminus)))
+    f = log(this%growth_of_z(zminus)/this%growth_of_z(zplus))/log((1.d0+zplus)/(1.d0+zminus))
     fsigma8 = f*sigma8
   end function coop_cosmology_firstorder_fsigma8_of_z
 
@@ -1001,64 +1011,22 @@ contains
     sigma8 = this%sigma_tophat_R(z = z, r = 8.d0/this%h()*this%H0Mpc())
   end function coop_cosmology_firstorder_sigma8_of_z
   
-!!return phi(z)/phi_matter_dominate  
+!!growth function D(z) \propto delta_m (z) (!!normalized to 1/(1+z) at matter dominated regime)
   function coop_cosmology_firstorder_growth_of_z(this, z, k) result(Dz)
     class(coop_cosmology_firstorder)::this
-    COOP_REAL  atau, btau, tau
-    COOP_INT itau, im, it, ik
-    COOP_REAL rk, kop
     COOP_REAL::z, Dz
-    COOP_REAL,optional::k
-    COOP_REAL, parameter::omr_zero = 1.d-3
-    COOP_INT::iz_ref
-    iz_ref = this%source(0)%ntau
-    do while( iz_ref .gt. 2 .and. this%source(0)%omega_rad(iz_ref-1).lt.omr_zero)
-       iz_ref = iz_ref - 1
-    enddo
-    tau = this%tauofa(1.d0/(1.d0+z))
-    if(tau .le. this%source(0)%tau(iz_ref))then
-       itau = iz_ref
-       atau = 0.d0
-    elseif(tau .ge. this%source(0)%tau(this%source(0)%ntau))then
-       itau = this%source(0)%ntau - 1
-       atau = (tau - this%source(0)%tau(itau))/(this%source(0)%tau(itau+1)-this%source(0)%tau(itau))
-    else
-       itau = 1
-       it = this%source(0)%ntau
-       do while(it - itau .gt. 1)
-          im = (itau+it)/2
-          if(this%source(0)%tau(im) .gt. tau)then
-             it = im
-          else
-             itau = im
-          endif
-       enddo
-       atau = (tau - this%source(0)%tau(itau))/(this%source(0)%tau(itau+1)-this%source(0)%tau(itau))
-    endif
-    btau = 1.d0-atau
+    COOP_REAL, optional::k
+    COOP_REAL::k_ref(1), Phi(1), Phi_ref(1), tau, tau_ref
     if(present(k))then
-       call this%source(0)%k2kop(k, kop)
-       rk = (kop - this%source(0)%kopmin)/this%source(0)%dkop + 1.d0
-       ik = floor(rk)
-       rk = rk - ik
-       if(ik .lt.1)then
-          Dz = ((this%source(0)%saux(2, 1, itau) - this%source(0)%saux(3, 1, itau))*btau +  (this%source(0)%saux(2, 1, itau+1) - this%source(0)%saux(3, 1, itau+1))*atau)/  (this%source(0)%saux(2, 1, iz_ref) - this%source(0)%saux(3, 1, iz_ref))
-          return
-       elseif(ik .ge. this%source(0)%nk)then
-          ik = this%source(0)%nk
-          Dz = ((this%source(0)%saux(2, ik, itau) - this%source(0)%saux(3, ik, itau))*btau +  (this%source(0)%saux(2, ik, itau+1) - this%source(0)%saux(3, ik, itau+1))*atau)/ (this%source(0)%saux(2, ik, iz_ref) - this%source(0)%saux(3, ik, iz_ref))
-          return
-       else
-          Dz =  ( &
-               ((this%source(0)%saux(2, ik, itau) - this%source(0)%saux(3, ik, itau))*btau +  (this%source(0)%saux(2, ik, itau+1) - this%source(0)%saux(3, ik, itau+1))*atau)  * (1.d0 -rk) &
-               +((this%source(0)%saux(2, ik+1, itau) - this%source(0)%saux(3, ik+1, itau))*btau +  (this%source(0)%saux(2, ik+1, itau+1) - this%source(0)%saux(3, ik+1, itau+1))*atau)  * rk ) &
-               / ( (this%source(0)%saux(2, ik, iz_ref) - this%source(0)%saux(3, ik, iz_ref))*(1.d0-rk) &
-               +   (this%source(0)%saux(2, ik+1, iz_ref) - this%source(0)%saux(3, ik+1, iz_ref))*rk )
-          
-       endif
-    else !!k -> 0 limit
-       Dz = ((this%source(0)%saux(2, 1, itau) - this%source(0)%saux(3, 1, itau))*btau +  (this%source(0)%saux(2, 1, itau+1) - this%source(0)%saux(3, 1, itau+1))*atau)/ (this%source(0)%saux(2, 1, iz_ref) - this%source(0)%saux(3, 1, iz_ref))
+       k_ref = k
+    else
+       k_ref=this%k_pivot
     endif
+    tau = this%tauofa(1.d0/(1.d0+z))
+    tau_ref = this%tauofa(0.03d0)  !!at redshift 30 where matter dominates
+    call this%source(0)%get_Phi_trans(tau, 1, k_ref, Phi)
+    call this%source(0)%get_Phi_trans(tau_ref, 1, k_ref, Phi_ref)    
+    Dz = Phi(1)/Phi_ref(1)/(1.d0+z)
   end function coop_cosmology_firstorder_growth_of_z
 
 
