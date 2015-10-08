@@ -187,8 +187,10 @@ module coop_firstorder_mod
      procedure:: sigma_Tophat_R => coop_cosmology_firstorder_sigma_Tophat_R
      procedure:: sigma_Gaussian_R => coop_cosmology_firstorder_sigma_Gaussian_R
      procedure:: sigma_Gaussian_R_quick => coop_cosmology_firstorder_sigma_Gaussian_R_quick
+     
      procedure::sigma_Gaussian_R_with_dervs => coop_cosmology_firstorder_sigma_Gaussian_R_with_dervs
-
+     procedure::fsigma8_of_z => coop_cosmology_firstorder_fsigma8_of_z
+     procedure::sigma8_of_z => coop_cosmology_firstorder_sigma8_of_z
      procedure::growth_of_z => coop_cosmology_firstorder_growth_of_z
      procedure::late_damp_factor => coop_cosmology_firstorder_late_damp_factor
      !!
@@ -865,7 +867,7 @@ contains
     enddo
     !$omp end parallel do
 #if DO_EFT_DE
-    pk = (PhiPlusPsi-Psi) **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a) /a**2) * this%M2(a) )**2    
+    pk = (PhiPlusPsi-Psi) **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)) /a**2 * this%M2(a) )**2    
 #else    
     pk = (PhiPlusPsi-Psi) **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)) /a**2)**2
 #endif
@@ -983,6 +985,22 @@ contains
 #include "firstorder_compute_sigma.h"  
 
 
+  function coop_cosmology_firstorder_fsigma8_of_z(this, z) result(fsigma8)
+    class(coop_cosmology_firstorder)::this
+    COOP_REAL::z, fsigma8, sigma8, f, zplus, zminus
+    sigma8 = this%sigma_tophat_R(z = z, r = 8.d0/this%h()*this%H0Mpc())
+    zplus = (1+z)*1.05 - 1.d0
+    zminus = max((1+z)/1.05 - 1.d0, 0.d0)
+    f = 1.d0+(log(this%growth_of_z(zminus, 100.d0)/this%growth_of_z(zplus, 100.d0))/log((1.d0+zplus)/(1.d0+zminus)))
+    fsigma8 = f*sigma8
+  end function coop_cosmology_firstorder_fsigma8_of_z
+
+  function coop_cosmology_firstorder_sigma8_of_z(this, z) result(sigma8)
+    class(coop_cosmology_firstorder)::this
+    COOP_REAL::z, sigma8
+    sigma8 = this%sigma_tophat_R(z = z, r = 8.d0/this%h()*this%H0Mpc())
+  end function coop_cosmology_firstorder_sigma8_of_z
+  
 !!return phi(z)/phi_matter_dominate  
   function coop_cosmology_firstorder_growth_of_z(this, z, k) result(Dz)
     class(coop_cosmology_firstorder)::this

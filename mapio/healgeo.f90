@@ -1486,16 +1486,22 @@ contains
   end subroutine coop_healpix_maps_get_QUL6D
   
 
-  subroutine coop_healpix_maps_get_QUL4D(this, fwhm, idone)
+  subroutine coop_healpix_maps_get_QUL4D(this, fwhm, idone, tophat)
     class(coop_healpix_maps) this
     COOP_REAL::fwhm
-    logical,optional::idone    
+    logical,optional::idone, tophat
     COOP_INT l, lmax, i
     COOP_REAL::resol, sigma2
-#ifdef HAS_HEALPIX
+    logical dotophat 
+#ifdef HAS_HEALPIX    
     if(this%spin(1).ne.0)then
        stop "get_QUL4D: the first map must be spin 0"
     end if
+    if(present(tophat))then
+       dotophat = tophat
+    else
+       dotophat = .true.
+    endif
     if(this%nmaps.lt.8) call this%extend(8)
 
     !!set alms    
@@ -1508,13 +1514,21 @@ contains
     endif
     lmax = min(this%lmax, this%nside*2)
     resol = 2./this%nside/this%nside
-    sigma2 = max( (coop_sigma_by_fwhm * fwhm)**2, resol)
+    if(dotophat)then
+       sigma2 = fwhm*2.d0
+    else
+       sigma2 = max( (coop_sigma_by_fwhm * fwhm)**2, resol)
+    endif
     this%alm(:,:, 2:8) = 0.
     do l = 2, lmax
        this%alm(l,0:l,2) = this%alm(l, 0:l, 1)* (l*(l+1.)*exp(-l*(l+1.)*resol))
        this%alm(l,0:l,4) = this%alm(l, 0:l, 2)
        this%alm(l,0:l,5) = this%alm(l, 0:l, 1)* sqrt(l*(l+1.)*exp(-l*(l+1.)*resol))
-       this%alm(l,0:l,7) = this%alm(l, 0:l, 1)* sqrt(l*(l+1.)*exp(-l*(l+1.)*sigma2))       
+       if(dotophat)then
+          this%alm(l, 0:l, 7) = this%alm(l, 0:l, 1)* (sqrt(l*(l+1.))*2.d0/(l*sigma2)*Bessel_J1(l*sigma2))
+       else
+          this%alm(l,0:l,7) = this%alm(l, 0:l, 1)* sqrt(l*(l+1.)*exp(-l*(l+1.)*sigma2))
+       endif
     enddo
     
     !!set units and spins

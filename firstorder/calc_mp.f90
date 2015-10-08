@@ -79,9 +79,13 @@ program test
   call cosmology%init_source(0)
   call cosmology%compute_source(0, success = success)  
   if(.not. success)write(*,*) "Solution blows up exponentially. Model is ruled out."
-  write(*,*) "linear perturbation done: sigma_8  = ", cosmology%sigma_8  
+  write(*,*) "linear perturbation done: sigma_8  = ", cosmology%sigma_8
+  write(*,*) "at redshift 1: sigma_8  = ", cosmology%sigma8_of_z(1.d0)
+  write(*,*) "f sigma_8 at z = 0 ", cosmology%fsigma8_of_z(0.d0)
+  write(*,*) "f sigma_8 at z = 1 ", cosmology%fsigma8_of_z(1.d0)  
   call coop_set_uniform(nk, k, 0.4d0, 2.d3, logscale = .true.)
   call cosmology%get_Matter_power(z=0.d0, nk = nk, k = k, Pk = matterPk)  !!this returns k^3 |\delta_k|^2 /(2pi^2)
+  call cosmology%get_Matter_power(z=1.d0, nk = nk, k = k, Pk = matterPk)  !!this returns k^3 |\delta_k|^2 /(2pi^2)
   khMpc = k * cosmology%H0Mpc()/cosmology%h()  !!k/H0 * (H0 * Mpc) / h = k in unit of h Mpc^{-1}
   matterPk = matterPk * (2.d0*coop_pi**2)/khMpc**3  !!obtain |\delta_k|^2 in unit of (Mpc/h)^3
   write(*,*) "Saving the matter power spectrum in "//trim(output)

@@ -414,7 +414,7 @@ program map
         nin = nin -1
         do i=1, nin
            call hgm%read(trim(fin(i)), nmaps_wanted = 8, nmaps_to_read = 1 )
-           call hgm%get_QUL4D(fwhm)
+           call hgm%get_QUL4D(fwhm, tophat = .false.)
            call hgm%write(trim(coop_file_add_postfix(fin(i), "_conv_TQUL4D")))
         enddo
         print*, "maps are all converted to TQUL4D"
