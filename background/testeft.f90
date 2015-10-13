@@ -13,7 +13,7 @@ program bgtest
   COOP_INT::index_de
   omegab = 0.049d0
   omegac = 0.265d0
-  call wp1%init_polynomial( (/ 0.d0, 0.d0 /) )
+  call wp1%init_polynomial( (/ 0.d0, 0.2d0 /) )
   call alpha_M%init_polynomial( (/ 0.d0, 0.d0, 0.d0, 0.1d0 /) )
   call bg%init(h=0.68d0)
   call bg%add_species(coop_baryon(omegab))

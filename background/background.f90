@@ -10,7 +10,7 @@ module coop_background_mod
   logical,parameter::coop_eft_de_normalize_early = .true.
 #endif  
   
-  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_quintessence, coop_de_wp1_quintessence, coop_de_wp1_coupled_quintessence, coop_background_add_coupled_DE,  coop_background_add_EFT_DE, coop_de_aeq_fitting, coop_de_alpha_invh2, coop_de_general
+  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_quintessence, coop_de_wp1_quintessence, coop_de_wp1_coupled_quintessence, coop_background_add_coupled_DE,  coop_background_add_EFT_DE,  coop_background_add_EFT_DE_with_effective_w, coop_de_aeq_fitting, coop_de_alpha_invh2, coop_de_general
 
 contains
 
@@ -635,6 +635,83 @@ contains
   end subroutine coop_background_add_coupled_DE
 
 
+  subroutine coop_background_add_EFT_DE_with_effective_w(this, effective_wp1, alpha_M, err)
+    COOP_INT,parameter::narr = 20000
+    class(coop_cosmology_background)::this
+    type(coop_function)::effective_wp1, alpha_M
+    type(coop_species)::de, deeff
+    COOP_INT::i, err, j, index_de
+    COOP_REAL,dimension(narr)::lnrho,  wp1, wp1eff, M2
+    COOP_REAL::lna, lnamin, lnamax, dlna, alpha_l, alpha_r, dlnaby2, dlnaby6, a, rhoa4de,ppra4de, ppra4tot, rhoa4tot, rhoa4_eff
+#if DO_EFT_DE        
+    err = 0
+    coop_M2today = 1.d0    
+    call deeff%init(name = "Dark Energy", id = 5, Omega = this%Omega_k(), genre = COOP_SPECIES_FLUID, fwp1 = effective_wp1)
+    call this%add_species(deeff)  
+    index_de = this%num_species
+    de%name = "Dark Energy"
+    de%genre = COOP_SPECIES_EFT
+    de%Omega = this%Omega_k()    
+    lnamin = log(coop_min_scale_factor)
+    lnamax = log(coop_scale_factor_today)
+    dlna = (lnamax-lnamin)/(narr-1.d0)
+    dlnaby2 = dlna/2.d0
+    dlnaby6 = dlna/6.d0
+    lnrho(narr) = log(3.d0*de%Omega)
+    M2(narr)=0.d0
+    alpha_r = alpha_M%eval(coop_scale_factor_today)
+    lna = lnamax
+    do i=narr-1, 1, -1
+       lna = lna - dlna
+       alpha_l = alpha_M%eval(exp(lna))
+       M2(i) = M2(i+1) - (alpha_l + 4.d0*alpha_M%eval(exp(lna+dlnaby2))+ alpha_r)*dlnaby6
+       alpha_r = alpha_l
+    enddo
+    if(coop_eft_de_normalize_early) M2 = M2 - M2(1)
+    where(abs(M2) .lt. 1.d-10)  !!to avoid "Large Number * Small Number"
+       M2 = 0.d0
+    end where
+    M2 = exp(M2)
+    lna = lnamax
+    do i=narr, 1, -1
+       a = exp(lna)
+       call this%get_ppra4_rhoa4(a, ppra4tot, rhoa4tot)
+       rhoa4_eff = de%rhoa4(a)*M2(i)
+       rhoa4de = rhoa4tot*(M2(i) - 1.d0) + rhoa4_eff
+       ppra4de = ppra4tot*(M2(i) - 1.d0) + de%wp1ofa(a) * rhoa4_eff
+       if(rhoa4de .le. 0.d0)then
+          err = 1  !!negative energy flag
+          return
+       else
+          lnrho(i) = log(rhoa4de) - lna * 4.d0
+          wp1(i) = ppra4de/rhoa4de
+       endif
+       lna = lna - dlna
+    enddo
+    do i = 2, narr-1
+       wp1eff(i) = -(lnrho(i+1) - lnrho(i-1))/(6.d0*dlna)
+    enddo
+    wp1eff(1) = -(lnrho(2) - lnrho(1))/dlna/3.d0
+    wp1eff(narr) = -(lnrho(narr) - lnrho(narr-1))/dlna/3.d0
+    lnrho = lnrho - lnrho(narr)
+    call de%fwp1%init(narr, coop_min_scale_factor, coop_scale_factor_today, wp1, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "DE 1+w(a)")    
+    call de%fwp1eff%init(narr, coop_min_scale_factor, coop_scale_factor_today, wp1eff, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "DE 1+w_eff(a)")
+    call de%flnrho%init(narr,coop_min_scale_factor, coop_scale_factor_today, lnrho, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "DE ln rho_ratio")
+    call de%flnrho%set_boundary(slopeleft = -3.d0*wp1eff(1), sloperight = -3.d0*wp1eff(narr))    
+    de%cs2 = 0.d0
+    call this%delete_species(index_de)
+    call this%add_species(de)
+    this%f_alpha_M = alpha_M
+    coop_M2today = M2(narr)    
+    call this%f_M2%init(narr, coop_min_scale_factor, coop_scale_factor_today, M2, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "EFT M^2")
+    call de%free()
+#else
+    write(*,*) "EFT Dark Energy model cannot be initialized"
+    stop "You need to set DARK_ENERGY_MODEL=EFT in configure.in"
+#endif    
+  end subroutine coop_background_add_EFT_DE_with_effective_w
+
+
 
 
   subroutine coop_background_add_EFT_DE(this, wp1, alpha_M, err)
@@ -647,6 +724,7 @@ contains
     COOP_REAL::lna, lnamin, lnamax, dlna, alpha_l, a_l, a_r, alpha_r, wp1_l, wp1_r, omega_de, om_l, om_r, rhoa4de_l, rhotot_l, rhotot_r, step, rhoa4de_r
 #if DO_EFT_DE        
     err = 0
+    coop_M2today = 1.d0
     de%name = "Dark Energy"
     de%genre = COOP_SPECIES_EFT
     de%fwp1 = wp1
@@ -743,7 +821,8 @@ contains
     write(*,*) "EFT Dark Energy model cannot be initialized"
     stop "You need to set DARK_ENERGY_MODEL=EFT in configure.in"
 #endif    
-  end subroutine coop_background_add_EFT_DE  
+  end subroutine coop_background_add_EFT_DE
+  
 
   function coop_de_alpha_invh2(a, arg) result(alpha)
     type(coop_arguments)::arg  !! arg%r = (/ alpha0, Omega_m, Omega_r /) 

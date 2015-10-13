@@ -1283,11 +1283,11 @@ contains
 #endif  
   
 #if DO_EFT_DE
-  subroutine coop_cosmology_firstorder_set_EFT_cosmology(this, h, tcmb, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, wp1, alphaM, alphaB, alphaK, alphaT, alphaH)
+  subroutine coop_cosmology_firstorder_set_EFT_cosmology(this, h, tcmb, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, wp1, wp1_background, alphaM, alphaB, alphaK, alphaT, alphaH)
     class(coop_cosmology_firstorder)::this
     COOP_REAL:: h, tau_re, Omega_b, Omega_c
     COOP_REAL, optional::nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, Nnu, YHe, tcmb
-    type(coop_function),optional::alphaM, alphaB, alphaK, alphaT, alphaH, wp1
+    type(coop_function),optional::alphaM, alphaB, alphaK, alphaT, alphaH, wp1, wp1_background
     COOP_INT::err
     logical,optional::inflation_consistency
     type(coop_species)::de
@@ -1343,7 +1343,16 @@ contains
        call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu())))
     endif
     call this%add_species(coop_cdm(omega_c))
-    call coop_background_add_EFT_DE(this, wp1, alphaM, err)
+    if(present(wp1))then
+       call coop_background_add_EFT_DE(this, wp1, alphaM, err)
+       if(present(wp1_background))then
+          stop "you should not pass both wp1 and wp1_background as the arguments"
+       endif
+    elseif(present(wp1_background))then
+       call coop_background_add_EFT_DE(this, wp1_background, alphaM, err)
+    else
+       stop  "you should pass either wp1 or wp1_background to EFT DE"
+    endif
     if(err .ne. 0)then
        if(coop_feedback_level.gt.0)write(*,*) "Warning: EFT DE settings failed"
        call this%set_h(0.d0)

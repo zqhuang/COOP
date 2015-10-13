@@ -66,6 +66,8 @@ module coop_cosmology_mod
      procedure::rhoa4 => coop_cosmology_background_rhoa4 !!input a, return rho a^4 / (H_0^2 M_p^2)
 
      procedure::get_pa4_rhoa4 => coop_cosmology_background_get_pa4_rhoa4 !!input a, return rho a^4 / (H_0^2 M_p^2)
+
+     procedure::get_ppra4_rhoa4 => coop_cosmology_background_get_ppra4_rhoa4 !!input a, return rho a^4 / (H_0^2 M_p^2)     
      
      procedure::Hasq => coop_cosmology_background_Hasq   !! input a , return H a^2 / H_0
      procedure::dadtau => coop_cosmology_background_Hasq   !! input a , return da/d tau /H_0
@@ -331,7 +333,23 @@ contains
   end function coop_cosmology_background_rhoa4
 
 
-  subroutine coop_cosmology_background_get_pa4_rhoa4(this, a, pa4, rhoa4)
+  subroutine coop_cosmology_background_get_ppra4_rhoa4(this, a, ppra4, rhoa4)
+    class(coop_cosmology_background)::this
+    COOP_REAL ppra4, rhoa4, a, r
+    COOP_INT i
+    rhoa4 = 0.d0
+    ppra4 = 0.d0
+    do i=1, this%num_species
+       r = this%species(i)%Omega * this%species(i)%rhoa4_ratio(a)
+       ppra4 = ppra4 + r*this%species(i)%wp1ofa(a)
+       rhoa4 = rhoa4 +r
+    enddo
+    rhoa4 = rhoa4 * 3.d0*coop_M2today
+    ppra4 = ppra4 * 3.d0*coop_M2today
+  end subroutine coop_cosmology_background_get_ppra4_rhoa4
+
+
+    subroutine coop_cosmology_background_get_pa4_rhoa4(this, a, pa4, rhoa4)
     class(coop_cosmology_background)::this
     COOP_REAL pa4, rhoa4, a, r
     COOP_INT i
@@ -345,7 +363,6 @@ contains
     rhoa4 = rhoa4 * 3.d0*coop_M2today
     pa4 = pa4 * 3.d0*coop_M2today
   end subroutine coop_cosmology_background_get_pa4_rhoa4
-  
 
   
   function coop_cosmology_background_Hasq(this, a)result(Hasq)
