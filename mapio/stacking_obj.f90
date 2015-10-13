@@ -30,6 +30,7 @@ module coop_stacking_mod
   COOP_INT,parameter::coop_stacking_genre_Random_Cold_Oriented  = 16
   COOP_INT,parameter::coop_stacking_genre_col_oriented = 17
 
+  
   type coop_stacking_options
      logical::mask_int = .false.
      logical::mask_pol = .false.
@@ -691,16 +692,17 @@ contains
     case(coop_stacking_genre_Col_Oriented)
        call this%peak_map%get_element(i, map)
        angle = COOP_POLAR_ANGLE(dble(map(this%index_Q)),dble(map(this%index_U)))/2.d0
-!!$       if(abs(map(7)*cos(angle) + map(8)*sin(angle)) .lt. 5.)then
-!!$          angle = 1.d31
-!!$          return
-!!$       endif
        if(map(7)*cos(angle) + map(8)*sin(angle) .le. 0.d0)then
-          angle = angle + coop_pi
+          angle = angle + coop_pi  !!rotate
        endif
+
        if(map(8)*cos(angle) - map(7)*sin(angle) .le. 0.d0)then
-          angle = angle + coop_2pi*3.d0  !! x flip
+          angle = angle + coop_2pi*3.d0  !! x flip          
        endif
+
+!!$       if( abs(map(8)*cos(angle) - map(7)*sin(angle)) .gt. 3. .or. abs(map(7)*cos(angle) + map(8)*sin(angle)) .gt. 3.) then
+!!$          angle = 1.e30
+!!$       endif
     case default
        write(*,*) this%genre
        stop "rotate_angle: unknown genre"

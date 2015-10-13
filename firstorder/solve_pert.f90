@@ -8,7 +8,7 @@ program test
   
   !!----------------------------------------
   !!wave number k, because COOP uses fixed k arrays, the actual k will be the one that is closest to the following number
-  COOP_REAL::kMpc_want = 0.0001d0
+  COOP_REAL::kMpc_want = 0.01d0
 
   !!cosmological parameters
   COOP_REAL,parameter::ombh2 = 0.0223d0
@@ -17,8 +17,7 @@ program test
   COOP_REAL,parameter::tau_re = 0.06d0  !!optical depth2
   COOP_REAL,parameter::As = 2.111d-9   !!amplitude
   COOP_REAL, parameter::ns = 0.9653d0   !!tilt
-  COOP_REAL, parameter::Omega_b = ombh2/hubble**2
-  COOP_REAL, parameter::Omega_c = omch2/hubble**2
+  COOP_REAL::Omega_b, Omega_c
   !!for EFT Dark Energy I have assumed massless neutrinos, if you want to compare with CAMB/CLASS you need to set mnu = 0
 
   !!DE background EOS
@@ -27,7 +26,7 @@ program test
   
 #if DO_EFT_DE  
   !!define the alpha parameters
-  COOP_REAL, parameter::alpha_M0 = -0.05d0
+  COOP_REAL, parameter::alpha_M0 = -0.1d0
   COOP_REAL, parameter::alpha_T0 = 0.d0
   COOP_REAL, parameter::alpha_B0 = 0.d0
   COOP_REAL, parameter::alpha_K0 = 0.d0
@@ -41,9 +40,12 @@ program test
   type(coop_cosmology_firstorder)::cosmology
   type(coop_function)::fwp1, fQ, alphaM, alphaB, alphaK, alphaT, alphaH
   logical::success
+  COOP_REAL::M0
   COOP_INT::ik
   !!----------------------------------------
   !!main code
+  Omega_b = ombh2/hubble**2
+  Omega_c = omch2/hubble**2
 
   !!set a higher feedback level
   coop_feedback_level = 3
@@ -52,7 +54,7 @@ program test
   call fwp1%init_polynomial( (/ 1.d0+w0+wa, -wa /) )
 
 #if DO_EFT_DE
-  write(*,*) "Dark Energy Model = Effective field theory DE"
+  write(*,*) "#Dark Energy Model = Effective field theory DE"
   !!initialize alpha functions as  alpha_X(a) = alpha_X0 H_0^2/H(a)^2, where H(a) is LCDM Hubble 
   call generate_function(alpha_M0, alphaM)
   call generate_function(alpha_T0, alphaT)
@@ -61,7 +63,8 @@ program test
   call generate_function(alpha_K0, alphaK)
 
   !!initialize cosmology
-  call cosmology%set_EFT_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, tau_re = tau_re, As = As, ns = ns, wp1 = fwp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT)
+  call cosmology%set_EFT_cosmology(Omega_b=Ombh2/hubble**2, Omega_c=Omch2/hubble**2, h = hubble, Tcmb = COOP_DEFAULT_TCMB, tau_re = tau_re, As = As, ns = ns, wp1 = fwp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT)
+
 #elif DO_COUPLED_DE
   write(*,*) "Dark Energy Model = Coupled CDM-DE"
   call fQ%init_polynomial( (/ Q0+Qa, -Qa /) )

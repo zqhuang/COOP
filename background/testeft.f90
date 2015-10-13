@@ -23,7 +23,7 @@ program bgtest
   call coop_background_add_EFT_DE(bg, wp1, alpha_M, err)
   call bg%setup_background()
   a  = 1.d-10
-  print*, bg%tauofa(a)*bg%aHratio(a)
+  print*, bg%tauofa(a)*bg%aHratio(a), bg%M2(1.d0)
   call ode%init(nvars)
   call ode%set_initial_conditions(0.d0, (/ bg%HdotbyHsq(1.d0) /) )
   call ode%evolve(getderv, -1.d0)

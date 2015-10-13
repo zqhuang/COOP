@@ -254,7 +254,9 @@
     HO = bg%h()*recfast_bigH
 
     Nnow = 3.d0*(HO)**2*bg%Omega_b/(8.d0*coop_pi*coop_SI_G*mu_H*coop_SI_m_H)
-
+#if DO_EFT_DE
+    Nnow = Nnow*bg%M2(coop_scale_factor_today)
+#endif    
     !!C	Fudge factor to approximate the low z out of equilibrium effect
     if (recfast_Hswitch .eq. 0) then
        fu=1.14d0

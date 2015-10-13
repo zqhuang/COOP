@@ -108,17 +108,10 @@ module coop_cosmology_mod
      procedure::alpha_K_prime => coop_cosmology_background_alpha_K_prime
      procedure::alpha_B_prime => coop_cosmology_background_alpha_B_prime
      procedure::alpha_H_prime => coop_cosmology_background_alpha_H_prime     
-     procedure::M2 => coop_cosmology_background_M2     
+     procedure::M2 => coop_cosmology_background_M2
 #endif     
   end type coop_cosmology_background
 
-!!$  interface coop_cosmology
-!!$     module procedure coop_cosmology_constructor
-!!$  end interface coop_cosmology
-!!$
-!!$  interface coop_cosmology_background
-!!$     module procedure coop_cosmology_background_constructor
-!!$  end interface coop_cosmology_background
 
 contains
 
@@ -321,7 +314,7 @@ contains
        H2a4 = H2a4 + this%species(i)%Omega * this%species(i)%rhoa4_ratio(a)
     enddo
 #if DO_EFT_DE    
-    if(this%f_M2%initialized) H2a4 = H2a4/this%f_M2%eval(a)
+    if(this%f_M2%initialized) H2a4 = H2a4*coop_M2today/this%f_M2%eval(a)
 #endif    
   end function coop_cosmology_background_H2a4
 
@@ -334,7 +327,7 @@ contains
     do i=1, this%num_species
        rhoa4 = rhoa4 + this%species(i)%Omega * this%species(i)%rhoa4_ratio(a)
     enddo
-    rhoa4 = rhoa4*3.d0
+    rhoa4 = rhoa4*3.d0*coop_M2today
   end function coop_cosmology_background_rhoa4
 
 
@@ -349,8 +342,8 @@ contains
        pa4 = pa4 + r*this%species(i)%wofa(a)
        rhoa4 = rhoa4 +r
     enddo
-    rhoa4 = rhoa4 * 3.d0
-    pa4 = pa4 * 3.d0
+    rhoa4 = rhoa4 * 3.d0*coop_M2today
+    pa4 = pa4 * 3.d0*coop_M2today
   end subroutine coop_cosmology_background_get_pa4_rhoa4
   
 

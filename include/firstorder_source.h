@@ -7,14 +7,13 @@
     select case(source%m) 
     case(0) !!scalar
        source%saux(1, ik, itau) = (3.d0/8.d0)*pert%vis*pert%capP
-       if(coop_num_saux(0).ge.5)then
-          source%saux(2, ik, itau) = pert%O1_Phi+pert%O1_PSI
-          source%saux(3, ik, itau) = pert%O1_PSI
-       endif
-       if(coop_num_saux(0).ge.7)then
-          source%saux(6, ik, itau) = pert%O1_V_C
-          source%saux(7, ik, itau) = pert%O1_V_B
-       endif
+       source%saux(coop_aux_index_Weyl, ik, itau) = pert%O1_Phi+pert%O1_PSI
+       source%saux(coop_aux_index_psi, ik, itau) = pert%O1_PSI
+#if DO_COUPLED_DE
+    source%saux(coop_aux_index_delta_sync, ik, itau) = (pert%O1_DELTA_C - pert%O1_V_C/pert%kbyaH * O0_CDM(this)%dlnrhodlna(pert%a))/pert%k**2        
+#else       
+    source%saux(coop_aux_index_delta_sync, ik, itau) = (pert%O1_DELTA_C + 3.d0*pert%O1_V_C/pert%kbyaH)/pert%k**2
+#endif       
        source%s(coop_index_source_T,  ik, itau) =  (pert%O1_Phipr + pert%O1_PSIPR)*pert%aH*pert%ekappa    & !!ISW
             + pert%vis * (pert%delta_gamma/4.d0 + pert%O1_Phi + pert%O1_V_B_PRIME/pert%kbyaH + pert%capP/8.0)  &
             + pert%visdot * (pert%O1_V_B/pert%k)

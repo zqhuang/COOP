@@ -433,7 +433,7 @@ contains
     T0i = pert%delta_T0ia2()
     G00 = pert%delta_G00a2()
     G0i = pert%delta_G0ia2()
-    write(*,"(20E16.7)")  log(pert%a),T00, G00/T00-1.d0, T0i, G0i/T0i-1.d0, pert%o1_phi, pert%O1_PSI
+    write(*,"(80E16.7)")  log(pert%a), T00, T00/G00-1.d0, T0i,  T0i/G0i-1.d0, pert%O1_Phi, pert%O1_PSI
   end subroutine coop_pert_object_print
   
   

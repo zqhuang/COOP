@@ -7,8 +7,14 @@ module coop_species_mod
   implicit none
 #include "constants.h"
 
+
   private
   public:: coop_species, coop_species_constructor
+  
+#if DO_EFT_DE
+  COOP_REAL::coop_M2today = 1.d0  !! the unscreened reduced Planck mass ^2
+  public::coop_M2today
+#endif  
 
   type coop_species
      COOP_INT::genre
@@ -543,7 +549,11 @@ contains
     class(coop_species)::this
     COOP_REAL a
     COOP_REAL density
+#if DO_EFT_DE
+    density = 3.d0*coop_M2today*this%Omega * this%density_ratio(a)    
+#else    
     density = 3.d0*this%Omega * this%density_ratio(a)
+#endif    
   end function coop_species_density
 
 
@@ -551,7 +561,11 @@ contains
     class(coop_species)::this
     COOP_REAL a
     COOP_REAL density
+#if DO_EFT_DE
+    density = 3.d0*this%Omega *coop_M2today * this%rhoa2_ratio(a)    
+#else    
     density = 3.d0*this%Omega * this%rhoa2_ratio(a)
+#endif    
   end function coop_species_rhoa2
 
 
@@ -559,7 +573,11 @@ contains
     class(coop_species)::this
     COOP_REAL a
     COOP_REAL density
+#if DO_EFT_DE
+    density = 3.d0*this%Omega * coop_M2today*this%rhoa3_ratio(a)    
+#else    
     density = 3.d0*this%Omega * this%rhoa3_ratio(a)
+#endif    
   end function coop_species_rhoa3
 
 
@@ -567,7 +585,11 @@ contains
     class(coop_species)::this
     COOP_REAL a
     COOP_REAL density
+#if DO_EFT_DE
+    density = 3.d0*this%Omega*coop_M2today * this%rhoa4_ratio(a)    
+#else    
     density = 3.d0*this%Omega * this%rhoa4_ratio(a)
+#endif    
   end function coop_species_rhoa4
   
 

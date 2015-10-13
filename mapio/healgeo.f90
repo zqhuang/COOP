@@ -1515,7 +1515,7 @@ contains
     lmax = min(this%lmax, this%nside*2)
     resol = 2./this%nside/this%nside
     if(dotophat)then
-       sigma2 = fwhm*2.d0
+       sigma2 = fwhm
     else
        sigma2 = max( (coop_sigma_by_fwhm * fwhm)**2, resol)
     endif

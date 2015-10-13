@@ -5,6 +5,11 @@ module coop_background_mod
 
   private
 
+#if DO_EFT_DE
+  !!if you want to normalize M^2 = M_p^2 at early time a->0 (otherwise the default setting is M^2 = M_p^2 today)
+  logical,parameter::coop_eft_de_normalize_early = .false.
+#endif  
+  
   public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_quintessence, coop_de_wp1_quintessence, coop_de_wp1_coupled_quintessence, coop_background_add_coupled_DE,  coop_background_add_EFT_DE, coop_de_aeq_fitting, coop_de_alpha_invh2, coop_de_general
 
 contains
@@ -728,6 +733,10 @@ contains
     de%cs2 = 0.d0
     call this%add_species(de)
     this%f_alpha_M = alpha_M
+    if(coop_eft_de_normalize_early)then
+       M2 = M2/M2(1)
+    endif
+    coop_M2today = M2(narr)    
     call this%f_M2%init(narr, coop_min_scale_factor, coop_scale_factor_today, M2, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "EFT M^2")
     call de%free()
 #else

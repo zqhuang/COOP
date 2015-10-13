@@ -18,8 +18,10 @@ program test
   COOP_REAL, parameter::Omega_b = ombh2/hubble**2
   COOP_REAL, parameter::Omega_c = omch2/hubble**2
 
+
+  COOP_REAL::redshift = 0.d0
   COOP_INT, parameter::nk = 256
-  COOP_REAL k(nk), matterPk(nk), khMpc(nk)
+  COOP_REAL k(nk), matterPk(nk), khMpc(nk), PsiPk(nk), PhiPk(nk)
 
   
   !!for EFT Dark Energy I have assumed massless neutrinos, if you want to compare with CAMB/CLASS you need to set mnu = 0
@@ -30,7 +32,7 @@ program test
   
 #if DO_EFT_DE  
   !!define the alpha parameters
-  COOP_REAL, parameter::alpha_M0 = 0.d0
+  COOP_REAL, parameter::alpha_M0 = -0.2d0
   COOP_REAL, parameter::alpha_T0 = 0.d0
   COOP_REAL, parameter::alpha_B0 = 0.d0
   COOP_REAL, parameter::alpha_K0 = 0.d0
@@ -86,15 +88,23 @@ program test
   write(*,*) "f sigma_8 at z = 0.5 ", cosmology%fsigma8_of_z(0.5d0)
   write(*,*) "f sigma_8 at z = 1 ", cosmology%fsigma8_of_z(1.d0)  
   call coop_set_uniform(nk, k, 0.4d0, 2.d3, logscale = .true.)
-  call cosmology%get_Matter_power(z=0.d0, nk = nk, k = k, Pk = matterPk)  !!this returns k^3 |\delta_k|^2 /(2pi^2)
-  call cosmology%get_Matter_power(z=1.d0, nk = nk, k = k, Pk = matterPk)  !!this returns k^3 |\delta_k|^2 /(2pi^2)
+  !!compute k^3 |\delta_k|^2 /(2pi^2)  
+  call cosmology%get_Matter_power(z=redshift, nk = nk, k = k, Pk = matterPk)
+  !!compute k^3 [ k^2/a^2 Phi_k /(3/2H^2\Omega_m) ]^2/(2pi^2)
+  call cosmology%get_Phi_power(z=redshift, nk = nk, k = k, Pk = PhiPk)
+  !!compute k^3 [ k^2/a^2 Psi_k /(3/2H^2\Omega_m) ]^2/(2pi^2)  
+  call cosmology%get_Psi_power(z=redshift, nk = nk, k = k, Pk = PsiPk)
+  !!for GR matterPK = PsiPK = PhiPK
+  
   khMpc = k * cosmology%H0Mpc()/cosmology%h()  !!k/H0 * (H0 * Mpc) / h = k in unit of h Mpc^{-1}
   matterPk = matterPk * (2.d0*coop_pi**2)/khMpc**3  !!obtain |\delta_k|^2 in unit of (Mpc/h)^3
+  PsiPk = PsiPk * (2.d0*coop_pi**2)/khMpc**3  !!obtain |\delta_k|^2 in unit of (Mpc/h)^3
+  PhiPk = PhiPk * (2.d0*coop_pi**2)/khMpc**3  !!obtain |\delta_k|^2 in unit of (Mpc/h)^3    
   write(*,*) "Saving the matter power spectrum in "//trim(output)
   call fp%open(trim(output),"w")
-  write(fp%unit, "(2A16)") "k * Mpc / h ",  " P(k) * h^3/Mpc^3 "
+  write(fp%unit, "(4A16)") "k * Mpc / h ",  " CDM power ", " Phi power ", " Psi power "
   do ik=1, nk
-     write(fp%unit, "(2E16.7)") khMpc(ik), matterPk(ik)
+     write(fp%unit, "(4E16.7)") khMpc(ik), matterPk(ik), PhiPk(ik), PsiPk(ik)
   enddo
   call fp%close()
 contains
