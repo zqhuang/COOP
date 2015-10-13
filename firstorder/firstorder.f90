@@ -1094,17 +1094,18 @@ contains
     class(coop_cosmology_firstorder)::this
     COOP_REAL::z, Dz
     COOP_REAL, optional::k
-    COOP_REAL::k_ref(1), Phi(1), Phi_ref(1), tau, tau_ref
+    COOP_REAL,parameter::a_ref = 0.03 !!matter dominate
+    COOP_REAL::k_ref(1), delta(1), delta_ref(1), tau, tau_ref
     if(present(k))then
        k_ref = k
     else
        k_ref=this%k_pivot
     endif
     tau = this%tauofa(1.d0/(1.d0+z))
-    tau_ref = this%tauofa(0.03d0)  !!at redshift 30 where matter dominates
-    call this%source(0)%get_Phi_trans(tau, 1, k_ref, Phi)
-    call this%source(0)%get_Phi_trans(tau_ref, 1, k_ref, Phi_ref)    
-    Dz = Phi(1)/Phi_ref(1)/(1.d0+z)
+    tau_ref = this%tauofa(a_ref)  !!at redshift 30 where matter dominates
+    call this%source(0)%get_delta_sync_trans(tau, 1, k_ref, delta)
+    call this%source(0)%get_delta_sync_trans(tau_ref, 1, k_ref, delta_ref)    
+    Dz = delta(1)/delta_ref(1)*a_ref
   end function coop_cosmology_firstorder_growth_of_z
 
 
