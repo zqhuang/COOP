@@ -13,9 +13,11 @@ module coop_species_mod
   
 #if DO_EFT_DE
   COOP_REAL::coop_M2today = 1.d0  !! the unscreened reduced Planck mass ^2
-  public::coop_M2today
+#else
+  COOP_REAL,parameter::coop_M2today = 1.d0
 #endif  
-
+  public::coop_M2today
+  
   type coop_species
      COOP_INT::genre
      COOP_SHORT_STRING::name = ''

@@ -957,7 +957,7 @@ contains
 #if DO_EFT_DE
     pk = Phi **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)) /a**2 * this%M2(a) )**2    
 #else    
-    pk = Psi **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)) /a**2)**2
+    pk = Phi **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)) /a**2)**2
 #endif
   end subroutine coop_cosmology_firstorder_get_Phi_power
 

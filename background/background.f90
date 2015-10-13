@@ -6,8 +6,8 @@ module coop_background_mod
   private
 
 #if DO_EFT_DE
-  !!if you want to normalize M^2 = M_p^2 at early time a->0 (otherwise the default setting is M^2 = M_p^2 today)
-  logical,parameter::coop_eft_de_normalize_early = .false.
+  !!screening: true; non-screening: false
+  logical,parameter::coop_eft_de_normalize_early = .true.
 #endif  
   
   public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_quintessence, coop_de_wp1_quintessence, coop_de_wp1_coupled_quintessence, coop_background_add_coupled_DE,  coop_background_add_EFT_DE, coop_de_aeq_fitting, coop_de_alpha_invh2, coop_de_general
