@@ -933,11 +933,7 @@ contains
        ps(ik) = this%psofk(k(ik))
     enddo
     !$omp end parallel do
-#if DO_EFT_DE
-    pk = Psi **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)) /a**2 * this%M2(a) )**2    
-#else    
-    pk = Psi **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)) /a**2)**2
-#endif
+    pk = Psi **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)) /a**2 * coop_Mpsq(a) )**2    
   end subroutine coop_cosmology_firstorder_get_Psi_power
 
 
@@ -954,11 +950,7 @@ contains
        ps(ik) = this%psofk(k(ik))
     enddo
     !$omp end parallel do
-#if DO_EFT_DE
-    pk = Phi **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)) /a**2 * this%M2(a) )**2    
-#else    
-    pk = Phi **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)) /a**2)**2
-#endif
+    pk = Phi **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)) /a**2 * coop_Mpsq(a) )**2    
   end subroutine coop_cosmology_firstorder_get_Phi_power
 
 
@@ -992,11 +984,7 @@ contains
        ps(ik) = this%psofk(k(ik))
     enddo
     !$omp end parallel do
-#if DO_EFT_DE
-    pk = (PhiPlusPsi) **2 * ps * (k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)) * this%M2(a) /a**2 )**2
-#else    
-    pk = (PhiPlusPsi) **2 * ps * (k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)) /a**2 )**2
-#endif
+    pk = (PhiPlusPsi) **2 * ps * (k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)) * coop_Mpsq(a) /a**2 )**2
   end subroutine coop_cosmology_firstorder_get_Weyl_power
 
 
@@ -1320,6 +1308,11 @@ contains
           endif
        endif
     endif
+    if(present(alphaM))then
+       call this%set_alphaM(alphaM)
+    else
+       call this%set_alphaM(coop_function_polynomial( (/ 0.d0 /) ) )
+    endif
     call this%add_species(coop_baryon(COOP_REAL_OF(Omega_b)))
     call this%add_species(coop_radiation(this%Omega_radiation()))
     if(present(nu_mass_eV))then
@@ -1344,12 +1337,12 @@ contains
     endif
     call this%add_species(coop_cdm(omega_c))
     if(present(wp1))then
-       call coop_background_add_EFT_DE(this, wp1, alphaM, err)
+       call coop_background_add_EFT_DE(this, wp1, err)
        if(present(wp1_background))then
           stop "you should not pass both wp1 and wp1_background as the arguments"
        endif
     elseif(present(wp1_background))then
-       call coop_background_add_EFT_DE(this, wp1_background, alphaM, err)
+       call coop_background_add_EFT_DE_with_effective_w(this, wp1_background, err)
     else
        stop  "you should pass either wp1 or wp1_background to EFT DE"
     endif

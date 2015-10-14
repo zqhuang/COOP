@@ -8,7 +8,7 @@ module coop_function_mod
 
   private
 
-  public:: coop_function, coop_function_multeval, coop_function_multeval_bare, coop_function_constructor
+  public:: coop_function, coop_function_multeval, coop_function_multeval_bare, coop_function_constructor, coop_function_polynomial
 
   type coop_function
      COOP_SHORT_STRING::name="NoName"
@@ -1025,6 +1025,12 @@ contains
     end select
     if(this%xlog) x = exp(x)
   end subroutine coop_function_monotonic_solution
+
+  function coop_function_polynomial( p ) result(f)
+    COOP_REAL,dimension(:)::p
+    type(coop_function)::f
+    call f%init_polynomial(p)
+  end function coop_function_polynomial
 
 
 end module coop_function_mod

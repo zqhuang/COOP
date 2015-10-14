@@ -218,6 +218,7 @@ module coop_forecast_mod
      COOP_INT::index_de_alpha_T0 = 0
      COOP_INT::index_de_alpha_B0 = 0
      COOP_INT::index_de_alpha_K0 = 0
+     logical::w_is_background = .false.
 #endif     
    contains
      procedure::init => coop_MCMC_params_init
@@ -273,10 +274,19 @@ contains
     COOP_REAL, parameter::h_b_i = 0.45d0
     COOP_REAL, parameter::h_t_i =  0.95d0
     COOP_REAL, parameter::alpha_dep_Omega_m = 0.3d0
+    COOP_REAL, parameter::alpha_dep_Omega_r = 8.d-5
     COOP_INT::iloop
     COOP_REAL::h_t, h_b, h_m, theta_t, theta_b, theta_m, theta_want
     logical success
     if(.not. associated(this%cosmology)) stop "MCMC_params_set_cosmology: cosmology not allocated"
+#if DO_EFT_DE
+    if(this%index_de_alpha_M0 .ne. 0)then    
+       call this%cosmology%set_alphaM(coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., &
+            args= coop_arguments_constructor( r = (/ this%fullparams(this%index_de_alpha_M0), alpha_dep_Omega_m, alpha_dep_Omega_r /) ), name = "alpha_M" ))
+    else
+       call this%cosmology%set_alphaM( coop_function_polynomial( (/ 0.d0 /) ) )       
+    endif
+#endif    
     if(this%index_theta .ne. 0)then
        theta_want = this%fullparams(this%index_theta)
        h_t = min(h_t_i, sqrt(this%fullparams(this%index_ombh2)+this%fullparams(this%index_omch2)/omega_m_min))
@@ -486,8 +496,11 @@ contains
 #if DO_EFT_DE
       call this%cosmology%add_species(coop_cdm(this%cosmology%omch2/h**2))
       if(this%index_de_alpha_M0 .ne. 0)then
-         call coop_background_add_EFT_DE(this%cosmology, wp1 = fwp1, alpha_M = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., &
-              args= coop_arguments_constructor( r = (/ this%fullparams(this%index_de_alpha_M0), alpha_dep_Omega_m, this%cosmology%Omega_radiation() + this%cosmology%Omega_massless_neutrinos() /) )  , name = "EFT DE alpha_M"), err = err)
+         if(this%w_is_background)then
+            call coop_background_add_EFT_DE_with_effective_w(this%cosmology, effective_wp1 = fwp1 , err = err)            
+         else
+            call coop_background_add_EFT_DE(this%cosmology, wp1 = fwp1 , err = err)
+         endif
          if(err .ne. 0) then
             call this%cosmology%set_h(0.d0)
             call fwp1%free()
@@ -806,7 +819,13 @@ contains
              write(this%ndffile%unit) this%knot
              if(this%do_flush)call flush(this%ndffile%unit)
           endif
-          if(cosmology_changed)this%cosmology => this%cosmology_saved
+          if(cosmology_changed)then
+             this%cosmology => this%cosmology_saved
+#if DO_EFT_DE
+             if(this%cosmology%f_alpha_M%initialized) &
+                  call coop_eft_DE_set_Mpsq(this%cosmology%f_alpha_M)
+#endif             
+          endif
           this%params = this%params_saved
           this%fullparams(this%used) = this%params       
           this%reject = this%reject + 1
@@ -1566,6 +1585,7 @@ contains
     this%index_de_alpha_K0 = this%index_of("de_alpha_K0")
     this%index_de_alpha_T0 = this%index_of("de_alpha_T0")    
     this%index_de_alpha_B0 = this%index_of("de_alpha_B0")
+    call coop_dictionary_lookup(this%settings, "w_is_background", this%w_is_background, .false.)
 #elif DO_COUPLED_DE
     this%index_de_Q = this%index_of("de_Q")
 #endif    

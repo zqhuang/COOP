@@ -23,7 +23,7 @@ program test
   !!DE background EOS
   COOP_REAL, parameter::w0 =  -0.907d0
   COOP_REAL, parameter::wa = 0.d0
-  logical::w_is_background_w = .false.
+  logical::w_is_background = .true.  !!if set to be true, w is defined as the effective background w that gives the same expansion history in GR; otherwise w is defined as p_DE/ rho_DE.
   
 #if DO_EFT_DE  
   !!define the alpha parameters
@@ -64,7 +64,7 @@ program test
   call generate_function(alpha_K0, alphaK)
 
   !!initialize cosmology
-  if(w_is_background_w)then
+  if(w_is_background)then
      call cosmology%set_EFT_cosmology(Omega_b=Ombh2/hubble**2, Omega_c=Omch2/hubble**2, h = hubble, Tcmb = COOP_DEFAULT_TCMB, tau_re = tau_re, As = As, ns = ns, wp1_background = fwp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT)     
   else
      call cosmology%set_EFT_cosmology(Omega_b=Ombh2/hubble**2, Omega_c=Omch2/hubble**2, h = hubble, Tcmb = COOP_DEFAULT_TCMB, tau_re = tau_re, As = As, ns = ns, wp1 = fwp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT)
