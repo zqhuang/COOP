@@ -4,14 +4,14 @@ program test
 #include "constants.h"
   !!----------------------------------------
   !!wave number k, because COOP uses fixed k arrays, the actual k will be the one that is closest to the following number
-  COOP_STRING::output_root = "vis2"
+  COOP_STRING::output_root = "vis1"
   logical::do_cmb_lensing = .true.
 #if DO_ZETA_TRANS
   logical::zeta_single_slice = .false.
 #endif  
   !!cosmological parameters
-  COOP_REAL,parameter::ombh2 = 0.02225d0
-  COOP_REAL, parameter::omch2 = 0.1198d0  !!0.12 LCDM  
+  COOP_REAL,parameter::ombM2h2 = 0.02225d0  !!physical density
+  COOP_REAL, parameter::omcM2h2 = 0.1198d0  !!
   COOP_REAL,parameter::hubble = 0.6727d0  !!H0/100
   COOP_REAL::tau_re = 0.079d0  !!optical depth2
   COOP_REAL, parameter::As = 2.206d-9   !!amplitude
@@ -21,13 +21,13 @@ program test
   !!for EFT Dark Energy I have assumed massless neutrinos, if you want to compare with CAMB/CLASS you need to set mnu = 0
 
   !!DE background EOS
-  COOP_REAL, parameter::w0 =  -0.907d0
+  COOP_REAL, parameter::w0 =  -1.d0
   COOP_REAL, parameter::wa = 0.d0
   logical::w_is_background = .true.  !!if set to be true, w is defined as the effective background w that gives the same expansion history in GR; otherwise w is defined as p_DE/ rho_DE.
   
 #if DO_EFT_DE  
   !!define the alpha parameters
-  COOP_REAL, parameter::alpha_M0 = 0.1d0 !0.d0
+  COOP_REAL, parameter::alpha_M0 = 0.d0 
   COOP_REAL, parameter::alpha_T0 = 0.d0
   COOP_REAL, parameter::alpha_B0 = 0.d0
   COOP_REAL, parameter::alpha_K0 = 0.d0
@@ -48,14 +48,12 @@ program test
   type(coop_file)::fp
   !!----------------------------------------
   !!main code
-  omega_b= ombh2/hubble**2
-  omega_c = omch2/hubble**2
   !!----------------------------------------
   !!DE EOS
   call fwp1%init_polynomial( (/ 1.d0+w0+wa, -wa /) )
 
 #if DO_EFT_DE
-  write(*,*) "Dark Energy Model = Effective field theory DE"
+  write(*,*) "#Dark Energy Model = Effective field theory DE"
   !!initialize alpha functions as  alpha_X(a) = alpha_X0 H_0^2/H(a)^2, where H(a) is LCDM Hubble 
   call generate_function(alpha_M0, alphaM)
   call generate_function(alpha_T0, alphaT)
@@ -63,21 +61,31 @@ program test
   call generate_function(alpha_B0, alphaB)
   call generate_function(alpha_K0, alphaK)
 
+  call coop_EFT_DE_Set_Mpsq(alphaM)
+#endif
+
+  Omega_b = ombm2h2/hubble**2/coop_Mpsq0
+  omega_c = omcm2h2/hubble**2/coop_Mpsq0
+
+#if DO_EFT_DE  
   !!initialize cosmology
   if(w_is_background)then
-     call cosmology%set_EFT_cosmology(Omega_b=Ombh2/hubble**2, Omega_c=Omch2/hubble**2, h = hubble, Tcmb = COOP_DEFAULT_TCMB, tau_re = tau_re, As = As, ns = ns, wp1_background = fwp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT)     
+     call cosmology%set_EFT_cosmology(Omega_b=omega_b, Omega_c=omega_c, h = hubble, Tcmb = COOP_DEFAULT_TCMB, tau_re = tau_re, As = As, ns = ns, wp1_background = fwp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT)     
   else
-     call cosmology%set_EFT_cosmology(Omega_b=Ombh2/hubble**2, Omega_c=Omch2/hubble**2, h = hubble, Tcmb = COOP_DEFAULT_TCMB, tau_re = tau_re, As = As, ns = ns, wp1 = fwp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT)
+     call cosmology%set_EFT_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, Tcmb = COOP_DEFAULT_TCMB, tau_re = tau_re, As = As, ns = ns, wp1 = fwp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT)
   endif
-  print*, "100 theta (as defined in CosmoMC) = ", cosmology%cosmomc_theta()
 #elif DO_COUPLED_DE
-  write(*,*) "Dark Energy Model = Coupled CDM-DE"
+  write(*,*) "#Dark Energy Model = Coupled CDM-DE"
   call fQ%init_polynomial( (/ Q0+Qa, -Qa /) )
   call cosmology%set_coupled_DE_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, tau_re = tau_re, As = As, ns = ns, fwp1 = fwp1, fQ = fQ)
 #else
-  write(*,*) "Dark Energy Model = Lambda (DE w = -1 )"
+  write(*,*) "#Dark Energy Model = Lambda (DE w = -1 )"
   call cosmology%set_standard_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, tau_re = tau_re, As = As, ns = ns)
 #endif
+
+  print*, "recombination redshift = ", cosmology%zrecomb
+  print*, "100 theta (as defined in CosmoMC) = ", cosmology%cosmomc_theta()
+
   
   !!----------------------------------------
 #if DO_ZETA_TRANS
@@ -169,7 +177,7 @@ contains
     COOP_INT::i
 #if DO_ZETA_TRANS    
     call coop_set_uniform(n, chi, 0.d0, cosmology%tau0)
-    chiend = cosmology%tau0 - cosmology%tauofa(1.d0/(1.d0+cosmology%zre+cosmology%deltaz*5.d0))
+    chiend = cosmology%tau0 - cosmology%dadtau(1.d0/(1.d0+cosmology%zre+cosmology%deltaz*5.d0))
     do i=1, n
        if(chi(i) .lt. chiend)then
           a = cosmology%aoftau(cosmology%tau0 - chi(i))
