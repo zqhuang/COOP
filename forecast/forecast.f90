@@ -286,12 +286,13 @@ contains
     else
        call this%cosmology%set_alphaM( coop_function_polynomial( (/ 0.d0 /) ) )       
     endif
-#endif    
+#endif
+
     if(this%index_theta .ne. 0)then
        theta_want = this%fullparams(this%index_theta)
-       h_t = min(h_t_i, sqrt(this%fullparams(this%index_ombm2h2)+this%fullparams(this%index_omcm2h2)/omega_m_min/coop_Mpsq0))
-       h_b = max(h_b_i, sqrt(this%fullparams(this%index_ombm2h2)+this%fullparams(this%index_omcm2h2)/omega_m_max/coop_Mpsq0))
-       call calc_theta(h_t, theta_t)       
+       h_t = min(h_t_i, sqrt((this%fullparams(this%index_ombm2h2)+this%fullparams(this%index_omcm2h2))/omega_m_min/coop_Mpsq0))
+       h_b = max(h_b_i, sqrt((this%fullparams(this%index_ombm2h2)+this%fullparams(this%index_omcm2h2))/omega_m_max/coop_Mpsq0))
+       call calc_theta(h_t, theta_t)
        if(this%cosmology%h().eq.0.d0)return
        call calc_theta(h_b, theta_b)
        if(this%cosmology%h().eq.0.d0)return       
@@ -333,7 +334,8 @@ contains
     else
        stop "you need to use either theta or h for MCMC runs"
     endif
-#if DO_EFT_DE    
+#if DO_EFT_DE
+    this%cosmology%f_alpha_M = coop_EFT_DE_alphaM    
     if(this%index_de_alpha_K0 .ne. 0)then
        this%cosmology%f_alpha_K = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ this%fullparams(this%index_de_alpha_K0), alpha_dep_Omega_m, this%cosmology%Omega_radiation() + this%cosmology%Omega_massless_neutrinos() /) ) , name = "EFT DE alpha_K")
     endif
@@ -347,7 +349,7 @@ contains
        this%cosmology%f_alpha_T = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ this%fullparams(this%index_de_alpha_T0), alpha_dep_Omega_m, this%cosmology%Omega_radiation() + this%cosmology%Omega_massless_neutrinos() /) ) , name = "EFT DE alpha_T")
     endif
 #endif    
-    
+
     call this%cosmology%setup_background()
     if(this%index_tau .ne. 0)then !!
        this%cosmology%optre = this%fullparams(this%index_tau)
@@ -422,7 +424,7 @@ contains
     subroutine calc_theta(h, theta)
       COOP_REAL::h, theta
       call setForH(h)
-      if(this%cosmology%h().eq.0.d0)return      
+      if(this%cosmology%h().eq.0.d0)return
       theta = this%cosmology%cosmomc_theta()*100.d0
     end subroutine calc_theta
 
@@ -437,8 +439,10 @@ contains
       this%cosmology%omch2 =this%fullparams(this%index_omcm2h2)/coop_Mpsq0
       !!baryon
       call this%cosmology%add_species(coop_baryon(this%cosmology%ombh2/h**2))
+      this%index_baryon = this%cosmology%num_species
       !!radiation
       call this%cosmology%add_species(coop_radiation(this%cosmology%Omega_radiation()))
+      this%index_radiation = this%cosmology%num_species      
       !!neutrinos
       if(this%index_mnu .ne. 0)then
 #if DO_EFT_DE
@@ -448,12 +452,16 @@ contains
             call this%cosmology%add_species(coop_neutrinos_massive( &
                  this%cosmology%Omega_nu_per_species_from_mnu_eV( this%fullparams(this%index_mnu) ) ,&
                  this%cosmology%Omega_massless_neutrinos_per_species()))
+            this%index_massivenu = this%cosmology%num_species                  
             call this%cosmology%add_species( coop_neutrinos_massless(this%cosmology%Omega_massless_neutrinos_per_species()*(this%cosmology%NNu()-1)))
+            this%index_nu = this%cosmology%num_species                  
          else
             call this%cosmology%add_species( coop_neutrinos_massless(this%cosmology%Omega_massless_neutrinos()))
+            this%index_nu = this%cosmology%num_species            
          endif
       else
-         call this%cosmology%add_species( coop_neutrinos_massless(this%cosmology%Omega_massless_neutrinos()))  
+         call this%cosmology%add_species( coop_neutrinos_massless(this%cosmology%Omega_massless_neutrinos()))
+         this%index_nu = this%cosmology%num_species
       endif
 
       if(this%index_de_epss .ne. 0 .or. this%index_de_epsinf .ne. 0 .or. this%index_de_zetas .ne. 0 .or. this%index_de_betas .ne. 0)then
@@ -495,12 +503,15 @@ contains
       
 #if DO_EFT_DE
       call this%cosmology%add_species(coop_cdm(this%cosmology%omch2/h**2))
+      this%index_cdm = this%cosmology%num_species      
       if(this%index_de_alpha_M0 .ne. 0)then
          if(this%w_is_background)then
             call coop_background_add_EFT_DE_with_effective_w(this%cosmology, effective_wp1 = fwp1 , err = err)            
          else
             call coop_background_add_EFT_DE(this%cosmology, wp1 = fwp1 , err = err)
          endif
+
+         
          if(err .ne. 0) then
             call this%cosmology%set_h(0.d0)
             call fwp1%free()
@@ -509,6 +520,8 @@ contains
       else
          call this%cosmology%add_species(coop_de_general(this%cosmology%Omega_k(), fwp1))
       endif
+         
+      
       this%cosmology%de_genre = COOP_PERT_EFT
 #elif DO_COUPLED_DE
       if(this%index_de_Q .ne. 0)then
@@ -518,6 +531,7 @@ contains
       endif
       call fQ%init_polynomial( (/ Q /) )
       call coop_background_add_coupled_DE(this%cosmology, Omega_c = this%cosmology%omch2/h**2, fwp1 = fwp1, fQ = fQ, err = err)
+      this%index_cdm = this%cosmology%num_species-1                  
       if(err .ne. 0)then
          call this%cosmology%set_h(0.d0)
       endif
@@ -525,6 +539,7 @@ contains
       call fQ%free()
 #else      
       call this%cosmology%add_species(coop_cdm(this%cosmology%omch2/h**2))
+      this%index_cdm = this%cosmology%num_species                  
       if(this%index_de_w .ne. 0)then
          w = this%fullparams(this%index_de_w)
          if(this%index_de_wa .ne. 0)then
@@ -537,7 +552,8 @@ contains
          call this%cosmology%add_species(coop_de_lambda(this%cosmology%Omega_k()))                           
       endif
 #endif
-100   call fwp1%free()      
+      this%index_de = this%cosmology%num_species                  
+100   call fwp1%free()
     end subroutine setforH
 
   end subroutine coop_MCMC_params_Set_Cosmology
@@ -1557,13 +1573,15 @@ contains
     if(this%index_ombm2h2.eq.0) &
        this%index_ombm2h2 = this%index_of("ombh2")
     if(this%index_ombm2h2.eq.0) &
-       this%index_ombm2h2 = this%index_of("omegabh2")
+         this%index_ombm2h2 = this%index_of("omegabh2")
+    if(this%index_ombm2h2 .eq. 0) write(*,*) "Warning: cannot find the default parameter omega_b M^2 h^2"
     this%index_omcm2h2 = this%index_of("omcm2h2")
     if(this%index_omcm2h2 .eq.0 ) &    
          this%index_omcm2h2 = this%index_of("omch2")
     if(this%index_omcm2h2 .eq.0 ) &
        this%index_omcm2h2 = this%index_of("omegach2")
-
+    if(this%index_omcm2h2 .eq. 0) write(*,*) "Warning: cannot find the default parameter omega_c M^2 h^2"
+    
     this%index_theta = this%index_of("theta")
     this%index_tau = this%index_of("tau")
     this%index_logAm2tau = this%index_of("logAm2tau")

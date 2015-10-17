@@ -1,5 +1,5 @@
-ombh2	\Omega_b h^2
-omch2   \Omega_c h^2
+ombh2	\Omega_b M^2 h^2
+omch2   \Omega_c M^2 h^2
 theta	100\theta
 tau	\tau
 de_w	w_0
