@@ -9,15 +9,13 @@ program test
   COOP_STRING, parameter::output = "test_matterpower.dat"
   !!----------------------------------------
   !!cosmological parameters
-  COOP_REAL,parameter::ombh2 = 0.022d0
-  COOP_REAL,parameter::omch2 = 0.12d0  !!0.12 LCDM  
+  COOP_REAL,parameter::ombm2h2 = 0.022d0
+  COOP_REAL,parameter::omcm2h2 = 0.12d0  !!0.12 LCDM  
   COOP_REAL,parameter::hubble = 0.676d0  !!H0/100
   COOP_REAL,parameter::tau_re = 0.08d0  !!optical depth2
   COOP_REAL,parameter::As = 2.22d-9   !!amplitude
   COOP_REAL, parameter::ns = 0.96d0   !!tilt
-  COOP_REAL, parameter::Omega_b = ombh2/hubble**2
-  COOP_REAL, parameter::Omega_c = omch2/hubble**2
-
+  COOP_REAL::Omega_b, Omega_c
 
   COOP_REAL::redshift = 0.d0
   COOP_INT, parameter::nk = 256
@@ -65,7 +63,11 @@ program test
   call generate_function(alpha_H0, alphaH)
   call generate_function(alpha_B0, alphaB)
   call generate_function(alpha_K0, alphaK)
-
+  call coop_EFT_DE_Set_Mpsq(alphaM)
+#endif
+  Omega_b = ombm2h2/hubble**2/coop_Mpsq0
+  omega_c = omcm2h2/hubble**2/coop_Mpsq0  
+#if DO_EFT_DE  
   !!initialize cosmology
   call cosmology%set_EFT_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, tau_re = tau_re, As = As, ns = ns, wp1 = fwp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT)
 #elif DO_COUPLED_DE

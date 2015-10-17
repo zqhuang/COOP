@@ -19,7 +19,7 @@
             + pert%visdot * (pert%O1_V_B/pert%k)
        
        source%s(coop_index_source_E, ik, itau) =pert%vis * pert%capP * (3.d0/8.d0)/ pert%kchi **2
-       source%s(coop_index_source_Len, ik, itau) = -(pert%O1_Phi+pert%O1_PSI)*max(1.d0-source%chi(itau)/this%distlss, 0.d0)/max(source%chi(itau), 1.d-2*source%distlss)
+       source%s(coop_index_source_Len, ik, itau) = -(pert%O1_Phi+pert%O1_PSI)*max(1.d0-source%chi(itau)/this%distlss, 0.d0)/max(source%chi(itau), 1.d-3*source%distlss)
 #if DO_ZETA_TRANS
        if(coop_zeta_user_specified_weight%initialized)then
           source%s(coop_index_source_zeta, ik, itau) = -coop_zeta_user_specified_weight%eval(source%chi(itau))

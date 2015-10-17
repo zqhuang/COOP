@@ -189,8 +189,8 @@ module coop_forecast_mod
      COOP_INT::reject = 0
      COOP_INT::step = 0
      !!index for parameters
-     COOP_INT::index_ombh2 = 0
-     COOP_INT::index_omch2 = 0          
+     COOP_INT::index_ombm2h2 = 0
+     COOP_INT::index_omcm2h2 = 0          
      COOP_INT::index_theta = 0
      COOP_INT::index_tau = 0
      COOP_INT::index_mnu = 0
@@ -289,8 +289,8 @@ contains
 #endif    
     if(this%index_theta .ne. 0)then
        theta_want = this%fullparams(this%index_theta)
-       h_t = min(h_t_i, sqrt(this%fullparams(this%index_ombh2)+this%fullparams(this%index_omch2)/omega_m_min))
-       h_b = max(h_b_i, sqrt(this%fullparams(this%index_ombh2)+this%fullparams(this%index_omch2)/omega_m_max))
+       h_t = min(h_t_i, sqrt(this%fullparams(this%index_ombm2h2)+this%fullparams(this%index_omcm2h2)/omega_m_min/coop_Mpsq0))
+       h_b = max(h_b_i, sqrt(this%fullparams(this%index_ombm2h2)+this%fullparams(this%index_omcm2h2)/omega_m_max/coop_Mpsq0))
        call calc_theta(h_t, theta_t)       
        if(this%cosmology%h().eq.0.d0)return
        call calc_theta(h_b, theta_b)
@@ -433,8 +433,8 @@ contains
       type(coop_function)::fQ, fwp1
       call this%cosmology%free()
       call this%cosmology%init(name = "Cosmology", id = 0, h = h)
-      this%cosmology%ombh2 =this%fullparams(this%index_ombh2)
-      this%cosmology%omch2 =this%fullparams(this%index_omch2)      
+      this%cosmology%ombh2 =this%fullparams(this%index_ombm2h2)/coop_Mpsq0
+      this%cosmology%omch2 =this%fullparams(this%index_omcm2h2)/coop_Mpsq0
       !!baryon
       call this%cosmology%add_species(coop_baryon(this%cosmology%ombh2/h**2))
       !!radiation
@@ -1553,14 +1553,17 @@ contains
     deallocate(center, lower, upper, width, iniwidth, prior_sigma, prior_center)    
 
     !!load all the indices
-    this%index_ombh2 = this%index_of("ombh2")
-    if(this%index_ombh2.eq.0)then
-       this%index_ombh2 = this%index_of("omegabh2")
-    endif
-    this%index_omch2 = this%index_of("omch2")
-    if(this%index_omch2 .eq.0 )then
-       this%index_omch2 = this%index_of("omegach2")
-    endif
+    this%index_ombm2h2 = this%index_of("ombm2h2")
+    if(this%index_ombm2h2.eq.0) &
+       this%index_ombm2h2 = this%index_of("ombh2")
+    if(this%index_ombm2h2.eq.0) &
+       this%index_ombm2h2 = this%index_of("omegabh2")
+    this%index_omcm2h2 = this%index_of("omcm2h2")
+    if(this%index_omcm2h2 .eq.0 ) &    
+         this%index_omcm2h2 = this%index_of("omch2")
+    if(this%index_omcm2h2 .eq.0 ) &
+       this%index_omcm2h2 = this%index_of("omegach2")
+
     this%index_theta = this%index_of("theta")
     this%index_tau = this%index_of("tau")
     this%index_logAm2tau = this%index_of("logAm2tau")
