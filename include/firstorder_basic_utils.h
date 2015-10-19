@@ -378,15 +378,15 @@
 !!slow way to calculate theta. You do not need to initialize background before calling this function.
   function coop_cosmology_firstorder_cosmomc_theta(this) result(theta)
     class(coop_cosmology_firstorder)::this
-    COOP_REAL zstar, theta, astar, rs, da, ombh2_eff, omch2_eff
-    zstar = coop_zrecomb_fitting(this%ombh2, this%omch2)
-    astar = 1.d0/(1.d0+zstar)
-#if DO_EFT_DE || DO_COUPLED_DE
-    ombh2_eff = O0_BARYON(this)%rhoa3_ratio(astar)*this%ombh2
-    omch2_eff = O0_CDM(this)%rhoa3_ratio(astar)*this%omch2
-    zstar = coop_zrecomb_fitting(ombh2_eff, omch2_eff)
-    astar = 1.d0/(1.d0+zstar)
-#endif        
+    COOP_REAL zstar, theta, astar, rs, da, omch2_eff
+    zstar = coop_zrecomb_fitting(this%ombh2*coop_Mpsq0, this%omch2*coop_Mpsq0)
+    astar = 1.d0/(1.d0+zstar)    
+#if DO_COUPLED_DE
+    omch2_eff = O0_CDM(this)%rhoa3_ratio(astar)*omch2
+    zstar = coop_zrecomb_fitting(this%ombh2*coop_Mpsq0, omch2_eff*coop_Mpsq0)
+    astar = 1.d0/(1.d0+zstar)    
+#endif    
+
     rs = coop_integrate(dsoundda, 1.d-8, astar, 1.d-7)  !!to be consistent with CosmoMC
     da = coop_r_of_chi(coop_integrate(dtauda, astar, 1.d0, 1.d-7), this%Omega_k())
     theta  = rs/da
@@ -394,7 +394,7 @@
 
     function dsoundda(a) result(dsda)  !!use approximations, to be consistent with CosmoMC
       COOP_REAL a, dsda, R
-      R = this%ombh2 * 3.d4*a
+      R = this%ombh2*coop_Mpsq0 * 3.d4*a
       dsda = dtauda(a)/sqrt(3.d0*(1.d0+R))
     end function dsoundda
 

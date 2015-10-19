@@ -141,7 +141,14 @@ program RunMC
         if(mcmc%cosmology%h() .eq. 0.d0) then
            write(*,*) "-ln(likelihood) = \infty"
         else
-           write(*,*) "h = ", mcmc%cosmology%h()        
+           write(*,*) "h = ", mcmc%cosmology%h()
+           write(*,*) "sigma_8 = ", mcmc%cosmology%sigma_8
+           write(*,*) "omega_b h^2 M^2 = ", mcmc%cosmology%ombh2 * coop_Mpsq0
+           write(*,*) "omega_c h^2 M^2 = ", mcmc%cosmology%omch2 * coop_Mpsq0  
+           write(*,*) "100theta = ", mcmc%cosmology%cosmomc_theta()*100.d0
+           write(*,*) "z_recomb = ", mcmc%cosmology%zrecomb           
+           write(*,*) "D_recomb = ", mcmc%cosmology%distlss
+           
            write(*,*) "Computing likelihood"     
            call coop_prtsystime(.true.)
            loglike = pool%loglike(mcmc)

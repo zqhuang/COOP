@@ -13,7 +13,7 @@ program bgtest
   COOP_REAL::y(nvars), yp(nvars), a
   COOP_INT::index_de
   call wp1%init_polynomial( (/ 0.d0, 0.2d0 /) )
-  call alpha_M%init_polynomial( (/ 0.d0, 0.d0, 0.d0, 1.9d0 /) )
+  call alpha_M%init_polynomial( (/ 0.d0, 0.d0, 0.d0, 0.d0 /) )
   call bg%set_alphaM(alpha_M)
 
   call bg%init(h=0.68d0)

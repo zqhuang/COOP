@@ -4,7 +4,7 @@ program test
 #include "constants.h"
   !!----------------------------------------
   !!wave number k, because COOP uses fixed k arrays, the actual k will be the one that is closest to the following number
-  COOP_STRING::output_root = "mcdm"
+  COOP_STRING::output_root = "lcdm"
   logical::do_cmb_lensing = .true.
 #if DO_ZETA_TRANS
   logical::zeta_single_slice = .false.
@@ -12,7 +12,7 @@ program test
   !!cosmological parameters
   COOP_REAL,parameter::ombM2h2 = 0.02225d0  !!physical density
   COOP_REAL, parameter::omcM2h2 = 0.1198d0  !!
-  COOP_REAL,parameter::hubble = 0.686d0 !0.6727d0  !!H0/100
+  COOP_REAL,parameter::hubble = 0.6727d0  !!H0/100
   COOP_REAL::tau_re = 0.079d0  !!optical depth2
   COOP_REAL, parameter::As = 2.206d-9   !!amplitude
   COOP_REAL, parameter::r = 0.d0  !! tensor/scalar ratio
@@ -23,7 +23,7 @@ program test
   !!DE background EOS
   COOP_REAL, parameter::w0 =  -1.d0
   COOP_REAL, parameter::wa = 0.d0
-  logical::w_is_background = .false.  !!if set to be true, w is defined as the effective background w that gives the same expansion history in GR; otherwise w is defined as p_DE/ rho_DE.
+  logical::w_is_background = .true.  !!if set to be true, w is defined as the effective background w that gives the same expansion history in GR; otherwise w is defined as p_DE/ rho_DE.
   
 #if DO_EFT_DE  
   !!define the alpha parameters
@@ -85,7 +85,8 @@ program test
 
   print*, "recombination redshift = ", cosmology%zrecomb
   print*, "100 theta (as defined in CosmoMC) = ", cosmology%cosmomc_theta()
-
+  print*, "chi(z = 1) = ", cosmology%comoving_distance(0.5d0)
+  print*, "chi(zrecomb) = ", cosmology%comoving_distance(cosmology%arecomb)  
   
   !!----------------------------------------
 #if DO_ZETA_TRANS
