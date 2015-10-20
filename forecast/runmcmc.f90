@@ -142,6 +142,7 @@ program RunMC
            write(*,*) "-ln(likelihood) = \infty"
         else
            write(*,*) "h = ", mcmc%cosmology%h()
+           write(*,*) "omega_m = ", mcmc%cosmology%omega_m           
            write(*,*) "sigma_8 = ", mcmc%cosmology%sigma_8
            write(*,*) "omega_b h^2 M^2 = ", mcmc%cosmology%ombh2 * coop_Mpsq0
            write(*,*) "omega_c h^2 M^2 = ", mcmc%cosmology%omch2 * coop_Mpsq0  

@@ -11,8 +11,8 @@ program test
 #endif  
   !!cosmological parameters
   COOP_REAL,parameter::ombM2h2 = 0.02225d0  !!physical density
-  COOP_REAL, parameter::omcM2h2 = 0.1198d0  !!
-  COOP_REAL,parameter::hubble = 0.6727d0  !!H0/100
+  COOP_REAL, parameter::omcM2h2 = 0.12d0  !!
+  COOP_REAL,parameter::hubble = 0.68d0  !!H0/100
   COOP_REAL::tau_re = 0.079d0  !!optical depth2
   COOP_REAL, parameter::As = 2.206d-9   !!amplitude
   COOP_REAL, parameter::r = 0.d0  !! tensor/scalar ratio

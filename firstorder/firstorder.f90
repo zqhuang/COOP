@@ -970,8 +970,7 @@ contains
     pk = delta_sync **2 * ps
   end subroutine coop_cosmology_firstorder_get_matter_power
   
-  !!compute k^3 [ k^2/a^2 (Psi_k+Phi_k)/2 /(3/2H^2\Omega_m) ]^2/(2pi^2); in GR it is the same as matter power
-
+  !!compute k^3 [ k^2/a^2 (Psi_k+Phi_k)/2 /(3/2\Omega_m0/a^3) ]^2/(2pi^2); in GR it is the same as matter power
   subroutine coop_cosmology_firstorder_get_Weyl_power(this, z, nk, k, Pk)
     class(coop_cosmology_firstorder)::this
     COOP_INT nk, ik
@@ -984,7 +983,7 @@ contains
        ps(ik) = this%psofk(k(ik))
     enddo
     !$omp end parallel do
-    pk = (PhiPlusPsi) **2 * ps * (k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)) * coop_Mpsq(a) /a**2 )**2
+    pk = (PhiPlusPsi) **2 * ps * (k**2*a/this%Omega_m/3.d0)**2
   end subroutine coop_cosmology_firstorder_get_Weyl_power
 
 
