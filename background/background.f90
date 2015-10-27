@@ -10,7 +10,7 @@ module coop_background_mod
   logical,parameter::coop_eft_de_normalize_early = .true.
 #endif  
   
-  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_quintessence, coop_de_wp1_quintessence, coop_de_wp1_coupled_quintessence, coop_background_add_coupled_DE,  coop_background_add_EFT_DE,  coop_background_add_EFT_DE_with_effective_w, coop_de_aeq_fitting, coop_de_alpha_invh2, coop_de_general
+  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_quintessence, coop_de_wp1_quintessence, coop_de_wp1_coupled_quintessence, coop_background_add_coupled_DE,  coop_background_add_EFT_DE,  coop_background_add_EFT_DE_with_effective_w, coop_de_aeq_fitting, coop_de_alpha_invh2, coop_de_alpha_instant, coop_de_general, coop_de_alpha_constructor
 
 contains
 
@@ -803,6 +803,44 @@ contains
     alpha = arg%r(1)*a**4/(arg%r(2)*a + arg%r(3) + (1.d0 - arg%r(2) - arg%r(3))*a**4)
   end function coop_de_alpha_invh2
 
-  
+  function coop_de_alpha_instant(a, arg) result(alpha)
+    type(coop_arguments)::arg !! arg%r = (/ alpha0, Omega_m, lambda, delta_z /)
+    COOP_REAL::alpha, a, zp1, zp1cr
+    zp1 = 1.d0/max(a, coop_min_scale_factor) 
+    zp1cr = (((1.d0 - arg%r(2))/arg%r(2))/arg%r(3))**(1.d0/3.d0) 
+    alpha = arg%r(1) * (1.d0-tanh((zp1 - zp1cr)/arg%r(4)))/2.d0
+  end function coop_de_alpha_instant
+
+
+  function coop_de_alpha_bump(a, arg) result(alpha)
+    type(coop_arguments)::arg !! arg%r = (/ alpha0, Omega_m, lambda, delta_z /)
+    COOP_REAL::alpha, a, zp1, zp1cr
+    zp1 = 1.d0/max(a, coop_min_scale_factor) 
+    zp1cr = (((1.d0 - arg%r(2))/arg%r(2))/arg%r(3))**(1.d0/3.d0) 
+    alpha = arg%r(1) * exp(- ((zp1 - zp1cr)/arg%r(4))**2)
+  end function coop_de_alpha_bump
+
+  function coop_de_alpha_constructor(alpha0, genre) result(alpha)
+    COOP_REAL, parameter::Omega_m = 0.3d0
+    COOP_REAL, parameter::Omega_r = 8.d-5
+    COOP_REAL, parameter::lambda = 0.001d0
+    COOP_REAL, parameter::delta_z = 0.1d0
+    COOP_REAL::alpha0, omegam, omegar
+    COOP_UNKNOWN_STRING::genre
+    type(coop_function)::alpha
+    select case(COOP_LOWER_STR(genre))
+    case("omega")
+       alpha = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ alpha0, Omega_m, Omega_r /) ), name = "alpha")
+    case("linear")
+       call alpha%init_polynomial( (/ 0.d0, alpha0 /) )
+    case("instant")
+       alpha = coop_function_constructor( coop_de_alpha_instant, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ alpha0, Omega_m, lambda, delta_z /) ) , name = "alpha" )
+    case("bump")
+       alpha = coop_function_constructor( coop_de_alpha_bump, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ alpha0, Omega_m, lambda, delta_z /) ) , name = "alpha" )
+    case default
+       write(*,*) trim(genre)
+       stop "unknown alpha function type"
+    end select
+  end function coop_de_alpha_constructor
   
 end module coop_background_mod

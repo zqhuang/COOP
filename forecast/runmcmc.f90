@@ -15,11 +15,13 @@ program RunMC
   type(coop_data_pool)::pool
   type(coop_file)::fp
   COOP_STRING::inifile, pname
-  COOP_INT i, l, icmb
+  COOP_INT i, l, icmb, ik
   COOP_REAL::loglike
   COOP_REAL::pvalue, norm, lnorm
-  COOP_STRING::Cls_output = ""
+  COOP_STRING::cls_root = ""
   COOP_STRING::cmb_dataset  = ""
+  COOP_INT, parameter::nk = 256  
+  COOP_REAL k(nk), matterPk(nk), khMpc(nk), WeylPk(nk)
   
   call coop_MPI_init()
 
@@ -144,6 +146,7 @@ program RunMC
            write(*,*) "h = ", mcmc%cosmology%h()
            write(*,*) "omega_m = ", mcmc%cosmology%omega_m           
            write(*,*) "sigma_8 = ", mcmc%cosmology%sigma_8
+           write(*,*) "sigma_8 [rho_m/(3H^2)/0.3]^{0.3} = ", mcmc%cosmology%sigma_8 * (mcmc%cosmology%Omega_m*coop_Mpsq0/0.3)**0.3           
            write(*,*) "omega_b h^2 M^2 = ", mcmc%cosmology%ombh2 * coop_Mpsq0
            write(*,*) "omega_c h^2 M^2 = ", mcmc%cosmology%omch2 * coop_Mpsq0  
            write(*,*) "100theta = ", mcmc%cosmology%cosmomc_theta()*100.d0
@@ -163,32 +166,48 @@ program RunMC
               write(fp%unit, "(G16.7)") loglike
            endif
            call fp%close()
-        endif        
-        call coop_dictionary_lookup(mcmc%settings, "cls_root", cls_output)
-        if(trim(cls_output) .ne. "")then
+        endif
+        if(iargc().ge.4)then
+           call coop_get_Input(4, cls_root)
+        else
+           call coop_dictionary_lookup(mcmc%settings, "cls_root", cls_root)
+        endif
+        
+        if(trim(cls_root) .ne. "")then
            norm = mcmc%cosmology%TCmb()**2*1.d12           
-           write(*,*) "saving Cl's to file: "//trim(cls_output)
-           call fp%open(trim(cls_output)//"_scalCls.txt", "w")
+           write(*,*) "saving Cl's to file: "//trim(cls_root)
+           call fp%open(trim(cls_root)//"_scalCls.txt", "w")
            do l = 2, mcmc%lmax
               lnorm = l*(l+1.d0)/coop_2pi*norm
               write(fp%unit, "(I8, 20E16.7)") l, mcmc%cls_scalar(coop_index_ClTT, l)*lnorm, mcmc%cls_scalar(coop_index_ClEE, l)*lnorm, mcmc%cls_scalar(coop_index_ClEE, l)*lnorm, mcmc%cls_scalar(coop_index_ClLenLen, l)*norm*(l*(l+1.d0))**2, mcmc%cls_scalar(coop_index_ClTLen, l)*norm*(l*(l+1.d0))**1.5
            enddo
            call fp%close()
            if(mcmc%cosmology%has_tensor)then
-              call fp%open(trim(cls_output)//"_tensCls.txt", "w")
+              call fp%open(trim(cls_root)//"_tensCls.txt", "w")
               do l = 2,mcmc%lmax
                  lnorm = l*(l+1.d0)/coop_2pi*norm                 
                  write(fp%unit, "(I8, 20E16.7)") l, mcmc%cls_tensor(1:4, l)*lnorm
               enddo
               call fp%close()
            endif
-           call fp%open(trim(cls_output)//"_lensedCls.txt", "w")
+           call fp%open(trim(cls_root)//"_lensedCls.txt", "w")
            do l = 2, mcmc%lmax
               lnorm = l*(l+1.d0)/coop_2pi             
               write(fp%unit, "(I8, 20E16.7)") l, mcmc%cls_lensed(1:4, l)*lnorm
            enddo
            call fp%close()
-
+           call coop_set_uniform(nk, k, 0.4d0, 2.d3, logscale = .true.)
+           !!compute k^3 |\delta_k|^2 /(2pi^2)  
+           call mcmc%cosmology%get_Matter_power(z=0.d0, nk = nk, k = k, Pk = matterPk)
+           !!compute k^3 [ k^2/a^2 Phi_k /(3/2H^2\Omega_m) ]^2/(2pi^2)
+           khMpc = k * mcmc%cosmology%H0Mpc()/mcmc%cosmology%h()  !!k/H0 * (H0 * Mpc) / h = k in unit of h Mpc^{-1}
+           matterPk = matterPk * (2.d0*coop_pi**2)/khMpc**3/mcmc%cosmology%h()**3  !!obtain |\delta_k|^2 in unit of (Mpc)^3
+           call fp%open(trim(cls_root)//"_MatterPower.txt", "w")
+           do ik=1, nk
+              write(fp%unit, "(4E16.7)") khMpc(ik), matterPk(ik)
+           enddo
+           
+           call fp%close()
         endif
      else
         loglike = pool%loglike(mcmc)

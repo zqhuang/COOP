@@ -446,14 +446,15 @@ contains
   end subroutine coop_cosmology_firstorder_compute_source
 
 
-  subroutine coop_cosmology_firstorder_compute_source_k(this, source, ik, do_output, transfer_only, success)
-    COOP_REAL, parameter::eps = 1.d-20
+  subroutine coop_cosmology_firstorder_compute_source_k(this, source, ik, output, transfer_only, success)
+    COOP_REAL, parameter::eps = 1.d-8
     class(coop_cosmology_firstorder)::this
     type(coop_cosmology_firstorder_source)::source
     COOP_INT ik, nvars, itau, iq, scheme
     type(coop_pert_object) pert
     COOP_REAL, dimension(:,:),allocatable::w
-    logical,optional::do_output, transfer_only, success
+    logical,optional::transfer_only, success
+    COOP_INT, optional::output
     COOP_REAL c(24)
     COOP_INT ind, i
     COOP_REAL tau_ini, lna, mnu_deltarho, mnu_deltav
@@ -471,10 +472,9 @@ contains
     end select
     
     !!for energy conservation test:
-    if(present(do_output))then
-       if(do_output)then
-          call pert%print()
-       endif
+    if(present(output))then
+       call pert%print(output)
+       call pert%print()
     endif
     
     ind = 1
@@ -514,10 +514,9 @@ contains
        endif
        pert%want_source  = .false.              
        !!for energy conservation test:
-       if(present(do_output))then
-          if(do_output)then
-             call pert%print()
-          endif
+       if(present(output))then
+          call pert%print(output)
+          call pert%print()          
        endif
        !!------------------------------------------------------------
        !!forcing v_b - v_g to tight coupling approximations
@@ -535,10 +534,10 @@ contains
           if(abs(pert%deMat(2, 4)).gt. eps)then
              scheme = 3
           else
-             if(abs(pert%deMat(5, 4)) .gt. eps)then
+             if((abs(pert%deMat(5, 4)) .gt. eps .and. pert%deMat(2, 4).eq.0.d0) .or. abs(pert%deMat(5, 4)) .gt. 1.d-3 )then
                 scheme = 2
              else
-                if(abs(pert%deMat(6, 4)) .gt. eps)then
+                if((abs(pert%deMat(6, 4)) .gt. eps .and. pert%deMat(2, 4).eq.0.d0 .and. pert%deMat(5, 4).eq.0.d0).or. abs(pert%deMat(6, 4)) .gt. 1.d-3) then
                    scheme = 1
                 else
                    scheme = 0
@@ -548,7 +547,7 @@ contains
           if(scheme .ne. pert%de_scheme)then
              ind = 1
              pert%de_scheme = scheme
-!             print*, "de scheme switched to ", scheme
+             if(present(output))print*, "de scheme switched to ", scheme
           endif
        endif
 #endif       

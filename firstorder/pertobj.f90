@@ -426,14 +426,19 @@ contains
 
   !!user specified subroutine
   !!this example shows how to print T00, T00/G00-1, T0i, T0i/G0i-1, Phi, PSI
-  subroutine coop_pert_object_print(pert)
+  subroutine coop_pert_object_print(pert, unit)
     class(coop_pert_object)::pert
+    COOP_INT, optional::unit
     COOP_REAL::T00, T0i, G00, G0i
     T00 = pert%delta_T00a2()
     T0i = pert%delta_T0ia2()
     G00 = pert%delta_G00a2()
     G0i = pert%delta_G0ia2()
-    write(*,"(80E16.7)")  log(pert%a), T00, T00/G00-1.d0, T0i,  T0i/G0i-1.d0, pert%O1_Phi, pert%O1_PSI
+    if(present(unit))then
+       write(unit, "(80E16.7)")  log(pert%a), T00, T00/G00-1.d0, T0i,  T0i/G0i-1.d0, pert%O1_Phi, pert%O1_PSI,  pert%O1_PSI/coop_Mpsq(pert%a)    
+    else
+       write(*,"(80E16.7)")  log(pert%a), T00, T00/G00-1.d0, T0i,  T0i/G0i-1.d0, pert%O1_Phi, pert%O1_PSI,  pert%O1_PSI/coop_Mpsq(pert%a)    
+    endif
   end subroutine coop_pert_object_print
   
   

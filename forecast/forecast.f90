@@ -212,7 +212,8 @@ module coop_forecast_mod
      COOP_INT::index_de_betas = 0                         
 #if DO_COUPLED_DE     
      COOP_INT::index_de_Q = 0
-#elif DO_EFT_DE     
+#elif DO_EFT_DE
+     COOP_SHORT_STRING::alpha_genre
      COOP_INT::index_de_alpha_M0 = 0
      COOP_INT::index_de_alpha_H0 = 0
      COOP_INT::index_de_alpha_T0 = 0
@@ -281,8 +282,7 @@ contains
     if(.not. associated(this%cosmology)) stop "MCMC_params_set_cosmology: cosmology not allocated"
 #if DO_EFT_DE
     if(this%index_de_alpha_M0 .ne. 0)then    
-       call this%cosmology%set_alphaM(coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., &
-            args= coop_arguments_constructor( r = (/ this%fullparams(this%index_de_alpha_M0), alpha_dep_Omega_m, alpha_dep_Omega_r /) ), name = "alpha_M" ))
+       call this%cosmology%set_alphaM(coop_de_alpha_constructor(  this%fullparams(this%index_de_alpha_M0), this%alpha_genre ) )
     else
        call this%cosmology%set_alphaM( coop_function_polynomial( (/ 0.d0 /) ) )       
     endif
@@ -337,16 +337,16 @@ contains
 #if DO_EFT_DE
     this%cosmology%f_alpha_M = coop_EFT_DE_alphaM    
     if(this%index_de_alpha_K0 .ne. 0)then
-       this%cosmology%f_alpha_K = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ this%fullparams(this%index_de_alpha_K0), alpha_dep_Omega_m, this%cosmology%Omega_radiation() + this%cosmology%Omega_massless_neutrinos() /) ) , name = "EFT DE alpha_K")
+       this%cosmology%f_alpha_K = coop_de_alpha_constructor( this%fullparams(this%index_de_alpha_K0), this%alpha_genre )
     endif
     if(this%index_de_alpha_B0 .ne. 0)then
-       this%cosmology%f_alpha_B = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ this%fullparams(this%index_de_alpha_B0), alpha_dep_Omega_m, this%cosmology%Omega_radiation() + this%cosmology%Omega_massless_neutrinos() /) ) , name = "EFT DE alpha_B")
+       this%cosmology%f_alpha_B = coop_de_alpha_constructor( this%fullparams(this%index_de_alpha_B0), this%alpha_genre )       
     endif
     if(this%index_de_alpha_H0 .ne. 0)then
-       this%cosmology%f_alpha_H = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ this%fullparams(this%index_de_alpha_H0), alpha_dep_Omega_m, this%cosmology%Omega_radiation() + this%cosmology%Omega_massless_neutrinos() /) ) , name = "EFT DE alpha_H")
+       this%cosmology%f_alpha_H = coop_de_alpha_constructor( this%fullparams(this%index_de_alpha_H0), this%alpha_genre )       
     endif
     if(this%index_de_alpha_T0 .ne. 0)then
-       this%cosmology%f_alpha_T = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ this%fullparams(this%index_de_alpha_T0), alpha_dep_Omega_m, this%cosmology%Omega_radiation() + this%cosmology%Omega_massless_neutrinos() /) ) , name = "EFT DE alpha_T")
+       this%cosmology%f_alpha_T = coop_de_alpha_constructor( this%fullparams(this%index_de_alpha_T0), this%alpha_genre )       
     endif
 #endif    
 
@@ -1607,6 +1607,7 @@ contains
     this%index_de_alpha_T0 = this%index_of("de_alpha_T0")    
     this%index_de_alpha_B0 = this%index_of("de_alpha_B0")
     call coop_dictionary_lookup(this%settings, "w_is_background", this%w_is_background, .false.)
+    call coop_dictionary_lookup(this%settings, "alpha_genre", this%alpha_genre, "omega")
 #elif DO_COUPLED_DE
     this%index_de_Q = this%index_of("de_Q")
 #endif    

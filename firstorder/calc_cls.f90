@@ -13,7 +13,7 @@ program test
   COOP_REAL,parameter::ombM2h2 = 0.02225d0  !!physical density
   COOP_REAL, parameter::omcM2h2 = 0.12d0  !!
   COOP_REAL,parameter::hubble = 0.68d0  !!H0/100
-  COOP_REAL::tau_re = 0.079d0  !!optical depth2
+  COOP_REAL::tau_re = 0.07d0  !!optical depth2
   COOP_REAL, parameter::As = 2.206d-9   !!amplitude
   COOP_REAL, parameter::r = 0.d0  !! tensor/scalar ratio
   COOP_REAL, parameter::ns = 0.9649d0   !!tilt
@@ -23,7 +23,7 @@ program test
   !!DE background EOS
   COOP_REAL, parameter::w0 =  -1.d0
   COOP_REAL, parameter::wa = 0.d0
-  logical::w_is_background = .true.  !!if set to be true, w is defined as the effective background w that gives the same expansion history in GR; otherwise w is defined as p_DE/ rho_DE.
+  logical::w_is_background = .false.  !!if set to be true, w is defined as the effective background w that gives the same expansion history in GR; otherwise w is defined as p_DE/ rho_DE.
   
 #if DO_EFT_DE  
   !!define the alpha parameters

@@ -104,7 +104,7 @@ program test
   PhiPk = PhiPk * (2.d0*coop_pi**2)/khMpc**3  !!obtain |\delta_k|^2 in unit of (Mpc/h)^3    
   write(*,*) "Saving the matter power spectrum in "//trim(output)
   call fp%open(trim(output),"w")
-  write(fp%unit, "(4A16)") "k * Mpc / h ",  " CDM power ", " Phi power ", " Psi power "
+  write(fp%unit, "(4A16)") "#k * Mpc / h ",  " CDM power ", " Phi power ", " Psi power "
   do ik=1, nk
      write(fp%unit, "(4E16.7)") khMpc(ik), matterPk(ik), PhiPk(ik), PsiPk(ik)
   enddo
