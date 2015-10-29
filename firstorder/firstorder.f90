@@ -537,7 +537,7 @@ contains
              if((abs(pert%deMat(5, 4)) .gt. eps .and. pert%deMat(2, 4).eq.0.d0) .or. abs(pert%deMat(5, 4)) .gt. 1.d-3 )then
                 scheme = 2
              else
-                if((abs(pert%deMat(6, 4)) .gt. eps .and. pert%deMat(2, 4).eq.0.d0 .and. pert%deMat(5, 4).eq.0.d0).or. abs(pert%deMat(6, 4)) .gt. 1.d-3) then
+                if((abs(pert%deMat(6, 4)) .gt. eps .and. pert%deMat(2, 4).eq.0.d0 .and. pert%deMat(5, 4) .eq. 0.d0 ).or. abs(pert%deMat(6, 4)) .gt. 1.d-3) then
                    scheme = 1
                 else
                    scheme = 0

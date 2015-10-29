@@ -54,6 +54,10 @@ program RunMC
      call coop_dictionary_lookup(mcmc%settings, "use_SN", use_SN, .false.)  
      call coop_dictionary_lookup(mcmc%settings, "use_BAO", use_BAO, .false.)
      call coop_dictionary_lookup(mcmc%settings, "use_HST", use_HST, .false.)
+     if(use_HST)then
+        call coop_dictionary_lookup(mcmc%settings, "H0_center", HSTLike%H0, 70.6d0)
+        call coop_dictionary_lookup(mcmc%settings, "H0_error", HSTLike%H0_err, 3.3d0)
+     endif
      call coop_dictionary_lookup(mcmc%settings, "use_compressed_CMB", use_compressed_CMB, .false.)
 
 
