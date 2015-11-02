@@ -201,10 +201,11 @@ program RunMC
            enddo
            call fp%close()
            call coop_set_uniform(nk, k, 0.4d0, 2.d3, logscale = .true.)
-           !!compute k^3 |\delta_k|^2 /(2pi^2)  
-           call mcmc%cosmology%get_Matter_power(z=0.d0, nk = nk, k = k, Pk = matterPk)
-           !!compute k^3 [ k^2/a^2 Phi_k /(3/2H^2\Omega_m) ]^2/(2pi^2)
            khMpc = k * mcmc%cosmology%H0Mpc()/mcmc%cosmology%h()  !!k/H0 * (H0 * Mpc) / h = k in unit of h Mpc^{-1}
+
+           do l=1, nz_out
+           !!compute k^3 |\delta_k|^2 /(2pi^2)  at redshift zero
+           call mcmc%cosmology%get_Matter_power(z=0.d0, nk = nk, k = k, Pk = matterPk)
            matterPk = matterPk * (2.d0*coop_pi**2)/khMpc**3/mcmc%cosmology%h()**3  !!obtain |\delta_k|^2 in unit of (Mpc)^3
            call fp%open(trim(cls_root)//"_MatterPower.txt", "w")
            do ik=1, nk

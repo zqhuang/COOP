@@ -29,7 +29,7 @@ module coop_firstorder_mod
   COOP_REAL, dimension(0:2), parameter :: coop_source_tau_step_factor = (/ 1.d0, 1.d0, 1.d0 /)
   COOP_REAL, dimension(0:2), parameter :: coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
   COOP_INT, dimension(0:2), parameter :: coop_source_k_n = (/ 300, 160, 160 /)
-  COOP_REAL, parameter :: coop_source_k_index = 0.88d0
+  COOP_REAL, parameter :: coop_source_k_index = 0.85d0
 
 
   COOP_INT, parameter :: coop_index_source_T = 1
@@ -42,7 +42,7 @@ module coop_firstorder_mod
   COOP_REAL::coop_zeta_single_slice_chi = -1.d0  !!if set to negative, weight = visibility function
   type(coop_function)::coop_zeta_user_specified_weight
 #else
-  COOP_INT, parameter :: coop_k_dense_fac = 15
+  COOP_INT, parameter :: coop_k_dense_fac = 25
   COOP_INT, parameter :: coop_index_source_Len = 3
 #endif
 
