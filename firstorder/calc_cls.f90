@@ -27,7 +27,7 @@ program test
   
 #if DO_EFT_DE  
   !!define the alpha parameters
-  COOP_REAL, parameter::alpha_M0 = 0.d0 
+  COOP_REAL, parameter::alpha_M0 = 0.5d0 
   COOP_REAL, parameter::alpha_T0 = 0.d0
   COOP_REAL, parameter::alpha_B0 = 0.d0
   COOP_REAL, parameter::alpha_K0 = 0.d0

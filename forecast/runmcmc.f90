@@ -148,6 +148,7 @@ program RunMC
         call coop_prtsystime()
         if(mcmc%cosmology%h() .eq. 0.d0) then
            write(*,*) "-ln(likelihood) = \infty"
+           stop "Model ruled out"
         else
            write(*,*) "h = ", mcmc%cosmology%h()
            write(*,*) "omega_m = ", mcmc%cosmology%omega_m           
