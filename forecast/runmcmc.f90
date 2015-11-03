@@ -160,7 +160,8 @@ program RunMC
            stop "Model ruled out"
         else
            write(*,*) "h = ", mcmc%cosmology%h()
-           write(*,*) "omega_m = ", mcmc%cosmology%omega_m           
+           write(*,"(A, F10.2, A)") "Age = ", mcmc%cosmology%AgeGyr(), " Gyr"           
+           write(*,*) "omega_m = ", mcmc%cosmology%omega_m
            write(*,*) "sigma_8 = ", mcmc%cosmology%sigma_8
            write(*,*) "sigma_8 [rho_m/(3H^2)/0.3]^{0.3} = ", mcmc%cosmology%sigma_8 * (mcmc%cosmology%Omega_m*coop_Mpsq0/0.3)**0.3           
            write(*,*) "omega_b h^2 M^2 = ", mcmc%cosmology%ombh2 * coop_Mpsq0

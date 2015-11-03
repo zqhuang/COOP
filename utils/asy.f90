@@ -2669,7 +2669,7 @@ contains
   subroutine coop_asy_path_from_array_gaussianfit(this, f, xmin, xmax, ymin, ymax, threshold)
     class(coop_asy_path) this
     COOP_SINGLE  f(:,:)
-    COOP_SINGLE  xmin, xmax, ymin, ymax, threshold, dx, dy, cov(2,2), invcov(2,2), mean(2), wtot, delta, fbyg(size(f,1), size(f,2)), vec(2)
+    COOP_SINGLE  xmin, xmax, ymin, ymax, threshold, dx, dy, cov(2,2), invcov(2,2), mean(2), wtot, delta, fbyg_raw(0:size(f,1)+1, 0:size(f,2)+1), vec(2), fbyg(size(f,1), size(f, 2))
     COOP_INT  nx, ny, n, ix, iy
     nx = size(f, 1)
     ny = size(f, 2)
@@ -2703,9 +2703,14 @@ contains
     do ix=1, nx
        do iy = 1, ny
           vec = (/ (ix-1)*dx, (iy-1)*dy /) - mean
-          fbyg(ix, iy) = f(ix, iy)*exp(0.5d0*dot_product(vec, matmul(invcov, vec)))
+          fbyg_raw(ix, iy) = f(ix, iy)*exp(0.5d0*dot_product(vec, matmul(invcov, vec)))
        enddo
     enddo
+    fbyg_raw(0, :) = fbyg_raw(1, :)
+    fbyg_raw(nx+1, :) = fbyg_raw(nx, :)
+    fbyg_raw(:, 0) = fbyg_raw(:, 1)
+    fbyg_raw(:, ny+1) = fbyg_raw(:, ny)
+    fbyg = fbyg_raw(1:nx, 1:ny)*0.4 + (fbyg_raw(0:nx-1, 1:ny) + fbyg_raw(2:nx+1, 1:ny) + fbyg_raw(1:nx, 0:ny-1) + fbyg_raw(1:nx, 2:ny+1))*0.1 + (fbyg_raw(0:nx-1, 0:ny-1) + fbyg_raw(2:nx+1, 2:ny+1) + fbyg_raw(0:nx-1, 2:ny+1) + fbyg_raw(2:nx+1, 0:ny-1))*0.05
     mean(1) = mean(1) + xmin
     mean(2) = mean(2) + ymin
     call this%from_function(finterp, xmin, xmax, ymin, ymax, threshold, n)    
@@ -3635,3 +3640,4 @@ contains
 
   
 end module coop_asy_mod
+
