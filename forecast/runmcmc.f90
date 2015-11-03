@@ -179,7 +179,7 @@ program RunMC
            call coop_dictionary_lookup(mcmc%settings, "cls_root", cls_root)
         endif
         
-        if(trim(cls_root) .ne. "")then
+        if(trim(cls_root) .ne. "" .and. use_CMB)then
            norm = mcmc%cosmology%TCmb()**2*1.d12           
            write(*,*) "saving Cl's to file: "//trim(cls_root)
            call fp%open(trim(cls_root)//"_scalCls.txt", "w")

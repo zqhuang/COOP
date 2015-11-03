@@ -773,10 +773,10 @@ contains
           wp1eff(i) = wp1_l - alpha_l/3.d0/om_l          
        endif
        rhotot_l = (rhotot_l + rhoa4de_l)/a_l**4
-       if(rhotot_l .lt. rhotot_r)then  !!
-          err = 1
-          return
-       endif
+!!$       if(rhotot_l .lt. rhotot_r)then  !!
+!!$          err = 1
+!!$          return
+!!$       endif
        rhotot_r = rhotot_l
        rhoa4de_r = rhoa4de_l
        alpha_r = alpha_l

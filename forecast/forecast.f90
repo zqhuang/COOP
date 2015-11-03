@@ -347,7 +347,6 @@ contains
        this%cosmology%f_alpha_T = coop_de_alpha_constructor( this%fullparams(this%index_de_alpha_T0), this%alpha_genre )       
     endif
 #endif    
-
     call this%cosmology%setup_background()
     if(this%index_tau .ne. 0)then !!
        this%cosmology%optre = this%fullparams(this%index_tau)
@@ -502,8 +501,8 @@ contains
             call coop_background_add_EFT_DE(this%cosmology, wp1 = fwp1 , err = err)
          endif
 
-         
          if(err .ne. 0) then
+            
             call this%cosmology%set_h(0.d0)
             call fwp1%free()
             return
