@@ -3,7 +3,7 @@ program RunMC
   use coop_forecast_mod
   implicit none
 #include "constants.h"
-  logical::use_CMB, use_SN, use_BAO, use_HST, use_WL, use_lensing, use_compressed_CMB
+  logical::use_CMB, use_SN, use_BAO, use_HST, use_WL, use_lensing, use_compressed_CMB, use_Age_Constraint
   type(coop_clik_object),target::pl(5)
   type(coop_HST_object),target::HSTlike
   type(coop_data_JLA),target:: jla
@@ -11,6 +11,7 @@ program RunMC
   type(coop_wl_object), target::wl(1)
   type(coop_cosmology_firstorder),target::cosmology
   type(coop_dataset_CMB_simple),target::Compressed_CMB
+  type(coop_dataset_Age_Constraint),target::Age
   type(coop_mcmc_params)::mcmc
   type(coop_data_pool)::pool
   type(coop_file)::fp
@@ -54,18 +55,22 @@ program RunMC
      call coop_dictionary_lookup(mcmc%settings, "use_lensing", use_lensing, .false.)  
      call coop_dictionary_lookup(mcmc%settings, "use_SN", use_SN, .false.)  
      call coop_dictionary_lookup(mcmc%settings, "use_BAO", use_BAO, .false.)
+
+     !!HST
      call coop_dictionary_lookup(mcmc%settings, "use_HST", use_HST, .false.)
      if(use_HST)then
         call coop_dictionary_lookup(mcmc%settings, "H0_center", HSTLike%H0, 70.6d0)
         call coop_dictionary_lookup(mcmc%settings, "H0_error", HSTLike%H0_err, 3.3d0)
      endif
+     
+     !!CMB derived background constraint (only used when use_CMB =  .false.)
      call coop_dictionary_lookup(mcmc%settings, "use_compressed_CMB", use_compressed_CMB, .false.)
-
-
      if(use_compressed_cmb .and. .not. use_CMB)then
         pool%CMB_Simple => compressed_CMB
      endif
-
+     !!Age constraint
+     call coop_dictionary_lookup(mcmc%settings, "use_age_constraint", use_Age_constraint, .false.)     
+     if(use_Age_constraint) pool%Age_Constraint => Age
      !!BAO
      if(use_BAO)then
         call bao(1)%init("%DATASETDIR%bao/sdss_6DF_bao.dataset")

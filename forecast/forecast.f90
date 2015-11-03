@@ -44,6 +44,13 @@ module coop_forecast_mod
      procedure::loglike =>coop_dataset_CMB_simple_loglike
   end type coop_dataset_CMB_simple
 
+  type, extends(coop_dataset):: coop_dataset_Age_Constraint
+     COOP_REAL::Age =  14.4d0  !!Age in Gyr
+     COOP_REAL::delta_Age = 0.7d0 !!uncertainty
+   contains
+     procedure::LogLike => coop_dataset_Age_Constraint_LogLoke
+  end type coop_dataset_Age_Constraint
+
   type, extends(coop_DataSet):: coop_dataset_SN_Simple
      COOP_INT::n = 0
      COOP_REAL,dimension(:),allocatable::z, mu, dmu, invdmusq
@@ -93,6 +100,7 @@ module coop_forecast_mod
 !!these are simulations     
      type(coop_dataset_SN_Simple),dimension(:), pointer::SN_Simple => null()
      type(coop_dataset_CMB_Simple), pointer::CMB_Simple => null()
+     type(coop_dataset_Age_Constraint), pointer::Age_Constraint => null()     
      type(coop_dataset_BAO)::BAO
      type(coop_dataset_CMB)::CMB
      type(coop_dataset_HST)::HST
@@ -931,7 +939,17 @@ contains
 
   end function coop_dataset_SN_Simple_loglike
 
-
+  function coop_dataset_Age_Constraint_LogLoke(this, mcmc) result(loglike)
+    class(coop_dataset_Age_Constraint)::this
+    type(coop_mcmc_params)::mcmc
+    COOP_REAL::loglike
+    if(associated(mcmc%cosmology))then
+       loglike = ((mcmc%cosmology%AgeGyr() - this%Age)/this%delta_Age)**2/2.d0
+    else
+       loglike = 0.d0
+    endif
+  end function coop_dataset_Age_Constraint_LogLoke
+  
   function coop_dataset_CMB_simple_loglike(this, mcmc) result(loglike)
     class(coop_dataset_CMB_simple)::this
     type(coop_mcmc_params)::mcmc
@@ -1108,7 +1126,10 @@ contains
              if(.not.(LogLike .lt. coop_LogZero)) return                   
           enddo
        endif
-
+       if(associated(this%Age_Constraint))then
+          LogLike = LogLike + this%Age_Constraint%LogLike(mcmc)
+          if(.not.(LogLike .lt. coop_LogZero)) return                     
+       endif
        !!simple CMB
        if(associated(this%CMB_Simple))then
           LogLike = LogLike + this%CMB_Simple%LogLike(mcmc)
