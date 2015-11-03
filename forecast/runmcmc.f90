@@ -67,10 +67,15 @@ program RunMC
      call coop_dictionary_lookup(mcmc%settings, "use_compressed_CMB", use_compressed_CMB, .false.)
      if(use_compressed_cmb .and. .not. use_CMB)then
         pool%CMB_Simple => compressed_CMB
+        if(mcmc%feedback.gt.0)write(*,*) "Using CMB derived background constraint"        
      endif
      !!Age constraint
      call coop_dictionary_lookup(mcmc%settings, "use_age_constraint", use_Age_constraint, .false.)     
-     if(use_Age_constraint) pool%Age_Constraint => Age
+     if(use_Age_constraint)then
+        pool%Age_Constraint => Age
+        if(mcmc%feedback.gt.0)write(*,*) "Using age constraint"
+     endif
+     
      !!BAO
      if(use_BAO)then
         call bao(1)%init("%DATASETDIR%bao/sdss_6DF_bao.dataset")
