@@ -13,12 +13,12 @@ program test
 
   
   !!cosmological parameters
-  COOP_REAL,parameter::ombM2h2 = 0.02225d0
+  COOP_REAL,parameter::ombM2h2 = 0.02222d0
   COOP_REAL,parameter::omcM2h2 = 0.12d0  !!0.12 LCDM  
-  COOP_REAL,parameter::hubble = 0.6801d0  !0.6581d0 !0.7008d0 !0.6801d0 
-  COOP_REAL,parameter::tau_re = 0.06d0  !!optical depth2
-  COOP_REAL,parameter::As = 20.4913d-9   !!amplitude
-  COOP_REAL, parameter::ns = 0.9624d0   !!tilt
+  COOP_REAL,parameter::hubble = 0.6783d0  !0.6581d0 !0.7008d0 !0.6801d0 
+  COOP_REAL,parameter::tau_re = 0.078d0  !!optical depth2
+  COOP_REAL,parameter::As = 2.22d-9   !!amplitude
+  COOP_REAL, parameter::ns = 0.9655d0   !!tilt
   COOP_REAL::Omega_b, Omega_c
   !!for EFT Dark Energy I have assumed massless neutrinos, if you want to compare with CAMB/CLASS you need to set mnu = 0
 
@@ -28,11 +28,11 @@ program test
   logical::w_is_background = .false.  !!if set to be true, w is defined as the effective background w that gives the same expansion history in GR; otherwise w is defined as p_DE/ rho_DE.
 #if DO_EFT_DE  
   !!define the alpha parameters
-  COOP_REAL, parameter::alpha_M0 = 0.d0
+  COOP_REAL, parameter::alpha_M0 = 0.025d0
   COOP_REAL, parameter::alpha_T0 = 0.d0
-  COOP_REAL, parameter::alpha_B0 = 0.d0
-  COOP_REAL, parameter::alpha_K0 = 0.d0
-  COOP_REAL, parameter::alpha_H0 = -0.1d0
+  COOP_REAL, parameter::alpha_B0 = 0.01d0
+  COOP_REAL, parameter::alpha_K0 = 0.1d0
+  COOP_REAL, parameter::alpha_H0 = 0.d0
 #elif DO_COUPLED_DE
   COOP_REAL, parameter::Q0 = 0.d0
   COOP_REAL, parameter::Qa = 0.d0  

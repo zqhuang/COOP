@@ -426,19 +426,26 @@ contains
 
   !!user specified subroutine
   !!this example shows how to print T00, T00/G00-1, T0i, T0i/G0i-1, Phi, PSI
-  subroutine coop_pert_object_print(pert, unit)
+  subroutine coop_pert_object_print(pert, cosmology, unit)
     class(coop_pert_object)::pert
+    class(coop_cosmology_background)::cosmology
     COOP_INT, optional::unit
+    COOP_INT::output_unit
     COOP_REAL::T00, T0i, G00, G0i
     T00 = pert%delta_T00a2()
     T0i = pert%delta_T0ia2()
     G00 = pert%delta_G00a2()
     G0i = pert%delta_G0ia2()
     if(present(unit))then
-       write(unit, "(80E16.7)")  log(pert%a), T00, T00/G00-1.d0, T0i,  T0i/G0i-1.d0, pert%O1_Phi, pert%O1_PSI,  pert%O1_PSI/coop_Mpsq(pert%a)    
+       output_unit = unit
     else
-       write(*,"(80E16.7)")  log(pert%a), T00, T00/G00-1.d0, T0i,  T0i/G0i-1.d0, pert%O1_Phi, pert%O1_PSI,  pert%O1_PSI/coop_Mpsq(pert%a)    
+       output_unit = 6
     endif
+#if DO_EFT_DE    
+    write(output_unit, "(80E16.7)")  log(pert%a), T00, T00/G00-1.d0, T0i,  T0i/G0i-1.d0, pert%O1_Phi, pert%O1_PSI , cosmology%total_alpha(pert%a), cosmology%alphacs2(pert%a)
+#else
+    write(output_unit, "(80E16.7)")  log(pert%a), T00, T00/G00-1.d0, T0i,  T0i/G0i-1.d0, pert%O1_Phi, pert%O1_PSI
+#endif    
   end subroutine coop_pert_object_print
   
   

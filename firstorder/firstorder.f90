@@ -470,8 +470,8 @@ contains
     
     !!for energy conservation test:
     if(present(output))then
-       call pert%print(output)
-       call pert%print()
+       call pert%print(this, output)
+       call pert%print(this)
     endif
     
     ind = 1
@@ -512,8 +512,8 @@ contains
        pert%want_source  = .false.              
        !!for energy conservation test:
        if(present(output))then
-          call pert%print(output)
-          call pert%print()          
+          call pert%print(this, output)
+          call pert%print(this)          
        endif
        !!------------------------------------------------------------
        !!forcing v_b - v_g to tight coupling approximations
@@ -528,10 +528,10 @@ contains
        call this%pert2source(pert, source, itau, ik)
 #if DO_EFT_DE
        if(itau .ge. source%index_de_perturb_on)then
-          if(abs(pert%deMat(2, 4)).gt. eps)then
+          if(abs(pert%deMat(2, 4)).gt. 1.d-6)then
              scheme = 3
           else
-             if((abs(pert%deMat(5, 4)) .gt. eps .and. pert%deMat(2, 4).eq.0.d0) .or. abs(pert%deMat(5, 4)) .gt. 1.d-3 )then
+             if((abs(pert%deMat(5, 4)) .gt. eps .and. pert%deMat(2, 4).eq.0.d0) .or. abs(pert%deMat(5, 4)) .gt. 1.d-4 )then
                 scheme = 2
              else
                 if((abs(pert%deMat(6, 4)) .gt. eps .and. pert%deMat(2, 4).eq.0.d0 .and. pert%deMat(5, 4) .eq. 0.d0 ).or. abs(pert%deMat(6, 4)) .gt. 1.d-3) then
