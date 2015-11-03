@@ -270,12 +270,10 @@ contains
   !!set up %cosmology from %fullparams
   subroutine coop_MCMC_params_Set_Cosmology(this)
     class(coop_MCMC_params)::this
-    COOP_REAL,parameter::omega_m_min = 0.15
-    COOP_REAL,parameter::omega_m_max = 0.45   
-    COOP_REAL, parameter::h_b_i = 0.45d0
-    COOP_REAL, parameter::h_t_i =  0.95d0
-    COOP_REAL, parameter::alpha_dep_Omega_m = 0.3d0
-    COOP_REAL, parameter::alpha_dep_Omega_r = 8.d-5
+    COOP_REAL,parameter::omega_m_min = 0.1
+    COOP_REAL,parameter::omega_m_max = 0.5   
+    COOP_REAL, parameter::h_b_i = 0.4d0
+    COOP_REAL, parameter::h_t_i =  1.d0
     COOP_INT::iloop
     COOP_REAL::h_t, h_b, h_m, theta_t, theta_b, theta_m, theta_want
     logical success
@@ -439,10 +437,8 @@ contains
       this%cosmology%omch2 =this%fullparams(this%index_omcm2h2)/coop_Mpsq0
       !!baryon
       call this%cosmology%add_species(coop_baryon(this%cosmology%ombh2/h**2))
-      this%cosmology%index_baryon = this%cosmology%num_species
       !!radiation
       call this%cosmology%add_species(coop_radiation(this%cosmology%Omega_radiation()))
-      this%cosmology%index_radiation = this%cosmology%num_species      
       !!neutrinos
       if(this%index_mnu .ne. 0)then
 #if DO_EFT_DE
@@ -452,16 +448,12 @@ contains
             call this%cosmology%add_species(coop_neutrinos_massive( &
                  this%cosmology%Omega_nu_per_species_from_mnu_eV( this%fullparams(this%index_mnu) ) ,&
                  this%cosmology%Omega_massless_neutrinos_per_species()))
-            this%cosmology%index_massivenu = this%cosmology%num_species                  
             call this%cosmology%add_species( coop_neutrinos_massless(this%cosmology%Omega_massless_neutrinos_per_species()*(this%cosmology%NNu()-1)))
-            this%cosmology%index_nu = this%cosmology%num_species                  
          else
             call this%cosmology%add_species( coop_neutrinos_massless(this%cosmology%Omega_massless_neutrinos()))
-            this%cosmology%index_nu = this%cosmology%num_species            
          endif
       else
          call this%cosmology%add_species( coop_neutrinos_massless(this%cosmology%Omega_massless_neutrinos()))
-         this%cosmology%index_nu = this%cosmology%num_species
       endif
 
       if(this%index_de_epss .ne. 0 .or. this%index_de_epsinf .ne. 0 .or. this%index_de_zetas .ne. 0 .or. this%index_de_betas .ne. 0)then
@@ -503,7 +495,6 @@ contains
       
 #if DO_EFT_DE
       call this%cosmology%add_species(coop_cdm(this%cosmology%omch2/h**2))
-      this%cosmology%index_cdm = this%cosmology%num_species      
       if(this%index_de_alpha_M0 .ne. 0)then
          if(this%w_is_background)then
             call coop_background_add_EFT_DE_with_effective_w(this%cosmology, effective_wp1 = fwp1 , err = err)            
@@ -531,7 +522,6 @@ contains
       endif
       call fQ%init_polynomial( (/ Q /) )
       call coop_background_add_coupled_DE(this%cosmology, Omega_c = this%cosmology%omch2/h**2, fwp1 = fwp1, fQ = fQ, err = err)
-      this%cosmology%index_cdm = this%cosmology%num_species-1                  
       if(err .ne. 0)then
          call this%cosmology%set_h(0.d0)
       endif
@@ -539,7 +529,6 @@ contains
       call fQ%free()
 #else      
       call this%cosmology%add_species(coop_cdm(this%cosmology%omch2/h**2))
-      this%cosmology%index_cdm = this%cosmology%num_species                  
       if(this%index_de_w .ne. 0)then
          w = this%fullparams(this%index_de_w)
          if(this%index_de_wa .ne. 0)then
@@ -552,7 +541,6 @@ contains
          call this%cosmology%add_species(coop_de_lambda(this%cosmology%Omega_k()))                           
       endif
 #endif
-      this%cosmology%index_de = this%cosmology%num_species                  
 100   call fwp1%free()
     end subroutine setforH
 

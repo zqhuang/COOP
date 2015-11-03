@@ -16,8 +16,15 @@ module coop_cosmology_mod
   public:: coop_cosmology, coop_cosmology_background, coop_r_of_chi, coop_zrecomb_fitting, coop_cosmology_constructor, coop_cosmology_background_constructor
 
   type coop_cosmology
-     COOP_SHORT_STRING  name
-     COOP_INT id
+     COOP_SHORT_STRING::name = "Cosmology"
+     COOP_INT::id = 0
+     COOP_INT::index_baryon = 0
+     COOP_INT::index_cdm = 0
+     COOP_INT::index_de = 0
+     COOP_INT::index_radiation = 0
+     COOP_INT::index_nu = 0
+     COOP_INT::index_massivenu = 0
+     COOP_INT::index_wdm = 0
    contains
      procedure :: init => coop_cosmology_initialize
      procedure :: print=> coop_cosmology_print
@@ -108,7 +115,10 @@ module coop_cosmology_mod
      procedure::alpha_T_prime => coop_cosmology_background_alpha_T_prime
      procedure::alpha_K_prime => coop_cosmology_background_alpha_K_prime
      procedure::alpha_B_prime => coop_cosmology_background_alpha_B_prime
-     procedure::alpha_H_prime => coop_cosmology_background_alpha_H_prime     
+     procedure::alpha_H_prime => coop_cosmology_background_alpha_H_prime
+     procedure::total_alpha => coop_cosmology_background_total_alpha     
+     procedure::alphacs2 => coop_cosmology_background_alphacs2
+     
 #endif     
   end type coop_cosmology_background
 
@@ -194,6 +204,13 @@ contains
   subroutine coop_cosmology_free(this)
     class(coop_cosmology):: this
     integer i
+    this%index_baryon = 0
+    this%index_cdm = 0
+    this%index_de = 0
+    this%index_wdm = 0
+    this%index_radiation = 0
+    this%index_nu = 0
+    this%index_massivenu = 0
     select type (this)
     class is(coop_cosmology_background)
        call this%fdis%free
@@ -274,12 +291,30 @@ contains
     this%species(this%num_species:this%num_species) = species
     this%omega_k_value = this%omega_k_value - species%Omega
     this%need_setup_background = .true.
+    select case(COOP_LOWER_STR(species%name))
+    case("baryon", "b")
+       this%index_baryon = this%num_species
+    case("cdm", "colddarkmatter","darkmatter", "dm")
+       this%index_cdm = this%num_species
+    case("de", "darkenergy", "modifiedgravity", "scalarfield")
+       this%index_de = this%num_species
+    case("radiation", "r", "gamma")
+       this%index_radiation = this%num_species
+    case("nu", "neutrino", "neutrinos", "masslessneutrinos", "masslessnu", "masslessneutrino")
+       this%index_nu = this%num_species
+    case("massivenu", "massiveneutrino", "massiveneutrinos")
+       this%index_massivenu = this%num_species
+    case("wdm", "warmdarkmatter")
+       this%index_wdm = this%num_species
+    case default
+       write(*,*) "Warning: unknown species name: "//trim(species%name)
+    end select
   end subroutine coop_cosmology_background_add_species
 
   !!delete the last n species
   subroutine coop_cosmology_background_delete_species(this, ind)
     class(coop_cosmology_background)::this
-    COOP_INT:: i, ind
+    COOP_INT:: i, ind, cutind
     if(ind .le. 0 .or. ind .gt. this%num_species)return
     this%omega_k_value = this%omega_k_value + this%species(ind)%Omega
     do i = ind, this%num_species-1
@@ -288,6 +323,23 @@ contains
     call this%species(this%num_species)%free()
     this%num_species = this%num_species - 1
     this%need_setup_background = .true.
+    cutind = ind
+    call auto_decrease(this%index_baryon)
+    call auto_decrease(this%index_cdm)
+    call auto_decrease(this%index_de)
+    call auto_decrease(this%index_radiation)
+    call auto_decrease(this%index_nu)
+    call auto_decrease(this%index_massivenu)
+    call auto_decrease(this%index_wdm)
+  contains
+    subroutine auto_decrease(j)
+      COOP_INT::j
+      if(j .gt. cutind)then
+         j = j - 1
+      elseif(j .eq. cutind)then
+         j = 0
+      endif
+    end subroutine auto_decrease
   end subroutine coop_cosmology_background_delete_species
   
 
@@ -774,6 +826,23 @@ contains
     this%f_alpha_M = alphaM
     call coop_EFT_DE_set_Mpsq(alphaM)
   end subroutine coop_cosmology_background_set_alphaM
+
+  function coop_cosmology_background_total_alpha(this, a) result(alpha)
+    class(coop_cosmology_background)::this    
+    COOP_REAL::a, alpha
+    alpha = this%alpha_K(a) + 6.d0 * this%alpha_B(a)**2
+  end function coop_cosmology_background_total_alpha
+
+  function coop_cosmology_background_alphacs2(this, a) result(alphacs2)
+    class(coop_cosmology_background)::this    
+    COOP_REAL::a, alphacs2, alphaT, alphaB, hdotbyhsq, alphaH, alphaM
+    alphaT = this%alpha_T(a)
+    alphaB = this%alpha_B(a)
+    alphaH = this%alpha_H(a)
+    hdotbyhsq = this%HdotbyHsq(a)
+    alphaM = coop_alphaM(a)
+    alphacs2 = -2.d0*((1.d0+alphaB)*((1.d0+alphaB)*(1.d0+alphaT) - (1.d0+alphaH)*(1.d0+alphaM - hdotbyhsq)-this%alpha_H_prime(a))+(1.d0+alphaH)*this%alpha_B_prime(a)) + (1.d0+alphaH)**2*(hdotbyhsq + O0_DE(this)%wp1ofa(a)*O0_DE(this)%density(a)/this%H2a4(a)*a**4/coop_Mpsq(a))
+  end function coop_cosmology_background_alphacs2
 #endif  
 
   

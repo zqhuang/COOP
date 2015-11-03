@@ -13,7 +13,7 @@ module coop_basicutils_mod
   interface coop_right_index
      module procedure coop_right_index_d, coop_right_index_s
   end interface coop_right_index
-  
+
   interface coop_swap
      module procedure coop_swap_real, coop_swap_int, coop_swap_real_array, coop_swap_int_array
   end interface coop_swap
@@ -42,6 +42,10 @@ module coop_basicutils_mod
   interface coop_minloc
      module procedure coop_minloc_d, coop_minloc_s, coop_minloc_i
   end interface coop_minloc
+
+  interface coop_uniform_array
+     module procedure coop_uniform_array_double, coop_uniform_array_single, coop_uniform_array_int
+  end interface coop_uniform_array
   
 contains
 
@@ -1121,6 +1125,69 @@ contains
     enddo
     !$omp end parallel do
   end subroutine coop_smooth_data_s
+
+  function coop_uniform_array_double(n, start, end, logscale) result(arr)
+    COOP_INT::n
+    COOP_REAL::start
+    COOP_REAL, optional::end
+    COOP_REAL::arr(n)
+    logical, optional::logscale
+    if(present(end))then
+       if(present(logscale))then
+          if(logscale)then
+             if(start .le. 0.d0 .or. end .le. 0.d0) stop "coop_uniform_array error: log(negative)"
+             call coop_set_uniform(n, arr, log(start), log(end))
+             arr = exp(arr)
+          else
+             call coop_set_uniform(n, arr, start, end)
+          endif
+       else
+          call coop_set_uniform(n, arr, start, end)
+       endif
+    else
+       arr = start
+    endif
+  end function coop_uniform_array_double
+
+
+  function coop_uniform_array_single(n, start, end, logscale) result(arr)
+    COOP_INT::n
+    COOP_SINGLE::start
+    COOP_SINGLE, optional::end
+    COOP_SINGLE::arr(n)
+    logical, optional::logscale
+    if(present(end))then
+       if(present(logscale))then
+          if(logscale)then
+             if(start .le. 0.d0 .or. end .le. 0.d0) stop "coop_uniform_array error: log(negative)"
+             call coop_set_uniform(n, arr, log(start), log(end))
+             arr = exp(arr)
+          else
+             call coop_set_uniform(n, arr, start, end)
+          endif
+       else
+          call coop_set_uniform(n, arr, start, end)
+       endif
+    else
+       arr = start
+    endif
+  end function coop_uniform_array_single
+
+
+  function coop_uniform_array_int(n, start, step) result(arr)
+    COOP_INT::n, i
+    COOP_INT::start
+    COOP_INT, optional::step
+    COOP_INT::arr(n)
+    if(present(step))then
+       arr(1) = start
+       do i = 2, n
+          arr(i) = arr(i-1)+step
+       enddo
+    else
+       arr = start
+    endif
+  end function coop_uniform_array_int
 
 
 end module coop_basicutils_mod

@@ -14,8 +14,7 @@ program RunMC
   type(coop_mcmc_params)::mcmc
   type(coop_data_pool)::pool
   type(coop_file)::fp
-  COOP_INT::nz_out = 1
-  COOP_REAL, dimension(:),allocatable::z_out
+  type(coop_list_double)::z_out
   COOP_STRING::inifile, pname
   COOP_INT i, l, icmb, ik, iz
   COOP_REAL::loglike
@@ -186,7 +185,7 @@ program RunMC
            call fp%open(trim(cls_root)//"_scalCls.txt", "w")
            do l = 2, mcmc%lmax
               lnorm = l*(l+1.d0)/coop_2pi*norm
-              write(fp%unit, "(I8, 20E16.7)") l, mcmc%cls_scalar(coop_index_ClTT, l)*lnorm, mcmc%cls_scalar(coop_index_ClEE, l)*lnorm, mcmc%cls_scalar(coop_index_ClEE, l)*lnorm, mcmc%cls_scalar(coop_index_ClLenLen, l)*norm*(l*(l+1.d0))**2, mcmc%cls_scalar(coop_index_ClTLen, l)*norm*(l*(l+1.d0))**1.5
+              write(fp%unit, "(I8, 20E16.7)") l, mcmc%cls_scalar(coop_index_ClTT, l)*lnorm, mcmc%cls_scalar(coop_index_ClEE, l)*lnorm, mcmc%cls_scalar(coop_index_ClTE, l)*lnorm, mcmc%cls_scalar(coop_index_ClLenLen, l)*norm*(l*(l+1.d0))**2, mcmc%cls_scalar(coop_index_ClTLen, l)*norm*(l*(l+1.d0))**1.5
            enddo
            call fp%close()
            if(mcmc%cosmology%has_tensor)then
@@ -205,15 +204,13 @@ program RunMC
            call fp%close()
            call coop_set_uniform(nk, k, 0.4d0, 2.d3, logscale = .true.)
            khMpc = k * mcmc%cosmology%H0Mpc()/mcmc%cosmology%h()  !!k/H0 * (H0 * Mpc) / h = k in unit of h Mpc^{-1}
-           call coop_dictionary_lookup(mcmc%settings, "num_redshifts", nz_out, 1)
-           allocate(z_out(nz_out))
-           do iz = 1, nz_out
-              call coop_dictionary_lookup(mcmc%settings, "redshift"//COOP_STR_OF(iz), z_out(iz), 0.d0)
+           call coop_dictionary_lookup(mcmc%settings, "output_redshifts", z_out)           
+           do iz = 1, z_out%n
               !!compute k^3 |\delta_k|^2 /(2pi^2)  at redshift zero
-              call mcmc%cosmology%get_Matter_power(z=z_out(iz), nk = nk, k = k, Pk = matterPk)
+              call mcmc%cosmology%get_Matter_power(z=z_out%element(iz), nk = nk, k = k, Pk = matterPk)
               matterPk = matterPk * (2.d0*coop_pi**2)/khMpc**3/mcmc%cosmology%h()**3  !!obtain |\delta_k|^2 in unit of (Mpc)^3
               call fp%open(trim(cls_root)//"_MatterPower"//COOP_STR_OF(iz)//".txt", "w")
-              write(fp%unit, "(A30)") "#matter power at z = "//COOP_STR_OF(z_out(iz))
+              write(fp%unit, "(A, F10.2)") "#matter power at z = ", z_out%element(iz)
               do ik=1, nk
                  write(fp%unit, "(4E16.7)") khMpc(ik), matterPk(ik)
               enddo

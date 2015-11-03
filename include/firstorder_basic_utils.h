@@ -197,12 +197,6 @@
     COOP_REAL ekappa(n), a(n), dkappadinva(n), dkappadtau(n), vis(n)
     call this%setup_background()
     call this%set_klms()
-    this%index_baryon = this%index_of("Baryon", .true.)
-    this%index_radiation = this%index_of("Radiation", .true.)
-    this%index_cdm = this%index_of("CDM", .true.)
-    this%index_Nu = this%index_of("Massless Neutrinos", .true.)
-    this%index_massiveNu = this%index_of("Massive Neutrinos")
-    this%index_de = this%index_of("Dark Energy", .true.)
     this%Omega_b = O0_BARYON(this)%Omega    
     this%ombh2 = this%Omega_b * this%h()**2    
     this%Omega_c = O0_CDM(this)%Omega

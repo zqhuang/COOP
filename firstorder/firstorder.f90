@@ -136,12 +136,9 @@ module coop_firstorder_mod
      !!these two parameters are defined in the a->0 limit (only matters when baryon or CDM is coupled to DE in some modified gravity models)     
      COOP_REAL::ombh2 = 0.022d0
      COOP_REAL::omch2 = 0.12d0
-     
      logical::inflation_consistency = .true.
-     
      type(coop_function)::Ps, Pt, Xe, ekappa, vis, Tb
      type(coop_cosmology_firstorder_source),dimension(0:2)::source
-     COOP_INT::index_baryon, index_cdm, index_radiation, index_nu, index_massiveNu, index_de
      COOP_REAL, dimension(0:coop_pert_default_lmax, 0:coop_pert_default_mmax, 0:coop_pert_default_smax)::klms, klms_by_2lm1, klms_by_2lp1
      COOP_REAL,dimension(coop_pert_default_lmax)::fourbyllp1
      logical::klms_done = .false.

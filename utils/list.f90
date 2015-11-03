@@ -42,7 +42,7 @@ module coop_list_mod
   end interface coop_string_to_list
 
   interface coop_dictionary_lookup
-     module procedure coop_dictionary_lookup_string, coop_dictionary_lookup_int, coop_dictionary_lookup_real, coop_dictionary_lookup_double, coop_dictionary_lookup_logical, coop_dictionary_lookup_int_array, coop_dictionary_lookup_real_array, coop_dictionary_lookup_double_array, coop_dictionary_lookup_logical_array
+     module procedure coop_dictionary_lookup_string, coop_dictionary_lookup_int, coop_dictionary_lookup_real, coop_dictionary_lookup_double, coop_dictionary_lookup_logical, coop_dictionary_lookup_int_array, coop_dictionary_lookup_real_array, coop_dictionary_lookup_double_array, coop_dictionary_lookup_logical_array, coop_dictionary_lookup_list_real, coop_dictionary_lookup_list_integer, coop_dictionary_lookup_list_double, coop_dictionary_lookup_list_logical, coop_dictionary_lookup_list_string
   end interface coop_dictionary_lookup
 
   interface coop_get_command_line_argument
@@ -1670,6 +1670,52 @@ contains
   end subroutine coop_dictionary_lookup_logical_array
 
 
+  subroutine coop_dictionary_lookup_list_real(dict, key, l)
+    class(coop_dictionary)::dict
+    COOP_UNKNOWN_STRING::key
+    type(coop_list_real)::l
+    COOP_STRING::val
+    call coop_dictionary_lookup_string(dict, key, val)
+    call coop_string_to_list(val, l)
+  end subroutine coop_dictionary_lookup_list_real
+
+  subroutine coop_dictionary_lookup_list_double(dict, key, l)
+    class(coop_dictionary)::dict
+    COOP_UNKNOWN_STRING::key
+    type(coop_list_double)::l
+    COOP_STRING::val
+    call coop_dictionary_lookup_string(dict, key, val)
+    call coop_string_to_list(val, l)
+  end subroutine coop_dictionary_lookup_list_double
+
+  subroutine coop_dictionary_lookup_list_logical(dict, key, l)
+    class(coop_dictionary)::dict
+    COOP_UNKNOWN_STRING::key
+    type(coop_list_logical)::l
+    COOP_STRING::val    
+    call coop_dictionary_lookup_string(dict, key, val)
+    call coop_string_to_list(val, l)
+  end subroutine coop_dictionary_lookup_list_logical
+
+  subroutine coop_dictionary_lookup_list_string(dict, key, l)
+    class(coop_dictionary)::dict
+    COOP_UNKNOWN_STRING::key
+    type(coop_list_string)::l
+    COOP_STRING::val    
+    call coop_dictionary_lookup_string(dict, key, val)
+    call coop_string_to_list(val, l)
+  end subroutine coop_dictionary_lookup_list_string
+  
+
+  subroutine coop_dictionary_lookup_list_integer(dict, key, l)
+    class(coop_dictionary)::dict
+    COOP_UNKNOWN_STRING::key
+    type(coop_list_integer)::l
+    COOP_STRING::val    
+    call coop_dictionary_lookup_string(dict, key, val)
+    call coop_string_to_list(val, l)    
+  end subroutine coop_dictionary_lookup_list_integer
+  
   function coop_dictionary_value(dict, key) result(val)
     class(coop_dictionary):: dict
     COOP_UNKNOWN_STRING key
