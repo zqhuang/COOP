@@ -951,8 +951,8 @@ contains
           call coop_sympos_inverse(3, 3, this%invcov)
           this%has_invcov = .true.
        endif
-       vec = (/ mcmc%cosmology%ombh2 -this%ombh2_center, &
-            mcmc%cosmology%omch2 - this%omch2_center,  &
+       vec = (/ mcmc%cosmology%ombh2*coop_Mpsq0 -this%ombh2_center, &
+            mcmc%cosmology%omch2*coop_Mpsq0 - this%omch2_center,  &
             100.d0*mcmc%cosmology%cosmomc_theta() - this%theta_center /)
        loglike = dot_product(vec, matmul(this%invcov, vec))/2.d0
     else
