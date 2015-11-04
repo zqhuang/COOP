@@ -2930,12 +2930,16 @@ contains
     else
        write(this%unit, "(A)") "black"       
     endif
-    write(this%unit, "(G15.4)") "0.5"
-    write(this%unit, "(G15.4)") "0.3"
-    write(this%unit, "(G15.4)") "1"
-    write(this%unit, "(G15.4)") "0.95"
-    write(this%unit, "(G15.4)") "0.95"    
-    write(this%unit, "(I6)")  cols   
+    write(this%unit, "(A)") "0.5"
+    write(this%unit, "(A)") "0.3"
+    write(this%unit, "(A)") "1"
+    write(this%unit, "(A)") "0.95"
+    write(this%unit, "(A)") "0.95"
+    if(present(cols))then
+       write(this%unit, "(I6)")  cols
+    else
+       write(this%unit, "(A)")  "1"       
+    endif
     write(this%unit, "(A)") "NULL"
     write(this%unit, "(2G15.4)") this%xrel(xratio), this%yrel(yratio)
   end subroutine coop_asy_legend_relative
@@ -2947,12 +2951,16 @@ contains
     COOP_INT ,optional::cols
     write(this%unit, "(A)") "LEGEND_ADVANCE"
     write(this%unit, "(A)") "invisible"
-    write(this%unit, "(G15.4)") "0.05"
-    write(this%unit, "(G15.4)") "0.05"
-    write(this%unit, "(G15.4)") "0.75"
-    write(this%unit, "(G15.4)") "0.85"
-    write(this%unit, "(G15.4)") "0.85"    
-    write(this%unit, "(I6)")  cols   
+    write(this%unit, "(A)") "0.05"
+    write(this%unit, "(A)") "0.05"
+    write(this%unit, "(A)") "0.75"
+    write(this%unit, "(A)") "0.85"
+    write(this%unit, "(A)") "0.85"
+    if(present(cols))then
+       write(this%unit, "(I6)")  cols
+    else
+       write(this%unit, "(A)")  "1"
+    endif
     write(this%unit, "(A)") "NULL"
     write(this%unit, "(2G15.4)") this%xrel(xratio), this%yrel(yratio)
   end subroutine coop_asy_compact_legend_relative
