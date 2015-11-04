@@ -2667,9 +2667,23 @@ contains
   end subroutine coop_asy_path_from_array
 
   subroutine coop_asy_path_from_array_gaussianfit(this, f, xmin, xmax, ymin, ymax, threshold)
+    COOP_REAL, parameter::ss = 2.d0*(1.d0)**2
+    COOP_REAL, parameter::n00 = 1.d0
+    COOP_REAL, parameter::n10 = exp(-1.d0/ss)
+    COOP_REAL, parameter::n11 = exp(-2.d0/ss)
+    COOP_REAL, parameter::n20 = exp(-4.d0/ss)
+    COOP_REAL, parameter::n21 = exp(-5.d0/ss)
+    COOP_REAL, parameter::n22 = exp(-8.d0/ss)
+    COOP_REAL, parameter::nsum = n00 + (n10+n11+n20+n22)*4.d0 + n21*8.d0
+    COOP_REAL, parameter::norm00 = n00/nsum
+    COOP_REAL, parameter::norm10 = n10/nsum
+    COOP_REAL, parameter::norm11 = n11/nsum
+    COOP_REAL, parameter::norm20 = n20/nsum
+    COOP_REAL, parameter::norm21 = n21/nsum
+    COOP_REAL, parameter::norm22 = n22/nsum        
     class(coop_asy_path) this
     COOP_SINGLE  f(:,:)
-    COOP_SINGLE  xmin, xmax, ymin, ymax, threshold, dx, dy, cov(2,2), invcov(2,2), mean(2), wtot, delta, fbyg_raw(0:size(f,1)+1, 0:size(f,2)+1), vec(2), fbyg(size(f,1), size(f, 2))
+    COOP_SINGLE  xmin, xmax, ymin, ymax, threshold, dx, dy, cov(2,2), invcov(2,2), mean(2), wtot, delta, fbyg_raw(-1:size(f,1)+2, -1:size(f,2)+2), vec(2), fbyg(size(f,1), size(f, 2))
     COOP_INT  nx, ny, n, ix, iy
     nx = size(f, 1)
     ny = size(f, 2)
@@ -2707,10 +2721,21 @@ contains
        enddo
     enddo
     fbyg_raw(0, :) = fbyg_raw(1, :)
+    fbyg_raw(-1, :) = fbyg_raw(1, :)    
     fbyg_raw(nx+1, :) = fbyg_raw(nx, :)
+    fbyg_raw(nx+2, :) = fbyg_raw(nx, :)    
     fbyg_raw(:, 0) = fbyg_raw(:, 1)
+    fbyg_raw(:, -1) = fbyg_raw(:, 1)    
     fbyg_raw(:, ny+1) = fbyg_raw(:, ny)
-    fbyg = fbyg_raw(1:nx, 1:ny)*0.4 + (fbyg_raw(0:nx-1, 1:ny) + fbyg_raw(2:nx+1, 1:ny) + fbyg_raw(1:nx, 0:ny-1) + fbyg_raw(1:nx, 2:ny+1))*0.1 + (fbyg_raw(0:nx-1, 0:ny-1) + fbyg_raw(2:nx+1, 2:ny+1) + fbyg_raw(0:nx-1, 2:ny+1) + fbyg_raw(2:nx+1, 0:ny-1))*0.05
+    fbyg_raw(:, ny+2) = fbyg_raw(:, ny)    
+    
+    fbyg = fbyg_raw(1:nx, 1:ny)*norm00 &
+         + (fbyg_raw(0:nx-1, 1:ny) + fbyg_raw(2:nx+1, 1:ny) + fbyg_raw(1:nx, 0:ny-1) + fbyg_raw(1:nx, 2:ny+1))*norm10 &
+         + (fbyg_raw(0:nx-1, 0:ny-1) + fbyg_raw(2:nx+1, 2:ny+1) + fbyg_raw(0:nx-1, 2:ny+1) + fbyg_raw(2:nx+1, 0:ny-1))*norm11 &
+         + (fbyg_raw(-1:nx-2, 1:ny) + fbyg_raw(3:nx+2, 1:ny) + fbyg_raw(1:nx, 3:ny+2) + fbyg_raw(1:nx, -1:ny-2))*norm20 &
+         + (fbyg_raw(-1:nx-2, 2:ny+1) + fbyg_raw(-1:nx-2, 0:ny-1) + fbyg_raw(3:nx+2, 2:ny+1) + fbyg_raw(3:nx+2, 0:ny-1) + fbyg_raw(0:nx-1, 3:ny+2) + fbyg_raw(2:nx+1, 3:ny+2) + fbyg_raw(2:nx+1, -1:ny-2) + fbyg_raw(0:nx-1, -1:ny-2) )*norm21 &
+         + (fbyg_raw(-1:nx-2, -1:ny-2) + fbyg_raw(3:nx+2, -1:ny-2) + fbyg_raw(-1:nx-2, 3:ny+2) + fbyg_raw(3:nx+2, 3:ny+2))*norm22                          
+    
     mean(1) = mean(1) + xmin
     mean(2) = mean(2) + ymin
     call this%from_function(finterp, xmin, xmax, ymin, ymax, threshold, n)    
