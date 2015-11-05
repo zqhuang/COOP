@@ -10,13 +10,13 @@ program test
   logical::zeta_single_slice = .false.
 #endif  
   !!cosmological parameters
-  COOP_REAL,parameter::ombM2h2 = 0.02225d0  !!physical density
-  COOP_REAL, parameter::omcM2h2 = 0.12d0  !!
-  COOP_REAL,parameter::hubble = 0.68d0  !!H0/100
-  COOP_REAL::tau_re = 0.07d0  !!optical depth2
-  COOP_REAL, parameter::As = 2.206d-9   !!amplitude
+  COOP_REAL,parameter::ombM2h2 = 0.02222d0  !!physical density
+  COOP_REAL, parameter::omcM2h2 = 0.1197d0  !!
+  COOP_REAL,parameter::hubble = 0.7185021d0  !!H0/100
+  COOP_REAL::tau_re = 0.078d0  !!optical depth2
+  COOP_REAL, parameter::As = 2.1977078d-9   !!amplitude
   COOP_REAL, parameter::r = 0.d0  !! tensor/scalar ratio
-  COOP_REAL, parameter::ns = 0.9649d0   !!tilt
+  COOP_REAL, parameter::ns = 0.9655d0   !!tilt
   COOP_REAL::omega_b, Omega_c
   !!for EFT Dark Energy I have assumed massless neutrinos, if you want to compare with CAMB/CLASS you need to set mnu = 0
 
@@ -27,7 +27,7 @@ program test
   
 #if DO_EFT_DE  
   !!define the alpha parameters
-  COOP_REAL, parameter::alpha_M0 = 0.5d0 
+  COOP_REAL, parameter::alpha_M0 = 0.4d0 
   COOP_REAL, parameter::alpha_T0 = 0.d0
   COOP_REAL, parameter::alpha_B0 = 0.d0
   COOP_REAL, parameter::alpha_K0 = 0.d0
@@ -40,7 +40,7 @@ program test
   !! declare other variables  
   type(coop_cosmology_firstorder)::cosmology
   type(coop_function)::fwp1, fQ, alphaM, alphaB, alphaK, alphaT, alphaH
-  COOP_INT, parameter::lmin = 2, lmax = 2500
+  COOP_INT, parameter::lmin = 2, lmax = 2608
   COOP_REAL::Cls(coop_num_Cls, lmin:lmax), tensCls(coop_num_Cls, lmin:lmax), lensedCls(coop_num_Cls, lmin:lmax), ells(lmin:lmax)
   COOP_REAL::norm, lnorm, M0, lambda
   COOP_INT::l

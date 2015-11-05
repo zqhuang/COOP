@@ -706,7 +706,7 @@ contains
     class(coop_cosmology_background)::this
     type(coop_function)::wp1
     type(coop_species)::de
-    COOP_INT::i, err, j
+    COOP_INT::i, err, j, nsteps
     COOP_REAL,dimension(narr)::lnrho,  wp1eff
     COOP_REAL::lna, lnamin, lnamax, dlna, alpha_l, a_l, a_r, alpha_r, wp1_l, wp1_r, omega_de, om_l, om_r, rhoa4de_l, rhotot_l, rhotot_r, step, rhoa4de_r
 #if DO_EFT_DE        
@@ -737,41 +737,18 @@ contains
        rhotot_l =  this%rhoa4(a_l)
        om_l = rhoa4de_r/(rhotot_l + rhoa4de_r)  !!first assuming rho_de constant
        wp1eff(i) = wp1_l - alpha_l/3.d0/om_l
-       if(om_l .gt. 1.d-2)then
-          do j=1, 5
-             lnrho(i) = lnrho(i+1) + (wp1eff(i)+wp1eff(i+1))*step
-             rhoa4de_l = exp(lnrho(i)+4.d0*lna)
-             om_l = rhoa4de_l/(rhoa4de_l + rhotot_l)
-             wp1eff(i) = wp1_l - alpha_l/3.d0/om_l
-             if(om_l .lt. 1.d-50)then
-                lnrho(1:i-1) = lnrho(i)
-                wp1eff(1:i-1) = wp1eff(i)
-                goto 100
-             endif
-          enddo          
-       elseif(om_l .gt. 1.d-4)then
-          do j=1, 2
-             lnrho(i) = lnrho(i+1) + (wp1eff(i)+wp1eff(i+1))*step
-             rhoa4de_l = exp(lnrho(i)+4.d0*lna)
-             om_l = rhoa4de_l/(rhoa4de_l + rhotot_l)
-             wp1eff(i) = wp1_l - alpha_l/3.d0/om_l
-             if(om_l .lt. 1.d-50)then
-                lnrho(1:i-1) = lnrho(i)
-                wp1eff(1:i-1) = wp1eff(i)
-                goto 100
-             endif
-          enddo
-       else
+       nsteps = min(nint(log10(1.d9*om_l)), 5)
+       do j=1, nsteps
           lnrho(i) = lnrho(i+1) + (wp1eff(i)+wp1eff(i+1))*step
           rhoa4de_l = exp(lnrho(i)+4.d0*lna)
           om_l = rhoa4de_l/(rhoa4de_l + rhotot_l)
-          if(om_l .lt. 1.d-50)then
-             lnrho(1:i-1) = lnrho(i)
-             wp1eff(1:i-1) = wp1eff(i)
+          wp1eff(i) = wp1_l - alpha_l/3.d0/om_l
+          if(om_l .lt. 1.d-8)then
+             lnrho(1:i) = lnrho(i+1)
+             wp1eff(1:i) = wp1eff(i+1)
              goto 100
           endif
-          wp1eff(i) = wp1_l - alpha_l/3.d0/om_l          
-       endif
+       enddo
        rhotot_l = (rhotot_l + rhoa4de_l)/a_l**4
 !!$       if(rhotot_l .lt. rhotot_r)then  !!
 !!$          err = 1

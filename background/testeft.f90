@@ -3,7 +3,7 @@ program bgtest
   implicit none
 #include "constants.h"
   COOP_REAL:: omegab = 0.049d0
-  COOP_REAL:: omegac = 0.265d0
+  COOP_REAL:: omegac = 0.2d0
   type(coop_cosmology_background)::bg
   COOP_INT, parameter::nvars = 4
   COOP_INT, parameter::n = 512
@@ -12,8 +12,8 @@ program bgtest
   type(coop_ode)::ode
   COOP_REAL::y(nvars), yp(nvars), a
   COOP_INT::index_de
-  call wp1%init_polynomial( (/ 0.d0, 0.2d0 /) )
-  call alpha_M%init_polynomial( (/ 0.d0, 0.d0, 0.d0, 0.d0 /) )
+  call wp1%init_polynomial( (/ 0.d0, 0.d0 /) )
+  call alpha_M%init_polynomial( (/ 0.d0, 0.d0, 0.d0, 1.d0 /) )
   call bg%set_alphaM(alpha_M)
 
   call bg%init(h=0.68d0)

@@ -442,7 +442,7 @@ contains
        output_unit = 6
     endif
 #if DO_EFT_DE    
-    write(output_unit, "(80E16.7)")  log(pert%a), T00, T00/G00-1.d0, T0i,  T0i/G0i-1.d0, pert%O1_Phi, pert%O1_PSI , cosmology%total_alpha(pert%a), cosmology%alphacs2(pert%a)
+    write(output_unit, "(80E16.7)")  log(pert%a), T00/G00-1.d0, T0i/G0i-1.d0, pert%O1_Phi, pert%O1_PSI ,pert%O1_DE_HPI,  cosmology%total_alpha(pert%a), cosmology%alphacs2(pert%a), O0_DE(cosmology)%density(pert%a)
 #else
     write(output_unit, "(80E16.7)")  log(pert%a), T00, T00/G00-1.d0, T0i,  T0i/G0i-1.d0, pert%O1_Phi, pert%O1_PSI
 #endif    

@@ -653,7 +653,7 @@ contains
     COOP_REAL ,dimension(:),allocatable::xx, yy, yy2
     class(coop_asy) this
     COOP_REAL ,dimension(:),intent(IN)::xraw, yraw
-    COOP_UNKNOWN_STRING interpolate
+    COOP_UNKNOWN_STRING::interpolate
     COOP_UNKNOWN_STRING,optional:: color, linetype
     COOP_SINGLE ,optional::linewidth
     COOP_UNKNOWN_STRING, optional::legend
@@ -668,8 +668,8 @@ contains
     if(minx .ge. maxx)then
        npt = 1
        x(1) = minx
-       select case(trim(interpolate))
-       case("LinearLog", "LogLog")
+       select case(COOP_LOWER_STR(interpolate))
+       case("linearlog", "loglog")
           y(1) = exp(sum(log(yraw))/m)
        case default
           y(1) = sum(yraw)/m
@@ -678,8 +678,8 @@ contains
     endif
     npt = n
     do_raw = .false.
-    select case(trim(interpolate))
-    case("LinearLinear")
+    select case(COOP_LOWER_STR(interpolate))
+    case("linearlinear")
        call coop_set_uniform(n, x, minx, maxx)
        dx = (maxx - minx)/(n-1.)
        do i=1, m
@@ -709,7 +709,7 @@ contains
           enddo
           deallocate(xx, yy, yy2)
        endif
-    case("LinearLog")
+    case("linearlog")
        call coop_set_uniform(n, x, minx, maxx)
        dx = (maxx - minx)/(n-1.)
        do i=1, m
@@ -740,7 +740,7 @@ contains
           deallocate(xx, yy, yy2)
        endif
        y = exp(y)
-    case("LogLinear")
+    case("loglinear")
        minx = log(minx)
        maxx = log(maxx)
        call coop_set_uniform(n, x, minx, maxx)
@@ -773,7 +773,7 @@ contains
           deallocate(xx, yy, yy2)
        endif
        x = exp(x)
-    case("LogLog")
+    case("loglog")
        minx = log(minx)
        maxx = log(maxx)
        call coop_set_uniform(n, x, minx, maxx)
@@ -947,8 +947,8 @@ contains
     if(minx .ge. maxx)then
        npt = 1
        x(1) = minx
-       select case(trim(interpolate))
-       case("LinearLog", "LogLog")
+       select case(COOP_LOWER_STR(interpolate))
+       case("linearlog", "loglog")
           y(1) = exp(sum(log(yraw))/m)
        case default
           y(1) = sum(yraw)/m
@@ -957,8 +957,8 @@ contains
     endif
     npt = n
     do_raw = .false.
-    select case(trim(interpolate))
-    case("LinearLinear")
+    select case(COOP_LOWER_STR(interpolate))
+    case("linearlinear")
        call coop_set_uniform(n, x, minx, maxx)
        dx = (maxx - minx)/(n-1.)
        do i=1, m
@@ -988,7 +988,7 @@ contains
           enddo
           deallocate(xx, yy, yy2)
        endif
-    case("LinearLog")
+    case("linearlog")
        call coop_set_uniform(n, x, minx, maxx)
        dx = (maxx - minx)/(n-1.)
        do i=1, m
@@ -1019,7 +1019,7 @@ contains
           deallocate(xx, yy, yy2)
        endif
        y = exp(y)
-    case("LogLinear")
+    case("loglinear")
        minx = log(minx)
        maxx = log(maxx)
        call coop_set_uniform(n, x, minx, maxx)
@@ -1052,7 +1052,7 @@ contains
           deallocate(xx, yy, yy2)
        endif
        x = exp(x)
-    case("LogLog")
+    case("loglog")
        minx = log(minx)
        maxx = log(maxx)
        call coop_set_uniform(n, x, minx, maxx)
@@ -1260,8 +1260,8 @@ contains
     if(minx .ge. maxx)then
        npt = 1
        x(1) = minx
-       select case(trim(interpolate))
-       case("LinearLog", "LogLog")
+       select case(COOP_LOWER_STR(interpolate))
+       case("linearlog", "loglog")
           y(1) = exp(sum(log(yraw))/m)
        case default
           y(1) = sum(yraw)/m
@@ -1270,8 +1270,8 @@ contains
     endif
     npt = n
     do_raw = .false.
-    select case(trim(interpolate))
-    case("LinearLinear")
+    select case(COOP_LOWER_STR(interpolate))
+    case("linearlinear")
        call coop_set_uniform(n, x, minx, maxx)
        dx = (maxx - minx)/(n-1.)
        do i=1, m
@@ -1301,7 +1301,7 @@ contains
           enddo
           deallocate(xx, yy, yy2)
        endif
-    case("LinearLog")
+    case("linearlog")
        call coop_set_uniform(n, x, minx, maxx)
        dx = (maxx - minx)/(n-1.)
        do i=1, m
@@ -1332,7 +1332,7 @@ contains
           deallocate(xx, yy, yy2)
        endif
        y = exp(y)
-    case("LogLinear")
+    case("loglinear")
        minx = log(minx)
        maxx = log(maxx)
        call coop_set_uniform(n, x, minx, maxx)
@@ -1365,7 +1365,7 @@ contains
           deallocate(xx, yy, yy2)
        endif
        x = exp(x)
-    case("LogLog")
+    case("loglog")
        minx = log(minx)
        maxx = log(maxx)
        call coop_set_uniform(n, x, minx, maxx)
