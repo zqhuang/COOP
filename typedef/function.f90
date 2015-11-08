@@ -25,6 +25,7 @@ module coop_function_mod
      procedure::init => coop_function_init
      procedure::init_polynomial => coop_function_init_polynomial
      procedure::init_NonUniform => coop_function_init_NonUniform
+     procedure::init_zigzag => coop_function_init_zigzag
      procedure::eval => coop_function_evaluate  
      procedure::eval_bare => coop_function_evaluate_bare !!without log scaling
      procedure::derivative_bare => coop_function_derivative_bare !!without log scaling
@@ -192,6 +193,50 @@ contains
     this%initialized = .true.        
   end subroutine coop_function_init_polynomial
 
+  subroutine coop_function_init_zigzag(this, x, f, xlog, ylog, name)
+    class(coop_function):: this    
+    COOP_REAL,dimension(:),intent(IN):: x, f
+    COOP_UNKNOWN_STRING,optional::name
+    logical, optional::xlog, ylog
+    if(present(name))then
+       this%name = trim(adjustl(name))
+    endif    
+    if(coop_isnan(f))then
+       write(*,*) "Cannot construct the function "//trim(this%name)//": found f = NAN within the specified range."
+       stop
+    endif
+    call this%free()
+    if(present(xlog))then
+       this%xlog = xlog
+    else
+       this%xlog = .false.
+    endif
+    if(present(ylog))then
+       this%ylog = ylog
+    else
+       this%ylog = .false.
+    endif
+    this%method = COOP_INTERPOLATE_ZIGZAG
+    this%n  = coop_getdim("coop_function%init_ZigZag", size(x), size(f))
+    allocate(this%f(this%n), this%f2(this%n))
+    if(this%xlog)then
+       if(any(x.le.0.d0))stop "Error: cannot set xlog = .true. for x<0"
+       this%f2 = log(x)
+    else
+       this%f2  = x
+    endif
+    if(this%ylog)then
+       if(any(f .le. 0.d0)) stop "Error: cannot set ylog = .true. for f(x) < 0"
+       this%f = log(f)
+    else
+       this%f = f  
+    endif
+    this%xmin = minval(this%f2)
+    this%xmax = maxval(this%f2)
+    this%initialized = .true.
+  end subroutine coop_function_init_zigzag
+
+  
   subroutine coop_function_init_NonUniform(this, x, f, xlog, ylog, check_boundary, smooth, name)
     class(coop_function):: this
     logical, optional::xlog, ylog
@@ -494,6 +539,19 @@ contains
        f = coop_polyvalue(this%n, this%f, x)
        return
     endif
+    if(this%method .eq. COOP_INTERPOLATE_ZIGZAG)then
+       l = coop_left_index(this%n, this%f2, x)
+       if(l.le.0)then
+          f = this%f(1)
+          return
+       endif
+       if(l.ge.this%n)then
+          f = this%f(this%n)
+          return
+       endif
+       f = (this%f(l+1) * (x - this%f2(l)) + this%f(l) * (this%f2(l+1) - x))/(this%f2(l+1) - this%f2(l))
+       return
+    endif
     xdiff = x - this%xmin
     b = xdiff/this%dx + 1.d0
     l = floor(b)
@@ -628,6 +686,10 @@ contains
        f = coop_polyvalue(this%n-1, this%f1, x)
        return
     endif
+    if(this%method .eq. COOP_INTERPOLATE_ZIGZAG)then
+       f = 0.d0
+       return
+    endif
     xdiff = x - this%xmin
     b = xdiff/this%dx + 1.d0
     l = floor(b)
@@ -690,6 +752,10 @@ contains
     COOP_INT l, r
     if(this%method .eq. COOP_INTERPOLATE_POLYNOMIAL)then
        f = coop_polyvalue(this%n-2, this%f2, x)
+       return
+    endif
+    if(this%method .eq. COOP_INTERPOLATE_ZIGZAG)then
+       f = 0.d0
        return
     endif
     xdiff = x - this%xmin
@@ -924,7 +990,7 @@ contains
        fs = f
     endif
     select case(this%method)
-    case(COOP_INTERPOLATE_CHEBYSHEV, COOP_INTERPOLATE_POLYNOMIAL)
+    case(COOP_INTERPOLATE_CHEBYSHEV, COOP_INTERPOLATE_POLYNOMIAL, COOP_INTERPOLATE_ZIGZAG)
        xmin = this%xmin
        xmax = this%xmax
        fmin = this%eval_bare(xmin)

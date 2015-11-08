@@ -5,8 +5,15 @@ module coop_special_function_mod
 
   private
 
-  public:: coop_log2, coop_sinc, coop_sinhc, coop_is_integer, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_incompleteGamma, coop_rec3j, coop_threej000, coop_bessI0, coop_bessi1, coop_bessJ0, coop_bessJ1, coop_sphere_correlation, coop_sphere_correlation_init, coop_get_normalized_Plm_array
+  public:: coop_log2, coop_sinc, coop_sinhc, coop_asinh, coop_acosh, coop_atanh, coop_InverseErf, coop_InverseErfc, coop_Gaussian_nu_of_P, coop_is_integer, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_incompleteGamma, coop_rec3j, coop_threej000, coop_bessI0, coop_bessi1, coop_bessJ0, coop_bessJ1, coop_sphere_correlation, coop_sphere_correlation_init, coop_get_normalized_Plm_array
 
+  interface coop_InverseErf
+     module procedure coop_InverseErf_s, coop_InverseErf_v
+  end interface coop_InverseErf
+
+  interface coop_InverseErfc
+     module procedure coop_InverseErfc_s, coop_InverseErfc_v
+  end interface coop_InverseErfc
 
 
   interface coop_log2
@@ -21,67 +28,159 @@ module coop_special_function_mod
      module procedure coop_sinhc_s, coop_sinhc_v
   end interface coop_sinhc
 
+  interface coop_asinh
+     module procedure coop_asinh_s, coop_asinh_v
+  end interface coop_asinh
+
+  interface coop_acosh
+     module procedure coop_acosh_s, coop_acosh_v
+  end interface coop_acosh
+
+  interface coop_atanh
+     module procedure coop_atanh_s, coop_atanh_v
+  end interface coop_atanh
 
   interface coop_sphericalbesselJ
      module procedure coop_sphericalBesselJ_s, coop_sphericalBesselJ_v
   end interface coop_sphericalbesselJ
 
-
+  
+  
 contains
 
-  function asinh_s(x)
+  function coop_InverseErfc_s(x) result(ierfc)
+    COOP_REAL::x, ierfc, y, piysq
+    if(x .ge. 2.d0 .or. x .le. 0.d0) stop "InverseErfc: argument overflow"
+    if( x .lt. 0.6d0)then
+       ierfc = sqrt(-log(coop_sqrtpi/2.d0 * x))
+       do 
+          y = (erfc(ierfc) - x)*exp(ierfc**2)*(coop_sqrtpi/2.d0)       
+          ierfc = ierfc + y
+          if(abs(y) .lt. 1.d-12)exit
+       enddo
+       return
+    endif
+    if( x .gt. 1.4d0)then
+       ierfc = -sqrt(-log(coop_sqrtpi/2.d0 * (2.d0-x)))
+       do 
+          y = (erfc(ierfc) - x)*exp(ierfc**2)*(coop_sqrtpi/2.d0)       
+          ierfc = ierfc + y
+          if(abs(y) .lt. 1.d-12)exit
+       enddo
+       return
+    endif
+    y = 1.d0 - x
+    piysq = coop_pi*y**2
+    ierfc = (coop_sqrtpi/2.d0)*y*( &
+         1.d0 + piysq * ( 1.d0/12.d0 + &
+         piysq * ( 7.d0/480.d0 + &
+         piysq * ( 127.d0/40320.d0 + &
+         piysq * (4369.d0/5806080.d0 + &
+         piysq * ( 34807.d0/182476800.d0 + &
+         piysq*( 20036983.d0/3985293312.d2 + &
+         piysq*(2280356863.d0/167382319104.d3 + &
+         piysq*(3.7684666922417d-6 + &
+         piysq*(1.0591652893189d-6 + &
+         piysq*(3.0149710040390d-7 + &
+         piysq*(8.6717030296252d-8 + &
+         piysq*(2.5157456448260d-8 + &
+         piysq*(7.3516855472913d-9 + &
+         piysq/(1.d0-piysq*0.29564d0)*(2.1617630349901d-9  &
+         )))))))))))))))
+    return
+  end function coop_InverseErfc_s
+
+  function coop_InverseErf_s(x) result(ierf)
+    COOP_REAL::x
+    COOP_REAL::ierf
+    ierf = coop_InverseErfc(1.d0 - x)
+  end function coop_InverseErf_s
+
+  function coop_InverseErfc_v(x) 
+    COOP_REAL, dimension(:)::x
+    COOP_REAL::coop_InverseErfc_v(size(x))    
+    COOP_INT i
+    !$omp parallel do
+    do i = 1, size(x)
+       coop_InverseErfc_v(i)  = coop_InverseErfc_s(x(i))
+    enddo
+    !$omp end parallel do
+  end function coop_InverseErfc_v
+
+  function coop_InverseErf_v(x) 
+    COOP_REAL, dimension(:)::x
+    COOP_REAL::coop_InverseErf_v(size(x))    
+    COOP_INT i
+    !$omp parallel do
+    do i = 1, size(x)
+       coop_InverseErf_v(i)  = coop_InverseErfc_s(1.d0-x(i))
+    enddo
+    !$omp end parallel do
+  end function coop_InverseErf_v
+
+  function coop_Gaussian_nu_of_P(P) result(nu)
+    !!given P = Probability(x<nu sigma), return nu
+    COOP_REAL::P, nu
+    if(P.lt. 0.5d0)then
+       nu =  - coop_sqrt2 * coop_InverseErfc_s( 2.d0*P )
+    else
+       nu = coop_sqrt2 * coop_InverseErfc_s( 2.d0*(1.d0-P) )       
+    endif
+  end function coop_Gaussian_nu_of_P
+
+  function coop_asinh_s(x)
     COOP_REAL x
-    COOP_REAL asinh_s
+    COOP_REAL coop_asinh_s
     if(x.gt. 1.d-6)then
-       asinh_s = log(x+sqrt(1.d0+x**2))
+       coop_asinh_s = log(x+sqrt(1.d0+x**2))
     else
-       asinh_s = x * (1.d0 - x*x/6.d0)
+       coop_asinh_s = x * (1.d0 - x*x/6.d0)
     endif
-  end function asinh_s
+  end function coop_asinh_s
 
-  function asinh_v(x)
+  function coop_asinh_v(x)
     COOP_REAL,dimension(:),intent(IN):: x
-    COOP_REAL asinh_v(size(x))
+    COOP_REAL coop_asinh_v(size(x))
     COOP_INT i
     !$omp parallel do
     do i=1, size(x)
-       asinh_v(i) = asinh_s(x(i))
+       coop_asinh_v(i) = coop_asinh_s(x(i))
     enddo
     !$omp end parallel do
-  end function asinh_v
+  end function coop_asinh_v
 
-  function acosh_s(x)
+  function coop_acosh_s(x)
     COOP_REAL x
-    COOP_REAL acosh_s
+    COOP_REAL coop_acosh_s
     if(x.gt. 1.000001d0)then
-       acosh_s = log(x+sqrt((x-1.d0)*(x+1.d0)))
+       coop_acosh_s = log(x+sqrt((x-1.d0)*(x+1.d0)))
     else
-       acosh_s = sqrt(2.d0*(x-1.d0))*(1.d0 - (x-1.d0)/12.d0)
+       coop_acosh_s = sqrt(2.d0*(x-1.d0))*(1.d0 - (x-1.d0)/12.d0)
     endif
-  end function acosh_s
+  end function coop_acosh_s
 
-  function acosh_v(x)
+  function coop_acosh_v(x)
     COOP_REAL,dimension(:),intent(IN):: x
-    COOP_REAL acosh_v(size(x))
+    COOP_REAL coop_acosh_v(size(x))
     COOP_INT i
     !$omp parallel do
     do i=1, size(x)
-       acosh_v(i) = acosh_s(x(i))
+       coop_acosh_v(i) = coop_acosh_s(x(i))
     enddo
     !$omp end parallel do
-  end function acosh_v
+  end function coop_acosh_v
 
-  function atanh_s(x)
+  function coop_atanh_s(x)
     COOP_REAL x
-    COOP_REAL atanh_s
-    atanh_s = 0.5d0*log((1.d0+x)/(1.d0-x))
-  end function atanh_s
+    COOP_REAL coop_atanh_s
+    coop_atanh_s = 0.5d0*log((1.d0+x)/(1.d0-x))
+  end function coop_atanh_s
 
-  function atanh_v(x)
+  function coop_atanh_v(x)
     COOP_REAL,dimension(:),intent(IN):: x
-    COOP_REAL atanh_v(size(x))
-    atanh_v = 0.5d0*log((1.d0+x)/(1.d0-x))
-  end function atanh_v  
+    COOP_REAL coop_atanh_v(size(x))
+    coop_atanh_v = 0.5d0*log((1.d0+x)/(1.d0-x))
+  end function coop_atanh_v  
 
   subroutine continued_fraction_recurrence(an, bn, s)
     COOP_REAL an, bn, s(4)
@@ -1582,7 +1681,7 @@ contains
 
   function coop_smoothstep(x, width) result(s)
     COOP_REAL x, width, s
-    s = (tanh(x/width)+1.d0)/2.d0
+    s = (coop_atanh(x/width)+1.d0)/2.d0
   end function coop_smoothstep
 
   

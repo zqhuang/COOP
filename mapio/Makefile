@@ -17,6 +17,9 @@ $(LIB): $(OBJ)
 
 all: $(LIB) UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo TE2Z
 
+GAUSS: $(OBJ) gaussianize.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) gaussianize.o $(LINK)
+
 PLOTLINES: $(OBJ) plot_lines.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) plot_lines.o $(LINK)
 

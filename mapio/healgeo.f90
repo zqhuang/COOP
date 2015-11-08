@@ -129,6 +129,8 @@ module coop_healpix_mod
      procedure :: get_QUL4D => coop_healpix_maps_get_QUL4D
      procedure :: get_QUL6D => coop_healpix_maps_get_QUL6D               
      procedure :: get_dervs => coop_healpix_maps_get_dervs
+     procedure::Gaussianize => coop_healpix_maps_Gaussianize
+     procedure:: uniformize => coop_healpix_maps_uniformize     
      procedure :: smooth => coop_healpix_maps_smooth
      procedure :: tophat_smooth => coop_healpix_maps_tophat_smooth     
      procedure :: smooth_with_window => coop_healpix_maps_smooth_with_window
@@ -5895,6 +5897,83 @@ contains
     call mask_deg%free()
   end subroutine coop_healpix_maps_Cls2Pseudo
 
+  subroutine coop_healpix_maps_Gaussianize(this, mask, imap, mapping)
+    class(coop_healpix_maps)::this
+    type(coop_healpix_maps)::mask
+    type(coop_function)::mapping
+    COOP_INT::imap, n, i, j, nbins, n_per_bin
+    COOP_REAL, dimension(:), allocatable::sorted_map, x, y, p
+    n= count(mask%map(:,1).gt.0.)
+    if(n.eq.0) stop "Gaussianize: null mask?"
+    nbins = min(2048, n) !!want 3 sigma tail
+    n_per_bin = (n-1)/nbins+1
+    allocate(sorted_map(n), x(nbins), y(nbins), p(nbins))
+    j = 0
+    do i=0, this%npix-1
+       if(mask%map(i, 1).gt.0.)then
+          j = j + 1
+          sorted_map(j) = this%map(i, imap)
+       endif
+    enddo
+    call coop_quicksort(sorted_map)
+    !$omp parallel do
+    do i = 1, nbins-1
+       x(i) = sum(sorted_map( (i-1)*n_per_bin+1:i*n_per_bin ))/n_per_bin
+       p(i) = (i*n_per_bin - n_per_bin/2.d0)/n
+       y(i) = coop_sqrt2 * coop_InverseErf(2.d0*p(i)-1.d0)
+    enddo
+    !$omp end parallel do
+    x(nbins) = sum(sorted_map( (nbins-1)*n_per_bin+1:n))/(n- (nbins-1)*n_per_bin)
+    p(nbins) = (1.d0 + (nbins-1)*n_per_bin/dble(n))/2.d0
+    y(nbins) = coop_sqrt2 * coop_InverseErf(2.d0*p(nbins)-1.d0 )
+    call mapping%init_zigzag(x, y)
+    !$omp parallel do
+    do i = 0, this%npix - 1
+       this%map(i, imap) = mapping%eval( dble(this%map(i, imap) ))
+    enddo
+    !$omp end parallel do
+    deallocate(sorted_map, x, y, p)
+  end subroutine coop_healpix_maps_Gaussianize
+
+
+
+  subroutine coop_healpix_maps_uniformize(this, mask, imap, mapping)
+    class(coop_healpix_maps)::this
+    type(coop_healpix_maps)::mask
+    type(coop_function)::mapping
+    COOP_INT::imap, n, i, j, nbins, n_per_bin
+    COOP_REAL, dimension(:), allocatable::sorted_map, x, y, p
+    n= count(mask%map(:,1).gt.0.)
+    if(n.eq.0) stop "Gaussianize: null mask?"
+    nbins = min(2048, n) !!want 3 sigma tail
+    n_per_bin = (n-1)/nbins+1
+    allocate(sorted_map(n), x(nbins), y(nbins), p(nbins))
+    j = 0
+    do i=0, this%npix-1
+       if(mask%map(i, 1).gt.0.)then
+          j = j + 1
+          sorted_map(j) = this%map(i, imap)
+       endif
+    enddo
+    call coop_quicksort(sorted_map)
+    !$omp parallel do
+    do i = 1, nbins-1
+       x(i) = sum(sorted_map( (i-1)*n_per_bin+1:i*n_per_bin ))/n_per_bin
+       p(i) = (i*n_per_bin - n_per_bin/2.d0)/n
+       y(i) = coop_sqrt2 * coop_InverseErf(2.d0*p(i)-1.d0)
+    enddo
+    !$omp end parallel do
+    x(nbins) = sum(sorted_map( (nbins-1)*n_per_bin+1:n))/(n- (nbins-1)*n_per_bin)
+    p(nbins) = (1.d0 + (nbins-1)*n_per_bin/dble(n))/2.d0
+    y(nbins) = coop_sqrt2 * coop_InverseErf(2.d0*p(nbins)-1.d0 )
+    call mapping%init_zigzag(x, p)
+    !$omp parallel do
+    do i = 0, this%npix - 1
+       this%map(i, imap) = mapping%eval( dble(this%map(i, imap) ))
+    enddo
+    !$omp end parallel do
+    deallocate(sorted_map, x, y, p)
+  end subroutine coop_healpix_maps_uniformize
 
 end module coop_healpix_mod
 

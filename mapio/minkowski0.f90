@@ -101,6 +101,8 @@ program test
            global_rms = sqrt(sum(dble((map%map(:,1)-global_mean)**2))/summ)
         endif
      endif
+     write(*,*) "rms = " , global_rms
+     write(*,*) "mean = ", global_mean
      do i=1, nnu
         V0(i) = count(map%map(:,1) .gt. global_mean + global_rms * nu(i))/summ
      enddo
