@@ -5905,8 +5905,8 @@ contains
     COOP_REAL, dimension(:), allocatable::sorted_map, x, y, p
     n= count(mask%map(:,1).gt.0.)
     if(n.eq.0) stop "Gaussianize: null mask?"
-    nbins = min(2048, n) !!want 3 sigma tail
-    n_per_bin = (n-1)/nbins+1
+    nbins = min(8192, n) !!want 3 sigma tail
+    n_per_bin = (n+nbins-1)/nbins
     allocate(sorted_map(n), x(nbins), y(nbins), p(nbins))
     j = 0
     do i=0, this%npix-1
@@ -5923,6 +5923,7 @@ contains
        y(i) = coop_sqrt2 * coop_InverseErf(2.d0*p(i)-1.d0)
     enddo
     !$omp end parallel do
+    print*, x(nbins-1), p(nbins-1)
     x(nbins) = sum(sorted_map( (nbins-1)*n_per_bin+1:n))/(n- (nbins-1)*n_per_bin)
     p(nbins) = (1.d0 + (nbins-1)*n_per_bin/dble(n))/2.d0
     y(nbins) = coop_sqrt2 * coop_InverseErf(2.d0*p(nbins)-1.d0 )
@@ -5945,8 +5946,8 @@ contains
     COOP_REAL, dimension(:), allocatable::sorted_map, x, y, p
     n= count(mask%map(:,1).gt.0.)
     if(n.eq.0) stop "Gaussianize: null mask?"
-    nbins = min(2048, n) !!want 3 sigma tail
-    n_per_bin = (n-1)/nbins+1
+    nbins = min(8192, n) !!want 3 sigma tail
+    n_per_bin = (n+nbins-1)/nbins
     allocate(sorted_map(n), x(nbins), y(nbins), p(nbins))
     j = 0
     do i=0, this%npix-1

@@ -49,23 +49,32 @@ module coop_special_function_mod
 contains
 
   function coop_InverseErfc_s(x) result(ierfc)
-    COOP_REAL::x, ierfc, y, piysq
+    COOP_REAL::x, ierfc, y, piysq, dx
     if(x .ge. 2.d0 .or. x .le. 0.d0) stop "InverseErfc: argument overflow"
-    if( x .lt. 0.6d0)then
+    if( x .lt. 0.5d0)then
        ierfc = sqrt(-log(coop_sqrtpi/2.d0 * x))
-       do 
-          y = (erfc(ierfc) - x)*exp(ierfc**2)*(coop_sqrtpi/2.d0)       
-          ierfc = ierfc + y
-          if(abs(y) .lt. 1.d-12)exit
+       ierfc = sqrt(-log(coop_sqrtpi * ierfc  * x ))
+       ierfc = sqrt(-log(coop_sqrtpi * ierfc  * x ))
+       do
+          dx =  (erfc(ierfc) - x)
+          if(dx .eq. 0.d0)return
+          y = exp(ierfc**2+log(abs((coop_sqrtpi/2.d0)*dx)))
+          ierfc = ierfc + sign( y, dx)
+          if(abs(y) .lt. 1.d-12) return
        enddo
        return
     endif
-    if( x .gt. 1.4d0)then
+    if( x .gt. 1.5d0)then
        ierfc = -sqrt(-log(coop_sqrtpi/2.d0 * (2.d0-x)))
-       do 
-          y = (erfc(ierfc) - x)*exp(ierfc**2)*(coop_sqrtpi/2.d0)       
-          ierfc = ierfc + y
-          if(abs(y) .lt. 1.d-12)exit
+       ierfc = -sqrt(-log(-coop_sqrtpi * ierfc * (2.d0-x) ))
+       ierfc = -sqrt(-log(-coop_sqrtpi * ierfc * (2.d0-x) ))
+       if(ierfc .gt. 20.d0)return
+       do
+          dx =  (erfc(ierfc) - x)
+          if(dx .eq. 0.d0)return
+          y = exp(ierfc**2+log(abs((coop_sqrtpi/2.d0)*dx)))
+          ierfc = ierfc + sign( y, dx)
+          if(abs(y) .lt. 1.d-12) return
        enddo
        return
     endif

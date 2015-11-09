@@ -2,12 +2,14 @@ program Test
   use coop_wrapper_utils
   implicit none
 #include "constants.h"
-  COOP_INT, parameter::n = 1024
+  COOP_INT, parameter::n = 128
   COOP_REAL::x(n), y(n)
   COOP_INT::i
-  call coop_set_uniform(n, x, -2.d0, 8.d0)
-  y = erfc(x)
+  print*, coop_Gaussian_nu_of_P(0.8485d0), coop_Gaussian_nu_of_P(0.977d0)
+  
+  call coop_set_uniform(n, x, -5.d0, 5.d0)
+  y = erf(x)
   do i=1, n
-     write(*,*) x(i), coop_InverseErfc(y(i)) - x(i)
+     write(*,*) x(i), coop_InverseErf(y(i)) - x(i), y(i)
   enddo
 end program Test
