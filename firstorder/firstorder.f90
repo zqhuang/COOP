@@ -552,7 +552,7 @@ contains
           if(scheme .ne. pert%de_scheme)then
              ind = 1
              pert%de_scheme = scheme
-             if(present(output))print*, "de scheme switched to ", scheme
+!!             if(present(output))print*, "de scheme switched to ", scheme
           endif
        endif
 #endif       
