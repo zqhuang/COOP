@@ -2,44 +2,14 @@ program test
   use coop_wrapper_firstorder
   implicit none
 #include "constants.h"
-  !!----------------------------------------
-  !!wave number k, because COOP uses fixed k arrays, the actual k will be the one that is closest to the following number
-  COOP_STRING::output_root = "lcdm"
-  logical::do_cmb_lensing = .true.
+
 #if DO_ZETA_TRANS
   logical::zeta_single_slice = .false.
 #endif  
-  !!cosmological parameters
-  COOP_REAL,parameter::ombM2h2 = 0.02222d0  !!physical density
-  COOP_REAL, parameter::omcM2h2 = 0.1197d0  !!
-  COOP_REAL,parameter::hubble = 0.7185021d0  !!H0/100
-  COOP_REAL::tau_re = 0.078d0  !!optical depth2
-  COOP_REAL, parameter::As = 2.1977078d-9   !!amplitude
-  COOP_REAL, parameter::r = 0.d0  !! tensor/scalar ratio
-  COOP_REAL, parameter::ns = 0.9655d0   !!tilt
-  COOP_REAL::omega_b, Omega_c
-  !!for EFT Dark Energy I have assumed massless neutrinos, if you want to compare with CAMB/CLASS you need to set mnu = 0
-
-  !!DE background EOS
-  COOP_REAL, parameter::w0 =  -1.d0
-  COOP_REAL, parameter::wa = 0.d0
-  logical::w_is_background = .false.  !!if set to be true, w is defined as the effective background w that gives the same expansion history in GR; otherwise w is defined as p_DE/ rho_DE.
-  
-#if DO_EFT_DE  
-  !!define the alpha parameters
-  COOP_REAL, parameter::alpha_M0 = 0.4d0 
-  COOP_REAL, parameter::alpha_T0 = 0.d0
-  COOP_REAL, parameter::alpha_B0 = 0.d0
-  COOP_REAL, parameter::alpha_K0 = 0.d0
-  COOP_REAL, parameter::alpha_H0 = 0.d0
-#elif DO_COUPLED_DE
-  COOP_REAL, parameter::Q0 = 0.d0
-  COOP_REAL, parameter::Qa = 0.d0  
-#endif  
   !!----------------------------------------
-  !! declare other variables  
+  COOP_STRING::params_file, output
+  type(coop_dictionary)::params
   type(coop_cosmology_firstorder)::cosmology
-  type(coop_function)::fwp1, fQ, alphaM, alphaB, alphaK, alphaT, alphaH
   COOP_INT, parameter::lmin = 2, lmax = 2608
   COOP_REAL::Cls(coop_num_Cls, lmin:lmax), tensCls(coop_num_Cls, lmin:lmax), lensedCls(coop_num_Cls, lmin:lmax), ells(lmin:lmax)
   COOP_REAL::norm, lnorm, M0, lambda
@@ -47,42 +17,17 @@ program test
   logical success
   type(coop_file)::fp
   !!----------------------------------------
-  !!main code
-  !!----------------------------------------
-  !!DE EOS
-  call fwp1%init_polynomial( (/ 1.d0+w0+wa, -wa /) )
-
-#if DO_EFT_DE
-  write(*,*) "#Dark Energy Model = Effective field theory DE"
-  !!initialize alpha functions as  alpha_X(a) = alpha_X0 H_0^2/H(a)^2, where H(a) is LCDM Hubble 
-  call generate_function(alpha_M0, alphaM)
-  call generate_function(alpha_T0, alphaT)
-  call generate_function(alpha_H0, alphaH)
-  call generate_function(alpha_B0, alphaB)
-  call generate_function(alpha_K0, alphaK)
-
-  call coop_EFT_DE_Set_Mpsq(alphaM)
-#endif
-
-  Omega_b = ombm2h2/hubble**2/coop_Mpsq0
-  omega_c = omcm2h2/hubble**2/coop_Mpsq0
-
-#if DO_EFT_DE  
-  !!initialize cosmology
-  if(w_is_background)then
-     call cosmology%set_EFT_cosmology(Omega_b=omega_b, Omega_c=omega_c, h = hubble, Tcmb = COOP_DEFAULT_TCMB, tau_re = tau_re, As = As, ns = ns, wp1_background = fwp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT)     
-  else
-     call cosmology%set_EFT_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, Tcmb = COOP_DEFAULT_TCMB, tau_re = tau_re, As = As, ns = ns, wp1 = fwp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT)
+  if(iargc() .lt. 1)then
+     write(*,*) "Syntax:"
+     write(*,*) "./CalcCls  params.ini"
+     stop
   endif
-#elif DO_COUPLED_DE
-  write(*,*) "#Dark Energy Model = Coupled CDM-DE"
-  call fQ%init_polynomial( (/ Q0+Qa, -Qa /) )
-  call cosmology%set_coupled_DE_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, tau_re = tau_re, As = As, ns = ns, fwp1 = fwp1, fQ = fQ)
-#else
-  write(*,*) "#Dark Energy Model = Lambda (DE w = -1 )"
-  call cosmology%set_standard_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, tau_re = tau_re, As = As, ns = ns)
-#endif
-
+  
+  call coop_get_Input(1, params_file)
+  call coop_load_dictionary(params_file, params)
+  call cosmology%init_from_dictionary(params)
+  call coop_dictionary_lookup(params, "root", output, default_val="test")
+  
   print*, "recombination redshift = ", cosmology%zrecomb
   print*, "100 theta (as defined in CosmoMC) = ", cosmology%cosmomc_theta()
   print*, "chi(z = 1) = ", cosmology%comoving_distance(0.5d0)
@@ -98,29 +43,27 @@ program test
   write(*,*) "linear perturbation done: sigma_8  = ", cosmology%sigma_8  
   call cosmology%source(0)%get_all_cls(lmin, lmax, Cls)
   norm =COOP_DEFAULT_TCMB**2*1.d12 !cosmology%Tcmb()**2*1.d12    
-  call fp%open(trim(output_root)//"_scalCls.dat","w")
-  write(*,*) "scalar Cls are saved  in "//trim(output_root)//"_scalCls.dat"  
+  call fp%open(trim(output)//"_scalCls.dat","w")
+  write(*,*) "scalar Cls are saved  in "//trim(output)//"_scalCls.dat"  
   write(fp%unit, "(A8, 5A16)") "# ell ", "   TT  ",  "   EE  ",  "   TE   ", " PhiPhi ", " TPhi "
   do l = lmin, lmax
      lnorm =  l*(l+1.d0)/coop_2pi*norm
      write(fp%unit, "(I8, 6E16.7)") l, Cls(coop_index_ClTT, l)*lnorm,  Cls(coop_index_ClEE, l)*lnorm,  Cls(coop_index_ClTE, l)*lnorm, Cls(coop_index_ClLenLen, l)*norm*(l*(l+1.d0))**2, Cls(coop_index_ClTLen, l)*norm*(l*(l+1.d0))**1.5
   enddo
   call fp%close()
-  if(do_cmb_lensing)then
-     call coop_get_lensing_Cls(lmin, lmax, Cls, lensedCls)
-     lensedCls = lensedCls + Cls
-     call fp%open(trim(output_root)//"_lensedCls.dat","w")
-     write(*,*) "lensed Cls are saved  in "//trim(output_root)//"_lensedCls.dat"     
-     write(fp%unit, "(A8, 5A16)") "# ell ", "   TT  ",  "   EE  ",  " BB  ", "  TE "
-     do l=lmin, lmax
-        lnorm = l*(l+1.d0)/coop_2pi*norm
-        write(fp%unit, "(I5, 20E16.7)") l, lensedCls(coop_index_ClTT, l)*lnorm, lensedCls(coop_index_ClEE, l)*lnorm,  lensedCls(coop_index_ClBB, l)*lnorm,  lensedCls(coop_index_ClTE, l)*lnorm
-     enddo
-     call fp%close()
-  endif
+  call coop_get_lensing_Cls(lmin, lmax, Cls, lensedCls)
+  lensedCls = lensedCls + Cls
+  call fp%open(trim(output)//"_lensedCls.dat","w")
+  write(*,*) "lensed Cls are saved  in "//trim(output)//"_lensedCls.dat"     
+  write(fp%unit, "(A8, 5A16)") "# ell ", "   TT  ",  "   EE  ",  " BB  ", "  TE "
+  do l=lmin, lmax
+     lnorm = l*(l+1.d0)/coop_2pi*norm
+     write(fp%unit, "(I5, 20E16.7)") l, lensedCls(coop_index_ClTT, l)*lnorm, lensedCls(coop_index_ClEE, l)*lnorm,  lensedCls(coop_index_ClBB, l)*lnorm,  lensedCls(coop_index_ClTE, l)*lnorm
+  enddo
+  call fp%close()
 #if DO_ZETA_TRANS
-  call fp%open(trim(output_root)//"_zetaCls.dat","w")
-  write(*,*) "zeta Cls are saved  in "//trim(output_root)//"_zetaCls.dat"     
+  call fp%open(trim(output)//"_zetaCls.dat","w")
+  write(*,*) "zeta Cls are saved  in "//trim(output)//"_zetaCls.dat"     
   write(fp%unit, "(A8, 5A16)") "# ell ", "   TT  ",  "  EE  ",  "  ZZ ", " TE ", "  TZ ",  "  EZ  "
   do l=lmin, lmax
      ells(l) = l
@@ -133,11 +76,11 @@ program test
   enddo
   call fp%close()
 #endif  
-  if(r .gt. 0.d0)then  !! do tensor modes
+  if(cosmology%r .gt. 0.d0)then  !! do tensor modes
      call cosmology%compute_source(2, success = success)
      call cosmology%source(2)%get_all_cls(lmin, lmax, tensCls)
-     write(*,*) "tensor Cls are saved  in "//trim(output_root)//"_tensCls.dat"          
-     call fp%open(trim(output_root)//"_tensCls.dat","w")
+     write(*,*) "tensor Cls are saved  in "//trim(output)//"_tensCls.dat"          
+     call fp%open(trim(output)//"_tensCls.dat","w")
      write(fp%unit, "(A8, 5A16)") "# ell ", "   TT  ",  "   EE  ",  " BB  ", "  TE "
      do l = lmin, lmax
         lnorm =  l*(l+1.d0)/coop_2pi*norm
@@ -145,8 +88,8 @@ program test
      enddo
      call fp%close()
      lensedCls = lensedCls + tensCls
-     call fp%open(trim(output_root)//"_totCls.dat","w")
-     write(*,*) "total Cls are saved  in "//trim(output_root)//"_totCls.dat"     
+     call fp%open(trim(output)//"_totCls.dat","w")
+     write(*,*) "total Cls are saved  in "//trim(output)//"_totCls.dat"     
      write(fp%unit, "(A8, 5A16)") "# ell ", "   TT  ",  "   EE  ",  " BB  ", "  TE "
      do l=lmin, lmax
         lnorm = l*(l+1.d0)/coop_2pi*norm
@@ -157,20 +100,6 @@ program test
   endif
 
 contains
-
-  subroutine generate_function(alpha0, f)
-    COOP_REAL::alpha0
-    type(coop_function)::f    
-    COOP_REAL,parameter::omega_m0= 0.3
-    COOP_REAL,parameter::omega_r0 = 8.d-5
-    COOP_INT, parameter::n = 8192
-    COOP_REAL::a(n), alpha(n)
-    COOP_INT::i
-    call coop_set_uniform(n, a, log(coop_min_scale_factor), log(coop_scale_factor_today))
-    a = exp(a)
-    alpha = alpha0/(1.d0-omega_m0-omega_r0 + omega_m0/a**3 + omega_r0/a**4)
-    call f%init(n = n, xmin = a(1), xmax = a(n), f = alpha, xlog = .true., ylog = .false.)
-  end subroutine generate_function
 
   subroutine generate_latevis()
     COOP_INT, parameter::n = 1024

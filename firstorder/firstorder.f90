@@ -144,6 +144,7 @@ module coop_firstorder_mod
      logical::klms_done = .false.
      logical::has_tensor = .false.
    contains
+     procedure::init_from_dictionary => coop_cosmology_firstorder_init_from_dictionary
      procedure:: set_standard_cosmology =>  coop_cosmology_firstorder_set_standard_cosmology
 #if DO_EFT_DE     
      procedure:: set_EFT_cosmology =>  coop_cosmology_firstorder_set_EFT_cosmology
@@ -443,7 +444,7 @@ contains
   end subroutine coop_cosmology_firstorder_compute_source
 
 
-  subroutine coop_cosmology_firstorder_compute_source_k(this, source, ik, output, transfer_only, success)
+  subroutine coop_cosmology_firstorder_compute_source_k(this, source, ik, output, names, transfer_only, success)
     COOP_REAL, parameter::eps = 1.d-8
     class(coop_cosmology_firstorder)::this
     type(coop_cosmology_firstorder_source)::source
@@ -452,6 +453,7 @@ contains
     COOP_REAL, dimension(:,:),allocatable::w
     logical,optional::transfer_only, success
     COOP_INT, optional::output
+    type(coop_list_string), optional::names
     COOP_REAL c(24)
     COOP_INT ind, i
     COOP_REAL tau_ini, lna, mnu_deltarho, mnu_deltav
@@ -470,8 +472,13 @@ contains
     
     !!for energy conservation test:
     if(present(output))then
-       call pert%print(this, output)
-       call pert%print(this)
+       if(present(names))then
+          call pert%print(this, unit = output, names= names)
+          call pert%print(this, names = names)
+       else
+          call pert%print(this, unit = output)
+          call pert%print(this)
+       endif
     endif
     
     ind = 1
@@ -512,8 +519,13 @@ contains
        pert%want_source  = .false.              
        !!for energy conservation test:
        if(present(output))then
-          call pert%print(this, output)
-          call pert%print(this)          
+          if(present(names))then
+             call pert%print(this, unit = output, names= names)
+             call pert%print(this, names = names)
+          else
+             call pert%print(this, unit = output)
+             call pert%print(this)
+          endif
        endif
        !!------------------------------------------------------------
        !!forcing v_b - v_g to tight coupling approximations
@@ -1457,7 +1469,91 @@ contains
     endif
   end subroutine coop_cosmology_firstorder_set_zeta_weight_single_slice
 
+#endif
+
+  subroutine coop_cosmology_firstorder_init_from_dictionary(this, params)
+    class(coop_cosmology_firstorder)::this
+    type(coop_dictionary)::params
+  !!----------------------------------------
+    COOP_REAL::ombM2h2, omcM2h2, tau_re, hubble, As, ns, omega_b, omega_c, w0, wa, r, nt, nrun
+    logical::w_is_background
+#if DO_EFT_DE  
+    COOP_REAL::alpha_M0 = 0.d0
+    COOP_REAL::alpha_T0 = 0.d0
+    COOP_REAL::alpha_B0 = 0.d0
+    COOP_REAL::alpha_K0 = 0.d0
+    COOP_REAL::alpha_H0 = 0.d0
+#elif DO_COUPLED_DE
+    COOP_REAL::Q0 = 0.d0
+    COOP_REAL::Qa = 0.d0  
 #endif  
+    type(coop_function)::fwp1, fQ, alphaM, alphaB, alphaK, alphaT, alphaH
+
+    call coop_dictionary_lookup(params, "ombh2", ombM2h2)
+    call coop_dictionary_lookup(params, "omch2", omcM2H2)
+    call coop_dictionary_lookup(params, "H0", hubble)
+    hubble = hubble/100.d0
+
+    call coop_dictionary_lookup(params, "tau", tau_re)    
+    call coop_dictionary_lookup(params, "As", As, 0.d0)
+    if(As .eq. 0.d0)then
+       call coop_dictionary_lookup(params, "logA", As, 0.d0)
+       if(As .eq. 0.d0)then
+          call coop_dictionary_lookup(params, "logAm2tau", As, 0.d0)
+          As = exp(As + 2.d0*tau_re)*1.d-10
+       else
+          As = exp(As)*1.d-10
+       endif
+    endif
+
+    call coop_dictionary_lookup(params, "ns", ns)
+    call coop_dictionary_lookup(params, "r", r, 0.d0)
+    call coop_dictionary_lookup(params, "nt", nt, 0.d0)
+    call coop_dictionary_lookup(params, "nrun", nrun, 0.d0)    
+    call coop_dictionary_lookup(params, "de_w", w0, -1.d0)
+    call coop_dictionary_lookup(params, "de_wa",wa, 0.d0)  
+
+    call fwp1%init_polynomial( (/ 1.d0+w0+wa, -wa /) )
+
+#if DO_EFT_DE
+    call coop_dictionary_lookup(params, "de_alpha_M0", alpha_M0, 0.d0 )
+    call coop_dictionary_lookup(params, "de_alpha_T0", alpha_T0, 0.d0 )
+    call coop_dictionary_lookup(params, "de_alpha_B0", alpha_B0, 0.d0 )
+    call coop_dictionary_lookup(params, "de_alpha_K0", alpha_K0, 0.d0 )
+    call coop_dictionary_lookup(params, "de_alpha_H0", alpha_H0 , 0.d0 )
+    
+    alphaM = coop_de_alpha_constructor(alpha_M0, "omega")
+    alphaT = coop_de_alpha_constructor(alpha_T0, "omega")
+    alphaH = coop_de_alpha_constructor(alpha_H0, "omega")
+    alphaB = coop_de_alpha_constructor(alpha_B0, "omega")
+    alphaK = coop_de_alpha_constructor(alpha_K0, "omega")
+    if(alpha_M0 .ne. 0.d0)then
+       call coop_dictionary_lookup(params, "w_is_background",  w_is_background, .false.)
+    else
+       w_is_background = .true.
+    endif
+    call coop_EFT_DE_set_Mpsq(alphaM)
+#elif DO_COUPLED_DE
+    call coop_dictionary_lookup(params, "de_Q", Q0, 0.d0)
+    call coop_dictionary_lookup(params, "de_Qa", Qa, 0.d0)  
+#endif
+    Omega_b = ombM2h2/coop_Mpsq0/hubble**2
+    Omega_c = omcM2h2/coop_Mpsq0/hubble**2
+  
+#if DO_EFT_DE  
+  !!initialize this
+    if(w_is_background)then
+       call this%set_EFT_cosmology(Omega_b=omega_b, Omega_c=omega_c, h = hubble, Tcmb = COOP_DEFAULT_TCMB, tau_re = tau_re, As = As, ns = ns, wp1_background = fwp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT, r=r, nt = nt, nrun = nrun)     
+    else
+       call this%set_EFT_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, Tcmb = COOP_DEFAULT_TCMB, tau_re = tau_re, As = As, ns = ns, wp1 = fwp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT, r=r, nt = nt, nrun = nrun)
+    endif
+#elif DO_COUPLED_DE
+    call fQ%init_polynomial( (/ Q0+Qa, -Qa /) )
+    call this%set_coupled_DE_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, tau_re = tau_re, As = As, ns = ns, fwp1 = fwp1, fQ = fQ, r=r, nt = nt, nrun = nrun)
+#else
+    call this%set_standard_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, tau_re = tau_re, As = As, ns = ns, r=r, nt = nt, nrun = nrun)
+#endif
+  end subroutine coop_cosmology_firstorder_init_from_dictionary
   
   
 end module coop_firstorder_mod

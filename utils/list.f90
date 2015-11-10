@@ -1527,7 +1527,8 @@ contains
        if(present(default_val))then
           val = default_val
        else
-          stop "coop_dictionary_lookup_int: key not found; you need to set a default value in this case"
+          write(*,*) "coop_dictionary_lookup: key "//trim(key)//" not found; you need to set a default value in this case"
+          stop 
        endif
     else
        read(dict%val(ind), *) val
@@ -1546,7 +1547,8 @@ contains
        if(present(default_val))then
           val = default_val
        else
-          stop "coop_dictionary_lookup_real: key not found; you need to set a default value in this case"
+          write(*,*) "coop_dictionary_lookup: key "//trim(key)//" not found; you need to set a default value in this case"
+          stop 
        endif
     else
        read(dict%val(ind), *) val
@@ -1565,7 +1567,8 @@ contains
        if(present(default_val))then
           val = default_val
        else
-          stop "coop_dictionary_lookup_double: key not found; you need to set a default value in this case"
+          write(*,*) "coop_dictionary_lookup: key "//trim(key)//" not found; you need to set a default value in this case"
+          stop 
        endif
     else
        read(dict%val(ind), *) val
@@ -1586,7 +1589,8 @@ contains
        if(present(default_val))then
           val = default_val
        else
-          stop "coop_dictionary_lookup_logical: key not found; you need to set a default value in this case"
+          write(*,*) "coop_dictionary_lookup: key "//trim(key)//" not found; you need to set a default value in this case"
+          stop 
        endif
     else
        read(dict%val(ind), *) val
@@ -1606,7 +1610,8 @@ contains
        if(present(default_val))then
           val = default_val
        else
-          stop "coop_dictionary_lookup_int: key not found; you need to set a default value in this case"
+          write(*,*) "coop_dictionary_lookup: key "//trim(key)//" not found; you need to set a default value in this case"
+          stop 
        endif
     else
        read(dict%val(ind), *) val
@@ -1625,7 +1630,8 @@ contains
        if(present(default_val))then
           val = default_val
        else
-          stop "coop_dictionary_lookup_real: key not found; you need to set a default value in this case"
+          write(*,*) "coop_dictionary_lookup: key "//trim(key)//" not found; you need to set a default value in this case"
+          stop 
        endif
     else
        read(dict%val(ind), *) val
@@ -1644,7 +1650,8 @@ contains
        if(present(default_val))then
           val = default_val
        else
-          stop "coop_dictionary_lookup_double: key not found; you need to set a default value in this case"
+          write(*,*) "coop_dictionary_lookup: key "//trim(key)//" not found; you need to set a default value in this case"
+          stop 
        endif
     else
        read(dict%val(ind), *) val
@@ -1662,7 +1669,8 @@ contains
        if(present(default_val))then
           val = default_val
        else
-          stop "coop_dictionary_lookup_logical: key not found; you need to set a default value in this case"
+          write(*,*) "coop_dictionary_lookup: key "//trim(key)//" not found; you need to set a default value in this case"
+          stop 
        endif
     else
        read(dict%val(ind), *) val

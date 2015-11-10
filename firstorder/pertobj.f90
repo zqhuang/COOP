@@ -426,11 +426,12 @@ contains
 
   !!user specified subroutine
   !!this example shows how to print T00, T00/G00-1, T0i, T0i/G0i-1, Phi, PSI
-  subroutine coop_pert_object_print(pert, cosmology, unit)
+  subroutine coop_pert_object_print(pert, cosmology, unit, names)
     class(coop_pert_object)::pert
     class(coop_cosmology_background)::cosmology
     COOP_INT, optional::unit
     COOP_INT::output_unit
+    type(coop_list_string), optional::names
     COOP_REAL::T00, T0i, G00, G0i
     T00 = pert%delta_T00a2()
     T0i = pert%delta_T0ia2()
@@ -441,12 +442,92 @@ contains
     else
        output_unit = 6
     endif
-#if DO_EFT_DE    
-    write(output_unit, "(80E16.7)")  log(pert%a), T00/G00-1.d0, T0i/G0i-1.d0, pert%O1_Phi, pert%O1_PSI ,pert%O1_DE_HPI,  cosmology%total_alpha(pert%a), cosmology%alphacs2(pert%a), O0_DE(cosmology)%density(pert%a)
-#else
-    write(output_unit, "(80E16.7)")  log(pert%a), T00, T00/G00-1.d0, T0i,  T0i/G0i-1.d0, pert%O1_Phi, pert%O1_PSI
-#endif    
+    if(present(names))then
+       write(output_unit, "(80E16.7)") coop_pert_names_mapping(pert, cosmology, names)
+    else
+       write(output_unit, "(80E16.7)")  log(pert%a), T00, T00/G00-1.d0, T0i,  T0i/G0i-1.d0, pert%O1_Phi, pert%O1_PSI
+    endif
+
   end subroutine coop_pert_object_print
+
+  function coop_pert_names_mapping(pert, cosmology, names) result(vars)
+    class(coop_pert_object)::pert
+    class(coop_cosmology_background)::cosmology
+    type(coop_list_string)::names
+    COOP_REAL::vars(names%n)
+    COOP_INT::i
+    do i = 1, names%n
+       vars(i) = coop_pert_name_mapping(pert, cosmology, names%element(i))
+    enddo
+  end function coop_pert_names_mapping
+
+  function coop_pert_name_mapping(pert, cosmology, name) result(var)
+    class(coop_pert_object)::pert
+    class(coop_cosmology_background)::cosmology
+    COOP_UNKNOWN_STRING::name
+    COOP_REAL::var
+    select case(COOP_LOWER_STR(name))
+    case("a")
+       var = pert%a
+    case("z")
+       var = 1.d0/pert%a - 1.d0
+    case("tau") 
+       var = cosmology%tauofa(pert%a)
+    case("t") 
+       var = cosmology%time(pert%a)
+    case("lna")
+       var = log(pert%a)
+    case("h")
+       var = cosmology%Hratio(pert%a)
+    case("ha", "ah")
+       var = cosmology%aHratio(pert%a)
+    case("t00")
+       var = pert%delta_T00a2()
+    case("t0i")
+       var = pert%delta_T0ia2()
+    case("g00")
+       var = pert%delta_G00a2()
+    case("g0i")
+       var = pert%delta_G0ia2()
+    case("phi")
+       var = pert%O1_phi
+    case("psi")
+       var = pert%O1_PSI
+    case("deltac")
+       var = pert%O1_DELTA_C
+    case("deltacsync")
+       var = (pert%O1_DELTA_C + 3.d0*pert%O1_V_C/pert%kbyaH)/pert%k**2
+    case("deltab")
+       var = pert%O1_DELTA_B
+    case("deltabsync")
+       var = (pert%O1_DELTA_B + 3.d0*pert%O1_V_B/pert%kbyaH)/pert%k**2       
+    case("vc")
+       var = pert%O1_V_C
+    case("vb")
+       var = pert%O1_V_B
+    case("deltag")
+       var = pert%O1_T(0)
+    case("vg")
+       var = pert%O1_T(1)/4.d0
+    case("deltanu")
+       var = pert%O1_NU(0)
+    case("vnu")
+       var = pert%O1_NU(1)/4.d0
+    case("dpsidlna")
+       var = pert%O1_PSIPR
+    case("dphidlna")
+       var = pert%O1_Phipr
+#if DO_EFT_DE       
+    case("hpi")
+       var = pert%O1_DE_HPI
+    case("pi")
+       var = pert%O1_DE_HPI / cosmology%Hratio(pert%a)
+#endif
+    case default
+       write(*,*) trim(name)//" is not predefined. Cannot map it to a known variable."
+       stop
+    end select
+  end function coop_pert_name_mapping
   
   
 end module coop_pertobj_mod
