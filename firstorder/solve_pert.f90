@@ -42,7 +42,8 @@ program test
 
 
   write(fp%unit, "(A15, E16.7)") "#  k [Mpc^{-1}] = ", cosmology%source(0)%k(ik)*cosmology%H0Mpc()
-  write(*,*)"100 theta = ",  100.d0 * cosmology%cosmomc_theta()
+  write(*,*) "H_0 = ", cosmology%h()*100. 
+  write(*,*)"cosmomc theta (*100) = ",  100.d0 * cosmology%cosmomc_theta()
   write(*,*) "writing the output to file "//trim(output)
   !!--------------solve mode k---------------
   !!output are
