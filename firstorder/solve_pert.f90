@@ -20,7 +20,8 @@ program test
   
   call coop_get_Input(1, params_file)
   call coop_load_dictionary(params_file, params)
-  call coop_dictionary_lookup(params, "output", output, default_val="test.dat")
+  call coop_dictionary_lookup(params, "output", output, default_val="test")
+  output = trim(adjustl(output))//"_perturbations.dat"
   write(*,*) "Writing the output into file: "//trim(output)
   call coop_dictionary_lookup(params, "kMpc", kMpc_want)
   call coop_dictionary_lookup(params, "variables", output_variables)
@@ -43,8 +44,10 @@ program test
 
   write(fp%unit, "(A15, E16.7)") "#  k [Mpc^{-1}] = ", cosmology%source(0)%k(ik)*cosmology%H0Mpc()
   write(*,*)"100 theta = ",  100.d0 * cosmology%cosmomc_theta()
+  write(*,*) "writing the output to file "//trim(output)
   !!--------------solve mode k---------------
   !!output are
   call cosmology%compute_source_k(cosmology%source(0), ik, output = fp%unit, names= output_variables, success = success)
   if(.not. success)write(*,*) "Solution blows up exponentially. Model is ruled out."
+  call fp%close()
 end program test

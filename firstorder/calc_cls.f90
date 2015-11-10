@@ -12,7 +12,7 @@ program test
   type(coop_cosmology_firstorder)::cosmology
   COOP_INT, parameter::lmin = 2, lmax = 2608
   COOP_REAL::Cls(coop_num_Cls, lmin:lmax), tensCls(coop_num_Cls, lmin:lmax), lensedCls(coop_num_Cls, lmin:lmax), ells(lmin:lmax)
-  COOP_REAL::norm, lnorm, M0, lambda
+  COOP_REAL::norm, lnorm, lambda
   COOP_INT::l
   logical success
   type(coop_file)::fp
@@ -27,11 +27,6 @@ program test
   call coop_load_dictionary(params_file, params)
   call cosmology%init_from_dictionary(params)
   call coop_dictionary_lookup(params, "root", output, default_val="test")
-  
-  print*, "recombination redshift = ", cosmology%zrecomb
-  print*, "100 theta (as defined in CosmoMC) = ", cosmology%cosmomc_theta()
-  print*, "chi(z = 1) = ", cosmology%comoving_distance(0.5d0)
-  print*, "chi(zrecomb) = ", cosmology%comoving_distance(cosmology%arecomb)  
   
   !!----------------------------------------
 #if DO_ZETA_TRANS
