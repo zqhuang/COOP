@@ -474,10 +474,8 @@ contains
     if(present(output))then
        if(present(names))then
           call pert%print(this, unit = output, names= names)
-          call pert%print(this, names = names)
        else
           call pert%print(this, unit = output)
-          call pert%print(this)
        endif
     endif
     
@@ -521,10 +519,8 @@ contains
        if(present(output))then
           if(present(names))then
              call pert%print(this, unit = output, names= names)
-             call pert%print(this, names = names)
           else
              call pert%print(this, unit = output)
-             call pert%print(this)
           endif
        endif
        !!------------------------------------------------------------
