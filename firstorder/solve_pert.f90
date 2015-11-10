@@ -20,7 +20,7 @@ program test
   
   call coop_get_Input(1, params_file)
   call coop_load_dictionary(params_file, params)
-  call coop_dictionary_lookup(params, "output", output, default_val="test")
+  call coop_dictionary_lookup(params, "root", output, default_val="test")
   output = trim(adjustl(output))//"_perturbations.dat"
   write(*,*) "Writing the output into file: "//trim(output)
   call coop_dictionary_lookup(params, "kMpc", kMpc_want)
