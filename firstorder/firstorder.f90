@@ -1486,7 +1486,8 @@ contains
     COOP_REAL::h_low, h_high, h_mid, theta_high, theta_low, theta_mid
     COOP_REAL, parameter::min_omega_m = 0.1d0, max_omega_m = 0.5d0
     type(coop_function)::fwp1, fQ, alphaM, alphaB, alphaK, alphaT, alphaH
-
+    logical::w_predefined
+    COOP_REAL::eps_inf, eps_s, zeta_s, beta_s
     call coop_dictionary_lookup(params, "ombh2", ombM2h2)
     call coop_dictionary_lookup(params, "omch2", omcM2H2)
     
@@ -1511,12 +1512,27 @@ contains
     call coop_dictionary_lookup(params, "ns", ns)
     call coop_dictionary_lookup(params, "r", r, 0.d0)
     call coop_dictionary_lookup(params, "nt", nt, 0.d0)
-    call coop_dictionary_lookup(params, "nrun", nrun, 0.d0)    
-    call coop_dictionary_lookup(params, "de_w", w0, -1.d0)
-    call coop_dictionary_lookup(params, "de_wa",wa, 0.d0)  
+    call coop_dictionary_lookup(params, "nrun", nrun, 0.d0)
 
-    call fwp1%init_polynomial( (/ 1.d0+w0+wa, -wa /) )
+    call coop_dictionary_lookup(params, "de_w", w0, -1000.d0)
+    if(w0 .gt. -999.d0)then
+       call coop_dictionary_lookup(params, "de_wa",wa, 0.d0)  
+       call fwp1%init_polynomial( (/ 1.d0+w0+wa, -wa /) )
+       w_predefined = .true.
+    else
+       call coop_dictionary_lookup(params, "de_epss", eps_s, -1000.d0)
+       if(eps_s .gt. -999.d0)then
+          call coop_dictionary_lookup(params, "de_epsinf",eps_inf, 0.d0)
+          call coop_dictionary_lookup(params, "de_zetas",zeta_s, 0.d0)
+          call coop_dictionary_lookup(params, "de_betas",beta_s, 6.d0)
+          w_predefined = .false.
+       else
+          call fwp1%init_polynomial( (/ 0.d0 /) )
+          w_predefined = .true.          
+       endif
+    endif
 
+    
 #if DO_EFT_DE
     call coop_dictionary_lookup(params, "de_alpha_M0", alpha_M0, 0.d0 )
     call coop_dictionary_lookup(params, "de_alpha_T0", alpha_T0, 0.d0 )
@@ -1574,6 +1590,9 @@ contains
       COOP_REAL::hubble
       Omega_b = ombM2h2/coop_Mpsq0/hubble**2
       Omega_c = omcM2h2/coop_Mpsq0/hubble**2
+      if(.not. w_predefined)then
+         fwp1 = coop_function_constructor(coop_de_wp1_coupled_quintessence, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args = coop_arguments_constructor( r = (/ 1.d0-omega_b - omega_c, eps_s, eps_inf, zeta_s , beta_s /) ), name = "DE 1+w")
+      endif
 #if DO_EFT_DE  
       !!initialize this
       if(w_is_background)then

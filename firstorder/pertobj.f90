@@ -522,6 +522,22 @@ contains
        var = pert%O1_DE_HPI
     case("pi")
        var = pert%O1_DE_HPI / cosmology%Hratio(pert%a)
+    case("dealphacs2")
+       var = cosmology%alphacs2(pert%a)
+    case("dealpha")
+       var = cosmology%total_alpha(pert%a)
+    case("dealpham")
+       var = coop_alphaM(pert%a)
+    case("demstar")
+       var = sqrt(coop_Mpsq(pert%a))
+    case("dealphak")
+       var = cosmology%alpha_K(pert%a)
+    case("dealphaB")
+       var = cosmology%alpha_B(pert%a)
+    case("dealphat")
+       var = cosmology%alpha_T(pert%a)
+    case("dealphah")
+       var = cosmology%alpha_H(pert%a)
 #endif
     case default
        write(*,*) trim(name)//" is not predefined. Cannot map it to a known variable."
