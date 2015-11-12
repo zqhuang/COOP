@@ -376,7 +376,7 @@
     zstar = coop_zrecomb_fitting(this%ombh2*coop_Mpsq0, this%omch2*coop_Mpsq0)
     astar = 1.d0/(1.d0+zstar)    
 #if DO_COUPLED_DE
-    omch2_eff = O0_CDM(this)%rhoa3_ratio(astar)*omch2
+    omch2_eff = O0_CDM(this)%rhoa3_ratio(astar)*this%omch2
     zstar = coop_zrecomb_fitting(this%ombh2*coop_Mpsq0, omch2_eff*coop_Mpsq0)
     astar = 1.d0/(1.d0+zstar)    
 #endif    
