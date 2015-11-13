@@ -10,7 +10,7 @@ module coop_background_mod
   logical,parameter::coop_eft_de_normalize_early = .true.
 #endif  
   
-  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_quintessence, coop_de_wp1_quintessence, coop_de_wp1_coupled_quintessence, coop_background_add_coupled_DE,  coop_background_add_EFT_DE,  coop_background_add_EFT_DE_with_effective_w, coop_de_aeq_fitting, coop_de_alpha_invh2, coop_de_alpha_instant, coop_de_general, coop_de_alpha_constructor
+  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_quintessence, coop_de_wp1_quintessence, coop_de_wp1_coupled_quintessence, coop_background_add_coupled_DE,  coop_background_add_EFT_DE,  coop_background_add_EFT_DE_with_effective_w, coop_de_aeq_fitting, coop_de_alpha_invh2, coop_de_alpha_instant, coop_de_general, coop_de_alpha_constructor, coop_de_construct_alpha_from_cs2
 
 contains
 
@@ -796,6 +796,100 @@ contains
     zp1cr = (((1.d0 - arg%r(2))/arg%r(2))/arg%r(3))**(1.d0/3.d0) 
     alpha = arg%r(1) * exp(- ((zp1 - zp1cr)/arg%r(4))**2)
   end function coop_de_alpha_bump
+
+  function coop_de_alpha_model_omega(a, arg) result(alpha)
+    type(coop_arguments)::arg !! arg%r = (/ alpha0, omegam, w /)
+    COOP_REAL::alpha, a, rhodea3
+    rhodea3 =  (1.d0 - arg%r(2))*a**(-3.d0*arg%r(3))
+    alpha = arg%r(1) * rhodea3/(arg%r(2)  + rhodea3)/(1.d0 - arg%r(2))
+  end function coop_de_alpha_model_omega
+
+  subroutine coop_de_construct_alpha_from_cs2(omegam, w, cs2, r_B, r_H, r_M, r_T,  alpha_B, alpha_H, alpha_K, alpha_M, alpha_T, sucess)
+    COOP_REAL, parameter::alpha0_min = 1.d-4, alpha0_max = 1.d0
+    COOP_REAL::omegam, w, cs2, r_B, r_M, r_T, r_H, alpha_l
+    type(coop_function)::alpha_B, alpha_H, alpha_K, alpha_M, alpha_T
+    COOP_REAL::  hdotbyhsq, p, omegal, cs2now, cs2derv
+    logical::sucess
+    omegal = 1.d0 - omegam
+    hdotbyhsq = -1.5d0*(omegam + omegal*(1.d0+w))
+    p = -3.d0*w*omegam
+    alpha_l = alpha0_min
+    cs2now = cs2try(alpha_l)
+    if(cs2now .gt. cs2+2.d-3)then
+       do while(cs2try(alpha_l*1.001d0) .gt. cs2+2.d-2)
+          alpha_l = alpha_l*1.001d0
+          if(alpha_l .gt. alpha0_max) goto 100
+       enddo
+       do while(cs2try(alpha_l*1.0001d0) .gt. cs2+2.d-3)
+          alpha_l = alpha_l*1.0001d0
+          if(alpha_l .gt. alpha0_max) goto 100
+       enddo
+    elseif(cs2now .lt. cs2-2.d-3)then
+       do while(cs2try(alpha_l*1.001d0) .lt. cs2-2.d-2)
+          alpha_l = alpha_l*1.001d0
+          if(alpha_l .gt. alpha0_max) goto 100
+       enddo
+       do while(cs2try(alpha_l*1.0001d0) .lt. cs2-2.d-3)
+          alpha_l = alpha_l*1.0001d0
+          if(alpha_l .gt. alpha0_max) goto 100
+       enddo
+    endif
+    cs2derv = (cs2try(alpha_l + alpha0_min/2) - cs2try(alpha_l - alpha0_min/2))/alpha0_min
+    alpha_l = alpha_l * (cs2 - cs2try(alpha_l))/cs2derv
+    if(r_B .eq. 0.d0)then
+       call alpha_B%init_polynomial( (/ 0.d0 /))
+    else
+       alpha_B = coop_function_constructor( coop_de_alpha_model_omega, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ alpha_l*r_B,  omegam, w /) ) , name = "alpha" )
+    endif
+    if(r_H .eq. 0.d0)then
+       call alpha_H%init_polynomial( (/ 0.d0 /))
+    else
+       alpha_H = coop_function_constructor( coop_de_alpha_model_omega, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ alpha_l*r_H,  omegam, w /) ) , name = "alpha" )
+    endif
+
+    if(r_M .eq. 0.d0)then
+       call alpha_M%init_polynomial( (/ 0.d0 /))
+    else
+       alpha_M = coop_function_constructor( coop_de_alpha_model_omega, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ alpha_l*r_M,  omegam, w /) ) , name = "alpha" )
+    endif
+
+    if(r_T .eq. 0.d0)then
+       call alpha_T%init_polynomial( (/ 0.d0 /))
+    else
+       alpha_T = coop_function_constructor( coop_de_alpha_model_omega, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ alpha_l*r_T,  omegam, w /) ) , name = "alpha" )
+    endif
+    alpha_K = coop_function_constructor(derived_alphaK,  xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., name = "alpha")
+    sucess = .true.
+    return
+100 sucess = .false.
+    return
+    
+  contains
+
+    function derived_alphaK(a)
+      COOP_REAL::a, derived_alphaK
+      COOP_REAL::b, h, m, t, bp, hp, rhodea3, hdotbyhsq   
+      t = alpha_T%eval(a)
+      b= alpha_B%eval(a)
+      h = alpha_H%eval(a)
+      m = alpha_M%eval(a)
+      rhodea3 = omegal*a**(-3.d0*w)
+      hdotbyhsq = -1.5d0*( omegam + rhodea3*(1.d0+w))/(omegam + rhodea3)
+      bp = alpha_B%derivative(a) * a
+      hp = alpha_H%derivative(a) * a
+      derived_alphaK =  (  -2.d0*((1.d0+b)*((1.d0+b)*(1.d0+t) - (1.d0+h)*(1.d0+m - hdotbyhsq)-hp)+(1.d0+h)*bp) - 3.d0* (1.d0+h)**2*omegam/(omegam+rhodea3) )/cs2 - 6.d0*b**2
+    end function derived_alphaK
+
+    function cs2try(alpha0)
+      COOP_REAL::cs2try, alpha0
+      COOP_REAL::b, h, m, t
+      b = r_B * alpha0
+      h = r_H*alpha0
+      m = r_M * alpha0
+      t = r_T*alpha0
+      cs2try = (-2.d0*((1.d0+b)*((1.d0+b)*(1.d0+t) - (1.d0+h)*(1.d0+m - hdotbyhsq)- h*p)+(1.d0+ h )*b*p) + (1.d0+h)**2*(-3.d0*omegam))/alpha0
+    end function cs2try
+  end subroutine coop_de_construct_alpha_from_cs2
 
   function coop_de_alpha_constructor(alpha0, genre) result(alpha)
     COOP_REAL, parameter::Omega_m = 0.3d0

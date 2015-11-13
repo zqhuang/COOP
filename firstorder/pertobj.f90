@@ -465,7 +465,7 @@ contains
     class(coop_pert_object)::pert
     class(coop_cosmology_background)::cosmology
     COOP_UNKNOWN_STRING::name
-    COOP_REAL::var
+    COOP_REAL::var, alpha
     select case(COOP_LOWER_STR(name))
     case("a")
        var = pert%a
@@ -524,6 +524,13 @@ contains
        var = pert%O1_DE_HPI / cosmology%Hratio(pert%a)
     case("dealphacs2")
        var = cosmology%alphacs2(pert%a)
+    case("decs2")
+       alpha = cosmology%total_alpha(pert%a)
+       if(abs(alpha).gt.1.d-5)then
+          var = cosmology%alphacs2(pert%a)/alpha
+       else
+          var = 0.d0
+       endif
     case("dealpha")
        var = cosmology%total_alpha(pert%a)
     case("dealpham")

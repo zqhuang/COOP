@@ -1479,14 +1479,21 @@ contains
     COOP_REAL::alpha_B0 = 0.d0
     COOP_REAL::alpha_K0 = 0.d0
     COOP_REAL::alpha_H0 = 0.d0
+    COOP_REAL::de_cs2 = -1.d0
+    COOP_REAL::r_B = 0.d0
+    COOP_REAL::r_T = 0.d0
+    COOP_REAL::r_M = 0.d0
+    COOP_REAL::r_H = 0.d0    
+    
 #elif DO_COUPLED_DE
     COOP_REAL::Q0 = 0.d0
     COOP_REAL::Qa = 0.d0  
 #endif
     COOP_REAL::h_low, h_high, h_mid, theta_high, theta_low, theta_mid
-    COOP_REAL, parameter::min_omega_m = 0.1d0, max_omega_m = 0.5d0
+    COOP_REAL, parameter::min_omega_m = 0.12d0, max_omega_m = 0.45d0
     type(coop_function)::fwp1, fQ, alphaM, alphaB, alphaK, alphaT, alphaH
-    logical::w_predefined
+    logical::w_predefined, alpha_predefined
+    logical::success
     COOP_REAL::eps_inf, eps_s, zeta_s, beta_s
     call coop_dictionary_lookup(params, "ombh2", ombM2h2)
     call coop_dictionary_lookup(params, "omch2", omcM2H2)
@@ -1534,23 +1541,34 @@ contains
 
     
 #if DO_EFT_DE
-    call coop_dictionary_lookup(params, "de_alpha_M0", alpha_M0, 0.d0 )
-    call coop_dictionary_lookup(params, "de_alpha_T0", alpha_T0, 0.d0 )
-    call coop_dictionary_lookup(params, "de_alpha_B0", alpha_B0, 0.d0 )
-    call coop_dictionary_lookup(params, "de_alpha_K0", alpha_K0, 0.d0 )
-    call coop_dictionary_lookup(params, "de_alpha_H0", alpha_H0 , 0.d0 )
-    
-    alphaM = coop_de_alpha_constructor(alpha_M0, "omega")
-    alphaT = coop_de_alpha_constructor(alpha_T0, "omega")
-    alphaH = coop_de_alpha_constructor(alpha_H0, "omega")
-    alphaB = coop_de_alpha_constructor(alpha_B0, "omega")
-    alphaK = coop_de_alpha_constructor(alpha_K0, "omega")
-    if(alpha_M0 .ne. 0.d0)then
+    call coop_dictionary_lookup(params, "de_cs2", de_cs2, -1.d30)
+    if(de_cs2 .ge. -100.d0)then
+       if(de_cs2 .le. 0.d0) stop "Error: dark energy c_s^2 <= 0"
+       call coop_dictionary_lookup(params, "de_r_B",  r_B, 0.d0)
+       call coop_dictionary_lookup(params, "de_r_H",  r_H, 0.d0)
+       call coop_dictionary_lookup(params, "de_r_M",  r_M, 0.d0)
+       call coop_dictionary_lookup(params, "de_r_T",  r_T, 0.d0)
+       if(.not. w_predefined .or. wa .ne. 0.d0) stop "Error: Incompatible settings for de_w and de_cs2. For EFT DE with fixed c_s^2, w is assumed to be a constant, too."
+       alpha_predefined = .false.
+    else
+       call coop_dictionary_lookup(params, "de_alpha_M0", alpha_M0, 0.d0 )
+       call coop_dictionary_lookup(params, "de_alpha_T0", alpha_T0, 0.d0 )
+       call coop_dictionary_lookup(params, "de_alpha_B0", alpha_B0, 0.d0 )
+       call coop_dictionary_lookup(params, "de_alpha_K0", alpha_K0, 0.d0 )
+       call coop_dictionary_lookup(params, "de_alpha_H0", alpha_H0 , 0.d0 )
+       alphaM = coop_de_alpha_constructor(alpha_M0, "omega")
+       alphaT = coop_de_alpha_constructor(alpha_T0, "omega")
+       alphaH = coop_de_alpha_constructor(alpha_H0, "omega")
+       alphaB = coop_de_alpha_constructor(alpha_B0, "omega")
+       alphaK = coop_de_alpha_constructor(alpha_K0, "omega")
+       alpha_predefined = .true.
+       call coop_EFT_DE_set_Mpsq(alphaM)       
+    endif
+    if(alpha_M0 .ne. 0.d0 .and. alpha_predefined)then
        call coop_dictionary_lookup(params, "w_is_background",  w_is_background, .false.)
     else
        w_is_background = .true.
     endif
-    call coop_EFT_DE_set_Mpsq(alphaM)
 #elif DO_COUPLED_DE
     call coop_dictionary_lookup(params, "de_Q", Q0, 0.d0)
     call coop_dictionary_lookup(params, "de_Qa", Qa, 0.d0)  
@@ -1587,11 +1605,29 @@ contains
     
     
     subroutine setforH(hubble)
-      COOP_REAL::hubble
+      COOP_INT::iloop
+      COOP_REAL::hubble, omlast
       Omega_b = ombM2h2/coop_Mpsq0/hubble**2
       Omega_c = omcM2h2/coop_Mpsq0/hubble**2
       if(.not. w_predefined)then
          fwp1 = coop_function_constructor(coop_de_wp1_coupled_quintessence, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args = coop_arguments_constructor( r = (/ 1.d0-omega_b - omega_c, eps_s, eps_inf, zeta_s , beta_s /) ), name = "DE 1+w")
+      endif
+      if(.not. alpha_predefined)then
+         omlast = -1000.d0
+         iloop = 0
+         do while(abs(omega_b + omega_c - omlast ) .gt. 1.d-4)
+            omlast = omega_b + omega_c            
+            call coop_de_construct_alpha_from_cs2(omlast, w0, de_cs2, r_B, r_H, r_M, r_T, alphaB, alphaH, alphaK, alphaM, alphaT, success)
+            call coop_EFT_DE_set_Mpsq(alphaM)
+            Omega_b = ombM2h2/coop_Mpsq0/hubble**2
+            Omega_c = omcM2h2/coop_Mpsq0/hubble**2
+            iloop = iloop + 1
+            if(iloop .gt. 100) stop "the alpha functions do not converge"
+         enddo
+         if(.not. success)then
+            stop "Solution does not exist for the given c_s^2 and r_B, r_M, r_H, r_T"
+         endif
+
       endif
 #if DO_EFT_DE  
       !!initialize this

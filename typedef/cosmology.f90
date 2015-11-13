@@ -843,6 +843,7 @@ contains
     alphaM = coop_alphaM(a)
     alphacs2 = -2.d0*((1.d0+alphaB)*((1.d0+alphaB)*(1.d0+alphaT) - (1.d0+alphaH)*(1.d0+alphaM - hdotbyhsq)-this%alpha_H_prime(a))+(1.d0+alphaH)*this%alpha_B_prime(a)) + (1.d0+alphaH)**2*(2.d0*hdotbyhsq + 3.d0*O0_DE(this)%wp1ofa(a)*O0_DE(this)%rhoa4(a)/this%rhoa4(a))
   end function coop_cosmology_background_alphacs2
+
 #endif  
 
   

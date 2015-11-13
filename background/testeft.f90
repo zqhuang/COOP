@@ -2,20 +2,29 @@ program bgtest
   use coop_wrapper_background
   implicit none
 #include "constants.h"
-  COOP_REAL:: omegab = 0.049d0
-  COOP_REAL:: omegac = 0.2d0
+  COOP_REAL:: omegab = 0.05d0
+  COOP_REAL:: omegac = 0.25d0
+  COOP_REAL::w = -0.9d0
+  COOP_REAL::cs2 = 0.9d0
+  COOP_REAL::r_B, r_H, r_M, r_T, omegam
   type(coop_cosmology_background)::bg
   COOP_INT, parameter::nvars = 4
   COOP_INT, parameter::n = 512
-  type(coop_function)::wp1, alpha_M
-  COOP_INT::err
+  type(coop_function)::wp1, alpha_M, alpha_B, alpha_K, alpha_T, alpha_H
+  COOP_INT::err, i, na
   type(coop_ode)::ode
-  COOP_REAL::y(nvars), yp(nvars), a
+  COOP_REAL::y(nvars), yp(nvars), a, da
   COOP_INT::index_de
-  call wp1%init_polynomial( (/ 0.d0, 0.d0 /) )
-  call alpha_M%init_polynomial( (/ 0.d0, 0.d0, 0.d0, 1.d0 /) )
-  call bg%set_alphaM(alpha_M)
-
+  logical success
+  omegam = omegab + omegac
+  r_B = 1.d0
+  r_H = 0.21d0
+  r_M = 0.11d0
+  r_T = 0.8d0
+  call coop_de_construct_alpha_from_cs2(omegam, w, cs2, r_B, r_H, r_M, r_T, bg%f_alpha_B, bg%f_alpha_H, bg%f_alpha_K, bg%f_alpha_M, bg%f_alpha_T, success)
+  if(.not. success) stop "cannot find alpha0"
+  call wp1%init_polynomial( (/ 1.d0+w/) )
+  call coop_EFT_DE_set_Mpsq(bg%f_alpha_M)
   call bg%init(h=0.68d0)
   call bg%add_species(coop_baryon(omegab))
   call bg%add_species(coop_cdm(omegac))  
@@ -35,6 +44,13 @@ program bgtest
   print*, ode%y(2), ode%y(2) - log(bg%Hratio(exp(ode%x)))
   print*, ode%y(3), ode%y(3) - log(bg%species(5)%density(exp(ode%x)))
   print*, ode%y(4), ode%y(4) - log(coop_Mpsq(exp(ode%x)))
+  call coop_de_construct_alpha_from_cs2(omegam, w, cs2, r_B, r_H, r_M, r_T, bg%f_alpha_B, bg%f_alpha_H, bg%f_alpha_K, bg%f_alpha_M, bg%f_alpha_T, success)
+  na = 1000
+  da = 1.d0/na
+  do i = 1, na
+     print*, i, i*da, bg%alphacs2(i*da)/ bg%total_alpha(i*da), bg%alpha_K(i*da)
+  enddo
+
 contains
 
   subroutine getderv(n, lna, y, yp)
