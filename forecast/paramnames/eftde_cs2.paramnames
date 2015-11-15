@@ -1,0 +1,108 @@
+ombh2	\Omega_b M^2 h^2
+omch2   \Omega_c M^2 h^2
+theta	100\theta
+tau	\tau
+de_w	w_0
+de_cs2	c_s^2
+de_r_B	r_B
+de_r_H	r_H
+de_r_M	r_M
+de_r_T	r_T
+logAm2tau	\ln[10^{10}A_s]-2\tau
+ns	n_s
+A_cib_217	  A_{\rm cib, 271}
+cib_index	  n_{\rm cib}
+xi_sz_cib	  \xi_{\rm cib}
+A_sz		A_{\rm SZ}
+ps_A_100_100	A_{\rm ps, 100, 100}
+ps_A_143_143	A_{\rm ps, 143, 143}
+ps_A_143_217	A_{\rm ps, 143, 217}
+ps_A_217_217	A_{\rm ps, 217, 217}
+ksz_norm	A_{\rm KSZ}
+gal545_A_100	A_{\rm g,TT, 100}
+gal545_A_143	A_{\rm g,TT, 143}
+gal545_A_143_217       A_{\rm g,TT, 143, 217}
+gal545_A_217	       A_{\rm g,TT, 217}
+galf_EE_A_100	       A_{\rm g, EE, 100}
+galf_EE_A_100_143      A_{\rm g, EE, 100, 143}
+galf_EE_A_100_217      A_{\rm g, EE, 100, 217}
+galf_EE_A_143	       A_{\rm g, EE, 143}
+galf_EE_A_143_217      A_{\rm g, EE, 143, 217}
+galf_EE_A_217	       A_{\rm g, EE, 217}
+galf_EE_index	       n_{\rm g, EE}
+galf_TE_A_100	       A_{\rm g, TE, 100} 
+galf_TE_A_100_143      A_{\rm g, TE, 100, 143} 
+galf_TE_A_100_217      A_{\rm g, TE, 100, 217} 
+galf_TE_A_143	       A_{\rm g, TE, 143} 
+galf_TE_A_143_217      A_{\rm g, TE, 143, 217}	
+galf_TE_A_217	       A_{\rm g, TE, 217} 
+galf_TE_index	       n_{\rm g, TE}
+bleak_epsilon_0_0T_0E  \epsilon
+bleak_epsilon_1_0T_0E  \epsilon
+bleak_epsilon_2_0T_0E  \epsilon
+bleak_epsilon_3_0T_0E  \epsilon
+bleak_epsilon_4_0T_0E  \epsilon
+bleak_epsilon_0_0T_1E  \epsilon
+bleak_epsilon_1_0T_1E  \epsilon
+bleak_epsilon_2_0T_1E  \epsilon
+bleak_epsilon_3_0T_1E  \epsilon
+bleak_epsilon_4_0T_1E  \epsilon
+bleak_epsilon_0_0T_2E  \epsilon
+bleak_epsilon_1_0T_2E  \epsilon
+bleak_epsilon_2_0T_2E  \epsilon
+bleak_epsilon_3_0T_2E  \epsilon
+bleak_epsilon_4_0T_2E  \epsilon
+bleak_epsilon_0_1T_1E  \epsilon
+bleak_epsilon_1_1T_1E  \epsilon
+bleak_epsilon_2_1T_1E  \epsilon
+bleak_epsilon_3_1T_1E  \epsilon	
+bleak_epsilon_4_1T_1E  \epsilon
+bleak_epsilon_0_1T_2E  \epsilon
+bleak_epsilon_1_1T_2E  \epsilon
+bleak_epsilon_2_1T_2E  \epsilon
+bleak_epsilon_3_1T_2E  \epsilon
+bleak_epsilon_4_1T_2E  \epsilon
+bleak_epsilon_0_2T_2E  \epsilon
+bleak_epsilon_1_2T_2E  \epsilon
+bleak_epsilon_2_2T_2E  \epsilon
+bleak_epsilon_3_2T_2E  \epsilon
+bleak_epsilon_4_2T_2E  \epsilon
+bleak_epsilon_0_0E_0E  \epsilon
+bleak_epsilon_1_0E_0E  \epsilon
+bleak_epsilon_2_0E_0E  \epsilon
+bleak_epsilon_3_0E_0E  \epsilon
+bleak_epsilon_4_0E_0E  \epsilon
+bleak_epsilon_0_0E_1E  \epsilon
+bleak_epsilon_1_0E_1E  \epsilon
+bleak_epsilon_2_0E_1E  \epsilon
+bleak_epsilon_3_0E_1E  \epsilon
+bleak_epsilon_4_0E_1E  \epsilon
+bleak_epsilon_0_0E_2E  \epsilon
+bleak_epsilon_1_0E_2E  \epsilon
+bleak_epsilon_2_0E_2E  \epsilon
+bleak_epsilon_3_0E_2E  \epsilon
+bleak_epsilon_4_0E_2E  \epsilon
+bleak_epsilon_0_1E_1E  \epsilon
+bleak_epsilon_1_1E_1E  \epsilon
+bleak_epsilon_2_1E_1E  \epsilon
+bleak_epsilon_3_1E_1E  \epsilon
+bleak_epsilon_4_1E_1E  \epsilon
+bleak_epsilon_0_1E_2E  \epsilon
+bleak_epsilon_1_1E_2E  \epsilon
+bleak_epsilon_2_1E_2E  \epsilon
+bleak_epsilon_3_1E_2E  \epsilon
+bleak_epsilon_4_1E_2E  \epsilon
+bleak_epsilon_0_2E_2E  \epsilon
+bleak_epsilon_1_2E_2E  \epsilon
+bleak_epsilon_2_2E_2E  \epsilon
+bleak_epsilon_3_2E_2E  \epsilon
+bleak_epsilon_4_2E_2E  \epsilon
+calib_100T	       A_{\rm cal, 100T}
+calib_217T	       A_{\rm cal, 217T}
+calib_100P	       A_{\rm cal, 100P}
+calib_143P	       A_{\rm cal, 143P}
+calib_217P	       A_{\rm cal, 217P}
+A_pol		       A_{\rm pol}
+A_planck	       A_{\rm planck}
+alpha_JLA	\alpha_{\rm JLA}
+beta_JLA	\beta_{\rm JLA}
