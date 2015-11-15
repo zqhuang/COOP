@@ -539,7 +539,7 @@ contains
        var = sqrt(coop_Mpsq(pert%a))
     case("dealphak")
        var = cosmology%alpha_K(pert%a)
-    case("dealphaB")
+    case("dealphab")
        var = cosmology%alpha_B(pert%a)
     case("dealphat")
        var = cosmology%alpha_T(pert%a)

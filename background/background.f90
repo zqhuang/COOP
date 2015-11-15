@@ -835,7 +835,7 @@ contains
        enddo
     endif
     cs2derv = (cs2try(alpha_l + alpha0_min/2) - cs2try(alpha_l - alpha0_min/2))/alpha0_min
-    alpha_l = alpha_l * (cs2 - cs2try(alpha_l))/cs2derv
+    alpha_l = alpha_l + (cs2 - cs2try(alpha_l))/cs2derv
     if(r_B .eq. 0.d0)then
        call alpha_B%init_polynomial( (/ 0.d0 /))
     else
