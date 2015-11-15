@@ -1100,13 +1100,14 @@ contains
   end function coop_cosmology_firstorder_growth_of_z
 
 
-  subroutine coop_cosmology_firstorder_set_standard_cosmology(this, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe)
+  subroutine coop_cosmology_firstorder_set_standard_cosmology(this, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, only_background)
     class(coop_cosmology_firstorder)::this
     COOP_REAL:: h, tau_re, Omega_b, Omega_c
     COOP_REAL, optional::nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, Nnu, YHe
     logical::scalar_de
     COOP_INT::err
     logical,optional::inflation_consistency
+    logical, optional::only_background
     if(present(YHe))then
        if(present(Nnu))then
           call this%init(h=h, YHe = YHe, Nnu = NNu)
@@ -1146,6 +1147,9 @@ contains
     call this%add_species(coop_de_lambda(this%Omega_k()))
     this%de_genre = COOP_PERT_NONE
     call this%setup_background()
+    if(present(only_background))then
+       if(only_background)return
+    endif
     this%optre = tau_re
     call this%set_xe()
     if(present(As).or.present(ns) .or. present(nrun) .or. present(r) .or. present(nt) .or. present(inflation_consistency))then
@@ -1185,13 +1189,14 @@ contains
 
 
 #if DO_COUPLED_DE
-  subroutine coop_cosmology_firstorder_set_coupled_DE_cosmology(this, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, fwp1, fQ)
+  subroutine coop_cosmology_firstorder_set_coupled_DE_cosmology(this, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, fwp1, fQ, only_background)
     class(coop_cosmology_firstorder)::this
     COOP_REAL:: h, tau_re, Omega_b, Omega_c
     COOP_REAL, optional::nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, Nnu, YHe
     type(coop_function)::fwp1, fQ  !!1+w(a)  and Q(a)
     COOP_INT::err  !!
     logical,optional::inflation_consistency
+    logical,optional::only_background
     if(present(YHe))then
        if(present(Nnu))then
           call this%init(h=h, YHe = YHe, Nnu = NNu)
@@ -1235,6 +1240,9 @@ contains
        return
     endif
     call this%setup_background()
+    if(present(only_background))then
+       if(only_background)return
+    endif
     this%optre = tau_re
     call this%set_xe()
     if(present(As).or.present(ns) .or. present(nrun) .or. present(r) .or. present(nt) .or. present(inflation_consistency))then
@@ -1274,7 +1282,7 @@ contains
 #endif  
   
 #if DO_EFT_DE
-  subroutine coop_cosmology_firstorder_set_EFT_cosmology(this, h, tcmb, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, wp1, wp1_background, alphaM, alphaB, alphaK, alphaT, alphaH)
+  subroutine coop_cosmology_firstorder_set_EFT_cosmology(this, h, tcmb, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, wp1, wp1_background, alphaM, alphaB, alphaK, alphaT, alphaH, only_background)
     class(coop_cosmology_firstorder)::this
     COOP_REAL:: h, tau_re, Omega_b, Omega_c
     COOP_REAL, optional::nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, Nnu, YHe, tcmb
@@ -1282,6 +1290,7 @@ contains
     COOP_INT::err
     logical,optional::inflation_consistency
     type(coop_species)::de
+    logical, optional::only_background
     if(present(tcmb))then
        if(present(YHe))then
           if(present(Nnu))then
@@ -1368,6 +1377,9 @@ contains
        this%f_alpha_H = alphaH
     endif
     call this%setup_background()
+    if(present(only_background))then
+       if(only_background)return
+    endif
     this%optre = tau_re
     call this%set_xe()
     if(present(As).or.present(ns) .or. present(nrun) .or. present(r) .or. present(nt) .or. present(inflation_consistency))then
@@ -1490,7 +1502,7 @@ contains
     COOP_REAL::Qa = 0.d0  
 #endif
     COOP_REAL::h_low, h_high, h_mid, theta_high, theta_low, theta_mid
-    COOP_REAL, parameter::min_omega_m = 0.12d0, max_omega_m = 0.45d0
+    COOP_REAL, parameter::min_omega_m = 0.1d0, max_omega_m = 0.5d0, h_min = 0.4d0, h_max = 1.d0
     type(coop_function)::fwp1, fQ, alphaM, alphaB, alphaK, alphaT, alphaH
     logical::w_predefined, alpha_predefined
     logical::success
@@ -1574,7 +1586,7 @@ contains
     call coop_dictionary_lookup(params, "de_Qa", Qa, 0.d0)  
 #endif
     if(h .ne. 0.d0) then
-       call setforH(h)
+       call setforH(h, only_background = .false.)
        return
     endif
     call coop_dictionary_lookup(params, "theta", theta, 0.d0)
@@ -1582,65 +1594,70 @@ contains
     if(theta .eq. 0.d0)then
        stop " you must either set theta or H0 in the parameter file"
     endif
-    h_low = max(sqrt((ombM2h2 + omcm2h2)/max_omega_m), 0.4d0)
-    call setforH(h_low)
+    h_low = max(sqrt((ombM2h2 + omcm2h2)/max_omega_m), h_min)
+    call setforH(h_low, .true.)
     theta_low = this%cosmomc_theta()
-    h_high = min(sqrt((ombM2h2 + omcm2h2)/min_omega_m), 1.d0)
-    call setforH(h_high)
+    h_high = min(sqrt((ombM2h2 + omcm2h2)/min_omega_m), h_max)
+    call setforH(h_high, .true.)
     theta_high = this%cosmomc_theta()
     if(theta_low .gt. theta .or. theta_high .lt. theta) stop "theta out of possible range"
-    do while(h_high - h_low .gt. 1.d-6)
+    do while(h_high - h_low .gt. 5.d-6)
        h_mid = (h_high + h_low)/2.d0
-       call setforH(h_mid)
+       call setforH(h_mid, only_background = .true.)
        theta_mid = this%cosmomc_theta()
-       if(abs(theta_mid - theta) .lt. 1.d-6)return
+       if(abs(theta_mid - theta) .lt. 1.d-6)goto 100
        if(theta_mid  .gt. theta)then
           h_high = h_mid
        else
           h_low = h_mid
        endif
     enddo
-
+100 call setforH(h_mid, only_background = .false.)
+    
   contains
     
     
-    subroutine setforH(hubble)
+    subroutine setforH(hubble, only_background)
       COOP_INT::iloop
       COOP_REAL::hubble, omlast
-      Omega_b = ombM2h2/coop_Mpsq0/hubble**2
-      Omega_c = omcM2h2/coop_Mpsq0/hubble**2
-      if(.not. w_predefined)then
-         fwp1 = coop_function_constructor(coop_de_wp1_coupled_quintessence, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args = coop_arguments_constructor( r = (/ 1.d0-omega_b - omega_c, eps_s, eps_inf, zeta_s , beta_s /) ), name = "DE 1+w")
-      endif
-      if(.not. alpha_predefined)then
-         omlast = -1000.d0
+      logical::only_background
+      if(alpha_predefined)then            
+         Omega_b = ombM2h2/coop_Mpsq0/hubble**2
+         Omega_c = omcM2h2/coop_Mpsq0/hubble**2
+
+         if(.not. w_predefined)then
+            fwp1 = coop_function_constructor(coop_de_wp1_coupled_quintessence, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args = coop_arguments_constructor( r = (/ 1.d0-omega_b - omega_c, eps_s, eps_inf, zeta_s , beta_s /) ), name = "DE 1+w")
+         endif
+      else
+         Omega_b = ombM2h2/hubble**2
+         Omega_c = omcM2h2/hubble**2         
+         omlast = -1000.d0         
          iloop = 0
-         do while(abs(omega_b + omega_c - omlast ) .gt. 1.d-4)
+         do while(abs(omega_b + omega_c - omlast ) .gt. 3.d-5)
             omlast = omega_b + omega_c            
             call coop_de_construct_alpha_from_cs2(omlast, w0, de_cs2, r_B, r_H, r_M, r_T, alphaB, alphaH, alphaK, alphaM, alphaT, success)
+            if(.not. success)then
+               stop "Solution does not exist for the given c_s^2 and r_B, r_M, r_H, r_T"
+            endif
             call coop_EFT_DE_set_Mpsq(alphaM)
             Omega_b = ombM2h2/coop_Mpsq0/hubble**2
             Omega_c = omcM2h2/coop_Mpsq0/hubble**2
             iloop = iloop + 1
             if(iloop .gt. 100) stop "the alpha functions do not converge"
          enddo
-         if(.not. success)then
-            stop "Solution does not exist for the given c_s^2 and r_B, r_M, r_H, r_T"
-         endif
-
       endif
 #if DO_EFT_DE  
       !!initialize this
       if(w_is_background)then
-         call this%set_EFT_cosmology(Omega_b=omega_b, Omega_c=omega_c, h = hubble, Tcmb = COOP_DEFAULT_TCMB, tau_re = tau_re, As = As, ns = ns, wp1_background = fwp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT, r=r, nt = nt, nrun = nrun)     
+         call this%set_EFT_cosmology(Omega_b=omega_b, Omega_c=omega_c, h = hubble, Tcmb = COOP_DEFAULT_TCMB, tau_re = tau_re, As = As, ns = ns, wp1_background = fwp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT, r=r, nt = nt, nrun = nrun, only_background = only_background )     
       else
-         call this%set_EFT_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, Tcmb = COOP_DEFAULT_TCMB, tau_re = tau_re, As = As, ns = ns, wp1 = fwp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT, r=r, nt = nt, nrun = nrun)
+         call this%set_EFT_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, Tcmb = COOP_DEFAULT_TCMB, tau_re = tau_re, As = As, ns = ns, wp1 = fwp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT, r=r, nt = nt, nrun = nrun, only_background = only_background )
       endif
 #elif DO_COUPLED_DE
       call fQ%init_polynomial( (/ Q0+Qa, -Qa /) )
-      call this%set_coupled_DE_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, tau_re = tau_re, As = As, ns = ns, fwp1 = fwp1, fQ = fQ, r=r, nt = nt, nrun = nrun)
+      call this%set_coupled_DE_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, tau_re = tau_re, As = As, ns = ns, fwp1 = fwp1, fQ = fQ, r=r, nt = nt, nrun = nrun, only_background = only_background )
 #else
-      call this%set_standard_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, tau_re = tau_re, As = As, ns = ns, r=r, nt = nt, nrun = nrun)
+      call this%set_standard_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, tau_re = tau_re, As = As, ns = ns, r=r, nt = nt, nrun = nrun, only_background = only_background )
 #endif
     end subroutine setforH
   end subroutine coop_cosmology_firstorder_init_from_dictionary

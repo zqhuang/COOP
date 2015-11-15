@@ -221,12 +221,19 @@ module coop_forecast_mod
 #if DO_COUPLED_DE     
      COOP_INT::index_de_Q = 0
 #elif DO_EFT_DE
+     !!alpha0 parametrization
      COOP_SHORT_STRING::alpha_genre
      COOP_INT::index_de_alpha_M0 = 0
      COOP_INT::index_de_alpha_H0 = 0
      COOP_INT::index_de_alpha_T0 = 0
      COOP_INT::index_de_alpha_B0 = 0
      COOP_INT::index_de_alpha_K0 = 0
+     !!or, cs2 parametrization
+     COOP_INT::index_de_cs2 = 0
+     COOP_INT::index_de_r_B = 0
+     COOP_INT::index_de_r_M = 0
+     COOP_INT::index_de_r_H = 0
+     COOP_INT::index_de_r_T = 0     
      logical::w_is_background = .false.
 #endif     
    contains
@@ -280,28 +287,30 @@ contains
     class(coop_MCMC_params)::this
     COOP_REAL,parameter::omega_m_min = 0.1
     COOP_REAL,parameter::omega_m_max = 0.5   
-    COOP_REAL, parameter::h_b_i = 0.4d0
-    COOP_REAL, parameter::h_t_i =  1.d0
+    COOP_REAL, parameter::h_min = 0.4d0
+    COOP_REAL, parameter::h_max =  1.d0
     COOP_INT::iloop
     COOP_REAL::h_t, h_b, h_m, theta_t, theta_b, theta_m, theta_want
     logical success
     if(.not. associated(this%cosmology)) stop "MCMC_params_set_cosmology: cosmology not allocated"
 #if DO_EFT_DE
-    if(this%index_de_alpha_M0 .ne. 0)then    
-       call this%cosmology%set_alphaM(coop_de_alpha_constructor(  this%fullparams(this%index_de_alpha_M0), this%alpha_genre ) )
-    else
-       call this%cosmology%set_alphaM( coop_function_polynomial( (/ 0.d0 /) ) )       
+    if(this%index_de_cs2 .eq. 0)then
+       if(this%index_de_alpha_M0 .ne. 0)then    
+          call this%cosmology%set_alphaM(coop_de_alpha_constructor(  this%fullparams(this%index_de_alpha_M0), this%alpha_genre ) )
+       else
+          call this%cosmology%set_alphaM( coop_function_polynomial( (/ 0.d0 /) ) )       
+       endif
     endif
 #endif
 
     if(this%index_theta .ne. 0)then
        theta_want = this%fullparams(this%index_theta)
-       h_t = min(h_t_i, sqrt((this%fullparams(this%index_ombm2h2)+this%fullparams(this%index_omcm2h2))/omega_m_min/coop_Mpsq0))
-       h_b = max(h_b_i, sqrt((this%fullparams(this%index_ombm2h2)+this%fullparams(this%index_omcm2h2))/omega_m_max/coop_Mpsq0))
+       h_t = min(h_max, sqrt((this%fullparams(this%index_ombm2h2)+this%fullparams(this%index_omcm2h2))/omega_m_min/coop_Mpsq0))
+       h_b = max(h_min, sqrt((this%fullparams(this%index_ombm2h2)+this%fullparams(this%index_omcm2h2))/omega_m_max/coop_Mpsq0))
        call calc_theta(h_t, theta_t)
        if(this%cosmology%h().eq.0.d0)return
        call calc_theta(h_b, theta_b)
-       if(this%cosmology%h().eq.0.d0)return       
+       if(this%cosmology%h().eq.0.d0)return
        if(theta_t .lt. theta_want)then
           call this%cosmology%set_h(0.d0)
           return
@@ -341,18 +350,20 @@ contains
        stop "you need to use either theta or h for MCMC runs"
     endif
 #if DO_EFT_DE
-    this%cosmology%f_alpha_M = coop_EFT_DE_alphaM    
-    if(this%index_de_alpha_K0 .ne. 0)then
-       this%cosmology%f_alpha_K = coop_de_alpha_constructor( this%fullparams(this%index_de_alpha_K0), this%alpha_genre )
-    endif
-    if(this%index_de_alpha_B0 .ne. 0)then
-       this%cosmology%f_alpha_B = coop_de_alpha_constructor( this%fullparams(this%index_de_alpha_B0), this%alpha_genre )       
-    endif
-    if(this%index_de_alpha_H0 .ne. 0)then
-       this%cosmology%f_alpha_H = coop_de_alpha_constructor( this%fullparams(this%index_de_alpha_H0), this%alpha_genre )       
-    endif
-    if(this%index_de_alpha_T0 .ne. 0)then
-       this%cosmology%f_alpha_T = coop_de_alpha_constructor( this%fullparams(this%index_de_alpha_T0), this%alpha_genre )       
+    if(this%index_de_cs2 .eq. 0)then
+       this%cosmology%f_alpha_M = coop_EFT_DE_alphaM    
+       if(this%index_de_alpha_K0 .ne. 0)then
+          this%cosmology%f_alpha_K = coop_de_alpha_constructor( this%fullparams(this%index_de_alpha_K0), this%alpha_genre )
+       endif
+       if(this%index_de_alpha_B0 .ne. 0)then
+          this%cosmology%f_alpha_B = coop_de_alpha_constructor( this%fullparams(this%index_de_alpha_B0), this%alpha_genre )       
+       endif
+       if(this%index_de_alpha_H0 .ne. 0)then
+          this%cosmology%f_alpha_H = coop_de_alpha_constructor( this%fullparams(this%index_de_alpha_H0), this%alpha_genre )       
+       endif
+       if(this%index_de_alpha_T0 .ne. 0)then
+          this%cosmology%f_alpha_T = coop_de_alpha_constructor( this%fullparams(this%index_de_alpha_T0), this%alpha_genre )       
+       endif
     endif
 #endif    
     call this%cosmology%setup_background()
@@ -435,15 +446,82 @@ contains
 
     subroutine setforH(h)
       COOP_REAL::h
-      COOP_REAL::Q, w, wa, epsilon_s, epsilon_inf, zeta_s, beta_s
+      COOP_REAL::Q, w, wa, epsilon_s, epsilon_inf, zeta_s, beta_s, r_B, r_H, r_M, r_T
       COOP_INT::err
       type(coop_function)::fQ, fwp1
+      logical::sucess
+      COOP_INT::iloop
+      COOP_REAL::omlast
+      COOP_REAL::omega_b, omega_c
       call this%cosmology%free()
       call this%cosmology%init(name = "Cosmology", id = 0, h = h)
-      this%cosmology%ombh2 =this%fullparams(this%index_ombm2h2)/coop_Mpsq0
-      this%cosmology%omch2 =this%fullparams(this%index_omcm2h2)/coop_Mpsq0
+      if(this%index_de_cs2 .ne. 0)then !!alpha not predefined
+         if(this%index_de_w .ne. 0)then
+            w = this%fullparams(this%index_de_w)
+         else
+            w = -1.d0
+         endif
+         if(this%index_de_r_B .eq. 0)then
+            r_B = 0.d0
+         else
+            r_B = this%fullparams(this%index_de_r_B)
+         endif
+         if(this%index_de_r_T .eq. 0)then
+            r_T = 0.d0
+         else
+            r_T = this%fullparams(this%index_de_r_T)
+         endif
+         if(this%index_de_r_H .eq. 0)then
+            r_H = 0.d0
+         else
+            r_H = this%fullparams(this%index_de_r_H)
+         endif
+         if(this%index_de_r_M .eq. 0)then
+            r_M = 0.d0
+         else
+            r_M = this%fullparams(this%index_de_r_M)
+         endif
+         
+         this%cosmology%ombh2 =this%fullparams(this%index_ombm2h2)
+         this%cosmology%omch2 =this%fullparams(this%index_omcm2h2)
+         omega_b = this%cosmology%ombh2/h**2
+         omega_c = this%cosmology%omch2/h**2
+#if DO_EFT_DE
+         if(r_M .ne. 0.d0)then
+            omlast = -1000.d0
+            iloop = 0
+            do while(abs(omega_b + omega_c - omlast ) .gt. 3.d-5)
+               omlast = omega_b + omega_c
+               call coop_de_construct_alpha_from_cs2(omlast, w, this%fullparams(this%index_de_cs2), r_B, r_H, r_M, r_T, this%cosmology%f_alpha_B, this%cosmology%f_alpha_H, this%cosmology%f_alpha_K, this%cosmology%f_alpha_M, this%cosmology%f_alpha_T, success)
+               if(.not. success)then
+                  call this%cosmology%set_h(0.d0)
+                  return
+               endif
+               call coop_EFT_DE_set_Mpsq(this%cosmology%f_alpha_M)
+               this%cosmology%ombh2 =this%fullparams(this%index_ombm2h2)/coop_Mpsq0
+               this%cosmology%omch2 =this%fullparams(this%index_omcm2h2)/coop_Mpsq0
+               omega_b = this%cosmology%ombh2/h**2
+               omega_c = this%cosmology%omch2/h**2
+               iloop = iloop + 1
+               if(iloop .gt. 100) stop "the alpha functions do not converge"
+            enddo
+         else
+            call coop_de_construct_alpha_from_cs2(omlast, w, this%fullparams(this%index_de_cs2), r_B, r_H, 0.d0, r_T, this%cosmology%f_alpha_B, this%cosmology%f_alpha_H, this%cosmology%f_alpha_K, this%cosmology%f_alpha_M, this%cosmology%f_alpha_T, success)
+            if(.not. success)then
+               call this%cosmology%set_h(0.d0)
+               return
+            endif
+            call coop_EFT_DE_set_Mpsq(this%cosmology%f_alpha_M)
+         endif
+#endif         
+      else
+         this%cosmology%ombh2 =this%fullparams(this%index_ombm2h2)/coop_Mpsq0
+         this%cosmology%omch2 =this%fullparams(this%index_omcm2h2)/coop_Mpsq0
+         omega_b = this%cosmology%ombh2/h**2
+         omega_c = this%cosmology%omch2/h**2
+      endif
       !!baryon
-      call this%cosmology%add_species(coop_baryon(this%cosmology%ombh2/h**2))
+      call this%cosmology%add_species(coop_baryon(omega_b))
       !!radiation
       call this%cosmology%add_species(coop_radiation(this%cosmology%Omega_radiation()))
       !!neutrinos
@@ -1608,14 +1686,23 @@ contains
     this%index_de_zetas = this%index_of("de_zetas")
     this%index_de_betas = this%index_of("de_betas")                
 
-#if DO_EFT_DE    
-    this%index_de_alpha_M0 = this%index_of("de_alpha_M0")
-    this%index_de_alpha_H0 = this%index_of("de_alpha_H0")
-    this%index_de_alpha_K0 = this%index_of("de_alpha_K0")
-    this%index_de_alpha_T0 = this%index_of("de_alpha_T0")    
-    this%index_de_alpha_B0 = this%index_of("de_alpha_B0")
-    call coop_dictionary_lookup(this%settings, "w_is_background", this%w_is_background, .false.)
-    call coop_dictionary_lookup(this%settings, "alpha_genre", this%alpha_genre, "omega")
+#if DO_EFT_DE
+    this%index_de_cs2 = this%index_of("de_cs2")
+    if(this%index_de_cs2 .ne. 0)then
+       if(this%index_de_wa .ne. 0 .or. this%index_de_epss .ne. 0 .or. this%index_de_epsinf .ne. 0 .or. this%index_de_zetas .ne. 0 .or. this%index_de_betas .ne. 0) stop "Error in DE parametrization, for EFT DE parametrization with c_s^2, only constant w is allowed."
+       this%index_de_r_M = this%index_of("de_r_M")
+       this%index_de_r_H = this%index_of("de_r_H")
+       this%index_de_r_B = this%index_of("de_r_B")
+       this%index_de_r_T = this%index_of("de_r_T")       
+    else
+       this%index_de_alpha_M0 = this%index_of("de_alpha_M0")
+       this%index_de_alpha_H0 = this%index_of("de_alpha_H0")
+       this%index_de_alpha_K0 = this%index_of("de_alpha_K0")
+       this%index_de_alpha_T0 = this%index_of("de_alpha_T0")    
+       this%index_de_alpha_B0 = this%index_of("de_alpha_B0")
+       call coop_dictionary_lookup(this%settings, "w_is_background", this%w_is_background, .false.)
+       call coop_dictionary_lookup(this%settings, "alpha_genre", this%alpha_genre, "omega")
+    endif
 #elif DO_COUPLED_DE
     this%index_de_Q = this%index_of("de_Q")
 #endif    
