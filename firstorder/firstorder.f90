@@ -1621,13 +1621,16 @@ contains
       COOP_INT::iloop
       COOP_REAL::hubble, omlast
       logical::only_background
-      if(alpha_predefined)then            
+#if DO_EFT_DE      
+      if(alpha_predefined)then
+#endif         
          Omega_b = ombM2h2/coop_Mpsq0/hubble**2
          Omega_c = omcM2h2/coop_Mpsq0/hubble**2
 
          if(.not. w_predefined)then
             fwp1 = coop_function_constructor(coop_de_wp1_coupled_quintessence, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args = coop_arguments_constructor( r = (/ 1.d0-omega_b - omega_c, eps_s, eps_inf, zeta_s , beta_s /) ), name = "DE 1+w")
          endif
+#if DO_EFT_DE               
       else
          Omega_b = ombM2h2/hubble**2
          Omega_c = omcM2h2/hubble**2         
@@ -1646,6 +1649,7 @@ contains
             if(iloop .gt. 100) stop "the alpha functions do not converge"
          enddo
       endif
+#endif      
 #if DO_EFT_DE  
       !!initialize this
       if(w_is_background)then
