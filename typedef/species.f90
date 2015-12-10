@@ -10,7 +10,8 @@ module coop_species_mod
 
   private
   public:: coop_species, coop_species_constructor, coop_Mpsq, coop_alphaM, coop_alphaM_prime
-  
+
+  COOP_REAL::coop_de_alpha0_max = 1.d0  
 #if DO_EFT_DE
   COOP_REAL::coop_Mpsq0 = 1.d0  !! the unscreened reduced Planck mass ^2
   type(coop_function)::coop_EFT_DE_Mpsq, coop_EFT_DE_alphaM
@@ -18,7 +19,7 @@ module coop_species_mod
 #else
   COOP_REAL,parameter::coop_Mpsq0 = 1.d0
 #endif  
-  public::coop_Mpsq0
+  public::coop_Mpsq0, coop_de_alpha0_max
 
   !!Omega is defined as rho / (3 M_p^2 H^2);
   !!The unit of energy density is H_0^2; of length/time is 1/H_0; of momentum is H_0.

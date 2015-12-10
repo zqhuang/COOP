@@ -805,7 +805,7 @@ contains
   end function coop_de_alpha_model_omega
 
   subroutine coop_de_construct_alpha_from_cs2(omegam, w, cs2, r_B, r_H, r_M, r_T,  alpha_B, alpha_H, alpha_K, alpha_M, alpha_T, sucess)
-    COOP_REAL, parameter::alpha0_min = 1.d-4, alpha0_max = 1.d0
+    COOP_REAL, parameter::alpha0_min = 1.d-4
     COOP_REAL::omegam, w, cs2, r_B, r_M, r_T, r_H, alpha_l
     type(coop_function)::alpha_B, alpha_H, alpha_K, alpha_M, alpha_T
     COOP_REAL::  hdotbyhsq, p, omegal, cs2now, cs2derv
@@ -818,20 +818,20 @@ contains
     if(cs2now .gt. cs2+2.d-3)then
        do while(cs2try(alpha_l*1.001d0) .gt. cs2+2.d-2)
           alpha_l = alpha_l*1.001d0
-          if(alpha_l .gt. alpha0_max) goto 100
+          if(alpha_l .gt. coop_de_alpha0_max) goto 100
        enddo
        do while(cs2try(alpha_l*1.0001d0) .gt. cs2+2.d-3)
           alpha_l = alpha_l*1.0001d0
-          if(alpha_l .gt. alpha0_max) goto 100
+          if(alpha_l .gt. coop_de_alpha0_max) goto 100
        enddo
     elseif(cs2now .lt. cs2-2.d-3)then
        do while(cs2try(alpha_l*1.001d0) .lt. cs2-2.d-2)
           alpha_l = alpha_l*1.001d0
-          if(alpha_l .gt. alpha0_max) goto 100
+          if(alpha_l .gt. coop_de_alpha0_max) goto 100
        enddo
        do while(cs2try(alpha_l*1.0001d0) .lt. cs2-2.d-3)
           alpha_l = alpha_l*1.0001d0
-          if(alpha_l .gt. alpha0_max) goto 100
+          if(alpha_l .gt. coop_de_alpha0_max) goto 100
        enddo
     endif
     cs2derv = (cs2try(alpha_l + alpha0_min/2) - cs2try(alpha_l - alpha0_min/2))/alpha0_min

@@ -1560,6 +1560,7 @@ contains
        call coop_dictionary_lookup(params, "de_r_H",  r_H, 0.d0)
        call coop_dictionary_lookup(params, "de_r_M",  r_M, 0.d0)
        call coop_dictionary_lookup(params, "de_r_T",  r_T, 0.d0)
+       call coop_dictionary_lookup(params, "de_alpha0_max", coop_de_alpha0_max, 1.d0)
        if(.not. w_predefined .or. wa .ne. 0.d0) stop "Error: Incompatible settings for de_w and de_cs2. For EFT DE with fixed c_s^2, w is assumed to be a constant, too."
        alpha_predefined = .false.
     else
@@ -1640,6 +1641,12 @@ contains
             omlast = omega_b + omega_c            
             call coop_de_construct_alpha_from_cs2(omlast, w0, de_cs2, r_B, r_H, r_M, r_T, alphaB, alphaH, alphaK, alphaM, alphaT, success)
             if(.not. success)then
+               write(*,*) "cs^2 = ", de_cs2
+               write(*,*) "r_B = ", r_B
+               write(*,*) "r_H = ", r_H
+               write(*,*) "r_M = ", r_M
+               write(*,*) "r_T = ", r_T
+               write(*,*) "Omega_m = ", omlast
                stop "Solution does not exist for the given c_s^2 and r_B, r_M, r_H, r_T"
             endif
             call coop_EFT_DE_set_Mpsq(alphaM)
