@@ -444,7 +444,7 @@ contains
   end subroutine coop_cosmology_firstorder_compute_source
 
 
-  subroutine coop_cosmology_firstorder_compute_source_k(this, source, ik, output, names, transfer_only, success)
+  subroutine coop_cosmology_firstorder_compute_source_k(this, source, ik, output, names, output_itau, transfer_only, success)
     COOP_REAL, parameter::eps = 1.d-8
     class(coop_cosmology_firstorder)::this
     type(coop_cosmology_firstorder_source)::source
@@ -452,6 +452,7 @@ contains
     type(coop_pert_object) pert
     COOP_REAL, dimension(:,:),allocatable::w
     logical,optional::transfer_only, success
+    COOP_INT, optional::output_itau
     COOP_INT, optional::output
     type(coop_list_string), optional::names
     COOP_REAL c(24)
@@ -470,8 +471,17 @@ contains
        stop "For compatibility with lower versions of gfortran, firstorder equations only works with type coop_cosmology_firstorder"
     end select
     
-    !!for energy conservation test:
     if(present(output))then
+       if(present(output_itau))then
+          if(output_itau .eq. 0) then
+             if(present(names))then
+                call pert%print(this, unit = output, names= names)
+             else
+                call pert%print(this, unit = output)
+             endif
+             return
+          endif
+       endif
        if(present(names))then
           call pert%print(this, unit = output, names= names)
        else
@@ -515,12 +525,22 @@ contains
           endif
        endif
        pert%want_source  = .false.              
-       !!for energy conservation test:
        if(present(output))then
-          if(present(names))then
-             call pert%print(this, unit = output, names= names)
+          if(present(output_itau))then
+             if(output_itau .eq. itau)then
+                if(present(names))then
+                   call pert%print(this, unit = output, names= names)
+                else
+                   call pert%print(this, unit = output)
+                endif
+                return
+             endif
           else
-             call pert%print(this, unit = output)
+             if(present(names))then
+                call pert%print(this, unit = output, names= names)
+             else
+                call pert%print(this, unit = output)
+             endif
           endif
        endif
        !!------------------------------------------------------------

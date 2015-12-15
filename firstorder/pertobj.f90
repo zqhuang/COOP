@@ -467,6 +467,8 @@ contains
     COOP_UNKNOWN_STRING::name
     COOP_REAL::var, alpha
     select case(COOP_LOWER_STR(name))
+    case("kmpc")
+       var = pert%k*cosmology%H0Mpc()
     case("a")
        var = pert%a
     case("z")
@@ -545,6 +547,7 @@ contains
        var = cosmology%alpha_T(pert%a)
     case("dealphah")
        var = cosmology%alpha_H(pert%a)
+
 #endif
     case default
        write(*,*) trim(name)//" is not predefined. Cannot map it to a known variable."
