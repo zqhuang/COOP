@@ -481,11 +481,12 @@ contains
              endif
              return
           endif
-       endif
-       if(present(names))then
-          call pert%print(this, unit = output, names= names)
        else
-          call pert%print(this, unit = output)
+          if(present(names))then
+             call pert%print(this, unit = output, names= names)
+          else
+             call pert%print(this, unit = output)
+          endif
        endif
     endif
     
