@@ -1,4 +1,5 @@
 program test
+#if HAS_HEALPIX  
   use coop_wrapper_utils
   use coop_wrapper_firstorder  
   use coop_fitswrap_mod
@@ -68,4 +69,7 @@ program test
      call map%write(outfile, index_list = (/ 1 /) )
   endif
   call coop_MPI_Finalize()
+#else
+  stop "You need healpix to compile this."
+#endif  
 end program test
