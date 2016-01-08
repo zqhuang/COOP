@@ -455,7 +455,10 @@ contains
       COOP_REAL::omega_b, omega_c
       call this%cosmology%free()
       call this%cosmology%init(name = "Cosmology", id = 0, h = h)
+#if DO_EFT_DE                     
       if(this%index_de_cs2 .ne. 0)then !!alpha not predefined
+#endif            
+#if DO_EFT_DE               
          if(this%index_de_w .ne. 0)then
             w = this%fullparams(this%index_de_w)
          else
@@ -481,7 +484,7 @@ contains
          else
             r_M = this%fullparams(this%index_de_r_M)
          endif
-         
+#endif         
          this%cosmology%ombh2 =this%fullparams(this%index_ombm2h2)
          this%cosmology%omch2 =this%fullparams(this%index_omcm2h2)
          omega_b = this%cosmology%ombh2/h**2
@@ -513,13 +516,17 @@ contains
             endif
             call coop_EFT_DE_set_Mpsq(this%cosmology%f_alpha_M)
          endif
-#endif         
+#endif
+#if DO_EFT_DE         
       else
+#endif         
          this%cosmology%ombh2 =this%fullparams(this%index_ombm2h2)/coop_Mpsq0
          this%cosmology%omch2 =this%fullparams(this%index_omcm2h2)/coop_Mpsq0
          omega_b = this%cosmology%ombh2/h**2
          omega_c = this%cosmology%omch2/h**2
+#if DO_EFT_DE         
       endif
+#endif      
       !!baryon
       call this%cosmology%add_species(coop_baryon(omega_b))
       !!radiation
