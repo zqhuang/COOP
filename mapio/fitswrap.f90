@@ -157,8 +157,8 @@ contains
           elseif(index(this%header%value("CUNIT"//COOP_STR_OF(i)), "arcmin").ne.0)then
              units(i) = coop_SI_arcmin
           else
-             write(*,*) "Unknown unit "//trim(this%header%value("CUNIT"//COOP_STR_OF(i)))
-             stop
+             write(*,*) "Unknown unit "//trim(this%header%value("CUNIT"//COOP_STR_OF(i)))//"; Using deg as default."
+             units(i) = coop_SI_degree
           end if
        enddo
 
