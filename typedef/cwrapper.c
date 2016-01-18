@@ -1,8 +1,5 @@
 #ifdef HAS_FFTW
 #include "fftw3.h"
-#ifdef MPI
-#include "fftw3-mpi.h"
-#endif
 #endif
 #include <stdio.h>
 #include <stdlib.h>
