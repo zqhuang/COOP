@@ -1052,13 +1052,14 @@ contains
 
   end subroutine coop_fits_image_cea_plot
 
-  subroutine  coop_fits_image_cea_convert2healpix(this, hp, imap, mask, lower, upper)  !!convert to healpix map, and mask the bright spots with 5 arcmin circles
+  subroutine  coop_fits_image_cea_convert2healpix(this, hp, imap, mask, hits, lower, upper)  !!convert to healpix map, and mask the bright spots with 5 arcmin circles
     class(coop_fits_image_cea)::this
+    type(coop_fits_image_cea),optional::hits !!if this presents, cut off points with hits less than 10% of the mean hits
     type(coop_healpix_maps)::hp, mask
     type(coop_list_integer)::ps
     integer(8)::pix
     COOP_INT:: hpix, imap, i, listpix(0:10000), nlist
-    COOP_REAL theta, phi
+    COOP_REAL theta, phi, meanhits
     COOP_SINGLE,optional::lower, upper
     COOP_SINGLE flower, fupper
 #ifdef HAS_HEALPIX    
@@ -1075,10 +1076,16 @@ contains
     endif
     mask%map(:,1) = 0.
     hp%map(:, imap) = 0.
-    
+    if(present(hits))then
+       if(hits%npix .ne. this%npix) stop "convert2healpix: flat map hit counts map must be the same size"
+       meanhits = sum(hits%image)/hits%npix*0.1  !!10%
+    endif
     call ps%init()
     do pix=0, this%npix-1
        call this%pix2ang(pix, theta, phi)
+       if(present(hits))then
+          if(hits%image(pix) .lt. meanhits)cycle
+       endif
        call hp%ang2pix(theta, phi, hpix)
        if(this%image(pix).lt.flower .or. this%image(pix).gt.fupper)then
           mask%map(hpix, 1) = -1.
