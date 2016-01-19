@@ -54,6 +54,12 @@ program test
      call qmap%convert2healpix(hp, 2, mask, hits=imask)
      call umap%convert2healpix(hp, 3, mask, hits=imask)
      call hp%smooth(fwhm = 5.*coop_SI_arcmin, l_lower = 50, l_upper = 2500)
+     print*,"===== smoothed map min max ====="  
+     print*, maxval(hp%map(:,1)), minval(hp%map(:,1))
+     print*, maxval(hp%map(:,2)), minval(hp%map(:,2))
+     print*, maxval(hp%map(:,3)), minval(hp%map(:,3))
+     print*,"=================================="  
+
      call hp%write(mapdir//"act_iqu_5a_l50-2500.fits")
      call hp%write(mapdir//"act_qu_5a_l50-2500.fits", index_list=(/ 2, 3/) )     
      call hp%get_QU()
