@@ -37,18 +37,13 @@ program test
   endif
   print*,"=================================="    
   print*,"# of pixels (I, Q, U, mask):", imap%npix, qmap%npix, umap%npix, imask%npix
-  print*,"======== map min max ============"
-  print*, maxval(imap%image), minval(imap%image)
-  print*, maxval(qmap%image), minval(qmap%image)
-  print*, maxval(umap%image), minval(umap%image)
   print*,"======== regularized ============"  
-  print*,"======== map min max ============"  
-  call imap%regularize(reg_limit)
-  call qmap%regularize(reg_limit)
-  call umap%regularize(reg_limit)
-  print*, maxval(imap%image), minval(imap%image)
-  print*, maxval(qmap%image), minval(qmap%image)
-  print*, maxval(umap%image), minval(umap%image)
+  where(abs(imap%image) .gt. 500. .or. abs(qmap%image).gt.500 .or. abs(umap%image).gt. 500)
+     imask%image = 0.
+     imap%image = 0.
+     qmap%image = 0.
+     umap%image = 0.
+  end where
   print*,"=================================="  
   if(do_convert)then
      call hp%init(nside=2048, nmaps=3, genre="IQU", lmax=lmax)
