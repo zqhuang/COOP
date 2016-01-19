@@ -6,8 +6,8 @@ program test
   implicit none
 #include "constants.h"
   logical,parameter::do_convert = .true.
-  COOP_INT,parameter::lmin = 350
-  COOP_INT,parameter::lmax = 2500
+  COOP_INT,parameter::lmin = 250
+  COOP_INT,parameter::lmax = 2000
   COOP_INT,parameter::irepeat = 1
   COOP_REAL, parameter::reg_limit = 0.01
   COOP_UNKNOWN_STRING,parameter::mapdir = "act16/"
