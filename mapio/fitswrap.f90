@@ -1078,7 +1078,7 @@ contains
     hp%map(:, imap) = 0.
     if(present(hits))then
        if(hits%npix .ne. this%npix) stop "convert2healpix: flat map hit counts map must be the same size"
-       meanhits = sum(hits%image)/hits%npix*0.6  !!20%
+       meanhits = sum(hits%image)/hits%npix*0.8  !!80%
     endif
     call ps%init()
     do pix=0, this%npix-1
