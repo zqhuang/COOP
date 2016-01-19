@@ -742,7 +742,7 @@ int plot_contour(file fin){
     int ny = ns[1];
     real z[][] = fin.dimension(nx, ny);
     if(smooth != 0){
-        guide ct[][] = contour(z, (xmin,ymin), (xmax, ymax), cvals, join = operator .. , subsample = 1); 
+        guide ct[][] = contour(z, (xmin,ymin), (xmax, ymax), cvals, join = operator .. ); 
        for(int i=ct.length-1; i>=0; --i){
         if(trim_string(strfill[i]) != ''){
          pen colorfill = pen_from_string(strfill[i]);    
@@ -754,7 +754,7 @@ int plot_contour(file fin){
            draw(mypic, ct[i][:], colorborder);} 
     }}
     else{
-       guide ct[][] = contour(z, (xmin,ymin), (xmax, ymax), cvals, join = operator -- , subsample = 1);     
+       guide ct[][] = contour(z, (xmin,ymin), (xmax, ymax), cvals, join = operator --);     
       for(int i=ct.length-1; i>=0 ; --i){
        if(trim_string(strfill[i]) != ''){
          pen colorfill = pen_from_string(strfill[i]);    

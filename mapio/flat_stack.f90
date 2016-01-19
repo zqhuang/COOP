@@ -5,12 +5,13 @@ program test
   use coop_sphere_mod
   implicit none
 #include "constants.h"
+  logical,parameter::do_convert = .true.
   COOP_INT,parameter::lmin = 220
   COOP_INT,parameter::lmax = 2000
   COOP_INT,parameter::irepeat = 1
   COOP_REAL, parameter::reg_limit = 0.003
   COOP_UNKNOWN_STRING,parameter::mapdir = "act16/"
-  COOP_UNKNOWN_STRING, parameter::postfix="5s1ar1"
+  COOP_UNKNOWN_STRING, parameter::postfix="7ar2"
   COOP_UNKNOWN_STRING,parameter::Ifile = mapdir//"dataCoadd_I_"//postfix//".fits"
   COOP_UNKNOWN_STRING,parameter::Qfile = mapdir//"dataCoadd_Q_"//postfix//".fits"
   COOP_UNKNOWN_STRING,parameter::Ufile = mapdir//"dataCoadd_U_"//postfix//".fits"
@@ -32,15 +33,33 @@ program test
   call imask%open(Imaskfile)
   call qmap%open(Qfile)
   call umap%open(Ufile)
+  print*,"======== map min max ============"
   print*, maxval(imap%image), minval(imap%image)
   print*, maxval(qmap%image), minval(qmap%image)
-  print*, maxval(umap%image), minval(umap%image)  
+  print*, maxval(umap%image), minval(umap%image)
+  print*,"======== regularized ============"  
+  print*,"======== map min max ============"  
   call imap%regularize(reg_limit)
   call qmap%regularize(reg_limit)
   call umap%regularize(reg_limit)
   print*, maxval(imap%image), minval(imap%image)
   print*, maxval(qmap%image), minval(qmap%image)
   print*, maxval(umap%image), minval(umap%image)
+  print*,"=================================="  
+  if(do_convert)then
+     call hp%init(nside=2048, nmaps=3, genre="IQU", lmax=2500)
+     call mask%init(nside=2048, nmaps=1, genre="MASK", lmax=2500)  
+     call imap%convert2healpix(hp, 1, mask, hits=imask)
+     call qmap%convert2healpix(hp, 2, mask, hits=imask)
+     call umap%convert2healpix(hp, 3, mask, hits=imask)
+     call hp%smooth(fwhm = 5.*coop_SI_arcmin, l_lower = 50, l_upper = 2500)
+     call hp%write(mapdir//"act_iqu_5a_l50-2500.fits")
+     call hp%write(mapdir//"act_qu_5a_l50-2500.fits", index_list=(/ 2, 3/) )     
+     call hp%get_QU()
+     call hp%write(mapdir//"act_TQTUT_5a_l50-2500.fits")
+     call mask%write(mapdir//"act_mask.fits")
+     stop
+  endif
   mask_threshold = maxval(imask%image)*0.2
   where (imask%image .lt. mask_threshold)
      imask%image = 0.
@@ -58,14 +77,6 @@ program test
   call imap%smooth_flat(lmin = lmin, lmax = lmax)
   call qmap%smooth_flat(lmin = lmin, lmax = lmax)
   call umap%smooth_flat(lmin = lmin, lmax = lmax)
-  call hp%init(nside=2048, nmaps=3, genre="IQU", lmax=2500)
-  call mask%init(nside=2048, nmaps=1, genre="MASK", lmax=2500)  
-  call imap%convert2healpix(hp, 1, mask)
-  call qmap%convert2healpix(hp, 2, mask)
-  call umap%convert2healpix(hp, 2, mask)  
-  call hp%write(mapdir//"act_iqu.fits")
-  call mask%write(mapdir//"act_mask.fits")
-  stop
   call coop_random_init()
   call imap%find_extrema(imask, "spots/act_Tmax.txt", "Tmax", patchsize, irepeat)
   call imap%stack2fig("spots/act_Tmax.txt", "T", patchsize, output_dir//"act_T_onTmax.txt", caption="$T$ on $T_{\max}$", label = "$T (\mu K)$", color_table = "Rainbow")

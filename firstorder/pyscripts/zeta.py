@@ -65,6 +65,6 @@ axes[3].text(0.9, 1., "recombination")
 
 axes[3].set_ylabel('$\dot\kappa e^{-\kappa} / H_0$')
 axes[3].set_xlabel('$\chi/\chi_{rec}$')
-axes[3].set_title('differential visiblity')
+axes[3].set_title('differential visibility')
 
 plt.savefig('zetaSN_with_Noise.pdf', format='pdf')

@@ -56,6 +56,10 @@ SimuMaps: $(OBJ) simulate_maps.o
 Stack: $(OBJ) dostack.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) dostack.o $(LINK)
 
+FStack: $(OBJ) flat_stack.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_stack.o $(LINK)
+
+
 ByProd: $(OBJ) map_by_products.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) map_by_products.o $(LINK)
 
