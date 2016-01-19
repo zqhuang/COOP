@@ -1054,7 +1054,7 @@ contains
 
   subroutine  coop_fits_image_cea_convert2healpix(this, hp, imap, mask, hits, lower, upper)  !!convert to healpix map, and mask the bright spots with 5 arcmin circles
     class(coop_fits_image_cea)::this
-    type(coop_fits_image_cea),optional::hits !!if this presents, cut off points with hits less than 10% of the mean hits
+    type(coop_fits_image_cea),optional::hits !!if this presents, cut off points with hits less than 20% of the mean hits
     type(coop_healpix_maps)::hp, mask
     type(coop_list_integer)::ps
     integer(8)::pix
@@ -1078,7 +1078,7 @@ contains
     hp%map(:, imap) = 0.
     if(present(hits))then
        if(hits%npix .ne. this%npix) stop "convert2healpix: flat map hit counts map must be the same size"
-       meanhits = sum(hits%image)/hits%npix*0.1  !!10%
+       meanhits = sum(hits%image)/hits%npix*0.2  !!20%
     endif
     call ps%init()
     do pix=0, this%npix-1
