@@ -61,6 +61,7 @@ program test
      print*, maxval(hp%map(:,1)), minval(hp%map(:,1))
      print*, maxval(hp%map(:,2)), minval(hp%map(:,2))
      print*, maxval(hp%map(:,3)), minval(hp%map(:,3))
+     print*, "====  fsky = "//trim(coop_num2str(count(mask%map(:,1).gt.0.5)/dble(mask%npix)*100., "(F10.1)"))//" ======="
      print*,"=================================="  
 
      call hp%write(mapdir//"act_iqu_5a_l"//COOP_STR_OF(lmin)//"-"//COOP_STR_OF(lmax)//".fits")
