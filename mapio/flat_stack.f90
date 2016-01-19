@@ -9,7 +9,7 @@ program test
   COOP_INT,parameter::lmin = 220
   COOP_INT,parameter::lmax = 2000
   COOP_INT,parameter::irepeat = 1
-  COOP_REAL, parameter::reg_limit = 0.003
+  COOP_REAL, parameter::reg_limit = 0.005
   COOP_UNKNOWN_STRING,parameter::mapdir = "act16/"
   COOP_UNKNOWN_STRING, parameter::postfix="7ar2"
   COOP_UNKNOWN_STRING,parameter::Ifile = mapdir//"dataCoadd_I_"//postfix//".fits"
@@ -29,10 +29,11 @@ program test
   type(coop_healpix_maps)::hp, mask
   call coop_MPI_Init()
   call imap%open(Ifile)
-  call imap%header%print()
   call imask%open(Imaskfile)
   call qmap%open(Qfile)
   call umap%open(Ufile)
+  print*,"=================================="    
+  print*,"# of pixels (I, Q, U, mask):", imap%npix, qmap%npix, umap%npix, imask%npix
   print*,"======== map min max ============"
   print*, maxval(imap%image), minval(imap%image)
   print*, maxval(qmap%image), minval(qmap%image)
