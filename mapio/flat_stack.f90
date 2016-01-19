@@ -6,8 +6,8 @@ program test
   implicit none
 #include "constants.h"
   logical,parameter::do_convert = .true.
-  COOP_INT,parameter::lmin = 250
-  COOP_INT,parameter::lmax = 2000
+  COOP_INT,parameter::lmin = 350
+  COOP_INT,parameter::lmax = 2500
   COOP_INT,parameter::irepeat = 1
   COOP_REAL, parameter::reg_limit = 0.01
   COOP_UNKNOWN_STRING,parameter::mapdir = "act16/"
@@ -61,7 +61,7 @@ program test
      print*, maxval(hp%map(:,1)), minval(hp%map(:,1))
      print*, maxval(hp%map(:,2)), minval(hp%map(:,2))
      print*, maxval(hp%map(:,3)), minval(hp%map(:,3))
-     print*, "====  fsky = "//trim(coop_num2str(count(mask%map(:,1).gt.0.5)/dble(mask%npix)*100., "(F10.1)"))//" ======="
+     print*, "====  fsky = "//trim(coop_num2str(count(mask%map(:,1).gt.0.5)/dble(mask%npix)*100., "(F10.2)"))//"%======="
      print*,"=================================="  
 
      call hp%write(mapdir//"act_iqu_5a_l"//COOP_STR_OF(lmin)//"-"//COOP_STR_OF(lmax)//".fits")
