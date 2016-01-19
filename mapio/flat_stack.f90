@@ -27,9 +27,14 @@ program test
   type(coop_healpix_maps)::hp, mask
   call coop_MPI_Init()
   call imap%open(Ifile)
-  call imask%open(Imaskfile)
   call qmap%open(Qfile)
   call umap%open(Ufile)
+  if(coop_file_exists(imaskFile))then
+     call imask%open(Imaskfile)
+  else
+     imask = imap
+     imask%image = 1.
+  endif
   print*,"=================================="    
   print*,"# of pixels (I, Q, U, mask):", imap%npix, qmap%npix, umap%npix, imask%npix
   print*,"======== map min max ============"
