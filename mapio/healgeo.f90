@@ -2907,16 +2907,23 @@ contains
     call this%alm2map()
   end subroutine coop_healpix_maps_tophat_smooth
 
-  subroutine coop_healpix_maps_smooth(this, fwhm, index_list, l_lower, l_upper)
+  subroutine coop_healpix_maps_smooth(this, fwhm, index_list, l_lower, l_upper, delta_l)
     class(coop_healpix_maps)::this
     COOP_REAL fwhm
-    COOP_INT, optional::l_lower, l_upper
+    COOP_INT, optional::l_lower, l_upper, delta_l
     COOP_INT,dimension(:),optional::index_list
-    COOP_INT lmax
+    COOP_INT lmax, lbuf, l
     if(fwhm .gt. 0.d0)then
        lmax = min(ceiling(3./max(abs(fwhm)*coop_sigma_by_fwhm, 1.d-6)), floor(this%nside*coop_healpix_lmax_by_nside), coop_healpix_default_lmax)
     else
        lmax = min(floor(this%nside*coop_healpix_lmax_by_nside), coop_healpix_default_lmax)
+    endif
+    if(present(l_lower))then
+       if(present(delta_l))then
+          lbuf = delta_l
+       else
+          lbuf = min(10, l_lower)
+       endif
     endif
     if(present(l_upper))then
        lmax = min(lmax, l_upper)
@@ -2926,7 +2933,12 @@ contains
     if(present(index_list))then
        if(any(index_list .gt. this%nmaps)) stop "smooth: index_list overflow"
        call this%map2alm(lmax, index_list)
-       if(present(l_lower)) this%alm(0:l_lower-1, :, :) = 0.
+       if(present(l_lower))then
+          this%alm(0:l_lower-lbuf, :, :) = 0.
+          do l = l_lower-lbuf+1, min(l_lower+lbuf-1, lmax)
+             this%alm(l, :, :) = this%alm(l, :,:)*coop_highpass_filter(l_lower-lbuf, l_lower+lbuf, l) 
+          enddo
+       endif
        if(abs(fwhm).gt.0.d0) &
             call this%filter_alm(fwhm = fwhm, index_list = index_list)
        call this%alm2map(index_list)

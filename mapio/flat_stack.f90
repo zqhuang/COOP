@@ -6,7 +6,7 @@ program test
   implicit none
 #include "constants.h"
   logical,parameter::do_convert = .true.
-  COOP_INT,parameter::lmin = 220
+  COOP_INT,parameter::lmin = 250
   COOP_INT,parameter::lmax = 2000
   COOP_INT,parameter::irepeat = 1
   COOP_REAL, parameter::reg_limit = 0.005
@@ -18,13 +18,11 @@ program test
   COOP_UNKNOWN_STRING,parameter::Imaskfile = mapdir//"mask_"//postfix//".fits"
   type(coop_fits_image_cea)::imap, umap, qmap, imask, cutmask
   type(coop_asy)::asy
-  COOP_INT, parameter::n=300
   COOP_INT ix, iy, i, l
   type(coop_file) fp
   COOP_REAL, parameter::patchsize = 90.d0*coop_SI_arcmin
   COOP_UNKNOWN_STRING,parameter::output_dir = "ACTstacking/"
   COOP_REAL::mask_threshold
-  COOP_REAL map(n, n), Cls(lmin:lmax)
   COOP_REAL, parameter::smooth_scale = coop_SI_arcmin * 5.d0
   type(coop_healpix_maps)::hp, mask
   call coop_MPI_Init()
@@ -53,17 +51,17 @@ program test
      call imap%convert2healpix(hp, 1, mask, hits=imask)
      call qmap%convert2healpix(hp, 2, mask, hits=imask)
      call umap%convert2healpix(hp, 3, mask, hits=imask)
-     call hp%smooth(fwhm = 5.*coop_SI_arcmin, l_lower = 50, l_upper = 2500)
+     call hp%smooth(fwhm = 5.*coop_SI_arcmin, l_lower =lmin, l_upper = 2500)
      print*,"===== smoothed map min max ====="  
      print*, maxval(hp%map(:,1)), minval(hp%map(:,1))
      print*, maxval(hp%map(:,2)), minval(hp%map(:,2))
      print*, maxval(hp%map(:,3)), minval(hp%map(:,3))
      print*,"=================================="  
 
-     call hp%write(mapdir//"act_iqu_5a_l50-2500.fits")
-     call hp%write(mapdir//"act_qu_5a_l50-2500.fits", index_list=(/ 2, 3/) )     
+     call hp%write(mapdir//"act_iqu_5a_l"//COOP_STR_OF(lmin)//"-2500.fits")
+     call hp%write(mapdir//"act_qu_5a_l"//COOP_STR_OF(lmin)//"-2500.fits", index_list=(/ 2, 3/) )     
      call hp%get_QU()
-     call hp%write(mapdir//"act_TQTUT_5a_l50-2500.fits")
+     call hp%write(mapdir//"act_TQTUT_5a_l"//COOP_STR_OF(lmin)//"-2500.fits")
      call mask%write(mapdir//"act_mask.fits")
      stop
   endif
@@ -99,7 +97,7 @@ program test
 
 !!$  call imap%simulate_flat(lmin = lmin,lmax = lmax, cls_file = "cls.dat")
 !!$  call imap%find_extrema(cutmask, "spots/simu_I"//mapid//"_Tmax.txt", "Tmax", patchsize, irepeat)
-!!$
+!!
 !!$  call imap%stack2fig("spots/simu_I"//mapid//"_Tmax.txt", "Qr", patchsize, output_dir//"simu_Qr_onTmax.txt", caption="$Q_r$ on $T_{\max}$", label = "$Q_r (\mu K)$", color_table = "Rainbow")
 
   call coop_MPI_FInalize()
