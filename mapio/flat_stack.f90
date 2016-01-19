@@ -9,7 +9,7 @@ program test
   COOP_INT,parameter::lmin = 250
   COOP_INT,parameter::lmax = 2000
   COOP_INT,parameter::irepeat = 1
-  COOP_REAL, parameter::reg_limit = 0.005
+  COOP_REAL, parameter::reg_limit = 0.01
   COOP_UNKNOWN_STRING,parameter::mapdir = "act16/"
   COOP_UNKNOWN_STRING, parameter::postfix="7ar2"
   COOP_UNKNOWN_STRING,parameter::Ifile = mapdir//"dataCoadd_I_"//postfix//".fits"
@@ -46,22 +46,22 @@ program test
   print*, maxval(umap%image), minval(umap%image)
   print*,"=================================="  
   if(do_convert)then
-     call hp%init(nside=2048, nmaps=3, genre="IQU", lmax=2500)
-     call mask%init(nside=2048, nmaps=1, genre="MASK", lmax=2500)  
+     call hp%init(nside=2048, nmaps=3, genre="IQU", lmax=lmax)
+     call mask%init(nside=2048, nmaps=1, genre="MASK", lmax=lmax)  
      call imap%convert2healpix(hp, 1, mask, hits=imask)
      call qmap%convert2healpix(hp, 2, mask, hits=imask)
      call umap%convert2healpix(hp, 3, mask, hits=imask)
-     call hp%smooth(fwhm = 5.*coop_SI_arcmin, l_lower =lmin, l_upper = 2500)
+     call hp%smooth(fwhm = 5.*coop_SI_arcmin, l_lower =lmin, l_upper = lmax)
      print*,"===== smoothed map min max ====="  
      print*, maxval(hp%map(:,1)), minval(hp%map(:,1))
      print*, maxval(hp%map(:,2)), minval(hp%map(:,2))
      print*, maxval(hp%map(:,3)), minval(hp%map(:,3))
      print*,"=================================="  
 
-     call hp%write(mapdir//"act_iqu_5a_l"//COOP_STR_OF(lmin)//"-2500.fits")
-     call hp%write(mapdir//"act_qu_5a_l"//COOP_STR_OF(lmin)//"-2500.fits", index_list=(/ 2, 3/) )     
+     call hp%write(mapdir//"act_iqu_5a_l"//COOP_STR_OF(lmin)//"-"//COOP_STR_OF(lmax)//".fits")
+     call hp%write(mapdir//"act_qu_5a_l"//COOP_STR_OF(lmin)//"-"//COOP_STR_OF(lmax)//".fits", index_list=(/ 2, 3/) )     
      call hp%get_QU()
-     call hp%write(mapdir//"act_TQTUT_5a_l"//COOP_STR_OF(lmin)//"-2500.fits")
+     call hp%write(mapdir//"act_TQTUT_5a_l"//COOP_STR_OF(lmin)//"-"//COOP_STR_OF(lmax)//".fits")
      call mask%write(mapdir//"act_mask.fits")
      stop
   endif
