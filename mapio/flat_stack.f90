@@ -38,7 +38,7 @@ program test
   print*,"=================================="    
   print*,"# of pixels (I, Q, U, mask):", imap%npix, qmap%npix, umap%npix, imask%npix
   print*,"======== regularized ============"  
-  where(abs(imap%image) .gt. 500. .or. abs(qmap%image).gt.500 .or. abs(umap%image).gt. 500)
+  where(abs(imap%image) .gt. 400. .or. abs(qmap%image).gt.400 .or. abs(umap%image).gt. 400)
      imask%image = 0.
      imap%image = 0.
      qmap%image = 0.
