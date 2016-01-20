@@ -1076,15 +1076,11 @@ contains
     endif
     mask%map(:,1) = 0.
     hp%map(:, imap) = 0.
-    if(present(hits))then
-       if(hits%npix .ne. this%npix) stop "convert2healpix: flat map hit counts map must be the same size"
-       meanhits = sum(hits%image)/hits%npix*0.2  !!30%
-    endif
     call ps%init()
     do pix=0, this%npix-1
        call this%pix2ang(pix, theta, phi)
        if(present(hits))then
-          if(hits%image(pix) .lt. meanhits)cycle
+          if(hits%image(pix) .le. 0.)cycle
        endif
        call hp%ang2pix(theta, phi, hpix)
        if(this%image(pix).lt.flower .or. this%image(pix).gt.fupper)then
@@ -1092,15 +1088,21 @@ contains
           hp%map(hpix,imap) = 0.
           call ps%push(hpix)
        elseif(mask%map(hpix, 1) .ge. 0.)then
-          mask%map(hpix,1) = mask%map(hpix,1) + 1.
-          hp%map(hpix,imap) = hp%map(hpix, imap) + this%image(pix)
+          if(present(hits))then
+             mask%map(hpix, 1) = mask%map(hpix,1)+hits%image(pix)
+             hp%map(hpix,imap) = hp%map(hpix, imap) + this%image(pix)*hits%image(pix)
+          else
+             mask%map(hpix,1) = mask%map(hpix,1) + 1.
+             hp%map(hpix,imap) = hp%map(hpix, imap) + this%image(pix)
+          endif
        endif
     enddo
-    meanhits = sum(mask%map(:,1), mask= mask%map(:,1).gt.0.)/count(mask%map(:,1).gt.0.)*0.2
+    meanhits = sum(mask%map(:,1), mask= mask%map(:,1).gt.0.)/count(mask%map(:,1).gt.0.)*0.5
     where(mask%map(:,1).gt. meanhits)
        hp%map(:, imap) = hp%map(:, imap)/mask%map(:,1)
        mask%map(:, 1) = 1.
     elsewhere
+       hp%map(:,1) = 0.
        mask%map(:, 1) = 0.
     end where
     do i = 1, ps%n

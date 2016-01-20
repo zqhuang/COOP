@@ -16,9 +16,9 @@ program test
   COOP_UNKNOWN_STRING,parameter::Ifile = mapdir//"dataCoadd_I_"//postfix//".fits"
   COOP_UNKNOWN_STRING,parameter::Qfile = mapdir//"dataCoadd_Q_"//postfix//".fits"
   COOP_UNKNOWN_STRING,parameter::Ufile = mapdir//"dataCoadd_U_"//postfix//".fits"
-  COOP_UNKNOWN_STRING,parameter::Imaskfile = mapdir//"mask_"//postfix//".fits"
+  COOP_UNKNOWN_STRING,parameter::Hitsfile = mapdir//"mask_"//postfix//".fits"
   COOP_UNKNOWN_STRING,parameter::PSfile = mapdir//"joinedClusterMasks_"//postfix//".fits"  
-  type(coop_fits_image_cea)::imap, umap, qmap, imask, psmask
+  type(coop_fits_image_cea)::imap, umap, qmap, hits, psmask
   type(coop_asy)::asy
   COOP_INT i, l
   type(coop_file) fp
@@ -31,11 +31,11 @@ program test
   call imap%open(Ifile)
   call qmap%open(Qfile)
   call umap%open(Ufile)
-  if(coop_file_exists(imaskFile))then
-     call imask%open(Imaskfile)
+  if(coop_file_exists(hitsFile))then
+     call hits%open(Hitsfile)
   else
-     imask = imap
-     imask%image = 1.
+     hits = imap
+     hits%image = 1.
   endif
   if(coop_file_exists(PSfile))then
      call psmask%open(PSFile)
@@ -43,26 +43,30 @@ program test
      psmask = imap
      psmask%image = 1.
   endif
-  imask%image = imask%image * psmask%image
+  print*,"# of pixels (I, Q, U, mask):", imap%npix, qmap%npix, umap%npix, hits%npix
+  
+  write(*,*) "max values:", maxval(abs(imap%image)), maxval(abs(qmap%image)), maxval(abs(umap%image))
+  hits%image = hits%image * psmask%image
   imap%image = imap%image*psmask%image
   qmap%image = qmap%image*psmask%image
   umap%image = umap%image*psmask%image    
-  print*,"=================================="    
-  print*,"# of pixels (I, Q, U, mask):", imap%npix, qmap%npix, umap%npix, imask%npix
+  print*,"============masking sources===================="
+  write(*,*) "max values:", maxval(abs(imap%image)), maxval(abs(qmap%image)), maxval(abs(umap%image))  
+  print*,"============regularizing===================="
   where(abs(imap%image) .gt. 1000. .or. abs(qmap%image).gt.1000 .or. abs(umap%image).gt. 1000)
-     imask%image = 0.
+     hits%image = 0.
      imap%image = 0.
      qmap%image = 0.
      umap%image = 0.
   end where
-  print*,"======== regularized ============"    
+  write(*,*) "max values:", maxval(abs(imap%image)), maxval(abs(qmap%image)), maxval(abs(umap%image))  
   print*,"=================================="  
   if(do_convert)then
      call hp%init(nside=2048, nmaps=3, genre="IQU", lmax=lmax)
      call mask%init(nside=2048, nmaps=1, genre="MASK", lmax=lmax)  
-     call imap%convert2healpix(hp, 1, mask, hits=imask)
-     call qmap%convert2healpix(hp, 2, mask, hits=imask)
-     call umap%convert2healpix(hp, 3, mask, hits=imask)
+     call imap%convert2healpix(hp, 1, mask, hits=hits)
+     call qmap%convert2healpix(hp, 2, mask, hits=hits)
+     call umap%convert2healpix(hp, 3, mask, hits=hits)
      call hp%smooth(fwhm = smooth_scale, l_lower =lmin, l_upper = lmax)
      print*,"===== smoothed map min max ====="  
      print*, maxval(hp%map(:,1)), minval(hp%map(:,1))
@@ -79,16 +83,16 @@ program test
      call mask%write(mapdir//"act_mask.fits")
      stop
   endif
-  mask_threshold = maxval(imask%image)*0.2
-  where (imask%image .lt. mask_threshold)
-     imask%image = 0.
+  mask_threshold = maxval(hits%image)*0.2
+  where (hits%image .lt. mask_threshold)
+     hits%image = 0.
   elsewhere
-     imask%image = 1.
+     hits%image = 1.
   end where
-  call imask%get_flatmap(smooth_scale)
-  imap%image = imap%image*imask%image
-  qmap%image = qmap%image*imask%image
-  umap%image = umap%image*imask%image    
+  call hits%get_flatmap(smooth_scale)
+  imap%image = imap%image*hits%image
+  qmap%image = qmap%image*hits%image
+  umap%image = umap%image*hits%image    
   call imap%get_flatmap(smooth_scale)
   call qmap%get_flatmap(smooth_scale)
   call umap%get_flatmap(smooth_scale)
@@ -97,7 +101,7 @@ program test
   call qmap%smooth_flat(lmin = lmin, lmax = lmax)
   call umap%smooth_flat(lmin = lmin, lmax = lmax)
   call coop_random_init()
-  call imap%find_extrema(imask, "spots/act_Tmax.txt", "Tmax", patchsize, irepeat)
+  call imap%find_extrema(hits, "spots/act_Tmax.txt", "Tmax", patchsize, irepeat)
   call imap%stack2fig("spots/act_Tmax.txt", "T", patchsize, output_dir//"act_T_onTmax.txt", caption="$T$ on $T_{\max}$", label = "$T (\mu K)$", color_table = "Rainbow")
 !$  call system("../utils/fasy.sh "//output_dir//"act_T_onTmax.txt")  
   call imap%stack2fig("spots/act_Tmax.txt", "Qr", patchsize, output_dir//"act_Qr_onTmax.txt", caption="$Q_r$ on $T_{\max}$", label = "$Q_r (\mu K)$", color_table = "Rainbow")
