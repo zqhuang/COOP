@@ -1078,7 +1078,7 @@ contains
     hp%map(:, imap) = 0.
     if(present(hits))then
        if(hits%npix .ne. this%npix) stop "convert2healpix: flat map hit counts map must be the same size"
-       meanhits = sum(hits%image)/hits%npix*0.3  !!30%
+       meanhits = sum(hits%image)/hits%npix*0.2  !!30%
     endif
     call ps%init()
     do pix=0, this%npix-1
@@ -1096,9 +1096,12 @@ contains
           hp%map(hpix,imap) = hp%map(hpix, imap) + this%image(pix)
        endif
     enddo
-    where(mask%map(:,1).gt. 0.)
+    meanhits = sum(mask%map(:,1), mask= mask%map(:,1).gt.0.)/count(mask%map(:,1).gt.0.)*0.2
+    where(mask%map(:,1).gt. meanhits)
        hp%map(:, imap) = hp%map(:, imap)/mask%map(:,1)
        mask%map(:, 1) = 1.
+    elsewhere
+       mask%map(:, 1) = 0.
     end where
     do i = 1, ps%n
        hpix = ps%element(i)
