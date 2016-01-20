@@ -43,7 +43,7 @@ program test
      psmask = imap
      psmask%image = 1.
   endif
-  print*,"# of pixels (I, Q, U, mask):", imap%npix, qmap%npix, umap%npix, hits%npix
+  print*,"# of pixels (I, Q, U, mask, ps):", imap%npix, qmap%npix, umap%npix, hits%npix, psmask%npix
   
   write(*,*) "max values:", maxval(abs(imap%image)), maxval(abs(qmap%image)), maxval(abs(umap%image))
   hits%image = hits%image * psmask%image
@@ -53,7 +53,7 @@ program test
   print*,"============masking sources===================="
   write(*,*) "max values:", maxval(abs(imap%image)), maxval(abs(qmap%image)), maxval(abs(umap%image))  
   print*,"============regularizing===================="
-  where(abs(imap%image) .gt. 500. .or. abs(qmap%image).gt.500 .or. abs(umap%image).gt. 500)
+  where(abs(imap%image) .gt. 300. .or. abs(qmap%image).gt.300 .or. abs(umap%image).gt. 300)
      hits%image = 0.
      imap%image = 0.
      qmap%image = 0.
