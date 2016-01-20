@@ -10,16 +10,14 @@ program test
 
   implicit none
 #include "constants.h"
-  COOP_INT,parameter::lmax = 2000
-  COOP_INT,parameter::nside = 256
-  COOP_REAL,parameter::beam_fwhm = 40.
-  logical,parameter::do_constrained = .false.
-  type(coop_healpix_maps)::map,  lmap, mask, hmap
+  COOP_INT,parameter::lmax = 1000
+  COOP_INT,parameter::nside = 512
+  COOP_REAL,parameter::beam_fwhm = 20.
+  type(coop_healpix_maps)::map
   integer l, m, il, i
   type(coop_file)::fp
   COOP_UNKNOWN_STRING, parameter::prefix = "simmaps/sim_zeta"
   COOP_REAL:: sigma, Cls(0:lmax), junk
-  type(coop_healpix_inpaint)::inp
   COOP_STRING::line
   call coop_MPI_Init()  
   call coop_random_init()
@@ -35,8 +33,9 @@ program test
   enddo
   call fp%close()
   call map%init(nside = nside, nmaps=1, genre="ZETA", lmax = lmax)
-  map%Cl(0:lmax,1) = Cls        
+  map%Cl = 0.
+  map%Cl(0:lmax,1) = Cls
+  write(*,*) size(map%Cl), map%lmax  
   call map%simulate()
   call map%write(trim(prefix)//"_"//COOP_STR_OF(map%nside)//"_"//COOP_STR_OF(nint(beam_fwhm))//"a.fits")
-  call coop_MPI_Finalize()
 end program test

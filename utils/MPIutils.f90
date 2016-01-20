@@ -63,7 +63,7 @@ contains
     call MPI_Finalize(ierror)
     if (ierror .ne. MPI_SUCCESS) stop 'MPI fail: cannot finalize'
 #else
-    stop 
+    stop "Program finalizing" 
 #endif    
   end subroutine coop_MPI_Finalize
 

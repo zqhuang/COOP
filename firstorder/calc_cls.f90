@@ -59,7 +59,7 @@ program test
 #if DO_ZETA_TRANS
   call fp%open(trim(output)//"_zetaCls.dat","w")
   write(*,*) "zeta Cls are saved  in "//trim(output)//"_zetaCls.dat"     
-  write(fp%unit, "(A8, 5A16)") "# ell ", "   TT  ",  "  EE  ",  "  ZZ ", " TE ", "  TZ ",  "  EZ  "
+  write(fp%unit, "(A7, 5A16)") "# ell", "  TT  ",  " EE  ",  " ZZ ", " TE ", " TZ ",  " EZ "
   do l=lmin, lmax
      ells(l) = l
      lnorm = l*(l+1.d0)/coop_2pi*norm

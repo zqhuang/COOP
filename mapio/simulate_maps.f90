@@ -13,7 +13,7 @@ program test
   COOP_INT,parameter::lmax = 100
   COOP_INT,parameter::nside = 256
   COOP_INT,parameter::nside_output = 16  
-  COOP_REAL,parameter::beam_fwhm = 60.
+  COOP_REAL,parameter::beam_fwhm = 40.
   logical,parameter::do_constrained = .false.
   type(coop_healpix_maps)::map,  lmap, mask, hmap
   integer l, m, il, i

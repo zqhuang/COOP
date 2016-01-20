@@ -7,8 +7,9 @@ program test
 #include "constants.h"
   logical,parameter::do_convert = .true.
   COOP_INT,parameter::lmin = 250
-  COOP_INT,parameter::lmax = 2000
+  COOP_INT,parameter::lmax = 2500
   COOP_INT,parameter::irepeat = 1
+  COOP_INT,parameter::fwhm_arcmin = 5
   COOP_REAL, parameter::reg_limit = 0.01
   COOP_UNKNOWN_STRING,parameter::mapdir = "act16/"
   COOP_UNKNOWN_STRING, parameter::postfix="7ar2"
@@ -16,14 +17,15 @@ program test
   COOP_UNKNOWN_STRING,parameter::Qfile = mapdir//"dataCoadd_Q_"//postfix//".fits"
   COOP_UNKNOWN_STRING,parameter::Ufile = mapdir//"dataCoadd_U_"//postfix//".fits"
   COOP_UNKNOWN_STRING,parameter::Imaskfile = mapdir//"mask_"//postfix//".fits"
-  type(coop_fits_image_cea)::imap, umap, qmap, imask, cutmask
+  COOP_UNKNOWN_STRING,parameter::PSfile = mapdir//"joinedClusterMasks_"//postfix//".fits"  
+  type(coop_fits_image_cea)::imap, umap, qmap, imask, psmask
   type(coop_asy)::asy
-  COOP_INT ix, iy, i, l
+  COOP_INT i, l
   type(coop_file) fp
   COOP_REAL, parameter::patchsize = 90.d0*coop_SI_arcmin
   COOP_UNKNOWN_STRING,parameter::output_dir = "ACTstacking/"
   COOP_REAL::mask_threshold
-  COOP_REAL, parameter::smooth_scale = coop_SI_arcmin * 5.d0
+  COOP_REAL, parameter::smooth_scale = coop_SI_arcmin * fwhm_arcmin
   type(coop_healpix_maps)::hp, mask
   call coop_MPI_Init()
   call imap%open(Ifile)
@@ -35,15 +37,26 @@ program test
      imask = imap
      imask%image = 1.
   endif
+  if(coop_file_exists(PSfile))then
+     call psmask%open(PSFile)
+  else
+     psmask = imap
+     psmask%image = 1.
+  endif
+  imask%image = imask%image * psmask%image
+  imap%image = imap%image*psmask%image
+  qmap%image = qmap%image*psmask%image
+  umap%image = umap%image*psmask%image    
   print*,"=================================="    
   print*,"# of pixels (I, Q, U, mask):", imap%npix, qmap%npix, umap%npix, imask%npix
   print*,"======== regularized ============"  
-  where(abs(imap%image) .gt. 400. .or. abs(qmap%image).gt.400 .or. abs(umap%image).gt. 400)
-     imask%image = 0.
-     imap%image = 0.
-     qmap%image = 0.
-     umap%image = 0.
-  end where
+!!$  where(abs(imap%image) .gt. 1000. .or. abs(qmap%image).gt.1000 .or. abs(umap%image).gt. 1000)
+!!$     imask%image = 0.
+!!$     imap%image = 0.
+!!$     qmap%image = 0.
+!!$     umap%image = 0.
+!!$  end where
+  
   print*,"=================================="  
   if(do_convert)then
      call hp%init(nside=2048, nmaps=3, genre="IQU", lmax=lmax)
@@ -51,18 +64,19 @@ program test
      call imap%convert2healpix(hp, 1, mask, hits=imask)
      call qmap%convert2healpix(hp, 2, mask, hits=imask)
      call umap%convert2healpix(hp, 3, mask, hits=imask)
-     call hp%smooth(fwhm = 5.*coop_SI_arcmin, l_lower =lmin, l_upper = lmax)
+     call hp%smooth(fwhm = smooth_scale, l_lower =lmin, l_upper = lmax)
      print*,"===== smoothed map min max ====="  
      print*, maxval(hp%map(:,1)), minval(hp%map(:,1))
      print*, maxval(hp%map(:,2)), minval(hp%map(:,2))
      print*, maxval(hp%map(:,3)), minval(hp%map(:,3))
      print*, "====  fsky = "//trim(coop_num2str(count(mask%map(:,1).gt.0.5)/dble(mask%npix)*100., "(F10.2)"))//"%======="
+     
      print*,"=================================="  
 
-     call hp%write(mapdir//"act_iqu_5a_l"//COOP_STR_OF(lmin)//"-"//COOP_STR_OF(lmax)//".fits")
-     call hp%write(mapdir//"act_qu_5a_l"//COOP_STR_OF(lmin)//"-"//COOP_STR_OF(lmax)//".fits", index_list=(/ 2, 3/) )     
+     call hp%write(mapdir//"act_iqu_"//COOP_STR_OF(fwhm_arcmin)//"a_l"//COOP_STR_OF(lmin)//"-"//COOP_STR_OF(lmax)//".fits")
+     call hp%write(mapdir//"act_qu_"//COOP_STR_OF(fwhm_arcmin)//"a_l"//COOP_STR_OF(lmin)//"-"//COOP_STR_OF(lmax)//".fits", index_list=(/ 2, 3/) )     
      call hp%get_QU()
-     call hp%write(mapdir//"act_TQTUT_5a_l"//COOP_STR_OF(lmin)//"-"//COOP_STR_OF(lmax)//".fits")
+     call hp%write(mapdir//"act_TQTUT_"//COOP_STR_OF(fwhm_arcmin)//"a_l"//COOP_STR_OF(lmin)//"-"//COOP_STR_OF(lmax)//".fits")
      call mask%write(mapdir//"act_mask.fits")
      stop
   endif
@@ -86,21 +100,13 @@ program test
   call coop_random_init()
   call imap%find_extrema(imask, "spots/act_Tmax.txt", "Tmax", patchsize, irepeat)
   call imap%stack2fig("spots/act_Tmax.txt", "T", patchsize, output_dir//"act_T_onTmax.txt", caption="$T$ on $T_{\max}$", label = "$T (\mu K)$", color_table = "Rainbow")
-  call system("../utils/fasy.sh "//output_dir//"act_T_onTmax.txt")  
+!$  call system("../utils/fasy.sh "//output_dir//"act_T_onTmax.txt")  
   call imap%stack2fig("spots/act_Tmax.txt", "Qr", patchsize, output_dir//"act_Qr_onTmax.txt", caption="$Q_r$ on $T_{\max}$", label = "$Q_r (\mu K)$", color_table = "Rainbow")
-  call system("../utils/fasy.sh "//output_dir//"act_Qr_onTmax.txt")
+!$  call system("../utils/fasy.sh "//output_dir//"act_Qr_onTmax.txt")
 
   call imap%stack2fig("spots/act_Tmax.txt", "Q", patchsize, output_dir//"act_Q_onTmax.txt", caption="$Q$ on $T_{\max}$", label = "$Q (\mu K)$", color_table = "Rainbow")
-  call system("../utils/fasy.sh "//output_dir//"act_Q_onTmax.txt")
+!$  call system("../utils/fasy.sh "//output_dir//"act_Q_onTmax.txt")
   
-
-!!simulations
-
-!!$  call imap%simulate_flat(lmin = lmin,lmax = lmax, cls_file = "cls.dat")
-!!$  call imap%find_extrema(cutmask, "spots/simu_I"//mapid//"_Tmax.txt", "Tmax", patchsize, irepeat)
-!!
-!!$  call imap%stack2fig("spots/simu_I"//mapid//"_Tmax.txt", "Qr", patchsize, output_dir//"simu_Qr_onTmax.txt", caption="$Q_r$ on $T_{\max}$", label = "$Q_r (\mu K)$", color_table = "Rainbow")
-
   call coop_MPI_FInalize()
 
 end program test
