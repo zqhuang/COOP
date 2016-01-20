@@ -49,14 +49,13 @@ program test
   umap%image = umap%image*psmask%image    
   print*,"=================================="    
   print*,"# of pixels (I, Q, U, mask):", imap%npix, qmap%npix, umap%npix, imask%npix
-  print*,"======== regularized ============"  
-!!$  where(abs(imap%image) .gt. 1000. .or. abs(qmap%image).gt.1000 .or. abs(umap%image).gt. 1000)
-!!$     imask%image = 0.
-!!$     imap%image = 0.
-!!$     qmap%image = 0.
-!!$     umap%image = 0.
-!!$  end where
-  
+  where(abs(imap%image) .gt. 1000. .or. abs(qmap%image).gt.1000 .or. abs(umap%image).gt. 1000)
+     imask%image = 0.
+     imap%image = 0.
+     qmap%image = 0.
+     umap%image = 0.
+  end where
+  print*,"======== regularized ============"    
   print*,"=================================="  
   if(do_convert)then
      call hp%init(nside=2048, nmaps=3, genre="IQU", lmax=lmax)
