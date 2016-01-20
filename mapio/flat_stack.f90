@@ -53,7 +53,7 @@ program test
   print*,"============masking sources===================="
   write(*,*) "max values:", maxval(abs(imap%image)), maxval(abs(qmap%image)), maxval(abs(umap%image))  
   print*,"============regularizing===================="
-  where(abs(imap%image) .gt. 1000. .or. abs(qmap%image).gt.1000 .or. abs(umap%image).gt. 1000)
+  where(abs(imap%image) .gt. 500. .or. abs(qmap%image).gt.500 .or. abs(umap%image).gt. 500)
      hits%image = 0.
      imap%image = 0.
      qmap%image = 0.
