@@ -1102,14 +1102,14 @@ contains
        hp%map(:, imap) = hp%map(:, imap)/mask%map(:,1)
        mask%map(:, 1) = 1.
     elsewhere
-       hp%map(:,1) = 0.
+       hp%map(:,imap) = 0.
        mask%map(:, 1) = 0.
     end where
     do i = 1, ps%n
        hpix = ps%element(i)
        call hp%query_disc(hpix, coop_SI_arcmin*5.d0, listpix, nlist)
        mask%map(listpix(0:nlist-1), 1) = 0.
-       hp%map(listpix(0:nlist-1), :) = 0.
+       hp%map(listpix(0:nlist-1), imap) = 0.
     enddo
     call ps%init()
 #else
