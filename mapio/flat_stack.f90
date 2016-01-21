@@ -17,8 +17,8 @@ program test
   COOP_UNKNOWN_STRING,parameter::Qfile = mapdir//"dataCoadd_Q_"//postfix//".fits"
   COOP_UNKNOWN_STRING,parameter::Ufile = mapdir//"dataCoadd_U_"//postfix//".fits"
   COOP_UNKNOWN_STRING,parameter::Hitsfile = mapdir//"mask_"//postfix//".fits"
-!!  COOP_UNKNOWN_STRING,parameter::PSfile = mapdir//"joinedClusterMasks_"//postfix//".fits"
-  COOP_UNKNOWN_STRING,parameter::PSfile = mapdir//"rahulMasksS2_"//postfix//"_cutlevel20.fits"    
+  COOP_UNKNOWN_STRING,parameter::PSfile = mapdir//"joinedClusterMasks_"//postfix//".fits"
+!!  COOP_UNKNOWN_STRING,parameter::PSfile = mapdir//"rahulMasksS2_"//postfix//"_cutlevel20.fits"    
   type(coop_fits_image_cea)::imap, umap, qmap, hits, psmask
   type(coop_asy)::asy
   COOP_INT i, l
@@ -59,12 +59,9 @@ program test
   umap%image = umap%image*psmask%image
   write(*,*) "max values:", maxval(abs(imap%image)), maxval(abs(qmap%image)), maxval(abs(umap%image))  
   print*,"============regularizing===================="
-  where(abs(imap%image) .gt. 300. .or. abs(qmap%image).gt.300 .or. abs(umap%image).gt. 300)
-     hits%image = 0.
-     imap%image = 0.
-     qmap%image = 0.
-     umap%image = 0.
-  end where
+  call imap%regularize(reg_limit)
+  call qmap%regularize(reg_limit)
+  call umap%regularize(reg_limit)
   write(*,*) "max values:", maxval(abs(imap%image)), maxval(abs(qmap%image)), maxval(abs(umap%image))  
   print*,"=================================="  
   if(do_convert)then
