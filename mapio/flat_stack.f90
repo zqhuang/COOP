@@ -46,11 +46,14 @@ program test
   print*,"# of pixels (I, Q, U, mask, ps):", imap%npix, qmap%npix, umap%npix, hits%npix, psmask%npix
   
   write(*,*) "max values:", maxval(abs(imap%image)), maxval(abs(qmap%image)), maxval(abs(umap%image))
+  print*,"============comparing <T> in sources and global <T> ====="
+  print*, "<T> in sources:", sum(imap%image*psmask%image*hits%image)/sum(psmask%image*hits%image)
+  print*, "global <T>:", sum(imap%image*hits%image)/sum(hits%image)  
+  print*,"============masking sources===================="  
   hits%image = hits%image * psmask%image
   imap%image = imap%image*psmask%image
   qmap%image = qmap%image*psmask%image
-  umap%image = umap%image*psmask%image    
-  print*,"============masking sources===================="
+  umap%image = umap%image*psmask%image
   write(*,*) "max values:", maxval(abs(imap%image)), maxval(abs(qmap%image)), maxval(abs(umap%image))  
   print*,"============regularizing===================="
   where(abs(imap%image) .gt. 300. .or. abs(qmap%image).gt.300 .or. abs(umap%image).gt. 300)
