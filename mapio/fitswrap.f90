@@ -266,11 +266,19 @@ contains
 !!=======   CEA ============
   subroutine coop_fits_image_cea_radec2pix(this, ra_deg, dec_deg, pix)
     class(coop_fits_image_cea)::this
-    COOP_REAL ra_deg, dec_deg, vec(2)
+    COOP_REAL ra_deg, dec_deg, vec(2), ra, dec
     COOP_LONG_INT pix
     COOP_INT::ix, iy, ivec(2)
-    vec(1) = ra_deg * coop_SI_degree - this%radec_center(1)
-    vec(2) = dec_deg* coop_SI_degree - this%radec_center(2)
+    ra = ra_deg*coop_SI_degree
+    dec = dec_deg*coop_SI_degree
+    do while(ra .gt. coop_pi)
+       ra = ra - coop_2pi
+    enddo
+    do while(ra .lt. -coop_pi)
+       ra = ra + coop_2pi
+    enddo
+    vec(1) = ra - this%radec_center(1)
+    vec(2) = dec - this%radec_center(2)
     vec = matmul(this%invtrans, vec)
     ivec = nint(vec)
     pix = ivec(1) + this%center(1)  - 1 + this%nside(1) * (ivec(2) + this%center(2) - 1)
