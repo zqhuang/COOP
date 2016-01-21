@@ -29,7 +29,7 @@ module coop_fitswrap_mod
      COOP_INT,dimension(:),allocatable::nside
      COOP_LONG_INT::npix
      COOP_REAL,dimension(:),allocatable::image
-     COOP_REAL,allocatable::transform(:, :), center(:)     
+     COOP_REAL,allocatable::transform(:, :), invtrans(:,:), center(:)     
    contains
      procedure::regularize => coop_fits_image_regularize
      procedure::get_linear_coordinates => coop_fits_image_get_linear_coordinates
@@ -48,6 +48,7 @@ module coop_fitswrap_mod
      procedure::convert2healpix => coop_fits_image_cea_convert2healpix
      procedure::write => coop_fits_image_cea_write
      procedure::pix2ang => coop_fits_image_cea_pix2ang
+     procedure::radec2pix => coop_fits_image_cea_radec2pix
      procedure::get_flatmap => coop_fits_image_cea_get_flatmap
      procedure::pix2flat => coop_fits_image_cea_pix2flat
      procedure::cut => coop_fits_image_cea_cut
@@ -97,6 +98,7 @@ contains
        if(allocated(this%image)) deallocate(this%image)
        if(allocated(this%nside))deallocate(this%nside)
        if(allocated(this%transform))deallocate(this%transform)
+       if(allocated(this%invtrans))deallocate(this%invtrans)       
     end select
     select type(this)
     class is (coop_fits_image_cea)
@@ -137,10 +139,12 @@ contains
           stop
        endif
        allocate(this%image(0:this%npix-1))
-       allocate(this%transform(this%dim, this%dim), this%center(this%dim))
+       allocate(this%transform(this%dim, this%dim), this%center(this%dim), this%invtrans(this%dim, this%dim))
        this%transform = 0.d0
+       this%invtrans = 0.d0       
        do i=1, this%dim
           this%transform(i, i) = 1.d0
+          this%invtrans(i, i) = 1.d0          
        enddo
        this%center = 0.d0
     end select
@@ -171,14 +175,14 @@ contains
                 this%transform(i, j) = this%key_value("PC"//COOP_STR_OF(i)//"_"//COOP_STR_OF(j), 0.d0)
              endif
           enddo
-          delta(i) = this%key_value("CDELT"//COOP_STR_OF(i)) * coop_SI_degree
+          delta(i) = this%key_value("CDELT"//COOP_STR_OF(i)) * units(i)
           if(abs(delta(i)) .lt. 1.d-12)then
              write(*,*) trim(this%filename)//": cannot read delta"
              call this%header%print()
              stop
           endif
           this%center(i) = this%key_value("CRPIX"//COOP_STR_OF(i), (this%nside(i)+1.d0)/2.d0)
-          this%radec_center(i) = this%key_value("CRVAL"//COOP_STR_OF(i)) * coop_SI_degree
+          this%radec_center(i) = this%key_value("CRVAL"//COOP_STR_OF(i)) * units(i)
        enddo
        if(abs(abs(delta(1)/delta(2)) - 1.d0) .gt. 1.d-3)then
           print*, delta(1), delta(2)
@@ -192,6 +196,8 @@ contains
           this%transform(:, i) =  this%transform(:, i) * delta(i)
        enddo
        deallocate(delta)
+       this%invtrans = this%transform
+       call coop_matrix_inverse(this%invtrans)
     class default
        return
     end select
@@ -258,7 +264,22 @@ contains
 
 
 !!=======   CEA ============
+  subroutine coop_fits_image_cea_radec2pix(this, ra_deg, dec_deg, pix)
+    class(coop_fits_image_cea)::this
+    COOP_REAL ra_deg, dec_deg, vec(2)
+    COOP_LONG_INT pix
+    COOP_INT::ix, iy, ivec(2)
+    vec(1) = ra_deg * coop_SI_degree - this%radec_center(1)
+    vec(2) = dec_deg* coop_SI_degree - this%radec_center(2)
+    vec = matmul(this%invtrans, vec)
+    ivec = nint(vec)
+    pix = ivec(1) + this%center(1)  - 1 + this%nside(1) * (ivec(2) + this%center(2) - 1)
+    if(pix .ge. this%npix .or. pix .lt. 0)then
+       write(*,*) "warning: radec2pix overflow", pix, this%npix
+    endif
+  end subroutine coop_fits_image_cea_radec2pix
 
+  
   subroutine coop_fits_image_cea_pix2ang(this, pix, theta, phi)
     class(coop_fits_image_cea)::this
     COOP_LONG_INT pix
