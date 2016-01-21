@@ -34,12 +34,14 @@ program test
   if(coop_file_exists(hitsFile))then
      call hits%open(Hitsfile)
   else
+     write(*,*) "Hits file "//trim(hitsfile)//" is not found; skipping..."     
      hits = imap
      hits%image = 1.
   endif
   if(coop_file_exists(PSfile))then
      call psmask%open(PSFile)
   else
+     write(*,*) "Cluster mask file "//trim(psfile)//" is not found; skipping..."
      psmask = imap
      psmask%image = 1.
   endif
