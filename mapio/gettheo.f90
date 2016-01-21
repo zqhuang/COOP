@@ -21,7 +21,7 @@ program stackth
   COOP_INT::lmax, hpauto_lowl, hpauto_highl, n, ind_auto, ind_cross, hpcross_lowl, hpcross_highl
   COOP_STRING::clfile, field, peak, orient, output_prefix, colortable
   type(coop_file)::fp, fpfr
-  type(coop_asy)::figCr, fpI(0:2), fpQU(0:2)
+  type(coop_asy)::figCr, fpI(0:2), fpQU(0:2), fpIdat(0:2), fpQUdat(0:2)
   integer i, j, il, l, iomega, m
   type(coop_arguments)::args
   type(coop_healpix_patch)::patchI, patchQU, patchQrUr
@@ -134,7 +134,9 @@ program stackth
 
   do m=0,2
      call fpI(m)%open(trim(output_prefix)//"_I_fwhm"//COOP_STR_OF(nint(fwhm_arcmin))//"_m"//COOP_STR_OF(m*2)//".txt")
+     call fpIdat(m)%open(trim(output_prefix)//"_I_fwhm"//COOP_STR_OF(nint(fwhm_arcmin))//"_m"//COOP_STR_OF(m*2)//".dat")
      call fpQU(m)%open(trim(output_prefix)//"_QU_fwhm"//COOP_STR_OF(nint(fwhm_arcmin))//"_m"//COOP_STR_OF(m*2)//".txt")
+     call fpQUdat(m)%open(trim(output_prefix)//"_QU_fwhm"//COOP_STR_OF(nint(fwhm_arcmin))//"_m"//COOP_STR_OF(m*2)//".dat")     
      call fpI(m)%init(xlabel="$\varpi$", ylabel="$T_"//COOP_STR_OF(m*2)//"$")
      call fpQU(m)%init(xlabel="$\varpi$", ylabel="$P_"//COOP_STR_OF(m*2)//"$")
      write(fpI(m)%unit, "(A)") "CURVE"
@@ -259,9 +261,16 @@ program stackth
      do m=0,2
         write(fpI(m)%unit, "(2E16.7)") dr*i, frI(m, i)
         write(fpQU(m)%unit, "(2E16.7)") dr*i, frQU(m, i)
+        write(fpIdat(m)%unit, "(2E16.7)") dr*i, frI(m, i)
+        write(fpQUdat(m)%unit, "(2E16.7)") dr*i, frQU(m, i)
      enddo
   enddo
-  
+  do m=0,2
+     call fpI(m)%close()
+     call fpIdat(m)%close()
+     call fpQU(m)%close()
+     call fpQUdat(m)%close()
+  enddo
   call figCr%open(trim(output_prefix)//"cr.txt")
   call figCr%init(xlabel="$\varpi$", ylabel="$c_{m,n}(\varpi)$")
   call figCr%curve(x = r, y = cr(0,0,:)/sigma0, color="red", linewidth=1.8, linetype="solid", legend="$c_{0,0}(\varpi)/\sigma_0$")
