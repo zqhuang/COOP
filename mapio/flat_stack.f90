@@ -17,7 +17,8 @@ program test
   COOP_UNKNOWN_STRING,parameter::Qfile = mapdir//"dataCoadd_Q_"//postfix//".fits"
   COOP_UNKNOWN_STRING,parameter::Ufile = mapdir//"dataCoadd_U_"//postfix//".fits"
   COOP_UNKNOWN_STRING,parameter::Hitsfile = mapdir//"mask_"//postfix//".fits"
-  COOP_UNKNOWN_STRING,parameter::PSfile = mapdir//"joinedClusterMasks_"//postfix//".fits"  
+!!  COOP_UNKNOWN_STRING,parameter::PSfile = mapdir//"joinedClusterMasks_"//postfix//".fits"
+  COOP_UNKNOWN_STRING,parameter::PSfile = mapdir//"rahulMasksS2_"//postfix//"_cutlevel20.fits"    
   type(coop_fits_image_cea)::imap, umap, qmap, hits, psmask
   type(coop_asy)::asy
   COOP_INT i, l
