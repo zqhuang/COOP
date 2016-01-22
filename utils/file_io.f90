@@ -265,12 +265,20 @@ contains
   function coop_file_exists(FileName) result(file_exists)
     COOP_UNKNOWN_STRING, INTENT(IN) :: FileName
     logical File_Exists
+    if(trim(adjustl(filename)).eq."")then
+       file_exists = .false.
+       return
+    endif
     inquire(FILE=trim(adjustl(fileName)), EXIST= File_Exists)
   end function coop_file_exists
 
   function coop_dir_exists(dirName) result(dir_exists)
     COOP_UNKNOWN_STRING, INTENT(IN) :: dirName
     logical dir_exists
+    if(trim(adjustl(dirname)).eq."")then
+       dir_exists = .false.
+       return
+    endif
 #ifdef __GFORTRAN__
     inquire(FILE=trim(adjustl(dirName)), EXIST = dir_exists)    
 #else

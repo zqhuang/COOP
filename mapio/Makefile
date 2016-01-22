@@ -59,6 +59,10 @@ Stack: $(OBJ) dostack.o
 FStack: $(OBJ) flat_stack.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_stack.o $(LINK)
 
+FStat:  $(OBJ) flat_stat.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_stat.o $(LINK)
+
+
 
 ByProd: $(OBJ) map_by_products.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) map_by_products.o $(LINK)
