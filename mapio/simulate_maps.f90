@@ -16,7 +16,7 @@ program test
 !  COOP_INT,parameter::nside_output = 16  
   COOP_REAL,parameter::beam_fwhm = 5.
   COOP_INT,parameter::hp_lowl = lmin-10
-  COOP_INT,parameter::hp_highl = lmax+10
+  COOP_INT,parameter::hp_highl = lmin+10
 !!  logical,parameter::do_constrained = .false.
   type(coop_healpix_maps)::map,  lmap, mask, hmap
   integer l, m, il, i
