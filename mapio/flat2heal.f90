@@ -5,12 +5,10 @@ program test
   use coop_sphere_mod
   implicit none
 #include "constants.h"
-  logical,parameter::do_convert = .true.
-  COOP_INT,parameter::lmin = 550
+  COOP_INT,parameter::lmin = 400
   COOP_INT,parameter::lmax = 2500
-  COOP_INT,parameter::irepeat = 1
   COOP_INT,parameter::fwhm_arcmin = 3
-  COOP_REAL, parameter::reg_limit = 0.003
+  COOP_REAL, parameter::reg_limit = 0.005
   COOP_UNKNOWN_STRING,parameter::mapdir = "act16/"
   COOP_UNKNOWN_STRING,parameter::Ifile = mapdir//"deep56_coadd_I.fits"
   COOP_UNKNOWN_STRING,parameter::Qfile = mapdir//"deep56_coadd_Q.fits"
@@ -19,20 +17,26 @@ program test
   COOP_UNKNOWN_STRING,parameter::Q_Hitsfile = mapdir//"deep56_weight_Q.fits"
   COOP_UNKNOWN_STRING,parameter::U_Hitsfile = mapdir//"deep56_weight_U.fits"
   COOP_UNKNOWN_STRING,parameter::PSfile = "NULL.fits"
+  COOP_UNKNOWN_STRING,parameter::beam_file = mapdir//"beam_7ar2.txt"
   type(coop_fits_image_cea)::imap, umap, qmap, I_hits,Q_hits, U_hits, psmask
   type(coop_asy)::asy
   COOP_INT i, l
   type(coop_file) fp
-  COOP_REAL, parameter::patchsize = 90.d0*coop_SI_arcmin
-  COOP_REAL::mask_threshold
+  COOP_REAL::beam(0:lmax)
   COOP_REAL, parameter::smooth_scale = coop_SI_arcmin * fwhm_arcmin
-  type(coop_healpix_maps)::hp, mask, polmask
+  type(coop_healpix_maps)::hp, mask
   logical:: has_mask = .false.
   logical::has_hits = .false.
   call coop_MPI_Init()
   call hp%init(nside=2048, nmaps=3, genre="IQU", lmax=lmax)
   call mask%init(nside=2048, nmaps=1, genre="MASK", lmax=lmax)  
-  call polmask%init(nside=2048, nmaps=1, genre="MASK", lmax=lmax)  
+  call fp%open_skip_comments(beam_file)
+  do l = 0, lmax
+     read(fp%unit, *) i, beam(l)
+     if(i.ne.l) stop "beam file error"
+     beam(l) = coop_highpass_filter(lmin-10, lmin+10, l)/beam(l)
+  enddo
+  call fp%close()
   if(coop_file_exists(PSfile))then
      call psmask%open(PSFile)
      has_mask = .true.
@@ -72,7 +76,7 @@ program test
   call imap%free()
   print*, "I map done"
   print*, "==== I fsky = "//trim(coop_num2str(count(mask%map(:,1).gt.0.5)/dble(mask%npix)*100., "(F10.2)"))//"%======="
-  call mask%write(mapdir//"act_imask_"//COOP_STR_OF(fwhm_arcmin)//"a_l"//COOP_STR_OF(lmin)//"-"//COOP_STR_OF(lmax)//".fits")
+  call mask%write(mapdir//"act_imask.fits")
 
   !!qmap
   call qmap%open(Qfile)
@@ -105,6 +109,8 @@ program test
   call qmap%free()
   print*, "==== Q fsky = "//trim(coop_num2str(count(mask%map(:,1).gt.0.5)/dble(mask%npix)*100., "(F10.2)"))//"%======="
 
+  call mask%write(mapdir//"act_qmask.fits")
+
   !! u map
   call umap%open(Ufile)
   if(coop_file_exists(U_hitsFile))then
@@ -124,34 +130,31 @@ program test
   write(*,*) "After regularization, U map min, max:", minval(umap%image), maxval(umap%image)
 
   if(has_hits)then
-     call umap%convert2healpix(hp, 3, polmask, hits=U_hits)
+     call umap%convert2healpix(hp, 3, mask, hits=U_hits)
      call U_hits%free()
   else
      if(has_mask)then
-        call umap%convert2healpix(hp, 3, polmask, hits=psmask)
+        call umap%convert2healpix(hp, 3, mask, hits=psmask)
         call psmask%free()
      else
-        call umap%convert2healpix(hp, 3, polmask)
+        call umap%convert2healpix(hp, 3, mask)
      endif
   endif
   call umap%free()
-  print*, "==== U fsky = "//trim(coop_num2str(count(polmask%map(:,1).gt.0.5)/dble(polmask%npix)*100., "(F10.2)"))//"%======="
-  polmask%map(:,1) = polmask%map(:,1)*mask%map(:,1)
-  print*, "==== pol fsky = "//trim(coop_num2str(count(polmask%map(:,1).gt.0.5)/dble(polmask%npix)*100., "(F10.2)"))//"%======="
-
+  print*, "==== U fsky = "//trim(coop_num2str(count(mask%map(:,1).gt.0.5)/dble(mask%npix)*100., "(F10.2)"))//"%======="
+  call mask%write(mapdir//"act_umask.fits")
   call mask%free()
-  call polmask%write(mapdir//"act_polmask_"//COOP_STR_OF(fwhm_arcmin)//"a_l"//COOP_STR_OF(lmin)//"-"//COOP_STR_OF(lmax)//".fits")
-  call polmask%free()
-  
-  call hp%smooth(fwhm = smooth_scale, l_lower =lmin, l_upper = lmax)
+  call hp%smooth_with_window(fwhm = smooth_scale, window = beam, lmax = lmax)
   print*,"===== smoothed map max min ====="  
   print*, maxval(hp%map(:,1)), minval(hp%map(:,1))
   print*, maxval(hp%map(:,2)), minval(hp%map(:,2))
   print*, maxval(hp%map(:,3)), minval(hp%map(:,3))
   print*,"=================================="  
 
+  call hp%write(mapdir//"act_iqu_"//COOP_STR_OF(fwhm_arcmin)//"a_l"//COOP_STR_OF(lmin)//"-"//COOP_STR_OF(lmax)//".fits")
   call hp%write(mapdir//"act_qu_"//COOP_STR_OF(fwhm_arcmin)//"a_l"//COOP_STR_OF(lmin)//"-"//COOP_STR_OF(lmax)//".fits", index_list=(/ 2, 3/) )     
   call hp%get_QU()
   call hp%write(mapdir//"act_TQTUT_"//COOP_STR_OF(fwhm_arcmin)//"a_l"//COOP_STR_OF(lmin)//"-"//COOP_STR_OF(lmax)//".fits")
   call hp%free()
+
    end program test

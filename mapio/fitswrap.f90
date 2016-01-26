@@ -12,7 +12,7 @@ module coop_fitswrap_mod
 
 
   type coop_fits
-     COOP_STRING::filename
+     COOP_STRING::filename, fortran_filename
      type(coop_dictionary):: header
    contains
      procedure::open => coop_fits_open
@@ -73,6 +73,7 @@ contains
     COOP_INT i
     call this%free()
     if(coop_file_exists(filename))then
+       this%fortran_filename = trim(filename)
        this%filename = trim(filename)
        call coop_convert_to_C_string(this%filename)
        call coop_fits_get_header(this)
@@ -119,7 +120,7 @@ contains
        this%dim = nint(this%key_value("NAXIS", 2.d0))
        if(this%dim .eq. 0 )then
           call this%header%print()
-          write(*,*) "Error: cannot find NAXIS key word in fits file "//trim(this%filename)
+          write(*,*) "Error: cannot find NAXIS key word in fits file "//trim(this%fortran_filename)
           stop
        endif
        allocate(this%nside(this%dim))
@@ -129,7 +130,7 @@ contains
           this%npix = this%npix * this%nside(i)
        enddo
        if(any(this%nside .eq. 0))then
-          write(*,*) trim(this%filename)//": cannot read the dimensions"
+          write(*,*) trim(this%fortran_filename)//": cannot read the dimensions"
           call this%header%print()
           stop
        endif
@@ -173,7 +174,7 @@ contains
           enddo
           delta(i) = this%key_value("CDELT"//COOP_STR_OF(i)) * units(i)
           if(abs(delta(i)) .lt. 1.d-12)then
-             write(*,*) trim(this%filename)//": cannot read delta"
+             write(*,*) trim(this%fortran_filename)//": cannot read delta"
              call this%header%print()
              stop
           endif
@@ -222,6 +223,10 @@ contains
     class(coop_fits_image)::this
     COOP_REAL::mean, upper, lower, tail    
     mean = sum(this%image)/this%npix
+    write(*,*)
+    write(*,*) "=========================================================="
+    write(*,*) "Statistics of map :"//trim(this%fortran_filename)
+    write(*,*) "=========================================================="
     write(*,*) "size: "//COOP_STR_OF(this%nside(1))//" x "//COOP_STR_OF(this%nside(2))
     write(*,*) "mean = ", mean
     write(*,*) "rms = ", sqrt(sum((this%image-mean)**2/this%npix))
@@ -239,6 +244,8 @@ contains
     write(*,*) "3sigma lower, upper = ", lower, upper
     write(*,*) "min max = ",  minval(this%image), maxval(this%image)
     write(*,*) "zero-value pixels: "//trim(coop_num2str(100.*count(this%image .eq. 0.d0)/dble(this%npix),"(F10.3)"))//"%"
+    write(*,*) "=========================================================="
+    write(*,*)
   end subroutine coop_fits_image_simple_stat
 
   subroutine coop_fits_image_get_linear_coordinates(this, pix, coor)
