@@ -17,7 +17,7 @@ program test
   call map%open(fname)
   mean = sum(map%image)/map%npix
   write(*,*) "size: "//COOP_STR_OF(map%nside(1))//" x "//COOP_STR_OF(map%nside(2))
-  write(*,*) "max, min, mean = ", maxval(map%image), minval(map%image), mean
+  write(*,*) "mean = ", mean
   write(*,*) "rms = ", sqrt(sum((map%image-mean)**2/map%npix))
   tail = 0.1585
   call array_get_threshold_double(map%image, map%npix, 1.-tail, lower)
@@ -31,5 +31,5 @@ program test
   call array_get_threshold_double(map%image, map%npix, 1.-tail, lower)
   call array_get_threshold_double(map%image, map%npix, tail, upper)
   write(*,*) "3sigma lower, upper = ", lower, upper
-
+  write(*,*) "min max = ",  minval(map%image), maxval(map%image)
 end program test
