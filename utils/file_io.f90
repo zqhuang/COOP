@@ -20,6 +20,7 @@ public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_crea
      COOP_LONG_STRING path
    contains
      procedure::open => coop_file_open
+     procedure::open_skip_comments => coop_file_open_skip_comments
      procedure::close => coop_file_close
      procedure::skip_lines => coop_file_skiplines
      procedure::read_int => coop_file_readline_int
@@ -233,32 +234,32 @@ contains
 #include "file_init.h"    
   end function coop_open_file
 
-  function coop_open_file_skip_comments(fname) result(fp)
+  subroutine coop_file_open_skip_comments(this, fname) 
     COOP_UNKNOWN_STRING fname
-    type(coop_file) fp
+    class(coop_file) this
     COOP_INT i, nc
     COOP_LONG_STRING inline
-    call fp%open(fname, "r")
+    call this%open(fname, "r")
     nc = 0
-50  read(fp%unit, "(A)", ERR=100, END=100) inline
+50  read(this%unit, "(A)", ERR=100, END=100) inline
     inline = adjustl(inline)
     if(trim(inline) .eq. "" .or. inline(1:1).eq.coop_text_comment_symbol)then
        nc = nc + 1
        goto 50
     endif
-100 call fp%close()
-    call fp%open(fname, "r")
+100 call this%close()
+    call this%open(fname, "r")
     do i=1, nc
-       read(fp%unit, "(A)") inline
+       read(this%unit, "(A)") inline
     enddo
-  end function coop_open_file_skip_comments
+  end subroutine coop_file_open_skip_comments
   
-  subroutine coop_file_close(fp)
-    class(coop_file) fp
-    close(fp%unit)
-    fp%pt = 1
-    fp%unit = 0
-    fp%path = ""
+  subroutine coop_file_close(this)
+    class(coop_file) this
+    close(this%unit)
+    this%pt = 1
+    this%unit = 0
+    this%path = ""
   end subroutine coop_file_close
 
 

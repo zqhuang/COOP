@@ -165,7 +165,6 @@ module coop_healpix_mod
      procedure :: scan_local_minkowski0 => coop_healpix_maps_scan_local_minkowski0
      procedure :: local_disk_minkowski1 => coop_healpix_maps_local_disk_minkowski1
      procedure :: scan_local_minkowski1 => coop_healpix_maps_scan_local_minkowski1
-     
   end type coop_healpix_maps
 
   type coop_healpix_patch

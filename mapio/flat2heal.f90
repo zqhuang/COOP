@@ -6,13 +6,13 @@ program test
   implicit none
 #include "constants.h"
   logical,parameter::do_convert = .true.
-  COOP_INT,parameter::lmin = 250
+  COOP_INT,parameter::lmin = 550
   COOP_INT,parameter::lmax = 2500
   COOP_INT,parameter::irepeat = 1
-  COOP_INT,parameter::fwhm_arcmin = 5
-  COOP_REAL, parameter::reg_limit = 0.02
-  COOP_UNKNOWN_STRING,parameter::mapdir = "act15/"
-  COOP_UNKNOWN_STRING, parameter::postfix="4"
+  COOP_INT,parameter::fwhm_arcmin = 3
+  COOP_REAL, parameter::reg_limit = 0.001
+  COOP_UNKNOWN_STRING,parameter::mapdir = "act16/"
+  COOP_UNKNOWN_STRING, parameter::postfix="7ar2"
   COOP_UNKNOWN_STRING,parameter::Ifile = mapdir//"dataCoadd_I_"//postfix//".fits"
   COOP_UNKNOWN_STRING,parameter::Qfile = mapdir//"dataCoadd_Q_"//postfix//".fits"
   COOP_UNKNOWN_STRING,parameter::Ufile = mapdir//"dataCoadd_U_"//postfix//".fits"
@@ -31,12 +31,13 @@ program test
   COOP_UNKNOWN_STRING,parameter::output_dir = "ACTstacking/"
   COOP_REAL::mask_threshold
   COOP_REAL, parameter::smooth_scale = coop_SI_arcmin * fwhm_arcmin
-  type(coop_healpix_maps)::hp, mask
+  type(coop_healpix_maps)::hp, mask, polmask
   logical:: has_mask = .false.
   logical::has_hits = .false.
   call coop_MPI_Init()
   call hp%init(nside=2048, nmaps=3, genre="IQU", lmax=lmax)
   call mask%init(nside=2048, nmaps=1, genre="MASK", lmax=lmax)  
+  call polmask%init(nside=2048, nmaps=1, genre="MASK", lmax=lmax)  
 
   if(coop_file_exists(PSfile))then
      call psmask%open(PSFile)
@@ -77,7 +78,7 @@ program test
   call imap%free()
   print*, "I map done"
   print*, "==== I fsky = "//trim(coop_num2str(count(mask%map(:,1).gt.0.5)/dble(mask%npix)*100., "(F10.2)"))//"%======="
-  call mask%write(mapdir//"act_imask.fits")
+  call mask%write(mapdir//"act_imask_"//COOP_STR_OF(fwhm_arcmin)//"a_l"//COOP_STR_OF(lmin)//"-"//COOP_STR_OF(lmax)//".fits")
 
   !!qmap
   call qmap%open(Qfile)
@@ -110,8 +111,6 @@ program test
   call qmap%free()
   print*, "==== Q fsky = "//trim(coop_num2str(count(mask%map(:,1).gt.0.5)/dble(mask%npix)*100., "(F10.2)"))//"%======="
 
-  call mask%write(mapdir//"act_qmask.fits")
-
   !! u map
   call umap%open(Ufile)
   if(coop_file_exists(U_hitsFile))then
@@ -131,20 +130,25 @@ program test
   write(*,*) "After regularization, U map min, max:", minval(umap%image), maxval(umap%image)
 
   if(has_hits)then
-     call umap%convert2healpix(hp, 3, mask, hits=U_hits)
+     call umap%convert2healpix(hp, 3, polmask, hits=U_hits)
      call U_hits%free()
   else
      if(has_mask)then
-        call umap%convert2healpix(hp, 3, mask, hits=psmask)
+        call umap%convert2healpix(hp, 3, polmask, hits=psmask)
         call psmask%free()
      else
-        call umap%convert2healpix(hp, 3, mask)
+        call umap%convert2healpix(hp, 3, polmask)
      endif
   endif
   call umap%free()
-  print*, "==== U fsky = "//trim(coop_num2str(count(mask%map(:,1).gt.0.5)/dble(mask%npix)*100., "(F10.2)"))//"%======="
-  call mask%write(mapdir//"act_umask.fits")
+  print*, "==== U fsky = "//trim(coop_num2str(count(polmask%map(:,1).gt.0.5)/dble(polmask%npix)*100., "(F10.2)"))//"%======="
+  polmask%map(:,1) = polmask%map(:,1)*mask%map(:,1)
+  print*, "==== pol fsky = "//trim(coop_num2str(count(polmask%map(:,1).gt.0.5)/dble(polmask%npix)*100., "(F10.2)"))//"%======="
+
   call mask%free()
+  call polmask%write(mapdir//"act_polmask_"//COOP_STR_OF(fwhm_arcmin)//"a_l"//COOP_STR_OF(lmin)//"-"//COOP_STR_OF(lmax)//".fits")
+  call polmask%free()
+  
   call hp%smooth(fwhm = smooth_scale, l_lower =lmin, l_upper = lmax)
   print*,"===== smoothed map max min ====="  
   print*, maxval(hp%map(:,1)), minval(hp%map(:,1))
@@ -152,7 +156,6 @@ program test
   print*, maxval(hp%map(:,3)), minval(hp%map(:,3))
   print*,"=================================="  
 
-  call hp%write(mapdir//"act_iqu_"//COOP_STR_OF(fwhm_arcmin)//"a_l"//COOP_STR_OF(lmin)//"-"//COOP_STR_OF(lmax)//".fits")
   call hp%write(mapdir//"act_qu_"//COOP_STR_OF(fwhm_arcmin)//"a_l"//COOP_STR_OF(lmin)//"-"//COOP_STR_OF(lmax)//".fits", index_list=(/ 2, 3/) )     
   call hp%get_QU()
   call hp%write(mapdir//"act_TQTUT_"//COOP_STR_OF(fwhm_arcmin)//"a_l"//COOP_STR_OF(lmin)//"-"//COOP_STR_OF(lmax)//".fits")

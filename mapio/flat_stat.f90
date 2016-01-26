@@ -19,8 +19,17 @@ program test
   write(*,*) "size: "//COOP_STR_OF(map%nside(1))//" x "//COOP_STR_OF(map%nside(2))
   write(*,*) "max, min, mean = ", maxval(map%image), minval(map%image), mean
   write(*,*) "rms = ", sqrt(sum((map%image-mean)**2/map%npix))
+  tail = 0.1585
+  call array_get_threshold_double(map%image, map%npix, 1.-tail, lower)
+  call array_get_threshold_double(map%image, map%npix, tail, upper)
+  write(*,*) "1sigma lower, upper = ", lower, upper
   tail = 0.023
   call array_get_threshold_double(map%image, map%npix, 1.-tail, lower)
   call array_get_threshold_double(map%image, map%npix, tail, upper)
   write(*,*) "2sigma lower, upper = ", lower, upper
+  tail = 0.0015
+  call array_get_threshold_double(map%image, map%npix, 1.-tail, lower)
+  call array_get_threshold_double(map%image, map%npix, tail, upper)
+  write(*,*) "3sigma lower, upper = ", lower, upper
+
 end program test

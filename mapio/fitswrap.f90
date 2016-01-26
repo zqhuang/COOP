@@ -63,9 +63,6 @@ module coop_fitswrap_mod
      procedure::QU2EB => coop_fits_image_cea_QU2EB
   end type coop_fits_image_cea
 
-  
-
-
 
 contains
 

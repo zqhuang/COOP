@@ -9,16 +9,17 @@ program test
   COOP_INT,parameter::lmin = 250
   COOP_INT,parameter::lmax = 2500
   COOP_INT,parameter::irepeat = 1
-  COOP_INT,parameter::fwhm_arcmin = 5
+  COOP_INT,parameter::fwhm_arcmin = 3
   COOP_REAL, parameter::reg_limit = 0.02
-  COOP_UNKNOWN_STRING,parameter::mapdir = "act15/"
-  COOP_UNKNOWN_STRING, parameter::postfix="4"
+  COOP_UNKNOWN_STRING,parameter::mapdir = "act16/"
+  COOP_UNKNOWN_STRING, parameter::postfix="7ar2"
   COOP_UNKNOWN_STRING,parameter::Ifile = mapdir//"dataCoadd_I_"//postfix//".fits"
   COOP_UNKNOWN_STRING,parameter::Qfile = mapdir//"dataCoadd_Q_"//postfix//".fits"
   COOP_UNKNOWN_STRING,parameter::Ufile = mapdir//"dataCoadd_U_"//postfix//".fits"
   COOP_UNKNOWN_STRING,parameter::I_Hitsfile = mapdir//"weightMap_"//postfix//".fits"
   COOP_UNKNOWN_STRING,parameter::Q_Hitsfile = mapdir//"weightMap_"//postfix//"q.fits"
   COOP_UNKNOWN_STRING,parameter::U_Hitsfile = mapdir//"weightMap_"//postfix//"u.fits"
+  COOP_UNKNOWN_STRING,parameter::beam_file = mapdir//"beam_"//postfix//".txt"
   !!  COOP_UNKNOWN_STRING,parameter::Hitsfile = mapdir//"NULLFILE.fits"
   !!  COOP_UNKNOWN_STRING,parameter::PSfile = mapdir//"NULLFILE.fits"
   COOP_UNKNOWN_STRING,parameter::PSfile = mapdir//"joinedClusterMasks_"//postfix//".fits"
@@ -29,7 +30,7 @@ program test
   type(coop_file) fp
   COOP_REAL, parameter::patchsize = 90.d0*coop_SI_arcmin
   COOP_UNKNOWN_STRING,parameter::output_dir = "ACTstacking/"
-  COOP_REAL::mask_threshold
+  COOP_REAL::mask_threshold, beam(0:lmax)
   COOP_REAL, parameter::smooth_scale = coop_SI_arcmin * fwhm_arcmin
   type(coop_healpix_maps)::hp, mask
   logical:: has_mask = .false.
@@ -37,7 +38,13 @@ program test
   call coop_MPI_Init()
   call hp%init(nside=2048, nmaps=3, genre="IQU", lmax=lmax)
   call mask%init(nside=2048, nmaps=1, genre="MASK", lmax=lmax)  
-
+  call fp%open_skip_comments(beam_file)
+  do l = 0, lmax
+     read(fp%unit, *) i, beam(l)
+     if(i.ne.l) stop "beam file error"
+     beam(l) = coop_highpass_filter(lmin-10, lmin+10, l)/beam(l)
+  enddo
+  call fp%close()
   if(coop_file_exists(PSfile))then
      call psmask%open(PSFile)
      has_mask = .true.
@@ -145,7 +152,7 @@ program test
   print*, "==== U fsky = "//trim(coop_num2str(count(mask%map(:,1).gt.0.5)/dble(mask%npix)*100., "(F10.2)"))//"%======="
   call mask%write(mapdir//"act_umask.fits")
   call mask%free()
-  call hp%smooth(fwhm = smooth_scale, l_lower =lmin, l_upper = lmax)
+  call hp%smooth_with_window(fwhm = smooth_scale, window = beam, lmax = lmax)
   print*,"===== smoothed map max min ====="  
   print*, maxval(hp%map(:,1)), minval(hp%map(:,1))
   print*, maxval(hp%map(:,2)), minval(hp%map(:,2))
