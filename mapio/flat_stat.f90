@@ -32,4 +32,5 @@ program test
   call array_get_threshold_double(map%image, map%npix, tail, upper)
   write(*,*) "3sigma lower, upper = ", lower, upper
   write(*,*) "min max = ",  minval(map%image), maxval(map%image)
+  write(*,*) "zero-value pixels: "//trim(coop_num2str(100.*count(map%image .eq. 0.d0)/dble(map%npix),"(F10.3)"))//"%"
 end program test

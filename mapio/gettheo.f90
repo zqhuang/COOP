@@ -82,7 +82,9 @@ program stackth
   width = 2.d0*sin(r_degree*coop_SI_degree/2.d0)
   dr = width/n  
   sigma = fwhm_arcmin*coop_sigma_by_fwhm*coop_SI_arcmin
-  
+  if(hpauto_lowl .gt. 0 .or. hpcross_lowl.gt.0)then
+     write(*,*) "doing highpass filtering", hpauto_lowl, hpauto_highl, hpcross_lowl, hpcross_highl
+  endif
   call fp%open(clfile, "r")
   do l=2, lmax
      read(fp%unit, *, ERR=100, END=100) il, l2cls(:, l)
@@ -100,6 +102,7 @@ program stackth
 200 call fp%close()
 
   sigma0 = sqrt(sum(Cls(ind_auto,:)*(ell+0.5d0))/coop_2pi)
+  write(*,*) "Expected rms = ", sigma0
   if(normalize_sigma0)then
      Cls = Cls*(sigma0_norm/sigma0)**2
      l2Cls = l2Cls*(sigma0_norm/sigma0)**2

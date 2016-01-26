@@ -65,6 +65,9 @@ FStat:  $(OBJ) flat_stat.o
 F2Heal:  $(OBJ) flat2heal.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat2heal.o $(LINK)
 
+FCoadd:  $(OBJ) flat_coadd.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_coadd.o $(LINK)
+
 ByProd: $(OBJ) map_by_products.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) map_by_products.o $(LINK)
 
