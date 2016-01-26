@@ -10,9 +10,6 @@ module coop_fitswrap_mod
 
   public::coop_fits, coop_fits_image, coop_fits_image_cea, coop_fits_QU2EB, coop_fits_EB2QU
 
-  integer,parameter::sp = kind(1.)
-  integer,parameter::dl = kind(1.d0)
-  integer,parameter::dlc = kind( (1.d0,1.d0) )
 
   type coop_fits
      COOP_STRING::filename
@@ -38,12 +35,12 @@ module coop_fitswrap_mod
 
   type, extends(coop_fits_image)::coop_fits_image_cea
      COOP_REAL smooth_pixsize, pixsize, smooth_dkx, smooth_dky, dkx, dky
-     real(dl) xmin, xmax, ymin, ymax
+     COOP_REAL xmin, xmax, ymin, ymax
      COOP_INT:: smooth_nx, smooth_ny, smooth_npix
      type(coop_sphere_disc)::disc
      COOP_REAL,allocatable::radec_center(:)     
-     real(dl),dimension(:,:),allocatable:: smooth_image
-     real(dl),dimension(:,:),allocatable:: smooth_Q, smooth_U
+     COOP_REAL,dimension(:,:),allocatable:: smooth_image
+     COOP_REAL,dimension(:,:),allocatable:: smooth_Q, smooth_U
    contains
      procedure::convert2healpix => coop_fits_image_cea_convert2healpix
      procedure::write => coop_fits_image_cea_write
@@ -231,14 +228,14 @@ contains
 
   subroutine coop_fits_image_get_data(this)
     class(coop_fits_image)::this
-    real(sp),dimension(:),allocatable::tmp
+    COOP_SINGLE,dimension(:),allocatable::tmp
     select case(this%bitpix)
     case(-64)
        call coop_fits_get_double_data(this%filename, this%image, this%npix)
     case(-32)
        allocate(tmp(0:this%npix-1))
        call coop_fits_get_float_data(this%filename, tmp, this%npix)
-       this%image = real(tmp, dl)
+       this%image = COOP_REAL_OF(tmp)
        deallocate(tmp)
     case default
        write(*,*) "Cannot load data for bitpix = "//trim(coop_num2str(this%bitpix))
@@ -249,7 +246,7 @@ contains
 
   subroutine coop_fits_image_regularize(this, tail)
     class(coop_fits_image) this
-    real(dl) upper, lower, tail, diff, diff3
+    COOP_REAL upper, lower, tail, diff, diff3
     call array_get_threshold_double(this%image, this%npix, 1.-tail, lower)
     call array_get_threshold_double(this%image, this%npix, tail, upper)
     diff = (upper - lower)/5.d0
@@ -316,7 +313,7 @@ contains
 
   subroutine coop_fits_image_cea_cut(this, ix, iy, map)
     class(coop_fits_image_cea)::this
-    real(dl) map(:,:)
+    COOP_REAL map(:,:)
     COOP_INT i, j, ix, iy
     do j= 1, size(map, 2) 
        do i= 1, size(map, 1)
@@ -329,7 +326,7 @@ contains
     class(coop_fits_image_cea)::this
     COOP_REAL vec(3), vecmean(3), theta, phi, coor(2), coormin(2), coormax(2)
     COOP_REAL smooth_pixsize, weight
-    real(dl),dimension(:,:),allocatable::w
+    COOP_REAL,dimension(:,:),allocatable::w
     COOP_INT i, j, icoor(2), k
     COOP_LONG_INT pix
     this%smooth_pixsize = smooth_pixsize
@@ -403,11 +400,11 @@ contains
     class(coop_fits_image_cea)::this
     COOP_INT lmin, lmax, i, j
     COOP_REAL k2min, k2max, k2, rn1, rn2, kmin, kmax, omega, j2
-    complex(dlc),dimension(:,:),allocatable::fk
+    COOP_COMPLEX,dimension(:,:),allocatable::fk
     allocate( fk(0:this%nside(1)/2, 0:this%nside(2)-1))
     call coop_fft_forward(this%nside(1), this%nside(2), this%image, fk)
-    rn1 = real(this%nside(1), dl)
-    rn2  = real(this%nside(2), dl)/rn1
+    rn1 = COOP_REAL_OF(this%nside(1))
+    rn2  = COOP_REAL_OF(this%nside(2))/rn1
     k2min = (this%pixsize * lmin/coop_2pi*rn1)**2
     k2max = (this%pixsize * lmax/coop_2pi*rn1)**2
     kmin = sqrt(k2min)
@@ -439,7 +436,7 @@ contains
     COOP_INT lmin, lmax, i, j, ik
     COOP_REAL k2min, k2max, k2, rn1, rn2, kmin, kmax, omega, j2, kstep, rk, rms, cl, ell
     logical do_qu
-    complex(dlc),dimension(:,:),allocatable::fk, fke, fkb
+    COOP_COMPLEX,dimension(:,:),allocatable::fk, fke, fkb
     type(coop_file)::fkf
     COOP_INT nk
     COOP_REAL,dimension(:),allocatable::karr, Pkarr, warr
@@ -625,7 +622,7 @@ contains
     type(coop_file)::fp
     COOP_INT lmin, lmax, i, j, ik, l, ii
     COOP_REAL Cls(3, 3, lmin:lmax), sqrteig(3, lmin:lmax), rot(3,3, lmin:lmax), rin(4)
-    complex(dlc),dimension(:,:,:),allocatable::fk
+    COOP_COMPLEX,dimension(:,:,:),allocatable::fk
     COOP_REAL amp, rk
     call coop_random_init()
     if(.not. coop_file_exists(Cls_file))then
@@ -911,17 +908,17 @@ contains
 
   subroutine coop_fits_EB2QU(nx, ny, Emap, Bmap)
     COOP_INT nx, ny, i, j
-    real(dl) Emap(nx,ny), Bmap(nx,ny),  kx, ky, k2
-    complex(dlc) Qk(0:nx/2, 0:ny-1), Uk(0:nx/2, 0:ny-1), Ek(0:nx/2, 0:ny-1), Bk(0:nx/2, 0:ny-1)
+    COOP_REAL Emap(nx,ny), Bmap(nx,ny),  kx, ky, k2
+    COOP_COMPLEX Qk(0:nx/2, 0:ny-1), Uk(0:nx/2, 0:ny-1), Ek(0:nx/2, 0:ny-1), Bk(0:nx/2, 0:ny-1)
     call coop_fft_forward(nx, ny, Emap, Ek)
     call coop_fft_forward(nx, ny, Bmap, Bk)
     do i=0, nx/2
        do j=0, ny-1
-          kx = real(i, dl)/nx
+          kx = COOP_REAL_OF(i)/nx
           if(ny - j .lt. j)then
-             ky = real(j - ny, dl)/ny
+             ky = COOP_REAL_OF(j - ny)/ny
           else
-             ky = real(j, dl)/ny
+             ky = COOP_REAL_OF(j)/ny
           endif
           k2 = kx**2+ky**2
           if(k2.eq.0.d0)then
@@ -940,17 +937,17 @@ contains
 
   subroutine coop_fits_QU2EB(nx, ny, Qmap, Umap)
     COOP_INT nx, ny, i, j
-    real(dl) Qmap(nx,ny), Umap(nx,ny), kx, ky, k2
-    complex(dlc) Qk(0:nx/2, 0:ny-1), Uk(0:nx/2, 0:ny-1), Ek(0:nx/2, 0:ny-1), Bk(0:nx/2, 0:ny-1)
+    COOP_REAL Qmap(nx,ny), Umap(nx,ny), kx, ky, k2
+    COOP_COMPLEX Qk(0:nx/2, 0:ny-1), Uk(0:nx/2, 0:ny-1), Ek(0:nx/2, 0:ny-1), Bk(0:nx/2, 0:ny-1)
     call coop_fft_forward(nx, ny, Qmap, Qk)
     call coop_fft_forward(nx, ny, Umap, Uk)
     do i=0, nx/2
        do j=0, ny-1
-          kx = real(i, dl)/nx
+          kx = COOP_REAL_OF(i)/nx
           if(ny - j .lt. j)then
-             ky = real(j - ny, dl)/ny
+             ky = COOP_REAL_OF(j - ny)/ny
           else
-             ky = real(j, dl)/ny
+             ky = COOP_REAL_OF(j)/ny
           endif
           k2 = kx**2 + ky**2
           if(k2.eq.0.d0)then
@@ -987,7 +984,7 @@ contains
     class(coop_fits_image_cea)::this
     COOP_INT lmin, lmax, i, j, ik
     COOP_REAL Cls(lmin:lmax)
-    complex(dlc),dimension(:,:),allocatable::fk
+    COOP_COMPLEX,dimension(:,:),allocatable::fk
     COOP_REAL amp(lmin:lmax), rk
     amp = sqrt(Cls/(this%pixsize**2/this%npix))
     allocate(fk(0:this%nside(1)/2,0:this%nside(2)-1))
