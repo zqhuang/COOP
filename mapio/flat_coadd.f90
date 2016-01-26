@@ -17,6 +17,8 @@ program test
   call coop_dictionary_lookup(params, "num_maps", num_maps)
   if(num_maps .gt. 100 .or. num_maps.lt.1)then
      stop "num_maps must be between 1 and 100"
+  else
+     write(*,*) "coadding "//COOP_STR_OF(num_maps)//" maps"
   endif
   call coop_dictionary_lookup(params, "positive_weights", positive_weights, default_val = .true.)
   do i=1, num_maps

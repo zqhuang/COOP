@@ -31,6 +31,7 @@ module coop_fitswrap_mod
      procedure::regularize => coop_fits_image_regularize
      procedure::get_linear_coordinates => coop_fits_image_get_linear_coordinates
      procedure::get_data => coop_fits_image_get_data
+     procedure::simple_stat => coop_fits_image_simple_stat
   end type coop_fits_image
 
   type, extends(coop_fits_image)::coop_fits_image_cea
@@ -157,6 +158,7 @@ contains
           else
              write(*,*) "Unknown unit "//trim(this%header%value("CUNIT"//COOP_STR_OF(i)))//"; Using deg as default."
              units(i) = coop_SI_degree
+             call this%header%update("CUNIT"//COOP_STR_OF(i), "deg")
           end if
        enddo
 
@@ -214,6 +216,30 @@ contains
        endif
     endif
   end function coop_fits_key_value
+
+
+  subroutine coop_fits_image_simple_stat(this)
+    class(coop_fits_image)::this
+    COOP_REAL::mean, upper, lower, tail    
+    mean = sum(this%image)/this%npix
+    write(*,*) "size: "//COOP_STR_OF(this%nside(1))//" x "//COOP_STR_OF(this%nside(2))
+    write(*,*) "mean = ", mean
+    write(*,*) "rms = ", sqrt(sum((this%image-mean)**2/this%npix))
+    tail = 0.1585
+    call array_get_threshold_double(this%image, this%npix, 1.-tail, lower)
+    call array_get_threshold_double(this%image, this%npix, tail, upper)
+    write(*,*) "1sigma lower, upper = ", lower, upper
+    tail = 0.023
+    call array_get_threshold_double(this%image, this%npix, 1.-tail, lower)
+    call array_get_threshold_double(this%image, this%npix, tail, upper)
+    write(*,*) "2sigma lower, upper = ", lower, upper
+    tail = 0.0015
+    call array_get_threshold_double(this%image, this%npix, 1.-tail, lower)
+    call array_get_threshold_double(this%image, this%npix, tail, upper)
+    write(*,*) "3sigma lower, upper = ", lower, upper
+    write(*,*) "min max = ",  minval(this%image), maxval(this%image)
+    write(*,*) "zero-value pixels: "//trim(coop_num2str(100.*count(this%image .eq. 0.d0)/dble(this%npix),"(F10.3)"))//"%"
+  end subroutine coop_fits_image_simple_stat
 
   subroutine coop_fits_image_get_linear_coordinates(this, pix, coor)
     class(coop_fits_image)::this
@@ -1139,6 +1165,6 @@ contains
     stop "you need to install Healpix"
 #endif    
   end subroutine coop_fits_image_cea_convert2healpix
-  
+
 
 end module coop_fitswrap_mod

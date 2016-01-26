@@ -10,25 +10,20 @@ program test
   COOP_INT,parameter::lmax = 2500
   COOP_INT,parameter::irepeat = 1
   COOP_INT,parameter::fwhm_arcmin = 3
-  COOP_REAL, parameter::reg_limit = 0.001
+  COOP_REAL, parameter::reg_limit = 0.003
   COOP_UNKNOWN_STRING,parameter::mapdir = "act16/"
-  COOP_UNKNOWN_STRING, parameter::postfix="7ar2"
-  COOP_UNKNOWN_STRING,parameter::Ifile = mapdir//"dataCoadd_I_"//postfix//".fits"
-  COOP_UNKNOWN_STRING,parameter::Qfile = mapdir//"dataCoadd_Q_"//postfix//".fits"
-  COOP_UNKNOWN_STRING,parameter::Ufile = mapdir//"dataCoadd_U_"//postfix//".fits"
-  COOP_UNKNOWN_STRING,parameter::I_Hitsfile = mapdir//"weightMap_"//postfix//".fits"
-  COOP_UNKNOWN_STRING,parameter::Q_Hitsfile = mapdir//"weightMap_"//postfix//"q.fits"
-  COOP_UNKNOWN_STRING,parameter::U_Hitsfile = mapdir//"weightMap_"//postfix//"u.fits"
-  !!  COOP_UNKNOWN_STRING,parameter::Hitsfile = mapdir//"NULLFILE.fits"
-  !!  COOP_UNKNOWN_STRING,parameter::PSfile = mapdir//"NULLFILE.fits"
-  COOP_UNKNOWN_STRING,parameter::PSfile = mapdir//"joinedClusterMasks_"//postfix//".fits"
-  !!  COOP_UNKNOWN_STRING,parameter::PSfile = mapdir//"rahulMasksS2_"//postfix//"_cutlevel20.fits"    
+  COOP_UNKNOWN_STRING,parameter::Ifile = mapdir//"deep56_coadd_I.fits"
+  COOP_UNKNOWN_STRING,parameter::Qfile = mapdir//"deep56_coadd_Q.fits"
+  COOP_UNKNOWN_STRING,parameter::Ufile = mapdir//"deep56_coadd_U.fits"
+  COOP_UNKNOWN_STRING,parameter::I_Hitsfile = mapdir//"deep56_weight_I.fits"
+  COOP_UNKNOWN_STRING,parameter::Q_Hitsfile = mapdir//"deep56_weight_Q.fits"
+  COOP_UNKNOWN_STRING,parameter::U_Hitsfile = mapdir//"deep56_weight_U.fits"
+  COOP_UNKNOWN_STRING,parameter::PSfile = "NULL.fits"
   type(coop_fits_image_cea)::imap, umap, qmap, I_hits,Q_hits, U_hits, psmask
   type(coop_asy)::asy
   COOP_INT i, l
   type(coop_file) fp
   COOP_REAL, parameter::patchsize = 90.d0*coop_SI_arcmin
-  COOP_UNKNOWN_STRING,parameter::output_dir = "ACTstacking/"
   COOP_REAL::mask_threshold
   COOP_REAL, parameter::smooth_scale = coop_SI_arcmin * fwhm_arcmin
   type(coop_healpix_maps)::hp, mask, polmask
@@ -38,7 +33,6 @@ program test
   call hp%init(nside=2048, nmaps=3, genre="IQU", lmax=lmax)
   call mask%init(nside=2048, nmaps=1, genre="MASK", lmax=lmax)  
   call polmask%init(nside=2048, nmaps=1, genre="MASK", lmax=lmax)  
-
   if(coop_file_exists(PSfile))then
      call psmask%open(PSFile)
      has_mask = .true.
@@ -160,25 +154,4 @@ program test
   call hp%get_QU()
   call hp%write(mapdir//"act_TQTUT_"//COOP_STR_OF(fwhm_arcmin)//"a_l"//COOP_STR_OF(lmin)//"-"//COOP_STR_OF(lmax)//".fits")
   call hp%free()
-!!$  else
-!!$     call I_hits%get_flatmap(smooth_scale)
-!!$     call Q_hits%get_flatmap(smooth_scale)
-!!$     call U_hits%get_flatmap(smooth_scale)
-!!$     imap%image = imap%image*I_hits%image
-!!$     qmap%image = qmap%image*Q_hits%image
-!!$     umap%image = umap%image*U_hits%image    
-!!$     call imap%get_flatmap(smooth_scale)
-!!$     call qmap%get_flatmap(smooth_scale)
-!!$     call umap%get_flatmap(smooth_scale)
-!!$     call imap%get_QU(qmap, umap)
-!!$     call imap%smooth_flat(lmin = lmin, lmax = lmax)
-!!$     call qmap%smooth_flat(lmin = lmin, lmax = lmax)
-!!$     call umap%smooth_flat(lmin = lmin, lmax = lmax)
-!!$     call coop_random_init()
-!!$     call imap%find_extrema(I_hits, "spots/act_Tmax.txt", "Tmax", patchsize, irepeat)
-!!$     call imap%stack2fig("spots/act_Tmax.txt", "T", patchsize, output_dir//"act_T_onTmax.txt", caption="$T$ on $T_{\max}$", label = "$T (\mu K)$", color_table = "Rainbow")
-!!$     call imap%stack2fig("spots/act_Tmax.txt", "Qr", patchsize, output_dir//"act_Qr_onTmax.txt", caption="$Q_r$ on $T_{\max}$", label = "$Q_r (\mu K)$", color_table = "Rainbow")
-!!$     call imap%stack2fig("spots/act_Tmax.txt", "Q", patchsize, output_dir//"act_Q_onTmax.txt", caption="$Q$ on $T_{\max}$", label = "$Q (\mu K)$", color_table = "Rainbow")
-!!$  endif
-
    end program test
