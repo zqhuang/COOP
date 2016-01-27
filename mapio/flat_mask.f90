@@ -15,7 +15,7 @@ program test
   call coop_get_Input(1, fmap)
   call coop_get_Input(2, fmask)
   call coop_get_Input(3, threshold)
-  call coop_get_Input(4, out)
+  call coop_get_Input(4, fout)
   call map%open(fmap)
   call mask%open(fmask)
   if(map%npix .ne. mask%npix)then

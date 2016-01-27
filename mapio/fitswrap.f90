@@ -51,6 +51,8 @@ module coop_fitswrap_mod
      procedure::pix2flat => coop_fits_image_cea_pix2flat
      procedure::cut => coop_fits_image_cea_cut
      procedure::filter => coop_fits_image_cea_filter
+     procedure::smooth => coop_fits_image_cea_smooth
+
      procedure::smooth_flat => coop_fits_image_cea_smooth_flat
      procedure::get_QTUT =>  coop_fits_image_cea_get_QTUT
      procedure::get_QU =>  coop_fits_image_cea_get_QU
@@ -280,9 +282,11 @@ contains
 
   subroutine coop_fits_image_regularize(this, tail)
     class(coop_fits_image) this
-    COOP_REAL upper, lower, tail, diff, diff3
-    call array_get_threshold_double(this%image, this%npix, 1.-tail, lower)
-    call array_get_threshold_double(this%image, this%npix, tail, upper)
+    COOP_REAL upper, lower, tail, diff, diff3, bounds(2)
+    if(tail .le. 0.d0)return
+    call array_get_mult_threshold_double(this%image, this%npix, (/ 1.-tail, tail /), 2, bounds)
+    lower = bounds(1)
+    upper = bounds(2)
     diff = (upper - lower)/5.d0
     diff3 = diff*3.d0
     where(this%image .lt. lower)
@@ -429,33 +433,51 @@ contains
     this%ymin = -this%ymax
   end subroutine coop_fits_image_cea_get_flatmap
 
+  subroutine coop_fits_image_cea_smooth(this, fwhm, highpass_l1, highpass_l2, lowpass_l1, lowpass_l2)
+    class(coop_fits_image_cea)::this
+    COOP_REAL::fwhm
+    COOP_INT::highpass_l1, highpass_l2, lowpass_l1, lowpass_l2
+    COOP_REAL::hp_omega, lp_omega, sigma
+    sigma = coop_sigma_by_fwhm*fwhm/coop_sqrt2
+    hp_omega = coop_pio2/(highpass_l2 - highpass_l1)
+    lp_omega = coop_pio2/(lowpass_l2 - lowpass_l1)
+    call this%filter(lmin = highpass_l1, lmax = lowpass_l2,  window = smooth_weight)
+  contains
 
-  subroutine coop_fits_image_cea_filter(this, lmin, lmax)
+    function smooth_weight(k)
+      COOP_REAL k, smooth_weight
+      smooth_weight = exp(-(k*sigma)**2)
+      if(k .lt. highpass_l2)then
+         smooth_weight = smooth_weight * sin((k-highpass_l1)*hp_omega)**2
+      elseif(k .gt. lowpass_l1)then
+         smooth_weight = smooth_weight * sin((lowpass_l2 - k)*lp_omega)**2
+      endif
+    end function smooth_weight
+  end subroutine coop_fits_image_cea_smooth
+
+  subroutine coop_fits_image_cea_filter(this, lmin, lmax, window)
     class(coop_fits_image_cea)::this
     COOP_INT lmin, lmax, i, j
-    COOP_REAL k2min, k2max, k2, rn1, rn2, kmin, kmax, omega, j2
+    external window
+    COOP_REAL window
+    COOP_REAL k2min, k2max, k2, ky2
     COOP_COMPLEX,dimension(:,:),allocatable::fk
     allocate( fk(0:this%nside(1)/2, 0:this%nside(2)-1))
     call coop_fft_forward(this%nside(1), this%nside(2), this%image, fk)
-    rn1 = COOP_REAL_OF(this%nside(1))
-    rn2  = COOP_REAL_OF(this%nside(2))/rn1
-    k2min = (this%pixsize * lmin/coop_2pi*rn1)**2
-    k2max = (this%pixsize * lmax/coop_2pi*rn1)**2
-    kmin = sqrt(k2min)
-    kmax = sqrt(k2max)
-    omega = coop_pi/(kmax - kmin)
+    k2min = dble(lmin)**2
+    k2max = dble(lmax)**2
     do j=0, this%nside(2)-1
-       j2 = (min(j, this%nside(2)-j)/ rn2)**2
-       if( j2 .gt. k2max)then
+       ky2 = (min(j, this%nside(2)-j)*this%dky)**2
+       if( ky2 .gt. k2max)then
           fk(:, j) = ( 0.d0, 0.d0 )
           cycle
        endif
        do i = 0, this%nside(1)/2
-          k2 = j2 + real(i)**2
+          k2 = (i*this%dkx)**2 + ky2
           if(k2 .lt. k2min .or. k2.gt. k2max)then
              fk(i, j) = ( 0.d0, 0.d0 )
           else
-             fk(i, j) = fk(i, j)*sin((sqrt(k2)- kmin)*omega)**2
+             fk(i, j) = fk(i, j)*window(sqrt(k2))
           endif
        enddo
     enddo

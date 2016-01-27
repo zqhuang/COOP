@@ -10,8 +10,8 @@ program test
   logical::positive_weights = .true.
 logical::analyze_maps = .false.
   type(coop_dictionary)::params
-  COOP_INT:: num_maps, i
-  COOP_REAL::coef, truncate, mean_weight
+  COOP_INT:: num_maps, i, lmin, lmax
+  COOP_REAL::coef, truncate, mean_weight, fwhm, reg_limit
 !  call coop_MPI_Init()
   call coop_get_Input(1, params_file)
   call coop_load_dictionary(params_file, params)
@@ -23,6 +23,11 @@ logical::analyze_maps = .false.
   endif
   call coop_dictionary_lookup(params, "positive_weights", positive_weights, default_val = .true.)
   call coop_dictionary_lookup(params, "analyze_maps", analyze_maps, default_val = .false.)
+  call coop_dictionary_lookup(params, "highpass_lmin", lmin, default_val = 100)
+  call coop_dictionary_lookup(params, "lowpass_lmax", lmax, default_val = 4000)
+  call coop_dictionary_lookup(params, "fwhm_arcmin", fwhm, default_val = 0.d0)
+  call coop_dictionary_lookup(params, "reg_limit", reg_limit, default_val = 0.d0)
+  fwhm =fwhm*coop_SI_arcmin
   do i=1, num_maps
      call coop_dictionary_lookup(params, "map"//COOP_STR_OF(i), map_file)
      if(.not. coop_file_exists(map_file))then
@@ -37,21 +42,24 @@ logical::analyze_maps = .false.
      call coop_dictionary_lookup(params, "coef"//COOP_STR_OF(i), coef, default_val = 1.d0)
      if(i.eq.1)then
         call total_map%open(map_file)
+        call total_map%regularize(reg_limit)
+        call total_map%smooth(fwhm = fwhm, highpass_l1 = lmin - 10, highpass_l2 = lmin + 10, lowpass_l1 = lmax - 100, lowpass_l2 = lmax+100)
         if(analyze_maps)call total_map%simple_stat()
         call total_weights%open(weight_file)
         if(analyze_maps)call total_weights%simple_stat()
         if(total_map%npix .ne. total_weights%npix)then
-           write(*,*) "Error: map and weight must be the same size"
+           write(*,*) "maps/mask with different sizes cannot be coadded"
            stop
         endif
         if(positive_weights)then
            total_weights%image = abs(total_weights%image)*coef !!only positive values
         elseif(abs(coef-1.d0) .gt. 1.d-6)then
-           total_weights%image = total_weights%image*coef
+           total_weights%image= total_weights%image*coef
         endif
-        total_map%image = total_map%image*total_weights%image
      else
         call this_map%open(map_file)
+        call this_map%regularize(reg_limit)
+        call this_map%smooth(fwhm = fwhm, highpass_l1 = lmin - 10, highpass_l2 = lmin + 10, lowpass_l1 = lmax - 100, lowpass_l2 = lmax+100)
         if(analyze_maps)call this_map%simple_stat()
         call this_weights%open(weight_file)
         if(analyze_maps)call this_weights%simple_stat()
@@ -88,3 +96,5 @@ logical::analyze_maps = .false.
   call coop_dictionary_lookup(params, "output_weight", weight_file)
   call total_weights%write(weight_file)
 end program test
+
+
