@@ -219,30 +219,34 @@ contains
   end function coop_fits_key_value
 
 
-  subroutine coop_fits_image_simple_stat(this)
+  subroutine coop_fits_image_simple_stat(this,mean,rms, median, fmin, fmax, lower, upper)
     class(coop_fits_image)::this
-    COOP_REAL::mean, upper, lower, tail    
-    mean = sum(this%image)/this%npix
+    COOP_REAL,optional::mean, rms, lower(3), upper(3), median, fmin, fmax
+    COOP_REAL::ave, std, bounds(-3:3), minv, maxv  
+    ave = sum(this%image)/this%npix
+    if(present(mean))mean =ave
+    std =  sqrt(sum((this%image-ave)**2/this%npix))
+    if(present(rms))rms = std
     write(*,*)
     write(*,*) "=========================================================="
     write(*,*) "Statistics of map :"//trim(this%fortran_filename)
     write(*,*) "=========================================================="
     write(*,*) "size: "//COOP_STR_OF(this%nside(1))//" x "//COOP_STR_OF(this%nside(2))
-    write(*,*) "mean = ", mean
-    write(*,*) "rms = ", sqrt(sum((this%image-mean)**2/this%npix))
-    tail = 0.1585
-    call array_get_threshold_double(this%image, this%npix, 1.-tail, lower)
-    call array_get_threshold_double(this%image, this%npix, tail, upper)
-    write(*,*) "1sigma lower, upper = ", lower, upper
-    tail = 0.023
-    call array_get_threshold_double(this%image, this%npix, 1.-tail, lower)
-    call array_get_threshold_double(this%image, this%npix, tail, upper)
-    write(*,*) "2sigma lower, upper = ", lower, upper
-    tail = 0.0015
-    call array_get_threshold_double(this%image, this%npix, 1.-tail, lower)
-    call array_get_threshold_double(this%image, this%npix, tail, upper)
-    write(*,*) "3sigma lower, upper = ", lower, upper
-    write(*,*) "min max = ",  minval(this%image), maxval(this%image)
+    write(*,*) "mean = ", ave
+    write(*,*) "rms = ", std
+    call array_get_mult_threshold_double(this%image, int(this%npix), COOP_STANDARD_SIGMA_BOUNDS, 7, bounds)
+    write(*,*) "median = ", bounds(0)
+    write(*,*) "1sigma lower, upper = ", bounds(-1), bounds(1)
+    write(*,*) "2sigma lower, upper = ", bounds(-2), bounds(2)
+    write(*,*) "3sigma lower, upper = ", bounds(-3), bounds(3)
+    if(present(median))median = bounds(0)
+    if(present(lower))lower = bounds(-1:-3:-1)
+    if(present(upper))upper = bounds(1:3)
+    minv = minval(this%image)
+    maxv = maxval(this%image)
+    write(*,*) "min max = ", minv, maxv 
+    if(present(fmin))fmin = minv
+    if(present(fmax))fmax = maxv
     write(*,*) "zero-value pixels: "//trim(coop_num2str(100.*count(this%image .eq. 0.d0)/dble(this%npix),"(F10.3)"))//"%"
     write(*,*) "=========================================================="
     write(*,*)
@@ -1153,7 +1157,7 @@ contains
           endif
        endif
     enddo
-    meanhits = sum(mask%map(:,1), mask= mask%map(:,1).gt.0.)/count(mask%map(:,1).gt.0.)*0.5
+    meanhits = sum(mask%map(:,1), mask= mask%map(:,1).gt.0.)/count(mask%map(:,1).gt.0.)*0.25  !!discard pixels with small obs time
     where(mask%map(:,1).gt. meanhits)
        hp%map(:, imap) = hp%map(:, imap)/mask%map(:,1)
        mask%map(:, 1) = 1.

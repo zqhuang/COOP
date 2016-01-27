@@ -370,11 +370,32 @@ void array_get_threshold_double_(double* x, int* n, double* perc, double* thresh
   quicksort_double_(buffer, n);
   i = (int) ((1. - (*perc))*(*n)+0.5);
   if(i >= *n)i = *n-1;
+  if(i <0) i=0;
   if(buffer[i+1] > buffer[i]){
     r =  (*perc) + (1.*i)/(*n);
     *threshold = buffer[i-1]+(buffer[i]-buffer[i-1])*(1.-r);}
   else
     *threshold = buffer[i-1];
+  free(buffer);
+}
+
+void array_get_mult_threshold_double_(double* x, int* n, double* perc, int* nthreshold, double* threshold){
+  double *buffer;
+  double r;
+  int i, jt;
+  buffer = (double*) malloc( (*n)*sizeof(double));
+  for (i=0; i<*n; i++)
+    buffer[i] = x[i];
+  quicksort_double_(buffer, n);
+  for(jt=0;jt< *nthreshold; jt++){
+    i = (int) ((1. - (*(perc+jt)))*(*n)+0.5);
+    if(i >= *n)i = *n-1;
+    if(i <0) i=0;
+    if(buffer[i+1] > buffer[i]){
+      r =  (*(perc+jt)) + (1.*i)/(*n);
+      *(threshold+jt) = buffer[i-1]+(buffer[i]-buffer[i-1])*(1.-r);}
+    else
+      *(threshold+jt)= buffer[i-1];}
   free(buffer);
 }
 
@@ -389,6 +410,7 @@ void array_get_threshold_float_(float* x, int* n, float* perc, float* threshold)
   quicksort_float_(buffer, n);
   i = (int) ((1. - (*perc))*(*n)+0.5);
   if(i >= *n)i = *n-1;
+  if(i <0) i=0;
   if(buffer[i+1] > buffer[i]){
     r =  (*perc) + (1.*i)/(*n);
     *threshold = buffer[i-1]+(buffer[i]-buffer[i-1])*(1.-r);}
@@ -396,6 +418,28 @@ void array_get_threshold_float_(float* x, int* n, float* perc, float* threshold)
     *threshold = buffer[i-1];
   free(buffer);
 }
+
+
+void array_get_mult_threshold_float_(float* x, int* n, float* perc, int* nthreshold, float* threshold){
+  float *buffer;
+  float r;
+  int i, jt;
+  buffer = (float*) malloc( (*n)*sizeof(float));
+  for (i=0; i<*n; i++)
+    buffer[i] = x[i];
+  quicksort_float_(buffer, n);
+  for(jt=0;jt< *nthreshold; jt++){
+    i = (int) ((1. - (*(perc+jt)))*(*n)+0.5);
+    if(i >= *n)i = *n-1;
+    if(i<0) i=0;
+    if(buffer[i+1] > buffer[i]){
+      r =  (*(perc+jt)) + (1.*i)/(*n);
+      *(threshold+jt) = buffer[i-1]+(buffer[i]-buffer[i-1])*(1.-r);}
+    else
+      *(threshold+jt)= buffer[i-1];}
+  free(buffer);
+}
+
 
 void cprint_(char *c){
   printf("%s", c);

@@ -12,7 +12,7 @@ logical::analyze_maps = .false.
   type(coop_dictionary)::params
   COOP_INT:: num_maps, i
   COOP_REAL::coef, truncate, mean_weight
-  call coop_MPI_Init()
+!  call coop_MPI_Init()
   call coop_get_Input(1, params_file)
   call coop_load_dictionary(params_file, params)
   call coop_dictionary_lookup(params, "num_maps", num_maps)
@@ -81,6 +81,7 @@ logical::analyze_maps = .false.
      total_map%image = 0.d0
      total_weights%image = 0.d0
   end where
+  write(*,*) "# pixels = ",total_map%npix
   write(*,*) "fraction of truncated pixels:", count(total_weights%image .eq. 0.d0)/dble(total_weights%npix)
   call coop_dictionary_lookup(params, "output_map", map_file)
   call total_map%write(map_file)

@@ -28,7 +28,6 @@ program test
   type(coop_healpix_maps)::hp, mask, polmask
   logical:: has_mask = .false.
   logical::has_hits = .false.
-  call coop_MPI_Init()
   call hp%init(nside=2048, nmaps=3, genre="IQU", lmax=lmax)
   call mask%init(nside=2048, nmaps=1, genre="MASK")
   call polmask%init(nside = 2048, nmaps=1, genre = "MASK")

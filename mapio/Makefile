@@ -68,6 +68,10 @@ F2Heal:  $(OBJ) flat2heal.o
 FCoadd:  $(OBJ) flat_coadd.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_coadd.o $(LINK)
 
+FMask:  $(OBJ) flat_mask.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_mask.o $(LINK)
+
+
 ByProd: $(OBJ) map_by_products.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) map_by_products.o $(LINK)
 
@@ -78,7 +82,7 @@ TE2Z: $(OBJ) te2zeta.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) te2zeta.o $(LINK)
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test PLOTLINES UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo TE2Z GAUSS MM0 MM1 FStack FStat F2Heal FCoadd ACTTheo
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test PLOTLINES UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo TE2Z GAUSS MM0 MM1 FStack FStat F2Heal FCoadd ACTTheo FMask
 
 
 
