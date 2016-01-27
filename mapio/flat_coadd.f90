@@ -8,7 +8,7 @@ program test
   type(coop_fits_image_cea)::total_map, total_weights, this_map, this_weights
   COOP_STRING::params_file, map_file, weight_file
   logical::positive_weights = .true.
-logical::analyze_maps = .false.
+  logical::analyze_maps = .false.
   type(coop_dictionary)::params
   COOP_INT:: num_maps, i, lmin, lmax
   COOP_REAL::coef, truncate, mean_weight, fwhm, reg_limit
@@ -47,14 +47,17 @@ logical::analyze_maps = .false.
         if(analyze_maps)call total_map%simple_stat()
         call total_weights%open(weight_file)
         if(analyze_maps)call total_weights%simple_stat()
+        if(positive_weights)then
+           if(any(total_weights%image .lt. 0.d0)) stop "found negative weights"
+        endif
         if(total_map%npix .ne. total_weights%npix)then
            write(*,*) "maps/mask with different sizes cannot be coadded"
            stop
         endif
-        if(positive_weights)then
-           total_weights%image = abs(total_weights%image)*coef !!only positive values
-        elseif(abs(coef-1.d0) .gt. 1.d-6)then
-           total_weights%image= total_weights%image*coef
+        if(abs(coef-1.d0) .gt. 1.d-6)then
+           total_map%image = total_map%image*total_weights%image*coef
+        else
+           total_map%image = total_map%image*total_weights%image
         endif
      else
         call this_map%open(map_file)
@@ -63,16 +66,18 @@ logical::analyze_maps = .false.
         if(analyze_maps)call this_map%simple_stat()
         call this_weights%open(weight_file)
         if(analyze_maps)call this_weights%simple_stat()
+        if(positive_weights)then
+           if(any(this_weights%image .lt. 0.d0)) stop "found negative weights"
+        endif
         if(this_map%npix .ne. total_map%npix .or. this_weights%npix .ne. total_weights%npix)then
            write(*,*) "maps with different sizes cannot be coadded"
            stop
         endif
-        if(positive_weights)then
-           this_weights%image = abs(this_weights%image)*coef !!only positive values
-        elseif(abs(coef-1.d0) .gt. 1.d-6)then
-           this_weights%image= this_weights%image*coef
+        if(abs(coef-1.d0) .gt. 1.d-6)then
+           total_map%image = total_map%image + this_map%image*this_weights%image*coef
+        else
+           total_map%image = total_map%image + this_map%image*this_weights%image
         endif
-        total_map%image = total_map%image + this_map%image*this_weights%image
         total_weights%image = total_weights%image + this_weights%image
      endif
   enddo
