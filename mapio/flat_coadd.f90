@@ -68,6 +68,8 @@ logical::analyze_maps = .false.
         total_weights%image = total_weights%image + this_weights%image
      endif
   enddo
+  call this_map%free()
+  call this_weights%free()
   call coop_dictionary_lookup(params, "truncate_weight", truncate, default_val = 0.05d0)
   mean_weight = sum(total_weights%image)/total_weights%npix
   truncate = truncate*mean_weight
