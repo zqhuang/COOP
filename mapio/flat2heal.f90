@@ -8,7 +8,7 @@ program test
   COOP_INT,parameter::lmin = 550
   COOP_INT,parameter::lmax = 2500
   COOP_INT,parameter::fwhm_arcmin = 3
-  COOP_REAL, parameter::reg_limit = 0.005
+  COOP_REAL, parameter::reg_limit = 0.0005
   COOP_UNKNOWN_STRING,parameter::mapdir = "act16/"
 !deep56_array_2_season2_iqu_c7v5_night_nomoon_4way_set_0_8Dec15_beams_srcsub_mapsub_1200
   COOP_UNKNOWN_STRING,parameter::Ifile = mapdir//"deep56_coadd_I.fits"
