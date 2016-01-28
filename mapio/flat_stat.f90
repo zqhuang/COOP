@@ -56,13 +56,13 @@ program test
         endif
      endif
   endif
-  if(trim(fmask).ne."" .or. trim(fname2).ne."")then
+  if(trim(fmask).ne."" .or. trim(fmask2).ne."")then
      call map%simple_stat(mean=mean, rms=rms, mask=mask,clsfile=cl_file)
   else
      call map%simple_stat(mean=mean, rms=rms,clsfile=cl_file)
   endif
   if(trim(fname2).ne."")then
-     if(trim(fmask).ne."" .or. trim(fname2).ne."")then
+     if(trim(fmask).ne."" .or. trim(fmask2).ne."")then
         call map2%simple_stat(mean=mean2, rms=rms2, mask = mask)
      else
         call map2%simple_stat(mean=mean2, rms=rms2)
