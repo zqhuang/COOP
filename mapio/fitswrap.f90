@@ -663,64 +663,107 @@ contains
     if(present(fk_file))deallocate(karr, Pkarr, warr)
   end subroutine coop_fits_image_cea_smooth_flat
 
-  subroutine coop_fits_image_cea_find_extrema(this, mask, spot_file, spot_type, radius, repeat)
+  subroutine coop_fits_image_cea_find_extrema(this, mask, spot_file, spot_type, radius, nu)
     class(coop_fits_image_cea)::this, mask
     COOP_UNKNOWN_STRING::spot_file, spot_type
     type(coop_file)::cf
-    COOP_REAL,optional:: radius
-    COOP_REAL angle
-    COOP_INT i, j, irad, ire
-    integer, optional::repeat
-    integer::irepeat
+    COOP_REAL,optional:: radius, nu
+    COOP_REAL angle,rms,mean,weight,cut, nucut
+    COOP_INT i, j, irad
     if(present(radius))then
        irad = ceiling(radius/this%smooth_pixsize)
     else
        irad = 1
     endif
-    if(present(repeat))then
-       irepeat = max(1, repeat)
+    weight = sum(mask%image)
+    mean = sum(this%image*mask%image)/weight
+    rms = sqrt(sum((this%image-mean)**2*mask%image)/weight)
+    if(present(nu))then
+       nucut = nu
     else
-       irepeat = 1
+       nucut = 0.d0
     endif
     call cf%open(trim(spot_file), "w")
     select case(trim(spot_type))
-    case("Tmax", "Emax", "Bmax")
+    case("Hot")
+       cut = rms*nucut+mean
        do i=-this%smooth_nx+irad, this%smooth_nx - irad
           do j = -this%smooth_ny+irad, this%smooth_ny - irad
-             if(all(this%smooth_image(i, j) .ge. this%smooth_image(i-1:i+1, j-1:j+1)) .and. mask%smooth_image(i,j).gt.0.5)then
-                do ire=1, irepeat
-                   write(cf%unit, "(2I6, E16.7, I6 )") i, j, coop_2pi*coop_random_unit(), min(this%smooth_nx - i, this%smooth_nx + i, this%smooth_ny - j, this%smooth_ny + j)
-                enddo
+             if(  mask%smooth_image(i,j).gt.0.5 .and. this%smooth_image(i, j) .ge. cut)then
+                write(cf%unit, "(2I6, E16.7, I6 )") i, j, coop_2pi*coop_random_unit(), min(this%smooth_nx - i, this%smooth_nx + i, this%smooth_ny - j, this%smooth_ny + j)
+             endif
+          enddo
+       enddo
+    case("Cold")
+       cut = -rms*nucut+mean
+       do i=-this%smooth_nx+irad, this%smooth_nx - irad
+          do j = -this%smooth_ny+irad, this%smooth_ny - irad
+             if(  mask%smooth_image(i,j).gt.0.5 .and. this%smooth_image(i, j) .le. cut)then
+                write(cf%unit, "(2I6, E16.7, I6 )") i, j, coop_2pi*coop_random_unit(), min(this%smooth_nx - i, this%smooth_nx + i, this%smooth_ny - j, this%smooth_ny + j)
+             endif
+          enddo
+       enddo
+    case("Hot_QTUTOrient")
+       if(.not. allocated(this%smooth_Q) .or. .not. allocated(this%smooth_U)) &
+            call this%get_QTUT()
+       cut = rms*nucut+mean
+       do i=-this%smooth_nx+irad, this%smooth_nx - irad
+          do j = -this%smooth_ny+irad, this%smooth_ny - irad
+             if(  mask%smooth_image(i,j).gt.0.5 .and. this%smooth_image(i, j) .ge. cut)then
+                angle = 0.5d0 * COOP_POLAR_ANGLE(this%smooth_Q(i, j), this%smooth_U(i, j))
+                write(cf%unit, "(2I6, E16.7, I6 )") i, j, angle, min(this%smooth_nx - i, this%smooth_nx + i, this%smooth_ny - j, this%smooth_ny + j)
+             endif
+          enddo
+       enddo
+    case("Cold_QTUTOrient")
+       if(.not. allocated(this%smooth_Q) .or. .not. allocated(this%smooth_U)) &
+            call this%get_QTUT()
+       cut = -rms*nucut+mean
+       do i=-this%smooth_nx+irad, this%smooth_nx - irad
+          do j = -this%smooth_ny+irad, this%smooth_ny - irad
+             if(  mask%smooth_image(i,j).gt.0.5 .and. this%smooth_image(i, j) .le. cut)then
+                angle = 0.5d0 * COOP_POLAR_ANGLE(this%smooth_Q(i, j), this%smooth_U(i, j))
+                write(cf%unit, "(2I6, E16.7, I6 )") i, j, angle, min(this%smooth_nx - i, this%smooth_nx + i, this%smooth_ny - j, this%smooth_ny + j)
+             endif
+          enddo
+       enddo
+    case("Tmax", "Emax", "Bmax")
+       cut = mean+rms*nucut
+       do i=-this%smooth_nx+irad, this%smooth_nx - irad
+          do j = -this%smooth_ny+irad, this%smooth_ny - irad
+             if(all(this%smooth_image(i, j) .ge. this%smooth_image(i-1:i+1, j-1:j+1)) .and. mask%smooth_image(i,j).gt.0.5 .and.this%smooth_image(i, j).gt.cut)then
+                write(cf%unit, "(2I6, E16.7, I6 )") i, j, coop_2pi*coop_random_unit(), min(this%smooth_nx - i, this%smooth_nx + i, this%smooth_ny - j, this%smooth_ny + j)
              endif
           enddo
        enddo
     case("Tmin", "Emin", "Bmin")
+       cut=mean-rms*nucut
        do i=-this%smooth_nx+irad, this%smooth_nx - irad
           do j = -this%smooth_ny+irad, this%smooth_ny - irad
-             if(all(this%smooth_image(i, j) .le. this%smooth_image(i-1:i+1, j-1:j+1)) .and. mask%smooth_image(i,j).gt.0.5)then
-                do ire = 1, irepeat
-                   write(cf%unit, "(2I6, E16.7, I6 )") i, j, coop_2pi*coop_random_unit(), min(this%smooth_nx - i, this%smooth_nx + i, this%smooth_ny - j, this%smooth_ny + j)
-                enddo
+             if(all(this%smooth_image(i, j) .le. this%smooth_image(i-1:i+1, j-1:j+1)) .and. mask%smooth_image(i,j).gt.0.5 .and.this%smooth_image(i, j).lt.cut)then
+                write(cf%unit, "(2I6, E16.7, I6 )") i, j, coop_2pi*coop_random_unit(), min(this%smooth_nx - i, this%smooth_nx + i, this%smooth_ny - j, this%smooth_ny + j)
              endif
           enddo
        enddo
     case("Tmax_QTUTOrient")
+       cut = mean+rms*nucut
        if(.not. allocated(this%smooth_Q) .or. .not. allocated(this%smooth_U)) &
             call this%get_QTUT()
        do i=-this%smooth_nx+irad, this%smooth_nx - irad
           do j = -this%smooth_ny+irad, this%smooth_ny - irad
-             if(all(this%smooth_image(i, j) .ge. this%smooth_image(i-1:i+1, j-1:j+1)) .and. mask%smooth_image(i,j).gt.0.5)then
+             if(all(this%smooth_image(i, j) .ge. this%smooth_image(i-1:i+1, j-1:j+1)) .and. mask%smooth_image(i,j).gt.0.5  .and.this%smooth_image(i, j).gt.cut)then
                 angle = 0.5d0 * COOP_POLAR_ANGLE(this%smooth_Q(i, j), this%smooth_U(i, j))
                 write(cf%unit, "(2I6, E16.7, I6 )") i, j, angle, min(this%smooth_nx - i, this%smooth_nx + i, this%smooth_ny - j, this%smooth_ny + j)
              endif
           enddo
        enddo
     case("Tmin_QTUTOrient")
+       cut = mean-rms*nucut
        if(.not. allocated(this%smooth_Q) .or. .not. allocated(this%smooth_U)) &
             call this%get_QTUT()
        do i=-this%smooth_nx+irad, this%smooth_nx - irad
           do j = -this%smooth_ny+irad, this%smooth_ny - irad
-             if(all(this%smooth_image(i, j) .le. this%smooth_image(i-1:i+1, j-1:j+1)) .and. mask%smooth_image(i,j).gt.0.5 )then
+             if(all(this%smooth_image(i, j) .le. this%smooth_image(i-1:i+1, j-1:j+1)) .and. mask%smooth_image(i,j).gt.0.5  .and.this%smooth_image(i, j).lt.cut )then
                 angle = 0.5d0 * COOP_POLAR_ANGLE(this%smooth_Q(i, j), this%smooth_U(i, j))
                 write(cf%unit, "(2I6, E16.7, I6 )") i, j, angle, min(this%smooth_nx - i, this%smooth_nx + i, this%smooth_ny - j, this%smooth_ny + j)
              endif
@@ -749,8 +792,8 @@ contains
           enddo
        enddo
     case  default
-       write(*,*) trim(spot_type)
-
+       write(*,*) trim(spot_type)//" :Unknown spot type"
+       stop
     end select
     call cf%close()
   end subroutine coop_fits_image_cea_find_extrema

@@ -61,7 +61,7 @@ contains
     if(present(i))then
        seed(1) = i
     else
-       seed(1)=coop_MPI_Rank()+ mod(floor(coop_systime_sec()), 99999)
+       seed(1)=mod(floor(coop_systime_sec()), 99999)
     endif
     do k=2, n
        seed(k) = mod(seed(k-1)**2 + seed(k-1)*98 + 1, 999983)
@@ -69,6 +69,25 @@ contains
     call random_seed(put=seed)
     deallocate(seed)
   end subroutine Coop_random_Init
+
+
+  subroutine Coop_MPI_random_Init(i)
+    COOP_INT,optional::i
+    COOP_INT n, k
+    COOP_INT,dimension(:),allocatable::seed
+    call random_seed(size=n)
+    allocate(seed(n))
+    if(present(i))then
+       seed(1) = coop_MPI_Rank() + i
+    else
+       seed(1)=coop_MPI_Rank() + mod(floor(coop_systime_sec()), 99999)
+    endif
+    do k=2, n
+       seed(k) = mod(seed(k-1)**2 + seed(k-1)*98 + 1, 999983)
+    enddo
+    call random_seed(put=seed)
+    deallocate(seed)
+  end subroutine Coop_MPI_random_Init
 
 
   function coop_random_vector(n) result(vec)
