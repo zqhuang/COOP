@@ -1342,7 +1342,12 @@ contains
     cls_sqrteig = cls_sqrteig/tmap%pixsize**2
     allocate(fk(0:tmap%nside(1)/2,0:tmap%nside(2)-1,3))
     do j=0, tmap%nside(2)-1
-       ky2 = (tmap%dky*min(j, tmap%nside(2)-j))**2
+       if(j .gt. tmap%nside(2)- j)then
+          ky = (j-tmap%nside(2))*tmap%dky
+       else
+          ky = j*tmap%dky
+       endif
+       ky2 = ky**2
        if(ky2.ge.k2max)then
           fk(:,j,:) = 0.
           cycle
@@ -1369,11 +1374,15 @@ contains
        enddo
     endif
     call coop_fft_backward(tmap%nside(1), tmap%nside(2), fk(:,:,1), tmap%image)
-    call coop_fft_backward(tmap%nside(1), tmap%nside(2), fk(:,:,2), emap%image)
-    call coop_fft_backward(tmap%nside(1), tmap%nside(2), fk(:,:,3), bmap%image)
     if(present(Qmap) .and. present(umap))then
+       fk(:,:,1) = fk(:,:,2)
+       call coop_fft_backward(tmap%nside(1), tmap%nside(2), fk(:,:,1), emap%image)
+       fk(:,:,1) = fk(:,:,3)
+       call coop_fft_backward(tmap%nside(1), tmap%nside(2), fk(:,:,1), bmap%image)
+
+       fk(:,:,1) = 0.
        do j=0, tmap%nside(2)-1
-          if(j .lt. tmap%nside(2)- j)then
+          if(j .gt. tmap%nside(2)- j)then
              ky = (j-tmap%nside(2))*tmap%dky
           else
              ky = j*tmap%dky
@@ -1381,7 +1390,7 @@ contains
           ky2 = ky**2
           if(ky2.ge.k2max) cycle
           do i=0, tmap%nside(1)/2
-             kx = i*tmap%dkx
+             kx = tmap%dkx*i
              kx2 = kx**2
              k2 = kx2+ky2
              if(k2 .le. k2min .or. k2.ge.k2max)cycle
@@ -1389,8 +1398,13 @@ contains
              fk(i, j,2) = -((kx2 - ky2)*fk(i,j,3) + 2.d0*kx*ky*fk(i,j,2))/k2
           enddo
        enddo
+
        call coop_fft_backward(tmap%nside(1), tmap%nside(2), fk(:,:,1), qmap%image)
        call coop_fft_backward(tmap%nside(1), tmap%nside(2), fk(:,:,2), umap%image)
+    else
+       call coop_fft_backward(tmap%nside(1), tmap%nside(2), fk(:,:,2), emap%image)
+       call coop_fft_backward(tmap%nside(1), tmap%nside(2), fk(:,:,3), bmap%image)
+    
     endif
     deallocate(fk)
   end subroutine coop_fits_image_cea_simulate_TEB

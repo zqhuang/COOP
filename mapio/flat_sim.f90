@@ -9,6 +9,7 @@ program test
   COOP_UNKNOWN_STRING,parameter::beam_file = mapdir//"beam_7ar2.txt"
   COOP_INT,parameter::lmin =   200
   COOP_INT,parameter::lmax = 2500
+  COOP_REAL,parameter::reg_limit = 0.0001d0
   type(coop_fits_image_cea)::tmap, emap, bmap, noise, qmap, umap
   COOP_REAL::fwhm_arcmin = 0.5
   COOP_REAL::Cls(lmin:lmax,6),junk, bl(lmin:lmax), norm
@@ -45,15 +46,21 @@ program test
   call tmap%write(mapdir//"sim_1_I.fits")
   call emap%write(mapdir//"sim_1_E.fits")
   call bmap%write(mapdir//"sim_1_B.fits")
+  call qmap%write(mapdir//"sim_1_Q.fits")
+  call umap%write(mapdir//"sim_1_U.fits")
+
   call emap%free()
   call bmap%free()
   call noise%open(mapdir//"deep56_array_2_noise_sim_1_I.fits")
+  call noise%regularize(reg_limit)
   tmap%image = tmap%image + noise%image
   call tmap%write(mapdir//"sim_with_noise_1_I.fits")
   call noise%open(mapdir//"deep56_array_2_noise_sim_1_Q.fits")
+  call noise%regularize(reg_limit)
   qmap%image = qmap%image + noise%image
   call qmap%write(mapdir//"sim_with_noise_1_Q.fits")
   call noise%open(mapdir//"deep56_array_2_noise_sim_1_U.fits")
+  call noise%regularize(reg_limit)
   umap%image = umap%image + noise%image
   call qmap%write(mapdir//"sim_with_noise_1_U.fits")
 

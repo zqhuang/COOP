@@ -10,9 +10,9 @@ program test
   COOP_INT,parameter::fwhm_arcmin = 3
   COOP_REAL, parameter::reg_limit = 0.0005
   COOP_UNKNOWN_STRING,parameter::mapdir = "act16/"
-  COOP_UNKNOWN_STRING,parameter::map_prefix = "deep56_coadd"
+  COOP_UNKNOWN_STRING,parameter::map_prefix = "sim_1" ! "deep56_coadd"
   COOP_UNKNOWN_STRING,parameter::weight_prefix = "deep56_weight"
-  COOP_UNKNOWN_STRING,parameter::output_prefix = "act"
+  COOP_UNKNOWN_STRING,parameter::output_prefix = "noiseless"
 
   COOP_UNKNOWN_STRING,parameter::Ifile = mapdir//map_prefix//"_I.fits"
   COOP_UNKNOWN_STRING,parameter::Qfile = mapdir//map_prefix//"_Q.fits"
