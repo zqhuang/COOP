@@ -8,7 +8,7 @@ module coop_fitswrap_mod
 
   private
 
-  public::coop_fits, coop_fits_image, coop_fits_image_cea, coop_fits_QU2EB, coop_fits_EB2QU
+  public::coop_fits, coop_fits_image, coop_fits_image_cea, coop_fits_QU2EB, coop_fits_EB2QU, coop_fits_image_cea_simulate_TEB
 
 
   type coop_fits
@@ -1211,6 +1211,7 @@ contains
     deallocate(fk)
   end subroutine coop_fits_image_cea_simulate
 
+
   subroutine coop_fits_image_cea_write(this, filename)
     class(coop_fits_image_cea)::this
     COOP_UNKNOWN_STRING:: filename
@@ -1324,6 +1325,78 @@ contains
     stop "you need to install Healpix"
 #endif    
   end subroutine coop_fits_image_cea_convert2healpix
+
+
+
+  subroutine coop_fits_image_cea_simulate_TEB(lmin, lmax, Cls, tmap, emap, bmap, qmap, umap)
+    type(coop_fits_image_cea)::tmap,emap,bmap
+    type(coop_fits_image_cea),optional::qmap,umap
+    COOP_INT lmin, lmax, i, j, ik
+    COOP_REAL Cls(lmin:lmax,6)
+    COOP_REAL::Cls_sqrteig(3,lmin:lmax), Cls_rot(3,3,lmin:lmax)
+    COOP_COMPLEX,dimension(:,:,:),allocatable::fk
+    COOP_REAL amp(lmin:lmax), ky2, k2max, k2min, k2, kx, ky, kx2
+    k2max = lmax**2*0.9999999
+    k2min = lmin**2*1.0000001
+    call coop_healpix_cls2rot(lmin, lmax, real(cls), cls_sqrteig, cls_rot)
+    cls_sqrteig = cls_sqrteig/tmap%pixsize**2
+    allocate(fk(0:tmap%nside(1)/2,0:tmap%nside(2)-1,3))
+    do j=0, tmap%nside(2)-1
+       ky2 = (tmap%dky*min(j, tmap%nside(2)-j))**2
+       if(ky2.ge.k2max)then
+          fk(:,j,:) = 0.
+          cycle
+       endif
+       do i=0, tmap%nside(1)/2
+          k2 = (tmap%dkx*i)**2 + ky2
+          if(k2 .le. k2min .or. k2.ge.k2max)then
+             fk(i,j,:)= 0.
+             cycle
+          endif
+          ik = nint(sqrt(k2))
+          fk(i,j,:) = matmul(cls_rot(:,:,ik), cls_sqrteig(:,ik)* (/ coop_random_complex_gaussian(), coop_random_complex_gaussian(), coop_random_complex_gaussian() /) ) 
+       enddo
+    enddo
+    if(mod(tmap%nside(2),2) .eq. 0)then
+       fk(0, tmap%nside(2)/2,:) = coop_sqrt2 * real( fk(0, tmap%nside(2)/2,:) )
+       if(mod(tmap%nside(1), 2).eq.0) &
+            fk(tmap%nside(1)/2, tmap%nside(2)/2,:) = coop_sqrt2 * real( fk(tmap%nside(1)/2, tmap%nside(2)/2,:) )
+    endif
+    if(mod(tmap%nside(1), 2) .eq. 0)then
+       i = tmap%nside(1)/2
+       do j = tmap%nside(2)/2+1, tmap%nside(2)-1
+          fk(i, j,:) = conjg(fk(i, tmap%nside(2)-j,:))
+       enddo
+    endif
+    call coop_fft_backward(tmap%nside(1), tmap%nside(2), fk(:,:,1), tmap%image)
+    call coop_fft_backward(tmap%nside(1), tmap%nside(2), fk(:,:,2), emap%image)
+    call coop_fft_backward(tmap%nside(1), tmap%nside(2), fk(:,:,3), bmap%image)
+    if(present(Qmap) .and. present(umap))then
+       do j=0, tmap%nside(2)-1
+          if(j .lt. tmap%nside(2)- j)then
+             ky = (j-tmap%nside(2))*tmap%dky
+          else
+             ky = j*tmap%dky
+          endif
+          ky2 = ky**2
+          if(ky2.ge.k2max) cycle
+          do i=0, tmap%nside(1)/2
+             kx = i*tmap%dkx
+             kx2 = kx**2
+             k2 = kx2+ky2
+             if(k2 .le. k2min .or. k2.ge.k2max)cycle
+             fk(i, j,1) = -((kx2 - ky2)*fk(i,j,2) - 2.d0*kx*ky*fk(i,j,3))/k2
+             fk(i, j,2) = -((kx2 - ky2)*fk(i,j,3) + 2.d0*kx*ky*fk(i,j,2))/k2
+          enddo
+       enddo
+       call coop_fft_backward(tmap%nside(1), tmap%nside(2), fk(:,:,1), qmap%image)
+       call coop_fft_backward(tmap%nside(1), tmap%nside(2), fk(:,:,2), umap%image)
+    endif
+    deallocate(fk)
+  end subroutine coop_fits_image_cea_simulate_TEB
+
+
+
 
 
 end module coop_fitswrap_mod

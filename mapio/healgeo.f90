@@ -32,7 +32,7 @@ module coop_healpix_mod
   COOP_INT, parameter:: coop_inpaint_nside_start = 8
   COOP_SINGLE,parameter::coop_inpaint_mask_threshold = 0.05
   
-  public::coop_fits_to_header, coop_healpix_fmissval,coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_IAU_headless_vector,  coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade, coop_healpix_maps_copy_genre, coop_healpix_correlation_function, coop_healpix_mask_reverse, coop_healpix_maps_diffuse, coop_healpix_mask_diffuse, coop_healpix_nside2lmax, coop_healpix_filament, coop_healpix_lmax_by_nside, coop_healpix_patch_stack_fft, coop_healpix_maps_Cls2Pseudo
+  public::coop_fits_to_header, coop_healpix_fmissval,coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_IAU_headless_vector,  coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade, coop_healpix_maps_copy_genre, coop_healpix_correlation_function, coop_healpix_mask_reverse, coop_healpix_maps_diffuse, coop_healpix_mask_diffuse, coop_healpix_nside2lmax, coop_healpix_filament, coop_healpix_lmax_by_nside, coop_healpix_patch_stack_fft, coop_healpix_maps_Cls2Pseudo,coop_healpix_Cls2Rot, coop_healpix_Cls2Rot_general
   
 
   logical::coop_healpix_alm_check_done = .false.
@@ -1082,7 +1082,7 @@ contains
        deallocate(sqrtCls)
     elseif(this%nmaps.eq.3 .and. this%iq .eq.2)then
        allocate(Cls_sqrteig(3, 0:this%lmax), Cls_rot(3,3,0:this%lmax))
-       call coop_healpix_Cls2Rot(this%lmax, this%Cl(0:this%lmax, 6), Cls_sqrteig, Cls_rot)
+       call coop_healpix_Cls2Rot(0,this%lmax, this%Cl(0:this%lmax, 6), Cls_sqrteig, Cls_rot)
        if(this%spin(2).eq.2)then
           call this%simulate_TQUmaps(this%nside, this%lmax, Cls_sqrteig, Cls_rot)
        else
@@ -1166,11 +1166,11 @@ contains
     !$omp end parallel do
   end subroutine coop_healpix_maps_get_cls
 
-  subroutine coop_healpix_Cls2Rot(lmax, Cls, Cls_sqrteig, Cls_rot)
-    COOP_INT lmax
-    COOP_SINGLE,dimension(0:lmax, 6),intent(IN)::Cls !!ordering is TT, EE, BB, TE, EB, TB
-    COOP_REAL, dimension(3, 0:lmax),intent(OUT)::Cls_sqrteig
-    COOP_REAL, dimension(3, 3, 0:lmax),intent(OUT)::Cls_rot
+  subroutine coop_healpix_Cls2Rot(lmin, lmax, Cls, Cls_sqrteig, Cls_rot)
+    COOP_INT lmax,lmin
+    COOP_SINGLE,dimension(lmin:lmax, 6),intent(IN)::Cls !!ordering is TT, EE, BB, TE, EB, TB
+    COOP_REAL, dimension(3, lmin:lmax),intent(OUT)::Cls_sqrteig
+    COOP_REAL, dimension(3, 3, lmin:lmax),intent(OUT)::Cls_rot
     COOP_INT l
     COOP_REAL a2(2,2), a3(3,3)
     COOP_REAL psi2(2,2), psi3(3,3)
@@ -1181,7 +1181,7 @@ contains
        Cls_rot(coop_healpix_index_TT, coop_healpix_index_BB, :) = 0
        Cls_rot(coop_healpix_index_EE, coop_healpix_index_BB, :) = 0
        Cls_rot(coop_healpix_index_BB, coop_healpix_index_BB, :) = 1.
-       do l=0, lmax
+       do l=lmin, lmax
           a2(1,1) = Cls(l, coop_healpix_index_TT)
           a2(2,2) = Cls(l, coop_healpix_index_EE)
           a2(1,2) = Cls(l, coop_healpix_index_TE)
@@ -1192,7 +1192,7 @@ contains
           Cls_rot( coop_healpix_index_TT:coop_healpix_index_EE, coop_healpix_index_TT:coop_healpix_index_EE, l) = psi2
        end do
     else
-       do l=0, lmax
+       do l=lmin, lmax
           a3(1,1) = Cls(l,coop_healpix_index_TT)
           a3(2,2) = Cls(l,coop_healpix_index_EE)
           a3(3,3) = Cls(l,coop_healpix_index_BB)
@@ -1212,11 +1212,11 @@ contains
   end subroutine coop_healpix_Cls2Rot
 
 
-  subroutine coop_healpix_Cls2Rot_General(lmax, nmaps, Cls, Cls_sqrteig, Cls_rot)
-    COOP_INT lmax, nmaps
-    COOP_SINGLE,dimension(0:lmax, nmaps*(nmaps+1)/2),intent(IN)::Cls 
-    COOP_REAL, dimension(nmaps, 0:lmax),intent(OUT)::Cls_sqrteig
-    COOP_REAL, dimension(nmaps, nmaps, 0:lmax),intent(OUT)::Cls_rot
+  subroutine coop_healpix_Cls2Rot_General(lmin, lmax, nmaps, Cls, Cls_sqrteig, Cls_rot)
+    COOP_INT lmax, nmaps, lmin
+    COOP_SINGLE,dimension(lmin:lmax, nmaps*(nmaps+1)/2),intent(IN)::Cls 
+    COOP_REAL, dimension(nmaps, lmin:lmax),intent(OUT)::Cls_sqrteig
+    COOP_REAL, dimension(nmaps, nmaps, lmin:lmax),intent(OUT)::Cls_rot
     COOP_INT l, i, j, k
     COOP_REAL a(nmaps, nmaps)
     if(nmaps.eq.1)then
@@ -1224,7 +1224,7 @@ contains
        cls_sqrteig = sqrt(cls)
        return
     endif
-    do l=0, lmax
+    do l=lmin, lmax
        do i=1, nmaps
           do j=1, i
              k = coop_matsym_index(nmaps, i, j)
@@ -5903,7 +5903,7 @@ contains
     Cls(0:this%lmax, 1:nmaps*(nmaps+1)/2) = 0.d0
     allocate(Cls_sqrteig(nmaps, 0:this%lmax), Cls_rot(nmaps,nmaps,0:this%lmax))
     
-    call coop_healpix_Cls2Rot_General(this%lmax, nmaps, this%Cl(0:this%lmax, 1:nmaps*(nmaps+1)/2), Cls_sqrteig, Cls_rot)
+    call coop_healpix_Cls2Rot_General(0,this%lmax, nmaps, this%Cl(0:this%lmax, 1:nmaps*(nmaps+1)/2), Cls_sqrteig, Cls_rot)
     if(coop_isnan(sum(cls_sqrteig)) .or. coop_isnan(sum(cls_rot)))then
        stop "NAN rotation matrix!"
     endif

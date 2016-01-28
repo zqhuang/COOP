@@ -12,9 +12,9 @@ program test
   COOP_UNKNOWN_STRING,parameter::mapdir = "act16/"
   COOP_UNKNOWN_STRING,parameter::map_prefix = "deep56_coadd"
   COOP_UNKNOWN_STRING,parameter::weight_prefix = "deep56_weight"
-  COOP_UNKNOWN_STRING,parameter::output_prefix = "sim"
+  COOP_UNKNOWN_STRING,parameter::output_prefix = "act"
 
-  COOP_UNKNOWN_STRING,parameter::Ifile = mapdir//"sim_with_noise_1_I.fits"
+  COOP_UNKNOWN_STRING,parameter::Ifile = mapdir//map_prefix//"_I.fits"
   COOP_UNKNOWN_STRING,parameter::Qfile = mapdir//map_prefix//"_Q.fits"
   COOP_UNKNOWN_STRING,parameter::Ufile = mapdir//map_prefix//"_U.fits"
   COOP_UNKNOWN_STRING,parameter::I_Hitsfile = mapdir//weight_prefix//"_I.fits"
