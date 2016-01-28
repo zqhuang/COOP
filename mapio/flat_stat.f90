@@ -64,10 +64,13 @@ program test
   if(trim(fname2).ne."")then
      if(trim(fmask).ne."" .or. trim(fmask2).ne."")then
         call map2%simple_stat(mean=mean2, rms=rms2, mask = mask)
+        write(*,*) "correlation between two maps:", sum((map%image-mean)*(map2%image-mean2), mask = mask%image .gt. 0.d0)/sqrt(sum((map%image-mean)**2, mask = mask%image .gt. 0.d0)*sum((map2%image-mean2)**2, mask = mask%image .gt. 0.d0))
      else
         call map2%simple_stat(mean=mean2, rms=rms2)
+        write(*,*) "correlation between two maps:", sum((map%image-mean)*(map2%image-mean2))/sqrt(sum((map%image-mean)**2)*sum((map2%image-mean2)**2))
+
+
      endif
-     write(*,*) "correlation between two maps:", sum((map%image-mean)*(map2%image-mean2), mask = mask%image .gt. 0.d0)/sqrt(sum((map%image-mean)**2, mask = mask%image .gt. 0.d0)*sum((map2%image-mean2)**2, mask = mask%image .gt. 0.d0))
      call map2%free()
   endif
   call map%free()
