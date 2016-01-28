@@ -187,10 +187,10 @@ contains
           print*, delta(1), delta(2)
           stop "pixel size is not the same in x and y directions"
        else
-          this%pixsize = (abs(delta(1))+abs(delta(2)))/2.d0
+          this%pixsize = sqrt(abs(delta(1)*delta(2)))
        endif
-       this%dkx = coop_2pi/this%pixsize/this%nside(1)
-       this%dky = coop_2pi/this%pixsize/this%nside(2)
+       this%dkx = coop_2pi/(abs(delta(1))*this%nside(1))
+       this%dky = coop_2pi/(abs(delta(2))*this%nside(2))
        do i=1, this%dim
           this%transform(:, i) =  this%transform(:, i) * delta(i)
        enddo
@@ -221,14 +221,16 @@ contains
   end function coop_fits_key_value
 
 
-  subroutine coop_fits_image_simple_stat(this,mean,rms, median, fmin, fmax, lower, upper, mask)
+  subroutine coop_fits_image_simple_stat(this,mean,rms, median, fmin, fmax, lower, upper, mask, clsfile)
     class(coop_fits_image)::this
+    COOP_UNKNOWN_STRING,optional::clsfile
     class(coop_fits_image),optional::mask
     COOP_REAL,optional::mean, rms, lower(3), upper(3), median, fmin, fmax
     COOP_REAL::ave, std, bounds(-3:3), minv, maxv, weight
     COOP_INT,parameter::n= 80
     COOP_REAL::Cls(n), ells(n)
     COOP_INT::i
+    type(coop_file)::fp
     if(present(mask))then
        weight = count(mask%image .gt. 0.d0)
        ave = sum(this%image, mask=mask%image .gt. 0.d0)/weight
@@ -261,18 +263,24 @@ contains
     if(present(fmin))fmin = minv
     if(present(fmax))fmax = maxv
     write(*,*) "zero-value pixels: "//trim(coop_num2str(100.*count(this%image .eq. 0.d0)/dble(this%npix),"(F10.3)"))//"%"
+    
+    if(present(clsfile))then
+       if(trim(clsfile).ne."")then
+          call fp%open(clsfile)
+          select type(this)
+             class is(coop_fits_image_cea)
+             weight = weight/this%npix
+             call coop_set_uniform(n, ells, max(this%dkx, this%dky)*3.d0, min(this%dkx*this%nside(1), this%dky*this%nside(2), 3.d4)/10.d0)
+             call coop_fits_image_cea_get_power(this, ells, Cls)
 
-    select type(this)
-    class is(coop_fits_image_cea)
-       weight = weight/this%npix
-       call coop_set_uniform(n, ells, max(this%dkx, this%dky)*3.d0, min(this%dkx*this%nside(1), this%dky*this%nside(2), 3.d4)/10.d0)
-       call coop_fits_image_cea_get_power(this, ells, Cls)
-       write(*,*) "------------------------------------------------"
-       write(*,*) "# ell    D_l "
-       do i=1, n
-          write(*,*) nint(ells(i)), ells(i)**2*Cls(i)/coop_2pi/sqrt(weight) !!taken into account fsky correction
-       enddo
-    end select
+             write(fp%unit,"(A)") "# ell    D_l "
+             do i=1, n
+                write(fp%unit,"(I7, E16.7)") nint(ells(i)), ells(i)**2*Cls(i)/coop_2pi/sqrt(weight) !!taken into account fsky correction
+             enddo
+          end select
+          call fp%close()
+       endif
+    endif
     write(*,*) "=========================================================="
     write(*,*)
   end subroutine coop_fits_image_simple_stat
@@ -527,7 +535,7 @@ contains
     where(weights .gt. 0.d0)
        Cls = Cls/weights
     end where
-    Cls = Cls/(coop_2pi*(dble(this%nside(1))*dble(this%nside(2)))**2)
+    Cls = Cls*(this%pixsize**2)**2
   end subroutine coop_fits_image_cea_get_power
 
   subroutine coop_fits_image_cea_filter(this, lmin, lmax, window)
@@ -1117,11 +1125,11 @@ contains
     COOP_REAL Cls(lmin:lmax)
     COOP_COMPLEX,dimension(:,:),allocatable::fk
     COOP_REAL amp(lmin:lmax), rk
-    amp = sqrt(Cls/(this%pixsize**2/this%npix))
+    amp = sqrt(Cls)/this%pixsize**2
     allocate(fk(0:this%nside(1)/2,0:this%nside(2)-1))
     do i=0, this%nside(1)/2
        do j=0, this%nside(2)/2
-          rk  = sqrt((this%dkx*i)**2 + (this%dky*j)**2) + 0.5d0
+          rk  = sqrt((this%dkx*i)**2 + (this%dky*j)**2)
           ik = floor(rk)
           if(ik.ge.lmin .and. ik .lt. lmax)then
              rk = rk - ik
@@ -1131,7 +1139,7 @@ contains
           endif
        enddo
        do j=this%nside(2)/2+1, this%nside(2)-1
-          rk  = sqrt((this%dkx*i)**2 + (this%dky*(this%nside(2)-j))**2) + 0.5d0
+          rk  = sqrt((this%dkx*i)**2 + (this%dky*(this%nside(2)-j))**2) 
           ik = floor(rk)
           if(ik.ge.lmin .and. ik .lt. lmax)then
              rk = rk - ik

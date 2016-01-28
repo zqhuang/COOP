@@ -7,19 +7,23 @@ program test
 #include "constants.h"
   type(coop_dictionary)::params
   type(coop_fits_image_cea)::map, map2, mask, mask2
-  COOP_STRING::fname, fname2, fmask, fmask2
-  COOP_REAL::mean, rms, mean2, rms2, threshold, cut
+  COOP_STRING::fname, fname2, fmask, fmask2, cl_file
+  COOP_REAL::mean, rms, mean2, rms2, threshold, cut, reg_limit
+
   if(iargc().lt.1)then
      write(*,*) "Syntax:"
-     write(*,*) "./FStat -map MAPFILE [-mask MASKFILE] [-map2 SECOND_MAPFILE] [-mask2 SECOND_MASKFILE]"
+     write(*,*) "./FStat -map MAPFILE [-mask MASKFILE] [-map2 SECOND_MAPFILE] [-mask2 SECOND_MASKFILE] [-cut CUT(0.1)] [-reg_limit REG_LIMIT(0)] [-cl_file CL_FILE]"
      stop
   endif
   call coop_get_command_line_argument(key = 'map', arg = fname)
   call coop_get_command_line_argument(key = 'map2', arg = fname2, default="")
+  call coop_get_command_line_argument(key = 'cl_file', arg = cl_file, default="")
   call coop_get_command_line_argument(key = 'mask', arg = fmask, default="")
   call coop_get_command_line_argument(key = 'mask2', arg = fmask2, default="")
   call coop_get_command_line_argument(key = 'cut', arg = cut, default = 0.1d0)
+  call coop_get_command_line_argument(key = 'reg_limit', arg = reg_limit, default = 0.d0)
   call map%open(fname)
+  call map%regularize(reg_limit)
   if(trim(fmask).ne."")then
      call mask%open(fmask)
      if(map%npix .ne. mask%npix) stop "map and mask are of different sizes"
@@ -33,6 +37,7 @@ program test
   endif
   if(trim(fname2).ne."")then
      call map2%open(fname2)
+     call map2%regularize(reg_limit)
      if(map2%npix .ne. map%npix) stop "two maps are of different sizes"
      if(trim(fmask2).ne."")then
         call mask2%open(fmask2)
@@ -44,16 +49,20 @@ program test
         elsewhere
            mask2%image = 1.
         end where
+        if(trim(fmask).ne."")then
+           mask%image = mask%image*mask2%image
+        else
+           mask = mask2
+        endif
      endif
-     mask%image = mask%image*mask2%image
   endif
-  if(trim(fmask).ne."")then
-     call map%simple_stat(mean=mean, rms=rms, mask=mask)
+  if(trim(fmask).ne."" .or. trim(fname2).ne."")then
+     call map%simple_stat(mean=mean, rms=rms, mask=mask,clsfile=cl_file)
   else
-     call map%simple_stat(mean=mean, rms=rms)
+     call map%simple_stat(mean=mean, rms=rms,clsfile=cl_file)
   endif
   if(trim(fname2).ne."")then
-     if(trim(fmask).ne."")then
+     if(trim(fmask).ne."" .or. trim(fname2).ne."")then
         call map2%simple_stat(mean=mean2, rms=rms2, mask = mask)
      else
         call map2%simple_stat(mean=mean2, rms=rms2)
