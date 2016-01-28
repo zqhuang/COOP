@@ -2359,18 +2359,6 @@ contains
        call write_minimal_header(header,dtype = trim(this%dtype), nside=this%nside, order = this%ordering, creator='COOP', version = '0.0', polar=pol, coordsys = trim(this%coordsys), fwhm_degree = this%fwhm_degree)
     endif
     if(present(index_list))then       
-       do i=1, this%nmaps
-          key = "TTYPE"//COOP_STR_OF(i)
-          val = this%header%value(key)
-          if(trim(val).ne."") &
-               call add_card(header, trim(key), trim(val), update = .true.)
-
-          key = "TUNIT"//COOP_STR_OF(i)
-          val = this%header%value(key)
-          if(trim(val).ne."") &
-               call add_card(header, trim(key), trim(val), update = .true.)
-       enddo
-    else
        do i = 1, size(index_list)
           key = "TTYPE"//COOP_STR_OF(i)
           val = this%header%value("TTYPE"//COOP_STR_OF(index_list(i)))
@@ -2382,10 +2370,19 @@ contains
           if(trim(val).ne."") &
                call add_card(header, trim(key), trim(val), update = .true.)
        enddo
-    endif
-    if(present(index_list))then
        call output_map(this%map(:, index_list), header, trim(filename))
     else
+       do i=1, this%nmaps
+          key = "TTYPE"//COOP_STR_OF(i)
+          val = this%header%value(key)
+          if(trim(val).ne."") &
+               call add_card(header, trim(key), trim(val), update = .true.)
+
+          key = "TUNIT"//COOP_STR_OF(i)
+          val = this%header%value(key)
+          if(trim(val).ne."") &
+               call add_card(header, trim(key), trim(val), update = .true.)
+       enddo
        call output_map(this%map, header, trim(filename))
     endif
     deallocate(header)
