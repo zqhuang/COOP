@@ -52,7 +52,7 @@ module coop_fitswrap_mod
      procedure::cut => coop_fits_image_cea_cut
      procedure::filter => coop_fits_image_cea_filter
      procedure::smooth => coop_fits_image_cea_smooth
-
+     procedure::get_power => coop_fits_image_cea_get_power
      procedure::smooth_flat => coop_fits_image_cea_smooth_flat
      procedure::get_QTUT =>  coop_fits_image_cea_get_QTUT
      procedure::get_QU =>  coop_fits_image_cea_get_QU
@@ -221,13 +221,24 @@ contains
   end function coop_fits_key_value
 
 
-  subroutine coop_fits_image_simple_stat(this,mean,rms, median, fmin, fmax, lower, upper)
+  subroutine coop_fits_image_simple_stat(this,mean,rms, median, fmin, fmax, lower, upper, mask)
     class(coop_fits_image)::this
+    class(coop_fits_image),optional::mask
     COOP_REAL,optional::mean, rms, lower(3), upper(3), median, fmin, fmax
-    COOP_REAL::ave, std, bounds(-3:3), minv, maxv  
-    ave = sum(this%image)/this%npix
+    COOP_REAL::ave, std, bounds(-3:3), minv, maxv, weight
+    COOP_INT,parameter::n= 80
+    COOP_REAL::Cls(n), ells(n)
+    COOP_INT::i
+    if(present(mask))then
+       weight = count(mask%image .gt. 0.d0)
+       ave = sum(this%image, mask=mask%image .gt. 0.d0)/weight
+       std =  sqrt(sum((this%image-ave)**2, mask=mask%image .gt. 0.d0)/weight)
+    else
+       ave = sum(this%image)/this%npix
+       std =  sqrt(sum((this%image-ave)**2/this%npix))
+       weight = this%npix
+    endif
     if(present(mean))mean =ave
-    std =  sqrt(sum((this%image-ave)**2/this%npix))
     if(present(rms))rms = std
     write(*,*)
     write(*,*) "=========================================================="
@@ -250,6 +261,18 @@ contains
     if(present(fmin))fmin = minv
     if(present(fmax))fmax = maxv
     write(*,*) "zero-value pixels: "//trim(coop_num2str(100.*count(this%image .eq. 0.d0)/dble(this%npix),"(F10.3)"))//"%"
+
+    select type(this)
+    class is(coop_fits_image_cea)
+       weight = weight/this%npix
+       call coop_set_uniform(n, ells, max(this%dkx, this%dky)*3.d0, min(this%dkx*this%nside(1), this%dky*this%nside(2), 3.d4)/10.d0)
+       call coop_fits_image_cea_get_power(this, ells, Cls)
+       write(*,*) "------------------------------------------------"
+       write(*,*) "# ell    D_l "
+       do i=1, n
+          write(*,*) nint(ells(i)), ells(i)**2*Cls(i)/coop_2pi/sqrt(weight) !!taken into account fsky correction
+       enddo
+    end select
     write(*,*) "=========================================================="
     write(*,*)
   end subroutine coop_fits_image_simple_stat
@@ -454,6 +477,58 @@ contains
       endif
     end function smooth_weight
   end subroutine coop_fits_image_cea_smooth
+
+  subroutine coop_fits_image_cea_get_power(this, ells, Cls)
+    class(coop_fits_image_cea)::this
+    COOP_REAL,dimension(:)::ells
+    COOP_REAL,dimension(:)::Cls
+    COOP_REAL::weights(size(ells))
+    COOP_REAL k2min, k2max, k2, ky2, k
+    COOP_INT::n, left, right, mid, i, j
+    COOP_COMPLEX,dimension(:,:),allocatable::fk
+    n = size(ells)
+    if(n.ne.size(Cls)) stop "get_power: size of ells must match size of Cls"
+    allocate( fk(0:this%nside(1)/2, 0:this%nside(2)-1))
+    call coop_fft_forward(this%nside(1), this%nside(2), this%image, fk)
+    k2min = (ells(1))**2*1.000001
+    k2max = (ells(n))**2*0.999999
+    Cls = 0.d0
+    weights = 0.d0
+    do j=0, this%nside(2)-1
+       ky2 = (min(j, this%nside(2)-j)*this%dky)**2
+       if( ky2 .ge. k2max)cycle
+       left = 1
+       do i = 0, this%nside(1)/2
+          k2 = (i*this%dkx)**2 + ky2
+          if(k2.ge.k2max) exit
+          if(k2 .le. k2min) cycle
+          k = sqrt(k2)
+          right = n
+          do while(right - left .gt. 1)
+             mid = (left+right)/2
+             if( k .gt. ells(mid))then
+                left = mid
+             else
+                right = mid
+             endif
+          enddo
+          if(left .ge. n .or. left .lt. 1 .or. right-left.ne.1 .or. k.gt. ells(right) .or. k.lt. ells(left)) then
+             write(*,*) "error in get_power"
+             stop
+          endif
+          Cls(left) = Cls(left) + (ells(right)-k)/(ells(right)-ells(left))*(abs(fk(i, j))**2)
+          weights(left) = weights(left)+ (ells(right)-k)/(ells(right)-ells(left))
+          Cls(right) = Cls(right) + (k-ells(left))/(ells(right)-ells(left))*(abs(fk(i, j))**2)
+          weights(right) = weights(right)+ (k-ells(left))/(ells(right)-ells(left))
+
+       enddo
+    enddo
+    deallocate(fk)
+    where(weights .gt. 0.d0)
+       Cls = Cls/weights
+    end where
+    Cls = Cls/(coop_2pi*(dble(this%nside(1))*dble(this%nside(2)))**2)
+  end subroutine coop_fits_image_cea_get_power
 
   subroutine coop_fits_image_cea_filter(this, lmin, lmax, window)
     class(coop_fits_image_cea)::this

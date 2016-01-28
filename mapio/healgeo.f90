@@ -2339,6 +2339,8 @@ contains
     character(LEN=80),dimension(:),allocatable::header    
     logical pol
     COOP_INT i, ind
+    COOP_SHORT_STRING::key
+    COOP_STRING::val
 #ifdef HAS_HEALPIX    
     if(present(index_list))then
        if(any(index_list .lt. 1 .or. index_list .gt. this%nmaps)) stop "coop_healpix_write_map: index out of range"
@@ -2356,15 +2358,31 @@ contains
     else
        call write_minimal_header(header,dtype = trim(this%dtype), nside=this%nside, order = this%ordering, creator='COOP', version = '0.0', polar=pol, coordsys = trim(this%coordsys), fwhm_degree = this%fwhm_degree)
     endif
-    do i=1, this%header%n
-       select case(trim(coop_str_numUpperAlpha(this%header%key(i))))
-       case("SIMPLE", "BITPIX", "NAXIS", "EXTEND", "XTENSION", "NAXIS1", "NAXIS2", "PCOUNT", "GCOUNT", "TFIELDS", "DATE")  !!these will be added by Healpix automatically
-          cycle
-       case("TTYPE1", "TTYPE2", "TTYPE3", "TTYPE4", "TTYPE5", "TTYPE6", "TTYPE7", "TTYPE8", "TTYPE9", "TTYPE10", "TTYPE11", "TTYPE12", "TUNIT1", "TUNIT2", "TUNIT3", "TUNIT4", "TUNIT5", "TUNIT6", "TUNIT7", "TUNIT8", "TUNIT9", "TUNIT10", "TUNIT11", "TUNIT12")
-             call add_card(header, trim(this%header%key(i)), trim(this%header%val(i)), update = .true.)
-       case default          
-       end select
-    enddo
+    if(present(index_list))then       
+       do i=1, this%nmaps
+          key = "TTYPE"//COOP_STR_OF(i)
+          val = this%header%value(key)
+          if(trim(val).ne."") &
+               call add_card(header, trim(key), trim(val), update = .true.)
+
+          key = "TUNIT"//COOP_STR_OF(i)
+          val = this%header%value(key)
+          if(trim(val).ne."") &
+               call add_card(header, trim(key), trim(val), update = .true.)
+       enddo
+    else
+       do i = 1, size(index_list)
+          key = "TTYPE"//COOP_STR_OF(i)
+          val = this%header%value("TTYPE"//COOP_STR_OF(index_list(i)))
+          if(trim(val).ne."") &
+               call add_card(header, trim(key), trim(val), update = .true.)
+
+          key = "TUNIT"//COOP_STR_OF(i)
+          val = this%header%value("TUNIT"//COOP_STR_OF(index_list(i)))
+          if(trim(val).ne."") &
+               call add_card(header, trim(key), trim(val), update = .true.)
+       enddo
+    endif
     if(present(index_list))then
        call output_map(this%map(:, index_list), header, trim(filename))
     else
