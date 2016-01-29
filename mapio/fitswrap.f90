@@ -1104,18 +1104,51 @@ contains
     this%smooth_U = Umap%smooth_image
   end subroutine coop_fits_image_cea_get_QU
 
-  subroutine coop_fits_image_cea_get_QTUT(this)
+  subroutine coop_fits_image_cea_get_QTUT(this, qt, ut)
     class(coop_fits_image_cea)::this
-    if(.not. allocated(this%smooth_image)) stop "you have to call get_flatmap before doing T2QTUT"
-    if(allocated(this%smooth_Q))deallocate(this%smooth_Q)
-    if(allocated(this%smooth_U))deallocate(this%smooth_U)
-    allocate( &
-         this%smooth_Q(-this%smooth_nx:this%smooth_nx, -this%smooth_ny:this%smooth_ny), &
-         this%smooth_U(-this%smooth_nx:this%smooth_nx, -this%smooth_ny:this%smooth_ny) )
-    this%smooth_Q = this%smooth_image
-    this%smooth_U = 0.d0
-    call coop_fits_EB2QU(nx = this%smooth_nx*2+1, ny = this%smooth_ny*2+1, Emap = this%smooth_Q, Bmap = this%smooth_U)
+    type(coop_fits_image_cea),optional::qt, ut
+    COOP_COMPLEX,dimension(:,:,:),allocatable::fk
+    COOP_INT::i, j
+    COOP_REAL::ky, ky2, kx, kx2, k2, k2min
+    if(present(qt) .and. present(ut))then
+       allocate(fk(0:this%nside(1)/2,0:this%nside(2)-1, 2))
+       call coop_fft_forward(this%nside(1), this%nside(2), this%image, fk(:,:,1))
+       k2min = max(this%dkx, this%dky)
+       do j=0, this%nside(2)-1
+          if(j .gt. this%nside(2)- j)then
+             ky = (j-this%nside(2))*this%dky
+          else
+             ky = j*this%dky
+          endif
+          ky2 = ky**2
+          do i=0, this%nside(1)/2
+             kx = this%dkx*i
+             kx2 = kx**2
+             k2 = kx2+ky2
+             if(k2 .le. k2min)then
+                fk(i,j,:) = (0.d0, 0.d0)
+             else
+                fk(i, j,2) = 2.d0*kx*ky/k2*fk(i,j,1) !!healpix convention
+                fk(i, j,1) = (ky2 - kx2)/k2*fk(i,j,1)
+             endif
+          enddo
+       enddo
+       call coop_fft_backward(this%nside(1), this%nside(2), fk(:,:,1), qt%image)
+       call coop_fft_backward(this%nside(1), this%nside(2), fk(:,:,2), ut%image)
+       deallocate(fk)
+    else
+       if(.not. allocated(this%smooth_image)) stop "you have to call get_flatmap before doing T2QTUT"
+       if(allocated(this%smooth_Q))deallocate(this%smooth_Q)
+       if(allocated(this%smooth_U))deallocate(this%smooth_U)
+       allocate( &
+            this%smooth_Q(-this%smooth_nx:this%smooth_nx, -this%smooth_ny:this%smooth_ny), &
+            this%smooth_U(-this%smooth_nx:this%smooth_nx, -this%smooth_ny:this%smooth_ny) )
+       this%smooth_Q = this%smooth_image
+       this%smooth_U = 0.d0
+       call coop_fits_EB2QU(nx = this%smooth_nx*2+1, ny = this%smooth_ny*2+1, Emap = this%smooth_Q, Bmap = this%smooth_U)
+    endif
   end subroutine coop_fits_image_cea_get_QTUT
+
 
   subroutine coop_fits_EB2QU(nx, ny, Emap, Bmap)
     COOP_INT nx, ny, i, j
@@ -1136,8 +1169,9 @@ contains
              Qk(i, j) = (0.d0, 0.d0)
              Uk(i, j) = (0.d0, 0.d0)
           else
-             Qk(i, j) = -((kx**2 - ky**2)*Ek(i,j) - 2.d0*kx*ky*Bk(i,j))/k2
-             Uk(i, j) = -((kx**2 - ky**2)*Bk(i,j) + 2.d0*kx*ky*Ek(i,j))/k2
+             Qk(i, j) = ((ky**2 - kx**2)*Ek(i,j) + 2.d0*kx*ky*Bk(i,j))/k2
+             Uk(i, j) = ((kx**2 - ky**2)*Bk(i,j) + 2.d0*kx*ky*Ek(i,j))/k2 
+             !!healpix convention
           endif
        enddo
     enddo
@@ -1165,8 +1199,9 @@ contains
              Ek(i, j) = 0.d0
              Bk(i, j) = 0.d0
           else
-             Ek(i, j) = - ( (kx**2 - ky**2)*Qk(i,j) + 2.d0*kx*ky*Uk(i,j))/k2
-             Bk(i, j) = - ( (kx**2 - ky**2)*Uk(i,j) - 2.d0*kx*ky*Qk(i,j))/k2
+             !!healpix convention
+             Ek(i, j) =  ( (ky**2 - kx**2)*Qk(i,j) + 2.d0*kx*ky*Uk(i,j))/k2
+             Bk(i, j) =  ( (kx**2 - ky**2)*Uk(i,j) + 2.d0*kx*ky*Qk(i,j))/k2 
           endif
        enddo
     enddo
@@ -1423,8 +1458,8 @@ contains
              kx2 = kx**2
              k2 = kx2+ky2
              if(k2 .le. k2min .or. k2.ge.k2max)cycle
-             fk(i, j,1) = -((kx2 - ky2)*fk(i,j,2) + 2.d0*kx*ky*fk(i,j,3))/k2
-             fk(i, j,2) = -((kx2 - ky2)*fk(i,j,3) - 2.d0*kx*ky*fk(i,j,2))/k2
+             fk(i, j,1) = ((ky2 - kx2)*fk(i,j,2) + 2.d0*kx*ky*fk(i,j,3))/k2
+             fk(i, j,2) = ((kx2 - ky2)*fk(i,j,3) + 2.d0*kx*ky*fk(i,j,2))/k2 !!healpix convention
           enddo
        enddo
 

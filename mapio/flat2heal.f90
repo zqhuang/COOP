@@ -11,10 +11,10 @@ program test
   COOP_INT,parameter::lx_cut =10
   COOP_INT,parameter::ly_cut =10
   COOP_UNKNOWN_STRING,parameter::mapdir = "act16/"
-  COOP_UNKNOWN_STRING,parameter::map_prefix = "sim_1" !!"deep56_array_2_season2_iqu_c7v5_night_strict_nomoon_4way_set_0_8Dec15_beams_srcsub_mapsub_wpoly_nobad_500"
+  COOP_UNKNOWN_STRING,parameter::map_prefix ="deep56_coadd" !"deep56_array_2_season2_iqu_c7v5_night_strict_nomoon_4way_set_0_8Dec15_beams_srcsub_mapsub_wpoly_nobad_500"
 !"sim_with_noise_1" ! "deep56_coadd"
   COOP_UNKNOWN_STRING,parameter::weight_prefix = "deep56_weight"
-  COOP_UNKNOWN_STRING,parameter::output_prefix = "noiseless"
+  COOP_UNKNOWN_STRING,parameter::output_prefix = "actcoadd"
 
   COOP_UNKNOWN_STRING,parameter::Ifile = mapdir//map_prefix//"_I.fits"
   COOP_UNKNOWN_STRING,parameter::Qfile = mapdir//map_prefix//"_Q.fits"
