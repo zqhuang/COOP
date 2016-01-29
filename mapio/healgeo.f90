@@ -3700,7 +3700,7 @@ contains
     logical,dimension(:),allocatable::livept
     COOP_INT::nside_rand, npix_rand
     COOP_INT,optional::nside_scan
-    COOP_INT, parameter:: num_rand = 30000 !!maximum number of points wanted for random selection of points (sto%genre = coop_stacking_genre_random_hot etc.)
+    COOP_INT, parameter:: num_rand = 150000 !!maximum number of points wanted for random selection of points (sto%genre = coop_stacking_genre_random_hot etc.)
     type(coop_healpix_maps)::zeros1, zeros2
 #ifdef HAS_HEALPIX
     if(sto%nmaps .ne. this%nmaps)stop "get_peaks: nmaps mismatch"
