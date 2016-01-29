@@ -558,7 +558,7 @@ contains
     where(weights .gt. 0.d0)
        Cls = Cls/weights
     end where
-    Cls = Cls*(this%pixsize**2)**2
+    Cls = Cls*(this%pixsize**2)/this%npix
   end subroutine coop_fits_image_cea_get_power
 
   subroutine coop_fits_image_cea_filter(this, lmin, lmax, window)
@@ -1368,7 +1368,7 @@ contains
     k2max = lmax**2*0.9999999
     k2min = lmin**2*1.0000001
     call coop_healpix_cls2rot(lmin, lmax, real(cls), cls_sqrteig, cls_rot)
-    cls_sqrteig = cls_sqrteig/tmap%pixsize**2
+    cls_sqrteig = cls_sqrteig*sqrt(dble(tmap%npix))/tmap%pixsize
     allocate(fk(0:tmap%nside(1)/2,0:tmap%nside(2)-1,3))
     do j=0, tmap%nside(2)-1
        if(j .gt. tmap%nside(2)- j)then

@@ -8,8 +8,8 @@ program test
   COOP_INT::lmin
   COOP_INT,parameter::lmax = 2500
   COOP_INT,parameter::fwhm_arcmin = 5
-  COOP_INT,parameter::lx_cut = 50
-  COOP_INT,parameter::ly_cut = 50
+  COOP_INT,parameter::lx_cut =10
+  COOP_INT,parameter::ly_cut =10
   COOP_UNKNOWN_STRING,parameter::mapdir = "act16/"
   COOP_UNKNOWN_STRING,parameter::map_prefix = "sim_1" !!"deep56_array_2_season2_iqu_c7v5_night_strict_nomoon_4way_set_0_8Dec15_beams_srcsub_mapsub_wpoly_nobad_500"
 !"sim_with_noise_1" ! "deep56_coadd"
