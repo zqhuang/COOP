@@ -3,7 +3,7 @@ mapdir=act16
 prefix=${1}
 lmin=${2}
 lmax=2500
-fwhm=3
+fwhm=5
 radius=1.5
 outprefix=${prefix}
 

@@ -464,24 +464,47 @@ contains
     this%ymin = -this%ymax
   end subroutine coop_fits_image_cea_get_flatmap
 
-  subroutine coop_fits_image_cea_smooth(this, fwhm, highpass_l1, highpass_l2, lowpass_l1, lowpass_l2)
+  subroutine coop_fits_image_cea_smooth(this, fwhm, highpass_l1, highpass_l2, lx_cut, ly_cut, lmax, beam)
     class(coop_fits_image_cea)::this
     COOP_REAL::fwhm
-    COOP_INT::highpass_l1, highpass_l2, lowpass_l1, lowpass_l2
-    COOP_REAL::hp_omega, lp_omega, sigma
-    sigma = coop_sigma_by_fwhm*fwhm/coop_sqrt2
+    COOP_INT::highpass_l1, highpass_l2, lmax
+    COOP_REAL,optional::beam(0:lmax)
+    COOP_REAL::hp_omega, sigma2, hp_l2sq
+    COOP_INT,optional::lx_cut, ly_cut
+    logical::do_lx_cut, do_ly_cut, has_beam
+    do_lx_cut = present(lx_cut)
+    do_ly_cut = present(ly_cut)
+    has_beam = present(beam)
+    sigma2 = (coop_sigma_by_fwhm*fwhm/coop_sqrt2)**2
+    hp_l2sq = highpass_l2**2
     hp_omega = coop_pio2/(highpass_l2 - highpass_l1)
-    lp_omega = coop_pio2/(lowpass_l2 - lowpass_l1)
-    call this%filter(lmin = highpass_l1, lmax = lowpass_l2,  window = smooth_weight)
+    call this%filter(lmin = highpass_l1, lmax = lmax,  window = smooth_weight)
   contains
 
-    function smooth_weight(k)
-      COOP_REAL k, smooth_weight
-      smooth_weight = exp(-(k*sigma)**2)
-      if(k .lt. highpass_l2)then
+    function smooth_weight(kx, ky)
+      COOP_REAL kx,ky,k2, k, smooth_weight
+      k2 = (kx**2+ky**2)
+      k = sqrt(k2)
+      smooth_weight = exp(-k2*sigma2)
+      if(has_beam) then
+         smooth_weight =smooth_weight/max(beam(nint(k)), 1.d-2) !!when beam<0.01 actually no info
+      endif
+      if(do_lx_cut)then
+         if(abs(kx).le.lx_cut)then
+            smooth_weight = 0.d0
+            return
+         endif
+         smooth_weight = smooth_weight * cos(coop_pio2*(lx_cut/kx)**4)**2
+      endif
+      if(do_ly_cut)then
+         if(abs(ky).le. ly_cut)then
+            smooth_weight = 0.d0
+            return
+         endif
+         smooth_weight = smooth_weight * cos(coop_pio2*(ly_cut/ky)**4)**2
+      endif
+      if(k2 .lt. hp_l2sq)then
          smooth_weight = smooth_weight * sin((k-highpass_l1)*hp_omega)**2
-      elseif(k .gt. lowpass_l1)then
-         smooth_weight = smooth_weight * sin((lowpass_l2 - k)*lp_omega)**2
       endif
     end function smooth_weight
   end subroutine coop_fits_image_cea_smooth
@@ -540,27 +563,33 @@ contains
 
   subroutine coop_fits_image_cea_filter(this, lmin, lmax, window)
     class(coop_fits_image_cea)::this
-    COOP_INT lmin, lmax, i, j
+    COOP_INT lmin, lmax, i, j, lx_cut, ly_cut
     external window
     COOP_REAL window
-    COOP_REAL k2min, k2max, k2, ky2
+    COOP_REAL k2min, k2max, k2, ky2, ky, kx
     COOP_COMPLEX,dimension(:,:),allocatable::fk
     allocate( fk(0:this%nside(1)/2, 0:this%nside(2)-1))
     call coop_fft_forward(this%nside(1), this%nside(2), this%image, fk)
     k2min = dble(lmin)**2
     k2max = dble(lmax)**2
     do j=0, this%nside(2)-1
-       ky2 = (min(j, this%nside(2)-j)*this%dky)**2
+       if(j.gt. this%nside(2)-j)then
+          ky = (j - this%nside(2))*this%dky
+       else
+          ky = j*this%dky
+       endif
+       ky2 = ky**2
        if( ky2 .gt. k2max)then
           fk(:, j) = ( 0.d0, 0.d0 )
           cycle
        endif
        do i = 0, this%nside(1)/2
-          k2 = (i*this%dkx)**2 + ky2
+          kx = i*this%dkx
+          k2 = kx**2 + ky2
           if(k2 .lt. k2min .or. k2.gt. k2max)then
              fk(i, j) = ( 0.d0, 0.d0 )
           else
-             fk(i, j) = fk(i, j)*window(sqrt(k2))
+             fk(i, j) = fk(i, j)*window(kx, ky)
           endif
        enddo
     enddo
@@ -1261,14 +1290,14 @@ contains
 
   end subroutine coop_fits_image_cea_plot
 
-  subroutine  coop_fits_image_cea_convert2healpix(this, hp, imap, mask, hits, lower, upper)  !!convert to healpix map, and mask the bright spots with 5 arcmin circles
+  subroutine  coop_fits_image_cea_convert2healpix(this, hp, imap, mask, weights, lower, upper)  !!convert to healpix map, and mask the bright spots with 5 arcmin circles
     class(coop_fits_image_cea)::this
-    type(coop_fits_image_cea),optional::hits !!if this presents, cut off points with hits less than 30% of the mean hits
+    type(coop_fits_image_cea),optional::weights !!if this presents, cut off points with weights less than 30% of the mean weights
     type(coop_healpix_maps)::hp, mask
     type(coop_list_integer)::ps
     integer(8)::pix
     COOP_INT:: hpix, imap, i, listpix(0:10000), nlist
-    COOP_REAL theta, phi, meanhits
+    COOP_REAL theta, phi, meanweights
     COOP_SINGLE,optional::lower, upper
     COOP_SINGLE flower, fupper
 #ifdef HAS_HEALPIX    
@@ -1288,8 +1317,8 @@ contains
     call ps%init()
     do pix=0, this%npix-1
        call this%pix2ang(pix, theta, phi)
-       if(present(hits))then
-          if(hits%image(pix) .le. 0.)cycle
+       if(present(weights))then
+          if(weights%image(pix) .le. 0.)cycle
        endif
        call hp%ang2pix(theta, phi, hpix)
        if(this%image(pix).lt.flower .or. this%image(pix).gt.fupper)then
@@ -1297,17 +1326,17 @@ contains
           hp%map(hpix,imap) = 0.
           call ps%push(hpix)
        elseif(mask%map(hpix, 1) .ge. 0.)then
-          if(present(hits))then
-             mask%map(hpix, 1) = mask%map(hpix,1)+hits%image(pix)
-             hp%map(hpix,imap) = hp%map(hpix, imap) + this%image(pix)*hits%image(pix)
+          if(present(weights))then
+             mask%map(hpix, 1) = mask%map(hpix,1)+weights%image(pix)
+             hp%map(hpix,imap) = hp%map(hpix, imap) + this%image(pix)*weights%image(pix)
           else
              mask%map(hpix,1) = mask%map(hpix,1) + 1.
              hp%map(hpix,imap) = hp%map(hpix, imap) + this%image(pix)
           endif
        endif
     enddo
-    meanhits = sum(mask%map(:,1), mask= mask%map(:,1).gt.0.)/count(mask%map(:,1).gt.0.)*0.25  !!discard pixels with small obs time
-    where(mask%map(:,1).gt. meanhits)
+    meanweights = sum(mask%map(:,1), mask= mask%map(:,1).gt.0.)/count(mask%map(:,1).gt.0.)*0.25  !!discard pixels with small obs time
+    where(mask%map(:,1).gt. meanweights)
        hp%map(:, imap) = hp%map(:, imap)/mask%map(:,1)
        mask%map(:, 1) = 1.
     elsewhere
@@ -1394,8 +1423,8 @@ contains
              kx2 = kx**2
              k2 = kx2+ky2
              if(k2 .le. k2min .or. k2.ge.k2max)cycle
-             fk(i, j,1) = -((kx2 - ky2)*fk(i,j,2) - 2.d0*kx*ky*fk(i,j,3))/k2
-             fk(i, j,2) = -((kx2 - ky2)*fk(i,j,3) + 2.d0*kx*ky*fk(i,j,2))/k2
+             fk(i, j,1) = -((kx2 - ky2)*fk(i,j,2) + 2.d0*kx*ky*fk(i,j,3))/k2
+             fk(i, j,2) = -((kx2 - ky2)*fk(i,j,3) - 2.d0*kx*ky*fk(i,j,2))/k2
           enddo
        enddo
 

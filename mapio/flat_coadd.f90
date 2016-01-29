@@ -30,7 +30,7 @@ program flatcoadd
      write(*,*) "Doing filtering before coadding."
   endif
   call coop_dictionary_lookup(params, "highpass_lmin", lmin, default_val = 100)
-  call coop_dictionary_lookup(params, "lowpass_lmax", lmax, default_val = 4000)
+  call coop_dictionary_lookup(params, "lmax", lmax, default_val = 4000)
   call coop_dictionary_lookup(params, "fwhm_arcmin", fwhm, default_val = 0.d0)
   call coop_dictionary_lookup(params, "reg_limit", reg_limit, default_val = 0.d0)
   fwhm =fwhm*coop_SI_arcmin
@@ -63,7 +63,7 @@ program flatcoadd
      if(i.eq.1)then
         call total_map%open(map_file)
         call total_map%regularize(reg_limit)
-        if(do_filtering)call total_map%smooth(fwhm = fwhm, highpass_l1 = lmin - 10, highpass_l2 = lmin + 10, lowpass_l1 = lmax - 100, lowpass_l2 = lmax+100)
+        if(do_filtering)call total_map%smooth(fwhm = fwhm, highpass_l1 = lmin - 10, highpass_l2 = lmin + 10, lmax  = lmax)
         if(analyze_maps)call total_map%simple_stat()
         if(has_weights)then
            call total_weights%open(weight_file)
@@ -86,7 +86,7 @@ program flatcoadd
      else
         call this_map%open(map_file)
         call this_map%regularize(reg_limit)
-        if(do_filtering)call this_map%smooth(fwhm = fwhm, highpass_l1 = lmin - 10, highpass_l2 = lmin + 10, lowpass_l1 = lmax - 100, lowpass_l2 = lmax+100)
+        if(do_filtering)call this_map%smooth(fwhm = fwhm, highpass_l1 = lmin - 10, highpass_l2 = lmin + 10, lmax = lmax)
         if(analyze_maps)call this_map%simple_stat()
         if(has_weights)then
            call this_weights%open(weight_file)
