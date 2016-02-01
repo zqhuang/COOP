@@ -65,6 +65,12 @@ FGetPeaks: $(OBJ) flat_exportspots.o
 FStat:  $(OBJ) flat_stat.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_stat.o $(LINK)
 
+FQU2EB:  $(OBJ) flat_qu2eb.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_qu2eb.o $(LINK)
+
+FQU2EB:  $(OBJ) flat_eb2qu.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_eb2qu.o $(LINK)
+
 F2Heal:  $(OBJ) flat2heal.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat2heal.o $(LINK)
 
@@ -91,7 +97,7 @@ TE2Z: $(OBJ) te2zeta.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) te2zeta.o $(LINK)
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test PLOTLINES UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo TE2Z GAUSS MM0 MM1 FStack FStat F2Heal FCoadd ACTTheo FMask FGetPeaks
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test PLOTLINES UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo TE2Z GAUSS MM0 MM1 FStack FStat F2Heal FCoadd ACTTheo FMask FGetPeaks FQU2EB FEB2QU FSmooth
 
 
 
@@ -114,3 +120,4 @@ rotate_map.o:	$(LIB) $(OBJ)
 healgeo.o: stacking_obj.o
 
 te2z.o: $(LIB) $(OBJ)
+
