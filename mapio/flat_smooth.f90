@@ -23,7 +23,7 @@ program test
   call coop_get_command_line_argument(key = "map", arg = map)
   call coop_get_command_line_argument(key = "out", arg = output)
   call coop_get_command_line_argument(key = "unit", arg = unit, default="muK")
-  call coop_get_command_line_argument(key = "field", arg = unit, default="T")
+  call coop_get_command_line_argument(key = "field", arg = field, default="T")
   call coop_get_command_line_argument(key = "wantqu", arg = want_qu,default=.false.)
   call coop_get_command_line_argument(key = "reg", arg = reg_limit, default=0.d0)
   call coop_get_command_line_argument(key = "mask", arg = mask,default="")
@@ -61,12 +61,13 @@ program test
   
   call fm%map(1)%smooth(fwhm = fwhm_arcmin*coop_SI_arcmin, highpass_l1 = max(lmin-20, 2), highpass_l2 = lmin + 20, lmax = lmax, lx_cut = lx_cut, ly_cut = ly_cut, beam = beam)
   fm%units = unit
-  fm%fields(1) = field
+  fm%fields(1) = trim(field)
   if(want_qu)then
      call fm%map(1)%get_QTUT(qt = fm%map(2), ut = fm%map(3))
      fm%fields(2) = "Q_"//trim(field)
      fm%fields(3) = "U_"//trim(field)
   endif
   call fm%write(output)
+  write(*,*) "File is written to "//trim(output)
 
 end program test

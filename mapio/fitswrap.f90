@@ -73,11 +73,14 @@ module coop_fitswrap_mod
      COOP_INT::npix = 0
      COOP_INT,dimension(2)::nside = 0
      logical::has_mask = .false.
+     logical::mask_changed = .false.
      COOP_REAL::dx, dy, dkx, dky
      COOP_REAL::total_weight = 0.d0
      COOP_INT,dimension(:),allocatable::spin
      COOP_SHORT_STRING,dimension(:),allocatable::fields
      COOP_SHORT_STRING,dimension(:),allocatable::units
+     COOP_STRING,dimension(:),allocatable::files
+     COOP_STRING::fmask
      type(coop_fits_image_cea),dimension(:), allocatable::map
      type(coop_fits_image_cea)::mask
      logical,dimension(:),allocatable::unmasked
@@ -97,9 +100,58 @@ module coop_fitswrap_mod
      procedure::stack_on_peaks => coop_flatsky_maps_stack_on_peaks
      procedure::stack_on_patch => coop_flatsky_maps_stack_on_patch
      procedure::fetch_patch => coop_flatsky_maps_fetch_patch
+     procedure::merge => coop_flatsky_maps_merge
   end type coop_flatsky_maps
 
 contains
+
+  subroutine coop_flatsky_maps_merge(this, map)
+    class(coop_flatsky_maps)::this
+    type(coop_flatsky_maps)::map, copy
+    COOP_INT::i
+    select type(this)
+    type is (coop_flatsky_maps)
+       if(this%nmaps .le. 0 .or. map%nmaps .le.0) stop "nmaps = 0 error in flatsky_maps_merge"
+       if(any(this%nside .ne. map%nside) .or. abs(this%dx/map%dx-1.d0).gt.1.d-5 .or. abs(this%dy/map%dy-1.d0).gt.1.d-5)then
+          write(*,*) "map shape error in flatsky_maps_merge"
+          stop
+       endif
+       copy = this
+       deallocate(this%map, this%spin, this%fields, this%units, this%files)
+       this%nmaps = copy%nmaps + map%nmaps 
+       allocate(this%map(this%nmaps))
+       allocate(this%spin(this%nmaps))
+       allocate(this%fields(this%nmaps))
+       allocate(this%files(this%nmaps))
+       allocate(this%units(this%nmaps))
+       this%spin(1:copy%nmaps) = copy%spin
+       this%fields(1:copy%nmaps) = copy%fields
+       this%files(1:copy%nmaps) = copy%files
+       this%units(1:copy%nmaps) = copy%units
+       this%spin(copy%nmaps+1: this%nmaps) = map%spin
+       this%fields(copy%nmaps+1: this%nmaps) = map%fields
+       this%files(copy%nmaps+1: this%nmaps) = map%files
+       this%units(copy%nmaps+1: this%nmaps) = map%units
+       do i=1, copy%nmaps
+          this%map(i) = copy%map(i)
+       enddo
+       do i=1, map%nmaps
+          this%map(copy%nmaps+i) = map%map(i)
+       enddo
+       if(map%has_mask)then
+          if(this%has_mask)then
+             this%mask%image = this%mask%image * map%mask%image
+          else
+             this%mask = map%mask
+             this%has_mask = .true.
+          endif
+          this%mask_changed = .true.
+       endif
+    class default
+       stop "flatsky_maps_merge does not support extended classes"
+    end select
+
+  end subroutine coop_flatsky_maps_merge
 
   subroutine  coop_flatsky_maps_get_zeros(this, imap, zeros)
     class(coop_flatsky_maps)::this
@@ -190,28 +242,44 @@ contains
   !! has_mask (logical)
   !! mask_file (string, present only if has_mask = T)
   !!=============================
-  subroutine coop_flatsky_maps_write(this, filename)
+  subroutine coop_flatsky_maps_write(this, filename, write_image, write_mask)
     class(coop_flatsky_maps)::this
     COOP_UNKNOWN_STRING::filename
     type(coop_file)::fp
+    logical, optional::write_image, write_mask
+    logical wn, wm
     COOP_INT::i
-    COOP_STRING::fname
     call fp%open(filename)
     write(fp%unit, "(A)") "#COOP flatsky map file"
     write(fp%unit, "(I5)") this%nmaps
+    if(present(write_image))then
+       wn = write_image
+    else
+       wn = .true.
+    endif
+    if(present(write_mask))then
+       wm = write_mask
+    else
+       wm = .false.
+    endif
+
     do i = 1, this%nmaps
        write(fp%unit, "(A)") trim(this%fields(i))
        write(fp%unit, "(A)") trim(this%units(i))
        write(fp%unit, "(I5)") this%spin(i)
-       fname = trim(coop_file_replace_postfix(filename, "_MAP"//COOP_STR_OF(i)//".fits"))
-       write(fp%unit, "(A)") trim(fname)
-       call this%map(i)%write(fname)
+       if(wn .or. trim(this%files(i)).eq."NULL")then
+          this%files(i) = trim(coop_file_replace_postfix(filename, "_MAP"//COOP_STR_OF(i)//".fits"))
+          call this%map(i)%write(this%files(i))
+       endif
+       write(fp%unit, "(A)") trim(this%files(i))
     enddo
     if(this%has_mask)then
        write(fp%unit, "(A)") "T"
-       fname = trim(coop_file_replace_postfix(filename, "_MASK.fits"))
-       write(fp%unit, "(A)") trim(fname)
-       call this%mask%write(fname)
+       if(wm .or. trim(this%fmask) .eq. "NULL")then
+          this%fmask = trim(coop_file_replace_postfix(filename, "_MASK.fits"))
+          call this%mask%write(this%fmask)
+       endif
+       write(fp%unit, "(A)") trim(this%fmask)
     else
        write(fp%unit, "(A)") "F"
     endif
@@ -236,13 +304,16 @@ contains
   subroutine coop_flatsky_maps_read(this, filename)
     class(coop_flatsky_maps)::this
     COOP_UNKNOWN_STRING::filename
-    COOP_STRING::fmap
     COOP_INT::i
     COOP_REAL,parameter::eps = 1.d-5
     COOP_REAL::halfmax
     type(coop_file)::fp
     call this%free()
-    call fp%open(filename)
+    if(.not. coop_file_exists(filename))then
+       write(*,*) trim(filename)//" does not exist"
+       stop
+    endif
+    call fp%open(filename, "r")
     if(.not.fp%read_int(this%nmaps))call reporterror()
     if(this%nmaps .le. 0 .or. this%nmaps .gt. 20)then
        write(*,*) "flatsky_read: nmaps must be between 1 and 20"
@@ -251,14 +322,15 @@ contains
     allocate(this%map(this%nmaps))
     allocate(this%spin(this%nmaps))
     allocate(this%fields(this%nmaps))
+    allocate(this%files(this%nmaps))
     allocate(this%units(this%nmaps))
     i = 0
     do i=1, this%nmaps
        if(.not. fp%read_string(this%fields(i)))call reporterror()
        if(.not. fp%read_string(this%units(i)))call reporterror()
        if(.not. fp%read_int(this%spin(i)))call reporterror()
-       if(.not. fp%read_string(fmap))call reporterror()
-       call this%map(i)%open(fmap)
+       if(.not. fp%read_string(this%files(i)))call reporterror()
+       call this%map(i)%open(this%files(i))
        if(i.eq.1)then
           this%dx = this%map(1)%dx
           this%dy = this%map(1)%dy
@@ -277,8 +349,8 @@ contains
     enddo
     if(.not. fp%read_logical(this%has_mask)) call reporterror()
     if(this%has_mask)then
-       if(.not. fp%read_string(fmap))call reporterror()
-       call this%mask%open(fmap)
+       if(.not. fp%read_string(this%fmask))call reporterror()
+       call this%mask%open(this%fmask)
        if(abs(this%dx/this%mask%dx - 1.d0).gt. eps .or. &
             abs(this%dy / this%mask%dy - 1.d0) .gt. eps .or. &
             this%nside(1).ne. this%mask%nside(1) .or. this%nside(2).ne.this%mask%nside(2))then
@@ -289,6 +361,16 @@ contains
        allocate(this%unmasked(this%npix))
        this%unmasked = this%mask%image .gt. halfmax
        this%total_weight = count(this%unmasked)
+       where(this%unmasked)
+          this%mask%image = 1.d0
+       elsewhere
+          this%mask%image = 0.d0
+       end where
+       do i=1, this%nmaps
+          where(.not.this%unmasked)
+             this%map(i)%image = 0.d0
+          end where
+       enddo
     else
        this%total_weight = this%npix
     endif
@@ -307,11 +389,14 @@ contains
     COOP_UNKNOWN_STRING::filename
     COOP_UNKNOWN_STRING,optional::mask
     COOP_INT,optional::nmaps
-    COOP_STRING::fmap
     COOP_INT::i
     COOP_REAL,parameter::eps = 1.d-5
     COOP_REAL::halfmax
     type(coop_file)::fp
+    if(.not. coop_file_exists(filename))then
+       write(*,*) trim(filename)//" does not exist"
+       stop
+    endif
     call this%free()
     if(present(nmaps))then
        if(nmaps .le. 0 .or. nmaps.gt.20) stop "read_from_one: nmaps overflow"
@@ -322,6 +407,7 @@ contains
     allocate(this%map(this%nmaps))
     allocate(this%spin(this%nmaps))
     allocate(this%fields(this%nmaps))
+    allocate(this%files(this%nmaps))
     allocate(this%units(this%nmaps))
     this%units = "muK"
     select case(this%nmaps)
@@ -338,6 +424,7 @@ contains
        this%spin = 0
        this%fields = "I"
     end select
+    this%files(1) = filename
     call this%map(1)%open(filename)
     this%dx = this%map(1)%dx
     this%dy = this%map(1)%dy
@@ -347,6 +434,7 @@ contains
     this%npix = this%map(1)%npix
     this%has_mask = present(mask)
     if(this%has_mask)then
+       this%fmask = mask
        call this%mask%open(mask)
        if(abs(this%dx/this%mask%dx - 1.d0).gt. eps .or. &
             abs(this%dy / this%mask%dy - 1.d0) .gt. eps .or. &
@@ -358,13 +446,22 @@ contains
        allocate(this%unmasked(this%npix))
        this%unmasked = this%mask%image .gt. halfmax
        this%total_weight = count(this%unmasked)
+       where(this%unmasked)
+          this%mask%image = 1.d0
+       elsewhere
+          this%mask%image = 0.d0
+          this%map(1)%image = 0.d0
+       end where
     else
        this%total_weight = this%npix
     endif
     do i=2, this%nmaps
        this%map(i) = this%map(1)
+       this%files(i) = "NULL"
     enddo
   end subroutine coop_flatsky_maps_read_from_one
+
+  
 
   subroutine coop_flatsky_maps_free(this)
     class(coop_flatsky_maps)::this
@@ -377,6 +474,7 @@ contains
     endif
     if(allocated(this%spin))deallocate(this%spin)
     if(allocated(this%fields))deallocate(this%fields)
+    if(allocated(this%files))deallocate(this%files)
     if(allocated(this%units))deallocate(this%units)
     if(allocated(this%unmasked))deallocate(this%unmasked)
     call this%mask%free()
@@ -384,6 +482,7 @@ contains
     this%npix = 0
     this%nside = 0
     this%has_mask = .false.
+    this%mask_changed = .false.
   end subroutine coop_flatsky_maps_free
 
   subroutine coop_fits_open(this, filename)
