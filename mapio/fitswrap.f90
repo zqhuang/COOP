@@ -69,23 +69,110 @@ module coop_fitswrap_mod
   end type coop_fits_image_cea
 
   type coop_flatsky_maps
-     COOP_INT::nmaps, nside(2), npix
-     logical::has_mask
+     COOP_INT::nmaps = 0
+     COOP_INT::npix = 0
+     COOP_INT,dimension(2)::nside = 0
+     logical::has_mask = .false.
      COOP_REAL::dx, dy, dkx, dky
+     COOP_REAL::total_weight = 0.d0
      COOP_INT,dimension(:),allocatable::spin
      COOP_SHORT_STRING,dimension(:),allocatable::fields
      COOP_SHORT_STRING,dimension(:),allocatable::units
      type(coop_fits_image_cea),dimension(:), allocatable::map
      type(coop_fits_image_cea)::mask
+     logical,dimension(:),allocatable::unmasked
    contains
      procedure::free => coop_flatsky_maps_free
      procedure::read => coop_flatsky_maps_read
      procedure::open => coop_flatsky_maps_read
      procedure::write => coop_flatsky_maps_write
+     procedure::weighted_sum => coop_flatsky_maps_weighted_sum
+     procedure::pixel_values => coop_flatsky_maps_pixel_values
+     procedure::is_unmasked => coop_flatsky_maps_is_unmasked
+     procedure::is_masked => coop_flatsky_maps_is_masked
+     procedure::get_peaks => coop_flatsky_maps_get_peaks
+     procedure::get_neighbours => coop_flatsky_maps_get_neighbours
+     procedure::get_zeros => coop_flatsky_maps_get_zeros
+     procedure::stack_on_peaks => coop_flatsky_maps_stack_on_peaks
+     procedure::stack_on_patch => coop_flatsky_maps_stack_on_patch
+     procedure::fetch_patch => coop_flatsky_maps_fetch_patch
   end type coop_flatsky_maps
 
 contains
 
+  subroutine  coop_flatsky_maps_get_zeros(this, imap, zeros)
+    class(coop_flatsky_maps)::this
+    COOP_INT::imap
+    logical zeros(0:this%npix-1)
+    COOP_INT::ix , iy, pix, list(8), ibase, ibase_minus, ibase_plus
+    zeros(0:this%nside(1)-1) = .false.
+    zeros(this%npix-this%nside(1):this%npix-1) = .false.
+    zeros(0:this%npix:this%nside(1)) = .false.
+    zeros(this%nside(1)-1:this%npix:this%nside(1)) = .false.
+    ibase = 0
+    ibase_minus = ibase - this%nside(1)
+    ibase_plus = ibase +  this%nside(1)
+    do iy = 1, this%nside(2)-2
+       ibase_minus = ibase
+       ibase = ibase_plus
+       ibase_plus = ibase_plus + this%nside(1)
+       do ix = 1, this%nside(1) - 2
+          list(1) = ibase_minus + ix - 1
+          list(2) = ibase_minus + ix
+          list(3) = ibase_minus + ix + 1
+          list(4) = ibase + ix - 1
+          list(5) = ibase + ix + 1
+          list(6) = ibase_plus + ix - 1
+          list(7) = ibase_plus + ix
+          list(8) = ibase_plus + ix + 1
+          zeros(ibase + ix) = any(this%map(imap)%image(list) .le. 0.d0) .and. any(this%map(imap)%image(list) .ge. 0.d0)
+       enddo
+    enddo
+  end subroutine coop_flatsky_maps_get_zeros
+
+  function coop_flatsky_maps_pixel_values(this, pix) result(map)
+    class(coop_flatsky_maps)::this
+    COOP_SINGLE::map(this%nmaps)
+    COOP_INT::pix, i
+    do i=1, this%nmaps
+       map(i) = this%map(i)%image(pix)
+    enddo
+  end function coop_flatsky_maps_pixel_values
+
+  function coop_flatsky_maps_is_unmasked(this, pix) result(unmasked)
+    class(coop_flatsky_maps)::this
+    COOP_INT::pix
+    logical unmasked
+    if(this%has_mask)then
+       unmasked = this%unmasked(pix)
+    else
+       unmasked = .true.
+    endif
+  end function coop_flatsky_maps_is_unmasked
+
+
+  function coop_flatsky_maps_is_masked(this, pix) result(masked)
+    class(coop_flatsky_maps)::this
+    COOP_INT::pix
+    logical masked
+    if(this%has_mask)then
+       masked = .not. this%unmasked(pix)
+    else
+       masked = .false.
+    endif
+  end function coop_flatsky_maps_is_masked
+  
+  function coop_flatsky_maps_weighted_sum(this, array) result(s)
+    class(coop_flatsky_maps)::this
+    COOP_REAL::s
+    COOP_REAL,dimension(:),intent(IN)::array
+    if(size(array).ne.this%npix) stop "flatsky_maps_weighted_sum: array size error"
+    if(this%has_mask)then
+       s = sum(array, mask = this%unmasked)
+    else
+       s = sum(array)
+    end if
+  end function coop_flatsky_maps_weighted_sum
 
   !!write a text file (and maps)
   !!============================
@@ -104,6 +191,7 @@ contains
   !!=============================
   subroutine coop_flatsky_maps_write(this, filename)
     class(coop_flatsky_maps)::this
+    COOP_UNKNOWN_STRING::filename
     type(coop_file)::fp
     COOP_INT::i
     COOP_STRING::fname
@@ -113,7 +201,7 @@ contains
     do i = 1, this%nmaps
        write(fp%unit, "(A)") trim(this%fields(i))
        write(fp%unit, "(A)") trim(this%units(i))
-       write(fp%unit, "(I5)") trim(this%spin(i))
+       write(fp%unit, "(I5)") this%spin(i)
        fname = trim(coop_file_replace_postfix(filename, "_MAP"//COOP_STR_OF(i)//".fits"))
        write(fp%unit, "(A)") trim(fname)
        call this%map(i)%write(fname)
@@ -149,6 +237,8 @@ contains
     COOP_UNKNOWN_STRING::filename
     COOP_STRING::fmap
     COOP_INT::i
+    COOP_REAL,parameter::eps = 1.d-5
+    COOP_REAL::halfmax
     type(coop_file)::fp
     call this%free()
     call fp%open(filename)
@@ -168,11 +258,38 @@ contains
        if(.not. fp%read_int(this%spin(i)))call reporterror()
        if(.not. fp%read_string(fmap))call reporterror()
        call this%map(i)%open(fmap)
+       if(i.eq.1)then
+          this%dx = this%map(1)%dx
+          this%dy = this%map(1)%dy
+          this%dkx = this%map(1)%dkx
+          this%dky = this%map(1)%dky
+          this%nside = this%map(1)%nside(1:2)
+          this%npix = this%map(1)%npix
+       else
+          if(abs(this%dx/this%map(i)%dx - 1.d0).gt. eps .or. &
+               abs(this%dy / this%map(i)%dy - 1.d0) .gt. eps .or. &
+               this%nside(1).ne. this%map(i)%nside(1) .or. this%nside(2).ne.this%map(i)%nside(2))then
+             write(*,*) "flatsky_read error: not all maps have the same configuration"
+             stop
+          endif
+       endif
     enddo
     if(.not. fp%read_logical(this%has_mask)) call reporterror()
     if(this%has_mask)then
        if(.not. fp%read_string(fmap))call reporterror()
-       call this%mask(i)%open(fmap)       
+       call this%mask%open(fmap)
+       if(abs(this%dx/this%mask%dx - 1.d0).gt. eps .or. &
+            abs(this%dy / this%mask%dy - 1.d0) .gt. eps .or. &
+            this%nside(1).ne. this%mask%nside(1) .or. this%nside(2).ne.this%mask%nside(2))then
+          write(*,*) "flatsky_read error: not all maps have the same configuration"
+          stop
+       endif
+       halfmax = 0.5*maxval(this%mask%image)
+       allocate(this%unmasked(this%npix))
+       this%unmasked = this%mask%image .gt. halfmax
+       this%total_weight = count(this%unmasked)
+    else
+       this%total_weight = this%npix
     endif
     call fp%close()
   contains
@@ -189,13 +306,17 @@ contains
        do i=1, this%nmaps
           call this%map(i)%free()
        enddo
-       call deallocate(this%map)
+       deallocate(this%map)
     endif
     if(allocated(this%spin))deallocate(this%spin)
     if(allocated(this%fields))deallocate(this%fields)
     if(allocated(this%units))deallocate(this%units)
+    if(allocated(this%unmasked))deallocate(this%unmasked)
+    call this%mask%free()
     this%nmaps = 0
+    this%npix = 0
     this%nside = 0
+    this%has_mask = .false.
   end subroutine coop_flatsky_maps_free
 
   subroutine coop_fits_open(this, filename)
@@ -1424,252 +1545,237 @@ contains
 
 
 
-  subroutine coop_flatsky_maps_get_peaks(this, sto, mask)
-    class
-    type(coop_fits_image_cea),optional::imap, qmap, umap,mask
+  subroutine coop_flatsky_maps_get_peaks(this, sto)
+    class(coop_flatsky_maps)::this
     type(coop_stacking_options)::sto
-    logical::domask, hasi, hasqu
-    COOP_INT::total_weight, npts
+    COOP_INT::npts, index_peak
     COOP_REAL::mean, thetaphi(2)
-    COOP_INT::i, list(8), nneigh, nmaps, iskip, ix, iy, ibase
+    COOP_INT::i, list(8), nmaps, iskip, ix, iy, ibase, ibase_plus, ibase_minus
+    logical,dimension(:),allocatable::zeros1, zeros2
     COOP_INT,parameter::max_npeaks = 100000
+    if(sto%nmaps .ne. this%nmaps) stop "get_peaks: nmaps does not agree"
+    if(this%total_weight .lt. 1.d0) stop "get_peaks: no unmasked pixels"
     call sto%free()
-    nmaps = 0
-    hasi = present(imap)
-    if(hasi)nmaps = nmaps+1
-    hasqu = present(qmap) .and. present(umap)
-    if(hasqu)then
-       nmaps = nmaps+2
+    sto%nside = this%nside(1)
+    sto%nside2 = this%nside(2)
+
+    if(sto%index_I .ne. 0 .and. (abs(sto%I_lower_nu).lt.coop_stacking_max_threshold .or. abs(sto%I_upper_nu).lt. coop_stacking_max_threshold))then  !!rescale I
+       mean = this%weighted_sum(this%map(sto%index_I)%image)/this%total_weight
+       sto%sigma_I  = sqrt(this%weighted_sum( (this%map(sto%index_I)%image-mean)**2 )/this%total_weight)
+       sto%I_lower = mean + sto%I_lower_nu* sto%sigma_I
+       sto%I_upper = mean + sto%I_upper_nu* sto%sigma_I
     endif
-    if(sto%nmaps .ne. nmaps) stop "get_peaks: nmaps does not agree"
-    domask = present(mask)
-    if(.not. hasi .and. .not. hasqu)then
-       write(*,*) "you need either imap or q,u maps for get_peak"
-       stop
-    endif
-    if(hasi)then
-       sto%nside = imap%nside(1)
-       sto%nside2 = imap%nside(2)
-       if(hasqu)then
-          if(qmap%nside(1).ne. sto%nside .or. umap%nside(1).ne. sto%nside .or. qmap%nside(2).ne.sto%nside2 .or. umap%nside(2).ne.sto%nside2)then
-             write(*,*) "error in get_peaks: map sizes differ"
-             stop
-          endif
-       endif
-    else
-       sto%nside = qmap%nside(1)
-       sto%nside2 = qmap%nside(2)
-       if(umap%nside(1).ne. sto%nside .or. umap%nside(2).ne.sto%nside2)then
-          write(*,*) "error in get_peaks: map sizes differ"
-          stop
-       endif
-    endif
-    if(domask)then
-       if(mask%nside(1).ne. sto%nside .or. mask%nside(2).ne.sto%nside2)then
-          write(*,*) "error in get_peaks: mask and map sizes differ"
-          stop
-       endif
-       total_weight = count(mask%image .gt. 0.5)
-    else
-       total_weight = sto%nside * sto%nside2
-    endif
-    if(total_weight .lt. 1) stop "get_peaks: no unmasked pixels"
-    if(sto%index_I .ne. 0 .and. (abs(sto%I_lower_nu).lt.coop_stacking_max_threshold .or. abs(sto%I_upper_nu).lt. coop_stacking_max_threshold))then
-       if(hasi)then
-          if(domask)then
-             mean = sum(imap%image,mask%image.gt.0.5)/total_weight
-             sto%sigma_I = sqrt(sum((imap%image-mean)**2, mask%image .gt. 0.5)/total_weight)
-          else
-             mean = sum(imap%image)/total_weight
-             sto%sigma_I = sqrt(sum((imap%image-mean)**2)/total_weight)
-          endif
-          sto%I_lower = mean + sto%I_lower_nu * sto%sigma_I
-          sto%I_upper = mean + sto%I_upper_nu*sto%sigma_I
-       else
-          write(*,*) "stacking options require an imap input, which is missing."
-       endif
-    endif
-    if(sto%index_L .ne. 0)then
-       write(*,*) "For flatsky stacking Laplace map is not yet supported."
-       stop
+    if(sto%index_L .ne. 0 .and. (abs(sto%L_lower_nu).lt.coop_stacking_max_threshold .or. abs(sto%L_upper_nu).lt. coop_stacking_max_threshold) )then  !!rescale L
+       mean = this%weighted_sum(this%map(sto%index_L)%image)/this%total_weight
+       sto%sigma_L  = sqrt(this%weighted_sum((this%map(sto%index_L)%image-mean)**2)/this%total_weight)
+       sto%L_lower = mean+sto%L_lower_nu* sto%sigma_L
+       sto%L_upper = mean+sto%L_upper_nu* sto%sigma_L
     endif
     if(sto%index_Q .ne. 0 .and. sto%index_U .ne. 0 .and. (abs(sto%P_lower_nu).lt.coop_stacking_max_threshold .or. abs(sto%P_upper_nu).lt. coop_stacking_max_threshold) )then  !!rescale P2
-       if(hasqu)then
-          if(domask)then
-             sto%sigma_P  = sqrt(sum(qmap%image**2+umap%image**2, mask%image .gt.0.5)/total_weight)
-          else
-             sto%sigma_P  = sqrt(sum(qmap%image**2+umap%image**2)/total_weight)
-          endif
-          sto%P2_lower = (sto%P_lower_nu * sto%sigma_P)**2
-          sto%P2_upper = (sto%P_upper_nu * sto%sigma_P)**2
-       else
-          stop "get_peaks: q, u maps are missing"
+       sto%sigma_P  = sqrt(this%weighted_sum(this%map(sto%index_Q)%image**2+this%map(sto%index_U)%image**2)/this%total_weight)
+       sto%P2_lower = (sto%P_lower_nu * sto%sigma_P)**2
+       sto%P2_upper = (sto%P_upper_nu * sto%sigma_P)**2
+    endif
+    select case(sto%genre)
+    case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented, coop_stacking_genre_col_oriented)
+       index_peak = sto%index_I
+       if(index_peak .ne. 1 .or. sto%index_L .ne. 4 .or. sto%index_Q .ne. 2 .or. sto%index_U .ne. 3 .or. this%nmaps .lt. 6)then
+          stop "get_peaks: wrong configuration for saddle points stacking"
        endif
-    endif
-    if(domask)then
-       select case(sto%genre)
-       case(coop_stacking_genre_Imax, coop_stacking_genre_Imax_oriented)
-          if(.not.hasi) stop "get_peaks: missing i map"
-          do i=0, imap%npix - 1
-             if(imap%image(i) .ge. sto%I_lower .and. imap%image(i) .le. sto%I_upper .and. mask%image(i) .gt. 0.5 )then
-                call imap%get_neighbours(i, list, nneigh)
-                if(all(mask%image(list(1:nneigh)).gt.0.5) .and. all(imap%image(list(1:nneigh)) .lt. imap%image(i)))then
-                   call sto%peak_pix%push(i)
-                   call imap%pix2ang(i, thetaphi(1), thetaphi(2))
-                   call sto%peak_ang%push(real(thetaphi))
-                   if(hasqu)then
-                      call sto%peak_map%push( real( (/ imap%image(i), qmap%image(i), umap%image(i) /) ) )
-                   else
-                      call sto%peak_map%push( (/ real(imap%image(i)) /) )
-                   endif
-                endif
-             endif
-          enddo
-       case(coop_stacking_genre_Imin, coop_stacking_genre_Imin_Oriented)
-          if(.not.hasi) stop "get_peaks: missing i map"
-          do i=0, imap%npix - 1
-             if(imap%image(i) .ge. sto%I_lower .and. imap%image(i) .le. sto%I_upper .and. mask%image(i) .gt. 0.5 )then
-                call imap%get_neighbours(i, list, nneigh)
-                if(all(mask%image(list(1:nneigh)).gt.0.5) .and. all(imap%image(list(1:nneigh)) .gt. imap%image(i)))then
-                   call sto%peak_pix%push(i)
-                   call imap%pix2ang(i, thetaphi(1), thetaphi(2))
-                   call sto%peak_ang%push(real(thetaphi))
-                   if(hasqu)then
-                      call sto%peak_map%push( real( (/ imap%image(i), qmap%image(i), umap%image(i) /) ) )
-                   else
-                      call sto%peak_map%push( (/ real(imap%image(i)) /) )
-                   endif
-                endif
-             endif
-          enddo
-       case(coop_stacking_genre_random_hot, coop_stacking_genre_random_cold, coop_stacking_genre_random_hot_oriented, coop_stacking_genre_random_cold_oriented)
-          if(.not.hasi) stop "get_peaks: missing i map"
-          npts = count(imap%image .ge. sto%I_lower .and. imap%image .le. sto%I_upper .and. mask%image .gt. 0.5)
-          if(npts .gt. max_npeaks)then
-             iskip = nint(sqrt(dble(npts)/max_npeaks))
-             do iy = 0, imap%nside(2)-1, iskip
-                ibase = iy*imap%nside(1)
-                do ix=0, imap%nside(1)-1, iskip
-                   i = ibase + ix
-                   if(imap%image(i) .ge. sto%I_lower .and. imap%image(i) .le. sto%I_upper .and. mask%image(i) .gt. 0.5 )then
-                      call sto%peak_pix%push(i)
-                      call imap%pix2ang(i, thetaphi(1), thetaphi(2))
-                      call sto%peak_ang%push(real(thetaphi))
-                      if(hasqu)then
-                         call sto%peak_map%push( real( (/ imap%image(i), qmap%image(i), umap%image(i) /) ) )
-                      else
-                         call sto%peak_map%push( (/ real(imap%image(i)) /) )
-                      endif
-                   endif
-                enddo
-             enddo
-          else
-             do i=0, imap%npix - 1
-                if(imap%image(i) .ge. sto%I_lower .and. imap%image(i) .le. sto%I_upper .and. mask%image(i) .gt. 0.5 )then
-                   call sto%peak_pix%push(i)
-                   call imap%pix2ang(i, thetaphi(1), thetaphi(2))
-                   call sto%peak_ang%push(real(thetaphi))
-                   if(hasqu)then
-                      call sto%peak_map%push( real( (/ imap%image(i), qmap%image(i), umap%image(i) /) ))
-                   else
-                      call sto%peak_map%push( (/ real(imap%image(i)) /) )
-                   endif
-                endif
-             enddo
-          endif
-       end select
-    else
-       select case(sto%genre)
-       case(coop_stacking_genre_Imax, coop_stacking_genre_Imax_oriented)
-          if(.not.hasi) stop "get_peaks: missing i map"
-          do i=0, imap%npix - 1
-             if(imap%image(i) .ge. sto%I_lower .and. imap%image(i) .le. sto%I_upper )then
-                call imap%get_neighbours(i, list, nneigh)
-                if( all(imap%image(list(1:nneigh)) .lt. imap%image(i)))then
-                   call sto%peak_pix%push(i)
-                   call imap%pix2ang(i, thetaphi(1), thetaphi(2))
-                   call sto%peak_ang%push(real(thetaphi))
-                   if(hasqu)then
-                      call sto%peak_map%push( real((/ imap%image(i), qmap%image(i), umap%image(i) /) ))
-                   else
-                      call sto%peak_map%push( (/ real(imap%image(i)) /) )
-                   endif
-                endif
-             endif
-          enddo
-       case(coop_stacking_genre_Imin, coop_stacking_genre_Imin_Oriented)
-          if(.not.hasi) stop "get_peaks: missing i map"
-          do i=0, imap%npix - 1
-             if(imap%image(i) .ge. sto%I_lower .and. imap%image(i) .le. sto%I_upper  )then
-                call imap%get_neighbours(i, list, nneigh)
-                if(all(imap%image(list(1:nneigh)) .gt. imap%image(i)))then
-                   call sto%peak_pix%push(i)
-                   call imap%pix2ang(i, thetaphi(1), thetaphi(2))
-                   call sto%peak_ang%push(real(thetaphi))
-                   if(hasqu)then
-                      call sto%peak_map%push( real((/ imap%image(i), qmap%image(i), umap%image(i) /) ))
-                   else
-                      call sto%peak_map%push( (/ real(imap%image(i)) /) )
-                   endif
-                endif
-             endif
-          enddo
-       case(coop_stacking_genre_random_hot, coop_stacking_genre_random_cold, coop_stacking_genre_random_hot_oriented, coop_stacking_genre_random_cold_oriented)
-          if(.not.hasi) stop "get_peaks: missing i map"
-          npts = count(imap%image .ge. sto%I_lower .and. imap%image .le. sto%I_upper)
-          if(npts .gt. max_npeaks)then
-             iskip = nint(sqrt(dble(npts)/max_npeaks))
-             do iy = 0, imap%nside(2)-1, iskip
-                ibase = iy*imap%nside(1)
-                do ix=0, imap%nside(1)-1, iskip
-                   i = ibase + ix
-                   if(imap%image(i) .ge. sto%I_lower .and. imap%image(i) .le. sto%I_upper )then
-                      call sto%peak_pix%push(i)
-                      call imap%pix2ang(i, thetaphi(1), thetaphi(2))
-                      call sto%peak_ang%push(real(thetaphi))
-                      if(hasqu)then
-                         call sto%peak_map%push( real((/ imap%image(i), qmap%image(i), umap%image(i) /)) )
-                      else
-                         call sto%peak_map%push( (/ real(imap%image(i)) /) )
-                      endif
-                   endif
-                enddo
-             enddo
-          else
-             do i=0, imap%npix - 1
-                if(imap%image(i) .ge. sto%I_lower .and. imap%image(i) .le. sto%I_upper)then
-                   call sto%peak_pix%push(i)
-                   call imap%pix2ang(i, thetaphi(1), thetaphi(2))
-                   call sto%peak_ang%push(real(thetaphi))
-                   if(hasqu)then
-                      call sto%peak_map%push( real((/ imap%image(i), qmap%image(i), umap%image(i) /)))
-                   else
-                      call sto%peak_map%push( (/ real(imap%image(i)) /) )
-                   endif
-                endif
-             enddo
-          endif
-       end select
-    endif
-  end subroutine coop_fits_image_cea_get_peaks
+    case(coop_stacking_genre_Imax, coop_stacking_genre_Imin, coop_stacking_genre_Imax_Oriented, coop_stacking_genre_Imin_Oriented)
+       index_peak = sto%index_I
+       if(index_peak .le. 0 .or. index_peak .gt. this%nmaps) stop "map index of peak overflow"
+    case(coop_stacking_genre_Lmax, coop_stacking_genre_Lmin, coop_stacking_genre_Lmax_Oriented, coop_stacking_genre_Lmin_Oriented)
+       index_peak = sto%index_L
+       if(index_peak .le. 0 .or. index_peak .gt. this%nmaps) stop "map index of peak overflow"
+    case(coop_stacking_genre_random_hot, coop_stacking_genre_random_cold, coop_stacking_genre_random_hot_oriented, coop_stacking_genre_random_cold_oriented)
+       if(sto%index_Q .ne. 0 .and. sto%index_U .ne. 0 .and. (abs(sto%P_lower_nu).lt.coop_stacking_max_threshold .or. abs(sto%P_upper_nu).lt. coop_stacking_max_threshold) )then
+          index_peak = sto%index_Q
+       else
+          index_peak = sto%index_I
+       endif
+    case default
+       index_peak = sto%index_Q
+    end select
 
 
-  subroutine coop_fits_image_cea_stack_on_peaks(map, map2, sto, patch, mask, norm)
+    select case(sto%genre)
+    case(coop_stacking_genre_Imax, coop_stacking_genre_Imax_Oriented, coop_stacking_genre_Lmax, coop_stacking_genre_Lmax_Oriented)
+       ibase = 0
+       ibase_minus = ibase - this%nside(1)
+       ibase_plus = ibase +  this%nside(1)
+       do iy = 1, this%nside(2)-2
+          ibase_minus = ibase
+          ibase = ibase_plus
+          ibase_plus = ibase_plus + this%nside(1)
+          do ix = 1, this%nside(1) - 2
+             i  = ibase + ix
+             if(this%is_masked(i) .or. sto%reject( this%pixel_values(i) ))cycle
+             list(1) = ibase_minus + ix - 1
+             list(2) = ibase_minus + ix
+             list(3) = ibase_minus + ix + 1
+             list(4) = ibase + ix - 1
+             list(5) = ibase + ix + 1
+             list(6) = ibase_plus + ix - 1
+             list(7) = ibase_plus + ix
+             list(8) = ibase_plus + ix + 1
+             if( all(this%map(index_peak)%image(list) .lt. this%map(index_peak)%image(i)))then
+                call sto%peak_pix%push(i)
+                call this%map(index_peak)%pix2ang(i, thetaphi(1), thetaphi(2))
+                call sto%peak_ang%push(real(thetaphi))
+                call sto%peak_map%push( this%pixel_values(i) )
+             endif
+          enddo
+       enddo
+    case(coop_stacking_genre_Imin, coop_stacking_genre_Imin_Oriented, coop_stacking_genre_Lmin, coop_stacking_genre_Lmin_Oriented)
+       ibase = 0
+       ibase_minus = ibase - this%nside(1)
+       ibase_plus = ibase +  this%nside(1)
+       do iy = 1, this%nside(2)-2
+          ibase_minus = ibase
+          ibase = ibase_plus
+          ibase_plus = ibase_plus + this%nside(1)
+          do ix = 1, this%nside(1) - 2
+             i  = ibase + ix
+             if(this%is_masked(i) .or. sto%reject( this%pixel_values(i) ))cycle
+             list(1) = ibase_minus + ix - 1
+             list(2) = ibase_minus + ix
+             list(3) = ibase_minus + ix + 1
+             list(4) = ibase + ix - 1
+             list(5) = ibase + ix + 1
+             list(6) = ibase_plus + ix - 1
+             list(7) = ibase_plus + ix
+             list(8) = ibase_plus + ix + 1
+             if( all(this%map(index_peak)%image(list) .gt. this%map(index_peak)%image(i)))then
+                call sto%peak_pix%push(i)
+                call this%map(index_peak)%pix2ang(i, thetaphi(1), thetaphi(2))
+                call sto%peak_ang%push(real(thetaphi))
+                call sto%peak_map%push( this%pixel_values(i) )
+             endif
+          enddo
+       enddo
+    case(coop_stacking_genre_random_hot, coop_stacking_genre_random_cold, coop_stacking_genre_random_hot_oriented, coop_stacking_genre_random_cold_oriented)
+       npts = 0
+       do i=0, this%npix-1
+          if(this%is_masked(i) .or. sto%reject( this%pixel_values(i)))cycle
+          npts = npts + 1
+       enddo
+       iskip = max(nint(sqrt(dble(npts)/max_npeaks)), 1)
+       do iy = 0, this%nside(2)-1, iskip
+          ibase = iy*this%nside(1)
+          do ix=0, this%nside(1)-1, iskip
+             i = ibase + ix
+             if(this%is_masked(i) .or. sto%reject( this%pixel_values(i)))cycle
+             call sto%peak_pix%push(i)
+             call this%map(index_peak)%pix2ang(i, thetaphi(1), thetaphi(2))
+             call sto%peak_ang%push(real(thetaphi))
+             call sto%peak_map%push( this%pixel_values(i) )
+          enddo
+       enddo
+    case(coop_stacking_genre_Pmax_Oriented)
+       ibase = 0
+       ibase_minus = ibase - this%nside(1)
+       ibase_plus = ibase +  this%nside(1)
+       do iy = 1, this%nside(2)-2
+          ibase_minus = ibase
+          ibase = ibase_plus
+          ibase_plus = ibase_plus + this%nside(1)
+          do ix = 1, this%nside(1) - 2
+             i  = ibase + ix
+             if(this%is_masked(i) .or. sto%reject( this%pixel_values(i) ))cycle
+             list(1) = ibase_minus + ix - 1
+             list(2) = ibase_minus + ix
+             list(3) = ibase_minus + ix + 1
+             list(4) = ibase + ix - 1
+             list(5) = ibase + ix + 1
+             list(6) = ibase_plus + ix - 1
+             list(7) = ibase_plus + ix
+             list(8) = ibase_plus + ix + 1
+             if( all(this%map(sto%index_Q)%image(list)**2+this%map(sto%index_U)%image(list)**2 .lt. this%map(sto%index_Q)%image(i)**2 +  this%map(sto%index_U)%image(i)**2 ))then
+                call sto%peak_pix%push(i)
+                call this%map(index_peak)%pix2ang(i, thetaphi(1), thetaphi(2))
+                call sto%peak_ang%push(real(thetaphi))
+                call sto%peak_map%push( this%pixel_values(i) )
+             endif
+          enddo
+       enddo
+    case(coop_stacking_genre_Pmin_Oriented)
+       ibase = 0
+       ibase_minus = ibase - this%nside(1)
+       ibase_plus = ibase +  this%nside(1)
+       do iy = 1, this%nside(2)-2
+          ibase_minus = ibase
+          ibase = ibase_plus
+          ibase_plus = ibase_plus + this%nside(1)
+          do ix = 1, this%nside(1) - 2
+             i  = ibase + ix
+             if(this%is_masked(i) .or. sto%reject( this%pixel_values(i) ))cycle
+             list(1) = ibase_minus + ix - 1
+             list(2) = ibase_minus + ix
+             list(3) = ibase_minus + ix + 1
+             list(4) = ibase + ix - 1
+             list(5) = ibase + ix + 1
+             list(6) = ibase_plus + ix - 1
+             list(7) = ibase_plus + ix
+             list(8) = ibase_plus + ix + 1
+             if( all(this%map(sto%index_Q)%image(list)**2+this%map(sto%index_U)%image(list)**2 .gt. this%map(sto%index_Q)%image(i)**2 +  this%map(sto%index_U)%image(i)**2 ))then
+                call sto%peak_pix%push(i)
+                call this%map(index_peak)%pix2ang(i, thetaphi(1), thetaphi(2))
+                call sto%peak_ang%push(real(thetaphi))
+                call sto%peak_map%push( this%pixel_values(i) )
+             endif
+          enddo
+       enddo
+    case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented, coop_stacking_genre_col_oriented)
+       allocate(zeros1(0:this%npix-1), zeros2(0:this%npix-1))
+       call this%get_zeros(5, zeros1)
+       call this%get_zeros(6, zeros2)
+       zeros1 = zeros1.and. zeros2
+       if(this%has_mask) zeros1 = zeros1 .and. this%unmasked
+       do i=0, this%npix-1
+          if(zeros1(i) .and. .not. sto%reject(this%pixel_values(i)) .and. this%map(2)%image(i)**2+this%map(3)%image(i)**2 .gt. this%map(4)%image(i)**2 )then
+             call sto%peak_pix%push(i)
+             call this%map(index_peak)%pix2ang(i, thetaphi(1), thetaphi(2))
+             call sto%peak_ang%push(real(thetaphi))
+             call sto%peak_map%push( this%pixel_values(i) )
+          endif
+       enddo
+       deallocate(zeros1, zeros2)
+    case default
+       stop "flatsky_maps_get_peaks: unknown stacking genre"
+    end select
+
+  end subroutine coop_flatsky_maps_get_peaks
+
+
+  subroutine coop_flatsky_maps_stack_on_peaks(this, sto, patch, norm)
     COOP_INT,parameter::n_threads = 8
-    class(coop_fits_image_cea)::map
-    class(coop_fits_image_cea),optional::map2, mask
+    class(coop_flatsky_maps)::this
     type(coop_stacking_options)::sto
-    COOP_REAL,dimension(n_threads)::angle
-    COOP_INT,dimension(n_threads)::center
     type(coop_healpix_patch)::patch
     type(coop_healpix_patch),dimension(n_threads)::p, tmp
-    type(coop_fits_image_cea),optional::mask
     logical,optional::norm
     COOP_INT ithread, i
-#ifdef HAS_HEALPIX
+    if(this%nside(1) .ne. sto%nside .or. this%nside(2) .ne. sto%nside2) stop "flatsky stacking only supports maps with same nside"
     patch%image = 0.d0
     patch%nstack = 0.d0
     patch%nstack_raw = 0
+    !!adjust the index of maps
+    i = 1
+    do while(i.le.patch%nmaps)
+       if(patch%tbs%ind(i) .gt. this%nmaps) stop "stack_on_peaks: index overflow"       
+       do while(patch%tbs%spin(i) .ne. this%spin(patch%tbs%ind(i)))
+          patch%tbs%ind(i)  = patch%tbs%ind(i) + 1
+          if(patch%tbs%ind(i) .gt. this%nmaps) stop "stack_on_peaks: cannot find the map with corresponding spin"
+       enddo
+       if(patch%tbs%spin(i) .ne. 0)then
+          if(i.ge.patch%nmaps .or. patch%tbs%ind(i) .ge. this%nmaps) stop "stack_on_peaks: nonzero spin must go in pairs"
+          patch%tbs%ind(i+1) = patch%tbs%ind(i) + 1
+          i = i+2
+       else
+          i = i+1
+       endif
+    enddo
     do ithread=1, n_threads
        p(ithread) = patch
        tmp(ithread) = patch
@@ -1677,23 +1783,11 @@ contains
     !$omp parallel do private(i, ithread)
     do ithread = 1, n_threads
        do i=ithread, sto%peak_pix%n, n_threads
-          center(i) = sto%pix(
-          if(present(map2))then
-             if(present(mask))then
-                call coop_fits_image_cea_stack_on_patch(map = map, map2 = map2, mask = mask, center = center(ithread), angle = angle(ithread), patch = p(ithread), tmp_patch = tmp(ithread))
-             else
-                call coop_fits_image_cea_stack_on_patch(map = map, map2 = map2,  center = center(ithread), angle = angle(ithread), patch = p(ithread), tmp_patch = tmp(ithread))
-             endif
-          else
-             if(present(mask))then
-                call coop_fits_image_cea_stack_on_patch(map = map,  mask = mask, center = center(ithread), angle = angle(ithread), patch = p(ithread), tmp_patch = tmp(ithread))
-             else
-                call coop_fits_image_cea_stack_on_patch(map = map,  center = center(ithread), angle = angle(ithread), patch = p(ithread), tmp_patch = tmp(ithread))
-             endif
-          endif
+          call this%stack_on_patch(center = sto%peak_pix%element(i), angle = sto%rotate_angle(i), patch = p(ithread), tmp_patch = tmp(ithread))
        enddo
     enddo
     !$omp end parallel do
+
     do ithread = 1, n_threads
        patch%image = patch%image + p(ithread)%image
        patch%nstack = patch%nstack + p(ithread)%nstack
@@ -1712,32 +1806,16 @@ contains
        write(*,*) "warning: no patches has been found"
        patch%image = 0.d0
     endif
-#else
-    stop "CANNOT FIND HEALPIX"
-#endif
-  end subroutine coop_healpix_maps_stack_on_peaks
+  end subroutine coop_flatsky_maps_stack_on_peaks
 
 
-  subroutine coop_fits_image_cea_stack_on_patch(map, map2, center, angle, patch, tmp_patch, mask)
-    type(coop_fits_image_cea)::map
-    type(coop_fits_image_cea),optional::mask, map2
+  subroutine coop_flatsky_maps_stack_on_patch(this, center, angle, patch, tmp_patch)
+    class(coop_flatsky_maps)::this
     COOP_REAL angle
     COOP_INT::center
     type(coop_healpix_patch) patch, tmp_patch
     if(angle .ge. 1.d30)return
-    if(present(map2))then
-       if(present(mask))then
-          call coop_fits_image_cea_fetch_patch(map = map, map2 = map2, center = center, angle = angle, patch = tmp_patch, mask = mask)
-       else
-          call coop_fits_image_cea_fetch_patch(map = map, map2 = map2, center = center, angle = angle, patch = tmp_patch, mask = mask)
-       endif
-    else
-       if(present(mask))then
-          call coop_fits_image_cea_fetch_patch(map = map, center = center, angle = angle, patch = tmp_patch, mask = mask)
-       else
-          call coop_fits_image_cea_fetch_patch(map = map, center = center, angle = angle, patch = tmp_patch, mask = mask)
-       endif
-    endif
+    call this%fetch_patch(center = center, angle = angle, patch = tmp_patch)
     if(sum(tmp_patch%nstack*tmp_patch%indisk) .lt. patch%num_indisk_tol)return
     if(angle .gt. coop_4pi)then   !! if angle > 4pi do flip
        call tmp_patch%flipx()
@@ -1747,74 +1825,66 @@ contains
     patch%image = patch%image + tmp_patch%image
     patch%nstack = patch%nstack + tmp_patch%nstack
     patch%nstack_raw = patch%nstack_raw + tmp_patch%nstack_raw
-  end subroutine coop_fits_image_cea_stack_on_patch
+  end subroutine coop_flatsky_maps_stack_on_patch
 
 
-  subroutine coop_fits_image_cea_fetch_patch(map, map2, patch, center, angle, mask)
-    type(coop_fits_image_cea)::map
-    type(coop_fits_image_cea), optional::map2, mask
+  subroutine coop_flatsky_maps_fetch_patch(this, patch, center, angle)
+    class(coop_flatsky_maps)::this
     COOP_INT::pix, center
     COOP_REAL angle
     type(coop_healpix_patch) patch
     COOP_INT i, j, k, ix, iy, ix_center, iy_center
     COOP_REAL x, y, r, phi
     COOP_SINGLE qu(2)
-    iy_center = center/map%nside(1)
-    ix_center = center - iy_center * map%nside(1)
+    iy_center = center/this%nside(1)
+    ix_center = center - iy_center * this%nside(1)
     patch%nstack_raw = 1
-    select case(patch%nmaps)
-    case(1)
+    if(all(patch%tbs%spin .eq. 0))then
        do j = -patch%n, patch%n
           do i = -patch%n, patch%n
              x = patch%dr * i
              y = patch%dr * j
              r = sqrt(x**2+y**2)
-             if(r.ge. 2.d0)cycle
              phi = COOP_POLAR_ANGLE(x, y) + angle
-             ix = nint(r*cos(phi)/map%dx) + ix_center
-             iy = nint(r*sin(phi)/map%dy) + iy_center
-             if(ix .ge. 0 .and. ix .lt. map%nside(1) .and. iy .ge. 0 .and. iy .lt. map%nside(2))then
-                pix = ix  + iy*map%nside(1)
-                if(present(mask))then
-                   patch%nstack(i, j) = mask%image(pix)
-                   patch%image(i, j, 1) = map%image(pix)*mask%image(pix)
-                else 
+             ix = nint(r*cos(phi)/this%dx) + ix_center
+             iy = nint(r*sin(phi)/this%dy) + iy_center
+             if(ix .ge. 0 .and. ix .lt. this%nside(1) .and. iy .ge. 0 .and. iy .lt. this%nside(2))then
+                pix = ix  + iy*this%nside(1)
+                if(this%is_unmasked(pix))then
                    patch%nstack(i, j) = 1.
-                   patch%image(i, j, 1) = map%image(pix)
+                   patch%image(i, j, :) = this%pixel_values(pix)
+                else
+                   patch%image(i, j, :) = 0.
+                   patch%nstack(i, j) = 0.
                 endif
              else
-                patch%image(i, j, 1) = 0.
+                patch%image(i, j, :) = 0.
                 patch%nstack(i, j) = 0.
              endif
           enddo
        enddo
-    case(2)
-       if(.not. present(map2))then
-          write(*,*) "For QU stacking you need to pass two maps into the subroutine"
-          stop
-       endif
+    elseif(patch%nmaps .eq. 2 .and. all(patch%tbs%spin .ne. 0))then
        if(all(patch%tbs%local_rotation))then
           do j = -patch%n, patch%n
              do i = -patch%n, patch%n
                 x = patch%dr * i
                 y = patch%dr * j
                 r = sqrt(x**2+y**2)
-                if(r.ge. 2.d0)cycle
                 phi = COOP_POLAR_ANGLE(x, y) + angle
-                ix = nint(r*cos(phi)/map%dx) + ix_center
-                iy = nint(r*sin(phi)/map%dy) + iy_center
-                if(ix .ge. 0 .and. ix .lt. map%nside(1) .and. iy .ge. 0 .and. iy .lt. map%nside(2))then
-                   pix = ix  + iy*map%nside(1)
-                   qu(1) = map%image(pix)
-                   qu(2) = map2%image(pix)
+                ix = nint(r*cos(phi)/this%dx) + ix_center
+                iy = nint(r*sin(phi)/this%dy) + iy_center
+                if(ix .ge. 0 .and. ix .lt. this%nside(1) .and. iy .ge. 0 .and. iy .lt. this%nside(2))then
+                   pix = ix  + iy*this%nside(1)
+                   qu(1) = this%map(patch%tbs%ind(1))%image(pix)
+                   qu(2) = this%map(patch%tbs%ind(2))%image(pix)
                    call coop_healpix_rotate_qu(qu, phi,patch%tbs%spin(1))
                    qu = qu*coop_healpix_QrUrSign
-                   if(present(mask))then
-                      patch%nstack(i, j) = mask%image(pix)
-                      patch%image(i, j, 1:2) = qu*mask%image(pix)
-                   else 
-                      patch%nstack(i, j) = 1.
+                   if(this%is_unmasked(pix))then
+                      patch%nstack(i, j) = 1.d0
                       patch%image(i, j, 1:2) = qu
+                   else 
+                      patch%nstack(i, j) = 0.d0
+                      patch%image(i, j, 1:2) = 0.d0
                    endif
                 else
                    patch%image(i, j, :) = 0.
@@ -1828,21 +1898,20 @@ contains
                 x = patch%dr * i
                 y = patch%dr * j
                 r = sqrt(x**2+y**2)
-                if(r.ge. 2.d0)cycle
                 phi = COOP_POLAR_ANGLE(x, y) + angle
-                ix = nint(r*cos(phi)/map%dx) + ix_center
-                iy = nint(r*sin(phi)/map%dy) + iy_center
-                if(ix .ge. 0 .and. ix .lt. map%nside(1) .and. iy .ge. 0 .and. iy .lt. map%nside(2))then
-                   pix = ix  + iy*map%nside(1)
-                   qu(1) = map%image(pix)
-                   qu(2) = map2%image(pix)
-                   call coop_healpix_rotate_qu(qu, angle, patch%tbs%spin(1))
-                   if(present(mask))then
-                      patch%nstack(i, j) = mask%image(pix)
-                      patch%image(i, j, 1:2) = qu*mask%image(pix)
-                   else 
-                      patch%nstack(i, j) = 1.
+                ix = nint(r*cos(phi)/this%dx) + ix_center
+                iy = nint(r*sin(phi)/this%dy) + iy_center
+                if(ix .ge. 0 .and. ix .lt. this%nside(1) .and. iy .ge. 0 .and. iy .lt. this%nside(2))then
+                   pix = ix  + iy*this%nside(1)
+                   qu(1) = this%map(patch%tbs%ind(1))%image(pix)
+                   qu(2) = this%map(patch%tbs%ind(2))%image(pix)
+                   call coop_healpix_rotate_qu(qu, angle,patch%tbs%spin(1))
+                   if(this%is_unmasked(pix))then
+                      patch%nstack(i, j) = 1.d0
                       patch%image(i, j, 1:2) = qu
+                   else 
+                      patch%nstack(i, j) = 0.d0
+                      patch%image(i, j, 1:2) = 0.d0
                    endif
                 else
                    patch%image(i, j, :) = 0.
@@ -1851,10 +1920,52 @@ contains
              enddo
           enddo
        endif
-    case default
-       stop "flatsky stacking only support nmaps = 1 or 2"
-    end select
-  end subroutine coop_fits_image_cea_fetch_patch
+    else
+       do j = -patch%n, patch%n
+          do i = -patch%n, patch%n
+             x = patch%dr * i
+             y = patch%dr * j
+             r = sqrt(x**2+y**2)
+             phi = COOP_POLAR_ANGLE(x, y) + angle
+             ix = nint(r*cos(phi)/this%dx) + ix_center
+             iy = nint(r*sin(phi)/this%dy) + iy_center
+             if(ix .ge. 0 .and. ix .lt. this%nside(1) .and. iy .ge. 0 .and. iy .lt. this%nside(2))then
+                pix = ix  + iy*this%nside(1)
+                if(this%is_masked(pix))then
+                   patch%nstack(i,j) = 0.d0
+                   patch%image(i, j, :) = 0.d0
+                   cycle
+                else
+                   patch%nstack(i,j) = 1.d0
+                endif
+             else
+                patch%nstack(i,j) = 0.d0
+                patch%image(i, j, :) = 0.d0
+                cycle
+             endif      
+
+             k = 1
+             do while(k.le. patch%nmaps)
+                if(patch%tbs%spin(k) .eq. 0)then
+                   patch%image(i, j, k) = this%map(patch%tbs%ind(k))%image(pix)
+                   k = k + 1
+                else
+                   qu(1) = this%map(patch%tbs%ind(k))%image(pix)
+                   qu(2) = this%map(patch%tbs%ind(k+1))%image(pix)
+                   if(patch%tbs%local_rotation(k))then
+                      call coop_healpix_rotate_qu(qu, phi, patch%tbs%spin(k))
+                      qu = qu * coop_healpix_QrUrSign
+                   else
+                      call coop_healpix_rotate_qu(qu, angle,patch%tbs%spin(k))
+                   endif
+                   patch%image(i, j, k:k+1) = qu
+                   k = k + 2
+                end if
+             enddo
+          enddo
+       enddo
+    endif
+  end subroutine coop_flatsky_maps_fetch_patch
 
   subroutine coop_fits_image_cea_smooth_EB2QU(this)
     class(coop_fits_image_cea)::this
@@ -2163,6 +2274,51 @@ contains
        endif
     endif
   end subroutine coop_fits_image_cea_get_neighbours
+
+
+  subroutine coop_flatsky_maps_get_neighbours(this, pix, list, nneigh)
+    class(coop_flatsky_maps)::this
+    COOP_INT::pix
+    COOP_INT::list(8), nneigh
+    COOP_INT ix, iy, i
+    iy = pix/this%nside(1) 
+    ix = pix  - iy*this%nside(1) 
+    nneigh = 0
+    if(iy .gt. 0)then
+       nneigh = nneigh + 1
+       list(nneigh) = ix + (iy-1)*this%nside(1)
+    endif
+    if(iy .lt. this%nside(2)-1)then
+       nneigh = nneigh + 1
+       list(nneigh) = ix + (iy+1)*this%nside(1)          
+    endif
+
+    if(ix .gt. 0)then
+       nneigh = nneigh + 1
+       list(nneigh) = (ix-1) + iy*this%nside(1)
+       if(iy .gt. 0)then
+          nneigh = nneigh + 1
+          list(nneigh) = (ix-1) + (iy-1)*this%nside(1)
+       endif
+       if(iy .lt. this%nside(2)-1)then
+          nneigh = nneigh + 1
+          list(nneigh) = (ix-1) + (iy+1)*this%nside(1)          
+       endif
+    endif
+
+    if(ix .lt. this%nside(1)-1)then
+       nneigh = nneigh + 1
+       list(nneigh) = (ix+1) + iy*this%nside(1)
+       if(iy .gt. 0)then
+          nneigh = nneigh + 1
+          list(nneigh) = (ix+1) + (iy-1)*this%nside(1)
+       endif
+       if(iy .lt. this%nside(2)-1)then
+          nneigh = nneigh + 1
+          list(nneigh) = (ix+1) + (iy+1)*this%nside(1)          
+       endif
+    endif
+  end subroutine coop_flatsky_maps_get_neighbours
 
 
 end module coop_fitswrap_mod

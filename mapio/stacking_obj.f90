@@ -37,6 +37,7 @@ module coop_stacking_mod
      COOP_INT::genre = coop_stacking_genre_Null
      COOP_INT::nmaps = 0
      COOP_INT::nside = 0
+     COOP_INT::nside2 = 0
      COOP_INT::index_I = 0
      COOP_INT::index_Q = 0
      COOP_INT::index_U = 0
@@ -188,7 +189,7 @@ contains
     COOP_INT i
     call fp%open(filename, "u")
     write(fp%unit) this%mask_int, this%mask_pol
-    write(fp%unit) this%genre, this%nmaps, this%nside,this%index_I, this%index_Q, this%index_U, this%index_L
+    write(fp%unit) this%genre, this%nmaps, this%nside,this%nside2, this%index_I, this%index_Q, this%index_U, this%index_L
     write(fp%unit) this%I_lower, this%I_upper, this%L_lower, this%L_upper, this%P2_lower, this%P2_upper, this%I_lower_nu, this%I_upper_nu, this%L_lower_nu, this%L_upper_nu, this%P_lower_nu, this%P_upper_nu, this%P2byI2_lower, this%P2byI2_upper, this%P2byL2_lower, this%P2byL2_upper
     write(fp%unit) this%caption
     write(fp%unit) this%threshold_option, this%addpi, this%nested, this%angzero
@@ -214,7 +215,7 @@ contains
     call this%free()
     call fp%open(filename, "ur")
     read(fp%unit) this%mask_int, this%mask_pol    
-    read(fp%unit) this%genre, this%nmaps, this%nside, this%index_I, this%index_Q, this%index_U, this%index_L
+    read(fp%unit) this%genre, this%nmaps, this%nside, this%nside2, this%index_I, this%index_Q, this%index_U, this%index_L
     read(fp%unit) this%I_lower, this%I_upper, this%L_lower, this%L_upper, this%P2_lower, this%P2_upper, this%I_lower_nu, this%I_upper_nu, this%L_lower_nu, this%L_upper_nu, this%P_lower_nu, this%P_upper_nu, this%P2byI2_lower, this%P2byI2_upper, this%P2byL2_lower, this%P2byL2_upper
     read(fp%unit) this%caption
     read(fp%unit) this%threshold_option, this%addpi, this%nested, this%angzero
@@ -699,10 +700,6 @@ contains
        if(map(8)*cos(angle) - map(7)*sin(angle) .le. 0.d0)then
           angle = angle + coop_2pi*3.d0  !! x flip          
        endif
-
-!!$       if( abs(map(8)*cos(angle) - map(7)*sin(angle)) .gt. 3. .or. abs(map(7)*cos(angle) + map(8)*sin(angle)) .gt. 3.) then
-!!$          angle = 1.e30
-!!$       endif
     case default
        write(*,*) this%genre
        stop "rotate_angle: unknown genre"
