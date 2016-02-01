@@ -84,6 +84,7 @@ module coop_fitswrap_mod
    contains
      procedure::free => coop_flatsky_maps_free
      procedure::read => coop_flatsky_maps_read
+     procedure::read_from_one => coop_flatsky_maps_read_from_one
      procedure::open => coop_flatsky_maps_read
      procedure::write => coop_flatsky_maps_write
      procedure::weighted_sum => coop_flatsky_maps_weighted_sum
@@ -298,6 +299,72 @@ contains
       stop
     end subroutine reporterror
   end subroutine coop_flatsky_maps_read
+
+
+!!read from single fits file
+  subroutine coop_flatsky_maps_read_from_one(this, filename, mask, nmaps)
+    class(coop_flatsky_maps)::this
+    COOP_UNKNOWN_STRING::filename
+    COOP_UNKNOWN_STRING,optional::mask
+    COOP_INT,optional::nmaps
+    COOP_STRING::fmap
+    COOP_INT::i
+    COOP_REAL,parameter::eps = 1.d-5
+    COOP_REAL::halfmax
+    type(coop_file)::fp
+    call this%free()
+    if(present(nmaps))then
+       if(nmaps .le. 0 .or. nmaps.gt.20) stop "read_from_one: nmaps overflow"
+       this%nmaps = nmaps
+    else
+       this%nmaps = 1
+    endif
+    allocate(this%map(this%nmaps))
+    allocate(this%spin(this%nmaps))
+    allocate(this%fields(this%nmaps))
+    allocate(this%units(this%nmaps))
+    this%units = "muK"
+    select case(this%nmaps)
+    case(2)
+       this%spin = 2
+       this%fields(1) = "Q"
+       this%fields(2) = "U"
+    case(3)
+       this%spin = (/ 0 , 2 , 2 /)
+       this%fields(1) = "I"
+       this%fields(2) = "Q"
+       this%fields(2) = "U"
+    case default
+       this%spin = 0
+       this%fields = "I"
+    end select
+    call this%map(1)%open(filename)
+    this%dx = this%map(1)%dx
+    this%dy = this%map(1)%dy
+    this%dkx = this%map(1)%dkx
+    this%dky = this%map(1)%dky
+    this%nside = this%map(1)%nside(1:2)
+    this%npix = this%map(1)%npix
+    this%has_mask = present(mask)
+    if(this%has_mask)then
+       call this%mask%open(mask)
+       if(abs(this%dx/this%mask%dx - 1.d0).gt. eps .or. &
+            abs(this%dy / this%mask%dy - 1.d0) .gt. eps .or. &
+            this%nside(1).ne. this%mask%nside(1) .or. this%nside(2).ne.this%mask%nside(2))then
+          write(*,*) "flatsky_read_from_one error: not all maps have the same configuration"
+          stop
+       endif
+       halfmax = 0.5*maxval(this%mask%image)
+       allocate(this%unmasked(this%npix))
+       this%unmasked = this%mask%image .gt. halfmax
+       this%total_weight = count(this%unmasked)
+    else
+       this%total_weight = this%npix
+    endif
+    do i=2, this%nmaps
+       this%map(i) = this%map(1)
+    enddo
+  end subroutine coop_flatsky_maps_read_from_one
 
   subroutine coop_flatsky_maps_free(this)
     class(coop_flatsky_maps)::this
@@ -726,6 +793,8 @@ contains
     logical::do_lx_cut, do_ly_cut, has_beam
     do_lx_cut = present(lx_cut)
     do_ly_cut = present(ly_cut)
+    if(do_lx_cut) do_lx_cut = lx_cut .gt. 0
+    if(do_ly_cut) do_ly_cut = ly_cut .gt. 0
     has_beam = present(beam)
     sigma2 = (coop_sigma_by_fwhm*fwhm/coop_sqrt2)**2
     hp_l2sq = highpass_l2**2

@@ -48,7 +48,6 @@ program test
   if(coop_file_exists(PSfile))then
      call psmask%open(PSFile)
      has_mask = .true.
-     imap%image = imap%image
   else
      write(*,*) "Cluster mask file "//trim(psfile)//" is not found; skipping..."
      has_mask = .false.
