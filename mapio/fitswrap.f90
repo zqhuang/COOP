@@ -22,10 +22,10 @@ module coop_fitswrap_mod
   end type coop_fits
 
   type, extends(coop_fits)::coop_fits_image
-     COOP_INT::bitpix
-     COOP_INT::dim
+     COOP_INT::bitpix = -64
+     COOP_INT::dim = 2
      COOP_INT,dimension(:),allocatable::nside
-     COOP_INT::npix
+     COOP_INT::npix = 0
      COOP_REAL,dimension(:),allocatable::image
      COOP_REAL,allocatable::transform(:, :), invtrans(:,:), center(:)     
    contains
@@ -45,6 +45,7 @@ module coop_fitswrap_mod
      COOP_REAL,dimension(:,:),allocatable:: smooth_Q, smooth_U
    contains
      procedure::convert2healpix => coop_fits_image_cea_convert2healpix
+     procedure::from_healpix => coop_fits_image_cea_from_healpix
      procedure::get_neighbours => coop_fits_image_cea_get_neighbours
      procedure::write => coop_fits_image_cea_write
      procedure::pix2ang => coop_fits_image_cea_pix2ang
@@ -101,9 +102,46 @@ module coop_fitswrap_mod
      procedure::stack_on_patch => coop_flatsky_maps_stack_on_patch
      procedure::fetch_patch => coop_flatsky_maps_fetch_patch
      procedure::merge => coop_flatsky_maps_merge
+     procedure::qu2eb => coop_flatsky_maps_qu2eb
+     procedure::eb2qu => coop_flatsky_maps_eb2qu
   end type coop_flatsky_maps
 
 contains
+
+  subroutine coop_flatsky_maps_qu2eb(this)
+    class(coop_flatsky_maps)::this
+    COOP_INT::i
+    i = 1
+    do while(i.lt. this%nmaps)
+       if(this%spin(i).eq.2 .and. this%spin(i+1).eq.2 .and. COOP_UPPER_STR(this%fields(i)).eq."Q" .and. COOP_UPPER_STR(this%fields(i+1)).eq. "U")then
+          call coop_fits_image_cea_qu2eb(this%map(i), this%map(i+1))
+          this%spin(i:i+1) = 0
+          this%fields(i) = "E"
+          this%fields(i+1) = "B"
+          i = i + 2
+       else
+          i = i + 1
+       endif
+    enddo
+  end subroutine coop_flatsky_maps_qu2eb
+
+
+  subroutine coop_flatsky_maps_eb2qu(this)
+    class(coop_flatsky_maps)::this
+    COOP_INT::i
+    i = 1
+    do while(i.lt. this%nmaps)
+       if(COOP_UPPER_STR(this%fields(i)).eq."E" .and. COOP_UPPER_STR(this%fields(i+1)).eq."B" .and. this%spin(i).eq.0 .and. this%spin(i+1).eq.0)then
+          call coop_fits_image_cea_eb2qu(this%map(i), this%map(i+1))
+          this%spin(i:i+1) = 2
+          this%fields(i) = "Q"
+          this%fields(i+1) = "U"
+          i = i + 2
+       else
+          i = i + 1
+       endif
+    enddo
+  end subroutine coop_flatsky_maps_eb2qu
 
   subroutine coop_flatsky_maps_merge(this, map)
     class(coop_flatsky_maps)::this
@@ -119,11 +157,11 @@ contains
        copy = this
        deallocate(this%map, this%spin, this%fields, this%units, this%files)
        this%nmaps = copy%nmaps + map%nmaps 
-       allocate(this%map(this%nmaps))
        allocate(this%spin(this%nmaps))
        allocate(this%fields(this%nmaps))
        allocate(this%files(this%nmaps))
        allocate(this%units(this%nmaps))
+       allocate(this%map(this%nmaps))
        this%spin(1:copy%nmaps) = copy%spin
        this%fields(1:copy%nmaps) = copy%fields
        this%files(1:copy%nmaps) = copy%files
@@ -147,6 +185,7 @@ contains
           endif
           this%mask_changed = .true.
        endif
+       call copy%free()
     class default
        stop "flatsky_maps_merge does not support extended classes"
     end select
@@ -242,16 +281,16 @@ contains
   !! has_mask (logical)
   !! mask_file (string, present only if has_mask = T)
   !!=============================
-  subroutine coop_flatsky_maps_write(this, filename, write_image, write_mask)
+  subroutine coop_flatsky_maps_write(this, filename, write_image, write_mask, index_list)
     class(coop_flatsky_maps)::this
     COOP_UNKNOWN_STRING::filename
+    COOP_INT, optional::index_list(:)
     type(coop_file)::fp
     logical, optional::write_image, write_mask
     logical wn, wm
-    COOP_INT::i
+    COOP_INT::i, imap
     call fp%open(filename)
     write(fp%unit, "(A)") "#COOP flatsky map file"
-    write(fp%unit, "(I5)") this%nmaps
     if(present(write_image))then
        wn = write_image
     else
@@ -262,17 +301,36 @@ contains
     else
        wm = .false.
     endif
+    if(present(index_list))then
+       write(fp%unit, "(I5)") size(index_list)
 
-    do i = 1, this%nmaps
-       write(fp%unit, "(A)") trim(this%fields(i))
-       write(fp%unit, "(A)") trim(this%units(i))
-       write(fp%unit, "(I5)") this%spin(i)
-       if(wn .or. trim(this%files(i)).eq."NULL")then
-          this%files(i) = trim(coop_file_replace_postfix(filename, "_MAP"//COOP_STR_OF(i)//".fits"))
-          call this%map(i)%write(this%files(i))
-       endif
-       write(fp%unit, "(A)") trim(this%files(i))
-    enddo
+       do imap = 1, size(index_list)
+          i = index_list(imap)
+          if(i.gt.this%nmaps) stop "flatsky_map_write: error index overflow"
+          write(fp%unit, "(A)") trim(this%fields(i))
+          write(fp%unit, "(A)") trim(this%units(i))
+          write(fp%unit, "(I5)") this%spin(i)
+          if(wn .or. trim(this%files(i)).eq."NULL")then
+             this%files(i) = trim(coop_file_replace_postfix(filename, "_MAP"//COOP_STR_OF(imap)//".fits"))
+             call this%map(i)%write(this%files(i))
+          endif
+          write(fp%unit, "(A)") trim(this%files(i))
+       enddo
+
+    else
+       write(fp%unit, "(I5)") this%nmaps
+
+       do i = 1, this%nmaps
+          write(fp%unit, "(A)") trim(this%fields(i))
+          write(fp%unit, "(A)") trim(this%units(i))
+          write(fp%unit, "(I5)") this%spin(i)
+          if(wn .or. trim(this%files(i)).eq."NULL")then
+             this%files(i) = trim(coop_file_replace_postfix(filename, "_MAP"//COOP_STR_OF(i)//".fits"))
+             call this%map(i)%write(this%files(i))
+          endif
+          write(fp%unit, "(A)") trim(this%files(i))
+       enddo
+    endif
     if(this%has_mask)then
        write(fp%unit, "(A)") "T"
        if(wm .or. trim(this%fmask) .eq. "NULL")then
@@ -330,7 +388,7 @@ contains
        if(.not. fp%read_string(this%units(i)))call reporterror()
        if(.not. fp%read_int(this%spin(i)))call reporterror()
        if(.not. fp%read_string(this%files(i)))call reporterror()
-       call this%map(i)%open(this%files(i))
+       call this%map(i)%open(trim(this%files(i)))
        if(i.eq.1)then
           this%dx = this%map(1)%dx
           this%dy = this%map(1)%dy
@@ -357,7 +415,7 @@ contains
           write(*,*) "flatsky_read error: not all maps have the same configuration"
           stop
        endif
-       halfmax = 0.5*maxval(this%mask%image)
+       halfmax = 0.1*min(maxval(this%mask%image), 5.d0*sqrt(sum(this%mask%image**2)/this%mask%npix))
        allocate(this%unmasked(this%npix))
        this%unmasked = this%mask%image .gt. halfmax
        this%total_weight = count(this%unmasked)
@@ -384,10 +442,10 @@ contains
 
 
 !!read from single fits file
-  subroutine coop_flatsky_maps_read_from_one(this, filename, mask, nmaps)
+  subroutine coop_flatsky_maps_read_from_one(this, filename, mask, nmaps, genre, unit)
     class(coop_flatsky_maps)::this
     COOP_UNKNOWN_STRING::filename
-    COOP_UNKNOWN_STRING,optional::mask
+    COOP_UNKNOWN_STRING,optional::mask, genre, unit
     COOP_INT,optional::nmaps
     COOP_INT::i
     COOP_REAL,parameter::eps = 1.d-5
@@ -409,21 +467,73 @@ contains
     allocate(this%fields(this%nmaps))
     allocate(this%files(this%nmaps))
     allocate(this%units(this%nmaps))
-    this%units = "muK"
-    select case(this%nmaps)
-    case(2)
-       this%spin = 2
-       this%fields(1) = "Q"
-       this%fields(2) = "U"
-    case(3)
-       this%spin = (/ 0 , 2 , 2 /)
-       this%fields(1) = "I"
-       this%fields(2) = "Q"
-       this%fields(2) = "U"
-    case default
-       this%spin = 0
-       this%fields = "I"
-    end select
+    if(present(unit))then
+       this%units = trim(unit)
+    else
+       this%units = "muK"  !!default
+    endif
+    if(present(genre))then
+       select case(COOP_UPPER_STR(genre))
+       case("I", "T", "E", "B", "ZETA")
+          this%fields = trim(genre)
+          this%spin = 0
+       case("Q", "U")
+          this%fields = COOP_UPPER_STR(genre)
+          this%spin = 2
+       case("QU")
+          if(this%nmaps .ne. 2) stop "for genre = QU or QU nmaps must be 2"
+          this%fields(1) = "Q"
+          this%fields(2) = "U"
+          this%spin = 2
+       case("EB")
+          if(this%nmaps .ne. 2) stop "for genre = EB nmaps must be 2"
+          this%fields(1) = "E"
+          this%fields(2) = "B"
+          this%spin = 0
+       case("IQU", "TQU")
+          if(this%nmaps .ne. 3) stop "for genre = IQU or TQU nmaps must be 3"
+          this%fields(1) = "I"
+          this%fields(2) = "Q"
+          this%fields(3) = "U"
+          this%spin = (/ 0, 2, 2 /)
+       case("TQTUT")
+          if(this%nmaps .ne. 3) stop "for genre = TQTUT  nmaps must be 3"
+          this%fields(1) = "T"
+          this%fields(2) = "Q_T"
+          this%fields(3) = "U_T"
+          this%spin = (/ 0, 2, 2 /)
+       case("ZQZUZ")
+          if(this%nmaps .ne. 3) stop "for genre = ZQZUZ  nmaps must be 3"
+          this%fields(1) = "\zeta"
+          this%fields(2) = "Q_\zeta"
+          this%fields(3) = "U_\zeta"
+          this%spin = (/ 0, 2, 2 /)
+       case("TEB", "IEB")
+          if(this%nmaps .ne. 3) stop "for genre = TEB or IEB nmaps must be 3"
+          this%fields(1) = "T"
+          this%fields(2) = "E"
+          this%fields(3) = "B"
+          this%spin = (/ 0, 0, 0 /)
+       case default
+          write(*,*) "Unknown genre: "//trim(genre)
+          stop
+       end select
+    else  !!try to guess from nmaps
+       select case(this%nmaps)
+       case(2)
+          this%spin = 2
+          this%fields(1) = "Q"
+          this%fields(2) = "U"
+       case(3)
+          this%spin = (/ 0 , 2 , 2 /)
+          this%fields(1) = "I"
+          this%fields(2) = "Q"
+          this%fields(2) = "U"
+       case default
+          this%spin = 0
+          this%fields = "I"
+       end select
+    endif
     this%files(1) = filename
     call this%map(1)%open(filename)
     this%dx = this%map(1)%dx
@@ -442,7 +552,7 @@ contains
           write(*,*) "flatsky_read_from_one error: not all maps have the same configuration"
           stop
        endif
-       halfmax = 0.5*maxval(this%mask%image)
+       halfmax = 0.1*min(maxval(this%mask%image), sqrt(sum(this%mask%image**2)/this%npix)*5.d0)
        allocate(this%unmasked(this%npix))
        this%unmasked = this%mask%image .gt. halfmax
        this%total_weight = count(this%unmasked)
@@ -716,10 +826,10 @@ contains
     COOP_SINGLE,dimension(:),allocatable::tmp
     select case(this%bitpix)
     case(-64)
-       call coop_fits_get_double_data(this%filename, this%image, this%npix)
+       call coop_fits_get_double_data(this%filename, this%image, COOP_LONG_INT_OF(this%npix))
     case(-32)
        allocate(tmp(0:this%npix-1))
-       call coop_fits_get_float_data(this%filename, tmp, this%npix)
+       call coop_fits_get_float_data(this%filename, tmp, COOP_LONG_INT_OF(this%npix))
        this%image = COOP_REAL_OF(tmp)
        deallocate(tmp)
     case default
@@ -1548,7 +1658,7 @@ contains
              if(k2 .lt. k2min)then
                 fk(i,j,:) = (0.d0, 0.d0)
              else
-                fk(i, j,2) = 2.d0*kx*ky/k2*fk(i,j,1) !!healpix convention
+                fk(i, j,2) = -2.d0*kx*ky/k2*fk(i,j,1) !!healpix convention
                 fk(i, j,1) = (ky2 - kx2)/k2*fk(i,j,1)
              endif
           enddo
@@ -1589,8 +1699,8 @@ contains
              Qk(i, j) = (0.d0, 0.d0)
              Uk(i, j) = (0.d0, 0.d0)
           else
-             Qk(i, j) = ((ky**2 - kx**2)*Ek(i,j) + 2.d0*kx*ky*Bk(i,j))/k2
-             Uk(i, j) = ((kx**2 - ky**2)*Bk(i,j) + 2.d0*kx*ky*Ek(i,j))/k2 
+             Qk(i, j) = ((ky**2 - kx**2)*Ek(i,j) - 2.d0*kx*ky*Bk(i,j))/k2
+             Uk(i, j) = ((kx**2 - ky**2)*Bk(i,j) - 2.d0*kx*ky*Ek(i,j))/k2 
              !!healpix convention
           endif
        enddo
@@ -1641,7 +1751,7 @@ contains
     endif
     allocate(fk(0:emap%nside(1)/2,0:emap%nside(2)-1, 2))
     call coop_fft_forward(emap%nside(1), emap%nside(2), emap%image, fk(:,:,1))
-    call coop_fft_forward(emap%nside(1), emap%nside(2), bmap%image, fk(:,:,1))
+    call coop_fft_forward(emap%nside(1), emap%nside(2), bmap%image, fk(:,:,2))
     k2min = min(emap%dkx, emap%dky)
     do j=0, emap%nside(2)-1
        if(j .gt. emap%nside(2)- j)then
@@ -1683,7 +1793,7 @@ contains
     endif
     allocate(fk(0:qmap%nside(1)/2,0:qmap%nside(2)-1, 2))
     call coop_fft_forward(qmap%nside(1), qmap%nside(2), qmap%image, fk(:,:,1))
-    call coop_fft_forward(qmap%nside(1), qmap%nside(2), umap%image, fk(:,:,1))
+    call coop_fft_forward(qmap%nside(1), qmap%nside(2), umap%image, fk(:,:,2))
     do j=0, qmap%nside(2)-1
        if(j .gt. qmap%nside(2)- j)then
              ky = (j-qmap%nside(2))*qmap%dky
@@ -1700,8 +1810,8 @@ contains
              else
                 tmp = fk(i, j, 2)
                 !!healpix convention (U-> -U for IAU convention)
-                fk(i, j, 2) = ((kx**2 - ky**2)*fk(i,j,2) + 2.d0*kx*ky*fk(i,j,1))/k2 
-                fk(i, j, 1) = ((ky**2 - kx**2)*fk(i,j,1) + 2.d0*kx*ky*tmp)/k2
+                fk(i, j, 2) = ((kx**2 - ky**2)*fk(i,j,2) - 2.d0*kx*ky*fk(i,j,1))/k2 
+                fk(i, j, 1) = ((ky**2 - kx**2)*fk(i,j,1) - 2.d0*kx*ky*tmp)/k2
              endif
           enddo
        enddo
@@ -1720,7 +1830,7 @@ contains
     COOP_REAL::mean, thetaphi(2)
     COOP_INT::i, list(8), nmaps, iskip, ix, iy, ibase, ibase_plus, ibase_minus
     logical,dimension(:),allocatable::zeros1, zeros2
-    COOP_INT,parameter::max_npeaks = 100000
+    COOP_INT,parameter::max_npeaks = 60000
     if(sto%nmaps .ne. this%nmaps) stop "get_peaks: nmaps does not agree"
     if(this%total_weight .lt. 1.d0) stop "get_peaks: no unmasked pixels"
     call sto%free()
@@ -2250,71 +2360,64 @@ contains
 
   end subroutine coop_fits_image_cea_plot
 
-  subroutine  coop_fits_image_cea_convert2healpix(this, hp, imap, mask, weights, lower, upper)  !!convert to healpix map, and mask the bright spots with 5 arcmin circles
+  subroutine  coop_fits_image_cea_convert2healpix(this, hp, imap, mask, weights)
+    COOP_INT,parameter::n_threads = 8
     class(coop_fits_image_cea)::this
-    type(coop_fits_image_cea),optional::weights !!if this presents, cut off points with weights less than 30% of the mean weights
+    type(coop_fits_image_cea),optional::weights 
     type(coop_healpix_maps)::hp, mask
-    type(coop_list_integer)::ps
     COOP_INT::pix
-    COOP_INT:: hpix, imap, i, listpix(0:10000), nlist
-    COOP_REAL theta, phi, meanweights
-    COOP_SINGLE,optional::lower, upper
-    COOP_SINGLE flower, fupper
+    COOP_INT:: hpix, imap
+    COOP_REAL theta, phi, mean_weights
 #ifdef HAS_HEALPIX    
     if(mask%nside .ne. hp%nside .or. mask%ordering .ne. hp%ordering) stop "fits_image_cea_convert2healpix: mask and map must have the same nside and ordering"
-    if(present(lower))then
-       flower = lower
-    else
-       flower = -1.e30
-    endif
-    if(present(upper))then
-       fupper = upper
-    else
-       fupper = 1.e30
-    endif
     mask%map(:,1) = 0.
     hp%map(:, imap) = 0.
-    call ps%init()
-    do pix=0, this%npix-1
-       call this%pix2ang(pix, theta, phi)
+    do pix=1, this%npix-1
        if(present(weights))then
-          if(weights%image(pix) .le. 0.)cycle
+          if(weights%image(pix) .eq. 0.)cycle
        endif
+       call this%pix2ang(pix, theta, phi)
        call hp%ang2pix(theta, phi, hpix)
-       if(this%image(pix).lt.flower .or. this%image(pix).gt.fupper)then
-          mask%map(hpix, 1) = -1.
-          hp%map(hpix,imap) = 0.
-          call ps%push(hpix)
-       elseif(mask%map(hpix, 1) .ge. 0.)then
-          if(present(weights))then
-             mask%map(hpix, 1) = mask%map(hpix,1)+weights%image(pix)
-             hp%map(hpix,imap) = hp%map(hpix, imap) + this%image(pix)*weights%image(pix)
-          else
-             mask%map(hpix,1) = mask%map(hpix,1) + 1.
-             hp%map(hpix,imap) = hp%map(hpix, imap) + this%image(pix)
-          endif
+       if(present(weights))then
+          mask%map(hpix, 1) = mask%map(hpix, 1) + weights%image(pix)
+          hp%map(hpix,imap) = hp%map(hpix, imap) + this%image(pix)*weights%image(pix)
+       else
+          mask%map(hpix,1) = mask%map(hpix,1) + 1.
+          hp%map(hpix,imap) = hp%map(hpix, imap) + this%image(pix)
        endif
     enddo
-    meanweights = sum(mask%map(:,1), mask= mask%map(:,1).gt.0.)/count(mask%map(:,1).gt.0.)*0.25  !!discard pixels with small obs time
-    where(mask%map(:,1).gt. meanweights)
+    mean_weights = 0.5*sqrt(sum(mask%map(:,1)**2)/count(mask%map(:,1).ne.0.))
+    where(mask%map(:,1) .ne. mean_weights)
        hp%map(:, imap) = hp%map(:, imap)/mask%map(:,1)
        mask%map(:, 1) = 1.
     elsewhere
        hp%map(:,imap) = 0.
        mask%map(:, 1) = 0.
     end where
-    do i = 1, ps%n
-       hpix = ps%element(i)
-       call hp%query_disc(hpix, coop_SI_arcmin*5.d0, listpix, nlist)
-       mask%map(listpix(0:nlist-1), 1) = 0.
-       hp%map(listpix(0:nlist-1), imap) = 0.
-    enddo
-    call ps%init()
 #else
     stop "you need to install Healpix"
 #endif    
   end subroutine coop_fits_image_cea_convert2healpix
 
+
+
+  subroutine  coop_fits_image_cea_from_healpix(this, hp, imap)  !!convert from healpix map
+    class(coop_fits_image_cea)::this
+    type(coop_healpix_maps)::hp
+    COOP_INT::pix, i, j, hpix, imap
+    COOP_REAL::theta, phi
+#ifdef HAS_HEALPIX    
+    !$omp parallel do private(pix, theta, phi, hpix)
+    do pix=0, this%npix-1
+       call this%pix2ang(pix, theta, phi)
+       call hp%ang2pix(theta, phi, hpix)
+       this%image(pix) = hp%map(hpix, imap)
+    enddo
+    !$omp end parallel do
+#else
+    stop "you need to install Healpix"
+#endif    
+  end subroutine coop_fits_image_cea_from_healpix
 
 
   subroutine coop_fits_image_cea_simulate_TEB(lmin, lmax, Cls, tmap, emap, bmap, qmap, umap)

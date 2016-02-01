@@ -8,7 +8,7 @@ program test
   character(LEN=*),parameter::mapdir = "act16/"
   COOP_UNKNOWN_STRING,parameter::beam_file = mapdir//"beam_7ar2.txt"
   COOP_INT,parameter::lmin =   200
-  COOP_INT,parameter::lmax = 2500
+  COOP_INT,parameter::lmax = 4000
   COOP_REAL,parameter::reg_limit = 0.001d0
   type(coop_fits_image_cea)::tmap, emap, bmap, noise, qmap, umap
   COOP_REAL::fwhm_arcmin = 0.5
@@ -26,7 +26,7 @@ program test
   enddo
   call fp%close()
   Cls = 0.d0
-  call fp%open("planck14best_lensedCls.dat")
+  call fp%open_skip_comments("lcdm_lensedCls.dat")
   do l=2, lmin-1
      read(fp%unit, *) il, junk
   enddo
@@ -44,8 +44,8 @@ program test
   umap = tmap
   call coop_fits_image_cea_simulate_TEB(lmin=lmin, lmax=lmax, Cls=Cls, tmap = tmap, emap = emap, bmap = bmap, qmap=qmap, umap =umap)
   call tmap%write(mapdir//"sim_1_I.fits")
-  call emap%write(mapdir//"sim_1_E.fits")
-  call bmap%write(mapdir//"sim_1_B.fits")
+!  call emap%write(mapdir//"sim_1_E.fits")
+!  call bmap%write(mapdir//"sim_1_B.fits")
   call qmap%write(mapdir//"sim_1_Q.fits")
   call umap%write(mapdir//"sim_1_U.fits")
 

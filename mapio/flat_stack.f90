@@ -71,6 +71,7 @@ program Stacking_Maps
 
   call sto%import(peak_file)
   sto%angzero = .not. randrot
+  write(*,*) "reading the map file "//trim(map_file)
   call fm%read(map_file)
   call patch%init(field_name, n, dr)
   print*, "stacking on "//COOP_STR_OF(sto%peak_pix%n)//" peaks"  

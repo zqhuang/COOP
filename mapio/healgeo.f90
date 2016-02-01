@@ -289,11 +289,15 @@ contains
     call coop_convert_to_Fortran_String(str)
     istart = 1
     do i=1, nkeys
-       j = scan(str(istart:),"=")
-       iend = scan(str(istart:), coop_newline)
+       iend = scan(str(istart:), coop_newline) + istart - 2
+       j = scan(str(istart:iend),"=")
+       if(j.eq.0)then
+          istart = iend + 2
+          cycle
+       endif
        j = j + istart - 1
-       iend = iend + istart - 2
-       call header%insert(str(istart:j-1), trim(coop_string_strip_quotes(str(j+1:iend))))
+       if(trim(str(istart:j-1)).ne."") &
+            call header%insert(str(istart:j-1), trim(coop_string_strip_quotes(str(j+1:iend))), overwrite=.false.)
        istart = iend+2
     enddo
   end subroutine coop_fits_to_header
@@ -1962,8 +1966,10 @@ contains
        call this%free()
     endif
     call coop_fits_to_header(filename, this%header)
+
     call coop_dictionary_lookup(this%header, "NSIDE", this%nside, 0)
     call coop_dictionary_lookup(this%header, "TFIELDS", nmaps_actual, 0)
+
     call coop_dictionary_lookup(this%header, "ORDERING", ordering, "")
     call coop_dictionary_lookup(this%header, "BAD_DATA", this%bad_data, this%bad_data)
     call coop_dictionary_lookup(this%header, "COORDSYS", this%coordsys, this%coordsys)
@@ -2221,8 +2227,10 @@ contains
     if(present(imap))then
        i = imap
        select case(trim(coop_str_numUpperalpha(this%fields(i))))
-       case("INTENSITY", "TEMPERATURE", "MASK", "EPOLARISATION", "BPOLARISATION", "E", "B", "ZETA", "Z", "I", "T", "M", "LT", "LZ", "LE", "ISTOKES", "", "LNI", "GENERAL", "LNLT")
+       case("INTENSITY", "TEMPERATURE", "MASK", "EPOLARISATION", "BPOLARISATION", "E", "B", "ZETA", "Z", "I", "T", "M", "LT", "LZ", "LE", "ISTOKES", "", "LNI", "GENERAL", "LNLT", "INTBEAM", "INT")
           this%spin(i) = 0
+       case("POL", "POLBEAM")
+          this%spin(i) = 2
        case("ID1", "ID2", "ZD1", "ZD2", "ED1", "ED2", "BD1", "BD2", "LNID1", "LNID2", "QD1", "QD2", "UD1", "UD2")
           this%spin(i) = 1
        case("QPOLARISATION", "Q", "QT", "QLT", "QLZ", "QZ", "QLE", "QSTOKES", "LNQ", "LNQT", "LNQLT")
@@ -2238,8 +2246,10 @@ contains
     else       
        do i = 1, this%nmaps
           select case(trim(coop_str_numUpperalpha(this%fields(i))))
-          case("INTENSITY", "TEMPERATURE", "MASK", "EPOLARISATION", "BPOLARISATION", "E", "B", "ZETA", "Z", "I", "T", "M", "LT", "LZ", "LE", "ISTOKES", "", "LNI", "LNLT")
+          case("INTENSITY", "TEMPERATURE", "MASK", "EPOLARISATION", "BPOLARISATION", "E", "B", "ZETA", "Z", "I", "T", "M", "LT", "LZ", "LE", "ISTOKES", "", "LNI", "LNLT","INT","INTBEAM")
              this%spin(i) = 0
+          case("POL", "POLBEAM")
+             this%spin(i) = 2
           case("ID1", "ID2", "ZD1", "ZD2", "ED1", "ED2", "BD1", "BD2", "LNID1", "LNID2", "LNQD1", "LNQD2", "LNUD1", "LNUD2","QD1", "QD2", "UD1", "UD2")
              this%spin(i) = 1
           case("QPOLARISATION", "Q", "QT", "QLT", "QLZ", "QZ", "QLE", "QSTOKES", "LNQ", "LNQT", "LNQLT")

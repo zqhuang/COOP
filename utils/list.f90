@@ -1404,7 +1404,8 @@ contains
     if(dict%key(dict%id(ilow)) .eq. dict%key(dict%n))then
        if(present(overwrite))then
           if(.not. overwrite)then
-             write(*,*) "key conflict, cannot insert into the dictionary."
+             write(*,*) "key "//trim(dict%key(dict%n))//" conflicts with existing keys, cannot insert into the dictionary."
+             dict%n = dict%n - 1
              return
           endif
        endif
@@ -1413,7 +1414,8 @@ contains
     elseif(dict%key(dict%id(iup)) .eq. dict%key(dict%n))then
        if(present(overwrite))then
           if(.not. overwrite)then
-             write(*,*) "key conflict, cannot insert into the dictionary."
+             write(*,*) "key "//trim(dict%key(dict%n))//" conflicts with existing keys, cannot insert into the dictionary."
+             dict%n = dict%n - 1
              return
           endif
        endif

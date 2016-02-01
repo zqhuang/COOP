@@ -17,6 +17,8 @@ $(LIB): $(OBJ)
 
 all: $(LIB) UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo TE2Z
 
+flat: FMerge FSmooth FStat FGetPeaks FStack FQU2EB FEB2QU FMask FSim F2Heal Heal2F
+
 GAUSS: $(OBJ) gaussianize.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) gaussianize.o $(LINK)
 
@@ -74,6 +76,10 @@ FEB2QU:  $(OBJ) flat_eb2qu.o
 F2Heal:  $(OBJ) flat2heal.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat2heal.o $(LINK)
 
+
+Heal2F:  $(OBJ) heal2flat.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) heal2flat.o $(LINK)
+
 FSmooth:  $(OBJ) flat_smooth.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_smooth.o $(LINK)
 
@@ -100,7 +106,7 @@ TE2Z: $(OBJ) te2zeta.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) te2zeta.o $(LINK)
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test PLOTLINES UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo TE2Z GAUSS MM0 MM1 FStack FStat F2Heal FCoadd ACTTheo FMask FGetPeaks FQU2EB FEB2QU FSmooth FMerge
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test PLOTLINES UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo TE2Z GAUSS MM0 MM1 FStack FStat F2Heal FCoadd ACTTheo FMask FGetPeaks FQU2EB FEB2QU FSmooth FMerge Heal2F
 
 
 

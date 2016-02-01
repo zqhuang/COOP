@@ -6,20 +6,16 @@ program test
   implicit none
 #include "constants.h"
   COOP_REAL fwhm_arcmin
-  COOP_STRING::qmap, umap, emap, bmap
-  type(coop_fits_image_cea)::q,u
+  COOP_STRING::qumap, ebmap
+  type(coop_flatsky_maps)::maps
   if(iargc().lt.2)then
      write(*,*) "Syntax:"
-     write(*,*) "./FEB2QU -qmap QMAP -umap UMAP -emap EMAP -bmap BMAP"
+     write(*,*) "./FQU2EB EBMAP QUMAP"
      stop
   endif
-  call coop_get_command_line_argument(key = "qmap", arg = qmap)
-  call coop_get_command_line_argument(key = "umap", arg = umap)
-  call coop_get_command_line_argument(key = "emap", arg = emap)
-  call coop_get_command_line_argument(key = "bmap", arg = bmap)
-  call q%open(emap)
-  call u%open(bmap)
-  call coop_fits_image_cea_EB2QU(q, u)
-  call q%write(qmap)
-  call u%write(umap)
+  ebmap = trim(coop_InputArgs(1))
+  qumap = trim(coop_InputArgs(2))
+  call maps%read(ebmap)
+  call maps%eb2qu()
+  call maps%write(qumap)
 end program test
