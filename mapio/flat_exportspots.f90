@@ -4,36 +4,54 @@ program test
   use coop_sphere_mod
   implicit none
 #include "constants.h"
-  integer,parameter::lmin = 200
-  integer,parameter::lmax = 2500
-  character(LEN=*),parameter::mapdir = "act15/"
-  character(LEN=*),parameter::fitsfile = mapdir//"dataCoadd_I_4.fits"
-  character(LEN=*),parameter::maskfile = mapdir//"weightMap_4.fits"
-  type(coop_fits_image_cea)::cf, mask, src
-  type(coop_asy)::asy
-  integer, parameter::n=300
-  integer ix, iy, i, l
-  type(coop_file) fp
-  COOP_REAL,parameter::mask_threshold = 5000.
-  COOP_REAL map(n, n), Cls(lmin:lmax)
-  COOP_REAL, parameter::smooth_scale = coop_SI_arcmin * 1.5
+  COOP_STRING::fimap, fqmap, fumap, fmask, orient_name, peak_name, output
+  type(coop_fits_image_cea)::imap, qmap, umap, mask
+  logical::do_max, hasi, hasqu, hasmask
+  COOP_INT::nmaps
+  COOP_REAL::nu
+  call coop_get_command_line_argument(key = 'imap', arg=fimap, default="")
+  call coop_get_command_line_argument(key = 'qmap', arg=fqmap, default="")
+  call coop_get_command_line_argument(key = 'umap', arg=fqmap, default="")
+  hasi = trim(fimap).ne.""
+  hasqu =trim(fqmap) .ne. "" .and trim(fump).ne.""
+  nmaps = 0
+  if(hasi) nmaps = nmaps + 1
+  if(hasqu) nmaps = nmaps+2
+  call coop_get_command_line_argument(key = 'mask', arg=fmask, default="")
+  hasmask = trim(fmask).ne.""
+  call coop_get_command_line_argument(key = 'nu', arg = nu, default = 0.d0)
+  call coop_get_command_line_argument(key = 'orient', arg = orient_name, default="RANDOM")
+  if((index(orient_name, coop_backslash).ne.0 .or. index(orient_name, "_") .ne. 0 .or. index(orient_name, "^").ne.0) .and. index(orient_name, "$").eq.0)then
+     orient_name = "$"//trim(adjustl(orient_name))//"$"
+  endif
+  call coop_get_command_line_argument(key = 'peak', arg = peak_name, default="T")
+  call coop_get_command_line_argument(key = 'hot', arg = do_max, default=.true.)
+  call coop_get_command_line_argument(key = 'out', arg = output)
+  call sto%init(do_max, peak_name, orient_name, nmaps = nmaps)
+  sto%angzero = .false.
+  select case(trim(coop_str_numUpperalpha(peak_name)))
+     !!do nothing
+  case("T", "I", "E", "B", "ZETA", "Z", "RANDOM", "SADDLE", "COL")
+     if(do_max)then
+        sto%I_lower_nu = nu
+     else
+        sto%I_upper_nu = -nu
+     endif
+  case("P", "PT", "PZETA", "PZ")
+     if(do_max)then
+        sto%P_lower_nu = max(nu, 0.d0)
+     else
+        if(nu .le. 0.d0) stop "For Pmin you must use positive nu"
+        sto%P_upper_nu = nu
+     endif
+  case default
+     if(abs(nu).lt. coop_stacking_max_nu)then
+        write(*,*) "cannot apply threshold for unknown peak name: "//trim(peak_name)
+        stop
+     endif
+  end select
 
-  call cf%open(fitsfile)
-  print*, "I am here"
-  call mask%open(maskfile)
+  if(hasmask)then
+     call mask%open(fmask)
 
-  call cf%regularize(0.005d0)
-  where(mask%image .lt. mask_threshold)
-     cf%image = (cf%image)*(mask%image/mask_threshold)**8
-  end where
-  call cf%get_flatmap(smooth_scale)
-  call mask%get_flatmap(smooth_scale)
-  where(mask%smooth_image .lt. mask_threshold)
-     mask%smooth_image = 0.
-  elsewhere
-     mask%smooth_image = 1.
-  end where
-  call cf%smooth_flat(lmin = lmin, lmax = lmax)
-  call cf%find_extrema(mask, "spots/act15_Imax.txt", "Tmax", 30.d0*coop_SI_arcmin, 20)
-  
 end program test

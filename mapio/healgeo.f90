@@ -3695,7 +3695,7 @@ contains
     logical::domask
     COOP_INT i, nneigh, list(8), index_peak, ip, ipr
     COOP_INT::total_weight
-    COOP_REAL::thetaphi(2)
+    COOP_REAL::thetaphi(2), mean
     logical, optional::restore
     logical,dimension(:),allocatable::livept
     COOP_INT::nside_rand, npix_rand
@@ -3724,21 +3724,25 @@ contains
     
     if(sto%index_I .ne. 0 .and. (abs(sto%I_lower_nu).lt.coop_stacking_max_threshold .or. abs(sto%I_upper_nu).lt. coop_stacking_max_threshold))then  !!rescale I
        if(domask)then
-          sto%sigma_I  = sqrt(sum(dble(this%map(:,sto%index_I))**2, mask%map(:,1).gt.0.5)/total_weight)
+          mean = sum(dble(this%map(:,sto%index_I)), mask%map(:,1).gt.0.5)/total_weight
+          sto%sigma_I  = sqrt(sum((this%map(:,sto%index_I)-mean)**2, mask%map(:,1).gt.0.5)/total_weight)
        else
-          sto%sigma_I = sqrt(sum(dble(this%map(:,sto%index_I))**2)/total_weight)
+          mean = sum(dble(this%map(:,sto%index_I)))/total_weight
+          sto%sigma_I = sqrt(sum((this%map(:,sto%index_I)-mean)**2)/total_weight)
        endif
-       sto%I_lower = sto%I_lower_nu* sto%sigma_I
-       sto%I_upper = sto%I_upper_nu* sto%sigma_I
+       sto%I_lower = mean + sto%I_lower_nu* sto%sigma_I
+       sto%I_upper = mean + sto%I_upper_nu* sto%sigma_I
     endif
     if(sto%index_L .ne. 0 .and. (abs(sto%L_lower_nu).lt.coop_stacking_max_threshold .or. abs(sto%L_upper_nu).lt. coop_stacking_max_threshold) )then  !!rescale L
        if(domask)then
-          sto%sigma_L  = sqrt(sum(dble(this%map(:,sto%index_L))**2, mask%map(:,1).gt.0.5)/total_weight)
+          mean = sum(this%map(:, sto%index_L), mask%map(:,1).gt.0.5)/total_weight
+          sto%sigma_L  = sqrt(sum((this%map(:,sto%index_L)-mean)**2, mask%map(:,1).gt.0.5)/total_weight)
        else
-          sto%sigma_L = sqrt(sum(dble(this%map(:, sto%index_L))**2)/total_weight)
+          mean = sum(this%map(:, sto%index_L))/total_weight
+          sto%sigma_L = sqrt(sum((this%map(:, sto%index_L)-mean)**2)/total_weight)
        endif
-       sto%L_lower = sto%L_lower_nu* sto%sigma_L
-       sto%L_upper = sto%L_upper_nu* sto%sigma_L
+       sto%L_lower = mean+sto%L_lower_nu* sto%sigma_L
+       sto%L_upper = mean+sto%L_upper_nu* sto%sigma_L
     endif
     if(sto%index_Q .ne. 0 .and. sto%index_U .ne. 0 .and. (abs(sto%P_lower_nu).lt.coop_stacking_max_threshold .or. abs(sto%P_upper_nu).lt. coop_stacking_max_threshold) )then  !!rescale P2
        if(domask)then

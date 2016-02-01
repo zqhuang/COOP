@@ -25,8 +25,12 @@ public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_crea
      procedure::skip_lines => coop_file_skiplines
      procedure::read_int => coop_file_readline_int
      procedure::read_int_array => coop_file_readline_int_arr
+     procedure::read_logical => coop_file_readline_logical
+     procedure::read_logical_array => coop_file_readline_logical_arr
      procedure::read_real => coop_file_readline_real
      procedure::read_real_array => coop_file_readline_real_arr
+     procedure::read_single => coop_file_readline_single
+     procedure::read_single_array => coop_file_readline_single_arr
      procedure::read_string => coop_file_readline_string
   End type coop_file
 
@@ -406,6 +410,39 @@ contains
   End Function Coop_file_readline_Real
 
 
+  Function Coop_file_readline_single(fp, param) result(success)
+    COOP_SINGLE param
+    logical success
+    class(coop_file) fp
+    COOP_LONG_STRING line
+    Line = ""
+    success = .false.
+    do while(Line(1:1) .eq. coop_text_comment_symbol .or. Trim(Line) .eq. "")
+       read(fp%unit, '(A)', End=200, Err=200) line
+       line = adjustl(trim(line))
+    enddo
+    read(Line, *, Err = 200, End=200) param
+    success = .true.
+200 return
+  End Function Coop_file_readline_single
+
+  Function Coop_file_readline_logical(fp, param) result(success)
+    logical param
+    logical success
+    class(coop_file) fp
+    COOP_LONG_STRING line
+    Line = ""
+    success = .false.
+    do while(Line(1:1) .eq. coop_text_comment_symbol .or. Trim(Line) .eq. "")
+       read(fp%unit, '(A)', End=200, Err=200) line
+       line = adjustl(trim(line))
+    enddo
+    read(Line, *, Err = 200, End=200) param
+    success = .true.
+200 return
+  End Function Coop_file_readline_logical
+
+
   Function Coop_file_readline_Int_arr(fp, params) result(success)
     COOP_INT,dimension(:)::params
     logical success
@@ -423,6 +460,23 @@ contains
   End Function Coop_file_readline_Int_arr
 
 
+  Function Coop_file_readline_logical_arr(fp, params) result(success)
+    logical,dimension(:)::params
+    logical success
+    class(coop_file) fp
+    COOP_LONG_STRING line
+    Line = ""
+    success = .false.
+    do while(Line(1:1) .eq. coop_text_comment_symbol .or. Trim(Line) .eq. "")
+       read(fp%unit, '(A)', End=200, Err=200) line
+       line = adjustl(trim(line))
+    enddo
+    read(Line, *, Err = 200, End=200) params
+    success = .true.
+200 return
+  End Function Coop_file_readline_logical_arr
+
+
   Function Coop_file_readline_Real_arr(fp, params) result(success)
     COOP_REAL,dimension(:)::params
     logical success
@@ -438,6 +492,24 @@ contains
     success = .true.
 200 return
   End Function Coop_file_readline_Real_arr
+
+
+  Function Coop_file_readline_single_arr(fp, params) result(success)
+    COOP_SINGLE,dimension(:)::params
+    logical success
+    class(coop_file) fp
+    COOP_LONG_STRING line
+    Line = ""
+    success = .false.
+    do while(Line(1:1) .eq. coop_text_comment_symbol .or. Trim(Line) .eq. "")
+       read(fp%unit, '(A)', End=200, Err=200) line
+       line = adjustl(trim(line))
+    enddo
+    read(Line, *, Err = 200, End=200) params
+    success = .true.
+200 return
+  End Function Coop_file_readline_single_arr
+
 
   Function Coop_file_readline_String(fp, line) result(success)
     logical success

@@ -2,20 +2,21 @@ module coop_fitswrap_mod
   use coop_wrapper_utils
   use coop_sphere_mod
   use coop_healpix_mod
+  use coop_stacking_mod
   implicit none
 
 #include "constants.h"
 
   private
 
-  public::coop_fits, coop_fits_image, coop_fits_image_cea, coop_fits_QU2EB, coop_fits_EB2QU, coop_fits_image_cea_simulate_TEB
-
+  public::coop_fits, coop_fits_image, coop_fits_image_cea, coop_fits_QU2EB, coop_fits_EB2QU, coop_fits_image_cea_simulate_TEB, coop_fits_image_cea_EB2QU, coop_fits_image_cea_QU2EB, coop_flatsky_maps
 
   type coop_fits
      COOP_STRING::filename, fortran_filename
      type(coop_dictionary):: header
    contains
      procedure::open => coop_fits_open
+     procedure::read => coop_fits_open
      procedure::free => coop_fits_free
      procedure::key_value=>coop_fits_key_value
   end type coop_fits
@@ -24,7 +25,7 @@ module coop_fitswrap_mod
      COOP_INT::bitpix
      COOP_INT::dim
      COOP_INT,dimension(:),allocatable::nside
-     COOP_LONG_INT::npix
+     COOP_INT::npix
      COOP_REAL,dimension(:),allocatable::image
      COOP_REAL,allocatable::transform(:, :), invtrans(:,:), center(:)     
    contains
@@ -35,7 +36,7 @@ module coop_fitswrap_mod
   end type coop_fits_image
 
   type, extends(coop_fits_image)::coop_fits_image_cea
-     COOP_REAL smooth_pixsize, pixsize, smooth_dkx, smooth_dky, dkx, dky
+     COOP_REAL smooth_pixsize, pixsize, smooth_dkx, smooth_dky, dkx, dky, dx, dy
      COOP_REAL xmin, xmax, ymin, ymax
      COOP_INT:: smooth_nx, smooth_ny, smooth_npix
      type(coop_sphere_disc)::disc
@@ -44,6 +45,7 @@ module coop_fitswrap_mod
      COOP_REAL,dimension(:,:),allocatable:: smooth_Q, smooth_U
    contains
      procedure::convert2healpix => coop_fits_image_cea_convert2healpix
+     procedure::get_neighbours => coop_fits_image_cea_get_neighbours
      procedure::write => coop_fits_image_cea_write
      procedure::pix2ang => coop_fits_image_cea_pix2ang
      procedure::radec2pix => coop_fits_image_cea_radec2pix
@@ -62,12 +64,139 @@ module coop_fitswrap_mod
      procedure::simulate => coop_fits_image_cea_simulate
      procedure::simulate_flat => coop_fits_image_cea_simulate_flat
      procedure::plot => coop_fits_image_cea_plot
-     procedure::EB2QU => coop_fits_image_cea_EB2QU
-     procedure::QU2EB => coop_fits_image_cea_QU2EB
+     procedure::EB2QU => coop_fits_image_cea_smooth_EB2QU
+     procedure::QU2EB => coop_fits_image_cea_smooth_QU2EB
   end type coop_fits_image_cea
 
+  type coop_flatsky_maps
+     COOP_INT::nmaps, nside(2), npix
+     logical::has_mask
+     COOP_REAL::dx, dy, dkx, dky
+     COOP_INT,dimension(:),allocatable::spin
+     COOP_SHORT_STRING,dimension(:),allocatable::fields
+     COOP_SHORT_STRING,dimension(:),allocatable::units
+     type(coop_fits_image_cea),dimension(:), allocatable::map
+     type(coop_fits_image_cea)::mask
+   contains
+     procedure::free => coop_flatsky_maps_free
+     procedure::read => coop_flatsky_maps_read
+     procedure::open => coop_flatsky_maps_read
+     procedure::write => coop_flatsky_maps_write
+  end type coop_flatsky_maps
 
 contains
+
+
+  !!write a text file (and maps)
+  !!============================
+  !! nmaps (integer)
+  !! field1 (string)
+  !! unit1 (string)
+  !! spin1 (integer)
+  !! map1 (string)
+  !! field2
+  !! unit2
+  !! spin2
+  !! map2 
+  !! ...
+  !! has_mask (logical)
+  !! mask_file (string, present only if has_mask = T)
+  !!=============================
+  subroutine coop_flatsky_maps_write(this, filename)
+    class(coop_flatsky_maps)::this
+    type(coop_file)::fp
+    COOP_INT::i
+    COOP_STRING::fname
+    call fp%open(filename)
+    write(fp%unit, "(A)") "#COOP flatsky map file"
+    write(fp%unit, "(I5)") this%nmaps
+    do i = 1, this%nmaps
+       write(fp%unit, "(A)") trim(this%fields(i))
+       write(fp%unit, "(A)") trim(this%units(i))
+       write(fp%unit, "(I5)") trim(this%spin(i))
+       fname = trim(coop_file_replace_postfix(filename, "_MAP"//COOP_STR_OF(i)//".fits"))
+       write(fp%unit, "(A)") trim(fname)
+       call this%map(i)%write(fname)
+    enddo
+    if(this%has_mask)then
+       write(fp%unit, "(A)") "T"
+       fname = trim(coop_file_replace_postfix(filename, "_MASK.fits"))
+       write(fp%unit, "(A)") trim(fname)
+       call this%mask%write(fname)
+    else
+       write(fp%unit, "(A)") "F"
+    endif
+    call fp%close()
+  end subroutine coop_flatsky_maps_write
+
+  !!read a text file
+  !!============================
+  !! nmaps (integer)
+  !! field1 (string)
+  !! unit1 (string)
+  !! spin1 (integer)
+  !! map1 (string)
+  !! field2
+  !! unit2
+  !! spin2
+  !! map2 
+  !! ...
+  !! has_mask (logical)
+  !! mask_file (string, present only if has_mask = T)
+  !!=============================
+  subroutine coop_flatsky_maps_read(this, filename)
+    class(coop_flatsky_maps)::this
+    COOP_UNKNOWN_STRING::filename
+    COOP_STRING::fmap
+    COOP_INT::i
+    type(coop_file)::fp
+    call this%free()
+    call fp%open(filename)
+    if(.not.fp%read_int(this%nmaps))call reporterror()
+    if(this%nmaps .le. 0 .or. this%nmaps .gt. 20)then
+       write(*,*) "flatsky_read: nmaps must be between 1 and 20"
+       stop
+    endif
+    allocate(this%map(this%nmaps))
+    allocate(this%spin(this%nmaps))
+    allocate(this%fields(this%nmaps))
+    allocate(this%units(this%nmaps))
+    i = 0
+    do i=1, this%nmaps
+       if(.not. fp%read_string(this%fields(i)))call reporterror()
+       if(.not. fp%read_string(this%units(i)))call reporterror()
+       if(.not. fp%read_int(this%spin(i)))call reporterror()
+       if(.not. fp%read_string(fmap))call reporterror()
+       call this%map(i)%open(fmap)
+    enddo
+    if(.not. fp%read_logical(this%has_mask)) call reporterror()
+    if(this%has_mask)then
+       if(.not. fp%read_string(fmap))call reporterror()
+       call this%mask(i)%open(fmap)       
+    endif
+    call fp%close()
+  contains
+    subroutine reporterror()
+      write(*,*) trim(filename)//" does not have the right format"
+      stop
+    end subroutine reporterror
+  end subroutine coop_flatsky_maps_read
+
+  subroutine coop_flatsky_maps_free(this)
+    class(coop_flatsky_maps)::this
+    COOP_INT::i
+    if(allocated(this%map))then
+       do i=1, this%nmaps
+          call this%map(i)%free()
+       enddo
+       call deallocate(this%map)
+    endif
+    if(allocated(this%spin))deallocate(this%spin)
+    if(allocated(this%fields))deallocate(this%fields)
+    if(allocated(this%units))deallocate(this%units)
+    this%nmaps = 0
+    this%nside = 0
+  end subroutine coop_flatsky_maps_free
 
   subroutine coop_fits_open(this, filename)
     class(coop_fits)::this
@@ -187,10 +316,12 @@ contains
           print*, delta(1), delta(2)
           stop "pixel size is not the same in x and y directions"
        else
+          this%dx = delta(1)
+          this%dy = delta(2)
           this%pixsize = sqrt(abs(delta(1)*delta(2)))
        endif
-       this%dkx = coop_2pi/(abs(delta(1))*this%nside(1))
-       this%dky = coop_2pi/(abs(delta(2))*this%nside(2))
+       this%dkx = coop_2pi/(this%dx*this%nside(1))
+       this%dky = coop_2pi/(this%dy*this%nside(2))
        do i=1, this%dim
           this%transform(:, i) =  this%transform(:, i) * delta(i)
        enddo
@@ -270,7 +401,7 @@ contains
           select type(this)
              class is(coop_fits_image_cea)
              weight = weight/this%npix
-             call coop_set_uniform(n, ells, max(this%dkx, this%dky)*3.d0, min(this%dkx*this%nside(1), this%dky*this%nside(2), 3.d4)/10.d0)
+             call coop_set_uniform(n, ells, max(abs(this%dkx), abs(this%dky))*3.d0, min(abs(this%dkx)*this%nside(1), abs(this%dky)*this%nside(2), 3.d4)/10.d0)
              call coop_fits_image_cea_get_power(this, ells, Cls)
 
              write(fp%unit,"(A)") "# ell    D_l "
@@ -333,7 +464,7 @@ contains
   subroutine coop_fits_image_cea_radec2pix(this, ra_deg, dec_deg, pix)
     class(coop_fits_image_cea)::this
     COOP_REAL ra_deg, dec_deg, vec(2), ra, dec
-    COOP_LONG_INT pix
+    COOP_INT pix
     COOP_INT::ix, iy, ivec(2)
     ra = ra_deg*coop_SI_degree
     dec = dec_deg*coop_SI_degree
@@ -356,7 +487,7 @@ contains
   
   subroutine coop_fits_image_cea_pix2ang(this, pix, theta, phi)
     class(coop_fits_image_cea)::this
-    COOP_LONG_INT pix
+    COOP_INT pix
     COOP_REAL theta, phi
     COOP_INT ix, iy
     iy = pix/this%nside(1) 
@@ -369,7 +500,7 @@ contains
 
   subroutine coop_fits_image_cea_pix2flat(this, pix, coor, disc)
     class(coop_fits_image_cea)::this
-    COOP_LONG_INT:: pix
+    COOP_INT:: pix
     COOP_REAL ::coor(2)
     type(coop_sphere_disc), optional::disc
     call this%pix2ang(pix, coor(1), coor(2))
@@ -397,7 +528,7 @@ contains
     COOP_REAL smooth_pixsize, weight
     COOP_REAL,dimension(:,:),allocatable::w
     COOP_INT i, j, icoor(2), k
-    COOP_LONG_INT pix
+    COOP_INT pix
     this%smooth_pixsize = smooth_pixsize
     vecmean = 0.
     do pix = 0, this%npix - 1
@@ -1113,7 +1244,7 @@ contains
     if(present(qt) .and. present(ut))then
        allocate(fk(0:this%nside(1)/2,0:this%nside(2)-1, 2))
        call coop_fft_forward(this%nside(1), this%nside(2), this%image, fk(:,:,1))
-       k2min = max(this%dkx, this%dky)
+       k2min = min(this%dkx, this%dky)
        do j=0, this%nside(2)-1
           if(j .gt. this%nside(2)- j)then
              ky = (j-this%nside(2))*this%dky
@@ -1125,7 +1256,7 @@ contains
              kx = this%dkx*i
              kx2 = kx**2
              k2 = kx2+ky2
-             if(k2 .le. k2min)then
+             if(k2 .lt. k2min)then
                 fk(i,j,:) = (0.d0, 0.d0)
              else
                 fk(i, j,2) = 2.d0*kx*ky/k2*fk(i,j,1) !!healpix convention
@@ -1200,8 +1331,8 @@ contains
              Bk(i, j) = 0.d0
           else
              !!healpix convention
-             Ek(i, j) =  ( (ky**2 - kx**2)*Qk(i,j) + 2.d0*kx*ky*Uk(i,j))/k2
-             Bk(i, j) =  ( (kx**2 - ky**2)*Uk(i,j) + 2.d0*kx*ky*Qk(i,j))/k2 
+             Ek(i, j) =  ( (ky**2 - kx**2)*Qk(i,j) - 2.d0*kx*ky*Uk(i,j))/k2
+             Bk(i, j) =  ( (kx**2 - ky**2)*Uk(i,j) - 2.d0*kx*ky*Qk(i,j))/k2 
           endif
        enddo
     enddo
@@ -1209,19 +1340,534 @@ contains
     call coop_fft_backward(nx, ny, Bk, Umap)
   end subroutine coop_fits_QU2EB
 
-
-  subroutine coop_fits_image_cea_EB2QU(this)
-    class(coop_fits_image_cea)::this
-    if(.not. allocated(this%smooth_Q).or. .not. allocated(this%smooth_U)) stop "EB2QU cannot be done: E, B not allocated yet."
-    call coop_fits_EB2QU(this%smooth_nx*2+1, this%smooth_ny*2+1, this%smooth_Q, this%smooth_U)
+  subroutine coop_fits_image_cea_EB2QU(Emap, Bmap)
+    type(coop_fits_image_cea)::Emap, Bmap
+    COOP_COMPLEX,dimension(:,:,:),allocatable::fk
+    COOP_COMPLEX::tmp
+    COOP_INT::i, j
+    COOP_REAL::ky, ky2, kx, kx2, k2, k2min
+    if(emap%nside(1).ne. bmap%nside(1) .or. emap%nside(2) .ne. bmap%nside(2) .or. abs(emap%dkx/bmap%dkx -1.d0).gt. 1.d-5 .or. abs(emap%dky/bmap%dky-1.d0).gt. 1.d-5)then
+       write(*,*) "EB2QU: Emap and Bmap must have the same size"
+       stop
+    endif
+    allocate(fk(0:emap%nside(1)/2,0:emap%nside(2)-1, 2))
+    call coop_fft_forward(emap%nside(1), emap%nside(2), emap%image, fk(:,:,1))
+    call coop_fft_forward(emap%nside(1), emap%nside(2), bmap%image, fk(:,:,1))
+    k2min = min(emap%dkx, emap%dky)
+    do j=0, emap%nside(2)-1
+       if(j .gt. emap%nside(2)- j)then
+             ky = (j-emap%nside(2))*emap%dky
+          else
+             ky = j*emap%dky
+          endif
+          ky2 = ky**2
+          do i=0, emap%nside(1)/2
+             kx = emap%dkx*i
+             kx2 = kx**2
+             k2 = kx2+ky2
+             if(k2 .lt. k2min)then
+                fk(i,j,:) = (0.d0, 0.d0)
+             else
+                tmp = fk(i, j, 2)
+                !!healpix convention (U-> -U for IAU convention)
+                fk(i, j, 2) = ((kx**2 - ky**2)*fk(i,j,2) - 2.d0*kx*ky*fk(i,j,1))/k2 
+                fk(i, j, 1) = ((ky**2 - kx**2)*fk(i,j,1) - 2.d0*kx*ky*tmp)/k2
+             endif
+          enddo
+       enddo
+       call coop_fft_backward(emap%nside(1), emap%nside(2), fk(:,:,1), emap%image)
+       call coop_fft_backward(emap%nside(1), emap%nside(2), fk(:,:,2), bmap%image)
+       deallocate(fk)
   end subroutine coop_fits_image_cea_EB2QU
 
 
-  subroutine coop_fits_image_cea_QU2EB(this)
+
+  subroutine coop_fits_image_cea_QU2EB(Qmap, umap)
+    type(coop_fits_image_cea)::Qmap, Umap
+    COOP_COMPLEX,dimension(:,:,:),allocatable::fk
+    COOP_COMPLEX::tmp
+    COOP_INT::i, j
+    COOP_REAL::ky, ky2, kx, kx2, k2, k2min
+    if(qmap%nside(1).ne. umap%nside(1) .or. qmap%nside(2) .ne. umap%nside(2) .or. abs(qmap%dkx/umap%dkx -1.d0).gt. 1.d-5 .or. abs(qmap%dky/umap%dky-1.d0).gt. 1.d-5)then
+       write(*,*) "qu2eb: Qmap and Umap must have the same size"
+       stop
+    endif
+    allocate(fk(0:qmap%nside(1)/2,0:qmap%nside(2)-1, 2))
+    call coop_fft_forward(qmap%nside(1), qmap%nside(2), qmap%image, fk(:,:,1))
+    call coop_fft_forward(qmap%nside(1), qmap%nside(2), umap%image, fk(:,:,1))
+    do j=0, qmap%nside(2)-1
+       if(j .gt. qmap%nside(2)- j)then
+             ky = (j-qmap%nside(2))*qmap%dky
+          else
+             ky = j*qmap%dky
+          endif
+          ky2 = ky**2
+          do i=0, qmap%nside(1)/2
+             kx = qmap%dkx*i
+             kx2 = kx**2
+             k2 = kx2+ky2
+             if(k2 .eq. 0.d0)then
+                fk(i,j,:) = (0.d0, 0.d0)
+             else
+                tmp = fk(i, j, 2)
+                !!healpix convention (U-> -U for IAU convention)
+                fk(i, j, 2) = ((kx**2 - ky**2)*fk(i,j,2) + 2.d0*kx*ky*fk(i,j,1))/k2 
+                fk(i, j, 1) = ((ky**2 - kx**2)*fk(i,j,1) + 2.d0*kx*ky*tmp)/k2
+             endif
+          enddo
+       enddo
+       call coop_fft_backward(qmap%nside(1), qmap%nside(2), fk(:,:,1), qmap%image)
+       call coop_fft_backward(qmap%nside(1), qmap%nside(2), fk(:,:,2), umap%image)
+       deallocate(fk)
+  end subroutine coop_fits_image_cea_QU2EB
+
+
+
+
+  subroutine coop_flatsky_maps_get_peaks(this, sto, mask)
+    class
+    type(coop_fits_image_cea),optional::imap, qmap, umap,mask
+    type(coop_stacking_options)::sto
+    logical::domask, hasi, hasqu
+    COOP_INT::total_weight, npts
+    COOP_REAL::mean, thetaphi(2)
+    COOP_INT::i, list(8), nneigh, nmaps, iskip, ix, iy, ibase
+    COOP_INT,parameter::max_npeaks = 100000
+    call sto%free()
+    nmaps = 0
+    hasi = present(imap)
+    if(hasi)nmaps = nmaps+1
+    hasqu = present(qmap) .and. present(umap)
+    if(hasqu)then
+       nmaps = nmaps+2
+    endif
+    if(sto%nmaps .ne. nmaps) stop "get_peaks: nmaps does not agree"
+    domask = present(mask)
+    if(.not. hasi .and. .not. hasqu)then
+       write(*,*) "you need either imap or q,u maps for get_peak"
+       stop
+    endif
+    if(hasi)then
+       sto%nside = imap%nside(1)
+       sto%nside2 = imap%nside(2)
+       if(hasqu)then
+          if(qmap%nside(1).ne. sto%nside .or. umap%nside(1).ne. sto%nside .or. qmap%nside(2).ne.sto%nside2 .or. umap%nside(2).ne.sto%nside2)then
+             write(*,*) "error in get_peaks: map sizes differ"
+             stop
+          endif
+       endif
+    else
+       sto%nside = qmap%nside(1)
+       sto%nside2 = qmap%nside(2)
+       if(umap%nside(1).ne. sto%nside .or. umap%nside(2).ne.sto%nside2)then
+          write(*,*) "error in get_peaks: map sizes differ"
+          stop
+       endif
+    endif
+    if(domask)then
+       if(mask%nside(1).ne. sto%nside .or. mask%nside(2).ne.sto%nside2)then
+          write(*,*) "error in get_peaks: mask and map sizes differ"
+          stop
+       endif
+       total_weight = count(mask%image .gt. 0.5)
+    else
+       total_weight = sto%nside * sto%nside2
+    endif
+    if(total_weight .lt. 1) stop "get_peaks: no unmasked pixels"
+    if(sto%index_I .ne. 0 .and. (abs(sto%I_lower_nu).lt.coop_stacking_max_threshold .or. abs(sto%I_upper_nu).lt. coop_stacking_max_threshold))then
+       if(hasi)then
+          if(domask)then
+             mean = sum(imap%image,mask%image.gt.0.5)/total_weight
+             sto%sigma_I = sqrt(sum((imap%image-mean)**2, mask%image .gt. 0.5)/total_weight)
+          else
+             mean = sum(imap%image)/total_weight
+             sto%sigma_I = sqrt(sum((imap%image-mean)**2)/total_weight)
+          endif
+          sto%I_lower = mean + sto%I_lower_nu * sto%sigma_I
+          sto%I_upper = mean + sto%I_upper_nu*sto%sigma_I
+       else
+          write(*,*) "stacking options require an imap input, which is missing."
+       endif
+    endif
+    if(sto%index_L .ne. 0)then
+       write(*,*) "For flatsky stacking Laplace map is not yet supported."
+       stop
+    endif
+    if(sto%index_Q .ne. 0 .and. sto%index_U .ne. 0 .and. (abs(sto%P_lower_nu).lt.coop_stacking_max_threshold .or. abs(sto%P_upper_nu).lt. coop_stacking_max_threshold) )then  !!rescale P2
+       if(hasqu)then
+          if(domask)then
+             sto%sigma_P  = sqrt(sum(qmap%image**2+umap%image**2, mask%image .gt.0.5)/total_weight)
+          else
+             sto%sigma_P  = sqrt(sum(qmap%image**2+umap%image**2)/total_weight)
+          endif
+          sto%P2_lower = (sto%P_lower_nu * sto%sigma_P)**2
+          sto%P2_upper = (sto%P_upper_nu * sto%sigma_P)**2
+       else
+          stop "get_peaks: q, u maps are missing"
+       endif
+    endif
+    if(domask)then
+       select case(sto%genre)
+       case(coop_stacking_genre_Imax, coop_stacking_genre_Imax_oriented)
+          if(.not.hasi) stop "get_peaks: missing i map"
+          do i=0, imap%npix - 1
+             if(imap%image(i) .ge. sto%I_lower .and. imap%image(i) .le. sto%I_upper .and. mask%image(i) .gt. 0.5 )then
+                call imap%get_neighbours(i, list, nneigh)
+                if(all(mask%image(list(1:nneigh)).gt.0.5) .and. all(imap%image(list(1:nneigh)) .lt. imap%image(i)))then
+                   call sto%peak_pix%push(i)
+                   call imap%pix2ang(i, thetaphi(1), thetaphi(2))
+                   call sto%peak_ang%push(real(thetaphi))
+                   if(hasqu)then
+                      call sto%peak_map%push( real( (/ imap%image(i), qmap%image(i), umap%image(i) /) ) )
+                   else
+                      call sto%peak_map%push( (/ real(imap%image(i)) /) )
+                   endif
+                endif
+             endif
+          enddo
+       case(coop_stacking_genre_Imin, coop_stacking_genre_Imin_Oriented)
+          if(.not.hasi) stop "get_peaks: missing i map"
+          do i=0, imap%npix - 1
+             if(imap%image(i) .ge. sto%I_lower .and. imap%image(i) .le. sto%I_upper .and. mask%image(i) .gt. 0.5 )then
+                call imap%get_neighbours(i, list, nneigh)
+                if(all(mask%image(list(1:nneigh)).gt.0.5) .and. all(imap%image(list(1:nneigh)) .gt. imap%image(i)))then
+                   call sto%peak_pix%push(i)
+                   call imap%pix2ang(i, thetaphi(1), thetaphi(2))
+                   call sto%peak_ang%push(real(thetaphi))
+                   if(hasqu)then
+                      call sto%peak_map%push( real( (/ imap%image(i), qmap%image(i), umap%image(i) /) ) )
+                   else
+                      call sto%peak_map%push( (/ real(imap%image(i)) /) )
+                   endif
+                endif
+             endif
+          enddo
+       case(coop_stacking_genre_random_hot, coop_stacking_genre_random_cold, coop_stacking_genre_random_hot_oriented, coop_stacking_genre_random_cold_oriented)
+          if(.not.hasi) stop "get_peaks: missing i map"
+          npts = count(imap%image .ge. sto%I_lower .and. imap%image .le. sto%I_upper .and. mask%image .gt. 0.5)
+          if(npts .gt. max_npeaks)then
+             iskip = nint(sqrt(dble(npts)/max_npeaks))
+             do iy = 0, imap%nside(2)-1, iskip
+                ibase = iy*imap%nside(1)
+                do ix=0, imap%nside(1)-1, iskip
+                   i = ibase + ix
+                   if(imap%image(i) .ge. sto%I_lower .and. imap%image(i) .le. sto%I_upper .and. mask%image(i) .gt. 0.5 )then
+                      call sto%peak_pix%push(i)
+                      call imap%pix2ang(i, thetaphi(1), thetaphi(2))
+                      call sto%peak_ang%push(real(thetaphi))
+                      if(hasqu)then
+                         call sto%peak_map%push( real( (/ imap%image(i), qmap%image(i), umap%image(i) /) ) )
+                      else
+                         call sto%peak_map%push( (/ real(imap%image(i)) /) )
+                      endif
+                   endif
+                enddo
+             enddo
+          else
+             do i=0, imap%npix - 1
+                if(imap%image(i) .ge. sto%I_lower .and. imap%image(i) .le. sto%I_upper .and. mask%image(i) .gt. 0.5 )then
+                   call sto%peak_pix%push(i)
+                   call imap%pix2ang(i, thetaphi(1), thetaphi(2))
+                   call sto%peak_ang%push(real(thetaphi))
+                   if(hasqu)then
+                      call sto%peak_map%push( real( (/ imap%image(i), qmap%image(i), umap%image(i) /) ))
+                   else
+                      call sto%peak_map%push( (/ real(imap%image(i)) /) )
+                   endif
+                endif
+             enddo
+          endif
+       end select
+    else
+       select case(sto%genre)
+       case(coop_stacking_genre_Imax, coop_stacking_genre_Imax_oriented)
+          if(.not.hasi) stop "get_peaks: missing i map"
+          do i=0, imap%npix - 1
+             if(imap%image(i) .ge. sto%I_lower .and. imap%image(i) .le. sto%I_upper )then
+                call imap%get_neighbours(i, list, nneigh)
+                if( all(imap%image(list(1:nneigh)) .lt. imap%image(i)))then
+                   call sto%peak_pix%push(i)
+                   call imap%pix2ang(i, thetaphi(1), thetaphi(2))
+                   call sto%peak_ang%push(real(thetaphi))
+                   if(hasqu)then
+                      call sto%peak_map%push( real((/ imap%image(i), qmap%image(i), umap%image(i) /) ))
+                   else
+                      call sto%peak_map%push( (/ real(imap%image(i)) /) )
+                   endif
+                endif
+             endif
+          enddo
+       case(coop_stacking_genre_Imin, coop_stacking_genre_Imin_Oriented)
+          if(.not.hasi) stop "get_peaks: missing i map"
+          do i=0, imap%npix - 1
+             if(imap%image(i) .ge. sto%I_lower .and. imap%image(i) .le. sto%I_upper  )then
+                call imap%get_neighbours(i, list, nneigh)
+                if(all(imap%image(list(1:nneigh)) .gt. imap%image(i)))then
+                   call sto%peak_pix%push(i)
+                   call imap%pix2ang(i, thetaphi(1), thetaphi(2))
+                   call sto%peak_ang%push(real(thetaphi))
+                   if(hasqu)then
+                      call sto%peak_map%push( real((/ imap%image(i), qmap%image(i), umap%image(i) /) ))
+                   else
+                      call sto%peak_map%push( (/ real(imap%image(i)) /) )
+                   endif
+                endif
+             endif
+          enddo
+       case(coop_stacking_genre_random_hot, coop_stacking_genre_random_cold, coop_stacking_genre_random_hot_oriented, coop_stacking_genre_random_cold_oriented)
+          if(.not.hasi) stop "get_peaks: missing i map"
+          npts = count(imap%image .ge. sto%I_lower .and. imap%image .le. sto%I_upper)
+          if(npts .gt. max_npeaks)then
+             iskip = nint(sqrt(dble(npts)/max_npeaks))
+             do iy = 0, imap%nside(2)-1, iskip
+                ibase = iy*imap%nside(1)
+                do ix=0, imap%nside(1)-1, iskip
+                   i = ibase + ix
+                   if(imap%image(i) .ge. sto%I_lower .and. imap%image(i) .le. sto%I_upper )then
+                      call sto%peak_pix%push(i)
+                      call imap%pix2ang(i, thetaphi(1), thetaphi(2))
+                      call sto%peak_ang%push(real(thetaphi))
+                      if(hasqu)then
+                         call sto%peak_map%push( real((/ imap%image(i), qmap%image(i), umap%image(i) /)) )
+                      else
+                         call sto%peak_map%push( (/ real(imap%image(i)) /) )
+                      endif
+                   endif
+                enddo
+             enddo
+          else
+             do i=0, imap%npix - 1
+                if(imap%image(i) .ge. sto%I_lower .and. imap%image(i) .le. sto%I_upper)then
+                   call sto%peak_pix%push(i)
+                   call imap%pix2ang(i, thetaphi(1), thetaphi(2))
+                   call sto%peak_ang%push(real(thetaphi))
+                   if(hasqu)then
+                      call sto%peak_map%push( real((/ imap%image(i), qmap%image(i), umap%image(i) /)))
+                   else
+                      call sto%peak_map%push( (/ real(imap%image(i)) /) )
+                   endif
+                endif
+             enddo
+          endif
+       end select
+    endif
+  end subroutine coop_fits_image_cea_get_peaks
+
+
+  subroutine coop_fits_image_cea_stack_on_peaks(map, map2, sto, patch, mask, norm)
+    COOP_INT,parameter::n_threads = 8
+    class(coop_fits_image_cea)::map
+    class(coop_fits_image_cea),optional::map2, mask
+    type(coop_stacking_options)::sto
+    COOP_REAL,dimension(n_threads)::angle
+    COOP_INT,dimension(n_threads)::center
+    type(coop_healpix_patch)::patch
+    type(coop_healpix_patch),dimension(n_threads)::p, tmp
+    type(coop_fits_image_cea),optional::mask
+    logical,optional::norm
+    COOP_INT ithread, i
+#ifdef HAS_HEALPIX
+    patch%image = 0.d0
+    patch%nstack = 0.d0
+    patch%nstack_raw = 0
+    do ithread=1, n_threads
+       p(ithread) = patch
+       tmp(ithread) = patch
+    enddo
+    !$omp parallel do private(i, ithread)
+    do ithread = 1, n_threads
+       do i=ithread, sto%peak_pix%n, n_threads
+          center(i) = sto%pix(
+          if(present(map2))then
+             if(present(mask))then
+                call coop_fits_image_cea_stack_on_patch(map = map, map2 = map2, mask = mask, center = center(ithread), angle = angle(ithread), patch = p(ithread), tmp_patch = tmp(ithread))
+             else
+                call coop_fits_image_cea_stack_on_patch(map = map, map2 = map2,  center = center(ithread), angle = angle(ithread), patch = p(ithread), tmp_patch = tmp(ithread))
+             endif
+          else
+             if(present(mask))then
+                call coop_fits_image_cea_stack_on_patch(map = map,  mask = mask, center = center(ithread), angle = angle(ithread), patch = p(ithread), tmp_patch = tmp(ithread))
+             else
+                call coop_fits_image_cea_stack_on_patch(map = map,  center = center(ithread), angle = angle(ithread), patch = p(ithread), tmp_patch = tmp(ithread))
+             endif
+          endif
+       enddo
+    enddo
+    !$omp end parallel do
+    do ithread = 1, n_threads
+       patch%image = patch%image + p(ithread)%image
+       patch%nstack = patch%nstack + p(ithread)%nstack
+       patch%nstack_raw = patch%nstack_raw + p(ithread)%nstack_raw
+       call p(ithread)%free()
+       call tmp(ithread)%free()
+    enddo
+    if(present(norm))then
+       if(.not.norm)return
+    endif
+    if(patch%nstack_raw .ne. 0)then
+       do i=1, patch%nmaps
+          patch%image(:, :, i) = patch%image(:, :, i)/max(patch%nstack, 1.d0)
+       enddo
+    else
+       write(*,*) "warning: no patches has been found"
+       patch%image = 0.d0
+    endif
+#else
+    stop "CANNOT FIND HEALPIX"
+#endif
+  end subroutine coop_healpix_maps_stack_on_peaks
+
+
+  subroutine coop_fits_image_cea_stack_on_patch(map, map2, center, angle, patch, tmp_patch, mask)
+    type(coop_fits_image_cea)::map
+    type(coop_fits_image_cea),optional::mask, map2
+    COOP_REAL angle
+    COOP_INT::center
+    type(coop_healpix_patch) patch, tmp_patch
+    if(angle .ge. 1.d30)return
+    if(present(map2))then
+       if(present(mask))then
+          call coop_fits_image_cea_fetch_patch(map = map, map2 = map2, center = center, angle = angle, patch = tmp_patch, mask = mask)
+       else
+          call coop_fits_image_cea_fetch_patch(map = map, map2 = map2, center = center, angle = angle, patch = tmp_patch, mask = mask)
+       endif
+    else
+       if(present(mask))then
+          call coop_fits_image_cea_fetch_patch(map = map, center = center, angle = angle, patch = tmp_patch, mask = mask)
+       else
+          call coop_fits_image_cea_fetch_patch(map = map, center = center, angle = angle, patch = tmp_patch, mask = mask)
+       endif
+    endif
+    if(sum(tmp_patch%nstack*tmp_patch%indisk) .lt. patch%num_indisk_tol)return
+    if(angle .gt. coop_4pi)then   !! if angle > 4pi do flip
+       call tmp_patch%flipx()
+    elseif(angle .lt. -coop_4pi)then
+       call tmp_patch%flipy()
+    endif
+    patch%image = patch%image + tmp_patch%image
+    patch%nstack = patch%nstack + tmp_patch%nstack
+    patch%nstack_raw = patch%nstack_raw + tmp_patch%nstack_raw
+  end subroutine coop_fits_image_cea_stack_on_patch
+
+
+  subroutine coop_fits_image_cea_fetch_patch(map, map2, patch, center, angle, mask)
+    type(coop_fits_image_cea)::map
+    type(coop_fits_image_cea), optional::map2, mask
+    COOP_INT::pix, center
+    COOP_REAL angle
+    type(coop_healpix_patch) patch
+    COOP_INT i, j, k, ix, iy, ix_center, iy_center
+    COOP_REAL x, y, r, phi
+    COOP_SINGLE qu(2)
+    iy_center = center/map%nside(1)
+    ix_center = center - iy_center * map%nside(1)
+    patch%nstack_raw = 1
+    select case(patch%nmaps)
+    case(1)
+       do j = -patch%n, patch%n
+          do i = -patch%n, patch%n
+             x = patch%dr * i
+             y = patch%dr * j
+             r = sqrt(x**2+y**2)
+             if(r.ge. 2.d0)cycle
+             phi = COOP_POLAR_ANGLE(x, y) + angle
+             ix = nint(r*cos(phi)/map%dx) + ix_center
+             iy = nint(r*sin(phi)/map%dy) + iy_center
+             if(ix .ge. 0 .and. ix .lt. map%nside(1) .and. iy .ge. 0 .and. iy .lt. map%nside(2))then
+                pix = ix  + iy*map%nside(1)
+                if(present(mask))then
+                   patch%nstack(i, j) = mask%image(pix)
+                   patch%image(i, j, 1) = map%image(pix)*mask%image(pix)
+                else 
+                   patch%nstack(i, j) = 1.
+                   patch%image(i, j, 1) = map%image(pix)
+                endif
+             else
+                patch%image(i, j, 1) = 0.
+                patch%nstack(i, j) = 0.
+             endif
+          enddo
+       enddo
+    case(2)
+       if(.not. present(map2))then
+          write(*,*) "For QU stacking you need to pass two maps into the subroutine"
+          stop
+       endif
+       if(all(patch%tbs%local_rotation))then
+          do j = -patch%n, patch%n
+             do i = -patch%n, patch%n
+                x = patch%dr * i
+                y = patch%dr * j
+                r = sqrt(x**2+y**2)
+                if(r.ge. 2.d0)cycle
+                phi = COOP_POLAR_ANGLE(x, y) + angle
+                ix = nint(r*cos(phi)/map%dx) + ix_center
+                iy = nint(r*sin(phi)/map%dy) + iy_center
+                if(ix .ge. 0 .and. ix .lt. map%nside(1) .and. iy .ge. 0 .and. iy .lt. map%nside(2))then
+                   pix = ix  + iy*map%nside(1)
+                   qu(1) = map%image(pix)
+                   qu(2) = map2%image(pix)
+                   call coop_healpix_rotate_qu(qu, phi,patch%tbs%spin(1))
+                   qu = qu*coop_healpix_QrUrSign
+                   if(present(mask))then
+                      patch%nstack(i, j) = mask%image(pix)
+                      patch%image(i, j, 1:2) = qu*mask%image(pix)
+                   else 
+                      patch%nstack(i, j) = 1.
+                      patch%image(i, j, 1:2) = qu
+                   endif
+                else
+                   patch%image(i, j, :) = 0.
+                   patch%nstack(i, j) = 0.
+                endif
+             enddo
+          enddo
+       else
+          do j = -patch%n, patch%n
+             do i = -patch%n, patch%n
+                x = patch%dr * i
+                y = patch%dr * j
+                r = sqrt(x**2+y**2)
+                if(r.ge. 2.d0)cycle
+                phi = COOP_POLAR_ANGLE(x, y) + angle
+                ix = nint(r*cos(phi)/map%dx) + ix_center
+                iy = nint(r*sin(phi)/map%dy) + iy_center
+                if(ix .ge. 0 .and. ix .lt. map%nside(1) .and. iy .ge. 0 .and. iy .lt. map%nside(2))then
+                   pix = ix  + iy*map%nside(1)
+                   qu(1) = map%image(pix)
+                   qu(2) = map2%image(pix)
+                   call coop_healpix_rotate_qu(qu, angle, patch%tbs%spin(1))
+                   if(present(mask))then
+                      patch%nstack(i, j) = mask%image(pix)
+                      patch%image(i, j, 1:2) = qu*mask%image(pix)
+                   else 
+                      patch%nstack(i, j) = 1.
+                      patch%image(i, j, 1:2) = qu
+                   endif
+                else
+                   patch%image(i, j, :) = 0.
+                   patch%nstack(i, j) = 0.
+                endif
+             enddo
+          enddo
+       endif
+    case default
+       stop "flatsky stacking only support nmaps = 1 or 2"
+    end select
+  end subroutine coop_fits_image_cea_fetch_patch
+
+  subroutine coop_fits_image_cea_smooth_EB2QU(this)
+    class(coop_fits_image_cea)::this
+    if(.not. allocated(this%smooth_Q).or. .not. allocated(this%smooth_U)) stop "EB2QU cannot be done: E, B not allocated yet."
+    call coop_fits_EB2QU(this%smooth_nx*2+1, this%smooth_ny*2+1, this%smooth_Q, this%smooth_U)
+  end subroutine coop_fits_image_cea_smooth_EB2QU
+
+
+  subroutine coop_fits_image_cea_smooth_QU2EB(this)
     class(coop_fits_image_cea)::this
     if(.not. allocated(this%smooth_Q).or. .not. allocated(this%smooth_U)) stop "QU2EB cannot be done: Q, U not allocated yet."
     call coop_fits_QU2EB(this%smooth_nx*2+1, this%smooth_ny*2+1, this%smooth_Q, this%smooth_U)
-  end subroutine coop_fits_image_cea_QU2EB
+  end subroutine coop_fits_image_cea_smooth_QU2EB
 
 
 
@@ -1330,7 +1976,7 @@ contains
     type(coop_fits_image_cea),optional::weights !!if this presents, cut off points with weights less than 30% of the mean weights
     type(coop_healpix_maps)::hp, mask
     type(coop_list_integer)::ps
-    integer(8)::pix
+    COOP_INT::pix
     COOP_INT:: hpix, imap, i, listpix(0:10000), nlist
     COOP_REAL theta, phi, meanweights
     COOP_SINGLE,optional::lower, upper
@@ -1458,8 +2104,8 @@ contains
              kx2 = kx**2
              k2 = kx2+ky2
              if(k2 .le. k2min .or. k2.ge.k2max)cycle
-             fk(i, j,1) = ((ky2 - kx2)*fk(i,j,2) + 2.d0*kx*ky*fk(i,j,3))/k2
-             fk(i, j,2) = ((kx2 - ky2)*fk(i,j,3) + 2.d0*kx*ky*fk(i,j,2))/k2 !!healpix convention
+             fk(i, j,1) = ((ky2 - kx2)*fk(i,j,2) - 2.d0*kx*ky*fk(i,j,3))/k2
+             fk(i, j,2) = ((kx2 - ky2)*fk(i,j,3) - 2.d0*kx*ky*fk(i,j,2))/k2 !!healpix convention
           enddo
        enddo
 
@@ -1474,7 +2120,51 @@ contains
   end subroutine coop_fits_image_cea_simulate_TEB
 
 
+  subroutine coop_fits_image_cea_get_neighbours(this, pix, list, nneigh)
+    class(coop_fits_image_cea)::this
+    COOP_INT::pix
+    COOP_INT::list(8), nneigh
+    COOP_INT ix, iy, i
+    iy = pix/this%nside(1) 
+    ix = pix  - iy*this%nside(1) 
+    nneigh = 0
+    if(iy .gt. 0)then
+       nneigh = nneigh + 1
+       list(nneigh) = ix + (iy-1)*this%nside(1)
+    endif
+    if(iy .lt. this%nside(2)-1)then
+       nneigh = nneigh + 1
+       list(nneigh) = ix + (iy+1)*this%nside(1)          
+    endif
 
+    if(ix .gt. 0)then
+       nneigh = nneigh + 1
+       list(nneigh) = (ix-1) + iy*this%nside(1)
+       if(iy .gt. 0)then
+          nneigh = nneigh + 1
+          list(nneigh) = (ix-1) + (iy-1)*this%nside(1)
+       endif
+       if(iy .lt. this%nside(2)-1)then
+          nneigh = nneigh + 1
+          list(nneigh) = (ix-1) + (iy+1)*this%nside(1)          
+       endif
+    endif
+
+    if(ix .lt. this%nside(1)-1)then
+       nneigh = nneigh + 1
+       list(nneigh) = (ix+1) + iy*this%nside(1)
+       if(iy .gt. 0)then
+          nneigh = nneigh + 1
+          list(nneigh) = (ix+1) + (iy-1)*this%nside(1)
+       endif
+       if(iy .lt. this%nside(2)-1)then
+          nneigh = nneigh + 1
+          list(nneigh) = (ix+1) + (iy+1)*this%nside(1)          
+       endif
+    endif
+  end subroutine coop_fits_image_cea_get_neighbours
 
 
 end module coop_fitswrap_mod
+
+
