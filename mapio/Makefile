@@ -59,6 +59,9 @@ Stack: $(OBJ) dostack.o
 FStack: $(OBJ) flat_stack.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_stack.o $(LINK)
 
+FGetPeaks: $(OBJ) flat_exportspots.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_exportspots.o $(LINK)
+
 FStat:  $(OBJ) flat_stat.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_stat.o $(LINK)
 
@@ -85,7 +88,7 @@ TE2Z: $(OBJ) te2zeta.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) te2zeta.o $(LINK)
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test PLOTLINES UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo TE2Z GAUSS MM0 MM1 FStack FStat F2Heal FCoadd ACTTheo FMask
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test PLOTLINES UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo TE2Z GAUSS MM0 MM1 FStack FStat F2Heal FCoadd ACTTheo FMask FGetPeaks
 
 
 
