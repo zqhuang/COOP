@@ -20,9 +20,9 @@ output=${outdir}/${outprefix}_l${lmin}_${fwhm}a
 ./GetTheo -cl lcdm_lensedCls.dat -auto 2 -cross 2 -field E -peak RANDOM -out ${outdir}/theory_noiseless_l${lmin}_${fwhm}a_EonEhotnupt5 -nu ${nu} -orient RANDOM -fwhm ${fwhm} -hot T -lmax ${lmax} -hpauto_lowl $((${lmin}-20)) -hpauto_highl $((${lmin}+20)) -hpcross_lowl $((${lmin}-20)) -hpcross_highl $((${lmin}+20)) -radius ${radius}
 
 ###get peaks
-./FGetPeaks -map ${mapdir}/${peakprefix}_${fwhm}a_l${lmin}-${lmax}_I.fsm -out spots/${outprefix}_l${lmin}_${fwhm}a_hot_nupt5.dat -peak RANDOM -orient RANDOM -nu ${nu}
+./FGetPeaks -map ${mapdir}/${peakprefix}_${fwhm}a_l${lmin}-${lmax}_I.fsm -out spots/${outprefix}_l${lmin}_${fwhm}a_hot_nupt5.dat -peak RANDOM -orient RANDOM -nu ${nu} -maxn ${11}
 
-./FGetPeaks -map ${mapdir}/${peakprefix}_${fwhm}a_l${lmin}-${lmax}_E.fsm -out spots/${outprefix}_l${lmin}_${fwhm}a_Ehot_nupt5.dat -peak RANDOM -orient RANDOM -nu ${nu}
+./FGetPeaks -map ${mapdir}/${peakprefix}_${fwhm}a_l${lmin}-${lmax}_E.fsm -out spots/${outprefix}_l${lmin}_${fwhm}a_Ehot_nupt5.dat -peak RANDOM -orient RANDOM -nu ${nu} -maxn ${11}
 
 
 ## stack with random rotation

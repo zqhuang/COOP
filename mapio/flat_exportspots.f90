@@ -11,7 +11,7 @@ program Exp_spots
   type(coop_stacking_options)::sto
   type(coop_flatsky_maps)::fm
   COOP_REAL::threshold
-  COOP_INT::i
+  COOP_INT::i, max_num
 
   if(iargc().le.0)then
      write(*,"(A)") "----------------------------------------------------------"     
@@ -24,6 +24,7 @@ program Exp_spots
      write(*,"(A)") "-peak [SADDLE|COL|RANDOM|T|E|B|P_T|P|\zeta|P_\zeta]"
      write(*,"(A)") "-orient [RANDOM|(Q_T, U_T)|(Q, U)|(Q_{\nabla^2T},U_{\nabla^2T})]"
      write(*,"(A)") "-nu THRESHOLD_VALUE"
+     write(*,"(A)") "-maxn MAX_NUM_PEAKS"
      write(*,"(A)") "----------------------------------------------------------"     
      stop
   endif
@@ -33,6 +34,7 @@ program Exp_spots
   call coop_get_command_line_argument(key = 'peak', arg = peak_name, default = 'T')
   call coop_get_command_line_argument(key = 'orient', arg = orient_name, default = 'RANDOM')
   call coop_get_command_line_argument(key = 'nu', arg = threshold, default = 0.d0)
+  call coop_get_command_line_argument(key = 'maxn', arg = max_num, default = 100000)
   if((index(orient_name, coop_backslash).ne.0 .or. index(orient_name, "_") .ne. 0 .or. index(orient_name, "^").ne.0) .and. index(orient_name, "$").eq.0)then
      orient_name = "$"//trim(adjustl(orient_name))//"$"
   endif
@@ -66,7 +68,7 @@ program Exp_spots
         stop
      endif
   end select
-  call fm%get_peaks(sto)
+  call fm%get_peaks(sto, max_num = max_num)
   print*, "find "//COOP_STR_OF(sto%peak_pix%n)//" spots"
   print*, "writing to "//trim(output)
   call sto%export(trim(output))

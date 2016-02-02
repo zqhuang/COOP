@@ -1903,14 +1903,15 @@ contains
 
 
 
-  subroutine coop_flatsky_maps_get_peaks(this, sto)
+  subroutine coop_flatsky_maps_get_peaks(this, sto, max_num)
     class(coop_flatsky_maps)::this
     type(coop_stacking_options)::sto
+    COOP_INT,optional::max_num
     COOP_INT::npts, index_peak
     COOP_REAL::mean, thetaphi(2)
     COOP_INT::i, list(8), nmaps, iskip, ix, iy, ibase, ibase_plus, ibase_minus
     logical,dimension(:),allocatable::zeros1, zeros2
-    COOP_INT,parameter::max_npeaks = 16000
+    COOP_INT,parameter::max_npeaks = 500000
     if(sto%nmaps .ne. this%nmaps) stop "get_peaks: nmaps does not agree"
     if(this%total_weight .lt. 1.d0) stop "get_peaks: no unmasked pixels"
     call sto%free()
@@ -2018,10 +2019,14 @@ contains
           if(this%is_masked(i) .or. sto%reject( this%pixel_values(i)))cycle
           npts = npts + 1
        enddo
-       iskip = max(nint(sqrt(dble(npts)/max_npeaks)), 1)
-       do iy = 0, this%nside(2)-1, iskip
+       if(present(max_num))then
+          iskip = max(nint(sqrt(dble(npts)/min(max_npeaks, max_num))), 1)
+       else
+          iskip = max(nint(sqrt(dble(npts)/max_npeaks)), 1)
+       endif
+       do iy = iskip/2, this%nside(2)-1, iskip
           ibase = iy*this%nside(1)
-          do ix=0, this%nside(1)-1, iskip
+          do ix=iskip/2, this%nside(1)-1, iskip
              i = ibase + ix
              if(this%is_masked(i) .or. sto%reject( this%pixel_values(i)))cycle
              call sto%peak_pix%push(i)
