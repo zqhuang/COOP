@@ -43,27 +43,25 @@ program test
   qmap = tmap
   umap = tmap
   call coop_fits_image_cea_simulate_TEB(lmin=lmin, lmax=lmax, Cls=Cls, tmap = tmap, emap = emap, bmap = bmap, qmap=qmap, umap =umap)
-  call tmap%write(mapdir//"sim_1_I.fits")
-!  call emap%write(mapdir//"sim_1_E.fits")
-!  call bmap%write(mapdir//"sim_1_B.fits")
-  call qmap%write(mapdir//"sim_1_Q.fits")
-  call umap%write(mapdir//"sim_1_U.fits")
+  call tmap%write(mapdir//"sim_2_I.fits")
+  call qmap%write(mapdir//"sim_2_Q.fits")
+  call umap%write(mapdir//"sim_2_U.fits")
 
   call emap%free()
   call bmap%free()
-  call noise%open(mapdir//"deep56_array_2_noise_sim_1_I.fits")
+  call noise%open(mapdir//"deep56_array_2_noise_sim_2_I.fits")
   call noise%regularize(reg_limit)
   tmap%image = tmap%image + noise%image
-  call tmap%write(mapdir//"sim_with_noise_1_I.fits")
+  call tmap%write(mapdir//"sim_with_noise_2_I.fits")
 
-  call noise%open(mapdir//"deep56_array_2_noise_sim_1_Q.fits")
+  call noise%open(mapdir//"deep56_array_2_noise_sim_2_Q.fits")
   call noise%regularize(reg_limit)
   qmap%image = qmap%image + noise%image
-  call qmap%write(mapdir//"sim_with_noise_1_Q.fits")
+  call qmap%write(mapdir//"sim_with_noise_2_Q.fits")
 
-  call noise%open(mapdir//"deep56_array_2_noise_sim_1_U.fits")
+  call noise%open(mapdir//"deep56_array_2_noise_sim_2_U.fits")
   call noise%regularize(reg_limit)
   umap%image = umap%image + noise%image
-  call umap%write(mapdir//"sim_with_noise_1_U.fits")
+  call umap%write(mapdir//"sim_with_noise_2_U.fits")
 
 end program test

@@ -72,6 +72,8 @@ program test
   call fm%map(1)%smooth(fwhm = fwhm_arcmin*coop_SI_arcmin, highpass_l1 = max(lmin-20, 2), highpass_l2 = lmin + 20, lmax = lmax, lx_cut = lx_cut, ly_cut = ly_cut, beam = beam)
   fm%units = unit
   if(want_qu)call fm%map(1)%get_QTUT(qt = fm%map(2), ut = fm%map(3))
+
+  call fm%trim_mask(2.d0*max(fwhm_arcmin*coop_SI_arcmin, 1.d0/lmax))  !!to reduce boundary effects
   call fm%write(output)
   write(*,*) "File is written to "//trim(output)
 

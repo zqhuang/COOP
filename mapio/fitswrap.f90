@@ -106,9 +106,65 @@ module coop_fitswrap_mod
      procedure::merge => coop_flatsky_maps_merge
      procedure::qu2eb => coop_flatsky_maps_qu2eb
      procedure::eb2qu => coop_flatsky_maps_eb2qu
+     procedure::trim_mask => coop_flatsky_maps_trim_mask
   end type coop_flatsky_maps
 
 contains
+
+  subroutine coop_flatsky_maps_trim_mask(this, width)
+    class(coop_flatsky_maps)::this
+    COOP_REAL::width, rwx, rwy, ry2
+    COOP_INT::ix, iy, pix, ibase, iwx, iwy, il, irange
+    COOP_INT, dimension(:),allocatable::list
+    COOP_REAL, dimension(:),allocatable::weight
+    COOP_INT::nlist
+    if(width.le.0.d0)return
+    if(.not. this%has_mask) return
+    iwx = ceiling(width/abs(this%dx))
+    iwy = ceiling(width/abs(this%dy))
+    rwx = dble(iwx)*1.0000001
+    rwy = dble(iwy)*1.0000001
+    nlist = 0
+    do iy = -iwy, iwy
+       irange = nint(iwx*sqrt(1.d0-(iy/rwy)**2))
+       nlist= nlist + (2*irange + 1)
+    enddo
+    allocate(list(nlist), weight(nlist))
+    il = 0
+    do iy = -iwy, iwy
+       irange = nint(iwx*sqrt(1.d0-(iy/rwy)**2))
+       ibase = iy*this%nside(1)
+       ry2 = (iy/rwy)**2
+       do ix = - irange , irange
+          il = il + 1
+          list(il) = ibase + ix
+          weight(il) = exp(-2.d0*((ix/rwx)**2 + ry2))
+       enddo
+    enddo
+    weight = weight/sum(weight)
+    
+    do iy = 1, this%nside(2)- 1
+       ibase = this%nside(1)*iy
+       if(iy .lt. iwy .or. iy .ge. this%nside(2) - iwy)then
+          this%mask%image(ibase:ibase+this%nside(1)-1) = 0.d0
+          cycle
+       endif
+       this%mask%image(ibase:ibase+iwx-1) = 0.d0
+       this%mask%image(ibase+this%nside(1)-iwx:ibase+this%nside(1)-1) = 0.d0
+       do ix = iwx, this%nside(1) - iwx - 1
+          pix = ibase + ix
+          if(this%unmasked(pix))cycle
+          this%mask%image(pix+list) = this%mask%image(pix+list) - weight
+       enddo
+    enddo
+    this%unmasked = this%unmasked .and. (this%mask%image.gt.0.9) 
+    where(this%unmasked)
+       this%mask%image = 1.d0
+    elsewhere
+       this%mask%image = 0.d0
+    end where
+    deallocate(list, weight)
+  end subroutine coop_flatsky_maps_trim_mask
 
   subroutine coop_flatsky_maps_qu2eb(this)
     class(coop_flatsky_maps)::this
