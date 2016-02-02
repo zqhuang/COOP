@@ -70,6 +70,8 @@ module coop_fitswrap_mod
   end type coop_fits_image_cea
 
   type coop_flatsky_maps
+     COOP_STRING::path=""
+     COOP_STRING::filename=""
      COOP_INT::nmaps = 0
      COOP_INT::npix = 0
      COOP_INT,dimension(2)::nside = 0
@@ -168,8 +170,17 @@ contains
        this%units(1:copy%nmaps) = copy%units
        this%spin(copy%nmaps+1: this%nmaps) = map%spin
        this%fields(copy%nmaps+1: this%nmaps) = map%fields
-       this%files(copy%nmaps+1: this%nmaps) = map%files
        this%units(copy%nmaps+1: this%nmaps) = map%units
+       this%files(copy%nmaps+1: this%nmaps) = map%files
+       if(trim(this%path).ne.trim(map%path))then
+          write(*,*) "merging flatsky maps in different directories."
+          write(*,*) "creating symbolic link to resolve the problem."
+          do i=1, map%nmaps
+             if(trim(map%files(i)).ne."NULL")then
+                call system("ln -s "//trim(map%path)//trim(map%files(i))//" "//trim(this%path)//trim(map%files(i)))
+             endif
+          enddo
+       endif
        do i=1, copy%nmaps
           this%map(i) = copy%map(i)
        enddo
@@ -301,6 +312,8 @@ contains
     else
        wm = .false.
     endif
+    this%path=trim(coop_file_path_of(filename))
+    this%filename=trim(coop_file_name_of(filename))
     if(present(index_list))then
        write(fp%unit, "(I5)") size(index_list)
 
@@ -310,9 +323,9 @@ contains
           write(fp%unit, "(A)") trim(this%fields(i))
           write(fp%unit, "(A)") trim(this%units(i))
           write(fp%unit, "(I5)") this%spin(i)
-          if(wn .or. trim(this%files(i)).eq."NULL")then
-             this%files(i) = trim(coop_file_replace_postfix(filename, "_MAP"//COOP_STR_OF(imap)//".fits"))
-             call this%map(i)%write(this%files(i))
+          if(wn .or. .not. coop_file_exists(trim(this%path)//trim(this%files(i))))then
+             this%files(i) = trim(coop_file_replace_postfix(this%filename, "_MAP"//COOP_STR_OF(imap)//".fits"))
+             call this%map(i)%write(trim(this%path)//trim(this%files(i)))
           endif
           write(fp%unit, "(A)") trim(this%files(i))
        enddo
@@ -324,18 +337,18 @@ contains
           write(fp%unit, "(A)") trim(this%fields(i))
           write(fp%unit, "(A)") trim(this%units(i))
           write(fp%unit, "(I5)") this%spin(i)
-          if(wn .or. trim(this%files(i)).eq."NULL")then
-             this%files(i) = trim(coop_file_replace_postfix(filename, "_MAP"//COOP_STR_OF(i)//".fits"))
-             call this%map(i)%write(this%files(i))
+          if(wn .or. .not. coop_file_exists(trim(this%path)//trim(this%files(i))))then
+             this%files(i) = trim(coop_file_replace_postfix(this%filename, "_MAP"//COOP_STR_OF(i)//".fits"))
+             call this%map(i)%write(trim(this%path)//trim(this%files(i)))
           endif
           write(fp%unit, "(A)") trim(this%files(i))
        enddo
     endif
     if(this%has_mask)then
        write(fp%unit, "(A)") "T"
-       if(wm .or. trim(this%fmask) .eq. "NULL")then
-          this%fmask = trim(coop_file_replace_postfix(filename, "_MASK.fits"))
-          call this%mask%write(this%fmask)
+       if(wm .or. .not.coop_file_exists(trim(this%path)//trim(this%fmask)))then
+          this%fmask = trim(coop_file_replace_postfix(this%filename, "_MASK.fits"))
+          call this%mask%write(trim(this%path)//trim(this%fmask))
        endif
        write(fp%unit, "(A)") trim(this%fmask)
     else
@@ -371,6 +384,8 @@ contains
        write(*,*) trim(filename)//" does not exist"
        stop
     endif
+    this%path=coop_file_path_of(filename)
+    this%filename=coop_file_name_of(filename)
     call fp%open(filename, "r")
     if(.not.fp%read_int(this%nmaps))call reporterror()
     if(this%nmaps .le. 0 .or. this%nmaps .gt. 20)then
@@ -388,7 +403,7 @@ contains
        if(.not. fp%read_string(this%units(i)))call reporterror()
        if(.not. fp%read_int(this%spin(i)))call reporterror()
        if(.not. fp%read_string(this%files(i)))call reporterror()
-       call this%map(i)%open(trim(this%files(i)))
+       call this%map(i)%open(trim(this%path)//trim(this%files(i)))
        if(i.eq.1)then
           this%dx = this%map(1)%dx
           this%dy = this%map(1)%dy
@@ -408,7 +423,7 @@ contains
     if(.not. fp%read_logical(this%has_mask)) call reporterror()
     if(this%has_mask)then
        if(.not. fp%read_string(this%fmask))call reporterror()
-       call this%mask%open(this%fmask)
+       call this%mask%open(trim(this%path)//trim(this%fmask))
        if(abs(this%dx/this%mask%dx - 1.d0).gt. eps .or. &
             abs(this%dy / this%mask%dy - 1.d0) .gt. eps .or. &
             this%nside(1).ne. this%mask%nside(1) .or. this%nside(2).ne.this%mask%nside(2))then
@@ -451,11 +466,13 @@ contains
     COOP_REAL,parameter::eps = 1.d-5
     COOP_REAL::halfmax
     type(coop_file)::fp
+    call this%free()
     if(.not. coop_file_exists(filename))then
        write(*,*) trim(filename)//" does not exist"
        stop
     endif
-    call this%free()
+    this%path=coop_file_path_of(filename)
+    this%filename = "NULL"
     if(present(nmaps))then
        if(nmaps .le. 0 .or. nmaps.gt.20) stop "read_from_one: nmaps overflow"
        this%nmaps = nmaps
@@ -534,7 +551,7 @@ contains
           this%fields = "I"
        end select
     endif
-    this%files(1) = filename
+    this%files(1) = coop_file_name_of(filename)
     call this%map(1)%open(filename)
     this%dx = this%map(1)%dx
     this%dy = this%map(1)%dy
@@ -544,7 +561,12 @@ contains
     this%npix = this%map(1)%npix
     this%has_mask = present(mask)
     if(this%has_mask)then
-       this%fmask = mask
+       this%fmask = coop_file_name_of(mask)
+       if(trim(coop_file_path_of(mask)) .ne. trim(this%path))then
+          call system("ln -s "//trim(mask)//" "//trim(this%path)//trim(this%fmask))
+          write(*,*) "map and mask are not in the same directory; COOP is creating a symbolic link for the fsm format"
+       endif
+
        call this%mask%open(mask)
        if(abs(this%dx/this%mask%dx - 1.d0).gt. eps .or. &
             abs(this%dy / this%mask%dy - 1.d0) .gt. eps .or. &
@@ -593,6 +615,8 @@ contains
     this%nside = 0
     this%has_mask = .false.
     this%mask_changed = .false.
+    this%path=""
+    this%filename=""
   end subroutine coop_flatsky_maps_free
 
   subroutine coop_fits_open(this, filename)
@@ -1830,7 +1854,7 @@ contains
     COOP_REAL::mean, thetaphi(2)
     COOP_INT::i, list(8), nmaps, iskip, ix, iy, ibase, ibase_plus, ibase_minus
     logical,dimension(:),allocatable::zeros1, zeros2
-    COOP_INT,parameter::max_npeaks = 60000
+    COOP_INT,parameter::max_npeaks = 16000
     if(sto%nmaps .ne. this%nmaps) stop "get_peaks: nmaps does not agree"
     if(this%total_weight .lt. 1.d0) stop "get_peaks: no unmasked pixels"
     call sto%free()
