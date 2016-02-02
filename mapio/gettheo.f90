@@ -85,7 +85,7 @@ program stackth
   if(hpauto_lowl .gt. 0 .or. hpcross_lowl.gt.0)then
      write(*,*) "doing highpass filtering", hpauto_lowl, hpauto_highl, hpcross_lowl, hpcross_highl
   endif
-  call fp%open(clfile, "r")
+  call fp%open_skip_comments(clfile)
   do l=2, lmax
      read(fp%unit, *, ERR=100, END=100) il, l2cls(:, l)
      ell(l)  = l
