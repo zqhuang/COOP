@@ -7,7 +7,7 @@ module coop_asy_mod
   implicit none
   private
 
-  public::coop_asy, coop_asy_path, coop_asy_error_bar, coop_asy_errorbars, coop_asy_interpolate_curve, coop_asy_gray_color, coop_asy_rgb_color, coop_asy_label, coop_asy_legend, coop_asy_legend_advance, coop_asy_dot, coop_asy_line, coop_asy_labels, coop_asy_dots, coop_asy_lines, coop_asy_contour, coop_asy_curve, coop_asy_density,  coop_asy_topaxis, coop_asy_rightaxis, coop_asy_clip, coop_asy_plot_function, coop_asy_plot_likelihood, coop_asy_curve_from_file, coop_asy_histogram, coop_asy_band
+  public::coop_asy, coop_asy_path, coop_asy_error_bar, coop_asy_errorbars, coop_asy_interpolate_curve, coop_asy_gray_color, coop_asy_rgb_color, coop_asy_label, coop_asy_legend, coop_asy_legend_advance, coop_asy_dot, coop_asy_line, coop_asy_labels, coop_asy_dots, coop_asy_lines, coop_asy_contour, coop_asy_curve, coop_asy_density,  coop_asy_topaxis, coop_asy_rightaxis, coop_asy_clip, coop_asy_plot_function, coop_asy_plot_likelihood,  coop_asy_histogram, coop_asy_band,coop_asy_default_width,coop_asy_default_height
 
 
 #include "constants.h"
@@ -39,6 +39,7 @@ module coop_asy_mod
      procedure::curve => coop_asy_curve_d
      procedure::interpolate_curve => coop_asy_interpolate_curve_d
      procedure::plot => coop_asy_curve_d
+     procedure::plot_file => coop_asy_plot_file
      procedure::legend => coop_asy_legend_relative
      procedure::compact_legend=>coop_asy_compact_legend_relative
      procedure::legend_advance => coop_asy_legend_advance_relative
@@ -1204,13 +1205,13 @@ contains
 
 
 
-  subroutine coop_asy_curve_from_file(this, fname, interpolate, xcol, ycol, color, linetype, linewidth, legend)
+  subroutine coop_asy_plot_file(this, fname, interpolate, xcol, ycol, color, linetype, linewidth, legend)
+    class(coop_asy) this
     COOP_INT ,parameter::n = 256
     COOP_INT , optional::xcol, ycol
     COOP_REAL  x(n), y(n),  minx, maxx, dx
     COOP_INT  w(n)
     COOP_REAL ,dimension(:),allocatable::xx, yy, yy2
-    class(coop_asy) this
     type(coop_file) this2
     COOP_REAL ,dimension(:),allocatable::xraw, yraw, line
     COOP_UNKNOWN_STRING interpolate, fname
@@ -1440,7 +1441,7 @@ contains
        enddo
     endif
     deallocate(xraw, yraw, line)
-  end subroutine coop_asy_curve_from_file
+  end subroutine coop_asy_plot_file
 
 
   subroutine coop_asy_curve_d(this, x, y, smooth, color, linetype, linewidth, legend)

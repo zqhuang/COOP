@@ -8,7 +8,7 @@ module coop_list_mod
   COOP_INT,parameter::sp = kind(1.)
   COOP_INT,parameter::dl = kind(1.d0)
 
-  public::coop_list_integer, coop_list_real, coop_list_realarr, coop_list_double, coop_list_logical, coop_list_string, coop_list_character, coop_string_to_list, coop_dictionary, coop_dictionary_lookup, coop_get_prime_numbers, coop_list_get_element, coop_command_line_argument, coop_get_command_line_argument, coop_dynamic_array_integer
+  public::coop_list_integer, coop_list_real, coop_list_realarr, coop_list_double, coop_list_logical, coop_list_string, coop_list_character, coop_string_to_list, coop_dictionary, coop_dictionary_lookup, coop_get_prime_numbers, coop_list_get_element,  coop_command_line_has_argument, coop_command_line_argument, coop_get_command_line_argument, coop_dynamic_array_integer
 
   interface coop_list_initialize
      module procedure coop_list_integer_initialize, coop_list_real_initialize, coop_list_double_initialize, coop_list_logical_initialize, coop_list_string_initialize, coop_list_character_initialize, coop_list_realarr_initialize
@@ -1840,6 +1840,13 @@ contains
     if(coop_command_line_inputs%n .eq. 0) &
          call coop_command_line_inputs%load_input()
   end subroutine coop_load_command_line_inputs  
+
+  function coop_command_line_has_argument(key) result(has)
+    COOP_UNKNOWN_STRING::key
+    logical has
+    call coop_load_command_line_inputs()
+    has = (coop_command_line_inputs%index(key) .ne. 0)
+  end function coop_command_line_has_argument
 
   function coop_command_line_argument(index, key, default) result(str)
     COOP_INT,optional::index
