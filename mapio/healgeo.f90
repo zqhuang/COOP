@@ -54,6 +54,7 @@ module coop_healpix_mod
      COOP_INT::nside = 0
      COOP_INT::center
      COOP_INT::ordering = COOP_RING
+     COOP_REAL::norm = 1.d0
    contains
      procedure :: pix2ang => coop_healpix_disc_pix2ang
      procedure :: ang2pix => coop_healpix_disc_ang2pix
@@ -2784,7 +2785,11 @@ contains
     elseif(angle .lt. -coop_4pi)then
        call tmp_patch%flipy()
     endif
-    patch%image = patch%image + tmp_patch%image
+    if(disc%norm .ne. 1.d0)then
+       patch%image = patch%image + tmp_patch%image * disc%norm
+    else
+       patch%image = patch%image + tmp_patch%image
+    endif
     patch%nstack = patch%nstack + tmp_patch%nstack
     patch%nstack_raw = patch%nstack_raw + tmp_patch%nstack_raw
   end subroutine coop_healpix_maps_stack_on_patch
@@ -3703,7 +3708,7 @@ contains
     type(coop_stacking_options)::sto
     type(coop_healpix_maps),optional::mask
     logical::domask
-    COOP_INT i, nneigh, list(8), index_peak, ip, ipr
+    COOP_INT i, nneigh, list(8), ip, ipr
     COOP_INT::total_weight
     COOP_REAL::thetaphi(2), mean
     logical, optional::restore
@@ -3765,24 +3770,24 @@ contains
     endif
     select case(sto%genre)
     case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented, coop_stacking_genre_col_oriented)
-       index_peak = sto%index_I
-       if(index_peak .ne. 1 .or. sto%index_L .ne. 4 .or. sto%index_Q .ne. 2 .or. sto%index_U .ne. 3 .or. this%nmaps .lt. 6)then
+       sto%index_peak = sto%index_I
+       if(sto%index_peak .ne. 1 .or. sto%index_L .ne. 4 .or. sto%index_Q .ne. 2 .or. sto%index_U .ne. 3 .or. this%nmaps .lt. 6)then
           stop "get_peaks: wrong configuration for saddle points stacking"
        endif
     case(coop_stacking_genre_Imax, coop_stacking_genre_Imin, coop_stacking_genre_Imax_Oriented, coop_stacking_genre_Imin_Oriented)
-       index_peak = sto%index_I
-       if(index_peak .le. 0 .or. index_peak .gt. this%nmaps) stop "map index of peak overflow"
+       sto%index_peak = sto%index_I
+       if(sto%index_peak .le. 0 .or. sto%index_peak .gt. this%nmaps) stop "map index of peak overflow"
     case(coop_stacking_genre_Lmax, coop_stacking_genre_Lmin, coop_stacking_genre_Lmax_Oriented, coop_stacking_genre_Lmin_Oriented)
-       index_peak = sto%index_L
-       if(index_peak .le. 0 .or. index_peak .gt. this%nmaps) stop "map index of peak overflow"
+       sto%index_peak = sto%index_L
+       if(sto%index_peak .le. 0 .or. sto%index_peak .gt. this%nmaps) stop "map index of peak overflow"
     case(coop_stacking_genre_random_hot, coop_stacking_genre_random_cold, coop_stacking_genre_random_hot_oriented, coop_stacking_genre_random_cold_oriented)
        if(sto%index_Q .ne. 0 .and. sto%index_U .ne. 0 .and. (abs(sto%P_lower_nu).lt.coop_stacking_max_threshold .or. abs(sto%P_upper_nu).lt. coop_stacking_max_threshold) )then
-          index_peak = sto%index_Q
+          sto%index_peak = sto%index_Q
        else
-          index_peak = sto%index_I
+          sto%index_peak = sto%index_I
        endif
     case default
-       index_peak = sto%index_Q
+       sto%index_peak = sto%index_Q
     end select
     if(sto%nested)then
        if(domask)then    
@@ -3802,21 +3807,43 @@ contains
              call zeros1%free()
              call zeros2%free()
           case(coop_stacking_genre_Imax, coop_stacking_genre_Imax_Oriented, coop_stacking_genre_Lmax, coop_stacking_genre_Lmax_Oriented)
-             do i=0, this%npix-1
-                if( mask%map(i, 1) .le. 0.5  .or. sto%reject(this%map(i,:)))cycle
-                call neighbours_nest(this%nside, i, list, nneigh)  
-                if ( all(this%map(list(1:nneigh), index_peak).lt.this%map(i, index_peak)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5 ) )then
-                   call sto%peak_pix%push(i)
-                   call this%pix2ang(i, thetaphi(1), thetaphi(2))
-                   call sto%peak_ang%push(real(thetaphi))
-                   call sto%peak_map%push(this%map(i, :))
-                endif
-             enddo
+             if(sto%abs_threshold)then
+                do i=0, this%npix-1
+                   if( mask%map(i, 1) .le. 0.5  .or. sto%reject(this%map(i,:)))cycle
+                   call neighbours_nest(this%nside, i, list, nneigh)  
+                   if(this%map(i, sto%index_peak) .gt. 0.)then
+                      if ( all(this%map(list(1:nneigh), sto%index_peak).lt.this%map(i, sto%index_peak)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5 ) )then
+                         call sto%peak_pix%push(i)
+                         call this%pix2ang(i, thetaphi(1), thetaphi(2))
+                         call sto%peak_ang%push(real(thetaphi))
+                         call sto%peak_map%push(this%map(i, :))
+                      endif
+                   else
+                      if ( all(this%map(list(1:nneigh), sto%index_peak).gt.this%map(i, sto%index_peak)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5 ) )then
+                         call sto%peak_pix%push(i)
+                         call this%pix2ang(i, thetaphi(1), thetaphi(2))
+                         call sto%peak_ang%push(real(thetaphi))
+                         call sto%peak_map%push(this%map(i, :))
+                      endif
+                   endif
+                enddo
+             else
+                do i=0, this%npix-1
+                   if( mask%map(i, 1) .le. 0.5  .or. sto%reject(this%map(i,:)))cycle
+                   call neighbours_nest(this%nside, i, list, nneigh)  
+                   if ( all(this%map(list(1:nneigh), sto%index_peak).lt.this%map(i, sto%index_peak)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5 ) )then
+                      call sto%peak_pix%push(i)
+                      call this%pix2ang(i, thetaphi(1), thetaphi(2))
+                      call sto%peak_ang%push(real(thetaphi))
+                      call sto%peak_map%push(this%map(i, :))
+                   endif
+                enddo
+             endif
           case(coop_stacking_genre_Imin, coop_stacking_genre_Imin_Oriented, coop_stacking_genre_Lmin, coop_stacking_genre_Lmin_Oriented)
              do i=0, this%npix-1
                 if( mask%map(i, 1) .le. 0.5  .or. sto%reject(this%map(i,:)))cycle
                 call neighbours_nest(this%nside, i, list, nneigh)  
-                if ( all(this%map(list(1:nneigh), index_peak) .gt. this%map(i, index_peak)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5 ) )then
+                if ( all(this%map(list(1:nneigh), sto%index_peak) .gt. this%map(i, sto%index_peak)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5 ) )then
                    call sto%peak_pix%push(i)
                    call this%pix2ang(i, thetaphi(1), thetaphi(2))
                    call sto%peak_ang%push(real(thetaphi))
@@ -3894,7 +3921,7 @@ contains
              do i=0, this%npix-1
                 if( sto%reject(this%map(i,:)))cycle
                 call neighbours_nest(this%nside, i, list, nneigh)  
-                if ( all(this%map(list(1:nneigh), index_peak).lt.this%map(i, index_peak)) )then
+                if ( all(this%map(list(1:nneigh), sto%index_peak).lt.this%map(i, sto%index_peak)) )then
                    call sto%peak_pix%push(i)
                    call this%pix2ang(i, thetaphi(1), thetaphi(2))
                    call sto%peak_ang%push(real(thetaphi))
@@ -3905,7 +3932,7 @@ contains
              do i=0, this%npix-1
                 if( sto%reject(this%map(i,:)))cycle
                 call neighbours_nest(this%nside, i, list, nneigh)  
-                if ( all(this%map(list(1:nneigh), index_peak) .gt. this%map(i, index_peak))  )then
+                if ( all(this%map(list(1:nneigh), sto%index_peak) .gt. this%map(i, sto%index_peak))  )then
                    call sto%peak_pix%push(i)
                    call this%pix2ang(i, thetaphi(1), thetaphi(2))
                    call sto%peak_ang%push(real(thetaphi))
@@ -3981,7 +4008,7 @@ contains
              do i=0, this%npix-1
                 if( mask%map(i, 1) .le. 0.5  .or. sto%reject(this%map(i,:)))cycle
                 call neighbours_nest(this%nside, i, list, nneigh)  
-                if ( all(this%map(list(1:nneigh), index_peak).lt.this%map(i, index_peak)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5 ) )then
+                if ( all(this%map(list(1:nneigh), sto%index_peak).lt.this%map(i, sto%index_peak)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5 ) )then
                    call nest2ring(this%nside, i, ip)
                    call sto%peak_pix%push(ip)
                    call this%pix2ang(i, thetaphi(1), thetaphi(2))
@@ -3993,7 +4020,7 @@ contains
              do i=0, this%npix-1
                 if( mask%map(i, 1) .le. 0.5  .or. sto%reject(this%map(i,:)))cycle
                 call neighbours_nest(this%nside, i, list, nneigh)  
-                if ( all(this%map(list(1:nneigh), index_peak) .gt. this%map(i, index_peak)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5 ) )then
+                if ( all(this%map(list(1:nneigh), sto%index_peak) .gt. this%map(i, sto%index_peak)) .and. all(mask%map(list(1:nneigh),1) .gt. 0.5 ) )then
                    call nest2ring(this%nside, i, ip)
                    call sto%peak_pix%push(ip)
                    call this%pix2ang(i, thetaphi(1), thetaphi(2))
@@ -4070,7 +4097,7 @@ contains
              do i=0, this%npix-1
                 if( sto%reject(this%map(i,:)))cycle
                 call neighbours_nest(this%nside, i, list, nneigh)  
-                if ( all(this%map(list(1:nneigh), index_peak).lt.this%map(i, index_peak)) )then
+                if ( all(this%map(list(1:nneigh), sto%index_peak).lt.this%map(i, sto%index_peak)) )then
                    call nest2ring(this%nside, i, ip)
                    call sto%peak_pix%push(ip)
                    call this%pix2ang(i, thetaphi(1), thetaphi(2))
@@ -4082,7 +4109,7 @@ contains
              do i=0, this%npix-1
                 if( sto%reject(this%map(i,:)))cycle
                 call neighbours_nest(this%nside, i, list, nneigh)  
-                if ( all(this%map(list(1:nneigh), index_peak) .gt. this%map(i, index_peak))  )then
+                if ( all(this%map(list(1:nneigh), sto%index_peak) .gt. this%map(i, sto%index_peak))  )then
                    call nest2ring(this%nside, i, ip)
                    call sto%peak_pix%push(ip)
                    call this%pix2ang(i, thetaphi(1), thetaphi(2))
@@ -4235,6 +4262,7 @@ contains
     do ithread = 1, n_threads
        do i=ithread, sto%peak_pix%n, n_threads
           call this%get_disc(sto%pix(this%nside, i), disc(ithread))
+          disc(ithread)%norm = sto%norm(i)
           if(present(mask))then
              call this%stack_on_patch(disc(ithread), sto%rotate_angle(i), p(ithread), tmp(ithread), mask)    
           else

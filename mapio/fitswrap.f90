@@ -107,9 +107,29 @@ module coop_fitswrap_mod
      procedure::qu2eb => coop_flatsky_maps_qu2eb
      procedure::eb2qu => coop_flatsky_maps_eb2qu
      procedure::trim_mask => coop_flatsky_maps_trim_mask
+     procedure::remove_mono => coop_flatsky_maps_remove_mono
   end type coop_flatsky_maps
 
 contains
+
+  subroutine coop_flatsky_maps_remove_mono(this)
+    class(coop_flatsky_maps)::this
+    COOP_REAL::mean
+    COOP_INT::i
+    if(this%has_mask)then
+       do i=1, this%nmaps
+          mean = this%weighted_sum(this%map(i)%image)/this%total_weight
+          where(this%unmasked)
+             this%map(i)%image  = this%map(i)%image - mean
+          end where
+       enddo
+    else
+       do i=1, this%nmaps
+          mean = sum(this%map(i)%image)/this%total_weight
+          this%map(i)%image  = this%map(i)%image - mean
+       enddo
+    endif
+   end subroutine coop_flatsky_maps_remove_mono
 
   subroutine coop_flatsky_maps_trim_mask(this, width)
     class(coop_flatsky_maps)::this
@@ -1907,11 +1927,11 @@ contains
     class(coop_flatsky_maps)::this
     type(coop_stacking_options)::sto
     COOP_INT,optional::max_num
-    COOP_INT::npts, index_peak
+    COOP_INT::npts
     COOP_REAL::mean, thetaphi(2)
     COOP_INT::i, list(8), nmaps, iskip, ix, iy, ibase, ibase_plus, ibase_minus
     logical,dimension(:),allocatable::zeros1, zeros2
-    COOP_INT,parameter::max_npeaks = 500000
+    COOP_INT,parameter::max_npeaks = 1000000
     if(sto%nmaps .ne. this%nmaps) stop "get_peaks: nmaps does not agree"
     if(this%total_weight .lt. 1.d0) stop "get_peaks: no unmasked pixels"
     call sto%free()
@@ -1937,24 +1957,24 @@ contains
     endif
     select case(sto%genre)
     case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented, coop_stacking_genre_col_oriented)
-       index_peak = sto%index_I
-       if(index_peak .ne. 1 .or. sto%index_L .ne. 4 .or. sto%index_Q .ne. 2 .or. sto%index_U .ne. 3 .or. this%nmaps .lt. 6)then
+       sto%index_peak = sto%index_I
+       if(sto%index_peak .ne. 1 .or. sto%index_L .ne. 4 .or. sto%index_Q .ne. 2 .or. sto%index_U .ne. 3 .or. this%nmaps .lt. 6)then
           stop "get_peaks: wrong configuration for saddle points stacking"
        endif
     case(coop_stacking_genre_Imax, coop_stacking_genre_Imin, coop_stacking_genre_Imax_Oriented, coop_stacking_genre_Imin_Oriented)
-       index_peak = sto%index_I
-       if(index_peak .le. 0 .or. index_peak .gt. this%nmaps) stop "map index of peak overflow"
+       sto%index_peak = sto%index_I
+       if(sto%index_peak .le. 0 .or. sto%index_peak .gt. this%nmaps) stop "map index of peak overflow"
     case(coop_stacking_genre_Lmax, coop_stacking_genre_Lmin, coop_stacking_genre_Lmax_Oriented, coop_stacking_genre_Lmin_Oriented)
-       index_peak = sto%index_L
-       if(index_peak .le. 0 .or. index_peak .gt. this%nmaps) stop "map index of peak overflow"
+       sto%index_peak = sto%index_L
+       if(sto%index_peak .le. 0 .or. sto%index_peak .gt. this%nmaps) stop "map index of peak overflow"
     case(coop_stacking_genre_random_hot, coop_stacking_genre_random_cold, coop_stacking_genre_random_hot_oriented, coop_stacking_genre_random_cold_oriented)
        if(sto%index_Q .ne. 0 .and. sto%index_U .ne. 0 .and. (abs(sto%P_lower_nu).lt.coop_stacking_max_threshold .or. abs(sto%P_upper_nu).lt. coop_stacking_max_threshold) )then
-          index_peak = sto%index_Q
+          sto%index_peak = sto%index_Q
        else
-          index_peak = sto%index_I
+          sto%index_peak = sto%index_I
        endif
     case default
-       index_peak = sto%index_Q
+       sto%index_peak = sto%index_Q
     end select
 
 
@@ -1963,29 +1983,64 @@ contains
        ibase = 0
        ibase_minus = ibase - this%nside(1)
        ibase_plus = ibase +  this%nside(1)
-       do iy = 1, this%nside(2)-2
-          ibase_minus = ibase
-          ibase = ibase_plus
-          ibase_plus = ibase_plus + this%nside(1)
-          do ix = 1, this%nside(1) - 2
-             i  = ibase + ix
-             if(this%is_masked(i) .or. sto%reject( this%pixel_values(i) ))cycle
-             list(1) = ibase_minus + ix - 1
-             list(2) = ibase_minus + ix
-             list(3) = ibase_minus + ix + 1
-             list(4) = ibase + ix - 1
-             list(5) = ibase + ix + 1
-             list(6) = ibase_plus + ix - 1
-             list(7) = ibase_plus + ix
-             list(8) = ibase_plus + ix + 1
-             if( all(this%map(index_peak)%image(list) .lt. this%map(index_peak)%image(i)))then
-                call sto%peak_pix%push(i)
-                call this%map(index_peak)%pix2ang(i, thetaphi(1), thetaphi(2))
-                call sto%peak_ang%push(real(thetaphi))
-                call sto%peak_map%push( this%pixel_values(i) )
-             endif
+       if(sto%abs_threshold)then
+        do iy = 1, this%nside(2)-2
+             ibase_minus = ibase
+             ibase = ibase_plus
+             ibase_plus = ibase_plus + this%nside(1)
+             do ix = 1, this%nside(1) - 2
+                i  = ibase + ix
+                if(this%is_masked(i) .or. sto%reject( this%pixel_values(i) ))cycle
+                list(1) = ibase_minus + ix - 1
+                list(2) = ibase_minus + ix
+                list(3) = ibase_minus + ix + 1
+                list(4) = ibase + ix - 1
+                list(5) = ibase + ix + 1
+                list(6) = ibase_plus + ix - 1
+                list(7) = ibase_plus + ix
+                list(8) = ibase_plus + ix + 1
+                if(this%map(sto%index_peak)%image(i) .gt. 0.d0)then
+                   if( all(this%map(sto%index_peak)%image(list) .lt. this%map(sto%index_peak)%image(i)))then
+                      call sto%peak_pix%push(i)
+                      call this%map(sto%index_peak)%pix2ang(i, thetaphi(1), thetaphi(2))
+                      call sto%peak_ang%push(real(thetaphi))
+                      call sto%peak_map%push( this%pixel_values(i) )
+                   endif
+                else
+                   if( all(this%map(sto%index_peak)%image(list) .gt. this%map(sto%index_peak)%image(i)))then
+                      call sto%peak_pix%push(i)
+                      call this%map(sto%index_peak)%pix2ang(i, thetaphi(1), thetaphi(2))
+                      call sto%peak_ang%push(real(thetaphi))
+                      call sto%peak_map%push( this%pixel_values(i) )
+                   endif
+                endif
+             enddo
           enddo
-       enddo
+       else
+          do iy = 1, this%nside(2)-2
+             ibase_minus = ibase
+             ibase = ibase_plus
+             ibase_plus = ibase_plus + this%nside(1)
+             do ix = 1, this%nside(1) - 2
+                i  = ibase + ix
+                if(this%is_masked(i) .or. sto%reject( this%pixel_values(i) ))cycle
+                list(1) = ibase_minus + ix - 1
+                list(2) = ibase_minus + ix
+                list(3) = ibase_minus + ix + 1
+                list(4) = ibase + ix - 1
+                list(5) = ibase + ix + 1
+                list(6) = ibase_plus + ix - 1
+                list(7) = ibase_plus + ix
+                list(8) = ibase_plus + ix + 1
+                if( all(this%map(sto%index_peak)%image(list) .lt. this%map(sto%index_peak)%image(i)))then
+                   call sto%peak_pix%push(i)
+                   call this%map(sto%index_peak)%pix2ang(i, thetaphi(1), thetaphi(2))
+                   call sto%peak_ang%push(real(thetaphi))
+                   call sto%peak_map%push( this%pixel_values(i) )
+                endif
+             enddo
+          enddo
+       endif
     case(coop_stacking_genre_Imin, coop_stacking_genre_Imin_Oriented, coop_stacking_genre_Lmin, coop_stacking_genre_Lmin_Oriented)
        ibase = 0
        ibase_minus = ibase - this%nside(1)
@@ -2005,9 +2060,9 @@ contains
              list(6) = ibase_plus + ix - 1
              list(7) = ibase_plus + ix
              list(8) = ibase_plus + ix + 1
-             if( all(this%map(index_peak)%image(list) .gt. this%map(index_peak)%image(i)))then
+             if( all(this%map(sto%index_peak)%image(list) .gt. this%map(sto%index_peak)%image(i)))then
                 call sto%peak_pix%push(i)
-                call this%map(index_peak)%pix2ang(i, thetaphi(1), thetaphi(2))
+                call this%map(sto%index_peak)%pix2ang(i, thetaphi(1), thetaphi(2))
                 call sto%peak_ang%push(real(thetaphi))
                 call sto%peak_map%push( this%pixel_values(i) )
              endif
@@ -2030,7 +2085,7 @@ contains
              i = ibase + ix
              if(this%is_masked(i) .or. sto%reject( this%pixel_values(i)))cycle
              call sto%peak_pix%push(i)
-             call this%map(index_peak)%pix2ang(i, thetaphi(1), thetaphi(2))
+             call this%map(sto%index_peak)%pix2ang(i, thetaphi(1), thetaphi(2))
              call sto%peak_ang%push(real(thetaphi))
              call sto%peak_map%push( this%pixel_values(i) )
           enddo
@@ -2056,7 +2111,7 @@ contains
              list(8) = ibase_plus + ix + 1
              if( all(this%map(sto%index_Q)%image(list)**2+this%map(sto%index_U)%image(list)**2 .lt. this%map(sto%index_Q)%image(i)**2 +  this%map(sto%index_U)%image(i)**2 ))then
                 call sto%peak_pix%push(i)
-                call this%map(index_peak)%pix2ang(i, thetaphi(1), thetaphi(2))
+                call this%map(sto%index_peak)%pix2ang(i, thetaphi(1), thetaphi(2))
                 call sto%peak_ang%push(real(thetaphi))
                 call sto%peak_map%push( this%pixel_values(i) )
              endif
@@ -2083,7 +2138,7 @@ contains
              list(8) = ibase_plus + ix + 1
              if( all(this%map(sto%index_Q)%image(list)**2+this%map(sto%index_U)%image(list)**2 .gt. this%map(sto%index_Q)%image(i)**2 +  this%map(sto%index_U)%image(i)**2 ))then
                 call sto%peak_pix%push(i)
-                call this%map(index_peak)%pix2ang(i, thetaphi(1), thetaphi(2))
+                call this%map(sto%index_peak)%pix2ang(i, thetaphi(1), thetaphi(2))
                 call sto%peak_ang%push(real(thetaphi))
                 call sto%peak_map%push( this%pixel_values(i) )
              endif
@@ -2098,7 +2153,7 @@ contains
        do i=0, this%npix-1
           if(zeros1(i) .and. .not. sto%reject(this%pixel_values(i)) .and. this%map(2)%image(i)**2+this%map(3)%image(i)**2 .gt. this%map(4)%image(i)**2 )then
              call sto%peak_pix%push(i)
-             call this%map(index_peak)%pix2ang(i, thetaphi(1), thetaphi(2))
+             call this%map(sto%index_peak)%pix2ang(i, thetaphi(1), thetaphi(2))
              call sto%peak_ang%push(real(thetaphi))
              call sto%peak_map%push( this%pixel_values(i) )
           endif
@@ -2146,7 +2201,7 @@ contains
     !$omp parallel do private(i, ithread)
     do ithread = 1, n_threads
        do i=ithread, sto%peak_pix%n, n_threads
-          call this%stack_on_patch(center = sto%peak_pix%element(i), angle = sto%rotate_angle(i), patch = p(ithread), tmp_patch = tmp(ithread))
+          call this%stack_on_patch(center = sto%peak_pix%element(i), angle = sto%rotate_angle(i), patch = p(ithread), tmp_patch = tmp(ithread), factor = sto%norm(i))
        enddo
     enddo
     !$omp end parallel do
@@ -2172,11 +2227,12 @@ contains
   end subroutine coop_flatsky_maps_stack_on_peaks
 
 
-  subroutine coop_flatsky_maps_stack_on_patch(this, center, angle, patch, tmp_patch)
+  subroutine coop_flatsky_maps_stack_on_patch(this, center, angle, patch, tmp_patch, factor)
     class(coop_flatsky_maps)::this
     COOP_REAL angle
     COOP_INT::center
     type(coop_healpix_patch) patch, tmp_patch
+    COOP_REAL::factor
     if(angle .ge. 1.d30)return
     call this%fetch_patch(center = center, angle = angle, patch = tmp_patch)
     if(sum(tmp_patch%nstack*tmp_patch%indisk) .lt. patch%num_indisk_tol)return
@@ -2185,7 +2241,11 @@ contains
     elseif(angle .lt. -coop_4pi)then
        call tmp_patch%flipy()
     endif
-    patch%image = patch%image + tmp_patch%image
+    if(factor .ne. 1.d0)then
+       patch%image = patch%image + tmp_patch%image*factor
+    else
+       patch%image = patch%image + tmp_patch%image
+    endif
     patch%nstack = patch%nstack + tmp_patch%nstack
     patch%nstack_raw = patch%nstack_raw + tmp_patch%nstack_raw
   end subroutine coop_flatsky_maps_stack_on_patch

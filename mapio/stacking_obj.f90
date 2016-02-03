@@ -42,6 +42,7 @@ module coop_stacking_mod
      COOP_INT::index_Q = 0
      COOP_INT::index_U = 0
      COOP_INT::index_L = 0
+     COOP_INT::index_peak = 0
      COOP_STRING::caption = ""
      COOP_REAL::sigma_I = 0.d0
      COOP_REAL::sigma_L = 0.d0
@@ -63,6 +64,8 @@ module coop_stacking_mod
      COOP_SINGLE::P2byL2_lower = 0.
      COOP_SINGLE::P2byL2_upper = 1.e15
      COOP_INT::threshold_option = 0
+     logical::abs_threshold = .false.
+     logical::divide_I = .false.
      logical::addpi = .true.  !!randomly add pi on polarization directions
      logical::angzero = .true.  !!do not rotate
      logical::nested = .true.
@@ -70,6 +73,7 @@ module coop_stacking_mod
      type(coop_list_realarr)::peak_ang
      type(coop_list_realarr)::peak_map
    contains
+     procedure::norm => coop_stacking_options_norm
      procedure::export => coop_stacking_options_export
      procedure::import => coop_stacking_options_import
      procedure::subset =>  coop_stacking_options_subset
@@ -107,6 +111,22 @@ module coop_stacking_mod
 
 contains
 
+
+  function coop_stacking_options_norm(this, i) result(norm)
+    class(coop_stacking_options)::this
+    COOP_INT::i
+    COOP_SINGLE::map(this%nmaps)
+    COOP_REAL::norm
+    if(this%divide_I)then
+       call this%peak_map%get_element(i, map)
+       norm = this%sigma_I**2/map(this%index_I)
+    elseif(this%abs_threshold)then
+       call this%peak_map%get_element(i, map)
+       norm = sign(1., map(this%index_I))
+    else
+       norm = 1.d0
+    endif
+  end function coop_stacking_options_norm
 
   subroutine coop_stacking_options_subset(this, subset)
     class(coop_stacking_options)::this
@@ -189,10 +209,10 @@ contains
     COOP_INT i
     call fp%open(filename, "u")
     write(fp%unit) this%mask_int, this%mask_pol
-    write(fp%unit) this%genre, this%nmaps, this%nside,this%nside2, this%index_I, this%index_Q, this%index_U, this%index_L
+    write(fp%unit) this%genre, this%nmaps, this%nside,this%nside2, this%index_peak, this%index_I, this%index_Q, this%index_U, this%index_L
     write(fp%unit) this%I_lower, this%I_upper, this%L_lower, this%L_upper, this%P2_lower, this%P2_upper, this%I_lower_nu, this%I_upper_nu, this%L_lower_nu, this%L_upper_nu, this%P_lower_nu, this%P_upper_nu, this%P2byI2_lower, this%P2byI2_upper, this%P2byL2_lower, this%P2byL2_upper
     write(fp%unit) this%caption
-    write(fp%unit) this%threshold_option, this%addpi, this%nested, this%angzero
+    write(fp%unit) this%threshold_option, this%divide_I, this%abs_threshold, this%addpi, this%nested, this%angzero
     write(fp%unit) this%peak_pix%n
     do i=1, this%peak_pix%n
        write(fp%unit) this%peak_pix%element(i), this%peak_ang%element(i), this%peak_map%element(i)
@@ -215,10 +235,10 @@ contains
     call this%free()
     call fp%open(filename, "ur")
     read(fp%unit) this%mask_int, this%mask_pol    
-    read(fp%unit) this%genre, this%nmaps, this%nside, this%nside2, this%index_I, this%index_Q, this%index_U, this%index_L
+    read(fp%unit) this%genre, this%nmaps, this%nside, this%nside2, this%index_peak, this%index_I, this%index_Q, this%index_U, this%index_L
     read(fp%unit) this%I_lower, this%I_upper, this%L_lower, this%L_upper, this%P2_lower, this%P2_upper, this%I_lower_nu, this%I_upper_nu, this%L_lower_nu, this%L_upper_nu, this%P_lower_nu, this%P_upper_nu, this%P2byI2_lower, this%P2byI2_upper, this%P2byL2_lower, this%P2byL2_upper
     read(fp%unit) this%caption
-    read(fp%unit) this%threshold_option, this%addpi, this%nested, this%angzero
+    read(fp%unit) this%threshold_option, this%divide_I, this%abs_threshold, this%addpi, this%nested, this%angzero
     allocate(map(this%nmaps))
     read(fp%unit) n
     do i=1, n
@@ -601,6 +621,57 @@ contains
     logical rej
     COOP_SINGLE::map(:)
     COOP_REAL::p2
+    if(this%abs_threshold)then
+       if(this%index_peak == this%index_I)then
+          select case(this%threshold_option)
+          case(7)
+             P2 = map(this%index_Q)**2+map(this%index_U)**2 
+             rej = (abs(map(this%index_I)) > this%I_upper .or. abs(map(this%index_I)) < this%I_lower .or. P2> this%P2_upper .or. P2 < this%P2_lower .or.  map(this%index_L) > this%L_upper .or. map(this%index_L) < this%L_lower .or. P2 > this%P2byI2_upper*map(this%index_I)**2 .or. P2 < this%P2byI2_lower * map(this%index_I)**2 .or. P2 > this%P2byL2_upper*map(this%index_L)**2 .or. P2 < this%P2byL2_lower*map(this%index_L)**2)
+          case(6)
+             P2 = map(this%index_Q)**2+map(this%index_U)**2        
+             rej = (abs(map(this%index_I)) > this%I_upper .or. abs(map(this%index_I)) < this%I_lower .or. P2 > this%P2_upper .or. P2 < this%P2_lower .or. P2 > this%P2byI2_upper*map(this%index_I)**2 .or. P2 < this%P2byI2_lower * map(this%index_I)**2)
+          case(5)
+             rej = ( abs(map(this%index_I)) > this%I_upper .or. abs(map(this%index_I)) < this%I_lower  .or.  map(this%index_L) > this%L_upper .or. map(this%index_L) < this%L_lower)
+          case(4)
+             rej = (abs(map(this%index_I)) > this%I_upper .or. abs(map(this%index_I)) < this%I_lower)
+          case(3)
+             P2 = map(this%index_Q)**2+map(this%index_U)**2               
+             rej = ( P2 > this%P2_upper .or. P2 < this%P2_lower .or.  map(this%index_L) > this%L_upper .or. map(this%index_L) < this%L_lower .or. P2 > this%P2byL2_upper*map(this%index_L)**2 .or. P2 < this%P2byL2_lower*map(this%index_L)**2)
+          case(2)
+             P2 = map(this%index_Q)**2+map(this%index_U)**2                      
+             rej = (P2 > this%P2_upper .or. P2 < this%P2_lower)
+          case(1)
+             rej = ( map(this%index_L) > this%L_upper .or.  map(this%index_L) < this%L_lower)
+          case default
+             rej  = .false.
+          end select
+          return
+       elseif(this%index_peak == this%index_L)then
+          select case(this%threshold_option)
+          case(7)
+             P2 = map(this%index_Q)**2+map(this%index_U)**2 
+             rej = (map(this%index_I) > this%I_upper .or. map(this%index_I) < this%I_lower .or. P2> this%P2_upper .or. P2 < this%P2_lower .or.  abs(map(this%index_L)) > this%L_upper .or. abs(map(this%index_L)) < this%L_lower .or. P2 > this%P2byI2_upper*map(this%index_I)**2 .or. P2 < this%P2byI2_lower * map(this%index_I)**2 .or. P2 > this%P2byL2_upper*map(this%index_L)**2 .or. P2 < this%P2byL2_lower*map(this%index_L)**2)
+          case(6)
+             P2 = map(this%index_Q)**2+map(this%index_U)**2        
+             rej = (map(this%index_I) > this%I_upper .or. map(this%index_I) < this%I_lower .or. P2 > this%P2_upper .or. P2 < this%P2_lower .or. P2 > this%P2byI2_upper*map(this%index_I)**2 .or. P2 < this%P2byI2_lower * map(this%index_I)**2)
+          case(5)
+             rej = ( map(this%index_I) > this%I_upper .or. map(this%index_I) < this%I_lower  .or.  abs(map(this%index_L)) > this%L_upper .or. abs(map(this%index_L)) < this%L_lower)
+          case(4)
+             rej = (map(this%index_I) > this%I_upper .or. map(this%index_I) < this%I_lower)
+          case(3)
+             P2 = map(this%index_Q)**2+map(this%index_U)**2               
+             rej = ( P2 > this%P2_upper .or. P2 < this%P2_lower .or.  abs(map(this%index_L)) > this%L_upper .or. abs(map(this%index_L)) < this%L_lower .or. P2 > this%P2byL2_upper*map(this%index_L)**2 .or. P2 < this%P2byL2_lower*map(this%index_L)**2)
+          case(2)
+             P2 = map(this%index_Q)**2+map(this%index_U)**2                      
+             rej = (P2 > this%P2_upper .or. P2 < this%P2_lower)
+          case(1)
+             rej = ( abs(map(this%index_L)) > this%L_upper .or.  abs(map(this%index_L)) < this%L_lower)
+          case default
+             rej  = .false.
+          end select
+          return
+       endif
+    endif
     select case(this%threshold_option)
     case(7)
        P2 = map(this%index_Q)**2+map(this%index_U)**2 
@@ -623,6 +694,7 @@ contains
     case default
        rej  = .false.
     end select
+
   end function coop_stacking_options_reject
 
   function coop_stacking_options_pix(this, nside, i) result(pix)
@@ -829,3 +901,5 @@ contains
   end subroutine coop_healpix_ang2lb
 
 end module coop_stacking_mod
+
+
