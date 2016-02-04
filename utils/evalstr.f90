@@ -31,22 +31,58 @@ module coop_evalstr_mod
      COOP_REAL::vars(coop_math_expression_max_num_vars)  
    contains
      procedure::init => coop_math_expression_init
+     procedure::simplify => coop_math_expression_simplify
   end type coop_math_expression
 
 
 contains
 
-  subroutine coop_math_expression_init(this, mathexpr, error)
+  subroutine coop_eval_math(mathexpr, ans)
+    type(coop_math_expression)::cme
+    COOP_INT::error,length,ind
+    COOP_UNKNOWN_STRING::mathexpr
+    COOP_REAL::ans
+    call cme%init(mathexpr, error)
+    if(error.ne.0)then
+       write(*,*) trim(mathexpr)
+       stop "invalid math expression"
+    endif
+    length = len_trim(cme%expr)
+    call cme%simplify(cme%expr, length, error)
+    if(error.ne.0)then
+       write(*,*) trim(mathexpr)
+       stop "invalid math expression"
+    endif
+    read(cme%expr(2:5),*)ind
+    ans = cme%vars(ind)
+  end subroutine coop_eval_math
+
+  subroutine coop_math_expression_init(this, mathexpr, error, vars)
     class(coop_math_expression)::this
+    COOP_REAL,optional::vars(:)
     COOP_INT::error
     COOP_UNKNOWN_STRING::mathexpr
     COOP_LONG_STRING::str
-    COOP_INT::i, l, j, k
+    COOP_INT::i, l, j, k, ll, ind
+    if(present(vars))then
+       this%n = size(vars)
+       if(this%n .gt. coop_math_expression_max_num_vars)then
+          error = coop_math_expression_error_too_many_numbers
+          return
+       endif
+       this%vars(1:this%n) = vars
+    else
+       this%n = 0
+    endif
+
     l = 0
+    ll = len_trim(mathexpr)
     error = 0
-    do i=1, len_trim(mathexpr)
+    i = 1
+    
+    do while(i.le.ll)
        select case(ichar(mathexpr(i:i)))
-       case(coop_ascii_0:coop_ascii_9, coop_ascii_lower_a:coop_ascii_lower_z, coop_ascii_plus, coop_ascii_dash, coop_ascii_star, coop_ascii_slash, coop_ascii_hat, coop_ascii_dot, coop_ascii_left_bracket, coop_ascii_right_bracket)
+       case(coop_ascii_0:coop_ascii_9, coop_ascii_lower_a:coop_ascii_lower_z, coop_ascii_plus, coop_ascii_dash,  coop_ascii_slash, coop_ascii_hat, coop_ascii_dot, coop_ascii_left_bracket, coop_ascii_right_bracket)
           l = l + 1
           str(l:l) = mathexpr(i:i)
        case(coop_ascii_upper_a:coop_ascii_upper_z)
@@ -54,14 +90,38 @@ contains
           str(l:l) = char(ichar(mathexpr(i:i)) + coop_ascii_lower_minus_upper)
        case(1:coop_ascii_space)
           !! do nothing
+       case(coop_ascii_star)
+          if(l.ge.1)then
+             if(str(l:l).eq."*")then
+                str(l:l) = "^"
+             else
+                l = l + 1
+                str(l:l) = "*"
+             endif
+          else
+             error = coop_math_expression_error_operators_together
+             return
+          endif
+       case(coop_ascii_dollar)
+          if(present(vars))then
+             l = l + 1
+             str(l:l) = "$"
+             if(i.ge.ll)then
+                error = coop_math_expression_error_invalid_characters
+                return
+             endif
+          else
+             error = coop_math_expression_error_invalid_characters
+             return
+          endif
        case default
           error = coop_math_expression_error_invalid_characters
           return
        end select
+       i=i+1
     enddo
     str(l+1:) = ""
     i = 1
-    this%n = 0
     this%expr = ""
     do while(i.le.l)
        j = scan(str(i:l), "0123456789.")
@@ -74,12 +134,30 @@ contains
        if(j.gt.1)then
           if(str(j-1:j-1).eq."-" .or. str(j-1:j-1).eq."+")then
              if(j.gt.2)then
-                if(scan(str(j-2:j-2), "0123456789.").eq.0)then !!no number before it
+                if(scan(str(j-2:j-2), "0123456789.)").eq.0)then !!no number before it
                    j = j -1
                 endif
              else
                j = j-1
              endif
+          endif
+          if(str(j-1:j-1).eq."$")then
+             k = j
+             do while(coop_is_digit(str(k:k)) .and. k.lt. l)
+                k = k + 1
+             enddo
+             if(k.le.j)then
+                error = coop_math_expression_error_invalid_characters
+                return
+             endif
+             read(str(j:k-1),*) ind
+             if(ind .gt. this%n)then
+                error = coop_math_expression_error_numbers_together
+                return
+             endif
+             this%expr = trim(this%expr)//str(i:j-1)//trim(coop_4digits(ind))
+             i = k
+             cycle
           endif
        endif
        this%expr = trim(this%expr)//str(i:j-1)
@@ -246,6 +324,7 @@ contains
              endif
              str = str(1:ipos-1)//tmp(1:5)//str(j+1:l)
              l = l+(ipos+4-j)
+             deallocate(tmp)
              exit
           endif
           i = j + 1
@@ -256,17 +335,82 @@ contains
        enddo
        ipos = scan(str(1:l), "(")
     enddo
-    !!now search for ^
+
     ipos = scan(str(1:l), "^")
     do while(ipos .ne. 0)
+       if(ipos .lt. 6 .or. ipos + 5 .gt. l)then
+          error = coop_math_expression_error_operators_together
+          return
+       endif
        if(str(ipos-5:ipos-5) .ne. "$" .or. str(ipos+1:ipos+1).ne."$")then
           error = coop_math_expression_error_operators_together
           return
        endif
        read(str(ipos-4:ipos-1),*) nleft
-       read(str(ipos+2:ipos+5),*) nleft
+       read(str(ipos+2:ipos+5),*) nright
+       this%vars(nleft) = this%vars(nleft)**this%vars(nright)
+       str = str(1:ipos-1)//str(ipos+6:l)
+       l = l - 6
        ipos = scan(str(1:l), "^")
     enddo
+
+    ipos = scan(str(1:l), "*/")
+    do while(ipos .ne. 0)
+       if(ipos .lt. 6 .or. ipos + 5 .gt. l)then
+          error = coop_math_expression_error_operators_together
+          return
+       endif
+       if(str(ipos-5:ipos-5) .ne. "$" .or. str(ipos+1:ipos+1).ne."$")then
+          error = coop_math_expression_error_operators_together
+          return
+       endif
+       read(str(ipos-4:ipos-1),*) nleft
+       read(str(ipos+2:ipos+5),*) nright
+       if(str(ipos:ipos).eq."*")then
+          this%vars(nleft) = this%vars(nleft)*this%vars(nright)
+       else
+          this%vars(nleft) = this%vars(nleft)/this%vars(nright)
+       endif
+       str = str(1:ipos-1)//str(ipos+6:l)
+       l = l - 6
+       ipos = scan(str(1:l), "*/")
+    enddo
+
+
+    ipos = scan(str(1:l), "+-")
+    do while(ipos .ne. 0)
+       if(ipos .lt. 6 .or. ipos + 5 .gt. l)then
+          if(ipos .eq. 1 .and. 6 .le. l)then
+             if(str(ipos+1:ipos+1).ne."$")then
+                error = coop_math_expression_error_operators_together
+                return
+             endif
+             read(str(ipos+2:ipos+5),*) nright
+             if(str(ipos:ipos).eq."-") this%vars(nright) = - this%vars(nright) 
+             str = str(2:l)
+             l = l -1
+          else
+             error = coop_math_expression_error_operators_together
+             return
+          endif
+       else
+          if(str(ipos-5:ipos-5) .ne. "$" .or. str(ipos+1:ipos+1).ne."$")then
+             error = coop_math_expression_error_operators_together
+             return
+          endif
+          read(str(ipos-4:ipos-1),*) nleft
+          read(str(ipos+2:ipos+5),*) nright
+          if(str(ipos:ipos).eq."+")then
+             this%vars(nleft) = this%vars(nleft)+this%vars(nright)
+          else
+             this%vars(nleft) = this%vars(nleft)-this%vars(nright)
+          endif
+          str = str(1:ipos-1)//str(ipos+6:l)
+          l = l - 6
+       endif
+       ipos = scan(str(1:l), "+-")
+    enddo
+
     error = 0
     return
   end subroutine coop_math_expression_simplify

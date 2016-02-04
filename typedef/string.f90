@@ -25,12 +25,13 @@ module coop_string_mod
   COOP_INT,parameter::coop_ascii_left_bracket = ichar("(")
   COOP_INT,parameter::coop_ascii_right_bracket = ichar(")")
   COOP_INT,parameter::coop_ascii_space = ichar(" ") !!32
+  COOP_INT,parameter::coop_ascii_dollar = ichar("$") 
 
 
   private
 
 
-  public::coop_num2str,  coop_ndigits, coop_2digits, coop_3digits, coop_4digits, coop_5digits, coop_str2int, coop_str2real, coop_str2logical, coop_substr, coop_str_replace, coop_str_numalpha, coop_str2lower, coop_str2upper, coop_case_insensitive_eq, coop_file_path_of, coop_file_name_of, coop_file_add_postfix, coop_file_replace_postfix, coop_convert_to_C_string, coop_convert_to_Fortran_String, coop_data_type, coop_string_contain_numbers, coop_numstr2goodstr, coop_num2goodstr, coop_string_strip_quotes, coop_str_numUpperAlpha, coop_str_numLowerAlpha, coop_datapath_format, coop_is_digit, coop_ascii_0, coop_ascii_9, coop_ascii_Upper_A, coop_ascii_lower_A, coop_ascii_Upper_Z, coop_ascii_lower_Z, coop_ascii_lower_minus_upper, coop_ascii_plus, coop_ascii_dash, coop_ascii_star, coop_ascii_slash, coop_ascii_hat, coop_ascii_underscore, coop_ascii_backslash, coop_ascii_dot, coop_ascii_left_bracket, coop_ascii_right_bracket, coop_ascii_space
+  public::coop_num2str,  coop_ndigits, coop_2digits, coop_3digits, coop_4digits, coop_5digits, coop_str2int, coop_str2real, coop_str2logical, coop_substr, coop_str_replace, coop_str_numalpha, coop_str2lower, coop_str2upper, coop_case_insensitive_eq, coop_file_path_of, coop_file_name_of, coop_file_add_postfix, coop_file_replace_postfix, coop_convert_to_C_string, coop_convert_to_Fortran_String, coop_data_type, coop_string_contain_numbers, coop_numstr2goodstr, coop_num2goodstr, coop_string_strip_quotes, coop_str_numUpperAlpha, coop_str_numLowerAlpha, coop_datapath_format, coop_is_digit, coop_ascii_0, coop_ascii_9, coop_ascii_Upper_A, coop_ascii_lower_A, coop_ascii_Upper_Z, coop_ascii_lower_Z, coop_ascii_lower_minus_upper, coop_ascii_plus, coop_ascii_dash, coop_ascii_star, coop_ascii_slash, coop_ascii_hat, coop_ascii_underscore, coop_ascii_backslash, coop_ascii_dot, coop_ascii_left_bracket, coop_ascii_right_bracket, coop_ascii_space,coop_ascii_dollar
 
   Interface coop_num2str
      module procedure coop_int2str, coop_real2str, coop_logical2str, coop_double2str
