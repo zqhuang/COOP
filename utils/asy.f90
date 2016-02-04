@@ -4,6 +4,7 @@ module coop_asy_mod
   use coop_file_mod
   use coop_list_mod
   use coop_random_mod
+  use coop_evalstr_mod
   implicit none
   private
 
@@ -330,17 +331,17 @@ contains
     this%color(1) = "black"
     this%color(2) = "red"
     this%color(3) = "blue"
-    this%color(4) = "green"
+    this%color(4) = "cyan"
     this%color(5) = "violet"
-    this%color(6) = "cyan"
+    this%color(6) = "gray"
     this%color(7) = "skyblue"
     this%color(8) = "orange"
-    this%color(9) = "brown"
-    this%color(10) = "gray"
+    this%color(9) = "green"
+    this%color(10) = "brown"
     this%color(11) = "pink"
     this%color(12) = "yellow"
-    this%linewidth(1:3) = 1.2
-    this%linewidth(4:6) = 0.9
+    this%linewidth(1:3) = 2.
+    this%linewidth(4:6) = 1.2
     this%linewidth(7:12) = 0.6
     this%linetype(1) = "solid"
     this%linetype(2) = "dotted"
@@ -1205,55 +1206,114 @@ contains
 
 
 
-  subroutine coop_asy_plot_file(this, fname, interpolate, xcol, ycol, color, linetype, linewidth, legend)
+  subroutine coop_asy_plot_file(this, filename, interpolate, xcol, ycol, color, linetype, linewidth, legend, filename2)
     class(coop_asy) this
     COOP_INT ,parameter::n = 256
-    COOP_INT , optional::xcol, ycol
+    COOP_UNKNOWN_STRING,optional::xcol, ycol
     COOP_REAL  x(n), y(n),  minx, maxx, dx
     COOP_INT  w(n)
     COOP_REAL ,dimension(:),allocatable::xx, yy, yy2
-    type(coop_file) this2
+    type(coop_file) fp, fp2
     COOP_REAL ,dimension(:),allocatable::xraw, yraw, line
-    COOP_UNKNOWN_STRING interpolate, fname
+    COOP_UNKNOWN_STRING interpolate, filename
+    COOP_UNKNOWN_STRING,optional::filename2
     COOP_UNKNOWN_STRING,optional:: color, linetype
     COOP_SINGLE ,optional::linewidth
     COOP_UNKNOWN_STRING, optional::legend
-    COOP_INT  i, j, m, nn, npt, ncols, xl, yl
+    COOP_INT  i, j, m, nn, npt, ncols, xl, yl, ncols2, ncols1
     COOP_STRING lineproperty
-    logical do_raw
-    if(.not. coop_file_exists(fname))then
-       call coop_return_error("coop_asy_curve_from_file", "The data file "//trim(fname)//" does not exist", "stop")
+    logical do_raw, eval_x, eval_y
+   
+    if(.not. coop_file_exists(filename))then
+       call coop_return_error("coop_asy_curve_from_file", "The data file "//trim(filename)//" does not exist", "stop")
     endif
-    m = coop_file_numlines(fname)
-    ncols = coop_file_numColumns(fname)
-    if(ncols .eq. 0)then
-       call coop_return_error("coop_asy_curve_from_file", "The data file "//trim(fname)//" is empty", "stop")
+    m = coop_file_numlines(filename)
+    ncols1 = coop_file_numColumns(filename)
+    if(ncols .eq. 0 .or. m.eq.0)then
+       call coop_return_error("coop_asy_plot_file", "The data file "//trim(filename)//" is empty", "stop")
     endif
-    if(present(xcol))then
-       if(xcol .gt. ncols) stop "coop_asy_curve_from_file: xcol > ncol"
-       xl = xcol
+    if(present(filename2))then
+       m = min(coop_file_numlines(filename2),m)
+       ncols2  = coop_file_numColumns(filename2) 
+       if(ncols2 .eq. 0 .or. m.eq.0)then
+          call coop_return_error("coop_asy_plot_file", "The data file "//trim(filename2)//" is empty", "stop")
+       endif
     else
-       x = min(ncols-1, 1)
+       ncols2 = 0
     endif
+    ncols = ncols1+ncols2
+    eval_x = .false.
+    eval_y = .false.
     if(present(ycol))then
-       if(ycol .gt. ncols) stop "coop_asy_curve_from_file: ycol > ncol"
-       yl = ycol
+       if(scan(ycol, "$").ne.0)then
+          eval_y = .true.
+          yl = min(ncols,2)
+       elseif(trim(ycol).ne."")then
+          read(ycol,*)yl
+          if(yl .gt. ncols .or. yl.lt.0) stop "coop_asy_plot_file: ycol > ncol"
+       else
+          yl = min(ncols,2)
+       endif
     else
        yl = min(ncols, 2)
     endif
+    if(present(xcol))then
+       if(scan(xcol, "$").ne.0)then
+          eval_x = .true.
+          xl = min(ncols-1,1)
+       elseif(trim(xcol).ne."")then
+          read(xcol, *) xl
+          if(xl .gt. ncols .or. xl.lt.0) stop "coop_asy_plot_file: xcol > ncol"
+       else
+          xl = min(ncols-1,1)
+       endif
+    else
+       xl = min(ncols-1,1)
+    endif
+    
     allocate(line(0:ncols))
     allocate(xraw(m), yraw(m))
-    call this2%open(trim(fname), "r")
-    do i = 1, m
-       if(this2%read_real_array(line(1:ncols)))then
-          line(0) = i
-          xraw(i) = line(xl)
-          yraw(i) = line(yl)
-       else
-          call coop_return_error("coop_asy_curve_from_file", trim(fname)//" has a wrong format", "stop")
-       endif
-    enddo
-    call this2%close()
+    call fp%open(trim(filename), "r")
+    if(present(filename2))then
+       call fp2%open(filename2)
+       do i = 1, m
+          if(fp%read_real_array(line(1:ncols1)) .and. fp%read_real_array(line(ncols+1:ncols)))then
+             line(0) = i
+             if(eval_x)then
+                call coop_eval_math( xcol, xraw(i), vars = line(1:ncols))
+             else
+                xraw(i) = line(xl)
+             endif
+             if(eval_y)then
+                call coop_eval_math(ycol, yraw(i), vars = line(1:ncols))
+             else
+                yraw(i) = line(yl)
+             endif
+          else
+             call coop_return_error("coop_asy_plot_file", trim(filename)//" or "//trim(filename2)//" has a wrong format", "stop")
+          endif
+       enddo
+       call fp2%close()
+    else
+       do i = 1, m
+          if(fp%read_real_array(line(1:ncols)))then
+             line(0) = i
+             if(eval_x)then
+                call coop_eval_math( xcol, xraw(i), vars = line(1:ncols))
+             else
+                xraw(i) = line(xl)
+             endif
+             if(eval_y)then
+                call coop_eval_math(ycol, yraw(i), vars = line(1:ncols))
+             else
+                yraw(i) = line(yl)
+             endif
+          else
+             call coop_return_error("coop_asy_plot_file", trim(filename)//" has a wrong format", "stop")
+          endif
+       enddo
+    endif
+    call fp%close()
     minx = minval(xraw)
     maxx = maxval(xraw)
     y = 0.

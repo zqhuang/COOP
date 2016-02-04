@@ -6,7 +6,7 @@ include ../configure.in
 include ../compile_rules.in
 
 LIB = libcooputils.a
-OBJ = MPIutils.o specfunc.o list.o random.o cholesky.o matrix.o interpolation.o integrate.o ode.o file_io.o ndprob.o asy.o  fft.o jlbrute.o  inifile.o gaussian_peak.o evalstr.o  wrapper.o 
+OBJ = MPIutils.o evalstr.o  specfunc.o list.o random.o cholesky.o matrix.o interpolation.o integrate.o ode.o file_io.o ndprob.o asy.o  fft.o jlbrute.o  inifile.o gaussian_peak.o  wrapper.o 
 #jllpm.o  threejs.o
 
 default: $(LIB)

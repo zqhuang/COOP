@@ -46,7 +46,7 @@ contains
     if(present(vars))then
        call cme%init(mathexpr, error,vars)
     else
-       call cme%init(mathexpr, error,vars)
+       call cme%init(mathexpr, error)
     endif
     if(error.ne.0)then
        write(*,*) trim(mathexpr)
@@ -61,6 +61,7 @@ contains
     read(cme%expr(2:5),*)ind
     ans = cme%vars(ind)
   end subroutine coop_eval_math
+
 
   subroutine coop_math_expression_init(this, mathexpr, error, vars)
     class(coop_math_expression)::this
