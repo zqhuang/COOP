@@ -7,12 +7,29 @@ module coop_string_mod
 
   COOP_UNKNOWN_STRING, parameter::coop_default_data_dir = MAINPATH//"/data/"
 
+  COOP_INT,parameter::coop_ascii_Upper_A = ichar("A")
+  COOP_INT,parameter::coop_ascii_Upper_Z = ichar("Z")
+  COOP_INT,parameter::coop_ascii_lower_a = ichar("a")
+  COOP_INT,parameter::coop_ascii_lower_z = ichar("z")
+  COOP_INT,parameter::coop_ascii_0 = ichar("0")
+  COOP_INT,parameter::coop_ascii_9 = ichar("9")
+  COOP_INT,parameter::coop_ascii_lower_minus_upper = coop_ascii_lower_a - coop_ascii_Upper_A
+  COOP_INT,parameter::coop_ascii_plus = ichar("+")
+  COOP_INT,parameter::coop_ascii_dash = ichar("-")
+  COOP_INT,parameter::coop_ascii_dot = ichar(".")
+  COOP_INT,parameter::coop_ascii_star = ichar("*")
+  COOP_INT,parameter::coop_ascii_slash = ichar(coop_slash)
+  COOP_INT,parameter::coop_ascii_backslash = ichar(coop_backslash)
+  COOP_INT,parameter::coop_ascii_hat = ichar("^")
+  COOP_INT,parameter::coop_ascii_underscore = ichar("_")
+  COOP_INT,parameter::coop_ascii_left_bracket = ichar("(")
+  COOP_INT,parameter::coop_ascii_right_bracket = ichar(")")
+
+
   private
 
-  integer,parameter::sp = kind(1.)
-  integer,parameter::dl = kind(1.d0)
 
-  public::coop_num2str,  coop_ndigits, coop_str2int, coop_str2real, coop_str2logical, coop_substr, coop_str_replace, coop_str_numalpha, coop_str2lower, coop_str2upper, coop_case_insensitive_eq, coop_file_path_of, coop_file_name_of, coop_file_add_postfix, coop_file_replace_postfix, coop_convert_to_C_string, coop_convert_to_Fortran_String, coop_data_type, coop_string_contain_numbers, coop_numstr2goodstr, coop_num2goodstr, coop_string_strip_quotes, coop_str_numUpperAlpha, coop_str_numLowerAlpha, coop_datapath_format
+  public::coop_num2str,  coop_ndigits, coop_2digits, coop_3digits, coop_4digits, coop_5digits, coop_str2int, coop_str2real, coop_str2logical, coop_substr, coop_str_replace, coop_str_numalpha, coop_str2lower, coop_str2upper, coop_case_insensitive_eq, coop_file_path_of, coop_file_name_of, coop_file_add_postfix, coop_file_replace_postfix, coop_convert_to_C_string, coop_convert_to_Fortran_String, coop_data_type, coop_string_contain_numbers, coop_numstr2goodstr, coop_num2goodstr, coop_string_strip_quotes, coop_str_numUpperAlpha, coop_str_numLowerAlpha, coop_datapath_format, coop_is_digit, coop_ascii_0, coop_ascii_9, coop_ascii_Upper_A, coop_ascii_lower_A, coop_ascii_Upper_Z, coop_ascii_lower_Z, coop_ascii_lower_minus_upper, coop_ascii_plus, coop_ascii_dash, coop_ascii_star, coop_ascii_slash, coop_ascii_hat, coop_ascii_underscore, coop_ascii_backslash, coop_ascii_dot, coop_ascii_left_bracket, coop_ascii_right_bracket
 
   Interface coop_num2str
      module procedure coop_int2str, coop_real2str, coop_logical2str, coop_double2str
@@ -80,21 +97,121 @@ contains
     endif
   end function coop_numstr2goodstr
 
+  function coop_2digits(i) result(str)
+    COOP_INT::i
+    COOP_STRING::str
+    select case(abs(i))
+    case(0:9)
+       if(i.lt.0)then
+          str = "-0"//COOP_STR_OF(abs(i))
+       else
+          str = "0"//COOP_STR_OF(abs(i))
+       endif
+    case default
+       str = COOP_STR_OF(i)
+    end select
+  end function coop_2digits
+
+  function coop_3digits(i) result(str)
+    COOP_INT::i
+    COOP_STRING::str
+    select case(abs(i))
+    case(0:9)
+       if(i.lt.0)then
+          str = "-00"//COOP_STR_OF(abs(i))
+       else
+          str = "00"//COOP_STR_OF(abs(i))
+       endif
+    case(10:99)
+       if(i.lt.0)then
+          str = "-0"//COOP_STR_OF(abs(i))
+       else
+          str = "0"//COOP_STR_OF(abs(i))
+       endif
+    case default
+       str = COOP_STR_OF(i)
+    end select
+  end function coop_3digits
+
+  function coop_4digits(i) result(str)
+    COOP_INT::i
+    COOP_STRING::str
+    select case(abs(i))
+    case(0:9)
+       if(i.lt.0)then
+          str = "-000"//COOP_STR_OF(abs(i))
+       else
+          str = "000"//COOP_STR_OF(abs(i))
+       endif
+    case(10:99)
+       if(i.lt.0)then
+          str = "-00"//COOP_STR_OF(abs(i))
+       else
+          str = "00"//COOP_STR_OF(abs(i))
+       endif
+    case(100:999)
+       if(i.lt.0)then
+          str = "-0"//COOP_STR_OF(abs(i))
+       else
+          str = "0"//COOP_STR_OF(abs(i))
+       endif
+    case default
+       str = COOP_STR_OF(i)
+    end select
+  end function coop_4digits
+
+  function coop_5digits(i) result(str)
+    COOP_INT::i
+    COOP_STRING::str
+    select case(abs(i))
+    case(0:9)
+       if(i.lt.0)then
+          str = "-0000"//COOP_STR_OF(abs(i))
+       else
+          str = "0000"//COOP_STR_OF(abs(i))
+       endif
+    case(10:99)
+       if(i.lt.0)then
+          str = "-000"//COOP_STR_OF(abs(i))
+       else
+          str = "000"//COOP_STR_OF(abs(i))
+       endif
+    case(100:999)
+       if(i.lt.0)then
+          str = "-00"//COOP_STR_OF(abs(i))
+       else
+          str = "00"//COOP_STR_OF(abs(i))
+       endif
+    case(1000:9999)
+       if(i.lt.0)then
+          str = "-0"//COOP_STR_OF(abs(i))
+       else
+          str = "0"//COOP_STR_OF(abs(i))
+       endif
+    case default
+       str = COOP_STR_OF(i)
+    end select
+  end function coop_5digits
+
 
   function coop_Ndigits(i, ndigits, base) result(str_ndigits)
     COOP_INT, optional::base
     COOP_INT i, ndigits, j 
     COOP_STRING Str_Ndigits, strzero
     if(present(base))then
-       str_ndigits = coop_int2str(i, base)
+       str_ndigits = coop_int2str(abs(i), base)
     else
-       str_ndigits = coop_int2str(i)
+       str_ndigits = coop_int2str(abs(i))
     endif
     strzero = ""
     do j = len_trim(str_ndigits)+1, ndigits
        strzero = trim(strzero)//"0"
     enddo
-    str_Ndigits = trim(strzero)//trim(Str_Ndigits)
+    if(i.lt.0)then
+       str_Ndigits = "-"//trim(strzero)//trim(Str_Ndigits)
+    else
+       str_Ndigits = trim(strzero)//trim(Str_Ndigits)
+    endif
   end function coop_Ndigits
 
   function coop_int2str(i, base)
@@ -122,20 +239,20 @@ contains
   End function coop_int2str
 
   function coop_double2str(x, fmt) result(str)
-    real(dl) x
+    COOP_REAL x
     COOP_STRING str
     COOP_UNKNOWN_STRING ,optional::fmt
     if(present(fmt))then
-       str = coop_real2str(real(x, sp), fmt)
+       str = coop_real2str(COOP_SINGLE_OF(x), fmt)
     else
-       str = coop_real2str(real(x, sp))
+       str = coop_real2str(COOP_SINGLE_OF(x))
     endif
   end function coop_double2str
 
   Function Coop_real2str(x,fmt) !!This is a smater algorithm that convert number to string
     COOP_INT, parameter::ndigits = 5
     COOP_STRING Coop_real2str, str
-    real(sp) x, ax
+    COOP_SINGLE x, ax
     COOP_INT ind,  n, i
     COOP_INT ix
     COOP_UNKNOWN_STRING ,optional::fmt
@@ -303,7 +420,7 @@ contains
     k = 1
     do i=1, lens
        j = ichar(str(i:i))
-       if(j.ge.48 .and.j.le.57 .or. j.ge.65 .and. j.le.90 .or. j.ge.97 .and. j.le. 122 )then
+       if(j.ge. coop_ascii_0 .and.j.le.coop_ascii_9 .or. j.ge.coop_ascii_Upper_A .and. j.le.coop_ascii_Upper_Z .or. j.ge.coop_ascii_lower_a .and. j.le. coop_ascii_lower_z )then
           s(k:k) = str(i:i)
           k  = k  + 1
        end if
@@ -320,9 +437,9 @@ contains
     k = 1
     do i=1, lens
        j = ichar(str(i:i))
-       if(j.ge.48 .and.j.le.57 .or. j.ge.65 .and. j.le.90 .or. j.ge.97 .and. j.le. 122 )then
-          if(j .ge. 97)then
-             s(k:k) = char(j-32)
+       if(j.ge.coop_ascii_0 .and.j.le.coop_ascii_9 .or. j.ge.coop_ascii_Upper_A .and. j.le.coop_ascii_Upper_Z .or. j.ge.coop_ascii_lower_a .and. j.le. coop_ascii_lower_z )then
+          if(j .ge. coop_ascii_lower_a)then
+             s(k:k) = char(j-coop_ascii_lower_minus_upper)
           else
              s(k:k) = str(i:i)
           endif
@@ -341,9 +458,9 @@ contains
     k = 1
     do i=1, lens
        j = ichar(str(i:i))
-       if(j.ge.48 .and.j.le.57 .or. j.ge.65 .and. j.le.90 .or. j.ge.97 .and. j.le. 122 )then
-          if(j .ge. 65 .and. j .le. 90)then
-             s(k:k) = char(j+ 32)
+       if(j.ge.coop_ascii_0 .and.j.le.coop_ascii_9 .or. j.ge.coop_ascii_Upper_A .and. j.le.coop_ascii_Upper_Z .or. j.ge.coop_ascii_lower_a .and. j.le. coop_ascii_lower_z )then
+          if(j .ge. coop_ascii_Upper_A .and. j .le. coop_ascii_Upper_Z)then
+             s(k:k) = char(j+ coop_ascii_lower_minus_upper)
           else
              s(k:k) = str(i:i)
           endif
@@ -360,8 +477,8 @@ contains
     n = len_trim(Str)
     do i=1, n
        k = ichar(str(i:i))
-       if(k.ge.65 .and. k .le. 90)then
-          str(i:i) = char(k+32)
+       if(k.ge.coop_ascii_Upper_A .and. k .le. coop_ascii_Upper_Z)then
+          str(i:i) = char(k+coop_ascii_lower_minus_upper)
        endif
     enddo
   End subroutine Coop_Str2Lower
@@ -372,7 +489,7 @@ contains
     n = len_trim(Str)
     do i = 1, n
        k = ichar(str(i:i))
-       if(k.ge.97 .and. k.le. 122)then
+       if(k.ge.coop_ascii_lower_a .and. k.le. coop_ascii_lower_z)then
           str(i:i) = char(k-32)
        end if
     enddo
@@ -392,13 +509,13 @@ contains
        If(Str1(i:i) .ne. Str2(i:i))then
           i1 = ichar(str1(i:i))
           i2 = ichar(str2(i:i))
-          if(i1 .lt. 65 .or. i1 .gt.122 .or. (i1 .gt. 90 .and. i1 .lt. 97) .or. &
-               i2 .lt. 65 .or. i2 .gt.122 .or. (i2 .gt. 90 .and. i2 .lt. 97))then
+          if(i1 .lt. coop_ascii_Upper_A .or. i1 .gt.coop_ascii_lower_z .or. (i1 .gt. coop_ascii_Upper_Z .and. i1 .lt. coop_ascii_lower_a) .or. &
+               i2 .lt. coop_ascii_Upper_A .or. i2 .gt.coop_ascii_lower_z .or. (i2 .gt. coop_ascii_Upper_Z .and. i2 .lt. coop_ascii_lower_a))then
              
              Coop_case_insensitive_eq=.false.
              return
           else
-             if(i1 .ne. i2 .and. abs(i1-i2) .ne. 32)then
+             if(i1 .ne. i2 .and. abs(i1-i2) .ne. coop_ascii_lower_minus_upper)then
                 coop_case_insensitive_eq = .false.
                 return
              endif
@@ -603,5 +720,11 @@ contains
        formatted_path(idigit:) = COOP_STR_OF(ind)//trim(formatted_path(idigit+2:))
     endif
   end function coop_datapath_format
+
+  function coop_is_digit(c)
+    character c
+    logical::coop_is_digit
+    coop_is_digit = (ichar(c) .ge. coop_ascii_0 .and. ichar(c) .le. coop_ascii_9)
+  end function coop_is_digit
 
 end module coop_string_mod

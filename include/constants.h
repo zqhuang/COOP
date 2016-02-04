@@ -20,6 +20,7 @@
 #define COOP_CONSTANT_STRING character(len=*),parameter
 #define COOP_STANDARD_SIGMA_BOUNDS (/ 0.9985d0, 0.977d0, 0.8415d0, 0.5d0, 0.1585d0, 0.023d0, 0.0015d0 /)
 #define COOP_REAL_OF(x) real(x, coop_real_length)
+#define COOP_SINGLE_OF(x)  real(x, coop_single_real_length)
 #define COOP_INT_OF(x) int(x, coop_integer_length)
 #define COOP_LONG_INT_OF(x) int(x, coop_long_integer_length)
 #define COOP_STR_OF(x) trim(coop_num2str(x))
