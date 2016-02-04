@@ -37,12 +37,17 @@ module coop_evalstr_mod
 
 contains
 
-  subroutine coop_eval_math(mathexpr, ans)
+  subroutine coop_eval_math(mathexpr, ans, vars)
     type(coop_math_expression)::cme
+    COOP_REAL,optional::vars(:)
     COOP_INT::error,length,ind
     COOP_UNKNOWN_STRING::mathexpr
     COOP_REAL::ans
-    call cme%init(mathexpr, error)
+    if(present(vars))then
+       call cme%init(mathexpr, error,vars)
+    else
+       call cme%init(mathexpr, error,vars)
+    endif
     if(error.ne.0)then
        write(*,*) trim(mathexpr)
        stop "invalid math expression"
