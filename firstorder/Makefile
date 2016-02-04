@@ -10,7 +10,7 @@ include ../compile_rules.in
 LIB = libcoopfirstorder.a
 OBJ = pertobj.o firstorder.o lensing.o Cls_post_process.o wrapper.o
 
-default: $(LIB)
+default: $(LIB) CalcCls CalcMP SolvePert
 
 $(LIB): $(OBJ)
 	ar -r $@ $?
