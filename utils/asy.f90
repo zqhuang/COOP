@@ -1275,9 +1275,9 @@ contains
     allocate(xraw(m), yraw(m))
     call fp%open(trim(filename), "r")
     if(present(filename2))then
-       call fp2%open(filename2)
+       call fp2%open(filename2,"r")
        do i = 1, m
-          if(fp%read_real_array(line(1:ncols1)) .and. fp2%read_real_array(line(ncols+1:ncols)))then
+          if(fp%read_real_array(line(1:ncols1)) .and. fp2%read_real_array(line(ncols1 + 1:ncols)))then
              line(0) = i
              if(eval_x)then
                 call coop_eval_math( xcol, xraw(i), vars = line(1:ncols))
