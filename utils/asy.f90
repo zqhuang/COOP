@@ -1229,7 +1229,7 @@ contains
     endif
     m = coop_file_numlines(filename)
     ncols1 = coop_file_numColumns(filename)
-    if(ncols .eq. 0 .or. m.eq.0)then
+    if(ncols1 .eq. 0 .or. m.eq.0)then
        call coop_return_error("coop_asy_plot_file", "The data file "//trim(filename)//" is empty", "stop")
     endif
     if(present(filename2))then
