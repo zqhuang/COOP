@@ -50,7 +50,7 @@ contains
     endif
     if(error.ne.0)then
        write(*,*) trim(mathexpr)
-       stop "invalid math expression"
+       stop "invalid math expression (init)"
     endif
     length = len_trim(cme%expr)
     call cme%simplify(cme%expr, length, error)
@@ -149,8 +149,9 @@ contains
           endif
           if(str(j-1:j-1).eq."$")then
              k = j
-             do while(coop_is_digit(str(k:k)) .and. k.lt. l)
+             do while(coop_is_digit(str(k:k)))
                 k = k + 1
+                if(k.gt.l)exit
              enddo
              if(k.le.j)then
                 error = coop_math_expression_error_invalid_characters
