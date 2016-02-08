@@ -10,7 +10,7 @@ include ../configure.in
 include ../compile_rules.in
 
 LIB = libcoopforecast.a
-OBJ = SNlike_JLA.o bao.o HSTlike.o wl.o cliklike.o forecast.o 
+OBJ = SNlike_JLA.o bao.o HSTlike.o wl.o cliklike.o forecast.o fisher.o
 
 default: $(LIB) MCMC
 
@@ -32,12 +32,16 @@ DOSN:	testSN.o $(OBJ)
 MCMC:	runmcmc.o $(OBJ)
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) runmcmc.o $(LINK)
 
+FISHER:	runfisher.o $(OBJ)
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) runfisher.o $(LINK)
+
+
 STD6:	teststd6.o $(OBJ)
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) teststd6.o $(LINK) 
 
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~  MCMC Test STD6 DOSN PRINTCLIK
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~  FISHER MCMC Test STD6 DOSN PRINTCLIK
 
 runmcmc.o: $(OBJ)
 forecast.o: cliklike.o bao.o wl.o SNlike_JLA.o HSTlike.o

@@ -30,7 +30,7 @@
 #define COOP_FILESTR_OF(x) trim(coop_num2goodstr(x, "-", "pt"))
 #define COOP_DATAPATH(x) trim(coop_datapath_format(x))
 #define COOP_DATAPATH_I(x,y) trim(coop_datapath_format(x,y))  
-
+#define COOP_DEALLOC(x)  if(allocated(x))deallocate(x)
 #define COOP_INTERPOLATE_LINEAR 1
 #define COOP_INTERPOLATE_QUADRATIC 2
 #define COOP_INTERPOLATE_SPLINE 3

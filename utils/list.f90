@@ -5,10 +5,7 @@ module coop_list_mod
 #include "constants.h"
   private
 
-  COOP_INT,parameter::sp = kind(1.)
-  COOP_INT,parameter::dl = kind(1.d0)
-
-  public::coop_list_integer, coop_list_real, coop_list_realarr, coop_list_double, coop_list_logical, coop_list_string, coop_list_character, coop_string_to_list, coop_dictionary, coop_dictionary_lookup, coop_get_prime_numbers, coop_list_get_element,  coop_command_line_has_argument, coop_command_line_argument, coop_get_command_line_argument, coop_dynamic_array_integer
+  public::coop_list_integer, coop_list_real, coop_list_realarr, coop_list_double, coop_list_logical, coop_list_string, coop_list_character, coop_string_to_list, coop_dictionary, coop_dictionary_lookup, coop_get_prime_numbers, coop_list_get_element,  coop_command_line_has_argument, coop_command_line_argument, coop_get_command_line_argument, coop_dynamic_array_integer, coop_int_table, coop_real_table
 
   interface coop_list_initialize
      module procedure coop_list_integer_initialize, coop_list_real_initialize, coop_list_double_initialize, coop_list_logical_initialize, coop_list_string_initialize, coop_list_character_initialize, coop_list_realarr_initialize
@@ -95,10 +92,10 @@ module coop_list_mod
      COOP_INT::n =0
      COOP_INT::stack = 1
      COOP_INT::loc = 0
-     real(sp),dimension(:),allocatable::i1
-     real(sp),dimension(:),allocatable::i2
-     real(sp),dimension(:),allocatable::i3
-     real(sp),dimension(:),allocatable::i4
+     COOP_SINGLE,dimension(:),allocatable::i1
+     COOP_SINGLE,dimension(:),allocatable::i2
+     COOP_SINGLE,dimension(:),allocatable::i3
+     COOP_SINGLE,dimension(:),allocatable::i4
    contains
      procedure::init => coop_list_real_initialize
      procedure::free => coop_list_real_initialize     
@@ -114,10 +111,10 @@ module coop_list_mod
      COOP_INT::n = 0
      COOP_INT::stack = 1
      COOP_INT::loc = 0
-     real(sp),dimension(:,:),allocatable::i1
-     real(sp),dimension(:,:),allocatable::i2
-     real(sp),dimension(:,:),allocatable::i3
-     real(sp),dimension(:,:),allocatable::i4
+     COOP_SINGLE,dimension(:,:),allocatable::i1
+     COOP_SINGLE,dimension(:,:),allocatable::i2
+     COOP_SINGLE,dimension(:,:),allocatable::i3
+     COOP_SINGLE,dimension(:,:),allocatable::i4
    contains
      procedure::init => coop_list_realarr_initialize     
      procedure::free => coop_list_realarr_initialize     
@@ -133,10 +130,10 @@ module coop_list_mod
      COOP_INT::n = 0
      COOP_INT::stack = 1
      COOP_INT::loc = 0
-     real(dl),dimension(:),allocatable::i1
-     real(dl),dimension(:),allocatable::i2
-     real(dl),dimension(:),allocatable::i3
-     real(dl),dimension(:),allocatable::i4
+     COOP_REAL,dimension(:),allocatable::i1
+     COOP_REAL,dimension(:),allocatable::i2
+     COOP_REAL,dimension(:),allocatable::i3
+     COOP_REAL,dimension(:),allocatable::i4
    contains
      procedure::isinit => coop_list_double_is_initialized
      procedure::init => coop_list_double_initialize
@@ -218,6 +215,47 @@ module coop_list_mod
      procedure::init => coop_dictionary_free
      procedure::load_input => coop_dictionary_load_input
   end type coop_dictionary
+
+
+  type coop_int_table
+     COOP_INT::n = 0
+     COOP_INT::capacity
+     COOP_SHORT_STRING,dimension(:),allocatable::key
+     COOP_INT,dimension(:),allocatable::val
+     COOP_INT, dimension(:),allocatable::id
+   contains
+     procedure::print => coop_int_table_print
+     procedure::load_dictionary => coop_int_table_load_dictionary
+     procedure::insert => coop_int_table_insert !!insert a key
+     procedure::delete => coop_int_table_delete  !!delete a key
+     procedure::index => coop_int_table_key_index
+     procedure::value => coop_int_table_value
+     procedure::lookup => coop_int_table_lookup
+     procedure::update => coop_int_table_update
+     procedure::free => coop_int_table_free
+     procedure::init => coop_int_table_free
+  end type coop_int_table
+
+
+  type coop_real_table
+     COOP_INT::n = 0
+     COOP_INT::capacity
+     COOP_SHORT_STRING,dimension(:),allocatable::key
+     COOP_REAL,dimension(:),allocatable::val
+     COOP_INT, dimension(:),allocatable::id
+   contains
+     procedure::print => coop_real_table_print
+     procedure::load_dictionary => coop_real_table_load_dictionary
+     procedure::insert => coop_real_table_insert !!insert a key
+     procedure::delete => coop_real_table_delete  !!delete a key
+     procedure::index => coop_real_table_key_index
+     procedure::value => coop_real_table_value
+     procedure::update => coop_real_table_update
+     procedure::lookup => coop_real_table_lookup
+     procedure::free => coop_real_table_free
+     procedure::init => coop_real_table_free
+  end type coop_real_table
+
 
 
   type(coop_dictionary)::coop_command_line_inputs
@@ -477,7 +515,7 @@ contains
 
   subroutine coop_list_real_push(l, i)
     class(coop_list_real) l
-    real(sp) i
+    COOP_SINGLE i
     if(allocated(l%i1))then
        l%n = l%n+1
        select case(l%stack)
@@ -567,7 +605,7 @@ contains
 
   subroutine coop_list_realarr_push(l, i)
     class(coop_list_realarr) l
-    real(sp),dimension(:),intent(IN)::i
+    COOP_SINGLE,dimension(:),intent(IN)::i
     if(allocated(l%i1))then
        if(size(i).ne. l%dim) stop "coop_list_realarr_push: wrong size of input array"
        l%n = l%n+1
@@ -658,7 +696,7 @@ contains
 
   subroutine coop_list_double_push(l, i)
     class(coop_list_double) l
-    real(dl) i
+    COOP_REAL i
     if(allocated(l%i1))then
        l%n = l%n+1
        select case(l%stack)
@@ -1065,7 +1103,7 @@ contains
     type(coop_list_string) lstr
     COOP_STRING tmp
     COOP_INT i
-    real(sp) x
+    COOP_SINGLE x
     call coop_list_initialize(l)
     call coop_string_to_list_string(str, lstr, " ,;"//coop_newline//coop_tab//coop_backspace//coop_carriage_return)
     do i=1, lstr%n
@@ -1084,7 +1122,7 @@ contains
     type(coop_list_string) lstr
     COOP_STRING tmp
     COOP_INT i
-    real(dl) x
+    COOP_REAL x
     call coop_list_initialize(l)
     call coop_string_to_list_string(str, lstr, " ,;"//coop_newline//coop_tab//coop_backspace//coop_carriage_return)
     do i=1, lstr%n
@@ -1144,7 +1182,7 @@ contains
   function coop_list_real_element(l, i) result(elem)
     class(coop_list_real) l
     COOP_INT i, j
-    real(sp) elem
+    COOP_SINGLE elem
     call coop_list_real_get_element(l, i, elem)
   end function coop_list_real_element
 
@@ -1152,7 +1190,7 @@ contains
   function coop_list_double_element(l, i) result(elem)
     class(coop_list_double) l
     COOP_INT i, j
-    real(dl) elem
+    COOP_REAL elem
     call coop_list_double_get_element(l, i, elem)
   end function coop_list_double_element
 
@@ -1183,7 +1221,7 @@ contains
   function coop_list_realarr_element(l, i) result(elem)
     class(coop_list_realarr) l
     COOP_INT i, j
-    real(sp) elem(l%dim)
+    COOP_SINGLE elem(l%dim)
     call coop_list_realarr_get_element(l, i, elem)
   end function coop_list_realarr_element
 
@@ -1215,7 +1253,7 @@ contains
   subroutine coop_list_real_get_element(l, i, elem)
     class(coop_list_real) l
     COOP_INT i, j
-    real(sp) elem
+    COOP_SINGLE elem
     if(i.le. coop_list_i1_max_length)then
        elem = l%i1(i)
        return
@@ -1238,7 +1276,7 @@ contains
   subroutine coop_list_double_get_element(l, i, elem)
     class(coop_list_double) l
     COOP_INT i, j
-    real(dl) elem
+    COOP_REAL elem
     if(i.le. coop_list_i1_max_length)then
        elem = l%i1(i)
        return
@@ -1329,7 +1367,7 @@ contains
   subroutine coop_list_realarr_get_element(l, i, elem)
     class(coop_list_realarr) l
     COOP_INT i, j
-    real(sp) elem(:)
+    COOP_SINGLE elem(:)
     if(i.le. coop_list_i1_max_length)then
        elem(1:l%dim) = l%i1(:,i)
        return
@@ -1426,6 +1464,7 @@ contains
        dict%id(iup) = dict%n
     endif
   end subroutine coop_dictionary_insert
+
 
 
   subroutine coop_dictionary_delete(dict, key)
@@ -1542,8 +1581,8 @@ contains
     class(coop_dictionary):: dict
     COOP_UNKNOWN_STRING key
     COOP_INT ind
-    real(sp) val
-    real(sp),optional::default_val
+    COOP_SINGLE val
+    COOP_SINGLE,optional::default_val
     ind = coop_dictionary_key_index(dict, key)
     if(ind .eq. 0)then
        if(present(default_val))then
@@ -1562,8 +1601,8 @@ contains
     class(coop_dictionary):: dict
     COOP_UNKNOWN_STRING key
     COOP_INT ind
-    real(dl) val
-    real(dl),optional::default_val
+    COOP_REAL val
+    COOP_REAL,optional::default_val
     ind = coop_dictionary_key_index(dict, key)
     if(ind .eq. 0)then
        if(present(default_val))then
@@ -1625,8 +1664,8 @@ contains
     class(coop_dictionary):: dict
     COOP_UNKNOWN_STRING key
     COOP_INT ind
-    real(sp),dimension(:),intent(OUT)::  val
-    real(sp),dimension(:),optional::default_val
+    COOP_SINGLE,dimension(:),intent(OUT)::  val
+    COOP_SINGLE,dimension(:),optional::default_val
     ind = coop_dictionary_key_index(dict, key)
     if(ind .eq. 0)then
        if(present(default_val))then
@@ -1645,8 +1684,8 @@ contains
     class(coop_dictionary):: dict
     COOP_UNKNOWN_STRING key
     COOP_INT ind
-    real(dl),dimension(:),intent(OUT)::  val
-    real(dl),dimension(:),optional::default_val
+    COOP_REAL,dimension(:),intent(OUT)::  val
+    COOP_REAL,dimension(:),optional::default_val
     ind = coop_dictionary_key_index(dict, key)
     if(ind .eq. 0)then
        if(present(default_val))then
@@ -1789,7 +1828,7 @@ contains
   subroutine coop_list_realarr_sort(this, key_index)
     COOP_INT key_index
     class(coop_list_realarr) this
-    real(sp), dimension(:),allocatable::key, tmp
+    COOP_SINGLE, dimension(:),allocatable::key, tmp
     type(coop_list_realarr) copy
     COOP_INT, dimension(:),allocatable::index
     COOP_INT i, j
@@ -2146,8 +2185,434 @@ contains
     read(str, *) arg
   end subroutine coop_get_command_line_argument_singlearr
   
+
+  subroutine coop_int_table_load_dictionary(this, dict)
+    class(coop_int_table)::this
+    type(coop_dictionary)::dict
+    COOP_INT::i
+    do i = 1, dict%n
+       if(coop_is_integer(dict%val(i)))then
+          call this%insert(dict%key(i), coop_str2int(dict%val(i)))
+       endif
+    enddo
+  end subroutine coop_int_table_load_dictionary
   
 
+  subroutine coop_int_table_insert(this, key, val, overwrite)
+    class(coop_int_table):: this
+    COOP_UNKNOWN_STRING key
+    COOP_INT::val
+    logical,optional::overwrite
+    COOP_SHORT_STRING,dimension(:),allocatable::tmpkey
+    COOP_INT,dimension(:),allocatable::tmpval
+    COOP_INT,dimension(:),allocatable::tmpid
+    COOP_INT iup, ilow, imid
+    if(trim(adjustl(key)).eq."") return
+    if(.not.allocated(this%key))then
+       this%capacity = coop_list_unit_len
+       allocate(this%key(this%capacity), this%val(this%capacity), this%id(this%capacity))
+       this%n = 1
+       this%key(1) = trim(adjustl(key))
+       this%val(1) = val
+       this%id(1) = 1
+       return
+    endif
+    if(this%n .eq. this%capacity)then
+       allocate(tmpkey(this%n), tmpval(this%n), tmpid(this%n))
+       tmpkey = this%key
+       tmpval = this%val
+       tmpid = this%id
+       deallocate(this%key, this%val, this%id)
+       this%capacity = this%capacity + coop_list_unit_len
+       allocate(this%key(this%capacity), this%val(this%capacity), this%id(this%capacity))
+       this%key(1:this%n) = tmpkey
+       this%val(1:this%n) = tmpval
+       this%id(1:this%n) = tmpid
+       deallocate(tmpkey, tmpval, tmpid)
+    endif
+    iup = this%n
+    ilow = 1
+    this%n = this%n + 1
+    this%key(this%n) = trim(adjustl(key))
+    this%val(this%n) = val
+    if(lgt(this%key(this%n), this%key(this%id(iup))))then
+       this%id(this%n) = this%n
+       return
+    endif
+    if(llt(this%key(this%n), this%key(this%id(ilow))))then
+       this%id(2:this%n) = this%id(1:this%n-1)
+       this%id(1) = this%n
+       return
+    endif
+    do while(iup .gt. ilow+1)
+       imid = (iup + ilow)/2
+       if(lle(this%key(this%n), this%key(this%id(imid))))then
+          iup = imid
+       else
+          ilow = imid
+       endif
+    end do
+    if(this%key(this%id(ilow)) .eq. this%key(this%n))then
+       if(present(overwrite))then
+          if(.not. overwrite)then
+             write(*,*) "key "//trim(this%key(this%n))//" conflicts with existing keys, cannot insert into the int_table."
+             this%n = this%n - 1
+             return
+          endif
+       endif
+       this%val(this%id(ilow)) = this%val(this%n)
+       this%n = this%n - 1
+    elseif(this%key(this%id(iup)) .eq. this%key(this%n))then
+       if(present(overwrite))then
+          if(.not. overwrite)then
+             write(*,*) "key "//trim(this%key(this%n))//" conflicts with existing keys, cannot insert into the int_table."
+             this%n = this%n - 1
+             return
+          endif
+       endif
+       this%val(this%id(iup)) = this%val(this%n)
+       this%n = this%n - 1
+    else
+       this%id(iup+1:this%n) = this%id(iup:this%n-1)
+       this%id(iup) = this%n
+    endif
+  end subroutine coop_int_table_insert
+
+
+  subroutine coop_int_table_delete(this, key)
+    class(coop_int_table):: this
+    COOP_UNKNOWN_STRING key
+    COOP_SHORT_STRING,dimension(:),allocatable::tmpkey
+    COOP_INT ind, i, j
+    ind = this%index(key)
+    if(ind .eq. 0) return
+    this%key(ind:this%n-1) = this%key(ind+1:this%n)
+    do i=1, this%n
+       if(this%id(i).gt.ind)then
+          this%id(i) = this%id(i)-1
+       elseif(this%id(i) .eq. ind)then
+          j = i
+       endif
+    enddo
+    this%id(j:this%n-1) = this%id(j+1:this%n)
+    this%n = this%n-1
+  end subroutine coop_int_table_delete
   
+
+
+  function coop_int_table_key_index(this, key) result(ind)
+    class(coop_int_table):: this
+    COOP_UNKNOWN_STRING, intent(IN)::key
+    COOP_SHORT_STRING thekey
+    COOP_INT ind
+    COOP_INT iup, ilow, imid
+    if(.not. allocated(this%key))then
+       ind = 0
+       return
+    endif
+    iup = this%n
+    ilow = 1
+    thekey = trim(adjustl(key))
+    if(lgt(thekey, this%key(this%id(iup))))then
+       ind = 0
+       return
+    endif
+    if(llt(thekey, this%key(this%id(ilow))))then
+       ind = 0
+       return
+    endif
+    do while(iup .gt. ilow+1)
+       imid = (iup + ilow)/2
+       if(lle(thekey, this%key(this%id(imid))))then
+          iup = imid
+       else
+          ilow = imid
+       endif
+    end do
+    if(thekey .eq. this%key(this%id(ilow)))then
+       ind = this%id(ilow)
+       return
+    endif
+    if(thekey .eq. this%key(this%id(iup)))then
+       ind = this%id(iup)
+       return
+    endif
+    ind = 0
+    return
+  end function coop_int_table_key_index
+
+
+  subroutine coop_int_table_update(this, key, val)
+    class(coop_int_table)::this
+    COOP_UNKNOWN_STRING,intent(IN)::key
+    COOP_INT,intent(IN)::val
+    call this%insert(key, val, overwrite = .true.)
+  end subroutine coop_int_table_update
+
+
+  subroutine coop_int_table_lookup(this, key, val, default_val)
+    class(coop_int_table):: this
+    COOP_UNKNOWN_STRING, intent(IN):: key
+    COOP_INT, intent(OUT)::val
+    COOP_INT, optional::default_val
+    COOP_INT ind
+    ind = coop_int_table_key_index(this, key)
+    if(ind .eq. 0)then
+       if(present(default_val))then
+          val = default_val
+       else
+          write(*,*) "int_table_lookup: key "//trim(key)//" cannot be found."
+          call this%print()
+          stop
+       endif
+    else
+       val = this%val(ind)
+    endif
+    return
+  end subroutine coop_int_table_lookup
+
+  subroutine coop_int_table_print(this)
+    class(coop_int_table):: this
+    COOP_INT i
+    if(allocated(this%key))then
+       do i=1, this%n
+          write(*,"(2A,I10)")  trim(this%key(this%id(i))), " = ", this%val(this%id(i))
+       enddo
+    else
+       write(*,*) "Empty coop_int_table"
+    endif
+  end subroutine coop_int_table_print
+
+
+  function coop_int_table_value(this, key) result(val)
+    class(coop_int_table):: this
+    COOP_UNKNOWN_STRING:: key
+    COOP_INT val
+    call coop_int_table_lookup(this, key, val)
+  end function coop_int_table_value
+
+
+  subroutine coop_int_table_free(this)
+    class(coop_int_table):: this
+    if(allocated(this%key))then
+       deallocate(this%key, this%val, this%id)
+    endif
+  end subroutine coop_int_table_free
+
+
+
+  subroutine coop_real_table_insert(this, key, val, overwrite)
+    class(coop_real_table):: this
+    COOP_UNKNOWN_STRING key
+    COOP_REAL::val
+    logical,optional::overwrite
+    COOP_SHORT_STRING,dimension(:),allocatable::tmpkey
+    COOP_REAL,dimension(:),allocatable::tmpval
+    COOP_INT,dimension(:),allocatable::tmpid
+    COOP_INT iup, ilow, imid
+    if(trim(adjustl(key)).eq."") return
+    if(.not.allocated(this%key))then
+       this%capacity = coop_list_unit_len
+       allocate(this%key(this%capacity), this%val(this%capacity), this%id(this%capacity))
+       this%n = 1
+       this%key(1) = trim(adjustl(key))
+       this%val(1) = val
+       this%id(1) = 1
+       return
+    endif
+    if(this%n .eq. this%capacity)then
+       allocate(tmpkey(this%n), tmpval(this%n), tmpid(this%n))
+       tmpkey = this%key
+       tmpval = this%val
+       tmpid = this%id
+       deallocate(this%key, this%val, this%id)
+       this%capacity = this%capacity + coop_list_unit_len
+       allocate(this%key(this%capacity), this%val(this%capacity), this%id(this%capacity))
+       this%key(1:this%n) = tmpkey
+       this%val(1:this%n) = tmpval
+       this%id(1:this%n) = tmpid
+       deallocate(tmpkey, tmpval, tmpid)
+    endif
+    iup = this%n
+    ilow = 1
+    this%n = this%n + 1
+    this%key(this%n) = trim(adjustl(key))
+    this%val(this%n) = val
+    if(lgt(this%key(this%n), this%key(this%id(iup))))then
+       this%id(this%n) = this%n
+       return
+    endif
+    if(llt(this%key(this%n), this%key(this%id(ilow))))then
+       this%id(2:this%n) = this%id(1:this%n-1)
+       this%id(1) = this%n
+       return
+    endif
+    do while(iup .gt. ilow+1)
+       imid = (iup + ilow)/2
+       if(lle(this%key(this%n), this%key(this%id(imid))))then
+          iup = imid
+       else
+          ilow = imid
+       endif
+    end do
+    if(this%key(this%id(ilow)) .eq. this%key(this%n))then
+       if(present(overwrite))then
+          if(.not. overwrite)then
+             write(*,*) "key "//trim(this%key(this%n))//" conflicts with existing keys, cannot insert into the real_table."
+             this%n = this%n - 1
+             return
+          endif
+       endif
+       this%val(this%id(ilow)) = this%val(this%n)
+       this%n = this%n - 1
+    elseif(this%key(this%id(iup)) .eq. this%key(this%n))then
+       if(present(overwrite))then
+          if(.not. overwrite)then
+             write(*,*) "key "//trim(this%key(this%n))//" conflicts with existing keys, cannot insert into the real_table."
+             this%n = this%n - 1
+             return
+          endif
+       endif
+       this%val(this%id(iup)) = this%val(this%n)
+       this%n = this%n - 1
+    else
+       this%id(iup+1:this%n) = this%id(iup:this%n-1)
+       this%id(iup) = this%n
+    endif
+  end subroutine coop_real_table_insert
+
+
+  subroutine coop_real_table_delete(this, key)
+    class(coop_real_table):: this
+    COOP_UNKNOWN_STRING key
+    COOP_SHORT_STRING,dimension(:),allocatable::tmpkey
+    COOP_INT ind, i, j
+    ind = this%index(key)
+    if(ind .eq. 0) return
+    this%key(ind:this%n-1) = this%key(ind+1:this%n)
+    do i=1, this%n
+       if(this%id(i).gt.ind)then
+          this%id(i) = this%id(i)-1
+       elseif(this%id(i) .eq. ind)then
+          j = i
+       endif
+    enddo
+    this%id(j:this%n-1) = this%id(j+1:this%n)
+    this%n = this%n-1
+  end subroutine coop_real_table_delete
+  
+
+
+  function coop_real_table_key_index(this, key) result(ind)
+    class(coop_real_table):: this
+    COOP_UNKNOWN_STRING, intent(IN)::key
+    COOP_SHORT_STRING thekey
+    COOP_INT ind
+    COOP_INT iup, ilow, imid
+    if(.not. allocated(this%key))then
+       ind = 0
+       return
+    endif
+    iup = this%n
+    ilow = 1
+    thekey = trim(adjustl(key))
+    if(lgt(thekey, this%key(this%id(iup))))then
+       ind = 0
+       return
+    endif
+    if(llt(thekey, this%key(this%id(ilow))))then
+       ind = 0
+       return
+    endif
+    do while(iup .gt. ilow+1)
+       imid = (iup + ilow)/2
+       if(lle(thekey, this%key(this%id(imid))))then
+          iup = imid
+       else
+          ilow = imid
+       endif
+    end do
+    if(thekey .eq. this%key(this%id(ilow)))then
+       ind = this%id(ilow)
+       return
+    endif
+    if(thekey .eq. this%key(this%id(iup)))then
+       ind = this%id(iup)
+       return
+    endif
+    ind = 0
+    return
+  end function coop_real_table_key_index
+
+
+  subroutine coop_real_table_update(this, key, val)
+    class(coop_real_table)::this
+    COOP_UNKNOWN_STRING,intent(IN)::key
+    COOP_REAL,intent(IN)::val
+    call this%insert(key, val, overwrite = .true.)
+  end subroutine coop_real_table_update
+
+
+  subroutine coop_real_table_lookup(this, key, val, default_val)
+    class(coop_real_table):: this
+    COOP_UNKNOWN_STRING, intent(IN):: key
+    COOP_REAL, intent(OUT)::val
+    COOP_REAL, optional::default_val
+    COOP_INT ind
+    ind = coop_real_table_key_index(this, key)
+    if(ind .eq. 0)then
+       if(present(default_val))then
+          val = default_val
+       else
+          write(*,*) "int_table_lookup: key "//trim(key)//" cannot be found."
+          call this%print()
+          stop
+       endif
+    else
+       val = this%val(ind)
+    endif
+    return
+  end subroutine coop_real_table_lookup
+
+  subroutine coop_real_table_print(this)
+    class(coop_real_table):: this
+    COOP_INT i
+    if(allocated(this%key))then
+       do i=1, this%n
+          write(*,"(2A,G14.5)")  trim(this%key(this%id(i))), " = ", this%val(this%id(i))
+       enddo
+    else
+       write(*,*) "Empty coop_real_table"
+    endif
+  end subroutine coop_real_table_print
+
+
+  function coop_real_table_value(this, key) result(val)
+    class(coop_real_table):: this
+    COOP_UNKNOWN_STRING:: key
+    COOP_REAL val
+    call coop_real_table_lookup(this, key, val)
+  end function coop_real_table_value
+
+
+  subroutine coop_real_table_free(this)
+    class(coop_real_table):: this
+    if(allocated(this%key))then
+       deallocate(this%key, this%val, this%id)
+    endif
+  end subroutine coop_real_table_free
+
+  subroutine coop_real_table_load_dictionary(this, dict)
+    class(coop_real_table)::this
+    type(coop_dictionary)::dict
+    COOP_INT::i
+    do i = 1, dict%n
+       if(coop_is_number(dict%val(i)))then
+          call this%insert(dict%key(i), coop_str2real(dict%val(i)))
+       endif
+    enddo
+  end subroutine coop_real_table_load_dictionary
+
 End module coop_list_mod
+
 

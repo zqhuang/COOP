@@ -128,6 +128,7 @@ module coop_firstorder_mod
      COOP_REAL::nt = 0.d0
      COOP_REAL::kMpc_pivot = 0.05d0
      COOP_INT ::de_genre = COOP_PERT_NONE
+     COOP_INT::pp_genre = COOP_PP_STANDARD
      COOP_REAL::k_pivot
      
      !!these omega's are defined at a=1 (today)     
@@ -137,6 +138,7 @@ module coop_firstorder_mod
      COOP_REAL::ombh2 = 0.022d0
      COOP_REAL::omch2 = 0.12d0
      logical::inflation_consistency = .true.
+     logical::w_is_background = .true.
      type(coop_function)::Ps, Pt, Xe, ekappa, vis, Tb
      type(coop_cosmology_firstorder_source),dimension(0:2)::source
      COOP_REAL, dimension(0:coop_pert_default_lmax, 0:coop_pert_default_mmax, 0:coop_pert_default_smax)::klms, klms_by_2lm1, klms_by_2lp1
@@ -144,6 +146,11 @@ module coop_firstorder_mod
      logical::klms_done = .false.
      logical::has_tensor = .false.
    contains
+     !!standard way to initialize the cosmology (from a coop_real_table object)
+     procedure::set_up =>  coop_cosmology_firstorder_set_up
+     procedure::set_primordial_power => coop_cosmology_firstorder_set_primordial_power
+
+     !!other ways to initialize the cosmology
      procedure::init_from_dictionary => coop_cosmology_firstorder_init_from_dictionary
      procedure:: set_standard_cosmology =>  coop_cosmology_firstorder_set_standard_cosmology
 #if DO_EFT_DE     
@@ -1121,25 +1128,41 @@ contains
   end function coop_cosmology_firstorder_growth_of_z
 
 
-  subroutine coop_cosmology_firstorder_set_standard_cosmology(this, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, only_background)
+  subroutine coop_cosmology_firstorder_set_standard_cosmology(this, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, tcmb, only_background)
     class(coop_cosmology_firstorder)::this
     COOP_REAL:: h, tau_re, Omega_b, Omega_c
-    COOP_REAL, optional::nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, Nnu, YHe
+    COOP_REAL, optional::nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, Nnu, YHe, tcmb
     logical::scalar_de
     COOP_INT::err
     logical,optional::inflation_consistency
     logical, optional::only_background
-    if(present(YHe))then
-       if(present(Nnu))then
-          call this%init(h=h, YHe = YHe, Nnu = NNu)
+    if(present(tcmb))then
+       if(present(YHe))then
+          if(present(Nnu))then
+             call this%init(h=h, YHe = YHe, Nnu = NNu, Tcmb = tcmb)
+          else
+             call this%init(h=h, YHe = YHe, Tcmb = Tcmb)
+          endif
        else
-          call this%init(h=h, YHe = YHe)
+          if(present(Nnu))then
+             call this%init(h=h, Nnu = NNu, Tcmb = Tcmb)
+          else
+             call this%init(h=h, Tcmb = tcmb)
+          endif
        endif
     else
-       if(present(Nnu))then
-          call this%init(h=h, Nnu = NNu)
+       if(present(YHe))then
+          if(present(Nnu))then
+             call this%init(h=h, YHe = YHe, Nnu = NNu)
+          else
+             call this%init(h=h, YHe = YHe)
+          endif
        else
-          call this%init(h=h)
+          if(present(Nnu))then
+             call this%init(h=h, Nnu = NNu)
+          else
+             call this%init(h=h)
+          endif
        endif
     endif
     call this%add_species(coop_baryon(COOP_REAL_OF(Omega_b)))
@@ -1210,25 +1233,41 @@ contains
 
 
 #if DO_COUPLED_DE
-  subroutine coop_cosmology_firstorder_set_coupled_DE_cosmology(this, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, fwp1, fQ, only_background)
+  subroutine coop_cosmology_firstorder_set_coupled_DE_cosmology(this, tcmb, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, fwp1, fQ, only_background)
     class(coop_cosmology_firstorder)::this
     COOP_REAL:: h, tau_re, Omega_b, Omega_c
-    COOP_REAL, optional::nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, Nnu, YHe
+    COOP_REAL, optional::nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, Nnu, YHe, tcmb
     type(coop_function)::fwp1, fQ  !!1+w(a)  and Q(a)
     COOP_INT::err  !!
     logical,optional::inflation_consistency
     logical,optional::only_background
-    if(present(YHe))then
-       if(present(Nnu))then
-          call this%init(h=h, YHe = YHe, Nnu = NNu)
+    if(present(tcmb))then
+       if(present(YHe))then
+          if(present(Nnu))then
+             call this%init(h=h, YHe = YHe, Nnu = NNu, Tcmb = tcmb)
+          else
+             call this%init(h=h, YHe = YHe, Tcmb = Tcmb)
+          endif
        else
-          call this%init(h=h, YHe = YHe)
+          if(present(Nnu))then
+             call this%init(h=h, Nnu = NNu, Tcmb = Tcmb)
+          else
+             call this%init(h=h, Tcmb = tcmb)
+          endif
        endif
     else
-       if(present(Nnu))then
-          call this%init(h=h, Nnu = NNu)
+       if(present(YHe))then
+          if(present(Nnu))then
+             call this%init(h=h, YHe = YHe, Nnu = NNu)
+          else
+             call this%init(h=h, YHe = YHe)
+          endif
        else
-          call this%init(h=h)
+          if(present(Nnu))then
+             call this%init(h=h, Nnu = NNu)
+          else
+             call this%init(h=h)
+          endif
        endif
     endif
     call this%add_species(coop_baryon(COOP_REAL_OF(Omega_b)))
@@ -1500,12 +1539,28 @@ contains
 
 #endif
 
-  subroutine coop_cosmology_firstorder_init_from_dictionary(this, params)
+  subroutine coop_cosmology_firstorder_init_from_dictionary(this, paramtable)
     class(coop_cosmology_firstorder)::this
-    type(coop_dictionary)::params
+    type(coop_dictionary)::paramtable
+    logical success
+    type(coop_real_table)::params
+    call coop_dictionary_lookup(paramtable, "w_is_background", this%w_is_background)
+    call coop_dictionary_lookup(paramtable, "inflation_consistency", this%inflation_consistency, .true.)
+    call coop_dictionary_lookup(paramtable, "pp_genre", this%pp_genre, COOP_PP_STANDARD)
+    call params%load_dictionary(paramtable)
+    call this%set_up(params, success)
+  end subroutine coop_cosmology_firstorder_init_from_dictionary
+
+
+
+
+  subroutine coop_cosmology_firstorder_set_up(this, paramtable, success)
+    class(coop_cosmology_firstorder)::this
+    type(coop_real_table)::paramtable
+    logical::success
   !!----------------------------------------
-    COOP_REAL::ombM2h2, omcM2h2, tau_re, h, H0, As,theta, ns, omega_b, omega_c, w0, wa, r, nt, nrun
-    logical::w_is_background
+    COOP_REAL::ombM2h2, omcM2h2, tau_re, h, H0, theta, omega_b, omega_c, w0, wa, tcmb
+
 #if DO_EFT_DE  
     COOP_REAL::alpha_M0 = 0.d0
     COOP_REAL::alpha_T0 = 0.d0
@@ -1523,50 +1578,43 @@ contains
     COOP_REAL::Qa = 0.d0  
 #endif
     COOP_REAL::h_low, h_high, h_mid, theta_high, theta_low, theta_mid
-    COOP_REAL, parameter::min_omega_m = 0.1d0, max_omega_m = 0.5d0, h_min = 0.4d0, h_max = 1.d0
+    COOP_REAL, parameter::min_omega_m = 0.001d0, max_omega_m = 0.999d0, h_min = 0.4d0, h_max = 1.d0, min_omega_m_conservative = 0.1d0, max_omega_m_conservative = 0.5d0
     type(coop_function)::fwp1, fQ, alphaM, alphaB, alphaK, alphaT, alphaH
     logical::w_predefined, alpha_predefined
-    logical::success
-    COOP_REAL::eps_inf, eps_s, zeta_s, beta_s
-    call coop_dictionary_lookup(params, "ombh2", ombM2h2)
-    call coop_dictionary_lookup(params, "omch2", omcM2H2)
-    
-    call coop_dictionary_lookup(params, "H0", H0, 0.d0)
-    h = H0/100.d0
 
-    call coop_dictionary_lookup(params, "tau", tau_re)    
-    call coop_dictionary_lookup(params, "As", As, 0.d0)
-    if(As .eq. 0.d0)then
-       call coop_dictionary_lookup(params, "logA", As, 0.d0)
-       if(As .eq. 0.d0)then
-          call coop_dictionary_lookup(params, "logAm2tau", As, 0.d0)
-          if(As .eq. 0.d0)then
-             stop "You need to set As  or logAm2tau in the parameter file"
-          endif
-          As = exp(As + 2.d0*tau_re)*1.d-10
-       else
-          As = exp(As)*1.d-10
-       endif
+    COOP_REAL::eps_inf, eps_s, zeta_s, beta_s
+    call paramtable%lookup( "ombh2", ombM2h2, 0.d0)
+    if(ombm2h2.eq.0.d0) call paramtable%lookup( "omegabh2", ombM2h2)
+    call paramtable%lookup( "omch2", omcM2H2, 0.d0)
+    if(omcm2h2.eq.0.d0) call paramtable%lookup( "omegach2", omcM2h2)       
+    if(ombm2h2 .le. 0.d0 .or. omcm2h2.le.0.d0)then
+       write(*,*) "cosmology_firstorder_init: you must have input parameters omegabh2 (>0) and omegach2 (>0) "
+       stop
     endif
 
-    call coop_dictionary_lookup(params, "ns", ns)
-    call coop_dictionary_lookup(params, "r", r, 0.d0)
-    call coop_dictionary_lookup(params, "nt", nt, 0.d0)
-    call coop_dictionary_lookup(params, "nrun", nrun, 0.d0)
+    
+    call paramtable%lookup( "H0", H0, 0.d0)
+    h = H0/100.d0
+    if(h.eq.0.d0) call paramtable%lookup( "h", h, 0.d0)
+    call paramtable%lookup("tcmb", tcmb, COOP_DEFAULT_TCMB)
 
-    call coop_dictionary_lookup(params, "de_w", w0, -1000.d0)
+    call paramtable%lookup( "tau", tau_re)    
+
+    call paramtable%lookup( "de_w", w0, -1000.d0)
     if(w0 .gt. -999.d0)then
-       call coop_dictionary_lookup(params, "de_wa",wa, 0.d0)  
+       call paramtable%lookup( "de_wa",wa, 0.d0)  
        call fwp1%init_polynomial( (/ 1.d0+w0+wa, -wa /) )
        w_predefined = .true.
     else
-       call coop_dictionary_lookup(params, "de_epss", eps_s, -1000.d0)
+       call paramtable%lookup( "de_epss", eps_s, -1000.d0)
        if(eps_s .gt. -999.d0)then
-          call coop_dictionary_lookup(params, "de_epsinf",eps_inf, 0.d0)
-          call coop_dictionary_lookup(params, "de_zetas",zeta_s, 0.d0)
-          call coop_dictionary_lookup(params, "de_betas",beta_s, 6.d0)
+          call paramtable%lookup( "de_epsinf",eps_inf, 0.d0)
+          call paramtable%lookup( "de_zetas",zeta_s, 0.d0)
+          call paramtable%lookup( "de_betas",beta_s, 6.d0)
           w_predefined = .false.
        else
+          w0 = -1.d0
+          wa = 0.d0
           call fwp1%init_polynomial( (/ 0.d0 /) )
           w_predefined = .true.          
        endif
@@ -1574,22 +1622,22 @@ contains
 
     
 #if DO_EFT_DE
-    call coop_dictionary_lookup(params, "de_cs2", de_cs2, -1.d30)
+    call paramtable%lookup( "de_cs2", de_cs2, -1.d30)
     if(de_cs2 .ge. -100.d0)then
        if(de_cs2 .le. 0.d0) stop "Error: dark energy c_s^2 <= 0"
-       call coop_dictionary_lookup(params, "de_r_B",  r_B, 0.d0)
-       call coop_dictionary_lookup(params, "de_r_H",  r_H, 0.d0)
-       call coop_dictionary_lookup(params, "de_r_M",  r_M, 0.d0)
-       call coop_dictionary_lookup(params, "de_r_T",  r_T, 0.d0)
-       call coop_dictionary_lookup(params, "de_alpha0_max", coop_de_alpha0_max, 1.d0)
+       call paramtable%lookup( "de_r_B",  r_B, 0.d0)
+       call paramtable%lookup( "de_r_H",  r_H, 0.d0)
+       call paramtable%lookup( "de_r_M",  r_M, 0.d0)
+       call paramtable%lookup( "de_r_T",  r_T, 0.d0)
+       call paramtable%lookup( "de_alpha0_max", coop_de_alpha0_max, 1.d0)
        if(.not. w_predefined .or. wa .ne. 0.d0) stop "Error: Incompatible settings for de_w and de_cs2. For EFT DE with fixed c_s^2, w is assumed to be a constant, too."
        alpha_predefined = .false.
     else
-       call coop_dictionary_lookup(params, "de_alpha_M0", alpha_M0, 0.d0 )
-       call coop_dictionary_lookup(params, "de_alpha_T0", alpha_T0, 0.d0 )
-       call coop_dictionary_lookup(params, "de_alpha_B0", alpha_B0, 0.d0 )
-       call coop_dictionary_lookup(params, "de_alpha_K0", alpha_K0, 0.d0 )
-       call coop_dictionary_lookup(params, "de_alpha_H0", alpha_H0 , 0.d0 )
+       call paramtable%lookup( "de_alpha_M0", alpha_M0, 0.d0 )
+       call paramtable%lookup( "de_alpha_T0", alpha_T0, 0.d0 )
+       call paramtable%lookup( "de_alpha_B0", alpha_B0, 0.d0 )
+       call paramtable%lookup( "de_alpha_K0", alpha_K0, 0.d0 )
+       call paramtable%lookup( "de_alpha_H0", alpha_H0 , 0.d0 )
        alphaM = coop_de_alpha_constructor(alpha_M0, "omega")
        alphaT = coop_de_alpha_constructor(alpha_T0, "omega")
        alphaH = coop_de_alpha_constructor(alpha_H0, "omega")
@@ -1598,34 +1646,47 @@ contains
        alpha_predefined = .true.
        call coop_EFT_DE_set_Mpsq(alphaM)       
     endif
-    if(alpha_M0 .ne. 0.d0 .and. alpha_predefined)then
-       call coop_dictionary_lookup(params, "w_is_background",  w_is_background, .false.)
-    else
-       w_is_background = .true.
-    endif
 #elif DO_COUPLED_DE
-    call coop_dictionary_lookup(params, "de_Q", Q0, 0.d0)
-    call coop_dictionary_lookup(params, "de_Qa", Qa, 0.d0)  
+    call paramtable%lookup( "de_Q", Q0, 0.d0)
+    call paramtable%lookup( "de_Qa", Qa, 0.d0)  
 #endif
     if(h .ne. 0.d0) then
-       call setforH(h, only_background = .false.)
+       call setforH(h, success, only_background = .false.)
        return
     endif
-    call coop_dictionary_lookup(params, "theta", theta, 0.d0)
+    call paramtable%lookup( "theta", theta, 0.d0)
     theta = theta/100.d0
     if(theta .eq. 0.d0)then
        stop " you must either set theta or H0 in the parameter file"
     endif
-    h_low = max(sqrt((ombM2h2 + omcm2h2)/max_omega_m), h_min)
-    call setforH(h_low, .true.)
+    if(w_predefined .and. alpha_predefined)then
+       h_low = max(sqrt((ombM2h2 + omcm2h2)/max_omega_m), h_min)
+       h_high = min(sqrt((ombM2h2 + omcm2h2)/min_omega_m), h_max)
+    else
+       !!for dynamic w models we require a more conservative range 0.1<Omega_m < 0.5
+       h_low = max(sqrt((ombM2h2 + omcm2h2)/max_omega_m_conservative), h_min) 
+       h_high = min(sqrt((ombM2h2 + omcm2h2)/min_omega_m_conservative), h_max)
+    endif
+    if(h_low .ge. h_high) then
+       success  = .false.
+       return
+    endif
+
+    call setforH(h_low, success, only_background = .true.)
+    if(.not. success) return
     theta_low = this%cosmomc_theta()
-    h_high = min(sqrt((ombM2h2 + omcm2h2)/min_omega_m), h_max)
-    call setforH(h_high, .true.)
+    call setforH(h_high, success, only_background = .true.)
+    if(.not. success) return
     theta_high = this%cosmomc_theta()
-    if(theta_low .gt. theta .or. theta_high .lt. theta) stop "theta out of possible range"
+
+    if(theta_low .gt. theta .or. theta_high .lt. theta)then
+       success = .false.
+       return
+    endif
     do while(h_high - h_low .gt. 5.d-6)
        h_mid = (h_high + h_low)/2.d0
-       call setforH(h_mid, only_background = .true.)
+       call setforH(h_mid, success, only_background = .true.)
+       if(.not. success) return
        theta_mid = this%cosmomc_theta()
        if(abs(theta_mid - theta) .lt. 1.d-6)goto 100
        if(theta_mid  .gt. theta)then
@@ -1634,12 +1695,13 @@ contains
           h_low = h_mid
        endif
     enddo
-100 call setforH(h_mid, only_background = .false.)
-    
+100 call setforH(h_mid, success, only_background = .false.)
+    if(success)call this%set_primordial_power(paramtable)
   contains
     
     
-    subroutine setforH(hubble, only_background)
+    subroutine setforH(hubble, success, only_background)
+      logical:: success
       COOP_INT::iloop
       COOP_REAL::hubble, omlast
       logical::only_background
@@ -1661,39 +1723,69 @@ contains
          do while(abs(omega_b + omega_c - omlast ) .gt. 3.d-5)
             omlast = omega_b + omega_c            
             call coop_de_construct_alpha_from_cs2(omlast, w0, de_cs2, r_B, r_H, r_M, r_T, alphaB, alphaH, alphaK, alphaM, alphaT, success)
-            if(.not. success)then
-               write(*,*) "cs^2 = ", de_cs2
-               write(*,*) "r_B = ", r_B
-               write(*,*) "r_H = ", r_H
-               write(*,*) "r_M = ", r_M
-               write(*,*) "r_T = ", r_T
-               write(*,*) "Omega_m = ", omlast
-               stop "Solution does not exist for the given c_s^2 and r_B, r_M, r_H, r_T"
-            endif
+            if(.not. success)return
             call coop_EFT_DE_set_Mpsq(alphaM)
             Omega_b = ombM2h2/coop_Mpsq0/hubble**2
             Omega_c = omcM2h2/coop_Mpsq0/hubble**2
             iloop = iloop + 1
-            if(iloop .gt. 100) stop "the alpha functions do not converge"
+            if(iloop .gt. 100)then
+               success = .false.
+               return
+            endif
          enddo
       endif
 #endif      
 #if DO_EFT_DE  
       !!initialize this
-      if(w_is_background)then
-         call this%set_EFT_cosmology(Omega_b=omega_b, Omega_c=omega_c, h = hubble, Tcmb = COOP_DEFAULT_TCMB, tau_re = tau_re, As = As, ns = ns, wp1_background = fwp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT, r=r, nt = nt, nrun = nrun, only_background = only_background )     
+      if(this%w_is_background .or. .not. alpha_predefined)then
+         call this%set_EFT_cosmology(Omega_b=omega_b, Omega_c=omega_c, h = hubble, Tcmb = tcmb, tau_re = tau_re,  wp1_background = fwp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT, only_background = only_background )     
       else
-         call this%set_EFT_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, Tcmb = COOP_DEFAULT_TCMB, tau_re = tau_re, As = As, ns = ns, wp1 = fwp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT, r=r, nt = nt, nrun = nrun, only_background = only_background )
+         call this%set_EFT_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, Tcmb =tcmb, tau_re = tau_re, wp1 = fwp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT, only_background = only_background )
       endif
 #elif DO_COUPLED_DE
       call fQ%init_polynomial( (/ Q0+Qa, -Qa /) )
-      call this%set_coupled_DE_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, tau_re = tau_re, As = As, ns = ns, fwp1 = fwp1, fQ = fQ, r=r, nt = nt, nrun = nrun, only_background = only_background )
+      call this%set_coupled_DE_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, Tcmb =tcmb, tau_re = tau_re, fwp1 = fwp1, fQ = fQ, only_background = only_background )
 #else
-      call this%set_standard_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, tau_re = tau_re, As = As, ns = ns, r=r, nt = nt, nrun = nrun, only_background = only_background )
+      call this%set_standard_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, Tcmb = tcmb, tau_re = tau_re, only_background = only_background )
 #endif
+      if(this%h_value .eq. 0.d0)then
+         success = .false.
+      else 
+         success = .true.
+      endif
     end subroutine setforH
-  end subroutine coop_cosmology_firstorder_init_from_dictionary
+  end subroutine coop_cosmology_firstorder_set_up
   
+  subroutine coop_cosmology_firstorder_set_primordial_power(this, paramtable)
+    class(coop_cosmology_firstorder)::this
+    type(coop_real_table)::paramtable
+    COOP_REAL::tau_re
+    select case(this%pp_genre)
+    case(COOP_PP_STANDARD)
+       call paramtable%lookup( "tau", tau_re)    
+       call paramtable%lookup( "As", this%As, 0.d0)
+       if(this%As .eq. 0.d0)then
+          call paramtable%lookup( "logA", this%As, 0.d0)
+          if(this%As .eq. 0.d0)then
+             call paramtable%lookup( "logAm2tau", this%As, 0.d0)
+             if(this%As .eq. 0.d0)then
+                stop "You need to set As, logA,  or logAm2tau in the parameter file"
+             endif
+             this%As = exp(this%As + 2.d0*tau_re)*1.d-10
+          else
+             this%As = exp(this%As)*1.d-10
+          endif
+       endif
+       call paramtable%lookup( "ns", this%ns)
+       call paramtable%lookup( "r", this%r, 0.d0)
+       call paramtable%lookup( "nt", this%nt, 0.d0)
+       call paramtable%lookup( "nrun", this%nrun, 0.d0)
+       call this%set_standard_power(this%As, this%ns, this%nrun, this%r, this%nt, this%inflation_consistency)
+    case default
+       write(*,*) this%pp_genre
+       stop "Unknown primordial_power_genre"
+    end select
+  end subroutine coop_cosmology_firstorder_set_primordial_power
   
 end module coop_firstorder_mod
 

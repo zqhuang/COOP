@@ -5,7 +5,7 @@ module coop_special_function_mod
 
   private
 
-  public:: coop_log2, coop_sinc, coop_sinhc, coop_asinh, coop_acosh, coop_atanh, coop_InverseErf, coop_InverseErfc, coop_Gaussian_nu_of_P, coop_is_integer, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_incompleteGamma, coop_rec3j, coop_threej000, coop_bessI0, coop_bessi1, coop_bessJ0, coop_bessJ1, coop_sphere_correlation, coop_sphere_correlation_init, coop_get_normalized_Plm_array
+  public:: coop_log2, coop_sinc, coop_sinhc, coop_asinh, coop_acosh, coop_atanh, coop_InverseErf, coop_InverseErfc, coop_Gaussian_nu_of_P, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_incompleteGamma, coop_rec3j, coop_threej000, coop_bessI0, coop_bessi1, coop_bessJ0, coop_bessJ1, coop_sphere_correlation, coop_sphere_correlation_init, coop_get_normalized_Plm_array
 
   interface coop_InverseErf
      module procedure coop_InverseErf_s, coop_InverseErf_v
@@ -1839,12 +1839,6 @@ contains
     !$omp end parallel do
   end function coop_log2_v
 
-
-  function coop_is_integer(x) result(is)
-    logical is
-    COOP_REAL x
-    is = (x - nint(x)) .lt. 1.d-6
-  end function coop_is_integer
 
 
   function Coop_threej000(l1,l2,l3) result(w3j)
