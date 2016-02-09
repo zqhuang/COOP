@@ -13,7 +13,9 @@ module coop_cosmology_mod
 
   private
 
-  public:: coop_cosmology, coop_cosmology_background, coop_r_of_chi, coop_zrecomb_fitting, coop_cosmology_constructor, coop_cosmology_background_constructor
+  public:: coop_cosmology, coop_cosmology_background, coop_r_of_chi, coop_zrecomb_fitting, coop_cosmology_constructor, coop_cosmology_background_constructor, coop_de_alpha0_max
+  
+  COOP_REAL::coop_de_alpha0_max = 1.d0
 
   type coop_cosmology
      COOP_SHORT_STRING::name = "Cosmology"
@@ -32,15 +34,16 @@ module coop_cosmology_mod
   end type coop_cosmology
 
   type, extends(coop_cosmology):: coop_cosmology_background
-     COOP_REAL::Omega_k_value = 1.
-     COOP_REAL::h_value =  COOP_DEFAULT_HUBBLE
-     COOP_REAL::Tcmb_value = COOP_DEFAULT_TCMB
-     COOP_REAL::YHe_value= COOP_DEFAULT_YHE
+     COOP_REAL:: Omega_k_value = 1.
+     COOP_REAL:: h_value =  COOP_DEFAULT_HUBBLE
+     COOP_REAL:: Tcmb_value = COOP_DEFAULT_TCMB
+     COOP_REAL:: YHe_value= COOP_DEFAULT_YHE
      COOP_REAL:: Nnu_value = COOP_DEFAULT_NUM_NEUTRINO_SPECIES
+     COOP_REAL:: Mpsq0 = 1.d0
      logical::need_setup_background = .true.
      type(coop_function):: fdis, ftime, faoftau
 #if DO_EFT_DE
-     type(coop_function):: f_alpha_M, f_alpha_T, f_alpha_B, f_alpha_K, f_alpha_H
+     type(coop_function):: f_alpha_M, f_alpha_T, f_alpha_B, f_alpha_K, f_alpha_H, f_Mpsq
 #endif     
      COOP_REAL::dis_const, time_const, a_eq, Omega_r, Omega_m, a_switch, dis_switch
      COOP_INT :: num_species = 0
@@ -108,11 +111,14 @@ module coop_cosmology_mod
      procedure::dL_of_z => coop_cosmology_background_DL_of_z
 #if DO_EFT_DE
      procedure::set_alphaM => coop_cosmology_background_set_alphaM
+     procedure::Mpsq => coop_cosmology_background_Mpsq
      procedure::alpha_T => coop_cosmology_background_alpha_T
+     procedure::alpha_M => coop_cosmology_background_alpha_M
      procedure::alpha_K => coop_cosmology_background_alpha_K
      procedure::alpha_B => coop_cosmology_background_alpha_B
      procedure::alpha_H => coop_cosmology_background_alpha_H
      procedure::alpha_T_prime => coop_cosmology_background_alpha_T_prime
+     procedure::alpha_M_prime => coop_cosmology_background_alpha_M_prime
      procedure::alpha_K_prime => coop_cosmology_background_alpha_K_prime
      procedure::alpha_B_prime => coop_cosmology_background_alpha_B_prime
      procedure::alpha_H_prime => coop_cosmology_background_alpha_H_prime
@@ -124,6 +130,41 @@ module coop_cosmology_mod
 
 
 contains
+
+
+#if DO_EFT_DE  
+  subroutine coop_EFT_DE_set_Mpsq(alphaM, Mpsq, screening)
+    type(coop_function) alphaM, Mpsq
+    logical,optional::screening
+    COOP_INT,parameter::narr = 30000
+    COOP_REAL::M2(narr), lnamin, lnamax, lna, dlna, dlnaby2, alpha_l, alpha_r
+    COOP_INT::i
+    lnamin = log(coop_min_scale_factor)
+    lnamax = log(coop_scale_factor_today)
+    dlna = (lnamax-lnamin)/(narr-1)
+    dlnaby2 = dlna/2.d0
+    M2(1) = 0.d0
+    lna = lnamin
+    alpha_l = alphaM%eval(coop_min_scale_factor)
+    do i = 2, narr
+       lna = lna + dlna
+       alpha_r = alphaM%eval(exp(lna))
+       M2(i) = M2(i-1) + (alpha_l + 4.d0*alphaM%eval(exp(lna-dlnaby2)) + alpha_r)
+       alpha_l = alpha_r
+    enddo
+    M2 = M2 * (dlna/6.d0)
+    if(present(screening))then
+       if(.not. screening)then
+          M2 = M2 - M2(narr)
+       endif
+    endif
+    where(abs(M2).lt. 1.d-10)
+       M2 = 0.d0
+    end where
+    M2 = exp(M2)
+    call Mpsq%init(narr, coop_min_scale_factor, coop_scale_factor_today, M2, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "EFT M^2", fleft = M2(1), fright=M2(narr))
+  end subroutine coop_EFT_DE_set_Mpsq
+#endif
 
   function coop_cosmology_background_hubble(this) result(h)
     class(coop_cosmology_background)::this
@@ -183,14 +224,20 @@ contains
     this%Nnu_value = Nnu
   end subroutine coop_cosmology_background_set_Nnu
 
-  subroutine coop_cosmology_initialize(this, name, id, h, Tcmb, YHe, Nnu)
+  subroutine coop_cosmology_initialize(this, name, id, h, Tcmb, YHe, Nnu, alphaM)
     class(coop_cosmology)::this
     COOP_UNKNOWN_STRING, optional::name
+    type(coop_function),optional::alphaM
     COOP_INT, optional::id
     COOP_REAL, optional:: h 
     COOP_REAL, optional:: Tcmb
     COOP_REAL, optional:: YHe
     COOP_REAL, optional:: Nnu
+#if DO_EFT_DE
+    if(present(alphaM))then
+       
+    endif
+#endif
     select type(this)
     type is (coop_cosmology)
 #include "cosmology_init.h"
@@ -223,6 +270,7 @@ contains
        this%omega_k_value = 1.
        this%need_setup_background = .true.
 #if DO_EFT_DE
+       call this%f_Mpsq%free()
        call this%f_alpha_M%free()       
        call this%f_alpha_H%free()
        call this%f_alpha_T%free()
@@ -289,6 +337,7 @@ contains
     if(this%num_species .ge. coop_max_num_species) stop "coop_cosmology_background_add_species: too many species"
     this%num_species = this%num_species+1
     this%species(this%num_species:this%num_species) = species
+    this%species(this%num_species:this%num_species)%Mpsq0 = this%Mpsq0  !!pass Mpsq0  to the species
     this%omega_k_value = this%omega_k_value - species%Omega
     this%need_setup_background = .true.
     select case(COOP_LOWER_STR(species%name))
@@ -365,7 +414,7 @@ contains
        H2a4 = H2a4 + this%species(i)%Omega * this%species(i)%rhoa4_ratio(a)
     enddo
 #if DO_EFT_DE    
-    H2a4 = H2a4 * (coop_Mpsq0/coop_Mpsq(a))
+    H2a4 = H2a4 * this%Mpsq0/this%Mpsq(a)
 #endif    
   end function coop_cosmology_background_H2a4
 
@@ -378,7 +427,7 @@ contains
     do i=1, this%num_species
        rhoa4 = rhoa4 + this%species(i)%Omega * this%species(i)%rhoa4_ratio(a)
     enddo
-    rhoa4 = rhoa4*3.d0*coop_Mpsq0
+    rhoa4 = rhoa4*3.d0*this%Mpsq0
   end function coop_cosmology_background_rhoa4
 
 
@@ -393,8 +442,8 @@ contains
        ppra4 = ppra4 + r*this%species(i)%wp1ofa(a)
        rhoa4 = rhoa4 +r
     enddo
-    rhoa4 = rhoa4 * 3.d0*coop_Mpsq0
-    ppra4 = ppra4 * 3.d0*coop_Mpsq0
+    rhoa4 = rhoa4 * 3.d0*this%mpsq0
+    ppra4 = ppra4 * 3.d0*this%mpsq0
   end subroutine coop_cosmology_background_get_ppra4_rhoa4
 
 
@@ -409,8 +458,8 @@ contains
        pa4 = pa4 + r*this%species(i)%wofa(a)
        rhoa4 = rhoa4 +r
     enddo
-    rhoa4 = rhoa4 * 3.d0*coop_Mpsq0
-    pa4 = pa4 * 3.d0*coop_Mpsq0
+    rhoa4 = rhoa4 * 3.d0*this%mpsq0
+    pa4 = pa4 * 3.d0*this%mpsq0
   end subroutine coop_cosmology_background_get_pa4_rhoa4
 
   
@@ -451,7 +500,7 @@ contains
     H2term = (rhoa4_total + this%Omega_k_value*a**2)
     addbyaHsq =  -(rhoa4_total + 3.d0*pa4_total)/2.d0/H2term
 #if DO_EFT_DE
-    HddbyH3 = 1.5d0 * ddterm / H2term - 2.d0 * (addbyaHsq - 1.d0) - coop_alphaM(a) *addbyaHsq
+    HddbyH3 = 1.5d0 * ddterm / H2term - 2.d0 * (addbyaHsq - 1.d0) - this%alpha_M(a) *addbyaHsq
 #else    
     HddbyH3 = 1.5d0 * ddterm / H2term - 2.d0 * (addbyaHsq - 1.d0)
 #endif    
@@ -490,7 +539,7 @@ contains
        this%Omega_m = ( this%rhoa4(amin)/3.d0 - this%Omega_r ) / amin
        this%a_eq = this%Omega_r / this%Omega_m
 #if DO_EFT_DE
-       M2 = coop_Mpsq(min(this%a_eq, amin))
+       M2 = this%Mpsq(min(this%a_eq, amin))
        this%dis_const = 2.d0*this%a_eq/sqrt(this%Omega_r/M2)
        this%time_const = 4.d0/3.d0*this%a_eq**2/sqrt(this%Omega_r/M2)       
 #else       
@@ -624,14 +673,14 @@ contains
     class(coop_cosmology_background)::this
     COOP_REAL, parameter:: c =  coop_SI_blackbody_alpha*2.d0/coop_SI_rhocritbyh2
     COOP_REAL Omega_r
-    Omega_r = c * (this%Tcmb_value **2 / this%h_value)**2/coop_Mpsq0
+    Omega_r = c * (this%Tcmb_value **2 / this%h_value)**2/this%mpsq0
   end function coop_cosmology_background_Omega_radiation
 
   function coop_cosmology_background_Omega_massless_neutrinos_per_species(this) result(Omega_nu_massless)
     class(coop_cosmology_background)::this
     COOP_REAL, parameter:: c =  coop_SI_blackbody_alpha*2.d0/coop_SI_rhocritbyh2 * (7./8.) * (4.d0/11.)**(4.d0/3.d0)*coop_neutrinos_temperature_correction**4
     COOP_REAL Omega_nu_massless
-    Omega_nu_massless =  c * (this%Tcmb_value **2 / this%h_value)**2/coop_Mpsq0
+    Omega_nu_massless =  c * (this%Tcmb_value **2 / this%h_value)**2/this%mpsq0
   end function coop_cosmology_background_Omega_massless_neutrinos_per_species
 
 
@@ -639,7 +688,7 @@ contains
     class(coop_cosmology_background)::this
     COOP_REAL, parameter:: c =  coop_SI_blackbody_alpha*2.d0/coop_SI_rhocritbyh2 * (7./8.) * (4.d0/11.)**(4.d0/3.d0)*coop_neutrinos_temperature_correction**4
     COOP_REAL Omega_nu_massless
-    Omega_nu_massless =  c * (this%Tcmb_value **2 / this%h_value)**2 * this%Nnu_value/coop_Mpsq0
+    Omega_nu_massless =  c * (this%Tcmb_value **2 / this%h_value)**2 * this%Nnu_value/this%mpsq0
   end function coop_cosmology_background_Omega_massless_neutrinos
 
   function coop_cosmology_background_Tnu(this, a) result(Tnu)
@@ -735,6 +784,37 @@ contains
 
 #if DO_EFT_DE
 
+  function coop_cosmology_background_Mpsq(this,a) result(Mpsq)
+    class(coop_cosmology_background)::this
+    COOP_REAL::Mpsq, a
+    if(this%f_Mpsq%initialized)then
+       Mpsq = this%f_Mpsq%eval(a)
+    else
+       Mpsq = 1.d0
+    endif
+  end function coop_cosmology_background_Mpsq
+
+
+  function coop_cosmology_background_alpha_M(this,a) result(alpha_M)
+    class(coop_cosmology_background)::this
+    COOP_REAL::alpha_M,a
+    if(this%f_alpha_M%initialized)then
+       alpha_M = this%f_alpha_M%eval(a)
+    else
+       alpha_M = 0.d0
+    endif
+  end function coop_cosmology_background_alpha_M
+
+  function coop_cosmology_background_alpha_M_prime(this,a) result(alpha_M_prime)
+    class(coop_cosmology_background)::this
+    COOP_REAL::alpha_M_prime,a
+    if(this%f_alpha_M%initialized)then
+       alpha_M_prime = this%f_alpha_M%derivative(a)*a
+    else
+       alpha_M_prime = 0.d0
+    endif
+  end function coop_cosmology_background_alpha_M_prime
+
 
   function coop_cosmology_background_alpha_T(this,a) result(alpha_T)
     class(coop_cosmology_background)::this
@@ -822,9 +902,10 @@ contains
 
   subroutine coop_cosmology_background_set_alphaM(this, alphaM)
     class(coop_cosmology_background)::this
-    type(coop_function)::alphaM
-    this%f_alpha_M = alphaM
-    call coop_EFT_DE_set_Mpsq(alphaM)
+    type(coop_function),optional::alphaM
+    if(present(alphaM))this%f_alpha_M = alphaM
+    call coop_EFT_DE_set_Mpsq(this%f_alpha_M, this%f_Mpsq)
+    this%Mpsq0 = this%f_Mpsq%eval(1.d0)
   end subroutine coop_cosmology_background_set_alphaM
 
   function coop_cosmology_background_total_alpha(this, a) result(alpha)
@@ -840,7 +921,7 @@ contains
     alphaB = this%alpha_B(a)
     alphaH = this%alpha_H(a)
     hdotbyhsq = this%HdotbyHsq(a)
-    alphaM = coop_alphaM(a)
+    alphaM = this%alpha_M(a)
     alphacs2 = -2.d0*((1.d0+alphaB)*((1.d0+alphaB)*(1.d0+alphaT) - (1.d0+alphaH)*(1.d0+alphaM - hdotbyhsq)-this%alpha_H_prime(a))+(1.d0+alphaH)*this%alpha_B_prime(a)) + (1.d0+alphaH)**2*(2.d0*hdotbyhsq + 3.d0*O0_DE(this)%wp1ofa(a)*O0_DE(this)%rhoa4(a)/this%rhoa4(a))
   end function coop_cosmology_background_alphacs2
 

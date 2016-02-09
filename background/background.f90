@@ -640,7 +640,7 @@ contains
     class(coop_cosmology_background)::this
     type(coop_function)::effective_wp1
     type(coop_species)::de, deeff
-    COOP_INT::i, err, j, index_de
+    COOP_INT::i, err, j
     COOP_REAL,dimension(narr)::lnrho,  wp1, wp1eff
     COOP_REAL::lna, lnamin, lnamax, dlna, alpha_l, alpha_r, dlnaby2, a, rhoa4de,ppra4de, ppra4tot, rhoa4tot, rhoa4de_bg, M2, rhom0, wp1_bg
 #if DO_EFT_DE
@@ -650,21 +650,23 @@ contains
        err = 1
        return
     endif
-    call deeff%init(name = "Dark Energy", id = 5, Omega = (3.d0-rhom0)/3.d0/coop_Mpsq0, genre = COOP_SPECIES_FLUID, fwp1 = effective_wp1)
+
+    call deeff%init(name = "Dark Energy", id = 5, Omega = (3.d0-rhom0)/3.d0/this%Mpsq0, genre = COOP_SPECIES_FLUID, fwp1 = effective_wp1)
 
     de%Omega = this%Omega_k()
     de%name = "Dark Energy"
     de%genre = COOP_SPECIES_EFT
-    
+
+
     lnamin = log(coop_min_scale_factor)
     lnamax = log(coop_scale_factor_today)
     dlna = (lnamax-lnamin)/(narr-1.d0)
     dlnaby2 = dlna/2.d0
-    lnrho(narr) = log(3.d0*de%Omega*coop_Mpsq0)
+    lnrho(narr) = log(3.d0*de%Omega*this%Mpsq0)
     lna = lnamin
     do i=1, narr
        a = exp(lna)
-       M2 = coop_Mpsq(a)
+       M2 = this%Mpsq(a)
        wp1_bg = deeff%wp1ofa(a)
        rhoa4de_bg = deeff%rhoa4(a)       
        call this%get_ppra4_rhoa4(a, ppra4tot, rhoa4tot)
@@ -677,7 +679,7 @@ contains
           lnrho(i) = log(rhoa4de) - lna * 4.d0
           wp1(i) = ppra4de/rhoa4de
        endif
-       wp1eff(i) = wp1_bg*rhoa4de_bg/rhoa4de - (coop_alphaM(a)*(rhoa4tot+rhoa4de_bg)*M2/3.d0 - (M2-1.d0)*(ppra4tot + wp1_bg * rhoa4de_bg))/rhoa4de
+       wp1eff(i) = wp1_bg*rhoa4de_bg/rhoa4de - (this%alpha_M(a)*(rhoa4tot+rhoa4de_bg)*M2/3.d0 - (M2-1.d0)*(ppra4tot + wp1_bg * rhoa4de_bg))/rhoa4de
        lna = lna + dlna
     enddo
 
@@ -688,7 +690,6 @@ contains
     call de%flnrho%init(narr,coop_min_scale_factor, coop_scale_factor_today, lnrho, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "DE ln rho_ratio")
     call de%flnrho%set_boundary(slopeleft = -3.d0*wp1eff(1), sloperight = -3.d0*wp1eff(narr))    
     de%cs2 = 0.d0
-    call this%delete_species(index_de)
     call this%add_species(de)
     call de%free()
     call deeff%free()
@@ -719,20 +720,20 @@ contains
     lnamin = log(coop_min_scale_factor)
     lnamax = log(coop_scale_factor_today)
     dlna = (lnamax-lnamin)/(narr-1.d0)
-    lnrho(narr) = log(3.d0*omega_de*coop_Mpsq0)
+    lnrho(narr) = log(3.d0*omega_de*this%Mpsq0)
     wp1_r = wp1%eval(coop_scale_factor_today)
-    alpha_r = coop_alphaM(coop_scale_factor_today)
+    alpha_r = this%alpha_M(coop_scale_factor_today)
     om_r = omega_de
     wp1eff(narr) =wp1_r - alpha_r/3.d0/om_r
     a_r = coop_scale_factor_today
     lna = lnamax
-    rhotot_r = 3.d0*coop_Mpsq0
+    rhotot_r = 3.d0*this%Mpsq0
     rhoa4de_r = om_r*rhotot_r
     step = (1.5d0*dlna)
     do i=narr-1, 1, -1
        lna = lna - dlna              
        a_l = exp(lna)
-       alpha_l = coop_alphaM(a_l)
+       alpha_l = this%alpha_M(a_l)
        wp1_l = wp1%eval(a_l)
        rhotot_l =  this%rhoa4(a_l)
        om_l = rhoa4de_r/(rhotot_l + rhoa4de_r)  !!first assuming rho_de constant

@@ -305,8 +305,8 @@ contains
 
     if(this%index_theta .ne. 0)then
        theta_want = this%fullparams(this%index_theta)
-       h_t = min(h_max, sqrt((this%fullparams(this%index_ombm2h2)+this%fullparams(this%index_omcm2h2))/omega_m_min/coop_Mpsq0))
-       h_b = max(h_min, sqrt((this%fullparams(this%index_ombm2h2)+this%fullparams(this%index_omcm2h2))/omega_m_max/coop_Mpsq0))
+       h_t = min(h_max, sqrt((this%fullparams(this%index_ombm2h2)+this%fullparams(this%index_omcm2h2))/omega_m_min/this%cosmology%Mpsq0))
+       h_b = max(h_min, sqrt((this%fullparams(this%index_ombm2h2)+this%fullparams(this%index_omcm2h2))/omega_m_max/this%cosmology%Mpsq0))
        call calc_theta(h_t, theta_t)
        if(this%cosmology%h().eq.0.d0)return
        call calc_theta(h_b, theta_b)
@@ -351,7 +351,6 @@ contains
     endif
 #if DO_EFT_DE
     if(this%index_de_cs2 .eq. 0)then
-       this%cosmology%f_alpha_M = coop_EFT_DE_alphaM    
        if(this%index_de_alpha_K0 .ne. 0)then
           this%cosmology%f_alpha_K = coop_de_alpha_constructor( this%fullparams(this%index_de_alpha_K0), this%alpha_genre )
        endif
@@ -500,9 +499,9 @@ contains
                   call this%cosmology%set_h(0.d0)
                   return
                endif
-               call coop_EFT_DE_set_Mpsq(this%cosmology%f_alpha_M)
-               this%cosmology%ombh2 =this%fullparams(this%index_ombm2h2)/coop_Mpsq0
-               this%cosmology%omch2 =this%fullparams(this%index_omcm2h2)/coop_Mpsq0
+               call this%cosmology%set_alphaM()
+               this%cosmology%ombh2 =this%fullparams(this%index_ombm2h2)/this%cosmology%Mpsq0
+               this%cosmology%omch2 =this%fullparams(this%index_omcm2h2)/this%cosmology%Mpsq0
                omega_b = this%cosmology%ombh2/h**2
                omega_c = this%cosmology%omch2/h**2
                iloop = iloop + 1
@@ -514,14 +513,14 @@ contains
                call this%cosmology%set_h(0.d0)
                return
             endif
-            call coop_EFT_DE_set_Mpsq(this%cosmology%f_alpha_M)
+            call this%cosmology%set_alphaM()
          endif
 #endif
 #if DO_EFT_DE         
       else
 #endif         
-         this%cosmology%ombh2 =this%fullparams(this%index_ombm2h2)/coop_Mpsq0
-         this%cosmology%omch2 =this%fullparams(this%index_omcm2h2)/coop_Mpsq0
+         this%cosmology%ombh2 =this%fullparams(this%index_ombm2h2)/this%cosmology%Mpsq0
+         this%cosmology%omch2 =this%fullparams(this%index_omcm2h2)/this%cosmology%mpsq0
          omega_b = this%cosmology%ombh2/h**2
          omega_c = this%cosmology%omch2/h**2
 #if DO_EFT_DE         
@@ -919,7 +918,7 @@ contains
              this%cosmology => this%cosmology_saved
 #if DO_EFT_DE
              if(this%cosmology%f_alpha_M%initialized) &
-                  call coop_eft_DE_set_Mpsq(this%cosmology%f_alpha_M)
+                  call this%cosmology%set_alphaM()
 #endif             
           endif
           this%params = this%params_saved
@@ -1053,8 +1052,8 @@ contains
           call coop_sympos_inverse(3, 3, this%invcov)
           this%has_invcov = .true.
        endif
-       vec = (/ mcmc%cosmology%ombh2*coop_Mpsq0 -this%ombh2_center, &
-            mcmc%cosmology%omch2*coop_Mpsq0 - this%omch2_center,  &
+       vec = (/ mcmc%cosmology%ombh2*mcmc%cosmology%Mpsq0 -this%ombh2_center, &
+            mcmc%cosmology%omch2*mcmc%cosmology%Mpsq0 - this%omch2_center,  &
             100.d0*mcmc%cosmology%cosmomc_theta() - this%theta_center /)
        loglike = dot_product(vec, matmul(this%invcov, vec))/2.d0
     else

@@ -221,7 +221,7 @@
     this%tau_eq = this%conformal_time(this%a_eq)
     this%tau_late = this%conformal_time(this%a_eq*5.d0)
     
-    this%dkappadtau_coef = this%species(this%index_baryon)%Omega * this%h() * coop_SI_sigma_thomson * (coop_SI_rhocritbyh2/coop_SI_c**2) * coop_SI_hbyH0 * coop_SI_c/ coop_SI_m_H * (1.d0 - this%YHe())*coop_Mpsq0
+    this%dkappadtau_coef = this%species(this%index_baryon)%Omega * this%h() * coop_SI_sigma_thomson * (coop_SI_rhocritbyh2/coop_SI_c**2) * coop_SI_hbyH0 * coop_SI_c/ coop_SI_m_H * (1.d0 - this%YHe())*this%Mpsq0
     if(this%do_reionization)then
        this%reionFrac = 1.d0 + this%YHe()/(coop_m_He_by_m_H * (1.d0-  this%YHe()))
     else
@@ -373,11 +373,11 @@
   function coop_cosmology_firstorder_cosmomc_theta(this) result(theta)
     class(coop_cosmology_firstorder)::this
     COOP_REAL zstar, theta, astar, rs, da, omch2_eff
-    zstar = coop_zrecomb_fitting(this%ombh2*coop_Mpsq0, this%omch2*coop_Mpsq0)
+    zstar = coop_zrecomb_fitting(this%ombh2*this%Mpsq0, this%omch2*this%Mpsq0)
     astar = 1.d0/(1.d0+zstar)    
 #if DO_COUPLED_DE
     omch2_eff = O0_CDM(this)%rhoa3_ratio(astar)*this%omch2
-    zstar = coop_zrecomb_fitting(this%ombh2*coop_Mpsq0, omch2_eff*coop_Mpsq0)
+    zstar = coop_zrecomb_fitting(this%ombh2*this%Mpsq0, omch2_eff*this%Mpsq0)
     astar = 1.d0/(1.d0+zstar)    
 #endif    
 
@@ -388,7 +388,7 @@
 
     function dsoundda(a) result(dsda)  !!use approximations, to be consistent with CosmoMC
       COOP_REAL a, dsda, R
-      R = this%ombh2*coop_Mpsq0 * 3.d4*a
+      R = this%ombh2*this%Mpsq0 * 3.d4*a
       dsda = dtauda(a)/sqrt(3.d0*(1.d0+R))
     end function dsoundda
 

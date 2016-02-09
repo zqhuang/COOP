@@ -9,17 +9,8 @@ module coop_species_mod
 
 
   private
-  public:: coop_species, coop_species_constructor, coop_Mpsq, coop_alphaM, coop_alphaM_prime
+  public:: coop_species, coop_species_constructor
 
-  COOP_REAL::coop_de_alpha0_max = 1.d0  
-#if DO_EFT_DE
-  COOP_REAL::coop_Mpsq0 = 1.d0  !! the unscreened reduced Planck mass ^2
-  type(coop_function)::coop_EFT_DE_Mpsq, coop_EFT_DE_alphaM
-  public::coop_EFT_DE_Mpsq,  coop_EFT_DE_set_Mpsq, coop_EFT_DE_alphaM
-#else
-  COOP_REAL,parameter::coop_Mpsq0 = 1.d0
-#endif  
-  public::coop_Mpsq0, coop_de_alpha0_max
 
   !!Omega is defined as rho / (3 M_p^2 H^2);
   !!The unit of energy density is H_0^2; of length/time is 1/H_0; of momentum is H_0.
@@ -33,6 +24,7 @@ module coop_species_mod
      COOP_REAL::cs2 = 0.d0
      COOP_REAL::Omega_massless = 0.d0
      COOP_REAL::mbyT = 0.d0
+     COOP_REAL::Mpsq0 = 1.d0
      type(coop_function):: fwp1, fcs2, fwp1eff
      type(coop_function):: flnrho
 #if DO_COUPLED_DE
@@ -76,71 +68,36 @@ module coop_species_mod
 contains
 
 
-#if DO_EFT_DE  
-  subroutine coop_EFT_DE_set_Mpsq(alphaM, screening)
-    type(coop_function) alphaM
-    logical,optional::screening
-    COOP_INT,parameter::narr = 30000
-    COOP_REAL::M2(narr), lnamin, lnamax, lna, dlna, dlnaby2, alpha_l, alpha_r
-    COOP_INT::i
-    coop_eft_DE_alphaM = alphaM
-    lnamin = log(coop_min_scale_factor)
-    lnamax = log(coop_scale_factor_today)
-    dlna = (lnamax-lnamin)/(narr-1)
-    dlnaby2 = dlna/2.d0
-    M2(1) = 0.d0
-    lna = lnamin
-    alpha_l = alphaM%eval(coop_min_scale_factor)
-    do i = 2, narr
-       lna = lna + dlna
-       alpha_r = alphaM%eval(exp(lna))
-       M2(i) = M2(i-1) + (alpha_l + 4.d0*alphaM%eval(exp(lna-dlnaby2)) + alpha_r)
-       alpha_l = alpha_r
-    enddo
-    M2 = M2 * (dlna/6.d0)
-    if(present(screening))then
-       if(.not. screening)then
-          M2 = M2 - M2(narr)
-       endif
-    endif
-    where(abs(M2).lt. 1.d-10)
-       M2 = 0.d0
-    end where
-    M2 = exp(M2)
-    call coop_EFT_DE_Mpsq%init(narr, coop_min_scale_factor, coop_scale_factor_today, M2, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "EFT M^2")
-    coop_Mpsq0 = M2(narr)
-  end subroutine coop_EFT_DE_set_Mpsq
-#endif
 
-  function coop_Mpsq(a) result(Mpsq)
-    COOP_REAL::Mpsq, a
-#if DO_EFT_DE
-    Mpsq = coop_EFT_DE_Mpsq%eval(a)
-#else
-    Mpsq = 1.d0
-#endif    
-  end function coop_Mpsq
-
-  function coop_alphaM(a) result(alphaM)
-    COOP_REAL::alphaM, a
-#if DO_EFT_DE
-    alphaM = coop_EFT_DE_alphaM%eval(a)
-#else
-    alphaM = 0.d0
-#endif        
-  end function coop_alphaM
-
-  function coop_alphaM_prime(a) result(alphaM_prime)
-    COOP_REAL::alphaM_prime, a
-#if DO_EFT_DE
-    alphaM_prime = coop_EFT_DE_alphaM%derivative(a)*a
-#else
-    alphaM_prime = 0.d0
-#endif        
-  end function coop_alphaM_prime
+!!$  function coop_Mpsq(a) result(Mpsq)
+!!$    COOP_REAL::Mpsq, a
+!!$#if DO_EFT_DE
+!!$    Mpsq = coop_EFT_DE_Mpsq%eval(a)
+!!$#else
+!!$    Mpsq = 1.d0
+!!$#endif    
+!!$  end function coop_Mpsq
+!!$
+!!$  function coop_alphaM(a) result(alphaM)
+!!$    COOP_REAL::alphaM, a
+!!$#if DO_EFT_DE
+!!$    alphaM = coop_EFT_DE_alphaM%eval(a)
+!!$#else
+!!$    alphaM = 0.d0
+!!$#endif        
+!!$  end function coop_alphaM
+!!$
+!!$  function coop_alphaM_prime(a) result(alphaM_prime)
+!!$    COOP_REAL::alphaM_prime, a
+!!$#if DO_EFT_DE
+!!$    alphaM_prime = coop_EFT_DE_alphaM%derivative(a)*a
+!!$#else
+!!$    alphaM_prime = 0.d0
+!!$#endif        
+!!$  end function coop_alphaM_prime
   
 
-  function coop_species_constructor(genre, name, id, Omega, w, cs2, Omega_massless, fwp1, fcs2, fwp1eff) result(this)
+  function coop_species_constructor(genre, name, id, Omega, w, cs2, Omega_massless, fwp1, fcs2, fwp1eff, Mpsq0) result(this)
     type(coop_species) :: this
     COOP_INT, optional::genre
     COOP_UNKNOWN_STRING, optional::name
@@ -150,12 +107,15 @@ contains
     COOP_REAL, optional::cs2
     COOP_REAL, optional::Omega_massless
     type(coop_function),optional::fwp1, fcs2, fwp1eff
+    COOP_REAL,optional::Mpsq0
     COOP_INT i
     COOP_REAL_ARRAY::lnrat, warr, cs2arr
     COOP_REAL amin, amax, lnamin, lnamax, w1, w2, dlna, lnma, lnm, lnrho, lnp, dlnrho, dlnp
-#if DO_EFT_DE    
-    if(.not. coop_eft_de_Mpsq%initialized) stop "you have to initialize M_p^2 before calling species%init"
-#endif    
+    if(present(Mpsq0))then
+       this%Mpsq0 = Mpsq0
+    else
+       this%Mpsq0 = 1.d0
+    endif
     
     if(present(name))then
        this%name = name
@@ -309,7 +269,7 @@ contains
   end function coop_species_constructor
   
   
-  subroutine coop_species_initialize(this, genre, name, id, Omega, w, cs2, Omega_massless, fwp1, fcs2, fwp1eff)
+  subroutine coop_species_initialize(this, genre, name, id, Omega, w, cs2, Omega_massless, fwp1, fcs2, fwp1eff, Mpsq0)
     class(coop_species) :: this
     COOP_INT, optional::genre
     COOP_UNKNOWN_STRING, optional::name
@@ -319,12 +279,17 @@ contains
     COOP_REAL, optional::cs2
     COOP_REAL, optional::Omega_massless
     type(coop_function),optional::fwp1, fcs2, fwp1eff
+    COOP_REAL,optional::Mpsq0
     COOP_INT i
     COOP_REAL_ARRAY::lnrat, warr, cs2arr
     COOP_REAL amin, amax, lnamin, lnamax, w1, w2, dlna, lnma, lnm, lnrho, lnp, dlnrho, dlnp
-#if DO_EFT_DE    
-    if(.not. coop_eft_de_Mpsq%initialized) stop "you have to initialize M_p^2 before calling species%init"
-#endif    
+    if(present(Mpsq0))then
+       this%Mpsq0 = Mpsq0
+    else
+       this%Mpsq0 = 1.d0
+    endif
+    
+
     if(present(name))then
        this%name = name
     else
@@ -630,7 +595,7 @@ contains
     COOP_REAL a
     COOP_REAL density
 #if DO_EFT_DE
-    density = 3.d0*coop_Mpsq0*this%Omega * this%density_ratio(a)    
+    density = 3.d0*this%Mpsq0*this%Omega * this%density_ratio(a)    
 #else    
     density = 3.d0*this%Omega * this%density_ratio(a)
 #endif    
@@ -642,7 +607,7 @@ contains
     COOP_REAL a
     COOP_REAL density
 #if DO_EFT_DE
-    density = 3.d0*this%Omega *coop_Mpsq0 * this%rhoa2_ratio(a)    
+    density = 3.d0*this%Omega *this%Mpsq0 * this%rhoa2_ratio(a)    
 #else    
     density = 3.d0*this%Omega * this%rhoa2_ratio(a)
 #endif    
@@ -654,7 +619,7 @@ contains
     COOP_REAL a
     COOP_REAL density
 #if DO_EFT_DE
-    density = 3.d0*this%Omega * coop_Mpsq0*this%rhoa3_ratio(a)    
+    density = 3.d0*this%Omega * this%Mpsq0*this%rhoa3_ratio(a)    
 #else    
     density = 3.d0*this%Omega * this%rhoa3_ratio(a)
 #endif    
@@ -666,7 +631,7 @@ contains
     COOP_REAL a
     COOP_REAL density
 #if DO_EFT_DE
-    density = 3.d0*this%Omega*coop_Mpsq0 * this%rhoa4_ratio(a)    
+    density = 3.d0*this%Omega*this%Mpsq0 * this%rhoa4_ratio(a)    
 #else    
     density = 3.d0*this%Omega * this%rhoa4_ratio(a)
 #endif    
@@ -736,6 +701,7 @@ contains
     call this%fwp1%free()
     call this%fcs2%free()
     call this%fwp1eff%free()
+    this%Mpsq0 = 1.d0
 #if DO_COUPLED_DE    
     call this%cplde_wp1%free()
     call this%cplde_Q%free()    

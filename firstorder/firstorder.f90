@@ -965,7 +965,7 @@ contains
        ps(ik) = this%psofk(k(ik))
     enddo
     !$omp end parallel do
-    pk = Psi **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)) /a**2 * coop_Mpsq(a) )**2    
+    pk = Psi **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)) /a**2 * this%Mpsq(a) )**2    
   end subroutine coop_cosmology_firstorder_get_Psi_power
 
 
@@ -982,7 +982,7 @@ contains
        ps(ik) = this%psofk(k(ik))
     enddo
     !$omp end parallel do
-    pk = Phi **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)) /a**2 * coop_Mpsq(a) )**2    
+    pk = Phi **2 * ps * (2.d0*k**2/(O0_BARYON(this)%density(a) + O0_CDM(this)%density(a)) /a**2 * this%Mpsq(a) )**2    
   end subroutine coop_cosmology_firstorder_get_Phi_power
 
 
@@ -1644,7 +1644,7 @@ contains
        alphaB = coop_de_alpha_constructor(alpha_B0, "omega")
        alphaK = coop_de_alpha_constructor(alpha_K0, "omega")
        alpha_predefined = .true.
-       call coop_EFT_DE_set_Mpsq(alphaM)       
+       call this%set_alpham(alphaM)       
     endif
 #elif DO_COUPLED_DE
     call paramtable%lookup( "de_Q", Q0, 0.d0)
@@ -1708,8 +1708,8 @@ contains
 #if DO_EFT_DE      
       if(alpha_predefined)then
 #endif         
-         Omega_b = ombM2h2/coop_Mpsq0/hubble**2
-         Omega_c = omcM2h2/coop_Mpsq0/hubble**2
+         Omega_b = ombM2h2/this%Mpsq0/hubble**2
+         Omega_c = omcM2h2/this%Mpsq0/hubble**2
 
          if(.not. w_predefined)then
             fwp1 = coop_function_constructor(coop_de_wp1_coupled_quintessence, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args = coop_arguments_constructor( r = (/ 1.d0-omega_b - omega_c, eps_s, eps_inf, zeta_s , beta_s /) ), name = "DE 1+w")
@@ -1724,9 +1724,9 @@ contains
             omlast = omega_b + omega_c            
             call coop_de_construct_alpha_from_cs2(omlast, w0, de_cs2, r_B, r_H, r_M, r_T, alphaB, alphaH, alphaK, alphaM, alphaT, success)
             if(.not. success)return
-            call coop_EFT_DE_set_Mpsq(alphaM)
-            Omega_b = ombM2h2/coop_Mpsq0/hubble**2
-            Omega_c = omcM2h2/coop_Mpsq0/hubble**2
+            call this%set_alpham(alphaM)
+            Omega_b = ombM2h2/this%Mpsq0/hubble**2
+            Omega_c = omcM2h2/this%Mpsq0/hubble**2
             iloop = iloop + 1
             if(iloop .gt. 100)then
                success = .false.

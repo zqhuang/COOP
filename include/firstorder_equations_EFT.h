@@ -36,15 +36,15 @@ subroutine coop_cosmology_firstorder_equations(n, lna, y, yp, cosmology, pert)
     
 
     
-    pert%M2 = coop_Mpsq(a)
+    pert%M2 = cosmology%mpsq(a)
     
-    pert%alpha_M = coop_alphaM(a)
+    pert%alpha_M = cosmology%alpha_M(a)
     pert%alpha_B = cosmology%alpha_B(a)
     pert%alpha_T = cosmology%alpha_T(a)
     pert%alpha_K = cosmology%alpha_K(a)
     pert%alpha_H = cosmology%alpha_H(a)
 
-    pert%alpha_M_prime = coop_alphaM_prime(a)
+    pert%alpha_M_prime = cosmology%alpha_M_prime(a)
     pert%alpha_B_prime = cosmology%alpha_B_prime(a)
     pert%alpha_T_prime = cosmology%alpha_T_prime(a)
     pert%alpha_K_prime = cosmology%alpha_K_prime(a)

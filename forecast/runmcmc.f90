@@ -163,9 +163,9 @@ program RunMC
            write(*,"(A, F10.2, A)") "Age = ", mcmc%cosmology%AgeGyr(), " Gyr"           
            write(*,*) "omega_m = ", mcmc%cosmology%omega_m
            write(*,*) "sigma_8 = ", mcmc%cosmology%sigma_8
-           write(*,*) "sigma_8 [rho_m/(3H^2)/0.3]^{0.3} = ", mcmc%cosmology%sigma_8 * (mcmc%cosmology%Omega_m*coop_Mpsq0/0.3)**0.3           
-           write(*,*) "omega_b h^2 M^2 = ", mcmc%cosmology%ombh2 * coop_Mpsq0
-           write(*,*) "omega_c h^2 M^2 = ", mcmc%cosmology%omch2 * coop_Mpsq0  
+           write(*,*) "sigma_8 [rho_m/(3H^2)/0.3]^{0.3} = ", mcmc%cosmology%sigma_8 * (mcmc%cosmology%Omega_m*mcmc%cosmology%Mpsq0/0.3)**0.3           
+           write(*,*) "omega_b h^2 M^2 = ", mcmc%cosmology%ombh2 * mcmc%cosmology%Mpsq0
+           write(*,*) "omega_c h^2 M^2 = ", mcmc%cosmology%omch2 * mcmc%cosmology%Mpsq0  
            write(*,*) "100theta = ", mcmc%cosmology%cosmomc_theta()*100.d0
            write(*,*) "z_recomb = ", mcmc%cosmology%zrecomb           
            write(*,*) "D_recomb = ", mcmc%cosmology%distlss

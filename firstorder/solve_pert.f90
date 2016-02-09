@@ -49,7 +49,7 @@ program test
   call cosmology%init_source(0)
   write(*,*) "H_0 = ", cosmology%h()*100.
   write(*,*) "Omega_m = ", cosmology%omega_m
-  if(coop_Mpsq0 .ne. 1.d0) write(*,*) "M_*(z=0) = ", sqrt(coop_Mpsq0)
+  if(cosmology%Mpsq0 .ne. 1.d0) write(*,*) "M_*(z=0) = ", sqrt(cosmology%Mpsq0)
   write(*,*)"cosmomc theta (*100) = ",  100.d0 * cosmology%cosmomc_theta()
   write(*,*) "writing the output to file "//trim(output)
   

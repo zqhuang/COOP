@@ -21,11 +21,12 @@ program bgtest
   r_H = 0.21d0
   r_M = 0.11d0
   r_T = 0.8d0
+  call bg%init(h=0.68d0)
   call coop_de_construct_alpha_from_cs2(omegam, w, cs2, r_B, r_H, r_M, r_T, bg%f_alpha_B, bg%f_alpha_H, bg%f_alpha_K, bg%f_alpha_M, bg%f_alpha_T, success)
   if(.not. success) stop "cannot find alpha0"
   call wp1%init_polynomial( (/ 1.d0+w/) )
-  call coop_EFT_DE_set_Mpsq(bg%f_alpha_M)
-  call bg%init(h=0.68d0)
+
+  call bg%set_alphaM()
   call bg%add_species(coop_baryon(omegab))
   call bg%add_species(coop_cdm(omegac))  
   call bg%add_species(coop_radiation(bg%Omega_radiation()))
@@ -37,19 +38,13 @@ program bgtest
   
   call bg%setup_background()
   call ode%init(nvars)
-  call ode%set_initial_conditions(0.d0, (/ bg%HdotbyHsq(1.d0), log(bg%Hratio(1.d0)), log(bg%species(5)%density(1.d0)), log(coop_Mpsq(1.d0)) /) )
-  call ode%evolve(getderv, -1.d0)
+  call ode%set_initial_conditions(0.d0, (/ bg%HdotbyHsq(1.d0), log(bg%Hratio(1.d0)), log(bg%species(5)%density(1.d0)), log(bg%Mpsq0) /) )
+  call ode%evolve(getderv, -1.5d0)
 
   print*, ode%y(1),  ode%y(1)/bg%HdotbyHsq(exp(ode%x))-1.d0
   print*, ode%y(2), ode%y(2) - log(bg%Hratio(exp(ode%x)))
   print*, ode%y(3), ode%y(3) - log(bg%species(5)%density(exp(ode%x)))
-  print*, ode%y(4), ode%y(4) - log(coop_Mpsq(exp(ode%x)))
-  call coop_de_construct_alpha_from_cs2(omegam, w, cs2, r_B, r_H, r_M, r_T, bg%f_alpha_B, bg%f_alpha_H, bg%f_alpha_K, bg%f_alpha_M, bg%f_alpha_T, success)
-  na = 1000
-  da = 1.d0/na
-  do i = 1, na
-     print*, i, i*da, bg%alphacs2(i*da)/ bg%total_alpha(i*da), bg%alpha_K(i*da)
-  enddo
+  print*, ode%y(4), ode%y(4) - log(bg%Mpsq(exp(ode%x)))
 
 contains
 
@@ -60,7 +55,7 @@ contains
     yp(1) = bg%HddbyH3(a) - bg%HdotbyHsq(a)**2 * 2.d0
     yp(2) = bg%HdotbyHsq(a)
     yp(3) = -3.d0*bg%species(5)%wp1effofa(a)
-    yp(4) = coop_alphaM(a)
+    yp(4) = bg%alpha_M(a)
   end subroutine getderv
 
   
