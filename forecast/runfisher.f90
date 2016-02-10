@@ -11,7 +11,7 @@ program RunMC
   call fisher%init(coop_InputArgs(1))
   fname = trim(fisher%settings%value("output"))
   if(trim(fname).eq."")then
-     "you need to specify output in "//trim(coop_InputArgs(1))
+     write(*,*) "you need to specify output in "//trim(coop_InputArgs(1))
      stop
   endif
 
