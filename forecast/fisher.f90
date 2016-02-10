@@ -109,7 +109,6 @@ contains
           dobs(2, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClEE, l) + this%nuis(4, idata)*cmb_A_noise - this%obs(2, idata)
           dobs(3, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTE, l) - this%obs(3, idata)
        enddo
-       write(*,*) cmb_A_noise, sum(abs(dobs))
     case("CMB_T")
        call paramtable%lookup("cmb_A_noise", cmb_A_noise, 1.d0)
        do idata = 1, this%n_obs
