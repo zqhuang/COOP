@@ -109,7 +109,7 @@ module coop_cosmology_mod
      procedure::dA_of_z => coop_cosmology_background_DA_of_z
      procedure::comoving_dA_of_z => coop_cosmology_background_comoving_DA_of_z
      procedure::dL_of_z => coop_cosmology_background_DL_of_z
-#if DO_EFT_DE
+
      procedure::set_alphaM => coop_cosmology_background_set_alphaM
      procedure::Mpsq => coop_cosmology_background_Mpsq
      procedure::alpha_T => coop_cosmology_background_alpha_T
@@ -123,9 +123,8 @@ module coop_cosmology_mod
      procedure::alpha_B_prime => coop_cosmology_background_alpha_B_prime
      procedure::alpha_H_prime => coop_cosmology_background_alpha_H_prime
      procedure::total_alpha => coop_cosmology_background_total_alpha     
-     procedure::alphacs2 => coop_cosmology_background_alphacs2
-     
-#endif     
+     procedure::alphacs2 => coop_cosmology_background_alphacs2     
+
   end type coop_cosmology_background
 
 
@@ -782,79 +781,107 @@ contains
     dA = this%comoving_angular_diameter_distance(1.d0/(1.d0+z))
   end function coop_cosmology_background_comoving_dA_of_z
 
-#if DO_EFT_DE
+
 
   function coop_cosmology_background_Mpsq(this,a) result(Mpsq)
     class(coop_cosmology_background)::this
     COOP_REAL::Mpsq, a
+#if DO_EFT_DE
     if(this%f_Mpsq%initialized)then
        Mpsq = this%f_Mpsq%eval(a)
     else
        Mpsq = 1.d0
     endif
+#else
+    Mpsq = 1.d0
+#endif
   end function coop_cosmology_background_Mpsq
 
 
   function coop_cosmology_background_alpha_M(this,a) result(alpha_M)
     class(coop_cosmology_background)::this
     COOP_REAL::alpha_M,a
+#if DO_EFT_DE
     if(this%f_alpha_M%initialized)then
        alpha_M = this%f_alpha_M%eval(a)
     else
        alpha_M = 0.d0
     endif
+#else
+    alpha_M  = 0.d0
+#endif
   end function coop_cosmology_background_alpha_M
 
   function coop_cosmology_background_alpha_M_prime(this,a) result(alpha_M_prime)
     class(coop_cosmology_background)::this
     COOP_REAL::alpha_M_prime,a
+#if DO_EFT_DE
     if(this%f_alpha_M%initialized)then
        alpha_M_prime = this%f_alpha_M%derivative(a)*a
     else
        alpha_M_prime = 0.d0
     endif
+#else
+    alpha_M_prime = 0.d0
+#endif
   end function coop_cosmology_background_alpha_M_prime
 
 
   function coop_cosmology_background_alpha_T(this,a) result(alpha_T)
     class(coop_cosmology_background)::this
     COOP_REAL::alpha_T,a
+#if DO_EFT_DE
     if(this%f_alpha_T%initialized)then
        alpha_T = this%f_alpha_T%eval(a)
     else
        alpha_T = 0.d0
     endif
+#else
+    alpha_T = 0.d0
+#endif
   end function coop_cosmology_background_alpha_T
 
   function coop_cosmology_background_alpha_T_prime(this,a) result(alpha_T_prime)
     class(coop_cosmology_background)::this
     COOP_REAL::alpha_T_prime,a
+#if DO_EFT_DE
     if(this%f_alpha_T%initialized)then
        alpha_T_prime = this%f_alpha_T%derivative(a)*a
     else
        alpha_T_prime = 0.d0
     endif
+#else
+    alpha_T_prime = 0.d0
+#endif
   end function coop_cosmology_background_alpha_T_prime
 
 
   function coop_cosmology_background_alpha_B(this,a) result(alpha_B)
     class(coop_cosmology_background)::this
     COOP_REAL::alpha_B,a
+#if DO_EFT_DE
     if(this%f_alpha_B%initialized)then
        alpha_B = this%f_alpha_B%eval(a)
     else
        alpha_B = 0.d0
     endif
+#else
+    alpha_B=0.d0
+#endif
   end function coop_cosmology_background_alpha_B
 
   function coop_cosmology_background_alpha_B_prime(this,a) result(alpha_B_prime)
     class(coop_cosmology_background)::this
     COOP_REAL::alpha_B_prime,a
+#if DO_EFT_DE
     if(this%f_alpha_B%initialized)then
        alpha_B_prime = this%f_alpha_B%derivative(a)*a
     else
        alpha_B_prime = 0.d0
     endif
+#else
+    alpha_B_prime = 0.d0
+#endif
   end function coop_cosmology_background_alpha_B_prime
 
 
@@ -862,70 +889,96 @@ contains
   function coop_cosmology_background_alpha_H(this,a) result(alpha_H)
     class(coop_cosmology_background)::this
     COOP_REAL::alpha_H,a
+#if DO_EFT_DE
     if(this%f_alpha_H%initialized)then
        alpha_H = this%f_alpha_H%eval(a)
     else
        alpha_H = 0.d0
     endif
+#else
+    alpha_H = 0.d0
+#endif
   end function coop_cosmology_background_alpha_H
 
   function coop_cosmology_background_alpha_H_prime(this,a) result(alpha_H_prime)
     class(coop_cosmology_background)::this
     COOP_REAL::alpha_H_prime,a
+#if DO_EFT_DE
     if(this%f_alpha_H%initialized)then
        alpha_H_prime = this%f_alpha_H%derivative(a)*a
     else
        alpha_H_prime = 0.d0
     endif
+#else
+    alpha_H_prime = 0.d0
+#endif
   end function coop_cosmology_background_alpha_H_prime
 
   
   function coop_cosmology_background_alpha_K(this,a) result(alpha_K)
     class(coop_cosmology_background)::this
     COOP_REAL::alpha_K,a
+#if DO_EFT_DE
     if(this%f_alpha_K%initialized)then
        alpha_K = this%f_alpha_K%eval(a)
     else
        alpha_K = 0.d0
     endif
+#else
+    alpha_K = 0.d0
+#endif
   end function coop_cosmology_background_alpha_K
 
   function coop_cosmology_background_alpha_K_prime(this,a) result(alpha_K_prime)
     class(coop_cosmology_background)::this
     COOP_REAL::alpha_K_prime,a
+#if DO_EFT_DE
     if(this%f_alpha_K%initialized)then
        alpha_K_prime = this%f_alpha_K%derivative(a)*a
     else
        alpha_K_prime = 0.d0
     endif
+#else
+    alpha_K_prime = 0.d0
+#endif
   end function coop_cosmology_background_alpha_K_prime
 
   subroutine coop_cosmology_background_set_alphaM(this, alphaM)
     class(coop_cosmology_background)::this
     type(coop_function),optional::alphaM
+#if DO_EFT_DE
     if(present(alphaM))this%f_alpha_M = alphaM
     call coop_EFT_DE_set_Mpsq(this%f_alpha_M, this%f_Mpsq)
     this%Mpsq0 = this%f_Mpsq%eval(1.d0)
+#endif
   end subroutine coop_cosmology_background_set_alphaM
 
   function coop_cosmology_background_total_alpha(this, a) result(alpha)
     class(coop_cosmology_background)::this    
     COOP_REAL::a, alpha
+#if DO_EFT_DE
     alpha = this%alpha_K(a) + 6.d0 * this%alpha_B(a)**2
+#else
+    alpha  = 0.d0
+#endif
   end function coop_cosmology_background_total_alpha
 
   function coop_cosmology_background_alphacs2(this, a) result(alphacs2)
     class(coop_cosmology_background)::this    
     COOP_REAL::a, alphacs2, alphaT, alphaB, hdotbyhsq, alphaH, alphaM
+#if DO_EFT_DE
     alphaT = this%alpha_T(a)
     alphaB = this%alpha_B(a)
     alphaH = this%alpha_H(a)
     hdotbyhsq = this%HdotbyHsq(a)
     alphaM = this%alpha_M(a)
     alphacs2 = -2.d0*((1.d0+alphaB)*((1.d0+alphaB)*(1.d0+alphaT) - (1.d0+alphaH)*(1.d0+alphaM - hdotbyhsq)-this%alpha_H_prime(a))+(1.d0+alphaH)*this%alpha_B_prime(a)) + (1.d0+alphaH)**2*(2.d0*hdotbyhsq + 3.d0*O0_DE(this)%wp1ofa(a)*O0_DE(this)%rhoa4(a)/this%rhoa4(a))
+#else
+    alphacs2 = 0.d0
+#endif
   end function coop_cosmology_background_alphacs2
 
-#endif  
+
 
   
 end module coop_cosmology_mod
