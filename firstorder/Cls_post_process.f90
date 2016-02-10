@@ -1,6 +1,7 @@
 module coop_cls_postprocess_mod
   use coop_wrapper_background
   use coop_pertobj_mod
+  use coop_cl_indices_mod
   use coop_firstorder_mod
 #ifdef HAS_HEALPIX
   use head_fits

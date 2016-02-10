@@ -1,6 +1,6 @@
 program RunMC
   use coop_wrapper_firstorder
-  use coop_forecast_mod
+  use coop_mcmc_mod
   implicit none
 #include "constants.h"
   logical::use_CMB, use_SN, use_BAO, use_HST, use_WL, use_lensing, use_compressed_CMB, use_Age_Constraint
@@ -164,8 +164,8 @@ program RunMC
            write(*,*) "omega_m = ", mcmc%cosmology%omega_m
            write(*,*) "sigma_8 = ", mcmc%cosmology%sigma_8
            write(*,*) "sigma_8 [rho_m/(3H^2)/0.3]^{0.3} = ", mcmc%cosmology%sigma_8 * (mcmc%cosmology%Omega_m*mcmc%cosmology%Mpsq0/0.3)**0.3           
-           write(*,*) "omega_b h^2 M^2 = ", mcmc%cosmology%ombh2 * mcmc%cosmology%Mpsq0
-           write(*,*) "omega_c h^2 M^2 = ", mcmc%cosmology%omch2 * mcmc%cosmology%Mpsq0  
+           write(*,*) "omega_b h^2 M^2 = ", mcmc%cosmology%ombm2h2 
+           write(*,*) "omega_c h^2 M^2 = ", mcmc%cosmology%omcm2h2
            write(*,*) "100theta = ", mcmc%cosmology%cosmomc_theta()*100.d0
            write(*,*) "z_recomb = ", mcmc%cosmology%zrecomb           
            write(*,*) "D_recomb = ", mcmc%cosmology%distlss

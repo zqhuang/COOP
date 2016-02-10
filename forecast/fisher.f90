@@ -17,6 +17,7 @@ module coop_fisher_mod
      COOP_INT::n_obs = 0
      COOP_INT::dim_obs = 0
      COOP_INT::dim_nuis = 0
+     COOP_INT::init_level = 0
      type(coop_int_table)::paramnames
      COOP_REAL,dimension(:,:),allocatable::obs !!(dim_obs, n_obs)
      COOP_REAL,dimension(:,:,:),allocatable::dobs !!(dim_obs, n_obs, paramnames%n)
@@ -39,11 +40,12 @@ module coop_fisher_mod
      COOP_INT::n_fast
      COOP_INT::n_nuis
      COOP_INT::n_observations = 0
+     COOP_INT::max_init_level
      COOP_REAL,dimension(:),allocatable::params
      COOP_REAL,dimension(:),allocatable::step1
      COOP_REAL,dimension(:),allocatable::step2
      COOP_REAL,dimension(:),allocatable::priors
-     COOP_INT,dimension(:),allocatable::ind_slow, ind_fast, ind_nuis, param_types
+     COOP_INT,dimension(:),allocatable::ind_slow, ind_fast, ind_nuis, param_types, init_level
      COOP_REAL,dimension(:,:),allocatable::fisher
      COOP_REAL,dimension(:,:),allocatable::Cov
      COOP_INT,dimension(:),allocatable::ind_used
@@ -60,6 +62,9 @@ contains
   subroutine coop_observation_get_dobs(this, dobs, paramtable, cosmology)
     class(coop_observation)::this
     COOP_REAL::dobs(this%dim_obs, this%n_obs), MStar
+    COOP_REAL,dimension(:),allocatable::b0, b2
+    COOP_REAL::sigma_g, sigma_z, sr2, a, Hz
+    COOP_INT::nk, nz, nmu, iz
     type(coop_real_table)::paramtable
     type(coop_cosmology_firstorder)::cosmology
     COOP_INT::i, idata
@@ -72,6 +77,30 @@ contains
        enddo
        !$omp end parallel do
     case("MPK")
+       call coop_dictionary_lookup(this%settings,"n_z", nz)
+       call coop_dictionary_lookup(this%settings,"n_k", nk)
+       call coop_dictionary_lookup(this%settings,"n_mu", nmu)
+       call paramtable%lookup("mpk_sigma_g", sigma_g, 400.d0)
+       sigma_g =sigma_g*1.d3/coop_SI_c
+       call coop_dictionary_lookup(this%settings,"sigma_z", sigma_z, 0.001d0) 
+       sr2 = sigma_g**2+sigma_z**2
+       allocate(b0(nz), b2(nz))
+       do iz=1, nz
+          call paramtable%lookup("mpk_b0_"//COOP_STR_OF(iz), b0(iz))
+          call paramtable%lookup("mpk_b2_"//COOP_STR_OF(iz), b2(iz), 0.d0)
+       enddo
+       !$omp parallel do private(idata, iz, a, Hz)
+       do idata = 1, this%n_obs
+          iz = (idata-1)/(nk*nmu)+1
+          a = 1.d0/(1.d0+this%nuis(1,idata))
+          Hz = cosmology%Hratio(a)
+          dobs(1, idata) = (b0(iz) + b2(iz)*this%nuis(2, idata)**2 &
+               +  cosmology%fgrowth_of_z(z=this%nuis(1, idata), k=this%nuis(2, idata))*this%nuis(3,idata)**2) &
+               * cosmology%matter_power(z=this%nuis(1, idata), k=this%nuis(2, idata)) * ((coop_pi**2*2.d0)/this%nuis(2, idata)**3) &
+               * exp(-sr2*((1.d0+this%nuis(1,idata))/Hz *this%nuis(2,idata)*this%nuis(3,idata))**2) - this%obs(1, idata)
+       enddo
+       !$omp end parallel do
+       deallocate(b0, b2)
     case("CMB_TE")
     case("CMB_T")
     case("CMB_E")
@@ -83,16 +112,20 @@ contains
   end subroutine coop_observation_get_dobs
 
   subroutine coop_observation_get_invcov(this, paramtable, cosmology)
-    COOP_REAL,parameter::sn_intrinsic_delta_mu = 0.1d0
-    COOP_REAL,parameter::sn_peculiar_velocity = 4.d5/coop_SI_c
     class(coop_observation)::this
     type(coop_real_table)::paramtable
     type(coop_cosmology_firstorder)::cosmology
     COOP_INT idata
-    COOP_REAL::Mstar
+    COOP_REAL::sn_peculiar_velocity, sn_intrinsic_delta_mu, Mstar
+    COOP_INT:: nz, nk, nmu, iz, ik, imu
+    COOP_REAL::sigma_z,sigma_g, sr2, Hz, rz, a
+    COOP_REAL,dimension(:),allocatable::b0, b2
     select case(trim(this%genre))
     case("SN")
        call paramtable%lookup("sn_absolute_m", Mstar)
+       call coop_dictionary_lookup(this%settings, "sn_intrinsic_delta_mu", sn_intrinsic_delta_mu, 0.1d0)
+       call coop_dictionary_lookup(this%settings, "sn_peculiar_velocity", sn_peculiar_velocity, 400.d0)
+       sn_peculiar_velocity = sn_peculiar_velocity*1.d3/coop_SI_c
        !$omp parallel do
        do idata = 1, this%n_obs
           this%obs(1, idata) =  5.d0*log10(cosmology%luminosity_distance(1.d0/(1.d0+this%nuis(1, idata)))/cosmology%H0Mpc()) + Mstar
@@ -100,6 +133,37 @@ contains
        enddo
        !$omp end parallel do
     case("MPK")
+       call coop_dictionary_lookup(this%settings,"n_z", nz)
+       call coop_dictionary_lookup(this%settings,"n_k", nk)
+       call coop_dictionary_lookup(this%settings,"n_mu", nmu)
+       call paramtable%lookup("mpk_sigma_g", sigma_g, 400.d0)
+       sigma_g =sigma_g*1.d3/coop_SI_c
+       call coop_dictionary_lookup(this%settings,"sigma_z", sigma_z, 0.001d0) 
+       sr2 = sigma_g**2+sigma_z**2
+       if(this%n_obs .ne. nz*nk*nmu)then
+          write(*,*) "Error in data file "//trim(this%name)//": n_z * n_k*n_mu does not equal to n_obs"
+          stop
+       endif
+       allocate(b0(nz), b2(nz))
+       do iz=1, nz
+          call paramtable%lookup("mpk_b0_"//COOP_STR_OF(iz), b0(iz))
+          call paramtable%lookup("mpk_b2_"//COOP_STR_OF(iz), b2(iz), 0.d0)
+       enddo
+
+       do idata = 1, this%n_obs
+          iz = (idata-1)/(nk*nmu)+1
+          a = 1.d0/(1.d0+this%nuis(1,idata))
+          Hz = cosmology%Hratio(a)
+          this%obs(1, idata) = (b0(iz) + b2(iz)*this%nuis(2, idata)**2 &
+               +  cosmology%fgrowth_of_z(z=this%nuis(1, idata), k=this%nuis(2, idata))*this%nuis(3,idata)**2) &
+               * cosmology%matter_power(z=this%nuis(1, idata), k=this%nuis(2, idata)) * ((coop_pi**2*2.d0)/this%nuis(2, idata)**3) &
+               * exp(-sr2*((1.d0+this%nuis(1,idata))/Hz *this%nuis(2,idata)*this%nuis(3,idata))**2)
+          this%invcov(1,1,idata) = (this%nuis(2,idata)**2*this%nuis(5,idata) &
+               * this%nuis(6,idata) * cosmology%comoving_distance(a) **2/Hz*this%nuis(4,idata) &
+               * this%nuis(7,idata)/coop_2pi) &
+               / (this%obs(1, idata)+1.d0/this%nuis(8,idata))**2
+       enddo
+       deallocate(b0, b2)
     case("CMB_TE")
     case("CMB_T")
     case("CMB_E")
@@ -111,11 +175,14 @@ contains
   end subroutine coop_observation_get_invcov
 
   subroutine coop_observation_init(this, filename)
+    COOP_REAL,parameter:: H0_unit = 1.d5/coop_SI_c
     class(coop_observation)::this
     COOP_UNKNOWN_STRING,optional::filename
     type(coop_list_string)::ls
     type(coop_list_real)::lr
-    COOP_INT::i
+    COOP_REAL,dimension(:),allocatable::z, kmin, kmax, nobs, dz, mu, k
+    COOP_REAL::dmu, dlnk, fsky
+    COOP_INT::i, nz,nk,nmu,iz,ik,imu
     if(present(filename))this%filename = trim(adjustl(filename))
     if(trim(this%filename) .eq. "") stop "observation_init: empty file name"
     call coop_load_dictionary(this%filename, this%settings)
@@ -125,15 +192,19 @@ contains
     this%genre = COOP_UPPER_STR(this%genre)
     select case(trim(this%genre))
     case("SN")
+       this%init_level = coop_init_level_set_background
        this%dim_obs = 1  !!distance moduli
        this%dim_nuis = 2  !!z, n_samples
     case("MPK")
+       this%init_level = coop_init_level_set_pert
        this%dim_obs = 1 !!matter power spectrum
-       this%dim_nuis = 4   !!z, k, n, bias
+       this%dim_nuis = 8   !!z, k, mu, dz, dk, dmu, fsky, nobs
     case("CMB_TE")
+       this%init_level = coop_init_level_set_Cls
        this%dim_obs = 3 !!TT, TE, EE
        this%dim_nuis = 2 !! l, fsky
     case("CMB_T", "CMB_E", "CMB_B")
+       this%init_level = coop_init_level_set_Cls
        this%dim_obs = 1
        this%dim_nuis = 2 !!l, fsky
     case default
@@ -175,6 +246,87 @@ contains
        !$omp end parallel do
        call lr%free()
     case("MPK")
+       call coop_dictionary_lookup(this%settings,"n_z", nz)
+       call coop_dictionary_lookup(this%settings,"n_k", nk)
+       call coop_dictionary_lookup(this%settings,"n_mu", nmu)
+       call coop_dictionary_lookup(this%settings,"fsky", fsky)
+       if(fsky .le. 0.d0 .or. fsky .gt. 1.d0)then
+          write(*,*) "fsky = ", fsky , ": out of range 0< fsky <=1)"
+          stop
+       endif
+       if(this%n_obs .ne. nz*nk*nmu)then
+          write(*,*) "Error in data file "//trim(this%name)//": n_z * n_k * n_mu does not equal to n_obs"
+          stop
+       endif
+       allocate(kmin(nz), kmax(nz), nobs(nz), dz(nz), mu(nmu), k(nk), z(nz))
+       call coop_dictionary_lookup(this%settings, "z", lr)
+       if(lr%n .ne. nz)then
+          write(*,*) "Error in data file "//trim(this%name)//": length of z list does not equal to n_z"
+          stop
+       endif
+       do iz = 1, nz
+          z(iz) = lr%element(iz)
+       enddo
+       call lr%free()
+       call coop_dictionary_lookup(this%settings, "kmin", lr)
+       if(lr%n .ne. nz)then
+          write(*,*) "Error in data file "//trim(this%name)//": length of kmin list does not equal to n_z"
+          stop
+       endif
+       do iz = 1, nz
+          kmin(iz) = lr%element(iz)/H0_unit
+       enddo
+       call lr%free()
+       call coop_dictionary_lookup(this%settings, "kmax", lr)
+       if(lr%n .ne. nz)then
+          write(*,*) "Error in data file "//trim(this%name)//": length of kmax list does not equal to n_z"
+          stop
+       endif
+       do iz = 1, nz
+          kmax(iz) = lr%element(iz)/H0_unit
+       enddo
+       call lr%free()
+       call coop_dictionary_lookup(this%settings, "nobs", lr)
+       if(lr%n .ne. nz)then
+          write(*,*) "Error in data file "//trim(this%name)//": length of nobs list does not equal to n_z"
+          stop
+       endif
+       do iz = 1, nz
+          nobs(iz) = lr%element(iz) / H0_unit**3
+       enddo
+       call lr%free()
+       call coop_dictionary_lookup(this%settings, "delta_z", lr)
+       if(lr%n .ne. nz)then
+          write(*,*) "Error in data file "//trim(this%name)//": length of delta_z list does not equal to n_z"
+          stop
+       endif
+       do iz = 1, nz
+          dz(iz) = lr%element(iz)
+       enddo
+       call lr%free()
+       dmu = 2.d0/nmu
+       do imu = 1, nmu
+          mu(i) = -1.d0+dmu*(i-0.5d0)
+       enddo
+       i = 0
+       do iz = 1, nz
+          dlnk = log(kmax(iz)/kmin(iz))/nk
+          do ik = 1, nk
+             k(ik) = exp(log(kmin(iz))+dlnk*(ik-0.5d0))
+             do imu = 1, nmu
+                i = i+1
+                this%nuis(1, i) = z(iz)
+                this%nuis(2, i) = k(ik)
+                this%nuis(3, i) = mu(imu)
+                this%nuis(4, i) = dz(iz)
+                this%nuis(5, i) = dlnk * k(ik)
+                this%nuis(6, i) = dmu
+                this%nuis(7, i) = fsky
+                this%nuis(8, i) = nobs(iz)
+             enddo
+          enddo
+       enddo
+       deallocate(kmin, kmax, nobs, dz, mu, k,z)
     case("CMB_TE")
     case("CMB_T", "CMB_E", "CMB_B")
     case default
@@ -214,6 +366,7 @@ contains
     COOP_DEALLOC(this%priors)
     COOP_DEALLOC(this%param_types)
     COOP_DEALLOC(this%ind_slow)
+    COOP_DEALLOC(this%init_level)
     COOP_DEALLOC(this%ind_fast)
     COOP_DEALLOC(this%ind_nuis)
     COOP_DEALLOC(this%fisher)
@@ -241,7 +394,9 @@ contains
     call this%free()
     call coop_load_dictionary(filename, this%settings)
     call coop_dictionary_lookup(dict = this%settings, key="n_params", val = this%n_params)
-    allocate(this%params(this%n_params), this%step1(this%n_params), this%step2(this%n_params), this%priors(this%n_params), this%fisher(this%n_params, this%n_params), this%cov(this%n_params, this%n_params), this%is_used(this%n_params), this%param_types(this%n_params))
+    allocate(this%params(this%n_params), this%step1(this%n_params), this%step2(this%n_params), this%priors(this%n_params), this%fisher(this%n_params, this%n_params), this%cov(this%n_params, this%n_params), this%is_used(this%n_params), this%param_types(this%n_params), this%init_level(this%n_params))
+    this%init_level = 0
+    this%max_init_level = 0
     this%fisher = 0.d0
     this%cov = 0.d0
     this%is_used = .false.
@@ -276,7 +431,7 @@ contains
           write(*,*)  "param["//trim(ls%element(i))//"] = fiducial step1 step2 prior"
           stop
        end select
-       if(this%priors(i).ne.0.d0 .and. (this%step1(i).eq.0.d0 .or. this%step2(i).eq.0.d0))then
+       if(this%priors(i).ne.0.d0 .and. ((this%step1(i).eq.0.d0 .or. this%step2(i).eq.0.d0) .or. abs(this%step1(i) - this%step2(i)) .lt. abs(this%step1(i))*1.d-2))then
           write(*,*)  "param["//trim(ls%element(i))//"] seems to be not right, the format is:"
           write(*,*)  "param["//trim(ls%element(i))//"] = fiducial step1 step2 prior"
           stop
@@ -347,12 +502,17 @@ contains
                 write(*,*) "Error in fisher_init:"
                 write(*,*) "parameter "//trim(this%observations(i)%paramnames%key(j))//" (required by dataset "//trim(this%observations(i)%name)//") is not found."
              endif
+             this%init_level(this%observations(i)%paramnames%val(j)) = max(  this%init_level(this%observations(i)%paramnames%val(j)), this%observations(i)%init_level)
+
           enddo
        enddo
     endif
 
+    do i=1, this%n_params
+       this%max_init_level = max(this%max_init_level, this%init_level(i))
+    enddo
     !!compute the fiducial cosmology
-    call this%cosmology%set_up(this%paramtable, success)
+    call this%cosmology%set_up(this%paramtable, success, level = this%max_init_level)
     if(.not. success)then
        write(*,*) "cannot set up the cosmology, check the parameter range:"
        call this%paramtable%print()
@@ -380,7 +540,7 @@ contains
 
     paramtable_tmp = this%paramtable
     paramtable_tmp%val(i) = this%paramtable%val(i) + this%step1(i)
-    call  cosmology_tmp%set_up(paramtable_tmp, success)
+    call  cosmology_tmp%set_up(paramtable_tmp, success, level = this%init_level(i))
     if(.not. success)then
        write(*,*) "cannot set up the cosmology, check the parameter range:"
        call paramtable_tmp%print()
@@ -394,7 +554,7 @@ contains
     enddo
 
     paramtable_tmp%val(i) = this%paramtable%val(i) + this%step2(i)
-    call  cosmology_tmp%set_up(paramtable_tmp, success)
+    call  cosmology_tmp%set_up(paramtable_tmp, success,level = this%init_level(i))
     if(.not. success)then
        write(*,*) "cannot set up the cosmology, check the parameter range:"
        call paramtable_tmp%print()
@@ -430,8 +590,8 @@ contains
     cosmology_tmp = this%cosmology
 
     paramtable_tmp%val(i) = this%paramtable%val(i) + this%step1(i)
-    call cosmology_tmp%set_primordial_power(paramtable_tmp)
-
+    if(this%init_level(i).ge. coop_init_level_set_pp)call cosmology_tmp%set_primordial_power(paramtable_tmp)
+    if(this%init_level(i).ge.coop_init_level_set_Cls)call cosmology_tmp%update_Cls(0)
 
     do iobs = 1, this%n_observations
        j = this%observations(iobs)%paramnames%index(this%paramtable%key(i)) 
@@ -441,7 +601,8 @@ contains
     enddo
 
     paramtable_tmp%val(i) = this%paramtable%val(i) + this%step2(i)
-    call cosmology_tmp%set_primordial_power(paramtable_tmp)
+    if(this%init_level(i).ge. coop_init_level_set_pp)call cosmology_tmp%set_primordial_power(paramtable_tmp)
+    if(this%init_level(i).ge.coop_init_level_set_Cls)call cosmology_tmp%update_Cls(0)
     do iobs = 1, this%n_observations
        j = this%observations(iobs)%paramnames%index(this%paramtable%key(i)) 
        if(j.ne.0)then

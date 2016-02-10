@@ -10,7 +10,7 @@ program test
   COOP_STRING::params_file, output
   type(coop_dictionary)::params
   type(coop_cosmology_firstorder)::cosmology
-  COOP_INT, parameter::lmin = 2, lmax = 2608
+  COOP_INT, parameter::lmin = 2, lmax = 3000
   COOP_REAL::Cls(coop_num_Cls, lmin:lmax), tensCls(coop_num_Cls, lmin:lmax), lensedCls(coop_num_Cls, lmin:lmax), ells(lmin:lmax)
   COOP_REAL::norm, lnorm, lambda
   COOP_INT::l

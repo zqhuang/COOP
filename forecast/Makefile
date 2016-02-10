@@ -9,10 +9,10 @@ NONLINEAR=../nonlinear
 include ../configure.in
 include ../compile_rules.in
 
-LIB = libcoopforecast.a
-OBJ = SNlike_JLA.o bao.o HSTlike.o wl.o cliklike.o forecast.o fisher.o
+LIB = libcoopmcmc.a
+OBJ = SNlike_JLA.o bao.o HSTlike.o wl.o cliklike.o mcmc.o fisher.o
 
-default: $(LIB) MCMC
+default: $(LIB) MCMC FISHER
 
 $(LIB):	$(OBJ) 
 	ar -r $@ $?
@@ -44,4 +44,5 @@ clean:
 	rm -f *.o *.*~ *.mod \#* *.a Makefile~  FISHER MCMC Test STD6 DOSN PRINTCLIK
 
 runmcmc.o: $(OBJ)
-forecast.o: cliklike.o bao.o wl.o SNlike_JLA.o HSTlike.o
+mcmc.o: cliklike.o bao.o wl.o SNlike_JLA.o HSTlike.o
+runfisher: $(OBJ)

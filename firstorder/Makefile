@@ -8,12 +8,15 @@ include ../configure.in
 include ../compile_rules.in
 
 LIB = libcoopfirstorder.a
-OBJ = pertobj.o firstorder.o lensing.o Cls_post_process.o wrapper.o
+OBJ = pertobj.o cls_indices.o lensing.o firstorder.o Cls_post_process.o wrapper.o
 
 default: $(LIB) CalcCls CalcMP SolvePert
 
 $(LIB): $(OBJ)
 	ar -r $@ $?
+
+Test: $(OBJ) test.o $(BACKGROUND)/libcoopbackground.a 
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
 
 
 SolvePert: $(OBJ) solve_pert.o $(BACKGROUND)/libcoopbackground.a 

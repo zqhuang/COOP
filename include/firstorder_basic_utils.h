@@ -124,12 +124,15 @@
 
   subroutine coop_cosmology_firstorder_source_free(this)
     class(coop_cosmology_firstorder_source)::this
-	 if(allocated(this%k))deallocate(this%k, this%dk, this%index_tc_off, this%kop)
+    if(allocated(this%k))deallocate(this%k, this%dk, this%index_tc_off, this%kop)
     this%nk = 0
     if(allocated(this%tau))deallocate(this%tau, this%chi, this%dtau, this%a, this%tauc, this%lna, this%omega_rad, this%vis, this%omega_de)
     this%ntau = 0
     if(allocated(this%s))deallocate(this%s, this%s2, this%saux)
     if(allocated(this%k_dense))deallocate(this%k_dense, this%ws_dense, this%wt_dense, this%ps_dense)
+    COOP_DEALLOC(this%Cls)
+    COOP_DEALLOC(this%Cls_lensed)
+    call this%trans%free()
   end subroutine coop_cosmology_firstorder_source_free
 
   subroutine coop_cosmology_firstorder_free(this)
@@ -198,9 +201,9 @@
     call this%setup_background()
     call this%set_klms()
     this%Omega_b = O0_BARYON(this)%Omega    
-    this%ombh2 = this%Omega_b * this%h()**2    
+    this%ombm2h2 = this%Omega_b * this%h()**2 * this%Mpsq0
     this%Omega_c = O0_CDM(this)%Omega
-    this%omch2 = this%Omega_c*O0_CDM(this)%rhoa3_ratio(1.d-10)*this%h()**2
+    this%omcm2h2 = this%Omega_c*O0_CDM(this)%rhoa3_ratio(1.d-10)*this%h()**2* this%Mpsq0
     this%Omega_g = O0_RADIATION(this)%Omega
     this%Rbya = 0.75d0*this%omega_b/this%omega_g
     if(this%index_massiveNu .ne. 0)then
@@ -373,14 +376,13 @@
   function coop_cosmology_firstorder_cosmomc_theta(this) result(theta)
     class(coop_cosmology_firstorder)::this
     COOP_REAL zstar, theta, astar, rs, da, omch2_eff
-    zstar = coop_zrecomb_fitting(this%ombh2*this%Mpsq0, this%omch2*this%Mpsq0)
-    astar = 1.d0/(1.d0+zstar)    
 #if DO_COUPLED_DE
-    omch2_eff = O0_CDM(this)%rhoa3_ratio(astar)*this%omch2
-    zstar = coop_zrecomb_fitting(this%ombh2*this%Mpsq0, omch2_eff*this%Mpsq0)
-    astar = 1.d0/(1.d0+zstar)    
+    omch2_eff = O0_CDM(this)%rhoa3_ratio(astar)*this%omcm2h2
+    zstar = coop_zrecomb_fitting(this%ombm2h2, omch2_eff)
+#else
+    zstar = coop_zrecomb_fitting(this%ombm2h2, this%omcm2h2)
 #endif    
-
+    astar = 1.d0/(1.d0+zstar)    
     rs = coop_integrate(dsoundda, 1.d-8, astar, 1.d-7)  !!to be consistent with CosmoMC
     da = coop_r_of_chi(coop_integrate(dtauda, astar, 1.d0, 1.d-7), this%Omega_k())
     theta  = rs/da
@@ -388,7 +390,7 @@
 
     function dsoundda(a) result(dsda)  !!use approximations, to be consistent with CosmoMC
       COOP_REAL a, dsda, R
-      R = this%ombh2*this%Mpsq0 * 3.d4*a
+      R = this%ombm2h2 * 3.d4*a
       dsda = dtauda(a)/sqrt(3.d0*(1.d0+R))
     end function dsoundda
 

@@ -1,4 +1,4 @@
-PLATFORM = MacOS
+PLATFORM = LINUX
 #PLATFORM = Windows
 #PLATFORM = LINUX
 
@@ -8,14 +8,14 @@ else
 GFORTRAN_NAME = gfortran
 endif
 
-GCC_NAME=gcc-mp-4.8
+GCC_NAME=gcc
 IFORT_NAME=ifort
 ICC_NAME=icc
 
 ######## compiler options  #######
 ### YES or NO
 #### distributed memory (you should have a compiler alias mpif77 or mpif90 installed); This is used to generate multiple chains when doing MCMC.
-USE_MPI = YES
+USE_MPI = NO
 MPI_COMPILER_ALIAS = mpif90
 #### shared memory; 
 USE_OPENMP = YES
@@ -30,27 +30,29 @@ C_COMPILER = $(GCC_NAME)
 ########not all libraries are required  (depending on what you want to do)####
 ########set to null string for librarys that are not installed ###############
 ##############################################################################
-### set to EFT for effective field theory, LAMBDA for cosmological constant, COUPLED_DE for coupled Dark Energy (a scalar field coupled with CDM)
+##set to EFT for Effective Field Theory Dark Energy models
 #DARK_ENERGY_MODEL = LAMBDA
-#DARK_ENERGY_MODEL = COUPLED_DE
 DARK_ENERGY_MODEL = EFT
+#DARK_ENERGY_MODEL = COUPLED_DE
 
-##LAPACK lib; for MacOS set LAPACK = APPLE
-LAPACK = APPLE
+##LAPACK lib, mandatory if you use any data (WMAP, ACT, SPT, SNLS3yr)
+LAPACK = $(HOME)/work/scilibs/lapack/
 
 ##FFTW lib (v3.2 up)
-FFTW3 = $(HOME)/work/scilibs/fftw/
+FFTW3 = $(HOME)/work/scilibs/fftw3
 
 ## gsl lib 
 GSL =
 #$(HOME)/mathlib/gsl
 
-CLIKPATH = $(HOME)/work/scilibs/planck15/plc-2.0/
+##CLIK path
+CLIKPATH =
+#$(HOME)/work/scilibs/COOP/forecast/plc-1.0/
 
-##cfitsio lib, mandatory if you do maps
+##cfitsio lib, mandatory if you do mapio
 CFITSIO = $(HOME)/work/scilibs/cfitsio
 
-##Healpix lib, mandatory if you do maps
+##Healpix lib, mandatory if you do mapio
 HEALPIX = $(HOME)/work/scilibs/Healpix
 
 ####################### the rest ##########################################
@@ -105,8 +107,6 @@ FC = $(MPI_COMPILER_ALIAS)
 FFLAGS += -DMPI
 CFLAGS += -DMPI
 INCLUDE += -I/usr/local/include
-#for my macOS
-INCLUDE += -I/opt/local/include/openmpi-gcc48/  
 else
 FC = $(FORTRAN_COMPILER)
 endif
@@ -160,7 +160,7 @@ endif
 ### set Healpix flags here
 ifneq ($(HEALPIX),)
 LINK += -L$(HEALPIX)/lib -lhealpix 
-FFLAGS += -DHAS_HEALPIX=1 
+FFLAGS += -DHAS_HEALPIX=1
 CFLAGS += -DHAS_HEALPIX=1
 INCLUDE += -I$(HEALPIX)/include
 endif
@@ -176,7 +176,7 @@ endif
 
 ###set fftw flags here
 ifneq ($(FFTW3),)
-LINK += -L$(FFTW3)/lib -lfftw3
+LINK += -L$(FFTW3)/lib -lfftw3 -lfftw3_omp
 FFLAGS += -DHAS_FFTW=1
 CFLAGS += -DHAS_FFTW=1
 INCLUDE += -I$(FFTW3)/include 
@@ -213,6 +213,7 @@ endif
 ifeq ($(DARK_ENERGY_MODEL),EFT)
 FFLAGS += -DDO_EFT_DE=1
 endif
+
 ##coupled DE
 ifeq ($(DARK_ENERGY_MODEL),COUPLED_DE)
 FFLAGS += -DDO_COUPLED_DE=1

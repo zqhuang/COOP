@@ -1,5 +1,5 @@
 module coop_lensing_mod
-  use coop_firstorder_mod
+  use coop_cl_indices_mod
   use coop_pertobj_mod
   use coop_wrapper_background
   implicit none
