@@ -26,5 +26,6 @@ program RunMC
      write(fp%unit, "(A, G14.5)") trim(fisher%paramtable%key(fisher%ind_used(i))), sqrt(fisher%cov(fisher%ind_used(i), fisher%ind_used(i)))
      write(*, "(A, G14.5)") trim(fisher%paramtable%key(fisher%ind_used(i))), sqrt(fisher%cov(fisher%ind_used(i), fisher%ind_used(i)))
   enddo
+  call fp%close()
 
 end program RunMC
