@@ -63,11 +63,11 @@ contains
     class(coop_observation)::this
     COOP_REAL::dobs(this%dim_obs, this%n_obs), MStar
     COOP_REAL,dimension(:),allocatable::b0, b2
-    COOP_REAL::sigma_g, sigma_z, sr2, a, Hz
+    COOP_REAL::sigma_g, sigma_z, sr2, a, Hz, cmb_A_noise
     COOP_INT::nk, nz, nmu, iz
     type(coop_real_table)::paramtable
     type(coop_cosmology_firstorder)::cosmology
-    COOP_INT::i, idata
+    COOP_INT::i, idata, l
     select case(trim(this%genre))
     case("SN")
        call paramtable%lookup("sn_absolute_m", Mstar)
@@ -102,9 +102,31 @@ contains
        !$omp end parallel do
        deallocate(b0, b2)
     case("CMB_TE")
+       call paramtable%lookup("cmb_A_noise", cmb_A_noise)
+       do idata = 1, this%n_obs
+          l = nint(this%nuis(1, idata))
+          dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata)*cmb_A_noise - this%obs(1, idata)
+          dobs(2, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClEE, l) + this%nuis(4, idata)*cmb_A_noise - this%obs(2, idata)
+          dobs(3, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTE, l) - this%obs(3, idata)
+       enddo
+       write(*,*) cmb_A_noise, sum(abs(dobs))
     case("CMB_T")
+       call paramtable%lookup("cmb_A_noise", cmb_A_noise, 1.d0)
+       do idata = 1, this%n_obs
+          l = nint(this%nuis(1, idata))
+          dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata)*cmb_A_noise - this%obs(1, idata)
+       enddo
     case("CMB_E")
+       call paramtable%lookup("cmb_A_noise", cmb_A_noise, 1.d0)
+       do idata = 1, this%n_obs
+          l = nint(this%nuis(1, idata))
+          dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClEE, l) + this%nuis(4, idata)*cmb_A_noise - this%obs(1, idata)
+       enddo
     case("CMB_B")
+       do idata = 1, this%n_obs
+          l = nint(this%nuis(1, idata))
+          dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClBB, l) + this%nuis(4, idata)*cmb_A_noise - this%obs(1, idata)
+       enddo
     case default
        write(*,*) trim(this%genre)
        stop "unknown observation genre"
@@ -117,7 +139,7 @@ contains
     type(coop_cosmology_firstorder)::cosmology
     COOP_INT idata
     COOP_REAL::sn_peculiar_velocity, sn_intrinsic_delta_mu, Mstar
-    COOP_INT:: nz, nk, nmu, iz, ik, imu
+    COOP_INT:: nz, nk, nmu, iz, ik, imu, l
     COOP_REAL::sigma_z,sigma_g, sr2, Hz, rz, a
     COOP_REAL,dimension(:),allocatable::b0, b2
     select case(trim(this%genre))
@@ -165,9 +187,43 @@ contains
        enddo
        deallocate(b0, b2)
     case("CMB_TE")
+       do idata = 1, this%n_obs
+          l = nint(this%nuis(1, idata))
+          this%obs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata)
+          this%obs(2, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClEE, l) + this%nuis(4, idata)
+!          if(mod(l, 100).eq.0)write(*,*) l, this%nuis(3, idata)/this%obs(1, idata), this%nuis(4, idata)/this%obs(2, idata)
+          this%obs(3, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTE, l)
+          this%invcov(1,1,idata) = 2.d0*this%obs(1, idata)**2
+          this%invcov(2,2,idata) = 2.d0*this%obs(2, idata)**2
+          this%invcov(3,3,idata) = this%obs(1, idata)*this%obs(2, idata)+this%obs(3, idata)**2
+          this%invcov(1,2,idata) = 2.d0*this%obs(3, idata)**2
+          this%invcov(2,1,idata) = this%invcov(1,2,idata)
+          this%invcov(1,3,idata) = 2.d0*this%obs(1, idata)*this%obs(3,idata)
+          this%invcov(3,1,idata) = this%invcov(1,3,idata)
+          this%invcov(2,3,idata) = 2.d0*this%obs(2, idata)*this%obs(3,idata)
+          this%invcov(3,2,idata) = this%invcov(2,3,idata)
+          this%invcov(:,:,idata) = this%invcov(:,:,idata)*(dble(l)**4*1.d24)
+          call coop_sympos_inverse(3,3,this%invcov(:,:,idata))
+          this%invcov(:,:,idata) = this%invcov(:,:,idata)*((2.d0*l+1.d0)*this%nuis(2, idata)*(dble(l)**4*1.d24))
+       enddo
     case("CMB_T")
+       do idata = 1, this%n_obs
+          l = nint(this%nuis(1, idata))
+          this%obs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata)
+          this%invcov(1,1,idata) = this%nuis(2, idata)*(this%nuis(1, idata)+0.5d0)/this%obs(1, idata)**2
+       enddo
     case("CMB_E")
+       do idata = 1, this%n_obs
+          l = nint(this%nuis(1, idata))
+          this%obs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClEE, l) + this%nuis(4, idata)
+          this%invcov(1,1,idata) = this%nuis(2, idata)*(this%nuis(1, idata)+0.5d0)/this%obs(1, idata)**2
+       enddo
     case("CMB_B")
+       do idata = 1, this%n_obs
+          l = nint(this%nuis(1, idata))
+          this%obs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClBB, l) + this%nuis(4, idata)
+          this%invcov(1,1,idata) = this%nuis(2, idata)*(this%nuis(1, idata)+0.5d0)/this%obs(1, idata)**2
+       enddo
     case default
        write(*,*) trim(this%genre)
        stop "unknown observation genre"
@@ -181,15 +237,17 @@ contains
     type(coop_list_string)::ls
     type(coop_list_real)::lr
     COOP_REAL,dimension(:),allocatable::z, kmin, kmax, nobs, dz, mu, k
-    COOP_REAL::dmu, dlnk, fsky
-    COOP_INT::i, nz,nk,nmu,iz,ik,imu
+    COOP_REAL::dmu, dlnk, fsky, Nl_T, Nl_pol, fg_r, fg_A, fg_alpha, fg_T, fg_beta, fsky_pol, T353, obs_yr, Fl
+    COOP_REAL,dimension(:),allocatable::beam_fwhm, sigmaT, sigmapol, freq
+    COOP_INT::i, nz,nk,nmu,iz,ik,imu, lmin, lmax, n_channels, l
     if(present(filename))this%filename = trim(adjustl(filename))
     if(trim(this%filename) .eq. "") stop "observation_init: empty file name"
     call coop_load_dictionary(this%filename, this%settings)
     call coop_dictionary_lookup(this%settings, "genre", this%genre)
+    this%genre = trim(adjustl(this%genre))
+    call coop_str2upper(this%genre)
     call coop_dictionary_lookup(this%settings, "name", this%name, "COOP_OBSERVATION_"//trim(this%genre))
     call coop_dictionary_lookup(this%settings, "n_obs", this%n_obs)
-    this%genre = COOP_UPPER_STR(this%genre)
     select case(trim(this%genre))
     case("SN")
        this%init_level = coop_init_level_set_background
@@ -202,11 +260,11 @@ contains
     case("CMB_TE")
        this%init_level = coop_init_level_set_Cls
        this%dim_obs = 3 !!TT, TE, EE
-       this%dim_nuis = 2 !! l, fsky
+       this%dim_nuis = 4 !! l, fsky, N_l(TT), N_l(EE)
     case("CMB_T", "CMB_E", "CMB_B")
        this%init_level = coop_init_level_set_Cls
        this%dim_obs = 1
-       this%dim_nuis = 2 !!l, fsky
+       this%dim_nuis = 4 !!l, fsky, N_l(TT), N_l(EE)
     case default
        write(*,*) trim(this%genre)
        stop "Error: unknown observation genre"
@@ -327,8 +385,63 @@ contains
           enddo
        enddo
        deallocate(kmin, kmax, nobs, dz, mu, k,z)
-    case("CMB_TE")
-    case("CMB_T", "CMB_E", "CMB_B")
+    case("CMB_TE","CMB_T", "CMB_E", "CMB_B")
+       call coop_dictionary_lookup(this%settings, "lmin", lmin, 2)
+       if(lmin .lt. 2) then
+          write(*,*) "Error in data file "//trim(this%filename)//": lmin must be >= 0"
+          stop
+       endif
+       call coop_dictionary_lookup(this%settings, "lmax", lmax)
+       coop_Cls_lmax(0) = max(lmax, coop_Cls_lmax(0))
+       if(lmax-lmin+1 .ne. this%n_obs)then
+          write(*,*) "Error in data file "//trim(this%filename)//": lmax - lmin + 1 does not equal to n_obs"
+          stop
+       endif
+       call coop_dictionary_lookup(this%settings,"fsky", fsky)
+       call coop_dictionary_lookup(this%settings,"fsky_pol", fsky_pol)
+       call coop_dictionary_lookup(this%settings,"foreground_residual", Fg_r)  
+       !!from 0 to 1
+       if(fg_r .lt. 0.d0 .or. fg_r .gt. 1.d0)then
+          write(*,*) "Error in data file "//trim(this%filename)
+          write(*,*) "foreground_residual must be between 0 and 1"
+          stop
+       endif
+       !!dust foreground,  default values from arxiv: 1409.5738
+       call coop_dictionary_lookup(this%settings,"foreground_amp80", Fg_A, 100.d0)  !!at 353GHz and l = 80, this depends on the region and fsky, for BICEP2 it is about 13.4; here I use a rough number with fsky = 0.7
+      
+       call coop_dictionary_lookup(this%settings,"foreground_l_slope", fg_alpha, -2.42d0)  !!l dependence
+       call coop_dictionary_lookup(this%settings,"foreground_freq_slope", fg_beta, 1.59d0)  !!frequency dependence
+       fg_beta  = fg_beta + 3.d0  !!nu^3 from Blackbody
+       call coop_dictionary_lookup(this%settings,"foreground_T353", fg_T,  19.6d0)
+       call coop_dictionary_lookup(this%settings,"n_channels", n_channels)
+       allocate(beam_fwhm(n_channels), sigmaT(n_channels), sigmapol(n_channels), freq(n_channels))
+       
+       do i=1, n_channels
+          call coop_dictionary_lookup(this%settings,"beam_fwhm_channel"//COOP_STR_OF(i), beam_fwhm(i))
+          call coop_dictionary_lookup(this%settings,"frequency_channel"//COOP_STR_OF(i), freq(i))
+          call coop_dictionary_lookup(this%settings,"i_sensitivity_channel"//COOP_STR_OF(i), sigmaT(i))
+          call coop_dictionary_lookup(this%settings,"pol_sensitivity_channel"//COOP_STR_OF(i), sigmapol(i))
+       enddo
+       call coop_dictionary_lookup(this%settings,"obs_yr", obs_yr)
+
+       beam_fwhm = beam_fwhm*coop_SI_arcmin
+       freq = freq*(1.d9*coop_SI_h/coop_SI_kB) !!convert to temperature
+       T353 = 353.d0*(1.d9*coop_SI_h/coop_SI_kB)
+       sigmaT = sigmaT*1.d-6/COOP_DEFAULT_TCMB/sqrt(obs_yr*3600.*24.*365.2425)
+       sigmapol = sigmapol*1.d-6/COOP_DEFAULT_TCMB/sqrt(obs_yr*3600.*24.*365.2425)
+       fg_A = fg_A*coop_2pi/80.d0/81.d0 * fg_r/(1.d6*COOP_DEFAULT_TCMB)**2/(T353**fg_beta/(exp(T353/fg_T)-1.d0))**2/80.d0**fg_alpha
+       i = 0
+       do l = lmin, lmax
+          i = i +1
+          Fl =  fg_A*dble(l)**fg_alpha/sum(((exp(freq/fg_T)-1.d0)/freq**fg_beta)**2)
+          Nl_T = 1.d0/max(sum(exp(-l*(l+1.d0)*(beam_fwhm*coop_sigma_by_fwhm)**2)/sigmaT**2), 1.d-99) + Fl
+          Nl_pol = 1.d0/max(sum(exp(-l*(l+1.d0)*(beam_fwhm*coop_sigma_by_fwhm)**2)/sigmapol**2) , 1.d-99) + Fl
+          this%nuis(1, i) = dble(l)
+          this%nuis(2, i) =  fsky
+          this%nuis(3, i) = Nl_T
+          this%nuis(4, i) = Nl_pol
+       enddo
+       deallocate(beam_fwhm, sigmaT, sigmapol, freq)
     case default
        write(*,*) trim(this%genre)
        stop "Error: unknown observation genre"
