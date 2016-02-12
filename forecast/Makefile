@@ -12,7 +12,7 @@ include ../compile_rules.in
 LIB = libcoopmcmc.a
 OBJ = SNlike_JLA.o bao.o HSTlike.o wl.o cliklike.o mcmc.o fisher.o
 
-default: $(LIB) MCMC FISHER
+default: $(LIB) MCMC FISHER PLOTF
 
 $(LIB):	$(OBJ) 
 	ar -r $@ $?
