@@ -1504,9 +1504,9 @@ contains
   end subroutine coop_asy_plot_file
 
 
-  subroutine coop_asy_curve_d(this, x, y, smooth, color, linetype, linewidth, legend)
+  subroutine coop_asy_curve_d(this, x, y, marker, color, linetype, linewidth, legend)
     class(coop_asy) this
-    logical,optional::smooth
+    COOP_UNKNOWN_STRING,optional::marker
     COOP_REAL ,dimension(:),intent(IN)::x,y
     COOP_UNKNOWN_STRING,optional:: color, linetype
     COOP_SINGLE ,optional::linewidth
@@ -1539,23 +1539,23 @@ contains
        lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
     endif
     write(this%unit, "(A)") trim(lineproperty)
-    if(present(smooth))then
-       if(smooth)then
-          write(this%unit, "(A)") "1"
+    if(present(marker))then
+       if(trim(marker).eq.'')then
+          write(this%unit, "(A)") "NULL" !!no marker
        else
-          write(this%unit, "(A)") "0"
+          write(this%unit, "(A)") trim(marker)
        endif
     else
-       write(this%unit, "(A)") "0"  !!no smoothing by default
+       write(this%unit, "(A)") "NULL" !!no marker
     endif
     do i=1,n
        call this%write_coor(real(x(i), sp), real(y(i), sp))
     enddo
   end subroutine coop_asy_curve_d
 
-  subroutine coop_asy_curve_s(this, x, y, smooth, color, linetype, linewidth, legend)
+  subroutine coop_asy_curve_s(this, x, y, marker, color, linetype, linewidth, legend)
     class(coop_asy) this
-    logical,optional::smooth
+    COOP_UNKNOWN_STRING,optional::marker
     COOP_SINGLE ,dimension(:),intent(IN)::x,y
     COOP_UNKNOWN_STRING,optional:: color, linetype
     COOP_SINGLE ,optional::linewidth
@@ -1588,14 +1588,14 @@ contains
        lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
     endif
     write(this%unit, "(A)") trim(lineproperty)
-    if(present(smooth))then
-       if(smooth)then
-          write(this%unit, "(A)") "1"
+    if(present(marker))then
+       if(trim(marker) == "")then
+          write(this%unit, "(A)") "NULL" 
        else
-          write(this%unit, "(A)") "0"
+          write(this%unit, "(A)")  trim(marker)
        endif
     else
-       write(this%unit, "(A)") "0"  !!no smoothing by default
+       write(this%unit, "(A)") "NULL" 
     endif
     do i=1,n
        call this%write_coor( x(i), y(i) )

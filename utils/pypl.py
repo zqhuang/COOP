@@ -9,7 +9,9 @@ from matplotlib.colors import colorConverter
 from matplotlib.colors import LogNorm
 import matplotlib.patches as mpatches
 import matplotlib.lines as mlines
-import pylab as m
+import scipy.interpolate as minterp
+
+
 if(len(sys.argv)<3):
     print "pypl.py input_file output_file"
     sys.exit()
@@ -29,6 +31,7 @@ def load_dictionary(dic, filename):
 ##load the file to a dictionary
 settings = {}
 load_dictionary(settings, sys.argv[1])
+
 
 def int_of(key, default = 0, dic = settings):
     try:
@@ -125,6 +128,8 @@ def read_str(fp, default=""):
         return s
 
 
+
+invisible= ( 1., 1., 1., 1. )
     
 
 def line_config(lc):
@@ -161,7 +166,7 @@ def line_config(lc):
         if(genre in ['b','blue','g','green','r','red','c','cyan','m','magenta','yellow','y', 'k','black','w','white']):
             color=colorConverter.to_rgb(genre)
         elif(genre == 'invisible'):
-            color= ( 1., 1., 1., 1. )
+            color= invisible
         elif(genre in ['violet', 'v']):
             color=(0.55, 0.22, 0.79)
         elif(genre == 'gold'):
@@ -234,19 +239,28 @@ def get_line_config(fp):
 
 def plot_curve(ax, fp):
     n = read_int(fp)
+    if( n<=0 or n >=100000):
+        print "too many points in the curve"
+        sys.exit()
     legend = read_str(fp)
     (color, linetype, linewidth) = get_line_config(fp)
-    smooth = read_logical(fp)
+    marker = read_str(fp)
     x = []
     y = []
     for i in range(n):
         xy = read_float_arr(fp)
         x.append(xy[0])
         y.append(xy[1])
-    if(legend != ''):
-        ax.plot(x, y, color=color, linestyle = linetype, linewidth = linewidth, label=legend)
+    if(marker!=''):
+        if(legend != ''):
+            ax.plot(x, y, color=color, linestyle = linetype, linewidth = linewidth, label=legend, marker= marker)
+        else:
+            ax.plot(x, y, color=color, linestyle = linetype, linewidth = linewidth, marker= marker)
     else:
-        ax.plot(x, y, color=color, linestyle = linetype, linewidth = linewidth)
+        if(legend != ''):
+            ax.plot(x, y, color=color, linestyle = linetype, linewidth = linewidth, label=legend)
+        else:
+            ax.plot(x, y, color=color, linestyle = linetype, linewidth = linewidth)
 
 def plot_legend_advance(ax, fp):
     (color, linetype, linewidth) = get_line_config(fp)
@@ -286,9 +300,31 @@ def plot_labels(ax, fp):
         sys.exit()
     (color, linetype, linewidth) = get_line_config(fp)
     for i in range(n):
-        xy = read_float(fp)
+        xy = read_float_arr(fp)
         label = read_str(fp)
-        ax.text(xy[0],xy[1], label)
+        ax.text(xy[0],xy[1], label, color=color)
+
+def plot_rightlabels(ax, fp):
+    n = read_int(fp)
+    if(n <= 0 or n>10000):
+        print "too many labels"
+        sys.exit()
+    (color, linetype, linewidth) = get_line_config(fp)
+    for i in range(n):
+        xy = read_float_arr(fp)
+        label = read_str(fp)
+        ax.text(xy[0], xy[1], label, color=color, ha='left')
+
+def plot_leftlabels(ax, fp):
+    n = read_int(fp)
+    if(n <= 0 or n>10000):
+        print "too many labels"
+        sys.exit()
+    (color, linetype, linewidth) = get_line_config(fp)
+    for i in range(n):
+        xy = read_float_arr(fp)
+        label = read_str(fp)
+        ax.text(xy[0],xy[1], label, color=color, ha='right')
 
 def plot_contour(ax, fp):
     ctype=read_int(fp)
@@ -309,6 +345,94 @@ def plot_contour(ax, fp):
             y.append( y[0] )
             ax.plot(x, y, color=cb, ls = lsb, lw = lwb)
             ax.fill(x, y, color=cf)
+    else:
+        print "type II contour is not supported yet; use Asymptote for the full support"
+        sys.exit()
+            
+def plot_lines(ax, fp):
+    n = read_int(fp)
+    if(n<=0 or n>1000000):
+        print 'too many lines'
+        sys.exit()
+    (color, ls, lw) = get_line_config(fp)
+    for i in range(n):
+        xyxy=read_float_arr(fp)
+        ax.plot( [xyxy[0], xyxy[2]], [xyxy[1], xyxy[3]], color=color, ls = ls, lw = lw)
+    return
+
+def plot_dots(ax, fp):
+    n = read_int(fp)
+    if(n<0 or n > 100000):
+        print "too many dots"
+        sys.exit()
+    (color, ls, lw) = get_line_config(fp)
+    marker = read_str(fp)
+    x = []
+    y = []
+    for i in range(n):
+        xy = read_float_arr(fp)
+        x.append(xy[0])
+        y.append(xy[1])
+    if(marker == 'dot' or marker == 'DOT'):
+        ax.scatter(x, y, c=color)
+    else:
+        ax.scatter(x, y, c = color, marker=marker)
+    return
+
+
+def plot_density(ax, fp):
+    ctbl = read_str(fp)
+    zlabel = read_str(fp)
+    xr =read_float_arr(fp)
+    yr = read_float_arr(fp)
+    zr = read_float_arr(fp)
+    irr = read_int(fp)
+    grid=[]
+    if(irr == 0):  # regular points
+        n = read_int_arr(fp)
+        for i in range(n[0]):
+            x = read_float_arr(fp)
+            grid.append(x)
+        if(abs(zr[0])<1.e30 and abs(zr[1])<1.e30):
+            im = ax.imshow(grid, extent = [xr[0], xr[1], yr[0], yr[1]], vmin=zr[0], vmax = zr[1])
+        elif(abs(zr[0])<1.e30):
+            im = ax.imshow(grid, extent = [xr[0], xr[1], yr[0], yr[1]], vmin=zr[0])
+        elif(abs(zr[1])<1.e30):
+            im = ax.imshow(grid, extent = [xr[0], xr[1], yr[0], yr[1]], vmax=zr[1])
+        else:
+            im = ax.imshow(grid, extent = [xr[0], xr[1], yr[0], yr[1]])
+        #colorbar is ignored in python multiple panels; use Asymptot for the full support
+        return
+    else:
+        print "irregular density plot is not supported yet; use asymptote for the full support"
+        sys.exit()
+    return
+
+def plot_clip(ax, fp):
+    print 'clip not supported yet; use Asymptote for the full support'
+    sys.exit()
+
+def plot_errorbars(ax, fp):
+    print 'errorbars not supported yet; use Asymptote for the full support'
+    sys.exit()
+
+def plot_arrows(ax, fp):
+    n = read_int(fp)
+    if(n <=0 or n > 100000):
+        print "too many arrows"
+        sys.exit()
+    (c, ls, lw) = get_line_config(fp)
+    for i in range(n):
+        xyxy = read_float_arr(fp)
+        ax.arrow( xyxy[0], xyxy[1], xyxy[2], xyxy[3], head_width=0.05, head_length = 0.1, fc=c, ec = c)
+
+def plot_extra_axis(ax, fp):
+    print 'extra_axis not supported yet; use Asymptote for the full support'
+    sys.exit()
+
+def plot_expand(ax, fp):
+    expfac = read_float_arr(fp)
+    #in python i just ignore this; for full support go for asymptote
 
 def loadfig(ax, filename):
     if(filename == ''):
@@ -363,8 +487,28 @@ def loadfig(ax, filename):
             plot_legend(ax, fp)
         elif(genre=="LABELS"):
             plot_labels(ax, fp)
+        elif(genre=="RIGHTLABELS"):
+            plot_rightlabels(ax, fp)
+        elif(genre=="LEFTLABELS"):
+            plot_leftlabels(ax, fp)
+        elif(genre=="LINES"):
+            plot_lines(ax, fp)
+        elif(genre=="DOTS"):
+            plot_dots(ax, fp)
+        elif(genre=="DENSITY"):
+            plot_density(ax, fp)
         elif(genre == 'CONTOUR'):
             plot_contour(ax, fp)
+        elif(genre=="CLIP"):
+            plot_clip(ax, fp)
+        elif(genre=="EXPAND"):
+            plot_expand(ax, fp)
+        elif(genre=="ERRPRBARS"):
+            plot_errorbars(ax, fp)
+        elif(genre=="ARROWS"):
+            plot_arrows(ax, fp)
+        elif(genre=="EXTRA_AXIS"):
+            plot_extra_axis(ax, fp)
         else:
             print genre + ": unknown block name"
             return
@@ -373,11 +517,8 @@ def loadfig(ax, filename):
             fp.close()
             return
         genre = read_str(fp)        
-
     fp.close()
     return True
-
-
     
 nrows = int_of('nrows',0)
 ncols = int_of('ncols',1)
@@ -387,15 +528,10 @@ if(nrows == 0):
     sizes = read_float_arr(fp)
     fp.close()
     fig, ax = plt.subplots(figsize=(sizes[0],sizes[1]))
-    try: 
-        loadfig(ax, sys.argv[1])
-    except:
-        print sya.argv[1] + 'cannot be plotted'
-
+    loadfig(ax, sys.argv[1])
 else:
     fig, axarr = plt.subplots( nrows=nrows, ncols=ncols, figsize=( float_of('xsize', 8.),  float_of('ysize', 6.) ), sharex = logical_of('sharex', True), sharey = logical_of('sharey', True))
     fig.subplots_adjust( left=float_of('left_space', 0.125), right = float_of('right_space', 0.9), bottom = float_of('bottom_space', 0.1), top =float_of('top_space', 0.9), wspace=float_of('horizontal_space', 0.2), hspace = float_of('vertical_space', 0.2))
-
     if(nrows > 1 and ncols > 1):
         for irow in range(nrows):
             for icol in range(ncols):

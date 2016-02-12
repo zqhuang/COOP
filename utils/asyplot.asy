@@ -47,7 +47,7 @@ CURVE  (string, specify that this is a CURVE block)
 n = number of points to be connected (integer)
 legend (string)
 color and line type (string, color, linetype and linewidth connected with underscore, such as "red_dashed_0.5", "brown_longdashed_1", "purple_longdashdotted_1.5", "black_dashdotted_0.8", ...)
-smooth (integer, 1 for "do smoothing" and 0 for "no smoothing")
+marker (string; NULL for no marker)
 coordinates of point #1 (2 real numbers)
 coordinates of point #2 (2 real numbers)
 ....
@@ -616,24 +616,47 @@ int plot_curve(file fin){
   pts = new real[2];
   string cstr;
   cstr = fetch_string(fin);
-  int smooth = fin;
+  string mark = trim_string(fetch_string(fin));
   pen colorpen = pen_from_string(cstr);
   path curve;
   pts = read_xy(fin);
   curve = ( xcoor(pts[0]), ycoor(pts[1]) ) ;
-  if(smooth != 0 ){
-    for (int i = 1; i< nlines; ++i){
-       pts = read_xy(fin);
-       curve = curve .. ( xcoor(pts[0]), ycoor(pts[1]) ) ;}}
-   else{
-     for (int i = 1; i< nlines; ++i){
-       pts = read_xy(fin);
-       curve = curve -- ( xcoor(pts[0]), ycoor(pts[1]) ) ;}}
-   if(trim_string(clegend) != "")
+  for (int i = 1; i< nlines; ++i){
+    pts = read_xy(fin);
+    curve = curve -- ( xcoor(pts[0]), ycoor(pts[1]) ) ;}
+  if(mark!=''){
+    if(trim_string(clegend) != ""){
+      if(mark == '*')
+	draw(mypic, curve,  colorpen, Mark[6], legend = clegend);
+      else if(mark =='D' || mark == 'd')
+	draw(mypic, curve,  colorpen, MarkFill[2], legend = clegend);
+      else if(mark == 'T' || mark=='t')
+	draw(mypic, curve,  colorpen, MarkFill[1], legend = clegend);
+      else if(mark == 'o')
+	draw(mypic, curve,  colorpen, Mark[0], legend = clegend);
+      else if(mark == '+' || mark == 'x')
+	draw(mypic, curve,  colorpen, Mark[5], legend = clegend);
+      else
+	draw(mypic, curve,  colorpen, MarkFill[0], legend = clegend);}
+    else{  
+      if(mark == '*')
+	draw(mypic, curve,  colorpen, Mark[6]);
+      else if(mark =='D' || mark == 'd')
+	draw(mypic, curve,  colorpen, MarkFill[2]);
+      else if(mark == 'T' || mark=='t')
+	draw(mypic, curve,  colorpen, MarkFill[1]);
+      else if(mark == 'o')
+	draw(mypic, curve,  colorpen, Mark[0]);
+      else if(mark == '+' || mark == 'x')
+	draw(mypic, curve,  colorpen, Mark[5]);
+      else
+	draw(mypic, curve,  colorpen, MarkFill[0]);}}
+  else{
+    if(trim_string(clegend) != "")
       draw(mypic, curve,  colorpen, legend = clegend);
-   else  
-      draw(mypic, curve, colorpen);
-   return nlines; }
+    else  
+      draw(mypic, curve, colorpen);}
+  return nlines; }
 
 
 // =============================================================================
