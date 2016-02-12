@@ -137,20 +137,23 @@ contains
     type(coop_real_table)::paramtable
     type(coop_cosmology_firstorder)::cosmology
     COOP_INT idata
-    COOP_REAL::sn_peculiar_velocity, sn_intrinsic_delta_mu, Mstar
+    COOP_REAL::sn_peculiar_velocity, sn_sigma_int, sn_sigma_meas, sn_sigma_lens, sn_sigma_sys, Mstar
     COOP_INT:: nz, nk, nmu, iz, ik, imu, l
     COOP_REAL::sigma_z,sigma_g, sr2, Hz, rz, a
     COOP_REAL,dimension(:),allocatable::b0, b2
     select case(trim(this%genre))
     case("SN")
        call paramtable%lookup("sn_absolute_m", Mstar)
-       call coop_dictionary_lookup(this%settings, "sn_intrinsic_delta_mu", sn_intrinsic_delta_mu, 0.1d0)
+       call coop_dictionary_lookup(this%settings, "sn_sigma_int", sn_sigma_int, 0.1d0)
+       call coop_dictionary_lookup(this%settings, "sn_sigma_meas", sn_sigma_meas, 0.01d0)
+       call coop_dictionary_lookup(this%settings, "sn_sigma_lens", sn_sigma_lens, 0.07d0)
+       call coop_dictionary_lookup(this%settings, "sn_sigma_sys_per_bin", sn_sigma_sys, 0.d0)  !!
        call coop_dictionary_lookup(this%settings, "sn_peculiar_velocity", sn_peculiar_velocity, 400.d0)
        sn_peculiar_velocity = sn_peculiar_velocity*1.d3/coop_SI_c
        !$omp parallel do
        do idata = 1, this%n_obs
           this%obs(1, idata) =  5.d0*log10(cosmology%luminosity_distance(1.d0/(1.d0+this%nuis(1, idata)))/cosmology%H0Mpc()) + Mstar
-          this%invcov(1, 1, idata) = this%nuis(2, idata)/(sn_intrinsic_delta_mu**2 + (sn_peculiar_velocity/this%nuis(1, idata))**2)
+          this%invcov(1, 1, idata) = 1.d0/ ( (sn_sigma_int**2 + sn_sigma_meas**2 + (sn_sigma_lens*this%nuis(1, idata))**2 + (sn_peculiar_velocity/this%nuis(1, idata))**2)/ this%nuis(2, idata) + (sn_sigma_sys*(1.d0+this%nuis(1, idata)))**2 )
        enddo
        !$omp end parallel do
     case("MPK")

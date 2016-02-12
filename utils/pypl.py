@@ -1,4 +1,4 @@
-#! /user/bin/python
+#!/usr/bin/env python
 import numpy as np
 import sys
 from matplotlib import use
@@ -331,6 +331,7 @@ def plot_contour(ax, fp):
     if(ctype == 1):
         (cf, lsf, lwf) = get_line_config(fp)
         (cb, lsb, lwb) = get_line_config(fp)
+        legend = read_str(fp)
         smooth = read_logical(fp)
         np = read_int(fp)
         for ip in range(np):
@@ -343,7 +344,10 @@ def plot_contour(ax, fp):
                 y.append(xy[1])
             x.append( x[0] )
             y.append( y[0] )
-            ax.plot(x, y, color=cb, ls = lsb, lw = lwb)
+            if(ip == 0 and legend != '' and legend != 'NULL'):
+                ax.plot(x, y, color=cb, ls = lsb, lw = lwb, label=legend) 
+            else:
+                ax.plot(x, y, color=cb, ls = lsb, lw = lwb)                
             ax.fill(x, y, color=cf)
     else:
         print "type II contour is not supported yet; use Asymptote for the full support"
