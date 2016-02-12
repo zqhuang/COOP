@@ -1115,18 +1115,18 @@ contains
        call fp%close()
        call fp%open(trim(mc%output)//"_pcafig.txt", "w")
        call fp%init( xlabel="PCA index", ylabel="eigen modes")
-       call coop_asy_curve(fp, ipca, pcamat(:,1), smooth = .false., color = "red", linetype = "solid", linewidth = 2., legend="$\sigma_1="//trim(coop_num2str(eig(1),"(G11.2)"))//"$")
+       call coop_asy_curve(fp, ipca, pcamat(:,1),  color = "red", linetype = "solid", linewidth = 2., legend="$\sigma_1="//trim(coop_num2str(eig(1),"(G11.2)"))//"$")
        if(mc%np_pca .ge. 2)then
-          call coop_asy_curve(fp, ipca, pcamat(:,2), smooth = .false., color = "blue", linetype = "dashed", linewidth = 1.5, legend = "$\sigma_2="//trim(coop_num2str(eig(2), "(G11.2)"))//"$")
+          call coop_asy_curve(fp, ipca, pcamat(:,2),  color = "blue", linetype = "dashed", linewidth = 1.5, legend = "$\sigma_2="//trim(coop_num2str(eig(2), "(G11.2)"))//"$")
        endif
        if(mc%np_pca .ge. 3)then
-          call coop_asy_curve(fp, ipca, pcamat(:,3), smooth = .false., color = "black", linetype = "dotted", linewidth = 1., legend = "$\sigma_3="//trim(coop_num2str(eig(3), "(G11.2)"))//"$")
+          call coop_asy_curve(fp, ipca, pcamat(:,3),  color = "black", linetype = "dotted", linewidth = 1., legend = "$\sigma_3="//trim(coop_num2str(eig(3), "(G11.2)"))//"$")
        endif
        if(mc%np_pca .ge. 4)then
-          call coop_asy_curve(fp, ipca, pcamat(:,4), smooth = .false., color = "green", linetype = "dashdotted", linewidth = 0.8, legend =  "$\sigma_4="//trim(coop_num2str(eig(4), "(G11.2)"))//"$")
+          call coop_asy_curve(fp, ipca, pcamat(:,4),  color = "green", linetype = "dashdotted", linewidth = 0.8, legend =  "$\sigma_4="//trim(coop_num2str(eig(4), "(G11.2)"))//"$")
        endif
        if(mc%np_pca .ge. 5)then
-          call coop_asy_curve(fp, ipca, pcamat(:,5), smooth = .false., color = "gray", linetype = "longdashdotted", linewidth = 0.8, legend =  "$\sigma_5="//trim(coop_num2str(eig(5), "(G11.2)"))//"$")
+          call coop_asy_curve(fp, ipca, pcamat(:,5),  color = "gray", linetype = "longdashdotted", linewidth = 0.8, legend =  "$\sigma_5="//trim(coop_num2str(eig(5), "(G11.2)"))//"$")
        endif
        call coop_asy_legend(fp)
        call fp%close()
@@ -1153,7 +1153,7 @@ contains
                 do icontour = coop_postprocess_num_contours, 1, -1
                    call path%from_array_gaussianfit(mc%c2d(:, :, k), mc%plotlower(mc%used(j)), mc%plotupper(mc%used(j)), mc%plotlower(mc%used(j2)), mc%plotupper(mc%used(j2)), mc%cut2d(icontour, k))
 
-                   call coop_asy_contour(fp, path, colorfill = trim(mc%color2d(icontour)), smooth = .false., linecolor = "black", linetype = "solid")
+                   call coop_asy_contour(fp, path, colorfill = trim(mc%color2d(icontour)),  linecolor = "black", linetype = "solid")
                 enddo
                 call fp%close()
              endif
@@ -1163,7 +1163,7 @@ contains
                 do icontour = coop_postprocess_num_contours, 1, -1
                    call path%from_array_gaussianfit(transpose(mc%c2d(:, :, k)), mc%plotlower(mc%used(j2)), mc%plotupper(mc%used(j2)),  mc%plotlower(mc%used(j)), mc%plotupper(mc%used(j)), mc%cut2d(icontour, k))
 
-                   call coop_asy_contour(fp, path, colorfill = trim(mc%color2d(icontour)), smooth = .false., linecolor = "black", linetype = "solid")
+                   call coop_asy_contour(fp, path, colorfill = trim(mc%color2d(icontour)),  linecolor = "black", linetype = "solid")
                 enddo
                 call fp%close()
 
