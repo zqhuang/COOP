@@ -1774,12 +1774,12 @@ contains
 
 
 
-  subroutine coop_asy_contour_d(this, x, y, colorfill, smooth, linecolor, linetype, linewidth)
+  subroutine coop_asy_contour_d(this, x, y, colorfill, smooth, linecolor, linetype, linewidth, legend)
     class(coop_asy) this
     logical,optional::smooth
     COOP_REAL ,dimension(:),intent(IN)::x,y
     COOP_UNKNOWN_STRING,optional::colorfill
-    COOP_UNKNOWN_STRING,optional:: linecolor, linetype
+    COOP_UNKNOWN_STRING,optional:: linecolor, linetype, legend
     COOP_SINGLE ,optional::linewidth
     COOP_INT  i,n
     COOP_STRING lineproperty
@@ -1809,6 +1809,15 @@ contains
     else
        write(this%unit, "(A)") "NULL"
     endif
+    if(present(legend))then
+       if(trim(legend).eq.'')then
+          write(this%unit, '(A)') "NULL"
+       else
+          write(this%unit, '(A)') trim(legend)
+       endif
+    else
+       write(this%unit, '(A)') "NULL"
+    endif
     if(present(smooth))then
        if(smooth)then
           write(this%unit, "(A)") "1"
@@ -1825,12 +1834,12 @@ contains
     enddo
   end subroutine coop_asy_contour_d
 
-  subroutine coop_asy_contour_s(this, x, y, colorfill, smooth, linecolor, linetype, linewidth)
+  subroutine coop_asy_contour_s(this, x, y, colorfill, smooth, linecolor, linetype, linewidth, legend)
     class(coop_asy) this
     logical,optional::smooth
     COOP_SINGLE ,dimension(:),intent(IN)::x,y
     COOP_UNKNOWN_STRING,optional::colorfill
-    COOP_UNKNOWN_STRING,optional:: linecolor, linetype
+    COOP_UNKNOWN_STRING,optional:: linecolor, linetype, legend
     COOP_SINGLE ,optional::linewidth
     COOP_INT  i,n
     COOP_STRING lineproperty
@@ -1860,6 +1869,15 @@ contains
     else
        write(this%unit, "(A)") "NULL"
     endif
+    if(present(legend))then
+       if(trim(legend).eq.'')then
+          write(this%unit, '(A)') "NULL"
+       else
+          write(this%unit, '(A)') trim(legend)
+       endif
+    else
+       write(this%unit, '(A)') "NULL"
+    endif
     if(present(smooth))then
        if(smooth)then
           write(this%unit, "(A)") "1"
@@ -1877,13 +1895,13 @@ contains
   end subroutine coop_asy_contour_s
 
 
-  subroutine coop_asy_contour_path(this, path, colorfill, smooth, linecolor, linetype, linewidth)
+  subroutine coop_asy_contour_path(this, path, colorfill, smooth, linecolor, linetype, linewidth, legend)
     class(coop_asy) this
     logical,optional::smooth
     type(coop_asy_path) path
     COOP_SINGLE  xy(2)
     COOP_UNKNOWN_STRING,optional::colorfill
-    COOP_UNKNOWN_STRING,optional:: linecolor, linetype
+    COOP_UNKNOWN_STRING,optional:: linecolor, linetype, legend
     COOP_SINGLE ,optional::linewidth
     COOP_INT  i, ipath, pl
     COOP_STRING lineproperty
@@ -1915,6 +1933,16 @@ contains
     else
        write(this%unit, "(A)") "NULL"
     endif
+    if(present(legend))then
+       if(trim(legend).eq.'')then
+          write(this%unit, '(A)') "NULL"
+       else
+          write(this%unit, '(A)') trim(legend)
+       endif
+    else
+       write(this%unit, '(A)') "NULL"
+    endif
+
     if(present(smooth))then
        if(smooth)then
           write(this%unit, "(A)") "1"            
@@ -1936,12 +1964,12 @@ contains
     enddo
   end subroutine coop_asy_contour_path
 
-  subroutine coop_asy_contour_mult_d(this, x, y, colorfill, smooth, linecolor, linetype, linewidth)
+  subroutine coop_asy_contour_mult_d(this, x, y, colorfill, smooth, linecolor, linetype, linewidth, legend)
     class(coop_asy) this
     logical,optional::smooth
     COOP_REAL ,dimension(:,:),intent(IN)::x,y
     COOP_UNKNOWN_STRING,optional::colorfill
-    COOP_UNKNOWN_STRING,optional:: linecolor, linetype
+    COOP_UNKNOWN_STRING,optional:: linecolor, linetype, legend
     COOP_SINGLE ,optional::linewidth
     COOP_INT  i,n, m,ipath
     COOP_STRING lineproperty
@@ -1971,6 +1999,15 @@ contains
        write(this%unit, "(A)") trim(lineproperty)
     else
        write(this%unit, "(A)") "NULL"
+    endif
+    if(present(legend))then
+       if(trim(legend).eq.'')then
+          write(this%unit, '(A)') "NULL"
+       else
+          write(this%unit, '(A)') trim(legend)
+       endif
+    else
+       write(this%unit, '(A)') "NULL"
     endif
     if(present(smooth))then
        if(smooth)then
@@ -1990,12 +2027,12 @@ contains
     enddo
   end subroutine coop_asy_contour_mult_d
 
-  subroutine coop_asy_contour_mult_s(this, x, y, colorfill, smooth, linecolor, linetype, linewidth)
+  subroutine coop_asy_contour_mult_s(this, x, y, colorfill, smooth, linecolor, linetype, linewidth, legend)
     class(coop_asy) this
     logical,optional::smooth
     COOP_SINGLE ,dimension(:,:),intent(IN)::x,y
     COOP_UNKNOWN_STRING,optional::colorfill
-    COOP_UNKNOWN_STRING,optional:: linecolor, linetype
+    COOP_UNKNOWN_STRING,optional:: linecolor, linetype, legend
     COOP_SINGLE ,optional::linewidth
     COOP_INT  i,n, m,ipath
     COOP_STRING lineproperty
@@ -2026,6 +2063,16 @@ contains
     else
        write(this%unit, "(A)") "NULL"
     endif
+    if(present(legend))then
+       if(trim(legend).eq.'')then
+          write(this%unit, '(A)') "NULL"
+       else
+          write(this%unit, '(A)') trim(legend)
+       endif
+    else
+       write(this%unit, '(A)') "NULL"
+    endif
+
     if(present(smooth))then
        if(smooth)then
           write(this%unit, "(A)") "1"
@@ -3424,12 +3471,12 @@ contains
 
 
 
-  subroutine coop_asy_band_d(this, x, ylower, yupper, colorfill, smooth, linecolor, linetype, linewidth)
+  subroutine coop_asy_band_d(this, x, ylower, yupper, colorfill, smooth, linecolor, linetype, linewidth, legend)
     class(coop_asy) this
     logical,optional::smooth
     COOP_REAL ,dimension(:),intent(IN)::x,ylower, yupper
     COOP_UNKNOWN_STRING,optional::colorfill
-    COOP_UNKNOWN_STRING,optional:: linecolor, linetype
+    COOP_UNKNOWN_STRING,optional:: linecolor, linetype, legend
     COOP_SINGLE ,optional::linewidth
     COOP_INT  i,n
     COOP_STRING lineproperty
@@ -3459,6 +3506,16 @@ contains
     else
        write(this%unit, "(A)") "NULL"
     endif
+    if(present(legend))then
+       if(trim(legend).eq.'')then
+          write(this%unit, '(A)') "NULL"
+       else
+          write(this%unit, '(A)') trim(legend)
+       endif
+    else
+       write(this%unit, '(A)') "NULL"
+    endif
+
     if(present(smooth))then
        if(smooth)then
           write(this%unit, "(A)") "1"
@@ -3487,12 +3544,12 @@ contains
     endif
   end subroutine coop_asy_band_d
 
-  subroutine coop_asy_band_s(this, x, ylower, yupper, colorfill, smooth, linecolor, linetype, linewidth)
+  subroutine coop_asy_band_s(this, x, ylower, yupper, colorfill, smooth, linecolor, linetype, linewidth, legend)
     class(coop_asy) this
     logical,optional::smooth
     COOP_SINGLE ,dimension(:),intent(IN)::x,ylower, yupper
     COOP_UNKNOWN_STRING,optional::colorfill
-    COOP_UNKNOWN_STRING,optional:: linecolor, linetype
+    COOP_UNKNOWN_STRING,optional:: linecolor, linetype, legend
     COOP_SINGLE ,optional::linewidth
     COOP_INT  i,n
     COOP_STRING lineproperty
@@ -3522,6 +3579,16 @@ contains
     else
        write(this%unit, "(A)") "NULL"
     endif
+    if(present(legend))then
+       if(trim(legend).eq.'')then
+          write(this%unit, '(A)') "NULL"
+       else
+          write(this%unit, '(A)') trim(legend)
+       endif
+    else
+       write(this%unit, '(A)') "NULL"
+    endif
+
     if(present(smooth))then
        if(smooth)then
           write(this%unit, "(A)") "1"

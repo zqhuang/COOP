@@ -2,10 +2,16 @@ program Test
   use coop_wrapper_utils
   implicit none
 #include "constants.h"
-  type(coop_math_expression)::cme
-  integer error
-  COOP_REAL::res, ans
-  res = -sin(-12.5 )*exp(-1.2-2.**3 / 5.2)-14./53.
-  call coop_eval_math("$1 + $2", ans, (/ 14.d0, 5.2d0, 2.d0 /))
-  print*, res, ans
+  COOP_INT::i
+  do i= 1, 5
+     write(*,*) sqrt(-2.d0*log(coop_IncompleteGamma(0.5d0, dble(i)**2/2.d0)/sqrt(coop_pi)))
+  enddo
+
+
+contains
+
+  function gaussian(x)
+    COOP_REAL::x, gaussian
+    gaussian = exp(-x**2/2.d0)
+  end function gaussian
 end program Test

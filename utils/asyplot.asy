@@ -718,6 +718,7 @@ int plot_contour(file fin){
    pts = new real[2];
    int nlines, totallines;
    totallines = 0;
+   legend = trim_string(fetch_string(fin));
    for(int ipath = 0; ipath < npaths; ++ipath){
      nlines = fin;
      totallines = totallines + nlines;
@@ -739,9 +740,13 @@ int plot_contour(file fin){
        curves[ipath] = curves[ipath] -- cycle ;
       }
      }
+   if(legend == ''){
     if(trim_string(strfill) != "")  fill(mypic, curves, colorfill);
-    if(trim_string(strborder) != "")  draw(mypic, curves, colorborder); 
-    return totallines;}
+    if(trim_string(strborder) != "")  draw(mypic, curves, colorborder, legend = legend);}
+   else{
+     if(trim_string(strfill) != "")  fill(mypic, curves, colorfill);
+     if(trim_string(strborder) != "")  draw(mypic, curves, colorborder, legend =legend);}
+   return totallines;}
   else if(ctype == 2 ){
     real[] t;
     t = new real[2];

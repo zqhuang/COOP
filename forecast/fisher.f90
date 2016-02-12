@@ -241,6 +241,10 @@ contains
     COOP_INT::i, nz,nk,nmu,iz,ik,imu, lmin, lmax, n_channels, l
     if(present(filename))this%filename = trim(adjustl(filename))
     if(trim(this%filename) .eq. "") stop "observation_init: empty file name"
+    if(.not. coop_file_exists(this%filename)) then
+       write(*,*) "cannot find file "//trim(this%filename)
+       stop
+    endif
     call coop_load_dictionary(this%filename, this%settings)
     call coop_dictionary_lookup(this%settings, "genre", this%genre)
     this%genre = trim(adjustl(this%genre))

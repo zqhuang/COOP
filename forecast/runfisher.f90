@@ -18,7 +18,7 @@ program RunF
   call fisher%get_fisher()
 
   call fp%open(trim(root)//"_fisher.txt")
-  write(fp%unit, "(A2, "//COOP_STR_OF(fisher%n_params_used)//"A16)") "# ", fisher%paramtable%key(fisher%ind_used)
+  write(fp%unit, "("//COOP_STR_OF(fisher%n_params_used)//"A16)") fisher%paramtable%key(fisher%ind_used)
   do i=1, fisher%n_params_used
      write(fp%unit,"("//COOP_STR_OF(fisher%n_params_used)//"G16.7)") fisher%fisher(fisher%ind_used(i), fisher%ind_used) 
   enddo
@@ -26,7 +26,8 @@ program RunF
 
 
   call fp%open(trim(root)//"_cov.txt")
-  write(fp%unit, "(A2, "//COOP_STR_OF(fisher%n_params_used)//"A16)") "# ", fisher%paramtable%key(fisher%ind_used)
+  write(fp%unit, "("//COOP_STR_OF(fisher%n_params_used)//"A16)") fisher%paramtable%key(fisher%ind_used)
+  write(fp%unit, "("//COOP_STR_OF(fisher%n_params_used)//"G16.7)") fisher%paramtable%val(fisher%ind_used)
   do i=1, fisher%n_params_used
      write(fp%unit,"("//COOP_STR_OF(fisher%n_params_used)//"G16.7)") fisher%cov(fisher%ind_used(i), fisher%ind_used) 
   enddo
