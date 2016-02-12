@@ -710,6 +710,7 @@ int plot_contour(file fin){
    pen colorfill = pen_from_string(strfill);
    strborder = fetch_string(fin);
    pen colorborder = pen_from_string(strborder);
+   string legend = trim_string(fetch_string(fin));
    int smooth = fin;
    int npaths = fin; 
    path[] curves;
@@ -718,7 +719,6 @@ int plot_contour(file fin){
    pts = new real[2];
    int nlines, totallines;
    totallines = 0;
-   legend = trim_string(fetch_string(fin));
    for(int ipath = 0; ipath < npaths; ++ipath){
      nlines = fin;
      totallines = totallines + nlines;

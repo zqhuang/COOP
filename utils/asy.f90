@@ -321,8 +321,8 @@ contains
        write(this%unit, "(A)") "0"
     endif
     
-    write(this%unit,"(2G14.5)") this%xmin, this%xmax
-    write(this%unit,"(2G14.5)") this%ymin, this%ymax
+    write(this%unit,"(2G16.7)") this%xmin, this%xmax
+    write(this%unit,"(2G16.7)") this%ymin, this%ymax
     if(present(nblocks))then
        write(this%unit,"(I5)") nblocks    !!plot only n blocks
     else
@@ -355,8 +355,8 @@ contains
   subroutine coop_asy_write_limits(this, xmin, xmax, ymin, ymax)
     class(coop_asy) this
     COOP_SINGLE  xmin, xmax, ymin, ymax
-    write(this%unit, "(2G14.5)") xmin, xmax
-    write(this%unit, "(2G14.5)") ymin, ymax
+    write(this%unit, "(2G16.7)") xmin, xmax
+    write(this%unit, "(2G16.7)") ymin, ymax
     call this%adjust_virtual_boundary(xmin, ymin)
     call this%adjust_virtual_boundary(xmax, ymax)    
   end subroutine coop_asy_write_limits
@@ -367,10 +367,10 @@ contains
     COOP_SINGLE ,optional:: x2, y2
     call this%adjust_virtual_boundary(x, y)
     if(present(x2) .and. present(y2))then
-       write(this%unit, "(4G14.5)") x, y, x2, y2
+       write(this%unit, "(4G16.7)") x, y, x2, y2
        call this%adjust_virtual_boundary(x2, y2)
     else
-       write(this%unit, "(2G14.5)") x, y
+       write(this%unit, "(2G16.7)") x, y
     endif
   end subroutine coop_asy_write_coor
 
@@ -2113,7 +2113,7 @@ contains
        nc = coop_getdim("coop_asy_contour_arr_d", size(cvals), size(colorfill), size(linecolor), size(linetype))
     endif
     write(this%unit, "(I8)") nc
-    write(this%unit, "("//trim(coop_num2str(nc))//"G14.5)") cvals
+    write(this%unit, "("//trim(coop_num2str(nc))//"G16.7)") cvals
     do i = 1, nc
        write(this%unit, "(A)") trim(colorfill(i))
        if(present(linewidth))then
@@ -2156,7 +2156,7 @@ contains
        nc = coop_getdim("coop_asy_contour_arr_s", size(cvals), size(colorfill), size(linecolor), size(linetype))
     endif
     write(this%unit, "(I8)") nc
-    write(this%unit, "("//trim(coop_num2str(nc))//"G14.5)") cvals
+    write(this%unit, "("//trim(coop_num2str(nc))//"G16.7)") cvals
     do i = 1, nc
        write(this%unit, "(A)") trim(colorfill(i))
        if(present(linewidth))then
@@ -2220,7 +2220,7 @@ contains
        call coop_array_get_threshold(z, 0.01d0, maxz)
     endif
 
-    write(this%unit, "(2G14.5)") minz, maxz
+    write(this%unit, "(2G16.7)") minz, maxz
     write(this%unit, "(A)") "0"
     write(this%unit, "(2I8)") nx, ny
     do i=1,nx
@@ -2268,7 +2268,7 @@ contains
     else
        call coop_array_get_threshold(z, 0.01, maxz)
     endif
-    write(this%unit, "(2G14.5)") minz, maxz
+    write(this%unit, "(2G16.7)") minz, maxz
     write(this%unit, "(A)") "0"
     write(this%unit, "(2I8)") nx, ny
     do i=1,nx
@@ -2335,7 +2335,7 @@ contains
        write(this%unit,"(A)") "NULL"
     endif
     call this%write_limits(real(minx, sp), real(maxx, sp), real(miny, sp), real(maxy, sp))
-    write(this%unit, "(2G14.5)") minz, maxz
+    write(this%unit, "(2G16.7)") minz, maxz
     write(this%unit,"(A)") "1"
     write(this%unit,"(I10)") n
     do i=1,n
@@ -2403,7 +2403,7 @@ contains
        write(this%unit,"(A)") "NULL"
     endif
     call this%write_limits(minx, maxx, miny, maxy) !real(minx, sp), real(maxx, sp), real(miny, sp), real(maxy, sp))
-    write(this%unit, "(2G14.5)") minz, maxz
+    write(this%unit, "(2G16.7)") minz, maxz
     write(this%unit,"(A)") "1"
     write(this%unit,"(I10)") n
     do i=1,n
@@ -3092,7 +3092,7 @@ contains
     else
        write(this%unit, "(A)") "0"
     endif
-    write(this%unit, "(2G14.5)") xmin, xmax
+    write(this%unit, "(2G16.7)") xmin, xmax
   end subroutine coop_asy_topaxis_s
 
   subroutine coop_asy_topaxis_d(this, xmin, xmax, islog,label)
@@ -3121,7 +3121,7 @@ contains
     else
        write(this%unit, "(A)") "0"
     endif
-    write(this%unit, "(2G14.5)") ymin, ymax
+    write(this%unit, "(2G16.7)") ymin, ymax
   end subroutine coop_asy_rightaxis_s
 
   subroutine coop_asy_rightaxis_d(this, ymin, ymax, islog, label)
@@ -3168,7 +3168,7 @@ contains
        write(this%unit, "(A)") "black"
     endif
     if(present(barsize))then
-       write(this%unit, "(G14.5)") max(barsize, 0.)
+       write(this%unit, "(G16.7)") max(barsize, 0.)
     else
        write(this%unit, "(A)") "0."  !!automatically determined by asymptote
     endif
@@ -3183,7 +3183,7 @@ contains
        write(this%unit, "(A)") "black_solid_5"
     endif
     do i= 1,n
-       write(this%unit, "(6G14.5)") real(x(i)), real(y(i)), dxp(i), dxm(i), real(dy(i)), dym(i)
+       write(this%unit, "(6G16.7)") real(x(i)), real(y(i)), dxp(i), dxm(i), real(dy(i)), dym(i)
     enddo
     deallocate(dym, dxm, dxp)
   end subroutine coop_asy_errorbars_d
@@ -3225,7 +3225,7 @@ contains
        write(this%unit, "(A)") "black"
     endif
     if(present(barsize))then
-       write(this%unit, "(G14.5)") max(barsize, 0.)
+       write(this%unit, "(G16.7)") max(barsize, 0.)
     else
        write(this%unit, "(A)") "0."  !!automatically determined by asymptote
     endif
@@ -3240,7 +3240,7 @@ contains
        write(this%unit, "(A)") "black_solid_5"
     endif
     do i= 1,n
-       write(this%unit, "(6G14.5)") real(x(i)), real(y(i)), dxp(i), dxm(i), real(dy(i)), dym(i)
+       write(this%unit, "(6G16.7)") real(x(i)), real(y(i)), dxp(i), dxm(i), real(dy(i)), dym(i)
     enddo
     deallocate(dym, dxm, dxp)
   end subroutine coop_asy_errorbars_s  
@@ -3645,7 +3645,7 @@ contains
     class(coop_asy) this
     COOP_SINGLE xl, xr, yl, yr, dx, dy
     write(this%unit, "(A)") "EXPAND"
-    write(this%unit, "(4G14.5)")  xl, xr, yl, yr
+    write(this%unit, "(4G16.7)")  xl, xr, yl, yr
     dx = this%xmax - this%xmin
     dy = this%ymax - this%ymin
     this%xmin = this%xmin - dx*xl

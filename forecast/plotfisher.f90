@@ -3,20 +3,21 @@ program PlotF
   implicit none
 #include "constants.h"
   type(coop_asy)::fig
-  COOP_INT,parameter::nsamples = 360
+  COOP_INT,parameter::nsamples = 720
   COOP_STRING::xlabel, ylabel, filename, fcolor, bcolor, btype, output, caption, xvar, yvar, legend
   COOP_LONG_STRING::line
-  COOP_SINGLE::bwidth, xsize, ysize
-  COOP_INT::i, ixvar, iyvar, nkeys, ikey, ix, iy, ncontours, ic, itheta
+  COOP_SINGLE::bwidth, xsize, ysize,  xmin,xmax, ymin,ymax, xlegend, ylegend
+  COOP_INT::i, ixvar, iyvar, nkeys, ikey, ix, iy, ncontours, ic, itheta, npt, lcols
   COOP_REAL,dimension(:),allocatable::covline
-  COOP_REAL::cov(2,2), mean(2)
-  COOP_REAL::x(nsamples), y(nsamples), r, rho, theta(nsamples)
+  COOP_REAL::cov(2,2), mean(2), eigs(2)
+  COOP_REAL::x(nsamples), y(nsamples), r, rho, theta(nsamples), sqrteigs(2), vec(2)
   COOP_REAL::cls(3) = (/ 0.683d0, 0.954d0, 0.997d0 /)
   type(coop_file)::fp
   type(coop_list_string)::ls
+  logical::has_legend 
   if(iargc() < 2)then
      write(*,*) "Syntax:"
-     write(*,*) "./PLOTF -out OUTPUT -xvar X -yvar Y -file1 FILE1 -color1 COLOR1 -linetype1 LINETYPE1 -linewidth1 LINEWIDTH1 [-legend1 LEGEND1 -fillcolor1 FILLCOLOR1 -xlabel Xlabel -ylabel Ylabel -caption CAPTION -ncontours NCONTOURS -file2 ... -color2 ...] "
+     write(*,*) "./PLOTF -out OUTPUT -xvar X -yvar Y -cov1 COVFILE1 -color1 COLOR1  [-linetype1 LINETYPE1 -linewidth1 LINEWIDTH1 -legend1 LEGEND1 -fillcolor1 FILLCOLOR1 -width FIG_WIDTH_INCH -height FIG_HEIGHT_INCH -xlabel XLABEL -ylabel YLABE -caption CAPTION -ncontours NCONTOURS -file2 ... -color2 ...-xlegend XLEGEND -ylegend YLEGEND -legend_cols LEGEND_COLUMNS -xmin XMIN -xmax XMAX -ymin YMIN -ymax YMAX] "
      stop
   endif
   call coop_set_uniform(nsamples, theta, coop_pi/nsamples, coop_2pi*(nsamples-0.5)/nsamples)
@@ -29,9 +30,17 @@ program PlotF
   call coop_get_command_line_argument(key = 'ylabel', arg = ylabel, default='NULL')
   call coop_get_command_line_argument(key = 'width', arg = xsize, default= 8.)
   call coop_get_command_line_argument(key = 'height', arg = ysize, default= 6.)
+  call coop_get_command_line_argument(key = 'xmin', arg = xmin, default= 1.1e31)
+  call coop_get_command_line_argument(key = 'xmax', arg = xmax, default= -1.1e31)
+  call coop_get_command_line_argument(key = 'ymin', arg = ymin, default= 1.1e31)
+  call coop_get_command_line_argument(key = 'ymax', arg = ymax, default= -1.1e31)
+  call coop_get_command_line_argument(key = 'xlegend', arg = xlegend, default= 0.5)
+  call coop_get_command_line_argument(key = 'ylegend', arg = ylegend, default= 0.95)
+  call coop_get_command_line_argument(key = 'legend_cols', arg = lcols, default = 1)
 
   call fig%open(output)
   call fig%init(xlabel = xlabel, ylabel = ylabel, caption = caption, width= xsize, height = ysize)
+  has_legend = .false.
   do i = 1, 5
      call coop_get_command_line_argument(key = 'cov'//COOP_STR_OF(i), arg = filename, default = '')
      if(trim(filename) == '')cycle
@@ -74,20 +83,25 @@ program PlotF
      enddo
      deallocate(covline)
      call fp%close()
-     call coop_sympos_inverse(2, 2, cov)
+     call coop_matsym_sqrt_small(2, cov)
+     sqrteigs = sqrt(eigs)
      do ic = 1, ncontours
         r = sqrt(-2.d0*log(coop_IncompleteGamma(0.5d0, dble(ic)**2/2.d0)/coop_sqrtpi))
         do itheta  = 1, nsamples
-           rho = r/sqrt(cov(1,1)*cos(theta(itheta))**2 + cov(2,2)*sin(theta(itheta))**2 + 2.d0*cov(1,2)*cos(theta(itheta))*sin(theta(itheta)))
-           x = rho*cos(theta(itheta))+ mean(1)
-           y = rho*sin(theta(itheta))+mean(2)
+           vec(1) = r*cos(theta(itheta))
+           vec(2) = r*sin(theta(itheta))
+           vec = matmul(cov, vec) + mean
+           x(itheta) = vec(1) 
+           y(itheta) = vec(2)
         enddo
         if(ic .eq. 1 .and. legend .ne.'')then
            call fig%contour(x = x, y = y, colorfill = fcolor, linecolor = bcolor, linetype = btype, linewidth = bwidth, legend=legend)
+           has_legend = .true.
         else
            call fig%contour(x = x, y = y, colorfill = fcolor, linecolor = bcolor, linetype = btype, linewidth = bwidth)
         endif
      enddo
   enddo
+  if(has_legend)call fig%legend(xratio = xlegend, yratio = ylegend, cols = lcols)
   call fig%close()
 end program PlotF
