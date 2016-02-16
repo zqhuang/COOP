@@ -59,6 +59,7 @@ module coop_asy_mod
      procedure::expand => coop_asy_expand
      procedure::arrow => coop_asy_arrow_d
      procedure::arrows => coop_asy_arrows_d
+     procedure::annotate => coop_asy_annotate_d
      procedure::adjust_virtual_boundary => coop_asy_adjust_virtual_boundary
   end type coop_asy
 
@@ -69,6 +70,11 @@ module coop_asy_mod
   interface coop_asy_arrow
      module procedure coop_asy_arrow_d, coop_asy_arrow_s
   end interface coop_asy_arrow
+
+  interface coop_asy_annotate
+     module procedure coop_asy_annotate_d, coop_asy_annotate_s
+  end interface coop_asy_annotate
+
 
   interface coop_asy_arrows
      module procedure coop_asy_arrows_d, coop_asy_arrows_s
@@ -3653,6 +3659,68 @@ contains
     this%ymin = this%ymin - dy*yl
     this%ymax = this%ymax + dy*yr
   end subroutine coop_asy_expand
+
+  subroutine coop_asy_annotate_d(this, text, x, y, xtext, ytext, color, linetype, linewidth)
+    class(coop_asy)::this
+    COOP_UNKNOWN_STRING::text
+    COOP_UNKNOWN_STRING,optional::color, linetype
+    COOP_REAL::x, y, xtext, ytext
+    COOP_SINGLE,optional::linewidth
+    COOP_STRING::lineproperty
+    write(this%unit, "(A)") "ANNOTATE"
+    if(present(color))then
+       lineproperty=trim(color)
+    else
+       lineproperty = "black"
+    endif
+    if(present(linetype))then
+       lineproperty = trim(lineproperty)//"_"//trim(linetype)
+    else
+       lineproperty = trim(lineproperty)//"_solid"
+    endif
+    if(present(linewidth))then
+       lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
+    endif
+    write(this%unit, "(A)") trim(lineproperty)
+    write(this%unit, "(4G16.7)") x, y, xtext, ytext
+    if(trim(text).eq."")then
+       write(this%unit, "(A)") "NULL"
+    else
+       write(this%unit, "(A)") trim(text)
+    endif
+  end subroutine coop_asy_annotate_d
+
+  subroutine coop_asy_annotate_s(this, text, x, y, xtext, ytext, color, linetype, linewidth)
+    class(coop_asy)::this
+    COOP_UNKNOWN_STRING::text
+    COOP_UNKNOWN_STRING,optional::color, linetype
+    COOP_SINGLE::x, y, xtext, ytext
+    COOP_SINGLE,optional::linewidth
+    COOP_STRING::lineproperty
+    write(this%unit, "(A)") "ANNOTATE"
+    if(present(color))then
+       lineproperty=trim(color)
+    else
+       lineproperty = "black"
+    endif
+    if(present(linetype))then
+       lineproperty = trim(lineproperty)//"_"//trim(linetype)
+    else
+       lineproperty = trim(lineproperty)//"_solid"
+    endif
+    if(present(linewidth))then
+       lineproperty = trim(lineproperty)//"_"//trim(coop_num2str(linewidth))
+    endif
+    write(this%unit, "(A)") trim(lineproperty)
+    write(this%unit, "(4G16.7)") x, y, xtext, ytext
+    if(trim(text).eq."")then
+       write(this%unit, "(A)") "NULL"
+    else
+       write(this%unit, "(A)") trim(text)
+    endif
+  end subroutine coop_asy_annotate_s
+
+
 
   subroutine coop_asy_arrow_d(this, xstart, ystart, xend, yend, color, linetype, linewidth)
     class(coop_asy)::this

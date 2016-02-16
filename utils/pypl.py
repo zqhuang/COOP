@@ -29,6 +29,7 @@ def load_dictionary(dic, filename):
     fp.close()
 
 ##load the file to a dictionary
+
 settings = {}
 load_dictionary(settings, sys.argv[1])
 
@@ -127,9 +128,7 @@ def read_str(fp, default=""):
     else:
         return s
 
-
-
-invisible= ( 1., 1., 1., 1. )
+invisible= ( 1., 1., 1., 0. )
     
 
 def line_config(lc):
@@ -181,7 +180,7 @@ def line_config(lc):
             color=(0.5, 0.5, 0.5)
         elif(genre=="maroon"):
             color=(0.51, 0.02, 0.25)
-        elif(genre=='purple'):
+        elif(genre=='purple', 'p'):
             color = colorConverter.to_rgb("#a020f0")
         elif(genre=='brown'):
             color = colorConverter.to_rgb("#a52a2a")
@@ -191,9 +190,9 @@ def line_config(lc):
             color = colorConverter.to_rgb("#556b2f")
         elif(genre=='turquoise'):
             color = colorConverter.to_rgb("#40e0d0")
-        elif(genre=='lightgray'):
+        elif(genre=='lightgray', 'lightgrey'):
             color=(0.75, 0.75, 0.75)
-        elif(genre=='darkgray'):
+        elif(genre=='darkgray', 'darkgrey'):
             color=(0.25, 0.25, 0.25)
         elif(genre=='lightred'):
             color = (1., 0.1, 0.1)
@@ -230,6 +229,12 @@ def line_config(lc):
             linewidth = 1.
     else:
         linewidth = 1. 
+    if(len(c)>3):
+        try:
+            alpha = float(c[3])
+            color.append(alpha)
+        except:
+            print "Warning: error in alpha transparency parameter. Ignored."
     return ( color, linetype, linewidth )
 
 def get_line_config(fp):
@@ -270,18 +275,40 @@ def plot_legend_advance(ax, fp):
     hskip = read_float(fp)
     vskip = read_float(fp)
     cols = read_int(fp)
-    cstr = read_str(fp)
+    cstr = read_str(fp).upper()
     if(cstr == ''):
-        loc=read_float_arr(fp)
-    ax.legend()
+        loc=read_float_arr(fp)  #ignroe, only treated in Asymptote
+        ax.legend(ncol = cols)
+    else:
+        if(cstr == 'N' or cstr == '9'):
+            loc = 9
+        elif(cstr == 'E' or cstr == '7'):
+            loc = 4
+        elif(cstr == 'S' or cstr == '8'):
+            loc = 8
+        elif(cstr == 'W' or cstr == '6'):
+            loc = 6
+        elif(cstr == 'NE' or cstr == '1'):
+            loc = 1
+        elif(cstr == 'NW' or cstr == '2'):
+            loc = 2
+        elif(cstr == 'SE' or cstr == '4'):
+            loc = 4
+        elif(cstr == 'SW' or cstr == '3'):
+            loc = 3
+        elif(cstr == 'C' or cstr == '10'):
+            loc = 10
+        else:
+            loc = 0
+        ax.legend(ncol = cols, loc = loc)
 
 def plot_legend(ax, fp):
-    lc = read_str(fp)
-    if( lc == ''):
-        loc = read_float_arr(fp)
+    cstr = read_str(fp)
+    if( cstr == ''):
+        loc = read_float_arr(fp)  #ignore, only treated in Asymptote
         cols = read_int(fp)
-        ax.legend()
-    elif(lc=='VIRTUAL'):
+        ax.legend(ncols = cols)
+    elif(cstr == 'VIRTUAL'):
         legend = read_str(fp)
         (color, linetype, linewidth) = get_line_config(fp)
         if(linewidth >= 4.):
@@ -291,7 +318,27 @@ def plot_legend(ax, fp):
         ax.legend(handles=[mypatch])            
     else:
         cols = read_int(fp)
-        ax.legend()
+        if(cstr == 'N' or cstr == '9'):
+            loc = 9
+        elif(cstr == 'E' or cstr == '7'):
+            loc = 4
+        elif(cstr == 'S' or cstr == '8'):
+            loc = 8
+        elif(cstr == 'W' or cstr == '6'):
+            loc = 6
+        elif(cstr == 'NE' or cstr == '1'):
+            loc = 1
+        elif(cstr == 'NW' or cstr == '2'):
+            loc = 2
+        elif(cstr == 'SE' or cstr == '4'):
+            loc = 4
+        elif(cstr == 'SW' or cstr == '3'):
+            loc = 3
+        elif(cstr == 'C' or cstr == '10'):
+            loc = 10
+        else:
+            loc = 0
+        ax.legend(ncol = cols, loc = loc)
 
 def plot_labels(ax, fp):
     n = read_int(fp)
@@ -302,7 +349,7 @@ def plot_labels(ax, fp):
     for i in range(n):
         xy = read_float_arr(fp)
         label = read_str(fp)
-        ax.text(xy[0],xy[1], label, color=color)
+        ax.text(xy[0],xy[1], label, color=color, ha='center')
 
 def plot_rightlabels(ax, fp):
     n = read_int(fp)
@@ -392,7 +439,7 @@ def plot_density(ax, fp):
     zr = read_float_arr(fp)
     irr = read_int(fp)
     grid=[]
-    if(irr == 0):  # regular points
+    if(irr == 0 or irr == -1):  # regular points
         n = read_int_arr(fp)
         for i in range(n[0]):
             x = read_float_arr(fp)
@@ -406,7 +453,9 @@ def plot_density(ax, fp):
         else:
             im = ax.imshow(grid, extent = [xr[0], xr[1], yr[0], yr[1]])
         #colorbar is ignored in python multiple panels; use Asymptot for the full support
-        return
+        if(irr == 0):
+            mycb = plt.colorbar(im)
+            mycb.set_label(zlabel)
     else:
         print "irregular density plot is not supported yet; use asymptote for the full support"
         sys.exit()
@@ -417,9 +466,65 @@ def plot_clip(ax, fp):
     sys.exit()
 
 def plot_errorbars(ax, fp):
-    print 'errorbars not supported yet; use Asymptote for the full support'
-    sys.exit()
+    n = read_int(fp)
+    if(n <=0 or n > 100000):
+        print "too many errorbars to plot"
+        sys.exit()
+    (color, ls, lw) = get_line_config(fp)
+    barsize = read_float(fp) #ignroed; use Asymptote for full support.
+    center_symbol = read_str(fp)
+    (ccolor, cls, clw) = get_line_config(fp)
+    x = []
+    y = []
+    xm = []
+    xp = []
+    ym = []
+    yp = []
+    hasxerr = False
+    hasyerr = False
+    for i in range(n):
+        pts = read_float_arr(fp)
+        x.append(pts[0])
+        y.append(pts[1])
+        xm.append(pts[3])
+        xp.append(pts[2])
+        ym.append(pts[5])
+        yp.append(pts[4])
+        if(pts[2] > 0. or pts[3] > 0.):
+            hasxerr = True
+        if(pts[4] > 0. or pts[5] > 0.):
+            hasyerr = True
+    xerr = [xm, xp]
+    yerr = [ym, yp]
+    if(center_symbol == ''):
+        if(hasxerr and hasyerr):
+            ax.errorbar(x, y, ecolor = color, elinewidth = lw, xerr = xerr, yerr = yerr, fmt = None)
+        elif(hasxerr):
+            ax.errorbar(x, y, ecolor = color, elinewidth = lw, xerr = xerr, fmt = None)
+        elif(hasyerr):
+            ax.errorbar(x, y, ecolor = color, elinewidth = lw, yerr = yerr, fmt = None)
+        else:
+            print "Warning: all errorbars are zero?"
+    elif(center_symbol == 'DOT') :
+        if(hasxerr and hasyerr):
+            ax.errorbar(x, y, ecolor = color, elinewidth = lw,  mfc = ccolor, xerr = xerr, yerr = yerr, fmt = 'o', fillstyle = 'full')
+        elif(hasxerr):
+            ax.errorbar(x, y, ecolor = color, elinewidth = lw,  mfc = ccolor, xerr = xerr, fmt = 'o', fillstyle = 'full')
+        elif(hasyerr):
+            ax.errorbar(x, y, ecolor = color, elinewidth = lw,  mfc = ccolor, yerr = yerr, fmt = 'o', fillstyle = 'full')
+        else:
+            print "Warning: all errorbars are zero?"        
+    else:
+        if(hasxerr and hasyerr):
+            ax.errorbar(x, y, ecolor = color, elinewidth = lw,  mfc = ccolor, xerr = xerr, yerr = yerr, fmt = center_symbol )
+        elif(hasxerr):
+            ax.errorbar(x, y, ecolor = color, elinewidth = lw,  mfc = ccolor, xerr = xerr, fmt = center_symbol)
+        elif(hasyerr):
+            ax.errorbar(x, y, ecolor = color, elinewidth = lw,  mfc = ccolor, yerr = yerr, fmt = center_symbol)
+        else:
+            print "Warning: all errorbars are zero?"
 
+    
 def plot_arrows(ax, fp):
     n = read_int(fp)
     if(n <=0 or n > 100000):
@@ -428,14 +533,25 @@ def plot_arrows(ax, fp):
     (c, ls, lw) = get_line_config(fp)
     for i in range(n):
         xyxy = read_float_arr(fp)
-        ax.arrow( xyxy[0], xyxy[1], xyxy[2], xyxy[3], head_width=0.05, head_length = 0.1, fc=c, ec = c)
+        ax.plot( x= (xyxy[0], xyxy[2]), y = (xyxy[1], xyxy[3]), color = c, ls= ls, lw = lw, clip_on = False)
+
+def plot_annotate(ax, fp):
+    (c, ls, lw) = get_line_config(fp)
+    xyxy = read_float_arr(fp)
+    label = read_str(fp)
+    ax.annotate(s=label, xy = (xyxy[0], xyxy[1]), xytext = (xyxy[2], xyxy[3]), xycoords='data', textcoords='data', annotation_clip = False, arrowprops = dict(color=c, lw = lw, ls=ls))
+
 
 def plot_extra_axis(ax, fp):
-    print 'extra_axis not supported yet; use Asymptote for the full support'
-    sys.exit()
+    loc = read_str(fp)
+    label = read_str(fp)
+    islog = read_int(fp)
+    minmax = read_float_arr(fp)
+    print 'Warning: ignored an extra_axis entry; use Asymptote for the full support.'
 
 def plot_expand(ax, fp):
     expfac = read_float_arr(fp)
+    print 'Warning: ignored an EXPAND entry; use Asymptote for the full support.'
     #in python i just ignore this; for full support go for asymptote
 
 def loadfig(ax, filename):
@@ -464,6 +580,8 @@ def loadfig(ax, filename):
         ax.set_xlabel(xlabel)
     if(ylabel !=''):
         ax.set_ylabel(ylabel)
+        for tick in ax.get_yticklabels():
+            tick.set_rotation(90)
     if(islog[0]):
         ax.set_xscale("log", nonposx='clip')
     if(islog[1]):
@@ -507,8 +625,10 @@ def loadfig(ax, filename):
             plot_clip(ax, fp)
         elif(genre=="EXPAND"):
             plot_expand(ax, fp)
-        elif(genre=="ERRPRBARS"):
+        elif(genre=="ERRORBARS"):
             plot_errorbars(ax, fp)
+        elif(genre=="ANNOTATE"):
+            plot_annotate(ax, fp)
         elif(genre=="ARROWS"):
             plot_arrows(ax, fp)
         elif(genre=="EXTRA_AXIS"):
@@ -561,6 +681,5 @@ else:
             loadfig(axarr, filename)
         except:
             print filename + ' cannot be plooted'
-
 
 plt.savefig(sys.argv[2], format='pdf')
