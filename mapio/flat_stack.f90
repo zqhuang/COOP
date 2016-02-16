@@ -44,7 +44,7 @@ program Stacking_Maps
      write(*,"(A)") "----------------------------------------------------------"     
      stop
   endif
-  call coop_get_command_line_argument(key = 'norm_power', arg = norm_power, default = 0.)
+  call coop_get_command_line_argument(key = 'norm_power', arg = norm_power, default = 0.d0)
   call coop_get_command_line_argument(key = 'map', arg = map_file)
   call coop_get_command_line_argument(key = 'peaks', arg = peak_file)
   call coop_get_command_line_argument(key = 'field', arg = field_name)  
