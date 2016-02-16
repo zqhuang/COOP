@@ -120,8 +120,8 @@ contains
     if(this%norm_power.ne.0.d0)then
        call this%peak_map%get_element(i, map)
        norm = max(abs((map(this%index_I)/this%sigma_I)), 1.d-5)**this%norm_power
-       if(this%abs_threshold) &
-            norm = sign(norm, map(this%index_I))
+       if(this%abs_threshold .and. map(this%index_I).lt.0.) &
+            norm = -norm
     else
        if(this%abs_threshold)then
           call this%peak_map%get_element(i, map)
