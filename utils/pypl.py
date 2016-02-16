@@ -248,6 +248,8 @@ def line_config(lc):
             color = colorConverter.to_rgb("#9400d3")
         elif(genre=='springgreen'):
             color = colorConverter.to_rgb("#00ff7f")
+        else:
+            color = invisible
     if(len(c) > 1):
         linetype = c[1]
     else:
@@ -259,7 +261,7 @@ def line_config(lc):
             linewidth = 1.
     else:
         linewidth = 1. 
-    if(len(c)>3):
+    if(len(c)>3 and len(color)<4):
         try:
             alpha = float(c[3])
             color.append(alpha)
@@ -410,8 +412,8 @@ def plot_contour(ax, fp):
         (cb, lsb, lwb) = get_line_config(fp)
         legend = read_str(fp)
         smooth = read_logical(fp)
-        np = read_int(fp)
-        for ip in range(np):
+        nc = read_int(fp)
+        for ip in range(nc):
             n = read_int(fp)
             x = []
             y = []
@@ -427,9 +429,45 @@ def plot_contour(ax, fp):
                 ax.plot(x, y, color=cb, ls = lsb, lw = lwb)                
             ax.fill(x, y, color=cf)
     else:
-        print "type II contour is not supported yet; use Asymptote for the full support"
-        sys.exit()
-            
+        xr = read_float_arr(fp)
+        yr = read_float_arr(fp)
+        nc = read_int(fp)
+        cvals = read_float_arr(fp)
+        fcolor = []
+        bcolor = []
+        fls = []
+        bls = []
+        flw = []
+        blw = []
+        falpha = []
+        balpha = []
+        for i in range(nc):
+            (color, ls, lw) = get_line_config(fp)
+            if(len(color)>3):
+                falpha.append(color[3])
+                fcolor.append([color[0], color[1], color[2]])
+            else:
+                falpha.append(1.)
+                fcolor.append(color)
+            fls.append(ls)
+            flw.append(lw)
+            (color, ls, lw) = get_line_config(fp)
+            bcolor.append(color)
+            bls.append(ls)
+            blw.append(lw)
+        smooth = read_logical(fp)
+        n = read_int_arr(fp)
+        grid = []
+        for i in range(n[0]):
+            x = read_float_arr(fp)
+            grid.append(x)
+        grid = np.array(grid).transpose()
+        grid = grid[::-1]
+        mcvals = cvals
+        mcvals.append(grid.max())
+        ax.contourf(grid, colors = fcolor, linstyles = fls, extent = [xr[0], xr[1], yr[0], yr[1]], levels = cvals, alphas = falpha)
+        ax.contour(grid, colors = bcolor, linewidths = blw, linestypes = bls, extent = [xr[0], xr[1], yr[0], yr[1]], levels = cvals)
+
 def plot_lines(ax, fp):
     n = read_int(fp)
     if(n<=0 or n>1000000):
