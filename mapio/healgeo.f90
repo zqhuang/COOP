@@ -55,6 +55,7 @@ module coop_healpix_mod
      COOP_INT::center
      COOP_INT::ordering = COOP_RING
      COOP_REAL::norm = 1.d0
+     COOP_REAL::wnorm = 1.d0
    contains
      procedure :: pix2ang => coop_healpix_disc_pix2ang
      procedure :: ang2pix => coop_healpix_disc_ang2pix
@@ -2790,7 +2791,11 @@ contains
     else
        patch%image = patch%image + tmp_patch%image
     endif
-    patch%nstack = patch%nstack + tmp_patch%nstack
+    if(disc%wnorm .ne. 1.d0)then
+       patch%nstack = patch%nstack + tmp_patch%nstack*disc%wnorm
+    else
+       patch%nstack = patch%nstack + tmp_patch%nstack
+    endif
     patch%nstack_raw = patch%nstack_raw + tmp_patch%nstack_raw
   end subroutine coop_healpix_maps_stack_on_patch
 
@@ -4263,6 +4268,7 @@ contains
        do i=ithread, sto%peak_pix%n, n_threads
           call this%get_disc(sto%pix(this%nside, i), disc(ithread))
           disc(ithread)%norm = sto%norm(i)
+          disc(ithread)%wnorm = sto%wnorm(i)
           if(present(mask))then
              call this%stack_on_patch(disc(ithread), sto%rotate_angle(i), p(ithread), tmp(ithread), mask)    
           else
@@ -4284,7 +4290,9 @@ contains
     endif
     if(patch%nstack_raw .ne. 0)then
        do i=1, patch%nmaps
-          patch%image(:, :, i) = patch%image(:, :, i)/max(patch%nstack, 1.d0)
+          where(patch%nstack .ne. 0.d0)
+             patch%image(:, :, i) = patch%image(:, :, i)/patch%nstack
+          end where
        enddo
     else
        write(*,*) "warning: no patches has been found"

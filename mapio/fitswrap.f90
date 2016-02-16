@@ -2201,7 +2201,7 @@ contains
     !$omp parallel do private(i, ithread)
     do ithread = 1, n_threads
        do i=ithread, sto%peak_pix%n, n_threads
-          call this%stack_on_patch(center = sto%peak_pix%element(i), angle = sto%rotate_angle(i), patch = p(ithread), tmp_patch = tmp(ithread), factor = sto%norm(i))
+          call this%stack_on_patch(center = sto%peak_pix%element(i), angle = sto%rotate_angle(i), patch = p(ithread), tmp_patch = tmp(ithread), factor = sto%norm(i), weight = sto%wnorm(i))
        enddo
     enddo
     !$omp end parallel do
@@ -2218,7 +2218,9 @@ contains
     endif
     if(patch%nstack_raw .ne. 0)then
        do i=1, patch%nmaps
-          patch%image(:, :, i) = patch%image(:, :, i)/max(patch%nstack, 1.d0)
+          where(patch%nstack .ne. 0.d0)
+             patch%image(:, :, i) = patch%image(:, :, i)/patch%nstack
+          end where
        enddo
     else
        write(*,*) "warning: no patches has been found"
@@ -2227,12 +2229,12 @@ contains
   end subroutine coop_flatsky_maps_stack_on_peaks
 
 
-  subroutine coop_flatsky_maps_stack_on_patch(this, center, angle, patch, tmp_patch, factor)
+  subroutine coop_flatsky_maps_stack_on_patch(this, center, angle, patch, tmp_patch, factor, weight)
     class(coop_flatsky_maps)::this
     COOP_REAL angle
     COOP_INT::center
     type(coop_healpix_patch) patch, tmp_patch
-    COOP_REAL::factor
+    COOP_REAL::factor, weight
     if(angle .ge. 1.d30)return
     call this%fetch_patch(center = center, angle = angle, patch = tmp_patch)
     if(sum(tmp_patch%nstack*tmp_patch%indisk) .lt. patch%num_indisk_tol)return
@@ -2246,7 +2248,11 @@ contains
     else
        patch%image = patch%image + tmp_patch%image
     endif
-    patch%nstack = patch%nstack + tmp_patch%nstack
+    if(weight .ne. 1.d0)then
+       patch%nstack = patch%nstack + tmp_patch%nstack*weight
+    else
+       patch%nstack = patch%nstack + tmp_patch%nstack
+    endif
     patch%nstack_raw = patch%nstack_raw + tmp_patch%nstack_raw
   end subroutine coop_flatsky_maps_stack_on_patch
 

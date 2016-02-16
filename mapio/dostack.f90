@@ -6,7 +6,7 @@ program Stacking_Maps
 #include "constants.h"
 #ifdef HAS_HEALPIX
   logical::remove_mono = .true.
-  logical::randrot, want_pdf
+  logical::randrot, want_pdf, norm_to_corr
   COOP_REAL::norm_power 
   COOP_STRING::mask_file, peak_file, map_file, output, imask_file, polmask_file, field_name
   COOP_INT::n = 100
@@ -44,6 +44,7 @@ program Stacking_Maps
      write(*,"(A)") "-fft [F|T]"
      write(*,"(A)") "-want_pdf [F|T] ##want pdf output"     
      write(*,"(A)") "-norm_power [0]   ##normalize the image by T_center^norm_power"     
+     write(*,"(A)") "-norm_to_corr [F/T] ##normalize the weight such that the expected radial profile is C(theta)"
      write(*,"(A)") "----------------------------------------------------------"     
      stop
   endif
@@ -82,6 +83,7 @@ program Stacking_Maps
   call sto%import(peak_file)
   sto%angzero = .not. randrot
   sto%norm_power = norm_power
+  sto%norm_to_corr = norm_to_corr
   call hgm%read(map_file)
   call patch%init(field_name, n, dr)
   if(trim(mask_file) .ne. "NONE")then

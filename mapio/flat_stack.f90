@@ -9,6 +9,7 @@ program Stacking_Maps
   logical,parameter::remove_mono = .true.
   logical::randrot, want_pdf
   COOP_REAL::norm_power
+  logical norm_to_corr
   COOP_STRING::peak_file, map_file, output,field_name
   COOP_INT::n = 100
   COOP_REAL::r_degree, dr
@@ -40,15 +41,18 @@ program Stacking_Maps
      write(*,"(A)") "-want_arrow [T|F]"
      write(*,"(A)") "-fft [F|T]"
      write(*,"(A)") "-want_pdf [T|F]"     
-     write(*,"(A)") " -norm_power [0]  #renormlize each patch with (I/sigma_I)^n"     
+     write(*,"(A)") "-norm_power [0]  #renormlize each patch with (I/sigma_I)^n"     
+     write(*,"(A)") "-norm_to_corr [F/T]  #renormlize weight so that the expected radial profile is Corr(theta); this only works for field points stacking."
      write(*,"(A)") "----------------------------------------------------------"     
      stop
   endif
   call coop_get_command_line_argument(key = 'norm_power', arg = norm_power, default = 0.d0)
+  
   call coop_get_command_line_argument(key = 'map', arg = map_file)
   call coop_get_command_line_argument(key = 'peaks', arg = peak_file)
   call coop_get_command_line_argument(key = 'field', arg = field_name)  
   call coop_get_command_line_argument(key = 'randrot', arg = randrot, default = .true.)
+  call coop_get_command_line_argument(key = 'randrot', arg = norm_to_corr, default = .false.)
   call coop_get_command_line_argument(key = 'want_pdf', arg = want_pdf, default = .false.)  
   call coop_get_command_line_argument(key = 'min', arg = zmin1, default=1.d31)
   call coop_get_command_line_argument(key = 'max', arg = zmax1, default=-1.d31)  
@@ -75,6 +79,7 @@ program Stacking_Maps
   call sto%import(peak_file)
   sto%angzero = .not. randrot
   sto%norm_power = norm_power
+  sto%norm_to_corr = norm_to_corr
   write(*,*) "reading the map file "//trim(map_file)
   call fm%read(map_file)
   if(remove_mono)call fm%remove_mono()

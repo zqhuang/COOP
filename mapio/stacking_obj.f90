@@ -65,7 +65,8 @@ module coop_stacking_mod
      COOP_SINGLE::P2byL2_upper = 1.e15
      COOP_INT::threshold_option = 0
      logical::abs_threshold = .false.
-     COOP_INT::norm_power = 0.d0
+     logical::norm_to_corr = .false.
+     COOP_REAL::norm_power = 0.d0
      logical::addpi = .true.  !!randomly add pi on polarization directions
      logical::angzero = .true.  !!do not rotate
      logical::nested = .true.
@@ -74,6 +75,7 @@ module coop_stacking_mod
      type(coop_list_realarr)::peak_map
    contains
      procedure::norm => coop_stacking_options_norm
+     procedure::wnorm => coop_stacking_options_wnorm
      procedure::export => coop_stacking_options_export
      procedure::import => coop_stacking_options_import
      procedure::subset =>  coop_stacking_options_subset
@@ -131,6 +133,24 @@ contains
        endif
     endif
   end function coop_stacking_options_norm
+
+  function coop_stacking_options_wnorm(this, i) result(wnorm)
+    class(coop_stacking_options)::this
+    COOP_INT::i
+    COOP_SINGLE::map(this%nmaps)
+    COOP_REAL::wnorm
+    if(this%norm_to_corr)then
+       if(this%norm_power .ne. -1.d0)then
+          call this%peak_map%get_element(i, map)
+          wnorm = max(abs((map(this%index_I)/this%sigma_I)), 1.d-5)**(this%norm_power+1.d0)/this%sigma_I
+       else
+          wnorm  = 1.d0
+       endif
+    else
+       wnorm = 1.d0
+    endif
+  end function coop_stacking_options_wnorm
+
 
   subroutine coop_stacking_options_subset(this, subset)
     class(coop_stacking_options)::this
@@ -216,7 +236,7 @@ contains
     write(fp%unit) this%genre, this%nmaps, this%nside,this%nside2, this%index_peak, this%index_I, this%index_Q, this%index_U, this%index_L
     write(fp%unit) this%I_lower, this%I_upper, this%L_lower, this%L_upper, this%P2_lower, this%P2_upper, this%I_lower_nu, this%I_upper_nu, this%L_lower_nu, this%L_upper_nu, this%P_lower_nu, this%P_upper_nu, this%P2byI2_lower, this%P2byI2_upper, this%P2byL2_lower, this%P2byL2_upper, this%norm_power
     write(fp%unit) this%caption
-    write(fp%unit) this%threshold_option, this%abs_threshold, this%addpi, this%nested, this%angzero
+    write(fp%unit) this%threshold_option, this%abs_threshold, this%norm_to_corr, this%addpi, this%nested, this%angzero
     write(fp%unit) this%peak_pix%n
     do i=1, this%peak_pix%n
        write(fp%unit) this%peak_pix%element(i), this%peak_ang%element(i), this%peak_map%element(i)
@@ -242,7 +262,7 @@ contains
     read(fp%unit) this%genre, this%nmaps, this%nside, this%nside2, this%index_peak, this%index_I, this%index_Q, this%index_U, this%index_L
     read(fp%unit) this%I_lower, this%I_upper, this%L_lower, this%L_upper, this%P2_lower, this%P2_upper, this%I_lower_nu, this%I_upper_nu, this%L_lower_nu, this%L_upper_nu, this%P_lower_nu, this%P_upper_nu, this%P2byI2_lower, this%P2byI2_upper, this%P2byL2_lower, this%P2byL2_upper, this%norm_power
     read(fp%unit) this%caption
-    read(fp%unit) this%threshold_option, this%abs_threshold, this%addpi, this%nested, this%angzero
+    read(fp%unit) this%threshold_option, this%abs_threshold, this%norm_to_corr, this%addpi, this%nested, this%angzero
     allocate(map(this%nmaps))
     read(fp%unit) n
     do i=1, n
@@ -453,12 +473,12 @@ contains
     class(coop_stacking_options)::this
     COOP_UNKNOWN_STRING::peak_name, orient_name
     COOP_SHORT_STRING::p
-    logical domax
+    logical hot, cold, domax
     COOP_INT::nmaps
     call this%free()
     this%mask_int = .false.
     this%mask_pol  = .false.
-    this%nmaps = nmaps    
+    this%nmaps = nmaps
     p = trim(adjustl(peak_name))
     if(trim(adjustl(orient_name)).eq. "NULL" .or. trim(adjustl(orient_name)) .eq. "RANDOM" .or. trim(adjustl(orient_name)).eq. "NONE" )then !!random orientation
        if(trim(p) .eq. "SADDLE" .or. trim(p).eq."COL")then
@@ -467,7 +487,11 @@ contains
        elseif(domax)then
           if(trim(p).eq."RANDOM")then
              this%genre = coop_stacking_genre_random_hot
-             this%caption = "hot spots"
+             if(this%abs_threshold)then
+                this%caption = "hot/cold spots"
+             else
+                this%caption = "hot spots"
+             endif
           else          
              if(len_trim(p).gt. 9)then
                 if(p(1:9).eq."$\nabla^2")then
@@ -478,7 +502,11 @@ contains
              else
                 this%genre = coop_stacking_genre_Imax
              endif
-             this%caption = trim(p)//" maxima"
+             if(this%abs_threshold)then
+                this%caption = trim(p)//" extrema"
+             else
+                this%caption = trim(p)//" maxima"
+             endif
           endif
        else
           if(trim(p).eq."RANDOM")then
@@ -507,7 +535,11 @@ contains
        elseif(domax)then
           if(trim(p).eq."RANDOM")then
              this%genre = coop_stacking_genre_random_hot_Oriented
-             this%caption = "hot spots, "//trim(adjustl(Orient_name))//" oriented"
+             if(this%abs_threshold)then
+                this%caption = "hot/cold spots, "//trim(adjustl(Orient_name))//" oriented"
+             else
+                this%caption = "hot spots, "//trim(adjustl(Orient_name))//" oriented"
+             endif
           else
              if(trim(p).eq."P" .or. trim(p).eq."P_T" .or. p(1:2) .eq. "$P")then
                 this%genre = coop_stacking_genre_Pmax_Oriented             
@@ -522,7 +554,11 @@ contains
                    this%genre = coop_stacking_genre_Imax_Oriented    
                 endif
              endif
-             this%caption = trim(p)//" maxima, "//trim(adjustl(Orient_name))//" oriented"
+             if(this%abs_threshold)then
+                this%caption = trim(p)//" extrema, "//trim(adjustl(Orient_name))//" oriented"
+             else
+                this%caption = trim(p)//" maxima, "//trim(adjustl(Orient_name))//" oriented"
+             endif
           endif
        else
           if(trim(p).eq."RANDOM")then

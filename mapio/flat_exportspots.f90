@@ -45,9 +45,8 @@ program Exp_spots
   coop_healpix_mask_tol = 0.
   call fm%read(map_file)
   if(remove_mono) call fm%remove_mono()
-  call sto%init(hot, peak_name, orient_name, nmaps = fm%nmaps)
-
   sto%abs_threshold = hot .and. cold
+  call sto%init(hot, peak_name, orient_name, nmaps = fm%nmaps)
   sto%angzero = .false.  
   sto%addpi = .true.
   sto%norm_power = 0.d0  !!these default settings can be changed when doing stacking
