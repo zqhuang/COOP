@@ -1,4 +1,5 @@
 #!/usr/bin/env python
+import math
 import numpy as np
 import sys
 from matplotlib import use
@@ -10,7 +11,24 @@ from matplotlib.colors import LogNorm
 import matplotlib.patches as mpatches
 import matplotlib.lines as mlines
 import scipy.interpolate as minterp
+import pylab
 
+cdict = {
+    'red'  :  ((0., 1., 1.), (0.03, 0.56, 0.56), (0.2, 0., 0.), (0.3, 0., 0.), (0.4, 0.1, 0.1), (0.5, 0., 0.) , (0.6, 0.7, 0.7), (0.7, 1., 1.), (0.8, 1., 1.), (1., 1., 1.)),
+    'green':  ((0., 1., 1.), (0.03, 0.21, 0.21), (0.2, 0., 0.), (0.3, 1., 1.), (0.4, 0.9, 0.9) ,(0.5, 1., 1.),  (0.7, 1., 1.),  (0.8, 0.5, 0.5), (1., 0., 0.)),
+    'blue' :  ((0., 1., 1.), (0.03, 0.94, 0.94), (0.2, 1., 1.), (0.3, 1., 1.), (0.4, 0.1, 0.1), (0.5, 0., 0.),  (0.7, 0., 0.), (0.8, 0.2, 0.2),  (1., 0., 0.))
+    }
+#generate the colormap with 1024 interpolated values
+my_cmap = pylab.matplotlib.colors.LinearSegmentedColormap('my_cmap', cdict, 1024)
+mpl.cm.register_cmap(cmap = my_cmap)
+
+global_im = None
+global global_cmap 
+global_cmap = ""
+global global_zmin
+global_zmin = 1.e31
+global global_zmax 
+global_zmax = -1.e31
 
 if(len(sys.argv)<3):
     print "pypl.py input_file output_file"
@@ -29,10 +47,17 @@ def load_dictionary(dic, filename):
     fp.close()
 
 ##load the file to a dictionary
-
+global settings
 settings = {}
 load_dictionary(settings, sys.argv[1])
 
+
+def str_of(key, default = "", dic = settings):
+    try:
+        x = dic[key]
+        return x
+    except:
+        return default
 
 def int_of(key, default = 0, dic = settings):
     try:
@@ -70,6 +95,11 @@ def float_arr_of(key, default = [], dic=settings):
         return x
     except:
         return default
+
+
+nrows = int_of('nrows',1)
+ncols = int_of('ncols',1)
+
 
 def read_int(fp, default = 0):
     s = fp.readline()
@@ -307,7 +337,7 @@ def plot_legend(ax, fp):
     if( cstr == ''):
         loc = read_float_arr(fp)  #ignore, only treated in Asymptote
         cols = read_int(fp)
-        ax.legend(ncols = cols)
+        ax.legend(ncol = cols)
     elif(cstr == 'VIRTUAL'):
         legend = read_str(fp)
         (color, linetype, linewidth) = get_line_config(fp)
@@ -431,19 +461,27 @@ def plot_dots(ax, fp):
     return
 
 
-def plot_density(ax, fp):
-    ctbl = read_str(fp)
+def plot_density(ax, fp, global_cmap = global_cmap, global_zmin=global_zmin, global_zmax=global_zmax):
+    ctbl = read_str(fp).lower()
+    if(ctbl == 'my_cmap'):
+        cmap = my_cmap
+        plt.set_cmap(my_cmap) 
+    else:
+        cmap = plt.get_cmap(ctbl)
+        plt.set_cmap(ctbl)
     zlabel = read_str(fp)
     xr =read_float_arr(fp)
     yr = read_float_arr(fp)
     zr = read_float_arr(fp)
     irr = read_int(fp)
-    grid=[]
     if(irr == 0 or irr == -1):  # regular points
+        grid=[]
         n = read_int_arr(fp)
         for i in range(n[0]):
             x = read_float_arr(fp)
             grid.append(x)
+        grid = np.array(grid).transpose()
+        grid = grid[::-1]   ##to be the same as Asymptote
         if(abs(zr[0])<1.e30 and abs(zr[1])<1.e30):
             im = ax.imshow(grid, extent = [xr[0], xr[1], yr[0], yr[1]], vmin=zr[0], vmax = zr[1])
         elif(abs(zr[0])<1.e30):
@@ -452,17 +490,91 @@ def plot_density(ax, fp):
             im = ax.imshow(grid, extent = [xr[0], xr[1], yr[0], yr[1]], vmax=zr[1])
         else:
             im = ax.imshow(grid, extent = [xr[0], xr[1], yr[0], yr[1]])
-        #colorbar is ignored in python multiple panels; use Asymptot for the full support
         if(irr == 0):
-            mycb = plt.colorbar(im)
-            mycb.set_label(zlabel)
-    else:
-        print "irregular density plot is not supported yet; use asymptote for the full support"
-        sys.exit()
-    return
+            if(nrows == 1 and ncols==1):
+                plt.colorbar(im)
+            else:
+                if(global_cmap!= ''):
+                    if(ctbl != global_cmap):
+                        print 'for single figure you cannot use different color bars!'
+                        sys.exit()
+                else:
+                    global_cmap = ctbl
+                if(abs(zr[0])<1.e30 and abs(zr[1])<1.e30):
+                    if(abs(global_zmin) < 1.e30 and abs(global_zmax)<1.e30):
+                        if(z[0]!= global_zmin or z[1] != global_zmax):
+                            print 'for density plots sharing a colorbar you must use the same zmin and zmax'
+                            sys.exit()
+                    else:
+                        global_zmin = zr[0]
+                        global_zmax = zr[1]
+                else:
+                    print 'for density plots sharing a colorbar you must specify zmin and zmax'
+                    sys.exit()
+    elif(irr == 1 or irr == 2):
+        n = read_int(fp)
+        x = []
+        y = []
+        z = []
+        for i in range(n):
+            coor = read_float_arr(fp)
+            x.append(coor[0])
+            y.append(coor[1])
+            z.append(coor[2])
+        ns = int(np.sqrt(n+1.))
+        if(abs(xr[0])<1.e30):
+            xmin = xr[0]
+        else:
+            xmin = x.min()
+        if(abs(xr[1])<1.e30):
+            xmax = xr[1]
+        else:
+            xmax = x.max()
+        if(abs(yr[0])<1.e30):
+            ymin = yr[0]
+        else:
+            ymin = y.min()
+        if(abs(yr[1])<1.e30):
+            ymax = yr[1]
+        else:
+            ymax = y.max()
+        dx = (xmax-xmin)/ns
+        dy = (ymax-ymin)/ns
+        xs, ys = np.mgrid[xmin:xmax:dx, ymin:ymax:dy]
+        resample = mpl.mlab.griddata(x, y, z, xs, ys)
+        if(abs(zr[0])<1.e30 and abs(zr[1])<1.e30):
+            im = ax.imshow(resample.T, extent = [xmin, xmax, ymin, ymax], vmin=zr[0], vmax = zr[1])
+        elif(abs(zr[0])<1.e30):
+            im = ax.imshow(resample.T, extent = [xmin, xmax, ymin, ymax], vmin=zr[0])
+        elif(abs(zr[1])<1.e30):
+            im = ax.imshow(resample.T, extent = [xmin, xmax, ymin, ymax], vmax = zr[1])
+        else:
+            im = ax.imshow(resample.T, extent = [xmin, xmax, ymin, ymax])
+        if(irr == 1):
+            if(nrows == 1 and ncols==1):
+                plot.colorbar(im)
+            else:
+                if(global_cmap!= ''):
+                    if(ctbl != global_cmap):
+                        print 'for single figure you cannot use different color bars!'
+                        sys.exit()
+                else:
+                    global_cmap = ctbl
+                if(abs(zr[0])<1.e30 and abs(zr[1])<1.e30):
+                    if(abs(global_zmin) < 1.e30 and abs(global_zmax)<1.e30):
+                        if(z[0]!= global_zmin or z[1] != global_zmax):
+                            print 'for density plots sharing a colorbar you must use the same zmin and zmax'
+                            sys.exit()
+                    else:
+                        global_zmin = zr[0]
+                        global_zmax = zr[1]
+                else:
+                    print 'for density plots sharing a colorbar you must specify zmin and zmax'
+                    sys.exit()
+    return (im, global_cmap, global_zmin, global_zmax)
 
 def plot_clip(ax, fp):
-    print 'clip not supported yet; use Asymptote for the full support'
+    print 'Ignored a clip block. Clipping in pyplot is automatic; use Asymptote for the full support'
     sys.exit()
 
 def plot_errorbars(ax, fp):
@@ -543,24 +655,39 @@ def plot_annotate(ax, fp):
 
 
 def plot_extra_axis(ax, fp):
-    loc = read_str(fp)
+    loc = read_str(fp).lower()
     label = read_str(fp)
-    islog = read_int(fp)
+    islog = read_logical(fp)
     minmax = read_float_arr(fp)
-    print 'Warning: ignored an extra_axis entry; use Asymptote for the full support.'
+    if(loc == 'right'):
+        extra_axis = ax.twiny()
+        if(islog):
+            extra_axis.set_yscale("log", nonposy = clip)
+        extra_axis.set_ylim(ymin = minmax[0], ymax = minmax[1])
+    elif(loc == "top"):
+        extra_axis = ax.twinx()
+        if(islog):
+            extra_axis.set_xscale("log", nonposy = clip)            
+        extra_axis.set_xlim(xmin = minmax[0], xmax = minmax[1])
 
 def plot_expand(ax, fp):
     expfac = read_float_arr(fp)
-    print 'Warning: ignored an EXPAND entry; use Asymptote for the full support.'
-    #in python i just ignore this; for full support go for asymptote
+    xmin = ax.xmin - (ax.xmax-ax.xmin)*expfac[0]
+    xmax = ax.xmax + (ax.xmax-ax.xmin)*expfac[1]
+    ymin = ax.ymin - (ax.ymax-ax.ymin)*expfac[2]
+    ymax = ax.ymax + (ax.ymax-ax.ymin)*expfac[3]
+    ax.set_xlim(xmin = xmin, xmax = xmax)
+    ax.set_ylim(ymin = ymin, ymax = ymax)
 
-def loadfig(ax, filename):
+
+def loadfig(ax, filename, global_im = global_im, global_cmap = global_cmap, global_zmin = global_zmin, global_zmax = global_zmax) :
     if(filename == ''):
-        return False
+        return (global_im, global_cmap, global_zmin, global_zmax)
     try:
         fp = open(filename, 'r')
     except:
-        return False
+        print filename + 'does not exist'
+        sys.exit()
     fp.readline() # skip the xsize, ysize parameters for single figure
     caption = read_str(fp)
     xlabel = read_str(fp)
@@ -618,7 +745,7 @@ def loadfig(ax, filename):
         elif(genre=="DOTS"):
             plot_dots(ax, fp)
         elif(genre=="DENSITY"):
-            plot_density(ax, fp)
+            (global_im, global_cmap, global_zmin, global_zmax) = plot_density(ax, fp)
         elif(genre == 'CONTOUR'):
             plot_contour(ax, fp)
         elif(genre=="CLIP"):
@@ -635,19 +762,24 @@ def loadfig(ax, filename):
             plot_extra_axis(ax, fp)
         else:
             print genre + ": unknown block name"
-            return
+            return (global_im, global_cmap, global_zmin, global_zmax)
         iblocks += 1
         if(iblocks == nblocks):
             fp.close()
-            return
+            return (global_im, global_cmap, global_zmin, global_zmax)
         genre = read_str(fp)        
     fp.close()
-    return True
-    
-nrows = int_of('nrows',0)
-ncols = int_of('ncols',1)
+    return (global_im, global_cmap, global_zmin, global_zmax)
 
-if(nrows == 0):
+hspace = float_of('vertical_space', 0.12)
+wspace = float_of('horizontal_space', 0.12)
+left_space = float_of('left_space', 0.12)
+right_space = float_of('right_space', 0.08)
+bottom_space = float_of('bottom_space', 0.12)
+top_space = float_of('top_space', 0.08)
+minhspace = 0.03 #if less than this, remove labels  
+minwspace = 0.05   
+if(nrows == 1 and ncols==1):
     fp=open(sys.argv[1], 'r')
     sizes = read_float_arr(fp)
     fp.close()
@@ -655,31 +787,37 @@ if(nrows == 0):
     loadfig(ax, sys.argv[1])
 else:
     fig, axarr = plt.subplots( nrows=nrows, ncols=ncols, figsize=( float_of('xsize', 8.),  float_of('ysize', 6.) ), sharex = logical_of('sharex', True), sharey = logical_of('sharey', True))
-    fig.subplots_adjust( left=float_of('left_space', 0.125), right = float_of('right_space', 0.9), bottom = float_of('bottom_space', 0.1), top =float_of('top_space', 0.9), wspace=float_of('horizontal_space', 0.2), hspace = float_of('vertical_space', 0.2))
+    fig.subplots_adjust( left = left_space, right = 1.- right_space, bottom = bottom_space, top = 1.-top_space, wspace=wspace, hspace = hspace)
     if(nrows > 1 and ncols > 1):
         for irow in range(nrows):
             for icol in range(ncols):
+                if(hspace < minhspace and irow < nrows-1):
+                    plt.setp( axarr[irow][icol].get_xticklabels(), visible=False)
+                if(wspace<minwspace and icol>0):
+                    plt.setp( axarr[irow][icol].get_yticklabels(), visible=False)
                 filename = settings['figure['+str(irow)+','+str(icol)+']'].strip() 
-                try:
-                    loadfig(axarr[irow,icol], filename)
-                except:
-                    print filename + " cannot be plotted."
+                (global_im, global_cmap, global_zmin, global_zmax) = loadfig(axarr[irow,icol], filename)
     elif(nrows > 1):
         for irow in range(nrows):
+            if(hspace < minhspace and irow<nrows-1):
+                plt.setp( axarr[irow][0].get_xticklabels(), visible=False)
             filename = settings['figure['+str(irow)+',0]'].strip() 
-            loadfig(axarr[irow], filename)
+            (global_im, global_cmap, global_zmin, global_zmax) = loadfig(axarr[irow], filename)
     elif(ncols>1):
         for icol in range(ncols):
-            filename = settings['figure[1,'+str(icol)+']'].strip() 
-            try:
-                loadfig(axarr[icol], filename)
-            except:
-                print filename + ' cannot be plooted'
+            if(wspace<minwspace and icol>0):
+                plt.setp( axarr[0][icol].get_yticklabels(), visible=False)
+            filename = settings['figure[0,'+str(icol)+']'].strip() 
+            (global_im, global_cmap, global_zmin, global_zmax) =loadfig(axarr[icol], filename)
     else:
         filename = settings['figure[0,0]'].strip() 
-        try:
-            loadfig(axarr, filename)
-        except:
-            print filename + ' cannot be plooted'
+        loadfig(axarr, filename)
 
+
+if(global_cmap != ''):
+    left = 1. - right_space + 0.03
+    bottom = bottom_space+hspace/2
+    top = 1.-top_space-hspace/2
+    cax = fig.add_axes( [ left,  bottom, min(1.-left,0.03), top-bottom])
+    fig.colorbar(mappable=global_im, cax = cax, label = str_of('zlabel'))
 plt.savefig(sys.argv[2], format='pdf')
