@@ -34,7 +34,7 @@ program Exp_spots
   endif
   call coop_get_command_line_argument(key = 'map', arg = map_file)
   call coop_get_command_line_argument(key = 'hot', arg = hot, default =.true.)
-  call coop_get_command_line_argument(key = 'cold', arg = cold, default =.false.)
+  call coop_get_command_line_argument(key = 'cold', arg = cold, default =.not. hot)
   if(.not. hot .and. .not. cold) stop "Error: you cannot set both hot and cold to be false"
 
   call coop_get_command_line_argument(key = 'mask', arg = mask_file, default = 'NONE')
