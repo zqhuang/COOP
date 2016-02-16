@@ -65,7 +65,7 @@ module coop_stacking_mod
      COOP_SINGLE::P2byL2_upper = 1.e15
      COOP_INT::threshold_option = 0
      logical::abs_threshold = .false.
-     logical::divide_I = .false.
+     COOP_INT::norm_power = 0.d0
      logical::addpi = .true.  !!randomly add pi on polarization directions
      logical::angzero = .true.  !!do not rotate
      logical::nested = .true.
@@ -117,14 +117,18 @@ contains
     COOP_INT::i
     COOP_SINGLE::map(this%nmaps)
     COOP_REAL::norm
-    if(this%divide_I)then
+    if(this%norm_power.ne.0.d0)then
        call this%peak_map%get_element(i, map)
-       norm = this%sigma_I**2/map(this%index_I)
-    elseif(this%abs_threshold)then
-       call this%peak_map%get_element(i, map)
-       norm = sign(1., map(this%index_I))
+       norm = max(abs((map(this%index_I)/this%sigma_I)), 1.d-5)**this%norm_power
+       if(this%abs_threshold) &
+            norm = sign(norm, map(this%index_I))
     else
-       norm = 1.d0
+       if(this%abs_threshold)then
+          call this%peak_map%get_element(i, map)
+          norm = sign(1., map(this%index_I))
+       else
+          norm = 1.d0
+       endif
     endif
   end function coop_stacking_options_norm
 
@@ -210,9 +214,9 @@ contains
     call fp%open(filename, "u")
     write(fp%unit) this%mask_int, this%mask_pol
     write(fp%unit) this%genre, this%nmaps, this%nside,this%nside2, this%index_peak, this%index_I, this%index_Q, this%index_U, this%index_L
-    write(fp%unit) this%I_lower, this%I_upper, this%L_lower, this%L_upper, this%P2_lower, this%P2_upper, this%I_lower_nu, this%I_upper_nu, this%L_lower_nu, this%L_upper_nu, this%P_lower_nu, this%P_upper_nu, this%P2byI2_lower, this%P2byI2_upper, this%P2byL2_lower, this%P2byL2_upper
+    write(fp%unit) this%I_lower, this%I_upper, this%L_lower, this%L_upper, this%P2_lower, this%P2_upper, this%I_lower_nu, this%I_upper_nu, this%L_lower_nu, this%L_upper_nu, this%P_lower_nu, this%P_upper_nu, this%P2byI2_lower, this%P2byI2_upper, this%P2byL2_lower, this%P2byL2_upper, this%norm_power
     write(fp%unit) this%caption
-    write(fp%unit) this%threshold_option, this%divide_I, this%abs_threshold, this%addpi, this%nested, this%angzero
+    write(fp%unit) this%threshold_option, this%abs_threshold, this%addpi, this%nested, this%angzero
     write(fp%unit) this%peak_pix%n
     do i=1, this%peak_pix%n
        write(fp%unit) this%peak_pix%element(i), this%peak_ang%element(i), this%peak_map%element(i)
@@ -236,9 +240,9 @@ contains
     call fp%open(filename, "ur")
     read(fp%unit) this%mask_int, this%mask_pol    
     read(fp%unit) this%genre, this%nmaps, this%nside, this%nside2, this%index_peak, this%index_I, this%index_Q, this%index_U, this%index_L
-    read(fp%unit) this%I_lower, this%I_upper, this%L_lower, this%L_upper, this%P2_lower, this%P2_upper, this%I_lower_nu, this%I_upper_nu, this%L_lower_nu, this%L_upper_nu, this%P_lower_nu, this%P_upper_nu, this%P2byI2_lower, this%P2byI2_upper, this%P2byL2_lower, this%P2byL2_upper
+    read(fp%unit) this%I_lower, this%I_upper, this%L_lower, this%L_upper, this%P2_lower, this%P2_upper, this%I_lower_nu, this%I_upper_nu, this%L_lower_nu, this%L_upper_nu, this%P_lower_nu, this%P_upper_nu, this%P2byI2_lower, this%P2byI2_upper, this%P2byL2_lower, this%P2byL2_upper, this%norm_power
     read(fp%unit) this%caption
-    read(fp%unit) this%threshold_option, this%divide_I, this%abs_threshold, this%addpi, this%nested, this%angzero
+    read(fp%unit) this%threshold_option, this%abs_threshold, this%addpi, this%nested, this%angzero
     allocate(map(this%nmaps))
     read(fp%unit) n
     do i=1, n

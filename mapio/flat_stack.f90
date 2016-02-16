@@ -7,7 +7,8 @@ program Stacking_Maps
 #include "constants.h"
 #ifdef HAS_HEALPIX
   logical,parameter::remove_mono = .true.
-  logical::randrot, want_pdf, divide_I
+  logical::randrot, want_pdf
+  COOP_REAL::norm_power
   COOP_STRING::peak_file, map_file, output,field_name
   COOP_INT::n = 100
   COOP_REAL::r_degree, dr
@@ -39,11 +40,11 @@ program Stacking_Maps
      write(*,"(A)") "-want_arrow [T|F]"
      write(*,"(A)") "-fft [F|T]"
      write(*,"(A)") "-want_pdf [T|F]"     
-     write(*,"(A)") "-divide_center [F|T]"     
+     write(*,"(A)") " -norm_power [0]  #renormlize each patch with (I/sigma_I)^n"     
      write(*,"(A)") "----------------------------------------------------------"     
      stop
   endif
-  call coop_get_command_line_argument(key = 'divide_center', arg = divide_I, default = .false.)
+  call coop_get_command_line_argument(key = 'norm_power', arg = norm_power, default = 0.)
   call coop_get_command_line_argument(key = 'map', arg = map_file)
   call coop_get_command_line_argument(key = 'peaks', arg = peak_file)
   call coop_get_command_line_argument(key = 'field', arg = field_name)  
@@ -73,7 +74,7 @@ program Stacking_Maps
 
   call sto%import(peak_file)
   sto%angzero = .not. randrot
-  sto%divide_I = divide_I
+  sto%norm_power = norm_power
   write(*,*) "reading the map file "//trim(map_file)
   call fm%read(map_file)
   if(remove_mono)call fm%remove_mono()

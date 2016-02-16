@@ -55,7 +55,7 @@ program Exp_spots
   sto%abs_threshold = hot .and. cold
   sto%angzero = .false.  
   sto%addpi = .true.
-  sto%divide_I = .false.  !!these default settings can be changed when doing stacking
+  sto%norm_power = 0.d0  !!these default settings can be changed when doing stacking
   select case(trim(coop_str_numUpperalpha(peak_name)))
      !!do nothing
   case("T", "I", "E", "B", "ZETA", "Z", "RANDOM", "SADDLE", "COL")
