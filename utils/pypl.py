@@ -851,11 +851,25 @@ else:
         filename = settings['figure[0,0]'].strip() 
         loadfig(axarr, filename)
 
-
+yspan = (1.-top_space-bottom_space+hspace)/nrows
+yrat = (yspan-hspace)/yspan
+xspan = (1.-left_space-right_space + wspace)/ncols
+xrat = (xspan - wspace)/xspan
 if(global_cmap != ''):
     left = 1. - right_space + 0.03
     bottom = bottom_space+hspace/2
     top = 1.-top_space-hspace/2
     cax = fig.add_axes( [ left,  bottom, min(1.-left,0.03), top-bottom])
     fig.colorbar(mappable=global_im, cax = cax, label = str_of('zlabel'))
+
+for irow in range(nrows):
+    label = str_of('row_label['+str(irow)+']')
+    if(label != ''):
+        fig.text(0., bottom_space + (irow+0.5*yrat)*yspan, label, ha= 'left', va='center')
+
+for icol in range(ncols):
+    label = str_of('col_label['+str(icol)+']')    
+    if(label != ''):
+        fig.text(left_space + (icol + 0.5*xrat)*xspan,  0., label, va='bottom', ha='center')
+
 plt.savefig(sys.argv[2], format='pdf')
