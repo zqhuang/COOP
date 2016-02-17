@@ -52,7 +52,7 @@ program Stacking_Maps
   call coop_get_command_line_argument(key = 'peaks', arg = peak_file)
   call coop_get_command_line_argument(key = 'field', arg = field_name)  
   call coop_get_command_line_argument(key = 'randrot', arg = randrot, default = .true.)
-  call coop_get_command_line_argument(key = 'randrot', arg = norm_to_corr, default = .false.)
+  call coop_get_command_line_argument(key = 'norm_to_corr', arg = norm_to_corr, default = .false.)
   call coop_get_command_line_argument(key = 'want_pdf', arg = want_pdf, default = .false.)  
   call coop_get_command_line_argument(key = 'min', arg = zmin1, default=1.d31)
   call coop_get_command_line_argument(key = 'max', arg = zmax1, default=-1.d31)  
