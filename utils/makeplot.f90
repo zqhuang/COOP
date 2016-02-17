@@ -7,7 +7,7 @@ program TestNpeak
   character(len = 5) tmp
   COOP_SHORT_STRING::color, linetype
   COOP_SINGLE::linewidth, legendx, legendy
-  COOP_INT::i, legendcols
+  COOP_INT::i, legendcols, nxticks, nyticks
   COOP_STRING::xcol, ycol
   logical::has_legend
   if(iargc().lt.2)then
@@ -20,6 +20,8 @@ program TestNpeak
      write(*,*) "-ylog F/T"
      write(*,*) "-xmin XMIN"
      write(*,*) "-xmax XMAX"
+     write(*,*) "-nxticks NUM_X_TICKS"
+     write(*,*) "-nyticks NUM_Y_TICKS"
      write(*,*) "-ymin YMIN"
      write(*,*) "-ymax YMAX"
      write(*,*) "-caption CAPTION"
@@ -97,6 +99,8 @@ program TestNpeak
   write(fig%unit, "(A)") tmp
   call coop_get_command_line_argument(key ="clip" , arg =  fig%clip, default=.false.)
   call coop_get_command_line_argument(key = "xmin", arg=fig%xmin, default = 1.1e30)
+  call coop_get_command_line_argument(key = "nxticks", arg=nxticks, default = 0)
+  call coop_get_command_line_argument(key = "nyticks", arg=nyticks, default = 0)
   fig%adjust_xmin = (abs(fig%xmin) .gt. 1.e30)
   call coop_get_command_line_argument(key = "xmax", arg=fig%xmax, default = -1.1e30)
   fig%adjust_xmax = (abs(fig%xmax) .gt. 1.e30)
@@ -113,8 +117,8 @@ program TestNpeak
      write(fig%unit, "(A)") "0"
   endif
 
-  write(fig%unit,"(2G14.5)") fig%xmin, fig%xmax
-  write(fig%unit,"(2G14.5)") fig%ymin, fig%ymax
+  write(fig%unit,"(2G16.7, I5)") fig%xmin, fig%xmax, nxticks
+  write(fig%unit,"(2G16.7, I5)") fig%ymin, fig%ymax, nyticks
   write(fig%unit,"(I5)") 0   !!0 means any number of blocks
   fig%color(1) = "black"
   fig%color(2) = "red"

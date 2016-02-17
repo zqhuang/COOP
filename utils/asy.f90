@@ -206,11 +206,11 @@ contains
          this%ymax = y
   end subroutine coop_asy_adjust_virtual_boundary
 
-  subroutine coop_asy_init(this,  xmin, xmax, ymin, ymax, width, height, caption, xlabel, ylabel, xlog, ylog, zlog, doclip, nblocks)
+  subroutine coop_asy_init(this,  xmin, xmax, ymin, ymax, width, height, caption, xlabel, ylabel, xlog, ylog, zlog, doclip, nblocks, nxticks, nyticks)
     class(coop_asy) this
     COOP_SINGLE ,optional:: width, height
     COOP_UNKNOWN_STRING,optional:: caption, xlabel, ylabel
-    COOP_INT ,optional::nblocks
+    COOP_INT ,optional::nblocks, nxticks, nyticks
     logical,optional::xlog, ylog, zlog, doclip
     COOP_SINGLE ,optional:: xmin, xmax, ymin, ymax
     character(len = 5) tmp
@@ -326,9 +326,16 @@ contains
     else
        write(this%unit, "(A)") "0"
     endif
-    
-    write(this%unit,"(2G16.7)") this%xmin, this%xmax
-    write(this%unit,"(2G16.7)") this%ymin, this%ymax
+    if(present(nxticks))then
+       write(this%unit,"(2G16.7, I5)") this%xmin, this%xmax, nxticks
+    else
+       write(this%unit,"(2G16.7, I5)") this%xmin, this%xmax, 0
+    endif
+    if(present(nyticks))then
+       write(this%unit,"(2G16.7, I5)") this%ymin, this%ymax, nyticks
+    else
+       write(this%unit,"(2G16.7, I5)") this%ymin, this%ymax, 0
+    endif
     if(present(nblocks))then
        write(this%unit,"(I5)") nblocks    !!plot only n blocks
     else

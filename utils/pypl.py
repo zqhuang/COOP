@@ -732,13 +732,23 @@ def loadfig(ax, filename, global_im = global_im, global_cmap = global_cmap, glob
     ylabel = read_str(fp)
     islog = read_logical_arr(fp, [False, False, False])
     clip = read_logical(fp, False)
-    xbounds = read_float_arr(fp, [0., 1.])
-    ybounds = read_float_arr(fp, [0., 1.])
+    xbounds = read_float_arr(fp, [0., 1., 0.])
+    nxticks = int(xbounds[2])
+    ybounds = read_float_arr(fp, [0., 1., 0.])
+    nyticks = int(ybounds[2])
     nblocks = read_int(fp, 0)
-    if(xlabel == ''):
-        plt.setp( [ ax.get_xticklabels() ], visible = False)
-    if(ylabel == ''):
-        plt.setp( [ ax.get_yticklabels() ], visible = False) 
+    if(nxticks != 0):
+        if(nxticks<0):
+            plt.setp( [ ax.get_xticklabels() ], visible = False)
+        else:
+            xloc = plt.MaxNLocator(nyticks)
+            ax.xaxis.set_major_locator(xloc)
+    if(nyticks != 0):
+        if(nyticks<0):
+            plt.setp( [ ax.get_yticklabels() ], visible = False) 
+        else:
+            yloc = plt.MaxNLocator(nyticks)
+            ax.yaxis.set_major_locator(yloc)            
     if(caption !=''):
         ax.set_title(caption)
     if(xlabel !=''):

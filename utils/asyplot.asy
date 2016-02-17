@@ -10,8 +10,8 @@ x label     (string)
 y label     (string)
 xlog ylog zlog (3 integers, 0 means linear scale, otherwise log scale)
 clip  (integer, if 0 no clipping, if !=0 clip the figure in the range given below)
-x_min x_max (2 real numbers setting the boundary of x range, for axes, if x_min > x_max this will be ignored)
-y_min y_max (2 real numbers setting the boundary of y range, if y_min > y_max this will be ignored)
+x_min x_max num_xticks(2 real numbers setting the boundary of x range, for axes, if x_min > x_max this will be ignored; and maximum number of xticks)
+y_min y_max num_yticks (2 real numbers setting the boundary of y range, if y_min > y_max this will be ignored; and maximum number of yticks)
 n = number of blocks (integer)
 ... n blocks sections.... (each section contains an indepedent block)
 =========================================================
@@ -873,7 +873,7 @@ picture make_picture(file inputfile){
      t = new real[2];
      t = read_xminxmax(fin);    
      real xmin = t[0];
-     real xmax = t[1];
+     real xmax = t[1];     
      t = read_yminymax(fin);        
      real ymin = t[0];
      real ymax = t[1];
@@ -1445,13 +1445,13 @@ picture make_picture(file inputfile){
  //==================================================
  // read in x, y limits
  real[] t;
- t = new real [2];
- t = inputfile.dimension(2); //xmin, xmax
+ t = new real [3];
+ t = inputfile.dimension(3); //xmin, xmax, num_xticks; num_xticks is ignored in Asymptote; in python the automatic ticks are bad so need this parameter
  cxmin = t[0];
  cxmax = t[1];
  xmin_adjust = (cxmin >= infty);
  xmax_adjust = (cxmax <= -infty);
- t = inputfile.dimension(2); // ymin, ymax
+ t = inputfile.dimension(3); // ymin, ymax, num_yticks; num_yticks is ignored in Asymptote;
  cymin = t[0];
  cymax = t[1];
  ymin_adjust = (cymin >= infty);

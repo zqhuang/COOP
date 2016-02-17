@@ -1698,9 +1698,9 @@ contains
     call this%stack(spot_file, stack_option, nrad, image, nstack)
     call asy%open(trim(fig))
     if(present(caption))then
-       call asy%init(xlabel = "$2\sin{\frac{\theta}{2}} \cos\varphi$", ylabel = "$2\sin{\frac{\theta}{2}} \sin\varphi$", width=7., height=5.5, caption=trim(caption)//"; stacked "//trim(coop_num2str(nstack))//" patches")
+       call asy%init(xlabel = "$2\sin{\frac{\theta}{2}} \cos\varphi$", ylabel = "$2\sin{\frac{\theta}{2}} \sin\varphi$", width=7., height=5.5, caption=trim(caption)//"; stacked "//trim(coop_num2str(nstack))//" patches",  nxticks = 5, nyticks = 5)
     else
-       call asy%init(xlabel = "$2\sin{\frac{\theta}{2}} \cos\varphi$", ylabel = "$2\sin{\frac{\theta}{2}} \sin\varphi$", width=7., height=5.5, caption="stacked "//trim(coop_num2str(nstack))//" patches")
+       call asy%init(xlabel = "$2\sin{\frac{\theta}{2}} \cos\varphi$", ylabel = "$2\sin{\frac{\theta}{2}} \sin\varphi$", width=7., height=5.5, caption="stacked "//trim(coop_num2str(nstack))//" patches", nxticks = 5, nyticks = 5)
     endif
     if(present(color_table))then
        if(present(label))then
@@ -2492,19 +2492,19 @@ contains
     type(coop_asy)::asy
     if(.not. allocated(this%smooth_image)) stop "call get_flatmap beore plot"
     call asy%open(figname)
-    call asy%init(xlabel = "$2\sin{\frac{\theta}{2}}\cos\varphi$", ylabel = "$2\sin{\frac{\theta}{2}}\sin\varphi$", caption = "noise-free simulation", width=7., height=5.5)
+    call asy%init(xlabel = "$2\sin{\frac{\theta}{2}}\cos\varphi$", ylabel = "$2\sin{\frac{\theta}{2}}\sin\varphi$", caption = "noise-free simulation", width=7., height=5.5, nxticks = 5, nyticks = 5)
     call coop_asy_density(asy, this%smooth_image, this%xmin, this%xmax, this%ymin, this%ymax, "$I (\mu K)$")
     call asy%close()
     if(allocated(this%smooth_Q))then
        call asy%open(coop_file_add_postfix(figname, "_Q"))
-       call asy%init(xlabel = "$2\sin{\frac{\theta}{2}}\cos\varphi$", ylabel = "$2\sin{\frac{\theta}{2}}\sin\varphi$", caption = "noise-free simulation", width=7., height=5.5)
+       call asy%init(xlabel = "$2\sin{\frac{\theta}{2}}\cos\varphi$", ylabel = "$2\sin{\frac{\theta}{2}}\sin\varphi$", caption = "noise-free simulation", width=7., height=5.5, nxticks = 5, nyticks = 5)
        call coop_asy_density(asy, this%smooth_Q, this%xmin, this%xmax, this%ymin, this%ymax, "$Q (\mu K)$")
        call asy%close()
     endif
 
     if(allocated(this%smooth_U))then
        call asy%open(coop_file_add_postfix(figname, "_U"))
-       call asy%init(xlabel = "$2\sin{\frac{\theta}{2}}\cos\varphi$", ylabel = "$2\sin{\frac{\theta}{2}}\sin\varphi$", caption = "noise-free simulation", width=7., height=5.5)
+       call asy%init(xlabel = "$2\sin{\frac{\theta}{2}}\cos\varphi$", ylabel = "$2\sin{\frac{\theta}{2}}\sin\varphi$", caption = "noise-free simulation", width=7., height=5.5, nxticks = 5, nyticks = 5)
        call coop_asy_density(asy, this%smooth_U, this%xmin, this%xmax, this%ymin, this%ymax, "$U (\mu K)$")
        call asy%close()
     endif

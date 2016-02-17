@@ -579,16 +579,16 @@ contains
     this%caption = adjustl(this%caption)
     if(coop_healpix_patch_default_want_caption)then
        if(len_trim(this%caption) .gt. 60)then
-          call fig%init(caption = "{\tiny "//trim(this%caption)//"}", xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)))
+          call fig%init(caption = "{\tiny "//trim(this%caption)//"}", xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)), nxticks = 5, nyticks = 5)
        elseif(len_trim(this%caption) .gt. 50)then
-          call fig%init(caption = "{\scriptsize "//trim(this%caption)//"}", xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)))
+          call fig%init(caption = "{\scriptsize "//trim(this%caption)//"}", xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)), nxticks = 5, nyticks = 5)
        elseif(len_trim(this%caption) .gt. 40)then
-          call fig%init(caption = "{\small "//trim(this%caption)//"}", xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)))       
+          call fig%init(caption = "{\small "//trim(this%caption)//"}", xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)), nxticks = 5, nyticks = 5)       
        else
-          call fig%init(caption = trim(this%caption), xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)))
+          call fig%init(caption = trim(this%caption), xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)), nxticks = 5, nyticks = 5)
        endif
     else
-       call fig%init(xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)))          
+       call fig%init(xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%n)), ymax = real(this%r(this%n)), nxticks = 5, nyticks = 5)          
     endif
     if(this%tbs%zmin(imap) .lt.0.99e30)then
        minz = this%tbs%zmin(imap)
@@ -767,7 +767,7 @@ contains
     
     xlabel = "$\ell_x$"
     ylabel = "$\ell_y$"
-    call fig%init(caption = trim(this%caption)//", Re($f_\ell$)", xlabel =trim(xlabel), ylabel =trim(ylabel), width = width, height = height, xmin = -real(ns*dk), xmax = real(ns*dk), ymin = -real(ns*dk), ymax = real(ns*dk))
+    call fig%init(caption = trim(this%caption)//", Re($f_\ell$)", xlabel =trim(xlabel), ylabel =trim(ylabel), width = width, height = height, xmin = -real(ns*dk), xmax = real(ns*dk), ymin = -real(ns*dk), ymax = real(ns*dk), nxticks = 5, nyticks = 5)
     call coop_array_get_threshold(remap, COOP_REAL_OF(0.995), minz)
     call coop_array_get_threshold(remap, COOP_REAL_OF(0.005), maxz)
     if(present(label))then
@@ -780,7 +780,7 @@ contains
     call fig%open(coop_file_add_postfix(output, "_FFTIm"))    
     xlabel = "$\ell_x$"
     ylabel = "$\ell_y$"
-    call fig%init(caption = trim(this%caption)//", Im($f_\ell$)", xlabel =trim(xlabel), ylabel =trim(ylabel), width = width, height = height, xmin = -real(ns*dk), xmax = real(ns*dk), ymin = -real(ns*dk), ymax = real(ns*dk))
+    call fig%init(caption = trim(this%caption)//", Im($f_\ell$)", xlabel =trim(xlabel), ylabel =trim(ylabel), width = width, height = height, xmin = -real(ns*dk), xmax = real(ns*dk), ymin = -real(ns*dk), ymax = real(ns*dk), nxticks = 5, nyticks = 5)
     call coop_array_get_threshold(immap, COOP_REAL_OF(0.995), minz)
     call coop_array_get_threshold(immap, COOP_REAL_OF(0.005), maxz)
     if(present(label))then
@@ -799,7 +799,7 @@ contains
     enddo
     xlabel = "$\ell_x$"
     ylabel = "$\ell_y$"
-    call fig%init(caption = trim(this%caption)//", $\ell^2|f_\ell|^2$", xlabel =trim(xlabel), ylabel =trim(ylabel), width = width, height = height, xmin = -real(ns*dk), xmax = real(ns*dk), ymin = -real(ns*dk), ymax = real(ns*dk))
+    call fig%init(caption = trim(this%caption)//", $\ell^2|f_\ell|^2$", xlabel =trim(xlabel), ylabel =trim(ylabel), width = width, height = height, xmin = -real(ns*dk), xmax = real(ns*dk), ymin = -real(ns*dk), ymax = real(ns*dk), nxticks = 5, nyticks = 5)
     call coop_array_get_threshold(immap, COOP_REAL_OF(0.995), minz)
     call coop_array_get_threshold(immap, COOP_REAL_OF(0.005), maxz)
     if(present(label))then
@@ -5455,16 +5455,16 @@ contains
     this%caption = adjustl(this%caption)
     if(coop_healpix_patch_default_want_caption)then
        if(len_trim(this%caption) .gt. 60)then
-          call fig%init(caption = "{\tiny "//trim(this%caption)//"}", xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%ny)), ymax = real(this%r(this%ny)))
+          call fig%init(caption = "{\tiny "//trim(this%caption)//"}", xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%ny)), ymax = real(this%r(this%ny)), nxticks = 5, nyticks = 5)
        elseif(len_trim(this%caption) .gt. 50)then
-          call fig%init(caption = "{\scriptsize "//trim(this%caption)//"}", xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%ny)), ymax = real(this%r(this%ny)))
+          call fig%init(caption = "{\scriptsize "//trim(this%caption)//"}", xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%ny)), ymax = real(this%r(this%ny)), nxticks = 5, nyticks = 5)
        elseif(len_trim(this%caption) .gt. 40)then
-          call fig%init(caption = "{\small "//trim(this%caption)//"}", xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%ny)), ymax = real(this%r(this%ny)))       
+          call fig%init(caption = "{\small "//trim(this%caption)//"}", xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%ny)), ymax = real(this%r(this%ny)), nxticks = 5, nyticks = 5)       
        else
-          call fig%init(caption = trim(this%caption), xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%ny)), ymax = real(this%r(this%ny)))
+          call fig%init(caption = trim(this%caption), xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%ny)), ymax = real(this%r(this%ny)), nxticks = 5, nyticks = 5)
        endif
     else
-       call fig%init(xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%ny)), ymax = real(this%r(this%ny)))          
+       call fig%init(xlabel =trim(xlabel), ylabel =trim(ylabel), width = coop_healpix_patch_default_figure_width, height = coop_healpix_patch_default_figure_height, xmin = -real(this%r(this%n)), xmax = real(this%r(this%n)), ymin = -real(this%r(this%ny)), ymax = real(this%r(this%ny)), nxticks = 5, nyticks = 5)          
     endif
     if(this%tbs%zmin(imap) .lt.0.99e30)then
        minz = this%tbs%zmin(imap)
