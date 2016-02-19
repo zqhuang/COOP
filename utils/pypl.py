@@ -24,18 +24,15 @@ mpl.cm.register_cmap(cmap = my_cmap)
 
 global_im = None
 global global_cmap 
-global_cmap = ""
 global global_zmin
-global_zmin = 1.e31
 global global_zmax 
-global_zmax = -1.e31
 
 if(len(sys.argv)<3):
     print "pypl.py input_file output_file"
     sys.exit()
 
 def insert_items(dic, line):
-    items = line.split('=')
+    items = line.split('=', 1)
     if(len(items) == 2):
         if(items[0].strip != '' and items[1].strip() != '' ):
             dic[items[0].strip()] = items[1].strip()
@@ -43,7 +40,8 @@ def insert_items(dic, line):
 def load_dictionary(dic, filename):
     fp = open(filename, 'r')
     for line in fp:
-        insert_items(dic, line)
+        if(line[0] !="#"):
+            insert_items(dic, line)
     fp.close()
 
 ##load the file to a dictionary
@@ -81,6 +79,13 @@ def logical_of(key, default=False, dic = settings):
         return False
 
 
+def str_arr_of(key, default = [], dic = settings):
+    try:
+        x = dic[key].split()
+        return x
+    except:
+        return default
+
 def int_arr_of(key, default = [], dic=settings):
     try:
         x = [ int(s) for s in dic[key].split() ]
@@ -99,7 +104,9 @@ def float_arr_of(key, default = [], dic=settings):
 
 nrows = int_of('nrows',1)
 ncols = int_of('ncols',1)
-
+global_cmap = str_of("cmap", "")
+global_zmin = float_of("zmin", 1.1e31)
+global_zmax = float_of("zmax", -1.1e31)
 
 def read_int(fp, default = 0):
     s = fp.readline()
@@ -288,7 +295,7 @@ def plot_curve(ax, fp):
         xy = read_float_arr(fp)
         x.append(xy[0])
         y.append(xy[1])
-    if(marker!=''):
+    if(marker!='' and marker!='0' ):
         if(legend != ''):
             ax.plot(x, y, color=color, linestyle = linetype, linewidth = linewidth, label=legend, marker= marker)
         else:
@@ -501,6 +508,10 @@ def plot_dots(ax, fp):
 
 def plot_density(ax, fp, global_cmap = global_cmap, global_zmin=global_zmin, global_zmax=global_zmax):
     ctbl = read_str(fp).lower()
+    if(global_cmap!=""):
+        ctbl = global_cmap
+    else:
+        global_cmap = ctbl
     if(ctbl == 'my_cmap'):
         cmap = my_cmap
         plt.set_cmap(my_cmap) 
@@ -511,6 +522,14 @@ def plot_density(ax, fp, global_cmap = global_cmap, global_zmin=global_zmin, glo
     xr =read_float_arr(fp)
     yr = read_float_arr(fp)
     zr = read_float_arr(fp)
+    if(abs(global_zmin)<1.e30):
+        zr[0] = global_zmin
+    else:
+        global_zmin = zr[0]
+    if(abs(global_zmax)<1.e30):
+        zr[1] = global_zmax
+    else:
+        global_zmax = zr[1]
     irr = read_int(fp)
     if(irr == 0 or irr == -1):  # regular points
         grid=[]
@@ -531,24 +550,6 @@ def plot_density(ax, fp, global_cmap = global_cmap, global_zmin=global_zmin, glo
         if(irr == 0):
             if(nrows == 1 and ncols==1):
                 plt.colorbar(im)
-            else:
-                if(global_cmap!= ''):
-                    if(ctbl != global_cmap):
-                        print 'for single figure you cannot use different color bars!'
-                        sys.exit()
-                else:
-                    global_cmap = ctbl
-                if(abs(zr[0])<1.e30 and abs(zr[1])<1.e30):
-                    if(abs(global_zmin) < 1.e30 and abs(global_zmax)<1.e30):
-                        if(z[0]!= global_zmin or z[1] != global_zmax):
-                            print 'for density plots sharing a colorbar you must use the same zmin and zmax'
-                            sys.exit()
-                    else:
-                        global_zmin = zr[0]
-                        global_zmax = zr[1]
-                else:
-                    print 'for density plots sharing a colorbar you must specify zmin and zmax'
-                    sys.exit()
     elif(irr == 1 or irr == 2):
         n = read_int(fp)
         x = []
@@ -591,24 +592,6 @@ def plot_density(ax, fp, global_cmap = global_cmap, global_zmin=global_zmin, glo
         if(irr == 1):
             if(nrows == 1 and ncols==1):
                 plot.colorbar(im)
-            else:
-                if(global_cmap!= ''):
-                    if(ctbl != global_cmap):
-                        print 'for single figure you cannot use different color bars!'
-                        sys.exit()
-                else:
-                    global_cmap = ctbl
-                if(abs(zr[0])<1.e30 and abs(zr[1])<1.e30):
-                    if(abs(global_zmin) < 1.e30 and abs(global_zmax)<1.e30):
-                        if(z[0]!= global_zmin or z[1] != global_zmax):
-                            print 'for density plots sharing a colorbar you must use the same zmin and zmax'
-                            sys.exit()
-                    else:
-                        global_zmin = zr[0]
-                        global_zmax = zr[1]
-                else:
-                    print 'for density plots sharing a colorbar you must specify zmin and zmax'
-                    sys.exit()
     return (im, global_cmap, global_zmin, global_zmax)
 
 def plot_clip(ax, fp):
@@ -718,7 +701,7 @@ def plot_expand(ax, fp):
     ax.set_ylim(ymin = ymin, ymax = ymax)
 
 
-def loadfig(ax, filename, global_im = global_im, global_cmap = global_cmap, global_zmin = global_zmin, global_zmax = global_zmax) :
+def loadfig(ax, filename, want_xlabel = True, want_ylabel = True, global_im = global_im, global_cmap = global_cmap, global_zmin = global_zmin, global_zmax = global_zmax) :
     if(filename == ''):
         return (global_im, global_cmap, global_zmin, global_zmax)
     try:
@@ -740,20 +723,20 @@ def loadfig(ax, filename, global_im = global_im, global_cmap = global_cmap, glob
     if(nxticks != 0):
         if(nxticks<0):
             plt.setp( [ ax.get_xticklabels() ], visible = False)
-        else:
-            xloc = plt.MaxNLocator(nyticks)
-            ax.xaxis.set_major_locator(xloc)
+            nxticks = - nxticks
+        xloc = plt.MaxNLocator(nxticks)
+        ax.xaxis.set_major_locator(xloc)
     if(nyticks != 0):
         if(nyticks<0):
             plt.setp( [ ax.get_yticklabels() ], visible = False) 
-        else:
-            yloc = plt.MaxNLocator(nyticks)
-            ax.yaxis.set_major_locator(yloc)            
+            nyticks = -nyticks
+        yloc = plt.MaxNLocator(nyticks)
+        ax.yaxis.set_major_locator(yloc)            
     if(caption !=''):
         ax.set_title(caption)
-    if(xlabel !=''):
+    if(xlabel !='' and want_xlabel):
         ax.set_xlabel(xlabel)
-    if(ylabel !=''):
+    if(ylabel !='' and want_ylabel):
         ax.set_ylabel(ylabel)
         for tick in ax.get_yticklabels():
             tick.set_rotation(90)
@@ -827,39 +810,89 @@ bottom_space = float_of('bottom_space', 0.12)
 top_space = float_of('top_space', 0.08)
 minhspace = 0.03 #if less than this, remove labels  
 minwspace = 0.05   
-if(nrows == 1 and ncols==1):
+xticks = float_arr_of('xticks')
+yticks = float_arr_of('yticks')
+xticklabels = str_arr_of('xticklabels')
+yticklabels = str_arr_of('yticklabels')
+if(str_of('figure[0,0]') == '' and int_of('nrows') == 0 and int_of('ncols') == 0):
     fp=open(sys.argv[1], 'r')
     sizes = read_float_arr(fp)
     fp.close()
     fig, ax = plt.subplots(figsize=(sizes[0],sizes[1]))
     loadfig(ax, sys.argv[1])
 else:
-    fig, axarr = plt.subplots( nrows=nrows, ncols=ncols, figsize=( float_of('xsize', 8.),  float_of('ysize', 6.) ), sharex = logical_of('sharex', True), sharey = logical_of('sharey', True))
+    fig, axarr = plt.subplots( nrows=nrows, ncols=ncols, figsize=( float_of('width', 8.),  float_of('height', 6.) ), sharex = logical_of('sharex', True), sharey = logical_of('sharey', True))
     fig.subplots_adjust( left = left_space, right = 1.- right_space, bottom = bottom_space, top = 1.-top_space, wspace=wspace, hspace = hspace)
     if(nrows > 1 and ncols > 1):
         for irow in range(nrows):
             for icol in range(ncols):
+                want_xlabel = True
+                want_ylabel = True
                 if(hspace < minhspace and irow < nrows-1):
-                    plt.setp( axarr[irow][icol].get_xticklabels(), visible=False)
+                    axarr[irow][icol].set_xticklabels([])
+#                    plt.setp( axarr[irow][icol].get_xticklabels(), visible=False)
+                    want_xlabel = False
                 if(wspace<minwspace and icol>0):
-                    plt.setp( axarr[irow][icol].get_yticklabels(), visible=False)
+                    axarr[irow][icol].set_yticklabels([])
+#                    plt.setp( axarr[irow][icol].get_yticklabels(), visible=False)
+                    want_ylabel = False
+                    
+
                 filename = settings['figure['+str(irow)+','+str(icol)+']'].strip() 
-                (global_im, global_cmap, global_zmin, global_zmax) = loadfig(axarr[irow,icol], filename)
+                (global_im, global_cmap, global_zmin, global_zmax) = loadfig(axarr[irow,icol], filename, want_xlabel = want_xlabel, want_ylabel = want_ylabel)
+                if(xticks != []):
+                    axarr[irow][icol].set_xticks(xticks)
+                if(xticklabels != [] and want_xlabel):
+                    axarr[irow][icol].set_xticklabels(xticklabels)
+                if(yticks != []):
+                    axarr[irow][icol].set_yticks(yticks)
+                if(yticklabels != [] and want_ylabel):
+                    axarr[irow][icol].set_yticklabels(yticklabels)
     elif(nrows > 1):
         for irow in range(nrows):
+            want_xlabel = True
             if(hspace < minhspace and irow<nrows-1):
-                plt.setp( axarr[irow][0].get_xticklabels(), visible=False)
+#                plt.setp( axarr[irow][0].get_xticklabels(), visible=False)
+                axarr[irow].set_xticklabels([])
+                want_xlabel = False
             filename = settings['figure['+str(irow)+',0]'].strip() 
-            (global_im, global_cmap, global_zmin, global_zmax) = loadfig(axarr[irow], filename)
+            (global_im, global_cmap, global_zmin, global_zmax) = loadfig(axarr[irow], filename, want_xlabel = want_xlabe)
+            if(xticks != []):
+                axarr[irow].set_xticks(xticks)
+            if(xticklabels != [] and want_xlabel):
+                axarr[irow].set_xticklabels(xticklabels)
+            if(yticks != []):
+                axarr[irow].set_yticks(yticks)
+            if(yticklabels != []):
+                axarr[irow].set_yticklabels(yticklabels)
     elif(ncols>1):
         for icol in range(ncols):
+            want_ylabel = True
             if(wspace<minwspace and icol>0):
-                plt.setp( axarr[0][icol].get_yticklabels(), visible=False)
+                # plt.setp( axarr[0][icol].get_yticklabels(), visible=False)
+                axarr[icol].set_yticklabels([])
+                want_ylabel = False
             filename = settings['figure[0,'+str(icol)+']'].strip() 
-            (global_im, global_cmap, global_zmin, global_zmax) =loadfig(axarr[icol], filename)
+            (global_im, global_cmap, global_zmin, global_zmax) =loadfig(axarr[icol], filename, want_ylabel = want_ylabel)
+            if(xticks != []):
+                axarr[icol].set_xticks(xticks)
+            if(xticklabels != []):
+                axarr[icol].set_xticklabels(xticklabels)
+            if(yticks != []):
+                axarr[icol].set_yticks(yticks)
+            if(yticklabels != [] and want_ylabel):
+                axarr[icol].set_yticklabels(yticklabels)
     else:
         filename = settings['figure[0,0]'].strip() 
         loadfig(axarr, filename)
+        if(xticks != []):
+            axarr.set_xticks(xticks)
+        if(xticklabels != [] and want_xlabel):
+            axarr.set_xticklabels(xticklabels)
+        if(yticks != []):
+            axarr.set_yticks(yticks)
+        if(yticklabels != []):
+            axarr.set_yticklabels(yticklabels)
 
 yspan = (1.-top_space-bottom_space+hspace)/nrows
 yrat = (yspan-hspace)/yspan
@@ -875,11 +908,11 @@ if(global_cmap != ''):
 for irow in range(nrows):
     label = str_of('row_label['+str(irow)+']')
     if(label != ''):
-        fig.text(0., bottom_space + (irow+0.5*yrat)*yspan, label, ha= 'left', va='center')
+        fig.text(0., bottom_space + (nrows-irow-1+0.5*yrat)*yspan, label, ha= 'left', va='center')
 
 for icol in range(ncols):
     label = str_of('col_label['+str(icol)+']')    
     if(label != ''):
-        fig.text(left_space + (icol + 0.5*xrat)*xspan,  0., label, va='bottom', ha='center')
+        fig.text(left_space + (icol + 0.5*xrat)*xspan,  1.-top_space*0.01, label, va='top', ha='center')
 
 plt.savefig(sys.argv[2], format='pdf')

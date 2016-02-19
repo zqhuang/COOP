@@ -142,9 +142,9 @@ contains
     if(this%norm_to_corr)then
        if(this%norm_power .ne. -1.d0)then
           call this%peak_map%get_element(i, map)
-          wnorm = max(abs((map(this%index_I)/this%sigma_I)), 1.d-5)**(this%norm_power+1.d0)/this%sigma_I
+          wnorm = max(abs((map(this%index_I)/this%sigma_I)), 1.d-5)**(this%norm_power+1.d0) /this%sigma_I
        else
-          wnorm  = 1.d0
+          wnorm  = 1.d0 /this%sigma_I
        endif
     else
        wnorm = 1.d0

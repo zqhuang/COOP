@@ -5,19 +5,21 @@ program flatcoadd
   use coop_sphere_mod
   implicit none
 #include "constants.h"
-  type(coop_fits_image_cea)::total_map, total_weights, this_map, this_weights
+  type(coop_fits_image_cea)::total_map, total_weights, this_map, this_weights, map_neg, weight_neg
   COOP_STRING::params_file, map_file, weight_file
   logical::positive_weights = .true.
   logical::analyze_maps = .false.
   logical::do_filtering = .false.
   logical::has_weights = .true.
   type(coop_dictionary)::params
+  logical::do_diff = .false.
   COOP_INT:: num_maps, i, lmin, lmax
-  COOP_REAL::coef, truncate, mean_weight, fwhm, reg_limit
+  COOP_REAL::coef, truncate, mean_weight, fwhm, reg_limit, truncate_weight
 !  call coop_MPI_Init()
   call coop_get_Input(1, params_file)
   call coop_load_dictionary(params_file, params)
   call coop_dictionary_lookup(params, "num_maps", num_maps)
+  call coop_dictionary_lookup(params, "do_diff", do_diff, .false.)
   if(num_maps .gt. 100 .or. num_maps.lt.1)then
      stop "num_maps must be between 1 and 100"
   else
@@ -60,57 +62,38 @@ program flatcoadd
         endif
      endif
      call coop_dictionary_lookup(params, "coef"//COOP_STR_OF(i), coef, default_val = 1.d0)
+     call this_map%open(map_file)
+     call this_map%regularize(reg_limit)
+     if(do_filtering)call this_map%smooth(fwhm = fwhm, highpass_l1 = lmin - 10, highpass_l2 = lmin + 10, lmax = lmax)
+     if(analyze_maps)call this_map%simple_stat()
      if(i.eq.1)then
-        call total_map%open(map_file)
-        call total_map%regularize(reg_limit)
-        if(do_filtering)call total_map%smooth(fwhm = fwhm, highpass_l1 = lmin - 10, highpass_l2 = lmin + 10, lmax  = lmax)
-        if(analyze_maps)call total_map%simple_stat()
-        if(has_weights)then
-           call total_weights%open(weight_file)
-           if(analyze_maps)call total_weights%simple_stat()
-           if(positive_weights)then
-              if(any(total_weights%image .lt. 0.d0)) stop "found negative weights"
-           endif
-           if(total_map%npix .ne. total_weights%npix)then
-              write(*,*) "maps/mask with different sizes cannot be coadded"
-              stop
-           endif
-           if(abs(coef-1.d0) .gt. 1.d-6)then
-              total_map%image = total_map%image*total_weights%image*coef
-           else
-              total_map%image = total_map%image*total_weights%image
-           endif
-        elseif(abs(coef-1.d0) .gt. 1.d-6)then
-           total_map%image = total_map%image * coef
+        total_map = this_map
+        total_map%image = 0.
+        if(has_weights)total_weights = total_map
+        if(do_diff)then
+           map_neg = total_map
+           if(has_weights)weight_neg = total_weights
+        endif
+     endif
+     if(has_weights)then
+        call this_weights%open(weight_file)
+        if(analyze_maps)call this_weights%simple_stat()
+        if(positive_weights)then
+           if(any(this_weights%image .lt. 0.d0)) stop "found negative weights"
+        endif
+        if(this_map%npix .ne. total_map%npix .or. this_weights%npix .ne. total_weights%npix)then
+           write(*,*) "maps with different sizes cannot be coadded"
+           stop
+        endif
+        if(do_diff .and. coef .lt. 0.)then
+           map_neg%image = map_neg%image + this_map%image*this_weights%image*coef
+           weight_neg%image = weight_neg%image + this_weights%image
+        else
+           total_map%image = total_map%image + this_map%image*this_weights%image*coef
+           total_weights%image = total_weights%image + this_weights%image
         endif
      else
-        call this_map%open(map_file)
-        call this_map%regularize(reg_limit)
-        if(do_filtering)call this_map%smooth(fwhm = fwhm, highpass_l1 = lmin - 10, highpass_l2 = lmin + 10, lmax = lmax)
-        if(analyze_maps)call this_map%simple_stat()
-        if(has_weights)then
-           call this_weights%open(weight_file)
-           if(analyze_maps)call this_weights%simple_stat()
-           if(positive_weights)then
-              if(any(this_weights%image .lt. 0.d0)) stop "found negative weights"
-           endif
-           if(this_map%npix .ne. total_map%npix .or. this_weights%npix .ne. total_weights%npix)then
-              write(*,*) "maps with different sizes cannot be coadded"
-              stop
-           endif
-           if(abs(coef-1.d0) .gt. 1.d-6)then
-              total_map%image = total_map%image + this_map%image*this_weights%image*coef
-           else
-              total_map%image = total_map%image + this_map%image*this_weights%image
-           endif
-           total_weights%image = total_weights%image + this_weights%image
-        else
-           if(abs(coef-1.d0) .gt. 1.d-6)then
-              total_map%image = total_map%image + this_map%image * coef
-           else
-              total_map%image = total_map%image + this_map%image
-           endif
-        endif
+        total_map%image = total_map%image + this_map%image * coef
      endif
   enddo
   call this_map%free()
@@ -119,9 +102,9 @@ program flatcoadd
   call coop_dictionary_lookup(params, "output_weight", weight_file)
   if(trim(map_file).eq."") stop "output_map is not set"
   if(has_weights)then
-     call coop_dictionary_lookup(params, "truncate_weight", truncate, default_val = 0.05d0)
+     call coop_dictionary_lookup(params, "truncate_weight", truncate_weight, default_val = 0.05d0)
      mean_weight = sum(total_weights%image)/total_weights%npix
-     truncate = truncate*mean_weight
+     truncate = truncate_weight*mean_weight
      write(*,*) "mean weight = ", mean_weight
      write(*,*) "truncating at weight <=", truncate
      where(total_weights%image .gt. truncate)
@@ -131,8 +114,24 @@ program flatcoadd
         total_weights%image = 0.d0
      end where
      write(*,*) "fraction of truncated pixels:", count(total_weights%image .eq. 0.d0)/dble(total_weights%npix)
-     if(trim(weight_file).ne."") call total_weights%write(weight_file)
+     if(do_diff)then
+        mean_weight = sum(weight_neg%image)/weight_neg%npix
+        truncate = truncate_weight*mean_weight
+        where(weight_neg%image .gt. truncate)
+           map_neg%image = map_neg%image/weight_neg%image
+        elsewhere 
+           map_neg%image = 0.d0
+           weight_neg%image = 0.d0
+        end where
+        total_map%image = (total_map%image + map_neg%image)/2.d0
+     endif
      call total_map%write(map_file)
+     if(trim(weight_file).ne."")then
+        if(do_diff)then
+           total_weights%image = total_weights%image * weight_neg%image
+        endif
+        call total_weights%write(weight_file)
+     endif
   else
      total_map%image = total_map%image/num_maps
      call total_map%write(map_file)
@@ -144,6 +143,8 @@ program flatcoadd
   write(*,*) "The coadded map has been written to "//trim(map_file)
   call total_map%free()
   call total_weights%free()
+  call map_neg%free()
+  call weight_neg%free()
 end program flatcoadd
 
 

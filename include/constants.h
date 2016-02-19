@@ -179,3 +179,9 @@
 #define COOP_PERT_EFT 5
 
 #define COOP_INTERP_SOURCE(source, ind, idense, ik, itau) (source%s(ind, ik, itau)*source%a_dense(idense) + source%s(ind, ik-1, itau)*source%b_dense(idense) + source%s2(ind, ik, itau)*source%a2_dense(idense) + source%s2(ind, ik-1, itau)*source%b2_dense(idense))
+
+
+#define COOP_DET33(a)  ( a(1,1)*(a(2,2)*a(3,3) - a(2,3)*a(3,2)) + a(1,2)*(a(2,3)*a(3,1)-a(2,1)*a(3,3)) + a(1,3)*(a(2,1)*a(3,2)- a(2,2)*a(3,1)) )
+
+#define COOP_INV33(a, det) (Reshape( (/ a(2,2)*a(3,3) - a(2,3)*a(3,2), a(2,3)*a(3,1)-a(2,1)*a(3,3), a(2,1)*a(3,2)- a(2,2)*a(3,1), a(3,2)*a(1,3)-a(1,2)*a(3,3), a(3,3)*a(1,1)-a(3,1)*a(1,3), a(1,2)*a(3,1)-a(1,1)*a(3,2),  a(1,2)*a(2,3)- a(2,2)*a(1,3), a(2,1)*a(1,3)-a(1,1)*a(2,3),  a(1,1)*a(2,2)-a(1,2)*a(2,1) /), (/ 3, 3 /) ) /det)
+            

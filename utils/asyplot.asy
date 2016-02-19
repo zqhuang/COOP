@@ -745,7 +745,7 @@ picture make_picture(file inputfile){
    for (int i = 1; i< nlines; ++i){
      pts = read_xy(fin);
      curve = curve -- ( xcoor(pts[0]), ycoor(pts[1]) ) ;}
-   if(mark!=''){
+   if(mark!='0' && mark !=''){
      if(trim_string(clegend) != ""){
        if(mark == '*')
 	 draw(mypic, curve,  colorpen, Mark[6], legend = clegend);
