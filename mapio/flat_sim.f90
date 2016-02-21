@@ -8,7 +8,7 @@ program test
   character(LEN=*),parameter::mapdir = "act16/"
   COOP_UNKNOWN_STRING,parameter::beam_file = mapdir//"beam_7ar2.txt"
   COOP_INT,parameter::lmin =   200
-  COOP_INT,parameter::lmax = 4000
+  COOP_INT,parameter::lmax = 3000
   COOP_REAL,parameter::reg_limit = 0.001d0
   COOP_INT::isim
   type(coop_fits_image_cea)::tmap, emap, bmap, noise, qmap, umap
@@ -28,7 +28,7 @@ program test
   enddo
   call fp%close()
   Cls = 0.d0
-  call fp%open_skip_comments("lcdm_lensedCls.dat")
+  call fp%open_skip_comments("teb_lensedCls.dat")
   do l=2, lmin-1
      read(fp%unit, *) il, junk
   enddo
@@ -39,31 +39,31 @@ program test
      Cls(l,:) = Cls(l,:)*norm
   enddo
   call fp%close()
-  call tmap%open(mapdir//"deep56_coadd_I.fits")
+  call tmap%open(mapdir//"act_matcoadd_I.fits")
   emap = tmap
   bmap = tmap
   qmap = tmap
   umap = tmap
   call coop_fits_image_cea_simulate_TEB(lmin=lmin, lmax=lmax, Cls=Cls, tmap = tmap, emap = emap, bmap = bmap, qmap=qmap, umap =umap)
-  call tmap%write(mapdir//"sim_"//COOP_STR_OF(isim)//"_I.fits")
-  call qmap%write(mapdir//"sim_"//COOP_STR_OF(isim)//"_Q.fits")
-  call umap%write(mapdir//"sim_"//COOP_STR_OF(isim)//"_U.fits")
+  call tmap%write(mapdir//"simteb_"//COOP_STR_OF(isim)//"_I.fits")
+  call qmap%write(mapdir//"simteb_"//COOP_STR_OF(isim)//"_Q.fits")
+  call umap%write(mapdir//"simteb_"//COOP_STR_OF(isim)//"_U.fits")
 
   call emap%free()
   call bmap%free()
-  call noise%open(mapdir//"deep56_array_2_noise_sim_"//COOP_STR_OF(isim)//"_I.fits")
-  call noise%regularize(reg_limit)
-  tmap%image = tmap%image + noise%image
-  call tmap%write(mapdir//"sim_with_noise_"//COOP_STR_OF(isim)//"_I.fits")
-
-  call noise%open(mapdir//"deep56_array_2_noise_sim_"//COOP_STR_OF(isim)//"_Q.fits")
-  call noise%regularize(reg_limit)
-  qmap%image = qmap%image + noise%image
-  call qmap%write(mapdir//"sim_with_noise_"//COOP_STR_OF(isim)//"_Q.fits")
-
-  call noise%open(mapdir//"deep56_array_2_noise_sim_"//COOP_STR_OF(isim)//"_U.fits")
-  call noise%regularize(reg_limit)
-  umap%image = umap%image + noise%image
-  call umap%write(mapdir//"sim_with_noise_"//COOP_STR_OF(isim)//"_U.fits")
+!!$  call noise%open(mapdir//"deep56_array_2_noise_sim_"//COOP_STR_OF(isim)//"_I.fits")
+!!$  call noise%regularize(reg_limit)
+!!$  tmap%image = tmap%image + noise%image
+!!$  call tmap%write(mapdir//"sim_with_noise_"//COOP_STR_OF(isim)//"_I.fits")
+!!$
+!!$  call noise%open(mapdir//"deep56_array_2_noise_sim_"//COOP_STR_OF(isim)//"_Q.fits")
+!!$  call noise%regularize(reg_limit)
+!!$  qmap%image = qmap%image + noise%image
+!!$  call qmap%write(mapdir//"sim_with_noise_"//COOP_STR_OF(isim)//"_Q.fits")
+!!$
+!!$  call noise%open(mapdir//"deep56_array_2_noise_sim_"//COOP_STR_OF(isim)//"_U.fits")
+!!$  call noise%regularize(reg_limit)
+!!$  umap%image = umap%image + noise%image
+!!$  call umap%write(mapdir//"sim_with_noise_"//COOP_STR_OF(isim)//"_U.fits")
 
 end program test

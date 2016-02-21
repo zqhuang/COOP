@@ -21,6 +21,9 @@ program test
      call weight_QU%read(dir//"deep56_array_2_season2_iqu_c7v5_night_strict_nomoon_4way_set_"//COOP_STR_OF(i)//"_8Dec15_beams_srcsub_mapsub_nobad_weights_QU.fits")
      call weight_IQ%read(dir//"deep56_array_2_season2_iqu_c7v5_night_strict_nomoon_4way_set_"//COOP_STR_OF(i)//"_8Dec15_beams_srcsub_mapsub_nobad_weights_Q.fits")
      call weight_IU%read(dir//"deep56_array_2_season2_iqu_c7v5_night_strict_nomoon_4way_set_"//COOP_STR_OF(i)//"_8Dec15_beams_srcsub_mapsub_nobad_weights_U.fits")
+     call imap%regularize(0.003d0)
+     call qmap%regularize(0.003d0)
+     call umap%regularize(0.003d0)
      if(i.eq.0)then
         isum = imap
         qsum = qmap
@@ -57,7 +60,7 @@ program test
      cov(3,1) = cov(1,3)
      cov(3,2) = cov(2,3)
      det = COOP_DET33(cov)
-     if(det .gt. 0.d0)then
+     if(det .gt. 1.d11)then
         cov = COOP_INV33(cov, det)
         vec = matmul(cov, (/ isum%image(i), qsum%image(i), usum%image(i) /) )
         imap%image(i) = vec(1)

@@ -7,6 +7,7 @@ program test
 #include "constants.h"
   type(coop_dictionary)::params
   type(coop_fits_image_cea)::map, map2, mask, mask2
+  logical::print_header = .false.
   COOP_STRING::fname, fname2, fmask, fmask2, cl_file
   COOP_REAL::mean, rms, mean2, rms2, threshold, cut, reg_limit
 
@@ -15,13 +16,24 @@ program test
      write(*,*) "./FStat -map MAPFILE [-mask MASKFILE] [-map2 SECOND_MAPFILE] [-mask2 SECOND_MASKFILE] [-cut CUT(0.1)] [-reg_limit REG_LIMIT(0)] [-cl_file CL_FILE]"
      stop
   endif
-  call coop_get_command_line_argument(key = 'map', arg = fname)
-  call coop_get_command_line_argument(key = 'map2', arg = fname2, default="")
-  call coop_get_command_line_argument(key = 'cl_file', arg = cl_file, default="")
-  call coop_get_command_line_argument(key = 'mask', arg = fmask, default="")
-  call coop_get_command_line_argument(key = 'mask2', arg = fmask2, default="")
-  call coop_get_command_line_argument(key = 'cut', arg = cut, default = 0.1d0)
-  call coop_get_command_line_argument(key = 'reg_limit', arg = reg_limit, default = 0.d0)
+  if(iargc().eq.1)then
+     fname = trim(coop_InputArgs(1))
+     fname2 = ''
+     fmask = ''
+     cl_file = ''
+     fmask2 = ''
+     reg_limit = 0.d0
+     cut = 0.1d0
+  else
+     call coop_get_command_line_argument(key = 'map', arg = fname)
+     call coop_get_command_line_argument(key = 'print_header', arg = print_header, default = .false.)
+     call coop_get_command_line_argument(key = 'map2', arg = fname2, default="")
+     call coop_get_command_line_argument(key = 'cl_file', arg = cl_file, default="")
+     call coop_get_command_line_argument(key = 'mask', arg = fmask, default="")
+     call coop_get_command_line_argument(key = 'mask2', arg = fmask2, default="")
+     call coop_get_command_line_argument(key = 'cut', arg = cut, default = 0.1d0)
+     call coop_get_command_line_argument(key = 'reg_limit', arg = reg_limit, default = 0.d0)
+  endif
   call map%open(fname)
   call map%regularize(reg_limit)
   if(trim(fmask).ne."")then
@@ -71,7 +83,17 @@ program test
 
 
      endif
-     call map2%free()
+  endif
+  if(print_header)then
+     write(*,*) "============= header of "//trim(fname)//" =========="
+     call map%header%print()
+     write(*,*) "===================================================="
+     if(trim(fname2) .ne. '')then
+        write(*,*) "============= header of "//trim(fname2)//" =========="
+        call map2%header%print()
+        write(*,*) "===================================================="
+     endif
   endif
   call map%free()
+  call map2%free()
 end program test

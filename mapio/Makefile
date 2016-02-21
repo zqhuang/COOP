@@ -99,6 +99,9 @@ FMask:  $(OBJ) flat_mask.o
 FSim:  $(OBJ) flat_sim.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_sim.o $(LINK)
 
+MCoadd:  $(OBJ) matcoadd.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) matcoadd.o $(LINK)
+
 
 ByProd: $(OBJ) map_by_products.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) map_by_products.o $(LINK)

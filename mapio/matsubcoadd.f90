@@ -5,13 +5,16 @@ program test
   use coop_sphere_mod
   implicit none
 #include "constants.h"
-  COOP_INT::nsets = 4
   COOP_UNKNOWN_STRING,parameter::dir = "act16/"
   type(coop_fits_image_cea)::imap, qmap, umap, weight_II, weight_IQ, weight_IU, weight_QQ, weight_UU, weight_QU
-  type(coop_fits_image_cea)::isum, qsum, usum, II_sum, IQ_sum, IU_sum, QQ_sum, UU_sum, QU_sum
-  COOP_INT:: i
+  type(coop_fits_image_cea)::isum, qsum, usum, II_sum, IQ_sum, IU_sum, QQ_sum, UU_sum, QU_sum, mask
+  COOP_INT:: i, istart, iend
   COOP_REAL::cov(3,3),  vec(3), det
-  do i = 0, nsets - 1
+  call coop_get_Input(1, istart)
+  call coop_get_Input(2, iend)
+  print*, istart, iend
+  call mask%read(dir//"act_matcoadd_weight.fits")
+  do i = istart, iend, iend-istart
      call imap%read(dir//"deep56_array_2_season2_iqu_c7v5_night_strict_nomoon_4way_set_"//COOP_STR_OF(i)//"_8Dec15_beams_srcsub_mapsub_wpoly_nobad_500_I.fits")
      call qmap%read(dir//"deep56_array_2_season2_iqu_c7v5_night_strict_nomoon_4way_set_"//COOP_STR_OF(i)//"_8Dec15_beams_srcsub_mapsub_wpoly_nobad_500_Q.fits")
      call umap%read(dir//"deep56_array_2_season2_iqu_c7v5_night_strict_nomoon_4way_set_"//COOP_STR_OF(i)//"_8Dec15_beams_srcsub_mapsub_wpoly_nobad_500_U.fits")
@@ -24,7 +27,7 @@ program test
      call imap%regularize(0.003d0)
      call qmap%regularize(0.003d0)
      call umap%regularize(0.003d0)
-     if(i.eq.0)then
+     if(i.eq. istart)then
         isum = imap
         qsum = qmap
         usum = umap
@@ -60,7 +63,8 @@ program test
      cov(3,1) = cov(1,3)
      cov(3,2) = cov(2,3)
      det = COOP_DET33(cov)
-     if(det .gt. 1.d11)then
+     if(mask%image(i).gt.0.d0)then
+        if(det .lt. 1.d3) stop "weird small det with large full det"
         cov = COOP_INV33(cov, det)
         vec = matmul(cov, (/ isum%image(i), qsum%image(i), usum%image(i) /) )
         imap%image(i) = vec(1)
@@ -74,8 +78,9 @@ program test
         umap%image(i) = 0.d0
      endif
   enddo
-  call imap%write(dir//"act_matcoadd_I.fits")
-  call qmap%write(dir//"act_matcoadd_Q.fits")
-  call umap%write(dir//"act_matcoadd_U.fits")
-  call weight_II%write(dir//"act_matcoadd_weight.fits")
+  write(*,"(A, F10.1,A)") "Fraction of sky used: ", 100.d0*count(weight_II%image .gt. 0.d0)/weight_II%npix, "%"
+  call imap%write(dir//"act_matcoadd"//COOP_STR_OF(istart)//COOP_STR_OF(iend)//"_I.fits")
+  call qmap%write(dir//"act_matcoadd"//COOP_STR_OF(istart)//COOP_STR_OF(iend)//"_Q.fits")
+  call umap%write(dir//"act_matcoadd"//COOP_STR_OF(istart)//COOP_STR_OF(iend)//"_U.fits")
+!  call weight_II%write(dir//"act_matcoadd_weight.fits")
 end program test

@@ -13,12 +13,16 @@ program test
   call coop_get_command_line_argument(key = "map2", arg = f2)
   call coop_get_command_line_argument(key = "map3", arg = f3, default="")
   call coop_get_command_line_argument(key = "out", arg = fout)
-  call map1%read(f1)
-  call map2%read(f2)
-  call map1%merge(map2)
-  if(trim(f3).ne."")then
-     call map3%read(f3)
-     call map1%merge(map3)
+  if(coop_file_exists(fout))then
+     write(*,*) "the output file "//trim(fout)//" already exits"
+  else
+     call map1%read(f1)
+     call map2%read(f2)
+     call map1%merge(map2)
+     if(trim(f3).ne."")then
+        call map3%read(f3)
+        call map1%merge(map3)
+     endif
+     call map1%write(fout, write_image = .false., write_mask = map1%mask_changed)
   endif
-  call map1%write(fout, write_image = .false., write_mask = map1%mask_changed)
 end program test

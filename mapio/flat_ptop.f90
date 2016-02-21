@@ -18,21 +18,19 @@ program flatop
         exit
      endif
   enddo
-  call coop_get_command_line_argument(key = 'expr',  arg = expr, default= '' )
- if(trim(expr) .eq. '' .or. output .eq. '')then
-     write(*,*) "./FPTOP -file1 ... -file2 ... -out  OUTPUT -expr EXPRESSION"
+  call coop_get_command_line_argument(key = 'out', arg = output, default = '' )
+ if(trim(output) .eq. '')then
+     write(*,*) "./FPTOP -file1 ... -file2 ... -out  OUTPUT"
      stop
   endif
-  do i=1, nmaps-1
+  do i=1, nmaps
      call maps(i)%read(filename(i))
+     write(*,*) "Reading "//trim(filename(i))
   enddo
-  do i=0, maps(1)%npix-1
-     do j=1, nmaps
-        vals(j) = maps(j)%image(i)
-     enddo
-     call coop_eval_math(expr, ans, vals)
-     maps(1)%image(i) = ans
-  enddo
+  !!write the function here
+  maps(1)%image = (maps(1)%image - maps(2)%image)/2.d0
+  !!
+  write(*,*) "writing to "//trim(output)
   call maps(1)%write(output)
 
 end program flatop

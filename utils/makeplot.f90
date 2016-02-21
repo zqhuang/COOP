@@ -3,11 +3,12 @@ program TestNpeak
   implicit none
 #include "constants.h"
   type(coop_asy)::fig
-  COOP_STRING::file, output, caption, xlabel, ylabel, legend, interp, attach
+  COOP_INT,parameter::max_nfiles = 12
+  COOP_STRING::file(max_nfiles), output, caption, xlabel, ylabel, legend, interp, attach(max_nfiles)
   character(len = 5) tmp
   COOP_SHORT_STRING::color, linetype
   COOP_SINGLE::linewidth, legendx, legendy
-  COOP_INT::i, legendcols, nxticks, nyticks
+  COOP_INT::i, legendcols, nxticks, nyticks, j, fcols, acols
   COOP_STRING::xcol, ycol
   logical::has_legend
   if(iargc().lt.2)then
@@ -143,29 +144,97 @@ program TestNpeak
   fig%linetype(6) = "longdashdotted"
   fig%linetype(7:12) = "solid"
   has_legend = .false.
-  do i = 1, 12
-     call coop_get_command_line_argument(key="file"//COOP_STR_OF(i), arg=file, default="")
-     call coop_get_command_line_argument(key="attach"//COOP_STR_OF(i), arg=attach, default="")
-     if(trim(file).eq."")cycle
+  do i = 1, max_nfiles
+     file(i) = ''
+     attach(i) = ''
+  enddo
+  do i = 1, max_nfiles
+     call coop_get_command_line_argument(key="file"//COOP_STR_OF(i), arg=file(i), default="")
+     if(trim(file(i)).eq."")exit
+     if(file(i)(1:6) .eq. '_FILE_')then
+        read(file(i)(7:), *) j
+        if(j.lt. i)then
+           file(i) = trim(file(j))
+        else
+           stop "syntax error: _FILE_ can only refer to files with smaller index"
+        endif
+     endif
+     if(file(i)(1:6) .eq. '_ATTACH_')then
+        read(file(i)(7:), *) j
+        if(j.lt. i)then
+           if(trim(attach(j)).eq.'')then
+              stop "syntax error: _ATTACH_ can only refer to attached file that has been defined"
+           else
+              file(i) = trim(attach(j))
+           endif
+        else
+           stop "syntax error: _ATTACH_ can only refer to files with smaller index"
+        endif
+     endif
+     if(.not. coop_file_exists(file(i)))then
+        write(*,*) "file "//trim(file(i))//" does not exist"
+        stop
+     endif
+     call coop_get_command_line_argument(key="attach"//COOP_STR_OF(i), arg=attach(i), default="")
+     if(trim(attach(i)).ne.'')then
+        if(attach(i)(1:6) .eq. '_FILE_')then
+           read(attach(i)(7:), *) j
+           if(j.lt. i)then
+              attach(i) = trim(file(j))
+           else
+              stop "syntax error: _FILE_ can only refer to files with smaller index"
+           endif
+        endif
+        if(attach(i)(1:6) .eq. '_ATTACH_')then
+           read(attach(i)(7:), *) j
+           if(j.lt. i)then
+              if(trim(attach(j)).eq.'')then
+                 stop "syntax error: _ATTACH_ can only refer to attached file that has been defined"
+              else
+                 attach(i) = trim(attach(j))
+              endif
+           else
+              stop "syntax error: _ATTACH_ can only refer to files with smaller index"
+           endif
+        endif
+        if(.not. coop_file_exists(attach(i)))then
+           write(*,*) "file "//trim(attach(i))//" does not exist"
+           stop
+        endif
+     endif
      call coop_get_command_line_argument(key="color"//COOP_STR_OF(i), arg=color, default = fig%color(i))
      call coop_get_command_line_argument(key="linetype"//COOP_STR_OF(i), arg=linetype, default=fig%linetype(i))
      call coop_get_command_line_argument(key="linewidth"//COOP_STR_OF(i), arg=linewidth, default=fig%linewidth(i))
      call coop_get_command_line_argument(key="legend"//COOP_STR_OF(i), arg=legend, default="")
      call coop_get_command_line_argument(key="interp"//COOP_STR_OF(i), arg=interp, default="")
      call coop_get_command_line_argument(key="xcol"//COOP_STR_OF(i), arg=xcol, default="")
+     if(trim(xcol).ne.'' .and. trim(attach(i)) .ne. '')then
+        fcols = coop_file_numColumns(file(i))
+        acols = coop_file_numColumns(attach(i))
+        do j = 1, acols
+           xcol = trim(coop_str_replace(xcol, "$a"//COOP_STR_OF(j), "$"//COOP_STR_OF(j+fcols)))
+        enddo
+     endif
      call coop_get_command_line_argument(key="ycol"//COOP_STR_OF(i), arg=ycol, default="")
-     if(trim(attach).ne."")then
+     if(trim(ycol).ne.'' .and. trim(attach(i)) .ne. '')then
+        fcols = coop_file_numColumns(file(i))
+        acols = coop_file_numColumns(attach(i))
+        do j = 1, acols
+           ycol = trim(coop_str_replace(ycol, "$a"//COOP_STR_OF(j), "$"//COOP_STR_OF(j+fcols)))
+        enddo
+     endif
+     if(trim(attach(i)).ne."")then
         if(trim(legend).eq."")then
-           call fig%plot_file(filename = file, interpolate = interp, xcol= xcol, ycol = ycol, color=color, linetype=linetype, linewidth= linewidth, filename2=attach)
+           call fig%plot_file(filename = file(i), interpolate = interp, xcol= xcol, ycol = ycol, color=color, linetype=linetype, linewidth= linewidth, filename2=attach(i))
         else
-           call fig%plot_file(filename = file, interpolate = interp, xcol = xcol, ycol = ycol, color=color, linetype = linetype, linewidth = linewidth, legend = legend, filename2 = attach)
+           call fig%plot_file(filename = file(i), interpolate = interp, xcol = xcol, ycol = ycol, color=color, linetype = linetype, linewidth = linewidth, legend = legend, filename2 = attach(i))
            has_legend = .true.
         endif
      else
         if(trim(legend).eq."")then
-           call fig%plot_file(filename = file, interpolate = interp, xcol= xcol, ycol = ycol, color=color, linetype=linetype, linewidth= linewidth)
+           call fig%plot_file(filename = file(i), interpolate = interp, xcol= xcol, ycol = ycol, color=color, linetype=linetype, linewidth= linewidth)
         else
-           call fig%plot_file(filename = file, interpolate = interp, xcol = xcol, ycol = ycol, color=color, linetype = linetype, linewidth = linewidth, legend = legend)
+           call fig%plot_file(filename = file(i), interpolate = interp, xcol = xcol, ycol = ycol, color=color, linetype = linetype, linewidth = linewidth, legend = legend)
            has_legend = .true.
         endif
      endif

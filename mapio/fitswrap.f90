@@ -78,7 +78,7 @@ module coop_fitswrap_mod
      logical::has_mask = .false.
      logical::mask_changed = .false.
      COOP_REAL::dx, dy, dkx, dky
-     COOP_REAL::total_weight = 0.d0
+     COOP_REAL::total_weight = 0.d0, mask_threshold = 0.d0
      COOP_INT,dimension(:),allocatable::spin
      COOP_SHORT_STRING,dimension(:),allocatable::fields
      COOP_SHORT_STRING,dimension(:),allocatable::units
@@ -119,9 +119,7 @@ contains
     if(this%has_mask)then
        do i=1, this%nmaps
           mean = this%weighted_sum(this%map(i)%image)/this%total_weight
-          where(this%unmasked)
-             this%map(i)%image  = this%map(i)%image - mean
-          end where
+          this%map(i)%image  = this%map(i)%image - mean
        enddo
     else
        do i=1, this%nmaps
@@ -129,6 +127,7 @@ contains
           this%map(i)%image  = this%map(i)%image - mean
        enddo
     endif
+
    end subroutine coop_flatsky_maps_remove_mono
 
   subroutine coop_flatsky_maps_trim_mask(this, width)
@@ -192,6 +191,12 @@ contains
     i = 1
     do while(i.lt. this%nmaps)
        if(this%spin(i).eq.2 .and. this%spin(i+1).eq.2 .and. COOP_UPPER_STR(this%fields(i)).eq."Q" .and. COOP_UPPER_STR(this%fields(i+1)).eq. "U")then
+          if(this%has_mask)then
+             where(.not. this%unmasked)
+                this%map(i)%image = this%map(i)%image * (1.d0-(1.d0-this%mask%image/this%mask_threshold)**2)
+                this%map(i+1)%image = this%map(i+1)%image * (1.d0-(1.d0-this%mask%image/this%mask_threshold)**2)
+             end where
+          endif
           call coop_fits_image_cea_qu2eb(this%map(i), this%map(i+1))
           this%spin(i:i+1) = 0
           this%fields(i) = "E"
@@ -265,12 +270,16 @@ contains
        enddo
        if(map%has_mask)then
           if(this%has_mask)then
-             this%mask%image = this%mask%image * map%mask%image
+             if(maxval(abs(this%mask%image - map%mask%image)).gt. 1.d-2)then
+                this%mask%image = this%mask%image * map%mask%image
+                this%mask_changed = .true.
+             endif
           else
              this%mask = map%mask
+             this%fmask = map%fmask
              this%has_mask = .true.
           endif
-          this%mask_changed = .true.
+
        endif
        call copy%free()
     class default
@@ -413,8 +422,12 @@ contains
           write(fp%unit, "(A)") trim(this%fields(i))
           write(fp%unit, "(A)") trim(this%units(i))
           write(fp%unit, "(I5)") this%spin(i)
-          if(wn .or. .not. coop_file_exists(trim(this%path)//trim(this%files(i))))then
-             this%files(i) = trim(coop_file_replace_postfix(this%filename, "_MAP"//COOP_STR_OF(i)//".fits"))
+          if(wn)then
+             if(coop_file_exists(trim(this%path)//trim(this%files(i))))then
+                this%files(i) = trim(coop_file_replace_postfix(this%filename, "_MAP"//COOP_STR_OF(i)//".fits"))
+             endif
+             call this%map(i)%write(trim(this%path)//trim(this%files(i)))
+          elseif(.not. coop_file_exists(trim(this%path)//trim(this%files(i))))then
              call this%map(i)%write(trim(this%path)//trim(this%files(i)))
           endif
           write(fp%unit, "(A)") trim(this%files(i))
@@ -422,8 +435,14 @@ contains
     endif
     if(this%has_mask)then
        write(fp%unit, "(A)") "T"
-       if(wm .or. .not.coop_file_exists(trim(this%path)//trim(this%fmask)))then
-          this%fmask = trim(coop_file_replace_postfix(this%filename, "_MASK.fits"))
+       if(wm)then
+          if(coop_file_exists(trim(this%path)//trim(this%fmask)))then
+             this%fmask = trim(coop_file_replace_postfix(this%filename, "_MASK.fits"))
+
+          endif
+          call this%mask%write(trim(this%path)//trim(this%fmask))
+       elseif(.not.coop_file_exists(trim(this%path)//trim(this%fmask)))then
+
           call this%mask%write(trim(this%path)//trim(this%fmask))
        endif
        write(fp%unit, "(A)") trim(this%fmask)
@@ -453,7 +472,6 @@ contains
     COOP_UNKNOWN_STRING::filename
     COOP_INT::i
     COOP_REAL,parameter::eps = 1.d-5
-    COOP_REAL::halfmax
     type(coop_file)::fp
     call this%free()
     if(.not. coop_file_exists(filename))then
@@ -506,23 +524,14 @@ contains
           write(*,*) "flatsky_read error: not all maps have the same configuration"
           stop
        endif
-       halfmax = 0.1*min(maxval(this%mask%image), 5.d0*sqrt(sum(this%mask%image**2)/this%mask%npix))
+       this%mask_threshold = 0.5d0*sqrt(sum(this%mask%image**2)/this%mask%npix)
        allocate(this%unmasked(this%npix))
-       this%unmasked = this%mask%image .gt. halfmax
+       this%unmasked = this%mask%image .gt. this%mask_threshold
        this%total_weight = count(this%unmasked)
-       where(this%unmasked)
-          this%mask%image = 1.d0
-       elsewhere
-          this%mask%image = 0.d0
-       end where
-       do i=1, this%nmaps
-          where(.not.this%unmasked)
-             this%map(i)%image = 0.d0
-          end where
-       enddo
     else
        this%total_weight = this%npix
     endif
+    call this%remove_mono()
     call fp%close()
   contains
     subroutine reporterror()
@@ -540,7 +549,6 @@ contains
     COOP_INT,optional::nmaps
     COOP_INT::i
     COOP_REAL,parameter::eps = 1.d-5
-    COOP_REAL::halfmax
     type(coop_file)::fp
     call this%free()
     if(.not. coop_file_exists(filename))then
@@ -650,16 +658,10 @@ contains
           write(*,*) "flatsky_read_from_one error: not all maps have the same configuration"
           stop
        endif
-       halfmax = 0.1*min(maxval(this%mask%image), sqrt(sum(this%mask%image**2)/this%npix)*5.d0)
+       this%mask_threshold = 0.5d0*sqrt(sum(this%mask%image**2)/this%npix)
        allocate(this%unmasked(this%npix))
-       this%unmasked = this%mask%image .gt. halfmax
+       this%unmasked = this%mask%image .gt. this%mask_threshold
        this%total_weight = count(this%unmasked)
-       where(this%unmasked)
-          this%mask%image = 1.d0
-       elsewhere
-          this%mask%image = 0.d0
-          this%map(1)%image = 0.d0
-       end where
     else
        this%total_weight = this%npix
     endif
