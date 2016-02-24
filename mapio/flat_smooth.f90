@@ -15,13 +15,15 @@ program fsm
   COOP_INT::l, i
   COOP_REAL,dimension(:),allocatable::beam
   COOP_REAL::reg_limit
+  logical::overwrite
   if(iargc().lt.2)then
      write(*,*) "Syntax:"
-     write(*,*) "./FSmooth -map MAP_FILE -out OUTPUT  [-mask MASK] [-reg REGULARIZE_LIMIT] [-beam BEAM_FILE] [-fwhm FWHM_IN_ARCMIN ] [-lmin LMIN] [-lmax LMAX] [-lxcut LXCUT] [-lycut LYCUT] [-wantqu WANT_QU] [-field FIELD] [-unit UNIT]"     
+     write(*,*) "./FSmooth -map MAP_FILE -out OUTPUT  [-mask MASK] [-reg REGULARIZE_LIMIT] [-beam BEAM_FILE] [-fwhm FWHM_IN_ARCMIN ] [-lmin LMIN] [-lmax LMAX] [-lxcut LXCUT] [-lycut LYCUT] [-wantqu WANT_QU] [-field FIELD] [-unit UNIT] [-overwrite F/T]"     
      stop
   endif
   call coop_get_command_line_argument(key = "out", arg = output)
-  if(coop_file_exists(output))then
+  call coop_get_command_line_argument(key = 'overwrite', arg= overwrite, default = .true.)
+  if(coop_file_exists(output) .and. .not. overwrite)then
      write(*, *) "the output file "//trim(output)//" already exists"
   else
      call coop_get_command_line_argument(key = "map", arg = map)
@@ -77,8 +79,12 @@ program fsm
         end where
      endif
      call fm%map(1)%smooth(fwhm = fwhm_arcmin*coop_SI_arcmin, highpass_l1 = max(lmin-20, 2), highpass_l2 = lmin + 20, lmax = lmax, lx_cut = lx_cut, ly_cut = ly_cut, beam = beam)
+     fm%map_changed(1) = .true.
      fm%units = unit
-     if(want_qu)call fm%map(1)%get_QTUT(qt = fm%map(2), ut = fm%map(3))
+     if(want_qu)then
+        call fm%map(1)%get_QTUT(qt = fm%map(2), ut = fm%map(3))
+        fm%map_changed(2:3) = .true.
+     endif
      call fm%write(output)
      write(*,*) "File is written to "//trim(output)
   endif

@@ -25,21 +25,21 @@ lycut=50
 #./partrun.sh cutx${lxcut}y${lycut}_noise1 cutx${lxcut}y${lycut}_noise1 ${fwhm1} ${l1} ${tmin} ${tmax} ${qmin} ${qmax} ${emin} ${emax} ${maxn1}
 
 
-#./f2h.sh planck_smica cutx${lxcut}y${lycut}_planck ${fwhm2} ${l2} planck_beam.txt ${lxcut} ${lycut}
-#./f2h.sh sim_1 cutx${lxcut}y${lycut}_noiseless ${fwhm2} ${l2} beam_7ar2.txt ${lxcut} ${lycut}
-#./f2h.sh act_matcoadd cutx${lxcut}y${lycut}_act ${fwhm2} ${l2} beam_7ar2.txt ${lxcut} ${lycut}
-#./f2h.sh noise1 cutx${lxcut}y${lycut}_noise1 ${fwhm2} ${l2} beam_7ar2.txt ${lxcut} ${lycut}
+#./f2h.sh planck_smica cutx${lxcut}y${lycut}_planck ${fwhm3} ${l3} planck_beam.txt ${lxcut} ${lycut}
+#./f2h.sh sim_1 cutx${lxcut}y${lycut}_noiseless ${fwhm3} ${l3} beam_7ar2.txt ${lxcut} ${lycut}
+#./f2h.sh act_matcoadd cutx${lxcut}y${lycut}_act ${fwhm3} ${l3} beam_7ar2.txt ${lxcut} ${lycut}
+#./f2h.sh noise1 cutx${lxcut}y${lycut}_noise1 ${fwhm3} ${l3} beam_7ar2.txt ${lxcut} ${lycut}
 
-#./partrun.sh cutx${lxcut}y${lycut}_noiseless cutx${lxcut}y${lycut}_noiseless ${fwhm2} ${l2} ${tmin} ${tmax} ${qmin} ${qmax} ${emin} ${emax} ${maxn2}
-#./partrun.sh cutx${lxcut}y${lycut}_act cutx${lxcut}y${lycut}_act ${fwhm2} ${l2} ${tmin} ${tmax} ${qmin} ${qmax} ${emin} ${emax} ${maxn2}
-#./partrun.sh cutx${lxcut}y${lycut}_noise1 cutx${lxcut}y${lycut}_noise1 ${fwhm2} ${l2} ${tmin} ${tmax} ${qmin} ${qmax} ${emin} ${emax} ${maxn2}
+#./partrun.sh cutx${lxcut}y${lycut}_noiseless cutx${lxcut}y${lycut}_noiseless ${fwhm3} ${l3} ${tmin} ${tmax} ${qmin} ${qmax} ${emin} ${emax} ${maxn3}
+#./partrun.sh cutx${lxcut}y${lycut}_act cutx${lxcut}y${lycut}_act ${fwhm3} ${l3} ${tmin} ${tmax} ${qmin} ${qmax} ${emin} ${emax} ${maxn3}
+#./partrun.sh cutx${lxcut}y${lycut}_noise1 cutx${lxcut}y${lycut}_noise1 ${fwhm3} ${l3} ${tmin} ${tmax} ${qmin} ${qmax} ${emin} ${emax} ${maxn3}
 
-./f2h.sh planck_smica cutx${lxcut}y${lycut}_planck ${fwhm2} ${l2} planck_beam.txt ${lxcut} ${lycut}
-./f2h.sh act_matcoadd cutx${lxcut}y${lycut}_act ${fwhm2} ${l2} beam_7ar2.txt ${lxcut} ${lycut}
-./f2h.sh noise1 cutx${lxcut}y${lycut}_noise1 ${fwhm2} ${l2} beam_7ar2.txt ${lxcut} ${lycut}
-./f2h.sh sim_1 cutx${lxcut}y${lycut}_noiseless ${fwhm2} ${l2} beam_7ar2.txt ${lxcut} ${lycut}
+#./f2h.sh planck_smica cutx${lxcut}y${lycut}_planck ${fwhm3} ${l3} planck_beam.txt ${lxcut} ${lycut}
+./f2h.sh deep56_ar1 cutx${lxcut}y${lycut}_act ${fwhm3} ${l3} beam_7ar2.txt ${lxcut} ${lycut} T
+#./f2h.sh noise1 cutx${lxcut}y${lycut}_noise1 ${fwhm3} ${l3} beam_7ar2.txt ${lxcut} ${lycut} F
+#./f2h.sh sim_1 cutx${lxcut}y${lycut}_noiseless ${fwhm3} ${l3} beam_7ar2.txt ${lxcut} ${lycut}  F
 
-./partrun.sh cutx${lxcut}y${lycut}_planck cutx${lxcut}y${lycut}_act ${fwhm2} ${l2} ${tmin} ${tmax} ${qmin} ${qmax} ${emin} ${emax} ${maxn2}
-./partrun.sh cutx${lxcut}y${lycut}_noiseless cutx${lxcut}y${lycut}_noiseless ${fwhm2} ${l2} ${tmin} ${tmax} ${qmin} ${qmax} ${emin} ${emax} ${maxn2}
-./partrun.sh cutx${lxcut}y${lycut}_act cutx${lxcut}y${lycut}_act ${fwhm2} ${l2} ${tmin} ${tmax} ${qmin} ${qmax} ${emin} ${emax} ${maxn2}
-./partrun.sh cutx${lxcut}y${lycut}_noise1 cutx${lxcut}y${lycut}_noise1 ${fwhm2} ${l2} ${tmin} ${tmax} ${qmin} ${qmax} ${emin} ${emax} ${maxn2}
+#./partrun.sh cutx${lxcut}y${lycut}_planck cutx${lxcut}y${lycut}_act ${fwhm3} ${l3} ${tmin} ${tmax} ${qmin} ${qmax} ${emin} ${emax} ${maxn3}
+#./partrun.sh cutx${lxcut}y${lycut}_noiseless cutx${lxcut}y${lycut}_noiseless ${fwhm3} ${l3} ${tmin} ${tmax} ${qmin} ${qmax} ${emin} ${emax} ${maxn3}
+./partrun.sh cutx${lxcut}y${lycut}_act cutx${lxcut}y${lycut}_act ${fwhm3} ${l3} ${tmin} ${tmax} ${qmin} ${qmax} ${emin} ${emax} ${maxn3} 
+#./partrun.sh cutx${lxcut}y${lycut}_noise1 cutx${lxcut}y${lycut}_noise1 ${fwhm3} ${l3} ${tmin} ${tmax} ${qmin} ${qmax} ${emin} ${emax} ${maxn3}

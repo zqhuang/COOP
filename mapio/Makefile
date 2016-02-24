@@ -17,7 +17,7 @@ $(LIB): $(OBJ)
 
 all: $(LIB) UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo TE2Z
 
-flat: FCoadd FMerge FSmooth FStat FGetPeaks FStack FQU2EB FEB2QU FMask FSim F2Heal Heal2F FPTOP
+flat: FCoadd FMerge FSmooth FStat FGetPeaks FStack FQU2EB FEB2QU FMask FSim F2Heal Heal2F FPTOP MCoadd
 
 GAUSS: $(OBJ) gaussianize.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) gaussianize.o $(LINK)
@@ -89,6 +89,8 @@ FMerge:  $(OBJ) flat_merge.o
 FCoadd:  $(OBJ) flat_coadd.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_coadd.o $(LINK)
 
+F1D:  $(OBJ) flat_1ddistr.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_1ddistr.o $(LINK)
 
 FPTOP:  $(OBJ) flat_ptop.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_ptop.o $(LINK)
@@ -113,7 +115,7 @@ TE2Z: $(OBJ) te2zeta.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) te2zeta.o $(LINK)
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test PLOTLINES UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo TE2Z GAUSS MM0 MM1 FStack FStat F2Heal FCoadd ACTTheo FMask FGetPeaks FQU2EB FEB2QU FSmooth FMerge Heal2F FPTOP
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test PLOTLINES UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo TE2Z GAUSS MM0 MM1 FStack FStat F2Heal FCoadd ACTTheo FMask FGetPeaks FQU2EB FEB2QU FSmooth FMerge Heal2F FPTOP MCoadd
 
 
 

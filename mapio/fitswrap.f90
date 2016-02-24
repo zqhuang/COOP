@@ -27,7 +27,8 @@ module coop_fitswrap_mod
      COOP_INT,dimension(:),allocatable::nside
      COOP_INT::npix = 0
      COOP_REAL,dimension(:),allocatable::image
-     COOP_REAL,allocatable::transform(:, :), invtrans(:,:), center(:)     
+     COOP_REAL,allocatable::transform(:, :), invtrans(:,:), center(:)
+     COOP_INT,allocatable:: icenter(:)
    contains
      procedure::regularize => coop_fits_image_regularize
      procedure::get_linear_coordinates => coop_fits_image_get_linear_coordinates
@@ -40,7 +41,7 @@ module coop_fitswrap_mod
      COOP_REAL xmin, xmax, ymin, ymax
      COOP_INT:: smooth_nx, smooth_ny, smooth_npix
      type(coop_sphere_disc)::disc
-     COOP_REAL,allocatable::radec_center(:)     
+     COOP_REAL,allocatable::radec_center(:)
      COOP_REAL,dimension(:,:),allocatable:: smooth_image
      COOP_REAL,dimension(:,:),allocatable:: smooth_Q, smooth_U
    contains
@@ -48,6 +49,8 @@ module coop_fitswrap_mod
      procedure::from_healpix => coop_fits_image_cea_from_healpix
      procedure::get_neighbours => coop_fits_image_cea_get_neighbours
      procedure::write => coop_fits_image_cea_write
+     procedure::pix2ixiy => coop_fits_image_cea_pix2ixiy
+     procedure::ixiy2pix => coop_fits_image_cea_ixiy2pix
      procedure::pix2ang => coop_fits_image_cea_pix2ang
      procedure::radec2pix => coop_fits_image_cea_radec2pix
      procedure::get_flatmap => coop_fits_image_cea_get_flatmap
@@ -83,6 +86,7 @@ module coop_fitswrap_mod
      COOP_SHORT_STRING,dimension(:),allocatable::fields
      COOP_SHORT_STRING,dimension(:),allocatable::units
      COOP_STRING,dimension(:),allocatable::files
+     logical,dimension(:),allocatable::map_changed
      COOP_STRING::fmask
      type(coop_fits_image_cea),dimension(:), allocatable::map
      type(coop_fits_image_cea)::mask
@@ -183,6 +187,7 @@ contains
        this%mask%image = 0.d0
     end where
     deallocate(list, weight)
+    this%mask_changed = .true.
   end subroutine coop_flatsky_maps_trim_mask
 
   subroutine coop_flatsky_maps_qu2eb(this)
@@ -201,6 +206,8 @@ contains
           this%spin(i:i+1) = 0
           this%fields(i) = "E"
           this%fields(i+1) = "B"
+          this%map_changed(i)= .true.
+          this%map_changed(i+1)= .true.
           i = i + 2
        else
           i = i + 1
@@ -219,6 +226,8 @@ contains
           this%spin(i:i+1) = 2
           this%fields(i) = "Q"
           this%fields(i+1) = "U"
+          this%map_changed(i) = .true.
+          this%map_changed(i+1) = .true.
           i = i + 2
        else
           i = i + 1
@@ -238,21 +247,24 @@ contains
           stop
        endif
        copy = this
-       deallocate(this%map, this%spin, this%fields, this%units, this%files)
+       deallocate(this%map, this%spin, this%fields, this%units, this%files, this%map_changed)
        this%nmaps = copy%nmaps + map%nmaps 
        allocate(this%spin(this%nmaps))
        allocate(this%fields(this%nmaps))
        allocate(this%files(this%nmaps))
+       allocate(this%map_changed(this%nmaps))
        allocate(this%units(this%nmaps))
        allocate(this%map(this%nmaps))
        this%spin(1:copy%nmaps) = copy%spin
        this%fields(1:copy%nmaps) = copy%fields
        this%files(1:copy%nmaps) = copy%files
+       this%map_changed(1:copy%nmaps) = copy%map_changed
        this%units(1:copy%nmaps) = copy%units
        this%spin(copy%nmaps+1: this%nmaps) = map%spin
        this%fields(copy%nmaps+1: this%nmaps) = map%fields
        this%units(copy%nmaps+1: this%nmaps) = map%units
        this%files(copy%nmaps+1: this%nmaps) = map%files
+       this%map_changed(copy%nmaps+1: this%nmaps) = map%map_changed
        if(trim(this%path).ne.trim(map%path))then
           write(*,*) "merging flatsky maps in different directories."
           write(*,*) "creating symbolic link to resolve the problem."
@@ -408,7 +420,7 @@ contains
           write(fp%unit, "(A)") trim(this%fields(i))
           write(fp%unit, "(A)") trim(this%units(i))
           write(fp%unit, "(I5)") this%spin(i)
-          if(wn .or. .not. coop_file_exists(trim(this%path)//trim(this%files(i))))then
+          if(wn .or. .not. coop_file_exists(trim(this%path)//trim(this%files(i))) .or. this%map_changed(i) )then
              this%files(i) = trim(coop_file_replace_postfix(this%filename, "_MAP"//COOP_STR_OF(imap)//".fits"))
              call this%map(i)%write(trim(this%path)//trim(this%files(i)))
           endif
@@ -422,12 +434,8 @@ contains
           write(fp%unit, "(A)") trim(this%fields(i))
           write(fp%unit, "(A)") trim(this%units(i))
           write(fp%unit, "(I5)") this%spin(i)
-          if(wn)then
-             if(coop_file_exists(trim(this%path)//trim(this%files(i))))then
-                this%files(i) = trim(coop_file_replace_postfix(this%filename, "_MAP"//COOP_STR_OF(i)//".fits"))
-             endif
-             call this%map(i)%write(trim(this%path)//trim(this%files(i)))
-          elseif(.not. coop_file_exists(trim(this%path)//trim(this%files(i))))then
+          if(wn .or. .not. coop_file_exists(trim(this%path)//trim(this%files(i))) .or. this%map_changed(i))then
+             this%files(i) = trim(coop_file_replace_postfix(this%filename, "_MAP"//COOP_STR_OF(i)//".fits"))
              call this%map(i)%write(trim(this%path)//trim(this%files(i)))
           endif
           write(fp%unit, "(A)") trim(this%files(i))
@@ -435,13 +443,9 @@ contains
     endif
     if(this%has_mask)then
        write(fp%unit, "(A)") "T"
-       if(wm)then
-          if(coop_file_exists(trim(this%path)//trim(this%fmask)))then
-             this%fmask = trim(coop_file_replace_postfix(this%filename, "_MASK.fits"))
-
-          endif
-          call this%mask%write(trim(this%path)//trim(this%fmask))
-       elseif(.not.coop_file_exists(trim(this%path)//trim(this%fmask)))then
+       if(wm .or. .not.coop_file_exists(trim(this%path)//trim(this%fmask)) .or. this%mask_changed)then
+          write(*,*) wm , .not.coop_file_exists(trim(this%path)//trim(this%fmask)), this%mask_changed, trim(this%path)//trim(this%fmask)
+          this%fmask = trim(coop_file_replace_postfix(this%filename, "_MASK.fits"))
 
           call this%mask%write(trim(this%path)//trim(this%fmask))
        endif
@@ -490,6 +494,8 @@ contains
     allocate(this%spin(this%nmaps))
     allocate(this%fields(this%nmaps))
     allocate(this%files(this%nmaps))
+    allocate(this%map_changed(this%nmaps))
+    this%map_changed = .false.
     allocate(this%units(this%nmaps))
     i = 0
     do i=1, this%nmaps
@@ -567,6 +573,8 @@ contains
     allocate(this%spin(this%nmaps))
     allocate(this%fields(this%nmaps))
     allocate(this%files(this%nmaps))
+    allocate(this%map_changed(this%nmaps))
+    this%map_changed = .false.
     allocate(this%units(this%nmaps))
     if(present(unit))then
        this%units = trim(unit)
@@ -682,11 +690,12 @@ contains
        enddo
        deallocate(this%map)
     endif
-    if(allocated(this%spin))deallocate(this%spin)
-    if(allocated(this%fields))deallocate(this%fields)
-    if(allocated(this%files))deallocate(this%files)
-    if(allocated(this%units))deallocate(this%units)
-    if(allocated(this%unmasked))deallocate(this%unmasked)
+    COOP_DEALLOC(this%spin)
+    COOP_DEALLOC(this%fields)
+    COOP_DEALLOC(this%files)
+    COOP_DEALLOC(this%map_changed)
+    COOP_DEALLOC(this%units)
+    COOP_DEALLOC(this%unmasked)
     call this%mask%free()
     this%nmaps = 0
     this%npix = 0
@@ -721,18 +730,19 @@ contains
     call this%header%free()
     select type(this)
     class is(coop_fits_image)
-       if(allocated(this%image)) deallocate(this%image)
-       if(allocated(this%nside))deallocate(this%nside)
-       if(allocated(this%transform))deallocate(this%transform)
-       if(allocated(this%invtrans))deallocate(this%invtrans)       
+       COOP_DEALLOC(this%image)
+       COOP_DEALLOC(this%nside)
+       COOP_DEALLOC(this%transform)
+       COOP_DEALLOC(this%invtrans)       
     end select
     select type(this)
     class is (coop_fits_image_cea)
-       if(allocated(this%center))deallocate(this%center)
-       if(allocated(this%radec_center))deallocate(this%radec_center)    
-       if(allocated(this%smooth_image))deallocate(this%smooth_image)
-       if(allocated(this%smooth_Q))deallocate(this%smooth_Q)
-       if(allocated(this%smooth_U))deallocate(this%smooth_U)
+       COOP_DEALLOC(this%center)
+       COOP_DEALLOC(this%icenter)
+       COOP_DEALLOC(this%radec_center)    
+       COOP_DEALLOC(this%smooth_image)
+       COOP_DEALLOC(this%smooth_Q)
+       COOP_DEALLOC(this%smooth_U)
     end select
   end subroutine coop_fits_free
 
@@ -765,14 +775,15 @@ contains
           stop
        endif
        allocate(this%image(0:this%npix-1))
-       allocate(this%transform(this%dim, this%dim), this%center(this%dim), this%invtrans(this%dim, this%dim))
+       allocate(this%transform(this%dim, this%dim), this%center(this%dim), this%icenter(this%dim), this%invtrans(this%dim, this%dim))
        this%transform = 0.d0
        this%invtrans = 0.d0       
        do i=1, this%dim
           this%transform(i, i) = 1.d0
           this%invtrans(i, i) = 1.d0          
        enddo
-       this%center = 0.d0
+       this%center = 1.d0
+       this%icenter = 0
     end select
 
     !!get transform, center 
@@ -808,7 +819,8 @@ contains
              call this%header%print()
              stop
           endif
-          this%center(i) = this%key_value("CRPIX"//COOP_STR_OF(i), (this%nside(i)+1.d0)/2.d0)
+          this%center(i) = this%key_value("CRPIX"//COOP_STR_OF(i), 1.d0) 
+          this%icenter(i) = nint(this%center(i)) - 1  !!C convention 
           this%radec_center(i) = this%key_value("CRVAL"//COOP_STR_OF(i)) * units(i)
        enddo
        if(abs(abs(delta(1)/delta(2)) - 1.d0) .gt. 1.d-3)then
@@ -977,11 +989,28 @@ contains
     vec(2) = dec - this%radec_center(2)
     vec = matmul(this%invtrans, vec)
     ivec = nint(vec)
-    pix = ivec(1) + this%center(1)  - 1 + this%nside(1) * (ivec(2) + this%center(2) - 1)
+    pix = ivec(1) + this%icenter(1) + this%nside(1) * (ivec(2) + this%icenter(2))
     if(pix .ge. this%npix .or. pix .lt. 0)then
        write(*,*) "warning: radec2pix overflow", pix, this%npix
     endif
   end subroutine coop_fits_image_cea_radec2pix
+
+  subroutine coop_fits_image_cea_pix2ixiy(this, pix, ix, iy)
+    class(coop_fits_image_cea)::this
+    COOP_INT pix
+    COOP_INT ix, iy
+    iy = pix/this%nside(1) 
+    ix = pix  - iy*this%nside(1) - this%icenter(1)
+    iy = iy - this%icenter(2)
+  end subroutine coop_fits_image_cea_pix2ixiy
+
+  subroutine coop_fits_image_cea_ixiy2pix(this, ix, iy, pix)
+    class(coop_fits_image_cea)::this
+    COOP_INT pix
+    COOP_INT ix, iy
+    pix = ix + this%icenter(1) + (iy +  this%icenter(2) ) * this%nside(1) 
+  end subroutine coop_fits_image_cea_ixiy2pix
+  
 
   
   subroutine coop_fits_image_cea_pix2ang(this, pix, theta, phi)
@@ -989,9 +1018,7 @@ contains
     COOP_INT pix
     COOP_REAL theta, phi
     COOP_INT ix, iy
-    iy = pix/this%nside(1) 
-    ix = pix  - iy*this%nside(1) + 1 - this%center(1)
-    iy = iy + 1 - this%center(2)
+    call this%pix2ixiy(pix, ix, iy)
     phi = this%transform(1,1)* ix + this%transform(1,2)*iy + this%radec_center(1)
     theta = coop_pio2 - asin(this%transform(2, 1)*ix + this%transform(2,2)*iy + this%radec_center(2))
   end subroutine coop_fits_image_cea_pix2ang
@@ -1058,7 +1085,7 @@ contains
     enddo
     this%smooth_nx = nint(max(abs(coormin(1)), abs(coormax(1)))/smooth_pixsize)+2
     this%smooth_ny = nint(max(abs(coormin(2)), abs(coormax(2)))/smooth_pixsize)+2
-    if(allocated(this%smooth_image))deallocate(this%smooth_image)
+    COOP_DEALLOC(this%smooth_image)
     allocate(this%smooth_image(-this%smooth_nx:this%smooth_nx, -this%smooth_ny:this%smooth_ny))
     allocate(w(-this%smooth_nx:this%smooth_nx, -this%smooth_ny:this%smooth_ny))
     w = 0.
@@ -1727,8 +1754,8 @@ contains
        write(*,*) "Cannot merge I, Q, U maps with different configurations."
        stop
     endif
-    if(allocated(this%smooth_Q))deallocate(this%smooth_Q)
-    if(allocated(this%smooth_U))deallocate(this%smooth_U)
+    COOP_DEALLOC(this%smooth_Q)
+    COOP_DEALLOC(this%smooth_U)
     allocate( &
          this%smooth_Q(-this%smooth_nx:this%smooth_nx, -this%smooth_ny:this%smooth_ny), &
          this%smooth_U(-this%smooth_nx:this%smooth_nx, -this%smooth_ny:this%smooth_ny) )
@@ -1770,8 +1797,8 @@ contains
        deallocate(fk)
     else
        if(.not. allocated(this%smooth_image)) stop "you have to call get_flatmap before doing T2QTUT"
-       if(allocated(this%smooth_Q))deallocate(this%smooth_Q)
-       if(allocated(this%smooth_U))deallocate(this%smooth_U)
+       COOP_DEALLOC(this%smooth_Q)
+       COOP_DEALLOC(this%smooth_U)
        allocate( &
             this%smooth_Q(-this%smooth_nx:this%smooth_nx, -this%smooth_ny:this%smooth_ny), &
             this%smooth_U(-this%smooth_nx:this%smooth_nx, -this%smooth_ny:this%smooth_ny) )
@@ -2466,13 +2493,13 @@ contains
 
   subroutine coop_fits_image_cea_write(this, filename)
     class(coop_fits_image_cea)::this
-    COOP_UNKNOWN_STRING:: filename
+    COOP_UNKNOWN_STRING,intent(in):: filename
     COOP_LONG_STRING::keys, values
     COOP_INT i, j, nkeys
     integer,dimension(:),allocatable::dtypes
     if(coop_file_exists(filename)) call coop_delete_file(filename)
     allocate(dtypes(this%header%n))
-    this%filename = trim(filename)
+    this%filename = trim(adjustl(filename))
     call coop_convert_to_c_string(this%filename)
     keys = ""
     values = ""

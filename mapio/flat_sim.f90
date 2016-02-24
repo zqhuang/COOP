@@ -51,19 +51,4 @@ program test
 
   call emap%free()
   call bmap%free()
-!!$  call noise%open(mapdir//"deep56_array_2_noise_sim_"//COOP_STR_OF(isim)//"_I.fits")
-!!$  call noise%regularize(reg_limit)
-!!$  tmap%image = tmap%image + noise%image
-!!$  call tmap%write(mapdir//"sim_with_noise_"//COOP_STR_OF(isim)//"_I.fits")
-!!$
-!!$  call noise%open(mapdir//"deep56_array_2_noise_sim_"//COOP_STR_OF(isim)//"_Q.fits")
-!!$  call noise%regularize(reg_limit)
-!!$  qmap%image = qmap%image + noise%image
-!!$  call qmap%write(mapdir//"sim_with_noise_"//COOP_STR_OF(isim)//"_Q.fits")
-!!$
-!!$  call noise%open(mapdir//"deep56_array_2_noise_sim_"//COOP_STR_OF(isim)//"_U.fits")
-!!$  call noise%regularize(reg_limit)
-!!$  umap%image = umap%image + noise%image
-!!$  call umap%write(mapdir//"sim_with_noise_"//COOP_STR_OF(isim)//"_U.fits")
-
 end program test

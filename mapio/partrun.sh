@@ -32,16 +32,16 @@ output=${outdir}/${outprefix}_l${lmin}_${fwhm}a
 
 ## stack with random rotation
 ### T on T
-#./FStack -map ${mapdir}/${prefix}_${fwhm}a_l${lmin}-${lmax}_I.fsm -peaks spots/${outprefix}_l${lmin}_${fwhm}a_Thotcold_nupt5.dat -field T -out ${output}_randrot_TonThotcoldnupt5 -width 4.5 -height 4 -min ${5} -max ${6}  -radius ${radius} -randrot T -res ${res}  -norm_to_corr ${norm} -norm_power ${npw}
+./FStack -map ${mapdir}/${prefix}_${fwhm}a_l${lmin}-${lmax}_I.fsm -peaks spots/${outprefix}_l${lmin}_${fwhm}a_Thotcold_nupt5.dat -field T -out ${output}_randrot_TonThotcoldnupt5 -width 4.5 -height 4 -min ${5} -max ${6}  -radius ${radius} -randrot T -res ${res}  -norm_to_corr ${norm} -norm_power ${npw}
 
-#../utils/fasy.sh ${output}_randrot_TonThotcoldnupt5.txt
+../utils/fasy.sh ${output}_randrot_TonThotcoldnupt5.txt
 
 
 ###E on T
-#./FStack -map ${mapdir}/${prefix}_${fwhm}a_l${lmin}-${lmax}_E.fsm -peaks spots/${outprefix}_l${lmin}_${fwhm}a_Thotcold_nupt5.dat -field E -out ${output}_randrot_EonThotcoldnupt5 -width 4.5 -height 4 -min ${7} -max ${8} -radius ${radius} -randrot T -res ${res}  -norm_to_corr ${norm} -norm_power ${npw}
+./FStack -map ${mapdir}/${prefix}_${fwhm}a_l${lmin}-${lmax}_E.fsm -peaks spots/${outprefix}_l${lmin}_${fwhm}a_Thotcold_nupt5.dat -field E -out ${output}_randrot_EonThotcoldnupt5 -width 4.5 -height 4 -min ${7} -max ${8} -radius ${radius} -randrot T -res ${res}  -norm_to_corr ${norm} -norm_power ${npw}
 
 
-#../utils/fasy.sh ${output}_randrot_EonThotcoldnupt5.txt
+../utils/fasy.sh ${output}_randrot_EonThotcoldnupt5.txt
 
 ### E on E
 #./FStack -map ${mapdir}/${prefix}_${fwhm}a_l${lmin}-${lmax}_E.fsm -peaks spots/${outprefix}_l${lmin}_${fwhm}a_Ehotcold_nupt5.dat -field E -out ${output}_randrot_EonEhotcoldnupt5 -width 4.5 -height 4 -min ${9} -max ${10} -radius ${radius} -randrot T -res ${res}  -norm_to_corr ${norm} -norm_power ${npw}

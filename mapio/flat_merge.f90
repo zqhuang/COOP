@@ -7,13 +7,14 @@ program test
 #include "constants.h"
   type(coop_flatsky_maps)::map1, map2, map3
   COOP_STRING::f1, f2, f3, fout
-  logical mask_changed
-  if(iargc().lt.4) stop "Syntax: ./FMerge -map1 MAP1 -map2 MAP2 [-map3 MAP3] -out OUTPUT"
+  logical mask_changed, overwrite
+  if(iargc().lt.4) stop "Syntax: ./FMerge -map1 MAP1 -map2 MAP2 [-map3 MAP3] -out OUTPUT -overwrite F/T"
   call coop_get_command_line_argument(key = "map1", arg = f1)
   call coop_get_command_line_argument(key = "map2", arg = f2)
   call coop_get_command_line_argument(key = "map3", arg = f3, default="")
   call coop_get_command_line_argument(key = "out", arg = fout)
-  if(coop_file_exists(fout))then
+  call coop_get_command_line_argument(key = "overwrite", arg = overwrite, default=.true.)
+  if(coop_file_exists(fout) .and. .not. overwrite)then
      write(*,*) "the output file "//trim(fout)//" already exits"
   else
      call map1%read(f1)

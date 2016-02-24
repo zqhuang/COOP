@@ -17,7 +17,7 @@ mpl.cm.register_cmap(cmap = my_cmap)
 
 plt.set_cmap(my_cmap) #'gist_rainbow_r')
 
-fig, axes = plt.subplots(nrows=4, figsize=(8., 8.), sharex = True)
+fig, axes = plt.subplots(nrows=4, figsize=(7., 7.), sharex = True)
 
 
 chimin = 0.10000E-01
@@ -48,6 +48,7 @@ grid = np.loadtxt("nzetinfo.txt").transpose()
 im = axes[2].imshow(grid[::-1], extent=[chimin,chimax,lmin, lmax], vmin = minsn, vmax = maxsn, norm=LogNorm())
 axes[2].set_title('T + E $S/N$')
 
+fig.subplots_adjust(left = 0.09, right = 1., bottom = 0.08, top = 0.96, hspace = 0.19)
 
 fig.colorbar(im, ax = axes.ravel().tolist())
 
@@ -67,4 +68,4 @@ axes[3].set_ylabel('$\dot\kappa e^{-\kappa} / H_0$')
 axes[3].set_xlabel('$\chi/\chi_{rec}$')
 axes[3].set_title('differential visibility')
 
-plt.savefig('zetaSN_with_Noise.pdf', format='pdf')
+plt.savefig('zetaS2N_with_ffp8_noise.pdf', format='pdf')

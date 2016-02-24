@@ -1017,7 +1017,16 @@ contains
        endif
     else
        call getarg(i, str)
-       read(str, *) in
+       if(trim(str).ne.'')then
+          read(str, *) in
+       else
+          if(present(default))then
+             in = default
+          else
+             stop "coop_get_Input_logical: argument does not exist"
+          endif
+       endif
+
     endif
   end subroutine coop_get_Input_Int
 
@@ -1035,7 +1044,16 @@ contains
        endif
     else
        call getarg(i, str)
-       read(str, *) in
+       if(trim(str).ne.'')then
+          read(str, *) in
+       else
+          if(present(default))then
+             in = default
+          else
+             stop "coop_get_Input_logical: argument does not exist"
+          endif
+       endif
+
     endif
   end subroutine coop_get_Input_Real
 
@@ -1053,7 +1071,16 @@ contains
        endif
     else
        call getarg(i, str)
-       read(str, *) in
+       if(trim(str).ne.'')then
+          read(str, *) in
+       else
+          if(present(default))then
+             in = default
+          else
+             stop "coop_get_Input_logical: argument does not exist"
+          endif
+       endif
+
     endif
   end subroutine coop_get_Input_single
 
@@ -1071,7 +1098,15 @@ contains
        endif
     else
        call getarg(i, str)
-       read(str, *) in
+       if(trim(str).ne.'')then
+          read(str, *) in
+       else
+          if(present(default))then
+             in = default
+          else
+             stop "coop_get_Input_logical: argument does not exist"
+          endif
+       endif
     endif
   end subroutine coop_get_Input_Logical
   

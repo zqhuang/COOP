@@ -14,7 +14,7 @@ program test
   COOP_REAL,dimension(:),allocatable::rl
   COOP_REAL::chi(nchi), logl(nlogl), info(nchi, nlogl), vis(nchi), dphidlna(nchi)
   COOP_INT::ik, idense
-  logical::do_noise = .true.
+  logical::do_noise = .false.
   
 #if DO_ZETA_TRANS
   call cosmology%Set_Planck_bestfit()
