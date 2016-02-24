@@ -8,7 +8,7 @@ module coop_file_mod
 
 private
 
-public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_create_directory, coop_delete_directory, coop_file_numcolumns, coop_file_numlines, coop_load_dictionary, coop_free_file_unit, coop_file_exists, coop_file_encrypt, coop_file_decrypt, coop_string_encrypt, coop_string_decrypt, coop_file_load_function, coop_dir_exists, coop_export_dictionary, coop_import_matrix, coop_export_matrix, coop_file_load_realarr, coop_open_file, coop_dynamic_array_real
+public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_create_directory, coop_delete_directory, coop_file_numcolumns, coop_file_numlines, coop_load_dictionary, coop_free_file_unit, coop_file_exists, coop_directory_exists, coop_file_encrypt, coop_file_decrypt, coop_string_encrypt, coop_string_decrypt, coop_file_load_function, coop_dir_exists, coop_export_dictionary, coop_import_matrix, coop_export_matrix, coop_file_load_realarr, coop_open_file, coop_dynamic_array_real
 
   character,parameter::coop_text_comment_symbol = "#"
 
@@ -266,6 +266,18 @@ contains
     this%path = ""
   end subroutine coop_file_close
 
+  function coop_directory_exists(dir) result(dir_exists)
+    COOP_UNKNOWN_STRING, INTENT(IN)::dir
+    logical dir_exists
+    select case(trim(adjustl(dir)).eq.'')
+    case('')
+       dir_exists = .false.
+    case('./','.','../', '..')
+       dir_exists = .true.
+    case default
+       inquire(DIRECTORY=dir, EXIST=dir_exists)
+    endif
+  end function coop_directory_exists
 
   function coop_file_exists(FileName) result(file_exists)
     COOP_UNKNOWN_STRING, INTENT(IN) :: FileName

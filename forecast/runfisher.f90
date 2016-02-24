@@ -5,11 +5,16 @@ program RunF
 #include "constants.h"
   type(coop_fisher)::fisher
   type(coop_file)::fp
-  COOP_STRING::root
+  COOP_STRING::root, path
   COOP_INT::i, j
   if(iargc() .lt. 1) stop "Fisher input_file"
   call fisher%init(coop_InputArgs(1))
   root = trim(fisher%settings%value("root"))
+  path = coop_file_path_of(root)
+  if(.not. coop_directory_exists(path))then
+     write(*,*) "Error: the root path "//trim(path)//" does not exist. Please change it in the ini file."
+     stop
+  endif
   if(trim(root).eq."")then
      write(*,*) "you need to specify root in "//trim(coop_InputArgs(1))
      stop
