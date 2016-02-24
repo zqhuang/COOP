@@ -10,19 +10,15 @@ program RunF
   if(iargc() .lt. 1) stop "Fisher input_file"
   call fisher%init(coop_InputArgs(1))
   root = trim(fisher%settings%value("root"))
-  path = coop_file_path_of(root)
-  if(.not. coop_directory_exists(path))then
-     write(*,*) "Error: the root path "//trim(path)//" does not exist. Please change it in the ini file."
-     stop
-  endif
   if(trim(root).eq."")then
      write(*,*) "you need to specify root in "//trim(coop_InputArgs(1))
      stop
   endif
+  call fp%open(trim(root)//"_fisher.txt")  !!I do this first to test if the directory exists before spending a few minutes doing the fisher.
 
   call fisher%get_fisher()
 
-  call fp%open(trim(root)//"_fisher.txt")
+
   write(fp%unit, "("//COOP_STR_OF(fisher%n_params_used)//"A16)") fisher%paramtable%key(fisher%ind_used)
   do i=1, fisher%n_params_used
      write(fp%unit,"("//COOP_STR_OF(fisher%n_params_used)//"G16.7)") fisher%fisher(fisher%ind_used(i), fisher%ind_used) 
