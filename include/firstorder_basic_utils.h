@@ -293,6 +293,43 @@
     
   end subroutine coop_cosmology_firstorder_set_xe
 
+  subroutine coop_cosmology_firstorder_set_user_defined_power(this, upar)
+    class(coop_cosmology_firstorder)::this
+    COOP_REAL upar(coop_num_user_defined_params)
+    type(coop_arguments):: args
+    call args%init( r = upar )
+    select case(this%pp_genre)
+    case(100)
+       call this%set_power(coop_user_defined_primordial_power_100, args)
+    case(101)
+       call this%set_power(coop_user_defined_primordial_power_101, args)
+    case(102)
+       call this%set_power(coop_user_defined_primordial_power_102, args)
+    case(103)
+       call this%set_power(coop_user_defined_primordial_power_103, args)
+    case(104)
+       call this%set_power(coop_user_defined_primordial_power_104, args)
+    case(105)
+       call this%set_power(coop_user_defined_primordial_power_105, args)
+    case(106)
+       call this%set_power(coop_user_defined_primordial_power_106, args)
+    case(107)
+       call this%set_power(coop_user_defined_primordial_power_107, args)
+    case(108)
+       call this%set_power(coop_user_defined_primordial_power_108, args)
+    case(109)
+       call this%set_power(coop_user_defined_primordial_power_109, args)
+    case(110)
+       call this%set_power(coop_user_defined_primordial_power_110, args)
+    case default
+       write(*,*) "pp_genre = "//COOP_STR_OF(this%pp_genre)
+       Write(*,*) "Unknown pp genre. For standard power spectrum use pp_genre = 0; for user defined power spectrum use pp_genre = 101 - 110. Modify include/user_defined_primordial_power.h to define your model."
+       stop
+    end select
+    call args%free()
+
+  end subroutine coop_cosmology_firstorder_set_user_defined_power
+
   subroutine coop_cosmology_firstorder_set_standard_power(this, As, ns, nrun, r, nt, inflation_consistency)
     class(coop_cosmology_firstorder)::this
     COOP_REAL kpivot, As, ns, nrun, r, nt

@@ -9,7 +9,7 @@ radius=`echo 500./${lmin} | bc -l`
 res=$(( 80000 / ${fwhm} / (${lmin}+ 150) ))
 nu=0.5
 npw=0
-norm=T
+norm=F
 outprefix=n${norm}${npw}_${prefix}_on_${peakprefix}
 outdir=acttalk
 output=${outdir}/${outprefix}_l${lmin}_${fwhm}a
@@ -50,7 +50,7 @@ output=${outdir}/${outprefix}_l${lmin}_${fwhm}a
 
 
 ###B on T
-./FStack -map ${mapdir}/${prefix}_${fwhm}a_l${lmin}-${lmax}_B.fsm -peaks spots/${outprefix}_l${lmin}_${fwhm}a_Thotcold_nupt5.dat -field B -out ${output}_randrot_BonThotcoldnupt5 -width 4.5 -height 4 -min ${7} -max ${8} -radius ${radius} -randrot T -res ${res} -norm_to_corr ${norm} -norm_power ${npw}
+./FStack -map ${mapdir}/${prefix}_${fwhm}a_l${lmin}-${lmax}_B.fsm -peaks spots/${outprefix}_l${lmin}_${fwhm}a_Thotcold_nupt5.dat -field B -out ${output}_randrot_BonThotcoldnupt5 -width 4.5 -height 4 -min ${7} -max ${8} -radius ${radius} -randrot T -res ${res} -norm_to_corr ${norm} -norm_power ${npw} -want_caption F
 
 ../utils/fasy.sh ${output}_randrot_BonThotcoldnupt5.txt
 

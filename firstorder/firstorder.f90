@@ -7,12 +7,12 @@ module coop_firstorder_mod
 #include "constants.h"
   private
 
-  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe,  coop_next_l, coop_nl_to_lmax, coop_set_ells
+  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe,  coop_next_l, coop_nl_to_lmax, coop_set_ells, coop_num_user_defined_params
 
 
 !!recfast head file
 #include "recfast_head.h"
-
+  COOP_INT, parameter:: coop_num_user_defined_params = 10
 
   type coop_cosmology_firstorder_trans
      COOP_INT::lmin = 0
@@ -113,6 +113,7 @@ module coop_firstorder_mod
      procedure:: set_coupled_DE_cosmology =>  coop_cosmology_firstorder_set_coupled_DE_cosmology
 #endif     
      procedure:: set_standard_power => coop_cosmology_firstorder_set_standard_power
+     procedure:: set_user_defined_power => coop_cosmology_firstorder_set_user_defined_power
      procedure:: set_Planck_bestfit =>coop_cosmology_firstorder_set_Planck_bestfit
      procedure:: set_Planck_bestfit_with_r =>coop_cosmology_firstorder_set_Planck_bestfit_with_r
      procedure:: set_klms => coop_cosmology_firstorder_set_klms
@@ -1053,7 +1054,7 @@ contains
     endif
   end subroutine coop_cosmology_firstorder_get_z_star
   
-    
+#include "user_defined_primordial_power.h"    
 #include "firstorder_basic_utils.h"
 #include "firstorder_compute_sigma.h"  
 
@@ -1799,6 +1800,8 @@ contains
     class(coop_cosmology_firstorder)::this
     type(coop_real_table)::paramtable
     COOP_REAL::tau_re
+    COOP_REAL::upar(coop_num_user_defined_params)
+    COOP_INT::i
     select case(this%pp_genre)
     case(COOP_PP_STANDARD)
        call paramtable%lookup( "tau", tau_re)    
@@ -1820,9 +1823,15 @@ contains
        call paramtable%lookup( "nt", this%nt, 0.d0)
        call paramtable%lookup( "nrun", this%nrun, 0.d0)
        call this%set_standard_power(this%As, this%ns, this%nrun, this%r, this%nt, this%inflation_consistency)
+    case(101:110) 
+       do i=1, coop_num_user_defined_params
+          call paramtable%lookup("user_pp"//COOP_STR_OF(i), upar(i), 0.d0)
+       enddo
+       call this%set_user_defined_power(upar)
     case default
-       write(*,*) this%pp_genre
-       stop "Unknown primordial_power_genre"
+       write(*,*) "pp_genre = "//COOP_STR_OF(this%pp_genre)
+       Write(*,*) "Unknown pp genre. For standard power spectrum use pp_genre = 0; for user defined power spectrum use pp_genre = 101, 102, ..., 110. Modify include/user_defined_primordial_power.h to define your model."
+       stop
     end select
   end subroutine coop_cosmology_firstorder_set_primordial_power
 

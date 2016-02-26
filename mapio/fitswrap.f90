@@ -530,7 +530,7 @@ contains
           write(*,*) "flatsky_read error: not all maps have the same configuration"
           stop
        endif
-       this%mask_threshold = 0.5d0*sqrt(sum(this%mask%image**2)/this%mask%npix)
+       this%mask_threshold = coop_flatsky_mask_threshold(this%mask)
        allocate(this%unmasked(this%npix))
        this%unmasked = this%mask%image .gt. this%mask_threshold
        this%total_weight = count(this%unmasked)
@@ -666,7 +666,7 @@ contains
           write(*,*) "flatsky_read_from_one error: not all maps have the same configuration"
           stop
        endif
-       this%mask_threshold = 0.5d0*sqrt(sum(this%mask%image**2)/this%npix)
+       this%mask_threshold = coop_flatsky_mask_threshold(this%mask)
        allocate(this%unmasked(this%npix))
        this%unmasked = this%mask%image .gt. this%mask_threshold
        this%total_weight = count(this%unmasked)
@@ -863,24 +863,48 @@ contains
   end function coop_fits_key_value
 
 
-  subroutine coop_fits_image_simple_stat(this,mean,rms, median, fmin, fmax, lower, upper, mask, clsfile)
+  subroutine coop_fits_image_simple_stat(this,mean,rms, median, fmin, fmax, lower, upper, mask, clsfile, threshold)
     class(coop_fits_image)::this
+    COOP_REAL,optional::threshold
     COOP_UNKNOWN_STRING,optional::clsfile
     class(coop_fits_image),optional::mask
     COOP_REAL,optional::mean, rms, lower(3), upper(3), median, fmin, fmax
-    COOP_REAL::ave, std, bounds(-3:3), minv, maxv, weight
+    COOP_REAL::ave, std, bounds(-3:3), minv, maxv, weight, zerorat, th
+    COOP_INT, dimension(:),allocatable::ind_used
+    COOP_REAL,dimension(:),allocatable::image_used
     COOP_INT,parameter::n= 80
     COOP_REAL::Cls(n), ells(n)
-    COOP_INT::i
+    COOP_INT::i, nused, j
     type(coop_file)::fp
     if(present(mask))then
-       weight = count(mask%image .gt. 0.d0)
-       ave = sum(this%image, mask=mask%image .gt. 0.d0)/weight
-       std =  sqrt(sum((this%image-ave)**2, mask=mask%image .gt. 0.d0)/weight)
+       th = coop_flatsky_mask_threshold(mask)
+       if(present(threshold))threshold = th
+       nused = count(mask%image .gt. th)
+       weight = nused
+       write(*,*) "mask fraction: "//trim(coop_num2str(weight/mask%npix*100.))//"%"
+       ave = sum(this%image, mask=mask%image .gt. th)/weight
+       std =  sqrt(sum((this%image-ave)**2, mask=mask%image .gt. th)/weight)
+       allocate(ind_used(nused), image_used(nused))
+       j = 0
+       do i=0, mask%npix-1
+          if(mask%image(i) .gt. th)then
+             j = j + 1
+             ind_used(j) = i
+          endif
+       enddo
+       image_used = this%Image(ind_used)
+       call array_get_mult_threshold_double(image_used, nused, COOP_STANDARD_SIGMA_BOUNDS, 7, bounds)
+       minv = minval(this%image, mask = mask%image .gt. th)
+       maxv = maxval(this%image, mask = mask%image .gt. th)
+       zerorat = count(this%image .eq. 0.d0 .and. mask%image.gt.th)/weight
     else
        ave = sum(this%image)/this%npix
        std =  sqrt(sum((this%image-ave)**2/this%npix))
        weight = this%npix
+       call array_get_mult_threshold_double(this%image, int(this%npix), COOP_STANDARD_SIGMA_BOUNDS, 7, bounds)
+       minv = minval(this%image)
+       maxv = maxval(this%image)
+       zerorat = count(this%image .eq. 0.d0)/weight
     endif
     if(present(mean))mean =ave
     if(present(rms))rms = std
@@ -891,7 +915,6 @@ contains
     write(*,*) "size: "//COOP_STR_OF(this%nside(1))//" x "//COOP_STR_OF(this%nside(2))
     write(*,*) "mean = ", ave
     write(*,*) "rms = ", std
-    call array_get_mult_threshold_double(this%image, int(this%npix), COOP_STANDARD_SIGMA_BOUNDS, 7, bounds)
     write(*,*) "median = ", bounds(0)
     write(*,*) "1sigma lower, upper = ", bounds(-1), bounds(1)
     write(*,*) "2sigma lower, upper = ", bounds(-2), bounds(2)
@@ -899,12 +922,10 @@ contains
     if(present(median))median = bounds(0)
     if(present(lower))lower = bounds(-1:-3:-1)
     if(present(upper))upper = bounds(1:3)
-    minv = minval(this%image)
-    maxv = maxval(this%image)
     write(*,*) "min max = ", minv, maxv 
     if(present(fmin))fmin = minv
     if(present(fmax))fmax = maxv
-    write(*,*) "zero-value pixels: "//trim(coop_num2str(100.*count(this%image .eq. 0.d0)/dble(this%npix),"(F10.3)"))//"%"
+    write(*,*) "zero-value pixels: "//trim(coop_num2str(100.*zerorat,"(F10.3)"))//"%"
     
     if(present(clsfile))then
        if(trim(clsfile).ne."")then
@@ -2770,6 +2791,32 @@ contains
        endif
     endif
   end subroutine coop_flatsky_maps_get_neighbours
+
+
+  function coop_flatsky_mask_threshold(mask) result(threshold)
+    COOP_INT,parameter::n = 50000
+    class(coop_fits_image)::mask
+    COOP_REAL::threshold
+    COOP_REAL::  mmax, dm, sumc, c(0:n), s
+    COOP_INT::   i, j
+    mmax = maxval(mask%image)
+    dm = mmax/n
+    c = 0.d0
+    do i = 0, mask%npix-1
+       j = nint(mask%image(i)/dm)
+       c(j) = c(j) + 1.d0
+    enddo
+    sumc = sum(c(1:n))*0.05  !!remove 5% of edge with nonzero mask value
+    s = 0.d0
+    do i = 1, n
+       s = s+c(i)
+       if(s .ge. sumc)then
+          threshold = (i-0.5)*dm
+          exit
+       endif
+    enddo
+    threshold = max(threshold, sum(mask%image)/mask%npix*0.05) !!if 5% of the mean is larger take 5% of the mean
+  end function coop_flatsky_mask_threshold
 
 
 end module coop_fitswrap_mod

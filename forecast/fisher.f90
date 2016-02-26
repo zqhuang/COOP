@@ -232,10 +232,11 @@ contains
     end select
   end subroutine coop_observation_get_invcov
 
-  subroutine coop_observation_init(this, filename)
+  subroutine coop_observation_init(this, paramtable, filename)
     COOP_REAL,parameter:: H0_unit = 1.d5/coop_SI_c
     class(coop_observation)::this
     COOP_UNKNOWN_STRING,optional::filename
+    type(coop_real_table)::paramtable
     type(coop_list_string)::ls
     type(coop_list_real)::lr
     COOP_REAL,dimension(:),allocatable::z, kmin, kmax, nobs, dz, mu, k
@@ -277,7 +278,11 @@ contains
     end select
     call coop_dictionary_lookup(this%settings, "params", ls)
     do i=1, ls%n
-       call this%paramnames%insert(ls%element(i), i)  
+       if(paramtable%index(ls%element(i)).ne. 0)then
+          call this%paramnames%insert(ls%element(i), i)  
+       else
+          write(*,*) "skipping parameter "//trim(ls%element(i))//" for observation "//trim(this%name)//"."
+       endif
     enddo
     allocate(this%obs(this%dim_obs, this%n_obs), this%nuis(this%dim_nuis, this%n_obs), this%invcov(this%dim_obs, this%dim_obs, this%n_obs), this%dobs(this%dim_obs, this%n_obs, this%paramnames%n))
     call ls%free()
@@ -614,12 +619,13 @@ contains
        allocate(this%observations(this%n_observations))
        do i=1, this%n_observations
           call coop_dictionary_lookup(this%settings, "observation"//COOP_STR_OF(i), this%observations(i)%filename)
-          call this%observations(i)%init()
+          call this%observations(i)%init(this%paramtable)
           do j=1, this%observations(i)%paramnames%n
               this%observations(i)%paramnames%val(j) = this%paramtable%index( this%observations(i)%paramnames%key(j) )
              if( this%observations(i)%paramnames%val(j) .eq. 0)then
-                write(*,*) "Error in fisher_init:"
-                write(*,*) "parameter "//trim(this%observations(i)%paramnames%key(j))//" (required by dataset "//trim(this%observations(i)%name)//") is not found."
+                !write(*,*) "Error in fisher_init:"
+                !write(*,*) "parameter "//trim(this%observations(i)%paramnames%key(j))//" (required by dataset "//trim(this%observations(i)%name)//") is not found."
+                cycle
              endif
              this%init_level(this%observations(i)%paramnames%val(j)) = max(  this%init_level(this%observations(i)%paramnames%val(j)), this%observations(i)%init_level)
 
@@ -631,6 +637,10 @@ contains
        this%max_init_level = max(this%max_init_level, this%init_level(i))
     enddo
     !!compute the fiducial cosmology
+    call coop_dictionary_lookup(this%settings, "w_is_background", this%cosmology%w_is_background, .true.)
+    call coop_dictionary_lookup(this%settings, "inflation_consistency", this%cosmology%inflation_consistency, .true.)
+    call coop_dictionary_lookup(this%settings, "pp_genre", this%cosmology%pp_genre, COOP_PP_STANDARD)
+
     call this%cosmology%set_up(this%paramtable, success, level = this%max_init_level)
     if(.not. success)then
        write(*,*) "cannot set up the cosmology, check the parameter range:"
@@ -780,6 +790,9 @@ contains
     COOP_INT::i, idata, j
     COOP_REAL, dimension(:,:),allocatable::cov
     this%fisher = 0.d0
+    do i = 1, this%n_observations
+       this%observations(i)%dobs = 0.d0
+    enddo
     !$omp parallel do
     do i = 1, this%n_slow
        call coop_fisher_get_dobs_slow(this, this%ind_slow(i))
@@ -803,8 +816,6 @@ contains
                + matmul(transpose(this%observations(i)%dobs(:,idata,:)), matmul(this%observations(i)%invcov(:, :, idata), this%observations(i)%dobs(:, idata, :)))
        enddo
     enddo
-
-
     !!compute the covariance matrix
     this%n_params_used = 0
     do i=1, this%n_params
