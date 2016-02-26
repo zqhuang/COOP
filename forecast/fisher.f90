@@ -15,6 +15,8 @@ module coop_fisher_mod
      COOP_STRING::name = ""
      COOP_STRING::genre = ""
      COOP_INT::n_obs = 0
+     COOP_INT::n_window = 0
+     COOP_INT::n_bins = 0
      COOP_INT::dim_obs = 0
      COOP_INT::dim_nuis = 0
      COOP_INT::init_level = 0
@@ -23,6 +25,9 @@ module coop_fisher_mod
      COOP_REAL,dimension(:,:,:),allocatable::dobs !!(dim_obs, n_obs, paramnames%n)
      COOP_REAL,dimension(:,:),allocatable::nuis  !!(dim_nuis, n_obs)
      COOP_REAL,dimension(:,:,:),allocatable::invcov !!(dim, dim, n_obs)
+     COOP_REAL,dimension(:,:),allocatable::window_Wsq !!(n_window, n_bins)
+     COOP_REAL,dimension(:,:),allocatable::window_modes !!(n_window, n_bins)
+     COOP_INT,dimension(:),allocatable::window_used !!(n_bins)
    contains
      procedure::free => coop_observation_free
      procedure::init => coop_observation_init
@@ -96,7 +101,7 @@ contains
           Hz = cosmology%Hratio(a)
           dobs(1, idata) = (b0(iz) + b2(iz)*this%nuis(2, idata)**2 &
                +  cosmology%fgrowth_of_z(z=this%nuis(1, idata), k=this%nuis(2, idata))*this%nuis(3,idata)**2) &
-               * cosmology%matter_power(z=this%nuis(1, idata), k=this%nuis(2, idata)) * ((coop_pi**2*2.d0)/this%nuis(2, idata)**3) &
+               * cosmology%smeared_matter_power(z=this%nuis(1, idata), k=this%nuis(2, idata), nw = this%window_used(iz), kw = this%window_modes(1:this%window_used(iz), iz), wsq = this%window_wsq(1:this%window_used(iz), iz) ) * ((coop_pi**2*2.d0)/this%nuis(2, idata)**3) &
                * exp(-sr2*((1.d0+this%nuis(1,idata))/Hz *this%nuis(2,idata)*this%nuis(3,idata))**2) - this%obs(1, idata)
        enddo
        !$omp end parallel do
@@ -180,7 +185,7 @@ contains
           Hz = cosmology%Hratio(a)
           this%obs(1, idata) = (b0(iz) + b2(iz)*this%nuis(2, idata)**2 &
                +  cosmology%fgrowth_of_z(z=this%nuis(1, idata), k=this%nuis(2, idata))*this%nuis(3,idata)**2) &
-               * cosmology%matter_power(z=this%nuis(1, idata), k=this%nuis(2, idata)) * ((coop_pi**2*2.d0)/this%nuis(2, idata)**3) &
+               * cosmology%smeared_matter_power(z=this%nuis(1, idata), k=this%nuis(2, idata), nw = this%window_used(iz), kw = this%window_modes(1:this%window_used(iz), iz), wsq = this%window_wsq(1:this%window_used(iz), iz) ) * ((coop_pi**2*2.d0)/this%nuis(2, idata)**3) &
                * exp(-sr2*((1.d0+this%nuis(1,idata))/Hz *this%nuis(2,idata)*this%nuis(3,idata))**2)
           this%invcov(1,1,idata) = (this%nuis(2,idata)**2*this%nuis(5,idata) &
                * this%nuis(6,idata) * cosmology%comoving_distance(a) **2/Hz*this%nuis(4,idata) &
@@ -235,14 +240,17 @@ contains
   subroutine coop_observation_init(this, paramtable, filename)
     COOP_REAL,parameter:: H0_unit = 1.d5/coop_SI_c
     class(coop_observation)::this
+    type(coop_file)::wfp
     COOP_UNKNOWN_STRING,optional::filename
     type(coop_real_table)::paramtable
     type(coop_list_string)::ls
     type(coop_list_real)::lr
+    COOP_STRING::windowfile
+    COOP_REAL::kwarr(2)
     COOP_REAL,dimension(:),allocatable::z, kmin, kmax, nobs, dz, mu, k
-    COOP_REAL::dmu, dlnk, fsky, Nl_T, Nl_pol, fg_r, fg_A, fg_alpha, fg_T, fg_beta, fsky_pol, T353, obs_yr, Fl
+    COOP_REAL::dmu, dlnk, sigma_W, fsky, Nl_T, Nl_pol, fg_r, fg_A, fg_alpha, fg_T, fg_beta, fsky_pol, T353, obs_yr, Fl
     COOP_REAL,dimension(:),allocatable::beam_fwhm, sigmaT, sigmapol, freq
-    COOP_INT::i, nz,nk,nmu,iz,ik,imu, lmin, lmax, n_channels, l
+    COOP_INT::i, nz,nk,nmu,iz,ik,imu, lmin, lmax, n_channels, l, iw
     if(present(filename))this%filename = trim(adjustl(filename))
     if(trim(this%filename) .eq. "") stop "observation_init: empty file name"
     if(.not. coop_file_exists(this%filename)) then
@@ -263,7 +271,7 @@ contains
     case("MPK")
        this%init_level = coop_init_level_set_pert
        this%dim_obs = 1 !!matter power spectrum
-       this%dim_nuis = 8   !!z, k, mu, dz, dk, dmu, fsky, nobs
+       this%dim_nuis = 8   !!z, k, mu, dz, dk, dmu, fsky, nobs, z_bin_index
     case("CMB_TE")
        this%init_level = coop_init_level_set_Cls
        this%dim_obs = 3 !!TT, TE, EE
@@ -333,6 +341,7 @@ contains
           write(*,*) "Error in data file "//trim(this%name)//": length of z list does not equal to n_z"
           stop
        endif
+       this%n_bins = nz
        do iz = 1, nz
           z(iz) = lr%element(iz)
        enddo
@@ -346,6 +355,59 @@ contains
           kmin(iz) = lr%element(iz)/H0_unit
        enddo
        call lr%free()
+       COOP_DEALLOC(this%window_used)
+       allocate(this%window_used(this%n_bins))
+       this%n_window = 0 
+       do iz = 1, nz
+          call coop_dictionary_lookup(this%settings, "window"//COOP_STR_OF(iz),  windowfile, "")
+          if(trim(windowfile).ne."")then
+             if(coop_file_exists(windowfile))then
+                this%window_used(iz) = coop_file_NumLines(windowfile)
+             elseif(coop_is_number(windowfile))then
+                this%window_used(iz) = 50
+             else
+                write(*,*) "the window file "//trim(windowfile)//" does not exist"
+                stop
+             endif
+          else
+             this%window_used(iz) = 50
+          endif
+          if(this%window_used(iz).gt. this%n_window) this%n_window = this%window_used(iz)
+       enddo
+       if(this%n_window .gt. 500)then
+          write(*,*) "Warning: the window file contain too many k bins and may slow down the fisher calculation significantly."
+       endif
+       COOP_DEALLOC(this%window_Wsq)
+       COOP_DEALLOC(this%window_modes)
+       allocate(this%window_Wsq(this%n_window, this%n_bins))
+       allocate(this%window_modes(this%n_window, this%n_bins))
+       do iz = 1, nz
+          call coop_dictionary_lookup(this%settings, "window"//COOP_STR_OF(iz),  windowfile, "")
+          if(trim(windowfile).ne."")then
+             if(coop_file_exists(windowfile))then
+                call wfp%open(windowfile, 'r')
+                iw = 0
+                do while(wfp%read_real_array(kwarr))
+                   iw = iw + 1
+                   this%window_modes(iw, iz) = kwarr(1)/H0_unit
+                   this%window_Wsq(iw, iz) = kwarr(2)**2
+                enddo
+                call wfp%close()
+                if(iw .ne. this%window_used(iz))then
+                   write(*,*) "Error in window file "//trim(windowfile)
+                   stop
+                endif
+             else
+                read(windowfile, *) sigma_W
+                call coop_set_uniform(this%window_used(iz), this%window_modes(1:this%window_used(iz), iz), 0.d0, sigma_W*4.5d0)
+                this%window_Wsq(1:this%window_used(iz), iz) = exp(- (this%window_modes(1:this%window_used(iz), iz)/sigma_W)**2 )  
+             endif
+          else
+             sigma_W = kmin(iz)
+             call coop_set_uniform(this%window_used(iz), this%window_modes(1:this%window_used(iz), iz), 0.d0, sigma_W*4.5d0)
+             this%window_Wsq(1:this%window_used(iz), iz) = exp(- (this%window_modes(1:this%window_used(iz), iz)/sigma_W)**2 )  
+          endif
+       enddo
        call coop_dictionary_lookup(this%settings, "kmax", lr)
        if(lr%n .ne. nz)then
           write(*,*) "Error in data file "//trim(this%name)//": length of kmax list does not equal to n_z"
@@ -469,6 +531,11 @@ contains
     COOP_DEALLOC(this%dobs)
     COOP_DEALLOC(this%invcov)
     COOP_DEALLOC(this%nuis)
+    COOP_DEALLOC(this%window_Wsq)
+    COOP_DEALLOC(this%window_used)
+    COOP_DEALLOC(this%window_modes)
+    this%n_window = 0
+    this%n_bins = 0
     this%n_obs = 0
     this%dim_obs = 0
     this%dim_nuis = 0
@@ -669,6 +736,8 @@ contains
 
     paramtable_tmp = this%paramtable
     paramtable_tmp%val(i) = this%paramtable%val(i) + this%step1(i)
+    !!compute the fiducial cosmology
+    cosmology_tmp = this%cosmology
     call  cosmology_tmp%set_up(paramtable_tmp, success, level = this%init_level(i))
     if(.not. success)then
        write(*,*) "cannot set up the cosmology, check the parameter range:"

@@ -223,20 +223,14 @@ contains
     this%Nnu_value = Nnu
   end subroutine coop_cosmology_background_set_Nnu
 
-  subroutine coop_cosmology_initialize(this, name, id, h, Tcmb, YHe, Nnu, alphaM)
+  subroutine coop_cosmology_initialize(this, name, id, h, Tcmb, YHe, Nnu)
     class(coop_cosmology)::this
     COOP_UNKNOWN_STRING, optional::name
-    type(coop_function),optional::alphaM
     COOP_INT, optional::id
     COOP_REAL, optional:: h 
     COOP_REAL, optional:: Tcmb
     COOP_REAL, optional:: YHe
     COOP_REAL, optional:: Nnu
-#if DO_EFT_DE
-    if(present(alphaM))then
-       
-    endif
-#endif
     select type(this)
     type is (coop_cosmology)
 #include "cosmology_init.h"

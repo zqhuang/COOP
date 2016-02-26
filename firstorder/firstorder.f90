@@ -153,6 +153,8 @@ module coop_firstorder_mod
      procedure:: compute_source_k =>  coop_cosmology_firstorder_compute_source_k
      procedure:: get_matter_power => coop_cosmology_firstorder_get_matter_power
      procedure:: matter_power => coop_cosmology_firstorder_matter_power
+     procedure:: smeared_matter_power => coop_cosmology_firstorder_smeared_matter_power
+     procedure:: Gaussian_smeared_matter_power => coop_cosmology_firstorder_Gaussian_smeared_matter_power
      procedure:: get_Weyl_power => coop_cosmology_firstorder_get_Weyl_power
      procedure:: get_Psi_power => coop_cosmology_firstorder_get_Psi_power
      procedure:: get_Phi_power => coop_cosmology_firstorder_get_Phi_power
@@ -961,13 +963,67 @@ contains
 
   function coop_cosmology_firstorder_matter_power(this, z,  k) result(Pk)
     class(coop_cosmology_firstorder)::this
-    COOP_INT nk, ik
-    COOP_REAL z, a, k, Pk, tau, delta_sync(1), Ps
+    COOP_REAL z, a, k, Pk, tau, delta_sync(1)
     a = 1.d0/(1.d0+z)
     tau = this%tauofa(a)
     call this%source(0)%get_delta_sync_trans(tau, 1, (/ k /), delta_sync)
     pk = delta_sync(1) **2 * this%psofk(k)
   end function coop_cosmology_firstorder_matter_power
+
+
+  function coop_cosmology_firstorder_smeared_matter_power(this, z,  k, nw, kw, Wsq) result(Pk)
+    class(coop_cosmology_firstorder)::this
+    COOP_INT::nw
+    COOP_REAL::pk, z, k, kw(nw), Wsq(nw)
+    COOP_INT, parameter::ntheta = 72
+    COOP_REAL::dcost, kp(nw),  Pkp(nw), dk3Wsq(nw),  kcost, ksq, mu
+    COOP_INT::itheta, iw
+    Pk = 0.d0
+    dcost = 2.d0/ntheta
+    ksq = k**2
+    dk3wsq(1) = wsq(1)* ((kw(1)+kw(2))/2.d0)**3
+    dk3Wsq(nw) = wsq(nw)*(3.d0*kw(nw)**2*(kw(nw)-kw(nw-1)))
+    do iw = 2, nw - 1
+       dk3Wsq(iw) = Wsq(iw)*( ((kw(iw+1)+kw(iw))/2.d0)**3 - ((kw(iw-1)+kw(iw))/2.d0)**3 ) 
+    enddo
+    do itheta = 1, ntheta
+       mu = -1.d0+(itheta-0.5d0)*dcost
+       kcost = 2.d0*k*mu
+       do iw = 1, nw
+          kp(iw) = sqrt(kw(iw)*(kw(iw)+kcost) + ksq)
+       enddo
+       call this%get_matter_power(z, nw, kp, Pkp)
+       Pk = Pk + sum(Pkp/kp**3*dk3Wsq) !!need to divide extra k^3 because get_matter_power returns the dimensionless k^3P(k)/(2pi^2)
+    enddo
+    pk = pk*k**3/(sum(dk3Wsq)*ntheta)  !!still convert to the dimensionless k^3/(2pi^2) P(k)
+  end function coop_cosmology_firstorder_smeared_matter_power
+
+
+  function coop_cosmology_firstorder_Gaussian_smeared_matter_power(this, z,  k, sigma_W) result(Pk)
+    class(coop_cosmology_firstorder)::this
+    COOP_INT,parameter::nkp = 300
+    COOP_REAL::pk, z, k, sigma_W
+    COOP_REAL::minkp, maxkp, dkp, kp(nkp), Pkp(nkp), w(nkp)
+    COOP_INT::ikp
+    minkp = max(k - sigma_W*5.d0, 1.d-3) 
+    maxkp = k + sigma_W*5.d0
+    dkp = (maxkp - minkp)/(nkp-1)
+    do ikp = 1, nkp
+       kp(ikp) = minkp + dkp*(ikp-1)
+       w(ikp) = FT_Gaussian3D_window(sigma_W, k, kp(ikp))
+    enddo
+    call this%get_matter_power(z, nkp, kp, Pkp)
+    pk = sum(pkp/kp**3*w)/sum(w)*k**3
+ 
+  contains
+
+    function FT_Gaussian3D_Window(sigma, k, kp) result(w)
+      COOP_REAL w, k, kp, sigma
+      w = kp/k * (exp(-((kp-k)/sigma)**2/2.) -  exp(-((kp+k)/sigma)**2/2.))
+    end function FT_Gaussian3D_Window
+
+  end function coop_cosmology_firstorder_Gaussian_smeared_matter_power
+
   
   !!compute k^3 [ k^2/a^2 (Psi_k+Phi_k)/2 /(3/2\Omega_m0/a^3) ]^2/(2pi^2); in GR it is the same as matter power
   subroutine coop_cosmology_firstorder_get_Weyl_power(this, z, nk, k, Pk)
@@ -1823,7 +1879,7 @@ contains
        call paramtable%lookup( "nt", this%nt, 0.d0)
        call paramtable%lookup( "nrun", this%nrun, 0.d0)
        call this%set_standard_power(this%As, this%ns, this%nrun, this%r, this%nt, this%inflation_consistency)
-    case(101:110) 
+    case(100:110) 
        do i=1, coop_num_user_defined_params
           call paramtable%lookup("user_pp"//COOP_STR_OF(i), upar(i), 0.d0)
        enddo
