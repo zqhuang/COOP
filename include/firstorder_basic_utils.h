@@ -138,6 +138,13 @@
   subroutine coop_cosmology_firstorder_free(this)
     class(coop_cosmology_firstorder)::this
     COOP_INT m, i
+    this%index_baryon = 0
+    this%index_cdm = 0
+    this%index_de = 0
+    this%index_wdm = 0
+    this%index_radiation = 0
+    this%index_nu = 0
+    this%index_massivenu = 0
     do m=0,2
        call this%source(m)%free()
     enddo
@@ -156,6 +163,14 @@
     this%num_species = 0
     this%omega_k_value = 1.
     this%need_setup_background = .true.
+#if DO_EFT_DE
+       call this%f_Mpsq%free()
+       call this%f_alpha_M%free()       
+       call this%f_alpha_H%free()
+       call this%f_alpha_T%free()
+       call this%f_alpha_B%free()       
+       call this%f_alpha_K%free()
+#endif 
   end subroutine coop_cosmology_firstorder_free
 
 

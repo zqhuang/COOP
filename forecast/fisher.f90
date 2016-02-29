@@ -386,6 +386,7 @@ contains
           if(trim(windowfile).ne."")then
              if(coop_file_exists(windowfile))then
                 call wfp%open(windowfile, 'r')
+                write(*,*) "loading window function:"//trim(windowfile)
                 iw = 0
                 do while(wfp%read_real_array(kwarr))
                    iw = iw + 1

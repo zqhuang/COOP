@@ -32,6 +32,118 @@ void coop_fits_read_header_to_string_(char* filename, char* cards, int* nkeys){
 #endif
 }
 
+void coop_fits_get_num_hdus_(char* filename, int* numhdus){
+#ifdef HAS_CFITSIO
+  fitsfile *fptr;         
+  int status; 
+  status = 0; /* MUST initialize status */
+  fits_open_file(&fptr, filename, READONLY, &status);
+  fits_get_num_hdus(fptr, numhdus, &status);
+  fits_close_file(fptr, &status);
+  if (status)          /* print any error messages */
+    fits_report_error(stderr, status);
+#else
+  printf("CFITSIO library is missing. Please change your configure file.");
+#endif
+}
+
+void coop_fits_read_col_int_(char* filename, int* ihdu,  int* icol, int* nrows, int* data){
+  fitsfile *fptr;         
+  int status,   hdutype;
+  long firstrow, firstelem, nelements;
+  int nulval;
+  int anynul;
+  status = 0; /* MUST initialize status */
+  fits_open_file(&fptr, filename, READONLY, &status);
+  fits_movabs_hdu(fptr, *ihdu, &hdutype, &status);
+  firstrow = 1;
+  firstelem = 1;
+  nelements = *nrows;
+  nulval = 0;
+  fits_read_col(fptr, TINT, *icol, firstrow, firstelem, nelements, &nulval, data, &anynul, &status);
+  if (status)          /* print any error messages */
+    fits_report_error(stderr, status);
+}
+
+
+void coop_fits_read_col_short_(char* filename, int* ihdu,  int* icol, int* nrows, short* data){
+  fitsfile *fptr;         
+  int status,   hdutype;
+  long firstrow, firstelem, nelements;
+  short nulval;
+  int anynul;
+  status = 0; /* MUST initialize status */
+  fits_open_file(&fptr, filename, READONLY, &status);
+  fits_movabs_hdu(fptr, *ihdu, &hdutype, &status);
+  firstrow = 1;
+  firstelem = 1;
+  nelements = *nrows;
+  nulval = 0;
+  fits_read_col(fptr, TSHORT, *icol, firstrow, firstelem, nelements, &nulval, data, &anynul, &status);
+  if (status)          /* print any error messages */
+    fits_report_error(stderr, status);
+}
+
+void coop_fits_read_col_float_(char* filename, int* ihdu,  int* icol, int* nrows, float* data){
+  fitsfile *fptr;         
+  int status,   hdutype;
+  long firstrow, firstelem, nelements;
+  float nulval;
+  int anynul;
+  status = 0; /* MUST initialize status */
+  fits_open_file(&fptr, filename, READONLY, &status);
+  fits_movabs_hdu(fptr, *ihdu, &hdutype, &status);
+  firstrow = 1;
+  firstelem = 1;
+  nelements = *nrows;
+  nulval = 0;
+  fits_read_col(fptr, TFLOAT, *icol, firstrow, firstelem, nelements, &nulval, data, &anynul, &status);
+  if (status)          /* print any error messages */
+    fits_report_error(stderr, status);
+}
+
+void coop_fits_read_col_double_(char* filename, int* ihdu,  int* icol, int* nrows, float* data){
+  fitsfile *fptr;         
+  int status,   hdutype;
+  long firstrow, firstelem, nelements;
+  float nulval;
+  int anynul;
+  status = 0; /* MUST initialize status */
+  fits_open_file(&fptr, filename, READONLY, &status);
+  fits_movabs_hdu(fptr, *ihdu, &hdutype, &status);
+  firstrow = 1;
+  firstelem = 1;
+  nelements = *nrows;
+  nulval = 0;
+  fits_read_col(fptr, TDOUBLE, *icol, firstrow, firstelem, nelements, &nulval, data, &anynul, &status);
+  if (status)          /* print any error messages */
+    fits_report_error(stderr, status);
+}
+
+void coop_fits_get_header_for_hdu_(char* filename, int* ihdu, char* cards, int* nkeys){
+#ifdef HAS_CFITSIO
+  fitsfile *fptr;         
+  char card[FLEN_CARD]; 
+  int status, ii, num_hdus,  hdutype;
+  status = 0; /* MUST initialize status */
+  fits_open_file(&fptr, filename, READONLY, &status);
+  fits_get_num_hdus(fptr, &num_hdus, &status);
+  fits_movabs_hdu(fptr, *ihdu, &hdutype, &status);
+  fits_get_hdrspace(fptr, nkeys, NULL, &status);
+  fits_read_record(fptr, 1, card, &status); /* read keyword */
+  strcpy(cards, card);
+  for (ii = 2; ii <= *nkeys; ii++)  { 
+    fits_read_record(fptr, ii, card, &status); /* read keyword */
+    strcat(cards, card);//    printf("%s\n", card);
+    strcat(cards, "\n");//    printf("%s\n", card);
+  }
+  fits_close_file(fptr, &status);
+  if (status)          /* print any error messages */
+    fits_report_error(stderr, status);
+#else
+  printf("CFITSIO library is missing. Please change your configure file.");
+#endif
+}
 
 void coop_fits_read_all_headers_to_string_(char* filename, char* cards, int* nkeys){
 #ifdef HAS_CFITSIO
@@ -102,15 +214,15 @@ void coop_fits_get_double_data_(char * filename, double* data, long * n){
   int status;
   long fpixel[2];
   LONGLONG nelements;
-   fpixel[0] = 1;
-   fpixel[1] = 1;
-   status = 0; /* MUST initialize status */
-   nelements = *n;
-   fits_open_file(&fptr, filename, READONLY, &status);
-   fits_read_pix(fptr, TDOUBLE, fpixel, nelements, NULL, data, NULL, &status);  
-   fits_close_file(fptr, &status);
-   if (status)          /* print any error messages */
-     fits_report_error(stderr, status);
+  fpixel[0] = 1;
+  fpixel[1] = 1;
+  status = 0; /* MUST initialize status */
+  nelements = *n;
+  fits_open_file(&fptr, filename, READONLY, &status);
+  fits_read_pix(fptr, TDOUBLE, fpixel, nelements, NULL, data, NULL, &status);  
+  fits_close_file(fptr, &status);
+  if (status)          /* print any error messages */
+    fits_report_error(stderr, status);
 #else
   printf("CFITSIO library is missing. Please change your configure file.");
 #endif

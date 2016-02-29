@@ -32,7 +32,7 @@ module coop_healpix_mod
   COOP_INT, parameter:: coop_inpaint_nside_start = 8
   COOP_SINGLE,parameter::coop_inpaint_mask_threshold = 0.05
   
-  public::coop_fits_to_header, coop_healpix_fmissval,coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_IAU_headless_vector,  coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade, coop_healpix_maps_copy_genre, coop_healpix_correlation_function, coop_healpix_mask_reverse, coop_healpix_maps_diffuse, coop_healpix_mask_diffuse, coop_healpix_nside2lmax, coop_healpix_filament, coop_healpix_lmax_by_nside, coop_healpix_patch_stack_fft, coop_healpix_maps_Cls2Pseudo,coop_healpix_Cls2Rot, coop_healpix_Cls2Rot_general, coop_healpix_rotate_qu
+  public::coop_fits_to_header, coop_fits_num_hdus, coop_healpix_fmissval,coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_IAU_headless_vector,  coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade, coop_healpix_maps_copy_genre, coop_healpix_correlation_function, coop_healpix_mask_reverse, coop_healpix_maps_diffuse, coop_healpix_mask_diffuse, coop_healpix_nside2lmax, coop_healpix_filament, coop_healpix_lmax_by_nside, coop_healpix_patch_stack_fft, coop_healpix_maps_Cls2Pseudo,coop_healpix_Cls2Rot, coop_healpix_Cls2Rot_general, coop_healpix_rotate_qu
   
 
   logical::coop_healpix_alm_check_done = .false.
@@ -277,17 +277,31 @@ contains
     fac = 1.d0
   end function coop_unit2muK
 
-  subroutine coop_fits_to_header(filename, header)
+  function coop_fits_num_hdus(filename) result(nhdus)
+    COOP_UNKNOWN_STRING::filename
+    COOP_INT::nhdus
+    COOP_STRING::cfname
+    cfname = trim(filename)
+    call coop_convert_to_C_string(cfname)
+    call coop_fits_get_num_hdus(cfname, nhdus)
+  end function coop_fits_num_hdus
+
+  subroutine coop_fits_to_header(filename, header, ihdu)
     COOP_UNKNOWN_STRING::filename
     COOP_STRING::cfname
     type(coop_dictionary)::header
     COOP_LONG_STRING::str
     COOP_INT nkeys, i, j, istart, iend, ikey
+    COOP_INT, optional::ihdu
     call header%free()
     cfname  = trim(adjustl(filename))
     str = ""
     call coop_convert_to_C_String(cfname)
-    call coop_fits_read_all_headers_to_string(cfname, str, nkeys)
+    if(present(ihdu))then
+       call coop_fits_get_header_for_hdu(cfname, ihdu, str, nkeys)
+    else
+       call coop_fits_read_all_headers_to_string(cfname, str, nkeys)
+    endif
     call coop_convert_to_Fortran_String(str)
     istart = 1
     do i=1, nkeys
