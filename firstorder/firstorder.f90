@@ -1904,6 +1904,9 @@ contains
   subroutine coop_cosmology_firstorder_trans_set_l(this, lmin, lmax)
     class(coop_cosmology_firstorder_trans)::this
     COOP_INT::lmin, lmax, l, i
+    if(allocated(this%l) .and. this%num_l.gt.0)then
+       if(this%l(1) .eq. lmin .and. this%l(this%num_l).eq. lmax)return
+    endif
     COOP_DEALLOC(this%l)
     this%lmin = lmin
     this%lmax = lmax
@@ -1934,13 +1937,29 @@ contains
     class(coop_cosmology_firstorder_source)::source
     COOP_INT::lmin, lmax, i
     call source%trans%set_l(lmin, lmax)
-    COOP_DEALLOC(source%trans%trans)
-    COOP_DEALLOC(source%trans%Cls)
-    COOP_DEALLOC(source%trans%Cls2)
-    COOP_DEALLOC(source%cls)
-    COOP_DEALLOC(source%cls_lensed)
-    allocate(source%trans%trans(source%nsrc, coop_k_dense_fac, source%nk, source%trans%num_l), source%trans%Cls(source%trans%num_l, coop_num_Cls), source%trans%Cls2(source%trans%num_l, coop_num_Cls))
-    allocate(source%Cls(coop_num_cls, lmin:lmax), source%Cls_lensed(coop_num_cls, lmin:lmax))
+    if(allocated(source%trans%trans))then
+       if(size(source%trans%trans, 1) .ne. source%nsrc .or. size(source%trans%trans, 2).ne. coop_k_dense_fac .or. size(source%trans%trans,3).ne. source%nk .or. size(source%trans%trans, 4).ne. source%trans%num_l)then
+          deallocate(source%trans%trans)
+          COOP_DEALLOC(source%trans%Cls)
+          COOP_DEALLOC(source%trans%Cls2)
+          allocate(source%trans%trans(source%nsrc, coop_k_dense_fac, source%nk, source%trans%num_l), source%trans%Cls(source%trans%num_l, coop_num_Cls), source%trans%Cls2(source%trans%num_l, coop_num_Cls))
+       endif
+    else
+       COOP_DEALLOC(source%trans%Cls)
+       COOP_DEALLOC(source%trans%Cls2)
+       allocate(source%trans%trans(source%nsrc, coop_k_dense_fac, source%nk, source%trans%num_l), source%trans%Cls(source%trans%num_l, coop_num_Cls), source%trans%Cls2(source%trans%num_l, coop_num_Cls))
+    endif
+    if(allocated(source%cls))then
+       if(lbound(source%cls, 2) .ne. lmin .or. ubound(source%cls, 2) .ne. lmax)then
+          deallocate(source%cls)
+          COOP_DEALLOC(source%cls_lensed)
+          allocate(source%Cls(coop_num_cls, lmin:lmax), source%Cls_lensed(coop_num_cls, lmin:lmax))
+       endif
+    else
+       COOP_DEALLOC(source%cls)
+       COOP_DEALLOC(source%cls_lensed)
+       allocate(source%Cls(coop_num_cls, lmin:lmax), source%Cls_lensed(coop_num_cls, lmin:lmax))
+    endif
     !$omp parallel do
     do i = 1, source%trans%num_l
        call source%get_transfer(nint(source%trans%l(i)), source%trans%trans(:,:,:,i))
