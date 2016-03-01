@@ -48,6 +48,7 @@ void coop_fits_get_num_hdus_(char* filename, int* numhdus){
 }
 
 void coop_fits_read_col_int_(char* filename, int* ihdu,  int* icol, int* nrows, int* data){
+#ifdef HAS_CFITSIO
   fitsfile *fptr;         
   int status,   hdutype;
   long firstrow, firstelem, nelements;
@@ -63,6 +64,7 @@ void coop_fits_read_col_int_(char* filename, int* ihdu,  int* icol, int* nrows, 
   fits_read_col(fptr, TINT, *icol, firstrow, firstelem, nelements, &nulval, data, &anynul, &status);
   if (status)          /* print any error messages */
     fits_report_error(stderr, status);
+#endif
 }
 
 
