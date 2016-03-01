@@ -69,6 +69,7 @@ void coop_fits_read_col_int_(char* filename, int* ihdu,  int* icol, int* nrows, 
 
 
 void coop_fits_read_col_short_(char* filename, int* ihdu,  int* icol, int* nrows, short* data){
+#ifdef HAS_CFITSIO
   fitsfile *fptr;         
   int status,   hdutype;
   long firstrow, firstelem, nelements;
@@ -84,9 +85,11 @@ void coop_fits_read_col_short_(char* filename, int* ihdu,  int* icol, int* nrows
   fits_read_col(fptr, TSHORT, *icol, firstrow, firstelem, nelements, &nulval, data, &anynul, &status);
   if (status)          /* print any error messages */
     fits_report_error(stderr, status);
+#endif
 }
 
 void coop_fits_read_col_float_(char* filename, int* ihdu,  int* icol, int* nrows, float* data){
+#ifdef HAS_CFITSIO
   fitsfile *fptr;         
   int status,   hdutype;
   long firstrow, firstelem, nelements;
@@ -102,9 +105,11 @@ void coop_fits_read_col_float_(char* filename, int* ihdu,  int* icol, int* nrows
   fits_read_col(fptr, TFLOAT, *icol, firstrow, firstelem, nelements, &nulval, data, &anynul, &status);
   if (status)          /* print any error messages */
     fits_report_error(stderr, status);
+#endif
 }
 
 void coop_fits_read_col_double_(char* filename, int* ihdu,  int* icol, int* nrows, float* data){
+#ifdef HAS_CFITSIO
   fitsfile *fptr;         
   int status,   hdutype;
   long firstrow, firstelem, nelements;
@@ -120,6 +125,7 @@ void coop_fits_read_col_double_(char* filename, int* ihdu,  int* icol, int* nrow
   fits_read_col(fptr, TDOUBLE, *icol, firstrow, firstelem, nelements, &nulval, data, &anynul, &status);
   if (status)          /* print any error messages */
     fits_report_error(stderr, status);
+#endif
 }
 
 void coop_fits_get_header_for_hdu_(char* filename, int* ihdu, char* cards, int* nkeys){
