@@ -88,7 +88,7 @@ contains
     
     do while(i.le.ll)
        select case(ichar(mathexpr(i:i)))
-       case(coop_ascii_0:coop_ascii_9, coop_ascii_lower_a:coop_ascii_lower_z, coop_ascii_plus, coop_ascii_dash,  coop_ascii_slash, coop_ascii_hat, coop_ascii_dot, coop_ascii_left_bracket, coop_ascii_right_bracket)
+       case(coop_ascii_0:coop_ascii_9, coop_ascii_plus, coop_ascii_dash, coop_ascii_slash, coop_ascii_hat, coop_ascii_dot, coop_ascii_left_bracket, coop_ascii_right_bracket, coop_ascii_lower_a:coop_ascii_lower_z)
           l = l + 1
           str(l:l) = mathexpr(i:i)
        case(coop_ascii_upper_a:coop_ascii_upper_z)
@@ -126,7 +126,19 @@ contains
        end select
        i=i+1
     enddo
-    str(l+1:) = ""
+    str(l+1:) = ''
+    if(index(str, "pi").ne.0)then
+       str = coop_str_replace(str(1:l), "pi", "3.14159265359")
+       l = len_trim(str)
+    endif
+    if(index(str, "ln").ne.0)then
+       str = coop_str_replace(str(1:l), "ln", "log")
+       l = len_trim(str)
+    endif
+    if(index(str, "log10").ne.0)then
+       str = coop_str_replace(str(1:l), "log10", "llo")
+       l = len_trim(str)
+    endif
     i = 1
     this%expr = ""
     do while(i.le.l)
@@ -229,7 +241,7 @@ contains
              nright = nright + 1
           endif
           if(nright .eq. nleft)then
-             allocate(character(len=j-ipos-1)::tmp)
+            ! allocate(character(len=j-ipos-1)::tmp) !!seems not necessary; fortran does automatic allocation
              tmp = str(ipos+1:j-1)
              call coop_math_expression_simplify(this, tmp, j-ipos-1, error)
              if(error.ne.0)return
@@ -241,6 +253,9 @@ contains
                    ipos = ipos - 3
                 case("log")
                    this%vars(ind) = log(this%vars(ind))
+                   ipos = ipos - 3
+                case("llo")
+                   this%vars(ind) = log10(this%vars(ind))
                    ipos = ipos - 3
                 case("sin")
                    if(ipos .ge. 5)then
@@ -310,6 +325,19 @@ contains
                       if(str(ipos-4:ipos-4).eq."s")then
                          this%vars(ind) = sqrt(this%vars(ind))
                          ipos = ipos - 4
+                      else
+                         error = coop_math_expression_error_unknown_function 
+                         return
+                      endif
+                   else
+                      error = coop_math_expression_error_unknown_function 
+                      return
+                   endif
+                case("mma")
+                   if(ipos .ge. 6)then
+                      if(str(ipos-5:ipos-4).eq."ga")then
+                         this%vars(ind) = gamma(this%vars(ind))
+                         ipos = ipos - 5
                       else
                          error = coop_math_expression_error_unknown_function 
                          return
