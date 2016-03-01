@@ -15,9 +15,9 @@ program RunF
      stop
   endif
   call fp%open(trim(root)//"_fisher.txt")  !!I do this first to test if the directory exists before spending a few minutes doing the fisher.
-
+  call coop_prtsystime(.true.)
   call fisher%get_fisher()
-
+  call coop_prtsystime()
 
   write(fp%unit, "("//COOP_STR_OF(fisher%n_params_used)//"A16)") fisher%paramtable%key(fisher%ind_used)
   do i=1, fisher%n_params_used

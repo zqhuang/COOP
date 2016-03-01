@@ -720,7 +720,7 @@ contains
     enddo
   end subroutine coop_fisher_init
 
-  subroutine coop_fisher_get_dobs_slow(this, i)
+  subroutine coop_fisher_get_dobs_slow(this, i, cosmology_tmp)
     class(coop_fisher)::this
     COOP_INT::i, iobs, j
     logical::success
@@ -738,7 +738,7 @@ contains
     paramtable_tmp = this%paramtable
     paramtable_tmp%val(i) = this%paramtable%val(i) + this%step1(i)
     !!compute the fiducial cosmology
-    cosmology_tmp = this%cosmology
+!    cosmology_tmp = this%cosmology
     call  cosmology_tmp%set_up(paramtable_tmp, success, level = this%init_level(i))
     if(.not. success)then
        write(*,*) "cannot set up the cosmology, check the parameter range:"
@@ -768,11 +768,11 @@ contains
           deallocate(dobs_tmp)
        endif
     enddo
-    call cosmology_tmp%free()
+ !   call cosmology_tmp%free()
     call paramtable_tmp%free()
   end subroutine coop_fisher_get_dobs_slow
 
-  subroutine coop_fisher_get_dobs_fast(this, i)
+  subroutine coop_fisher_get_dobs_fast(this, i, cosmology_tmp)
     class(coop_fisher)::this
     COOP_INT::i, iobs, j
     type(coop_real_table)::paramtable_tmp
@@ -786,10 +786,10 @@ contains
        return
     endif
     paramtable_tmp = this%paramtable
-    cosmology_tmp = this%cosmology
+!    cosmology_tmp = this%cosmology
 
     paramtable_tmp%val(i) = this%paramtable%val(i) + this%step1(i)
-    if(this%init_level(i).ge. coop_init_level_set_pp)call cosmology_tmp%set_primordial_power(paramtable_tmp)
+    if(this%init_level(i).ge. coop_init_level_set_pp)call cosmology_tmp%set_primordial_power(paramtable_tmp) 
     if(this%init_level(i).ge.coop_init_level_set_Cls)call cosmology_tmp%update_Cls(0)
 
     do iobs = 1, this%n_observations
@@ -811,7 +811,7 @@ contains
           deallocate(dobs_tmp)
        endif
     enddo
-    call cosmology_tmp%free()
+ !   call cosmology_tmp%free()
     call paramtable_tmp%free()
 
   end subroutine coop_fisher_get_dobs_fast
@@ -856,21 +856,27 @@ contains
   end subroutine coop_fisher_get_dobs_nuis
 
   subroutine coop_fisher_get_fisher(this)
+    COOP_INT, parameter::n_threads = 8
     class(coop_fisher)::this
-    COOP_INT::i, idata, j
+    COOP_INT::i, idata, j, ithread
+    type(coop_cosmology_firstorder)::cosmology_tmp(n_threads)
     COOP_REAL, dimension(:,:),allocatable::cov
     this%fisher = 0.d0
     do i = 1, this%n_observations
        this%observations(i)%dobs = 0.d0
     enddo
-    !$omp parallel do
-    do i = 1, this%n_slow
-       call coop_fisher_get_dobs_slow(this, this%ind_slow(i))
+    !$omp parallel do private(i, ithread)
+    do ithread = 1, n_threads
+       do i = ithread, this%n_slow, n_threads
+          call coop_fisher_get_dobs_slow(this, this%ind_slow(i), cosmology_tmp(ithread))
+       enddo
     enddo
     !$omp end parallel do
-    !$omp parallel do
-    do i = 1, this%n_fast
-       call coop_fisher_get_dobs_fast(this, this%ind_fast(i))
+    !$omp parallel do private(i, ithread)
+    do ithread = 1, n_threads
+       do i = ithread, this%n_fast, n_threads
+          call coop_fisher_get_dobs_fast(this, this%ind_fast(i), cosmology_tmp(ithread))
+       enddo
     enddo
     !$omp end parallel do
     !$omp parallel do
