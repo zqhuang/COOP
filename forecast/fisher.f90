@@ -865,6 +865,9 @@ contains
     do i = 1, this%n_observations
        this%observations(i)%dobs = 0.d0
     enddo
+    do ithread = 1, n_threads
+       cosmology_tmp(ithread) = this%cosmology
+    enddo
     !$omp parallel do private(i, ithread)
     do ithread = 1, n_threads
        do i = ithread, this%n_slow, n_threads
