@@ -438,7 +438,7 @@ contains
        call lr%free()
        dmu = 2.d0/nmu
        do imu = 1, nmu
-          mu(imu) = -1.d0+dmu*(i-0.5d0)
+          mu(imu) = -1.d0+dmu*(imu-0.5d0)
        enddo
        i = 0
        do iz = 1, nz
