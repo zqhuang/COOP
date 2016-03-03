@@ -696,7 +696,7 @@ contains
     COOP_UNKNOWN_STRING::str
     COOP_STRING::restr
     COOP_INT::istart, iend, ic
-    ic = scan(str, "/")
+    ic = scan(str, coop_slash) !!remove comments starting with slash
     if(ic .eq. 0)then
        ic  = len_trim(str)
     else

@@ -1,6 +1,7 @@
 module coop_fitswrap_mod
   use coop_wrapper_utils
   use coop_sphere_mod
+  use coop_fitsio_mod
   use coop_healpix_mod
   use coop_stacking_mod
   implicit none
@@ -12,7 +13,7 @@ module coop_fitswrap_mod
   public::coop_fits, coop_fits_image, coop_fits_image_cea, coop_fits_QU2EB, coop_fits_EB2QU, coop_fits_image_cea_simulate_TEB, coop_fits_image_cea_EB2QU, coop_fits_image_cea_QU2EB, coop_flatsky_maps
 
   type coop_fits
-     COOP_STRING::filename, fortran_filename
+     COOP_STRING::filename
      type(coop_dictionary):: header
    contains
      procedure::open => coop_fits_open
@@ -712,9 +713,7 @@ contains
     COOP_INT i
     call this%free()
     if(coop_file_exists(filename))then
-       this%fortran_filename = trim(filename)
        this%filename = trim(filename)
-       call coop_convert_to_C_string(this%filename)
        call coop_fits_get_header(this)
     else
        write(*,*) "The file "//trim(filename)//" does not exist."
@@ -760,7 +759,7 @@ contains
        this%dim = nint(this%key_value("NAXIS", 2.d0))
        if(this%dim .eq. 0 )then
           call this%header%print()
-          write(*,*) "Error: cannot find NAXIS key word in fits file "//trim(this%fortran_filename)
+          write(*,*) "Error: cannot find NAXIS key word in fits file "//trim(this%filename)
           stop
        endif
        allocate(this%nside(this%dim))
@@ -770,7 +769,7 @@ contains
           this%npix = this%npix * this%nside(i)
        enddo
        if(any(this%nside .eq. 0))then
-          write(*,*) trim(this%fortran_filename)//": cannot read the dimensions"
+          write(*,*) trim(this%filename)//": cannot read the dimensions"
           call this%header%print()
           stop
        endif
@@ -815,7 +814,7 @@ contains
           enddo
           delta(i) = this%key_value("CDELT"//COOP_STR_OF(i)) * units(i)
           if(abs(delta(i)) .lt. 1.d-12)then
-             write(*,*) trim(this%fortran_filename)//": cannot read delta"
+             write(*,*) trim(this%filename)//": cannot read delta"
              call this%header%print()
              stop
           endif
@@ -910,7 +909,7 @@ contains
     if(present(rms))rms = std
     write(*,*)
     write(*,*) "=========================================================="
-    write(*,*) "Statistics of map :"//trim(this%fortran_filename)
+    write(*,*) "Statistics of map :"//trim(this%filename)
     write(*,*) "=========================================================="
     write(*,*) "size: "//COOP_STR_OF(this%nside(1))//" x "//COOP_STR_OF(this%nside(2))
     write(*,*) "mean = ", ave
@@ -958,20 +957,10 @@ contains
 
   subroutine coop_fits_image_get_data(this)
     class(coop_fits_image)::this
-    COOP_SINGLE,dimension(:),allocatable::tmp
-    select case(this%bitpix)
-    case(-64)
-       call coop_fits_get_double_data(this%filename, this%image, COOP_LONG_INT_OF(this%npix))
-    case(-32)
-       allocate(tmp(0:this%npix-1))
-       call coop_fits_get_float_data(this%filename, tmp, COOP_LONG_INT_OF(this%npix))
-       this%image = COOP_REAL_OF(tmp)
-       deallocate(tmp)
-    case default
-       write(*,*) "Cannot load data for bitpix = "//trim(coop_num2str(this%bitpix))
-       stop
-    end select
-
+    type(coop_fits_file)::fp
+    call fp%open_image(this%filename)
+    call fp%load_image(this%image)
+    call fp%close()
   end subroutine coop_fits_image_get_data
 
   subroutine coop_fits_image_regularize(this, tail)
@@ -2515,25 +2504,8 @@ contains
   subroutine coop_fits_image_cea_write(this, filename)
     class(coop_fits_image_cea)::this
     COOP_UNKNOWN_STRING,intent(in):: filename
-    COOP_LONG_STRING::keys, values
-    COOP_INT i, j, nkeys
-    integer,dimension(:),allocatable::dtypes
     if(coop_file_exists(filename)) call coop_delete_file(filename)
-    allocate(dtypes(this%header%n))
-    this%filename = trim(adjustl(filename))
-    call coop_convert_to_c_string(this%filename)
-    keys = ""
-    values = ""
-    do i=1, this%header%n
-       dtypes(i) = coop_data_type(this%header%val(i))  
-       keys = trim(keys)//trim(this%header%key(i))//coop_newline
-       values = trim(values)//trim(coop_str_replace(this%header%val(i),"'", ""))//coop_newline
-    enddo
-    call coop_convert_to_c_string(keys)
-    call coop_convert_to_c_string(values)
-    nkeys = this%header%n
-    call coop_fits_write_image(this%filename, nkeys, keys, values, dtypes, this%image, this%nside(1), this%nside(2))
-    deallocate(dtypes)
+    call coop_fits_file_write_image(this%image, filename, this%header)
   end subroutine coop_fits_image_cea_write
 
   subroutine coop_fits_image_cea_plot(this, figname)
