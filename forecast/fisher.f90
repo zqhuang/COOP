@@ -868,6 +868,7 @@ contains
     do ithread = 1, n_threads
        cosmology_tmp(ithread) = this%cosmology
     enddo
+    write(*,*) "Doing slow parameters."
     !$omp parallel do private(i, ithread)
     do ithread = 1, n_threads
        do i = ithread, this%n_slow, n_threads
@@ -875,6 +876,8 @@ contains
        enddo
     enddo
     !$omp end parallel do
+    write(*,*) "Slow paramters done."
+    write(*,*) "Doing fast parameters."
     !$omp parallel do private(i, ithread)
     do ithread = 1, n_threads
        do i = ithread, this%n_fast, n_threads
@@ -882,12 +885,14 @@ contains
        enddo
     enddo
     !$omp end parallel do
+    write(*,*) "Fast paramters done."
+    write(*,*) "Doing nuisance parameters."
     !$omp parallel do
     do i = 1, this%n_nuis
        call coop_fisher_get_dobs_nuis(this, this%ind_nuis(i))
     enddo
     !$omp end parallel do
-
+    write(*,*) "Nuisance paramters done."
     do i = 1, this%n_observations
        do idata = 1, this%observations(i)%n_obs
           this%fisher(this%observations(i)%paramnames%val(1:this%observations(i)%paramnames%n), this%observations(i)%paramnames%val(1:this%observations(i)%paramnames%n)) &
