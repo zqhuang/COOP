@@ -409,7 +409,6 @@ contains
              this%window_Wsq(1:this%window_used(iz), iz) = exp(- (this%window_modes(1:this%window_used(iz), iz)/sigma_W)**2 )  
           endif
        enddo
-       write(*,*) "window functions for observation "//trim(this%name)//" has been set"
        call coop_dictionary_lookup(this%settings, "kmax", lr)
        if(lr%n .ne. nz)then
           write(*,*) "Error in data file "//trim(this%name)//": length of kmax list does not equal to n_z"
