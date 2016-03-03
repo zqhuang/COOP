@@ -289,7 +289,7 @@ contains
        if(paramtable%index(ls%element(i)).ne. 0)then
           call this%paramnames%insert(ls%element(i), i)  
        else
-          write(*,*) "skipping parameter "//trim(ls%element(i))//" for observation "//trim(this%name)//"."
+!!          write(*,*) "skipping parameter "//trim(ls%element(i))//" for observation "//trim(this%name)//"."
        endif
     enddo
     allocate(this%obs(this%dim_obs, this%n_obs), this%nuis(this%dim_nuis, this%n_obs), this%invcov(this%dim_obs, this%dim_obs, this%n_obs), this%dobs(this%dim_obs, this%n_obs, this%paramnames%n))
@@ -409,6 +409,7 @@ contains
              this%window_Wsq(1:this%window_used(iz), iz) = exp(- (this%window_modes(1:this%window_used(iz), iz)/sigma_W)**2 )  
           endif
        enddo
+       write(*,*) "window functions for observation "//trim(this%name)//" has been set"
        call coop_dictionary_lookup(this%settings, "kmax", lr)
        if(lr%n .ne. nz)then
           write(*,*) "Error in data file "//trim(this%name)//": length of kmax list does not equal to n_z"
@@ -438,7 +439,7 @@ contains
        call lr%free()
        dmu = 2.d0/nmu
        do imu = 1, nmu
-          mu(i) = -1.d0+dmu*(i-0.5d0)
+          mu(imu) = -1.d0+dmu*(i-0.5d0)
        enddo
        i = 0
        do iz = 1, nz
@@ -520,7 +521,7 @@ contains
        write(*,*) trim(this%genre)
        stop "Error: unknown observation genre"
     end select
-
+    write(*,*) trim(this%filename)//" is sucessfully loaded"
 
   end subroutine coop_observation_init
 
