@@ -727,6 +727,12 @@ contains
     type(coop_real_table)::paramtable_tmp
     type(coop_cosmology_firstorder)::cosmology_tmp
     COOP_REAL,dimension(:,:),allocatable::dobs_tmp
+    do iobs = 1, this%n_observations
+       j = this%observations(iobs)%paramnames%index(this%paramtable%key(i))
+       if(j.ne.0)goto 100
+    enddo
+    return  !!if no dependence just return
+100 continue
     if(this%priors(i).eq. 0.d0)then
        do iobs = 1, this%n_observations
           j = this%observations(iobs)%paramnames%index(this%paramtable%key(i))
@@ -734,7 +740,6 @@ contains
        enddo
        return
     endif
-
     paramtable_tmp = this%paramtable
     paramtable_tmp%val(i) = this%paramtable%val(i) + this%step1(i)
     !!compute the fiducial cosmology
@@ -778,6 +783,12 @@ contains
     type(coop_real_table)::paramtable_tmp
     type(coop_cosmology_firstorder)::cosmology_tmp
     COOP_REAL,dimension(:,:),allocatable::dobs_tmp
+    do iobs = 1, this%n_observations
+       j = this%observations(iobs)%paramnames%index(this%paramtable%key(i))
+       if(j.ne.0)goto 100
+    enddo
+    return  !!if no dependence just return
+100 continue
     if(this%priors(i).eq. 0.d0)then
        do iobs = 1, this%n_observations
           j = this%observations(iobs)%paramnames%index(this%paramtable%key(i))
@@ -821,6 +832,12 @@ contains
     COOP_INT::i, iobs, j
     type(coop_real_table)::paramtable_tmp
     COOP_REAL,dimension(:,:),allocatable::dobs_tmp
+    do iobs = 1, this%n_observations
+       j = this%observations(iobs)%paramnames%index(this%paramtable%key(i))
+       if(j.ne.0)goto 100
+    enddo
+    return  !!if no dependence just return
+100 continue
     if(this%priors(i).eq. 0.d0)then
        do iobs = 1, this%n_observations
           j = this%observations(iobs)%paramnames%index(this%paramtable%key(i))
@@ -828,12 +845,7 @@ contains
        enddo
        return
     endif
-
-
-
-
     paramtable_tmp = this%paramtable
-
     paramtable_tmp%val(i) = this%paramtable%val(i) + this%step1(i)
     do iobs = 1, this%n_observations
        j = this%observations(iobs)%paramnames%index(this%paramtable%key(i)) 
@@ -865,13 +877,11 @@ contains
     do i = 1, this%n_observations
        this%observations(i)%dobs = 0.d0
     enddo
-    do ithread = 1, n_threads
-       cosmology_tmp(ithread) = this%cosmology
-    enddo
     write(*,*) "Doing slow parameters."
     !$omp parallel do private(i, ithread)
     do ithread = 1, n_threads
        do i = ithread, this%n_slow, n_threads
+          cosmology_tmp(ithread) = this%cosmology
           call coop_fisher_get_dobs_slow(this, this%ind_slow(i), cosmology_tmp(ithread))
        enddo
     enddo
@@ -881,6 +891,7 @@ contains
     !$omp parallel do private(i, ithread)
     do ithread = 1, n_threads
        do i = ithread, this%n_fast, n_threads
+          cosmology_tmp(ithread) = this%cosmology
           call coop_fisher_get_dobs_fast(this, this%ind_fast(i), cosmology_tmp(ithread))
        enddo
     enddo

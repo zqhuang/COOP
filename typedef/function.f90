@@ -148,9 +148,9 @@ contains
 
   subroutine coop_function_free(this)
     class(coop_function):: this
-    if(allocated(this%f))deallocate(this%f)
-    if(allocated(this%f1))deallocate(this%f1)
-    if(allocated(this%f2))deallocate(this%f2)
+    COOP_DEALLOC(this%f)
+    COOP_DEALLOC(this%f1)
+    COOP_DEALLOC(this%f2)
     this%initialized = .false.
   end subroutine coop_function_free
 
