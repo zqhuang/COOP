@@ -17,7 +17,10 @@ program PlotF
   logical::has_legend 
   if(iargc() < 2)then
      write(*,*) "Syntax:"
-     write(*,*) "./PLOTF -out OUTPUT -xvar X -yvar Y -cov1 COVFILE1 -color1 COLOR1  [-linetype1 LINETYPE1 -linewidth1 LINEWIDTH1 -legend1 LEGEND1 -fillcolor1 FILLCOLOR1 -width FIG_WIDTH_INCH -height FIG_HEIGHT_INCH -xlabel XLABEL -ylabel YLABE -caption CAPTION -ncontours NCONTOURS -file2 ... -color2 ...-xlegend XLEGEND -ylegend YLEGEND -legend_cols LEGEND_COLUMNS -xmin XMIN -xmax XMAX -ymin YMIN -ymax YMAX] "
+     write(*,*) "./PLOTF -out OUTPUT -xvar X -yvar Y -cov1 COVFILE1 -color1 COLOR1  [-linetype1 LINETYPE1 -linewidth1 LINEWIDTH1 -legend1 LEGEND1 -fillcolor1 FILLCOLOR1 -width FIG_WIDTH_INCH -height FIG_HEIGHT_INCH -xlabel XLABEL -ylabel YLABE -caption CAPTION -ncontours NUM_CONTOURS(default 2) -file2 ... -color2 ...-xlegend LEGEND_X_RELATIVE_POSITION[0-1] -ylegend LEGEND_Y_RELATIVE_POSITION[0-1] -legend_cols LEGEND_COLUMNS -xmin XMIN -xmax XMAX -ymin YMIN -ymax YMAX] "
+     write(*,*) "Examples of colors:  black,  skyblue, red, RGB:255:100:100,  GRAY:120"
+     write(*,*) "Examples of linetype: solid, dashed, dotted"
+
      stop
   endif
   call coop_set_uniform(nsamples, theta, coop_pi/nsamples, coop_2pi*(nsamples-0.5)/nsamples)
