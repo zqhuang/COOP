@@ -22,6 +22,7 @@ module coop_fisher_mod
      COOP_INT::dim_nuis = 0
      COOP_INT::init_level = 0
      type(coop_int_table)::paramnames
+     COOP_REAL::h_calibrate = 0.7d0
      COOP_REAL,dimension(:,:),allocatable::obs !!(dim_obs, n_obs)
      COOP_REAL,dimension(:,:,:),allocatable::dobs !!(dim_obs, n_obs, paramnames%n)
      COOP_REAL,dimension(:,:),allocatable::nuis  !!(dim_nuis, n_obs)
@@ -103,7 +104,7 @@ contains
           dobs(1, idata) = (b0(iz) + b2(iz)*this%nuis(2, idata)**2 &
                +  cosmology%fgrowth_of_z(z=this%nuis(1, idata), k=this%nuis(2, idata))*this%nuis(3,idata)**2) &
                * cosmology%smeared_matter_power(z=this%nuis(1, idata), k=this%nuis(2, idata), nw = this%window_used(iz), kw = this%window_modes(1:this%window_used(iz), iz), wsq = this%window_wsq(1:this%window_used(iz), iz) ) * ((coop_pi**2*2.d0)/this%nuis(2, idata)**3) &
-               * exp(-sr2*((1.d0+this%nuis(1,idata))/Hz *this%nuis(2,idata)*this%nuis(3,idata))**2) - this%obs(1, idata)
+               * exp(-sr2*((1.d0+this%nuis(1,idata))/Hz *this%nuis(2,idata)*this%nuis(3,idata))**2)*(this%h_calibrate/cosmology%h())**3 - this%obs(1, idata)
        enddo
        !$omp end parallel do
        deallocate(b0, b2)
@@ -150,6 +151,7 @@ contains
     COOP_INT:: nz, nk, nmu, iz, ik, imu, l, n_per_zbin
     COOP_REAL::sigma_z,sigma_g, sr2, Hz, rz, a
     COOP_REAL,dimension(:),allocatable::b0, b2
+    this%h_calibrate = cosmology%h()
     select case(trim(this%genre))
     case("SN")
        call paramtable%lookup("sn_absolute_m", Mstar)
@@ -208,7 +210,7 @@ contains
                / (this%obs(1, idata)+1.d0/this%nuis(8,idata))**2
           if(do_mpk_output)then
              imu = mod(idata-1, nmu)+1
-             khMpc =  this%nuis(2, idata)*coop_H0_unit*exp(this%nuis(5,idata)/this%nuis(2, idata)*(imu-1.d0)/nmu)
+             khMpc =  this%nuis(2, idata)*coop_H0_unit*exp(this%nuis(5,idata)/this%nuis(2, idata)*((imu-0.5d0)/nmu-0.5d0))
              write(fp(iz)%unit, "(3E16.7)") khMpc, cosmology%matter_power(z=this%nuis(1, idata), k=khMpc/coop_H0_unit) * ((coop_pi**2*2.d0)/khMpc**3), cosmology%smeared_matter_power(z=this%nuis(1, idata), k=khMpc/coop_H0_unit, nw = this%window_used(iz), kw = this%window_modes(1:this%window_used(iz), iz), wsq = this%window_wsq(1:this%window_used(iz), iz) ) * ((coop_pi**2*2.d0)/khMpc**3)
           endif
        enddo
@@ -569,6 +571,7 @@ contains
     this%genre = ""
     this%name = ""
     this%filename = ""
+    this%h_calibrate = 0.7d0
   end subroutine coop_observation_free
 
 
