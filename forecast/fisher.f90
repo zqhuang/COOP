@@ -400,6 +400,7 @@ contains
                 endif
              else
                 read(windowfile, *) sigma_W
+                sigma_W = sigma_W / H0_unit
                 call coop_set_uniform(this%window_used(iz), this%window_modes(1:this%window_used(iz), iz), 0.d0, sigma_W*4.5d0)
                 this%window_Wsq(1:this%window_used(iz), iz) = exp(- (this%window_modes(1:this%window_used(iz), iz)/sigma_W)**2 )  
              endif
