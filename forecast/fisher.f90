@@ -8,6 +8,7 @@ module coop_fisher_mod
   COOP_INT,parameter::coop_parameter_type_slow = 0
   COOP_INT,parameter::coop_parameter_type_fast = 1
   COOP_INT,parameter::coop_parameter_type_nuis = 2
+  COOP_REAL,parameter::coop_H0_unit = 1.d5/coop_SI_c
 
   type coop_observation
      COOP_STRING::filename = ""
@@ -141,9 +142,12 @@ contains
     class(coop_observation)::this
     type(coop_real_table)::paramtable
     type(coop_cosmology_firstorder)::cosmology
+    COOP_STRING::mpk_output_root
+    logical::do_mpk_output 
+    type(coop_file),dimension(:),allocatable::fp
     COOP_INT idata
-    COOP_REAL::sn_peculiar_velocity, sn_sigma_int, sn_sigma_meas, sn_sigma_lens, sn_sigma_sys, Mstar
-    COOP_INT:: nz, nk, nmu, iz, ik, imu, l
+    COOP_REAL::sn_peculiar_velocity, sn_sigma_int, sn_sigma_meas, sn_sigma_lens, sn_sigma_sys, Mstar, mpk, bias, khMpc
+    COOP_INT:: nz, nk, nmu, iz, ik, imu, l, n_per_zbin
     COOP_REAL::sigma_z,sigma_g, sr2, Hz, rz, a
     COOP_REAL,dimension(:),allocatable::b0, b2
     select case(trim(this%genre))
@@ -163,13 +167,25 @@ contains
        !$omp end parallel do
     case("MPK")
        call coop_dictionary_lookup(this%settings,"n_z", nz)
+       call coop_dictionary_lookup(this%settings, "mpk_output_root", mpk_output_root, "")
+       if(trim(mpk_output_root).ne. "")then
+          do_mpk_output = .true.
+          allocate(fp(nz))
+          do iz=1, nz
+             call fp(iz)%open(trim(mpk_output_root)//"_zbin"//COOP_STR_OF(iz)//".dat")
+             write(fp(iz)%unit, "(3A16)") "# k [h Mpc^{-1}]",  "P(k) [h^{-3}Mpc^3]",  "  smeared P(k) "
+          enddo
+       else 
+          do_mpk_output = .false.
+       endif
        call coop_dictionary_lookup(this%settings,"n_k", nk)
        call coop_dictionary_lookup(this%settings,"n_mu", nmu)
+       n_per_zbin = nk*nmu
        call paramtable%lookup("mpk_sigma_g", sigma_g, 400.d0)
        sigma_g =sigma_g*1.d3/coop_SI_c
        call coop_dictionary_lookup(this%settings,"sigma_z", sigma_z, 0.001d0) 
        sr2 = sigma_g**2+sigma_z**2
-       if(this%n_obs .ne. nz*nk*nmu)then
+       if(this%n_obs .ne. nz*n_per_zbin)then
           write(*,*) "Error in data file "//trim(this%name)//": n_z * n_k*n_mu does not equal to n_obs"
           stop
        endif
@@ -178,20 +194,30 @@ contains
           call paramtable%lookup("mpk_b0_"//COOP_STR_OF(iz), b0(iz))
           call paramtable%lookup("mpk_b2_"//COOP_STR_OF(iz), b2(iz), 0.d0)
        enddo
-
        do idata = 1, this%n_obs
-          iz = (idata-1)/(nk*nmu)+1
+          iz = (idata-1)/n_per_zbin+1
           a = 1.d0/(1.d0+this%nuis(1,idata))
           Hz = cosmology%Hratio(a)
-          this%obs(1, idata) = (b0(iz) + b2(iz)*this%nuis(2, idata)**2 &
-               +  cosmology%fgrowth_of_z(z=this%nuis(1, idata), k=this%nuis(2, idata))*this%nuis(3,idata)**2) &
-               * cosmology%smeared_matter_power(z=this%nuis(1, idata), k=this%nuis(2, idata), nw = this%window_used(iz), kw = this%window_modes(1:this%window_used(iz), iz), wsq = this%window_wsq(1:this%window_used(iz), iz) ) * ((coop_pi**2*2.d0)/this%nuis(2, idata)**3) &
-               * exp(-sr2*((1.d0+this%nuis(1,idata))/Hz *this%nuis(2,idata)*this%nuis(3,idata))**2)
+          bias = (b0(iz) + b2(iz)*this%nuis(2, idata)**2 &
+               +  cosmology%fgrowth_of_z(z=this%nuis(1, idata), k=this%nuis(2, idata))*this%nuis(3,idata)**2) 
+          mpk = cosmology%smeared_matter_power(z=this%nuis(1, idata), k=this%nuis(2, idata), nw = this%window_used(iz), kw = this%window_modes(1:this%window_used(iz), iz), wsq = this%window_wsq(1:this%window_used(iz), iz) ) * ((coop_pi**2*2.d0)/this%nuis(2, idata)**3)
+          this%obs(1, idata) = bias * mpk * exp(-sr2*((1.d0+this%nuis(1,idata))/Hz *this%nuis(2,idata)*this%nuis(3,idata))**2)
           this%invcov(1,1,idata) = (this%nuis(2,idata)**2*this%nuis(5,idata) &
                * this%nuis(6,idata) * cosmology%comoving_distance(a) **2/Hz*this%nuis(4,idata) &
                * this%nuis(7,idata)/coop_2pi) &
                / (this%obs(1, idata)+1.d0/this%nuis(8,idata))**2
+          if(do_mpk_output)then
+             imu = mod(idata-1, nmu)+1
+             khMpc =  this%nuis(2, idata)*coop_H0_unit*exp(this%nuis(5,idata)/this%nuis(2, idata)*(imu-1.d0)/nmu)
+             write(fp(iz)%unit, "(3E16.7)") khMpc, cosmology%matter_power(z=this%nuis(1, idata), k=khMpc/coop_H0_unit) * ((coop_pi**2*2.d0)/khMpc**3), cosmology%smeared_matter_power(z=this%nuis(1, idata), k=khMpc/coop_H0_unit, nw = this%window_used(iz), kw = this%window_modes(1:this%window_used(iz), iz), wsq = this%window_wsq(1:this%window_used(iz), iz) ) * ((coop_pi**2*2.d0)/khMpc**3)
+          endif
        enddo
+       if(do_mpk_output)then
+          do iz = 1, nz
+             call fp(iz)%close()
+          enddo
+          deallocate(fp)
+       endif
        deallocate(b0, b2)
     case("CMB_TE")
        do idata = 1, this%n_obs
@@ -238,7 +264,6 @@ contains
   end subroutine coop_observation_get_invcov
 
   subroutine coop_observation_init(this, paramtable, filename)
-    COOP_REAL,parameter:: H0_unit = 1.d5/coop_SI_c
     class(coop_observation)::this
     type(coop_file)::wfp
     COOP_UNKNOWN_STRING,optional::filename
@@ -352,7 +377,7 @@ contains
           stop
        endif
        do iz = 1, nz
-          kmin(iz) = lr%element(iz)/H0_unit
+          kmin(iz) = lr%element(iz)/coop_H0_unit
        enddo
        call lr%free()
        COOP_DEALLOC(this%window_used)
@@ -390,7 +415,7 @@ contains
                 iw = 0
                 do while(wfp%read_real_array(kwarr))
                    iw = iw + 1
-                   this%window_modes(iw, iz) = kwarr(1)/H0_unit
+                   this%window_modes(iw, iz) = kwarr(1)/coop_H0_unit
                    this%window_Wsq(iw, iz) = kwarr(2)**2
                 enddo
                 call wfp%close()
@@ -400,7 +425,7 @@ contains
                 endif
              else
                 read(windowfile, *) sigma_W
-                sigma_W = sigma_W / H0_unit
+                sigma_W = sigma_W / coop_H0_unit
                 call coop_set_uniform(this%window_used(iz), this%window_modes(1:this%window_used(iz), iz), 0.d0, sigma_W*4.5d0)
                 this%window_Wsq(1:this%window_used(iz), iz) = exp(- (this%window_modes(1:this%window_used(iz), iz)/sigma_W)**2 )  
              endif
@@ -416,7 +441,7 @@ contains
           stop
        endif
        do iz = 1, nz
-          kmax(iz) = lr%element(iz)/H0_unit
+          kmax(iz) = lr%element(iz)/coop_H0_unit
        enddo
        call lr%free()
        call coop_dictionary_lookup(this%settings, "nobs", lr)
@@ -425,7 +450,7 @@ contains
           stop
        endif
        do iz = 1, nz
-          nobs(iz) = lr%element(iz) / H0_unit**3
+          nobs(iz) = lr%element(iz) / coop_H0_unit**3
        enddo
        call lr%free()
        call coop_dictionary_lookup(this%settings, "delta_z", lr)
