@@ -963,7 +963,9 @@ contains
        endif
     enddo
     cov = this%fisher(this%ind_used, this%ind_used)
-    call coop_sympos_inverse(this%n_params_used, this%n_params_used, cov)
+    if(this%n_params_used .gt. 0)then
+       call coop_sympos_inverse(this%n_params_used, this%n_params_used, cov)
+    endif
     this%cov(this%ind_used, this%ind_used) = cov
     do i = 1, this%n_params
        if(this%is_used(i))then
