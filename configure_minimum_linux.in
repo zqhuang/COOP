@@ -1,17 +1,29 @@
-PLATFORM = MacOS
+##########minimal settings for LINUX platform ########################
+#PLATFORM = MacOS
 #PLATFORM = Windows
-#PLATFORM = LINUX
+PLATFORM = LINUX
 
-ifeq ($(PLATFORM),MacOS)
-GFORTRAN_NAME = gfortran-mp-4.8
-else
+#############CHANGE these to the gfortran and gcc compilers you are using. ###########
+#For example, if you are using /mypath/gfortran-4.8 and /mypath/gcc/gcc-4.8.
+#You can do
+#GFORTRAN_NAME = /mypath/gfortran-4.8
+#and
+#GCC_NAME = /mypath/gcc-4.8
+################################################################################
+#Another way of doing this is that you can add /mypath/ to the $PATH variable. In bash you do
+#export PATH=/mypath/:$PATH
+#with /mypath/ included in the default search path, you can use
+#GFORTRAN_NAME = gfortran-4.8
+#and
+#GCC_NAME = gcc-4.8
+
+
 GFORTRAN_NAME = gfortran
-endif
-
 GCC_NAME=gcc
+
+
 IFORT_NAME=ifort
 ICC_NAME=icc
-
 ######## compiler options  #######
 ### YES or NO
 #### distributed memory (you should have a compiler alias mpif77 or mpif90 installed); This is used to generate multiple chains when doing MCMC.
@@ -37,7 +49,8 @@ DARK_ENERGY_MODEL = LAMBDA
 
 
 ##LAPACK lib; for MacOS set LAPACK = APPLE
-LAPACK = APPLE
+#LAPACK = APPLE
+LAPACK = 
 
 ##FFTW lib (v3.2 up)
 FFTW3 =

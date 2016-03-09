@@ -272,7 +272,7 @@ contains
     type(coop_real_table)::paramtable
     type(coop_list_string)::ls
     type(coop_list_real)::lr
-    COOP_STRING::windowfile
+    COOP_STRING::windowfile, windowall
     COOP_REAL::kwarr(2)
     COOP_REAL,dimension(:),allocatable::z, kmin, kmax, nobs, dz, mu, k
     COOP_REAL::dmu, dlnk, sigma_W, fsky, Nl_T, Nl_pol, fg_r, fg_A, fg_alpha, fg_T, fg_beta, fsky_pol, T353, obs_yr, Fl
@@ -385,8 +385,16 @@ contains
        COOP_DEALLOC(this%window_used)
        allocate(this%window_used(this%n_bins))
        this%n_window = 0 
+       call coop_dictionary_lookup(this%settings, "window_all",  windowall, "")
+       if(trim(windowall).ne. "")then
+          write(*,*) "Using window: "//trim(windowall)
+       endif
        do iz = 1, nz
-          call coop_dictionary_lookup(this%settings, "window"//COOP_STR_OF(iz),  windowfile, "")
+          if(trim(windowall).ne. "")then
+             windowfile = windowall
+          else
+             call coop_dictionary_lookup(this%settings, "window"//COOP_STR_OF(iz),  windowfile, "")
+          endif
           if(trim(windowfile).ne."")then
              if(coop_file_exists(windowfile))then
                 this%window_used(iz) = coop_file_NumLines(windowfile)
@@ -409,7 +417,11 @@ contains
        allocate(this%window_Wsq(this%n_window, this%n_bins))
        allocate(this%window_modes(this%n_window, this%n_bins))
        do iz = 1, nz
-          call coop_dictionary_lookup(this%settings, "window"//COOP_STR_OF(iz),  windowfile, "")
+          if(trim(windowall).ne. "")then
+             windowfile = windowall
+          else
+             call coop_dictionary_lookup(this%settings, "window"//COOP_STR_OF(iz),  windowfile, "")
+          endif
           if(trim(windowfile).ne."")then
              if(coop_file_exists(windowfile))then
                 call wfp%open(windowfile, 'r')
