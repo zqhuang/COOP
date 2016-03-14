@@ -19,7 +19,7 @@ contains
     COOP_INT n
     COOP_REAL fx(n)
     COOP_COMPLEX fk(n/2+1)
-#ifdef HAS_FFTW
+#if HAS_FFTW
     call fft_1d_forward(n, fx, fk)
 #else
     call coop_return_error("coop_fft_forward_1d", "coop_fft: Cannot find FFTW library. Please change the configura.in file.", "stop")
@@ -30,7 +30,7 @@ contains
     COOP_INT n
     COOP_REAL fx(n)
     COOP_COMPLEX fk(n/2+1)
-#ifdef HAS_FFTW
+#if HAS_FFTW
     call fft_1d_backward(n, fk, fx)
     fx = fx/n
 #else
@@ -42,7 +42,7 @@ contains
     COOP_INT nx, ny
     COOP_REAL fx(ny,nx)
     COOP_COMPLEX fk(ny/2+1,nx)
-#ifdef HAS_FFTW
+#if HAS_FFTW
     call fft_2d_forward(nx, ny, fx, fk)
 #else
     call coop_return_error("coop_fft", "Cannot find FFTW library. Please change the configura.in file.", "stop")
@@ -53,7 +53,7 @@ contains
     COOP_INT nx, ny
     COOP_REAL fx(ny, nx)
     COOP_COMPLEX fk(ny/2+1, nx)
-#ifdef HAS_FFTW
+#if HAS_FFTW
     call fft_2d_backward(nx, ny, fk, fx)
     fx = fx/(dble(nx)*dble(ny))
 #else
@@ -66,7 +66,7 @@ contains
     COOP_INT nx, ny
     COOP_REAL fx(ny*nx)
     COOP_COMPLEX fk(ny/2+1, nx)
-#ifdef HAS_FFTW
+#if HAS_FFTW
     call fft_2d_forward(nx, ny, fx, fk)
 #else
     call coop_return_error("coop_fft", "Cannot find FFTW library. Please change the configura.in file.", "stop")
@@ -77,7 +77,7 @@ contains
     COOP_INT nx, ny
     COOP_REAL fx(ny*nx)
     COOP_COMPLEX fk(ny/2+1, nx)
-#ifdef HAS_FFTW
+#if HAS_FFTW
     call fft_2d_backward(nx, ny, fk, fx)
     fx = fx/(dble(nx)*dble(ny))
 #else
@@ -90,7 +90,7 @@ contains
     COOP_INT nz, ny, nx
     COOP_REAL fx(nz, ny, nx)
     COOP_COMPLEX fk(nz/2+1, ny, nx)
-#ifdef HAS_FFTW
+#if HAS_FFTW
     call fft_3d_forward(nx, ny, nz, fx, fk)
 #else
     call coop_return_error("coop_fft", "Cannot find FFTW library. Please change the configura.in file.", "stop")
@@ -101,7 +101,7 @@ contains
     COOP_INT nz, ny, nx
     COOP_REAL fx(nz, ny, nx)
     COOP_COMPLEX fk(nz/2+1, ny, nx)
-#ifdef HAS_FFTW
+#if HAS_FFTW
     call fft_3d_backward(nx, ny, nz, fk, fx)
     fx = fx/(dble(nx)*dble(ny)*dble(nz))
 #else
@@ -115,7 +115,7 @@ contains
     COOP_INT nz, ny, nx
     COOP_REAL fx(nz* ny*nx)
     COOP_COMPLEX fk(nz/2+1, ny, nx)
-#ifdef HAS_FFTW
+#if HAS_FFTW
     call fft_3d_forward(nx, ny, nz, fx, fk)
 #else
     call coop_return_error("coop_fft", "Cannot find FFTW library. Please change the configura.in file.", "stop")
@@ -126,7 +126,7 @@ contains
     COOP_INT nz, ny, nx
     COOP_REAL fx(nz*ny*nx)
     COOP_COMPLEX fk(nz/2+1, ny, nx)
-#ifdef HAS_FFTW
+#if HAS_FFTW
     call fft_3d_backward(nx, ny, nz, fk, fx)
     fx = fx/(dble(nx)*dble(ny)*dble(nz))
 #else

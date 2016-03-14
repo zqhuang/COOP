@@ -4,13 +4,11 @@ TYPEDEF=../typedef
 UTILS=../utils
 BACKGROUND=../background
 FIRSTORDER=../firstorder
-NONLINEAR=../nonlinear
-FORECAST=../forecast
 
 include ../configure.in
 include ../compile_rules.in
 
-OBJ = lattice.o 
+OBJ = lattice_fields.o 
 $(LIB): libcooplattice.a
 
 default: HLattice
@@ -27,5 +25,5 @@ HLattice: $(OBJ) runlattice.o
 clean:
 	rm -f *.o *.*~ *.mod \#* *.a Makefile~  HLattice
 
-runlattice.o: lattice.o
+runlattice.o: lattice_fields.o
 
