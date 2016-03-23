@@ -16,7 +16,6 @@ module coop_wrapper_utils
   use coop_gaussian_peak_stat_mod
   use coop_nd_prob_mod
   use coop_evalstr_mod
-!  use coop_weiqi_mod
   implicit none
 
 contains

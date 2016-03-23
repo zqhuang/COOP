@@ -26,13 +26,20 @@ contains
 #endif    
   end subroutine coop_fft_forward_1d
 
-  subroutine coop_fft_backward_1d(n, fk, fx)
+  subroutine coop_fft_backward_1d(n, fk, fx, normalize)
     COOP_INT n
     COOP_REAL fx(n)
     COOP_COMPLEX fk(n/2+1)
+    logical, optional::normalize
 #if HAS_FFTW
     call fft_1d_backward(n, fk, fx)
-    fx = fx/n
+    if(present(normalize))then
+       if(normalize)then
+          fx = fx/n
+       endif
+    else
+       fx = fx/n
+    endif
 #else
     call coop_return_error("coop_fft", "Cannot find FFTW library. Please change the configura.in file.", "stop")
 #endif    
@@ -49,13 +56,20 @@ contains
 #endif    
   end subroutine coop_fft_forward_2d
 
-  subroutine coop_fft_backward_2d(ny, nx, fk, fx)
+  subroutine coop_fft_backward_2d(ny, nx, fk, fx, normalize)
     COOP_INT nx, ny
     COOP_REAL fx(ny, nx)
     COOP_COMPLEX fk(ny/2+1, nx)
+    logical, optional::normalize
 #if HAS_FFTW
     call fft_2d_backward(nx, ny, fk, fx)
-    fx = fx/(dble(nx)*dble(ny))
+    if(present(normalize))then
+       if(normalize)then
+          fx = fx/(dble(nx)*dble(ny))
+       endif
+    else
+       fx = fx/(dble(nx)*dble(ny))
+    endif
 #else
     call coop_return_error("coop_fft", "Cannot find FFTW library. Please change the configura.in file.", "stop")
 #endif    
@@ -73,13 +87,18 @@ contains
 #endif    
   end subroutine coop_fft_forward_2d_ss
 
-  subroutine coop_fft_backward_2d_ss(ny, nx, fk, fx)
+  subroutine coop_fft_backward_2d_ss(ny, nx, fk, fx, normalize)
     COOP_INT nx, ny
     COOP_REAL fx(ny*nx)
     COOP_COMPLEX fk(ny/2+1, nx)
+    logical, optional::normalize
 #if HAS_FFTW
     call fft_2d_backward(nx, ny, fk, fx)
-    fx = fx/(dble(nx)*dble(ny))
+    if(present(normalize))then
+       if(normalize)fx = fx/(dble(nx)*dble(ny))
+    else
+       fx = fx/(dble(nx)*dble(ny))
+    endif
 #else
     call coop_return_error("coop_fft", "Cannot find FFTW library. Please change the configura.in file.", "stop")
 #endif    
@@ -97,13 +116,18 @@ contains
 #endif    
   end subroutine coop_fft_forward_3d
 
-  subroutine coop_fft_backward_3d(nz, ny, nx, fk, fx)
+  subroutine coop_fft_backward_3d(nz, ny, nx, fk, fx, normalize)
     COOP_INT nz, ny, nx
     COOP_REAL fx(nz, ny, nx)
     COOP_COMPLEX fk(nz/2+1, ny, nx)
+    logical,optional::normalize
 #if HAS_FFTW
     call fft_3d_backward(nx, ny, nz, fk, fx)
-    fx = fx/(dble(nx)*dble(ny)*dble(nz))
+    if(present(normalize))then
+       if(normalize)fx = fx/(dble(nx)*dble(ny)*dble(nz))
+    else
+       fx = fx/(dble(nx)*dble(ny)*dble(nz))
+    endif
 #else
     call coop_return_error("coop_fft", "Cannot find FFTW library. Please change the configura.in file.", "stop")
 #endif    
@@ -122,13 +146,18 @@ contains
 #endif    
   end subroutine coop_fft_forward_3d_ss
 
-  subroutine coop_fft_backward_3d_ss(nz, ny, nx, fk, fx)
+  subroutine coop_fft_backward_3d_ss(nz, ny, nx, fk, fx, normalize)
     COOP_INT nz, ny, nx
     COOP_REAL fx(nz*ny*nx)
     COOP_COMPLEX fk(nz/2+1, ny, nx)
+    logical,optional::normalize
 #if HAS_FFTW
     call fft_3d_backward(nx, ny, nz, fk, fx)
-    fx = fx/(dble(nx)*dble(ny)*dble(nz))
+    if(present(normalize))then
+       if(normalize)fx = fx/(dble(nx)*dble(ny)*dble(nz))
+    else
+       fx = fx/(dble(nx)*dble(ny)*dble(nz))
+    endif
 #else
     call coop_return_error("coop_fft", "Cannot find FFTW library. Please change the configura.in file.", "stop")
 #endif    

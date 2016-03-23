@@ -92,6 +92,8 @@ module coop_healpix_mod
      logical,dimension(:),allocatable::alm_done
      COOP_SINGLE,dimension(:,:),allocatable::checksum
    contains
+     procedure ::get_mask_kernel => coop_healpix_maps_get_mask_kernel
+     procedure :: num_areas => coop_healpix_maps_num_areas
      procedure :: fields_to_spins => coop_healpix_maps_fields_to_spins
      procedure :: set_unit => coop_healpix_maps_set_unit
      procedure :: set_units => coop_healpix_maps_set_units     
@@ -1070,11 +1072,10 @@ contains
     COOP_INT l
     if(this%nmaps.eq.1 .and. this%spin(1).eq.0)then
        allocate(sqrtCls(0:this%lmax))
-       !$omp parallel do
        do l = 0, this%lmax
           sqrtCls(l) = sqrt(this%Cl(l,1))
+!          print*, l, sqrtCls(l)
        enddo
-       !$omp end parallel do
        call this%simulate_Tmaps(this%nside, this%lmax, sqrtCls)
        deallocate(sqrtCls)
     elseif(this%nmaps.eq.3 .and. this%iq .eq.2)then
@@ -1146,7 +1147,7 @@ contains
   end subroutine coop_healpix_maps_simulate_Tmaps
 
 
-  subroutine coop_healpix_maps_get_cls(this) !!I assume you have already called    this_map2alm(this)
+  subroutine coop_healpix_maps_get_cls(this) !!I assume you have already called    this%map2alm()
     class(coop_healpix_maps)this
     COOP_INT l, m, i, j, k
     if(.not.allocated(this%alm)) stop "coop_healpix_maps_get_cls: you have to call coop_healpix_maps_map2alm before calling this subroutine"
@@ -1717,7 +1718,7 @@ contains
           do i=4, this%nmaps
              call this%set_field(i, coop_healpix_maps_default_genre)
           enddo
-       case("MASK", "M")
+       case("MASK", "M", "TMASK", "PMASK")
           call this%set_units("1")          
           do i=1, this%nmaps
              call this%set_field(i, trim(genre))
@@ -5979,6 +5980,10 @@ contains
     n_large = nbins - n_small 
     allocate(sorted_map(n), x(nbins), y(nbins))
     j = 0
+    if(mask%ordering .ne. this%ordering)then
+       call mask%convert2nested()
+       call this%convert2nested()
+    endif
     do i=0, this%npix-1
        if(mask%map(i, 1).gt.0.)then
           j = j + 1
@@ -6041,6 +6046,10 @@ contains
     n_large = nbins - n_small 
     allocate(sorted_map(n), x(nbins), y(nbins))
     j = 0
+    if(mask%ordering .ne. this%ordering)then
+       call mask%convert2nested()
+       call this%convert2nested()
+    endif
     do i=0, this%npix-1
        if(mask%map(i, 1).gt.0.)then
           j = j + 1
@@ -6085,6 +6094,176 @@ contains
     !$omp end parallel do
     deallocate(sorted_map, x, y)
   end subroutine coop_healpix_maps_uniformize
+
+  !!count value > 0  areas in the imap-th map of this
+  function coop_healpix_maps_num_areas(this, imap, mask, threshold, cold) result(ngroups)
+    class(coop_healpix_maps)::this
+    type(coop_healpix_maps),optional::mask
+    COOP_INT::group(0:this%npix-1)
+    logical, optional::cold
+    COOP_SINGLE, optional::threshold
+    COOP_SINGLE::nu
+    COOP_INT::i, j, k, gr, imap
+    COOP_INT::ngroups, nnz
+    COOP_INT::listpix(this%npix), pixnbs(8), pixnn
+    COOP_INT, dimension(:),allocatable::nn
+    logical, dimension(:),allocatable::done
+    COOP_INT, dimension(:, :),allocatable::nbs
+    COOP_INT::nnew(2)
+    COOP_INT::isaved, inow
+    COOP_INT,dimension(:,:),allocatable::newpix
+    type(coop_int_set)::grset
+#if HAS_HEALPIX
+    if(present(threshold))then
+       nu = threshold
+    else
+       nu = 0.
+    endif
+    ngroups = 0
+    call this%convert2nested()
+    if(present(mask))then
+       call mask%convert2nested()
+       if(present(cold))then
+          if(cold)then
+             do i = 0, this%npix-1
+                if(this%map(i,imap) .ge. nu .or. mask%map(i,1).le. 0.5)then
+                   group(i) = 0
+                else
+                   ngroups = ngroups + 1
+                   group(i) = ngroups
+                   listpix(ngroups) = i
+                endif
+             enddo
+          else
+             do i = 0, this%npix-1
+                if(this%map(i,imap) .le. nu  .or. mask%map(i,1).le. 0.5)then
+                   group(i) = 0
+                else
+                   ngroups = ngroups + 1
+                   group(i) = ngroups
+                   listpix(ngroups) = i
+                endif
+             enddo
+          endif
+       else
+          do i = 0, this%npix-1
+             if(this%map(i,imap) .le. nu  .or. mask%map(i,1).le. 0.5)then
+                group(i) = 0
+             else
+                ngroups = ngroups + 1
+                group(i) = ngroups
+                listpix(ngroups) = i
+             endif
+          enddo
+       endif
+    else
+       if(present(cold))then
+          if(cold)then
+             do i = 0, this%npix-1
+                if(this%map(i,imap) .ge. nu)then
+                   group(i) = 0
+                else
+                   ngroups = ngroups + 1
+                   group(i) = ngroups
+                   listpix(ngroups) = i
+                endif
+             enddo
+          else
+             do i = 0, this%npix-1
+                if(this%map(i,imap) .le. nu)then
+                   group(i) = 0
+                else
+                   ngroups = ngroups + 1
+                   group(i) = ngroups
+                   listpix(ngroups) = i
+                endif
+             enddo
+          endif
+       else
+          do i = 0, this%npix-1
+             if(this%map(i,imap) .le. nu)then
+                group(i) = 0
+             else
+                ngroups = ngroups + 1
+                group(i) = ngroups
+                listpix(ngroups) = i
+             endif
+          enddo
+       endif
+    endif
+    if(ngroups .eq. 0) return
+    nnz = ngroups
+    allocate(nbs(8, nnz), nn(nnz), newpix(nnz, 2), done(nnz))
+    nn = 0
+    !$omp parallel do private(j, i, pixnbs, pixnn)
+    do i = 1, nnz
+       call neighbours_nest(this%nside, listpix(i), pixnbs, pixnn)
+       do j = 1, pixnn
+          if(group(pixnbs(j)) .gt. 0)then
+             nn(i) = nn(i) + 1
+             nbs(nn(i), i) = group(pixnbs(j))
+          endif
+          done(i) = (nn(i) .eq. 0)
+       enddo
+    enddo
+    !$omp end parallel do
+    do i = 1, nnz
+       if(done(i)) cycle
+       isaved = 1
+       inow = 2
+       nnew(isaved) = 1
+       newpix(nnew(isaved), isaved) = i
+       gr = group(listpix(i))
+       done(i) = .true.
+       do 
+          nnew(inow) = 0
+          do j = 1, nnew(isaved)
+             do k =1,  nn(newpix(j, isaved))
+                if(group(listpix(nbs(k, newpix(j, isaved)))) .ne. gr)then
+                   nnew(inow) = nnew(inow) + 1
+                   newpix(nnew(inow), inow) = nbs(k, newpix(j, isaved))
+                   group(listpix(nbs(k, newpix(j, isaved)))) = gr
+                   done(nbs(k, newpix(j, isaved))) = .true.
+                endif
+             enddo
+          enddo
+          if(nnew(inow) .eq. 0)exit
+          if(isaved .eq. 1)then
+             isaved = 2
+             inow = 1
+          else
+             isaved = 1
+             inow = 2
+          endif
+       enddo
+    enddo
+    do i=1, nnz
+       call grset%insert(group(listpix(i)))
+    enddo
+    ngroups = grset%n
+    deallocate(nbs, nn, newpix, done)
+    call grset%free()
+#endif
+  end function coop_healpix_maps_num_areas
+
+
+
+  subroutine coop_healpix_maps_get_mask_kernel(this, lmax_mask,  lmin, lmax, kernel)
+    class(coop_healpix_maps) this
+    COOP_INT::lmin, lmax, lmax_mask, l
+    COOP_REAL::kernel(lmin:lmax, lmin:lmax)
+    COOP_REAL::cl_mask(0:lmax_mask)
+#if HAS_HEALPIX
+    call this%map2alm(lmax = lmax_mask, index_list = (/ 1 /) )
+    do l = 0, lmax_mask
+       Cl_mask(l) = (sum(COOP_MULT_REAL(this%alm(l, 1:l, 1), this%alm(l, 1:l, 1))) + 0.5d0 * COOP_MULT_REAL(this%alm(l,0,1), this%alm(l,0,1)) )/(l+0.5d0)
+    enddo
+    call coop_pseudoCl_get_kernel(lmax_mask = lmax_mask, Cl_mask = Cl_mask, lmin = lmin, lmax = lmax, kernel = kernel)
+#endif
+  end subroutine coop_healpix_maps_get_mask_kernel
+
+
+
 
 end module coop_healpix_mod
 

@@ -7,17 +7,13 @@ module coop_threej_mod
 
 #include "constants.h"
 
-  public::coop_threej000, coop_threej_fixed_m1, coop_threej_table, coop_threej_generate_table, coop_pseudoCl_matrix
-
-
-  COOP_INT ,parameter::dl = kind(1.d0)
-  COOP_INT ,parameter::sp = kind(1.)
+  public:: coop_threej_fixed_m1, coop_threej_table, coop_threej_generate_table, coop_pseudoCl_matrix, coop_pseudoCl2Cl, coop_pseudoCl_get_kernel
 
   type coop_threej_table
      COOP_INT  ntheta
      COOP_REAL  dtheta
      COOP_REAL ,dimension(:),allocatable::mu
-     real(sp),dimension(:,:,:),allocatable::s
+     COOP_SINGLE,dimension(:,:,:),allocatable::s
    contains
      procedure::free => coop_threej_table_free
   end type coop_threej_table
@@ -29,27 +25,6 @@ module coop_threej_mod
 
 contains
 
-  function Coop_threej000(l1,l2,l3) result(w3j)
-    COOP_REAL  w3j
-    COOP_INT  l1,l2,l3, J, g
-    J = (l1+l2+l3)
-    if(l1+l2.lt.l3 .or. l2+l3.lt.l1 .or. l3+l1.lt.l2 .or. mod(J,2).ne.0)then
-       w3j = 0._dl
-       return
-    endif
-    g = J/2
-    w3j = dexp(&
-         log_gamma(g+1.d0)-log_gamma(g-l1+1.d0) &
-         -log_gamma(g-l2+1.d0) - log_gamma(g-l3+1.d0) &
-         +( &
-         log_gamma(J-2*l1+1.d0) + log_gamma(J-2*l2+1.d0) &
-         + log_gamma(J-2*l3+1.d0) - log_gamma(J+2.d0) &
-         )/2.d0 &
-         )
-    if(mod(g,2).ne.0) w3j = -w3j
-  end function Coop_threej000
-
-  
 
 
 !!$for large l' you need to use limber approximation
@@ -59,7 +34,7 @@ contains
     COOP_REAL func
     COOP_INT  l
     COOP_REAL  limapp_int
-    limapp_int = sqrt(coop_pio2/(l+0.5_dl))*func(l+0.5_dl)
+    limapp_int = sqrt(coop_pio2/(l+0.5d0))*func(l+0.5d0)
   end function limapp_int
 
 
@@ -84,11 +59,11 @@ contains
        return
     endif
     sca = lngamma_hi_table(m+1)-lngamma_hi_table(1)-log_gamma(2*m+1.d0)/2.d0 + m*(coop_ln2+lnabs(1.d0-x**2)/2.d0)
-    if(sca .lt. -1.e4_dl)then
+    if(sca .lt. -1.d4)then
        Plm = 0.d0
        return
     endif
-    if(sca .gt. -20._dl)then
+    if(sca .gt. -20.d0)then
        if(mod(m,2).eq.0)then
           Plm_prev = dexp(sca)
        else
@@ -113,15 +88,15 @@ contains
           Plm_prev = Plm
           Plm = Plm_next
           if(need_norm)then
-             if(dabs(Plm).gt.1.e20_dl)then
-                if(sca .ge. -30._dl)then
+             if(dabs(Plm).gt.1.d20)then
+                if(sca .ge. -30.d0)then
                    call multiply_exp(Plm, sca) 
                    call multiply_exp(Plm_prev, sca) 
                    need_norm = .false.
                 else
-                   sca = sca + 30._dl
-                   call multiply_exp(Plm, -30._dl)
-                   call multiply_exp(Plm_prev, -30._dl)
+                   sca = sca + 30.d0
+                   call multiply_exp(Plm, -30.d0)
+                   call multiply_exp(Plm_prev, -30.d0)
                 endif
              endif
           endif
@@ -218,7 +193,7 @@ contains
           Bmax = (1.d0-x**2)*A
           m0 = nint(dsqrt(Bmax+1.d0))
           dm0 = max(ceiling(l*0.032),30)
-          Plms(max(m0+dm0+1,mstart):mend) = 0._dl
+          Plms(max(m0+dm0+1,mstart):mend) = 0.d0
           !$omp parallel do 
           do m=max(mstart,m0-dm0+1), min(mend, m0+dm0)
              Plms(m) = Normalized_Plm_recur(l,m,x)
@@ -262,11 +237,11 @@ contains
        return
     endif
     sca = lngamma_hi_table(m+1)-lngamma_hi_table(1)-log_gamma(2*m+1)/2.d0+m*(coop_ln2+dlog(1.d0-x**2)/2.d0)
-    if(sca.lt.-1.e4_dl) then
+    if(sca.lt.-1.d4) then
        Plms = 0.d0
        return
     endif
-    if(sca.gt.-20._dl .or. m .eq. lmax)then       
+    if(sca.gt.-20.d0 .or. m .eq. lmax)then       
        if(mod(m,2).eq.0)then
           Plms(m) = dexp(sca)
        else
@@ -290,15 +265,15 @@ contains
           Plms(l) = ((2*l-1)*x*Plms(l-1)-sqrt(l-m-1)*sqrt(l+m-1)*Plms(l-2))/(sqrt(l-m)*sqrt(l+m))
           if(need_norm)then
              call multiply_exp(Plms(l-2), sca)
-             if(dabs(Plms(l)).gt.1.e20_dl)then
-                if(sca.gt.-30._dl)then
+             if(dabs(Plms(l)).gt.1.d20)then
+                if(sca.gt.-30.d0)then
                    call multiply_exp(Plms(l-1),sca)
                    call multiply_exp(Plms(l),sca)
                    need_norm = .false.
                 else
-                   sca = sca+30._dl
-                   call multiply_exp(Plms(l-1), -30._dl)
-                   call multiply_exp(Plms(l), -30._dl)
+                   sca = sca+30.d0
+                   call multiply_exp(Plms(l-1), -30.d0)
+                   call multiply_exp(Plms(l), -30.d0)
                 endif
              endif
           endif
@@ -318,7 +293,7 @@ contains
     logical,optional::phiIsPi
     !$omp parallel do
     do m=0,lmax
-       Plms(0:m-1, m) = 0._dl
+       Plms(0:m-1, m) = 0.d0
        call get_all_normalized_Plms_m(lmax, m, x, Plms(m:lmax, m))
        if(present(PhiIsPi))then
           if(PhiIsPi .and. mod(m,2).ne.0)then
@@ -349,16 +324,16 @@ contains
        stop "invalid arguments in coop_threej_fixed_m1"
     endif
     mmax = min(j2, j3-m1)
-    threej(mmax+1:j2) = 0._dl
+    threej(mmax+1:j2) = 0.d0
     mmid = min(0, mmax)
-    sca = (log_gamma(2*j2+1)+log_gamma(j1+j3-j2+1)+log_gamma(j2+j3-m1+1)+log_gamma(j1+m1+1)-log_gamma(j1+j2-j3+1)-log_gamma(j2+j3-j1+1)-log_gamma(j1-m1+1)-log_gamma(j3+m1-j2+1)-log_gamma(j1+j2+j3+2))/2.d0
-    totjsq = j2*(j2+1)+j3*(j3+1)-j1*(j1+1)
+    sca = (log_gamma(2*j2+1.d0)+log_gamma(j1+j3-j2+1.d0)+log_gamma(j2+j3-m1+1.d0)+log_gamma(j1+m1+1.d0)-log_gamma(j1+j2-j3+1.d0)-log_gamma(j2+j3-j1+1.d0)-log_gamma(j1-m1+1.d0)-log_gamma(j3+m1-j2+1.d0)-log_gamma(j1+j2+j3+2.d0))/2.d0
+    totjsq = j2*(j2+1.d0)+j3*(j3+1.d0)-j1*(j1+1.d0)
     if(mod(j1+m1,2).eq.0)then
        threej(-j2) = 1.d0
     else
        threej(-j2) = -1.d0
     endif
-    if(sca .ge. -20._dl .or. -j2+1.ge.mmid)then
+    if(sca .ge. -20.d0 .or. -j2+1.ge.mmid)then
        call multiply_exp(threej(-j2),sca)
        need_norm = .false.
     else
@@ -370,15 +345,15 @@ contains
           threej(m) = (-coef_D(m-1)*threej(m-1)-coef_C(m-1)*threej(m-2))/coef_C(m)
           if(need_norm)then
              call multiply_exp(threej(m-2), sca)
-             if(dabs(threej(m)).gt. 1.e30_dl)then
-                if(sca .ge. -30._dl)then
+             if(dabs(threej(m)).gt. 1.d30)then
+                if(sca .ge. -30.d0)then
                    call multiply_exp(threej(m-1),sca)
                    call multiply_exp(threej(m),sca)
                    need_norm = .false.
                 else
-                   sca = sca+30._dl
-                   call multiply_exp(threej(m-1),-30._dl)
-                   call multiply_exp(threej(m),-30._dl)
+                   sca = sca+30.d0
+                   call multiply_exp(threej(m-1),-30.d0)
+                   call multiply_exp(threej(m),-30.d0)
                 endif
              endif
           endif
@@ -399,7 +374,7 @@ contains
     else
        threej(mmax) = -1.d0
     endif
-    if(sca.ge.-20._dl .or. mmax-2.le.mmid)then
+    if(sca.ge.-20.d0 .or. mmax-2.le.mmid)then
        call multiply_exp(threej(mmax),sca)
        need_norm = .false.
     else
@@ -410,15 +385,15 @@ contains
        threej(m) = (-coef_C(m+2)*threej(m+2)-coef_D(m+1)*threej(m+1))/coef_C(m+1)
        if(need_norm)then
           call multiply_exp(threej(m+2), sca)
-          if(dabs(threej(m)).gt.1.e30_dl)then
-             if(sca.ge.-30._dl)then
+          if(dabs(threej(m)).gt.1.d30)then
+             if(sca.ge.-30.d0)then
                 call multiply_exp(threej(m+1),sca)
                 call multiply_exp(threej(m),sca)
                 need_norm = .false.
              else
-                sca = sca+30._dl
-                call multiply_exp(threej(m+1),-30._dl)
-                call multiply_exp(threej(m),-30._dl)
+                sca = sca+30.d0
+                call multiply_exp(threej(m+1),-30.d0)
+                call multiply_exp(threej(m),-30.d0)
              endif
           endif
        endif
@@ -461,8 +436,8 @@ contains
        else
           threej(mmin:mmax) = -threej(min(j2,j1-m3):-j2:-1)
        endif
-       threej(mmax+1:j1) = 0._dl
-       threej(-j1:mmin-1)= 0._dl
+       threej(mmax+1:j1) = 0.d0
+       threej(-j1:mmin-1)= 0.d0
     endif
   end subroutine get_3js_m3_general
 
@@ -480,7 +455,7 @@ contains
        if(abs(-m3-mmin) .gt. l2 .or. abs(-m3-mmax) .gt. l2) stop "Error in sum_YlmYlm3j"
        f= sum(threej(mmin:mmax)*Pl1ms(mmin:mmax)*Pl2ms(-m3-mmin:-m3-mmax:-1))
     else
-       f = 0._dl
+       f = 0.d0
     endif
   end function coop_threej_approx
 
@@ -488,7 +463,7 @@ contains
     !!sum_{m1, m2} 4 pi/Sqrt[(2 l1 +1)(2 l2+1)] Y_{l1, m1}(theta1, 0) Y_{l2, m2}(theta, pi) ThreeJSymbol({l1, m1}, {l2, m2}, {l3, m3})
     COOP_INT  l1, l2, l3, m3max
     COOP_REAL  threej(-l1:l1, 0:m3max), Pl1ms(-l1:l1),  Pl2ms(-l2:l2)
-    real(sp) f(0:m3max)
+    COOP_SINGLE f(0:m3max)
     COOP_INT  m1min(0:m3max), m1max(0:m3max), m2min(0:m3max), m2max(0:m3max)
     COOP_INT  m3
     do m3 = 0, min(m3max, l3)
@@ -640,11 +615,35 @@ contains
     COOP_REAL m, Cl_mask(0:lmax)
     m = 0.d0
     do l2 = max(0, abs(l-l_pseudo)), min(lmax, abs(l+l_pseudo))
-       m = m + cl_mask(l2)*(2.d0*l2+1.d0)*coop_threej000(l_pseudo, l, l2)
+       m = m + cl_mask(l2)*(2.d0*l2+1.d0)*coop_threej000(l_pseudo, l, l2)**2
     enddo
-    m = m*(2.d0*l_pesudo + 1.d0)/coop_4pi
+    m = m*(2.d0*l + 1.d0)/coop_4pi
   end function coop_pseudoCl_matrix
+
+  subroutine coop_pseudoCl_get_kernel(lmax_mask, Cl_mask, lmin, lmax, kernel)
+    COOP_INT::lmin, lmax, lmax_mask
+    COOP_REAL  Cl_mask(0:lmax_mask)
+    COOP_REAL::kernel(lmin:lmax, lmin:lmax)
+    COOP_INT::l1, l2
+    !$omp parallel do private(l1, l2)
+    do l1 = lmin, lmax
+       do l2 = lmin, lmax
+          kernel(l1, l2) = coop_pseudoCl_matrix(l1, l2, lmax_mask, cl_mask)
+       enddo
+    enddo
+    !$omp end parallel do
+  end subroutine coop_pseudoCl_get_kernel
+
+  subroutine coop_pseudoCl2Cl(lmin, lmax, Cl_pseudo, kernel, Cl)
+    COOP_INT::lmin, lmax
+    COOP_REAL Cl_pseudo(lmin:lmax), Cl(lmin:lmax)
+    COOP_REAL::kernel(lmin:lmax, lmin:lmax)
+    call coop_fit_template(lmax-lmin+1, lmax-lmin+1, cl_pseudo, kernel, cl)
+  end subroutine coop_pseudoCl2Cl
 
 
 
 end module Coop_threej_mod
+
+
+

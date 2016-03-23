@@ -1,7 +1,13 @@
-#define LATTICE_INDS  ii, jj, kk, kmin, kmax, jmin, jmax, imin, imax, i, j, k, fld
-#define  LOOP_LEVEL1  do kk=0, this%nc-1; kmin=kk*this%cs; kmax = kmin + this%cs -1; do jj = 0, this%nc-1; jmin = jj*this%cs; jmax = jmin + this%cs-1; do ii = 0, this%nc-1; imin = ii*this%cs; imax = imin + this%cs-1
-#define LOOP_LEVEL2  do k=kmin, kmax; do j=jmin, jmax; do i = imin, imax
-#define END_LOOP enddo; enddo; enddo
+#define DO_LOOP  do k=0, this%n-1; do j=0,this%n-1; do i=0, this%n-1
+#define END_LOOP  enddo;enddo;enddo
+#define LATTICE_INDS i, j, k
+#define F_ALL  this%f(:, 0:this%n-1, 0:this%n-1, 0:this%n-1)
+#define V_INDEX  (2.d0*(3.d0+this%mu)/(3.d0-this%mu))
+#define G_INDEX  (2.d0*(1.d0+this%mu)/(3.d0-this%mu))
+#define K_INDEX  (-2.d0)
+#define A_INDEX  (2.d0/(3.d0-this%mu))
+#define GR_COEF (-(3.d0-this%mu)**2/(24.d0*coop_lattice_mpsq))
+#define LAP_F(i, j, k) (this%f(:, i+1, j, k) + this%f(:, i-1, j, k) + this%f(:, i, j+1, k) + this%f(:, i, j-1, k) + this%f(:, i, j, k-1) + this%f(:, i, j, k+1) - 6.d0*this%f(:,i, j, k))
 
 #define IND11 1
 #define IND22 2

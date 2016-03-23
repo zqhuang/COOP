@@ -25,6 +25,9 @@ GAUSS: $(OBJ) gaussianize.o
 PLOTLINES: $(OBJ) plot_lines.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) plot_lines.o $(LINK)
 
+NAREAS: $(OBJ) count_areas.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) count_areas.o $(LINK)
+
 MM0:	$(OBJ) minkowski0.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) minkowski0.o $(LINK)
 

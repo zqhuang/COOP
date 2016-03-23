@@ -5,7 +5,7 @@ module coop_list_mod
 #include "constants.h"
   private
 
-  public::coop_list_integer, coop_list_real, coop_list_realarr, coop_list_double, coop_list_logical, coop_list_string, coop_list_character, coop_string_to_list, coop_dictionary, coop_dictionary_lookup, coop_get_prime_numbers, coop_list_get_element,  coop_command_line_has_argument, coop_command_line_argument, coop_get_command_line_argument, coop_dynamic_array_integer, coop_int_table, coop_real_table
+  public::coop_list_integer, coop_list_real, coop_list_realarr, coop_list_double, coop_list_logical, coop_list_string, coop_list_character, coop_string_to_list, coop_dictionary, coop_dictionary_lookup, coop_get_prime_numbers, coop_list_get_element,  coop_command_line_has_argument, coop_command_line_argument, coop_get_command_line_argument, coop_dynamic_array_integer, coop_int_table, coop_real_table, coop_int_set
 
   interface coop_list_initialize
      module procedure coop_list_integer_initialize, coop_list_real_initialize, coop_list_double_initialize, coop_list_logical_initialize, coop_list_string_initialize, coop_list_character_initialize, coop_list_realarr_initialize
@@ -59,6 +59,7 @@ module coop_list_mod
   COOP_INT,parameter:: coop_list_s4_max_length = coop_list_s3_max_length * 4
 
   COOP_INT,parameter::coop_list_unit_len = 8192
+
 
   type coop_dynamic_array_integer
      COOP_INT::n = 0
@@ -198,9 +199,22 @@ module coop_list_mod
      procedure::get_element => coop_list_string_get_element
   end type coop_list_string
 
+
+  type coop_int_set
+     COOP_INT::n = 0
+     COOP_INT::capacity = 0
+     COOP_INT,dimension(:),allocatable::x
+   contains
+     procedure::free => coop_int_set_free
+     procedure::has => coop_int_set_has
+     procedure::insert => coop_int_set_insert
+     procedure::delete => coop_int_set_delete
+  end type coop_int_set
+
+
   type coop_dictionary
      COOP_INT::n = 0
-     COOP_INT::capacity
+     COOP_INT::capacity = 0
      COOP_SHORT_STRING,dimension(:),allocatable::key
      COOP_STRING,dimension(:),allocatable::val
      COOP_INT, dimension(:),allocatable::id
@@ -219,7 +233,7 @@ module coop_list_mod
 
   type coop_int_table
      COOP_INT::n = 0
-     COOP_INT::capacity
+     COOP_INT::capacity = 0
      COOP_SHORT_STRING,dimension(:),allocatable::key
      COOP_INT,dimension(:),allocatable::val
      COOP_INT, dimension(:),allocatable::id
@@ -239,7 +253,7 @@ module coop_list_mod
 
   type coop_real_table
      COOP_INT::n = 0
-     COOP_INT::capacity
+     COOP_INT::capacity = 0
      COOP_SHORT_STRING,dimension(:),allocatable::key
      COOP_REAL,dimension(:),allocatable::val
      COOP_INT, dimension(:),allocatable::id
@@ -265,7 +279,7 @@ contains
 !! initialize
   subroutine coop_dynamic_array_integer_initialize(this)
     class(coop_dynamic_array_integer)::this
-    if(allocated(this%i))deallocate(this%i)    
+    COOP_DEALLOC(this%i)
     this%n = 0
   end subroutine coop_dynamic_array_integer_initialize
 
@@ -295,10 +309,10 @@ contains
     l%n = 0
     l%stack = 1
     l%loc = 0
-    if(allocated(l%i4))deallocate(l%i4)
-    if(allocated(l%i3))deallocate(l%i3)
-    if(allocated(l%i2))deallocate(l%i2)
-    if(allocated(l%i1))deallocate(l%i1)
+    COOP_DEALLOC(l%i4)
+    COOP_DEALLOC(l%i3)
+    COOP_DEALLOC(l%i2)
+    COOP_DEALLOC(l%i1)
   end subroutine coop_list_string_initialize
 
 
@@ -308,10 +322,10 @@ contains
     l%n = 0
     l%stack = 1
     l%loc = 0
-    if(allocated(l%i4))deallocate(l%i4)
-    if(allocated(l%i3))deallocate(l%i3)
-    if(allocated(l%i2))deallocate(l%i2)
-    if(allocated(l%i1))deallocate(l%i1)
+    COOP_DEALLOC(l%i4)
+    COOP_DEALLOC(l%i3)
+    COOP_DEALLOC(l%i2)
+    COOP_DEALLOC(l%i1)
   end subroutine coop_list_real_initialize
 
 
@@ -321,10 +335,10 @@ contains
     l%n = 0
     l%stack = 1
     l%loc = 0
-    if(allocated(l%i4))deallocate(l%i4)
-    if(allocated(l%i3))deallocate(l%i3)
-    if(allocated(l%i2))deallocate(l%i2)
-    if(allocated(l%i1))deallocate(l%i1)
+    COOP_DEALLOC(l%i4)
+    COOP_DEALLOC(l%i3)
+    COOP_DEALLOC(l%i2)
+    COOP_DEALLOC(l%i1)
   end subroutine coop_list_realarr_initialize
 
 
@@ -333,10 +347,10 @@ contains
     l%n = 0
     l%stack = 1
     l%loc = 0
-    if(allocated(l%i4))deallocate(l%i4)
-    if(allocated(l%i3))deallocate(l%i3)
-    if(allocated(l%i2))deallocate(l%i2)
-    if(allocated(l%i1))deallocate(l%i1)
+    COOP_DEALLOC(l%i4)
+    COOP_DEALLOC(l%i3)
+    COOP_DEALLOC(l%i2)
+    COOP_DEALLOC(l%i1)
   end subroutine coop_list_double_initialize
 
 
@@ -345,10 +359,10 @@ contains
     l%n = 0
     l%stack = 1
     l%loc = 0
-    if(allocated(l%i4))deallocate(l%i4)
-    if(allocated(l%i3))deallocate(l%i3)
-    if(allocated(l%i2))deallocate(l%i2)
-    if(allocated(l%i1))deallocate(l%i1)
+    COOP_DEALLOC(l%i4)
+    COOP_DEALLOC(l%i3)
+    COOP_DEALLOC(l%i2)
+    COOP_DEALLOC(l%i1)
   end subroutine coop_list_integer_initialize
 
 
@@ -357,10 +371,10 @@ contains
     l%n = 0
     l%stack = 1
     l%loc = 0
-    if(allocated(l%i4))deallocate(l%i4)
-    if(allocated(l%i3))deallocate(l%i3)
-    if(allocated(l%i2))deallocate(l%i2)
-    if(allocated(l%i1))deallocate(l%i1)
+    COOP_DEALLOC(l%i4)
+    COOP_DEALLOC(l%i3)
+    COOP_DEALLOC(l%i2)
+    COOP_DEALLOC(l%i1)
   end subroutine coop_list_logical_initialize
 
 
@@ -369,10 +383,10 @@ contains
     l%n = 0
     l%stack = 1
     l%loc = 0
-    if(allocated(l%i4))deallocate(l%i4)
-    if(allocated(l%i3))deallocate(l%i3)
-    if(allocated(l%i2))deallocate(l%i2)
-    if(allocated(l%i1))deallocate(l%i1)
+    COOP_DEALLOC(l%i4)
+    COOP_DEALLOC(l%i3)
+    COOP_DEALLOC(l%i2)
+    COOP_DEALLOC(l%i1)
   end subroutine coop_list_character_initialize
 
 
@@ -1386,6 +1400,7 @@ contains
     return
   end subroutine coop_list_realarr_get_element
 
+
   subroutine coop_dictionary_insert(dict, key, val, overwrite)
     class(coop_dictionary):: dict
     COOP_UNKNOWN_STRING key, val
@@ -1416,6 +1431,13 @@ contains
        dict%val(1:dict%n) = tmpval
        dict%id(1:dict%n) = tmpid
        deallocate(tmpkey, tmpval, tmpid)
+    endif
+    if(dict%n .eq. 0)then
+       dict%n = 1
+       dict%key(1) = trim(adjustl(key))
+       dict%val(1) = trim(adjustl(val))
+       dict%id(1) = 1
+       return
     endif
     iup = dict%n
     ilow = 1
@@ -1467,6 +1489,8 @@ contains
 
 
 
+
+
   subroutine coop_dictionary_delete(dict, key)
     class(coop_dictionary):: dict
     COOP_UNKNOWN_STRING key
@@ -1484,6 +1508,7 @@ contains
     enddo
     dict%id(j:dict%n-1) = dict%id(j+1:dict%n)
     dict%n = dict%n-1
+    if(dict%n .eq. 0) call dict%free()
   end subroutine coop_dictionary_delete
   
 
@@ -2230,6 +2255,13 @@ contains
        this%id(1:this%n) = tmpid
        deallocate(tmpkey, tmpval, tmpid)
     endif
+    if(this%n .eq. 0)then
+       this%n = 1
+       this%key(1) = trim(adjustl(key))
+       this%val(1) = val
+       this%id(1) = 1
+       return
+    endif
     iup = this%n
     ilow = 1
     this%n = this%n + 1
@@ -2296,6 +2328,7 @@ contains
     enddo
     this%id(j:this%n-1) = this%id(j+1:this%n)
     this%n = this%n-1
+    if(this%n .eq. 0) call this%free()
   end subroutine coop_int_table_delete
   
 
@@ -2433,6 +2466,13 @@ contains
        this%id(1:this%n) = tmpid
        deallocate(tmpkey, tmpval, tmpid)
     endif
+    if(this%n .eq. 0)then
+       this%n = 1
+       this%key(1) = trim(adjustl(key))
+       this%val(1) = val
+       this%id(1) = 1
+       return
+    endif
     iup = this%n
     ilow = 1
     this%n = this%n + 1
@@ -2499,6 +2539,7 @@ contains
     enddo
     this%id(j:this%n-1) = this%id(j+1:this%n)
     this%n = this%n-1
+    if(this%n .eq. 0) call this%free()
   end subroutine coop_real_table_delete
   
 
@@ -2612,6 +2653,121 @@ contains
        endif
     enddo
   end subroutine coop_real_table_load_dictionary
+
+
+  subroutine coop_int_set_free(this)
+    class(coop_int_set):: this
+    COOP_DEALLOC(this%x)
+    this%n = 0
+    this%capacity = 0
+  end subroutine coop_int_set_free
+
+  subroutine coop_int_set_insert(this, x)
+    class(coop_int_set):: this
+    COOP_INT::x
+    COOP_INT, dimension(:),allocatable::tmpx
+    COOP_INT::iup, ilow, imid
+    if(.not. allocated(this%x))then
+       this%capacity = coop_list_unit_len
+       allocate(this%x(this%capacity))
+       this%n = 1
+       this%x(1) = x
+       return
+    endif
+    if(this%n .eq. this%capacity)then
+       allocate(tmpx(this%n))
+       tmpx = this%x
+       deallocate(this%x)
+       this%capacity = this%capacity + coop_list_unit_len
+       allocate(this%x(this%capacity))
+       this%x(1:this%n) = tmpx
+       deallocate(tmpx)
+    endif
+    if(this%n .eq.  0)then
+       this%x(1) = x
+       this%n = 1
+       return
+    endif
+    if( x .lt. this%x(1))then
+       this%x(2:this%n+1) = this%x(1:this%n)
+       this%x(1) = x
+       this%n = this%n + 1
+       return
+    endif
+    if(x .gt. this%x(this%n))then
+       this%x(this%n+1) = x
+       this%n = this%n + 1
+       return
+    endif
+    iup = this%n
+    ilow = 1
+    do while(iup .gt. ilow+1)
+       imid = (iup + ilow)/2
+       if(this%x(imid) .gt. x)then
+          iup = imid
+       else
+          ilow = imid
+       endif
+    end do
+    if(this%x(ilow).eq. x)return
+    if(this%x(iup).eq.x)return
+    this%x(iup+1:this%n+1) = this%x(iup:this%n)
+    this%x(iup) = x
+    this%n  = this%n + 1
+  end subroutine coop_int_set_insert
+
+
+  subroutine coop_int_set_delete(this, x)
+    class(coop_int_set):: this
+    COOP_INT::x
+    COOP_INT::iup, ilow, imid
+    if(.not. allocated(this%x) .or. this%n .eq. 0) return
+    if( x .lt. this%x(1) .or. x .gt. this%x(this%n))return
+    if(x .eq. this%x(this%n))then
+       this%n = this%n - 1
+       if(this%n .eq. 0)call this%free()
+       return
+    endif
+    iup = this%n  !!this%x(iup) strictly > x
+    ilow = 1     !!this%x(ilow) <= x
+    do while(iup .gt. ilow+1)
+       imid = (iup + ilow)/2
+       if(this%x(imid) .gt. x)then
+          iup = imid
+       else
+          ilow = imid
+       endif
+    end do
+    if(this%x(ilow) .eq. x)then
+       this%x(ilow:this%n-1) = this%x(ilow+1:this%n)
+       this%n = this%n - 1
+    endif
+  end subroutine coop_int_set_delete
+
+  function coop_int_set_has(this, x) result(has)
+    class(coop_int_set):: this
+    COOP_INT::x
+    COOP_INT::iup, ilow, imid
+    logical::has
+    has = .false.
+    if(.not. allocated(this%x) .or. this%n .eq. 0) return
+    if( x .lt. this%x(1) .or. x .gt. this%x(this%n))return
+    if(x .eq. this%x(this%n))then
+       has = .true.
+       return
+    endif
+    iup = this%n  !!this%x(iup) strictly > x
+    ilow = 1     !!this%x(ilow) <= x
+    do while(iup .gt. ilow+1)
+       imid = (iup + ilow)/2
+       if(this%x(imid) .gt. x)then
+          iup = imid
+       else
+          ilow = imid
+       endif
+    end do
+    has = (this%x(ilow) .eq. x)
+  end function coop_int_set_has
 
 End module coop_list_mod
 

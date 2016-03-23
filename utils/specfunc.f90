@@ -5,7 +5,7 @@ module coop_special_function_mod
 
   private
 
-  public:: coop_log2, coop_sinc, coop_sinhc, coop_asinh, coop_acosh, coop_atanh, coop_InverseErf, coop_InverseErfc, coop_Gaussian_nu_of_P, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_incompleteGamma, coop_rec3j, coop_threej000, coop_bessI0, coop_bessi1, coop_bessJ0, coop_bessJ1, coop_sphere_correlation, coop_sphere_correlation_init, coop_get_normalized_Plm_array
+  public:: coop_log2, coop_sinc, coop_sinhc, coop_asinh, coop_acosh, coop_atanh, coop_InverseErf, coop_InverseErfc, coop_Gaussian_nu_of_P, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_incompleteGamma, coop_rec3j, coop_threej000, coop_bessI0, coop_bessi1, coop_bessJ0, coop_bessJ1, coop_sphere_correlation, coop_sphere_correlation_init, coop_get_normalized_Plm_array,  coop_pseudoCl_matrix, coop_pseudoCl2Cl, coop_pseudoCl_get_kernel
 
   interface coop_InverseErf
      module procedure coop_InverseErf_s, coop_InverseErf_v
@@ -1862,17 +1862,36 @@ contains
   end function Coop_threej000
 
 
+  function coop_pseudoCl_matrix(l_pseudo, l, lmax, Cl_mask) result(m)
+    COOP_INT l, l_pseudo, l2, lmax
+    COOP_REAL m, Cl_mask(0:lmax)
+    m = 0.d0
+    do l2 = max(0, abs(l-l_pseudo)), min(lmax, abs(l+l_pseudo))
+       m = m + cl_mask(l2)*(2.d0*l2+1.d0)*coop_threej000(l_pseudo, l, l2)**2
+    enddo
+    m = m*(2.d0*l + 1.d0)/coop_4pi
+  end function coop_pseudoCl_matrix
 
-!!$  function coop_pseudoCl_matrix(l_pseudo, l, lmax, Cl_mask) result(m)
-!!$    COOP_INT l, l_pseudo, l2, lmax
-!!$    COOP_REAL m, Cl_mask(0:lmax)
-!!$    m = 0.d0
-!!$    do l2 = max(0, abs(l-l_pseudo)), min(lmax, abs(l+l_pseudo))
-!!$       m = m + cl_mask(l2)*(2.d0*l2+1.d0)*coop_threej000(l_pseudo, l, l2)**2
-!!$    enddo
-!!$    m = m*(2.d0*l_pseudo + 1.d0)/coop_4pi
-!!$  end function coop_pseudoCl_matrix
-!!$
+  subroutine coop_pseudoCl_get_kernel(lmax_mask, Cl_mask, lmin, lmax, kernel)
+    COOP_INT::lmin, lmax, lmax_mask
+    COOP_REAL  Cl_mask(0:lmax_mask)
+    COOP_REAL::kernel(lmin:lmax, lmin:lmax)
+    COOP_INT::l1, l2
+    !$omp parallel do private(l1, l2)
+    do l1 = lmin, lmax
+       do l2 = lmin, lmax
+          kernel(l1, l2) = coop_pseudoCl_matrix(l1, l2, lmax_mask, cl_mask)
+       enddo
+    enddo
+    !$omp end parallel do
+  end subroutine coop_pseudoCl_get_kernel
+
+  subroutine coop_pseudoCl2Cl(lmin, lmax, Cl_pseudo, kernel, Cl)
+    COOP_INT::lmin, lmax
+    COOP_REAL Cl_pseudo(lmin:lmax), Cl(lmin:lmax)
+    COOP_REAL::kernel(lmin:lmax, lmin:lmax)
+    call coop_fit_template(lmax-lmin+1, lmax-lmin+1, cl_pseudo, kernel, cl)
+  end subroutine coop_pseudoCl2Cl
 
 
 
