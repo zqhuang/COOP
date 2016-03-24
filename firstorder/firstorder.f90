@@ -1015,13 +1015,6 @@ contains
     call this%get_matter_power(z, nkp, kp, Pkp)
     pk = sum(pkp/kp**3*w)/sum(w)*k**3
  
-  contains
-
-    function FT_Gaussian3D_Window(sigma, k, kp) result(w)
-      COOP_REAL w, k, kp, sigma
-      w = kp/k * (exp(-((kp-k)/sigma)**2/2.) -  exp(-((kp+k)/sigma)**2/2.))
-    end function FT_Gaussian3D_Window
-
   end function coop_cosmology_firstorder_Gaussian_smeared_matter_power
 
   

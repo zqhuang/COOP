@@ -5,7 +5,7 @@ module coop_special_function_mod
 
   private
 
-  public:: coop_log2, coop_sinc, coop_sinhc, coop_asinh, coop_acosh, coop_atanh, coop_InverseErf, coop_InverseErfc, coop_Gaussian_nu_of_P, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_incompleteGamma, coop_rec3j, coop_threej000, coop_bessI0, coop_bessi1, coop_bessJ0, coop_bessJ1, coop_sphere_correlation, coop_sphere_correlation_init, coop_get_normalized_Plm_array,  coop_pseudoCl_matrix, coop_pseudoCl2Cl, coop_pseudoCl_get_kernel
+  public:: coop_log2, coop_sinc, coop_sinhc, coop_asinh, coop_acosh, coop_atanh, coop_InverseErf, coop_InverseErfc, coop_Gaussian_nu_of_P, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_IncompleteGamma, coop_threej000, coop_ThreeJSymbol, coop_ThreeJ_Array, coop_bessI0, coop_bessi1, coop_bessJ0, coop_bessJ1, coop_sphere_correlation, coop_sphere_correlation_init, coop_get_normalized_Plm_array,  coop_pseudoCl_matrix, coop_pseudoCl2Cl, coop_pseudoCl_get_kernel, FT_Gaussian3D_window, FT_spherical_tophat
 
   interface coop_InverseErf
      module procedure coop_InverseErf_s, coop_InverseErf_v
@@ -785,288 +785,6 @@ contains
     endif
   end function Coop_bessj
 
-
-  subroutine coop_rec3j(thrcof,l2,l3,m2,m3)
-    !Recursive evaluation of 3j symbols. Does minimal error checking on input parameters.
-    implicit none
-    COOP_INT, intent(in) :: l2,l3, m2,m3
-    COOP_INT:: l1, m1, l1min,l1max
-    COOP_REAL newfac,lmatch
-    COOP_REAL, dimension(*) :: thrcof
-    COOP_INT ier
-    COOP_REAL, parameter :: zero=0.d0, eps=0.01d0, one=1.d0
-    COOP_REAL :: srtiny, sum1, tiny, oldfac, a1, a2, c1, dv, denom, c1old, &
-         x, sumuni, c2, sumfor, srhuge, huge, x1, x2, x3, sum2, &
-         a1s, a2s, y, sumbac, y1, y2, y3, ratio, cnorm, sign1, &
-         sign2, thresh
-    COOP_INT :: l1cmin, l1cmax, nfin, lstep, i, nstep2, nfinp1, nfinp2, &
-         nfinp3, index, nlim, n
-
-    ! routine to generate set of 3j-coeffs (l1,l2,l3\\ m1,m2,m3)
-
-    ! by recursion from l1min = max(abs(l2-l3),abs(m1)) 
-    !                to l1max = l2+l3
-    ! the resulting 3j-coeffs are stored as thrcof(l1-l1min+1)
-
-    ! to achieve the numerical stability, the recursion will proceed
-    ! simultaneously forwards and backwards, starting from l1min and l1max
-    ! respectively.
-    !
-    ! lmatch is the l1-value at which forward and backward recursion are matched.
-    !
-    ! ndim is the length of the array thrcof
-    !
-    ! ier = -1 for all 3j vanish(l2-abs(m2)<0, l3-abs(m3)<0 or not COOP_INT)
-    ! ier = -2 if possible 3j's exceed ndim
-    ! ier >= 0 otherwise
-    !
-    data tiny,srtiny /1.0d-30,1.0d-15/
-    data huge,srhuge /1.0d30,1.0d15/
-
-    lmatch = zero
-    m1 = -(m2+m3)
-
-    ! check relative magnitude of l and m values
-    ier = 0
-
-    if (l2 < abs(m2) .or. l3 < m3) then
-       ier = -1
-       return
-    end if
-
-    ! limits for l1
-    l1min = max(abs(l2-l3),abs(m1))
-    l1max = l2+l3
-
-    if (l1min >= l1max-eps) then
-       if (l1min/=l1max) then
-          ier = -1
-          return
-       end if
-
-       ! reached if l1 can take only one value, i.e.l1min=l1max
-       thrcof(1) = (-1)**abs(l2+m2-l3+m3)/sqrt(l1min+l2+l3+one)
-       l1cmin = l1min
-       l1cmax = l1max
-       return
-
-    end if
-
-    nfin = int(l1max-l1min+one)
-
-
-    ! starting forward recursion from l1min taking nstep1 steps
-    l1 = l1min
-    thrcof(1) = srtiny
-    sum1 = (2*l1 + 1)*tiny
-
-    lstep = 1
-
-30  lstep = lstep+1
-    l1 = l1+1
-
-    oldfac = newfac
-    a1 = (l1+l2+l3+1)*(l1-l2+l3)*(l1+l2-l3)*(-l1+l2+l3+1)
-    a2 = (l1+m1)*(l1-m1)
-    newfac = sqrt(a1*a2)
-    if (l1 < one+eps) then
-       !if L1 = 1  (L1-1) HAS TO BE FACTORED OUT OF DV, HENCE
-       c1 = -(2*l1-1)*l1*(m3-m2)/newfac
-    else
-
-       dv = -l2*(l2+1)*m1 + l3*(l3+1)*m1 + l1*(l1-1)*(m3-m2)
-       denom = (l1-1)*newfac
-
-       if (lstep > 2) c1old = abs(c1)
-       c1 = -(2*l1-1)*dv/denom
-
-    end if
-
-    if (lstep<= 2) then
-
-       ! if l1=l1min+1 the third term in the recursion eqn vanishes, hence
-       x = srtiny*c1
-       thrcof(2) = x
-       sum1 = sum1+tiny*(2*l1+1)*c1*c1
-       if(lstep==nfin) then
-          sumuni=sum1
-          go to 230
-       end if
-       goto 30
-
-    end if
-
-    c2 = -l1*oldfac/denom
-
-    ! recursion to the next 3j-coeff x  
-    x = c1*thrcof(lstep-1) + c2*thrcof(lstep-2)
-    thrcof(lstep) = x
-    sumfor = sum1
-    sum1 = sum1 + (2*l1+1)*x*x
-    if (lstep/=nfin) then
-
-       ! see if last unnormalised 3j-coeff exceeds srhuge
-       if (abs(x) >= srhuge) then
-
-          ! REACHED if LAST 3J-COEFFICIENT LARGER THAN SRHUGE
-          ! SO THAT THE RECURSION SERIES THRCOF(1), ... , THRCOF(LSTEP)
-          ! HAS TO BE RESCALED TO PREVENT OVERFLOW
-
-          ier = ier+1
-          do i = 1, lstep
-             if (abs(thrcof(i)) < srtiny) thrcof(i)= zero
-             thrcof(i) = thrcof(i)/srhuge
-          end do
-
-          sum1 = sum1/huge
-          sumfor = sumfor/huge
-          x = x/srhuge
-
-       end if
-
-       ! as long as abs(c1) is decreasing, the recursion proceeds towards increasing
-       ! 3j-valuse and so is numerically stable. Once an increase of abs(c1) is 
-       ! detected, the recursion direction is reversed.
-
-       if (c1old > abs(c1)) goto 30
-
-    end if !lstep/=nfin
-
-    ! keep three 3j-coeffs around lmatch for comparison with backward recursion
-
-    lmatch = l1-1
-    x1 = x
-    x2 = thrcof(lstep-1)
-    x3 = thrcof(lstep-2)
-    nstep2 = nfin-lstep+3
-
-    ! --------------------------------------------------------------------------
-    !
-    ! starting backward recursion from l1max taking nstep2 stpes, so that
-    ! forward and backward recursion overlap at 3 points 
-    ! l1 = lmatch-1, lmatch, lmatch+1
-
-    nfinp1 = nfin+1
-    nfinp2 = nfin+2
-    nfinp3 = nfin+3
-    l1 = l1max
-    thrcof(nfin) = srtiny
-    sum2 = tiny*(2*l1+1)
-
-    l1 = l1+2
-    lstep=1
-
-    do
-       lstep = lstep + 1
-       l1= l1-1
-
-       oldfac = newfac
-       a1s = (l1+l2+l3)*(l1-l2+l3-1)*(l1+l2-l3-1)*(-l1+l2+l3+2)
-       a2s = (l1+m1-1)*(l1-m1-1)
-       newfac = sqrt(a1s*a2s)
-
-       dv = -l2*(l2+1)*m1 + l3*(l3+1)*m1 +l1*(l1-1)*(m3-m2)
-
-       denom = l1*newfac
-       c1 = -(2*l1-1)*dv/denom
-       if (lstep <= 2) then
-
-          ! if l2=l2max+1, the third term in the recursion vanishes
-
-          y = srtiny*c1
-          thrcof(nfin-1) = y
-          sumbac = sum2
-          sum2 = sum2 + tiny*(2*l1-3)*c1*c1
-
-          cycle
-
-       end if
-
-       c2 = -(l1-1)*oldfac/denom
-
-       ! recursion to the next 3j-coeff y
-       y = c1*thrcof(nfinp2-lstep)+c2*thrcof(nfinp3-lstep)
-
-       if (lstep==nstep2) exit
-
-       thrcof(nfinp1-lstep) = y
-       sumbac = sum2
-       sum2 = sum2+(2*l1-3)*y*y
-
-       ! see if last unnormalised 3j-coeff exceeds srhuge
-       if (abs(y) >= srhuge) then
-
-          ! reached if 3j-coeff larger than srhuge so that the recursion series
-          ! thrcof(nfin),..., thrcof(nfin-lstep+1) has to be rescaled to prevent overflow
-
-          ier=ier+1
-          do i = 1, lstep
-             index=nfin-i+1
-             if (abs(thrcof(index)) < srtiny) thrcof(index)=zero
-             thrcof(index) = thrcof(index)/srhuge
-          end do
-
-          sum2=sum2/huge
-          sumbac=sumbac/huge
-
-       end if
-
-    end do
-
-    ! the forward recursion 3j-coeffs x1, x2, x3 are to be matched with the 
-    ! corresponding backward recursion vals y1, y2, y3
-
-    y3 = y
-    y2 = thrcof(nfinp2-lstep)
-    y1 = thrcof(nfinp3-lstep)
-
-    ! determine now ratio such that yi=ratio*xi (i=1,2,3) holds with minimal error
-
-    ratio = (x1*y1+x2*y2+x3*y3)/(x1*x1+x2*x2+x3*x3)
-    nlim = nfin-nstep2+1
-
-    if (abs(ratio) >= 1) then
-
-       thrcof(1:nlim) = ratio*thrcof(1:nlim) 
-       sumuni = ratio*ratio*sumfor + sumbac
-
-    else
-
-       nlim = nlim+1
-       ratio = 1/ratio
-       do n = nlim, nfin
-          thrcof(n) = ratio*thrcof(n)
-       end do
-       sumuni = sumfor + ratio*ratio*sumbac
-
-    end if
-    ! normalise 3j-coeffs
-
-230 cnorm = 1/sqrt(sumuni)
-
-    ! sign convention for last 3j-coeff determines overall phase
-
-    sign1 = sign(one,thrcof(nfin))
-    sign2 = (-1)**abs(l2+m2-l3+m3)
-    if (sign1*sign2 <= 0) then
-       cnorm = -cnorm
-    end if
-    if (abs(cnorm) >= one) then
-       thrcof(1:nfin) = cnorm*thrcof(1:nfin)
-       return
-    end if
-
-    thresh = tiny/abs(cnorm)
-
-    do n = 1, nfin
-       if (abs(thrcof(n)) < thresh) thrcof(n) = zero
-       thrcof(n) = cnorm*thrcof(n)
-    end do
-    return 
-
-  end subroutine coop_rec3j
-
-
   ! ----------------------------------------------------------------------
   ! Auxiliary Bessel functions for N=0, N=1
   function coop_bessi0(X)
@@ -1839,13 +1557,99 @@ contains
     !$omp end parallel do
   end function coop_log2_v
 
+  !!this function is fast and accurate for small m1, m2, m3
+  !!for large m's it can be slow and inaccurate.
+  recursive function coop_ThreeJSymbol(twoj1, twoj2, twoj3, twom1, twom2, twom3) result(w3j)
+    COOP_REAL::w3j
+    COOP_INT::twoj1, twoj2, twoj3, twom1, twom2, twom3
+    COOP_INT::J, g
+    if(twoj1 .lt. 0 .or. twoj2 .lt. 0 .or. twoj3 .gt. twoj1 + twoj2 .or. twoj3 .lt. abs(twoj1 - twoj2) .or. abs(twom1).gt. twoj1 .or. abs(twom2).gt.twoj2 .or. abs(twom3).gt.twoj3 .or. mod(twoj1+twom1,2).ne.0 .or. mod(twoj2+twom2, 2).ne. 0 .or. mod(twoj3 + twom3, 2).ne.0 .or. twom1 + twom2 + twom3 .ne. 0 .or. mod(twoj1 + twoj2 + twoj3,2).ne.0)then
+       w3j = 0.d0
+       return
+    endif
+    J = (twoj1 + twoj2 + twoj3)/2
+    if(twom1 .eq. 0)then
+       if( twom2 .eq. 0) then
+          if(mod(J,2).ne.0)then
+             w3j = 0.d0
+             return
+          endif
+          g = J/2
+          w3j = dexp(&
+               log_gamma(g+1.d0)-log_gamma(g-twoj1/2.d0+1.d0) &
+               -log_gamma(g-twoj2/2.d0+1.d0) - log_gamma(g-twoj3/2.d0+1.d0) &
+               +( &
+               log_gamma(J-twoj1+1.d0) + log_gamma(J-twoj2+1.d0) &
+               + log_gamma(J-twoj3+1.d0) - log_gamma(J+2.d0) &
+               )/2.d0 &
+               )
+          if(mod(g,2).ne.0) w3j = -w3j
+          return
+       endif
+       if(twom2 .lt. 0)then
+          if(twom2 .eq. -2 .and. mod(J,2).eq.0)then
+             w3j = -coop_ThreeJSymbol(twoj1, twoj2, twoj3, 0, 0, 0)*(twoj2*(twoj2+2.d0)+twoj3*(twoj3+2.d0)-twoj1*(twoj1+2.d0) )/(2.d0*sqrt(twoj2*(twoj2+2.d0)*twoj3*(twoj3+2.d0)))
+             return
+          endif
+          if(twom2 .lt. -2 )then
+             w3j = -(coop_ThreeJSymbol(twoj1, twoj2, twoj3, twom1, twom2+2, twom3-2) * (twoj2*(twoj2+2.d0)+ twoj3*(twoj3+2.d0)-twoj1*(twoj1+2.d0)+2.d0*(twom2+2.d0)*(twom3-2.d0)) &
+                  + coop_ThreeJSymbol(twoj1, twoj2, twoj3, twom1, twom2 + 4, twom3 - 4) * sqrt((twoj2-twom2-2.d0)*(twoj2+twom2+4.d0)*(twoj3+twom3-2.d0)*(twoj3-twom3+4.d0)) ) &
+                  /sqrt((twoj2-twom2)*(twoj2+twom2+2.d0)*(twoj3+twom3)*(twoj3-twom3+2.d0))
+          else
+             w3j = (-coop_ThreeJSymbol(twoj1, twoj2-1, twoj3+1, twom1, twom2+1, twom3-1)*sqrt((J-twoj3)*(J-twoj2+1.d0)*(twoj2-twom2)/2.d0) &
+                  + coop_ThreeJSymbol(twoj1, twoj2+1, twoj3+1, twom1, twom2+1, twom3-1)*sqrt((J+2.d0)*(J-twoj1+1.d0)*(twoj2+twom2+2.d0)/2.d0))/(sqrt((twoj3-twom3)/2.d0+1.d0)*(twoj2+1.d0))
+          endif
+          return
+       endif
+       w3j = coop_ThreeJSymbol(twoj1, twoj3, twoj2, twom1, twom3, twom2)
+       if(mod(J,2).ne.0) w3j = -w3j
+       return
+    endif
+    if(twom2 .eq. 0)then
+       w3j = coop_ThreeJSymbol(twoj2, twoj3, twoj1, twom2, twom3, twom1)
+       return
+    endif
+    if(twom3 .eq. 0)then
+       w3j = coop_ThreeJSymbol(twoj3, twoj1, twoj2, twom3, twom1, twom2)
+       return
+    endif
+    !!all nonzero
+    if(abs(twom2) .le. abs(twom1) .and. abs(twom2) .le. abs(twom3))then
+       if(twom2 .lt. 0)then
+          if(twom1 .lt. twom3)then
+             if(twom2 .lt. -2 )then
+                w3j = -(coop_ThreeJSymbol(twoj1, twoj2, twoj3, twom1, twom2+2, twom3-2) * (twoj2*(twoj2+2.d0)+ twoj3*(twoj3+2.d0)-twoj1*(twoj1+2.d0)+2.d0*(twom2+2.d0)*(twom3-2.d0)) &
+                     + coop_ThreeJSymbol(twoj1, twoj2, twoj3, twom1, twom2 + 4, twom3 - 4) * sqrt((twoj2-twom2-2.d0)*(twoj2+twom2+4.d0)*(twoj3+twom3-2.d0)*(twoj3-twom3+4.d0)) ) &
+                     /sqrt((twoj2-twom2)*(twoj2+twom2+2.d0)*(twoj3+twom3)*(twoj3-twom3+2.d0))
+             else
+                w3j = (-coop_ThreeJSymbol(twoj1, twoj2-1, twoj3+1, twom1, twom2+1, twom3-1)*sqrt((J-twoj3)*(J-twoj2+1.d0)*(twoj2-twom2)/2.d0) &
+                     + coop_ThreeJSymbol(twoj1, twoj2+1, twoj3+1, twom1, twom2+1, twom3-1)*sqrt((J+2.d0)*(J-twoj1+1.d0)*(twoj2+twom2+2.d0)/2.d0))/(sqrt((twoj3-twom3)/2.d0+1.d0)*(twoj2+1.d0))
+             endif
+          else
+             w3j = coop_ThreeJSymbol(twoj3, twoj2, twoj1, twom3, twom2, twom1)
+             if(mod(J,2).ne.0) w3j = -w3j
+          endif
+          return
+       endif
+       w3j = coop_ThreeJSymbol(twoj1, twoj2, twoj3, -twom1, -twom2, -twom3)
+       if(mod(J,2).ne.0) w3j = -w3j
+       return
+    endif
+    if(abs(twom1).le. abs(twom2) .and. abs(twom1) .le. abs(twom3))then
+       w3j = coop_ThreeJSymbol(twoj3, twoj1, twoj2, twom3, twom1, twom2)
+       return
+    endif
+    w3j = coop_ThreeJSymbol(twoj2, twoj3, twoj1, twom2, twom3, twom1)
+    return
+  end function coop_ThreeJSymbol
 
 
+!!ThreeJSymbol[{l1, 0}, {l2, 0}, {l3, 0}]
   function Coop_threej000(l1,l2,l3) result(w3j)
     COOP_REAL  w3j
     COOP_INT  l1,l2,l3, J, g
     J = (l1+l2+l3)
-    if(l1+l2.lt.l3 .or. l2+l3.lt.l1 .or. l3+l1.lt.l2 .or. mod(J,2).ne.0)then
+    if(l3 .gt. l1+l2 .or. l3 .lt. abs(l1-l2) .or. mod(J,2).ne.0)then
        w3j = 0.d0
        return
     endif
@@ -1893,6 +1697,276 @@ contains
     call coop_fit_template(lmax-lmin+1, lmax-lmin+1, cl_pseudo, kernel, cl)
   end subroutine coop_pseudoCl2Cl
 
+
+
+
+  subroutine coop_ThreeJ_Array(threejs,twoj2, twoj3, twom2, twom3, j1min, num_j1s)
+    !Recursive evaluation of 3j symbols. Does minimal error checking on input parameters.
+    !return in threejs: ThreeJSymbol[{j1, m1},{j2, m2},{j3, m3}]
+    !!where m1 = -m2 - m3
+    !! j1 varies from min(abs(j2-j3), abs(m1)) to j2+j3 
+    COOP_INT,intent(IN)::twoj2, twoj3, twom2, twom3
+    COOP_INT,intent(OUT)::num_j1s
+    COOP_REAL, dimension(:):: threejs
+    COOP_REAL,intent(OUT)::j1min
+    COOP_INT::twom1, twoj1
+    COOP_REAL:: j1, m1, j1max,  j2,j3, m2,m3
+    COOP_REAL newfac,lmatch
+    COOP_REAL :: sum1, oldfac, a1, a2, c1, dv, denom, c1old, &
+         x, sumuni, c2, sumfor, x1, x2, x3, sum2, &
+         a1s, a2s, y, sumbac, y1, y2, y3, ratio, cnorm, sign1, &
+         sign2, thresh
+    COOP_INT :: j1cmin, j1cmax, lstep, i, nstep2, num_j1sp1, num_j1sp2, &
+         num_j1sp3, index, nlim, n
+
+    ! routine to generate set of 3j-coeffs (j1,j2,j3\\ m1,m2,m3)
+
+    ! by recursion from j1min = max(abs(j2-j3),abs(m1)) 
+    !                to j1max = j2+j3
+    ! the resulting 3j-coeffs are stored as threejs(j1-j1min+1)
+
+    ! to achieve the numerical stability, the recursion will proceed
+    ! simultaneously forwards and backwards, starting from j1min and j1max
+    ! respectively.
+    !
+    ! lmatch is the j1-value at which forward and backward recursion are matched.
+
+    COOP_REAL,parameter:: tiny = 1.d-30, srtiny = 1.0d-15, huge = 1.d30,srhuge=1.d15
+
+    twom1 = - twom2 - twom3
+    j2 = twoj2/2.d0
+    j3 = twoj3/2.d0
+    m2 = twom2/2.d0
+    m3 = twom3/2.d0
+    m1 = -(m2+m3)
+    j1min = max(abs(j2-j3),abs(m1))
+    j1max = j2+j3
+    if (twoj2.lt. 0 .or. twoj3 .lt. 0 .or. twoj2 .lt. abs(twom2) .or. twoj3 .lt. abs(twom3) .or. mod(twoj2+twom2,2).ne.0 .or. mod(twoj3+twom3,2).ne.0 )then
+       num_j1s = 0
+       return
+    endif
+    num_j1s = nint(j1max-j1min)+1
+    if(num_j1s .gt. size(threejs))then
+       write(*,*) "ThreeJ_array error: array size overflow"
+       stop
+    endif
+    lmatch = 0.d0
+    
+    if (num_j1s .eq. 1)then
+       ! reached if j1 can take only one value, i.e.j1min=j1max
+       threejs(1) = evenodd_sign(j2+m2-j3+m3)/sqrt(j1min+j2+j3+1.d0)
+       return
+    end if
+
+    ! starting forward recursion from j1min taking nstep1 steps
+    j1 = j1min
+    threejs(1) = srtiny
+    sum1 = (2*j1 + 1)*tiny
+
+    lstep = 1
+
+30  lstep = lstep+1
+    j1 = j1+1
+    oldfac = newfac
+    a1 = (j1+j2+j3+1)*(j1-j2+j3)*(j1+j2-j3)*(-j1+j2+j3+1)
+    a2 = (j1+m1)*(j1-m1)
+    newfac = sqrt(a1*a2)
+    if (j1 < 1.0001d0) then
+       !if J1 = 1  (J1-1) HAS TO BE FACTORED OUT OF DV, HENCE
+       c1 = -(2*j1-1)*j1*(m3-m2)/newfac
+    else
+
+       dv = -j2*(j2+1)*m1 + j3*(j3+1)*m1 + j1*(j1-1)*(m3-m2)
+       denom = (j1-1)*newfac
+
+       if (lstep > 2) c1old = abs(c1)
+       c1 = -(2*j1-1)*dv/denom
+
+    end if
+
+    if (lstep<= 2) then
+       ! if j1=j1min+1 the third term in the recursion eqn vanishes, hence
+       x = srtiny*c1
+       threejs(2) = x
+       sum1 = sum1+tiny*(2*j1+1)*c1*c1
+       if(lstep==num_j1s) then
+          sumuni=sum1
+          go to 230
+       end if
+       goto 30
+
+    end if
+
+    c2 = -j1*oldfac/denom
+
+    ! recursion to the next 3j-coeff x  
+    x = c1*threejs(lstep-1) + c2*threejs(lstep-2)
+    threejs(lstep) = x
+    sumfor = sum1
+    sum1 = sum1 + (2*j1+1)*x*x
+    if (lstep/=num_j1s) then
+
+       ! see if last unnormalised 3j-coeff exceeds srhuge
+       if (abs(x) >= srhuge) then
+          ! REACHED if LAST 3J-COEFFICIENT LARGER THAN SRHUGE
+          ! SO THAT THE RECURSION SERIES THREEJS(1), ... , THREEJS(LSTEP)
+          ! HAS TO BE RESCALED TO PREVENT OVERFLOW
+          do i = 1, lstep
+             if (abs(threejs(i)) < srtiny) threejs(i)= 0.d0
+             threejs(i) = threejs(i)/srhuge
+          end do
+          sum1 = sum1/huge
+          sumfor = sumfor/huge
+          x = x/srhuge
+       end if
+       ! as long as abs(c1) is decreasing, the recursion proceeds towards increasing
+       ! 3j-valuse and so is numerically stable. Once an increase of abs(c1) is 
+       ! detected, the recursion direction is reversed.
+       if (c1old > abs(c1)) goto 30
+    end if 
+
+    ! keep three 3j-coeffs around lmatch for comparison with backward recursion
+    lmatch = j1-1
+    x1 = x
+    x2 = threejs(lstep-1)
+    x3 = threejs(lstep-2)
+    nstep2 = num_j1s-lstep+3
+
+    ! --------------------------------------------------------------------------
+    !
+    ! starting backward recursion from j1max taking nstep2 stpes, so that
+    ! forward and backward recursion overlap at 3 points 
+    ! j1 = lmatch-1, lmatch, lmatch+1
+
+    num_j1sp1 = num_j1s+1
+    num_j1sp2 = num_j1s+2
+    num_j1sp3 = num_j1s+3
+    j1 = j1max
+    threejs(num_j1s) = srtiny
+    sum2 = tiny*(2*j1+1)
+
+    j1 = j1+2
+    lstep=1
+
+    do
+       lstep = lstep + 1
+       j1= j1-1
+
+       oldfac = newfac
+       a1s = (j1+j2+j3)*(j1-j2+j3-1)*(j1+j2-j3-1)*(-j1+j2+j3+2)
+       a2s = (j1+m1-1)*(j1-m1-1)
+       newfac = sqrt(a1s*a2s)
+
+       dv = -j2*(j2+1)*m1 + j3*(j3+1)*m1 +j1*(j1-1)*(m3-m2)
+
+       denom = j1*newfac
+       c1 = -(2*j1-1)*dv/denom
+       if (lstep <= 2) then
+
+          ! if j2=j2max+1, the third term in the recursion vanishes
+
+          y = srtiny*c1
+          threejs(num_j1s-1) = y
+          sumbac = sum2
+          sum2 = sum2 + tiny*(2*j1-3)*c1*c1
+
+          cycle
+
+       end if
+
+       c2 = -(j1-1)*oldfac/denom
+
+       ! recursion to the next 3j-coeff y
+       y = c1*threejs(num_j1sp2-lstep)+c2*threejs(num_j1sp3-lstep)
+
+       if (lstep==nstep2) exit
+
+       threejs(num_j1sp1-lstep) = y
+       sumbac = sum2
+       sum2 = sum2+(2*j1-3)*y*y
+
+       ! see if last unnormalised 3j-coeff exceeds srhuge
+       if (abs(y) >= srhuge) then
+
+          ! reached if 3j-coeff larger than srhuge so that the recursion series
+          ! threejs(num_j1s),..., threejs(num_j1s-lstep+1) has to be rescaled to prevent overflow
+
+          do i = 1, lstep
+             index=num_j1s-i+1
+             if (abs(threejs(index)) < srtiny) threejs(index)=0.d0
+             threejs(index) = threejs(index)/srhuge
+          end do
+
+          sum2=sum2/huge
+          sumbac=sumbac/huge
+
+       end if
+
+    end do
+
+    ! the forward recursion 3j-coeffs x1, x2, x3 are to be matched with the 
+    ! corresponding backward recursion vals y1, y2, y3
+
+    y3 = y
+    y2 = threejs(num_j1sp2-lstep)
+    y1 = threejs(num_j1sp3-lstep)
+
+    ! determine now ratio such that yi=ratio*xi (i=1,2,3) holds with minimal error
+
+    ratio = (x1*y1+x2*y2+x3*y3)/(x1*x1+x2*x2+x3*x3)
+    nlim = num_j1s-nstep2+1
+
+    if (abs(ratio) >= 1) then
+
+       threejs(1:nlim) = ratio*threejs(1:nlim) 
+       sumuni = ratio*ratio*sumfor + sumbac
+
+    else
+
+       nlim = nlim+1
+       ratio = 1/ratio
+       do n = nlim, num_j1s
+          threejs(n) = ratio*threejs(n)
+       end do
+       sumuni = sumfor + ratio*ratio*sumbac
+
+    end if
+    ! normalise 3j-coeffs
+
+230 cnorm = 1/sqrt(sumuni)
+
+    ! sign convention for last 3j-coeff determines overall phase
+
+    sign1 = sign(1.d0,threejs(num_j1s))
+    sign2 = evenodd_sign(j2+m2-j3+m3)
+    if (sign1*sign2 <= 0) then
+       cnorm = -cnorm
+    end if
+    if (abs(cnorm) >= 1.d0) then
+       threejs(1:num_j1s) = cnorm*threejs(1:num_j1s)
+       return
+    end if
+
+    thresh = tiny/abs(cnorm)
+
+    do n = 1, num_j1s
+       if (abs(threejs(n)) < thresh) threejs(n) = 0.d0
+       threejs(n) = cnorm*threejs(n)
+    end do
+    return 
+
+  contains
+
+    function evenodd_sign(x)
+      COOP_REAL::x, evenodd_sign
+      if(mod(nint(x),2).eq.0)then
+         evenodd_sign = 1.d0
+      else
+         evenodd_sign = -1.d0
+      endif
+    end function evenodd_sign
+
+  end subroutine coop_ThreeJ_Array
 
 
 end module coop_special_function_mod
