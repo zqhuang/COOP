@@ -12,7 +12,7 @@ module coop_matrix_mod
 
   private
 
-  public::coop_write_matrix, coop_print_matrix, coop_read_matrix, coop_set_identity_matrix, coop_identity_matrix, coop_diagonal_matrix, coop_matrix_add_diagonal, coop_matrix_sum_columns,  coop_matrix_solve_small,  Coop_matrix_Solve, Coop_matrix_Inverse, coop_matsym_xCx, coop_matrix_det_small,coop_matsym_mat2vec, coop_matsym_vec2mat, coop_matsym_Diagonalize,  Coop_matsym_Sqrt,  coop_matsym_sqrt_small,  coop_matsym_power_small,  Coop_matsym_power,  coop_matsym_function, Coop_matsym_LnDet, Coop_matsym_Solve, coop_matsym_index, coop_matrix_sorted_svd,  coop_covmat, coop_matrix_dominant_eigen_value, coop_solve_constrained, coop_matsym_diag, coop_matrix_ludcmp, coop_matrix_lubksb, coop_matsym_get_indices
+  public::coop_write_matrix, coop_print_matrix, coop_read_matrix, coop_set_identity_matrix, coop_identity_matrix, coop_diagonal_matrix, coop_matrix_add_diagonal, coop_matrix_sum_columns,  coop_matrix_solve_small,  Coop_matrix_Solve, Coop_matrix_Inverse, coop_matsym_xCx, coop_matrix_det_small,coop_matsym_mat2vec, coop_matsym_vec2mat, coop_matsym_Diagonalize,  Coop_matsym_Sqrt,  coop_matsym_sqrt_small,  coop_matsym_power_small,  Coop_matsym_power,  coop_matsym_function, Coop_matsym_LnDet, Coop_matsym_Solve,  coop_matrix_sorted_svd,  coop_covmat, coop_matrix_dominant_eigen_value, coop_solve_constrained, coop_matsym_diag, coop_matrix_ludcmp, coop_matrix_lubksb, coop_matsym_get_indices
 
   type coop_covmat   !!assume only lower triangle is saved in C; !!invC contains full matrix; L is lower triangle Cholesky, with zero filled.
      COOP_INT::n = 0
@@ -908,13 +908,6 @@ contains
        A(N1,M1)=0.d0       
     endif
   end Subroutine Coop_matsym_diag_step
-
-
-  function coop_matsym_index(n, i, j) result(ind)
-    COOP_INT n, i, j
-    COOP_INT ind
-    ind = (2*n+1 - abs(j-i))*abs(j-i)/2 + min(i, j)
-  end function coop_matsym_index
 
   subroutine coop_matsym_get_indices(n, ind, i, j)
     COOP_INT n, ind, i, j

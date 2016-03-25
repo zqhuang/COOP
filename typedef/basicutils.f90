@@ -847,20 +847,24 @@ contains
   end subroutine coop_get_cheb_value
 
 
-  subroutine coop_fit_template(n, m, y, tpls, c)
+  subroutine coop_fit_template(n, m, y, mapping, c)
     COOP_INT,intent(IN):: n, m
     COOP_REAL,intent(IN)::y(n)
-    COOP_REAL,intent(INOUT)::tpls(n, m)
+    COOP_REAL,intent(IN)::mapping(n, m)
+    COOP_REAL::tpls(n,m)
     COOP_REAL,intent(OUT):: c(m)
+    tpls = mapping
     call coop_svd_least_square_one(n, m, tpls, y, c)
   end subroutine coop_fit_template
 
 
-  subroutine coop_fit_templates(n, m, nd, y, tpls, c)
+  subroutine coop_fit_templates(n, m, nd, y, mapping, c)
     COOP_INT,intent(IN):: n, m, nd
     COOP_REAL,intent(IN)::y(n, nd)
-    COOP_REAL,intent(INOUT)::tpls(n, m)
+    COOP_REAL,intent(IN)::mapping(n,m)
     COOP_REAL,intent(OUT):: c(m, nd)
+    COOP_REAL::tpls(n, m)
+    tpls = mapping
     call coop_svd_least_square_all(n, m, nd, tpls, y, c)
   end subroutine coop_fit_templates
 

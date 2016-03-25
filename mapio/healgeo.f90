@@ -33,7 +33,7 @@ module coop_healpix_mod
   COOP_INT, parameter:: coop_inpaint_nside_start = 8
   COOP_SINGLE,parameter::coop_inpaint_mask_threshold = 0.05
   
-  public::coop_fits_to_header, coop_healpix_fmissval,coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_index_TT,  coop_healpix_index_EE,  coop_healpix_index_BB,  coop_healpix_index_TE,  coop_healpix_index_TB,  coop_healpix_index_EB, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_IAU_headless_vector,  coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade, coop_healpix_maps_copy_genre, coop_healpix_correlation_function, coop_healpix_mask_reverse, coop_healpix_maps_diffuse, coop_healpix_mask_diffuse, coop_healpix_nside2lmax, coop_healpix_filament, coop_healpix_lmax_by_nside, coop_healpix_patch_stack_fft, coop_healpix_maps_Cls2Pseudo,coop_healpix_Cls2Rot, coop_healpix_Cls2Rot_general, coop_healpix_rotate_qu
+  public::coop_fits_to_header, coop_healpix_fmissval,coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_IAU_headless_vector,  coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade, coop_healpix_maps_copy_genre, coop_healpix_correlation_function, coop_healpix_mask_reverse, coop_healpix_maps_diffuse, coop_healpix_mask_diffuse, coop_healpix_nside2lmax, coop_healpix_filament, coop_healpix_lmax_by_nside, coop_healpix_patch_stack_fft, coop_healpix_maps_Cls2Pseudo,coop_healpix_Cls2Rot, coop_healpix_Cls2Rot_general, coop_healpix_rotate_qu
   
 
   logical::coop_healpix_alm_check_done = .false.
@@ -44,12 +44,6 @@ module coop_healpix_mod
   COOP_INT, parameter::coop_healpix_default_lmax=2500
   COOP_REAL, parameter::coop_healpix_lmax_by_nside = 2.5
   COOP_REAL::coop_healpix_mask_tol = 0.d0  !!default mask tolerance
-  COOP_INT,parameter::coop_healpix_index_TT = 1
-  COOP_INT,parameter::coop_healpix_index_EE = 2
-  COOP_INT,parameter::coop_healpix_index_BB = 3
-  COOP_INT,parameter::coop_healpix_index_TE = 4
-  COOP_INT,parameter::coop_healpix_index_EB = 5
-  COOP_INT,parameter::coop_healpix_index_TB = 6
 
   type, extends(coop_sphere_disc):: coop_healpix_disc
      COOP_INT::nside = 0
@@ -1074,13 +1068,12 @@ contains
        allocate(sqrtCls(0:this%lmax))
        do l = 0, this%lmax
           sqrtCls(l) = sqrt(this%Cl(l,1))
-!          print*, l, sqrtCls(l)
        enddo
        call this%simulate_Tmaps(this%nside, this%lmax, sqrtCls)
        deallocate(sqrtCls)
     elseif(this%nmaps.eq.3 .and. this%iq .eq.2)then
        allocate(Cls_sqrteig(3, 0:this%lmax), Cls_rot(3,3,0:this%lmax))
-       call coop_healpix_Cls2Rot(0,this%lmax, this%Cl(0:this%lmax, 6), Cls_sqrteig, Cls_rot)
+       call coop_healpix_Cls2Rot(0,this%lmax, this%Cl(0:this%lmax, 1:6), Cls_sqrteig, Cls_rot)
        if(this%spin(2).eq.2)then
           call this%simulate_TQUmaps(this%nside, this%lmax, Cls_sqrteig, Cls_rot)
        else
@@ -1155,7 +1148,7 @@ contains
     !$omp parallel do private(i,j,k,l)
     do i=1, this%nmaps
        do j=1, i
-          k = coop_matsym_index(this%nmaps, i, j)
+          k = COOP_MATSYM_INDEX(this%nmaps, i, j)
           do l = 0, this%lmax
              this%Cl(l, k) = (sum(COOP_MULT_REAL(this%alm(l, 1:l, i), this%alm(l, 1:l, j))) + 0.5d0 * COOP_MULT_REAL(this%alm(l,0,i), this%alm(l,0,j)) )/(l+0.5d0)
           enddo
@@ -1172,38 +1165,38 @@ contains
     COOP_INT l
     COOP_REAL a2(2,2), a3(3,3)
     COOP_REAL psi2(2,2), psi3(3,3)
-    if(all(Cls(:,coop_healpix_index_EB).eq.0.d0) .and. all(Cls(:, coop_healpix_index_TB).eq.0.d0))then
-       Cls_sqrteig(coop_healpix_index_BB,:) = sqrt(Cls(:, coop_healpix_index_BB))
-       Cls_rot(coop_healpix_index_BB, coop_healpix_index_TT, :) = 0
-       Cls_rot(coop_healpix_index_BB, coop_healpix_index_EE, :) = 0
-       Cls_rot(coop_healpix_index_TT, coop_healpix_index_BB, :) = 0
-       Cls_rot(coop_healpix_index_EE, coop_healpix_index_BB, :) = 0
-       Cls_rot(coop_healpix_index_BB, coop_healpix_index_BB, :) = 1.
+    if(all(Cls(:,coop_TEB_index_EB) .eq. 0.) .and. all(Cls(:, coop_TEB_index_TB).eq. 0.))then
+       Cls_sqrteig(coop_TEB_index_B,lmin:lmax) = sqrt(max(Cls(lmin:lmax, coop_TEB_index_BB), 0.))
+       Cls_rot(coop_TEB_index_B, coop_TEB_index_T, :) = 0.
+       Cls_rot(coop_TEB_index_B, coop_TEB_index_E, :) = 0.
+       Cls_rot(coop_TEB_index_T, coop_TEB_index_B, :) = 0.
+       Cls_rot(coop_TEB_index_E, coop_TEB_index_B, :) = 0.
+       Cls_rot(coop_TEB_index_B, coop_TEB_index_B, :) = 1.
        do l=lmin, lmax
-          a2(1,1) = Cls(l, coop_healpix_index_TT)
-          a2(2,2) = Cls(l, coop_healpix_index_EE)
-          a2(1,2) = Cls(l, coop_healpix_index_TE)
+          a2(1,1) = Cls(l, coop_TEB_index_TT)
+          a2(2,2) = Cls(l, coop_TEB_index_EE)
+          a2(1,2) = Cls(l, coop_TEB_index_TE)
           a2(2,1) = a2(1,2)
           call coop_matsym_diag(2, 2, a2, psi2)
-          Cls_sqrteig(coop_healpix_index_TT, l) = sqrt(a2(1,1))
-          Cls_sqrteig(coop_healpix_index_EE, l) = sqrt(a2(2,2))
-          Cls_rot( coop_healpix_index_TT:coop_healpix_index_EE, coop_healpix_index_TT:coop_healpix_index_EE, l) = psi2
+          Cls_sqrteig(coop_TEB_index_TT, l) = sqrt(max(a2(1,1), 0.))
+          Cls_sqrteig(coop_TEB_index_EE, l) = sqrt(max(a2(2,2), 0.))
+          Cls_rot( coop_TEB_index_TT:coop_TEB_index_EE, coop_TEB_index_TT:coop_TEB_index_EE, l) = psi2
        end do
     else
        do l=lmin, lmax
-          a3(1,1) = Cls(l,coop_healpix_index_TT)
-          a3(2,2) = Cls(l,coop_healpix_index_EE)
-          a3(3,3) = Cls(l,coop_healpix_index_BB)
-          a3(1,2) = Cls(l,coop_healpix_index_TE)
-          a3(2,3) = Cls(l,coop_healpix_index_EB)
-          a3(3,1) = Cls(l,coop_healpix_index_TB)
+          a3(1,1) = Cls(l,coop_TEB_index_TT)
+          a3(2,2) = Cls(l,coop_TEB_index_EE)
+          a3(3,3) = Cls(l,coop_TEB_index_BB)
+          a3(1,2) = Cls(l,coop_TEB_index_TE)
+          a3(2,3) = Cls(l,coop_TEB_index_EB)
+          a3(3,1) = Cls(l,coop_TEB_index_TB)
           a3(2,1) = a3(1,2)
           a3(3,2) = a3(2,3)
           a3(1,3) = a3(3,1)
           call coop_matsym_diag(3, 3, a3, psi3)
-          Cls_sqrteig(coop_healpix_index_TT, l) = sqrt(a3(1,1))
-          Cls_sqrteig(coop_healpix_index_EE, l) = sqrt(a3(2,2))
-          Cls_sqrteig(coop_healpix_index_BB, l) = sqrt(a3(3,3))
+          Cls_sqrteig(coop_TEB_index_TT, l) = sqrt(max(a3(1,1), 0.d0))
+          Cls_sqrteig(coop_TEB_index_EE, l) = sqrt(max(a3(2,2), 0.d0))
+          Cls_sqrteig(coop_TEB_index_BB, l) = sqrt(max(a3(3,3), 0.d0))
           Cls_rot(:, :, l) = psi3
        end do
     endif
@@ -1225,7 +1218,7 @@ contains
     do l=lmin, lmax
        do i=1, nmaps
           do j=1, i
-             k = coop_matsym_index(nmaps, i, j)
+             k = COOP_MATSYM_INDEX(nmaps, i, j)
              a(i, j) = Cls(l, k)
              a(j, i) = a(i, j)
           enddo
@@ -1233,7 +1226,7 @@ contains
        call coop_matsym_diag(nmaps, nmaps, a, Cls_rot(1:nmaps, 1:nmaps, l))
        do i=1, nmaps
           if(a(i,i).lt.0.d0)then
-             print*, l, Cls(l, :)
+             write(*, *)l, Cls(l, :)
              call coop_print_matrix(a, nmaps, nmaps)
              stop
           endif
@@ -1907,7 +1900,7 @@ contains
     if(allocated(this%cl))deallocate(this%cl)
     this%lmax = lmax
     allocate(this%alm(0:this%lmax, 0:this%lmax, this%nmaps))
-    allocate(this%cl(0:max(this%lmax, coop_healpix_default_lmax), this%nmaps*(this%nmaps+1)/2))
+    allocate(this%cl(0:this%lmax, this%nmaps*(this%nmaps+1)/2))
     allocate(this%alm_done(this%nmaps), this%checksum(4, this%nmaps))
     this%alm_done = .false.
     this%checksum = 1.e30

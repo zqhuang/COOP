@@ -49,7 +49,7 @@ contains
        s = Pk(il, :)*dz/Hasq/k(il,:)**3
        do ib1 = 1, num_bins
           do ib2 = 1, ib1
-             icross = coop_matsym_index(num_bins, ib1, ib2)
+             icross = COOP_MATSYM_INDEX(num_bins, ib1, ib2)
              Cl(il, icross) = fac * sum(s*Wz(:, ib1)*Wz(:, ib2))
           enddo
        enddo

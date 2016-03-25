@@ -5,7 +5,27 @@ module coop_special_function_mod
 
   private
 
-  public:: coop_log2, coop_sinc, coop_sinhc, coop_asinh, coop_acosh, coop_atanh, coop_InverseErf, coop_InverseErfc, coop_Gaussian_nu_of_P, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_IncompleteGamma, coop_threej000, coop_ThreeJSymbol, coop_ThreeJ_Array, coop_bessI0, coop_bessi1, coop_bessJ0, coop_bessJ1, coop_sphere_correlation, coop_sphere_correlation_init, coop_get_normalized_Plm_array,  coop_pseudoCl_matrix, coop_pseudoCl2Cl, coop_pseudoCl_get_kernel, FT_Gaussian3D_window, FT_spherical_tophat
+
+  public:: coop_log2, coop_sinc, coop_sinhc, coop_asinh, coop_acosh, coop_atanh, coop_InverseErf, coop_InverseErfc, coop_Gaussian_nu_of_P, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_IncompleteGamma, coop_threej000, coop_ThreeJSymbol, coop_ThreeJ_Array, coop_bessI0, coop_bessi1, coop_bessJ0, coop_bessJ1, coop_sphere_correlation, coop_sphere_correlation_init, coop_get_normalized_Plm_array, FT_Gaussian3D_window, FT_spherical_tophat, coop_pseudoCl_kernel_index_TT, coop_pseudoCl_kernel_index_TE, coop_pseudoCl_kernel_index_TB, coop_pseudoCl_kernel_index_EB, coop_pseudoCl_kernel_index_EE_plus_BB, coop_pseudoCl_kernel_index_EE_minus_BB, coop_TEB_index_T, coop_TEB_index_E, coop_TEB_index_B, coop_TEB_index_TT, coop_TEB_index_EE, coop_TEB_index_BB, coop_TEB_index_TE, coop_TEB_index_TB, coop_TEB_index_EB, coop_int3j,  coop_pseudoCl_matrix, coop_pseudoCl2Cl, coop_pseudoCl_get_kernel,  coop_pseudoCl_matrix_pol, coop_pseudoCl2Cl_pol, coop_pseudoCl_get_kernel_pol
+
+
+  !!define the index of kernels
+  COOP_INT, parameter::coop_pseudoCl_kernel_index_TT = 1
+  COOP_INT, parameter::coop_pseudoCl_kernel_index_TE = 2
+  COOP_INT, parameter::coop_pseudoCl_kernel_index_TB = 2
+  COOP_INT, parameter::coop_pseudoCl_kernel_index_EB = 3
+  COOP_INT, parameter::coop_pseudoCl_kernel_index_EE_minus_BB = 3
+  COOP_INT, parameter::coop_pseudoCl_kernel_index_EE_plus_BB = 4
+  COOP_INT, parameter::coop_TEB_index_T = 1
+  COOP_INT, parameter::coop_TEB_index_E = 2
+  COOP_INT, parameter::coop_TEB_index_B = 3
+  COOP_INT, parameter::coop_TEB_index_TT = COOP_MATSYM_INDEX(3, coop_TEB_index_T, coop_TEB_index_T)
+  COOP_INT, parameter::coop_TEB_index_EE = COOP_MATSYM_INDEX(3, coop_TEB_index_E, coop_TEB_index_E)
+  COOP_INT, parameter::coop_TEB_index_BB = COOP_MATSYM_INDEX(3, coop_TEB_index_B, coop_TEB_index_B)
+  COOP_INT, parameter::coop_TEB_index_TE = COOP_MATSYM_INDEX(3, coop_TEB_index_T, coop_TEB_index_E)
+  COOP_INT, parameter::coop_TEB_index_TB = COOP_MATSYM_INDEX(3, coop_TEB_index_T, coop_TEB_index_B)
+  COOP_INT, parameter::coop_TEB_index_EB = COOP_MATSYM_INDEX(3, coop_TEB_index_E, coop_TEB_index_B)
+
 
   interface coop_InverseErf
      module procedure coop_InverseErf_s, coop_InverseErf_v
@@ -1557,6 +1577,13 @@ contains
     !$omp end parallel do
   end function coop_log2_v
 
+
+  function coop_int3j(l1, l2, l3, m1, m2, m3) result(thrj)
+    COOP_INT::l1, l2, l3, m1, m2, m3
+    COOP_REAL::thrj
+    thrj = coop_ThreeJSymbol(l1*2, l2*2, l3*2, m1*2, m2*2, m3*2)
+  end function coop_int3j
+
   !!this function is fast and accurate for small m1, m2, m3
   !!for large m's it can be slow and inaccurate.
   recursive function coop_ThreeJSymbol(twoj1, twoj2, twoj3, twom1, twom2, twom3) result(w3j)
@@ -1665,37 +1692,6 @@ contains
     if(mod(g,2).ne.0) w3j = -w3j
   end function Coop_threej000
 
-
-  function coop_pseudoCl_matrix(l_pseudo, l, lmax, Cl_mask) result(m)
-    COOP_INT l, l_pseudo, l2, lmax
-    COOP_REAL m, Cl_mask(0:lmax)
-    m = 0.d0
-    do l2 = max(0, abs(l-l_pseudo)), min(lmax, abs(l+l_pseudo))
-       m = m + cl_mask(l2)*(2.d0*l2+1.d0)*coop_threej000(l_pseudo, l, l2)**2
-    enddo
-    m = m*(2.d0*l + 1.d0)/coop_4pi
-  end function coop_pseudoCl_matrix
-
-  subroutine coop_pseudoCl_get_kernel(lmax_mask, Cl_mask, lmin, lmax, kernel)
-    COOP_INT::lmin, lmax, lmax_mask
-    COOP_REAL  Cl_mask(0:lmax_mask)
-    COOP_REAL::kernel(lmin:lmax, lmin:lmax)
-    COOP_INT::l1, l2
-    !$omp parallel do private(l1, l2)
-    do l1 = lmin, lmax
-       do l2 = lmin, lmax
-          kernel(l1, l2) = coop_pseudoCl_matrix(l1, l2, lmax_mask, cl_mask)
-       enddo
-    enddo
-    !$omp end parallel do
-  end subroutine coop_pseudoCl_get_kernel
-
-  subroutine coop_pseudoCl2Cl(lmin, lmax, Cl_pseudo, kernel, Cl)
-    COOP_INT::lmin, lmax
-    COOP_REAL Cl_pseudo(lmin:lmax), Cl(lmin:lmax)
-    COOP_REAL::kernel(lmin:lmax, lmin:lmax)
-    call coop_fit_template(lmax-lmin+1, lmax-lmin+1, cl_pseudo, kernel, cl)
-  end subroutine coop_pseudoCl2Cl
 
 
 
@@ -1967,6 +1963,104 @@ contains
     end function evenodd_sign
 
   end subroutine coop_ThreeJ_Array
+
+  !!general; when m1, m2 do not present do TT kernel (spin = 0)
+  function coop_pseudoCl_matrix(l_pseudo, l, lmax, Cl_mask) result(m)
+    COOP_INT l, l_pseudo, l2, lmax
+    COOP_REAL m, Cl_mask(0:lmax)
+    do l2 = abs(l-l_pseudo), min(lmax, abs(l+l_pseudo))
+       m = m + cl_mask(l2)*(2.d0*l2+1.d0) * coop_ThreeJ000(l_pseudo, l, l2)**2
+    enddo
+    m = m*(2.d0*l + 1.d0)/coop_4pi
+  end function coop_pseudoCl_matrix
+
+
+  !!for full (TT, TE or TB, EB, EE+BB, EE-BB) kernels
+  function coop_pseudoCl_matrix_pol(l_pseudo, l, lmax, Cl_mask) result(m)
+    COOP_INT l, l_pseudo, l2, lmax, evenodd_sign, lmin
+    COOP_REAL m(4), Cl_mask(0:lmax), thrj000, thrj220, maskterm
+    lmin = abs(l-l_pseudo)
+    m = 0.d0
+    evenodd_sign = 1- 2*mod(lmin+l_pseudo+l,2)
+    do l2 = lmin, min(lmax, abs(l+l_pseudo))
+       thrj000 = coop_ThreeJ000(l_pseudo, l, l2)       
+       thrj220 = coop_int3j(l_pseudo, l, l2, 2, -2, 0)
+       maskterm = cl_mask(l2)*(2.d0*l2+1.d0)
+       m(coop_pseudoCl_kernel_index_TT) = m(coop_pseudoCl_kernel_index_TT) + maskterm*thrj000 ** 2
+       if(evenodd_sign .gt. 0) &
+            m(coop_pseudoCl_kernel_index_TE) = m(coop_pseudoCl_kernel_index_TE) + maskterm*thrj000*thrj220  
+       maskterm = maskterm*thrj220**2
+       m(coop_pseudoCl_kernel_index_EB) = m(coop_pseudoCl_kernel_index_EB) + maskterm*evenodd_sign
+       m(coop_pseudoCl_kernel_index_EE_plus_BB) = m(coop_pseudoCl_kernel_index_EE_plus_BB) + maskterm
+       evenodd_sign = -evenodd_sign
+    enddo
+    m = m*((2.d0*l + 1.d0)/coop_4pi)
+  end function coop_pseudoCl_matrix_pol
+
+
+  !!temperature only
+  subroutine coop_pseudoCl_get_kernel(lmax_mask, Cl_mask, lmin, lmax, kernel)
+    COOP_INT::lmin, lmax, lmax_mask
+    COOP_REAL  Cl_mask(0:lmax_mask)
+    COOP_REAL::kernel(lmin:lmax, lmin:lmax)
+    COOP_INT::l1, l2
+    !$omp parallel do private(l1, l2)
+    do l1 = lmin, lmax
+       do l2 = lmin, lmax
+          kernel(l1, l2) = coop_pseudoCl_matrix(l1, l2, lmax_mask, cl_mask)
+       enddo
+    enddo
+    !$omp end parallel do
+  end subroutine coop_pseudoCl_get_kernel
+
+  !!temperature only
+  subroutine coop_pseudoCl2Cl(lmin, lmax, Cl_pseudo, kernel, Cl)
+    COOP_INT::lmin, lmax
+    COOP_REAL Cl_pseudo(lmin:lmax), Cl(lmin:lmax)
+    COOP_REAL::kernel(lmin:lmax, lmin:lmax)
+    call coop_fit_template(lmax-lmin+1, lmax-lmin+1, Cl_pseudo(lmin:lmax), kernel, cl)
+  end subroutine coop_pseudoCl2Cl
+
+
+  !!TT, TE, TB, EB, EE+BB, EE-BB
+  subroutine coop_pseudoCl_get_kernel_pol(lmax_mask, Cl_mask, lmin, lmax, kernel)
+    COOP_INT::lmin, lmax, lmax_mask
+    COOP_REAL  Cl_mask(0:lmax_mask)
+    COOP_REAL::kernel(lmin:lmax, lmin:lmax, 4)
+    COOP_INT::l1, l2
+    !$omp parallel do private(l1, l2)
+    do l1 = lmin, lmax
+       do l2 = lmin, lmax
+          kernel(l1, l2, :) = coop_pseudoCl_matrix_pol(l1, l2, lmax_mask, cl_mask)
+       enddo
+    enddo
+    !$omp end parallel do
+  end subroutine coop_pseudoCl_get_kernel_pol
+
+  !!T, E, B
+  subroutine coop_pseudoCl2Cl_pol(lmin, lmax, Cl_pseudo, kernel, Cl)
+    COOP_INT::lmin, lmax
+    !!use camb ordering
+    !!TT, EE, BB, TE, TB, EB
+    COOP_REAL Cl_pseudo(lmin:lmax, 6), Cl(lmin:lmax, 6), tmp(lmin:lmax)
+    COOP_REAL::kernel(lmin:lmax, lmin:lmax,4)
+    !!TT
+    call coop_fit_template(lmax-lmin+1, lmax-lmin+1, cl_pseudo(lmin:lmax, coop_TEB_index_TT), kernel(lmin:lmax,lmin:lmax, coop_pseudoCl_kernel_index_TT), cl(lmin:lmax, coop_TEB_index_TT))
+    !!TE
+    call coop_fit_template(lmax-lmin+1, lmax-lmin+1, cl_pseudo(lmin:lmax,  coop_TEB_index_TE), kernel(lmin:lmax,lmin:lmax, coop_pseudoCl_kernel_index_TE), cl(lmin:lmax, coop_TEB_index_TE))
+    !!TB
+    call coop_fit_template(lmax-lmin+1, lmax-lmin+1, cl_pseudo(lmin:lmax, coop_TEB_index_TB), kernel(lmin:lmax,lmin:lmax, coop_pseudoCl_kernel_index_TB), cl(lmin:lmax, coop_TEB_index_TB))
+    !!EB
+    call coop_fit_template(lmax-lmin+1, lmax-lmin+1, cl_pseudo(lmin:lmax, coop_TEB_index_EB), kernel(lmin:lmax,lmin:lmax, coop_pseudoCl_kernel_index_EB), cl(lmin:lmax,  coop_TEB_index_EB))
+    !!EE + BB
+    call coop_fit_template(lmax-lmin+1, lmax-lmin+1, cl_pseudo(lmin:lmax, coop_TEB_index_EE) + cl_pseudo(lmin:lmax,   coop_TEB_index_BB), kernel(lmin:lmax,lmin:lmax, coop_pseudoCl_kernel_index_EE_plus_BB), cl(lmin:lmax, coop_TEB_index_EE))
+    !!EE - BB
+    call coop_fit_template(lmax-lmin+1, lmax-lmin+1, cl_pseudo(lmin:lmax, coop_TEB_index_EE) - cl_pseudo(lmin:lmax, coop_TEB_index_BB), kernel(lmin:lmax,lmin:lmax, coop_pseudoCl_kernel_index_EE_minus_BB), tmp(lmin:lmax))
+    cl(lmin:lmax, coop_TEB_index_BB) = (cl(lmin:lmax, coop_TEB_index_EE) - tmp(lmin:lmax))/2.d0
+    cl(lmin:lmax, coop_TEB_index_EE) = (cl(lmin:lmax, coop_TEB_index_EE) + tmp(lmin:lmax))/2.d0
+  end subroutine coop_pseudoCl2Cl_pol
+
+
 
 
 end module coop_special_function_mod

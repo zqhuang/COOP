@@ -246,7 +246,7 @@ contains
           Bessel4 = Bessel_JN(4,x)
           do ib=1,this%num_z_bins
              do jb=1, ib
-                icross = coop_matsym_index(this%num_z_bins, ib, jb)
+                icross = COOP_MATSYM_INDEX(this%num_z_bins, ib, jb)
                 !interpolate
                 call coop_splint(num_l, lnl, lnl2Cl, lnl2Cl2, log(lll), Cval)
                 Cval = exp(Cval)/lll
@@ -273,7 +273,7 @@ contains
     do izl = 1,this%num_z_bins
        do izh = izl,this%num_z_bins
           iz = iz + 1 ! this counts the bin combinations iz=1 =>(1,1), iz=1 =>(1,2) etc
-          icross = coop_matsym_index(this%num_z_bins, izl, izh)
+          icross = COOP_MATSYM_INDEX(this%num_z_bins, izl, izh)
           do i = 1,this%num_theta_bins
              j = (iz-1)*2*this%num_theta_bins
              Call coop_splint(num_theta, lntheta, xi1(:, icross), xi1sp(:, icross), log(this%theta_bins(i)),  this%xi_theory(j+i))
