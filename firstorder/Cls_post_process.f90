@@ -3,7 +3,7 @@ module coop_cls_postprocess_mod
   use coop_pertobj_mod
   use coop_cl_indices_mod
   use coop_firstorder_mod
-#ifdef HAS_HEALPIX
+#if HAS_HEALPIX
   use head_fits
   use fitstools
   use pix_tools
@@ -38,7 +38,7 @@ contains
 
   subroutine coop_zeta_shell_free(shell)
     class(coop_zeta_shell)::shell
-    if(allocated(shell%alm_real))deallocate(shell%alm_real)
+    COOP_DEALLOC(shell%alm_real)
     shell%lmax = -1
   end subroutine coop_zeta_shell_free
 
@@ -47,11 +47,12 @@ contains
     external fnl
     COOP_INT lmax, l, m
     COOP_REAL weight(0:lmax)
-    complex alm_total(0:lmax, 0:lmax)
-#ifdef HAS_HEALPIX
-    real, dimension(:),allocatable::map
-    integer npix, nside, i
-    complex, dimension(:,:,:),allocatable::alms
+    COOP_SINGLE_COMPLEX alm_total(0:lmax, 0:lmax)
+#if HAS_HEALPIX
+    COOP_SINGLE, dimension(:),allocatable::map
+    COOP_INT npix, nside, i
+    COOP_SINGLE_COMPLEX, dimension(:,:,:),allocatable::alms
+    if(all(weight .eq. 0.d0))return
     nside = 32
     do while(nside*2 .lt. shell%lmax)
        nside = nside*2
@@ -115,13 +116,12 @@ contains
     coop_zeta_nr = nchi
     if(allocated(coop_zeta_dr))deallocate(coop_zeta_r, coop_zeta_dr)
     allocate(coop_zeta_r(nchi), coop_zeta_dr(nchi))
-    coop_zeta_r = chi(nchi:1:-1)
+    coop_zeta_r = chi(nchi:1:-1)   !!reverse order again
     do i = 2, nchi-1
        coop_zeta_dr(i) = (coop_zeta_r(i-1)-coop_zeta_r(i+1))/2.d0
     enddo
-    coop_zeta_dr(1) = coop_zeta_r(1) - coop_zeta_r(2)
+    coop_zeta_dr(1) = (coop_zeta_r(1) - coop_zeta_r(2))/2.d0
     coop_zeta_dr(nchi) = coop_zeta_r(nchi-1) - coop_zeta_r(nchi)
-   
   end subroutine coop_set_default_zeta_r
 
 
@@ -179,8 +179,8 @@ contains
     enddo
     allocate(zlms(-lmm:lmm, ns))
     istart = 1
-    iend = ns
     do l=2, lmm
+       iend = ns
        do while(shells(iend)%lmax .lt. l)
           iend = iend - 1
        enddo
@@ -380,7 +380,8 @@ contains
                 sumfac = 1.d0+tanh(20.d0-(40.d0/dphase)*(phasesum - last_phasesum))
              endif
              difffac = 1.d0+tanh(20.d0-(40.d0/dphase)*(phasediff - last_phasediff))
-             trans = trans + COOP_INTERP_SOURCE(source, :, idense, ik, ichi) * (ampchi(idense, ik, ichi) * ampr(idense, ik, ir)*( cos(phasediff)*difffac + cos(phasesum)*sumfac )*source%k_dense(idense, ik)*source%ws_dense(idense, ik)/source%ps_dense(idense, ik)/4.d0)
+!             trans = trans + COOP_INTERP_SOURCE(source, :, idense, ik, ichi) * (ampchi(idense, ik, ichi) * ampr(idense, ik, ir)*( cos(phasediff)*difffac + cos(phasesum)*sumfac )*source%k_dense(idense, ik)*source%ws_dense(idense, ik)/source%ps_dense(idense, ik)/4.d0)
+             trans = trans + COOP_INTERP_SOURCE(source, :, idense, ik, ichi) * (ampchi(idense, ik, ichi) * ampr(idense, ik, ir)*( cos(phasediff)*difffac + cos(phasesum)*sumfac )*source%k_dense(idense, ik)**3*source%ws_dense(idense, ik)/source%ps_dense(idense, ik)/2.d0)
              last_phasediff = phasediff
              last_phasesum = phasesum
           enddo
@@ -388,7 +389,8 @@ contains
           do idense = 1, coop_k_dense_fac
              phasediff = abs(phasechi(idense, ik, ichi)-phaser(idense, ik, ir))
              difffac = 1.d0+tanh(20.d0-(40.d0/dphase)*(phasediff - last_phasediff))
-             trans = trans + COOP_INTERP_SOURCE(source, :, idense, ik, ichi) * (ampchi(idense, ik, ichi) * ampr(idense, ik, ir)*cos(phasediff)*source%k_dense(idense, ik)*source%ws_dense(idense, ik)/source%ps_dense(idense, ik) * difffac *kwindow(idense, ik)/4.d0)
+!             trans = trans + COOP_INTERP_SOURCE(source, :, idense, ik, ichi) * (ampchi(idense, ik, ichi) * ampr(idense, ik, ir)*cos(phasediff)*source%k_dense(idense, ik)*source%ws_dense(idense, ik)/source%ps_dense(idense, ik) * difffac *kwindow(idense, ik)/4.d0)
+             trans = trans + COOP_INTERP_SOURCE(source, :, idense, ik, ichi) * (ampchi(idense, ik, ichi) * ampr(idense, ik, ir)*cos(phasediff)*source%k_dense(idense, ik)**3*source%ws_dense(idense, ik)/source%ps_dense(idense, ik) * difffac *kwindow(idense, ik)/2.d0)
              if(difffac .lt. 1.d-4)return
              last_phasediff = phasediff
           enddo
