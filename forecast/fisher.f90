@@ -959,6 +959,9 @@ contains
           this%is_used(i) = .true.
           this%n_params_used = this%n_params_used + 1
        else
+          if(this%fisher(i,i) .ne. 0.d0)then
+             write(*,*) "parameter "//trim(this%paramtable%key(i))//" is unconstrained"
+          endif
           this%is_used(i) = .false.
        endif
     enddo
