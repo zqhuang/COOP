@@ -492,7 +492,7 @@ contains
                 this%nuis(2, i) = k(ik)
                 this%nuis(3, i) = mu(imu)
                 this%nuis(4, i) = dz(iz)
-                this%nuis(5, i) = dk(i)
+                this%nuis(5, i) = dk(ik)
                 this%nuis(6, i) = dmu
                 this%nuis(7, i) = fsky
                 this%nuis(8, i) = nobs(iz)
