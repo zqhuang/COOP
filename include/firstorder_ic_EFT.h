@@ -18,7 +18,7 @@
        select case(pert%m)
        case(0)
           Rnu = this%Omega_nu / this%Omega_r
-          pert%O1_Phi = coop_primordial_zeta_norm/(1.5d0 + 0.4d0*Rnu)
+          pert%O1_Phi = -coop_primordial_zeta_norm/(1.5d0 + 0.4d0*Rnu)
           pert%O1_PhiPr = 0.d0
           pert%O1_PSI =  (1.+0.4*Rnu)*pert%O1_Phi
           pert%O1_PSIPR = 0.d0
@@ -40,7 +40,7 @@
        case(1)
           call coop_tbw("vector initialization")
        case(2)
-          pert%O1_TEN_H = coop_primordial_zeta_norm/coop_sqrt6
+          pert%O1_TEN_H = -coop_primordial_zeta_norm/coop_sqrt6
           pert%O1_TEN_HPR = -(k*tau)**2/5.d0 
        end select
     case default

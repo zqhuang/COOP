@@ -22,7 +22,7 @@ module coop_cls_postprocess_mod
   
   type coop_zeta_shell
      COOP_INT::lmax
-     COOP_REAL::r
+     COOP_REAL::r, dr
      COOP_SINGLE,dimension(:),allocatable::alm_real
    contains
      procedure::free=>coop_zeta_shell_free
@@ -44,9 +44,10 @@ contains
 
   subroutine coop_zeta_shell_map_project(shell, fnl, lmax, alm_total, weight)
     class(coop_zeta_shell)::shell
-    external fnl
+    external fnl  !!subroutine fnl(zeta, pixsize) 
     COOP_INT lmax, l, m
     COOP_REAL weight(0:lmax)
+    COOP_SINGLE::pixsize
     COOP_SINGLE_COMPLEX alm_total(0:lmax, 0:lmax)
 #if HAS_HEALPIX
     COOP_SINGLE, dimension(:),allocatable::map
@@ -58,6 +59,7 @@ contains
        nside = nside*2
     enddo
     npix = 12*nside**2
+    pixsize = (coop_4pi*shell%r**2/npix*shell%dr)**(1./3.)
     allocate(alms(0:shell%lmax, 0:shell%lmax, 1), map(0:npix-1))
     alms = 0.
     do l=2, shell%lmax
@@ -68,7 +70,7 @@ contains
     enddo
     call alm2map(nside, shell%lmax, shell%lmax, alms, map)
     do i = 0, npix-1
-       call fnl(map(i))
+       call fnl(map(i), pixsize)
     enddo
     call map2alm(nside, shell%lmax, shell%lmax, map, alms)
     do l=2, shell%lmax
@@ -260,8 +262,8 @@ contains
           enddo
        enddo
        !$omp end parallel do
-       ampr(:,:,nbuffer+1:nr) = ampchi(:, :, source%ntau:1:-1)
-       phaser(:,:,nbuffer+1:nr) = phasechi(:, :, source%ntau:1:-1)
+       ampr(:,:,nbuffer+1:nr) = ampchi(:, :, :)
+       phaser(:,:,nbuffer+1:nr) = phasechi(:, :, :)
     else
        !$omp parallel do private(ir, ik ,idense)
        do ir = 1, nr
@@ -292,41 +294,35 @@ contains
     do ithread = 1, n_threads
        do ir = ithread, nr, n_threads
           if(computed(ir))then
-             compute_chi(1, ithread) = .true.
-             lasti = 1
-             do ichi=2, source%ntau
-                if(source%chi(lasti)- source%chi(ichi) .lt. 0.8d-3)then
-                   compute_chi(ichi, ithread) = .false.
-                else
-                   compute_chi(ichi, ithread) = .true.
-                   lasti = ichi
-                endif
+!!$             compute_chi(1, ithread) = .true.
+!!$             lasti = 1
+!!$             do ichi=2, source%ntau-1
+!!$                if(source%chi(lasti)- source%chi(ichi) .lt. 0.8d-3 .and. abs(source%chi(ichi)-r(ir)).gt. 3.d-2*source%distlss )then
+!!$                   compute_chi(ichi, ithread) = .false.
+!!$                else
+!!$                   compute_chi(ichi, ithread) = .true.
+!!$                   lasti = ichi
+!!$                endif
+!!$             enddo
+!!$             compute_chi(source%ntau, ithread) = .true.
+             do ichi = 1, source%ntau
+                call coop_get_zeta_trans_l_step(source, l, nr, r, ichi, ir, trans_chi_r(:, ichi, ir), ampchi, phasechi, ampr, phaser, kwindow)
+!!$                if(compute_chi(ichi, ithread))call coop_get_zeta_trans_l_step(source, l, nr, r, ichi, ir, trans_chi_r(:, ichi, ir), ampchi, phasechi, ampr, phaser, kwindow)
              enddo
-             compute_chi(source%ntau, ithread) = .true.
-             do ichi=1, source%ntau
-                if(abs(source%chi(ichi) - r(nr)).lt. 0.05d0)then
-                   compute_chi(ichi, ithread) = .true.
-                endif
-             enddo
-             do ichi = 2, source%ntau-1
-                if(compute_chi(ichi, ithread))call coop_get_zeta_trans_l_step(source, l, nr, r, ichi, ir, trans_chi_r(:, ichi, ir), ampchi, phasechi, ampr, phaser, kwindow)
-             enddo
-             call coop_spline_fill(source%nsrc, source%ntau, source%chi, trans_chi_r(:, :, ir), compute_chi(:, ithread), .false., .false.)
+ !!$            call coop_spline_fill(source%nsrc, source%ntau, source%chi, trans_chi_r(:, :, ir), compute_chi(:, ithread), .false., .false.)
           endif
        enddo
     enddo
     !$omp end parallel do
 
-    call coop_spline_fill(source%nsrc, source%ntau, nr, r, trans_chi_r, computed, .false., .false.)
+!!$    call coop_spline_fill(source%nsrc, source%ntau, nr, r, trans_chi_r, computed, .false., .false.)
 
-    !$omp parallel do private(isrc, ir)
     do isrc = 1, source%nsrc
        do ir = 1, nr
-          trans(ir, isrc) = (2.d0/coop_pi)*sum(trans_chi_r(isrc, :, ir)*source%dtau)*r(ir)**2
+          if(computed(ir)) trans(ir, isrc) = (2.d0/coop_pi)*sum(trans_chi_r(isrc, :, ir)*source%dtau)*r(ir)**2
        enddo
+       call coop_spline_fill(nr, r, trans(:, isrc), computed, .false., .false.)
     enddo
-    !$omp end parallel do
-
     deallocate(trans_chi_r,ampchi, phasechi, ampr, phaser, computed, compute_chi, kwindow)
     call coop_jl_destroy_amp_phase(l)
   end subroutine coop_get_zeta_trans_l
@@ -335,7 +331,7 @@ contains
   !!compute \int_0^\infty S(k, \chi) j_l(k \chi) j_l (k r) k^2 dk
   !!input trans must be initialized to zero 
   subroutine coop_get_zeta_trans_l_step(source,  l, nr, r, ichi, ir, trans, ampchi, phasechi, ampr, phaser, kwindow)
-    COOP_REAL,parameter::dphase = 0.6d0
+    COOP_REAL,parameter::dphase = 0.35d0
     type(coop_cosmology_firstorder_source)::source
     COOP_INT::l, ichi, ir, nr
     COOP_REAL::r(nr)
@@ -343,32 +339,34 @@ contains
     COOP_REAL::widthm, widthp
     COOP_REAL::ampchi(coop_k_dense_fac, source%nk, source%ntau), phasechi(coop_k_dense_fac, source%nk, source%ntau), ampr(coop_k_dense_fac, source%nk, nr), phaser(coop_k_dense_fac, source%nk, nr), kwindow(coop_k_dense_fac, source%nk)
     COOP_INT ik, idense
-    COOP_REAL  kmin, xmin, phasediff, phasesum, last_phasediff, last_phasesum, sumfac, difffac
+    COOP_REAL  kmin, xmin, phasediff, phasesum, last_phasediff, last_phasesum, sumfac, difffac, Smean(source%nsrc)
     logical::dosum
-!!$    if(source%a(ichi) .gt. 0.3d0)then !! low redshift stuff, use approx S(k, chi)  = S(k->0, chi)
-!!$       if(abs(source%chi(ichi) - r(ir)).lt. 1.d-6)then
-!!$          kmin = (l+0.5d0)/r(ir)
-!!$          ik = 1
-!!$          do while(ik .lt. source%nk .and. source%k(ik).lt. kmin)
-!!$             ik = ik + 1
-!!$          enddo
-!!$          if(ik.ge.source%nk)return
-!!$          trans = coop_pio2 * source%s(:, ik, ichi) / source%chi(ichi)**2/source%dtau(ichi)
-!!$       endif
-!!$       return
-!!$    endif
+
+
+    kmin = (2.d0*l+1.d0)/(r(ir)+source%chi(ichi))
+    ik = coop_left_index(source%nk, source%k, kmin)
+    if( ik .le. 0)then
+       Smean = source%s(:, 1, ichi)
+    elseif(ik .ge. source%nk)then
+       return
+    else          
+       Smean = (source%s(:, ik+1, ichi)*(kmin - source%k(ik))+source%s(:, ik, ichi)*(source%k(ik+1)-kmin))/(source%k(ik+1)-source%k(ik))
+    endif
+    if(abs(source%chi(ichi) - r(ir)).lt. 1.d-2*source%dtau(ichi))then
+       trans = coop_pio2 *  Smean / source%chi(ichi)**2/source%dtau(ichi)
+    endif
+
+    
     call coop_jl_startpoint(l, xmin)
     kmin = xmin/ min(source%chi(ichi), r(ir))
-    last_phasediff = abs(phasechi(1, 2, ichi)-phaser(1, 2, ir))
-    last_phasesum = phasechi(1, 2, ichi)+phaser(1, 2, ir)
+    ik = max( coop_left_index(source%nk, source%k, kmin), 2 )
+    if(ik .ge. source%nk) return
+    
+    last_phasediff = abs(phasechi(1, ik, ichi)-phaser(1, ik, ir))
+    last_phasesum = phasechi(1, ik, ichi)+phaser(1, ik, ir)
     dosum = .true.
-    do ik = 2, source%nk
+    do while(ik.lt.source%nk)
        if(kwindow(1, ik).lt.1.d-4)return
-       if(source%k(ik) .le. kmin )then
-          last_phasediff = abs(phasechi(coop_k_dense_fac, ik, ichi)-phaser(coop_k_dense_fac, ik, ir))
-          last_phasesum = phasechi(coop_k_dense_fac, ik, ichi)+phaser(coop_k_dense_fac, ik, ir)
-          cycle
-       endif
        if(dosum)then
           do idense = 1, coop_k_dense_fac
              phasediff = abs(phasechi(idense, ik, ichi)-phaser(idense, ik, ir))
@@ -380,8 +378,7 @@ contains
                 sumfac = 1.d0+tanh(20.d0-(40.d0/dphase)*(phasesum - last_phasesum))
              endif
              difffac = 1.d0+tanh(20.d0-(40.d0/dphase)*(phasediff - last_phasediff))
-!             trans = trans + COOP_INTERP_SOURCE(source, :, idense, ik, ichi) * (ampchi(idense, ik, ichi) * ampr(idense, ik, ir)*( cos(phasediff)*difffac + cos(phasesum)*sumfac )*source%k_dense(idense, ik)*source%ws_dense(idense, ik)/source%ps_dense(idense, ik)/4.d0)
-             trans = trans + COOP_INTERP_SOURCE(source, :, idense, ik, ichi) * (ampchi(idense, ik, ichi) * ampr(idense, ik, ir)*( cos(phasediff)*difffac + cos(phasesum)*sumfac )*source%k_dense(idense, ik)**3*source%ws_dense(idense, ik)/source%ps_dense(idense, ik)/4.d0)
+             trans = trans + (COOP_INTERP_SOURCE(source, :, idense, ik, ichi) - Smean) * (ampchi(idense, ik, ichi) * ampr(idense, ik, ir)*( cos(phasediff)*difffac + cos(phasesum)*sumfac )*source%k_dense(idense, ik)**3*source%ws_dense(idense, ik)/source%ps_dense(idense, ik)/4.d0)
              last_phasediff = phasediff
              last_phasesum = phasesum
           enddo
@@ -389,12 +386,12 @@ contains
           do idense = 1, coop_k_dense_fac
              phasediff = abs(phasechi(idense, ik, ichi)-phaser(idense, ik, ir))
              difffac = 1.d0+tanh(20.d0-(40.d0/dphase)*(phasediff - last_phasediff))
-!             trans = trans + COOP_INTERP_SOURCE(source, :, idense, ik, ichi) * (ampchi(idense, ik, ichi) * ampr(idense, ik, ir)*cos(phasediff)*source%k_dense(idense, ik)*source%ws_dense(idense, ik)/source%ps_dense(idense, ik) * difffac *kwindow(idense, ik)/4.d0)
-             trans = trans + COOP_INTERP_SOURCE(source, :, idense, ik, ichi) * (ampchi(idense, ik, ichi) * ampr(idense, ik, ir)*cos(phasediff)*source%k_dense(idense, ik)**3*source%ws_dense(idense, ik)/source%ps_dense(idense, ik) * difffac *kwindow(idense, ik)/4.d0)
+             trans = trans + (COOP_INTERP_SOURCE(source, :, idense, ik, ichi)-Smean) * (ampchi(idense, ik, ichi) * ampr(idense, ik, ir)*cos(phasediff)*source%k_dense(idense, ik)**3*source%ws_dense(idense, ik)/source%ps_dense(idense, ik) * difffac *kwindow(idense, ik)/4.d0)
              if(difffac .lt. 1.d-4)return
              last_phasediff = phasediff
           enddo
        endif
+       ik = ik + 1
     enddo
   end subroutine coop_get_zeta_trans_l_step
 

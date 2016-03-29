@@ -26,7 +26,7 @@
        elseif(coop_zeta_single_slice_chi .gt. 0.d0)then
           source%s(coop_index_source_zeta, ik, itau) = 0.d0          
        else
-          source%s(coop_index_source_zeta, ik, itau) = -pert%vis
+          source%s(coop_index_source_zeta, ik, itau) = pert%vis
        endif
 #endif       
     case(1) !!vector
