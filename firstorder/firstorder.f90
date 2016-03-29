@@ -7,7 +7,7 @@ module coop_firstorder_mod
 #include "constants.h"
   private
 
-  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe,  coop_next_l, coop_nl_to_lmax, coop_set_ells, coop_num_user_defined_params
+  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe,  coop_next_l, coop_nl_to_lmax, coop_set_ells, coop_num_user_defined_params, coop_source_kop2k_noindex
 
 
 !!recfast head file

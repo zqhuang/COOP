@@ -274,8 +274,8 @@ contains
     type(coop_list_real)::lr
     COOP_STRING::windowfile, windowall
     COOP_REAL::kwarr(2)
-    COOP_REAL,dimension(:),allocatable::z, kmin, kmax, nobs, dz, mu, k
-    COOP_REAL::dmu, dlnk, sigma_W, fsky, Nl_T, Nl_pol, fg_r, fg_A, fg_alpha, fg_T, fg_beta, fsky_pol, T353, obs_yr, Fl
+    COOP_REAL,dimension(:),allocatable::z, kmin, kmax, nobs, dz, mu, k, dk
+    COOP_REAL::dmu, kl, sigma_W, fsky, Nl_T, Nl_pol, fg_r, fg_A, fg_alpha, fg_T, fg_beta, fsky_pol, T353, obs_yr, Fl
     COOP_REAL,dimension(:),allocatable::beam_fwhm, sigmaT, sigmapol, freq
     COOP_INT::i, nz,nk,nmu,iz,ik,imu, lmin, lmax, n_channels, l, iw
     if(present(filename))this%filename = trim(adjustl(filename))
@@ -362,7 +362,7 @@ contains
           write(*,*) "Error in data file "//trim(this%name)//": n_z * n_k * n_mu does not equal to n_obs"
           stop
        endif
-       allocate(kmin(nz), kmax(nz), nobs(nz), dz(nz), mu(nmu), k(nk), z(nz))
+       allocate(kmin(nz), kmax(nz), nobs(nz), dz(nz), mu(nmu), k(nk), dk(nk), z(nz))
        call coop_dictionary_lookup(this%settings, "z", lr)
        if(lr%n .ne. nz)then
           write(*,*) "Error in data file "//trim(this%name)//": length of z list does not equal to n_z"
@@ -481,24 +481,25 @@ contains
           mu(imu) = -1.d0+dmu*(imu-0.5d0)
        enddo
        i = 0
+       call coop_dictionary_lookup(this%settings, "k_linear_sampling", kl, 1.d30)  !!default uniform in ln k
+       kl = kl/coop_H0_unit
        do iz = 1, nz
-          dlnk = log(kmax(iz)/kmin(iz))/nk
+          call coop_lss_k_sampling(kmin(iz), kmax(iz), kl, nk, k, dk)
           do ik = 1, nk
-             k(ik) = exp(log(kmin(iz))+dlnk*(ik-0.5d0))
              do imu = 1, nmu
                 i = i+1
                 this%nuis(1, i) = z(iz)
                 this%nuis(2, i) = k(ik)
                 this%nuis(3, i) = mu(imu)
                 this%nuis(4, i) = dz(iz)
-                this%nuis(5, i) = dlnk * k(ik)
+                this%nuis(5, i) = dk(i)
                 this%nuis(6, i) = dmu
                 this%nuis(7, i) = fsky
                 this%nuis(8, i) = nobs(iz)
              enddo
           enddo
        enddo
-       deallocate(kmin, kmax, nobs, dz, mu, k,z)
+       deallocate(kmin, kmax, nobs, dz, mu, k,dk,z)
     case("CMB_TE","CMB_T", "CMB_E", "CMB_B")
        call coop_dictionary_lookup(this%settings, "lmin", lmin, 2)
        if(lmin .lt. 2) then
@@ -996,5 +997,40 @@ contains
     deallocate(cov)
   end subroutine coop_fisher_get_fisher
 
+
+
+!!for LSS k sampling
+!!~ log uniform sampling for k<kl
+!!~ uniform sampling for k > kl
+!! with smooth transition at k~ kl
+  subroutine coop_lss_k_sampling(kmin, kmax, kl, nk, k, dk)
+    COOP_INT::nk
+    COOP_REAL::kmin, kmax, kl
+    COOP_REAL::k(nk), dk(nk)
+    COOP_REAL::kop(nk), kopmin, kopmax, weight, dkop
+    COOP_INT::i
+    if(kl .le. 0.d0)then
+       dk = (kmax-kmin)/nk
+       call coop_set_uniform(nk, k, kmin + dk(1)/2.d0, kmax-dk(1)/2.d0)
+       return
+    endif
+    if(kl .gt. 0.99d10)then
+       dkop = log(kmax/kmin)/nk
+       call coop_set_uniform(nk, k, log(kmin)-dkop/2.d0, log(kmax)+dkop/2.d0)
+       k = exp(k)
+       dk = dkop/k
+       return
+    endif
+    weight = 1.d0/kl
+    kopmin = log(kmin) + kmin/kl
+    kopmax = log(kmax) + kmax/kl
+    dkop = (kopmax-kopmin)/nk
+    call coop_set_uniform(nk, kop, kopmin+dkop/2.d0, kopmax-dkop/2.d0)
+    do i=1, nk
+       call coop_source_kop2k_noindex(kop(i), weight, k(i))
+       dk(i) = dkop*k(i)*kl/(k(i)+kl)
+    enddo
+    
+  end subroutine coop_lss_k_sampling
 
 end module coop_fisher_mod
