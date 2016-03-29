@@ -1016,9 +1016,9 @@ contains
     endif
     if(kl .gt. 0.99d10)then
        dkop = log(kmax/kmin)/nk
-       call coop_set_uniform(nk, k, log(kmin)-dkop/2.d0, log(kmax)+dkop/2.d0)
+       call coop_set_uniform(nk, k, log(kmin)+dkop/2.d0, log(kmax)-dkop/2.d0)
        k = exp(k)
-       dk = dkop/k
+       dk = dkop*k
        return
     endif
     weight = 1.d0/kl
