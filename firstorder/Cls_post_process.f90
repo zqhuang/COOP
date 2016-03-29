@@ -201,18 +201,17 @@ contains
   subroutine coop_get_zeta_trans_l(source, l, nr, r, trans)
     COOP_INT,parameter::n_threads = 16
     type(coop_cosmology_firstorder_source)::source
-    COOP_INT l, ik, ir, ichi, idense, isrc, i, nr, lasti, ithread
+    COOP_INT l, ik, ir, ichi, idense, isrc, i, nr, lasti
     COOP_REAL::r(nr), trans(nr, source%nsrc)
     COOP_REAL, dimension(:,:,:),allocatable::trans_chi_r
     logical,dimension(:),allocatable::computed
-    logical,dimension(:,:),allocatable::compute_chi
     COOP_REAL, dimension(:,:,:),allocatable::ampchi, phasechi, ampr, phaser
     COOP_REAL,dimension(:,:),allocatable::kwindow
-    COOP_REAL chi1, dchimin, kmax
+    COOP_REAL chi1, dchimin, kmax, step
     logical:: chi_r_overlap
     COOP_INT::nbuffer
 
-    allocate(trans_chi_r(source%nsrc, source%ntau, nr), ampchi(coop_k_dense_fac, source%nk, source%ntau), phasechi(coop_k_dense_fac, source%nk, source%ntau), ampr(coop_k_dense_fac, source%nk, nr), phaser(coop_k_dense_fac, source%nk, nr), computed(nr), kwindow(coop_k_dense_fac, source%nk), compute_chi(source%ntau, n_threads))
+    allocate(trans_chi_r(source%nsrc, source%ntau, nr), ampchi(coop_k_dense_fac, source%nk, source%ntau), phasechi(coop_k_dense_fac, source%nk, source%ntau), ampr(coop_k_dense_fac, source%nk, nr), phaser(coop_k_dense_fac, source%nk, nr), computed(nr), kwindow(coop_k_dense_fac, source%nk))
 
     kmax = 3.d0*max(l+0.5d0, 600.d0)/source%chi(1)
     !$omp parallel do private(ik, idense)
@@ -279,51 +278,34 @@ contains
     computed(1) = .true.
     lasti = 1
     ir = 1
+    step = min(0.0006*(1.d0+ (r(lasti)/source%distlss+source%distlss/r(lasti)-2.d0)), 0.015)*source%distlss
     do while(ir.lt.nr)
-       if(r(lasti) - r(ir) .lt. 0.002)then
+       if(r(lasti) - r(ir) .lt. step )then
           ir = ir + 1
        else
           computed(ir) = .true.
           lasti = ir
+          step = min(0.0006*(1.d0+ (r(lasti)/source%distlss+source%distlss/r(lasti)-2.d0)), 0.015)*source%distlss
        endif
     enddo
     computed(nr) = .true.
     trans_chi_r = 0.d0
-
-    !$omp parallel do private(ir, ichi, ithread, lasti)
-    do ithread = 1, n_threads
-       do ir = ithread, nr, n_threads
-          if(computed(ir))then
-!!$             compute_chi(1, ithread) = .true.
-!!$             lasti = 1
-!!$             do ichi=2, source%ntau-1
-!!$                if(source%chi(lasti)- source%chi(ichi) .lt. 0.8d-3 .and. abs(source%chi(ichi)-r(ir)).gt. 3.d-2*source%distlss )then
-!!$                   compute_chi(ichi, ithread) = .false.
-!!$                else
-!!$                   compute_chi(ichi, ithread) = .true.
-!!$                   lasti = ichi
-!!$                endif
-!!$             enddo
-!!$             compute_chi(source%ntau, ithread) = .true.
-             do ichi = 1, source%ntau
-                call coop_get_zeta_trans_l_step(source, l, nr, r, ichi, ir, trans_chi_r(:, ichi, ir), ampchi, phasechi, ampr, phaser, kwindow)
-!!$                if(compute_chi(ichi, ithread))call coop_get_zeta_trans_l_step(source, l, nr, r, ichi, ir, trans_chi_r(:, ichi, ir), ampchi, phasechi, ampr, phaser, kwindow)
-             enddo
- !!$            call coop_spline_fill(source%nsrc, source%ntau, source%chi, trans_chi_r(:, :, ir), compute_chi(:, ithread), .false., .false.)
-          endif
-       enddo
+    !$omp parallel do private(ir, ichi)
+    do ir = 1, nr
+       if(computed(ir))then
+          do ichi = 1, source%ntau
+             call coop_get_zeta_trans_l_step(source, l, nr, r, ichi, ir, trans_chi_r(:, ichi, ir), ampchi, phasechi, ampr, phaser, kwindow)
+          enddo
+       endif
     enddo
     !$omp end parallel do
-
-!!$    call coop_spline_fill(source%nsrc, source%ntau, nr, r, trans_chi_r, computed, .false., .false.)
-
     do isrc = 1, source%nsrc
        do ir = 1, nr
           if(computed(ir)) trans(ir, isrc) = (2.d0/coop_pi)*sum(trans_chi_r(isrc, :, ir)*source%dtau)*r(ir)**2
        enddo
        call coop_spline_fill(nr, r, trans(:, isrc), computed, .false., .false.)
     enddo
-    deallocate(trans_chi_r,ampchi, phasechi, ampr, phaser, computed, compute_chi, kwindow)
+    deallocate(trans_chi_r,ampchi, phasechi, ampr, phaser, computed)
     call coop_jl_destroy_amp_phase(l)
   end subroutine coop_get_zeta_trans_l
 

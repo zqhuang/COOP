@@ -13,9 +13,9 @@ program shells
   type(coop_cosmology_firstorder)::cosmology
   type(coop_function)::deltaN
   COOP_REAL,parameter::sigma_zeta = 4.6d-5
-  COOP_INT,parameter::lmax = 250
+  COOP_INT,parameter::lmax = 320
   COOP_INT,parameter::nside = 256
-  COOP_REAL,parameter::fwhm_arcmin = 120.d0
+  COOP_REAL,parameter::fwhm_arcmin = 60.d0
   COOP_REAL::sigma_chi = 1.d-7
   COOP_REAL::mean_chi = 5.8d-6
   COOP_REAL::gp_width = 3.

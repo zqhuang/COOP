@@ -30,7 +30,9 @@ contains
     COOP_UNKNOWN_STRING::prefix
     COOP_UNKNOWN_STRING::mapprefix
     COOP_REAL, optional::fwhm_arcmin
-    COOP_INT::l, lmax, nside, m1, m2, m3, i
+    COOP_INT::l, lmax, nside, m1, m2, m3, i, nlc, isrc
+    COOP_INT, dimension(:),allocatable::computed_ells
+    COOP_REAL, dimension(:),allocatable::computed_trans,computed_trans2,  rls
     logical::need_compute
     type(coop_file)fp
     type(coop_healpix_maps)::hm, zeta
@@ -81,12 +83,25 @@ contains
        endif
        if(need_compute)then
           call coop_feedback("Computing transfer function.")
-          !$omp parallel do
-          do l=2, lmax
-             call coop_get_zeta_trans_l(cosmology%source(0),  l, coop_zeta_nr, coop_zeta_r, coop_zeta3d_trans(:,:,l))
-             coop_zeta3d_trans(:,2,l) = coop_zeta3d_trans(:,2,l)*sqrt((l+2.)*(l+1.)*l*(l-1.))
+          nlc = coop_nl_range(lmin = 2, lmax = lmax)
+          allocate(computed_ells(nlc), computed_trans(nlc), computed_trans2(nlc), rls(nlc))
+          call coop_set_ells(computed_ells, 2, lmax)
+          rls = computed_ells
+          !$omp parallel do 
+          do i = 1, nlc
+             call coop_get_zeta_trans_l(cosmology%source(0),  computed_ells(i), coop_zeta_nr, coop_zeta_r, coop_zeta3d_trans(:,:,computed_ells(i)))
+             coop_zeta3d_trans(:,coop_index_source_E, computed_ells(i)) = coop_zeta3d_trans(:,coop_index_source_E,computed_ells(i))*sqrt((computed_ells(i)+2.)*(computed_ells(i)+1.)*computed_ells(i)*(computed_ells(i)-1.))
           enddo
           !$omp end parallel do
+          do isrc = 1, cosmology%source(0)%nsrc
+             do i = 1, coop_zeta_nr
+                computed_trans = coop_zeta3d_trans(i, isrc, computed_ells)
+                call coop_spline(nlc, rls, computed_trans, computed_trans2)
+                do l = 2, lmax
+                   call coop_splint(nlc, rls, computed_trans, computed_trans2, dble(l), coop_zeta3d_trans(i, isrc, l))
+                enddo
+             enddo
+          enddo
           call fp%open(trim(prefix)//"_trans_"//COOP_STR_OF(lmax)//".dat", "u")
           write(fp%unit)  cosmology%source(0)%nsrc, coop_zeta_nr, lmax
           write(fp%unit) coop_zeta3d_trans
