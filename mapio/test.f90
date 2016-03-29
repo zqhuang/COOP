@@ -13,8 +13,9 @@ program shells
   type(coop_cosmology_firstorder)::cosmology
   type(coop_function)::deltaN
   COOP_REAL,parameter::sigma_zeta = 4.6d-5
-  COOP_INT,parameter::lmax = 300
+  COOP_INT,parameter::lmax = 250
   COOP_INT,parameter::nside = 256
+  COOP_REAL,parameter::fwhm_arcmin = 120.d0
   COOP_REAL::sigma_chi = 1.d-7
   COOP_REAL::mean_chi = 5.8d-6
   COOP_REAL::gp_width = 3.
@@ -29,9 +30,9 @@ program shells
   call coop_feedback("source done")
 #ifdef BILLIARDS
   write(*,*) "<chi> = ", mean_chi
-  call coop_zeta3d_generate_cmb( cosmology, fnl, lmax, nside, "zetaproj/testmap", "zetaproj/gp_meanchi"//COOP_STR_OF(nint(mean_chi*1.e7))//"_sigmachi"//COOP_STR_OF(nint(sigma_chi*1.e7)) )
+  call coop_zeta3d_generate_cmb( cosmology, fnl, lmax, nside, "zetaproj/testmap", "zetaproj/gp_meanchi"//COOP_STR_OF(nint(mean_chi*1.e7))//"_sigmachi"//COOP_STR_OF(nint(sigma_chi*1.e7)) , fwhm_arcmin = fwhm_arcmin)
 #else
-  call coop_zeta3d_generate_cmb( cosmology, fnl, lmax, nside, "zetaproj/testmap", "zetaproj/gs_amp"//COOP_STR_OF(nint(1.e6*gp_A))//"_mean"//COOP_STR_OF(nint(gp_mean))//"_width"//COOP_STR_OF(nint(gp_width)) )
+  call coop_zeta3d_generate_cmb( cosmology, fnl, lmax, nside, "zetaproj/testmap", "zetaproj/gs_amp"//COOP_STR_OF(nint(1.e6*gp_A))//"_mean"//COOP_STR_OF(nint(gp_mean))//"_width"//COOP_STR_OF(nint(gp_width))  , fwhm_arcmin = fwhm_arcmin)
 #endif
 
 contains
