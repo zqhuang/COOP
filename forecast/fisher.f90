@@ -670,7 +670,7 @@ contains
           write(*,*)  "param["//trim(ls%element(i))//"] = fiducial step1 step2 prior"
           stop
        endif
-       call this%paramtable%insert(trim(ls%element(i)), this%params(i))
+       call this%paramtable%insert(trim(ls%element(i)), this%params(i), overwrite = .false.)
     enddo
     call ls%free()
     call lr%free()

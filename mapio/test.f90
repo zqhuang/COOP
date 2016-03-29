@@ -11,9 +11,10 @@ program shells
   implicit none
 #include "constants.h"
   type(coop_cosmology_firstorder)::cosmology
+  COOP_STRING::fnl_option = "g"
   type(coop_function)::deltaN
   COOP_REAL,parameter::sigma_zeta = 4.6d-5
-  COOP_INT,parameter::lmax = 320
+  COOP_INT,parameter::lmax = 50
   COOP_INT,parameter::nside = 256
   COOP_REAL,parameter::fwhm_arcmin = 60.d0
   COOP_REAL::sigma_chi = 1.d-7
@@ -23,21 +24,28 @@ program shells
   COOP_REAL::gp_mean = 12.
   COOP_SINGLE::resolution = 1. !!In unit of h^{-1}Mpc
   COOP_INT:: i, j
-
+  if(iargc().gt.0) fnl_option = trim(coop_InputArgs(1))
   call coop_file_load_function("deltaN-LUT-1.875", 1, 2, deltaN, .false.)
   call cosmology%Set_Planck_bestfit()
   call cosmology%compute_source(0)
   call coop_feedback("source done")
-#ifdef BILLIARDS
-  write(*,*) "<chi> = ", mean_chi
-  call coop_zeta3d_generate_cmb( cosmology, fnl, lmax, nside, "zetaproj/testmap", "zetaproj/gp_meanchi"//COOP_STR_OF(nint(mean_chi*1.e7))//"_sigmachi"//COOP_STR_OF(nint(sigma_chi*1.e7)) , fwhm_arcmin = fwhm_arcmin)
-#else
-  call coop_zeta3d_generate_cmb( cosmology, fnl, lmax, nside, "zetaproj/testmap", "zetaproj/gs_amp"//COOP_STR_OF(nint(1.e6*gp_A))//"_mean"//COOP_STR_OF(nint(gp_mean))//"_width"//COOP_STR_OF(nint(gp_width))  , fwhm_arcmin = fwhm_arcmin)
-#endif
+  select case(trim(fnl_option))
+  case("i")
+     call coop_zeta3d_generate_cmb( cosmology, identity, lmax, nside, "zetaproj/testmap", "zetaproj/nm" , fwhm_arcmin = fwhm_arcmin)
+  case("b")
+     call coop_zeta3d_generate_cmb( cosmology, fnl, lmax, nside, "zetaproj/testmap", "zetaproj/gp_meanchi"//COOP_STR_OF(nint(mean_chi*1.e7))//"_sigmachi"//COOP_STR_OF(nint(sigma_chi*1.e7)) , fwhm_arcmin = fwhm_arcmin)
+  case("g")
+     call coop_zeta3d_generate_cmb( cosmology, fnl, lmax, nside, "zetaproj/testmap", "zetaproj/gs_amp"//COOP_STR_OF(nint(1.e6*gp_A))//"_mean"//COOP_STR_OF(nint(gp_mean))//"_width"//COOP_STR_OF(nint(gp_width))  , fwhm_arcmin = fwhm_arcmin)
+  end select
 
 contains
 
   !!define the fnl function of zeta; my convention of \zeta is:  \zeta = - \delta N (this determines the relative sign between \zeta and \Phi when I set up initial conditions in the Boltzmann code).
+
+  subroutine identity(x, pixsize)
+    COOP_SINGLE x, pixsize
+    return
+  end subroutine identity
 
   function fnl_raw(x) result(y)
     COOP_SINGLE x, y

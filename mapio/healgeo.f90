@@ -1071,7 +1071,7 @@ contains
        enddo
        call this%simulate_Tmaps(this%nside, this%lmax, sqrtCls)
        deallocate(sqrtCls)
-    elseif(this%nmaps.eq.3 .and. this%iq .eq.2)then
+    elseif(this%nmaps.eq.3)then
        allocate(Cls_sqrteig(3, 0:this%lmax), Cls_rot(3,3,0:this%lmax))
        call coop_healpix_Cls2Rot(0,this%lmax, this%Cl(0:this%lmax, 1:6), Cls_sqrteig, Cls_rot)
        if(this%spin(2).eq.2)then
