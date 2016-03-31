@@ -102,7 +102,7 @@ contains
           a = 1.d0/(1.d0+this%nuis(1,idata))
           Hz = cosmology%Hratio(a)
           dobs(1, idata) = (b0(iz) + b2(iz)*this%nuis(2, idata)**2 &
-               +  cosmology%fgrowth_of_z(z=this%nuis(1, idata), k=this%nuis(2, idata))*this%nuis(3,idata)**2) &
+               +  cosmology%fgrowth_of_z(z=this%nuis(1, idata), k=this%nuis(2, idata))*this%nuis(3,idata)**2)**2 &
                * cosmology%smeared_matter_power(z=this%nuis(1, idata), k=this%nuis(2, idata), nw = this%window_used(iz), kw = this%window_modes(1:this%window_used(iz), iz), wsq = this%window_wsq(1:this%window_used(iz), iz) ) * ((coop_pi**2*2.d0)/this%nuis(2, idata)**3) &
                * exp(-sr2*((1.d0+this%nuis(1,idata))/Hz *this%nuis(2,idata)*this%nuis(3,idata))**2)*(this%h_calibrate/cosmology%h())**3 - this%obs(1, idata)
        enddo
@@ -201,7 +201,7 @@ contains
           a = 1.d0/(1.d0+this%nuis(1,idata))
           Hz = cosmology%Hratio(a)
           bias = (b0(iz) + b2(iz)*this%nuis(2, idata)**2 &
-               +  cosmology%fgrowth_of_z(z=this%nuis(1, idata), k=this%nuis(2, idata))*this%nuis(3,idata)**2) 
+               +  cosmology%fgrowth_of_z(z=this%nuis(1, idata), k=this%nuis(2, idata))*this%nuis(3,idata)**2) **2
           mpk = cosmology%smeared_matter_power(z=this%nuis(1, idata), k=this%nuis(2, idata), nw = this%window_used(iz), kw = this%window_modes(1:this%window_used(iz), iz), wsq = this%window_wsq(1:this%window_used(iz), iz) ) * ((coop_pi**2*2.d0)/this%nuis(2, idata)**3)
           this%obs(1, idata) = bias * mpk * exp(-sr2*((1.d0+this%nuis(1,idata))/Hz *this%nuis(2,idata)*this%nuis(3,idata))**2)
           this%invcov(1,1,idata) = (this%nuis(2,idata)**2*this%nuis(5,idata) &

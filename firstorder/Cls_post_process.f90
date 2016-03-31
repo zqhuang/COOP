@@ -42,13 +42,18 @@ contains
     shell%lmax = -1
   end subroutine coop_zeta_shell_free
 
-  subroutine coop_zeta_shell_map_project(shell, fnl, lmax, alm_total, weight)
+  subroutine coop_zeta_shell_map_project(shell, fnl, lmax, alm_total, weight, alm_total2, weight2, alm_total3, weight3)
     class(coop_zeta_shell)::shell
     external fnl  !!subroutine fnl(zeta, pixsize) 
     COOP_INT lmax, l, m
     COOP_REAL weight(0:lmax)
+    COOP_REAL,optional:: weight2(0:lmax)
+    COOP_REAL,optional:: weight3(0:lmax)
     COOP_SINGLE::pixsize
     COOP_SINGLE_COMPLEX alm_total(0:lmax, 0:lmax)
+    COOP_SINGLE_COMPLEX,optional:: alm_total2(0:lmax, 0:lmax)
+    COOP_SINGLE_COMPLEX,optional:: alm_total3(0:lmax, 0:lmax)
+    
 #if HAS_HEALPIX
     COOP_SINGLE, dimension(:),allocatable::map
     COOP_INT npix, nside, i
@@ -76,13 +81,24 @@ contains
     do l=2, shell%lmax
        alm_total(l, 0:l) =   alm_total(l, 0:l) + alms(l, 0:l, 1)*weight(l)
     enddo
-
+    if(present(weight2) .and. present(alm_total2))then
+       do l=2, shell%lmax
+          alm_total2(l, 0:l) =   alm_total2(l, 0:l) + alms(l, 0:l, 1)*weight2(l)
+       enddo
+    endif
+    if(present(weight3) .and. present(alm_total3))then
+       do l=2, shell%lmax
+          alm_total3(l, 0:l) =   alm_total3(l, 0:l) + alms(l, 0:l, 1)*weight3(l)
+       enddo
+    endif
     deallocate(alms, map)
 #else
     call coop_return_error("zeta_shell_map_project", "Cannot find Healpix", "stop")
 #endif
     
   end subroutine coop_zeta_shell_map_project
+
+
 
 
   subroutine coop_zeta_shell_set_lmax(shell, lmax)
@@ -132,17 +148,19 @@ contains
     COOP_INT::lmax, nr, l, ir_start, ir_end, nused, nm, i
     COOP_REAL::alm_real(-lmax:lmax, nr), r(nr)
     COOP_REAL::cov(ir_end - ir_start + 1, ir_end - ir_start + 1)
+    COOP_INT::info
     if(l.le.1 .or. l.gt.lmax)then
        return
     endif
     nused = ir_end - ir_start + 1
     call coop_get_zeta_shells_cov(cosmology, l, nused, r(ir_start:ir_end), cov)
-    call coop_matsym_sqrt(Cov)
+    call coop_cholesky(nused, nused, Cov, info)
+    if(info .ne. 0) stop "zeta covariance matrix not positive definite?"
     nm = 2*l+1
     do i= ir_start, ir_end
        call coop_random_get_Gaussian_vector(nm, alm_real(-l:l, i))
     end do
-    alm_real(-l:l,ir_start:ir_end) = matmul(alm_real(-l:l,ir_start:ir_end), Cov)
+    alm_real(-l:l,ir_start:ir_end) = matmul(alm_real(-l:l,ir_start:ir_end), transpose(cov))
   end subroutine coop_generate_3dzeta_partial
 
 
@@ -156,7 +174,7 @@ contains
           cov(i, j) = cosmology%Clzetazeta(l, r(i), r(j))
           cov(j, i) = cov(i, j)
        enddo
-       cov(i, i) = cosmology%Clzetazeta(l, r(i))+1.d-20  !!add small tiny number for stability
+       cov(i, i) = cosmology%Clzetazeta(l, r(i))*(1.d0+1.d-10) + 1.d-20  !!add small tiny number for stability
     enddo
     !$omp end parallel do
 

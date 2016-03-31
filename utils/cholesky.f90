@@ -87,7 +87,7 @@ contains
 
   subroutine coop_cholesky(m, n, a, info)
     COOP_INT m, n, i, j, info
-    COOP_REAL a(m, n), mineig
+    COOP_REAL a(m, n)
     info = 0
 #ifdef HAS_LAPACK
     call dpotrf('L', n, a, m, info)
