@@ -28,6 +28,9 @@ PLOTLINES: $(OBJ) plot_lines.o
 NAREAS: $(OBJ) count_areas.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) count_areas.o $(LINK)
 
+FDUST: $(OBJ) filter_dust.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) filter_dust.o $(LINK)
+
 MM0:	$(OBJ) minkowski0.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) minkowski0.o $(LINK)
 
