@@ -12,17 +12,18 @@ program map
   implicit none
 #include "constants.h"
 #ifdef HAS_HEALPIX  
-  integer,parameter::nmax = 8
+  COOP_INT::fail_times = 0
+  COOP_INT,parameter::nmax = 8
   character(len=80), dimension(64) :: header
   COOP_STRING,dimension(nmax)::fin
   COOP_STRING::fout, fbeam, field
-  integer,dimension(:),allocatable::nmaps_in, ordering_in, nside_in
-  integer nin, i, j, l, il, l1, l2, pix
+  COOP_INT,dimension(:),allocatable::nmaps_in, ordering_in, nside_in
+  COOP_INT nin, i, j, l, il, l1, l2, pix
   real,dimension(:,:),allocatable:: map_tmp
-  integer(8) npixtot
+  COOP_LONG_INT npixtot
   type(coop_list_integer),dimension(nmax)::indices_wanted
   COOP_STRING::inline
-  integer num_maps_wanted, npix, k
+  COOP_INT num_maps_wanted, npix, k
   logical::inline_mode = .false.
   type(coop_healpix_maps) hgm, hgm2, mask
   COOP_REAL fwhm, scal, threshold, eig_p, eig_n, pol_amp
@@ -32,7 +33,7 @@ program map
   nin = 1
   inline_mode =  (iargc() .gt. 0)
   if(.not. inline_mode)then
-     write(*,*) "options are: SPLIT; SMOOTH; DOBEAM; MULTIPLY;I2TQTUT;I2TQUL;I2TQULDD;I2TQUL6D;IQU2TEB;T2ZETA; IQU2ZETA; QU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE; HIGHPASS; LOWPASS; LOG; LOGIQU; GAUSSIANIZE"
+     write(*,*) "options are: SPLIT; SMOOTH; DOBEAM; MULTIPLY;I2TQTUT;I2TQUL;I2TQULDD;I2TQUL6D;IQU2TEB;T2ZETA; IQU2ZETA; QU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE; HIGHPASS; LOWPASS; LOG; EXP; LOGIQU; EXPIQU; GAUSSIANIZE"
   endif
   do while(nin .le. nmax)
      if(inline_mode)then
@@ -248,7 +249,7 @@ program map
         do i=1, nin
            call hgm%read(trim(fin(i)))
            do j = 1, hgm%nmaps
-              scal = sqrt(sum(hgm%map(:, j)**2)/hgm%npix)/100.d0
+              scal = sqrt(sum(hgm%map(:, j)**2)/hgm%npix)*1.e-12
               hgm%map(:, j) = log(max(hgm%map(:, j), 0.)+scal)
            enddo
            call hgm%set_fields("LNI")
@@ -257,19 +258,43 @@ program map
         enddo
         call hgm%free
         goto 500
+     case("EXP")
+        nin  = nin - 1
+        do i=1, nin
+           call hgm%read(trim(fin(i)))
+           hgm%map = exp(hgm%map)
+           call hgm%set_fields("I")
+           call hgm%set_units("muK")
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_exp")))
+        enddo
+        call hgm%free
+        goto 500
      case("LOGIQU")
         nin  = nin - 1
         do i=1, nin
            call hgm%read(trim(fin(i)), nmaps_wanted = 3)
-           scal = sqrt(sum(hgm%map(:, 1)**2)/hgm%npix)/100.d0
-           !$omp parallel do private(eig_p, eig_n, pol_amp, pix)
+           scal = sqrt(sum(hgm%map(:, 1)**2)/hgm%npix)*1.d-12
+           fail_times = 0
+           !$omp parallel do private(eig_p, eig_n, pol_amp, pix) reduction(+:fail_times)
            do pix = 0, hgm%npix-1
-              hgm%map(pix, 1) = max(0., hgm%map(pix, 1)) + scal
-              pol_amp = max(min(sqrt(hgm%map(pix, 2)**2 + hgm%map(pix, 3)**2)/hgm%map(pix, 1), 0.9999), 0.0001)
-              eig_p = log(hgm%map(pix, 1) + pol_amp)
-              eig_n = log(hgm%map(pix, 1) - pol_amp)
-              hgm%map(pix, 1) = 0.5d0 * (eig_p + eig_n)
-              hgm%map(pix, 2:3) = hgm%map(pix, 2:3) * (0.5d0 * (eig_p - eig_n)/pol_amp)
+              if(hgm%map(pix,1) .le. 0.d0)then
+                 fail_times = fail_times + 1
+                 hgm%map(pix,1) = scal
+              endif
+              pol_amp = sqrt(hgm%map(pix, 2)**2 + hgm%map(pix, 3)**2)
+              if(pol_amp .le. 0.d0)then
+                 hgm%map(pix,1) = log(hgm%map(pix,1))
+                 hgm%map(pix,2:3) = 0.
+              elseif(pol_amp .ge. hgm%map(pix,1)*0.99)then
+                 hgm%map(pix,1) = log(hgm%map(pix,1))
+                 hgm%map(pix,2:3) = 0.
+                 fail_times = fail_times + 1
+              else
+                 eig_p = log(hgm%map(pix, 1) + pol_amp)
+                 eig_n = log(hgm%map(pix, 1) - pol_amp)
+                 hgm%map(pix, 1) = 0.5d0 * (eig_p + eig_n)
+                 hgm%map(pix, 2:3) = hgm%map(pix, 2:3) * (0.5d0 * (eig_p - eig_n)/pol_amp)
+              endif
            enddo
            !$omp end parallel do
            call hgm%set_units("1")
@@ -277,6 +302,28 @@ program map
            call hgm%set_field(2, "LNQ")
            call hgm%set_field(3, "LNU")           
            call hgm%write(trim(coop_file_add_postfix(fin(i), "_ln")))           
+           write(*,*) trim(fin(i))//" number of negative pixels (cannot take log): "//COOP_STR_OF(fail_times)
+        enddo
+        call hgm%free
+        goto 500                
+     case("EXPIQU")
+        nin  = nin - 1
+        do i=1, nin
+           call hgm%read(trim(fin(i)), nmaps_wanted = 3)
+           !$omp parallel do private(eig_p, eig_n, pol_amp, pix)
+           do pix = 0, hgm%npix-1
+              pol_amp = sqrt(hgm%map(pix, 2)**2 + hgm%map(pix, 3)**2)
+              eig_p = exp(hgm%map(pix, 1) + pol_amp)
+              eig_n = exp(hgm%map(pix, 1) - pol_amp)
+              hgm%map(pix, 1) = 0.5d0 * (eig_p + eig_n)
+              hgm%map(pix, 2:3) = hgm%map(pix, 2:3) * (0.5d0 * (eig_p - eig_n)/pol_amp)
+           enddo
+           !$omp end parallel do
+           call hgm%set_units("muK")
+           call hgm%set_field(1, "I")
+           call hgm%set_field(2, "Q")
+           call hgm%set_field(3, "U")           
+           call hgm%write(trim(coop_file_add_postfix(fin(i), "_exp")))   
         enddo
         call hgm%free
         goto 500                
@@ -559,6 +606,12 @@ program map
      write(*,*) "map "//COOP_STR_OF(i)//":"
      read(*,*) field
      call hgm%set_field(i, field)
+  enddo
+  write(*,*) "enter the unit of each map"  
+  do i=1, hgm%nmaps
+     write(*,*) "map "//COOP_STR_OF(i)//":"
+     read(*,*) field
+     call hgm%set_unit(i, field)
   enddo
   call coop_delete_file(trim(fout))
   call hgm%write(trim(fout))

@@ -7,7 +7,7 @@ module coop_firstorder_mod
 #include "constants.h"
   private
 
-  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe,  coop_next_l, coop_nl_range, coop_set_ells, coop_num_user_defined_params, coop_source_kop2k_noindex
+  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe,  coop_num_user_defined_params, coop_source_kop2k_noindex
 
 
 !!recfast head file
@@ -334,37 +334,6 @@ contains
 100 deallocate(ls_computed, Cls_computed,Cls2_computed)
 
   end subroutine coop_cosmology_firstorder_source_get_All_Cls
-
-  subroutine coop_next_l(l)
-    COOP_INT::l
-    l = l + min(60, 12 + l/30, max(1, l/3))
-  end subroutine coop_next_l
-
-  function coop_nl_range(lmin, lmax) result(nl)
-    COOP_INT::lmin, lmax
-    COOP_INT::l, nl
-    l = lmin
-    nl = 1
-    do while(l .lt. lmax)
-       nl = nl + 1
-       call coop_next_l(l)
-    enddo
-  end function coop_nl_range
-
-
-  subroutine coop_set_ells(ells, lmin, lmax)
-    COOP_INT::nl, lmax, l, lmin
-    COOP_INT::ells(:)
-    l = lmin
-    nl = 0
-    do while(l .lt. lmax)
-       nl = nl + 1
-       ells(nl) = l
-       call coop_next_l(l)
-    enddo
-    nl = nl + 1
-    ells(nl) = lmax
-  end subroutine coop_set_ells
 
 
   subroutine coop_cosmology_firstorder_compute_source(this, m, success)

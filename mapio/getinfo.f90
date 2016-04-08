@@ -15,6 +15,7 @@ program map
   COOP_STRING::fin, gif, fmask
   COOP_REAL mean, rms, mapmax, mapmin
   integer nside, nmaps, ordering, i, imap
+  character::yn
   type(coop_healpix_maps)::hgm, mask
   logical::has_mask
   COOP_REAL::weight
@@ -72,6 +73,10 @@ program map
         write(*, "(A)") "    mean = "//COOP_STR_OF(mean)
         write(*, "(A)") "    rms = "//COOP_STR_OF(rms)
      enddo
+     write(*,*) "Print the HEADER (Y/N)?"
+     read(*,*) yn
+     if(yn .eq. "y" .or. yn .eq. "Y") &
+          call hgm%header%print()
      call hgm%free()
   else
      write(*,"(A)") trim(fin)//" does not exist"

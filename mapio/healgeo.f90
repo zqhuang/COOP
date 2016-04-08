@@ -1140,21 +1140,38 @@ contains
   end subroutine coop_healpix_maps_simulate_Tmaps
 
 
-  subroutine coop_healpix_maps_get_cls(this) !!I assume you have already called    this%map2alm()
+  subroutine coop_healpix_maps_get_cls(this, cross) !!I assume you have already called    this%map2alm()
     class(coop_healpix_maps)this
+    type(coop_healpix_maps),optional::cross
     COOP_INT l, m, i, j, k
     if(.not.allocated(this%alm)) stop "coop_healpix_maps_get_cls: you have to call coop_healpix_maps_map2alm before calling this subroutine"
-    this%cl = 0.
-    !$omp parallel do private(i,j,k,l)
-    do i=1, this%nmaps
-       do j=1, i
-          k = COOP_MATSYM_INDEX(this%nmaps, i, j)
-          do l = 0, this%lmax
-             this%Cl(l, k) = (sum(COOP_MULT_REAL(this%alm(l, 1:l, i), this%alm(l, 1:l, j))) + 0.5d0 * COOP_MULT_REAL(this%alm(l,0,i), this%alm(l,0,j)) )/(l+0.5d0)
+    if(present(cross))then
+       if(cross%nmaps .ne. this%nmaps) stop "cross power spectrum: nmaps differ"
+       if(.not. allocated(cross%alm)) stop "coop_healpix_maps_get_cls: you have to call coop_healpix_maps_map2alm before calling this subroutine"
+       this%cl = 0.
+       !$omp parallel do private(i,j,k,l)
+       do i=1, this%nmaps
+          do j=1, i
+             k = COOP_MATSYM_INDEX(this%nmaps, i, j)
+             do l = 0, this%lmax
+                this%Cl(l, k) = (sum(COOP_MULT_REAL(this%alm(l, 1:l, i), cross%alm(l, 1:l, j))) + 0.5d0 * COOP_MULT_REAL(this%alm(l,0,i), cross%alm(l,0,j)) )/(l+0.5d0)
+             enddo
           enddo
        enddo
-    enddo
-    !$omp end parallel do
+       !$omp end parallel do
+    else
+       this%cl = 0.
+       !$omp parallel do private(i,j,k,l)
+       do i=1, this%nmaps
+          do j=1, i
+             k = COOP_MATSYM_INDEX(this%nmaps, i, j)
+             do l = 0, this%lmax
+                this%Cl(l, k) = (sum(COOP_MULT_REAL(this%alm(l, 1:l, i), this%alm(l, 1:l, j))) + 0.5d0 * COOP_MULT_REAL(this%alm(l,0,i), this%alm(l,0,j)) )/(l+0.5d0)
+             enddo
+          enddo
+       enddo
+       !$omp end parallel do
+    endif
   end subroutine coop_healpix_maps_get_cls
 
   subroutine coop_healpix_Cls2Rot(lmin, lmax, Cls, Cls_sqrteig, Cls_rot)
@@ -2581,7 +2598,7 @@ contains
     if(present(fwhm))then
        c = sign((coop_sigma_by_fwhm * fwhm)**2/2., fwhm)
        !$omp parallel do
-       do l = 0,  this%lmax
+       do l = 1,  this%lmax
           w(l) = w(l)*exp(-l*(l+1.)*c)
        enddo
        !$omp end parallel do
