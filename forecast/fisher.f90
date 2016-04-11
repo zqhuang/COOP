@@ -440,13 +440,13 @@ contains
              else
                 read(windowfile, *) sigma_W
                 sigma_W = sigma_W / coop_H0_unit
-                this%window_modes(1) = sigma_W
-                this%window_Wsq(1) = exp(-1.d0)
+                this%window_modes(1, iz) = sigma_W
+                this%window_Wsq(1, iz) = exp(-1.d0)
              endif
           else
              sigma_W = kmin(iz)
-             this%window_modes(1) = sigma_W
-             this%window_Wsq(1) = exp(-1.d0)
+             this%window_modes(1,iz) = sigma_W
+             this%window_Wsq(1,iz) = exp(-1.d0)
           endif
        enddo
        call coop_dictionary_lookup(this%settings, "kmax", lr)
