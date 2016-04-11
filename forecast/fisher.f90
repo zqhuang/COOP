@@ -399,13 +399,13 @@ contains
              if(coop_file_exists(windowfile))then
                 this%window_used(iz) = coop_file_NumLines(windowfile)
              elseif(coop_is_number(windowfile))then
-                this%window_used(iz) = 50
+                this%window_used(iz) = 1
              else
                 write(*,*) "the window file "//trim(windowfile)//" does not exist"
                 stop
              endif
           else
-             this%window_used(iz) = 50
+             this%window_used(iz) = 1
           endif
           if(this%window_used(iz).gt. this%n_window) this%n_window = this%window_used(iz)
        enddo
@@ -440,13 +440,13 @@ contains
              else
                 read(windowfile, *) sigma_W
                 sigma_W = sigma_W / coop_H0_unit
-                call coop_set_uniform(this%window_used(iz), this%window_modes(1:this%window_used(iz), iz), 0.d0, sigma_W*4.5d0)
-                this%window_Wsq(1:this%window_used(iz), iz) = exp(- (this%window_modes(1:this%window_used(iz), iz)/sigma_W)**2 )  
+                this%window_modes(1) = sigma_W
+                this%window_Wsq(1) = exp(-1.d0)
              endif
           else
              sigma_W = kmin(iz)
-             call coop_set_uniform(this%window_used(iz), this%window_modes(1:this%window_used(iz), iz), 0.d0, sigma_W*4.5d0)
-             this%window_Wsq(1:this%window_used(iz), iz) = exp(- (this%window_modes(1:this%window_used(iz), iz)/sigma_W)**2 )  
+             this%window_modes(1) = sigma_W
+             this%window_Wsq(1) = exp(-1.d0)
           endif
        enddo
        call coop_dictionary_lookup(this%settings, "kmax", lr)

@@ -40,6 +40,7 @@ program test
   call coop_pseudoCl_get_kernel_pol(lmax_mask = lmax_mask, Cl_mask = Cl_mask, lmin = lmin, lmax = lmax, kernel = kernel)
 
   call hm1%apply_mask(mask)
+  call hm2%apply_mask(mask)
   call hm1%map2alm(lmax = lmax)
   call hm2%map2alm(lmax = lmax)
   call hm1%get_cls(cross = hm2)

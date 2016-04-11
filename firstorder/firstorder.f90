@@ -949,6 +949,10 @@ contains
     COOP_INT, parameter::ntheta = 72
     COOP_REAL::dcost, kp(nw),  Pkp(nw), dk3Wsq(nw),  kcost, ksq, mu
     COOP_INT::itheta, iw
+    if(nw .eq. 1)then !!assume Gaussian window, sigma_W = kw(1)
+       pk = this%Gaussian_smeared_matter_power(z, k, kw(1))
+       return
+    endif
     Pk = 0.d0
     dcost = 2.d0/ntheta
     ksq = k**2
@@ -970,6 +974,7 @@ contains
   end function coop_cosmology_firstorder_smeared_matter_power
 
 
+  !!W^2  = exp(-k^2/sigma_W^2)
   function coop_cosmology_firstorder_Gaussian_smeared_matter_power(this, z,  k, sigma_W) result(Pk)
     class(coop_cosmology_firstorder)::this
     COOP_INT,parameter::nkp = 300
