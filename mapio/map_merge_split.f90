@@ -33,7 +33,7 @@ program map
   nin = 1
   inline_mode =  (iargc() .gt. 0)
   if(.not. inline_mode)then
-     write(*,*) "options are: SPLIT; SMOOTH; DOBEAM; MULTIPLY;I2TQTUT;I2TQUL;I2TQULDD;I2TQUL6D;IQU2TEB;T2ZETA; IQU2ZETA; QU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE; HIGHPASS; LOWPASS; LOG; EXP; LOGIQU; EXPIQU; GAUSSIANIZE"
+     write(*,*) "options are: SPLIT; SMOOTH; GSMOOTH; DOBEAM; MULTIPLY;I2TQTUT;I2TQUL;I2TQULDD;I2TQUL6D;IQU2TEB;T2ZETA; IQU2ZETA; QU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE; HIGHPASS; LOWPASS; LOG; EXP; LOGIQU; EXPIQU; GAUSSIANIZE"
   endif
   do while(nin .le. nmax)
      if(inline_mode)then
@@ -187,6 +187,29 @@ program map
            call coop_healpix_smooth_mapfile(trim(fin(i)), fwhm)
         enddo
         print*, "maps are all smoothed"
+        goto 500
+     case("GSMOOTH")
+        if(inline_mode)then
+           inline = coop_inputArgs(nin+1)
+           read(inline, *) fwhm
+           inline = coop_inputArgs(nin+2)
+           read(inline, *) l1
+           inline = coop_inputArgs(nin+3)
+           read(inline, *) l2
+        else
+           write(*,*) "Enter the fwhm in arcmin:"
+           read(*,*) fwhm
+           write(*, *) "Eneter highpass l1"
+           read(*, *) l1
+           write(*, *) "Eneter highpass l2"
+           read(*, *) l2
+        endif
+        fwhm = fwhm*coop_SI_arcmin
+        nin = nin -1
+        do i=1, nin
+           call coop_healpix_gsmooth_mapfile(trim(fin(i)), fwhm = fwhm, highpass_l1 = l1, highpass_l2 = l2)
+        enddo
+        print*, "maps are all gsmoothed"
         goto 500
      case("SCALE")
         if(inline_mode)then

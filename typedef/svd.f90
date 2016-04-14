@@ -36,12 +36,12 @@ contains
 
 
   !! SVD decomposition a = U diag(w) V^T, the output is w and V, a is replaced with U
-  subroutine coop_svd_decompose(m, n, a, w, v)
+  recursive subroutine coop_svd_decompose(m, n, a, w, v)
     COOP_INT,parameter::maxits = 30
     COOP_INT m, n
-    COOP_REAL, INTENT(INOUT) :: a(m, n)
-    COOP_REAL, INTENT(OUT) :: w(n)
-    COOP_REAL, INTENT(OUT) :: v(n, n)
+    COOP_REAL, INTENT(INOUT) :: a(:, :)
+    COOP_REAL, INTENT(OUT) :: w(:)
+    COOP_REAL, INTENT(OUT) :: v(:, :)
     COOP_INT :: i,its,j,k,l,nm
     COOP_REAL :: anorm,c,f,g,h,s,scale,x,y,z
     COOP_REAL tempm(m), rv1(n),tempn(n)
@@ -66,6 +66,13 @@ contains
     v = transpose(v)
     return
 #endif
+    if(size(a, 1) .ne. m .or. size(a, 2) .lt. max(m, n) .or. size(w) .lt. max(m, n) .or. size(v,1).ne. n .or. size(v, 2) .lt. n) stop "svd_decompose; find fire"
+    if(m .lt. n)then
+       v = 0.d0
+       v(1:n, 1:m) = transpose(a(1:m, 1:n))
+       call coop_svd_decompose(n, m, v, w, a(1:m, 1:m))
+       return
+    endif
     g=0.0
     scale=0.0
     do i=1,n

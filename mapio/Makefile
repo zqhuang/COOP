@@ -31,6 +31,9 @@ NAREAS: $(OBJ) count_areas.o
 FDUST: $(OBJ) filterdust.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) filterdust.o $(LINK)
 
+INP:	$(OBJ) inpaint.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) inpaint.o $(LINK)
+
 MM0:	$(OBJ) minkowski0.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) minkowski0.o $(LINK)
 

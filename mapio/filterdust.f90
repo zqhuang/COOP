@@ -6,10 +6,10 @@ program test
   use coop_fitsio_mod
   implicit none
 #include "constants.h"
-  COOP_INT,parameter::lmax = 500, lmin = 30, lmax_mask = 200, delta_l = 8
+  COOP_INT,parameter::lmax = 500, lmin = 40, lmax_mask = 200, delta_l = 8
   type(coop_healpix_maps)::hm1, hm2, mask, hm
-  COOP_REAL,parameter::nuwidth = 0.1d0
-  COOP_REAL::nucut
+  COOP_REAL,parameter::nuwidth = 0.1d0, ewidth = 0.03d0
+  COOP_REAL::nucut, ecut
   COOP_INT::i, l, lp
   COOP_REAL,dimension(:,:,:),allocatable::kernel
   COOP_REAL,dimension(:),allocatable::Cl_mask
@@ -19,16 +19,18 @@ program test
   type(coop_asy)::fig
   COOP_STRING::prefix
   call coop_get_command_line_argument(key = "nu", arg = nucut)
-  call hm%read("planck15/dust_iqu_10a_n1024.fits")
-  call hm1%read("planck15/dust_iqu_10a_n1024_hm1.fits")
-  call hm2%read("planck15/dust_iqu_10a_n1024_hm2.fits")
-  call fig%open("EB_nucut"//COOP_STR_OF(nint(nucut))//".txt")
+  call coop_get_command_line_argument(key = "e", arg = ecut)
+  call hm%read("dust/dust_i_30a_hp_20_40_n1024_conv_TQUL.fits")
+  call hm1%read("dust/dust_iqu_10a_hp_20_40_n1024_hm1.fits")
+  call hm2%read("dust/dust_iqu_10a_hp_20_40_n1024_hm2.fits")
+  call fig%open("EB_nucut"//COOP_NICESTR_OF(nucut)//"_ecut"//COOP_NICESTR_OF(ecut)//".txt")
   prefix = ""
   call fig%init(xlabel = "$\ell$", ylabel = "$\ell(\ell+1)C_\ell/(2\pi)$")
   call fig%line(xstart = dble(lmin), ystart = 0.d0, xend = dble(lmax), yend = 0.d0, color = "black", linewidth = 1.5)
 
   call mask%read("planck15/mask_lat30_n1024.fits")
   allocate(kernel(lmin:lmax, lmin:lmax, 4), Cl_mask(0:lmax_mask), CL1_pseudo(lmin:lmax, 6), Cl1(lmin:lmax, 6),  CL2_pseudo(lmin:lmax, 6), Cl2(lmin:lmax, 6),  CLCross_pseudo(lmin:lmax, 6), ClCross(lmin:lmax, 6), ells(lmin:lmax), binned_Cls(lmin:lmax), ClEE(lmin:lmax), ClBB(lmin:lmax))
+
   hm%map(:,1) = log(max(hm%map(:,1), 1.d-5))
   call hm%apply_mask(mask)
   call hm1%apply_mask(mask)
@@ -39,8 +41,14 @@ program test
   mean = sum(hm%map(:,1))/sm
   rms = sqrt(sum((hm%map(:,1)-mean)**2*mask%map(:,1))/sm)
   print*, "mask fsky = "//COOP_STR_OF(sum(mask%map(:,1))/mask%npix)
-  mask%map(:,1) = mask%map(:,1)*(1.d0-tanh(((hm%map(:,1)-mean)/rms-nucut)/nuwidth))/2.d0
+  if(ecut .gt. 0.d0)then
+     mask%map(:,1) = mask%map(:,1)*(1.d0 - (1.d0+tanh(((hm%map(:,1)-mean)/rms-nucut)/nuwidth))/2.d0 * (1.d0+tanh( (sqrt(hm%map(:,2)**2+hm%map(:,3)**2)/max(abs(hm%map(:,4)), sqrt(hm%map(:,2)**2+hm%map(:,3)**2)+1.d-99) - ecut)/ewidth) )/2.d0 *(1.d0+tanh(abs(hm%map(:,4))-sqrt(hm%map(:,2)**2+hm%map(:,3)**2)))/2.d0)
+  else
+     mask%map(:,1) = mask%map(:,1)*(1.d0 - (1.d0+tanh(((hm%map(:,1)-mean)/rms-nucut)/nuwidth))/2.d0)
+  endif
+
   print*, "after threshold cut, mask fsky = "//COOP_STR_OF(sum(mask%map(:,1))/mask%npix)
+  call mask%write("mask.fits")
   call hm1%apply_mask(mask)
   call hm2%apply_mask(mask)
   !!do threshold cut

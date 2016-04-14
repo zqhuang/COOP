@@ -33,7 +33,7 @@ module coop_healpix_mod
   COOP_INT, parameter:: coop_inpaint_nside_start = 8
   COOP_SINGLE,parameter::coop_inpaint_mask_threshold = 0.05
   
-  public::coop_fits_to_header, coop_healpix_fmissval,coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map, coop_healpix_smooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_IAU_headless_vector,  coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade, coop_healpix_maps_copy_genre, coop_healpix_correlation_function, coop_healpix_mask_reverse, coop_healpix_maps_diffuse, coop_healpix_mask_diffuse, coop_healpix_nside2lmax, coop_healpix_filament, coop_healpix_lmax_by_nside, coop_healpix_patch_stack_fft, coop_healpix_maps_Cls2Pseudo,coop_healpix_Cls2Rot, coop_healpix_Cls2Rot_general, coop_healpix_rotate_qu
+  public::coop_fits_to_header, coop_healpix_fmissval,coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map,  coop_healpix_smooth_mapfile, coop_healpix_gsmooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_IAU_headless_vector,  coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade, coop_healpix_maps_copy_genre, coop_healpix_correlation_function, coop_healpix_mask_reverse, coop_healpix_maps_diffuse, coop_healpix_mask_diffuse, coop_healpix_nside2lmax, coop_healpix_filament, coop_healpix_lmax_by_nside, coop_healpix_patch_stack_fft, coop_healpix_maps_Cls2Pseudo,coop_healpix_Cls2Rot, coop_healpix_Cls2Rot_general, coop_healpix_rotate_qu, coop_healpix_get_alm2pix
   
 
   logical::coop_healpix_alm_check_done = .false.
@@ -115,6 +115,7 @@ module coop_healpix_mod
      procedure :: map2alm => coop_healpix_maps_map2alm
      procedure :: alm2map => coop_healpix_maps_alm2map
      procedure :: udgrade => coop_healpix_maps_udgrade
+     procedure :: udgrade_safe => coop_healpix_maps_udgrade_safe
      procedure :: simulate => coop_healpix_maps_simulate
      procedure :: simulate_Tmaps => coop_healpix_maps_simulate_Tmaps
      procedure :: simulate_TQUmaps => coop_healpix_maps_simulate_TQUmaps
@@ -128,7 +129,7 @@ module coop_healpix_mod
      procedure :: get_QUL4D => coop_healpix_maps_get_QUL4D
      procedure :: get_QUL6D => coop_healpix_maps_get_QUL6D               
      procedure :: get_dervs => coop_healpix_maps_get_dervs
-     procedure::Gaussianize => coop_healpix_maps_Gaussianize
+     procedure :: Gaussianize => coop_healpix_maps_Gaussianize
      procedure:: uniformize => coop_healpix_maps_uniformize     
      procedure :: smooth => coop_healpix_maps_smooth
      procedure :: tophat_smooth => coop_healpix_maps_tophat_smooth     
@@ -2931,6 +2932,40 @@ contains
     call map%free()
   end subroutine coop_healpix_smooth_mapfile
 
+  subroutine coop_healpix_gsmooth_mapfile(mapfile, fwhm, highpass_l1, highpass_l2)
+    COOP_UNKNOWN_STRING mapfile
+    type(coop_healpix_maps) map
+    COOP_REAL,optional:: fwhm
+    type(coop_function)::mapping, invmapping(20)
+    COOP_INT::imap, i
+    COOP_INT,optional:: highpass_l1, highpass_l2
+    if(.not. present(fwhm) .and. (.not. present(highpass_l1) .or. .not. present(highpass_l2)))return
+    call map%read(mapfile)
+    if(map%nmaps .gt. 20) stop "gsmooth: too many maps"
+    do imap = 1, map%nmaps
+       call map%gaussianize(imap = imap, mapping = mapping, invmapping = invmapping(imap))
+    enddo
+    if(present(highpass_l1) .and. present(highpass_l2))then
+       if(present(fwhm))then
+          call map%smooth(fwhm = fwhm, l_lower = (highpass_l1+highpass_l2)/2, delta_l = (highpass_l2 - highpass_l1)/2)
+       else
+          call map%smooth(fwhm = 0.d0, l_lower = (highpass_l1+highpass_l2)/2, delta_l = (highpass_l2 - highpass_l1)/2)
+       endif
+    else
+       call map%smooth(fwhm = fwhm)
+    endif
+    !$omp parallel do
+    do imap = 1, map%nmaps
+       do i = 0, map%npix-1
+          map%map(i, imap) = invmapping(imap)%eval(dble(map%map(i, imap)))
+       enddo
+    enddo
+    !$omp end parallel do
+    call map%write(trim(coop_file_add_postfix(trim(mapfile),"_g"//trim(coop_num2str(nint(fwhm/coop_SI_arcmin)))//"a_hp_"//COOP_STR_OF(highpass_l1)//"_"//COOP_STR_OF(highpass_l2))))
+    write(*,*) "output: "//trim(coop_file_add_postfix(trim(mapfile),"_g"//trim(coop_num2str(nint(fwhm/coop_SI_arcmin)))//"a_hp_"//COOP_STR_OF(highpass_l1)//"_"//COOP_STR_OF(highpass_l2)))
+    call map%free()
+  end subroutine coop_healpix_gsmooth_mapfile
+
   subroutine coop_healpix_maps_tophat_smooth(this, theta)
     class(coop_healpix_maps)::this
     COOP_REAL::theta
@@ -2970,9 +3005,9 @@ contains
        if(any(index_list .gt. this%nmaps)) stop "smooth: index_list overflow"
        call this%map2alm(lmax, index_list)
        if(present(l_lower))then
-          this%alm(0:l_lower-lbuf, :, :) = 0.
+          this%alm(0:l_lower-lbuf, :, index_list) = 0.
           do l = l_lower-lbuf+1, min(l_lower+lbuf-1, lmax)
-             this%alm(l, :, :) = this%alm(l, :,:)*coop_highpass_filter(l_lower-lbuf, l_lower+lbuf, l) 
+             this%alm(l, :, index_list) = this%alm(l, :,index_list)*coop_highpass_filter(l_lower-lbuf, l_lower+lbuf, l) 
           enddo
        endif
        if(abs(fwhm).gt.0.d0) &
@@ -2980,8 +3015,12 @@ contains
        call this%alm2map(index_list)
     else
        call this%map2alm(lmax)
-       if(present(l_lower)) &
-            this%alm(0:l_lower-1, :, :) = 0.
+       if(present(l_lower)) then
+          this%alm(0:l_lower-lbuf, :, :) = 0.
+          do l = l_lower-lbuf+1, min(l_lower+lbuf-1, lmax)
+             this%alm(l, :, :) = this%alm(l, :,:)*coop_highpass_filter(l_lower-lbuf, l_lower+lbuf, l) 
+          enddo
+       endif
        if(abs(fwhm).gt.0.d0) &       
             call this%filter_alm(fwhm =fwhm)
        call this%alm2map()
@@ -4587,6 +4626,30 @@ contains
 #endif    
   end subroutine coop_healpix_maps_udgrade
 
+
+  subroutine coop_healpix_maps_udgrade_safe(this, nside)
+    class(coop_healpix_maps)::this
+    type(coop_healpix_maps)::newmap
+    COOP_INT nside, npix
+#if HAS_HEALPIX
+    call newmap%init(nside = nside, nmaps = this%nmaps, genre = "I", nested =.true.)
+    select type(this)
+    type is(coop_healpix_maps)
+       call coop_healpix_maps_ave_udgrade(from = this, to  = newmap)
+       deallocate(this%map)
+       this%nside = newmap%nside
+       this%npix = newmap%npix
+       allocate(this%map(0:this%npix-1, this%nmaps))
+       this%map = newmap%map
+       call newmap%free()
+    class default
+       stop "udgrade_safe only support coop_healpix_maps type"
+    end select
+#else
+    stop "HEALPIX library is missing."
+#endif    
+  end subroutine coop_healpix_maps_udgrade_safe
+
   
   subroutine coop_healpix_inpaint_free(this)
     class(coop_healpix_inpaint)::this
@@ -5975,14 +6038,19 @@ contains
     call mask_deg%free()
   end subroutine coop_healpix_maps_Cls2Pseudo
 
-  subroutine coop_healpix_maps_Gaussianize(this, mask, imap, mapping)
+  subroutine coop_healpix_maps_Gaussianize(this, mask, imap, mapping, invmapping)
     class(coop_healpix_maps)::this
-    type(coop_healpix_maps)::mask
+    type(coop_healpix_maps),optional::mask
     type(coop_function)::mapping
+    type(coop_function),optional::invmapping
     COOP_INT::imap, n, i, j, nbins, n_per_bin, n_small, n_large,n_base, i_base
     COOP_REAL, dimension(:), allocatable::sorted_map, x, y
-    n= count(mask%map(:,1).gt.0.)
-    if(n.eq.0) stop "Gaussianize: null mask?"
+    if(present(mask))then
+       n= count(mask%map(:,1).gt.0.)
+       if(n.eq.0) stop "Gaussianize: null mask?"
+    else
+       n = this%npix
+    endif
     nbins = min(8192, n) !!want 3 sigma tail
     n_per_bin = max(n/nbins, 5)
     nbins = (n+n_per_bin -1)/n_per_bin
@@ -5990,16 +6058,20 @@ contains
     n_large = nbins - n_small 
     allocate(sorted_map(n), x(nbins), y(nbins))
     j = 0
-    if(mask%ordering .ne. this%ordering)then
-       call mask%convert2nested()
-       call this%convert2nested()
-    endif
-    do i=0, this%npix-1
-       if(mask%map(i, 1).gt.0.)then
-          j = j + 1
-          sorted_map(j) = this%map(i, imap)
+    if(present(mask))then
+       if(mask%ordering .ne. this%ordering)then
+          call mask%convert2nested()
+          call this%convert2nested()
        endif
-    enddo
+       do i=0, this%npix-1
+          if(mask%map(i, 1).gt.0.)then
+             j = j + 1
+             sorted_map(j) = this%map(i, imap)
+          endif
+       enddo
+    else
+       sorted_map(1:n) = this%map(0:this%npix-1, imap)
+    endif
     call coop_quicksort(sorted_map)
     n_base = 0
     i_base = 0
@@ -6031,6 +6103,7 @@ contains
 
     
     call mapping%init_zigzag(x, y)
+    if(present(invmapping))call invmapping%init_zigzag(y,x)
     !$omp parallel do
     do i = 0, this%npix - 1
        this%map(i, imap) = mapping%eval( dble(this%map(i, imap) ))
@@ -6273,6 +6346,62 @@ contains
   end subroutine coop_healpix_maps_get_mask_kernel
 
 
+  subroutine coop_healpix_get_alm2pix(lmax, nside, listpix, genre, mat)
+    COOP_INT::lmax, nside
+    COOP_UNKNOWN_STRING::genre
+    COOP_REAL,dimension(:,:)::mat
+    COOP_INT,dimension(:)::listpix
+    COOP_INT::nlm, npix, nmaps, lmin, l, imap, m, i, j
+    type(coop_healpix_maps)::map
+    npix = size(listpix)
+    select case(trim(genre))
+    case("I")
+       nlm = (lmax+1)**2  !!a_l0, real(a_l1), aimag(a_l1), ....
+       nmaps = 1
+       lmin = 0
+    case("QU")
+       if(lmax .le. 1) stop "get_alm2pix: QU map requires lmax>=2"
+       nlm = (lmax-1)*(lmax+3)  !!a_l0^E, a_l0^B, real(a_l1^E) , aimag(a_l1^E), real(a_l1^B), aimag(a_l1^B), ...
+       nmaps = 2 
+       lmin = 2
+    case default
+       stop "get_alm2pix: unknown genre"
+    end select
+    if(size(mat, 2) .ne. nlm*nmaps .or. size(mat,1).ne.npix*nmaps) stop "get_alm2pix: size of mat is wrong"
+    call map%init(nside = nside, nmaps = nmaps, genre = genre, lmax = lmax)
+    i = 0
+    do l = lmin, lmax
+       call map%allocate_alms(l)
+       map%alm = 0.
+       do imap = 1, nmaps
+          map%alm(l, 0, imap) = 1.
+          call map%alm2map()
+          map%alm(l, 0, imap) = 0.
+          i = i + 1
+          do j=1, nmaps
+             mat((j-1)*npix+1 : j*npix, i) = map%map(listpix, j)
+          enddo
+       enddo
+       do m = 1, l
+          do imap = 1, nmaps
+             map%alm(l, m, imap) = 1.
+             call map%alm2map()
+             map%alm(l, m, imap) = 0.
+             i = i + 1
+             do j=1, nmaps
+                mat((j-1)*npix+1 : j*npix, i) = map%map(listpix, j)
+             enddo
+             map%alm(l, m, imap)  = (0., 1.)
+             call map%alm2map()
+             map%alm(l, m, imap) = 0.
+             i = i + 1
+             do j=1, nmaps
+                mat((j-1)*npix+1 : j*npix, i) = map%map(listpix, j)
+             enddo
+          enddo
+       enddo
+    enddo
+  end subroutine coop_healpix_get_alm2pix
 
 
 end module coop_healpix_mod
