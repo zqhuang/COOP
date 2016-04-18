@@ -18,7 +18,7 @@ module coop_sort_mod
 
 
   interface Coop_quicksortAcc
-     Module Procedure coop_quicksortacc_d, coop_quicksortAcc_s, Coop_quicksortacc_dd, coop_quicksortacc_ss
+     Module Procedure coop_quicksortacc_d, coop_quicksortAcc_s, Coop_quicksortacc_dd, coop_quicksortacc_ss, coop_quicksortacc_i
   End interface
 
   interface coop_quicksort_index
@@ -140,25 +140,48 @@ contains
     call quicksort_int(r, n)
   end subroutine coop_quicksort2d_int
 
-
-
-  subroutine Coop_quicksortacc_d(r, indices)
+  subroutine Coop_quicksortacc_d(r, indices, init)
     COOP_REAL ,dimension(:),intent(inOUT)::r
     COOP_INT,dimension(:),intent(OUT)::indices
     COOP_INT n, i
+    logical, optional::init
     n = Coop_getdim("Coop_quicksortAcc",SiZE(r),Size(indices))
-    indices = (/ (i, i=1, n) /)
+    if(present(init))then
+       if(init) indices = (/ (i, i=1, n) /)
+    else
+       indices = (/ (i, i=1, n) /)
+    endif
     call quicksort_double_with_indices(r, indices, n)
   end subroutine Coop_quicksortacc_d
 
-  subroutine Coop_quicksortacc_s(r, indices)
+  subroutine Coop_quicksortacc_s(r, indices, init)
     COOP_SINGLE,dimension(:),intent(inOUT)::r
     COOP_INT,dimension(:),intent(OUT)::indices
     COOP_INT n, i
+    logical, optional::init
     n = Coop_getdim("Coop_quicksortAcc",SiZE(r),Size(indices))
-    indices = (/ (i, i=1, n) /)
+    if(present(init))then
+       if(init) indices = (/ (i, i=1, n) /)
+    else
+       indices = (/ (i, i=1, n) /)
+    endif
     call quicksort_float_with_indices(r, indices, n)
   end subroutine Coop_quicksortacc_s
+
+  subroutine Coop_quicksortacc_i(r, indices, init)
+    COOP_INT ,dimension(:),intent(inOUT)::r
+    COOP_INT,dimension(:),intent(OUT)::indices
+    COOP_INT n, i
+    logical, optional::init
+    n = Coop_getdim("Coop_quicksortAcc",SiZE(r),Size(indices))
+    if(present(init))then
+       if(init) indices = (/ (i, i=1, n) /)
+    else
+       indices = (/ (i, i=1, n) /)
+    endif
+    call quicksort_int_with_indices(r, indices, n)
+  end subroutine Coop_quicksortacc_i
+
 
   subroutine Coop_quicksortacc_dd(r, indices)
     COOP_REAL ,dimension(:),intent(inOUT)::r

@@ -33,7 +33,7 @@ module coop_healpix_mod
   COOP_INT, parameter:: coop_inpaint_nside_start = 8
   COOP_SINGLE,parameter::coop_inpaint_mask_threshold = 0.05
   
-  public::coop_fits_to_header, coop_healpix_fmissval,coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map,  coop_healpix_smooth_mapfile, coop_healpix_gsmooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_IAU_headless_vector,  coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade, coop_healpix_maps_copy_genre, coop_healpix_correlation_function, coop_healpix_mask_reverse, coop_healpix_maps_diffuse, coop_healpix_mask_diffuse, coop_healpix_nside2lmax, coop_healpix_filament, coop_healpix_lmax_by_nside, coop_healpix_patch_stack_fft, coop_healpix_maps_Cls2Pseudo,coop_healpix_Cls2Rot, coop_healpix_Cls2Rot_general, coop_healpix_rotate_qu, coop_healpix_get_alm2pix
+  public::coop_fits_to_header, coop_healpix_fmissval,coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map,  coop_healpix_smooth_mapfile, coop_healpix_gsmooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_IAU_headless_vector,  coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade, coop_healpix_maps_copy_genre, coop_healpix_correlation_function, coop_healpix_mask_reverse, coop_healpix_maps_diffuse, coop_healpix_mask_diffuse, coop_healpix_nside2lmax, coop_healpix_filament, coop_healpix_lmax_by_nside, coop_healpix_patch_stack_fft, coop_healpix_maps_Cls2Pseudo,coop_healpix_Cls2Rot, coop_healpix_Cls2Rot_general, coop_healpix_rotate_qu, coop_healpix_get_alm2pix, coop_healpix_group_connected_pixels
   
 
   logical::coop_healpix_alm_check_done = .false.
@@ -6187,7 +6187,7 @@ contains
     COOP_SINGLE, optional::threshold
     COOP_SINGLE::nu
     COOP_INT::i, j, k, gr, imap
-    COOP_INT::ngroups, nnz
+    COOP_INT::ngroups, npix
     COOP_INT::listpix(this%npix), pixnbs(8), pixnn
     COOP_INT, dimension(:),allocatable::nn
     logical, dimension(:),allocatable::done
@@ -6275,11 +6275,11 @@ contains
        endif
     endif
     if(ngroups .eq. 0) return
-    nnz = ngroups
-    allocate(nbs(8, nnz), nn(nnz), newpix(nnz, 2), done(nnz))
+    npix = ngroups
+    allocate(nbs(8, npix), nn(npix), newpix(npix, 2), done(npix))
     nn = 0
     !$omp parallel do private(j, i, pixnbs, pixnn)
-    do i = 1, nnz
+    do i = 1, npix
        call neighbours_nest(this%nside, listpix(i), pixnbs, pixnn)
        do j = 1, pixnn
           if(group(pixnbs(j)) .gt. 0)then
@@ -6290,7 +6290,7 @@ contains
        enddo
     enddo
     !$omp end parallel do
-    do i = 1, nnz
+    do i = 1, npix
        if(done(i)) cycle
        isaved = 1
        inow = 2
@@ -6320,14 +6320,105 @@ contains
           endif
        enddo
     enddo
-    do i=1, nnz
+    do i=1, npix
        call grset%insert(group(listpix(i)))
     enddo
     ngroups = grset%n
-    deallocate(nbs, nn, newpix, done)
+    deallocate(nbs, nn,newpix, done)
+
     call grset%free()
 #endif
   end function coop_healpix_maps_num_areas
+
+
+  subroutine coop_healpix_group_connected_pixels(nside, listpix, ngroups, ind_start)
+    COOP_INT,intent(IN)::nside
+    COOP_INT,dimension(:),intent(INOUT)::listpix
+    COOP_INT,intent(OUT)::ngroups
+    COOP_INT,dimension(:),intent(OUT)::ind_start
+    COOP_INT::group(0:12*nside**2-1)
+    COOP_INT::i, j, k, gr, max_ngroups
+    COOP_INT::npix
+    COOP_INT::pixnbs(8), pixnn
+    COOP_INT, dimension(:),allocatable::nn
+    logical, dimension(:),allocatable::done
+    COOP_INT, dimension(:,:),allocatable::nbs
+    COOP_INT::nnew(2)
+    COOP_INT::isaved, inow
+    COOP_INT,dimension(:,:),allocatable::newpix
+    !!listpix must be in nested order
+#if HAS_HEALPIX
+    npix = size(listpix)
+    group = 0
+    !$omp parallel do
+    do i=1, npix
+       group(listpix(i)) = i
+    enddo
+    !$omp end parallel do
+    allocate(nbs(8, npix), nn(npix), newpix(npix, 2), done(npix))
+    nn = 0
+    !$omp parallel do private(j, i, pixnbs, pixnn)
+    do i = 1, npix
+       call neighbours_nest(nside, listpix(i), pixnbs, pixnn)
+       do j = 1, pixnn
+          if(group(pixnbs(j)) .gt. 0)then
+             nn(i) = nn(i) + 1
+             nbs(nn(i), i) = group(pixnbs(j))
+          endif
+          done(i) = (nn(i) .eq. 0)
+       enddo
+    enddo
+    !$omp end parallel do
+    do i = 1, npix
+       if(done(i)) cycle
+       isaved = 1
+       inow = 2
+       nnew(isaved) = 1
+       newpix(nnew(isaved), isaved) = i
+       gr = group(listpix(i))
+       done(i) = .true.
+       do 
+          nnew(inow) = 0
+          do j = 1, nnew(isaved)
+             do k =1,  nn(newpix(j, isaved))
+                if(group(listpix(nbs(k, newpix(j, isaved)))) .ne. gr)then
+                   nnew(inow) = nnew(inow) + 1
+                   newpix(nnew(inow), inow) = nbs(k, newpix(j, isaved))
+                   group(listpix(nbs(k, newpix(j, isaved)))) = gr
+                   done(nbs(k, newpix(j, isaved))) = .true.
+                endif
+             enddo
+          enddo
+          if(nnew(inow) .eq. 0)exit
+          if(isaved .eq. 1)then
+             isaved = 2
+             inow = 1
+          else
+             isaved = 1
+             inow = 2
+          endif
+       enddo
+    enddo
+    deallocate(nbs, newpix, done)
+    nn = group(listpix)
+    call coop_quicksortacc(nn, listpix, init = .false.) 
+    max_ngroups = size(ind_start) - 1
+    ngroups = 1
+    j = nn(1)
+    ind_start(ngroups) = 1
+    do i=2, npix
+       if(nn(i) .ne. j)then
+          j = nn(i)
+          ngroups = ngroups + 1
+          if(ngroups .ge. max_ngroups) stop "group_connected_pixels: too many groups, you need increase the size of ind_start"
+          ind_start(ngroups) = i
+       endif
+    enddo
+    deallocate(nn)
+    ind_start(ngroups + 1) = npix + 1
+#endif
+  end subroutine coop_healpix_group_connected_pixels
+
 
 
 

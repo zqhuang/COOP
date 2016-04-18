@@ -48,6 +48,7 @@ module coop_fisher_mod
      COOP_INT::n_nuis
      COOP_INT::n_observations = 0
      COOP_INT::max_init_level
+     logical::iterate = .false.
      COOP_REAL,dimension(:),allocatable::params
      COOP_REAL,dimension(:),allocatable::step1
      COOP_REAL,dimension(:),allocatable::step2
@@ -55,6 +56,7 @@ module coop_fisher_mod
      COOP_INT,dimension(:),allocatable::ind_slow, ind_fast, ind_nuis, param_types, init_level
      COOP_REAL,dimension(:,:),allocatable::fisher
      COOP_REAL,dimension(:,:),allocatable::Cov
+     COOP_REAL,dimension(:,:),allocatable::mapping !!this maps the original parameters into the "rotated parameters"; only used when iterate = .true.
      COOP_INT,dimension(:),allocatable::ind_used
      logical,dimension(:),allocatable::is_used
      type(coop_observation),dimension(:),allocatable::observations
@@ -604,6 +606,7 @@ contains
     COOP_DEALLOC(this%ind_fast)
     COOP_DEALLOC(this%ind_nuis)
     COOP_DEALLOC(this%fisher)
+    COOP_DEALLOC(this%mapping)
     COOP_DEALLOC(this%cov)
     COOP_DEALLOC(this%ind_used)
     COOP_DEALLOC(this%is_used)
@@ -628,10 +631,11 @@ contains
     call this%free()
     call coop_load_dictionary(filename, this%settings)
     call coop_dictionary_lookup(dict = this%settings, key="n_params", val = this%n_params)
-    allocate(this%params(this%n_params), this%step1(this%n_params), this%step2(this%n_params), this%priors(this%n_params), this%fisher(this%n_params, this%n_params), this%cov(this%n_params, this%n_params), this%is_used(this%n_params), this%param_types(this%n_params), this%init_level(this%n_params))
+    allocate(this%params(this%n_params), this%step1(this%n_params), this%step2(this%n_params), this%priors(this%n_params), this%fisher(this%n_params, this%n_params), this%mapping(this%n_params, this%n_params), this%cov(this%n_params, this%n_params), this%is_used(this%n_params), this%param_types(this%n_params), this%init_level(this%n_params))
     this%init_level = 0
     this%max_init_level = 0
     this%fisher = 0.d0
+    call coop_set_identity_matrix(this%n_params, this%mapping)
     this%cov = 0.d0
     this%is_used = .false.
     call coop_dictionary_lookup(this%settings, "param_names", ls)

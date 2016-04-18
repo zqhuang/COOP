@@ -62,35 +62,43 @@ contains
     COOP_INT i, n
     COOP_REAL  a(n,n)
     a = 0
+    !$omp parallel do
     do i=1,n
        a(i,i) = 1.d0
     enddo
+    !$omp end parallel do
   end subroutine coop_set_identity_matrix
 
   function coop_identity_matrix(n) result(a)
     COOP_INT i, n
     COOP_REAL  a(n,n)
     a = 0
+    !$omp parallel do
     do i=1,n
        a(i,i) = 1.d0
     enddo
+    !$omp end parallel do
   end function coop_identity_matrix
 
   function coop_diagonal_matrix(diag) result(a)
     COOP_REAL ,dimension(:),intent(IN)::diag
     COOP_REAL  a(size(diag),size(diag))
     COOP_INT i
+    !$omp parallel do
     do i=1,size(diag)
        a(i,i)=diag(i)
     enddo
+    !$omp end parallel do
   end function coop_diagonal_matrix
 
   subroutine coop_matrix_add_diagonal(n, mat, diag)
     COOP_INT n, i
     COOP_REAL  mat(n,n), diag(n)
+    !$omp parallel do
     do i=1,n
        mat(i,i) = mat(i,i)+diag(i)
     enddo
+    !$omp end parallel do
   end subroutine coop_matrix_add_diagonal
 
   Subroutine Coop_write_matrix_d(funit, mat,nx,ny)

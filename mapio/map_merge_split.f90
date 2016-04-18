@@ -617,7 +617,7 @@ program map
   call hgm%init(nside = nside_in(1), nmaps = num_maps_wanted, genre = "I")
   j = 1
   do i=1, nin
-     call hgm2%read(trim(fin(i)))
+     call hgm2%read(trim(fin(i)), nmaps_wanted =  indices_wanted(i)%element(indices_wanted(i)%n))
      call hgm2%convert2ring()
      do k = 1, indices_wanted(i)%n
         hgm%map(:, j) = hgm2%map(:, indices_wanted(i)%element(k))

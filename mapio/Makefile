@@ -31,6 +31,9 @@ NAREAS: $(OBJ) count_areas.o
 FDUST: $(OBJ) filterdust.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) filterdust.o $(LINK)
 
+MDUST: $(OBJ) multfildust.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) multfildust.o $(LINK)
+
 INP:	$(OBJ) inpaint.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) inpaint.o $(LINK)
 
@@ -124,7 +127,7 @@ TE2Z: $(OBJ) te2zeta.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) te2zeta.o $(LINK)
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test PLOTLINES UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo TE2Z GAUSS MM0 MM1 FStack FStat F2Heal FCoadd ACTTheo FMask FGetPeaks FQU2EB FEB2QU FSmooth FMerge Heal2F FPTOP MCoadd
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test PLOTLINES UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo TE2Z GAUSS MM0 MM1 FStack FStat F2Heal FCoadd ACTTheo FMask FGetPeaks FQU2EB FEB2QU FSmooth FMerge Heal2F FPTOP MCoadd F1D FDUST INP
 
 
 

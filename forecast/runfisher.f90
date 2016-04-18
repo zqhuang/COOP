@@ -41,6 +41,13 @@ program RunF
         write(*, "(A, G14.5, A5, G14.5)") trim(fisher%paramtable%key(fisher%ind_used(i)))//" = ", fisher%paramtable%val(fisher%ind_used(i)), " +/- ", sqrt(fisher%cov(fisher%ind_used(i), fisher%ind_used(i)))
      enddo
      call fp%close()
+     do i = 1, fisher%n_params_used
+        do j = i+1, fisher%n_params_used
+           if(fisher%cov(fisher%ind_used(i), fisher%ind_used(j))**2/fisher%cov(fisher%ind_used(i), fisher%ind_used(i))/fisher%cov(fisher%ind_used(j), fisher%ind_used(j)) .gt. 0.98)then
+              write(*,*) "Warning: "//trim(fisher%paramtable%key(fisher%ind_used(i)))//" and  "//trim(fisher%paramtable%key(fisher%ind_used(i)))//" are strongly correlated. You may want to redefine the parameters to eliminate the degeneracy."
+           endif
+        enddo
+     enddo
   else
      call fp%close()
      write(*,*) "Parameters are all fixed or unconstrained."
