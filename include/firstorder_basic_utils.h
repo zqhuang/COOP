@@ -194,11 +194,11 @@
     !$omp end parallel do
     if(any(ps.le. 0.d0)) stop "Primordial scalar power spectrum cannot be <= 0"
     if(any(pt .lt. 0.d0)) stop "Primordial tensor power spectrum cannot be < 0"
-    call this%ps%init(n = n, xmin = k(1), xmax = k(n), f = ps, xlog = .true., ylog = .true., fleft = ps(1), fright = ps(n), check_boundary = .false., method = INTERP_LINEAR)
+    call this%ps%init(n = n, xmin = k(1), xmax = k(n), f = ps, xlog = .true., ylog = .true., fleft = ps(1), fright = ps(n), check_boundary = .false., method = COOP_INTERPOLATE_LINEAR)
     if(any(pt.eq.0.d0))then
-       call this%pt%init(n = n, xmin = k(1), xmax = k(n), f = pt, xlog = .true., ylog = .false., fleft = pt(1), fright = pt(n), check_boundary = .false., method = INTERP_LINEAR)
+       call this%pt%init(n = n, xmin = k(1), xmax = k(n), f = pt, xlog = .true., ylog = .false., fleft = pt(1), fright = pt(n), check_boundary = .false., method = COOP_INTERPOLATE_LINEAR)
     else
-       call this%pt%init(n = n, xmin = k(1), xmax = k(n), f = pt, xlog = .true., ylog = .true., fleft = pt(1), fright = pt(n), check_boundary = .false., method = INTERP_LINEAR)
+       call this%pt%init(n = n, xmin = k(1), xmax = k(n), f = pt, xlog = .true., ylog = .true., fleft = pt(1), fright = pt(n), check_boundary = .false., method = COOP_INTERPOLATE_LINEAR)
     endif
     this%As = this%psofk(this%k_pivot)
     this%ns = this%ps%derivative_bare(log(this%k_pivot)) + 1.d0
