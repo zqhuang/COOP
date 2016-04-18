@@ -977,12 +977,12 @@ contains
   !!W^2  = exp(-k^2/sigma_W^2)
   function coop_cosmology_firstorder_Gaussian_smeared_matter_power(this, z,  k, sigma_W) result(Pk)
     class(coop_cosmology_firstorder)::this
-    COOP_INT,parameter::nkp = 250
+    COOP_INT,parameter::nkp = 800
     COOP_REAL::pk, z, k, sigma_W
     COOP_REAL::minkp, maxkp, dkp, kp(nkp), Pkp(nkp), w(nkp), twosig2
     COOP_INT::ikp
-    maxkp = k + sigma_W*4.5d0
-    minkp = max(k - sigma_W*5.2d0, maxkp/(nkp-0.5d0)) 
+    maxkp = k + sigma_W*4.d0
+    minkp = max(k - sigma_W*5.d0, maxkp/(nkp-0.5d0)) 
     dkp = (maxkp - minkp)/(nkp-1)
     kp(1) = minkp
     do ikp = 2, nkp
@@ -990,6 +990,8 @@ contains
     enddo
     twosig2 = 2.d0*sigma_W**2
     w = kp/k * (exp(-(kp-k)**2/twosig2) -  exp(-(kp+k)**2/twosig2))
+    w(1) = w(1)/2.d0
+    w(nkp) = w(nkp)/2.d0
     call this%get_matter_power(z, nkp, kp, Pkp)
     pk = sum(pkp/kp**3*w)/sum(w)*k**3
   end function coop_cosmology_firstorder_Gaussian_smeared_matter_power
