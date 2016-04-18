@@ -989,7 +989,7 @@ contains
        kp(ikp) = kp(ikp-1)+dkp
     enddo
     twosig2 = 2.d0*sigma_W**2
-    w = kp/k * (exp(-(kp-k)**2/twosig2) -  exp(-(kp+k)**2/twosig2)
+    w = kp/k * (exp(-(kp-k)**2/twosig2) -  exp(-(kp+k)**2/twosig2))
     call this%get_matter_power(z, nkp, kp, Pkp)
     pk = sum(pkp/kp**3*w)/sum(w)*k**3
   end function coop_cosmology_firstorder_Gaussian_smeared_matter_power
