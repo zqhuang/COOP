@@ -178,7 +178,7 @@
 !!the format of primordial power
 !!subroutine power(k/k_pivot, ps, pt, cosmology, args)
 !!input kMpc and args, output ps and pt    
-    integer,parameter::n = 8192
+    integer,parameter::n = 20000
     class(coop_cosmology_firstorder)::this
     external power
     type(coop_arguments) args
