@@ -178,7 +178,7 @@
 !!the format of primordial power
 !!subroutine power(k/k_pivot, ps, pt, cosmology, args)
 !!input kMpc and args, output ps and pt    
-    integer,parameter::n = 4096
+    integer,parameter::n = 8192
     class(coop_cosmology_firstorder)::this
     external power
     type(coop_arguments) args
@@ -187,14 +187,18 @@
     this%k_pivot = this%kMpc_pivot/this%H0Mpc()
     call coop_set_uniform(n, k, coop_power_lnk_min, coop_power_lnk_max)
     k = exp(k)
+    !$omp parallel do
     do i=1, n
        call power(k(i)/this%k_pivot, ps(i), pt(i), this, args)
     end do
-    call this%ps%init(n = n, xmin = k(1), xmax = k(n), f = ps, xlog = .true., ylog = .true., fleft = ps(1), fright = ps(n), check_boundary = .false.)
+    !$omp end parallel do
+    if(any(ps.le. 0.d0)) stop "Primordial scalar power spectrum cannot be <= 0"
+    if(any(pt .lt. 0.d0)) stop "Primordial tensor power spectrum cannot be < 0"
+    call this%ps%init(n = n, xmin = k(1), xmax = k(n), f = ps, xlog = .true., ylog = .true., fleft = ps(1), fright = ps(n), check_boundary = .false., method = INTERP_LINEAR)
     if(any(pt.eq.0.d0))then
-       call this%pt%init(n = n, xmin = k(1), xmax = k(n), f = pt, xlog = .true., ylog = .false., fleft = pt(1), fright = pt(n), check_boundary = .false.)
+       call this%pt%init(n = n, xmin = k(1), xmax = k(n), f = pt, xlog = .true., ylog = .false., fleft = pt(1), fright = pt(n), check_boundary = .false., method = INTERP_LINEAR)
     else
-       call this%pt%init(n = n, xmin = k(1), xmax = k(n), f = pt, xlog = .true., ylog = .true., fleft = pt(1), fright = pt(n), check_boundary = .false.)
+       call this%pt%init(n = n, xmin = k(1), xmax = k(n), f = pt, xlog = .true., ylog = .true., fleft = pt(1), fright = pt(n), check_boundary = .false., method = INTERP_LINEAR)
     endif
     this%As = this%psofk(this%k_pivot)
     this%ns = this%ps%derivative_bare(log(this%k_pivot)) + 1.d0

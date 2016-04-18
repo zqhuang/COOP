@@ -977,20 +977,21 @@ contains
   !!W^2  = exp(-k^2/sigma_W^2)
   function coop_cosmology_firstorder_Gaussian_smeared_matter_power(this, z,  k, sigma_W) result(Pk)
     class(coop_cosmology_firstorder)::this
-    COOP_INT,parameter::nkp = 300
+    COOP_INT,parameter::nkp = 500
     COOP_REAL::pk, z, k, sigma_W
-    COOP_REAL::minkp, maxkp, dkp, kp(nkp), Pkp(nkp), w(nkp)
+    COOP_REAL::minkp, maxkp, dkp, kp(nkp), Pkp(nkp), w(nkp), twosig2
     COOP_INT::ikp
-    minkp = max(k - sigma_W*5.d0, 1.d-3) 
     maxkp = k + sigma_W*5.d0
+    minkp = max(k - sigma_W*5.d0, k*1.d-4) 
     dkp = (maxkp - minkp)/(nkp-1)
-    do ikp = 1, nkp
-       kp(ikp) = minkp + dkp*(ikp-1)
-       w(ikp) = FT_Gaussian3D_window(sigma_W, k, kp(ikp))
+    kp(1) = minkp
+    do ikp = 2, nkp
+       kp(ikp) = kp(ikp-1)+dkp
     enddo
+    twosig2 = 2.d0*sigma_W**2
+    w = kp/k * (exp(-(kp-k)**2/twosig2) -  exp(-(kp+k)**2/twosig2)
     call this%get_matter_power(z, nkp, kp, Pkp)
     pk = sum(pkp/kp**3*w)/sum(w)*k**3
- 
   end function coop_cosmology_firstorder_Gaussian_smeared_matter_power
 
   
