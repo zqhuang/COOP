@@ -1975,12 +1975,27 @@ contains
 
 
   !!for full (TT, TE or TB, EB, EE+BB, EE-BB) kernels
-  function coop_pseudoCl_matrix_pol(l_pseudo, l, lmax, Cl_mask) result(m)
+  function coop_pseudoCl_matrix_pol(l_pseudo, l, lmax, Cl_mask, want_i) result(m)
     COOP_INT l, l_pseudo, l2, lmax, evenodd_sign, lmin
     COOP_REAL m(4), Cl_mask(0:lmax), thrj000, thrj220, maskterm
+    logical, optional::want_i
     lmin = abs(l-l_pseudo)
     m = 0.d0
     evenodd_sign = 1- 2*mod(lmin+l_pseudo+l,2)
+    if(present(want_i))then
+       if(.not. want_i)then
+          do l2 = lmin, min(lmax, abs(l+l_pseudo))
+             thrj220 = coop_int3j(l_pseudo, l, l2, 2, -2, 0)
+             maskterm = cl_mask(l2)*(2.d0*l2+1.d0)
+             maskterm = maskterm*thrj220**2
+             m(coop_pseudoCl_kernel_index_EB) = m(coop_pseudoCl_kernel_index_EB) + maskterm*evenodd_sign
+             m(coop_pseudoCl_kernel_index_EE_plus_BB) = m(coop_pseudoCl_kernel_index_EE_plus_BB) + maskterm
+             evenodd_sign = -evenodd_sign
+          enddo
+          m = m*((2.d0*l + 1.d0)/coop_4pi)/dble(l)/(l+1.d0)*dble(l_pseudo)*(l_pseudo+1.d0)
+          return
+       endif
+    endif
     do l2 = lmin, min(lmax, abs(l+l_pseudo))
        thrj000 = coop_ThreeJ000(l_pseudo, l, l2)       
        thrj220 = coop_int3j(l_pseudo, l, l2, 2, -2, 0)
@@ -1995,6 +2010,7 @@ contains
     enddo
     m = m*((2.d0*l + 1.d0)/coop_4pi)/dble(l)/(l+1.d0)*dble(l_pseudo)*(l_pseudo+1.d0)
   end function coop_pseudoCl_matrix_pol
+
 
 
   !!temperature only
@@ -2077,22 +2093,27 @@ contains
 
 
   !!TT, TE, TB, EB, EE+BB, EE-BB
-  subroutine coop_pseudoCl_get_kernel_pol(lmax_mask, Cl_mask, lmin, lmax, kernel)
+  subroutine coop_pseudoCl_get_kernel_pol(lmax_mask, Cl_mask, lmin, lmax, kernel, want_i)
     COOP_INT::lmin, lmax, lmax_mask
     COOP_REAL  Cl_mask(0:lmax_mask)
     COOP_REAL::kernel(lmin:lmax, lmin:lmax, 4)
+    logical, optional::want_i
     COOP_INT::l1, l2
     !$omp parallel do private(l1, l2)
     do l1 = lmin, lmax
        do l2 = lmin, lmax
-          kernel(l1, l2, :) = coop_pseudoCl_matrix_pol(l1, l2, lmax_mask, cl_mask)
+          if(present(want_i))then
+             kernel(l1, l2, :) = coop_pseudoCl_matrix_pol(l1, l2, lmax_mask, cl_mask, want_i)
+          else
+             kernel(l1, l2, :) = coop_pseudoCl_matrix_pol(l1, l2, lmax_mask, cl_mask)
+          endif
        enddo
     enddo
     !$omp end parallel do
   end subroutine coop_pseudoCl_get_kernel_pol
 
   !!T, E, B
-  subroutine coop_pseudoCl2Cl_pol(lmin, lmax, Cl_pseudo, kernel, Cl, smooth)
+  subroutine coop_pseudoCl2Cl_pol(lmin, lmax, Cl_pseudo, kernel, Cl, smooth, want_i)
     COOP_INT::lmin, lmax, iell, i, low, up
     !!use camb ordering
     !!TT, EE, BB, TE, TB, EB
@@ -2100,12 +2121,18 @@ contains
     COOP_REAL::kernel(lmin:lmax, lmin:lmax,4)
     COOP_INT::l
     !!for smoothed C_l's
-    logical,optional::smooth
+    logical,optional::smooth, want_i
     COOP_INT,dimension(:),allocatable::ells
     COOP_REAL,dimension(:,:),allocatable:: P, Q
     COOP_REAL,dimension(:,:,:),allocatable::reduced_kernel
     COOP_INT::num_ells
     COOP_REAL,dimension(:,:),allocatable::smoothed_Dl, smoothed_Dl_pseudo
+    logical doi
+    if(present(want_i))then
+       doi = want_i
+    else 
+       doi = .true.
+    endif
 
     !$omp parallel do
     do l = lmin, lmax
@@ -2147,11 +2174,11 @@ contains
           enddo
           smoothed_Dl_pseudo = matmul(P, Dl_pseudo)
           !!TT
-          call coop_fit_template(num_ells, num_ells, smoothed_Dl_pseudo(:, coop_TEB_index_TT), reduced_kernel(:,:, coop_pseudoCl_kernel_index_TT), smoothed_Dl(:, coop_TEB_index_TT))
+          if(doi)call coop_fit_template(num_ells, num_ells, smoothed_Dl_pseudo(:, coop_TEB_index_TT), reduced_kernel(:,:, coop_pseudoCl_kernel_index_TT), smoothed_Dl(:, coop_TEB_index_TT))
           !!TE
-          call coop_fit_template(num_ells, num_ells, smoothed_Dl_pseudo(:, coop_TEB_index_TE), reduced_kernel(:,:, coop_pseudoCl_kernel_index_TE), smoothed_Dl(:, coop_TEB_index_TE))
+          if(doi)call coop_fit_template(num_ells, num_ells, smoothed_Dl_pseudo(:, coop_TEB_index_TE), reduced_kernel(:,:, coop_pseudoCl_kernel_index_TE), smoothed_Dl(:, coop_TEB_index_TE))
           !!TB
-          call coop_fit_template(num_ells, num_ells, smoothed_Dl_pseudo(:, coop_TEB_index_TB), reduced_kernel(:,:, coop_pseudoCl_kernel_index_TB), smoothed_Dl(:, coop_TEB_index_TB))
+          if(doi)call coop_fit_template(num_ells, num_ells, smoothed_Dl_pseudo(:, coop_TEB_index_TB), reduced_kernel(:,:, coop_pseudoCl_kernel_index_TB), smoothed_Dl(:, coop_TEB_index_TB))
           !!EB
           call coop_fit_template(num_ells, num_ells, smoothed_Dl_pseudo(:, coop_TEB_index_EB), reduced_kernel(:,:, coop_pseudoCl_kernel_index_EB), smoothed_Dl(:, coop_TEB_index_EB))
           !!EE + BB => saved in EE
@@ -2166,11 +2193,11 @@ contains
     endif
 100 continue
     !!TT
-    call coop_fit_template(lmax-lmin+1, lmax-lmin+1, Dl_pseudo(lmin:lmax, coop_TEB_index_TT), kernel(lmin:lmax,lmin:lmax, coop_pseudoCl_kernel_index_TT), cl(lmin:lmax, coop_TEB_index_TT))
+    if(doi)call coop_fit_template(lmax-lmin+1, lmax-lmin+1, Dl_pseudo(lmin:lmax, coop_TEB_index_TT), kernel(lmin:lmax,lmin:lmax, coop_pseudoCl_kernel_index_TT), cl(lmin:lmax, coop_TEB_index_TT))
     !!TE
-    call coop_fit_template(lmax-lmin+1, lmax-lmin+1, Dl_pseudo(lmin:lmax,  coop_TEB_index_TE), kernel(lmin:lmax,lmin:lmax, coop_pseudoCl_kernel_index_TE), cl(lmin:lmax, coop_TEB_index_TE))
+    if(doi)call coop_fit_template(lmax-lmin+1, lmax-lmin+1, Dl_pseudo(lmin:lmax,  coop_TEB_index_TE), kernel(lmin:lmax,lmin:lmax, coop_pseudoCl_kernel_index_TE), cl(lmin:lmax, coop_TEB_index_TE))
     !!TB
-    call coop_fit_template(lmax-lmin+1, lmax-lmin+1, Dl_pseudo(lmin:lmax, coop_TEB_index_TB), kernel(lmin:lmax,lmin:lmax, coop_pseudoCl_kernel_index_TB), cl(lmin:lmax, coop_TEB_index_TB))
+    if(doi)call coop_fit_template(lmax-lmin+1, lmax-lmin+1, Dl_pseudo(lmin:lmax, coop_TEB_index_TB), kernel(lmin:lmax,lmin:lmax, coop_pseudoCl_kernel_index_TB), cl(lmin:lmax, coop_TEB_index_TB))
     !!EB
     call coop_fit_template(lmax-lmin+1, lmax-lmin+1, Dl_pseudo(lmin:lmax, coop_TEB_index_EB), kernel(lmin:lmax,lmin:lmax, coop_pseudoCl_kernel_index_EB), cl(lmin:lmax,  coop_TEB_index_EB))
     !!EE + BB

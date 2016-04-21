@@ -19,6 +19,10 @@ all: $(LIB) UDG GetPeaks Stack MSMAP GetInfo GetTheo
 
 flat: FCoadd FMerge FSmooth FStat FGetPeaks FStack FQU2EB FEB2QU FMask FSim F2Heal Heal2F FPTOP MCoadd
 
+MAP2CLS: $(OBJ) getcls.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) getcls.o $(LINK)
+
+
 GAUSS: $(OBJ) gaussianize.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) gaussianize.o $(LINK)
 

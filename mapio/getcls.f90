@@ -1,4 +1,4 @@
-program test
+program ClFromMap
   use coop_wrapper_utils
   use coop_fitswrap_mod
   use coop_sphere_mod
@@ -11,86 +11,122 @@ program test
   implicit none
 #include "constants.h"
 
-  COOP_STRING::imap_file, polmap_file, output_file
-  COOP_INT, parameter::lmax = 2000
-  logical,parameter::do_smooth = .false.
-  COOP_INT, parameter::smooth_delta_ell = 20
-  logical,parameter::do_mask = .false.
-  COOP_UNKNOWN_STRING, parameter::imask_file = "planck14/dx11_v2_smica_int_mask_005a_2048.fits"
-  COOP_UNKNOWN_STRING, parameter::polmask_file = "planck14/dx11_v2_smica_pol_mask_005a_2048.fits"
-  COOP_REAL, parameter::rmin = coop_ln2, rmax = log(dble(lmax))
-  COOP_REAL lnl(2:lmax)
-  type(coop_healpix_maps)::map, imask, polmask
+  COOP_STRING::fmap1, fmap2, clfile, fmask
+  type(coop_healpix_maps)::map1, map2, mask
   type(coop_file)::fp
-  integer l, i, j
-  COOP_INT, parameter::fit_n = 10
-  COOP_REAL::coef(fit_n, 3)
+  logical::has_mask, has_map2, want_i
+  COOP_INT::l, lmax, lmax_mask, lmin, nmaps1, nmaps2
+  COOP_INT::nmaps
+  COOP_REAL,dimension(:,:),allocatable::Cl_Pseudo, Cl
+  COOP_REAL,dimension(:,:,:),allocatable::kernel
+  COOP_REAL,dimension(:),allocatable::Cl_mask
 
   if(iargc().lt.2)then
-     write(*,*) "./GetCl imap polmap"
-     write(*,*) " or"
-     write(*,*) "./GetCl imap polmap outputfile"
+     write(*,*) "Syntax:"
+     write(*,*) "./MAP2CLS -map1 ... [-nmaps1 ...] [-map2 ... -nmaps2 ...] [-mask ...] -lmax ... [-lmax_mask ..] [-lmin ...]  -out ..."
      stop
   endif
-  imap_file = trim(coop_InputArgs(1))
-  polmap_file = trim(coop_InputArgs(2))
-  if(iargc() .ge. 3)then
-     output_file = trim(coop_InputArgs(3))
+  call coop_get_command_line_argument(key = "map1", arg = fmap1)
+  call coop_get_command_line_argument(key = "nmaps1", arg = nmaps1, default = 0)
+  call coop_get_command_line_argument(key = "nmaps2", arg = nmaps2, default = 0)
+  call coop_get_command_line_argument(key = "lmax", arg = lmax)
+  call coop_get_command_line_argument(key = "lmin", arg = lmin, default = 2)
+  if(lmin .gt. lmax) stop "lmin > lmax?"
+  call coop_get_command_line_argument(key = "map2", arg = fmap2, default = "")
+  has_map2 = trim(fmap2).ne.""
+  call coop_get_command_line_argument(key = "mask", arg = fmask, default = "")
+  has_mask = trim(fmask) .ne. ""
+  if(has_mask)then
+     call coop_get_command_line_argument(key = "lmax_mask", arg = lmax_mask, default = 200)
+  endif
+  call coop_get_command_line_argument(key = "out", arg = clfile)
+  if(nmaps1 .gt. 0)then
+     call map1%read(fmap1, nmaps_wanted = nmaps1)
   else
-     output_file = coop_str_replace(imap_file, ".fits", "_cls.txt")
+     call map1%read(fmap1)
   endif
-  call map%read(imap_file, nmaps_wanted = 3)
-  call map%import(polmap_file, index_start = 2, index_end = 3)
+  if(has_map2)then
+     if(nmaps2 .gt. 0)then
+        call map2%read(fmap2, nmaps_wanted = nmaps2)
+     else
+        call map2%read(fmap2)
+     endif
+  endif
+  call fp%open(clfile)
 
-  if(do_mask)then
-     call imask%read(imask_file, nmaps_wanted = 1)
-     map%map(:,1) = map%map(:, 1)*imask%map(:,1)
-     call polmask%read(polmask_file, nmaps_wanted = 1)
-     map%map(:,2) = map%map(:, 2)*polmask%map(:,1)
-     map%map(:,3) = map%map(:, 3)*polmask%map(:,1)
-  endif
-  call map%map2alm(lmax = lmax)
-  call map%get_cls()
-  if(do_mask)then
-     map%cl(:,1) = map%cl(:,1) * (imask%npix/sum(dble(imask%map(:,1))))
-     map%cl(:,2) = map%cl(:,2) * (polmask%npix/sum(dble(polmask%map(:,1))))
-     map%cl(:,3) = map%cl(:,3) * (polmask%npix/sum(dble(polmask%map(:,1))))
-     call imask%free
-     call polmask%free
-  endif
-  do l=2, lmax
-     lnl(l) = log(dble(l))
-  enddo
-  coef = 0.d0
-  do i=1, 3
-     call coop_chebfit(lmax-1, lnl(2:lmax), log(dble(map%cl(2:lmax, i))), fit_n, rmin, rmax, coef(:, i))
-     print*,
-     do j=1, fit_n-1
-        print*, coef(j,i) , ", &"
+
+  if(has_mask)then
+     select case(map1%nmaps)
+     case(1) !!T map
+        if(map1%spin(1).ne.0) stop "nmaps = 1 but not an I map"
+     case(2)
+        want_i = .false.
+        if(map1%spin(1).ne.2 .or. map1%spin(2).ne.2) stop "nmaps = 2 but not a QU map"
+     case(3)
+        want_i = .true.
+        if(map1%spin(1).ne.0 .or. map1%spin(2).ne.2 .or. map1%spin(3).ne.2) stop "nmaps = 3 but not an IQU map"
+     case default
+        stop "GetCl only works with I, QU, IQU maps"
+     end select
+     call mask%read(fmask, nmaps_wanted = 1)
+     allocate(cl_mask(0:lmax_mask))
+     call mask%map2alm(lmax = lmax_mask)
+     cl_mask = mask%cl(0:lmax_mask, 1)
+     if(map1%nmaps .eq. 1)then
+        allocate(kernel(lmin:lmax, lmin:lmax, 1), Cl_pseudo(lmin:lmax, 1), Cl(lmin:lmax, 1))
+        call coop_pseudoCl_get_kernel(lmax_mask, Cl_mask, lmin, lmax, kernel(:,:,1))
+     else
+        allocate(kernel(lmin:lmax, lmin:lmax, 4), Cl_pseudo(lmin:lmax, 6), Cl(lmin:lmax, 6))
+        call coop_pseudoCl_get_kernel_pol(lmax_mask, Cl_mask, lmin, lmax, kernel, want_i)
+     endif
+
+
+     call map1%apply_mask(mask)
+     call map1%map2alm(lmax = lmax)
+     if(has_map2)then
+        call map2%apply_mask(mask)
+        call map2%map2alm(lmax = lmax)
+        call map1%get_cls(map2)
+     else
+        call map1%get_cls()
+     endif
+     select case(map1%nmaps)
+     case(1) !!T map
+        cl_pseudo(lmin:lmax,1) = map1%cl(lmin:lmax, 1)
+        call coop_pseudoCl2Cl(lmin = lmin, lmax = lmax, Cl_pseudo = Cl_pseudo(lmin:lmax,1), kernel = kernel(lmin:lmax, lmin:lmax, 1),  Cl = Cl(lmin:lmax, 1))
+        do l = lmin, lmax
+           write(fp%unit, "(I6, E16.7)") l, l*(l+1.d0)/coop_2pi*Cl(l, 1)
+        enddo
+     case(2)
+        cl_pseudo(lmin:lmax, coop_TEB_index_EE) = map1%cl( lmin:lmax, COOP_MATSYM_INDEX(2, 1, 1) )
+        cl_pseudo(lmin:lmax, coop_TEB_index_BB) = map1%cl( lmin:lmax,  COOP_MATSYM_INDEX(2, 2, 2) )
+        cl_pseudo(lmin:lmax, coop_TEB_index_EB) = map1%cl( lmin:lmax,  COOP_MATSYM_INDEX(2, 1, 2) )
+        call coop_pseudoCl2Cl_pol(lmin = lmin, lmax = lmax, Cl_pseudo = Cl_pseudo, kernel = kernel,  Cl = Cl, want_i = .false.)
+        write(fp%unit, "(A8, 3A16)") "# ell ", " EE ",  " BB ", " EB "
+        do l = lmin, lmax
+           write(fp%unit, "(I8, 3E16.7)") l, l*(l+1.d0)/coop_2pi*Cl(l, coop_TEB_index_EE), l*(l+1.d0)/coop_2pi*Cl(l, coop_TEB_index_BB), l*(l+1.d0)/coop_2pi*Cl(l, coop_TEB_index_EB)
+        enddo
+     case(3)
+        cl_pseudo(lmin:lmax, 1:6) = map1%cl(lmin:lmax, 1:6)
+        call coop_pseudoCl2Cl_pol(lmin = lmin, lmax = lmax, Cl_pseudo = Cl_pseudo, kernel = kernel,  Cl = Cl)
+        write(fp%unit, "(A8, 6A16)") "# ell ", " TT ", " EE ",  " BB ", " TE ", " EB ", " TB "
+        do l = lmin, lmax
+           write(fp%unit, "(I8, 6E16.7)") l, l*(l+1.d0)/coop_2pi*Cl(l, :)
+        enddo
+
+     end select
+  else
+     call map1%map2alm(lmax = lmax)
+     if(has_map2)then
+        call map2%map2alm(lmax = lmax)
+        call map1%get_cls(map2)
+     else
+        call map1%get_cls()
+     endif
+     do l = lmin, lmax
+        write(fp%unit, "(I6, "//COOP_STR_OF(map1%nmaps*(map1%nmaps+1)/2)//"E16.7)") l, map1%Cl(l, :)*(l*(l+1.)/coop_2pi)
      enddo
-     print*, coef(fit_n, i)
-     print*
-  enddo
-  do l=0, map%lmax
-     map%cl(l, :) = map%cl(l, :)*(l*(l+1)/coop_2pi*1.e12)
-  enddo
-  if(do_smooth)then
-     do i=1, 1
-        call coop_smooth_data(map%lmax+1, map%cl(0:map%lmax, i), smooth_delta_ell)
-     enddo
   endif
-  call fp%open(output_file, "w")
-  do l = 0, map%lmax
-     write(fp%unit, "(I5, 6E16.7)") l, map%cl(l,:)
-  enddo
   call fp%close()
-!!$  write(*,*) "now producing the lmax filtered map"
-!!$  call map%alm2map()
-!!$  write(*,*) "nmaps = map%nmaps", map%nmaps, size(map%map, 2)
-!!$  write(*,*) "npix = ", map%nside**2*12, map%npix, size(map%map, 1)
-!!$  write(*,*) "spin = ", map%spin
-!!$  write(*,*) trim(coop_str_replace(output_file, ".txt", ""))//"_I.fits"
-!!$  call map%write(trim(coop_str_replace(output_file, ".txt", ""))//"_I.fits", index_list = (/ 1 /) )
-!!$  write(*,*) trim(coop_str_replace(output_file, ".txt", ""))//"_QU.fits"  
-!!$  call map%write(trim(coop_str_replace(output_file, ".txt", ""))//"_QU.fits", index_list = (/ 2, 3 /) )
-end program test
+
+end program ClFromMap

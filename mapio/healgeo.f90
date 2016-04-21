@@ -1690,10 +1690,11 @@ contains
   end subroutine coop_healpix_maps_simulate_General_maps
   
 
-  subroutine coop_healpix_maps_init(this, nside, nmaps, genre, lmax, nested)
+  subroutine coop_healpix_maps_init(this, nside, nmaps, genre, spin, lmax, nested)
     class(coop_healpix_maps) this
     COOP_INT:: nside, nmaps, i
     COOP_INT, optional::lmax
+    COOP_INT,optional::spin(:)
     COOP_UNKNOWN_STRING,optional::genre
     logical,optional::nested
 #if HAS_HEALPIX
@@ -1870,6 +1871,23 @@ contains
           write(*,"(A)") trim(genre)//": unknown map types"
           stop
        end select
+    elseif(present(spin))then
+       do i = 1, this%nmaps
+          if(spin(i).eq.0)then
+             call this%set_field(i, "I")
+          elseif(spin(i).eq.2)then
+             if(i.eq.1)then
+                call this%set_field(i, "Q")
+             else
+                if(trim(this%fields(i-1)).eq."Q")then
+                   call this%set_field(i, "U")
+                else
+                   call this%set_field(i, "Q")
+                endif
+             endif
+          endif
+       enddo
+       call this%set_units("")
     end if
     if(present(nested))then
        if(nested)this%ordering = COOP_NESTED
@@ -2232,7 +2250,7 @@ contains
     if(present(imap))then
        i = imap
        select case(trim(coop_str_numUpperalpha(this%fields(i))))
-       case("INTENSITY", "TEMPERATURE", "MASK", "EPOLARISATION", "BPOLARISATION", "E", "B", "ZETA", "Z", "I", "T", "M", "LT", "LZ", "LE", "ISTOKES", "", "LNI", "GENERAL", "LNLT", "INTBEAM", "INT")
+       case("INTENSITY", "TEMPERATURE", "MASK", "TMASK", "PMASK", "EPOLARISATION", "BPOLARISATION", "E", "B", "ZETA", "Z", "I", "T", "M", "LT", "LZ", "LE", "ISTOKES", "", "LNI", "GENERAL", "LNLT", "INTBEAM", "INT")
           this%spin(i) = 0
        case("POL", "POLBEAM")
           this%spin(i) = 2
@@ -2251,7 +2269,7 @@ contains
     else       
        do i = 1, this%nmaps
           select case(trim(coop_str_numUpperalpha(this%fields(i))))
-          case("INTENSITY", "TEMPERATURE", "MASK", "EPOLARISATION", "BPOLARISATION", "E", "B", "ZETA", "Z", "I", "T", "M", "LT", "LZ", "LE", "ISTOKES", "", "LNI", "LNLT","INT","INTBEAM")
+          case("INTENSITY", "TEMPERATURE", "MASK", "TMASK", "PMASK", "EPOLARISATION", "BPOLARISATION", "E", "B", "ZETA", "Z", "I", "T", "M", "LT", "LZ", "LE", "ISTOKES", "", "LNI", "LNLT","INT","INTBEAM")
              this%spin(i) = 0
           case("POL", "POLBEAM")
              this%spin(i) = 2
@@ -6437,34 +6455,24 @@ contains
   end subroutine coop_healpix_maps_get_mask_kernel
 
 
-  subroutine coop_healpix_get_alm2pix(lmax, nside, listpix, genre, mat)
+  subroutine coop_healpix_get_alm2pix(nmaps, spin, lmax, nside, listpix, mat)
     COOP_INT::lmax, nside
-    COOP_UNKNOWN_STRING::genre
     COOP_REAL,dimension(:,:)::mat
     COOP_INT,dimension(:)::listpix
-    COOP_INT::nlm, npix, nmaps, lmin, l, imap, m, i, j
+    COOP_INT::spin(:)
+    COOP_INT::nlm, npix, nmaps, l, imap, m, i, j
     type(coop_healpix_maps)::map
     npix = size(listpix)
-    select case(trim(genre))
-    case("I")
-       nlm = (lmax+1)**2  !!a_l0, real(a_l1), aimag(a_l1), ....
-       nmaps = 1
-       lmin = 0
-    case("QU")
-       if(lmax .le. 1) stop "get_alm2pix: QU map requires lmax>=2"
-       nlm = (lmax-1)*(lmax+3)  !!a_l0^E, a_l0^B, real(a_l1^E) , aimag(a_l1^E), real(a_l1^B), aimag(a_l1^B), ...
-       nmaps = 2 
-       lmin = 2
-    case default
-       stop "get_alm2pix: unknown genre"
-    end select
+    nlm = (lmax+1)**2*nmaps - sum(spin**2)
+    if(npix .le. 0 .or. nlm .le. 0) return
     if(size(mat, 2) .ne. nlm*nmaps .or. size(mat,1).ne.npix*nmaps) stop "get_alm2pix: size of mat is wrong"
-    call map%init(nside = nside, nmaps = nmaps, genre = genre, lmax = lmax)
+    call map%init(nside = nside, nmaps = nmaps, spin = spin, lmax = lmax)
     i = 0
-    do l = lmin, lmax
+    do l = minval(spin), lmax
        call map%allocate_alms(l)
        map%alm = 0.
        do imap = 1, nmaps
+          if(spin(imap) .gt. l) cycle
           map%alm(l, 0, imap) = 1.
           call map%alm2map()
           map%alm(l, 0, imap) = 0.
@@ -6475,6 +6483,7 @@ contains
        enddo
        do m = 1, l
           do imap = 1, nmaps
+             if(spin(imap) .gt. l) cycle
              map%alm(l, m, imap) = 1.
              call map%alm2map()
              map%alm(l, m, imap) = 0.
