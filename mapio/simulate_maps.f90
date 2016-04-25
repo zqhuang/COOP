@@ -10,18 +10,19 @@ program simmaps
 
   implicit none
 #include "constants.h"
-  COOP_INT,parameter::lmax  = 320
-  COOP_INT,parameter::lmin = 2
-  COOP_INT,parameter::nside = 256
-  COOP_REAL,parameter::fwhm_arcmin = 60.d0
+  COOP_REAL::fwhm_arcmin
+  COOP_INT::nside, lmax, nmaps
   type(coop_healpix_maps)::map
   type(coop_file)::fp
-  COOP_UNKNOWN_STRING, parameter::prefix = "planck15/sim"
+  COOP_STRING::fcl, fmap
   COOP_REAL:: Cls(lmin:lmax, 6)
   COOP_INT::l, il
   call coop_random_init()
+  call coop_get_command_line_argument(key = "cl", arg = fcl)
+  call coop_get_command_line_argument(key = "map", arg = fmap)
+  call coop_get_command_line_argument(key = "FWHM", arg = fwhm_arcmin )
+  call fp%open_skip_comments(fcl)
   Cls = 0.d0
-  call fp%open_skip_comments("planck14best_lensedCls.dat")
   do l=lmin, lmax
      read(fp%unit, *) il, Cls(l,coop_TEB_index_TT), Cls(l,coop_TEB_index_EE), Cls(l,coop_TEB_index_BB), Cls(l,coop_TEB_index_TE)
      if(il.ne. l) stop "Cl file error"     

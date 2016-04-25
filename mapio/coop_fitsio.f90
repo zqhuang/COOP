@@ -100,7 +100,7 @@ contains
 #endif
   end subroutine coop_fits_file_get_nrows_ncols
 
-  subroutine coop_fits_file_load_double_column(this, col, data, bad_value)
+  subroutine coop_fits_file_load_double_column(this, col, data, bad_value, first_row)
     class(coop_fits_file)::this
     COOP_INT::col
     COOP_REAL,dimension(:)::data
@@ -110,9 +110,15 @@ contains
     COOP_REAL, optional::bad_value
     COOP_REAL::nulval
     COOP_SHORT_INT::short_int_nulval
-    COOP_INT::ncols, width, repeat, datacode, nrows
+    COOP_INT::ncols, width, repeat, datacode, nrows, frow
+    COOP_INT,optional::first_row
     logical anyf
 #if HAS_CFITSIO
+    if(present(first_row))then
+       frow = first_row
+    else
+       frow = 1
+    endif
     if(present(bad_value))then
        nulval = bad_value
     else
@@ -125,10 +131,10 @@ contains
        write(*,*) "Error: want column: ", col
        stop
     endif
-    if(nrows .lt. size(data))then
+    if(nrows .lt. frow+size(data)-1)then
        write(*,*) trim(this%filename)
        write(*,*) "number of table rows:", nrows
-       write(*,*) "Error: want rows ", size(data)
+       write(*,*) "Error: want rows ", frow + size(data) - 1
        stop
     endif
     call ftgtcl(this%unit, col, datacode, repeat, width, this%status)
@@ -137,23 +143,23 @@ contains
     endif
     select case(datacode)
     case(coop_fitsio_datatype_double)
-       call ftgcvd(this%unit, col, 1, 1, size(data), nulval, data, anyf, this%status)
+       call ftgcvd(this%unit, col, frow, 1, size(data), nulval, data, anyf, this%status)
     case(coop_fitsio_datatype_single)
        allocate(single_data(size(data)))
-       call ftgcve(this%unit, col, 1, 1, size(data), real(nulval), single_data, anyf, this%status)
+       call ftgcve(this%unit, col, frow, 1, size(data), real(nulval), single_data, anyf, this%status)
        data = single_data
        deallocate(single_data)
     case(coop_fitsio_datatype_int)
        write(*,*) "Warning: integer column in "//trim(this%filename)//" is loaded as double"
        allocate(int_data(size(data)))
-       call ftgcvj(this%unit, col, 1, 1, size(data), nint(nulval), int_data, anyf, this%status)
+       call ftgcvj(this%unit, col, frow, 1, size(data), nint(nulval), int_data, anyf, this%status)
        data = int_data
        deallocate(int_data)
     case(coop_fitsio_datatype_short_int)
        write(*,*) "Warning: short integer column in "//trim(this%filename)//" is loaded as double"
        allocate(short_int_data(size(data)))
        short_int_nulval = nint(nulval)
-       call ftgcvi(this%unit, col, 1, 1, size(data), short_int_nulval, short_int_data, anyf, this%status)
+       call ftgcvi(this%unit, col, frow, 1, size(data), short_int_nulval, short_int_data, anyf, this%status)
        data = short_int_data
        deallocate(short_int_data)
     case default
@@ -169,7 +175,7 @@ contains
   end subroutine coop_fits_file_load_double_column
 
 
-  subroutine coop_fits_file_load_int_column(this, col, data, bad_value)
+  subroutine coop_fits_file_load_int_column(this, col, data, bad_value, first_row)
     class(coop_fits_file)::this
     COOP_INT::col
     COOP_INT,dimension(:)::data
@@ -181,8 +187,15 @@ contains
     COOP_SHORT_INT::short_int_nulval
     COOP_REAL::double_nulval
     COOP_INT::ncols, width, repeat, datacode, nrows
+    COOP_INT,optional::first_row
+    COOP_INT::frow
     logical anyf
 #if HAS_CFITSIO
+    if(present(first_row))then
+       frow = first_row
+    else
+       frow = 1
+    endif
     if(present(bad_value))then
        nulval = bad_value
     else
@@ -195,10 +208,10 @@ contains
        write(*,*) "Error: want column: ", col
        stop
     endif
-    if(nrows .lt. size(data))then
+    if(nrows .lt. size(data)+frow-1)then
        write(*,*) trim(this%filename)
        write(*,*) "number of table rows:", nrows
-       write(*,*) "Error: want rows ", size(data)
+       write(*,*) "Error: want rows ", size(data)+frow-1
        stop
     endif
     call ftgtcl(this%unit, col, datacode, repeat, width, this%status)
@@ -207,23 +220,23 @@ contains
     endif
     select case(datacode)
     case(coop_fitsio_datatype_int)
-       call ftgcvj(this%unit, col, 1, 1, size(data), nulval, data, anyf, this%status)
+       call ftgcvj(this%unit, col, frow, 1, size(data), nulval, data, anyf, this%status)
     case(coop_fitsio_datatype_single)
        write(*,*) "Warning: float column in "//trim(this%filename)//" is loaded as int"       
        allocate(single_data(size(data)))
-       call ftgcve(this%unit, col, 1, 1, size(data), real(nulval), single_data, anyf, this%status)
+       call ftgcve(this%unit, col, frow, 1, size(data), real(nulval), single_data, anyf, this%status)
        data = nint(single_data)
        deallocate(single_data)
     case(coop_fitsio_datatype_double)
        write(*,*) "Warning: double column in "//trim(this%filename)//" is loaded as int"
        allocate(double_data(size(data)))
-       call ftgcvd(this%unit, col, 1, 1, size(data), nint(nulval), double_data, anyf, this%status)
+       call ftgcvd(this%unit, col, frow, 1, size(data), nint(nulval), double_data, anyf, this%status)
        data = nint(double_data)
        deallocate(double_data)
     case(coop_fitsio_datatype_short_int)
        allocate(short_int_data(size(data)))
        short_int_nulval = nint(nulval)
-       call ftgcvi(this%unit, col, 1, 1, size(data), short_int_nulval, short_int_data, anyf, this%status)
+       call ftgcvi(this%unit, col, frow, 1, size(data), short_int_nulval, short_int_data, anyf, this%status)
        data = short_int_data
        deallocate(short_int_data)
     case default
@@ -545,6 +558,71 @@ contains
 #endif
   end subroutine coop_fits_file_write_image
 
+  subroutine coop_fits_file_load_cls(lmin, lmax, cls, filename, genre)
+   type(coop_fits_file)::fp
+   COOP_INT::lmin, lmax, llmin, llmax, numcls, i, j, numfields, col
+   COOP_REAL::Cls(:,:)
+   COOP_UNKNOWN_STRING::filename, genre
+   COOP_STRING::genre_saved
+   if(size(cls,1).ne.lmax-lmin+1) stop "fits_file_load_cls: Size of Cls does not agree with lmin, lmax inputs"
+   call fp%open_table(filename)
+   call coop_dictionary_lookup(fp%header, "LMIN", llmin)
+   call coop_dictionary_lookup(fp%header, "LMAX", llmax)
+   call coop_dictionary_lookup(fp%header, "GENRE", genre_saved)
+   if(lmin .lt. llmin .or. lmax .gt. llmax)then
+      write(*,*) "L range in file "//trim(filename)
+      write(*,*) llmin, llmax
+      write(*,*) "Cannot load Cls for lmin = ", lmin, "; lmax = ", lmax
+      stop
+   endif
+   numfields = len_trim(genre)
+   numcls = (numfields+1)*numfields/2
+   if(size(cls,2).ne. numcls)stop "load_cls: size of cls array does not equal to numcls"
+   i = verify(trim(genre), trim(genre_saved))
+   if(i.ne. 0)then
+      write(*,*) "saved cls in "//trim(filename)//" are for fields: "//trim(genre_saved)
+      write(*,*) "cannot load cls for fields: "//trim(genre)
+      stop
+   endif
+   do i=1, numfields
+      do j=i, numfields
+         call coop_dictionary_lookup(fp%header, "COL"//genre(i:i)//genre(j:j), col, 0)
+         if(col .eq. 0)then
+            write(*,*) "CL_"//genre(i:i)//genre(j:j)//" cannot be found in "//trim(filename)
+            stop
+         endif
+         call fp%load_double_column(col = col, data = Cls(lmin:lmax, COOP_MATSYM_INDEX(numfields, i, j)), first_row = lmin - llmin + 1) 
+      enddo
+   enddo
+   call fp%close()
+  end subroutine coop_fits_file_load_cls
+
+  subroutine coop_fits_file_write_cls(lmin, lmax, cls, filename, genre)
+    COOP_INT::lmin, lmax, numcls, numfields, i, j
+    COOP_REAL::Cls(:,:)
+    type(coop_dictionary)::header
+    COOP_UNKNOWN_STRING::filename
+    COOP_UNKNOWN_STRING::genre
+    if(size(cls, 1) .ne. lmax-lmin+1) stop "fits_file_write_cls: Size of Cls does not agree with lmin, lmax inputs"
+    call header%init()
+    call header%insert("LMIN", COOP_STR_OF(lmin))
+    call header%insert("LMAX", COOP_STR_OF(lmax))
+    call header%insert("GENRE", trim(genre))
+    numcls = size(Cls,2)
+    numfields = nint(sqrt(numcls*2+0.25d0)-0.5d0)
+    if(numfields*(numfields+1)/2 .ne. numcls) stop "write_cls: the number of cls must be in the form of n(n+1)/2"
+    if(numfields .gt. len_trim(genre)) stop "write_cls: genre must contain all the fields"
+    do i=1, numfields
+       do j = i, numfields
+          call header%insert("TTYPE"//COOP_STR_OF(COOP_MATSYM_INDEX(numfields, i, j)), genre(i:i)//genre(j:j))
+          call header%insert("COL"//genre(i:i)//genre(j:j), COOP_STR_OF(COOP_MATSYM_INDEX(numfields, i, j)))
+          if(j.ne.i)call header%insert("COL"//genre(j:j)//genre(i:i), COOP_STR_OF(COOP_MATSYM_INDEX(numfields, i, j)))
+       enddo
+    enddo
+    call coop_fits_file_write_binary_table(cls, filename, header)
+    call header%free()
+  end subroutine coop_fits_file_write_cls
+
   subroutine coop_fits_file_write_binary_table(table, filename, header)
     type(coop_dictionary),optional::header
     COOP_REAL,dimension(:,:)::table
@@ -861,7 +939,6 @@ contains
     call ftghdt(this%unit, this%hdutype, this%status)
     call this%load_header()
     call this%check_error()
-
 #else
     stop "CFITSIO is not installed"
 #endif

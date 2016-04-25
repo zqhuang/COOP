@@ -75,11 +75,11 @@ program test
 
   call mask%map2alm(lmax = lmax_mask)
   Cl_mask(0:lmax_mask) = mask%cl(0:lmax_mask,1)
-  call coop_pseudoCl_get_kernel_pol(lmax_mask = lmax_mask, Cl_mask = Cl_mask, lmin = lmin, lmax = lmax, kernel = kernel)
+  call coop_pseudoCl_get_kernel(lmax_mask = lmax_mask, Cl_mask = Cl_mask, lmin = lmin, lmax = lmax, kernel = kernel)
 
-  call coop_pseudoCl2Cl_pol(lmin = lmin, lmax = lmax, Cl_pseudo = Cl1_pseudo, kernel = kernel, Cl = Cl1, smooth = .false.)
-  call coop_pseudoCl2Cl_pol(lmin = lmin, lmax = lmax, Cl_pseudo = Cl2_pseudo, kernel = kernel, Cl = Cl2, smooth = .false.)
-  call coop_pseudoCl2Cl_pol(lmin = lmin, lmax = lmax, Cl_pseudo = ClCross_pseudo, kernel = kernel, Cl = ClCross, smooth = .false.)
+  call coop_pseudoCl2Cl(lmin = lmin, lmax = lmax, Cl_pseudo = Cl1_pseudo, kernel = kernel, Cl = Cl1, smooth = .false.)
+  call coop_pseudoCl2Cl(lmin = lmin, lmax = lmax, Cl_pseudo = Cl2_pseudo, kernel = kernel, Cl = Cl2, smooth = .false.)
+  call coop_pseudoCl2Cl(lmin = lmin, lmax = lmax, Cl_pseudo = ClCross_pseudo, kernel = kernel, Cl = ClCross, smooth = .false.)
 
 
 

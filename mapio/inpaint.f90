@@ -19,9 +19,9 @@ program shells
   COOP_REAL,dimension(:), allocatable::s, work
   COOP_INT,dimension(:), allocatable::iwork
   COOP_REAL::rcond = 1.d-8
-  COOP_INT::rank, info
+  COOP_INT::rank, info, ncols
   COOP_INT,parameter::lmax = 2500
-  COOP_REAL::ClTT(0:lmax), ClEE(0:lmax), ClBB(0:lmax), ClTE(0:lmax)
+  COOP_REAL::ClTT(0:lmax), ClEE(0:lmax), ClBB(0:lmax), ClTE(0:lmax), readcls(6)
   COOP_REAL::sqrtClTT(0:lmax), sqrtClEE(0:lmax), sqrtClBB(0:lmax), sqrtCluEuE(0:lmax), EbyT(0:lmax)
   type(coop_file)::fp
   
@@ -60,6 +60,7 @@ program shells
   ClTT = 0.
   CLEE = 0.
   ClBB = 0.
+  ClTE = 0.
   if(want_fluc)then
      call sim%allocate_alms( max(lcut, min(lmax, floor(sim%nside*coop_healpix_lmax_by_nside))) )
   else
@@ -67,13 +68,15 @@ program shells
   endif
   sim%alm = 0.
   if(want_fluc)then
-     call fp%open(fcl, "r")
+     ncols = coop_file_NumColumns(fcl)
+     if(ncols .lt. 2) stop "cl file is broken"
+     call fp%open_skip_comments(fcl)
      do l = 2, sim%lmax
-        read(fp%unit, *) i, ClTT(l), ClEE(l), ClBB(l), ClTE(l)
-        ClTT(l) = ClTT(l)*coop_2pi/l/(l+1.)
-        ClEE(l) = ClEE(l)*coop_2pi/l/(l+1.)
-        ClBB(l) = ClBB(l)*coop_2pi/l/(l+1.)
-        ClTE(l) = ClTE(l)*coop_2pi/l/(l+1.)
+        read(fp%unit, *) i, readcls(1:ncols-1)
+        ClTT(l) = readcls(1) * coop_2pi/l/(l+1.)
+        if(ncols.gt.2)ClEE(l) = readcls(2) * coop_2pi/l/(l+1.)
+        if(ncols.gt.3)ClBB(l) = readcls(3) * coop_2pi/l/(l+1.)
+        if(ncols.gt.4)ClTE(l) = readcls(4) * coop_2pi/l/(l+1.)
      enddo
      call fp%close()
      sqrtClTT = sqrt(max(ClTT, 0.d0))
