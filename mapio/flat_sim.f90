@@ -3,6 +3,7 @@ program test
   use coop_fitswrap_mod
   use coop_healpix_mod
   use coop_sphere_mod
+  use coop_fitsio_mod
   implicit none
 #include "constants.h"
   character(LEN=*),parameter::mapdir = "act16/"
@@ -33,7 +34,7 @@ program test
      read(fp%unit, *) il, junk
   enddo
   do l=lmin, lmax
-     read(fp%unit, *) il, Cls(l, coop_healpix_index_TT), Cls(l, coop_healpix_index_EE), Cls(l, coop_healpix_index_BB), Cls(l, coop_healpix_index_TE)
+     read(fp%unit, *) il, Cls(l, coop_TEB_index_TT), Cls(l, coop_TEB_index_EE), Cls(l, coop_TEB_index_BB), Cls(l, coop_TEB_index_TE)
      if(il.ne.l) stop "error in cl file"
      norm =  coop_2pi/l/(l+1.d0)*coop_Gaussian_filter(fwhm_arcmin = fwhm_arcmin, l=l)**2*bl(l)**2
      Cls(l,:) = Cls(l,:)*norm
