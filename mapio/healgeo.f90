@@ -33,7 +33,7 @@ module coop_healpix_mod
   COOP_INT, parameter:: coop_inpaint_nside_start = 8
   COOP_SINGLE,parameter::coop_inpaint_mask_threshold = 0.05
   
-  public::coop_fits_to_header, coop_healpix_fmissval,coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map,  coop_healpix_smooth_mapfile, coop_healpix_gsmooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_highpass_filter, coop_lowpass_filter, coop_gaussian_filter,coop_healpix_IAU_headless_vector,  coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade, coop_healpix_maps_copy_genre, coop_healpix_correlation_function, coop_healpix_mask_reverse, coop_healpix_maps_diffuse, coop_healpix_mask_diffuse, coop_healpix_nside2lmax, coop_healpix_filament, coop_healpix_lmax_by_nside, coop_healpix_patch_stack_fft, coop_healpix_maps_Cls2Pseudo,coop_healpix_Cls2Rot, coop_healpix_Cls2Rot_general, coop_healpix_rotate_qu, coop_healpix_get_alm2pix, coop_healpix_group_connected_pixels
+  public::coop_fits_to_header, coop_healpix_fmissval,coop_healpix_maps, coop_healpix_disc, coop_healpix_patch, coop_healpix_split,  coop_healpix_output_map,  coop_healpix_smooth_mapfile, coop_healpix_gsmooth_mapfile, coop_healpix_patch_get_fr0, coop_healpix_mask_tol,  coop_healpix_mask_hemisphere, coop_healpix_flip_mask, coop_healpix_alm_check_done, coop_healpix_want_cls, coop_healpix_default_lmax, coop_planck_TNoise, coop_planck_ENoise, coop_Planck_BNoise, coop_healpix_IAU_headless_vector,  coop_healpix_spot_select_mask, coop_healpix_spot_cut_mask, coop_healpix_merge_masks, coop_healpix_patch_default_figure_width, coop_healpix_patch_default_figure_height, coop_healpix_patch_default_want_caption, coop_healpix_patch_default_want_label, coop_healpix_patch_default_want_arrow,  coop_healpix_QrUrSign, coop_ACT_TNoise, coop_ACT_ENoise, coop_healpix_inpaint, coop_healpix_maps_ave_udgrade, coop_healpix_maps_copy_genre, coop_healpix_correlation_function, coop_healpix_mask_reverse, coop_healpix_maps_diffuse, coop_healpix_mask_diffuse, coop_healpix_nside2lmax, coop_healpix_filament, coop_healpix_lmax_by_nside, coop_healpix_patch_stack_fft, coop_healpix_maps_Cls2Pseudo,coop_healpix_Cls2Rot, coop_healpix_Cls2Rot_general, coop_healpix_rotate_qu, coop_healpix_get_alm2pix, coop_healpix_group_connected_pixels
   
 
   logical::coop_healpix_alm_check_done = .false.
@@ -285,11 +285,19 @@ contains
     call header%free()
     if(present(ihdu))then
        call fp%open(filename, ihdu = ihdu)
+       header = fp%header
+       call fp%close()
+       return
     else
-       call fp%open_image(filename)
+       call fp%open(filename)
+       do i = 1, fp%nhdus
+          call fp%move_to_hdu(i)
+          do j = 1, fp%header%n
+             call header%insert(fp%header%key(j), fp%header%val(j), overwrite = .false.)
+          enddo
+       enddo
+       call fp%close()
     endif
-    header = fp%header
-    call fp%close()
   end subroutine coop_fits_to_header
 
 
@@ -1059,31 +1067,45 @@ contains
   end subroutine coop_healpix_patch_get_radial_profile
 
 
-  subroutine coop_healpix_maps_simulate(this)
+  subroutine coop_healpix_maps_simulate(this, nside, cls)
     class(coop_healpix_maps) this
-    COOP_REAL,dimension(:),allocatable::sqrtCls
-    COOP_REAL,dimension(:, :),allocatable::Cls_sqrteig
-    COOP_REAL,dimension(:,:,:),allocatable::Cls_rot
-    COOP_INT l
-    if(this%nmaps.eq.1 .and. this%spin(1).eq.0)then
-       allocate(sqrtCls(0:this%lmax))
-       do l = 0, this%lmax
-          sqrtCls(l) = sqrt(this%Cl(l,1))
-       enddo
-       call this%simulate_Tmaps(this%nside, this%lmax, sqrtCls)
-       deallocate(sqrtCls)
-    elseif(this%nmaps.eq.3)then
-       allocate(Cls_sqrteig(3, 0:this%lmax), Cls_rot(3,3,0:this%lmax))
-       call coop_healpix_Cls2Rot(0,this%lmax, this%Cl(0:this%lmax, 1:6), Cls_sqrteig, Cls_rot)
-       if(this%spin(2).eq.2)then
-          call this%simulate_TQUmaps(this%nside, this%lmax, Cls_sqrteig, Cls_rot)
-       else
-          call this%simulate_TEBmaps(this%nside, this%lmax, Cls_sqrteig, Cls_rot)
-       endif
-       deallocate(Cls_sqrteig, Cls_rot)
+    COOP_INT::nside, l, i, j, m, info, lmax
+    type(coop_cls)::cls
+    COOP_REAL, dimension(:,:),allocatable::sqrtCl
+    if(this%nmaps  .ne. cls%num_fields .or. this%lmax .ne. cls%lmax .or. this%nside .ne. nside)then
+       call coop_healpix_nside2lmax(nside, lmax)
+       call this%init(nside = nside, nmaps = cls%num_fields, genre = cls%genre, spin = cls%spin, unit = cls%unit, lmax = min(cls%lmax, lmax))
     else
-       stop "unknown coop_healpix_maps_simulate mode"
+       do i = 1, this%nmaps
+          call this%set_field(i, cls%genre(i:i))
+       enddo
+       call this%set_units(cls%unit)
+       this%spin = cls%spin
     endif
+    allocate(sqrtCl(this%nmaps, this%nmaps))
+    this%alm(0:cls%lmin-1, :, :) = 0.
+    do l = cls%lmin, this%lmax
+       do i = 1, this%nmaps
+          do j = 1, i
+             sqrtCl(i, j) =  cls%cls(l, COOP_MATSYM_INDEX(this%nmaps, i, j))
+             if(i.eq.j)then
+                sqrtCl(i, j) = sqrtCl(i, j)*(1.d0+1.d-10) + 1.d-99  !!avoid /0 error
+             else
+                sqrtCl(j, i) = sqrtCl(i, j)
+             endif
+          enddo
+       enddo
+       call coop_cholesky(this%nmaps, this%nmaps, sqrtCl, info)
+       if(info .ne. 0) stop "healpix_maps_simulate: Cls file contains negative eigen values"
+       this%alm(l, 0, :) = matmul(sqrtCl, coop_random_gaussian_vector(this%nmaps))
+       !$omp parallel do
+       do m = 1, l
+          this%alm(l, m, :) = matmul(sqrtCl, coop_random_complex_Gaussian_vector(this%nmaps))
+       enddo
+       !$omp end parallel do
+    enddo
+    deallocate(sqrtCl)
+    call this%alm2map()
   end subroutine coop_healpix_maps_simulate
 
   subroutine coop_healpix_maps_simulate_Tmaps(this, nside, lmax, sqrtCls, lmin, onlyalm, onlyphase)
@@ -1690,12 +1712,12 @@ contains
   end subroutine coop_healpix_maps_simulate_General_maps
   
 
-  subroutine coop_healpix_maps_init(this, nside, nmaps, genre, spin, lmax, nested)
+  subroutine coop_healpix_maps_init(this, nside, nmaps, genre, unit, spin, lmax, nested)
     class(coop_healpix_maps) this
     COOP_INT:: nside, nmaps, i
     COOP_INT, optional::lmax
     COOP_INT,optional::spin(:)
-    COOP_UNKNOWN_STRING,optional::genre
+    COOP_UNKNOWN_STRING,optional::genre, unit
     logical,optional::nested
 #if HAS_HEALPIX
     if(allocated(this%map))then
@@ -1724,9 +1746,9 @@ contains
        case("IQU", "TQU")
           if(this%nmaps.lt.3)stop "For IQU map you need at least 3 maps"
           call this%set_units("muK")
-          call this%set_field(1, "INTENSITY")
-          call this%set_field(2, "Q-POLARISATION")
-          call this%set_field(3, "U-POLARISATION")
+          call this%set_field(1, "I")
+          call this%set_field(2, "Q")
+          call this%set_field(3, "U")
           do i=4, this%nmaps
              call this%set_field(i, coop_healpix_maps_default_genre)
           enddo
@@ -1868,7 +1890,14 @@ contains
              call this%set_field(i, coop_healpix_maps_default_genre)         
           enddo
        case default
-          write(*,"(A)") trim(genre)//": unknown map types"
+          if(this%nmaps .eq. len_trim(genre))then
+             do i = 1, this%nmaps
+                call this%set_field(i, genre(i:i))
+             enddo
+             call this%set_units("")
+          else
+             write(*,"(A)") trim(genre)//": unknown map types"
+          endif
           stop
        end select
     elseif(present(spin))then
@@ -1891,6 +1920,12 @@ contains
     end if
     if(present(nested))then
        if(nested)this%ordering = COOP_NESTED
+    endif
+    if(present(unit))then
+       call this%set_units(trim(unit))
+    endif
+    if(present(spin))then
+       this%spin = spin
     endif
 #else
     stop "DID not find healpix"
@@ -2237,6 +2272,9 @@ contains
     do i= nmaps_actual+1, this%nmaps
        call this%set_field(i, "I")
     enddo
+    do i=1, nmaps_actual
+       call coop_dictionary_lookup(this%header, "SPIN"//this%fields(i)(1:1), this%spin(i), this%spin(i))
+    enddo
 #else
     stop "DID NOT FIND HEALPIX"
 #endif
@@ -2395,26 +2433,35 @@ contains
        do i = 1, size(index_list)
           key = "TTYPE"//COOP_STR_OF(i)
           val = this%header%value("TTYPE"//COOP_STR_OF(index_list(i)))
-          if(trim(val).ne."") &
-               call add_card(header, trim(key), trim(val), update = .true.)
-
+          if(trim(val).ne."")then
+             call add_card(header, trim(key), trim(val), update = .true.)
+             key = "SPIN"//val(1:1)
+             val = COOP_STR_OF(this%spin(index_list(i)))
+             call add_card(header, trim(key), trim(val), update = .true.)
+          endif
           key = "TUNIT"//COOP_STR_OF(i)
           val = this%header%value("TUNIT"//COOP_STR_OF(index_list(i)))
           if(trim(val).ne."") &
                call add_card(header, trim(key), trim(val), update = .true.)
+
+
        enddo
        call output_map(this%map(:, index_list), header, trim(filename))
     else
        do i=1, this%nmaps
           key = "TTYPE"//COOP_STR_OF(i)
           val = this%header%value(key)
-          if(trim(val).ne."") &
-               call add_card(header, trim(key), trim(val), update = .true.)
-
+          if(trim(val).ne."")then
+             call add_card(header, trim(key), trim(val), update = .true.)
+             key = "SPIN"//val(1:1)
+             val = COOP_STR_OF(this%spin(i))
+             call add_card(header, trim(key), trim(val), update = .true.)
+          endif
           key = "TUNIT"//COOP_STR_OF(i)
           val = this%header%value(key)
           if(trim(val).ne."") &
                call add_card(header, trim(key), trim(val), update = .true.)
+
        enddo
        call output_map(this%map, header, trim(filename))
     endif
@@ -3732,39 +3779,6 @@ contains
     Nl = exp(Nl)/2.726**2
   end function Coop_Planck_BNoise
 
-  function Coop_highpass_filter(l1, l2, l) result(w)
-    COOP_INT l1, l2, l
-    COOP_REAL w
-    if(l.le. l1)then
-       w = 0.d0
-       return
-    endif
-    if(l.ge.l2)then
-       w = 1.d0
-       return
-    endif
-    w = sin(dble(l-l1)/dble(l2-l1)*coop_pio2)
-  end function Coop_highpass_filter
-
-  function coop_gaussian_filter(fwhm_arcmin, l) result(w)
-    COOP_INT l
-    COOP_REAL fwhm_arcmin, w
-    w = exp(-((coop_sigma_by_fwhm*coop_SI_arcmin/coop_sqrt2)*fwhm_arcmin)**2*l*(l+1.d0))
-  end function coop_gaussian_filter
-
-  function coop_lowpass_filter(l1, l2, l) result(w)
-    COOP_INT l1, l2, l
-    COOP_REAL w
-    if(l.ge. l2)then
-       w = 0.d0
-       return
-    endif
-    if(l.le.l1)then
-       w = 1.d0
-       return
-    endif
-    w = sin(dble(l2-l)/dble(l2-l1)*coop_pio2)
-  end function coop_lowpass_filter
 
 
   subroutine coop_healpix_maps_get_peaks(this, sto, mask, restore, nside_scan)

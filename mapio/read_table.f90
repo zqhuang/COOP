@@ -20,7 +20,7 @@ program test
      read(fp%unit, *) ells(l), Dls_theory(l)
   enddo
   call fp%close()
-  call ff%open("planck14/COM_PowerSpect_CMB_R2.02.fits", ihdu = 9)
+  call ff%open("planckCls.fits", ihdu=1) !"planck14/COM_PowerSpect_CMB_R2.02.fits", ihdu = 9)
   call ff%load_int_column(col = 1, data = ells(30:))
   call ff%load_double_column(col = 2, data = Dls(30:))
   call ff%load_double_column(col = 3, data = Els(30:))

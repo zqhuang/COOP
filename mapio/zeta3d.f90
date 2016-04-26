@@ -1,6 +1,7 @@
 Module coop_zeta3d_mod
   use coop_wrapper_firstorder
   use coop_healpix_mod
+  use coop_fitsio_mod
   implicit none
 #include "constants.h"
 

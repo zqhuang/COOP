@@ -2,6 +2,7 @@ program stackth
   use coop_wrapper_utils
   use coop_fitswrap_mod
   use coop_sphere_mod  
+  use coop_fitsio_mod
   use coop_healpix_mod
 #ifdef HAS_HEALPIX  
   use head_fits

@@ -19,6 +19,10 @@ program map
   type(coop_healpix_maps)::hgm, mask
   logical::has_mask
   COOP_REAL::weight
+  if(iargc().lt.1)then
+     write(*,*) "./GetInfo filename"
+     stop
+  endif
   i = 1
   fin = trim(coop_InputArgs(i))
   i = 2

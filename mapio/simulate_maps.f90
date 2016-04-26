@@ -3,6 +3,7 @@ program simmaps
   use coop_fitswrap_mod
   use coop_sphere_mod
   use coop_healpix_mod
+  use coop_fitsio_mod
   use head_fits
   use fitstools
   use pix_tools
@@ -11,30 +12,37 @@ program simmaps
   implicit none
 #include "constants.h"
   COOP_REAL::fwhm_arcmin
-  COOP_INT::nside, lmax, nmaps
+  COOP_INT::nside
   type(coop_healpix_maps)::map
-  type(coop_file)::fp
-  COOP_STRING::fcl, fmap
-  COOP_REAL:: Cls(lmin:lmax, 6)
-  COOP_INT::l, il
+  COOP_STRING::clfile, fmap
+  COOP_INT::hp_l1, hp_l2, i
+  type(coop_list_integer)::listinds
+  COOP_STRING::strinds
+  COOP_INT,dimension(:),allocatable::index_list
+  type(coop_cls)::cls
+  if(iargc().lt. 2)then
+     write(*,*) "Syntax:"
+     write(*,*) "./SimuMpas -clfile ... -nside ... -out ... -fwhm_arcmin ... [-highpass_l1 ... -highpass_l2 ... -indlist ... ]"
+  endif
   call coop_random_init()
-  call coop_get_command_line_argument(key = "cl", arg = fcl)
-  call coop_get_command_line_argument(key = "map", arg = fmap)
-  call coop_get_command_line_argument(key = "FWHM", arg = fwhm_arcmin )
-  call fp%open_skip_comments(fcl)
-  Cls = 0.d0
-  do l=lmin, lmax
-     read(fp%unit, *) il, Cls(l,coop_TEB_index_TT), Cls(l,coop_TEB_index_EE), Cls(l,coop_TEB_index_BB), Cls(l,coop_TEB_index_TE)
-     if(il.ne. l) stop "Cl file error"     
-     Cls(l,:) = Cls(l,:)*(coop_2pi/l/(l+1.d0))*coop_Gaussian_filter(fwhm_arcmin = fwhm_arcmin, l = l)**2
-     if(Cls(l,coop_TEB_index_TE)**2 .gt. Cls(l,coop_TEB_index_TT)*Cls(l,coop_TEB_index_EE))then
-        write(*,*) "l = ", l, " TE^2 > TT * EE"
-        stop
-     endif
-  enddo
-  call fp%close()
-  call map%init(nside = nside, nmaps=3, genre="TEB", lmax = lmax)
-  map%Cl(lmin:lmax, 1:6) = Cls(lmin:lmax,1:6)   
-  call map%simulate()
-  call map%write(trim(prefix)//"_TEB.fits")
+  call coop_get_command_line_argument(key = "clfile", arg = clfile)
+  call coop_get_command_line_argument(key = "indlist", arg = strinds, default='')
+  call coop_get_command_line_argument(key = "out", arg = fmap)
+  call coop_get_command_line_argument(key = "nside", arg = nside)
+  call coop_get_command_line_argument(key = "fwhm_arcmin", arg = fwhm_arcmin )
+  call coop_get_command_line_argument(key = "highpass_l1", arg = hp_l1, default = 0)
+  call coop_get_command_line_argument(key = "highpass_l2", arg = hp_l2, default = hp_l1)
+  call cls%load(clfile)
+  if(trim(strinds) .ne. '')then
+     call coop_string_to_list(strinds, listinds)
+     allocate(index_list(listinds%n))
+     do i=1, listinds%n
+        index_list(i) = listinds%element(i)
+     enddo
+     call cls%select_maps(index_list)
+  endif
+  call cls%filter(fwhm_arcmin = fwhm_arcmin, highpass_l1 = hp_l1, highpass_l2 = hp_l2)
+  call map%simulate(nside, cls)
+  call map%write(fmap)
+  call map%free()
 end program simmaps

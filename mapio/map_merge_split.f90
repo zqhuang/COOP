@@ -227,46 +227,46 @@ program map
         enddo
         call hgm%free
         goto 500
-     case("GAUSSIANIZE")
-        if(inline_mode)then
-           inline = coop_inputArgs(nin+1)
-        else
-           write(*,*) "Enter the mask (use NONE for no mask)"
-           read(*, "(A)") inline
-        endif
-        nin = nin - 1        
-        if(trim(adjustl(inline)).eq. "NONE" .or. trim(adjustl(inline)).eq. "")then  !!no mask
-           do i = 1, nin
-              call hgm%read(trim(fin(i)))
-              if( (hgm%nmaps .eq. 1 .and. hgm%spin(1) .eq. 0) .or. (hgm%nmaps .eq. 3 .and. hgm%spin(1) .eq. 0 .and. hgm%iq .eq. 2) )then
-                 write(*,*) "GAUSSIANIZING "//trim(fin(i))
-                 call hgm%map2alm()
-                 call hgm%simulate()
-                 call hgm%write(trim(coop_file_add_postfix(fin(i), "_gauss_sim")))
-              else
-                 write(*,*) "GAUSSIANIZE not supported for "//trim(fin(i))
-              endif
-           end do
-        else
-           call mask%read(trim(adjustl(inline)))
-           fsky = sum(dble(mask%map(:, 1)))/mask%npix           
-           do i = 1, nin
-              call hgm%read(trim(fin(i)))
-              if( (hgm%nmaps .eq. 1 .and. hgm%spin(1) .eq. 0) .or. (hgm%nmaps .eq. 3 .and. hgm%spin(1) .eq. 0 .and. hgm%iq .eq. 2) )then
-                 write(*,*) "GAUSSIANIZING "//trim(fin(i))                 
-                 call hgm%apply_mask(mask = mask)
-                 call hgm%map2alm()
-                 hgm%cl(0:1, :) = 0.
-                 hgm%cl = hgm%cl/fsky
-                 call hgm%simulate()
-                 call hgm%write(trim(coop_file_add_postfix(fin(i), "_gauss_sim")))
-              else
-                 write(*,*) "GAUSSIANIZE not supported for "//trim(fin(i))
-              endif
-           end do
-        endif
-        call hgm%free()
-        goto 500
+!!$     case("GAUSSIANIZE")
+!!$        if(inline_mode)then
+!!$           inline = coop_inputArgs(nin+1)
+!!$        else
+!!$           write(*,*) "Enter the mask (use NONE for no mask)"
+!!$           read(*, "(A)") inline
+!!$        endif
+!!$        nin = nin - 1        
+!!$        if(trim(adjustl(inline)).eq. "NONE" .or. trim(adjustl(inline)).eq. "")then  !!no mask
+!!$           do i = 1, nin
+!!$              call hgm%read(trim(fin(i)))
+!!$              if( (hgm%nmaps .eq. 1 .and. hgm%spin(1) .eq. 0) .or. (hgm%nmaps .eq. 3 .and. hgm%spin(1) .eq. 0 .and. hgm%iq .eq. 2) )then
+!!$                 write(*,*) "GAUSSIANIZING "//trim(fin(i))
+!!$                 call hgm%map2alm()
+!!$                 call hgm%simulate()
+!!$                 call hgm%write(trim(coop_file_add_postfix(fin(i), "_gauss_sim")))
+!!$              else
+!!$                 write(*,*) "GAUSSIANIZE not supported for "//trim(fin(i))
+!!$              endif
+!!$           end do
+!!$        else
+!!$           call mask%read(trim(adjustl(inline)))
+!!$           fsky = sum(dble(mask%map(:, 1)))/mask%npix           
+!!$           do i = 1, nin
+!!$              call hgm%read(trim(fin(i)))
+!!$              if( (hgm%nmaps .eq. 1 .and. hgm%spin(1) .eq. 0) .or. (hgm%nmaps .eq. 3 .and. hgm%spin(1) .eq. 0 .and. hgm%iq .eq. 2) )then
+!!$                 write(*,*) "GAUSSIANIZING "//trim(fin(i))                 
+!!$                 call hgm%apply_mask(mask = mask)
+!!$                 call hgm%map2alm()
+!!$                 hgm%cl(0:1, :) = 0.
+!!$                 hgm%cl = hgm%cl/fsky
+!!$                 call hgm%simulate()
+!!$                 call hgm%write(trim(coop_file_add_postfix(fin(i), "_gauss_sim")))
+!!$              else
+!!$                 write(*,*) "GAUSSIANIZE not supported for "//trim(fin(i))
+!!$              endif
+!!$           end do
+!!$        endif
+!!$        call hgm%free()
+!!$        goto 500
      case("LOG")
         nin  = nin - 1
         do i=1, nin

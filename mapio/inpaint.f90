@@ -22,7 +22,7 @@ program shells
   COOP_INT::rank, info, ncols
   COOP_INT,parameter::lmax = 2500
   COOP_REAL::ClTT(0:lmax), ClEE(0:lmax), ClBB(0:lmax), ClTE(0:lmax), readcls(6)
-  COOP_REAL::sqrtClTT(0:lmax), sqrtClEE(0:lmax), sqrtClBB(0:lmax), sqrtCluEuE(0:lmax), EbyT(0:lmax)
+  COOP_REAL::sqrtClTT(0:lmax), sqrtClEE(0:lmax), sqrtClBB(0:lmax), sqrtCluEuE(0:lmax), EbyT(0:lmax), covMat
   type(coop_file)::fp
   
 #if HAS_LAPACK
@@ -37,7 +37,7 @@ program shells
   call coop_get_command_line_argument(key = 'map', arg = fmap)
   call coop_get_command_line_argument(key = 'mask', arg = fmask)
   call coop_get_command_line_argument(key = 'genre', arg = genre)
-  call coop_get_command_line_argument(key = 'clfile', arg = fcl, default  ="")
+  call coop_get_command_line_argument(key = 'clfile', arg = fcl, default  ="") !!initial C_l input
   want_fluc = trim(fcl).ne.""
   call map%read(fmap)
   call mask%read(fmask)

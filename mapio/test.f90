@@ -1,40 +1,41 @@
-program shells
-  use coop_wrapper_firstorder
-  use coop_zeta3d_mod
+program test
+  use coop_wrapper_utils
   use coop_fitswrap_mod
-  use coop_sphere_mod
   use coop_healpix_mod
-  use head_fits
-  use fitstools
-  use pix_tools
-  use alm_tools
+  use coop_sphere_mod
+  use coop_fitsio_mod
   implicit none
 #include "constants.h"
-  type(coop_healpix_maps)::base_imap, imap, base_iqu_hm1, base_iqu_hm2, iqu_hm1, iqu_hm2
-  COOP_INT,dimension(:),allocatable::listpix, ind_start
-  COOP_INT::npix, i, j, ngroups
-  COOP_SINGLE::cut = 50.
-  call base_imap%read("dust/dust_i_10a_hp"
-  npix = count(map%map(:,1).ge. cut)
-  allocate(listpix(npix), ind_start(npix))
-  call map%convert2nested()
-  j = 0
-  do i = 0, map%npix-1
-     if(map%map(i,1).ge. cut)then
-        j = j + 1
-        listpix(j) = i
-     endif
+  COOP_INT::numhdus, ihdu
+  type(coop_dictionary)::header
+  COOP_STRING::filename
+  COOP_INT::ells(2500)
+  COOP_REAL::Dls(2500), Els(2500), Dls_theory(2500), Eb, weight
+  COOP_INT::l, l_start, l_end, i
+  type(coop_file)::fp
+  type(coop_fits_file)::ff
+  call fp%open("planck14best_lensedCls.dat")
+  do l=2, 2500
+     read(fp%unit, *) ells(l), Dls_theory(l)
   enddo
-  call coop_healpix_group_connected_pixels(nside = map%nside, listpix = listpix, ngroups = ngroups, ind_start = ind_start)
-  call mask%init(nside = map%nside, nmaps = 1, genre = "MASK", nested = .true.)
-  mask%map = 0.
-  print*, "ngroups = ", ngroups
-  do i =  1, min(ngroups, 200)
-     print*, "group ", i
-     mask%map( listpix(ind_start(i):ind_start(i+1)-1),1) = 1.
-     call mask%write("mask.fits")
-     call system("map2gif -inp mask.fits -out mask"//COOP_STR_OF(i)//".gif -bar T")
+  call fp%close()
+  call ff%open("planckCls.fits", ihdu=1) !"planck14/COM_PowerSpect_CMB_R2.02.fits", ihdu = 9)
+!  call ff%load_int_column(col = 1, data = ells(2:))
+  call ff%load_double_column(col = 1, data = Dls(2:))
+  call ff%load_double_column(col = 2, data = Els(2:))
+  call ff%close()
+  write(*,*) ells(2:10)
+  write(*,*) Dls(2:10)
+  write(*,*) "enter l_start, l_end:"
+30  read(*,*) l_start, l_end
+  if(l_end .le. l_start .or. l_start .lt. 2) stop
+  Eb = 0.d0
+  weight = 0.d0
+  do l = l_start, l_end
+     Eb = Eb + (Dls(l) - Dls_theory(l))/Els(l)**2
+     weight = weight + 1.d0/Els(l)**2
   enddo
-
-
-end program shells
+  Eb = Eb/weight
+  write(*,*) (Eb*sqrt(weight))**2
+  goto 30
+end program test

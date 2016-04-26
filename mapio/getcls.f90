@@ -16,15 +16,14 @@ program ClFromMap
   type(coop_healpix_maps)::map1, map2, mask
   type(coop_file)::fp
   logical::has_mask, has_map2
-  COOP_INT::l, lmax, lmax_mask, lmin, nmaps, numcls
+  COOP_INT::l, lmax, lmax_mask, lmin, nmaps, numcls, i
   COOP_REAL,dimension(:,:),allocatable::Cl_Pseudo, Cl
   COOP_REAL,dimension(:,:,:),allocatable::kernel
   COOP_REAL,dimension(:),allocatable::Cl_mask
-  COOP_STRING::genre
-
+  COOP_STRING::genre, unit
   if(iargc().lt.2)then
      write(*,*) "Syntax:"
-     write(*,*) "./MAP2CLS -map1 ... [-nmaps ...] [-map2 ...] [-mask ...] -lmax ... [-lmax_mask ..] [-lmin ...]  -fields ... -out ..."
+     write(*,*) "./MAP2CLS -map1 ... [-nmaps ...] [-map2 ...] [-mask ...] -lmax ... [-lmax_mask ..] [-lmin ...] -out ..."
      write(*,*) "example:"
      write(*,*) "./MAP2CLS -map1 planck_smica_iqu.fits  -lmax 2000 -lmax_mask 200 -mask planck_smica_mask.fits -fields TEB -out mycls.fits"
      stop
@@ -42,19 +41,24 @@ program ClFromMap
      call coop_get_command_line_argument(key = "lmax_mask", arg = lmax_mask, default = 200)
   endif
   call coop_get_command_line_argument(key = "out", arg = clfile)
-  call coop_get_command_line_argument(key = "fields", arg = genre)
   if(nmaps .gt. 0)then
      call map1%read(fmap1, nmaps_wanted = nmaps)
   else
      call map1%read(fmap1)
      nmaps = map1%nmaps
   endif
-  if(nmaps .ne. len_trim(genre))then
-     write(*,*) "fields = "//trim(genre)
-     write(*,*) "does not mach nmaps = "//COOP_STR_OF(nmaps)
-     stop
-  endif
+  genre = ''
+  do i = 1, map1%nmaps
+     genre(i:i) = map1%fields(i)(1:1)
+  enddo
   numcls = nmaps*(nmaps+1)/2
+
+  if(trim(adjustl(map1%units(1))).ne."")then
+     unit = trim(adjustl(map1%units(1)))
+  else
+     unit = "Unknown"
+  endif
+
   if(has_map2)call map2%read(fmap2, nmaps_wanted = nmaps)
 
   if(has_mask)then
@@ -76,25 +80,25 @@ program ClFromMap
         call map1%get_cls()
      endif
      select case(trim(genre))
-     case("T")
+     case("I", "T")
         call coop_pseudoCl_get_kernel(lmax_mask, Cl_mask, lmin, lmax, kernel, want_T = .true., want_EB = .false.)
         cl_pseudo(lmin:lmax, coop_TEB_index_TT) = map1%cl(lmin:lmax, 1)
         call coop_pseudoCl2Cl(lmin = lmin, lmax = lmax, Cl_pseudo = Cl_pseudo, kernel = kernel, Cl = Cl, want_T = .true., want_EB = .false.)
-        call coop_fits_file_write_cls(lmin = lmin, lmax =lmax, cls = cl(lmin:lmax,  coop_TEB_index_TT:coop_TEB_index_TT ), filename = clfile, genre = genre)
-     case("EB")
+        call coop_fits_file_write_cls(lmin = lmin, lmax =lmax, cls = cl(lmin:lmax,  coop_TEB_index_TT:coop_TEB_index_TT ), filename = clfile, genre = genre, spin = (/ 0 /) , unit=unit)
+     case("QU")
         call coop_pseudoCl_get_kernel(lmax_mask, Cl_mask, lmin, lmax, kernel, want_T = .false., want_EB = .true.)
         cl_pseudo(lmin:lmax, coop_TEB_index_EE) = map1%cl( lmin:lmax, COOP_MATSYM_INDEX(2, 1, 1) )
         cl_pseudo(lmin:lmax, coop_TEB_index_BB) = map1%cl( lmin:lmax,  COOP_MATSYM_INDEX(2, 2, 2) )
         cl_pseudo(lmin:lmax, coop_TEB_index_EB) = map1%cl( lmin:lmax,  COOP_MATSYM_INDEX(2, 1, 2) )
         call coop_pseudoCl2Cl(lmin = lmin, lmax = lmax, Cl_pseudo = Cl_pseudo, kernel = kernel,  Cl = Cl, want_T = .false., want_EB = .true.)
-        call coop_fits_file_write_cls(lmin = lmin, lmax =lmax, cls = cl(lmin:lmax, (/ coop_TEB_index_EE, coop_TEB_index_BB, coop_TEB_index_EB /) ), filename = clfile, genre = genre)
-     case("TEB")
+        call coop_fits_file_write_cls(lmin = lmin, lmax =lmax, cls = cl(lmin:lmax, (/ coop_TEB_index_EE, coop_TEB_index_BB, coop_TEB_index_EB /) ), filename = clfile, genre = genre, spin = (/ 2, 2 /) , unit=unit)
+     case("IQU", "TQU")
         call coop_pseudoCl_get_kernel(lmax_mask, Cl_mask, lmin, lmax, kernel, want_T = .true., want_EB = .true.)
         cl_pseudo(lmin:lmax, 1:6) = map1%cl(lmin:lmax, 1:6)
         call coop_pseudoCl2Cl(lmin = lmin, lmax = lmax, Cl_pseudo = Cl_pseudo, kernel = kernel,  Cl = Cl, want_T = .true., want_EB = .true.)
-        call coop_fits_file_write_cls(lmin = lmin, lmax =lmax, cls = cl, filename = clfile, genre = genre)
+        call coop_fits_file_write_cls(lmin = lmin, lmax =lmax, cls = cl, filename = clfile, genre = genre, spin = (/ 0, 2, 2 /) , unit=unit)
      case default
-        stop "In the mask mode MAP2CLS only supports fields = T; or EB; or TE; or TEB"
+        stop "In the mask mode MAP2CLS only supports fields = I, QU, or IQU"
      end select
 
   else
@@ -107,7 +111,9 @@ program ClFromMap
      endif
      allocate(cl(lmin:lmax, numcls))
      cl = map1%cl(lmin:lmax, 1:numcls)
-     call coop_fits_file_write_cls(lmin = lmin, lmax =lmax, cls = cl, filename = clfile, genre = genre)
+     write(*,*) trim(genre)
+     write(*,*) trim(unit)
+     call coop_fits_file_write_cls(lmin = lmin, lmax =lmax, cls = cl, filename = trim(clfile),  genre = genre, spin = map1%spin(1:nmaps), unit=unit)
   endif
 
 end program ClFromMap

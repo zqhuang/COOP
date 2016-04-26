@@ -52,8 +52,157 @@ module coop_fitsio_mod
      procedure::get_bitpix => coop_fits_file_get_bitpix
   end type coop_fits_file
 
+  type coop_cls
+     COOP_STRING::genre = ''
+     COOP_STRING::unit='Unkown'
+     COOP_INT::lmin = 0
+     COOP_INT::lmax = -1
+     COOP_INT::num_fields = 0
+     COOP_INT::num_cls = 0
+     COOP_REAL,dimension(:,:),allocatable::Cls
+     COOP_INT,dimension(:),allocatable::spin
+   contains
+     procedure::free => coop_cls_free
+     procedure::load => coop_cls_load
+     procedure::read => coop_cls_load
+     procedure::dump => coop_cls_dump
+     procedure::write => coop_cls_dump
+     procedure::load_fits => coop_cls_load_fits
+     procedure::dump_fits => coop_cls_dump_fits
+     procedure::read_fits => coop_cls_load_fits
+     procedure::write_fits => coop_cls_dump_fits
+     procedure::load_txt => coop_cls_load_txt
+     procedure::dump_txt => coop_cls_dump_txt
+     procedure::read_txt => coop_cls_load_txt
+     procedure::write_txt => coop_cls_dump_txt
+     procedure::filter => coop_cls_filter
+     procedure::select_maps => coop_cls_select_maps
+  end type coop_cls
+
 
 contains
+
+  function Coop_highpass_filter(l1, l2, l) result(w)
+    COOP_INT l1, l2, l
+    COOP_REAL w
+    if(l.ge.l2)then
+       w = 1.d0
+       return
+    endif
+    if(l.le. l1)then
+       w = 0.d0
+       return
+    endif
+    w = sin(dble(l-l1)/dble(l2-l1)*coop_pio2)
+  end function Coop_highpass_filter
+
+  function coop_gaussian_filter(fwhm_arcmin, l) result(w)
+    COOP_INT l
+    COOP_REAL fwhm_arcmin, w
+    w = exp(-((coop_sigma_by_fwhm*coop_SI_arcmin/coop_sqrt2)*fwhm_arcmin)**2*l*(l+1.d0))
+  end function coop_gaussian_filter
+
+  function coop_lowpass_filter(l1, l2, l) result(w)
+    COOP_INT l1, l2, l
+    COOP_REAL w
+    if(l.le.l1)then
+       w = 1.d0
+       return
+    endif
+    if(l.ge. l2)then
+       w = 0.d0
+       return
+    endif
+    w = sin(dble(l2-l)/dble(l2-l1)*coop_pio2)
+  end function coop_lowpass_filter
+
+
+  subroutine coop_cls_select_maps(this, index_list)
+    class(coop_cls)::this
+    COOP_INT,dimension(:):: index_list
+    COOP_REAL,dimension(:,:),allocatable::Cls_tmp
+    COOP_INT,dimension(:),allocatable::spin_tmp
+    COOP_STRING::genre_tmp
+    COOP_INT::n, i, j
+    if(any(index_list .gt. this%num_fields)) stop "cls_select_maps: index overflow"
+    n = size(index_list)
+    allocate(Cls_tmp(this%lmin:this%lmax, n*(n+1)/2), spin_tmp(n))
+    genre_tmp = ''
+    do i=1, n
+       do j = 1, i
+          Cls_tmp(this%lmin:this%lmax, COOP_MATSYM_INDEX(n, i, j)) = this%Cls(this%lmin:this%lmax, COOP_MATSYM_INDEX(this%num_fields, index_list(i), index_list(j)))
+       enddo
+       spin_tmp(i)  = this%spin(index_list(i))
+       genre_tmp(i:i) = this%genre(index_list(i):index_list(i))
+    enddo
+    deallocate(this%Cls)
+    deallocate(this%spin)
+    this%num_fields = n
+    this%num_cls = n*(n+1)/2
+    allocate(this%spin(n), this%cls(this%lmin:this%lmax, this%num_cls))
+    this%spin  = spin_tmp
+    this%cls = cls_tmp
+    this%genre = genre_tmp
+    deallocate(Cls_tmp,spin_tmp)
+  end subroutine coop_cls_select_maps
+
+  subroutine coop_cls_filter(this, fwhm_arcmin, highpass_l1, highpass_l2, lowpass_l1, lowpass_l2)
+    class(coop_cls)::this
+    COOP_REAL, dimension(:,:),allocatable::Cls_tmp
+    COOP_REAL, optional::fwhm_arcmin
+    COOP_INT, optional::highpass_l1, highpass_l2, lowpass_l1, lowpass_l2
+    COOP_INT::l, lmax_expect, lmin_expect
+    COOP_REAL::beam
+    if(.not. allocated(this%Cls)) stop "cls_filter: cls not allocated"
+    if(present(highpass_l1) .and. present(highpass_l2))then
+       lmin_expect = max(this%lmin, highpass_l1)
+    else
+       lmin_expect = this%lmin
+    endif
+    if(present(lowpass_l1) .and. present(lowpass_l2))then
+       lmax_expect = min(this%lmax, lowpass_l2)
+    else
+       lmax_expect = this%lmax
+    endif
+    if(present(fwhm_arcmin))then
+       lmax_expect = min(lmax_expect, ceiling(3.d0/(coop_sigma_by_fwhm*fwhm_arcmin*coop_SI_arcmin)))
+    endif
+    !$omp parallel do private(beam)
+    do l=lmin_expect, lmax_expect
+       beam = 1.d0
+       if(present(fwhm_arcmin)) &
+            beam = beam*coop_Gaussian_filter(fwhm_arcmin=fwhm_arcmin, l = l)**2 
+       if(present(highpass_l1) .and. present(highpass_l2)) &
+            beam = beam*coop_highpass_filter(l1 = highpass_l1, l2 = highpass_l2, l = l)**2 
+       if(present(lowpass_l1) .and. present(lowpass_l2)) &
+            beam = beam*coop_lowpass_filter(l1 = lowpass_l1, l2 = lowpass_l2, l = l)**2 
+       if(abs(beam-1.d0) .gt. 1.d-10) &
+            this%cls(l, :) = this%cls(l, :)*beam
+    enddo
+    !$omp end parallel do
+    if(lmin_expect .eq. this%lmin .and. lmax_expect .eq. this%lmax)return
+    !!reallocate cls if needed
+    allocate(Cls_tmp(lmin_expect:lmax_expect, this%num_cls))
+    Cls_tmp = this%Cls(lmin_expect:lmax_expect,:)
+    deallocate(this%Cls)
+    allocate(this%cls(lmin_expect:lmax_expect, this%num_cls))
+    this%cls = cls_tmp
+    this%lmin = lmin_expect
+    this%lmax = lmax_expect
+    deallocate(Cls_tmp)
+  end subroutine coop_cls_filter
+
+  subroutine coop_cls_free(this)
+    class(coop_cls)::this
+    COOP_DEALLOC(this%cls)
+    COOP_DEALLOC(this%spin)
+    this%lmin = 0
+    this%lmax = 01
+    this%num_fields = 0
+    this%num_cls  = 0
+    this%genre = ''
+    this%unit = 'Unknown'
+  end subroutine coop_cls_free
 
   subroutine coop_fits_file_get_naxes(this, naxis, naxes)
     class(coop_fits_file)::this
@@ -479,6 +628,7 @@ contains
     character(LEN=30)::errtext
 #if HAS_CFITSIO
     if(this%status .ne. 0)then
+       write(*,*) "Error when reading/writing: "//trim(this%filename)
        call ftgerr(this%status, errtext)
        write(*,*) trim(errtext)
        stop
@@ -558,17 +708,124 @@ contains
 #endif
   end subroutine coop_fits_file_write_image
 
-  subroutine coop_fits_file_load_cls(lmin, lmax, cls, filename, genre)
+  subroutine coop_fits_file_get_cls_dimension(filename, lmin, lmax, num_fields, genre)
+   type(coop_fits_file)::fp
+   COOP_INT::lmin, lmax, num_fields
+   COOP_UNKNOWN_STRING::filename, genre
+   call fp%open_table(filename)
+   call coop_dictionary_lookup(fp%header, "LMIN", lmin)
+   call coop_dictionary_lookup(fp%header, "LMAX", lmax)
+   call coop_dictionary_lookup(fp%header, "GENRE", genre)
+   num_fields = len_trim(genre)
+   call fp%close()
+ end subroutine coop_fits_file_get_cls_dimension
+
+ subroutine coop_cls_load_txt(this, filename)
+   class(coop_cls)::this
+   COOP_UNKNOWN_STRING::filename
+   type(coop_file)::fp
+   COOP_INT::l, il
+   COOP_STRING::junk
+   call fp%open(filename, 'r')
+   read(fp%unit, "(A2, A18)", ERR=100, END=100) junk, this%genre
+   this%genre = trim(adjustl(this%genre))
+   read(fp%unit, "(A2, I8)", ERR=100, END=100) junk, this%lmin
+   read(fp%unit, "(A2, I8)", ERR=100, END=100) junk, this%lmax
+   read(fp%unit, "(A2, I8)", ERR=100, END=100) junk, this%num_fields
+   this%num_cls = this%num_fields*(this%num_fields+1)/2
+   allocate(this%spin(this%num_fields), this%Cls(this%lmin:this%lmax, this%num_cls))
+   read(fp%unit, "(A2, "//COOP_STR_OF(this%num_fields)//"I3)") junk, this%spin
+   read(fp%unit, "(A2, A18)") junk, this%unit
+   this%unit = trim(adjustl(this%unit))
+   do l = this%lmin, this%lmax
+      read(fp%unit, *, ERR=100, END=100) il, this%cls(l, :)
+      if(il.ne.l) goto 100
+      this%cls(l, :) = this%cls(l,:)/(l*(l+1.d0)/coop_2pi)
+   enddo
+   return
+100  write(*,*) "Error in the cl input file "//trim(filename)
+     stop
+ end subroutine coop_cls_load_txt
+
+ subroutine coop_cls_dump_txt(this, filename)
+   COOP_UNKNOWN_STRING::filename
+   class(coop_cls)::this
+   type(coop_file)::fp
+   COOP_INT::l
+   call fp%open(filename)
+   write(fp%unit, "(A2, A18)") "# ", trim(this%genre)
+   write(fp%unit, "(A2, I8)") "# ", this%lmin
+   write(fp%unit, "(A2, I8)") "# ", this%lmax
+   write(fp%unit, "(A2, I8)") "# ", this%num_fields
+   write(fp%unit, "(A2, "//COOP_STR_OF(this%num_fields)//"I3)") "# ", this%spin
+   if(trim(this%unit).ne.'')then
+      write(fp%unit, "(A2, A18)") "# ", this%unit
+   else
+      write(fp%unit, "(A2, A18)") "# ", "Unkown"
+   endif
+   do l = this%lmin, this%lmax
+      write(fp%unit, "(I8, "//COOP_STR_OF(this%num_cls)//"E16.7)") l, this%Cls(l, :)*l*(l+1.d0)/coop_2pi
+   enddo
+   call fp%close()
+ end subroutine coop_cls_dump_txt
+
+ subroutine coop_cls_load_fits(this, filename)
+   class(coop_cls)::this
+   COOP_UNKNOWN_STRING::filename
+   COOP_STRING::genre
+   COOP_INT::i
+   call this%free()
+   call coop_fits_file_get_cls_dimension(filename, this%lmin, this%lmax, this%num_fields, this%genre)   
+   this%num_cls = this%num_fields*(this%num_fields+1)/2
+   allocate( this%spin(this%num_fields), this%Cls(this%lmin:this%lmax, this%num_cls))
+   call coop_fits_file_load_cls(this%lmin, this%lmax, this%cls, filename, this%genre, this%spin, this%unit)
+ end subroutine coop_cls_load_fits
+
+ subroutine  coop_cls_dump_fits(this, filename)
+   class(coop_cls)::this
+   COOP_UNKNOWN_STRING::filename
+   call coop_fits_file_write_cls(this%lmin, this%lmax, this%cls, filename, this%genre, this%spin, this%unit)
+ end subroutine coop_cls_dump_fits
+
+ subroutine coop_cls_load(this, filename)
+   class(coop_cls)::this
+   COOP_UNKNOWN_STRING::filename
+   select case(trim(coop_str_numLowerAlpha(coop_file_postfix_of(filename))))
+   case("fits")
+      call this%load_fits(filename)
+   case default
+      call this%load_txt(filename)
+   end select
+ end subroutine coop_cls_load
+
+ subroutine coop_cls_dump(this, filename)
+   class(coop_cls)::this
+   COOP_UNKNOWN_STRING::filename
+   select case(trim(coop_str_numLowerAlpha(coop_file_postfix_of(filename))))
+   case("fits")
+      call this%dump_fits(filename)
+   case default
+      call this%dump_txt(filename)
+   end select
+ end subroutine coop_cls_dump
+
+
+ subroutine coop_fits_file_load_cls(lmin, lmax, cls, filename, genre, spin, unit)
    type(coop_fits_file)::fp
    COOP_INT::lmin, lmax, llmin, llmax, numcls, i, j, numfields, col
-   COOP_REAL::Cls(:,:)
+   COOP_REAL::Cls(lmin:lmax, *)
+   COOP_INT,dimension(:),optional::spin
    COOP_UNKNOWN_STRING::filename, genre
+   COOP_UNKNOWN_STRING,optional::unit
    COOP_STRING::genre_saved
    if(size(cls,1).ne.lmax-lmin+1) stop "fits_file_load_cls: Size of Cls does not agree with lmin, lmax inputs"
    call fp%open_table(filename)
    call coop_dictionary_lookup(fp%header, "LMIN", llmin)
    call coop_dictionary_lookup(fp%header, "LMAX", llmax)
    call coop_dictionary_lookup(fp%header, "GENRE", genre_saved)
+   if(present(unit))then
+      call coop_dictionary_lookup(fp%header, "UNIT", unit)
+   end if
    if(lmin .lt. llmin .or. lmax .gt. llmax)then
       write(*,*) "L range in file "//trim(filename)
       write(*,*) llmin, llmax
@@ -577,7 +834,11 @@ contains
    endif
    numfields = len_trim(genre)
    numcls = (numfields+1)*numfields/2
-   if(size(cls,2).ne. numcls)stop "load_cls: size of cls array does not equal to numcls"
+   if(present(spin))then
+      do i = 1, numfields
+         call coop_dictionary_lookup(fp%header, "SPIN"//genre(i:i), spin(i))
+      enddo
+   endif
    i = verify(trim(genre), trim(genre_saved))
    if(i.ne. 0)then
       write(*,*) "saved cls in "//trim(filename)//" are for fields: "//trim(genre_saved)
@@ -597,19 +858,38 @@ contains
    call fp%close()
   end subroutine coop_fits_file_load_cls
 
-  subroutine coop_fits_file_write_cls(lmin, lmax, cls, filename, genre)
+  subroutine coop_fits_file_write_cls(lmin, lmax, cls, filename, genre, spin, unit)
     COOP_INT::lmin, lmax, numcls, numfields, i, j
     COOP_REAL::Cls(:,:)
+    COOP_INT,dimension(:),optional::spin
     type(coop_dictionary)::header
     COOP_UNKNOWN_STRING::filename
+    COOP_UNKNOWN_STRING, optional::unit
     COOP_UNKNOWN_STRING::genre
     if(size(cls, 1) .ne. lmax-lmin+1) stop "fits_file_write_cls: Size of Cls does not agree with lmin, lmax inputs"
     call header%init()
     call header%insert("LMIN", COOP_STR_OF(lmin))
     call header%insert("LMAX", COOP_STR_OF(lmax))
-    call header%insert("GENRE", trim(genre))
+    call header%insert("GENRE", trim(adjustl(genre)))
+    if(present(unit))then
+       call header%insert("UNIT", trim(adjustl(unit)))
+    endif
     numcls = size(Cls,2)
     numfields = nint(sqrt(numcls*2+0.25d0)-0.5d0)
+    if(present(spin))then
+       do i=1, numfields
+          call header%insert("SPIN"//genre(i:i), COOP_STR_OF(spin(i)))
+       enddo
+    else
+       do i=1, numfields
+          call header%insert("SPIN"//genre(i:i), "0")
+       enddo
+    endif
+    if(present(unit))then
+       call header%insert("UNIT", trim(adjustl(unit)))
+    else
+       call header%insert("UNIT", "Unknown")
+    end if
     if(numfields*(numfields+1)/2 .ne. numcls) stop "write_cls: the number of cls must be in the form of n(n+1)/2"
     if(numfields .gt. len_trim(genre)) stop "write_cls: genre must contain all the fields"
     do i=1, numfields
@@ -630,14 +910,15 @@ contains
     type(coop_fits_file)::fp
     logical simple, extend
     COOP_INT::i
-    COOP_INT::status,readwrite,blocksize,hdutype,tfields,nrows,varidat, column,frow,felem
+    COOP_INT::status,blocksize,hdutype,tfields,nrows,varidat, column,frow,felem
     COOP_SHORT_STRING::extname
     COOP_SHORT_STRING,dimension(:),allocatable::ttype, tform, tunit
     COOP_SHORT_INT,dimension(:),allocatable::short_int_col
     COOP_FITSIO_CARD::card
 #if HAS_CFITSIO
-    call fp%init(filename)
-    readwrite = 1
+    call system('rm -f '//trim(filename))
+    fp%rwmode = 1
+    call fp%init(trim(filename))
     call ftcrhd(fp%unit, fp%status)
     if(present(header))then
        call coop_dictionary_lookup(header, "TFIELDS", tfields, size(table,2))
@@ -840,6 +1121,7 @@ contains
     if(this%unit .ne. 0) call this%close()
     this%filename = trim(adjustl(filename))
     this%unit = coop_free_file_unit()
+
     this%blocksize = 1
     this%status = 0
     call ftinit(this%unit, trim(this%filename), this%blocksize, this%status)
@@ -853,6 +1135,7 @@ contains
     class(coop_fits_file)::this
 #if HAS_CFITSIO
     call ftclos(this%unit, this%status)
+    call this%check_error()
     this%unit = 0
     this%filename = ""
     this%nhdus = 0
@@ -875,6 +1158,7 @@ contains
 #if HAS_CFITSIO
     if(this%unit .ne. 0) call this%close()
     this%unit = coop_free_file_unit()
+
     this%filename = trim(adjustl(filename))
     if(present(mode))then
        select case(COOP_UPPER_STR(mode))
@@ -913,8 +1197,21 @@ contains
 #if HAS_CFITSIO
     if(this%unit .ne. 0) call this%close()
     this%unit = coop_free_file_unit()
+
     this%filename = trim(adjustl(filename))
-    call ftdopn(this%unit, trim(this%filename), this%rwmode, this%status)
+    call ftiopn(this%unit, trim(this%filename), this%rwmode, this%status)
+    if(this%status .ne. 0)then
+       this%status = 0
+       if(this%unit .ne. 0) call this%close()
+       this%unit = coop_free_file_unit()
+       call ftdopn(this%unit, trim(this%filename), this%rwmode, this%status)
+    endif
+    if(this%status .ne. 0)then
+       this%status = 0
+       if(this%unit .ne. 0) call this%close()
+       this%unit = coop_free_file_unit()
+       call this%open(trim(this%filename))
+    endif
     call ftthdu(this%unit, this%nhdus, this%status)
     call ftghdn(this%unit, this%chdu)
     call ftghdt(this%unit, this%hdutype, this%status)
@@ -932,8 +1229,14 @@ contains
 #if HAS_CFITSIO
     if(this%unit .ne. 0) call this%close()
     this%unit = coop_free_file_unit()
+
     this%filename = trim(adjustl(filename))
     call fttopn(this%unit, trim(this%filename), this%rwmode, this%status)
+    if(this%status .ne. 0)then
+       this%status = 0
+       call this%open(trim(this%filename))
+    endif
+    call this%check_error()
     call ftthdu(this%unit, this%nhdus, this%status)
     call ftghdn(this%unit, this%chdu)
     call ftghdt(this%unit, this%hdutype, this%status)

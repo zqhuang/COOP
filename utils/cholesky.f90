@@ -89,14 +89,18 @@ contains
     COOP_INT m, n, i, j, info
     COOP_REAL a(m, n)
     info = 0
-#ifdef HAS_LAPACK
-    call dpotrf('L', n, a, m, info)
-    call coop_fillzero('U',m, n, a)
-#else    
     if(a(1,1).le.0.d0)then
        info = 1
        return
     endif
+    if(n.eq.1)then
+       a(1,1) = sqrt(a(1,1))
+       return
+    endif
+#ifdef HAS_LAPACK
+    call dpotrf('L', n, a, m, info)
+    call coop_fillzero('U',m, n, a)
+#else    
     a(1,1)= sqrt(a(1,1))
     a(2:n,1) = a(2:n,1)/a(1,1)
     do  i = 2, n
