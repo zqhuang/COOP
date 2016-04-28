@@ -63,6 +63,7 @@ module coop_fitsio_mod
      COOP_INT,dimension(:),allocatable::spin
    contains
      procedure::free => coop_cls_free
+     procedure::init => coop_cls_init
      procedure::load => coop_cls_load
      procedure::read => coop_cls_load
      procedure::dump => coop_cls_dump
@@ -79,8 +80,183 @@ module coop_fitsio_mod
      procedure::select_maps => coop_cls_select_maps
   end type coop_cls
 
+  type, extends(coop_cls)::coop_binned_cls
+     COOP_INT::nb = 0
+     COOP_REAL,dimension(:),allocatable::lb
+     COOP_REAL,dimension(:,:),allocatable::Cbs, wb, wl
+     COOP_INT,dimension(:),allocatable::lmin_b, lmax_b
+     COOP_INT,dimension(:),allocatable::ibmin_l, ibmax_l
+   contains
+     procedure::alloc => coop_binned_Cls_alloc
+     procedure::bin => coop_binned_Cls_bin
+     procedure::unbin => coop_binned_Cls_unbin
+  end type coop_binned_cls
+
 
 contains
+
+  subroutine coop_cls_init(this, lmin, lmax, spin, cls, unit, genre)
+    class(coop_cls)::this
+    COOP_INT::lmin, lmax
+    COOP_INT::spin(:)
+    COOP_REAL::cls(:,:)
+    COOP_UNKNOWN_STRING::unit, genre
+    call this%free()
+    this%lmin = lmin
+    this%lmax = lmax
+    this%genre = trim(adjustl(genre))
+    this%num_fields = len_trim(this%genre)
+    this%num_cls = this%num_fields*(this%num_fields+1)/2
+    if(size(spin).ne. this%num_fields .or. size(cls, 2) .ne. this%num_cls .or. size(cls, 1) .ne. lmax - lmin + 1) stop "cls_init: wrong input dimensions"
+    allocate( this%spin(this%num_fields), this%Cls(this%lmin:this%lmax, this%num_cls))
+    this%cls = cls
+    this%spin = spin
+    this%unit = trim(adjustl(unit))
+  end subroutine coop_cls_init
+
+  subroutine coop_binned_Cls_alloc(this, nb, ells)
+    class(coop_binned_Cls)::this
+    COOP_INT::nb
+    COOP_REAL,dimension(:),optional::ells
+    COOP_REAL::delta_l, mat(3,3), det
+    COOP_INT::i, ib, l, lp
+    if(this%lmax .lt. this%lmin .or. this%num_fields .eq. 0) stop "binned_Cls_alloc: you need to load cls first"
+    if(nb .gt. this%lmax - this%lmin+1) stop "binned_Cls_alloc: too many bins (>lmax-lmin+1)"
+    this%nb = nb
+    COOP_DEALLOC(this%lb)
+    COOP_DEALLOC(this%lmin_b)
+    COOP_DEALLOC(this%lmax_b)
+    COOP_DEALLOC(this%ibmin_l)
+    COOP_DEALLOC(this%ibmax_l)
+    COOP_DEALLOC(this%Cbs)
+    COOP_DEALLOC(this%wb)
+    COOP_DEALLOC(this%wl)
+    allocate(this%lb(nb), this%Cbs(nb, this%num_cls), this%wb(this%lmin:this%lmax, this%nb), this%lmin_b(nb), this%lmax_b(nb), this%ibmin_l(this%lmin:this%lmax), this%ibmax_l(this%lmin:this%lmax), this%wl(this%nb, this%lmin:this%lmax))
+    if(present(ells))then
+       this%lb = ells(1:nb)
+       call coop_quicksort(this%lb)
+       if(this%lb(1) .lt. this%lmin .or. this%lb(this%nb) .gt. this%lmax)then
+          stop "binned_Cls_alloc: input ell array exceeds the range [lmin, lmax]"
+       endif
+    else
+       delta_l = (this%lmax - this%lmin)/this%nb
+       if(delta_l .le. 3.d0 .or. nb .lt. 5)then
+          call coop_set_uniform(this%nb, this%lb, this%lmin+delta_l/2.d0, this%lmax-delta_l/2.d0)
+       else
+          i = 1
+          this%lb(i) = min(this%lmin * 1.025d0 + 0.5d0, this%lmin+delta_l/2.d0)
+          do 
+             delta_l = (this%lmax - this%lb(i))/(this%nb - i + 0.5)
+             if(this%lb(i) .gt. delta_l*10.d0 .or. i .ge. nb/2)then
+                call coop_set_uniform(this%nb - i, this%lb(i+1:this%nb), this%lb(i)+delta_l, this%lmax - delta_l/2.d0)
+                exit
+             endif
+             this%lb(i+1) = max(this%lb(i)*1.1d0, this%lb(i) + 1.d0)
+             i = i + 1
+          enddo
+       endif
+    endif
+    this%wb = 0.d0
+    do ib = 1, this%nb 
+       if(ib .eq. 1)then
+          delta_l = this%lb(ib) - this%lmin+0.5d0
+       elseif(ib.eq.this%nb)then
+          delta_l = this%lmax - this%lb(ib)+0.5d0
+       else
+          delta_l = (this%lb(ib+1) - this%lb(ib-1))/2.d0
+       end if
+       this%lmin_b(ib) = max(this%lmin, floor(this%lb(ib) - 3.d0*delta_l))
+       this%lmax_b(ib) = min(this%lmax, floor(this%lb(ib) + 3.d0*delta_l))
+       do l = this%lmin_b(ib), this%lmax_b(ib)
+          this%wb(l, ib) = exp(-((l-this%lb(ib))/delta_l)**2)
+       enddo
+       this%wb(this%lmin_b(ib):this%lmax_b(ib), ib) = this%wb(this%lmin_b(ib):this%lmax_b(ib), ib)/ sum(this%wb(this%lmin_b(ib):this%lmax_b(ib), ib))
+    enddo
+    this%wl = 0.d0
+    l = this%lmin
+    do while(l .lt. this%lb(1))
+       this%ibmin_l(l) = 1 
+       this%ibmax_l(l) = 2
+       this%wl(1, l) = (this%lb(2) - l)/(this%lb(2) - this%lb(1))
+       this%wl(2, l) = (l - this%lb(1))/(this%lb(2) - this%lb(1))
+       l = l+ 1
+    enddo
+    do while(l.lt. this%lb(this%nb))
+       this%ibmin_l(l) = this%ibmin_l(l-1)
+       if(this%ibmin_l(l) .lt. this%nb - 2)then
+          if(abs(this%lb(this%ibmin_l(l)+3) - l) .lt.  abs(this%lb(this%ibmin_l(l)) - l))then
+             this%ibmin_l(l) = this%ibmin_l(l) + 1
+          endif
+       endif
+       this%ibmax_l(l) = this%ibmin_l(l) + 2
+       mat(:, 2:3) = 0.d0
+       mat(:, 1) = 1.d0
+       do ib = 1, 3
+          do lp = this%lmin_b(this%ibmin_l(l)+ib-1), this%lmax_b(this%ibmin_l(l)+ib-1)
+             mat(ib, 2) = mat(ib,2) + (lp-l)*this%wb(lp, this%ibmin_l(l)+ib-1)
+             mat(ib, 3) = mat(ib,3) + (lp-l)**2*this%wb(lp, this%ibmin_l(l)+ib-1)
+
+          enddo
+       enddo
+       call coop_matrix_det_small(3, mat, det)
+       this%wl(this%ibmin_l(l), l) = (mat(2, 2)*mat(3,3) - mat(2,3)*mat(3,2))/det
+       this%wl(this%ibmin_l(l)+1, l) =  (mat(3, 2)*mat(1,3) - mat(1,2)*mat(3,3))/det
+       this%wl(this%ibmax_l(l), l) =  (mat(1, 2)*mat(2,3) - mat(2,2)*mat(1,3))/det
+       l = l + 1
+    enddo
+    do while(l.le. this%lmax)
+       this%ibmin_l(l) = this%nb-1
+       this%ibmax_l(l) = this%nb
+       this%wl(this%nb-1, l) = (this%lb(this%nb)-l)/(this%lb(this%nb) - this%lb(this%nb-1))
+       this%wl(this%nb, l) =  (l - this%lb(this%nb-1))/(this%lb(this%nb) - this%lb(this%nb-1))
+       l = l + 1
+    enddo
+    
+    !!put in the l(l+1) factors
+    !$omp parallel do private(ib, l)
+    do ib = 1, this%nb
+       do l = this%lmin_b(ib), this%lmax_b(ib)
+          this%wb(l, ib) = this%wb(l, ib)*((l+0.5d0)/(this%lb(ib)+0.5))**2
+       enddo
+    enddo
+    !$omp end parallel do
+    !$omp parallel do private(ib, l)
+    do l = this%lmin, this%lmax
+       do ib = this%ibmin_l(l), this%ibmax_l(l)
+          this%wl(ib, l) = this%wl(ib, l)*( (this%lb(ib) + 0.5d0)/(l + 0.5d0) )**2
+       enddo
+    enddo
+    !$omp end parallel do
+  end subroutine coop_binned_Cls_alloc
+
+
+  subroutine coop_binned_Cls_bin(this)
+    class(coop_binned_Cls)::this
+    COOP_INT::l, ib
+    this%Cbs = 0.d0
+    !$omp parallel do private(ib, l)
+    do ib = 1, this%nb
+       do l = this%lmin_b(ib), this%lmax_b(ib)
+          this%Cbs(ib, :) = this%Cbs(ib,:) + this%Cls(l, :)*this%wb(l, ib)
+       enddo
+    enddo
+    !$omp end parallel do
+  end subroutine coop_binned_Cls_bin
+
+
+  subroutine coop_binned_Cls_unbin(this)
+    class(coop_binned_Cls)::this
+    COOP_INT::l, ib
+    this%Cls = 0.d0
+    !$omp parallel do private(ib, l)
+    do l = this%lmin, this%lmax
+       do ib = this%ibmin_l(l), this%ibmax_l(l)
+          this%Cls(l, :) = this%Cls(l,:) + this%Cbs(ib, :)*this%wl(ib, l)
+       enddo
+    enddo
+    !$omp end parallel do
+  end subroutine coop_binned_Cls_unbin
+
 
   function Coop_highpass_filter(l1, l2, l) result(w)
     COOP_INT l1, l2, l
@@ -120,17 +296,30 @@ contains
   subroutine coop_cls_select_maps(this, index_list)
     class(coop_cls)::this
     COOP_INT,dimension(:):: index_list
-    COOP_REAL,dimension(:,:),allocatable::Cls_tmp
+    COOP_REAL,dimension(:,:),allocatable::Cls_tmp, Cbs_tmp
     COOP_INT,dimension(:),allocatable::spin_tmp
     COOP_STRING::genre_tmp
     COOP_INT::n, i, j
     if(any(index_list .gt. this%num_fields)) stop "cls_select_maps: index overflow"
     n = size(index_list)
     allocate(Cls_tmp(this%lmin:this%lmax, n*(n+1)/2), spin_tmp(n))
+    select type(this)
+    type is(coop_binned_Cls)
+       if(this%nb .gt. 0)then
+          allocate(Cbs_tmp(this%nb,  n*(n+1)/2))
+       endif
+    end select
+
     genre_tmp = ''
     do i=1, n
        do j = 1, i
           Cls_tmp(this%lmin:this%lmax, COOP_MATSYM_INDEX(n, i, j)) = this%Cls(this%lmin:this%lmax, COOP_MATSYM_INDEX(this%num_fields, index_list(i), index_list(j)))
+          select type(this)
+          type is(coop_binned_Cls)
+             if(this%nb .gt. 0)then
+                Cbs_tmp(1:this%nb, COOP_MATSYM_INDEX(n, i, j)) = this%Cbs(1:this%nb, COOP_MATSYM_INDEX(this%num_fields, index_list(i), index_list(j)))
+             endif
+          end select
        enddo
        spin_tmp(i)  = this%spin(index_list(i))
        genre_tmp(i:i) = this%genre(index_list(i):index_list(i))
@@ -144,6 +333,13 @@ contains
     this%cls = cls_tmp
     this%genre = genre_tmp
     deallocate(Cls_tmp,spin_tmp)
+    select type(this)
+    type is(coop_binned_Cls)
+       if(this%nb .gt. 0)then
+          this%Cbs = Cbs_tmp
+          deallocate(Cbs_tmp)
+       end if
+    end select
   end subroutine coop_cls_select_maps
 
   subroutine coop_cls_filter(this, fwhm_arcmin, highpass_l1, highpass_l2, lowpass_l1, lowpass_l2)
@@ -190,6 +386,10 @@ contains
     this%lmin = lmin_expect
     this%lmax = lmax_expect
     deallocate(Cls_tmp)
+    select type(this)
+    type is(coop_binned_Cls)
+       call this%bin()
+    end select
   end subroutine coop_cls_filter
 
   subroutine coop_cls_free(this)
@@ -202,6 +402,18 @@ contains
     this%num_cls  = 0
     this%genre = ''
     this%unit = 'Unknown'
+    select type(this)
+    type is(coop_binned_Cls)
+       COOP_DEALLOC(this%lb)
+       COOP_DEALLOC(this%Cbs)
+       COOP_DEALLOC(this%wb)
+       COOP_DEALLOC(this%wl)
+       COOP_DEALLOC(this%lmin_b)
+       COOP_DEALLOC(this%lmax_b)
+       COOP_DEALLOC(this%ibmin_l)
+       COOP_DEALLOC(this%ibmax_l)
+       this%nb = 0
+    end select
   end subroutine coop_cls_free
 
   subroutine coop_fits_file_get_naxes(this, naxis, naxes)
