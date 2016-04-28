@@ -132,6 +132,13 @@ program ClFromMap
      call fp%close()
      call clobj%unbin()
      call clobj%dump(binnedfile)
+     call clobj%bin()
+     call fp%open("binned2.txt")
+     write(fp%unit, *) "# "//trim(genre)
+     do ib = 1, clobj%nb
+        write(fp%unit, "(F12.3, "//COOP_STR_OF(clobj%num_cls)//"E16.7)") clobj%lb(ib),  clobj%cbs(ib, :)*(clobj%lb(ib)*(clobj%lb(ib)+1.d0)/coop_2pi)
+     enddo
+     call fp%close()
 
   endif
 

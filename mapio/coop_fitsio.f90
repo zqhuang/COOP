@@ -118,8 +118,9 @@ contains
     class(coop_binned_Cls)::this
     COOP_INT::nb
     COOP_REAL,dimension(:),optional::ells
-    COOP_REAL::delta_l, mat(3,3), det
-    COOP_INT::i, ib, l, lp
+    COOP_REAL,dimension(:,:), allocatable::mat
+    COOP_REAL::delta_l,  det
+    COOP_INT::i, ib, l, lp, np, nbsize
     if(this%lmax .lt. this%lmin .or. this%num_fields .eq. 0) stop "binned_Cls_alloc: you need to load cls first"
     if(nb .gt. this%lmax - this%lmin+1) stop "binned_Cls_alloc: too many bins (>lmax-lmin+1)"
     this%nb = nb
@@ -147,7 +148,7 @@ contains
           this%lb(i) = min(this%lmin * 1.025d0 + 0.5d0, this%lmin+delta_l/2.d0)
           do 
              delta_l = (this%lmax - this%lb(i))/(this%nb - i + 0.5)
-             if(this%lb(i) .gt. delta_l*10.d0 .or. i .ge. nb/2)then
+             if(this%lb(i) .gt. delta_l*10.d0 .or. i .ge. nb*3/4)then
                 call coop_set_uniform(this%nb - i, this%lb(i+1:this%nb), this%lb(i)+delta_l, this%lmax - delta_l/2.d0)
                 exit
              endif
@@ -157,6 +158,8 @@ contains
        endif
     endif
     this%wb = 0.d0
+    this%ibmin_l = this%nb
+    this%ibmax_l = 1
     do ib = 1, this%nb 
        if(ib .eq. 1)then
           delta_l = this%lb(ib) - this%lmin+0.5d0
@@ -168,41 +171,29 @@ contains
        this%lmin_b(ib) = max(this%lmin, floor(this%lb(ib) - 3.d0*delta_l))
        this%lmax_b(ib) = min(this%lmax, floor(this%lb(ib) + 3.d0*delta_l))
        do l = this%lmin_b(ib), this%lmax_b(ib)
+          this%ibmin_l(l) = min(ib, this%ibmin_l(l))
+          this%ibmax_l(l) = max(ib, this%ibmax_l(l))
           this%wb(l, ib) = exp(-((l-this%lb(ib))/delta_l)**2)
        enddo
        this%wb(this%lmin_b(ib):this%lmax_b(ib), ib) = this%wb(this%lmin_b(ib):this%lmax_b(ib), ib)/ sum(this%wb(this%lmin_b(ib):this%lmax_b(ib), ib))
     enddo
     this%wl = 0.d0
-    l = this%lmin
-    do while(l .lt. this%lb(1))
-       this%ibmin_l(l) = 1 
-       this%ibmax_l(l) = 2
-       this%wl(1, l) = (this%lb(2) - l)/(this%lb(2) - this%lb(1))
-       this%wl(2, l) = (l - this%lb(1))/(this%lb(2) - this%lb(1))
-       l = l+ 1
-    enddo
-    do while(l.lt. this%lb(this%nb))
-       this%ibmin_l(l) = this%ibmin_l(l-1)
-       if(this%ibmin_l(l) .lt. this%nb - 2)then
-          if(abs(this%lb(this%ibmin_l(l)+3) - l) .lt.  abs(this%lb(this%ibmin_l(l)) - l))then
-             this%ibmin_l(l) = this%ibmin_l(l) + 1
-          endif
-       endif
-       this%ibmax_l(l) = this%ibmin_l(l) + 2
-       mat(:, 2:3) = 0.d0
-       mat(:, 1) = 1.d0
-       do ib = 1, 3
-          do lp = this%lmin_b(this%ibmin_l(l)+ib-1), this%lmax_b(this%ibmin_l(l)+ib-1)
-             mat(ib, 2) = mat(ib,2) + (lp-l)*this%wb(lp, this%ibmin_l(l)+ib-1)
-             mat(ib, 3) = mat(ib,3) + (lp-l)**2*this%wb(lp, this%ibmin_l(l)+ib-1)
-
+    do l = this%lmin, this%lmax
+       allocate(mat(this%ibmin_l(l):this%ibmax_l(l), this%ibmin_l(l):this%ibmax_l(l)))
+       mat = 0.d0
+       delta_l = this%lb(this%ibmax_l(l)) - this%lb(this%ibmin_l(l))
+       do np = this%ibmin_l(l), this%ibmax_l(l)
+          do ib = this%ibmin_l(l), this%ibmax_l(l)
+             do lp = this%lmin_b(ib), this%lmax_b(ib)
+                mat(ib, np) = mat(ib,np) + ((lp-l)/delta_l)**(np-this%ibmin_l(l))*this%wb(lp, ib)
+             enddo
           enddo
        enddo
-       call coop_matrix_det_small(3, mat, det)
-       this%wl(this%ibmin_l(l), l) = (mat(2, 2)*mat(3,3) - mat(2,3)*mat(3,2))/det
-       this%wl(this%ibmin_l(l)+1, l) =  (mat(3, 2)*mat(1,3) - mat(1,2)*mat(3,3))/det
-       this%wl(this%ibmax_l(l), l) =  (mat(1, 2)*mat(2,3) - mat(2,2)*mat(1,3))/det
-       l = l + 1
+       call coop_matrix_inverse(mat)
+       do ib = this%ibmin_l(l), this%ibmax_l(l)
+          this%wl(ib, l) = mat(this%ibmin_l(l), ib)
+       enddo
+       deallocate(mat)
     enddo
     do while(l.le. this%lmax)
        this%ibmin_l(l) = this%nb-1
