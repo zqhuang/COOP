@@ -1096,7 +1096,11 @@ contains
           enddo
        enddo
        call coop_cholesky(this%nmaps, this%nmaps, sqrtCl, info)
-       if(info .ne. 0) stop "healpix_maps_simulate: Cls file contains negative eigen values"
+       if(info .ne. 0)then
+          write(*,*) "l = ", l
+          write(*,*) cls%cls(l, :)
+          stop "healpix_maps_simulate: Cls file contains negative eigen values"
+       endif
        this%alm(l, 0, :) = matmul(sqrtCl, coop_random_gaussian_vector(this%nmaps))
        !$omp parallel do
        do m = 1, l
@@ -2273,7 +2277,7 @@ contains
        call this%set_field(i, "I")
     enddo
     do i=1, nmaps_actual
-       call coop_dictionary_lookup(this%header, "SPIN"//this%fields(i)(1:1), this%spin(i), this%spin(i))
+       call coop_dictionary_lookup(this%header, "SPIN"//COOP_STR_OF(i), this%spin(i), this%spin(i))
     enddo
 #else
     stop "DID NOT FIND HEALPIX"
@@ -2435,10 +2439,12 @@ contains
           val = this%header%value("TTYPE"//COOP_STR_OF(index_list(i)))
           if(trim(val).ne."")then
              call add_card(header, trim(key), trim(val), update = .true.)
-             key = "SPIN"//val(1:1)
-             val = COOP_STR_OF(this%spin(index_list(i)))
-             call add_card(header, trim(key), trim(val), update = .true.)
           endif
+
+          key = "SPIN"//COOP_STR_OF(i)
+          val = COOP_STR_OF(this%spin(index_list(i)))
+          call add_card(header, trim(key), trim(val), update = .true.)
+
           key = "TUNIT"//COOP_STR_OF(i)
           val = this%header%value("TUNIT"//COOP_STR_OF(index_list(i)))
           if(trim(val).ne."") &
@@ -2453,10 +2459,12 @@ contains
           val = this%header%value(key)
           if(trim(val).ne."")then
              call add_card(header, trim(key), trim(val), update = .true.)
-             key = "SPIN"//val(1:1)
-             val = COOP_STR_OF(this%spin(i))
-             call add_card(header, trim(key), trim(val), update = .true.)
           endif
+
+          key = "SPIN"//val(1:1)
+          val = COOP_STR_OF(this%spin(i))
+          call add_card(header, trim(key), trim(val), update = .true.)
+
           key = "TUNIT"//COOP_STR_OF(i)
           val = this%header%value(key)
           if(trim(val).ne."") &

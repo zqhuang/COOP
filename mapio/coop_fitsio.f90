@@ -36,6 +36,11 @@ module coop_fitsio_mod
      procedure::open_image => coop_fits_file_open_image
      procedure::open_table => coop_fits_file_open_table
      procedure::close => coop_fits_file_close
+     procedure::create_hdu => coop_fits_file_create_hdu
+     procedure::create_binary_table => coop_fits_file_create_binary_table
+     procedure::create_ascii_table => coop_fits_file_create_ascii_table
+     procedure::create_image => coop_fits_file_create_image
+     procedure::update_hdu_info => coop_fits_file_update_hdu_info
      procedure::move_to_hdu => coop_fits_file_move_to_hdu
      procedure::check_error => coop_fits_file_check_error
      procedure::report_error => coop_fits_file_report_error
@@ -93,26 +98,36 @@ module coop_fitsio_mod
   end type coop_binned_cls
 
 
+
+
 contains
 
   subroutine coop_cls_init(this, lmin, lmax, spin, cls, unit, genre)
     class(coop_cls)::this
     COOP_INT::lmin, lmax
-    COOP_INT::spin(:)
-    COOP_REAL::cls(:,:)
-    COOP_UNKNOWN_STRING::unit, genre
+    COOP_UNKNOWN_STRING::genre
+    COOP_INT,optional::spin(:)
+    COOP_REAL,optional::cls(:,:)
+    COOP_UNKNOWN_STRING,optional::unit
     call this%free()
     this%lmin = lmin
     this%lmax = lmax
     this%genre = trim(adjustl(genre))
     this%num_fields = len_trim(this%genre)
     this%num_cls = this%num_fields*(this%num_fields+1)/2
-    if(size(spin).ne. this%num_fields .or. size(cls, 2) .ne. this%num_cls .or. size(cls, 1) .ne. lmax - lmin + 1) stop "cls_init: wrong input dimensions"
     allocate( this%spin(this%num_fields), this%Cls(this%lmin:this%lmax, this%num_cls))
-    this%cls = cls
-    this%spin = spin
-    this%unit = trim(adjustl(unit))
+    if(present(cls))then
+       if(size(cls, 1).ne. this%lmax-this%lmin+1 .or. size(cls,2).ne. this%num_cls) stop "cls_init: wrong size of cls array"
+       this%cls = cls
+    endif
+    if(present(spin))then
+       if(size(spin).ne. this%num_fields) stop "cls_init: wrong size of spin array"
+       this%spin = spin
+    endif
+    if(present(unit))this%unit = trim(adjustl(unit))
   end subroutine coop_cls_init
+
+
 
   subroutine coop_binned_Cls_alloc(this, nb, ells)
     class(coop_binned_Cls)::this
@@ -333,12 +348,12 @@ contains
     end select
   end subroutine coop_cls_select_maps
 
-  subroutine coop_cls_filter(this, fwhm_arcmin, highpass_l1, highpass_l2, lowpass_l1, lowpass_l2)
+  subroutine coop_cls_filter(this, lmin, lmax, fwhm_arcmin, highpass_l1, highpass_l2, lowpass_l1, lowpass_l2)
     class(coop_cls)::this
     COOP_REAL, dimension(:,:),allocatable::Cls_tmp
     COOP_REAL, optional::fwhm_arcmin
-    COOP_INT, optional::highpass_l1, highpass_l2, lowpass_l1, lowpass_l2
-    COOP_INT::l, lmax_expect, lmin_expect
+    COOP_INT, optional::highpass_l1, highpass_l2, lowpass_l1, lowpass_l2, lmin, lmax
+    COOP_INT::l, lmax_expect, lmin_expect, lmin_final, lmax_final
     COOP_REAL::beam
     if(.not. allocated(this%Cls)) stop "cls_filter: cls not allocated"
     if(present(highpass_l1) .and. present(highpass_l2))then
@@ -354,33 +369,55 @@ contains
     if(present(fwhm_arcmin))then
        lmax_expect = min(lmax_expect, ceiling(3.d0/(coop_sigma_by_fwhm*fwhm_arcmin*coop_SI_arcmin)))
     endif
-    !$omp parallel do private(beam)
-    do l=lmin_expect, lmax_expect
-       beam = 1.d0
-       if(present(fwhm_arcmin)) &
-            beam = beam*coop_Gaussian_filter(fwhm_arcmin=fwhm_arcmin, l = l)**2 
-       if(present(highpass_l1) .and. present(highpass_l2)) &
-            beam = beam*coop_highpass_filter(l1 = highpass_l1, l2 = highpass_l2, l = l)**2 
-       if(present(lowpass_l1) .and. present(lowpass_l2)) &
-            beam = beam*coop_lowpass_filter(l1 = lowpass_l1, l2 = lowpass_l2, l = l)**2 
-       if(abs(beam-1.d0) .gt. 1.d-10) &
-            this%cls(l, :) = this%cls(l, :)*beam
-    enddo
-    !$omp end parallel do
-    if(lmin_expect .eq. this%lmin .and. lmax_expect .eq. this%lmax)return
+    if(present(fwhm_arcmin) .or. present(highpass_l1).and.present(highpass_l2) .or. present(lowpass_l1) .and. present(lowpass_l2))then
+       !$omp parallel do private(beam)
+       do l=lmin_expect, lmax_expect
+          beam = 1.d0
+          if(present(fwhm_arcmin)) &
+               beam = beam*coop_Gaussian_filter(fwhm_arcmin=fwhm_arcmin, l = l)**2 
+          if(present(highpass_l1) .and. present(highpass_l2)) &
+               beam = beam*coop_highpass_filter(l1 = highpass_l1, l2 = highpass_l2, l = l)**2 
+          if(present(lowpass_l1) .and. present(lowpass_l2)) &
+               beam = beam*coop_lowpass_filter(l1 = lowpass_l1, l2 = lowpass_l2, l = l)**2 
+          if(abs(beam-1.d0) .gt. 1.d-10) &
+               this%cls(l, :) = this%cls(l, :)*beam
+       enddo
+       !$omp end parallel do
+    endif
+    if(present(lmin))then
+       lmin_final = lmin
+    else
+       lmin_final = lmin_expect
+    endif
+    if(present(lmax))then
+       lmax_final = lmax
+    else
+       lmax_final =  lmax_expect
+    endif
+    if(lmin_final .ne. this%lmin .or. lmax_final.ne.this%lmax)then
     !!reallocate cls if needed
-    allocate(Cls_tmp(lmin_expect:lmax_expect, this%num_cls))
-    Cls_tmp = this%Cls(lmin_expect:lmax_expect,:)
-    deallocate(this%Cls)
-    allocate(this%cls(lmin_expect:lmax_expect, this%num_cls))
-    this%cls = cls_tmp
-    this%lmin = lmin_expect
-    this%lmax = lmax_expect
-    deallocate(Cls_tmp)
-    select type(this)
-    type is(coop_binned_Cls)
-       call this%bin()
-    end select
+       allocate(Cls_tmp(lmin_expect:lmax_expect, this%num_cls))
+       Cls_tmp = this%Cls(lmin_expect:lmax_expect,:)
+       deallocate(this%Cls)
+       this%lmin = lmin_final
+       this%lmax = lmax_final
+       allocate(this%cls(this%lmin:this%lmax, this%num_cls))
+       this%cls(this%lmin:lmin_expect-1,:) = 0.d0
+       this%cls(lmax_expect+1:this%lmax,:) = 0.d0
+       this%cls(max(lmin_expect, this%lmin):min(lmax_expect,this%lmax), :) = cls_tmp(max(lmin_expect, this%lmin):min(lmax_expect,this%lmax), :)
+       deallocate(Cls_tmp)
+       select type(this)
+       type is(coop_binned_Cls)
+          if(this%nb .gt.0)&
+               call this%bin()
+       end select
+    elseif(present(fwhm_arcmin) .or. present(highpass_l1).and.present(highpass_l2) .or. present(lowpass_l1) .and. present(lowpass_l2))then
+       select type(this)
+       type is(coop_binned_Cls)
+          if(this%nb .gt.0)&
+               call this%bin()
+       end select
+    endif
   end subroutine coop_cls_filter
 
   subroutine coop_cls_free(this)
@@ -451,6 +488,53 @@ contains
     stop "CFITSIO is not installed"
 #endif
   end subroutine coop_fits_file_get_nrows_ncols
+
+  subroutine coop_fits_file_read_binary_table(filename, table, first_row, first_col, cols)
+    COOP_UNKNOWN_STRING::filename
+    COOP_REAL::table(:,:)
+    COOP_INT,optional::first_row, first_col
+    COOP_INT,dimension(:),optional::cols
+#if HAS_CFITSIO    
+    type(coop_fits_file)::fp
+    COOP_INT::i, nrows, ncols, frow, maxcol, maxrow
+    COOP_INT::cols_want(size(table,2))
+    call fp%open_table(filename)
+    if(present(first_row))then
+       frow = first_row
+    else
+       frow = 1
+    endif
+    if(present(cols))then
+       cols_want = cols(1:size(table,2))
+    else
+       if(present(first_col))then
+          cols_want = (/ (i, i= first_col, first_col + size(table, 2)-1) /)
+       else
+          cols_want = (/ (i, i=1, size(table, 2) ) /)
+       endif
+    endif
+    maxcol = maxval(cols_want)
+    maxrow = frow + size(table, 1) - 1
+    call coop_dictionary_lookup(fp%header, "NAXIS2", nrows)
+    call coop_dictionary_lookup(fp%header, "NAXIS1", ncols)
+    if(nrows .lt. maxrow .or. ncols .lt. maxcol)then
+       write(*,*) "file "//trim(filename)
+       write(*,*) "number of columns = ", ncols
+       write(*,*) "number of rowss = ", nrows
+       write(*,*) "rows wanted: ", maxrow
+       write(*,*) "columns wanted: ", maxcol
+       stop "table size overflow"
+    endif
+    do i=1, size(table, 2)
+       call fp%load_double_column(cols_want(i), table(:,i), first_row = frow)
+    enddo
+    call fp%close()
+#else
+    stop "you have to install COOP with CFITSIO"
+#endif
+  end subroutine coop_fits_file_read_binary_table
+
+
 
   subroutine coop_fits_file_load_double_column(this, col, data, bad_value, first_row)
     class(coop_fits_file)::this
@@ -646,9 +730,9 @@ contains
     case(-32)
        allocate(fimage(size(image)))
        if(present(bad_value))then
-          call ftgpvd(this%unit, 1, 1, size(image), real(bad_value), fimage, anynul, this%status)
+          call ftgpve(this%unit, 1, 1, size(image), real(bad_value), fimage, anynul, this%status)
        else
-          call ftgpvd(this%unit, 1, 1, size(image), 0., fimage, anynul, this%status)
+          call ftgpve(this%unit, 1, 1, size(image), 0., fimage, anynul, this%status)
        endif
        image =fimage
        deallocate(fimage)
@@ -700,9 +784,9 @@ contains
     case(-32)
        allocate(fimage(size(image,1), size(image,2)))
        if(present(bad_value))then
-          call ftgpvd(this%unit, 1, 1, size(image), real(bad_value), fimage, anynul, this%status)
+          call ftgpve(this%unit, 1, 1, size(image), real(bad_value), fimage, anynul, this%status)
        else
-          call ftgpvd(this%unit, 1, 1, size(image), 0., fimage, anynul, this%status)
+          call ftgpve(this%unit, 1, 1, size(image), 0., fimage, anynul, this%status)
        endif
        image =fimage
        deallocate(fimage)
@@ -754,9 +838,9 @@ contains
     case(-32)
        allocate(fimage(size(image,1), size(image,2), size(image,3)))
        if(present(bad_value))then
-          call ftgpvd(this%unit, 1, 1, size(image), real(bad_value), fimage, anynul, this%status)
+          call ftgpve(this%unit, 1, 1, size(image), real(bad_value), fimage, anynul, this%status)
        else
-          call ftgpvd(this%unit, 1, 1, size(image), 0., fimage, anynul, this%status)
+          call ftgpve(this%unit, 1, 1, size(image), 0., fimage, anynul, this%status)
        endif
        image =fimage
        deallocate(fimage)
@@ -846,11 +930,11 @@ contains
     COOP_REAL,dimension(:)::image
     COOP_UNKNOWN_STRING::filename
     type(coop_fits_file)::fp
-    logical simple, extend
     COOP_INT::i
     COOP_INT::bitpix, naxis, group, fpixel, nelements, naxes(1024)
     COOP_FITSIO_CARD::card
 #if HAS_CFITSIO
+    call system('rm -f '//trim(filename))
     nelements = size(image)
     if(present(header))then
        call coop_dictionary_lookup(header, "BITPIX", bitpix, -64)
@@ -876,11 +960,7 @@ contains
        naxes(1) = nelements
     endif
     call fp%init(filename)
-    simple = .true.
-    extend = .true.
-    group = 1
-    fpixel = 1
-    call ftphpr(fp%unit, simple, bitpix, naxis, naxes(1:naxis), 0, 1, extend, fp%status)
+    call fp%create_image(bitpix, naxis, naxes)
     select case(bitpix)
     case(-64)
        call ftpprd(fp%unit, group, fpixel, nelements, image, fp%status)
@@ -943,7 +1023,11 @@ contains
    do l = this%lmin, this%lmax
       read(fp%unit, *, ERR=100, END=100) il, this%cls(l, :)
       if(il.ne.l) goto 100
-      this%cls(l, :) = this%cls(l,:)/(l*(l+1.d0)/coop_2pi)
+      if(l.gt.0)then
+         this%cls(l, :) = this%cls(l,:)/(l*(l+1.d0)/coop_2pi)
+      else
+         this%cls(l, :) = this%cls(l,:)*coop_2pi
+      endif
    enddo
    return
 100  write(*,*) "Error in the cl input file "//trim(filename)
@@ -967,7 +1051,11 @@ contains
       write(fp%unit, "(A2, A18)") "# ", "Unkown"
    endif
    do l = this%lmin, this%lmax
-      write(fp%unit, "(I8, "//COOP_STR_OF(this%num_cls)//"E16.7)") l, this%Cls(l, :)*l*(l+1.d0)/coop_2pi
+      if(l.gt.0)then
+         write(fp%unit, "(I8, "//COOP_STR_OF(this%num_cls)//"E16.7)") l, this%Cls(l, :)*l*(l+1.d0)/coop_2pi
+      else
+         write(fp%unit, "(I8, "//COOP_STR_OF(this%num_cls)//"E16.7)") l, this%Cls(l, :)/coop_2pi
+      endif
    enddo
    call fp%close()
  end subroutine coop_cls_dump_txt
@@ -1015,7 +1103,7 @@ contains
 
  subroutine coop_fits_file_load_cls(lmin, lmax, cls, filename, genre, spin, unit)
    type(coop_fits_file)::fp
-   COOP_INT::lmin, lmax, llmin, llmax, numcls, i, j, numfields, col
+   COOP_INT::lmin, lmax, llmin, llmax, numcls, i, j, numfields, col, ind
    COOP_REAL::Cls(lmin:lmax, *)
    COOP_INT,dimension(:),optional::spin
    COOP_UNKNOWN_STRING::filename, genre
@@ -1039,7 +1127,12 @@ contains
    numcls = (numfields+1)*numfields/2
    if(present(spin))then
       do i = 1, numfields
-         call coop_dictionary_lookup(fp%header, "SPIN"//genre(i:i), spin(i))
+         ind = scan(trim(genre_saved), genre(i:i))
+         if(ind .ne. 0)then
+            call coop_dictionary_lookup(fp%header, "SPIN"//COOP_STR_OF(ind), spin(i))
+         else
+            spin(i) = 0
+         endif
       enddo
    endif
    i = verify(trim(genre), trim(genre_saved))
@@ -1081,11 +1174,11 @@ contains
     numfields = nint(sqrt(numcls*2+0.25d0)-0.5d0)
     if(present(spin))then
        do i=1, numfields
-          call header%insert("SPIN"//genre(i:i), COOP_STR_OF(spin(i)))
+          call header%insert("SPIN"//COOP_STR_OF(i), COOP_STR_OF(spin(i)))
        enddo
     else
        do i=1, numfields
-          call header%insert("SPIN"//genre(i:i), "0")
+          call header%insert("SPIN"//COOP_STR_OF(i), "0")
        enddo
     endif
     if(present(unit))then
@@ -1106,23 +1199,35 @@ contains
     call header%free()
   end subroutine coop_fits_file_write_cls
 
+
+  subroutine coop_fits_file_create_hdu(this)
+    class(coop_fits_file)::this
+    call ftcrhd(this%unit, this%status)
+    call ftthdu(this%unit, this%nhdus, this%status)
+    call ftghdn(this%unit, this%chdu)
+  end subroutine coop_fits_file_create_hdu
+
+  subroutine coop_fits_file_update_hdu_info(this)
+    class(coop_fits_file)::this
+    call ftthdu(this%unit, this%nhdus, this%status)
+    call ftghdn(this%unit, this%chdu)
+    call ftghdt(this%unit, this%hdutype, this%status)
+  end subroutine coop_fits_file_update_hdu_info
+
   subroutine coop_fits_file_write_binary_table(table, filename, header)
     type(coop_dictionary),optional::header
     COOP_REAL,dimension(:,:)::table
     COOP_UNKNOWN_STRING::filename
     type(coop_fits_file)::fp
-    logical simple, extend
     COOP_INT::i
     COOP_INT::status,blocksize,hdutype,tfields,nrows,varidat, column,frow,felem
     COOP_SHORT_STRING::extname
     COOP_SHORT_STRING,dimension(:),allocatable::ttype, tform, tunit
-    COOP_SHORT_INT,dimension(:),allocatable::short_int_col
     COOP_FITSIO_CARD::card
 #if HAS_CFITSIO
     call system('rm -f '//trim(filename))
     fp%rwmode = 1
     call fp%init(trim(filename))
-    call ftcrhd(fp%unit, fp%status)
     if(present(header))then
        call coop_dictionary_lookup(header, "TFIELDS", tfields, size(table,2))
        call coop_dictionary_lookup(header, "NAXIS2", nrows, size(table,1))
@@ -1160,7 +1265,7 @@ contains
        enddo
     endif
     varidat = 0
-    call ftphbn(fp%unit, nrows, tfields, ttype, tform, tunit, extname, varidat, fp%status)
+    call fp%create_binary_table(nrows, tfields, ttype, tform, tunit)
     frow = 1
     felem = 1
     do column = 1, tfields
@@ -1172,15 +1277,12 @@ contains
        case("1J", "J")
           call ftpclj(fp%unit, column, frow, felem, nrows, nint(table(:, column)), fp%status)
        case("1I", "I")
-          if(.not. allocated(short_int_col))allocate(short_int_col(nrows))
-          short_int_col = nint(table(:, column))
-          call ftpcli(fp%unit, column, frow, felem, nrows, short_int_col, fp%status)
+          call ftpcli(fp%unit, column, frow, felem, nrows, nint(table(:, column), coop_short_int_length), fp%status)
        case default
           write(*,*) "TFORM"//COOP_STR_OF(column)//"="//trim(tform(column))
           stop "coop_fits_file_write_binary: does not support this TFORM"
        end select
     enddo
-    COOP_DEALLOC(short_int_col)
     deallocate(ttype, tform, tunit)
     if(present(header))then
        do i = 1, header%n
@@ -1198,37 +1300,71 @@ contains
     call fp%check_error()
     call fp%close()
 #else
-    stop "CFITSIO is not installed"
+    stop "FITSIO is not installed"
 #endif
   end subroutine coop_fits_file_write_binary_table
 
+  subroutine coop_fits_file_create_binary_table(this, nrows, tfields, ttype, tform, tunit)
+    class(coop_fits_file)::this
+    COOP_INT::nrows, tfields, varidat
+    COOP_SHORT_STRING::ttype(tfields), tform(tfields), tunit(tfields), extname
+    varidat = 0
+    extname = "COOP_BINARY_TABLE"
+    call ftibin(this%unit, nrows, tfields, ttype, tform, tunit, extname, varidat, this%status)
+    call this%update_hdu_info()
+    call this%load_header()
+    call this%check_error()
+  end subroutine coop_fits_file_create_binary_table
 
-  subroutine coop_fits_file_write_2d_image(image, filename, header)
+
+  subroutine coop_fits_file_create_ascii_table(this, rowlen, nrows, tfields, ttype, tbcol, tform, tunit)
+    class(coop_fits_file)::this
+    COOP_INT::rowlen, nrows, tfields
+    COOP_INT::tbcol(tfields)
+    COOP_SHORT_STRING::ttype(tfields), tform(tfields), tunit(tfields), extname
+    extname = "COOP_ASCII_TABLE"
+    call ftitab(this%unit, rowlen, nrows, tfields, ttype, tbcol, tform, tunit, extname, this%status)
+    call this%update_hdu_info()
+    call this%load_header()
+    call this%check_error()
+  end subroutine coop_fits_file_create_ascii_table
+
+
+
+  subroutine coop_fits_file_create_image(this, bitpix, naxis, naxes)
+    class(coop_fits_file)::this
+    COOP_INT::bitpix, naxis
+    COOP_INT::naxes(naxis)
+    call ftiimg(this%unit, bitpix, naxis, naxes, this%status)
+    call this%update_hdu_info()
+    call this%load_header()
+    call this%check_error()
+  end subroutine coop_fits_file_create_image
+
+  subroutine coop_fits_file_write_image_2d(image, filename, header)
     type(coop_dictionary),optional::header
     COOP_REAL,dimension(:,:)::image
     COOP_UNKNOWN_STRING::filename
     type(coop_fits_file)::fp
-    logical simple, extend
     COOP_INT::i
     COOP_INT::bitpix, naxis, naxes(2), group, fpixel, nelements
     COOP_FITSIO_CARD::card
 
 #if HAS_CFITSIO
+    call system('rm -f '//trim(filename))
     if(present(header))then
        call coop_dictionary_lookup(header, "BITPIX", bitpix, -64)
     else
        bitpix = -64
     endif
     call fp%init(filename)
-    simple = .true.
-    extend = .true.
     naxis = 2
     group = 1
     fpixel = 1
     nelements = size(image)
     naxes(1) = size(image,1)
     naxes(2) = size(image,2)
-    call ftphpr(fp%unit, simple, bitpix, naxis, naxes, 0, 1, extend, fp%status)
+    call fp%create_image(bitpix, naxis, naxes)
     select case(bitpix)
     case(-64)
        call ftpprd(fp%unit, group, fpixel, nelements, image, fp%status)
@@ -1257,35 +1393,32 @@ contains
 #else
     stop "CFITSIO is not installed"
 #endif
-  end subroutine coop_fits_file_write_2d_image
+  end subroutine coop_fits_file_write_image_2d
 
-
-  subroutine coop_fits_file_write_3d_image(image, filename, header)
+  subroutine coop_fits_file_write_image_3d(image, filename, header)
     type(coop_dictionary),optional::header
     COOP_REAL,dimension(:,:,:)::image
     COOP_UNKNOWN_STRING::filename
     type(coop_fits_file)::fp
-    logical simple, extend
     COOP_INT::i
     COOP_FITSIO_CARD::card
     COOP_INT::bitpix, naxis, naxes(3), group, fpixel, nelements
 #if HAS_CFITSIO
+    call system('rm -f '//trim(filename))
     if(present(header))then
        call coop_dictionary_lookup(header, "BITPIX", bitpix, -64)
     else
        bitpix = -64
     endif
-    call fp%init(filename)
-    simple = .true.
-    extend = .true.
-    naxis = 2
+    naxis = 3
     group = 1
     fpixel = 1
     nelements = size(image)
     naxes(1) = size(image,1)
     naxes(2) = size(image,2)
     naxes(3) = size(image,3)
-    call ftphpr(fp%unit, simple, bitpix, naxis, naxes, 0, 1, extend, fp%status)
+    call fp%init(filename)
+    call fp%create_image(bitpix, naxis, naxes)
     select case(bitpix)
     case(-64)
        call ftpprd(fp%unit, group, fpixel, nelements, image, fp%status)
@@ -1314,7 +1447,7 @@ contains
 #else
     stop "CFITSIO is not installed"
 #endif
-  end subroutine coop_fits_file_write_3d_image
+  end subroutine coop_fits_file_write_image_3d
 
 
   subroutine coop_fits_file_init(this, filename)
@@ -1324,7 +1457,6 @@ contains
     if(this%unit .ne. 0) call this%close()
     this%filename = trim(adjustl(filename))
     this%unit = coop_free_file_unit()
-
     this%blocksize = 1
     this%status = 0
     call ftinit(this%unit, trim(this%filename), this%blocksize, this%status)
@@ -1379,13 +1511,10 @@ contains
     endif
     if(present(ihdu))then
        call ftnopn(this%unit, trim(this%filename)//"["//COOP_STR_OF(ihdu-1)//"]", this%rwmode, this%status)
-       this%chdu = ihdu
     else
        call ftopen(this%unit, trim(this%filename), this%rwmode, this%blocksize, this%status)
-       this%chdu = 1
     endif
-    call ftthdu(this%unit, this%nhdus, this%status)
-    call ftghdt(this%unit, this%hdutype, this%status)
+    call this%update_hdu_info()
     call this%load_header()
     call this%check_error()
 #else
@@ -1415,9 +1544,7 @@ contains
        this%unit = coop_free_file_unit()
        call this%open(trim(this%filename))
     endif
-    call ftthdu(this%unit, this%nhdus, this%status)
-    call ftghdn(this%unit, this%chdu)
-    call ftghdt(this%unit, this%hdutype, this%status)
+    call this%update_hdu_info()
     call this%load_header()
     call this%check_error()
 #else
@@ -1440,9 +1567,7 @@ contains
        call this%open(trim(this%filename))
     endif
     call this%check_error()
-    call ftthdu(this%unit, this%nhdus, this%status)
-    call ftghdn(this%unit, this%chdu)
-    call ftghdt(this%unit, this%hdutype, this%status)
+    call this%update_hdu_info()
     call this%load_header()
     call this%check_error()
 #else
