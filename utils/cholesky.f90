@@ -203,7 +203,7 @@ contains
   subroutine coop_sympos_inverse(m, n, a)
     COOP_INT,intent(IN)::m, n
     COOP_REAL::a(m, n) !m>=n
-    COOP_INT info
+    COOP_INT info, i
     select case(n)
     case(1)
        a=1.d0/a
@@ -216,7 +216,14 @@ contains
             / ( a(1,1)*(a(2,2)*a(3,3) - a(2,3)*a(3,2)) + a(1,2)*(a(2,3)*a(3,1)-a(2,1)*a(3,3)) + a(1,3)*(a(2,1)*a(3,2)- a(2,2)*a(3,1)) )
     case default
        call coop_cholesky(m, n, a, info)
-       if(info.ne.0) call Coop_return_error("coop_sympos_inverse", "the matrix is not positive definite", "stop")
+       if(info.ne.0)then
+          if(m.lt. 10 .and. n.lt. 10)then
+             do i=1, n
+                write(*,"("//COOP_STR_OF(n)//"G14.5)") a(i, 1:n)
+             enddo
+          endif
+          call Coop_return_error("coop_sympos_inverse", "the matrix is not positive definite", "stop")
+       endif
 #ifdef HAS_LAPACK
        call dpotri("L", n, a, m, info)
        if(info.ne.0) call Coop_return_error("coop_sympos_inverse", "the matrix is not positive definite", "stop")

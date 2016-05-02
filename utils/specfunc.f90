@@ -6,7 +6,7 @@ module coop_special_function_mod
   private
 
 
-  public:: coop_log2, coop_sinc, coop_sinhc, coop_asinh, coop_acosh, coop_atanh, coop_InverseErf, coop_InverseErfc, coop_Gaussian_nu_of_P, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_IncompleteGamma, coop_threej000, coop_ThreeJSymbol, coop_ThreeJ_Array, coop_bessI0, coop_bessi1, coop_bessJ0, coop_bessJ1, coop_sphere_correlation, coop_sphere_correlation_init, coop_get_normalized_Plm_array, FT_Gaussian3D_window, FT_spherical_tophat, coop_pseudoCl_kernel_index_TT, coop_pseudoCl_kernel_index_TE, coop_pseudoCl_kernel_index_TB, coop_pseudoCl_kernel_index_EB, coop_pseudoCl_kernel_index_EE_plus_BB, coop_pseudoCl_kernel_index_EE_minus_BB, coop_TEB_index_T, coop_TEB_index_E, coop_TEB_index_B, coop_TEB_index_TT, coop_TEB_index_EE, coop_TEB_index_BB, coop_TEB_index_TE, coop_TEB_index_TB, coop_TEB_index_EB, coop_int3j,  coop_pseudoCl_matrix, coop_pseudoCl2Cl, coop_pseudoCl_get_kernel, coop_next_l, coop_nl_range, coop_set_ells
+  public:: coop_log2, coop_sinc, coop_sinhc, coop_asinh, coop_acosh, coop_atanh, coop_InverseErf, coop_InverseErfc, coop_Gaussian_nu_of_P, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_IncompleteGamma, coop_threej000, coop_ThreeJSymbol, coop_ThreeJ_Array, coop_bessI0, coop_bessi1, coop_bessJ0, coop_bessJ1, coop_sphere_correlation, coop_sphere_correlation_init, coop_get_normalized_Plm_array, FT_Gaussian3D_window, FT_spherical_tophat, coop_pseudoCl_kernel_index_TT, coop_pseudoCl_kernel_index_TE, coop_pseudoCl_kernel_index_TB, coop_pseudoCl_kernel_index_EB, coop_pseudoCl_kernel_index_EE_plus_BB, coop_pseudoCl_kernel_index_EE_minus_BB, coop_TEB_index_T, coop_TEB_index_E, coop_TEB_index_B, coop_TEB_index_TT, coop_TEB_index_EE, coop_TEB_index_BB, coop_TEB_index_TE, coop_TEB_index_TB, coop_TEB_index_EB, coop_int3j,  coop_pseudoCl_matrix, coop_pseudoCl2Cl, coop_pseudoCl_get_kernel, coop_next_l, coop_nl_range, coop_set_ells, coop_EB_index_E, coop_EB_index_B, coop_EB_index_EE, coop_EB_index_BB, coop_EB_index_EB
 
 
   !!define the index of kernels
@@ -25,7 +25,11 @@ module coop_special_function_mod
   COOP_INT, parameter::coop_TEB_index_TE = COOP_MATSYM_INDEX(3, coop_TEB_index_T, coop_TEB_index_E)
   COOP_INT, parameter::coop_TEB_index_TB = COOP_MATSYM_INDEX(3, coop_TEB_index_T, coop_TEB_index_B)
   COOP_INT, parameter::coop_TEB_index_EB = COOP_MATSYM_INDEX(3, coop_TEB_index_E, coop_TEB_index_B)
-
+  COOP_INT, parameter:: coop_EB_index_E = 1
+  COOP_INT, parameter:: coop_EB_index_B = 2
+  COOP_INT, parameter:: coop_EB_index_EE = COOP_MATSYM_INDEX(2, coop_EB_index_E, coop_EB_index_E)
+  COOP_INT, parameter:: coop_EB_index_BB = COOP_MATSYM_INDEX(2, coop_EB_index_B, coop_EB_index_B)
+  COOP_INT, parameter:: coop_EB_index_EB = COOP_MATSYM_INDEX(2, coop_EB_index_E, coop_EB_index_B)
 
   interface coop_InverseErf
      module procedure coop_InverseErf_s, coop_InverseErf_v

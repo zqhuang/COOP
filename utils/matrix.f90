@@ -255,10 +255,21 @@ contains
     COOP_INT i
     COOP_REAL  tr
     tr = A(1,1)
-    do i=2, size(A)
+    do i=2, size(A, 1)
        tr = tr + A(i,i)
     enddo
   end function coop_matrix_trace
+
+  function coop_matrix_product_trace(A, B) result(tr)
+    COOP_REAL, dimension(:, :)::A, B
+    COOP_REAL::tr
+    COOP_INT::i
+    if(size(A, 1) .ne. size(B, 2) .or. size(A, 2) .ne. size(B, 1)) stop "wrong input in matrix_product_trace"
+    tr = dot_product(A(1, :), B(:, 1))
+    do i = 2, size(A, 1)
+       tr = tr + dot_product(A(i, :), B(:, i))
+    enddo
+  end function coop_matrix_product_trace
 
 
   !!solve Ax=b and save x in b; A is not destroyed (while coop_matrix_solve does destroy a)

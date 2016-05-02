@@ -1433,7 +1433,7 @@ contains
        do i = 1, header%n
           if(header%key(i)(1:5).eq. "NAXIS")cycle
           select case(trim(header%key(i)))
-          case("SIMPLE", "NAXIS", "EXTEND", "NAXIS1", "NAXIS2", "NAXIS3","BITPIX" , "PCOUNT", "GCOUNT")
+          case("SIMPLE", "EXTEND", "BITPIX" , "PCOUNT", "GCOUNT")
              !!do nothing
           case default
              card(1:8) = trim(header%key(i))
