@@ -13,11 +13,14 @@ program coop_Xfaster
 #define QB_IND(ib, icross, icl) (((ib-1)*numcross + icross - 1 )*numcls + icl)
 
 !!this is coop version of xfaster, written from scratch. 
-  COOP_STRING::inifile
+  COOP_STRING::inifile, qb_input_file, qb_output_root
   COOP_STRING::action, map_genre, map_unit
+  COOP_INT::ib, num_iterations, iter
   type(coop_dictionary)::settings
+  type(coop_file)::fp
   COOP_INT::num_ell_bins, num_channels, lmin_data, lmax_data, nmaps, numcls, numcross, num_qbs, matdim
-  COOP_INT,dimension(:),allocatable::spin, qb
+  COOP_INT,dimension(:),allocatable::spin
+  COOP_REAL,dimension(:),allocatable::qb
 
   if(iargc().lt.1)then
      write(*,*) "Syntax:"
@@ -28,6 +31,10 @@ program coop_Xfaster
   call coop_load_dictionary(inifile, settings)
   call coop_dictionary_lookup(settings, 'action', action)
   call coop_dictionary_lookup(settings, 'map_genre', map_genre, 'IQU')
+  call coop_dictionary_lookup(settings, 'qb_input_file', qb_input_file, "")
+  call coop_dictionary_lookup(settings, 'qb_output_root', qb_output_root)
+  call coop_dictionary_lookup(settings, 'num_iterations', num_iterations)
+
   nmaps = len_trim(map_genre)
   numcls = nmaps*(nmaps+1)/2
   
@@ -54,7 +61,16 @@ program coop_Xfaster
   num_qbs = numcross*numcls*num_ell_bins
 
   allocate(qb(num_qbs))
-  qb = 1.d0
+  if(trim(qb_input_file).eq."")then
+     qb = 1.d0
+  else
+     write(*,*) "loading "//trim(qb_input_file)
+     call fp%open(qb_input_file)
+     do ib = 1, num_ell_bins
+        read(fp%unit, "("//COOP_STR_OF(numcross*numcls)//"E16.7)") qb((ib-1)*numcross*numcls+1:ib*numcross*numcls)
+     enddo
+     call fp%close()
+  endif
 
   call coop_dictionary_lookup(settings, 'lmin_data', lmin_data, 2)
   call coop_dictionary_lookup(settings, 'lmax_data', lmax_data)
@@ -73,13 +89,17 @@ program coop_Xfaster
   case("DO_PSEUDO_CL")
      call do_pseudo_cl()
   case("DO_CL")
-     call do_cl()
+     do iter = 1, num_iterations
+        call do_cl(iter)
+     enddo
   case("DO_ALL")
      call do_kernel()
      call do_noise()
      call do_transfer()
      call do_pseudo_cl()
-     call do_cl()
+     do iter = 1, num_iterations
+        call do_cl(iter)
+     enddo
   case default
      write(*,*) "action  = "//trim(action)
      stop "Unknown action"
@@ -150,6 +170,7 @@ contains
              noisepower%cls = noisepower%cls + noise1%cl(lmin_data:lmax_data, :)
           enddo
           noisepower%cls = noisepower%cls/num_noise_sims
+          call noisepower%smooth(5)
           call noisepower%dump(trim(noise_cl_root)//"_"//COOP_STR_OF(ich1)//"_"//COOP_STR_OF(ich2)//".fits")
           write(*,*)
        enddo
@@ -162,7 +183,7 @@ contains
   subroutine do_transfer()
     COOP_STRING::model_cl_root, signal_sim_root, transfer_root
     type(coop_cls)::modelpower, signalpower
-    COOP_INT::ich1, ich2, num_signal_sims, isim
+    COOP_INT::ich1, ich2, num_signal_sims, isim, ib
     type(coop_healpix_maps)::sig1, sig2
     call coop_dictionary_lookup(settings, "signal_sim_root", signal_sim_root)
     call coop_dictionary_lookup(settings, "model_cl_root", model_cl_root)
@@ -186,13 +207,15 @@ contains
              endif
              signalpower%cls = signalpower%cls + sig1%cl(lmin_data:lmax_data, :)
           enddo
+          write(*,*)
           where(modelpower%cls .ne. 0)
              signalpower%cls = signalpower%cls/num_signal_sims/modelpower%cls
           elsewhere
              signalpower%cls = 0.d0
           end where
+          call signalpower%smooth(5)
           call signalpower%dump(trim(transfer_root)//"_"//COOP_STR_OF(ich1)//"_"//COOP_STR_OF(ich2)//".fits")
-          write(*,*)
+
        enddo
     enddo
     call sig1%free()
@@ -230,17 +253,19 @@ contains
     call datapower%free()
   end subroutine do_pseudo_cl
 
-  subroutine do_cl()
+  subroutine do_cl(iter)
     COOP_STRING::data_cl_root, noise_cl_root, template_cl_root, kernel_root, transfer_root
-    COOP_INT:: l
+    COOP_INT:: l, iter
     type(coop_binned_cls),dimension(numcross)::datapower, noisepower, templatepower, trans
     COOP_REAL::kernel(lmin_data:lmax_data, lmin_data:lmax_data, 4,numcross)
     COOP_REAL::weight(numcross)
     COOP_INT::i, j, ind, ii, jj, ib, ich1, ich2, icl, jb, jch1, jch2, jcl, iqb
-    COOP_REAL::mat(matdim, matdim), dSdq(matdim, matdim, num_qbs)
+    COOP_REAL::mat(matdim, matdim), dSdq(matdim, matdim, num_qbs), wmat(matdim, matdim), datamat(matdim, matdim), invDdSdq(matdim, matdim, num_qbs)
+    logical::nonzero(num_qbs)
     COOP_REAL::Fisher(num_qbs, num_qbs)
     COOP_REAL::vecb(num_qbs)
     COOP_REAL::Cb_EE(numcls, num_ell_bins), Cb_BB(numcls, num_ell_bins)
+    type(coop_file)::fp
     write(*,*) "***************************************************"
     write(*,*) "Iterating the maximum-likelihood Cls"
     call coop_dictionary_lookup(settings, "kernel_root", kernel_root)
@@ -273,13 +298,12 @@ contains
              ind = COOP_MATSYM_INDEX(num_channels, ich1, ich2)
              call get_Cbs(templatepower(ind), l, kernel(:,:,:,ind), Cb_EE, Cb_BB)
              select case(trim(map_genre))
-             case("T")
+             case("I")
                 do ib = 1, num_ell_bins
                    dSdq(ich1, ich2, QB_IND(ib, ind, 1)) = Cb_EE(1, ib)
                 enddo
              case("QU")
                 do ib = 1, num_ell_bins
-
                    dSdq((ich1-1)*nmaps+coop_EB_index_E, (ich2-1)*nmaps+coop_EB_index_E, QB_IND(ib, ind, coop_EB_index_EE)) = Cb_EE(coop_EB_index_EE, ib)
                    dSdq((ich1-1)*nmaps+coop_EB_index_B, (ich2-1)*nmaps+coop_EB_index_B, QB_IND(ib, ind, coop_EB_index_EE)) = Cb_EE(coop_EB_index_BB, ib)
 
@@ -309,29 +333,69 @@ contains
                    dSdq((ich1-1)*nmaps+coop_TEB_index_B, (ich2-1)*nmaps+coop_TEB_index_T, QB_IND(ib, ind, coop_TEB_index_TB)) = Cb_EE(coop_TEB_index_TB, ib)
                 enddo
              end select
+
              do i = 1, nmaps
                 do j = i, nmaps
                    mat((ich1-1)*nmaps + i, (ich2-1)*nmaps+j) = noisepower(ind)%cls(l, COOP_MATSYM_INDEX(nmaps, i, j))
-                   if(i.ne.j) mat((ich1-1)*nmaps + j, (ich2-1)*nmaps+i) = mat((ich1-1)*nmaps + i, (ich2-1)*nmaps + j)
+                   datamat((ich1-1)*nmaps + i, (ich2-1)*nmaps+j) = datapower(ind)%cls(l, COOP_MATSYM_INDEX(nmaps, i, j)) - noisepower(ind)%cls(l, COOP_MATSYM_INDEX(nmaps, i, j))
+                   if(i.ne.j)then
+                      mat((ich1-1)*nmaps + j, (ich2-1)*nmaps+i) = mat((ich1-1)*nmaps + i, (ich2-1)*nmaps + j)
+                      datamat((ich1-1)*nmaps + j, (ich2-1)*nmaps+i) = datamat((ich1-1)*nmaps + i, (ich2-1)*nmaps + j)
+                   endif
+
                 enddo
              enddo
              if(ich1 .ne. ich2)then
                 dSdq((ich2-1)*nmaps+1:ich2*nmaps, (ich1-1)*nmaps+1:ich1*nmaps, :) = dSdq((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps, :)
                 mat((ich2-1)*nmaps+1:ich2*nmaps, (ich1-1)*nmaps+1:ich1*nmaps) = mat((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps)
+                datamat((ich2-1)*nmaps+1:ich2*nmaps, (ich1-1)*nmaps+1:ich1*nmaps) = datamat((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps)
              endif
           enddo
        enddo
        do ib = 1, num_qbs
-          mat = mat + dSdq(:,:, ib)*qb(ib)
+          if(all(dSdq(:,:,ib).eq.0.d0))then
+             nonzero(ib) = .false.
+          else
+             mat = mat + dSdq(:,:, ib)*qb(ib)
+             nonzero(ib) = .true.
+          endif
        enddo
        call coop_sympos_inverse(matdim, matdim, mat)
+       wmat = mat
+!!$       do ich1 = 1, num_channels
+!!$          do ich2 = 1, num_channels
+!!$             wmat((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps) = mat((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps) *weight(COOP_MATSYM_INDEX(num_channels, ich1, ich2))
+!!$          enddo
+!!$       enddo
        do ib = 1, num_qbs
-          do jb = ib, num_qbs
-             Fisher(ib, jb) = Fisher(ib, jb) + coop_matrix_product_trace(mat, matmul(dSdq(:,:,ib), matmul(mat, dSdq(:,:,jb))))
-          enddo
+          if(nonzero(ib))then
+             invDdSdq(:, :, ib) = matmul(wmat, matmul(dSdq(:,:, ib), mat))
+          endif
+       enddo
+       do ib = 1, num_qbs
+          if(nonzero(ib))then
+             do jb = ib, num_qbs
+                if(nonzero(jb))then
+                   Fisher(ib, jb) = Fisher(ib, jb) + coop_matrix_product_trace(invDdSdq(:,:,ib), dSdq(:,:,jb)) * (l+0.5d0)
+                endif
+             enddo
+             vecb(ib) = vecb(ib) + coop_matrix_product_trace(invDdSdq(:,:,ib),  datamat)*(l+0.5d0)
+          endif
        enddo
     enddo
-
+    write(*,*)
+    do ib = 1, num_qbs
+       do jb = ib+1, num_qbs
+          Fisher(jb, ib)  = Fisher(ib, jb)
+       enddo
+    enddo
+    call coop_sympos_inverse(num_qbs, num_qbs, Fisher)
+    qb = matmul(Fisher, vecb)
+    call fp%open(trim(qb_output_root)//"_ITER"//COOP_STR_OF(iter)//".dat")
+    do ib = 1, num_ell_bins
+       write(fp%unit, "(F10.2, "//COOP_STR_OF(numcross*numcls)//"E16.7)") templatepower(1)%lb(ib), qb((ib-1)*numcross*numcls+1:ib*numcross*numcls)
+    enddo
+    call fp%close()
 
     do ind = 1, numcross
        call datapower(ind)%free()
@@ -391,7 +455,7 @@ contains
        Cb_EE = 0.d0
        do ib = 1, power%nb
           do lp = power%lmin_b(ib), power%lmax_b(ib)
-             Cb_EE(1, ib) = Cb_EE(1, ib) + kernel(l, lp, coop_pseudoCl_kernel_index_TT)*power%Cls(lp, 1)*power%wb(lp, ib)
+             Cb_EE(1, ib) = Cb_EE(1, ib) + kernel(l, lp, coop_pseudoCl_kernel_index_TT)*power%Cls(lp, 1)*power%wl(ib, lp)
           enddo
        enddo
        Cb_BB = Cb_EE
@@ -400,11 +464,11 @@ contains
        Cb_BB = 0.d0
        do ib = 1, power%nb
           do lp = power%lmin_b(ib), power%lmax_b(ib)
-             Cb_EE(coop_EB_index_EB, ib) = Cb_EE(coop_EB_index_EB, ib) + kernel(l, lp, coop_pseudoCl_kernel_index_EB) * power%Cls(lp, coop_EB_index_EB) * power%wb(lp, ib)
-             Cb_EE(coop_EB_index_EE, ib) = Cb_EE(coop_EB_index_EE, ib) + (kernel(l, lp, coop_pseudoCl_kernel_index_EE_plus_BB) + kernel(l, lp, coop_pseudoCl_kernel_index_EE_minus_BB))/2.d0*power%Cls(lp, coop_EB_index_EE)*power%wb(lp, ib)
-             Cb_EE(coop_EB_index_BB, ib) = Cb_EE(coop_EB_index_BB, ib) + (kernel(l, lp, coop_pseudoCl_kernel_index_EE_plus_BB) - kernel(l, lp, coop_pseudoCl_kernel_index_EE_minus_BB))/2.d0*power%Cls(lp, coop_EB_index_EE)*power%wb(lp, ib)
-             Cb_BB(coop_EB_index_EE, ib) = Cb_BB(coop_EB_index_EE, ib) + (kernel(l, lp, coop_pseudoCl_kernel_index_EE_plus_BB) - kernel(l, lp, coop_pseudoCl_kernel_index_EE_minus_BB))/2.d0*power%Cls(lp, coop_EB_index_BB)*power%wb(lp, ib)
-             Cb_BB(coop_EB_index_BB, ib) = Cb_BB(coop_EB_index_BB, ib) + (kernel(l, lp, coop_pseudoCl_kernel_index_EE_plus_BB) + kernel(l, lp, coop_pseudoCl_kernel_index_EE_minus_BB))/2.d0*power%Cls(lp, coop_EB_index_BB)*power%wb(lp, ib)
+             Cb_EE(coop_EB_index_EB, ib) = Cb_EE(coop_EB_index_EB, ib) + kernel(l, lp, coop_pseudoCl_kernel_index_EB) * power%Cls(lp, coop_EB_index_EB) * power%wl(ib, lp)
+             Cb_EE(coop_EB_index_EE, ib) = Cb_EE(coop_EB_index_EE, ib) + (kernel(l, lp, coop_pseudoCl_kernel_index_EE_plus_BB) + kernel(l, lp, coop_pseudoCl_kernel_index_EE_minus_BB))/2.d0*power%Cls(lp, coop_EB_index_EE)*power%wl(ib, lp)
+             Cb_EE(coop_EB_index_BB, ib) = Cb_EE(coop_EB_index_BB, ib) + (kernel(l, lp, coop_pseudoCl_kernel_index_EE_plus_BB) - kernel(l, lp, coop_pseudoCl_kernel_index_EE_minus_BB))/2.d0*power%Cls(lp, coop_EB_index_EE)*power%wl(ib, lp)
+             Cb_BB(coop_EB_index_EE, ib) = Cb_BB(coop_EB_index_EE, ib) + (kernel(l, lp, coop_pseudoCl_kernel_index_EE_plus_BB) - kernel(l, lp, coop_pseudoCl_kernel_index_EE_minus_BB))/2.d0*power%Cls(lp, coop_EB_index_BB)*power%wl(ib, lp)
+             Cb_BB(coop_EB_index_BB, ib) = Cb_BB(coop_EB_index_BB, ib) + (kernel(l, lp, coop_pseudoCl_kernel_index_EE_plus_BB) + kernel(l, lp, coop_pseudoCl_kernel_index_EE_minus_BB))/2.d0*power%Cls(lp, coop_EB_index_BB)*power%wl(ib, lp)
           enddo
        enddo
        Cb_BB(coop_EB_index_EB, :) =  Cb_EE(coop_EB_index_EB, :)
@@ -413,14 +477,14 @@ contains
        Cb_BB = 0.d0
        do ib = 1, power%nb
           do lp = power%lmin_b(ib), power%lmax_b(ib)
-             Cb_EE(coop_TEB_index_EB, ib) = Cb_EE(coop_TEB_index_EB, ib) + kernel(l, lp, coop_pseudoCl_kernel_index_EB) * power%Cls(lp, coop_TEB_index_EB) * power%wb(lp, ib)
-             Cb_EE(coop_TEB_index_TT, ib) = Cb_EE(coop_TEB_index_TT, ib) + kernel(l, lp, coop_pseudoCl_kernel_index_TT) * power%Cls(lp, coop_TEB_index_TT) * power%wb(lp, ib)
-             Cb_EE(coop_TEB_index_TE, ib) = Cb_EE(coop_TEB_index_TE, ib) + kernel(l, lp, coop_pseudoCl_kernel_index_TE) * power%Cls(lp, coop_TEB_index_TE) * power%wb(lp, ib)
-             Cb_EE(coop_TEB_index_TB, ib) = Cb_EE(coop_TEB_index_TB, ib) + kernel(l, lp, coop_pseudoCl_kernel_index_TB) * power%Cls(lp, coop_TEB_index_TB) * power%wb(lp, ib)
-             Cb_EE(coop_TEB_index_EE, ib) = Cb_EE(coop_TEB_index_EE, ib) + (kernel(l, lp, coop_pseudoCl_kernel_index_EE_plus_BB) + kernel(l, lp, coop_pseudoCl_kernel_index_EE_minus_BB))/2.d0*power%Cls(lp, coop_TEB_index_EE)*power%wb(lp, ib)
-             Cb_EE(coop_TEB_index_BB, ib) = Cb_EE(coop_TEB_index_BB, ib) + (kernel(l, lp, coop_pseudoCl_kernel_index_EE_plus_BB) - kernel(l, lp, coop_pseudoCl_kernel_index_EE_minus_BB))/2.d0*power%Cls(lp, coop_TEB_index_EE)*power%wb(lp, ib)
-             Cb_BB(coop_TEB_index_EE, ib) = Cb_BB(coop_TEB_index_EE, ib) + (kernel(l, lp, coop_pseudoCl_kernel_index_EE_plus_BB) - kernel(l, lp, coop_pseudoCl_kernel_index_EE_minus_BB))/2.d0*power%Cls(lp, coop_TEB_index_BB)*power%wb(lp, ib)
-             Cb_BB(coop_TEB_index_BB, ib) = Cb_BB(coop_TEB_index_BB, ib) + (kernel(l, lp, coop_pseudoCl_kernel_index_EE_plus_BB) + kernel(l, lp, coop_pseudoCl_kernel_index_EE_minus_BB))/2.d0*power%Cls(lp, coop_TEB_index_BB)*power%wb(lp, ib)
+             Cb_EE(coop_TEB_index_EB, ib) = Cb_EE(coop_TEB_index_EB, ib) + kernel(l, lp, coop_pseudoCl_kernel_index_EB) * power%Cls(lp, coop_TEB_index_EB) * power%wl(ib, lp)
+             Cb_EE(coop_TEB_index_TT, ib) = Cb_EE(coop_TEB_index_TT, ib) + kernel(l, lp, coop_pseudoCl_kernel_index_TT) * power%Cls(lp, coop_TEB_index_TT) * power%wl(ib, lp)
+             Cb_EE(coop_TEB_index_TE, ib) = Cb_EE(coop_TEB_index_TE, ib) + kernel(l, lp, coop_pseudoCl_kernel_index_TE) * power%Cls(lp, coop_TEB_index_TE) * power%wl(ib, lp)
+             Cb_EE(coop_TEB_index_TB, ib) = Cb_EE(coop_TEB_index_TB, ib) + kernel(l, lp, coop_pseudoCl_kernel_index_TB) * power%Cls(lp, coop_TEB_index_TB) * power%wl(ib, lp)
+             Cb_EE(coop_TEB_index_EE, ib) = Cb_EE(coop_TEB_index_EE, ib) + (kernel(l, lp, coop_pseudoCl_kernel_index_EE_plus_BB) + kernel(l, lp, coop_pseudoCl_kernel_index_EE_minus_BB))/2.d0*power%Cls(lp, coop_TEB_index_EE)*power%wl(ib, lp)
+             Cb_EE(coop_TEB_index_BB, ib) = Cb_EE(coop_TEB_index_BB, ib) + (kernel(l, lp, coop_pseudoCl_kernel_index_EE_plus_BB) - kernel(l, lp, coop_pseudoCl_kernel_index_EE_minus_BB))/2.d0*power%Cls(lp, coop_TEB_index_EE)*power%wl(ib, lp)
+             Cb_BB(coop_TEB_index_EE, ib) = Cb_BB(coop_TEB_index_EE, ib) + (kernel(l, lp, coop_pseudoCl_kernel_index_EE_plus_BB) - kernel(l, lp, coop_pseudoCl_kernel_index_EE_minus_BB))/2.d0*power%Cls(lp, coop_TEB_index_BB)*power%wl(ib, lp)
+             Cb_BB(coop_TEB_index_BB, ib) = Cb_BB(coop_TEB_index_BB, ib) + (kernel(l, lp, coop_pseudoCl_kernel_index_EE_plus_BB) + kernel(l, lp, coop_pseudoCl_kernel_index_EE_minus_BB))/2.d0*power%Cls(lp, coop_TEB_index_BB)*power%wl(ib, lp)
           enddo
        enddo
        Cb_BB(coop_TEB_index_TT, :) =  Cb_EE(coop_TEB_index_TT, :)

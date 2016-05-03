@@ -68,6 +68,7 @@ module coop_fitsio_mod
      COOP_INT,dimension(:),allocatable::spin
    contains
      procedure::free => coop_cls_free
+     procedure::smooth => coop_Cls_smooth
      procedure::init => coop_cls_init
      procedure::load => coop_cls_load
      procedure::read => coop_cls_load
@@ -101,6 +102,32 @@ module coop_fitsio_mod
 
 
 contains
+
+  subroutine coop_cls_smooth(this, delta_l)
+    class(coop_cls)::this
+    COOP_INT::l, delta_l, lp
+    COOP_REAL,dimension(:,:),allocatable::cls_tmp
+    COOP_REAL::w(-delta_l:delta_l)
+    allocate(cls_tmp(this%lmin-delta_l:this%lmax+delta_l, this%num_cls))
+    cls_tmp(this%lmin:this%lmax, :) = this%cls
+    do l = this%lmin-delta_l, this%lmin - 1
+       cls_tmp(l, :) = cls_tmp(this%lmin, :)
+    enddo
+    do l = this%lmax+1, this%lmax+delta_l
+       cls_tmp(l, :) = cls_tmp(this%lmax, :)
+    enddo
+    do l = -delta_l, delta_l
+       w(l) = exp(- (2.d0*l/delta_l)**2)
+    enddo
+    w = w/sum(w)
+    do l = this%lmin, this%lmax
+       this%cls(l, :) = 0.d0
+       do lp = - delta_l, delta_l
+          this%cls(l,:) = this%cls(l,:) + w(lp)*cls_tmp(l+lp,:)
+       enddo
+    enddo
+    deallocate(cls_tmp)
+  end subroutine coop_cls_smooth
 
   subroutine coop_cls_init(this, lmin, lmax, spin, cls, unit, genre)
     class(coop_cls)::this
@@ -183,8 +210,8 @@ contains
        else
           delta_l = (this%lb(ib+1) - this%lb(ib-1))/2.d0
        end if
-       this%lmin_b(ib) = max(this%lmin, floor(this%lb(ib) - 3.d0*delta_l))
-       this%lmax_b(ib) = min(this%lmax, floor(this%lb(ib) + 3.d0*delta_l))
+       this%lmin_b(ib) = max(this%lmin, floor(this%lb(ib) - 2.5d0*delta_l))
+       this%lmax_b(ib) = min(this%lmax, floor(this%lb(ib) + 2.5d0*delta_l))
        do l = this%lmin_b(ib), this%lmax_b(ib)
           this%ibmin_l(l) = min(ib, this%ibmin_l(l))
           this%ibmax_l(l) = max(ib, this%ibmax_l(l))
@@ -192,31 +219,56 @@ contains
        enddo
        this%wb(this%lmin_b(ib):this%lmax_b(ib), ib) = this%wb(this%lmin_b(ib):this%lmax_b(ib), ib)/ sum(this%wb(this%lmin_b(ib):this%lmax_b(ib), ib))
     enddo
-    this%wl = 0.d0
+    this%wl = transpose(this%wb)
     do l = this%lmin, this%lmax
-       allocate(mat(this%ibmin_l(l):this%ibmax_l(l), this%ibmin_l(l):this%ibmax_l(l)))
-       mat = 0.d0
-       delta_l = this%lb(this%ibmax_l(l)) - this%lb(this%ibmin_l(l))
-       do np = this%ibmin_l(l), this%ibmax_l(l)
-          do ib = this%ibmin_l(l), this%ibmax_l(l)
-             do lp = this%lmin_b(ib), this%lmax_b(ib)
-                mat(ib, np) = mat(ib,np) + ((lp-l)/delta_l)**(np-this%ibmin_l(l))*this%wb(lp, ib)
-             enddo
-          enddo
-       enddo
-       call coop_matrix_inverse(mat)
-       do ib = this%ibmin_l(l), this%ibmax_l(l)
-          this%wl(ib, l) = mat(this%ibmin_l(l), ib)
-       enddo
-       deallocate(mat)
+       this%wl(this%ibmin_l(l):this%ibmax_l(l), l) =   this%wl(this%ibmin_l(l):this%ibmax_l(l), l)/sum( this%wl(this%ibmin_l(l):this%ibmax_l(l), l))
     enddo
-    do while(l.le. this%lmax)
-       this%ibmin_l(l) = this%nb-1
-       this%ibmax_l(l) = this%nb
-       this%wl(this%nb-1, l) = (this%lb(this%nb)-l)/(this%lb(this%nb) - this%lb(this%nb-1))
-       this%wl(this%nb, l) =  (l - this%lb(this%nb-1))/(this%lb(this%nb) - this%lb(this%nb-1))
-       l = l + 1
-    enddo
+!!$    this%wl = 0.d0
+!!$    do l = this%lmin, this%lmax
+!!$       if(l .lt. this%lb(1))then
+!!$          this%ibmin_l(l) = 1
+!!$          this%ibmax_l(l) = 1
+!!$          this%wl(1, l) = 1.d0
+!!$          cycle
+!!$       endif
+!!$       if(this%ibmin_l(l) .lt. this%nb)then
+!!$          do while(this%lb(this%ibmin_l(l)+1) .lt. l .and. this%ibmin_l(l) .lt. this%nb)
+!!$             this%ibmin_l(l) = this%ibmin_l(l) + 1
+!!$          enddo
+!!$       endif
+!!$       if(this%ibmin_l(l) .lt. this%nb)then
+!!$          this%ibmax_l(l) = this%ibmin_l(l)+1
+!!$          this%wl(this%ibmin_l(l), l) = (this%lb(this%ibmax_l(l)) - l)/(this%lb( this%ibmax_l(l)) - this%lb( this%ibmin_l(l) ))
+!!$          this%wl(this%ibmax_l(l), l) = (l-this%lb(this%ibmin_l(l)))/(this%lb( this%ibmax_l(l) ) - this%lb( this%ibmin_l(l) ))
+!!$       else
+!!$          this%ibmax_l(l) = this%ibmin_l(l)
+!!$          this%wl(this%ibmin_l(l), l) = 1.d0
+!!$       endif
+!!$    enddo
+!!$    do l = this%lmin, this%lmax
+!!$       allocate(mat(this%ibmin_l(l):this%ibmax_l(l), this%ibmin_l(l):this%ibmax_l(l)))
+!!$       mat = 0.d0
+!!$       delta_l = this%lb(this%ibmax_l(l)) - this%lb(this%ibmin_l(l))
+!!$       do np = this%ibmin_l(l), this%ibmax_l(l)
+!!$          do ib = this%ibmin_l(l), this%ibmax_l(l)
+!!$             do lp = this%lmin_b(ib), this%lmax_b(ib)
+!!$                mat(ib, np) = mat(ib,np) + ((lp-l)/delta_l)**(np-this%ibmin_l(l))*this%wb(lp, ib)
+!!$             enddo
+!!$          enddo
+!!$       enddo
+!!$       call coop_matrix_inverse(mat)
+!!$       do ib = this%ibmin_l(l), this%ibmax_l(l)
+!!$          this%wl(ib, l) = mat(this%ibmin_l(l), ib)
+!!$       enddo
+!!$       deallocate(mat)
+!!$    enddo
+!!$    do while(l.le. this%lmax)
+!!$       this%ibmin_l(l) = this%nb-1
+!!$       this%ibmax_l(l) = this%nb
+!!$       this%wl(this%nb-1, l) = (this%lb(this%nb)-l)/(this%lb(this%nb) - this%lb(this%nb-1))
+!!$       this%wl(this%nb, l) =  (l - this%lb(this%nb-1))/(this%lb(this%nb) - this%lb(this%nb-1))
+!!$       l = l + 1
+!!$    enddo
     
     !!put in the l(l+1) factors
     !$omp parallel do private(ib, l)
