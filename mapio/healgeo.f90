@@ -2004,12 +2004,13 @@ contains
 
 
   !!this assumes blind knowledge about the map
-  subroutine coop_healpix_maps_read_simple(this, filename)
+  subroutine coop_healpix_maps_read_simple(this, filename, nmaps_wanted)
     class(coop_healpix_maps) this
     COOP_UNKNOWN_STRING filename
     COOP_STRING::indxschm, object, ordering, form
     type(coop_fits_file)::fp
-    COOP_INT::npix_actual, i
+    COOP_INT::npix_actual, i, nmaps_actual
+    COOP_INT, optional::nmaps_wanted
     COOP_INT,dimension(:),allocatable::listpix
     COOP_SINGLE,dimension(:),allocatable::data
     call this%free()
@@ -2019,12 +2020,22 @@ contains
     call coop_dictionary_lookup(this%header, "OBJECT", object, 'FULLSKY')
     call coop_dictionary_lookup(this%header, "INDXSCHM", indxschm, "IMPLICIT")
     this%fullsky = .not.(trim(object).eq."PARTIAL" .and. trim(indxschm) .eq. "EXPLICIT")
-    call coop_dictionary_lookup(this%header, "TFIELDS", this%nmaps)
+    call coop_dictionary_lookup(this%header, "TFIELDS", nmaps_actual)
+    if(present(nmaps_wanted))then
+       this%nmaps = nmaps_wanted
+    else
+       if(this%fullsky)then
+          this%nmaps = nmaps_actual
+       else
+          this%nmaps = nmaps_actual - 1
+       endif
+    endif
     if(.not. this%fullsky)then
-       this%nmaps = this%nmaps - 1
+
        call this%header%insert( "TFIELDS", COOP_STR_OF(this%nmaps), overwrite = .true.)
        call this%header%insert( "OBJECT", "FULLSKY", overwrite = .true.)
        call this%header%insert( "INDXSCHM", "IMPLICIT", overwrite = .true.)
+    endif
 
     endif
     call coop_dictionary_lookup(this%header, "ORDERING", ordering, "")
@@ -2064,21 +2075,26 @@ contains
        call fp%load_int_column(col = 1, data = listpix)
        do i=1, this%nmaps
           call coop_dictionary_lookup(fp%header, "TUNIT"//COOP_STR_OF(i+1), this%units(i), "muK")
-          call coop_dictionary_lookup(fp%header, "TTYPE"//COOP_STR_OF(i+1), this%fields(i))
+          call coop_dictionary_lookup(fp%header, "TTYPE"//COOP_STR_OF(i+1), this%fields(i),"I")
           call this%fields_to_spins(i)       
-          call fp%load_single_column(col = i+1, data = data)
-          this%map(listpix, i) = data
+          if(i .lt. nmaps_actual)then
+             call fp%load_single_column(col = i+1, data = data)
+             this%map(listpix, i) = data
+          endif
           call coop_dictionary_lookup(fp%header, "SPIN"//COOP_STR_OF(i+1), this%spin(i), this%spin(i))
           call this%header%insert( "TUNIT"//COOP_STR_OF(i), trim(this%units(i)),overwrite=.true.)
           call this%header%insert( "TTYPE"//COOP_STR_OF(i), trim(this%fields(i)),overwrite=.true.)
           call this%header%insert( "SPIN"//COOP_STR_OF(i), COOP_STR_OF(this%spin(i)))
-          call coop_dictionary_lookup(fp%header, "TFORM"//COOP_STR_OF(i+1), form)
+          call coop_dictionary_lookup(fp%header, "TFORM"//COOP_STR_OF(i+1), form,'D')
           call this%header%insert( "TFORM"//COOP_STR_OF(i), trim(form), overwrite=.true.)
        enddo
-       call this%header%delete("TUNIT"//COOP_STR_OF(this%nmaps+1))
-       call this%header%delete("TTYPE"//COOP_STR_OF(this%nmaps+1))
-       call this%header%delete("SPIN"//COOP_STR_OF(this%nmaps+1))
-       call this%header%delete("TFORM"//COOP_STR_OF(this%nmaps+1))
+
+       do i = this%nmaps+1, nmaps_actual
+          call this%header%delete("TUNIT"//COOP_STR_OF(i))
+          call this%header%delete("TTYPE"//COOP_STR_OF(i))
+          call this%header%delete("SPIN"//COOP_STR_OF(i))
+          call this%header%delete("TFORM"//COOP_STR_OF(i))
+       enddo
        deallocate(listpix, data)
     endif
 
@@ -2120,6 +2136,25 @@ contains
     call coop_dictionary_lookup(this%header, "OBJECT", object, 'FULLSKY')
     call coop_dictionary_lookup(this%header, "INDXSCHM", indxschm, "IMPLICIT")
     this%fullsky = .not.(trim(object).eq."PARTIAL" .and. trim(indxschm) .eq. "EXPLICIT")
+    if(.not. this%fullsky)then
+       if(present(nmaps_wanted))then
+          call this%read_simple(filename, nmaps_wanted=nmaps_wanted)
+       else
+          call this%read_simple(filename)
+       endif
+       if(present(nested))then
+          if(nested)then
+             call this%convert2nested()
+          else
+             call this%convert2ring()
+          endif
+       else
+          call this%convert2ring()
+       endif
+
+
+       return
+    endif
     call coop_dictionary_lookup(this%header, "ORDERING", ordering, "")
     call coop_dictionary_lookup(this%header, "BAD_DATA", this%bad_data, this%bad_data)
     call coop_dictionary_lookup(this%header, "COORDSYS", this%coordsys, this%coordsys)
