@@ -33,7 +33,7 @@ program map
   nin = 1
   inline_mode =  (iargc() .gt. 0)
   if(.not. inline_mode)then
-     write(*,*) "options are: SPLIT; SMOOTH; GSMOOTH; DOBEAM; MULTIPLY;I2TQTUT;I2TQUL;I2TQULDD;I2TQUL6D;IQU2TEB;T2ZETA; IQU2ZETA; QU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE; HIGHPASS; LOWPASS; LOG; EXP; LOGIQU; EXPIQU; GAUSSIANIZE"
+     write(*,*) "options are: SPLIT; PARTIAL2FULL; SMOOTH; GSMOOTH; DOBEAM; MULTIPLY;I2TQTUT;I2TQUL;I2TQULDD;I2TQUL6D;IQU2TEB;T2ZETA; IQU2ZETA; QU2ZETA; SCALE;INFO;ADD;SUBTRACT;MAKEMASK; SHUFFLE; HIGHPASS; LOWPASS; LOG; EXP; LOGIQU; EXPIQU; GAUSSIANIZE"
   endif
   do while(nin .le. nmax)
      if(inline_mode)then
@@ -91,6 +91,14 @@ program map
            call coop_healpix_split(trim(fin(i)))
         enddo
         print*, "maps are all split"
+        goto 500
+     case("PARTIAL2FULL")
+        nin = nin -1
+        do i=1, nin
+           call hgm%read_simple(fin(i))
+           call hgm%write(fin(i))
+        enddo
+        print*, "maps are all converted to fullsky"
         goto 500
      case("DOBEAM")
         if(inline_mode)then

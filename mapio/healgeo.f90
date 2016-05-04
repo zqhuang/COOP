@@ -2011,6 +2011,7 @@ contains
     type(coop_fits_file)::fp
     COOP_INT::npix_actual, i
     COOP_INT,dimension(:),allocatable::listpix
+    COOP_SINGLE,dimension(:),allocatable::data
     call this%free()
     call fp%open_table(filename)
     this%header = fp%header
@@ -2022,6 +2023,9 @@ contains
     if(.not. this%fullsky)then
        this%nmaps = this%nmaps - 1
        call this%header%insert( "TFIELDS", COOP_STR_OF(this%nmaps), overwrite = .true.)
+       call this%header%insert( "OBJECT", "FULLSKY", overwrite = .true.)
+       call this%header%insert( "INDXSCHM", "IMPLICIT", overwrite = .true.)
+
     endif
     call coop_dictionary_lookup(this%header, "ORDERING", ordering, "")
     select case(trim(adjustl(ordering)))
@@ -2054,25 +2058,28 @@ contains
           call coop_dictionary_lookup(this%header, "SPIN"//COOP_STR_OF(i), this%spin(i), this%spin(i))
        enddo
     else
-       allocate(listpix(npix_actual))
+       call this%header%insert("NAXIS2", COOP_STR_OF(this%npix), overwrite =.true.)
+       allocate(listpix(npix_actual), data(npix_actual))
+       this%map = 0.
        call fp%load_int_column(col = 1, data = listpix)
        do i=1, this%nmaps
           call coop_dictionary_lookup(fp%header, "TUNIT"//COOP_STR_OF(i+1), this%units(i), "muK")
           call coop_dictionary_lookup(fp%header, "TTYPE"//COOP_STR_OF(i+1), this%fields(i))
           call this%fields_to_spins(i)       
-          call fp%load_single_column(col = i+1, data = this%map(listpix, i))
+          call fp%load_single_column(col = i+1, data = data)
+          this%map(listpix, i) = data
           call coop_dictionary_lookup(fp%header, "SPIN"//COOP_STR_OF(i+1), this%spin(i), this%spin(i))
           call this%header%insert( "TUNIT"//COOP_STR_OF(i), trim(this%units(i)),overwrite=.true.)
           call this%header%insert( "TTYPE"//COOP_STR_OF(i), trim(this%fields(i)),overwrite=.true.)
           call this%header%insert( "SPIN"//COOP_STR_OF(i), COOP_STR_OF(this%spin(i)))
           call coop_dictionary_lookup(fp%header, "TFORM"//COOP_STR_OF(i+1), form)
-          call this%header%insert( "FORM"//COOP_STR_OF(i), trim(form))
+          call this%header%insert( "TFORM"//COOP_STR_OF(i), trim(form), overwrite=.true.)
        enddo
        call this%header%delete("TUNIT"//COOP_STR_OF(this%nmaps+1))
        call this%header%delete("TTYPE"//COOP_STR_OF(this%nmaps+1))
        call this%header%delete("SPIN"//COOP_STR_OF(this%nmaps+1))
        call this%header%delete("TFORM"//COOP_STR_OF(this%nmaps+1))
-       deallocate(listpix)
+       deallocate(listpix, data)
     endif
 
     call fp%close()

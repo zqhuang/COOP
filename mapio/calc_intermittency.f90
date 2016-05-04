@@ -14,7 +14,7 @@ program shells
   COOP_STRING::fnl_option = "g"
   type(coop_function)::deltaN
   COOP_REAL,parameter::sigma_zeta = 4.6d-5
-  COOP_INT,parameter::lmax = 450
+  COOP_INT,parameter::lmax = 600
   COOP_INT,parameter::nside = 256
   COOP_REAL,parameter::fwhm_arcmin = 40.d0
   COOP_UNKNOWN_STRING,parameter::dir = "zetaproj/"
@@ -61,22 +61,22 @@ program shells
   call coop_random_init()
   select case(trim(fnl_option))
   case("i")
-     call hmng%read(trim(dir)//"gs_amp"//COOP_STR_OF(nint(1.e6*gp_A))//"_mean"//COOP_STR_OF(nint(gp_mean))//"_width"//COOP_STR_OF(nint(gp_width))//"_"//COOP_STR_OF(lmax)//"_TE.fits")
-     print*, "cold ratio:", count(hmng%map(:,1).lt.-15.)/real(hmng%npix)
-     prefix3d = coop_InputArgs(2)
-     prefixmap = coop_InputArgs(3)
-     if(trim(prefix3d).eq."") prefix3d = "lcdm"
-     if(trim(prefixmap).eq."") prefixmap = "nm"
-     itrial = 1
-     diff = 0.
-100  write(*,*) "Trial ", itrial, diff
-     call coop_zeta3d_generate_cmb(hm, zeta, cosmology, identity, lmax, nside, prefix3d = trim(dir)//trim(prefix3d), prefixtrans = prefixtrans, prefixmap=trim(dir)//trim(prefixmap), fwhm_arcmin= fwhm_arcmin, writefile = .false.)
-     diff = minval(hm%map(:,1)+hmng%map(:,1)) - minval(hm%map(:,1))
-     if(diff .gt. -15.)then
-        itrial = itrial + 1
-        call coop_zeta3d_cleanup()
-        goto 100 
-     endif
+!!$     call hmng%read(trim(dir)//"gs_amp"//COOP_STR_OF(nint(1.e6*gp_A))//"_mean"//COOP_STR_OF(nint(gp_mean))//"_width"//COOP_STR_OF(nint(gp_width))//"_"//COOP_STR_OF(lmax)//"_TE.fits")
+!!$     print*, "cold ratio:", count(hmng%map(:,1).lt.-15.)/real(hmng%npix)
+!!$     prefix3d = coop_InputArgs(2)
+!!$     prefixmap = coop_InputArgs(3)
+!!$     if(trim(prefix3d).eq."") prefix3d = "lcdm"
+!!$     if(trim(prefixmap).eq."") prefixmap = "nm"
+!!$     itrial = 1
+!!$     diff = 0.
+!!$100  write(*,*) "Trial ", itrial, diff
+!!$     call coop_zeta3d_generate_cmb(hm, zeta, cosmology, identity, lmax, nside, prefix3d = trim(dir)//trim(prefix3d), prefixtrans = prefixtrans, prefixmap=trim(dir)//trim(prefixmap), fwhm_arcmin= fwhm_arcmin, writefile = .false.)
+!!$     diff = minval(hm%map(:,1)+hmng%map(:,1)) - minval(hm%map(:,1))
+!!$     if(diff .gt. -15.)then
+!!$        itrial = itrial + 1
+!!$        call coop_zeta3d_cleanup()
+!!$        goto 100 
+!!$     endif
      call coop_zeta3d_generate_cmb(hm, zeta, cosmology, identity, lmax, nside, prefix3d = trim(dir)//trim(prefix3d), prefixtrans = prefixtrans, prefixmap=trim(dir)//trim(prefixmap), fwhm_arcmin= fwhm_arcmin, writefile = .true.)
 
   case("b")
