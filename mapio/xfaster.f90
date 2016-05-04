@@ -13,9 +13,10 @@ program coop_Xfaster
 #define QB_IND(ib, icross, icl) (((ib-1)*numcross + icross - 1 )*numcls + icl)
 
 !!this is coop version of xfaster, written from scratch. 
-  COOP_STRING::inifile, qb_input_file, qb_output_root
+  COOP_STRING::inifile, qb_input_file, qb_output_root, cl_output_root
   COOP_STRING::action, map_genre, map_unit
   COOP_INT::ib, num_iterations, iter
+  COOP_REAL,parameter::fisher_threshold = 1.d-4
   type(coop_dictionary)::settings
   type(coop_file)::fp
   COOP_INT::num_ell_bins, num_channels, lmin_data, lmax_data, nmaps, numcls, numcross, num_qbs, matdim
@@ -33,7 +34,8 @@ program coop_Xfaster
   call coop_dictionary_lookup(settings, 'map_genre', map_genre, 'IQU')
   call coop_dictionary_lookup(settings, 'qb_input_file', qb_input_file, "")
   call coop_dictionary_lookup(settings, 'qb_output_root', qb_output_root)
-  call coop_dictionary_lookup(settings, 'num_iterations', num_iterations)
+  call coop_dictionary_lookup(settings, 'cl_output_root', cl_output_root)
+  call coop_dictionary_lookup(settings, 'num_iterations', num_iterations, 1)
 
   nmaps = len_trim(map_genre)
   numcls = nmaps*(nmaps+1)/2
@@ -255,7 +257,7 @@ contains
 
   subroutine do_cl(iter)
     COOP_STRING::data_cl_root, noise_cl_root, template_cl_root, kernel_root, transfer_root
-    COOP_INT:: l, iter
+    COOP_INT:: l, iter, num_qb_used
     type(coop_binned_cls),dimension(numcross)::datapower, noisepower, templatepower, trans
     COOP_REAL::kernel(lmin_data:lmax_data, lmin_data:lmax_data, 4,numcross)
     COOP_REAL::weight(numcross)
@@ -263,9 +265,11 @@ contains
     COOP_REAL::mat(matdim, matdim), dSdq(matdim, matdim, num_qbs), wmat(matdim, matdim), datamat(matdim, matdim), invDdSdq(matdim, matdim, num_qbs)
     logical::nonzero(num_qbs)
     COOP_REAL::Fisher(num_qbs, num_qbs)
-    COOP_REAL::vecb(num_qbs)
+    COOP_REAL::vecb(num_qbs), errorbar(num_qbs), lambda
     COOP_REAL::Cb_EE(numcls, num_ell_bins), Cb_BB(numcls, num_ell_bins)
     type(coop_file)::fp
+    COOP_REAL,dimension(:,:),allocatable::Fisher_used
+    COOP_INT,dimension(:),allocatable::index_qb_used
     write(*,*) "***************************************************"
     write(*,*) "Iterating the maximum-likelihood Cls"
     call coop_dictionary_lookup(settings, "kernel_root", kernel_root)
@@ -353,7 +357,7 @@ contains
           enddo
        enddo
        do ib = 1, num_qbs
-          if(all(dSdq(:,:,ib).eq.0.d0))then
+          if(all( dSdq(:,:,ib) .eq. 0.d0))then
              nonzero(ib) = .false.
           else
              mat = mat + dSdq(:,:, ib)*qb(ib)
@@ -361,17 +365,20 @@ contains
           endif
        enddo
        call coop_sympos_inverse(matdim, matdim, mat)
-       wmat = mat
-!!$       do ich1 = 1, num_channels
-!!$          do ich2 = 1, num_channels
-!!$             wmat((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps) = mat((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps) *weight(COOP_MATSYM_INDEX(num_channels, ich1, ich2))
-!!$          enddo
-!!$       enddo
+!!$       wmat = mat
+       do ich1 = 1, num_channels
+          do ich2 = 1, num_channels
+             wmat((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps) = mat((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps) *weight(COOP_MATSYM_INDEX(num_channels, ich1, ich2))
+          enddo
+       enddo
+       !$omp parallel do
        do ib = 1, num_qbs
           if(nonzero(ib))then
              invDdSdq(:, :, ib) = matmul(wmat, matmul(dSdq(:,:, ib), mat))
           endif
        enddo
+       !$omp end parallel do
+       !$omp parallel do private(ib, jb)
        do ib = 1, num_qbs
           if(nonzero(ib))then
              do jb = ib, num_qbs
@@ -382,6 +389,7 @@ contains
              vecb(ib) = vecb(ib) + coop_matrix_product_trace(invDdSdq(:,:,ib),  datamat)*(l+0.5d0)
           endif
        enddo
+       !$omp end parallel do
     enddo
     write(*,*)
     do ib = 1, num_qbs
@@ -389,13 +397,49 @@ contains
           Fisher(jb, ib)  = Fisher(ib, jb)
        enddo
     enddo
-    call coop_sympos_inverse(num_qbs, num_qbs, Fisher)
-    qb = matmul(Fisher, vecb)
+    do ib=1, num_qbs
+       nonzero(ib) = Fisher(ib, ib) .gt. fisher_threshold
+    enddo
+    num_qb_used = count(nonzero)
+    allocate(index_qb_used(num_qb_used))
+    i = 0
+    do ib = 1, num_qbs
+       if(nonzero(ib))then
+          i = i + 1
+          index_qb_used(i) = ib
+       endif
+    enddo
+    Fisher_used = Fisher(index_qb_used, index_qb_used)
+    call coop_sympos_inverse(num_qb_used, num_qb_used, Fisher_used)
+    errorbar = 1.d30
+    do i = 1, num_qb_used
+       errorbar(index_qb_used(i)) = sqrt(Fisher_used(i, i))
+    enddo
+    qb(index_qb_used) = matmul(Fisher_used, vecb(index_qb_used))
     call fp%open(trim(qb_output_root)//"_ITER"//COOP_STR_OF(iter)//".dat")
     do ib = 1, num_ell_bins
-       write(fp%unit, "(F10.2, "//COOP_STR_OF(numcross*numcls)//"E16.7)") templatepower(1)%lb(ib), qb((ib-1)*numcross*numcls+1:ib*numcross*numcls)
+       write(fp%unit, "(F10.2, "//COOP_STR_OF(numcross*numcls*2)//"E16.7)") templatepower(1)%lb(ib), qb((ib-1)*numcross*numcls+1:ib*numcross*numcls), errorbar((ib-1)*numcross*numcls+1:ib*numcross*numcls)
     enddo
     call fp%close()
+    do ich1 = 1, num_channels
+       do ich2 = ich1, num_channels
+          ind = COOP_MATSYM_INDEX(num_channels, ich1, ich2)
+          where (trans(ind)%cls .ne. 0.d0)
+             templatepower(ind)%cls = templatepower(ind)%cls/trans(ind)%cls
+          end where
+          do l = lmin_data, lmax_data
+             do i = 1, numcls
+                lambda = 0.d0
+                do ib = templatepower(ind)%ibmin_l(l), templatepower(ind)%ibmax_l(l)
+                   lambda = lambda + qb(QB_IND(ib, ind, i))*templatepower(ind)%wl(ib, l)
+                enddo
+                templatepower(ind)%cls(l, i) = templatepower(ind)%cls(l, i) * lambda
+             enddo
+          enddo
+          call templatepower(ind)%dump(trim(cl_output_root)//"_ITER"//COOP_STR_OF(iter)//"_"//COOP_STR_OF(ich1)//"_"//COOP_STR_OF(ich2)//".fits")
+       enddo
+    enddo
+
 
     do ind = 1, numcross
        call datapower(ind)%free()
