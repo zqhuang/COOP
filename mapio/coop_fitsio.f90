@@ -51,6 +51,7 @@ module coop_fitsio_mod
      procedure::load_image_2d => coop_fits_file_load_image_2d
      procedure::load_image_3d => coop_fits_file_load_image_3d
      procedure::load_double_column => coop_fits_file_load_double_column
+     procedure::load_single_column => coop_fits_file_load_single_column
      procedure::load_int_column => coop_fits_file_load_int_column
      procedure::get_nrows_ncols => coop_fits_file_get_nrows_ncols
      procedure::get_naxes => coop_fits_file_get_naxes
@@ -597,7 +598,6 @@ contains
     COOP_SHORT_INT,dimension(:),allocatable::short_int_data
     COOP_REAL, optional::bad_value
     COOP_REAL::nulval
-    COOP_SHORT_INT::short_int_nulval
     COOP_INT::ncols, width, repeat, datacode, nrows, frow
     COOP_INT,optional::first_row
     logical anyf
@@ -646,8 +646,7 @@ contains
     case(coop_fitsio_datatype_short_int)
        write(*,*) "Warning: short integer column in "//trim(this%filename)//" is loaded as double"
        allocate(short_int_data(size(data)))
-       short_int_nulval = nint(nulval)
-       call ftgcvi(this%unit, col, frow, 1, size(data), short_int_nulval, short_int_data, anyf, this%status)
+       call ftgcvi(this%unit, col, frow, 1, size(data), nint(nulval, coop_short_int_length), short_int_data, anyf, this%status)
        data = short_int_data
        deallocate(short_int_data)
     case default
@@ -661,6 +660,91 @@ contains
     stop "CFITSIO is not installed"
 #endif
   end subroutine coop_fits_file_load_double_column
+
+
+  subroutine coop_fits_file_load_single_column(this, col, data, bad_value, first_row)
+    class(coop_fits_file)::this
+    COOP_INT::col
+    COOP_SINGLE,dimension(:)::data
+    COOP_REAL,dimension(:),allocatable::double_data
+    COOP_INT,dimension(:),allocatable::int_data
+    COOP_SHORT_INT,dimension(:),allocatable::short_int_data
+    COOP_SINGLE, optional::bad_value
+    COOP_SINGLE::nulval
+    COOP_INT::ncols, width, repeat, datacode, nrows, frow
+    COOP_INT,optional::first_row
+    logical anyf
+    character, dimension(:),allocatable::byte_data
+#if HAS_CFITSIO
+    if(present(first_row))then
+       frow = first_row
+    else
+       frow = 1
+    endif
+    if(present(bad_value))then
+       nulval = bad_value
+    else
+       nulval = 0.
+    endif
+    call this%get_nrows_ncols(nrows, ncols)
+    if(col .le. 0 .or. col.gt. ncols)then
+       write(*,*) trim(this%filename)
+       write(*,*) "number of table columns:", ncols
+       write(*,*) "Error: want column: ", col
+       stop
+    endif
+    if(nrows .lt. frow+size(data)-1)then
+       write(*,*) trim(this%filename)
+       write(*,*) "number of table rows:", nrows
+       write(*,*) "Error: want rows ", frow + size(data) - 1
+       stop
+    endif
+    call ftgtcl(this%unit, col, datacode, repeat, width, this%status)
+    if(repeat.gt.1)then
+       call this%report_error("repeat >1 is not supported in coop_fitsio")
+    endif
+    select case(datacode)
+    case(coop_fitsio_datatype_double)
+       allocate(double_data(size(data)))
+       call ftgcvd(this%unit, col, frow, 1, size(data), dble(nulval), double_data, anyf, this%status)
+       data = double_data
+       deallocate(double_data)
+    case(coop_fitsio_datatype_single)
+       call ftgcve(this%unit, col, frow, 1, size(data), nulval, data, anyf, this%status)
+    case(coop_fitsio_datatype_int)
+       write(*,*) "Warning: integer column in "//trim(this%filename)//" is loaded as single"
+       allocate(int_data(size(data)))
+       call ftgcvj(this%unit, col, frow, 1, size(data), nint(nulval), int_data, anyf, this%status)
+       data = int_data
+       deallocate(int_data)
+    case(coop_fitsio_datatype_short_int)
+       write(*,*) "Warning: short integer column in "//trim(this%filename)//" is loaded as single"
+       allocate(short_int_data(size(data)))
+       call ftgcvi(this%unit, col, frow, 1, size(data), nint(nulval, coop_short_int_length), short_int_data, anyf, this%status)
+       data = short_int_data
+       deallocate(short_int_data)
+
+    case(coop_fitsio_datatype_byte)
+       write(*,*) "Warning: byte column in "//trim(this%filename)//" is loaded as single"
+       allocate(byte_data(size(data)))
+       if(nulval .eq. 0.)then
+          call ftgcvb(this%unit, col, frow, 1, size(data), '0', byte_data, anyf, this%status)
+       else
+          call ftgcvb(this%unit, col, frow, 1, size(data), '1', byte_data, anyf, this%status)
+       endif
+       data = ichar(byte_data)
+       deallocate(byte_data)
+    case default
+       write(*,*) trim(this%filename)
+       write(*,*) "data code = ", datacode
+       write(*,*) "not supported in coop_fits_file_load_single_column."
+       stop
+    end select
+    call this%check_error()
+#else
+    stop "CFITSIO is not installed"
+#endif
+  end subroutine coop_fits_file_load_single_column
 
 
   subroutine coop_fits_file_load_int_column(this, col, data, bad_value, first_row)
@@ -678,6 +762,7 @@ contains
     COOP_INT,optional::first_row
     COOP_INT::frow
     logical anyf
+    character, dimension(:),allocatable::byte_data
 #if HAS_CFITSIO
     if(present(first_row))then
        frow = first_row
@@ -727,6 +812,16 @@ contains
        call ftgcvi(this%unit, col, frow, 1, size(data), short_int_nulval, short_int_data, anyf, this%status)
        data = short_int_data
        deallocate(short_int_data)
+    case(coop_fitsio_datatype_byte)
+       write(*,*) "Warning: byte column in "//trim(this%filename)//" is loaded as double"
+       allocate(byte_data(size(data)))
+       if(nulval .eq. 0.)then
+          call ftgcvb(this%unit, col, frow, 1, size(data), '0', byte_data, anyf, this%status)
+       else
+          call ftgcvb(this%unit, col, frow, 1, size(data), '1', byte_data, anyf, this%status)
+       endif
+       data = ichar(byte_data)
+       deallocate(byte_data)
     case default
        write(*,*) trim(this%filename)
        write(*,*) "data code = ", datacode
@@ -1059,29 +1154,78 @@ contains
    class(coop_cls)::this
    COOP_UNKNOWN_STRING::filename
    type(coop_file)::fp
-   COOP_INT::l, il
-   COOP_STRING::junk
+   COOP_INT::l, il, numlines, numcols
+   COOP_STRING::junk, firstline
    call fp%open(filename, 'r')
-   read(fp%unit, "(A2, A18)", ERR=100, END=100) junk, this%genre
-   this%genre = trim(adjustl(this%genre))
-   read(fp%unit, "(A2, I8)", ERR=100, END=100) junk, this%lmin
-   read(fp%unit, "(A2, I8)", ERR=100, END=100) junk, this%lmax
-   read(fp%unit, "(A2, I8)", ERR=100, END=100) junk, this%num_fields
-   this%num_cls = this%num_fields*(this%num_fields+1)/2
-   allocate(this%spin(this%num_fields), this%Cls(this%lmin:this%lmax, this%num_cls))
-   read(fp%unit, "(A2, "//COOP_STR_OF(this%num_fields)//"I3)") junk, this%spin
-   read(fp%unit, "(A2, A18)") junk, this%unit
-   this%unit = trim(adjustl(this%unit))
-   do l = this%lmin, this%lmax
-      read(fp%unit, *, ERR=100, END=100) il, this%cls(l, :)
-      if(il.ne.l) goto 100
-      if(l.gt.0)then
-         this%cls(l, :) = this%cls(l,:)/(l*(l+1.d0)/coop_2pi)
-      else
-         this%cls(l, :) = this%cls(l,:)*coop_2pi
-      endif
-   enddo
-   return
+   read(fp%unit, "(A)", ERR=100, END=100) firstline
+   if(firstline(1:2) .eq. "# ")then    !!COOP text Cl format
+      this%genre = trim(adjustl(firstline(3:)))
+      read(fp%unit, "(A2, I8)", ERR=100, END=100) junk, this%lmin
+      read(fp%unit, "(A2, I8)", ERR=100, END=100) junk, this%lmax
+      read(fp%unit, "(A2, I8)", ERR=100, END=100) junk, this%num_fields
+      this%num_cls = this%num_fields*(this%num_fields+1)/2
+      allocate(this%spin(this%num_fields), this%Cls(this%lmin:this%lmax, this%num_cls))
+      read(fp%unit, "(A2, "//COOP_STR_OF(this%num_fields)//"I3)") junk, this%spin
+      read(fp%unit, "(A2, A18)") junk, this%unit
+      this%unit = trim(adjustl(this%unit))
+      do l = this%lmin, this%lmax
+         read(fp%unit, *, ERR=100, END=100) il, this%cls(l, :)
+         if(il.ne.l) goto 100
+         if(l.gt.0)then
+            this%cls(l, :) = this%cls(l,:)/(l*(l+1.d0)/coop_2pi)
+         else
+            this%cls(l, :) = this%cls(l,:)*coop_2pi
+         endif
+      enddo
+      call fp%close()
+      return
+   else
+      read(firstline, *, ERR=100) this%lmin
+      call fp%close()
+      numlines = coop_file_NumLines(filename)
+      numcols = coop_file_NumColumns(filename)
+      this%lmax = this%lmin + numlines - 1
+      this%unit = "muK"
+      call fp%open(filename)
+      select case(numcols)
+      case(2, 4)  !! camb TT file
+         this%genre = "I"
+         this%num_fields = 1
+         this%num_cls = 1
+         allocate(this%spin(this%num_fields), this%Cls(this%lmin:this%lmax, this%num_cls))
+         this%spin = 0
+         do l = this%lmin, this%lmax
+            read(fp%unit, *, ERR=100, END=100) il, this%cls(l, 1)
+            if(il.ne.l) goto 100
+            if(l.gt.0)then
+               this%cls(l, :) = this%cls(l,:)/(l*(l+1.d0)/coop_2pi)
+            else
+               this%cls(l, :) = this%cls(l,:)*coop_2pi
+            endif
+         enddo
+      case(5, 7)  !!camb TT, EE, BB, TE , ...
+         this%genre = "IQU"
+         this%num_fields = 3
+         this%num_cls = 6
+         allocate(this%spin(this%num_fields), this%Cls(this%lmin:this%lmax, this%num_cls))         
+         this%spin = (/ 0, 2, 2 /)
+         this%cls(:, coop_TEB_index_TB) = 0.d0
+         this%cls(:, coop_TEB_index_EB) = 0.d0
+         do l = this%lmin, this%lmax
+            read(fp%unit, *, ERR=100) il, this%cls(l, coop_TEB_index_TT),  this%cls(l, coop_TEB_index_EE), this%cls(l, coop_TEB_index_BB), this%cls(l, coop_TEB_index_TE)
+            if(il.ne.l) goto 100
+            if(l.gt.0)then
+               this%cls(l, :) = this%cls(l,:)/(l*(l+1.d0)/coop_2pi)
+            else
+               this%cls(l, :) = this%cls(l,:)*coop_2pi
+            endif
+         enddo
+      case default
+         goto 100
+      end select
+      call fp%close()
+      return
+   endif
 100  write(*,*) "Error in the cl input file "//trim(filename)
      stop
  end subroutine coop_cls_load_txt
@@ -1098,7 +1242,7 @@ contains
    write(fp%unit, "(A2, I8)") "# ", this%num_fields
    write(fp%unit, "(A2, "//COOP_STR_OF(this%num_fields)//"I3)") "# ", this%spin
    if(trim(this%unit).ne.'')then
-      write(fp%unit, "(A2, A18)") "# ", this%unit
+      write(fp%unit, "(A2, A18)") "# ", trim(this%unit)
    else
       write(fp%unit, "(A2, A18)") "# ", "Unkown"
    endif

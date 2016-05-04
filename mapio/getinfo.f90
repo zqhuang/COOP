@@ -28,19 +28,19 @@ program map
   i = 2
   fmask = trim(coop_InputArgs(i))
   if(coop_file_exists(fin))then
-     npixtot = getsize_fits(trim(fin), nmaps = nmaps, nside = nside, ordering = ordering)
+     call hgm%read_simple(trim(fin))
      write(*,"(A)")"**********************************"
      write(*, "(A)")  "file: "//trim(fin)
-     write(*, "(A,I5)") "nmaps = "//COOP_STR_OF(nmaps)
-     write(*, "(A,I5)") "nside = "//COOP_STR_OF(nside)
-     if(ordering .eq. COOP_RING)then
+     write(*, "(A,I5)") "nmaps = "//COOP_STR_OF(hgm%nmaps)
+     write(*, "(A,I5)") "nside = "//COOP_STR_OF(hgm%nside)
+     if(hgm%ordering .eq. COOP_RING)then
         write(*, "(A)") "ordering: ring"
-     elseif(ordering .eq. COOP_NESTED)then
+     elseif(hgm%ordering .eq. COOP_NESTED)then
         write(*, "(A)") "ordering: nested"
      else
         write(*, "(A)") "ordering: unknown"
      endif
-     call hgm%read(trim(fin))
+
      if(trim(fmask).ne."")then
         if(coop_file_exists(fmask))then
            has_mask = .true.

@@ -75,6 +75,7 @@ module coop_healpix_mod
      COOP_INT::iu = 0
      COOP_SINGLE::bad_data =  -1.637500000000e30
      COOP_REAL::fwhm_degree = 0.
+     logical::fullsky = .true.
      logical::polar = .false.     
      type(coop_dictionary)::header
      COOP_INT,dimension(:),allocatable::spin
@@ -106,6 +107,7 @@ module coop_healpix_mod
      procedure :: write => coop_healpix_maps_write
      procedure :: savefig => coop_healpix_maps_savefig     
      procedure :: read => coop_healpix_maps_read
+     procedure :: read_simple => coop_healpix_maps_read_simple
      procedure :: extend => coop_healpix_maps_extend
      procedure :: draw_latitude_line => coop_healpix_maps_draw_latitude_line
      procedure :: import => coop_healpix_maps_import
@@ -2000,10 +2002,87 @@ contains
     this%npix = 0
   end subroutine coop_healpix_maps_free
 
+
+  !!this assumes blind knowledge about the map
+  subroutine coop_healpix_maps_read_simple(this, filename)
+    class(coop_healpix_maps) this
+    COOP_UNKNOWN_STRING filename
+    COOP_STRING::indxschm, object, ordering, form
+    type(coop_fits_file)::fp
+    COOP_INT::npix_actual, i
+    COOP_INT,dimension(:),allocatable::listpix
+    call this%free()
+    call fp%open_table(filename)
+    this%header = fp%header
+    call coop_dictionary_lookup(this%header, "NSIDE", this%nside)
+    call coop_dictionary_lookup(this%header, "OBJECT", object, 'FULLSKY')
+    call coop_dictionary_lookup(this%header, "INDXSCHM", indxschm, "IMPLICIT")
+    this%fullsky = .not.(trim(object).eq."PARTIAL" .and. trim(indxschm) .eq. "EXPLICIT")
+    call coop_dictionary_lookup(this%header, "TFIELDS", this%nmaps)
+    if(.not. this%fullsky)then
+       this%nmaps = this%nmaps - 1
+       call this%header%insert( "TFIELDS", COOP_STR_OF(this%nmaps), overwrite = .true.)
+    endif
+    call coop_dictionary_lookup(this%header, "ORDERING", ordering, "")
+    select case(trim(adjustl(ordering)))
+    case("RING", "ring", "Ring")
+       this%ordering = COOP_RING
+    case("NESTED", "nested", "Nested")
+       this%ordering = COOP_NESTED
+    case default
+       this%ordering = COOP_UNKNOWN_ORDERING
+    end select
+
+    call coop_dictionary_lookup(this%header, "BAD_DATA", this%bad_data, this%bad_data)
+    call coop_dictionary_lookup(this%header, "COORDSYS", this%coordsys, this%coordsys)
+    call coop_dictionary_lookup(this%header, "FIRSTPIX", this%firstpix, 0) 
+    this%npix =nside2npix(this%nside)
+    call coop_dictionary_lookup(this%header, "LASTPIX", this%lastpix, this%npix-1)
+    call coop_dictionary_lookup(this%header, "NAXIS2", npix_actual)
+    allocate(this%spin(this%nmaps), this%fields(this%nmaps), this%units(this%nmaps), this%map(0:this%npix-1, this%nmaps))
+    if(this%fullsky)then
+       if(npix_actual .ne. this%lastpix - this%firstpix + 1)then
+          write(*,*) trim(filename)
+          write(*,*) "number of pixels does not agree with NAIXS2"
+          stop 
+       endif
+       do i=1, this%nmaps
+          call coop_dictionary_lookup(this%header, "TUNIT"//COOP_STR_OF(i), this%units(i), "muK")
+          call coop_dictionary_lookup(this%header, "TTYPE"//COOP_STR_OF(i), this%fields(i))
+          call this%fields_to_spins(i)       
+          call fp%load_single_column(col = i, data = this%map(this%firstpix:this%lastpix, i))
+          call coop_dictionary_lookup(this%header, "SPIN"//COOP_STR_OF(i), this%spin(i), this%spin(i))
+       enddo
+    else
+       allocate(listpix(npix_actual))
+       call fp%load_int_column(col = 1, data = listpix)
+       do i=1, this%nmaps
+          call coop_dictionary_lookup(fp%header, "TUNIT"//COOP_STR_OF(i+1), this%units(i), "muK")
+          call coop_dictionary_lookup(fp%header, "TTYPE"//COOP_STR_OF(i+1), this%fields(i))
+          call this%fields_to_spins(i)       
+          call fp%load_single_column(col = i+1, data = this%map(listpix, i))
+          call coop_dictionary_lookup(fp%header, "SPIN"//COOP_STR_OF(i+1), this%spin(i), this%spin(i))
+          call this%header%insert( "TUNIT"//COOP_STR_OF(i), trim(this%units(i)),overwrite=.true.)
+          call this%header%insert( "TTYPE"//COOP_STR_OF(i), trim(this%fields(i)),overwrite=.true.)
+          call this%header%insert( "SPIN"//COOP_STR_OF(i), COOP_STR_OF(this%spin(i)))
+          call coop_dictionary_lookup(fp%header, "TFORM"//COOP_STR_OF(i+1), form)
+          call this%header%insert( "FORM"//COOP_STR_OF(i), trim(form))
+       enddo
+       call this%header%delete("TUNIT"//COOP_STR_OF(this%nmaps+1))
+       call this%header%delete("TTYPE"//COOP_STR_OF(this%nmaps+1))
+       call this%header%delete("SPIN"//COOP_STR_OF(this%nmaps+1))
+       call this%header%delete("TFORM"//COOP_STR_OF(this%nmaps+1))
+       deallocate(listpix)
+    endif
+
+    call fp%close()
+  end subroutine coop_healpix_maps_read_simple
+
+
   subroutine coop_healpix_maps_read(this, filename, nmaps_wanted, nmaps_to_read, known_size, nested)
     class(coop_healpix_maps) this
     COOP_UNKNOWN_STRING filename
-    COOP_STRING::lowercase_name
+    COOP_STRING::lowercase_name, indxschm, object
     COOP_INT,optional::nmaps_wanted, nmaps_to_read
     integer(8) npixtot
     COOP_INT nmaps_actual
@@ -2028,10 +2107,12 @@ contains
        call this%free()
     endif
     call coop_fits_to_header(filename, this%header)
-
     call coop_dictionary_lookup(this%header, "NSIDE", this%nside, 0)
     call coop_dictionary_lookup(this%header, "TFIELDS", nmaps_actual, 0)
 
+    call coop_dictionary_lookup(this%header, "OBJECT", object, 'FULLSKY')
+    call coop_dictionary_lookup(this%header, "INDXSCHM", indxschm, "IMPLICIT")
+    this%fullsky = .not.(trim(object).eq."PARTIAL" .and. trim(indxschm) .eq. "EXPLICIT")
     call coop_dictionary_lookup(this%header, "ORDERING", ordering, "")
     call coop_dictionary_lookup(this%header, "BAD_DATA", this%bad_data, this%bad_data)
     call coop_dictionary_lookup(this%header, "COORDSYS", this%coordsys, this%coordsys)
@@ -2052,6 +2133,10 @@ contains
           this%ordering = COOP_UNKNOWN_ORDERING
        end select
     endif
+    if(.not. this%fullsky)then
+       nmaps_actual = nmaps_actual - 1
+    endif
+
     this%npix =nside2npix(this%nside)
 
     call coop_dictionary_lookup(this%header, "LASTPIX", this%lastpix, this%npix-1)
@@ -2101,9 +2186,7 @@ contains
     
 200 if(present(nmaps_to_read)) &
          nmaps_actual = min(nmaps_actual, nmaps_to_read)
-    
     call input_map(trim(filename), this%map, this%npix, nmaps_actual, fmissval = coop_healpix_fmissval)
-
     if(present(nested))then
        if(nested)then
           call this%convert2nested()

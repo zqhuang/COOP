@@ -11,17 +11,23 @@ program coop_Xfaster
   implicit none
 #include "constants.h"
 #define QB_IND(ib, icross, icl) (((ib-1)*numcross + icross - 1 )*numcls + icl)
+#define CHIND(i)  trim(channel_name(i))
+#define SIMIND(i) trim(sim_index_name(i))
+#define CHSIMIND(ich, isim) CHIND(ich)//"_"//SIMIND(isim)
 
 !!this is coop version of xfaster, written from scratch. 
   COOP_STRING::inifile, qb_input_file, qb_output_root, cl_output_root
+  COOP_SHORT_STRING,dimension(:),allocatable::channel_name
+  COOP_INT::sim_index_width
   COOP_STRING::action, map_genre, map_unit
-  COOP_INT::ib, num_iterations, iter
+  COOP_INT::ib, num_iterations, iter, ich
   COOP_REAL,parameter::fisher_threshold = 1.d-4
   type(coop_dictionary)::settings
   type(coop_file)::fp
   COOP_INT::num_ell_bins, num_channels, lmin_data, lmax_data, nmaps, numcls, numcross, num_qbs, matdim
   COOP_INT,dimension(:),allocatable::spin
   COOP_REAL,dimension(:),allocatable::qb
+  COOP_REAL junk
 
   if(iargc().lt.1)then
      write(*,*) "Syntax:"
@@ -36,6 +42,7 @@ program coop_Xfaster
   call coop_dictionary_lookup(settings, 'qb_output_root', qb_output_root)
   call coop_dictionary_lookup(settings, 'cl_output_root', cl_output_root)
   call coop_dictionary_lookup(settings, 'num_iterations', num_iterations, 1)
+
 
   nmaps = len_trim(map_genre)
   numcls = nmaps*(nmaps+1)/2
@@ -58,6 +65,12 @@ program coop_Xfaster
   call coop_dictionary_lookup(settings, 'num_channels', num_channels)
   numcross = num_channels*(num_channels+1)/2
   matdim = num_channels*nmaps
+  allocate(channel_name(num_channels))
+  do ich = 1, num_channels
+     call coop_dictionary_lookup(settings, 'channel'//COOP_STR_OF(ich)//'_name', channel_name(ich), COOP_STR_OF(ich))
+  enddo
+  
+  call coop_dictionary_lookup(settings, 'sim_index_width', sim_index_width, 0)
 
   call coop_dictionary_lookup(settings, "num_ell_bins", num_ell_bins)
   num_qbs = numcross*numcls*num_ell_bins
@@ -69,7 +82,7 @@ program coop_Xfaster
      write(*,*) "loading "//trim(qb_input_file)
      call fp%open(qb_input_file)
      do ib = 1, num_ell_bins
-        read(fp%unit, "("//COOP_STR_OF(numcross*numcls)//"E16.7)") qb((ib-1)*numcross*numcls+1:ib*numcross*numcls)
+        read(fp%unit, "("//COOP_STR_OF(numcross*numcls)//"E16.7)") junk, qb((ib-1)*numcross*numcls+1:ib*numcross*numcls)
      enddo
      call fp%close()
   endif
@@ -125,20 +138,20 @@ contains
     call header%insert("LMIN", "0")
     call header%insert("LMAX", COOP_STR_OF(lmax_kernel))
     do ich1=1, num_channels
-       call mask1%read(trim(mask_root)//"_"//COOP_STR_OF(ich1)//".fits", nmaps_wanted=1, nested = .false.)
+       call mask1%read(trim(mask_root)//"_"//CHIND(ich1)//".fits", nmaps_wanted=1, nested = .false.)
        call mask1%map2alm(lmax = lmax_mask)
        call header%insert("WEIGHT", COOP_STR_OF( sum(mask1%map(:,1)**2)**2/dble(mask1%npix)/sum(mask1%map(:,1)**4)), overwrite = .true.)
        call coop_pseudoCl_get_kernel(lmax_mask = lmax_mask, Cl_mask = dble(mask1%cl(0:lmax_mask, 1)), lmin = 0 , lmax= lmax_kernel, kernel = kernel)
-       call coop_fits_file_write_image_3d(filename = trim(kernel_root)//"_"//COOP_STR_OF(ich1)//"_"//COOP_STR_OF(ich1)//".fits", image = kernel, header=header)
-       write(*,*) "kernel file "//trim(kernel_root)//"_"//COOP_STR_OF(ich1)//"_"//COOP_STR_OF(ich1)//".fits is produced."
+       call coop_fits_file_write_image_3d(filename = trim(kernel_root)//"_"//CHIND(ich1)//"_"//CHIND(ich1)//".fits", image = kernel, header=header)
+       write(*,*) "kernel file "//trim(kernel_root)//"_"//CHIND(ich1)//"_"//CHIND(ich1)//".fits is produced."
        do ich2 = ich1+1, num_channels
-          call mask2%read(trim(mask_root)//"_"//COOP_STR_OF(ich2)//".fits", nmaps_wanted=1, nested = .false.)
+          call mask2%read(trim(mask_root)//"_"//CHIND(ich2)//".fits", nmaps_wanted=1, nested = .false.)
           call mask2%map2alm(lmax = lmax_mask)
           call mask2%get_cls(mask1)
           call coop_pseudoCl_get_kernel(lmax_mask = lmax_mask, Cl_mask = dble(mask2%cl(0:lmax_mask, 1)), lmin = 0 , lmax= lmax_kernel, kernel = kernel)
           call header%insert("WEIGHT", COOP_STR_OF(sum(mask1%map(:,1)*mask2%map(:,1))**2/mask1%npix/sum((mask1%map(:,1)*mask2%map(:,1))**2)), overwrite = .true.)
-          call coop_fits_file_write_image_3d(filename = trim(kernel_root)//"_"//COOP_STR_OF(ich1)//"_"//COOP_STR_OF(ich2)//".fits", image = kernel, header = header)
-          write(*,*) "kernel file "//trim(kernel_root)//"_"//COOP_STR_OF(ich1)//"_"//COOP_STR_OF(ich2)//".fits is produced."
+          call coop_fits_file_write_image_3d(filename = trim(kernel_root)//"_"//CHIND(ich1)//"_"//CHIND(ich2)//".fits", image = kernel, header = header)
+          write(*,*) "kernel file "//trim(kernel_root)//"_"//CHIND(ich1)//"_"//CHIND(ich2)//".fits is produced."
        enddo
     enddo
     call mask1%free()
@@ -160,20 +173,20 @@ contains
     write(*,*) "doing noise power spectrum N_l from "//COOP_STR_OF(num_noise_sims)//" simulations"
     do ich1 = 1, num_channels
        do ich2 = ich1, num_channels
-          write(*,"(A$)") "channel "//COOP_STR_OF(ich1)//" x channel "//COOP_STR_OF(ich2)
+          write(*,"(A$)") "channel "//CHIND(ich1)//" x channel "//CHIND(ich2)
           noisepower%cls = 0.d0
           do isim = 1, num_noise_sims
              write(*,"(A$)") "."
-             call read_map(noise1, trim(noise_sim_root)//"_SIM"//COOP_STR_OF(isim)//"_"//COOP_STR_OF(ich1)//".fits", trim(mask_root)//"_"//COOP_STR_OF(ich1)//".fits")
+             call read_map(noise1, trim(noise_sim_root)//"_"//CHSIMIND(ich1, isim)//".fits", trim(mask_root)//"_"//CHIND(ich1)//".fits")
              if(ich2.ne.ich1)then
-                call read_map(noise2, trim(noise_sim_root)//"_SIM"//COOP_STR_OF(isim)//"_"//COOP_STR_OF(ich2)//".fits", trim(mask_root)//"_"//COOP_STR_OF(ich2)//".fits")
+                call read_map(noise2, trim(noise_sim_root)//"_"//CHSIMIND(ich2, isim)//".fits", trim(mask_root)//"_"//CHIND(ich2)//".fits")
                 call noise1%get_cls(noise2)
              endif
              noisepower%cls = noisepower%cls + noise1%cl(lmin_data:lmax_data, :)
           enddo
           noisepower%cls = noisepower%cls/num_noise_sims
           call noisepower%smooth(5)
-          call noisepower%dump(trim(noise_cl_root)//"_"//COOP_STR_OF(ich1)//"_"//COOP_STR_OF(ich2)//".fits")
+          call noisepower%dump(trim(noise_cl_root)//"_"//CHIND(ich1)//"_"//CHIND(ich2)//".fits")
           write(*,*)
        enddo
     enddo
@@ -196,15 +209,15 @@ contains
     call signalpower%init(lmin = lmin_data, lmax = lmax_data, genre = map_genre, unit = map_unit, spin = spin)
     do ich1 = 1, num_channels
        do ich2 = ich1, num_channels
-          write(*,"(A$)") "channel "//COOP_STR_OF(ich1)//" x channel "//COOP_STR_OF(ich2)
-          call modelpower%load(trim(model_cl_root)//"_"//COOP_STR_OF(ich1)//"_"//COOP_STR_OF(ich2)//".fits")
+          write(*,"(A$)") "channel "//CHIND(ich1)//" x channel "//CHIND(ich2)
+          call modelpower%load(trim(model_cl_root)//"_"//CHIND(ich1)//"_"//CHIND(ich2)//".fits")
           call modelpower%filter(lmin = lmin_data, lmax = lmax_data)
           signalpower%cls = 0.d0
           do isim = 1, num_signal_sims
              write(*,"(A$)") "."
-             call read_map(sig1, trim(signal_sim_root)//"_SIM"//COOP_STR_OF(isim)//"_"//COOP_STR_OF(ich1)//".fits")
+             call read_map(sig1, trim(signal_sim_root)//"_"//CHSIMIND(ich1, isim)//".fits")
              if(ich2.ne.ich1)then
-                call read_map(sig2, trim(signal_sim_root)//"_SIM"//COOP_STR_OF(isim)//"_"//COOP_STR_OF(ich2)//".fits")
+                call read_map(sig2, trim(signal_sim_root)//"_"//CHSIMIND(ich2, isim)//".fits")
                 call sig1%get_cls(sig2)
              endif
              signalpower%cls = signalpower%cls + sig1%cl(lmin_data:lmax_data, :)
@@ -216,7 +229,7 @@ contains
              signalpower%cls = 0.d0
           end where
           call signalpower%smooth(5)
-          call signalpower%dump(trim(transfer_root)//"_"//COOP_STR_OF(ich1)//"_"//COOP_STR_OF(ich2)//".fits")
+          call signalpower%dump(trim(transfer_root)//"_"//CHIND(ich1)//"_"//CHIND(ich2)//".fits")
 
        enddo
     enddo
@@ -237,15 +250,15 @@ contains
     call coop_dictionary_lookup(settings, "data_cl_root", data_cl_root)
     call coop_dictionary_lookup(settings, "mask_root", mask_root)
     do ich1 =1, num_channels
-       call read_map(map1, trim(data_map_root)//"_"//COOP_STR_OF(ich1)//".fits", trim(mask_root)//"_"//COOP_STR_OF(ich1)//".fits")
+       call read_map(map1, trim(data_map_root)//"_"//CHIND(ich1)//".fits", trim(mask_root)//"_"//CHIND(ich1)//".fits")
        call datapower%init(lmin = lmin_data, lmax = lmax_data, genre = map_genre, unit = map_unit, spin = spin, cls = dble(map1%cl(lmin_data:lmax_data, :)))
-       call datapower%dump(trim(data_cl_root)//"_"//COOP_STR_OF(ich1)//"_"//COOP_STR_OF(ich1)//".fits")
+       call datapower%dump(trim(data_cl_root)//"_"//CHIND(ich1)//"_"//CHIND(ich1)//".fits")
        write(*,"(A$)") "."
        do ich2 = ich1+1, num_channels
-          call read_map(map2, trim(data_map_root)//"_"//COOP_STR_OF(ich2)//".fits", trim(mask_root)//"_"//COOP_STR_OF(ich2)//".fits")
+          call read_map(map2, trim(data_map_root)//"_"//CHIND(ich2)//".fits", trim(mask_root)//"_"//CHIND(ich2)//".fits")
           call map2%get_cls(map1)
           call datapower%init(lmin = lmin_data, lmax = lmax_data, genre = map_genre, unit = map_unit, spin = spin, cls = dble(map2%cl(lmin_data:lmax_data, :)))
-          call datapower%dump(trim(data_cl_root)//"_"//COOP_STR_OF(ich1)//"_"//COOP_STR_OF(ich2)//".fits")
+          call datapower%dump(trim(data_cl_root)//"_"//CHIND(ich1)//"_"//CHIND(ich2)//".fits")
           write(*,"(A$)") "."
        enddo
     enddo
@@ -280,14 +293,14 @@ contains
     do i = 1, num_channels
        do j = i, num_channels
           ind = COOP_MATSYM_INDEX(num_channels, i,j)
-          call load_kernel(trim(kernel_root)//"_"//COOP_STR_OF(i)//"_"//COOP_STR_OF(j)//".fits", lmin_data, lmax_data, kernel(:,:,:,ind), weight(ind))
-          call datapower(ind)%load(trim(data_cl_root)//"_"//COOP_STR_OF(i)//"_"//COOP_STR_OF(j)//".fits")
+          call load_kernel(trim(kernel_root)//"_"//CHIND(i)//"_"//CHIND(j)//".fits", lmin_data, lmax_data, kernel(:,:,:,ind), weight(ind))
+          call datapower(ind)%load(trim(data_cl_root)//"_"//CHIND(i)//"_"//CHIND(j)//".fits")
           call datapower(ind)%filter(lmin = lmin_data, lmax = lmax_data)
-          call noisepower(ind)%load(trim(noise_cl_root)//"_"//COOP_STR_OF(i)//"_"//COOP_STR_OF(j)//".fits")
+          call noisepower(ind)%load(trim(noise_cl_root)//"_"//CHIND(i)//"_"//CHIND(j)//".fits")
           call noisepower(ind)%filter(lmin = lmin_data, lmax = lmax_data)
-          call trans(ind)%load(trim(transfer_root)//"_"//COOP_STR_OF(i)//"_"//COOP_STR_OF(j)//".fits")
+          call trans(ind)%load(trim(transfer_root)//"_"//CHIND(i)//"_"//CHIND(j)//".fits")
           call trans(ind)%filter(lmin = lmin_data, lmax = lmax_data)
-          call templatepower(ind)%load(trim(template_cl_root)//"_"//COOP_STR_OF(i)//"_"//COOP_STR_OF(j)//".fits")
+          call templatepower(ind)%load(trim(template_cl_root)//"_"//CHIND(i)//"_"//CHIND(j)//".fits")
           call templatepower(ind)%filter(lmin = lmin_data, lmax = lmax_data)
           templatepower(ind)%cls = templatepower(ind)%cls * trans(ind)%cls
           call templatepower(ind)%alloc(num_ell_bins)
@@ -436,7 +449,7 @@ contains
                 templatepower(ind)%cls(l, i) = templatepower(ind)%cls(l, i) * lambda
              enddo
           enddo
-          call templatepower(ind)%dump(trim(cl_output_root)//"_ITER"//COOP_STR_OF(iter)//"_"//COOP_STR_OF(ich1)//"_"//COOP_STR_OF(ich2)//".fits")
+          call templatepower(ind)%dump(trim(cl_output_root)//"_ITER"//COOP_STR_OF(iter)//"_"//CHIND(ich1)//"_"//CHIND(ich2)//".fits")
        enddo
     enddo
 
@@ -537,6 +550,17 @@ contains
        Cb_BB(coop_TEB_index_EB, :) =  Cb_EE(coop_TEB_index_EB, :)
     end select
   end subroutine get_Cbs
+
+
+  function sim_index_name(isim) result(str)
+    COOP_STRING::str
+    COOP_INT::isim
+    if(sim_index_width .eq. 0)then
+       str = "SIM"//COOP_STR_OF(isim)
+    else
+       str = coop_Ndigits(isim, sim_index_width)
+    endif
+  end function sim_index_name
 
 
 

@@ -1499,6 +1499,7 @@ contains
     ind = dict%index(key)
     if(ind .eq. 0) return
     dict%key(ind:dict%n-1) = dict%key(ind+1:dict%n)
+    dict%val(ind:dict%n-1) = dict%val(ind+1:dict%n)
     do i=1, dict%n
        if(dict%id(i).gt.ind)then
           dict%id(i) = dict%id(i)-1
@@ -2319,6 +2320,7 @@ contains
     ind = this%index(key)
     if(ind .eq. 0) return
     this%key(ind:this%n-1) = this%key(ind+1:this%n)
+    this%val(ind:this%n-1) = this%val(ind+1:this%n)
     do i=1, this%n
        if(this%id(i).gt.ind)then
           this%id(i) = this%id(i)-1
@@ -2530,6 +2532,7 @@ contains
     ind = this%index(key)
     if(ind .eq. 0) return
     this%key(ind:this%n-1) = this%key(ind+1:this%n)
+    this%val(ind:this%n-1) = this%val(ind+1:this%n)
     do i=1, this%n
        if(this%id(i).gt.ind)then
           this%id(i) = this%id(i)-1
