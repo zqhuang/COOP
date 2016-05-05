@@ -3,6 +3,7 @@
 #define COOP_NO 0
 
 #define DO_ZETA_TRANS COOP_NO
+#define ZETA_TRANS_HIGH_ACCURACY COOP_NO
 #define COOP_SHORT_INT integer(coop_short_int_length)
 #define COOP_INT integer(coop_integer_length)
 #define COOP_INT_ARRAY integer(coop_integer_length),dimension(coop_default_array_size)
