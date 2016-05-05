@@ -14,11 +14,11 @@ program shells
   COOP_STRING::fnl_option = "g"
   type(coop_function)::deltaN
   COOP_REAL,parameter::sigma_zeta = 4.6d-5
-  COOP_INT,parameter::lmax = 50
+  COOP_INT,parameter::lmax = 300
   COOP_INT,parameter::nside = 256
   COOP_REAL,parameter::fwhm_arcmin = 40.d0
   COOP_UNKNOWN_STRING,parameter::dir = "zetaproj/"
-  COOP_UNKNOWN_STRING,parameter::prefixtrans = dir//"testmap"
+  COOP_UNKNOWN_STRING,parameter::transfile = dir//"trans320.dat"
   COOP_UNKNOWN_STRING,parameter::prefix3d = dir//"sim3d"
   COOP_REAL::sigma_chi = 1.d-7
   COOP_REAL::mean_chi = 4.3d-6
@@ -61,11 +61,11 @@ program shells
   call coop_random_init()
   select case(trim(fnl_option))
   case("i")
-     call coop_zeta3d_generate_cmb(hm, zeta, cosmology, identity, lmax, nside, prefix3d = prefix3d, prefixtrans = prefixtrans, prefixmap="lcdm", fwhm_arcmin= fwhm_arcmin, writefile = .true.)
+     call coop_zeta3d_generate_cmb(hm, zeta, cosmology, identity, lmax, nside, prefix3d = prefix3d, transfile = transfile, prefixmap="lcdm", fwhm_arcmin= fwhm_arcmin, writefile = .true.)
   case("b")
-     call coop_zeta3d_generate_cmb(hm, zeta, cosmology, fnl, lmax, nside, prefix3d=prefix3d, prefixtrans=prefixtrans, prefixmap=trim(dir)//"gp_meanchi"//COOP_STR_OF(nint(mean_chi*1.e7))//"_sigmachi"//COOP_STR_OF(nint(sigma_chi*1.e7)) , fwhm_arcmin = fwhm_arcmin, writefile=.true.)
+     call coop_zeta3d_generate_cmb(hm, zeta, cosmology, fnl, lmax, nside, prefix3d=prefix3d, transfile=transfile, prefixmap=trim(dir)//"gp_meanchi"//COOP_STR_OF(nint(mean_chi*1.e7))//"_sigmachi"//COOP_STR_OF(nint(sigma_chi*1.e7)) , fwhm_arcmin = fwhm_arcmin, writefile=.true.)
   case("g")
-     call coop_zeta3d_generate_cmb(hm, zeta, cosmology, fnl, lmax, nside, prefix3d=prefix3d, prefixtrans=prefixtrans, prefixmap = trim(dir)//"gs_amp"//COOP_STR_OF(nint(1.e6*gp_A))//"_mean"//COOP_STR_OF(nint(gp_mean))//"_width"//COOP_STR_OF(nint(gp_width))  , fwhm_arcmin = fwhm_arcmin, writefile=.true.)
+     call coop_zeta3d_generate_cmb(hm, zeta, cosmology, fnl, lmax, nside, prefix3d=prefix3d, transfile=transfile, prefixmap = trim(dir)//"gs_amp"//COOP_STR_OF(nint(1.e6*gp_A))//"_mean"//COOP_STR_OF(nint(gp_mean))//"_width"//COOP_STR_OF(nint(gp_width))  , fwhm_arcmin = fwhm_arcmin, writefile=.true.)
   end select
 
 contains
