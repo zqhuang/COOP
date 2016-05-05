@@ -14,7 +14,7 @@ program shells
   COOP_STRING::fnl_option = "g"
   type(coop_function)::deltaN
   COOP_REAL,parameter::sigma_zeta = 4.6d-5
-  COOP_INT,parameter::lmax = 600
+  COOP_INT,parameter::lmax = 50
   COOP_INT,parameter::nside = 256
   COOP_REAL,parameter::fwhm_arcmin = 40.d0
   COOP_UNKNOWN_STRING,parameter::dir = "zetaproj/"
