@@ -61,7 +61,7 @@ program shells
   call coop_random_init()
   select case(trim(fnl_option))
   case("i")
-     call coop_zeta3d_generate_cmb(hm, zeta, cosmology, identity, lmax, nside, prefix3d = prefix3d, prefixtrans = prefixtrans, prefixmap=trim(dir)//trim(prefixmap), fwhm_arcmin= fwhm_arcmin, writefile = .true.)
+     call coop_zeta3d_generate_cmb(hm, zeta, cosmology, identity, lmax, nside, prefix3d = prefix3d, prefixtrans = prefixtrans, prefixmap="lcdm", fwhm_arcmin= fwhm_arcmin, writefile = .true.)
   case("b")
      call coop_zeta3d_generate_cmb(hm, zeta, cosmology, fnl, lmax, nside, prefix3d=prefix3d, prefixtrans=prefixtrans, prefixmap=trim(dir)//"gp_meanchi"//COOP_STR_OF(nint(mean_chi*1.e7))//"_sigmachi"//COOP_STR_OF(nint(sigma_chi*1.e7)) , fwhm_arcmin = fwhm_arcmin, writefile=.true.)
   case("g")
