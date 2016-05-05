@@ -2036,8 +2036,6 @@ contains
        call this%header%insert( "OBJECT", "FULLSKY", overwrite = .true.)
        call this%header%insert( "INDXSCHM", "IMPLICIT", overwrite = .true.)
     endif
-
-    endif
     call coop_dictionary_lookup(this%header, "ORDERING", ordering, "")
     select case(trim(adjustl(ordering)))
     case("RING", "ring", "Ring")

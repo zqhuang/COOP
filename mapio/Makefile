@@ -15,7 +15,7 @@ default: all
 $(LIB): $(OBJ)
 	ar -r $@ $?
 
-all: $(LIB) UDG GetPeaks Stack MSMAP GetInfo GetTheo
+all: $(LIB) UDG GetPeaks Stack MSMAP GetInfo GetTheo XFASTER ClFormat
 
 flat: FCoadd FMerge FSmooth FStat FGetPeaks FStack FQU2EB FEB2QU FMask FSim F2Heal Heal2F FPTOP MCoadd
 

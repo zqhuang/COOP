@@ -1992,7 +1992,7 @@ contains
        endif
        evenodd_sign = -evenodd_sign
     enddo
-    m = m*((2.d0*l + 1.d0)/coop_4pi)/dble(l)/(l+1.d0)*dble(l_pseudo)*(l_pseudo+1.d0)
+    m = m*((2.d0*l + 1.d0)/coop_4pi)
   end function coop_pseudoCl_matrix
 
 
@@ -2025,20 +2025,19 @@ contains
   end subroutine coop_pseudoCl_get_kernel
 
   !!T, E, B
-  subroutine coop_pseudoCl2Cl(lmin, lmax, Cl_pseudo, kernel, Cl, smooth, want_T, want_EB)
+  subroutine coop_pseudoCl2Cl(lmin, lmax, Cl_pseudo, kernel, Cl, want_T, want_EB)
     COOP_INT::lmin, lmax, iell, i, low, up
     !!use camb ordering
     !!TT, EE, BB, TE, TB, EB
     COOP_REAL Cl_pseudo(lmin:lmax, 6), Dl_pseudo(lmin:lmax, 6), Cl(lmin:lmax, 6), tmp(lmin:lmax)
     COOP_REAL::kernel(lmin:lmax, lmin:lmax,4)
-    COOP_INT::l
+    COOP_INT::l, lp
     !!for smoothed C_l's
-    logical,optional::smooth, want_T, want_EB
+    logical,optional::want_T, want_EB
     COOP_INT,dimension(:),allocatable::ells
     COOP_REAL,dimension(:,:),allocatable:: P, Q
     COOP_REAL,dimension(:,:,:),allocatable::reduced_kernel
     COOP_INT::num_ells
-    COOP_REAL,dimension(:,:),allocatable::smoothed_Dl, smoothed_Dl_pseudo
     logical do_T, do_EB
     if(present(want_T))then
        do_T = want_T
@@ -2050,70 +2049,18 @@ contains
     else
        do_EB = .true.
     endif
-    !$omp parallel do
-    do l = lmin, lmax
-       Dl_pseudo(l,:) = Cl_pseudo(l,:)*l*(l+1.d0)
+    !$omp parallel do private(l, lp)
+    do l=lmin, lmax
+       do lp = lmin, lmax
+          kernel(l, lp, :) = kernel(l, lp, :) * ((lp+0.5)/(l+0.5))**2
+       enddo
     enddo
     !$omp end parallel do
-    if(present(smooth))then
-       if(smooth .and. lmax - lmin  .gt. 50)then
-          num_ells = coop_nl_range(lmin, lmax)
-          allocate(ells(num_ells), reduced_kernel(num_ells, num_ells,4), smoothed_Dl(num_ells,6), smoothed_Dl_pseudo(num_ells,6), P(num_ells, lmin:lmax), Q(lmin:lmax, num_ells))
-          call coop_set_ells(ells, lmin, lmax)
-          P = 0.d0
-          do iell = 1, num_ells
-             if(iell .ge. 2)then
-                low = ells(iell-1)
-             else
-                low = lmin
-             endif
-             if(iell .lt. num_ells)then
-                up = ells(iell+1)
-             else
-                up = lmax
-             endif
-             do l = low, ells(iell)-1                
-                P(iell, l) = exp(-2.*((l - ells(iell))/dble(low - ells(iell)))**2)
-             enddo
-             P(iell, ells(iell)) = 1.d0
-             do l = ells(iell) + 1, up
-                P(iell, l) = exp(-2.*((l - ells(iell))/dble(up - ells(iell)))**2)
-             enddo
-             P(iell, low:up) = P(iell, low:up)/sum(P(iell,low:up))
-          enddo
-          Q = transpose(P)
-          do l = lmin, lmax
-             Q(l, :) = Q(l, :)/sum(Q(l,:))
-          enddo
-          do i = 1, 4
-             reduced_kernel(:,:,i) = matmul(P, matmul(kernel(:,:,i), Q))
-          enddo
-          smoothed_Dl_pseudo = matmul(P, Dl_pseudo)
-          !!TT
-          if(do_T)then
-             call coop_fit_template(num_ells, num_ells, smoothed_Dl_pseudo(:, coop_TEB_index_TT), reduced_kernel(:,:, coop_pseudoCl_kernel_index_TT), smoothed_Dl(:, coop_TEB_index_TT))
-          !!TE
-             if(do_EB)then
-                call coop_fit_template(num_ells, num_ells, smoothed_Dl_pseudo(:, coop_TEB_index_TE), reduced_kernel(:,:, coop_pseudoCl_kernel_index_TE), smoothed_Dl(:, coop_TEB_index_TE))
-          !!TB
-                call coop_fit_template(num_ells, num_ells, smoothed_Dl_pseudo(:, coop_TEB_index_TB), reduced_kernel(:,:, coop_pseudoCl_kernel_index_TB), smoothed_Dl(:, coop_TEB_index_TB))
-             endif
-          endif
-          !!EB
-          if(do_EB)then
-             call coop_fit_template(num_ells, num_ells, smoothed_Dl_pseudo(:, coop_TEB_index_EB), reduced_kernel(:,:, coop_pseudoCl_kernel_index_EB), smoothed_Dl(:, coop_TEB_index_EB))
-          !!EE + BB => saved in EE
-             call coop_fit_template(num_ells, num_ells, smoothed_Dl_pseudo(:, coop_TEB_index_EE)+smoothed_Dl_pseudo(:, coop_TEB_index_BB), reduced_kernel(:,:, coop_pseudoCl_kernel_index_EE_plus_BB), smoothed_Dl(:, coop_TEB_index_EE))
-          !!EE - BB => saved in BB
-             call coop_fit_template(num_ells, num_ells, smoothed_Dl_pseudo(:, coop_TEB_index_EE)-smoothed_Dl_pseudo(:, coop_TEB_index_BB), reduced_kernel(:,:, coop_pseudoCl_kernel_index_EE_minus_BB), smoothed_Dl(:, coop_TEB_index_BB))
-          endif
-          Cl = matmul( Q, smoothed_Dl )
-          if(do_EB)tmp = Cl(lmin:lmax, coop_TEB_index_BB)
-          deallocate(ells, reduced_kernel, smoothed_Dl, smoothed_Dl_pseudo, P, Q)
-          goto 200
-       endif
-    endif
-100 continue
+    !$omp parallel do
+    do l = lmin, lmax
+       Dl_pseudo(l,:) = Cl_pseudo(l,:)*(l+0.5d0)**2
+    enddo
+    !$omp end parallel do
     !!TT
     if(do_T)then
        call coop_fit_template(lmax-lmin+1, lmax-lmin+1, Dl_pseudo(lmin:lmax, coop_TEB_index_TT), kernel(lmin:lmax,lmin:lmax, coop_pseudoCl_kernel_index_TT), cl(lmin:lmax, coop_TEB_index_TT))
@@ -2139,7 +2086,7 @@ contains
     endif
     !$omp parallel do
     do l = lmin, lmax
-       Cl(l,:) = Cl(l,:)/(l*(l+1.d0))
+       Cl(l,:) = Cl(l,:)/(l+0.5d0)**2
     enddo
     !$omp end parallel do
     

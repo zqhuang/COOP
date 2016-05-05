@@ -14,19 +14,21 @@ program coop_Xfaster
 #define CHIND(i)  trim(channel_name(i))
 #define SIMIND(i) trim(sim_index_name(i))
 #define CHSIMIND(ich, isim) CHIND(ich)//"_"//SIMIND(isim)
+#define MUB_IND(ib, icl)  ((ib-1)*numcls + icl)
 
 !!this is coop version of xfaster, written from scratch. 
-  COOP_STRING::inifile, qb_input_file, qb_output_root, cl_output_root
+  COOP_STRING::inifile, qb_output_root, cl_output_root, mub_output_root, Fisher_output_root, model_cl_file
   COOP_SHORT_STRING,dimension(:),allocatable::channel_name
   COOP_INT::sim_index_width
   COOP_STRING::action, map_genre, map_unit
   COOP_INT::ib, num_iterations, iter, ich
   COOP_REAL,parameter::fisher_threshold = 1.d-4
+  COOP_SINGLE::map_maxval, map_minval
   type(coop_dictionary)::settings
   type(coop_file)::fp
-  COOP_INT::num_ell_bins, num_channels, lmin_data, lmax_data, nmaps, numcls, numcross, num_qbs, matdim
+  COOP_INT::num_ell_bins, num_channels, lmin_data, lmax_data, nmaps, numcls, numcross, num_qbs, matdim, num_mubs
   COOP_INT,dimension(:),allocatable::spin
-  COOP_REAL,dimension(:),allocatable::qb
+  COOP_REAL,dimension(:),allocatable::qb, mub
   COOP_REAL junk
 
   if(iargc().lt.1)then
@@ -38,10 +40,16 @@ program coop_Xfaster
   call coop_load_dictionary(inifile, settings)
   call coop_dictionary_lookup(settings, 'action', action)
   call coop_dictionary_lookup(settings, 'map_genre', map_genre, 'IQU')
-  call coop_dictionary_lookup(settings, 'qb_input_file', qb_input_file, "")
   call coop_dictionary_lookup(settings, 'qb_output_root', qb_output_root)
+  call coop_dictionary_lookup(settings, 'mub_output_root', mub_output_root)
+  call coop_dictionary_lookup(settings, 'fisher_output_root', fisher_output_root)
+
+  call coop_dictionary_lookup(settings, 'model_cl_file', model_cl_file)
   call coop_dictionary_lookup(settings, 'cl_output_root', cl_output_root)
   call coop_dictionary_lookup(settings, 'num_iterations', num_iterations, 1)
+
+  call coop_dictionary_lookup(settings, 'map_maxval', map_maxval, 500.)
+  call coop_dictionary_lookup(settings, 'map_minval', map_minval, -500.)
 
 
   nmaps = len_trim(map_genre)
@@ -68,25 +76,20 @@ program coop_Xfaster
   allocate(channel_name(num_channels))
   do ich = 1, num_channels
      call coop_dictionary_lookup(settings, 'channel'//COOP_STR_OF(ich)//'_name', channel_name(ich), COOP_STR_OF(ich))
+     write(*,*) "channel : "//CHIND(ich)
   enddo
   
   call coop_dictionary_lookup(settings, 'sim_index_width', sim_index_width, 0)
 
   call coop_dictionary_lookup(settings, "num_ell_bins", num_ell_bins)
   num_qbs = numcross*numcls*num_ell_bins
-
   allocate(qb(num_qbs))
-  if(trim(qb_input_file).eq."")then
-     qb = 1.d0
-  else
-     write(*,*) "loading "//trim(qb_input_file)
-     call fp%open(qb_input_file)
-     do ib = 1, num_ell_bins
-        read(fp%unit, "("//COOP_STR_OF(numcross*numcls)//"E16.7)") junk, qb((ib-1)*numcross*numcls+1:ib*numcross*numcls)
-     enddo
-     call fp%close()
-  endif
 
+  num_mubs = numcls*num_ell_bins
+  allocate(mub(num_mubs))
+
+  qb = 1.d0
+  mub = 1.d0
   call coop_dictionary_lookup(settings, 'lmin_data', lmin_data, 2)
   call coop_dictionary_lookup(settings, 'lmax_data', lmax_data)
   coop_healpix_want_cls = .true.
@@ -95,25 +98,44 @@ program coop_Xfaster
      stop "XFASTER only supports num_channels >=1"
   endif
   select case(trim(action))
+  case("DO_MASK")
+     call do_mask()
   case("DO_KERNEL")
      call do_kernel()
   case("DO_NOISE")
      call do_noise()
-  case("DO_TRANSFER")
-     call do_transfer()
-  case("DO_PSEUDO_CL")
-     call do_pseudo_cl()
-  case("DO_CL")
+  case("DO_SIGNAL")
+     call do_signal()  
+  case("DO_DATA")
+     call do_data()
+  case("DO_QB")
      do iter = 1, num_iterations
-        call do_cl(iter)
+        call do_qb(iter)  !!compute q_b's
+     enddo
+  case("DO_MUB")
+     do iter = 1, num_iterations
+        call do_mub(iter)  !!compute mu_b's
      enddo
   case("DO_ALL")
      call do_kernel()
      call do_noise()
-     call do_transfer()
-     call do_pseudo_cl()
+     call do_signal()
+     call do_data()
      do iter = 1, num_iterations
-        call do_cl(iter)
+        call do_qb(iter)
+     enddo
+     do iter = 1, num_iterations
+        call do_mub(iter)
+     enddo
+  case("DO_ALL_BUT_KERNEL")
+     call do_noise()
+     call do_signal()
+     call do_data()
+     do iter = 1, num_iterations
+        call do_qb(iter)
+     enddo
+     do iter = 1, num_iterations
+        call do_mub(iter)
      enddo
   case default
      write(*,*) "action  = "//trim(action)
@@ -121,6 +143,30 @@ program coop_Xfaster
   end select
 
 contains
+
+  subroutine do_mask()
+    COOP_STRING:: cond_root, proj_root, mask_root
+    type(coop_healpix_maps)::mask, cond, proj
+    COOP_SINGLE::condmax, projmax, maskcut
+    COOP_INT::ich
+    call coop_dictionary_lookup(settings, "mask_root", mask_root)
+    call coop_dictionary_lookup(settings, "cond_root", cond_root)
+    call coop_dictionary_lookup(settings, "proj_root", proj_root)
+    call coop_dictionary_lookup(settings, "cond_cut", condmax, 1.)
+    call coop_dictionary_lookup(settings, "proj_cut", projmax, 1.)
+    do ich = 1, num_channels
+       call cond%read(trim(cond_root)//"_"//CHIND(ich)//".fits", nmaps_wanted = 1)
+       call proj%read(trim(proj_root)//"_"//CHIND(ich)//".fits", nmaps_wanted = 1)
+       call mask%init(nmaps = 1, nside = cond%nside, genre="MASK")
+       where(cond%map(:,1) .ge. condmax .and. proj%map(:,1).ge.projmax)
+          mask%map(:,1) = 1.
+       elsewhere
+          mask%map(:,1) = 0.
+       end where
+       call mask%write(trim(mask_root)//"_"//CHIND(ich)//".fits")
+       print*, "channel "//COOP_STR_OF(ich)//" fsky: "//COOP_STR_OF(sum(mask%map(:,1))/mask%npix)
+    enddo
+  end subroutine do_mask
 
   subroutine do_kernel()
     COOP_STRING::kernel_root, mask_root
@@ -170,7 +216,7 @@ contains
     call coop_dictionary_lookup(settings, "num_noise_sims", num_noise_sims)
     call noisepower%init(lmin = lmin_data, lmax = lmax_data, genre = map_genre, unit = map_unit, spin = spin)
     write(*,*) "***************************************************"
-    write(*,*) "doing noise power spectrum N_l from "//COOP_STR_OF(num_noise_sims)//" simulations"
+    write(*,*) "computing noise power from "//COOP_STR_OF(num_noise_sims)//" simulations"
     do ich1 = 1, num_channels
        do ich2 = ich1, num_channels
           write(*,"(A$)") "channel "//CHIND(ich1)//" x channel "//CHIND(ich2)
@@ -195,51 +241,47 @@ contains
     call noisepower%free()
   end subroutine do_noise
 
-  subroutine do_transfer()
-    COOP_STRING::model_cl_root, signal_sim_root, transfer_root
-    type(coop_cls)::modelpower, signalpower
+
+  subroutine do_signal()
+    COOP_STRING::signal_sim_root, signal_cl_root, mask_root
+    logical want_T, want_EB
+    type(coop_cls)::signalpower
     COOP_INT::ich1, ich2, num_signal_sims, isim, ib
     type(coop_healpix_maps)::sig1, sig2
+    COOP_REAL::kernel(lmin_data:lmax_data, lmin_data:lmax_data, 4), weight
+    COOP_REAL::Cl_pseudo(lmin_data:lmax_data, 6), Cl(lmin_data:lmax_data, 6)
+    call coop_dictionary_lookup(settings, "mask_root", mask_root)
     call coop_dictionary_lookup(settings, "signal_sim_root", signal_sim_root)
-    call coop_dictionary_lookup(settings, "model_cl_root", model_cl_root)
-    call coop_dictionary_lookup(settings, "transfer_root", transfer_root)
+    call coop_dictionary_lookup(settings, "signal_cl_root", signal_cl_root)
     call coop_dictionary_lookup(settings, "num_signal_sims", num_signal_sims)
     write(*,*) "***************************************************"
-    write(*,*) "doing transfer F_l from "//COOP_STR_OF(num_signal_sims)//" simulations"
+    write(*,*) "computing sigal power from "//COOP_STR_OF(num_signal_sims)//" simulations"
     call signalpower%init(lmin = lmin_data, lmax = lmax_data, genre = map_genre, unit = map_unit, spin = spin)
     do ich1 = 1, num_channels
        do ich2 = ich1, num_channels
           write(*,"(A$)") "channel "//CHIND(ich1)//" x channel "//CHIND(ich2)
-          call modelpower%load(trim(model_cl_root)//"_"//CHIND(ich1)//"_"//CHIND(ich2)//".fits")
-          call modelpower%filter(lmin = lmin_data, lmax = lmax_data)
           signalpower%cls = 0.d0
           do isim = 1, num_signal_sims
              write(*,"(A$)") "."
-             call read_map(sig1, trim(signal_sim_root)//"_"//CHSIMIND(ich1, isim)//".fits")
+             call read_map(sig1, trim(signal_sim_root)//"_"//CHSIMIND(ich1, isim)//".fits", trim(mask_root)//"_"//CHIND(ich1)//".fits")
              if(ich2.ne.ich1)then
-                call read_map(sig2, trim(signal_sim_root)//"_"//CHSIMIND(ich2, isim)//".fits")
+                call read_map(sig2, trim(signal_sim_root)//"_"//CHSIMIND(ich2, isim)//".fits", trim(mask_root)//"_"//CHIND(ich2)//".fits")
                 call sig1%get_cls(sig2)
              endif
              signalpower%cls = signalpower%cls + sig1%cl(lmin_data:lmax_data, :)
           enddo
+          signalpower%cls = signalpower%cls/num_signal_sims
+          call signalpower%dump(trim(signal_cl_root)//"_"//CHIND(ich1)//"_"//CHIND(ich2)//".fits")
           write(*,*)
-          where(modelpower%cls .ne. 0)
-             signalpower%cls = signalpower%cls/num_signal_sims/modelpower%cls
-          elsewhere
-             signalpower%cls = 0.d0
-          end where
-          call signalpower%smooth(5)
-          call signalpower%dump(trim(transfer_root)//"_"//CHIND(ich1)//"_"//CHIND(ich2)//".fits")
-
        enddo
     enddo
     call sig1%free()
     call sig2%free()
     call signalpower%free()
-    call modelpower%free()
-  end subroutine do_transfer
+  end subroutine do_signal
 
-  subroutine do_pseudo_cl()
+
+  subroutine do_data()
     COOP_STRING::data_map_root, data_cl_root, mask_root
     type(coop_healpix_maps)::map1, map2
     COOP_INT::ich1, ich2
@@ -266,19 +308,21 @@ contains
     call map1%free()
     call map2%free()
     call datapower%free()
-  end subroutine do_pseudo_cl
+  end subroutine do_data
+  
 
-  subroutine do_cl(iter)
-    COOP_STRING::data_cl_root, noise_cl_root, template_cl_root, kernel_root, transfer_root
+  subroutine do_qb(iter)
+    COOP_STRING:: kernel_root, signal_cl_root, noise_cl_root
     COOP_INT:: l, iter, num_qb_used
-    type(coop_binned_cls),dimension(numcross)::datapower, noisepower, templatepower, trans
+    type(coop_cls),dimension(numcross)::signalpower, noisepower
+    type(coop_binned_cls)::templatepower
     COOP_REAL::kernel(lmin_data:lmax_data, lmin_data:lmax_data, 4,numcross)
     COOP_REAL::weight(numcross)
     COOP_INT::i, j, ind, ii, jj, ib, ich1, ich2, icl, jb, jch1, jch2, jcl, iqb
     COOP_REAL::mat(matdim, matdim), dSdq(matdim, matdim, num_qbs), wmat(matdim, matdim), datamat(matdim, matdim), invDdSdq(matdim, matdim, num_qbs)
     logical::nonzero(num_qbs)
     COOP_REAL::Fisher(num_qbs, num_qbs)
-    COOP_REAL::vecb(num_qbs), errorbar(num_qbs), lambda
+    COOP_REAL::vecb(num_qbs)
     COOP_REAL::Cb_EE(numcls, num_ell_bins), Cb_BB(numcls, num_ell_bins)
     type(coop_file)::fp
     COOP_REAL,dimension(:,:),allocatable::Fisher_used
@@ -286,24 +330,20 @@ contains
     write(*,*) "***************************************************"
     write(*,*) "Iterating the maximum-likelihood Cls"
     call coop_dictionary_lookup(settings, "kernel_root", kernel_root)
-    call coop_dictionary_lookup(settings, "transfer_root", transfer_root)
-    call coop_dictionary_lookup(settings, "data_cl_root", data_cl_root)
+    call coop_dictionary_lookup(settings, "signal_cl_root", signal_cl_root)
     call coop_dictionary_lookup(settings, "noise_cl_root", noise_cl_root)
-    call coop_dictionary_lookup(settings, "template_cl_root", template_cl_root)
+    call templatepower%load(model_cl_file)
+    call templatepower%filter(lmin = lmin_data, lmax = lmax_data)
+    call templatepower%alloc(num_ell_bins)
+
     do i = 1, num_channels
        do j = i, num_channels
           ind = COOP_MATSYM_INDEX(num_channels, i,j)
           call load_kernel(trim(kernel_root)//"_"//CHIND(i)//"_"//CHIND(j)//".fits", lmin_data, lmax_data, kernel(:,:,:,ind), weight(ind))
-          call datapower(ind)%load(trim(data_cl_root)//"_"//CHIND(i)//"_"//CHIND(j)//".fits")
-          call datapower(ind)%filter(lmin = lmin_data, lmax = lmax_data)
+          call signalpower(ind)%load(trim(signal_cl_root)//"_"//CHIND(i)//"_"//CHIND(j)//".fits")
+          call signalpower(ind)%filter(lmin = lmin_data, lmax = lmax_data)
           call noisepower(ind)%load(trim(noise_cl_root)//"_"//CHIND(i)//"_"//CHIND(j)//".fits")
           call noisepower(ind)%filter(lmin = lmin_data, lmax = lmax_data)
-          call trans(ind)%load(trim(transfer_root)//"_"//CHIND(i)//"_"//CHIND(j)//".fits")
-          call trans(ind)%filter(lmin = lmin_data, lmax = lmax_data)
-          call templatepower(ind)%load(trim(template_cl_root)//"_"//CHIND(i)//"_"//CHIND(j)//".fits")
-          call templatepower(ind)%filter(lmin = lmin_data, lmax = lmax_data)
-          templatepower(ind)%cls = templatepower(ind)%cls * trans(ind)%cls
-          call templatepower(ind)%alloc(num_ell_bins)
        enddo
     enddo
     vecb = 0.d0
@@ -313,7 +353,7 @@ contains
        do ich1 = 1, num_channels
           do ich2 = ich1, num_channels
              ind = COOP_MATSYM_INDEX(num_channels, ich1, ich2)
-             call get_Cbs(templatepower(ind), l, kernel(:,:,:,ind), Cb_EE, Cb_BB)
+             call get_Cbs(templatepower, l, kernel(:,:,:,ind), Cb_EE, Cb_BB)
              select case(trim(map_genre))
              case("I")
                 do ib = 1, num_ell_bins
@@ -349,12 +389,15 @@ contains
                    dSdq((ich1-1)*nmaps+coop_TEB_index_E, (ich2-1)*nmaps+coop_TEB_index_T, QB_IND(ib, ind, coop_TEB_index_TE)) = Cb_EE(coop_TEB_index_TE, ib)
                    dSdq((ich1-1)*nmaps+coop_TEB_index_B, (ich2-1)*nmaps+coop_TEB_index_T, QB_IND(ib, ind, coop_TEB_index_TB)) = Cb_EE(coop_TEB_index_TB, ib)
                 enddo
+             case default
+                write(*,*) "map_genre = "//trim(map_genre)
+                stop "XFASTER only supports map_genre = I/QU/IQU"
              end select
 
              do i = 1, nmaps
                 do j = i, nmaps
                    mat((ich1-1)*nmaps + i, (ich2-1)*nmaps+j) = noisepower(ind)%cls(l, COOP_MATSYM_INDEX(nmaps, i, j))
-                   datamat((ich1-1)*nmaps + i, (ich2-1)*nmaps+j) = datapower(ind)%cls(l, COOP_MATSYM_INDEX(nmaps, i, j)) - noisepower(ind)%cls(l, COOP_MATSYM_INDEX(nmaps, i, j))
+                   datamat((ich1-1)*nmaps + i, (ich2-1)*nmaps+j) = signalpower(ind)%cls(l, COOP_MATSYM_INDEX(nmaps, i, j)) 
                    if(i.ne.j)then
                       mat((ich1-1)*nmaps + j, (ich2-1)*nmaps+i) = mat((ich1-1)*nmaps + i, (ich2-1)*nmaps + j)
                       datamat((ich1-1)*nmaps + j, (ich2-1)*nmaps+i) = datamat((ich1-1)*nmaps + i, (ich2-1)*nmaps + j)
@@ -414,7 +457,7 @@ contains
        nonzero(ib) = Fisher(ib, ib) .gt. fisher_threshold
     enddo
     num_qb_used = count(nonzero)
-    allocate(index_qb_used(num_qb_used))
+    allocate(index_qb_used(num_qb_used), Fisher_used(num_qb_used, num_qb_used))
     i = 0
     do ib = 1, num_qbs
        if(nonzero(ib))then
@@ -424,43 +467,217 @@ contains
     enddo
     Fisher_used = Fisher(index_qb_used, index_qb_used)
     call coop_sympos_inverse(num_qb_used, num_qb_used, Fisher_used)
-    errorbar = 1.d30
-    do i = 1, num_qb_used
-       errorbar(index_qb_used(i)) = sqrt(Fisher_used(i, i))
-    enddo
     qb(index_qb_used) = matmul(Fisher_used, vecb(index_qb_used))
     call fp%open(trim(qb_output_root)//"_ITER"//COOP_STR_OF(iter)//".dat")
     do ib = 1, num_ell_bins
-       write(fp%unit, "(F10.2, "//COOP_STR_OF(numcross*numcls*2)//"E16.7)") templatepower(1)%lb(ib), qb((ib-1)*numcross*numcls+1:ib*numcross*numcls), errorbar((ib-1)*numcross*numcls+1:ib*numcross*numcls)
+       write(fp%unit, "(F10.2, "//COOP_STR_OF(numcross*numcls)//"E16.7)") templatepower%lb(ib), qb((ib-1)*numcross*numcls+1:ib*numcross*numcls)
     enddo
     call fp%close()
-    do ich1 = 1, num_channels
-       do ich2 = ich1, num_channels
-          ind = COOP_MATSYM_INDEX(num_channels, ich1, ich2)
-          where (trans(ind)%cls .ne. 0.d0)
-             templatepower(ind)%cls = templatepower(ind)%cls/trans(ind)%cls
-          end where
-          do l = lmin_data, lmax_data
-             do i = 1, numcls
-                lambda = 0.d0
-                do ib = templatepower(ind)%ibmin_l(l), templatepower(ind)%ibmax_l(l)
-                   lambda = lambda + qb(QB_IND(ib, ind, i))*templatepower(ind)%wl(ib, l)
-                enddo
-                templatepower(ind)%cls(l, i) = templatepower(ind)%cls(l, i) * lambda
-             enddo
-          enddo
-          call templatepower(ind)%dump(trim(cl_output_root)//"_ITER"//COOP_STR_OF(iter)//"_"//CHIND(ich1)//"_"//CHIND(ich2)//".fits")
+    do ind = 1, numcross
+       call noisepower(ind)%free()
+       call signalpower(ind)%free()
+    enddo
+    call templatepower%free()
+    deallocate(index_qb_used, Fisher_used)
+  end subroutine do_qb
+
+
+  subroutine do_mub(iter)
+    COOP_STRING:: kernel_root, data_cl_root, noise_cl_root
+    COOP_INT:: l, iter, num_mub_used
+    type(coop_cls),dimension(numcross)::signalpower, noisepower
+    type(coop_binned_cls)::templatepower
+    COOP_REAL::kernel(lmin_data:lmax_data, lmin_data:lmax_data, 4,numcross)
+    COOP_REAL::weight(numcross)
+    COOP_INT::i, j, ind, ii, jj, ib, ich1, ich2, icl, jb, jch1, jch2, jcl, iqb
+    COOP_REAL::mat(matdim, matdim), dSdq(matdim, matdim, num_mubs), wmat(matdim, matdim), datamat(matdim, matdim), invDdSdq(matdim, matdim, num_mubs)
+    logical::nonzero(num_mubs)
+    COOP_REAL::Fisher(num_mubs, num_mubs)
+    COOP_REAL::vecb(num_mubs), lambda
+    COOP_REAL::Cb_EE(numcls, num_ell_bins), Cb_BB(numcls, num_ell_bins)
+    type(coop_file)::fp
+    COOP_REAL,dimension(:,:),allocatable::Fisher_used
+    COOP_INT,dimension(:),allocatable::index_mub_used
+    write(*,*) "***************************************************"
+    write(*,*) "Iterating the maximum-likelihood Cls"
+    call coop_dictionary_lookup(settings, "kernel_root", kernel_root)
+    call coop_dictionary_lookup(settings, "data_cl_root", data_cl_root)
+    call coop_dictionary_lookup(settings, "noise_cl_root", noise_cl_root)
+    call load_qb(num_iterations)  !!get the converged q_b's
+
+    call templatepower%load(model_cl_file)
+    call templatepower%filter(lmin = lmin_data, lmax = lmax_data)
+    call templatepower%alloc(num_ell_bins)
+
+    do i = 1, num_channels
+       do j = i, num_channels
+          ind = COOP_MATSYM_INDEX(num_channels, i,j)
+          call load_kernel(trim(kernel_root)//"_"//CHIND(i)//"_"//CHIND(j)//".fits", lmin_data, lmax_data, kernel(:,:,:,ind), weight(ind))
+          call signalpower(ind)%load(trim(data_cl_root)//"_"//CHIND(i)//"_"//CHIND(j)//".fits")
+          call signalpower(ind)%filter(lmin = lmin_data, lmax = lmax_data)
+          call noisepower(ind)%load(trim(noise_cl_root)//"_"//CHIND(i)//"_"//CHIND(j)//".fits")
+          call noisepower(ind)%filter(lmin = lmin_data, lmax = lmax_data)
+          signalpower(ind)%cls = signalpower(ind)%cls - noisepower(ind)%cls
        enddo
     enddo
+    vecb = 0.d0
+    Fisher = 0.d0
+    do l = lmin_data, lmax_data
+       dSdq = 0.d0
+       do ich1 = 1, num_channels
+          do ich2 = ich1, num_channels
+             ind = COOP_MATSYM_INDEX(num_channels, ich1, ich2)
+             call get_Cbs(templatepower, l, kernel(:,:,:,ind), Cb_EE, Cb_BB)
+             select case(trim(map_genre))
+             case("I")
+                do ib = 1, num_ell_bins
+                   dSdq(ich1, ich2, MUB_IND(ib, 1)) =   Cb_EE(1, ib)*qb(QB_IND(ib, ind, 1))
+                enddo
+             case("QU")
+                do ib = 1, num_ell_bins
+                   dSdq((ich1-1)*nmaps+coop_EB_index_E, (ich2-1)*nmaps+coop_EB_index_E, MUB_IND(ib, coop_EB_index_EE)) =  Cb_EE(coop_EB_index_EE, ib) * qb(QB_IND(ib, ind, coop_EB_index_EE))
+                   dSdq((ich1-1)*nmaps+coop_EB_index_B, (ich2-1)*nmaps+coop_EB_index_B, MUB_IND(ib, coop_EB_index_EE)) = Cb_EE(coop_EB_index_BB, ib)*qb(QB_IND(ib, ind, coop_EB_index_EE))
+                   dSdq((ich1-1)*nmaps+coop_EB_index_E, (ich2-1)*nmaps+coop_EB_index_E, MUB_IND(ib, coop_EB_index_BB)) = Cb_BB(coop_EB_index_EE, ib)*qb(QB_IND(ib, ind, coop_EB_index_BB))
+                   dSdq((ich1-1)*nmaps+coop_EB_index_B, (ich2-1)*nmaps+coop_EB_index_B, MUB_IND(ib, coop_EB_index_BB)) = Cb_BB(coop_EB_index_BB, ib) * qb(QB_IND(ib, ind, coop_EB_index_BB))
 
+                   dSdq((ich1-1)*nmaps+coop_EB_index_E, (ich2-1)*nmaps+coop_EB_index_B, MUB_IND(ib, coop_EB_index_EB)) =  Cb_EE(coop_EB_index_EB, ib)*qb(QB_IND(ib, ind, coop_EB_index_EB))
+                   dSdq((ich1-1)*nmaps+coop_EB_index_B, (ich2-1)*nmaps+coop_EB_index_E, MUB_IND(ib, coop_EB_index_EB)) =  dSdq((ich1-1)*nmaps+coop_EB_index_E, (ich2-1)*nmaps+coop_EB_index_B, MUB_IND(ib, coop_EB_index_EB))
+                   
+                enddo
+             case("IQU")
+                do ib = 1, num_ell_bins
+                   dSdq((ich1-1)*nmaps+coop_TEB_index_E, (ich2-1)*nmaps+coop_TEB_index_E, MUB_IND(ib, coop_TEB_index_EE)) = Cb_EE(coop_TEB_index_EE, ib)*qb(QB_IND(ib, ind, coop_TEB_index_EE))
+                   dSdq((ich1-1)*nmaps+coop_TEB_index_B, (ich2-1)*nmaps+coop_TEB_index_B, MUB_IND(ib, coop_TEB_index_EE)) = Cb_EE(coop_TEB_index_BB, ib)*qb(QB_IND(ib, ind, coop_TEB_index_EE))
+
+                   dSdq((ich1-1)*nmaps+coop_TEB_index_E, (ich2-1)*nmaps+coop_TEB_index_E, MUB_IND(ib,coop_TEB_index_BB)) =  Cb_BB(coop_TEB_index_EE, ib)*qb(QB_IND(ib, ind, coop_TEB_index_BB))
+                   dSdq((ich1-1)*nmaps+coop_TEB_index_B, (ich2-1)*nmaps+coop_TEB_index_B, MUB_IND(ib, coop_TEB_index_BB)) = Cb_BB(coop_TEB_index_BB, ib)*qb(QB_IND(ib, ind, coop_TEB_index_BB))
+
+                   dSdq((ich1-1)*nmaps+coop_TEB_index_E, (ich2-1)*nmaps+coop_TEB_index_B, MUB_IND(ib, coop_TEB_index_EB)) = Cb_EE(coop_TEB_index_EB, ib)*qb(QB_IND(ib, ind, coop_TEB_index_EB))
+                   dSdq((ich1-1)*nmaps+coop_TEB_index_B, (ich2-1)*nmaps+coop_TEB_index_E, MUB_IND(ib, coop_TEB_index_EB)) =  dSdq((ich1-1)*nmaps+coop_TEB_index_E, (ich2-1)*nmaps+coop_TEB_index_B, MUB_IND(ib, coop_TEB_index_EB))
+
+                   dSdq((ich1-1)*nmaps+coop_TEB_index_T, (ich2-1)*nmaps+coop_TEB_index_T, MUB_IND(ib, coop_TEB_index_TT)) = Cb_EE(coop_TEB_index_TT, ib)*qb(QB_IND(ib, ind, coop_TEB_index_TT))
+
+                   dSdq((ich1-1)*nmaps+coop_TEB_index_T, (ich2-1)*nmaps+coop_TEB_index_E, MUB_IND(ib, coop_TEB_index_TE)) = Cb_EE(coop_TEB_index_TE, ib)*qb(QB_IND(ib, ind, coop_TEB_index_TE))
+                   dSdq((ich1-1)*nmaps+coop_TEB_index_T, (ich2-1)*nmaps+coop_TEB_index_B, MUB_IND(ib, coop_TEB_index_TB)) = Cb_EE(coop_TEB_index_TB, ib)*qb(QB_IND(ib, ind, coop_TEB_index_TB))
+
+                   dSdq((ich1-1)*nmaps+coop_TEB_index_E, (ich2-1)*nmaps+coop_TEB_index_T, MUB_IND(ib, coop_TEB_index_TE)) =  dSdq((ich1-1)*nmaps+coop_TEB_index_T, (ich2-1)*nmaps+coop_TEB_index_E, MUB_IND(ib, coop_TEB_index_TE))
+                   dSdq((ich1-1)*nmaps+coop_TEB_index_B, (ich2-1)*nmaps+coop_TEB_index_T, MUB_IND(ib, coop_TEB_index_TB)) =  dSdq((ich1-1)*nmaps+coop_TEB_index_T, (ich2-1)*nmaps+coop_TEB_index_B, MUB_IND(ib, coop_TEB_index_TB))
+                enddo
+             case default
+                write(*,*) "map_genre = "//trim(map_genre)
+                stop "XFASTER only supports map_genre = I/QU/IQU"
+             end select
+
+             do i = 1, nmaps
+                do j = i, nmaps
+                   mat((ich1-1)*nmaps + i, (ich2-1)*nmaps+j) = noisepower(ind)%cls(l, COOP_MATSYM_INDEX(nmaps, i, j))
+                   datamat((ich1-1)*nmaps + i, (ich2-1)*nmaps+j) = signalpower(ind)%cls(l, COOP_MATSYM_INDEX(nmaps, i, j)) 
+                   if(i.ne.j)then
+                      mat((ich1-1)*nmaps + j, (ich2-1)*nmaps+i) = mat((ich1-1)*nmaps + i, (ich2-1)*nmaps + j)
+                      datamat((ich1-1)*nmaps + j, (ich2-1)*nmaps+i) = datamat((ich1-1)*nmaps + i, (ich2-1)*nmaps + j)
+                   endif
+
+                enddo
+             enddo
+             if(ich1 .ne. ich2)then
+                dSdq((ich2-1)*nmaps+1:ich2*nmaps, (ich1-1)*nmaps+1:ich1*nmaps, :) = dSdq((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps, :)
+                mat((ich2-1)*nmaps+1:ich2*nmaps, (ich1-1)*nmaps+1:ich1*nmaps) = mat((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps)
+                datamat((ich2-1)*nmaps+1:ich2*nmaps, (ich1-1)*nmaps+1:ich1*nmaps) = datamat((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps)
+             endif
+          enddo
+       enddo
+       do ib = 1, num_mubs
+          if(all( dSdq(:,:,ib) .eq. 0.d0))then
+             nonzero(ib) = .false.
+          else
+             mat = mat + dSdq(:,:, ib)*mub(ib)
+             nonzero(ib) = .true.
+          endif
+       enddo
+       call coop_sympos_inverse(matdim, matdim, mat)
+       do ich1 = 1, num_channels
+          do ich2 = 1, num_channels
+             wmat((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps) = mat((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps) *weight(COOP_MATSYM_INDEX(num_channels, ich1, ich2))
+          enddo
+       enddo
+       !$omp parallel do
+       do ib = 1, num_mubs
+          if(nonzero(ib))then
+             invDdSdq(:, :, ib) = matmul(wmat, matmul(dSdq(:,:, ib), mat))
+          endif
+       enddo
+       !$omp end parallel do
+       !$omp parallel do private(ib, jb)
+       do ib = 1, num_mubs
+          if(nonzero(ib))then
+             do jb = ib, num_mubs
+                if(nonzero(jb))then
+                   Fisher(ib, jb) = Fisher(ib, jb) + coop_matrix_product_trace(invDdSdq(:,:,ib), dSdq(:,:,jb)) * (l+0.5d0)
+                endif
+             enddo
+             vecb(ib) = vecb(ib) + coop_matrix_product_trace(invDdSdq(:,:,ib),  datamat)*(l+0.5d0)
+          endif
+       enddo
+       !$omp end parallel do
+    enddo
+    write(*,*)
+    do ib = 1, num_mubs
+       do jb = ib+1, num_mubs
+          Fisher(jb, ib)  = Fisher(ib, jb)
+       enddo
+    enddo
+    do ib=1, num_mubs
+       nonzero(ib) = Fisher(ib, ib) .gt. fisher_threshold
+    enddo
+    num_mub_used = count(nonzero)
+    allocate(index_mub_used(num_mub_used), Fisher_used(num_mub_used, num_mub_used))
+    i = 0
+    do ib = 1, num_mubs
+       if(nonzero(ib))then
+          i = i + 1
+          index_mub_used(i) = ib
+       endif
+    enddo
+    Fisher_used = Fisher(index_mub_used, index_mub_used)
+    call coop_sympos_inverse(num_mub_used, num_mub_used, Fisher_used)
+    mub(index_mub_used) = matmul(Fisher_used, vecb(index_mub_used))
+    call fp%open(trim(mub_output_root)//"_ITER"//COOP_STR_OF(iter)//".dat")
+    do ib = 1, num_ell_bins
+       write(fp%unit, "(F10.2, "//COOP_STR_OF(numcls)//"E16.7)") templatepower%lb(ib), mub((ib-1)*numcls+1:ib*numcls)
+    enddo
+    call fp%close()
+    do l = lmin_data, lmax_data
+       do i = 1, numcls
+          lambda = 0.d0
+          do ib = templatepower%ibmin_l(l), templatepower%ibmax_l(l)
+             lambda = lambda + mub(MUB_IND(ib, i))*templatepower%wl(ib, l)
+          enddo
+          templatepower%cls(l, i) = templatepower%cls(l, i) * lambda
+       enddo
+    enddo
+    call templatepower%dump(trim(cl_output_root)//"_ITER"//COOP_STR_OF(iter)//".dat")
 
     do ind = 1, numcross
-       call datapower(ind)%free()
+       call signalpower(ind)%free()
        call noisepower(ind)%free()
-       call templatepower(ind)%free()
-       call trans(ind)%free()
     enddo
-  end subroutine do_cl
+    call templatepower%free()
+    deallocate(index_mub_used, Fisher_used)
+
+  end subroutine do_mub
+
+
+!!****************************************************************************
+
+  subroutine load_qb(iter)
+    COOP_INT::iter, ib
+    COOP_REAL::junk
+    call fp%open(trim(qb_output_root)//"_ITER"//COOP_STR_OF(iter)//".dat")
+    do ib = 1, num_ell_bins
+       read(fp%unit, *) junk, qb((ib-1)*numcross*numcls+1:ib*numcross*numcls)
+    enddo
+    call fp%close()
+  end subroutine load_qb
 
   subroutine load_kernel(filename, lmin, lmax, kernel, weight)
     COOP_UNKNOWN_STRING::filename
@@ -489,6 +706,7 @@ contains
     COOP_UNKNOWN_STRING,optional::maskfile
     COOP_INT::i
     call map%read(filename, nmaps_wanted = nmaps, nested = .false.)
+    map%map = max(min(map%map, map_maxval), map_minval)
     map%spin = spin
     if(present(maskfile))then
        call mask%read(maskfile, nmaps_wanted = 1, nested = .false.)
@@ -548,6 +766,9 @@ contains
        Cb_BB(coop_TEB_index_TE, :) =  Cb_EE(coop_TEB_index_TE, :)
        Cb_BB(coop_TEB_index_TB, :) =  Cb_EE(coop_TEB_index_TB, :)
        Cb_BB(coop_TEB_index_EB, :) =  Cb_EE(coop_TEB_index_EB, :)
+    case default
+       write(*,*) "map_genre = "//trim(map_genre)
+       stop "XFASTER only supports map_genre = I/QU/IQU"
     end select
   end subroutine get_Cbs
 

@@ -184,7 +184,7 @@ contains
        endif
     else
        delta_l = (this%lmax - this%lmin)/this%nb
-       if(delta_l .le. 3.d0 .or. nb .lt. 5)then
+       if(delta_l .le. 3.d0 .or. nb .lt. 50)then
           call coop_set_uniform(this%nb, this%lb, this%lmin+delta_l/2.d0, this%lmax-delta_l/2.d0)
        else
           i = 1
@@ -1783,6 +1783,42 @@ contains
     stop "CFITSIO is not installed"
 #endif    
   end subroutine coop_fits_file_move_to_hdu
+
+  subroutine coop_Cls_convert2Pseudo(this, lmin, lmax, kernel)
+    class(coop_cls)::this
+    COOP_INT::lmin, lmax
+    COOP_REAL::kernel(lmin:lmax,lmin:lmax, 4)
+    COOP_REAL,dimension(:,:),allocatable::tmp
+    if(this%lmin .lt. lmin .or. this%lmax .gt. lmax)then
+       write(*,*) "fits_cls2pseudoCls: l range overflow"
+    endif
+    select case(trim(this%genre))
+    case("I", "T")
+       this%Cls(this%lmin:this%lmax, 1) = matmul(kernel(this%lmin:this%lmax, this%lmin:this%lmax, coop_pseudoCl_kernel_index_TT),this%Cls(this%lmin:this%lmax, 1))
+    case("QU", "EB")
+       allocate(tmp(this%lmin:this%lmax, 2))
+       this%Cls(this%lmin:this%lmax, coop_EB_index_EB) = matmul(kernel(this%lmin:this%lmax, this%lmin:this%lmax, coop_pseudoCl_kernel_index_EB),this%Cls(this%lmin:this%lmax, coop_EB_index_EB))
+       tmp(:,1) = matmul(kernel(this%lmin:this%lmax, this%lmin:this%lmax, coop_pseudoCl_kernel_index_EE_plus_BB),this%Cls(this%lmin:this%lmax, coop_EB_index_EE)+this%Cls(this%lmin:this%lmax, coop_EB_index_BB))
+       tmp(:,2) = matmul(kernel(this%lmin:this%lmax, this%lmin:this%lmax, coop_pseudoCl_kernel_index_EE_minus_BB),this%Cls(this%lmin:this%lmax, coop_EB_index_EE)-this%Cls(this%lmin:this%lmax, coop_EB_index_BB))
+       this%Cls(this%lmin:this%lmax, coop_EB_index_EE) = (tmp(:,1)+tmp(:,2))/2.d0
+       this%Cls(this%lmin:this%lmax, coop_EB_index_BB) = (tmp(:,1)-tmp(:,2))/2.d0
+       deallocate(tmp)
+    case("IQU", "TQU", "TEB", "IEB")
+       allocate(tmp(this%lmin:this%lmax, 2))
+       this%Cls(this%lmin:this%lmax, coop_TEB_index_TT) = matmul(kernel(this%lmin:this%lmax, this%lmin:this%lmax, coop_pseudoCl_kernel_index_TT),this%Cls(this%lmin:this%lmax, coop_TEB_index_TT))
+       this%Cls(this%lmin:this%lmax, coop_TEB_index_TE) = matmul(kernel(this%lmin:this%lmax, this%lmin:this%lmax, coop_pseudoCl_kernel_index_TE),this%Cls(this%lmin:this%lmax, coop_TEB_index_TE))
+       this%Cls(this%lmin:this%lmax, coop_TEB_index_TB) = matmul(kernel(this%lmin:this%lmax, this%lmin:this%lmax, coop_pseudoCl_kernel_index_TB),this%Cls(this%lmin:this%lmax, coop_TEB_index_TB))
+       this%Cls(this%lmin:this%lmax, coop_TEB_index_EB) = matmul(kernel(this%lmin:this%lmax, this%lmin:this%lmax, coop_pseudoCl_kernel_index_EB),this%Cls(this%lmin:this%lmax, coop_TEB_index_EB))
+       tmp(:,1) = matmul(kernel(this%lmin:this%lmax, this%lmin:this%lmax, coop_pseudoCl_kernel_index_EE_plus_BB),this%Cls(this%lmin:this%lmax, coop_TEB_index_EE)+this%Cls(this%lmin:this%lmax, coop_TEB_index_BB))
+       tmp(:,2) = matmul(kernel(this%lmin:this%lmax, this%lmin:this%lmax, coop_pseudoCl_kernel_index_EE_minus_BB),this%Cls(this%lmin:this%lmax, coop_TEB_index_EE)-this%Cls(this%lmin:this%lmax, coop_TEB_index_BB))
+       this%Cls(this%lmin:this%lmax, coop_TEB_index_EE) = (tmp(:,1)+tmp(:,2))/2.d0
+       this%Cls(this%lmin:this%lmax, coop_TEB_index_BB) = (tmp(:,1)-tmp(:,2))/2.d0
+       deallocate(tmp)
+    case default
+       write(*,*) "genre = "//trim(this%genre)
+       stop "This genre is not supported for Cls_convert2Pseudo."
+    end select
+  end subroutine coop_Cls_convert2Pseudo
 
 
 
