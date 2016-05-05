@@ -174,7 +174,7 @@ contains
           cov(i, j) = cosmology%Clzetazeta(l, r(i), r(j))
           cov(j, i) = cov(i, j)
        enddo
-       cov(i, i) = cosmology%Clzetazeta(l, r(i))*(1.d0+1.d-8) + 1.d-16  !!add small tiny number for stability
+       cov(i, i) = cosmology%Clzetazeta(l, r(i))*(1.d0+1.d-8) + 1.d-16/l/(l+1.d0)  !!add small tiny number for stability
     enddo
     !$omp end parallel do
   end subroutine coop_get_zeta_shells_cov
