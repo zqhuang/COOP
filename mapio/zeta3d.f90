@@ -178,7 +178,7 @@ contains
        do i=1, coop_zeta_nr
           coop_zeta3d_shells(i)%r = coop_zeta_r(i)
           coop_zeta3d_shells(i)%dr = coop_zeta_dr(i)
-          rat = (coop_zeta3d_shells(i)%r/cosmology%distlss/0.7)**8
+          rat = (coop_zeta3d_shells(i)%r/cosmology%distlss/0.8)**8
           if(rat .lt. 1.d0)then
              call coop_zeta3d_shells(i)%set_lmax(min(ceiling(30*(1.d0-rat)+lmax*rat), lmax))
           else

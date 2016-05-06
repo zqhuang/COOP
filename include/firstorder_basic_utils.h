@@ -462,19 +462,6 @@
     class(coop_cosmology_firstorder)::this
     COOP_REAL step_factor, viscut
     !!basic stepsize
-#if DO_ZETA_TRANS && ZETA_TRANS_HIGH_ACCURACY
-    COOP_REAL,parameter::step_ini = 6.5d-4
-    COOP_REAL,parameter::step_min = 5.d-4
-    COOP_REAL,parameter::step_recend = 8.d-4
-    COOP_REAL,parameter::step_reion = 1.2d-3
-    COOP_REAL,parameter::step_early = 1.2d-3
-    COOP_REAL,parameter::step_late = 2.1d-2
-    COOP_REAL,parameter::step_isw = 1.4d-2
-    COOP_INT,parameter::nmax = 16384
-    COOP_REAL, parameter::a_factor = 1.043d0
-    COOP_REAL, parameter::vary = 1.043d0
-    COOP_REAL, parameter::slowvary = 1.018d0
-#else
     COOP_REAL,parameter::step_ini = 8.2d-4
     COOP_REAL,parameter::step_min = 6.3d-4
     COOP_REAL,parameter::step_recend = 9.6d-4
@@ -486,7 +473,6 @@
     COOP_REAL, parameter::a_factor = 1.05d0
     COOP_REAL, parameter::vary = 1.05d0
     COOP_REAL, parameter::slowvary = 1.02d0
-#endif
     COOP_REAL step
     COOP_REAL a(nmax), tau(nmax), aend, tautmp
     COOP_INT i, n, nw, iw, j

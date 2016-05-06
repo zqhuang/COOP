@@ -335,7 +335,6 @@ contains
     COOP_INT::l, ichi, ir, nr
     COOP_REAL::r(nr)
     COOP_REAL,intent(INOUT)::trans(source%nsrc)
-    COOP_REAL::widthm, widthp
     COOP_REAL::ampchi(coop_k_dense_fac, source%nk, source%ntau), phasechi(coop_k_dense_fac, source%nk, source%ntau), ampr(coop_k_dense_fac, source%nk, nr), phaser(coop_k_dense_fac, source%nk, nr), kwindow(coop_k_dense_fac, source%nk)
     COOP_INT ik, idense
     COOP_REAL  kmin, xmin, phasediff, phasesum, last_phasediff, last_phasesum, sumfac, difffac, Smean(source%nsrc)
