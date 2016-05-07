@@ -675,7 +675,7 @@
 
     source%kmin = 0.4d0/this%distlss
 #if DO_ZETA_TRANS
-    source%kmax = (min(max(1500, coop_Cls_lmax(source%m)), 3000)*4.d0)/this%distlss
+    source%kmax = (min(max(1500, coop_Cls_lmax(source%m)), 3000)*2.5d0)/this%distlss
 #else	 
     source%kmax = (min(max(1500, coop_Cls_lmax(source%m)), 3000)*2.2d0)/this%distlss
 #endif	 

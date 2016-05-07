@@ -230,11 +230,17 @@ contains
 
     allocate(trans_chi_r(source%nsrc, source%ntau, nr), ampchi(coop_k_dense_fac, source%nk, source%ntau), phasechi(coop_k_dense_fac, source%nk, source%ntau), ampr(coop_k_dense_fac, source%nk, nr), phaser(coop_k_dense_fac, source%nk, nr), computed(nr), kwindow(coop_k_dense_fac, source%nk))
 
-    kmax = 3.d0*max(l+0.5d0, 600.d0)/source%chi(1)
+    kmax = 10.d0*max(l+0.5d0, 180.d0)/source%chi(1)
     !$omp parallel do private(ik, idense)
     do ik = 1, source%nk
        do idense = 1, coop_k_dense_fac
-          kwindow(idense, ik) = (1.d0-tanh((source%k_dense(idense, ik)/kmax-0.5d0)*20.d0))/2.d0
+          if((source%k_dense(idense, ik) .lt. kmax))then
+             kwindow(idense, ik) = 1.d0
+          elseif(source%k_dense(idense, ik) .lt. kmax*2)then
+             kwindow(idense, ik) = sin(coop_pio2*source%k_dense(idense, ik)/kmax)**4
+          else 
+             kwindow(idense, ik) = 0.d0
+          endif
        enddo
     enddo
     !$omp end parallel do

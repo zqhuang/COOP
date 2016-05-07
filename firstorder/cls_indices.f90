@@ -37,7 +37,7 @@ module coop_cl_indices_mod
   COOP_INT, parameter :: coop_index_source_E = 2
   COOP_INT, parameter :: coop_index_source_B = 3
 #if DO_ZETA_TRANS
-  COOP_INT, parameter :: coop_k_dense_fac = 35
+  COOP_INT, parameter :: coop_k_dense_fac = 50
   COOP_INT, parameter :: coop_index_source_zeta = 3
   COOP_INT, parameter :: coop_index_source_Len = 4
   COOP_REAL::coop_zeta_single_slice_chi = -1.d0  !!if set to negative, weight = visibility function
