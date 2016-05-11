@@ -8,7 +8,7 @@ module coop_function_mod
 
   private
 
-  public:: coop_function, coop_function_multeval, coop_function_multeval_bare, coop_function_constructor, coop_function_polynomial
+  public:: coop_function, coop_function_multeval, coop_function_multeval_bare, coop_function_constructor, coop_function_polynomial, coop_2dfunction
 
   type coop_function
      COOP_SHORT_STRING::name="NoName"
@@ -43,7 +43,221 @@ module coop_function_mod
 !!$     module procedure coop_function_constructor
 !!$  end interface coop_function  
 
+
+  type coop_2dfunction
+     COOP_SHORT_STRING::name = "NoName2D"
+     logical::initialized = .false.
+     COOP_INT::nx = 0
+     COOP_INT::ny = 0
+     COOP_REAL::xmin=0.d0
+     COOP_REAL::xmax=1.d0
+     COOP_REAL::ymin=0.d0
+     COOP_REAL::ymax=1.d0
+     COOP_REAL::dx = 0.d0
+     COOP_REAL::dy = 0.d0
+     logical::xlog = .false.
+     logical::ylog = .false.
+     logical::zlog = .false.
+     COOP_REAL,dimension(:,:),allocatable::f, fxx, fyy
+   contains
+     procedure::init => coop_2dfunction_init
+     procedure::free => coop_2dfunction_free
+     procedure::eval_bare => coop_2dfunction_evaluate_bare
+     procedure::eval => coop_2dfunction_evaluate
+  end type coop_2dfunction
+
 contains
+  
+  function coop_2dfunction_evaluate_bare(this, xbare, ybare) result(zbare)
+    class(coop_2dfunction)::this
+    COOP_REAL::xbare, ybare, zbare
+    COOP_INT::ix, iy
+    COOP_REAL::rx, ry
+    rx = (xbare - this%xmin)/this%dx+1.d0
+    ry = (ybare - this%ymin)/this%dy+1.d0
+    ix = min(max(floor(rx), 1), this%nx-1)
+    rx = max(min(rx - ix, 1.d0), 0.d0)
+    iy = min(max(floor(ry), 1), this%ny-1)
+    ry = max(min(ry - iy, 1.d0), 0.d0)
+    zbare =(this%f(ix, iy)*(1.d0-ry) + this%f(ix, iy+1)*ry)*(1.d0-rx) &
+         + (this%f(ix+1, iy)*(1.d0-ry) + this%f(ix+1, iy+1)*ry)*rx &
+         + ((this%fxx(ix, iy)*(1.d0-ry) + this%fxx(ix, iy+1)*ry)*(1.d0-rx) &
+         + (this%fxx(ix+1, iy)*(1.d0-ry) + this%fxx(ix+1, iy+1)*ry)*rx)*rx*(rx-1.d0) &
+         + ((this%fyy(ix, iy)*(1.d0-ry) + this%fyy(ix, iy+1)*ry)*(1.d0-rx) &
+         + (this%fyy(ix+1, iy)*(1.d0-ry) + this%fyy(ix+1, iy+1)*ry)*rx)*ry*(ry-1.d0)
+  end function coop_2dfunction_evaluate_bare
+
+
+  function coop_2dfunction_evaluate(this, x, y) result(z)
+    class(coop_2dfunction)::this
+    COOP_REAL::x, y, z
+    if(this%xlog)then
+       if(this%ylog)then
+          z = this%eval_bare(log(x), log(y))
+       else
+          z = this%eval_bare(log(x), y)
+       endif
+    else
+       if(this%ylog)then
+          z = this%eval_bare(x, log(y))
+       else
+          z = this%eval_bare(x, y)
+       endif
+    endif
+    if(this%zlog) z = exp(z)
+  end function coop_2dfunction_evaluate
+
+
+  subroutine coop_2dfunction_free(this)
+    class(coop_2dfunction)::this
+    COOP_DEALLOC(this%f)
+    COOP_DEALLOC(this%fxx)
+    COOP_DEALLOC(this%fyy)
+    this%xlog = .false.
+    this%ylog = .false.
+    this%zlog = .false.
+    this%nx  = 0
+    this%ny = 0
+    this%initialized = .false.
+    this%name = "NoName2D"
+  end subroutine coop_2dfunction_free
+
+  subroutine coop_2dfunction_init(this, f, xmin, xmax, ymin, ymax, nx, ny, xlog, ylog, zlog, name)
+    !!save f(x, y) into coop_2dfunction object this
+    class(coop_2dfunction)::this
+    external f
+    COOP_REAL::f
+    COOP_INT::nx, ny
+    COOP_REAL::xmin, xmax, ymin, ymax
+    logical,optional::xlog,ylog,zlog
+    COOP_UNKNOWN_STRING,optional::name
+    COOP_INT::ix, iy
+    COOP_REAL::dx, dy
+    call this%free()
+    if(present(name))this%name = trim(adjustl(name))
+    if(nx .lt. 2 .or. ny .lt. 2) stop "2d function init assumes nx >=2 and ny >=2,"
+    this%nx = nx
+    this%ny = ny
+    allocate(this%f(nx, ny), this%fxx(nx, ny), this%fyy(nx, ny))
+    if(present(xlog))then
+       this%xlog = xlog
+    else
+       this%xlog = .false.
+    endif
+    if(present(ylog))then
+       this%ylog = ylog
+    else
+       this%ylog = .false.
+    endif
+    if(present(zlog))then
+       this%zlog = zlog
+    else
+       this%zlog = .false.
+    endif
+    if(this%xlog)then
+       if(xmin .le. 0.d0 .or. xmax .le. 0.d0) stop "2dfunction_init: xlog = T but xmin<=0 or xmax<=0"
+       this%xmin = log(xmin)
+       this%xmax = log(xmax)
+    else
+       this%xmin = xmin
+       this%xmax = xmax
+    endif
+    if(this%ylog)then
+       if(ymin .le. 0.d0 .or. ymax .le. 0.d0) stop "2dfunction_init: ylog = T but ymin<=0 or ymax<=0"
+       this%ymin = log(ymin)
+       this%ymax = log(ymax)
+    else
+       this%ymin = ymin
+       this%ymax = ymax
+    endif
+    this%dx = (this%xmax - this%xmin)/(this%nx-1)
+    this%xmin = this%xmin + this%dx/1.d10
+    this%xmax = this%xmax - this%dx/1.d10
+    this%dx = (this%xmax - this%xmin)/(this%nx-1)
+
+    this%dy = (this%ymax - this%ymin)/(this%ny-1)
+    this%ymin = this%ymin + this%dy/1.d10
+    this%ymax = this%ymax - this%dy/1.d10
+    this%dy = (this%ymax - this%ymin)/(this%ny-1)
+    if(abs(this%dx) .le. 0.d0) stop "2dfunction_init: xmax == xmin?"
+    if(abs(this%dy) .le. 0.d0) stop "2dfunction_init: ymax == ymin?"
+
+    if(this%xlog)then
+       if(this%ylog)then
+          !$omp parallel do private(ix, iy)
+          do iy = 1, this%ny
+             do ix = 1, this%nx
+                this%f(ix, iy) = f(exp(this%xmin + this%dx*(ix-1)), exp(this%ymin + this%dy*(iy-1)))
+             enddo
+          enddo
+          !$omp end parallel do
+       else
+          !$omp parallel do private(ix, iy)
+          do iy = 1, this%ny
+             do ix = 1, this%nx
+                this%f(ix, iy) = f(exp(this%xmin + this%dx*(ix-1)), this%ymin + this%dy*(iy-1))
+             enddo
+          enddo
+          !$omp end parallel do
+       endif
+    else
+       if(this%ylog)then
+          !$omp parallel do private(ix, iy)
+          do iy = 1, this%ny
+             do ix = 1, this%nx
+                this%f(ix, iy) = f(this%xmin + this%dx*(ix-1), exp(this%ymin + this%dy*(iy-1)))
+             enddo
+          enddo
+          !$omp end parallel do
+       else
+          !$omp parallel do private(ix, iy)
+          do iy = 1, this%ny
+             do ix = 1, this%nx
+                this%f(ix, iy) = f(this%xmin + this%dx*(ix-1), this%ymin + this%dy*(iy-1))
+             enddo
+          enddo
+          !$omp end parallel do
+       endif
+    endif
+    if(this%zlog)then
+       if(any(this%f .le. 0.d0)) stop "2dfunction_init: negative values"
+       this%f = log(this%f)
+    endif
+    !$omp parallel do private(ix, iy)
+    do iy = 2, this%ny-1
+       do ix = 1, this%nx
+          this%fyy(ix, iy) = (this%f(ix, iy+1) + this%f(ix, iy-1) - 2.d0*this%f(ix, iy))
+       enddo
+    enddo
+    !$omp end parallel do
+    !$omp parallel do private(ix, iy)
+    do iy = 1, this%ny
+       do ix = 2, this%nx-1
+          this%fxx(ix, iy) = (this%f(ix+1, iy) + this%f(ix-1, iy) - 2.d0*this%f(ix, iy))
+       enddo
+    enddo
+    !$omp end parallel do
+
+
+    if(this%nx .gt. 2)then
+       this%fxx(1, :) = this%fxx(2, :)
+       this%fxx(this%nx, :) = this%fxx(this%nx-1, :)
+    else
+       this%fxx(1, :) = 0.d0
+       this%fxx(this%nx, :) = 0.d0
+    endif
+    if(this%ny .gt. 2)then
+       this%fyy(:, 1) = this%fyy(:, 2)
+       this%fyy(:, this%ny) = this%fyy(:, this%ny-1)
+    else
+       this%fyy(:,1) = 0.d0
+       this%fyy(:,this%ny) = 0.d0
+    endif
+    this%fxx = this%fxx/2.d0
+    this%fyy = this%fyy/2.d0
+    this%initialized = .true.
+    return
+  end subroutine coop_2dfunction_init
 
 
   function coop_function_constructor(f, xmin, xmax, xlog, ylog, args, method, check_boundary,name) result(cf)

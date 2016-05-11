@@ -55,7 +55,7 @@ contains
     COOP_INT, dimension(:),optional::i
     COOP_REAL, dimension(:),optional::r
     logical, dimension(:),optional::l
-    call this%free
+    call this%free()
     if(present(i))then
        this%n_int = size(i)
        allocate(this%i(this%n_int))
