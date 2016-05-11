@@ -33,7 +33,7 @@ contains
   subroutine coop_ellipse_collapse_params_init(this)
     class(coop_ellipse_collapse_params)::this
     call this%free()
-    call this%bprime%init(f = coop_ellipse_collapse_bprime_reduced, nx = 200, ny = 200, xmin = 1.d-4, xmax = 1.d4, ymin = 1.d-4, ymax = 1.d4, xlog = .true., ylog = .true.)
+    call this%bprime%init_symmetric(f = coop_ellipse_collapse_bprime_reduced, nx = 200, xmin = 1.d-3, xmax = 1.d3, xlog = .true., name = "BPRIME")
   end subroutine coop_ellipse_collapse_params_init
 
 
@@ -69,14 +69,14 @@ contains
 #undef DVERK_ARGUMENTS
   end subroutine coop_dverk_with_ellipse_collapse_params
 
-  subroutine coop_ellipse_collapse_compute_bprime(a, bprime)
-    COOP_REAL::a(3), bprime(3)
-    type(coop_arguments)::args
-    call args%init(r = (/ (a(1)/a(2))**2,  (a(1)/a(3))**2 /) )
-    call calc_int(bprime(1))
-    call args%init(r = (/ (a(2)/a(1))**2,  (a(2)/a(3))**2 /) )
-    call calc_int(bprime(2))
-    call args%init(r = (/ (a(3)/a(1))**2,  (a(3)/a(2))**2 /) )
+!!$  subroutine coop_ellipse_collapse_compute_bprime(a, bprime)
+!!$    COOP_REAL::a(3), bprime(3)
+!!$    type(coop_arguments)::args
+!!$    call args%init(r = (/ (a(1)/a(2))**2,  (a(1)/a(3))**2 /) )
+!!$    call calc_int(bprime(1))
+!!$    call args%init(r = (/ (a(2)/a(1))**2,  (a(2)/a(3))**2 /) )
+!!$    call calc_int(bprime(2))
+!!$    call args%init(r = (/ (a(3)/a(1))**2,  (a(3)/a(2))**2 /) )
 
 
   function coop_ellipse_collapse_bprime_reduced(lambda1, lambda2) result(bprime)
