@@ -61,6 +61,7 @@ module coop_function_mod
      COOP_REAL,dimension(:,:),allocatable::f, fxx, fyy
    contains
      procedure::init => coop_2dfunction_init
+     procedure::init_symmetric => coop_2dfunction_init_symmetric
      procedure::free => coop_2dfunction_free
      procedure::eval_bare => coop_2dfunction_evaluate_bare
      procedure::eval => coop_2dfunction_evaluate
@@ -258,6 +259,121 @@ contains
     this%initialized = .true.
     return
   end subroutine coop_2dfunction_init
+
+
+  subroutine coop_2dfunction_init_symmetric(this, f, xmin, xmax, nx, xlog, zlog, name)
+    !!save f(x, y) = f(y, x) into coop_2dfunction object this
+    class(coop_2dfunction)::this
+    external f
+    COOP_REAL::f
+    COOP_INT::nx
+    COOP_REAL::xmin, xmax
+    logical,optional::xlog, zlog
+    COOP_UNKNOWN_STRING,optional::name
+    COOP_INT::ix, iy
+    COOP_REAL::dx, dy
+    call this%free()
+    if(present(name))this%name = trim(adjustl(name))
+    if(nx .lt. 2 ) stop "2d function init assumes nx >=2"
+    this%nx = nx
+    this%ny = nx
+    allocate(this%f(nx, nx), this%fxx(nx, nx), this%fyy(nx, nx))
+    if(present(xlog))then
+       this%xlog = xlog
+    else
+       this%xlog = .false.
+    endif
+    this%ylog = this%xlog
+    if(present(zlog))then
+       this%zlog = zlog
+    else
+       this%zlog = .false.
+    endif
+    if(this%xlog)then
+       if(xmin .le. 0.d0 .or. xmax .le. 0.d0) stop "2dfunction_init_symmetric: xlog = T but xmin<=0 or xmax<=0"
+       this%xmin = log(xmin)
+       this%xmax = log(xmax)
+    else
+       this%xmin = xmin
+       this%xmax = xmax
+    endif
+
+    this%dx = (this%xmax - this%xmin)/(this%nx-1)
+    this%xmin = this%xmin + this%dx/1.d10
+    this%xmax = this%xmax - this%dx/1.d10
+    this%dx = (this%xmax - this%xmin)/(this%nx-1)
+    if(abs(this%dx) .le. 0.d0) stop "2dfunction_init_symmetric: xmax == xmin?"
+
+    this%dy = this%dx
+    this%ymin = this%xmin
+    this%ymax = this%xmax
+
+
+
+    if(this%xlog)then
+       !$omp parallel do private(ix, iy)
+       do iy = 1, this%ny
+          do ix = 1, iy
+             this%f(ix, iy) = f(exp(this%xmin + this%dx*(ix-1)), exp(this%ymin + this%dy*(iy-1)))
+          enddo
+       enddo
+       !$omp end parallel do
+    else
+       !$omp parallel do private(ix, iy)
+       do iy = 1, this%ny
+          do ix = 1, iy
+             this%f(ix, iy) = f(this%xmin + this%dx*(ix-1), this%ymin + this%dy*(iy-1))
+          enddo
+       enddo
+       !$omp end parallel do
+    endif
+    !$omp parallel do private(ix, iy)
+    do iy = 1, this%ny
+       do ix = 1, iy-1
+          this%f(iy, ix) = this%f(ix, iy)
+       enddo
+    enddo
+    !$omp end parallel do
+
+    if(this%zlog)then
+       if(any(this%f .le. 0.d0)) stop "2dfunction_init: negative values"
+       this%f = log(this%f)
+    endif
+    !$omp parallel do private(ix, iy)
+    do iy = 2, this%ny-1
+       do ix = 1, this%nx
+          this%fyy(ix, iy) = (this%f(ix, iy+1) + this%f(ix, iy-1) - 2.d0*this%f(ix, iy))
+       enddo
+    enddo
+    !$omp end parallel do
+    !$omp parallel do private(ix, iy)
+    do iy = 1, this%ny
+       do ix = 2, this%nx-1
+          this%fxx(ix, iy) = (this%f(ix+1, iy) + this%f(ix-1, iy) - 2.d0*this%f(ix, iy))
+       enddo
+    enddo
+    !$omp end parallel do
+    this%fxx(1, :) = this%fyy(:, 1)
+    this%fxx(this%nx, :) = this%fyy(:, this%ny)
+    this%fyy(:,1) = this%fxx(1,:)
+    this%fyy(:,this%ny) = this%fxx(this%nx, :)
+
+    this%fxx(1, 1) = (this%fxx(2, 1)+this%fxx(1, 2))/2.d0
+    this%fxx(1, this%nx) = (this%fxx(2, this%nx) + this%fxx(1, this%nx-1))/2.d0
+    this%fxx(this%nx, 1) = (this%fxx(this%nx, 2)+this%fxx(this%nx-1, 1))/2.d0
+    this%fxx(this%nx, this%nx) = (this%fxx(this%nx-1, this%nx) + this%fxx(this%nx, this%nx-1))/2.d0
+
+
+    this%fyy(1, 1) = (this%fyy(2, 1)+this%fyy(1, 2))/2.d0
+    this%fyy(1, this%nx) = (this%fyy(2, this%nx) + this%fyy(1, this%nx-1))/2.d0
+    this%fyy(this%nx, 1) = (this%fyy(this%nx, 2)+this%fyy(this%nx-1, 1))/2.d0
+    this%fyy(this%nx, this%nx) = (this%fyy(this%nx-1, this%nx) + this%fyy(this%nx, this%nx-1))/2.d0
+
+    this%fxx = this%fxx/2.d0
+    this%fyy = this%fyy/2.d0
+    this%initialized = .true.
+    return
+  end subroutine coop_2dfunction_init_symmetric
 
 
   function coop_function_constructor(f, xmin, xmax, xlog, ylog, args, method, check_boundary,name) result(cf)

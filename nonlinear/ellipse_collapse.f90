@@ -9,6 +9,10 @@ module coop_ellipse_collapse_mod
      COOP_REAL::zinit = 50.d0 !!initial redshift
      COOP_REAL::t = 0.d0
      COOP_INT::num_ode_vars = 6
+     type(coop_2dfunction)::bprime
+   contains
+     procedure::free => coop_ellipse_collapse_params_free
+     procedure::init => coop_ellipse_collapse_params_init
   end type coop_ellipse_collapse_params
 
 #define  X_1  y(1)
@@ -19,6 +23,19 @@ module coop_ellipse_collapse_mod
 #define  DX3DT  y(6)
 
 contains
+
+  subroutine coop_ellipse_collapse_params_free(this)
+    class(coop_ellipse_collapse_params)::this
+    call this%bprime%free()
+  end subroutine coop_ellipse_collapse_params_free
+
+
+  subroutine coop_ellipse_collapse_params_init(this)
+    class(coop_ellipse_collapse_params)::this
+    call this%free()
+    call this%bprime%init(f = coop_ellipse_collapse_bprime_reduced, nx = 200, ny = 200, xmin = 1.d-4, xmax = 1.d4, ymin = 1.d-4, ymax = 1.d4, xlog = .true., ylog = .true.)
+  end subroutine coop_ellipse_collapse_params_init
+
 
   
   !!evolve y from t to t_end
@@ -60,19 +77,20 @@ contains
     call args%init(r = (/ (a(2)/a(1))**2,  (a(2)/a(3))**2 /) )
     call calc_int(bprime(2))
     call args%init(r = (/ (a(3)/a(1))**2,  (a(3)/a(2))**2 /) )
-    call calc_int(bprime(3))
+
+
+  function coop_ellipse_collapse_bprime_reduced(lambda1, lambda2) result(bprime)
+    COOP_REAL::lambda1, lambda2, eps, bprime
+    type(coop_arguments)::args
+    call args%init( r = (/ lambda1, lambda2 /) )
+    if(abs(lambda1-1.d0) .lt. 0.1d0 .and. abs(lambda2-1.d0) .lt. 0.1d0)then
+       bprime = coop_integrate(coop_ellipse_collapse_bprime_int, 0.d0, 1.d0, args, 1.d-8) 
+    else
+       eps = min(lambda1, lambda2, 0.01d0)/5.d0
+       bprime = coop_integrate(coop_ellipse_collapse_b_int, eps, 1.d0, args, 1.d-8) -2.d0/3.d0 + eps*sqrt(eps/args%r(1)/args%r(2)) * ( 2.d0/3.d0+ eps*( 0.4d0*(1.d0-0.5d0/args%r(1)-0.5d0/args%r(2)) + eps*(2.d0/7.d0)*(1.d0-1.d0/args%r(1)-1.d0/args%r(2)+0.25d0/args%r(1)/args%r(2)+0.375d0/args%r(1)**2+0.375d0/args%r(2)**2) ) )
+    endif
     call args%free()
-    contains
-      subroutine calc_int(b)
-        COOP_REAL::b, eps
-        if(abs(args%r(1)-1.d0) .lt. 0.1d0 .and. abs(args%r(2)-1.d0) .lt. 0.1d0)then
-           b = coop_integrate(coop_ellipse_collapse_bprime_int, 0.d0, 1.d0, args, 1.d-8) 
-        else
-           eps = min(args%r(1), args%r(2), 0.01d0)/5.d0
-           b = coop_integrate(coop_ellipse_collapse_b_int, eps, 1.d0, args, 1.d-8) -2.d0/3.d0 + eps*sqrt(eps/args%r(1)/args%r(2)) * ( 2.d0/3.d0+ eps*( 0.4d0*(1.d0-0.5d0/args%r(1)-0.5d0/args%r(2)) + eps*(2.d0/7.d0)*(1.d0-1.d0/args%r(1)-1.d0/args%r(2)+0.25d0/args%r(1)/args%r(2)+0.375d0/args%r(1)**2+0.375d0/args%r(2)**2) ) )
-        endif
-      end subroutine calc_int
-  end subroutine coop_ellipse_collapse_compute_bprime
+  end function coop_ellipse_collapse_bprime_reduced
 
 
   function coop_ellipse_collapse_bprime_int(x, args) result(f)
