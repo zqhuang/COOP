@@ -9,7 +9,7 @@ include ../configure.in
 include ../compile_rules.in
 
 LIB = libcoopnonlinear.a
-OBJ = nonlinear.o 
+OBJ = nonlinear.o ellipse_collapse.o
 
 default: $(LIB)
 

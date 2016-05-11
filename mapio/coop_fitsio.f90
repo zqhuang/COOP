@@ -99,8 +99,13 @@ module coop_fitsio_mod
      procedure::unbin => coop_binned_Cls_unbin
   end type coop_binned_cls
 
+  interface coop_fits_file_write_binary_table
+     module procedure coop_fits_file_write_binary_table_d, coop_fits_file_write_binary_table_s
+  end interface coop_fits_file_write_binary_table
 
-
+  interface coop_fits_file_write_binary_table_with_indices
+     module procedure coop_fits_file_write_binary_table_with_indices_s, coop_fits_file_write_binary_table_with_indices_d
+  end interface coop_fits_file_write_binary_table_with_indices
 
 contains
 
@@ -110,13 +115,16 @@ contains
     COOP_REAL,dimension(:,:),allocatable::cls_tmp
     COOP_REAL::w(-delta_l:delta_l)
     allocate(cls_tmp(this%lmin-delta_l:this%lmax+delta_l, this%num_cls))
-    cls_tmp(this%lmin:this%lmax, :) = this%cls
+    do l  = this%lmin, this%lmax
+       cls_tmp(l, :) = this%cls(l, :)*(l+0.5)**2
+    enddo
     do l = this%lmin-delta_l, this%lmin - 1
        cls_tmp(l, :) = cls_tmp(this%lmin, :)
     enddo
     do l = this%lmax+1, this%lmax+delta_l
        cls_tmp(l, :) = cls_tmp(this%lmax, :)
     enddo
+
     do l = -delta_l, delta_l
        w(l) = exp(- (2.d0*l/delta_l)**2)
     enddo
@@ -126,6 +134,7 @@ contains
        do lp = - delta_l, delta_l
           this%cls(l,:) = this%cls(l,:) + w(lp)*cls_tmp(l+lp,:)
        enddo
+       this%cls(l, :) = this%cls(l, :)/(l+0.5)**2
     enddo
     deallocate(cls_tmp)
   end subroutine coop_cls_smooth
@@ -1410,7 +1419,7 @@ contains
     call ftghdt(this%unit, this%hdutype, this%status)
   end subroutine coop_fits_file_update_hdu_info
 
-  subroutine coop_fits_file_write_binary_table(table, filename, header)
+  subroutine coop_fits_file_write_binary_table_d(table, filename, header)
     type(coop_dictionary),optional::header
     COOP_REAL,dimension(:,:)::table
     COOP_UNKNOWN_STRING::filename
@@ -1498,7 +1507,295 @@ contains
 #else
     stop "FITSIO is not installed"
 #endif
-  end subroutine coop_fits_file_write_binary_table
+  end subroutine coop_fits_file_write_binary_table_d
+
+
+  subroutine coop_fits_file_write_binary_table_with_indices_d(indices, table, filename, header)
+    type(coop_dictionary),optional::header
+    COOP_INT, dimension(:)::indices
+    COOP_REAL,dimension(:,:)::table
+    COOP_UNKNOWN_STRING::filename
+    type(coop_fits_file)::fp
+    COOP_INT::i
+    COOP_INT::status,blocksize,hdutype,tfields,nrows,varidat, column,frow,felem
+    COOP_SHORT_STRING::extname
+    COOP_SHORT_STRING,dimension(:),allocatable::ttype, tform, tunit
+    COOP_FITSIO_CARD::card
+#if HAS_CFITSIO
+    if(size(indices) .ne. size(table, 1)) then
+       write(*,*) size(indices), size(table,1)
+       stop "the size of  pixel indices does not equal to the size of of table"
+    endif
+    call system('rm -f '//trim(filename))
+    fp%rwmode = 1
+    call fp%init(trim(filename))
+    if(present(header))then
+       call coop_dictionary_lookup(header, "TFIELDS", tfields, size(table,2))
+       call coop_dictionary_lookup(header, "NAXIS2", nrows, size(table,1))
+       if(tfields .ne. size(table,2))then
+          write(*,*) "TFIELDS = ", tfields
+          write(*,*) "table has columns: ", size(table,2)
+          write(*,*) "fits_file_write_binary_table: matching failed"
+          stop
+       endif
+       if(nrows .ne. size(table,1))then
+          write(*,*) "NAXIS2 = ", nrows
+          write(*,*) "table has rows: ", size(table,1)
+          write(*,*) "fits_file_write_binary_table: matching failed"
+          stop
+       endif
+       call coop_dictionary_lookup(header, "EXTNAME", extname, "COOP_BINARY")
+       
+    else
+       tfields = size(table, 2)
+       nrows = size(table, 1)
+       extname = "COOP_BINARY"
+    endif
+    allocate(ttype(tfields), tform(tfields), tunit(tfields))
+    if(present(header))then
+       do i=1, tfields
+          call coop_dictionary_lookup(header, "TTYPE"//COOP_STR_OF(i), ttype(i) , "COLUMN_"//COOP_STR_OF(i))
+          call coop_dictionary_lookup(header, "TFORM"//COOP_STR_OF(i), tform(i) , "1D")
+          call coop_dictionary_lookup(header, "TUNIT"//COOP_STR_OF(i), tunit(i), " ")
+       enddo
+    else
+       do i=1, tfields
+          ttype(i) = "COLUMN_"//COOP_STR_OF(i)
+          tform(i) = "1D"
+          tunit(i) = " "
+       enddo
+    endif
+    varidat = 0
+    call fp%create_binary_table(nrows, tfields, ttype, tform, tunit)
+    frow = 1
+    felem = 1
+    call ftpclj(fp%unit, column, frow, felem, nrows, indices, fp%status)
+    do column = 1, tfields
+       select case(trim(tform(column)))
+       case("1D", "D")
+          call ftpcld(fp%unit, column, frow, felem, nrows, table(:, column), fp%status)
+       case("1E", "E")
+          call ftpcle(fp%unit, column, frow, felem, nrows, real(table(:, column)), fp%status)
+       case("1J", "J")
+          call ftpclj(fp%unit, column, frow, felem, nrows, nint(table(:, column)), fp%status)
+       case("1I", "I")
+          call ftpcli(fp%unit, column, frow, felem, nrows, nint(table(:, column), coop_short_int_length), fp%status)
+       case default
+          write(*,*) "TFORM"//COOP_STR_OF(column)//"="//trim(tform(column))
+          stop "coop_fits_file_write_binary: does not support this TFORM"
+       end select
+    enddo
+    deallocate(ttype, tform, tunit)
+    if(present(header))then
+       do i = 1, header%n
+          if(header%key(i)(1:5).eq. "NAXIS" .or. header%key(i)(1:5).eq. "TTYPE" .or. header%key(i)(1:5).eq. "TFORM" .or. header%key(i)(1:5).eq. "TUNIT")cycle
+          select case(trim(header%key(i)))
+          case("SIMPLE", "EXTEND", "BITPIX" , "PCOUNT", "GCOUNT", "TFIELDS", "EXTNAME")
+             !!do nothing
+          case default
+             card(1:8) = trim(header%key(i))
+             card(9:)= "="//trim(header%val(i))
+             call ftprec(fp%unit, card, fp%status)
+          end select
+       enddo
+    endif
+    call fp%check_error()
+    call fp%close()
+#else
+    stop "FITSIO is not installed"
+#endif
+  end subroutine coop_fits_file_write_binary_table_with_indices_d
+
+
+
+
+  subroutine coop_fits_file_write_binary_table_s(table, filename, header)
+    type(coop_dictionary),optional::header
+    COOP_SINGLE,dimension(:,:)::table
+    COOP_UNKNOWN_STRING::filename
+    type(coop_fits_file)::fp
+    COOP_INT::i
+    COOP_INT::status,blocksize,hdutype,tfields,nrows,varidat, column,frow,felem
+    COOP_SHORT_STRING::extname
+    COOP_SHORT_STRING,dimension(:),allocatable::ttype, tform, tunit
+    COOP_FITSIO_CARD::card
+#if HAS_CFITSIO
+    call system('rm -f '//trim(filename))
+    fp%rwmode = 1
+    call fp%init(trim(filename))
+    if(present(header))then
+       call coop_dictionary_lookup(header, "TFIELDS", tfields, size(table,2))
+       call coop_dictionary_lookup(header, "NAXIS2", nrows, size(table,1))
+       if(tfields .ne. size(table,2))then
+          write(*,*) "TFIELDS = ", tfields
+          write(*,*) "table has columns: ", size(table,2)
+          write(*,*) "fits_file_write_binary_table: matching failed"
+          stop
+       endif
+       if(nrows .ne. size(table,1))then
+          write(*,*) "NAXIS2 = ", nrows
+          write(*,*) "table has rows: ", size(table,1)
+          write(*,*) "fits_file_write_binary_table: matching failed"
+          stop
+       endif
+       call coop_dictionary_lookup(header, "EXTNAME", extname, "COOP_BINARY")
+       
+    else
+       tfields = size(table, 2)
+       nrows = size(table, 1)
+       extname = "COOP_BINARY"
+    endif
+    allocate(ttype(tfields), tform(tfields), tunit(tfields))
+    if(present(header))then
+       do i=1, tfields
+          call coop_dictionary_lookup(header, "TTYPE"//COOP_STR_OF(i), ttype(i) , "COLUMN_"//COOP_STR_OF(i))
+          call coop_dictionary_lookup(header, "TFORM"//COOP_STR_OF(i), tform(i) , "1D")
+          call coop_dictionary_lookup(header, "TUNIT"//COOP_STR_OF(i), tunit(i), " ")
+       enddo
+    else
+       do i=1, tfields
+          ttype(i) = "COLUMN_"//COOP_STR_OF(i)
+          tform(i) = "1E"
+          tunit(i) = " "
+       enddo
+    endif
+    varidat = 0
+    call fp%create_binary_table(nrows, tfields, ttype, tform, tunit)
+    frow = 1
+    felem = 1
+    do column = 1, tfields
+       select case(trim(tform(column)))
+       case("1D", "D")
+          call ftpcld(fp%unit, column, frow, felem, nrows, dble(table(:, column)), fp%status)
+       case("1E", "E")
+          call ftpcle(fp%unit, column, frow, felem, nrows, table(:, column), fp%status)
+       case("1J", "J")
+          call ftpclj(fp%unit, column, frow, felem, nrows, nint(table(:, column)), fp%status)
+       case("1I", "I")
+          call ftpcli(fp%unit, column, frow, felem, nrows, nint(table(:, column), coop_short_int_length), fp%status)
+       case default
+          write(*,*) "TFORM"//COOP_STR_OF(column)//"="//trim(tform(column))
+          stop "coop_fits_file_write_binary: does not support this TFORM"
+       end select
+    enddo
+    deallocate(ttype, tform, tunit)
+    if(present(header))then
+       do i = 1, header%n
+          if(header%key(i)(1:5).eq. "NAXIS" .or. header%key(i)(1:5).eq. "TTYPE" .or. header%key(i)(1:5).eq. "TFORM" .or. header%key(i)(1:5).eq. "TUNIT")cycle
+          select case(trim(header%key(i)))
+          case("SIMPLE", "EXTEND", "BITPIX" , "PCOUNT", "GCOUNT", "TFIELDS", "EXTNAME")
+             !!do nothing
+          case default
+             card(1:8) = trim(header%key(i))
+             card(9:)= "="//trim(header%val(i))
+             call ftprec(fp%unit, card, fp%status)
+          end select
+       enddo
+    endif
+    call fp%check_error()
+    call fp%close()
+#else
+    stop "FITSIO is not installed"
+#endif
+  end subroutine coop_fits_file_write_binary_table_s
+
+
+  subroutine coop_fits_file_write_binary_table_with_indices_s(indices, table, filename, header)
+    type(coop_dictionary),optional::header
+    COOP_INT, dimension(:)::indices
+    COOP_SINGLE,dimension(:,:)::table
+    COOP_UNKNOWN_STRING::filename
+    type(coop_fits_file)::fp
+    COOP_INT::i
+    COOP_INT::status,blocksize,hdutype,tfields,nrows,varidat, column,frow,felem
+    COOP_SHORT_STRING::extname
+    COOP_SHORT_STRING,dimension(:),allocatable::ttype, tform, tunit
+    COOP_FITSIO_CARD::card
+#if HAS_CFITSIO
+    if(size(indices) .ne. size(table, 1)) then
+       write(*,*) size(indices), size(table,1)
+       stop "the size of  pixel indices does not equal to the size of of table"
+    endif
+    call system('rm -f '//trim(filename))
+    fp%rwmode = 1
+    call fp%init(trim(filename))
+    if(present(header))then
+       call coop_dictionary_lookup(header, "TFIELDS", tfields, size(table,2))
+       call coop_dictionary_lookup(header, "NAXIS2", nrows, size(table,1))
+       if(tfields .ne. size(table,2))then
+          write(*,*) "TFIELDS = ", tfields
+          write(*,*) "table has columns: ", size(table,2)
+          write(*,*) "fits_file_write_binary_table: matching failed"
+          stop
+       endif
+       if(nrows .ne. size(table,1))then
+          write(*,*) "NAXIS2 = ", nrows
+          write(*,*) "table has rows: ", size(table,1)
+          write(*,*) "fits_file_write_binary_table: matching failed"
+          stop
+       endif
+       call coop_dictionary_lookup(header, "EXTNAME", extname, "COOP_BINARY")
+       
+    else
+       tfields = size(table, 2)
+       nrows = size(table, 1)
+       extname = "COOP_BINARY"
+    endif
+    allocate(ttype(tfields), tform(tfields), tunit(tfields))
+    if(present(header))then
+       do i=1, tfields
+          call coop_dictionary_lookup(header, "TTYPE"//COOP_STR_OF(i), ttype(i) , "COLUMN_"//COOP_STR_OF(i))
+          call coop_dictionary_lookup(header, "TFORM"//COOP_STR_OF(i), tform(i) , "1D")
+          call coop_dictionary_lookup(header, "TUNIT"//COOP_STR_OF(i), tunit(i), " ")
+       enddo
+    else
+       do i=1, tfields
+          ttype(i) = "COLUMN_"//COOP_STR_OF(i)
+          tform(i) = "1E"
+          tunit(i) = " "
+       enddo
+    endif
+    varidat = 0
+    call fp%create_binary_table(nrows, tfields, ttype, tform, tunit)
+    frow = 1
+    felem = 1
+    call ftpclj(fp%unit, column, frow, felem, nrows, indices, fp%status)
+    do column = 1, tfields
+       select case(trim(tform(column)))
+       case("1D", "D")
+          call ftpcld(fp%unit, column, frow, felem, nrows, dble(table(:, column)), fp%status)
+       case("1E", "E")
+          call ftpcle(fp%unit, column, frow, felem, nrows, table(:, column), fp%status)
+       case("1J", "J")
+          call ftpclj(fp%unit, column, frow, felem, nrows, nint(table(:, column)), fp%status)
+       case("1I", "I")
+          call ftpcli(fp%unit, column, frow, felem, nrows, nint(table(:, column), coop_short_int_length), fp%status)
+       case default
+          write(*,*) "TFORM"//COOP_STR_OF(column)//"="//trim(tform(column))
+          stop "coop_fits_file_write_binary: does not support this TFORM"
+       end select
+    enddo
+    deallocate(ttype, tform, tunit)
+    if(present(header))then
+       do i = 1, header%n
+          if(header%key(i)(1:5).eq. "NAXIS" .or. header%key(i)(1:5).eq. "TTYPE" .or. header%key(i)(1:5).eq. "TFORM" .or. header%key(i)(1:5).eq. "TUNIT")cycle
+          select case(trim(header%key(i)))
+          case("SIMPLE", "EXTEND", "BITPIX" , "PCOUNT", "GCOUNT", "TFIELDS", "EXTNAME")
+             !!do nothing
+          case default
+             card(1:8) = trim(header%key(i))
+             card(9:)= "="//trim(header%val(i))
+             call ftprec(fp%unit, card, fp%status)
+          end select
+       enddo
+    endif
+    call fp%check_error()
+    call fp%close()
+#else
+    stop "FITSIO is not installed"
+#endif
+  end subroutine coop_fits_file_write_binary_table_with_indices_s
+
 
   subroutine coop_fits_file_create_binary_table(this, nrows, tfields, ttype, tform, tunit)
     class(coop_fits_file)::this

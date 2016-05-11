@@ -36,7 +36,7 @@ contains
 #undef QROMB_ARGUMENTS    
   end function coop_qrombc
 
-
+!!func(x, args)
   function coop_qromb_with_arguments(func, a, b, args, precision) result(integral)
     type(coop_arguments)::args
 #define QROMB_ARGUMENTS  ,args

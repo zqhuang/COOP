@@ -145,24 +145,53 @@ program coop_Xfaster
 contains
 
   subroutine do_mask()
-    COOP_STRING:: cond_root, proj_root, mask_root
-    type(coop_healpix_maps)::mask, cond, proj
-    COOP_SINGLE::condmax, projmax, maskcut
+    COOP_STRING:: cond_root, hits_root, mask_root
+    type(coop_healpix_maps)::mask, cond, hits
+    COOP_SINGLE::condmax, hitsmax, maskcut, RA_min, RA_max, DEC_min, DEC_max
     COOP_INT::ich
+    logical::smooth_mask_edge, do_RADEC_cut, has_cond, has_hits
     call coop_dictionary_lookup(settings, "mask_root", mask_root)
-    call coop_dictionary_lookup(settings, "cond_root", cond_root)
-    call coop_dictionary_lookup(settings, "proj_root", proj_root)
-    call coop_dictionary_lookup(settings, "cond_cut", condmax, 1.)
-    call coop_dictionary_lookup(settings, "proj_cut", projmax, 1.)
+
+    call coop_dictionary_lookup(settings, "hits_root", hits_root, "")
+    if(trim(hits_root).ne. "")then
+       call coop_dictionary_lookup(settings, "hits_cut", hitsmax, -1.e30)
+       has_hits = (hitsmax .gt. -1.e20)
+    else
+       has_hits = .false.
+    endif
+
+    call coop_dictionary_lookup(settings, "cond_root", cond_root,"")
+    if(trim(cond_root).ne."")then
+       call coop_dictionary_lookup(settings, "cond_cut", condmax, -1.e30)
+       has_cond  = (condmax .gt. -1.e20)
+    else
+       has_cond = .false.
+    endif
+
+    call coop_dictionary_lookup(settings, "RA_min", RA_min, -1.e30)
+    call coop_dictionary_lookup(settings, "RA_max", RA_max, 1.e30)
+    call coop_dictionary_lookup(settings, "DEC_min", DEC_min, -1.e30)
+    call coop_dictionary_lookup(settings, "DEC_max", DEC_max, 1.e30)
+    do_RADEC_cut = (RA_min .gt. -1.e20 .or. RA_max .lt. 1.e20 .or. DEC_min .gt. -1.e20 .or. DEC_max .lt. 1.e20)
+    call coop_dictionary_lookup(settings, "smooth_mask_edge", smooth_mask_edge, .true.)
     do ich = 1, num_channels
-       call cond%read(trim(cond_root)//"_"//CHIND(ich)//".fits", nmaps_wanted = 1)
-       call proj%read(trim(proj_root)//"_"//CHIND(ich)//".fits", nmaps_wanted = 1)
+       if(has_cond)call cond%read(trim(cond_root)//"_"//CHIND(ich)//".fits", nmaps_wanted = 1)
+       if(has_hits)call hits%read(trim(hits_root)//"_"//CHIND(ich)//".fits", nmaps_wanted = 1)
        call mask%init(nmaps = 1, nside = cond%nside, genre="MASK")
-       where(cond%map(:,1) .ge. condmax .and. proj%map(:,1).ge.projmax)
-          mask%map(:,1) = 1.
-       elsewhere
-          mask%map(:,1) = 0.
-       end where
+       mask%map(:,1) = 1
+       if(has_hits)then
+          where(hits%map(:,1) .lt. hitsmax)
+             mask%map(:,1) = 0.
+          end where
+       end if
+       if(has_cond)then
+          where(cond%map(:,1) .lt. condmax)
+             mask%map(:,1) = 0.
+          end where
+       endif
+       if(do_RADEC_cut)then
+       endif
+       print*, "fsky for mask #"//COOP_STR_OF(ich)//" is "//COOP_STR_OF(sum(mask%map(:,1))/mask%npix)
        call mask%write(trim(mask_root)//"_"//CHIND(ich)//".fits")
        print*, "channel "//COOP_STR_OF(ich)//" fsky: "//COOP_STR_OF(sum(mask%map(:,1))/mask%npix)
     enddo
@@ -493,7 +522,7 @@ contains
     COOP_REAL::mat(matdim, matdim), dSdq(matdim, matdim, num_mubs), wmat(matdim, matdim), datamat(matdim, matdim), invDdSdq(matdim, matdim, num_mubs)
     logical::nonzero(num_mubs)
     COOP_REAL::Fisher(num_mubs, num_mubs)
-    COOP_REAL::vecb(num_mubs), lambda
+    COOP_REAL::vecb(num_mubs), errorbars(num_mubs), lambda
     COOP_REAL::Cb_EE(numcls, num_ell_bins), Cb_BB(numcls, num_ell_bins)
     type(coop_file)::fp
     COOP_REAL,dimension(:,:),allocatable::Fisher_used
@@ -641,11 +670,22 @@ contains
     Fisher_used = Fisher(index_mub_used, index_mub_used)
     call coop_sympos_inverse(num_mub_used, num_mub_used, Fisher_used)
     mub(index_mub_used) = matmul(Fisher_used, vecb(index_mub_used))
+    errorbars = 0.d0
+    do i = 1, num_mub_used
+       errorbars(index_mub_used(i)) = sqrt(Fisher_used(i,i))
+    enddo
     call fp%open(trim(mub_output_root)//"_ITER"//COOP_STR_OF(iter)//".dat")
     do ib = 1, num_ell_bins
        write(fp%unit, "(F10.2, "//COOP_STR_OF(numcls)//"E16.7)") templatepower%lb(ib), mub((ib-1)*numcls+1:ib*numcls)
     enddo
     call fp%close()
+
+    call fp%open(trim(cl_output_root)//"_BINNED_ITER"//COOP_STR_OF(iter)//".dat")
+    do ib = 1, num_ell_bins
+       write(fp%unit, "(F10.2, "//COOP_STR_OF(numcls*2)//"E16.7)") templatepower%lb(ib), mub((ib-1)*numcls+1:ib*numcls)*templatepower%Cls(nint(templatepower%lb(ib)),1:numcls)*(templatepower%lb(ib)*( templatepower%lb(ib) + 1.d0)/coop_2pi), abs(errorbars((ib-1)*numcls+1:ib*numcls)*templatepower%Cls(nint(templatepower%lb(ib)),1:numcls))*(templatepower%lb(ib)*( templatepower%lb(ib) + 1.d0)/coop_2pi)
+    enddo
+    call fp%close()
+
     do l = lmin_data, lmax_data
        do i = 1, numcls
           lambda = 0.d0
