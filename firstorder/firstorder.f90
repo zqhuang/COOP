@@ -7,7 +7,7 @@ module coop_firstorder_mod
 #include "constants.h"
   private
 
-  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe,  coop_num_user_defined_params, coop_source_kop2k_noindex
+  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe,  coop_num_user_defined_params, coop_source_kop2k_noindex, coop_Growth_fitting
 
 
 !!recfast head file
@@ -2039,6 +2039,16 @@ contains
     call this%set_source_ws(this%source(m))
     call this%source(m)%set_Cls()
   end subroutine coop_cosmology_firstorder_update_Cls
+
+  !!for quick tests; D(z) fitting formula for wCDM cosmology
+  function coop_Growth_fitting(Omega_m, w, z) result(Dz)
+    COOP_REAL::Omega_m, w ,z ,Dz, f1, f2, f3
+    f1 = 2.d0*(1.d0-2.d0*w)*(2.d0-3.d0*w)*(1.d0-Omega_m)
+    f2 =  - w*(5.d0-6.d0*w)*(4.d0+w)*Omega_m
+    f3 = (1.d0+z)**(3.d0*w)
+    Dz = sqrt(Omega_m+(1.d0-Omega_m)*f3)/(1.d0+z) &
+         * ( (f1 + f2 )/(f1*f3+ f2))**(1.d0+w/4.d0)
+  end function coop_Growth_fitting
   
 end module coop_firstorder_mod
 
