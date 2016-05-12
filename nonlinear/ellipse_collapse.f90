@@ -8,7 +8,7 @@ module coop_ellipse_collapse_mod
 
   type coop_ellipse_collapse_params
      COOP_REAL,dimension(3)::lambda = (/ 0.d0, 0.d0, 0.d0 /) !!lambda's
-     COOP_REAL::zinit = 50.d0 !!initial redshift
+     COOP_REAL::zinit = 100.d0 !!initial redshift
      COOP_REAL::Omega_m = 0.3d0  !!fractional matter density
      COOP_REAL::w = -1.d0   !!dark energy EOS
      COOP_REAL::t = 0.d0
@@ -71,12 +71,12 @@ contains
   !!params is the object contain all the parameters and methods
   !! return dyda = d y/d a
     COOP_INT::n
-    COOP_REAL::a, y(n), dyda(n), dadt, bprime(3), growthD, delta, dark_Energy_term, rhom
+    COOP_REAL::a, y(n), dyda(n), dadt, bprime(3), growthD, delta, dark_Energy_term, rhomby3
     type(coop_ellipse_collapse_params)::params
     dadt = params%dadt(a)
     delta = a**3/(y(1)*y(2)*y(3))-1.d0
     dark_Energy_term =  -(1.d0-params%Omega_m)*a**(-3.d0*(1.d0+params%w))*(1.d0+3.d0*params%w)  !!dark energy contribution; ignore dark energy perturbations in wCDM
-    rhom = params%Omega_m/a**3
+    rhomby3 = params%Omega_m/a**3 !!I am working in unit of H_0^2/(8\pi G)
     if(params%is_spherical)then
        if(y(1)/a/params%collapse_a_ratio(1).lt. 0.999d0 .and. y(4) .lt. 0.d0)then  !!collapsed; freeze it
           dyda(1) = 0.d0
@@ -85,7 +85,7 @@ contains
           dyda(1) = y(4) / dadt    !!d a_1/da = d a_1/dt /(da/dt)
           dyda(4) = y(1)/dadt/2.d0 * ( &   !! d( da_1/dt)/da =(d^2 a_1/dt^2)/(da/dt)
                dark_Energy_term  &  
-               -  rhom*(1.d0 + delta) &  !!matter contribution
+               -  rhomby3*(1.d0 + delta) &  !!matter contribution
                )
        endif
        dyda(2:3) = dyda(1)
@@ -100,7 +100,7 @@ contains
           dyda(1) = y(4) / dadt    !!d a_1/da = d a_1/dt /(da/dt)
           dyda(4) = y(1)/dadt/2.d0 * ( &   !! d( da_1/dt)/da =(d^2 a_1/dt^2)/(da/dt)
                dark_Energy_term  &  
-               -  rhom*(1.d0 + delta *(1.d0+bprime(1)*1.5d0) + (3.d0*params%lambda(1)-sum(params%lambda))*growthD ) &  !!matter contribution
+               -  rhomby3*(1.d0 + delta *(1.d0+bprime(1)*1.5d0) + (3.d0*params%lambda(1)-sum(params%lambda))*growthD ) &  !!matter contribution
                )
        endif
        if(y(2)/a /params%collapse_a_ratio(2).lt. 0.999d0 .and. y(5) .lt. 0.d0 )then !!collapsed; freeze it
@@ -110,7 +110,7 @@ contains
           dyda(2) = y(5) / dadt    !!d a_1/da = d a_1/dt /(da/dt)
           dyda(5) = y(2)/dadt/2.d0 * ( &   !! d( da_1/dt)/da =(d^2 a_1/dt^2)/(da/dt)
                dark_Energy_term  &  
-               - rhom *(1.d0 + delta *(1.d0+bprime(2)*1.5d0) + (3.d0*params%lambda(2)-sum(params%lambda))*growthD ) &  !!matter contribution
+               - rhomby3 *(1.d0 + delta *(1.d0+bprime(2)*1.5d0) + (3.d0*params%lambda(2)-sum(params%lambda))*growthD ) &  !!matter contribution
                )
        endif
        if(y(3)/a /params%collapse_a_ratio(3).lt. 0.999d0.and. y(6) .lt. 0.d0)then !!collapsed; freeze it
@@ -120,7 +120,7 @@ contains
           dyda(3) = y(6) / dadt    !!d a_1/da = d a_1/dt /(da/dt)
           dyda(6) = y(3)/dadt/2.d0 * ( &   !! d( da_1/dt)/da =(d^2 a_1/dt^2)/(da/dt)
                dark_Energy_term  &  
-               -  rhom*(1.d0 + delta *(1.d0+bprime(3)*1.5d0) + (3.d0*params%lambda(3)-sum(params%lambda))*growthD ) &  !!matter contribution
+               -  rhomby3*(1.d0 + delta *(1.d0+bprime(3)*1.5d0) + (3.d0*params%lambda(3)-sum(params%lambda))*growthD ) &  !!matter contribution
                )       
        endif
     endif

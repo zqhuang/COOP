@@ -5,8 +5,8 @@ program test
 #include "constants.h"
   type(coop_ellipse_collapse_params)::params
   logical::want_debug 
-  COOP_INT, parameter::nz = 800
-  COOP_REAL, parameter::zmax_check = 20.d0
+  COOP_INT, parameter::nz = 1000
+  COOP_REAL, parameter::zmax_check = 10.d0
   COOP_REAL::Omega_m,w 
   COOP_REAL::F_pk, p_nu, e_nu, y(6), z(nz), a(nz), adynamic, z_collapse(3)
   COOP_INT::iz, iaxis
@@ -22,6 +22,7 @@ program test
   write(*,*) "========================================================"
   write(*,*) "Enter F_pk, e_nu, p_nu"
   call params%init(Omega_m = Omega_m, w = w)
+!  params%zinit = 500.d0   !!use this to test the robustness of zinit (result does not change as long as zinit >> 1)
 !  params%collapse_a_ratio = 0.01d0  !!you can use this to check the 1.686 threshold 
   if(want_debug)then
      call coop_set_uniform(nz, a, 1.d0/(1.d0+ params%zinit-0.1d0), 1.d0)
