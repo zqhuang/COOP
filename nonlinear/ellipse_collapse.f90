@@ -12,6 +12,7 @@ module coop_ellipse_collapse_mod
      COOP_REAL::Omega_m = 0.3d0  !!fractional matter density
      COOP_REAL::w = -1.d0   !!dark energy EOS
      COOP_REAL::t = 0.d0
+     logical::is_spherical = .false.
      COOP_INT::num_ode_vars = 6
      COOP_REAL,dimension(3)::collapse_a_ratio = (/ 0.18d0, 0.18d0, 0.18d0 /)
      type(coop_2dfunction)::bprime  !!tabulated b' function
@@ -37,7 +38,7 @@ contains
   !!the object this contains all the parameters for the model
     class(coop_ellipse_collapse_params)::this
     COOP_REAL::a, y(this%num_ode_vars), a_end
-    COOP_REAL,parameter::tol = 1.d-7
+    COOP_REAL,parameter::tol = 1.d-8
     COOP_INT::ind, nw
     COOP_REAL::c(24), w(this%num_ode_vars, 9)
     select type(this)
@@ -58,7 +59,7 @@ contains
     D_ini = this%Growth_D(a_ini)
     dadt_ini = this%dadt(a_ini)
     y(1:3) = a_ini *(1.d0-this%lambda*D_ini)
-    y(4:6) = y(1:3)*dadt_ini/a_ini - a_ini*this%lambda*this%Growth_H_D(a_ini)
+    y(4:6) = y(1:3)*dadt_ini/a_ini - a_ini*this%lambda*D_ini*this%Growth_H_D(a_ini)
   end subroutine coop_ellipse_collapse_params_set_initial_conditions
 
   subroutine coop_ellipse_collapse_odes(n, a, y, dyda, params)
@@ -73,40 +74,55 @@ contains
     COOP_REAL::a, y(n), dyda(n), dadt, bprime(3), growthD, delta, dark_Energy_term, rhom
     type(coop_ellipse_collapse_params)::params
     dadt = params%dadt(a)
-    call params%get_bprime(y(1:3), bprime)
-    growthD = params%growth_D(a)
     delta = a**3/(y(1)*y(2)*y(3))-1.d0
     dark_Energy_term =  -(1.d0-params%Omega_m)*a**(-3.d0*(1.d0+params%w))*(1.d0+3.d0*params%w)  !!dark energy contribution; ignore dark energy perturbations in wCDM
     rhom = params%Omega_m/a**3
-    if(y(1)/a .le. params%collapse_a_ratio(1))then  !!collapsed; freeze it
-       dyda(1) = 0.d0
-       dyda(4) = 0.d0
-    else  !!still collapsing
-       dyda(1) = y(4) / dadt    !!d a_1/da = d a_1/dt /(da/dt)
-       dyda(4) = y(1)/dadt/2.d0 * ( &   !! d( da_1/dt)/da =(d^2 a_1/dt^2)/(da/dt)
-            dark_Energy_term  &  
-            -  rhom*(1.d0 + delta *(1.d0+bprime(1)*1.5d0) + params%lambda(1)*growthD ) &  !!matter contribution
-            )
-    endif
-    if(y(2)/a .le. params%collapse_a_ratio(2))then !!collapsed; freeze it
-       dyda(2) = 0.d0
-       dyda(5) = 0.d0
-    else !!still collapsing
-       dyda(2) = y(5) / dadt    !!d a_1/da = d a_1/dt /(da/dt)
-       dyda(5) = y(2)/dadt/2.d0 * ( &   !! d( da_1/dt)/da =(d^2 a_1/dt^2)/(da/dt)
-            dark_Energy_term  &  
-            - rhom *(1.d0 + delta *(1.d0+bprime(2)*1.5d0) + params%lambda(2)*growthD ) &  !!matter contribution
-            )
-    endif
-    if(y(3)/a .le. params%collapse_a_ratio(3))then !!collapsed; freeze it
-       dyda(3) = 0.d0
-       dyda(6) = 0.d0
-    else !!still collapsing
-       dyda(3) = y(6) / dadt    !!d a_1/da = d a_1/dt /(da/dt)
-       dyda(6) = y(3)/dadt/2.d0 * ( &   !! d( da_1/dt)/da =(d^2 a_1/dt^2)/(da/dt)
-            dark_Energy_term  &  
-            -  rhom*(1.d0 + delta *(1.d0+bprime(3)*1.5d0) + params%lambda(3)*growthD ) &  !!matter contribution
-            )       
+    if(params%is_spherical)then
+       if(y(1)/a/params%collapse_a_ratio(1).lt. 0.999d0 .and. y(4) .lt. 0.d0)then  !!collapsed; freeze it
+          dyda(1) = 0.d0
+          dyda(4) = 0.d0
+       else  !!still collapsing
+          dyda(1) = y(4) / dadt    !!d a_1/da = d a_1/dt /(da/dt)
+          dyda(4) = y(1)/dadt/2.d0 * ( &   !! d( da_1/dt)/da =(d^2 a_1/dt^2)/(da/dt)
+               dark_Energy_term  &  
+               -  rhom*(1.d0 + delta) &  !!matter contribution
+               )
+       endif
+       dyda(2:3) = dyda(1)
+       dyda(5:6) = dyda(4)
+    else
+       call params%get_bprime(y(1:3), bprime)
+       growthD = params%growth_D(a)
+       if(y(1)/a/params%collapse_a_ratio(1).lt. 0.999d0 .and. y(4) .lt. 0.d0)then  !!collapsed; freeze it
+          dyda(1) = 0.d0
+          dyda(4) = 0.d0
+       else  !!still collapsing
+          dyda(1) = y(4) / dadt    !!d a_1/da = d a_1/dt /(da/dt)
+          dyda(4) = y(1)/dadt/2.d0 * ( &   !! d( da_1/dt)/da =(d^2 a_1/dt^2)/(da/dt)
+               dark_Energy_term  &  
+               -  rhom*(1.d0 + delta *(1.d0+bprime(1)*1.5d0) + (3.d0*params%lambda(1)-sum(params%lambda))*growthD ) &  !!matter contribution
+               )
+       endif
+       if(y(2)/a /params%collapse_a_ratio(2).lt. 0.999d0 .and. y(5) .lt. 0.d0 )then !!collapsed; freeze it
+          dyda(2) = 0.d0
+          dyda(5) = 0.d0
+       else !!still collapsing
+          dyda(2) = y(5) / dadt    !!d a_1/da = d a_1/dt /(da/dt)
+          dyda(5) = y(2)/dadt/2.d0 * ( &   !! d( da_1/dt)/da =(d^2 a_1/dt^2)/(da/dt)
+               dark_Energy_term  &  
+               - rhom *(1.d0 + delta *(1.d0+bprime(2)*1.5d0) + (3.d0*params%lambda(2)-sum(params%lambda))*growthD ) &  !!matter contribution
+               )
+       endif
+       if(y(3)/a /params%collapse_a_ratio(3).lt. 0.999d0.and. y(6) .lt. 0.d0)then !!collapsed; freeze it
+          dyda(3) = 0.d0
+          dyda(6) = 0.d0
+       else !!still collapsing
+          dyda(3) = y(6) / dadt    !!d a_1/da = d a_1/dt /(da/dt)
+          dyda(6) = y(3)/dadt/2.d0 * ( &   !! d( da_1/dt)/da =(d^2 a_1/dt^2)/(da/dt)
+               dark_Energy_term  &  
+               -  rhom*(1.d0 + delta *(1.d0+bprime(3)*1.5d0) + (3.d0*params%lambda(3)-sum(params%lambda))*growthD ) &  !!matter contribution
+               )       
+       endif
     endif
   end subroutine coop_ellipse_collapse_odes
 !!==================== methods of class coop_ellipse_collapse_params ============
@@ -160,7 +176,6 @@ contains
     COOP_INT::i
     COOP_REAL,optional::Omega_m, w, lambda(3), F_pk, e_nu, p_nu
     logical cosmology_updated
-    call this%free()
     cosmology_updated = .false.
     if(present(Omega_m))then
        if(abs(this%Omega_m - Omega_m) .gt. 1.d-5)then
@@ -190,12 +205,13 @@ contains
        this%lambda(2) = (F_pk/3.d0)*(1.d0 - 2.d0*p_nu)
        this%lambda(1) = (F_pk/3.d0)*(1.d0 - 3.d0*e_nu + p_nu)
     endif
-
+    this%is_spherical = abs(this%lambda(1) - this%lambda(2)) .lt. 1.d-8 .and. abs(this%lambda(1) - this%lambda(3)) .lt. 1.d-8
     !!set b' function
     if(.not. this%bprime%initialized)call this%bprime%init_symmetric(f = coop_ellipse_collapse_bprime_reduced, nx = 301, xmin = 1.d-5, xmax = 1.d5, xlog = .true., name = "BPRIME")
 
     !!set  D(a)/a
     if( cosmology_updated .or. .not.this%Dbya%initialized)then
+       call this%Dbya%free()
        call coop_set_uniform(na, a, 1.d0/(1.d0+ this%zinit), 1.d0)
        !$omp parallel do
        do i  = 1, na
