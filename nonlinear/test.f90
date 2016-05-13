@@ -13,6 +13,8 @@ program test
 
   !!set cosmology
   call cosmology%Set_Planck_bestfit()
+  print*, cosmology%h()**2 * cosmology%omega_r * (2.726/cosmology%Tcmb())**4
+stop
   call cosmology%compute_source(0)
 
 !!$  call coop_set_uniform(nk, k, 0.001d0, 1.d4, logscale = .true.)

@@ -22,6 +22,10 @@ FNL: $(OBJ) testfnl.o $(FIRSTORDER)/libcoopfirstorder.a
 Test: $(OBJ) test.o $(FIRSTORDER)/libcoopfirstorder.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
 
+
+TestSimp: $(OBJ) testsimple.o $(FIRSTORDER)/libcoopfirstorder.a
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testsimple.o $(LINK)
+
 Col: $(OBJ) testcollapse.o $(FIRSTORDER)/libcoopfirstorder.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testcollapse.o $(LINK)
 
