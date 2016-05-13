@@ -3,13 +3,15 @@ module coop_ellipse_collapse_mod
   implicit none
 #include "constants.h"
 
-!!by default everything is a function of scale factor a;  a = 1 today.
-!!physical time unit = 1/H_0 
+  !!by default everything is a function of scale factor a;  a = 1 today.
+  !!physical time t is used in the definition of some variables, its unit = 1/H_0 
 
   !!this is a global accuracy parameter
   !!for high accuracy test you can use something like 1.e-4
   !!for normal runs you can use something ~ 1.e-3
   COOP_REAL, parameter::coop_ellipse_collapse_accuracy = 1.d-4
+
+  !!set z_vir = this value if not collapsed
   COOP_REAL, parameter::coop_ellipse_collapse_bad_zvir = -1.d0
 
   type coop_ellipse_collapse_params
@@ -59,7 +61,7 @@ contains
   !!other inputs: 
   !!n = 6 is the dimension of y
   !!a is the scale factor
-  !!params is the object contain all the parameters and methods
+  !!params is the object containing all the parameters and methods
   !! return dyda = d y/d a
     COOP_INT::n
     COOP_REAL::a, y(n), dyda(n), dadt, bprime(3), growthD, delta, dark_Energy_term, rhomby3, radiation_term, delta_plus_1

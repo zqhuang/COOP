@@ -489,7 +489,9 @@ contains
     COOP_INT n, i
     COOP_REAL x(n), lower, upper, rlow, dx
     logical,optional::logscale
+    if(n.eq. 0)return
     x(1) = lower
+    if(n.eq.1)return
     x(n) = upper
     if(present(logscale))then
        if(logscale)then
@@ -518,7 +520,9 @@ contains
     COOP_INT n, i
     COOP_SINGLE x(n), lower, upper, rlow, dx
     logical,optional::logscale
+    if(n.eq. 0)return
     x(1) = lower
+    if(n.eq. 1) return
     x(n) = upper
     if(present(logscale))then
        if(logscale)then
