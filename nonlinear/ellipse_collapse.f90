@@ -76,8 +76,8 @@ contains
                + radiation_term &
                -  params%Omega_m/(y(1))**3 &  !!matter contribution
                )
-          if(arat(1) .lt. 1.d0  .and. y(4) .lt. 0.d0)then  !!smooth transition for stability of the ode solver
-             suppression_factor =  sin(coop_pi/4.d0*(arat(1)+1.d0))**2 
+          if(arat(1) .lt. 0.d0  .and. y(4) .lt. 0.d0)then  !!smooth transition for stability of the ode solver
+             suppression_factor =  sin(coop_pio2*(1.d0+arat(1)))**2 
              dyda(1) = dyda(1)*suppression_factor
              dyda(4) = dyda(4)*suppression_factor
              
@@ -101,8 +101,8 @@ contains
                + radiation_term &
                -  rhomby3*(1.d0 + delta *(1.d0+bprime(1)*1.5d0) + (3.d0*params%lambda(1)-sum(params%lambda))*growthD ) &  !!matter contribution
                )
-          if(arat(1) .lt. 1.d0)then
-             suppression_factor =  sin(coop_pi/4.d0*(arat(1)+1.d0))**2 
+          if(arat(1) .lt. 0.d0)then
+             suppression_factor =  sin(coop_pio2*(1.d0+arat(1)))**2 
              dyda(1) = dyda(1)*suppression_factor
              dyda(4) = dyda(4)*suppression_factor
           endif
@@ -117,8 +117,8 @@ contains
                + radiation_term &  
                - rhomby3 *(1.d0 + delta *(1.d0+bprime(2)*1.5d0) + (3.d0*params%lambda(2)-sum(params%lambda))*growthD ) &  !!matter contribution
                )
-          if(arat(2) .lt. 1.d0)then
-             suppression_factor =  sin(coop_pi/4.d0*(arat(2)+1.d0))**2 
+          if(arat(2) .lt. 0.d0)then
+             suppression_factor =  sin(coop_pio2*(1.d0+arat(2)))**2 
              dyda(2) = dyda(2)*suppression_factor
              dyda(5) = dyda(5)*suppression_factor
           endif
@@ -133,8 +133,8 @@ contains
                + radiation_term &  
                -  rhomby3*(1.d0 + delta *(1.d0+bprime(3)*1.5d0) + (3.d0*params%lambda(3)-sum(params%lambda))*growthD ) &  !!matter contribution
                )       
-          if(arat(3) .lt. 1.d0)then
-             suppression_factor =  sin(coop_pi/4.d0*(arat(3)+1.d0))**2 
+          if(arat(3) .lt. 0.d0)then
+             suppression_factor =  sin(coop_pio2*(1.d0+arat(3)))**2 
              dyda(3) = dyda(3)*suppression_factor
              dyda(6) = dyda(6)*suppression_factor
           endif

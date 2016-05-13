@@ -11,7 +11,6 @@ program PlotF
   COOP_REAL,dimension(:),allocatable::covline
   COOP_REAL::cov(2,2), mean(2), eigs(2)
   COOP_REAL::x(nsamples), y(nsamples), r, rho, theta(nsamples), sqrteigs(2), vec(2)
-  COOP_REAL::cls(3) = (/ 0.683d0, 0.954d0, 0.997d0 /)
   type(coop_file)::fp
   type(coop_list_string)::ls
   logical::has_legend 

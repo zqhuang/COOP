@@ -32,9 +32,8 @@ program test
         exit
      endif
      call params%init(F_pk = F_pk, e_nu = e_nu, p_nu = p_nu)
-     write(*,*) "lambda = ", params%lambda
      zvir1 = params%zvir1()
-     write(*, "(A, F12.2)") "zvir1 = ", zvir1
+     write(*, "(A, F13.3)") "zvir1 = ", zvir1
      write(*,*) "========================================================"
      write(*,*) "Enter F_pk, e_nu, p_nu (enter a negative F_pk to finish)"
   enddo
