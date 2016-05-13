@@ -26,8 +26,12 @@ Test: $(OBJ) test.o $(FIRSTORDER)/libcoopfirstorder.a
 TestSimp: $(OBJ) testsimple.o $(FIRSTORDER)/libcoopfirstorder.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testsimple.o $(LINK)
 
-Col: $(OBJ) testcollapse.o $(FIRSTORDER)/libcoopfirstorder.a
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testcollapse.o $(LINK)
+Solve: $(OBJ) solve_collapse.o $(FIRSTORDER)/libcoopfirstorder.a
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) solve_collapse.o $(LINK)
+
+GetZ1: $(OBJ) get_zvir1.o $(FIRSTORDER)/libcoopfirstorder.a
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) get_zvir1.o $(LINK)
+
 
 clean:
 	rm -f *.o *.*~ *.mod \#* *.a Makefile~ 

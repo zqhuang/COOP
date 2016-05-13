@@ -4,11 +4,8 @@ program test
   implicit none
 #include "constants.h"
   type(coop_ellipse_collapse_params)::params
-  COOP_INT::nz 
-  COOP_REAL::zmax_check = 10.d0
   COOP_REAL::Omega_m,w, Omega_k, h, zvir1
-  COOP_REAL::F_pk, p_nu, e_nu, a
-  COOP_INT::i
+  COOP_REAL::F_pk, p_nu, e_nu
   call coop_get_command_line_argument(key = "omm", arg = Omega_m, default = 0.3d0)
   call coop_get_command_line_argument(key = "omk", arg = Omega_k, default = 0.d0)
   call coop_get_command_line_argument(key = "h", arg = h, default = 0.7d0)
@@ -20,11 +17,11 @@ program test
   params%collapse_a_ratio = max(params%collapse_a_ratio, 1.d-4)
 
   write(*,*) "========================================================"
-  write(*,*) "./Col [-omm ...(0.3)] [-omk ...(0.)] [-h ...(0.7)] [-w ...(-1)] [-fr1 ...(0.18)] [-fr2 ... (0.18)] [-fr3 ... (0.18)] [-acc ...(0.01)]"
+  write(*,*) "./GetZ1 [-omm ...(0.3)] [-omk ...(0.)] [-h ...(0.7)] [-w ...(-1)] [-fr1 ...(0.18)] [-fr2 ... (0.18)] [-fr3 ... (0.18)] [-acc ...(0.01)]"
   write(*,*) "Examples:"
-  write(*,*) "./Col -omm 0.31 -w -0.9  (Omega_m = 0.31 , Omega_k = 0, h=0.7, w = -0.9;)"
-  write(*,*) "./Col -omm 0.29  (Omega_m = 0.29,  Omega_k = 0, h=0.7, w = -1; )"
-  write(*,*) "./Col -omk 0.01 -h 0.68 -acc 0.001 (Omega_m = 0.3 , Omega_k=0.01, h=0.68, w = -1; accuracy 0.001)"
+  write(*,*) "./GetZ1 -omm 0.31 -w -0.9  (Omega_m = 0.31 , Omega_k = 0, h=0.7, w = -0.9;)"
+  write(*,*) "./GetZ1 -omm 0.29  (Omega_m = 0.29,  Omega_k = 0, h=0.7, w = -1; )"
+  write(*,*) "./GetZ1 -omk 0.01 -h 0.68 -acc 0.001 (Omega_m = 0.3 , Omega_k=0.01, h=0.68, w = -1; accuracy 0.001)"
   write(*,*) "========================================================"
   write(*,*) "Enter F_pk, e_nu, p_nu"
   call params%init(Omega_m = Omega_m, Omega_k = Omega_k, h = h, w = w)

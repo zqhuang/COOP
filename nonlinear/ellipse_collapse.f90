@@ -13,7 +13,7 @@ module coop_ellipse_collapse_mod
      COOP_REAL::Omega_r, Omega_de
      COOP_REAL::Omega_k = 0.d0
      COOP_REAL::h = 0.7d0
-     COOP_REAL::T_CMB = 0.d0
+     COOP_REAL::T_CMB = 0.d0  !!set to zero to turn off radiation effects
      logical::is_spherical = .false.
      COOP_INT::num_ode_vars = 6
      COOP_REAL,dimension(3)::collapse_a_ratio = (/ 0.18d0, 0.18d0, 0.18d0 /)
@@ -23,13 +23,14 @@ module coop_ellipse_collapse_mod
    contains
      procedure::free => coop_ellipse_collapse_params_free  !!subroutine; no argument; release the memory allocated for this object
      procedure::init => coop_ellipse_collapse_params_init  !!subroutine; this%init(Omega_m, w, Omega_k, h, F_pk, e_nu, p_nu);  initialize the object with these parameters
-     procedure::get_bprime => coop_ellipse_collapse_params_get_bprime !!subroutine; this%get_bprime(a, bprime)  where a(1:3) is the input array a_1, a_2, a_3, bprime(1:3) is the output b'_1, b'_2, b'_3; 
+     procedure::get_bprime => coop_ellipse_collapse_params_get_bprime !!subroutine; this%get_bprime(x, bprime)  where x(1:3) is the input array x_1, x_2, x_3, bprime(1:3) is the output b'_1, b'_2, b'_3; 
      procedure::Growth_D => coop_ellipse_collapse_params_Growth_D !! this%Growth_D(a) is a function that returns the growth factor D; input a is the scale factor
      procedure::Growth_H_D => coop_ellipse_collapse_params_Growth_H_D  !!this%Growth_H_D(a) is a function that returns d ln D/d t, where a is the scale factor
      procedure::dadt => coop_ellipse_collapse_params_aH  !!this%dadt(a) is a function that  returns da/dt
      procedure::ddotabya => coop_ellipse_collapse_params_ddotabya !!this%ddotabya is a function that returns ( \ddot a / a )
-     procedure::set_initial_conditions => coop_ellipse_collapse_params_set_initial_conditions  !!this%set_initial_conditions(y) is a subroutine set the initial conditions for y = (a_1, a_2, a_3, d a_1/dt, d a_2/dt, d a_3/dt) 
-     procedure::evolve=> coop_ellipse_collapse_params_evolve  !!this%evolve(a, y, a_end) is a subroutine that evolves the current  y = (a_1, a_2, a_3, d a_1/dt, d a_2/dt, d a_3/dt) from current scale factor a to the scale factor a_end; the input is y at a; after the call a becomes a_end.
+     procedure::set_initial_conditions => coop_ellipse_collapse_params_set_initial_conditions  !!this%set_initial_conditions(y) is a subroutine set the initial conditions for y = (x_1, x_2, x_3, d x_1/dt, d x_2/dt, d x_3/dt) 
+     procedure::evolve=> coop_ellipse_collapse_params_evolve  !!this%evolve(a, y, a_end) is a subroutine that evolves the current  y = (x_1, x_2, x_3, d x_1/dt, d x_2/dt, d x_3/dt) from current scale factor a to the scale factor a_end; the input is y at a; after the call a becomes a_end.
+     procedure::get_solution => coop_ellipse_collapse_params_get_solution  !!this%get_solution(a_arr, x_arr) is a subroutine; input a_arr(1:n) is an array of scale factors in ascending order; return the result in x_arr(1:3, 1:n), where x_arr(1:3, i) is the solution of (x_1, x_2, x_3) at scale factor a_arr(i).
      procedure::zvir1 => coop_ellipse_collapse_params_zvir1  !!this%zvir1() is a function that returns zvir1
      procedure::set_growth_initial_conditions => coop_ellipse_collapse_params_set_growth_initial_conditions !!set initial conditions for the growth function solver
   end type coop_ellipse_collapse_params
@@ -38,7 +39,7 @@ module coop_ellipse_collapse_mod
 contains
 
   subroutine coop_ellipse_collapse_params_set_initial_conditions(this, a_ini, y)
-    !!set inital vector y = ( a_1, a_2,  a_3,  d a_1/dt, d a_2/dt, d a_3/dt ) at a = a_ini
+    !!set inital vector y = ( x_1, x_2,  x_3,  d x_1/dt, d x_2/dt, d x_3/dt ) at a = a_ini
     class(coop_ellipse_collapse_params)::this
     COOP_REAL,intent(IN)::a_ini
     COOP_REAL::y(:), D_ini,  dadt_ini
@@ -49,7 +50,7 @@ contains
   end subroutine coop_ellipse_collapse_params_set_initial_conditions
 
   subroutine coop_ellipse_collapse_odes(n, a, y, dyda, params)
-  !!the ODE that evolves  y = ( a_1, a_2,  a_3,  d a_1/dt, d a_2/dt, d a_3/dt )
+  !!the ODE that evolves  y = ( x_1, x_2,  x_3,  d x_1/dt, d x_2/dt, d x_3/dt )
   !!other inputs: 
   !!n = 6 is the dimension of y
   !!a is the scale factor
@@ -58,61 +59,85 @@ contains
     COOP_INT::n
     COOP_REAL::a, y(n), dyda(n), dadt, bprime(3), growthD, delta, dark_Energy_term, rhomby3, radiation_term, delta_plus_1
     type(coop_ellipse_collapse_params)::params
+    COOP_REAL,parameter::eps = 2.d-4  !!must be >0 and << 1
+    COOP_REAL::suppression_factor, arat(3)
     dadt = params%dadt(a)
-
     radiation_term = - params%omega_r/a**4*2.d0
     dark_Energy_term =  - params%omega_de*a**(-3.d0*(1.d0+params%w))*(1.d0+3.d0*params%w)  !!dark energy contribution; ignore dark energy perturbations in wCDM
-    rhomby3 = params%Omega_m/a**3 !!I am working in unit of H_0^2/(8\pi G)
     if(params%is_spherical)then
-       if(y(1)/a.lt.params%collapse_a_ratio(1)  .and. y(4) .lt. 0.d0)then  !!collapsed; freeze it
+       arat(1) = (y(1)/a/params%collapse_a_ratio(1) - 1.d0)/eps
+       if(arat(1) .lt. -1.d0 .and. y(4) .lt. 0.d0)then  !!collapsed; freeze it
           dyda(1) = 0.d0
           dyda(4) = 0.d0
        else  !!still collapsing
-          dyda(1) = y(4) / dadt    !!d a_1/da = d a_1/dt /(da/dt)
-          dyda(4) = y(1)/dadt/2.d0 * ( &   !! d( da_1/dt)/da =(d^2 a_1/dt^2)/(da/dt)
+          dyda(1) = y(4) / dadt    !!d x_1/da = d x_1/dt /(da/dt)
+          dyda(4) = y(1)/dadt/2.d0 * ( &   !! d( dx_1/dt)/da =(d^2 x_1/dt^2)/(da/dt)
                dark_Energy_term  &
                + radiation_term &
                -  params%Omega_m/(y(1))**3 &  !!matter contribution
                )
+          if(arat(1) .lt. 1.d0  .and. y(4) .lt. 0.d0)then  !!smooth transition for stability of the ode solver
+             suppression_factor =  sin(coop_pi/4.d0*(arat(1)+1.d0))**2 
+             dyda(1) = dyda(1)*suppression_factor
+             dyda(4) = dyda(4)*suppression_factor
+             
+          endif
        endif
        dyda(2:3) = dyda(1)
        dyda(5:6) = dyda(4)
     else
+       rhomby3 = params%Omega_m/a**3 !!I am working in unit of H_0^2/(8\pi G)
        delta = a**3/(y(1)*y(2)*y(3))-1.d0
-       call params%get_bprime(y(1:3), bprime)
+       call params%get_bprime(y(1:3), bprime)       
        growthD = params%growth_D(a)
-       if(y(1)/a .lt. params%collapse_a_ratio(1) .and. y(4) .lt. 0.d0)then  !!collapsed; freeze it
+       arat = (y(1:3)/a/params%collapse_a_ratio - 1.d0)/eps
+       if(arat(1) .lt. -1.d0  .and. y(4) .lt. 0.d0)then  !!collapsed; freeze it
           dyda(1) = 0.d0
           dyda(4) = 0.d0
        else  !!still collapsing
-          dyda(1) = y(4) / dadt    !!d a_1/da = d a_1/dt /(da/dt)
-          dyda(4) = y(1)/dadt/2.d0 * ( &   !! d( da_1/dt)/da =(d^2 a_1/dt^2)/(da/dt)
+          dyda(1) = y(4) / dadt    !!d x_1/da = d x_1/dt /(da/dt)
+          dyda(4) = y(1)/dadt/2.d0 * ( &   !! d( dx_1/dt)/da =(d^2 x_1/dt^2)/(da/dt)
                dark_Energy_term  &
                + radiation_term &
                -  rhomby3*(1.d0 + delta *(1.d0+bprime(1)*1.5d0) + (3.d0*params%lambda(1)-sum(params%lambda))*growthD ) &  !!matter contribution
                )
+          if(arat(1) .lt. 1.d0)then
+             suppression_factor =  sin(coop_pi/4.d0*(arat(1)+1.d0))**2 
+             dyda(1) = dyda(1)*suppression_factor
+             dyda(4) = dyda(4)*suppression_factor
+          endif
        endif
-       if(y(2)/a .lt. params%collapse_a_ratio(2) .and. y(5) .lt. 0.d0 )then !!collapsed; freeze it
+       if(arat(2).lt.-1.d0 .and. y(5) .lt. 0.d0 )then !!collapsed; freeze it
           dyda(2) = 0.d0
           dyda(5) = 0.d0
        else !!still collapsing
-          dyda(2) = y(5) / dadt    !!d a_1/da = d a_1/dt /(da/dt)
-          dyda(5) = y(2)/dadt/2.d0 * ( &   !! d( da_1/dt)/da =(d^2 a_1/dt^2)/(da/dt)
+          dyda(2) = y(5) / dadt    !!d x_1/da = d x_1/dt /(da/dt)
+          dyda(5) = y(2)/dadt/2.d0 * ( &   !! d( dx_1/dt)/da =(d^2 x_1/dt^2)/(da/dt)
                dark_Energy_term  &
                + radiation_term &  
                - rhomby3 *(1.d0 + delta *(1.d0+bprime(2)*1.5d0) + (3.d0*params%lambda(2)-sum(params%lambda))*growthD ) &  !!matter contribution
                )
+          if(arat(2) .lt. 1.d0)then
+             suppression_factor =  sin(coop_pi/4.d0*(arat(2)+1.d0))**2 
+             dyda(2) = dyda(2)*suppression_factor
+             dyda(5) = dyda(5)*suppression_factor
+          endif
        endif
-       if(y(3)/a .lt. params%collapse_a_ratio(3) .and. y(6) .lt. 0.d0)then !!collapsed; freeze it
+       if(arat(3).lt.-1.d0 .and. y(6) .lt. 0.d0)then !!collapsed; freeze it
           dyda(3) = 0.d0
           dyda(6) = 0.d0
        else !!still collapsing
-          dyda(3) = y(6) / dadt    !!d a_1/da = d a_1/dt /(da/dt)
-          dyda(6) = y(3)/dadt/2.d0 * ( &   !! d( da_1/dt)/da =(d^2 a_1/dt^2)/(da/dt)
+          dyda(3) = y(6) / dadt    !!d x_1/da = d x_1/dt /(da/dt)
+          dyda(6) = y(3)/dadt/2.d0 * ( &   !! d( dx_1/dt)/da =(d^2 x_1/dt^2)/(da/dt)
                dark_Energy_term  &
                + radiation_term &  
                -  rhomby3*(1.d0 + delta *(1.d0+bprime(3)*1.5d0) + (3.d0*params%lambda(3)-sum(params%lambda))*growthD ) &  !!matter contribution
                )       
+          if(arat(3) .lt. 1.d0)then
+             suppression_factor =  sin(coop_pi/4.d0*(arat(3)+1.d0))**2 
+             dyda(3) = dyda(3)*suppression_factor
+             dyda(6) = dyda(6)*suppression_factor
+          endif
        endif
     endif
   end subroutine coop_ellipse_collapse_odes
@@ -158,7 +183,7 @@ contains
 !!==================== methods of class coop_ellipse_collapse_params ============
   subroutine coop_ellipse_collapse_params_evolve(this, a, y, a_end)
   !!evolve y from a to a_end
-  !!vector y = ( a_1, a_2,  a_3,  d a_1/dt, d a_2/dt, d a_3/dt )
+  !!vector y = ( x_1, x_2,  x_3,  d x_1/dt, d x_2/dt, d x_3/dt )
   !!the object this contains all the parameters for the model
     class(coop_ellipse_collapse_params)::this
     COOP_REAL::a, y(this%num_ode_vars), a_end
@@ -174,7 +199,33 @@ contains
     end select
   end subroutine coop_ellipse_collapse_params_evolve
 
+  subroutine coop_ellipse_collapse_params_get_solution(this, a_arr, x_arr)
+    !!get multiple snapshots of of x 
+    !!input a_arr(1:n) is an array of scale factors in ascending order;
+    !! return the result in x_arr(1:3, 1:n), where x_arr(1:3, i) is the solution of (x_1, x_2, x_3) at scale factor a_arr(i).    
+    class(coop_ellipse_collapse_params)::this
+    COOP_REAL::a_arr(:), x_arr(:,:), y(6), a
+    COOP_REAL,parameter::tol = 1.d-8
+    COOP_INT::ind, i, n, m
+    COOP_REAL::c(24), w(this%num_ode_vars, 9)
+    n = size(a_arr)
+    if(size(x_arr, 2) .ne. n) stop "get_solution: input a_arr and x_arr have different sizes"
+    m = min(size(x_arr, 1), 6)  !!normally m = 3 but not always
+    select type(this)
+    type is(coop_ellipse_collapse_params)
+       ind = 1
+       a = min(max(2.d-3, min(this%accuracy/sum(this%lambda), 0.02d0)), a_arr(1)*0.99d0)
+       call this%set_initial_conditions(a, y)
+       do i=1, n
+          call coop_dverk_with_ellipse_collapse_params(this%num_ode_vars, coop_ellipse_collapse_odes, this, a, y, a_arr(i), tol, ind, c, this%num_ode_vars, w)
+          x_arr(1:m, i) = y(1:m)
+       enddo
+    class default
+       stop "Evolve: Extended class this has not been implemented"
+    end select
+  end subroutine coop_ellipse_collapse_params_get_solution
 
+!!return the redshift where the last virialized axis collapses
   function coop_ellipse_collapse_params_zvir1(this) result(zvir1)
     class(coop_ellipse_collapse_params)::this
     COOP_REAL::a, a_last, a_next, y(this%num_ode_vars), Frho, ycopy(this%num_ode_vars), incr, zvir1
@@ -318,13 +369,13 @@ contains
   end subroutine coop_ellipse_collapse_params_init
 
 
-  subroutine coop_ellipse_collapse_params_get_bprime(this, a, bprime)
+  subroutine coop_ellipse_collapse_params_get_bprime(this, x, bprime)
     class(coop_ellipse_collapse_params)::this
-    COOP_REAL,intent(IN)::a(3)
+    COOP_REAL,intent(IN)::x(3)
     COOP_REAL,intent(OUT)::bprime(3)
-    bprime(1) = this%bprime%eval( (a(1)/a(2))**2,  (a(1)/a(3))**2 )
-    bprime(2) = this%bprime%eval( (a(2)/a(1))**2,  (a(2)/a(3))**2 )
-    bprime(3) = this%bprime%eval( (a(3)/a(2))**2,  (a(3)/a(1))**2 )
+    bprime(1) = this%bprime%eval( (x(1)/x(2))**2,  (x(1)/x(3))**2 )
+    bprime(2) = this%bprime%eval( (x(2)/x(1))**2,  (x(2)/x(3))**2 )
+    bprime(3) = this%bprime%eval( (x(3)/x(2))**2,  (x(3)/x(1))**2 )
   end subroutine coop_ellipse_collapse_params_get_bprime
 
   !!D(a)
