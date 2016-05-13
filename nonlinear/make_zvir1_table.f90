@@ -99,7 +99,6 @@ program test
   if(binary)then
      call fp%open(output, "u")
      write(fp%unit) zvir1
-     write(*,*) "The table is dumped to "//trim(output)
      call fp%close()
   else
      call fp%open(output)
@@ -115,4 +114,6 @@ program test
      enddo
      call fp%close()
   endif
+  write(*,*) "The table is dumped to "//trim(output)
+
 end program test

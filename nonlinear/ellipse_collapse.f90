@@ -77,13 +77,15 @@ contains
           dyda(1) = 0.d0
           dyda(4) = 0.d0
        else  !!still collapsing
+          !!----------- equation for x_1 -------------------------
           dyda(1) = y(4) / dadt    !!d x_1/da = d x_1/dt /(da/dt)
           dyda(4) = y(1)/dadt/2.d0 * ( &   !! d( dx_1/dt)/da =(d^2 x_1/dt^2)/(da/dt)
                dark_Energy_term  &
                + radiation_term &
                -  params%Omega_m/(y(1))**3 &  !!matter contribution
                )
-          if(arat(1) .lt. 0.d0  .and. y(4) .lt. 0.d0)then  !!smooth transition for stability of the ode solver
+          !!-----------end of equation for x_1 -------------------------
+          if(arat(1) .lt. 0.d0  .and. y(4) .lt. 0.d0)then  !!do suppression around x_i/a = fr_i so that the derivative is continuous; no need to change
              suppression_factor =  sin(coop_pio2*(1.d0+arat(1)))**4
              dyda(1) = dyda(1)*suppression_factor
              dyda(4) = dyda(4)*suppression_factor
@@ -102,13 +104,15 @@ contains
           dyda(1) = 0.d0
           dyda(4) = 0.d0
        else  !!still collapsing
+          !!----------- equation for x_1 -------------------------
           dyda(1) = y(4) / dadt    !!d x_1/da = d x_1/dt /(da/dt)
           dyda(4) = y(1)/dadt/2.d0 * ( &   !! d( dx_1/dt)/da =(d^2 x_1/dt^2)/(da/dt)
                dark_Energy_term  &
                + radiation_term &
                -  rhomby3*(1.d0 + delta *(1.d0+bprime(1)*1.5d0) + (3.d0*params%lambda(1)-sum(params%lambda))*growthD ) &  !!matter contribution
                )
-          if(arat(1) .lt. 0.d0)then
+          !!----------- end of equation for x_1 -------------------------
+          if(arat(1) .lt. 0.d0)then !!do suppression around x_i/a = fr_i so that the derivative is continuous; this is for stability of the ode solver; 
              suppression_factor =  sin(coop_pio2*(1.d0+arat(1)))**4 
              dyda(1) = dyda(1)*suppression_factor
              dyda(4) = dyda(4)*suppression_factor
@@ -118,13 +122,15 @@ contains
           dyda(2) = 0.d0
           dyda(5) = 0.d0
        else !!still collapsing
+          !!----------- equation for x_2 -------------------------
           dyda(2) = y(5) / dadt    !!d x_1/da = d x_1/dt /(da/dt)
           dyda(5) = y(2)/dadt/2.d0 * ( &   !! d( dx_1/dt)/da =(d^2 x_1/dt^2)/(da/dt)
                dark_Energy_term  &
                + radiation_term &  
                - rhomby3 *(1.d0 + delta *(1.d0+bprime(2)*1.5d0) + (3.d0*params%lambda(2)-sum(params%lambda))*growthD ) &  !!matter contribution
                )
-          if(arat(2) .lt. 0.d0)then
+          !!----------- end of equation for x_2 -------------------------
+          if(arat(2) .lt. 0.d0)then !!do suppression around x_i/a = fr_i so that the derivative is continuous; this is for stability of the ode solver;
              suppression_factor =  sin(coop_pio2*(1.d0+arat(2)))**4 
              dyda(2) = dyda(2)*suppression_factor
              dyda(5) = dyda(5)*suppression_factor
@@ -134,13 +140,15 @@ contains
           dyda(3) = 0.d0
           dyda(6) = 0.d0
        else !!still collapsing
+          !!----------- equation for x_3 -------------------------
           dyda(3) = y(6) / dadt    !!d x_1/da = d x_1/dt /(da/dt)
           dyda(6) = y(3)/dadt/2.d0 * ( &   !! d( dx_1/dt)/da =(d^2 x_1/dt^2)/(da/dt)
                dark_Energy_term  &
                + radiation_term &  
                -  rhomby3*(1.d0 + delta *(1.d0+bprime(3)*1.5d0) + (3.d0*params%lambda(3)-sum(params%lambda))*growthD ) &  !!matter contribution
                )       
-          if(arat(3) .lt. 0.d0)then
+          !!----------- end of equation for x_3 -------------------------
+          if(arat(3) .lt. 0.d0)then  !!do suppression around x_i/a = fr_i so that the derivative is continuous; this is for stability of the ode solver;
              suppression_factor =  sin(coop_pio2*(1.d0+arat(3)))**4
              dyda(3) = dyda(3)*suppression_factor
              dyda(6) = dyda(6)*suppression_factor
