@@ -8,18 +8,18 @@ module coop_ellipse_collapse_mod
 
   type coop_ellipse_collapse_params
      COOP_REAL,dimension(3)::lambda = (/ 0.d0, 0.d0, 0.d0 /) !!lambda's
-     COOP_REAL::zinit = 200.d0 !!initial redshift
      COOP_REAL::Omega_m = 0.3d0  !!fractional matter density
      COOP_REAL::w = -1.d0   !!dark energy EOS
      COOP_REAL::Omega_r, Omega_de
      COOP_REAL::Omega_k = 0.d0
      COOP_REAL::h = 0.7d0
-     COOP_REAL::T_CMB = 2.726  
+     COOP_REAL::T_CMB = 0.d0
      logical::is_spherical = .false.
      COOP_INT::num_ode_vars = 6
      COOP_REAL,dimension(3)::collapse_a_ratio = (/ 0.18d0, 0.18d0, 0.18d0 /)
      type(coop_2dfunction)::bprime  
      type(coop_function)::Dbya, Dbyadot
+     COOP_REAL::accuracy = 1.d-2
    contains
      procedure::free => coop_ellipse_collapse_params_free  !!subroutine; no argument; release the memory allocated for this object
      procedure::init => coop_ellipse_collapse_params_init  !!subroutine; this%init(Omega_m, w, Omega_k, h, F_pk, e_nu, p_nu);  initialize the object with these parameters
@@ -30,21 +30,22 @@ module coop_ellipse_collapse_mod
      procedure::ddotabya => coop_ellipse_collapse_params_ddotabya !!this%ddotabya is a function that returns ( \ddot a / a )
      procedure::set_initial_conditions => coop_ellipse_collapse_params_set_initial_conditions  !!this%set_initial_conditions(y) is a subroutine set the initial conditions for y = (a_1, a_2, a_3, d a_1/dt, d a_2/dt, d a_3/dt) 
      procedure::evolve=> coop_ellipse_collapse_params_evolve  !!this%evolve(a, y, a_end) is a subroutine that evolves the current  y = (a_1, a_2, a_3, d a_1/dt, d a_2/dt, d a_3/dt) from current scale factor a to the scale factor a_end; the input is y at a; after the call a becomes a_end.
+     procedure::zvir1 => coop_ellipse_collapse_params_zvir1  !!this%zvir1() is a function that returns zvir1
      procedure::set_growth_initial_conditions => coop_ellipse_collapse_params_set_growth_initial_conditions !!set initial conditions for the growth function solver
   end type coop_ellipse_collapse_params
 
 
 contains
 
-  subroutine coop_ellipse_collapse_params_set_initial_conditions(this, y)
-    !!set inital vector y = ( a_1, a_2,  a_3,  d a_1/dt, d a_2/dt, d a_3/dt ) at redshift this%zinit
+  subroutine coop_ellipse_collapse_params_set_initial_conditions(this, a_ini, y)
+    !!set inital vector y = ( a_1, a_2,  a_3,  d a_1/dt, d a_2/dt, d a_3/dt ) at a = a_ini
     class(coop_ellipse_collapse_params)::this
-    COOP_REAL::y(:), D_ini, a_ini, dadt_ini
-    a_ini = 1.d0/(1.d0+this%zinit)
+    COOP_REAL,intent(IN)::a_ini
+    COOP_REAL::y(:), D_ini,  dadt_ini
     D_ini = this%Growth_D(a_ini)
     dadt_ini = this%dadt(a_ini)
-    y(1:3) = a_ini *(1.d0-this%lambda*D_ini*(1.d0 + (1.d0/7.d0)*sum(this%lambda)*D_ini) )   !! to linear order: a_ini *(1.d0-this%lambda*D_ini); here I've added 2nd-order corrections to eliminate percent level errors
-    y(4:6) = y(1:3)*dadt_ini/a_ini - a_ini*(this%lambda*D_ini*this%Growth_H_D(a_ini)*(1.d0 + 2.d0/7.d0*sum(this%lambda)*D_ini))  !!also with 2nd-order corrections
+    y(1:3) = a_ini *(1.d0-this%lambda*D_ini*(1.d0 + 3.d0/7.d0*this%lambda*D_ini) )   !! to linear order: a_ini *(1.d0-this%lambda*D_ini); here I've added 2nd-order corrections to eliminate percent level errors
+    y(4:6) = y(1:3)*dadt_ini/a_ini - a_ini*(this%lambda*D_ini*this%Growth_H_D(a_ini)*(1.d0 + 6.d0/7.d0*this%lambda*D_ini))  !!also with 2nd-order corrections
   end subroutine coop_ellipse_collapse_params_set_initial_conditions
 
   subroutine coop_ellipse_collapse_odes(n, a, y, dyda, params)
@@ -118,17 +119,16 @@ contains
 
 
 !!y = ( D/a,  d (D/a)/dt )
-!!set initial conditions at this%zinit
-  subroutine coop_ellipse_collapse_params_set_growth_initial_conditions(this, y)
+!!set initial conditions at a_ini
+  subroutine coop_ellipse_collapse_params_set_growth_initial_conditions(this, a_ini, y)
     class(coop_ellipse_collapse_params)::this
-    COOP_REAL::a, dadt, addbya, H
+    COOP_REAL::a_ini, dadt, addbya, H
     COOP_REAL::y(2)
-    a = 1.d0/(1.d0+this%zinit)
-    dadt = this%dadt(a)
-    H = dadt/a
-    addbya = this%ddotabya(a)
+    dadt = this%dadt(a_ini)
+    H = dadt/a_ini
+    addbya = this%ddotabya(a_ini)
     y(1) = 1.d0
-    y(2) =  - (2.d0*H**2+addbya-1.5d0*this%Omega_m/a**3)*y(1)/4.d0/H
+    y(2) =  - (2.d0*H**2+addbya-1.5d0*this%Omega_m/a_ini**3)*y(1)/4.d0/H
   end subroutine coop_ellipse_collapse_params_set_growth_initial_conditions
 
 
@@ -175,6 +175,60 @@ contains
   end subroutine coop_ellipse_collapse_params_evolve
 
 
+  function coop_ellipse_collapse_params_zvir1(this) result(zvir1)
+    class(coop_ellipse_collapse_params)::this
+    COOP_REAL::a, a_last, a_next, y(this%num_ode_vars), Frho, ycopy(this%num_ode_vars), incr, zvir1
+    COOP_REAL,parameter::tol = 1.d-8
+    COOP_INT::ind
+    COOP_REAL::c(24), w(this%num_ode_vars, 9)
+    COOP_INT::indcopy
+    COOP_REAL::ccopy(24), wcopy(this%num_ode_vars, 9)
+    select type(this)
+    type is(coop_ellipse_collapse_params)
+       ind = 1
+       Frho = sum(this%lambda)
+       if(Frho .lt. 1.d0)then
+          zvir1 = -1.d0
+          return
+       endif
+       a = max(2.d-3, min(this%accuracy, 5.d-2)/Frho)
+       call this%set_initial_conditions(a, y)
+       a_next = 0.1d0/Frho
+       call coop_dverk_with_ellipse_collapse_params(this%num_ode_vars, coop_ellipse_collapse_odes, this, a, y, a_next, 1.d-9, ind, c, this%num_ode_vars, w)
+       incr = 0.05d0
+       do 
+          a_last = a
+          indcopy = ind
+          ccopy = c
+          wcopy = w
+          ycopy = y
+          a_next = min(a*(1.d0+incr), 1.d0)
+          call coop_dverk_with_ellipse_collapse_params(this%num_ode_vars, coop_ellipse_collapse_odes, this, a, y, a_next, tol, ind, c, this%num_ode_vars, w)
+          if(y(1)/a / this%collapse_a_ratio(1) .lt. 1.001d0 .and. y(4) .le. 0.d0)then
+             if(incr .lt. 1.d-3)then
+                zvir1 = 2.d0/(a+a_last) - 1.d0
+                return
+             endif
+             a = a_last
+             ind = indcopy
+             c = ccopy
+             w = wcopy
+             y = ycopy
+             incr = incr/2.d0
+             cycle
+          endif
+          if(a_next .gt. 0.99999)then
+             zvir1 = -1.d0
+             return
+          endif
+       enddo
+    class default
+       stop "Evolve: Extended class this has not been implemented"
+    end select
+  end function coop_ellipse_collapse_params_zvir1
+
+
+
   subroutine coop_ellipse_collapse_params_init(this, Omega_m, w, h, Omega_k, lambda, F_pk, e_nu, p_nu)
     class(coop_ellipse_collapse_params)::this
     COOP_INT,parameter::na = 256
@@ -187,6 +241,7 @@ contains
     COOP_REAL,parameter::tol = 1.d-8
     COOP_INT::ind
     COOP_REAL::c(24), wspace(2, 9)
+    COOP_REAL,parameter::amin_D = 0.03d0
 
     cosmology_updated = .false.
     if(present(Omega_m))then
@@ -234,7 +289,6 @@ contains
     this%is_spherical = abs(this%lambda(1) - this%lambda(2)) .lt. 1.d-8 .and. abs(this%lambda(1) - this%lambda(3)) .lt. 1.d-8 .and. abs(this%collapse_a_ratio(1) - this%collapse_a_ratio(2)) .lt. 1.d-3 .and. abs(this%collapse_a_ratio(1)-this%collapse_a_ratio(3)) .lt. 1.d-3
     !!set b' function
     if(.not. this%bprime%initialized)call this%bprime%init_symmetric(f = coop_ellipse_collapse_bprime_reduced, nx = 501, xmin = 1.d-6, xmax = 1.d6, xlog = .true., name = "BPRIME")
-
     !!set  D(a)/a
     select type(this)
     type is(coop_ellipse_collapse_params)
@@ -242,8 +296,8 @@ contains
        if( cosmology_updated .or. .not.this%Dbya%initialized)then
           call this%Dbya%free()
           call this%Dbyadot%free()
-          call coop_set_uniform(na, a, 1.d0/(1.d0+ this%zinit), 1.d0)
-          call this%set_Growth_initial_conditions(y)
+          call coop_set_uniform(na, a, amin_D, 1.d0)
+          call this%set_Growth_initial_conditions(a(1), y)
           Dbya(1) = y(1)
           Dbyadot(1) = y(2)
           adynamic = a(1)
@@ -255,8 +309,8 @@ contains
           enddo
           dbyadot = dbyadot/dbya(na)
           dbya = dbya/dbya(na)
-          call this%Dbya%init(n = na, xmin = 1.d0/(1.d0+this%zinit), xmax = 1.d0, f = Dbya, method=COOP_INTERPOLATE_SPLINE, check_boundary = .false., name="D(a)/a")
-          call this%Dbyadot%init(n = na, xmin = 1.d0/(1.d0+this%zinit), xmax = 1.d0, f = Dbyadot, method=COOP_INTERPOLATE_SPLINE, check_boundary = .false., name="dot(D(a)/a)")
+          call this%Dbya%init(n = na, xmin = amin_D, xmax = 1.d0, f = Dbya, method=COOP_INTERPOLATE_SPLINE, check_boundary = .false., name="D(a)/a")
+          call this%Dbyadot%init(n = na, xmin = amin_D, xmax = 1.d0, f = Dbyadot, method=COOP_INTERPOLATE_SPLINE, fleft = 0.d0, check_boundary = .false., name="dot(D(a)/a)")
        endif
     class default
        stop "extended class for ode is not yet supported"
