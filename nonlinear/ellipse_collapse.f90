@@ -8,7 +8,7 @@ module coop_ellipse_collapse_mod
 
   type coop_ellipse_collapse_params
      COOP_REAL,dimension(3)::lambda = (/ 0.d0, 0.d0, 0.d0 /) !!lambda's
-     COOP_REAL::zinit = 100.d0 !!initial redshift
+     COOP_REAL::zinit = 200.d0 !!initial redshift
      COOP_REAL::Omega_m = 0.3d0  !!fractional matter density
      COOP_REAL::w = -1.d0   !!dark energy EOS
      COOP_REAL::Omega_r, Omega_de
@@ -43,8 +43,8 @@ contains
     a_ini = 1.d0/(1.d0+this%zinit)
     D_ini = this%Growth_D(a_ini)
     dadt_ini = this%dadt(a_ini)
-    y(1:3) = a_ini *(1.d0-this%lambda*D_ini)
-    y(4:6) = y(1:3)*dadt_ini/a_ini - a_ini*this%lambda*D_ini*this%Growth_H_D(a_ini)
+    y(1:3) = a_ini *(1.d0-this%lambda*D_ini*(1.d0 + (1.d0/7.d0)*sum(this%lambda)*D_ini) )   !! to linear order: a_ini *(1.d0-this%lambda*D_ini); here I've added 2nd-order corrections to eliminate percent level errors
+    y(4:6) = y(1:3)*dadt_ini/a_ini - a_ini*(this%lambda*D_ini*this%Growth_H_D(a_ini)*(1.d0 + 2.d0/7.d0*sum(this%lambda)*D_ini))  !!also with 2nd-order corrections
   end subroutine coop_ellipse_collapse_params_set_initial_conditions
 
   subroutine coop_ellipse_collapse_odes(n, a, y, dyda, params)
@@ -55,10 +55,10 @@ contains
   !!params is the object contain all the parameters and methods
   !! return dyda = d y/d a
     COOP_INT::n
-    COOP_REAL::a, y(n), dyda(n), dadt, bprime(3), growthD, delta, dark_Energy_term, rhomby3, radiation_term
+    COOP_REAL::a, y(n), dyda(n), dadt, bprime(3), growthD, delta, dark_Energy_term, rhomby3, radiation_term, delta_plus_1
     type(coop_ellipse_collapse_params)::params
     dadt = params%dadt(a)
-    delta = a**3/(y(1)*y(2)*y(3))-1.d0
+
     radiation_term = - params%omega_r/a**4*2.d0
     dark_Energy_term =  - params%omega_de*a**(-3.d0*(1.d0+params%w))*(1.d0+3.d0*params%w)  !!dark energy contribution; ignore dark energy perturbations in wCDM
     rhomby3 = params%Omega_m/a**3 !!I am working in unit of H_0^2/(8\pi G)
@@ -71,12 +71,13 @@ contains
           dyda(4) = y(1)/dadt/2.d0 * ( &   !! d( da_1/dt)/da =(d^2 a_1/dt^2)/(da/dt)
                dark_Energy_term  &
                + radiation_term &
-               -  rhomby3*(1.d0 + delta) &  !!matter contribution
+               -  params%Omega_m/(y(1))**3 &  !!matter contribution
                )
        endif
        dyda(2:3) = dyda(1)
        dyda(5:6) = dyda(4)
     else
+       delta = a**3/(y(1)*y(2)*y(3))-1.d0
        call params%get_bprime(y(1:3), bprime)
        growthD = params%growth_D(a)
        if(y(1)/a .lt. params%collapse_a_ratio(1) .and. y(4) .lt. 0.d0)then  !!collapsed; freeze it
