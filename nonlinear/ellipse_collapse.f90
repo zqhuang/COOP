@@ -6,6 +6,12 @@ module coop_ellipse_collapse_mod
 !!by default everything is a function of scale factor a;  a = 1 today.
 !!physical time unit = 1/H_0 
 
+  !!this is a global accuracy parameter
+  !!for high accuracy test you can use something like 1.e-4
+  !!for normal runs you can use something ~ 1.e-3
+  COOP_REAL, parameter::coop_ellipse_collapse_accuracy = 1.d-4
+  COOP_REAL, parameter::coop_ellipse_collapse_bad_zvir = -1.d0
+
   type coop_ellipse_collapse_params
      COOP_REAL,dimension(3)::lambda = (/ 0.d0, 0.d0, 0.d0 /) !!lambda's
      COOP_REAL::Omega_m = 0.3d0  !!fractional matter density
@@ -19,7 +25,6 @@ module coop_ellipse_collapse_mod
      COOP_REAL,dimension(3)::collapse_a_ratio = (/ 0.18d0, 0.18d0, 0.18d0 /)
      type(coop_2dfunction)::bprime  
      type(coop_function)::Dbya, Dbyadot
-     COOP_REAL::accuracy = 1.d-2
    contains
      procedure::free => coop_ellipse_collapse_params_free  !!subroutine; no argument; release the memory allocated for this object
      procedure::init => coop_ellipse_collapse_params_init  !!subroutine; this%init(Omega_m, w, Omega_k, h, F_pk, e_nu, p_nu);  initialize the object with these parameters
@@ -59,7 +64,7 @@ contains
     COOP_INT::n
     COOP_REAL::a, y(n), dyda(n), dadt, bprime(3), growthD, delta, dark_Energy_term, rhomby3, radiation_term, delta_plus_1
     type(coop_ellipse_collapse_params)::params
-    COOP_REAL,parameter::eps = 2.d-4  !!must be >0 and << 1
+    COOP_REAL,parameter::eps = coop_ellipse_collapse_accuracy
     COOP_REAL::suppression_factor, arat(3)
     dadt = params%dadt(a)
     radiation_term = - params%omega_r/a**4*2.d0
@@ -77,7 +82,7 @@ contains
                -  params%Omega_m/(y(1))**3 &  !!matter contribution
                )
           if(arat(1) .lt. 0.d0  .and. y(4) .lt. 0.d0)then  !!smooth transition for stability of the ode solver
-             suppression_factor =  sin(coop_pio2*(1.d0+arat(1)))**2 
+             suppression_factor =  sin(coop_pio2*(1.d0+arat(1)))**4
              dyda(1) = dyda(1)*suppression_factor
              dyda(4) = dyda(4)*suppression_factor
              
@@ -102,7 +107,7 @@ contains
                -  rhomby3*(1.d0 + delta *(1.d0+bprime(1)*1.5d0) + (3.d0*params%lambda(1)-sum(params%lambda))*growthD ) &  !!matter contribution
                )
           if(arat(1) .lt. 0.d0)then
-             suppression_factor =  sin(coop_pio2*(1.d0+arat(1)))**2 
+             suppression_factor =  sin(coop_pio2*(1.d0+arat(1)))**4 
              dyda(1) = dyda(1)*suppression_factor
              dyda(4) = dyda(4)*suppression_factor
           endif
@@ -118,7 +123,7 @@ contains
                - rhomby3 *(1.d0 + delta *(1.d0+bprime(2)*1.5d0) + (3.d0*params%lambda(2)-sum(params%lambda))*growthD ) &  !!matter contribution
                )
           if(arat(2) .lt. 0.d0)then
-             suppression_factor =  sin(coop_pio2*(1.d0+arat(2)))**2 
+             suppression_factor =  sin(coop_pio2*(1.d0+arat(2)))**4 
              dyda(2) = dyda(2)*suppression_factor
              dyda(5) = dyda(5)*suppression_factor
           endif
@@ -134,7 +139,7 @@ contains
                -  rhomby3*(1.d0 + delta *(1.d0+bprime(3)*1.5d0) + (3.d0*params%lambda(3)-sum(params%lambda))*growthD ) &  !!matter contribution
                )       
           if(arat(3) .lt. 0.d0)then
-             suppression_factor =  sin(coop_pio2*(1.d0+arat(3)))**2 
+             suppression_factor =  sin(coop_pio2*(1.d0+arat(3)))**4
              dyda(3) = dyda(3)*suppression_factor
              dyda(6) = dyda(6)*suppression_factor
           endif
@@ -187,7 +192,7 @@ contains
   !!the object this contains all the parameters for the model
     class(coop_ellipse_collapse_params)::this
     COOP_REAL::a, y(this%num_ode_vars), a_end
-    COOP_REAL,parameter::tol = 1.d-8
+    COOP_REAL,parameter::tol = max(1.d-10, coop_ellipse_collapse_accuracy*1.d-5)
     COOP_INT::ind
     COOP_REAL::c(24), w(this%num_ode_vars, 9)
     select type(this)
@@ -205,7 +210,7 @@ contains
     !! return the result in x_arr(1:3, 1:n), where x_arr(1:3, i) is the solution of (x_1, x_2, x_3) at scale factor a_arr(i).    
     class(coop_ellipse_collapse_params)::this
     COOP_REAL::a_arr(:), x_arr(:,:), y(6), a
-    COOP_REAL,parameter::tol = 1.d-8
+    COOP_REAL,parameter::tol = max(1.d-10, coop_ellipse_collapse_accuracy*1.d-5)
     COOP_INT::ind, i, n, m
     COOP_REAL::c(24), w(this%num_ode_vars, 9)
     n = size(a_arr)
@@ -214,7 +219,7 @@ contains
     select type(this)
     type is(coop_ellipse_collapse_params)
        ind = 1
-       a = min(max(2.d-3, min(this%accuracy/sum(this%lambda), 0.02d0)), a_arr(1)*0.99d0)
+       a = min(max(1.d-3, 50.d0*coop_ellipse_collapse_accuracy/sum(this%lambda)), a_arr(1)*0.99d0, 0.02d0)
        call this%set_initial_conditions(a, y)
        do i=1, n
           call coop_dverk_with_ellipse_collapse_params(this%num_ode_vars, coop_ellipse_collapse_odes, this, a, y, a_arr(i), tol, ind, c, this%num_ode_vars, w)
@@ -229,7 +234,7 @@ contains
   function coop_ellipse_collapse_params_zvir1(this) result(zvir1)
     class(coop_ellipse_collapse_params)::this
     COOP_REAL::a, a_last, a_next, y(this%num_ode_vars), Frho, ycopy(this%num_ode_vars), incr, zvir1
-    COOP_REAL,parameter::tol = 1.d-8
+    COOP_REAL,parameter::tol = max(1.d-10, coop_ellipse_collapse_accuracy*1.d-5)
     COOP_INT::ind
     COOP_REAL::c(24), w(this%num_ode_vars, 9)
     COOP_INT::indcopy
@@ -238,14 +243,14 @@ contains
     type is(coop_ellipse_collapse_params)
        ind = 1
        Frho = sum(this%lambda)
-       if(Frho .lt. 1.d0)then
+       if(Frho .lt. 1.d0 .or. this%lambda(1) .gt. this%lambda(2) .or. this%lambda(2) .gt. this%lambda(3) )then
           zvir1 = -1.d0
           return
        endif
-       a = max(2.d-3, min(this%accuracy, 5.d-2)/Frho)
+       a = max(1.d-3, 50.d0*coop_ellipse_collapse_accuracy/Frho)
        call this%set_initial_conditions(a, y)
        a_next = 0.1d0/Frho
-       call coop_dverk_with_ellipse_collapse_params(this%num_ode_vars, coop_ellipse_collapse_odes, this, a, y, a_next, 1.d-9, ind, c, this%num_ode_vars, w)
+       call coop_dverk_with_ellipse_collapse_params(this%num_ode_vars, coop_ellipse_collapse_odes, this, a, y, a_next, tol/10.d0, ind, c, this%num_ode_vars, w)
        incr = 0.05d0
        do 
           a_last = a
@@ -255,8 +260,8 @@ contains
           ycopy = y
           a_next = min(a*(1.d0+incr), 1.d0)
           call coop_dverk_with_ellipse_collapse_params(this%num_ode_vars, coop_ellipse_collapse_odes, this, a, y, a_next, tol, ind, c, this%num_ode_vars, w)
-          if(y(1)/a / this%collapse_a_ratio(1) .lt. 1.001d0 .and. y(4) .le. 0.d0)then
-             if(incr .lt. 1.d-3)then
+          if(y(1)/a .lt.  this%collapse_a_ratio(1)  .and. y(4) .le. 0.d0)then
+             if(incr .lt. coop_ellipse_collapse_accuracy)then
                 zvir1 = 2.d0/(a+a_last) - 1.d0
                 return
              endif
@@ -268,8 +273,8 @@ contains
              incr = incr/2.d0
              cycle
           endif
-          if(a_next .gt. 0.99999)then
-             zvir1 = -1.d0
+          if(a_next .gt. 1.d0-coop_ellipse_collapse_accuracy/2.d0)then
+             zvir1 =  coop_ellipse_collapse_bad_zvir
              return
           endif
        enddo

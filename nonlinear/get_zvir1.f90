@@ -13,15 +13,14 @@ program test
   call coop_get_command_line_argument(key = "fr1", arg = params%collapse_a_ratio(1), default = 0.18d0)
   call coop_get_command_line_argument(key = "fr2", arg = params%collapse_a_ratio(2), default = 0.18d0)
   call coop_get_command_line_argument(key = "fr3", arg = params%collapse_a_ratio(3), default = 0.18d0)
-  call coop_get_command_line_argument(key = "acc", arg = params%accuracy, default = 1.d-2)
   params%collapse_a_ratio = max(params%collapse_a_ratio, 1.d-4)
 
   write(*,*) "========================================================"
-  write(*,*) "./GetZ1 [-omm ...(0.3)] [-omk ...(0.)] [-h ...(0.7)] [-w ...(-1)] [-fr1 ...(0.18)] [-fr2 ... (0.18)] [-fr3 ... (0.18)] [-acc ...(0.01)]"
+  write(*,*) "./GetZ1 [-omm ...(0.3)] [-omk ...(0.)] [-h ...(0.7)] [-w ...(-1)] [-fr1 ...(0.18)] [-fr2 ... (0.18)] [-fr3 ... (0.18)] "
   write(*,*) "Examples:"
-  write(*,*) "./GetZ1 -omm 0.31 -w -0.9  (Omega_m = 0.31 , Omega_k = 0, h=0.7, w = -0.9;)"
-  write(*,*) "./GetZ1 -omm 0.29  (Omega_m = 0.29,  Omega_k = 0, h=0.7, w = -1; )"
-  write(*,*) "./GetZ1 -omk 0.01 -h 0.68 -acc 0.001 (Omega_m = 0.3 , Omega_k=0.01, h=0.68, w = -1; accuracy 0.001)"
+  write(*,*) "./GetZ1 -omm 0.31 -w -0.9"
+  write(*,*) "./GetZ1 -omm 0.29"
+  write(*,*) "./GetZ1 -omk 0.01 -h 0.68 -fr1 0.1 -fr2 0.1 -fr3 0.1"
   write(*,*) "========================================================"
   write(*,*) "Enter F_pk, e_nu, p_nu"
   call params%init(Omega_m = Omega_m, Omega_k = Omega_k, h = h, w = w)
@@ -33,7 +32,7 @@ program test
      endif
      call params%init(F_pk = F_pk, e_nu = e_nu, p_nu = p_nu)
      zvir1 = params%zvir1()
-     write(*, "(A, F13.3)") "zvir1 = ", zvir1
+     write(*, "(A, F13.5)") "zvir1 = ", zvir1
      write(*,*) "========================================================"
      write(*,*) "Enter F_pk, e_nu, p_nu (enter a negative F_pk to finish)"
   enddo

@@ -18,7 +18,6 @@ program test
   call coop_get_command_line_argument(key = "fr1", arg = params%collapse_a_ratio(1), default = 0.18d0)
   call coop_get_command_line_argument(key = "fr2", arg = params%collapse_a_ratio(2), default = 0.18d0)
   call coop_get_command_line_argument(key = "fr3", arg = params%collapse_a_ratio(3), default = 0.18d0)
-  call coop_get_command_line_argument(key = "acc", arg = params%accuracy, default = 1.d-2)
   call coop_get_command_line_argument(key = "fpk", arg = F_pk)
   call coop_get_command_line_argument(key = "e", arg = e_nu)
   call coop_get_command_line_argument(key = "p", arg = p_nu)
@@ -27,11 +26,11 @@ program test
   params%collapse_a_ratio = max(params%collapse_a_ratio, 2.d-3)
 
   write(*,*) "========================================================"
-  write(*,*) "./Solve -fpk ... -e ... -p ... -out ... [-omm ...(0.3)] [-omk ...(0.)] [-h ...(0.7)] [-w ...(-1)] [-fr1 ...(0.18)] [-fr2 ... (0.18)] [-fr3 ... (0.18)] [-acc ...(0.01)]"
+  write(*,*) "./Solve -fpk ... -e ... -p ... -out ... [-omm ...(0.3)] [-omk ...(0.)] [-h ...(0.7)] [-w ...(-1)] [-fr1 ...(0.18)] [-fr2 ... (0.18)] [-fr3 ... (0.18)] "
   write(*,*) "Examples:"
   write(*,*) "./Solve -fpk 2.5 -e 0.2 -p 0.1 -omm 0.31 -w -0.9 -out savex.dat"
   write(*,*) "./Solve -fpk 1.6865 -e 0 -p 0 -omm 0.29 -out solution.dat"
-  write(*,*) "./Solve -fpk 3 -e 0.1 -p 0.02 -omk 0.01 -h 0.68 -acc 0.001 -out mysol.txt (-acc is the accuracy estimation, between 0.001 and 0.05)"
+  write(*,*) "./Solve -fpk 3 -e 0.1 -p 0.02 -omk 0.01 -h 0.68  -out mysol.txt "
   write(*,*) "========================================================"
   call params%init(Omega_m = Omega_m, Omega_k = Omega_k, h = h, w = w,F_pk = F_pk, e_nu = e_nu, p_nu = p_nu)
   call coop_set_uniform(na, a, 0.02d0, 1.d0)
