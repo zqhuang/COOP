@@ -63,7 +63,7 @@ contains
     dark_Energy_term =  - params%omega_de*a**(-3.d0*(1.d0+params%w))*(1.d0+3.d0*params%w)  !!dark energy contribution; ignore dark energy perturbations in wCDM
     rhomby3 = params%Omega_m/a**3 !!I am working in unit of H_0^2/(8\pi G)
     if(params%is_spherical)then
-       if(y(1)/a/params%collapse_a_ratio(1).lt. 0.9999d0 .and. y(4) .lt. 0.d0)then  !!collapsed; freeze it
+       if(y(1)/a.lt.params%collapse_a_ratio(1)  .and. y(4) .lt. 0.d0)then  !!collapsed; freeze it
           dyda(1) = 0.d0
           dyda(4) = 0.d0
        else  !!still collapsing
@@ -79,7 +79,7 @@ contains
     else
        call params%get_bprime(y(1:3), bprime)
        growthD = params%growth_D(a)
-       if(y(1)/a/params%collapse_a_ratio(1).lt. 0.9999d0 .and. y(4) .lt. 0.d0)then  !!collapsed; freeze it
+       if(y(1)/a .lt. params%collapse_a_ratio(1) .and. y(4) .lt. 0.d0)then  !!collapsed; freeze it
           dyda(1) = 0.d0
           dyda(4) = 0.d0
        else  !!still collapsing
@@ -90,7 +90,7 @@ contains
                -  rhomby3*(1.d0 + delta *(1.d0+bprime(1)*1.5d0) + (3.d0*params%lambda(1)-sum(params%lambda))*growthD ) &  !!matter contribution
                )
        endif
-       if(y(2)/a /params%collapse_a_ratio(2).lt. 0.9999d0 .and. y(5) .lt. 0.d0 )then !!collapsed; freeze it
+       if(y(2)/a .lt. params%collapse_a_ratio(2) .and. y(5) .lt. 0.d0 )then !!collapsed; freeze it
           dyda(2) = 0.d0
           dyda(5) = 0.d0
        else !!still collapsing
@@ -101,7 +101,7 @@ contains
                - rhomby3 *(1.d0 + delta *(1.d0+bprime(2)*1.5d0) + (3.d0*params%lambda(2)-sum(params%lambda))*growthD ) &  !!matter contribution
                )
        endif
-       if(y(3)/a /params%collapse_a_ratio(3).lt. 0.9999d0.and. y(6) .lt. 0.d0)then !!collapsed; freeze it
+       if(y(3)/a .lt. params%collapse_a_ratio(3) .and. y(6) .lt. 0.d0)then !!collapsed; freeze it
           dyda(3) = 0.d0
           dyda(6) = 0.d0
        else !!still collapsing
@@ -232,7 +232,7 @@ contains
     endif
     this%is_spherical = abs(this%lambda(1) - this%lambda(2)) .lt. 1.d-8 .and. abs(this%lambda(1) - this%lambda(3)) .lt. 1.d-8 .and. abs(this%collapse_a_ratio(1) - this%collapse_a_ratio(2)) .lt. 1.d-3 .and. abs(this%collapse_a_ratio(1)-this%collapse_a_ratio(3)) .lt. 1.d-3
     !!set b' function
-    if(.not. this%bprime%initialized)call this%bprime%init_symmetric(f = coop_ellipse_collapse_bprime_reduced, nx = 301, xmin = 1.d-5, xmax = 1.d5, xlog = .true., name = "BPRIME")
+    if(.not. this%bprime%initialized)call this%bprime%init_symmetric(f = coop_ellipse_collapse_bprime_reduced, nx = 501, xmin = 1.d-6, xmax = 1.d6, xlog = .true., name = "BPRIME")
 
     !!set  D(a)/a
     select type(this)
@@ -319,66 +319,12 @@ contains
 
 
   function coop_ellipse_collapse_bprime_reduced(lambda1, lambda2) result(bprime)
-    COOP_REAL::lambda1, lambda2, eps, bprime, xcut
-    type(coop_arguments)::args
-    if(abs(lambda1-1.d0) .lt. 1.d-3 .and. abs(lambda2-1.d0) .lt. 1.d-3)then !!both close to 0
-       bprime = (2.d0/15.d0)*(2.d0-lambda1 - lambda2) + (3.d0/28.d0-0.05d0)*((1.d0-lambda1)**2+(1.d0-lambda2)**2+(2.d0/3.d0)*(1.d0-lambda1)*(1.d0-lambda2))
-       return
-    endif
-    call args%init( r = (/ lambda1, lambda2 /) )
-    if(max(lambda1, lambda2) .gt. 1.d2 .or. lambda1*lambda2 .gt. 1.d0)then
-       xcut = min(1.d3/max(lambda1, lambda2)**0.25, 1.d2/(lambda1*lambda2)**(1.d0/6.d0))
-       bprime = (-2.d0/3.d0) &
-         + 2.d0*coop_integrate(coop_ellipse_collapse_b_int_form3, 0.d0, xcut, args, 1.d-6)
-       return
-    endif
-    xcut = 100.d0
-    bprime = (-2.d0/3.d0)+ coop_integrate(coop_ellipse_collapse_b_int_form1, 0.d0, 1.d0/(1.d0+xcut), args, 1.d-6)  &
-         + coop_integrate(coop_ellipse_collapse_b_int_form2, 0.d0, xcut, args, 1.d-6)
-    call args%free()
-  end function coop_ellipse_collapse_bprime_reduced
-
-  function coop_ellipse_collapse_bprime_accurate(lambda1, lambda2) result(bprime)
-    COOP_REAL::lambda1, lambda2, eps, bprime, xcut
-    type(coop_arguments)::args
+    COOP_REAL::lambda1, lambda2, bprime
     if(abs(lambda1-1.d0) .lt. 1.d-4 .and. abs(lambda2-1.d0) .lt. 1.d-4)then !!both close to 0
        bprime = (2.d0/15.d0)*(2.d0-lambda1 - lambda2) + (3.d0/28.d0-0.05d0)*((1.d0-lambda1)**2+(1.d0-lambda2)**2+(2.d0/3.d0)*(1.d0-lambda1)*(1.d0-lambda2))
        return
     endif
-    call args%init( r = (/ lambda1, lambda2 /) )
-    if(max(lambda1, lambda2) .gt. 1.d2 .or. lambda1*lambda2 .gt. 1.d0)then
-       xcut = min(1.d4/max(lambda1, lambda2)**0.25, 1.d3/(lambda1*lambda2)**(1.d0/6.d0))
-       bprime = (-2.d0/3.d0) &
-         + 2.d0*coop_integrate(coop_ellipse_collapse_b_int_form3, 0.d0, xcut, args, 1.d-8)
-       return
-    endif
-    xcut = 100.d0
-    bprime = (-2.d0/3.d0)+ coop_integrate(coop_ellipse_collapse_b_int_form1, 0.d0, 1.d0/(1.d0+xcut), args, 1.d-8)  &
-         + coop_integrate(coop_ellipse_collapse_b_int_form2, 0.d0, xcut, args, 1.d-8)
-    call args%free()
-  end function coop_ellipse_collapse_bprime_accurate
-
-
-  function coop_ellipse_collapse_b_int_form1(x, args) result(f)
-    type(coop_arguments)::args
-    COOP_REAL::x, f
-    f = sqrt(x / ((args%r(1)*(1.d0-x)+x)*(args%r(2)*(1.d0-x)+x)))
-  end function coop_ellipse_collapse_b_int_form1
-
-
-  function coop_ellipse_collapse_b_int_form2(x, args) result(f)
-    type(coop_arguments)::args
-    COOP_REAL::x, f
-    f = 1.d0/(1.d0+x)/sqrt((1.d0+x)*(1.d0+args%r(1)*x)*(1.d0+args%r(2)*x))
-  end function coop_ellipse_collapse_b_int_form2
-
-  function coop_ellipse_collapse_b_int_form3(x, args) result(f)
-    type(coop_arguments)::args
-    COOP_REAL::x, f
-    f = x/(1.d0+x**2)/sqrt((1.d0+x**2)*(1.d0+args%r(1)*x**2)*(1.d0+args%r(2)*x**2))
-  end function coop_ellipse_collapse_b_int_form3
-
-
-
+    bprime = (coop_elliptic_Rd(1.d0/lambda1, 1.d0/lambda2, 1.d0)/sqrt(lambda1*lambda2)-1.d0)*2.d0/3.d0
+  end function coop_ellipse_collapse_bprime_reduced
 
 end module coop_ellipse_collapse_mod

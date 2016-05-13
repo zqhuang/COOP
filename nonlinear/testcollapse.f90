@@ -7,23 +7,23 @@ program test
   logical::want_debug 
   COOP_INT, parameter::nz = 5000
   COOP_REAL, parameter::zmax_check = 10.d0
-  COOP_REAL::Omega_m,w 
+  COOP_REAL::Omega_m,w, Omega_k, h
   COOP_REAL::F_pk, p_nu, e_nu, y(6), z(nz), a(nz), adynamic, z_collapse(3)
   COOP_INT::iz, iaxis
   call coop_get_command_line_argument(key = "debug", arg = want_debug, default = .false.)
   call coop_get_command_line_argument(key = "omm", arg = Omega_m, default = 0.3d0)
+  call coop_get_command_line_argument(key = "omk", arg = Omega_k, default = 0.3d0)
+  call coop_get_command_line_argument(key = "h", arg = h, default = 0.7d0)
   call coop_get_command_line_argument(key = "w", arg = w, default = -1.d0)
   write(*,*) "========================================================"
-  write(*,*) "./Col [-omm ...(0.3)] [-w ...(-1)] [-debug ...(F)]"
-  write(*,*) "Example:"
-  write(*,*) "./Col -omm 0.31 -w -0.9  (run model Omega_m = 0.31 , w = -0.9; debug off)"
-  write(*,*) "./Col -omm 0.31 -debug T (run model Omega_m = 0.31, default w = -1; debug on)"
-  write(*,*) "./Col   (run model default Omega_m = 0.3 , default w = -1; debug off)"
+  write(*,*) "./Col [-omm ...(0.3)] [-omk ...(0.)] [-h ...(0.7)] [-w ...(-1)] [-debug ...(F)]"
+  write(*,*) "Examples:"
+  write(*,*) "./Col -omm 0.31 -w -0.9  (Omega_m = 0.31 , Omega_k = 0, w = -0.9; debug off)"
+  write(*,*) "./Col -omm 0.31 -debug T (Omega_m = 0.31,  Omega_k = 0, w = -1; debug on)"
+  write(*,*) "./Col -omk 0.01  (Omega_m = 0.3 , Omega_k=0.01, w = -1; debug off)"
   write(*,*) "========================================================"
   write(*,*) "Enter F_pk, e_nu, p_nu"
-  call params%init(Omega_m = Omega_m, w = w)
-!  params%zinit = 500.d0   !!use this to test the robustness of zinit (result does not change as long as zinit >> 1)
-!  params%collapse_a_ratio = (/ 0.02d0, 0.171d0, 0.171d0 /)  !!you can use this to check the 1.686 threshold 
+  call params%init(Omega_m = Omega_m, Omega_k = Omega_k, h = h, w = w)
   if(want_debug)then
      call coop_set_uniform(nz, a, 1.d0/(1.d0+ params%zinit-0.1d0), 1.d0)
   else

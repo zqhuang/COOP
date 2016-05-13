@@ -6,7 +6,7 @@ module coop_special_function_mod
   private
 
 
-  public:: coop_log2, coop_sinc, coop_sinhc, coop_asinh, coop_acosh, coop_atanh, coop_InverseErf, coop_InverseErfc, coop_Gaussian_nu_of_P, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_IncompleteGamma, coop_threej000, coop_ThreeJSymbol, coop_ThreeJ_Array, coop_bessI0, coop_bessi1, coop_bessJ0, coop_bessJ1, coop_sphere_correlation, coop_sphere_correlation_init, coop_get_normalized_Plm_array, FT_Gaussian3D_window, FT_spherical_tophat, coop_pseudoCl_kernel_index_TT, coop_pseudoCl_kernel_index_TE, coop_pseudoCl_kernel_index_TB, coop_pseudoCl_kernel_index_EB, coop_pseudoCl_kernel_index_EE_plus_BB, coop_pseudoCl_kernel_index_EE_minus_BB, coop_TEB_index_T, coop_TEB_index_E, coop_TEB_index_B, coop_TEB_index_TT, coop_TEB_index_EE, coop_TEB_index_BB, coop_TEB_index_TE, coop_TEB_index_TB, coop_TEB_index_EB, coop_int3j,  coop_pseudoCl_matrix, coop_pseudoCl2Cl, coop_pseudoCl_get_kernel, coop_next_l, coop_nl_range, coop_set_ells, coop_EB_index_E, coop_EB_index_B, coop_EB_index_EE, coop_EB_index_BB, coop_EB_index_EB
+  public:: coop_log2, coop_sinc, coop_sinhc, coop_asinh, coop_acosh, coop_atanh, coop_InverseErf, coop_InverseErfc, coop_Gaussian_nu_of_P, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_IncompleteGamma, coop_threej000, coop_ThreeJSymbol, coop_ThreeJ_Array, coop_bessI0, coop_bessi1, coop_bessJ0, coop_bessJ1, coop_sphere_correlation, coop_sphere_correlation_init, coop_get_normalized_Plm_array, FT_Gaussian3D_window, FT_spherical_tophat, coop_pseudoCl_kernel_index_TT, coop_pseudoCl_kernel_index_TE, coop_pseudoCl_kernel_index_TB, coop_pseudoCl_kernel_index_EB, coop_pseudoCl_kernel_index_EE_plus_BB, coop_pseudoCl_kernel_index_EE_minus_BB, coop_TEB_index_T, coop_TEB_index_E, coop_TEB_index_B, coop_TEB_index_TT, coop_TEB_index_EE, coop_TEB_index_BB, coop_TEB_index_TE, coop_TEB_index_TB, coop_TEB_index_EB, coop_int3j,  coop_pseudoCl_matrix, coop_pseudoCl2Cl, coop_pseudoCl_get_kernel, coop_next_l, coop_nl_range, coop_set_ells, coop_EB_index_E, coop_EB_index_B, coop_EB_index_EE, coop_EB_index_BB, coop_EB_index_EB, coop_elliptic_Rd
 
 
   !!define the index of kernels
@@ -2123,6 +2123,49 @@ contains
     nl = nl + 1
     ells(nl) = lmax
   end subroutine coop_set_ells
+
+  FUNCTION coop_elliptic_Rd(x,y,z) result(rd)
+    COOP_REAL, INTENT(IN) :: x,y,z
+    COOP_REAL :: rd
+    COOP_REAL, PARAMETER :: ERRTOL=0.05d0,TINY=1.d-25,BIG=4.5d21,&
+         C1=3.d0/14.d0,C2=1.d0/6.d0,C3=9.d0/22.d0,&
+         C4=3.d0/26.d0,C5=0.25d0*C3,C6=1.5d0*C4
+    COOP_REAL :: alamb,ave,delx,dely,delz,ea,eb,ec,ed,&
+         ee,fac,sqrtx,sqrty,sqrtz,sum,xt,yt,zt
+    if(.not. (min(x,y) >= 0.0 .and. min(x+y,z) >= TINY .and. max(x,y,z) <= BIG))then
+       write(*,*) x, y, z
+       stop "elliptic_Rd parameters out of range"
+    endif
+    xt=x
+    yt=y
+    zt=z
+    sum=0.0
+    fac=1.0
+    do
+       sqrtx=sqrt(xt)
+       sqrty=sqrt(yt)
+       sqrtz=sqrt(zt)
+       alamb=sqrtx*(sqrty+sqrtz)+sqrty*sqrtz
+       sum=sum+fac/(sqrtz*(zt+alamb))
+       fac=0.25d0*fac
+       xt=0.25d0*(xt+alamb)
+       yt=0.25d0*(yt+alamb)
+       zt=0.25d0*(zt+alamb)
+       ave=0.2d0*(xt+yt+3.0d0*zt)
+       delx=(ave-xt)/ave
+       dely=(ave-yt)/ave
+       delz=(ave-zt)/ave
+       if (max(abs(delx),abs(dely),abs(delz)) <= ERRTOL) exit
+    end do
+    ea=delx*dely
+    eb=delz*delz
+    ec=ea-eb
+    ed=ea-6.d0*eb
+    ee=ed+ec+ec
+    rd=3.d0*sum+fac*(1.0d0+ed*(-C1+C5*ed-C6*delz*ee)&
+         +delz*(C2*ee+delz*(-C3*ec+delz*C4*ea)))/(ave*sqrt(ave))
+  END FUNCTION coop_elliptic_Rd
+
 
 
 end module coop_special_function_mod
