@@ -16,9 +16,6 @@ default: $(LIB) GetZ1 Solve TabZ1
 $(LIB):	$(OBJ) 
 	ar -r $@ $?
 
-FNL: $(OBJ) testfnl.o $(FIRSTORDER)/libcoopfirstorder.a
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testfnl.o $(LINK)
-
 Test: $(OBJ) test.o $(FIRSTORDER)/libcoopfirstorder.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
 
@@ -39,7 +36,7 @@ GetZ1: $(OBJ) get_zvir1.o $(FIRSTORDER)/libcoopfirstorder.a
 
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ GetZ1 Solve TestSimp Test FNL TabZ1
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ GetZ1 Solve TestSimp Test TabZ1
 
 
 test.o: $(OBJ)

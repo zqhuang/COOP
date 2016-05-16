@@ -253,7 +253,7 @@ contains
     type is(coop_ellipse_collapse_params)
        ind = 1
        Frho = sum(this%lambda)
-       if(Frho .lt. 1.d0 .or. this%lambda(1) .gt. this%lambda(2) .or. this%lambda(2) .gt. this%lambda(3) )then
+       if(Frho .lt. 1.d0 .or. this%lambda(1) .gt. this%lambda(2) .or. this%lambda(2) .gt. this%lambda(3) .or. this%lambda(1) .lt. -50.d0 )then !!bad input or obviously won't collapse
           zvir1 = -1.d0
           return
        endif

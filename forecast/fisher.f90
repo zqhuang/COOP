@@ -10,6 +10,8 @@ module coop_fisher_mod
   COOP_INT,parameter::coop_parameter_type_nuis = 2
   COOP_REAL,parameter::coop_H0_unit = 1.d5/coop_SI_c
 
+  COOP_REAL,parameter::coop_fisher_cmb_l_pivot = 3000.d0
+
   type coop_observation
      COOP_STRING::filename = ""
      type(coop_dictionary)::settings
@@ -27,9 +29,12 @@ module coop_fisher_mod
      COOP_REAL,dimension(:,:,:),allocatable::dobs !!(dim_obs, n_obs, paramnames%n)
      COOP_REAL,dimension(:,:),allocatable::nuis  !!(dim_nuis, n_obs)
      COOP_REAL,dimension(:,:,:),allocatable::invcov !!(dim, dim, n_obs)
+     !!for MPK
      COOP_REAL,dimension(:,:),allocatable::window_Wsq !!(n_window, n_bins)
      COOP_REAL,dimension(:,:),allocatable::window_modes !!(n_window, n_bins)
      COOP_INT,dimension(:),allocatable::window_used !!(n_bins)
+     !!for CMB
+     COOP_INT::lmin, lmax, lmin_pol, lmax_pol
    contains
      procedure::free => coop_observation_free
      procedure::init => coop_observation_init
@@ -70,7 +75,7 @@ contains
     class(coop_observation)::this
     COOP_REAL::dobs(this%dim_obs, this%n_obs), MStar
     COOP_REAL,dimension(:),allocatable::b0, b2
-    COOP_REAL::sigma_g, sigma_z, sr2, a, Hz, cmb_A_noise
+    COOP_REAL::sigma_g, sigma_z, sr2, a, Hz, cmb_A_noise, cmb_n_noise, cmb_A_noise_pol, cmb_n_noise_pol, cmb_A_tSZ
     COOP_INT::nk, nz, nmu, iz
     type(coop_real_table)::paramtable
     type(coop_cosmology_firstorder)::cosmology
@@ -109,29 +114,39 @@ contains
        !$omp end parallel do
        deallocate(b0, b2)
     case("CMB_TE")
-       call paramtable%lookup("cmb_A_noise", cmb_A_noise)
+       call paramtable%lookup("cmb_A_noise", cmb_A_noise, 1.d0)
+       call paramtable%lookup("cmb_n_noise", cmb_n_noise, 0.d0)
+       call paramtable%lookup("cmb_A_noise_pol", cmb_A_noise, 1.d0)
+       call paramtable%lookup("cmb_n_noise_pol", cmb_n_noise, 0.d0)
+       call paramtable%lookup("cmb_A_tSZ", cmb_A_tSZ, 1.d0)
+
        do idata = 1, this%n_obs
           l = nint(this%nuis(1, idata))
-          dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata)*cmb_A_noise - this%obs(1, idata)
-          dobs(2, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClEE, l) + this%nuis(4, idata)*cmb_A_noise - this%obs(2, idata)
+          dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata)*cmb_A_noise*(l/coop_fisher_cmb_l_pivot)**cmb_n_noise + this%nuis(5, idata)*cmb_A_tSZ - this%obs(1, idata)
+          dobs(2, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClEE, l) + this%nuis(4, idata)*cmb_A_noise_pol*(l/coop_fisher_cmb_l_pivot)**cmb_n_noise_pol - this%obs(2, idata)
           dobs(3, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTE, l) - this%obs(3, idata)
        enddo
     case("CMB_T")
+       call paramtable%lookup("cmb_A_tSZ", cmb_A_tSZ, 1.d0)
        call paramtable%lookup("cmb_A_noise", cmb_A_noise, 1.d0)
+       call paramtable%lookup("cmb_n_noise", cmb_n_noise, 0.d0)
        do idata = 1, this%n_obs
           l = nint(this%nuis(1, idata))
-          dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata)*cmb_A_noise - this%obs(1, idata)
+          dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata)*cmb_A_noise*(l/coop_fisher_cmb_l_pivot)**cmb_n_noise + this%nuis(5, idata)*cmb_A_tSZ - this%obs(1, idata)
        enddo
     case("CMB_E")
-       call paramtable%lookup("cmb_A_noise", cmb_A_noise, 1.d0)
+       call paramtable%lookup("cmb_A_noise_pol", cmb_A_noise, 1.d0)
+       call paramtable%lookup("cmb_n_noise_pol", cmb_n_noise, 0.d0)
        do idata = 1, this%n_obs
           l = nint(this%nuis(1, idata))
-          dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClEE, l) + this%nuis(4, idata)*cmb_A_noise - this%obs(1, idata)
+          dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClEE, l) + this%nuis(4, idata)**cmb_A_noise_pol*(l/coop_fisher_cmb_l_pivot)**cmb_n_noise_pol - this%obs(1, idata)
        enddo
     case("CMB_B")
+       call paramtable%lookup("cmb_A_noise_pol", cmb_A_noise, 1.d0)
+       call paramtable%lookup("cmb_n_noise_pol", cmb_n_noise, 0.d0)
        do idata = 1, this%n_obs
           l = nint(this%nuis(1, idata))
-          dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClBB, l) + this%nuis(4, idata)*cmb_A_noise - this%obs(1, idata)
+          dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClBB, l) + this%nuis(4, idata)**cmb_A_noise_pol*(l/coop_fisher_cmb_l_pivot)**cmb_n_noise_pol - this%obs(1, idata)
        enddo
     case default
        write(*,*) trim(this%genre)
@@ -139,6 +154,7 @@ contains
     end select
   end subroutine coop_observation_get_dobs
 
+!!set the fiducial model and compute the inverse covariance matrix
   subroutine coop_observation_get_invcov(this, paramtable, cosmology)
     class(coop_observation)::this
     type(coop_real_table)::paramtable
@@ -224,8 +240,8 @@ contains
     case("CMB_TE")
        do idata = 1, this%n_obs
           l = nint(this%nuis(1, idata))
-          this%obs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata)
-          this%obs(2, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClEE, l) + this%nuis(4, idata)
+          this%obs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata) + this%nuis(5, idata)  !!Cl + Cl^SZ + Nl_TT
+          this%obs(2, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClEE, l) + this%nuis(4, idata)   !!Cl + Nl_EE
 !          if(mod(l, 100).eq.0)write(*,*) l, this%nuis(3, idata)/this%obs(1, idata), this%nuis(4, idata)/this%obs(2, idata)
           this%obs(3, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTE, l)
           this%invcov(1,1,idata) = 2.d0*this%obs(1, idata)**2
@@ -244,7 +260,7 @@ contains
     case("CMB_T")
        do idata = 1, this%n_obs
           l = nint(this%nuis(1, idata))
-          this%obs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata)
+          this%obs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata) + this%nuis(5, idata)
           this%invcov(1,1,idata) = this%nuis(2, idata)*(this%nuis(1, idata)+0.5d0)/this%obs(1, idata)**2
        enddo
     case("CMB_E")
@@ -266,18 +282,21 @@ contains
   end subroutine coop_observation_get_invcov
 
   subroutine coop_observation_init(this, paramtable, filename)
+    COOP_REAL,parameter::Nl_infinity = 1.d30
     class(coop_observation)::this
-    type(coop_file)::wfp
+    type(coop_file)::wfp, fpsz
     COOP_UNKNOWN_STRING,optional::filename
     type(coop_real_table)::paramtable
     type(coop_list_string)::ls
     type(coop_list_real)::lr
-    COOP_STRING::windowfile, windowall
+    COOP_STRING::windowfile, windowall, tSZ_template
     COOP_REAL::kwarr(2)
     COOP_REAL,dimension(:),allocatable::z, kmin, kmax, nobs, dz, mu, k, dk
-    COOP_REAL::dmu, kl, sigma_W, fsky, Nl_T, Nl_pol, fg_r, fg_A, fg_alpha, fg_T, fg_beta, fsky_pol, T353, obs_yr, Fl
+    COOP_REAL::dmu, kl, sigma_W, fsky, Nl_T, Nl_pol, fg_dust_r, fg_dust_A, fg_dust_alpha, fg_dust_T, fg_dust_beta, fsky_pol, T353, obs_yr, Cl_dust_residual, tsz_template_freq
     COOP_REAL,dimension(:),allocatable::beam_fwhm, sigmaT, sigmapol, freq
-    COOP_INT::i, nz,nk,nmu,iz,ik,imu, lmin, lmax, n_channels, l, iw
+    COOP_INT::i, nz,nk,nmu,iz,ik,imu, n_channels, l, iw, junk, lmin_tsz, lmax_tsz
+    COOP_REAL,dimension(:),allocatable::cl_tsz
+    COOP_REAL::tsz_factor  !!frequency dependence
     if(present(filename))this%filename = trim(adjustl(filename))
     if(trim(this%filename) .eq. "") stop "observation_init: empty file name"
     if(.not. coop_file_exists(this%filename)) then
@@ -302,11 +321,11 @@ contains
     case("CMB_TE")
        this%init_level = coop_init_level_set_Cls
        this%dim_obs = 3 !!TT, TE, EE
-       this%dim_nuis = 4 !! l, fsky, N_l(TT), N_l(EE)
+       this%dim_nuis = 5 !! l, fsky, N_l(TT), N_l(EE), Cl_tSZ(TT)
     case("CMB_T", "CMB_E", "CMB_B")
        this%init_level = coop_init_level_set_Cls
        this%dim_obs = 1
-       this%dim_nuis = 4 !!l, fsky, N_l(TT), N_l(EE)
+       this%dim_nuis = 5 !!l, fsky, N_l(TT), N_l(EE), Cl_tSZ(TT)
     case default
        write(*,*) trim(this%genre)
        stop "Error: unknown observation genre"
@@ -370,7 +389,7 @@ contains
        endif
        this%n_bins = nz
        do iz = 1, nz
-          z(iz) = lr%element(iz)
+          z(i) = lr%element(iz)
        enddo
        call lr%free()
        call coop_dictionary_lookup(this%settings, "kmin", lr)
@@ -501,42 +520,66 @@ contains
        enddo
        deallocate(kmin, kmax, nobs, dz, mu, k,dk,z)
     case("CMB_TE","CMB_T", "CMB_E", "CMB_B")
-       call coop_dictionary_lookup(this%settings, "lmin", lmin, 2)
-       if(lmin .lt. 2) then
-          write(*,*) "Error in data file "//trim(this%filename)//": lmin must be >= 0"
+       call coop_dictionary_lookup(this%settings,"tSZ_template", tSZ_template,"")  
+       if(trim(tSZ_template) .ne. "")then
+          write(*,*) "reading SZ template "//trim(coop_file_path_of(this%filename))//trim(tSZ_template)
+          call fpsz%open(trim(coop_file_path_of(this%filename))//trim(tSZ_template))
+          read(fpsz%unit, *) tSZ_template_freq, lmin_tsz, lmax_tsz
+          allocate(cl_tsz(lmin_tsz:lmax_tsz))
+          do l = lmin_tsz, lmax_tsz
+             read(fpsz%unit, *) junk, cl_tsz(l)
+             cl_tsz(l) = cl_tsz(l)*(coop_2pi/l/(l+1.d0))/(COOP_DEFAULT_TCMB*1.e6)**2  !!convert to delta T/T power
+             if(junk .ne. l)then
+                write(*,*) trim(tsz_template)
+                stop "tsz template file broken"
+             endif
+          enddo
+       else
+          lmax_tsz = -1
+          lmin_tsz = 100000
+       endif
+       call coop_dictionary_lookup(this%settings, "lmin", this%lmin, 2)
+       call coop_dictionary_lookup(this%settings, "lmin_pol", this%lmin_pol, this%lmin)
+       if(this%lmin .lt. 2 .or. this%lmin_pol .lt. 2) then
+          write(*,*) "Error in data file "//trim(this%filename)//": lmin and lmin_pol must be >= 2"
           stop
        endif
-       call coop_dictionary_lookup(this%settings, "lmax", lmax)
-       coop_Cls_lmax(0) = max(lmax, coop_Cls_lmax(0))
-       if(lmax-lmin+1 .ne. this%n_obs)then
-          write(*,*) "Error in data file "//trim(this%filename)//": lmax - lmin + 1 does not equal to n_obs"
+       call coop_dictionary_lookup(this%settings, "lmax", this%lmax)
+       call coop_dictionary_lookup(this%settings, "lmax_pol", this%lmax_pol, this%lmax)
+       coop_Cls_lmax(0) = max(this%lmax, this%lmax_pol, coop_Cls_lmax(0))
+       if(max(this%lmax, this%lmax_pol)-min(this%lmin, this%lmin_pol)+1 .ne. this%n_obs)then
+          write(*,*) "Error in data file "//trim(this%filename)//": max(lmax, lmax_pol) - min(lmin, lmin_pol) + 1 does not equal to n_obs"
           stop
        endif
        call coop_dictionary_lookup(this%settings,"fsky", fsky)
        call coop_dictionary_lookup(this%settings,"fsky_pol", fsky_pol)
-       call coop_dictionary_lookup(this%settings,"foreground_residual", Fg_r)  
+       call coop_dictionary_lookup(this%settings,"foreground_dust_residual", Fg_dust_r)  
        !!from 0 to 1
-       if(fg_r .lt. 0.d0 .or. fg_r .gt. 1.d0)then
+       if(fg_dust_r .lt. 0.d0 .or. fg_dust_r .gt. 1.d0)then
           write(*,*) "Error in data file "//trim(this%filename)
-          write(*,*) "foreground_residual must be between 0 and 1"
+          write(*,*) "foreground_dust_residual must be between 0 and 1"
           stop
        endif
        !!dust foreground,  default values from arxiv: 1409.5738
-       call coop_dictionary_lookup(this%settings,"foreground_amp80", Fg_A, 100.d0)  !!at 353GHz and l = 80, this depends on the region and fsky, for BICEP2 it is about 13.4; here I use a rough number with fsky = 0.7
+       call coop_dictionary_lookup(this%settings,"foreground_amp80", Fg_dust_A, 100.d0)  !!at 353GHz and l = 80, this depends on the region and fsky, for BICEP2 it is about 13.4; here I use a rough number with fsky = 0.7
       
-       call coop_dictionary_lookup(this%settings,"foreground_l_slope", fg_alpha, -2.42d0)  !!l dependence
-       call coop_dictionary_lookup(this%settings,"foreground_freq_slope", fg_beta, 1.59d0)  !!frequency dependence
-       fg_beta  = fg_beta + 3.d0  !!nu^3 from Blackbody
-       call coop_dictionary_lookup(this%settings,"foreground_T353", fg_T,  19.6d0)
+       call coop_dictionary_lookup(this%settings,"foreground_l_slope", fg_dust_alpha, -2.42d0)  !!l dependence
+       call coop_dictionary_lookup(this%settings,"foreground_freq_slope", fg_dust_beta, 1.59d0)  !!frequency dependence
+       fg_dust_beta  = fg_dust_beta + 3.d0  !!nu^3 from Blackbody
+       call coop_dictionary_lookup(this%settings,"foreground_T353", fg_dust_T,  19.6d0)
        call coop_dictionary_lookup(this%settings,"n_channels", n_channels)
        allocate(beam_fwhm(n_channels), sigmaT(n_channels), sigmapol(n_channels), freq(n_channels))
-       
+
+       tsz_factor = 0.d0
        do i=1, n_channels
           call coop_dictionary_lookup(this%settings,"beam_fwhm_channel"//COOP_STR_OF(i), beam_fwhm(i))
           call coop_dictionary_lookup(this%settings,"frequency_channel"//COOP_STR_OF(i), freq(i))
+          tsz_factor = tsz_factor + coop_SZ_frequency_factor(tSZ_template_freq)**2/max(coop_SZ_frequency_factor(freq(i))**2, 1.d-99)
           call coop_dictionary_lookup(this%settings,"i_sensitivity_channel"//COOP_STR_OF(i), sigmaT(i))
           call coop_dictionary_lookup(this%settings,"pol_sensitivity_channel"//COOP_STR_OF(i), sigmapol(i))
        enddo
+       tsz_factor = 1.d0/tsz_factor
+
        call coop_dictionary_lookup(this%settings,"obs_yr", obs_yr)
 
        beam_fwhm = beam_fwhm*coop_SI_arcmin
@@ -544,19 +587,37 @@ contains
        T353 = 353.d0*(1.d9*coop_SI_h/coop_SI_kB)
        sigmaT = sigmaT*1.d-6/COOP_DEFAULT_TCMB/sqrt(obs_yr*3600.*24.*365.2425)
        sigmapol = sigmapol*1.d-6/COOP_DEFAULT_TCMB/sqrt(obs_yr*3600.*24.*365.2425)
-       fg_A = fg_A*coop_2pi/80.d0/81.d0 * fg_r/(1.d6*COOP_DEFAULT_TCMB)**2/(T353**fg_beta/(exp(T353/fg_T)-1.d0))**2/80.d0**fg_alpha
+       fg_dust_A = fg_dust_A*coop_2pi/80.d0/81.d0 * fg_dust_r/(1.d6*COOP_DEFAULT_TCMB)**2/(T353**fg_dust_beta/(exp(T353/fg_dust_T)-1.d0))**2/80.d0**fg_dust_alpha
+
        i = 0
-       do l = lmin, lmax
+       do l = min(this%lmin, this%lmin_pol), max(this%lmax, this%lmax_pol)
           i = i +1
-          Fl =  fg_A*dble(l)**fg_alpha/sum(((exp(freq/fg_T)-1.d0)/freq**fg_beta)**2)
-          Nl_T = 1.d0/max(sum(exp(-l*(l+1.d0)*(beam_fwhm*coop_sigma_by_fwhm)**2)/sigmaT**2), 1.d-99) + Fl
-          Nl_pol = 1.d0/max(sum(exp(-l*(l+1.d0)*(beam_fwhm*coop_sigma_by_fwhm)**2)/sigmapol**2) , 1.d-99) + Fl
+          Cl_dust_residual =  fg_dust_A*dble(l)**fg_dust_alpha/sum(((exp(freq/fg_dust_T)-1.d0)/freq**fg_dust_beta)**2)
+          Nl_T = 1.d0/max(sum(exp(-l*(l+1.d0)*(beam_fwhm*coop_sigma_by_fwhm)**2)/sigmaT**2), 1.d-99) + Cl_dust_residual
+          Nl_pol = 1.d0/max(sum(exp(-l*(l+1.d0)*(beam_fwhm*coop_sigma_by_fwhm)**2)/sigmapol**2) , 1.d-99) + Cl_dust_residual
           this%nuis(1, i) = dble(l)
           this%nuis(2, i) =  fsky
-          this%nuis(3, i) = Nl_T
-          this%nuis(4, i) = Nl_pol
+          if(l .ge. this%lmin .and. l .le. this%lmax)then
+             this%nuis(3, i) = Nl_T
+          else
+             this%nuis(3, i) = Nl_infinity
+          endif
+          if(l .ge. this%lmin_pol .and. l .le. this%lmax_pol)then
+             this%nuis(4, i) = Nl_pol
+          else
+             this%nuis(4, i) = Nl_infinity
+          endif
+          if(l .ge. lmin_tsz .and. l.le.lmax_tsz)then
+             this%nuis(5, i) = cl_tsz(l)*tsz_factor
+          else
+             this%nuis(5, i) = 0.d0
+          endif
        enddo
        deallocate(beam_fwhm, sigmaT, sigmapol, freq)
+       if(trim(tsz_template).ne."")then
+          deallocate(cl_tsz)
+          call fpsz%close()
+       endif
     case default
        write(*,*) trim(this%genre)
        stop "Error: unknown observation genre"
@@ -585,6 +646,10 @@ contains
     this%name = ""
     this%filename = ""
     this%h_calibrate = 0.7d0
+    this%lmin = 0
+    this%lmax = -1
+    this%lmin_pol = 0
+    this%lmax_pol = -1
   end subroutine coop_observation_free
 
 
@@ -1030,7 +1095,18 @@ contains
        call coop_source_kop2k_noindex(kop(i), weight, k(i))
        dk(i) = dkop*k(i)*kl/(k(i)+kl)
     enddo
-    
   end subroutine coop_lss_k_sampling
+
+  !!Delta T^{SZ} (nu) \propto f(h nu /k_B T_CMB) 
+  function coop_SZ_frequency_factor(freq_GHz) result(fnu)
+    COOP_REAL::Freq_GHz, fnu, xnu
+    COOP_REAL::Freq_piv = 1.d-9*coop_SI_kB/coop_SI_h !!=20.83664   
+    xnu = Freq_GHz/Freq_piv/COOP_DEFAULT_TCMB
+    if(xnu .gt. 0.01d0)then
+       fnu =2.d0- (xnu/2.d0/tanh(xnu/2.d0))
+    else
+       fnu = 1.d0-xnu**2/12.d0*(1.d0-xnu**2/60.d0*(1.d0-xnu**2/42.d0))
+    endif
+  end function coop_SZ_frequency_factor
 
 end module coop_fisher_mod
