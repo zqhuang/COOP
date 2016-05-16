@@ -243,18 +243,27 @@ contains
           this%obs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata) + this%nuis(5, idata)  !!Cl + Cl^SZ + Nl_TT
           this%obs(2, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClEE, l) + this%nuis(4, idata)   !!Cl + Nl_EE
           this%obs(3, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTE, l)
-          this%invcov(1,1,idata) = 2.d0*this%obs(1, idata)**2/this%nuis(1, idata)
-          this%invcov(2,2,idata) = 2.d0*this%obs(2, idata)**2/this%nuis(2, idata) 
-          this%invcov(3,3,idata) = (this%obs(1, idata)*this%obs(2, idata)+this%obs(3, idata)**2)/min(this%nuis(1, idata),this%nuis(2, idata))
-          this%invcov(1,2,idata) = 2.d0*this%obs(3, idata)**2/min(this%nuis(1, idata),this%nuis(2, idata))
+          this%invcov(1,1,idata) = 2.d0*this%obs(1, idata)**2
+          this%invcov(2,2,idata) = 2.d0*this%obs(2, idata)**2
+          this%invcov(3,3,idata) = (this%obs(1, idata)*this%obs(2, idata)+this%obs(3, idata)**2)
+          this%invcov(1,2,idata) = 2.d0*this%obs(3, idata)**2
           this%invcov(2,1,idata) = this%invcov(1,2,idata)
-          this%invcov(1,3,idata) = 2.d0*this%obs(1, idata)*this%obs(3,idata)/min(this%nuis(1, idata),this%nuis(2, idata))
+          this%invcov(1,3,idata) = 2.d0*this%obs(1, idata)*this%obs(3,idata)
           this%invcov(3,1,idata) = this%invcov(1,3,idata)
-          this%invcov(2,3,idata) = 2.d0*this%obs(2, idata)*this%obs(3,idata)/min(this%nuis(1, idata),this%nuis(2, idata))
+          this%invcov(2,3,idata) = 2.d0*this%obs(2, idata)*this%obs(3,idata)
           this%invcov(3,2,idata) = this%invcov(2,3,idata)
           this%invcov(:,:,idata) = this%invcov(:,:,idata)*(dble(l)**4*1.d24)
           call coop_sympos_inverse(3,3,this%invcov(:,:,idata))
           this%invcov(:,:,idata) = this%invcov(:,:,idata)*((2.d0*l+1.d0)*(dble(l)**4*1.d24))
+          this%invcov(1, 1, idata) = this%invcov(1, 1, idata)*this%nuis(1, idata)
+          this%invcov(2, 2, idata) = this%invcov(2, 2, idata)*this%nuis(2, idata)
+          this%invcov(3, 3, idata) = this%invcov(3, 3, idata)*this%nuis(2, idata)
+          this%invcov(1, 2, idata) = this%invcov(1, 2, idata)*min(this%nuis(2, idata), this%nuis(1, idata))
+          this%invcov(1, 3, idata) = this%invcov(1, 3, idata)*min(this%nuis(2, idata), this%nuis(1, idata))          
+          this%invcov(2, 3, idata) = this%invcov(2, 3, idata)*min(this%nuis(2, idata), this%nuis(1, idata))
+          this%invcov(2, 1, idata) = this%invcov(1, 2, idata)          
+          this%invcov(3, 1, idata) = this%invcov(1, 3, idata)          
+          this%invcov(3, 2, idata) = this%invcov(2, 3, idata)          
        enddo
     case("CMB_T")
        do idata = 1, this%n_obs
