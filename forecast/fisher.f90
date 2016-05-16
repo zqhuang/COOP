@@ -121,7 +121,7 @@ contains
        call paramtable%lookup("cmb_A_tSZ", cmb_A_tSZ, 1.d0)
 
        do idata = 1, this%n_obs
-          l = nint(this%nuis(1, idata))
+          l = idata - 1 + min(this%lmin, this%lmin_pol)
           dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata)*cmb_A_noise*(l/coop_fisher_cmb_l_pivot)**cmb_n_noise + this%nuis(5, idata)*cmb_A_tSZ - this%obs(1, idata)
           dobs(2, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClEE, l) + this%nuis(4, idata)*cmb_A_noise_pol*(l/coop_fisher_cmb_l_pivot)**cmb_n_noise_pol - this%obs(2, idata)
           dobs(3, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTE, l) - this%obs(3, idata)
@@ -131,21 +131,21 @@ contains
        call paramtable%lookup("cmb_A_noise", cmb_A_noise, 1.d0)
        call paramtable%lookup("cmb_n_noise", cmb_n_noise, 0.d0)
        do idata = 1, this%n_obs
-          l = nint(this%nuis(1, idata))
+          l = idata - 1 + min(this%lmin, this%lmin_pol)
           dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata)*cmb_A_noise*(l/coop_fisher_cmb_l_pivot)**cmb_n_noise + this%nuis(5, idata)*cmb_A_tSZ - this%obs(1, idata)
        enddo
     case("CMB_E")
        call paramtable%lookup("cmb_A_noise_pol", cmb_A_noise, 1.d0)
        call paramtable%lookup("cmb_n_noise_pol", cmb_n_noise, 0.d0)
        do idata = 1, this%n_obs
-          l = nint(this%nuis(1, idata))
+          l = idata - 1 + min(this%lmin, this%lmin_pol)
           dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClEE, l) + this%nuis(4, idata)**cmb_A_noise_pol*(l/coop_fisher_cmb_l_pivot)**cmb_n_noise_pol - this%obs(1, idata)
        enddo
     case("CMB_B")
        call paramtable%lookup("cmb_A_noise_pol", cmb_A_noise, 1.d0)
        call paramtable%lookup("cmb_n_noise_pol", cmb_n_noise, 0.d0)
        do idata = 1, this%n_obs
-          l = nint(this%nuis(1, idata))
+          l = idata - 1 + min(this%lmin, this%lmin_pol)
           dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClBB, l) + this%nuis(4, idata)**cmb_A_noise_pol*(l/coop_fisher_cmb_l_pivot)**cmb_n_noise_pol - this%obs(1, idata)
        enddo
     case default
@@ -239,39 +239,39 @@ contains
        deallocate(b0, b2)
     case("CMB_TE")
        do idata = 1, this%n_obs
-          l = nint(this%nuis(1, idata))
+          l = idata - 1 + min(this%lmin, this%lmin_pol) !          l = nint(this%nuis(1, idata))
           this%obs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata) + this%nuis(5, idata)  !!Cl + Cl^SZ + Nl_TT
           this%obs(2, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClEE, l) + this%nuis(4, idata)   !!Cl + Nl_EE
 !          if(mod(l, 100).eq.0)write(*,*) l, this%nuis(3, idata)/this%obs(1, idata), this%nuis(4, idata)/this%obs(2, idata)
           this%obs(3, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTE, l)
-          this%invcov(1,1,idata) = 2.d0*this%obs(1, idata)**2
-          this%invcov(2,2,idata) = 2.d0*this%obs(2, idata)**2
-          this%invcov(3,3,idata) = this%obs(1, idata)*this%obs(2, idata)+this%obs(3, idata)**2
-          this%invcov(1,2,idata) = 2.d0*this%obs(3, idata)**2
+          this%invcov(1,1,idata) = 2.d0*this%obs(1, idata)**2/this%nuis(1, idata)
+          this%invcov(2,2,idata) = 2.d0*this%obs(2, idata)**2/this%nuis(2, idata) 
+          this%invcov(3,3,idata) = (this%obs(1, idata)*this%obs(2, idata)+this%obs(3, idata)**2)/min(this%nuis(1, idata),this%nuis(2, idata))
+          this%invcov(1,2,idata) = 2.d0*this%obs(3, idata)**2/min(this%nuis(1, idata),this%nuis(2, idata))
           this%invcov(2,1,idata) = this%invcov(1,2,idata)
-          this%invcov(1,3,idata) = 2.d0*this%obs(1, idata)*this%obs(3,idata)
+          this%invcov(1,3,idata) = 2.d0*this%obs(1, idata)*this%obs(3,idata)/min(this%nuis(1, idata),this%nuis(2, idata))
           this%invcov(3,1,idata) = this%invcov(1,3,idata)
-          this%invcov(2,3,idata) = 2.d0*this%obs(2, idata)*this%obs(3,idata)
+          this%invcov(2,3,idata) = 2.d0*this%obs(2, idata)*this%obs(3,idata)/min(this%nuis(1, idata),this%nuis(2, idata))
           this%invcov(3,2,idata) = this%invcov(2,3,idata)
           this%invcov(:,:,idata) = this%invcov(:,:,idata)*(dble(l)**4*1.d24)
           call coop_sympos_inverse(3,3,this%invcov(:,:,idata))
-          this%invcov(:,:,idata) = this%invcov(:,:,idata)*((2.d0*l+1.d0)*this%nuis(2, idata)*(dble(l)**4*1.d24))
+          this%invcov(:,:,idata) = this%invcov(:,:,idata)*((2.d0*l+1.d0)*(dble(l)**4*1.d24))
        enddo
     case("CMB_T")
        do idata = 1, this%n_obs
-          l = nint(this%nuis(1, idata))
+          l = idata - 1 + min(this%lmin, this%lmin_pol) 
           this%obs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata) + this%nuis(5, idata)
-          this%invcov(1,1,idata) = this%nuis(2, idata)*(this%nuis(1, idata)+0.5d0)/this%obs(1, idata)**2
+          this%invcov(1,1,idata) = this%nuis(1, idata)*(this%nuis(1, idata)+0.5d0)/this%obs(1, idata)**2
        enddo
     case("CMB_E")
        do idata = 1, this%n_obs
-          l = nint(this%nuis(1, idata))
+          l = idata - 1 + min(this%lmin, this%lmin_pol) 
           this%obs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClEE, l) + this%nuis(4, idata)
           this%invcov(1,1,idata) = this%nuis(2, idata)*(this%nuis(1, idata)+0.5d0)/this%obs(1, idata)**2
        enddo
     case("CMB_B")
        do idata = 1, this%n_obs
-          l = nint(this%nuis(1, idata))
+          l = idata - 1 + min(this%lmin, this%lmin_pol) 
           this%obs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClBB, l) + this%nuis(4, idata)
           this%invcov(1,1,idata) = this%nuis(2, idata)*(this%nuis(1, idata)+0.5d0)/this%obs(1, idata)**2
        enddo
@@ -321,11 +321,11 @@ contains
     case("CMB_TE")
        this%init_level = coop_init_level_set_Cls
        this%dim_obs = 3 !!TT, TE, EE
-       this%dim_nuis = 5 !! l, fsky, N_l(TT), N_l(EE), Cl_tSZ(TT)
+       this%dim_nuis = 5 !! fsky, fsky_pol, N_l(TT), N_l(EE), Cl_tSZ(TT)
     case("CMB_T", "CMB_E", "CMB_B")
        this%init_level = coop_init_level_set_Cls
        this%dim_obs = 1
-       this%dim_nuis = 5 !!l, fsky, N_l(TT), N_l(EE), Cl_tSZ(TT)
+       this%dim_nuis = 5 !!l, fsky, fsky_pol, N_l(TT), N_l(EE), Cl_tSZ(TT)
     case default
        write(*,*) trim(this%genre)
        stop "Error: unknown observation genre"
@@ -552,7 +552,7 @@ contains
           stop
        endif
        call coop_dictionary_lookup(this%settings,"fsky", fsky)
-       call coop_dictionary_lookup(this%settings,"fsky_pol", fsky_pol)
+       call coop_dictionary_lookup(this%settings,"fsky_pol", fsky_pol, fsky)
        call coop_dictionary_lookup(this%settings,"foreground_dust_residual", Fg_dust_r)  
        !!from 0 to 1
        if(fg_dust_r .lt. 0.d0 .or. fg_dust_r .gt. 1.d0)then
@@ -595,8 +595,8 @@ contains
           Cl_dust_residual =  fg_dust_A*dble(l)**fg_dust_alpha/sum(((exp(freq/fg_dust_T)-1.d0)/freq**fg_dust_beta)**2)
           Nl_T = 1.d0/max(sum(exp(-l*(l+1.d0)*(beam_fwhm*coop_sigma_by_fwhm)**2)/sigmaT**2), 1.d-99) + Cl_dust_residual
           Nl_pol = 1.d0/max(sum(exp(-l*(l+1.d0)*(beam_fwhm*coop_sigma_by_fwhm)**2)/sigmapol**2) , 1.d-99) + Cl_dust_residual
-          this%nuis(1, i) = dble(l)
-          this%nuis(2, i) =  fsky
+          this%nuis(1, i) = fsky
+          this%nuis(2, i) =  fsky_pol
           if(l .ge. this%lmin .and. l .le. this%lmax)then
              this%nuis(3, i) = Nl_T
           else
