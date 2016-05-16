@@ -239,10 +239,9 @@ contains
        deallocate(b0, b2)
     case("CMB_TE")
        do idata = 1, this%n_obs
-          l = idata - 1 + min(this%lmin, this%lmin_pol) !          l = nint(this%nuis(1, idata))
+          l = idata - 1 + min(this%lmin, this%lmin_pol) 
           this%obs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata) + this%nuis(5, idata)  !!Cl + Cl^SZ + Nl_TT
           this%obs(2, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClEE, l) + this%nuis(4, idata)   !!Cl + Nl_EE
-!          if(mod(l, 100).eq.0)write(*,*) l, this%nuis(3, idata)/this%obs(1, idata), this%nuis(4, idata)/this%obs(2, idata)
           this%obs(3, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTE, l)
           this%invcov(1,1,idata) = 2.d0*this%obs(1, idata)**2/this%nuis(1, idata)
           this%invcov(2,2,idata) = 2.d0*this%obs(2, idata)**2/this%nuis(2, idata) 
@@ -261,19 +260,20 @@ contains
        do idata = 1, this%n_obs
           l = idata - 1 + min(this%lmin, this%lmin_pol) 
           this%obs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata) + this%nuis(5, idata)
-          this%invcov(1,1,idata) = this%nuis(1, idata)*(this%nuis(1, idata)+0.5d0)/this%obs(1, idata)**2
+          this%invcov(1,1,idata) = this%nuis(1, idata)*(l+0.5d0)/this%obs(1, idata)**2
+!          if(mod(l, 10).eq.0)print*, l, this%nuis(1, idata), cosmology%source(0)%Cls_lensed(coop_index_ClTT, l), this%nuis(3, idata), this%nuis(5, idata)
        enddo
     case("CMB_E")
        do idata = 1, this%n_obs
           l = idata - 1 + min(this%lmin, this%lmin_pol) 
           this%obs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClEE, l) + this%nuis(4, idata)
-          this%invcov(1,1,idata) = this%nuis(2, idata)*(this%nuis(1, idata)+0.5d0)/this%obs(1, idata)**2
+          this%invcov(1,1,idata) = this%nuis(2, idata)*(l+0.5d0)/this%obs(1, idata)**2
        enddo
     case("CMB_B")
        do idata = 1, this%n_obs
           l = idata - 1 + min(this%lmin, this%lmin_pol) 
           this%obs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClBB, l) + this%nuis(4, idata)
-          this%invcov(1,1,idata) = this%nuis(2, idata)*(this%nuis(1, idata)+0.5d0)/this%obs(1, idata)**2
+          this%invcov(1,1,idata) = this%nuis(2, idata)*(l+0.5d0)/this%obs(1, idata)**2
        enddo
     case default
        write(*,*) trim(this%genre)
