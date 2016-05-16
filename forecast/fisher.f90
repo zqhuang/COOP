@@ -116,8 +116,8 @@ contains
     case("CMB_TE")
        call paramtable%lookup("cmb_A_noise", cmb_A_noise, 1.d0)
        call paramtable%lookup("cmb_n_noise", cmb_n_noise, 0.d0)
-       call paramtable%lookup("cmb_A_noise_pol", cmb_A_noise, 1.d0)
-       call paramtable%lookup("cmb_n_noise_pol", cmb_n_noise, 0.d0)
+       call paramtable%lookup("cmb_A_noise_pol", cmb_A_noise_pol, 1.d0)
+       call paramtable%lookup("cmb_n_noise_pol", cmb_n_noise_pol, 0.d0)
        call paramtable%lookup("cmb_A_tSZ", cmb_A_tSZ, 1.d0)
 
        do idata = 1, this%n_obs
@@ -135,15 +135,15 @@ contains
           dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata)*cmb_A_noise*(l/coop_fisher_cmb_l_pivot)**cmb_n_noise + this%nuis(5, idata)*cmb_A_tSZ - this%obs(1, idata)
        enddo
     case("CMB_E")
-       call paramtable%lookup("cmb_A_noise_pol", cmb_A_noise, 1.d0)
-       call paramtable%lookup("cmb_n_noise_pol", cmb_n_noise, 0.d0)
+       call paramtable%lookup("cmb_A_noise_pol", cmb_A_noise_pol, 1.d0)
+       call paramtable%lookup("cmb_n_noise_pol", cmb_n_noise_pol, 0.d0)
        do idata = 1, this%n_obs
           l = idata - 1 + min(this%lmin, this%lmin_pol)
           dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClEE, l) + this%nuis(4, idata)**cmb_A_noise_pol*(l/coop_fisher_cmb_l_pivot)**cmb_n_noise_pol - this%obs(1, idata)
        enddo
     case("CMB_B")
-       call paramtable%lookup("cmb_A_noise_pol", cmb_A_noise, 1.d0)
-       call paramtable%lookup("cmb_n_noise_pol", cmb_n_noise, 0.d0)
+       call paramtable%lookup("cmb_A_noise_pol", cmb_A_noise_pol, 1.d0)
+       call paramtable%lookup("cmb_n_noise_pol", cmb_n_noise_pol, 0.d0)
        do idata = 1, this%n_obs
           l = idata - 1 + min(this%lmin, this%lmin_pol)
           dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClBB, l) + this%nuis(4, idata)**cmb_A_noise_pol*(l/coop_fisher_cmb_l_pivot)**cmb_n_noise_pol - this%obs(1, idata)
