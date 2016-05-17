@@ -398,7 +398,7 @@ contains
        endif
        this%n_bins = nz
        do iz = 1, nz
-          z(i) = lr%element(iz)
+          z(iz) = lr%element(iz)
        enddo
        call lr%free()
        call coop_dictionary_lookup(this%settings, "kmin", lr)
