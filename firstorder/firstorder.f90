@@ -1134,7 +1134,7 @@ contains
     class(coop_cosmology_firstorder)::this
     COOP_REAL::z, Dz
     COOP_REAL, optional::k
-    COOP_REAL,parameter::a_ref = 0.03 !!matter dominate
+    COOP_REAL,parameter::a_ref = 0.03d0 !!matter dominate
     COOP_REAL::k_ref(1), delta(1), delta_ref(1), tau, tau_ref
     if(present(k))then
        k_ref = k
