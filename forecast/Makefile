@@ -44,7 +44,7 @@ STD6:	teststd6.o $(OBJ)
 
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~  FISHER MCMC Test STD6 DOSN PRINTCLIK
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~  FISHER MCMC Test PRINTCLIK PLOTF
 
 runmcmc.o: $(OBJ)
 mcmc.o: cliklike.o bao.o wl.o SNlike_JLA.o HSTlike.o
