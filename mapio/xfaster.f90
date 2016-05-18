@@ -4,10 +4,12 @@ program coop_Xfaster
   use coop_sphere_mod
   use coop_healpix_mod
   use coop_fitsio_mod
+#if HAS_CFITSIO
   use head_fits
   use fitstools
   use pix_tools
   use alm_tools
+#endif
   implicit none
 #include "constants.h"
 #define QB_IND(ib, icross, icl) (((ib-1)*numcross + icross - 1 )*numcls + icl)
