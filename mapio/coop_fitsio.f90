@@ -1314,6 +1314,7 @@ contains
    COOP_UNKNOWN_STRING::filename, genre
    COOP_UNKNOWN_STRING,optional::unit
    COOP_STRING::genre_saved
+#if HAS_CFITSIO
    if(size(cls,1).ne.lmax-lmin+1) stop "fits_file_load_cls: Size of Cls does not agree with lmin, lmax inputs"
    call fp%open_table(filename)
    call coop_dictionary_lookup(fp%header, "LMIN", llmin)
@@ -1357,6 +1358,7 @@ contains
       enddo
    enddo
    call fp%close()
+#endif
   end subroutine coop_fits_file_load_cls
 
   subroutine coop_fits_file_write_cls(lmin, lmax, cls, filename, genre, spin, unit)
@@ -1367,6 +1369,7 @@ contains
     COOP_UNKNOWN_STRING::filename
     COOP_UNKNOWN_STRING, optional::unit
     COOP_UNKNOWN_STRING::genre
+#if HAS_CFITSIO
     if(size(cls, 1) .ne. lmax-lmin+1) stop "fits_file_write_cls: Size of Cls does not agree with lmin, lmax inputs"
     call header%init()
     call header%insert("LMIN", COOP_STR_OF(lmin))
@@ -1402,21 +1405,26 @@ contains
     enddo
     call coop_fits_file_write_binary_table(cls, filename, header)
     call header%free()
+#endif
   end subroutine coop_fits_file_write_cls
 
 
   subroutine coop_fits_file_create_hdu(this)
     class(coop_fits_file)::this
+#if HAS_CFITSIO
     call ftcrhd(this%unit, this%status)
     call ftthdu(this%unit, this%nhdus, this%status)
     call ftghdn(this%unit, this%chdu)
+#endif
   end subroutine coop_fits_file_create_hdu
 
   subroutine coop_fits_file_update_hdu_info(this)
     class(coop_fits_file)::this
+#if HAS_CFITSIO
     call ftthdu(this%unit, this%nhdus, this%status)
     call ftghdn(this%unit, this%chdu)
     call ftghdt(this%unit, this%hdutype, this%status)
+#endif
   end subroutine coop_fits_file_update_hdu_info
 
   subroutine coop_fits_file_write_binary_table_d(table, filename, header)
@@ -1801,12 +1809,14 @@ contains
     class(coop_fits_file)::this
     COOP_INT::nrows, tfields, varidat
     COOP_SHORT_STRING::ttype(tfields), tform(tfields), tunit(tfields), extname
+#if HAS_CFITSIO
     varidat = 0
     extname = "COOP_BINARY_TABLE"
     call ftibin(this%unit, nrows, tfields, ttype, tform, tunit, extname, varidat, this%status)
     call this%update_hdu_info()
     call this%load_header()
     call this%check_error()
+#endif
   end subroutine coop_fits_file_create_binary_table
 
 
@@ -1816,10 +1826,12 @@ contains
     COOP_INT::tbcol(tfields)
     COOP_SHORT_STRING::ttype(tfields), tform(tfields), tunit(tfields), extname
     extname = "COOP_ASCII_TABLE"
+#if HAS_CFITSIO
     call ftitab(this%unit, rowlen, nrows, tfields, ttype, tbcol, tform, tunit, extname, this%status)
     call this%update_hdu_info()
     call this%load_header()
     call this%check_error()
+#endif
   end subroutine coop_fits_file_create_ascii_table
 
 
@@ -1828,10 +1840,12 @@ contains
     class(coop_fits_file)::this
     COOP_INT::bitpix, naxis
     COOP_INT::naxes(naxis)
+#if HAS_CFITSIO
     call ftiimg(this%unit, bitpix, naxis, naxes, this%status)
     call this%update_hdu_info()
     call this%load_header()
     call this%check_error()
+#endif
   end subroutine coop_fits_file_create_image
 
   subroutine coop_fits_file_write_image_2d(image, filename, header)
