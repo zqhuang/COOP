@@ -2011,6 +2011,7 @@ contains
     COOP_INT:: i, nmaps_actual
     COOP_INT, optional::nmaps_wanted
     COOP_SINGLE,dimension(:),allocatable::data
+#if HAS_HEALPIX
     call this%free()
     call fp%open_table(filename)
     this%header = fp%header
@@ -2096,6 +2097,7 @@ contains
     endif
 
     call fp%close()
+#endif
   end subroutine coop_healpix_maps_read_simple
 
 
