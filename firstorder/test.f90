@@ -17,6 +17,7 @@ program test
   if(.not. success) stop "initialization failed"
   call cosmology%compute_source(0, success)
   do 
+     write(*,*) "enter z, dz"
      read(*, *) z, dz
      write(*,*) kmin(z, dz), kmax(z), cosmology%Hasq(1.d0/(1.d0+z))*(1.d0+z)*cosmology%H0Mpc()*(coop_SI_c/4.d5)/cosmology%h()
   enddo
