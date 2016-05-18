@@ -5,8 +5,9 @@ program test
   type(coop_cosmology_firstorder)::cosmology
   type(coop_real_table)::paramtable
   logical success
-  COOP_REAL::fsky = 0.558
-  COOP_REAL:: z, dz, k
+  COOP_REAL::fsky
+  COOP_INT::nz, i
+  COOP_REAL:: z(100), dz(100), k_min(100), k_max(100)
   call paramtable%insert("ombh2", 0.022d0)
   call paramtable%insert("omch2", 0.12d0)
   call paramtable%insert("h", 0.67d0)
@@ -16,10 +17,22 @@ program test
   call cosmology%set_up(paramtable, success)
   if(.not. success) stop "initialization failed"
   call cosmology%compute_source(0, success)
-  do 
-     write(*,*) "enter z, dz"
-     read(*, *) z, dz
-     write(*,*) kmin(z, dz), kmax(z), cosmology%Hasq(1.d0/(1.d0+z))*(1.d0+z)*cosmology%H0Mpc()*(coop_SI_c/4.d5)/cosmology%h()
+  write(*,*) "enter fsky:"
+  read(*,*) fsky
+  write(*,*) "number of redshifts:"
+  read(*,*) nz
+  write(*,*) "enter z list"
+  read(*,*) z(1:nz)
+  write(*,*) "enter dz list"
+  read(*, *) dz(1:nz)
+  do i = 1, nz
+     k_max(i) = kmax(z(i))
+     k_min(i) = kmin(z(i), dz(i))
+  enddo
+  write(*,'(A, '//COOP_STR_OF(nz)//'G15.6)') 'kmin = ', k_min(1:nz)
+  write(*,'(A, '//COOP_STR_OF(nz)//'F10.6)') 'kmax = ', k_max(1:nz)
+  do i = 1, nz
+     write(*,"(A, G15.6)") "window"//COOP_STR_OF(i)//" = ", sqrt(coop_ln2)/coop_pi*k_min(i)
   enddo
 
 contains
@@ -29,10 +42,10 @@ contains
     V = coop_4pi/3.d0*fsky* (cosmology%comoving_angular_diameter_distance(1.d0/(1.d0+z+dz/2.d0))**3 - cosmology%comoving_angular_diameter_distance(1.d0/(1.d0+z-dz/2.d0))**3) * (3000.)**3
   end function Volume
 
-  function nz(z, dz) 
-    COOP_REAL::z, dz, nz
-    nz = coop_integrate(dndz, z-dz/2.d0, z+dz/2.d0)*(coop_4pi*fsky/coop_SI_arcmin**2) / Volume(z, dz)
-  end function nz
+  function numz(z, dz) 
+    COOP_REAL::z, dz, numz
+    numz = coop_integrate(dndz, z-dz/2.d0, z+dz/2.d0)*(coop_4pi*fsky/coop_SI_arcmin**2) / Volume(z, dz)
+  end function numz
 
   function dndz(z) 
     COOP_REAL::z, dndz
