@@ -5,10 +5,6 @@ program txt2fits
   use coop_sphere_mod
   use coop_healpix_mod
   use coop_fitsio_mod
-  use head_fits
-  use fitstools
-  use pix_tools
-  use alm_tools
   implicit none
 #include "constants.h"
   COOP_STRING::input, input2, output, genre, junk
