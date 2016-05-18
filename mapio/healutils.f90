@@ -6494,9 +6494,9 @@ contains
 
   subroutine coop_healpix_group_connected_pixels(nside, listpix, ngroups, ind_start)
     COOP_INT,intent(IN)::nside
-    COOP_INT,dimension(:),intent(INOUT)::listpix
-    COOP_INT,intent(OUT)::ngroups
-    COOP_INT,dimension(:),intent(OUT)::ind_start
+    COOP_INT,dimension(:)::listpix
+    COOP_INT::ngroups
+    COOP_INT,dimension(:)::ind_start
     COOP_INT::group(0:12*nside**2-1)
     COOP_INT::i, j, k, gr, max_ngroups
     COOP_INT::npix

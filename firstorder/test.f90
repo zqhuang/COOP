@@ -9,17 +9,16 @@ program test
   COOP_REAL:: z, dz, k
   call paramtable%insert("ombh2", 0.022d0)
   call paramtable%insert("omch2", 0.12d0)
-  call paramtable%insert("h", 0.68d0)
+  call paramtable%insert("h", 0.67d0)
   call paramtable%insert("tau", 0.07d0)
-  call paramtable%insert("As", 2.1d-9)
-  call paramtable%insert("ns", 0.967d0)
+  call paramtable%insert("As", 2.15d-9)
+  call paramtable%insert("ns", 0.969d0)
   call cosmology%set_up(paramtable, success)
   if(.not. success) stop "initialization failed"
   call cosmology%compute_source(0, success)
   do 
-     read(*, *) z
-     k = kmax(z)
-     write(*,*) k, cosmology%Hasq(1.d0/(1.d0+z))*(1.d0+z)*cosmology%H0Mpc()*(coop_SI_c/4.d5)/cosmology%h()
+     read(*, *) z, dz
+     write(*,*) kmin(z, dz), kmax(z), cosmology%Hasq(1.d0/(1.d0+z))*(1.d0+z)*cosmology%H0Mpc()*(coop_SI_c/4.d5)/cosmology%h()
   enddo
 
 contains
@@ -38,6 +37,11 @@ contains
     COOP_REAL::z, dndz
     dndz = 640 *z**2*exp(-z/0.35)
   end function dndz
+
+  function kmin(z, dz)
+    COOP_REAL::z, kmin, dz
+    kmin = coop_2pi/(Volume(z, dz)*(3.d0/coop_4pi))**(1.d0/3.d0)
+  end function kmin
 
   function kmax(z)
     COOP_REAL::z, kmax, rlow, rhigh, sigmalow, sigmahigh, sigmamid, rmid
