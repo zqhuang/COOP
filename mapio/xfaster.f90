@@ -695,12 +695,14 @@ contains
           do i = 1, nmaps
              do j = i, nmaps
                 ind = COOP_MATSYM_INDEX(nmaps, i, j)
-                call figure%open(trim(cl_output_root)//"_"//fieldnames(i:i)//fieldnames(j:j)//".txt")
-                call figure%init(xlabel = "$\ell$", ylabel = "$\ell(\ell+1)C_l^{"//fieldnames(i:i)//fieldnames(j:j)//"}/(2\pi)$")
-                call figure%plot(ells, modelcl%cls(lmin_data:lmax_data, ind)*ells*(ells+1.d0)/coop_2pi, color="red", linewidth=2.)
-                call figure%errorbars( x = templatepower%lb(1:num_ell_bins), y = mub(ind:(num_ell_bins-1)*numcls+ind:numcls)*templatepower%Cls(nint(templatepower%lb(1:num_ell_bins)), ind)* (templatepower%lb(1:num_ell_bins)*( templatepower%lb(1:num_ell_bins) + 1.d0)/coop_2pi), dy= abs(errorbars(ind:(num_ell_bins-1)*numcls+ind:numcls)) * templatepower%Cls(nint(templatepower%lb(1:num_ell_bins)), ind)* (templatepower%lb(1:num_ell_bins)*( templatepower%lb(1:num_ell_bins) + 1.d0)/coop_2pi),  color = "gray", center_color="black")
-                
-                call figure%close()
+                if(any(modelcl%cls(lmin_data:lmax_data, ind).ne.0.d0))then
+                   call figure%open(trim(cl_output_root)//"_"//fieldnames(i:i)//fieldnames(j:j)//".txt")
+                   call figure%init(xlabel = "$\ell$", ylabel = "$\ell(\ell+1)C_l^{"//fieldnames(i:i)//fieldnames(j:j)//"}/(2\pi)$")
+                   call figure%plot(ells, modelcl%cls(lmin_data:lmax_data, ind)*ells*(ells+1.d0)/coop_2pi, color="red", linewidth=2.)
+                   call figure%errorbars( x = templatepower%lb(1:num_ell_bins), y = mub(ind:(num_ell_bins-1)*numcls+ind:numcls)*templatepower%Cls(nint(templatepower%lb(1:num_ell_bins)), ind)* (templatepower%lb(1:num_ell_bins)*( templatepower%lb(1:num_ell_bins) + 1.d0)/coop_2pi), dy= abs(errorbars(ind:(num_ell_bins-1)*numcls+ind:numcls)) * templatepower%Cls(nint(templatepower%lb(1:num_ell_bins)), ind)* (templatepower%lb(1:num_ell_bins)*( templatepower%lb(1:num_ell_bins) + 1.d0)/coop_2pi),  color = "gray", center_color="black")
+                   
+                   call figure%close()
+                endif
              enddo
           enddo
           call modelcl%free()

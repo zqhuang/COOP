@@ -49,11 +49,14 @@ contains
     !!set inital vector y = ( x_1, x_2,  x_3,  d x_1/dt, d x_2/dt, d x_3/dt ) at a = a_ini
     class(coop_ellipse_collapse_params)::this
     COOP_REAL,intent(IN)::a_ini
-    COOP_REAL::y(:), D_ini,  dadt_ini
+    COOP_REAL::y(:), D_ini,  dadt_ini, corr(3), suml, suml2
     D_ini = this%Growth_D(a_ini)
     dadt_ini = this%dadt(a_ini)
-    y(1:3) = a_ini *(1.d0-this%lambda*D_ini*(1.d0 + 3.d0/7.d0*this%lambda*D_ini) )   !! to linear order: a_ini *(1.d0-this%lambda*D_ini); here I've added 2nd-order corrections to eliminate percent level errors
-    y(4:6) = y(1:3)*dadt_ini/a_ini - a_ini*(this%lambda*D_ini*this%Growth_H_D(a_ini)*(1.d0 + 6.d0/7.d0*this%lambda*D_ini))  !!also with 2nd-order corrections
+    suml = sum(this%lambda)
+    suml2 = sum(this%lambda**2)
+    corr = (1.2d0*this%lambda*suml + 0.6d0*suml2 + 11.d0/35.d0*(suml**2-suml2)-3.d0*this%lambda**2)/10.d0
+    y(1:3) = a_ini *(1.d0-this%lambda*D_ini - corr*D_ini**2)  !!I add 2nd-order correction to the initial conditions; 
+    y(4:6) = y(1:3)*dadt_ini/a_ini - a_ini*(D_ini*this%Growth_H_D(a_ini)*(this%lambda + 2.d0*corr*D_ini))  !!also with 2nd-order corrections
   end subroutine coop_ellipse_collapse_params_set_initial_conditions
 
   subroutine coop_ellipse_collapse_odes(n, a, y, dyda, params)
@@ -229,7 +232,7 @@ contains
     select type(this)
     type is(coop_ellipse_collapse_params)
        ind = 1
-       a = min(max(1.d-3, 50.d0*coop_ellipse_collapse_accuracy/sum(this%lambda)), a_arr(1)*0.99d0, 0.02d0)
+       a = min(500.d0*coop_ellipse_collapse_accuracy/maxval(abs(this%lambda)), a_arr(1)*0.99d0, 0.03d0)
        call this%set_initial_conditions(a, y)
        do i=1, n
           call coop_dverk_with_ellipse_collapse_params(this%num_ode_vars, coop_ellipse_collapse_odes, this, a, y, a_arr(i), tol, ind, c, this%num_ode_vars, w)
