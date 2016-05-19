@@ -54,9 +54,9 @@ contains
     dadt_ini = this%dadt(a_ini)
     suml = sum(this%lambda)
     suml2 = sum(this%lambda**2)
-    corr = (1.2d0*this%lambda*suml + 0.6d0*suml2 + 11.d0/35.d0*(suml**2-suml2)-3.d0*this%lambda**2)/10.d0
-    y(1:3) = a_ini *(1.d0-this%lambda*D_ini - corr*D_ini**2)  !!I add 2nd-order correction to the initial conditions; 
-    y(4:6) = y(1:3)*dadt_ini/a_ini - a_ini*(D_ini*this%Growth_H_D(a_ini)*(this%lambda + 2.d0*corr*D_ini))  !!also with 2nd-order corrections
+    corr = (1.2d0*this%lambda*suml + 0.6d0*suml2 + 11.d0/35.d0*(suml**2-suml2)-3.d0*this%lambda**2)/10.d0  !!this is for 2nd-order correction of initial conditions; in spherical case corr = 3/7 lambda^2
+    y(1:3) = a_ini *(1.d0-this%lambda*D_ini - corr*D_ini**2)
+    y(4:6) = y(1:3)*dadt_ini/a_ini - a_ini*(D_ini*this%Growth_H_D(a_ini)*(this%lambda + 2.d0*corr*D_ini))  
   end subroutine coop_ellipse_collapse_params_set_initial_conditions
 
   subroutine coop_ellipse_collapse_odes(n, a, y, dyda, params)
@@ -232,7 +232,7 @@ contains
     select type(this)
     type is(coop_ellipse_collapse_params)
        ind = 1
-       a = min(500.d0*coop_ellipse_collapse_accuracy/maxval(abs(this%lambda)), a_arr(1)*0.99d0, 0.03d0)
+       a = min(max(0.005, min(0.05d0, 100.d0*coop_ellipse_collapse_accuracy))/maxval(abs(this%lambda)), a_arr(1)*0.99d0, 0.03d0)
        call this%set_initial_conditions(a, y)
        do i=1, n
           call coop_dverk_with_ellipse_collapse_params(this%num_ode_vars, coop_ellipse_collapse_odes, this, a, y, a_arr(i), tol, ind, c, this%num_ode_vars, w)
