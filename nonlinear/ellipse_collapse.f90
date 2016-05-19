@@ -232,7 +232,7 @@ contains
     select type(this)
     type is(coop_ellipse_collapse_params)
        ind = 1
-       a = min(max(0.005, min(0.05d0, 100.d0*coop_ellipse_collapse_accuracy))/maxval(abs(this%lambda)), a_arr(1)*0.99d0, 0.03d0)
+       a = min(max(0.005d0, min(0.05d0, 100.d0*coop_ellipse_collapse_accuracy))/maxval(abs(this%lambda)), a_arr(1)*0.99d0, 0.03d0)
        call this%set_initial_conditions(a, y)
        do i=1, n
           call coop_dverk_with_ellipse_collapse_params(this%num_ode_vars, coop_ellipse_collapse_odes, this, a, y, a_arr(i), tol, ind, c, this%num_ode_vars, w)
@@ -260,7 +260,7 @@ contains
           zvir1 = -1.d0
           return
        endif
-       a = max(1.d-3, 50.d0*coop_ellipse_collapse_accuracy/Frho)
+       a = min(max(0.005d0, min(0.05d0, 50.d0*coop_ellipse_collapse_accuracy)/maxval(abs(this%lambda))), 0.03d0)
        call this%set_initial_conditions(a, y)
        a_next = 0.1d0/Frho
        call coop_dverk_with_ellipse_collapse_params(this%num_ode_vars, coop_ellipse_collapse_odes, this, a, y, a_next, tol/10.d0, ind, c, this%num_ode_vars, w)
