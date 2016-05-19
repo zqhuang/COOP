@@ -657,10 +657,15 @@ picture make_picture(file inputfile){
 
  real[] read_xyerrors(file fin){
    real t[] = fin.dimension(6);
-   if(t[0]-t[3]<axmin) axmin = t[0] - t[3];
-   if(t[0]+t[2]>axmax) axmax = t[0] + t[2];
-   if(t[1]-t[5]<aymin) aymin = t[1]-t[5];
-   if(t[1]+t[4]>aymax) aymax = t[1]+t[4];
+   real fac = 1.1;
+   if(t[0]-t[3]*fac<axmin) axmin = t[0] - t[3]*fac;
+   if(t[0]-t[3]*fac>axmax) axmax = t[0] - t[3]*fac;
+   if(t[0]+t[2]*fac>axmax) axmax = t[0] + t[2]*fac;
+   if(t[0]+t[2]*fac<axmin) axmin = t[0] + t[2]*fac;
+   if(t[1]-t[5]*fac<aymin) aymin = t[1] - t[5]*fac;
+   if(t[1]-t[5]*fac>aymax) aymax = t[1] - t[5]*fac;
+   if(t[1]+t[4]*fac>aymax) aymax = t[1] + t[4]*fac;
+   if(t[1]+t[4]*fac<aymin) aymin = t[1] + t[4]*fac;
    return t;}
 
 

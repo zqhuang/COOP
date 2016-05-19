@@ -4,12 +4,6 @@ program coop_Xfaster
   use coop_sphere_mod
   use coop_healpix_mod
   use coop_fitsio_mod
-#if HAS_CFITSIO
-  use head_fits
-  use fitstools
-  use pix_tools
-  use alm_tools
-#endif
   implicit none
 #include "constants.h"
 #define QB_IND(ib, icross, icl) (((ib-1)*numcross + icross - 1 )*numcls + icl)
@@ -32,6 +26,7 @@ program coop_Xfaster
   COOP_INT,dimension(:),allocatable::spin
   COOP_REAL,dimension(:),allocatable::qb, mub
   COOP_REAL junk
+  COOP_STRING::fieldnames
 
   if(iargc().lt.1)then
      write(*,*) "Syntax:"
@@ -61,10 +56,13 @@ program coop_Xfaster
   select case(trim(map_genre))
   case("I")
     spin = 0
+    fieldnames = "T"
  case("QU")
     spin = (/ 2, 2 /)
+    fieldnames = "EB"
  case("IQU")
     spin = (/ 0, 2, 2 /)
+    fieldnames = "TEB"
  case default
     write(*,*) "map_genre = "//trim(map_genre)
     stop "XFASTER only supports map_genre = I/QU/IQU"
@@ -116,7 +114,7 @@ program coop_Xfaster
      enddo
   case("DO_MUB")
      do iter = 1, num_iterations
-        call do_mub(iter)  !!compute mu_b's
+        call do_mub(iter, want_plot = (iter .eq. num_iterations))  !!compute mu_b's
      enddo
   case("DO_ALL")
      call do_kernel()
@@ -127,7 +125,7 @@ program coop_Xfaster
         call do_qb(iter)
      enddo
      do iter = 1, num_iterations
-        call do_mub(iter)
+        call do_mub(iter, want_plot = (iter .eq. num_iterations))
      enddo
   case("DO_ALL_BUT_KERNEL")
      call do_noise()
@@ -137,7 +135,7 @@ program coop_Xfaster
         call do_qb(iter)
      enddo
      do iter = 1, num_iterations
-        call do_mub(iter)
+        call do_mub(iter, want_plot = (iter .eq. num_iterations))
      enddo
   case default
      write(*,*) "action  = "//trim(action)
@@ -513,15 +511,17 @@ contains
   end subroutine do_qb
 
 
-  subroutine do_mub(iter)
+  subroutine do_mub(iter, want_plot)
+    logical,optional::want_plot
     COOP_STRING:: kernel_root, data_cl_root, noise_cl_root
     COOP_INT:: l, iter, num_mub_used
     type(coop_cls),dimension(numcross)::signalpower, noisepower
     type(coop_binned_cls)::templatepower
+    type(coop_cls)::modelcl
     COOP_REAL::kernel(lmin_data:lmax_data, lmin_data:lmax_data, 4,numcross)
     COOP_REAL::weight(numcross)
     COOP_INT::i, j, ind, ii, jj, ib, ich1, ich2, icl, jb, jch1, jch2, jcl, iqb
-    COOP_REAL::mat(matdim, matdim), dSdq(matdim, matdim, num_mubs), wmat(matdim, matdim), datamat(matdim, matdim), invDdSdq(matdim, matdim, num_mubs)
+    COOP_REAL::mat(matdim, matdim), dSdq(matdim, matdim, num_mubs), wmat(matdim, matdim), datamat(matdim, matdim), invDdSdq(matdim, matdim, num_mubs), ells(lmin_data:lmax_data)
     logical::nonzero(num_mubs)
     COOP_REAL::Fisher(num_mubs, num_mubs)
     COOP_REAL::vecb(num_mubs), errorbars(num_mubs), lambda
@@ -529,6 +529,7 @@ contains
     type(coop_file)::fp
     COOP_REAL,dimension(:,:),allocatable::Fisher_used
     COOP_INT,dimension(:),allocatable::index_mub_used
+    type(coop_asy)::figure
     write(*,*) "***************************************************"
     write(*,*) "Iterating the maximum-likelihood Cls"
     call coop_dictionary_lookup(settings, "kernel_root", kernel_root)
@@ -687,6 +688,24 @@ contains
        write(fp%unit, "(F10.2, "//COOP_STR_OF(numcls*2)//"E16.7)") templatepower%lb(ib), mub((ib-1)*numcls+1:ib*numcls)*templatepower%Cls(nint(templatepower%lb(ib)),1:numcls)*(templatepower%lb(ib)*( templatepower%lb(ib) + 1.d0)/coop_2pi), abs(errorbars((ib-1)*numcls+1:ib*numcls)*templatepower%Cls(nint(templatepower%lb(ib)),1:numcls))*(templatepower%lb(ib)*( templatepower%lb(ib) + 1.d0)/coop_2pi)
     enddo
     call fp%close()
+    if(present(want_plot))then
+       if(want_plot)then
+          call modelcl%load(model_cl_file)
+          ells = (/ (i, i=lmin_data, lmax_data) /)
+          do i = 1, nmaps
+             do j = i, nmaps
+                ind = COOP_MATSYM_INDEX(nmaps, i, j)
+                call figure%open(trim(cl_output_root)//"_"//fieldnames(i:i)//fieldnames(j:j)//".txt")
+                call figure%init(xlabel = "$\ell$", ylabel = "$\ell(\ell+1)C_l^{"//fieldnames(i:i)//fieldnames(j:j)//"}/(2\pi)$")
+                call figure%plot(ells, modelcl%cls(lmin_data:lmax_data, ind)*ells*(ells+1.d0)/coop_2pi, color="red", linewidth=2.)
+                call figure%errorbars( x = templatepower%lb(1:num_ell_bins), y = mub(ind:(num_ell_bins-1)*numcls+ind:numcls)*templatepower%Cls(nint(templatepower%lb(1:num_ell_bins)), ind)* (templatepower%lb(1:num_ell_bins)*( templatepower%lb(1:num_ell_bins) + 1.d0)/coop_2pi), dy= abs(errorbars(ind:(num_ell_bins-1)*numcls+ind:numcls)) * templatepower%Cls(nint(templatepower%lb(1:num_ell_bins)), ind)* (templatepower%lb(1:num_ell_bins)*( templatepower%lb(1:num_ell_bins) + 1.d0)/coop_2pi),  color = "gray", center_color="black")
+                
+                call figure%close()
+             enddo
+          enddo
+          call modelcl%free()
+       endif
+    endif
 
     do l = lmin_data, lmax_data
        do i = 1, numcls
@@ -705,7 +724,6 @@ contains
     enddo
     call templatepower%free()
     deallocate(index_mub_used, Fisher_used)
-
   end subroutine do_mub
 
 
@@ -824,7 +842,6 @@ contains
        str = coop_Ndigits(isim, sim_index_width)
     endif
   end function sim_index_name
-
 
 
 end program Coop_Xfaster

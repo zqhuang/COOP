@@ -329,12 +329,12 @@ contains
     if(present(nxticks))then
        write(this%unit,"(2G16.7, I5)") this%xmin, this%xmax, nxticks
     else
-       write(this%unit,"(2G16.7, I5)") this%xmin, this%xmax, 0
+       write(this%unit,"(2G16.7, I5)") this%xmin, this%xmax, 5
     endif
     if(present(nyticks))then
        write(this%unit,"(2G16.7, I5)") this%ymin, this%ymax, nyticks
     else
-       write(this%unit,"(2G16.7, I5)") this%ymin, this%ymax, 0
+       write(this%unit,"(2G16.7, I5)") this%ymin, this%ymax, 5
     endif
     if(present(nblocks))then
        write(this%unit,"(I5)") nblocks    !!plot only n blocks
