@@ -91,7 +91,7 @@ module coop_firstorder_mod
      COOP_REAL::omcM2h2 = 0.12d0
      logical::inflation_consistency = .true.
      logical::w_is_background = .true.
-     type(coop_function)::Ps, Pt, Xe, ekappa, vis, Tb
+     type(coop_function)::Ps, Pt, Xe, ekappa, vis, Tb, pssmooth, ptsmooth
      type(coop_cosmology_firstorder_source),dimension(0:2)::source
      COOP_REAL, dimension(0:coop_pert_default_lmax, 0:coop_pert_default_mmax, 0:coop_pert_default_smax)::klms, klms_by_2lm1, klms_by_2lp1
      COOP_REAL,dimension(coop_pert_default_lmax)::fourbyllp1

@@ -150,6 +150,8 @@
     enddo
     call this%Ps%free()
     call this%Pt%free()
+    call this%pssmooth%free()
+    call this%ptsmooth%free()
     call this%Xe%free()
     call this%eKappa%free()
     call this%vis%free()
@@ -178,9 +180,7 @@
 !!the format of primordial power
 !!subroutine power(k/k_pivot, ps, pt, cosmology, args)
 !!input kMpc and args, output ps and pt    
-    integer,parameter::n = 20000
-    logical,parameter::do_smooth = .true.  !!for better C_l integral convergence
-    COOP_REAL,parameter::dlnk_resolution = 3.d-4  !!set a minimal resolution
+    integer,parameter::n = 50000
     class(coop_cosmology_firstorder)::this
     external power
     type(coop_arguments) args
@@ -197,13 +197,6 @@
     if(any(ps.lt. 0.d0)) stop "Primordial scalar power spectrum cannot be <= 0"
     if(any(pt .lt. 0.d0)) stop "Primordial tensor power spectrum cannot be < 0"
     this%has_tensor = any(pt .gt. 1.d-15)
-    if(do_smooth)then
-       nsteps = nint(dlnk_resolution/dlnk)*2
-       call coop_smooth_data(n, ps, nsteps, logscale = all(ps.gt.0.d0) )
-       if(this%has_tensor)then
-          call coop_smooth_data(n, pt, nsteps, logscale = all(pt.gt.0.d0))
-       endif
-    endif
     call this%ps%init(n = n, xmin = k(1), xmax = k(n), f = ps, xlog = .true., ylog = all(ps .gt. 0.d0), fleft = ps(1), fright = ps(n), check_boundary = .false., method = COOP_INTERPOLATE_LINEAR, name = "ScalarPower")
     if(this%has_tensor)then
        call this%pt%init(n = n, xmin = k(1), xmax = k(n), f = pt, xlog = .true., ylog = all(pt .gt. 0.d0), fleft = pt(1), fright = pt(n), check_boundary = .false., method = COOP_INTERPOLATE_LINEAR, name = "TensorPower")
@@ -230,6 +223,27 @@
        this%r = 0.d0
        this%nt = 0.d0
     endif
+    !!compute the smoothed power spectrum (for stability of CMB power integrator )
+    call coop_set_uniform(n, k, coop_power_kmin, coop_power_kmax)
+    !$omp parallel do
+    do i=1, n
+       call power(k(i)/this%k_pivot, ps(i), pt(i), this, args)
+    end do
+    !$omp end parallel do
+    nsteps = nint(min((coop_l_resolution/2.d0),3.d0)/this%distlss/(k(2)-k(1)))
+    if(nsteps .gt. 0)then
+       call coop_smooth_data(n, ps, nsteps, logscale = all(ps.gt.0.d0) )
+       if(this%has_tensor)then
+          call coop_smooth_data(n, pt, nsteps, logscale = all(pt.gt.0.d0))
+       endif
+    endif
+    call this%pssmooth%init(n = n, xmin = k(1), xmax = k(n), f = ps, ylog = all(ps.gt.0.d0), fleft = ps(1), fright = ps(n), check_boundary = .false., method = COOP_INTERPOLATE_LINEAR, name = "SmoothedScalarPower")
+    if(this%has_tensor)then
+       call this%ptsmooth%init(n = n, xmin = k(1), xmax = k(n), f = pt, ylog=all(pt.gt.0.d0), fleft = pt(1), fright = pt(n), check_boundary = .false., method = COOP_INTERPOLATE_LINEAR, name = "SmoothedTensorPower")
+    else
+       call this%ptsmooth%init_polynomial((/ 0.d0 /), name = "TensorPower")
+    endif
+
   end subroutine coop_cosmology_firstorder_set_power
 
   subroutine coop_cosmology_firstorder_set_xe(this)
@@ -711,9 +725,11 @@
        do j=1, coop_k_dense_fac
           call source%kop2k(source%kop(i)+(j-coop_k_dense_fac)*source%dkop_dense, source%k_dense(j,i), source%dkop_dense,  dlnk)
           dlnk = dlnk/source%k_dense(j, i)
-          source%ps_dense(j, i) = this%psofk(source%k_dense(j, i))
+!          source%ps_dense(j, i) = this%psofk(source%k_dense(j, i))
+          source%ps_dense(j, i) = this%pssmooth%eval(source%k_dense(j, i))
           source%ws_dense(j, i) = dlnk*source%ps_dense(j, i)
-          source%wt_dense(j, i) = this%ptofk(source%k_dense(j, i))*dlnk
+!          source%wt_dense(j, i) = this%ptofk(source%k_dense(j, i))*dlnk
+          source%wt_dense(j, i) = this%ptsmooth%eval(source%k_dense(j, i))*dlnk
        enddo
     enddo
     !$omp end parallel do
