@@ -5,79 +5,66 @@ program test
   type(coop_cosmology_firstorder)::cosmology
   type(coop_real_table)::paramtable
   logical success
-  COOP_REAL::fsky
-  COOP_INT::nz, i
-  COOP_REAL:: z(100), dz(100), k_min(100), k_max(100)
+  COOP_INT,parameter::nz=200, nk = 3
+  COOP_REAL,parameter::zmin = 0.d0, zmax = 10.d0
+  COOP_REAL:: z(nz), Dbya(nk, nz), Phi(nk, nz), Psi(nk, nz), a(nz), tau
+  COOP_REAL::k(nk), kMpc(nk)
+  COOP_INT::iz, ik
+  type(coop_asy)::figure
   call paramtable%insert("ombh2", 0.022d0)
   call paramtable%insert("omch2", 0.12d0)
   call paramtable%insert("h", 0.67d0)
   call paramtable%insert("tau", 0.07d0)
   call paramtable%insert("As", 2.15d-9)
   call paramtable%insert("ns", 0.969d0)
+  call paramtable%insert("de_epss", 0.25d0)
+  call paramtable%insert("de_Q", 0.3d0)
   call cosmology%set_up(paramtable, success)
   if(.not. success) stop "initialization failed"
   call cosmology%compute_source(0, success)
-  write(*,*) "enter fsky:"
-  read(*,*) fsky
-  write(*,*) "number of redshifts:"
-  read(*,*) nz
-  write(*,*) "enter z list"
-  read(*,*) z(1:nz)
-  write(*,*) "enter dz list"
-  read(*, *) dz(1:nz)
-  do i = 1, nz
-     k_max(i) = kmax(z(i))
-     k_min(i) = kmin(z(i), dz(i))
+  if(.not. success) stop "firstorder solver failed"
+  call coop_set_uniform(nz, z, zmin, zmax)
+  a = 1.d0/(1.d0+z)
+  kMpc = (/ 0.05d0, 0.1d0, 0.2d0 /) !0.03d0, 0.1d0, 0.2d0 /)
+  k = kMpc/cosmology%H0Mpc()
+  do iz = 1, nz
+     tau = cosmology%tauofa(a(iz))
+     call cosmology%source(0)%get_delta_sync_trans(tau, nk, k, Dbya(:, iz))
+     Dbya(:, iz) = Dbya(:,iz)/a(iz)
+     call cosmology%source(0)%get_Phi_Trans( tau, nk, k, Phi(:, iz))
+     call cosmology%source(0)%get_Psi_Trans(tau, nk, k, Psi(:, iz))
   enddo
-  write(*,'(A, '//COOP_STR_OF(nz)//'G15.6)') 'kmin = ', k_min(1:nz)
-  write(*,'(A, '//COOP_STR_OF(nz)//'F10.6)') 'kmax = ', k_max(1:nz)
-  do i = 1, nz
-     write(*,"(A, G15.6)") "window"//COOP_STR_OF(i)//" = ", sqrt(coop_ln2)/coop_pi*k_min(i)
+  do iz=2, nz
+     Dbya(:, iz) = Dbya(:, iz)/Dbya(:, 1)
+     Phi(:, iz) = Phi(:, iz)/Phi(:, 1)
+     Psi(:, iz) = Psi(:, iz)/Psi(:, 1)
   enddo
+  Phi(:,1)= 1.d0
+  Psi(:,1) = 1.d0
+  Dbya(:,1) = 1.d0
+  call figure%open("growth.txt")
+  call figure%init(xlabel = "$z$", ylabel="$(1+z)D(z)$")
+  do ik = 1, nk
+     call figure%plot( z, Dbya(ik,:), color=figure%color(ik), linetype =figure%linetype(ik), linewidth = figure%linewidth(ik), legend="$k="//COOP_STR_OF(kMpc(ik))//" \mathrm{Mpc}^{-1}$")
+  enddo
+  call figure%legend(0.3, 0.5)
+  call figure%close()
 
-contains
+  call figure%open("NewtonianPotential.txt")
+  call figure%init(xlabel = "$z$", ylabel="$(1+z)D(z)$")
+  do ik = 1, nk
+     call figure%plot( z, Phi(ik,:), color=figure%color(ik), linetype =figure%linetype(ik), linewidth = figure%linewidth(ik), legend="$k="//COOP_STR_OF(kMpc(ik))//" \mathrm{Mpc}^{-1}$")
+  enddo
+  call figure%legend(0.3, 0.5)
+  call figure%close()
 
-  function Volume(z, dz) result(V)
-    COOP_REAL::z, dz, V
-    V = coop_4pi/3.d0*fsky* (cosmology%comoving_angular_diameter_distance(1.d0/(1.d0+z+dz/2.d0))**3 - cosmology%comoving_angular_diameter_distance(1.d0/(1.d0+z-dz/2.d0))**3) * (3000.)**3
-  end function Volume
+  call figure%open("SpatialCurvature.txt")
+  call figure%init(xlabel = "$z$", ylabel="$(1+z)D(z)$")
+  do ik = 1, nk
+     call figure%plot( z, Psi(ik,:), color=figure%color(ik), linetype =figure%linetype(ik), linewidth = figure%linewidth(ik), legend="$k="//COOP_STR_OF(kMpc(ik))//" \mathrm{Mpc}^{-1}$")
+  enddo
+  call figure%legend(0.3, 0.5)
+  call figure%close()
 
-  function numz(z, dz) 
-    COOP_REAL::z, dz, numz
-    numz = coop_integrate(dndz, z-dz/2.d0, z+dz/2.d0)*(coop_4pi*fsky/coop_SI_arcmin**2) / Volume(z, dz)
-  end function numz
-
-  function dndz(z) 
-    COOP_REAL::z, dndz
-    dndz = 640 *z**2*exp(-z/0.35)
-  end function dndz
-
-  function kmin(z, dz)
-    COOP_REAL::z, kmin, dz
-    kmin = coop_2pi/(Volume(z, dz)*(3.d0/coop_4pi))**(1.d0/3.d0)
-  end function kmin
-
-  function kmax(z)
-    COOP_REAL::z, kmax, rlow, rhigh, sigmalow, sigmahigh, sigmamid, rmid
-    rlow = 0.5d0
-    rhigh = 20.d0
-    sigmalow = cosmology%sigma_tophat_R(z=z, r = rlow/cosmology%h()*cosmology%H0Mpc())
-    sigmahigh = cosmology%sigma_tophat_R(z=z, r = rhigh/cosmology%h()*cosmology%H0Mpc())
-    if(sigmalow .lt. 0.5d0 .or. sigmahigh .gt. 0.5d0)stop "kmax failed"
-    do while(rhigh/rlow .gt. 1.002)
-       rmid = sqrt(rlow*rhigh)
-       sigmamid = cosmology%sigma_tophat_R(z= z, r  = rmid/cosmology%h()*cosmology%H0Mpc())
-       if(sigmamid .gt. 0.501d0)then 
-          rlow =rmid
-       elseif(sigmamid .lt. 0.499d0)then
-          rhigh = rmid
-       else
-          kmax = 1.d0/rmid
-          return
-       endif
-    enddo
-    rmid = sqrt(rlow*rhigh)
-    kmax = coop_pio2/rmid
-  end function kmax
 
 end program test

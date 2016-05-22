@@ -179,36 +179,56 @@
 !!subroutine power(k/k_pivot, ps, pt, cosmology, args)
 !!input kMpc and args, output ps and pt    
     integer,parameter::n = 20000
+    logical,parameter::do_smooth = .true.  !!for better C_l integral convergence
+    COOP_REAL,parameter::dlnk_resolution = 3.d-4  !!set a minimal resolution
     class(coop_cosmology_firstorder)::this
     external power
     type(coop_arguments) args
-    COOP_REAL k(n), ps(n), pt(n)
-    COOP_INT i
+    COOP_REAL k(n), ps(n), pt(n), dlnk
+    COOP_INT i, nsteps
     this%k_pivot = this%kMpc_pivot/this%H0Mpc()
-    call coop_set_uniform(n, k, coop_power_lnk_min, coop_power_lnk_max)
-    k = exp(k)
+    call coop_set_uniform(n, k, coop_power_kmin, coop_power_kmax, logscale = .true.)
+    dlnk = log(k(2)/k(1))
     !$omp parallel do
     do i=1, n
        call power(k(i)/this%k_pivot, ps(i), pt(i), this, args)
     end do
     !$omp end parallel do
-    if(any(ps.le. 0.d0)) stop "Primordial scalar power spectrum cannot be <= 0"
+    if(any(ps.lt. 0.d0)) stop "Primordial scalar power spectrum cannot be <= 0"
     if(any(pt .lt. 0.d0)) stop "Primordial tensor power spectrum cannot be < 0"
-    call this%ps%init(n = n, xmin = k(1), xmax = k(n), f = ps, xlog = .true., ylog = .true., fleft = ps(1), fright = ps(n), check_boundary = .false., method = COOP_INTERPOLATE_LINEAR)
-    if(any(pt.eq.0.d0))then
-       call this%pt%init(n = n, xmin = k(1), xmax = k(n), f = pt, xlog = .true., ylog = .false., fleft = pt(1), fright = pt(n), check_boundary = .false., method = COOP_INTERPOLATE_LINEAR)
+    this%has_tensor = any(pt .gt. 1.d-15)
+    if(do_smooth)then
+       nsteps = nint(dlnk_resolution/dlnk)*2
+       call coop_smooth_data(n, ps, nsteps, logscale = all(ps.gt.0.d0) )
+       if(this%has_tensor)then
+          call coop_smooth_data(n, pt, nsteps, logscale = all(pt.gt.0.d0))
+       endif
+    endif
+    call this%ps%init(n = n, xmin = k(1), xmax = k(n), f = ps, xlog = .true., ylog = all(ps .gt. 0.d0), fleft = ps(1), fright = ps(n), check_boundary = .false., method = COOP_INTERPOLATE_LINEAR, name = "ScalarPower")
+    if(this%has_tensor)then
+       call this%pt%init(n = n, xmin = k(1), xmax = k(n), f = pt, xlog = .true., ylog = all(pt .gt. 0.d0), fleft = pt(1), fright = pt(n), check_boundary = .false., method = COOP_INTERPOLATE_LINEAR, name = "TensorPower")
     else
-       call this%pt%init(n = n, xmin = k(1), xmax = k(n), f = pt, xlog = .true., ylog = .true., fleft = pt(1), fright = pt(n), check_boundary = .false., method = COOP_INTERPOLATE_LINEAR)
+       call this%pt%init_polynomial((/ 0.d0 /), name = "TensorPower")
     endif
     this%As = this%psofk(this%k_pivot)
-    this%ns = this%ps%derivative_bare(log(this%k_pivot)) + 1.d0
-    this%nrun = this%ps%derivative2_bare(log(this%k_pivot))
-    this%r =  this%ptofk(this%k_pivot)/this%As
-    this%has_tensor = any(pt .gt. 1.d-15)
-    if(this%r .eq. 0.d0)then
-       this%nt = 0.d0
+    if(this%ps%ylog)then
+       this%ns = this%ps%derivative_bare(log(this%k_pivot)) + 1.d0
+       this%nrun = this%ps%derivative2_bare(log(this%k_pivot))
     else
-       this%nt = this%pt%derivative(this%k_pivot)*this%k_pivot/(this%r*this%As)
+       this%ns = this%ps%derivative_bare(log(this%k_pivot))/this%As + 1.d0
+       this%nrun = this%ps%derivative2_bare(log(this%k_pivot))/this%As - (this%ns-1.d0)**2
+    endif
+
+    if(this%has_tensor)then
+       this%r =  this%ptofk(this%k_pivot)/this%As
+       if(this%r .eq. 0.d0)then
+          this%nt = 0.d0
+       else
+          this%nt = this%pt%derivative(this%k_pivot)*this%k_pivot/(this%r*this%As)
+       endif
+    else
+       this%r = 0.d0
+       this%nt = 0.d0
     endif
   end subroutine coop_cosmology_firstorder_set_power
 

@@ -1119,12 +1119,13 @@ contains
   end subroutine coop_get_Input_Logical
   
 
-  subroutine coop_smooth_data_d(n, y, sigma)
+  subroutine coop_smooth_data_d(n, y, sigma, logscale)
     COOP_INT::n
     COOP_REAL::y(n)
     COOP_INT::sigma
     COOP_REAL::w(-3*sigma:3*sigma), ycopy(1-3*sigma:n+3*sigma)
     COOP_INT i, m
+    logical, optional::logscale
     w(0) = 1.d0
     m = 3*sigma
     !$omp parallel do
@@ -1137,19 +1138,26 @@ contains
     ycopy(1:n) = y
     ycopy(1-m:0) = y(1)    
     ycopy(n+1:n+m) = y(n)
+    if(present(logscale))then
+       if(logscale) ycopy = log(ycopy)
+    endif
     !$omp parallel do
     do i=1, n
        y(i) = sum(w*ycopy(i-m:i+m))
     enddo
     !$omp end parallel do
+    if(present(logscale))then
+       if(logscale) y = exp(y)
+    endif
   end subroutine coop_smooth_data_d
 
-  subroutine coop_smooth_data_s(n, y, sigma)
+  subroutine coop_smooth_data_s(n, y, sigma, logscale)
     COOP_INT::n
     COOP_SINGLE::y(n)
     COOP_INT::sigma
     COOP_SINGLE::w(-3*sigma:3*sigma), ycopy(1-3*sigma:n+3*sigma)
     COOP_INT i, m
+    logical, optional::logscale
     w(0) = 1.
     m = 3*sigma
     !$omp parallel do
@@ -1162,11 +1170,17 @@ contains
     ycopy(1:n) = y
     ycopy(1-m:0) = y(1)    
     ycopy(n+1:n+m) = y(n)
+    if(present(logscale))then
+       if(logscale) ycopy = log(ycopy)
+    endif
     !$omp parallel do
     do i=1, n
        y(i) = sum(w*ycopy(i-m:i+m))
     enddo
     !$omp end parallel do
+    if(present(logscale))then
+       if(logscale) y = exp(y)
+    endif
   end subroutine coop_smooth_data_s
 
   function coop_uniform_array_double(n, start, end, logscale) result(arr)

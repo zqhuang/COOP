@@ -19,12 +19,14 @@ module coop_cl_indices_mod
   
   COOP_INT :: coop_Cls_lmax(0:2) = (/ 3100, 2000, 1500 /)
 
-  COOP_REAL, parameter :: coop_power_lnk_min = log(0.1d0) 
-  COOP_REAL, parameter :: coop_power_lnk_max = log(5.d3) 
+  COOP_REAL, parameter :: coop_power_kmin = 0.1d0 
+  COOP_REAL, parameter :: coop_power_kmax = 5.d3
   COOP_REAL, parameter :: coop_visibility_amin = 1.8d-4
   COOP_REAL, parameter :: coop_initial_condition_epsilon = 2.d-7
   COOP_REAL, parameter :: coop_cosmology_firstorder_ode_accuracy = 2.d-7
   COOP_REAL, parameter :: coop_cosmology_firstorder_tc_cutoff = 0.01d0
+  COOP_REAL, parameter :: coop_power_lnk_min = log(coop_power_kmin)
+  COOP_REAL, parameter :: coop_power_lnk_max = log(coop_power_kmax)
 
 
   COOP_REAL, dimension(0:2), parameter :: coop_source_tau_step_factor = (/ 1.d0, 1.d0, 1.d0 /)
