@@ -230,7 +230,7 @@
        call power(k(i)/this%k_pivot, ps(i), pt(i), this, args)
     end do
     !$omp end parallel do
-    nsteps = nint(min((coop_l_resolution/2.d0),3.d0)/this%distlss/(k(2)-k(1)))
+    nsteps = nint(1.d0/this%distlss/(k(2)-k(1))) !!smooth out any features below delta_l = 1 resolution
     if(nsteps .gt. 0)then
        call coop_smooth_data(n, ps, nsteps, logscale = all(ps.gt.0.d0) )
        if(this%has_tensor)then

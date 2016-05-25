@@ -24,6 +24,7 @@ module coop_firstorder_mod
    contains
      procedure::free => coop_cosmology_firstorder_trans_free
      procedure::set_l => coop_cosmology_firstorder_trans_set_l
+     procedure::set_l_adaptive => coop_cosmology_firstorder_trans_set_l_adaptive
   end type coop_cosmology_firstorder_trans
 
 
@@ -1871,13 +1872,15 @@ contains
     COOP_DEALLOC(this%Cls2)
     COOP_DEALLOC(this%trans)
     this%num_l = 0
+    this%lmin = 0
+    this%lmax = -1
   end subroutine coop_cosmology_firstorder_trans_free
 
   subroutine coop_cosmology_firstorder_trans_set_l(this, lmin, lmax)
     class(coop_cosmology_firstorder_trans)::this
     COOP_INT::lmin, lmax, l, i
     if(allocated(this%l) .and. this%num_l.gt.0)then
-       if(this%l(1) .eq. lmin .and. this%l(this%num_l).eq. lmax)return
+       if(this%l(1) .eq. lmin .and. this%l(this%num_l).eq. lmax)return  !!if already done
     endif
     COOP_DEALLOC(this%l)
     this%lmin = lmin
@@ -1903,6 +1906,67 @@ contains
        endif
     enddo
   end subroutine coop_cosmology_firstorder_trans_set_l
+
+
+
+  subroutine coop_cosmology_firstorder_trans_set_l_adaptive(this, lmin, lmax, ps, distlss)
+    class(coop_cosmology_firstorder_trans)::this
+    type(coop_function)::ps
+    COOP_REAL::distlss
+    COOP_INT, parameter::max_num_l = 10000
+    COOP_INT::lmin, lmax, l, i, next_l_max
+    COOP_INT::ltmp(max_num_l)
+    COOP_REAL::xbar, ybar, x2bar, y2bar, xybar, x, y, reldiff, r, w, xprev, yprev, kprev, k
+    COOP_DEALLOC(this%l)
+    this%lmin = lmin
+    this%lmax = lmax
+    this%num_l = 1
+    l = lmin 
+    ltmp(this%num_l) = l
+    do while(l.lt.lmax)
+       !!TBD
+       next_l_max = l
+       call coop_next_l(next_l_max, res = 60)
+       next_l_max = min(lmax, next_l_max)
+       if(next_l_max - l  .gt. 1)then
+          x = log(l/distlss)
+          y = log(ps%eval(l/distlss))
+          xbar = x
+          ybar = y
+          x2bar = x**2
+          y2bar = y**2
+          xybar = x*y
+          r = 1.d0
+          reldiff = 0.d0
+          w = 1.d0
+          k = (log(ps%eval((l+1.d0)/distlss))-y)/(log((l+1.d0)/distlss)-x)
+          do while(r .gt. 0.96d0 .and. l .lt.  next_l_max .and. reldiff .lt. 1.d-3 )
+             l = l + 1
+             xprev = x
+             yprev = y
+             kprev = k
+             x = log(l/distlss)
+             y = log(ps%eval(l/distlss)) 
+             k = (y-yprev)/(x-xprev)
+             reldiff = k - kprev
+             xbar = xbar + x
+             ybar = ybar + y
+             x2bar = x2bar + x**2
+             y2bar = y2bar + y**2
+             xybar = xybar + x*y
+             w = w + 1.d0
+             r = abs(xybar*w - xbar*ybar)/sqrt( (x2bar*w - xbar**2)*(y2bar*w-ybar**2))
+          enddo
+       else
+          l = next_l_max
+       endif
+       this%num_l = this%num_l + 1
+       ltmp(this%num_l) = l
+    enddo
+    allocate(this%l(this%num_l))
+    this%l = ltmp(1:this%num_l)
+  end subroutine coop_cosmology_firstorder_trans_set_l_adaptive
+
 
 
   subroutine coop_cosmology_firstorder_source_set_trans(source, lmin, lmax)
@@ -2028,6 +2092,12 @@ contains
   subroutine coop_cosmology_firstorder_set_Cls(this, m, lmin, lmax)
     class(coop_cosmology_firstorder)::this
     COOP_INT::m, lmin, lmax
+    !!do adaptive l settings
+    if(this%pp_genre .ne. COOP_PP_STANDARD )then
+       call this%source(m)%trans%set_l_adaptive(lmin, lmax, this%pssmooth, this%distlss)
+    else
+       call this%source(m)%trans%set_l(lmin, lmax)
+    endif
     call this%source(m)%set_trans(lmin, lmax)
     call this%source(m)%set_Cls()
   end subroutine coop_cosmology_firstorder_set_Cls

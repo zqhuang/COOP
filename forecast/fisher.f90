@@ -542,7 +542,6 @@ contains
        deallocate(kmin, kmax, nobs, dz, mu, k,dk,z)
     case("CMB_TE","CMB_T", "CMB_E", "CMB_B")
        call coop_dictionary_lookup(this%settings,"tSZ_template", tSZ_template,"")  
-       call coop_dictionary_lookup(this%settings,"l_resolution", coop_l_resolution, 60)
        if(trim(tSZ_template) .ne. "")then
           write(*,*) "reading SZ template "//trim(coop_file_path_of(this%filename))//trim(tSZ_template)
           call fpsz%open(trim(coop_file_path_of(this%filename))//trim(tSZ_template))
