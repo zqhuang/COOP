@@ -10,7 +10,7 @@ module coop_fisher_mod
   COOP_INT,parameter::coop_parameter_type_nuis = 2
   COOP_REAL,parameter::coop_H0_unit = 1.d5/coop_SI_c
 
-  COOP_REAL,parameter::coop_fisher_cmb_l_pivot = 3000.d0
+  COOP_REAL,parameter::coop_fisher_cmb_l_pivot = 2000.d0
 
   type coop_observation
      COOP_STRING::filename = ""
@@ -75,7 +75,7 @@ contains
     class(coop_observation)::this
     COOP_REAL::dobs(this%dim_obs, this%n_obs), MStar
     COOP_REAL,dimension(:),allocatable::b0, b2
-    COOP_REAL::sigma_g, sigma_z, sr2, a, Hz, cmb_A_noise, cmb_n_noise, cmb_A_noise_pol, cmb_n_noise_pol, cmb_A_tSZ
+    COOP_REAL::sigma_g, sigma_z, sr2, a, Hz, cmb_A_noise, cmb_n_noise, cmb_run_noise, cmb_A_noise_pol, cmb_n_noise_pol, cmb_run_noise_pol, cmb_A_tSZ, cmb_TE_leakage_eps0, cmb_TE_leakage_eps2, cmb_TE_leakage_eps4, leakage, logl
     COOP_INT::nk, nz, nmu, iz
     type(coop_real_table)::paramtable
     type(coop_cosmology_firstorder)::cosmology
@@ -116,37 +116,49 @@ contains
     case("CMB_TE")
        call paramtable%lookup("cmb_A_noise", cmb_A_noise, 1.d0)
        call paramtable%lookup("cmb_n_noise", cmb_n_noise, 0.d0)
+       call paramtable%lookup("cmb_run_noise", cmb_run_noise, 0.d0)
        call paramtable%lookup("cmb_A_noise_pol", cmb_A_noise_pol, 1.d0)
        call paramtable%lookup("cmb_n_noise_pol", cmb_n_noise_pol, 0.d0)
+       call paramtable%lookup("cmb_run_noise_pol", cmb_run_noise_pol, 0.d0)
        call paramtable%lookup("cmb_A_tSZ", cmb_A_tSZ, 1.d0)
-
+       call paramtable%lookup("cmb_TE_leakage_eps0", cmb_TE_leakage_eps0, 0.d0)
+       call paramtable%lookup("cmb_TE_leakage_eps2", cmb_TE_leakage_eps2, 0.d0)
+       call paramtable%lookup("cmb_TE_leakage_eps4", cmb_TE_leakage_eps4, 0.d0)
        do idata = 1, this%n_obs
+          leakage = cmb_TE_leakage_eps0+ (cmb_TE_leakage_eps2 + cmb_TE_leakage_eps4*(l/coop_fisher_cmb_l_pivot)**2)*(l/coop_fisher_cmb_l_pivot)**2
           l = idata - 1 + min(this%lmin, this%lmin_pol)
-          dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata)*cmb_A_noise*(l/coop_fisher_cmb_l_pivot)**cmb_n_noise + this%nuis(5, idata)*cmb_A_tSZ - this%obs(1, idata)
-          dobs(2, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClEE, l) + this%nuis(4, idata)*cmb_A_noise_pol*(l/coop_fisher_cmb_l_pivot)**cmb_n_noise_pol - this%obs(2, idata)
-          dobs(3, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTE, l) - this%obs(3, idata)
+          logl = log(l/coop_fisher_cmb_l_pivot)
+          dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata)*cmb_A_noise*exp(logl*(cmb_n_noise+cmb_run_noise/2.d0*logl)) + this%nuis(5, idata)*cmb_A_tSZ - this%obs(1, idata)
+          dobs(2, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClEE, l)+ cosmology%source(0)%Cls_lensed(coop_index_ClTT, l)*leakage**2 + this%nuis(4, idata)*cmb_A_noise_pol*exp(logl*(cmb_n_noise_pol+cmb_run_noise_pol/2.d0*logl))- this%obs(2, idata)
+          dobs(3, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTE, l) + cosmology%source(0)%Cls_lensed(coop_index_ClTT, l)*leakage - this%obs(3, idata)
        enddo
     case("CMB_T")
        call paramtable%lookup("cmb_A_tSZ", cmb_A_tSZ, 1.d0)
        call paramtable%lookup("cmb_A_noise", cmb_A_noise, 1.d0)
        call paramtable%lookup("cmb_n_noise", cmb_n_noise, 0.d0)
+       call paramtable%lookup("cmb_run_noise", cmb_run_noise, 0.d0)
        do idata = 1, this%n_obs
           l = idata - 1 + min(this%lmin, this%lmin_pol)
-          dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata)*cmb_A_noise*(l/coop_fisher_cmb_l_pivot)**cmb_n_noise + this%nuis(5, idata)*cmb_A_tSZ - this%obs(1, idata)
+          logl = log(l/coop_fisher_cmb_l_pivot)
+          dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClTT, l) + this%nuis(3, idata)*cmb_A_noise*exp(logl*(cmb_n_noise+cmb_run_noise/2.d0*logl)) + this%nuis(5, idata)*cmb_A_tSZ - this%obs(1, idata)
        enddo
     case("CMB_E")
        call paramtable%lookup("cmb_A_noise_pol", cmb_A_noise_pol, 1.d0)
        call paramtable%lookup("cmb_n_noise_pol", cmb_n_noise_pol, 0.d0)
+       call paramtable%lookup("cmb_run_noise_pol", cmb_run_noise_pol, 0.d0)
        do idata = 1, this%n_obs
           l = idata - 1 + min(this%lmin, this%lmin_pol)
-          dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClEE, l) + this%nuis(4, idata)**cmb_A_noise_pol*(l/coop_fisher_cmb_l_pivot)**cmb_n_noise_pol - this%obs(1, idata)
+          logl = log(l/coop_fisher_cmb_l_pivot)
+          dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClEE, l) + this%nuis(4, idata)*cmb_A_noise_pol*exp(logl*(cmb_n_noise_pol+cmb_run_noise_pol/2.d0*logl)) - this%obs(1, idata)
        enddo
     case("CMB_B")
        call paramtable%lookup("cmb_A_noise_pol", cmb_A_noise_pol, 1.d0)
        call paramtable%lookup("cmb_n_noise_pol", cmb_n_noise_pol, 0.d0)
+       call paramtable%lookup("cmb_run_noise_pol", cmb_run_noise_pol, 0.d0)
        do idata = 1, this%n_obs
           l = idata - 1 + min(this%lmin, this%lmin_pol)
-          dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClBB, l) + this%nuis(4, idata)**cmb_A_noise_pol*(l/coop_fisher_cmb_l_pivot)**cmb_n_noise_pol - this%obs(1, idata)
+          logl = log(l/coop_fisher_cmb_l_pivot)
+          dobs(1, idata) = cosmology%source(0)%Cls_lensed(coop_index_ClBB, l) + this%nuis(4, idata)*cmb_A_noise_pol*exp(logl*(cmb_n_noise_pol+cmb_run_noise_pol/2.d0*logl)) - this%obs(1, idata)
        enddo
     case default
        write(*,*) trim(this%genre)
