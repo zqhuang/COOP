@@ -363,7 +363,6 @@ contains
        enddo
        !$omp end parallel do
     endif
-
     do itau = 1, this%source(m)%ntau
        do is = 1, this%source(m)%nsrc
           call coop_naturalspline_uniform(this%source(m)%nk, this%source(m)%s(is, :, itau), this%source(m)%s2(is, :, itau))
@@ -1581,16 +1580,25 @@ contains
 
 #endif
 
-  subroutine coop_cosmology_firstorder_init_from_dictionary(this, paramtable)
+  subroutine coop_cosmology_firstorder_init_from_dictionary(this, paramtable, level)
     class(coop_cosmology_firstorder)::this
     type(coop_dictionary)::paramtable
     logical success
     type(coop_real_table)::params
+    COOP_INT, optional::level
     call coop_dictionary_lookup(paramtable, "w_is_background", this%w_is_background)
     call coop_dictionary_lookup(paramtable, "inflation_consistency", this%inflation_consistency, .true.)
     call coop_dictionary_lookup(paramtable, "pp_genre", this%pp_genre, COOP_PP_STANDARD)
+
     call params%load_dictionary(paramtable)
-    call this%set_up(params, success)
+    if(present(level))then
+       call this%set_up(params, success, level = level)
+    else
+       call this%set_up(params, success)
+    endif
+    if(.not. success)then
+       write(*,*) "Error: linear perturbation solver failed."
+    endif
   end subroutine coop_cosmology_firstorder_init_from_dictionary
 
 
@@ -1626,7 +1634,7 @@ contains
     type(coop_function)::fwp1, fQ, alphaM, alphaB, alphaK, alphaT, alphaH
     logical::w_predefined, alpha_predefined
 
-    COOP_REAL::eps_inf, eps_s, zeta_s, beta_s
+    COOP_REAL::eps_inf, eps_s, zeta_s, beta_s, rlmax
 
     !!0 background
     !!1 x_e
@@ -1639,7 +1647,14 @@ contains
     else
        init_level = coop_init_level_set_pp
     endif
-
+    call paramtable%lookup("lmax_scalar", rlmax, 0.d0)
+    if(rlmax .gt. 2.d0)then
+       coop_cls_lmax(0) = nint(rlmax)
+    endif
+    call paramtable%lookup("lmax_tensor", rlmax, 0.d0)
+    if(rlmax .gt. 2.d0)then
+       coop_cls_lmax(2) = nint(rlmax)
+    endif
     call paramtable%lookup( "ombh2", this%ombm2h2, 0.d0)
     if(this%ombm2h2.eq.0.d0) call paramtable%lookup( "omegabh2", this%ombm2h2)
     call paramtable%lookup( "omch2", this%omcm2h2, 0.d0)
@@ -1762,9 +1777,11 @@ contains
     if(.not. success .or. init_level .le. coop_init_level_set_pert) return
     call this%set_cls(0, 2, coop_cls_lmax(0))
     if(init_level .le. coop_init_level_set_Cls) return
-    call this%compute_source(2, success)
-    call this%set_cls(2, 2, coop_cls_lmax(2))
-    if(.not. success) return
+    if(this%has_tensor)then
+       call this%compute_source(2, success)
+       if(.not. success) return
+       call this%set_cls(2, 2, coop_cls_lmax(2))
+    endif
   contains
     
     
@@ -2080,7 +2097,7 @@ contains
        enddo
        !$omp end parallel do
     enddo
-    if(source%m.eq.0.d0)then
+    if(source%m .eq. 0)then
        call coop_get_lensing_Cls(source%trans%lmin, source%trans%lmax, source%Cls, source%Cls_lensed)
        source%Cls_lensed = source%Cls_lensed + source%Cls
     else
@@ -2094,7 +2111,14 @@ contains
     COOP_INT::m, lmin, lmax
     !!do adaptive l settings
     if(this%pp_genre .ne. COOP_PP_STANDARD )then
-       call this%source(m)%trans%set_l_adaptive(lmin, lmax, this%pssmooth, this%distlss)
+       select case(m)
+       case(0)
+          call this%source(m)%trans%set_l_adaptive(lmin, lmax, this%pssmooth, this%distlss)
+       case(2)
+          call this%source(m)%trans%set_l_adaptive(lmin, lmax, this%ptsmooth, this%distlss)
+       case default
+          call this%source(m)%trans%set_l(lmin, lmax)
+       end select
     else
        call this%source(m)%trans%set_l(lmin, lmax)
     endif

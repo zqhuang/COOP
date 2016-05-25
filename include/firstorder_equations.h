@@ -217,6 +217,14 @@
     case(1)
        call coop_tbw("vector equations not written")
     case(2)
+       if(pert%want_source)then
+          pert%ekappa = cosmology%ekappaofa(pert%a)
+          pert%vis = pert%ekappa/pert%tauc
+          pert%visdot = cosmology%vis%derivative(pert%a) * pert%a * pert%aH
+          pert%Pdot = (pert%T2prime  - coop_sqrt6 *  pert%E2prime)/10.d0 * pert%aH
+          pert%kchi = 1.d0 - pert%tau/cosmology%tau0
+          pert%kchi = pert%k* cosmology%tau0*(pert%kchi + exp(-1.d3*pert%kchi))
+       endif
        O1_TEN_H_PRIME = O1_TEN_HPR
        if(pert%tight_coupling)then
           pert%T%F(2) =  (-16.d0/3.d0 )*O1_TEN_HPR*aHtauc
@@ -286,6 +294,14 @@
                - (doptdlna + (pert%E%lmax-4.d0/pert%E%lmax+1)/aHtau)* O1_E(pert%E%lmax))*pert%latedamp
           O1_B_PRIME(pert%E%lmax) = (pert%kbyah  *((pert%E%lmax-4.d0/pert%E%lmax+0.5d0)/(pert%E%lmax-4.d0/pert%E%lmax-0.5d0)) * O1_B(pert%E%lmax-1)  + cosmology%fourbyllp1(pert%E%lmax)*O1_E(pert%E%lmax) &
                - (doptdlna + (pert%E%lmax-4.d0/pert%E%lmax+1)/aHtau)* O1_B(pert%E%lmax))*pert%latedamp
+       endif
+       if(pert%want_source)then
+          pert%ekappa = cosmology%ekappaofa(pert%a)
+          pert%vis = pert%ekappa/pert%tauc
+          pert%visdot = cosmology%vis%derivative(pert%a) * pert%a * pert%aH
+          pert%Pdot = (pert%T2prime  - coop_sqrt6 *  pert%E2prime)/10.d0 * pert%aH
+          pert%kchi = 1.d0 - pert%tau/cosmology%tau0
+          pert%kchi = pert%k* cosmology%tau0*(pert%kchi + exp(-1.d3*pert%kchi))
        endif
     case default
        call coop_return_error("firstorder_equations", "Unknown m = "//trim(coop_num2str(pert%m)), "stop")
