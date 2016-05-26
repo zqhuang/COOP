@@ -1927,69 +1927,75 @@ contains
   subroutine coop_cosmology_firstorder_trans_set_l_adaptive(this, lmin, lmax, ps, distlss)
     class(coop_cosmology_firstorder_trans)::this
     type(coop_function)::ps
+    COOP_INT,parameter::nmax = 5
     COOP_REAL::distlss
-    COOP_INT, parameter::max_num_l = 10000
-    COOP_INT::lmin, lmax, l, i, next_l_max
-    COOP_INT::ltmp(max_num_l)
-    COOP_REAL::xbar, ybar, x2bar, y2bar, xybar, x, y, reldiff, r, w, xprev, yprev, kprev, k
+    COOP_INT::lmin, lmax
+    COOP_REAL::x(lmin:lmax), y(lmin:lmax), yfit(lmin:lmax)
+    logical::used(lmin:lmax)
+    COOP_REAL::c(nmax), a, b
+    COOP_INT::l, n, i, lmid
     COOP_DEALLOC(this%l)
     if(lmin .lt. 2) stop "Error in set_l_adaptive: minimal lmin = 2"
     this%lmin = lmin
     this%lmax = lmax
-    this%num_l = 1
-    l = lmin 
-    ltmp(this%num_l) = l
-    do while(l.lt.lmax)
-       !!TBD
-       next_l_max = l
-       call coop_next_l(next_l_max, res = 20)
-       next_l_max = min(lmax, next_l_max)
-       if(next_l_max - l  .gt. 1)then
-          x = log((l-1.d0)/distlss)
-          y = log(ps%eval((l-1.d0)/distlss))
-          xbar = x
-          ybar = y
-          x2bar = x**2
-          y2bar = y**2
-          xybar = x*y
-          xprev = x
-          yprev = y
-          x = log(l/distlss)
-          y = log(ps%eval(l/distlss))
-          xbar = xbar + x
-          ybar = ybar + y
-          x2bar = x2bar + x**2
-          y2bar = y2bar + y**2
-          xybar = xybar + x*y
-          r = 1.d0
-          reldiff = 0.d0
-          w = 2.d0
-          k = (y-yprev)/(x-xprev)
-          do while(r .gt. 0.985d0 .and. l .lt.  next_l_max  .and.  reldiff .lt. 0.2 )
-             l = l + 1
-             xprev = x
-             yprev = y
-             kprev = k
-             x = log(l/distlss)
-             y = log(ps%eval(l/distlss)) 
-             k = (y-yprev)/(x-xprev)
-             reldiff = abs(k - kprev)
-             xbar = xbar + x
-             ybar = ybar + y
-             x2bar = x2bar + x**2
-             y2bar = y2bar + y**2
-             xybar = xybar + x*y
-             w = w + 1.d0
-             r = abs(xybar*w - xbar*ybar)/sqrt( (x2bar*w - xbar**2)*(y2bar*w-ybar**2))
-          enddo
-       else
-          l = next_l_max
-       endif
-       this%num_l = this%num_l + 1
-       ltmp(this%num_l) = l
+    !$omp parallel do
+    do l= lmin, lmax
+       x(l) = l/distlss
+       y(l) = ps%eval(x(l))
     enddo
+    !$omp end parallel do
+    a = (lmin-1.d0)/distlss
+    b = (lmax+1.d0)/distlss
+    x = log(x)
+    y = log(y)
+    used = .false.
+    l = lmin
+    used(lmin) = .true.
+    used(lmax) = .true.
+    do
+       call coop_next_l(l, 60)
+       if(l.lt. lmax)then
+          used(l) = .true.
+       else
+          exit
+       endif
+    enddo
+    do n = 3, nmax
+       call coop_chebfit(lmax-lmin+1, x, y, n, a, b, c(1:n))
+       !$omp parallel do
+       do l = lmin, lmax
+          call coop_get_cheb_value(n, c(1:n), 2.d0*(x(l)-a)/(b-a)-1.d0, yfit(l))
+       enddo
+       !$omp end parallel do
+       yfit = abs(yfit - y)
+       do l = lmin+1, lmax-1
+          if(yfit(l).gt. yfit(l-1) .and. yfit(l).gt. yfit(l+1))then
+             used(l) = .true.
+          endif
+       enddo
+    enddo
+    l = lmin
+    do while(l.lt. lmax)
+       if(used(l))then
+          lmid = l+ 1
+          do while(.not. used(lmid))
+             lmid = lmid+1
+          enddo
+          l = (l+lmid)/2
+          used(l) = .true.
+          l = lmid
+       endif
+       l = l + 1
+    enddo
+    this%num_l = count(used)
     allocate(this%l(this%num_l))
-    this%l = ltmp(1:this%num_l)
+    i = 0
+    do l = lmin, lmax
+       if(used(l))then
+          i = i + 1
+          this%l(i) = l
+       endif
+    enddo
   end subroutine coop_cosmology_firstorder_trans_set_l_adaptive
 
 
