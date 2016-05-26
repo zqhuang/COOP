@@ -1953,7 +1953,7 @@ contains
     used(lmin) = .true.
     used(lmax) = .true.
     do
-       call coop_next_l(l, 60)
+       call coop_next_l(l, 50)
        if(l.lt. lmax)then
           used(l) = .true.
        else
