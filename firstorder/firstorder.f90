@@ -1984,8 +1984,9 @@ contains
           l = (l+lmid)/2
           used(l) = .true.
           l = lmid
+       else
+          l = l + 1
        endif
-       l = l + 1
     enddo
     this%num_l = count(used)
     allocate(this%l(this%num_l))
