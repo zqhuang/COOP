@@ -1969,7 +1969,7 @@ contains
        !$omp end parallel do
        yfit = abs(yfit - y)
        do l = lmin+1, lmax-1
-          if(yfit(l).gt. yfit(l-1) .and. yfit(l).gt. yfit(l+1))then
+          if( yfit(l) .gt. 1.d-4 .and. yfit(l).gt. yfit(l-1) .and. yfit(l).gt. yfit(l+1) )then
              used(l) = .true.
           endif
        enddo
