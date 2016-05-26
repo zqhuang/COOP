@@ -1580,10 +1580,11 @@ contains
 
 #endif
 
-  subroutine coop_cosmology_firstorder_init_from_dictionary(this, paramtable, level)
+  subroutine coop_cosmology_firstorder_init_from_dictionary(this, paramtable, level, success)
     class(coop_cosmology_firstorder)::this
     type(coop_dictionary)::paramtable
-    logical success
+    logical,optional:: success
+    logical suc
     type(coop_real_table)::params
     COOP_INT, optional::level
     call coop_dictionary_lookup(paramtable, "w_is_background", this%w_is_background)
@@ -1592,13 +1593,11 @@ contains
 
     call params%load_dictionary(paramtable)
     if(present(level))then
-       call this%set_up(params, success, level = level)
+       call this%set_up(params, suc, level = level)
     else
-       call this%set_up(params, success)
+       call this%set_up(params, suc)
     endif
-    if(.not. success)then
-       write(*,*) "Error: linear perturbation solver failed."
-    endif
+    if(present(success)) success = suc
   end subroutine coop_cosmology_firstorder_init_from_dictionary
 
 
@@ -1925,7 +1924,6 @@ contains
   end subroutine coop_cosmology_firstorder_trans_set_l
 
 
-
   subroutine coop_cosmology_firstorder_trans_set_l_adaptive(this, lmin, lmax, ps, distlss)
     class(coop_cosmology_firstorder_trans)::this
     type(coop_function)::ps
@@ -1935,6 +1933,7 @@ contains
     COOP_INT::ltmp(max_num_l)
     COOP_REAL::xbar, ybar, x2bar, y2bar, xybar, x, y, reldiff, r, w, xprev, yprev, kprev, k
     COOP_DEALLOC(this%l)
+    if(lmin .lt. 2) stop "Error in set_l_adaptive: minimal lmin = 2"
     this%lmin = lmin
     this%lmax = lmax
     this%num_l = 1
@@ -1943,21 +1942,30 @@ contains
     do while(l.lt.lmax)
        !!TBD
        next_l_max = l
-       call coop_next_l(next_l_max, res = 60)
+       call coop_next_l(next_l_max, res = 20)
        next_l_max = min(lmax, next_l_max)
        if(next_l_max - l  .gt. 1)then
-          x = log(l/distlss)
-          y = log(ps%eval(l/distlss))
+          x = log((l-1.d0)/distlss)
+          y = log(ps%eval((l-1.d0)/distlss))
           xbar = x
           ybar = y
           x2bar = x**2
           y2bar = y**2
           xybar = x*y
+          xprev = x
+          yprev = y
+          x = log(l/distlss)
+          y = log(ps%eval(l/distlss))
+          xbar = xbar + x
+          ybar = ybar + y
+          x2bar = x2bar + x**2
+          y2bar = y2bar + y**2
+          xybar = xybar + x*y
           r = 1.d0
           reldiff = 0.d0
-          w = 1.d0
-          k = (log(ps%eval((l+1.d0)/distlss))-y)/(log((l+1.d0)/distlss)-x)
-          do while(r .gt. 0.96d0 .and. l .lt.  next_l_max .and. reldiff .lt. 1.d-3 )
+          w = 2.d0
+          k = (y-yprev)/(x-xprev)
+          do while(r .gt. 0.985d0 .and. l .lt.  next_l_max  .and.  reldiff .lt. 0.2 )
              l = l + 1
              xprev = x
              yprev = y
@@ -1965,7 +1973,7 @@ contains
              x = log(l/distlss)
              y = log(ps%eval(l/distlss)) 
              k = (y-yprev)/(x-xprev)
-             reldiff = k - kprev
+             reldiff = abs(k - kprev)
              xbar = xbar + x
              ybar = ybar + y
              x2bar = x2bar + x**2

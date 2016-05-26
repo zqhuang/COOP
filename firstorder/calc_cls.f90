@@ -10,9 +10,10 @@ program test
   COOP_STRING::params_file, output
   type(coop_dictionary)::params
   type(coop_cosmology_firstorder)::cosmology
-  COOP_REAL::norm, lnorm, lambda
+  COOP_REAL::norm, lnorm
   COOP_INT::l
   type(coop_file)::fp
+  logical success
   !!----------------------------------------
   if(iargc() .lt. 1)then
      write(*,*) "Syntax:"
@@ -22,7 +23,8 @@ program test
   
   call coop_get_Input(1, params_file)
   call coop_load_dictionary(params_file, params)
-  call cosmology%init_from_dictionary(params, level = coop_init_level_set_tens)
+  call cosmology%init_from_dictionary(params, level = coop_init_level_set_tens, success = success)
+  if(.not. success) stop "Unhealthy model: perturbations blow up exponentially."
   call coop_dictionary_lookup(params, "root", output, default_val="test")
   
   !!----------------------------------------
