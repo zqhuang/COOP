@@ -183,9 +183,7 @@ subroutine coop_cosmology_firstorder_equations(n, lna, y, yp, cosmology, pert)
        pert%deMat(:, eq_psipp) = pert%deMat(:, eq_psipp)/pert%deMat(i_psipp, eq_psipp)
        pert%deMat(:, eq_phip) =  pert%deMat(:, eq_phip) - pert%deMat(i_phi, eq_phip)*pert%deMat(:, eq_phi)
        pert%deMat(:, eq_psipp) = pert%deMat(:, eq_psipp) - pert%deMat(:, eq_phi)*pert%deMat(i_phi, eq_psipp) - pert%deMat(:, eq_phip) * pert%deMat(i_phip, eq_psipp)
-
        pert%deMat(:, eq_mupp) = pert%deMat(:, eq_mupp) - pert%deMat(:, eq_phi) * pert%deMat(i_phi, eq_mupp) - pert%deMat(:, eq_phip) * pert%deMat(i_phip, eq_mupp)
-
        pert%deMat(:, eq_mupp) = pert%deMat(:, eq_mupp) - pert%deMat(:, eq_psipp) * pert%deMat(i_psipp, eq_mupp)
 
        select case(pert%de_scheme)
@@ -193,10 +191,16 @@ subroutine coop_cosmology_firstorder_equations(n, lna, y, yp, cosmology, pert)
           O1_PHI = - pert%deMat(i_const, eq_phi)
           O1_PHI_PRIME = - pert%deMat(i_const, eq_phip) 
           O1_PSIPR_PRIME = - pert%deMat(i_const, eq_psipp) 
-          O1_DE_HPI = ( O1_PSIPR + O1_PHI )/(pert%kbyaHsq/3.d0-pert%HdotbyHsq) 
-          O1_DE_HPIPR = (O1_PSIPR_PRIME + O1_PHI_PRIME+(O1_PSIPR+O1_PHI)*(2.d0/3.d0*pert%kbyaHsq*(1.d0+pert%HdotbyHsq)+pert%HdotbyHsq_prime)/(pert%kbyaHsq/3.d0-pert%HdotbyHsq))/(pert%kbyaHsq/3.d0-pert%HdotbyHsq) 
+          if(pert%deMat(i_mupp, eq_mupp) .ne. 0.d0 .and. pert%deMat(i_mu, eq_mupp) .ne. 0.d0)then
+             O1_DE_HPI = -pert%deMat(i_const, eq_mupp)/pert%deMat(i_mu, eq_mupp)
+             O1_DE_HPIPR = 0.d0
+          else
+             O1_DE_HPI = ( O1_PSIPR + O1_PHI )/(pert%kbyaHsq/3.d0-pert%HdotbyHsq) 
+             O1_DE_HPIPR = (O1_PSIPR_PRIME + O1_PHI_PRIME+(O1_PSIPR+O1_PHI)*(2.d0/3.d0*pert%kbyaHsq*(1.d0+pert%HdotbyHsq)+pert%HdotbyHsq_prime)/(pert%kbyaHsq/3.d0-pert%HdotbyHsq))/(pert%kbyaHsq/3.d0-pert%HdotbyHsq) 
+          endif
           O1_DE_HPI_PRIME = O1_DE_HPIPR
           O1_DE_HPIPR_PRIME = 0.d0
+
        case(1)
           if(abs(pert%deMat(i_mu, eq_mupp)) .lt. eps)then
              pert%deMat(i_mu, eq_mupp) = sign(eps,  pert%deMat(i_mu, eq_mupp))
