@@ -4,7 +4,7 @@ program test
 #include "constants.h"
   COOP_STRING::params_file, output
   type(coop_dictionary)::params  
-  COOP_REAL::redshift = 0.d0
+  COOP_REAL::redshift
   COOP_INT, parameter::nk = 256
   COOP_INT::ik
   COOP_REAL k(nk), matterPk(nk), khMpc(nk), PsiPk(nk), PhiPk(nk)
@@ -23,7 +23,8 @@ program test
   call coop_load_dictionary(params_file, params)
   call cosmology%init_from_dictionary(params)
   call coop_dictionary_lookup(params, "root", output, default_val="test")
-  
+  call coop_dictionary_lookup(params, "output_redshift", redshift, default_val = 0.d0)
+  write(*,"(A, F12.3)") "Computing power spectrum at redshift z = ", redshift
   call cosmology%init_source(0)
   call cosmology%compute_source(0, success = success)  
   if(.not. success) stop "Unhealthy model: perturbations blow up exponentially."
