@@ -1610,7 +1610,7 @@ contains
     COOP_INT,optional::level
     COOP_INT::init_level
   !!----------------------------------------
-    COOP_REAL:: tau_re, h, H0, theta, omega_b, omega_c, w0, wa, tcmb
+    COOP_REAL:: tau_re, h, H0, theta, omega_b, omega_c, w0, wa, tcmb, alpha_power
 
 #if DO_EFT_DE  
     COOP_REAL::alpha_M0 = 0.d0
@@ -1704,16 +1704,25 @@ contains
        if(.not. w_predefined .or. wa .ne. 0.d0) stop "Error: Incompatible settings for de_w and de_cs2. For EFT DE with fixed c_s^2, w is assumed to be a constant, too."
        alpha_predefined = .false.
     else
+       call paramtable%lookup("de_alpha_power", alpha_power, -1000.d0)
        call paramtable%lookup( "de_alpha_M0", alpha_M0, 0.d0 )
        call paramtable%lookup( "de_alpha_T0", alpha_T0, 0.d0 )
        call paramtable%lookup( "de_alpha_B0", alpha_B0, 0.d0 )
        call paramtable%lookup( "de_alpha_K0", alpha_K0, 0.d0 )
        call paramtable%lookup( "de_alpha_H0", alpha_H0 , 0.d0 )
-       alphaM = coop_de_alpha_constructor(alpha_M0, "omega")
-       alphaT = coop_de_alpha_constructor(alpha_T0, "omega")
-       alphaH = coop_de_alpha_constructor(alpha_H0, "omega")
-       alphaB = coop_de_alpha_constructor(alpha_B0, "omega")
-       alphaK = coop_de_alpha_constructor(alpha_K0, "omega")
+       if(alpha_power .ge. 0.d0)then
+          alphaM = coop_de_alpha_constructor(alpha_M0, "powerlaw", alpha_power)
+          alphaT = coop_de_alpha_constructor(alpha_T0, "powerlaw", alpha_power)
+          alphaH = coop_de_alpha_constructor(alpha_H0, "powerlaw", alpha_power)
+          alphaB = coop_de_alpha_constructor(alpha_B0, "powerlaw", alpha_power)
+          alphaK = coop_de_alpha_constructor(alpha_K0, "powerlaw", alpha_power)
+       else
+          alphaM = coop_de_alpha_constructor(alpha_M0, "omega")
+          alphaT = coop_de_alpha_constructor(alpha_T0, "omega")
+          alphaH = coop_de_alpha_constructor(alpha_H0, "omega")
+          alphaB = coop_de_alpha_constructor(alpha_B0, "omega")
+          alphaK = coop_de_alpha_constructor(alpha_K0, "omega")
+       endif
        alpha_predefined = .true.
        call this%set_alpham(alphaM)       
     endif

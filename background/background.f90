@@ -772,6 +772,11 @@ contains
     stop "You need to set DARK_ENERGY_MODEL=EFT in configure.in"
 #endif    
   end subroutine coop_background_add_EFT_DE
+
+  function coop_de_alpha_powerlaw(a, arg) result(alpha)
+    type(coop_arguments)::arg  !!arg%r = (alpha_0, index)
+    alpha = arg%r(1)*a**arg%r(2)
+  end function coop_de_alpha_powerlaw
   
 
   function coop_de_alpha_invh2(a, arg) result(alpha)
@@ -892,17 +897,44 @@ contains
     end function cs2try
   end subroutine coop_de_construct_alpha_from_cs2
 
-  function coop_de_alpha_constructor(alpha0, genre) result(alpha)
+  function coop_de_alpha_constructor(alpha0, genre, pow) result(alpha)
     COOP_REAL, parameter::Omega_m = 0.3d0
     COOP_REAL, parameter::Omega_r = 8.d-5
     COOP_REAL, parameter::lambda = 0.001d0
     COOP_REAL, parameter::delta_z = 0.1d0
     COOP_REAL::alpha0, omegam, omegar
+    COOP_REAL, optional::pow
     COOP_UNKNOWN_STRING::genre
     type(coop_function)::alpha
     select case(COOP_LOWER_STR(genre))
     case("omega")
        alpha = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ alpha0, Omega_m, Omega_r /) ), name = "alpha")
+    case("powerlaw")
+       if(present(pow))then
+          if(abs(nint(pow) - pow) .lt. 1.d-6)then
+             select case(nint(pow))
+             case(0)
+                call alpha%init_polynomial( (/ alpha0 /) )
+             case(1)
+                call alpha%init_polynomial( (/ 0.d0, alpha0 /) )
+             case(2)
+                call alpha%init_polynomial( (/ 0.d0, 0.d0, alpha0 /) )
+             case(3)
+                call alpha%init_polynomial( (/ 0.d0, 0.d0, 0.d0, alpha0 /) )
+             case(4)
+                call alpha%init_polynomial( (/ 0.d0, 0.d0, 0.d0, 0.d0, alpha0 /) )
+
+             case(5)
+                call alpha%init_polynomial( (/ 0.d0, 0.d0, 0.d0, 0.d0, 0.d0, alpha0 /) )
+             case default
+                alpha = coop_function_constructor( coop_de_alpha_powerlaw, xmin = coop_min_scale_factor, xmax = coop_scale_factor, xlog = .true., ylog = .true., args = coop_argument_constructor ( r = (/ alpha0, pow /))
+             end select
+          else
+             alpha = coop_function_constructor( coop_de_alpha_powerlaw, xmin = coop_min_scale_factor, xmax = coop_scale_factor, xlog = .true., ylog = .true., args = coop_argument_constructor ( r = (/ alpha0, pow /))
+          endif
+       else
+          stop "for powerlaw alpha parametrization you need to specify the power index"
+       endif
     case("linear")
        call alpha%init_polynomial( (/ 0.d0, alpha0 /) )
     case("instant")
