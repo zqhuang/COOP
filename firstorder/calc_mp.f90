@@ -28,7 +28,7 @@ program test
   call cosmology%init_source(0)
   call cosmology%compute_source(0, success = success)  
   if(.not. success) stop "Unhealthy model: perturbations blow up exponentially."
-  call coop_set_uniform(nk, k, 0.4d0, 2.d3, logscale = .true.)
+  call coop_set_uniform(nk, k, 0.2d0, 2.d3, logscale = .true.)
   !!compute k^3 |\delta_k|^2 /(2pi^2)  
   call cosmology%get_Matter_power(z=redshift, nk = nk, k = k, Pk = matterPk)
   !!compute k^3 [ k^2/a^2 Phi_k /(3/2H^2\Omega_m) ]^2/(2pi^2)
