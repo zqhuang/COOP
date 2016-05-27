@@ -774,6 +774,7 @@ contains
   end subroutine coop_background_add_EFT_DE
 
   function coop_de_alpha_powerlaw(a, arg) result(alpha)
+    COOP_REAL::a, alpha
     type(coop_arguments)::arg  !!arg%r = (alpha_0, index)
     alpha = arg%r(1)*a**arg%r(2)
   end function coop_de_alpha_powerlaw
