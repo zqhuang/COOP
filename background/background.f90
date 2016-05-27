@@ -928,10 +928,10 @@ contains
              case(5)
                 call alpha%init_polynomial( (/ 0.d0, 0.d0, 0.d0, 0.d0, 0.d0, alpha0 /) )
              case default
-                alpha = coop_function_constructor( coop_de_alpha_powerlaw, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., ylog = .true., args = coop_argument_constructor ( r = (/ alpha0, pow /)))
+                alpha = coop_function_constructor( coop_de_alpha_powerlaw, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., ylog = .true., args = coop_arguments_constructor ( r = (/ alpha0, pow /)))
              end select
           else
-             alpha = coop_function_constructor( coop_de_alpha_powerlaw, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., ylog = .true., args = coop_argument_constructor ( r = (/ alpha0, pow /)))
+             alpha = coop_function_constructor( coop_de_alpha_powerlaw, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., ylog = .true., args = coop_arguments_constructor ( r = (/ alpha0, pow /)))
           endif
        else
           stop "for powerlaw alpha parametrization you need to specify the power index"
