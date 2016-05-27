@@ -7,7 +7,7 @@ program test
   COOP_REAL::redshift
   COOP_INT, parameter::nk = 256
   COOP_INT::ik
-  COOP_REAL k(nk), matterPk(nk), khMpc(nk), PsiPk(nk), PhiPk(nk)
+  COOP_REAL k(nk), matterPk(nk), khMpc(nk), PsiPk(nk), PhiPk(nk), khMpc_min, khMpc_max
   type(coop_cosmology_firstorder)::cosmology
   logical::success
   type(coop_file)::fp

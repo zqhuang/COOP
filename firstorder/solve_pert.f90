@@ -30,15 +30,7 @@ program test
         write(*,*) "Error: for SolvePert you need to set either kMpc or output_redshift in the ini file."
         stop
      endif
-!!$     call copy_var%push("kMpc")        
-!!$     do ik = 1, output_variables%n
-!!$        call copy_var%push(output_variables%element(ik))
-!!$     enddo
-!!$     output_variables = copy_var
   endif
-
-
-
 
   coop_feedback_level = 3
   call fp%open(output, "w")
