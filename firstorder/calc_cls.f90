@@ -41,7 +41,7 @@ program test
      write(fp%unit, "(I8, 6E16.7)") l, cosmology%source(0)%Cls(coop_index_ClTT, l)*lnorm,  cosmology%source(0)%Cls(coop_index_ClEE, l)*lnorm,  cosmology%source(0)%Cls(coop_index_ClTE, l)*lnorm, cosmology%source(0)%Cls(coop_index_ClLenLen, l)*norm*(l*(l+1.d0))**2, cosmology%source(0)%Cls(coop_index_ClTLen, l)*norm*(l*(l+1.d0))**1.5
   enddo
   call fp%close()
-  call fp%open(trim(output)//"_cls_lensed.dat","w")
+  call fp%open(trim(output)//"_lensedCls.dat","w")
   write(*,*) "lensed Cls are saved  in "//trim(output)//"_lensedCls.dat"     
   write(fp%unit, "(A8, 5A16)") "# ell ", "   TT  ",  "   EE  ",  " BB  ", "  TE "
   do l=cosmology%source(0)%trans%lmin, cosmology%source(0)%trans%lmax
