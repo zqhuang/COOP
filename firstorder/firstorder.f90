@@ -1610,7 +1610,7 @@ contains
     COOP_INT,optional::level
     COOP_INT::init_level
   !!----------------------------------------
-    COOP_REAL:: tau_re, h, H0, theta, omega_b, omega_c, w0, wa, tcmb, alpha_power
+    COOP_REAL:: tau_re, h, H0, theta, omega_b, omega_c, w0, wa, tcmb, alpha_power, omegam
 
 #if DO_EFT_DE  
     COOP_REAL::alpha_M0 = 0.d0
@@ -1656,16 +1656,25 @@ contains
     endif
     call paramtable%lookup( "ombh2", this%ombm2h2, 0.d0)
     if(this%ombm2h2.eq.0.d0) call paramtable%lookup( "omegabh2", this%ombm2h2)
-    call paramtable%lookup( "omch2", this%omcm2h2, 0.d0)
-    if(this%omcm2h2.eq.0.d0) call paramtable%lookup( "omegach2", this%omcm2h2)       
-    if(this%ombm2h2 .le. 0.d0 .or. this%omcm2h2.le.0.d0)then
-       write(*,*) "cosmology_firstorder_init: you must have input parameters omegabh2 (>0) and omegach2 (>0) "
-       stop
-    endif
 
-    
-    call paramtable%lookup( "H0", H0, 0.d0)
-    h = H0/100.d0
+    call paramtable%lookup("omegam", omegam, 0.d0)
+    if(omegam .gt. 0.d0)then
+       call paramtable%lookup( "H0", H0, 0.d0)
+       h = H0/100.d0
+       if(h.eq.0.d0) call paramtable%lookup( "h", h, 0.d0)
+       if(h.eq.0.d0) stop "Error: if you want to initialize cosmology with given omega_m, you need to specify H0 or h, too."
+       this%omcm2h2 = omegam * h**2 - this%ombm2h2
+    else
+
+       call paramtable%lookup( "omch2", this%omcm2h2, 0.d0)
+       if(this%omcm2h2.eq.0.d0) call paramtable%lookup( "omegach2", this%omcm2h2)       
+       if(this%ombm2h2 .le. 0.d0 .or. this%omcm2h2.le.0.d0)then
+          write(*,*) "cosmology_firstorder_init: you must have input parameters omegabh2 (>0) and omegach2 (>0) "
+          stop
+       endif
+       call paramtable%lookup( "H0", H0, 0.d0)
+       h = H0/100.d0
+    endif
     if(h.eq.0.d0) call paramtable%lookup( "h", h, 0.d0)
     call paramtable%lookup("tcmb", tcmb, COOP_DEFAULT_TCMB)
 
@@ -1801,32 +1810,46 @@ contains
 
 #if DO_EFT_DE      
       if(alpha_predefined)then
-#endif         
-         Omega_b = this%ombm2h2/this%Mpsq0/hubble**2
-         Omega_c = this%omcm2h2/this%Mpsq0/hubble**2
-
+#endif        
+         if(omegam .gt. 0.d0)then
+            Omega_b = this%ombm2h2/this%Mpsq0/hubble**2
+            omega_c = omegam - omega_b
+            this%omcm2h2 = omega_c * hubble**2*this%Mpsq0
+         else
+            Omega_b = this%ombm2h2/this%Mpsq0/hubble**2
+            Omega_c = this%omcm2h2/this%Mpsq0/hubble**2
+         endif
          if(.not. w_predefined)then
             fwp1 = coop_function_constructor(coop_de_wp1_coupled_quintessence, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args = coop_arguments_constructor( r = (/ 1.d0-omega_b - omega_c, eps_s, eps_inf, zeta_s , beta_s /) ), name = "DE 1+w")
          endif
 #if DO_EFT_DE               
       else
-         Omega_b = this%ombm2h2/hubble**2
-         Omega_c = this%omcm2h2/hubble**2         
-         omlast = -1000.d0         
-         iloop = 0
-         do while(abs(omega_b + omega_c - omlast ) .gt. 3.d-5)
-            omlast = omega_b + omega_c            
-            call coop_de_construct_alpha_from_cs2(omlast, w0, de_cs2, r_B, r_H, r_M, r_T, alphaB, alphaH, alphaK, alphaM, alphaT, success)
+         if(omegam .gt. 0.d0)then
+            call coop_de_construct_alpha_from_cs2(omegam, w0, de_cs2, r_B, r_H, r_M, r_T, alphaB, alphaH, alphaK, alphaM, alphaT, success)
             if(.not. success)return
             call this%set_alpham(alphaM)
-            Omega_b = this%ombm2h2/this%Mpsq0/hubble**2
-            Omega_c = this%omcm2h2/this%Mpsq0/hubble**2
-            iloop = iloop + 1
-            if(iloop .gt. 100)then
-               success = .false.
-               return
-            endif
-         enddo
+            omega_b = this%ombm2h2/this%Mpsq0/hubble**2
+            omega_c = omegam - omega_b
+            this%omcm2h2 = omega_c*this%Mpsq0 * hubble**2
+         else
+            Omega_b = this%ombm2h2/hubble**2
+            Omega_c = this%omcm2h2/hubble**2         
+            omlast = -1000.d0         
+            iloop = 0
+            do while(abs(omega_b + omega_c - omlast ) .gt. 3.d-5)
+               omlast = omega_b + omega_c            
+               call coop_de_construct_alpha_from_cs2(omlast, w0, de_cs2, r_B, r_H, r_M, r_T, alphaB, alphaH, alphaK, alphaM, alphaT, success)
+               if(.not. success)return
+               call this%set_alpham(alphaM)
+               Omega_b = this%ombm2h2/this%Mpsq0/hubble**2
+               Omega_c = this%omcm2h2/this%Mpsq0/hubble**2
+               iloop = iloop + 1
+               if(iloop .gt. 100)then
+                  success = .false.
+                  return
+               endif
+            enddo
+         endif
       endif
 #endif      
 #if DO_EFT_DE  

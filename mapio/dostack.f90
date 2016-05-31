@@ -5,7 +5,7 @@ program Stacking_Maps
   implicit none
 #include "constants.h"
 #ifdef HAS_HEALPIX
-  logical::remove_mono = .true.
+  logical::remove_mono = .false.
   logical::randrot, want_pdf, norm_to_corr
   COOP_REAL::norm_power 
   COOP_STRING::mask_file, peak_file, map_file, output, imask_file, polmask_file, field_name

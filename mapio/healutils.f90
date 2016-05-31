@@ -5423,10 +5423,10 @@ contains
        summask = 0.d0
     endif
     do i=1, this%nmaps
-       this%map(:,i) = this%map(:,i)*mask%map(:,1)
        if(summask .ge. 1.d0)then
-          this%map(:, i) = this%map(:, i) - sum(dble(this%map(:, i)))/summask
+          this%map(:, i) = this%map(:, i) - sum(dble(this%map(:, i)*mask%map(:,1)))/summask
        endif
+       this%map(:,i) = this%map(:,i)*mask%map(:,1)
     enddo
     if(present(bad_data))then
        if(bad_data)then

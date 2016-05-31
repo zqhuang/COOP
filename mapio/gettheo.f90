@@ -15,8 +15,9 @@ program stackth
 
 #ifdef HAS_HEALPIX
   logical,parameter::flat = .false. !!use nonflat is actually faster  
+  logical::want_noise = .false.
   logical::normalize_sigma0, hot
-  COOP_REAL::sigma0_norm = 59.141857614604476d0
+  COOP_REAL::sigma0_norm = 87.44  !#59.141857614604476d0
   
   COOP_REAL:: r_degree, width, dr, nu, fwhm_arcmin
   COOP_INT::lmax, hpauto_lowl, hpauto_highl, n, ind_auto, ind_cross, hpcross_lowl, hpcross_highl
@@ -63,7 +64,7 @@ program stackth
   call coop_get_command_line_argument(key = 'orient', arg = orient, default = 'RANDOM')
   call coop_get_command_line_argument(key = 'nu', arg = nu, default = 0.d0)
   call coop_get_command_line_argument(key = 'fwhm', arg = fwhm_arcmin, default = 5.d0)
-  
+    call coop_get_command_line_argument(key = 'want_noise', arg = want_noise, default = .false.)
   call coop_get_command_line_argument(key = 'want_caption', arg = coop_healpix_patch_default_want_caption, default = .true.)
   call coop_get_command_line_argument(key = 'want_label', arg = coop_healpix_patch_default_want_label, default  = .true.)
   call coop_get_command_line_argument(key = 'want_arrow', arg = coop_healpix_patch_default_want_arrow, default  = .true.)
@@ -89,6 +90,10 @@ program stackth
   call fp%open_skip_comments(clfile)
   do l=2, lmax
      read(fp%unit, *, ERR=100, END=100) il, l2cls(:, l)
+     if(want_noise)then
+        l2Cls(coop_index_ClTT, l)   =     l2Cls(coop_index_ClTT, l)  +  coop_Planck_TNoise(l)*(l*(l+1.d0))/coop_2pi*(COOP_DEFAULT_TCMB *1.d6)**2
+        l2Cls(coop_index_ClEE, l)   =     l2Cls(coop_index_ClEE, l)  +  coop_Planck_ENoise(l)*(l*(l+1.d0))/coop_2pi*(COOP_DEFAULT_TCMB *1.d6)**2
+     endif
      ell(l)  = l
      l2cls(:,l) = l2cls(:, l)*(coop_2pi*exp(-l*(l+1.d0)*sigma**2))
      l2cls(ind_cross, l) = l2cls(ind_cross, l)*coop_highpass_filter(hpcross_lowl, hpcross_highl, l)*coop_highpass_filter(hpauto_lowl, hpauto_highl, l)
