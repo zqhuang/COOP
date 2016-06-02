@@ -90,7 +90,7 @@ program PlotF
      call fp%close()
      call coop_matsym_sqrt_small(2, cov)
      sqrteigs = sqrt(eigs)
-     do ic = 1, ncontours
+     do ic = ncontours, -1
         r = sqrt(-2.d0*log(coop_IncompleteGamma(0.5d0, dble(ic)**2/2.d0)/coop_sqrtpi))
         do itheta  = 1, nsamples
            vec(1) = r*cos(theta(itheta))
@@ -99,7 +99,7 @@ program PlotF
            x(itheta) = vec(1) 
            y(itheta) = vec(2)
         enddo
-        if(ic .eq. 1 .and. legend .ne.'')then
+        if(ic .eq. ncontours .and. legend .ne.'')then
            call coop_asy_color2rgba(fcolor, rgba)
            rgba(4) = alpha
            call coop_asy_rgba2color(rgba, thiscolor)
@@ -108,7 +108,7 @@ program PlotF
         else
            call coop_asy_color2rgba(fcolor, rgba)
            rgba(4) = alpha
-           rgba(1:3) = min(rgba(1:3)*1.2d0, 1.d0)
+           rgba(1:3) = rgba(1:3)*0.8d0
            call coop_asy_rgba2color(rgba, thiscolor)
            call fig%contour(x = x, y = y, colorfill = thiscolor, linecolor = bcolor, linetype = btype, linewidth = bwidth)
         endif
