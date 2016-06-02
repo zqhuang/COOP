@@ -55,7 +55,7 @@ program test
      do ik = 1, cosmology%source(0)%nk
         call cosmology%compute_source_k(cosmology%source(0), ik, output = fp%unit, names= output_variables, output_itau = output_itau, success = success)
      enddo
-     if(.not. success)write(*,*) "Solution blows up exponentially. Model is ruled out."
+     if(.not. success)stop "Solution blows up exponentially. Model is ruled out."
      
   else
      k_want = kMpc_want/cosmology%H0Mpc()  

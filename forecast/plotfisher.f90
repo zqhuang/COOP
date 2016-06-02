@@ -4,19 +4,20 @@ program PlotF
 #include "constants.h"
   type(coop_asy)::fig
   COOP_INT,parameter::nsamples = 720
-  COOP_STRING::xlabel, ylabel, filename, fcolor, bcolor, btype, output, caption, xvar, yvar, legend
+  COOP_STRING::xlabel, ylabel, filename, fcolor, bcolor, btype, output, caption, xvar, yvar, legend, thiscolor
   COOP_LONG_STRING::line
   COOP_SINGLE::bwidth, xsize, ysize,  xmin,xmax, ymin,ymax, xlegend, ylegend
   COOP_INT::i, ixvar, iyvar, nkeys, ikey, ix, iy, ncontours, ic, itheta, npt, lcols
   COOP_REAL,dimension(:),allocatable::covline
   COOP_REAL::cov(2,2), mean(2), eigs(2)
   COOP_REAL::x(nsamples), y(nsamples), r, rho, theta(nsamples), sqrteigs(2), vec(2)
+  COOP_REAL::rgba(4), transparent, alpha
   type(coop_file)::fp
   type(coop_list_string)::ls
   logical::has_legend 
   if(iargc() < 2)then
      write(*,*) "Syntax:"
-     write(*,*) "./PLOTF -out OUTPUT -xvar X -yvar Y -cov1 COVFILE1 -color1 COLOR1  [-linetype1 LINETYPE1 -linewidth1 LINEWIDTH1 -legend1 LEGEND1 -fillcolor1 FILLCOLOR1 -width FIG_WIDTH_INCH -height FIG_HEIGHT_INCH -xlabel XLABEL -ylabel YLABE -caption CAPTION -ncontours NUM_CONTOURS(default 2) -cov2 ... -color2 ...-xlegend LEGEND_X_RELATIVE_POSITION[0-1] -ylegend LEGEND_Y_RELATIVE_POSITION[0-1] -legend_cols LEGEND_COLUMNS -xmin XMIN -xmax XMAX -ymin YMIN -ymax YMAX] "
+     write(*,*) "./PLOTF -out OUTPUT -xvar X -yvar Y -cov1 COVFILE1 -color1 COLOR1  [-linetype1 LINETYPE1 -linewidth1 LINEWIDTH1 -legend1 LEGEND1 -fillcolor1 FILLCOLOR1 -width FIG_WIDTH_INCH -height FIG_HEIGHT_INCH -xlabel XLABEL -ylabel YLABE -caption CAPTION -ncontours NUM_CONTOURS(default 2) -cov2 ... -color2 ...-xlegend LEGEND_X_RELATIVE_POSITION[0-1] -ylegend LEGEND_Y_RELATIVE_POSITION[0-1] -legend_cols LEGEND_COLUMNS -xmin XMIN -xmax XMAX -ymin YMIN -ymax YMAX -transparent TRANS[0-1]] "
      write(*,*) "Examples of colors:  black,  skyblue, red, RGB:255:100:100,  GRAY:120"
      write(*,*) "Examples of linetype: solid, dashed, dotted"
 
@@ -36,6 +37,8 @@ program PlotF
   call coop_get_command_line_argument(key = 'xmax', arg = xmax, default= -1.1e31)
   call coop_get_command_line_argument(key = 'ymin', arg = ymin, default= 1.1e31)
   call coop_get_command_line_argument(key = 'ymax', arg = ymax, default= -1.1e31)
+  call coop_get_command_line_argument(key = 'transparent', arg = transparent, default= 0.75d0)
+  alpha = min(1.d0, max(0.d0, 1.d0-transparent))
   call coop_get_command_line_argument(key = 'xlegend', arg = xlegend, default= 0.5)
   call coop_get_command_line_argument(key = 'ylegend', arg = ylegend, default= 0.95)
   call coop_get_command_line_argument(key = 'legend_cols', arg = lcols, default = 1)
@@ -97,10 +100,17 @@ program PlotF
            y(itheta) = vec(2)
         enddo
         if(ic .eq. 1 .and. legend .ne.'')then
-           call fig%contour(x = x, y = y, colorfill = fcolor, linecolor = bcolor, linetype = btype, linewidth = bwidth, legend=legend)
+           call coop_asy_color2rgba(fcolor, rgba)
+           rgba(4) = alpha
+           call coop_asy_rgba2color(rgba, thiscolor)
+           call fig%contour(x = x, y = y, colorfill = thiscolor, linecolor = bcolor, linetype = btype, linewidth = bwidth, legend=legend)
            has_legend = .true.
         else
-           call fig%contour(x = x, y = y, colorfill = fcolor, linecolor = bcolor, linetype = btype, linewidth = bwidth)
+           call coop_asy_color2rgba(fcolor, rgba)
+           rgba(4) = alpha
+           rgba(1:3) = min(rgba(1:3)*1.2d0, 1.d0)
+           call coop_asy_rgba2color(rgba, thiscolor)
+           call fig%contour(x = x, y = y, colorfill = thiscolor, linecolor = bcolor, linetype = btype, linewidth = bwidth)
         endif
      enddo
   enddo

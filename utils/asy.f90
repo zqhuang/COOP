@@ -8,7 +8,7 @@ module coop_asy_mod
   implicit none
   private
 
-  public::coop_asy, coop_asy_path, coop_asy_error_bar, coop_asy_errorbars, coop_asy_interpolate_curve, coop_asy_gray_color, coop_asy_rgb_color, coop_asy_label, coop_asy_legend, coop_asy_legend_advance, coop_asy_dot, coop_asy_line, coop_asy_labels, coop_asy_dots, coop_asy_lines, coop_asy_contour, coop_asy_curve, coop_asy_density,  coop_asy_topaxis, coop_asy_rightaxis, coop_asy_clip, coop_asy_plot_function, coop_asy_plot_likelihood,  coop_asy_histogram, coop_asy_band,coop_asy_default_width,coop_asy_default_height
+  public::coop_asy, coop_asy_path, coop_asy_error_bar, coop_asy_errorbars, coop_asy_interpolate_curve, coop_asy_gray_color, coop_asy_rgb_color, coop_asy_label, coop_asy_legend, coop_asy_legend_advance, coop_asy_dot, coop_asy_line, coop_asy_labels, coop_asy_dots, coop_asy_lines, coop_asy_contour, coop_asy_curve, coop_asy_density,  coop_asy_topaxis, coop_asy_rightaxis, coop_asy_clip, coop_asy_plot_function, coop_asy_plot_likelihood,  coop_asy_histogram, coop_asy_band,coop_asy_default_width,coop_asy_default_height, coop_asy_color2rgba, coop_asy_rgba2color
 
 
 #include "constants.h"
@@ -173,6 +173,16 @@ module coop_asy_mod
   interface coop_asy_rightaxis
      module procedure coop_asy_rightaxis_s, coop_asy_rightaxis_d
   end interface coop_asy_rightaxis
+
+  interface coop_asy_color2rgba
+     module procedure coop_asy_color2rgba_d, coop_asy_color2rgba_s
+  end interface coop_asy_color2rgba
+
+
+  interface coop_asy_rgba2color
+     module procedure coop_asy_rgba2color_d, coop_asy_rgba2color_s
+  end interface coop_asy_rgba2color
+
 
   type coop_asy_path
      COOP_INT::nclosed = 0
@@ -3873,6 +3883,129 @@ contains
     area = area/2. !abs(area)/2.
   end subroutine coop_asy_path_get_perimeter_and_area
 
+  subroutine coop_asy_color2rgba_d(color, rgba)
+    COOP_UNKNOWN_STRING::color
+    COOP_REAL::rgba(4)
+    COOP_STRING::sc
+    COOP_INT::i, istart, iend, l
+    sc = trim(adjustl(color))
+    call coop_str2lower(sc)
+    l = len_trim(sc)
+    if(sc(1:3) .eq. "rgb")then
+       if(sc(4:4) .eq. "a")then
+          call coop_str2arr(sc(6:), rgba)
+          rgba(1:3) = rgba(1:3)/255.
+       elseif(sc(4:4) .eq. ":")then
+          call coop_str2arr(sc(5:), rgba(1:3))
+          rgba(1:3) = rgba(1:3)/255.
+          rgba(4) = 1.
+       else
+          goto 100
+       endif
+    elseif(sc(1:5) .eq. "gray:")then
+       read(sc(6:), *) rgba(1)
+       rgba(1) = rgba(1)/255.
+       rgba(2:3) = rgba(1)
+       rgba(4) = 1.
+    else
+       select case(trim(sc))
+       case("red","r")
+          rgba = (/ 1., 0., 0., 1. /)
+       case("green","g")
+          rgba = (/ 0., 1., 0., 1. /)
+       case("blue","b")
+          rgba = (/ 0., 0., 1., 1. /)
+       case("yellow", "y")
+          rgba = (/ 1., 1., 0., 1. /)
+       case("magenta","m")
+          rgba = (/ 1., 0., 1., 1. /)
+       case("cyan","turquoise", "c")
+          rgba = (/ 0., 1., 1., 1. /)
+       case("olive")
+          rgba = (/ 0.5, 0.5, 0., 1. /)
+       case("black","k")
+          rgba = (/ 0., 0. ,0., 1. /)
+       case("white","w")
+          rgba = (/ 1., 1., 1., 1. /)
+       case("gray","grey")
+          rgba = (/ 0.5, 0.5, 0.5, 1. /)
+       case("orange", "o")
+          rgba = (/ 1., 0.5, 0.2, 1. /)
+       case("violet", "v")
+          rgba = (/ 0.55, 0.22, 0.79, 1. /)
+       case("brown")
+          rgba = (/ 0.5, 0.25, 0., 1. /)
+       case("pink")
+          rgba = (/ 0.98, 0.69, 0.73, 1. /)
+       case("gold")
+          rgba = (/ 0.83, 0.63, 0.09, 1. /)
+       case("purple","p")
+          rgba = (/ 0.56, 0.21, 0.94, 1. /)
+       case("maroon")
+          rgba = (/ 0.51, 0.02, 0.25, 1. /)
+       case("slateblue")
+          rgba = (/ 0.21, 0.45, 0.78, 1. /)
+       case("skyblue")
+          rgba = (/ 0.24, 0.6, 1., 1. /)
+       case("lawngreen","grassgreen", "springgreen")
+          rgba = (/ 0.53, 0.97, 0.10, 1. /)
+       case("darkgray","darkgrey")
+          rgba = (/ 0.25, 0.25, 0.25, 1. /)
+       case("lightgray","lightgrey")
+          rgba = (/ 0.75, 0.75, 0.75, 1. /)          
+       case("darkblue")
+          rgba = (/ 0., 0., 0.55, 1. /)
+       case("darkgreen")
+          rgba = (/ 0., 0.55, 0., 1. /)
+       case("darkred")
+          rgba = (/ 0.55, 0., 0., 1. /)
+       case("lightred")
+          rgba = (/ 1., 0.1, 0.1, 1. /)
+       case("lightblue")
+          rgba = (/ 0.1, 1., 0.1, 1. /)
+       case("lightgreen")
+          rgba = (/ 0.1, 0.1, 1., 1. /)
+       case("royalblue")
+          rgba = (/ 0.25, 0.41, 0.95, 1./)
+       case("darkcyan")
+          rgba = (/ 0., 0.55, 0.55, 1. /)
+       case("darkmagenta")
+          rgba = (/ 0.55, 0., 0.55, 1. /)
+       case("darkyellow")
+          rgba = (/ 0.55, 0.55, 0., 1. /)
+       case("darkbrown")
+          rgba = (/ 0.35, 0.15, 0., 1. /)
+       case("invisible")
+          rgba = 0.d0
+       case default
+          goto 100
+       end select
+    endif
+    return
+100 write(*,*) trim(color)
+    stop "Unknown color name."
+  end subroutine coop_asy_color2rgba_d
+
+  subroutine coop_asy_rgba2color_d(rgba, color)
+    COOP_REAL::rgba(4)
+    COOP_STRING::color
+    color = "RGBA:"//COOP_STR_OF(nint(rgba(1)*255.))//":"//COOP_STR_OF(nint(rgba(2)*255.))//":"//COOP_STR_OF(nint(rgba(3)*255.))//":"//trim(adjustl(coop_num2str(rgba(4), "(F10.3)")))
+  end subroutine coop_asy_rgba2color_d
+
+
+  subroutine coop_asy_color2rgba_s(color, rgba)
+    COOP_UNKNOWN_STRING::color
+    COOP_SINGLE::rgba(4)
+    COOP_REAL::tmp(4)
+    call coop_asy_color2rgba_d(color, tmp)
+    rgba = tmp
+  end subroutine coop_asy_color2rgba_s
+
+  subroutine coop_asy_rgba2color_s(rgba, color)
+    COOP_SINGLE::rgba(4)
+    COOP_STRING::color
+    color = "RGBA:"//COOP_STR_OF(nint(rgba(1)*255.))//":"//COOP_STR_OF(nint(rgba(2)*255.))//":"//COOP_STR_OF(nint(rgba(3)*255.))//":"//trim(adjustl(coop_num2str(rgba(4), "(F10.3)")))
+  end subroutine coop_asy_rgba2color_s
 
   
 end module coop_asy_mod

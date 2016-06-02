@@ -31,7 +31,7 @@ module coop_string_mod
   private
 
 
-  public::coop_num2str,  coop_ndigits, coop_2digits, coop_3digits, coop_4digits, coop_5digits, coop_str2int, coop_str2real, coop_str2logical, coop_substr, coop_str_replace, coop_str_numalpha, coop_str2lower, coop_str2upper, coop_case_insensitive_eq, coop_file_path_of, coop_file_name_of, coop_file_postfix_of, coop_file_add_postfix, coop_file_replace_postfix, coop_convert_to_C_string, coop_convert_to_Fortran_String, coop_data_type, coop_string_contain_numbers, coop_numstr2goodstr, coop_num2goodstr, coop_string_strip_quotes, coop_str_numUpperAlpha, coop_str_numLowerAlpha, coop_datapath_format, coop_is_digit, coop_ascii_0, coop_ascii_9, coop_ascii_Upper_A, coop_ascii_lower_A, coop_ascii_Upper_Z, coop_ascii_lower_Z, coop_ascii_lower_minus_upper, coop_ascii_plus, coop_ascii_dash, coop_ascii_star, coop_ascii_slash, coop_ascii_hat, coop_ascii_underscore, coop_ascii_backslash, coop_ascii_dot, coop_ascii_left_bracket, coop_ascii_right_bracket, coop_ascii_space,coop_ascii_dollar, coop_is_number, coop_is_integer
+  public::coop_num2str,  coop_ndigits, coop_2digits, coop_3digits, coop_4digits, coop_5digits, coop_str2int, coop_str2real, coop_str2logical, coop_substr, coop_str_replace, coop_str_numalpha, coop_str2lower, coop_str2upper, coop_case_insensitive_eq, coop_file_path_of, coop_file_name_of, coop_file_postfix_of, coop_file_add_postfix, coop_file_replace_postfix, coop_convert_to_C_string, coop_convert_to_Fortran_String, coop_data_type, coop_string_contain_numbers, coop_numstr2goodstr, coop_num2goodstr, coop_string_strip_quotes, coop_str_numUpperAlpha, coop_str_numLowerAlpha, coop_datapath_format, coop_is_digit, coop_ascii_0, coop_ascii_9, coop_ascii_Upper_A, coop_ascii_lower_A, coop_ascii_Upper_Z, coop_ascii_lower_Z, coop_ascii_lower_minus_upper, coop_ascii_plus, coop_ascii_dash, coop_ascii_star, coop_ascii_slash, coop_ascii_hat, coop_ascii_underscore, coop_ascii_backslash, coop_ascii_dot, coop_ascii_left_bracket, coop_ascii_right_bracket, coop_ascii_space,coop_ascii_dollar, coop_is_number, coop_is_integer, coop_str2arr
 
   Interface coop_num2str
      module procedure coop_int2str, coop_real2str, coop_logical2str, coop_double2str
@@ -40,6 +40,10 @@ module coop_string_mod
   Interface coop_is_integer
      module procedure coop_is_integer_str, coop_is_integer_real
   end Interface coop_is_integer
+
+  interface coop_str2arr
+     module procedure coop_str2arr_d, coop_str2arr_s, coop_str2arr_i
+  end interface coop_str2arr
 
 
 contains
@@ -379,6 +383,117 @@ contains
     read(str,*) coop_str2logical
   end function coop_str2logical
 
+  subroutine coop_str2arr_d(str, array, delimiter)
+    COOP_UNKNOWN_STRING::str
+    COOP_REAL,dimension(:),intent(OUT)::array
+    COOP_UNKNOWN_STRING,optional::delimiter
+    COOP_INT::k, l, istart, iend, i, maxi
+    l = size(array)
+    maxi = len_trim(str)
+    istart = scan(str, "0123456789+-.eE")
+    if(istart .eq. 0) goto 100
+    do k=1, l-1
+       if(present(delimiter))then
+          i = scan(str, delimiter)
+       else
+          i = scan(str, " ,:;"//coop_tab//coop_backslash//coop_slash//coop_newline//coop_carriage_return)
+       endif
+       if(i.lt.2)goto 100
+       iend = istart + i - 2
+       read(str(istart:iend), *, ERR=100) array(k)
+       istart  = iend + 2
+    enddo
+    if(present(delimiter))then
+       i = scan(str, delimiter)
+    else
+       i = scan(str, " ,:;"//coop_tab//coop_backslash//coop_slash//coop_newline//coop_carriage_return)
+    endif
+    if(i.eq.0)then
+       iend = maxi
+    else
+       iend = istart + i  - 2
+    endif
+    read(str(istart:iend), *, ERR=100) array(l)
+    return
+100 write(*,*) trim(str)
+    stop "str2arr: failed"
+  end subroutine coop_str2arr_d
+
+
+  subroutine coop_str2arr_s(str, array, delimiter)
+    COOP_UNKNOWN_STRING::str
+    COOP_SINGLE,dimension(:),intent(OUT)::array
+    COOP_UNKNOWN_STRING,optional::delimiter
+    COOP_INT::k, l, istart, iend, i, maxi
+    l = size(array)
+    maxi = len_trim(str)
+    istart = scan(str, "0123456789+-.eE")
+    if(istart .eq. 0) goto 100
+    do k=1, l-1
+       if(present(delimiter))then
+          i = scan(str, delimiter)
+       else
+          i = scan(str, " ,:;"//coop_tab//coop_backslash//coop_slash//coop_newline//coop_carriage_return)
+       endif
+       if(i.lt.2)goto 100
+       iend = istart + i - 2
+       read(str(istart:iend), *, ERR=100) array(k)
+       istart  = iend + 2
+    enddo
+    if(present(delimiter))then
+       i = scan(str, delimiter)
+    else
+       i = scan(str, " ,:;"//coop_tab//coop_backslash//coop_slash//coop_newline//coop_carriage_return)
+    endif
+    if(i.eq.0)then
+       iend = maxi
+    else
+       iend = istart + i  - 2
+    endif
+    read(str(istart:iend), *, ERR=100) array(l)
+    return
+100 write(*,*) trim(str)
+    stop "str2arr: failed"
+  end subroutine coop_str2arr_s
+
+  subroutine coop_str2arr_i(str, array, delimiter)
+    COOP_UNKNOWN_STRING::str
+    COOP_INT,dimension(:),intent(OUT)::array
+    COOP_UNKNOWN_STRING,optional::delimiter
+    COOP_INT::k, l, istart, iend, i, maxi
+    l = size(array)
+    maxi = len_trim(str)
+    istart = scan(str, "0123456789+-")
+    if(istart .eq. 0) goto 100
+    do k=1, l-1
+       if(present(delimiter))then
+          i = scan(str, delimiter)
+       else
+          i = scan(str, " ,:;"//coop_tab//coop_backslash//coop_slash//coop_newline//coop_carriage_return)
+       endif
+       if(i.lt.2)goto 100
+       iend = istart + i - 2
+       read(str(istart:iend), *, ERR=100) array(k)
+       istart  = iend + 2
+    enddo
+    if(present(delimiter))then
+       i = scan(str, delimiter)
+    else
+       i = scan(str, " ,:;"//coop_tab//coop_backslash//coop_slash//coop_newline//coop_carriage_return)
+    endif
+    if(i.eq.0)then
+       iend = maxi
+    else
+       iend = istart + i  - 2
+    endif
+    read(str(istart:iend), *, ERR=100) array(l)
+    return
+100 write(*,*) trim(str)
+    stop "str2arr: failed"
+  end subroutine coop_str2arr_i
+
+
+
 !!================= Now the really cool stuff ====================
   function coop_substr(str, pos_start, pos_end, terminator)
     COOP_LONG_STRING coop_substr
@@ -475,7 +590,6 @@ contains
     enddo
   end function coop_str_numLoweralpha
 
-  
 
   subroutine coop_Str2Lower(Str)
     COOP_UNKNOWN_STRING  Str
