@@ -4,7 +4,7 @@ program PlotF
 #include "constants.h"
   type(coop_asy)::fig
   COOP_INT,parameter::nsamples = 720
-  COOP_STRING::xlabel, ylabel, filename, fcolor, bcolor, btype, output, caption, xvar, yvar, legend, thiscolor
+  COOP_STRING::xlabel, ylabel, filename, fcolor, bcolor, btype, output, caption, xvar, yvar, legend, thisfc, thisbc
   COOP_LONG_STRING::line
   COOP_SINGLE::bwidth, xsize, ysize,  xmin,xmax, ymin,ymax, xlegend, ylegend
   COOP_INT::i, ixvar, iyvar, nkeys, ikey, ix, iy, ncontours, ic, itheta, npt, lcols
@@ -37,7 +37,7 @@ program PlotF
   call coop_get_command_line_argument(key = 'xmax', arg = xmax, default= -1.1e31)
   call coop_get_command_line_argument(key = 'ymin', arg = ymin, default= 1.1e31)
   call coop_get_command_line_argument(key = 'ymax', arg = ymax, default= -1.1e31)
-  call coop_get_command_line_argument(key = 'transparent', arg = transparent, default= 0.75d0)
+  call coop_get_command_line_argument(key = 'transparent', arg = transparent, default= 0.3d0)
   alpha = min(1.d0, max(0.d0, 1.d0-transparent))
   call coop_get_command_line_argument(key = 'xlegend', arg = xlegend, default= 0.5)
   call coop_get_command_line_argument(key = 'ylegend', arg = ylegend, default= 0.95)
@@ -102,15 +102,25 @@ program PlotF
         if(ic .eq. ncontours .and. legend .ne.'')then
            call coop_asy_color2rgba(fcolor, rgba)
            rgba(4) = alpha
-           call coop_asy_rgba2color(rgba, thiscolor)
-           call fig%contour(x = x, y = y, colorfill = thiscolor, linecolor = bcolor, linetype = btype, linewidth = bwidth, legend=legend)
+           call coop_asy_rgba2color(rgba, thisfc)
+
+           call coop_asy_color2rgba(bcolor, rgba)
+           rgba(4) = alpha
+           call coop_asy_rgba2color(rgba, thisbc)
+           call fig%contour(x = x, y = y, colorfill = thisfc, linecolor = thisbc, linetype = btype, linewidth = bwidth, legend=legend)
            has_legend = .true.
         else
            call coop_asy_color2rgba(fcolor, rgba)
            rgba(4) = alpha
-           rgba(1:3) = rgba(1:3)*0.8d0
-           call coop_asy_rgba2color(rgba, thiscolor)
-           call fig%contour(x = x, y = y, colorfill = thiscolor, linecolor = bcolor, linetype = btype, linewidth = bwidth)
+           rgba(1:3) = rgba(1:3)*0.6d0**(dble(ncontours-ic)/(ncontours-1))
+           call coop_asy_rgba2color(rgba, thisfc)
+
+           call coop_asy_color2rgba(bcolor, rgba)
+           rgba(4) = alpha
+           rgba(1:3) = rgba(1:3)*0.6d0**(dble(ncontours-ic)/(ncontours-1))
+           call coop_asy_rgba2color(rgba, thisbc)
+
+           call fig%contour(x = x, y = y, colorfill = thisfc, linecolor = thisbc, linetype = btype, linewidth = bwidth)
         endif
      enddo
   enddo
