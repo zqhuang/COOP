@@ -90,7 +90,7 @@ program PlotF
      call fp%close()
      call coop_matsym_sqrt_small(2, cov)
      sqrteigs = sqrt(eigs)
-     do ic = ncontours, -1
+     do ic = ncontours, 1, -1
         r = sqrt(-2.d0*log(coop_IncompleteGamma(0.5d0, dble(ic)**2/2.d0)/coop_sqrtpi))
         do itheta  = 1, nsamples
            vec(1) = r*cos(theta(itheta))
