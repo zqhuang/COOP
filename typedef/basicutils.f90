@@ -676,20 +676,36 @@ contains
     COOP_REAL::a, b
     call coop_locate(n, x, xs, l, b)
     If(l.lt.1)then
-       ys = (y(2)-y(1))/(x(2)-x(1)) 
-    endif
-    if(l.ge. n)Then
-       ys = (y(n)-y(n-1))/(x(n)-x(n-1))
-       return
+       l = 1
+       b = 0.d0
+    elseif(l.ge. n)then
+       l = n-1
+       b = 1.d0
     endif
     r = l + 1
     a = 1.d0 - b
-    a=(x(r)-xs)/(X(r)-X(r-1))
-    b=1.D0-a
     ys=(y(r)-y(l))/(x(r)-x(l)) + &
          (-y2(l)*(0.5d0*a*a-1.d0/6.d0) + y2(r)*(0.5d0*b*b-1.d0/6.d0))*(x(r)-x(r-1))
   end subroutine Coop_splint_derv
 
+  subroutine coop_splint_derv2(n, x, y, y2, xs, ys)
+    COOP_REAL,DIMENSION(:),INTENT(IN)::x, y, y2
+    COOP_REAL xs, ys
+    COOP_INT n, j, l, r
+    COOP_REAL::a, b
+    call coop_locate(n, x, xs, l, b)
+    If(l.lt.1)then
+       ys = y2(1)
+       return
+    endif
+    if(l.ge. n)Then
+       ys = y2(n)
+       return
+    endif
+    r = l + 1
+    a = 1.d0 - b
+    ys=  y2(l)*a + y2(r)*b
+  end subroutine Coop_splint_derv2
 
 
   subroutine coop_spline_uniform(n, y, y2)

@@ -24,6 +24,7 @@ module coop_function_mod
      procedure::set_boundary => coop_function_set_boundary
      procedure::init => coop_function_init
      procedure::init_polynomial => coop_function_init_polynomial
+     procedure::init_powerlaw => coop_function_init_powerlaw
      procedure::init_NonUniform => coop_function_init_NonUniform
      procedure::init_zigzag => coop_function_init_zigzag
      procedure::eval => coop_function_evaluate  
@@ -38,10 +39,6 @@ module coop_function_mod
      procedure::free => coop_function_free
      procedure::monotonic_solution => coop_function_monotonic_solution
   end type coop_function
-
-!!$  interface coop_function
-!!$     module procedure coop_function_constructor
-!!$  end interface coop_function  
 
 
   type coop_2dfunction
@@ -485,6 +482,39 @@ contains
   end subroutine coop_function_free
 
 
+  !!initialize a function
+  !! y = c_1 x^(alpha_1) + c_2 x^(alpha_2) + ...
+  subroutine coop_function_init_powerlaw(this, c, alpha, xlog, ylog, name)
+    class(coop_function)::this
+    logical,optional::xlog, ylog
+    COOP_REAL,dimension(:)::alpha, c
+    COOP_UNKNOWN_STRING,optional::name    
+    COOP_INT::i
+    call this%free()
+    this%method = COOP_INTERPOLATE_POWERLAW
+    if(present(name))this%name = trim(adjustl(name))
+    if(present(xlog))then
+       this%xlog = xlog
+    else
+       this%xlog = .false.
+    endif
+    if(present(ylog))then
+       this%ylog = ylog
+    else
+       this%ylog = .false.
+    endif
+    this%check_boundary = .false.
+    this%n = coop_getdim("init_powerlaw", size(c), size(alpha))
+    allocate(this%f(this%n), this%f1(this%n), this%f2(this%n))
+    this%f = c
+    this%f1 = alpha
+    this%f2 = c*alpha
+    this%xmax = 1.d99
+    this%xmin = 0.d0
+    this%initialized = .true.        
+  end subroutine coop_function_init_powerlaw
+
+
   subroutine coop_function_init_polynomial(this, p, xlog, ylog,  name)
     class(coop_function)::this
     logical,optional::xlog, ylog
@@ -528,6 +558,7 @@ contains
     COOP_REAL,dimension(:),intent(IN):: x, f
     COOP_UNKNOWN_STRING,optional::name
     logical, optional::xlog, ylog
+    call this%free()
     if(present(name))then
        this%name = trim(adjustl(name))
     endif    
@@ -535,7 +566,11 @@ contains
        write(*,*) "Cannot construct the function "//trim(this%name)//": found f = NAN within the specified range."
        stop
     endif
-    call this%free()
+    this%n  = coop_getdim("coop_function%init_ZigZag", size(x), size(f))
+    if(this%n.eq.1)then
+       call this%init_polynomial(f)
+       return
+    endif
     if(present(xlog))then
        this%xlog = xlog
     else
@@ -547,7 +582,6 @@ contains
        this%ylog = .false.
     endif
     this%method = COOP_INTERPOLATE_ZIGZAG
-    this%n  = coop_getdim("coop_function%init_ZigZag", size(x), size(f))
     allocate(this%f(this%n), this%f2(this%n))
     if(this%xlog)then
        if(any(x.le.0.d0))stop "Error: cannot set xlog = .true. for x<0"
@@ -567,18 +601,14 @@ contains
   end subroutine coop_function_init_zigzag
 
   
-  subroutine coop_function_init_NonUniform(this, x, f, xlog, ylog, check_boundary, smooth, name)
+  subroutine coop_function_init_NonUniform(this, x, f, xlog, ylog, check_boundary, name)
     class(coop_function):: this
     logical, optional::xlog, ylog
     COOP_REAL,dimension(:),intent(IN):: x, f
     COOP_INT i
-    COOP_INT m, n, loc
-    COOP_REAL_ARRAY :: xx, ff
-    COOP_REAL :: xc(size(x)), fc(size(f)), fc2(size(f)), res
-    logical do_spline
     logical,optional::check_boundary
-    logical,optional::smooth
     COOP_UNKNOWN_STRING,optional::name
+    call this%free()
     if(present(name))then
        this%name = trim(adjustl(name))
     endif    
@@ -586,7 +616,11 @@ contains
        write(*,*) "Cannot construct the function "//trim(this%name)//": found f = NAN within the specified range."
        stop
     endif
-    call this%free()
+    this%n = coop_getdim("coop_function_init_NonUniform", size(x), size(f))
+    if(this%n .eq. 1)then
+       call this%init_polynomial( f )
+       return
+    endif
     if(present(xlog))then
        this%xlog = xlog
     else
@@ -597,70 +631,44 @@ contains
     else
        this%ylog = .false.
     endif
-    this%method = COOP_INTERPOLATE_QUADRATIC
-    m  = coop_getdim("coop_function%init_NonUniform", size(x), size(f))
-    this%n = min(coop_default_array_size, max(m, 128))
-    allocate(this%f(this%n), this%f2(this%n))
+    this%method = COOP_INTERPOLATE_NONUNIFORM
+    allocate(this%f(this%n), this%f2(this%n), this%f1(this%n))
     if(this%xlog)then
        if(any(x.le.0.d0))stop "Error: cannot set xlog = .true. for x<0"
-       xc = log(x)
+       this%f1 = log(x)
     else
-       xc  = x
+       this%f1 = x
     endif
     if(this%ylog)then
        if(any(f .le. 0.d0)) stop "Error: cannot set ylog = .true. for f(x) < 0"
-       fc = log(f)
+       this%f = log(f)
     else
-       fc = f  
+       this%f = f  
     endif
-    call coop_quicksortacc(xc, fc)
-    this%xmin = xc(1)
-    this%xmax = xc(m)
+    call coop_quicksortacc(this%f1, this%f)
+    this%xmin = this%f1(1)
+    this%xmax = this%f1(this%n)
     this%dx = (this%xmax - this%xmin)/(this%n-1)
     if(this%dx  .eq. 0.) stop "All x's are equal. Cannot generate function for a single point."
-    this%fleft = fc(1)    
-    this%fright = fc(m)
-    this%f(1) = fc(1)
-    this%f(this%n) = fc(m)
-    this%slopeleft= 0.d0
-    this%sloperight = 0.d0
-    if(m .lt. 8192)then
-       if( minval(xc(2:m) - xc(1:m-1)) .gt. 2.d-2 * maxval(xc(2:m)-xc(1:m-1)))then
-          do_spline = .true.
+    this%fleft = this%f(1) 
+    this%fright = this%f(this%n)
+    if(this%n .gt. 3)then
+       if(this%f1(2) .gt. this%f1(1) .and. this%f1(3) .gt. this%f1(2) .and. this%f1(this%n) .gt. this%f1(this%n-1) .and. this%f1(this%n-1) .gt. this%f1(this%n-2))then
+          this%slopeleft = ( (this%f(2) - this%f(1))/(this%f1(2) - this%f1(1)) *(this%f1(3) - this%f1(1)) + (this%f(3) - this%f(1))/(this%f1(3) - this%f1(1))*(this%f1(2) - this%f1(1)) )/(this%f1(3) - this%f1(2))
+          this%sloperight = ( (this%f(this%n-1) - this%f(this%n))/(this%f1(this%n-1) - this%f1(this%n)) *(this%f1(this%n-2) - this%f1(this%n)) + (this%f(this%n-2) - this%f(this%n))/(this%f1(this%n-2) - this%f1(this%n))*(this%f1(this%n-1) - this%f1(this%n)) )/(this%f1(this%n-2) - this%f1(this%n-1))
+          call coop_spline(this%n, this%f1, this%f, this%f2, this%slopeleft, this%sloperight)
        else
-          do_spline = .false.
+          this%slopeleft = 0.d0
+          this%sloperight = 0.d0
+          call coop_spline(this%n, this%f1, this%f, this%f2)
        endif
     else
-       do_spline = .false.
+       this%f2 = 0.d0
     endif
-    if(do_spline)then
-       call coop_spline(m, xc, fc, fc2)
-       !$omp parallel do
-       do i=2, this%n - 1
-          call coop_splint(m, xc, fc, fc2, this%xmin + (i-1)*this%dx, this%f(i))
-       enddo
-       !$omp end parallel do
-    else
-       !$omp parallel do private(loc, res)
-       do i = 2, this%n - 1
-          call coop_locate(m, xc, this%xmin + (i-1)*this%dx, loc, res)
-          this%f(i) = fc(loc)*(1.d0-res) + fc(loc+1)*res
-       enddo
-       !$omp end parallel do
-    endif
-    this%f2(2:this%n-1) = this%f(3:this%n) + this%f(1:this%n-2) - 2.*this%f(2:this%n-1)
-    this%f2(1) = this%f2(2)
-    this%f2(this%n) = this%f2(this%n-1)
-    this%f2 = this%f2/6.d0
-    if(present(smooth))then
-       if(smooth)then
-          if(this%n .ge. 200)then  !!check f2 is smooth
-             call coop_smooth_data(this%n, this%f2, min(this%n/200, 50))
-          endif
-       endif
-    endif
-    if(present(check_boundary))then
+100 if(present(check_boundary))then
        this%check_boundary = check_boundary
+    else
+       this%check_boundary = .false.
     endif
     this%initialized = .true.
   end subroutine coop_function_init_NonUniform
@@ -679,6 +687,7 @@ contains
     COOP_UNKNOWN_STRING, optional::name
     COOP_INT i, count_tiny, count_small
     COOP_REAL::fmean, ftiny, curv, flarge, fsmall
+    call this%free()
     if(present(name))then
        this%name = trim(adjustl(name))
     endif    
@@ -686,7 +695,10 @@ contains
        write(*,*) "Cannot construct the function "//trim(this%name)//": found f = NAN within the specified range."
        stop
     endif
-    call this%free()
+    if(n.eq.1)then
+       call this%init_polynomial (f)
+       return
+    endif
     if(present(xlog))then
        this%xlog = xlog
     else
@@ -865,11 +877,14 @@ contains
     class(coop_function):: this
     COOP_REAL x, f, a, b, xdiff
     COOP_INT l, r
-    if(this%method .eq. COOP_INTERPOLATE_POLYNOMIAL)then
+    select case(this%method)
+    case(COOP_INTERPOLATE_POWERLAW)
+       f = sum(this%f * x**this%f1)
+       return
+    case(COOP_INTERPOLATE_POLYNOMIAL)
        f = coop_polyvalue(this%n, this%f, x)
        return
-    endif
-    if(this%method .eq. COOP_INTERPOLATE_ZIGZAG)then
+    case(COOP_INTERPOLATE_ZIGZAG)
        l = coop_left_index(this%n, this%f2, x)
        if(l.le.0)then
           f = this%f(1)
@@ -881,7 +896,10 @@ contains
        endif
        f = (this%f(l+1) * (x - this%f2(l)) + this%f(l) * (this%f2(l+1) - x))/(this%f2(l+1) - this%f2(l))
        return
-    endif
+    case(COOP_INTERPOLATE_NONUNIFORM)
+       call coop_splint(this%n, this%f1, this%f, this%f2, x, f)
+       return
+    end select
     xdiff = x - this%xmin
     b = xdiff/this%dx + 1.d0
     l = floor(b)
@@ -1003,7 +1021,9 @@ contains
              call coop_chebeval(funcs(i)%n, funcs(i)%xmin, funcs(i)%xmax, funcs(i)%f, x, f(i))
           enddo
        case default
-          stop "UNKNOWN interpolation method"
+          do i=1, nf
+             f(i) = funcs(i)%eval(x)
+          enddo
        end select
     endif
   end function coop_function_multeval_bare
@@ -1012,14 +1032,25 @@ contains
     class(coop_function):: this
     COOP_REAL x, f, a, b, xdiff
     COOP_INT l, r
-    if(this%method .eq. COOP_INTERPOLATE_POLYNOMIAL)then
+    select case(this%method)
+    case(COOP_INTERPOLATE_POWERLAW)
+       f = sum(this%f2*x**(this%f1-1.d0))
+       return
+    case(COOP_INTERPOLATE_POLYNOMIAL)
        f = coop_polyvalue(this%n-1, this%f1, x)
        return
-    endif
-    if(this%method .eq. COOP_INTERPOLATE_ZIGZAG)then
-       f = 0.d0
+    case(COOP_INTERPOLATE_ZIGZAG)
+       if(x .lt. this%xmin .or. x .gt. this%xmax .or. this%n .le. 1)then
+          f = 0.d0
+          return
+       endif
+       l = min(max(coop_left_index(this%n, this%f2, x), 1), this%n-1)
+       f = (this%f(l+1) - this%f(l)) / (this%f2(l+1) - this%f2(l))
        return
-    endif
+    case(COOP_INTERPOLATE_NONUNIFORM)
+       call coop_splint_derv(this%n, this%f1, this%f, this%f2, x, f)
+       return
+    end select
     xdiff = x - this%xmin
     b = xdiff/this%dx + 1.d0
     l = floor(b)
@@ -1080,14 +1111,20 @@ contains
     class(coop_function):: this
     COOP_REAL x, f, a, b, xdiff
     COOP_INT l, r
-    if(this%method .eq. COOP_INTERPOLATE_POLYNOMIAL)then
+    select case(this%method)
+    case(COOP_INTERPOLATE_POWERLAW)
+       f = sum(this%f2*(this%f1-1.d0)*x**(this%f1-2.d0))
+       return
+    case(COOP_INTERPOLATE_POLYNOMIAL)
        f = coop_polyvalue(this%n-2, this%f2, x)
        return
-    endif
-    if(this%method .eq. COOP_INTERPOLATE_ZIGZAG)then
+    case(COOP_INTERPOLATE_ZIGZAG)
        f = 0.d0
        return
-    endif
+    case(COOP_INTERPOLATE_NONUNIFORM)
+       call coop_splint_derv2(this%n, this%f1, this%f, this%f2, x, f)
+       return
+    end select
     xdiff = x - this%xmin
     b = xdiff/this%dx + 1.d0
     l = floor(b)
@@ -1155,7 +1192,7 @@ contains
     integer iloc, n, iloop
     COOP_REAL xmin, xmax, x, fm, dx, f
     select case(this%method)
-    case(COOP_INTERPOLATE_CHEBYSHEV)
+    case(COOP_INTERPOLATE_CHEBYSHEV, COOP_INTERPOLATE_POWERLAW, COOP_INTERPOLATE_POLYNOMIAL)
        xmin = this%xmin
        xmax = this%xmax
        n = 512
@@ -1191,7 +1228,7 @@ contains
     integer iloc, n, iloop
     COOP_REAL xmin, xmax, x, fm, dx, f
     select case(this%method)
-    case(COOP_INTERPOLATE_CHEBYSHEV)
+    case(COOP_INTERPOLATE_CHEBYSHEV, COOP_INTERPOLATE_POWERLAW, COOP_INTERPOLATE_POLYNOMIAL)
        xmin = this%xmin
        xmax = this%xmax
        n = 512

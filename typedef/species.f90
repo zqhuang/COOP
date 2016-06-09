@@ -28,11 +28,10 @@ module coop_species_mod
      type(coop_function):: fwp1, fcs2, fwp1eff
      type(coop_function):: flnrho
 #if DO_COUPLED_DE
-     type(coop_function)::cplde_wp1
      type(coop_function)::cplde_Q
      type(coop_function)::cplde_dQdphi_lna
      type(coop_function)::cplde_lnV_lna
-     type(coop_function)::cplde_dVdphibyH2_lna     !!log(- d ln V / d phi) as a function of ln a
+     type(coop_function)::cplde_dVdphibyH2_lna     !!
      type(coop_function)::cplde_phi_lna
      type(coop_function)::cplde_phi_prime_lna     
      type(coop_function)::cplde_m2byH2_lna
@@ -703,7 +702,6 @@ contains
     call this%fwp1eff%free()
     this%Mpsq0 = 1.d0
 #if DO_COUPLED_DE    
-    call this%cplde_wp1%free()
     call this%cplde_Q%free()    
     call this%cplde_lnV_lna%free()
     call this%cplde_phi_lna%free()    

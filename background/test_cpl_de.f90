@@ -9,15 +9,22 @@ program bgtest
   type(coop_cosmology_background)::bg
   COOP_INT::i, index_CDM , index_DE, err
   type(coop_ode)::ode
-  type(coop_function)::fwp1, fQ
+  type(coop_function)::fwp1, fQ, Vofphi, intQofphi
+  COOP_REAL::norm
 #if DO_COUPLED_DE  
-  call fwp1%init_polynomial( (/ 0.d0 /) )
-  call fQ%init_polynomial( (/ 0.d0 /) )
+!  call fwp1%init_polynomial( (/ 0.1d0, 0.05d0 /) )
+!  call fQ%init_polynomial( (/ 0.1d0, 0.05d0 /) )
+  call Vofphi%init_powerlaw( c = (/ 2.2d0 /), alpha = (/ -0.5d0 /), name = "V(phi)")
+
+  call intQofphi%init_polynomial( (/ 0.d0, 0.5d0/) )
+
   call bg%init(h=0.7d0)
   call bg%add_species(coop_baryon(omegab))
   call bg%add_species(coop_radiation(bg%Omega_radiation()))
   call bg%add_species(coop_neutrinos_massless(bg%Omega_massless_neutrinos_per_species()*(bg%Nnu())))
-  call coop_background_add_coupled_DE(bg, Omega_c = omegac, fwp1 = fwp1, fQ = fQ, err = err)
+!  call coop_background_add_coupled_DE(bg, Omega_c = omegac, fwp1 = fwp1, fQ = fQ, err = err)
+  call coop_background_add_coupled_DE_with_potential(bg, Omega_c = omegac, Vofphi = Vofphi, intQofphi = intQofphi, norm = norm, err = err)
+
   if(err .ne. 0)then
      print*, err
   else
@@ -30,8 +37,8 @@ program bgtest
      print*, ode%y(1) - log(bg%Hratio(exp(ode%x)))
      print*, ode%y(2) - log(bg%species(index_DE)%density(exp(ode%x)))
      print*, ode%y(3) - log(bg%species(index_CDM)%density(exp(ode%x)))
-     call coop_asy_plot_function(bg%species(index_DE)%cplde_dVdphibyH2_lna, "dVdphibyH2.txt")
-     call coop_asy_plot_function(bg%species(index_DE)%cplde_m2byH2_lna, "m2byH2.txt")     
+     call coop_asy_plot_function(bg%species(index_DE)%fwp1, "wp1.txt")
+     call coop_asy_plot_function(bg%species(index_DE)%fwp1eff, "wp1eff.txt")     
   endif
 #else
   write(*,*) "Coupled DE disabled"
