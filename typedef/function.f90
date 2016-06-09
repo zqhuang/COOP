@@ -945,10 +945,10 @@ contains
     COOP_INT l, r
     select case(this%method)
     case(COOP_INTERPOLATE_POWERLAW)
-       f = sum(this%f * x**this%f1)
+       f = sum(this%f * x**this%f1, this%f .ne. 0.d0)
        return
     case(COOP_INTERPOLATE_RATIONAL)
-       f = sum(this%f * x**this%f1)/sum(this%f2 * x**this%f3)
+       f = sum(this%f * x**this%f1, this%f .ne. 0.d0)/sum(this%f2 * x**this%f3, this%f2 .ne. 0.d0)
        return
     case(COOP_INTERPOLATE_POLYNOMIAL)
        f = coop_polyvalue(this%n, this%f, x)
@@ -1103,12 +1103,12 @@ contains
     COOP_INT l, r
     select case(this%method)
     case(COOP_INTERPOLATE_POWERLAW)
-       f = sum(this%f2*x**(this%f1-1.d0))
+       f = sum(this%f2*x**(this%f1-1.d0), this%f2 .ne. 0.d0)
        return
     case(COOP_INTERPOLATE_RATIONAL)
-       a = sum(this%f*x**this%f1)
-       b = sum(this%f2*x**this%f3)
-       f = (sum(this%f*this%f1*x**(this%f1-1.d0))*b - sum(this%f2*this%f3*x**(this%f3-1.d0))*a)/b**2
+       a = sum(this%f*x**this%f1, this%f .ne. 0.d0)
+       b = sum(this%f2*x**this%f3, this%f2 .ne. 0.d0)
+       f = (sum(this%f*this%f1*x**(this%f1-1.d0), this%f .ne. 0.d0 .and. this%f1 .ne. 0.d0)*b - sum(this%f2*this%f3*x**(this%f3-1.d0), this%f2 .ne. 0.d0 .and. this%f3 .ne. 0.d0)*a)/b**2
        return
     case(COOP_INTERPOLATE_POLYNOMIAL)
        f = coop_polyvalue(this%n-1, this%f1, x)
@@ -1187,14 +1187,14 @@ contains
     COOP_INT l, r
     select case(this%method)
     case(COOP_INTERPOLATE_POWERLAW)
-       f = sum(this%f2*(this%f1-1.d0)*x**(this%f1-2.d0))
+       f = sum(this%f2*(this%f1-1.d0)*x**(this%f1-2.d0), this%f2 .ne. 0.d0 .and. this%f1.ne. 1.d0)
        return
     case(COOP_INTERPOLATE_RATIONAL)
-       a = sum(this%f*x**this%f1)
-       b = sum(this%f2*x**this%f3)
-       ap = sum(this%f*this%f1*x**(this%f1-1.d0))
-       bp = sum(this%f2*this%f3*x**(this%f3-1.d0))
-       f =  (sum(this%f*this%f1*(this%f1-1.d0)*x**(this%f1-2.d0)) - 2.d0*ap*bp/b + a/b*(2.d0*bp**2/b-sum(this%f2*this%f3*(this%f3-1.d0)*x**(this%f3-2.d0))))/b
+       a = sum(this%f*x**this%f1, this%f .ne. 0.d0)
+       b = sum(this%f2*x**this%f3, this%f2 .ne. 0.d0)
+       ap = sum(this%f*this%f1*x**(this%f1-1.d0), this%f .ne. 0.d0 .and. this%f1 .ne. 0.d0)
+       bp = sum(this%f2*this%f3*x**(this%f3-1.d0), this%f2 .ne. 0.d0 .and. this%f3 .ne. 0.d0)
+       f =  (sum(this%f*this%f1*(this%f1-1.d0)*x**(this%f1-2.d0), this%f .ne. 0.d0 .and. this%f1 .ne. 0.d0 .and. this%f1 .ne. 1.d0) - 2.d0*ap*bp/b + a/b*(2.d0*bp**2/b-sum(this%f2*this%f3*(this%f3-1.d0)*x**(this%f3-2.d0), this%f2.ne.0.d0 .and. this%f3 .ne. 0.d0 .and. this%f3.ne. 1.d0)))/b
        return
     case(COOP_INTERPOLATE_POLYNOMIAL)
        f = coop_polyvalue(this%n-2, this%f2, x)
