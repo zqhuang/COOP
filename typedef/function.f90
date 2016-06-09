@@ -13,21 +13,23 @@ module coop_function_mod
   type coop_function
      COOP_SHORT_STRING::name="NoName"
      logical::initialized = .false.
-     COOP_INT::method = COOP_INTERPOLATE_QUADRATIC  
+     COOP_INT::method = COOP_INTERPOLATE_LINEAR
      logical::xlog =.false.
      logical::ylog = .false.
      logical::check_boundary = .true.
      COOP_INT::n = 0
+     COOP_INT::n_down = 0
      COOP_REAL::scale = 1.d0   !!f -> scale * f + shift
      COOP_REAL::shift = 0.d0
      COOP_REAL xmin, xmax, dx, fleft, fright, slopeleft, sloperight
-     COOP_REAL, dimension(:), allocatable::f, f2, f1
+     COOP_REAL, dimension(:), allocatable::f, f1, f2, f3
    contains
      procedure::set_boundary => coop_function_set_boundary
      procedure::init => coop_function_init
      procedure::mult_const => coop_function_mult_const
      procedure::add_const => coop_function_add_const
      procedure::init_polynomial => coop_function_init_polynomial
+     procedure::init_rational => coop_function_init_rational
      procedure::init_powerlaw => coop_function_init_powerlaw
      procedure::init_NonUniform => coop_function_init_NonUniform
      procedure::init_zigzag => coop_function_init_zigzag
@@ -386,11 +388,7 @@ contains
   subroutine coop_function_add_const(this, c)
     class(coop_function)::this
     COOP_REAL::c
-    if(this%scale .ne. 0.d0)then
-       this%shift = this%shift + c/this%scale
-    else
-       this%shift = this%shift + c
-    endif
+    this%shift = this%shift + c
   end subroutine coop_function_add_const
 
 
@@ -500,8 +498,16 @@ contains
     COOP_DEALLOC(this%f)
     COOP_DEALLOC(this%f1)
     COOP_DEALLOC(this%f2)
+    COOP_DEALLOC(this%f3)
+    this%method = COOP_INTERPOLATE_LINEAR
+    this%name = "NoName"
+    this%check_boundary = .true.
+    this%n = 0
+    this%n_down  = 0
     this%scale = 1.d0
     this%shift = 0.d0
+    this%xlog = .false.
+    this%ylog = .false.
     this%initialized = .false.
   end subroutine coop_function_free
 
@@ -534,7 +540,7 @@ contains
     this%f1 = alpha
     this%f2 = c*alpha
     this%xmax = 1.d99
-    this%xmin = 0.d0
+    this%xmin = -1.d99
     this%initialized = .true.        
   end subroutine coop_function_init_powerlaw
 
@@ -576,6 +582,41 @@ contains
     this%xmin = - this%xmax
     this%initialized = .true.        
   end subroutine coop_function_init_polynomial
+
+!!this is generalized rational function
+!!f = sum(c_up * x**alpha_up)/sum(c_down * x**alpha_down)
+  subroutine coop_function_init_rational(this, c_up, alpha_up, c_down, alpha_down,  xlog, ylog,  name)
+    class(coop_function)::this
+    logical,optional::xlog, ylog
+    COOP_REAL,dimension(:)::c_up, alpha_up, c_down, alpha_down
+    COOP_UNKNOWN_STRING,optional::name    
+    COOP_INT::i
+    call this%free()
+    this%method = COOP_INTERPOLATE_RATIONAL
+    if(present(name))this%name = trim(adjustl(name))
+    if(present(xlog))then
+       this%xlog = xlog
+    else
+       this%xlog = .false.
+    endif
+    if(present(ylog))then
+       this%ylog = ylog
+    else
+       this%ylog = .false.
+    endif
+    this%check_boundary = .false.
+    this%n = coop_GetDim("init_rational", size(c_up), size(alpha_up))
+    this%n_down = coop_getDim("init_rational", size(c_down), size(alpha_down))
+    allocate(this%f(this%n), this%f1(this%n), this%f2(this%n_down), this%f3(this%n_down))
+    this%f = c_up
+    this%f1 = alpha_up
+    this%f2 = c_down
+    this%f3 = alpha_down
+    this%xmax = 1.d99
+    this%xmin = - 1.d99
+    this%initialized = .true.        
+  end subroutine coop_function_init_rational
+
 
   subroutine coop_function_init_zigzag(this, x, f, xlog, ylog, name)
     class(coop_function):: this    
@@ -906,6 +947,9 @@ contains
     case(COOP_INTERPOLATE_POWERLAW)
        f = sum(this%f * x**this%f1)
        return
+    case(COOP_INTERPOLATE_RATIONAL)
+       f = sum(this%f * x**this%f1)/sum(this%f2 * x**this%f3)
+       return
     case(COOP_INTERPOLATE_POLYNOMIAL)
        f = coop_polyvalue(this%n, this%f, x)
        return
@@ -1061,6 +1105,11 @@ contains
     case(COOP_INTERPOLATE_POWERLAW)
        f = sum(this%f2*x**(this%f1-1.d0))
        return
+    case(COOP_INTERPOLATE_RATIONAL)
+       a = sum(this%f*x**this%f1)
+       b = sum(this%f2*x**this%f3)
+       f = (sum(this%f*this%f1*x**(this%f1-1.d0))*b - sum(this%f2*this%f3*x**(this%f3-1.d0))*a)/b**2
+       return
     case(COOP_INTERPOLATE_POLYNOMIAL)
        f = coop_polyvalue(this%n-1, this%f1, x)
        return
@@ -1134,11 +1183,18 @@ contains
 
   function coop_function_derivative2_bare(this, x) result(f)
     class(coop_function):: this
-    COOP_REAL x, f, a, b, xdiff
+    COOP_REAL x, f, a, b, xdiff, ap, bp
     COOP_INT l, r
     select case(this%method)
     case(COOP_INTERPOLATE_POWERLAW)
        f = sum(this%f2*(this%f1-1.d0)*x**(this%f1-2.d0))
+       return
+    case(COOP_INTERPOLATE_RATIONAL)
+       a = sum(this%f*x**this%f1)
+       b = sum(this%f2*x**this%f3)
+       ap = sum(this%f*this%f1*x**(this%f1-1.d0))
+       bp = sum(this%f2*this%f3*x**(this%f3-1.d0))
+       f =  (sum(this%f*this%f1*(this%f1-1.d0)*x**(this%f1-2.d0)) - 2.d0*ap*bp/b + a/b*(2.d0*bp**2/b-sum(this%f2*this%f3*(this%f3-1.d0)*x**(this%f3-2.d0))))/b
        return
     case(COOP_INTERPOLATE_POLYNOMIAL)
        f = coop_polyvalue(this%n-2, this%f2, x)
@@ -1217,7 +1273,7 @@ contains
     integer iloc, n, iloop
     COOP_REAL xmin, xmax, x, fm, dx, f
     select case(this%method)
-    case(COOP_INTERPOLATE_CHEBYSHEV, COOP_INTERPOLATE_POWERLAW, COOP_INTERPOLATE_POLYNOMIAL)
+    case(COOP_INTERPOLATE_CHEBYSHEV, COOP_INTERPOLATE_POWERLAW, COOP_INTERPOLATE_POLYNOMIAL, COOP_INTERPOLATE_RATIONAL, COOP_INTERPOLATE_NONUNIFORM)
        xmin = this%xmin
        xmax = this%xmax
        n = 512
@@ -1227,6 +1283,14 @@ contains
        else
           iloc = coop_minloc(this%f)
        endif
+       select case(this%method)
+       case(COOP_INTERPOLATE_ZIGZAG)
+          xm = this%f1(iloc)
+          goto 100
+       case(COOP_INTERPOLATE_LINEAR)
+          xm = this%xmin + this%dx * (iloc-1)
+          goto 100
+       end select
        xmin = this%xmin + this%dx*max(iloc-2, 0)
        xmax = this%xmin + this%dx*min(iloc, this%n-1)
        n = 16
@@ -1266,7 +1330,7 @@ contains
           n = 8
        enddo
     endif
-    if(this%xlog) xm = exp(xm)
+100 if(this%xlog) xm = exp(xm)
   end function coop_function_maxloc
 
 
@@ -1276,7 +1340,7 @@ contains
     integer iloc, n, iloop
     COOP_REAL xmin, xmax, x, fm, dx, f
     select case(this%method)
-    case(COOP_INTERPOLATE_CHEBYSHEV, COOP_INTERPOLATE_POWERLAW, COOP_INTERPOLATE_POLYNOMIAL)
+    case(COOP_INTERPOLATE_CHEBYSHEV, COOP_INTERPOLATE_POWERLAW, COOP_INTERPOLATE_POLYNOMIAL, COOP_INTERPOLATE_RATIONAL, COOP_INTERPOLATE_NONUNIFORM)
        xmin = this%xmin
        xmax = this%xmax
        n = 512
@@ -1286,6 +1350,14 @@ contains
        else
           iloc = coop_maxloc(this%f)
        endif
+       select case(this%method)
+       case(COOP_INTERPOLATE_ZIGZAG)
+          xm = this%f1(iloc)
+          goto 100
+       case(COOP_INTERPOLATE_LINEAR)
+          xm = this%xmin + this%dx * (iloc-1)
+          goto 100
+       end select
        xmin = this%xmin + this%dx*max(iloc-2, 0)
        xmax = this%xmin + this%dx*min(iloc, this%n-1)
        n = 16
@@ -1327,7 +1399,7 @@ contains
           n = 8
        enddo
     endif
-    if(this%xlog) xm = exp(xm)
+100 if(this%xlog) xm = exp(xm)
   end function coop_function_minloc
   
   !!simple integration 
@@ -1436,7 +1508,7 @@ contains
        fs = log(fs)
     endif
     select case(this%method)
-    case(COOP_INTERPOLATE_CHEBYSHEV, COOP_INTERPOLATE_POLYNOMIAL, COOP_INTERPOLATE_ZIGZAG, COOP_INTERPOLATE_NONUNIFORM)
+    case(COOP_INTERPOLATE_CHEBYSHEV, COOP_INTERPOLATE_POLYNOMIAL, COOP_INTERPOLATE_ZIGZAG, COOP_INTERPOLATE_NONUNIFORM, COOP_INTERPOLATE_RATIONAL, COOP_INTERPOLATE_POWERLAW)
        xmin = this%xmin
        xmax = this%xmax
        fmin = this%eval_bare(xmin)

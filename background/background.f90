@@ -11,7 +11,7 @@ module coop_background_mod
 #endif  
 
 
-  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_quintessence, coop_de_wp1_quintessence, coop_de_wp1_coupled_quintessence, coop_background_add_coupled_DE,  coop_background_add_EFT_DE,  coop_background_add_EFT_DE_with_effective_w, coop_de_aeq_fitting, coop_de_alpha_invh2, coop_de_alpha_instant, coop_de_general, coop_de_alpha_constructor, coop_de_construct_alpha_from_cs2, coop_background_add_coupled_DE_with_potential
+  public::coop_baryon, coop_cdm, coop_DE_lambda, coop_DE_w0, coop_DE_w0wa, coop_DE_quintessence, coop_radiation, coop_neutrinos_massless, coop_neutrinos_massive, coop_de_w_quintessence, coop_de_wp1_quintessence, coop_de_wp1_coupled_quintessence, coop_background_add_coupled_DE,  coop_background_add_EFT_DE,  coop_background_add_EFT_DE_with_effective_w, coop_de_aeq_fitting, coop_de_alpha_invh2, coop_de_alpha_instant, coop_de_general, coop_de_alpha_constructor, coop_de_construct_alpha_from_cs2, coop_background_add_coupled_DE_with_potential, coop_convert_fofR_to_Vofphi
 
 contains
 
@@ -1037,5 +1037,42 @@ contains
        stop "unknown alpha function type"
     end select
   end function coop_de_alpha_constructor
+
+
+!!the action is 1/2 \int (R - 2 \Lambda + f(R) ) \sqrt{-g} d^4x
+!! f(R) -> 0  when R-> infty
+!! f'(R) < 0 
+!! f''(R) > 0
+!! f'(R) -> 0 when R-> infty
+!!in this model the coupling Q = 1/sqrt(6) is fixed
+  subroutine coop_convert_fofR_to_Vofphi(fofR, Lambda, Vofphi)
+    type(coop_function)::fR, Vphi
+    COOP_REAL::Lambda
+    type(coop_function)::fofR, Vofphi
+    COOP_INT, parameter::n = 8192
+    COOP_REAL, parameter::Rmin = 10.d0, Rmax = 1.d99
+    COOP_REAL,dimension(n)::lnR, phi, V
+    COOP_REAL::R, dfdR, f
+    COOP_INT::i
+    call coop_set_uniform(n, lnR, log(Rmin), log(Rmax))
+    do i=1, n
+       R = exp(lnR(i))
+       dfdR = fofR%derivative(R) 
+       if(abs(dfdR) .gt. 1.d-5)then
+          phi(i) = -sqrt(3.d0/2.d0)*log(1.d0+dfdR)
+       else
+          phi(i) = -sqrt(3.d0/2.d0)*(dfdR*(1.d0 - dfdR*(1.d0/2.d0 - dfdR/3.d0)))
+       endif
+       f = fofR%eval(R) 
+       V(i) = (f + dfdR * (2.d0*Lambda*(dfdR+2.d0) -R) )/2.d0/(1.d0+dfdR)**2 
+    enddo
+    if(all(phi .gt. 0.d0))then
+       call Vofphi%init_nonUniform(x = phi, f = V,  xlog = .true., ylog = .true., check_boundary = .true., name = "V(phi)")
+       call Vofphi%mult_const(-1.d0)
+       call Vofphi%add_const(Lambda)
+    else
+       stop "well behaved f(R) must have f' < 0 and f''>0 for all R values"
+    endif
+  end subroutine coop_convert_fofR_to_Vofphi
   
 end module coop_background_mod

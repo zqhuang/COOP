@@ -14,9 +14,9 @@ program bgtest
 #if DO_COUPLED_DE  
 !  call fwp1%init_polynomial( (/ 0.1d0, 0.05d0 /) )
 !  call fQ%init_polynomial( (/ 0.1d0, 0.05d0 /) )
-  call Vofphi%init_powerlaw( c = (/ 2.2d0 /), alpha = (/ -0.5d0 /), name = "V(phi)")
+  call Vofphi%init_powerlaw( c = (/ 2.d0, 0.1d0 /), alpha = (/ 0.d0, -0.1d0 /), name = "V(phi)")
 
-  call intQofphi%init_polynomial( (/ 0.d0, 0.5d0/) )
+  call intQofphi%init_polynomial( (/ 0.d0, 0.d0/) )
 
   call bg%init(h=0.7d0)
   call bg%add_species(coop_baryon(omegab))
