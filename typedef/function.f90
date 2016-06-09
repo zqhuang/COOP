@@ -18,11 +18,15 @@ module coop_function_mod
      logical::ylog = .false.
      logical::check_boundary = .true.
      COOP_INT::n = 0
+     COOP_REAL::scale = 1.d0   !!f -> scale * f + shift
+     COOP_REAL::shift = 0.d0
      COOP_REAL xmin, xmax, dx, fleft, fright, slopeleft, sloperight
      COOP_REAL, dimension(:), allocatable::f, f2, f1
    contains
      procedure::set_boundary => coop_function_set_boundary
      procedure::init => coop_function_init
+     procedure::mult_const => coop_function_mult_const
+     procedure::add_const => coop_function_add_const
      procedure::init_polynomial => coop_function_init_polynomial
      procedure::init_powerlaw => coop_function_init_powerlaw
      procedure::init_NonUniform => coop_function_init_NonUniform
@@ -372,6 +376,24 @@ contains
     return
   end subroutine coop_2dfunction_init_symmetric
 
+  subroutine coop_function_mult_const(this, c)
+    class(coop_function)::this
+    COOP_REAL::c
+    this%scale = this%scale * c
+    this%shift = this%shift * c
+  end subroutine coop_function_mult_const
+
+  subroutine coop_function_add_const(this, c)
+    class(coop_function)::this
+    COOP_REAL::c
+    if(this%scale .ne. 0.d0)then
+       this%shift = this%shift + c/this%scale
+    else
+       this%shift = this%shift + c
+    endif
+  end subroutine coop_function_add_const
+
+
 
   function coop_function_constructor(f, xmin, xmax, xlog, ylog, args, method, check_boundary,name) result(cf)
     external f
@@ -478,6 +500,8 @@ contains
     COOP_DEALLOC(this%f)
     COOP_DEALLOC(this%f1)
     COOP_DEALLOC(this%f2)
+    this%scale = 1.d0
+    this%shift = 0.d0
     this%initialized = .false.
   end subroutine coop_function_free
 
@@ -871,6 +895,7 @@ contains
     if(this%ylog)then
        f = exp(f)
     endif
+    f = f*this%scale + this%shift
   end function coop_function_evaluate
 
   function coop_function_evaluate_bare(this, x) result(f)
@@ -954,9 +979,9 @@ contains
     else
        f = coop_function_multeval_bare(nf, funcs, x)
     endif
-    if(funcs(1)%ylog)then
+    if(funcs(1)%ylog) &
        f = exp(f)
-    endif
+    f = f*funcs%scale + funcs%shift
   end function coop_function_multeval
 
 
@@ -1197,27 +1222,50 @@ contains
        xmax = this%xmax
        n = 512
     case default
-       iloc = coop_maxloc(this%f)
+       if(this%scale .ge. 0.d0)then
+          iloc = coop_maxloc(this%f)
+       else
+          iloc = coop_minloc(this%f)
+       endif
        xmin = this%xmin + this%dx*max(iloc-2, 0)
        xmax = this%xmin + this%dx*min(iloc, this%n-1)
        n = 16
     end select
-    do iloop = 1, 3
-       dx = (xmax-xmin)/n
-       xm = xmin+dx 
-       fm = this%eval_bare(xm)
-       do iloc = 2, n-1
-          x = xmin + iloc*dx
-          f= this%eval_bare(x)
-          if(f .gt. fm)then
-             fm = f
-             xm = x
-          endif
+    if(this%scale .ge. 0.d0)then
+       do iloop = 1, 3
+          dx = (xmax-xmin)/n
+          xm = xmin+dx 
+          fm = this%eval_bare(xm)
+          do iloc = 2, n-1
+             x = xmin + iloc*dx
+             f= this%eval_bare(x)
+             if(f .gt. fm)then
+                fm = f
+                xm = x
+             endif
+          enddo
+          xmin = xm - dx
+          xmax = xm + dx
+          n = 8
        enddo
-       xmin = xm - dx
-       xmax = xm + dx
-       n = 8
-    enddo
+    else
+       do iloop = 1, 3
+          dx = (xmax-xmin)/n
+          xm = xmin+dx 
+          fm = this%eval_bare(xm)
+          do iloc = 2, n-1
+             x = xmin + iloc*dx
+             f= this%eval_bare(x)
+             if(f .lt. fm)then
+                fm = f
+                xm = x
+             endif
+          enddo
+          xmin = xm - dx
+          xmax = xm + dx
+          n = 8
+       enddo
+    endif
     if(this%xlog) xm = exp(xm)
   end function coop_function_maxloc
 
@@ -1233,28 +1281,52 @@ contains
        xmax = this%xmax
        n = 512
     case default
-       iloc = coop_minloc(this%f)
+       if(this%scale .ge. 0.d0)then
+          iloc = coop_minloc(this%f)
+       else
+          iloc = coop_maxloc(this%f)
+       endif
        xmin = this%xmin + this%dx*max(iloc-2, 0)
        xmax = this%xmin + this%dx*min(iloc, this%n-1)
        n = 16
     end select
-    do iloop = 1, 3
-       dx = (xmax-xmin)/n
-       xm = xmin+dx 
-       fm = this%eval_bare(xm)
-       do iloc = 2, n-1
-          x = xmin + iloc*dx
-          f= this%eval_bare(x)
-          if(f .lt. fm)then
-             fm = f
-             xm = x
-          endif
+    if(this%scale .ge. 0.d0)then
+       do iloop = 1, 3
+          dx = (xmax-xmin)/n
+          xm = xmin+dx 
+          fm = this%eval_bare(xm)
+          do iloc = 2, n-1
+             x = xmin + iloc*dx
+             f= this%eval_bare(x)
+             if(f .lt. fm)then
+                fm = f
+                xm = x
+             endif
 
+          enddo
+          xmin = xm - dx
+          xmax = xm + dx
+          n = 8
        enddo
-       xmin = xm - dx
-       xmax = xm + dx
-       n = 8
-    enddo
+    else
+       do iloop = 1, 3
+          dx = (xmax-xmin)/n
+          xm = xmin+dx 
+          fm = this%eval_bare(xm)
+          do iloc = 2, n-1
+             x = xmin + iloc*dx
+             f= this%eval_bare(x)
+             if(f .gt. fm)then
+                fm = f
+                xm = x
+             endif
+
+          enddo
+          xmin = xm - dx
+          xmax = xm + dx
+          n = 8
+       enddo
+    endif
     if(this%xlog) xm = exp(xm)
   end function coop_function_minloc
   
@@ -1316,11 +1388,18 @@ contains
     class(coop_function)::this
     COOP_REAL x, fp
     if(this%xlog)then
-       fp  = this%derivative_bare(log(x))/x
+       if(this%ylog)then
+          fp = this%derivative_bare(log(x))/x * exp(this%eval_bare(log(x)))*this%scale
+       else
+          fp  = this%derivative_bare(log(x))/x * this%scale
+       endif
     else
-       fp = this%derivative_bare(x)
+       if(this%ylog)then
+          fp = this%derivative_bare(x) * exp(this%eval_bare(x)) * this%scale
+       else
+          fp = this%derivative_bare(x) * this%scale
+       endif
     endif
-    if(this%ylog) fp = fp * this%eval(x)
   end function coop_function_derivative
 
 
@@ -1333,7 +1412,7 @@ contains
        xbare = x
     endif
     fpp = this%derivative2_bare(xbare)
-    if(this%ylog)f = this%eval_bare(xbare)
+    if(this%ylog) f = this%eval_bare(xbare)
     if(this%ylog .or. this%xlog) fp = this%derivative_bare(xbare)
     if(this%xlog)then
        fpp = (fpp  - fp)/x**2
@@ -1342,6 +1421,7 @@ contains
     if(this%ylog)then
        fpp = (fpp + fp**2) * exp(f)
     endif
+    fpp = fpp*this%scale
   end function coop_function_derivative2
 
   subroutine coop_function_monotonic_solution(this, f, x)
@@ -1350,14 +1430,13 @@ contains
     COOP_REAL, intent(out)::x
     COOP_REAL xmin, xmax, fmin, fmax, xmid, fs, dx
     COOP_INT imin, imax, imid
-    if(this%ylog)then
-       if(f.le.0.d0)return
-       fs = log(f)
-    else
-       fs = f
+    fs = (f - this%shift)/this%scale
+    if(this%ylog)then  
+       if(fs .lt. 0.d0) return
+       fs = log(fs)
     endif
     select case(this%method)
-    case(COOP_INTERPOLATE_CHEBYSHEV, COOP_INTERPOLATE_POLYNOMIAL, COOP_INTERPOLATE_ZIGZAG)
+    case(COOP_INTERPOLATE_CHEBYSHEV, COOP_INTERPOLATE_POLYNOMIAL, COOP_INTERPOLATE_ZIGZAG, COOP_INTERPOLATE_NONUNIFORM)
        xmin = this%xmin
        xmax = this%xmax
        fmin = this%eval_bare(xmin)
