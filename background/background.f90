@@ -516,20 +516,21 @@ contains
     subroutine solve(H)
       COOP_REAL::H
       COOP_INT::i, istart
-      COOP_REAL::rhode, rhom, beta, dbdlna, beta_plus, beta_minus
+      COOP_REAL::rhode, rhom, beta, dbdlna, beta_plus, beta_minus, phinorm
       logical::good_approx
       type(coop_ode)::ode
       call ode%init(n=2, method = COOP_ODE_RK4)
+      phinorm = 1.d0
       i = 1
       do 
          dbdlna = 0.d0
-         call get_tight_coupling(a(i)*exp(dlna/2.d0), phi(i), phidot(i), good_approx, beta_plus, 0.d0,  i.eq.1)
+         call get_tight_coupling(a(i)*exp(dlna/2.d0), phi(i), phidot(i), good_approx, phinorm, beta_plus, 0.d0,  i.eq.1)
          if(i.eq.1)beta_minus = beta_plus
-         call get_tight_coupling(a(i)*exp(-dlna/2.d0), phi(i), phidot(i), good_approx, beta_minus, 0.d0, .false.)
+         call get_tight_coupling(a(i)*exp(-dlna/2.d0), phi(i), phidot(i), good_approx, phinorm, beta_minus, 0.d0, .false.)
          dbdlna = (beta_plus-beta_minus)/dlna
          if(i.eq.1) beta = (beta_plus+beta_minus)/2.d0
-         call get_tight_coupling(a(i), phi(i), phidot(i), good_approx, beta, dbdlna, .false.)
-
+         call get_tight_coupling(a(i), phi(i), phidot(i), good_approx, phinorm, beta, dbdlna, .false.)
+         phinorm = phinorm * exp(-dbdlna*lna(i)**2)
          V(i) = norm*Vofphi%eval(phi(i))
          Q(i) = intQofphi%derivative(phi(i))
          dQdphi(i) = intQofphi%derivative2(phi(i))
@@ -546,7 +547,7 @@ contains
             istart = ns+1
             exit
          endif
-         if( a(i) .gt. 5.d-2 .or. .not. good_approx )then !!start exact evolution
+         if( a(i) .gt. 1.d-1 .or. .not. good_approx )then !!start exact evolution
             call ode%set_initial_conditions(xini = lna(i), yini = (/ log(phi(i)), phidot(i)/phi(i) /) )
             istart = i+1
             exit
@@ -595,14 +596,14 @@ contains
 
 
 
-    subroutine get_tight_coupling(a, phi, phidot, good_approx, betabest, dbdlna, search_full_range)
+    subroutine get_tight_coupling(a, phi, phidot, good_approx, phinorm, betabest, dbdlna, search_full_range)
       COOP_REAL,parameter::beta_max = 4.d0, beta_min = 0.03d0
       COOP_REAL,intent(INOUT)::betabest
       COOP_REAL::dbdlna
       logical::search_full_range
       COOP_REAL::a
       COOP_REAL::phi, phidot
-      COOP_REAL::pa4, rhoa4, p, rho, rhom_raw, H, Hdot, phidd
+      COOP_REAL::pa4, rhoa4, p, rho, rhom_raw, H, Hdot, phidd, phinorm
       COOP_REAL::rhom, rho_phi, p_phi, V_phi
       COOP_INT, parameter::n = 31
       COOP_REAL::beta(n), df(n), t1, t2, t3, beta_upper, beta_lower, diffbest, diff_upper, diff_lower
@@ -624,7 +625,7 @@ contains
          do while( (iloop .lt. 2 .or. diff_lower*diff_upper .gt. 0.d0) .and. iloop .lt. 5)
             call coop_set_uniform(n, beta,  beta_lower, beta_upper)
             do i = 1, n
-               phi = a**beta(i)
+               phi = phinorm*a**beta(i)
                rhom = rhom_raw*exp(intQofphi%eval(phi))
                V_phi =  norm*Vofphi%eval(phi)
                H = sqrt((rho + rhom + V_phi)/3.d0)
@@ -651,32 +652,30 @@ contains
          beta_upper = min(betabest + max(1.d-3,abs(dbdlna) * dlna), beta_max)
          beta_lower = max(betabest - max(abs(dbdlna) * dlna, 1.d-3), beta_min)
 
-         betabest = beta_upper
-         phi = a**betabest
+         phi = phinorm*a**beta_upper
          rhom = rhom_raw*exp(intQofphi%eval(phi))
          V_phi =  norm*Vofphi%eval(phi)
          H = sqrt((rho + rhom + V_phi)/3.d0)
-         phidot = (betabest+ dbdlna*log(a))*H*phi
+         phidot = (beta_upper+ dbdlna*log(a))*H*phi
          H = sqrt((rho + rhom + V_phi+phidot**2/2.d0)/3.d0)
          Hdot = -0.5d0*(rho + rhom + phidot**2+p)
-         phidot = (betabest+ dbdlna*log(a))*H*phi
-         phidd = (betabest + dbdlna*log(a))*(Hdot*phi+H*phidot) &
+         phidot = (beta_upper+ dbdlna*log(a))*H*phi
+         phidd = (beta_upper + dbdlna*log(a))*(Hdot*phi+H*phidot) &
               + 2.d0*dbdlna*H**2*phi
          t1 = phidd + 3.d0*H*phidot
          t2 = norm*Vofphi%derivative(phi)
          t3 =  intQofphi%derivative(phi)*rhom 
          diff_upper =  t1 + t2 + t3
 
-         betabest = beta_lower
-         phi = a**betabest
+         phi = phinorm*a**beta_lower
          rhom = rhom_raw*exp(intQofphi%eval(phi))
          V_phi =  norm*Vofphi%eval(phi)
          H = sqrt((rho + rhom + V_phi)/3.d0)
-         phidot = (betabest+ dbdlna*log(a))*H*phi
+         phidot = (beta_lower+ dbdlna*log(a))*H*phi
          H = sqrt((rho + rhom + V_phi+phidot**2/2.d0)/3.d0)
          Hdot = -0.5d0*(rho + rhom + phidot**2+p)
-         phidot = (betabest+ dbdlna*log(a))*H*phi
-         phidd = (betabest + dbdlna*log(a))*(Hdot*phi+H*phidot) &
+         phidot = (beta_lower+ dbdlna*log(a))*H*phi
+         phidd = (beta_lower + dbdlna*log(a))*(Hdot*phi+H*phidot) &
               + 2.d0*dbdlna*H**2*phi
          t1 = phidd + 3.d0*H*phidot
          t2 = norm*Vofphi%derivative(phi)
@@ -690,7 +689,7 @@ contains
       endif
       do while(beta_upper - beta_lower .gt. 1.d-10 )
          betabest = (beta_upper + beta_lower)/2.d0
-         phi = a**betabest
+         phi = phinorm*a**betabest
          rhom = rhom_raw*exp(intQofphi%eval(phi))
          V_phi =  norm*Vofphi%eval(phi)
          H = sqrt((rho + rhom + V_phi)/3.d0)
@@ -711,7 +710,7 @@ contains
          endif
       enddo
       betabest = (beta_upper + beta_lower)/2.d0
-      phi = a**betabest
+      phi = phinorm*a**betabest
       rhom = rhom_raw*exp(intQofphi%eval(phi))
       V_phi =  norm*Vofphi%eval(phi)
       H = sqrt((rho + rhom + V_phi)/3.d0)
