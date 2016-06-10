@@ -446,7 +446,7 @@ contains
 !!intQofphi is \int_0^phi Q(phi) d phi
 !!norm is the output that normalizes Vofphi
 !!err = 0 if done without a problem
-  subroutine coop_background_add_coupled_DE_with_potential(this, Omega_c, Vofphi, intQofphi, norm, err)
+  subroutine coop_background_add_coupled_DE_with_potential(this, Omega_c, Vofphi, intQofphi, err, normalize_V)
     !!err = 0: success
     !!err = -1:negative Omega_L
     class(coop_cosmology_background)::this
@@ -454,19 +454,26 @@ contains
     type(coop_function)::Vofphi, intQofphi
     COOP_INT::err
     COOP_REAL::norm, facmin, facmax
+    logical, optional::normalize_V
 #if DO_COUPLED_DE
     COOP_INT, parameter::ns = 10000
     type(coop_species)::de, cdm
     type(coop_function)::fwp1effcdm, fwp1effde, fwp1de
     COOP_REAL::rho_ce, lna(ns), a(ns), phi(ns), phidot(ns), wp1de(ns), wp1effde(ns), wp1effcdm(ns), V(ns), Q(ns), dQdphi(ns), phi_prime(ns), dVdphibyH2(ns), m2byH2(ns), H, omc, omde, dlna
     COOP_INT::i
+    COOP_REAL, parameter::minphi = 1.d-99
+    COOP_REAL::Qrhoma3_at_minphi, Vp_at_minphi, V_at_minphi, Q_at_minphi, dQdphi_at_minphi, m2_at_minphi
+
     err = 0
     if(this%Omega_k() .le. Omega_c)then
        err = -1
        return
     endif
     rho_ce = omega_c * 3.d0
-    if(Vofphi%derivative(1.d-99) .ge. 0.d0) stop "coupled_DE_with_potential assumes dV/dphi < 0 everywhere"
+    Q_at_minphi  =  intQofphi%derivative(minphi)
+    dQdphi_at_minphi  =  intQofphi%derivative2(minphi)
+    Qrhoma3_at_minphi = Q_at_minphi*rho_ce*exp(intQofphi%eval(minphi))
+
     call coop_set_uniform(ns, lna, log(coop_min_scale_factor), log(coop_scale_factor_today))
     a = exp(lna)
     dlna = lna(2) - lna(1)
@@ -484,6 +491,10 @@ contains
           return
        endif
     enddo
+    if(present(normalize_V))then
+       if(normalize_V) &
+            call Vofphi%mult_const(norm)
+    endif
     call fwp1effcdm%init(n = ns, xmin=coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., f = wp1effcdm, method = COOP_INTERPOLATE_LINEAR, name = "CDM 1+w", check_boundary = .false.)
 
     omc = Omega_c*exp(intQofphi%eval(phi(ns)))
@@ -511,24 +522,54 @@ contains
     call fwp1de%free()
     call fwp1effde%free()
     
-  contains
+  contains      
+
 
     subroutine solve(H)
+
       COOP_REAL::H
       COOP_INT::i, istart
-      COOP_REAL::rhode, rhom, beta, dbdlna, beta_plus, beta_minus, phinorm
+      COOP_REAL::rhode, rhom, beta, dbdlna, beta_plus, beta_minus, phinorm      
       logical::good_approx
       type(coop_ode)::ode
       call ode%init(n=2, method = COOP_ODE_RK4)
-      phinorm = 1.d0
+
+      V_at_minphi = norm*Vofphi%eval(minphi)
+      Vp_at_minphi = norm*Vofphi%derivative(minphi)
+      m2_at_minphi = norm*Vofphi%derivative2(minphi)
+
       i = 1
+      !!when phi -> 0 it is numerically difficult to track what exactly phi and m^2 are (usually beyond machine precision)
+      do while(Qrhoma3_at_minphi .gt.  - Vp_at_minphi*a(i)**3 )
+         phi(i) = minphi
+         phidot(i) = 0.d0
+         phi_prime(i) = 0.d0
+         V(i) = V_at_minphi
+         Q(i) = Q_at_minphi
+         dQdphi(i) = dQdphi_at_minphi
+         rhode = V_at_minphi
+         rhom = rho_ce/a(i)**3*exp(intQofphi%eval(phi(i)))
+         H = sqrt((this%rhoa4(a(i))/a(i)**4 + rhode + rhom )/3.d0)
+         dVdphibyH2(i) = -Qrhoma3_at_minphi/a(i)**3/H**2
+         m2byH2(i) = m2_at_minphi/H **2 * (Qrhoma3_at_minphi /(-Vp_at_minphi*a(i)**3))
+         wp1de(i) = 0.d0
+         wp1effcdm(i) =  1.d0 
+         wp1effde(i) = 0.d0
+         i = i + 1
+         if(a(i) .gt. 1.d-4) stop "the chameleon potential is not steep enough when phi -> 0"
+      enddo
+
+      phinorm = 1.d0
+      call get_tight_coupling(a(i)*exp(dlna/2.d0), phi(i), phidot(i), good_approx, phinorm, beta_plus, 0.d0,  .true.)
+      beta_minus = beta_plus
+      call get_tight_coupling(a(i)*exp(-dlna/2.d0), phi(i), phidot(i), good_approx, phinorm, beta_minus, 0.d0, .false.)
+      dbdlna = (beta_plus-beta_minus)/dlna
+      beta = (beta_plus+beta_minus)/2.d0
+      phinorm = phinorm * exp(-dbdlna*lna(i)**2)
       do 
-         dbdlna = 0.d0
-         call get_tight_coupling(a(i)*exp(dlna/2.d0), phi(i), phidot(i), good_approx, phinorm, beta_plus, 0.d0,  i.eq.1)
-         if(i.eq.1)beta_minus = beta_plus
+         call get_tight_coupling(a(i)*exp(dlna/2.d0), phi(i), phidot(i), good_approx, phinorm, beta_plus, 0.d0, .false.)
          call get_tight_coupling(a(i)*exp(-dlna/2.d0), phi(i), phidot(i), good_approx, phinorm, beta_minus, 0.d0, .false.)
          dbdlna = (beta_plus-beta_minus)/dlna
-         if(i.eq.1) beta = (beta_plus+beta_minus)/2.d0
          call get_tight_coupling(a(i), phi(i), phidot(i), good_approx, phinorm, beta, dbdlna, .false.)
          phinorm = phinorm * exp(-dbdlna*lna(i)**2)
          V(i) = norm*Vofphi%eval(phi(i))
@@ -547,7 +588,7 @@ contains
             istart = ns+1
             exit
          endif
-         if( a(i) .gt. 1.d-1 .or. .not. good_approx )then !!start exact evolution
+         if( a(i) .gt. 2.d-1 .or. .not. good_approx )then !!start exact evolution
             call ode%set_initial_conditions(xini = lna(i), yini = (/ log(phi(i)), phidot(i)/phi(i) /) )
             istart = i+1
             exit
@@ -581,23 +622,24 @@ contains
     subroutine cpl_eq(n, lna, y, yp)
       COOP_INT::n
       COOP_REAL::lna, y(n), yp(n), H2a4, a,  H
-      COOP_REAL::dVdphi,  phi,  q, rhoma3, phidot
+      COOP_REAL::dVdphi,  phi,  q, rhoma3, phidot, qrhom
       a = exp(lna)
       phi = exp(y(1))
       phidot = phi*y(2)
       q = intQofphi%derivative(phi)
       dVdphi = norm * Vofphi%derivative(phi)
       rhoma3 = rho_ce*exp(intQofphi%eval(phi))
+      qrhom = q*rhoma3/a**3
       H2a4 = (this%rhoa4(a) + (norm * Vofphi%eval(phi)+phidot**2/2.d0)*a**4 + rhoma3*a)/3.d0
       H = sqrt(H2a4)/a**2
       yp(1) = y(2)/H  !!convert to d(ln phi)/(d ln a)
-      yp(2) = ((-q*rhoma3/a**3-dVdphi)/phi-(3.d0*H+y(2))*y(2))/H
+      yp(2) = min(max( ((-qrhom-dVdphi)/phi-(3.d0*H+y(2))*y(2))/H,  (-30.d0*H-y(2))/dlna ), (30.d0*H-y(2))/dlna)  !!put some cap so that phidot doesn't go wild
     end subroutine cpl_eq
 
 
 
     subroutine get_tight_coupling(a, phi, phidot, good_approx, phinorm, betabest, dbdlna, search_full_range)
-      COOP_REAL,parameter::beta_max = 4.d0, beta_min = 0.03d0
+      COOP_REAL,parameter::beta_max = 30.d0, beta_min = 0.1d0
       COOP_REAL,intent(INOUT)::betabest
       COOP_REAL::dbdlna
       logical::search_full_range
@@ -605,8 +647,8 @@ contains
       COOP_REAL::phi, phidot
       COOP_REAL::pa4, rhoa4, p, rho, rhom_raw, H, Hdot, phidd, phinorm
       COOP_REAL::rhom, rho_phi, p_phi, V_phi
-      COOP_INT, parameter::n = 31
-      COOP_REAL::beta(n), df(n), t1, t2, t3, beta_upper, beta_lower, diffbest, diff_upper, diff_lower
+      COOP_INT, parameter::n = 101
+      COOP_REAL::beta(n), df(n), reldf(n), t1, t2, t3, beta_upper, beta_lower, diffbest, diff_upper, diff_lower
       COOP_INT::i, iloop
       logical::good_approx
       logical::search_all
@@ -623,7 +665,7 @@ contains
          diff_upper = 0.d0
          iloop = 0
          do while( (iloop .lt. 2 .or. diff_lower*diff_upper .gt. 0.d0) .and. iloop .lt. 5)
-            call coop_set_uniform(n, beta,  beta_lower, beta_upper)
+            call coop_set_uniform(n, beta,  beta_lower, beta_upper, logscale = iloop .eq. 0)
             do i = 1, n
                phi = phinorm*a**beta(i)
                rhom = rhom_raw*exp(intQofphi%eval(phi))
@@ -638,9 +680,10 @@ contains
                t1 = phidd + 3.d0*H*phidot
                t2 = norm*Vofphi%derivative(phi)
                t3 =  intQofphi%derivative(phi)*rhom 
-               df(i) =  t1 + t2 + t3
+               df(i) =  (t1 + t2 + t3)
+               reldf(i) =abs(df(i))/max(abs(t1), abs(t2), abs(t3), 1.d0)
             enddo
-            i = coop_minloc(abs(df))
+            i = coop_minloc(reldf)
             betabest = beta(i)
             beta_lower = beta(max(i-1, 1))
             beta_upper = beta(min(i+1, n)) 
@@ -651,7 +694,6 @@ contains
       else
          beta_upper = min(betabest + max(1.d-3,abs(dbdlna) * dlna), beta_max)
          beta_lower = max(betabest - max(abs(dbdlna) * dlna, 1.d-3), beta_min)
-
          phi = phinorm*a**beta_upper
          rhom = rhom_raw*exp(intQofphi%eval(phi))
          V_phi =  norm*Vofphi%eval(phi)

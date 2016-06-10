@@ -1467,7 +1467,7 @@ contains
     COOP_REAL x, fp
     if(this%xlog)then
        if(this%ylog)then
-          fp = this%derivative_bare(log(x))/x * exp(this%eval_bare(log(x)))*this%scale
+          fp = this%derivative_bare(log(x)) * exp(this%eval_bare(log(x))-log(x))*this%scale
        else
           fp  = this%derivative_bare(log(x))/x * this%scale
        endif
@@ -1483,21 +1483,22 @@ contains
 
   function coop_function_derivative2(this, x) result(fpp)
     class(coop_function)::this
-    COOP_REAL x, fpp, xbare, fp, f
+    COOP_REAL x, fpp, xbare, fp
     if(this%xlog)then
        xbare = log(x)
+       fpp = this%derivative2_bare(xbare)
+       fp = this%derivative_bare(xbare)
+       if(this%ylog)then
+          fpp = (fpp  - fp)
+          fpp = (fpp + fp**2) * exp(this%eval_bare(xbare) - 2.d0*xbare)
+       else
+          fpp = (fpp  - fp)/x**2
+       endif
     else
-       xbare = x
-    endif
-    fpp = this%derivative2_bare(xbare)
-    if(this%ylog) f = this%eval_bare(xbare)
-    if(this%ylog .or. this%xlog) fp = this%derivative_bare(xbare)
-    if(this%xlog)then
-       fpp = (fpp  - fp)/x**2
-       fp = fp/x
-    endif
-    if(this%ylog)then
-       fpp = (fpp + fp**2) * exp(f)
+       fpp = this%derivative2_bare(x)
+       if(this%ylog)then
+          fpp = (fpp + this%derivative_bare(x)**2) * exp(this%eval_bare(x))
+       endif
     endif
     fpp = fpp*this%scale
   end function coop_function_derivative2

@@ -1262,6 +1262,32 @@ contains
     endif
   end function coop_uniform_array_int
 
+  subroutine coop_linear_regression(n, x, y, k, r, b)
+    COOP_INT::n
+    COOP_REAL::x(n), y(n), k, r,b
+    COOP_REAL::xbar, ybar, rmsx, rmsy, xybar
+    xbar = sum(x)/n
+    ybar = sum(y)/n
+    rmsx = sqrt(sum((x-xbar)**2)/n)
+    if(rmsx .eq. 0.d0)then
+       r = 1.d0
+       k = 1.d99
+       b = 0.d0
+       return
+    endif
+    rmsy = sqrt(sum((y-ybar)**2)/n)
+    if(rmsy .eq. 0.d0)then
+       r= 1.d0
+       k = 0.d0
+       b = 0.d0
+       return
+    endif
+    xybar = sum((x-xbar)*(y-ybar))/n
+    r = xybar/(rmsx*rmsy)
+    k = xybar/rmsx**2
+    b = ybar - k*xbar
+  end subroutine coop_linear_regression
+
 
 end module coop_basicutils_mod
 

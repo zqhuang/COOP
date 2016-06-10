@@ -1260,11 +1260,11 @@ contains
 
 
 #if DO_COUPLED_DE
-  subroutine coop_cosmology_firstorder_set_coupled_DE_cosmology(this, tcmb, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, fwp1, fQ, level)
+  subroutine coop_cosmology_firstorder_set_coupled_DE_cosmology(this, tcmb, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, fwp1, fQ, Vofphi, intQofphi, level)
     class(coop_cosmology_firstorder)::this
     COOP_REAL:: h, tau_re, Omega_b, Omega_c
     COOP_REAL, optional::nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, Nnu, YHe, tcmb
-    type(coop_function)::fwp1, fQ  !!1+w(a)  and Q(a)
+    type(coop_function), optional::fwp1, fQ, Vofphi, intQofphi  !!1+w(a)  and Q(a)
     COOP_INT::err  !!
     logical,optional::inflation_consistency
     COOP_INT,optional::level
@@ -1325,7 +1325,13 @@ contains
     else
        call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu())))
     endif
-    call coop_background_add_coupled_DE(this, Omega_c = Omega_c, fQ = fQ, fwp1 =fwp1, err = err)
+    if(present(fwp1) .and. present(fQ))then
+       call coop_background_add_coupled_DE(this, Omega_c = Omega_c, fQ = fQ, fwp1 =fwp1, err = err)
+    elseif(present(Vofphi) .and. present(intQofphi))then
+       call coop_background_add_coupled_DE_with_potential(this, Omega_c = Omega_c, Vofphi = Vofphi, intQofphi = intQofphi, err = err, normalize_V = .false.)
+    else
+       stop "missing argument: to initialize coupled DE model you need either Vofphi+intQofphi or fwp1+fQ"
+    endif
     this%de_genre = COOP_PERT_SCALAR_FIELD
     if(err .ne. 0)then
        if(coop_feedback_level .gt. 0)write(*,*) "add_coupled_DE_failed"
@@ -1598,6 +1604,7 @@ contains
        call this%set_up(params, suc)
     endif
     if(present(success)) success = suc
+    call params%free()
   end subroutine coop_cosmology_firstorder_init_from_dictionary
 
 
@@ -1610,7 +1617,7 @@ contains
     COOP_INT,optional::level
     COOP_INT::init_level
   !!----------------------------------------
-    COOP_REAL:: tau_re, h, H0, theta, omega_b, omega_c, w0, wa, tcmb, alpha_power, omegam
+    COOP_REAL:: tau_re, h, H0, theta, omega_b, omega_c, w0, wa, tcmb, omegam
 
 #if DO_EFT_DE  
     COOP_REAL::alpha_M0 = 0.d0
@@ -1623,14 +1630,21 @@ contains
     COOP_REAL::r_T = 0.d0
     COOP_REAL::r_M = 0.d0
     COOP_REAL::r_H = 0.d0    
-    
+    COOP_REAL::alpha_power
+    type(coop_function):: alphaM, alphaB, alphaK, alphaT, alphaH
 #elif DO_COUPLED_DE
+    COOP_REAL,parameter:: fiducial_Lambda = 2.1d0
     COOP_REAL::Q0 = 0.d0
-    COOP_REAL::Qa = 0.d0  
+    COOP_REAL::Q_early = 0.d0  
+    COOP_REAL::dQdphi = 0.d0
+    COOP_REAL::np_index = 0.1d0
+    COOP_REAL::fR_epsilon = 0.01d0
+    type(coop_function):: fQ, Vofphi, fofR
 #endif
     COOP_REAL::h_low, h_high, h_mid, theta_high, theta_low, theta_mid
-    COOP_REAL, parameter::min_omega_m = 0.001d0, max_omega_m = 0.999d0, h_min = 0.4d0, h_max = 1.d0, min_omega_m_conservative = 0.1d0, max_omega_m_conservative = 0.5d0
-    type(coop_function)::fwp1, fQ, alphaM, alphaB, alphaK, alphaT, alphaH
+    COOP_REAL, parameter::min_omega_m = 0.001d0, max_omega_m = 0.999d0, min_omega_m_conservative = 0.1d0, max_omega_m_conservative = 0.5d0, h_min_default = 0.4d0, h_max_default = 1.d0
+    COOP_REAL::h_min, h_max
+    type(coop_function)::fwp1
     logical::w_predefined, alpha_predefined
 
     COOP_REAL::eps_inf, eps_s, zeta_s, beta_s, rlmax
@@ -1737,7 +1751,28 @@ contains
     endif
 #elif DO_COUPLED_DE
     call paramtable%lookup( "de_Q", Q0, 0.d0)
-    call paramtable%lookup( "de_Qa", Qa, 0.d0)  
+    call paramtable%lookup( "de_Q_early", Q_early, Q0)  
+    call paramtable%lookup( "de_dQdphi", dQdphi, 0.d0)
+    call paramtable%lookup( "de_np_index", np_index, 0.d0)
+    call paramtable%lookup( "de_fR_epsilon", fR_epsilon, 0.d0)
+    if(np_index .gt. 0.d0)then  !!use V(phi) and Q(phi)
+       !!in this case I use fQ for \int Q d\phi
+       !! Q = Q0 + dQdphi * phi
+       call fQ%init_polynomial( (/ 0.d0, Q0,  dQdphi/2.d0 /) )
+
+       !!for potential V(phi) I have two options
+       if(fR_epsilon .gt. 0.d0)then  !!use Hu-Sawicki model
+          call fofR%init_rational( c_up = (/ 2.d0*fiducial_Lambda /), alpha_up = (/ 0.d0 /), c_down = (/ np_index/fR_epsilon/fiducial_Lambda**np_index , 1.d0 /), alpha_down = (/ np_index, 0.d0 /) ) 
+          call coop_convert_fofR_to_Vofphi(fofR, fiducial_Lambda, Vofphi)
+       else !! use negative powerlaw
+          call Vofphi%init_powerlaw( c= (/ 2.1d0 /), alpha = (/ - np_index /) )
+          !!it is ok to have V(phi) unnormalized, since the code will automatically adjust the normalization to give correct Omega_Lambda
+       endif
+    else  !!use w(a) and Q(a)  
+       !! Q = Q_early + (Q0 - Q_early)*a; both Q0 and Q_early must be >= 0
+       call fQ%init_polynomial( (/ Q_early, (Q0-Q_early) /) )
+    endif
+
 #endif
     if(h .ne. 0.d0) then
        call setforH(h, success, init_level)
@@ -1748,6 +1783,8 @@ contains
     if(theta .eq. 0.d0)then
        stop " you must either set theta or H0 in the parameter file"
     endif
+    call paramtable%lookup("h_trial_min", h_min, h_min_default)
+    call paramtable%lookup("h_trial_max", h_max, h_max_default)
     if(w_predefined .and. alpha_predefined)then
        h_low = max(sqrt((this%ombm2h2 + this%omcm2h2)/max_omega_m), h_min)
        h_high = min(sqrt((this%ombm2h2 + this%omcm2h2)/min_omega_m), h_max)
@@ -1799,6 +1836,19 @@ contains
        if(.not. success) return
        call this%set_cls(2, 2, coop_cls_lmax(2))
     endif
+    call fwp1%free()
+#if DO_EFT_DE
+    call alphaM%free()
+    call alphaB%free()
+    call alphaK%free()
+    call alphaT%free()
+    call alphaH%free()
+#endif
+#if DO_COUPLED_DE
+    call fQ%free()
+    call fofR%free()
+    call Vofphi%free()
+#endif
   contains
     
     
@@ -1860,8 +1910,12 @@ contains
          call this%set_EFT_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, Tcmb =tcmb, tau_re = tau_re, wp1 = fwp1, alphaM = alphaM, alphaK = alphaK, alphaB= alphaB, alphaH = alphaH, alphaT = alphaT, level = level )
       endif
 #elif DO_COUPLED_DE
-      call fQ%init_polynomial( (/ Q0+Qa, -Qa /) )
-      call this%set_coupled_DE_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, Tcmb =tcmb, tau_re = tau_re, fwp1 = fwp1, fQ = fQ, level = level )
+      if(np_index .gt. 0.d0)then !!use V(phi) (or f(R)) and Q(phi)
+         call this%set_coupled_DE_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, Tcmb =tcmb, tau_re = tau_re, Vofphi = Vofphi, intQofphi = fQ, level = level)
+
+      else  !!use w(a) and Q(a)
+         call this%set_coupled_DE_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, Tcmb =tcmb, tau_re = tau_re, fwp1 = fwp1, fQ = fQ, level = level )
+      endif
 #else
       call this%set_standard_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, Tcmb = tcmb, tau_re = tau_re, level = level)
 #endif

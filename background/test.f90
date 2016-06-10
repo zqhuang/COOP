@@ -11,7 +11,7 @@ program test
   !!f(R) =   2 Lambda /(c2 * R^n + 1)
   Lambda = 3.d0*Omega_Lambda
   n = 4.d0
-  c2 = 12.*Omega_Lambda/Omega_m ! 1.d6*n/Lambda**(n+1.d0)
+  c2 = 12.*Omega_Lambda/Omega_m ! 1.d6*n/Lambda**n
 
   call fofR%init_rational( c_up =(/ 2*Lambda /), alpha_up = (/ 0.d0 /), c_down = (/ c2, 1.d0 /),  alpha_down = (/ n, 0.d0 /) )
   call coop_convert_fofR_to_Vofphi(fofR, 2.1d0, Vofphi)
