@@ -1049,25 +1049,37 @@ contains
     type(coop_function)::fR, Vphi
     COOP_REAL::Lambda
     type(coop_function)::fofR, Vofphi
-    COOP_INT, parameter::n = 8192
-    COOP_REAL, parameter::Rmin = 10.d0, Rmax = 1.d99
+    COOP_INT, parameter::n = 80000
+    COOP_REAL, parameter::Rmin = 0.1d0, Rmax = 1.d99   
     COOP_REAL,dimension(n)::lnR, phi, V
     COOP_REAL::R, dfdR, f
-    COOP_INT::i
+    COOP_INT::i, imax, imin
     call coop_set_uniform(n, lnR, log(Rmin), log(Rmax))
+    imin = 1
+    imax = n
     do i=1, n
        R = exp(lnR(i))
        dfdR = fofR%derivative(R) 
+       if(dfdR .le. -1.d0) then
+          imin = i+1
+          cycle
+       endif
        if(abs(dfdR) .gt. 1.d-5)then
           phi(i) = -sqrt(3.d0/2.d0)*log(1.d0+dfdR)
        else
           phi(i) = -sqrt(3.d0/2.d0)*(dfdR*(1.d0 - dfdR*(1.d0/2.d0 - dfdR/3.d0)))
        endif
        f = fofR%eval(R) 
-       V(i) = (f + dfdR * (2.d0*Lambda*(dfdR+2.d0) -R) )/2.d0/(1.d0+dfdR)**2 
+       !!this is actually (-V+Lambda)
+       V(i) = (f + dfdR * (2.d0*Lambda*(dfdR+2.d0) - R) )/2.d0/(1.d0+dfdR)**2 
+       if(V(i) .le. 0.d0 .or. V(i) .gt. Lambda) imin = i+1
+       if(phi(i) .le. 0.d0 )then
+          imax = i-1
+          exit
+       endif
     enddo
-    if(all(phi .gt. 0.d0))then
-       call Vofphi%init_nonUniform(x = phi, f = V,  xlog = .true., ylog = .true., check_boundary = .true., name = "V(phi)")
+    if(imax .gt. imin)then
+       call Vofphi%init_nonUniform(x = phi(imin:imax), f = V(imin:imax),  xlog = .true., ylog = .true., check_boundary = .true., name = "V(phi)")
        call Vofphi%mult_const(-1.d0)
        call Vofphi%add_const(Lambda)
     else
