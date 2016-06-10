@@ -728,9 +728,9 @@ contains
        if( this%f1(this%n) .gt. this%f1(this%n-1) .and. this%f1(this%n-1) .gt. this%f1(this%n-2))then
           this%sloperight = ( (this%f(this%n-1) - this%f(this%n))/(this%f1(this%n-1) - this%f1(this%n)) *(this%f1(this%n-2) - this%f1(this%n)) - (this%f(this%n-2) - this%f(this%n))/(this%f1(this%n-2) - this%f1(this%n))*(this%f1(this%n-1) - this%f1(this%n)) )/(this%f1(this%n-2) - this%f1(this%n-1))
        elseif( this%f1(this%n) .gt. this%f1(this%n-1))then
-          this%slope_right = (this%f(this%n-1) - this%f(this%n))/(this%f1(this%n-1) - this%f1(this%n))
+          this%sloperight = (this%f(this%n-1) - this%f(this%n))/(this%f1(this%n-1) - this%f1(this%n))
        else
-          this%slope_right = 0.d0
+          this%sloperight = 0.d0
        endif
        call coop_spline(this%n, this%f1, this%f, this%f2, this%slopeleft, this%sloperight)
     else
