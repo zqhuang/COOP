@@ -11,7 +11,7 @@
   COOP_REAL, parameter:: coop_primordial_zeta_norm = 1.d0
 
   !!minimal a
-  COOP_REAL, parameter:: coop_min_scale_factor = 1.d-12
+  COOP_REAL, parameter:: coop_min_scale_factor = 1.d-15
 
   !!this should not be changed
   COOP_REAL, parameter:: coop_scale_factor_today = 1.d0

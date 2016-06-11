@@ -17,12 +17,23 @@ program test
   call paramtable%insert("tau", 0.07d0)
   call paramtable%insert("As", 2.15d-9)
   call paramtable%insert("ns", 0.969d0)
-  call paramtable%insert("de_epss", 0.25d0)
-  call paramtable%insert("de_Q", 0.3d0)
+  call paramtable%insert("de_Q", 0.4082d0)
+  call paramtable%insert("de_np_index", 1.d0)
+  call paramtable%insert("de_fR_epsilon", 0.05d0)
   call cosmology%set_up(paramtable, success)
-  if(.not. success) stop "initialization failed"
+  if(success)then
+     print*, "cosmology initialized"
+  else
+     stop "initialization failed"
+  endif
+
   call cosmology%compute_source(0, success)
-  if(.not. success) stop "firstorder solver failed"
+  if(success) then
+     write(*,*) "source computed"
+  else
+     stop "firstorder solver failed"
+  endif
+
   call coop_set_uniform(nz, z, zmin, zmax)
   a = 1.d0/(1.d0+z)
   kMpc = (/ 0.05d0, 0.1d0, 0.2d0 /) !0.03d0, 0.1d0, 0.2d0 /)

@@ -86,6 +86,7 @@ module coop_cosmology_mod
      procedure::HdotbyHsq => coop_cosmology_background_HdotbyHsq !! input a, return \dot H/H^2
      procedure::HddbyH3 => coop_cosmology_background_HddbyH3     !!input a, return \ddot H/ H^3
      procedure::time => coop_cosmology_background_time !!input a, return H_0 * time
+     procedure::aoft => coop_cosmology_background_aoft !!input H_0 * time, return a; this function is not optimized (because almost never use it)
      procedure::conformal_time => coop_cosmology_background_conformal_time !!input a, return H_0 * conformal time
 
      procedure::tauofa => coop_cosmology_background_conformal_time !!input a, return H_0 * conformal time
@@ -603,6 +604,32 @@ contains
        endif
     endif
   end function coop_cosmology_background_time
+
+  function coop_cosmology_background_aoft(this, t) result(a)
+    class(coop_cosmology_background)::this
+    COOP_REAL a, t, amin, amax, amid, tmin, tmax, tmid
+    amin = 0.d0
+    amax = 1.d0
+    tmin = 0.d0
+    tmax = this%time(amax)
+    if(t .ge. tmax)then
+       a = 1
+       return
+    endif
+    do while(amin/amax .lt. 0.99999d0 )
+       amid = (amax+amin)/2.d0
+       tmid = this%time(amid)
+       if(tmid .gt. t)then
+          amax = amid
+          tmax = tmid
+       else
+          amin = amid
+          tmin = tmid
+       endif
+    enddo
+    !!do linear interpolation
+    a = ((t - tmin)*amax+(tmax-t)*amin)/(tmax - tmin)
+  end function coop_cosmology_background_aoft
 
   function coop_cosmology_background_AgeGyr(this) result(AgeGyr)
     class(coop_cosmology_background)::this

@@ -27,7 +27,7 @@ program bgtest
   c2 = 12.*Omega_Lambda/Omega_m ! 1.d6*n/Lambda**n
 
   call fofR%init_rational( c_up =(/ 2*Lambda /), alpha_up = (/ 0.d0 /), c_down = (/ c2, 1.d0 /),  alpha_down = (/ n, 0.d0 /) )
-  call coop_convert_fofR_to_Vofphi(fofR, 2.1d0, Vofphi)
+  call coop_convert_fofR_to_Vofphi(fofR, Lambda, Vofphi)
   call intQofphi%init_polynomial( (/ 0.d0, 0.41d0/) )
 
   call bg%init(h=0.7d0)
