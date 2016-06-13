@@ -9,7 +9,7 @@ module coop_ellipse_collapse_mod
   !!this is a global accuracy parameter
   !!for high accuracy test you can use something like 1.e-4
   !!for normal runs you can use something ~ 1.e-3
-  COOP_REAL, parameter::coop_ellipse_collapse_accuracy = 1.d-4
+  COOP_REAL, parameter::coop_ellipse_collapse_accuracy = 1.d-3
 
   !!set z_vir = this value if not collapsed
   COOP_REAL, parameter::coop_ellipse_collapse_bad_zvir = -1.d0

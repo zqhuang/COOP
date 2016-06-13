@@ -100,7 +100,8 @@ program test
   call coop_prtsystime()
   if(binary)then
      call fp%open(output, "u")
-     write(fp%unit) zvir1
+     write(fp%unit) nf, ne, np, fmin, fmax, emin, emax, pmin, pmax, logf
+     write(fp%unit) zvir1(1:np, 1:ne, 1:nf)
      call fp%close()
   else
      call fp%open(output)
@@ -108,7 +109,7 @@ program test
      do if = 1, nf
         do ie = 1, ne
            do ip = 1, np
-              if(zvir1(ip, ie, if) .ge. 0.d0)then
+              if(zvir1(ip, ie, if) .ge. 0.d0)then                 
                  write(fp%unit, "(4E16.7)") f(if), e(ie), p(ip), zvir1(ip, ie, if)
               endif
            enddo

@@ -36,7 +36,7 @@ program test
 
   call coop_set_uniform(nz, z, zmin, zmax)
   a = 1.d0/(1.d0+z)
-  kMpc = (/ 0.05d0, 0.1d0, 0.2d0 /) !0.03d0, 0.1d0, 0.2d0 /)
+  kMpc = (/ 0.001d0, 0.01d0, 0.1d0 /) !0.03d0, 0.1d0, 0.2d0 /)
   k = kMpc/cosmology%H0Mpc()
   do iz = 1, nz
      tau = cosmology%tauofa(a(iz))
