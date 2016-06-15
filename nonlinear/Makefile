@@ -9,7 +9,7 @@ include ../configure.in
 include ../compile_rules.in
 
 LIB = libcoopnonlinear.a
-OBJ = nonlinear.o ellipse_collapse.o
+OBJ = nonlinear.o ellipse_collapse.o coupledDE_collapse.o
 
 default: $(LIB) GetZ1 Solve TabZ1
 
@@ -18,11 +18,6 @@ $(LIB):	$(OBJ)
 
 Test: $(OBJ) test.o $(FIRSTORDER)/libcoopfirstorder.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
-
-SphCol: $(OBJ) coupledDE_spherical_collapse.o $(FIRSTORDER)/libcoopfirstorder.a
-	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) coupledDE_spherical_collapse.o $(LINK)
-
-
 
 TestSimp: $(OBJ) testsimple.o $(FIRSTORDER)/libcoopfirstorder.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testsimple.o $(LINK)
