@@ -526,8 +526,6 @@ contains
 #if DO_EFT_DE         
       endif
 #endif      
-      !!baryon
-      call this%cosmology%add_species(coop_baryon(omega_b))
       !!radiation
       call this%cosmology%add_species(coop_radiation(this%cosmology%Omega_radiation()))
       !!neutrinos
@@ -612,7 +610,7 @@ contains
          Q = 0.d0
       endif
       call fQ%init_polynomial( (/ Q /) )
-      call coop_background_add_coupled_DE(this%cosmology, Omega_c = this%cosmology%omcm2h2/h**2/this%cosmology%Mpsq0, fwp1 = fwp1, fQ = fQ, err = err)
+      call coop_background_add_coupled_DE(this%cosmology, Omega_c = this%cosmology%omcm2h2/h**2, Omega_b = this%cosmology%ombm2h2/h**2, fwp1 = fwp1, fQ = fQ, err = err)
       if(err .ne. 0)then
          call this%cosmology%set_h(0.d0)
       endif

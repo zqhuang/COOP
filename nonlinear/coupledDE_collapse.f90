@@ -196,7 +196,7 @@ contains
     COOP_REAL::c(24), w(this%num_ode_vars, 9)
     n = size(a_arr)
     if(size(x_arr, 2) .ne. n) stop "get_solution: input a_arr and x_arr have different sizes"
-    m = min(size(x_arr, 1), 6)  !!normally m = 3 but not always
+    m = min(size(x_arr, 1), 8)  !!normally m = 3 but not always
     select type(this)
     type is(coop_coupledDE_collapse_params)
        ind = 1
