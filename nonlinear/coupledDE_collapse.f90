@@ -30,7 +30,7 @@ module coop_coupledDE_collapse_mod
      procedure::Growth_H_D => coop_coupledDE_collapse_params_Growth_H_D  !!this%Growth_H_D(a) is a function that returns d ln D/d t, where a is the scale factor
      procedure::dadt => coop_coupledDE_collapse_params_aH  !!this%dadt(a) is a function that  returns da/dt
      procedure::ddotabya => coop_coupledDE_collapse_params_ddotabya !!this%ddotabya is a function that returns ( \ddot a / a )
-
+     procedure::ddotphi => coop_coupledDE_collapse_params_ddotphi !!this%ddotphi(a, \phi, \dot\phi, \rho_c) returns the \ddot \phi
      procedure::set_initial_conditions => coop_coupledDE_collapse_params_set_initial_conditions  !!this%set_initial_conditions(y) is a subroutine set the initial conditions for y = (x_1, x_2, x_3, d x_1/dt, d x_2/dt, d x_3/dt) 
      procedure::evolve=> coop_coupledDE_collapse_params_evolve  !!this%evolve(a, y, a_end) is a subroutine that evolves the current  y = (x_1, x_2, x_3, d x_1/dt, d x_2/dt, d x_3/dt) from current scale factor a to the scale factor a_end; the input is y at a; after the call a becomes a_end.
      procedure::get_solution => coop_coupledDE_collapse_params_get_solution  !!this%get_solution(a_arr, x_arr) is a subroutine; input a_arr(1:n) is an array of scale factors in ascending order; return the result in x_arr(1:3, 1:n), where x_arr(1:3, i) is the solution of (x_1, x_2, x_3) at scale factor a_arr(i).
@@ -53,7 +53,8 @@ contains
     corr = (1.2d0*this%lambda*suml + 0.6d0*suml2 + 11.d0/35.d0*(suml**2-suml2)-3.d0*this%lambda**2)/10.d0  !!this is for 2nd-order correction of initial conditions; in spherical case corr = 3/7 lambda^2
     y(1:3) = a_ini *(1.d0-this%lambda*D_ini - corr*D_ini**2)
     y(4:6) = y(1:3)*dadt_ini/a_ini - a_ini*(D_ini*this%Growth_H_D(a_ini)*(this%lambda + 2.d0*corr*D_ini))  
-    y(7) = 
+    y(7) = O0_DE(this%cosmology)%cplDE_phi_lna%eval(log(a_ini))  !phi
+    y(8) = O0_DE(this%cosmology)%cplDE_phi_prime_lna%eval(log(a_ini))*this%cosmology%Hratio(a_ini)   !!d phi/dt
   end subroutine coop_coupledDE_collapse_params_set_initial_conditions
 
   subroutine coop_coupledDE_collapse_odes(n, a, y, dyda, params)
@@ -64,13 +65,15 @@ contains
   !!params is the object containing all the parameters and methods
   !! return dyda = d y/d a
     COOP_INT::n
-    COOP_REAL::a, y(n), dyda(n), dadt, bprime(3), growthD, delta, dark_Energy_term, rhomby3, radiation_term, delta_plus_1
+    COOP_REAL::a, y(n), dyda(n), dadt, bprime(3), growthD, delta, dark_Energy_term, radiation_term,  rho_c, rho_b
     type(coop_coupledDE_collapse_params)::params
     COOP_REAL,parameter::eps = coop_coupledDE_collapse_accuracy
     COOP_REAL::suppression_factor, arat(3)
     dadt = params%dadt(a)
-    radiation_term = - params%omega_r/a**4*2.d0
-    dark_Energy_term =  - params%omega_de*a**(-3.d0*(1.d0+params%w))*(1.d0+3.d0*params%w)  !!dark energy contribution; ignore dark energy perturbations in wCDM
+    radiation_term = 0.d0
+    dark_Energy_term =  0.d0
+    rho_c = 3.d0*params%cosmology%Omega_c_bare*O0_DE(params%cosmology)%cplde_intQofphi%eval(y(7))/(y(1)*y(2)*y(3))
+    rho_m = rho_c + 3.d0*params%cosmology%Omega_b/(y(1)*y(2)*y(3))
     if(params%is_spherical)then
        arat(1) = (y(1)/a/params%collapse_a_ratio(1) - 1.d0)/eps
        if(arat(1) .lt. -1.d0 .and. y(4) .lt. 0.d0)then  !!collapsed; freeze it
@@ -82,7 +85,7 @@ contains
           dyda(4) = y(1)/dadt/2.d0 * ( &   !! d( dx_1/dt)/da =(d^2 x_1/dt^2)/(da/dt)
                dark_Energy_term  &
                + radiation_term &
-               -  params%Omega_m/(y(1))**3 &  !!matter contribution
+               -  rhom/3.d0 &  !!matter contribution
                )
           !!-----------end of equation for x_1 -------------------------
           if(arat(1) .lt. 0.d0  .and. y(4) .lt. 0.d0)then  !!do suppression around x_i/a = fr_i so that the derivative is continuous; no need to change
@@ -95,8 +98,9 @@ contains
        dyda(2:3) = dyda(1)
        dyda(5:6) = dyda(4)
     else
-       rhomby3 = params%Omega_m/a**3 !!I am working in unit of H_0^2/(8\pi G)
+       rhombarby3 =(params%cosmology%Omega_c_bare*O0_DE(params%cosmology)%cplde_intQofphi%eval(y(7)) + params%cosmology%Omega_b)/a**3 !!I am working in unit of H_0^2/(8\pi G); 
        delta = a**3/(y(1)*y(2)*y(3))-1.d0
+       rhomby3 = rhombarby3*(1.d0+delta)
        call params%get_bprime(y(1:3), bprime)       
        growthD = params%growth_D(a)
        arat = (y(1:3)/a/params%collapse_a_ratio - 1.d0)/eps
@@ -109,7 +113,7 @@ contains
           dyda(4) = y(1)/dadt/2.d0 * ( &   !! d( dx_1/dt)/da =(d^2 x_1/dt^2)/(da/dt)
                dark_Energy_term  &
                + radiation_term &
-               -  rhomby3*(1.d0 + delta *(1.d0+bprime(1)*1.5d0) + (3.d0*params%lambda(1)-sum(params%lambda))*growthD ) &  !!matter contribution
+               -  rhombarby3*(1.d0 + delta *(1.d0+bprime(1)*1.5d0) + (3.d0*params%lambda(1)-sum(params%lambda))*growthD ) &  !!matter contribution
                )
           !!----------- end of equation for x_1 -------------------------
           if(arat(1) .lt. 0.d0)then !!do suppression around x_i/a = fr_i so that the derivative is continuous; this is for stability of the ode solver; 
@@ -155,6 +159,9 @@ contains
           endif
        endif
     endif
+    !!the scalar field
+    dyda(7) = y(8)/dadt
+    dyda(8) = this%ddotphi(a, y(7), y(8), rho_c)/dadt
   end subroutine coop_coupledDE_collapse_odes
 
 !!=====================You don't need to read anything below ==================
@@ -270,16 +277,16 @@ contains
     !set up cosmology
     if(present(update_cosmology))then
        if(update_cosmology)then
-          call this%cosmology%init_from_dictionary(params, level = coop_init_level_set_pert, success)
+          call this%cosmology%init_from_dictionary(params, level = coop_init_level_set_pert, success=success)
           if(.not. success) stop "cannot initialize cosmology"
        endif
     endif
     
     !set up lambda
     do i = 1, 3
-       call coop_dictionary_lookup(params, "lambda"//COOP_STR_OF(i), lambda(i), -1.1d30)
+       call coop_dictionary_lookup(params, "lambda"//COOP_STR_OF(i), this%lambda(i), -1.1d30)
     enddo
-    if(any(lambda .lt. -1.d30))then
+    if(any(this%lambda .lt. -1.d30))then
        call coop_dictionary_lookup(params, "F_pk", F_pk)
        call coop_dictionary_lookup(params, "e_nu", e_nu)
        call coop_dictionary_lookup(params, "p_nu", p_nu)

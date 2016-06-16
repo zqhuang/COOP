@@ -4,7 +4,7 @@
     type(coop_pert_object)::pert
     COOP_REAL lna, y(0:n-1), yp(0:n-1)
     COOP_INT i, l, iq
-    COOP_REAL a, aniso,  ktauc, ktaucdot, ktaucdd, aniso_prime, aHtauc, aHtau, aHsq, uterm, vterm, ma, doptdlna
+    COOP_REAL a, aniso,  ktauc, ktaucdot, ktaucdd, aniso_prime, aHtauc, aHtau, aHsq, uterm, vterm, ma, doptdlna, cterm, bterm
     COOP_REAL :: pa2pr_g, pa2pr_nu
     COOP_REAL, dimension(coop_pert_default_nq)::Fmnu2_prime, Fmnu2, Fmnu0, qbye, wp, wp_prime, wrho_minus_wp
     COOP_REAL:: de_Q, de_dQdphi,  de_V, de_dphidlna,  asq, Hsq, de_m2byh2
@@ -219,15 +219,24 @@
           pert%deltatr_mnu = 0.d0
           pert%deltap_mnu = 0.d0
        endif
-
-       O1_DELTA_C_PRIME =   O1_DELTA_C_PRIME  + de_Q * O1_DELTA_PHIPR + de_dQdphi*O1_DELTA_PHI * de_dphidlna
+       O1_DELTA_C_PRIME =   O1_DELTA_C_PRIME  + de_Q * O1_DELTA_PHIPR + de_dQdphi*O1_DELTA_PHI * de_dphidlna       
        O1_V_C_PRIME =   O1_V_C_PRIME - de_Q * de_dphidlna * O1_V_C + pert%kbyaH * de_Q * O1_DELTA_PHI
+       cterm = - pert%rhoa2_c/aHsq* (de_Q*(O1_DELTA_C + 2.d0*O1_PHI) + de_dQdphi*O1_DELTA_PHI)
+       if(cosmology%baryon_is_coupled)then
+          O1_DELTA_B_PRIME = O1_DELTA_B_PRIME + de_Q*O1_DELTA_PHIPR + de_dQdphi*O1_DELTA_PHI*de_dphidlna
+          O1_V_B_PRIME =   O1_V_B_PRIME - de_Q * de_dphidlna * O1_V_B + pert%kbyaH * de_Q * O1_DELTA_PHI
+          bterm = - pert%rhoa2_b/aHsq* (de_Q*(O1_DELTA_B + 2.d0*O1_PHI) + de_dQdphi*O1_DELTA_PHI)
+       else
+          bterm  = 0.d0
+       endif
        O1_DELTA_PHI_PRIME = O1_DELTA_PHIPR
        de_m2byH2 = pert%kbyaHsq + O0_DE(cosmology)%cplde_m2byH2_lna%eval(lna)
+       
+
        if(de_m2byH2 .lt. max_de_m2byH2)then
-          O1_DELTA_PHIPR_PRIME =  - (2.d0 + pert%daHdtau/aHsq)* O1_DELTA_PHIPR -de_m2byH2 *O1_DELTA_PHI + (3.d0*O1_PSIPR + O1_PHI_PRIME)*de_dphidlna - 2.d0*pert%de_Vp/Hsq*O1_PHI - pert%rhoa2_c/aHsq* (de_Q*(O1_DELTA_C + 2.d0*O1_PHI) + de_dQdphi*O1_DELTA_PHI)
+          O1_DELTA_PHIPR_PRIME =  - (2.d0 + pert%daHdtau/aHsq)* O1_DELTA_PHIPR -de_m2byH2 *O1_DELTA_PHI + (3.d0*O1_PSIPR + O1_PHI_PRIME)*de_dphidlna - 2.d0*pert%de_Vp/Hsq*O1_PHI  + cterm  + bterm
        else
-          O1_DELTA_PHIPR_PRIME =  - (2.d0 + pert%daHdtau/aHsq)* O1_DELTA_PHIPR - max_de_m2byH2 *O1_DELTA_PHI + ((3.d0*O1_PSIPR + O1_PHI_PRIME)*de_dphidlna - 2.d0*pert%de_Vp/Hsq*O1_PHI - pert%rhoa2_c/aHsq* (de_Q*(O1_DELTA_C + 2.d0*O1_PHI) + de_dQdphi*O1_DELTA_PHI))*max_de_m2byH2/de_m2byH2             
+          O1_DELTA_PHIPR_PRIME =  - (2.d0 + pert%daHdtau/aHsq)* O1_DELTA_PHIPR - max_de_m2byH2 *O1_DELTA_PHI + ((3.d0*O1_PSIPR + O1_PHI_PRIME)*de_dphidlna - 2.d0*pert%de_Vp/Hsq*O1_PHI + cterm + bterm)*max_de_m2byH2/de_m2byH2             
        endif
        pert%de_delta_rho = pert%de_phidot * pert%O1_DELTA_PHIPR * pert%aH / pert%a &
             - (pert%de_phidot)**2*O1_PHI + pert%de_Vp * O1_DELTA_PHI

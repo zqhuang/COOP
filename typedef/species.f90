@@ -28,6 +28,7 @@ module coop_species_mod
      type(coop_function):: fwp1, fcs2, fwp1eff
      type(coop_function):: flnrho
 #if DO_COUPLED_DE
+     type(coop_function)::cplde_Vofphi, cplde_intQofphi
      type(coop_function)::cplde_Q
      type(coop_function)::cplde_dQdphi_lna
      type(coop_function)::cplde_lnV_lna
@@ -703,6 +704,8 @@ contains
     this%Mpsq0 = 1.d0
 #if DO_COUPLED_DE    
     call this%cplde_Q%free()    
+    call this%cplde_Vofphi%free()
+    call this%cplde_intQofphi%free()
     call this%cplde_lnV_lna%free()
     call this%cplde_phi_lna%free()    
     call this%cplde_phi_prime_lna%free()

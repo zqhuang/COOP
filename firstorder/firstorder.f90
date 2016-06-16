@@ -1260,13 +1260,13 @@ contains
 
 
 #if DO_COUPLED_DE
-  subroutine coop_cosmology_firstorder_set_coupled_DE_cosmology(this, tcmb, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, fwp1, fQ, Vofphi, intQofphi, level)
+  subroutine coop_cosmology_firstorder_set_coupled_DE_cosmology(this, tcmb, h, omega_b, omega_c, tau_re, nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, inflation_consistency, Nnu, YHe, fwp1, fQ, Vofphi, intQofphi, level, baryon_is_coupled)
     class(coop_cosmology_firstorder)::this
     COOP_REAL:: h, tau_re, Omega_b, Omega_c
     COOP_REAL, optional::nu_mass_eV, Omega_nu, As, ns, nrun, r, nt, Nnu, YHe, tcmb
     type(coop_function), optional::fwp1, fQ, Vofphi, intQofphi  !!1+w(a)  and Q(a)
     COOP_INT::err  !!
-    logical,optional::inflation_consistency
+    logical,optional::inflation_consistency, baryon_is_coupled
     COOP_INT,optional::level
     COOP_INT::init_level
     if(present(level))then
@@ -1303,7 +1303,13 @@ contains
           endif
        endif
     endif
-    call this%add_species(coop_baryon(COOP_REAL_OF(Omega_b)))
+#if DO_COUPLED_DE
+    if(present(baryon_is_coupled))then
+       if(baryon_is_coupled)then
+          this%baryon_is_coupled = baryon_is_coupled
+       endif
+    endif
+#endif
     call this%add_species(coop_radiation(this%Omega_radiation()))
     if(present(nu_mass_eV))then
        if(present(Omega_nu))then
@@ -1326,9 +1332,9 @@ contains
        call this%add_species(coop_neutrinos_massless(this%Omega_massless_neutrinos_per_species()*(this%Nnu())))
     endif
     if(present(fwp1) .and. present(fQ))then
-       call coop_background_add_coupled_DE(this, Omega_c = Omega_c, fQ = fQ, fwp1 =fwp1, err = err)
+       call coop_background_add_coupled_DE(this, Omega_c = Omega_c, Omega_b = Omega_b, fQ = fQ, fwp1 =fwp1, err = err)
     elseif(present(Vofphi) .and. present(intQofphi))then
-       call coop_background_add_coupled_DE_with_potential(this, Omega_c = Omega_c, Vofphi = Vofphi, intQofphi = intQofphi, err = err, normalize_V = .false.)
+       call coop_background_add_coupled_DE_with_potential(this, Omega_c = Omega_c, Omega_b = Omega_b, Vofphi = Vofphi, intQofphi = intQofphi, err = err, normalize_V = .false.)
     else
        stop "missing argument: to initialize coupled DE model you need either Vofphi+intQofphi or fwp1+fQ"
     endif
@@ -1593,6 +1599,7 @@ contains
     logical suc
     type(coop_real_table)::params
     COOP_INT, optional::level
+    call coop_dictionary_lookup(paramtable, "baryon_is_coupled", this%baryon_is_coupled, .true.)
     call coop_dictionary_lookup(paramtable, "w_is_background", this%w_is_background)
     call coop_dictionary_lookup(paramtable, "inflation_consistency", this%inflation_consistency, .true.)
     call coop_dictionary_lookup(paramtable, "pp_genre", this%pp_genre, COOP_PP_STANDARD)
@@ -1606,8 +1613,6 @@ contains
     if(present(success)) success = suc
     call params%free()
   end subroutine coop_cosmology_firstorder_init_from_dictionary
-
-
 
 
   subroutine coop_cosmology_firstorder_set_up(this, paramtable, success, level)
@@ -1914,7 +1919,7 @@ contains
          call this%set_coupled_DE_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, Tcmb =tcmb, tau_re = tau_re, Vofphi = Vofphi, intQofphi = fQ, level = level)
 
       else  !!use w(a) and Q(a)
-         call this%set_coupled_DE_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, Tcmb =tcmb, tau_re = tau_re, fwp1 = fwp1, fQ = fQ, level = level )
+         call this%set_coupled_DE_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, Tcmb =tcmb, tau_re = tau_re, fwp1 = fwp1, fQ = fQ, level = level)
       endif
 #else
       call this%set_standard_cosmology(Omega_b=Omega_b, Omega_c=Omega_c, h = hubble, Tcmb = tcmb, tau_re = tau_re, level = level)

@@ -42,6 +42,11 @@ module coop_cosmology_mod
      COOP_REAL:: Mpsq0 = 1.d0
      logical::need_setup_background = .true.
      type(coop_function):: fdis, ftime, faoftau
+#if DO_COUPLED_DE
+     logical::baryon_is_coupled = .true.
+     COOP_REAL:: Omega_c_bare = 0.d0
+     COOP_REAL:: Omega_b_bare = 0.d0
+#endif
 #if DO_EFT_DE
      type(coop_function):: f_alpha_M, f_alpha_T, f_alpha_B, f_alpha_K, f_alpha_H, f_Mpsq
 #endif     
