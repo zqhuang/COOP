@@ -60,7 +60,7 @@ contains
   subroutine coop_coupledDE_collapse_odes(n, a, y, dyda, params)
   !!the ODE that evolves  y = ( x_1, x_2,  x_3,  d x_1/dt, d x_2/dt, d x_3/dt, phi, d phi/dt )
   !!other inputs: 
-  !!n = 6 is the dimension of y
+  !!n = 8 is the dimension of y
   !!a is the scale factor
   !!params is the object containing all the parameters and methods
   !! return dyda = d y/d a
@@ -73,7 +73,7 @@ contains
     radiation_term = 0.d0
     dark_Energy_term =  0.d0
     if(.not. params%cosmology%baryon_is_coupled)stop "The current version cannot solve halo collapse for models where baryon is not coupled."
-    rho_m = 3.d0*(params%cosmology%Omega_c_bare+params%cosmology%Omega_b_bare)*O0_DE(params%cosmology)%cplde_intQofphi%eval(y(7))/(y(1)*y(2)*y(3))
+    rho_m = 3.d0*(params%cosmology%Omega_c_bare+params%cosmology%Omega_b_bare)*exp(O0_DE(params%cosmology)%cplde_intQofphi%eval(y(7)))/(y(1)*y(2)*y(3))
     rhombar = O0_CDM(params%cosmology)%density(a) + O0_BARYON(params%cosmology)%density(a)
     rhombarby3 = rhombar/3.d0
     if(params%is_spherical)then
@@ -161,7 +161,7 @@ contains
     endif
     !!the scalar field
     dyda(7) = y(8)/dadt
-    dyda(8) = params%ddotphi(a, y(7), y(8), rho_m, O0_DE(params%cosmology)%cplde_intQofphi)/dadt
+    dyda(8) = params%ddotphi(a, y(7), y(8), rho_m, O0_DE(params%cosmology)%cplde_intQofphi%derivative(y(7)), O0_DE(params%cosmology)%cplde_Vofphi%derivative(y(7)), dadt/a)/dadt
   end subroutine coop_coupledDE_collapse_odes
 
 !!=====================You don't need to read anything below ==================
@@ -190,7 +190,7 @@ contains
     !!input a_arr(1:n) is an array of scale factors in ascending order;
     !! return the result in x_arr(1:3, 1:n), where x_arr(1:3, i) is the solution of (x_1, x_2, x_3) at scale factor a_arr(i).    
     class(coop_coupledDE_collapse_params)::this
-    COOP_REAL::a_arr(:), x_arr(:,:), y(6), a
+    COOP_REAL::a_arr(:), x_arr(:,:), y(8), a
     COOP_REAL,parameter::tol = max(1.d-10, coop_coupledDE_collapse_accuracy*1.d-5)
     COOP_INT::ind, i, n, m
     COOP_REAL::c(24), w(this%num_ode_vars, 9)
@@ -287,15 +287,18 @@ contains
        call coop_dictionary_lookup(params, "lambda"//COOP_STR_OF(i), this%lambda(i), -1.1d30)
     enddo
     if(any(this%lambda .lt. -1.d30))then
-       call coop_dictionary_lookup(params, "F_pk", F_pk)
-       call coop_dictionary_lookup(params, "e_nu", e_nu)
-       call coop_dictionary_lookup(params, "p_nu", p_nu)
+       call coop_dictionary_lookup(params, "collapse_fpk", F_pk)
+       call coop_dictionary_lookup(params, "collapse_e", e_nu)
+       call coop_dictionary_lookup(params, "collapse_p", p_nu)
        this%lambda(1) = (F_pk/3.d0)*(1.d0 - 3.d0*e_nu + p_nu)
        this%lambda(2) = (F_pk/3.d0)*(1.d0 - 2.d0*p_nu)
        this%lambda(3) = (F_pk/3.d0)*(1.d0 + 3.d0*e_nu + p_nu)
     endif
     if(.not. this%lambda(3) .ge. 0.d0) stop "error: lambda_3 must be positive"
-
+    call coop_dictionary_lookup(params, "collapse_ratio_1",  this%collapse_a_ratio(1))
+    call coop_dictionary_lookup(params, "collapse_ratio_2",  this%collapse_a_ratio(1))
+    call coop_dictionary_lookup(params, "collapse_ratio_3",  this%collapse_a_ratio(1))
+    this%collapse_a_ratio = max(this%collapse_a_ratio, 0.01d0)
     this%is_spherical = abs(this%lambda(1) - this%lambda(2)) .lt. 1.d-8 .and. abs(this%lambda(1) - this%lambda(3)) .lt. 1.d-8 .and. abs(this%collapse_a_ratio(1) - this%collapse_a_ratio(2)) .lt. 1.d-3 .and. abs(this%collapse_a_ratio(1)-this%collapse_a_ratio(3)) .lt. 1.d-3
 
     !!set b' function
@@ -366,13 +369,11 @@ contains
     bprime = (coop_elliptic_Rd(1.d0/lambda1, 1.d0/lambda2, 1.d0)/sqrt(lambda1*lambda2)-1.d0)*2.d0/3.d0
   end function coop_coupledDE_collapse_bprime_reduced
 
-  function coop_coupledDE_collapse_params_ddotphi(this, a, phi, phidot, rho_m, intQofphi) result(ddotphi)
+  function coop_coupledDE_collapse_params_ddotphi(this, a, phi, phidot, rho_m, Q, dVdphi, H) result(ddotphi)
     class(coop_coupledDE_collapse_params)::this
-    COOP_REAL::a, phi, phidot, rho_m
-    type(coop_function)::intQofphi
+    COOP_REAL::a, phi, phidot, rho_m, Q, dVdphi, H
     COOP_REAL::ddotphi
-!!TBD    
-    ddotphi = 0.d0
+    ddotphi = max(-3.d0*H*phidot - dVdphi - Q*rho_m, phi*H**2*1.d4)
   end function coop_coupledDE_collapse_params_ddotphi
 
 #else

@@ -19,6 +19,7 @@ program test
      write(*,*) "./Solve -fpk 1.6865 -e 0 -p 0 -omm 0.29 -out solution.dat"
      write(*,*) "./Solve -fpk 3 -e 0.1 -p 0.02 -omk 0.01 -h 0.68  -out mysol.txt "
      write(*,*) "========================================================"
+     stop
   endif
 
   call coop_get_command_line_argument(key = "omm", arg = Omega_m, default = 0.3d0)
