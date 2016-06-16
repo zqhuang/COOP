@@ -30,7 +30,7 @@ module coop_coupledDE_collapse_mod
      procedure::Growth_H_D => coop_coupledDE_collapse_params_Growth_H_D  !!this%Growth_H_D(a) is a function that returns d ln D/d t, where a is the scale factor
      procedure::dadt => coop_coupledDE_collapse_params_aH  !!this%dadt(a) is a function that  returns da/dt
      procedure::ddotabya => coop_coupledDE_collapse_params_ddotabya !!this%ddotabya is a function that returns ( \ddot a / a )
-     procedure::ddotphi => coop_coupledDE_collapse_params_ddotphi !!this%ddotphi(a, \phi, \dot\phi, \rho_c) returns the \ddot \phi
+     procedure::ddotphi => coop_coupledDE_collapse_params_ddotphi !!this%ddotphi(a, \phi, \dot\phi, \rho_c, intQofphi) returns \ddot \phi
      procedure::set_initial_conditions => coop_coupledDE_collapse_params_set_initial_conditions  !!this%set_initial_conditions(y) is a subroutine set the initial conditions for y = (x_1, x_2, x_3, d x_1/dt, d x_2/dt, d x_3/dt) 
      procedure::evolve=> coop_coupledDE_collapse_params_evolve  !!this%evolve(a, y, a_end) is a subroutine that evolves the current  y = (x_1, x_2, x_3, d x_1/dt, d x_2/dt, d x_3/dt) from current scale factor a to the scale factor a_end; the input is y at a; after the call a becomes a_end.
      procedure::get_solution => coop_coupledDE_collapse_params_get_solution  !!this%get_solution(a_arr, x_arr) is a subroutine; input a_arr(1:n) is an array of scale factors in ascending order; return the result in x_arr(1:3, 1:n), where x_arr(1:3, i) is the solution of (x_1, x_2, x_3) at scale factor a_arr(i).
@@ -65,15 +65,17 @@ contains
   !!params is the object containing all the parameters and methods
   !! return dyda = d y/d a
     COOP_INT::n
-    COOP_REAL::a, y(n), dyda(n), dadt, bprime(3), growthD, delta, dark_Energy_term, radiation_term,  rho_c, rho_b
+    COOP_REAL::a, y(n), dyda(n), dadt, bprime(3), growthD, delta, dark_Energy_term, radiation_term,  rho_m, rhombar, rhombarby3
     type(coop_coupledDE_collapse_params)::params
     COOP_REAL,parameter::eps = coop_coupledDE_collapse_accuracy
     COOP_REAL::suppression_factor, arat(3)
     dadt = params%dadt(a)
     radiation_term = 0.d0
     dark_Energy_term =  0.d0
-    rho_c = 3.d0*params%cosmology%Omega_c_bare*O0_DE(params%cosmology)%cplde_intQofphi%eval(y(7))/(y(1)*y(2)*y(3))
-    rho_m = rho_c + 3.d0*params%cosmology%Omega_b/(y(1)*y(2)*y(3))
+    if(.not. params%cosmology%baryon_is_coupled)stop "The current version cannot solve halo collapse for models where baryon is not coupled."
+    rho_m = 3.d0*(params%cosmology%Omega_c_bare+params%cosmology%Omega_b_bare)*O0_DE(params%cosmology)%cplde_intQofphi%eval(y(7))/(y(1)*y(2)*y(3))
+    rhombar = O0_CDM(params%cosmology)%density(a) + O0_BARYON(params%cosmology)%density(a)
+    rhombarby3 = rhombar/3.d0
     if(params%is_spherical)then
        arat(1) = (y(1)/a/params%collapse_a_ratio(1) - 1.d0)/eps
        if(arat(1) .lt. -1.d0 .and. y(4) .lt. 0.d0)then  !!collapsed; freeze it
@@ -85,7 +87,7 @@ contains
           dyda(4) = y(1)/dadt/2.d0 * ( &   !! d( dx_1/dt)/da =(d^2 x_1/dt^2)/(da/dt)
                dark_Energy_term  &
                + radiation_term &
-               -  rhom/3.d0 &  !!matter contribution
+               -  rho_m/3.d0 &  !!matter contribution
                )
           !!-----------end of equation for x_1 -------------------------
           if(arat(1) .lt. 0.d0  .and. y(4) .lt. 0.d0)then  !!do suppression around x_i/a = fr_i so that the derivative is continuous; no need to change
@@ -98,11 +100,9 @@ contains
        dyda(2:3) = dyda(1)
        dyda(5:6) = dyda(4)
     else
-       rhombarby3 =(params%cosmology%Omega_c_bare*O0_DE(params%cosmology)%cplde_intQofphi%eval(y(7)) + params%cosmology%Omega_b)/a**3 !!I am working in unit of H_0^2/(8\pi G); 
-       delta = a**3/(y(1)*y(2)*y(3))-1.d0
-       rhomby3 = rhombarby3*(1.d0+delta)
+       delta = rho_m/rhombar-1.d0  !a**3/(y(1)*y(2)*y(3))-1.d0
        call params%get_bprime(y(1:3), bprime)       
-       growthD = params%growth_D(a)
+       growthD = params%growth_D(a) !!this isn't accurate because in general D is scale dependent in the coupled DE model
        arat = (y(1:3)/a/params%collapse_a_ratio - 1.d0)/eps
        if(arat(1) .lt. -1.d0  .and. y(4) .lt. 0.d0)then  !!collapsed; freeze it
           dyda(1) = 0.d0
@@ -131,7 +131,7 @@ contains
           dyda(5) = y(2)/dadt/2.d0 * ( &   !! d( dx_1/dt)/da =(d^2 x_1/dt^2)/(da/dt)
                dark_Energy_term  &
                + radiation_term &  
-               - rhomby3 *(1.d0 + delta *(1.d0+bprime(2)*1.5d0) + (3.d0*params%lambda(2)-sum(params%lambda))*growthD ) &  !!matter contribution
+               - rhombarby3*(1.d0 + delta *(1.d0+bprime(2)*1.5d0) + (3.d0*params%lambda(2)-sum(params%lambda))*growthD ) &  !!matter contribution
                )
           !!----------- end of equation for x_2 -------------------------
           if(arat(2) .lt. 0.d0)then !!do suppression around x_i/a = fr_i so that the derivative is continuous; this is for stability of the ode solver;
@@ -149,7 +149,7 @@ contains
           dyda(6) = y(3)/dadt/2.d0 * ( &   !! d( dx_1/dt)/da =(d^2 x_1/dt^2)/(da/dt)
                dark_Energy_term  &
                + radiation_term &  
-               -  rhomby3*(1.d0 + delta *(1.d0+bprime(3)*1.5d0) + (3.d0*params%lambda(3)-sum(params%lambda))*growthD ) &  !!matter contribution
+               -  rhombarby3*(1.d0 + delta *(1.d0+bprime(3)*1.5d0) + (3.d0*params%lambda(3)-sum(params%lambda))*growthD ) &  !!matter contribution
                )       
           !!----------- end of equation for x_3 -------------------------
           if(arat(3) .lt. 0.d0)then  !!do suppression around x_i/a = fr_i so that the derivative is continuous; this is for stability of the ode solver;
@@ -161,7 +161,7 @@ contains
     endif
     !!the scalar field
     dyda(7) = y(8)/dadt
-    dyda(8) = this%ddotphi(a, y(7), y(8), rho_c)/dadt
+    dyda(8) = params%ddotphi(a, y(7), y(8), rho_m, O0_DE(params%cosmology)%cplde_intQofphi)/dadt
   end subroutine coop_coupledDE_collapse_odes
 
 !!=====================You don't need to read anything below ==================
@@ -365,6 +365,15 @@ contains
     endif
     bprime = (coop_elliptic_Rd(1.d0/lambda1, 1.d0/lambda2, 1.d0)/sqrt(lambda1*lambda2)-1.d0)*2.d0/3.d0
   end function coop_coupledDE_collapse_bprime_reduced
+
+  function coop_coupledDE_collapse_params_ddotphi(this, a, phi, phidot, rho_m, intQofphi) result(ddotphi)
+    class(coop_coupledDE_collapse_params)::this
+    COOP_REAL::a, phi, phidot, rho_m
+    type(coop_function)::intQofphi
+    COOP_REAL::ddotphi
+!!TBD    
+    ddotphi = 0.d0
+  end function coop_coupledDE_collapse_params_ddotphi
 
 #else
 #endif
