@@ -1599,7 +1599,9 @@ contains
     logical suc
     type(coop_real_table)::params
     COOP_INT, optional::level
+#if DO_COUPLED_DE
     call coop_dictionary_lookup(paramtable, "baryon_is_coupled", this%baryon_is_coupled, .true.)
+#endif
     call coop_dictionary_lookup(paramtable, "w_is_background", this%w_is_background, .true.)
     call coop_dictionary_lookup(paramtable, "inflation_consistency", this%inflation_consistency, .true.)
     call coop_dictionary_lookup(paramtable, "pp_genre", this%pp_genre, COOP_PP_STANDARD)

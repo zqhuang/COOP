@@ -147,7 +147,7 @@ contains
   subroutine do_mask()
     COOP_STRING:: cond_root, hits_root, mask_root
     type(coop_healpix_maps)::mask, cond, hits
-    COOP_SINGLE::condmax, hitsmax, maskcut, RA_min, RA_max, DEC_min, DEC_max
+    COOP_SINGLE::condmin, hitsmax, maskcut, RA_min, RA_max, DEC_min, DEC_max
     COOP_INT::ich
     logical::smooth_mask_edge, do_RADEC_cut, has_cond, has_hits
     call coop_dictionary_lookup(settings, "mask_root", mask_root)
@@ -162,8 +162,8 @@ contains
 
     call coop_dictionary_lookup(settings, "cond_root", cond_root,"")
     if(trim(cond_root).ne."")then
-       call coop_dictionary_lookup(settings, "cond_cut", condmax, -1.e30)
-       has_cond  = (condmax .gt. -1.e20)
+       call coop_dictionary_lookup(settings, "cond_cut", condmin, -1.e30)
+       has_cond  = (condmin .gt. -1.e20)
     else
        has_cond = .false.
     endif
@@ -185,7 +185,7 @@ contains
           end where
        end if
        if(has_cond)then
-          where(cond%map(:,1) .lt. condmax)
+          where(cond%map(:,1) .gt. condmin)
              mask%map(:,1) = 0.
           end where
        endif
