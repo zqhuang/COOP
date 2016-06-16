@@ -22,6 +22,10 @@ Test: $(OBJ) test.o $(FIRSTORDER)/libcoopfirstorder.a
 TestSimp: $(OBJ) testsimple.o $(FIRSTORDER)/libcoopfirstorder.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testsimple.o $(LINK)
 
+CDSolve: $(OBJ) coupledDE_solve_collapse.o $(FIRSTORDER)/libcoopfirstorder.a
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) coupledDE_solve_collapse.o $(LINK)
+
+
 Solve: $(OBJ) solve_collapse.o $(FIRSTORDER)/libcoopfirstorder.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) solve_collapse.o $(LINK)
 
