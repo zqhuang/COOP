@@ -17,19 +17,19 @@ program bgtest
 
 !  call fwp1%init_polynomial( (/ 0.1d0, 0.05d0 /) )
 !  call fQ%init_polynomial( (/ 0.1d0, 0.05d0 /) )
-!  call Vofphi%init_powerlaw( c = (/ 2.d0, 0.1d0 /), alpha = (/ 0.d0, -0.1d0 /), name = "V(phi)")
+  call Vofphi%init_powerlaw( c = (/ 2.d0, 0.1d0 /), alpha = (/ 0.d0, -0.1d0 /), name = "V(phi)")
   !! action = 1/2 \int [R - 2 Lambda + f(R) ]...
   !!f(R) =   2 Lambda /(c2 * R^n + 1)
   Lambda = 2.1d0
   n = 1.d0
   c2 = n/Lambda**n/0.15
 
-  call fofR%init_rational( c_up =(/ 2*Lambda /), alpha_up = (/ 0.d0 /), c_down = (/ c2, 1.d0 /),  alpha_down = (/ n, 0.d0 /) )
-  call coop_convert_fofR_to_Vofphi(fofR, Lambda, Vofphi)
+!  call fofR%init_rational( c_up =(/ 2*Lambda /), alpha_up = (/ 0.d0 /), c_down = (/ c2, 1.d0 /),  alpha_down = (/ n, 0.d0 /) )
+!  call coop_convert_fofR_to_Vofphi(fofR, Lambda, Vofphi)
 
-  call coop_asy_plot_function(Vofphi, "Vofphi.txt")
+!  call coop_asy_plot_function(Vofphi, "Vofphi.txt")
 
-  call intQofphi%init_polynomial( (/ 0.d0, 0.1d0 /) )
+  call intQofphi%init_polynomial( (/ 0.d0, 0.4d0 /) )
 
   call bg%init(h=0.7d0)
   call bg%add_species(coop_radiation(bg%Omega_radiation()))

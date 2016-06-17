@@ -71,7 +71,7 @@ contains
     COOP_REAL::suppression_factor, arat(3)
     dadt = params%dadt(a)
     radiation_term = 0.d0
-    dark_Energy_term =  0.d0
+    dark_Energy_term =  -(y(8)**2-O0_DE(params%cosmology)%cplde_Vofphi%eval(y(7)))*2.d0
     if(.not. params%cosmology%baryon_is_coupled)stop "The current version cannot solve halo collapse for models where baryon is not coupled."
     rho_m = 3.d0*(params%cosmology%Omega_c_bare+params%cosmology%Omega_b_bare)*exp(O0_DE(params%cosmology)%cplde_intQofphi%eval(y(7)))/(y(1)*y(2)*y(3))
     rhombar = O0_CDM(params%cosmology)%density(a) + O0_BARYON(params%cosmology)%density(a)
@@ -206,6 +206,12 @@ contains
        do i=1, n
           call coop_dverk_with_coupledDE_collapse_params(this%num_ode_vars, coop_coupledDE_collapse_odes, this, a, y, a_arr(i), tol, ind, c, this%num_ode_vars, w)
           x_arr(1:m, i) = y(1:m)
+          if(size(x_arr,1).ge.9)then
+             x_arr(9, i) = this%cosmology%Hratio(a_arr(i))*a_arr(i)**1.5
+          endif
+          if(size(x_arr,1).ge.10)then
+             x_arr(10, i) = this%Growth_D(a_arr(i))/a_arr(i)
+          endif
        enddo
     class default
        stop "Evolve: Extended class this has not been implemented"
@@ -279,7 +285,11 @@ contains
     if(present(update_cosmology))then
        if(update_cosmology)then
           call this%cosmology%init_from_dictionary(params, level = coop_init_level_set_pert, success=success)
-          if(.not. success) stop "cannot initialize cosmology"
+          if(.not. success)then
+             stop "cannot initialize cosmology"
+          else
+             write(*,*) "cosmology is initialized"
+          endif
        endif
     endif
     
@@ -320,14 +330,14 @@ contains
   function coop_coupledDE_collapse_params_Growth_D(this, a) result(D)
     class(coop_coupledDE_collapse_params)::this
     COOP_REAL::a, D
-    D = this%cosmology%growth_of_z(1.d0/a-1.d0)
+    D = this%cosmology%growth_of_z(1.d0/a-1.d0)/this%cosmology%growth_of_z(0.d0)
   end function coop_coupledDE_collapse_params_Growth_D
 
   !!d ln D/dt 
   function coop_coupledDE_collapse_params_Growth_H_D(this, a) result(H_D)
     class(coop_coupledDE_collapse_params)::this
     COOP_REAL::a, H_D
-    H_D = this%cosmology%fgrowth_of_z(1.d0/a-1.d0)*this%cosmology%Hratio(a)
+    H_D = this%cosmology%fgrowth_of_z(1.d0/a-1.d0)/this%cosmology%growth_of_z(0.d0)*this%cosmology%Hratio(a)
   end function coop_coupledDE_collapse_params_Growth_H_D
   
   !! H a / (H_0 a_0)
@@ -375,7 +385,7 @@ contains
     COOP_REAL::a, phi, phidot, rho_m, Q, dVdphi, H
     COOP_REAL::ddotphi
     !!put some upper bound to avoid going to netative phi
-    ddotphi = max(-3.d0*H*phidot - dVdphi - Q*rho_m, -phi*H**2*1.d4)
+    ddotphi = max(-3.d0*H*phidot - dVdphi - Q*rho_m, -phi*H**2*1.d2)
   end function coop_coupledDE_collapse_params_ddotphi
 
 #else

@@ -11,7 +11,7 @@ program test
   COOP_REAL::zvir1
   COOP_REAL::F_pk, p_nu, e_nu
   COOP_INT::i
-  COOP_REAL::a(na), x(8, na)
+  COOP_REAL::a(na), x(10, na)
   type(coop_file)::fp
   COOP_STRING::output
 
@@ -29,8 +29,9 @@ program test
   call coop_set_uniform(na, a, 0.02d0, 1.d0)
   call params%get_solution(a, x)
   call fp%open(output)
+  write(fp%unit, "(11A16)")  "# a             ", " x1 ", " x2 ", " x3 ", " dot x1 ", " dot x2 ", " dot x3 ", " phi ", " dot phi ", " a^{-3/2}H ", " D/a "
   do i=1, na
-     write(fp%unit, "(9E16.7)") a(i), x(:, i)
+     write(fp%unit, "(11E16.7)") a(i), x(:, i)
   enddo
   call fp%close()
   write(*,"(A)") "The solution is successfully written to "//trim(output)//"."
