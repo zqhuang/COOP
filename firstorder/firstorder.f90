@@ -1335,7 +1335,6 @@ contains
        call coop_background_add_coupled_DE(this, Omega_c = Omega_c, Omega_b = Omega_b, fQ = fQ, fwp1 =fwp1, err = err)
     elseif(present(Vofphi) .and. present(intQofphi))then
        call coop_background_add_coupled_DE_with_potential(this, Omega_c = Omega_c, Omega_b = Omega_b, Vofphi = Vofphi, intQofphi = intQofphi, err = err, normalize_V = .false.)
-       print*, "done"
     else
        stop "missing argument: to initialize coupled DE model you need either Vofphi+intQofphi or fwp1+fQ"
     endif
