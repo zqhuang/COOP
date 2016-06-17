@@ -2,7 +2,7 @@ program bgtest
   use coop_wrapper_background
   implicit none
 #include "constants.h"
-  COOP_REAL, parameter::Omega_c = 0.25d0, Omega_b = 0.05d0
+  COOP_REAL, parameter::Omega_c = 0.2442857d0, Omega_b = 0.045347
   COOP_REAL,parameter::Omega_m = omega_c+omega_b
   COOP_REAL,parameter::Omega_Lambda = 1.d0 - Omega_m
   COOP_REAL::lna  
@@ -20,7 +20,7 @@ program bgtest
 !  call Vofphi%init_powerlaw( c = (/ 2.d0, 0.1d0 /), alpha = (/ 0.d0, -0.1d0 /), name = "V(phi)")
   !! action = 1/2 \int [R - 2 Lambda + f(R) ]...
   !!f(R) =   2 Lambda /(c2 * R^n + 1)
-  Lambda = 3.d0*Omega_Lambda
+  Lambda = 2.1d0
   n = 1.d0
   c2 = n/Lambda**n/0.15
 

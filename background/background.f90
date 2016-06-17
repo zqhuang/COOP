@@ -890,7 +890,6 @@ contains
     norm_up = 2.d0
 10  norm = norm_up
     call solve(H)
-    call solve(H)
     if(H .lt. 1.d0)then
        norm_up = norm_up*2.d0       
        if(norm_up .gt. 1.d10)then
@@ -913,7 +912,7 @@ contains
     do while(norm_up - norm_down .gt. 1.d-7 .and. abs(H-1.d0).gt. 1.d-7)
        norm = sqrt(norm_up * norm_down)
        call solve(H)
-       print*, norm_down, norm_up, norm, H
+!       print*, norm_down, norm_up, norm, H
        if(H .gt. 1.d0)then
           norm_up = norm
        else
@@ -1055,6 +1054,9 @@ contains
          wp1effcdm(i) =  1.d0 - Q(i)*phi_prime(i)/3.d0
          wp1effde(i) = wp1de(i) + Q(i)*phi_prime(i)/3.d0 * rhom/rhode
       enddo
+!!$      do i=istart-10, istart+10
+!!$         print*, i-istart, phi(i), phidot(i)
+!!$      enddo
       call ode%free()
     end subroutine solve
 
@@ -1206,7 +1208,7 @@ contains
       V_phi =  norm*Vofphi%eval(phi)
       H = sqrt((rho + rhom + V_phi)/3.d0)
       phidot = (betabest+ dbdlna*log(a))*H*phi
-      good_approx = (abs(diffbest) .lt.  max(abs(t1), abs(t2), abs(t3))* 2.d-4 .and. phidot .ge. 0.d0)
+      good_approx = (abs(diffbest) .lt.  max(abs(t1), abs(t2), abs(t3))* 1.d-4 .and. phidot .ge. 0.d0 .and. phi.lt.1.d-2)
       if(phi.eq. 0.d0 .or. phidot .eq. 0.d0)then
          print*, a, betabest, phinorm, phi, phidot
          stop
