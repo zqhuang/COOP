@@ -74,8 +74,6 @@ contains
     dark_Energy_term =  -(y(8)**2-O0_DE(params%cosmology)%cplde_Vofphi%eval(y(7)))*2.d0/3.d0
     if(.not. params%cosmology%baryon_is_coupled)stop "The current version cannot solve halo collapse for models where baryon is not coupled."
     rho_m = 3.d0*(params%cosmology%Omega_c_bare+params%cosmology%Omega_b_bare)*exp(O0_DE(params%cosmology)%cplde_intQofphi%eval(y(7)))/(y(1)*y(2)*y(3))
-    rhombar = O0_CDM(params%cosmology)%density(a) + O0_BARYON(params%cosmology)%density(a)
-    rhombarby3 = rhombar/3.d0
     dlnmdt = O0_DE(params%cosmology)%cplde_intQofphi%derivative(y(7))*y(8)
     if(params%is_spherical)then
        arat(1) = (y(1)/a/params%collapse_a_ratio(1) - 1.d0)/eps
@@ -101,6 +99,8 @@ contains
        dyda(2:3) = dyda(1)
        dyda(5:6) = dyda(4)
     else
+       rhombar = O0_CDM(params%cosmology)%density(a) + O0_BARYON(params%cosmology)%density(a)
+       rhombarby3 = rhombar/3.d0
        delta = rho_m/rhombar-1.d0  !a**3/(y(1)*y(2)*y(3))-1.d0
        call params%get_bprime(y(1:3), bprime)       
        growthD = params%growth_D(a) !!this isn't accurate because in general D is scale dependent in the coupled DE model
