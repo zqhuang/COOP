@@ -913,6 +913,7 @@ contains
     do while(norm_up - norm_down .gt. 1.d-7 .and. abs(H-1.d0).gt. 1.d-7)
        norm = sqrt(norm_up * norm_down)
        call solve(H)
+       print*, norm_down, norm_up, norm, H
        if(H .gt. 1.d0)then
           norm_up = norm
        else
@@ -1205,7 +1206,7 @@ contains
       V_phi =  norm*Vofphi%eval(phi)
       H = sqrt((rho + rhom + V_phi)/3.d0)
       phidot = (betabest+ dbdlna*log(a))*H*phi
-      good_approx = (abs(diffbest) .lt.  max(abs(t1), abs(t2), abs(t3))* 1.d-3)
+      good_approx = (abs(diffbest) .lt.  max(abs(t1), abs(t2), abs(t3))* 2.d-4 .and. phidot .ge. 0.d0)
       if(phi.eq. 0.d0 .or. phidot .eq. 0.d0)then
          print*, a, betabest, phinorm, phi, phidot
          stop

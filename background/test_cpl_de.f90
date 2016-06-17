@@ -25,7 +25,7 @@ program bgtest
   c2 = n/Lambda**n/0.15
 
   call fofR%init_rational( c_up =(/ 2*Lambda /), alpha_up = (/ 0.d0 /), c_down = (/ c2, 1.d0 /),  alpha_down = (/ n, 0.d0 /) )
-  call coop_convert_fofR_to_Vofphi(fofR, Lambda, Vofphi, force_monotonic = .true.)
+  call coop_convert_fofR_to_Vofphi(fofR, Lambda, Vofphi)
 
   call coop_asy_plot_function(Vofphi, "Vofphi.txt")
 
