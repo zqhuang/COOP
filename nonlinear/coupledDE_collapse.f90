@@ -65,7 +65,7 @@ contains
   !!params is the object containing all the parameters and methods
   !! return dyda = d y/d a
     COOP_INT::n
-    COOP_REAL::a, y(n), dyda(n), dadt, bprime(3), growthD, delta, dark_Energy_term, radiation_term,  rho_m, rhombar, rhombarby3
+    COOP_REAL::a, y(n), dyda(n), dadt, bprime(3), growthD, delta, dark_Energy_term, radiation_term,  rho_m, rhombar, rhombarby3, dlnmdt
     type(coop_coupledDE_collapse_params)::params
     COOP_REAL,parameter::eps = coop_coupledDE_collapse_accuracy
     COOP_REAL::suppression_factor, arat(3)
@@ -76,6 +76,7 @@ contains
     rho_m = 3.d0*(params%cosmology%Omega_c_bare+params%cosmology%Omega_b_bare)*exp(O0_DE(params%cosmology)%cplde_intQofphi%eval(y(7)))/(y(1)*y(2)*y(3))
     rhombar = O0_CDM(params%cosmology)%density(a) + O0_BARYON(params%cosmology)%density(a)
     rhombarby3 = rhombar/3.d0
+    dlnmdt = O0_DE(params%cosmology)%cplde_intQofphi%derivative(y(7))*y(8)
     if(params%is_spherical)then
        arat(1) = (y(1)/a/params%collapse_a_ratio(1) - 1.d0)/eps
        if(arat(1) .lt. -1.d0 .and. y(4) .lt. 0.d0)then  !!collapsed; freeze it
@@ -88,7 +89,7 @@ contains
                dark_Energy_term  &
                + radiation_term &
                -  rho_m/3.d0 &  !!matter contribution
-               )
+               ) - dlnmdt*y(4)/dadt
           !!-----------end of equation for x_1 -------------------------
           if(arat(1) .lt. 0.d0  .and. y(4) .lt. 0.d0)then  !!do suppression around x_i/a = fr_i so that the derivative is continuous; no need to change
              suppression_factor =  sin(coop_pio2*(1.d0+arat(1)))**4
@@ -114,7 +115,7 @@ contains
                dark_Energy_term  &
                + radiation_term &
                -  rhombarby3*(1.d0 + delta *(1.d0+bprime(1)*1.5d0) + (3.d0*params%lambda(1)-sum(params%lambda))*growthD ) &  !!matter contribution
-               )
+               )- dlnmdt*y(4)/dadt
           !!----------- end of equation for x_1 -------------------------
           if(arat(1) .lt. 0.d0)then !!do suppression around x_i/a = fr_i so that the derivative is continuous; this is for stability of the ode solver; 
              suppression_factor =  sin(coop_pio2*(1.d0+arat(1)))**4 
@@ -132,7 +133,7 @@ contains
                dark_Energy_term  &
                + radiation_term &  
                - rhombarby3*(1.d0 + delta *(1.d0+bprime(2)*1.5d0) + (3.d0*params%lambda(2)-sum(params%lambda))*growthD ) &  !!matter contribution
-               )
+               )- dlnmdt*y(5)/dadt
           !!----------- end of equation for x_2 -------------------------
           if(arat(2) .lt. 0.d0)then !!do suppression around x_i/a = fr_i so that the derivative is continuous; this is for stability of the ode solver;
              suppression_factor =  sin(coop_pio2*(1.d0+arat(2)))**4 
@@ -150,7 +151,7 @@ contains
                dark_Energy_term  &
                + radiation_term &  
                -  rhombarby3*(1.d0 + delta *(1.d0+bprime(3)*1.5d0) + (3.d0*params%lambda(3)-sum(params%lambda))*growthD ) &  !!matter contribution
-               )       
+               ) - dlnmdt*y(6)/dadt      
           !!----------- end of equation for x_3 -------------------------
           if(arat(3) .lt. 0.d0)then  !!do suppression around x_i/a = fr_i so that the derivative is continuous; this is for stability of the ode solver;
              suppression_factor =  sin(coop_pio2*(1.d0+arat(3)))**4
@@ -373,7 +374,8 @@ contains
     class(coop_coupledDE_collapse_params)::this
     COOP_REAL::a, phi, phidot, rho_m, Q, dVdphi, H
     COOP_REAL::ddotphi
-    ddotphi = max(-3.d0*H*phidot - dVdphi - Q*rho_m, phi*H**2*1.d4)
+    !!put some upper bound to avoid going to netative phi
+    ddotphi = max(-3.d0*H*phidot - dVdphi - Q*rho_m, -phi*H**2*1.d4)
   end function coop_coupledDE_collapse_params_ddotphi
 
 #else

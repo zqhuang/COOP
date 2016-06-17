@@ -550,15 +550,17 @@ contains
 !! f''(R) > 0
 !! f'(R) -> 0 when R-> infty
 !!in this model the coupling Q = 1/sqrt(6) is fixed
-  subroutine coop_convert_fofR_to_Vofphi(fofR, Lambda, Vofphi)
+  subroutine coop_convert_fofR_to_Vofphi(fofR, Lambda, Vofphi, force_monotonic)
     type(coop_function)::fR, Vphi
     COOP_REAL::Lambda
     type(coop_function)::fofR, Vofphi
+    logical,optional::force_monotonic
     COOP_INT, parameter::n = 80000
     COOP_REAL, parameter::Rmin = 0.1d0, Rmax = 1.d99   
     COOP_REAL,dimension(n)::lnR, phi, V
     COOP_REAL::R, dfdR, f
     COOP_INT::i, imax, imin
+
     call coop_set_uniform(n, lnR, log(Rmin), log(Rmax))
     imin = 1
     imax = n
@@ -583,6 +585,13 @@ contains
           exit
        endif
     enddo
+    if(present(force_monotonic))then
+       if(force_monotonic)then
+          do i= imax-1, imin, -1
+             V(i) = max(V(i+1), V(i))
+          enddo
+       endif
+    endif
     if(imax .gt. imin)then
        call Vofphi%init_nonUniform(x = phi(imin:imax), f = V(imin:imax),  xlog = .true., ylog = .true., check_boundary = .true., name = "V(phi)")
        call Vofphi%mult_const(-1.d0)
@@ -844,16 +853,18 @@ contains
     COOP_REAL::Omega_c, Omega_b, Omega_cpl
     type(coop_function)::Vofphi, intQofphi
     COOP_INT::err
-    COOP_REAL::norm, facmin, facmax
+    COOP_REAL::norm, fac
     logical, optional::normalize_V
 #if DO_COUPLED_DE
     COOP_INT, parameter::ns = 10000
     type(coop_species)::de, cdm
     type(coop_function)::fwp1effcdm, fwp1effde, fwp1de
-    COOP_REAL::rho_ce, lna(ns), a(ns), phi(ns), phidot(ns), wp1de(ns), wp1effde(ns), wp1effcdm(ns), V(ns), Q(ns), dQdphi(ns), phi_prime(ns), dVdphibyH2(ns), m2byH2(ns), H, omc, omde, dlna
+    COOP_REAL::rho_ce, lna(ns), a(ns), phi(ns), phidot(ns), wp1de(ns), wp1effde(ns), wp1effcdm(ns), V(ns), Q(ns), dQdphi(ns), phi_prime(ns), dVdphibyH2(ns), m2byH2(ns), H, omc, omde, dlna, prevH
     COOP_INT::i
     COOP_REAL, parameter::minphi = 1.d-99
     COOP_REAL::Qrhoma3_at_minphi, Vp_at_minphi, V_at_minphi, Q_at_minphi, dQdphi_at_minphi, m2_at_minphi
+    COOP_REAL::norm_up, norm_down, norm_mid
+
     this%Omega_c_bare = Omega_c
     this%Omega_b_bare = Omega_b
     if(this%baryon_is_coupled)then
@@ -876,18 +887,36 @@ contains
     call coop_set_uniform(ns, lna, log(coop_min_scale_factor), log(coop_scale_factor_today))
     a = exp(lna)
     dlna = lna(2) - lna(1)
-    norm = 1.d0
-    H = 0.d0
-    facmax = 1.3d0
-    facmin = 0.7d0
-    do while( abs(H-1.d0) .gt. 1.d-7)
-       call solve(H)
-       norm = norm* max(min(exp(- (H**2-1.d0)/(1.d0-Omega_cpl) ), facmax), facmin)
-       facmax = facmax*0.995
-       facmin = facmin*1.005
-       if(facmax .lt. 1.d0 .or. facmin .gt. 1.d0)then
-          err = -2 !!no convergence
+    norm_up = 2.d0
+10  norm = norm_up
+    call solve(H)
+    call solve(H)
+    if(H .lt. 1.d0)then
+       norm_up = norm_up*2.d0       
+       if(norm_up .gt. 1.d10)then
+          err = -2
           return
+       endif
+       goto 10
+    endif
+    norm_down = 0.5d0
+20  norm = norm_down
+    call solve(H)
+    if(H .gt. 1.d0)then
+       norm_down = norm_down/2.d0
+       if(norm_down .lt. 1.d-10)then
+          err = -3
+          return
+       endif
+       goto 20
+    endif
+    do while(norm_up - norm_down .gt. 1.d-7 .and. abs(H-1.d0).gt. 1.d-7)
+       norm = sqrt(norm_up * norm_down)
+       call solve(H)
+       if(H .gt. 1.d0)then
+          norm_up = norm
+       else
+          norm_down = norm
        endif
     enddo
     if(present(normalize_V))then
@@ -978,13 +1007,13 @@ contains
       call get_tight_coupling(a(i)*exp(-dlna/2.d0), phi(i), phidot(i), good_approx, phinorm, beta_minus, 0.d0, .false.)
       dbdlna = (beta_plus-beta_minus)/dlna
       beta = (beta_plus+beta_minus)/2.d0
-      phinorm = phinorm * exp(-dbdlna*lna(i)**2)
+      phinorm = phinorm * min(max(exp(-dbdlna*lna(i)**2), 0.1d0), 10.d0)
       do 
          call get_tight_coupling(a(i)*exp(dlna/2.d0), phi(i), phidot(i), good_approx, phinorm, beta_plus, 0.d0, .false.)
          call get_tight_coupling(a(i)*exp(-dlna/2.d0), phi(i), phidot(i), good_approx, phinorm, beta_minus, 0.d0, .false.)
          dbdlna = (beta_plus-beta_minus)/dlna
          call get_tight_coupling(a(i), phi(i), phidot(i), good_approx, phinorm, beta, dbdlna, .false.)
-         phinorm = phinorm * exp(-dbdlna*lna(i)**2)
+         phinorm = phinorm * min(max(exp(-dbdlna*lna(i)**2), 0.1d0),10.d0)
          V(i) = norm*Vofphi%eval(phi(i))
          Q(i) = intQofphi%derivative(phi(i))
          dQdphi(i) = intQofphi%derivative2(phi(i))
@@ -1001,17 +1030,17 @@ contains
             istart = ns+1
             exit
          endif
-         if( a(i) .gt. 2.d-1 .or. .not. good_approx )then !!start exact evolution
-            call ode%set_initial_conditions(xini = lna(i), yini = (/ log(phi(i)), phidot(i)/phi(i) /) )
-            istart = i+1
+         if( i.gt.1 .and. (a(i) .gt. 0.2d0 .or. .not. good_approx) )then !!start exact evolution
+            call ode%set_initial_conditions(xini = lna(i-1), yini = (/ phi(i-1), phidot(i-1) /) )
+            istart = i
             exit
          endif
          i = i + 1
       enddo
-      do i=istart, ns
-         call ode%evolve(cpl_eq, lna(i))
-         phi(i) = exp(ode%y(1))
-         phidot(i) = ode%y(2)*phi(i)
+      do i=istart, ns         
+         call ode%evolve(cpl_eq, lna(i))         
+         phi(i) = ode%y(1)
+         phidot(i) = ode%y(2)
          V(i) = norm * Vofphi%eval(phi(i))
          Q(i) = intQofphi%derivative(phi(i))
          dQdphi(i) = intQofphi%derivative2(phi(i))
@@ -1029,24 +1058,30 @@ contains
     end subroutine solve
 
     !! rho_ce = \lim a-> 0 rho a^3
-    !! y(1) = ln phi
-    !! y(2) = d(ln phi)/d t
+    !! y(1) = \phi
+    !! y(2) = \dot\phi
     !! time variable ln a
     subroutine cpl_eq(n, lna, y, yp)
       COOP_INT::n
       COOP_REAL::lna, y(n), yp(n), H2a4, a,  H
-      COOP_REAL::dVdphi,  phi,  q, rhoma3, phidot, qrhom
+      COOP_REAL::dVdphi, q, rhoma3, qrhom
       a = exp(lna)
-      phi = exp(y(1))
-      phidot = phi*y(2)
-      q = intQofphi%derivative(phi)
-      dVdphi = norm * Vofphi%derivative(phi)
-      rhoma3 = rho_ce*exp(intQofphi%eval(phi))
+#define PHI y(1)
+#define PHIDOT y(2)
+      if(PHI .le. 0.d0)then
+         yp(1) = 1.d50
+         yp(2) = 0.d0
+      endif
+      q = intQofphi%derivative(PHI)
+      dVdphi = norm * Vofphi%derivative(PHI)
+      rhoma3 = rho_ce*exp(intQofphi%eval(PHI))
       qrhom = q*rhoma3/a**3
-      H2a4 = (this%rhoa4(a) + (norm * Vofphi%eval(phi)+phidot**2/2.d0)*a**4 + rhoma3*a)/3.d0
+      H2a4 = (this%rhoa4(a) + (norm * Vofphi%eval(PHI)+PHIDOT**2/2.d0)*a**4 + rhoma3*a)/3.d0
       H = sqrt(H2a4)/a**2
-      yp(1) = y(2)/H  !!convert to d(ln phi)/(d ln a)
-      yp(2) = min(max( ((-qrhom-dVdphi)/phi-(3.d0*H+y(2))*y(2))/H,  (-30.d0*H-y(2))/dlna ), (30.d0*H-y(2))/dlna)  !!put some cap so that phidot doesn't go wild
+      yp(1) = y(2)/H 
+      yp(2) = (-3.d0*H*PHIDOT - dVdphi - qrhom)/H
+#undef PHI
+#undef PHIDOT
     end subroutine cpl_eq
 
 
@@ -1171,6 +1206,10 @@ contains
       H = sqrt((rho + rhom + V_phi)/3.d0)
       phidot = (betabest+ dbdlna*log(a))*H*phi
       good_approx = (abs(diffbest) .lt.  max(abs(t1), abs(t2), abs(t3))* 1.d-3)
+      if(phi.eq. 0.d0 .or. phidot .eq. 0.d0)then
+         print*, a, betabest, phinorm, phi, phidot
+         stop
+      endif
     end subroutine get_tight_coupling
 
 #else

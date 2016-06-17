@@ -22,17 +22,21 @@ program bgtest
   !!f(R) =   2 Lambda /(c2 * R^n + 1)
   Lambda = 3.d0*Omega_Lambda
   n = 1.d0
-  c2 = 100.*n/Lambda**n
+  c2 = n/Lambda**n/0.15
 
   call fofR%init_rational( c_up =(/ 2*Lambda /), alpha_up = (/ 0.d0 /), c_down = (/ c2, 1.d0 /),  alpha_down = (/ n, 0.d0 /) )
-  call coop_convert_fofR_to_Vofphi(fofR, Lambda, Vofphi)
-  call intQofphi%init_polynomial( (/ 0.d0, 1.d0/sqrt(6.d0)/) )
+  call coop_convert_fofR_to_Vofphi(fofR, Lambda, Vofphi, force_monotonic = .true.)
+
+  call coop_asy_plot_function(Vofphi, "Vofphi.txt")
+
+  call intQofphi%init_polynomial( (/ 0.d0, 0.1d0 /) )
 
   call bg%init(h=0.7d0)
   call bg%add_species(coop_radiation(bg%Omega_radiation()))
   call bg%add_species(coop_neutrinos_massless(bg%Omega_massless_neutrinos_per_species()*(bg%Nnu())))
 !  call coop_background_add_coupled_DE(bg, Omega_c = omega_c, fwp1 = fwp1, fQ = fQ, err = err)
   call coop_background_add_coupled_DE_with_potential(bg, Omega_c = omega_c, omega_b = omega_b, Vofphi = Vofphi, intQofphi = intQofphi,  err = err)
+
 
   if(err .ne. 0)then
      print*, err
