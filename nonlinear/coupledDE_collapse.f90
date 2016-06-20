@@ -76,6 +76,7 @@ contains
     type(coop_coupledDE_collapse_params)::params
     COOP_REAL,parameter::eps = coop_coupledDE_collapse_accuracy, max_decay_rate = 1.d5
     COOP_REAL::suppression_factor, arat(3)
+    logical::all_frozen
     dadt = params%dadt(a)
     radiation_term = 0.d0
     dark_Energy_term =  -(y(8)**2-O0_DE(params%cosmology)%cplde_Vofphi%eval(y(7)))*2.d0/3.d0
@@ -85,9 +86,11 @@ contains
     if(params%is_spherical)then
        arat(1) = (y(1)/a/params%collapse_a_ratio(1) - 1.d0)/eps
        if(arat(1) .lt. -1.d0 .and. y(4) .lt. 0.d0)then  !!collapsed; freeze it
+          all_frozen = .true.
           dyda(1) = 0.d0
           dyda(4) = 0.d0
        else  !!still collapsing
+          all_frozen = .false.
           !!----------- equation for x_1 -------------------------
           dyda(1) = y(4) / dadt    !!d x_1/da = d x_1/dt /(da/dt)
           dyda(4) = y(1)/dadt/2.d0 * ( &   !! d( dx_1/dt)/da =(d^2 x_1/dt^2)/(da/dt)
@@ -113,9 +116,11 @@ contains
        growthD = params%growth_D(a) !!this isn't accurate because in general D is scale dependent in the coupled DE model
        arat = (y(1:3)/a/params%collapse_a_ratio - 1.d0)/eps
        if(arat(1) .lt. -1.d0  .and. y(4) .lt. 0.d0)then  !!collapsed; freeze it
+          all_frozen = .true.
           dyda(1) = 0.d0
           dyda(4) = 0.d0
        else  !!still collapsing
+          all_frozen = .false.
           !!----------- equation for x_1 -------------------------
           dyda(1) = y(4) / dadt    !!d x_1/da = d x_1/dt /(da/dt)
           dyda(4) = y(1)/dadt/2.d0 * ( &   !! d( dx_1/dt)/da =(d^2 x_1/dt^2)/(da/dt)
@@ -134,6 +139,7 @@ contains
           dyda(2) = 0.d0
           dyda(5) = 0.d0
        else !!still collapsing
+          all_frozen = .false.
           !!----------- equation for x_2 -------------------------
           dyda(2) = y(5) / dadt    !!d x_1/da = d x_1/dt /(da/dt)
           dyda(5) = y(2)/dadt/2.d0 * ( &   !! d( dx_1/dt)/da =(d^2 x_1/dt^2)/(da/dt)
@@ -152,6 +158,7 @@ contains
           dyda(3) = 0.d0
           dyda(6) = 0.d0
        else !!still collapsing
+          all_frozen = .false.
           !!----------- equation for x_3 -------------------------
           dyda(3) = y(6) / dadt    !!d x_1/da = d x_1/dt /(da/dt)
           dyda(6) = y(3)/dadt/2.d0 * ( &   !! d( dx_1/dt)/da =(d^2 x_1/dt^2)/(da/dt)
@@ -168,15 +175,19 @@ contains
        endif
     endif
     !!the scalar field
-    if(y(7) .gt. 1.d-30)then
-       dyda(7) = y(8)/dadt
-       q =  O0_DE(params%cosmology)%cplde_intQofphi%derivative(y(7))
-       dvdphi = O0_DE(params%cosmology)%cplde_Vofphi%derivative(y(7))
-       dyda(8) = params%ddotphi(a, y(7), y(8), rho_m, q, dvdphi, dadt/a)/dadt
-       dyda(7) = max(-y(7)/a*max_decay_rate, dyda(7))
+    if(all_frozen)then
+       dyda(7:8) = 0.d0
     else
-       dyda(7) = 1.d-29
-       dyda(8) = 1.d-29
+       if(y(7) .gt. 1.d-30)then
+          dyda(7) = y(8)/dadt
+          q =  O0_DE(params%cosmology)%cplde_intQofphi%derivative(y(7))
+          dvdphi = O0_DE(params%cosmology)%cplde_Vofphi%derivative(y(7))
+          dyda(8) = params%ddotphi(a, y(7), y(8), rho_m, q, dvdphi, dadt/a)/dadt
+          dyda(7) = max(-y(7)/a*max_decay_rate, dyda(7))
+       else
+          dyda(7) = 1.d-29
+          dyda(8) = 1.d-29
+       endif
     endif
   end subroutine coop_coupledDE_collapse_odes
 
