@@ -1068,12 +1068,13 @@ contains
       COOP_INT::n
       COOP_REAL::lna, y(n), yp(n), H2a4, a,  H
       COOP_REAL::dVdphi, q, rhoma3, qrhom
+      COOP_REAL, parameter::fac = 1.d4
       a = exp(lna)
 #define PHI y(1)
 #define PHIDOT y(2)
-      if(PHI .le. 0.d0)then
-         yp(1) = 1.d50
-         yp(2) = 0.d0
+      if(PHI .le. 1.d-99)then
+         yp(1) = 1.d-10
+         yp(2) = 1.d-10
       endif
       q = intQofphi%derivative(PHI)
       dVdphi = norm * Vofphi%derivative(PHI)
@@ -1083,6 +1084,14 @@ contains
       H = sqrt(H2a4)/a**2
       yp(1) = y(2)/H 
       yp(2) = (-3.d0*H*PHIDOT - dVdphi - qrhom)/H
+      if(qrhom .gt. 1.d4)then
+         yp(1) = sign(min(abs(y(1)/a*fac), abs(yp(1))), yp(1))
+         yp(2) = sign(min(abs(y(2)/a*fac), abs(yp(2))), yp(2))
+      else
+         q = (qrhom/1.d4)**4
+         yp(1) = sign(min(abs(y(1)/a*fac), abs(yp(1))), yp(1))*q + yp(1)*(1.d0-q)
+         yp(2) = sign(min(abs(y(2)/a*fac), abs(yp(2))), yp(2))*q + yp(2)*(1.d0-q)
+      endif
 #undef PHI
 #undef PHIDOT
     end subroutine cpl_eq
@@ -1208,7 +1217,7 @@ contains
       V_phi =  norm*Vofphi%eval(phi)
       H = sqrt((rho + rhom + V_phi)/3.d0)
       phidot = (betabest+ dbdlna*log(a))*H*phi
-      good_approx = (abs(diffbest) .lt.  max(abs(t1), abs(t2), abs(t3))* 1.d-4 .and. phidot .ge. 0.d0 .and. phi.lt.1.d-2)
+      good_approx = (abs(diffbest) .lt.  max(abs(t1), abs(t2), abs(t3))* 1.d-5 .and. phidot .ge. 0.d0 .and. phi.lt.1.d-3)
       if(phi.eq. 0.d0 .or. phidot .eq. 0.d0)then
          print*, a, betabest, phinorm, phi, phidot
          stop

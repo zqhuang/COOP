@@ -22,6 +22,7 @@ module coop_coupledDE_collapse_mod
      COOP_REAL,dimension(3)::collapse_a_ratio =  (/ 0.178, 0.178, 0.178 /) ! (18pi^2)^{-1/3}
      type(coop_2dfunction)::bprime  
      type(coop_cosmology_firstorder)::cosmology
+     logical::normalize_to_early = .false.  !!if true, set the initial delta = F_pk * a
    contains
      procedure::free => coop_coupledDE_collapse_params_free  !!subroutine; no argument; release the memory allocated for this object
      procedure::init => coop_coupledDE_collapse_params_init  !!subroutine; this%init(Omega_m, w, Omega_k, h, F_pk, e_nu, p_nu);  initialize the object with these parameters
@@ -45,14 +46,20 @@ contains
     !!set inital vector y = ( x_1, x_2,  x_3,  d x_1/dt, d x_2/dt, d x_3/dt, phi, d phi/dt ) at a = a_ini
     class(coop_coupledDE_collapse_params)::this
     COOP_REAL,intent(IN)::a_ini
-    COOP_REAL::y(:), D_ini,  dadt_ini, corr(3), suml, suml2
-    D_ini = this%Growth_D(a_ini)
+    COOP_REAL::y(:), D_ini,  dadt_ini, corr(3), suml, suml2, H_D
+    if(this%normalize_to_early)then
+       D_ini = coop_growth_fitting(0.3d0, -1.d0, 1.d0/a_ini - 1.d0) 
+       H_D = sqrt(0.3/a_ini**3 + 0.7)
+    else
+       D_ini = this%Growth_D(a_ini)
+       H_D = this%Growth_H_D(a_ini)
+    endif
     dadt_ini = this%dadt(a_ini)
     suml = sum(this%lambda)
     suml2 = sum(this%lambda**2)
     corr = (1.2d0*this%lambda*suml + 0.6d0*suml2 + 11.d0/35.d0*(suml**2-suml2)-3.d0*this%lambda**2)/10.d0  !!this is for 2nd-order correction of initial conditions; in spherical case corr = 3/7 lambda^2
     y(1:3) = a_ini *(1.d0-this%lambda*D_ini - corr*D_ini**2)
-    y(4:6) = y(1:3)*dadt_ini/a_ini - a_ini*(D_ini*this%Growth_H_D(a_ini)*(this%lambda + 2.d0*corr*D_ini))  
+    y(4:6) = y(1:3)*dadt_ini/a_ini - a_ini*(D_ini*H_D*(this%lambda + 2.d0*corr*D_ini))  
     y(7) = O0_DE(this%cosmology)%cplDE_phi_lna%eval(log(a_ini))  !phi
     y(8) = O0_DE(this%cosmology)%cplDE_phi_prime_lna%eval(log(a_ini))*this%cosmology%Hratio(a_ini)   !!d phi/dt
   end subroutine coop_coupledDE_collapse_params_set_initial_conditions
@@ -65,9 +72,9 @@ contains
   !!params is the object containing all the parameters and methods
   !! return dyda = d y/d a
     COOP_INT::n
-    COOP_REAL::a, y(n), dyda(n), dadt, bprime(3), growthD, delta, dark_Energy_term, radiation_term,  rho_m, rhombar, rhombarby3, dlnmdt
+    COOP_REAL::a, y(n), dyda(n), dadt, bprime(3), growthD, delta, dark_Energy_term, radiation_term,  rho_m, rhombar, rhombarby3, dlnmdt, q, dvdphi
     type(coop_coupledDE_collapse_params)::params
-    COOP_REAL,parameter::eps = coop_coupledDE_collapse_accuracy
+    COOP_REAL,parameter::eps = coop_coupledDE_collapse_accuracy, max_decay_rate = 1.d5
     COOP_REAL::suppression_factor, arat(3)
     dadt = params%dadt(a)
     radiation_term = 0.d0
@@ -161,8 +168,16 @@ contains
        endif
     endif
     !!the scalar field
-    dyda(7) = y(8)/dadt
-    dyda(8) = params%ddotphi(a, y(7), y(8), rho_m, O0_DE(params%cosmology)%cplde_intQofphi%derivative(y(7)), O0_DE(params%cosmology)%cplde_Vofphi%derivative(y(7)), dadt/a)/dadt
+    if(y(7) .gt. 1.d-30)then
+       dyda(7) = y(8)/dadt
+       q =  O0_DE(params%cosmology)%cplde_intQofphi%derivative(y(7))
+       dvdphi = O0_DE(params%cosmology)%cplde_Vofphi%derivative(y(7))
+       dyda(8) = params%ddotphi(a, y(7), y(8), rho_m, q, dvdphi, dadt/a)/dadt
+       dyda(7) = max(-y(7)/a*max_decay_rate, dyda(7))
+    else
+       dyda(7) = 1.d-29
+       dyda(8) = 1.d-29
+    endif
   end subroutine coop_coupledDE_collapse_odes
 
 !!=====================You don't need to read anything below ==================
@@ -201,7 +216,11 @@ contains
     select type(this)
     type is(coop_coupledDE_collapse_params)
        ind = 1
-       a = min(max(0.005d0, min(0.05d0, 100.d0*coop_coupledDE_collapse_accuracy))/maxval(abs(this%lambda)), a_arr(1)*0.99d0, 0.03d0)
+       if(this%normalize_to_early)then
+          a = 0.02d0
+       else
+          a = min(max(0.005d0, min(0.05d0, 100.d0*coop_coupledDE_collapse_accuracy))/maxval(abs(this%lambda)), a_arr(1)*0.99d0, 0.03d0)
+       endif
        call this%set_initial_conditions(a, y)
        do i=1, n
           call coop_dverk_with_coupledDE_collapse_params(this%num_ode_vars, coop_coupledDE_collapse_odes, this, a, y, a_arr(i), tol, ind, c, this%num_ode_vars, w)
@@ -235,7 +254,11 @@ contains
           zvir1 = -1.d0
           return
        endif
-       a = min(max(0.005d0, min(0.05d0, 50.d0*coop_coupledDE_collapse_accuracy)/maxval(abs(this%lambda))), 0.03d0)
+       if(this%normalize_to_early)then
+          a = 0.02d0
+       else
+          a = min(max(0.005d0, min(0.05d0, 50.d0*coop_coupledDE_collapse_accuracy)/maxval(abs(this%lambda))), 0.03d0)
+       endif
        call this%set_initial_conditions(a, y)
        a_next = 0.1d0/Frho
        call coop_dverk_with_coupledDE_collapse_params(this%num_ode_vars, coop_coupledDE_collapse_odes, this, a, y, a_next, tol/10.d0, ind, c, this%num_ode_vars, w)
@@ -280,7 +303,7 @@ contains
     logical::success
     COOP_INT::i
     COOP_REAL::F_pk, e_nu, p_nu
-
+    call coop_dictionary_lookup(params, "normalize_to_early", this%normalize_to_early, .false.)
     !set up cosmology
     if(present(update_cosmology))then
        if(update_cosmology)then
@@ -337,7 +360,7 @@ contains
   function coop_coupledDE_collapse_params_Growth_H_D(this, a) result(H_D)
     class(coop_coupledDE_collapse_params)::this
     COOP_REAL::a, H_D
-    H_D = this%cosmology%fgrowth_of_z(1.d0/a-1.d0)/this%cosmology%growth_of_z(0.d0)*this%cosmology%Hratio(a)
+    H_D = this%cosmology%fgrowth_of_z(1.d0/a-1.d0)*this%cosmology%Hratio(a)
   end function coop_coupledDE_collapse_params_Growth_H_D
   
   !! H a / (H_0 a_0)
@@ -385,7 +408,7 @@ contains
     COOP_REAL::a, phi, phidot, rho_m, Q, dVdphi, H
     COOP_REAL::ddotphi
     !!put some upper bound to avoid going to netative phi
-    ddotphi = max(-3.d0*H*phidot - dVdphi - Q*rho_m, -phi*H**2*1.d2)
+    ddotphi =-3.d0*H*phidot - dVdphi - Q*rho_m
   end function coop_coupledDE_collapse_params_ddotphi
 
 #else

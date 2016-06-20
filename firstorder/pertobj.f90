@@ -518,7 +518,13 @@ contains
     case("dpsidlna")
        var = pert%O1_PSIPR
     case("dphidlna")
-       var = pert%O1_Phipr
+       var = pert%O1_PHIPR
+#if DO_COUPLED_DE
+    case("cpldephi")
+       var=pert%O1_DELTA_PHI
+    case("cpldephiprime")
+       var= pert%O1_DELTA_PHIPR
+#endif
 #if DO_EFT_DE       
     case("hpi")
        var = pert%O1_DE_HPI
