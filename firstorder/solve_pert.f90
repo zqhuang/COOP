@@ -35,7 +35,8 @@ program test
   coop_feedback_level = 3
   call fp%open(output, "w")
   write(fp%unit, "(A)") "#"//trim(params%value("variables"))
-  call cosmology%init_from_dictionary(params)
+  call cosmology%init_from_dictionary(params, success = success)
+  if(.not. success) stop "cannot initialize the cosmology: bad parameters."
   !!----------------------------------------    
   !!set k/H0  
   call cosmology%init_source(0)
