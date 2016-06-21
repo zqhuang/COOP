@@ -74,7 +74,7 @@ contains
        this = coop_de_lambda(Omega_Lambda)
        return
     endif
-    call fw0wa%init_polynomial( (/ w0+wa, -wa /))
+    call fw0wa%init_polynomial( (/ 1.d0+w0+wa, -wa /))
     call this%init(genre = COOP_SPECIES_FLUID, name = "Dark Energy", id=5, Omega = Omega_Lambda, cs2 = COOP_REAL_OF(1.d0), fwp1 = fw0wa )
     call w0wa%free()
     call fw0wa%free()
