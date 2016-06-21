@@ -246,5 +246,5 @@ program TestNpeak
      call fig%legend(legendx, legendy, legendcols)
   endif
   call fig%close()
-  call system("fasy.sh "//trim(output))
+!  call system("fasy.sh "//trim(output))
 end program TestNpeak

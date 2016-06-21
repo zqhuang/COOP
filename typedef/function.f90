@@ -399,6 +399,7 @@ contains
     COOP_REAL f, xmin, xmax, dx, lnxmin, lnxmax
     logical,optional::xlog
     logical,optional::ylog
+    logical::doxlog, doylog
     type(coop_arguments),optional::args
     COOP_INT, optional::method
     logical,optional::check_boundary
@@ -409,16 +410,16 @@ contains
        cf%name = trim(adjustl(name))
     endif
     if(present(xlog))then
-       cf%xlog = xlog
+       doxlog = xlog
     else
-       cf%xlog = .false.
+       doylog = .false.
     endif
     if(present(ylog))then
-       cf%ylog = ylog
+       doxlog = ylog
     else
-       cf%ylog = .false.
+       doylog = .false.
     endif
-    if(cf%xlog)then
+    if(doxlog)then
        if(xmin .le. 0.d0 .or. xmax .le. 0.d0) stop "when xmin or xmax is negative you cannot set xlog = .true."
        lnxmin = log(xmin)
        lnxmax = log(xmax)
@@ -466,15 +467,15 @@ contains
     endif
     if(present(check_boundary))then
        if(present(method))then
-          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = method, xlog = cf%xlog, ylog = cf%ylog, check_boundary = check_boundary)
+          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = method, xlog = doxlog, ylog = doylog, check_boundary = check_boundary)
        else
-          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = COOP_INTERPOLATE_SPLINE, xlog = cf%xlog, ylog = cf%ylog, check_boundary = check_boundary)
+          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = COOP_INTERPOLATE_SPLINE, xlog = doxlog, ylog = doylog, check_boundary = check_boundary)
        endif
     else
        if(present(method))then
-          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = method, xlog = cf%xlog, ylog = cf%ylog)
+          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = method, xlog = doxlog, ylog = doylog)
        else
-          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = COOP_INTERPOLATE_SPLINE, xlog = cf%xlog, ylog = cf%ylog)
+          call cf%init(n=coop_default_array_size, xmin=xmin, xmax=xmax, f=y, method = COOP_INTERPOLATE_SPLINE, xlog = doxlog, ylog = doylog)
        endif
     endif
     cf%initialized = .true.
