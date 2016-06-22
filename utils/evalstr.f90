@@ -69,18 +69,13 @@ contains
     COOP_INT::error
     COOP_UNKNOWN_STRING::mathexpr
     COOP_LONG_STRING::str
-    COOP_INT::i, l, j, k, ll, ind
+    COOP_INT::i, l, j, k, ll, ind, maxind
     if(present(vars))then
-       this%n = size(vars)
-       if(this%n .gt. coop_math_expression_max_num_vars)then
-          error = coop_math_expression_error_too_many_numbers
-          return
-       endif
-       this%vars(1:this%n) = vars
+       maxind = size(vars)
     else
-       this%n = 0
+       maxind = 0
     endif
-
+    this%n = 0
     l = 0
     ll = len_trim(mathexpr)
     error = 0
@@ -170,11 +165,17 @@ contains
                 return
              endif
              read(str(j:k-1),*) ind
-             if(ind .gt. this%n)then
+             if(ind .gt. maxind)then
                 error = coop_math_expression_error_numbers_together
                 return
              endif
-             this%expr = trim(this%expr)//str(i:j-1)//trim(coop_4digits(ind))
+             this%n = this%n + 1
+             if(this%n .gt.  coop_math_expression_max_num_vars)then
+                error = coop_math_expression_error_too_many_numbers
+                return
+             endif
+             this%vars(this%n) = vars(ind)
+             this%expr = trim(this%expr)//str(i:j-1)//trim(coop_4digits(this%n))
              i = k
              cycle
           endif
