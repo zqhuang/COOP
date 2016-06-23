@@ -31,9 +31,9 @@ C_COMPILER = $(ICC_NAME)
 ########set to null string for librarys that are not installed ###############
 ##############################################################################
 ##Dark Energy Model (set to EFT for effective field theory)
-DARK_ENERGY_MODEL = EFT
+#DARK_ENERGY_MODEL = EFT
 #DARK_ENERGY_MODEL = COUPLED_DE
-#DARK_ENERGY_MODEL = LAMBDA
+DARK_ENERGY_MODEL = LAMBDA
 
 ##LAPACK lib, mandatory if you use any data (WMAP, ACT, SPT, SNLS3yr)
 LAPACK =
@@ -180,7 +180,7 @@ endif
 
 ###set fftw flags here
 ifneq ($(FFTW3),)
-LINK += -L$(FFTW3)/lib -lfftw3 -lfftw3_mpi
+LINK += -L$(FFTW3)/lib -lfftw3 
 FFLAGS += -DHAS_FFTW=1
 CFLAGS += -DHAS_FFTW=1
 INCLUDE += -I$(FFTW3)/include 

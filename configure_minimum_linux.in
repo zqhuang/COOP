@@ -194,7 +194,7 @@ endif
 
 ###set fftw flags here
 ifneq ($(FFTW3),)
-LINK += -L$(FFTW3)/lib -lfftw3 -lfftw3_mpi
+LINK += -L$(FFTW3)/lib -lfftw3 
 FFLAGS += -DHAS_FFTW=1
 CFLAGS += -DHAS_FFTW=1
 INCLUDE += -I$(FFTW3)/include 
