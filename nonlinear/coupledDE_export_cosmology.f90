@@ -5,7 +5,7 @@ program test
 #include "constants.h"
 #if DO_COUPLED_DE
   type(coop_dictionary)::dict
-  COOP_INT,parameter::n_threads = 4
+  COOP_INT,parameter::n_threads = 8
   COOP_STRING::params_file, output_root, output_format
   type(coop_coupledDE_collapse_params)::params(n_threads)
   COOP_INT::n_fpk, n_e, n_pbye

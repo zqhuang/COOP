@@ -13,7 +13,7 @@ program test
   COOP_STRING::output
   if(iargc().lt. 2)then
      write(*,*) "========================================================"
-     write(*,*) "./Solve -fpk ... -e ... -p ... -out ... [-omm ...(0.3)] [-omk ...(0.)] [-h ...(0.7)] [-w ...(-1)] [-fr1 ...(0.18)] [-fr2 ... (0.18)] [-fr3 ... (0.18)] "
+     write(*,*) "./Solve -fpk ... -e ... -p ... -out ... [-omm ...(0.3)] [-omk ...(0.)] [-h ...(0.7)] [-w ...(-1)] [-fr1 ...(0.178)] [-fr2 ... (0.178)] [-fr3 ... (0.178)] "
      write(*,*) "Examples:"
      write(*,*) "./Solve -fpk 2.5 -e 0.2 -p 0.1 -omm 0.31 -w -0.9 -out savex.dat"
      write(*,*) "./Solve -fpk 1.6865 -e 0 -p 0 -omm 0.29 -out solution.dat"
@@ -26,9 +26,9 @@ program test
   call coop_get_command_line_argument(key = "omk", arg = Omega_k, default = 0.d0)
   call coop_get_command_line_argument(key = "h", arg = h, default = 0.7d0)
   call coop_get_command_line_argument(key = "w", arg = w, default = -1.d0)
-  call coop_get_command_line_argument(key = "fr1", arg = params%collapse_a_ratio(1), default = 0.18d0)
-  call coop_get_command_line_argument(key = "fr2", arg = params%collapse_a_ratio(2), default = 0.18d0)
-  call coop_get_command_line_argument(key = "fr3", arg = params%collapse_a_ratio(3), default = 0.18d0)
+  call coop_get_command_line_argument(key = "fr1", arg = params%collapse_a_ratio(1), default = 0.178d0)
+  call coop_get_command_line_argument(key = "fr2", arg = params%collapse_a_ratio(2), default = 0.178d0)
+  call coop_get_command_line_argument(key = "fr3", arg = params%collapse_a_ratio(3), default = 0.178d0)
   call coop_get_command_line_argument(key = "fpk", arg = F_pk)
   call coop_get_command_line_argument(key = "e", arg = e_nu)
   call coop_get_command_line_argument(key = "p", arg = p_nu)

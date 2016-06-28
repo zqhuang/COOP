@@ -35,6 +35,12 @@ program test
   enddo
   call fp%close()
   write(*,"(A)") "The solution is successfully written to "//trim(output)//"."
+  zvir1 = params%zvir1()
+  if(zvir1 .ge. 0.d0) then
+     write(*,*) "z_collapse = ", zvir1
+  else
+     write(*,*) "Not collapsed."
+  endif
 #else
   stop "To use CDSolve you need to compile the COOP with DARK_ENERGY_MODEL  = COUPLED_DE in configure.in"
 #endif

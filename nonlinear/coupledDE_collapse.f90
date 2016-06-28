@@ -24,6 +24,7 @@ module coop_coupledDE_collapse_mod
      type(coop_2dfunction)::bprime  
      type(coop_cosmology_firstorder)::cosmology
      logical::normalize_to_early = .false.  !!if true, set the initial delta = F_pk * a
+     COOP_REAL::Dnorm = 1.d0
    contains
      procedure::update_fep => coop_coupledDE_collapse_params_update_fep 
      procedure::free => coop_coupledDE_collapse_params_free  !!subroutine; no argument; release the memory allocated for this object
@@ -62,10 +63,7 @@ contains
     corr = (1.2d0*this%lambda*suml + 0.6d0*suml2 + 11.d0/35.d0*(suml**2-suml2)-3.d0*this%lambda**2)/10.d0  !!this is for 2nd-order correction of initial conditions; in spherical case corr = 3/7 lambda^2
     y(1:3) = a_ini *(1.d0-this%lambda*D_ini - corr*D_ini**2)
     y(4:6) = y(1:3)*dadt_ini/a_ini - a_ini*(D_ini*H_D*(this%lambda + 2.d0*corr*D_ini))  
-    if(O0_DE(this%cosmology)%cplDE_Q%is_zero)then
-       y(7) = 0.d0
-       y(8) = 0.d0
-    else
+    if(.not. O0_DE(this%cosmology)%cplDE_Q%is_zero)then
        y(7) = O0_DE(this%cosmology)%cplDE_phi_lna%eval(log(a_ini))  !phi
        y(8) = O0_DE(this%cosmology)%cplDE_phi_prime_lna%eval(log(a_ini))*this%cosmology%Hratio(a_ini)   !!d phi/dt
     endif
@@ -190,18 +188,20 @@ contains
        endif
     endif
     !!the scalar field
-    if(all_frozen .or. O0_DE(params%cosmology)%cplde_Q%is_zero)then
-       dyda(7:8) = 0.d0
-    else
-       if(y(7) .gt. 1.d-30)then
-          dyda(7) = y(8)/dadt
-          q =  O0_DE(params%cosmology)%cplde_intQofphi%derivative(y(7))
-          dvdphi = O0_DE(params%cosmology)%cplde_Vofphi%derivative(y(7))
-          dyda(8) = params%ddotphi(a, y(7), y(8), rho_m, q, dvdphi, dadt/a)/dadt
-          dyda(7) = max(-y(7)/a*max_decay_rate, dyda(7))
+    if(.not. O0_DE(params%cosmology)%cplde_Q%is_zero)then
+       if(all_frozen)then
+          dyda(7:8) = 0.d0
        else
-          dyda(7) = 1.d-29
-          dyda(8) = 1.d-29
+          if(y(7) .gt. 1.d-30)then
+             dyda(7) = y(8)/dadt
+             q =  O0_DE(params%cosmology)%cplde_intQofphi%derivative(y(7))
+             dvdphi = O0_DE(params%cosmology)%cplde_Vofphi%derivative(y(7))
+             dyda(8) = params%ddotphi(a, y(7), y(8), rho_m, q, dvdphi, dadt/a)/dadt
+             dyda(7) = max(-y(7)/a*max_decay_rate, dyda(7))
+          else
+             dyda(7) = 1.d-29
+             dyda(8) = 1.d-29
+          endif
        endif
     endif
   end subroutine coop_coupledDE_collapse_odes
@@ -348,8 +348,13 @@ contains
           endif
        endif
        if(.not. this%cosmology%baryon_is_coupled)stop "The current version cannot solve halo collapse for models where baryon is not coupled."
+       this%DNorm = this%cosmology%growth_of_z(0.d0, coop_coupledDE_growth_k_pivot)
     endif
-    
+    if(O0_DE(this%cosmology)%cplde_Q%is_zero)then
+       this%num_ode_vars = 6
+    else
+       this%num_ode_vars = 8
+    endif
     !set up lambda
     do i = 1, 3
        call coop_dictionary_lookup(params, "lambda"//COOP_STR_OF(i), this%lambda(i), -1.1d30)
@@ -368,7 +373,6 @@ contains
     call coop_dictionary_lookup(params, "collapse_ratio_3",  this%collapse_a_ratio(1))
     this%collapse_a_ratio = max(this%collapse_a_ratio, 0.01d0)
     this%is_spherical = abs(this%lambda(1) - this%lambda(2)) .lt. 1.d-8 .and. abs(this%lambda(1) - this%lambda(3)) .lt. 1.d-8 .and. abs(this%collapse_a_ratio(1) - this%collapse_a_ratio(2)) .lt. 1.d-3 .and. abs(this%collapse_a_ratio(1)-this%collapse_a_ratio(3)) .lt. 1.d-3
-
     !!set b' function
     if(.not. this%bprime%initialized)call this%bprime%init_symmetric(f = coop_coupledDE_collapse_bprime_reduced, nx = 501, xmin = 1.d-6, xmax = 1.d6, xlog = .true., name = "BPRIME")
   end subroutine coop_coupledDE_collapse_params_init
@@ -387,7 +391,7 @@ contains
   function coop_coupledDE_collapse_params_Growth_D(this, a) result(D)
     class(coop_coupledDE_collapse_params)::this
     COOP_REAL::a, D
-    D = this%cosmology%growth_of_z(1.d0/a-1.d0, coop_coupledDE_growth_k_pivot)/this%cosmology%growth_of_z(0.d0, coop_coupledDE_growth_k_pivot)
+    D = this%cosmology%growth_of_z(1.d0/a-1.d0, coop_coupledDE_growth_k_pivot)/this%Dnorm
   end function coop_coupledDE_collapse_params_Growth_D
 
   !!d ln D/dt 
