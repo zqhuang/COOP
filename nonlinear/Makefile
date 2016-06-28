@@ -22,6 +22,10 @@ Test: $(OBJ) test.o $(FIRSTORDER)/libcoopfirstorder.a
 TestSimp: $(OBJ) testsimple.o $(FIRSTORDER)/libcoopfirstorder.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testsimple.o $(LINK)
 
+
+CDExport: $(OBJ) coupledDE_export_cosmology.o $(FIRSTORDER)/libcoopfirstorder.a
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) coupledDE_export_cosmology.o $(LINK)
+
 CDSolve: $(OBJ) coupledDE_solve_collapse.o $(FIRSTORDER)/libcoopfirstorder.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) coupledDE_solve_collapse.o $(LINK)
 
@@ -39,7 +43,7 @@ GetZ1: $(OBJ) get_zvir1.o $(FIRSTORDER)/libcoopfirstorder.a
 
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ GetZ1 Solve TestSimp Test TabZ1 CDSolve
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ GetZ1 Solve TestSimp Test TabZ1 CDSolve CDExport
 
 
 test.o: $(OBJ)
