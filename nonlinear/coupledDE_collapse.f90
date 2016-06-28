@@ -78,7 +78,7 @@ contains
     COOP_REAL::suppression_factor, arat(3)
     logical::all_frozen
     dadt = params%dadt(a)
-    radiation_term = 0.d0
+    radiation_term = -params%cosmology%Omega_r/a**4*2.d0
     dark_Energy_term =  -(y(8)**2-O0_DE(params%cosmology)%cplde_Vofphi%eval(y(7)))*2.d0/3.d0
     if(.not. params%cosmology%baryon_is_coupled)stop "The current version cannot solve halo collapse for models where baryon is not coupled."
     rho_m = 3.d0*(params%cosmology%Omega_c_bare+params%cosmology%Omega_b_bare)*exp(O0_DE(params%cosmology)%cplde_intQofphi%eval(y(7)))/(y(1)*y(2)*y(3))
@@ -228,7 +228,7 @@ contains
     type is(coop_coupledDE_collapse_params)
        ind = 1
        if(this%normalize_to_early)then
-          a = 0.02d0
+          a = 0.03d0
        else
           a = min(max(0.005d0, min(0.05d0, 100.d0*coop_coupledDE_collapse_accuracy))/maxval(abs(this%lambda)), a_arr(1)*0.99d0, 0.03d0)
        endif
@@ -266,7 +266,7 @@ contains
           return
        endif
        if(this%normalize_to_early)then
-          a = 0.02d0
+          a = 0.03d0
        else
           a = min(max(0.005d0, min(0.05d0, 50.d0*coop_coupledDE_collapse_accuracy)/maxval(abs(this%lambda))), 0.03d0)
        endif

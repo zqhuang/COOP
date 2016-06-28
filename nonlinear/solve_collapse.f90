@@ -8,7 +8,7 @@ program test
   COOP_REAL::Omega_m,w, Omega_k, h, zvir1
   COOP_REAL::F_pk, p_nu, e_nu
   COOP_INT::i
-  COOP_REAL::a(na), x(3, na)
+  COOP_REAL::a(na), x(6, na)
   type(coop_file)::fp
   COOP_STRING::output
   if(iargc().lt. 2)then
@@ -37,11 +37,12 @@ program test
   params%collapse_a_ratio = max(params%collapse_a_ratio, 2.d-3)
 
   call params%init(Omega_m = Omega_m, Omega_k = Omega_k, h = h, w = w,F_pk = F_pk, e_nu = e_nu, p_nu = p_nu)
-  call coop_set_uniform(na, a, 0.02d0, 1.d0)
+  call coop_set_uniform(na, a, 0.03d0, 1.d0)
   call params%get_solution(a, x)
   call fp%open(output)
+  write(fp%unit, "(7A16)")  "# a             ", " x1 ", " x2 ", " x3 ", " dot x1 ", " dot x2 ", " dot x3 "
   do i=1, na
-     write(fp%unit, "(4E16.7)") a(i), x(:, i)
+     write(fp%unit, "(7E16.7)") a(i), x(:, i)
   enddo
   call fp%close()
   write(*,"(A)") "The solution is successfully written to "//trim(output)//"."

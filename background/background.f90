@@ -627,9 +627,74 @@ contains
     type(coop_ode)::ode
     type(coop_species)::de, cdm, baryon
     COOP_INT::i, i_tc_off
-    COOP_REAL::rho_ce, a(ns), lna(ns), y(3, ns), yp(3, ns), lnV(ns), dlnVdphi(ns), dVdphibyH2(ns), wp1de(ns), wp1effde(ns), wp1effcdm(ns), H2a4(ns), m2byH2(ns), dQdphi(ns), Q(ns), intQ(ns),  omde, omc, dlna, tc_w
+    COOP_REAL::rho_ce, a(ns), lna(ns), y(3, ns), yp(3, ns), lnV(ns), dlnVdphi(ns), dVdphibyH2(ns), wp1de(ns), wp1effde(ns), wp1effcdm(ns), H2a4(ns), m2byH2(ns), dQdphi(ns), Q(ns), intQ(ns),  omde, omc, dlna, tc_w    
     this%Omega_c_bare = Omega_c
     this%Omega_b_bare = Omega_b
+    if(fQ%is_zero .or. fwp1%is_zero)then !!not coupled
+       call this%add_species(coop_baryon(Omega_b))
+       call this%add_species(coop_cdm(Omega_c))
+       omde = this%Omega_k()
+       call de%init(name = "Dark Energy", id = 5, Omega = omde, genre = COOP_SPECIES_FLUID, fwp1 = fwp1)
+       call de%cplde_Q%init_polynomial( (/ 0.d0 /))
+       call de%cplde_dQdphi_lna%init_polynomial( (/ 0.d0 /) )
+       call de%cplde_intQofphi%init_polynomial( (/ 0.d0 /) )
+       if(fwp1%is_zero)then
+          call de%cplde_lnV_lna%init_polynomial( (/ log(3.d0*omde) /) )
+          call de%cplde_phi_lna%init_polynomial( (/ 0.d0 /) )
+          call de%cplde_Vofphi%init_polynomial( (/ 3.d0*omde /) )
+          call de%cplde_phi_prime_lna%init_polynomial( (/ 0.d0 /) )
+          call de%cplde_dVdphibyH2_lna%init_polynomial( (/ 0.d0 /))
+          call de%cplde_m2byH2_lna%init_polynomial( (/ 1.d30 /) )
+       else
+          call coop_set_uniform(ns, lna, log(coop_min_scale_factor), log(coop_scale_factor_today))
+          a = exp(lna)
+          dlna = lna(2) - lna(1)
+          !$omp parallel do
+          do i=1, ns
+             lnV(i) = de%density(a(i))*(1.d0-de%wp1ofa(a(i))/2.d0)
+             y(2, i) = de%density(a(i))*de%wp1ofa(a(i))
+             H2a4(i) = (this%rhoa4(a(i)) + de%rhoa4(a(i)))/3.d0
+          enddo
+          !$omp end parallel do
+          if(any(y(2, :).lt. 0.d0) .or. any(lnV .le. 0.d0))then
+             err = -1  !!negative potential or kinetic energy
+             return
+          endif
+          lnV = log(lnV)
+          y(2, :) = sqrt(y(2, :))         
+          yp(3, :) = y(2,:)*a**2/sqrt(H2a4)
+          y(3, 1) = 0.d0
+          do i=2, ns
+             y(3, i) = y(3, i-1)+(yp(3, i)+yp(3, i-1))
+          enddo
+          y(3, :) = y(3, :)*(dlna/2.d0)
+          !$omp parallel do 
+          do i= 2, ns-1
+             dlnVdphi(i) =  (lnV(i+1)-lnV(i-1))/max(2.d0*yp(3, i)*dlna, 1.d-20)
+          enddo
+          !$omp end parallel do       
+          dlnVdphi(ns) = dlnVdphi(ns-1)    
+          dlnVdphi(1) = dlnVdphi(2)
+          dVdphibyH2 = dlnVdphi * exp(lnV + 4.d0*lna) / H2a4 
+          do i = 3, ns-2
+             m2byH2(i) = ((dlnVdphi(i+1) - dlnVdphi(i-1))/max(2.d0*yp(3, i)*dlna, 1.d-20) + dlnVdphi(i)**2) * exp(lnV(i) + 4.d0*lna(i))/h2a4(i)
+          enddo
+          m2byH2(1:2) = m2byH2(3)
+          m2byH2(ns-1:ns) = m2byH2(ns-2)
+          call de%cplde_lnV_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = lnV, method = COOP_INTERPOLATE_LINEAR, name = "lnV(lna)")
+          call de%cplde_phi_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = y(3,:), method = COOP_INTERPOLATE_LINEAR, name = "phi")
+          call de%cplde_Vofphi%init_NonUniform( x=y(3,:), f = exp(lnV), ylog = .true., name = "V(phi)")
+          call de%cplde_phi_prime_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = yp(3,:), method = COOP_INTERPOLATE_LINEAR, name="d phi / d lna")          
+          call de%cplde_dVdphibyH2_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = dVdphibyH2, method = COOP_INTERPOLATE_LINEAR, name = "d V / d phi / H^2")
+          call de%cplde_m2byH2_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = m2byH2, method = COOP_INTERPOLATE_LINEAR, name = " m^2/H^2 ")
+       endif
+       call this%add_species(de)
+       call de%free()
+       err = 0
+       return
+    endif
+
+
     if(this%baryon_is_coupled)then
        Omega_cpl = Omega_c+Omega_b
     else
@@ -638,6 +703,7 @@ contains
     endif
     err = 0
     i_tc_off = 1
+
     if(this%Omega_k() .le. Omega_cpl)then
        err = -1
        return

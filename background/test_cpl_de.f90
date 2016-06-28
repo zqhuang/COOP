@@ -15,27 +15,27 @@ program bgtest
 
 #if DO_COUPLED_DE  
 
-!  call fwp1%init_polynomial( (/ 0.1d0, 0.05d0 /) )
-!  call fQ%init_polynomial( (/ 0.1d0, 0.05d0 /) )
+  call fwp1%init_polynomial( (/ 0.d0 /) )
+  call fQ%init_polynomial( (/ 0.d0 /) )
 !  call Vofphi%init_powerlaw( c = (/ 2.d0, 0.1d0 /), alpha = (/ 0.d0, -0.1d0 /), name = "V(phi)")
   !! action = 1/2 \int [R - 2 Lambda + f(R) ]...
   !!f(R) =   2 Lambda /(c2 * R^n + 1)
-  Lambda = 2.1d0
-  n = 1.d0
-  c2 = n/Lambda**n/0.15
-
-  call fofR%init_rational( c_up =(/ 2*Lambda /), alpha_up = (/ 0.d0 /), c_down = (/ c2, 1.d0 /),  alpha_down = (/ n, 0.d0 /) )
-  call coop_convert_fofR_to_Vofphi(fofR, Lambda, Vofphi)
-
-!  call coop_asy_plot_function(Vofphi, "Vofphi.txt")
-
-  call intQofphi%init_polynomial( (/ 0.d0, 0.1d0 /) )
+!!$  Lambda = 2.1d0
+!!$  n = 1.d0
+!!$  c2 = n/Lambda**n/0.15
+!!$
+!!$  call fofR%init_rational( c_up =(/ 2*Lambda /), alpha_up = (/ 0.d0 /), c_down = (/ c2, 1.d0 /),  alpha_down = (/ n, 0.d0 /) )
+!!$  call coop_convert_fofR_to_Vofphi(fofR, Lambda, Vofphi)
+!!$
+!!$!  call coop_asy_plot_function(Vofphi, "Vofphi.txt")
+!!$
+!!$  call intQofphi%init_polynomial( (/ 0.d0 /) )
 
   call bg%init(h=0.7d0)
   call bg%add_species(coop_radiation(bg%Omega_radiation()))
   call bg%add_species(coop_neutrinos_massless(bg%Omega_massless_neutrinos_per_species()*(bg%Nnu())))
-!  call coop_background_add_coupled_DE(bg, Omega_c = omega_c, fwp1 = fwp1, fQ = fQ, err = err)
-  call coop_background_add_coupled_DE_with_potential(bg, Omega_c = omega_c, omega_b = omega_b, Vofphi = Vofphi, intQofphi = intQofphi,  err = err)
+  call coop_background_add_coupled_DE(bg, Omega_c = omega_c, Omega_b = Omega_b, fwp1 = fwp1, fQ = fQ, err = err)
+!  call coop_background_add_coupled_DE_with_potential(bg, Omega_c = omega_c, omega_b = omega_b, Vofphi = Vofphi, intQofphi = intQofphi,  err = err)
 
 
   if(err .ne. 0)then
@@ -55,9 +55,6 @@ program bgtest
      print*, O0_BARYON(bg)%rhoa3_ratio(1.d-10),   O0_CDM(bg)%rhoa3_ratio(1.d-10)
      print*, O0_BARYON(bg)%rhoa3_ratio(1.d-1),   O0_CDM(bg)%rhoa3_ratio(1.d-1)
      print*, O0_BARYON(bg)%rhoa3_ratio(0.5d0),   O0_CDM(bg)%rhoa3_ratio(0.5d0)
-
-     call coop_asy_plot_function(bg%species(index_DE)%fwp1, "wp1.txt")
-     call coop_asy_plot_function(bg%species(index_DE)%fwp1eff, "wp1eff.txt")     
   endif
 #else
   write(*,*) "Coupled DE disabled"

@@ -13,6 +13,7 @@ module coop_function_mod
   type coop_function
      COOP_SHORT_STRING::name="NoName"
      logical::initialized = .false.
+     logical::is_zero = .false.
      COOP_INT::method = COOP_INTERPOLATE_LINEAR
      logical::xlog =.false.
      logical::ylog = .false.
@@ -381,8 +382,12 @@ contains
   subroutine coop_function_mult_const(this, c)
     class(coop_function)::this
     COOP_REAL::c
-    this%scale = this%scale * c
-    this%shift = this%shift * c
+    if(c .eq. 0.d0)then
+       call this%init_polynomial( (/ 0.d0 /) )
+    else
+       this%scale = this%scale * c
+       this%shift = this%shift * c
+    endif 
   end subroutine coop_function_mult_const
 
   subroutine coop_function_add_const(this, c)
@@ -510,6 +515,7 @@ contains
     this%xlog = .false.
     this%ylog = .false.
     this%initialized = .false.
+    this%is_zero = .false.
   end subroutine coop_function_free
 
 
@@ -522,6 +528,10 @@ contains
     COOP_UNKNOWN_STRING,optional::name    
     COOP_INT::i
     call this%free()
+    if(all(c .eq. 0.d0))then
+       call this%init_polynomial( (/ 0.d0 /))
+       return
+    endif
     this%method = COOP_INTERPOLATE_POWERLAW
     if(present(name))this%name = trim(adjustl(name))
     if(present(xlog))then
@@ -554,6 +564,18 @@ contains
     COOP_INT::i
     call this%free()
     this%method = COOP_INTERPOLATE_POLYNOMIAL
+    if(all(p.eq.0.d0))then
+       this%is_zero = .true.
+       this%n = 1
+       allocate(this%f(this%n), this%f1(this%n), this%f2(this%n))
+       this%f =  0.d0
+       this%f1(this%n) = 0.d0
+       this%f2(this%n) = 0.d0
+       this%xmax = 1.d99
+       this%xmin = - this%xmax
+       this%initialized = .true.        
+       return
+    endif
     if(present(name))this%name = trim(adjustl(name))
     if(present(xlog))then
        this%xlog = xlog
@@ -593,6 +615,10 @@ contains
     COOP_UNKNOWN_STRING,optional::name    
     COOP_INT::i
     call this%free()
+    if(all(c_up .eq. 0.d0))then
+       call this%init_polynomial( (/ 0.d0 /) )
+       return
+    endif
     this%method = COOP_INTERPOLATE_RATIONAL
     if(present(name))this%name = trim(adjustl(name))
     if(present(xlog))then
@@ -625,6 +651,10 @@ contains
     COOP_UNKNOWN_STRING,optional::name
     logical, optional::xlog, ylog
     call this%free()
+    if(all(f .eq. 0.d0))then
+       call this%init_polynomial( (/ 0.d0 /) )
+       return
+    endif
     if(present(name))then
        this%name = trim(adjustl(name))
     endif    
@@ -760,6 +790,10 @@ contains
     COOP_INT i, count_tiny, count_small
     COOP_REAL::fmean, ftiny, curv, flarge, fsmall
     call this%free()
+    if(all(f .eq. 0.d0))then
+       call this%init_polynomial( (/ 0.d0 /) )
+       return
+    endif
     if(present(name))then
        this%name = trim(adjustl(name))
     endif    

@@ -426,7 +426,11 @@ contains
     do i=1, this%num_species
        rhoa4 = rhoa4 + this%species(i)%Omega * this%species(i)%rhoa4_ratio(a)
     enddo
+#if DO_EFT_DE
     rhoa4 = rhoa4*3.d0*this%Mpsq0
+#else
+    rhoa4 = rhoa4*3.d0
+#endif
   end function coop_cosmology_background_rhoa4
 
 
@@ -441,8 +445,13 @@ contains
        ppra4 = ppra4 + r*this%species(i)%wp1ofa(a)
        rhoa4 = rhoa4 +r
     enddo
+#if DO_EFT_DE
     rhoa4 = rhoa4 * 3.d0*this%mpsq0
     ppra4 = ppra4 * 3.d0*this%mpsq0
+#else
+    rhoa4 = rhoa4 * 3.d0
+    ppra4 = ppra4 * 3.d0
+#endif
   end subroutine coop_cosmology_background_get_ppra4_rhoa4
 
 
@@ -457,8 +466,13 @@ contains
        pa4 = pa4 + r*this%species(i)%wofa(a)
        rhoa4 = rhoa4 +r
     enddo
+#if DO_EFT_DE
     rhoa4 = rhoa4 * 3.d0*this%mpsq0
     pa4 = pa4 * 3.d0*this%mpsq0
+#else
+    rhoa4 = rhoa4 * 3.d0
+    pa4 = pa4 * 3.d0
+#endif
   end subroutine coop_cosmology_background_get_pa4_rhoa4
 
   
@@ -698,14 +712,22 @@ contains
     class(coop_cosmology_background)::this
     COOP_REAL, parameter:: c =  coop_SI_blackbody_alpha*2.d0/coop_SI_rhocritbyh2
     COOP_REAL Omega_r
+#if DO_EFT_DE
     Omega_r = c * (this%Tcmb_value **2 / this%h_value)**2/this%mpsq0
+#else
+    Omega_r = c * (this%Tcmb_value **2 / this%h_value)**2
+#endif
   end function coop_cosmology_background_Omega_radiation
 
   function coop_cosmology_background_Omega_massless_neutrinos_per_species(this) result(Omega_nu_massless)
     class(coop_cosmology_background)::this
     COOP_REAL, parameter:: c =  coop_SI_blackbody_alpha*2.d0/coop_SI_rhocritbyh2 * (7./8.) * (4.d0/11.)**(4.d0/3.d0)*coop_neutrinos_temperature_correction**4
     COOP_REAL Omega_nu_massless
+#if DO_EFT_DE
     Omega_nu_massless =  c * (this%Tcmb_value **2 / this%h_value)**2/this%mpsq0
+#else
+    Omega_nu_massless =  c * (this%Tcmb_value **2 / this%h_value)**2
+#endif
   end function coop_cosmology_background_Omega_massless_neutrinos_per_species
 
 
@@ -713,7 +735,11 @@ contains
     class(coop_cosmology_background)::this
     COOP_REAL, parameter:: c =  coop_SI_blackbody_alpha*2.d0/coop_SI_rhocritbyh2 * (7./8.) * (4.d0/11.)**(4.d0/3.d0)*coop_neutrinos_temperature_correction**4
     COOP_REAL Omega_nu_massless
+#if DO_EFT_DE
     Omega_nu_massless =  c * (this%Tcmb_value **2 / this%h_value)**2 * this%Nnu_value/this%mpsq0
+#else
+    Omega_nu_massless =  c * (this%Tcmb_value **2 / this%h_value)**2 * this%Nnu_value
+#endif
   end function coop_cosmology_background_Omega_massless_neutrinos
 
   function coop_cosmology_background_Tnu(this, a) result(Tnu)
