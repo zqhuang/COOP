@@ -630,7 +630,7 @@ contains
        dxl = dxr
        dxr=x(i+1)-x(i)
        bet=(x(i+1)-x(i-1))/3.-dxl*gam(i-1)
-       if(abs(bet) .lt. 1.d-30) stop 'Error in SPLinE.'
+       if(abs(bet) .lt. 1.d-50) stop 'Error in Spline.'
        yil=yir
        yir=(y(i+1)-y(i))/dxr
        y2(i)=(yir-yil-dxl*y2(i-1))/bet
@@ -639,7 +639,7 @@ contains
     enddo
     if(present(ypr))then
        bet=(x(n)-x(n-1))/3.-dxr*gam(n-1)
-       if(abs(bet) .lt. 1.d-30) stop 'Error in SPLinE.'
+       if(abs(bet) .lt. 1.d-50) stop 'Error in Spline.'
        y2(n)=(ypr-yir-dxr*y2(n-1))/bet
     else
        y2(n)=0.

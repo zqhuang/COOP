@@ -747,7 +747,7 @@ contains
     endif
     call coop_quicksortacc(xcopy, fcopy)
     n_used = 1
-    mindx = (xcopy(n) - xcopy(1))/n*1.d-30
+    mindx = (xcopy(n) - xcopy(1))/n*1.d-25
     index_used(1) = 1
     do i = 2, n
        if(xcopy(i) - xcopy(i-1) .gt. mindx)then
