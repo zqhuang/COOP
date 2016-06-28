@@ -35,5 +35,7 @@ program test
   enddo
   call fp%close()
   write(*,"(A)") "The solution is successfully written to "//trim(output)//"."
+#else
+  stop "To use CDSolve you need to compile the COOP with DARK_ENERGY_MODEL  = COUPLED_DE in configure.in"
 #endif
 end program test

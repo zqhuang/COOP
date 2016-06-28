@@ -25,6 +25,7 @@ module coop_coupledDE_collapse_mod
      type(coop_cosmology_firstorder)::cosmology
      logical::normalize_to_early = .false.  !!if true, set the initial delta = F_pk * a
    contains
+     procedure::update_fep => coop_coupledDE_collapse_params_update_fep 
      procedure::free => coop_coupledDE_collapse_params_free  !!subroutine; no argument; release the memory allocated for this object
      procedure::init => coop_coupledDE_collapse_params_init  !!subroutine; this%init(Omega_m, w, Omega_k, h, F_pk, e_nu, p_nu);  initialize the object with these parameters
      procedure::get_bprime => coop_coupledDE_collapse_params_get_bprime !!subroutine; this%get_bprime(x, bprime)  where x(1:3) is the input array x_1, x_2, x_3, bprime(1:3) is the output b'_1, b'_2, b'_3; 
@@ -61,8 +62,13 @@ contains
     corr = (1.2d0*this%lambda*suml + 0.6d0*suml2 + 11.d0/35.d0*(suml**2-suml2)-3.d0*this%lambda**2)/10.d0  !!this is for 2nd-order correction of initial conditions; in spherical case corr = 3/7 lambda^2
     y(1:3) = a_ini *(1.d0-this%lambda*D_ini - corr*D_ini**2)
     y(4:6) = y(1:3)*dadt_ini/a_ini - a_ini*(D_ini*H_D*(this%lambda + 2.d0*corr*D_ini))  
-    y(7) = O0_DE(this%cosmology)%cplDE_phi_lna%eval(log(a_ini))  !phi
-    y(8) = O0_DE(this%cosmology)%cplDE_phi_prime_lna%eval(log(a_ini))*this%cosmology%Hratio(a_ini)   !!d phi/dt
+    if(O0_DE(this%cosmology)%cplDE_Q%is_zero)then
+       y(7) = 0.d0
+       y(8) = 0.d0
+    else
+       y(7) = O0_DE(this%cosmology)%cplDE_phi_lna%eval(log(a_ini))  !phi
+       y(8) = O0_DE(this%cosmology)%cplDE_phi_prime_lna%eval(log(a_ini))*this%cosmology%Hratio(a_ini)   !!d phi/dt
+    endif
   end subroutine coop_coupledDE_collapse_params_set_initial_conditions
 
   subroutine coop_coupledDE_collapse_odes(n, a, y, dyda, params)
@@ -80,10 +86,18 @@ contains
     logical::all_frozen
     dadt = params%dadt(a)
     radiation_term = -params%cosmology%Omega_r/a**4*2.d0
-    dark_Energy_term =  -(y(8)**2-O0_DE(params%cosmology)%cplde_Vofphi%eval(y(7)))*2.d0/3.d0
-    if(.not. params%cosmology%baryon_is_coupled)stop "The current version cannot solve halo collapse for models where baryon is not coupled."
-    rho_m = 3.d0*(params%cosmology%Omega_c_bare+params%cosmology%Omega_b_bare)*exp(O0_DE(params%cosmology)%cplde_intQofphi%eval(y(7)))/(y(1)*y(2)*y(3))
-    dlnmdt = O0_DE(params%cosmology)%cplde_intQofphi%derivative(y(7))*y(8)
+    if(O0_DE(params%cosmology)%cplde_Q%is_zero)then
+       dark_Energy_term = -O0_DE(params%cosmology)%density(a)*(1.d0/3.d0+ O0_DE(params%cosmology)%wofa(a))
+       rho_m = 3.d0*(params%cosmology%Omega_m)/(y(1)*y(2)*y(3))
+       dlnmdt = 0.d0
+    else
+       dark_Energy_term =  -(y(8)**2-O0_DE(params%cosmology)%cplde_Vofphi%eval(y(7)))*2.d0/3.d0
+       rho_m = 3.d0*(params%cosmology%Omega_c_bare+params%cosmology%Omega_b_bare)*exp(O0_DE(params%cosmology)%cplde_intQofphi%eval(y(7)))/(y(1)*y(2)*y(3))
+
+       dlnmdt = O0_DE(params%cosmology)%cplde_intQofphi%derivative(y(7))*y(8)
+
+    endif
+
     if(params%is_spherical)then
        arat(1) = (y(1)/a/params%collapse_a_ratio(1) - 1.d0)/eps
        if(arat(1) .lt. -1.d0 .and. y(4) .lt. 0.d0)then  !!collapsed; freeze it
@@ -176,7 +190,7 @@ contains
        endif
     endif
     !!the scalar field
-    if(all_frozen)then
+    if(all_frozen .or. O0_DE(params%cosmology)%cplde_Q%is_zero)then
        dyda(7:8) = 0.d0
     else
        if(y(7) .gt. 1.d-30)then
@@ -191,7 +205,6 @@ contains
        endif
     endif
   end subroutine coop_coupledDE_collapse_odes
-
 !!=====================You don't need to read anything below ==================
 
 !!==================== methods of class coop_coupledDE_collapse_params ============
@@ -307,6 +320,14 @@ contains
   end function coop_coupledDE_collapse_params_zvir1
 
 
+  subroutine coop_coupledDE_collapse_params_update_fep(this, f_pk, e_nu, p_nu)
+    class(coop_coupledDE_collapse_params)::this
+    COOP_REAL::F_pk, e_nu, p_nu
+    this%lambda(1) = (F_pk/3.d0)*(1.d0 - 3.d0*e_nu + p_nu)
+    this%lambda(2) = (F_pk/3.d0)*(1.d0 - 2.d0*p_nu)
+    this%lambda(3) = (F_pk/3.d0)*(1.d0 + 3.d0*e_nu + p_nu)
+    this%is_spherical = abs(this%lambda(1) - this%lambda(2)) .lt. 1.d-8 .and. abs(this%lambda(1) - this%lambda(3)) .lt. 1.d-8 .and. abs(this%collapse_a_ratio(1) - this%collapse_a_ratio(2)) .lt. 1.d-3 .and. abs(this%collapse_a_ratio(1)-this%collapse_a_ratio(3)) .lt. 1.d-3
+  end subroutine coop_coupledDE_collapse_params_update_fep
 
   subroutine coop_coupledDE_collapse_params_init(this, params, update_cosmology)
     class(coop_coupledDE_collapse_params)::this
@@ -326,6 +347,7 @@ contains
              write(*,*) "cosmology is initialized"
           endif
        endif
+       if(.not. this%cosmology%baryon_is_coupled)stop "The current version cannot solve halo collapse for models where baryon is not coupled."
     endif
     
     !set up lambda
@@ -333,9 +355,9 @@ contains
        call coop_dictionary_lookup(params, "lambda"//COOP_STR_OF(i), this%lambda(i), -1.1d30)
     enddo
     if(any(this%lambda .lt. -1.d30))then
-       call coop_dictionary_lookup(params, "collapse_fpk", F_pk)
-       call coop_dictionary_lookup(params, "collapse_e", e_nu)
-       call coop_dictionary_lookup(params, "collapse_p", p_nu)
+       call coop_dictionary_lookup(params, "collapse_fpk", F_pk, 0.d0)
+       call coop_dictionary_lookup(params, "collapse_e", e_nu, 0.d0)
+       call coop_dictionary_lookup(params, "collapse_p", p_nu, 0.d0)
        this%lambda(1) = (F_pk/3.d0)*(1.d0 - 3.d0*e_nu + p_nu)
        this%lambda(2) = (F_pk/3.d0)*(1.d0 - 2.d0*p_nu)
        this%lambda(3) = (F_pk/3.d0)*(1.d0 + 3.d0*e_nu + p_nu)

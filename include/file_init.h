@@ -25,6 +25,8 @@
           open(fp%unit,FILE=trim(adjustl(filename)),FORM="FORMATTED",ACTION="READWRITE", Err=200)          
        endif
        fp%mode = 'txt'
+    case("s", "S")
+       open(UNIT = fp%unit, FILE = trim(adjustl(filename)), ACCESS = "stream")
     case("b", "B")
        if(present(recl))then
           open(UNIT=fp%unit,FILE=trim(adjustl(filename)),FORM="UNFORMATTED",STATUS="UNKNOWN", ACCESS="DIRECT",ACTION="READWRITE",RECL=recl,ERR=200) 
