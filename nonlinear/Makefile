@@ -45,3 +45,7 @@ clean:
 test.o: $(OBJ)
 
 fnl.o: $(OBJ)
+
+solve_coupledDE_collapse.o: $(OBJ)
+
+solve_collapse.o: $(OBJ)

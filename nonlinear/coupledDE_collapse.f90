@@ -12,7 +12,7 @@ module coop_coupledDE_collapse_mod
   !!for normal runs you can use something ~ 1.e-3
   COOP_REAL, parameter::coop_coupledDE_collapse_accuracy = 1.d-3
   !!pivot k used to calculate D(z)
-  COOP_REAL, parameter::coop_coupledDE_growth_k_pivot = 30.d0  !! = 0.01 h Mpc^{-1}
+  COOP_REAL, parameter::coop_coupledDE_growth_k_pivot = 15.d0  !!least affected by radiation
   !!set z_vir = this value if not collapsed
   COOP_REAL, parameter::coop_coupledDE_collapse_bad_zvir = -1.d0
 
