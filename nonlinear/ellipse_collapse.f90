@@ -21,7 +21,7 @@ module coop_ellipse_collapse_mod
      COOP_REAL::Omega_r, Omega_de
      COOP_REAL::Omega_k = 0.d0
      COOP_REAL::h = 0.7d0
-     COOP_REAL::T_CMB = 0.d0  !!set to zero to turn off radiation effects
+     COOP_REAL::T_CMB = 2.726  !!set to zero to turn off radiation effects
      logical::is_spherical = .false.
      COOP_INT::num_ode_vars = 6
      COOP_REAL,dimension(3)::collapse_a_ratio = (/ 0.18d0, 0.18d0, 0.18d0 /)
@@ -237,6 +237,12 @@ contains
        do i=1, n
           call coop_dverk_with_ellipse_collapse_params(this%num_ode_vars, coop_ellipse_collapse_odes, this, a, y, a_arr(i), tol, ind, c, this%num_ode_vars, w)
           x_arr(1:m, i) = y(1:m)
+          if(size(x_arr,1).ge.7)then
+             x_arr(7, i) = this%dadt(a_arr(i))*sqrt(a_arr(i))
+          endif
+          if(size(x_arr,1).ge.8)then
+             x_arr(8, i) = this%Growth_D(a_arr(i))/a_arr(i)
+          endif
        enddo
     class default
        stop "Evolve: Extended class this has not been implemented"

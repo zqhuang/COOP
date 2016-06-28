@@ -11,7 +11,8 @@ module coop_coupledDE_collapse_mod
   !!for high accuracy test you can use something like 1.e-4
   !!for normal runs you can use something ~ 1.e-3
   COOP_REAL, parameter::coop_coupledDE_collapse_accuracy = 1.d-3
-
+  !!pivot k used to calculate D(z)
+  COOP_REAL, parameter::coop_coupledDE_growth_k_pivot = 30.d0  !! = 0.01 h Mpc^{-1}
   !!set z_vir = this value if not collapsed
   COOP_REAL, parameter::coop_coupledDE_collapse_bad_zvir = -1.d0
 
@@ -364,14 +365,14 @@ contains
   function coop_coupledDE_collapse_params_Growth_D(this, a) result(D)
     class(coop_coupledDE_collapse_params)::this
     COOP_REAL::a, D
-    D = this%cosmology%growth_of_z(1.d0/a-1.d0)/this%cosmology%growth_of_z(0.d0)
+    D = this%cosmology%growth_of_z(1.d0/a-1.d0, coop_coupledDE_growth_k_pivot)/this%cosmology%growth_of_z(0.d0, coop_coupledDE_growth_k_pivot)
   end function coop_coupledDE_collapse_params_Growth_D
 
   !!d ln D/dt 
   function coop_coupledDE_collapse_params_Growth_H_D(this, a) result(H_D)
     class(coop_coupledDE_collapse_params)::this
     COOP_REAL::a, H_D
-    H_D = this%cosmology%fgrowth_of_z(1.d0/a-1.d0)*this%cosmology%Hratio(a)
+    H_D = this%cosmology%fgrowth_of_z(1.d0/a-1.d0, coop_coupledDE_growth_k_pivot)*this%cosmology%Hratio(a)
   end function coop_coupledDE_collapse_params_Growth_H_D
   
   !! H a / (H_0 a_0)
