@@ -701,7 +701,11 @@ contains
     class(coop_function):: this
     logical, optional::xlog, ylog
     COOP_REAL,dimension(:),intent(IN):: x, f
-    COOP_INT i
+    COOP_INT i, n
+    COOP_INT::n_used
+    COOP_INT,dimension(:), allocatable::index_used
+    COOP_REAL, dimension(:), allocatable::xcopy, fcopy
+    COOP_REAL::mindx
     logical,optional::check_boundary
     COOP_UNKNOWN_STRING,optional::name
     call this%free()
@@ -712,7 +716,7 @@ contains
        write(*,*) "Cannot construct the function "//trim(this%name)//": found f = NAN within the specified range."
        stop
     endif
-    this%n = coop_getdim("coop_function_init_NonUniform", size(x), size(f))
+    n = coop_getdim("coop_function_init_NonUniform", size(x), size(f))
     if(this%n .eq. 1)then
        call this%init_polynomial( f )
        return
@@ -728,24 +732,40 @@ contains
        this%ylog = .false.
     endif
     this%method = COOP_INTERPOLATE_NONUNIFORM
-    allocate(this%f(this%n), this%f2(this%n), this%f1(this%n))
+    allocate(xcopy(n), fcopy(n), index_used(n))
     if(this%xlog)then
        if(any(x.le.0.d0))stop "Error: cannot set xlog = .true. for x<0"
-       this%f1 = log(x)
+       xcopy = log(x)
     else
-       this%f1 = x
+       xcopy = x
     endif
     if(this%ylog)then
        if(any(f .le. 0.d0)) stop "Error: cannot set ylog = .true. for f(x) < 0"
-       this%f = log(f)
+       fcopy = log(f)
     else
-       this%f = f  
+       fcopy = f  
     endif
-    call coop_quicksortacc(this%f1, this%f)
+    call coop_quicksortacc(xcopy, fcopy)
+    n_used = 1
+    mindx = (xcopy(n) - xcopy(1))/n*1.d-30
+    index_used(1) = 1
+    do i = 2, n
+       if(xcopy(i) - xcopy(i-1) .gt. mindx)then
+          n_used = n_used + 1
+          index_used(n_used) = i
+       endif
+    enddo
+    this%n = n_used
+    if(this%n .eq. 1)then
+       call this%init_polynomial( (/ fcopy(1) /) )
+       return
+    endif
+    allocate(this%f(this%n), this%f2(this%n), this%f1(this%n))    
+    this%f1 = xcopy(index_used(1:n_used))
+    this%f = fcopy(index_used(1:n_used))
     this%xmin = this%f1(1)
     this%xmax = this%f1(this%n)
     this%dx = (this%xmax - this%xmin)/(this%n-1)
-    if(this%dx  .eq. 0.) stop "All x's are equal. Cannot generate function for a single point."
     this%fleft = this%f(1) 
     this%fright = this%f(this%n)
     if(this%n .gt. 3)then
