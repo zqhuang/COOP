@@ -48,8 +48,12 @@ clean:
 
 test.o: $(OBJ)
 
-fnl.o: $(OBJ)
+make_zvir1_table.o:	$(OBJ)
+
+get_zvir1.o: 	$(OBJ)
 
 solve_coupledDE_collapse.o: $(OBJ)
 
 solve_collapse.o: $(OBJ)
+
+coupledDE_export_cosmology.o: $(OBJ)

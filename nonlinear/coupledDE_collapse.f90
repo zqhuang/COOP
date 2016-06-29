@@ -19,6 +19,7 @@ module coop_coupledDE_collapse_mod
   type coop_coupledDE_collapse_params
      COOP_REAL,dimension(3)::lambda = (/ 0.d0, 0.d0, 0.d0 /) !!lambda's
      logical::is_spherical = .false.
+     logical::is_coupled = .false.
      COOP_INT::num_ode_vars = 8
      COOP_REAL,dimension(3)::collapse_a_ratio =  (/ 0.178, 0.178, 0.178 /) ! (18pi^2)^{-1/3}
      type(coop_2dfunction)::bprime  
@@ -63,7 +64,7 @@ contains
     corr = (1.2d0*this%lambda*suml + 0.6d0*suml2 + 11.d0/35.d0*(suml**2-suml2)-3.d0*this%lambda**2)/10.d0  !!this is for 2nd-order correction of initial conditions; in spherical case corr = 3/7 lambda^2
     y(1:3) = a_ini *(1.d0-this%lambda*D_ini - corr*D_ini**2)
     y(4:6) = y(1:3)*dadt_ini/a_ini - a_ini*(D_ini*H_D*(this%lambda + 2.d0*corr*D_ini))  
-    if(.not. O0_DE(this%cosmology)%cplDE_Q%is_zero)then
+    if(this%is_coupled)then
        y(7) = O0_DE(this%cosmology)%cplDE_phi_lna%eval(log(a_ini))  !phi
        y(8) = O0_DE(this%cosmology)%cplDE_phi_prime_lna%eval(log(a_ini))*this%cosmology%Hratio(a_ini)   !!d phi/dt
     endif
@@ -84,16 +85,15 @@ contains
     logical::all_frozen
     dadt = params%dadt(a)
     radiation_term = -params%cosmology%Omega_r/a**4*2.d0
-    if(O0_DE(params%cosmology)%cplde_Q%is_zero)then
-       dark_Energy_term = -O0_DE(params%cosmology)%density(a)*(1.d0/3.d0+ O0_DE(params%cosmology)%wofa(a))
-       rho_m = 3.d0*(params%cosmology%Omega_m)/(y(1)*y(2)*y(3))
-       dlnmdt = 0.d0
-    else
+    if(params%is_coupled)then
        dark_Energy_term =  -(y(8)**2-O0_DE(params%cosmology)%cplde_Vofphi%eval(y(7)))*2.d0/3.d0
        rho_m = 3.d0*(params%cosmology%Omega_c_bare+params%cosmology%Omega_b_bare)*exp(O0_DE(params%cosmology)%cplde_intQofphi%eval(y(7)))/(y(1)*y(2)*y(3))
 
        dlnmdt = O0_DE(params%cosmology)%cplde_intQofphi%derivative(y(7))*y(8)
-
+    else
+       dark_Energy_term = -O0_DE(params%cosmology)%density(a)*(1.d0/3.d0+ O0_DE(params%cosmology)%wofa(a))
+       rho_m = 3.d0*(params%cosmology%Omega_m)/(y(1)*y(2)*y(3))
+       dlnmdt = 0.d0
     endif
 
     if(params%is_spherical)then
@@ -122,8 +122,13 @@ contains
        dyda(2:3) = dyda(1)
        dyda(5:6) = dyda(4)
     else
-       rhombar = O0_CDM(params%cosmology)%density(a) + O0_BARYON(params%cosmology)%density(a)
-       rhombarby3 = rhombar/3.d0
+       if(params%is_coupled)then
+          rhombar = O0_CDM(params%cosmology)%density(a) + O0_BARYON(params%cosmology)%density(a)
+          rhombarby3 = rhombar/3.d0
+       else
+          rhombarby3 = params%cosmology%Omega_m/a**3
+          rhombar = rhombarby3 * 3.d0
+       endif
        delta = rho_m/rhombar-1.d0  !a**3/(y(1)*y(2)*y(3))-1.d0
        call params%get_bprime(y(1:3), bprime)       
        growthD = params%growth_D(a) !!this isn't accurate because in general D is scale dependent in the coupled DE model
@@ -188,7 +193,7 @@ contains
        endif
     endif
     !!the scalar field
-    if(.not. O0_DE(params%cosmology)%cplde_Q%is_zero)then
+    if(params%is_coupled)then
        if(all_frozen)then
           dyda(7:8) = 0.d0
        else
@@ -351,8 +356,10 @@ contains
        this%DNorm = this%cosmology%growth_of_z(0.d0, coop_coupledDE_growth_k_pivot)
     endif
     if(O0_DE(this%cosmology)%cplde_Q%is_zero)then
+       this%is_coupled = .false.
        this%num_ode_vars = 6
     else
+       this%is_coupled = .true.
        this%num_ode_vars = 8
     endif
     !set up lambda
