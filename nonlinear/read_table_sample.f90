@@ -22,5 +22,11 @@ program read_table
   enddo
   close(10)
 
+!!units: 
+!!t : 1/H_0
+!!H : H_0
+!!chi:  c/H_0 (comoving distance)
+!!D :   normalized to 1 at z = 0
+!!H_D:  H_0 (defined as dln D/ dt)
 
 end program read_table

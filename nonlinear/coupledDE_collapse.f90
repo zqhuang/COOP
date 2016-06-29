@@ -25,7 +25,7 @@ module coop_coupledDE_collapse_mod
      type(coop_2dfunction)::bprime  
      type(coop_cosmology_firstorder)::cosmology
      logical::normalize_to_early = .false.  !!if true, set the initial delta = F_pk * a
-     COOP_REAL::Dnorm = 1.d0
+     type(coop_function)::Dbya, dlnDdlna
    contains
      procedure::update_fep => coop_coupledDE_collapse_params_update_fep 
      procedure::free => coop_coupledDE_collapse_params_free  !!subroutine; no argument; release the memory allocated for this object
@@ -339,8 +339,10 @@ contains
     type(coop_dictionary)::params
     logical, optional::update_cosmology
     logical::success
+    COOP_INT, parameter::n = 128
     COOP_INT::i
-    COOP_REAL::F_pk, e_nu, p_nu
+    COOP_REAL::F_pk, e_nu, p_nu, dnorm
+    COOP_REAL::a(n), Dbya(n), dlnDdlna(n)
     call coop_dictionary_lookup(params, "normalize_to_early", this%normalize_to_early, .false.)
     !set up cosmology
     if(present(update_cosmology))then
@@ -353,7 +355,23 @@ contains
           endif
        endif
        if(.not. this%cosmology%baryon_is_coupled)stop "The current version cannot solve halo collapse for models where baryon is not coupled."
-       this%DNorm = this%cosmology%growth_of_z(0.d0, coop_coupledDE_growth_k_pivot)
+       DNorm = this%cosmology%growth_of_z(0.d0, coop_coupledDE_growth_k_pivot)
+       call coop_set_uniform(n, a, 0.05d0, 1.d0)
+       Dbya(n) = 1.d0
+       !$omp parallel do
+       do i=1, n-1
+          Dbya(i) = this%cosmology%growth_of_z(1.d0/a(i)-1.d0, coop_coupledDE_growth_k_pivot)/ DNorm /a(i)
+       enddo
+       !$omp end parallel do
+       do i = 2, n-1
+          dlnDdlna(i) = log(Dbya(i+1)/Dbya(i-1))/(log(a(i+1)/a(i-1))) + 1.d0
+       enddo
+       !!matter dominated boundary condition
+       dlnDdlna(1) = 1.d0
+       !!extrapolation
+       dlnDdlna(n) = 2.d0*(log(Dbya(n)/Dbya(n-1))/log(a(n)/a(n-1))+1.d0) - dlnDdlna(n-1)
+       call this%Dbya%init(n = n, xmin = a(1), xmax = a(n), f = Dbya, name = "Dbya", check_boundary = .false.)
+       call this%dlnDdlna%init(n = n, xmin = a(1), xmax = a(n), f = dlnDdlna, name = "Dbya", check_boundary = .false.)
     endif
     if(O0_DE(this%cosmology)%cplde_Q%is_zero)then
        this%is_coupled = .false.
@@ -398,14 +416,14 @@ contains
   function coop_coupledDE_collapse_params_Growth_D(this, a) result(D)
     class(coop_coupledDE_collapse_params)::this
     COOP_REAL::a, D
-    D = this%cosmology%growth_of_z(1.d0/a-1.d0, coop_coupledDE_growth_k_pivot)/this%Dnorm
+    D = this%dbya%eval(a)*a
   end function coop_coupledDE_collapse_params_Growth_D
 
   !!d ln D/dt 
   function coop_coupledDE_collapse_params_Growth_H_D(this, a) result(H_D)
     class(coop_coupledDE_collapse_params)::this
     COOP_REAL::a, H_D
-    H_D = this%cosmology%fgrowth_of_z(1.d0/a-1.d0, coop_coupledDE_growth_k_pivot)*this%cosmology%Hratio(a)
+    H_D = this%dlnDdlna%eval(a)*this%cosmology%Hratio(a)
   end function coop_coupledDE_collapse_params_Growth_H_D
   
   !! H a / (H_0 a_0)
