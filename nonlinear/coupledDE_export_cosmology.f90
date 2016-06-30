@@ -59,7 +59,7 @@ program test
 
   !$omp parallel do
   do ithread = 1, n_threads
-     do ipbye = 1, n_pbye
+     do ipbye = ithread, n_pbye, n_threads
         do ie = 1, n_e
            do ifpk = 1, n_fpk
               call params(ithread)%update_fep(fpk(ifpk), e(ie), pbye(ipbye)*e(ie))
