@@ -147,15 +147,16 @@ contains
   subroutine do_mask()
     COOP_STRING:: cond_root, hits_root, mask_root
     type(coop_healpix_maps)::mask, cond, hits
-    COOP_SINGLE::condmin, hitsmax, maskcut, RA_min, RA_max, DEC_min, DEC_max
+    COOP_SINGLE::condmin, hitsmax, maskcut
+    COOP_REAL::RA_min, RA_max, DEC_min, DEC_max, theta_min, theta_max, theta, phi
     COOP_INT::ich
     logical::smooth_mask_edge, do_RADEC_cut, has_cond, has_hits
     call coop_dictionary_lookup(settings, "mask_root", mask_root)
-
+    
     call coop_dictionary_lookup(settings, "hits_root", hits_root, "")
     if(trim(hits_root).ne. "")then
        call coop_dictionary_lookup(settings, "hits_cut", hitsmax, -1.e30)
-       has_hits = (hitsmax .gt. -1.e20)
+       has_hits = (hitsmax .gt. 0.)
     else
        has_hits = .false.
     endif
@@ -163,16 +164,28 @@ contains
     call coop_dictionary_lookup(settings, "cond_root", cond_root,"")
     if(trim(cond_root).ne."")then
        call coop_dictionary_lookup(settings, "cond_cut", condmin, -1.e30)
-       has_cond  = (condmin .gt. -1.e20)
+       has_cond  = (condmin .gt. 0.)
     else
        has_cond = .false.
     endif
 
-    call coop_dictionary_lookup(settings, "RA_min", RA_min, -1.e30)
-    call coop_dictionary_lookup(settings, "RA_max", RA_max, 1.e30)
-    call coop_dictionary_lookup(settings, "DEC_min", DEC_min, -1.e30)
-    call coop_dictionary_lookup(settings, "DEC_max", DEC_max, 1.e30)
-    do_RADEC_cut = (RA_min .gt. -1.e20 .or. RA_max .lt. 1.e20 .or. DEC_min .gt. -1.e20 .or. DEC_max .lt. 1.e20)
+    call coop_dictionary_lookup(settings, "RA_min", RA_min, 1.d30)
+    call coop_dictionary_lookup(settings, "RA_max", RA_max, -1.d30)
+    call coop_dictionary_lookup(settings, "DEC_min", DEC_min, 1.d30)
+    call coop_dictionary_lookup(settings, "DEC_max", DEC_max, -1.d30)
+    do_RADEC_cut = (abs(RA_min) .lt. 1.d20 .and. abs(RA_max) .lt. 1.d20 .and. abs(dec_min) .lt. 1.d20 .and. abs(dec_max) .lt. 1.d20)
+    if(do_RADEC_cut)then
+       ra_min = ra_min * coop_SI_deg
+       ra_max = ra_max * coop_SI_deg
+       dec_min = dec_min * coop_SI_deg
+       dec_max = dec_max * coop_SI_deg
+       call coop_period_select_range(ra_min, -coop_pi, coop_pi)
+       call coop_period_select_range(ra_max, ra_min, ra_min + coop_2pi)
+       call coop_period_select_range(dec_min, -coop_pio2, coop_pio2)
+       call coop_period_select_range(dec_max, -coop_pio2, coop_pio2)
+       theta_min = coop_pio2 - max(dec_min, dec_max)
+       theta_max = coop_pio2 - min(dec_min, dec_max)
+    endif
     call coop_dictionary_lookup(settings, "smooth_mask_edge", smooth_mask_edge, .true.)
     do ich = 1, num_channels
        if(has_cond)call cond%read(trim(cond_root)//"_"//CHIND(ich)//".fits", nmaps_wanted = 1)
@@ -190,6 +203,7 @@ contains
           end where
        endif
        if(do_RADEC_cut)then
+          
        endif
        print*, "fsky for mask #"//COOP_STR_OF(ich)//" is "//COOP_STR_OF(sum(mask%map(:,1))/mask%npix)
        call mask%write(trim(mask_root)//"_"//CHIND(ich)//".fits")

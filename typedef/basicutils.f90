@@ -6,6 +6,8 @@ module coop_basicutils_mod
 
   public
 
+  !!coop_linear_regression(n, x, y, k, r, b)
+
   interface coop_left_index
      module procedure coop_left_index_d, coop_left_index_s
   end interface coop_left_index
@@ -46,6 +48,10 @@ module coop_basicutils_mod
   interface coop_uniform_array
      module procedure coop_uniform_array_double, coop_uniform_array_single, coop_uniform_array_int
   end interface coop_uniform_array
+
+  interface coop_periodic_select_range
+     module procedure coop_periodic_select_range_double, coop_periodic_select_range_single, coop_periodic_select_range_int
+  end interface coop_periodic_select_range
   
 contains
 
@@ -1287,6 +1293,53 @@ contains
     k = xybar/rmsx**2
     b = ybar - k*xbar
   end subroutine coop_linear_regression
+
+  !!output x = x - integer * (xmax - xmin) such that xmin <= x < xmax
+  subroutine coop_periodic_select_range_double(x, xmin, xmax)
+    COOP_REAL::x, xmin, xmax
+    COOP_REAL::period
+    if(x .lt. xmin)then
+       period = xmax - xmin             
+       x = x + period * ceiling((xmin - x)/period)
+       if(x .lt. xmin) x = x + period
+       if(x .gt. xmax) x = x - period
+    elseif(x.gt.xmax)then
+       period = xmax - xmin             
+       x = x - period * ceiling((x - xmax)/period)
+       if(x .lt. xmin) x = x + period
+       if(x .gt. xmax) x = x - period
+    endif
+  end subroutine coop_periodic_select_range_double
+
+  !!output x = x - integer * (xmax - xmin) such that xmin <= x < xmax
+  subroutine coop_periodic_select_range_single(x, xmin, xmax)
+    COOP_SINGLE::x, xmin, xmax
+    COOP_SINGLE::period
+    if(x .lt. xmin)then
+       period = xmax - xmin             
+       x = x + period * ceiling((xmin - x)/period)
+       if(x .lt. xmin) x = x + period
+       if(x .gt. xmax) x = x - period
+    elseif(x.gt.xmax)then
+       period = xmax - xmin             
+       x = x - period * ceiling((x - xmax)/period)
+       if(x .lt. xmin) x = x + period
+       if(x .gt. xmax) x = x - period
+    endif
+  end subroutine coop_periodic_select_range_single
+
+  !!output x = x - integer * (xmax - xmin) such that xmin <= x < xmax
+  subroutine coop_periodic_select_range_int(x, xmin, xmax)
+    COOP_INT::x, xmin, xmax
+    COOP_INT::period
+    if(x .lt. xmin)then
+       period = xmax - xmin             
+       x = x + period * ((xmin - x-1)/period+1)
+    elseif(x .ge. xmax)then
+       period = xmax - xmin             
+       x = x - period *((x - xmax)/period+1)
+    endif
+  end subroutine coop_periodic_select_range_int
 
 
 end module coop_basicutils_mod
