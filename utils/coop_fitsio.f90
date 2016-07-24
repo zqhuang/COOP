@@ -228,21 +228,37 @@ contains
     this%ibmin_l = this%nb
     this%ibmax_l = 1
     do ib = 1, this%nb 
+!!----------------- Gaussian window ---------------------------------------
+!!$       if(ib .eq. 1)then
+!!$          delta_l = this%lb(ib) - this%lmin+0.5d0
+!!$       elseif(ib.eq.this%nb)then
+!!$          delta_l = this%lmax - this%lb(ib)+0.5d0
+!!$       else
+!!$          delta_l = (this%lb(ib+1) - this%lb(ib-1))/2.d0
+!!$       end if
+!!$       this%lmin_b(ib) = max(this%lmin, floor(this%lb(ib) - 2.5d0*delta_l))
+!!$       this%lmax_b(ib) = min(this%lmax, floor(this%lb(ib) + 2.5d0*delta_l))
+!!$       do l = this%lmin_b(ib), this%lmax_b(ib)
+!!$          this%ibmin_l(l) = min(ib, this%ibmin_l(l))
+!!$          this%ibmax_l(l) = max(ib, this%ibmax_l(l))
+!!$          this%wb(l, ib) = exp(-((l-this%lb(ib))/delta_l)**2)
+!!$       enddo
+!!$       this%wb(this%lmin_b(ib):this%lmax_b(ib), ib) = this%wb(this%lmin_b(ib):this%lmax_b(ib), ib)/ sum(this%wb(this%lmin_b(ib):this%lmax_b(ib), ib))
+!!------------------- Tophat window ------------------------------------------
        if(ib .eq. 1)then
-          delta_l = this%lb(ib) - this%lmin+0.5d0
-       elseif(ib.eq.this%nb)then
-          delta_l = this%lmax - this%lb(ib)+0.5d0
+          this%lmin_b(ib) = this%lmin
        else
-          delta_l = (this%lb(ib+1) - this%lb(ib-1))/2.d0
-       end if
-       this%lmin_b(ib) = max(this%lmin, floor(this%lb(ib) - 2.5d0*delta_l))
-       this%lmax_b(ib) = min(this%lmax, floor(this%lb(ib) + 2.5d0*delta_l))
-       do l = this%lmin_b(ib), this%lmax_b(ib)
-          this%ibmin_l(l) = min(ib, this%ibmin_l(l))
-          this%ibmax_l(l) = max(ib, this%ibmax_l(l))
-          this%wb(l, ib) = exp(-((l-this%lb(ib))/delta_l)**2)
-       enddo
-       this%wb(this%lmin_b(ib):this%lmax_b(ib), ib) = this%wb(this%lmin_b(ib):this%lmax_b(ib), ib)/ sum(this%wb(this%lmin_b(ib):this%lmax_b(ib), ib))
+          this%lmin_b(ib) = this%lmax_b(ib-1)+1
+       endif
+       if(ib .eq. this%nb)then
+          this%lmax_b(ib) = this%lmax
+       else
+          this%lmax_b(ib) = floor((this%lb(ib)+this%lb(ib+1))/2.d0)
+       endif
+       this%wb( this%lmin_b(ib):this%lmax_b(ib), ib) = 1.d0/( this%lmax_b(ib)-this%lmin_b(ib)+1)
+       this%ibmin_l( this%lmin_b(ib):this%lmax_b(ib)) = ib 
+       this%ibmax_l( this%lmin_b(ib):this%lmax_b(ib)) = ib 
+!!=============================================================================
     enddo
     this%wl = transpose(this%wb)
     do l = this%lmin, this%lmax

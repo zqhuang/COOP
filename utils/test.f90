@@ -2,12 +2,24 @@ program Test
   use coop_wrapper_utils
   implicit none
 #include "constants.h"
-  COOP_STRING:: expr
-  COOP_REAL::ans
-  COOP_REAL,dimension(3)::vars = (/0.d0, 5.d0, 5.1d0 /)
-  call coop_get_command_line_argument(key = "expr", arg = expr)
-  print*, trim(expr)
-!  expr = '($3-$2)/$2'
-  call coop_eval_math(expr, ans, vars)
-  print*, ans
+  COOP_INT, parameter::n = 4
+  COOP_REAL::a(n,n), b(n, n)
+  COOP_INT::i
+  call coop_random_init()
+  call random_number(b)
+  a = b + transpose(b)
+  do i=1, n
+     a(i,i) = a(i,i) + 0.5d0+1.d0/i
+  enddo
+  b = a
+  do i=1, n
+     a(i, i+1:) = 0.d0
+  enddo
+  call coop_sympos_inverse(n, n, a, i)
+  if(i.eq. 0)then
+     a = matmul(a, b)
+     call coop_print_matrix(a, n, n)
+  else
+     print*, i
+  endif
 end program Test  

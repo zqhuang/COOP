@@ -2140,6 +2140,11 @@ contains
     endif
     call coop_fits_to_header(filename, this%header)
     call coop_dictionary_lookup(this%header, "NSIDE", this%nside, 0)
+    this%npix =nside2npix(this%nside)
+    if(present(nmaps_wanted))then
+       if(nmaps_wanted .le. 0) return !!no map has been read
+    endif
+
     call coop_dictionary_lookup(this%header, "TFIELDS", nmaps_actual, 0)
 
     call coop_dictionary_lookup(this%header, "OBJECT", object, 'FULLSKY')
@@ -2174,6 +2179,7 @@ contains
     if(this%nside .eq. 0 .or. nmaps_actual .eq. 0 .or. trim(ordering).eq."")then !!try robust routine
        npixtot = getsize_fits(trim(filename), nmaps = nmaps_actual, nside = this%nside, ordering = this%ordering)
        if(this%nside .eq. 0 .or. nmaps_actual .eq. 0) stop "coop_healpix_maps_read failed"       
+       this%npix =nside2npix(this%nside)
     else
        select case(trim(ordering))
        case("RING", "ring", "Ring")
@@ -2188,7 +2194,7 @@ contains
        nmaps_actual = nmaps_actual - 1
     endif
 
-    this%npix =nside2npix(this%nside)
+
 
     call coop_dictionary_lookup(this%header, "LASTPIX", this%lastpix, this%npix-1)
 

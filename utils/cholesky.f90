@@ -198,35 +198,83 @@ contains
   end subroutine coop_cholesky_sq
 
   !!a(1:n, 1:n) is a positive definite symmetric matrix, replace a(1:n, 1:n) with a^{-1}(1:n, 1:n)
-  !!Input: lower left triangle of a is required
+  !!Input: lower left triangle of a is required (a(i, j) where i>=j)
   !! m is the first physical dimension of a (i.e., a is actually stored as a(m, n); m>=n
-  subroutine coop_sympos_inverse(m, n, a)
+  subroutine coop_sympos_inverse(m, n, a, info)
     COOP_INT,intent(IN)::m, n
-    COOP_REAL::a(m, n) !m>=n
-    COOP_INT info, i
+    COOP_REAL::a(m, n), det !m>=n
+    COOP_INT,optional:: info
+    COOP_INT::i, j
+    if(present(info))info = 0
     select case(n)
     case(1)
-       a=1.d0/a
-    case(2)
-       a=ReShape( (/ a(2,2), -a(2,1), -a(1,2), a(1,1) /) / (a(1,1)*a(2,2)-a(1,2)*a(2,1)), (/ 2, 2 /) )
-    case(3)
-       a = Reshape( (/ a(2,2)*a(3,3) - a(2,3)*a(3,2), a(2,3)*a(3,1)-a(2,1)*a(3,3), a(2,1)*a(3,2)- a(2,2)*a(3,1),  &
-            a(3,2)*a(1,3)-a(1,2)*a(3,3), a(3,3)*a(1,1)-a(3,1)*a(1,3), a(1,2)*a(3,1)-a(1,1)*a(3,2), &
-            a(1,2)*a(2,3)- a(2,2)*a(1,3), a(2,1)*a(1,3)-a(1,1)*a(2,3),  a(1,1)*a(2,2)-a(1,2)*a(2,1) /), (/ 3, 3 /) ) &
-            / ( a(1,1)*(a(2,2)*a(3,3) - a(2,3)*a(3,2)) + a(1,2)*(a(2,3)*a(3,1)-a(2,1)*a(3,3)) + a(1,3)*(a(2,1)*a(3,2)- a(2,2)*a(3,1)) )
-    case default
-       call coop_cholesky(m, n, a, info)
-       if(info.ne.0)then
-          if(m.lt. 10 .and. n.lt. 10)then
-             do i=1, n
-                write(*,"("//COOP_STR_OF(n)//"G14.5)") a(i, 1:n)
-             enddo
+       if(a(1,1) .gt. 0.d0)then
+          a=1.d0/a
+       else
+          if(present(info))then
+             info = 1
+             return
+          else
+             stop "error in sympos_inverse: negative eigen value"
           endif
-          call Coop_return_error("coop_sympos_inverse", "the matrix is not positive definite", "stop")
+       endif
+    case(2)
+       det = a(1,1)*a(2,2)-a(2,1)**2
+       if(det .gt. 0.d0 .and. a(1, 1) .gt. 0.d0 )then
+          a=ReShape( (/ a(2,2), -a(2,1), -a(2,1), a(1,1) /) /det , (/ 2, 2 /) )
+       else
+          if(present(info))then
+             if(a(1,1).le.0.d0)then
+                info = 1
+             else
+                info=2
+             endif
+             return
+          else
+             stop "error in sympos_inverse: negative eigen value"
+          endif
+       endif
+    case(3)
+       det =  a(1,1)*(a(2,2)*a(3,3) - a(3,2)*a(3,2)) + a(2,1)*(a(3,2)*a(3,1)-a(2,1)*a(3,3)) + a(3,1)*(a(2,1)*a(3,2)- a(2,2)*a(3,1)) 
+       if(det .gt. 0.d0  .and. a(1, 1) .gt. 0.d0 .and. a(1,1)*a(2,2)-a(2,1)**2 .gt. 0.d0)then
+          a = Reshape( (/ a(2,2)*a(3,3) - a(3,2)*a(3,2), a(3,2)*a(3,1)-a(2,1)*a(3,3), a(2,1)*a(3,2)- a(2,2)*a(3,1),  &
+               a(3,2)*a(3,1)-a(2,1)*a(3,3), a(3,3)*a(1,1)-a(3,1)*a(3,1), a(2,1)*a(3,1)-a(1,1)*a(3,2), &
+               a(2,1)*a(3,2)- a(2,2)*a(3,1), a(2,1)*a(3,1)-a(1,1)*a(3,2),  a(1,1)*a(2,2)-a(2,1)*a(2,1) /), (/ 3, 3 /) ) &
+               / det
+       else
+          if(present(info))then
+             if(a(1,1) .le. 0.d0)then
+                info = 1
+             elseif(a(1,1)*a(2,2)-a(2,1)**2 .le. 0.d0)then
+                info = 2
+             else
+                info = 3
+             endif
+             return
+          else
+             stop "error in sympos_inverse: negative eigen value"
+          endif
+       endif
+    case default
+       call coop_cholesky(m, n, a, j)
+       if(j.ne.0)then
+          if(present(info))then
+             info = j 
+             return
+          else
+             call Coop_return_error("coop_sympos_inverse", "the matrix is not positive definite", "stop")
+          endif
        endif
 #ifdef HAS_LAPACK
-       call dpotri("L", n, a, m, info)
-       if(info.ne.0) call Coop_return_error("coop_sympos_inverse", "the matrix is not positive definite", "stop")
+       call dpotri("L", n, a, m, j)
+       if(j .ne.0)then
+          if(present(info))then
+             info = j 
+             return
+          else
+             call Coop_return_error("coop_sympos_inverse", "the matrix is not positive definite", "stop")
+          endif
+       endif
        call coop_fill_symmetrize('U', m, n, a)
 #else       
        call coop_cholesky_inv(m, n, a)
@@ -235,5 +283,5 @@ contains
     end select
   end subroutine coop_sympos_inverse
 
-  
+
 end module coop_cholesky_mod

@@ -3048,31 +3048,35 @@ contains
 
   subroutine coop_asy_legend_relative(this, xratio, yratio, cols, box)
     class(coop_asy) this
-    COOP_SINGLE  xratio, yratio
+    COOP_SINGLE,optional::  xratio, yratio
     COOP_INT ,optional::cols
     logical,optional::box
-    write(this%unit, "(A)") "LEGEND_ADVANCE"
-    if(present(box))then
-       if(box)then
-          write(this%unit, "(A)") "black"          
+    if(present(xratio) .and. present(yratio))then
+       write(this%unit, "(A)") "LEGEND_ADVANCE"
+       if(present(box))then
+          if(box)then
+             write(this%unit, "(A)") "black"          
+          else
+             write(this%unit, "(A)") "invisible"
+          endif
        else
-          write(this%unit, "(A)") "invisible"
+          write(this%unit, "(A)") "black"       
        endif
+       write(this%unit, "(A)") "0.5"
+       write(this%unit, "(A)") "0.3"
+       write(this%unit, "(A)") "1"
+       write(this%unit, "(A)") "0.95"
+       write(this%unit, "(A)") "0.95"
+       if(present(cols))then
+          write(this%unit, "(I6)")  cols
+       else
+          write(this%unit, "(A)")  "1"       
+       endif
+       write(this%unit, "(A)") "NULL"
+       write(this%unit, "(2G15.4)") this%xrel(xratio), this%yrel(yratio)
     else
-       write(this%unit, "(A)") "black"       
+       call coop_asy_legend_default(this)
     endif
-    write(this%unit, "(A)") "0.5"
-    write(this%unit, "(A)") "0.3"
-    write(this%unit, "(A)") "1"
-    write(this%unit, "(A)") "0.95"
-    write(this%unit, "(A)") "0.95"
-    if(present(cols))then
-       write(this%unit, "(I6)")  cols
-    else
-       write(this%unit, "(A)")  "1"       
-    endif
-    write(this%unit, "(A)") "NULL"
-    write(this%unit, "(2G15.4)") this%xrel(xratio), this%yrel(yratio)
   end subroutine coop_asy_legend_relative
   
 

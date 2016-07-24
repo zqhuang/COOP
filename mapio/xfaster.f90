@@ -117,6 +117,7 @@ program coop_Xfaster
         call do_mub(iter, want_plot = (iter .eq. num_iterations))  !!compute mu_b's
      enddo
   case("DO_ALL")
+     call do_mask()
      call do_kernel()
      call do_noise()
      call do_signal()
@@ -137,6 +138,8 @@ program coop_Xfaster
      do iter = 1, num_iterations
         call do_mub(iter, want_plot = (iter .eq. num_iterations))
      enddo
+  case("COMPARE_PSEUDO_CLS")
+     call compare_pseudo_cls()
   case default
      write(*,*) "action  = "//trim(action)
      stop "Unknown action"
@@ -145,16 +148,18 @@ program coop_Xfaster
 contains
 
   subroutine do_mask()
-    COOP_STRING:: cond_root, hits_root, mask_root
-    type(coop_healpix_maps)::mask, cond, hits
+    COOP_STRING:: cond_root, hits_root, mask_root, data_map_root
+    type(coop_healpix_maps)::mask, cond, hits, premask
     COOP_SINGLE::condmin, hitsmax, maskcut
-    COOP_REAL::RA_min, RA_max, DEC_min, DEC_max, theta_min, theta_max, theta, phi
-    COOP_INT::ich
-    logical::smooth_mask_edge, do_RADEC_cut, has_cond, has_hits
-    call coop_dictionary_lookup(settings, "mask_root", mask_root)
-    
+    COOP_REAL::RA_min, RA_max, DEC_min, DEC_max, theta_min, theta_max, theta, phi, smooth_mask_fwhm
+    COOP_INT::ich, nside, pix
+    logical::do_RADEC_cut, has_cond, has_hits
+    nside = 0
+    call coop_dictionary_lookup(settings, "mask_root", mask_root)    
     call coop_dictionary_lookup(settings, "hits_root", hits_root, "")
     if(trim(hits_root).ne. "")then
+       call hits%read(trim(hits_root)//"_"//CHIND(1)//".fits", nmaps_wanted = 0)
+       nside = hits%nside
        call coop_dictionary_lookup(settings, "hits_cut", hitsmax, -1.e30)
        has_hits = (hitsmax .gt. 0.)
     else
@@ -163,35 +168,66 @@ contains
 
     call coop_dictionary_lookup(settings, "cond_root", cond_root,"")
     if(trim(cond_root).ne."")then
+       if(nside .eq. 0)then
+          call cond%read(trim(cond_root)//"_"//CHIND(1)//".fits", nmaps_wanted = 0)
+          nside = cond%nside
+       endif
        call coop_dictionary_lookup(settings, "cond_cut", condmin, -1.e30)
        has_cond  = (condmin .gt. 0.)
     else
        has_cond = .false.
     endif
 
+    if(nside .eq. 0)then
+       call coop_dictionary_lookup(settings, "data_map_root", data_map_root, "")
+       if(trim(data_map_root) .ne. "")then
+          call hits%read(trim(data_map_root)//"_"//CHIND(1)//".fits", nmaps_wanted = 0)
+          nside = hits%nside
+       else
+          call coop_dictionary_lookup(settings, "nside", nside)
+       endif
+    endif
     call coop_dictionary_lookup(settings, "RA_min", RA_min, 1.d30)
     call coop_dictionary_lookup(settings, "RA_max", RA_max, -1.d30)
     call coop_dictionary_lookup(settings, "DEC_min", DEC_min, 1.d30)
     call coop_dictionary_lookup(settings, "DEC_max", DEC_max, -1.d30)
     do_RADEC_cut = (abs(RA_min) .lt. 1.d20 .and. abs(RA_max) .lt. 1.d20 .and. abs(dec_min) .lt. 1.d20 .and. abs(dec_max) .lt. 1.d20)
     if(do_RADEC_cut)then
-       ra_min = ra_min * coop_SI_deg
-       ra_max = ra_max * coop_SI_deg
-       dec_min = dec_min * coop_SI_deg
-       dec_max = dec_max * coop_SI_deg
-       call coop_period_select_range(ra_min, -coop_pi, coop_pi)
-       call coop_period_select_range(ra_max, ra_min, ra_min + coop_2pi)
-       call coop_period_select_range(dec_min, -coop_pio2, coop_pio2)
-       call coop_period_select_range(dec_max, -coop_pio2, coop_pio2)
+       ra_min = ra_min * coop_SI_degree
+       ra_max = ra_max * coop_SI_degree
+       dec_min = dec_min * coop_SI_degree
+       dec_max = dec_max * coop_SI_degree
+       call coop_periodic_select_range(ra_min, -coop_pi, coop_pi)
+       call coop_periodic_select_range(ra_max, ra_min, ra_min + coop_2pi)
+       call coop_periodic_select_range(dec_min, -coop_pio2, coop_pio2)
+       call coop_periodic_select_range(dec_max, -coop_pio2, coop_pio2)
        theta_min = coop_pio2 - max(dec_min, dec_max)
        theta_max = coop_pio2 - min(dec_min, dec_max)
+       call premask%init(nmaps = 1, nside = nside, genre="MASK")
+       !$omp parallel do private(pix, theta, phi)
+       do pix = 0, premask%npix-1
+          call premask%pix2ang(pix, theta, phi)
+          call coop_periodic_select_range(phi, ra_min, ra_min + coop_2pi)
+          if(theta .lt. theta_min .or. theta.gt. theta_max .or. phi .gt. ra_max)then
+             premask%map(pix, 1) = 0.
+          else
+             premask%map(pix, 1) = 1.
+          endif
+       enddo
+       !$omp end parallel do
+
     endif
-    call coop_dictionary_lookup(settings, "smooth_mask_edge", smooth_mask_edge, .true.)
+    call coop_dictionary_lookup(settings, "smooth_mask_arcmin", smooth_mask_fwhm, 0.d0)
+    smooth_mask_fwhm = smooth_mask_fwhm * coop_SI_arcmin
     do ich = 1, num_channels
        if(has_cond)call cond%read(trim(cond_root)//"_"//CHIND(ich)//".fits", nmaps_wanted = 1)
        if(has_hits)call hits%read(trim(hits_root)//"_"//CHIND(ich)//".fits", nmaps_wanted = 1)
-       call mask%init(nmaps = 1, nside = cond%nside, genre="MASK")
-       mask%map(:,1) = 1
+       if(do_radec_cut)then
+          mask = premask
+       else
+          call mask%init(nmaps = 1, nside = nside, genre="MASK")
+          mask%map(:,1) = 1.
+       endif
        if(has_hits)then
           where(hits%map(:,1) .lt. hitsmax)
              mask%map(:,1) = 0.
@@ -202,8 +238,8 @@ contains
              mask%map(:,1) = 0.
           end where
        endif
-       if(do_RADEC_cut)then
-          
+       if(smooth_mask_fwhm .gt. 0.d0)then
+          call mask%smooth(fwhm = smooth_mask_fwhm)
        endif
        print*, "fsky for mask #"//COOP_STR_OF(ich)//" is "//COOP_STR_OF(sum(mask%map(:,1))/mask%npix)
        call mask%write(trim(mask_root)//"_"//CHIND(ich)//".fits")
@@ -356,12 +392,12 @@ contains
 
   subroutine do_qb(iter)
     COOP_STRING:: kernel_root, signal_cl_root, noise_cl_root
-    COOP_INT:: l, iter, num_qb_used
+    COOP_INT:: l, iter, num_qb_used, info
     type(coop_cls),dimension(numcross)::signalpower, noisepower
     type(coop_binned_cls)::templatepower
     COOP_REAL::kernel(lmin_data:lmax_data, lmin_data:lmax_data, 4,numcross)
     COOP_REAL::weight(numcross)
-    COOP_INT::i, j, ind, ii, jj, ib, ich1, ich2, icl, jb, jch1, jch2, jcl, iqb
+    COOP_INT::i, j, ind, ii, jj, ib, ich1, ich2, icl, jb, jch1, jch2, jcl, iqb, ibase1, ibase2
     COOP_REAL::mat(matdim, matdim), dSdq(matdim, matdim, num_qbs), wmat(matdim, matdim), datamat(matdim, matdim), invDdSdq(matdim, matdim, num_qbs)
     logical::nonzero(num_qbs)
     COOP_REAL::Fisher(num_qbs, num_qbs)
@@ -394,8 +430,10 @@ contains
     do l = lmin_data, lmax_data
        dSdq = 0.d0
        do ich1 = 1, num_channels
+          ibase1 = (ich1-1) * nmaps
           do ich2 = ich1, num_channels
              ind = COOP_MATSYM_INDEX(num_channels, ich1, ich2)
+             ibase2 = (ich2-1) * nmaps
              call get_Cbs(templatepower, l, kernel(:,:,:,ind), Cb_EE, Cb_BB)
              select case(trim(map_genre))
              case("I")
@@ -404,33 +442,33 @@ contains
                 enddo
              case("QU")
                 do ib = 1, num_ell_bins
-                   dSdq((ich1-1)*nmaps+coop_EB_index_E, (ich2-1)*nmaps+coop_EB_index_E, QB_IND(ib, ind, coop_EB_index_EE)) = Cb_EE(coop_EB_index_EE, ib)
-                   dSdq((ich1-1)*nmaps+coop_EB_index_B, (ich2-1)*nmaps+coop_EB_index_B, QB_IND(ib, ind, coop_EB_index_EE)) = Cb_EE(coop_EB_index_BB, ib)
+                   dSdq(ibase1+coop_EB_index_E, ibase2+coop_EB_index_E, QB_IND(ib, ind, coop_EB_index_EE)) = Cb_EE(coop_EB_index_EE, ib)
+                   dSdq(ibase1+coop_EB_index_B, ibase2+coop_EB_index_B, QB_IND(ib, ind, coop_EB_index_EE)) = Cb_EE(coop_EB_index_BB, ib)
 
-                   dSdq((ich1-1)*nmaps+coop_EB_index_E, (ich2-1)*nmaps+coop_EB_index_E, QB_IND(ib, ind, coop_EB_index_BB)) = Cb_BB(coop_EB_index_EE, ib)
-                   dSdq((ich1-1)*nmaps+coop_EB_index_B, (ich2-1)*nmaps+coop_EB_index_B, QB_IND(ib, ind, coop_EB_index_BB)) = Cb_BB(coop_EB_index_BB, ib)
+                   dSdq(ibase1+coop_EB_index_E, ibase2+coop_EB_index_E, QB_IND(ib, ind, coop_EB_index_BB)) = Cb_BB(coop_EB_index_EE, ib)
+                   dSdq(ibase1+coop_EB_index_B, ibase2+coop_EB_index_B, QB_IND(ib, ind, coop_EB_index_BB)) = Cb_BB(coop_EB_index_BB, ib)
 
-                   dSdq((ich1-1)*nmaps+coop_EB_index_E, (ich2-1)*nmaps+coop_EB_index_B, QB_IND(ib, ind, coop_EB_index_EB)) = Cb_EE(coop_EB_index_EB, ib)
-                   dSdq((ich1-1)*nmaps+coop_EB_index_B, (ich2-1)*nmaps+coop_EB_index_E, QB_IND(ib, ind, coop_EB_index_EB)) = Cb_EE(coop_EB_index_EB, ib)
+                   dSdq(ibase1+coop_EB_index_E, ibase2+coop_EB_index_B, QB_IND(ib, ind, coop_EB_index_EB)) = Cb_EE(coop_EB_index_EB, ib)
+                   dSdq(ibase1+coop_EB_index_B, ibase2+coop_EB_index_E, QB_IND(ib, ind, coop_EB_index_EB)) = Cb_EE(coop_EB_index_EB, ib)
                    
                 enddo
              case("IQU")
                 do ib = 1, num_ell_bins
-                   dSdq((ich1-1)*nmaps+coop_TEB_index_E, (ich2-1)*nmaps+coop_TEB_index_E, QB_IND(ib, ind, coop_TEB_index_EE)) = Cb_EE(coop_TEB_index_EE, ib)
-                   dSdq((ich1-1)*nmaps+coop_TEB_index_B, (ich2-1)*nmaps+coop_TEB_index_B, QB_IND(ib, ind, coop_TEB_index_EE)) = Cb_EE(coop_TEB_index_BB, ib)
+                   dSdq(ibase1+coop_TEB_index_E, ibase2+coop_TEB_index_E, QB_IND(ib, ind, coop_TEB_index_EE)) = Cb_EE(coop_TEB_index_EE, ib)
+                   dSdq(ibase1+coop_TEB_index_B, ibase2+coop_TEB_index_B, QB_IND(ib, ind, coop_TEB_index_EE)) = Cb_EE(coop_TEB_index_BB, ib)
 
-                   dSdq((ich1-1)*nmaps+coop_TEB_index_E, (ich2-1)*nmaps+coop_TEB_index_E, QB_IND(ib, ind, coop_TEB_index_BB)) = Cb_BB(coop_TEB_index_EE, ib)
-                   dSdq((ich1-1)*nmaps+coop_TEB_index_B, (ich2-1)*nmaps+coop_TEB_index_B, QB_IND(ib, ind, coop_TEB_index_BB)) = Cb_BB(coop_TEB_index_BB, ib)
+                   dSdq(ibase1+coop_TEB_index_E, ibase2+coop_TEB_index_E, QB_IND(ib, ind, coop_TEB_index_BB)) = Cb_BB(coop_TEB_index_EE, ib)
+                   dSdq(ibase1+coop_TEB_index_B, ibase2+coop_TEB_index_B, QB_IND(ib, ind, coop_TEB_index_BB)) = Cb_BB(coop_TEB_index_BB, ib)
 
-                   dSdq((ich1-1)*nmaps+coop_TEB_index_E, (ich2-1)*nmaps+coop_TEB_index_B, QB_IND(ib, ind, coop_TEB_index_EB)) = Cb_EE(coop_TEB_index_EB, ib)
-                   dSdq((ich1-1)*nmaps+coop_TEB_index_B, (ich2-1)*nmaps+coop_TEB_index_E, QB_IND(ib, ind, coop_TEB_index_EB)) = Cb_EE(coop_TEB_index_EB, ib)
+                   dSdq(ibase1+coop_TEB_index_E, ibase2+coop_TEB_index_B, QB_IND(ib, ind, coop_TEB_index_EB)) = Cb_EE(coop_TEB_index_EB, ib)
+                   dSdq(ibase1+coop_TEB_index_B, ibase2+coop_TEB_index_E, QB_IND(ib, ind, coop_TEB_index_EB)) = Cb_EE(coop_TEB_index_EB, ib)
 
-                   dSdq((ich1-1)*nmaps+coop_TEB_index_T, (ich2-1)*nmaps+coop_TEB_index_T, QB_IND(ib, ind, coop_TEB_index_TT)) = Cb_EE(coop_TEB_index_TT, ib)
-                   dSdq((ich1-1)*nmaps+coop_TEB_index_T, (ich2-1)*nmaps+coop_TEB_index_E, QB_IND(ib, ind, coop_TEB_index_TE)) = Cb_EE(coop_TEB_index_TE, ib)
-                   dSdq((ich1-1)*nmaps+coop_TEB_index_T, (ich2-1)*nmaps+coop_TEB_index_B, QB_IND(ib, ind, coop_TEB_index_TB)) = Cb_EE(coop_TEB_index_TB, ib)
+                   dSdq(ibase1+coop_TEB_index_T, ibase2+coop_TEB_index_T, QB_IND(ib, ind, coop_TEB_index_TT)) = Cb_EE(coop_TEB_index_TT, ib)
+                   dSdq(ibase1+coop_TEB_index_T, ibase2+coop_TEB_index_E, QB_IND(ib, ind, coop_TEB_index_TE)) = Cb_EE(coop_TEB_index_TE, ib)
+                   dSdq(ibase1+coop_TEB_index_T, ibase2+coop_TEB_index_B, QB_IND(ib, ind, coop_TEB_index_TB)) = Cb_EE(coop_TEB_index_TB, ib)
 
-                   dSdq((ich1-1)*nmaps+coop_TEB_index_E, (ich2-1)*nmaps+coop_TEB_index_T, QB_IND(ib, ind, coop_TEB_index_TE)) = Cb_EE(coop_TEB_index_TE, ib)
-                   dSdq((ich1-1)*nmaps+coop_TEB_index_B, (ich2-1)*nmaps+coop_TEB_index_T, QB_IND(ib, ind, coop_TEB_index_TB)) = Cb_EE(coop_TEB_index_TB, ib)
+                   dSdq(ibase1+coop_TEB_index_E, ibase2+coop_TEB_index_T, QB_IND(ib, ind, coop_TEB_index_TE)) = Cb_EE(coop_TEB_index_TE, ib)
+                   dSdq(ibase1+coop_TEB_index_B, ibase2+coop_TEB_index_T, QB_IND(ib, ind, coop_TEB_index_TB)) = Cb_EE(coop_TEB_index_TB, ib)
                 enddo
              case default
                 write(*,*) "map_genre = "//trim(map_genre)
@@ -439,19 +477,19 @@ contains
 
              do i = 1, nmaps
                 do j = i, nmaps
-                   mat((ich1-1)*nmaps + i, (ich2-1)*nmaps+j) = noisepower(ind)%cls(l, COOP_MATSYM_INDEX(nmaps, i, j))
-                   datamat((ich1-1)*nmaps + i, (ich2-1)*nmaps+j) = signalpower(ind)%cls(l, COOP_MATSYM_INDEX(nmaps, i, j)) 
+                   mat(ibase1 + i, ibase2+j) = noisepower(ind)%cls(l, COOP_MATSYM_INDEX(nmaps, i, j))
+                   datamat(ibase1 + i, ibase2+j) = signalpower(ind)%cls(l, COOP_MATSYM_INDEX(nmaps, i, j)) 
                    if(i.ne.j)then
-                      mat((ich1-1)*nmaps + j, (ich2-1)*nmaps+i) = mat((ich1-1)*nmaps + i, (ich2-1)*nmaps + j)
-                      datamat((ich1-1)*nmaps + j, (ich2-1)*nmaps+i) = datamat((ich1-1)*nmaps + i, (ich2-1)*nmaps + j)
+                      mat(ibase1 + j, ibase2+i) = mat(ibase1 + i, ibase2 + j)
+                      datamat(ibase1 + j, ibase2+i) = datamat(ibase1 + i, ibase2 + j)
                    endif
 
                 enddo
              enddo
              if(ich1 .ne. ich2)then
-                dSdq((ich2-1)*nmaps+1:ich2*nmaps, (ich1-1)*nmaps+1:ich1*nmaps, :) = dSdq((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps, :)
-                mat((ich2-1)*nmaps+1:ich2*nmaps, (ich1-1)*nmaps+1:ich1*nmaps) = mat((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps)
-                datamat((ich2-1)*nmaps+1:ich2*nmaps, (ich1-1)*nmaps+1:ich1*nmaps) = datamat((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps)
+                dSdq(ibase2+1:ich2*nmaps, ibase1+1:ich1*nmaps, :) = dSdq(ibase1+1:ich1*nmaps, ibase2+1:ich2*nmaps, :)
+                mat(ibase2+1:ich2*nmaps, ibase1+1:ich1*nmaps) = mat(ibase1+1:ich1*nmaps, ibase2+1:ich2*nmaps)
+                datamat(ibase2+1:ich2*nmaps, ibase1+1:ich1*nmaps) = datamat(ibase1+1:ich1*nmaps, ibase2+1:ich2*nmaps)
              endif
           enddo
        enddo
@@ -463,11 +501,15 @@ contains
              nonzero(ib) = .true.
           endif
        enddo
-       call coop_sympos_inverse(matdim, matdim, mat)
-!!$       wmat = mat
+       call coop_sympos_inverse(matdim, matdim, mat,info)
+       if(info .ne. 0)then
+          stop "do_qb does not converge, you may try reducing the number of bins."
+       endif
        do ich1 = 1, num_channels
+          ibase1 = (ich1-1) * nmaps
           do ich2 = 1, num_channels
-             wmat((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps) = mat((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps) *weight(COOP_MATSYM_INDEX(num_channels, ich1, ich2))
+             ibase2 = (ich2-1) * nmaps
+             wmat(ibase1+1:ich1*nmaps, ibase2+1:ich2*nmaps) = mat(ibase1+1:ich1*nmaps, ibase2+1:ich2*nmaps) *weight(COOP_MATSYM_INDEX(num_channels, ich1, ich2))
           enddo
        enddo
        !$omp parallel do
@@ -534,8 +576,8 @@ contains
     type(coop_cls)::modelcl
     COOP_REAL::kernel(lmin_data:lmax_data, lmin_data:lmax_data, 4,numcross)
     COOP_REAL::weight(numcross)
-    COOP_INT::i, j, ind, ii, jj, ib, ich1, ich2, icl, jb, jch1, jch2, jcl, iqb
-    COOP_REAL::mat(matdim, matdim), dSdq(matdim, matdim, num_mubs), wmat(matdim, matdim), datamat(matdim, matdim), invDdSdq(matdim, matdim, num_mubs), ells(lmin_data:lmax_data)
+    COOP_INT::i, j, ind, ii, jj, ib, ich1, ich2, icl, jb, jch1, jch2, jcl, iqb, mapind, ibase1, ibase2, info
+    COOP_REAL::mat(matdim, matdim), dSdq(matdim, matdim, num_mubs), wmat(matdim, matdim), datamat(matdim, matdim), invDdSdq(matdim, matdim, num_mubs), ells(lmin_data:lmax_data), tr
     logical::nonzero(num_mubs)
     COOP_REAL::Fisher(num_mubs, num_mubs)
     COOP_REAL::vecb(num_mubs), errorbars(num_mubs), lambda
@@ -563,7 +605,7 @@ contains
           call signalpower(ind)%filter(lmin = lmin_data, lmax = lmax_data)
           call noisepower(ind)%load(trim(noise_cl_root)//"_"//CHIND(i)//"_"//CHIND(j)//".fits")
           call noisepower(ind)%filter(lmin = lmin_data, lmax = lmax_data)
-          signalpower(ind)%cls = signalpower(ind)%cls - noisepower(ind)%cls
+          signalpower(ind)%cls = signalpower(ind)%cls - noisepower(ind)%cls !!remove noise
        enddo
     enddo
     vecb = 0.d0
@@ -571,8 +613,10 @@ contains
     do l = lmin_data, lmax_data
        dSdq = 0.d0
        do ich1 = 1, num_channels
+          ibase1 = (ich1-1) * nmaps
           do ich2 = ich1, num_channels
              ind = COOP_MATSYM_INDEX(num_channels, ich1, ich2)
+             ibase2 = (ich2-1) * nmaps
              call get_Cbs(templatepower, l, kernel(:,:,:,ind), Cb_EE, Cb_BB)
              select case(trim(map_genre))
              case("I")
@@ -581,33 +625,32 @@ contains
                 enddo
              case("QU")
                 do ib = 1, num_ell_bins
-                   dSdq((ich1-1)*nmaps+coop_EB_index_E, (ich2-1)*nmaps+coop_EB_index_E, MUB_IND(ib, coop_EB_index_EE)) =  Cb_EE(coop_EB_index_EE, ib) * qb(QB_IND(ib, ind, coop_EB_index_EE))
-                   dSdq((ich1-1)*nmaps+coop_EB_index_B, (ich2-1)*nmaps+coop_EB_index_B, MUB_IND(ib, coop_EB_index_EE)) = Cb_EE(coop_EB_index_BB, ib)*qb(QB_IND(ib, ind, coop_EB_index_EE))
-                   dSdq((ich1-1)*nmaps+coop_EB_index_E, (ich2-1)*nmaps+coop_EB_index_E, MUB_IND(ib, coop_EB_index_BB)) = Cb_BB(coop_EB_index_EE, ib)*qb(QB_IND(ib, ind, coop_EB_index_BB))
-                   dSdq((ich1-1)*nmaps+coop_EB_index_B, (ich2-1)*nmaps+coop_EB_index_B, MUB_IND(ib, coop_EB_index_BB)) = Cb_BB(coop_EB_index_BB, ib) * qb(QB_IND(ib, ind, coop_EB_index_BB))
-
-                   dSdq((ich1-1)*nmaps+coop_EB_index_E, (ich2-1)*nmaps+coop_EB_index_B, MUB_IND(ib, coop_EB_index_EB)) =  Cb_EE(coop_EB_index_EB, ib)*qb(QB_IND(ib, ind, coop_EB_index_EB))
-                   dSdq((ich1-1)*nmaps+coop_EB_index_B, (ich2-1)*nmaps+coop_EB_index_E, MUB_IND(ib, coop_EB_index_EB)) =  dSdq((ich1-1)*nmaps+coop_EB_index_E, (ich2-1)*nmaps+coop_EB_index_B, MUB_IND(ib, coop_EB_index_EB))
+                   dSdq(ibase1+coop_EB_index_E, ibase2+coop_EB_index_E, MUB_IND(ib, coop_EB_index_EE)) =  Cb_EE(coop_EB_index_EE, ib) * qb(QB_IND(ib, ind, coop_EB_index_EE))
+                   dSdq(ibase1+coop_EB_index_B, ibase2+coop_EB_index_B, MUB_IND(ib, coop_EB_index_EE)) =  Cb_EE(coop_EB_index_BB, ib) * qb(QB_IND(ib, ind, coop_EB_index_EE))
+                   dSdq(ibase1+coop_EB_index_E, ibase2+coop_EB_index_E, MUB_IND(ib, coop_EB_index_BB)) =  Cb_BB(coop_EB_index_EE, ib) * qb(QB_IND(ib, ind, coop_EB_index_BB))
+                   dSdq(ibase1+coop_EB_index_B, ibase2+coop_EB_index_B, MUB_IND(ib, coop_EB_index_BB)) =  Cb_BB(coop_EB_index_BB, ib) * qb(QB_IND(ib, ind, coop_EB_index_BB))
+                   dSdq(ibase1+coop_EB_index_E, ibase2+coop_EB_index_B, MUB_IND(ib, coop_EB_index_EB)) =  Cb_EE(coop_EB_index_EB, ib) * qb(QB_IND(ib, ind, coop_EB_index_EB))
+                   dSdq(ibase1+coop_EB_index_B, ibase2+coop_EB_index_E, MUB_IND(ib, coop_EB_index_EB)) =  dSdq(ibase1+coop_EB_index_E, ibase2+coop_EB_index_B, MUB_IND(ib, coop_EB_index_EB))
                    
                 enddo
              case("IQU")
                 do ib = 1, num_ell_bins
-                   dSdq((ich1-1)*nmaps+coop_TEB_index_E, (ich2-1)*nmaps+coop_TEB_index_E, MUB_IND(ib, coop_TEB_index_EE)) = Cb_EE(coop_TEB_index_EE, ib)*qb(QB_IND(ib, ind, coop_TEB_index_EE))
-                   dSdq((ich1-1)*nmaps+coop_TEB_index_B, (ich2-1)*nmaps+coop_TEB_index_B, MUB_IND(ib, coop_TEB_index_EE)) = Cb_EE(coop_TEB_index_BB, ib)*qb(QB_IND(ib, ind, coop_TEB_index_EE))
+                   dSdq(ibase1+coop_TEB_index_E, ibase2+coop_TEB_index_E, MUB_IND(ib, coop_TEB_index_EE)) = Cb_EE(coop_TEB_index_EE, ib)*qb(QB_IND(ib, ind, coop_TEB_index_EE))
+                   dSdq(ibase1+coop_TEB_index_B, ibase2+coop_TEB_index_B, MUB_IND(ib, coop_TEB_index_EE)) = Cb_EE(coop_TEB_index_BB, ib)*qb(QB_IND(ib, ind, coop_TEB_index_EE))
 
-                   dSdq((ich1-1)*nmaps+coop_TEB_index_E, (ich2-1)*nmaps+coop_TEB_index_E, MUB_IND(ib,coop_TEB_index_BB)) =  Cb_BB(coop_TEB_index_EE, ib)*qb(QB_IND(ib, ind, coop_TEB_index_BB))
-                   dSdq((ich1-1)*nmaps+coop_TEB_index_B, (ich2-1)*nmaps+coop_TEB_index_B, MUB_IND(ib, coop_TEB_index_BB)) = Cb_BB(coop_TEB_index_BB, ib)*qb(QB_IND(ib, ind, coop_TEB_index_BB))
+                   dSdq(ibase1+coop_TEB_index_E, ibase2+coop_TEB_index_E, MUB_IND(ib,coop_TEB_index_BB)) =  Cb_BB(coop_TEB_index_EE, ib)*qb(QB_IND(ib, ind, coop_TEB_index_BB))
+                   dSdq(ibase1+coop_TEB_index_B, ibase2+coop_TEB_index_B, MUB_IND(ib, coop_TEB_index_BB)) = Cb_BB(coop_TEB_index_BB, ib)*qb(QB_IND(ib, ind, coop_TEB_index_BB))
 
-                   dSdq((ich1-1)*nmaps+coop_TEB_index_E, (ich2-1)*nmaps+coop_TEB_index_B, MUB_IND(ib, coop_TEB_index_EB)) = Cb_EE(coop_TEB_index_EB, ib)*qb(QB_IND(ib, ind, coop_TEB_index_EB))
-                   dSdq((ich1-1)*nmaps+coop_TEB_index_B, (ich2-1)*nmaps+coop_TEB_index_E, MUB_IND(ib, coop_TEB_index_EB)) =  dSdq((ich1-1)*nmaps+coop_TEB_index_E, (ich2-1)*nmaps+coop_TEB_index_B, MUB_IND(ib, coop_TEB_index_EB))
+                   dSdq(ibase1+coop_TEB_index_E, ibase2+coop_TEB_index_B, MUB_IND(ib, coop_TEB_index_EB)) = Cb_EE(coop_TEB_index_EB, ib)*qb(QB_IND(ib, ind, coop_TEB_index_EB))
+                   dSdq(ibase1+coop_TEB_index_B, ibase2+coop_TEB_index_E, MUB_IND(ib, coop_TEB_index_EB)) =  dSdq(ibase1+coop_TEB_index_E, ibase2+coop_TEB_index_B, MUB_IND(ib, coop_TEB_index_EB))
 
-                   dSdq((ich1-1)*nmaps+coop_TEB_index_T, (ich2-1)*nmaps+coop_TEB_index_T, MUB_IND(ib, coop_TEB_index_TT)) = Cb_EE(coop_TEB_index_TT, ib)*qb(QB_IND(ib, ind, coop_TEB_index_TT))
+                   dSdq(ibase1+coop_TEB_index_T, ibase2+coop_TEB_index_T, MUB_IND(ib, coop_TEB_index_TT)) = Cb_EE(coop_TEB_index_TT, ib)*qb(QB_IND(ib, ind, coop_TEB_index_TT))
 
-                   dSdq((ich1-1)*nmaps+coop_TEB_index_T, (ich2-1)*nmaps+coop_TEB_index_E, MUB_IND(ib, coop_TEB_index_TE)) = Cb_EE(coop_TEB_index_TE, ib)*qb(QB_IND(ib, ind, coop_TEB_index_TE))
-                   dSdq((ich1-1)*nmaps+coop_TEB_index_T, (ich2-1)*nmaps+coop_TEB_index_B, MUB_IND(ib, coop_TEB_index_TB)) = Cb_EE(coop_TEB_index_TB, ib)*qb(QB_IND(ib, ind, coop_TEB_index_TB))
+                   dSdq(ibase1+coop_TEB_index_T, ibase2+coop_TEB_index_E, MUB_IND(ib, coop_TEB_index_TE)) = Cb_EE(coop_TEB_index_TE, ib)*qb(QB_IND(ib, ind, coop_TEB_index_TE))
+                   dSdq(ibase1+coop_TEB_index_T, ibase2+coop_TEB_index_B, MUB_IND(ib, coop_TEB_index_TB)) = Cb_EE(coop_TEB_index_TB, ib)*qb(QB_IND(ib, ind, coop_TEB_index_TB))
 
-                   dSdq((ich1-1)*nmaps+coop_TEB_index_E, (ich2-1)*nmaps+coop_TEB_index_T, MUB_IND(ib, coop_TEB_index_TE)) =  dSdq((ich1-1)*nmaps+coop_TEB_index_T, (ich2-1)*nmaps+coop_TEB_index_E, MUB_IND(ib, coop_TEB_index_TE))
-                   dSdq((ich1-1)*nmaps+coop_TEB_index_B, (ich2-1)*nmaps+coop_TEB_index_T, MUB_IND(ib, coop_TEB_index_TB)) =  dSdq((ich1-1)*nmaps+coop_TEB_index_T, (ich2-1)*nmaps+coop_TEB_index_B, MUB_IND(ib, coop_TEB_index_TB))
+                   dSdq(ibase1+coop_TEB_index_E, ibase2+coop_TEB_index_T, MUB_IND(ib, coop_TEB_index_TE)) =  dSdq(ibase1+coop_TEB_index_T, ibase2+coop_TEB_index_E, MUB_IND(ib, coop_TEB_index_TE))
+                   dSdq(ibase1+coop_TEB_index_B, ibase2+coop_TEB_index_T, MUB_IND(ib, coop_TEB_index_TB)) =  dSdq(ibase1+coop_TEB_index_T, ibase2+coop_TEB_index_B, MUB_IND(ib, coop_TEB_index_TB))
                 enddo
              case default
                 write(*,*) "map_genre = "//trim(map_genre)
@@ -616,19 +659,20 @@ contains
 
              do i = 1, nmaps
                 do j = i, nmaps
-                   mat((ich1-1)*nmaps + i, (ich2-1)*nmaps+j) = noisepower(ind)%cls(l, COOP_MATSYM_INDEX(nmaps, i, j))
-                   datamat((ich1-1)*nmaps + i, (ich2-1)*nmaps+j) = signalpower(ind)%cls(l, COOP_MATSYM_INDEX(nmaps, i, j)) 
+                   mapind = COOP_MATSYM_INDEX(nmaps, i, j)
+                   mat(ibase1 + i, ibase2+j) = noisepower(ind)%cls(l, mapind)
+                   datamat(ibase1 + i, ibase2+j) = signalpower(ind)%cls(l, mapind) 
                    if(i.ne.j)then
-                      mat((ich1-1)*nmaps + j, (ich2-1)*nmaps+i) = mat((ich1-1)*nmaps + i, (ich2-1)*nmaps + j)
-                      datamat((ich1-1)*nmaps + j, (ich2-1)*nmaps+i) = datamat((ich1-1)*nmaps + i, (ich2-1)*nmaps + j)
+                      mat(ibase1 + j, ibase2+i) = mat(ibase1 + i, ibase2 + j)
+                      datamat(ibase1 + j, ibase2+i) = datamat(ibase1 + i, ibase2 + j)
                    endif
 
                 enddo
              enddo
              if(ich1 .ne. ich2)then
-                dSdq((ich2-1)*nmaps+1:ich2*nmaps, (ich1-1)*nmaps+1:ich1*nmaps, :) = dSdq((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps, :)
-                mat((ich2-1)*nmaps+1:ich2*nmaps, (ich1-1)*nmaps+1:ich1*nmaps) = mat((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps)
-                datamat((ich2-1)*nmaps+1:ich2*nmaps, (ich1-1)*nmaps+1:ich1*nmaps) = datamat((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps)
+                dSdq(ibase2+1:ibase2+nmaps, ibase1+1:ibase1+nmaps, :) = dSdq(ibase1+1:ibase1+nmaps, ibase2+1:ibase2+nmaps, :)
+                mat(ibase2+1:ibase2+nmaps, ibase1+1:ibase1+nmaps) = mat(ibase1+1:ibase1+nmaps, ibase2+1:ibase2+nmaps)
+                datamat(ibase2+1:ibase2+nmaps, ibase1+1:ibase1+nmaps) = datamat(ibase1+1:ibase1+nmaps, ibase2+1:ibase2+nmaps)
              endif
           enddo
        enddo
@@ -640,10 +684,17 @@ contains
              nonzero(ib) = .true.
           endif
        enddo
-       call coop_sympos_inverse(matdim, matdim, mat)
+       wmat = mat
+       call coop_sympos_inverse(matdim, matdim, mat, info)
+       if(info .ne. 0)then
+          stop "do_mub does not converge, you may try reducing the number of bins or improve the quality of the mask."
+       endif
+
        do ich1 = 1, num_channels
+          ibase1 = (ich1-1) * nmaps
           do ich2 = 1, num_channels
-             wmat((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps) = mat((ich1-1)*nmaps+1:ich1*nmaps, (ich2-1)*nmaps+1:ich2*nmaps) *weight(COOP_MATSYM_INDEX(num_channels, ich1, ich2))
+             ibase2 = (ich2-1) * nmaps
+             wmat(ibase1+1:ibase1+nmaps, ibase2+1:ibase2+nmaps) = mat(ibase1+1:ibase1+nmaps, ibase2+1:ibase2+nmaps) *weight(COOP_MATSYM_INDEX(num_channels, ich1, ich2))
           enddo
        enddo
        !$omp parallel do
@@ -687,6 +738,8 @@ contains
     Fisher_used = Fisher(index_mub_used, index_mub_used)
     call coop_sympos_inverse(num_mub_used, num_mub_used, Fisher_used)
     mub(index_mub_used) = matmul(Fisher_used, vecb(index_mub_used))
+    mub(index_mub_used) = max(0.1d0, min(mub(index_mub_used), 10.d0))
+!    print*, mub(index_mub_used)
     errorbars = 0.d0
     do i = 1, num_mub_used
        errorbars(index_mub_used(i)) = sqrt(Fisher_used(i,i))
@@ -741,6 +794,41 @@ contains
     call templatepower%free()
     deallocate(index_mub_used, Fisher_used)
   end subroutine do_mub
+
+  subroutine compare_pseudo_cls()
+    COOP_STRING::noise_cl_root, data_cl_root, signal_cl_root
+    COOP_INT::ich1, ich2, ind, i, j
+    type(coop_asy)::figure
+    type(coop_cls)::noise_cls, signal_cls, data_cls, model_cls
+    COOP_REAL::ells(lmin_data:lmax_data)
+    call coop_dictionary_lookup(settings, "signal_cl_root", signal_cl_root)
+    call coop_dictionary_lookup(settings, "noise_cl_root", noise_cl_root)    
+    call coop_dictionary_lookup(settings, "data_cl_root", data_cl_root)    
+    ells = (/ (i, i=lmin_data, lmax_data) /)
+    call model_cls%load(model_cl_file)
+    call model_cls%filter(lmin = lmin_data, lmax = lmax_data)
+    do ich1 = 1, num_channels
+       do ich2 = ich1, num_channels
+          call noise_cls%load(trim(noise_cl_root)//"_"//CHIND(ich1)//"_"//CHIND(ich2)//".fits")
+          call signal_cls%load(trim(signal_cl_root)//"_"//CHIND(ich1)//"_"//CHIND(ich2)//".fits")
+          call data_cls%load(trim(data_cl_root)//"_"//CHIND(ich1)//"_"//CHIND(ich2)//".fits")
+          do i = 1, nmaps
+             do j = i, nmaps
+                ind = COOP_MATSYM_INDEX(nmaps, i, j)
+                if(any(model_cls%cls(lmin_data:lmax_data, ind).ne.0.d0))then
+                   call figure%open(trim(cl_output_root)//"_"//CHIND(ich1)//"_"//CHIND(ich2)//"_CMP_"//fieldnames(i:i)//fieldnames(j:j)//".txt")
+                   call figure%init(xlabel = "$\ell$", ylabel = "$\ell(\ell+1)C_l^{"//fieldnames(i:i)//fieldnames(j:j)//"}/(2\pi)$")
+                   call figure%plot(ells, (signal_cls%cls(lmin_data:lmax_data, ind)+noise_cls%cls(lmin_data:lmax_data, ind))*ells*(ells+1.d0)/coop_2pi, color="red", linewidth=1.5, legend = "Signal+Noise")
+                   call figure%plot(ells, signal_cls%cls(lmin_data:lmax_data, ind)*ells*(ells+1.d0)/coop_2pi, color="black", linewidth=1., linetype="solid", legend = "Signal")
+                   call figure%plot(ells, data_cls%cls(lmin_data:lmax_data, ind)*ells*(ells+1.d0)/coop_2pi, color="blue", linewidth=2., linetype="dotted", legend = "Data")
+                   call figure%legend()
+                   call figure%close()
+                endif
+             enddo
+          enddo
+       enddo
+    enddo
+  end subroutine compare_pseudo_cls
 
 
 !!****************************************************************************
