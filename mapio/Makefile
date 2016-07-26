@@ -134,7 +134,7 @@ TE2Z: $(OBJ) te2zeta.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) te2zeta.o $(LINK)
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo TE2Z GAUSS MM0 MM1 FStack FStat F2Heal FCoadd ACTTheo FMask FGetPeaks FQU2EB FEB2QU FSmooth FMerge Heal2F FPTOP MCoadd F1D FDUST INP MAP2CLS GAUSS MDUST ClFormat XFASTER ITM
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo TE2Z GAUSS MM0 MM1 FStack FStat F2Heal FCoadd ACTTheo FMask FGetPeaks FQU2EB FEB2QU FSmooth FMerge Heal2F FPTOP MCoadd F1D FDUST INP MAP2CLS GAUSS MDUST ClFormat XFASTER ITM SimuMaps
 
 
 

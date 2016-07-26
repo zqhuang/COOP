@@ -138,7 +138,15 @@ program coop_Xfaster
      do iter = 1, num_iterations
         call do_mub(iter, want_plot = (iter .eq. num_iterations))
      enddo
-  case("COMPARE_PSEUDO_CLS")
+  case("UPDATE_DATA")
+     call do_data()
+     do iter = 1, num_iterations
+        call do_qb(iter)
+     enddo
+     do iter = 1, num_iterations
+        call do_mub(iter, want_plot = (iter .eq. num_iterations))
+     enddo
+  case("COMPARE_PSEUDO_CLS", "COMPARE_CLS")
      call compare_pseudo_cls()
   case default
      write(*,*) "action  = "//trim(action)
@@ -739,6 +747,7 @@ contains
     call coop_sympos_inverse(num_mub_used, num_mub_used, Fisher_used)
     mub(index_mub_used) = matmul(Fisher_used, vecb(index_mub_used))
     mub(index_mub_used) = max(0.1d0, min(mub(index_mub_used), 10.d0))
+    print*, mub(index_mub_used)
 !    print*, mub(index_mub_used)
     errorbars = 0.d0
     do i = 1, num_mub_used

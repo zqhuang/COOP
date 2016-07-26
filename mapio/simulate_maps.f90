@@ -43,6 +43,10 @@ program simmaps
   endif
   call cls%filter(fwhm_arcmin = fwhm_arcmin, highpass_l1 = hp_l1, highpass_l2 = hp_l2)
   call map%simulate(nside, cls)
+  write(*,*) "Simulated map: "//trim(fmap)
+  write(*,*) "NSIDE = "//COOP_STR_OF(map%nside)
+  write(*,*) "NPIX = "//COOP_STR_OF(map%npix)
+  write(*,*) "NMAPS = "//COOP_STR_OF(map%nmaps)
   call map%write(fmap)
   call map%free()
 end program simmaps
