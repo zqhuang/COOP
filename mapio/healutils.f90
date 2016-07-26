@@ -2016,84 +2016,84 @@ contains
     call fp%open_table(filename)
     call coop_dictionary_lookup(this%header, "OBJECT", object, 'FULLSKY')
     if(trim(object).eq."FULLSKY")then
+       call fp%close()
        if(present(nmaps_wanted))then
-          call this%read(filename, nmaps_wanted = nmaps_wanted)
+          call this%read(trim(filename), nmaps_wanted = nmaps_wanted)
        else
-          call this%read(filename)
+          call this%read(trim(filename))
        endif
        return
-    else
-       this%header = fp%header
-       call coop_dictionary_lookup(this%header, "NSIDE", this%nside)
-
-       call coop_dictionary_lookup(this%header, "INDXSCHM", indxschm, "IMPLICIT")
-       this%fullsky = .not.(trim(object).eq."PARTIAL" .and. trim(indxschm) .eq. "EXPLICIT")
-       call coop_dictionary_lookup(this%header, "TFIELDS", nmaps_actual)
-       if(present(nmaps_wanted))then
-          this%nmaps = nmaps_wanted
-       else
-          if(this%fullsky)then
-             this%nmaps = nmaps_actual
-          else
-             this%nmaps = nmaps_actual - 1
-          endif
-       endif
-
-       call this%header%insert( "TFIELDS", COOP_STR_OF(this%nmaps), overwrite = .true.)
-       call this%header%insert( "OBJECT", "FULLSKY", overwrite = .true.)
-       call this%header%insert( "INDXSCHM", "IMPLICIT", overwrite = .true.)
-       
-       call coop_dictionary_lookup(this%header, "ORDERING", ordering, "")
-       select case(trim(adjustl(ordering)))
-       case("RING", "ring", "Ring")
-          this%ordering = COOP_RING
-       case("NESTED", "nested", "Nested")
-          this%ordering = COOP_NESTED
-       case default
-          write(*,*) "Warning: reading in a map with unknown ordering!"
-          this%ordering = COOP_UNKNOWN_ORDERING
-       end select
-
-       call coop_dictionary_lookup(this%header, "BAD_DATA", this%bad_data, this%bad_data)
-       call coop_dictionary_lookup(this%header, "COORDSYS", this%coordsys, this%coordsys)
-       call coop_dictionary_lookup(this%header, "FIRSTPIX", this%firstpix, 0) 
-       this%npix =nside2npix(this%nside)
-       call coop_dictionary_lookup(this%header, "LASTPIX", this%lastpix, this%npix-1)
-       allocate(this%spin(this%nmaps), this%fields(this%nmaps), this%units(this%nmaps), this%map(0:this%npix-1, this%nmaps))
-
-       call coop_dictionary_lookup(this%header, "NAXIS2", this%npix_used)
-       call this%header%insert("NMAPS",  COOP_STR_OF(this%nmaps), overwrite=.true.)
-       call this%header%insert("NPIX",  COOP_STR_OF(this%npix), overwrite=.true.)
-       call this%header%delete("NAXIS2")
-       call this%header%delete("NAXIS1")
-
-       allocate(this%listpix(this%npix_used), data(this%npix_used))
-       this%map = 0.
-       call fp%load_int_column(col = 1, data = this%listpix)
-       do i=1, this%nmaps
-          call coop_dictionary_lookup(fp%header, "TUNIT"//COOP_STR_OF(i+1), this%units(i), "muK")
-          call coop_dictionary_lookup(fp%header, "TTYPE"//COOP_STR_OF(i+1), this%fields(i),"I")
-          call this%fields_to_spins(i)       
-          if(i .lt. nmaps_actual)then
-             call fp%load_single_column(col = i+1, data = data)
-             this%map(this%listpix, i) = data
-          endif
-          call coop_dictionary_lookup(fp%header, "SPIN"//COOP_STR_OF(i+1), this%spin(i), this%spin(i))
-          call this%header%insert( "TUNIT"//COOP_STR_OF(i), trim(this%units(i)),overwrite=.true.)
-          call this%header%insert( "TTYPE"//COOP_STR_OF(i), trim(this%fields(i)),overwrite=.true.)
-          call this%header%insert( "SPIN"//COOP_STR_OF(i), COOP_STR_OF(this%spin(i)))
-          call coop_dictionary_lookup(fp%header, "TFORM"//COOP_STR_OF(i+1), form,'D')
-          call this%header%delete( "TFORM"//COOP_STR_OF(i)) !, trim(form), overwrite=.true.)
-       enddo
-
-       do i = this%nmaps+1, nmaps_actual
-          call this%header%delete("TUNIT"//COOP_STR_OF(i))
-          call this%header%delete("TTYPE"//COOP_STR_OF(i))
-          call this%header%delete("SPIN"//COOP_STR_OF(i))
-          call this%header%delete("TFORM"//COOP_STR_OF(i))
-       enddo
-       deallocate(data)
     endif
+    this%header = fp%header
+    call coop_dictionary_lookup(this%header, "NSIDE", this%nside)
+
+    call coop_dictionary_lookup(this%header, "INDXSCHM", indxschm, "IMPLICIT")
+    this%fullsky = .not.(trim(object).eq."PARTIAL" .and. trim(indxschm) .eq. "EXPLICIT")
+    call coop_dictionary_lookup(this%header, "TFIELDS", nmaps_actual)
+    if(present(nmaps_wanted))then
+       this%nmaps = nmaps_wanted
+    else
+       if(this%fullsky)then
+          this%nmaps = nmaps_actual
+       else
+          this%nmaps = nmaps_actual - 1
+       endif
+    endif
+
+    call this%header%insert( "TFIELDS", COOP_STR_OF(this%nmaps), overwrite = .true.)
+    call this%header%insert( "OBJECT", "FULLSKY", overwrite = .true.)
+    call this%header%insert( "INDXSCHM", "IMPLICIT", overwrite = .true.)
+
+    call coop_dictionary_lookup(this%header, "ORDERING", ordering, "")
+    select case(trim(adjustl(ordering)))
+    case("RING", "ring", "Ring")
+       this%ordering = COOP_RING
+    case("NESTED", "nested", "Nested")
+       this%ordering = COOP_NESTED
+    case default
+       write(*,*) "Warning: reading in a map with unknown ordering!"
+       this%ordering = COOP_UNKNOWN_ORDERING
+    end select
+
+    call coop_dictionary_lookup(this%header, "BAD_DATA", this%bad_data, this%bad_data)
+    call coop_dictionary_lookup(this%header, "COORDSYS", this%coordsys, this%coordsys)
+    call coop_dictionary_lookup(this%header, "FIRSTPIX", this%firstpix, 0) 
+    this%npix =nside2npix(this%nside)
+    call coop_dictionary_lookup(this%header, "LASTPIX", this%lastpix, this%npix-1)
+    allocate(this%spin(this%nmaps), this%fields(this%nmaps), this%units(this%nmaps), this%map(0:this%npix-1, this%nmaps))
+
+    call coop_dictionary_lookup(this%header, "NAXIS2", this%npix_used)
+    call this%header%insert("NMAPS",  COOP_STR_OF(this%nmaps), overwrite=.true.)
+    call this%header%insert("NPIX",  COOP_STR_OF(this%npix), overwrite=.true.)
+    call this%header%delete("NAXIS2")
+    call this%header%delete("NAXIS1")
+
+    allocate(this%listpix(this%npix_used), data(this%npix_used))
+    this%map = 0.
+    call fp%load_int_column(col = 1, data = this%listpix)
+    do i=1, this%nmaps
+       call coop_dictionary_lookup(fp%header, "TUNIT"//COOP_STR_OF(i+1), this%units(i), "muK")
+       call coop_dictionary_lookup(fp%header, "TTYPE"//COOP_STR_OF(i+1), this%fields(i),"I")
+       call this%fields_to_spins(i)       
+       if(i .lt. nmaps_actual)then
+          call fp%load_single_column(col = i+1, data = data)
+          this%map(this%listpix, i) = data
+       endif
+       call coop_dictionary_lookup(fp%header, "SPIN"//COOP_STR_OF(i+1), this%spin(i), this%spin(i))
+       call this%header%insert( "TUNIT"//COOP_STR_OF(i), trim(this%units(i)),overwrite=.true.)
+       call this%header%insert( "TTYPE"//COOP_STR_OF(i), trim(this%fields(i)),overwrite=.true.)
+       call this%header%insert( "SPIN"//COOP_STR_OF(i), COOP_STR_OF(this%spin(i)))
+       call coop_dictionary_lookup(fp%header, "TFORM"//COOP_STR_OF(i+1), form,'D')
+       call this%header%delete( "TFORM"//COOP_STR_OF(i)) !, trim(form), overwrite=.true.)
+    enddo
+
+    do i = this%nmaps+1, nmaps_actual
+       call this%header%delete("TUNIT"//COOP_STR_OF(i))
+       call this%header%delete("TTYPE"//COOP_STR_OF(i))
+       call this%header%delete("SPIN"//COOP_STR_OF(i))
+       call this%header%delete("TFORM"//COOP_STR_OF(i))
+    enddo
+    deallocate(data)
 
     call fp%close()
 #endif
