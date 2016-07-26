@@ -2014,8 +2014,10 @@ contains
 #if HAS_HEALPIX
     call this%free()
     call fp%open_table(filename)
-    call coop_dictionary_lookup(this%header, "OBJECT", object, 'FULLSKY')
-    if(trim(object).eq."FULLSKY")then
+    call coop_dictionary_lookup(fp%header, "OBJECT", object, 'FULLSKY')
+    call coop_dictionary_lookup(fp%header, "INDXSCHM", indxschm, "IMPLICIT")
+    this%fullsky = .not.(trim(object).eq."PARTIAL" .and. trim(indxschm) .eq. "EXPLICIT")
+    if(this%fullsky)then
        call fp%close()
        if(present(nmaps_wanted))then
           call this%read(trim(filename), nmaps_wanted = nmaps_wanted)
@@ -2024,11 +2026,10 @@ contains
        endif
        return
     endif
+    this%fullsky = .false.
     this%header = fp%header
     call coop_dictionary_lookup(this%header, "NSIDE", this%nside)
 
-    call coop_dictionary_lookup(this%header, "INDXSCHM", indxschm, "IMPLICIT")
-    this%fullsky = .not.(trim(object).eq."PARTIAL" .and. trim(indxschm) .eq. "EXPLICIT")
     call coop_dictionary_lookup(this%header, "TFIELDS", nmaps_actual)
     if(present(nmaps_wanted))then
        this%nmaps = nmaps_wanted

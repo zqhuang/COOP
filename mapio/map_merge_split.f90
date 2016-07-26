@@ -426,6 +426,8 @@ program map
         call hgm2%read(trim(fin(2)))
         if(hgm2%nside .ne. hgm%nside) stop "map with different resolution cannot be added"
         if(hgm%nmaps.eq.hgm2%nmaps)then
+           call hgm%convert2ring()
+           call hgm2%convert2ring()
            do i=1, hgm%nmaps
               hgm%map(:, i) = hgm%map(:, i) + hgm2%map(:,i)
            enddo
@@ -452,6 +454,9 @@ program map
         call hgm2%read(trim(fin(2)))
         if(hgm2%nside .ne. hgm%nside) stop "map with different resolution cannot be subtracted"
         if(hgm%nmaps.eq.hgm2%nmaps)then
+           call hgm%convert2ring()
+           call hgm2%convert2ring()
+
            do i=1, hgm%nmaps
               hgm%map(:, i) = hgm%map(:, i) - hgm2%map(:,i)
            enddo

@@ -28,7 +28,7 @@ program map
   i = 2
   fmask = trim(coop_InputArgs(i))
   if(coop_file_exists(fin))then
-     call hgm%read_simple(trim(fin))
+     call hgm%read(trim(fin))
      write(*,"(A)")"**********************************"
      write(*, "(A)")  "file: "//trim(fin)
      write(*, "(A,I5)") "nmaps = "//COOP_STR_OF(hgm%nmaps)
