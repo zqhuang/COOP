@@ -15,7 +15,7 @@ program coop_Xfaster
 !!this is coop version of xfaster, written from scratch. 
   COOP_STRING::inifile, qb_output_root, cl_output_root, mub_output_root, Fisher_output_root, model_cl_file
   COOP_SHORT_STRING,dimension(:),allocatable::channel_name
-  COOP_INT::sim_index_width
+  COOP_INT::sim_index_width, feedback
   COOP_STRING::action, map_genre, map_unit
   COOP_INT::ib, num_iterations, iter, ich
   COOP_REAL,parameter::fisher_threshold = 1.d-4
@@ -36,6 +36,7 @@ program coop_Xfaster
   inifile = trim(coop_InputArgs(1))
   call coop_load_dictionary(inifile, settings)
   call coop_dictionary_lookup(settings, 'action', action)
+  call coop_dictionary_lookup(settings, 'feedback', feedback, 1)
   call coop_dictionary_lookup(settings, 'map_genre', map_genre, 'IQU')
   call coop_dictionary_lookup(settings, 'qb_output_root', qb_output_root)
   call coop_dictionary_lookup(settings, 'mub_output_root', mub_output_root)
@@ -76,7 +77,7 @@ program coop_Xfaster
   allocate(channel_name(num_channels))
   do ich = 1, num_channels
      call coop_dictionary_lookup(settings, 'channel'//COOP_STR_OF(ich)//'_name', channel_name(ich), COOP_STR_OF(ich))
-     write(*,*) "channel : "//CHIND(ich)
+     if(feedback .ge. 2)write(*,*) "channel : "//CHIND(ich)
   enddo
   
   call coop_dictionary_lookup(settings, 'sim_index_width', sim_index_width, 0)
@@ -249,9 +250,9 @@ contains
        if(smooth_mask_fwhm .gt. 0.d0)then
           call mask%smooth(fwhm = smooth_mask_fwhm)
        endif
-       print*, "fsky for mask #"//COOP_STR_OF(ich)//" is "//COOP_STR_OF(sum(mask%map(:,1))/mask%npix)
+       if(feedback .ge. 1) write(*,*) "fsky for mask #"//COOP_STR_OF(ich)//" is "//COOP_STR_OF(sum(mask%map(:,1))/mask%npix)
        call mask%write(trim(mask_root)//"_"//CHIND(ich)//".fits")
-       print*, "channel "//COOP_STR_OF(ich)//" fsky: "//COOP_STR_OF(sum(mask%map(:,1))/mask%npix)
+       if(feedback .ge. 1) write(*,*) "channel "//COOP_STR_OF(ich)//" fsky: "//COOP_STR_OF(sum(mask%map(:,1))/mask%npix)
     enddo
   end subroutine do_mask
 
@@ -261,8 +262,10 @@ contains
     type(coop_healpix_maps)::mask1, mask2
     type(coop_dictionary)::header
     COOP_REAL,dimension(:,:,:),allocatable::kernel
-    write(*,*) "***************************************************"
-    write(*,*) "Doing mask kernels."
+    if(feedback .ge. 1)then
+       write(*,*) "***************************************************"
+       write(*,*) "Doing mask kernels."
+    endif
     call coop_dictionary_lookup(settings, "kernel_root", kernel_root)
     call coop_dictionary_lookup(settings, "mask_root", mask_root)
     call coop_dictionary_lookup(settings, "lmax_mask", lmax_mask, 300)
@@ -276,7 +279,8 @@ contains
        call header%insert("WEIGHT", COOP_STR_OF( sum(mask1%map(:,1)**2)**2/dble(mask1%npix)/sum(mask1%map(:,1)**4)), overwrite = .true.)
        call coop_pseudoCl_get_kernel(lmax_mask = lmax_mask, Cl_mask = dble(mask1%cl(0:lmax_mask, 1)), lmin = 0 , lmax= lmax_kernel, kernel = kernel)
        call coop_fits_file_write_image_3d(filename = trim(kernel_root)//"_"//CHIND(ich1)//"_"//CHIND(ich1)//".fits", image = kernel, header=header)
-       write(*,*) "kernel file "//trim(kernel_root)//"_"//CHIND(ich1)//"_"//CHIND(ich1)//".fits is produced."
+       if(feedback .ge. 1) &
+            write(*,*) "kernel file "//trim(kernel_root)//"_"//CHIND(ich1)//"_"//CHIND(ich1)//".fits is produced."
        do ich2 = ich1+1, num_channels
           call mask2%read(trim(mask_root)//"_"//CHIND(ich2)//".fits", nmaps_wanted=1, nested = .false.)
           call mask2%map2alm(lmax = lmax_mask)
@@ -284,7 +288,8 @@ contains
           call coop_pseudoCl_get_kernel(lmax_mask = lmax_mask, Cl_mask = dble(mask2%cl(0:lmax_mask, 1)), lmin = 0 , lmax= lmax_kernel, kernel = kernel)
           call header%insert("WEIGHT", COOP_STR_OF(sum(mask1%map(:,1)*mask2%map(:,1))**2/mask1%npix/sum((mask1%map(:,1)*mask2%map(:,1))**2)), overwrite = .true.)
           call coop_fits_file_write_image_3d(filename = trim(kernel_root)//"_"//CHIND(ich1)//"_"//CHIND(ich2)//".fits", image = kernel, header = header)
-          write(*,*) "kernel file "//trim(kernel_root)//"_"//CHIND(ich1)//"_"//CHIND(ich2)//".fits is produced."
+          if(feedback .ge. 1) &
+               write(*,*) "kernel file "//trim(kernel_root)//"_"//CHIND(ich1)//"_"//CHIND(ich2)//".fits is produced."
        enddo
     enddo
     call mask1%free()
@@ -302,14 +307,18 @@ contains
     call coop_dictionary_lookup(settings, "mask_root", mask_root)
     call coop_dictionary_lookup(settings, "num_noise_sims", num_noise_sims)
     call noisepower%init(lmin = lmin_data, lmax = lmax_data, genre = map_genre, unit = map_unit, spin = spin)
-    write(*,*) "***************************************************"
-    write(*,*) "computing noise power from "//COOP_STR_OF(num_noise_sims)//" simulations"
+    if(feedback .ge. 1)then
+       write(*,*) "***************************************************"
+       write(*,*) "computing noise power from "//COOP_STR_OF(num_noise_sims)//" simulations"
+    endif
     do ich1 = 1, num_channels
        do ich2 = ich1, num_channels
-          write(*,"(A$)") "channel "//CHIND(ich1)//" x channel "//CHIND(ich2)
+          if(feedback .ge. 1) &
+               write(*,"(A$)") "channel "//CHIND(ich1)//" x channel "//CHIND(ich2)
           noisepower%cls = 0.d0
           do isim = 1, num_noise_sims
-             write(*,"(A$)") "."
+             if(feedback .ge. 1) &
+                  write(*,"(A$)") "."
              call read_map(noise1, trim(noise_sim_root)//"_"//CHSIMIND(ich1, isim)//".fits", trim(mask_root)//"_"//CHIND(ich1)//".fits")
              if(ich2.ne.ich1)then
                 call read_map(noise2, trim(noise_sim_root)//"_"//CHSIMIND(ich2, isim)//".fits", trim(mask_root)//"_"//CHIND(ich2)//".fits")
@@ -320,7 +329,8 @@ contains
           noisepower%cls = noisepower%cls/num_noise_sims
           call noisepower%smooth(5)
           call noisepower%dump(trim(noise_cl_root)//"_"//CHIND(ich1)//"_"//CHIND(ich2)//".fits")
-          write(*,*)
+          if(feedback .ge. 1) &
+               write(*,*)
        enddo
     enddo
     call noise1%free()
@@ -341,15 +351,19 @@ contains
     call coop_dictionary_lookup(settings, "signal_sim_root", signal_sim_root)
     call coop_dictionary_lookup(settings, "signal_cl_root", signal_cl_root)
     call coop_dictionary_lookup(settings, "num_signal_sims", num_signal_sims)
-    write(*,*) "***************************************************"
-    write(*,*) "computing sigal power from "//COOP_STR_OF(num_signal_sims)//" simulations"
+    if(feedback .ge. 1)then
+       write(*,*) "***************************************************"
+       write(*,*) "computing sigal power from "//COOP_STR_OF(num_signal_sims)//" simulations"
+    endif
     call signalpower%init(lmin = lmin_data, lmax = lmax_data, genre = map_genre, unit = map_unit, spin = spin)
     do ich1 = 1, num_channels
        do ich2 = ich1, num_channels
-          write(*,"(A$)") "channel "//CHIND(ich1)//" x channel "//CHIND(ich2)
+          if(feedback .ge. 1) &
+               write(*,"(A$)") "channel "//CHIND(ich1)//" x channel "//CHIND(ich2)
           signalpower%cls = 0.d0
           do isim = 1, num_signal_sims
-             write(*,"(A$)") "."
+             if(feedback .ge. 1) &
+                  write(*,"(A$)") "."
              call read_map(sig1, trim(signal_sim_root)//"_"//CHSIMIND(ich1, isim)//".fits", trim(mask_root)//"_"//CHIND(ich1)//".fits")
              if(ich2.ne.ich1)then
                 call read_map(sig2, trim(signal_sim_root)//"_"//CHSIMIND(ich2, isim)//".fits", trim(mask_root)//"_"//CHIND(ich2)//".fits")
@@ -359,7 +373,8 @@ contains
           enddo
           signalpower%cls = signalpower%cls/num_signal_sims
           call signalpower%dump(trim(signal_cl_root)//"_"//CHIND(ich1)//"_"//CHIND(ich2)//".fits")
-          write(*,*)
+          if(feedback .ge. 1) &
+               write(*,*)
        enddo
     enddo
     call sig1%free()
@@ -373,8 +388,10 @@ contains
     type(coop_healpix_maps)::map1, map2
     COOP_INT::ich1, ich2
     type(coop_cls)::datapower
-    write(*,*) "***************************************************"
-    write(*,"(A$)") "Doing pseudo Cls"
+    if(feedback .ge. 1) then
+       write(*,*) "***************************************************"
+       write(*,"(A$)") "Doing pseudo Cls"
+    endif
     call coop_dictionary_lookup(settings, "data_map_root", data_map_root)
     call coop_dictionary_lookup(settings, "data_cl_root", data_cl_root)
     call coop_dictionary_lookup(settings, "mask_root", mask_root)
@@ -382,16 +399,19 @@ contains
        call read_map(map1, trim(data_map_root)//"_"//CHIND(ich1)//".fits", trim(mask_root)//"_"//CHIND(ich1)//".fits")
        call datapower%init(lmin = lmin_data, lmax = lmax_data, genre = map_genre, unit = map_unit, spin = spin, cls = dble(map1%cl(lmin_data:lmax_data, :)))
        call datapower%dump(trim(data_cl_root)//"_"//CHIND(ich1)//"_"//CHIND(ich1)//".fits")
-       write(*,"(A$)") "."
+       if(feedback .ge.1 ) &
+            write(*,"(A$)") "."
        do ich2 = ich1+1, num_channels
           call read_map(map2, trim(data_map_root)//"_"//CHIND(ich2)//".fits", trim(mask_root)//"_"//CHIND(ich2)//".fits")
           call map2%get_cls(map1)
           call datapower%init(lmin = lmin_data, lmax = lmax_data, genre = map_genre, unit = map_unit, spin = spin, cls = dble(map2%cl(lmin_data:lmax_data, :)))
           call datapower%dump(trim(data_cl_root)//"_"//CHIND(ich1)//"_"//CHIND(ich2)//".fits")
-          write(*,"(A$)") "."
+          if(feedback .ge.1 ) &
+               write(*,"(A$)") "."
        enddo
     enddo
-    write(*,*)
+    if(feedback .ge. 1) &
+         write(*,*)
     call map1%free()
     call map2%free()
     call datapower%free()
@@ -414,8 +434,10 @@ contains
     type(coop_file)::fp
     COOP_REAL,dimension(:,:),allocatable::Fisher_used
     COOP_INT,dimension(:),allocatable::index_qb_used
-    write(*,*) "***************************************************"
-    write(*,*) "Iterating the maximum-likelihood Cls"
+    if(feedback .ge. 1)then
+       write(*,*) "***************************************************"
+       write(*,*) "Iterating the maximum-likelihood Cls"
+    endif
     call coop_dictionary_lookup(settings, "kernel_root", kernel_root)
     call coop_dictionary_lookup(settings, "signal_cl_root", signal_cl_root)
     call coop_dictionary_lookup(settings, "noise_cl_root", noise_cl_root)
@@ -540,7 +562,9 @@ contains
        enddo
        !$omp end parallel do
     enddo
-    write(*,*)
+    if(feedback .ge. 1)then
+       write(*,*)
+    endif
     do ib = 1, num_qbs
        do jb = ib+1, num_qbs
           Fisher(jb, ib)  = Fisher(ib, jb)
@@ -594,8 +618,10 @@ contains
     COOP_REAL,dimension(:,:),allocatable::Fisher_used
     COOP_INT,dimension(:),allocatable::index_mub_used
     type(coop_asy)::figure
-    write(*,*) "***************************************************"
-    write(*,*) "Iterating the maximum-likelihood Cls"
+    if(feedback .ge. 1)then
+       write(*,*) "***************************************************"
+       write(*,*) "Iterating the maximum-likelihood Cls"
+    endif
     call coop_dictionary_lookup(settings, "kernel_root", kernel_root)
     call coop_dictionary_lookup(settings, "data_cl_root", data_cl_root)
     call coop_dictionary_lookup(settings, "noise_cl_root", noise_cl_root)
@@ -746,9 +772,8 @@ contains
     Fisher_used = Fisher(index_mub_used, index_mub_used)
     call coop_sympos_inverse(num_mub_used, num_mub_used, Fisher_used)
     mub(index_mub_used) = matmul(Fisher_used, vecb(index_mub_used))
-    mub(index_mub_used) = max(0.1d0, min(mub(index_mub_used), 10.d0))
-    print*, mub(index_mub_used)
-!    print*, mub(index_mub_used)
+    mub(index_mub_used) = max(0.2d0, min(mub(index_mub_used), 5.d0)) !!set limits 
+    if(feedback .ge. 2) write(*, "("//COOP_STR_OF(num_mub_used)//"F10.3)") mub(index_mub_used)
     errorbars = 0.d0
     do i = 1, num_mub_used
        errorbars(index_mub_used(i)) = sqrt(Fisher_used(i,i))
