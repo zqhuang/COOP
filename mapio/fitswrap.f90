@@ -835,7 +835,7 @@ contains
        do i=1, this%dim
           this%transform(:, i) =  this%transform(:, i) * delta(i)
        enddo
-       deallocate(delta)
+       deallocate(delta, units)
        this%invtrans = this%transform
        call coop_matrix_inverse(this%invtrans)
     class default
