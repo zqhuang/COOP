@@ -117,6 +117,10 @@ FPTOP:  $(OBJ) flat_ptop.o
 FMask:  $(OBJ) flat_mask.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_mask.o $(LINK)
 
+FGenMask:  $(OBJ) flat_genmask.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_genmask.o $(LINK)
+
+
 FSim:  $(OBJ) flat_sim.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) flat_sim.o $(LINK)
 
@@ -134,7 +138,7 @@ TE2Z: $(OBJ) te2zeta.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) te2zeta.o $(LINK)
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo TE2Z GAUSS MM0 MM1 FStack FStat F2Heal FCoadd ACTTheo FMask FGetPeaks FQU2EB FEB2QU FSmooth FMerge Heal2F FPTOP MCoadd F1D FDUST INP MAP2CLS GAUSS MDUST ClFormat XFASTER ITM SimuMaps
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test UDG GetPeaks Stack MSMAP ByProd GetInfo GetTheo TE2Z GAUSS MM0 MM1 FStack FStat F2Heal FCoadd ACTTheo FMask FGetPeaks FQU2EB FEB2QU FSmooth FMerge FGenMask Heal2F FPTOP MCoadd F1D FDUST INP MAP2CLS GAUSS MDUST ClFormat XFASTER ITM SimuMaps
 
 
 
