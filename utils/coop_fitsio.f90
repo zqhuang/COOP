@@ -1121,8 +1121,10 @@ contains
     COOP_INT::bitpix, naxis, group, fpixel, nelements, naxes(1024)
     COOP_FITSIO_CARD::card
 #if HAS_CFITSIO
-    call system('rm -f '//trim(filename))
+    if(coop_file_exists(filename)) call coop_delete_file(filename)
     nelements = size(image)
+    group = 1
+    fpixel = 1
     if(present(header))then
        call coop_dictionary_lookup(header, "BITPIX", bitpix, -64)
        call coop_dictionary_lookup(header, "NAXIS", naxis, 0)
