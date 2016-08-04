@@ -104,7 +104,7 @@ program flatcoadd
   if(has_weights)then
      call coop_dictionary_lookup(params, "truncate_weight", truncate_weight, default_val = 0.05d0)
      mean_weight = sum(total_weights%image)/total_weights%npix
-     truncate = truncate_weight*mean_weight
+     truncate = truncate_weight * mean_weight
      write(*,*) "mean weight = ", mean_weight
      write(*,*) "truncating at weight <=", truncate
      where(total_weights%image .gt. truncate)

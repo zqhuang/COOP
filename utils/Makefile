@@ -18,6 +18,9 @@ $(LIB): $(OBJ)
 Test: $(OBJ) test.o $(TYPEDEF)/libcooptypedef.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
 
+IDP: $(OBJ) IDPossible.o $(TYPEDEF)/libcooptypedef.a
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) IDPossible.o $(LINK)
+
 MPLOT: $(OBJ) makeplot.o $(TYPEDEF)/libcooptypedef.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) makeplot.o $(LINK)
 

@@ -78,17 +78,23 @@ contains
   !!params is the object containing all the parameters and methods
   !! return dyda = d y/d a
     COOP_INT::n
-    COOP_REAL::a, y(n), dyda(n), dadt, bprime(3), growthD, delta, dark_Energy_term, radiation_term,  rho_m, rhombar, rhombarby3, dlnmdt, q, dvdphi
+    COOP_REAL::a, y(n), dyda(n), dadt, bprime(3), growthD, delta, dark_Energy_term, radiation_term,  rho_m, rhombar, rhombarby3, dlnmdt, q, dvdphi, phi_eq_up, phi_eq_down, phi_eq
     type(coop_coupledDE_collapse_params)::params
     COOP_REAL,parameter::eps = coop_coupledDE_collapse_accuracy, max_decay_rate = 1.d5
-    COOP_REAL::suppression_factor, arat(3)
+    COOP_REAL::suppression_factor, arat(3), lnaeff
     logical::all_frozen
     dadt = params%dadt(a)
     radiation_term = -params%cosmology%Omega_r/a**4*2.d0
     if(params%is_coupled)then
        dark_Energy_term =  -(y(8)**2-O0_DE(params%cosmology)%cplde_Vofphi%eval(y(7)))*2.d0/3.d0
        rho_m = 3.d0*(params%cosmology%Omega_c_bare+params%cosmology%Omega_b_bare)*exp(O0_DE(params%cosmology)%cplde_intQofphi%eval(y(7)))/(y(1)*y(2)*y(3))
-
+       q =  O0_DE(params%cosmology)%cplde_intQofphi%derivative(y(7))
+       dvdphi = O0_DE(params%cosmology)%cplde_Vofphi%derivative(y(7))
+       if(q*rho_m .gt. 10.d0 )then !tight coupling
+          lnaeff = log(y(1)*y(2)*y(3))/3.d0
+          y(7) = O0_DE(params%cosmology)%cplDE_phi_lna%eval(lnaeff)  
+          y(8) = O0_DE(params%cosmology)%cplDE_phi_prime_lna%eval(lnaeff)*dadt/a
+       endif
        dlnmdt = O0_DE(params%cosmology)%cplde_intQofphi%derivative(y(7))*y(8)
     else
        dark_Energy_term = -O0_DE(params%cosmology)%density(a)*(1.d0/3.d0+ O0_DE(params%cosmology)%wofa(a))
@@ -197,15 +203,11 @@ contains
        if(all_frozen)then
           dyda(7:8) = 0.d0
        else
-          if(y(7) .gt. 1.d-30)then
-             dyda(7) = y(8)/dadt
-             q =  O0_DE(params%cosmology)%cplde_intQofphi%derivative(y(7))
-             dvdphi = O0_DE(params%cosmology)%cplde_Vofphi%derivative(y(7))
-             dyda(8) = params%ddotphi(a, y(7), y(8), rho_m, q, dvdphi, dadt/a)/dadt
-             dyda(7) = max(-y(7)/a*max_decay_rate, dyda(7))
+          dyda(7) = y(8)/dadt
+          if(q*rho_m .gt. 10.d0 )then !tight coupling
+             dyda(8) = 0.d0
           else
-             dyda(7) = 1.d-29
-             dyda(8) = 1.d-29
+             dyda(8) = params%ddotphi(a, y(7), y(8), rho_m, q, dvdphi, dadt/a)/dadt
           endif
        endif
     endif
@@ -255,11 +257,17 @@ contains
        do i=1, n
           call coop_dverk_with_coupledDE_collapse_params(this%num_ode_vars, coop_coupledDE_collapse_odes, this, a, y, a_arr(i), tol, ind, c, this%num_ode_vars, w)
           x_arr(1:m, i) = y(1:m)
-          if(size(x_arr,1).ge.9)then
-             x_arr(9, i) = this%cosmology%Hratio(a_arr(i))*a_arr(i)**1.5
+          if(size(x_arr, 1).ge.9)then
+             x_arr(9, i) = this%cosmology%Hratio(a_arr(i))*a_arr(i)
           endif
           if(size(x_arr,1).ge.10)then
              x_arr(10, i) = this%Growth_D(a_arr(i))/a_arr(i)
+          endif
+          if(size(x_arr,1).ge.11)then
+             x_arr(11, i) = O0_DE(this%cosmology)%cplde_phi_lna%eval(log(a_arr(i)))
+          endif
+          if(size(x_arr,1).ge.11)then
+             x_arr(12, i) = O0_DE(this%cosmology)%cplde_phi_prime_lna%eval(log(a_arr(i)))*this%cosmology%Hratio(a_arr(i))
           endif
        enddo
     class default
@@ -470,7 +478,6 @@ contains
     class(coop_coupledDE_collapse_params)::this
     COOP_REAL::a, phi, phidot, rho_m, Q, dVdphi, H
     COOP_REAL::ddotphi
-    !!put some upper bound to avoid going to netative phi
     ddotphi =-3.d0*H*phidot - dVdphi - Q*rho_m
   end function coop_coupledDE_collapse_params_ddotphi
 

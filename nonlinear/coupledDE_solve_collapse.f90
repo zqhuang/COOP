@@ -29,7 +29,7 @@ program test
   call coop_set_uniform(na, a, 0.03d0, 1.d0)
   call params%get_solution(a, x)
   call fp%open(output)
-  write(fp%unit, "(11A16)")  "# a             ", " x1 ", " x2 ", " x3 ", " dot x1 ", " dot x2 ", " dot x3 ", " phi ", " dot phi ", " a^{-3/2}H ", " D/a "
+  write(fp%unit, "(11A16)")  "# a             ", " x1 ", " x2 ", " x3 ", " dot x1 ", " dot x2 ", " dot x3 ", " phi ", " dot phi ", " a^{3/2}H ", " D/a "
   do i=1, na
      write(fp%unit, "(11E16.7)") a(i), x(:, i)
   enddo

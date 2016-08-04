@@ -1013,6 +1013,12 @@ contains
     call de%cplde_dVdphibyH2_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = dVdphibyH2, method = COOP_INTERPOLATE_LINEAR, name = "d V / d phi / H^2")
     call de%cplde_m2byH2_lna%init(n = ns, xmin = lna(1), xmax = lna(ns), f = m2byH2, method = COOP_INTERPOLATE_LINEAR, name = " m^2/H^2 ")
     de%cplde_Vofphi = Vofphi
+    if(present(normalize_V))then
+       if(.not. normalize_V)  call de%cplde_Vofphi%mult_const(norm)
+    else
+       call de%cplde_Vofphi%mult_const(norm)
+    endif
+
     de%cplde_intQofphi = intQofphi
 
     call this%add_species(cdm)    
