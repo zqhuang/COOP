@@ -95,7 +95,7 @@ contains
           y(7) = O0_DE(params%cosmology)%cplDE_phi_lna%eval(lnaeff)  
           y(8) = O0_DE(params%cosmology)%cplDE_phi_prime_lna%eval(lnaeff)*dadt/a
        endif
-       dlnmdt = O0_DE(params%cosmology)%cplde_intQofphi%derivative(y(7))*y(8)
+       dlnmdt = 0.d0 !O0_DE(params%cosmology)%cplde_intQofphi%derivative(y(7))*y(8) !!I think we are double counting dlnmdt contribution here and in dark_Energy_term
     else
        dark_Energy_term = -O0_DE(params%cosmology)%density(a)*(1.d0/3.d0+ O0_DE(params%cosmology)%wofa(a))
        rho_m = 3.d0*(params%cosmology%Omega_m)/(y(1)*y(2)*y(3))
