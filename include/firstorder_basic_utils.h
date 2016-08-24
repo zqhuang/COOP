@@ -853,6 +853,7 @@
   
   subroutine coop_cosmology_firstorder_source_get_transfer(source, l, trans)
     class(coop_cosmology_firstorder_source)::source
+    COOP_INT,parameter::lc1 = 80, lc2 = 120
     COOP_INT::l, limber_start
     COOP_REAL,dimension(:,:,:)::trans
     COOP_INT::n, ik, idense, itau, ikmin, ikmax, limber_ikmin, itau_cut
@@ -871,7 +872,7 @@
     ikmin = max( coop_right_index(source%nk, source%k, xmin/source%chi(source%index_vis_start)),  2 )
     ikmax = min( source%nk,  ceiling(max(l*4.d0, 800.d0)/source%distlss) )
     !!l < 20;  Want reionization; brute-force integral
-    if(l .lt. 100)then 
+    if(l .lt. lc2)then 
        !$omp parallel do private(ik, itau, idense, jl, x)
        do ik=ikmin, ikmax
           do idense = 1, coop_k_dense_fac 
@@ -884,6 +885,25 @@
           enddo
        enddo
        !$omp end parallel do
+       if(source%m.eq.0 .and. l .gt. lc1)then
+          trans(limber_start:source%nsrc, :,:) = trans(limber_start:source%nsrc, :,:) * cos(coop_pio2*(l-lc1)/(lc2-lc1))**2
+          const = sqrt(coop_pi/2.d0/l)* sin(coop_pio2*(l-lc1)/(lc2-lc1))**2
+          !$omp parallel do private(ik, itau, idense, chi_source, wl, wr)       
+          do ik = ikmin, ikmax
+             do idense = 1, coop_k_dense_fac
+                !limber contribution
+                chi_source = l/source%k_dense(idense, ik)
+                itau = coop_left_index(source%ntau, source%chi, chi_source)
+                if(itau .ge. 1 .and. itau .lt. source%ntau)then
+                   wr = (source%chi(itau) - chi_source)/(source%chi(itau) - source%chi(itau + 1))
+                   wl = 1.d0 - wr
+                   trans(limber_start:source%nsrc, idense, ik) =  trans(limber_start:source%nsrc, idense, ik) + const/source%k_dense(idense, ik) *  (( COOP_INTERP_SOURCE(source, limber_start:source%nsrc, idense, ik, itau) *  wl + COOP_INTERP_SOURCE(source, limber_start:source%nsrc, idense, ik, itau+1) *  wr ))
+                endif
+             enddo
+          enddo
+          !$omp end parallel do
+       endif
+       
        goto 100
     endif
     const = sqrt(coop_pi/2.d0/l)        
