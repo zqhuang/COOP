@@ -157,7 +157,6 @@ subroutine coop_cosmology_firstorder_equations(n, lna, y, yp, cosmology, pert)
             + pert%HdotbyHsq * (pert%alpha_B_prime+pert%HdotbyHsq - pert%u + 2.d0*pert%alpha_B - pert%alpha_K/6.d0 + (3.d0+pert%alpha_M+pert%HdotbyHsq)*(1.d0+pert%alpha_B))  &
             + pert%u - 2.d0*pert%pa2_matter/M2a2H2   &    !!here I am replacing p' with - 4p assuming no massive neutrinos
             + pert%kbyaHsq*(pert%alpha_H - pert%alpha_B)/3.d0
-!       pert%deMat(i_mu, eq_psipp) = 0.d0
       pert%deMat(i_phi, eq_psipp) = 1.d0+2.d0*pert%HdotbyHsq - pert%u - pert%alpha_K/6.d0 + (2.d0+pert%HdotbyHsq)*pert%alpha_B + pert%alpha_B_prime + (3.d0+pert%alpha_M)*(1.d0+pert%alpha_B)
       pert%deMat(i_phip, eq_psipp) = 1.d0 + pert%alpha_B
       pert%deMat(i_const, eq_psipp)  =  - 0.5d0 * (O1_DELTA_B*pert%rhoa2_b/M2a2H2*(pert%cs2b - 1.d0/3.d0) + O1_DELTA_C * pert%rhoa2_c/M2a2H2*(-1.d0/3.d0)- 2.d0/3.d0 * pert%kbyaHsq * anisobyM2) &
@@ -181,26 +180,18 @@ subroutine coop_cosmology_firstorder_equations(n, lna, y, yp, cosmology, pert)
        pert%deMat(:, eq_phi) = pert%deMat(:, eq_phi)/pert%deMat(i_phi, eq_phi)
        pert%deMat(:, eq_phip) = pert%deMat(:, eq_phip)/pert%deMat(i_phip, eq_phip)
        pert%deMat(:, eq_psipp) = pert%deMat(:, eq_psipp)/pert%deMat(i_psipp, eq_psipp)
-       pert%deMat(:, eq_phip) =  pert%deMat(:, eq_phip) - pert%deMat(i_phi, eq_phip)*pert%deMat(:, eq_phi)
+       pert%deMat(:, eq_phip) = pert%deMat(:, eq_phip) - pert%deMat(i_phi, eq_phip)*pert%deMat(:, eq_phi)
        pert%deMat(:, eq_psipp) = pert%deMat(:, eq_psipp) - pert%deMat(:, eq_phi)*pert%deMat(i_phi, eq_psipp) - pert%deMat(:, eq_phip) * pert%deMat(i_phip, eq_psipp)
        pert%deMat(:, eq_mupp) = pert%deMat(:, eq_mupp) - pert%deMat(:, eq_phi) * pert%deMat(i_phi, eq_mupp) - pert%deMat(:, eq_phip) * pert%deMat(i_phip, eq_mupp)
        pert%deMat(:, eq_mupp) = pert%deMat(:, eq_mupp) - pert%deMat(:, eq_psipp) * pert%deMat(i_psipp, eq_mupp)
 
        select case(pert%de_scheme)
-       case(0) !!LCDM
+       case(0) !!LCDM, in this case we don't really care about HPI
           O1_PHI = - pert%deMat(i_const, eq_phi)
           O1_PHI_PRIME = - pert%deMat(i_const, eq_phip) 
           O1_PSIPR_PRIME = - pert%deMat(i_const, eq_psipp) 
-          if(pert%deMat(i_mupp, eq_mupp) .ne. 0.d0 .and. pert%deMat(i_mu, eq_mupp) .ne. 0.d0)then
-             O1_DE_HPI = -pert%deMat(i_const, eq_mupp)/pert%deMat(i_mu, eq_mupp)
-             O1_DE_HPIPR = 0.d0
-          else
-             O1_DE_HPI = ( O1_PSIPR + O1_PHI )/(pert%kbyaHsq/3.d0-pert%HdotbyHsq) 
-             O1_DE_HPIPR = (O1_PSIPR_PRIME + O1_PHI_PRIME+(O1_PSIPR+O1_PHI)*(2.d0/3.d0*pert%kbyaHsq*(1.d0+pert%HdotbyHsq)+pert%HdotbyHsq_prime)/(pert%kbyaHsq/3.d0-pert%HdotbyHsq))/(pert%kbyaHsq/3.d0-pert%HdotbyHsq) 
-          endif
-          O1_DE_HPI_PRIME = O1_DE_HPIPR
+          O1_DE_HPI_PRIME = 0.d0
           O1_DE_HPIPR_PRIME = 0.d0
-
        case(1)
           if(abs(pert%deMat(i_mu, eq_mupp)) .lt. eps)then
              pert%deMat(i_mu, eq_mupp) = sign(eps,  pert%deMat(i_mu, eq_mupp))

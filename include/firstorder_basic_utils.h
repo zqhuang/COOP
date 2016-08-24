@@ -743,7 +743,7 @@
        enddo
        !$omp end parallel do
        
-       source%index_de_perturb_on = coop_right_index(source%ntau, source%omega_de, 1.d-5)
+       source%index_de_perturb_on = coop_right_index(source%ntau, source%omega_de, 1.d-7)
     else
        call coop_return_error("set_source_k", "You need to call set_source_tau before calling set_source_k", "stop")
     endif

@@ -20,7 +20,7 @@ program test
      write(*,*) "./CalcCls  params.ini"
      stop
   endif
-  
+  coop_feedback_level = 4  
   call coop_get_Input(1, params_file)
   call coop_load_dictionary(params_file, params)
   call cosmology%init_from_dictionary(params, level = coop_init_level_set_tens, success = success)

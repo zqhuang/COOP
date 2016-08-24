@@ -540,6 +540,8 @@ contains
 #if DO_EFT_DE       
     case("hpi")
        var = pert%O1_DE_HPI
+    case("dhpidlna")
+       var = pert%O1_DE_HPIPR
     case("pi")
        var = pert%O1_DE_HPI / cosmology%Hratio(pert%a)
     case("dealphacs2")

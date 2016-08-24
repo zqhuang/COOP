@@ -32,7 +32,7 @@ program test
      endif
   endif
 
-  coop_feedback_level = 3
+  coop_feedback_level = 4
   call fp%open(output, "w")
   write(fp%unit, "(A)") "#"//trim(params%value("variables"))
   call cosmology%init_from_dictionary(params, success = success)

@@ -381,6 +381,9 @@ contains
 
 
   subroutine coop_cosmology_firstorder_compute_source_k(this, source, ik, output, names, output_itau, transfer_only, success)
+#if DO_EFT_DE
+    COOP_INT, parameter::i_psipp = 1, i_mupp = 2, i_phi = 3, i_phip = 4, i_mup = 5, i_mu = 6, i_const = 7 , eq_phi = 1, eq_phip = 2, eq_psipp = 3, eq_mupp = 4, eq_aux = 5
+#endif
     COOP_REAL, parameter::eps = 1.d-8
     class(coop_cosmology_firstorder)::this
     type(coop_cosmology_firstorder_source)::source
@@ -391,7 +394,7 @@ contains
     COOP_INT, optional::output_itau
     COOP_INT, optional::output
     type(coop_list_string), optional::names
-    COOP_REAL c(24)
+    COOP_REAL c(24), lastHpi
     COOP_INT ind, i
     COOP_REAL tau_ini, lna, mnu_deltarho, mnu_deltav
     tau_ini = min(coop_initial_condition_epsilon/source%k(ik), this%conformal_time(this%a_eq*coop_initial_condition_epsilon), source%tau(1)*0.999d0)
@@ -455,11 +458,22 @@ contains
        class default
           stop "For compatibility with lower versions of gfortran, firstorder equations only works with type coop_cosmology_firstorder"
        end select
+
        if(present(success))then
           if(.not. (all(abs(pert%y).lt. 1.d20) .and. all(abs(pert%yp) .lt. 1.d20)))then
              success = .false.
              return
           endif
+       endif
+       if(pert%de_scheme .eq. 0)then
+          if(itau .eq. 1)then
+             pert%O1_DE_HPI =  -pert%deMat(i_const, eq_mupp)/pert%deMat(i_mu, eq_mupp)
+             pert%O1_DE_HPIPR =  0.d0
+          else             
+             pert%O1_DE_HPI = (-pert%deMat(i_const, eq_mupp) + pert%deMat(i_mup, eq_mupp)/(source%lna(itau) - source%lna(itau-1))*lastHpi) / ( pert%deMat(i_mu, eq_mupp) + pert%deMat(i_mup, eq_mupp)/(source%lna(itau) - source%lna(itau-1)))
+             pert%O1_DE_HPIPR =  (pert%O1_DE_HPI - lastHpi)/(source%lna(itau) - source%lna(itau-1))
+          endif
+          lastHpi = pert%O1_DE_HPI
        endif
        pert%want_source  = .false.              
        if(present(output))then
@@ -493,13 +507,13 @@ contains
        call this%pert2source(pert, source, itau, ik)
 #if DO_EFT_DE
        if(itau .ge. source%index_de_perturb_on)then
-          if(abs(pert%deMat(2, 4)).gt. 1.d-6)then
+          if(abs(pert%deMat(i_mupp, eq_mupp)).gt. 1.d-6)then
              scheme = 3
           else
-             if((abs(pert%deMat(5, 4)) .gt. eps .and. pert%deMat(2, 4).eq.0.d0) .or. abs(pert%deMat(5, 4)) .gt. 1.d-4 )then
+             if((abs(pert%deMat(i_mup, eq_mupp)) .gt. eps .and. pert%deMat(i_mupp, eq_mupp).eq.0.d0) .or. abs(pert%deMat(i_mup, eq_mupp)) .gt. 1.d-4 )then
                 scheme = 2
              else
-                if((abs(pert%deMat(6, 4)) .gt. eps .and. pert%deMat(2, 4).eq.0.d0 .and. pert%deMat(5, 4) .eq. 0.d0 ).or. abs(pert%deMat(6, 4)) .gt. 1.d-3) then
+                if((abs(pert%deMat(i_mu, eq_mupp)) .gt. eps .and. pert%deMat(i_mupp, eq_mupp).eq.0.d0 .and. pert%deMat(i_mup, eq_mupp) .eq. 0.d0 ).or. abs(pert%deMat(i_mu, eq_mupp)) .gt. 1.d-3) then
                    scheme = 1
                 else
                    scheme = 0
@@ -509,7 +523,6 @@ contains
           if(scheme .ne. pert%de_scheme)then
              ind = 1
              pert%de_scheme = scheme
-!!             if(present(output))print*, "de scheme switched to ", scheme
           endif
        endif
 #endif       

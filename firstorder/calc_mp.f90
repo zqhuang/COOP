@@ -18,7 +18,8 @@ program test
      write(*,*) "./CalcMP  params.ini"
      stop
   endif
-  
+  coop_feedback_level = 4  
+  coop_source_k_index = 0.25 !!sample more low k
   call coop_get_Input(1, params_file)
   call coop_load_dictionary(params_file, params)
   call cosmology%init_from_dictionary(params)
