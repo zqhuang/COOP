@@ -50,13 +50,13 @@ contains
     endif
     if(error.ne.0)then
        write(*,*) trim(mathexpr)
-       stop "invalid math expression (init)"
+       stop "Invalid math expression (init)"
     endif
     length = len_trim(cme%expr)
     call cme%simplify(cme%expr, length, error)
     if(error.ne.0)then
        write(*,*) trim(mathexpr)
-       stop "invalid math expression"
+       stop "Invalid math expression (simplify)"
     endif
     read(cme%expr(2:5),*)ind
     ans = cme%vars(ind)
@@ -137,6 +137,7 @@ contains
     i = 1
     this%expr = ""
     do while(i.le.l)
+
        j = scan(str(i:l), "0123456789.")
        if(j.eq.0)then
           this%expr = trim(this%expr)//str(i:l)
@@ -181,6 +182,7 @@ contains
           endif
        endif
        this%expr = trim(this%expr)//str(i:j-1)
+
        i = j
        !!now i is the location of the beginning of the number
        j = verify(str(i+1:l), "0123456789.")
@@ -205,6 +207,7 @@ contains
        read(str(i:j-1), *) this%vars(this%n)
        this%expr = trim(this%expr)//"$"//trim(coop_4digits(this%n))
        i = j
+
     enddo
     if(scan(this%expr, ".") .ne. 0)then
        error = coop_math_expression_error_extra_dot
@@ -348,7 +351,7 @@ contains
                       return
                    endif
                 case default
-                   select case(ichar(str(ipos-4:ipos-4)))
+                   select case(ichar(str(ipos-1:ipos-1)))
                    case(coop_ascii_lower_a : coop_ascii_lower_z)
                       error = coop_math_expression_error_unknown_function 
                       return
