@@ -465,6 +465,7 @@ contains
              return
           endif
        endif
+#if DO_EFT_DE
        if(pert%de_scheme .eq. 0)then
           if(itau .eq. 1)then
              pert%O1_DE_HPI =  -pert%deMat(i_const, eq_mupp)/pert%deMat(i_mu, eq_mupp)
@@ -475,6 +476,7 @@ contains
           endif
           lastHpi = pert%O1_DE_HPI
        endif
+#endif
        pert%want_source  = .false.              
        if(present(output))then
           if(present(output_itau))then
