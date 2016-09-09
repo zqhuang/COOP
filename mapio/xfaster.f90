@@ -129,6 +129,17 @@ program coop_Xfaster
      do iter = 1, num_iterations
         call do_mub(iter, want_plot = (iter .eq. num_iterations))
      enddo
+  case("DO_ALL_BUT_MASK")
+     call do_kernel()
+     call do_noise()
+     call do_signal()
+     call do_data()
+     do iter = 1, num_iterations
+        call do_qb(iter)
+     enddo
+     do iter = 1, num_iterations
+        call do_mub(iter, want_plot = (iter .eq. num_iterations))
+     enddo
   case("DO_ALL_BUT_KERNEL")
      call do_noise()
      call do_signal()
