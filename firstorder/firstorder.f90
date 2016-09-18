@@ -466,7 +466,7 @@ contains
           endif
        endif
 #if DO_EFT_DE
-       if(pert%de_scheme .eq. 0)then
+       if(pert%de_scheme .eq. 0 .and. pert%deMat(i_mu, eq_mupp).ne.0.d0)then
           if(itau .eq. 1)then
              pert%O1_DE_HPI =  -pert%deMat(i_const, eq_mupp)/pert%deMat(i_mu, eq_mupp)
              pert%O1_DE_HPIPR =  0.d0
