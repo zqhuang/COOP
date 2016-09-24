@@ -73,9 +73,9 @@ program fsm
         endif
      endif
      call fm%map(1)%regularize(reg_limit)
-     if(fm%has_mask)then
+     if(fm%has_mask .and. fm%mask_is_smooth)then
         where(.not. fm%unmasked)
-           fm%map(1)%image = fm%map(1)%image * fm%mask%image/fm%mask_threshold
+           fm%map(1)%image = fm%map(1)%image * sin(fm%mask%image/fm%mask_threshold*coop_pio2)**2
         end where
      endif
      call fm%map(1)%smooth(fwhm = fwhm_arcmin*coop_SI_arcmin, highpass_l1 = max(lmin-20, 2), highpass_l2 = lmin + 20, lmax = lmax, lx_cut = lx_cut, ly_cut = ly_cut, beam = beam)

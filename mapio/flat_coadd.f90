@@ -6,16 +6,17 @@ program flatcoadd
   implicit none
 #include "constants.h"
   type(coop_fits_image_cea)::total_map, total_weights, this_map, this_weights, map_neg, weight_neg
-  COOP_STRING::params_file, map_file, weight_file
+  COOP_STRING::params_file, map_file, weight_file, beam_file
   logical::positive_weights = .true.
   logical::analyze_maps = .false.
   logical::do_filtering = .false.
   logical::has_weights = .true.
   type(coop_dictionary)::params
   logical::do_diff = .false.
-  COOP_INT:: num_maps, i, lmin, lmax
+  COOP_INT:: num_maps, i, lmin, lmax, il, l
   COOP_REAL::coef, truncate, mean_weight, fwhm, reg_limit, truncate_weight
-!  call coop_MPI_Init()
+  COOP_REAL,dimension(:),allocatable::beam
+  type(coop_file)::fp
   call coop_get_Input(1, params_file)
   call coop_load_dictionary(params_file, params)
   call coop_dictionary_lookup(params, "num_maps", num_maps)
@@ -27,25 +28,32 @@ program flatcoadd
   endif
   call coop_dictionary_lookup(params, "positive_weights", positive_weights, default_val = .true.)
   call coop_dictionary_lookup(params, "analyze_maps", analyze_maps, default_val = .false.)
+  call coop_dictionary_lookup(params, "reg_limit", reg_limit, default_val = 0.d0)
   call coop_dictionary_lookup(params, "do_filtering", do_filtering, .false.)
   if(do_filtering)then
      write(*,*) "Doing filtering before coadding."
+     call coop_dictionary_lookup(params, "highpass_lmin", lmin, default_val = 100)
+     write(*,*) "lmin = ", lmin
+     call coop_dictionary_lookup(params, "lowpass_lmax", lmax, default_val = 4000)
+     write(*,*) "lmax = ", lmax
+     call coop_dictionary_lookup(params, "fwhm_arcmin", fwhm, default_val = 0.d0)
+     write(*,*) "FWHM = ", nint(fwhm), " arcmin"
+     fwhm =fwhm*coop_SI_arcmin
+     allocate(beam(0:lmax))
   endif
-  call coop_dictionary_lookup(params, "highpass_lmin", lmin, default_val = 100)
-  call coop_dictionary_lookup(params, "lmax", lmax, default_val = 4000)
-  call coop_dictionary_lookup(params, "fwhm_arcmin", fwhm, default_val = 0.d0)
-  call coop_dictionary_lookup(params, "reg_limit", reg_limit, default_val = 0.d0)
-  fwhm =fwhm*coop_SI_arcmin
 
   has_weights = .true.
   do i=1, num_maps
+     write(*,*) "==========================================================="
      call coop_dictionary_lookup(params, "map"//COOP_STR_OF(i), map_file)
+     write(*,*)  "Map file: "//trim(map_file)
      if(.not. coop_file_exists(map_file))then
         write(*,*) "map"//COOP_STR_OF(i)//":"//trim(map_file)//" is missing"
         stop
      endif
      if(has_weights)then
         call coop_dictionary_lookup(params, "weight"//COOP_STR_OF(i), weight_file)
+        write(*,*)  "Weight file: "//trim(weight_file)
         if(trim(weight_file).eq. "")then
            if(i.eq.1)then
               has_weights = .false.
@@ -64,7 +72,21 @@ program flatcoadd
      call coop_dictionary_lookup(params, "coef"//COOP_STR_OF(i), coef, default_val = 1.d0)
      call this_map%open(map_file)
      call this_map%regularize(reg_limit)
-     if(do_filtering)call this_map%smooth(fwhm = fwhm, highpass_l1 = lmin - 10, highpass_l2 = lmin + 10, lmax = lmax)
+     if(do_filtering)then
+        call coop_dictionary_lookup(params, "beam"//COOP_STR_OF(i), beam_file, "")
+        if(trim(beam_file).ne."")then
+           call fp%open_skip_comments(beam_file)
+           do l = 0, lmax
+              read(fp%unit, *) il, beam(l)
+              if(il.ne.l) stop "beam file error"
+           enddo
+           call fp%close()   
+           write(*,*) "debeaming using file "//trim(beam_file)
+        else
+           beam = 1.d0
+        endif
+        call this_map%smooth(fwhm = fwhm, highpass_l1 = lmin - 10, highpass_l2 = lmin + 10, lmax = lmax, beam = beam)
+     endif
      if(analyze_maps)call this_map%simple_stat()
      if(i.eq.1)then
         total_map = this_map

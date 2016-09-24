@@ -10,46 +10,52 @@ program shells
   use alm_tools
   implicit none
 #include "constants.h"
+  COOP_INT,parameter::ell = 350
+  COOP_UNKNOWN_STRING,parameter::field = "T"
+  COOP_UNKNOWN_STRING,parameter::mode = "s"
+  COOP_UNKNOWN_STRING,parameter::unit = "muK"
+  COOP_INT,parameter::npt = 41, nsim  =30
+  type(coop_file)::fdata, fsim
+  COOP_STRING::legend
+  COOP_INT::i, ipt
+  COOP_REAL::ydata(npt), ysim(npt), x(npt), xtmp, ytmp(npt), ysim2(npt)
   type(coop_asy)::fig
-  COOP_INT,parameter::lmin = 2, lmax = 600
-  COOP_REAL::Cls_Theory(lmin:lmax, 3), Cls_data(lmin:lmax, 3), ells(lmin:lmax)
-  type(coop_file)::fp
-  COOP_INT::l
-  call fp%open_skip_comments("lcdm_scalCls.dat")
-  do l = lmin, lmax
-     read(fp%unit, *) ells(l), Cls_Theory(l, :)
+  select case(mode)
+  case("spn")
+     call fdata%open("actpics/nF0_cutx90y50_act_on_cutx90y50_act_l"//COOP_STR_OF(ell)//"_5a_randrot_"//trim(field)//"onThotcoldnu0_m0.dat")
+     legend = "ACT $"//trim(field)//"$ on ACT $T$"
+  case("s")
+     call fdata%open("actpics/nF0_cutx90y50_act_on_cutx90y50_planck_l"//COOP_STR_OF(ell)//"_5a_randrot_"//trim(field)//"onThotcoldnu0_m0.dat")
+     legend = "ACT $"//trim(field)//"$ on PLANCK $T$"
+  case default
+     stop "unknown mode: the mode must be s or spn"
+  end select
+  do ipt = 1, npt
+     read(fdata%unit,*) x(ipt), ydata(ipt)
   enddo
-  call fp%close()
-  call fp%open_skip_comments("zetaproj/lcdm2_600_Cls.txt")
-  do l = lmin, lmax
-     read(fp%unit, *) ells(l), Cls_data(l, :)
+  call fdata%close()
+  ysim = 0.d0
+  ysim2 = 0.d0
+  call fig%open("l"//COOP_STR_OF(ell)//"_"//trim(mode)//"_"//trim(field)//".txt")
+  call fig%init(xlabel="$\varpi$", ylabel = "$"//trim(field)//"(\mu K)$")
+
+  do i = 1, nsim
+     call fsim%open("actpics/nF0_cutx90y50_"//trim(mode)//COOP_STR_OF(i)//"_on_cutx90y50_"//trim(mode)//COOP_STR_OF(i)//"_l"//COOP_STR_OF(ell)//"_5a_randrot_"//trim(field)//"onThotcoldnu0_m0.dat")
+     do ipt = 1, npt
+        read(fsim%unit, *) xtmp, ytmp(ipt)
+        if(abs(xtmp - x(ipt)).gt. 1.d-4) stop "xaxes do not have the same resolution"
+     enddo
+     call fsim%close()
+     ysim  = ysim + ytmp
+     ysim2 = ysim2 + ytmp**2
   enddo
-  call fp%close()
-  call fig%open("Cl_TT.txt")
-  call fig%init(xlabel="$\ell$", ylabel="$\ell(\ell+1)C_l^{TT}/(2\pi)$", xlog = .false.)
-  call fig%band(x=ells, ylower=Cls_theory(:,1)*(1.d0-2.d0/sqrt(ells+0.5d0)), yupper =Cls_theory(:,1)*(1.d0+2.d0/sqrt(ells+0.5d0)), colorfill = "RGB:150:150:255", linecolor="invisible")
-  call fig%band(x=ells, ylower=Cls_theory(:,1)*(1.d0-1.d0/sqrt(ells+0.5d0)), yupper=Cls_theory(:,1)*(1.d0+1.d0/sqrt(ells+0.5d0)), colorfill = "RGB:100:100:180", linecolor="invisible")
-  call fig%dots(ells, Cls_data(:,1), color="RGB:50:50:50")
-  call fig%plot(ells, Cls_theory(:,1), linewidth =2., color="red")
+  ysim = ysim/nsim
+  ysim2 = sqrt(max(ysim2/nsim - ysim**2, 0.d0))
+  call fig%band(x=x, ylower = ysim - ysim2*2, yupper = ysim+ysim2*2, colorfill = coop_asy_gray_color(0.7), smooth = .false., linecolor = coop_asy_gray_color(0.7) , linewidth = 1.)
+  call fig%band(x=x, ylower = ysim - ysim2, yupper = ysim+ysim2, colorfill = "gray", smooth = .false., linecolor = "gray" , linewidth = 1.)
+  call fig%plot(x , ydata, color = "red", linetype = "solid", linewidth=1.5, legend=trim(legend))
+  call fig%legend(0.3, 0.6)
+  call fig%label("$\ell_{\min} = "//COOP_STR_OF(ell)//"$, FWHM=5 arcmin", 0.3, 0.5)
+  call fig%label("$\ell_{x,\min} = 90,\ \ell_{y,\min}=50$", 0.3, 0.4)
   call fig%close()
-
-
-  call fig%open("Cl_EE.txt")
-  call fig%init(xlabel="$\ell$", ylabel="$\ell(\ell+1)C_l^{EE}/(2\pi)$", xlog = .false.)
-  call fig%band(x=ells, ylower=Cls_theory(:,2)*(1.d0-2.d0/sqrt(ells+0.5d0)), yupper =Cls_theory(:,2)*(1.d0+2.d0/sqrt(ells+0.5d0)), colorfill = "RGB:150:150:255", linecolor="invisible")
-  call fig%band(x=ells, ylower=Cls_theory(:,2)*(1.d0-1.d0/sqrt(ells+0.5d0)), yupper=Cls_theory(:,2)*(1.d0+1.d0/sqrt(ells+0.5d0)), colorfill = "RGB:100:100:180", linecolor="invisible")
-  call fig%dots(ells, Cls_data(:,2), color="RGB:50:50:50")
-  call fig%plot(ells, Cls_theory(:,2), linewidth =2., color="red")
-  call fig%close()
-
-
-  call fig%open("Cl_TE.txt")
-  call fig%init(xlabel="$\ell$", ylabel="$\ell(\ell+1)C_l^{TE}/(2\pi)$", xlog = .false.)
-  call fig%band(x=ells, ylower=Cls_theory(:,3)-sqrt((Cls_theory(:,1)*Cls_theory(:,2)+cls_theory(:,3)**2)/(2.d0*ells+1.d0)), yupper =Cls_theory(:,3)+sqrt((Cls_theory(:,1)*Cls_theory(:,2)+cls_theory(:,3)**2)/(2.d0*ells+1.d0)), colorfill = "RGB:150:150:255", linecolor="invisible")
-  call fig%band(x=ells, ylower=Cls_theory(:,3)-2.d0*sqrt((Cls_theory(:,1)*Cls_theory(:,2)+cls_theory(:,3)**2)/(2.d0*ells+1.d0)), yupper=Cls_theory(:,3)+2.d0*sqrt((Cls_theory(:,1)*Cls_theory(:,2)+cls_theory(:,3)**2)/(2.d0*ells+1.d0)), colorfill = "RGB:100:100:180", linecolor="invisible")
-  call fig%dots(ells, Cls_data(:,3), color="RGB:50:50:50")
-  call fig%plot(ells, Cls_theory(:,3), linewidth =2., color="red")
-  call fig%close()
-
-
 end program shells

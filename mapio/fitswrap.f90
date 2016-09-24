@@ -10,7 +10,7 @@ module coop_fitswrap_mod
 
   private
 
-  public::coop_fits, coop_fits_image, coop_fits_image_cea, coop_fits_QU2EB, coop_fits_EB2QU, coop_fits_image_cea_simulate_TEB, coop_fits_image_cea_EB2QU, coop_fits_image_cea_QU2EB, coop_flatsky_maps
+  public::coop_fits, coop_fits_image, coop_fits_image_cea, coop_fits_QU2EB, coop_fits_EB2QU, coop_fits_image_cea_simulate_TEB, coop_fits_image_cea_EB2QU, coop_fits_image_cea_QU2EB, coop_flatsky_maps, coop_fits_image_cea_smooth_qu
 
   type coop_fits
      COOP_STRING::filename
@@ -80,6 +80,7 @@ module coop_fitswrap_mod
      COOP_INT::npix = 0
      COOP_INT,dimension(2)::nside = 0
      logical::has_mask = .false.
+     logical::mask_is_smooth = .false.
      logical::mask_changed = .false.
      COOP_REAL::dx, dy, dkx, dky
      COOP_REAL::total_weight = 0.d0, mask_threshold = 0.d0
@@ -197,7 +198,7 @@ contains
     i = 1
     do while(i.lt. this%nmaps)
        if(this%spin(i).eq.2 .and. this%spin(i+1).eq.2 .and. COOP_UPPER_STR(this%fields(i)).eq."Q" .and. COOP_UPPER_STR(this%fields(i+1)).eq. "U")then
-          if(this%has_mask)then
+          if(this%has_mask .and. this%mask_is_smooth)then
              where(.not. this%unmasked)
                 this%map(i)%image = this%map(i)%image * (1.d0-(1.d0-this%mask%image/this%mask_threshold)**2)
                 this%map(i+1)%image = this%map(i+1)%image * (1.d0-(1.d0-this%mask%image/this%mask_threshold)**2)
@@ -424,6 +425,7 @@ contains
           if(wn .or. .not. coop_file_exists(trim(this%path)//trim(this%files(i))) .or. this%map_changed(i) )then
              this%files(i) = trim(coop_file_replace_postfix(this%filename, "_MAP"//COOP_STR_OF(imap)//".fits"))
              call this%map(i)%write(trim(this%path)//trim(this%files(i)))
+             this%map_changed(i) = .false.
           endif
           write(fp%unit, "(A)") trim(this%files(i))
        enddo
@@ -438,6 +440,7 @@ contains
           if(wn .or. .not. coop_file_exists(trim(this%path)//trim(this%files(i))) .or. this%map_changed(i))then
              this%files(i) = trim(coop_file_replace_postfix(this%filename, "_MAP"//COOP_STR_OF(i)//".fits"))
              call this%map(i)%write(trim(this%path)//trim(this%files(i)))
+             this%map_changed(i) = .false.
           endif
           write(fp%unit, "(A)") trim(this%files(i))
        enddo
@@ -449,6 +452,7 @@ contains
           this%fmask = trim(coop_file_replace_postfix(this%filename, "_MASK.fits"))
 
           call this%mask%write(trim(this%path)//trim(this%fmask))
+          this%mask_changed = .false.
        endif
        write(fp%unit, "(A)") trim(this%fmask)
     else
@@ -531,7 +535,7 @@ contains
           write(*,*) "flatsky_read error: not all maps have the same configuration"
           stop
        endif
-       this%mask_threshold = coop_flatsky_mask_threshold(this%mask)
+       this%mask_threshold = coop_flatsky_mask_threshold(this%mask, this%mask_is_smooth)
        allocate(this%unmasked(this%npix))
        this%unmasked = this%mask%image .gt. this%mask_threshold
        this%total_weight = count(this%unmasked)
@@ -667,7 +671,7 @@ contains
           write(*,*) "flatsky_read_from_one error: not all maps have the same configuration"
           stop
        endif
-       this%mask_threshold = coop_flatsky_mask_threshold(this%mask)
+       this%mask_threshold = coop_flatsky_mask_threshold(this%mask, this%mask_is_smooth)
        allocate(this%unmasked(this%npix))
        this%unmasked = this%mask%image .gt. this%mask_threshold
        this%total_weight = count(this%unmasked)
@@ -872,11 +876,12 @@ contains
     COOP_INT, dimension(:),allocatable::ind_used
     COOP_REAL,dimension(:),allocatable::image_used
     COOP_INT,parameter::n= 80
+    logical::mask_is_smooth
     COOP_REAL::Cls(n), ells(n)
     COOP_INT::i, nused, j
     type(coop_file)::fp
     if(present(mask))then
-       th = coop_flatsky_mask_threshold(mask)
+       th = coop_flatsky_mask_threshold(mask, mask_is_smooth)
        if(present(threshold))threshold = th
        nused = count(mask%image .gt. th)
        weight = nused
@@ -1178,6 +1183,54 @@ contains
     end function smooth_weight
   end subroutine coop_fits_image_cea_smooth
 
+  subroutine coop_fits_image_cea_smooth_qu(qmap, umap, emap, bmap, fwhm, highpass_l1, highpass_l2, lx_cut, ly_cut, lmax, beam)
+    class(coop_fits_image_cea)::qmap, umap, emap, bmap
+    COOP_REAL::fwhm
+    COOP_INT::highpass_l1, highpass_l2, lmax
+    COOP_REAL,optional::beam(0:lmax)
+    COOP_REAL::hp_omega, sigma2, hp_l2sq
+    COOP_INT,optional::lx_cut, ly_cut
+    logical::do_lx_cut, do_ly_cut, has_beam
+    do_lx_cut = present(lx_cut)
+    do_ly_cut = present(ly_cut)
+    if(do_lx_cut) do_lx_cut = lx_cut .gt. 0
+    if(do_ly_cut) do_ly_cut = ly_cut .gt. 0
+    has_beam = present(beam)
+    sigma2 = (coop_sigma_by_fwhm*fwhm/coop_sqrt2)**2
+    hp_l2sq = highpass_l2**2
+    hp_omega = coop_pio2/(highpass_l2 - highpass_l1)
+    call coop_fits_image_cea_filter_qu(qmap, umap, emap, bmap, lmin = highpass_l1, lmax = lmax,  window = smooth_weight)
+  contains
+
+    function smooth_weight(kx, ky)
+      COOP_REAL kx,ky,k2, k, smooth_weight
+      k2 = (kx**2+ky**2)
+      k = sqrt(k2)
+      smooth_weight = exp(-k2*sigma2)
+      if(has_beam) then
+         smooth_weight =smooth_weight/max(beam(nint(k)), 1.d-2) !!when beam<0.01 actually no info
+      endif
+      if(do_lx_cut)then
+         if(abs(kx).le.lx_cut)then
+            smooth_weight = 0.d0
+            return
+         endif
+         smooth_weight = smooth_weight * cos(coop_pio2*(lx_cut/kx)**4)**2
+      endif
+      if(do_ly_cut)then
+         if(abs(ky).le. ly_cut)then
+            smooth_weight = 0.d0
+            return
+         endif
+         smooth_weight = smooth_weight * cos(coop_pio2*(ly_cut/ky)**4)**2
+      endif
+      if(k2 .lt. hp_l2sq)then
+         smooth_weight = smooth_weight * sin((k-highpass_l1)*hp_omega)**2
+      endif
+    end function smooth_weight
+  end subroutine coop_fits_image_cea_smooth_qu
+
+
   subroutine coop_fits_image_cea_get_power(this, ells, Cls)
     class(coop_fits_image_cea)::this
     COOP_REAL,dimension(:)::ells
@@ -1232,7 +1285,7 @@ contains
 
   subroutine coop_fits_image_cea_filter(this, lmin, lmax, window)
     class(coop_fits_image_cea)::this
-    COOP_INT lmin, lmax, i, j, lx_cut, ly_cut
+    COOP_INT lmin, lmax, i, j
     external window
     COOP_REAL window
     COOP_REAL k2min, k2max, k2, ky2, ky, kx
@@ -1265,6 +1318,67 @@ contains
     call coop_fft_backward(this%nside(1), this%nside(2), fk, this%image)
     deallocate(fk)
   end subroutine coop_fits_image_cea_filter
+
+
+  subroutine coop_fits_image_cea_filter_qu(qmap, umap, emap, bmap, lmin, lmax, window)
+    class(coop_fits_image_cea)::qmap, umap, emap, bmap
+    COOP_INT lmin, lmax, i, j, lx_cut, ly_cut, nside1, nside2
+    external window
+    COOP_REAL window
+    COOP_REAL k2min, k2max, k2, ky2, ky, kx, kx2
+    COOP_COMPLEX,dimension(:,:),allocatable::fkq, fku, fke, fkb
+    if(any(qmap%nside .ne. umap%nside))then
+       stop "fits_image_cea_filter_qu: q, u maps are of different sizes"
+    else
+       nside1 = qmap%nside(1)
+       nside2 = qmap%nside(2)
+    endif
+    allocate( fkq(0:nside1/2, 0:nside2-1))
+    allocate( fku(0:nside1/2, 0:nside2-1))
+    allocate( fke(0:nside1/2, 0:nside2-1))
+    allocate( fkb(0:nside1/2, 0:nside2-1))
+    call coop_fft_forward(nside1, nside2, qmap%image, fkq)
+    call coop_fft_forward(nside1, nside2, umap%image, fku)
+    k2min = dble(lmin)**2
+    k2max = dble(lmax)**2
+    do j=0, nside2-1
+       if(j.gt. nside2-j)then
+          ky = (j - nside2)*qmap%dky
+       else
+          ky = j*qmap%dky
+       endif
+       ky2 = ky**2
+       if( ky2 .gt. k2max)then
+          fkq(:, j) = ( 0.d0, 0.d0 )
+          fku(:, j) = ( 0.d0, 0.d0 )
+          fke(:, j) = ( 0.d0, 0.d0 )
+          fkb(:, j) = ( 0.d0, 0.d0 )
+          cycle
+       endif
+       do i = 0, nside1/2
+          kx = i*qmap%dkx
+          kx2 = kx**2
+          k2 = kx2 + ky2
+          if(k2 .lt. k2min .or. k2.gt. k2max)then
+             fkq(i, j) = ( 0.d0, 0.d0 )
+             fku(i, j) = ( 0.d0, 0.d0 )
+             fke(i, j) = ( 0.d0, 0.d0 )
+             fkb(i, j) = ( 0.d0, 0.d0 )
+          else
+             fkq(i, j) = fkq(i, j)*window(kx, ky)
+             fku(i, j) = fku(i, j)*window(kx, ky)
+             fke(i, j) = ((ky2 - kx2)*fkq(i,j) - 2.d0*kx*ky*fku(i,j))/k2
+             fkb(i, j) = ((kx2 - ky2)*fku(i,j) - 2.d0*kx*ky*fkq(i,j))/k2 
+          endif
+       enddo
+    enddo
+    call coop_fft_backward(nside1, nside2, fkq, qmap%image)
+    call coop_fft_backward(nside1, nside2, fku, umap%image)
+    call coop_fft_backward(nside1, nside2, fke, emap%image)
+    call coop_fft_backward(nside1, nside2, fkb, bmap%image)
+    deallocate(fkq, fku, fke, fkb)
+  end subroutine coop_fits_image_cea_filter_qu
+
 
 
   subroutine coop_fits_image_cea_smooth_flat(this, lmin, lmax, fk_file)
@@ -2765,12 +2879,21 @@ contains
   end subroutine coop_flatsky_maps_get_neighbours
 
 
-  function coop_flatsky_mask_threshold(mask) result(threshold)
+  function coop_flatsky_mask_threshold(mask, is_smooth) result(threshold)
     COOP_INT,parameter::n = 50000
     class(coop_fits_image)::mask
-    COOP_REAL::threshold
+    COOP_REAL::threshold, vmax
+    logical is_smooth
     COOP_REAL::  mmax, dm, sumc, c(0:n), s
     COOP_INT::   i, j
+    vmax = maxval(mask%image)
+    if(all(abs(mask%image).lt. 1.d-3 .or. abs(mask%image-vmax).lt.1.d-3))then
+       !!0/1 mask
+       threshold = 0.5d0*vmax
+       is_smooth = .false.
+       return
+    endif
+    is_smooth = .true.
     mmax = maxval(mask%image)
     dm = mmax/n
     c = 0.d0

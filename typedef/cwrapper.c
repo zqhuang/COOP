@@ -52,6 +52,24 @@ void fft_3d_backward_(int *nx, int *ny, int *nz, fftw_complex *in, double *out){
 
 #endif
 
+void coop_array_copy_real_(double* x, double *y, int* n){
+  int i;
+  for(i=0; i<*n; i++)
+    *(y+i) = *(x+i);
+};
+
+void coop_array_copy_single_(float* x, float *y, int* n){
+  int i;
+  for(i=0; i<*n; i++)
+    *(y+i) = *(x+i);
+};
+
+
+void coop_array_copy_int_(int* x, int *y, int* n){
+  int i;
+  for(i=0; i<*n; i++)
+    *(y+i) = *(x+i);
+};
 
 
 void count_array_threshold_(double* x, int* n, double* threshold, int* nlarge){
