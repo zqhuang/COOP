@@ -22,10 +22,33 @@ cdict = {
 my_cmap = pylab.matplotlib.colors.LinearSegmentedColormap('my_cmap', cdict, 1024)
 mpl.cm.register_cmap(cmap = my_cmap)
 
+global global_cmap
+global_cmap = ""
+global global_im 
 global_im = None
-global global_cmap 
-global global_zmin
-global global_zmax 
+global global_ll 
+global_ll = 0
+global colorbar_loc
+colorbar_loc = "NONE"
+global global_zmin 
+global_zmin = -1.e31
+global global_zmax
+global_zmax = 1.e31
+
+global max_num_rows
+global max_num_cols
+max_num_rows = 20
+max_num_cols = 20
+
+global cmarr
+cmarr = [[""]*max_num_cols]*max_num_rows
+global imarr
+imarr = [[None]*max_num_cols]*max_num_rows
+global zminarr
+zminarr=[[0.]*max_num_cols]*max_num_rows
+global zmaxarr
+zmaxarr=[[0.]*max_num_cols]*max_num_rows
+
 
 if(len(sys.argv)<3):
     print "pypl.py input_file output_file"
@@ -104,9 +127,6 @@ def float_arr_of(key, default = [], dic=settings):
 
 nrows = int_of('nrows',1)
 ncols = int_of('ncols',1)
-global_cmap = str_of("cmap", "")
-global_zmin = float_of("zmin", 1.1e31)
-global_zmax = float_of("zmax", -1.1e31)
 
 def read_int(fp, default = 0):
     s = fp.readline()
@@ -197,7 +217,8 @@ def line_config(lc):
     elif(len(cstr) == 2 and genre=="hex"):
         color=colorConverter.to_rgb("#" + cstr[1])
     elif(len(cstr) == 2 and (genre=="gray" or genre=="grey" )):
-        color = colorConverter.to_rgb( cstr[1] )
+        gamp = float(cstr[1])/255.
+        color = (gamp, gamp, gamp)
     else:
         if(genre in ['b','blue','g','green','r','red','c','cyan','m','magenta','yellow','y', 'k','black','w','white']):
             color=colorConverter.to_rgb(genre)
@@ -317,7 +338,7 @@ def plot_legend_advance(ax, fp):
     cstr = read_str(fp).upper()
     if(cstr == ''):
         loc=read_float_arr(fp)  #ignroe, only treated in Asymptote
-        ax.legend(ncol = cols)
+        ax.legend(ncol = cols, loc = global_ll)
     else:
         if(cstr == 'N' or cstr == '9'):
             loc = 9
@@ -510,8 +531,6 @@ def plot_density(ax, fp, global_cmap = global_cmap, global_zmin=global_zmin, glo
     ctbl = read_str(fp).lower()
     if(global_cmap!=""):
         ctbl = global_cmap
-    else:
-        global_cmap = ctbl
     if(ctbl == 'my_cmap'):
         cmap = my_cmap
         plt.set_cmap(my_cmap) 
@@ -524,12 +543,8 @@ def plot_density(ax, fp, global_cmap = global_cmap, global_zmin=global_zmin, glo
     zr = read_float_arr(fp)
     if(abs(global_zmin)<1.e30):
         zr[0] = global_zmin
-    else:
-        global_zmin = zr[0]
     if(abs(global_zmax)<1.e30):
         zr[1] = global_zmax
-    else:
-        global_zmax = zr[1]
     irr = read_int(fp)
     if(irr == 0 or irr == -1):  # regular points
         grid=[]
@@ -592,7 +607,7 @@ def plot_density(ax, fp, global_cmap = global_cmap, global_zmin=global_zmin, glo
         if(irr == 1):
             if(nrows == 1 and ncols==1):
                 plot.colorbar(im)
-    return (im, global_cmap, global_zmin, global_zmax)
+    return (im, ctbl, zr[0], zr[1])
 
 def plot_clip(ax, fp):
     print 'Ignored a clip block. Clipping in pyplot is automatic; use Asymptote for the full support'
@@ -814,6 +829,9 @@ xticks = float_arr_of('xticks')
 yticks = float_arr_of('yticks')
 xticklabels = str_arr_of('xticklabels')
 yticklabels = str_arr_of('yticklabels')
+
+colorbar_loc = str_of('colorbar_loc', "NONE")
+
 if(str_of('figure[0,0]') == '' and int_of('nrows') == 0 and int_of('ncols') == 0):
     fp=open(sys.argv[1], 'r')
     sizes = read_float_arr(fp)
@@ -826,6 +844,7 @@ else:
     if(nrows > 1 and ncols > 1):
         for irow in range(nrows):
             for icol in range(ncols):
+                global_ll = int_of("legend_loc["+str(irow)+","+str(icol)+"]", 0)
                 want_xlabel = True
                 want_ylabel = True
                 if(hspace < minhspace and irow < nrows-1):
@@ -839,7 +858,7 @@ else:
                     
 
                 filename = settings['figure['+str(irow)+','+str(icol)+']'].strip() 
-                (global_im, global_cmap, global_zmin, global_zmax) = loadfig(axarr[irow,icol], filename, want_xlabel = want_xlabel, want_ylabel = want_ylabel)
+                (imarr[irow][icol], cmarr[irow][icol], zminarr[irow][icol], zmaxarr[irow][icol]) = loadfig(axarr[irow,icol], filename, want_xlabel = want_xlabel, want_ylabel = want_ylabel)
                 if(xticks != []):
                     axarr[irow][icol].set_xticks(xticks)
                 if(xticklabels != [] and want_xlabel):
@@ -850,13 +869,14 @@ else:
                     axarr[irow][icol].set_yticklabels(yticklabels)
     elif(nrows > 1):
         for irow in range(nrows):
+            global_ll = int_of("legend_loc["+str(irow)+",0]", 0)
             want_xlabel = True
             if(hspace < minhspace and irow<nrows-1):
 #                plt.setp( axarr[irow][0].get_xticklabels(), visible=False)
                 axarr[irow].set_xticklabels([])
                 want_xlabel = False
             filename = settings['figure['+str(irow)+',0]'].strip() 
-            (global_im, global_cmap, global_zmin, global_zmax) = loadfig(axarr[irow], filename, want_xlabel = want_xlabe)
+            (imarr[irow][0], cmarr[irow][0], zminarr[irow][0], zmaxarr[irow][0]) = loadfig(axarr[irow], filename, want_xlabel = want_xlabel)
             if(xticks != []):
                 axarr[irow].set_xticks(xticks)
             if(xticklabels != [] and want_xlabel):
@@ -867,13 +887,13 @@ else:
                 axarr[irow].set_yticklabels(yticklabels)
     elif(ncols>1):
         for icol in range(ncols):
+            global_ll = int_of("legend_loc[0,"+str(icol)+"]", 0)
             want_ylabel = True
             if(wspace<minwspace and icol>0):
-                # plt.setp( axarr[0][icol].get_yticklabels(), visible=False)
                 axarr[icol].set_yticklabels([])
                 want_ylabel = False
             filename = settings['figure[0,'+str(icol)+']'].strip() 
-            (global_im, global_cmap, global_zmin, global_zmax) =loadfig(axarr[icol], filename, want_ylabel = want_ylabel)
+            (imarr[0][icol], cmarr[0][icol], zminarr[0][icol], zmaxarr[0][icol]) =loadfig(axarr[icol], filename, want_ylabel = want_ylabel)
             if(xticks != []):
                 axarr[icol].set_xticks(xticks)
             if(xticklabels != []):
@@ -883,6 +903,7 @@ else:
             if(yticklabels != [] and want_ylabel):
                 axarr[icol].set_yticklabels(yticklabels)
     else:
+        global_ll = int_of("legend_loc[0,0]", 0)
         filename = settings['figure[0,0]'].strip() 
         loadfig(axarr, filename)
         if(xticks != []):
@@ -898,12 +919,106 @@ yspan = (1.-top_space-bottom_space+hspace)/nrows
 yrat = (yspan-hspace)/yspan
 xspan = (1.-left_space-right_space + wspace)/ncols
 xrat = (xspan - wspace)/xspan
-if(global_cmap != ''):
-    left = 1. - right_space + 0.03
-    bottom = bottom_space+hspace/2
-    top = 1.-top_space-hspace/2
-    cax = fig.add_axes( [ left,  bottom, min(1.-left,0.03), top-bottom])
-    fig.colorbar(mappable=global_im, cax = cax, label = str_of('zlabel'))
+if(colorbar_loc != "NONE" and colorbar_loc !=""):
+    if(colorbar_loc == "RIGHT"):
+        left = 1. - right_space + 0.02
+        bottom = bottom_space+hspace/2
+        top = 1.-top_space-hspace/2
+        cax = fig.add_axes( [ left,  bottom, min(1.-left,0.03), top-bottom])
+        ticks = float_arr_of('ticks')
+        if(len(ticks)>0):
+            fig.colorbar(mappable=imarr[0][0], cax = cax, label = str_of('zlabel'), ticks=ticks)
+        else:
+            fig.colorbar(mappable=imarr[0][0], cax = cax, label = str_of('zlabel'))
+    elif(colorbar_loc == "RIGHT_PER_ROW"):
+        left = 1. - right_space + 0.02
+        for irow in range(nrows):
+            if( imarr[irow][ncols-1] is None):
+                print("row "+str(irow)+" does not have a colorbar")
+            else:
+                top = 1.-top_space-hspace/2 - yspan*irow 
+                bottom = top - yspan + hspace
+                cax = fig.add_axes( [ left,  bottom, min(1.-left,0.03), top-bottom])
+
+                ticks = float_arr_of('ticks['+str(irow)+']')
+                if(len(ticks)>0):
+                    fig.colorbar(mappable=imarr[irow][ncols-1], cax = cax, label = str_of('zlabel['+str(irow)+']'), ticks = ticks)
+                else:
+                    fig.colorbar(mappable=imarr[irow][ncols-1], cax = cax, label = str_of('zlabel['+str(irow)+']'))
+
+    elif(colorbar_loc == "LEFT"):
+        left =  0.02
+        bottom = bottom_space+hspace/2
+        top = 1.-top_space-hspace/2
+        cax = fig.add_axes( [ left,  bottom, min(left_space-0.02, 0.03), top-bottom])
+        ticks = float_arr_of('ticks')
+        if(len(ticks)>0):
+            fig.colorbar(mappable= imarr[0][0], cax = cax, label = str_of('zlabel'), ticks = ticks)
+        else:
+            fig.colorbar(mappable= imarr[0][0], cax = cax, label = str_of('zlabel'))
+    elif(colorbar_loc == "LEFT_PER_ROW"):
+        left =  0.02
+        for irow in range(nrows):
+            if( imarr[irow][0] is None):
+                print("row "+str(irow)+" does not have a colorbar")
+            else:
+                top = 1.-top_space-hspace/2 - yspan*irow 
+                bottom = top - yspan + hspace
+                cax = fig.add_axes( [ left,  bottom, min(left_space-0.02,0.03), top-bottom])
+                ticks = float_arr_of('ticks['+str(irow)+']')
+                if(len(ticks)>0):
+                    fig.colorbar(mappable=imarr[irow][0], cax = cax, label = str_of('zlabel['+str(irow)+']'), ticks = ticks)
+                else:
+                    fig.colorbar(mappable=imarr[irow][0], cax = cax, label = str_of('zlabel['+str(irow)+']'))
+    elif(colorbar_loc == "TOP"):
+        top = 1.-top_space/10.
+        bottom = max(top - 0.03, 1.-top_space*0.8)
+
+        cax = fig.add_axes( [ left,  bottom, 1.-right_space-left_space, top-bottom], orientation = "horizontal", fraction = 0.3)
+        ticks = float_arr_of('ticks')
+        if(len(ticks)>0):
+            fig.colorbar(mappable= imarr[0][0], cax = cax, label = str_of('zlabel'), ticks=ticks)
+        else:
+            fig.colorbar(mappable= imarr[0][0], cax = cax, label = str_of('zlabel'))
+
+    elif(colorbar_loc == "TOP_PER_COL"):
+        top = 1.-top_space/10.
+        bottom = max(top - 0.03, 1.-top_space*0.8)
+        for icol in range(ncols):
+            if(imarr[0][icol] is None):
+                print ("col "+str(icol)+ " does not have a colorbar")
+            else:
+                left = left_space + xspan*(icol +0.08)
+                cax = fig.add_axes( [ left,  bottom, xspan*0.84, top-bottom])
+                ticks = float_arr_of('ticks['+str(icol)+']')
+                if(len(ticks)>0):
+                    fig.colorbar(mappable= imarr[0][icol], cax = cax, label = str_of('zlabel['+str(icol)+']'), orientation='horizontal', ticks=ticks)                
+                else:
+                    fig.colorbar(mappable= imarr[0][icol], cax = cax, label = str_of('zlabel['+str(icol)+']'), orientation='horizontal')                
+    elif(colorbar_loc == "BOTTOM"):
+        left =  left_space 
+        bottom = bottom_space*0.3
+        top = min(bottom_space, bottom+0.03)
+        cax = fig.add_axes( [ left,  bottom, 1.-right_space-left_space, top-bottom])
+        ticks = float_arr_of('ticks')
+        if(len(ticks)>0):
+            fig.colorbar(mappable= imarr[0][0], cax = cax, label = str_of('zlabel'), ticks = ticks, orientation = "horizontal")
+        else:
+            fig.colorbar(mappable= imarr[0][0], cax = cax, label = str_of('zlabel'), orientation = "horizontal")
+    elif(colorbar_loc == "BOTTOM_PER_COL"):
+        bottom = 0.02
+        top = bottom_space - 0.02
+        for icol in range(ncols):
+            if(imarr[0][icol] is None):
+                print ("col "+str(icol)+ " does not have a colorbar")
+            else:
+                left = left_space + xspan*icol
+            cax = fig.add_axes( [ left,  bottom, xspan-wspace, top-bottom])
+            ticks = float_arr_of('ticks['+str(icol)+']')
+            if(len(ticks)>0):
+                fig.colorbar(mappable= imarr[0][icol], cax = cax, label = str_of('zlabel['+str(icol)+']'), orientation = "horizontal", ticks = ticks)      
+            else:
+                fig.colorbar(mappable= imarr[0][icol], cax = cax, label = str_of('zlabel['+str(icol)+']'),  orientation = "horizontal")      
 
 for irow in range(nrows):
     label = str_of('row_label['+str(irow)+']')
