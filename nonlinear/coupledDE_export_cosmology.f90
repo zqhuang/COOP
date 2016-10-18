@@ -3,7 +3,7 @@ program test
   use coop_coupledDE_collapse_mod
   implicit none
 #include "constants.h"
-#if DO_COUPLED_DE
+
   type(coop_dictionary)::dict
   COOP_INT,parameter::n_threads = 8
   COOP_STRING::params_file, output_root, output_format
@@ -118,10 +118,10 @@ program test
      write(*,*) "enddo"
      write(*,*) "***************************************"
      write(*,*) "units: "
-     write(*,*) "t:  1/H_0"
-     write(*,*) "H:  H_0"
-     write(*,*) "chi: c/H_0"
-     write(*,*) "H_D:  H_0  (H_D is defined as d ln D/ dt)"
+     write(*,*) "t (age of the universe):  1/H_0"
+     write(*,*) "H (Hubble parameter):  H_0"
+     write(*,*) "chi (comoving distance): c/H_0"
+     write(*,*) "H_D (d ln D/ dt where D is the growth factor):  H_0  "
      write(*,*) "====================================================================="
 
   case("FITS")
@@ -130,7 +130,4 @@ program test
      stop "This format has not been implemented."
   end select
 
-#else
-  stop "to use CDExport you need to compile the code with DARK_ENERGY_MODEL = COUPLED_DE in configure.in"
-#endif
 end program test

@@ -3,7 +3,7 @@ module coop_coupledDE_collapse_mod
   implicit none
 #include "constants.h"
 
-#if DO_COUPLED_DE
+
   !!by default everything is a function of scale factor a;  a = 1 today.
   !!physical time t is used in the definition of some variables, its unit = 1/H_0 
 
@@ -20,7 +20,11 @@ module coop_coupledDE_collapse_mod
      COOP_REAL,dimension(3)::lambda = (/ 0.d0, 0.d0, 0.d0 /) !!lambda's
      logical::is_spherical = .false.
      logical::is_coupled = .false.
+#if DO_COUPLED_DE
      COOP_INT::num_ode_vars = 8
+#else
+     COOP_INT::num_ode_vars = 6
+#endif
      COOP_REAL,dimension(3)::collapse_a_ratio =  (/ 0.178, 0.178, 0.178 /) ! (18pi^2)^{-1/3}
      type(coop_2dfunction)::bprime  
      type(coop_cosmology_firstorder)::cosmology
@@ -64,10 +68,12 @@ contains
     corr = (1.2d0*this%lambda*suml + 0.6d0*suml2 + 11.d0/35.d0*(suml**2-suml2)-3.d0*this%lambda**2)/10.d0  !!this is for 2nd-order correction of initial conditions; in spherical case corr = 3/7 lambda^2
     y(1:3) = a_ini *(1.d0-this%lambda*D_ini - corr*D_ini**2)
     y(4:6) = y(1:3)*dadt_ini/a_ini - a_ini*(D_ini*H_D*(this%lambda + 2.d0*corr*D_ini))  
+#if DO_COUPLED_DE
     if(this%is_coupled)then
        y(7) = O0_DE(this%cosmology)%cplDE_phi_lna%eval(log(a_ini))  !phi
        y(8) = O0_DE(this%cosmology)%cplDE_phi_prime_lna%eval(log(a_ini))*this%cosmology%Hratio(a_ini)   !!d phi/dt
     endif
+#endif
   end subroutine coop_coupledDE_collapse_params_set_initial_conditions
 
   subroutine coop_coupledDE_collapse_odes(n, a, y, dyda, params)
@@ -85,6 +91,7 @@ contains
     logical::all_frozen
     dadt = params%dadt(a)
     radiation_term = -params%cosmology%Omega_r/a**4*2.d0
+#if DO_COUPLED_DE
     if(params%is_coupled)then
        dark_Energy_term =  -(y(8)**2-O0_DE(params%cosmology)%cplde_Vofphi%eval(y(7)))*2.d0/3.d0
        rho_m = 3.d0*(params%cosmology%Omega_c_bare+params%cosmology%Omega_b_bare)*exp(O0_DE(params%cosmology)%cplde_intQofphi%eval(y(7)))/(y(1)*y(2)*y(3))
@@ -97,10 +104,13 @@ contains
        endif
        dlnmdt = 0.d0 !O0_DE(params%cosmology)%cplde_intQofphi%derivative(y(7))*y(8) !!I think we are double counting dlnmdt contribution here and in dark_Energy_term
     else
+#endif
        dark_Energy_term = -O0_DE(params%cosmology)%density(a)*(1.d0/3.d0+ O0_DE(params%cosmology)%wofa(a))
        rho_m = 3.d0*(params%cosmology%Omega_m)/(y(1)*y(2)*y(3))
        dlnmdt = 0.d0
+#if DO_COUPLED_DE
     endif
+#endif
 
     if(params%is_spherical)then
        arat(1) = (y(1)/a/params%collapse_a_ratio(1) - 1.d0)/eps
@@ -128,13 +138,17 @@ contains
        dyda(2:3) = dyda(1)
        dyda(5:6) = dyda(4)
     else
+#if DO_COUPLED_DE
        if(params%is_coupled)then
           rhombar = O0_CDM(params%cosmology)%density(a) + O0_BARYON(params%cosmology)%density(a)
           rhombarby3 = rhombar/3.d0
        else
+#endif
           rhombarby3 = params%cosmology%Omega_m/a**3
           rhombar = rhombarby3 * 3.d0
+#if DO_COUPLED_DE
        endif
+#endif
        delta = rho_m/rhombar-1.d0  !a**3/(y(1)*y(2)*y(3))-1.d0
        call params%get_bprime(y(1:3), bprime)       
        growthD = params%growth_D(a) !!this isn't accurate because in general D is scale dependent in the coupled DE model
@@ -199,6 +213,7 @@ contains
        endif
     endif
     !!the scalar field
+#if DO_COUPLED_DE
     if(params%is_coupled)then
        if(all_frozen)then
           dyda(7:8) = 0.d0
@@ -211,6 +226,7 @@ contains
           endif
        endif
     endif
+#endif
   end subroutine coop_coupledDE_collapse_odes
 !!=====================You don't need to read anything below ==================
 
@@ -264,10 +280,18 @@ contains
              x_arr(10, i) = this%Growth_D(a_arr(i))/a_arr(i)
           endif
           if(size(x_arr,1).ge.11)then
+#if DO_COUPLED_DE
              x_arr(11, i) = O0_DE(this%cosmology)%cplde_phi_lna%eval(log(a_arr(i)))
+#else
+             x_arr(11, i) = 0.d0
+#endif
           endif
-          if(size(x_arr,1).ge.11)then
+          if(size(x_arr,1).ge.12)then
+#if DO_COUPLED_DE
              x_arr(12, i) = O0_DE(this%cosmology)%cplde_phi_prime_lna%eval(log(a_arr(i)))*this%cosmology%Hratio(a_arr(i))
+#else
+             x_arr(12, i) = 0.
+#endif
           endif
        enddo
     class default
@@ -362,7 +386,9 @@ contains
              write(*,*) "cosmology is initialized"
           endif
        endif
+#if DO_COUPLED_DE
        if(.not. this%cosmology%baryon_is_coupled)stop "The current version cannot solve halo collapse for models where baryon is not coupled."
+#endif
        DNorm = this%cosmology%growth_of_z(0.d0, coop_coupledDE_growth_k_pivot)
        call coop_set_uniform(n, a, 0.05d0, 1.d0)
        Dbya(n) = 1.d0
@@ -381,13 +407,17 @@ contains
        call this%Dbya%init(n = n, xmin = a(1), xmax = a(n), f = Dbya, name = "Dbya", check_boundary = .false.)
        call this%dlnDdlna%init(n = n, xmin = a(1), xmax = a(n), f = dlnDdlna, name = "Dbya", check_boundary = .false.)
     endif
+#if DO_COUPLED_DE
     if(O0_DE(this%cosmology)%cplde_Q%is_zero)then
+#endif
        this%is_coupled = .false.
        this%num_ode_vars = 6
+#if DO_COUPLED_DE
     else
        this%is_coupled = .true.
        this%num_ode_vars = 8
     endif
+#endif
     !set up lambda
     do i = 1, 3
        call coop_dictionary_lookup(params, "lambda"//COOP_STR_OF(i), this%lambda(i), -1.1d30)
@@ -481,7 +511,6 @@ contains
     ddotphi =-3.d0*H*phidot - dVdphi - Q*rho_m
   end function coop_coupledDE_collapse_params_ddotphi
 
-#else
-#endif
+
 end module coop_coupledDE_collapse_mod
 

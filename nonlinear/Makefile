@@ -22,7 +22,6 @@ Test: $(OBJ) test.o $(FIRSTORDER)/libcoopfirstorder.a
 TestSimp: $(OBJ) testsimple.o $(FIRSTORDER)/libcoopfirstorder.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testsimple.o $(LINK)
 
-
 CDExport: $(OBJ) coupledDE_export_cosmology.o $(FIRSTORDER)/libcoopfirstorder.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) coupledDE_export_cosmology.o $(LINK)
 
