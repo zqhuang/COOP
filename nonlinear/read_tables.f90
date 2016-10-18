@@ -1,6 +1,7 @@
 program test
   implicit none
-  character(LEN=256)::fname
+  character(LEN=*),parameter::z_collapse_table="test_zcol.dat"
+  character(LEN=*),parameter::background_table="test_background.dat"
   real*8 fpk_min, fpk_max, e_min, e_max, pbye_min, pbye_max, dlnfpk, de, dpbye, input_fpk, input_e, input_p
   integer n_fpk, n_e, n_pbye
   real*8,allocatable::zcol(:,:,:)
@@ -11,9 +12,7 @@ program test
   real*8, dimension(:),allocatable::z, t, H, chi, D, H_D
 
   !!load z_collapse table
-  write(*,*) "Enter the file name of the z_collapse table:"
-  read(*,*) fname
-  open(10, file=fname, access ='stream')
+  open(10, file=z_collapse_table, access ='stream')
   read(10) n_fpk, fpk_min, fpk_max
   read(10) n_e, e_min, e_max
   read(10) n_pbye, pbye_min, pbye_max
@@ -22,9 +21,7 @@ program test
   close(10)
 
   !!load background table
-  write(*,*) "Enter the file name of the background evolution table:"
-  read fname
-  open(20, file=fname, access ='stream')
+  open(20, file=background_table, access ='stream')
   read(20)H0, Omega_b, Omega_c, A_s, n_s, sigma_8, w, wa
   read(20) nz, zmax
   allocate(z(nz), t(nz), H(nz), chi(nz), D(nz), H_D(nz))
