@@ -114,7 +114,7 @@ program test
      write(*,*) "read(...) nz, zmax"
      write(*,*) "allocate(z(nz), t(nz), H(nz), chi(nz), D(nz), H_D(nz)"
      write(*,*) "do iz = 1, nz"
-     write(*,*) "  read(...) z(iz), t(iz), H(iz), chi(iz), D(iz), H_D(iz)"
+     write(*,*) "  read(...) z(iz), t(iz), H(iz), chi(iz), D(iz), H_D(iz))"
      write(*,*) "enddo"
      write(*,*) "***************************************"
      write(*,*) "units: "
