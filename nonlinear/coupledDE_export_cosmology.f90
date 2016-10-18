@@ -13,7 +13,7 @@ program test
   COOP_REAL,dimension(:,:,:),allocatable::zcol
   COOP_REAL,dimension(:),allocatable::fpk, e, pbye, z, a
   COOP_INT::ifpk, ie, ipbye, output_nz, ithread, i
-
+  COOP_REAL::H0, Omega_b, Omega_c, A_s, n_s, sigma_8, w, wa
   type(coop_file)::fp
   if(iargc().lt. 1)then
      write(*,*) "========================================================"
@@ -37,6 +37,15 @@ program test
      stop "This format has not been implemented."
   end select
   call params(1)%init(dict, update_cosmology = .true.)
+  H0 = params(1)%cosmology%h()*100.
+  Omega_b = params(1)%cosmology%Omega_b
+  Omega_c = params(1)%cosmology%Omega_c
+  A_s = params(1)%cosmology%As
+  n_s = params(1)%cosmology%ns
+  sigma_8 = params(1)%cosmology%sigma_8
+  call coop_dictionary_lookup(dict, "de_w", w, -1.d0)
+  call  coop_dictionary_lookup(dict, "de_wa", wa, 0.d0)
+
   do ithread = 2, n_threads
      params(ithread) = params(1)
   enddo
@@ -99,6 +108,7 @@ program test
      write(*,*) "====================================================================="
 
      call fp%open(trim(output_root)//"_background.dat", "s")
+     write(fp%unit)H0, Omega_b, Omega_c, A_s, n_s, sigma_8, w, wa
      write(fp%unit) output_nz, output_zmax
      do i=1, output_nz
         write(fp%unit) z(i), params(1)%cosmology%time(a(i)),  params(1)%dadt(a(i))/a(i), params(1)%cosmology%comoving_distance(a(i)),  params(1)%growth_D(a(i)), params(1)%Growth_H_D(a(i))
@@ -107,10 +117,11 @@ program test
      write(*,*) "====================================================================="     
      write(*,*) "background info is saved to "//trim(output_root)//"_background.dat"
      write(*,*) "to read it:"
-     write(*,*) "real*8 zmax"
+     write(*,*) "real*8 zmax, H0, Omega_b, Omega_c, A_s, n_s, sigma_8, w, wa"
      write(*,*) "integer nz, iz"
      write(*,*) "real*8, dimension(:),allocatable::z, t, H, chi, D, H_D"
      write(*,*) "open(..., access ='stream')"
+     write(*,*) "read(...) H0, Omega_b, Omega_c, A_s, n_s, sigma_8, w, wa"
      write(*,*) "read(...) nz, zmax"
      write(*,*) "allocate(z(nz), t(nz), H(nz), chi(nz), D(nz), H_D(nz)"
      write(*,*) "do iz = 1, nz"
