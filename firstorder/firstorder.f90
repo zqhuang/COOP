@@ -13,6 +13,7 @@ module coop_firstorder_mod
 !!recfast head file
 #include "recfast_head.h"
   COOP_INT, parameter:: coop_num_user_defined_params = 10
+  COOP_REAL, parameter:: coop_default_As_before_normalization = 2.2d-9
 
   type coop_cosmology_firstorder_trans
      COOP_INT::lmin = 0
@@ -1669,7 +1670,7 @@ contains
     type(coop_function)::fwp1
     logical::w_predefined, alpha_predefined
 
-    COOP_REAL::eps_inf, eps_s, zeta_s, beta_s, rlmax
+    COOP_REAL::eps_inf, eps_s, zeta_s, beta_s, rlmax, sigma_8_wanted
 
     !!0 background
     !!1 x_e
@@ -1847,9 +1848,19 @@ contains
     h_mid = (h_low*(theta_high - theta) + h_high*(theta - theta_low))/(theta_high - theta_low)
 100 call setforH(h_mid, success, level = init_level )
 120 if(.not. success .or. init_level .le. coop_init_level_set_xe) return
+
+    call paramtable%lookup("sigma_8", sigma_8_wanted, 0.d0)
     call this%set_primordial_power(paramtable)
-    if(init_level .le. coop_init_level_set_pp)return
-    call this%compute_source(0, success)
+    if(sigma_8_wanted .eq. 0.d0)then       
+       if(init_level .le. coop_init_level_set_pp)return
+       call this%compute_source(0, success)
+    else
+       call this%compute_source(0, success)
+       this%As = this%As*(sigma_8_wanted/this%sigma_8)**2
+       call this%ps%mult_const((sigma_8_wanted/this%sigma_8)**2)
+       call this%set_source_ws(this%source(0))
+       this%sigma_8 = sigma_8_wanted
+    endif
     if(.not. success .or. init_level .le. coop_init_level_set_pert) return
     call this%set_cls(0, 2, coop_cls_lmax(0))
     if(init_level .le. coop_init_level_set_Cls) return
@@ -1952,24 +1963,29 @@ contains
   subroutine coop_cosmology_firstorder_set_primordial_power(this, paramtable)
     class(coop_cosmology_firstorder)::this
     type(coop_real_table)::paramtable
-    COOP_REAL::tau_re
+    COOP_REAL::tau_re, sigma_8_wanted
     COOP_REAL::upar(coop_num_user_defined_params)
     COOP_INT::i
     select case(this%pp_genre)
     case(COOP_PP_STANDARD)
-       call paramtable%lookup( "tau", tau_re)    
-       call paramtable%lookup( "As", this%As, 0.d0)
-       if(this%As .eq. 0.d0)then
-          call paramtable%lookup( "logA", this%As, 0.d0)
+       call paramtable%lookup( "tau", tau_re)  
+       call paramtable%lookup("sigma_8", sigma_8_wanted, 0.d0)       
+       if(sigma_8_wanted .eq. 0.d0)then          
+          call paramtable%lookup( "As", this%As, 0.d0)
           if(this%As .eq. 0.d0)then
-             call paramtable%lookup( "logAm2tau", this%As, 0.d0)
+             call paramtable%lookup( "logA", this%As, 0.d0)
              if(this%As .eq. 0.d0)then
-                stop "You need to set As, logA,  or logAm2tau in the parameter file"
+                call paramtable%lookup( "logAm2tau", this%As, 0.d0)
+                if(this%As .eq. 0.d0)then
+                   stop "You need to set As, logA,  or logAm2tau in the parameter file"
+                endif
+                this%As = exp(this%As + 2.d0*tau_re)*1.d-10
+             else
+                this%As = exp(this%As)*1.d-10
              endif
-             this%As = exp(this%As + 2.d0*tau_re)*1.d-10
-          else
-             this%As = exp(this%As)*1.d-10
           endif
+       else
+          this%As = coop_default_As_before_normalization
        endif
        call paramtable%lookup( "ns", this%ns)
        call paramtable%lookup( "r", this%r, 0.d0)

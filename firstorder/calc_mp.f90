@@ -30,6 +30,7 @@ program test
   write(*,"(A, F12.3)") "Computing power spectrum at redshift z = ", redshift
   call cosmology%init_source(0)
   call cosmology%compute_source(0, success = success)  
+  write(*,*) "Sigma_8 = ", cosmology%sigma_8
   if(.not. success) stop "Unhealthy model: perturbations blow up exponentially."
   call coop_set_uniform(nk, khMpc, khMpc_min, khMpc_max, logscale = .true.)
   k = khMpc *cosmology%h()/cosmology%H0Mpc()  !!k
