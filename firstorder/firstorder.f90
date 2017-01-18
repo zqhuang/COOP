@@ -107,6 +107,7 @@ module coop_firstorder_mod
      procedure::update_Cls => coop_cosmology_firstorder_update_Cls
      !!other ways to initialize the cosmology
      procedure::init_from_dictionary => coop_cosmology_firstorder_init_from_dictionary
+     procedure::init_from_dictionary_and_paramtable => coop_cosmology_firstorder_init_from_dictionary_and_paramtable
      procedure:: set_standard_cosmology =>  coop_cosmology_firstorder_set_standard_cosmology
 #if DO_EFT_DE     
      procedure:: set_EFT_cosmology =>  coop_cosmology_firstorder_set_EFT_cosmology
@@ -1608,21 +1609,22 @@ contains
 
 #endif
 
-  subroutine coop_cosmology_firstorder_init_from_dictionary(this, paramtable, level, success)
+
+  subroutine coop_cosmology_firstorder_init_from_dictionary(this, dict, level, success)
     class(coop_cosmology_firstorder)::this
-    type(coop_dictionary)::paramtable
+    type(coop_dictionary)::dict
     logical,optional:: success
     logical suc
     type(coop_real_table)::params
     COOP_INT, optional::level
 #if DO_COUPLED_DE
-    call coop_dictionary_lookup(paramtable, "baryon_is_coupled", this%baryon_is_coupled, .true.)
+    call coop_dictionary_lookup(dict, "baryon_is_coupled", this%baryon_is_coupled, .true.)
 #endif
-    call coop_dictionary_lookup(paramtable, "w_is_background", this%w_is_background, .true.)
-    call coop_dictionary_lookup(paramtable, "inflation_consistency", this%inflation_consistency, .true.)
-    call coop_dictionary_lookup(paramtable, "pp_genre", this%pp_genre, COOP_PP_STANDARD)
+    call coop_dictionary_lookup(dict, "w_is_background", this%w_is_background, .true.)
+    call coop_dictionary_lookup(dict, "inflation_consistency", this%inflation_consistency, .true.)
+    call coop_dictionary_lookup(dict, "pp_genre", this%pp_genre, COOP_PP_STANDARD)
 
-    call params%load_dictionary(paramtable)
+    call params%load_dictionary(dict)
     if(present(level))then
        call this%set_up(params, suc, level = level)
     else
@@ -1632,6 +1634,28 @@ contains
     call params%free()
   end subroutine coop_cosmology_firstorder_init_from_dictionary
 
+
+  subroutine coop_cosmology_firstorder_init_from_dictionary_and_paramtable(this, dict, params, level, success)
+    class(coop_cosmology_firstorder)::this
+    type(coop_dictionary)::dict
+    logical,optional:: success
+    logical suc
+    type(coop_real_table)::params
+    COOP_INT, optional::level
+#if DO_COUPLED_DE
+    call coop_dictionary_lookup(dict, "baryon_is_coupled", this%baryon_is_coupled, .true.)
+#endif
+    call coop_dictionary_lookup(dict, "w_is_background", this%w_is_background, .true.)
+    call coop_dictionary_lookup(dict, "inflation_consistency", this%inflation_consistency, .true.)
+    call coop_dictionary_lookup(dict, "pp_genre", this%pp_genre, COOP_PP_STANDARD)
+    if(present(level))then
+       call this%set_up(params, suc, level = level)
+    else
+       call this%set_up(params, suc)
+    endif
+    if(present(success)) success = suc
+  end subroutine coop_cosmology_firstorder_init_from_dictionary_and_paramtable
+  
 
   subroutine coop_cosmology_firstorder_set_up(this, paramtable, success, level)
     class(coop_cosmology_firstorder)::this
@@ -2284,4 +2308,5 @@ contains
   end function coop_Growth_fitting
   
 end module coop_firstorder_mod
+
 

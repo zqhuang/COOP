@@ -2212,13 +2212,18 @@ contains
   end subroutine coop_get_command_line_argument_singlearr
   
 
-  subroutine coop_int_table_load_dictionary(this, dict)
+  subroutine coop_int_table_load_dictionary(this, dict, copyall)
     class(coop_int_table)::this
     type(coop_dictionary)::dict
+    logical,optional::copyall
     COOP_INT::i
     do i = 1, dict%n
        if(coop_is_integer(dict%val(i)))then
           call this%insert(dict%key(i), coop_str2int(dict%val(i)))
+       elseif(present(copyall))then
+          if(copyall)then
+             call this%insert(dict%key(i), 0)
+          endif
        endif
     enddo
   end subroutine coop_int_table_load_dictionary
@@ -2646,13 +2651,18 @@ contains
     endif
   end subroutine coop_real_table_free
 
-  subroutine coop_real_table_load_dictionary(this, dict)
+  subroutine coop_real_table_load_dictionary(this, dict, copyall)
     class(coop_real_table)::this
     type(coop_dictionary)::dict
+    logical,optional::copyall
     COOP_INT::i
     do i = 1, dict%n
        if(coop_is_number(dict%val(i)))then
           call this%insert(dict%key(i), coop_str2real(dict%val(i)))
+       elseif(present(copyall))then
+          if(copyall)then
+             call this%insert(dict%key(i), 0.d0)
+          endif
        endif
     enddo
   end subroutine coop_real_table_load_dictionary

@@ -84,12 +84,14 @@ program RunMC
         call bao(4)%init("%DATASETDIR%bao/sdss_DR11CMASS_bao.dataset")
         if(mcmc%feedback.gt.0)write(*,*) "Using BAO"        
         pool%BAO%baolike => bao
+        if(mcmc%init_level .lt. coop_init_level_set_background) mcmc%init_level = coop_init_level_set_background
      endif
 
      !!HST
      if(use_HST)then
         pool%HST%HSTlike => HSTlike
         if(mcmc%feedback.gt.0)write(*,*) "Using HST"
+        if(mcmc%init_level .lt. coop_init_level_set_background) mcmc%init_level = coop_init_level_set_background
      endif
 
      !!supernova  
@@ -97,6 +99,7 @@ program RunMC
         if(mcmc%feedback.gt.0)write(*,*) "Using JLA"
         call jla%read("%DATASETDIR%jla/jla.dataset")
         pool%SN_JLA%JLALike => jla
+        if(mcmc%init_level .lt. coop_init_level_set_background) mcmc%init_level = coop_init_level_set_background
      endif
 
      !!wl
@@ -104,6 +107,7 @@ program RunMC
         if(mcmc%feedback .gt. 0) write(*,*) "Using weak lensing data"
         call wl(1)%init("%DATASETDIR%weaklensing/CFHTLENS_6bin.dataset")
         pool%WL%WLLike => wl
+        if(mcmc%init_level .lt. coop_init_level_set_pert) mcmc%init_level = coop_init_level_set_pert
      endif
      
      if(use_CMB)then
@@ -129,8 +133,10 @@ program RunMC
         else
            icmb = icmb - 1
         endif
-        if(icmb .gt. 0) &
-             pool%CMB%cliklike => pl(1:icmb)
+        if(icmb .gt. 0)then
+           if(mcmc%init_level .lt. coop_init_level_set_Cls) mcmc%init_level = coop_init_level_set_Cls           
+           pool%CMB%cliklike => pl(1:icmb)
+        endif
      endif
   endif
   select case(trim(mcmc%action))

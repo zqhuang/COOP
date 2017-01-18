@@ -1,6 +1,6 @@
 ombh2	\Omega_b h^2
 omch2   \Omega_c h^2
-theta	100\theta
+theta 	100 \theta_{\rm MC}
 tau	\tau
 logAm2tau	\ln[10^{10}A_s]-2\tau
 ns	n_s

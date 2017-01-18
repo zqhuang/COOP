@@ -8,10 +8,15 @@ module coop_mcmc_mod
   implicit none
 #include "constants.h"
 
-#define MCMC_OMEGA_M mcmc%fullparams(mcmc%index_omegam)
-#define MCMC_OMEGA_K mcmc%fullparams(mcmc%index_omegak)
-#define MCMC_W    mcmc%fullparams(mcmc%index_de_w)
-#define MCMC_WA    mcmc%fullparams(mcmc%index_de_wa)
+#define MCMC_INDEX_OMEGA_M 1
+#define MCMC_INDEX_OMEGA_K 2
+#define MCMC_INDEX_W 3
+#define MCMC_INDEX_WA 4
+
+#define MCMC_OMEGA_M mcmc%fullparams(MCMC_INDEX_OMEGA_M)
+#define MCMC_OMEGA_K mcmc%fullparams(MCMC_INDEX_OMEGA_K)
+#define MCMC_W    mcmc%fullparams(MCMC_INDEX_W)
+#define MCMC_WA    mcmc%fullparams(MCMC_INDEX_WA)
 #define MCMC_OMEGA_LAMBDA  (1.d0 - MCMC_OMEGA_M - MCMC_OMEGA_K)  
 
   COOP_INT, parameter::coop_n_derived_with_cosmology = 4
@@ -158,6 +163,7 @@ module coop_mcmc_mod
      COOP_REAL::sum_mult = 0.d0
      COOP_REAL::temperature = 1.d0
      COOP_INT::lmax = 0
+     COOP_INT::init_level = coop_init_level_set_background
      COOP_INT::update_seconds = 0 !!this has higher priority unless not used (set to be zero)
      COOP_INT::update_steps = 0  !!lower priority; not used if set to be zero
      COOP_INT::num_exact_calc = 0
@@ -192,52 +198,14 @@ module coop_mcmc_mod
      type(coop_covmat)::covmat
      type(coop_list_realarr)::chain
      type(coop_dictionary)::paramnames
+     type(coop_real_table)::paramvalues
      type(coop_nd_prob)::like_approx
      COOP_INT::accept = 0
      COOP_INT::reject = 0
      COOP_INT::step = 0
-     !!index for parameters
-     COOP_INT::index_ombm2h2 = 0
-     COOP_INT::index_omcm2h2 = 0          
-     COOP_INT::index_theta = 0
-     COOP_INT::index_tau = 0
-     COOP_INT::index_mnu = 0
-     COOP_INT::index_logA = 0
-     COOP_INT::index_logAm2tau = 0     
-     COOP_INT::index_ns = 0
-     COOP_INT::index_nrun = 0     
-     COOP_INT::index_r = 0
-     COOP_INT::index_nt = 0
-     COOP_INT::index_omegam = 0
-     COOP_INT::index_omegab = 0     
-     COOP_INT::index_omegak = 0
-     COOP_INT::index_h = 0
-     COOP_INT::index_de_w = 0
-     COOP_INT::index_de_wa = 0
-     COOP_INT::index_de_epss = 0
-     COOP_INT::index_de_epsinf = 0
-     COOP_INT::index_de_zetas = 0
-     COOP_INT::index_de_betas = 0                         
-#if DO_COUPLED_DE     
-     COOP_INT::index_de_Q = 0
-#elif DO_EFT_DE
-     !!alpha0 parametrization
-     COOP_SHORT_STRING::alpha_genre
-     COOP_INT::index_de_alpha_M0 = 0
-     COOP_INT::index_de_alpha_H0 = 0
-     COOP_INT::index_de_alpha_T0 = 0
-     COOP_INT::index_de_alpha_B0 = 0
-     COOP_INT::index_de_alpha_K0 = 0
-     !!or, cs2 parametrization
-     COOP_INT::index_de_cs2 = 0
-     COOP_INT::index_de_r_B = 0
-     COOP_INT::index_de_r_M = 0
-     COOP_INT::index_de_r_H = 0
-     COOP_INT::index_de_r_T = 0     
-     logical::w_is_background = .false.
-#endif     
    contains
      procedure::init => coop_MCMC_params_init
+     procedure::set_paramvalues => coop_MCMC_params_set_paramvalues
      procedure::MCMC_step => coop_MCMC_params_MCMC_step
      procedure::update_propose => coop_MCMC_params_update_Propose
      procedure::findbest => coop_MCMC_params_findbest
@@ -256,6 +224,16 @@ module coop_mcmc_mod
 
 
 contains
+
+  subroutine coop_MCMC_params_set_paramvalues(this, ind)
+    class(coop_MCMC_params)::this    
+    COOP_INT,optional::ind
+    if(present(ind))then
+       this%paramvalues%val(ind) = this%fullparams(ind)
+    else
+       this%paramvalues%val(1:this%fulln) = this%fullparams(1:this%fulln)
+    endif
+  end subroutine coop_MCMC_params_set_paramvalues
 
   function coop_MCMC_params_index_of(this, name) result(ind)
     class(coop_MCMC_params)::this    
@@ -282,357 +260,11 @@ contains
     endif
   end function coop_MCMC_params_priorLike
 
-  !!set up %cosmology from %fullparams
   subroutine coop_MCMC_params_Set_Cosmology(this)
     class(coop_MCMC_params)::this
-    COOP_REAL,parameter::omega_m_min = 0.1
-    COOP_REAL,parameter::omega_m_max = 0.5   
-    COOP_REAL, parameter::h_min = 0.4d0
-    COOP_REAL, parameter::h_max =  1.d0
-    COOP_INT::iloop
-    COOP_REAL::h_t, h_b, h_m, theta_t, theta_b, theta_m, theta_want
-    logical success
-    if(.not. associated(this%cosmology)) stop "MCMC_params_set_cosmology: cosmology not allocated"
-#if DO_EFT_DE
-    if(this%index_de_cs2 .eq. 0)then
-       if(this%index_de_alpha_M0 .ne. 0)then    
-          call this%cosmology%set_alphaM(coop_de_alpha_constructor(  this%fullparams(this%index_de_alpha_M0), this%alpha_genre ) )
-       else
-          call this%cosmology%set_alphaM( coop_function_polynomial( (/ 0.d0 /) ) )       
-       endif
-    endif
-#endif
-
-    if(this%index_theta .ne. 0)then
-       theta_want = this%fullparams(this%index_theta)
-       h_t = min(h_max, sqrt((this%fullparams(this%index_ombm2h2)+this%fullparams(this%index_omcm2h2))/omega_m_min/this%cosmology%Mpsq0))
-       h_b = max(h_min, sqrt((this%fullparams(this%index_ombm2h2)+this%fullparams(this%index_omcm2h2))/omega_m_max/this%cosmology%Mpsq0))
-       call calc_theta(h_t, theta_t)
-       if(this%cosmology%h().eq.0.d0)return
-       call calc_theta(h_b, theta_b)
-       if(this%cosmology%h().eq.0.d0)return
-       if(theta_t .lt. theta_want)then
-          call this%cosmology%set_h(0.d0)
-          return
-       endif
-       if(theta_b .gt. theta_want)then
-          call this%cosmology%set_h(0.d0)
-          return
-       endif
-       iloop = 0
-       do while(h_t - h_b .gt. 2.d-4)
-          h_m = (h_t + h_b)/2.d0
-          call calc_theta(h_m, theta_m)
-          if(this%cosmology%h().eq.0.d0)return          
-          if(theta_m .gt. theta_want)then
-             h_t = h_m
-             theta_t = theta_m
-          else
-             h_b = h_m
-             theta_b = theta_m
-          endif
-          iloop = iloop+1
-          if(iloop.gt. 20)then
-             call this%cosmology%set_h(0.d0)
-             if(this%feedback .ge. 1)write(*,*) "SetH on Node "//COOP_STR_OF(this%proc_id)//" failed"
-             return
-          endif
-       enddo
-       if((theta_t-theta_b).gt. 1.d-6)then
-          h_m = ((theta_t - theta_want)*h_b + (theta_want - theta_b)*h_t)/(theta_t-theta_b)
-          call setForH(h_m)
-          if(this%cosmology%h().eq.0.d0)return
-       endif
-    elseif(this%index_h .ne. 0)then
-       call setForH(this%fullparams(this%index_h))
-          if(this%cosmology%h().eq.0.d0)return       
-    else
-       stop "you need to use either theta or h for MCMC runs"
-    endif
-#if DO_EFT_DE
-    if(this%index_de_cs2 .eq. 0)then
-       if(this%index_de_alpha_K0 .ne. 0)then
-          this%cosmology%f_alpha_K = coop_de_alpha_constructor( this%fullparams(this%index_de_alpha_K0), this%alpha_genre )
-       endif
-       if(this%index_de_alpha_B0 .ne. 0)then
-          this%cosmology%f_alpha_B = coop_de_alpha_constructor( this%fullparams(this%index_de_alpha_B0), this%alpha_genre )       
-       endif
-       if(this%index_de_alpha_H0 .ne. 0)then
-          this%cosmology%f_alpha_H = coop_de_alpha_constructor( this%fullparams(this%index_de_alpha_H0), this%alpha_genre )       
-       endif
-       if(this%index_de_alpha_T0 .ne. 0)then
-          this%cosmology%f_alpha_T = coop_de_alpha_constructor( this%fullparams(this%index_de_alpha_T0), this%alpha_genre )       
-       endif
-    endif
-#endif    
-    call this%cosmology%setup_background()
-    if(this%index_tau .ne. 0)then !!
-       this%cosmology%optre = this%fullparams(this%index_tau)
-       call this%cosmology%set_xe()
-       if(this%index_logAm2tau .ne. 0)then
-          this%cosmology%As = exp(this%fullparams(this%index_logAm2tau)+2.d0*this%cosmology%optre)*1.d-10      
-       else
-          if(this%index_logA .ne. 0)then
-             this%cosmology%As = exp(this%fullparams(this%index_logA))*1.d-10
-          else
-             this%cosmology%As = 2.2d-9
-          endif
-       endif
-       if(this%index_ns .ne. 0)then
-          this%cosmology%ns = this%fullparams(this%index_ns)
-       else
-          this%cosmoLogy%ns = 0.967d0
-       endif
-       if(this%index_nrun .ne.0)then
-          this%cosmology%nrun = this%fullparams(this%index_nrun)
-       else
-          this%cosmology%nrun = 0.d0
-       endif
-       if(this%index_r .ne. 0)then
-          this%cosmology%r = this%fullparams(this%index_r)
-          this%cosmology%has_tensor = (this%cosmology%r .gt. 0.d0)
-       else
-          this%cosmology%r = 0.d0
-          this%cosmology%has_tensor = .false.
-       endif
-       if(this%index_nt .ne. 0)then
-          this%cosmology%nt = this%fullparams(this%index_nt)
-       else
-          this%cosmology%nt = - this%cosmology%r/8.d0 !!inflationary consistency
-       endif
-       call this%cosmology%set_standard_power(this%cosmology%As, this%cosmology%ns, this%cosmology%nrun, this%cosmology%r, this%cosmology%nt)
-       if(this%lmax .gt. 1)then
-          call this%cosmology%compute_source(0, success = success)
-          if(.not. success)then
-             call this%cosmology%set_h(0.d0)
-             return
-          endif
-          if(this%cosmology%has_tensor)then
-             call this%cosmology%compute_source(2, success = success)
-             if(.not. success)then
-                call this%cosmology%set_h(0.d0)
-                return
-             endif
-          endif
-          if(this%feedback .gt. 2) then
-             write(*,*) "sources done"
-             call coop_prtsystime()
-          endif
-          
-          call this%cosmology%source(0)%get_all_cls(2, this%lmax, this%Cls_scalar)
-          call coop_get_lensing_Cls(2, this%lmax, this%Cls_Scalar, this%Cls_lensed)
-          this%Cls_lensed = this%Cls_lensed + this%Cls_scalar
-          if(this%cosmology%has_tensor)then
-             call this%cosmology%source(2)%get_all_cls( 2, this%lmax, this%Cls_tensor)
-             this%Cls_lensed = this%Cls_lensed + this%Cls_tensor
-          endif
-          this%Cls_lensed = this%Cls_lensed*((this%cosmology%Tcmb())**2*1.d12)
-          if(this%feedback .gt. 2) then
-             write(*,*) "lensing Cls done"
-             call coop_prtsystime()
-          endif
-       endif       
-    endif
-    
-  contains
-
-    subroutine calc_theta(h, theta)
-      COOP_REAL::h, theta
-      call setForH(h)
-      if(this%cosmology%h().eq.0.d0)return
-      theta = this%cosmology%cosmomc_theta()*100.d0
-    end subroutine calc_theta
-
-    subroutine setforH(h)
-      COOP_REAL::h
-      COOP_REAL::Q, w, wa, epsilon_s, epsilon_inf, zeta_s, beta_s, r_B, r_H, r_M, r_T
-      COOP_INT::err
-      type(coop_function)::fQ, fwp1
-      logical::sucess
-      COOP_INT::iloop
-      COOP_REAL::omlast
-      COOP_REAL::omega_b, omega_c
-      call this%cosmology%free()
-      call this%cosmology%init(name = "Cosmology", id = 0, h = h)
-#if DO_EFT_DE                     
-      if(this%index_de_cs2 .ne. 0)then !!alpha not predefined
-#endif            
-#if DO_EFT_DE               
-         if(this%index_de_w .ne. 0)then
-            w = this%fullparams(this%index_de_w)
-         else
-            w = -1.d0
-         endif
-         if(this%index_de_r_B .eq. 0)then
-            r_B = 0.d0
-         else
-            r_B = this%fullparams(this%index_de_r_B)
-         endif
-         if(this%index_de_r_T .eq. 0)then
-            r_T = 0.d0
-         else
-            r_T = this%fullparams(this%index_de_r_T)
-         endif
-         if(this%index_de_r_H .eq. 0)then
-            r_H = 0.d0
-         else
-            r_H = this%fullparams(this%index_de_r_H)
-         endif
-         if(this%index_de_r_M .eq. 0)then
-            r_M = 0.d0
-         else
-            r_M = this%fullparams(this%index_de_r_M)
-         endif
-#endif         
-         this%cosmology%ombm2h2 =this%fullparams(this%index_ombm2h2)
-         this%cosmology%omcm2h2 =this%fullparams(this%index_omcm2h2)
-         omega_b = this%cosmology%ombm2h2/h**2
-         omega_c = this%cosmology%omcm2h2/h**2
-#if DO_EFT_DE
-         if(r_M .ne. 0.d0)then
-            omlast = -1000.d0
-            iloop = 0
-            do while(abs(omega_b + omega_c - omlast ) .gt. 3.d-5)
-               omlast = omega_b + omega_c
-               call coop_de_construct_alpha_from_cs2(omlast, w, this%fullparams(this%index_de_cs2), r_B, r_H, r_M, r_T, this%cosmology%f_alpha_B, this%cosmology%f_alpha_H, this%cosmology%f_alpha_K, this%cosmology%f_alpha_M, this%cosmology%f_alpha_T, success)
-               if(.not. success)then
-                  call this%cosmology%set_h(0.d0)
-                  return
-               endif
-               call this%cosmology%set_alphaM()
-               this%cosmology%ombm2h2 =this%fullparams(this%index_ombm2h2)
-               this%cosmology%omcm2h2 =this%fullparams(this%index_omcm2h2)
-               omega_b = this%cosmology%ombm2h2/h**2/this%cosmology%Mpsq0
-               omega_c = this%cosmology%omcm2h2/h**2/this%cosmology%Mpsq0
-               iloop = iloop + 1
-               if(iloop .gt. 100) stop "the alpha functions do not converge"
-            enddo
-         else
-            call coop_de_construct_alpha_from_cs2(omlast, w, this%fullparams(this%index_de_cs2), r_B, r_H, 0.d0, r_T, this%cosmology%f_alpha_B, this%cosmology%f_alpha_H, this%cosmology%f_alpha_K, this%cosmology%f_alpha_M, this%cosmology%f_alpha_T, success)
-            if(.not. success)then
-               call this%cosmology%set_h(0.d0)
-               return
-            endif
-            call this%cosmology%set_alphaM()
-         endif
-#endif
-#if DO_EFT_DE         
-      else
-#endif         
-         this%cosmology%ombm2h2 =this%fullparams(this%index_ombm2h2)/this%cosmology%Mpsq0
-         this%cosmology%omcm2h2 =this%fullparams(this%index_omcm2h2)/this%cosmology%mpsq0
-         omega_b = this%cosmology%ombm2h2/h**2
-         omega_c = this%cosmology%omcm2h2/h**2
-#if DO_EFT_DE         
-      endif
-#endif      
-      !!radiation
-      call this%cosmology%add_species(coop_radiation(this%cosmology%Omega_radiation()))
-      !!neutrinos
-      if(this%index_mnu .ne. 0)then
-#if DO_EFT_DE
-         stop "For EFT DE model massive neutrinos are not implemented yet."
-#endif         
-         if(this%fullparams(this%index_mnu).gt. 0.01d0)then  !!do massive neutrinos
-            call this%cosmology%add_species(coop_neutrinos_massive( &
-                 this%cosmology%Omega_nu_per_species_from_mnu_eV( this%fullparams(this%index_mnu) ) ,&
-                 this%cosmology%Omega_massless_neutrinos_per_species()))
-            call this%cosmology%add_species( coop_neutrinos_massless(this%cosmology%Omega_massless_neutrinos_per_species()*(this%cosmology%NNu()-1)))
-         else
-            call this%cosmology%add_species( coop_neutrinos_massless(this%cosmology%Omega_massless_neutrinos()))
-         endif
-      else
-         call this%cosmology%add_species( coop_neutrinos_massless(this%cosmology%Omega_massless_neutrinos()))
-      endif
-
-      if(this%index_de_epss .ne. 0 .or. this%index_de_epsinf .ne. 0 .or. this%index_de_zetas .ne. 0 .or. this%index_de_betas .ne. 0)then
-         if(this%index_de_epss .ne. 0)then
-            epsilon_s = this%fullparams(this%index_de_epss)
-         else
-            epsilon_s = 0.d0
-         endif
-         if(this%index_de_epsinf .ne. 0)then
-            epsilon_inf = this%fullparams(this%index_de_epsinf)
-         else
-            epsilon_inf = 0.01d0
-         endif
-         if(this%index_de_zetas .ne. 0)then
-            zeta_s = this%fullparams(this%index_de_zetas)
-         else
-            zeta_s = 0.d0
-         endif
-         if(this%index_de_betas .ne. 0)then
-            beta_s = this%fullparams(this%index_de_betas)
-         else
-            beta_s = 6.d0
-         endif
-         fwp1 = coop_function_constructor(coop_de_wp1_coupled_quintessence, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args = coop_arguments_constructor( r = (/ this%cosmology%Omega_k()  - this%cosmology%omcm2h2/h**2/this%cosmology%Mpsq0, epsilon_s, epsilon_inf, zeta_s , beta_s /) ), name = "DE 1+w")
-      else
-         if(this%index_de_w .ne. 0)then
-            w = this%fullparams(this%index_de_w)
-            if(this%index_de_wa .ne. 0)then
-               wa = this%fullparams(this%index_de_wa)
-            else
-               wa = 0.d0
-            endif
-         else
-            w = -1.d0
-            wa = 0.d0
-         endif
-         call fwp1%init_polynomial( (/ 1.d0 + w + wa, - wa /) )
-      endif
-      
-#if DO_EFT_DE
-      call this%cosmology%add_species(coop_cdm(this%cosmology%omcm2h2/h**2/this%cosmology%Mpsq0))
-      if(this%index_de_alpha_M0 .ne. 0)then
-         if(this%w_is_background)then
-            call coop_background_add_EFT_DE_with_effective_w(this%cosmology, effective_wp1 = fwp1 , err = err)            
-         else
-            call coop_background_add_EFT_DE(this%cosmology, wp1 = fwp1 , err = err)
-         endif
-
-         if(err .ne. 0) then
-            
-            call this%cosmology%set_h(0.d0)
-            call fwp1%free()
-            return
-         endif
-      else
-         call this%cosmology%add_species(coop_de_general(this%cosmology%Omega_k(), fwp1))
-      endif
-         
-      
-      this%cosmology%de_genre = COOP_PERT_EFT
-#elif DO_COUPLED_DE
-      if(this%index_de_Q .ne. 0)then
-         Q = this%fullparams(this%index_de_Q)
-      else
-         Q = 0.d0
-      endif
-      call fQ%init_polynomial( (/ Q /) )
-      call coop_background_add_coupled_DE(this%cosmology, Omega_c = this%cosmology%omcm2h2/h**2, Omega_b = this%cosmology%ombm2h2/h**2, fwp1 = fwp1, fQ = fQ, err = err)
-      if(err .ne. 0)then
-         call this%cosmology%set_h(0.d0)
-      endif
-      this%cosmology%de_genre = COOP_PERT_SCALAR_FIELD      
-      call fQ%free()
-#else      
-      call this%cosmology%add_species(coop_cdm(this%cosmology%omcm2h2/h**2/this%cosmology%mpsq0))
-      if(this%index_de_w .ne. 0)then
-         w = this%fullparams(this%index_de_w)
-         if(this%index_de_wa .ne. 0)then
-            wa = this%fullparams(this%index_de_wa)
-            call this%cosmology%add_species(coop_de_w0wa(this%cosmology%Omega_k(), w, wa))               
-         else
-            call this%cosmology%add_species(coop_de_w0(this%cosmology%Omega_k(), w))                              
-         endif
-      else
-         call this%cosmology%add_species(coop_de_lambda(this%cosmology%Omega_k()))                           
-      endif
-#endif
-100   call fwp1%free()
-    end subroutine setforH
-
+    logical::success
+    call this%set_paramvalues()
+    call this%cosmology%init_from_dictionary_and_paramtable(this%settings, this%paramvalues, level = this%init_level, success = success)
   end subroutine coop_MCMC_params_Set_Cosmology
 
   function  coop_MCMC_params_derived(this) result(derived)
@@ -645,8 +277,8 @@ contains
        derived(3) = 1.d0 - this%cosmology%Omega_m
        derived(4) = this%cosmology%sigma_8
     else
-       if(this%index_omegam .ne. 0 .and. this%index_omegak .ne. 0)then
-          derived(1) = 1.d0 - this%fullparams(this%index_omegam)- this%fullparams(this%index_omegak)
+       if(MCMC_INDEX_OMEGA_M .ne. 0 .and. MCMC_INDEX_OMEGA_K .ne. 0)then
+          derived(1) = 1.d0 - this%fullparams(MCMC_INDEX_OMEGA_M)- this%fullparams(MCMC_INDEX_OMEGA_K)
        else
           derived(1) = 0.d0
        endif
@@ -1380,6 +1012,7 @@ contains
     endif
     call this%chain%init()
     call this%paramnames%free()
+    call this%paramvalues%free()
     call this%covmat%free()
     call this%cycl%free()
     call this%like_approx%free()
@@ -1452,6 +1085,7 @@ contains
     if(coop_file_exists(trim(paramnames)))then
        this%fulln  = coop_file_numlines(paramnames)
        call coop_load_dictionary(paramnames, this%paramnames, col_key = 1)
+       call this%paramvalues%load_dictionary(this%paramnames, copyall=.true.)
     else
        write(*, "(A)") "MCMC_params_init: cannot find file "//trim(paramnames)
        stop
@@ -1657,63 +1291,6 @@ contains
        endif
     endif
     deallocate(center, lower, upper, width, iniwidth, prior_sigma, prior_center)    
-
-    !!load all the indices
-    this%index_ombm2h2 = this%index_of("ombm2h2")
-    if(this%index_ombm2h2.eq.0) &
-       this%index_ombm2h2 = this%index_of("ombh2")
-    if(this%index_ombm2h2.eq.0) &
-         this%index_ombm2h2 = this%index_of("omegabh2")
-    if(this%index_ombm2h2 .eq. 0) write(*,*) "Warning: cannot find the default parameter omega_b M^2 h^2"
-    this%index_omcm2h2 = this%index_of("omcm2h2")
-    if(this%index_omcm2h2 .eq.0 ) &    
-         this%index_omcm2h2 = this%index_of("omch2")
-    if(this%index_omcm2h2 .eq.0 ) &
-       this%index_omcm2h2 = this%index_of("omegach2")
-    if(this%index_omcm2h2 .eq. 0) write(*,*) "Warning: cannot find the default parameter omega_c M^2 h^2"
-    
-    this%index_theta = this%index_of("theta")
-    this%index_tau = this%index_of("tau")
-    this%index_logAm2tau = this%index_of("logAm2tau")
-    this%index_logA = this%index_of("logA")
-    this%index_ns = this%index_of("ns")
-    this%index_mnu = this%index_of("mnu")                        
-    this%index_nrun = this%index_of("nrun")
-    this%index_r = this%index_of("r")
-    this%index_nt =      this%index_of("nt")
-
-!!dark energy equation of state parameters    
-    this%index_de_w = this%index_of("de_w")
-    this%index_de_wa = this%index_of("de_wa")
-    this%index_de_epss = this%index_of("de_epss")
-    this%index_de_epsinf = this%index_of("de_epsinf")
-    this%index_de_zetas = this%index_of("de_zetas")
-    this%index_de_betas = this%index_of("de_betas")                
-
-#if DO_EFT_DE
-    this%index_de_cs2 = this%index_of("de_cs2")
-    if(this%index_de_cs2 .ne. 0)then
-       if(this%index_de_wa .ne. 0 .or. this%index_de_epss .ne. 0 .or. this%index_de_epsinf .ne. 0 .or. this%index_de_zetas .ne. 0 .or. this%index_de_betas .ne. 0) stop "Error in DE parametrization, for EFT DE parametrization with c_s^2, only constant w is allowed."
-       this%index_de_r_M = this%index_of("de_r_M")
-       this%index_de_r_H = this%index_of("de_r_H")
-       this%index_de_r_B = this%index_of("de_r_B")
-       this%index_de_r_T = this%index_of("de_r_T")       
-    else
-       this%index_de_alpha_M0 = this%index_of("de_alpha_M0")
-       this%index_de_alpha_H0 = this%index_of("de_alpha_H0")
-       this%index_de_alpha_K0 = this%index_of("de_alpha_K0")
-       this%index_de_alpha_T0 = this%index_of("de_alpha_T0")    
-       this%index_de_alpha_B0 = this%index_of("de_alpha_B0")
-       call coop_dictionary_lookup(this%settings, "w_is_background", this%w_is_background, .false.)
-       call coop_dictionary_lookup(this%settings, "alpha_genre", this%alpha_genre, "omega")
-    endif
-#elif DO_COUPLED_DE
-    this%index_de_Q = this%index_of("de_Q")
-#endif    
-    this%index_h = this%index_of("h")
-    this%index_omegam = this%index_of("omegam")
-    this%index_omegab = this%index_of("omegab")    
-    this%index_omegak = this%index_of("omegak")
   end subroutine coop_MCMC_params_init
 
   subroutine coop_MCMC_params_get_lmax_from_data(this, pool)
