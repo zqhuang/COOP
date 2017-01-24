@@ -2,6 +2,9 @@ program RunMC
   use coop_wrapper_firstorder
   use coop_mcmc_mod
   implicit none
+#ifdef MPI
+#include "mpif.h"
+#endif
 #include "constants.h"
   logical::use_CMB, use_SN, use_BAO, use_HST, use_WL, use_lensing, use_compressed_CMB, use_Age_Constraint
   type(coop_clik_object),target::pl(5)
@@ -24,11 +27,13 @@ program RunMC
   COOP_STRING::cmb_dataset  = ""
   COOP_INT, parameter::nk = 256  
   COOP_REAL k(nk), matterPk(nk), khMpc(nk), WeylPk(nk)
-  
-  call coop_MPI_init()
-
+  COOP_INT ierror
+#ifdef MPI
+  call MPI_init(ierror)
+#endif
   if(iargc().ge.1)then
-     inifile = trim(coop_InputArgs(1))
+     inifile = trim(adjustl(coop_InputArgs(1)))
+     write(*,*) "Loading file "//trim(inifile)
   else
      write(*,*) "missing ini file"
      write(*,*) "Syntax: "
