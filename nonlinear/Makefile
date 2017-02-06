@@ -16,6 +16,9 @@ default: $(LIB) GetZ1 Solve TabZ1 CDSolve CDExport
 $(LIB):	$(OBJ) 
 	ar -r $@ $?
 
+FR1D: $(OBJ) fR_collapse_1Dtoy.o $(FIRSTORDER)/libcoopfirstorder.a
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) fR_collapse_1Dtoy.o $(LINK)
+
 SCC: solve_chameleon_collapse.o $(FIRSTORDER)/libcoopfirstorder.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) solve_chameleon_collapse.o $(LINK)
 
