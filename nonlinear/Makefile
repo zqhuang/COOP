@@ -63,3 +63,5 @@ solve_coupledDE_collapse.o: $(OBJ)
 solve_collapse.o: $(OBJ)
 
 coupledDE_export_cosmology.o: $(OBJ)
+
+ fR_collapse_1Dtoy.o: fR1Dobj.o
