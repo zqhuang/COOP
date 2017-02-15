@@ -49,7 +49,7 @@ GetZ1: $(OBJ) get_zvir1.o $(FIRSTORDER)/libcoopfirstorder.a
 
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ GetZ1 Solve TestSimp Test TabZ1 CDSolve CDExport
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ GetZ1 Solve TestSimp Test TabZ1 CDSolve CDExport FR1D SCC
 
 
 test.o: $(OBJ)
