@@ -3,40 +3,36 @@ module fR1d_mod
   implicit none
 #include "constants.h"
 
-  COOP_REAL,parameter::coop_fr1d_minq = 1.d-7
-  COOP_REAL,parameter::coop_fr1d_phi0 = 1.d-6
+  COOP_REAL,parameter::coop_fr1d_phi0 = 1.d-7
   COOP_REAL,parameter::coop_fr1d_n = 1.d0
-  COOP_REAL,parameter::coop_fr1d_m2cut = 0.1d0
+  COOP_REAL,parameter::coop_fr1d_m2cut = 1.d2
   !!phi = phi0 * (R/R0)**(-n-1)
   !!R = R0 * (phi/phi0)**(-1/(n+1))
   !!R0 = 12 - 9 Omega_m
 
-#define IND_NOW this%time(1)
-#define IND_L this%time(0)
-#define IND_LL this%time(-1)
+#define PHI_NOW this%ind_phi(1)
+#define PHI_L this%ind_phi(0)
+#define PHI_LL this%ind_phi(-1)
+#define U_NOW this%ind_u(1)
+#define U_L this%ind_u(0)
+
 
   type coop_fr1d_obj
      logical::QS_approx = .true.
+     logical::ignore_cameleon_force = .false.
      COOP_INT::nr
      !!number of discretized comoving coordinates
-     COOP_INT::ns
-     !!number of mass shells
      COOP_REAL::rmax, dr, Omega_m, Omega_Lambda, R0, rho0
-     COOP_REAL:: a
-     COOP_REAL,dimension(:),allocatable::q, v, m, intm, r, dV_out, dV_in, rho, gradphi, phic, m2eff
-     COOP_REAL,dimension(:,:),allocatable::phi
-     COOP_INT::time(-1:1)
-     logical, dimension(:),allocatable::mask
-     !!q: comoving positions of mass shells (time dependent)
-     !!v = a dq/d tau: rescaled comoving velocities of mass shells (time dependent)
-     !!m: masses of shells (fixed)
-     !!r: discretized comoving coordinates (fixed)
-     !!rho: discretized density
-     !!intm: integrated mass
-     !!phi: discretized scalar field; phi = 1 - df/dR  = Phi - Psi
+     COOP_REAL:: a, alast
+     COOP_REAL:: dtau
+     COOP_REAL,dimension(:),allocatable:: r, dV_out, dV_in
+     COOP_REAL,dimension(:,:),allocatable::lnrho, force, u, lnphi, lapc
+     COOP_INT::ind_phi(-1:1), ind_u(0:1)
+     logical, dimension(:,:),allocatable::mask
    contains
      procedure:: free => coop_fr1d_obj_free
      procedure:: init => coop_fr1d_obj_init
+     procedure:: rotate_ind => coop_fr1d_obj_rotate_ind
      procedure:: Hofa => coop_fr1d_obj_Hofa
      procedure:: Dofa => coop_fr1d_obj_Dofa
      procedure:: HDofa => coop_fr1d_obj_HDofa
@@ -46,98 +42,178 @@ module fR1d_mod
      procedure:: phibg => coop_fr1d_obj_phibg
      procedure:: deltaRofphi => coop_fr1d_obj_deltaRofphi
      procedure:: phiofdeltaR => coop_fr1d_obj_phiofdeltaR
-     procedure:: get_rho => coop_fr1d_obj_get_rho
-     procedure:: sort_shells => coop_fr1d_obj_sort_shells
-     procedure:: integrate_mass => coop_fr1d_obj_integrate_mass
      procedure:: evolve => coop_fr1d_obj_evolve
-     procedure:: move_shells => coop_fr1d_obj_move_shells
-     procedure:: accelerate_shells => coop_fr1d_obj_accelerate_shells
-     procedure:: update_phi => coop_fr1d_obj_update_phi
-     procedure:: get_coupled_phi => coop_fr1d_obj_get_coupled_phi
+     procedure:: get_force => coop_fr1d_obj_get_force
+     procedure:: update_rho => coop_fr1d_obj_update_rho
+     procedure:: update_u => coop_fr1d_obj_update_u
+     procedure:: update_a => coop_fr1d_obj_update_a
+     procedure:: get_QS_phi => coop_fr1d_obj_get_QS_phi
   end type coop_fr1d_obj
 
 contains
 
-
-
-
-  subroutine coop_fr1d_obj_get_rho(this)
+  subroutine coop_fr1d_obj_rotate_ind(this)
     class(coop_fr1d_obj)::this
-    COOP_INT::i, j1, j2
-    COOP_REAL::fr, frp, lambda, low, up
-    call this%sort_shells()
-    call this%integrate_mass()
-    j1 = 0
-    
+    this%ind_phi = mod(this%ind_phi + 1, 3)
+    this%ind_u = mod(this%ind_u + 1, 2)
+  end subroutine coop_fr1d_obj_rotate_ind
+
+  subroutine coop_fr1d_obj_free(this)
+    class(coop_fr1d_obj)::this
+    COOP_DEALLOC(this%r)
+    COOP_DEALLOC(this%dV_out)
+    COOP_DEALLOC(this%dV_in)
+    COOP_DEALLOC(this%lnrho)
+    COOP_DEALLOC(this%u)
+    COOP_DEALLOC(this%force)
+    COOP_DEALLOC(this%mask)
+    COOP_DEALLOC(this%lnphi)
+    COOP_DEALLOC(this%lapc)
+  end subroutine coop_fr1d_obj_free
+
+  subroutine coop_fr1d_obj_init(this, Omega_m, nr, rmax, a_ini, delta_ini, r_halo, bw_halo, dtau)
+    class(coop_fr1d_obj)::this
+    COOP_REAL::omega_m, rmax, rmin, a_ini, delta_ini, r_halo, bw_halo, halfdr, dtau
+    COOP_INT:: nr
+    COOP_INT::i, j
+    call this%free()
+    this%ind_phi = (/ 0, 1, 2 /)
+    this%ind_u = (/ 0, 1 /)
+    this%rmax = rmax
+    this%nr  = nr
+    this%dr = rmax/nr
+    halfdr = this%dr/2.d0
+    this%Omega_m = Omega_m
+    this%Omega_Lambda = 1.d0 - Omega_m
+    this%R0 = 12.d0 - 9.d0*Omega_m
+    this%rho0 = 3.d0*Omega_m
+
+    allocate(this%r(0:nr), this%dV_out(0:nr), this%dV_in(0:nr))
+    allocate(this%u(0:nr, 0:1), this%lnrho(0:nr, 0:1), this%force(0:nr, 0:1), this%mask(0:nr, 0:1))
+    allocate(this%lnphi(0:nr, 0:2), this%lapc(-1:1, 0:nr))
+
+    this%r = ( (/ ( i, i = 0, nr ) /) ) * this%dr 
+    !!shell volumes
+    this%dV_out = (coop_2pi/3.d0*this%dr)*(this%r**2 + (this%r + halfdr)*(2.d0*this%r + halfdr))
+    this%dV_in(0) =  0.d0
+    this%dV_in(1:nr) = (coop_2pi/3.d0*this%dr)*(this%r(1:nr)**2 + (this%r(1:nr)- halfdr)*(2.d0*this%r(1:nr)-halfdr))
+    !!Laplacian operator
+    this%lapc(:, 0) = 0.d0
+    this%lapc(:, nr) = 0.d0
+    this%lapc(-1, 1:nr-1) = this%r(0:nr-2)/this%dr**2/this%r(1:nr-1)
+    this%lapc(1, 1:nr-1) = this%r(2:nr)/this%dr**2/this%r(1:nr-1)
+    this%lapc(0, 1:nr-1) = -2.d0/this%dr**2
+    !!scale factor
+    this%a = a_ini
+    !!time step
+    this%dtau = dtau
+    !!log(comoving density)
+    this%lnrho(:, U_NOW) = log(this%rho0 *  (1.d0+delta_ini*(tanh((r_halo - this%r)/bw_halo)/2.d0+0.5d0)))
+    call this%get_force(rho_index = U_NOW, force_index = U_NOW)
+    this%u(:, U_NOW) =  -(1.d0/3.d0*this%HDofa()) * (1.d0 - this%rho0/exp(this%lnrho(:, U_NOW)))
+    call this%get_QS_phi(rho_index = U_NOW, phi_index = PHI_NOW, mask_index = U_NOW)
+    call this%evolve()
+
+
+  end subroutine coop_fr1d_obj_init
+
+  subroutine coop_fr1d_obj_evolve(this)
+    class(coop_fr1d_obj)::this
+    call this%rotate_ind()
+    call this%update_u(index_from = U_L, index_to = U_NOW)
+    call this%update_rho(index_from = U_L, index_to = U_NOW)
+    call this%update_a()
+    call this%get_QS_phi(rho_index = U_NOW, phi_index = PHI_NOW, mask_index = U_NOW)
+  end subroutine coop_fr1d_obj_evolve
+
+
+
+
+  subroutine coop_fr1d_obj_get_QS_phi(this, rho_index, phi_index, mask_index)
+    class(coop_fr1d_obj)::this
+    COOP_INT,parameter::maxloop = 20
+    COOP_INT::phi_index, mask_index, rho_index
+    COOP_INT::i, i_l, i_u, nup, loop
+    COOP_REAL::m2cut, s, converge, err, fourdr2, lapln, phi, a2by3
+    m2cut =  coop_fr1d_m2cut/this%dr**2
+    !$omp parallel do
+    do i=0, this%nr
+       this%lnphi(i, phi_index) = log(this%phiofdeltaR( (exp(this%lnrho(i, rho_index))-this%rho0)/this%a**3 ))
+       this%mask(i, mask_index) = this%m2ofphi(exp(this%lnphi(i, phi_index))) .lt. m2cut
+    enddo
+    !$omp end parallel do
+    i_l = 1
+    i_u = this%nr - 1
+    nup = count(this%mask(i_l:i_u, mask_index))
+    if(nup .eq. 0) return
+    s = 0.d0
+    fourdr2 = 4.d0*this%dr**2 
+    a2by3 =  this%a**2/3.d0
+    do i = i_l, i_u
+#include "updatephi_QS.h"
+    enddo
+    do i = i_u, i_l, -1
+#include "updatephi_QS.h"       
+    enddo
+    converge = s/nup/2.d0 * 1.d-4
+    loop = 0
+    do while(s/nup/2.d0 .gt. converge .and. loop .lt. maxloop)
+       s = 0.d0
+       do i = i_l, i_u
+#include "updatephi_QS.h"
+       enddo
+       do i = i_u, i_l, -1
+#include "updatephi_QS.h"       
+       enddo
+       loop = loop + 1
+    enddo
+  end subroutine coop_fr1d_obj_get_QS_phi
+
+
+  subroutine coop_fr1d_obj_update_rho(this, index_from, index_to)
+    class(coop_fr1d_obj)::this
+    COOP_INT::index_from, index_to
+    this%lnrho(1:this%nr-1, index_to) = this%lnrho(1:this%nr-1, index_from) - (3.d0*this%u(1:this%nr-1, index_from) + this%r(1:this%nr-1)*(this%u(2:this%nr, index_from)-this%u(0:this%nr-2, index_from) + (this%lnrho(2:this%nr, index_from) - this%lnrho(0:this%nr-2, index_from))*this%u(1:this%nr-1, index_from))/(2.d0*this%dr))*this%dtau
+    this%lnrho(0, index_to) = this%lnrho(0, index_from) - (3.d0*this%dtau)*this%u(0, index_from)
+    this%lnrho(this%nr, index_to) = this%lnrho(this%nr, index_from) - (3.d0*this%dtau)*this%u(this%nr, index_from)
+    if(any(this%lnrho(:, index_to) .gt. log(this%rho0)+10.d0))then
+       write(*,"(A, F10.3)") "Halo collapses at z = ", 1.d0/this%a-1.d0
+       stop 
+    endif
+    call this%get_force(rho_index = index_to, force_index = index_to)
+  end subroutine coop_fr1d_obj_update_rho
+
+
+  subroutine coop_fr1d_obj_update_u(this, index_from, index_to)
+    class(coop_fr1d_obj)::this
+    COOP_INT::index_from, index_to
+    COOP_REAL::H
+    H = this%Hofa()
+    this%u(0, index_to) = this%u(0, index_from) + (this%force(0, index_from)  - H*this%u(0,index_from) - this%u(0,index_from)**2)*this%dtau
+    this%u(this%nr,index_from) = this%u(this%nr,index_from) + (this%force(this%nr,index_from) - H*this%u(this%nr,index_from) - this%u(this%nr,index_from)**2)*this%dtau
+    this%u(1:this%nr-1, index_to) = this%u(1:this%nr-1, index_from) + (this%force(1:this%nr-1,index_from) - exp(this%lnphi(1:this%nr-1, index_from))*(this%lnphi(2:this%nr, index_from)-this%lnphi(0:this%nr-2, index_from))/(2.d0*this%dr) - H*this%u(1:this%nr-1,index_from) - this%u(1:this%nr-1,index_from)**2 &
+         - (0.25d0/this%dr)*(this%u(2:this%nr,index_from)**2 - this%u(0:this%nr-2,index_from)**2)*this%r(1:this%nr-1) &
+         )*this%dtau
+    if(coop_isnan(this%u(:, index_to)))then
+       write(*,*) this%a
+       stop "u NAN"
+    endif
+
+  end subroutine coop_fr1d_obj_update_u
+
+
+  subroutine coop_fr1d_obj_get_force(this, rho_index, force_index)
+    class(coop_fr1d_obj)::this
+    COOP_INT::rho_index, force_index, i
+    this%force(0, force_index) = 0.d0
     do i=1, this%nr
-       low = this%r(i) - this%dr/2.d0
-       up = this%r(i) + this%dr/2.d0
-       do while(this%q(j1+1) .lt. low )
-          j1 = j1+ 1
-       enddo
-       if(j1 .ge. this%ns-10)then
-          this%rho(i:) = this%rho(i-1)
-          exit
-       endif
-       j2 = j1 +1 
-       do while(this%q(j2).lt. up)
-          j2  = j2+1
-       enddo
-       this%rho(i) = (this%intm(j2)-this%intm(j1))/(this%q(j2)-this%q(j1))/(coop_4pi/3.d0*(this%q(j1)*(this%q(j1)+this%q(j2)) + this%q(j2)**2)) 
+       this%force(i, force_index) = this%force(i-1, force_index) + (exp(this%lnrho(i-1, rho_index))-this%rho0)*this%dV_out(i-1) + (exp(this%lnrho(i, rho_index))-this%rho0) * this%dV_in(i)
     enddo
-    this%rho(1) = this%rho(2)
-  end subroutine coop_fr1d_obj_get_rho
+    this%force(1:this%nr, force_index) = - this%force(1:this%nr, force_index)/this%r(1:this%nr)**3/this%a/coop_8pi
+    this%force(0, force_index) = this%force(1, force_index)
+  end subroutine coop_fr1d_obj_get_force
 
-
-  subroutine coop_fr1d_obj_sort_shells(this)
-    class(coop_fr1d_obj)::this
-    COOP_INT::i, j1, j2, j3
-    COOP_REAL::vtmp, qtmp
-    do i = 2, this%ns
-       if( this%q(i) .ge. this%q(i-1) ) cycle
-       j1 = 1
-       j2 = i-1
-       do while(j2-j1 .gt. 1)
-          j3 = (j1+j2)/2
-          if(this%q(i) .ge. this%q(j3))then
-             j1 = j3
-          else
-             j2 = j3
-          endif
-       enddo
-       vtmp = this%v(i)
-       qtmp = this%q(i)
-       this%v(j2+1:i) = this%v(j2:i-1)
-       this%q(j2+1:i) = this%q(j2:i-1)
-       this%v(j2) = vtmp
-       this%q(j2) = qtmp
-    enddo
-  end subroutine coop_fr1d_obj_sort_shells
-
-
-  subroutine coop_fr1d_obj_integrate_mass(this)
-    class(coop_fr1d_obj)::this
-    COOP_INT::i
-    COOP_REAL::lambda1, lambda2, u, v
-    lambda1 = (this%q(1)*2.d0/(this%q(1)+this%q(2)))**3
-    this%intm(0) = 0.d0
-    this%intm(1) = this%m(1)*lambda1
-    do i=2, this%ns-1
-       u = (this%q(i+1) - this%q(i-1))/(this%q(i)+this%q(i-1))
-       v = (this%q(i) - this%q(i-1))/(this%q(i)+this%q(i-1))
-       if(u .gt. 0.d0)then
-          lambda2 = (v/u)* ((v**2 + 3.d0*(v+1.d0))/(u**2 + 3.d0*(u+1.d0)))
-       else
-          lambda2 = 0.5d0
-       endif
-       this%intm(i) = this%intm(i-1) + this%m(i-1)*(1.d0-lambda1) + this%m(i)*lambda2
-       lambda1 = lambda2
-    enddo
-    lambda2 = 0.5d0 * (1.d0 - (this%ns - 0.5d0)/(2.d0*this%ns*(this%ns-2.d0/3.d0)  + 1.d0))  !!this is the initial weight
-    this%intm(this%ns) = this%intm(this%ns-1) + this%m(this%ns-1)*(1.d0-lambda1) + this%m(this%ns)*lambda2
-    this%intm(this%ns+1) = this%intm(this%ns) + this%m(this%ns)*(1.d0-lambda2)
-  end subroutine coop_fr1d_obj_integrate_mass
-
+!!================= cosmology background =========================
 
   function coop_fr1d_obj_Hofa(this, a) result(H)
     class(coop_fr1d_obj)::this
@@ -174,7 +250,6 @@ contains
   end function coop_fr1d_obj_HDofa
 
 
-
   function coop_fr1d_obj_dHdtau(this, a) result(dHdtau)
     class(coop_fr1d_obj)::this
     COOP_REAL::dHdtau
@@ -185,225 +260,6 @@ contains
        dHdtau =  -this%Omega_m/this%a/2.d0  + this%Omega_Lambda*this%a**2
     endif
   end function coop_fr1d_obj_dHdtau
-
-
-  subroutine coop_fr1d_obj_free(this)
-    class(coop_fr1d_obj)::this
-    COOP_DEALLOC(this%q)
-    COOP_DEALLOC(this%m)
-    COOP_DEALLOC(this%r)
-    COOP_DEALLOC(this%rho)
-    COOP_DEALLOC(this%intm)
-    COOP_DEALLOC(this%phi)
-    COOP_DEALLOC(this%gradphi)
-    COOP_DEALLOC(this%phic)
-    COOP_DEALLOC(this%m2eff)
-    COOP_DEALLOC(this%mask)
-  end subroutine coop_fr1d_obj_free
-
-  subroutine coop_fr1d_obj_init(this, Omega_m, nr, rmax, ns, a_ini, delta_ini, r_halo, bw_halo)
-    class(coop_fr1d_obj)::this
-    COOP_REAL::omega_m, rmax, a_ini, delta_ini, r_halo, bw_halo
-    COOP_INT::ns, nr
-    COOP_REAL::dq,  mfac
-    COOP_INT::i, j
-    call this%free()
-    this%time = (/ -1, 0, 1 /)
-    this%rmax = rmax
-    this%nr  = nr
-    this%ns = ns
-    this%dr = rmax/nr
-    this%Omega_m = Omega_m
-    this%Omega_Lambda = 1.d0 - Omega_m
-    this%R0 = 12.d0 - 9.d0*Omega_m
-    this%rho0 = 3.d0*Omega_m
-
-    allocate(this%r(nr), this%dV_out(nr), this%dV_in(nr), this%intm(0:ns+1),  this%phi(0:nr+1, -1:1), this%phic(0:nr+1), this%m2eff(0:nr+1), this%mask(0:nr+1), this%gradphi(ns), this%q(0:ns+1), this%v(ns), this%m(ns), this%rho(nr) )
-
-
-    this%r(1:this%nr) = ( (/ ( i, i = 1, nr ) /) - 0.5d0 ) * this%dr
-    mfac = coop_4pi/3.d0*this%dr/2.d0
-    this%dV_in = mfac*(this%r**2 + (this%r-this%dr/2.d0)*(2.d0*this%r-this%dr/2.d0))
-    this%dV_out = mfac*(this%r**2 + (this%r+this%dr/2.d0)*(2.d0*this%r+this%dr/2.d0))
-    this%a = a_ini
-    dq = this%rmax/ns
-    this%q(1:ns) = ( (/ ( i, i = 1, ns ) /) - 0.5d0 ) * dq
-    this%q(0) = 0.d0
-    this%q(ns+1) = rmax
-
-
-    !set mass
-    this%m(1:ns) = (coop_4pi * Omega_m * dq) * (3.d0*this%q(1:ns)**2 + dq**2/4.d0)
-
-    mfac = (1.d0+delta_ini+17.d0/21.d0*delta_ini**2)
-
-    this%v =  ((1.d0-1.d0/mfac)*(a_ini/3.d0)*this%HDofa()) * (tanh((this%q(1:ns)-r_halo)/bw_halo)/2.d0-0.5d0)*this%q(1:ns)
-    
-    this%m = this%m * (mfac + (1.d0-mfac)*(0.5d0+tanh((this%q(1:ns)-r_halo)/bw_halo)/2.d0))
-    call this%get_rho()
-    call this%get_coupled_phi()
-    this%phi(:, IND_NOW) = this%phic
-  end subroutine coop_fr1d_obj_init
-
-  subroutine coop_fr1d_obj_move_shells(this, dlna)
-    class(coop_fr1d_obj)::this
-    COOP_REAL::dlna
-    COOP_INT::i
-    this%q(1:this%ns) = min(max(this%q(1:this%ns) + this%v(1:this%ns)*(dlna/this%Hofa()/this%a), coop_fr1d_minq), this%rmax-this%dr/2.d0)
-  end subroutine coop_fr1d_obj_move_shells
-
-  subroutine coop_fr1d_obj_accelerate_shells(this, dlna)
-    class(coop_fr1d_obj)::this
-    COOP_REAL::dlna, dtau, fac
-    COOP_INT::i, j
-    fac = this%a/this%dr/2.d0
-    !$omp parallel do private(j)
-    do i=1, this%ns
-       j = floor(this%q(i)/this%dr+0.5d0)
-       this%gradphi(i) = (this%phi(j+1, IND_NOW)-this%phi(j, IND_NOW))*fac
-    enddo
-    !$omp end parallel do
-    dtau = dlna/this%Hofa()
-    where(this%q(1:this%ns) .gt. coop_fr1d_minq)
-       this%v(1:this%ns) = this%v(1:this%ns) - ( this%intm(1:this%ns)/this%q(1:this%ns)**2/coop_8pi &
-            - (this%Omega_m/2.d0)*this%q(1:this%ns) &
-            + this%gradphi(1:this%ns) )*dtau 
-    elsewhere
-       this%v(1:this%ns) = 0.d0
-    end where
-  end subroutine coop_fr1d_obj_accelerate_shells
-
-  subroutine coop_fr1d_obj_evolve(this, dlna)
-    COOP_INT,parameter::Nsteps = 50
-    class(coop_fr1d_obj)::this
-    COOP_REAL::dlna
-    COOP_INT::i
-    this%a = this%a*exp(dlna/2.d0)
-    call this%move_shells(dlna)
-    call this%get_rho()
-    call this%accelerate_shells(dlna)
-    call this%get_coupled_phi()
-    call this%update_phi(dlna)
-    this%a = this%a*exp(dlna/2.d0)
-  end subroutine coop_fr1d_obj_evolve
-
-
-  subroutine coop_fr1d_obj_get_coupled_phi(this)
-    class(coop_fr1d_obj)::this
-    COOP_INT::i
-    !$omp parallel do
-    do i=1, this%nr
-       this%phic(i) = this%phiofdeltaR( (this%rho(i)-this%rho0)/this%a**3 )
-       this%m2eff(i) = this%m2ofphi(this%phic(i))
-    enddo
-    !$omp end parallel do
-    this%phic(0) = this%phic(1)
-    this%phic(this%nr+1) = this%phic(this%nr)
-    this%m2eff(0) = this%m2eff(1)
-    this%m2eff(this%nr+1) = this%m2eff(this%nr)
-    this%mask = this%m2eff .lt. coop_fr1d_m2cut/this%dr**2
-  end subroutine coop_fr1d_obj_get_coupled_phi
-
-
-  subroutine coop_fr1d_obj_update_phi(this, dlna)
-    class(coop_fr1d_obj)::this
-    COOP_REAL::dlna
-    COOP_INT::i, loop, nup
-    COOP_REAL::dr2, k2, err, s, converge, H2, dHdtau, c2, c1
-    this%phi(:, IND_NOW) = this%phic
-    nup = count(this%mask)
-    if(nup .gt. 0)then
-       dr2 = this%dr**2
-       k2 = 2.d0/dr2
-       s = 0.d0
-       if(this%QS_approx)then
-          !!forward
-          do i = 2, this%nr-1
-             if(this%mask(i))then
-                err  = ((this%phi(i+1, IND_NOW)+this%phi(i-1, IND_NOW)-2.d0*this%phi(i, IND_NOW))/dr2-((this%rho(i)-this%rho0)/this%a**3-this%deltaRofphi(this%phi(i, IND_NOW)))/3.d0)
-                this%phi(i, IND_NOW) = min(max(this%phi(i, IND_NOW) + err/(k2 + this%m2ofphi(this%phi(i, IND_NOW))), this%phi(i, IND_NOW)*0.5d0), this%phi(i, IND_NOW)*2.d0)
-                s = s + abs(err)
-             endif
-          enddo
-          converge = max(s/nup, 1.d-99)
-          !!backward
-          do i = this%nr-1, 2, -1
-             if(this%mask(i))then
-                err  = ((this%phi(i+1, IND_NOW)+this%phi(i-1, IND_NOW)-2.d0*this%phi(i, IND_NOW))/dr2-((this%rho(i)-this%rho0)/this%a**3-this%deltaRofphi(this%phi(i, IND_NOW)))/3.d0)
-                this%phi(i, IND_NOW) = min(max(this%phi(i, IND_NOW) + err/(k2 + this%m2ofphi(this%phi(i, IND_NOW))), this%phi(i, IND_NOW)*0.5d0), this%phi(i, IND_NOW)*2.d0)
-             endif
-          enddo
-          loop = 1
-          do while(s/2.d0/nup .gt. converge*1.d-3 .and. loop .lt. 10)
-             loop = loop + 1
-             s = 0.d0
-             !!forward
-             do i=2, this%nr-1
-                if(this%mask(i))then
-                   err  = ((this%phi(i+1, IND_NOW)+this%phi(i-1, IND_NOW)-2.d0*this%phi(i, IND_NOW))/dr2-((this%rho(i)-this%rho0)/this%a**3-this%deltaRofphi(this%phi(i, IND_NOW)))/3.d0)
-                   this%phi(i, IND_NOW) = min(max(this%phi(i, IND_NOW) + err/(k2 + this%m2ofphi(this%phi(i, IND_NOW))), this%phi(i, IND_NOW)*0.5d0), this%phi(i, IND_NOW)*2.d0)
-                   s = s + abs(err)
-                endif
-             enddo
-             !!backward
-             do i=this%nr-1, 2, -1
-                if(this%mask(i))then
-                   err  = ((this%phi(i+1, IND_NOW)+this%phi(i-1, IND_NOW)-2.d0*this%phi(i, IND_NOW))/dr2-((this%rho(i)-this%rho0)/this%a**3-this%deltaRofphi(this%phi(i, IND_NOW)))/3.d0)
-                   this%phi(i, IND_NOW) = min(max(this%phi(i, IND_NOW) + err/(k2 + this%m2ofphi(this%phi(i, IND_NOW))), this%phi(i, IND_NOW)*0.5d0), this%phi(i, IND_NOW)*2.d0)
-                   s = s + abs(err)
-                endif
-             enddo
-          enddo
-       else
-          H2 = this%Hofa()**2
-          dHdtau = this%dHdtau()
-          c2 = H2/dlna**2
-          c1 = dHdtau/dlna + 2.d0*H2
-          k2 = k2 + c2 + c1
-          !!forward
-          do i = 2, this%nr-1
-             if(this%mask(i))then
-                err  = (this%phi(i+1, IND_NOW) + this%phi(i-1, IND_NOW)-2.d0*this%phi(i, IND_NOW))/dr2 - ((this%rho(i)-this%rho0)/this%a**3-this%deltaRofphi(this%phi(i, IND_NOW)))/3.d0 &
-                     - (this%phi(i, IND_LL)+this%phi(i, IND_NOW)-2.d0*this%phi(i, IND_L)) * c2 - (this%phi(i, IND_NOW)-this%phi(i, IND_L))*c1
-                this%phi(i, IND_NOW) = min(max(this%phi(i, IND_NOW) + err/(k2 + this%m2ofphi(this%phi(i, IND_NOW))), this%phi(i, IND_NOW)*0.5d0), this%phi(i, IND_NOW)*2.d0)
-                s = s + abs(err)
-             endif
-          enddo
-          converge = max(s/nup, 1.d-99)
-          !!backward
-          do i = this%nr-1, 2, -1
-             if(this%mask(i))then
-                err  = (this%phi(i+1, IND_NOW) + this%phi(i-1, IND_NOW)-2.d0*this%phi(i, IND_NOW))/dr2 - ((this%rho(i)-this%rho0)/this%a**3-this%deltaRofphi(this%phi(i, IND_NOW)))/3.d0 &
-                     - (this%phi(i, IND_LL)+this%phi(i, IND_NOW)-2.d0*this%phi(i, IND_L)) * c2 - (this%phi(i, IND_NOW)-this%phi(i, IND_L))*c1
-                this%phi(i, IND_NOW) = min(max(this%phi(i, IND_NOW) + err/(k2 + this%m2ofphi(this%phi(i, IND_NOW))), this%phi(i, IND_NOW)*0.5d0), this%phi(i, IND_NOW)*2.d0)
-             endif
-          enddo
-          loop = 1
-          do while(s/2.d0/nup .gt. converge*1.d-3 .and. loop .lt. 10)
-             loop = loop + 1
-             s = 0.d0
-             !!forward
-             do i=2, this%nr-1
-                if(this%mask(i))then
-                   err  = (this%phi(i+1, IND_NOW) + this%phi(i-1, IND_NOW)-2.d0*this%phi(i, IND_NOW))/dr2 - ((this%rho(i)-this%rho0)/this%a**3-this%deltaRofphi(this%phi(i, IND_NOW)))/3.d0 &
-                        - (this%phi(i, IND_LL)+this%phi(i, IND_NOW)-2.d0*this%phi(i, IND_L)) * c2 - (this%phi(i, IND_NOW)-this%phi(i, IND_L))*c1
-                   this%phi(i, IND_NOW) = min(max(this%phi(i, IND_NOW) + err/(k2 + this%m2ofphi(this%phi(i, IND_NOW))), this%phi(i, IND_NOW)*0.5d0), this%phi(i, IND_NOW)*2.d0)
-                   s = s + abs(err)
-                endif
-             enddo
-             !!backward
-             do i=this%nr-1, 2, -1
-                if(this%mask(i))then
-                   err  = (this%phi(i+1, IND_NOW) + this%phi(i-1, IND_NOW)-2.d0*this%phi(i, IND_NOW))/dr2 - ((this%rho(i)-this%rho0)/this%a**3-this%deltaRofphi(this%phi(i, IND_NOW)))/3.d0 &
-                        - (this%phi(i, IND_LL)+this%phi(i, IND_NOW)-2.d0*this%phi(i, IND_L)) * c2 - (this%phi(i, IND_NOW)-this%phi(i, IND_L))*c1
-                   this%phi(i, IND_NOW) = min(max(this%phi(i, IND_NOW) + err/(k2 + this%m2ofphi(this%phi(i, IND_NOW))), this%phi(i, IND_NOW)*0.5d0), this%phi(i, IND_NOW)*2.d0)
-                   s = s + abs(err)
-                endif
-             enddo
-          enddo
-       endif
-    endif
-  end subroutine coop_fr1d_obj_update_phi
 
 
 
@@ -418,6 +274,14 @@ contains
     endif
   end function coop_fr1d_obj_Ricci
 
+  subroutine coop_fr1d_obj_update_a(this)
+    class(coop_fr1d_obj)::this
+    COOP_REAL::da
+    this%alast= this%a
+    da = this%Hofa()*this%a*this%dtau
+    da = this%Hofa(this%a+da/2.d0)*(this%a+da/2.d0)*this%dtau
+    this%a = this%a + this%Hofa(this%a+da/2.d0)*(this%a+da/2.d0)*this%dtau 
+  end subroutine coop_fr1d_obj_update_a
 
 !!================== model dependent part ==========================
 
@@ -453,8 +317,9 @@ contains
     endif
   end function coop_fr1d_obj_phibg
 
-#undef IND_NOW
-#undef IND_L
-#undef IND_LL
-
+#undef PHI_NOW
+#undef PHI_L
+#undef PHI_LL
+#undef U_NOW
+#undef U_L
 end module fR1d_mod

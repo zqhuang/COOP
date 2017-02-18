@@ -64,4 +64,5 @@ solve_collapse.o: $(OBJ)
 
 coupledDE_export_cosmology.o: $(OBJ)
 
- fR_collapse_1Dtoy.o: fR1Dobj.o
+fR_collapse_1Dtoy.o: fR1Dobj.o
+fR1Dobj.o: ../include/updatephi.h ../include/updatephi_QS.h
