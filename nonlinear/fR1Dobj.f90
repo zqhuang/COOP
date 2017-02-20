@@ -76,7 +76,7 @@ contains
     COOP_INT::i
     call fp%open(filename)
     do i=1, this%nr-1
-       write(fp%unit,"(6E14.5)") this%r(i), this%lnrho(i, I_L), this%lnphi(i, I_L), &
+       write(fp%unit,"(7E14.5)") this%r(i), this%lnrho(i, I_L), this%u(i, I_L), this%lnphi(i, I_L), &
             ( (exp(this%lnrho(i, I_L))-this%rho0)/this%a(I_L)**3 - this%deltaRofphi(exp(this%lnphi(i, I_L)), I_L) )*this%a(I_L)**2/3.d0, &
             exp(this%lnphi(i, I_L))*(dot_product(this%lnphi(i-1:i+1, I_L), this%lapc(:, i)) + ((this%lnphi(i+1, I_L)-this%lnphi(i-1, I_L))/this%twodr)**2), &
             exp(this%lnphi(i, I_L))*((this%lnphi(i, I_L)+this%lnphi(i, I_LL)-2.d0*this%lnphi(i, I_L))/this%dtau**2 + (this%lnphi(i, I_NOW)-this%lnphi(i, I_LL))/this%dtau*this%H(I_L) + ((this%lnphi(i, I_NOW)-this%lnphi(i, I_LL))/this%twodtau)**2)
@@ -149,7 +149,7 @@ contains
     this%phibgp(I_NOW) = 0.d0
 
     !!log(comoving density)
-    this%lnrho(:, I_NOW) = log(this%rho0 *  (1.d0+delta_ini*(tanh((r_halo - this%r)/bw_halo)/2.d0+0.5d0)))
+    this%lnrho(:, I_NOW) = log(this%rho0 *  (1.d0 - delta_ini*(r_halo/rmax)**3 + delta_ini*(tanh((r_halo - this%r)/bw_halo)/2.d0+0.5d0)))
     call this%get_force(I_NOW)
     this%u(:, I_NOW) =  -(1.d0/3.d0*this%HDofa(a_ini)) * (1.d0 - this%rho0/exp(this%lnrho(:, I_NOW)))
     call this%get_QS_phi(I_NOW)
@@ -212,7 +212,7 @@ contains
 
   subroutine coop_fr1d_obj_get_QS_phi(this, inow)
     class(coop_fr1d_obj)::this
-    COOP_INT,parameter::maxloop = 8
+    COOP_INT,parameter::maxloop = 5
     COOP_INT::inow
     COOP_INT::i, i_l, i_u, nup, loop, il, ill
     COOP_REAL::m2cut, k2max, s, converge, err, fourdr2, lapln, phi, a2by3, m2
@@ -227,15 +227,14 @@ contains
     m2cut  =  coop_fr1d_m2cut * k2max
     fourdr2 = 4.d0*this%dr**2 
     a2by3 =  this%a(inow)**2/3.d0
-    this%lnphi(this%nr-1:this%nr, inow) = log(this%phibg(inow))
     !$omp parallel do private(m2)
     do i=0, this%nr
        this%lnphi(i, inow) = log(this%phiofdeltaR( (exp(this%lnrho(i, inow))-this%rho0)/this%a(inow)**3, inow ))
        m2 = this%m2ofphi(exp(this%lnphi(i, inow)))*a2by3 
-       if(m2 .gt. m2cut .or. i.eq.0 .or. i.eq. this%nr)then
+       if(m2 .gt. m2cut .or. i.eq. 0  .or. i.eq. this%nr .or. this%nstep .le. 1 )then
           this%mask(i, inow) = 0
        else
-          if(m2 .lt. k2max .and. this%nstep .gt. 1)then
+          if(m2 .lt. k2max )then
              this%lnphi(i, inow) = this%lnphi(i, ill) + this%lnphip(i, il)*this%twodtau
              this%lnphip(i, inow) = this%lnphip(i, ill) + ( &
                   (dot_product(this%lnphi(i-1:i+1, il), this%lapc(:, i)) + (this%lnphi(i+1, il)-this%lnphi(i-1, il))**2/fourdr2) &
@@ -247,13 +246,19 @@ contains
        endif
     enddo
     !$omp end parallel do
+    if(this%mask(this%nr-1, inow) .eq. 2)then
+       this%mask(this%nr, inow) = 2
+       this%lnphi(this%nr, inow) = this%lnphi(this%nr-1, inow)
+       this%lnphip(this%nr, inow) = this%lnphip(this%nr-1, inow)
+    endif
+
     if(this%nstep .gt. 1)then
        where(this%mask(:, inow) .eq. 1)
           this%lnphi(:, inow) = this%lnphi(:, il)
        end where
     endif
     i_l = 1
-    i_u = this%nr - 2
+    i_u = this%nr - 1
     nup = count(this%mask(i_l:i_u, inow) .eq. 1)
     if(nup .eq. 0) return
     do while(this%mask(i_l, inow) .ne. 1) 
@@ -281,12 +286,12 @@ contains
        enddo
        loop = loop + 1
     enddo
+    this%lnphi(this%nr, inow) =     this%lnphi(this%nr-1, inow)
     if(this%nstep .gt. 1)then
        where(this%mask(:, inow) .ne. 2)
           this%lnphip(:, inow) = (this%lnphi(:, inow) - this%lnphi(:, il))/this%dtau
        end where
     endif
-
   end subroutine coop_fr1d_obj_get_QS_phi
 
 
@@ -301,11 +306,12 @@ contains
     ill = mod(il + coop_fr1d_time_steps -1,  coop_fr1d_time_steps)
     this%lnrho(1:this%nr-1, inow) = this%lnrho(1:this%nr-1, ill) - (3.d0*this%u(1:this%nr-1, il) + this%r(1:this%nr-1)*(this%u(2:this%nr, il)-this%u(0:this%nr-2, il) + (this%lnrho(2:this%nr, il) - this%lnrho(0:this%nr-2, il))*this%u(1:this%nr-1, il))/(2.d0*this%dr))*this%twodtau
     this%lnrho(0, inow) = this%lnrho(0, ill) - (3.d0*this%twodtau)*this%u(0, il)
-    this%lnrho(this%nr, inow) = this%lnrho(this%nr, ill) - (3.d0*this%twodtau)*this%u(this%nr, il)
+    this%lnrho(this%nr, inow) = this%lnrho(this%nr, ill) - (3.d0*this%u(this%nr, il) + this%r(this%nr)*(this%u(this%nr, il)-this%u(this%nr-1, il) + (this%lnrho(this%nr, il) - this%lnrho(this%nr-1, il))*this%u(this%nr, il))/(this%dr))*this%twodtau
     if(any(this%lnrho(:, inow) .gt. log(this%rho0*2.d4)))then
        write(*,"(A, F10.3)") "Halo collapses at z = ", 1.d0/this%a(inow)-1.d0
        this%collapsed = .true.
     endif
+    this%lnrho(this%nr-10:this%nr, inow) = sum(this%lnrho(this%nr-10:this%nr-6, inow))/5.d0
     call this%get_force(inow)
   end subroutine coop_fr1d_obj_update_rho
 
@@ -320,7 +326,9 @@ contains
     il = mod(inow + coop_fr1d_time_steps -1,  coop_fr1d_time_steps)
     ill = mod(il + coop_fr1d_time_steps -1,  coop_fr1d_time_steps)
     this%u(0, inow) = this%u(0, ill) + (this%force(0, il)  - this%H(il)*this%u(0,il) - this%u(0,il)**2)*this%twodtau
-    this%u(this%nr,il) = this%u(this%nr,ill) + (this%force(this%nr,il) - this%H(il)*this%u(this%nr,il) - this%u(this%nr,il)**2)*this%twodtau
+    this%u(this%nr,il) = this%u(this%nr,ill) + (this%force(this%nr,il) - this%H(il)*this%u(this%nr,il) - this%u(this%nr,il)**2 &
+         - (0.5d0/this%dr)*(this%u(this%nr,il)**2 - this%u(this%nr-1,il)**2)*this%r(this%nr) &
+         )*this%twodtau
     if(this%do_GR)then
        this%u(1:this%nr-1, inow) = this%u(1:this%nr-1, ill) + (this%force(1:this%nr-1,il) - this%H(il)*this%u(1:this%nr-1,il) - this%u(1:this%nr-1,il)**2 &
             - (0.25d0/this%dr)*(this%u(2:this%nr,il)**2 - this%u(0:this%nr-2,il)**2)*this%r(1:this%nr-1) &
@@ -330,6 +338,7 @@ contains
             - (0.25d0/this%dr)*(this%u(2:this%nr,il)**2 - this%u(0:this%nr-2,il)**2)*this%r(1:this%nr-1) &
             )*this%twodtau
     endif
+    this%u(this%nr-10:this%nr, inow) = sum(this%u(this%nr-10:this%nr-6, inow))/5.d0
     if(coop_isnan(this%u(:, inow)))then
        write(*,*) this%a(inow)
        stop "u NAN"
