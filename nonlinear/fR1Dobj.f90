@@ -46,7 +46,7 @@ module fR1d_mod
      procedure:: update_rho => coop_fr1d_obj_update_rho
      procedure:: update_u => coop_fr1d_obj_update_u
      procedure:: update_a => coop_fr1d_obj_update_a
-     procedure:: get_QS_phi => coop_fr1d_obj_get_QS_phi
+     procedure:: update_phi => coop_fr1d_obj_update_phi
 !!     procedure:: get_phi => coop_fr1d_obj_get_phi
   end type coop_fr1d_obj
 
@@ -75,12 +75,14 @@ contains
     type(coop_file)::fp
     COOP_INT::i
     call fp%open(filename)
+    write(fp%unit,"(A2, 4E14.5)") "# ", this%r(0), this%lnrho(0, I_L), this%u(0, I_L), this%lnphi(0, I_L)
     do i=1, this%nr-1
        write(fp%unit,"(7E14.5)") this%r(i), this%lnrho(i, I_L), this%u(i, I_L), this%lnphi(i, I_L), &
             ( (exp(this%lnrho(i, I_L))-this%rho0)/this%a(I_L)**3 - this%deltaRofphi(exp(this%lnphi(i, I_L)), I_L) )*this%a(I_L)**2/3.d0, &
             exp(this%lnphi(i, I_L))*(dot_product(this%lnphi(i-1:i+1, I_L), this%lapc(:, i)) + ((this%lnphi(i+1, I_L)-this%lnphi(i-1, I_L))/this%twodr)**2), &
             exp(this%lnphi(i, I_L))*((this%lnphi(i, I_L)+this%lnphi(i, I_LL)-2.d0*this%lnphi(i, I_L))/this%dtau**2 + (this%lnphi(i, I_NOW)-this%lnphi(i, I_LL))/this%dtau*this%H(I_L) + ((this%lnphi(i, I_NOW)-this%lnphi(i, I_LL))/this%twodtau)**2)
     enddo
+    write(fp%unit,"(A2, 4E14.5)") "# ", this%r(this%nr), this%lnrho(this%nr, I_L), this%u(this%nr, I_L), this%lnphi(this%nr, I_L)
     call fp%close()
   end subroutine coop_fr1d_obj_feedback
 
@@ -152,7 +154,7 @@ contains
     this%lnrho(:, I_NOW) = log(this%rho0 *  (1.d0 - delta_ini*(r_halo/rmax)**3 + delta_ini*(tanh((r_halo - this%r)/bw_halo)/2.d0+0.5d0)))
     call this%get_force(I_NOW)
     this%u(:, I_NOW) =  -(1.d0/3.d0*this%HDofa(a_ini)) * (1.d0 - this%rho0/exp(this%lnrho(:, I_NOW)))
-    call this%get_QS_phi(I_NOW)
+    call this%update_phi(I_NOW)
     this%lnphip = 0.d0
 
     this%dtau = dtau/4.d0
@@ -199,7 +201,7 @@ contains
     call this%update_a(I_NOW)
     call this%update_u(I_NOW)
     call this%update_rho(I_NOW)
-    call this%get_QS_phi(I_NOW)
+    call this%update_phi(I_NOW)
   end subroutine coop_fr1d_obj_evolve_QS
 
 
@@ -210,7 +212,7 @@ contains
   end subroutine coop_fr1d_obj_evolve
 
 
-  subroutine coop_fr1d_obj_get_QS_phi(this, inow)
+  subroutine coop_fr1d_obj_update_phi(this, inow)
     class(coop_fr1d_obj)::this
     COOP_INT,parameter::maxloop = 5
     COOP_INT::inow
@@ -234,15 +236,16 @@ contains
        if(m2 .gt. m2cut .or. i.eq. 0  .or. i.eq. this%nr .or. this%nstep .le. 1 )then
           this%mask(i, inow) = 0
        else
-          if(m2 .lt. k2max )then
+          if(m2 .gt. k2max .or. this%QS_approx)then
+             this%mask(i, inow) = 1
+          else
              this%lnphi(i, inow) = this%lnphi(i, ill) + this%lnphip(i, il)*this%twodtau
              this%lnphip(i, inow) = this%lnphip(i, ill) + ( &
                   (dot_product(this%lnphi(i-1:i+1, il), this%lapc(:, i)) + (this%lnphi(i+1, il)-this%lnphi(i-1, il))**2/fourdr2) &
                   + (this%deltaRofphi(exp(this%lnphi(i, il)), il) - (exp(this%lnrho(i, il))-this%rho0)/this%a(il)**3 ) * this%a(il)**2/3.d0 *exp(-this%lnphi(i, il))  &
                   - 2.d0*this%H(il)*this%lnphip(i, il)-this%lnphip(i, il)**2)*this%twodtau
-             this%mask(i, inow) = 2
+             this%mask(i, inow) = 2         
           endif
-          this%mask(i, inow) = 1
        endif
     enddo
     !$omp end parallel do
@@ -292,7 +295,7 @@ contains
           this%lnphip(:, inow) = (this%lnphi(:, inow) - this%lnphi(:, il))/this%dtau
        end where
     endif
-  end subroutine coop_fr1d_obj_get_QS_phi
+  end subroutine coop_fr1d_obj_update_phi
 
 
   subroutine coop_fr1d_obj_update_rho(this, inow)
@@ -415,7 +418,7 @@ contains
        if(this%phibg(inow) .lt. 0.d0)then
           print*, this%a(inow), this%phibg(ill), this%phibg(il), this%phibg(inow)
           print*, this%a(inow), this%phibgp(ill), this%phibgp(il), this%phibgp(inow)
-          stop "background phi < 0 error"
+          stop "background phi < 0 error; please reduce the time step."
        endif
        this%phibgp(inow) = this%phibgp(ill) + (this%deltaRofphi(this%phibg(il), il)*this%a(il)**2/3.d0 - 2.d0*this%H(il)*this%phibgp(il))*this%twodtau
     endif
