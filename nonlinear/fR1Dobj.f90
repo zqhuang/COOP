@@ -310,7 +310,7 @@ contains
     this%lnrho(1:this%nr-1, inow) = this%lnrho(1:this%nr-1, ill) - (3.d0*this%u(1:this%nr-1, il) + this%r(1:this%nr-1)*(this%u(2:this%nr, il)-this%u(0:this%nr-2, il) + (this%lnrho(2:this%nr, il) - this%lnrho(0:this%nr-2, il))*this%u(1:this%nr-1, il))/(2.d0*this%dr))*this%twodtau
     this%lnrho(0, inow) = this%lnrho(0, ill) - (3.d0*this%twodtau)*this%u(0, il)
     this%lnrho(this%nr, inow) = this%lnrho(this%nr, ill) - (3.d0*this%u(this%nr, il) + this%r(this%nr)*(this%u(this%nr, il)-this%u(this%nr-1, il) + (this%lnrho(this%nr, il) - this%lnrho(this%nr-1, il))*this%u(this%nr, il))/(this%dr))*this%twodtau
-    if(any(this%lnrho(:, inow) .gt. log(this%rho0*2.d4)))then
+    if(.not. all(this%lnrho(:, inow) .lt. log(this%rho0*2.d4)))then
        write(*,"(A, F10.3)") "Halo collapses at z = ", 1.d0/this%a(inow)-1.d0
        this%collapsed = .true.
     endif
@@ -343,8 +343,8 @@ contains
     endif
     this%u(this%nr-10:this%nr, inow) = sum(this%u(this%nr-10:this%nr-6, inow))/5.d0
     if(coop_isnan(this%u(:, inow)))then
-       write(*,*) this%a(inow)
-       stop "u NAN"
+       write(*,*) "at z = ", 1.d0/this%a(inow) - 1.d0
+       stop "u = NAN"
     endif
 
   end subroutine coop_fr1d_obj_update_u
