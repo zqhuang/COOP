@@ -20,7 +20,7 @@ program fR1d
   write(*, "(A, E15.4)") "M = ",  0.5d0 * r_halo**3 * coop_SI_PlanckMass * coop_SI_hbyH0/ coop_SI_PlanckTime / coop_SI_Msun / 0.7d0
   delta_ini = delta_0 * coop_Growth_fitting(Omega_m, -1.d0, z_ini) / coop_Growth_fitting(Omega_m, -1.d0, 0.d0)
   delta_ini = delta_ini + 17.d0/21.d0*delta_ini**2 + ((17.d0/21.d0)**2*2.d0-341.d0/567.d0)*delta_ini**3
-  call halo%init(Omega_m = Omega_m, nr = 1024, rmax = r_halo*30.d0, a_ini = 1.d0/(1.d0+z_ini), delta_ini = delta_ini, r_halo = r_halo, bw_halo = r_halo/20.d0, dtau = r_halo/500.d0)
+  call halo%init(Omega_m = Omega_m, nr = 2048, rmax = r_halo*30.d0, a_ini = 1.d0/(1.d0+z_ini), delta_ini = delta_ini, r_halo = r_halo, bw_halo = r_halo/20.d0, dtau = r_halo/500.d0)
   if(trim(coop_InputArgs(1)).eq. "GR")then
      halo%do_GR = .true.
   elseif(trim(coop_InputArgs(1)).eq. "QS")then
