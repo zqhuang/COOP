@@ -7,7 +7,6 @@ program fR1d
   type(coop_fr1d_obj)::halo
   COOP_INT::i, nsteps
   COOP_REAL::delta_ini, z_ini, delta_0, Omega_m, r_halo, zsave(nsave), asave(nsave)
-  COOP_REAL,dimension(:,:),allocatable::lnrho, lnphi
   COOP_STRING::prefix
 
   Omega_m = 1.d0
@@ -31,7 +30,6 @@ program fR1d
      halo%QS_approx = .false.
   endif
 
-  allocate(lnrho(0:halo%nr, nsave), lnphi(0:halo%nr, nsave))
   if(halo%do_GR)then
      prefix = "col_GR_"
   elseif(halo%QS_approx)then
@@ -45,7 +43,5 @@ program fR1d
         if(mod(halo%nstep, 5000).eq.0)print*, halo%a(halo%time(1)), halo%lnrho(1, halo%time(1)), halo%lnphi(halo%nr-3:halo%nr, halo%time(1))
      enddo
      call halo%feedback(trim(prefix)//trim(coop_ndigits(i,2))//".txt")
-     lnrho(:, i) = halo%lnrho(:, halo%time(1))
-     if(.not.halo%do_GR)lnphi(:, i) = halo%lnphi(:, halo%time(1))
   enddo
 end program fR1d
