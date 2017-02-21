@@ -40,7 +40,7 @@ program fR1d
   do i=1, nsave
      do while(halo%a(halo%time(1)) .lt. asave(i))
         call halo%evolve()
-        if(mod(halo%nstep, 5000).eq.0)print*, halo%a(halo%time(1)), halo%lnrho(1, halo%time(1)), halo%lnphi(halo%nr-3:halo%nr, halo%time(1))
+        if(mod(halo%nstep, 5000).eq.0)write(*, "(5G14.5)") halo%a(halo%time(1)), halo%lnrho(1, halo%time(1)), halo%lnphi(halo%nr-3:halo%nr, halo%time(1))
      enddo
      call halo%feedback(trim(prefix)//trim(coop_ndigits(i,2))//".txt")
   enddo
