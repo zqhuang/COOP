@@ -5,7 +5,6 @@ module fR1d_mod
 
   COOP_REAL,parameter::coop_fr1d_phi0 = 1.d-6
   COOP_REAL,parameter::coop_fr1d_n = 1.d0
-  COOP_REAL,parameter::coop_fr1d_m2cut = 1.d2
   COOP_INT, parameter::coop_fr1d_time_steps = 5
   !!phi = phi0 * (R/R0)**(-n-1)
   !!R = R0 * (phi/phi0)**(-1/(n+1))
@@ -19,14 +18,13 @@ module fR1d_mod
      logical::QS_approx = .true.
      logical::do_GR = .false.
      logical::collapsed = .false.
-     COOP_INT::nr, nstep
+     COOP_INT::nr, nstep, nw, iedge
      !!number of discretized comoving coordinates
-     COOP_REAL::rmax, dr, twodr, Omega_m, Omega_Lambda, R0, rho0
+     COOP_REAL::rmax, dr, twodr, Omega_m, Omega_Lambda, R0, rho0, dr2, c2
      COOP_REAL:: dtau, twodtau
-     COOP_REAL,dimension(:),allocatable:: r, dV_out, dV_in, a, Ricci, H, dHdtau, phibg, phibgp
-     COOP_REAL,dimension(:,:),allocatable::lnrho, force, u, lnphi, lnphip, lapc
+     COOP_REAL,dimension(:),allocatable:: r, dV_out, dV_in, a, Ricci, H, dHdtau, phibg, phibgp, rdr, c1plus, c1minus, sw, cache
+     COOP_REAL,dimension(:,:),allocatable::lnrho, force, u, lnphi, lnphip, lapc, derv_cache
      COOP_INT::time(-1:1)
-     COOP_INT, dimension(:,:),allocatable::mask
    contains
      procedure::feedback => coop_fr1d_obj_feedback
      procedure:: free => coop_fr1d_obj_free
@@ -36,7 +34,7 @@ module fR1d_mod
      procedure:: Dofa => coop_fr1d_obj_Dofa
      procedure:: HDofa => coop_fr1d_obj_HDofa
      procedure:: dHdtauofa => coop_fr1d_obj_dHdtauofa
-     procedure:: Ricciofa => coop_fr1d_obj_Ricciofa
+     procedure:: Ricciofa => coop_fr1d_obj_RIcciofa
      procedure:: m2ofphi => coop_fr1d_obj_m2ofphi
      procedure:: deltaRofphi => coop_fr1d_obj_deltaRofphi
      procedure:: phiofdeltaR => coop_fr1d_obj_phiofdeltaR
@@ -47,10 +45,67 @@ module fR1d_mod
      procedure:: update_u => coop_fr1d_obj_update_u
      procedure:: update_a => coop_fr1d_obj_update_a
      procedure:: update_phi => coop_fr1d_obj_update_phi
-!!     procedure:: get_phi => coop_fr1d_obj_get_phi
+     procedure:: diff => coop_fr1d_obj_diff
+     procedure:: get_derv => coop_fr1d_obj_get_derv
   end type coop_fr1d_obj
 
 contains
+
+  function coop_fr1d_obj_diff(this, inow, istart, iend) result(dif)
+    class(coop_fr1d_obj)::this
+    COOP_INT::inow, i
+    COOP_INT,optional::istart, iend
+    COOP_REAL::dif, a3, a2by3
+    dif = 0.d0
+    a3 = this%a(inow)**3
+    a2by3 = this%a(inow)**2/3.d0
+    if(present(istart).and. present(iend))then
+       !$omp parallel do reduction(+:dif)
+       do i=istart, iend
+          dif = dif + (exp(this%lnphi(i, inow))*(dot_product(this%lapc(:, i), this%lnphi(i-1:i+1, inow)) + (this%lnphi(i+1, inow)-this%lnphi(i-1, inow))**2*this%c2) - ((exp(this%lnrho(i, inow))-this%rho0)/a3 - this%deltaRofphi(exp(this%lnphi(i, inow)), inow)) * a2by3)**2
+       enddo
+       !$omp end parallel do
+    else
+       !$omp parallel do reduction(+:dif)
+       do i=1, this%nr-1
+          dif = dif + (exp(this%lnphi(i, inow))*(dot_product(this%lapc(:, i), this%lnphi(i-1:i+1, inow)) + (this%lnphi(i+1, inow)-this%lnphi(i-1, inow))**2*this%c2) - ((exp(this%lnrho(i, inow))-this%rho0)/a3 - this%deltaRofphi(exp(this%lnphi(i, inow)), inow)) * a2by3)**2
+       enddo
+       !$omp end parallel do
+    endif
+  end function coop_fr1d_obj_diff
+
+
+  subroutine coop_fr1d_obj_get_derv(this, inow, istart, iend) 
+    !!diff = \sum (\nabla^2\phi - ...)^2
+    !!d ( diff)/ d lnphi
+    !!result is saved in this%cache(istart, iend)
+    !!1 <= istart <= iend <= this%nr-1
+    class(coop_fr1d_obj)::this
+    COOP_INT::inow, istart, iend, i
+    COOP_REAL::dif, a3, a2by3, a2, phi, lapn, phidiff, twoc2
+    a2 = this%a(inow)**2
+    a3 = this%a(inow)*a2
+    a2by3 = a2/3.d0
+    twoc2 = 2.d0*this%c2
+    !$omp parallel do private(i, phi, phidiff, lapn, dif)
+    do i=istart, iend
+       phi =  exp(this%lnphi(i, inow))
+       phidiff = this%lnphi(i+1, inow)-this%lnphi(i-1, inow)
+       lapn = dot_product(this%lapc(:, i), this%lnphi(i-1:i+1, inow)) + phidiff**2*this%c2
+       dif = phi*lapn - ((exp(this%lnrho(i, inow))-this%rho0)/a3 - this%deltaRofphi(phi, inow)) * a2by3
+       this%cache(i) = dif**2
+       this%derv_cache(0, i)= 2.d0*dif*phi*(lapn +  this%lapc(0, i) - this%m2ofphi(phi)*a2)
+       this%derv_cache(1, i-1) = 2.d0*dif*phi*(this%lapc(-1, i) - phidiff*twoc2)
+       this%derv_cache(-1, i+1) = 2.d0*dif*phi*(this%lapc(1, i) + phidiff*twoc2)
+    enddo
+    !$omp end parallel do
+    !$omp parallel do
+    do i=istart-1, iend+1
+       this%derv_cache(2, i) = sum(this%derv_cache(-1:1, i))
+    enddo
+    !$omp end parallel do
+  end subroutine coop_fr1d_obj_get_derv
+
 
   subroutine coop_fr1d_obj_rotate_ind(this, backward)
     class(coop_fr1d_obj)::this
@@ -82,7 +137,7 @@ contains
             exp(this%lnphi(i, I_L))*(dot_product(this%lnphi(i-1:i+1, I_L), this%lapc(:, i)) + ((this%lnphi(i+1, I_L)-this%lnphi(i-1, I_L))/this%twodr)**2), &
             exp(this%lnphi(i, I_L))*((this%lnphi(i, I_L)+this%lnphi(i, I_LL)-2.d0*this%lnphi(i, I_L))/this%dtau**2 + (this%lnphi(i, I_NOW)-this%lnphi(i, I_LL))/this%dtau*this%H(I_L) + ((this%lnphi(i, I_NOW)-this%lnphi(i, I_LL))/this%twodtau)**2)
     enddo
-    write(fp%unit,"(A2, 4E14.5)") "# ", this%r(this%nr), this%lnrho(this%nr, I_L), this%u(this%nr, I_L), this%lnphi(this%nr, I_L)
+    write(fp%unit,"(A2, 7E14.5)") "# ", this%r(this%nr), this%lnrho(this%nr, I_L), this%u(this%nr, I_L), this%lnphi(this%nr, I_L)
     call fp%close()
   end subroutine coop_fr1d_obj_feedback
 
@@ -90,6 +145,12 @@ contains
   subroutine coop_fr1d_obj_free(this)
     class(coop_fr1d_obj)::this
     COOP_DEALLOC(this%r)
+    COOP_DEALLOC(this%rdr)
+    COOP_DEALLOC(this%c1plus)
+    COOP_DEALLOC(this%c1minus)
+    COOP_DEALLOC(this%cache)
+    COOP_DEALLOC(this%derv_cache)
+    COOP_DEALLOC(this%sw)
     COOP_DEALLOC(this%a)
     COOP_DEALLOC(this%Ricci)
     COOP_DEALLOC(this%H)
@@ -99,7 +160,6 @@ contains
     COOP_DEALLOC(this%lnrho)
     COOP_DEALLOC(this%u)
     COOP_DEALLOC(this%force)
-    COOP_DEALLOC(this%mask)
     COOP_DEALLOC(this%lnphi)
     COOP_DEALLOC(this%lnphip)
     COOP_DEALLOC(this%lapc)
@@ -115,18 +175,28 @@ contains
     this%nr  = nr
     this%nstep = 0
     this%dr = rmax/nr
+    this%dr2 = this%dr**2
+    this%c2 = 0.25d0/this%dr2
     this%twodr = this%dr*2.d0
     halfdr = this%dr/2.d0
     this%Omega_m = Omega_m
     this%Omega_Lambda = 1.d0 - Omega_m
     this%R0 = 12.d0 - 9.d0*Omega_m
     this%rho0 = 3.d0*Omega_m
+    this%nw = this%nr/200
 
-    allocate(this%r(0:nr), this%dV_out(0:nr), this%dV_in(0:nr), this%a(0:coop_fr1d_time_steps-1), this%phibg(0:coop_fr1d_time_steps-1), this%phibgp(0:coop_fr1d_time_steps-1), this%Ricci(0:coop_fr1d_time_steps-1), this%H(0:coop_fr1d_time_steps-1), this%dHdtau(0:coop_fr1d_time_steps-1))
-    allocate(this%u(0:nr, 0:coop_fr1d_time_steps-1), this%lnrho(0:nr, 0:coop_fr1d_time_steps-1), this%force(0:nr, 0:coop_fr1d_time_steps-1), this%mask(0:nr, 0:coop_fr1d_time_steps-1))
+    allocate(this%r(0:nr), this%rdr(0:nr), this%c1plus(0:nr), this%c1minus(0:nr) ,this%cache(0:nr), this%dV_out(0:nr), this%dV_in(0:nr), this%a(0:coop_fr1d_time_steps-1), this%phibg(0:coop_fr1d_time_steps-1), this%phibgp(0:coop_fr1d_time_steps-1), this%Ricci(0:coop_fr1d_time_steps-1), this%H(0:coop_fr1d_time_steps-1), this%dHdtau(0:coop_fr1d_time_steps-1), this%sw(-this%nw:this%nw))
+    allocate(this%derv_cache(-1:2, 0:nr), this%u(0:nr, 0:coop_fr1d_time_steps-1), this%lnrho(0:nr, 0:coop_fr1d_time_steps-1), this%force(0:nr, 0:coop_fr1d_time_steps-1))
     allocate(this%lnphi(0:nr, 0:coop_fr1d_time_steps-1), this%lnphip(0:nr, 0:coop_fr1d_time_steps-1), this%lapc(-1:1, 0:nr))
 
+    this%sw = (/ (i, i=-this%nw, this%nw) /) / (this%nw/3.5d0)
+    this%sw = exp(-(this%sw**2))
+    this%sw = this%sw/sum(this%sw)
     this%r = ( (/ ( i, i = 0, nr ) /) ) * this%dr 
+    this%rdr = this%r * this%dr
+    this%c1plus(1:nr) = 1.d0/this%dr2 + 1.d0/this%rdr(1:nr)
+    this%c1minus(1:nr) = 1.d0/this%dr2 -  1.d0/this%rdr(1:nr)
+    
     !!shell volumes
     this%dV_out = (coop_2pi/3.d0*this%dr)*(this%r**2 + (this%r + halfdr)*(2.d0*this%r + halfdr))
     this%dV_in(0) =  0.d0
@@ -134,9 +204,10 @@ contains
     !!Laplacian operator
     this%lapc(:, 0) = 0.d0
     this%lapc(:, nr) = 0.d0
-    this%lapc(-1, 1:nr-1) = this%r(0:nr-2)/this%dr**2/this%r(1:nr-1)
-    this%lapc(1, 1:nr-1) = this%r(2:nr)/this%dr**2/this%r(1:nr-1)
-    this%lapc(0, 1:nr-1) = -2.d0/this%dr**2
+    this%lapc(-1, 1:nr-1) = this%r(0:nr-2)/this%dr2/this%r(1:nr-1)
+    this%lapc(1, 1:nr-1) = this%r(2:nr)/this%dr2/this%r(1:nr-1)
+    this%lapc(0, 1:nr-1) = -2.d0/this%dr2
+
 
     
     this%collapsed = .false.
@@ -151,6 +222,7 @@ contains
     this%phibgp(I_NOW) = 0.d0
 
     !!log(comoving density)
+    this%iedge = ceiling(this%nr*0.9)
     this%lnrho(:, I_NOW) = log(this%rho0 *  (1.d0 - delta_ini*(r_halo/rmax)**3 + delta_ini*(tanh((r_halo - this%r)/bw_halo)/2.d0+0.5d0)))
     call this%get_force(I_NOW)
     this%u(:, I_NOW) =  -(1.d0/3.d0*this%HDofa(a_ini)) * (1.d0 - this%rho0/exp(this%lnrho(:, I_NOW)))
@@ -175,8 +247,11 @@ contains
 
     this%twodtau = dtau/2.d0
     call this%evolve_QS()
+
     call this%evolve_QS()
+
     call this%evolve_QS()
+
     this%u(:, I_L) = this%u(:, 0)
     this%lnrho(:, I_L) = this%lnrho(:, 0)
     this%force(:, I_L) = this%force(:, 0)
@@ -214,93 +289,82 @@ contains
 
   subroutine coop_fr1d_obj_update_phi(this, inow)
     class(coop_fr1d_obj)::this
-    COOP_INT,parameter::maxloop = 5
     COOP_INT::inow
-    COOP_INT::i, i_l, i_u, nup, loop, il, ill
-    COOP_REAL::m2cut, k2max, s, converge, err, fourdr2, lapln, phi, a2by3, m2
+    COOP_INT::istart, iend, i,  j, loop, j1, j2
+    COOP_REAL::diff, diffsmall, a3, rl, sump2, drsq
+    COOP_INT,parameter::n = 12
+    COOP_REAL,dimension(:,:),allocatable::map
+    COOP_REAL,dimension(:),allocatable::lnphi_save
+    COOP_REAL:: p(n), shift, diffnew
     if(this%do_GR) return
     if(this%collapsed)then
        this%lnphi(:, inow) = this%lnphi(:, mod(inow+coop_fr1d_time_steps-1, coop_fr1d_time_steps))
        return
     endif
-    il = mod(inow + coop_fr1d_time_steps -1,  coop_fr1d_time_steps)
-    ill = mod(il + coop_fr1d_time_steps -1,  coop_fr1d_time_steps)
-    k2max = 10.d0/this%dr**2
-    m2cut  =  coop_fr1d_m2cut * k2max
-    fourdr2 = 4.d0*this%dr**2 
-    a2by3 =  this%a(inow)**2/3.d0
-    !$omp parallel do private(m2)
+    a3 = this%a(inow)**3
+    !$omp parallel do
     do i=0, this%nr
-       this%lnphi(i, inow) = log(this%phiofdeltaR( (exp(this%lnrho(i, inow))-this%rho0)/this%a(inow)**3, inow ))
-       m2 = this%m2ofphi(exp(this%lnphi(i, inow)))*a2by3 
-       if(m2 .gt. m2cut .or. i.eq. 0  .or. i.eq. this%nr .or. this%nstep .le. 1 )then
-          this%mask(i, inow) = 0
-       else
-          if(m2 .gt. k2max .or. this%QS_approx)then
-             this%mask(i, inow) = 1
-          else
-             this%lnphi(i, inow) = this%lnphi(i, ill) + this%lnphip(i, il)*this%twodtau
-             this%lnphip(i, inow) = this%lnphip(i, ill) + ( &
-                  (dot_product(this%lnphi(i-1:i+1, il), this%lapc(:, i)) + (this%lnphi(i+1, il)-this%lnphi(i-1, il))**2/fourdr2) &
-                  + (this%deltaRofphi(exp(this%lnphi(i, il)), il) - (exp(this%lnrho(i, il))-this%rho0)/this%a(il)**3 ) * this%a(il)**2/3.d0 *exp(-this%lnphi(i, il))  &
-                  - 2.d0*this%H(il)*this%lnphip(i, il)-this%lnphip(i, il)**2)*this%twodtau
-             this%mask(i, inow) = 2         
-          endif
-       endif
+       this%lnphi(i, inow) = log(this%phiofdeltaR((exp(this%lnrho(i, inow)) - this%rho0)/a3, inow))
     enddo
     !$omp end parallel do
-    if(this%mask(this%nr-1, inow) .eq. 2)then
-       this%mask(this%nr, inow) = 2
-       this%lnphi(this%nr, inow) = this%lnphi(this%nr-1, inow)
-       this%lnphip(this%nr, inow) = this%lnphip(this%nr-1, inow)
-    endif
-
-    if(this%nstep .gt. 1)then
-       where(this%mask(:, inow) .eq. 1)
-          this%lnphi(:, inow) = this%lnphi(:, il)
-       end where
-    endif
-    i_l = 1
-    i_u = this%nr - 1
-    nup = count(this%mask(i_l:i_u, inow) .eq. 1)
-    if(nup .eq. 0) return
-    do while(this%mask(i_l, inow) .ne. 1) 
-       i_l = i_l + 1
+    istart = 1
+    iend = this%nr - 1
+    call this%get_derv(inow, istart, iend)
+    do while(this%cache(istart) .lt. 1.d-3)
+       istart = istart + 1
+       if(istart .ge. iend) return
     enddo
-    do while(this%mask(i_u, inow) .ne. 1)
-       i_u = i_u - 1
+    do while(this%cache(iend).lt. 1.d-3)
+       iend = iend-1
     enddo
-    s = 0.d0
-    do i = i_l, i_u
-#include "updatephi_QS.h"
+    if(iend-istart .le. 2+n) return
+    allocate(map(istart+1:iend-1, n), lnphi_save(istart+1:iend-1))
+    map = 0.d0
+    rl = this%r(iend)-this%r(istart)
+    do j=1, n
+       j1 = istart + nint((iend-istart)*(j-1.)/(n+1.))
+       j2 = istart + nint((iend-istart)*real(j+1)/(n+1.))
+       drsq = (this%r(j2)-this%r(j1))**2/4.d0
+       do i = j1+1, j2-1 
+          map(i,j) = (((this%r(i)-this%r(j1))*(this%r(j2)-this%r(i)))**2/drsq)*sin((this%r(i) - this%r(istart))*coop_pi/rl)**2
+       enddo
     enddo
-    do i = i_u, i_l, -1
-#include "updatephi_QS.h"       
+    diff = sum(this%cache(istart+1:iend-1))
+    do j=1, n
+       p(j) = dot_product(map(:, j),this%derv_cache(2, istart+1:iend-1))
     enddo
-    converge = s/nup/2.d0 * 1.d-4
+    sump2 = sum(p**2)
+    if(sqrt(sump2)/diff.lt. 1.d-2)return
+    diffsmall = diff * 0.01
     loop = 0
-    do while(s/nup/2.d0 .gt. converge .and. loop .lt. maxloop)
-       s = 0.d0
-       do i = i_l, i_u
-#include "updatephi_QS.h"
+    do while(diff .gt. diffsmall .and. loop .lt. 10)
+       shift = 0.01d0
+       lnphi_save = this%lnphi(istart+1:iend-1, inow)
+       do j=1, n
+          this%lnphi(istart+1:iend-1, inow) = this%lnphi(istart+1:iend-1, inow)  - (p(j)/sump2*diff*shift) * map(:, j) 
        enddo
-       do i = i_u, i_l, -1
-#include "updatephi_QS.h"       
+       call this%get_derv(inow, istart+1, iend-1)
+       diffnew = sum(this%cache(istart+1:iend-1))
+       do while(diffnew .gt. diff+1.d-5)
+          shift = shift/2.d0
+          this%lnphi(istart+1:iend-1, inow) = lnphi_save - (p(1)/sump2*diff*shift) * map(:, 1) 
+          do j=2, n
+             this%lnphi(istart+1:iend-1, inow) = this%lnphi(istart+1:iend-1, inow)  - (p(j)/sump2*diff*shift) * map(:, j) 
+          enddo
+          call this%get_derv(inow, istart+1, iend-1)
+          diffnew = sum(this%cache(istart+1:iend-1))
+          if(shift .lt. 1.d-5) stop "update_phi does not converge"
        enddo
-       loop = loop + 1
+       diff = diffnew
+       loop = loop+1
     enddo
-    this%lnphi(this%nr, inow) =     this%lnphi(this%nr-1, inow)
-    if(this%nstep .gt. 1)then
-       where(this%mask(:, inow) .ne. 2)
-          this%lnphip(:, inow) = (this%lnphi(:, inow) - this%lnphi(:, il))/this%dtau
-       end where
-    endif
+    deallocate(map,lnphi_save)
   end subroutine coop_fr1d_obj_update_phi
 
 
   subroutine coop_fr1d_obj_update_rho(this, inow)
     class(coop_fr1d_obj)::this
-    COOP_INT::il, ill, inow
+    COOP_INT::il, ill, inow , i
     if(this%collapsed)then
        this%lnrho(:, inow) = this%lnrho(:, mod(inow+coop_fr1d_time_steps-1, coop_fr1d_time_steps))
        return
@@ -314,14 +378,25 @@ contains
        write(*,"(A, F10.3)") "Halo collapses at z = ", 1.d0/this%a(inow)-1.d0
        this%collapsed = .true.
     endif
-    this%lnrho(this%nr-10:this%nr, inow) = sum(this%lnrho(this%nr-10:this%nr-6, inow))/5.d0
+
+    this%cache = this%lnrho(:, inow)    
+    do i = this%iedge-this%nw, this%iedge-1
+       this%lnrho(i, inow) = sum(this%cache(this%iedge-this%nw+1:i+this%nw)*this%sw(this%iedge-i-this%nw+1:this%nw)) + this%cache(this%iedge-this%nw)*sum(this%sw(-this%nw:this%iedge-i-this%nw))
+    enddo
+    do i = this%iedge, this%nr-this%nw
+       this%lnrho(i, inow) = sum(this%cache(i-this%nw:i+this%nw)*this%sw(-this%nw:this%nw))
+    enddo
+    do i=this%nr-this%nw+1, this%nr
+       this%lnrho(i, inow) = sum(this%cache(i-this%nw:this%nr-1)*this%sw(-this%nw:this%nr-i-1))+this%cache(this%nr)*sum(this%sw(this%nr-i:this%nw))
+    enddo
+
     call this%get_force(inow)
   end subroutine coop_fr1d_obj_update_rho
 
 
   subroutine coop_fr1d_obj_update_u(this, inow)
     class(coop_fr1d_obj)::this
-    COOP_INT::inow, il, ill
+    COOP_INT::inow, il, ill, i
     if(this%collapsed)then
        this%u(:, inow) = this%u(:, mod(inow+coop_fr1d_time_steps-1, coop_fr1d_time_steps))
        return
@@ -346,6 +421,18 @@ contains
        write(*,*) "at z = ", 1.d0/this%a(inow) - 1.d0
        stop "u = NAN"
     endif
+
+
+    this%cache = this%u(:, inow)    
+    do i = this%iedge-this%nw, this%iedge-1
+       this%u(i, inow) = sum(this%cache(this%iedge-this%nw+1:i+this%nw)*this%sw(this%iedge-i-this%nw+1:this%nw)) + this%cache(this%iedge-this%nw)*sum(this%sw(-this%nw:this%iedge-i-this%nw))
+    enddo
+    do i = this%iedge, this%nr-this%nw
+       this%u(i, inow) = sum(this%cache(i-this%nw:i+this%nw)*this%sw(-this%nw:this%nw))
+    enddo
+    do i=this%nr-this%nw+1, this%nr
+       this%u(i, inow) = sum(this%cache(i-this%nw:this%nr-1)*this%sw(-this%nw:this%nr-i-1))+this%cache(this%nr)*sum(this%sw(this%nr-i:this%nw))
+    enddo
 
   end subroutine coop_fr1d_obj_update_u
 
@@ -433,7 +520,7 @@ contains
     deltaR = this%R0*(phi/coop_fr1d_phi0)**(-1.d0/(coop_fr1d_n+1.d0)) -  this%Ricci(inow)
   end function coop_fr1d_obj_deltaRofphi
 
-!!1/3 d delta R/d phi
+!!-1/3 d delta R/d phi
   function coop_fr1d_obj_m2ofphi(this, phi) result(m2eff)
     class(coop_fr1d_obj)::this   
     COOP_REAL::phi, m2eff
@@ -453,3 +540,5 @@ contains
 #undef I_L
 #undef I_LL
 end module fR1d_mod
+
+

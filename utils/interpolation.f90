@@ -68,10 +68,10 @@ contains
     endif
     b = ybar - k*xbar
     if(present(r))then
-       if(sxx .eq. 0.d0 .or. syy .eq. 0.d0)then
+       if(sxx .lt. 1.d-30 .or. syy .lt. 1.d-30)then
           r = 1.d0
        else
-          r = sxy**2/sxx/syy
+          r = sxy/sqrt(sxx*syy)
        endif
     endif
   end subroutine coop_linear_least_square_fit_d
