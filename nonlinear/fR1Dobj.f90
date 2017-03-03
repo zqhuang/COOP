@@ -3,7 +3,7 @@ module fR1d_mod
   implicit none
 #include "constants.h"
 
-  COOP_REAL,parameter::coop_fr1d_phi0 = 1.d-6
+  COOP_REAL,parameter::coop_fr1d_phi0 = 3.d-6
   COOP_REAL,parameter::coop_fr1d_n = 1.d0
   !!phi = phi0 * (R/R0)**(-n-1)
   !!R = R0 * (phi/phi0)**(-1/(n+1))
