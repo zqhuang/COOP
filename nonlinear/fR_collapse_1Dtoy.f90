@@ -25,6 +25,9 @@ program fR1d
      halo%do_GR = .true.
   else
      halo%do_GR = .false.
+     if(trim(coop_InputArgs(1)).eq. "QS")then
+        halo%QS_approx = .true.
+     endif
   endif
   prefix = "col_"//trim(coop_InputArgs(1))//"_"
   do i=1, nsave

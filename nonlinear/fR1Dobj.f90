@@ -11,6 +11,7 @@ module fR1d_mod
 
   type coop_fr1d_obj
      logical::do_GR = .false.
+     logical::QS_approx = .false.
      logical::collapsed = .false.
      COOP_INT::nr, nstep
      !!number of discretized comoving coordinates
@@ -136,10 +137,15 @@ contains
     class(coop_fr1d_obj)::this
     COOP_INT,parameter::NSteps = 20
     COOP_REAL,optional::dtau
-    COOP_REAL::maxm2, dt, maxphi, minphi, Rmin
+    COOP_REAL::maxm2, dt, maxphi, minphi, Rmin, fric
     COOP_INT::i , it
     if(this%collapsed)return
     if(this%do_GR)return
+    if(this%QS_approx)then
+       fric = 0.05d0*Nsteps/dtau
+    else
+       fric = 2.d0*this%H
+    endif
     !$omp parallel do
     do i=0, this%nr
        this%Vslope(i) = (exp(this%lnrho(i))-this%rho0)/this%a3 + this%Ricci
@@ -169,9 +175,9 @@ contains
           do i=1, this%nr-1
              if(this%phieq(i) .ge. minphi)then
                 if(this%phi(i) .gt. minphi)then
-                   this%pi(i) = this%pi(i) + (dot_product(this%lapc(:, i), this%phi(i-1:i+1)) - (this%Vslope(i) - this%Rofphi(this%phi(i)))*this%a2by3 )*dt
+                   this%pi(i) = this%pi(i) + (dot_product(this%lapc(:, i), this%phi(i-1:i+1)) - (this%Vslope(i) - this%Rofphi(this%phi(i)))*this%a2by3 - fric*this%pi(i) )*dt
                 else
-                   this%pi(i) = this%pi(i) + (dot_product(this%lapc(:, i), this%phi(i-1:i+1)) - ((this%Vslope(i) - Rmin)*this%a2by3  + maxm2*(this%phi(i) - minphi)))*dt
+                   this%pi(i) = this%pi(i) + (dot_product(this%lapc(:, i), this%phi(i-1:i+1)) - ((this%Vslope(i) - Rmin)*this%a2by3  + maxm2*(this%phi(i) - minphi))  - fric*this%pi(i) )*dt
                 endif
              endif
           enddo
@@ -275,8 +281,7 @@ contains
   
   subroutine coop_fr1d_obj_update_a(this, dtau)
     class(coop_fr1d_obj)::this
-    COOP_REAL::dtau, atmp, asave
-    asave = this%a
+    COOP_REAL::dtau, atmp
     atmp = (sqrt(this%a) + this%Hofa(this%a)*sqrt(this%a)*dtau/4.d0)**2
     this%a = (sqrt(this%a) + this%Hofa(atmp)*sqrt(atmp)*dtau/2.d0)**2
     this%a2 = this%a**2
@@ -285,7 +290,6 @@ contains
     this%H = this%Hofa(this%a)
     this%dHdtau = this%dHdtauofa(this%a)
     this%Ricci = 6.d0/this%a**2*(this%H**2 + this%dHdtau)
-    if(.not. this%do_GR)this%pi = this%pi*(asave/this%a)**2
   end subroutine coop_fr1d_obj_update_a
 
 !!================== model dependent part ==========================
