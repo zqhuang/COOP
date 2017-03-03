@@ -142,7 +142,7 @@ contains
     if(this%collapsed)return
     if(this%do_GR)return
     if(this%QS_approx)then
-       fric = 0.05d0*Nsteps/dtau
+       fric = 200.d0*this%H
     else
        fric = 2.d0*this%H
     endif
