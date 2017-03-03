@@ -48,9 +48,13 @@ contains
     type(coop_file)::fp
     COOP_INT::i
     call fp%open(filename)
-    do i= 0, this%nr
-       write(fp%unit,"(5E14.5)") this%r(i), this%lnrho(i), this%u(i), this%phi(i), this%pi(i)
+    i = 0
+    write(fp%unit,"(A, 5E14.5)") "# ", this%r(i), this%lnrho(i), this%u(i), this%phi(i), this%pi(i)
+    do i= 1, this%nr-1
+       write(fp%unit,"(6E14.5)") this%r(i), this%lnrho(i), this%u(i), this%phi(i), this%pi(i),  dot_product(this%lapc(:, i), this%phi(i-1:i+1)) - ((exp(this%lnrho(i))-this%rho0)/this%a3 + this%Ricci - this%Rofphi(this%phi(i)))*this%a2by3 
     enddo
+    i = this%nr
+    write(fp%unit,"(A, 5E14.5)") "# ", this%r(i), this%lnrho(i), this%u(i), this%phi(i), this%pi(i)
     call fp%close()
   end subroutine coop_fr1d_obj_feedback
 
@@ -142,7 +146,7 @@ contains
     if(this%collapsed)return
     if(this%do_GR)return
     if(this%QS_approx)then
-       fric = 200.d0*this%H
+       fric = min(2.d5*this%H, 0.05d0/dt)
     else
        fric = 2.d0*this%H
     endif
