@@ -18,6 +18,9 @@ $(LIB): $(OBJ)
 Test: $(OBJ) test.o $(TYPEDEF)/libcooptypedef.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
 
+GAS: $(OBJ) gasmodel.o rungas.o $(TYPEDEF)/libcooptypedef.a
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) gasmodel.o rungas.o $(LINK)
+
 LSQ: $(OBJ) leastsq.o $(TYPEDEF)/libcooptypedef.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) leastsq.o $(LINK)
 
@@ -43,6 +46,8 @@ clean:
 
 test.o: $(LIB)
 
+rungas.o: gasmodel.o
+
 ode.o:	../include/dverk.h
 
 integrate.o:	../include/qromb.h
@@ -50,4 +55,5 @@ integrate.o:	../include/qromb.h
 $(LIB): wrapper.o
 
 wrapper.o:  MPIutils.o specfunc.o list.o random.o cholesky.o matrix.o interpolation.o integrate.o ode.o file_io.o ndprob.o asy.o  fft.o jlbrute.o  inifile.o gaussian_peak.o evalstr.o
+
 

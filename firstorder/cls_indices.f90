@@ -17,7 +17,7 @@ module coop_cl_indices_mod
   COOP_INT, parameter :: coop_limber_ell = 550
 
   
-  COOP_INT :: coop_Cls_lmax(0:2) = (/ 3100, 2000, 1500 /)
+  COOP_INT :: coop_Cls_lmax(0:2) = (/ 2200, 2000, 1500 /)
 
   COOP_REAL, parameter :: coop_power_kmin = 0.1d0 
   COOP_REAL, parameter :: coop_power_kmax = 5.d3
@@ -45,7 +45,7 @@ module coop_cl_indices_mod
   COOP_REAL::coop_zeta_single_slice_chi = -1.d0  !!if set to negative, weight = visibility function
   type(coop_function)::coop_zeta_user_specified_weight
 #else
-  COOP_INT, parameter :: coop_k_dense_fac = 25
+  COOP_INT, parameter :: coop_k_dense_fac = 30
   COOP_INT, parameter :: coop_index_source_Len = 3
 #endif
 

@@ -48,6 +48,7 @@ module coop_asy_mod
      procedure::line => coop_asy_line_d
      procedure::lines => coop_asy_lines_d
      procedure::label => coop_asy_label_relative
+     procedure::text => coop_asy_label_d
      procedure::dot => coop_asy_dot_d
      procedure::dots => coop_asy_dots_d
      procedure::contour => coop_asy_contour_d
@@ -1626,9 +1627,9 @@ contains
   end subroutine coop_asy_curve_s
 
   subroutine coop_asy_labels_d(this, labels, x, y, color, alignment)
+    class(coop_asy) this
     COOP_STRING, dimension(:),intent(IN)::labels
     COOP_REAL ,dimension(:),intent(IN)::x, y
-    class(coop_asy) this
     COOP_UNKNOWN_STRING,optional::color
     COOP_UNKNOWN_STRING,optional::alignment
     COOP_INT  n, i

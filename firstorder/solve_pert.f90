@@ -65,8 +65,9 @@ program test
         ik = ik + 1
      endif
 
-
-     write(fp%unit, "(A20, E16.7)") "# fixed  k [Mpc^{-1}] = ", cosmology%source(0)%k(ik)*cosmology%H0Mpc()
+     cosmology%source(0)%k(ik) = k_want
+     write(fp%unit, "(A25, G14.5)") "# fixed  k[Mpc^{-1}] = ", cosmology%source(0)%k(ik)*cosmology%H0Mpc()
+     write(*, "(A25, G14.5)") "# fixed  k[Mpc^{-1}] = ", cosmology%source(0)%k(ik)*cosmology%H0Mpc()
      !!--------------solve mode k---------------
      !!output are
      call cosmology%compute_source_k(cosmology%source(0), ik, output = fp%unit, names= output_variables, success = success)

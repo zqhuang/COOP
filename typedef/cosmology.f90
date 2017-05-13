@@ -82,7 +82,7 @@ module coop_cosmology_mod
 
      procedure::get_pa4_rhoa4 => coop_cosmology_background_get_pa4_rhoa4 !!input a, return rho a^4 / (H_0^2 M_p^2)
 
-     procedure::get_ppra4_rhoa4 => coop_cosmology_background_get_ppra4_rhoa4 !!input a, return rho a^4 / (H_0^2 M_p^2)     
+     procedure::get_ppra4_rhoa4 => coop_cosmology_background_get_ppra4_rhoa4 !!input a, return (p+rho)a^4/(H_0^2M_p^2) and rho a^4 / (H_0^2 M_p^2)     
      
      procedure::Hasq => coop_cosmology_background_Hasq   !! input a , return H a^2 / H_0
      procedure::dadtau => coop_cosmology_background_Hasq   !! input a , return da/d tau /H_0

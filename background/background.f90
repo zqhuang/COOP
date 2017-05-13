@@ -230,13 +230,13 @@ contains
 
 
   subroutine coop_background_add_EFT_DE_with_effective_w(this, effective_wp1, err)
-    COOP_INT,parameter::narr = 25000
+    COOP_INT,parameter::narr = 10000
     class(coop_cosmology_background)::this
     type(coop_function)::effective_wp1
     type(coop_species)::de, deeff
     COOP_INT::i, err, j
     COOP_REAL,dimension(narr)::lnrho,  wp1, wp1eff
-    COOP_REAL::lna, lnamin, lnamax, dlna, alpha_l, alpha_r, dlnaby2, a, rhoa4de,ppra4de, ppra4tot, rhoa4tot, rhoa4de_bg, M2, rhom0, wp1_bg
+    COOP_REAL::  a, rhoa4de,ppra4de, ppra4tot, rhoa4tot, rhoa4de_bg, M2, rhom0, wp1_bg, da
 #if DO_EFT_DE
     err = 0    
     rhom0=this%rhoa4(1.d0)
@@ -244,22 +244,17 @@ contains
        err = 1
        return
     endif
-
+    !!define effective DE
     call deeff%init(name = "Dark Energy", id = 5, Omega = (3.d0-rhom0)/3.d0/this%Mpsq0, genre = COOP_SPECIES_FLUID, fwp1 = effective_wp1)
+    deeff%Mpsq0 = this%Mpsq0
 
-    de%Omega = this%Omega_k()
     de%name = "Dark Energy"
     de%genre = COOP_SPECIES_EFT
 
 
-    lnamin = log(coop_min_scale_factor)
-    lnamax = log(coop_scale_factor_today)
-    dlna = (lnamax-lnamin)/(narr-1.d0)
-    dlnaby2 = dlna/2.d0
-    lnrho(narr) = log(3.d0*de%Omega*this%Mpsq0)
-    lna = lnamin
+    da = (coop_scale_factor_today-coop_min_scale_factor)/(narr-1.d0)
+    a = coop_min_scale_factor
     do i=1, narr
-       a = exp(lna)
        M2 = this%Mpsq(a)
        wp1_bg = deeff%wp1ofa(a)
        rhoa4de_bg = deeff%rhoa4(a)       
@@ -270,19 +265,20 @@ contains
           err = 1  !!negative energy flag
           return
        else
-          lnrho(i) = log(rhoa4de) - lna * 4.d0
+          lnrho(i) = log(max(rhoa4de/a**4, 1.d-99)) 
           wp1(i) = ppra4de/rhoa4de
        endif
        wp1eff(i) = wp1_bg*rhoa4de_bg/rhoa4de - (this%alpha_M(a)*(rhoa4tot+rhoa4de_bg)*M2/3.d0 - (M2-1.d0)*(ppra4tot + wp1_bg * rhoa4de_bg))/rhoa4de
-       lna = lna + dlna
+       a = a + da
     enddo
-
+    de%Omega = exp(lnrho(narr))/(3.d0*this%Mpsq0)
+    de%Mpsq0 = this%Mpsq0
 
     lnrho = lnrho - lnrho(narr)
-    call de%fwp1%init(narr, coop_min_scale_factor, coop_scale_factor_today, wp1, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "DE 1+w(a)")    
-    call de%fwp1eff%init(narr, coop_min_scale_factor, coop_scale_factor_today, wp1eff, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "DE 1+w_eff(a)")
-    call de%flnrho%init(narr,coop_min_scale_factor, coop_scale_factor_today, lnrho, method = COOP_INTERPOLATE_LINEAR, xlog = .true., check_boundary = .false., name = "DE ln rho_ratio")
-    call de%flnrho%set_boundary(slopeleft = -3.d0*wp1eff(1), sloperight = -3.d0*wp1eff(narr))    
+    call de%fwp1%init(narr, coop_min_scale_factor, coop_scale_factor_today, wp1, method = COOP_INTERPOLATE_LINEAR, check_boundary = .false., name = "DE 1+w(a)")    
+    call de%fwp1eff%init(narr, coop_min_scale_factor, coop_scale_factor_today, wp1eff, method = COOP_INTERPOLATE_LINEAR, check_boundary = .false., name = "DE 1+w_eff(a)")
+    call de%flnrho%init(narr,coop_min_scale_factor, coop_scale_factor_today, lnrho, method = COOP_INTERPOLATE_LINEAR, check_boundary = .false., name = "DE ln rho_ratio")
+    call de%flnrho%set_boundary(slopeleft = 0.d0, sloperight = -3.d0*wp1eff(narr))    
     de%cs2 = 0.d0
     call this%add_species(de)
     call de%free()
@@ -493,7 +489,7 @@ contains
   end subroutine coop_de_construct_alpha_from_cs2
 
   function coop_de_alpha_constructor(alpha0, genre, pow) result(alpha)
-    COOP_REAL, parameter::Omega_m = 0.3d0
+    COOP_REAL, parameter::Omega_m = 0.314d0
     COOP_REAL, parameter::Omega_r = 8.d-5
     COOP_REAL, parameter::lambda = 0.001d0
     COOP_REAL, parameter::delta_z = 0.1d0

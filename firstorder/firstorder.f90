@@ -1911,10 +1911,10 @@ contains
     
     subroutine setforH(hubble, success, level)
       logical:: success
-      COOP_INT::iloop
+      COOP_INT::iloop, i
       COOP_REAL::hubble, omlast
       COOP_INT::level
-
+      COOP_REAL::a, b, c
 #if DO_EFT_DE      
       if(alpha_predefined)then
 #endif        

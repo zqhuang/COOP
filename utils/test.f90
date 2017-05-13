@@ -2,36 +2,39 @@ program Test
   use coop_wrapper_utils
   implicit none
 #include "constants.h"
-  COOP_REAL,parameter::Tstd = 273.16
-  COOP_REAL,parameter::p1 = 500.d0,p2 = 200.d0, p3 = 100.d0
-  COOP_REAL,parameter::dP1 = 234.d0, dp2 = 93.4d0, dp3 = 46.68d0
-  COOP_REAL::dT_fid_ini = 127.4237
-  COOP_INT::i
-  COOP_REAL:: b, dT, dT_fid, dTave
-  read(*,*) b
-  dT_fid = dT_fid_ini
-  do i = 1, 5
-     dTave = (dT12(b)+ dT23(b)+ dT13(b))/3.d0
-     write(*,*) i, sqrt(((dT12(b)-dTave)**2 + (dT23(b)-dTave)**2 + (dT13(b)-dTave)**2)/3.d0), dTave+273.16, (Tstd*dp1/dTave - p1)*(b+dT_fid/dp1)**2,  (Tstd*dp2/dTave - p2)*(b+dT_fid/dp2)**2,  (Tstd*dp3/dTave - p3)*(b+dT_fid/dp3)**2
-     dT_fid = dTave 
+  COOP_INT, parameter::n = 100
+  COOP_REAL,parameter::t0 = 300.d0, p0 = 1.01325d5
+  COOP_REAL,parameter::nuR = 8.31d0
+  COOP_REAL,parameter::V0 = nuR*t0/p0
+  COOP_REAL,parameter::nub = V0*0.01d0
+  COOP_REAL,parameter::anu2 = p0*0.01d0*v0**2
+  COOP_REAL:: p(n), T(n), Hp(n, n)
+  COOP_INT::i, j
+  type(coop_asy)::fig
+  call coop_set_uniform(n, p, 0.05d0*p0, 50.d0*p0)
+  call coop_set_uniform(n, T, 0.02d0*t0, 2.d0*t0)
+  do j=1, n
+     do i=1, n
+        Hp(i, j) = dHdp(p(i), T(j))*p0
+     enddo
   enddo
+  call fig%open("dHdp.txt")
+  call fig%init(xlabel="$p/\mathrm{atm}$", ylabel = "$T/K$",width=4., height=3.2)
+  call fig%density(z=Hp, xmin=p(1)/p0, xmax = p(n)/p0, ymin = T(1), ymax=T(n), label = "$\left(\frac{\partial H}{\partial p}\right)_T \left[J/\mathrm{atm}\right]$",color_table="Planck", zmin=-100.d0, zmax=100.d0)
+  call fig%close()
 
 contains
 
-  function dT12( b)
-    COOP_REAL:: b, dT12
-    dT12  = Tstd*((b+ dT_fid/dp1)**2*dp1 - (b+dT_fid/dp2)**2*dp2)/((b+ dT_fid/dp1)**2*p1 - (b+dT_fid/dp2)**2*p2)
-  end function dT12
+  function dHdp(p, T)
 
-  function dT23( b)
-    COOP_REAL:: b, dT23
-    dT23  = Tstd*((b+ dT_fid/dp3)**2*dp3 - (b+dT_fid/dp2)**2*dp2)/((b+ dT_fid/dp3)**2*p3 - (b+dT_fid/dp2)**2*p2)
-  end function dT23
-
-  function dT13( b)
-    COOP_REAL:: b, dT13
-    dT13  = Tstd*((b+ dT_fid/dp3)**2*dp3 - (b+dT_fid/dp1)**2*dp1)/((b+ dT_fid/dp3)**2*p3 - (b+dT_fid/dp1)**2*p1)
-  end function dT13
-
+    COOP_REAL::p, T, dHdp, V
+    COOP_INT::i
+    V = nuR*T/max(p, anu2) + nub
+    do while(abs((p+anu2/V**2)*(V-nub)/nuR/T -1.d0).gt. 1.d-6)
+       V= nuR*T/(p+anu2/V**2)+nub
+    enddo
+    
+    dHdp = V-nuR*T/(p+anu2/V**2*(1 - 2*(1-nub/V))) 
+  end function dHdp
 
 end program Test  

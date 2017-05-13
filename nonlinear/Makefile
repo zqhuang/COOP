@@ -9,7 +9,7 @@ include ../configure.in
 include ../compile_rules.in
 
 LIB = libcoopnonlinear.a
-OBJ = nonlinear.o ellipse_collapse.o coupledDE_collapse.o fR1Dobj.o
+OBJ = nonlinear.o ellipse_collapse.o coupledDE_collapse.o fR1Dobj.o fR3Dobj.o
 
 default: $(LIB) GetZ1 Solve TabZ1 CDSolve CDExport
 
