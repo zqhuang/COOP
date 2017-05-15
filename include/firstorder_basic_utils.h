@@ -742,8 +742,9 @@
           source%index_tc_off(i) = max(1, min(coop_left_index(source%index_vis_max, source%tauc(1:source%index_vis_max), tauc_cut), coop_left_index(source%index_vis_max, source%tauc(1:source%index_vis_max)/source%tau(1:source%index_vis_max), coop_cosmology_firstorder_tc_cutoff), source%ntau))
        enddo
        !$omp end parallel do
-       
-       source%index_de_perturb_on = coop_right_index(source%ntau, source%omega_de, 1.d-7)
+       !!allow early DE?
+       !!source%index_de_perturb_on = coop_right_index(source%ntau, source%omega_de, 1.d-6)
+       source%index_de_perturb_on = max(maxval(source%index_tc_off)+1, coop_right_index(source%ntau, source%omega_de, 1.d-6) )
     else
        call coop_return_error("set_source_k", "You need to call set_source_tau before calling set_source_k", "stop")
     endif

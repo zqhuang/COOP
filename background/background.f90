@@ -500,6 +500,12 @@ contains
     select case(COOP_LOWER_STR(genre))
     case("omega")
        alpha = coop_function_constructor( coop_de_alpha_invh2, xmin = coop_min_scale_factor, xmax = coop_scale_factor_today, xlog = .true., args= coop_arguments_constructor ( r = (/ alpha0, Omega_m, Omega_r /) ), name = "alpha")
+    case("rational")
+       if(present(pow))then
+          call alpha%init_rational(c_up = (/ pow*alpha0 /), alpha_up = (/ pow /), c_down = (/ 1.d0, alpha0 /), alpha_down = (/ 0.d0, pow /), name = "rational alpha")
+       else
+          stop "for rational function you must specify the power index"
+       endif
     case("powerlaw")
        if(present(pow))then
           if(abs(nint(pow) - pow) .lt. 1.d-6)then

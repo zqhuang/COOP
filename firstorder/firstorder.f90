@@ -1780,18 +1780,48 @@ contains
        call paramtable%lookup( "de_alpha_B0", alpha_B0, 0.d0 )
        call paramtable%lookup( "de_alpha_K0", alpha_K0, 0.d0 )
        call paramtable%lookup( "de_alpha_H0", alpha_H0 , 0.d0 )
-       if(alpha_power .ge. 0.d0)then
+       if(alpha_power .gt. 0.d0)then
           alphaM = coop_de_alpha_constructor(alpha_M0, "powerlaw", alpha_power)
           alphaT = coop_de_alpha_constructor(alpha_T0, "powerlaw", alpha_power)
           alphaH = coop_de_alpha_constructor(alpha_H0, "powerlaw", alpha_power)
           alphaB = coop_de_alpha_constructor(alpha_B0, "powerlaw", alpha_power)
           alphaK = coop_de_alpha_constructor(alpha_K0, "powerlaw", alpha_power)
        else
-          alphaM = coop_de_alpha_constructor(alpha_M0, "omega")
-          alphaT = coop_de_alpha_constructor(alpha_T0, "omega")
-          alphaH = coop_de_alpha_constructor(alpha_H0, "omega")
-          alphaB = coop_de_alpha_constructor(alpha_B0, "omega")
-          alphaK = coop_de_alpha_constructor(alpha_K0, "omega")
+          call paramtable%lookup("de_alpha_M_power", alpha_power, -1000.d0)
+          if(alpha_power .gt. 0.d0)then
+             alphaM = coop_de_alpha_constructor(alpha_M0, "powerlaw", alpha_power)
+          else
+             call paramtable%lookup("de_M2_power", alpha_power, -1000.d0)
+             if(alpha_power .gt. 0.d0)then
+                alphaM = coop_de_alpha_constructor(alpha_M0, "rational", alpha_power)
+             else          
+                alphaM = coop_de_alpha_constructor(alpha_M0, "omega")
+             endif
+          endif
+          call paramtable%lookup("de_alpha_T_power", alpha_power, -1000.d0)
+          if(alpha_power .gt. 0.d0)then
+             alphaT = coop_de_alpha_constructor(alpha_T0, "powerlaw", alpha_power)
+          else
+             alphaT = coop_de_alpha_constructor(alpha_T0, "omega")
+          endif
+          call paramtable%lookup("de_alpha_H_power", alpha_power, -1000.d0)
+          if(alpha_power .gt. 0.d0)then
+             alphaH = coop_de_alpha_constructor(alpha_H0, "powerlaw", alpha_power)
+          else
+             alphaH = coop_de_alpha_constructor(alpha_H0, "omega")
+          endif
+          call paramtable%lookup("de_alpha_B_power", alpha_power, -1000.d0)
+          if(alpha_power .gt. 0.d0)then
+             alphaB = coop_de_alpha_constructor(alpha_B0, "powerlaw", alpha_power)
+          else
+             alphaB = coop_de_alpha_constructor(alpha_B0, "omega")
+          endif
+          call paramtable%lookup("de_alpha_K_power", alpha_power, -1000.d0)
+          if(alpha_power .gt. 0.d0)then
+             alphaK = coop_de_alpha_constructor(alpha_K0, "powerlaw", alpha_power)
+          else
+             alphaK = coop_de_alpha_constructor(alpha_K0, "omega")
+          endif
        endif
        alpha_predefined = .true.
        call this%set_alpham(alphaM)       
