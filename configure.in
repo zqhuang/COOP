@@ -1,16 +1,14 @@
-PLATFORM = MacOS
+PLATFORM = LINUX
 #PLATFORM = Windows
 #PLATFORM = LINUX
 
 ifeq ($(PLATFORM),MacOS)
-GFORTRAN_NAME = gfortran
-GCC_NAME=gcc
+GFORTRAN_NAME = gfortran-mp-4.8
 else
 GFORTRAN_NAME = gfortran
-GCC_NAME=gcc
 endif
 
-
+GCC_NAME=gcc
 IFORT_NAME=ifort
 ICC_NAME=icc
 
@@ -41,8 +39,7 @@ DARK_ENERGY_MODEL = EFT
 LAPACK = $(HOME)/work/scilibs/lapack/
 
 ##FFTW lib (v3.2 up)
-FFTW3 =
-#$(HOME)/work/scilibs/fftw3
+FFTW3 = $(HOME)/work/scilibs/fftw3
 
 ## gsl lib 
 GSL =
@@ -53,12 +50,10 @@ CLIKPATH =
 #$(HOME)/work/scilibs/COOP/forecast/plc-1.0/
 
 ##cfitsio lib, mandatory if you do mapio
-CFITSIO =
-#$(HOME)/work/scilibs/cfitsio
+CFITSIO = $(HOME)/work/scilibs/cfitsio
 
 ##Healpix lib, mandatory if you do mapio
-HEALPIX =
-#$(HOME)/work/scilibs/Healpix
+HEALPIX = $(HOME)/work/scilibs/Healpix
 
 ####################### the rest ##########################################
 #should automatically work if you are using $(IFORT_NAME) or $(GFORTRAN_NAME); 
