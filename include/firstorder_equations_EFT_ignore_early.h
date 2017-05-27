@@ -163,11 +163,11 @@ subroutine coop_cosmology_firstorder_equations(n, lna, y, yp, cosmology, pert)
           O1_PSIPR_PRIME = - O1_PHI_PRIME &
                - (3.d0 + pert%daHdtau/aHsq)*O1_PSI_PRIME &
                - 2.d0*(pert%daHdtau/aHsq + 1.d0)*O1_PHI &
-               - pert%kbyaHsq/3.d0*(O1_PSI+aniso) &
+               - pert%kbyaHsq/3.d0*(O1_PSI+anisobyM2) &
                + ( &
                pert%rhoa2_b/aHsq * O1_DELTA_B * (pert%cs2b - 1.d0/3.d0) &
                + pert%rhoa2_c/aHsq*O1_DELTA_C*(-1.d0/3.d0) &
-               )/2.d0
+               )/2.d0/pert%M2
 
           pert%deltatr_mnu = 0.d0
           pert%deltap_mnu = 0.d0
