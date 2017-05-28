@@ -230,7 +230,7 @@ contains
 
 
   subroutine coop_background_add_EFT_DE_with_effective_w(this, effective_wp1, err)
-    COOP_INT,parameter::narr = 10000
+    COOP_INT,parameter::narr = 30000
     class(coop_cosmology_background)::this
     type(coop_function)::effective_wp1
     type(coop_species)::de, deeff
@@ -268,9 +268,10 @@ contains
           lnrho(i) = log(max(rhoa4de/a**4, 1.d-99)) 
           wp1(i) = ppra4de/rhoa4de
        endif
-       wp1eff(i) = wp1_bg*rhoa4de_bg/rhoa4de - (this%alpha_M(a)*(rhoa4tot+rhoa4de_bg)*M2/3.d0 - (M2-1.d0)*(ppra4tot + wp1_bg * rhoa4de_bg))/rhoa4de
+       wp1eff(i) = min(max(wp1_bg*rhoa4de_bg/rhoa4de - (this%alpha_M(a)*(rhoa4tot+rhoa4de_bg)*M2/3.d0 - (M2-1.d0)*(ppra4tot + wp1_bg * rhoa4de_bg))/rhoa4de, -10.d0), 10.d0)
        a = a + da
     enddo
+    wp1eff(1) = wp1eff(2)
     de%Omega = exp(lnrho(narr))/(3.d0*this%Mpsq0)
     de%Mpsq0 = this%Mpsq0
 

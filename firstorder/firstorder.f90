@@ -190,7 +190,7 @@ contains
 
   !!this head file contains the evolution equations of the firstorder ODE system
 #if DO_EFT_DE
-#include "firstorder_equations_EFT.h"  
+#include "firstorder_equations_EFT_ignore_early.h"  
 #elif DO_COUPLED_DE
 #include "firstorder_equations_CPLDE.h"  
 #else   
@@ -402,8 +402,12 @@ contains
     tau_ini = min(coop_initial_condition_epsilon/source%k(ik), this%conformal_time(this%a_eq*coop_initial_condition_epsilon), source%tau(1)*0.999d0)
     call this%set_initial_conditions(pert, m = source%m, k = source%k(ik), tau = tau_ini)
     lna = log(this%aoftau(tau_ini))
-#if DO_EFT_DE    
-    pert%de_scheme = 0
+#if DO_EFT_DE
+    if(this%alpha_K(exp(lna)) .gt. 1.d-30)then
+       pert%de_scheme = 3
+    else
+       pert%de_scheme = 0
+    endif
 #endif
     select type(this)
     type is(coop_cosmology_firstorder)
@@ -469,13 +473,13 @@ contains
        endif
 #if DO_EFT_DE
        if(pert%de_scheme .eq. 0 .and. pert%deMat(i_mu, eq_mupp).ne.0.d0)then
-          if(itau .eq. 1)then
-             pert%O1_DE_HPI =  -pert%deMat(i_const, eq_mupp)/pert%deMat(i_mu, eq_mupp)
-             pert%O1_DE_HPIPR =  0.d0
-          else             
-             pert%O1_DE_HPI = (-pert%deMat(i_const, eq_mupp) + pert%deMat(i_mup, eq_mupp)/(source%lna(itau) - source%lna(itau-1))*lastHpi) / ( pert%deMat(i_mu, eq_mupp) + pert%deMat(i_mup, eq_mupp)/(source%lna(itau) - source%lna(itau-1)))
-             pert%O1_DE_HPIPR =  (pert%O1_DE_HPI - lastHpi)/(source%lna(itau) - source%lna(itau-1))
-          endif
+!!$          if(itau .eq. 1)then
+!!$             pert%O1_DE_HPI =  -pert%deMat(i_const, eq_mupp)/pert%deMat(i_mu, eq_mupp)
+!!$             pert%O1_DE_HPIPR =  0.d0
+!!$          else             
+!!$             pert%O1_DE_HPI = (-pert%deMat(i_const, eq_mupp) + pert%deMat(i_mup, eq_mupp)/(source%lna(itau) - source%lna(itau-1))*lastHpi) / ( pert%deMat(i_mu, eq_mupp) + pert%deMat(i_mup, eq_mupp)/(source%lna(itau) - source%lna(itau-1)))
+!!$             pert%O1_DE_HPIPR =  (pert%O1_DE_HPI - lastHpi)/(source%lna(itau) - source%lna(itau-1))
+!!$          endif
           lastHpi = pert%O1_DE_HPI
        endif
 #endif
@@ -510,7 +514,7 @@ contains
        !!------------------------------------------------------------
        call this%pert2source(pert, source, itau, ik)
 #if DO_EFT_DE
-       if(itau .ge. source%index_de_perturb_on)then
+!!$       if(itau .ge. source%index_de_perturb_on)then
           if(abs(pert%deMat(i_mupp, eq_mupp)).gt. 1.d-6)then
              scheme = 3
           else
@@ -528,7 +532,7 @@ contains
              ind = 1
              pert%de_scheme = scheme
           endif
-       endif
+!!$       endif
 #endif       
 
        if(itau .eq. source%index_tc_off(ik))then
