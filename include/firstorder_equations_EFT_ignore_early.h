@@ -206,23 +206,23 @@ subroutine coop_cosmology_firstorder_equations(n, lna, y, yp, cosmology, pert)
           pert%deMat(i_const, eq_psipp)  =  - 0.5d0 * (O1_DELTA_B*pert%rhoa2_b/M2a2H2*(pert%cs2b - 1.d0/3.d0) + O1_DELTA_C * pert%rhoa2_c/M2a2H2*(-1.d0/3.d0)- 2.d0/3.d0 * pert%kbyaHsq * anisobyM2) &
                + (4.d0 + pert%HdotbyHsq + pert%alpha_M + pert%alpha_B+ pert%deMat(i_mup, eq_psipp)*cpsi)*O1_PSIPR &
                + ((1.d0 + pert%alpha_H)/3.d0*pert%kbyaHsq+ pert%deMat(i_mu, eq_psipp)*cpsi)*O1_PSI
-
-          O1_DE_HPI_PRIME = O1_DE_HPIPR
+          O1_DE_HPI = O1_PHI * cphi + O1_PSI * cpsi
+          O1_DE_HPI_PRIME = 0.d0
           O1_DE_HPIPR_PRIME = 0.d0
 
-          O1_PSIPR_PRIME = - O1_PHI_PRIME &
-               - (3.d0 + pert%daHdtau/aHsq) * O1_PSI_PRIME &
-               - 2.d0*(pert%daHdtau/aHsq + 1.d0) * O1_PHI &
-               - pert%kbyaHsq/3.d0*(O1_PSI+aniso) &
-               + ( &
-               pert%rhoa2_b/aHsq * O1_DELTA_B * (pert%cs2b - 1.d0/3.d0) &
-               + pert%rhoa2_c/aHsq*O1_DELTA_C*(-1.d0/3.d0) &
-               )/2.d0
-
+!!$          O1_PSIPR_PRIME = - O1_PHI_PRIME &
+!!$               - (3.d0 + pert%daHdtau/aHsq) * O1_PSI_PRIME &
+!!$               - 2.d0*(pert%daHdtau/aHsq + 1.d0) * O1_PHI &
+!!$               - pert%kbyaHsq/3.d0*(O1_PSI+aniso) &
+!!$               + ( &
+!!$               pert%rhoa2_b/aHsq * O1_DELTA_B * (pert%cs2b - 1.d0/3.d0) &
+!!$               + pert%rhoa2_c/aHsq*O1_DELTA_C*(-1.d0/3.d0) &
+!!$               )/2.d0
+!!$
           O1_PSIPR_PRIME = ( - O1_PHI_PRIME*(pert%deMat(i_phip, eq_psipp) + pert%deMat(i_mup, eq_psipp)*cphi) &
                - pert%deMat(i_const, eq_psipp) &
                -  (pert%deMat(i_phi, eq_psipp)+pert%deMat(i_mu,eq_psipp)*cphi)*O1_PHI )/ pert%deMat(i_psipp, eq_psipp)
-
+          
           pert%deltatr_mnu = 0.d0
           pert%deltap_mnu = 0.d0
 

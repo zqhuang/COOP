@@ -272,6 +272,9 @@ contains
        a = a + da
     enddo
     wp1eff(1) = wp1eff(2)
+    lnrho(1) = lnrho(2)
+    wp1(1) = wp1(2)
+    
     de%Omega = exp(lnrho(narr))/(3.d0*this%Mpsq0)
     de%Mpsq0 = this%Mpsq0
 
