@@ -190,7 +190,7 @@ contains
 
   !!this head file contains the evolution equations of the firstorder ODE system
 #if DO_EFT_DE
-#include "firstorder_equations_EFT_ignore_early.h"  
+#include "firstorder_equations_EFT.h"  
 #elif DO_COUPLED_DE
 #include "firstorder_equations_CPLDE.h"  
 #else   
