@@ -776,8 +776,10 @@ contains
        a = (kop - source%kopmin)/source%dkop + 1.d0
        ikop = floor(a)
        if(ikop .lt. 1)then
+          write(*,*) "warning: extrapolating P(k) to small k"
           delta_sync(ik) = (source%saux(coop_aux_index_delta_sync, 1, itau)*btau +  source%saux(coop_aux_index_delta_sync, 1, itau+1)*atau)
        elseif(ikop .ge. source%nk)then
+          write(*,*) "warning: extrapolating P(k) to large k"
           delta_sync(ik) = (source%saux(coop_aux_index_delta_sync, source%nk, itau)*btau +  source%saux(coop_aux_index_delta_sync, source%nk, itau+1)*atau)  * coop_bbks_trans(k(ik)/source%bbks_keq)/source%bbks_trans_kmax 
        else
           a = a - ikop

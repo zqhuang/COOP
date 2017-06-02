@@ -48,7 +48,7 @@ program test
   PsiPk = PsiPk * (2.d0*coop_pi**2)/khMpc**3  !!obtain |\delta_k|^2 in unit of (Mpc/h)^3
   PhiPk = PhiPk * (2.d0*coop_pi**2)/khMpc**3  !!obtain |\delta_k|^2 in unit of (Mpc/h)^3    
   write(*,*) "Saving the matter power spectrum in "//trim(output)//"_matterpower.dat"
-  call fp%open(trim(output)//"_matterpower.dat","w")
+  call fp%open(trim(output)//"_matterpower_z"//COOP_STR_OF(redshift)//".dat","w")
   write(fp%unit, "(4A22)") "#k [h/Mpc]   ",  " CDM power[(Mpc/h)^3]", " Phi power[(Mpc/h)^3]", " Psi power[(Mpc/h)^3]"
   do ik=1, nk
      write(fp%unit, "(4E22.7)") khMpc(ik), matterPk(ik), PhiPk(ik), PsiPk(ik)
