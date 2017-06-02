@@ -48,7 +48,7 @@ program test
   call fp%open(trim(output)//"_lensedCls.dat","w")
   write(*,*) "lensed Cls are saved  in "//trim(output)//"_lensedCls.dat"     
   write(fp%unit, "(A8, 5A16)") "# ell ", "   TT  ",  "   EE  ",  " BB  ", "  TE "
-  do l=cosmology%source(0)%trans%lmin, cosmology%source(0)%trans%lmax-100
+  do l=cosmology%source(0)%trans%lmin, cosmology%source(0)%trans%lmax-200
      lnorm = l*(l+1.d0)/coop_2pi*norm
      write(fp%unit, "(I5, 20E16.7)") l, cosmology%source(0)%cls_lensed(coop_index_ClTT, l)*lnorm, cosmology%source(0)%cls_lensed(coop_index_ClEE, l)*lnorm,  cosmology%source(0)%cls_lensed(coop_index_ClBB, l)*lnorm,  cosmology%source(0)%cls_lensed(coop_index_ClTE, l)*lnorm
   enddo
