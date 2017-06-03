@@ -25,8 +25,8 @@ program test
   call coop_load_dictionary(params_file, params)
   call cosmology%init_from_dictionary(params, level = coop_init_level_set_tens, success = success)
   if(.not. success) stop "Unhealthy model: perturbations blow up exponentially."
-  print*, "distance to last scattering surface: ", cosmology%distlss/cosmology%H0Mpc(), " Mpc"
-  print*, "distance to z=1089: ", cosmology%comoving_distance(1.d0/1090.0)/cosmology%H0Mpc(), " Mpc"
+!  print*, "distance to last scattering surface: ", cosmology%distlss/cosmology%H0Mpc(), " Mpc"
+!  print*, "distance to z=1089: ", cosmology%comoving_distance(1.d0/1090.0)/cosmology%H0Mpc(), " Mpc"
   if(abs(cosmology%mpsq0-1).gt. 1.d-6) print*, "M*^2 = ", cosmology%mpsq0
 
   call coop_dictionary_lookup(params, "root", output, default_val="test")

@@ -706,13 +706,17 @@
        source%b2_dense(i) = source%b_dense(i)*(source%b_dense(i)**2-1.d0)
     enddo
 
-
-    source%kmin = 0.4d0/this%distlss
+    if(coop_force_kminkmax)then
+       source%kmin = coop_power_kmin
+       source%kmax = coop_power_kmax
+    else
+       source%kmin = 0.4d0/this%distlss
 #if DO_ZETA_TRANS
-    source%kmax = (min(max(1500, coop_Cls_lmax(source%m)), 3000)*2.5d0)/this%distlss
+       source%kmax = (min(max(1500, coop_Cls_lmax(source%m)), 3500)*2.5d0)/this%distlss
 #else	 
-    source%kmax = (min(max(1500, coop_Cls_lmax(source%m)), 3000)*2.2d0)/this%distlss
-#endif	 
+       source%kmax = (min(max(1500, coop_Cls_lmax(source%m)), 3500)*2.2d0)/this%distlss
+#endif
+    endif
     call source%k2kop(source%kmin, source%kopmin)
     call source%k2kop(source%kmax, source%kopmax)
     source%dkop = (source%kopmax-source%kopmin)/(n-1)
@@ -871,7 +875,7 @@
     call coop_jl_check_init(l)
     call coop_jl_startpoint(l, xmin)
     ikmin = max( coop_right_index(source%nk, source%k, xmin/source%chi(source%index_vis_start)),  2 )
-    ikmax = min( source%nk,  ceiling(max(l*4.d0, 800.d0)/source%distlss) )
+    ikmax = min( source%nk,  ceiling(max(l*4.2d0, 800.d0)/source%distlss) )
     !!l < 20;  Want reionization; brute-force integral
     if(l .lt. lc2)then 
        !$omp parallel do private(ik, itau, idense, jl, x)

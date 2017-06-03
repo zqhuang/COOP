@@ -21,6 +21,7 @@ module coop_cl_indices_mod
 
   COOP_REAL, parameter :: coop_power_kmin = 0.05d0 
   COOP_REAL, parameter :: coop_power_kmax =  6.d4
+  logical::coop_force_kminkmax = .false.
   COOP_REAL, parameter :: coop_visibility_amin = 1.8d-4
   COOP_REAL, parameter :: coop_initial_condition_epsilon = 2.d-7
   COOP_REAL, parameter :: coop_cosmology_firstorder_ode_accuracy = 2.d-7
@@ -45,7 +46,7 @@ module coop_cl_indices_mod
   COOP_REAL::coop_zeta_single_slice_chi = -1.d0  !!if set to negative, weight = visibility function
   type(coop_function)::coop_zeta_user_specified_weight
 #else
-  COOP_INT, parameter :: coop_k_dense_fac = 30
+  COOP_INT, parameter :: coop_k_dense_fac = 45
   COOP_INT, parameter :: coop_index_source_Len = 3
 #endif
 
