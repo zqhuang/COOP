@@ -44,7 +44,7 @@ Dec: $(OBJ) decrypt.o $(TYPEDEF)/libcooptypedef.a
 
 
 clean:
-	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test MPLOT Dec Enc SMOOTH
+	rm -f *.o *.*~ *.mod \#* *.a Makefile~ Test MPLOT Dec Enc SMOOTH EBin 
 
 
 test.o: $(LIB)

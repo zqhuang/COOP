@@ -8,7 +8,7 @@ module coop_file_mod
 
 private
 
-public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_create_directory, coop_delete_directory, coop_file_numcolumns, coop_file_numlines, coop_load_dictionary, coop_free_file_unit, coop_file_exists, coop_file_encrypt, coop_file_decrypt, coop_string_encrypt, coop_string_decrypt, coop_file_load_function, coop_dir_exists, coop_export_dictionary, coop_import_matrix, coop_export_matrix, coop_file_load_realarr, coop_open_file, coop_dynamic_array_real, coop_binfile_encrypt, coop_binfile_decrypt
+public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_create_directory, coop_delete_directory, coop_file_numcolumns, coop_file_numlines, coop_load_dictionary, coop_free_file_unit, coop_file_exists, coop_file_encrypt, coop_file_decrypt, coop_string_encrypt, coop_string_decrypt, coop_file_load_function, coop_dir_exists, coop_export_dictionary, coop_import_matrix, coop_export_matrix, coop_file_load_realarr, coop_open_file, coop_dynamic_array_real, coop_binfile_encrypt, coop_binfile_decrypt, coop_binfile_num_bytes
 
   character,parameter::coop_text_comment_symbol = "#"
 
@@ -663,66 +663,6 @@ contains
   end subroutine coop_file_encrypt
 
 
-  subroutine coop_binfile_encrypt(input, output)
-    COOP_UNKNOWN_STRING input, output
-    character c
-    COOP_INT::ic
-    type(coop_file)::fin, fout
-    COOP_INT::i
-    call fin%open(input,"rb",recl=1)
-    call fout%open(output,"b",recl=1)
-    i = 1
-    do
-       read(fin%unit, rec=i, ERR=100) c
-       ic=ichar(c)
-       if(mod(i,3).eq.0)then
-          c = char(mod(ic*103+19, 256))
-       elseif(mod(i,3).eq.1)then
-          if(ic .lt. 128)then
-             c = char(127 - ic)
-          else
-             c = char(383-ic)
-          endif
-       else
-          c = char(255-ic)
-       endif
-       write(fout%unit, rec=i)c
-       i = i+1       
-    enddo
-100 call fin%close()
-    call fout%close()
-  end subroutine coop_binfile_encrypt
-
-
-  subroutine coop_binfile_decrypt(input, output)
-    COOP_UNKNOWN_STRING input, output
-    character c
-    type(coop_file)::fin, fout
-    COOP_INT::i, ic
-    call fin%open(input,"rb",recl=1)
-    call fout%open(output,"b",recl=1)
-    i = 1
-    do
-       read(fin%unit, REC=i, ERR=100) c
-       ic = ichar(c)
-       if(mod(i,3).eq.0)then
-          c = char(mod((ic+237)*87, 256))
-       elseif(mod(i,3).eq.1)then
-          if(ic .lt. 128)then
-             c = char(127 - ic)
-          else
-             c = char(383-ic)
-          endif          
-       else
-          c = char(255-ic)
-       endif
-       write(fout%unit, REC=i)c
-       i = i+1       
-    enddo
-100 call fin%close()
-    call fout%close()
-  end subroutine coop_binfile_decrypt
-
   subroutine coop_file_decrypt(input, output)
     COOP_UNKNOWN_STRING input, output
     COOP_LONG_STRING line
@@ -847,5 +787,107 @@ contains
     call fp%close()
   end subroutine coop_export_matrix_s  
 
+  function coop_binfile_num_bytes(filename) result(nb)
+    COOP_UNKNOWN_STRING filename
+    COOP_INT::nb, step
+    type(coop_file)::fp
+    character c
+    call fp%open(filename,"rb", recl=1)
+    step = 1024**2  !! 1MB
+    nb = 0
+10  read(fp%unit, REC = nb+step, ERR = 20)c
+    nb = nb + step
+    goto 10
+20  if(step .eq. 1) goto 30
+    step = step/2
+    goto 10
+30  call fp%close()
+  end function coop_binfile_num_bytes
+    
+  
+  subroutine coop_binfile_encrypt(input, output)
+    COOP_INT,parameter::chunksize = 4096
+    COOP_UNKNOWN_STRING input, output
+    character c(chunksize)
+    COOP_INT::nb, nchunks, i, j, ic(chunksize)
+    type(coop_file)::fin, fout
+    nb = coop_binfile_num_bytes(input)
+    write(*,*) "Encrypting "//COOP_STR_OF(nb)//" bytes"
+    nchunks = nb/chunksize
+    call fin%open(input,"rb",recl=chunksize)
+    call fout%open(output,"b",recl=chunksize)
+    do i=1, nchunks
+       read(fin%unit, REC=i) c
+       ic=ichar(c)
+       if(mod(i,5) .ne. 0)then
+          c = char(mod(ic*103+19, 256))
+       else
+          c = char(255-ic)
+       endif
+       write(fout%unit, REC=i) c
+       write(*,*) COOP_STR_OF(i*chunksize)//" bytes done"
+    enddo
+    j = nb-chunksize*nchunks    
+    if(j .gt. 0)then
+       call fin%close()
+       call fout%close()
+       call fin%open(input, "rb", recl=1)
+       call fout%open(output, "b", recl=1)
+       do i=1, j
+          read(fin%unit, REC=chunksize*nchunks+i) c(i)
+       enddo
+       ic(1:j) = ichar(c(1:j))
+       c(1:j) = char(255-ic(1:j))
+       do i=1,j
+          write(fout%unit, REC=chunksize*nchunks+i) c(i)
+       enddo
+       write(*,*) COOP_STR_OF(nb)//" bytes done"
+    endif
+    call fin%close()
+    call fout%close()
+  end subroutine coop_binfile_encrypt
 
+
+  subroutine coop_binfile_decrypt(input, output)
+    COOP_INT,parameter::chunksize = 4096
+    COOP_UNKNOWN_STRING input, output
+    character c(chunksize)
+    COOP_INT::nb, nchunks, i, j, ic(chunksize)
+    type(coop_file)::fin, fout
+    nb = coop_binfile_num_bytes(input)
+    write(*,*) "Encrypting "//COOP_STR_OF(nb)//" bytes"
+    nchunks = nb/chunksize
+    call fin%open(input,"rb",recl=chunksize)
+    call fout%open(output,"b",recl=chunksize)
+    do i=1, nchunks
+       read(fin%unit, REC=i) c
+       ic=ichar(c)
+       if(mod(i,5) .ne. 0)then
+          c = char(mod((ic+237)*87, 256))
+       else
+          c = char(255-ic)
+       endif
+       write(fout%unit, REC=i) c
+       write(*,*) COOP_STR_OF(i*chunksize)//" bytes done"
+    enddo
+    j = nb-chunksize*nchunks    
+    if(j .gt. 0)then
+       call fin%close()
+       call fout%close()
+       call fin%open(input, "rb", recl=1)
+       call fout%open(output, "b", recl=1)
+       do i=1, j
+          read(fin%unit, REC=chunksize*nchunks+i) c(i)
+       enddo
+       ic(1:j) = ichar(c(1:j))
+       c(1:j) = char(255-ic(1:j))
+       do i=1,j
+          write(fout%unit, REC=chunksize*nchunks+i) c(i)
+       enddo
+       write(*,*) COOP_STR_OF(nb)//" bytes done"
+    endif
+    call fin%close()
+    call fout%close()
+  end subroutine coop_binfile_decrypt
+  
 end module coop_file_mod
