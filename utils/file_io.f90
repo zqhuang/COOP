@@ -789,7 +789,7 @@ contains
 
   function coop_binfile_num_bytes(filename) result(nb)
     COOP_UNKNOWN_STRING filename
-    COOP_INT::nb, step
+    COOP_LONG_INT::nb,step
     type(coop_file)::fp
     character c
     call fp%open(filename,"rb", recl=1)
@@ -809,10 +809,10 @@ contains
     COOP_INT,parameter::chunksize = 4096
     COOP_UNKNOWN_STRING input, output
     character c(chunksize)
-    COOP_INT::nb, nchunks, i, j, ic(chunksize)
+    COOP_LONG_INT::nb, nchunks, i, j, ic(chunksize)
     type(coop_file)::fin, fout
     nb = coop_binfile_num_bytes(input)
-    write(*,*) "Encrypting "//COOP_STR_OF(nb)//" bytes"
+    write(*,*) "Encrypting ", nb, " bytes"
     nchunks = nb/chunksize
     call fin%open(input,"rb",recl=chunksize)
     call fout%open(output,"b",recl=chunksize)
@@ -825,7 +825,7 @@ contains
           c = char(255-ic)
        endif
        write(fout%unit, REC=i) c
-       write(*,*) COOP_STR_OF(i*chunksize)//" bytes done"
+       write(*,*) i*chunksize," bytes done"
     enddo
     j = nb-chunksize*nchunks    
     if(j .gt. 0)then
@@ -841,7 +841,7 @@ contains
        do i=1,j
           write(fout%unit, REC=chunksize*nchunks+i) c(i)
        enddo
-       write(*,*) COOP_STR_OF(nb)//" bytes done"
+       write(*,*) nb, " bytes done"
     endif
     call fin%close()
     call fout%close()
@@ -852,10 +852,10 @@ contains
     COOP_INT,parameter::chunksize = 4096
     COOP_UNKNOWN_STRING input, output
     character c(chunksize)
-    COOP_INT::nb, nchunks, i, j, ic(chunksize)
+    COOP_LONG_INT::nb, nchunks, i, j, ic(chunksize)
     type(coop_file)::fin, fout
     nb = coop_binfile_num_bytes(input)
-    write(*,*) "Encrypting "//COOP_STR_OF(nb)//" bytes"
+    write(*,*) "Decrypting ", nb, " bytes"
     nchunks = nb/chunksize
     call fin%open(input,"rb",recl=chunksize)
     call fout%open(output,"b",recl=chunksize)
@@ -868,7 +868,7 @@ contains
           c = char(255-ic)
        endif
        write(fout%unit, REC=i) c
-       write(*,*) COOP_STR_OF(i*chunksize)//" bytes done"
+       write(*,*) i*chunksize, " bytes done"
     enddo
     j = nb-chunksize*nchunks    
     if(j .gt. 0)then
@@ -884,7 +884,7 @@ contains
        do i=1,j
           write(fout%unit, REC=chunksize*nchunks+i) c(i)
        enddo
-       write(*,*) COOP_STR_OF(nb)//" bytes done"
+       write(*,*) nb, " bytes done"
     endif
     call fin%close()
     call fout%close()
