@@ -31,7 +31,7 @@ module coop_cl_indices_mod
 
 
   COOP_REAL, dimension(0:2), parameter :: coop_source_tau_step_factor = (/ 1.d0, 1.d0, 1.d0 /)
-  COOP_REAL, dimension(0:2), parameter :: coop_source_k_weight = (/ 0.11d0, 0.15d0, 0.1d0 /)
+  COOP_REAL, dimension(0:2), parameter :: coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
   COOP_INT, dimension(0:2), parameter :: coop_source_k_n = (/ 420, 160, 160 /)
   COOP_REAL :: coop_source_k_index = 0.85d0
 

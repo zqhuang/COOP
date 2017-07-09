@@ -8,7 +8,7 @@ module coop_file_mod
 
 private
 
-public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_create_directory, coop_delete_directory, coop_file_numcolumns, coop_file_numlines, coop_load_dictionary, coop_free_file_unit, coop_file_exists, coop_file_encrypt, coop_file_decrypt, coop_string_encrypt, coop_string_decrypt, coop_file_load_function, coop_dir_exists, coop_export_dictionary, coop_import_matrix, coop_export_matrix, coop_file_load_realarr, coop_open_file, coop_dynamic_array_real
+public::coop_file, coop_copy_file, coop_delete_file, coop_create_file, coop_create_directory, coop_delete_directory, coop_file_numcolumns, coop_file_numlines, coop_load_dictionary, coop_free_file_unit, coop_file_exists, coop_file_encrypt, coop_file_decrypt, coop_string_encrypt, coop_string_decrypt, coop_file_load_function, coop_dir_exists, coop_export_dictionary, coop_import_matrix, coop_export_matrix, coop_file_load_realarr, coop_open_file, coop_dynamic_array_real, coop_binfile_encrypt, coop_binfile_decrypt
 
   character,parameter::coop_text_comment_symbol = "#"
 
@@ -662,6 +662,66 @@ contains
     call fout%close()
   end subroutine coop_file_encrypt
 
+
+  subroutine coop_binfile_encrypt(input, output)
+    COOP_UNKNOWN_STRING input, output
+    character c
+    COOP_INT::ic
+    type(coop_file)::fin, fout
+    COOP_INT::i
+    call fin%open(input,"rb",recl=1)
+    call fout%open(output,"b",recl=1)
+    i = 1
+    do
+       read(fin%unit, rec=i, ERR=100) c
+       ic=ichar(c)
+       if(mod(i,3).eq.0)then
+          c = char(mod(ic*103+19, 256))
+       elseif(mod(i,3).eq.1)then
+          if(ic .lt. 128)then
+             c = char(127 - ic)
+          else
+             c = char(383-ic)
+          endif
+       else
+          c = char(255-ic)
+       endif
+       write(fout%unit, rec=i)c
+       i = i+1       
+    enddo
+100 call fin%close()
+    call fout%close()
+  end subroutine coop_binfile_encrypt
+
+
+  subroutine coop_binfile_decrypt(input, output)
+    COOP_UNKNOWN_STRING input, output
+    character c
+    type(coop_file)::fin, fout
+    COOP_INT::i, ic
+    call fin%open(input,"rb",recl=1)
+    call fout%open(output,"b",recl=1)
+    i = 1
+    do
+       read(fin%unit, REC=i, ERR=100) c
+       ic = ichar(c)
+       if(mod(i,3).eq.0)then
+          c = char(mod((ic+237)*87, 256))
+       elseif(mod(i,3).eq.1)then
+          if(ic .lt. 128)then
+             c = char(127 - ic)
+          else
+             c = char(383-ic)
+          endif          
+       else
+          c = char(255-ic)
+       endif
+       write(fout%unit, REC=i)c
+       i = i+1       
+    enddo
+100 call fin%close()
+    call fout%close()
+  end subroutine coop_binfile_decrypt
 
   subroutine coop_file_decrypt(input, output)
     COOP_UNKNOWN_STRING input, output

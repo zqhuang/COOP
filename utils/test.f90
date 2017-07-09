@@ -11,6 +11,15 @@ program Test
   COOP_REAL:: p(n), T(n), Hp(n, n)
   COOP_INT::i, j
   type(coop_asy)::fig
+  type(coop_file)::fp
+  
+!!$  p(1:7) = (/ 1,2,3,4,5,6,7 /)
+!!$  call fp%open("numbers.dat", 'u')
+!!$  write(fp%unit) p(1:7)
+!!$  call fp%close()
+  call coop_binfile_encrypt("numbers.dat", "ncopy.dat")
+  call coop_binfile_decrypt("ncopy.dat", "ncopy2.dat")  
+  stop
   call coop_set_uniform(n, p, 0.05d0*p0, 50.d0*p0)
   call coop_set_uniform(n, T, 0.02d0*t0, 2.d0*t0)
   do j=1, n

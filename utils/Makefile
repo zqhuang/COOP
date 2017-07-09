@@ -33,6 +33,9 @@ MPLOT: $(OBJ) makeplot.o $(TYPEDEF)/libcooptypedef.a
 SMOOTH:	$(OBJ) smooth_data.o $(TYPEDEF)/libcooptypedef.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) smooth_data.o $(LINK)
 
+EBin: $(OBJ) encbin.o $(TYPEDEF)/libcooptypedef.a
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) encbin.o $(LINK)
+
 Enc: $(OBJ) encrypt.o $(TYPEDEF)/libcooptypedef.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) encrypt.o $(LINK)
 
