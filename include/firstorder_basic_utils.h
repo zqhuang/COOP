@@ -496,21 +496,14 @@
     class(coop_cosmology_firstorder)::this
     COOP_REAL step_factor, viscut
     !!basic stepsize
-    COOP_REAL,parameter::step_ini = 8.2d-4
-    COOP_REAL,parameter::step_min = 6.3d-4
-    COOP_REAL,parameter::step_recend = 9.6d-4
-    COOP_REAL,parameter::step_reion = 1.3d-3
-    COOP_REAL,parameter::step_early = 1.5d-3
-    COOP_REAL,parameter::step_late = 2.1d-2
-    COOP_REAL,parameter::step_isw = 1.4d-2
+    COOP_REAL,parameter::step_ini = 7.d-4
     COOP_INT,parameter::nmax = 16384
     COOP_REAL, parameter::a_factor = 1.05d0
-    COOP_REAL, parameter::vary = 1.05d0
-    COOP_REAL, parameter::slowvary = 1.02d0
     COOP_REAL step
     COOP_REAL a(nmax), tau(nmax), aend, tautmp
     COOP_INT i, n, nw, iw, j
     logical::check_input, do_inds
+    if(step_factor .lt. 0.01d0) stop "Error in set_source_tau: step_factor must > 0.01"
     n = 1
     aend = 1.d0/(1.d0+this%zrecomb_start)
     a(n) = min(aend/2.d0, max(aend/(3.d0*exp((coop_feedback_level-1)*2.d0)), coop_min_scale_factor))
@@ -531,112 +524,19 @@
        endif
     enddo
 
-    aend = 1.d0/(1.d0+this%zrecomb)
-    do while(a(n).lt. aend)
-       n =n+1
-       if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
-       a(n) = a(n-1) * a_factor
-       tau(n) = tau(n-1) + step*step_factor
-       tautmp = this%tauofa(a(n))
-       if(tautmp .lt. tau(n))then
-          tau(n) = tautmp
-       else
-          a(n) = this%aoftau(tau(n))
-       endif
-       step = max(step_min, step/slowvary)
-    enddo
-
-    aend = 1.d0/(1.d0+this%zrecomb_end - 100.d0)
-    do while(a(n) .lt. aend)
-       n =n+1
-       if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
-       a(n) = a(n-1) * a_factor
-       tau(n) = tau(n-1) + step*step_factor
-       tautmp = this%tauofa(a(n))
-       if(tautmp .lt. tau(n))then
-          tau(n) = tautmp
-       else
-          a(n) = this%aoftau(tau(n))
-       endif
-       step = min(step_recend, step*slowvary)
-    enddo
+    call expand_array(amax = 1.d0/(1.d0 + max(this%zrecomb+400.d0, 1.d0)), stepfac = 0.98d0, stepmin = step_ini*0.7d0)
+    call expand_array(amax = 1.d0/(1.d0 + max(this%zrecomb, 1.d0)), stepfac = 0.96d0, stepmin = step_ini*0.5d0)
+    call expand_array(amax = 1.d0/(1.d0 + max(this%zrecomb-200.d0, 1.d0)), stepfac = 1.02d0, stepmax = step_ini*0.8d0)    
+    call expand_array(amax = 1.d0/(1.d0 + max(this%zrecomb_end-100.d0, 1.d0)), stepfac = 1.02d0, stepmax = step_ini*1.5d0)    
     if(this%optre.gt.0.01d0)then
-       aend = min(1.d0/(1.d0 + this%zre + this%deltaz), 0.5d0)
-       do while(a(n) .lt. aend)
-          n =n+1
-          if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
-          a(n) = a(n-1) * a_factor
-          tau(n) = tau(n-1) + step*step_factor
-          tautmp = this%tauofa(a(n))
-          if(tautmp .lt. tau(n))then
-             tau(n) = tautmp
-          else
-             a(n) = this%aoftau(tau(n))
-          endif
-          step = min(step_early, step*slowvary)
-       enddo
-
-       aend = min(1.d0/(1.d0 + this%zre), 0.5d0)
-       do while(a(n) .lt. aend)
-          n =n+1
-          if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
-          a(n) = a(n-1) * a_factor
-          tau(n) = tau(n-1) + step*step_factor
-          tautmp = this%tauofa(a(n))
-          if(tautmp .lt. tau(n))then
-             tau(n) = tautmp
-          else
-             a(n) = this%aoftau(tau(n))
-          endif
-          step = max(step_reion, step/vary)
-       enddo
-
-       aend = min(1.d0/(1.d0 + this%zre-this%deltaz), 0.5d0)
-       do while(a(n) .lt. aend)
-          n =n+1
-          if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
-          a(n) = a(n-1) * a_factor
-          tau(n) = tau(n-1) + step*step_factor
-          tautmp = this%tauofa(a(n))
-          if(tautmp .lt. tau(n))then
-             tau(n) = tautmp
-          else
-             a(n) = this%aoftau(tau(n))
-          endif
-          step = min(step_early, step*vary)
-       enddo
-
-
-
-       do while((1.d0-this%Omega_m) * a(n)**3 .lt. 0.1d0) 
-          n =n+1
-          if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
-          tau(n) = tau(n-1) + step*step_factor
-          if(tau(n) .lt. 0.989*this%tau0)then
-             a(n) = this%aoftau(tau(n))
-             step = min(step_late, step*vary)
-          else
-             tau(n) = 0.99d0*this%tau0
-             a(n) = this%aoftau(tau(n))
-             exit
-          endif
-       enddo
-
-       do 
-          n =n+1
-          if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
-          tau(n) = tau(n-1) + step*step_factor
-          if(tau(n) .lt. 0.99*this%tau0)then
-             a(n) = this%aoftau(tau(n))
-             step = max(step_isw, step/vary)
-          else
-             tau(n) = 0.9995d0*this%tau0
-             a(n) = this%aoftau(tau(n))
-             exit
-          endif
-       enddo
+       call expand_array(amax =  min(1.d0/(1.d0 + this%zre + this%deltaz*15.d0), 0.5d0), stepfac = 1.03d0, stepmax = step_ini*10.d0)
+       call expand_array(amax =  min(1.d0/(1.d0 + this%zre), 0.5d0), stepfac = 0.97d0, stepmin = step_ini*2.d0)
+       call expand_array(amax =  min(1.d0/(1.d0 + this%zre-this%deltaz*4.d0), 0.5d0), stepfac = 1.03d0, stepmax = step_ini*5.d0)
+       call expand_array(amax = 0.75d0, stepfac = 1.03d0, stepmax = step_ini*15.d0)
+    else
+       call expand_array(amax = 0.75d0, stepfac = 1.02d0, stepmax = step_ini*15.d0)
     endif
-    
+    call expand_array(amax = 0.99999d0, stepfac = 0.96d0, stepmin = step_ini*2.d0)
     source%ntau = n
     if(allocated(source%a))then
        if(size(source%a).ne.n)then
@@ -674,7 +574,31 @@
     do while(source%index_vis_start .gt. 1 .and. source%vis(source%index_vis_start) .gt. viscut )
        source%index_vis_start = source%index_vis_start - 1
     enddo
-
+  contains
+    subroutine expand_array(amax, stepfac, stepmin, stepmax)
+      COOP_REAL::amax
+      COOP_REAL,optional::stepfac, stepmin, stepmax
+      do
+         n =n+1
+         if(n.gt.nmax) call coop_return_error("set_source_tau", "nmax<n", "stop")
+         tau(n) = tau(n-1) + step*step_factor
+         a(n) = this%aoftau(tau(n))
+         if(a(n).gt. amax)then
+            n = n-1
+            return
+         endif
+         if(present(stepfac))then
+            step = step * stepfac
+            if(present(stepmin))then
+               step = max(step, stepmin)
+            endif
+            if(present(stepmax))then
+               step = min(step, stepmax)
+            endif
+         endif
+      enddo
+    end subroutine expand_array
+    
   end subroutine coop_cosmology_firstorder_set_source_tau
 
 
@@ -858,11 +782,11 @@
   
   subroutine coop_cosmology_firstorder_source_get_transfer(source, l, trans)
     class(coop_cosmology_firstorder_source)::source
-    COOP_INT,parameter::lc1 = 80, lc2 = 120
+    COOP_INT,parameter::lc1 = 250, lc2 = 280
     COOP_INT::l, limber_start
     COOP_REAL,dimension(:,:,:)::trans
     COOP_INT::n, ik, idense, itau, ikmin, ikmax, limber_ikmin, itau_cut
-    COOP_REAL::jl, xmin, chi_source, wl, wr, const,  kchicut, x
+    COOP_REAL::jl, xmin, chi_source, wl, wr, const,  kchicut, x!, dampfac
 
     if(size(trans,2).ne. coop_k_dense_fac .or. size(trans, 3).ne. source%nk .or. size(trans, 1) .ne. source%nsrc) call coop_return_error("get_transfer", "wrong size", "stop")
     select case(source%m)
@@ -875,7 +799,8 @@
     call coop_jl_check_init(l)
     call coop_jl_startpoint(l, xmin)
     ikmin = max( coop_right_index(source%nk, source%k, xmin/source%chi(source%index_vis_start)),  2 )
-    ikmax = min( source%nk,  ceiling(max(l*4.2d0, 800.d0)/source%distlss) )
+    ikmax = min( source%nk,  ceiling(max(l*5.d0, 800.d0)/source%distlss) )
+  !  dampfac = 1.2d0/source%k(ikmax)
     !!l < 20;  Want reionization; brute-force integral
     if(l .lt. lc2)then 
        !$omp parallel do private(ik, itau, idense, jl, x)
@@ -885,7 +810,7 @@
                 x = source%k_dense(idense, ik)*source%chi(itau)
                 if(x .lt. xmin)exit
                 jl = coop_jl(l, x )
-                trans(:, idense, ik) = trans(:, idense, ik) + (jl* source%dtau(itau)) * COOP_INTERP_SOURCE(source, :, idense, ik, itau) 
+                trans(:, idense, ik) = trans(:, idense, ik) + (jl* source%dtau(itau)) * COOP_INTERP_SOURCE(source, :, idense, ik, itau)
              enddo
           enddo
        enddo
