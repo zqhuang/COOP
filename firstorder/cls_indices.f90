@@ -19,8 +19,12 @@ module coop_cl_indices_mod
   
   COOP_INT :: coop_Cls_lmax(0:2) = (/ 3400, 2000, 1500 /)
 
-  COOP_REAL, parameter :: coop_power_kmin = 0.05d0 
+  COOP_REAL, parameter :: coop_power_kmin = 0.05d0
+#if DO_EFT_DE
   COOP_REAL, parameter :: coop_power_kmax =  6.d4
+#else
+  COOP_REAL, parameter :: coop_power_kmax =  1.d4
+#endif  
   logical::coop_force_kminkmax = .false.
   COOP_REAL, parameter :: coop_visibility_amin = 1.8d-4
   COOP_REAL, parameter :: coop_initial_condition_epsilon = 2.d-7
@@ -29,10 +33,17 @@ module coop_cl_indices_mod
   COOP_REAL, parameter :: coop_power_lnk_min = log(coop_power_kmin)
   COOP_REAL, parameter :: coop_power_lnk_max = log(coop_power_kmax)
 
-
+#if DO_EFT_DE
   COOP_REAL, dimension(0:2), parameter :: coop_source_tau_step_factor = (/ 0.6d0, 1.d0, 1.d0 /)
+#else
+  COOP_REAL, dimension(0:2), parameter :: coop_source_tau_step_factor = (/ 1.d0, 1.d0, 1.d0 /)  
+#endif
   COOP_REAL, dimension(0:2), parameter :: coop_source_k_weight = (/ 0.15d0, 0.15d0, 0.1d0 /)
+#if DO_EFT_DE
   COOP_INT, dimension(0:2), parameter :: coop_source_k_n = (/ 420, 160, 160 /)
+#else
+  COOP_INT, dimension(0:2), parameter :: coop_source_k_n = (/ 300, 160, 160 /)
+#endif  
   COOP_REAL :: coop_source_k_index = 0.85d0
 
 
