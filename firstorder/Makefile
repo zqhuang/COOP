@@ -18,6 +18,12 @@ $(LIB): $(OBJ)
 Test: $(OBJ) test.o $(BACKGROUND)/libcoopbackground.a 
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
 
+TestZ: $(OBJ) testzeta.o $(BACKGROUND)/libcoopbackground.a 
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testzeta.o $(LINK)
+
+NGMAP: $(OBJ) nonGmaps.o $(BACKGROUND)/libcoopbackground.a 
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) nonGmaps.o $(LINK)
+
 
 SolvePert: $(OBJ) solve_pert.o $(BACKGROUND)/libcoopbackground.a 
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) solve_pert.o $(LINK)

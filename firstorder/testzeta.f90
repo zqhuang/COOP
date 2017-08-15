@@ -4,6 +4,7 @@ program test
 #include "constants.h"
   type(coop_cosmology_firstorder)::fod
   COOP_INT,parameter::lmax = 2500
+  COOP_UNKOWN_STRING,parameter::output_dir = "zeta_t_trans"
   COOP_REAL Cls(coop_num_cls, 0:lmax)
   COOP_INT::l, isrc, i
   COOP_REAL,dimension(:,:),allocatable::cov, trans, testcov
@@ -32,7 +33,7 @@ program test
   print*, dot_product(trans(:, 1), matmul(cov, trans(:, 2))), Cls(coop_index_clTE, l)
 
 
-  call fp%open("l"//COOP_STR_OF(l)//"trans_"//COOP_STR_OF(coop_k_dense_fac)//".txt", "w")
+  call fp%open(trim(output_dir)//"/l"//COOP_STR_OF(l)//"trans_"//COOP_STR_OF(coop_k_dense_fac)//".txt", "w")
   do i = coop_zeta_nr, 1, -1
      write(fp%unit, "(3E16.7)") coop_zeta_r(i), trans(i, :)
   enddo
@@ -51,7 +52,7 @@ program test
      print*, dot_product(trans(:, 1), matmul(cov, trans(:, 1))), Cls(coop_index_clTT, l)
      print*, dot_product(trans(:, 2), matmul(cov, trans(:, 2))), Cls(coop_index_clEE, l)
      print*, dot_product(trans(:, 1), matmul(cov, trans(:, 2))), Cls(coop_index_clTE, l)
-     call fp%open("l"//COOP_STR_OF(l)//"trans_"//COOP_STR_OF(coop_k_dense_fac)//".txt", "w")
+     call fp%open(trim(output_dir)//"/l"//COOP_STR_OF(l)//"trans_"//COOP_STR_OF(coop_k_dense_fac)//".txt", "w")
      do i = coop_zeta_nr, 1, -1
         write(fp%unit, "(3E16.7)") coop_zeta_r(i), trans(i, :)
      enddo
@@ -61,7 +62,7 @@ program test
      read(*,*) l
   enddo
 #endif
-!!$  call coop_generate_3Dzeta(fod, "zeta3D.dat", lmax, fod%source(0)%ntau, fod%source(0)%chi)
+  call coop_generate_3Dzeta(fod, "zeta3D.dat", lmax, fod%source(0)%ntau, fod%source(0)%chi)
 !!$
 !!$  call coop_load_2Dzeta("zeta3D.dat", lmax, fod%source(0)%ntau, 30, alms)
 

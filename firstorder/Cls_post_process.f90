@@ -28,6 +28,8 @@ module coop_cls_postprocess_mod
      procedure::free=>coop_zeta_shell_free
      procedure::map_project => coop_zeta_shell_map_project
      procedure::set_lmax => coop_zeta_shell_set_lmax
+     procedure::dump => coop_zeta_shell_dump
+     procedure::load => coop_zeta_shell_load
   end type coop_zeta_shell
 
      
@@ -36,6 +38,26 @@ module coop_cls_postprocess_mod
 
 contains
 
+  subroutine coop_zeta_shell_dump(this,fp)
+    class(coop_zeta_shell)::this
+    type(coop_file)::fp
+    write(fp%unit) this%lmax
+    write(fp%unit) this%r, this%dr
+    write(fp%unit) this%alm_real
+  end subroutine coop_zeta_shell_dump
+
+  subroutine coop_zeta_shell_load(this,fp)
+    class(coop_zeta_shell)::this
+    type(coop_file)::fp
+    COOP_INT::lmax
+    read(fp%unit) lmax
+    call  this%set_lmax(lmax)
+    read(fp%unit) this%r, this%dr
+    read(fp%unit) this%alm_real
+  end subroutine coop_zeta_shell_load
+  
+
+  
   subroutine coop_zeta_shell_free(shell)
     class(coop_zeta_shell)::shell
     COOP_DEALLOC(shell%alm_real)
@@ -199,6 +221,7 @@ contains
     allocate(zlms(-lmm:lmm, ns))
     istart = 1
     do l=2, lmm
+       write(*,*) "doing l = ", l
        iend = ns
        do while(shells(iend)%lmax .lt. l)
           iend = iend - 1

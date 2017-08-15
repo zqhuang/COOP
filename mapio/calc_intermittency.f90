@@ -18,7 +18,7 @@ program shells
   COOP_INT,parameter::nside = 256
   COOP_REAL,parameter::fwhm_arcmin = 40.d0
   COOP_UNKNOWN_STRING,parameter::dir = "zetaproj/"
-  COOP_UNKNOWN_STRING,parameter::transfile = dir//"trans320.dat"
+  COOP_UNKNOWN_STRING,parameter::transfile = dir//"trans300.dat"
   COOP_UNKNOWN_STRING,parameter::prefix3d = dir//"sim3d"
   COOP_REAL::sigma_chi = 1.d-7
   COOP_REAL::mean_chi = 4.3d-6
@@ -37,7 +37,10 @@ program shells
   if(iargc().gt.0)then
      fnl_option = trim(coop_InputArgs(1))
   else
-     write(*,*) "./Test i/b/g"
+     write(*,*) "./ITM [i|b|g]"
+     write(*,*) "i stands for f(zeta) = zeta"
+     write(*,*) "b stands for f(zeta) = billiard model"
+     write(*,*) "g stands for f(zeta) = Gaussian spike"               
      stop
   endif
   call coop_file_load_function("deltaN-LUT-1.875", 1, 2, deltaN, .false.)

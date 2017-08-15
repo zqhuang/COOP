@@ -27,8 +27,10 @@ contains
        call coop_dictionary_lookup(fits%header, "NRBINS", nr)
        call coop_dictionary_lookup(fits%header, "NSRC", nsrc)
 
-       if( size(coop_zeta3d_trans, 2) .ne. nsrc .or. size(coop_zeta3d_trans, 1) .ne. nr)then
+       if( size(coop_zeta3d_trans, 1) .ne. nsrc .or. size(coop_zeta3d_trans, 2) .ne. nr)then
           write(*,*) trim(filename)
+          write(*,*) size(coop_zeta3d_trans, 1),nsrc
+          write(*,*) size(coop_zeta3d_trans, 2) .ne. nr
           stop "load_zeta3d_trans: size mismatch"
        endif
        if(lmax+1 .le.  size(coop_zeta3d_trans,3))then
@@ -50,7 +52,9 @@ contains
     else
        call fp%open(filename, "ur")
        read(fp%unit)  nsrc, nr, lmax
-       if( size(coop_zeta3d_trans, 2) .ne. nsrc .or. size(coop_zeta3d_trans, 1) .ne. nr)then
+       if( size(coop_zeta3d_trans, 1) .ne. nsrc .or. size(coop_zeta3d_trans, 2) .ne. nr)then
+          write(*,*) size(coop_zeta3d_trans, 1), nsrc
+          write(*,*) size(coop_zeta3d_trans, 2), nr
           write(*,*) trim(filename)
           stop "load_zeta3d_trans: size mismatch"
        endif
@@ -77,7 +81,6 @@ contains
     COOP_UNKNOWN_STRING::filename
     type(coop_file)::fp
     type(coop_dictionary)::header
-    COOP_INT::lmax
     if(trim(coop_file_postfix_of(filename)).eq."fits")then  !!write a fits file
        call header%insert("NRBINS", COOP_STR_OF(size(coop_zeta3d_trans,1)))
        call header%insert("NSRC", COOP_STR_OF(size(coop_zeta3d_trans, 2)))
@@ -86,7 +89,7 @@ contains
        call header%free()
     else
        call fp%open(filename, "u")
-       write(fp%unit)  size(coop_zeta3d_trans, 1), size(coop_zeta3d_trans, 2), lmax
+       write(fp%unit)  size(coop_zeta3d_trans, 1), size(coop_zeta3d_trans, 2), size(coop_zeta3d_trans,3)-1
        write(fp%unit) coop_zeta3d_trans
        call fp%close()
     endif
@@ -124,8 +127,8 @@ contains
     else
        fwhm = 60.d0  !!default 1 degree resolution
     endif
-    call hm%init(nside = nside, nmaps = 2, genre = "TE", lmax = lmax)
-    call zeta%init(nside = nside, nmaps = 1, genre = "ZETA", lmax = lmax)
+    call hm%init(nside = nside, nmaps = 2, genre = "TE", lmax = lmax, unit="muK")
+    call zeta%init(nside = nside, nmaps = 1, genre = "ZETA", lmax = lmax, unit="E-5")
 
     allocate(vis(0:lmax))
     hm%alm = 0.
