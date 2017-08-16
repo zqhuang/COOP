@@ -29,6 +29,7 @@ module coop_stacking_mod
   COOP_INT,parameter::coop_stacking_genre_Random_Cold  = 15
   COOP_INT,parameter::coop_stacking_genre_Random_Cold_Oriented  = 16
   COOP_INT,parameter::coop_stacking_genre_col_oriented = 17
+  !!added Aug 2017
 
   
   type coop_stacking_options

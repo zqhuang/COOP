@@ -2243,7 +2243,7 @@ contains
     
 200 if(present(nmaps_to_read)) &
          nmaps_actual = min(nmaps_actual, nmaps_to_read)
-    call input_map(trim(filename), this%map, this%npix, nmaps_actual, fmissval = coop_healpix_fmissval)
+    call input_map(trim(filename), this%map(:, 1:this%nmaps), this%npix, nmaps_actual, fmissval = coop_healpix_fmissval)
     if(present(nested))then
        if(nested)then
           call this%convert2nested()
@@ -2608,11 +2608,13 @@ contains
 
           key = "TUNIT"//COOP_STR_OF(i)
           val = this%header%value(key)
-          if(trim(val).ne."") &
-               call add_card(header, trim(key), trim(val), update = .true.)
+          if(trim(val).ne."") then
+             call add_card(header, trim(key), trim(val), update = .true.)
+          else
+             call add_card(header, trim(key), "1", update = .true.)             
+          endif
 
        enddo
-
        call output_map(this%map, header, trim(filename))
     endif
     deallocate(header)

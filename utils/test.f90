@@ -2,7 +2,7 @@ program Test
   use coop_wrapper_utils
   implicit none
 #include "constants.h"
-  COOP_INT, parameter::n = 1024*12+193
+  COOP_INT, parameter::n = 2048
   COOP_REAL:: p(n), q(n)
   type(coop_file)::fp
   COOP_INT::i

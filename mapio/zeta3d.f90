@@ -65,7 +65,7 @@ contains
           call fp%close()
           return
        else
-          allocate(tmp(nr, nsrc, 0:lmax))
+          allocate(tmp(nsrc, nr, 0:lmax))
           read(fp%unit) tmp
           coop_zeta3d_trans(:,:,:) = tmp(:,:,0:size(coop_zeta3d_trans,3)-1)
           deallocate(tmp)
@@ -151,6 +151,7 @@ contains
        if(coop_file_exists(transfile))then
           call coop_feedback("Reading transfer data file.")
           call coop_load_zeta3d_trans(transfile, lmax_loaded)
+          call coop_feedback("Transfer file loaded.")          
        else
           lmax_loaded = 1
        endif
@@ -189,7 +190,7 @@ contains
           endif
        enddo
        if(coop_file_exists(trim(prefix3d)//"_3D_"//COOP_STR_OF(lmax)//".dat"))then
-          call coop_feedback("Reading 3D file.")
+          call coop_feedback("Loading 3D zeta file.")
           call fp%open(trim(prefix3d)//"_3D_"//COOP_STR_OF(lmax)//".dat", "u")
           do i=1, coop_zeta_nr
              read(fp%unit) coop_zeta3d_shells(i)%alm_real
@@ -202,6 +203,7 @@ contains
              call coop_zeta3d_shells(i)%map_project(fnl, lmax, hm%alm(0:lmax, 0:lmax, 1), coop_zeta3d_trans(i, coop_index_source_T, 0:lmax)*coop_zeta_dr(i), alm_total2 = hm%alm(0:lmax, 0:lmax, 2), weight2 =  coop_zeta3d_trans(i, coop_index_source_E, 0:lmax)*coop_zeta_dr(i), alm_total3 =   zeta%alm(0:lmax, 0:lmax, 1), weight3 = vis*coop_zeta_dr(i))
           enddo
           call fp%close()
+          call coop_feedback("3D zeta file loaded")
        else
           call coop_feedback("Generating 3D maps now")
           call coop_generate_3Dzeta(cosmology, coop_zeta_nr, coop_zeta3d_shells)
@@ -232,8 +234,10 @@ contains
        write(fp%unit, "(I5, 10E16.7)") l, hm%Cl(l, :)*(l+1.)*l/coop_2pi
     enddo
     call fp%close()
+    write(*,*) "converting alms to maps"
     call hm%alm2map()
     call zeta%alm2map()
+    write(*,*) "saving maps"
     if(writefile)then
        call hm%write(trim(prefixmap)//"_"//COOP_STR_OF(lmax)//"_TE.fits")
        call zeta%write(trim(prefixmap)//"_"//COOP_STR_OF(lmax)//"_zeta.fits")

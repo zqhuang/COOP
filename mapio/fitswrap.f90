@@ -46,6 +46,7 @@ module coop_fitswrap_mod
      COOP_REAL,dimension(:,:),allocatable:: smooth_image
      COOP_REAL,dimension(:,:),allocatable:: smooth_Q, smooth_U
    contains
+     procedure::init => coop_fits_image_cea_init
      procedure::convert2healpix => coop_fits_image_cea_convert2healpix
      procedure::from_healpix => coop_fits_image_cea_from_healpix
      procedure::get_neighbours => coop_fits_image_cea_get_neighbours
@@ -94,6 +95,7 @@ module coop_fitswrap_mod
      type(coop_fits_image_cea)::mask
      logical,dimension(:),allocatable::unmasked
    contains
+     procedure::init => coop_flatsky_maps_init
      procedure::free => coop_flatsky_maps_free
      procedure::read => coop_flatsky_maps_read
      procedure::read_from_one => coop_flatsky_maps_read_from_one
@@ -114,9 +116,123 @@ module coop_fitswrap_mod
      procedure::eb2qu => coop_flatsky_maps_eb2qu
      procedure::trim_mask => coop_flatsky_maps_trim_mask
      procedure::remove_mono => coop_flatsky_maps_remove_mono
+     procedure::To_Healpix => coop_flatsky_To_Healpix
+     procedure::From_Healpix => coop_flatsky_From_Healpix     
   end type coop_flatsky_maps
 
 contains
+
+  subroutine coop_fits_image_cea_init(this,  ra_min, ra_max, dec_min, dec_max, pixsize)
+    class(coop_fits_image_cea)::this
+    COOP_REAL::ra_min, ra_max, dec_min, dec_max, pixsize
+    COOP_INT::nside(2)
+    nside(1) = nint((ra_max-ra_min)/pixsize+1)
+    nside(2) = nint((dec_max-dec_min)/pixsize+1)    
+    call this%free()
+    call this%header%insert(key = "CTYPE1", val = "RA")
+    call this%header%insert(key = "CTYPE1", val = "DEC")    
+    call this%header%insert(key = "BITPIX", val="-64")
+    call this%header%insert(key = "NAXIS", val="2")
+    call this%header%insert(key = "NAXIS1", val=COOP_STR_OF(nside(1)))
+    call this%header%insert(key = "NAXIS2", val=COOP_STR_OF(nside(2)))        
+    call this%header%insert(key = "CUNIT1", val="deg")
+    call this%header%insert(key = "CUNIT2", val="deg")    
+    call this%header%insert(key = "PC1_1", val ="1")
+    call this%header%insert(key = "PC2_2", val ="1")
+    call this%header%insert(key = "PC1_2", val ="0")
+    call this%header%insert(key = "PC2_1", val ="0")
+    call this%header%insert(key = "CDELT1", val =trim(adjustl(coop_Num2str(pixsize, "(F15.9)"))) )
+    call this%header%insert(key = "CDELT2", val =trim(adjustl(coop_Num2str(-pixsize, "(F15.9)"))) )    
+    call this%header%insert(key = "CRPIX1", val="1")
+    call this%header%insert(key = "CRPIX2", val="1")
+    call this%header%insert(key = "CRVAL1", val=trim(adjustl(coop_Num2str(ra_min, "(F15.9)"))) )
+    call this%header%insert(key = "CRVAL2", val=trim(adjustl(coop_Num2str(dec_max, "(F15.9)"))))
+    call this%header%insert(key = "NSIDE", val="1")
+    call this%header%insert(key = "CRPIX2", val="1")
+    call coop_fits_analyze_header(this)
+  end subroutine coop_fits_image_cea_init
+
+  subroutine coop_flatsky_maps_init(this, nmaps, ra_min, ra_max, dec_min, dec_max, pixsize, spin)
+    class(coop_flatsky_maps)::this
+    COOP_REAL::ra_min, ra_max, dec_min, dec_max, pixsize
+    COOP_INT::nmaps, i
+    COOP_INT,dimension(:),optional::spin
+    call this%free()
+    this%nmaps = nmaps
+    allocate(this%spin(nmaps), this%fields(nmaps), this%units(nmaps), this%files(nmaps), this%map_changed(nmaps), this%map(nmaps))
+    call this%map(1)%init(ra_min = ra_min, ra_max = ra_max, dec_min = dec_min, dec_max = dec_max, pixsize= pixsize)
+    do i=2, nmaps
+       this%map(i) = this%map(1)
+    enddo
+    this%npix = this%map(1)%npix
+    allocate(this%unmasked(this%npix))
+    
+    this%nside = this%map(1)%nside
+    this%has_mask = .false.
+    this%dx = this%map(1)%dx
+    this%dy = this%map(1)%dy
+    this%dkx = this%map(1)%dkx
+    this%dky = this%map(1)%dky
+
+    this%map_changed = .true.
+    this%units = "UNKNOWN"
+    this%fields = "UNKNOWN"
+    this%files = ""
+    this%filename = ""
+    if(present(spin))then
+       this%spin = spin
+    else
+       select case(nmaps)
+       case(2)
+          this%spin = 2
+       case(3)
+          this%spin = (/ 0, 2, 2 /)
+       case default
+          this%spin = 0
+       end select
+    end if
+  end subroutine coop_flatsky_maps_init
+  
+  subroutine coop_flatsky_To_Healpix(this, nside, hp, mask)
+    class(coop_flatsky_maps)::this
+    type(coop_healpix_maps)::hp, mask
+    type(coop_healpix_maps)::mask2    
+    COOP_INT::nside, i
+    call hp%init(nside = nside, nmaps = this%nmaps)
+    call mask%init(nside = nside, nmaps = 1, genre="MASK")    
+    hp%spin = this%spin
+    hp%units = this%units
+    hp%fields = this%fields
+    do i=1, hp%nmaps
+       call this%map(i)%convert2healpix(hp, i, mask)
+    enddo
+    if(this%has_mask)then
+       mask2 = mask
+       call this%mask%convert2healpix(mask, 1, mask2)
+       call mask2%free()
+    endif
+    hp%spin = this%spin
+    hp%fields = this%fields
+    hp%units = this%units
+  end subroutine coop_flatsky_To_Healpix
+
+  
+  subroutine coop_flatsky_From_Healpix(this, hp, mask, ra_min, ra_max, dec_min, dec_max, pixsize)
+    class(coop_flatsky_maps)::this
+    type(coop_healpix_maps)::hp
+    type(coop_healpix_maps),optional::mask
+    COOP_REAL::ra_min, ra_max, dec_min, dec_max, pixsize
+    COOP_INT::i
+    call this%init(nmaps = hp%nmaps, ra_min  =ra_min, ra_max = ra_max, dec_min = dec_min, dec_max = dec_max, pixsize = pixsize, spin=hp%spin)
+    do i=1,this%nmaps
+       call this%map(i)%from_healpix(hp, i)
+    enddo
+    this%fields = hp%fields
+    this%units = hp%units
+    if(present(mask))then
+       call this%mask%from_healpix(mask, 1)
+    endif
+  end subroutine coop_flatsky_From_Healpix
 
   subroutine coop_flatsky_maps_remove_mono(this)
     class(coop_flatsky_maps)::this
@@ -751,10 +867,15 @@ contains
 
   subroutine coop_fits_get_header(this)
     class(coop_fits)::this
-    COOP_LONG_STRING::header
+    call coop_fits_to_header(this%filename, this%header)
+    call coop_fits_analyze_header(this)
+  end subroutine coop_fits_get_header
+
+
+    subroutine coop_fits_analyze_header(this)
+    class(coop_fits)::this
     COOP_INT i, j
     COOP_REAL,dimension(:),allocatable::delta, units
-    call coop_fits_to_header(this%filename, this%header)
     select type(this)
     type is (coop_fits)
        return
@@ -845,7 +966,8 @@ contains
     class default
        return
     end select
-  end subroutine coop_fits_get_header
+  end subroutine coop_fits_analyze_header
+
 
   function coop_fits_key_value(this, key, default_value) result(val)
     class(coop_fits)::this
@@ -2913,7 +3035,26 @@ contains
     threshold = max(threshold, sum(mask%image)/mask%npix*0.05) !!if 5% of the mean is larger take 5% of the mean
   end function coop_flatsky_mask_threshold
 
-
+  function coop_map_is_flat(filename) result(is_flat)
+    type(coop_fits)::fits
+    COOP_UNKNOWN_STRING::filename
+    COOP_STRING::nmaps, nside, bitpx, simple
+    logical::is_flat
+    if(trim(coop_file_postfix_of(filename)).eq."fits")then
+       call fits%open(filename)
+       call coop_dictionary_lookup(fits%header, "SIMPLE", simple, "")
+       call coop_dictionary_lookup(fits%header, "BITPX", bitpx, "")
+       call coop_dictionary_lookup(fits%header, "NMAPS", nmaps, "")
+       call coop_dictionary_lookup(fits%header, "NSIDE", nside, "") 
+       is_flat = trim(simple).eq."" .or. trim(bitpx).eq."" .or. trim(nmaps).eq."" .or. trim(nside).eq.""
+    elseif(trim(coop_file_postfix_of(filename)).eq."fsm")then
+       is_flat = .true.
+    else
+       write(*,*) trim(coop_file_postfix_of(filename))//": unknown map postfix"
+       stop
+    endif
+  end function coop_map_is_flat
+  
 end module coop_fitswrap_mod
 
 
