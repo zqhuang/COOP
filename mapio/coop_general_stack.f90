@@ -5,6 +5,7 @@ module coop_gstack_mod
   use coop_healpix_mod
   use coop_stacking_mod
   use coop_fitswrap_mod
+  use coop_stacking_mod
   implicit none
 
 #include "constants.h"
@@ -46,6 +47,7 @@ contains
     type(coop_fits_image_cea)::fmap_pt, fmap_nu, fmap_e, fmap_orient, fmap_sym, fmask
     COOP_REAL:: rms, imin, imax, e2min, e2max, e2, mean, summask
     COOP_REAL::arr(0:5)
+    logical::invlap_for_sym = .false.
     call this%free()
     call coop_load_dictionary(inifile, this%header)
     call coop_dictionary_lookup(this%header, "format", this%fmt, "HEALPIX")
@@ -136,19 +138,26 @@ contains
        this%check_sym = .false.
        this%xup = .false.
        this%yup = .false.
-    case("X_UP")
+    case("X_UP", "IL_X_UP")
        this%xup = .true.
        this%yup = .false.
-    case("Y_UP")
+    case("Y_UP", "IL_Y_UP")
        this%xup = .false.
        this%yup = .true.      
-    case("XY_UP")
+    case("XY_UP", "IL_XY_YP")
        this%xup = .true.
        this%yup = .true.       
     case default
        call coop_return_error("symmetry = "//trim(this%symmetry)//" is not supported")
     end select
-    if(this%check_sym .and. trim(this%map_sym).eq."") this%map_sym = trim(this%prefix)//"_PARITY_fwhm"//COOP_FILESTR_OF(this%fwhm_sym)//"a.fits"
+    invlap_for_sym = this%symmetry(1:3).eq."IL_"
+    if(this%check_sym .and. trim(this%map_sym).eq."") then
+       if(invlap_for_sym)then
+          this%map_sym = trim(this%prefix)//"_INVLAP_PARITY_fwhm"//COOP_FILESTR_OF(this%fwhm_sym)//"a.fits"
+       else
+          this%map_sym = trim(this%prefix)//"_INVLAP_PARITY_fwhm"//COOP_FILESTR_OF(this%fwhm_sym)//"a.fits"          
+       endif
+    endif
     if(this%check_sym .and. this%fwhm_sym .lt. this%fwhm_pt)then
        write(*,*) "Warning: fwhm for parity selection < fwhm for point-type selection?"
     endif
@@ -259,7 +268,11 @@ contains
           else
              call hmap_sym%init(nside = hmap_pt%nside, nmaps = 2, spin = (/ 1, 1 /), lmax=hmap_pt%lmax )
              hmap_sym%alm(:, :, 1) = hmap_pt%alm(:, :, 1)
-             call hmap_sym%filter_alm(fwhm=sqrt(this%fwhm_sym**2 - this%fwhm**2)*coop_SI_arcmin, lpower=1.d0, index_list = (/ 1 /) )
+             if(invlap_for_sym)then
+                call hmap_sym%filter_alm(fwhm=sqrt(this%fwhm_sym**2 - this%fwhm**2)*coop_SI_arcmin, lpower=-1.d0, index_list = (/ 1 /) )                
+             else
+                call hmap_sym%filter_alm(fwhm=sqrt(this%fwhm_sym**2 - this%fwhm**2)*coop_SI_arcmin, lpower=1.d0, index_list = (/ 1 /) )
+             endif
              hmap_sym%alm(:, :, 2) = 0.
              call hmap_sym%alm2map()
              call hmap_sym%convert2nested()             
@@ -353,6 +366,7 @@ contains
          call random_number(arr(3))
          arr(3) = this%randrot * arr(3)
       endif
+      !!check ( D_y f, - D_x f)
       if(this%check_sym)then
          if(hmap_sym%map(i, 2)*cos(arr(3))-hmap_sym%map(i,1)*sin(arr(3)) .gt. 0.d0 .and. this%xup)then
             arr(4) = -1.d0
@@ -394,6 +408,130 @@ contains
        call coop_fits_file_write_image_2d(this%points, trim(this%output), this%header)
     endif
   end subroutine coop_general_stack_points_write
+
+  subroutine coop_do_general_stack(inifile)
+    COOP_UNKNOWN_STRING::inifile
+    type(coop_stacking_options)::sto
+    type(coop_dictionary)::params
+    type(coop_healpix_maps)::hmap, hmask
+    type(coop_fits_image_cea)::fmap, fmask
+    type(coop_healpix_patch)::patch
+    COOP_STRING::fmt, map, mask, field, output, label1, label2, unit, peaks
+    COOP_REAL::r_degree, dr, radius, zmin1, zmin2, zmax1, zmax2
+    COOP_INT::n, i, m
+    type(coop_asy)::fig
+    logical::use_degree
+    call coop_load_dictionary(inifile, params)
+    call coop_dictionary_lookup(params, "format", fmt, "HEALPIX")
+    call coop_dictionary_lookup(params, "map", map)
+    call coop_dictionary_lookup(params, "peaks", peaks)    
+    call coop_dictionary_lookup(params, "mask", mask, "")
+!    call coop_dictionary_lookup(params, "fft", fft, .false.)    
+    call coop_dictionary_lookup(params, "output", output)
+    
+    call coop_dictionary_lookup(params, "field", field, "I")
+    call coop_dictionary_lookup(params, 'radius', r_degree, 2.d0)
+    radius = r_degree * coop_SI_degree
+    call coop_dictionary_lookup(params, 'res', n, 80)
+    if(use_degree)then
+       dr = radius/n
+    else
+       dr = 2.d0*sin(radius/2.d0)/n
+    endif
+
+    call patch%init(genre = field, n = n, dr = dr, mmax = 4)
+    call coop_dictionary_lookup(params, "min", zmin1, 1.d31)
+    call coop_dictionary_lookup(params, "max", zmax1, -1.d31)    
+    call coop_dictionary_lookup(params, "min2", zmin2, 1.d31)
+    call coop_dictionary_lookup(params, "max2", zmax2, -1.d31)
+    call coop_dictionary_lookup(params, "label", label1, "")
+    call coop_dictionary_lookup(params, "label2", label2, "")
+    
+
+
+    patch%tbs%zmin(1) = zmin1
+    patch%tbs%zmax(1) = zmax1
+    patch%tbs%label(1) = trim(label1)          
+    if(patch%nmaps.ge.2)then
+        patch%tbs%label(2) = trim(label2)
+        patch%tbs%zmin(2) = zmin2          
+        patch%tbs%zmax(2) = zmax2          
+     endif
+    
+    call coop_dictionary_lookup(params, "colortable", patch%color_table, "Rainbow")
+    call coop_dictionary_lookup(params, "unit", unit, "radian")
+    use_degree = trim(unit).eq."degree"
+    call coop_dictionary_lookup(params, 'want_arrow', coop_healpix_patch_default_want_arrow, .true.)
+    call coop_dictionary_lookup(params, 'width', coop_healpix_patch_default_figure_width, 5.)
+    call coop_dictionary_lookup(params, 'height', coop_healpix_patch_default_figure_height, 4.2)
+    call sto%import(peaks)
+    write(*,*) "Stacking on  "//COOP_STR_OF(sto%peak_pix%n)//" points"
+    call coop_dictionary_lookup(params, "caption", patch%caption,   "stacked on  "//COOP_STR_OF(sto%peak_pix%n)//" points")
+    select case(trim(fmt))
+    case("HEALPIX")
+       call hmap%read(map)
+       if(trim(mask) .ne. "")then
+          call hmask%read(mask, nmaps_wanted = 1)
+          if(hmask%nside .ne. hmap%nside) call coop_return_error("nside of mask and map must be the same")
+       else
+          call hmask%init(nside = hmap%nside, nmaps = 1, genre = "MASK")
+          hmask%map = 1.
+       endif
+       call hmap%stack_on_peaks(sto, patch, hmask)
+    case("RA-DEC")
+       stop "format RA-DEC has not been implemented yet"
+    case default
+       call coop_return_error("format "//trim(fmt)//" is not supported")
+    end select
+
+    if(patch%nmaps .eq. 1)then
+       call patch%plot(1, trim(adjustl(output))//".txt", use_degree = use_degree)
+       call coop_fits_file_write_image_2d(patch%image(:,:,1), trim(adjustl(output))//".fits", params)
+       write(*,*) "stacked COOP figure file saved in "//trim(adjustl(output))//".txt"
+       write(*,*) "stacked image data saved in "//trim(adjustl(output))//".fits"       
+    else
+       do i=1, patch%nmaps
+          call patch%plot(i, trim(adjustl(output))//"_"//COOP_STR_OF(i)//".txt")
+          call coop_fits_file_write_image_2d(patch%image(:,:,i), trim(adjustl(output))//"_"//COOP_STR_OF(i)//".fits", params)
+          write(*,*) "stacked COOP figure file saved in "//trim(adjustl(output))//"_"//COOP_STR_OF(i)//".txt"          
+          write(*,*) "stacked image data saved in "//trim(adjustl(output))//"_"//COOP_STR_OF(i)//".fits"           
+       enddo
+    end if
+    call patch%export(trim(adjustl(output))//".patch")
+    call patch%get_all_radial_profiles()
+    select case(patch%nmaps)
+    case(1)
+       do m = 0, patch%mmax, 2
+          call fig%open(trim(adjustl(output))//"_m"//COOP_STR_OF(m)//".txt")
+          call fig%init(xlabel="$r$", ylabel="radial profile")
+          call coop_asy_curve(fig, patch%r, patch%fr(:, m/2, 1))
+          call fig%close()
+          call fig%open(trim(adjustl(output))//"_m"//COOP_STR_OF(m)//".dat")
+          do i=0, patch%n
+             write(fig%unit, "(2E14.5)") patch%r(i), patch%fr(i, m/2, 1)
+          enddo
+          call fig%close()        
+       enddo
+    case(2)
+       do m = 0, patch%mmax, 2
+          call fig%open(trim(adjustl(output))//"_m"//COOP_STR_OF(m)//".txt")
+          call fig%init(xlabel="$r$", ylabel="radial profile")
+          if(m.ne.0)then
+             call coop_asy_curve(fig, patch%r, (patch%fr(:, m/2, 1)+patch%fr(:, m/2, 2))/2.d0)
+          else
+             call coop_asy_curve(fig, patch%r, patch%fr(:, m/2, 1) )
+          endif
+          call fig%close()
+          call fig%open(trim(adjustl(output))//"_m"//COOP_STR_OF(m)//".dat")
+          do i=0, patch%n
+             write(fig%unit, "(3E14.5)") patch%r(i), patch%fr(i, m/2, :)
+          enddo
+          call fig%close()        
+       enddo
+    end select
+
+    
+  end subroutine coop_do_general_stack
   
 end module coop_gstack_mod
 

@@ -565,8 +565,8 @@ contains
        xlabel = "$\varpi\cos\phi$"
        ylabel = "$\varpi\sin\phi$"       
     else
-       xlabel = "$\varpi\cos\phi (\mathrm{deg})$"
-       ylabel = "$\varpi\sin\phi (\mathrm{deg})$"
+       xlabel = "$x (\mathrm{deg})$"
+       ylabel = "$y (\mathrm{deg})$"
     endif
     this%caption = adjustl(this%caption)
     if(coop_healpix_patch_default_want_caption)then
@@ -657,10 +657,8 @@ contains
        deallocate(xstart, xend, ystart, yend)
     endif
 100 call fig%close()
-    if(present(use_degree))then
-       if(use_degree)then
-          this%r = this%r*coop_SI_degree
-       endif
+    if( .not. use_rad)then
+       this%r = this%r*coop_SI_degree
     endif    
   end subroutine coop_healpix_patch_plot
 
@@ -2819,8 +2817,9 @@ contains
        !$omp end parallel do
     endif
     if(present(lpower))then
+       if(lpower .ne. 0.d0) w(0) = 0.
        !$omp parallel do
-       do l = 0,  this%lmax
+       do l = 1,  this%lmax
           w(l) = w(l)*(l*(l+1.))**(lpower/2.)
        enddo
        !$omp end parallel do
