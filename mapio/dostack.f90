@@ -121,7 +121,7 @@ program Stacking_Maps
         call patch%plot(1, trim(adjustl(output))//".txt")
         if(want_pdf)call system("../utils/fasy.sh "//trim(adjustl(output))//".txt")
         write(*,*) "stacked COOP figure file saved in "//trim(adjustl(output))//".txt"        
-        call coop_fits_file_write_image_2d(patch%image(:,:,1), trim(adjustl(output))//".fits", params)
+        call coop_fits_file_write_image_2d(patch%image(:,:,1), trim(adjustl(output))//".fits")
         write(*,*) "stacked image data saved in "//trim(adjustl(output))//".fits"
      case default
         patch%tbs%zmin(1) = zmin1
@@ -133,7 +133,7 @@ program Stacking_Maps
            write(*,*) "stacked COOP figure file saved in "//trim(adjustl(output))//"_"//COOP_STR_OF(i)//".txt"
         
            if(want_pdf)call system("../utils/fasy.sh "//trim(adjustl(output))//"_"//COOP_STR_OF(i)//".txt")
-           call coop_fits_file_write_image_2d(patch%image(:,:,i), trim(adjustl(output))//"_"//COOP_STR_OF(i)//".fits", params)
+           call coop_fits_file_write_image_2d(patch%image(:,:,i), trim(adjustl(output))//"_"//COOP_STR_OF(i)//".fits")
            write(*,*) "stacked image data saved in "//trim(adjustl(output))//"_"//COOP_STR_OF(i)//".fits"           
                      
         enddo

@@ -15,7 +15,7 @@ module coop_gstack_mod
   type coop_general_stack_points
      type(coop_dictionary)::header
      COOP_STRING::fmt
-     COOP_STRING::map, map_pt, map_nu, map_e, map_orient, map_sym,  point_type, orient, symmetry, output, mask, prefix
+     COOP_STRING::map, map_pt, map_nu, map_e, map_orient, map_sym,  point_type, orient, symmetry, output, mask, prefix, elist
      COOP_REAL::fwhm, fwhm_pt, fwhm_nu, fwhm_e, fwhm_orient, fwhm_sym
      COOP_REAL::nu_min, nu_max, e_min, e_max
      COOP_REAL,dimension(:,:),allocatable::points
@@ -46,12 +46,14 @@ contains
     type(coop_healpix_maps)::hmap_pt, hmap_nu, hmap_e, hmap_orient, hmap_sym, hmask, zeros1, zeros2
     type(coop_fits_image_cea)::fmap_pt, fmap_nu, fmap_e, fmap_orient, fmap_sym, fmask
     COOP_REAL:: rms, imin, imax, e2min, e2max, e2, mean, summask
-    COOP_REAL::arr(0:5)
+    COOP_REAL::arr(0:5), theta, phi
+    COOP_INT::nside
     logical::invlap_for_sym = .false.
     call this%free()
     call coop_load_dictionary(inifile, this%header)
     call coop_dictionary_lookup(this%header, "format", this%fmt, "HEALPIX")
     call coop_dictionary_lookup(this%header, "map", this%map)
+    call coop_dictionary_lookup(this%header, "external_list", this%elist,"")    
     call coop_dictionary_lookup(this%header, "output", this%output)
     call coop_dictionary_lookup(this%header, "mask", this%mask)        
     idot = scan(this%map, ".", .true.)
@@ -218,7 +220,7 @@ contains
              call hmap_nu%convert2nested()
              call hmap_nu%write(this%map_nu)
           endif
-          summask = sum(dble(hmask%map(:,1)))
+          summask = sum(dble(hmask%map(:,1)))          
           mean = sum(dble(hmap_nu%map(:,1)*hmask%map(:,1)))/summask
           rms = sqrt(sum(dble((hmap_nu%map(:,1)-mean)**2*hmask%map(:,1)))/summask)
           imin = rms*this%nu_min + mean
@@ -296,42 +298,56 @@ contains
 
 
        !!make the selection
-       select case(trim(this%point_type))
-       case("MAX")
-          do i=0, hmap_pt%npix-1
-             if(hmask%map(i,1).ge. 0.5)then
-                call neighbours_nest(hmap_pt%nside, i, list, nneigh)
-                if(all(hmap_pt%map(list(1:nneigh), 1).lt.hmap_pt%map(i, 1)))then
-                   call check_point()
+       if(trim(this%elist).ne."")then
+       else
+          select case(trim(this%point_type))
+          case("MAX")
+             do i=0, hmap_pt%npix-1
+                if(hmask%map(i,1).ge. 0.5)then
+                   call neighbours_nest(hmap_pt%nside, i, list, nneigh)
+                   if(all(hmap_pt%map(list(1:nneigh), 1).lt.hmap_pt%map(i, 1)))then
+                      call hmap_selection()
+                   endif
                 endif
-             endif
-          enddo
-       case("MIN")
-          do i=0, hmap_pt%npix-1
-             if(hmask%map(i,1).ge. 0.5)then
-                call neighbours_nest(hmap_pt%nside, i, list, nneigh)
-                if(all(hmap_pt%map(list(1:nneigh), 1).gt.hmap_pt%map(i, 1)))then
-                   call check_point()
+             enddo
+          case("MIN")
+             do i=0, hmap_pt%npix-1
+                if(hmask%map(i,1).ge. 0.5)then
+                   call neighbours_nest(hmap_pt%nside, i, list, nneigh)
+                   if(all(hmap_pt%map(list(1:nneigh), 1).gt.hmap_pt%map(i, 1)))then
+                      call hmap_selection()
+                   endif
                 endif
+             enddo
+          case("SADDLE")
+             call hmap_pt%zeros(1, zeros1, hmask)
+             call hmap_pt%zeros(2, zeros2, hmask)
+             do i=0, hmap_pt%npix-1
+                if(zeros1%map(i, 1) .gt. 0.5  .and. zeros2%map(i, 1) .gt. 0.5  .and. hmask%map(i,1).gt.0.5)then
+                   call hmap_selection()
+                endif
+             enddo
+             call zeros1%free()
+             call zeros2%free()
+          case("ALL")
+             if(this%fwhm_pt .gt. 0.d0)then
+                nside = min(max(hmask%nside/2**min(nint(log(coop_SI_arcmin*this%fwhm_pt/ sqrt(coop_4pi/hmask%npix) )/coop_ln2)-2, 6), 128), hmask%nside)
+                do idot = 0, 12*nside**2-1
+                   call pix2ang_nest(nside, idot, theta, phi)
+                   call hmask%ang2pix(theta, phi, i)
+                   if(hmask%map(i, 1).gt. 0.5)then
+                      call hmap_selection()
+                   endif
+                enddo
+             else
+                do i=0, hmap_pt%npix-1
+                   if(hmask%map(i,1).gt.0.5)then
+                      call hmap_selection()
+                   endif
+                enddo
              endif
-          enddo
-       case("SADDLE")
-          call hmap_pt%zeros(1, zeros1, hmask)
-          call hmap_pt%zeros(2, zeros2, hmask)
-          do i=0, hmap_pt%npix-1
-             if(zeros1%map(i, 1) .gt. 0.5  .and. zeros2%map(i, 1) .gt. 0.5  .and. hmask%map(i,1).gt.0.5)then
-                call check_point()
-             endif
-          enddo
-          call zeros1%free()
-          call zeros2%free()
-       case("ALL")
-          do i=0, hmap_pt%npix-1
-             if(hmask%map(i,1).gt.0.5)then
-                call check_point()
-             endif
-          enddo
-       end select
+          end select
+       endif
        !!free the maps
        call hmap_pt%free()
        call hmap_nu%free()
@@ -351,7 +367,7 @@ contains
     call pts%free()
 
   contains
-    subroutine check_point()
+    subroutine hmap_selection()
       if(this%check_nu)then
          if(hmap_nu%map(i, 1) .lt. imin .or. hmap_nu%map(i, 1) .gt. imax)  return
       endif
@@ -383,7 +399,7 @@ contains
       endif
       arr(0) = dble(i)
       call pts%push( real(arr))                 
-    end subroutine check_point
+    end subroutine hmap_selection
     
   end subroutine coop_general_stack_points_init
 
@@ -426,7 +442,6 @@ contains
     call coop_dictionary_lookup(params, "map", map)
     call coop_dictionary_lookup(params, "peaks", peaks)    
     call coop_dictionary_lookup(params, "mask", mask, "")
-!    call coop_dictionary_lookup(params, "fft", fft, .false.)    
     call coop_dictionary_lookup(params, "output", output)
     
     call coop_dictionary_lookup(params, "field", field, "I")

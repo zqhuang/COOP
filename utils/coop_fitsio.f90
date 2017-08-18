@@ -2165,6 +2165,48 @@ contains
   end subroutine coop_Cls_convert2Pseudo
 
 
+  subroutine coop_load_list_realarr(list, filename)
+    type(coop_list_realarr)::list
+    type(coop_fits_file)::fits
+    type(coop_file)::fp
+    COOP_REAL,dimension(:,:),allocatable::arr
+    COOP_SINGLE,dimension(:),allocatable::arr1    
+    COOP_UNKNOWN_STRING::filename
+    COOP_INT::nx, ny, i
+    call list%free()
+    if(coop_file_postfix_of(filename).eq."fits")then
+       call fits%open(filename)
+       call coop_dictionary_lookup(fits%header, "NAXIS1", nx)
+       call coop_dictionary_lookup(fits%header, "NAXIS1", ny)
+       allocate(arr(nx, ny))
+       call fits%load_image_2d(arr)
+       call fits%close()
+       do i=1, ny
+          call list%push(real(arr(:, i)))
+       enddo
+       deallocate(arr)
+    elseif(coop_file_postfix_of(filename) .eq. "txt")then
+       nx = coop_file_numcolumns(filename)
+       allocate(arr1(nx))
+       call fp%open_skip_comments(filename)
+       do
+          read(fp%unit, *, END=100, ERR=100) arr1
+          call list%push(arr1)
+       enddo
+100    deallocate(arr1)
+    else
+       call fp%open(filename, "ur")
+       read(fp%unit) nx, ny
+       allocate(arr(nx, ny))
+       read(fp%unit) arr
+       do i=1, ny
+          call list%push(real(arr(:, i)))
+       enddo
+       deallocate(arr)
+    endif
+  end subroutine coop_load_list_realarr
+
+
 
 end module coop_fitsio_mod
 
