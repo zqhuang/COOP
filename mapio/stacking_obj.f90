@@ -283,7 +283,6 @@ contains
     call this%free()    
     if(coop_file_postfix_of(filename).eq."fits")then
        this%direct_read = .true.
-       this%no_stretch = .true.
        this%caption = ""
        this%nmaps = 1
        call fits%open(filename)
@@ -292,7 +291,9 @@ contains
        if(i1.ne. 6 .or. i2.le.0) call coop_return_error("The file "//trim(filename)//" is not a valid stacking points file")
        allocate(points(i1, i2))
        call fits%load_image_2d(points)
-       do i=1, i2
+       this%no_stretch = all(abs(points(5:6, 1:i2)-1.d0).lt. 1.d-4)
+       if(.not. this%no_stretch)write(*,*) "stacking with stretch factors"
+       do i=1, i2          
           call this%peak_pix%push( nint(points(1, i)) )
           call this%peak_ang%push(real(points(2:3, i)))
           call this%peak_map%push(real(points(4:4, i)))
@@ -325,7 +326,7 @@ contains
     if(.not. this%no_stretch)then
        read(fp%unit) this%index_gradX, this%index_gradY
        do i=1,n
-          read(fp%unit) stretch          
+          read(fp%unit) stretch
           call this%peak_stretch%push(stretch)
        enddo
     endif

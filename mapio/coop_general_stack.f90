@@ -257,7 +257,7 @@ contains
              call hmap_sym%read(this%map_sym)
              call hmap_sym%convert2nested()
           else
-             call hmap_sym%init(nside = hmap_pt%nside, nmaps = 2, spin = (/ 1, 1 /) )
+             call hmap_sym%init(nside = hmap_pt%nside, nmaps = 2, spin = (/ 1, 1 /), lmax=hmap_pt%lmax )
              hmap_sym%alm(:, :, 1) = hmap_pt%alm(:, :, 1)
              call hmap_sym%filter_alm(fwhm=sqrt(this%fwhm_sym**2 - this%fwhm**2)*coop_SI_arcmin, lpower=1.d0, index_list = (/ 1 /) )
              hmap_sym%alm(:, :, 2) = 0.
@@ -266,6 +266,7 @@ contains
              call hmap_sym%write(this%map_sym)
           endif
        endif
+       write(*,*) "scanning the map "//trim(this%map_pt)
        !!finally let's also smooth the point-type selection map, if necessary
        if(trim(this%point_type).eq."SADDLE")then
           call hmap_pt%filter_alm(fwhm = sqrt(this%fwhm_pt**2 - this%fwhm**2)*coop_SI_arcmin, lpower = 1.d0, index_list = (/ 1 /) )
@@ -280,7 +281,7 @@ contains
        endif
        call hmap_pt%convert2nested()
 
-       
+
        !!make the selection
        select case(trim(this%point_type))
        case("MAX")
@@ -303,12 +304,12 @@ contains
                       arr(3) = this%randrot * arr(3)
                    endif
                    if(this%check_sym)then
-                      if(hmap_sym%map(i, 1)*cos(arr(3))+hmap_sym%map(i,2)*sin(arr(3)) .lt. 0.d0 .and. this%xup)then
+                      if(hmap_sym%map(i, 2)*cos(arr(3))+hmap_sym%map(i,1)*sin(arr(3)) .lt. 0.d0 .and. this%xup)then
                          arr(4) = -1.d0
                       else
                          arr(4) = 1.d0
                       endif
-                      if(hmap_sym%map(i, 2)*cos(arr(3))-hmap_sym%map(i,1)*sin(arr(3)) .lt. 0.d0 .and. this%yup)then
+                      if(hmap_sym%map(i, 1)*cos(arr(3))-hmap_sym%map(i,2)*sin(arr(3)) .lt. 0.d0 .and. this%yup)then
                          arr(5)= -1.d0
                       else
                          arr(5) = 1.d0
@@ -341,12 +342,12 @@ contains
                       arr(3) = this%randrot * arr(3)
                    endif
                    if(this%check_sym)then
-                      if(hmap_sym%map(i, 1)*cos(arr(3))+hmap_sym%map(i,2)*sin(arr(3)) .lt. 0.d0 .and. this%xup)then
+                      if(hmap_sym%map(i, 2)*cos(arr(3))+hmap_sym%map(i,1)*sin(arr(3)) .lt. 0.d0 .and. this%xup)then
                          arr(4) = -1.d0
                       else
                          arr(4) = 1.d0
                       endif
-                      if(hmap_sym%map(i, 2)*cos(arr(3))-hmap_sym%map(i,1)*sin(arr(3)) .lt. 0.d0 .and. this%yup)then
+                      if(hmap_sym%map(i, 1)*cos(arr(3))-hmap_sym%map(i,2)*sin(arr(3)) .lt. 0.d0 .and. this%yup)then
                          arr(5)= -1.d0
                       else
                          arr(5) = 1.d0
@@ -379,12 +380,12 @@ contains
                    arr(3) = this%randrot * arr(3)
                 endif
                 if(this%check_sym)then
-                   if(hmap_sym%map(i, 1)*cos(arr(3))+hmap_sym%map(i,2)*sin(arr(3)) .lt. 0.d0 .and. this%xup)then
+                   if(hmap_sym%map(i, 2)*cos(arr(3))+hmap_sym%map(i,1)*sin(arr(3)) .lt. 0.d0 .and. this%xup)then
                       arr(4) = -1.d0
                    else
                       arr(4) = 1.d0
                    endif
-                   if(hmap_sym%map(i, 2)*cos(arr(3))-hmap_sym%map(i,1)*sin(arr(3)) .lt. 0.d0 .and. this%yup)then
+                   if(hmap_sym%map(i, 1)*cos(arr(3))-hmap_sym%map(i,2)*sin(arr(3)) .lt. 0.d0 .and. this%yup)then
                       arr(5)= -1.d0
                    else
                       arr(5) = 1.d0

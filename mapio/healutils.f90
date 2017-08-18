@@ -4489,37 +4489,20 @@ contains
        p(ithread) = patch
        tmp(ithread) = patch
     enddo
-    if(sto%no_stretch)then
-       !$omp parallel do private(i, ithread)
-       do ithread = 1, n_threads
-          do i=ithread, sto%peak_pix%n, n_threads
-             call this%get_disc(sto%pix(this%nside, i), disc(ithread))
-             disc(ithread)%norm = sto%norm(i)
-             disc(ithread)%wnorm = sto%wnorm(i)
-             if(present(mask))then
-                call this%stack_on_patch(disc(ithread), sto%rotate_angle(i), sto%stretch(i),  p(ithread), tmp(ithread), mask)    
-             else
-                call this%stack_on_patch(disc(ithread), sto%rotate_angle(i), sto%stretch(i), p(ithread), tmp(ithread))
-             endif
-          enddo
+    !$omp parallel do private(i, ithread)
+    do ithread = 1, n_threads
+       do i=ithread, sto%peak_pix%n, n_threads
+          call this%get_disc(sto%pix(this%nside, i), disc(ithread))
+          disc(ithread)%norm = sto%norm(i)
+          disc(ithread)%wnorm = sto%wnorm(i)
+          if(present(mask))then
+             call this%stack_on_patch(disc(ithread), sto%rotate_angle(i),  sto%stretch(i), p(ithread), tmp(ithread), mask)    
+          else
+             call this%stack_on_patch(disc(ithread), sto%rotate_angle(i),  sto%stretch(i), p(ithread), tmp(ithread))
+          endif
        enddo
-       !$omp end parallel do
-    else
-       !$omp parallel do private(i, ithread)
-       do ithread = 1, n_threads
-          do i=ithread, sto%peak_pix%n, n_threads
-             call this%get_disc(sto%pix(this%nside, i), disc(ithread))
-             disc(ithread)%norm = sto%norm(i)
-             disc(ithread)%wnorm = sto%wnorm(i)
-             if(present(mask))then
-                call this%stack_on_patch(disc(ithread), sto%rotate_angle(i),  sto%stretch(i), p(ithread), tmp(ithread), mask)    
-             else
-                call this%stack_on_patch(disc(ithread), sto%rotate_angle(i),  sto%stretch(i), p(ithread), tmp(ithread))
-             endif
-          enddo
-       enddo
-       !$omp end parallel do
-    endif
+    enddo
+    !$omp end parallel do
     do ithread = 1, n_threads
        patch%image = patch%image + p(ithread)%image
        patch%nstack = patch%nstack + p(ithread)%nstack
