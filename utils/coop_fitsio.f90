@@ -2165,10 +2165,11 @@ contains
   end subroutine coop_Cls_convert2Pseudo
 
 
-  subroutine coop_load_list_realarr(list, filename)
+  subroutine coop_load_list_realarr(list, filename, dim)
     type(coop_list_realarr)::list
     type(coop_fits_file)::fits
     type(coop_file)::fp
+    integer, optional::dim
     COOP_REAL,dimension(:,:),allocatable::arr
     COOP_SINGLE,dimension(:),allocatable::arr1    
     COOP_UNKNOWN_STRING::filename
@@ -2181,17 +2182,19 @@ contains
        allocate(arr(nx, ny))
        call fits%load_image_2d(arr)
        call fits%close()
+       if(present(dim))nx = min(dim, nx)
        do i=1, ny
-          call list%push(real(arr(:, i)))
+          call list%push(real(arr(1:nx, i)))
        enddo
        deallocate(arr)
     elseif(coop_file_postfix_of(filename) .eq. "txt")then
        nx = coop_file_numcolumns(filename)
        allocate(arr1(nx))
        call fp%open_skip_comments(filename)
+       if(present(dim))nx = min(dim, nx)       
        do
           read(fp%unit, *, END=100, ERR=100) arr1
-          call list%push(arr1)
+          call list%push(arr1(1:nx))
        enddo
 100    deallocate(arr1)
     else
@@ -2199,8 +2202,9 @@ contains
        read(fp%unit) nx, ny
        allocate(arr(nx, ny))
        read(fp%unit) arr
+       if(present(dim))nx = min(dim, nx)       
        do i=1, ny
-          call list%push(real(arr(:, i)))
+          call list%push(real(arr(1:nx, i)))
        enddo
        deallocate(arr)
     endif

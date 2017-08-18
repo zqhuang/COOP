@@ -48,15 +48,15 @@ module coop_list_mod
 
 
   COOP_INT,parameter:: coop_list_i1_max_length = 2**14
-  COOP_INT,parameter:: coop_list_i2_max_length = coop_list_i1_max_length * 4
-  COOP_INT,parameter:: coop_list_i3_max_length = coop_list_i2_max_length * 4
-  COOP_INT,parameter:: coop_list_i4_max_length = coop_list_i3_max_length * 4
+  COOP_INT,parameter:: coop_list_i2_max_length = coop_list_i1_max_length * 8
+  COOP_INT,parameter:: coop_list_i3_max_length = coop_list_i2_max_length * 8
+  COOP_INT,parameter:: coop_list_i4_max_length = coop_list_i3_max_length * 8
 
 
   COOP_INT,parameter:: coop_list_s1_max_length =  coop_list_i1_max_length/coop_string_length
-  COOP_INT,parameter:: coop_list_s2_max_length = coop_list_s1_max_length * 4
-  COOP_INT,parameter:: coop_list_s3_max_length = coop_list_s2_max_length * 4
-  COOP_INT,parameter:: coop_list_s4_max_length = coop_list_s3_max_length * 4
+  COOP_INT,parameter:: coop_list_s2_max_length = coop_list_s1_max_length * 8
+  COOP_INT,parameter:: coop_list_s3_max_length = coop_list_s2_max_length * 8
+  COOP_INT,parameter:: coop_list_s4_max_length = coop_list_s3_max_length * 8
 
   COOP_INT,parameter::coop_list_unit_len = 8192
 

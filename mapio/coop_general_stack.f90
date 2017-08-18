@@ -41,13 +41,15 @@ contains
     class(coop_general_stack_points)::this
     COOP_UNKNOWN_STRING::inifile
     type(coop_list_realarr)::pts
-    COOP_INT::i, idot
+    COOP_INT::i, idot, itheta, iphi
     COOP_INT::nneigh, list(8)
     type(coop_healpix_maps)::hmap_pt, hmap_nu, hmap_e, hmap_orient, hmap_sym, hmask, zeros1, zeros2
     type(coop_fits_image_cea)::fmap_pt, fmap_nu, fmap_e, fmap_orient, fmap_sym, fmask
     COOP_REAL:: rms, imin, imax, e2min, e2max, e2, mean, summask
     COOP_REAL::arr(0:5), theta, phi
+    COOP_SINGLE::thetaphi(0:2)
     COOP_INT::nside
+    type(coop_list_realarr)::el
     logical::invlap_for_sym = .false.
     call this%free()
     call coop_load_dictionary(inifile, this%header)
@@ -281,25 +283,51 @@ contains
              call hmap_sym%write(this%map_sym)
           endif
        endif
-       write(*,*) "scanning the map "//trim(this%map_pt)
-       !!finally let's also smooth the point-type selection map, if necessary
-       if(trim(this%point_type).eq."SADDLE")then
-          call hmap_pt%filter_alm(fwhm = sqrt(this%fwhm_pt**2 - this%fwhm**2)*coop_SI_arcmin, lpower = 1.d0, index_list = (/ 1 /) )
-          hmap_pt%spin = 1
-          hmap_pt%alm(:,:,2)=0.
-          call hmap_pt%alm2map()
-          call hmap_pt%write(trim(this%map_pt))                 
-       elseif(this%fwhm_pt .gt. this%fwhm)then
-          call hmap_pt%filter_alm(fwhm = sqrt(this%fwhm_pt**2 - this%fwhm**2)*coop_SI_arcmin, index_list = (/ 1 /) )
-          call hmap_pt%alm2map()
-          call hmap_pt%write(trim(this%map_pt))                 
-       endif
-       call hmap_pt%convert2nested()
-
-
+      
        !!make the selection
        if(trim(this%elist).ne."")then
+          write(*,*) "Loading external list "//trim(this%elist)
+          call coop_load_list_realarr(list = el, filename = trim(this%elist), dim = 3)
+          if(el%dim .eq. 2)then
+             itheta = 0
+             iphi = 1
+          elseif(el%dim .eq. 3)then
+             itheta = 1
+             iphi = 2
+             !!check if the first column is pixel id and the 2nd column is theta
+             do idot = 1, el%n, 5
+                call el%get_element(idot, thetaphi)
+                if(abs(thetaphi(0) - nint(thetaphi(0))).gt. 1.e-5)then
+                   itheta = 0
+                   iphi = 1
+                   exit
+                endif
+             enddo
+          else
+             call coop_return_error("the external_list is neither a (theta, phi) list nor a (pixel, theta, phi) list")
+          endif
+          do idot=1, el%n
+             call el%get_element(idot, thetaphi(0:2))
+             call ang2pix_nest(nside, dble(thetaphi(itheta)), dble(thetaphi(iphi)), i)
+             call hmap_selection()
+          enddo
+          call el%free()
        else
+          write(*,*) "scanning the map "//trim(this%map_pt)
+          !!finally let's also smooth the point-type selection map, if necessary
+          if(trim(this%point_type).eq."SADDLE")then
+             call hmap_pt%filter_alm(fwhm = sqrt(this%fwhm_pt**2 - this%fwhm**2)*coop_SI_arcmin, lpower = 1.d0, index_list = (/ 1 /) )
+             hmap_pt%spin = 1
+             hmap_pt%alm(:,:,2)=0.
+             call hmap_pt%alm2map()
+             call hmap_pt%write(trim(this%map_pt))                 
+          elseif(this%fwhm_pt .gt. this%fwhm)then
+             call hmap_pt%filter_alm(fwhm = sqrt(this%fwhm_pt**2 - this%fwhm**2)*coop_SI_arcmin, index_list = (/ 1 /) )
+             call hmap_pt%alm2map()
+             call hmap_pt%write(trim(this%map_pt))                 
+          endif
+          call hmap_pt%convert2nested()
+          
           select case(trim(this%point_type))
           case("MAX")
              do i=0, hmap_pt%npix-1
@@ -332,6 +360,15 @@ contains
           case("ALL")
              if(this%fwhm_pt .gt. 0.d0)then
                 nside = min(max(hmask%nside/2**min(nint(log(coop_SI_arcmin*this%fwhm_pt/ sqrt(coop_4pi/hmask%npix) )/coop_ln2)-2, 6), 128), hmask%nside)
+             else
+                nside = hmask%nside
+                summask = count(hmask%map(:,1).gt. 0.5)
+                do while(summask .gt. 1.e6) !!at most 1 million points; practically you cannot do more than that within reasonable time scale.
+                   nside = nside/2
+                   summask = summask/4.
+                enddo
+             endif
+             if(nside .ne. hmask%nside)then
                 do idot = 0, 12*nside**2-1
                    call pix2ang_nest(nside, idot, theta, phi)
                    call hmask%ang2pix(theta, phi, i)
