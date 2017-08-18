@@ -1904,7 +1904,17 @@ contains
        do i = 1, this%nmaps
           if(spin(i).eq.0)then
              call this%set_field(i, "I")
-          elseif(spin(i).eq.2)then
+          elseif(spin(i).eq. 1)then
+             if(i.eq.1)then
+                call this%set_field(i, "ID1")
+             else
+                if(trim(this%fields(i-1)).eq."Q")then
+                   call this%set_field(i, "ID2")
+                else
+                   call this%set_field(i, "ID1")
+                endif
+             endif             
+          elseif(spin(i).eq. 2)then
              if(i.eq.1)then
                 call this%set_field(i, "Q")
              else
@@ -2975,18 +2985,19 @@ contains
   end subroutine coop_healpix_patch_get_fr0
 
 
-  subroutine coop_healpix_maps_stack_on_patch(this, disc, angle, patch, tmp_patch, mask)
+  subroutine coop_healpix_maps_stack_on_patch(this, disc, angle, stretch, patch, tmp_patch, mask)
     class(coop_healpix_maps) this
     type(coop_healpix_disc) disc
     type(coop_healpix_maps),optional::mask
-    COOP_REAL angle
+    COOP_SINGLE angle
+    COOP_SINGLE stretch(2)
     type(coop_healpix_patch) patch, tmp_patch
     if(angle .ge. 1.d30)return
     if(present(mask))then
-       call this%fetch_patch(disc, angle, tmp_patch, mask)
+       call this%fetch_patch(disc, angle, stretch, tmp_patch,  mask)
        if(sum(tmp_patch%nstack*tmp_patch%indisk) .lt. patch%num_indisk_tol)return
     else
-       call this%fetch_patch(disc, angle, tmp_patch)
+       call this%fetch_patch(disc, angle, stretch, tmp_patch)
     endif
     if(angle .gt. coop_4pi)then   !! if angle > 4pi do flip
        call tmp_patch%flipx()
@@ -3006,22 +3017,25 @@ contains
     patch%nstack_raw = patch%nstack_raw + tmp_patch%nstack_raw
   end subroutine coop_healpix_maps_stack_on_patch
 
-  subroutine coop_healpix_maps_fetch_patch(this, disc, angle, patch, mask)
+  subroutine coop_healpix_maps_fetch_patch(this, disc, angle, stretch, patch, mask)
     class(coop_healpix_maps)::this
     type(coop_healpix_disc) disc
     type(coop_healpix_maps),optional::mask
-    COOP_REAL angle
+    COOP_SINGLE angle
     type(coop_healpix_patch) patch
+    COOP_SINGLE::stretch(2)
     COOP_INT i, j, pix,  k
-    COOP_REAL x, y, r, phi
+    COOP_REAL x, y, r, phi, drx, dry
     COOP_SINGLE qu(2)
     if(.not. present(mask))patch%nstack = 1.d0
     patch%nstack_raw  = 1
+    drx = patch%dr/stretch(1)
+    dry = patch%dr/stretch(2)
     if(all(patch%tbs%spin .eq. 0))then
        do j = -patch%n, patch%n
           do i = -patch%n, patch%n
-             x = patch%dr * i
-             y = patch%dr * j
+             x = drx * i
+             y = dry * j
              r = sqrt(x**2+y**2)
              if(r.ge. 2.d0)cycle
              phi = COOP_POLAR_ANGLE(x, y) + angle
@@ -3038,8 +3052,8 @@ contains
        if(all(patch%tbs%local_rotation))then
           do j = -patch%n, patch%n
              do i = -patch%n, patch%n
-                x = patch%dr * i
-                y = patch%dr * j
+                x = drx * i
+                y = dry * j
                 r = sqrt(x**2+y**2)
                 if(r.ge. 2.d0)cycle                                
                 phi = COOP_POLAR_ANGLE(x, y) + angle
@@ -3058,14 +3072,14 @@ contains
        else
           do j = -patch%n, patch%n
              do i = -patch%n, patch%n
-                x = patch%dr * i
-                y = patch%dr * j
+                x = drx * i
+                y = dry * j
                 r = sqrt(x**2+y**2)
                 if(r.ge. 2.d0)cycle                                
                 phi = COOP_POLAR_ANGLE(x, y) + angle
                 call disc%ang2pix( r, phi, pix)
                 qu = this%map(pix, patch%tbs%ind)
-                call coop_healpix_rotate_qu(qu, angle, patch%tbs%spin(1))
+                call coop_healpix_rotate_qu(qu, dble(angle), patch%tbs%spin(1))
                 if(present(mask))then
                    patch%nstack(i, j) = mask%map(pix, 1)
                    patch%image(i, j, :) = qu*mask%map(pix,1)
@@ -3100,7 +3114,7 @@ contains
                       call coop_healpix_rotate_qu(qu, phi, patch%tbs%spin(k))
                       qu = qu * coop_healpix_QrUrSign
                    else
-                      call coop_healpix_rotate_qu(qu, angle,patch%tbs%spin(k))
+                      call coop_healpix_rotate_qu(qu, dble(angle),patch%tbs%spin(k))
                    endif
                    if(present(mask))then
                       patch%nstack(i, j) = mask%map(pix, 1)
@@ -3986,7 +4000,7 @@ contains
        sto%P2_upper = (sto%P_upper_nu * sto%sigma_P)**2
     endif
     select case(sto%genre)
-    case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented, coop_stacking_genre_col_oriented)
+    case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented)
        sto%index_peak = sto%index_I
        if(sto%index_peak .ne. 1 .or. sto%index_L .ne. 4 .or. sto%index_Q .ne. 2 .or. sto%index_U .ne. 3 .or. this%nmaps .lt. 6)then
           stop "get_peaks: wrong configuration for saddle points stacking"
@@ -4009,7 +4023,7 @@ contains
     if(sto%nested)then
        if(domask)then    
           select case(sto%genre)
-          case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented, coop_stacking_genre_col_oriented)
+          case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented)
              call this%zeros(5, zeros1, mask)
              call this%zeros(6, zeros2, mask)
              zeros1%map = zeros1%map*zeros2%map
@@ -4120,7 +4134,7 @@ contains
           end select
        else   !!no mask, nested
           select case(sto%genre)
-          case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_oriented, coop_stacking_genre_col_oriented)
+          case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_oriented)
              call this%zeros(5, zeros1)
              call this%zeros(6, zeros2)
              zeros1%map = zeros1%map*zeros2%map
@@ -4206,7 +4220,7 @@ contains
     else  !!ring ordering
        if(domask)then     !!with mask
           select case(sto%genre)
-          case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented, coop_stacking_genre_col_oriented)
+          case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented)
              call this%zeros(5, zeros1, mask)
              call this%zeros(6, zeros2, mask)
              zeros1%map = zeros1%map*zeros2%map
@@ -4295,7 +4309,7 @@ contains
           end select
        else  !!ring ordering, no mask
           select case(sto%genre)
-          case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented, coop_stacking_genre_col_oriented)
+          case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented)
              call this%zeros(5, zeros1)
              call this%zeros(6, zeros2)
              zeros1%map = zeros1%map*zeros2%map
@@ -4448,7 +4462,7 @@ contains
     patch%image = 0.d0
     patch%nstack = 0.d0
     patch%nstack_raw = 0
-    if(sto%nested)then
+    if(sto%nested .or. sto%direct_read)then
        call this%convert2nested()
        if(present(mask))call mask%convert2nested()
     else
@@ -4464,7 +4478,7 @@ contains
           if(patch%tbs%ind(i) .gt. this%nmaps) stop "stack_on_peaks: cannot find the map with corresponding spin"
        enddo
        if(patch%tbs%spin(i) .ne. 0)then
-          if(i.ge.patch%nmaps .or. patch%tbs%ind(i) .ge. this%nmaps) stop "stack_on_peaks: nonzero spin must go in pairs"
+          if(i.ge.patch%nmaps .or. patch%tbs%ind(i) .ge. this%nmaps) stop "stack_on_peaks: nonzero spin must come in pairs"
           patch%tbs%ind(i+1) = patch%tbs%ind(i) + 1
           i = i+2
        else
@@ -4475,21 +4489,37 @@ contains
        p(ithread) = patch
        tmp(ithread) = patch
     enddo
-    !$omp parallel do private(i, ithread)
-    do ithread = 1, n_threads
-       do i=ithread, sto%peak_pix%n, n_threads
-          call this%get_disc(sto%pix(this%nside, i), disc(ithread))
-          disc(ithread)%norm = sto%norm(i)
-          disc(ithread)%wnorm = sto%wnorm(i)
-          if(present(mask))then
-             call this%stack_on_patch(disc(ithread), sto%rotate_angle(i), p(ithread), tmp(ithread), mask)    
-          else
-             call this%stack_on_patch(disc(ithread), sto%rotate_angle(i), p(ithread), tmp(ithread))
-          endif
+    if(sto%no_stretch)then
+       !$omp parallel do private(i, ithread)
+       do ithread = 1, n_threads
+          do i=ithread, sto%peak_pix%n, n_threads
+             call this%get_disc(sto%pix(this%nside, i), disc(ithread))
+             disc(ithread)%norm = sto%norm(i)
+             disc(ithread)%wnorm = sto%wnorm(i)
+             if(present(mask))then
+                call this%stack_on_patch(disc(ithread), sto%rotate_angle(i), sto%stretch(i),  p(ithread), tmp(ithread), mask)    
+             else
+                call this%stack_on_patch(disc(ithread), sto%rotate_angle(i), sto%stretch(i), p(ithread), tmp(ithread))
+             endif
+          enddo
        enddo
-    enddo
-    !$omp end parallel do
-
+       !$omp end parallel do
+    else
+       !$omp parallel do private(i, ithread)
+       do ithread = 1, n_threads
+          do i=ithread, sto%peak_pix%n, n_threads
+             call this%get_disc(sto%pix(this%nside, i), disc(ithread))
+             disc(ithread)%norm = sto%norm(i)
+             disc(ithread)%wnorm = sto%wnorm(i)
+             if(present(mask))then
+                call this%stack_on_patch(disc(ithread), sto%rotate_angle(i),  sto%stretch(i), p(ithread), tmp(ithread), mask)    
+             else
+                call this%stack_on_patch(disc(ithread), sto%rotate_angle(i),  sto%stretch(i), p(ithread), tmp(ithread))
+             endif
+          enddo
+       enddo
+       !$omp end parallel do
+    endif
     do ithread = 1, n_threads
        patch%image = patch%image + p(ithread)%image
        patch%nstack = patch%nstack + p(ithread)%nstack

@@ -198,11 +198,16 @@ contains
     type(coop_healpix_maps)::hp, mask
     type(coop_healpix_maps)::mask2    
     COOP_INT::nside, i
-    call hp%init(nside = nside, nmaps = this%nmaps)
+    call hp%init(nside = nside, nmaps = this%nmaps, spin = this%spin)
     call mask%init(nside = nside, nmaps = 1, genre="MASK")    
-    hp%spin = this%spin
     hp%units = this%units
     hp%fields = this%fields
+    do i=1, this%nmaps
+       call hp%header%insert(key = "TTYPE"//COOP_STR_OF(i), val = trim(this%fields(i)), overwrite = .true.)
+    enddo
+    do i=1, this%nmaps
+       call hp%header%insert(key = "TUNIT"//COOP_STR_OF(i), val = trim(this%units(i)), overwrite = .true.)
+    enddo
     do i=1, hp%nmaps
        call this%map(i)%convert2healpix(hp, i, mask)
     enddo
@@ -217,13 +222,20 @@ contains
   end subroutine coop_flatsky_To_Healpix
 
   
-  subroutine coop_flatsky_From_Healpix(this, hp, mask, ra_min, ra_max, dec_min, dec_max, pixsize)
+  subroutine coop_flatsky_From_Healpix(this, hp, mask, skycut, ra_min, ra_max, dec_min, dec_max, pixsize)
     class(coop_flatsky_maps)::this
     type(coop_healpix_maps)::hp
     type(coop_healpix_maps),optional::mask
-    COOP_REAL::ra_min, ra_max, dec_min, dec_max, pixsize
+    COOP_UNKNOWN_STRING,optional::skycut
+    COOP_REAL, optional::ra_min, ra_max, dec_min, dec_max, pixsize
     COOP_INT::i
-    call this%init(nmaps = hp%nmaps, ra_min  =ra_min, ra_max = ra_max, dec_min = dec_min, dec_max = dec_max, pixsize = pixsize, spin=hp%spin)
+    if(present(skycut) .and. trim(skycut).ne. "")then
+       call this%read_from_one(skycut, nmaps = hp%nmaps)
+    elseif(present(ra_min).and. present(ra_max).and. present(dec_min).and.present(dec_max).and.present(pixsize))then
+       call this%init(nmaps = hp%nmaps, ra_min  =ra_min, ra_max = ra_max, dec_min = dec_min, dec_max = dec_max, pixsize = pixsize, spin=hp%spin)
+    else
+       stop "Flatsky_From_Healpix: you need give either skycut argument or ra-dec cuts arguments"
+    endif
     do i=1,this%nmaps
        call this%map(i)%from_healpix(hp, i)
     enddo
@@ -2231,7 +2243,7 @@ contains
        sto%P2_upper = (sto%P_upper_nu * sto%sigma_P)**2
     endif
     select case(sto%genre)
-    case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented, coop_stacking_genre_col_oriented)
+    case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented)
        sto%index_peak = sto%index_I
        if(sto%index_peak .ne. 1 .or. sto%index_L .ne. 4 .or. sto%index_Q .ne. 2 .or. sto%index_U .ne. 3 .or. this%nmaps .lt. 6)then
           stop "get_peaks: wrong configuration for saddle points stacking"
@@ -2419,7 +2431,7 @@ contains
              endif
           enddo
        enddo
-    case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented, coop_stacking_genre_col_oriented)
+    case(coop_stacking_genre_saddle, coop_stacking_genre_saddle_Oriented)
        allocate(zeros1(0:this%npix-1), zeros2(0:this%npix-1))
        call this%get_zeros(5, zeros1)
        call this%get_zeros(6, zeros2)
@@ -2506,7 +2518,7 @@ contains
 
   subroutine coop_flatsky_maps_stack_on_patch(this, center, angle, patch, tmp_patch, factor, weight)
     class(coop_flatsky_maps)::this
-    COOP_REAL angle
+    COOP_SINGLE angle
     COOP_INT::center
     type(coop_healpix_patch) patch, tmp_patch
     COOP_REAL::factor, weight
@@ -2535,7 +2547,7 @@ contains
   subroutine coop_flatsky_maps_fetch_patch(this, patch, center, angle)
     class(coop_flatsky_maps)::this
     COOP_INT::pix, center
-    COOP_REAL angle
+    COOP_SINGLE angle
     type(coop_healpix_patch) patch
     COOP_INT i, j, k, ix, iy, ix_center, iy_center
     COOP_REAL x, y, r, phi
@@ -2609,7 +2621,7 @@ contains
                    pix = ix  + iy*this%nside(1)
                    qu(1) = this%map(patch%tbs%ind(1))%image(pix)
                    qu(2) = this%map(patch%tbs%ind(2))%image(pix)
-                   call coop_healpix_rotate_qu(qu, angle,patch%tbs%spin(1))
+                   call coop_healpix_rotate_qu(qu, dble(angle),patch%tbs%spin(1))
                    if(this%is_unmasked(pix))then
                       patch%nstack(i, j) = 1.d0
                       patch%image(i, j, 1:2) = qu
@@ -2660,7 +2672,7 @@ contains
                       call coop_healpix_rotate_qu(qu, phi, patch%tbs%spin(k))
                       qu = qu * coop_healpix_QrUrSign
                    else
-                      call coop_healpix_rotate_qu(qu, angle,patch%tbs%spin(k))
+                      call coop_healpix_rotate_qu(qu, dble(angle),patch%tbs%spin(k))
                    endif
                    patch%image(i, j, k:k+1) = qu
                    k = k + 2
@@ -2781,7 +2793,7 @@ contains
     if(mask%nside .ne. hp%nside .or. mask%ordering .ne. hp%ordering) stop "fits_image_cea_convert2healpix: mask and map must have the same nside and ordering"
     mask%map(:,1) = 0.
     hp%map(:, imap) = 0.
-    do pix=1, this%npix-1
+    do pix=0, this%npix-1
        if(present(weights))then
           if(weights%image(pix) .eq. 0.)cycle
        endif
@@ -2795,8 +2807,12 @@ contains
           hp%map(hpix,imap) = hp%map(hpix, imap) + this%image(pix)
        endif
     enddo
-    mean_weights = 0.5*sqrt(sum(mask%map(:,1)**2)/count(mask%map(:,1).ne.0.))
-    where(mask%map(:,1) .ne. mean_weights)
+    if(present(weights))then
+       mean_weights = sqrt(sum(mask%map(:,1)**2)/count(mask%map(:,1).ne.0.))*0.1d0
+    else
+       mean_weights = 0.
+    endif
+    where(mask%map(:,1) .gt. mean_weights)
        hp%map(:, imap) = hp%map(:, imap)/mask%map(:,1)
        mask%map(:, 1) = 1.
     elsewhere
@@ -2805,7 +2821,14 @@ contains
     end where
 #else
     stop "you need to install Healpix"
-#endif    
+#endif
+  contains
+    
+    function interp_value(theta, phi, radius) result(val)
+      COOP_REAL::theta, phi, radius, val
+      COOP_INT::hpix
+    end function interp_value
+    
   end subroutine coop_fits_image_cea_convert2healpix
 
 

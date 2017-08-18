@@ -28,8 +28,6 @@ module coop_stacking_mod
   COOP_INT,parameter::coop_stacking_genre_Random_Hot_Oriented  = 14
   COOP_INT,parameter::coop_stacking_genre_Random_Cold  = 15
   COOP_INT,parameter::coop_stacking_genre_Random_Cold_Oriented  = 16
-  COOP_INT,parameter::coop_stacking_genre_col_oriented = 17
-  !!added Aug 2017
 
   
   type coop_stacking_options
@@ -44,6 +42,8 @@ module coop_stacking_mod
      COOP_INT::index_U = 0
      COOP_INT::index_L = 0
      COOP_INT::index_peak = 0
+     COOP_INT::index_GradX = 0
+     COOP_INT::index_GradY = 0     
      COOP_STRING::caption = ""
      COOP_REAL::sigma_I = 0.d0
      COOP_REAL::sigma_L = 0.d0
@@ -69,11 +69,14 @@ module coop_stacking_mod
      logical::norm_to_corr = .false.
      COOP_REAL::norm_power = 0.d0
      logical::addpi = .true.  !!randomly add pi on polarization directions
-     logical::angzero = .true.  !!do not rotate
+     logical::no_randrot = .true.  !!do not do random rotation in the non-oriented case
+     logical::no_stretch = .true.  !!do not stretch 
      logical::nested = .true.
+     logical::direct_read = .false.
      type(coop_list_integer)::peak_pix
      type(coop_list_realarr)::peak_ang
      type(coop_list_realarr)::peak_map
+     type(coop_list_realarr)::peak_stretch
    contains
      procedure::norm => coop_stacking_options_norm
      procedure::wnorm => coop_stacking_options_wnorm
@@ -92,6 +95,7 @@ module coop_stacking_mod
      procedure::peak_r => coop_stacking_options_peak_r
      procedure::peak_e => coop_stacking_options_peak_e
      procedure::peak_get_angle_r_e => coop_stacking_options_peak_get_angle_r_e
+     procedure::stretch => coop_stacking_options_stretch
   end type coop_stacking_options
 
 
@@ -115,11 +119,16 @@ module coop_stacking_mod
 contains
 
 
+  !!normalize the map
   function coop_stacking_options_norm(this, i) result(norm)
     class(coop_stacking_options)::this
     COOP_INT::i
     COOP_SINGLE::map(this%nmaps)
     COOP_REAL::norm
+    if(this%direct_read)then
+       norm = 1.
+       return
+    endif    
     if(this%norm_power.ne.0.d0)then
        call this%peak_map%get_element(i, map)
        norm = max(abs((map(this%index_I)/this%sigma_I)), 1.d-5)**this%norm_power
@@ -135,11 +144,16 @@ contains
     endif
   end function coop_stacking_options_norm
 
+  !!normalize the weight of each peak such that you can get the correlation function
   function coop_stacking_options_wnorm(this, i) result(wnorm)
     class(coop_stacking_options)::this
     COOP_INT::i
     COOP_SINGLE::map(this%nmaps)
     COOP_REAL::wnorm
+    if(this%direct_read)then
+       wnorm = 1.
+       return
+    endif
     if(this%norm_to_corr)then
        if(this%norm_power .ne. -1.d0)then
           call this%peak_map%get_element(i, map)
@@ -237,12 +251,19 @@ contains
     write(fp%unit) this%genre, this%nmaps, this%nside,this%nside2, this%index_peak, this%index_I, this%index_Q, this%index_U, this%index_L
     write(fp%unit) this%I_lower, this%I_upper, this%L_lower, this%L_upper, this%P2_lower, this%P2_upper, this%I_lower_nu, this%I_upper_nu, this%L_lower_nu, this%L_upper_nu, this%P_lower_nu, this%P_upper_nu, this%P2byI2_lower, this%P2byI2_upper, this%P2byL2_lower, this%P2byL2_upper, this%norm_power
     write(fp%unit) this%caption
-    write(fp%unit) this%threshold_option, this%abs_threshold, this%norm_to_corr, this%addpi, this%nested, this%angzero
+    write(fp%unit) this%threshold_option, this%abs_threshold, this%norm_to_corr, this%addpi, this%nested, this%no_randrot
     write(fp%unit) this%peak_pix%n
     do i=1, this%peak_pix%n
        write(fp%unit) this%peak_pix%element(i), this%peak_ang%element(i), this%peak_map%element(i)
     enddo
     write(fp%unit) this%sigma_I, this%sigma_L, this%sigma_P
+    write(fp%unit) this%no_stretch
+    if(.not. this%no_stretch)then
+       write(fp%unit) this%index_gradX, this%index_gradY
+       do i=1,this%peak_stretch%n
+          write(fp%unit) this%peak_stretch%element(i)
+       enddo
+    endif
     call fp%close()
   end subroutine coop_stacking_options_export
 
@@ -250,20 +271,45 @@ contains
     class(coop_stacking_options)::this
     COOP_UNKNOWN_STRING::filename
     type(coop_file) fp
-    COOP_INT pix, i, n
-    COOP_SINGLE::thetaphi(2)
+    type(coop_fits_file)::fits
+    COOP_INT pix, i, n, i1, i2
+    COOP_SINGLE::thetaphi(2), stretch(2)
     COOP_SINGLE,dimension(:),allocatable::map
+    COOP_REAL,dimension(:,:),allocatable::points
     if(.not. coop_file_exists(filename))then
        write(*,*) "stack option file "//trim(adjustl(filename))//" does not exist"
        stop
     endif
-    call this%free()
+    call this%free()    
+    if(coop_file_postfix_of(filename).eq."fits")then
+       this%direct_read = .true.
+       this%no_stretch = .true.
+       this%caption = ""
+       this%nmaps = 1
+       call fits%open(filename)
+       call coop_dictionary_lookup(fits%header, "NAXIS1", i1, 0)
+       call coop_dictionary_lookup(fits%header, "NAXIS2", i2, 0)       
+       if(i1.ne. 6 .or. i2.le.0) call coop_return_error("The file "//trim(filename)//" is not a valid stacking points file")
+       allocate(points(i1, i2))
+       call fits%load_image_2d(points)
+       do i=1, i2
+          call this%peak_pix%push( nint(points(1, i)) )
+          call this%peak_ang%push(real(points(2:3, i)))
+          call this%peak_map%push(real(points(4:4, i)))
+          call this%peak_stretch%push(real(points(5:6, i)))
+       enddo
+       write(*,*) "imported "//COOP_STR_OF(i2)//" stacking points"
+       deallocate(points)
+       call fits%close()
+       return
+    endif
+    this%direct_read = .false.
     call fp%open(filename, "ur")
     read(fp%unit) this%mask_int, this%mask_pol    
     read(fp%unit) this%genre, this%nmaps, this%nside, this%nside2, this%index_peak, this%index_I, this%index_Q, this%index_U, this%index_L
     read(fp%unit) this%I_lower, this%I_upper, this%L_lower, this%L_upper, this%P2_lower, this%P2_upper, this%I_lower_nu, this%I_upper_nu, this%L_lower_nu, this%L_upper_nu, this%P_lower_nu, this%P_upper_nu, this%P2byI2_lower, this%P2byI2_upper, this%P2byL2_lower, this%P2byL2_upper, this%norm_power
     read(fp%unit) this%caption
-    read(fp%unit) this%threshold_option, this%abs_threshold, this%norm_to_corr, this%addpi, this%nested, this%angzero
+    read(fp%unit) this%threshold_option, this%abs_threshold, this%norm_to_corr, this%addpi, this%nested, this%no_randrot
     allocate(map(this%nmaps))
     read(fp%unit) n
     do i=1, n
@@ -272,8 +318,19 @@ contains
        call this%peak_ang%push(thetaphi)
        call this%peak_map%push(map)
     enddo
-    read(fp%unit) this%sigma_I, this%sigma_L, this%sigma_P    
-    call fp%close()
+    read(fp%unit) this%sigma_I, this%sigma_L, this%sigma_P
+    !!add stretch feature
+    this%no_stretch = .true.
+    read(fp%unit, end=200)this%no_stretch
+    if(.not. this%no_stretch)then
+       read(fp%unit) this%index_gradX, this%index_gradY
+       do i=1,n
+          read(fp%unit) stretch          
+          call this%peak_stretch%push(stretch)
+       enddo
+    endif
+    !!-------------------
+200 call fp%close()
     deallocate(map)
   end subroutine coop_stacking_options_import
 
@@ -282,6 +339,9 @@ contains
     call this%peak_pix%init()
     call this%peak_ang%init()
     call this%peak_map%init()
+    !!add stretch feature
+    call this%peak_stretch%init()
+    !!-------------------    
   end subroutine coop_stacking_options_free
 
   subroutine coop_to_be_stacked_free(this, nmaps)
@@ -470,16 +530,24 @@ contains
     enddo
   end subroutine coop_to_be_stacked_init
 
-  subroutine coop_stacking_options_init(this, domax, peak_name, Orient_name, nmaps)
+  subroutine coop_stacking_options_init(this, domax, peak_name, Orient_name, nmaps, i_asym)
     class(coop_stacking_options)::this
     COOP_UNKNOWN_STRING::peak_name, orient_name
     COOP_SHORT_STRING::p
     logical hot, cold, domax
+    COOP_INT, optional::i_asym
     COOP_INT::nmaps
     call this%free()
     this%mask_int = .false.
     this%mask_pol  = .false.
     this%nmaps = nmaps
+    if(present(i_asym))then
+       this%no_stretch =  .false.
+       this%index_GradX = i_asym
+       this%index_GradY = i_asym + 1
+    else
+       this%no_stretch = .true.
+    endif
     p = trim(adjustl(peak_name))
     if(trim(adjustl(orient_name)).eq. "NULL" .or. trim(adjustl(orient_name)) .eq. "RANDOM" .or. trim(adjustl(orient_name)).eq. "NONE" )then !!random orientation
        if(trim(p) .eq. "SADDLE" .or. trim(p).eq."COL")then
@@ -530,9 +598,6 @@ contains
        if(trim(p).eq."SADDLE")then
           this%genre = coop_stacking_genre_saddle_oriented
           this%caption = " saddle points, "//trim(adjustl(Orient_name))//" oriented"
-       elseif(trim(p).eq."COL")then
-          this%genre = coop_stacking_genre_col_oriented
-          this%caption = "cols, "//trim(adjustl(orient_name))//" oriented"
        elseif(domax)then
           if(trim(p).eq."RANDOM")then
              this%genre = coop_stacking_genre_random_hot_Oriented
@@ -627,11 +692,26 @@ contains
           this%index_U = 3
           this%threshold_option = 3
        end select
-    case(4:)
+    case(4)
        this%index_I = 1
        this%index_Q = 2
        this%index_U = 3
        this%index_L = 4
+       this%threshold_option = 7
+    case(5)
+       this%index_I = 1
+       this%index_Q = 2
+       this%index_U = 3
+       this%index_GradX = 4
+       this%index_GradY = 5
+       this%threshold_option = 7       
+    case(6)
+       this%index_I = 1
+       this%index_Q = 2
+       this%index_U = 3
+       this%index_L = 4
+       this%index_GradX = 5
+       this%index_GradY = 6
        this%threshold_option = 7       
     end select
     select case(trim(coop_str_numUpperalpha(peak_name)))
@@ -662,6 +742,10 @@ contains
     logical rej
     COOP_SINGLE::map(:)
     COOP_REAL::p2
+    if(this%direct_read)then
+       rej = .false.
+       return
+    endif
     if(this%abs_threshold)then
        if(this%index_peak == this%index_I)then
           select case(this%threshold_option)
@@ -785,13 +869,18 @@ contains
 
   function coop_stacking_options_rotate_angle(this, i) result(angle)
     class(coop_stacking_options)::this
-    COOP_REAL angle
+    COOP_SINGLE angle, arr(1)
     COOP_SINGLE::map(this%nmaps)
     COOP_INT i
     if(i.gt. this%peak_pix%n) stop "rotate_angle: pix overflow"
+    if(this%direct_read)then
+       call this%peak_map%get_element(i, arr)
+       angle = arr(1)
+       return
+    endif
     select case(this%genre)
     case(coop_stacking_genre_Imax, coop_stacking_genre_Imin, coop_stacking_genre_Lmax, coop_stacking_genre_Lmin, coop_stacking_genre_Null, coop_stacking_genre_random_hot, coop_stacking_genre_random_cold, coop_stacking_genre_Saddle)
-       if(this%angzero)then
+       if(this%no_randrot)then
           angle = 0.d0
           return
        else
@@ -803,21 +892,27 @@ contains
        call this%peak_map%get_element(i, map)
        angle = COOP_POLAR_ANGLE(dble(map(this%index_Q)),dble(map(this%index_U)))/2.d0
        if(this%addpi) angle = angle + coop_rand01()*coop_pi
-    case(coop_stacking_genre_Col_Oriented)
-       call this%peak_map%get_element(i, map)
-       angle = COOP_POLAR_ANGLE(dble(map(this%index_Q)),dble(map(this%index_U)))/2.d0
-       if(map(7)*cos(angle) + map(8)*sin(angle) .le. 0.d0)then
-          angle = angle + coop_pi  !!rotate
-       endif
-
-       if(map(8)*cos(angle) - map(7)*sin(angle) .le. 0.d0)then
-          angle = angle + coop_2pi*3.d0  !! x flip          
-       endif
     case default
        write(*,*) this%genre
        stop "rotate_angle: unknown genre"
     end select
   end function coop_stacking_options_rotate_angle
+
+
+  function coop_stacking_options_stretch(this, i) result(str)
+    class(coop_stacking_options)::this
+    COOP_INT::i
+    COOP_SINGLE::str(2)
+    if(this%direct_read)then
+       call this%peak_stretch%get_element(i, str)
+       return
+    endif
+    if(this%no_stretch)then
+       str = 1.d0
+    else
+       call this%peak_stretch%get_element(i, str)
+    endif
+  end function coop_stacking_options_stretch
 
   function coop_stacking_options_peak_r(this, i) result(r)
     COOP_REAL, parameter::max_radius = coop_pio2
@@ -942,5 +1037,6 @@ contains
   end subroutine coop_healpix_ang2lb
 
 end module coop_stacking_mod
+
 
 

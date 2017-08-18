@@ -47,7 +47,7 @@ program Exp_spots
   if(remove_mono) call fm%remove_mono()
   sto%abs_threshold = hot .and. cold
   call sto%init(hot, peak_name, orient_name, nmaps = fm%nmaps)
-  sto%angzero = .false.  
+  sto%no_randrot = .false.  
   sto%addpi = .true.
   sto%norm_power = 0.d0  !!these default settings can be changed when doing stacking
 

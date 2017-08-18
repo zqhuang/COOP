@@ -8,7 +8,7 @@ include ../configure.in
 include ../compile_rules.in
 
 LIB = libcoopmapio.a
-OBJ = stacking_obj.o healutils.o fitswrap.o  zeta3d.o
+OBJ = stacking_obj.o healutils.o fitswrap.o  zeta3d.o coop_general_stack.o
 
 default: all
 
@@ -168,3 +168,5 @@ healutils.o: stacking_obj.o
 
 te2z.o: $(LIB) $(OBJ)
 
+
+coop_general_stack.o: healutils.o fitswrap.o

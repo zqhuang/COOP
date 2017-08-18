@@ -77,7 +77,7 @@ program Stacking_Maps
   call coop_get_command_line_argument(key = 'height', arg = coop_healpix_patch_default_figure_height, default = 4.2)
 
   call sto%import(peak_file)
-  sto%angzero = .not. randrot
+  sto%no_randrot = .not. randrot
   sto%norm_power = norm_power
   sto%norm_to_corr = norm_to_corr
   write(*,*) "reading the map file "//trim(map_file)

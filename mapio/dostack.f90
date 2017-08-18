@@ -82,7 +82,7 @@ program Stacking_Maps
   call coop_get_command_line_argument(key = 'polmask', arg = polmask_file, default = "")  
 
   call sto%import(peak_file)
-  sto%angzero = .not. randrot
+  sto%no_randrot = .not. randrot
   sto%norm_power = norm_power
   sto%norm_to_corr = norm_to_corr
   call hgm%read(map_file)
@@ -100,12 +100,13 @@ program Stacking_Maps
      call hgm%apply_mask(mask = mask, remove_monopole = remove_mono)
   endif
   tmax = maxval(hgm%map(:,1))
-  print*, "stacking on "//COOP_STR_OF(sto%peak_pix%n)//" peaks"  
+  print*, "stacking on "//COOP_STR_OF(sto%peak_pix%n)//" points"  
   if(trim(mask_file).ne."NONE")then
      call hgm%stack_on_peaks(sto, patch, mask)
   else
      call hgm%stack_on_peaks(sto, patch)
   endif
+
   patch%caption = "stacked on "//COOP_STR_OF(patch%nstack_raw)//" "//trim(sto%caption)
   call coop_get_command_line_argument(key = 'colortable', arg = patch%color_table, default = 'Rainbow')
   select case(patch%nmaps)
