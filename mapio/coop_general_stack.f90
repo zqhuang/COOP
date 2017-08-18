@@ -289,36 +289,7 @@ contains
              if(hmask%map(i,1).ge. 0.5)then
                 call neighbours_nest(hmap_pt%nside, i, list, nneigh)
                 if(all(hmap_pt%map(list(1:nneigh), 1).lt.hmap_pt%map(i, 1)))then
-                   if(this%check_nu)then
-                      if(hmap_nu%map(i, 1) .lt. imin .or. hmap_nu%map(i, 1) .gt. imax)  cycle
-                   endif
-                   if(this%check_e)then
-                      e2 = (hmap_e%map(i,2)**2+hmap_e%map(i, 3)**2)/hmap_e%map(i,1)**2
-                      if( e2 .lt. e2min .or. e2 .gt. e2max) cycle
-                   endif
-                   call hmap_pt%pix2ang(i, arr(1), arr(2))
-                   if(this%check_orient)then
-                      arr(3) = COOP_POLAR_ANGLE(dble(hmap_orient%map(i,1)), dble(hmap_orient%map(i, 2)))/2.d0 + coop_rand01()*coop_pi
-                   else
-                      call random_number(arr(3))
-                      arr(3) = this%randrot * arr(3)
-                   endif
-                   if(this%check_sym)then
-                      if(hmap_sym%map(i, 2)*cos(arr(3))+hmap_sym%map(i,1)*sin(arr(3)) .lt. 0.d0 .and. this%xup)then
-                         arr(4) = -1.d0
-                      else
-                         arr(4) = 1.d0
-                      endif
-                      if(hmap_sym%map(i, 1)*cos(arr(3))-hmap_sym%map(i,2)*sin(arr(3)) .lt. 0.d0 .and. this%yup)then
-                         arr(5)= -1.d0
-                      else
-                         arr(5) = 1.d0
-                      endif
-                   else
-                      arr(4:5) = 1.d0
-                   endif
-                   arr(0) = dble(i)
-                   call pts%push( real(arr)) 
+                   call check_point()
                 endif
              endif
           enddo
@@ -327,36 +298,7 @@ contains
              if(hmask%map(i,1).ge. 0.5)then
                 call neighbours_nest(hmap_pt%nside, i, list, nneigh)
                 if(all(hmap_pt%map(list(1:nneigh), 1).gt.hmap_pt%map(i, 1)))then
-                   if(this%check_nu)then
-                      if(hmap_nu%map(i, 1) .lt. imin .or. hmap_nu%map(i, 1) .gt. imax)  cycle
-                   endif
-                   if(this%check_e)then
-                      e2 = (hmap_e%map(i,2)**2+hmap_e%map(i, 3)**2)/hmap_e%map(i,1)**2
-                      if( e2 .lt. e2min .or. e2 .gt. e2max) cycle
-                   endif
-                   call hmap_pt%pix2ang(i, arr(1), arr(2))
-                   if(this%check_orient)then
-                      arr(3) = COOP_POLAR_ANGLE(dble(hmap_orient%map(i,1)), dble(hmap_orient%map(i, 2)))/2.d0 + coop_rand01()*coop_pi
-                   else
-                      call random_number(arr(3))
-                      arr(3) = this%randrot * arr(3)
-                   endif
-                   if(this%check_sym)then
-                      if(hmap_sym%map(i, 2)*cos(arr(3))+hmap_sym%map(i,1)*sin(arr(3)) .lt. 0.d0 .and. this%xup)then
-                         arr(4) = -1.d0
-                      else
-                         arr(4) = 1.d0
-                      endif
-                      if(hmap_sym%map(i, 1)*cos(arr(3))-hmap_sym%map(i,2)*sin(arr(3)) .lt. 0.d0 .and. this%yup)then
-                         arr(5)= -1.d0
-                      else
-                         arr(5) = 1.d0
-                      endif
-                   else
-                      arr(4:5) = 1.d0
-                   endif
-                   arr(0) = dble(i)                   
-                   call pts%push( real(arr)) 
+                   call check_point()
                 endif
              endif
           enddo
@@ -365,41 +307,17 @@ contains
           call hmap_pt%zeros(2, zeros2, hmask)
           do i=0, hmap_pt%npix-1
              if(zeros1%map(i, 1) .gt. 0.5  .and. zeros2%map(i, 1) .gt. 0.5  .and. hmask%map(i,1).gt.0.5)then
-                if(this%check_nu)then
-                   if(hmap_nu%map(i, 1) .lt. imin .or. hmap_nu%map(i, 1) .gt. imax)  cycle
-                endif
-                if(this%check_e)then
-                   e2 = (hmap_e%map(i,2)**2+hmap_e%map(i, 3)**2)/hmap_e%map(i,1)**2
-                   if( e2 .lt. e2min .or. e2 .gt. e2max) cycle
-                endif
-                call hmap_pt%pix2ang(i, arr(1), arr(2))
-                if(this%check_orient)then
-                   arr(3) = COOP_POLAR_ANGLE(dble(hmap_orient%map(i,1)), dble(hmap_orient%map(i, 2)))/2.d0 + coop_rand01()*coop_pi
-                else
-                   call random_number(arr(3))
-                   arr(3) = this%randrot * arr(3)
-                endif
-                if(this%check_sym)then
-                   if(hmap_sym%map(i, 2)*cos(arr(3))+hmap_sym%map(i,1)*sin(arr(3)) .lt. 0.d0 .and. this%xup)then
-                      arr(4) = -1.d0
-                   else
-                      arr(4) = 1.d0
-                   endif
-                   if(hmap_sym%map(i, 1)*cos(arr(3))-hmap_sym%map(i,2)*sin(arr(3)) .lt. 0.d0 .and. this%yup)then
-                      arr(5)= -1.d0
-                   else
-                      arr(5) = 1.d0
-                   endif
-                else
-                   arr(4:5) = 1.d0
-                endif
-                arr(0) = dble(i)
-                call pts%push( real(arr))                 
+                call check_point()
              endif
           enddo
           call zeros1%free()
           call zeros2%free()
        case("ALL")
+          do i=0, hmap_pt%npix-1
+             if(hmask%map(i,1).gt.0.5)then
+                call check_point()
+             endif
+          enddo
        end select
        !!free the maps
        call hmap_pt%free()
@@ -419,6 +337,40 @@ contains
     enddo
     call pts%free()
 
+  contains
+    subroutine check_point()
+      if(this%check_nu)then
+         if(hmap_nu%map(i, 1) .lt. imin .or. hmap_nu%map(i, 1) .gt. imax)  return
+      endif
+      if(this%check_e)then
+         e2 = (hmap_e%map(i,2)**2+hmap_e%map(i, 3)**2)/hmap_e%map(i,1)**2
+         if( e2 .lt. e2min .or. e2 .gt. e2max) return
+      endif
+      call hmap_pt%pix2ang(i, arr(1), arr(2))
+      if(this%check_orient)then
+         arr(3) = COOP_POLAR_ANGLE(dble(hmap_orient%map(i,1)), dble(hmap_orient%map(i, 2)))/2.d0 + coop_rand01()*coop_pi
+      else
+         call random_number(arr(3))
+         arr(3) = this%randrot * arr(3)
+      endif
+      if(this%check_sym)then
+         if(hmap_sym%map(i, 2)*cos(arr(3))-hmap_sym%map(i,1)*sin(arr(3)) .gt. 0.d0 .and. this%xup)then
+            arr(4) = -1.d0
+         else
+            arr(4) = 1.d0
+         endif
+         if(hmap_sym%map(i, 1)*cos(arr(3))+hmap_sym%map(i,2)*sin(arr(3)) .lt. 0.d0 .and. this%yup)then
+            arr(5)= -1.d0
+         else
+            arr(5) = 1.d0
+         endif
+      else
+         arr(4:5) = 1.d0
+      endif
+      arr(0) = dble(i)
+      call pts%push( real(arr))                 
+    end subroutine check_point
+    
   end subroutine coop_general_stack_points_init
 
 
