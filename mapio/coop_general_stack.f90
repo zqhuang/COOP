@@ -469,7 +469,7 @@ contains
     type(coop_fits_image_cea)::fmap, fmask
     type(coop_healpix_patch)::patch
     COOP_STRING::fmt, map, mask, field, output, label1, label2, unit, peaks
-    COOP_REAL::r_degree, dr, radius, zmin1, zmin2, zmax1, zmax2
+    COOP_REAL::r_degree, dr, radius, zmin1, zmin2, zmax1, zmax2, fwhm_in, fwhm_pre
     COOP_INT::n, i, m
     type(coop_asy)::fig
     logical::use_degree
@@ -479,7 +479,8 @@ contains
     call coop_dictionary_lookup(params, "peaks", peaks)    
     call coop_dictionary_lookup(params, "mask", mask, "")
     call coop_dictionary_lookup(params, "output", output)
-    
+    call coop_dictionary_lookup(params, "fwhm_in",fwhm_in, 0.d0)
+    call coop_dictionary_lookup(params, "fwhm_presmooth",fwhm_pre, 0.d0)    
     call coop_dictionary_lookup(params, "field", field, "I")
     call coop_dictionary_lookup(params, 'radius', r_degree, 2.d0)
     radius = r_degree * coop_SI_degree
@@ -518,15 +519,31 @@ contains
     call sto%import(peaks)
     write(*,*) "Stacking on  "//COOP_STR_OF(sto%peak_pix%n)//" points"
     call coop_dictionary_lookup(params, "caption", patch%caption,   "stacked on  "//COOP_STR_OF(sto%peak_pix%n)//" points")
+    if(trim(patch%caption).eq. "NONE") patch%caption = ""
+    fwhm_pre = max(fwhm_pre, dr/COOP_SI_arcmin)
     select case(trim(fmt))
     case("HEALPIX")
        call hmap%read(map)
+       if(fwhm_in .lt. fwhm_pre * 0.99)then !!do proper smoothing before stacking
+          call hmap%smooth(fwhm = sqrt(fwhm_pre**2 - fwhm_in**2)*coop_SI_arcmin)
+          
+       endif
+          
        if(trim(mask) .ne. "")then
           call hmask%read(mask, nmaps_wanted = 1)
           if(hmask%nside .ne. hmap%nside) call coop_return_error("nside of mask and map must be the same")
        else
-          call hmask%init(nside = hmap%nside, nmaps = 1, genre = "MASK")
-          hmask%map = 1.
+          if(coop_file_exists(trim(coop_file_add_postfix(map, "_AUTOMASK"))))then
+
+             call hmask%read(trim(coop_file_add_postfix(map, "_AUTOMASK")), nmaps_wanted = 1)
+             if(hmask%nside .ne. hmap%nside)then
+                call hmask%init(nside = hmap%nside, nmaps = 1, genre = "MASK")
+                hmask%map = 1.
+             endif
+          else
+             call hmask%init(nside = hmap%nside, nmaps = 1, genre = "MASK")
+             hmask%map = 1.
+          endif
        endif
        call hmap%stack_on_peaks(sto, patch, hmask)
     case("RA-DEC")
@@ -542,7 +559,7 @@ contains
        write(*,*) "stacked image data saved in "//trim(adjustl(output))//".fits"       
     else
        do i=1, patch%nmaps
-          call patch%plot(i, trim(adjustl(output))//"_"//COOP_STR_OF(i)//".txt")
+          call patch%plot(i, trim(adjustl(output))//"_"//COOP_STR_OF(i)//".txt", use_degree = use_degree)
           call coop_fits_file_write_image_2d(patch%image(:,:,i), trim(adjustl(output))//"_"//COOP_STR_OF(i)//".fits", params)
           write(*,*) "stacked COOP figure file saved in "//trim(adjustl(output))//"_"//COOP_STR_OF(i)//".txt"          
           write(*,*) "stacked image data saved in "//trim(adjustl(output))//"_"//COOP_STR_OF(i)//".fits"           
