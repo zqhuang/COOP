@@ -9,13 +9,14 @@ module coop_gstack_mod
   implicit none
 
 #include "constants.h"
-
+  COOP_REAL,parameter::coop_all_max_num_points = 3.e5
 
   !!general type of fits maps  
   type coop_general_stack_points
      type(coop_dictionary)::header
      COOP_STRING::fmt
      COOP_STRING::map, map_pt, map_nu, map_e, map_orient, map_sym,  point_type, orient, symmetry, output, mask, prefix, elist
+     COOP_STRING::e_option, sym_option
      COOP_REAL::fwhm, fwhm_pt, fwhm_nu, fwhm_e, fwhm_orient, fwhm_sym
      COOP_REAL::nu_min, nu_max, e_min, e_max
      COOP_REAL,dimension(:,:),allocatable::points
@@ -46,11 +47,10 @@ contains
     type(coop_healpix_maps)::hmap_pt, hmap_nu, hmap_e, hmap_orient, hmap_sym, hmask, zeros1, zeros2
     type(coop_fits_image_cea)::fmap_pt, fmap_nu, fmap_e, fmap_orient, fmap_sym, fmask
     COOP_REAL:: rms, imin, imax, e2min, e2max, e2, mean, summask
-    COOP_REAL::arr(0:5), theta, phi
+    COOP_REAL::arr(0:5), theta, phi, e_lpower, sym_lpower, orient_lpower
     COOP_SINGLE::thetaphi(0:2)
     COOP_INT::nside
     type(coop_list_realarr)::el
-    logical::invlap_for_sym = .false.
     call this%free()
     call coop_load_dictionary(inifile, this%header)
     call coop_dictionary_lookup(this%header, "format", this%fmt, "HEALPIX")
@@ -66,6 +66,13 @@ contains
     call coop_dictionary_lookup(this%header, "point_type", this%point_type, "MAX")
     call coop_dictionary_lookup(this%header, "orient", this%orient, "RANDOM")
     call coop_dictionary_lookup(this%header, "symmetry", this%symmetry, "SYMMETRIC")
+
+    call coop_dictionary_lookup(this%header, "e_option", this%e_option, "HESSIAN")
+    call coop_dictionary_lookup(this%header, "sym_option", this%sym_option, "HESSIAN")    
+    call option2lpower(this%e_option, e_lpower)
+    call option2lpower(this%sym_option, sym_lpower)
+    call option2lpower(this%orient, orient_lpower)
+    
     !!read the fwhm's
     call coop_dictionary_lookup(this%header, "fwhm", this%fwhm, 0.d0)
     this%fwhm = max(this%fwhm, 0.d0)
@@ -108,16 +115,14 @@ contains
     endif
     call coop_dictionary_lookup(this%header, "e_min", this%e_min, 0.d0)
     call coop_dictionary_lookup(this%header, "e_max", this%e_max, 1.d30)
-    if(this%e_min .ge. this%e_max)then
-       call coop_return_error("setting e_min >= e_max is silly...")
-    endif
+    if(this%e_min .ge. this%e_max) call coop_return_error("setting e_min >= e_max is silly...")
     e2min = this%e_min ** 2
     e2max = this%e_max ** 2
     this%check_nu = this%nu_min .gt. -9999.d0 .or. this%nu_max .lt. 9999.d0
     if(this%check_nu .and. trim(this%map_nu).eq."") this%map_nu = trim(this%prefix)//"_AMPLITUDE_fwhm"//COOP_FILESTR_OF(this%fwhm_nu)//"a.fits"
 
     this%check_e =  this%e_min .gt. 0.d0 .or. this%e_max .lt. 9999.d0
-    if(this%check_e .and. trim(this%map_e) .eq. "") this%map_e = trim(this%prefix)//"_ECCENTRICITY_fwhm"//COOP_FILESTR_OF(this%fwhm_e)//"a.fits"
+    if(this%check_e .and. trim(this%map_e) .eq. "") this%map_e = trim(this%prefix)//"_ECC_"//trim(this%e_option)//"_fwhm"//COOP_FILESTR_OF(this%fwhm_e)//"a.fits"
     
     this%check_orient = .true.    
     select case(trim(this%orient))
@@ -127,12 +132,9 @@ contains
     case("ORIGINAL")
        this%randrot = 0.d0
        this%check_orient = .false.
-    case("HESSIAN")
+    case("HESSIAN", "QU")
        this%randrot = 0.d0
-       if(trim(this%map_orient).eq."")this%map_orient = trim(this%prefix)//"_ORIENT_HESSIAN_fwhm"//COOP_FILESTR_OF(this%fwhm_orient)//"a.fits"       
-    case("QU")
-       this%randrot = 0.d0
-       if(trim(this%map_orient).eq."")this%map_orient = trim(this%prefix)//"_ORIENT_QU_fwhm"//COOP_FILESTR_OF(this%fwhm_orient)//"a.fits"
+       if(trim(this%map_orient).eq."")this%map_orient = trim(this%prefix)//"_ORIENT_"//trim(this%orient)//"_fwhm"//COOP_FILESTR_OF(this%fwhm_orient)//"a.fits"       
     case default
        call coop_return_error("orient = "//trim(this%orient)//" is not supported")
     end select
@@ -143,30 +145,20 @@ contains
        this%check_sym = .false.
        this%xup = .false.
        this%yup = .false.
-    case("X_UP", "IL_X_UP")
+    case("X_UP")
        this%xup = .true.
        this%yup = .false.
-    case("Y_UP", "IL_Y_UP")
+    case("Y_UP")
        this%xup = .false.
        this%yup = .true.      
-    case("XY_UP", "IL_XY_YP")
+    case("XY_UP")
        this%xup = .true.
        this%yup = .true.       
     case default
        call coop_return_error("symmetry = "//trim(this%symmetry)//" is not supported")
     end select
-    invlap_for_sym = this%symmetry(1:3).eq."IL_"
-    if(this%check_sym .and. trim(this%map_sym).eq."") then
-       if(invlap_for_sym)then
-          this%map_sym = trim(this%prefix)//"_INVLAP_PARITY_fwhm"//COOP_FILESTR_OF(this%fwhm_sym)//"a.fits"
-       else
-          this%map_sym = trim(this%prefix)//"_INVLAP_PARITY_fwhm"//COOP_FILESTR_OF(this%fwhm_sym)//"a.fits"          
-       endif
-    endif
-    if(this%check_sym .and. this%fwhm_sym .lt. this%fwhm_pt)then
-       write(*,*) "Warning: fwhm for parity selection < fwhm for point-type selection?"
-    endif
-
+    if(this%check_sym .and. trim(this%map_sym).eq."") this%map_sym = trim(this%prefix)//"_PARITY_"//trim(this%sym_option)//"_fwhm"//COOP_FILESTR_OF(this%fwhm_sym)//"a.fits"
+    if(this%check_sym .and. this%fwhm_sym .lt. this%fwhm_pt)write(*,*) "Warning: fwhm for parity selection < fwhm for point-type selection?"
 
     call pts%init()
     
@@ -238,7 +230,7 @@ contains
           else
              call hmap_e%init(nside = hmap_pt%nside, nmaps = 3, spin = (/ 0, 2, 2 /), lmax = hmap_pt%lmax)
              hmap_e%alm(:, :, 1) = hmap_pt%alm(:, :, 1)             
-             call hmap_e%filter_alm(fwhm = sqrt(this%fwhm_e**2 - this%fwhm**2)*coop_SI_arcmin, lpower=2.d0, index_list= (/ 1 /) )
+             call hmap_e%filter_alm(fwhm = sqrt(this%fwhm_e**2 - this%fwhm**2)*coop_SI_arcmin, lpower=e_lpower, index_list= (/ 1 /) )
              hmap_e%alm(:, :, 2) = hmap_e%alm(:, :, 1)
              hmap_e%alm(:, :, 3) = 0.
              call hmap_e%alm2map()
@@ -255,9 +247,7 @@ contains
           else
              call hmap_orient%init(nside = hmap_pt%nside, nmaps = 2, spin = (/ 2, 2 /), lmax = hmap_pt%lmax)
              hmap_orient%alm(:,:,1) = hmap_pt%alm(:, :, 1)
-             if(trim(this%orient).eq."HESSIAN")then
-                call hmap_orient%filter_alm(fwhm = sqrt(this%fwhm_orient**2 - this%fwhm**2)*coop_SI_arcmin, lpower=2.d0, index_list= (/ 1/) )
-             endif
+             call hmap_orient%filter_alm(fwhm = sqrt(this%fwhm_orient**2 - this%fwhm**2)*coop_SI_arcmin, lpower=orient_lpower, index_list= (/ 1/) )
              hmap_orient%alm(:, :, 2) = 0.             
              call hmap_orient%alm2map()
              call hmap_orient%convert2nested()
@@ -273,11 +263,7 @@ contains
           else
              call hmap_sym%init(nside = hmap_pt%nside, nmaps = 2, spin = (/ 1, 1 /), lmax=hmap_pt%lmax )
              hmap_sym%alm(:, :, 1) = hmap_pt%alm(:, :, 1)
-             if(invlap_for_sym)then
-                call hmap_sym%filter_alm(fwhm=sqrt(this%fwhm_sym**2 - this%fwhm**2)*coop_SI_arcmin, lpower=-1.d0, index_list = (/ 1 /) )                
-             else
-                call hmap_sym%filter_alm(fwhm=sqrt(this%fwhm_sym**2 - this%fwhm**2)*coop_SI_arcmin, lpower=1.d0, index_list = (/ 1 /) )
-             endif
+             call hmap_sym%filter_alm(fwhm=sqrt(this%fwhm_sym**2 - this%fwhm**2)*coop_SI_arcmin, lpower=sym_lpower-1.d0, index_list = (/ 1 /) )                
              hmap_sym%alm(:, :, 2) = 0.
              call hmap_sym%alm2map()
              call hmap_sym%convert2nested()             
@@ -309,7 +295,7 @@ contains
           endif
           do idot=1, el%n
              call el%get_element(idot, thetaphi(0:2))
-             call ang2pix_nest(nside, dble(thetaphi(itheta)), dble(thetaphi(iphi)), i)
+             call ang2pix_nest(hmap_pt%nside, dble(thetaphi(itheta)), dble(thetaphi(iphi)), i)
              call hmap_selection()
           enddo
           call el%free()
@@ -363,12 +349,13 @@ contains
                 nside = min(max(hmask%nside/2**min(nint(log(coop_SI_arcmin*this%fwhm_pt/ sqrt(coop_4pi/hmask%npix) )/coop_ln2)-2, 6), 128), hmask%nside)
              else
                 nside = hmask%nside
-                summask = count(hmask%map(:,1).gt. 0.5)
-                do while(summask .gt. 1.e6) !!at most 1 million points; practically you cannot do more than that within reasonable time scale.
-                   nside = nside/2
-                   summask = summask/4.
-                enddo
              endif
+             summask = count(hmask%map(:,1).gt. 0.5)*(dble(nside)/hmask%nside)**2
+             do while(summask .gt. coop_all_max_num_points) 
+                nside = nside/2
+                summask = summask/4.
+             enddo
+             
              if(nside .ne. hmask%nside)then
                 do idot = 0, 12*nside**2-1
                    call pix2ang_nest(nside, idot, theta, phi)
@@ -438,6 +425,17 @@ contains
       arr(0) = dble(i)
       call pts%push( real(arr))                 
     end subroutine hmap_selection
+
+    subroutine option2lpower(opt, lpower)
+      COOP_UNKNOWN_STRING::opt
+      COOP_REAL::lpower
+      select case(trim(adjustl(opt)))
+      case("HESSIAN")
+         lpower = 2.
+      case default
+         lpower = 0.
+      end select
+    end subroutine option2lpower
     
   end subroutine coop_general_stack_points_init
 
