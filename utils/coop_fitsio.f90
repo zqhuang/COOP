@@ -2178,7 +2178,7 @@ contains
     if(coop_file_postfix_of(filename).eq."fits")then
        call fits%open(filename)
        call coop_dictionary_lookup(fits%header, "NAXIS1", nx)
-       call coop_dictionary_lookup(fits%header, "NAXIS1", ny)
+       call coop_dictionary_lookup(fits%header, "NAXIS2", ny)
        allocate(arr(nx, ny))
        call fits%load_image_2d(arr)
        call fits%close()
