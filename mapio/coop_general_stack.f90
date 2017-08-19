@@ -106,16 +106,17 @@ contains
     if(this%nu_min .ge. this%nu_max)then
        call coop_return_error("setting nu_min >= nu_max is silly...")
     endif
-    call coop_dictionary_lookup(this%header, "e_min", this%e_min, -1.d30)
+    call coop_dictionary_lookup(this%header, "e_min", this%e_min, 0.d0)
     call coop_dictionary_lookup(this%header, "e_max", this%e_max, 1.d30)
     if(this%e_min .ge. this%e_max)then
        call coop_return_error("setting e_min >= e_max is silly...")
     endif
-    
+    e2min = this%e_min ** 2
+    e2max = this%e_max ** 2
     this%check_nu = this%nu_min .gt. -9999.d0 .or. this%nu_max .lt. 9999.d0
     if(this%check_nu .and. trim(this%map_nu).eq."") this%map_nu = trim(this%prefix)//"_AMPLITUDE_fwhm"//COOP_FILESTR_OF(this%fwhm_nu)//"a.fits"
 
-    this%check_e =  this%e_min .gt. -9999.d0 .or. this%e_max .lt. 9999.d0
+    this%check_e =  this%e_min .gt. 0.d0 .or. this%e_max .lt. 9999.d0
     if(this%check_e .and. trim(this%map_e) .eq. "") this%map_e = trim(this%prefix)//"_ECCENTRICITY_fwhm"//COOP_FILESTR_OF(this%fwhm_e)//"a.fits"
     
     this%check_orient = .true.    
@@ -409,7 +410,7 @@ contains
          if(hmap_nu%map(i, 1) .lt. imin .or. hmap_nu%map(i, 1) .gt. imax)  return
       endif
       if(this%check_e)then
-         e2 = (hmap_e%map(i,2)**2+hmap_e%map(i, 3)**2)/hmap_e%map(i,1)**2
+         e2 = hmap_e%map(i,2)**2+hmap_e%map(i, 3)**2/hmap_e%map(i,1)**2
          if( e2 .lt. e2min .or. e2 .gt. e2max) return
       endif
       call hmap_pt%pix2ang(i, arr(1), arr(2))
