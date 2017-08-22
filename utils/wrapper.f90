@@ -18,6 +18,7 @@ module coop_wrapper_utils
   use coop_evalstr_mod
   use coop_sphere_mod
   use coop_fitsio_mod
+  use coop_hankel_mod
   implicit none
 
 contains
