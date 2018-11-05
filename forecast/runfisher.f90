@@ -19,7 +19,7 @@ program RunF
   call fisher%get_fisher()
   call coop_prtsystime()
   if(fisher%n_params_used .gt. 0)then
-     write(fp%unit, "("//COOP_STR_OF(fisher%n_params_used)//"A16)") fisher%paramtable%key(fisher%ind_used)
+     write(fp%unit, "("//COOP_STR_OF(fisher%n_params_used)//"A25)") fisher%paramtable%key(fisher%ind_used)
      write(*,*) "saving fisher matrix to "//trim(root)//"_fisher.txt"
      do i=1, fisher%n_params_used
         write(fp%unit,"("//COOP_STR_OF(fisher%n_params_used)//"G16.7)") fisher%fisher(fisher%ind_used(i), fisher%ind_used) 
@@ -27,7 +27,7 @@ program RunF
      call fp%close()
      call fp%open(trim(root)//"_cov.txt")
      write(*,*) "saving covariance matrix to "//trim(root)//"_cov.txt"
-     write(fp%unit, "("//COOP_STR_OF(fisher%n_params_used)//"A16)") fisher%paramtable%key(fisher%ind_used)
+     write(fp%unit, "("//COOP_STR_OF(fisher%n_params_used)//"A25)") fisher%paramtable%key(fisher%ind_used)
      write(fp%unit, "("//COOP_STR_OF(fisher%n_params_used)//"G16.7)") fisher%paramtable%val(fisher%ind_used)
      do i=1, fisher%n_params_used
         write(fp%unit,"("//COOP_STR_OF(fisher%n_params_used)//"G16.7)") fisher%cov(fisher%ind_used(i), fisher%ind_used) 

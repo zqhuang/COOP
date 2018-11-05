@@ -308,13 +308,14 @@ contains
   subroutine Coop_matrix_Solve(a,b)
     COOP_INT n,m
     COOP_REAL ,dimension(:,:)::a,b
-    COOP_INT indx(size(a,1))
+    COOP_INT,dimension(:),allocatable::indx
     COOP_INT i
 #ifndef HAS_LAPACK
     COOP_REAL  d
 #endif
     n = Coop_getdim("Coop_matrix_Solve", size(a,1), size(a,2), size(b,1))
     m = size(B,2)
+    allocate( indx(n))
 #ifdef HAS_LAPACK
     call dgesv(n, m, a, n, indx, b, n, i)
 #else
@@ -323,14 +324,15 @@ contains
        call coop_matrix_LUbksb(a, indx,b(:,i),n)
     Enddo
 #endif
+    deallocate(indx)
   End subroutine Coop_matrix_Solve
 
   !!return Inverse of A
   Subroutine Coop_matrix_Inverse(A)
-    COOP_REAL ,dimension(:,:)::A
+    COOP_REAL ,dimension(:,:)::a
     COOP_INT i
+    COOP_INT n    
 #ifdef HAS_LAPACK
-    COOP_INT n
     COOP_INT indx(size(A,1))
     COOP_REAL  work(4*size(A,1))
     n = Coop_getdim("Coop_matrix_Inverse", size(a,1), size(a,2))
@@ -340,10 +342,23 @@ contains
     endif
     call dgetri(n, a, n, indx, work, 4*n, i)
 #else
-    COOP_REAL  acopy(size(A,1), size(A,2))
-    Acopy=a
+    COOP_REAL:: acopy(size(A,1), size(A,2)), det
+    n = coop_GetDim("matrix_inverse",size(A,1), size(A,2))
+    if(n .eq.1)then
+       A = 1.d0/a
+       return
+    endif
+    Acopy=a    
+    if(n .eq.2)then
+       det = a(1,1)*a(2,2)-a(1,2)*a(2,1)
+       a(1,1) = acopy(2,2)/det
+       a(2,2) = acopy(1,1)/det
+       a(1,2) = -acopy(1,2)/det
+       a(2,1) = -acopy(2,1)/det       
+       return
+    endif
     a=0.d0
-    do i=1,size(a)
+    do i=1, n
        a(i,i)=1.d0
     enddo
     call Coop_matrix_Solve(acopy,a)

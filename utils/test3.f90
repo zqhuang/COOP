@@ -1,12 +1,38 @@
-program searchzeq
-  use parabolaU_mod
-  double precision :: z_eq, z2
-  integer::i
-  do i=1, 10
-     z2 = 5.1d0+i*0.01d0
-     z_eq = z_equilibrium(focal_length=2.1d0, z_gap12 = 0.1d0, z_gap23=z2, z_max=29.195d0, size_gap12=0.1d0, size_gap23=0.1d0, potential_1=0.d0, potential_2=-1.d0, potential_3=0.d0)
-     write(*,*) z2, z_eq
-  enddo
+module weird
+#include "constants.h"
+  use coop_wrapper_utils
+  type dy
+     real*8,dimension(:,:),allocatable::cov
+     integer::dim
+  end type dy
+
+  type ddy
+     type(dy),dimension(2)::m
+  end type ddy
   
+end module weird
+program searchzeq
+  use coop_wrapper_utils
+  use weird
+  integer i
+  type(ddy)::myddy
+!  allocate(myddy%m(2))
+  read(*,*) myddy%m(1)%dim
+  allocate(myddy%m(1)%cov(myddy%m(1)%dim, myddy%m(1)%dim))
+  myddy%m(1)%cov = 0.
+  do i=1, myddy%m(1)%dim
+     myddy%m(1)%cov(i,i) = 1.+i
+  enddo
+  do i=1, myddy%m(1)%dim
+     write(*,*) myddy%m(1)%cov(i,:)
+  enddo
+  print*
+  call coop_matrix_inverse(myddy%m(1)%cov)
+  do i=1, myddy%m(1)%dim
+     write(*,*) myddy%m(1)%cov(i,:)
+  enddo
+
+  deallocate(myddy%m(1)%cov)
+!  deallocate(myddy%m)
 end program searchzeq
 

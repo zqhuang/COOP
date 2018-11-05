@@ -3,6 +3,7 @@ program PlotF
   implicit none
 #include "constants.h"
   type(coop_asy)::fig
+  COOP_INT,parameter::n_name_width = 25  !!16 for standard coop
   COOP_INT,parameter::nsamples = 720
   COOP_STRING::xlabel, ylabel, filename, fcolor, bcolor, btype, output, caption, xvar, yvar, legend, thisfc, thisbc
   COOP_LONG_STRING::line
@@ -37,7 +38,7 @@ program PlotF
   call coop_get_command_line_argument(key = 'xmax', arg = xmax, default= -1.1e31)
   call coop_get_command_line_argument(key = 'ymin', arg = ymin, default= 1.1e31)
   call coop_get_command_line_argument(key = 'ymax', arg = ymax, default= -1.1e31)
-  call coop_get_command_line_argument(key = 'transparent', arg = transparent, default= 0.3d0)
+  call coop_get_command_line_argument(key = 'transparent', arg = transparent, default= 0.d0)
   alpha = min(1.d0, max(0.d0, 1.d0-transparent))
   call coop_get_command_line_argument(key = 'xlegend', arg = xlegend, default= 0.5)
   call coop_get_command_line_argument(key = 'ylegend', arg = ylegend, default= 0.95)
@@ -56,12 +57,13 @@ program PlotF
      call coop_get_command_line_argument(key = 'linewidth'//COOP_STR_OF(i), arg = bwidth, default=1.)
      call fp%open(filename)
      read(fp%unit, "(A)")line
-     nkeys = (len_trim(line)-1)/16 + 1
+     nkeys = (len_trim(line)-1)/n_name_width + 1
+     write(*,*) "number of keys", nkeys
      ixvar = 0
      iyvar = 0
      do ikey = 1, nkeys
-        if(trim(line((ikey-1)*16+1:ikey*16)) == trim(xvar)) ixvar = ikey
-        if(trim(line((ikey-1)*16+1:ikey*16)) == trim(yvar)) iyvar = ikey
+        if(trim(line((ikey-1)*n_name_width+1:ikey*n_name_width)) == trim(xvar)) ixvar = ikey
+        if(trim(line((ikey-1)*n_name_width+1:ikey*n_name_width)) == trim(yvar)) iyvar = ikey
      enddo
      if(ixvar .eq. 0)then
         write(*,*) "the variable"//trim(xvar)//" is not found in file "//trim(filename)
@@ -75,6 +77,7 @@ program PlotF
      read(fp%unit, *) covline
      mean(1) = covline(ixvar)
      mean(2) = covline(iyvar)
+     write(*,*) "mean:", mean
      do ikey   = 1, nkeys
         read(fp%unit, *) covline
         if(ikey .eq. ixvar)then
@@ -86,6 +89,8 @@ program PlotF
            cov(2,2) = covline(iyvar)*1.0000001
         endif
      enddo
+     write(*,*) cov(1,:)
+     write(*,*) cov(2,:)     
      deallocate(covline)
      call fp%close()
      call coop_matsym_sqrt_small(2, cov)

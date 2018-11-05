@@ -28,9 +28,9 @@ contains
     rmax=sqrt(z3/c)
     rcut12 = sqrt(z1/c)
     rcut23 = sqrt(z2/c)
-    is1 = ceiling(n * (rcut12/rmax)*1.1)
-    is2=  ceiling(n * ((rcut23-rcut12)/rmax)*1.1)
-    is3 = ceiling(n * ((rmax-rcut23)/rmax)*1.1)
+    is1 = max(ceiling(n * (rcut12/rmax)*1.2), 5)
+    is2=  max(ceiling(n * ((rcut23-rcut12)/rmax)*1.2), 5)
+    is3 = max(ceiling(n * ((rmax-rcut23)/rmax)*1.2), 5)
     n_samples = is1 + is2 + is3
     COOP_DEALLOC(params)
     allocate(params(n_params))
@@ -223,7 +223,7 @@ contains
     msum = msum + m       
     m = is3
     do i=1, m
-       a = rcut23 + (rmax - rcut23) * i / (m+1)
+       a = rcut23 + (rmax - rcut23) * i / m
        V_samples(msum+i) =  pot_at_a(a, n, r, dr, sigma, dsdr)
     enddo
   end subroutine get_all_pot

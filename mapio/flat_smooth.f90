@@ -72,19 +72,24 @@ program fsm
            call fm%read_from_one(filename = map, nmaps = 1, genre=field)
         endif
      endif
+
      call fm%map(1)%regularize(reg_limit)
      if(fm%has_mask .and. fm%mask_is_smooth)then
         where(.not. fm%unmasked)
            fm%map(1)%image = fm%map(1)%image * sin(fm%mask%image/fm%mask_threshold*coop_pio2)**2
         end where
      endif
+
      call fm%map(1)%smooth(fwhm = fwhm_arcmin*coop_SI_arcmin, highpass_l1 = max(lmin-20, 2), highpass_l2 = lmin + 20, lmax = lmax, lx_cut = lx_cut, ly_cut = ly_cut, beam = beam)
+
      fm%map_changed(1) = .true.
      fm%units = unit
+
      if(want_qu)then
         call fm%map(1)%get_QTUT(qt = fm%map(2), ut = fm%map(3))
         fm%map_changed(2:3) = .true.
      endif
+
      call fm%write(output)
      write(*,*) "File is written to "//trim(output)
   endif

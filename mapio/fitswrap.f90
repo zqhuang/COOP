@@ -850,6 +850,7 @@ contains
     else
        write(*,*) "The file "//trim(filename)//" does not exist."
     endif
+    !!debug
     select type(this)
     class is(coop_fits_image)
        call this%get_data()
@@ -927,7 +928,7 @@ contains
     class is(coop_fits_image_cea)
        if(this%dim .ne. 2) stop "For CEA map the dimension must be 2"
        allocate(this%radec_center(this%dim))
-       allocate(units(this%dim))              
+       allocate(units(this%dim))
        do i=1, this%dim
           if(index(this%header%value("CUNIT"//COOP_STR_OF(i)), "deg").ne.0)then
              units(i) = coop_SI_degree
@@ -939,7 +940,6 @@ contains
              call this%header%update("CUNIT"//COOP_STR_OF(i), "deg")
           end if
        enddo
-
        allocate(delta(this%dim))
        do i=1, this%dim
           do j=1, this%dim
@@ -971,9 +971,10 @@ contains
        this%dky = coop_2pi/(this%dy*this%nside(2))
        do i=1, this%dim
           this%transform(:, i) =  this%transform(:, i) * delta(i)
-       enddo
+       enddo       
        deallocate(delta, units)
        this%invtrans = this%transform
+       !!debug
        call coop_matrix_inverse(this%invtrans)
     class default
        return
@@ -1286,7 +1287,10 @@ contains
     sigma2 = (coop_sigma_by_fwhm*fwhm/coop_sqrt2)**2
     hp_l2sq = highpass_l2**2
     hp_omega = coop_pio2/(highpass_l2 - highpass_l1)
+    write(*,*) "Maps to be filtered", size(this%image)
     call this%filter(lmin = highpass_l1, lmax = lmax,  window = smooth_weight)
+    write(*,*) "Maps are smoothed"
+    
   contains
 
     function smooth_weight(kx, ky)
@@ -2050,6 +2054,7 @@ contains
              endif
           enddo
        enddo
+
        call coop_fft_backward(this%nside(1), this%nside(2), fk(:,:,1), qt%image)
        call coop_fft_backward(this%nside(1), this%nside(2), fk(:,:,2), ut%image)
        deallocate(fk)

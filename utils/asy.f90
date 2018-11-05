@@ -4103,7 +4103,11 @@ contains
   subroutine coop_asy_rgba2color_d(rgba, color)
     COOP_REAL::rgba(4)
     COOP_STRING::color
-    color = "RGBA:"//COOP_STR_OF(nint(rgba(1)*255.))//":"//COOP_STR_OF(nint(rgba(2)*255.))//":"//COOP_STR_OF(nint(rgba(3)*255.))//":"//trim(adjustl(coop_num2str(rgba(4), "(F10.3)")))
+    if(abs(rgba(4)-1.d0).lt.1.d-3)then
+       color = "RGB:"//COOP_STR_OF(nint(rgba(1)*255.))//":"//COOP_STR_OF(nint(rgba(2)*255.))//":"//COOP_STR_OF(nint(rgba(3)*255.))       
+    else
+       color = "RGBA:"//COOP_STR_OF(nint(rgba(1)*255.))//":"//COOP_STR_OF(nint(rgba(2)*255.))//":"//COOP_STR_OF(nint(rgba(3)*255.))//":"//trim(adjustl(coop_num2str(rgba(4), "(F10.3)")))
+    endif
   end subroutine coop_asy_rgba2color_d
 
 
@@ -4118,7 +4122,11 @@ contains
   subroutine coop_asy_rgba2color_s(rgba, color)
     COOP_SINGLE::rgba(4)
     COOP_STRING::color
-    color = "RGBA:"//COOP_STR_OF(nint(rgba(1)*255.))//":"//COOP_STR_OF(nint(rgba(2)*255.))//":"//COOP_STR_OF(nint(rgba(3)*255.))//":"//trim(adjustl(coop_num2str(rgba(4), "(F10.3)")))
+    if(abs(rgba(4)-1.0).lt.1.e-3)then
+       color = "RGB:"//COOP_STR_OF(nint(rgba(1)*255.))//":"//COOP_STR_OF(nint(rgba(2)*255.))//":"//COOP_STR_OF(nint(rgba(3)*255.))       
+    else
+       color = "RGBA:"//COOP_STR_OF(nint(rgba(1)*255.))//":"//COOP_STR_OF(nint(rgba(2)*255.))//":"//COOP_STR_OF(nint(rgba(3)*255.))//":"//trim(adjustl(coop_num2str(rgba(4), "(F10.3)")))
+    endif
   end subroutine coop_asy_rgba2color_s
 
   

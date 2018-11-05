@@ -552,7 +552,7 @@ pen pen_from_string(string fullstr){
       real rval = ((real) rgbstr[1])/255.;
       real gval = ((real) rgbstr[2])/255.;
       real bval = ((real) rgbstr[3])/255.;
-      colorpen = rgb(rval, gval, bval)+ opacity( ((real) rgbstr[4]) );
+      colorpen = rgb(rval, gval, bval) + opacity( ((real) rgbstr[4]) );
     }
     else if(rgbstr.length == 4 &&  (genre == "rgb" || genre == "RGB")){
       real rval = ((real) rgbstr[1])/255.;

@@ -16,7 +16,6 @@ program test
   logical want_fluc
   COOP_INT::ninp, hp_l1, hp_l2
   type(coop_healpix_maps)::map, mask
-  call coop_MPI_init()
   call coop_random_init()
   if(iargc().le.0)then
      write(*,"(A)") "Syntax:"
@@ -68,7 +67,6 @@ program test
   else
      call map%write(outfile, index_list = (/ 1 /) )
   endif
-  call coop_MPI_Finalize()
 #else
   stop "You need healpix to compile this."
 #endif  
