@@ -1,38 +1,30 @@
-module weird
-#include "constants.h"
-  use coop_wrapper_utils
-  type dy
-     real*8,dimension(:,:),allocatable::cov
-     integer::dim
-  end type dy
-
-  type ddy
-     type(dy),dimension(2)::m
-  end type ddy
-  
-end module weird
 program searchzeq
   use coop_wrapper_utils
-  use weird
-  integer i
-  type(ddy)::myddy
-!  allocate(myddy%m(2))
-  read(*,*) myddy%m(1)%dim
-  allocate(myddy%m(1)%cov(myddy%m(1)%dim, myddy%m(1)%dim))
-  myddy%m(1)%cov = 0.
-  do i=1, myddy%m(1)%dim
-     myddy%m(1)%cov(i,i) = 1.+i
-  enddo
-  do i=1, myddy%m(1)%dim
-     write(*,*) myddy%m(1)%cov(i,:)
-  enddo
-  print*
-  call coop_matrix_inverse(myddy%m(1)%cov)
-  do i=1, myddy%m(1)%dim
-     write(*,*) myddy%m(1)%cov(i,:)
-  enddo
+#include "constants.h"
+  COOP_REAL::omega_m, w, z
+  read(*,*) omega_m, w, z
+  print*, coop_fGrowth_fitting(Omega_m, w, z),  coop_fGrowth_naive(Omega_m, w, z) 
 
-  deallocate(myddy%m(1)%cov)
-!  deallocate(myddy%m)
+contains
+
+    !!for quick tests; d\ln D/d\ln a fitting formula for wCDM cosmology
+  function coop_fGrowth_fitting(Omega_m, w, z) result(f)
+    COOP_REAL::Omega_m, w ,z ,f, f1, f2, f3
+    f1 = 2.d0*(1.d0-2.d0*w)*(2.d0-3.d0*w)*(1.d0-Omega_m)
+    f2 =  - w*(5.d0-6.d0*w)*(4.d0+w)*Omega_m
+    f3 = (1.d0+z) ** (3.d0 * w)
+    f = 1.d0 - 1.5*w*f3*(1.d0-Omega_m)/(Omega_m+(1.d0-Omega_m)*f3) + (3.d0+w*0.75d0)*w*f3*f1/(f1*f3+f2)
+  end function coop_fGrowth_fitting
+
+
+  function coop_fGrowth_naive(Omega_m, w, z) result(f)
+    COOP_REAL::omm, f
+    COOP_REAL::omega_m, w, z
+    omm = Omega_m*(1.d0+z)**3
+    omm = omm/(omm + (1.d0-Omega_m)*(1.d0+z)**(3.d0*(1.d0+w)))
+    f = omm**0.56
+  end function coop_fGrowth_naive
+
+  
 end program searchzeq
 

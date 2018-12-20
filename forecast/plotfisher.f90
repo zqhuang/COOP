@@ -12,7 +12,7 @@ program PlotF
   COOP_REAL,dimension(:),allocatable::covline
   COOP_REAL::cov(2,2), mean(2), eigs(2)
   COOP_REAL::x(nsamples), y(nsamples), r, rho, theta(nsamples), sqrteigs(2), vec(2)
-  COOP_REAL::rgba(4), transparent, alpha
+  COOP_REAL:: transparent, alpha
   type(coop_file)::fp
   type(coop_list_string)::ls
   logical::has_legend 
@@ -45,7 +45,11 @@ program PlotF
   call coop_get_command_line_argument(key = 'legend_cols', arg = lcols, default = 1)
 
   call fig%open(output)
-  call fig%init(xlabel = xlabel, ylabel = ylabel, caption = caption, width= xsize, height = ysize)
+  if(xmin .lt. 1.e30 .and. xmax .gt. -1.e30 .and. ymin .lt. 1.e30 .and. ymax .gt. -1.e30)then
+     call fig%init(xlabel = xlabel, ylabel = ylabel, caption = caption, width= xsize, height = ysize, xmin=xmin, xmax=xmax, ymin=ymin, ymax=ymax)
+  else
+     call fig%init(xlabel = xlabel, ylabel = ylabel, caption = caption, width= xsize, height = ysize)     
+  endif
   has_legend = .false.
   do i = 1, 5
      call coop_get_command_line_argument(key = 'cov'//COOP_STR_OF(i), arg = filename, default = '')
@@ -66,7 +70,7 @@ program PlotF
         if(trim(line((ikey-1)*n_name_width+1:ikey*n_name_width)) == trim(yvar)) iyvar = ikey
      enddo
      if(ixvar .eq. 0)then
-        write(*,*) "the variable"//trim(xvar)//" is not found in file "//trim(filename)
+        write(*,*) "the variable "//trim(xvar)//" is not found in file "//trim(filename)
         stop
      endif
      if(iyvar .eq. 0)then
@@ -104,31 +108,39 @@ program PlotF
            x(itheta) = vec(1) 
            y(itheta) = vec(2)
         enddo
-        if(ic .eq. ncontours .and. legend .ne.'')then
-           call coop_asy_color2rgba(fcolor, rgba)
-           rgba(4) = alpha
-           call coop_asy_rgba2color(rgba, thisfc)
+        if(ic .eq. ncontours)then
 
-           call coop_asy_color2rgba(bcolor, rgba)
-           rgba(4) = alpha
-           call coop_asy_rgba2color(rgba, thisbc)
-           call fig%contour(x = x, y = y, colorfill = thisfc, linecolor = thisbc, linetype = btype, linewidth = bwidth, legend=legend)
-           has_legend = .true.
+           call conv_color(fcolor, thisfc, 1.d0)
+           call conv_color(bcolor, thisbc, 1.d0)
+
+           if( legend .ne.'')then
+              call fig%contour(x = x, y = y, colorfill = thisfc, linecolor = thisbc, linetype = btype, linewidth = bwidth, legend=legend)
+              has_legend = .true.
+           else
+              call fig%contour(x = x, y = y, colorfill = thisfc, linecolor = thisbc, linetype = btype, linewidth = bwidth)
+           endif
         else
-           call coop_asy_color2rgba(fcolor, rgba)
-           rgba(4) = alpha
-           rgba(1:3) = rgba(1:3)*0.6d0**(dble(ncontours-ic)/(ncontours-1))
-           call coop_asy_rgba2color(rgba, thisfc)
-
-           call coop_asy_color2rgba(bcolor, rgba)
-           rgba(4) = alpha
-           rgba(1:3) = rgba(1:3)*0.6d0**(dble(ncontours-ic)/(ncontours-1))
-           call coop_asy_rgba2color(rgba, thisbc)
-
+           call conv_color(fcolor, thisfc, 0.6d0**(dble(ncontours-ic)/(ncontours-1)))
+           call conv_color(bcolor, thisbc, 0.6d0**(dble(ncontours-ic)/(ncontours-1)))
            call fig%contour(x = x, y = y, colorfill = thisfc, linecolor = thisbc, linetype = btype, linewidth = bwidth)
         endif
      enddo
   enddo
   if(has_legend)call fig%legend(xratio = xlegend, yratio = ylegend, cols = lcols)
   call fig%close()
+
+contains
+  subroutine conv_color(c1, c2, rat)
+    COOP_UNKNOWN_STRING::c1, c2
+    COOP_REAL::rat
+    COOP_REAL::rgba(4)
+    if(trim(c1).ne. "invisible")then
+       call coop_asy_color2rgba(c1, rgba)
+       rgba(4) = alpha
+       rgba(1:3) = rgba(1:3)*rat
+       call coop_asy_rgba2color(rgba, c2)
+    else
+       c2 = c1
+    endif
+  end subroutine conv_color
 end program PlotF
