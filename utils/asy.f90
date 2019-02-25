@@ -368,8 +368,11 @@ contains
     this%color(10) = "brown"
     this%color(11) = "pink"
     this%color(12) = "yellow"
-    this%linewidth(1:3) = 2.
-    this%linewidth(4:6) = 1.2
+    this%linewidth(1) = 1.2
+    this%linewidth(2) = 2.
+    this%linewidth(3) = 1.5
+    this%linewidth(4) = 0.8
+    this%linewidth(5:6) = 1.2
     this%linewidth(7:12) = 0.6
     this%linetype(1) = "solid"
     this%linetype(2) = "dotted"

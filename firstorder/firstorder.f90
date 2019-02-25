@@ -213,9 +213,9 @@ contains
     class(coop_cosmology_firstorder)::this
     COOP_REAL, optional::Omega_nu
     if(present(Omega_nu))then
-       call this%set_standard_cosmology(Omega_b=0.04917d0, Omega_c=0.2647d0, h = 0.6727d0, tau_re = 0.079d0, As = 2.101d-9, ns = 0.9661d0,  Omega_nu = Omega_nu)
+       call this%set_standard_cosmology(Omega_b=0.0492d0, Omega_c=0.264d0, h = 0.6737d0, tau_re = 0.054d0, As = 2.097d-9, ns = 0.9652d0, Omega_nu = Omega_nu)
     else
-       call this%set_standard_cosmology(Omega_b=0.04917d0, Omega_c=0.2647d0, h = 0.6727d0, tau_re = 0.079d0, As = 2.101d-9, ns = 0.9661d0)
+       call this%set_standard_cosmology(Omega_b=0.0492d0, Omega_c=0.264d0, h = 0.6737d0, tau_re = 0.054d0, As = 2.097d-9, ns = 0.9652d0)
      
     endif
   end subroutine coop_cosmology_firstorder_set_Planck_Bestfit
