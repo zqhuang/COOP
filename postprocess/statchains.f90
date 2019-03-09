@@ -600,7 +600,7 @@ contains
     if(mc%do_extensions)then
        call coop_dictionary_lookup(mc%settings, "m2phi2_logA", mean_lnAs, dble(mc%mean(mc%index_of("logA"))))
        call coop_feedback("Generating primordial power spectra trajectories")
-       write(*,*) "m^2phi^2 trajectory logA = ", mean_lnAs       
+       write(*,*) "fiducial trajectory logA = ", mean_lnAs       
        call fig_spec%open(trim(mc%output)//"_power_trajs.txt", "w")
        call fig_pot%open(trim(mc%output)//"_potential_trajs.txt", "w")
        call fig_eps%open(trim(mc%output)//"_eps_trajs.txt", "w")
@@ -768,8 +768,8 @@ contains
 
 
 
-       call fig_spec%curve(kMpc, exp(standard_lnps), color = "black", linewidth=1.2, legend="$m^2\phi^2$ model $\mathcal{P}_{\cal R}$")
-       call fig_spec%curve(kMpc, exp(mean_lnAs - 0.01625*lnk)*0.13, color = "cyan", linewidth=1.2, legend="$m^2\phi^2$ model $\mathcal{P}_{\mathrm{t}}$")
+       call fig_spec%curve(kMpc, exp(standard_lnps), color = "black", linewidth=1.2, legend="fiducial model $\mathcal{P}_{\cal R}$")
+       call fig_spec%curve(kMpc, exp(mean_lnAs - 0.01625*lnk)*0.13, color = "cyan", linewidth=1.2, legend="fiducial model $\mathcal{P}_{\mathrm{t}}$")
        if(mypp_nknots .gt. 4)then
           ps(1:mypp_nknots+1) = spec_ymin*1.4
           call coop_asy_dots(fig_spec, k_knots, ps(1:mypp_nknots+1), "black", "$\Delta$")
@@ -792,7 +792,7 @@ contains
           call fig_pot%label(trim(mc%datasets), 0.06, 0.1)
           call fig_eps%label(trim(mc%datasets), 0.06, 0.93)         
        endif
-       call coop_asy_legend_advance(fig_spec, real(exp(lnkmin + 1.)), 170., "invisible", 0., 0., 0.8, 0.9, 0.9, 2)
+       call coop_asy_legend_advance(fig_spec, real(exp(lnkmin + 0.6)), 170., "invisible", 0., 0., 0.8, 0.9, 0.9, 2)
        call coop_asy_legend_advance(fig_pot, -0.4, 0.072, "invisible", 0., 0., 0.8, 0.9, 0.9, 1)
        call coop_asy_legend_advance(fig_eps,  real(exp(mypp_lnkmin +2.)), eps_ymax*0.84, "invisible", 0., 0., 0.8, 0.9, 0.9, 1)       
        call fig_spec%close()

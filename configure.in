@@ -38,8 +38,7 @@ DARK_ENERGY_MODEL = LAMBDA
 #DARK_ENERGY_MODEL = COUPLED_DE
 
 ##LAPACK lib, mandatory if you use any data (WMAP, ACT, SPT, SNLS3yr)
-LAPACK =
-#$(HOME)/work/scilibs/lapack
+LAPACK = $(HOME)/work/scilibs/lapack
 
 ##FFTW lib (v3.2 up)
 FFTW3 = $(HOME)/work/scilibs/fftw3
