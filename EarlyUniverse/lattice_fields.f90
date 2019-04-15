@@ -7,19 +7,23 @@ module coop_lattice_fields_mod
 #include "constants.h"
 #include "lattice.h"  
 
-
   private
   public:: coop_lattice_fields, coop_lattice_Mp, coop_lattice_Mpsq, coop_lattice_fields_V, coop_lattice_fields_dVdphi, coop_lattice_background_eqs, coop_lattice_background_epsilon,  coop_lattice_background_rhotot, coop_lattice_initial_power, coop_inflation_background, coop_infbg
-
+  
 
   !!M_p^2  = 1/(8\pi G); This just sets the program unit and in principle can be arbitrary.
   COOP_REAL, parameter::coop_lattice_Mp = 1024.d0
   COOP_REAL, parameter::coop_lattice_Mpsq = coop_lattice_Mp ** 2
-
-
+  COOP_REAL,parameter::Nmatter = 0. !!number of efolds of matter dominant at the end of inflation; this will affect the conversion between kMpc and aH
   !!************** define your parameters for potential *************
-  COOP_REAL, parameter::lambda = 1.d-13 !!lambda
-  COOP_REAL, parameter::g2byl = 2.d0 !!g^2/lambda
+  !COOP_REAL, parameter::lambda = 1.d-13 !!lambda
+  !COOP_REAL, parameter::g2byl = 2.d0 !!g^2/lambda
+  COOP_REAL,parameter::mphi = 6.d-6*coop_lattice_Mp
+!!$  COOP_REAL,parameter::mphi = 1.3d-5*coop_lattice_Mp
+!!$  COOP_REAL,parameter::alpha = 0.d0
+!!$  COOP_REAL,parameter::phipk = 5.2*coop_lattice_Mp
+!!$  COOP_REAL,parameter::mu = 0.04*coop_lattice_Mp
+!!$  COOP_REAL,parameter::sigma = 1.d-6*coop_lattice_Mp  
   !!*****************************************************************
 
 
@@ -42,7 +46,10 @@ module coop_lattice_fields_mod
      procedure::dot_field => coop_inflation_background_dot_field
      procedure::ddot_field => coop_inflation_background_ddot_field
      procedure::msqs => coop_inflation_background_msqs
-     procedure::msq => coop_inflation_background_msq      
+     procedure::msq => coop_inflation_background_msq
+     procedure::lnaH => coop_inflation_background_lnaH
+     procedure::lnkMpc => coop_inflation_background_lnkMpc     
+     procedure::lna_of_lnk => coop_inflation_background_lna_of_lnk     
   end type coop_inflation_background
 
   type coop_lattice_initial_power
@@ -613,6 +620,35 @@ contains
     H = exp(H)
   end function coop_inflation_background_Hubble
 
+  function coop_inflation_background_lnaH(this, lna) result(lnaH)
+    class(coop_inflation_background)::this
+    COOP_REAL::lna, lnaH
+    call coop_splint(this%nsteps, this%lna, this%lnH, this%lnH2, lna, lnaH)
+    lnaH = lnaH + lna
+  end function coop_inflation_background_lnaH
+
+  function coop_inflation_background_lna_of_lnk(this, lnk) result(lna)
+    class(coop_inflation_background)::this
+    COOP_REAL::lna, lnk, bottom, top
+    bottom = this%lna(1)
+    top = this%lna(this%nsteps)
+    do while(top - bottom .gt. 1.d-6)
+       lna = (bottom + top)/2.d0
+       if(this%lnaH(lna) .lt. lnk)then
+          bottom = lna
+       else
+          top = lna
+       endif
+    enddo
+  end function coop_inflation_background_lna_of_lnk
+
+
+  function coop_inflation_background_lnkMpc(this) result(lnkMpc)
+    class(coop_inflation_background)::this    
+    COOP_REAL::lnkMpc
+    lnkMpc = log(3.5d-24*sqrt(coop_lattice_Mp))+0.5*this%lnHend + 0.25*Nmatter
+  end function coop_inflation_background_lnkMpc
+  
   function coop_inflation_background_epsilon(this, lna) result(eps)
     class(coop_inflation_background)::this
     COOP_REAL::lna, eps
@@ -718,22 +754,20 @@ contains
     allocate(this%lnk(nk), this%f_cov(nflds, nflds, nk), this%fdbyf(nflds, nk))
   end subroutine coop_lattice_initial_power_alloc
   
-
+  
 
   subroutine coop_lattice_initial_power_initialize(this, lnkmin, lnkmax, is_diagonal)
     COOP_INT,parameter::n_trials = 100
+    COOP_REAL,parameter::shift = log(500.d0) !!shift so many efolds ahead to initialize subhorizon modes
     class(coop_lattice_initial_power)::this
     logical, optional::is_diagonal
     COOP_REAL::lnkmin, lnkmax, omega
     type(coop_ode)::pert_r, pert_i
     COOP_REAL::ini_r(2*coop_infbg%nflds), ini_i(2*coop_infbg%nflds), lna, msq, kbya, kbyasq, maxmsq, amp, theta
-    COOP_INT::ik, i, j, n_seeds, fld
+    COOP_INT::ik, i, j, n_seeds, fld, i_start
     type(coop_arguments)::args
     if(coop_infbg%nflds .eq. 0 .or. coop_infbg%nsteps .eq. 0) call coop_return_error("coop_lattice_initial_power_initialize", "You need to set up inflation background before calculating perturbations", "stop")
-    if(lnkmin .lt. coop_infbg%lnHend-coop_infbg%nefolds+2.01d0 )then
-       write(*, "(A)") "lnk out of range (of computed background)"
-       write(*,"(A, E16.7)") "minimum lnkmin:", coop_infbg%lnHend-coop_infbg%nefolds+2.01d0       
-    endif
+    if(coop_infbg%lna(1)+coop_infbg%lnH(1) .ge. lnkmin - shift*0.99d0) call coop_return_error("coop_lattice_initial_power_initialize", "kmin is too small, you need to calculate more efolds for background", "stop")
     call coop_set_uniform(this%nk, this%lnk, lnkmin, lnkmax)
     if(present(is_diagonal))then
        this%is_diagonal = is_diagonal
@@ -743,14 +777,19 @@ contains
     if(this%is_diagonal)then
        this%f_cov = 0.
        this%fdbyf = 0.
-       call pert_r%init(n=2, method=COOP_ODE_DVERK, tol = 1.d-7)
-       call pert_i%init(n=2, method=COOP_ODE_DVERK, tol = 1.d-7)
+       call pert_r%init(n=2, method=COOP_ODE_DVERK, tol = 1.d-8)
+       call pert_i%init(n=2, method=COOP_ODE_DVERK, tol = 1.d-8)
        do ik = 1, this%nk
+          i = 1
+          do while(coop_infbg%lna(i)+coop_infbg%lnH(i) .lt. this%lnk(ik) - shift .and. i.lt. coop_infbg%nsteps)
+             i = i+1
+          enddo
+          i_start = i - 1
+          lna = coop_infbg%lna(i_start) 
+          kbya = exp(this%lnk(ik)-lna)
+          kbyasq = kbya ** 2
           do fld = 1, coop_infbg%nflds
-             lna = this%lnk(ik) - coop_infbg%lnHend-2.d0
-             kbya = exp(this%lnk(ik)-lna)
-             kbyasq = kbya ** 2
-             maxmsq = kbyasq*100.d0             
+             maxmsq = kbyasq
              msq = coop_infbg%msq(lna, fld, fld)
              if(msq .gt. maxmsq) cycle  !!ignroe heavy fields
              if(msq .lt. -kbyasq*0.99)then
@@ -781,7 +820,49 @@ contains
           enddo
        enddo
     else
-       call coop_return_error("coop_lattice_initial_power_initialize", "non-diagonal initial conditions are not implemented yet", "stop")
+       call pert_r%init(n=2*coop_infbg%nflds, method=COOP_ODE_DVERK, tol = 1.d-8)
+       call pert_i%init(n=2*coop_infbg%nflds, method=COOP_ODE_DVERK, tol = 1.d-8)
+       do ik = 1, this%nk
+          i = 1
+          do while(coop_infbg%lna(i)+coop_infbg%lnH(i) .lt. this%lnk(ik) - shift .and. i.lt. coop_infbg%nsteps)
+             i = i+1
+          enddo
+          i_start = i - 1
+          lna = coop_infbg%lna(i_start)
+          kbya = exp(this%lnk(ik)-lna)
+          kbyasq = kbya ** 2
+          do fld = 1, coop_infbg%nflds
+             msq = coop_infbg%msq(lna, fld, fld)
+             if(msq .lt. -kbyasq*0.99)then
+                write(*,*) "tachyonic field", fld
+                write(*,*) "m^2 = ", msq
+                write(*,*) "ln a = ", lna
+                call coop_return_error("coop_lattice_initial_power_initialize", "not sure how to set initial conditions for tachyonic field(s)", "stop")
+             endif
+             omega =  sqrt(kbyasq+msq)             !!for initial condition I only consider diagonal part
+             ini_r(fld) = kbya**1.5/coop_2pi/sqrt(omega)
+             ini_r(coop_infbg%nflds+fld) = 0.d0
+             ini_i(fld) = 0.d0
+             ini_i(coop_infbg%nflds+fld) = -omega*ini_r(fld)
+          enddo
+          call args%init( r = (/ exp(this%lnk(ik)*2.d0) /))
+          call pert_r%set_arguments(args)
+          call pert_i%set_arguments(args)
+          call pert_r%set_initial_conditions(xini = lna, yini = ini_r)
+          call pert_i%set_initial_conditions(xini = lna, yini = ini_i)
+          call pert_r%evolve(coop_lattice_perturb_eqs, 0.d0)
+          call pert_i%evolve(coop_lattice_perturb_eqs, 0.d0)
+          do i=1, coop_infbg%nflds
+             if(cmplx(pert_r%y(i), pert_i%y(i))  .ne. cmplx(0.d0, 0.d0))then
+                this%fdbyf(i, ik) = cmplx(pert_r%y(coop_infbg%nflds+i), pert_i%y(coop_infbg%nflds+i))/cmplx(pert_r%y(i), pert_i%y(i))
+             else
+                this%fdbyf(i, ik) = cmplx(0.d0, 0.d0)
+             endif
+             do j=1, coop_infbg%nflds             
+                this%f_cov(i, j, ik)  = pert_r%y(i) * pert_r%y(j) + pert_i%y(i) * pert_i%y(j)
+             enddo
+          enddo
+       enddo
     endif
   end subroutine coop_lattice_initial_power_initialize
 

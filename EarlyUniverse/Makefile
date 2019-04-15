@@ -19,6 +19,9 @@ $(LIB):	$(OBJ)
 BG: $(OBJ) get_background.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) get_background.o $(LINK)
 
+INFP: $(OBJ) get_inf_power.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) get_inf_power.o $(LINK)
+
 HLattice: $(OBJ) runlattice.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) runlattice.o $(LINK)
 
