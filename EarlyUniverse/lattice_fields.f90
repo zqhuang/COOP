@@ -579,7 +579,7 @@ contains
        Vpp =  coop_lattice_fields_d2Vdphi2(this%f(istep,:))
        do i=1, nflds
           do j=1, i
-             this%m2mat(istep, COOP_MATSYM_INDEX(nflds, i, j))  = Vpp(i, j) - (this%fd(istep, i)*this%fd(istep,j)*(3.d0-this%eps(istep)) + (this%fd(istep,i)*this%fdd(istep,j) + this%fd(istep,j)*this%fdd(istep,i))/exp(this%lnH(istep)))/coop_lattice_Mpsq
+             this%m2mat(istep, COOP_MATSYM_INDEX(nflds, i, j))  = Vpp(i, j) - (this%fd(istep, i)*this%fd(istep,j)*(3.d0+this%eps(istep)) + (this%fd(istep,i)*this%fdd(istep,j) + this%fd(istep,j)*this%fdd(istep,i))/exp(this%lnH(istep)))/coop_lattice_Mpsq
              Vpp(j, i) = Vpp(i, j)
           enddo
        enddo

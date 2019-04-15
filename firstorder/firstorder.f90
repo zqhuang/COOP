@@ -7,7 +7,7 @@ module coop_firstorder_mod
 #include "constants.h"
   private
 
-  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe,  coop_num_user_defined_params, coop_source_kop2k_noindex, coop_Growth_fitting
+  public::coop_cosmology_firstorder, coop_cosmology_firstorder_source,  coop_recfast_get_xe,  coop_num_user_defined_params, coop_source_kop2k_noindex, coop_Growth_fitting, coop_fGrowth_fitting
 
 
 !!recfast head file
@@ -213,9 +213,9 @@ contains
     class(coop_cosmology_firstorder)::this
     COOP_REAL, optional::Omega_nu
     if(present(Omega_nu))then
-       call this%set_standard_cosmology(Omega_b=0.04917d0, Omega_c=0.2647d0, h = 0.6727d0, tau_re = 0.079d0, As = 2.101d-9, ns = 0.9661d0,  Omega_nu = Omega_nu)
+       call this%set_standard_cosmology(Omega_b=0.0492d0, Omega_c=0.264d0, h = 0.6737d0, tau_re = 0.054d0, As = 2.097d-9, ns = 0.9652d0, Omega_nu = Omega_nu)
     else
-       call this%set_standard_cosmology(Omega_b=0.04917d0, Omega_c=0.2647d0, h = 0.6727d0, tau_re = 0.079d0, As = 2.101d-9, ns = 0.9661d0)
+       call this%set_standard_cosmology(Omega_b=0.0492d0, Omega_c=0.264d0, h = 0.6737d0, tau_re = 0.054d0, As = 2.097d-9, ns = 0.9652d0)
      
     endif
   end subroutine coop_cosmology_firstorder_set_Planck_Bestfit
@@ -2342,6 +2342,17 @@ contains
     Dz = sqrt(Omega_m+(1.d0-Omega_m)*f3)/(1.d0+z) &
          * ( (f1 + f2 )/(f1*f3+ f2))**(1.d0+w/4.d0)
   end function coop_Growth_fitting
+
+
+  !!for quick tests; d\ln D/d\ln a fitting formula for wCDM cosmology
+  function coop_fGrowth_fitting(Omega_m, w, z) result(f)
+    COOP_REAL::Omega_m, w ,z ,f, f1, f2, f3
+    f1 = 2.d0*(1.d0-2.d0*w)*(2.d0-3.d0*w)*(1.d0-Omega_m)
+    f2 =  - w*(5.d0-6.d0*w)*(4.d0+w)*Omega_m
+    f3 = (1.d0+z) ** (3.d0 * w)
+    f = 1.d0 - 1.5*w*f3*(1.d0-Omega_m)/(Omega_m+(1.d0-Omega_m)*f3) + (3.d0+w*0.75d0)*w*f3*f1/(f1*f3+f2)
+  end function coop_fGrowth_fitting
+
   
 end module coop_firstorder_mod
 
