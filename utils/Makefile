@@ -24,6 +24,9 @@ Test2: $(OBJ) test2.o $(TYPEDEF)/libcooptypedef.a
 Test3: $(OBJ) test3.o $(TYPEDEF)/libcooptypedef.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test3.o $(LINK)
 
+Test4: $(OBJ) test4.o $(TYPEDEF)/libcooptypedef.a
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test4.o $(LINK)
+
 Szeq: 	$(OBJ) search_zeq.o $(TYPEDEF)/libcooptypedef.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) search_zeq.o $(LINK)
 

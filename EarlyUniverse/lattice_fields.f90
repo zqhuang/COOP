@@ -8,7 +8,7 @@ module coop_lattice_fields_mod
 #include "lattice.h"  
 
   private
-  public:: coop_lattice_fields, coop_lattice_Mp, coop_lattice_Mpsq, coop_lattice_fields_V, coop_lattice_fields_dVdphi, coop_lattice_background_eqs, coop_lattice_background_epsilon,  coop_lattice_background_rhotot, coop_lattice_initial_power, coop_inflation_background, coop_infbg
+  public:: coop_lattice_fields, coop_lattice_Mp, coop_lattice_Mpsq, coop_lattice_fields_V, coop_lattice_fields_dVdphi, coop_lattice_background_eqs,  coop_lattice_background_epsilon,  coop_lattice_background_rhotot, coop_lattice_initial_power, coop_inflation_background, coop_infbg
   
 
   !!M_p^2  = 1/(8\pi G); This just sets the program unit and in principle can be arbitrary.
@@ -16,14 +16,13 @@ module coop_lattice_fields_mod
   COOP_REAL, parameter::coop_lattice_Mpsq = coop_lattice_Mp ** 2
   COOP_REAL,parameter::Nmatter = 0. !!number of efolds of matter dominant at the end of inflation; this will affect the conversion between kMpc and aH
   !!************** define your parameters for potential *************
-  !COOP_REAL, parameter::lambda = 1.d-13 !!lambda
-  !COOP_REAL, parameter::g2byl = 2.d0 !!g^2/lambda
-  COOP_REAL,parameter::mphi = 6.d-6*coop_lattice_Mp
-!!$  COOP_REAL,parameter::mphi = 1.3d-5*coop_lattice_Mp
-!!$  COOP_REAL,parameter::alpha = 0.d0
-!!$  COOP_REAL,parameter::phipk = 5.2*coop_lattice_Mp
-!!$  COOP_REAL,parameter::mu = 0.04*coop_lattice_Mp
-!!$  COOP_REAL,parameter::sigma = 1.d-6*coop_lattice_Mp  
+  !  COOP_REAL,parameter::mphi = 1.21d-5*coop_lattice_Mp !!M
+  COOP_REAL,parameter::lambda_phi = 1.d-6
+  COOP_INT,parameter::n_phi = 6
+  COOP_REAL,parameter::alpha = 5.d-4 !!amplitude of bump
+  COOP_REAL,parameter::phipk = 5.35*coop_lattice_Mp !!emm need to adjust later 
+  COOP_REAL,parameter::mu = 0.02*coop_lattice_Mp  !!length of bump
+  COOP_REAL,parameter::sigma = 3.d-8*coop_lattice_Mp  !!width of wall
   !!*****************************************************************
 
 
@@ -39,6 +38,7 @@ module coop_lattice_fields_mod
      procedure::setup =>coop_inflation_background_setup
      procedure::Hubble => coop_inflation_background_Hubble
      procedure::epsilon => coop_inflation_background_epsilon
+     procedure::dlnepsdlna => coop_inflation_background_dlnepsdlna     
      procedure::fields => coop_inflation_background_fields
      procedure::dot_fields => coop_inflation_background_dot_fields
      procedure::ddot_fields => coop_inflation_background_ddot_fields     
@@ -517,10 +517,17 @@ contains
        !!slow-roll approximation
        Hini = sqrt(coop_lattice_fields_V(f_ini))/(coop_sqrt3*coop_lattice_Mp)
        dotf_ini  = coop_lattice_fields_dVdphi(f_ini)/(-3.d0*Hini)
-       !!iterate to get more accurate values
-       Hini = sqrt(coop_lattice_fields_V(f_ini) + sum(dotf_ini**2)/2.d0)/(coop_sqrt3*coop_lattice_Mp)
-       dotf_ini  = coop_lattice_fields_dVdphi(f_ini)/(-3.d0*Hini)
-       Hini = sqrt(coop_lattice_fields_V(f_ini) + sum(dotf_ini**2)/2.d0)/(coop_sqrt3*coop_lattice_Mp)
+       if(sum(dotf_ini**2) .gt. 0.5*coop_lattice_fields_V(f_ini) )then
+          write(*,*) "Warning: slow-roll condition is not satisfied"
+          write(*,*) "--------------------------------------------------" 
+          write(*,*) sum(dotf_ini**2)/2.d0, coop_lattice_fields_V(f_ini)
+          write(*,*) "--------------------------------------------------"     
+       else
+          !!iterate to get more accurate values
+          Hini = sqrt(coop_lattice_fields_V(f_ini) + sum(dotf_ini**2)/2.d0)/(coop_sqrt3*coop_lattice_Mp)
+          dotf_ini  = coop_lattice_fields_dVdphi(f_ini)/(-3.d0*Hini)
+          Hini = sqrt(coop_lattice_fields_V(f_ini) + sum(dotf_ini**2)/2.d0)/(coop_sqrt3*coop_lattice_Mp)
+       endif
     endif
     y(1:nflds) = f_ini
     y(nflds+1:2*nflds) = dotf_ini
@@ -646,7 +653,7 @@ contains
   function coop_inflation_background_lnkMpc(this) result(lnkMpc)
     class(coop_inflation_background)::this    
     COOP_REAL::lnkMpc
-    lnkMpc = log(3.5d-24*sqrt(coop_lattice_Mp))+0.5*this%lnHend + 0.25*Nmatter
+    lnkMpc = log(3.5d-26*sqrt(coop_lattice_Mp))+0.5*this%lnHend + 0.25*Nmatter
   end function coop_inflation_background_lnkMpc
   
   function coop_inflation_background_epsilon(this, lna) result(eps)
@@ -654,6 +661,7 @@ contains
     COOP_REAL::lna, eps
     call coop_splint(this%nsteps, this%lna, this%eps, this%eps2, lna, eps)
   end function coop_inflation_background_epsilon
+
 
   function coop_inflation_background_fields(this, lna) result(f)
     class(coop_inflation_background)::this
@@ -684,6 +692,15 @@ contains
     enddo
   end function coop_inflation_background_ddot_fields
 
+  function coop_inflation_background_dlnepsdlna(this, lna) result(dlnepsdlna)
+    class(coop_inflation_background)::this
+    COOP_REAL::lna, dlnepsdlna, eps, df(this%nflds), ddf(this%nflds), H
+    df = this%dot_fields(lna)
+    ddf = this%ddot_fields(lna)
+    H = this%Hubble(lna)
+    eps = sum(df**2)/H**2/(2.d0*coop_lattice_Mpsq)
+    dlnepsdlna = sum(df*ddf)/eps/H**3/coop_lattice_Mpsq + 2.d0*eps
+  end function coop_inflation_background_dlnepsdlna
 
   function coop_inflation_background_msqs(this, lna) result(msqs)
     class(coop_inflation_background)::this
@@ -754,21 +771,23 @@ contains
     allocate(this%lnk(nk), this%f_cov(nflds, nflds, nk), this%fdbyf(nflds, nk))
   end subroutine coop_lattice_initial_power_alloc
   
-  
 
   subroutine coop_lattice_initial_power_initialize(this, lnkmin, lnkmax, is_diagonal)
     COOP_INT,parameter::n_trials = 100
-    COOP_REAL,parameter::shift = log(500.d0) !!shift so many efolds ahead to initialize subhorizon modes
+    COOP_REAL,parameter::shift = log(1000.d0) !!shift so many efolds ahead to initialize subhorizon modes
     class(coop_lattice_initial_power)::this
     logical, optional::is_diagonal
-    COOP_REAL::lnkmin, lnkmax, omega
+    COOP_REAL,optional::lnkmin, lnkmax
+    COOP_REAL::omega
     type(coop_ode)::pert_r, pert_i
     COOP_REAL::ini_r(2*coop_infbg%nflds), ini_i(2*coop_infbg%nflds), lna, msq, kbya, kbyasq, maxmsq, amp, theta
     COOP_INT::ik, i, j, n_seeds, fld, i_start
     type(coop_arguments)::args
     if(coop_infbg%nflds .eq. 0 .or. coop_infbg%nsteps .eq. 0) call coop_return_error("coop_lattice_initial_power_initialize", "You need to set up inflation background before calculating perturbations", "stop")
-    if(coop_infbg%lna(1)+coop_infbg%lnH(1) .ge. lnkmin - shift*0.99d0) call coop_return_error("coop_lattice_initial_power_initialize", "kmin is too small, you need to calculate more efolds for background", "stop")
-    call coop_set_uniform(this%nk, this%lnk, lnkmin, lnkmax)
+    if(present(lnkmin) .and. present(lnkmax))then
+       if(coop_infbg%lna(1)+coop_infbg%lnH(1) .ge. lnkmin - shift*0.99d0) call coop_return_error("coop_lattice_initial_power_initialize", "kmin is too small, you need to calculate more efolds for background", "stop")
+       call coop_set_uniform(this%nk, this%lnk, lnkmin, lnkmax)
+    endif
     if(present(is_diagonal))then
        this%is_diagonal = is_diagonal
     else
@@ -865,6 +884,7 @@ contains
        enddo
     endif
   end subroutine coop_lattice_initial_power_initialize
+  
 
   !!y(1:nflds): \delta\phi
   !!y(nflds+1:2*nflds): \dot{\delta\phi}

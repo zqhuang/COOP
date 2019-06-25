@@ -3,7 +3,7 @@ program getbg
   use coop_lattice_fields_mod
   implicit none
 #include "constants.h"
-  call coop_infbg%setup(nflds = 2, epsilon_end = 1.d0, f_ini = (/ 20.d0*coop_lattice_Mp, 0.d0 /) )
+  call coop_infbg%setup(nflds = 2, epsilon_end = 1.d0, f_ini = (/ 5.d0*coop_lattice_Mp, 6.d-6*coop_lattice_Mp /) )
 
   write(*,"(A)") "================================================================================="
   write(*, "(A, E16.7)") "Inflation lasted for :", -coop_infbg%lna(1), " efolds"

@@ -22,6 +22,10 @@ BG: $(OBJ) get_background.o
 INFP: $(OBJ) get_inf_power.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) get_inf_power.o $(LINK)
 
+
+GM: $(OBJ) gen_matterpower.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) gen_matterpower.o $(LINK)
+
 HLattice: $(OBJ) runlattice.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) runlattice.o $(LINK)
 
