@@ -45,7 +45,7 @@ contains
     COOP_INT :: i,its,j,k,l,nm
     COOP_REAL :: anorm,c,f,g,h,s,scale,x,y,z
     COOP_REAL tempm(m), rv1(n),tempn(n)
-#ifdef HAS_LAPACK
+#if HAS_LAPACK
     COOP_REAL:: u(m, m)
     COOP_INT :: info, lwork
     COOP_INT, dimension(:),allocatable::iwork
