@@ -8,13 +8,18 @@ FIRSTORDER=../firstorder
 include ../configure.in
 include ../compile_rules.in
 
-OBJ = lattice_fields.o 
+OBJ = lattice_fields.o stoinf.o
 $(LIB): libcooplattice.a
 
 default: HLattice
 
 $(LIB):	$(OBJ) 
 	ar -r $@ $?
+
+
+SIF: $(OBJ) teststoinf.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) teststoinf.o $(LINK)
+
 
 BG: $(OBJ) get_background.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) get_background.o $(LINK)

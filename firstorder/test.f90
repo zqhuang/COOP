@@ -4,78 +4,42 @@ program test
 #include "constants.h"
   type(coop_cosmology_firstorder)::cosmology
   type(coop_real_table)::paramtable
+  COOP_INT,parameter::n = 20000
+  COOP_REAL,dimension(n)::chi, g, a, vis, ga
+  COOP_REAL::chi0, maxg
+  COOP_INT::i, j
   logical success
-  COOP_INT,parameter::nz=200, nk = 3
-  COOP_REAL,parameter::zmin = 0.d0, zmax = 10.d0
-  COOP_REAL:: z(nz), Dbya(nk, nz), Phi(nk, nz), Psi(nk, nz), a(nz), tau
-  COOP_REAL::k(nk), kMpc(nk)
-  COOP_INT::iz, ik
-  type(coop_asy)::figure
-  call paramtable%insert("ombh2", 0.022d0)
+  call paramtable%insert("ombh2", 0.0221d0)
   call paramtable%insert("omch2", 0.12d0)
   call paramtable%insert("h", 0.67d0)
-  call paramtable%insert("tau", 0.07d0)
-  call paramtable%insert("As", 2.15d-9)
-  call paramtable%insert("ns", 0.969d0)
-  call paramtable%insert("de_Q", 0.4082d0)
-  call paramtable%insert("de_np_index", 1.d0)
-  call paramtable%insert("de_fR_epsilon", 0.05d0)
+  call paramtable%insert("tau", 0.06d0)
+  call paramtable%insert("As", 2.1d-9)
+  call paramtable%insert("ns", 0.965d0)
   call cosmology%set_up(paramtable, success)
-  if(success)then
-     print*, "cosmology initialized"
-  else
+  if(.not. success)then
      stop "initialization failed"
   endif
-
-  call cosmology%compute_source(0, success)
-  if(success) then
-     write(*,*) "source computed"
-  else
-     stop "firstorder solver failed"
-  endif
-
-  call coop_set_uniform(nz, z, zmin, zmax)
-  a = 1.d0/(1.d0+z)
-  kMpc = (/ 0.001d0, 0.01d0, 0.1d0 /) !0.03d0, 0.1d0, 0.2d0 /)
-  k = kMpc/cosmology%H0Mpc()
-  do iz = 1, nz
-     tau = cosmology%tauofa(a(iz))
-     call cosmology%source(0)%get_delta_sync_trans(tau, nk, k, Dbya(:, iz))
-     Dbya(:, iz) = Dbya(:,iz)/a(iz)
-     call cosmology%source(0)%get_Phi_Trans( tau, nk, k, Phi(:, iz))
-     call cosmology%source(0)%get_Psi_Trans(tau, nk, k, Psi(:, iz))
+  call coop_set_uniform(n, a, -4.d0, -1.d-4)
+  a = 10.d0**a
+  chi0 = cosmology%distlss
+  do i=1, n
+     chi(i) = cosmology%tau0 - cosmology%tauofa(a(i))
+     vis(i) = cosmology%visofa(a(i))
   enddo
-  do iz=2, nz
-     Dbya(:, iz) = Dbya(:, iz)/Dbya(:, 1)
-     Phi(:, iz) = Phi(:, iz)/Phi(:, 1)
-     Psi(:, iz) = Psi(:, iz)/Psi(:, 1)
+  g = 0.d0
+  do i=1, n
+     do j=2, i-1
+        g(i) = g(i) + (chi(j) - chi(i))/ chi(j) *vis(j)*(chi(j-1)-chi(j+1))
+     enddo
+     g(i) = g(i)/2.d0/chi(i)
+     ga(i) = (chi0-chi(i))/chi0/chi(i)
   enddo
-  Phi(:,1)= 1.d0
-  Psi(:,1) = 1.d0
-  Dbya(:,1) = 1.d0
-  call figure%open("growth.txt")
-  call figure%init(xlabel = "$z$", ylabel="$(1+z)D(z)$")
-  do ik = 1, nk
-     call figure%plot( z, Dbya(ik,:), color=figure%color(ik), linetype =figure%linetype(ik), linewidth = figure%linewidth(ik), legend="$k="//COOP_STR_OF(kMpc(ik))//" \mathrm{Mpc}^{-1}$")
-  enddo
-  call figure%legend(0.3, 0.5)
-  call figure%close()
 
-  call figure%open("NewtonianPotential.txt")
-  call figure%init(xlabel = "$z$", ylabel="$(1+z)D(z)$")
-  do ik = 1, nk
-     call figure%plot( z, Phi(ik,:), color=figure%color(ik), linetype =figure%linetype(ik), linewidth = figure%linewidth(ik), legend="$k="//COOP_STR_OF(kMpc(ik))//" \mathrm{Mpc}^{-1}$")
+  maxg = maxval(g)
+  do i=1, n
+     if(g(i).gt. maxg*1.d-5) &
+          write(*,*) a(i), g(i), g(i)/ga(i)-1.d0
   enddo
-  call figure%legend(0.3, 0.5)
-  call figure%close()
-
-  call figure%open("SpatialCurvature.txt")
-  call figure%init(xlabel = "$z$", ylabel="$(1+z)D(z)$")
-  do ik = 1, nk
-     call figure%plot( z, Psi(ik,:), color=figure%color(ik), linetype =figure%linetype(ik), linewidth = figure%linewidth(ik), legend="$k="//COOP_STR_OF(kMpc(ik))//" \mathrm{Mpc}^{-1}$")
-  enddo
-  call figure%legend(0.3, 0.5)
-  call figure%close()
-
+  
 
 end program test

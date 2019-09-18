@@ -1022,7 +1022,6 @@ contains
     enddo
   end subroutine coop_healpix_lb2ang
 
-
   subroutine coop_healpix_ang2lb(theta, phi, l_deg, b_deg)
     COOP_REAL l_deg, b_deg
     COOP_REAL theta, phi

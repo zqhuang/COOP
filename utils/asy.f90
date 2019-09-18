@@ -57,6 +57,7 @@ module coop_asy_mod
      procedure::xrel => coop_asy_xrel
      procedure::yrel => coop_asy_yrel
      procedure::errorbars => coop_asy_errorbars_d
+     procedure::error_bar => coop_asy_error_bar_d     
      procedure::expand => coop_asy_expand
      procedure::arrow => coop_asy_arrow_d
      procedure::arrows => coop_asy_arrows_d
@@ -3392,22 +3393,22 @@ contains
     COOP_UNKNOWN_STRING, optional::color
     if(present(color))then
        call coop_asy_label(this, "$\bullet$", x, y, color)
-!!$       if(present(dy_minus))then
-!!$          call coop_asy_line(this, x, y, x, y-dy_minus, linewidth = 1., color=color)
-!!$          call coop_asy_label(this, "-", x, y-dy_minus, color=color)
-!!$       endif
-!!$       if(present(dy_plus))then
-!!$          call coop_asy_line(this, x, y, x, y+dy_plus, linewidth = 1., color= color)
-!!$          call coop_asy_label(this, "-", x, y+dy_plus, color=color)
-!!$       endif
-!!$       if(present(dx_minus))then
-!!$          call coop_asy_line(this, x, y, x-dx_minus, y, linewidth = 1., color=color)
-!!$          call coop_asy_label(this, "{\tiny $|$}", x-dx_minus, y, color=color)
-!!$       endif
-!!$       if(present(dx_plus))then
-!!$          call coop_asy_line(this, x, y, x+dx_plus, y, linewidth = 1., color=color)
-!!$          call coop_asy_label(this, "{\tiny $|$}", x+dx_plus, y, color=color)
-!!$       endif
+       if(present(dy_minus))then
+          call coop_asy_line(this, x, y, x, y-dy_minus, linewidth = 1., color=color)
+          call coop_asy_label(this, "-", x, y-dy_minus, color=color)
+       endif
+       if(present(dy_plus))then
+          call coop_asy_line(this, x, y, x, y+dy_plus, linewidth = 1., color= color)
+          call coop_asy_label(this, "-", x, y+dy_plus, color=color)
+       endif
+       if(present(dx_minus))then
+          call coop_asy_line(this, x, y, x-dx_minus, y, linewidth = 1., color=color)
+          call coop_asy_label(this, "{\tiny $|$}", x-dx_minus, y, color=color)
+       endif
+       if(present(dx_plus))then
+          call coop_asy_line(this, x, y, x+dx_plus, y, linewidth = 1., color=color)
+          call coop_asy_label(this, "{\tiny $|$}", x+dx_plus, y, color=color)
+       endif
     else
        call coop_asy_label(this, "$\bullet$", x, y)
        if(present(dy_minus))then

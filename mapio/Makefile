@@ -70,6 +70,9 @@ Test: $(OBJ) test.o
 Test2: $(OBJ) test2.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test2.o $(LINK)
 
+Test3: $(OBJ) test3.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test3.o $(LINK)
+
 ClFormat: $(OBJ) clform.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) clform.o $(LINK)
 
