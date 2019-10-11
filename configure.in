@@ -50,7 +50,7 @@ DARK_ENERGY_MODEL = LAMBDA
 
 ##LAPACK lib; for MacOS set LAPACK = APPLE
 #LAPACK = APPLE
-#LAPACK = 
+LAPACK = $(HOME)/work/scilibs/lapack
 
 ##FFTW lib (v3.2 up)
 FFTW3 =

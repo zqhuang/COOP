@@ -2,11 +2,83 @@ program Daubechies
   use coop_wrapper_utils
   implicit none
 #include "constants.h"
-  COOP_INT,parameter::n=50
-  COOP_REAL,dimension(n,n,n)::f
-  COOP_REAL,parameter::mean = 10.d0
-  COOP_REAL,parameter::norm = 0.1d0
-  COOP_INT::i
-  COOP_REAL::x
-  print*, coop_SI_planckmass*coop_SI_c**2/coop_SI_GeV,coop_SI_reduced_planckmass*coop_SI_c**2/coop_SI_GeV
+#define ORDER 4
+#if ORDER > 5
+  COOP_INT,parameter::n=40001
+  COOP_REAL::lbd = -7.5d0
+  COOP_REAL::rbd = 7.5d0  
+#else  
+  COOP_INT,parameter::n=20001
+  COOP_REAL::lbd = -5.d0
+  COOP_REAL::rbd = 5.d0  
+#endif
+  integer,parameter::m=512
+  COOP_INT::i  
+  COOP_REAL::s(n), t(n), x(m), y(m)
+  type(coop_asy)::fig
+  call coop_set_uniform(n, t, lbd, rbd)
+  call fig%open("fig_all.txt")
+  call fig%init(xlabel="$t$", ylabel="$\Psi_{0,0}(t)$", width=6., height=4.5, xmin = -3.5, xmax = 3.5, ymin = -1.5, ymax = 1.9)
+  call coop_set_uniform(m,x, -3.d0, 3.d0)
+  do i=1, m
+     if(x(i) .ge. 0.d0 .and. x(i) .lt. 0.5d0)then
+        y(i) = 1.d0
+     elseif(x(i).ge.0.5d0 .and. x(i).lt. 1.d0)then
+        y(i) = -1.d0
+     else
+        y(i) = 0.d0
+     endif
+  enddo
+  call fig%plot(x= x, y=y, linewidth=1.5, color=coop_asy_rgb_color(0.2, 0.7, 0.2), legend="Daubechies-1; Haar", linetype="dashed")
+  
+  open(10, FILE="psiwavelet/psi2.csv")
+  do i=1,n
+     read(10,*) s(i)
+  enddo
+  close(10)
+  do i=1, m
+     y(i) = interpsi(x(i))
+  enddo
+  call fig%plot(x= x, y=y, linewidth=1., color="black", legend="Daubechies-2", linetype="solid")
+
+  open(10, FILE="psiwavelet/psi3.csv")
+  do i=1,n
+     read(10,*) s(i)
+  enddo
+  close(10)
+  do i=1, m
+     y(i) = interpsi(x(i))
+  enddo
+  call fig%plot(x= x, y=y, linewidth=1.5, color="orange", legend="Daubechies-3", linetype="dotted")
+
+  open(10, FILE="psiwavelet/psi4.csv")
+  do i=1,n
+     read(10,*) s(i)
+  enddo
+  close(10)
+  do i=1, m
+     y(i) = interpsi(x(i))
+  enddo
+  call fig%plot(x= x, y=y, linewidth=2., color=coop_asy_rgb_color(0.1, 0.2, 0.7), legend="Daubechies-4", linetype="solid")
+  
+!!$  open(10, FILE="psiwavelet/psi5.csv")
+!!$  do i=1,n
+!!$     read(10,*) s(i)
+!!$  enddo
+!!$  close(10)
+!!$  do i=1, m
+!!$     y(i) = interpsi(x(i))
+!!$  enddo
+!!$  call fig%plot(x= x, y=y, linewidth=2., color="blue", legend="Daubechies-5")
+
+  call fig%legend(xratio = 0.05, yratio=0.91)
+  call fig%close()
+
+contains
+
+  function interpsi(tin)
+    COOP_REAL::tin, interpsi
+    call coop_linear_interp(n, t, s, tin, interpsi)
+  end function interpsi
+  
 end program Daubechies

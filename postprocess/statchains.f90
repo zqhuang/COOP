@@ -294,7 +294,9 @@ contains
     class(coop_mcmc_chain) mc
     COOP_INT ip, i, loc, j, j2, ip2, k, loc2, icl
     mc%totalmult = sum(mc%mult)
-    if(mc%totalmult .le. 0 .or. mc%n.eq.0) stop "coop_mcmc_chain_analyzes: found no samples"
+    if(mc%totalmult .le. 0 .or. mc%n.eq.0)then
+       stop "coop_mcmc_chain_analyzes: found no samples"
+    endif
 
     mc%ibest = 1
     mc%iworst = 1
@@ -328,7 +330,7 @@ contains
        mc%likecut(j) = mc%bestlike + min(max((i-(acc-multcut)/c(i)-0.5), 0.), n_fine_bins-1.) *dx
     enddo
 
-
+    write(*,*) "Like cuts done"
 
     do ip =1 ,mc%np
        mc%lower(ip) = minval(mc%params(:, ip))
@@ -459,14 +461,14 @@ contains
     enddo
     mc%np_used = count(mc%vary)
     mc%nprim = count(mc%vary .and. .not. mc%derived)
-
+    
     COOP_DEALLOC(mc%prim)
     COOP_DEALLOC(mc%used)
     COOP_DEALLOC(mc%corrmat)
     
     mc%np_pca = 0 !!default
 
-
+    
     allocate(mc%used(mc%np_used), mc%corrmat(mc%np_used, mc%np_used), mc%prim(mc%nprim))
     i = 1
     j=1
