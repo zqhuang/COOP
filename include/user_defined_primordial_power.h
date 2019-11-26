@@ -17,14 +17,20 @@ subroutine coop_user_defined_primordial_power_100(kbykpiv, ps, pt, cosmology, ar
   COOP_REAL::nt
 #define SCALAR_AS USER_PARAM(1)
 #define SCALAR_NS USER_PARAM(2)
-#define TENSOR_R  USER_PARAM(3)
+#define A_OSC  USER_PARAM(3)
+#define DLNK  USER_PARAM(4)
+#define PHASE USER_PARAM(5)  
+#define TENSOR_R  USER_PARAM(6)
   if(cosmology%inflation_consistency)then
      nt = - TENSOR_R/8.d0
   else
      nt = 0.d0
   endif
-  ps =  SCALAR_AS * kbykpiv ** (SCALAR_NS - 1.d0)
+  ps =  SCALAR_AS * kbykpiv ** (SCALAR_NS - 1.d0)*(1.d0+ A_OSC * cos(log(kbykpiv)/DLNK + PHASE))
   pt =  (SCALAR_AS * TENSOR_R) * kbykpiv ** nt
+#undef DLNK
+#undef A_OSC
+#undef PHASE  
 #undef SCALAR_AS
 #undef SCALAR_NS
 #undef TENSOR_R

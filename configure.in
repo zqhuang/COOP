@@ -53,8 +53,7 @@ DARK_ENERGY_MODEL = LAMBDA
 LAPACK = $(HOME)/work/scilibs/lapack
 
 ##FFTW lib (v3.2 up)
-FFTW3 =
-#$(HOME)/work/scilibs/fftw/
+FFTW3 = $(HOME)/work/scilibs/fftw3/
 
 ## gsl lib 
 GSL =
@@ -64,12 +63,10 @@ CLIKPATH =
 #$(HOME)/work/scilibs/planck15/plc-2.0/
 
 ##cfitsio lib, mandatory if you do maps
-CFITSIO =
-#$(HOME)/work/scilibs/cfitsio
+CFITSIO = $(HOME)/work/scilibs/cfitsio
 
 ##Healpix lib, mandatory if you do maps
-HEALPIX =
-#$(HOME)/work/scilibs/Healpix
+HEALPIX = $(HOME)/work/scilibs/Healpix_3.30
 
 ####################### the rest ##########################################
 #should automatically work if you are using $(IFORT_NAME) or $(GFORTRAN_NAME); 
@@ -194,7 +191,7 @@ endif
 
 ###set fftw flags here
 ifneq ($(FFTW3),)
-LINK += -L$(FFTW3)/lib -lfftw3 
+LINK += -L$(FFTW3)/lib -lfftw3
 FFLAGS += -DHAS_FFTW=1
 CFLAGS += -DHAS_FFTW=1
 INCLUDE += -I$(FFTW3)/include 
