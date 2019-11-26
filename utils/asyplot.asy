@@ -18,7 +18,7 @@ n = number of blocks (integer)
 =========================================================
 More about the blocks:
 ---------------------------------------------------------
-Each block can be either DOTS, LINES, CURVE, LABELS, ARROWS, CONTOUR, CLIP, LEGEND, EXTRA_AXIS, DENSITY, EXPAND, ERRORBARS
+Each block can be either DOTS, LINES, CURVE, GAUSSIAN, LABELS, ARROWS, CONTOUR, CLIP, LEGEND, EXTRA_AXIS, DENSITY, EXPAND, ERRORBARS
 ---------------------------------------------------------
 Format of DOTS block
 ---------------------------------------------------------
@@ -52,6 +52,15 @@ coordinates of point #1 (2 real numbers)
 coordinates of point #2 (2 real numbers)
 ....
 coordinates of point #n (2 real numbers)
+---------------------------------------------------------
+Format of GAUSSIAN block
+---------------------------------------------------------
+GAUSSIAN  (string, specify that this is a CURVE block)
+n_sigma = number of sigmas (real)
+legend (string)
+color and line type (string, color, linetype and linewidth connected with underscore, such as "red_dashed_0.5", "brown_longdashed_1", "purple_longdashdotted_1.5", "black_dashdotted_0.8", ...)
+marker (string; NULL for no marker)
+mean standard-deviation normalization-of-peak (3 real)
 ---------------------------------------------------------
 Format of  type I CONTOUR block (with known path)
 ---------------------------------------------------------
@@ -691,6 +700,15 @@ picture make_picture(file inputfile){
    if(t[2]<azmin) azmin = t[2];
    if(t[2]>azmax) azmax = t[2];
    return t;}
+
+ real[] read_mean_std_amp(file fin, real nsig){
+   real t[] = fin.dimension(3);
+   if(t[0]-nsig*t[1]<axmin) axmin = t[0]-nsig*t[1];
+   if(t[0]+nsig*t[1]>axmax) axmax = t[0]+nsig*t[1];
+   if(t[2]<aymin) aymin = t[2];
+   if(t[2]>aymax) aymax = t[2];
+   return t;
+ }
  // =============================================================================
  // plot dots
  int plot_dots(file fin){
@@ -784,8 +802,66 @@ picture make_picture(file inputfile){
      else  
        draw(mypic, curve, colorpen);}
    return nlines; }
-
-
+//======================================================================
+//-----------------plot a Gaussian distribution ------------------------
+int plot_gaussian(file fin){
+   real nsig = fin; //how many sigmas
+   string clegend;
+   clegend = fetch_string(fin); //legend
+   if(nsig <= 0 || nsig > 5 ){
+     write(stdout,  'Too many sigmas: ' + ((string) nsig) + ' sigma');
+     return 0;}
+   real[] pts;
+   pts = new real[3];
+   string cstr;
+   cstr = fetch_string(fin);
+   string mark = trim_string(fetch_string(fin));
+   pen colorpen = pen_from_string(cstr);
+   path curve;
+   pts = read_mean_std_amp(fin, nsig); //mean, standard deviation
+   real mean = pts[0];
+   real std = pts[1];
+   real amp = pts[2];
+   real dx = std/20;
+   real xmax = mean + std*nsig;
+   real x = mean - std*nsig;
+   curve = ( xcoor(x), ycoor(amp*exp(-((x-mean)/std)^2/2.)) ) ;
+   while (x < xmax){
+     x +=  dx;
+     curve = curve -- ( xcoor(x), ycoor(amp*exp(-((x-mean)/std)^2/2.)) ) ; }
+   if(mark!='0' && mark !=''){
+     if(trim_string(clegend) != ""){
+       if(mark == '*')
+	 draw(mypic, curve,  colorpen, Mark[6], legend = clegend);
+       else if(mark =='D' || mark == 'd')
+	 draw(mypic, curve,  colorpen, MarkFill[2], legend = clegend);
+       else if(mark == 'T' || mark=='t')
+	 draw(mypic, curve,  colorpen, MarkFill[1], legend = clegend);
+       else if(mark == 'o')
+	 draw(mypic, curve,  colorpen, Mark[0], legend = clegend);
+       else if(mark == '+' || mark == 'x')
+	 draw(mypic, curve,  colorpen, Mark[5], legend = clegend);
+       else
+	 draw(mypic, curve,  colorpen, MarkFill[0], legend = clegend);}
+     else{  
+       if(mark == '*')
+	 draw(mypic, curve,  colorpen, Mark[6]);
+       else if(mark =='D' || mark == 'd')
+	 draw(mypic, curve,  colorpen, MarkFill[2]);
+       else if(mark == 'T' || mark=='t')
+	 draw(mypic, curve,  colorpen, MarkFill[1]);
+       else if(mark == 'o')
+	 draw(mypic, curve,  colorpen, Mark[0]);
+       else if(mark == '+' || mark == 'x')
+	 draw(mypic, curve,  colorpen, Mark[5]);
+       else
+	 draw(mypic, curve,  colorpen, MarkFill[0]);}}
+   else{
+     if(trim_string(clegend) != "")
+       draw(mypic, curve,  colorpen, legend = clegend);
+     else  
+       draw(mypic, curve, colorpen);}
+   return round(nsig); }
 
  // =============================================================================
  //plot errorbars
@@ -1502,65 +1578,6 @@ picture load_picture(string filename){
   close(inputfile);
   return mypic;
   };
-
-//-----------------plot a Gaussian distribution ------------------------
-int plot_gaussian(file fin){
-   real nsig = fin; //how many sigmas
-   string clegend;
-   clegend = fetch_string(fin); //legend
-   if(nsig <= 0 || nsig > 5 ){
-     write(stdout,  'Too many sigmas: ' + ((string) nsig) + ' sigma');
-     return 0;}
-   real[] pts;
-   pts = new real[2];
-   string cstr;
-   cstr = fetch_string(fin);
-   string mark = trim_string(fetch_string(fin));
-   pen colorpen = pen_from_string(cstr);
-   path curve;
-   pts = read_xy(fin); //mean, standard deviation
-   real mean = pts[0];
-   real std = pts[1];
-   real dx = std/20;
-   real xmax = mean + std*nsig;
-   real x = mean - std*nsig;
-   curve = ( xcoor(x), ycoor(exp(-pow((x-mean)/std, 2)/2.)) ) ;
-   while (x < xmax){
-     x + =  dx;
-     curve = curve -- ( xcoor(x), ycoor(exp(-pow((x-mean)/std, 2)/2.)) ) ; }
-   if(mark!='0' && mark !=''){
-     if(trim_string(clegend) != ""){
-       if(mark == '*')
-	 draw(mypic, curve,  colorpen, Mark[6], legend = clegend);
-       else if(mark =='D' || mark == 'd')
-	 draw(mypic, curve,  colorpen, MarkFill[2], legend = clegend);
-       else if(mark == 'T' || mark=='t')
-	 draw(mypic, curve,  colorpen, MarkFill[1], legend = clegend);
-       else if(mark == 'o')
-	 draw(mypic, curve,  colorpen, Mark[0], legend = clegend);
-       else if(mark == '+' || mark == 'x')
-	 draw(mypic, curve,  colorpen, Mark[5], legend = clegend);
-       else
-	 draw(mypic, curve,  colorpen, MarkFill[0], legend = clegend);}
-     else{  
-       if(mark == '*')
-	 draw(mypic, curve,  colorpen, Mark[6]);
-       else if(mark =='D' || mark == 'd')
-	 draw(mypic, curve,  colorpen, MarkFill[2]);
-       else if(mark == 'T' || mark=='t')
-	 draw(mypic, curve,  colorpen, MarkFill[1]);
-       else if(mark == 'o')
-	 draw(mypic, curve,  colorpen, Mark[0]);
-       else if(mark == '+' || mark == 'x')
-	 draw(mypic, curve,  colorpen, Mark[5]);
-       else
-	 draw(mypic, curve,  colorpen, MarkFill[0]);}}
-   else{
-     if(trim_string(clegend) != "")
-       draw(mypic, curve,  colorpen, legend = clegend);
-     else  
-       draw(mypic, curve, colorpen);}
-   return nsig; }
 
 
 
