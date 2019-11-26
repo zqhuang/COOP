@@ -786,6 +786,7 @@ picture make_picture(file inputfile){
    return nlines; }
 
 
+
  // =============================================================================
  //plot errorbars
  //ERRORBARS
@@ -1333,6 +1334,9 @@ picture make_picture(file inputfile){
    else if(block == "CURVE"){
      nlines = plot_curve(fin);
      write(stdout, 'a curve is plotted from ' + ((string) nlines ) + ' points.\n');}
+   else if(block == "GAUSSIAN"){
+     nlines = plot_gaussian(fin);
+     write(stdout, 'a Gaussian distribution is plotted for ' + ((string) nlines ) + ' sigmas.\n');}
    else if(block == "ERRORBARS"){
      nlines = plot_errorbars(fin);
      write(stdout, ((string) nlines ) + ' errorbars are plotted.\n');}
@@ -1499,6 +1503,67 @@ picture load_picture(string filename){
   return mypic;
   };
 
+//-----------------plot a Gaussian distribution ------------------------
+int plot_gaussian(file fin){
+   real nsig = fin; //how many sigmas
+   string clegend;
+   clegend = fetch_string(fin); //legend
+   if(nsig <= 0 || nsig > 5 ){
+     write(stdout,  'Too many sigmas: ' + ((string) nsig) + ' sigma');
+     return 0;}
+   real[] pts;
+   pts = new real[2];
+   string cstr;
+   cstr = fetch_string(fin);
+   string mark = trim_string(fetch_string(fin));
+   pen colorpen = pen_from_string(cstr);
+   path curve;
+   pts = read_xy(fin); //mean, standard deviation
+   real mean = pts[0];
+   real std = pts[1];
+   real dx = std/20;
+   real xmax = mean + std*nsig;
+   real x = mean - std*nsig;
+   curve = ( xcoor(x), ycoor(exp(-pow((x-mean)/std, 2)/2.)) ) ;
+   while (x < xmax){
+     x + =  dx;
+     curve = curve -- ( xcoor(x), ycoor(exp(-pow((x-mean)/std, 2)/2.)) ) ; }
+   if(mark!='0' && mark !=''){
+     if(trim_string(clegend) != ""){
+       if(mark == '*')
+	 draw(mypic, curve,  colorpen, Mark[6], legend = clegend);
+       else if(mark =='D' || mark == 'd')
+	 draw(mypic, curve,  colorpen, MarkFill[2], legend = clegend);
+       else if(mark == 'T' || mark=='t')
+	 draw(mypic, curve,  colorpen, MarkFill[1], legend = clegend);
+       else if(mark == 'o')
+	 draw(mypic, curve,  colorpen, Mark[0], legend = clegend);
+       else if(mark == '+' || mark == 'x')
+	 draw(mypic, curve,  colorpen, Mark[5], legend = clegend);
+       else
+	 draw(mypic, curve,  colorpen, MarkFill[0], legend = clegend);}
+     else{  
+       if(mark == '*')
+	 draw(mypic, curve,  colorpen, Mark[6]);
+       else if(mark =='D' || mark == 'd')
+	 draw(mypic, curve,  colorpen, MarkFill[2]);
+       else if(mark == 'T' || mark=='t')
+	 draw(mypic, curve,  colorpen, MarkFill[1]);
+       else if(mark == 'o')
+	 draw(mypic, curve,  colorpen, Mark[0]);
+       else if(mark == '+' || mark == 'x')
+	 draw(mypic, curve,  colorpen, Mark[5]);
+       else
+	 draw(mypic, curve,  colorpen, MarkFill[0]);}}
+   else{
+     if(trim_string(clegend) != "")
+       draw(mypic, curve,  colorpen, legend = clegend);
+     else  
+       draw(mypic, curve, colorpen);}
+   return nsig; }
+
+
+
 
 string pic1file, pic2file;
 int npics;
@@ -1526,7 +1591,6 @@ if(npics >1){
   add(dest = currentpicture, src= pic1.fit(), position = (0, 0.), align = W, filltype=UnFill, above = true);}
 else
   add(dest= currentpicture, src = pic1.fit());
-
 
 
 
