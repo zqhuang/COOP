@@ -25,6 +25,7 @@ program RunMC
   COOP_REAL::pvalue, norm, lnorm
   COOP_STRING::cls_root = ""
   COOP_STRING::cmb_dataset  = ""
+  COOP_STRING::SN_dataset = ""
   COOP_INT, parameter::nk = 256  
   COOP_REAL k(nk), matterPk(nk), khMpc(nk), WeylPk(nk)
   COOP_INT ierror
@@ -101,10 +102,16 @@ program RunMC
 
      !!supernova  
      if(use_SN)then
-        if(mcmc%feedback.gt.0)write(*,*) "Using JLA"
-        call jla%read("%DATASETDIR%jla/jla.dataset")
-        pool%SN_JLA%JLALike => jla
-        if(mcmc%init_level .lt. coop_init_level_set_background) mcmc%init_level = coop_init_level_set_background
+        if(mcmc%feedback.gt.0)write(*,*) "Using Supernova"
+        call coop_dictionary_lookup(mcmc%settings, "sn_dataset", sn_dataset)
+        if(trim(sn_dataset) .ne. '')then
+           call jla%read(trim(sn_dataset))
+           pool%SN_JLA%JLALike => jla           
+           if(mcmc%init_level .lt. coop_init_level_set_background .and. mcmc%paramnames%index("j0") == 0 ) mcmc%init_level = coop_init_level_set_background
+        else
+           write(*,*) "Missing key sn_dataset in the ini file. Please turn off use_SN or specify the data file."
+           stop
+        endif
      endif
 
      !!wl

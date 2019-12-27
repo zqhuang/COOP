@@ -2,83 +2,24 @@ program Daubechies
   use coop_wrapper_utils
   implicit none
 #include "constants.h"
-#define ORDER 4
-#if ORDER > 5
-  COOP_INT,parameter::n=40001
-  COOP_REAL::lbd = -7.5d0
-  COOP_REAL::rbd = 7.5d0  
-#else  
-  COOP_INT,parameter::n=20001
-  COOP_REAL::lbd = -5.d0
-  COOP_REAL::rbd = 5.d0  
-#endif
-  integer,parameter::m=512
-  COOP_INT::i  
-  COOP_REAL::s(n), t(n), x(m), y(m)
+  COOP_INT,parameter::n=100
+  COOP_REAL,dimension(n)::t, v
+  COOP_INT::i
   type(coop_asy)::fig
-  call coop_set_uniform(n, t, lbd, rbd)
-  call fig%open("fig_all.txt")
-  call fig%init(xlabel="$t$", ylabel="$\Psi_{0,0}(t)$", width=6., height=4.5, xmin = -3.5, xmax = 3.5, ymin = -1.5, ymax = 1.9)
-  call coop_set_uniform(m,x, -3.d0, 3.d0)
-  do i=1, m
-     if(x(i) .ge. 0.d0 .and. x(i) .lt. 0.5d0)then
-        y(i) = 1.d0
-     elseif(x(i).ge.0.5d0 .and. x(i).lt. 1.d0)then
-        y(i) = -1.d0
-     else
-        y(i) = 0.d0
-     endif
+  call coop_set_uniform(n, t, 0.0001d0, 4.d0)
+  call fig%open("fig_homotopy.txt")
+  call fig%init(xlabel="$t$", ylabel="$\upsilon$", width=6., height=4.5, xmin = 0., xmax = 4.2, ymin = -0.1, ymax = 1.2)
+  v = tanh(t)
+  call fig%plot(t, v, legend="Exact")
+  v = 1.d0-exp(-t)
+  call fig%plot(t, v, color="red", linetype="dotted", legend="Approx0")
+  v = 0.d0
+  do i = 1, 200
+     v = v+exp(-i*t)/(i*i)
   enddo
-  call fig%plot(x= x, y=y, linewidth=1.5, color=coop_asy_rgb_color(0.2, 0.7, 0.2), legend="Daubechies-1; Haar", linetype="dashed")
-  
-  open(10, FILE="psiwavelet/psi2.csv")
-  do i=1,n
-     read(10,*) s(i)
-  enddo
-  close(10)
-  do i=1, m
-     y(i) = interpsi(x(i))
-  enddo
-  call fig%plot(x= x, y=y, linewidth=1., color="black", legend="Daubechies-2", linetype="solid")
-
-  open(10, FILE="psiwavelet/psi3.csv")
-  do i=1,n
-     read(10,*) s(i)
-  enddo
-  close(10)
-  do i=1, m
-     y(i) = interpsi(x(i))
-  enddo
-  call fig%plot(x= x, y=y, linewidth=1.5, color="orange", legend="Daubechies-3", linetype="dotted")
-
-  open(10, FILE="psiwavelet/psi4.csv")
-  do i=1,n
-     read(10,*) s(i)
-  enddo
-  close(10)
-  do i=1, m
-     y(i) = interpsi(x(i))
-  enddo
-  call fig%plot(x= x, y=y, linewidth=2., color=coop_asy_rgb_color(0.1, 0.2, 0.7), legend="Daubechies-4", linetype="solid")
-  
-!!$  open(10, FILE="psiwavelet/psi5.csv")
-!!$  do i=1,n
-!!$     read(10,*) s(i)
-!!$  enddo
-!!$  close(10)
-!!$  do i=1, m
-!!$     y(i) = interpsi(x(i))
-!!$  enddo
-!!$  call fig%plot(x= x, y=y, linewidth=2., color="blue", legend="Daubechies-5")
-
-  call fig%legend(xratio = 0.05, yratio=0.91)
+  v = 1.d0 +exp(-t)*(t-coop_pi2/6.d0-1.d0+v)+(1.d0-exp(-t))*log(1.d0-exp(-t))
+  call fig%plot(t, v, color="blue", linetype="dotted", legend="Approx1")
+  print*, v(1)
+  call fig%legend()
   call fig%close()
-
-contains
-
-  function interpsi(tin)
-    COOP_REAL::tin, interpsi
-    call coop_linear_interp(n, t, s, tin, interpsi)
-  end function interpsi
-  
 end program Daubechies

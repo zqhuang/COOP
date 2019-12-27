@@ -213,7 +213,7 @@ contains
     COOP_UNKNOWN_STRING::filename
     COOP_INT::alpha_i, beta_i, ssq, max_betasq, i
     COOP_STRING::absdist_file, covfile
-    COOP_REAL idisp_zero
+    COOP_REAL idisp_zero, cov_scaling
     call this%free()
     call coop_load_dictionary(COOP_DATAPATH(filename), this%settings)
     call this%read_sn(this%settings%value("data_file"))
@@ -223,6 +223,10 @@ contains
     if(trim(absdist_file).ne."")call this%read_absdist(absdist_file)
 
     call coop_dictionary_lookup(this%settings, "pecz", this%pecz, 1.d-3)
+    write(*,"(A)") "Using peculiar velocity: v = "//COOP_STR_OF(nint(this%pecz*3.e5*coop_sqrt2))//" km/s"
+    call coop_dictionary_lookup(this%settings, "cov_scaling", cov_scaling, 1.d0)
+    if(abs(cov_scaling -1.d0) .gt. 1.d-3) &
+         write(*,"(A)") "covariance is scaled by a factor "//COOP_STR_OF(nint(cov_scaling*1000.d0)/1000.d0)
     call coop_dictionary_lookup(this%settings, "twoscriptmfit", this%twoscriptmfit, .false.)
     if(this%twoscriptmfit .and. (.not. this%has_thirdvar))then
        stop "JLA: twoscriptmfit was set but thirdvar information not present"
@@ -233,7 +237,7 @@ contains
     do i=1, this%n_disp
        call coop_dictionary_lookup(this%settings, "intrinsicdisp"//COOP_STR_OF(i), this%intrinsicdisp(i), idisp_zero)
     enddo
-    call coop_dictionary_lookup(this%settings, "has_mag_covmat", this%has_mag_covmat, .false.)
+    call coop_dictionary_lookup(this%settings, "has_mag_covmat", this%has_mag_covmat, .false.)    
     call coop_dictionary_lookup(this%settings, "has_stretch_covmat", this%has_stretch_covmat, .false.)
     call coop_dictionary_lookup(this%settings, "has_colour_covmat", this%has_colour_covmat, .false.)
     call coop_dictionary_lookup(this%settings, "has_mag_stretch_covmat", this%has_mag_stretch_covmat, .false.)
@@ -255,6 +259,9 @@ contains
           call coop_dictionary_lookup(this%settings, 'mag_covmat_file', covfile)
           allocate( this%mag_covmat( this%n, this%n ) )
           CALL coop_data_JLA_readcov( covfile, this%mag_covmat, this%n )
+          if(abs(cov_scaling -1.d0) .gt. 1.d-3)then
+             this%mag_covmat =  this%mag_covmat * cov_scaling
+          endif
        endif
        if (this%has_stretch_covmat) THEN
           call coop_dictionary_lookup(this%settings, 'stretch_covmat_file', covfile)          
@@ -344,7 +351,7 @@ contains
        this%n = this%n+1
        call coop_string_to_list(line, lstr)
        select case(lstr%n)
-       case(16)
+       case(16:)
           read(line, *) &
                this%sn(this%n)%name, this%sn(this%n)%zcmb, this%sn(this%n)%zhel, dz, &
                this%sn(this%n)%mag, dm, this%sn(this%n)%stretch, ds, &
@@ -411,7 +418,7 @@ contains
     COOP_INT i
     LOGICAL :: has_A1, has_A2    
     if(this%n .lt. 1) stop "No JLA data read"
-    if(minval(this%sn%dataset) .le. 0) stop "dataset number must be > 0"
+!    if(minval(this%sn%dataset) .le. 0) stop "dataset number must be > 0"
     allocate(this%pre_vars(this%n))
     !$omp parallel do
     do i=1, this%n
@@ -590,7 +597,6 @@ contains
     COOP_REAL :: JLA_alpha_beta_like
     CHARACTER(LEN=*), PARAMETER :: invfmt = &
          '("Error inverting cov matrix for ",F6.3,2X,F6.3)'
-
     INTEGER :: i, status
     COOP_REAL :: lumdists(this%n)
     COOP_REAL :: alpha, beta
@@ -619,7 +625,6 @@ contains
          + 2.0 * alpha * this%sn%cov_mag_stretch &
          - 2.0 * beta * this%sn%cov_mag_colour &
          - 2.0 * alphabeta * this%sn%cov_stretch_colour )
-
     wtval = SUM( invvars )
     estimated_scriptm= SUM( (this%sn%mag - lumdists)*invvars ) / wtval
     diffmag = this%sn%mag - lumdists + alpha*( this%sn%stretch ) &
@@ -703,6 +708,7 @@ contains
           END IF
        ENDIF
     END IF
+
 
     IF (this%twoscriptmfit) THEN
        !Messy case

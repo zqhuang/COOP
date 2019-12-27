@@ -1732,7 +1732,6 @@ contains
        if(h.eq.0.d0) stop "Error: if you want to initialize cosmology with given omega_m, you need to specify H0 or h, too."
        this%omcm2h2 = omegam * h**2 - this%ombm2h2
     else
-
        call paramtable%lookup( "omch2", this%omcm2h2, 0.d0)
        if(this%omcm2h2.eq.0.d0) call paramtable%lookup( "omegach2", this%omcm2h2)       
        if(this%ombm2h2 .le. 0.d0 .or. this%omcm2h2.le.0.d0)then
@@ -1743,6 +1742,10 @@ contains
        h = H0/100.d0
     endif
     if(h.eq.0.d0) call paramtable%lookup( "h", h, 0.d0)
+    call paramtable%lookup("q0", this%expand_q0, -100.d0)
+    call paramtable%lookup("j0", this%expand_j0, -100.d0)
+    this%use_jerk = (this%expand_q0 .gt. -99.d0 .and. this%expand_j0 .gt. -99.d0) 
+
     call paramtable%lookup("tcmb", tcmb, COOP_DEFAULT_TCMB)
 
     call paramtable%lookup( "tau", tau_re)    

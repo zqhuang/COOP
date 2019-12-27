@@ -34,6 +34,8 @@ module coop_cosmology_mod
   end type coop_cosmology
 
   type, extends(coop_cosmology):: coop_cosmology_background
+     COOP_REAL::expand_q0, expand_j0  !!these parameters are used for low-z d_L expansion
+     logical :: use_jerk = .false.  !!if set to be true, the luminosity distance will be approximately computed with the q0, j0 parameters
      COOP_REAL:: Omega_k_value = 1.
      COOP_REAL:: h_value =  COOP_DEFAULT_HUBBLE
      COOP_REAL:: Tcmb_value = COOP_DEFAULT_TCMB
@@ -824,7 +826,11 @@ contains
   function coop_cosmology_background_dL_of_z(this, z) result(dL)
     class(coop_cosmology_background)::this
     COOP_REAL::z, dL
-    dL = this%luminosity_distance(1.d0/(1.d0+z))
+    if(this%use_jerk)then
+       dL = z*(1.d0 + (1.d0-this%expand_q0)/2.d0 * z - (1.d0-this%expand_q0-3.d0*this%expand_q0**2+this%expand_j0)*z**2/6.d0)  !!this only works for small d_L
+    else
+       dL = this%luminosity_distance(1.d0/(1.d0+z))
+    endif
   end function coop_cosmology_background_dL_of_z
 
   function coop_cosmology_background_comoving_dA_of_z(this, z) result(dA)

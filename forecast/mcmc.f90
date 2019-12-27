@@ -783,11 +783,12 @@ contains
           else
              zhel = this%JLALike%sn(i)%zhel
              zcmb = this%JLALike%sn(i)%zcmb
-             this%JLALike%lumdists(i) = 5.d0*log10((1.0+zhel)/(1.0+zcmb) * mcmc%cosmology%dL_of_z(zcmb)/mcmc%cosmology%H0Mpc())
+             this%JLALike%lumdists(i) = 5.d0*log10((1.0+zhel)/(1.0+zcmb) * (max(mcmc%cosmology%dL_of_z(zcmb), 0.d0)+1.d-30)/mcmc%cosmology%H0Mpc())
           endif
           !read(fp%unit,*) j, this%JLALike%lumdists(i)
           !if(j.ne.i) stop "Error in fidlum.txt"
        enddo
+
        !call fp%close()
        if (this%JLALike%marginalize) then
           !$OMP PARALLEL DO DEFAULT(SHARED),SCHEDULE(STATIC), PRIVATE(alpha,beta, grid_i)
@@ -808,7 +809,7 @@ contains
           alpha = mcmc%fullparams(ind_alpha)
           beta = mcmc%fullparams(ind_beta)
           loglike =this%JLALike%alpha_beta_like(alpha, beta, this%JLALike%lumdists)
-       end if
+       end if       
     else
        LogLike = 0.d0
     endif
