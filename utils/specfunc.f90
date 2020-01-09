@@ -2173,7 +2173,6 @@ contains
   END FUNCTION coop_elliptic_Rd
 
 
-
 end module coop_special_function_mod
 
 

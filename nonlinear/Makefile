@@ -31,6 +31,9 @@ SCC: solve_chameleon_collapse.o $(FIRSTORDER)/libcoopfirstorder.a
 Test: $(OBJ) test.o $(FIRSTORDER)/libcoopfirstorder.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test.o $(LINK)
 
+Test2: $(OBJ) test2.o $(FIRSTORDER)/libcoopfirstorder.a
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) test2.o $(LINK)
+
 TestSimp: $(OBJ) testsimple.o $(FIRSTORDER)/libcoopfirstorder.a
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) testsimple.o $(LINK)
 

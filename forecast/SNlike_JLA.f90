@@ -146,7 +146,7 @@ Module coop_SNlike_JLA_mod
      COOP_INT :: int_points = 0
      COOP_INT::n = 0
      COOP_SHORT_STRING::name="JLA"
-     COOP_REAL::pecz
+     COOP_REAL::pecz,  cov_scaling
      COOP_REAL,dimension(:), allocatable :: marge_grid, alpha_grid,beta_grid
      TYPE(coop_Supernova_sample), dimension(:), allocatable::sn
      COOP_REAL, dimension(:),allocatable::pre_vars, a1, a2, lumdists
@@ -158,7 +158,7 @@ Module coop_SNlike_JLA_mod
      logical::has_mag_colour_covmat = .false.
      logical::has_stretch_colour_covmat = .false.
      logical::alphabeta_covmat = .false.
-     COOP_REAL,dimension(:,:),allocatable::mag_covmat, stretch_covmat, colour_covmat, mag_stretch_covmat, mag_colour_covmat, stretch_colour_covmat
+     COOP_REAL,dimension(:,:),allocatable::mag_covmat, stretch_covmat, colour_covmat, mag_stretch_covmat, mag_colour_covmat, stretch_colour_covmat, invcov
      COOP_INT::n_absdist = 0     
      COOP_INT,dimension(:),allocatable::ind_absdist
      COOP_INT::n_disp = 0
@@ -197,6 +197,7 @@ contains
     if(allocated(this%intrinsicdisp))deallocate(this%intrinsicdisp)
     this%n_disp = 0
     if(allocated(this%mag_covmat))deallocate(this%mag_covmat)
+    if(allocated(this%invcov))deallocate(this%invcov)
     if(allocated(this%stretch_covmat))deallocate(this%stretch_covmat)
     if(allocated(this%colour_covmat))deallocate(this%colour_covmat)
     if(allocated(this%mag_stretch_covmat))deallocate(this%mag_stretch_covmat)
@@ -213,20 +214,20 @@ contains
     COOP_UNKNOWN_STRING::filename
     COOP_INT::alpha_i, beta_i, ssq, max_betasq, i
     COOP_STRING::absdist_file, covfile
-    COOP_REAL idisp_zero, cov_scaling
+    COOP_REAL idisp_zero
     call this%free()
     call coop_load_dictionary(COOP_DATAPATH(filename), this%settings)
     call this%read_sn(this%settings%value("data_file"))
-    allocate(this%intrinsicdisp(this%n_disp))
+    allocate(this%intrinsicdisp(0:this%n_disp))
     call coop_dictionary_lookup(this%settings, "name", this%name)
     call coop_dictionary_lookup(this%settings, "absdist_file", absdist_file)
     if(trim(absdist_file).ne."")call this%read_absdist(absdist_file)
 
     call coop_dictionary_lookup(this%settings, "pecz", this%pecz, 1.d-3)
-    write(*,"(A)") "Using peculiar velocity: v = "//COOP_STR_OF(nint(this%pecz*3.e5*coop_sqrt2))//" km/s"
-    call coop_dictionary_lookup(this%settings, "cov_scaling", cov_scaling, 1.d0)
-    if(abs(cov_scaling -1.d0) .gt. 1.d-3) &
-         write(*,"(A)") "covariance is scaled by a factor "//COOP_STR_OF(nint(cov_scaling*1000.d0)/1000.d0)
+    write(*,"(A)") "Using peculiar velocity: v = "//COOP_STR_OF(nint(this%pecz*3.e5*coop_sqrt3))//" km/s"
+    call coop_dictionary_lookup(this%settings, "cov_scaling", this%cov_scaling, 1.d0)
+    if(abs(this%cov_scaling -1.d0) .gt. 1.d-3) &
+         write(*,"(A)") "covariance is scaled by a factor "//COOP_STR_OF(nint(this%cov_scaling*1000.d0)/1000.d0)
     call coop_dictionary_lookup(this%settings, "twoscriptmfit", this%twoscriptmfit, .false.)
     if(this%twoscriptmfit .and. (.not. this%has_thirdvar))then
        stop "JLA: twoscriptmfit was set but thirdvar information not present"
@@ -234,7 +235,7 @@ contains
     call coop_dictionary_lookup(this%settings, "scriptmcut", this%scriptmcut,10.d0)
 
     call coop_dictionary_lookup(this%settings, "intrinsicdisp", idisp_zero, 0.13d0)
-    do i=1, this%n_disp
+    do i=0, this%n_disp
        call coop_dictionary_lookup(this%settings, "intrinsicdisp"//COOP_STR_OF(i), this%intrinsicdisp(i), idisp_zero)
     enddo
     call coop_dictionary_lookup(this%settings, "has_mag_covmat", this%has_mag_covmat, .false.)    
@@ -247,7 +248,7 @@ contains
          this%has_mag_stretch_covmat .OR. this%has_mag_colour_covmat .OR. &
          this%has_stretch_colour_covmat )
 
-
+    allocate(this%invcov(this%n, this%n))
     !First test for covmat
     if ( this%has_mag_covmat .OR. this%has_stretch_covmat .OR. this%has_colour_covmat .OR. &
          this%has_mag_stretch_covmat .OR. this%has_mag_colour_covmat .OR. &
@@ -259,9 +260,6 @@ contains
           call coop_dictionary_lookup(this%settings, 'mag_covmat_file', covfile)
           allocate( this%mag_covmat( this%n, this%n ) )
           CALL coop_data_JLA_readcov( covfile, this%mag_covmat, this%n )
-          if(abs(cov_scaling -1.d0) .gt. 1.d-3)then
-             this%mag_covmat =  this%mag_covmat * cov_scaling
-          endif
        endif
        if (this%has_stretch_covmat) THEN
           call coop_dictionary_lookup(this%settings, 'stretch_covmat_file', covfile)          
@@ -291,9 +289,7 @@ contains
     else
        this%diag_errors = .true.
     endif
-
-
-
+    
     call coop_dictionary_lookup(this%settings, "JLA_marginalize", this%marginalize, .false.)
     if(this%marginalize)then
        call coop_dictionary_lookup(this%settings, "JLA_marge_steps", this%marge_steps, 7)
@@ -386,8 +382,7 @@ contains
        this%sn(this%n)%stretch_var = ds**2
        this%sn(this%n)%colour_var = dc**2
        this%sn(this%n)%thirdvar_var = dt**2
-       this%n_disp = max(this%sn(this%n)%dataset, this%n_disp)
-
+       this%n_disp = max(this%sn(this%n)%dataset+1, this%n_disp)
     Enddo
     call fp%close()
   End subroutine coop_data_jla_read_sn
@@ -415,10 +410,10 @@ contains
   subroutine coop_data_JLA_prep(this)
     class(coop_data_JLA)::this
     COOP_REAL, PARAMETER :: zfacsq = 25.0/(LOG(10.0))**2    
-    COOP_INT i
+    COOP_INT i, status
     LOGICAL :: has_A1, has_A2    
     if(this%n .lt. 1) stop "No JLA data read"
-!    if(minval(this%sn%dataset) .le. 0) stop "dataset number must be > 0"
+    if(minval(this%sn%dataset) .lt. 0) stop "dataset number must be >= 0"
     allocate(this%pre_vars(this%n))
     !$omp parallel do
     do i=1, this%n
@@ -461,6 +456,10 @@ contains
        IF (.NOT. has_A2)  &
             this%twoscriptmfit = .false.
     ENDIF
+    status = 0
+    call this%invertcov(this%invcov, 0.d0, 0.d0, status)
+    if(abs(this%cov_scaling-1.d0).gt.1.d-4) &
+         this%invcov = this%invcov/this%cov_scaling
   end subroutine coop_data_JLA_prep
 
   subroutine coop_data_JLA_readcov(filename, mat, n)
@@ -584,7 +583,7 @@ contains
     
     IF ( status .NE. 0 ) THEN
        WRITE(*,cholinvfmt) alpha, beta
-
+       print*, "Error code",status
        RETURN
     END IF
 
@@ -608,9 +607,7 @@ contains
     COOP_REAL :: amarg_A, amarg_B, amarg_C
     COOP_REAL :: amarg_D, amarg_E, amarg_F, tempG !Marginalization params
     COOP_REAL :: diffmag(this%n),invvars(this%n)
-    COOP_REAL, allocatable :: invcovmat(:,:)
 
-    allocate(invcovmat(this%n,this%n))
 
     alphasq   = alpha*alpha
     betasq    = beta*beta
@@ -647,19 +644,20 @@ contains
        ! and can't get away with evaluating terms this
        ! V^-1 * x = y by solving V * y = x.  This costs us in performance
        ! and accuracy, but such is life
-      call this%invertcov(invcovmat, alpha,beta,status)
-       IF (status .NE. 0) THEN
-          WRITE (*,invfmt) alpha,beta
-          JLA_alpha_beta_like = coop_logZero
-          RETURN
-       ENDIF
-
+       if(alpha.ne.0.d0 .or. beta.ne.0.d0) then
+          call this%invertcov(this%invcov, alpha,beta,status)
+          IF (status .NE. 0) THEN
+             WRITE (*,invfmt) alpha,beta
+             JLA_alpha_beta_like = coop_logZero
+             RETURN
+          ENDIF
+       endif
        !Now find the amarg_ parameters
        !We re-use the invvars variable to hold the intermediate product
        !which is sort of naughty
-       ! invvars = V^-1 * diffmag (invvars = 1.0*invcovmat*diffmag+0*invvars)
+       ! invvars = V^-1 * diffmag (invvars = 1.0*this%invcov*diffmag+0*invvars)
 #ifdef HAS_LAPACK       
-       CALL DSYMV(coop_data_JLA_uplo,this%n,1.0d0,invcovmat,this%n,diffmag,1,0.0d0,invvars,1)
+       CALL DSYMV(coop_data_JLA_uplo,this%n,1.0d0,this%invcov,this%n,diffmag,1,0.0d0,invvars,1)
 #else
     stop "For JLA likelihood you need to link COOP to Lapack"
 #endif    
@@ -672,7 +670,7 @@ contains
 
           !Be naughty again and stick V^-1 * A1 in invvars
 #ifdef HAS_LAPACK          
-          CALL DSYMV(coop_data_JLA_uplo,this%n,1.0d0,invcovmat,this%n,this%A1,1,0.0d0,invvars,1)
+          CALL DSYMV(coop_data_JLA_uplo,this%n,1.0d0,this%invcov,this%n,this%A1,1,0.0d0,invvars,1)
 #else
     stop "For JLA likelihood you need to link COOP to Lapack"
 #endif    
@@ -681,7 +679,7 @@ contains
           amarg_E = DOT_PRODUCT( invvars, this%A1 ) !A1*V^-1*A1
           ! now V^-1 * A2
 #ifdef HAS_LAPACK          
-          CALL DSYMV(coop_data_JLA_uplo,this%n,1.0d0,invcovmat,this%n,this%A2,1,0.0d0,invvars,1)
+          CALL DSYMV(coop_data_JLA_uplo,this%n,1.0d0,this%invcov,this%n,this%A2,1,0.0d0,invvars,1)
 #else
     stop "For JLA likelihood you need to link COOP to Lapack"
 #endif    
@@ -699,11 +697,11 @@ contains
           amarg_F = 0.d0
           IF ( coop_data_JLA_uplo .EQ. 'U' ) THEN
              DO I=1,this%n
-                amarg_E = amarg_E + invcovmat(I,I) + 2.0d0*SUM( invcovmat( 1:I-1, I ) )
+                amarg_E = amarg_E + this%invcov(I,I) + 2.0d0*SUM( this%invcov( 1:I-1, I ) )
              END DO
           ELSE
              DO I=1,this%n
-                amarg_E = amarg_E + invcovmat(I,I) + 2.0d0*SUM( invcovmat( I+1:this%n, I ) )
+                amarg_E = amarg_E + this%invcov(I,I) + 2.0d0*SUM( this%invcov( I+1:this%n, I ) )
              END DO
           END IF
        ENDIF

@@ -485,6 +485,7 @@ contains
   end subroutine coop_dverk_with_ellipse_collapse_params
 
 
+  !!return \int_0^\infty \frac{1}{(1+x)^{3/2}\sqrt{(1+lambda1 x)(1+ lambda2 x)}} dx-2/3
   function coop_ellipse_collapse_bprime_reduced(lambda1, lambda2) result(bprime)
     COOP_REAL::lambda1, lambda2, bprime
     if(abs(lambda1-1.d0) .lt. 1.d-4 .and. abs(lambda2-1.d0) .lt. 1.d-4)then !!both close to 0

@@ -163,7 +163,7 @@ module coop_mcmc_mod
      COOP_REAL::sum_mult = 0.d0
      COOP_REAL::temperature = 1.d0
      COOP_INT::lmax = 0
-     COOP_INT::init_level = coop_init_level_set_background
+     COOP_INT::init_level = coop_init_level_set_species
      COOP_INT::update_seconds = 0 !!this has higher priority unless not used (set to be zero)
      COOP_INT::update_steps = 0  !!lower priority; not used if set to be zero
      COOP_INT::num_exact_calc = 0
