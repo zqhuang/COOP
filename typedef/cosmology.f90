@@ -116,8 +116,7 @@ module coop_cosmology_mod
      procedure::H_of_z => coop_cosmology_background_H_of_z
      procedure::dA_of_z => coop_cosmology_background_DA_of_z
      procedure::comoving_dA_of_z => coop_cosmology_background_comoving_DA_of_z
-     procedure::dL_of_z => coop_cosmology_background_DL_of_z
-
+     procedure::dL_of_z => coop_cosmology_background_DL_of_z !!luminosity distance
      procedure::set_alphaM => coop_cosmology_background_set_alphaM
      procedure::Mpsq => coop_cosmology_background_Mpsq
      procedure::alpha_T => coop_cosmology_background_alpha_T
@@ -826,12 +825,10 @@ contains
   function coop_cosmology_background_dL_of_z(this, z) result(dL)
     class(coop_cosmology_background)::this
     COOP_REAL::z, dL
-    if(this%use_jerk)then
-       dL = z*(1.d0 + (1.d0-this%expand_q0)/2.d0 * z - (1.d0-this%expand_q0-3.d0*this%expand_q0**2+this%expand_j0)*z**2/6.d0)  !!this only works for small d_L
-    else
-       dL = this%luminosity_distance(1.d0/(1.d0+z))
-    endif
+!    dL = z*(1.d0 + (1.d0-this%expand_q0)/2.d0 * z - (1.d0-this%expand_q0-3.d0*this%expand_q0**2+this%expand_j0)*z**2/6.d0)  !!this only works for small d_L
+    dL = this%luminosity_distance(1.d0/(1.d0+z))
   end function coop_cosmology_background_dL_of_z
+
 
   function coop_cosmology_background_comoving_dA_of_z(this, z) result(dA)
     class(coop_cosmology_background)::this
