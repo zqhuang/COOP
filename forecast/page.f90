@@ -13,7 +13,7 @@ Module coop_page_mod
   !!model: H = 2/(3t) + 1-2/(3t0) +  2 eta/(3t0)  (t/t0-1) 
   !!The advantage of this parametrization is that we more or less know that
   !!      t0 ~ 1  (in LCDM it is (0.2629/Omega_m)**0.277
-  !!   d H /dt < 0 => eta < 1
+  !!   d H / dt < 0 => eta < 1
   !!      q0 = 2(1-eta)/(3t0^2) - 1
   !!      j0 =  4/(3t0^3) - 3q0 - 2
 contains
@@ -203,7 +203,7 @@ contains
 
   function lcdm_int_chi(omegam, omegak, a) result(intchi)
     real*8::omegam, omegak, a, intchi
-    intchi = 1.d0/sqrt((omegam+ (omegak + (1.d0-omegam)*a**2)*a)*a)
+    intchi = 1.d0/sqrt((omegam+ (omegak + (1.d0-omegam-omegak)*a**2)*a)*a)
   end function lcdm_int_chi
 
   function lcdm_chiofa(omegam, omegak, a) result(chi)
