@@ -1,4 +1,5 @@
 module coop_wrapper_typedef
+  use coop_page_mod
   use coop_constants_mod
   use coop_svd_mod
   use coop_basicutils_mod

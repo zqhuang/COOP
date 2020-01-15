@@ -397,7 +397,7 @@ contains
          if(hmap_nu%map(i, 1) .lt. imin .or. hmap_nu%map(i, 1) .gt. imax)  return
       endif
       if(this%check_e)then
-         e2 = hmap_e%map(i,2)**2+hmap_e%map(i, 3)**2/hmap_e%map(i,1)**2
+         e2 = (hmap_e%map(i,2)**2+hmap_e%map(i, 3)**2)/hmap_e%map(i,1)**2
          if( e2 .lt. e2min .or. e2 .gt. e2max) return
       endif
       call hmap_pt%pix2ang(i, arr(1), arr(2))

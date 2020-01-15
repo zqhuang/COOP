@@ -1702,6 +1702,27 @@ contains
 
     COOP_REAL::eps_inf, eps_s, zeta_s, beta_s, rlmax, sigma_8_wanted
 
+
+    call paramtable%lookup("page_t0", this%page_t0, -1.d0)
+    call paramtable%lookup("page_eta", this%page_eta, -100.d0)
+    this%use_page = (this%page_t0 .ge. 0.d0 .and. this%page_eta .gt. -99.d0)
+    if(this%use_page)then
+       call paramtable%lookup("omegam", omegam, 0.d0)
+       call paramtable%lookup("w", w0, -1.d0)              
+       call paramtable%lookup( "omegak", this%omega_k_value, 0.d0)
+       call paramtable%lookup( "h", this%h_value, 0.d0)
+       if(omegam .gt. 0.d0 .and. this%page_t0 .le. 0.d0)then  !!compute t0, eta from LCDM approximation
+          if(omegam + this%omega_k_value .gt. 1.d0)then
+             this%page_t0 = 0.d0
+             this%page_eta = 0.d0
+             return
+          endif
+          this%page_t0 = wcdm_tofa(omegam, this%omega_k_value, w0, 1.d0)
+          this%page_eta =1.d0 -  1.5d0 * (omegam/2 + (1.d0+3.d0*w0)/2.d0 * (1.-omegam-this%omega_k_value) + 1.d0) * this%page_t0**2
+ !         this%page_eta = 1.d0- 1.5d0*(omegam*1.5+this%omega_k_value)*this%page_t0**2
+       endif
+       return       
+    endif
     !!0 background
     !!1 x_e
     !!2 primoridal power
@@ -1742,13 +1763,10 @@ contains
        h = H0/100.d0
     endif
     if(h.eq.0.d0) call paramtable%lookup( "h", h, 0.d0)
-    call paramtable%lookup("q0", this%expand_q0, -100.d0)
-    call paramtable%lookup("j0", this%expand_j0, -100.d0)
-    this%use_jerk = (this%expand_q0 .gt. -99.d0 .and. this%expand_j0 .gt. -99.d0) 
-
+    
     call paramtable%lookup("tcmb", tcmb, COOP_DEFAULT_TCMB)
 
-    call paramtable%lookup( "tau", tau_re)    
+    call paramtable%lookup( "tau", tau_re, 0.05d0)    
 
     call paramtable%lookup( "de_w", w0, -1000.d0)
     if(w0 .gt. -999.d0)then

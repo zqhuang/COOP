@@ -1149,7 +1149,7 @@ contains
              k = j*(j-1)/2 + j2
              if(mc%want_2d_output(j, j2))then
                 call fp%open(trim(mc%output)//"_"//trim(mc%simplename(mc%used(j)))//"_"//trim(mc%simplename(mc%used(j2)))//"_2D.txt", "w")
-                call fp%init( xlabel = trim(mc%label(mc%used(j))), ylabel = trim(mc%label(mc%used(j2))), xmin=mc%plotlower(mc%used(j)), xmax = mc%plotupper(mc%used(j)), ymin=mc%plotlower(mc%used(j2)), ymax = mc%plotupper(mc%used(j2)), width=3., height=2.5 )
+                call fp%init( xlabel = trim(mc%label(mc%used(j))), ylabel = trim(mc%label(mc%used(j2))), xmin=mc%lower(mc%used(j)), xmax = mc%upper(mc%used(j)), ymin=mc%lower(mc%used(j2)), ymax = mc%upper(mc%used(j2)), width=3., height=2.5 )
                 do icontour = coop_postprocess_num_contours, 1, -1
                    call path%from_array_gaussianfit(mc%c2d(:, :, k), mc%plotlower(mc%used(j)), mc%plotupper(mc%used(j)), mc%lower(mc%used(j2)), mc%upper(mc%used(j2)), mc%cut2d(icontour, k))
 

@@ -273,9 +273,17 @@ contains
     if(this%n_derived .le. 0) return
     if(associated(this%cosmology))then
        derived(1) = this%cosmology%h()*100.d0
-       derived(2) = this%cosmology%Omega_m
-       derived(3) = 1.d0 - this%cosmology%Omega_m
-       derived(4) = this%cosmology%sigma_8
+       if(this%cosmology%use_page)then
+          derived(2) = 0.2629d0 /this%cosmology%page_t0**3.61d0          
+          derived(3) = 2.d0/3.d0 *(1.d0-this%cosmology%page_eta)/this%cosmology%page_t0**2 - 1.d0  !!q_0
+          derived(4) = 4.d0/3.d0/this%cosmology%page_t0**3 - 3.d0*derived(3)-2.d0
+
+          
+       else
+          derived(2) = this%cosmology%Omega_m
+          derived(3) = 1.d0 - this%cosmology%Omega_m
+          derived(4) = this%cosmology%sigma_8
+       endif
     else
        if(MCMC_INDEX_OMEGA_M .ne. 0 .and. MCMC_INDEX_OMEGA_K .ne. 0)then
           derived(1) = 1.d0 - this%fullparams(MCMC_INDEX_OMEGA_M)- this%fullparams(MCMC_INDEX_OMEGA_K)
@@ -519,7 +527,7 @@ contains
                call this%chain%push(this%knot)          
           if(this%chainfile%unit .ne. 0)then
              if(this%do_write_chain)then
-                write(this%chainfile%unit, trim(this%form)) this%knot, this%derived_params
+                write(this%chainfile%unit, trim(this%form)) real(this%knot), real(this%derived_params)
                 if(this%do_flush)call flush(this%chainfile%unit)
              endif
           endif
@@ -611,7 +619,99 @@ contains
     endif
     loglike = coop_LogZero
   end function coop_dataset_loglike
+
+
+  function SNpre_age_distr(mcmc, t, tau) result(p)
+    type(coop_MCMC_params)::mcmc
+    real*8::tau, t, P, tp
+    tp = 0.3 * mcmc%cosmology%H0Gyr()
+    if(t-tau .lt. 1.d-2)then  !!exclude very high-redshift star formation (avoid numeric overflow in sfr)
+       P = 0.d0
+       return
+    endif
+    P = dtd(tau) * sfr(t-tau)
+  contains
+
+    function dtd(tt)
+      real*8::dtd, tt
+      integer,parameter::alpha = 20
+      dtd = tt/tp
+      if(dtd .lt. 1.d0)then
+         dtd = dtd**alpha/(1.d0+dtd**(alpha+1))
+      else
+         dtd = 1.d0/(dtd+dtd**(-alpha))
+      endif
+    end function dtd
+
+    function sfr(tt)
+      real*8::sfr, tt, z
+      real*8,parameter::a=-0.997, b=0.241, z0 = 1.243
+      z = 1.d0/mcmc%cosmology%aoft(tt) - 1.d0 
+      sfr = 1.d0/(10.d0**(a*(z-z0)) + 10.d0**(b*(z-z0)))
+    end function sfr
+  end function SNpre_age_distr
+
+
+  function SNpre_medianage(mcmc, z) result(medianage)
+    type(coop_MCMC_params)::mcmc    
+    real*8::z, t, medianage
+    integer,parameter::n = 512
+    real*8::sump(n), dtau, tau, half, diff
+    integer::iup, idown, imid, i
+    t = mcmc%cosmology%time(1.d0/(1.d0+z))
+    dtau = t/n
+    tau = dtau/2.d0
+    sump(1) = SNpre_age_distr(mcmc, t, tau)
+    do i=2, n
+       tau = tau + dtau              
+       sump(i) = sump(i-1)+SNpre_age_distr(mcmc, t, tau)
+    enddo
+    iup = n
+    idown = 1
+    half = sump(n)/2.d0
+    do while(iup - idown .gt. 1)
+       imid = (iup+idown)/2
+       if(sump(imid) .gt. half)then
+          iup = imid
+       else
+          idown = imid
+       endif
+    enddo
+    diff = sump(iup) - sump(idown) + 1.d-99
+    medianage = (((sump(iup)-half) * idown + (half-sump(idown))*iup)/diff-0.5d0)*dtau
+  end function SNpre_medianage
   
+
+  function SNpre_aveage(mcmc, z) result(aveage)
+    type(coop_MCMC_params)::mcmc    
+    real*8::z, t, aveage, dtau, sump_odd, sump_even, sumt_odd, sumt_even, p, tau
+    integer::n , i
+    t = mcmc%cosmology%time(1.d0/(1.d0+z))
+    sump_odd = 0.d0
+    sump_even = 0.d0
+    sumt_odd = 0.d0
+    sumt_even = 0.d0
+    n = floor(t/0.01)+1
+    dtau = t/n/2.d0
+    tau = 0.d0
+    do i=1, n-1
+       tau = tau + dtau
+       p = SNpre_age_distr(mcmc, t, tau)
+       sump_odd = sump_odd + p
+       sumt_odd = sumt_odd + p * tau
+       tau = tau + dtau
+       p = SNpre_age_distr(mcmc, t, tau)
+       sump_even = sump_even + p
+       sumt_even = sumt_even + p * tau
+    enddo
+    tau = tau + dtau
+    p = SNpre_age_distr(mcmc, t, tau)
+    sump_odd = sump_odd + p
+    sumt_odd = sumt_odd + p * tau
+    aveage = (sumt_odd*4.d0 + sumt_even * 2.d0) &
+         / (sump_odd*4.d0 + sump_even * 2.d0  &
+         + SNpre_age_distr(mcmc, t, 0.d0))
+  end function SNpre_aveage
 
   function coop_dataset_SN_Simple_loglike(this, mcmc) result(loglike)
     class(coop_dataset_SN_Simple)::this
@@ -766,37 +866,55 @@ contains
   end function coop_dataset_HST_logLike
 
   function coop_dataset_SN_JLA_loglike(this, mcmc) result(loglike)
+    COOP_REAL,parameter::AgeGyr_min = 12.d0
     class(coop_dataset_SN_JLA)::this
     type(coop_mcmc_params)::mcmc
     COOP_REAL::loglike
-    COOP_REAL grid_best, zhel, zcmb, alpha, beta
-    COOP_INT grid_i, i, ind_alpha, ind_beta, j
-   ! type(coop_file)::fp
+    COOP_REAL grid_best, zhel, zcmb, alpha, beta, sn_page
+    COOP_INT grid_i, i, ind_alpha, ind_beta, j, ind_sn_page
+!!$    do i=0, 50
+!!$       alpha = i*0.04
+!!$       print*, alpha, SNpre_aveage(mcmc, alpha)/mcmc%cosmology%H0Gyr(), SNpre_medianage(mcmc, alpha)/mcmc%cosmology%H0Gyr()
+!!$    enddo
+!!$    stop
     if(associated(this%JLALike))then
        if(.not. associated(mcmc%cosmology))stop "for JLA you need initialize cosmology"
+       if(mcmc%cosmology%use_page)then
+          if(mcmc%cosmology%page_eta .gt. 1.d0 .or. mcmc%cosmology%page_t0/mcmc%cosmology%H0Gyr() .lt. AgeGyr_min )then
+             loglike = coop_logzero
+             return
+          endif
+       endif
        loglike = coop_logzero
+       ind_sn_page = mcmc%index_of("SN_page")
+       if(ind_sn_page .eq. 0)then
+          sn_page = 0.d0
+       else
+          sn_page = - mcmc%fullparams(ind_sn_page)/mcmc%cosmology%H0Gyr()/5.3
+       endif
        if(this%JLALike%n .eq. 0) stop "JLA data not loaded"
-       !call fp%open("fidlum.txt", "r")
        do i=1, this%JLALike%n
           if(this%JLALike%sn(i)%has_absdist)then
              this%JLALike%lumdists(i) = 5.0*LOG10( this%JLALike%sn(i)%absdist)
           else
              zhel = this%JLALike%sn(i)%zhel
              zcmb = this%JLALike%sn(i)%zcmb
-             this%JLALike%lumdists(i) = 5.d0*log10((1.0+zhel)/(1.0+zcmb) * (max(mcmc%cosmology%dL_of_z(zcmb), 0.d0)+1.d-30)/mcmc%cosmology%H0Mpc())
+             this%JLALike%lumdists(i) = 5.d0*log10((1.0+zhel)/(1.0+zcmb) * (max(mcmc%cosmology%dL_of_z(zcmb), 0.d0)+1.d-30)/mcmc%cosmology%H0Mpc())             
+             if(ind_sn_page .ne. 0)then
+                this%JLALike%lumdists(i) = this%JLALike%lumdists(i) + sn_page * SNpre_medianage(mcmc, zcmb)
+             endif
           endif
-          !read(fp%unit,*) j, this%JLALike%lumdists(i)
-          !if(j.ne.i) stop "Error in fidlum.txt"
        enddo
 
-       !call fp%close()
        if (this%JLALike%marginalize) then
+          
           !$OMP PARALLEL DO DEFAULT(SHARED),SCHEDULE(STATIC), PRIVATE(alpha,beta, grid_i)
           do grid_i = 1, this%JLALike%int_points
              alpha = this%JLALike%alpha_grid(grid_i)
              beta=this%JLALike%beta_grid(grid_i)
              this%JLALike%marge_grid(grid_i) = this%JLALike%alpha_beta_like(alpha, beta, this%JLALike%lumdists)
           end do
+          !$OMP END PARALLEL DO
 
           grid_best = minval(this%JLALike%marge_grid,  mask=this%JLALike%marge_grid .lt. coop_logZero)
           loglike =  grid_best - log(sum(exp(-this%JLALike%marge_grid + grid_best),  &
@@ -804,10 +922,16 @@ contains
        else
           ind_alpha = mcmc%index_of("alpha_JLA")
           ind_beta = mcmc%index_of("beta_JLA")
-          if(ind_alpha .eq. 0)stop "param[alpha_JLA] is not found"
-          if(ind_beta .eq. 0)stop "param[beta_JLA] is not found"          
-          alpha = mcmc%fullparams(ind_alpha)
-          beta = mcmc%fullparams(ind_beta)
+          if(ind_alpha .eq. 0)then
+             alpha = 0.d0
+          else
+             alpha = mcmc%fullparams(ind_alpha)
+          endif
+          if(ind_beta .eq. 0)then
+             beta = 0.d0
+          else
+             beta = mcmc%fullparams(ind_beta)
+          endif
           loglike =this%JLALike%alpha_beta_like(alpha, beta, this%JLALike%lumdists)
        end if       
     else
@@ -1281,12 +1405,18 @@ contains
              write(fp%unit, "(A16, A32)")  this%name(this%used(i)), this%tex(this%used(i))
           enddo
           if(associated(this%cosmology))then
-             write(fp%unit, "(A16, A32)") "H0              ", "H_0      "                    
-             write(fp%unit, "(A16, A32)") "omegam          ", "\Omega_m  "          
-             write(fp%unit, "(A16, A32)") "omegal          ", "\Omega_\Lambda  "
-             write(fp%unit, "(A16, A32)") "sigma8          ", "\sigma_8"
+             write(fp%unit, "(A, A)") "H0 ", "H_0"                    
+             if(this%index_of("page_t0") .ne. 0 .and. this%index_of("page_eta") .ne. 0)then
+                write(fp%unit, "(A, A)") "omm  ", "\Omega_m"                
+                write(fp%unit, "(A, A)") "q0  ", "q_0"
+                write(fp%unit, "(A, A)") "j0  ", "j_0"                
+             else
+                write(fp%unit, "(A, A)") "omegam ", "\Omega_m"                
+                write(fp%unit, "(A, A)") "omegal ", "\Omega_\Lambda"
+                write(fp%unit, "(A, A)") "sigma8 ", "\sigma_8"
+             endif
           else
-             write(fp%unit, "(A16, A32)") "omegal          ", "\Omega_\Lambda  "
+             write(fp%unit, "(A, A)") "omegal ", "\Omega_\Lambda  "
           endif
           call fp%close()
        endif

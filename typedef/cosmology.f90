@@ -1,4 +1,5 @@
 module coop_cosmology_mod
+  use coop_page_mod
   use coop_constants_mod
   use coop_basicutils_mod
   use coop_string_mod
@@ -34,8 +35,8 @@ module coop_cosmology_mod
   end type coop_cosmology
 
   type, extends(coop_cosmology):: coop_cosmology_background
-     COOP_REAL::expand_q0, expand_j0  !!these parameters are used for low-z d_L expansion
-     logical :: use_jerk = .false.  !!if set to be true, the luminosity distance will be approximately computed with the q0, j0 parameters
+     COOP_REAL::page_eta, page_t0  !!these parameters are used for page parametrization
+     logical :: use_page = .false.  !!if set to be true, the luminosity distance will be approximately computed with the q0, j0 parameters
      COOP_REAL:: Omega_k_value = 1.
      COOP_REAL:: h_value =  COOP_DEFAULT_HUBBLE
      COOP_REAL:: Tcmb_value = COOP_DEFAULT_TCMB
@@ -409,6 +410,10 @@ contains
     class(coop_cosmology_background)::this
     COOP_REAL H2a4, a
     COOP_INT i
+    if(this%use_page)then
+       H2a4 = (page_Hofa(this%page_t0, this%page_eta, a)*a**2)**2
+       return
+    endif
     H2a4 =  this%Omega_k_value*a**2
     do i=1, this%num_species
        H2a4 = H2a4 + this%species(i)%Omega * this%species(i)%rhoa4_ratio(a)
@@ -544,7 +549,7 @@ contains
     COOP_REAL,dimension(n):: dis, a, t
     COOP_REAL  hasq1, hasq2, da, daby2, Hasqmin, Hasqmax, M2
     integer i
-    if(this%need_setup_background)then
+    if(this%need_setup_background .and. .not. this%use_page)then
        call coop_set_uniform(n, a, amin, amax)
        this%a_switch = amin
        this%Omega_r = this%rhoa4(coop_min_scale_factor)/3.d0
@@ -612,6 +617,10 @@ contains
   function coop_cosmology_background_time(this, a) result(t)
     class(coop_cosmology_background)::this
     COOP_REAL a, t, eps
+    if(this%use_page)then
+       t = page_tofa(this%page_t0, this%page_eta, a)
+       return
+    endif
     if(this%need_setup_background) call this%setup_background()
     if(a .gt. this%a_switch)then
        t = this%ftime%eval(a)
@@ -628,6 +637,10 @@ contains
   function coop_cosmology_background_aoft(this, t) result(a)
     class(coop_cosmology_background)::this
     COOP_REAL a, t, amin, amax, amid, tmin, tmax, tmid
+    if(this%use_page)then
+       a = page_aoft(this%page_t0, this%page_eta, t)
+       return
+    endif
     amin = 0.d0
     amax = 1.d0
     tmin = 0.d0
@@ -653,7 +666,11 @@ contains
 
   function coop_cosmology_background_AgeGyr(this) result(AgeGyr)
     class(coop_cosmology_background)::this
-    COOP_REAL AgeGyr 
+    COOP_REAL AgeGyr
+    if(this%use_page)then
+       AgeGyr = this%page_t0 / this%H0Gyr()
+       return
+    endif
     AgeGyr = this%time(coop_scale_factor_today)/this%H0Gyr()
   end function coop_cosmology_background_AgeGyr
 
@@ -661,6 +678,14 @@ contains
     class(coop_cosmology_background)::this
     COOP_REAL a1, chi
     COOP_REAL,optional::a2
+    if(this%use_page)then
+       if(present(a2))then
+          chi = abs(page_chiofa(this%page_t0, this%page_eta, a1) - page_chiofa(this%page_t0, this%page_eta, a2) )
+       else
+          chi = page_chiofa(this%page_t0, this%page_eta, a1) 
+       endif
+       return
+    endif
     if(this%need_setup_background) call this%setup_background()
     if(present(a2))then
        chi = abs(this%fdis%eval(a2)  - this%fdis%eval(a1))
@@ -690,9 +715,9 @@ contains
     COOP_REAL a1, r
     COOP_REAL,optional::a2
     if(present(a2))then
-       r =coop_r_of_chi(abs(this%fdis%eval(a2)  - this%fdis%eval(a1)), this%Omega_k_value)
+       r =coop_r_of_chi(this%comoving_distance(a1, a2), this%Omega_k_value)
     else
-       r = coop_r_of_chi(abs(this%fdis%eval(coop_scale_factor_today)  - this%fdis%eval(a1)), this%Omega_k_value)
+       r = coop_r_of_chi(this%comoving_distance(a1), this%Omega_k_value)
     endif
   end function coop_cosmology_background_comoving_angular_diameter_distance
 
@@ -700,13 +725,13 @@ contains
   function coop_cosmology_background_angular_diameter_distance(this, a) result(dA)
     class(coop_cosmology_background)::this
     COOP_REAL a, dA
-    dA = coop_r_of_chi(abs(this%fdis%eval(coop_scale_factor_today)  - this%fdis%eval(a)), this%Omega_k_value)*a
+    dA = this%comoving_angular_diameter_distance(a)*a
   end function coop_cosmology_background_angular_diameter_distance
 
   function coop_cosmology_background_luminosity_distance(this, a) result(dlum)
     class(coop_cosmology_background)::this
     COOP_REAL a, dlum
-    dlum = coop_r_of_chi(abs(this%fdis%eval(coop_scale_factor_today)  - this%fdis%eval(a)), this%Omega_k_value)/a
+    dlum = this%comoving_angular_diameter_distance(a)/a
   end function coop_cosmology_background_luminosity_distance
 
   function coop_cosmology_background_Omega_radiation(this) result(Omega_r)
@@ -825,7 +850,6 @@ contains
   function coop_cosmology_background_dL_of_z(this, z) result(dL)
     class(coop_cosmology_background)::this
     COOP_REAL::z, dL
-!    dL = z*(1.d0 + (1.d0-this%expand_q0)/2.d0 * z - (1.d0-this%expand_q0-3.d0*this%expand_q0**2+this%expand_j0)*z**2/6.d0)  !!this only works for small d_L
     dL = this%luminosity_distance(1.d0/(1.d0+z))
   end function coop_cosmology_background_dL_of_z
 
