@@ -356,8 +356,8 @@ contains
           mc%kurtosis(ip) = sum((mc%params(:,ip)-mc%mean(ip))**4*mc%mult)/mc%totalmult/mc%std(ip)**4/3.d0 - 1.d0
           mc%vary(ip) = .true.
 
-          mc%upper(ip) = mc%upper(ip) + dx/5.d0
-          mc%lower(ip) = mc%lower(ip) - dx/5.d0
+!!$          mc%upper(ip) = mc%upper(ip) + dx/5.d0
+!!$          mc%lower(ip) = mc%lower(ip) - dx/5.d0
           dx = (mc%upper(ip) - mc%lower(ip))/n_fine_bins          
           c = 0
           do i=1, mc%n
@@ -369,7 +369,7 @@ contains
           enddo
           i = 1
           acc = c(i)
-          multcut = mc%totalmult*max(min(sqrt(0.01/mc%n), 0.002), 0.0005)
+          multcut = mc%totalmult*max(min(sqrt(0.01/mc%n), 0.002), 0.0001)
           do while(acc + c(i+1).lt.multcut)
              i = i + 1
              acc = acc + c(i)
@@ -1151,7 +1151,7 @@ contains
                 call fp%open(trim(mc%output)//"_"//trim(mc%simplename(mc%used(j)))//"_"//trim(mc%simplename(mc%used(j2)))//"_2D.txt", "w")
                 call fp%init( xlabel = trim(mc%label(mc%used(j))), ylabel = trim(mc%label(mc%used(j2))), xmin=mc%lower(mc%used(j)), xmax = mc%upper(mc%used(j)), ymin=mc%lower(mc%used(j2)), ymax = mc%upper(mc%used(j2)), width=3., height=2.5 )
                 do icontour = coop_postprocess_num_contours, 1, -1
-                   call path%from_array_gaussianfit(mc%c2d(:, :, k), mc%plotlower(mc%used(j)), mc%plotupper(mc%used(j)), mc%lower(mc%used(j2)), mc%upper(mc%used(j2)), mc%cut2d(icontour, k))
+                   call path%from_array_gaussianfit(mc%c2d(:, :, k), mc%plotlower(mc%used(j)), mc%plotupper(mc%used(j)), mc%plotlower(mc%used(j2)), mc%plotupper(mc%used(j2)), mc%cut2d(icontour, k))
 
                    call coop_asy_contour(fp, path, colorfill = trim(mc%color2d(icontour)),  linecolor = "black", linetype = "solid")
                 enddo
@@ -1159,9 +1159,9 @@ contains
              endif
              if(j2 .ne. j .and. mc%want_2d_output(j2, j))then
                 call fp%open(trim(mc%output)//"_"//trim(mc%simplename(mc%used(j2)))//"_"//trim(mc%simplename(mc%used(j)))//"_2D.txt", "w")
-                call fp%init( xlabel = trim(mc%label(mc%used(j2))), ylabel = trim(mc%label(mc%used(j))), xmin=mc%plotlower(mc%used(j2)), xmax = mc%plotupper(mc%used(j2)), ymin=mc%plotlower(mc%used(j)), ymax = mc%plotupper(mc%used(j)) )
+                call fp%init( xlabel = trim(mc%label(mc%used(j2))), ylabel = trim(mc%label(mc%used(j))), xmin=mc%lower(mc%used(j2)), xmax = mc%upper(mc%used(j2)), ymin=mc%lower(mc%used(j)), ymax = mc%upper(mc%used(j)) )
                 do icontour = coop_postprocess_num_contours, 1, -1
-                   call path%from_array_gaussianfit(transpose(mc%c2d(:, :, k)), mc%plotlower(mc%used(j2)), mc%plotupper(mc%used(j2)),  mc%lower(mc%used(j)), mc%upper(mc%used(j)), mc%cut2d(icontour, k))
+                   call path%from_array_gaussianfit(transpose(mc%c2d(:, :, k)), mc%plotlower(mc%used(j2)), mc%plotupper(mc%used(j2)),  mc%plotlower(mc%used(j)), mc%plotupper(mc%used(j)), mc%cut2d(icontour, k))
 
                    call coop_asy_contour(fp, path, colorfill = trim(mc%color2d(icontour)),  linecolor = "black", linetype = "solid")
                 enddo

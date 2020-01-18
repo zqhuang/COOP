@@ -274,10 +274,10 @@ contains
     if(associated(this%cosmology))then
        derived(1) = this%cosmology%h()*100.d0
        if(this%cosmology%use_page)then
-          derived(2) = 0.2629d0 /this%cosmology%page_t0**3.61d0          
+          derived(2) = this%cosmology%page_t0/this%cosmology%H0Gyr()
           derived(3) = 2.d0/3.d0 *(1.d0-this%cosmology%page_eta)/this%cosmology%page_t0**2 - 1.d0  !!q_0
           derived(4) = 4.d0/3.d0/this%cosmology%page_t0**3 - 3.d0*derived(3)-2.d0
-
+          
           
        else
           derived(2) = this%cosmology%Omega_m
@@ -1407,7 +1407,7 @@ contains
           if(associated(this%cosmology))then
              write(fp%unit, "(A, A)") "H0 ", "H_0"                    
              if(this%index_of("page_t0") .ne. 0 .and. this%index_of("page_eta") .ne. 0)then
-                write(fp%unit, "(A, A)") "omm  ", "\Omega_m"                
+                write(fp%unit, "(A, A)") "Age  ", "t_0"                
                 write(fp%unit, "(A, A)") "q0  ", "q_0"
                 write(fp%unit, "(A, A)") "j0  ", "j_0"                
              else

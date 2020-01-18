@@ -246,7 +246,7 @@ contains
   
   function wcdm_tofa(omegam, omegak, w, a) result(t)
     real*8::omegam, omegak, a, t, w
-    t = threep_integrate(wcdm_dtda, omegam, omegak,w, 0.d0, a, 0.01d0)
+    t = threep_integrate(wcdm_dtda, omegam, omegak, w, 0.d0, a, 0.01d0)
   end function wcdm_tofa
 
   function wcdm_Hofa(omegam, omegak, w, a) result(H)
