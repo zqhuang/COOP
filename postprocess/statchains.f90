@@ -834,7 +834,7 @@ contains
              call fig_eps%label(trim(mc%datasets), 0.06, 0.93)         
           endif
        endif       
-       call coop_asy_legend_advance(fig_spec, real(exp(lnkmin + 0.6)), 170., "invisible", 0., 0., 0.8, 0.9, 0.9, 2)
+       call coop_asy_legend_advance(fig_spec, real(exp(lnkmin + 0.6)), spec_ymax*0.9, "invisible", 0., 0., 0.8, 0.9, 0.9, 2)
        call fig_spec%close()       
        if(mc%extmode .eq. 1)then              
           call coop_asy_legend_advance(fig_pot, -0.4, 0.072, "invisible", 0., 0., 0.8, 0.9, 0.9, 1)
