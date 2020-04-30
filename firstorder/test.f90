@@ -9,13 +9,15 @@ program test
   COOP_REAL::chi0, maxg
   COOP_INT::i, j
   logical success
-  call paramtable%insert("ombh2", 0.0221d0)
-  call paramtable%insert("omch2", 0.12d0)
-  call paramtable%insert("h", 0.67d0)
+  call paramtable%insert("ombh2", 0.02225d0)
+  call paramtable%insert("omch2", 0.1194d0)
+  call paramtable%insert("h", 0.6748d0)
   call paramtable%insert("tau", 0.06d0)
   call paramtable%insert("As", 2.1d-9)
   call paramtable%insert("ns", 0.965d0)
   call cosmology%set_up(paramtable, success)
+  print*, "distlss = ", cosmology%distlss/cosmology%H0Mpc(), lcdm_chiofa(0.313d0, 0.d0, 1.d0/1090.d0)/cosmology%H0Mpc()
+  stop
   if(.not. success)then
      stop "initialization failed"
   endif

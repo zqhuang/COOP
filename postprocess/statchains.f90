@@ -6,7 +6,9 @@ module coop_statchains_mod
   implicit none
 
 #include "constants.h"
-
+#define PK_SPLINE 1
+#define PK_WAVELET 2
+  
   COOP_INT,parameter::mcmc_stat_num_cls = 3  !!minimum 3
 
   COOP_SINGLE,dimension(mcmc_stat_num_cls)::mcmc_stat_cls = (/ 0.683, 0.954, 0.997 /)
@@ -52,7 +54,7 @@ module coop_statchains_mod
      COOP_SINGLE,dimension(:,:),allocatable::cut2d
      logical,dimension(:,:),allocatable::want_2d_output
      logical,dimension(:),allocatable::want_1d_output
-     logical::do_extensions = .false.
+     COOP_INT::extmode = 0
      COOP_SHORT_STRING, dimension(mcmc_stat_num_cls)::color2d
      COOP_STRING::datasets 
      type(coop_dictionary) settings
@@ -124,6 +126,9 @@ contains
     this%index_nrun = this%index_of("nrun")
     this%index_r = this%index_of("r")
     this%index_pp = this%index_of("pp1")
+    if(this%index_pp .eq. 0)then
+       this%index_pp = this%index_of("A0m2")
+    endif
     this%index_nt =      this%index_of("nt")
     this%index_de_w = this%index_of("de_w")
     if(this%index_de_w .eq. 0)this%index_de_w = this%index_of("w")
@@ -179,7 +184,11 @@ contains
        call coop_load_dictionary(trim(fname), mc%inputparams)
        call coop_dictionary_lookup(mc%inputparams, "param[ns]", mc%default_ns, 0.967d0)
        call coop_dictionary_lookup(mc%inputparams, "param[r]", mc%default_r, 0.d0)       
-       call coop_dictionary_lookup(mc%inputparams, "mypp_nknots", mypp_nknots, 0)
+       if(mc%extmode .eq. PK_WAVELET) then
+          mypp_nknots = 64  !!wavelet mode
+       else
+          call coop_dictionary_lookup(mc%inputparams, "mypp_nknots", mypp_nknots, 0)          
+       endif
        print*, "number of knots  = ", mypp_nknots
     else
        call coop_feedback( "Warning: inputparams file not found;" )
@@ -369,7 +378,7 @@ contains
           enddo
           i = 1
           acc = c(i)
-          multcut = mc%totalmult*max(min(sqrt(0.01/mc%n), 0.002), 0.0001)
+          multcut = mc%totalmult*max(min(sqrt(0.01/mc%n), 5.e-3), 1.e-5)
           do while(acc + c(i+1).lt.multcut)
              i = i + 1
              acc = acc + c(i)
@@ -400,6 +409,12 @@ contains
           else
              mc%right_is_tail(ip) = .true.
              mc%plotupper(ip) = mc%upper(ip) - dx*(n_fine_bins - i+1)
+          endif
+          if(mc%upper(ip) - mc%plotupper(ip)  .lt. (mc%upper(ip)-mc%lower(ip))*0.05)then
+             mc%plotupper(ip) = mc%upper(ip)
+          endif
+          if(mc%plotlower(ip) - mc%lower(ip)  .lt. (mc%upper(ip)-mc%lower(ip))*0.05)then
+             mc%plotlower(ip) = mc%lower(ip)
           endif
           if(mc%right_is_tail(ip) .eqv. mc%left_is_tail(ip))then
              i = 1
@@ -556,13 +571,12 @@ contains
 
   subroutine coop_mcmc_chain_export_stats(mc, output)
     class(coop_mcmc_chain) mc
-    COOP_SINGLE,parameter::spec_ymin = 0.35, eps_ymax = 0.016
-    COOP_INT,parameter::nk = 41
+    COOP_SINGLE::spec_ymin = 0.35, spec_ymax = 250., eps_ymax = 0.016
+    COOP_INT,parameter::nk = 128
     COOP_INT,parameter::distlss = 13893.
     COOP_INT, parameter::num_1sigma_trajs = 50
     COOP_INT::num_samples_to_get_mean
     COOP_INT,parameter::lmin = coop_pp_lmin, lmax = coop_pp_lmax, num_cls_samples = 50
-    COOP_REAL,parameter::standard_ns = 0.967d0
     COOP_REAL,parameter::low_ell_cut = 50
     COOP_REAL,parameter::low_k_cut = low_ell_cut/distlss
     COOP_STRING::allnames
@@ -574,7 +588,7 @@ contains
     COOP_INT i , ip, j,  j2, k, ik, ik1,  ik2, ndof, l, junk, num_params,  pp_location, icontour, numpp, num_trajs, ind_lowk, isam, index_H, num_convex, ind_pivot
     COOP_SINGLE total_mult, cltraj_weight, x(mc%nb), ytop
     logical first_1sigma, inflation_consistency, do_dcl
-    COOP_REAL  norm, lnkmin, lnkmax, cltt, errup, errdown, mean_lnAs, hubble, dns_trial
+    COOP_REAL  norm, lnkmin, lnkmax, cltt, errup, errdown, mean_lnAs, hubble, dns_trial, mean_ns
     COOP_REAL  lnk(nk),  standard_lnps(nk), kMpc(nk), ps(nk), pt(nk), lnpsmean(nk), lnptmean(nk), lnpscov(nk, nk), lnps(nk), lnpt(nk),  mineig, clnps(mypp_n), clnpt(mypp_n), lnps_bounds(-2:2,nk), lnpt_bounds(0:2,nk), eps_bounds(0:2,nk), lnV_bounds(-2:2, nk), phi_rs(nk)
     COOP_REAL, dimension(:,:),allocatable::pcamat, eps_samples, phi_samples, lnV_samples, lnps_samples, lnpt_samples    
     COOP_REAL, dimension(:),allocatable::eig, ipca
@@ -599,10 +613,17 @@ contains
     call fp%open(trim(mc%output)//"_1sig.samples", "w")
     write(fp%unit, "("//trim(coop_num2str(mc%np))//"G14.5)") mc%params(mc%ibest, :)
 
-    if(mc%do_extensions)then
+    select case(mc%extmode)
+    case(PK_SPLINE, PK_WAVELET)
+       if(mypp_nknots .eq. 0) stop "Error: cannot find number of knots for power spectra extensions"      
+       if(mc%index_of("ns") .ne. 0)then
+          call coop_dictionary_lookup(mc%settings, "m2phi2_ns", mean_ns, dble(mc%mean(mc%index_of("ns"))))
+       else
+          mean_ns = mc%default_ns
+       endif
        call coop_dictionary_lookup(mc%settings, "m2phi2_logA", mean_lnAs, dble(mc%mean(mc%index_of("logA"))))
        call coop_feedback("Generating primordial power spectra trajectories")
-       write(*,*) "fiducial trajectory logA = ", mean_lnAs       
+       write(*,*) "fiducial trajectory logA = ", mean_lnAs, " ns =", mean_ns       
        call fig_spec%open(trim(mc%output)//"_power_trajs.txt", "w")
        call fig_pot%open(trim(mc%output)//"_potential_trajs.txt", "w")
        call fig_eps%open(trim(mc%output)//"_eps_trajs.txt", "w")
@@ -611,26 +632,38 @@ contains
        clnps = 0
        clnpt = 0
        lnpscov = 0
-       if(mc%index_r.eq.0)then
-          call mypp_setup_pp(As = exp(dble(mc%Params(1, mc%index_logA)))*1.d-10, ns = mc%default_ns, nknots = mypp_nknots, dlnps = dble(mc%Params(1, mc%index_pp: mc%index_pp+mypp_nknots-1)), r = mc%default_r )
+       if(mc%extmode .eq. 1)then
+          if(mc%index_r.eq.0)then
+             call mypp_setup_pp(As = exp(dble(mc%Params(1, mc%index_logA)))*1.d-10, ns = mean_ns, nknots = mypp_nknots, dlnps = dble(mc%Params(1, mc%index_pp: mc%index_pp+mypp_nknots-1)), r = mc%default_r )
+          else
+             call mypp_setup_pp(As = exp(dble(mc%Params(1, mc%index_logA)))*1.d-10, ns = mean_ns, nknots = mypp_nknots, dlnps = dble(mc%Params(1, mc%index_pp: mc%index_pp+mypp_nknots-1)), r = dble(mc%params(1, mc%index_r)) )
+          endif
        else
-          call mypp_setup_pp(As = exp(dble(mc%Params(1, mc%index_logA)))*1.d-10, ns = mc%default_ns, nknots = mypp_nknots, dlnps = dble(mc%Params(1, mc%index_pp: mc%index_pp+mypp_nknots-1)), r = dble(mc%params(1, mc%index_r)) )
+          if(mc%index_r.eq.0)then
+             call mypp_setup_pp(As = exp(dble(mc%Params(1, mc%index_logA)))*1.d-10, ns = dble(mc%Params(1, mc%index_ns)), nknots = mypp_nknots, dlnps = dble(mc%Params(1, mc%index_pp: mc%index_pp+mypp_nknots-1)), r = mc%default_r )
+          else
+             call mypp_setup_pp(As = exp(dble(mc%Params(1, mc%index_logA)))*1.d-10, ns = dble(mc%Params(1, mc%index_ns)), nknots = mypp_nknots, dlnps = dble(mc%Params(1, mc%index_pp: mc%index_pp+mypp_nknots-1)), r = dble(mc%params(1, mc%index_r)) )
+          endif
        endif
-       if(mypp_nknots .gt. 4)then
+       if(mypp_nknots .gt. 4 .and. mc%extmode .eq. 1)then
           allocate(lnk_knots(0:mypp_nknots), lnps_knots(0:mypp_nknots), cov_knots(0:mypp_nknots, 0:mypp_nknots), k_knots(0:mypp_nknots), lnps_mean_knots(0:mypp_nknots), lnps_standard_knots(0:mypp_nknots))
           call coop_set_uniform(mypp_nknots+1, lnk_knots(0:mypp_nknots), mypp_lnkmin, mypp_lnkmax)
           k_knots = exp(lnk_knots)
           cov_knots = 0.d0
           lnps_mean_knots = 0.d0
-          lnps_standard_knots = mean_lnAs+(standard_ns-1.)*(lnk_knots-mypp_lnkpiv)-log(1.d10)          
+          lnps_standard_knots = mean_lnAs+(mean_ns-1.)*(lnk_knots-mypp_lnkpiv)-log(1.d10)          
        endif
        lnkmin = mypp_lnkmin
        lnkmax = mypp_lnkmax
        call coop_set_uniform(nk, lnk, lnkmin, lnkmax)
        kMpc = exp(lnk)
-       standard_lnps = mean_lnAs+(standard_ns -1.)*(lnk-mypp_lnkpiv)
+       standard_lnps = mean_lnAs+(mean_ns -1.)*(lnk-mypp_lnkpiv)
+       if(mc%index_r .eq. 0)then
+          spec_ymin = 10.
+          spec_ymax = 100.
+       endif
+       call fig_spec%init(xlabel="$ k [{\rm Mpc}^{-1}]$", ylabel = "$10^{10}\mathcal{P}_{{\cal R},\mathrm{t}}$", xlog=.true., ylog = .true., xmin = real(exp(mypp_lnkmin-0.08)), xmax = real(exp(mypp_lnkmax + 0.08)), ymin = spec_ymin, ymax =spec_ymax, doclip = .true.)          
 
-       call fig_spec%init(xlabel="$ k [{\rm Mpc}^{-1}]$", ylabel = "$10^{10}\mathcal{P}_{{\cal R},\mathrm{t}}$", xlog=.true., ylog = .true., xmin = real(exp(mypp_lnkmin-0.08)), xmax = real(exp(mypp_lnkmax + 0.08)), ymin = spec_ymin, ymax = 250., doclip = .true.)
        call coop_asy_topaxis(fig_spec, xmin = real(exp(mypp_lnkmin-0.08))*distlss,  xmax = real(exp(mypp_lnkmax + 0.08))*distlss, islog = .true. , label = "$\ell_k\equiv  k D_{\rm rec}$")
        call fig_pot%init(xlabel="$(\phi - \phi_{\rm pivot})/M_p$", ylabel = "$\ln (V/V_{\rm pivot})$", xmin = -0.8, xmax = 0.5, ymin = -0.06, ymax = 0.08, doclip = .true.)
        call fig_eps%init(xlabel = "$ k [{\rm Mpc}^{-1}]$", ylabel = "$\epsilon\equiv -\dot H/H^2$", xlog = .true. ,  xmin = real(exp(mypp_lnkmin-0.08)), xmax = real(exp(mypp_lnkmax + 0.08)), ymin = -eps_ymax/10, ymax = eps_ymax, doclip = .true.)
@@ -651,11 +684,18 @@ contains
              enddo
              used(j) = .true.
           endif
-          
-          if(mc%index_r .eq. 0)then
-             call mypp_setup_pp(As = exp(dble(mc%Params(j, mc%index_logA)))*1.d-10, ns = mc%default_ns, nknots = mypp_nknots, dlnps = dble(mc%Params(j, mc%index_pp: mc%index_pp+mypp_nknots-1)), r = mc%default_r )
+          if(mc%extmode .eq. 1)then
+             if(mc%index_r .eq. 0)then
+                call mypp_setup_pp(As = exp(dble(mc%Params(j, mc%index_logA)))*1.d-10, ns = mc%default_ns, nknots = mypp_nknots, dlnps = dble(mc%Params(j, mc%index_pp: mc%index_pp+mypp_nknots-1)), r = mc%default_r )
+             else
+                call mypp_setup_pp(As = exp(dble(mc%Params(j, mc%index_logA)))*1.d-10, ns = mc%default_ns, nknots = mypp_nknots, dlnps = dble(mc%Params(j, mc%index_pp: mc%index_pp+mypp_nknots-1)), r = dble(mc%params(j, mc%index_r)))
+             endif
           else
-             call mypp_setup_pp(As = exp(dble(mc%Params(j, mc%index_logA)))*1.d-10, ns = mc%default_ns, nknots = mypp_nknots, dlnps = dble(mc%Params(j, mc%index_pp: mc%index_pp+mypp_nknots-1)), r = dble(mc%params(j, mc%index_r)))
+             if(mc%index_r.eq.0)then
+                call mypp_setup_pp(As = exp(dble(mc%Params(j, mc%index_logA)))*1.d-10, ns = dble(mc%Params(j, mc%index_ns)), nknots = mypp_nknots, dlnps = dble(mc%Params(j, mc%index_pp: mc%index_pp+mypp_nknots-1)), r = mc%default_r )
+             else
+                call mypp_setup_pp(As = exp(dble(mc%Params(j, mc%index_logA)))*1.d-10, ns = dble(mc%Params(j, mc%index_ns)), nknots = mypp_nknots, dlnps = dble(mc%Params(j, mc%index_pp: mc%index_pp+mypp_nknots-1)), r = dble(mc%params(1, mc%index_r)) )
+             endif
           endif
           call mypp_get_potential()
           
@@ -737,10 +777,10 @@ contains
        eps_bounds(0, :) = 0.
        call fig_spec%band(kmpc, 1.d10*exp(lnps_bounds(-2,:)), 1.d10*exp(lnps_bounds(2,:)), colorfill = trim(coop_asy_gray_color(0.67)), linecolor="invisible")
        call fig_spec%band(kmpc, 1.d10*exp(lnps_bounds(-1,:)), 1.d10*exp(lnps_bounds(1,:)), colorfill = trim(coop_asy_gray_color(0.42)), linecolor="invisible")
-
-       call fig_spec%band(kmpc, lnpt_bounds(0,:), 1.d10*exp(lnpt_bounds(2,:)), colorfill = trim(coop_asy_gray_color(0.67)), linecolor="invisible")
-       call fig_spec%band(kmpc, lnpt_bounds(0,:), 1.d10*exp(lnpt_bounds(1,:)), colorfill = trim(coop_asy_gray_color(0.42)), linecolor="invisible")
-
+       if(mc%index_r .ne. 0)then
+          call fig_spec%band(kmpc, lnpt_bounds(0,:), 1.d10*exp(lnpt_bounds(2,:)), colorfill = trim(coop_asy_gray_color(0.67)), linecolor="invisible")
+          call fig_spec%band(kmpc, lnpt_bounds(0,:), 1.d10*exp(lnpt_bounds(1,:)), colorfill = trim(coop_asy_gray_color(0.42)), linecolor="invisible")
+       endif
        call fig_pot%band(phi_rs, lnV_bounds(-2,:), lnV_bounds(2,:), colorfill = trim(coop_asy_gray_color(0.67)), linecolor="invisible")
        call fig_pot%band(phi_rs, lnV_bounds(-1,:), lnV_bounds(1,:), colorfill = trim(coop_asy_gray_color(0.42)), linecolor="invisible")
 
@@ -749,20 +789,20 @@ contains
        call fig_eps%band(kmpc, eps_bounds(0,:), eps_bounds(1, :),  colorfill = trim(coop_asy_gray_color(0.42)), linecolor="invisible")       
        
        call fig_spec%curve(kmpc, ps_trajs(:,1), color="HEX:006FED", linetype="dashed", linewidth=0.5,legend="$\mathcal{P}_{\cal R}$ samples")
-       call fig_spec%curve(kmpc, pt_trajs(:, 1), color="HEX:8CD3F5", linetype="dotted", linewidth=0.8, legend="$\mathcal{P}_{\mathrm{t}}$ samples")
+       if(mc%index_r .ne. 0) call fig_spec%curve(kmpc, pt_trajs(:, 1), color="HEX:8CD3F5", linetype="dotted", linewidth=0.8, legend="$\mathcal{P}_{\mathrm{t}}$ samples")
        
        call fig_eps%curve(kmpc, eps_trajs(:,1), color="HEX:006FED", linetype="dotted", linewidth=0.8,legend="inflation $\epsilon$ samples")
        call fig_pot%curve(phi_trajs(:,1), lnV_trajs(:, 1), color="HEX:006FED", linetype="dotted", linewidth=1.2, legend="inflation potential samples")
        
        do j=2, num_trajs
           call fig_spec%curve(kmpc, ps_trajs(:,j), color="HEX:006FED", linetype="dashed", linewidth=0.5)
-          call fig_spec%curve(kmpc, pt_trajs(:, j), color="HEX:8CD3F5", linetype="dotted", linewidth=0.8)
+          if(mc%index_r .ne. 0) call fig_spec%curve(kmpc, pt_trajs(:, j), color="HEX:8CD3F5", linetype="dotted", linewidth=0.8)
           
           call fig_eps%curve(kmpc, eps_trajs(:,j), color="HEX:006FED", linetype="dotted", linewidth=0.8)
           call fig_pot%curve(phi_trajs(:,j), lnV_trajs(:, j), color="HEX:006FED", linetype="dotted", linewidth=0.8)
        enddo
        call fig_spec%curve(kmpc, ps, color = "red", linetype = "solid", linewidth = 1.5, legend="mean $\mathcal{P}_{\cal R}$")
-       call fig_spec%curve(kmpc, pt, color = "violet", linetype = "solid", linewidth = 1.2, legend="mean $\mathcal{P}_{\mathrm{t}}$")
+       if(mc%index_r .ne. 0) call fig_spec%curve(kmpc, pt, color = "violet", linetype = "solid", linewidth = 1.2, legend="mean $\mathcal{P}_{\mathrm{t}}$")
 
        
        call fig_pot%interpolate_curve(xraw = mypp_phi, yraw = mypp_lnV-mypp_lnV(mypp_ipivot), interpolate="LinearLinear", color = "red", linetype = "solid", linewidth = 1.5, legend="inflation potential mean")
@@ -771,28 +811,30 @@ contains
 
 
        call fig_spec%curve(kMpc, exp(standard_lnps), color = "black", linewidth=1.2, legend="fiducial model $\mathcal{P}_{\cal R}$")
-       call fig_spec%curve(kMpc, exp(mean_lnAs - 0.01625*lnk)*0.13, color = "cyan", linewidth=1.2, legend="fiducial model $\mathcal{P}_{\mathrm{t}}$")
-       if(mypp_nknots .gt. 4)then
+       if(mc%index_r .ne. 0) call fig_spec%curve(kMpc, exp(mean_lnAs - 0.01625*lnk)*0.13, color = "cyan", linewidth=1.2, legend="fiducial model $\mathcal{P}_{\mathrm{t}}$")
+       if(mypp_nknots .gt. 4 .and. mypp_nknots .lt. 20 .and. mc%extmode  .eq. 1)then
           ps(1:mypp_nknots+1) = spec_ymin*1.4
           call coop_asy_dots(fig_spec, k_knots, ps(1:mypp_nknots+1), "black", "$\Delta$")
           ps(1:mypp_nknots+1) = -eps_ymax/15.
           call coop_asy_dots(fig_eps, k_knots, ps(1:mypp_nknots+1), "black", "$\Delta$")
        endif
-       call fig_pot%label( COOP_STR_OF(mypp_nknots+1)//" knots; p(convex) = "//trim(coop_num2str(real(num_convex)/num_samples_to_get_mean,"(F10.2)")),  0.06, 0.2)
-       
-       if(trim(mc%datasets) .eq. "")then
-          if(mc%index_of("r") .ne. 0)then
-             call coop_asy_label(fig_spec,  "BK15 + lowl + simall + plik TTTEEE + lensing", 0.013, 6., "black")
-          else
-             rval = trim(mc%inputparams%value("param[r]"))
-             if(trim(rval) .ne. "")then
-                call coop_asy_label(fig_spec, "fixed $r="//COOP_STR_OF(coop_str2real(rval))//"$", 0.012, 8., "black")
+       if(mc%extmode .eq. 1) then
+          call fig_pot%label( COOP_STR_OF(mypp_nknots+1)//" knots; p(convex) = "//trim(coop_num2str(real(num_convex)/num_samples_to_get_mean,"(F10.2)")),  0.06, 0.2)
+
+          if(trim(mc%datasets) .eq. "")then
+             if(mc%index_of("r") .ne. 0)then
+                call coop_asy_label(fig_spec,  "BK15 + lowl + simall + plik TTTEEE + lensing", 0.013, 6., "black")
+             else
+                rval = trim(mc%inputparams%value("param[r]"))
+                if(trim(rval) .ne. "")then
+                   call coop_asy_label(fig_spec, "fixed $r="//COOP_STR_OF(coop_str2real(rval))//"$", 0.012, 8., "black")
+                endif
              endif
+          else
+             call coop_asy_label(fig_spec, trim(mc%datasets), 0.013, 6., "black")
+             call fig_pot%label(trim(mc%datasets), 0.06, 0.1)
+             call fig_eps%label(trim(mc%datasets), 0.06, 0.93)         
           endif
-       else
-          call coop_asy_label(fig_spec, trim(mc%datasets), 0.013, 6., "black")
-          call fig_pot%label(trim(mc%datasets), 0.06, 0.1)
-          call fig_eps%label(trim(mc%datasets), 0.06, 0.93)         
        endif
        call coop_asy_legend_advance(fig_spec, real(exp(lnkmin + 0.6)), 170., "invisible", 0., 0., 0.8, 0.9, 0.9, 2)
        call coop_asy_legend_advance(fig_pot, -0.4, 0.072, "invisible", 0., 0., 0.8, 0.9, 0.9, 1)
@@ -934,7 +976,9 @@ contains
 
 
        if(allocated(lnk_knots))deallocate(lnk_knots, k_knots, cov_knots, lnps_knots, lnps_mean_knots, lnps_standard_knots)
-    endif
+    case default
+       write(*,*) "pp mode ", mc%extmode, " has not been implemented"
+    end select
     !!likes file
     call fp%open(trim(mc%output)//".likes", "w")
     write(fp%unit, "(A, G14.5)") "Best -lnlike = ", mc%bestlike
@@ -1149,7 +1193,7 @@ contains
              k = j*(j-1)/2 + j2
              if(mc%want_2d_output(j, j2))then
                 call fp%open(trim(mc%output)//"_"//trim(mc%simplename(mc%used(j)))//"_"//trim(mc%simplename(mc%used(j2)))//"_2D.txt", "w")
-                call fp%init( xlabel = trim(mc%label(mc%used(j))), ylabel = trim(mc%label(mc%used(j2))), xmin=mc%lower(mc%used(j)), xmax = mc%upper(mc%used(j)), ymin=mc%lower(mc%used(j2)), ymax = mc%upper(mc%used(j2)), width=3., height=2.5 )
+                call fp%init( xlabel = trim(mc%label(mc%used(j))), ylabel = trim(mc%label(mc%used(j2))), xmin=mc%plotlower(mc%used(j)), xmax = mc%plotupper(mc%used(j)), ymin=mc%plotlower(mc%used(j2)), ymax = mc%plotupper(mc%used(j2)), width=3., height=2.5 )
                 do icontour = coop_postprocess_num_contours, 1, -1
                    call path%from_array_gaussianfit(mc%c2d(:, :, k), mc%plotlower(mc%used(j)), mc%plotupper(mc%used(j)), mc%plotlower(mc%used(j2)), mc%plotupper(mc%used(j2)), mc%cut2d(icontour, k))
 
@@ -1159,7 +1203,7 @@ contains
              endif
              if(j2 .ne. j .and. mc%want_2d_output(j2, j))then
                 call fp%open(trim(mc%output)//"_"//trim(mc%simplename(mc%used(j2)))//"_"//trim(mc%simplename(mc%used(j)))//"_2D.txt", "w")
-                call fp%init( xlabel = trim(mc%label(mc%used(j2))), ylabel = trim(mc%label(mc%used(j))), xmin=mc%lower(mc%used(j2)), xmax = mc%upper(mc%used(j2)), ymin=mc%lower(mc%used(j)), ymax = mc%upper(mc%used(j)) )
+                call fp%init( xlabel = trim(mc%label(mc%used(j2))), ylabel = trim(mc%label(mc%used(j))), xmin=mc%plotlower(mc%used(j2)), xmax = mc%plotupper(mc%used(j2)), ymin=mc%plotlower(mc%used(j)), ymax = mc%plotupper(mc%used(j)) )
                 do icontour = coop_postprocess_num_contours, 1, -1
                    call path%from_array_gaussianfit(transpose(mc%c2d(:, :, k)), mc%plotlower(mc%used(j2)), mc%plotupper(mc%used(j2)),  mc%plotlower(mc%used(j)), mc%plotupper(mc%used(j)), mc%cut2d(icontour, k))
 

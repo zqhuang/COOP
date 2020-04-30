@@ -26,8 +26,11 @@ program getdist
   endif
   prefix = ini_read_string("root", .false.)
   mc%do_preprocess = ini_read_logical("preprocess", .false.)
-  mc%do_extensions = ini_read_logical("do_extensions", .false.)
-  if(mc%do_extensions) write(*,*) "doing extensions"
+  mc%extmode = ini_read_int("extension_mode", 0)
+  if(mc%extmode > 0)then
+     write(*,*) "doing extensions with mode ", mc%extmode
+     mypp_model = mc%extmode
+  endif
   if(trim(prefix).eq."") stop "You need to specify the key 'root' in ini file"
   if(trim(Coop_InputArgs(2)).ne."")then
      prefix = trim(adjustl(coop_file_path_of(prefix)))//trim(adjustl(coop_inputArgs(2)))

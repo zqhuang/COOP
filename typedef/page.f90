@@ -156,7 +156,7 @@ contains
 
   function page_qoft(t0, eta, t) result(q) !! deceleration parameter q = - a \ddot a/ (\dot a)^2 =  - \dot H/H^2 - 1
     real*8::t0,eta, t, q
-    q = (2.d0/3.d0)*(1.d0/t**2 -eta/t0**2) - 1.d0
+    q = (2.d0/3.d0)*(1.d0/t**2 -eta/t0**2)/page_Hoft(t0,eta,t)**2 - 1.d0
   end function page_qoft
 
   function page_qofa(t0, eta, a) result(q) !! deceleration parameter q = - a \ddot a/ (\dot a)^2 =  - \dot H/H^2 - 1
@@ -165,10 +165,26 @@ contains
     q = page_qoft(t0, eta, t)
   end function page_qofa
 
-  function page_effective_wofa(t0, eta, a) result(w)  !!effective w assuming \Omega_k = 0
-    real*8::t0, eta, a, w, t
-    
+  function page_effective_wofa(t0, eta, a) result(w)  !!effective w  for total energy density
+    real*8::t0, eta, a, w
+    w = (2.d0*page_qofa(t0,eta,a)-1.d0)/3.d0
   end function page_effective_wofa
+
+
+  function page_effective_ommofa(t0, eta, a) result(omm)  !!effective w for DE assuming Omega_k = 0
+    real*8::t0, eta, a, omm
+    real*8,parameter::atiny = 1.d-9
+    omm = (page_Hofa(t0, eta, atiny)/page_Hofa(t0,eta,a))**2*(atiny/a)**3
+  end function page_effective_ommofa
+
+  
+  function page_effective_wdeofa(t0, eta, a) result(wde)  !!effective w for DE assuming Omega_k = 0
+    real*8::t0, eta, a, wde, oml
+    real*8,parameter::atiny = 1.d-8
+    oml = 1.d0 - page_effective_ommofa(t0, eta, a)
+    wde = (2.d0*page_qofa(t0,eta,a)-1.d0)/(3.d0*oml)
+  end function page_effective_wdeofa
+  
   
   function page_dchidt(t0, eta, t) result(intchi)
     real*8::t0, eta, t, intchi
@@ -176,8 +192,15 @@ contains
   end function page_dchidt
   
   function page_chioft(t0, eta, t) result(chi)
+    real*8,parameter::step = 3.d-3
+    real*8,parameter::pivot = step*10.d0
     real*8::t0, eta, t, chi
-    chi = twop_integrate(page_dchidt, t0, eta, t, t0, 1.d-2)
+    if(t/t0 .gt. pivot)then
+       chi = twop_integrate(page_dchidt, t0, eta, t, t0, step)
+    else
+       chi = twop_integrate(page_dchidt, t0, eta, pivot, t0, step) &
+            + twop_integrate(page_dchidt, t0, eta, t, pivot, step/10.d0)
+    endif
   end function page_chioft
 
   function page_chiofa(t0, eta, a) result(chi)
@@ -222,8 +245,15 @@ contains
   end function lcdm_dchida
 
   function lcdm_chiofa(omegam, omegak, a) result(chi)
+    real*8,parameter::step = 3.d-3
+    real*8,parameter::pivot =step*5.d0
     real*8:: omegam, omegak, a, chi
-    chi = twop_integrate(lcdm_dchida, omegam, omegak, a, 1.d0, 1.d-2)
+    if(a .gt. pivot)then
+       chi = twop_integrate(lcdm_dchida, omegam, omegak, a, 1.d0, step)
+    else
+       chi = twop_integrate(lcdm_dchida, omegam, omegak, pivot, 1.d0, step) &
+            + twop_integrate(lcdm_dchida, omegam, omegak, a, pivot, step/10.d0)
+    endif
   end function lcdm_chiofa
 
   function lcdm_dlofa(omegam, omegak, a) result(dl)
@@ -260,8 +290,15 @@ contains
   end function wcdm_dchida
 
   function wcdm_chiofa(omegam, omegak, w, a) result(chi)
+    real*8,parameter::step = 3.d-3
+    real*8,parameter::pivot = step * 5.d0    
     real*8:: omegam, omegak, a, chi, w
-    chi = threep_integrate(wcdm_dchida, omegam, omegak, w, a, 1.d0, 1.d-2)
+    if(a.gt. pivot)then
+       chi = threep_integrate(wcdm_dchida, omegam, omegak, w, a, 1.d0, step)
+    else
+       chi = threep_integrate(wcdm_dchida, omegam, omegak, w, pivot, 1.d0, step) &
+            + threep_integrate(wcdm_dchida, omegam, omegak, w, a, pivot, step/10.d0)       
+    endif
   end function wcdm_chiofa
 
   function wcdm_dlofa(omegam, omegak, w, a) result(dl)

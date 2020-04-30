@@ -13,12 +13,118 @@ module camb_mypp
   real*8,parameter::mypp_lnkmin = -9.22d0
   real*8::mypp_lnk_per_knot = 0.d0
   real*8::mypp_lnkmax = -0.3d0
-  integer::mypp_model = 0, mypp_nleft = 0, mypp_nright = 0
+  integer::mypp_model = 1, mypp_nleft = 0, mypp_nright = 0
   real*8,dimension(mypp_n)::mypp_lnk, mypp_lnps, mypp_lnps2, mypp_lnpt, mypp_lnpt2, mypp_lneps, mypp_lnV, mypp_phi, mypp_lnH
   real*8::mypp_dlnk
+
+  
 !!  character(LEN=1024)::cosmomc_paramnames = ''
 
 contains
+
+  function Wavelet_lnPk(As, ns, w, lnk)
+    real*8, intent(in) :: lnk, As, ns, w(:)
+    real*8  wavelet_lnpk
+    real*8  lnrat
+    real*8::wsum(4)
+    integer i
+    !lnk = log(k)
+    lnrat = lnk - log(mypp_kpiv)
+    wsum = 0.d0
+    do i=1, 5
+       wsum(1) = wsum(1) + w(i) * daubechies4_psi(lnrat + i - 3)
+    enddo
+    do i=6,14
+       wsum(2) = wsum(2) + w(i) * daubechies4_psi(2*lnrat + i - 10)
+    enddo
+    do i=15, 31
+       wsum(3) = wsum(3) + w(i) * daubechies4_psi(4*lnrat + i - 23)
+    enddo
+    !!well this part is because of mx's ''stupid setting''
+    do i=32, 48
+       wsum(4) = wsum(4) + w(i) * daubechies4_psi(8*lnrat + i - 48)
+    enddo
+    do i=49, 64
+       wsum(4) = wsum(4) + w(i) * daubechies4_psi(8*lnrat + 65-i)
+    enddo
+    wsum(2) = wsum(2)*sqrt(2.d0)
+    wsum(3) = wsum(3)*2.d0
+    wsum(4) = wsum(4)*sqrt(8.d0)
+    Wavelet_lnPk = log(As) + lnrat * (ns-1.0) + sum(wsum)
+
+  contains
+    
+    function free_file_unit() result(lun)
+      integer lun
+      logical used
+      do lun = 20, 99
+         Inquire(Unit=lun, Opened=used)
+         If (.not. used) return
+      enddo
+      lun = 0
+    End function free_file_unit
+
+
+    function daubechies2_psi(t) result(psi)
+      real(kind=8)::t, psi, r
+      integer,parameter::n=20000 !!totally n+1 samples
+      real(kind=8),parameter::lbd = -5.d0 !!left boundary
+      real(kind=8),parameter::rbd = 5.d0  !!right boundary
+      real(kind=8),parameter::step = (rbd-lbd)/n  !!sample time step
+      real(kind=8),save::table(0:n)  !!table to save computed psi samples
+      logical,save::loaded = .false.
+      integer::funit, i, ir
+      if(.not. loaded)then
+         funit = free_file_unit()
+         open(funit, FILE = 'psi2.csv')
+         do i=0, n
+            read(funit, *) table(i)
+         enddo
+         close(funit)
+         loaded = .true.
+      endif
+      r = (t-lbd)/step
+      ir = floor(r)
+      if(r .lt. 0 .or. r.ge. n)then !!out of boundary return 0
+         psi = 0.d0
+         return
+      endif
+      r = r-ir
+      psi = table(ir)*(1.d0-r)+table(ir+1)*r
+    end function daubechies2_psi
+
+
+    function daubechies4_psi(t) result(psi)
+      real(kind=8)::t, psi, r
+      integer,parameter::n=20000 !!totally n+1 samples
+      real(kind=8),parameter::lbd = -5.d0 !!left boundary
+      real(kind=8),parameter::rbd = 5.d0  !!right boundary
+      real(kind=8),parameter::step = (rbd-lbd)/n  !!sample time step
+      real(kind=8),save::table(0:n)  !!table to save computed psi samples
+      logical,save::loaded = .false.
+      integer::funit, i, ir
+      if(.not. loaded)then
+         funit = free_file_unit()
+         open(funit, FILE = 'psi4.csv')
+         do i=0, n
+            read(funit, *) table(i)
+         enddo
+         close(funit)
+         loaded = .true.
+      endif
+      r = (t-lbd)/step
+      ir = floor(r)
+      if(r .lt. 0 .or. r.ge. n)then !!out of boundary return 0
+         psi = 0.d0
+         return
+      endif
+      r = r-ir
+      psi = table(ir)*(1.d0-r)+table(ir+1)*r
+    end function daubechies4_psi
+
+    
+  end function Wavelet_LnPk
+
 
 
   subroutine mypp_set_uniform(n, x, lower, upper, logscale)
@@ -186,48 +292,73 @@ contains
     real*8,dimension(:),allocatable::lnk, lnps, lnps2
     integer  i
     real*8 dlnk
-    if(nknots .lt. 5) stop "You need at least 5 knots for scan_spline mode"
-    mypp_nknots = nknots
-    mypp_nleft = nint(nknots* (mypp_lnkpiv-mypp_lnkmin) / (-mypp_lnkmin))
-    mypp_nright = nknots - mypp_nleft 
-    dlnk = (mypp_lnkpiv-mypp_lnkmin)/mypp_nleft
-    mypp_lnk_per_knot = dlnk
-    mypp_lnkmax = mypp_lnkmin + nknots * dlnk
-    allocate(lnk(0:nknots), lnps(0:nknots), lnps2(0:nknots))
-    call mypp_set_uniform(nknots+1, lnk, mypp_lnkmin, mypp_lnkmax)
-    lnps(0:mypp_nleft-1) = dlnps(1:mypp_nleft)
-    lnps(mypp_nleft) = 0.d0
-    lnps(mypp_nleft+1:nknots) = dlnps(mypp_nleft+1:nknots)
-    call mypp_spline(nknots+1, lnk, lnps, lnps2)
+    select case(mypp_model)
+    case(1)  !!spline
+       if(nknots .lt. 5) stop "You need at least 5 knots for scan_spline mode"
+       mypp_nknots = nknots
+       mypp_nleft = nint(nknots* (mypp_lnkpiv-mypp_lnkmin) / (-mypp_lnkmin))
+       mypp_nright = nknots - mypp_nleft 
+       dlnk = (mypp_lnkpiv-mypp_lnkmin)/mypp_nleft
+       mypp_lnk_per_knot = dlnk
+       mypp_lnkmax = mypp_lnkmin + nknots * dlnk
+       allocate(lnk(0:nknots), lnps(0:nknots), lnps2(0:nknots))
+       call mypp_set_uniform(nknots+1, lnk, mypp_lnkmin, mypp_lnkmax)
+       lnps(0:mypp_nleft-1) = dlnps(1:mypp_nleft)
+       lnps(mypp_nleft) = 0.d0
+       lnps(mypp_nleft+1:nknots) = dlnps(mypp_nleft+1:nknots)
+       call mypp_spline(nknots+1, lnk, lnps, lnps2)
 
-    call mypp_set_uniform(mypp_n, mypp_lnk, mypp_lnkmin, mypp_lnkmax)        
-    !$omp parallel do
-    do i=1, mypp_n
-       call mypp_splint(nknots+1, lnk, lnps, lnps2, mypp_lnk(i), mypp_lnps(i))
-    enddo
-    !$omp end parallel do
-    deallocate(lnk, lnps, lnps2)
-    mypp_As = As
-    mypp_ns = ns
-    mypp_lnps = mypp_lnps + log(mypp_As) &
-         + (mypp_ns - 1.d0 ) * (mypp_lnk - mypp_lnkpiv)
-    call mypp_spline(mypp_n, mypp_lnk, mypp_lnps, mypp_lnps2)
-    if(present(r))then
-       mypp_At = r*mypp_As
-       if(present(nt))then
-          mypp_nt = nt
+       call mypp_set_uniform(mypp_n, mypp_lnk, mypp_lnkmin, mypp_lnkmax)        
+       !$omp parallel do
+       do i=1, mypp_n
+          call mypp_splint(nknots+1, lnk, lnps, lnps2, mypp_lnk(i), mypp_lnps(i))
+       enddo
+       !$omp end parallel do
+       deallocate(lnk, lnps, lnps2)
+       mypp_As = As
+       mypp_ns = ns
+       mypp_lnps = mypp_lnps + log(mypp_As) &
+            + (mypp_ns - 1.d0 ) * (mypp_lnk - mypp_lnkpiv)
+       call mypp_spline(mypp_n, mypp_lnk, mypp_lnps, mypp_lnps2)
+       if(present(r))then
+          mypp_At = r*mypp_As
+          if(present(nt))then
+             mypp_nt = nt
+          else
+             mypp_nt = -r/8.d0
+          endif
+          mypp_lnpt = log(mypp_At) + mypp_nt*(mypp_lnk - mypp_lnkpiv)
+          mypp_lnpt2 = 0.d0
        else
-          mypp_nt = -r/8.d0
+          mypp_At = 0.d0
+          mypp_nt = 0.d0
+          mypp_lnpt = -50.d0
+          mypp_lnpt2 = 0.d0
        endif
-       mypp_lnpt = log(mypp_At) + mypp_nt*(mypp_lnk - mypp_lnkpiv)
-       mypp_lnpt2 = 0.d0
-    else
-       mypp_At = 0.d0
-       mypp_nt = 0.d0
-       mypp_lnpt = -50.d0
-       mypp_lnpt2 = 0.d0
-    endif
-
+    case(2) !!wavelet
+       mypp_As = As
+       mypp_ns = ns       
+       call mypp_set_uniform(mypp_n, mypp_lnk, mypp_lnkmin, mypp_lnkmax)
+       do i=1, mypp_n
+          mypp_lnps(i) = wavelet_lnPk(mypp_As, mypp_ns, dlnps, mypp_lnk(i))
+       enddo
+       call mypp_spline(mypp_n, mypp_lnk, mypp_lnps, mypp_lnps2)
+       if(present(r))then
+          mypp_At = r*mypp_As
+          if(present(nt))then
+             mypp_nt = nt
+          else
+             mypp_nt = -r/8.d0
+          endif
+          mypp_lnpt = log(mypp_At) + mypp_nt*(mypp_lnk - mypp_lnkpiv)
+          mypp_lnpt2 = 0.d0
+       else
+          mypp_At = 0.d0
+          mypp_nt = 0.d0
+          mypp_lnpt = -50.d0
+          mypp_lnpt2 = 0.d0
+       endif
+    end select
   end subroutine mypp_setup_pp
 
 

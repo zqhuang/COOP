@@ -866,11 +866,14 @@ contains
   end function coop_dataset_HST_logLike
 
   function coop_dataset_SN_JLA_loglike(this, mcmc) result(loglike)
-    COOP_REAL,parameter::AgeGyr_min = 12.d0
+    COOP_REAL,parameter::AgeGyr_min = 12.d0 
+    COOP_REAL,parameter::distlss_Gpc_min = 13.8
+    COOP_REAL,parameter::distlss_Gpc_max = 14.    
+    
     class(coop_dataset_SN_JLA)::this
     type(coop_mcmc_params)::mcmc
     COOP_REAL::loglike
-    COOP_REAL grid_best, zhel, zcmb, alpha, beta, sn_page
+    COOP_REAL grid_best, zhel, zcmb, alpha, beta, sn_page, distlss
     COOP_INT grid_i, i, ind_alpha, ind_beta, j, ind_sn_page
 !!$    do i=0, 50
 !!$       alpha = i*0.04
@@ -880,7 +883,8 @@ contains
     if(associated(this%JLALike))then
        if(.not. associated(mcmc%cosmology))stop "for JLA you need initialize cosmology"
        if(mcmc%cosmology%use_page)then
-          if(mcmc%cosmology%page_eta .gt. 1.d0 .or. mcmc%cosmology%page_t0/mcmc%cosmology%H0Gyr() .lt. AgeGyr_min )then
+          distlss = mcmc%cosmology%comoving_angular_diameter_distance(1.d0/1090.d0) / mcmc%cosmology%H0Mpc()/1.d3
+          if(mcmc%cosmology%page_eta .gt. 1.d0 .or. mcmc%cosmology%page_t0/mcmc%cosmology%H0Gyr() .lt. AgeGyr_min .or. distlss .lt. distlss_Gpc_min .or. distlss .gt. distlss_Gpc_max)then
              loglike = coop_logzero
              return
           endif
