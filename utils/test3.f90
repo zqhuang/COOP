@@ -2,14 +2,14 @@ module scalar
   integer,parameter::dl = kind(1.d0)  
 contains
   function ScalarPower(k)
-    real(dl),parameter::As = 1.d0, ns = 1.d0
+    real(dl),parameter::As = 2.1d0, ns = 0.965d0
     real(dl), intent(in) :: k
     real(dl) ScalarPower
     real(dl) lnrat
     !!added for features
-    real(dl),dimension(3), parameter::curl_A = (/ 0.367d0 , 0.d0, 0.d0 /)
-    real(dl),parameter::curl_xs = exp(0.342)
-    real(dl),parameter::curl_ks = 10.**(-3.1) !!Mpc^{-1}
+    real(dl),dimension(3), parameter::curl_A = (/ 1.d0 , 0.d0, 0.d0 /)
+    real(dl),parameter::curl_xs = 0.1d0
+    real(dl),parameter::curl_ks = 0.01d0
     real(dl)::krat, curl_I0, curl_I1, lnP0, curl_D
     real(dl),dimension(3)::curl_W, curl_V
     !ScalarPower = const for scale invariant spectrum
@@ -119,7 +119,7 @@ program Test
   type(coop_asy)::fig
   
   call fig%open("Ps.txt")
-  call fig%init(xlabel = "$k$", ylabel = "$P$", xlog=.true., ylog=.true.)  
+  call fig%init(xlabel = "$k$", ylabel = "$P$", xlog=.true., ylog=.true., xmin=1.e-4, xmax = 1.0, ymin = 1., ymax = 10.)  
   call coop_set_uniform(n, k, log(1.d-4), log(1.d0))
   k = exp(k)
   do i=1, n

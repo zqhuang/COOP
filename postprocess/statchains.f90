@@ -169,6 +169,12 @@ contains
              call coop_feedback(trim(coop_num2str(mc%np))//" parameters")
              if(allocated(mc%label))deallocate(mc%name, mc%derived, mc%simplename, mc%label, mc%std, mc%mean,mc%skewness, mc%kurtosis, mc%lower, mc%upper, mc%vary,  mc%plotlower, mc%plotupper, mc%dx, mc%map2used, mc%lowsig, mc%upsig, mc%left_is_tail, mc%right_is_tail, mc%base, mc%covmat)
              allocate(mc%label(mc%np), mc%simplename(mc%np), mc%std(mc%np), mc%mean(mc%np), mc%skewness(mc%np),mc%kurtosis(mc%np),  mc%lower(mc%np), mc%upper(mc%np), mc%covmat(mc%np, mc%np), mc%plotlower(mc%np), mc%plotupper(mc%np), mc%vary(mc%np), mc%dx(mc%np), mc%map2used(mc%np), mc%name(mc%np),mc%derived(mc%np), mc%lowsig(mcmc_stat_num_cls, mc%np), mc%upsig(mcmc_stat_num_cls, mc%np), mc%left_is_tail(mc%np), mc%right_is_tail(mc%np), mc%base(mc%np))
+          else
+             i = coop_file_numcolumns(fname) -2              
+             if(i .ne. mc%np)then
+                write(*,*) "Inconsistent number of columns in  "//trim(fname), ": ", i
+                stop
+             endif
           endif
        else
           exit
@@ -278,6 +284,7 @@ contains
     if( k .eq. mc%n)then
        call coop_feedback( "Totally "//trim(coop_num2str(k))//" samples are used." )
     else
+       print*, k, mc%n
        mc%n = k
        call coop_feedback(" Warning: some lines seem to be broken. This could be caused by inconsistent ini files with checkpoint. Check your MCMC chains.")
     endif

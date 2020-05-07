@@ -120,10 +120,6 @@ contains
           enddo
        enddo
     enddo
- enddo
-  contains
-
-    
   end subroutine stoinf_patch_evolve
 
   

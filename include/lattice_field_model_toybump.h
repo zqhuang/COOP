@@ -4,9 +4,8 @@
 
   function coop_lattice_fields_V(fields) result(V)
     COOP_REAL::fields(:), V
-    COOP_REAL,parameter::mphi = 1.22d-2*coop_lattice_Mp
-    V = (0.75d0*mphi**2)*(1.d0-exp(-sqrt(2.d0/3.d0)*PHI/coop_lattice_Mp))**2 * (1.d0 + alpha*exp(-(PHI-phipk)**2/2.d0/mu**2))
-    !(mphi*PHI)**2/2.d0*(1.d0 + alpha*exp(-(PHI-phipk)**2/2.d0/mu**2))
+    V =  (3.39d-3*coop_lattice_Mp)**4*exp(-lambda_phi * (PHI/coop_lattice_Mp)**n_phi) &
+         *(1.d0 + alpha/2.d0*(1.d0+tanh(CHI/sigma)) *exp(-(PHI-phipk)**2/(2.*mu**2)))
   end function coop_lattice_fields_V
 
 !!first derivatives  
