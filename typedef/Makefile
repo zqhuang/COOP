@@ -17,8 +17,8 @@ clean:
 
 
 test.o		:wrapper.o
-wrapper.o 	:cosmology.o
-cosmology.o	:species.o
+wrapper.o 	:cosmology.o 
+cosmology.o	:species.o page.o
 species.o	:particle.o
 particle.o	:function.o 
 function.o	:arguments.o

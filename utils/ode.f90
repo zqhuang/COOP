@@ -16,7 +16,7 @@ module coop_ode_mod
      integer::n = 0
      integer::ind = 1
      logical::has_args = .false.
-     COOP_REAL c(24)
+     COOP_REAL c(100)
      COOP_REAL,dimension(:),allocatable:: y, yp
      COOP_REAL,dimension(:,:),allocatable:: w
      COOP_REAL  x

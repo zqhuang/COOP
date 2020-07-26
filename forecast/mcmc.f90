@@ -1,9 +1,11 @@
 module coop_mcmc_mod
   use coop_wrapper_firstorder
   use coop_clik_mod
+  use coop_gobs_mod
   use coop_HSTlike_mod
   use coop_SNlike_JLA_mod
   use coop_bao_mod
+  use coop_chronometer_mod
   use coop_wl_mod
   implicit none
 #include "constants.h"
@@ -50,12 +52,13 @@ module coop_mcmc_mod
   end type coop_dataset_CMB_simple
 
   type, extends(coop_dataset):: coop_dataset_Age_Constraint
-     COOP_REAL::Age =  14.4d0  !!Age in Gyr
-     COOP_REAL::delta_Age = 0.7d0 !!uncertainty
+     COOP_REAL::Age_lower = 12.d0  !!minimum age
+     COOP_REAL::Age_upper = 20.d0  !!maximum age     
    contains
-     procedure::LogLike => coop_dataset_Age_Constraint_LogLoke
+     procedure::LogLike => coop_dataset_Age_Constraint_LogLike
   end type coop_dataset_Age_Constraint
 
+  
   type, extends(coop_DataSet):: coop_dataset_SN_Simple
      COOP_INT::n = 0
      COOP_REAL,dimension(:),allocatable::z, mu, dmu, invdmusq
@@ -87,6 +90,12 @@ module coop_mcmc_mod
      procedure::LogLike => coop_dataset_HST_logLike
   end type coop_dataset_HST
 
+  type, extends(coop_dataset)::coop_dataset_CC
+     type(coop_cc_object), pointer::ccLike => null()
+   contains
+     procedure::LogLike => coop_dataset_cc_logLike
+  end type coop_dataset_CC
+  
 
   type, extends(coop_dataset)::coop_dataset_SN_JLA
      type(coop_data_JLA), pointer::JLAlike => null()
@@ -101,6 +110,14 @@ module coop_mcmc_mod
   end type coop_dataset_WL
 
 
+  type, extends(coop_dataset)::coop_dataset_gobs
+     type(coop_gobs_object), dimension(:), pointer::gobsLike => null()
+   contains
+     procedure::LogLike => coop_dataset_gobs_loglike
+  end type coop_dataset_gobs
+  
+
+
   type coop_Data_Pool
 !!these are simulations     
      type(coop_dataset_SN_Simple),dimension(:), pointer::SN_Simple => null()
@@ -111,6 +128,8 @@ module coop_mcmc_mod
      type(coop_dataset_HST)::HST
      type(coop_dataset_SN_JLA)::SN_JLA
      type(coop_dataset_WL)::WL
+     type(coop_dataset_CC)::CC
+     type(coop_dataset_gobs)::gobs
    contains
      procedure::LogLike => coop_data_pool_LogLike
   end type coop_Data_Pool
@@ -273,7 +292,7 @@ contains
     if(this%n_derived .le. 0) return
     if(associated(this%cosmology))then
        derived(1) = this%cosmology%h()*100.d0
-       if(this%cosmology%use_page)then
+       if(trim(this%cosmology%bg_model) .eq. "page")then
           derived(2) = this%cosmology%page_t0/this%cosmology%H0Gyr()
           derived(3) = 2.d0/3.d0 *(1.d0-this%cosmology%page_eta)/this%cosmology%page_t0**2 - 1.d0  !!q_0
           derived(4) = 4.d0/3.d0/this%cosmology%page_t0**3 - 3.d0*derived(3)-2.d0
@@ -569,7 +588,7 @@ contains
     end select
 
     if(.not. this%do_general_loglike .and. this%feedback .gt. 0)then
-       if(mod(this%accept+this%reject, 9/this%feedback+1).eq. 0)then
+       if(mod(this%accept+this%reject, 49/this%feedback+1).eq. 0)then
           write(*,*) "on Node "//COOP_STR_OF(this%proc_id)//": step "//COOP_STR_OF(this%accept + this%reject)//", likelihood = "//COOP_STR_OF(this%loglike)//", accept ratio = "//COOP_STR_OF(dble(this%accept)/max(this%accept+this%reject,1)), " exact likelihoods ratio = "//COOP_STR_OF(dble(this%num_exact_calc)/max(this%num_exact_calc + this%num_approx_calc,1))
 
        endif
@@ -753,16 +772,21 @@ contains
 
   end function coop_dataset_SN_Simple_loglike
 
-  function coop_dataset_Age_Constraint_LogLoke(this, mcmc) result(loglike)
+  function coop_dataset_Age_Constraint_LogLike(this, mcmc) result(loglike)
     class(coop_dataset_Age_Constraint)::this
     type(coop_mcmc_params)::mcmc
-    COOP_REAL::loglike
+    COOP_REAL::loglike, age
     if(associated(mcmc%cosmology))then
-       loglike = ((mcmc%cosmology%AgeGyr() - this%Age)/this%delta_Age)**2/2.d0
+       age =  mcmc%cosmology%AgeGyr() 
+       if( age .lt. this%Age_lower .or. age .gt. this%Age_upper)then
+          loglike = coop_logzero
+       else
+          loglike = 0.d0
+       endif
     else
        loglike = 0.d0
     endif
-  end function coop_dataset_Age_Constraint_LogLoke
+  end function coop_dataset_Age_Constraint_LogLike
   
   function coop_dataset_CMB_simple_loglike(this, mcmc) result(loglike)
     class(coop_dataset_CMB_simple)::this
@@ -804,6 +828,25 @@ contains
        if(loglike .ge. coop_logZero) return
     enddo
   end function coop_dataset_WL_LogLike
+
+  function coop_dataset_gobs_LogLike(this, mcmc) result(loglike)
+    class(coop_dataset_gobs)::this
+    type(coop_mcmc_params)::mcmc
+    COOP_REAL::loglike
+    COOP_INT :: i, index_rd
+    loglike = 0.d0
+    index_rd = mcmc%index_of("rd")
+    if(index_rd .ne. 0)then
+       mcmc%cosmology%r_drag = 100.d0*mcmc%fullparams(index_rd)/mcmc%cosmology%h_value
+    endif
+    if(.not. associated(this%gobsLike))return
+    if(.not.associated(mcmc%cosmology)) stop "general like requires cosmology input"
+    do i=1, size(this%gobsLike)
+       loglike = loglike + this%gobsLike(i)%loglike(mcmc%cosmology)
+       if(loglike .ge. coop_logZero) return
+    enddo
+  end function coop_dataset_gobs_LogLike
+  
   
   function coop_dataset_BAO_loglike(this, mcmc) result(loglike)
     class(coop_dataset_BAO)::this
@@ -856,7 +899,7 @@ contains
     COOP_REAL::loglike
     if(associated(this%HSTlike))then
        if(associated(mcmc%cosmology))then
-          LogLike = this%HSTLike%LogLike(mcmc%cosmology%dA_of_z(this%HSTLike%zeff)/mcmc%cosmology%H0Mpc())
+          LogLike = this%HSTLike%LogLike(mcmc%cosmology)
        else
           stop "For HST likelihood you need to initialize cosmology"
        endif
@@ -865,30 +908,30 @@ contains
     endif
   end function coop_dataset_HST_logLike
 
+
+  function coop_dataset_CC_logLike(this, mcmc) result(loglike)
+    class(coop_dataset_CC)::this
+    type(coop_mcmc_params)::Mcmc
+    COOP_REAL::loglike
+    if(associated(this%cclike))then
+       if(associated(mcmc%cosmology))then
+          LogLike = this%ccLike%LogLike(mcmc%cosmology)
+       else
+          stop "For CC likelihood you need to initialize cosmology"
+       endif
+    else
+       LogLike = 0.d0       
+    endif
+  end function coop_dataset_CC_logLike
+  
   function coop_dataset_SN_JLA_loglike(this, mcmc) result(loglike)
-    COOP_REAL,parameter::AgeGyr_min = 12.d0 
-    COOP_REAL,parameter::distlss_Gpc_min = 13.8
-    COOP_REAL,parameter::distlss_Gpc_max = 14.    
-    
     class(coop_dataset_SN_JLA)::this
     type(coop_mcmc_params)::mcmc
     COOP_REAL::loglike
     COOP_REAL grid_best, zhel, zcmb, alpha, beta, sn_page, distlss
     COOP_INT grid_i, i, ind_alpha, ind_beta, j, ind_sn_page
-!!$    do i=0, 50
-!!$       alpha = i*0.04
-!!$       print*, alpha, SNpre_aveage(mcmc, alpha)/mcmc%cosmology%H0Gyr(), SNpre_medianage(mcmc, alpha)/mcmc%cosmology%H0Gyr()
-!!$    enddo
-!!$    stop
     if(associated(this%JLALike))then
        if(.not. associated(mcmc%cosmology))stop "for JLA you need initialize cosmology"
-       if(mcmc%cosmology%use_page)then
-          distlss = mcmc%cosmology%comoving_angular_diameter_distance(1.d0/1090.d0) / mcmc%cosmology%H0Mpc()/1.d3
-          if(mcmc%cosmology%page_eta .gt. 1.d0 .or. mcmc%cosmology%page_t0/mcmc%cosmology%H0Gyr() .lt. AgeGyr_min .or. distlss .lt. distlss_Gpc_min .or. distlss .gt. distlss_Gpc_max)then
-             loglike = coop_logzero
-             return
-          endif
-       endif
        loglike = coop_logzero
        ind_sn_page = mcmc%index_of("SN_page")
        if(ind_sn_page .eq. 0)then
@@ -983,6 +1026,11 @@ contains
        if(mcmc%feedback .gt. 2 ) write(*,*) "HST like", tmp
        LogLike = LogLike + tmp
        if(.not.(LogLike .lt. coop_LogZero)) return
+       !!CC
+       tmp = this%CC%LogLike(mcmc)
+       if(mcmc%feedback .gt. 2 ) write(*,*) "CC like", tmp
+       LogLike = LogLike + tmp
+       if(.not.(LogLike .lt. coop_LogZero)) return
        !!JLA SN
        tmp = this%SN_JLA%LogLike(mcmc)
        LogLike = LogLike + tmp
@@ -1001,6 +1049,11 @@ contains
        !!CMB
        tmp = this%CMB%LogLike(mcmc)
        if(mcmc%feedback .gt. 2 ) write(*,*) "CMB like", tmp                     
+       LogLike = LogLike + tmp
+       if(.not.(LogLike .lt. coop_LogZero)) return
+       !!gobs
+       tmp = this%gobs%LogLike(mcmc)
+       if(mcmc%feedback .gt. 2 ) write(*,*) "gobs like", tmp                     
        LogLike = LogLike + tmp
        if(.not.(LogLike .lt. coop_LogZero)) return
     endif

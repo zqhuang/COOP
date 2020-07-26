@@ -3,23 +3,21 @@ module coop_HSTlike_mod
   implicit none
 #include "constants.h"
 
-  !!from arxiv:1311.3461
+  !!from Riess et al 2019
   type coop_HST_object
-     COOP_REAL::zeff = 0.04
-     COOP_REAL::angconversion = 11425.8d0
-     COOP_REAL:: H0 = 70.6
-     COOP_REAL:: H0_err = 3.3
+     COOP_REAL:: H0 = 74.03
+     COOP_REAL:: H0_err = 1.42
    contains
      procedure::LogLike => coop_HST_object_LogLike
   end type coop_HST_object
 
 contains
 
-  function coop_HST_object_LogLike(this, dlzeff) result(logLike)
+  function coop_HST_object_LogLike(this, cosmology) result(logLike)
     class(coop_HST_object)::this
+    type(coop_cosmology_firstorder)::cosmology
     COOP_REAL Heff, loglike, dlzeff
-    Heff = this%angconversion / dlzeff
-    Loglike = ((Heff - this%H0)/this%H0_err)**2/2.d0
+    Loglike = ((cosmology%h_value*100.d0 - this%H0)/this%H0_err)**2/2.d0
   end function coop_HST_object_LogLike
   
   

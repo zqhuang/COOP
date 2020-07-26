@@ -6,12 +6,16 @@ program RunMC
 #include "mpif.h"
 #endif
 #include "constants.h"
-  logical::use_CMB, use_SN, use_BAO, use_HST, use_WL, use_lensing, use_compressed_CMB, use_Age_Constraint
+  integer,parameter::max_num_gobs = 20
+  logical::use_CMB, use_SN, use_BAO, use_HST, use_CC, use_WL, use_lensing, use_compressed_CMB, use_Age_Constraint
   type(coop_clik_object),target::pl(5)
   type(coop_HST_object),target::HSTlike
+  type(coop_cc_object),target::CClike  
   type(coop_data_JLA),target:: jla
   type(coop_bao_object),target::bao(4)
   type(coop_wl_object), target::wl(1)
+  type(coop_gobs_object),target::gobs(max_num_gobs)
+  
   type(coop_cosmology_firstorder),target::cosmology
   type(coop_dataset_CMB_simple),target::Compressed_CMB
   type(coop_dataset_Age_Constraint),target::Age
@@ -19,12 +23,14 @@ program RunMC
   type(coop_data_pool)::pool
   type(coop_file)::fp
   type(coop_list_double)::z_out
+  COOP_INT::num_gobs = 0
   COOP_STRING::inifile, pname
-  COOP_INT i, l, icmb, ik, iz
+  COOP_INT i, l, icmb, ik, iz, igobs
   COOP_REAL::loglike
   COOP_REAL::pvalue, norm, lnorm
   COOP_STRING::cls_root = ""
   COOP_STRING::cmb_dataset  = ""
+  COOP_STRING::gobs_dataset  = ""  
   COOP_STRING::SN_dataset = ""
   COOP_INT, parameter::nk = 256  
   COOP_REAL k(nk), matterPk(nk), khMpc(nk), WeylPk(nk)
@@ -56,6 +62,9 @@ program RunMC
 
   
   if(.not. mcmc%do_general_loglike)then
+     call coop_dictionary_lookup(mcmc%settings, "num_gobs", num_gobs, 0)
+     if(num_gobs .gt. max_num_gobs) stop "too many gobs"
+     call coop_dictionary_lookup(mcmc%settings, "use_CMB", use_CMB, .false.)     
      call coop_dictionary_lookup(mcmc%settings, "use_CMB", use_CMB, .false.)
      call coop_dictionary_lookup(mcmc%settings, "use_WL", use_WL, .false.)     
      call coop_dictionary_lookup(mcmc%settings, "use_lensing", use_lensing, .false.)  
@@ -64,10 +73,11 @@ program RunMC
 
      !!HST
      call coop_dictionary_lookup(mcmc%settings, "use_HST", use_HST, .false.)
-     if(use_HST)then
-        call coop_dictionary_lookup(mcmc%settings, "H0_center", HSTLike%H0, 70.6d0)
-        call coop_dictionary_lookup(mcmc%settings, "H0_error", HSTLike%H0_err, 3.3d0)
-     endif
+     call coop_dictionary_lookup(mcmc%settings, "use_CC", use_CC, .false.)     
+!!$     if(use_HST)then
+!!$        call coop_dictionary_lookup(mcmc%settings, "H0_center", HSTLike%H0, 70.6d0)
+!!$        call coop_dictionary_lookup(mcmc%settings, "H0_error", HSTLike%H0_err, 3.3d0)
+!!$     endif
      
      !!CMB derived background constraint (only used when use_CMB =  .false.)
      call coop_dictionary_lookup(mcmc%settings, "use_compressed_CMB", use_compressed_CMB, .false.)
@@ -93,6 +103,7 @@ program RunMC
         if(mcmc%init_level .lt. coop_init_level_set_background) mcmc%init_level = coop_init_level_set_background
      endif
 
+
      !!HST
      if(use_HST)then
         pool%HST%HSTlike => HSTlike
@@ -100,6 +111,13 @@ program RunMC
         if(mcmc%init_level .lt. coop_init_level_set_background) mcmc%init_level = coop_init_level_set_background
      endif
 
+     !!HST
+     if(use_CC)then
+        pool%CC%cclike => CClike
+        if(mcmc%feedback.gt.0)write(*,*) "Using cosmic chronometer"
+        if(mcmc%init_level .lt. coop_init_level_set_background) mcmc%init_level = coop_init_level_set_background
+     endif
+     
      !!supernova  
      if(use_SN)then
         if(mcmc%feedback.gt.0)write(*,*) "Using Supernova"
@@ -120,6 +138,15 @@ program RunMC
         call wl(1)%init("%DATASETDIR%weaklensing/CFHTLENS_6bin.dataset")
         pool%WL%WLLike => wl
         if(mcmc%init_level .lt. coop_init_level_set_pert) mcmc%init_level = coop_init_level_set_pert
+     endif
+
+     if(num_gobs .gt. 0)then
+        do igobs = 1, num_gobs
+           call coop_dictionary_lookup(mcmc%settings, "gobs_dataset"//COOP_STR_OF(igobs), gobs_dataset)
+           call gobs(igobs)%init(gobs_dataset)
+        enddo
+        pool%gobs%gobsLike => gobs(1:num_gobs)
+        if(mcmc%init_level .lt. coop_init_level_set_background) mcmc%init_level = coop_init_level_set_background        
      endif
      
      if(use_CMB)then

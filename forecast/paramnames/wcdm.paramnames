@@ -1,7 +1,7 @@
 h		h
 omegak		\Omega_k
-w		w
+w0		w_0
+wa		w_a
 omegam		\Omega_m
-page_t0		t_0
-page_eta	\eta
-SN_page		p_{\mathrm{age}}
+rd		r_d(100h^{-1}{\rm Mpc})
+SN_page		\epsilon_{\mathrm{SN}}

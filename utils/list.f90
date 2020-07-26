@@ -219,6 +219,9 @@ module coop_list_mod
      procedure::pop => coop_list_string_pop
      procedure::element => coop_list_string_element
      procedure::get_element => coop_list_string_get_element
+     procedure::get_element_as_real => coop_list_string_get_element_as_real
+     procedure::get_element_as_int => coop_list_string_get_element_as_int
+     procedure::get_element_as_logical => coop_list_string_get_element_as_logical     
   end type coop_list_string
 
 
@@ -1399,6 +1402,73 @@ contains
     elem = l%i4(j - coop_list_s3_max_length)
     return
   end subroutine coop_list_string_get_element
+
+  subroutine coop_list_string_get_element_as_logical(l, i, elem)
+    class(coop_list_string) l
+    COOP_INT i, j
+    logical elem
+    if(i.le. coop_list_s1_max_length)then
+       read(l%i1(i), *) elem
+       return
+    endif
+    j = i - coop_list_s1_max_length
+    if(j .le. coop_list_i2_max_length)then
+       read(l%i2(j), *) elem
+       return
+    endif
+    j = j - coop_list_s2_max_length
+    if(j.le. coop_list_i3_max_length)then
+       read(l%i3(j), *) elem
+       return
+    endif
+    read(l%i4(j - coop_list_s3_max_length), *) elem
+    return
+  end subroutine coop_list_string_get_element_as_logical
+  
+  subroutine coop_list_string_get_element_as_int(l, i, elem)
+    class(coop_list_string) l
+    COOP_INT i, j
+    COOP_INT elem
+    if(i.le. coop_list_s1_max_length)then
+       read(l%i1(i), *) elem
+       return
+    endif
+    j = i - coop_list_s1_max_length
+    if(j .le. coop_list_i2_max_length)then
+       read(l%i2(j), *) elem
+       return
+    endif
+    j = j - coop_list_s2_max_length
+    if(j.le. coop_list_i3_max_length)then
+       read(l%i3(j), *) elem
+       return
+    endif
+    read(l%i4(j - coop_list_s3_max_length), *) elem
+    return
+  end subroutine coop_list_string_get_element_as_int
+
+  subroutine coop_list_string_get_element_as_real(l, i, elem)
+    class(coop_list_string) l
+    COOP_INT i, j
+    COOP_REAL elem
+    if(i.le. coop_list_s1_max_length)then
+       read(l%i1(i), *) elem
+       return
+    endif
+    j = i - coop_list_s1_max_length
+    if(j .le. coop_list_i2_max_length)then
+       read(l%i2(j), *) elem
+       return
+    endif
+    j = j - coop_list_s2_max_length
+    if(j.le. coop_list_i3_max_length)then
+       read(l%i3(j), *) elem
+       return
+    endif
+    read(l%i4(j - coop_list_s3_max_length), *) elem
+    return
+  end subroutine coop_list_string_get_element_as_real
+  
 
   subroutine coop_list_realarr_get_element(l, i, elem)
     class(coop_list_realarr) l

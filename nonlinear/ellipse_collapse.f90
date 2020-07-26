@@ -218,7 +218,7 @@ contains
     COOP_REAL::a, y(this%num_ode_vars), a_end
     COOP_REAL,parameter::tol = max(1.d-10, coop_ellipse_collapse_accuracy*1.d-5)
     COOP_INT::ind
-    COOP_REAL::c(24), w(this%num_ode_vars, 9)
+    COOP_REAL::c(100), w(this%num_ode_vars, 9)
     select type(this)
     type is(coop_ellipse_collapse_params)
        ind = 1
@@ -236,7 +236,7 @@ contains
     COOP_REAL::a_arr(:), x_arr(:,:), y(6), a
     COOP_REAL,parameter::tol = max(1.d-10, coop_ellipse_collapse_accuracy*1.d-5)
     COOP_INT::ind, i, n, m
-    COOP_REAL::c(24), w(this%num_ode_vars, 9)
+    COOP_REAL::c(100), w(this%num_ode_vars, 9)
     n = size(a_arr)
     if(size(x_arr, 2) .ne. n) stop "get_solution: input a_arr and x_arr have different sizes"
     m = min(size(x_arr, 1), 6)  !!normally m = 3 but not always
@@ -266,9 +266,9 @@ contains
     COOP_REAL::a, a_last, a_next, y(this%num_ode_vars), Frho, ycopy(this%num_ode_vars), incr, zvir1
     COOP_REAL,parameter::tol = max(1.d-10, coop_ellipse_collapse_accuracy*1.d-5)
     COOP_INT::ind
-    COOP_REAL::c(24), w(this%num_ode_vars, 9)
+    COOP_REAL::c(100), w(this%num_ode_vars, 9)
     COOP_INT::indcopy
-    COOP_REAL::ccopy(24), wcopy(this%num_ode_vars, 9)
+    COOP_REAL::ccopy(100), wcopy(this%num_ode_vars, 9)
     select type(this)
     type is(coop_ellipse_collapse_params)
        ind = 1
@@ -326,7 +326,7 @@ contains
     COOP_REAL::y(2)  
     COOP_REAL,parameter::tol = 1.d-8
     COOP_INT::ind
-    COOP_REAL::c(24), wspace(2, 9)
+    COOP_REAL::c(100), wspace(2, 9)
     COOP_REAL,parameter::amin_D = 0.03d0
 
     cosmology_updated = .false.

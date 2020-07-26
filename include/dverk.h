@@ -1,6 +1,6 @@
   COOP_REAL tol, x, xend, temp
   COOP_INT ind, nw, n, k, i
-  COOP_REAL y(n),c(24), w(nw,9)
+  COOP_REAL y(n),c(100), w(nw,9)
    external fcn
 !c
 !c     ******************************************************************

@@ -19,7 +19,7 @@ module coop_lattice_fields_mod
   !  COOP_REAL,parameter::mphi = 1.21d-5*coop_lattice_Mp !!M
   COOP_REAL,parameter::lambda_phi = 1.d-6
   COOP_INT,parameter::n_phi = 6
-  COOP_REAL,parameter::alpha = -3.d-6 !!amplitude of bump
+  COOP_REAL,parameter::alpha = 1.d-5 !!amplitude of bump
   COOP_REAL,parameter::phipk = 5.37d0*coop_lattice_Mp !!emm need to adjust later 
   COOP_REAL,parameter::mu = 0.005*coop_lattice_Mp  !!length of bump
   COOP_REAL,parameter::sigma = 3.d-8*coop_lattice_Mp  !!width of wall

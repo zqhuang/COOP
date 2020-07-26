@@ -10,7 +10,7 @@ include ../configure.in
 include ../compile_rules.in
 
 LIB = libcoopmcmc.a
-OBJ = SNlike_JLA.o bao.o HSTlike.o wl.o cliklike.o mcmc.o fisher.o
+OBJ = gobs.o SNlike_JLA.o bao.o sltd.o HSTlike.o chronometer.o wl.o cliklike.o mcmc.o fisher.o
 
 default: $(LIB) MCMC FISHER PLOTF
 

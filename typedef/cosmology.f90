@@ -35,8 +35,8 @@ module coop_cosmology_mod
   end type coop_cosmology
 
   type, extends(coop_cosmology):: coop_cosmology_background
-     COOP_REAL::page_eta, page_t0  !!these parameters are used for page parametrization
-     logical :: use_page = .false.  !!if set to be true, the luminosity distance will be approximately computed with the q0, j0 parameters
+     COOP_REAL::page_eta, page_t0, GCG_As, GCG_alpha, CPL_w0, CPL_wa  !!these parameters are used for page parametrization
+     character(LEN=32)::bg_model = "full"
      COOP_REAL:: Omega_k_value = 1.
      COOP_REAL:: h_value =  COOP_DEFAULT_HUBBLE
      COOP_REAL:: Tcmb_value = COOP_DEFAULT_TCMB
@@ -118,6 +118,12 @@ module coop_cosmology_mod
      procedure::dA_of_z => coop_cosmology_background_DA_of_z
      procedure::comoving_dA_of_z => coop_cosmology_background_comoving_DA_of_z
      procedure::dL_of_z => coop_cosmology_background_DL_of_z !!luminosity distance
+
+     !!functions of z
+     !     procedure::general_variable => coop_cosmology_background_general_variable
+     
+     
+     !!modified gravity functions
      procedure::set_alphaM => coop_cosmology_background_set_alphaM
      procedure::Mpsq => coop_cosmology_background_Mpsq
      procedure::alpha_T => coop_cosmology_background_alpha_T
@@ -410,14 +416,23 @@ contains
     class(coop_cosmology_background)::this
     COOP_REAL H2a4, a
     COOP_INT i
-    if(this%use_page)then
+    select case(trim(this%bg_model))
+    case("page")
        H2a4 = (page_Hofa(this%page_t0, this%page_eta, a)*a**2)**2
        return
-    endif
-    H2a4 =  this%Omega_k_value*a**2
-    do i=1, this%num_species
-       H2a4 = H2a4 + this%species(i)%Omega * this%species(i)%rhoa4_ratio(a)
-    enddo
+    case("full")
+       H2a4 =  this%Omega_k_value*a**2
+       do i=1, this%num_species
+          H2a4 = H2a4 + this%species(i)%Omega * this%species(i)%rhoa4_ratio(a)
+       enddo
+       return
+    case("CPL")
+       H2a4 = (w0wa_Hofa(this%omega_m, this%omega_k_value, this%CPL_w0, this%CPL_wa, a)*a**2)**2
+       return
+    case default
+       write(*,*) trim(this%bg_model)
+       stop "The background model has not been implemented"
+    end select
 #if DO_EFT_DE    
     H2a4 = H2a4 * this%Mpsq0/this%Mpsq(a)
 #endif    
@@ -549,45 +564,48 @@ contains
     COOP_REAL,dimension(n):: dis, a, t
     COOP_REAL  hasq1, hasq2, da, daby2, Hasqmin, Hasqmax, M2
     integer i
-    if(this%need_setup_background .and. .not. this%use_page)then
-       call coop_set_uniform(n, a, amin, amax)
-       this%a_switch = amin
-       this%Omega_r = this%rhoa4(coop_min_scale_factor)/3.d0
-       this%Omega_m = ( this%rhoa4(amin)/3.d0 - this%Omega_r ) / amin
-       this%Omega_r = this%rhoa4(coop_min_scale_factor)/3.d0 - this%Omega_m * coop_min_scale_factor
-       this%Omega_m = ( this%rhoa4(amin)/3.d0 - this%Omega_r ) / amin
-       this%a_eq = this%Omega_r / this%Omega_m
+    select case(trim(this%bg_model))
+    case("full")
+       if(this%need_setup_background)then
+          call coop_set_uniform(n, a, amin, amax)
+          this%a_switch = amin
+          this%Omega_r = this%rhoa4(coop_min_scale_factor)/3.d0
+          this%Omega_m = ( this%rhoa4(amin)/3.d0 - this%Omega_r ) / amin
+          this%Omega_r = this%rhoa4(coop_min_scale_factor)/3.d0 - this%Omega_m * coop_min_scale_factor
+          this%Omega_m = ( this%rhoa4(amin)/3.d0 - this%Omega_r ) / amin
+          this%a_eq = this%Omega_r / this%Omega_m
 #if DO_EFT_DE
-       M2 = this%Mpsq(min(this%a_eq, amin))
-       this%dis_const = 2.d0*this%a_eq/sqrt(this%Omega_r/M2)
-       this%time_const = 4.d0/3.d0*this%a_eq**2/sqrt(this%Omega_r/M2)       
+          M2 = this%Mpsq(min(this%a_eq, amin))
+          this%dis_const = 2.d0*this%a_eq/sqrt(this%Omega_r/M2)
+          this%time_const = 4.d0/3.d0*this%a_eq**2/sqrt(this%Omega_r/M2)       
 #else       
-       this%dis_const = 2.d0*this%a_eq/sqrt(this%Omega_r)
-       this%time_const = 4.d0/3.d0*this%a_eq**2/sqrt(this%Omega_r)       
+          this%dis_const = 2.d0*this%a_eq/sqrt(this%Omega_r)
+          this%time_const = 4.d0/3.d0*this%a_eq**2/sqrt(this%Omega_r)       
 #endif       
 
-       this%dis_switch = this%dis_const * (sqrt(1.d0+a(1)/this%a_eq) - 1.d0)
-       da = (amax-amin)/(n-1.d0)
-       daby2 = da/2.d0
-       dis(1) = this%dis_switch*(6.d0/da)
-       t(1) = this%time_const *(1.d0 -  (1.d0- a(1)/2.d0/this%a_eq)*sqrt(1.d0+a(1)/this%a_eq)) *(6.d0/da)
-       Hasqmin = this%Hasq(amin)
-       Hasqmax = this%Hasq(amax)
-       hasq1 = Hasqmin
-       do i=2, n
-          hasq2 = this%Hasq(a(i))
-          dis(i) = dis(i-1) + (1.d0/Hasq1 + 1.d0/hasq2 + 4.d0/this%hasq(a(i)-daby2))
-          t(i) = t(i-1) + (a(i-1)/Hasq1  + a(i)/hasq2 + 4.d0*(a(i)-daby2)/this%hasq(a(i)-daby2))
-          Hasq1 = hasq2
-       enddo
-       dis = dis * (da/6.d0)
-       t = t * (da/6.d0)
-       call this%fdis%init(n, amin, amax, dis, COOP_INTERPOLATE_QUADRATIC, check_boundary = .false., slopeleft = 1.d0/Hasqmin, sloperight = 1.d0/Hasqmax, name = "comoving distance")
-       call this%faoftau%init_NonUniform(dis, a, name="a(tau)")
-       call this%faoftau%set_boundary(fleft = amin, fright=amax, slopeleft = Hasqmin, sloperight = Hasqmax)
-       call this%ftime%init(n, amin, amax, t, COOP_INTERPOLATE_QUADRATIC, check_boundary = .false., name = "t(a)")
-       this%need_setup_background = .false. 
-    endif
+          this%dis_switch = this%dis_const * (sqrt(1.d0+a(1)/this%a_eq) - 1.d0)
+          da = (amax-amin)/(n-1.d0)
+          daby2 = da/2.d0
+          dis(1) = this%dis_switch*(6.d0/da)
+          t(1) = this%time_const *(1.d0 -  (1.d0- a(1)/2.d0/this%a_eq)*sqrt(1.d0+a(1)/this%a_eq)) *(6.d0/da)
+          Hasqmin = this%Hasq(amin)
+          Hasqmax = this%Hasq(amax)
+          hasq1 = Hasqmin
+          do i=2, n
+             hasq2 = this%Hasq(a(i))
+             dis(i) = dis(i-1) + (1.d0/Hasq1 + 1.d0/hasq2 + 4.d0/this%hasq(a(i)-daby2))
+             t(i) = t(i-1) + (a(i-1)/Hasq1  + a(i)/hasq2 + 4.d0*(a(i)-daby2)/this%hasq(a(i)-daby2))
+             Hasq1 = hasq2
+          enddo
+          dis = dis * (da/6.d0)
+          t = t * (da/6.d0)
+          call this%fdis%init(n, amin, amax, dis, COOP_INTERPOLATE_QUADRATIC, check_boundary = .false., slopeleft = 1.d0/Hasqmin, sloperight = 1.d0/Hasqmax, name = "comoving distance")
+          call this%faoftau%init_NonUniform(dis, a, name="a(tau)")
+          call this%faoftau%set_boundary(fleft = amin, fright=amax, slopeleft = Hasqmin, sloperight = Hasqmax)
+          call this%ftime%init(n, amin, amax, t, COOP_INTERPOLATE_QUADRATIC, check_boundary = .false., name = "t(a)")
+          this%need_setup_background = .false. 
+       endif
+    end select
   end subroutine coop_cosmology_background_setup_background
 
   function coop_cosmology_background_conformal_time(this, a) result(tau)
@@ -617,81 +635,105 @@ contains
   function coop_cosmology_background_time(this, a) result(t)
     class(coop_cosmology_background)::this
     COOP_REAL a, t, eps
-    if(this%use_page)then
+    select case(trim(this%bg_model))
+    case("page")
        t = page_tofa(this%page_t0, this%page_eta, a)
        return
-    endif
-    if(this%need_setup_background) call this%setup_background()
-    if(a .gt. this%a_switch)then
-       t = this%ftime%eval(a)
-    else
-       eps = a/this%a_eq
-       if(eps .lt. 1.d-3)then
-          t = this%time_const * (3.d0/8.d0 - eps/8.d0)*eps**2
+    case("full")
+       if(this%need_setup_background) call this%setup_background()
+       if(a .gt. this%a_switch)then
+          t = this%ftime%eval(a)
        else
-          t = this%time_const * ( 1.d0 - (1.d0 - eps/2.d0)*sqrt(1.d0+eps))
+          eps = a/this%a_eq
+          if(eps .lt. 1.d-3)then
+             t = this%time_const * (3.d0/8.d0 - eps/8.d0)*eps**2
+          else
+             t = this%time_const * ( 1.d0 - (1.d0 - eps/2.d0)*sqrt(1.d0+eps))
+          endif
        endif
-    endif
+    case("CPL")
+       t = w0wa_tofa(this%omega_m, this%omega_k_value, this%CPL_w0, this%CPL_wa, a)
+       return
+    case default
+       write(*,*) trim(this%bg_model)
+       stop "The background model has not been implemented"       
+    end select
   end function coop_cosmology_background_time
 
   function coop_cosmology_background_aoft(this, t) result(a)
     class(coop_cosmology_background)::this
     COOP_REAL a, t, amin, amax, amid, tmin, tmax, tmid
-    if(this%use_page)then
+    select case(trim(this%bg_model))
+    case("page")
        a = page_aoft(this%page_t0, this%page_eta, t)
        return
-    endif
-    amin = 0.d0
-    amax = 1.d0
-    tmin = 0.d0
-    tmax = this%time(amax)
-    if(t .ge. tmax)then
-       a = 1
-       return
-    endif
-    do while(amin/amax .lt. 0.99999d0 )
-       amid = (amax+amin)/2.d0
-       tmid = this%time(amid)
-       if(tmid .gt. t)then
-          amax = amid
-          tmax = tmid
-       else
-          amin = amid
-          tmin = tmid
+    case("full")
+       amin = 0.d0
+       amax = 1.d0
+       tmin = 0.d0
+       tmax = this%time(amax)
+       if(t .ge. tmax)then
+          a = 1
+          return
        endif
-    enddo
-    !!do linear interpolation
-    a = ((t - tmin)*amax+(tmax-t)*amin)/(tmax - tmin)
+       do while(amin/amax .lt. 0.99999d0 )
+          amid = (amax+amin)/2.d0
+          tmid = this%time(amid)
+          if(tmid .gt. t)then
+             amax = amid
+             tmax = tmid
+          else
+             amin = amid
+             tmin = tmid
+          endif
+       enddo
+       !!do linear interpolation
+       a = ((t - tmin)*amax+(tmax-t)*amin)/(tmax - tmin)
+    case("CPL")
+       a = w0wa_aoft(this%omega_m, this%omega_k_value, this%CPL_w0, this%CPL_wa, t)
+       return       
+    end select
   end function coop_cosmology_background_aoft
 
   function coop_cosmology_background_AgeGyr(this) result(AgeGyr)
     class(coop_cosmology_background)::this
     COOP_REAL AgeGyr
-    if(this%use_page)then
+    select case(trim(this%bg_model))
+    case("page")
        AgeGyr = this%page_t0 / this%H0Gyr()
-       return
-    endif
-    AgeGyr = this%time(coop_scale_factor_today)/this%H0Gyr()
+    case default
+       AgeGyr = this%time(coop_scale_factor_today)/this%H0Gyr()
+    end select
   end function coop_cosmology_background_AgeGyr
 
   function coop_cosmology_background_comoving_distance(this, a1, a2) result(chi)
     class(coop_cosmology_background)::this
     COOP_REAL a1, chi
     COOP_REAL,optional::a2
-    if(this%use_page)then
+    select case(trim(this%bg_model))
+    case("page")
        if(present(a2))then
           chi = abs(page_chiofa(this%page_t0, this%page_eta, a1) - page_chiofa(this%page_t0, this%page_eta, a2) )
        else
           chi = page_chiofa(this%page_t0, this%page_eta, a1) 
        endif
-       return
-    endif
-    if(this%need_setup_background) call this%setup_background()
-    if(present(a2))then
-       chi = abs(this%fdis%eval(a2)  - this%fdis%eval(a1))
-    else
-       chi = abs(this%fdis%eval(coop_scale_factor_today)  - this%fdis%eval(a1))
-    endif
+    case("full")
+       if(this%need_setup_background) call this%setup_background()
+       if(present(a2))then
+          chi = abs(this%fdis%eval(a2)  - this%fdis%eval(a1))
+       else
+          chi = abs(this%fdis%eval(coop_scale_factor_today)  - this%fdis%eval(a1))
+       endif
+    case("CPL")
+       if(present(a2))then
+          chi = abs(w0wa_chiofa(this%omega_m, this%omega_k_value, this%CPL_w0, this%CPL_wa, a1) - w0wa_chiofa(this%omega_m, this%omega_k_value, this%CPL_w0, this%CPL_wa, a2))
+       else
+          chi = w0wa_chiofa(this%omega_m, this%omega_k_value, this%CPL_w0, this%CPL_wa, a1)
+       endif       
+    case default
+       write(*,*) trim(this%bg_model)
+       stop "The background model has not been implemented"
+    end select
   end function coop_cosmology_background_comoving_distance
 
   !!r, chi must be in unit of H_0^{-1}
@@ -854,13 +896,16 @@ contains
   end function coop_cosmology_background_dL_of_z
 
 
-  function coop_cosmology_background_comoving_dA_of_z(this, z) result(dA)
+  function coop_cosmology_background_comoving_dA_of_z(this, z, z2) result(dA)
     class(coop_cosmology_background)::this
     COOP_REAL::z, dA
-    dA = this%comoving_angular_diameter_distance(1.d0/(1.d0+z))
+    COOP_REAL,optional::z2
+    if(present(z2))then
+       dA = this%comoving_angular_diameter_distance(1.d0/(1.d0+z), 1.d0/(1.d0+z2))
+    else
+       dA = this%comoving_angular_diameter_distance(1.d0/(1.d0+z))       
+    endif
   end function coop_cosmology_background_comoving_dA_of_z
-
-
 
   function coop_cosmology_background_Mpsq(this,a) result(Mpsq)
     class(coop_cosmology_background)::this

@@ -159,7 +159,7 @@
 !!CA	recfast_wGauss1 is the width of the 1st Gaussian
 !!CA	recfast_wGauss2 is the width of the 2nd Gaussian
 !!CA	recfast_tol: recfast_tolerance for the integrator
-!!CA	cw(24),w(3,9): work space for DVERK
+!!CA	cw(100),w(3,9): work space for DVERK
 !!CA	Ndim: number of d.e.'s to solve (integer)
 !!CA	Nz: number of output redshitf (integer)
 !!CA	I: loop index (integer)
@@ -245,7 +245,7 @@
     !!arguments
     COOP_REAL zend, zstart
     COOP_REAL mu_H, fHe, nnow, HO, fu
-    COOP_REAL y(3), rhs, cw(24), w(3, 9), yp(3)
+    COOP_REAL y(3), rhs, cw(100), w(3, 9), yp(3)
 
     reset_space = .true.
     ndim = 3

@@ -100,6 +100,7 @@ module coop_firstorder_mod
      logical::klms_done = .false.
      logical::has_tensor = .false.
    contains
+     procedure::general_variable => coop_cosmology_firstorder_general_variable
      !!standard way to initialize the cosmology (from a coop_real_table object)
      procedure::set_up =>  coop_cosmology_firstorder_set_up
      procedure::set_primordial_power => coop_cosmology_firstorder_set_primordial_power
@@ -208,6 +209,54 @@ contains
 #else  
 #include "firstorder_ic.h"
 #endif
+
+
+  function coop_cosmology_firstorder_general_variable(this, name, z, z_source, rd) result(v)
+    class(coop_cosmology_firstorder)::this
+    COOP_UNKNOWN_STRING::name
+    COOP_REAL::z, z_source, rd
+    COOP_REAL::v
+    select case(trim(name))
+    case("DDT") !! time-delay distance in unit of Mpc
+       v = this%comoving_dA_of_z(z)*this%comoving_dA_of_z(z_source)/this%comoving_dA_of_z(z, z_source)/this%H0Mpc()
+    case("DVRD") !! D_v/r_d
+       v = this%DV_of_z(z)/this%H0Mpc()/rd
+    case("RDDV") !! D_v/r_d
+       v = rd/this%DV_of_z(z)*this%H0Mpc()                    
+    case("DCRD", "DMRD") !! d_M/r_d
+       v = this%comoving_dA_of_z(z)/this%H0Mpc()/rd
+    case("DARD") !! d_A / r_d
+       v = this%DA_of_z(z)/this%H0Mpc()/rd             
+    case("DLRD") !! d_L / r_d
+       v = this%dL_of_z(z)/this%H0Mpc() /rd            
+    case("HRD") !! H(z)*r_d 
+       v = this%H_of_z(z) * this%H0Mpc() * rd 
+    case("DHRD") !! 1/(H(z)*r_d)
+       v = 1.d0/(this%H_of_z(z) * this%H0Mpc() * rd)
+    case("DV") !! D_V in unit of Mpc
+       v = this%DV_of_z(z)/this%H0Mpc()             
+    case("DC", "DM") !! comoving angular diameter distance in unit of Mpc
+       v = this%comoving_dA_of_z(z)/this%H0Mpc()             
+    case("DA") !! angular diameter distance in unit of Mpc
+       v = this%DA_of_z(z)/this%H0Mpc()             
+    case("DL") !! luminosity distance in unit of Mpc
+       v = this%dL_of_z(z)/this%H0Mpc()             
+    case("HZ") !! H(z) in unit of km/s/Mpc
+       v = this%H_of_z(z) * this%h_value * 100.d0
+    case("DISTLSS") !!d_lss in unit of Mpc
+       v = this%distlss / this%H0Mpc()
+    case("THETA") !!cosmomc theta
+       v = this%cosmomc_theta()
+    case("H0") !! H_0 in km/s/Mpc
+       v = this%h_value * 100.d0
+    case("AGE") !!Age in Gyr
+       v = this%AgeGyr()
+    case default
+       write(*,*) "Warning: unknown name in general_variable:"//trim(name)
+       v = coop_logzero          
+    end select
+  end function coop_cosmology_firstorder_general_variable
+
   
   subroutine coop_cosmology_firstorder_set_Planck_Bestfit(this, Omega_nu)
     class(coop_cosmology_firstorder)::this
@@ -396,7 +445,7 @@ contains
     COOP_INT, optional::output_itau
     COOP_INT, optional::output
     type(coop_list_string), optional::names
-    COOP_REAL c(24), lastHpi
+    COOP_REAL c(100), lastHpi
     COOP_INT ind, i
     COOP_REAL tau_ini, lna, mnu_deltarho, mnu_deltav
     tau_ini = min(coop_initial_condition_epsilon/source%k(ik), this%conformal_time(this%a_eq*coop_initial_condition_epsilon), source%tau(1)*0.999d0)
@@ -1670,7 +1719,7 @@ contains
     COOP_INT,optional::level
     COOP_INT::init_level
   !!----------------------------------------
-    COOP_REAL:: tau_re, h, H0, theta, omega_b, omega_c, w0, wa, tcmb, omegam
+    COOP_REAL:: tau_re, h, H0, theta, omega_b, omega_c, tcmb
 
 #if DO_EFT_DE  
     COOP_REAL::alpha_M0 = 0.d0
@@ -1702,26 +1751,21 @@ contains
 
     COOP_REAL::eps_inf, eps_s, zeta_s, beta_s, rlmax, sigma_8_wanted
 
-
+    call paramtable%lookup( "omegak", this%omega_k_value, 0.d0)
+    call paramtable%lookup( "h", this%h_value, 0.d0)
     call paramtable%lookup("page_t0", this%page_t0, -1.d0)
     call paramtable%lookup("page_eta", this%page_eta, -100.d0)
-    this%use_page = (this%page_t0 .ge. 0.d0 .and. this%page_eta .gt. -99.d0)
-    if(this%use_page)then
-       call paramtable%lookup("omegam", omegam, 0.d0)
-       call paramtable%lookup("w", w0, -1.d0)              
-       call paramtable%lookup( "omegak", this%omega_k_value, 0.d0)
-       call paramtable%lookup( "h", this%h_value, 0.d0)
-       if(omegam .gt. 0.d0 .and. this%page_t0 .le. 0.d0)then  !!compute t0, eta from LCDM approximation
-          if(omegam + this%omega_k_value .gt. 1.d0)then
-             this%page_t0 = 0.d0
-             this%page_eta = 0.d0
-             return
-          endif
-          this%page_t0 = wcdm_tofa(omegam, this%omega_k_value, w0, 1.d0)
-          this%page_eta =1.d0 -  1.5d0 * (omegam/2 + (1.d0+3.d0*w0)/2.d0 * (1.-omegam-this%omega_k_value) + 1.d0) * this%page_t0**2
- !         this%page_eta = 1.d0- 1.5d0*(omegam*1.5+this%omega_k_value)*this%page_t0**2
+    if(this%page_t0 .gt. 0.d0 .and. this%page_eta .gt. -99.d0 .and. this%h_value .gt. 0.d0)then
+       this%bg_model = "page"
+       return
+    else
+       call paramtable%lookup("omegam", this%omega_m, 0.d0)
+       call paramtable%lookup("w0", this%CPL_w0, -1.d0)
+       call paramtable%lookup("wa", this%CPL_wa, 0.d0)                     
+       if(this%omega_m .gt. 0.d0 .and. this%h_value .gt. 0.d0)then
+          this%bg_model = "CPL"
+          return                 
        endif
-       return       
     endif
     !!0 background
     !!1 x_e
@@ -1745,13 +1789,13 @@ contains
     call paramtable%lookup( "ombh2", this%ombm2h2, 0.d0)
     if(this%ombm2h2.eq.0.d0) call paramtable%lookup( "omegabh2", this%ombm2h2)
 
-    call paramtable%lookup("omegam", omegam, 0.d0)
-    if(omegam .gt. 0.d0)then
+    call paramtable%lookup("omegam", this%omega_m, 0.d0)
+    if(this%omega_m .gt. 0.d0)then
        call paramtable%lookup( "H0", H0, 0.d0)
        h = H0/100.d0
        if(h.eq.0.d0) call paramtable%lookup( "h", h, 0.d0)
        if(h.eq.0.d0) stop "Error: if you want to initialize cosmology with given omega_m, you need to specify H0 or h, too."
-       this%omcm2h2 = omegam * h**2 - this%ombm2h2
+       this%omcm2h2 = this%omega_m * h**2 - this%ombm2h2
     else
        call paramtable%lookup( "omch2", this%omcm2h2, 0.d0)
        if(this%omcm2h2.eq.0.d0) call paramtable%lookup( "omegach2", this%omcm2h2)       
@@ -1768,10 +1812,10 @@ contains
 
     call paramtable%lookup( "tau", tau_re, 0.05d0)    
 
-    call paramtable%lookup( "de_w", w0, -1000.d0)
-    if(w0 .gt. -999.d0)then
-       call paramtable%lookup( "de_wa",wa, 0.d0)  
-       call fwp1%init_polynomial( (/ 1.d0+w0+wa, -wa /) )
+    call paramtable%lookup( "de_w", this%CPL_w0, -1000.d0)
+    if(this%CPL_w0 .gt. -999.d0)then
+       call paramtable%lookup( "de_wa",this%CPL_wa, 0.d0)  
+       call fwp1%init_polynomial( (/ 1.d0+this%CPL_w0+this%CPL_wa, -this%CPL_wa /) )
        w_predefined = .true.
     else
        call paramtable%lookup( "de_epss", eps_s, -1000.d0)
@@ -1781,8 +1825,8 @@ contains
           call paramtable%lookup( "de_betas",beta_s, 6.d0)
           w_predefined = .false.
        else
-          w0 = -1.d0
-          wa = 0.d0
+          this%CPL_w0 = -1.d0
+          this%CPL_wa = 0.d0
           call fwp1%init_polynomial( (/ 0.d0 /) )
           w_predefined = .true.          
        endif
@@ -1798,7 +1842,7 @@ contains
        call paramtable%lookup( "de_r_M",  r_M, 0.d0)
        call paramtable%lookup( "de_r_T",  r_T, 0.d0)
        call paramtable%lookup( "de_alpha0_max", coop_de_alpha0_max, 1.d0)
-       if(.not. w_predefined .or. wa .ne. 0.d0) stop "Error: Incompatible settings for de_w and de_cs2. For EFT DE with fixed c_s^2, w is assumed to be a constant, too."
+       if(.not. w_predefined .or. this%CPL_wa .ne. 0.d0) stop "Error: Incompatible settings for de_w and de_cs2. For EFT DE with fixed c_s^2, w is assumed to be a constant, too."
        alpha_predefined = .false.
     else
        call paramtable%lookup("de_alpha_power", alpha_power, -1000.d0)
@@ -1975,9 +2019,9 @@ contains
 #if DO_EFT_DE      
       if(alpha_predefined)then
 #endif        
-         if(omegam .gt. 0.d0)then
+         if(this%omega_m .gt. 0.d0)then
             Omega_b = this%ombm2h2/this%Mpsq0/hubble**2
-            omega_c = omegam - omega_b
+            omega_c = this%omega_m - omega_b
             this%omcm2h2 = omega_c * hubble**2*this%Mpsq0
          else
             Omega_b = this%ombm2h2/this%Mpsq0/hubble**2
@@ -1988,12 +2032,12 @@ contains
          endif
 #if DO_EFT_DE               
       else
-         if(omegam .gt. 0.d0)then
-            call coop_de_construct_alpha_from_cs2(omegam, w0, de_cs2, r_B, r_H, r_M, r_T, alphaB, alphaH, alphaK, alphaM, alphaT, success)
+         if(this%omega_m .gt. 0.d0)then
+            call coop_de_construct_alpha_from_cs2(this%omega_m, this%CPL_w0, de_cs2, r_B, r_H, r_M, r_T, alphaB, alphaH, alphaK, alphaM, alphaT, success)
             if(.not. success)return
             call this%set_alpham(alphaM)
             omega_b = this%ombm2h2/this%Mpsq0/hubble**2
-            omega_c = omegam - omega_b
+            omega_c = this%omega_m - omega_b
             this%omcm2h2 = omega_c*this%Mpsq0 * hubble**2
          else
             Omega_b = this%ombm2h2/hubble**2
@@ -2002,7 +2046,7 @@ contains
             iloop = 0
             do while(abs(omega_b + omega_c - omlast ) .gt. 3.d-5)
                omlast = omega_b + omega_c            
-               call coop_de_construct_alpha_from_cs2(omlast, w0, de_cs2, r_B, r_H, r_M, r_T, alphaB, alphaH, alphaK, alphaM, alphaT, success)
+               call coop_de_construct_alpha_from_cs2(omlast, this%CPL_w0, de_cs2, r_B, r_H, r_M, r_T, alphaB, alphaH, alphaK, alphaM, alphaT, success)
                if(.not. success)return
                call this%set_alpham(alphaM)
                Omega_b = this%ombm2h2/this%Mpsq0/hubble**2
