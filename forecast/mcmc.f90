@@ -21,7 +21,7 @@ module coop_mcmc_mod
 #define MCMC_WA    mcmc%fullparams(MCMC_INDEX_WA)
 #define MCMC_OMEGA_LAMBDA  (1.d0 - MCMC_OMEGA_M - MCMC_OMEGA_K)  
 
-  COOP_INT, parameter::coop_n_derived_with_cosmology = 4
+  COOP_INT, parameter::coop_n_derived_with_cosmology = 5
   COOP_INT, parameter::coop_n_derived_without_cosmology = 1
   
   type coop_DataSet
@@ -296,12 +296,13 @@ contains
           derived(2) = this%cosmology%page_t0/this%cosmology%H0Gyr()
           derived(3) = 2.d0/3.d0 *(1.d0-this%cosmology%page_eta)/this%cosmology%page_t0**2 - 1.d0  !!q_0
           derived(4) = 4.d0/3.d0/this%cosmology%page_t0**3 - 3.d0*derived(3)-2.d0
-          
+          derived(5) = this%cosmology%r_drag
           
        else
           derived(2) = this%cosmology%Omega_m
           derived(3) = 1.d0 - this%cosmology%Omega_m
           derived(4) = this%cosmology%sigma_8
+          derived(5) = this%cosmology%r_drag
        endif
     else
        if(MCMC_INDEX_OMEGA_M .ne. 0 .and. MCMC_INDEX_OMEGA_K .ne. 0)then
@@ -1466,11 +1467,13 @@ contains
              if(this%index_of("page_t0") .ne. 0 .and. this%index_of("page_eta") .ne. 0)then
                 write(fp%unit, "(A, A)") "Age  ", "t_0"                
                 write(fp%unit, "(A, A)") "q0  ", "q_0"
-                write(fp%unit, "(A, A)") "j0  ", "j_0"                
+                write(fp%unit, "(A, A)") "j0  ", "j_0"
+                write(fp%unit, "(A, A)") "r_d ", "r_d"                                
              else
                 write(fp%unit, "(A, A)") "omegam ", "\Omega_m"                
                 write(fp%unit, "(A, A)") "omegal ", "\Omega_\Lambda"
                 write(fp%unit, "(A, A)") "sigma8 ", "\sigma_8"
+                write(fp%unit, "(A, A)") "r_d ", "r_d"                                                
              endif
           else
              write(fp%unit, "(A, A)") "omegal ", "\Omega_\Lambda  "
