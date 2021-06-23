@@ -894,6 +894,23 @@ contains
     call coop_svd_least_square_all(n, m, nd, tpls, y, c)
   end subroutine coop_fit_templates
 
+  !!fit y = c(1) + c(2) x + ... + c(m-1) x**(m-1)
+  subroutine coop_polyfit(n, x, y, m,  c)
+    COOP_INT,intent(in):: n, m
+    COOP_REAL,intent(in)::x(n), y(n)
+    COOP_REAL,intent(out)::c(m)
+    COOP_REAL fx(n, m )
+    COOP_INT i
+    if(m.gt.n)then
+       call coop_return_error("coop_polyfit", "Not enough data.", "stop")
+    endif
+    Fx(:, 1) = 1.d0
+    do i=2,m
+       Fx(:, i) = x**(i-1)
+    enddo
+    call coop_fit_template(n, m, y, fx, c)
+  end subroutine coop_polyfit
+  
 
   subroutine coop_chebfit(n, x,y, m, a,b,c)
     COOP_INT,intent(in):: n, m

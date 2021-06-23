@@ -340,7 +340,7 @@
     call Tbofa%init(n = nz, xmin=alist(1), xmax = alist(nz), f = Tblist, xlog = .true., ylog = .true., fleft = Tblist(1), fright = Tblist(nz), slopeleft= -1.d0, sloperight = 0.d0, check_boundary = .false., method = COOP_INTERPOLATE_QUADRATIC)
     do i=1, nz
        cs2blist(i) =max(coop_SI_barssc0*(1.d0-0.75d0*bg%Yhe()+(1.d0-bg%YHe())*xelist(i))  &
-            *tblist(i)*(1.d0 - Tbofa%derivative_bare(log(alist(i)))/3.d0), 1.d-20)
+			*tblist(i)*(1.d0 - Tbofa%derivative_bare(log(alist(i)))/3.d0), 1.d-20)
     enddo
 
     call bg%species(bg%index_baryon)%fcs2%init(n = nz, xmin=alist(1), xmax = alist(nz), f = cs2blist, xlog = .true., ylog = .true., fleft = cs2blist(1), fright = cs2blist(nz), slopeleft= -1.d0, sloperight = 0.d0, check_boundary = .false., method = COOP_INTERPOLATE_LINEAR)

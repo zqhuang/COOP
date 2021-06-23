@@ -244,7 +244,6 @@ contains
     chi = page_chioft(t0, eta, t)
   end function page_chiofa
 
-  
   function page_dlofa(t0, eta, omegak, a) result(dl)
     real*8::t0,eta, omegak,a, dl
     dl = curved_rofchi(page_chiofa(t0,eta,a), omegak)/a       

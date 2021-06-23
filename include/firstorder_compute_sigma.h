@@ -14,7 +14,7 @@
        pk(ik) = pk(ik)*FT_tophat(k(ik)*R)**2
     enddo
     !$omp end parallel do
-    sigma = sqrt((sum(pk)*dlnk + (1.d0/3.d0-dlnk/2.d0)*pk(1)))*3.d0
+    sigma = sqrt((sum(pk)*dlnk + (1.d0/3.d0-dlnk/2.d0)*pk(1))*3.d0)
   contains
 
     function FT_tophat(kR) 
