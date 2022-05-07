@@ -1,0 +1,1 @@
+./Stack -map inpbar/sinp001.fits -peaks peaks/sinp001_cold.dat -field T -out stacked/assumed_constrained_sim001_cold_NSalign_n0016_440a -mask lowl/commander_dx11d2_mask_temp_n0016_likelihood_v1.fits -radius 180. -res 100 -colortable Planck -randrot F -min -20. -max 20.

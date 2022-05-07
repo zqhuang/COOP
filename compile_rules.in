@@ -1,0 +1,15 @@
+
+%.o:%.c
+	$(CC) $(CFLAGS) $(INCLUDE) -c $< -o $@ $(LINK)
+
+%.o:%.cpp
+	$(CPPC) $(CPPFLAGS) $(INCLUDE) -c $< -o $@ $(LINK)
+
+%.o:%.f90
+	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@ $(LINK)
+
+%.o:%.f08
+	$(FC) $(F08FLAGS) $(INCLUDE) -c $< -o $@ $(LINK)
+
+%.o:%.for
+	$(FC) $(FFLAGS) $(INCLUDE) -c $< -o $@ $(LINK)

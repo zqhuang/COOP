@@ -1,0 +1,221 @@
+PLATFORM = LINUX
+#PLATFORM = Windows
+#PLATFORM = LINUX
+
+ifeq ($(PLATFORM),MacOS)
+GFORTRAN_NAME = gfortran-mp-4.8
+else
+GFORTRAN_NAME = gfortran
+endif
+
+GCC_NAME=gcc
+IFORT_NAME=ifort
+ICC_NAME=icc
+
+######## compiler options  #######
+### YES or NO
+#### distributed memory (you should have a compiler alias mpif77 or mpif90 installed); This is used to generate multiple chains when doing MCMC.
+USE_MPI = NO
+MPI_COMPILER_ALIAS = mpif90
+#### shared memory; 
+USE_OPENMP = YES
+##### compilers
+#free compiler $(GCC_NAME) and $(GFORTRAN_NAME); you also need preprocessor that comes with $(GCC_NAME)
+FORTRAN_COMPILER = $(GFORTRAN_NAME)
+C_COMPILER = $(GCC_NAME)
+#if you have intel compilers
+#FORTRAN_COMPILER = $(IFORT_NAME)
+#C_COMPILER = $(ICC_NAME)
+########################librarys #############################################
+########not all libraries are required  (depending on what you want to do)####
+########set to null string for librarys that are not installed ###############
+##############################################################################
+##set to EFT for Effective Field Theory Dark Energy models
+DARK_ENERGY_MODEL = LAMBDA
+#DARK_ENERGY_MODEL = EFT
+#DARK_ENERGY_MODEL = COUPLED_DE
+
+##LAPACK lib, mandatory if you use any data (WMAP, ACT, SPT, SNLS3yr)
+LAPACK = $(HOME)/work/scilibs/lapack
+
+##FFTW lib (v3.2 up)
+FFTW3 =
+#$(HOME)/includes/fftw3
+
+## gsl lib 
+GSL =
+#$(HOME)/mathlib/gsl
+
+##CLIK path
+CLIKPATH =
+#$(HOME)/work/scilibs/COOP/forecast/plc-1.0/
+
+##cfitsio lib, mandatory if you do mapio
+CFITSIO = $(HOME)/work/scilibs/cfitsio
+
+##Healpix lib, mandatory if you do mapio
+HEALPIX = $(HOME)/work/scilibs/Healpix
+
+####################### the rest ##########################################
+#should automatically work if you are using $(IFORT_NAME) or $(GFORTRAN_NAME); 
+#if not, you can change the flags by hand 
+###########################################################################
+##$(GFORTRAN_NAME) flags
+ifeq ($(FORTRAN_COMPILER), $(GFORTRAN_NAME))
+## add  -Wall -fbounds-check if you want to debug
+FFLAGS	= -cpp --free-line-length-none -fmax-identifier-length=63 -O3 -fimplicit-none 
+ifeq ($(USE_OPENMP), YES)
+FFLAGS += -fopenmp
+endif
+endif
+
+#$(IFORT_NAME) flags
+ifeq ($(FORTRAN_COMPILER), $(IFORT_NAME))
+FFLAGS = -fpp -O3 -assume byterecl
+ifeq ($(USE_OPENMP), YES)
+FFLAGS += -openmp
+endif
+endif
+
+#$(GCC_NAME) flags
+ifeq ($(C_COMPILER), $(GCC_NAME))
+CFLAGS = -cpp -O3 
+ifeq ($(USE_OPENMP), YES)
+CFLAGS += -fopenmp
+endif
+endif
+
+#$(ICC_NAME) flags
+ifeq ($(C_COMPILER), $(ICC_NAME))
+CFLAGS = -O3
+ifeq ($(USE_OPENMP), YES)
+CFLAGS += -openmp
+endif
+endif
+
+#define your FLAGS here if you are using other compilers
+#FFLAGS = 
+#CFLAGS =
+
+LINK = 
+INCLUDE = -I. -I../include/
+
+
+CC = $(C_COMPILER)
+
+ifeq ($(USE_MPI), YES)
+FC = $(MPI_COMPILER_ALIAS)
+FFLAGS += -DMPI
+CFLAGS += -DMPI
+INCLUDE += -I/usr/local/include
+else
+FC = $(FORTRAN_COMPILER)
+endif
+
+
+
+####################do not need to change anything below ################
+
+ifneq ($(COOPLIB),)
+LINK += -L$(COOPLIB) -lcoop
+INCLUDE += -I$(COOPLIB)
+endif
+
+ifneq ($(SECONDORDER),)
+LINK += -L$(SECONDORDER) -lcoopsecondorder
+INCLUDE += -I$(SECONDORDER)
+endif
+
+ifneq ($(FORECAST),)
+LINK += -L$(FORECAST) -lcoopmcmc
+INCLUDE += -I$(FORECAST)
+endif
+
+ifneq ($(NONLINEAR),)
+LINK += -L$(NONLINEAR) -lcoopnonlinear
+INCLUDE += -I$(NONLINEAR)
+endif
+
+ifneq ($(FIRSTORDER),)
+LINK += -L$(FIRSTORDER) -lcoopfirstorder
+INCLUDE += -I$(FIRSTORDER)
+endif
+
+
+ifneq ($(BACKGROUND),)
+LINK += -L$(BACKGROUND) -lcoopbackground
+INCLUDE += -I$(BACKGROUND)
+endif
+
+
+ifneq ($(UTILS),)
+LINK += -L$(UTILS) -lcooputils
+INCLUDE += -I$(UTILS)
+endif
+
+ifneq ($(TYPEDEF),)
+LINK += -L$(TYPEDEF) -lcooptypedef
+INCLUDE += -I$(TYPEDEF)
+endif
+
+### set Healpix flags here
+ifneq ($(HEALPIX),)
+LINK += -L$(HEALPIX)/lib -lhealpix 
+FFLAGS += -DHAS_HEALPIX=1
+CFLAGS += -DHAS_HEALPIX=1
+INCLUDE += -I$(HEALPIX)/include
+endif
+
+
+###set cfitsio flags here
+ifneq ($(CFITSIO),)
+LINK += -L$(CFITSIO)/lib -lcfitsio
+FFLAGS += -DHAS_CFITSIO=1
+CFLAGS += -DHAS_CFITSIO=1
+INCLUDE += -I$(CFITSIO)/include
+endif
+
+###set fftw flags here
+ifneq ($(FFTW3),)
+LINK += -L$(FFTW3)/lib -lfftw3 
+FFLAGS += -DHAS_FFTW=1
+CFLAGS += -DHAS_FFTW=1
+INCLUDE += -I$(FFTW3)/include 
+endif
+
+###set gsl flags here
+ifneq ($(GSL),)
+LINK += -L$(GSL)/lib -lgsl -lgslcblas 
+FFLAGS += -DHAS_GSL=1
+CFLAGS += -DHAS_GSL=1
+INCLUDE +=  -I$(GSL)/include/gsl -I$(GSL)/include
+endif
+
+###set lapack flags here
+ifneq ($(LAPACK),)
+ifeq ($(PLATFORM),MacOS)
+LINK += -framework Accelerate
+else
+LINK += -L$(LAPACK) -llapack -lblas
+INCLUDE += -I$(LAPACK)
+endif
+FFLAGS += -DHAS_LAPACK=1
+CFLAGS += -DHAS_LAPACK=1
+endif
+
+### set clik flags
+ifneq ($(CLIKPATH),)
+LINK += -L$(CLIKPATH)/lib -lclik_f90
+INCLUDE += -I$(CLIKPATH)/include 
+FFLAGS += -DHAS_CLIK=1
+endif
+
+##effective field theory dark energy
+ifeq ($(DARK_ENERGY_MODEL),EFT)
+FFLAGS += -DDO_EFT_DE=1
+endif
+
+##coupled DE
+ifeq ($(DARK_ENERGY_MODEL),COUPLED_DE)
+FFLAGS += -DDO_COUPLED_DE=1
+endif
