@@ -94,13 +94,17 @@ contains
 
 
   function caint(s)
-    COOP_REAL::s, caint, err, tmp
+    COOP_REAL,parameter::a=0.5d0
+    COOP_REAL::s, caint, err2, tmp1, err2, tmp2, as
     if(s .lt. 1.d-2)then
-       tmp = 1.d0/6.d0+s*(1.d0/24.d0+s*(1.d0/120.d0+s*(1.d0/720.d0+s/5040.d0)))
-       err = 0.5d0+tmp*s
-       caint = (err/2.d0-tmp)/(1.d0+err*s)
+       tmp1 = 1.d0/6.d0+s*(1.d0/24.d0+s*(1.d0/120.d0+s*(1.d0/720.d0+s/5040.d0)))
+       err1 = 0.5d0+tmp*s
+       as = a*s
+       tmp2 = (1.d0/6.d0+as*(1.d0/24.d0+as*(1.d0/120.d0+as*(1.d0/720.d0+as/5040.d0))))*a**2
+       err2 = 0.5d0*a + tmp2*s
+       caint = ((1.d0+a)/2.d0*(err1 + err2*(1.d0+err1*s))- tmp1 - tmp2 - err1*err2)/(1.d0+err1*s)/(1.d0+err2*s)
     else
-       caint = (-1.d0/s + (1.d0+a)/2.d0)/s + a/(exp(s)-1.d0)
+       caint = (-1.d0/s + (1.d0+a)/2.d0)/s + a/(exp(s)-1.d0)/(exp(a*s)-1.d0)
     endif
   end function caint
   
