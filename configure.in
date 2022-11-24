@@ -1,7 +1,7 @@
 ##########minimal settings for LINUX platform ########################
-PLATFORM = MacOS
+#PLATFORM = MacOS
 #PLATFORM = Windows
-#PLATFORM = LINUX
+PLATFORM = LINUX
 
 #############CHANGE these to the gfortran and gcc compilers you are using. ###########
 #For example, if you are using /mypath/gfortran-4.8 and /mypath/gcc/gcc-4.8.
@@ -49,8 +49,8 @@ DARK_ENERGY_MODEL = LAMBDA
 
 
 ##LAPACK lib; for MacOS set LAPACK = APPLE
-LAPACK = APPLE
-#LAPACK = 
+#LAPACK = APPLE
+LAPACK = 
 
 ##FFTW lib (v3.2 up)
 FFTW3 =

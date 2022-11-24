@@ -5,7 +5,7 @@ module gutils
 #include "constants.h"
 
   COOP_REAL:: param_lam !!lam = e^{-2t}
-
+  COOP_REAL::a=0.d0
 contains
 
   function h1_integrand(s) result(h1)
@@ -94,17 +94,20 @@ contains
 
 
   function caint(s)
-    COOP_REAL,parameter::a=0.5d0
-    COOP_REAL::s, caint, err2, tmp1, err2, tmp2, as
+    COOP_REAL::s, caint, err1, tmp1, err2, tmp2, as
     if(s .lt. 1.d-2)then
        tmp1 = 1.d0/6.d0+s*(1.d0/24.d0+s*(1.d0/120.d0+s*(1.d0/720.d0+s/5040.d0)))
-       err1 = 0.5d0+tmp*s
+       err1 = 0.5d0+tmp1*s
        as = a*s
        tmp2 = (1.d0/6.d0+as*(1.d0/24.d0+as*(1.d0/120.d0+as*(1.d0/720.d0+as/5040.d0))))*a**2
        err2 = 0.5d0*a + tmp2*s
        caint = ((1.d0+a)/2.d0*(err1 + err2*(1.d0+err1*s))- tmp1 - tmp2 - err1*err2)/(1.d0+err1*s)/(1.d0+err2*s)
     else
-       caint = (-1.d0/s + (1.d0+a)/2.d0)/s + a/(exp(s)-1.d0)/(exp(a*s)-1.d0)
+       if(a .eq. 0.d0)then
+          caint = (-1.d0/s + (1.d0+a)/2.d0)/s + 1.d0/(exp(s)-1.d0)/s
+       else
+          caint = (-1.d0/s + (1.d0+a)/2.d0)/s + a/(exp(s)-1.d0)/(exp(a*s)-1.d0)        
+       endif
     endif
   end function caint
   
@@ -119,7 +122,13 @@ program test
   COOP_INT,parameter::n = 10000
   COOP_REAL::lam(n), r, h, happ
   COOP_INT::i
-  r = 1.d-20
+  COOP_REAL,parameter::upper = 22.d0
+  r = 1.d-5
+  do i=0, 10
+     a = 0.1d0*i
+     write(*, "(2F18.11)") a,  -(coop_expint(caint, r, upper, 1.d-7) -1.d0/upper - (1.d0+a)/2.d0*log(upper) + (a**2+3*a+1)/12.d0*r) - (4.e-8+3.6e-8*a)
+  enddo
+  stop
   call coop_set_uniform(n, lam, 1.d-8*r, 0.9999d0, logscale = .true.)
   open(11, file="tab_r"//COOP_STR_OF(log10(r))//".txt")
   write(11, *) r
