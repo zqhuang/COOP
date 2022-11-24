@@ -6,7 +6,7 @@ module coop_special_function_mod
   private
 
 
-  public:: coop_log2, coop_sinc, coop_sinhc, coop_asinh, coop_acosh, coop_atanh, coop_InverseErf, coop_InverseErfc, coop_Gaussian_nu_of_P, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_legendreP_Approx, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_IncompleteGamma, coop_threej000, coop_ThreeJSymbol, coop_ThreeJ_Array, coop_bessI0, coop_bessi1, coop_bessJ0, coop_bessJ1, coop_sphere_correlation, coop_sphere_correlation_init, coop_get_normalized_Plm_array, FT_Gaussian3D_window, FT_spherical_tophat, coop_pseudoCl_kernel_index_TT, coop_pseudoCl_kernel_index_TE, coop_pseudoCl_kernel_index_TB, coop_pseudoCl_kernel_index_EB, coop_pseudoCl_kernel_index_EE_plus_BB, coop_pseudoCl_kernel_index_EE_minus_BB, coop_TEB_index_T, coop_TEB_index_E, coop_TEB_index_B, coop_TEB_index_TT, coop_TEB_index_EE, coop_TEB_index_BB, coop_TEB_index_TE, coop_TEB_index_TB, coop_TEB_index_EB, coop_int3j,  coop_pseudoCl_matrix, coop_pseudoCl2Cl, coop_pseudoCl_get_kernel, coop_next_l, coop_nl_range, coop_set_ells, coop_EB_index_E, coop_EB_index_B, coop_EB_index_EE, coop_EB_index_BB, coop_EB_index_EB, coop_elliptic_Rd, coop_default_l_resolution
+  public:: coop_log2, coop_sinc, coop_sinhc, coop_asinh, coop_acosh, coop_atanh, coop_InverseErf, coop_InverseErfc, coop_Gaussian_nu_of_P, coop_bessj, coop_sphericalbesselJ, coop_sphericalBesselCross, Coop_Hypergeometric2F1, coop_gamma_product, coop_sqrtceiling, coop_sqrtfloor, coop_bessI, coop_legendreP, coop_legendreP_Approx, coop_cisia, coop_Ylm, coop_normalized_Plm, coop_IncompleteGamma, coop_threej000, coop_ThreeJSymbol, coop_ThreeJ_Array, coop_bessI0, coop_bessi1, coop_bessJ0, coop_bessJ1, coop_sphere_correlation, coop_sphere_correlation_init, coop_get_normalized_Plm_array, FT_Gaussian3D_window, FT_spherical_tophat, coop_pseudoCl_kernel_index_TT, coop_pseudoCl_kernel_index_TE, coop_pseudoCl_kernel_index_TB, coop_pseudoCl_kernel_index_EB, coop_pseudoCl_kernel_index_EE_plus_BB, coop_pseudoCl_kernel_index_EE_minus_BB, coop_TEB_index_T, coop_TEB_index_E, coop_TEB_index_B, coop_TEB_index_TT, coop_TEB_index_EE, coop_TEB_index_BB, coop_TEB_index_TE, coop_TEB_index_TB, coop_TEB_index_EB, coop_int3j,  coop_pseudoCl_matrix, coop_pseudoCl2Cl, coop_pseudoCl_get_kernel, coop_next_l, coop_nl_range, coop_set_ells, coop_EB_index_E, coop_EB_index_B, coop_EB_index_EE, coop_EB_index_BB, coop_EB_index_EB, coop_elliptic_Rd, coop_default_l_resolution, coop_complex_digamma, coop_RiemannZeta, coop_complex_log_gamma, coop_Hzeta, coop_HmZeta, coop_HmZeta_dz, coop_HmZeta_dy, coop_Fn_zeta, coop_Fn_zeta_py, coop_Fn_zeta_pz, coop_Fn_zeta_p2y
 
 
   !!define the index of kernels
@@ -69,6 +69,11 @@ module coop_special_function_mod
      module procedure coop_sphericalBesselJ_s, coop_sphericalBesselJ_v
   end interface coop_sphericalbesselJ
 
+
+  COOP_INT,parameter::Riemann_nmax = 39999  !!must be odd number  
+  COOP_REAL, save::logvals(Riemann_nmax+1), loggammas(Riemann_nmax+1)
+  logical,save::Riemann_init = .true.
+  
   
   
 contains
@@ -2173,6 +2178,465 @@ contains
   END FUNCTION coop_elliptic_Rd
 
 
+  function coop_complex_digamma(x) result(psi)
+    COOP_COMPLEX x, psi, y
+    psi = 0 
+    y = x
+    do while( real(y) .lt. 10.d0)
+       psi = psi - 1.d0/y
+       y = y + 1.d0
+    enddo
+    y = y - 0.5d0
+    psi = psi + log(y)
+    y = 1.d0/y**2
+    psi = psi + y*((1.d0/24.d0) + y*(-(7.d0/960.d0) + y*((31.d0/8064.d0) + y*(-(127.d0/30720.d0) + y*((511.d0/67584.d0)+y*(-1414477.d0/67092480.d0)) ))))
+  end function coop_complex_digamma
+
+
+  recursive function coop_complex_log_gamma(z) result(g)
+    COOP_COMPLEX z, g, x, y
+    if( real(z) < 10.)then
+       g = coop_complex_log_gamma(z + 1.d0) - log(z)
+    else
+       x = z-1.d0
+       y = 1.d0/x**2
+       g = (x+0.5d0)*log(x)-x + log(coop_2pi)/2.d0 + (1.d0/12.d0 + (-1.d0/360.d0 + (1.d0/1260.d0 + (-1.d0/1680.d0) * y) * y) * y )/x
+    endif
+  end function coop_complex_log_gamma
+
+  subroutine Riemann_Initialize()
+    COOP_INT n
+    if(Riemann_init)then
+       do n = 1, Riemann_nmax+1
+          logvals(n) = dlog(dble(n))
+          loggammas(n) = log_gamma(dble(n))
+       enddo
+       Riemann_init = .false.
+    endif
+  end subroutine Riemann_Initialize
+
+  function coop_Hpzeta(z)  result(Hpzeta) !!here I assume Re(z) >= 0.5
+    COOP_COMPLEX z, Hpzeta
+    COOP_INT n, i
+    call Riemann_Initialize()
+    n = ceiling(abs(aimag(z))*5.d0)
+    if( mod(n ,2) .eq. 0)then
+       n = n + 999
+    else
+       n = n + 1000
+    endif
+    if( n > Riemann_nmax) n = Riemann_nmax
+    Hpzeta = coop_ln2 * exp(-z*coop_ln2)
+    do i = 3, n, 2
+       Hpzeta = Hpzeta + (logvals(i+1) * exp(-z*logvals(i+1)) - logvals(i) * exp(-z*logvals(i)))
+    enddo
+    Hpzeta = Hpzeta - log(n+1.5d0) *  exp(-z*log(n + 1.5d0))/2.d0
+  end function Coop_Hpzeta
+
+  function coop_Hppzeta(z) result(Hppzeta) !!here I assume Re(z) >= 0.5
+    COOP_COMPLEX z, Hppzeta
+    COOP_INT n, i
+    call Riemann_Initialize()    
+    n = ceiling(abs(aimag(z))*5.d0)
+    if( mod(n ,2) .eq. 0)then
+       n = n + 999
+    else
+       n = n + 1000
+    endif
+    if( n > Riemann_nmax) n = Riemann_nmax
+    Hppzeta = -coop_ln2**2 * exp(-z*coop_ln2)
+    do i = 3, n, 2
+       Hppzeta = Hppzeta + ( logvals(i) ** 2 * exp(-z*logvals(i)) - logvals(i+1)**2 * exp(-z*logvals(i+1)) )
+    enddo
+    Hppzeta = Hppzeta + log(n+1.5d0) ** 2 *  exp(-z*log(n + 1.5d0))/2.d0
+  end function Coop_Hppzeta
+
+
+  recursive function coop_HZeta(z) result(zeta) !! (1 - 2^{1-z}) RiemannZeta(z)
+    COOP_COMPLEX z, zeta, lastterm, ttz
+    COOP_INT i, n
+    call Riemann_Initialize()
+    if( real(z) < 0.5d0 )then
+       if( abs(z) < 1.d-6)then  !! z -> 0
+          zeta = (-0.5d0 - 0.5d0*(coop_ln2 + coop_lnpi)*z) * (1.d0 - exp((1.d0-z) * coop_ln2))
+       else  !! z -> 2 n \pi / \ln 2, n \ne 0
+          zeta =  exp(z*coop_ln2 + (z-1.d0)*coop_lnpi + coop_complex_log_gamma(1.d0-z)) * (1.d0 - exp((1.d0-z) * coop_ln2)) * sin(coop_pi/2.d0 * z) * coop_RiemannZeta(1.d0-z) 
+       endif
+    else
+       n = ceiling(abs(aimag(z))*5.d0)
+       if( mod(n ,2) .eq. 0)then
+          n = n + 999
+       else
+          n = n + 1000
+       endif
+       if( n > Riemann_nmax) n = Riemann_nmax
+       zeta = 1.d0 - exp(-z*coop_ln2)
+       do i = 3, n, 2
+          zeta = zeta + (exp(-z*logvals(i)) - exp(-z*logvals(i+1)))
+       enddo
+       zeta = zeta + exp(-z*log(n + 1.5d0))/2.d0
+    endif
+       
+  end function Coop_HZeta
+
+
+
+  function coop_RiemannZeta(z) result(zeta)
+    COOP_COMPLEX z, zeta, ttz
+    ttz =  (1.d0 - exp((1.d0-z) * coop_ln2))
+    if(abs(ttz) > 1.d-6)then
+       zeta = coop_Hzeta(z) /  ttz
+    else
+       if(abs(aimag(z)) < 0.01)then
+          zeta = 1.d0/(z-1.d0) + coop_EulerC + (0.07281584548 - (0.009690363192/2.d0)*(z-1.d0))*(z-1.d0)
+       else
+          zeta = coop_HpZeta(z) / coop_ln2 * (1.d0 + ttz) + coop_Hppzeta(z)/(2.d0*coop_ln2 **2)*ttz
+       endif
+    endif
+  end function Coop_RiemannZeta
+
+
+
+  recursive function coop_HmZeta(y, z) result(zeta) !!sum_{n=1}^\infty \frac{(-y)^n}{n^z}, Re(z) > 0, y \not\in (-\infty, -1)
+    COOP_COMPLEX z, y, lny, zeta, fl, fr, fm, f_peak, uminz
+    COOP_INT n, nmax
+    COOP_REAL absy, dt, t, peak_t, peak_dt, tmin, tmax, umin
+    if(real(z) .le. 0.d0  .or. ( aimag(y) .eq. 0.d0 .and. real(y) .lt. -1.d0) )then
+       write(*,*) "Invalid input of HmZeta", y, z
+       return
+    endif
+    call Riemann_Initialize()
+    absy = abs(y)
+    if( absy .lt. 1.d-6)then
+       zeta = 1.d0 - y*exp(-z*coop_ln2) + y**2*exp(-z*logvals(3))
+       return
+    endif
+    if( absy .le. 0.9991d0)then  !!converge quickly
+       lny = log(-y)
+       nmax = min(ceiling(-27.d0/real(lny)), Riemann_nmax)
+       zeta = 1.d0
+       do n = 1, nmax
+          zeta = zeta + exp(lny*n - z * logvals(n+1))
+       enddo
+       return
+    endif
+    if(absy .le. 1.005d0)then
+       zeta = coop_Hmzeta(y*(0.999d0/absy), z) + coop_Hmzeta_dy(y*(0.999d0/absy), z)*y*(1.d0-0.999d0/absy) + coop_Hmzeta_d2y(y*(0.999d0/absy), z)*(y*(1.d0-0.999d0/absy))**2/2.d0
+       return
+    endif
+    zeta = coop_Fn_zeta(1, z, y)
+  end function Coop_HmZeta
+
+  function coop_Hmzeta_dy(y, z) result(zeta)
+    COOP_COMPLEX z, y, lny, zeta, fl, fr, fm, f_peak, uminz
+    COOP_INT n, nmax
+    COOP_REAL absy, dt, t, peak_t, peak_dt, tmin, tmax, umin
+    if(real(z) <= 0.d0 .or. ( aimag(y) .eq. 0.d0 .and. real(y) .lt. -1.d0) )then
+       write(*,*) "Invalid input of HmZeta", y, z
+       return
+    endif
+    call Riemann_Initialize()
+    absy = abs(y)    
+    if(absy < 1.d-6)then
+       zeta =  2*exp(-z * logvals(3)) + (- 6*exp(-z*logvals(4)) + 24.d0*exp(-z*logvals(5))*y)*y
+       return
+    endif
+    if( absy .le. 0.9991d0)then  !!converge quickly
+       lny = log(-y)
+       nmax = min(ceiling(-30.d0/real(lny)), Riemann_nmax)
+       zeta = 0.d0
+       do n = 1, nmax
+          zeta = zeta - exp(logvals(n)+ lny*(n-1) - z * logvals(n+1))
+       enddo
+       return
+    endif
+    if(absy .le. 1.005d0)then
+       zeta = coop_Hmzeta_dy(y*(0.999d0/absy), z)+ coop_Hmzeta_d2y(y*(0.999d0/absy), z)*y*(1.d0-0.999d0/absy) 
+       return
+    endif    
+    !!for large y use an integral
+    zeta = coop_Fn_zeta_py(1, z, y)
+  end function coop_Hmzeta_dy
+
+
+  function coop_Hmzeta_d2y(y, z) result(zeta)
+    COOP_COMPLEX z, y, lny, zeta, fl, fr, fm, f_peak, uminz
+    COOP_INT n, nmax
+    COOP_REAL absy, dt, t, peak_t, peak_dt, tmin, tmax, umin
+    if(real(z) <= 0.d0 .or. ( aimag(y) .eq. 0.d0 .and. real(y) .lt. -1.d0) )then
+       write(*,*) "Invalid input of HmZeta", y, z
+       return
+    endif
+    call Riemann_Initialize()
+    absy = abs(y)    
+    if(absy < 1.d-6)then
+       zeta = - exp(-z*coop_ln2) + (2*exp(-z * logvals(3)) - 3*y*exp(-z*logvals(4)))*y
+       return
+    endif
+    if( absy .le. 0.9991d0)then  !!converge quickly
+       lny = log(-y)
+       nmax = min(ceiling(-33.d0/real(lny)), Riemann_nmax)
+       zeta = 0.d0
+       do n = 2, nmax
+          zeta = zeta + exp(logvals(n)+logvals(n-1)  + lny*(n-2) - z * logvals(n+1))
+       enddo
+       return
+    endif
+    !!for large y use an integral
+    if(real(y) < -0.99 .and. abs(aimag(y)) < 0.01)then  !! do refined integral
+       peak_dt = abs(y - min(real(y), -1.d0))/20.d0
+       peak_t = dlog(max(dlog(max(-real(y), 1.d0)), dt))
+    else
+       peak_dt = 1.d-3
+       peak_t = 0.d0
+    endif
+    tmin = min(peak_t - 2.d0, -6.d0)
+    tmax = max(peak_t + 2.d0, 4.d0)
+    f_peak = intf(peak_t)
+    fl = f_peak
+    t = peak_t
+    dt = peak_dt
+    zeta = 0.d0
+    do while(t > tmin)
+       fr = fl
+       t = t - dt
+       fm = intf(t)
+       t = t - dt
+       fl = intf(t)
+       zeta = zeta + (fl+4.d0*fm+fr)*(dt/3.d0)
+       if(dt .lt. 1.d-2) dt = dt * 1.001d0
+    enddo
+    t  = peak_t
+    dt= peak_dt
+    fr = f_peak
+    do while(t < tmax)
+       fl = fr
+       t = t + dt
+       fm = intf(t)
+       t = t + dt
+       fr = intf(t)
+       zeta = zeta + (fl+4.d0*fm+fr)*(dt/3.d0)
+       if(dt .lt. 1.d-2) dt = dt * 1.001d0
+    enddo
+    umin = dexp(tmin)
+    uminz = exp(tmin*z)
+    fl = umin/(1.d0+y)
+    zeta = zeta + uminz/(1.d0+y) * (1.d0/z + (-1.d0/(z+1.d0) + (1.d0-y)/2.d0/(z+2.d0)*fl) *fl ) 
+    zeta  = 2.d0*zeta * exp(-coop_complex_log_gamma(z))
+  contains
+    function intf(u)
+      COOP_COMPLEX intf
+      COOP_REAL u
+      intf = exp( z * u)/ (dexp(dexp(u))+y)**3
+    end function intf
+  end function coop_Hmzeta_d2y
+  
+
+
+  function coop_Hmzeta_dz(y, z) result(zeta)
+    COOP_COMPLEX z, y, lny, zeta, fl, fr, fm, f_peak, uminz
+    COOP_INT n, nmax
+    COOP_REAL absy, dt, t, peak_t, peak_dt, tmin, tmax, umin
+    if(real(z) <= 0.d0 .or. ( aimag(y) .eq. 0.d0 .and. real(y) .lt. -1.d0) )then
+       write(*,*) "Invalid input of HmZeta", y, z
+       return
+    endif
+    call Riemann_Initialize()
+    absy = abs(y)
+    if( absy .lt. 1.d-6)then
+       zeta = coop_ln2 * y*exp(-z*coop_ln2) - logvals(3)* y**2*exp(-z*logvals(3))
+       return
+    endif
+    if( absy .le. 0.9991d0)then  !!converge quickly
+       lny = log(-y)
+       nmax = min(ceiling(-30.d0/real(lny)), Riemann_nmax)
+       zeta = 0.d0
+       do n = 1, nmax
+          zeta = zeta - logvals(n+1) * exp(lny*n - z * logvals(n+1))
+       enddo
+       return
+    endif
+    if(absy .le. 1.005d0)then
+       zeta = coop_Hmzeta_dz(y*(0.999d0/absy), z)+ coop_Hmzeta_dzdy(y*(0.999d0/absy), z)*y*(1.d0-0.999d0/absy) 
+       return
+    endif
+    zeta = coop_Fn_zeta_pz(1, z, y)
+  end function coop_Hmzeta_dz
+
+
+  function coop_Hmzeta_dzdy(y, z) result(zeta)
+    COOP_COMPLEX z, y, lny, zeta, fl, fr, fm, f_peak, uminz
+    COOP_INT n, nmax
+    COOP_REAL absy, dt, t, peak_t, peak_dt, tmin, tmax, umin
+    if(real(z) <= 0.d0 .or. ( aimag(y) .eq. 0.d0 .and. real(y) .lt. -1.d0) )then
+       write(*,*) "Invalid input of HmZeta", y, z
+       return
+    endif
+    call Riemann_Initialize()
+    absy = abs(y)
+    if( absy .lt. 1.d-6)then
+       zeta = coop_ln2 * y*exp(-z*coop_ln2) - logvals(3)* y**2*exp(-z*logvals(3))
+       return
+    endif
+    if( absy .le. 0.9991d0)then  !!converge quickly
+       lny = log(-y)
+       nmax = min(ceiling(-30.d0/real(lny)), Riemann_nmax)
+       zeta = 0.d0
+       do n = 1, nmax
+          zeta = zeta + logvals(n+1) * exp(logvals(n) + lny*(n-1) - z * logvals(n+1))
+       enddo
+       return
+    endif
+    !!for large y use an integral
+    if(real(y) < -0.99 .and. abs(aimag(y)) < 0.01)then  !! do refined integral
+       peak_dt = abs(y - min(real(y), -1.d0))/20.d0
+       peak_t = dlog(max(dlog(max(-real(y), 1.d0)), dt))
+    else
+       peak_dt = 1.d-3
+       peak_t = 0.d0
+    endif
+    tmin = min(peak_t - 2.d0, -6.d0)
+    tmax = max(peak_t + 2.d0, 4.d0)
+    f_peak = intf(peak_t)
+    fl = f_peak
+    t = peak_t
+    dt = peak_dt
+    zeta = 0.d0
+    do while(t > tmin)
+       fr = fl
+       t = t - dt
+       fm = intf(t)
+       t = t - dt
+       fl = intf(t)
+       zeta = zeta + (fl+4.d0*fm+fr)*(dt/3.d0)
+       if(dt .lt. 1.d-2) dt = dt * 1.001d0
+    enddo
+    t  = peak_t
+    dt= peak_dt
+    fr = f_peak
+    do while(t < tmax)
+       fl = fr
+       t = t + dt
+       fm = intf(t)
+       t = t + dt
+       fr = intf(t)
+       zeta = zeta + (fl+4.d0*fm+fr)*(dt/3.d0)
+       if(dt .lt. 1.d-2) dt = dt * 1.001d0
+    enddo
+    umin = dexp(tmin)
+    uminz = exp(tmin*z)
+    fl = umin/(1.d0+y)
+    zeta = zeta + uminz/(1.d0+y) * (1.d0/z + (-1.d0/(z+1.d0) + (1.d0-y)/2.d0/(z+2.d0)*fl) *fl ) 
+    zeta  = -zeta * exp(-coop_complex_log_gamma(z))
+  contains
+    function intf(u)
+      COOP_COMPLEX intf
+      COOP_REAL u
+      intf = u * exp( z * u)/ (dexp(dexp(u))+y)**2
+    end function intf
+  end function coop_Hmzeta_dzdy
+
+
+  recursive function coop_Fn_zeta(n, z, y) result(zeta)
+    COOP_REAL,parameter::rzcut = 100.d0, rcut = 0.9995d0
+    COOP_INT n, nadd, kmax, k, nc
+    COOP_COMPLEX z, y, zeta, tau, ntau, x, lny, w, eps, omega, omk, yN, yy
+    COOP_COMPLEX, dimension(:, :), allocatable::Farr
+    COOP_INT i, j
+    COOP_REAL absy
+    if(n .lt. 1 .or. n .ge. Riemann_nmax .or. (aimag(y) .eq. 0.d0 .and. real(y)<-1.d0))stop "Invalid input of coop_Fn_zeta"
+    call Riemann_initialize()
+    absy = abs(y)
+    if(absy < 1.d-10)then
+       zeta = 1.d0 - y*n*exp(z*log(n/(n+1.d0)))
+       return
+    endif
+    if(absy .lt. (rcut + 1.d-8))then
+       lny = log(-y)
+       kmax = min(ceiling(-32.d0/real(lny)), Riemann_nmax + 1 - n)
+       zeta = 1.d0
+       if(n .eq. 1)then
+          do k = 1,  kmax
+             zeta = zeta +  exp( lny*k  - z * logvals(k+1))
+          enddo
+       else
+          do k = 1,  kmax
+             zeta = zeta +  exp(lny*k + z * (logvals(n)-logvals(n+k)) + loggammas(n+k) - loggammas(k+1) - loggammas(n))
+          enddo
+       endif
+       return
+    endif
+    if(abs(1.d0+y) .lt. 1.d0 - rcut  .and. n .eq. 1  )then  !!use analytic continuation
+       nc = 2
+       w = exp((1.d0-z)*logvals(nc))
+       do while(abs(1.d0-w) < 0.03d0 .or. abs(1.d0-nc*w) < 0.03d0)
+          nc = nc + 1
+          w = exp((1.d0-z)*logvals(nc))
+          if(nc .gt. 20)then
+             write(*,*) "Error in coop_Fn_zeta: such a coincidence!"
+             write(*,*) z
+             stop 
+          endif
+       enddo
+       eps = (1.d0+y)*(1.d0-w)/(1.d0-nc*w)
+       yy = -1.d0+eps
+       w = w * (-yy)**(nc-1)
+       zeta = 0.d0
+       omega = exp(dcmplx(0.d0, coop_2pi/nc))
+       omk = omega
+       do k=1, nc-1
+          zeta = zeta - omk*coop_Fn_zeta(1, z, yy*omk)
+          omk = omega*omk
+       enddo
+       zeta = zeta / (1.d0 - w) + exp((z-1.d0)*log(1.d0+y)+coop_complex_log_gamma(1.d0-z)) * (1.d0 + (1.d0+z)/2.d0*(1.d0+y))
+       return
+    endif
+    if(absy .lt. 2.d0-rcut .and. abs(1.d0+y) .ge. 1.d0 - rcut )then
+       zeta = coop_Fn_zeta(n, z, y* rcut/absy) + coop_Fn_zeta_py(n, z, y* rcut/absy) * y * (1.d0 -  rcut/absy) + coop_Fn_zeta_p2y(n, z, y* rcut/absy) * (y * (1.d0 -  rcut/absy))**2/2.d0
+    endif
+    if(real(z) .gt. rzcut )then
+       x = z-1.d0
+       tau = x/n
+       do i=1, 5
+          tau = x/n*(1.d0 + y*exp(-tau))
+       enddo
+       ntau = n*tau
+       zeta = exp((x-ntau)+(z-n)*log(ntau/x) - 0.5d0*log(1.d0+tau-x/n))
+       return
+    endif
+    nadd = ceiling(rzcut - real(z)+1.d-4)
+    allocate(Farr(0:nadd, 0:nadd))
+    do i=0, nadd
+       Farr(i, nadd) = coop_Fn_zeta(n+i, z+nadd, y) 
+    enddo
+    do i=nadd-1, 0, -1
+       do j=0, i
+          Farr(j, i) = Farr(j, i+1) - y*exp((z+(i+1))*log((n+j)/(n+j+1.d0)))*Farr(j+1, i+1)
+       enddo
+    enddo
+    zeta = Farr(0, 0)
+    deallocate(Farr)
+  end function coop_Fn_zeta
+
+  function coop_Fn_zeta_py(n, z, y) result(zeta)
+    COOP_INT n
+    COOP_COMPLEX z, y, zeta
+    zeta = -n * exp(z*log(n/(n+1.d0)))*coop_Fn_zeta(n+1, z, y)
+  end function coop_Fn_zeta_py
+
+  function coop_Fn_zeta_p2y(n, z, y) result(zeta)
+    COOP_INT n
+    COOP_COMPLEX z, y, zeta
+    zeta = -n * exp(z*log(n/(n+1.d0)))*coop_Fn_zeta_py(n+1, z, y)
+  end function coop_Fn_zeta_p2y
+  
+  function coop_Fn_zeta_pz(n, z, y) result(zeta)
+    COOP_INT n
+    COOP_COMPLEX z, y, zeta
+    COOP_COMPLEX,parameter::dz = (1.d-3, 0.d0)
+    zeta = (coop_Fn_zeta(n, z+dz, y) - coop_Fn_zeta(n, z-dz, y))/(2.d0*dz)
+  end function coop_Fn_zeta_pz
+  
 end module coop_special_function_mod
 
 

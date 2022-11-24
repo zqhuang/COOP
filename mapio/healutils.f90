@@ -3355,7 +3355,7 @@ contains
     COOP_INT,dimension(:),optional::index_list
     COOP_INT lmax, lbuf, l
     if(fwhm .gt. 0.d0)then
-       lmax = min(ceiling(3./max(abs(fwhm)*coop_sigma_by_fwhm, 1.d-6)), floor(this%nside*coop_healpix_lmax_by_nside), coop_healpix_default_lmax)
+       lmax = min(ceiling(5./max(abs(fwhm)*coop_sigma_by_fwhm, 1.d-6)), floor(this%nside*coop_healpix_lmax_by_nside), coop_healpix_default_lmax)
     else
        lmax = min(floor(this%nside*coop_healpix_lmax_by_nside), coop_healpix_default_lmax)
     endif

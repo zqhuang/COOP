@@ -1369,6 +1369,87 @@ int plot_gaussian(file fin){
    }
  }
 
+
+ // =============================================================================
+ //plot density
+ int plot_density_without_colorbar(file fin){
+   real xmin, xmax, ymin, ymax, zmin, zmax, xmincoor, xmaxcoor, ymincoor, ymaxcoor;
+   real[] t;
+   pen [] p;
+   p = new pen[256];
+   string ctbl = fetch_string(fin);
+   if(ctbl == "BWRainbow")
+     p = BWRainbow(256);
+   else if(ctbl == "Grayscale")
+     p = Grayscale(256);
+   else if(ctbl == "MyRainbow")
+     p = Gradient(256, darkblue,  blue, cyan, green, yellow, orange, red, darkred); 
+   else if(ctbl == "Planck")
+     p = Gradient(256,rgb(0,0,255),rgb(0,13,255),rgb(0,26,255),rgb(0,40,255),rgb(0,53,255),rgb(0,66,255),rgb(0,80,255),rgb(0,93,255),rgb(0,106,255),rgb(0,119,255),rgb(0,132,255),rgb(0,144,255),rgb(0,157,255),rgb(0,170,255),rgb(0,182,255),rgb(0,195,255),rgb(0,208,255),rgb(0,221,255),rgb(30,222,250),rgb(60,224,245),rgb(91,226,241),rgb(121,228,236),rgb(151,230,232),rgb(182,232,227),rgb(212,234,223),rgb(242,236,218),rgb(255,233,201),rgb(255,226,176),rgb(255,219,151),rgb(255,213,126),rgb(255,206,100),rgb(255,199,75),rgb(255,193,50),rgb(255,186,25),rgb(255,180,0),rgb(255,167,0),rgb(255,155,0),rgb(255,142,0),rgb(255,130,0),rgb(255,117,0),rgb(255,105,0),rgb(255,92,0),rgb(255,80,0),rgb(244,69,0),rgb(226,61,0),rgb(208,52,0),rgb(190,43,0),rgb(172,34,0),rgb(154,26,0),rgb(136,17,0),rgb(118,8,0),rgb(100,0,0));
+   else if(ctbl == "PlanckFreq")
+     p = Gradient(256,rgbint(0,0,255),rgbint(4,8,255),rgbint(8,15,255),rgbint(13,45,255),rgbint(21,108,255),rgbint(28,171,255),rgbint(45,200,255),rgbint(65,219,255),rgbint(89,235,255),rgbint(131,237,253),rgbint(174,238,251),rgbint(200,239,249),rgbint(214,240,247),rgbint(228,240,245),rgbint(234,240,230),rgbint(240,241,215),rgbint(242,241,202),rgbint(244,240,185),rgbint(245,239,168),rgbint(247,237,151),rgbint(248,235,133),rgbint(249,225,102),rgbint(249,214,66),rgbint(249,200,36),rgbint(246,180,26),rgbint(243,161,17),rgbint(233,135,10),rgbint(219,106,5),rgbint(204,77,0),rgbint(189,59,12),rgbint(174,42,25),rgbint(157,27,32),rgbint(138,15,32),rgbint(118,2,32),rgbint(118,39,69),rgbint(123,88,116),rgbint(131,131,157),rgbint(151,151,177),rgbint(171,171,196),rgbint(184,184,210),rgbint(194,194,220),rgbint(204,204,230),rgbint(214,214,234),rgbint(224,224,239),rgbint(231,231,243),rgbint(236,236,246),rgbint(241,241,249),rgbint(244,244,251),rgbint(246,246,252),rgbint(248,248,253),rgbint(250,250,254),rgbint(252,252,255));
+   else
+     p = Rainbow(256);
+
+   string zlabel = fetch_string(fin);
+   t = new real[2];
+   t = read_xminxmax(fin); //xmin, xmax
+   xmin = t[0]; 
+   xmax = t[1];
+   t = read_yminymax(fin); // ymin, ymax
+   ymin = t[0];
+   ymax = t[1];
+   t = fin.dimension(2); //zmin, zmax
+   zmin = t[0];
+   zmax = t[1];
+   int irr = fin;
+   if ( irr >= 1 ) {  // irregular points
+     int ndata = fin;
+     real f[][] =fin.dimension(ndata, 3);
+     real x[];
+     real y[];
+     real z[];
+     for(int i=0; i<ndata; ++i){
+       x[i] = f[i][0];
+       y[i] = f[i][1];
+       z[i] = f[i][2];
+       if(x[i] < axmin) axmin = x[i]; 
+       if(x[i] > axmax) axmax = x[i]; 
+       if(y[i] < aymin) aymin = y[i]; 
+       if(y[i] > aymax) aymax = y[i]; 
+       if(z[i] < azmin) azmin = z[i]; 
+       if(z[i] > azmax) azmax = z[i]; 
+
+     }
+     if(xlog){
+       for(int i=0; i<ndata; ++i){
+	 x[i] = log10(x[i]);}}
+     if(ylog){
+       for(int i=0; i<ndata; ++i){
+	 y[i] = log10(y[i]);}} 
+     bounds density;
+     if(zmin < zmax)
+         image(mypic, x, y, z, Range(zmin, zmax), p);
+     else
+         image(mypic, x, y, z, Automatic, p);
+     return ndata;
+   }
+   else{ // regular points, irr<=0
+     int nxy[] = fin.dimension(2);  // nx, ny
+     int nx = nxy[0];
+     int ny = nxy[1];
+     real[][] z ;
+     z = new real[nx][ny];
+     z = fin.dimension(nx, ny);
+     bounds density;
+     if( zmin < zmax )
+       image(mypic, z, Range(zmin, zmax), (xmin,ymin), (xmax, ymax), p);
+     else
+       image(mypic, z, Automatic, (xmin,ymin), (xmax, ymax), p);
+     return nx*ny;
+   }
+ }
+ 
  //=======================================================================
 
  void plot_expand(file fin){
@@ -1425,6 +1506,9 @@ int plot_gaussian(file fin){
    else if(block == "DENSITY"){
      nlines = plot_density(fin);
      write(stdout, (string) nlines + ' density points are plotted.\n');}
+   else if(block == "IMAGE"){
+     nlines = plot_density_without_colorbar(fin);
+     write(stdout, (string) nlines + ' density points are plotted.\n');}
    else if(block == "EXPAND"){
      plot_expand(fin);}
    else if(block == "LEGEND"){
@@ -1460,7 +1544,10 @@ int plot_gaussian(file fin){
    if(caption !=  '')
      label(mypic, caption, ( xmincoor*0.5+xmaxcoor*0.5, ymaxcoor+(ymaxcoor-ymincoor)*0.06 ) );
    if(topaxis == 0){
-     xaxis(mypic,xlabel, axis=YEqualsCenter(cymin, false), xmin = cxmin, xmax = cxmax, p=coorpen, ticks=LeftTicks, above=true);
+     if(xlabel == "NO_LABEL")
+       xaxis(mypic,"", axis=YEqualsCenter(cymin, false), xmin = cxmin, xmax = cxmax, p=coorpen, ticks=LeftTicksNoLabel, above=true);       
+     else
+       xaxis(mypic,xlabel, axis=YEqualsCenter(cymin, false), xmin = cxmin, xmax = cxmax, p=coorpen, ticks=LeftTicks, above=true);
      if(opaxis[0]==0)
        xaxis(mypic,"", axis=YEqualsCenter(cymax, false), xmin = cxmin, xmax = cxmax, p=coorpen, ticks=RightTicksNoLabel, above=true);
      else
@@ -1471,7 +1558,10 @@ int plot_gaussian(file fin){
      plot_topaxis();}
 
    if(rightaxis == 0){
-     yaxis(mypic,ylabel,  axis=XEqualsCenter(cxmin, false), ymin = cymin, ymax = cymax, p = coorpen, ticks=RightTicks(format = rotate(90)*Label()), above=true);
+     if(ylabel=="NO_LABEL")
+       yaxis(mypic, "",  axis=XEqualsCenter(cxmin, false), ymin = cymin, ymax = cymax, p = coorpen, ticks=RightTicksNoLabel(format = rotate(90)*Label()), above=true);       
+     else
+       yaxis(mypic,ylabel,  axis=XEqualsCenter(cxmin, false), ymin = cymin, ymax = cymax, p = coorpen, ticks=RightTicks(format = rotate(90)*Label()), above=true);
      if(opaxis[1]==0)
        yaxis(mypic,"",  axis=XEqualsCenter(cxmax, false), ymin = cymin, ymax = cymax, p=coorpen, ticks=LeftTicksNoLabel(format = rotate(90)*Label()), above=true);
      else

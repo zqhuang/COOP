@@ -56,13 +56,13 @@ program map
         if(has_mask)then
            hgm%map(:,imap) = hgm%map(:, imap)*mask%map(:, 1)
            weight = sum(dble(mask%map(:,1)))
-           mean = sum(hgm%map(:, imap), mask = mask%map(:,1) .ne. 0.)/weight
+           mean = sum(dble(hgm%map(:, imap)), mask = mask%map(:,1) .ne. 0.)/weight
            rms = sqrt(sum((hgm%map(:, imap)-mean)**2, mask = mask%map(:,1) .ne. 0.)/weight)
            mapmin = minval(hgm%map(:,imap), mask = mask%map(:,1) .ne. 0.)
            mapmax = maxval(hgm%map(:,imap), mask = mask%map(:,1) .ne. 0.)
         else
            weight = hgm%npix
-           mean = sum(hgm%map(:, imap))/weight
+           mean = sum(dble(hgm%map(:, imap)))/weight
            rms = sqrt(sum((hgm%map(:, imap)-mean)**2)/weight)
            mapmin = minval(hgm%map(:,imap))
            mapmax =  maxval(hgm%map(:,imap))
