@@ -1,64 +1,33 @@
 program test
   use coop_wrapper_utils
-  use coop_expint_mod
+  use coop_expint_mod  
   implicit none
 #include "constants.h"
-  character(LEN=*),parameter::postfix = "_h20_s2.txt"
-  character(LEN=*),parameter::postfix2 = "_h20_s3.txt"
-  COOP_REAL::r, r2
-  COOP_INT,parameter::ntab = 10000
-  COOP_REAL::tab_lnl(ntab), tab_lnh(ntab), tab_lnh2(ntab)
-  COOP_REAL::tab2_lnl(ntab), tab2_lnh(ntab), tab2_lnh2(ntab)
-  COOP_REAL::t, tmp1, tmp2
-  COOP_INT::i, n
-  open(11, file="tab"//postfix)
-  read(11, *) r
-  do i = 1, ntab
-     read(11, *) tmp1, tmp2, tab_lnl(i), tab_lnh(i)
+
+  type(coop_fits_file)::fp
+  COOP_INT::nrows, ncols, index_minage, index_maxage, index_z, index_age, i
+  COOP_REAL,dimension(:), allocatable::z, age, minage, maxage
+  print*,coop_Threej000(2,3,1)**2*3.    
+  print*,coop_Threej000(2,3,3)**2*7.
+  print*,coop_Threej000(2,3,5)**2*11.  
+  stop
+  !  call fp%open('../../../lgal/portsmouth_stellarmass_passive_krou-DR12.fits')
+  call fp%open('../../../lgal/portsmouth_stellarmass_passive_salp-DR12.fits')
+  call fp%move_to_hdu(2)
+  !  call fp%header%print()
+  call fp%get_nrows_ncols(nrows, ncols)
+  allocate(minage(nrows), maxage(nrows), z(nrows), age(nrows))
+  index_minage = fp%get_col('MINAGE')
+  index_maxage = fp%get_col('MAXAGE')
+  index_z = fp%get_col('Z')
+  index_age = fp%get_col('AGE')
+  call fp%load_double_column(index_minage, minage)
+  call fp%load_double_column(index_maxage, maxage)
+  call fp%load_double_column(index_z, z)
+  call fp%load_double_column(index_age, age)
+  call fp%close()
+  do i=1, nrows
+     write(*,'(4F11.4)')  z(i), age(i), maxage(i)-age(i),  age(i) - minage(i)
   enddo
-  close(11)
-
-  open(11, file="tab"//postfix2)
-  read(11, *) r2
-  do i = 1, ntab
-     read(11, *) tmp1, tmp2, tab2_lnl(i), tab2_lnh(i)
-  enddo
-  close(11)
-
-  
-  call coop_spline(ntab, tab_lnl, tab_lnh, tab_lnh2, -1.5d0, 0.d0)
-  call coop_spline(ntab, tab2_lnl, tab2_lnh, tab2_lnh2, -1.5d0, 0.d0)
-  
-  do i=0, 10000
-     t = i*0.005
-     write(*, *) t, h_of_t(t) - h2_of_t(t)
-  enddo
-  
-contains
-
-  function h_of_t(t) result(h)
-    COOP_REAL::lnl, rl, h, t
-    COOP_INT::il
-    lnl = -2.d0*abs(t) - log(r)
-    if(lnl .lt. tab_lnl(1))then
-       h = tab_lnh(1) + 1.5*(lnl - tab_lnl(1))
-    else
-       call coop_splint(ntab, tab_lnl, tab_lnh, tab_lnh2, lnl, h)
-    endif
-    h = - exp(h) /sqrt(r)
-  end function h_of_t
-
-
-  function h2_of_t(t) result(h)
-    COOP_REAL::lnl, rl, h, t
-    COOP_INT::il
-    lnl = -2.d0*abs(t) - log(r)
-    if(lnl .lt. tab2_lnl(1))then
-       h = tab2_lnh(1) + 1.5*(lnl - tab2_lnl(1))
-    else
-       call coop_splint(ntab, tab2_lnl, tab2_lnh, tab2_lnh2, lnl, h)
-    endif
-    h = - exp(h) /sqrt(r)
-  end function h2_of_t
-
+!  print*, sqrt(sum((maxage-age)**2)/nrows),  sqrt(sum((age-minage)**2)/nrows)
 end program test

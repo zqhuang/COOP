@@ -183,6 +183,16 @@
     integer,parameter::n = 100000
     class(coop_cosmology_firstorder)::this
     external power
+    interface
+       subroutine power(krat, Pscalar, Ptensor, arguments)
+	 use coop_wrapper_background
+	 use coop_pertobj_mod
+         use coop_cl_indices_mod
+         use coop_lensing_mod
+         COOP_REAL::krat, Pscalar, Ptensor
+         type(coop_arguments)::arguments
+       end subroutine power
+    end interface
     type(coop_arguments) args
     COOP_REAL k(n), ps(n), pt(n), dlnk
     COOP_INT i, nsteps
@@ -191,7 +201,7 @@
     dlnk = log(k(2)/k(1))
     !$omp parallel do
     do i=1, n
-       call power(k(i)/this%k_pivot, ps(i), pt(i), this, args)
+       call power(k(i)/this%k_pivot, ps(i), pt(i), args)
     end do
     !$omp end parallel do
     if(any(ps.lt. 0.d0)) stop "Primordial scalar power spectrum cannot be <= 0"
@@ -227,7 +237,7 @@
     call coop_set_uniform(n, k, coop_power_kmin, coop_power_kmax)
     !$omp parallel do
     do i=1, n
-       call power(k(i)/this%k_pivot, ps(i), pt(i), this, args)
+       call power(k(i)/this%k_pivot, ps(i), pt(i), args)
     end do
     !$omp end parallel do
     nsteps = nint(1.d0/this%distlss/(k(2)-k(1))) !!smooth out any features below delta_l = 1 resolution
@@ -401,8 +411,7 @@
     call args%free()
   end subroutine coop_cosmology_firstorder_set_standard_power
 
-  subroutine coop_cosmology_firstorder_standard_power(kbykpiv, ps, pt, cosmology, args)
-    type(coop_cosmology_firstorder)::cosmology
+  subroutine coop_cosmology_firstorder_standard_power(kbykpiv, ps, pt, args)
     COOP_REAL kbykpiv, ps, pt, lnkbykpiv
     type(coop_arguments) args
     lnkbykpiv = log(kbykpiv)

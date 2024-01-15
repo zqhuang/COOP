@@ -7,6 +7,8 @@ module coop_wrapper_firstorder
   use coop_cls_postprocess_mod
   implicit none
 
+#include "constants.h"
+  
 contains
 
   subroutine coop_wrapper_firstorder_print()

@@ -71,6 +71,7 @@ module coop_fitsio_mod
      procedure::get_nrows_ncols => coop_fits_file_get_nrows_ncols
      procedure::get_naxes => coop_fits_file_get_naxes
      procedure::get_bitpix => coop_fits_file_get_bitpix
+     procedure::get_col => coop_fits_file_get_col
   end type coop_fits_file
 
   type coop_cls
@@ -796,8 +797,7 @@ contains
     COOP_SHORT_INT,dimension(:),allocatable::short_int_data
     COOP_INT, optional::bad_value
     COOP_REAL::nulval
-    COOP_SHORT_INT::short_int_nulval
-    COOP_REAL::double_nulval
+    COOP_INT::int_nulval
     COOP_INT::ncols, width, repeat, datacode, nrows
     COOP_INT,optional::first_row
     COOP_INT::frow
@@ -810,8 +810,10 @@ contains
        frow = 1
     endif
     if(present(bad_value))then
-       nulval = bad_value
+       int_nulval = bad_value
+       nulval = dble(bad_value)
     else
+       int_nulval = 0
        nulval = 0.d0
     endif
     call this%get_nrows_ncols(nrows, ncols)
@@ -833,7 +835,7 @@ contains
     endif
     select case(datacode)
     case(coop_fitsio_datatype_int)
-       call ftgcvj(this%unit, col, frow, 1, size(data), nulval, data, anyf, this%status)
+       call ftgcvj(this%unit, col, frow, 1, size(data), int_nulval, data, anyf, this%status)
     case(coop_fitsio_datatype_single)
        write(*,*) "Warning: float column in "//trim(this%filename)//" is loaded as int"       
        allocate(single_data(size(data)))
@@ -843,13 +845,12 @@ contains
     case(coop_fitsio_datatype_double)
        write(*,*) "Warning: double column in "//trim(this%filename)//" is loaded as int"
        allocate(double_data(size(data)))
-       call ftgcvd(this%unit, col, frow, 1, size(data), nint(nulval), double_data, anyf, this%status)
+       call ftgcvd(this%unit, col, frow, 1, size(data), nulval, double_data, anyf, this%status)
        data = nint(double_data)
        deallocate(double_data)
     case(coop_fitsio_datatype_short_int)
        allocate(short_int_data(size(data)))
-       short_int_nulval = nint(nulval)
-       call ftgcvi(this%unit, col, frow, 1, size(data), short_int_nulval, short_int_data, anyf, this%status)
+       call ftgcvi(this%unit, col, frow, 1, size(data), int(int_nulval, coop_short_int_length), short_int_data, anyf, this%status)
        data = short_int_data
        deallocate(short_int_data)
     case(coop_fitsio_datatype_byte)
@@ -885,6 +886,28 @@ contains
 #endif
   end subroutine coop_fits_file_get_bitpix
 
+
+  function coop_fits_file_get_col(this, name) result(col)
+    COOP_UNKNOWN_STRING::name
+    class(coop_fits_file)::this
+    COOP_INT::col
+    COOP_STRING::thisname
+#if HAS_CFITSIO
+    col = 1
+    do
+       thisname = this%header%value('TTYPE'//COOP_STR_OF(col))
+       if(trim(thisname) == "")then
+          col = 0
+          return
+       endif
+       if(trim(thisname) == trim(name)) return
+       col = col + 1
+    enddo
+#else
+    stop "CFITSIO is not installed"
+#endif
+  end function coop_fits_file_get_col
+  
   subroutine coop_fits_file_load_image_1d(this, image, bad_value)
     class(coop_fits_file)::this
     COOP_REAL,dimension(:)::image

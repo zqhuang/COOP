@@ -5,9 +5,34 @@ module gutils
 #include "constants.h"
 
   COOP_REAL:: param_lam !!lam = e^{-2t}
-  COOP_REAL::a=0.d0
+  COOP_INT,parameter::tab_n = 30000
+  COOP_REAL::tab_lnx(tab_n), tab_lnbeta(tab_n), tab_lnbeta2(tab_n)
+  
 contains
 
+  subroutine load_beta()
+    COOP_INT::i
+    open(21, file="logbeta_logx.txt")
+    do i=1, tab_n
+       read(21, *) tab_lnx(i), tab_lnbeta(i)
+    enddo
+    close(21)
+    call coop_spline(tab_n, tab_lnx, tab_lnbeta, tab_lnbeta2)
+  end subroutine load_beta
+
+  function beta_of_x(x) result(beta)
+    COOP_REAL::x, beta, lnx
+    lnx = log(x)
+    if(x > 50.d0)then
+       beta = exp(-x)*(x*(x+2.d0)-1.d0)/x**2/(x+3.d0)
+    elseif(lnx .le. tab_lnx(1))then
+       beta = 1.d0/x + 0.5d0*log(x) - 0.630330697184d0 - x/12.d0
+    else
+       call coop_splint(tab_n, tab_lnx, tab_lnbeta, tab_lnbeta2, lnx, beta)
+       beta = exp(beta)
+    endif
+  end function beta_of_x
+  
   function h1_integrand(s) result(h1)
     COOP_REAL::h1, s, st, s_err, st_err
     st = s*param_lam
@@ -56,8 +81,8 @@ contains
 
   function h_func(r) result(h)
     COOP_REAL::r, h
-    COOP_REAL,parameter::accuracy= 1.d-7
-    COOP_REAL,parameter::upper = 24.d0
+    COOP_REAL,parameter::accuracy= 1.d-6
+    COOP_REAL,parameter::upper = 20.d0
     COOP_REAL::corr
     corr = 1.d0/(r + upper*param_lam)
     if(param_lam .lt. 0.2d0)then
@@ -94,6 +119,7 @@ contains
 
 
   function caint(s)
+    COOP_REAL,parameter::a = 0.1d0
     COOP_REAL::s, caint, err1, tmp1, err2, tmp2, as
     if(s .lt. 1.d-2)then
        tmp1 = 1.d0/6.d0+s*(1.d0/24.d0+s*(1.d0/120.d0+s*(1.d0/720.d0+s/5040.d0)))
@@ -110,6 +136,26 @@ contains
        endif
     endif
   end function caint
+
+  function C_of_a(a)
+    COOP_REAL::a, C_of_a
+    C_of_a =0.630330697 + a* (-0.00000489 + a* (-0.13698186+ a*(-0.00070399+a*(0.011603725 + a*(-0.005127467 + 0.000883786*a)))))
+  end function C_of_a
+
+  function h_approx(r)
+    COOP_REAL::t, h_approx, tbyst, r
+    t = -log(param_lam)/2.d0
+    if(r/param_lam .lt. 1.d-3)then
+       if(t>1.d-5)then
+          tbyst = t/sinh(t)
+       else
+          tbyst = 1.d0/(1.d0+t**2/6.d0)
+       endif
+       h_approx = (2.d0*t+log(r))*cosh(t) - C_of_a(param_lam)*exp(t) + tbyst*(1.d0+param_lam/2.d0) - (3.d0*exp(t)+5.d0*exp(-t)+exp(-3.d0*t))/6.d0*r
+    else
+       h_approx = exp(t)*beta_of_x(r/param_lam) + (0.5d0 - log(r) - 1.d0/r)*exp(-t)
+    endif
+  end function h_approx
   
   
 
@@ -119,24 +165,28 @@ program test
   use gutils
   use coop_wrapper_utils
   implicit none
-  COOP_INT,parameter::n = 10000
-  COOP_REAL::lam(n), r, h, happ
+  COOP_INT,parameter::n = 30
+  COOP_REAL::lam(n), r, h, happ, t
   COOP_INT::i
-  COOP_REAL,parameter::upper = 22.d0
-  r = 1.d-5
-  do i=0, 10
-     a = 0.1d0*i
-     write(*, "(2F18.11)") a,  -(coop_expint(caint, r, upper, 1.d-7) -1.d0/upper - (1.d0+a)/2.d0*log(upper) + (a**2+3*a+1)/12.d0*r) - (4.e-8+3.6e-8*a)
-  enddo
-  stop
-  call coop_set_uniform(n, lam, 1.d-8*r, 0.9999d0, logscale = .true.)
-  open(11, file="tab_r"//COOP_STR_OF(log10(r))//".txt")
-  write(11, *) r
+  COOP_REAL,parameter::upper = 20.d0
+  r = 1.d-20
+  call load_beta()
+!  do i=0, 10
+!     a = 0.9 + 0.01d0 * i
+!     write(*, "(2F18.11)") a,  -(coop_expint(caint, r, upper, 1.d-7) -1.d0/upper - (1.d0+a)/2.d0*log(upper) + (a**2+3*a+1)/12.d0*r) ! - (4.e-8+3.6e-8*a)
+!  enddo
+!  stop
+  call coop_set_uniform(n, lam, r, r*1.d4, logscale = .true.)
+!  open(11, file="tab_r"//COOP_STR_OF(log10(r))//".txt")
+!  write(11, *) r
   do i=1, n
      param_lam = lam(i)
+     t = -log(param_lam)/2.d0
      h = h_func(r)
-     if(mod(i, 10).eq.0)print*, lam(i), h, log(lam(i)/r), log(-h*sqrt(r))
-     write(11, *) lam(i), h, log(lam(i)/r), log(-h*sqrt(r))
+     !     happ = (2.d0*t+log(r))*cosh(t) - (0.63-0.13*param_lam**2)*exp(t)+t/sinh(t)*(1.d0+param_lam/2.d0)
+     happ = h_approx(r)
+     print*, r/lam(i), h, happ, beta_of_x(r/param_lam), beta_of_x(r/param_lam)/sqrt(param_lam), (0.5d0 - log(r) - 1.d0/r)*sqrt(param_lam) !log(lam(i)/r), log(-h*sqrt(r))
+     !write(11, *) lam(i), h, log(lam(i)/r), log(-h*sqrt(r))
   enddo
-  close(11)
+!  close(11)
 end program test

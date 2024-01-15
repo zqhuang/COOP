@@ -8,7 +8,7 @@ include ../configure.in
 include ../compile_rules.in
 
 LIB = libcoopmapio.a
-OBJ = stacking_obj.o healutils.o fitswrap.o  zeta3d.o coop_general_stack.o healcnn.o 
+OBJ = stacking_obj.o healutils.o fitswrap.o  zeta3d.o coop_general_stack.o 
 
 default: all
 
@@ -18,6 +18,13 @@ $(LIB): $(OBJ)
 all: $(LIB) UDG GetPeaks Stack MSMAP GetInfo GetTheo XFASTER ClFormat
 
 flat: FCoadd FMerge FSmooth FSmoothQU FStat FGetPeaks FStack FQU2EB FEB2QU FMask FSim F2Heal Heal2F FPTOP MCoadd FTrim
+
+
+MINP: $(OBJ) maskinp.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) maskinp.o $(LINK)
+
+MPS: $(OBJ) maskps.o
+	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) maskps.o $(LINK)
 
 ITM:  $(OBJ) calc_intermittency.o
 	$(FC) $(FFLAGS) $(INCLUDE) -o $@ $(OBJ) calc_intermittency.o $(LINK)

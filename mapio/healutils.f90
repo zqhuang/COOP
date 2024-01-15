@@ -29,8 +29,7 @@ module coop_healpix_mod
   logical::coop_healpix_patch_default_want_label = .true.
   logical::coop_healpix_patch_default_want_arrow = .false.
   COOP_INT, parameter:: coop_inpaint_nside_start = 8
-  COOP_SINGLE,parameter::coop_inpaint_mask_threshold = 0.05
-  
+  COOP_SINGLE,parameter::coop_inpaint_mask_threshold = 0.05  
   logical::coop_healpix_want_cls = .true.
   COOP_REAL,parameter::coop_healpix_zeta_normalization = 1.d-5
   COOP_UNKNOWN_STRING,parameter::coop_healpix_maps_default_genre = "GENERAL"
@@ -2918,13 +2917,13 @@ contains
     call mask%convert2nested()
     this%map(:, iUr) = 0.d0
     do pix=0, this%npix-1
-       if(mask%map(pix, 1) > 0.)then  !calculate averaged U_r for this
+       if( mask%map(pix, 1) > 0. ) then  !calculate averaged U_r for this
           call mask%query_disc(pix, r_deg*coop_SI_degree, listpix, nlist)
           call mask%get_disc(pix, disc)
           w = 0.d0
           do i = 0, nlist-1
-             call disc%pix2ang(i, r, phi)             
-             wr = mask%map(listpix(i), 1)*weight(r)
+             call disc%pix2ang(listpix(i), r, phi)             
+             wr = mask%map(listpix(i), 1) * weight(r)
              this%map(pix, iUr) = this%map(pix, iUr) + ( this%map(listpix(i), iu) * cos(2*phi) - this%map(listpix(i), iq) * sin(2*phi) ) * wr
              w = w + wr
           enddo
@@ -2954,7 +2953,7 @@ contains
           call mask%get_disc(pix, disc)
           w = 0.d0
           do i = 0, nlist-1
-             call disc%pix2ang(i, r, phi)             
+             call disc%pix2ang(listpix(i), r, phi)             
              wr = mask%map(listpix(i), 1)*weight(r)
              this%map(pix, iQr) = this%map(pix, iQr) + ( this%map(listpix(i), iq) * cos(2*phi) + this%map(listpix(i), iu)  * sin(2*phi) ) * wr
              w = w + wr
@@ -2986,7 +2985,7 @@ contains
           call mask%get_disc(pix, disc)
           w = 0.d0
           do i = 0, nlist-1
-             call disc%pix2ang(i, r, phi)             
+             call disc%pix2ang(listpix(i), r, phi)             
              wr =  mask%map(listpix(i), 1) * weight(r) 
              map%map(pix, iq)  =  map%map(pix, iq) +  this%map(listpix(i), iq) * wr
              map%map(pix, iu)  =  map%map(pix, iu) +  this%map(listpix(i), iu) * wr

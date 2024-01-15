@@ -64,12 +64,10 @@ CLIKPATH =
 #$(HOME)/work/scilibs/planck15/plc-2.0/
 
 ##cfitsio lib, mandatory if you do maps
-CFITSIO =
-#$(HOME)/work/scilibs/cfitsio
+CFITSIO = $(HOME)/work/scilibs/cfitsio
 
 ##Healpix lib, mandatory if you do maps
-HEALPIX =
-#$(HOME)/work/scilibs/Healpix
+HEALPIX = $(HOME)/work/scilibs/Healpix
 
 ####################### the rest ##########################################
 #should automatically work if you are using $(IFORT_NAME) or $(GFORTRAN_NAME); 
@@ -112,7 +110,7 @@ endif
 #FFLAGS = 
 #CFLAGS =
 
-LINK = 
+LINK = -L/usr/lib/x86_64-linux-gnu/ -lsharp
 INCLUDE = -I. -I../include/
 
 

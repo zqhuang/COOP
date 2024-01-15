@@ -3,16 +3,14 @@
 
 !!Input:
 !!kbykpiv =  k / k_{pivot}
-!!cosmology
 !!args (contains the user defined parameters)
 !!Output:
 !!ps = dimensionless scalar  primordial  power spectrum
 !!pt = dimensionless tensor primordial power spectrum
 
 !!100 is a sample code (not used anywhere); do not change it; the user-defined subroutines are from 101 to 110.
-subroutine coop_user_defined_primordial_power_100(kbykpiv, ps, pt, cosmology, args) 
+subroutine coop_user_defined_primordial_power_100(kbykpiv, ps, pt, args) 
   COOP_REAL::kbykpiv, ps, pt
-  type(coop_cosmology_firstorder)::cosmology
   type(coop_arguments)::args
   COOP_REAL::nt
 #define SCALAR_AS USER_PARAM(1)
@@ -21,11 +19,8 @@ subroutine coop_user_defined_primordial_power_100(kbykpiv, ps, pt, cosmology, ar
 #define DLNK  USER_PARAM(4)
 #define PHASE USER_PARAM(5)  
 #define TENSOR_R  USER_PARAM(6)
-  if(cosmology%inflation_consistency)then
-     nt = - TENSOR_R/8.d0
-  else
-     nt = 0.d0
-  endif
+  nt = - TENSOR_R/8.d0
+  !! nt = 0.
   ps =  SCALAR_AS * kbykpiv ** (SCALAR_NS - 1.d0)*(1.d0+ A_OSC * cos(log(kbykpiv)/DLNK + PHASE))
   pt =  (SCALAR_AS * TENSOR_R) * kbykpiv ** nt
 #undef DLNK
@@ -37,7 +32,7 @@ subroutine coop_user_defined_primordial_power_100(kbykpiv, ps, pt, cosmology, ar
 end subroutine coop_user_defined_primordial_power_100
 
 
-subroutine coop_user_defined_primordial_power_101(kbykpiv, ps, pt, cosmology, args) 
+subroutine coop_user_defined_primordial_power_101(kbykpiv, ps, pt, args) 
   COOP_REAL::kbykpiv, ps, pt
   type(coop_cosmology_firstorder)::cosmology
   type(coop_arguments)::args
@@ -49,9 +44,8 @@ subroutine coop_user_defined_primordial_power_101(kbykpiv, ps, pt, cosmology, ar
 end subroutine coop_user_defined_primordial_power_101
 
 
-subroutine coop_user_defined_primordial_power_102(kbykpiv, ps, pt, cosmology, args) 
+subroutine coop_user_defined_primordial_power_102(kbykpiv, ps, pt, args) 
   COOP_REAL::kbykpiv, ps, pt
-  type(coop_cosmology_firstorder)::cosmology
   type(coop_arguments)::args
 !!write your code here
 !!ps = ...
@@ -61,9 +55,8 @@ subroutine coop_user_defined_primordial_power_102(kbykpiv, ps, pt, cosmology, ar
 end subroutine coop_user_defined_primordial_power_102
 
 
-subroutine coop_user_defined_primordial_power_103(kbykpiv, ps, pt, cosmology, args) 
+subroutine coop_user_defined_primordial_power_103(kbykpiv, ps, pt, args) 
   COOP_REAL::kbykpiv, ps, pt
-  type(coop_cosmology_firstorder)::cosmology
   type(coop_arguments)::args
 !!write your code here
 !!ps = ...
@@ -73,9 +66,8 @@ subroutine coop_user_defined_primordial_power_103(kbykpiv, ps, pt, cosmology, ar
 end subroutine coop_user_defined_primordial_power_103
 
 
-subroutine coop_user_defined_primordial_power_104(kbykpiv, ps, pt, cosmology, args) 
+subroutine coop_user_defined_primordial_power_104(kbykpiv, ps, pt, args) 
   COOP_REAL::kbykpiv, ps, pt
-  type(coop_cosmology_firstorder)::cosmology
   type(coop_arguments)::args
 !!write your code here
 !!ps = ...
@@ -85,9 +77,8 @@ subroutine coop_user_defined_primordial_power_104(kbykpiv, ps, pt, cosmology, ar
 end subroutine coop_user_defined_primordial_power_104
 
 
-subroutine coop_user_defined_primordial_power_105(kbykpiv, ps, pt, cosmology, args) 
+subroutine coop_user_defined_primordial_power_105(kbykpiv, ps, pt, args) 
   COOP_REAL::kbykpiv, ps, pt
-  type(coop_cosmology_firstorder)::cosmology
   type(coop_arguments)::args
 !!write your code here
 !!ps = ...
@@ -96,9 +87,8 @@ subroutine coop_user_defined_primordial_power_105(kbykpiv, ps, pt, cosmology, ar
   stop "primordial power 105 has not been defined."
 end subroutine coop_user_defined_primordial_power_105
 
-subroutine coop_user_defined_primordial_power_106(kbykpiv, ps, pt, cosmology, args) 
+subroutine coop_user_defined_primordial_power_106(kbykpiv, ps, pt, args) 
   COOP_REAL::kbykpiv, ps, pt
-  type(coop_cosmology_firstorder)::cosmology
   type(coop_arguments)::args
 !!write your code here
 !!ps = ...
@@ -107,9 +97,8 @@ subroutine coop_user_defined_primordial_power_106(kbykpiv, ps, pt, cosmology, ar
   stop "primordial power 106 has not been defined."
 end subroutine coop_user_defined_primordial_power_106
 
-subroutine coop_user_defined_primordial_power_107(kbykpiv, ps, pt, cosmology, args) 
+subroutine coop_user_defined_primordial_power_107(kbykpiv, ps, pt, args) 
   COOP_REAL::kbykpiv, ps, pt
-  type(coop_cosmology_firstorder)::cosmology
   type(coop_arguments)::args
 !!write your code here
 !!ps = ...
@@ -119,9 +108,8 @@ subroutine coop_user_defined_primordial_power_107(kbykpiv, ps, pt, cosmology, ar
 end subroutine coop_user_defined_primordial_power_107
 
 
-subroutine coop_user_defined_primordial_power_108(kbykpiv, ps, pt, cosmology, args) 
+subroutine coop_user_defined_primordial_power_108(kbykpiv, ps, pt, args) 
   COOP_REAL::kbykpiv, ps, pt
-  type(coop_cosmology_firstorder)::cosmology
   type(coop_arguments)::args
 !!write your code here
 !!ps = ...
@@ -131,9 +119,8 @@ subroutine coop_user_defined_primordial_power_108(kbykpiv, ps, pt, cosmology, ar
 end subroutine coop_user_defined_primordial_power_108
 
 
-subroutine coop_user_defined_primordial_power_109(kbykpiv, ps, pt, cosmology, args) 
+subroutine coop_user_defined_primordial_power_109(kbykpiv, ps, pt, args) 
   COOP_REAL::kbykpiv, ps, pt
-  type(coop_cosmology_firstorder)::cosmology
   type(coop_arguments)::args
 !!write your code here
 !!ps = ...
@@ -142,9 +129,8 @@ subroutine coop_user_defined_primordial_power_109(kbykpiv, ps, pt, cosmology, ar
   stop "primordial power 109 has not been defined."
 end subroutine coop_user_defined_primordial_power_109
 
-subroutine coop_user_defined_primordial_power_110(kbykpiv, ps, pt, cosmology, args) 
+subroutine coop_user_defined_primordial_power_110(kbykpiv, ps, pt, args) 
   COOP_REAL::kbykpiv, ps, pt
-  type(coop_cosmology_firstorder)::cosmology
   type(coop_arguments)::args
 !!write your code here
 !!ps = ...

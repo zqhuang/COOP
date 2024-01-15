@@ -419,9 +419,8 @@ contains
   end subroutine coop_pp_get_potential
 
 
-  subroutine coop_pp_get_power(kbykpiv, ps, pt, cosmology, args)
+  subroutine coop_pp_get_power(kbykpiv, ps, pt, args)
     COOP_REAL kbykpiv, ps, pt, kMpc
-    type(coop_cosmology_firstorder)::cosmology
     type(coop_arguments)::args
     kMpc = exp(coop_pp_scalar_lnkpivot)*kbykpiv
     ps = coop_primordial_ps(kMpc)
