@@ -346,8 +346,6 @@ contains
        mc%likecut(j) = mc%bestlike + min(max((i-(acc-multcut)/c(i)-0.5), 0.), n_fine_bins-1.) *dx
     enddo
 
-    write(*,*) "Like cuts done"
-
     do ip =1 ,mc%np
        mc%lower(ip) = minval(mc%params(:, ip))
        mc%upper(ip) = maxval(mc%params(:, ip))
@@ -956,7 +954,8 @@ contains
 
        if(allocated(lnk_knots))deallocate(lnk_knots, k_knots, cov_knots, lnps_knots, lnps_mean_knots, lnps_standard_knots)
     case default
-       write(*,*) "pp mode ", mc%extmode, " has not been implemented"
+       !do nothing
+       !write(*,*) "pp mode ", mc%extmode, " has not been implemented"
     end select
     !!likes file
     call fp%open(trim(mc%output)//".likes", "w")

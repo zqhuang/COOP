@@ -12,11 +12,11 @@ module disk_inpaint
 #include "constants.h"
   COOP_INT,parameter::nside = 512
   COOP_INT,parameter::npix_tot = nside**2*12
-  COOP_REAL,parameter::di_ell = 100.d0
+  COOP_REAL,parameter::di_ell = 90.d0
   COOP_INT,parameter::di_mmax = 2
   COOP_INT,parameter::di_nt = 50
-  COOP_INT,parameter::di_nphi = 20
-  COOP_REAL::di_phil(di_nphi)
+  COOP_INT,parameter::di_nphi = 12
+  COOP_REAL::di_phil(di_nphi), di_sin2phil(di_nphi), di_cos2phil(di_nphi)
   COOP_REAL::di_smax, di_rhomax, di_rmax 
   COOP_REAL::di_jpz(0:di_mmax*2, di_nt)
   COOP_REAL::di_mu(0:2*di_mmax)
@@ -37,12 +37,16 @@ contains
   
 
   subroutine di_initialize(smax)
-    COOP_REAL::smax
+    COOP_REAL,optional::smax
     logical::success
     COOP_INT::n, i
     call coop_import_matrix("jnp_zeros.txt", di_jpz, 2*di_mmax+1, di_nt, success)
     if(.not. success) stop 'Unknown error when loading jnp_zeros.txt'
-    di_smax = max(di_jpz(2*di_mmax, 1), smax)
+    if(present(smax))then
+       di_smax = max(di_jpz(2*di_mmax, 1), smax)
+    else
+       di_smax = di_jpz(2*di_mmax, 1)       
+    endif
     di_rhomax = di_smax/di_ell
     di_rmax = di_r_of_rho(di_rhomax)
     do n = 0, 2*di_mmax
@@ -53,9 +57,14 @@ contains
        enddo
        di_mu(n) = di_jpz(n, i-1)
     enddo
-    nlist_max = min(ceiling(di_rhomax**2*npix_tot/3.96)+8, npix_tot)
+    nlist_max = min(ceiling(di_rhomax**2*npix_tot/3.9)+1024, npix_tot)
+    print*, "disk size: ", di_rmax/coop_SI_degree, " deg, "
+    print*, "flat correction: ", di_rhomax/di_rmax
+    print*, "disk pixels <= ", nlist_max
     do i=1, di_nphi
        di_phil(i) = coop_2pi * (i-1.d0)/di_nphi
+       di_sin2phil(i) = sin(2*di_phil(i))
+       di_cos2phil(i) = cos(2*di_phil(i))       
     enddo
   end subroutine di_initialize
 
@@ -232,6 +241,15 @@ contains
     COOP_UNKNOWN_STRING,parameter::inp_prefix = dir//"INPmaps/DC1_"
     inp_file_name = inp_prefix//COOP_STR_OF(freq)//"GHz_BOTH.fits"
   end function inp_file_name
+
+  subroutine symmat2_inv(a)
+    COOP_REAL::a(2,2), det
+    det =  a(1,1)*a(2,2) - a(2,1)**2
+    a = Reshape( (/ a(2,2), -a(2, 1), -a(2, 1), a(1, 1) /), (/ 2, 2 /) ) &
+         / det
+  end subroutine symmat2_inv
+
+  
   
   subroutine symmat3_inv(a)
     COOP_SINGLE::a(3,3), det
@@ -279,7 +297,7 @@ end module mask_pointsource
 
 
 
-program test
+program MaskAndInpaint
   use disk_inpaint
   use mask_pointsource
   implicit none
@@ -292,7 +310,7 @@ program test
   COOP_SINGLE::res_cut, coefs_cut(3)
   type(coop_healpix_maps)::hp, mask, hpd, binary_mask
   COOP_SINGLE,dimension(:),allocatable::inpmask
-  COOP_SINGLE,parameter::mask_tiny = 1.e-3, threshold = 0.995
+  COOP_SINGLE,parameter::mask_tiny = 1.e-3, threshold = 0.999
   call mask%read(mask_file, nmaps_wanted=1)
   call binary_mask%read(binary_mask_file, nmaps_wanted=1)    
   call get_noise_std(mask)
@@ -351,13 +369,16 @@ program test
         endif
      enddo
      allocate(inpmask(0:mask%npix-1))
+     call  di_initialize()             
      do ifreq = 1, num_freqs
         inpmask = mask%map(:, 1)
         call hpd%read(data_file_name(freq_names(ifreq)), nmaps_wanted = 3)
+        write(*,*) "inpainting file: "//trim(data_file_name(freq_names(ifreq)))        
         call hpd%convert2nested()
         call do_inpaint()
         call hpd%convert2ring()
         call hpd%write(inp_file_name(freq_names(ifreq)))
+        write(*,*) "file: "//trim(data_file_name(freq_names(ifreq)))//" has been inpainted and saved as "//trim(inp_file_name(freq_names(ifreq)))
      enddo
   endif
   
@@ -368,25 +389,34 @@ contains
     COOP_INT::i, j, iphi, listpix(nlist_max), nlist
     COOP_REAL::rho, phi, theta, s, sin2theta, cos2theta, QUrot
     type(coop_healpix_disc)::disc
-    COOP_REAL::B_ell_Re(di_nphi), B_ell_Im(di_nphi)
-    call  di_initialize()
+    COOP_REAL::B_ell_Sum(di_nphi), B_ell_clean(di_nphi), B_ell_Re(di_nphi), mat(2, 2), b(2)
     do j=1, npix_inp
        B_ell_Re = 0.d0
-       B_ell_Im = 0.d0       
        call hpd%get_disc(inp_pix(j), disc)
-       call hpd%query_disc(inp_pix(j), di_rmax, listpix, nlist)          
+       call hpd%query_disc(inp_pix(j), di_rmax, listpix, nlist)
+       if(any(mask%map(listpix(1:nlist), 1) .eq. 0.))then  !!do not inpaint points around the boundaries
+!          print*, "skipping point near the boundary"
+          cycle
+       endif
        do i=1, nlist
           call disc%pix2ang(listpix(i), rho, phi)
-          s = di_ell*rho             
-          do iphi = 1, di_nphi
+          s = di_ell*rho
+          do iphi = 1, di_nphi                 
              theta = phi - di_phil(iphi)
-             QUrot = hpd%map(listpix(i), 2)*sin(2*theta)  + hpd%map(listpix(i), 3))*cos(2*theta)
-             B_ell_Re(iphi) = B_ell_Re(iphi) + di_cos(s, theta)  * QUrot
-             B_ell_Im(iphi) = B_ell_Im(iphi) +  di_sin(s, theta) * QUrot
+             QUrot = hpd%map(listpix(i), 2) * di_sin2phil(iphi) - hpd%map(listpix(i), 3)*di_cos2phil(iphi)
+             B_ell_Re(iphi) = B_ell_Re(iphi) + di_cos(s, theta)  * QUrot  !!real part
           enddo
        enddo
-       hpd%map(inp_pix(j), 2) =    
-       hpd%map(inp_pix(j), 3) =        
+!       B_ell_Sum =  hpd%map(inp_pix(j), 2)*di_sin2phil - hpd%map(inp_pix(j), 3) * di_cos2phil + B_ell_Re
+       mat(1, 1) = sum(di_sin2phil**2)
+       mat(2, 2) = sum(di_cos2phil**2)
+       mat(2, 1) = -sum(di_sin2phil*di_cos2phil)
+       call symmat2_inv(mat)
+       b(1) = -sum(di_sin2phil*B_ell_Re)
+       b(2) = sum(di_cos2phil*B_ell_Re)     
+       hpd%map(inp_pix(j), 2:3) = matmul(mat, b)
+ !      B_ell_clean = hpd%map(inp_pix(j), 2)*di_sin2phil - hpd%map(inp_pix(j), 3) * di_cos2phil + B_ell_Re
+ !      print*, sum(B_ell_clean**2)/sum(B_ell_Sum**2)
     enddo
   end subroutine do_inpaint
 
@@ -412,4 +442,4 @@ contains
     !$omp end parallel do
   end subroutine do_projection
 
-end program test
+end program MaskAndInpaint
